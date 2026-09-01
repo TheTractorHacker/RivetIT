@@ -1,0 +1,95 @@
+/* ============================================================
+   ITFlow — Color tokens  (the "Alga" theme)
+   Base palette + semantic aliases. Mirrors css/itflow_custom.css
+   from the ITFlow MSP Edition codebase.
+   ============================================================ */
+
+:root {
+    /* ---- Brand accent: teal ("Alga") ---- */
+    --teal-50:  #F0FDFA;
+    --teal-100: #CCFBF1;   /* accent-soft */
+    --teal-200: #99F6E4;
+    --teal-300: #5EEAD4;
+    --teal-400: #2DD4BF;   /* accent (dark mode) */
+    --teal-500: #0D9488;   /* accent (primary) */
+    --teal-600: #0F766E;   /* accent-hover */
+    --teal-700: #115E59;
+    --teal-800: #134E4A;
+
+    /* ---- Neutrals: slate ramp ---- */
+    --slate-0:   #FFFFFF;
+    --slate-50:  #F8F9FC;   /* surface-alt / app background */
+    --slate-100: #F1F2F6;   /* border-soft */
+    --slate-200: #E2E8F0;   /* border */
+    --slate-300: #CBD5E1;
+    --slate-400: #94A3B8;
+    --slate-500: #64748B;   /* text-muted */
+    --slate-600: #475569;
+    --slate-700: #334155;
+    --slate-900: #0F172A;   /* text */
+
+    /* ---- Chrome (always dark, regardless of theme) ---- */
+    --chrome-bg:        #343A40;   /* sidebar + top navbar */
+    --chrome-bg-alt:    #2C3034;
+    --chrome-border:    #4B5158;
+    --chrome-text:      #E9ECEF;
+    --chrome-text-muted:#ADB5BD;
+
+    /* ---- Bootstrap / AdminLTE semantic hues (kept as-is) ---- */
+    --success: #28A745;
+    --info:    #17A2B8;
+    --warning: #FFC107;
+    --danger:  #DC3545;
+    --secondary: #6C757D;
+    --pink:    #E83E8C;
+    --indigo:  #6610F2;
+
+    /* ---- Dashboard stat-box accents (tickets list) ---- */
+    --stat-slate:  #64748B;
+    --stat-amber:  #F59E0B;
+    --stat-blue:   #3B82F6;
+    --stat-orange: #D97706;
+    --stat-red:    #EF4444;
+    --stat-violet: #8B5CF6;
+
+    /* ---- Ticket priority dots ---- */
+    --priority-low:    #17A2B8;
+    --priority-medium: #FFC107;
+    --priority-high:   #DC3545;
+
+    /* ============ Semantic aliases ============ */
+    --color-accent:        var(--teal-500);
+    --color-accent-hover:  var(--teal-600);
+    --color-accent-soft:   var(--teal-100);
+    --color-accent-rgb:    13, 148, 136;
+
+    --color-surface:       var(--slate-0);     /* cards, inputs */
+    --color-surface-alt:   var(--slate-50);    /* app background */
+    --color-border:        var(--slate-200);
+    --color-border-soft:   var(--slate-100);
+    --color-text:          var(--slate-900);
+    --color-text-muted:    var(--slate-500);
+
+    --color-link:          var(--teal-500);
+    --color-link-hover:    var(--teal-600);
+
+    --color-danger:        var(--danger);
+    --color-success:       var(--success);
+    --color-warning:       var(--warning);
+    --color-info:          var(--info);
+}
+
+/* ---- Dark mode (body.dark-mode) ---- */
+body.dark-mode {
+    --color-accent:       var(--teal-400);
+    --color-accent-hover: var(--teal-300);
+    --color-accent-soft:  rgba(45, 212, 191, .15);
+    --color-accent-rgb:   45, 212, 191;
+
+    --color-surface:      #343A40;
+    --color-surface-alt:  #2C3034;
+    --color-border:       #4B5158;
+    --color-border-soft:  #3F454B;
+    --color-text:         #E9ECEF;
+    --color-text-muted:   #ADB5BD;
+}

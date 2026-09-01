@@ -1,0 +1,180 @@
+/*
+ * frappe-gantt.css (ITFlow self-hosted, vanilla build)
+ * Styles for js/frappe-gantt.js. Theme-aware: overrides under body.dark-mode.
+ */
+
+.gantt-container {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: relative;
+    -webkit-overflow-scrolling: touch;
+}
+
+.gantt {
+    user-select: none;
+    font-size: 12px;
+}
+
+/* Grid */
+.gantt .grid-background {
+    fill: none;
+}
+.gantt .grid-row {
+    fill: #ffffff;
+}
+.gantt .grid-row.odd {
+    fill: #f6f7f9;
+}
+.gantt .grid-header {
+    fill: #f4f5f7;
+    stroke: #e0e0e0;
+    stroke-width: 1.4;
+}
+.gantt .row-line {
+    stroke: #ebeef1;
+}
+.gantt .tick {
+    stroke: #e0e0e0;
+    stroke-width: 0.4;
+}
+.gantt .tick.thick {
+    stroke-width: 0.8;
+}
+.gantt .weekend-highlight {
+    fill: rgba(0, 0, 0, 0.03);
+}
+.gantt .today-line {
+    fill: #ef5350;
+    opacity: 0.75;
+}
+
+/* Header text */
+.gantt .lower-text,
+.gantt .upper-text {
+    fill: #555;
+}
+.gantt .upper-text {
+    font-weight: 600;
+    fill: #333;
+}
+
+/* Bars */
+.gantt .bar {
+    fill: #b8c2cc;
+    stroke: #8d99a6;
+    stroke-width: 0;
+    transition: fill 0.15s ease;
+}
+.gantt .bar-progress {
+    fill: var(--color-accent, #2563eb);
+}
+.gantt .bar-wrapper:hover .bar {
+    fill: #a9b4bf;
+}
+.gantt .bar-wrapper.active .bar {
+    fill: #9aa6b2;
+}
+.gantt .bar-label {
+    fill: #fff;
+    dominant-baseline: central;
+    font-weight: 500;
+    pointer-events: none;
+}
+.gantt .bar-label.outside {
+    fill: #333;
+}
+
+/* Milestones */
+.gantt .bar-milestone-shape {
+    fill: #f0ad4e;
+    stroke: #d9932a;
+    stroke-width: 1;
+}
+.gantt .bar-wrapper.bar-milestone .bar-label {
+    fill: #333;
+    font-weight: 600;
+}
+
+/* Handles */
+.gantt .handle {
+    fill: #ddd;
+    opacity: 0;
+    cursor: ew-resize;
+}
+.gantt .bar-wrapper:hover .handle {
+    opacity: 1;
+}
+.gantt .handle.progress {
+    fill: var(--color-accent-hover, #1d4ed8);
+    cursor: ew-resize;
+}
+.gantt .bar {
+    cursor: move;
+}
+
+/* Dependency arrows */
+.gantt .arrow {
+    fill: none;
+    stroke: #94a3b8;
+    stroke-width: 1.4;
+}
+.gantt .arrow-head {
+    fill: #94a3b8;
+}
+
+/* ---------- Dark mode ---------- */
+body.dark-mode .gantt .grid-row {
+    fill: #2b2f36;
+}
+body.dark-mode .gantt .grid-row.odd {
+    fill: #313640;
+}
+body.dark-mode .gantt .grid-header {
+    fill: #232830;
+    stroke: #3a4049;
+}
+body.dark-mode .gantt .row-line {
+    stroke: #3a4049;
+}
+body.dark-mode .gantt .tick {
+    stroke: #3a4049;
+}
+body.dark-mode .gantt .weekend-highlight {
+    fill: rgba(255, 255, 255, 0.03);
+}
+body.dark-mode .gantt .lower-text {
+    fill: #b6bcc4;
+}
+body.dark-mode .gantt .upper-text {
+    fill: #e2e6ea;
+}
+body.dark-mode .gantt .bar {
+    fill: #5a636e;
+    stroke: #6b7480;
+}
+body.dark-mode .gantt .bar-wrapper:hover .bar {
+    fill: #67707c;
+}
+body.dark-mode .gantt .bar-label.outside {
+    fill: #e2e6ea;
+}
+body.dark-mode .gantt .bar-wrapper.bar-milestone .bar-label {
+    fill: #e2e6ea;
+}
+body.dark-mode .gantt .arrow,
+body.dark-mode .gantt .arrow-head {
+    stroke: #6b7480;
+    fill: #6b7480;
+}
+body.dark-mode .gantt .arrow {
+    fill: none;
+}
+
+/* View mode toggle button group spacing */
+.gantt-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}

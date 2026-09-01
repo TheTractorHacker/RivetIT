@@ -1,0 +1,42 @@
+/* ============================================================
+   ITFlow — Typography tokens
+   AdminLTE base size with a compact `.text-sm` body (ITFlow sets
+   `class="wrapper text-sm"`, so the working UI runs ~0.875rem).
+   ============================================================ */
+
+:root {
+    /* ---- Font families ---- */
+    --font-sans: 'Source Sans 3', 'Source Sans Pro', -apple-system,
+                 BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: 'Source Code Pro', ui-monospace, SFMono-Regular, Menlo,
+                 Consolas, 'Liberation Mono', monospace;
+
+    /* ---- Type scale (AdminLTE / Bootstrap 4 rems @ 16px root) ---- */
+    --text-xs:   0.75rem;    /* 12px — badges, stat labels, meta */
+    --text-sm:   0.875rem;   /* 14px — default body in the app shell */
+    --text-base: 1rem;       /* 16px */
+    --text-lg:   1.25rem;    /* 20px — h5 */
+    --text-xl:   1.5rem;     /* 24px — h4 / page titles */
+    --text-2xl:  1.75rem;    /* 28px — h3 / stat values */
+    --text-3xl:  2.5rem;     /* 40px — hero numbers */
+
+    /* ---- Weights ---- */
+    --weight-normal:   400;
+    --weight-semibold: 600;
+    --weight-bold:     700;
+
+    /* ---- Line heights ---- */
+    --leading-tight:  1.15;
+    --leading-snug:   1.3;
+    --leading-normal: 1.5;
+
+    /* ---- Letter spacing ---- */
+    --tracking-label: 0.03em;   /* uppercase stat labels / nav headers */
+
+    /* ---- Semantic aliases ---- */
+    --font-body:     var(--font-sans);
+    --font-heading:  var(--font-sans);
+    --font-code:     var(--font-mono);
+    --text-body:     var(--text-sm);
+    --text-title:    var(--text-xl);
+}

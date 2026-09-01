@@ -1,0 +1,820 @@
+/* ===== Alga theme: design tokens ===== */
+:root {
+    --color-accent: #0D9488;
+    --color-accent-hover: #0F766E;
+    --color-accent-soft: #CCFBF1;
+    --color-accent-rgb: 13, 148, 136;
+    --color-surface: #fff;
+    --color-surface-alt: #F8F9FC;
+    --color-border: #E2E8F0;
+    --color-border-soft: #F1F2F6;
+    --color-text: #0F172A;
+    --color-text-muted: #64748B;
+    --card-radius: 14px;
+    --input-radius: 8px;
+    --card-shadow: 0 4px 8px -2px rgba(16,24,40,.10), 0 2px 4px -2px rgba(16,24,40,.06);
+}
+
+body.dark-mode {
+    --color-accent: #2DD4BF;
+    --color-accent-hover: #5EEAD4;
+    --color-accent-soft: rgba(45,212,191,.15);
+    --color-accent-rgb: 45, 212, 191;
+    --color-surface: #343a40;
+    --color-surface-alt: #2c3034;
+    --color-border: #4b5158;
+    --color-border-soft: #3f454b;
+    --color-text: #e9ecef;
+    --color-text-muted: #adb5bd;
+    --card-shadow: 0 4px 8px -2px rgba(0,0,0,.4), 0 2px 4px -2px rgba(0,0,0,.3);
+}
+
+/*
+   For screens below 576px (xs):
+   - Make the button full-width, display:block
+*/
+@media (max-width: 575.98px) {
+  .btn-responsive {
+    display: block;
+    width: 100%;
+  }
+}
+
+/*
+   For screens 576px (sm) and above:
+   - Revert to an inline style
+*/
+@media (min-width: 576px) {
+  .btn-responsive {
+    display: inline-block;
+    width: auto;
+  }
+}
+
+.drag-handle {
+    cursor: grab !important;
+}
+
+.drag-handle:active {
+    cursor: grabbing !important;
+}
+
+.star-toggle input {
+    display: none;
+}
+
+.star-toggle i {
+    cursor: pointer;
+    font-size: 1.2rem;
+    color: #adb5bd;
+}
+
+.star-toggle input:checked + i {
+    color: #f1c40f;
+    font-weight: 900;
+}
+
+.checkbox-column {
+    width: 40px;
+    min-width: 40px;
+    text-align: center;
+}
+
+.checkbox-column .form-check {
+    padding-left: 0;
+    margin-bottom: 0;
+}
+
+.checkbox-column .form-check-input {
+    position: static;
+    margin: 0;
+}
+
+/* Form controls inside dark cards inherit white text — force readable colors */
+.card-dark .form-control,
+.card-dark .custom-select {
+    color: #495057;
+    background-color: #fff;
+}
+
+/* Client portal */
+.client-portal-nav {
+    border-bottom: 3px solid var(--color-accent);
+}
+
+.welcome-banner {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 0.5rem;
+}
+
+.welcome-banner .fa-stack-1x {
+    font-size: 1.1rem;
+}
+
+/* ===== Ticketing UI redesign (alga-psa inspired) ===== */
+
+/* Rounded-pill filter controls (also available as .filter-bar on non-ticket list pages) */
+.ticket-filter-bar .form-control,
+.ticket-filter-bar .select2-container .select2-selection,
+.ticket-filter-bar .btn,
+.filter-bar .form-control,
+.filter-bar .select2-container .select2-selection,
+.filter-bar .btn {
+    border-radius: 50rem !important;
+}
+
+.ticket-filter-bar .select2-container,
+.filter-bar .select2-container {
+    min-width: 120px;
+}
+
+.ticket-filter-bar .select2-selection__rendered,
+.filter-bar .select2-selection__rendered {
+    padding-left: 1rem !important;
+    line-height: 2.25rem !important;
+}
+
+.ticket-filter-bar .select2-selection--single,
+.filter-bar .select2-selection--single {
+    height: calc(1.5em + .75rem + 2px) !important;
+}
+
+.ticket-filter-bar .select2-selection__arrow,
+.filter-bar .select2-selection__arrow {
+    height: calc(1.5em + .75rem + 2px) !important;
+    top: 0 !important;
+}
+
+.ticket-filter-bar .filter-row-nowrap,
+.filter-bar .filter-row-nowrap {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: .5rem;
+}
+
+.ticket-filter-bar .filter-row-nowrap > [class*="col-"],
+.filter-bar .filter-row-nowrap > [class*="col-"] {
+    flex: 0 0 auto;
+    width: auto;
+}
+
+/* Generic pill badge polish (status/priority/category badges) */
+.tkt-pill-badge {
+    font-weight: 500;
+    padding: .35em .9em;
+    font-size: .8rem;
+    border-radius: 50rem;
+}
+
+/* Status select styled as a colored pill matching the selected status */
+.status-pill-select {
+    border: none;
+    border-radius: 50rem;
+    color: #fff;
+    font-weight: 500;
+}
+
+/* Keep the dropdown's option list normal-colored - only the closed pill should
+   take on the status color */
+.status-pill-select option {
+    background-color: #fff;
+    color: #212529;
+}
+
+/* Colored priority dot (used in filter pill + ticket detail field grid) */
+.priority-dot {
+    display: inline-block;
+    width: .6rem;
+    height: .6rem;
+    border-radius: 50%;
+    margin-right: .4rem;
+}
+
+.priority-dot-low { background-color: #17a2b8; }
+.priority-dot-medium { background-color: #ffc107; }
+.priority-dot-high { background-color: #dc3545; }
+
+/* Tag pill badges (ticket list Tags column + ticket detail Tags row) */
+.ticket-tag-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: .25em .7em;
+    border-radius: 50rem;
+    font-size: .8rem;
+    margin: 0 .25rem .25rem 0;
+}
+
+.ticket-tag-pill .remove-tag {
+    margin-left: .4rem;
+    opacity: .7;
+    cursor: pointer;
+}
+
+.ticket-tag-pill .remove-tag:hover {
+    opacity: 1;
+}
+
+/* Modern card shadow/spacing for ticket detail main + sidebar cards */
+.card-sidebar,
+.card.shadow-sm {
+    border: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    margin-bottom: 1rem;
+}
+
+.card-sidebar .card-header {
+    background: transparent;
+    border-bottom: 1px solid #f0f0f0;
+    font-weight: 600;
+}
+
+/* Avatar / initials badge for Assigned To */
+.avatar-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background-color: #6c757d;
+    color: #fff;
+    font-size: .7rem;
+    font-weight: 700;
+    margin-right: .4rem;
+    flex-shrink: 0;
+}
+
+/* ===== Alga theme: generic app-wide rules ===== */
+
+.content-wrapper {
+    background-color: var(--color-surface-alt) !important;
+}
+
+.main-header.navbar {
+    /* Match the dark sidebar (.sidebar-dark-*, always #343a40 regardless of theme/dark-mode) */
+    background-color: #343a40 !important;
+}
+
+.card:not(.card-outline) {
+    border: none;
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+}
+
+.card-outline {
+    border-radius: var(--card-radius);
+}
+
+.card-header,
+.card-dark .card-header,
+.card.card-dark {
+    background: var(--color-surface) !important;
+    color: var(--color-text) !important;
+    border-bottom: 1px solid var(--color-border-soft);
+    border-radius: var(--card-radius) var(--card-radius) 0 0 !important;
+}
+
+.card-dark .card-title,
+.card-dark .btn-tool {
+    color: var(--color-text) !important;
+}
+
+/*
+ * AdminLTE hardcodes .card-dark .card-header a { color: #fff } for its
+ * original dark-card design. Our theme forces that header background to
+ * var(--color-surface), which is white in light mode — so every inactive
+ * tab became literal white-on-white (invisible at rest, still invisible on
+ * hover since AdminLTE never restyles color on :hover; clicking a tab also
+ * dropped the previously-active tab back into the same invisible state).
+ * Override color explicitly for all three states so tabs stay visible in
+ * both themes.
+ */
+.card-dark .card-header a.nav-link {
+    color: var(--color-text-muted) !important;
+}
+.card-dark .card-header a.nav-link:hover {
+    color: var(--color-text) !important;
+}
+.nav-tabs .nav-link.active,
+.card-dark .card-header a.nav-link.active {
+    color: var(--color-accent) !important;
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid var(--color-accent);
+}
+
+.btn-primary {
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:not(:disabled):not(.disabled):active {
+    background-color: var(--color-accent-hover);
+    border-color: var(--color-accent-hover);
+}
+
+.alert {
+    border: none;
+    border-radius: var(--input-radius);
+}
+
+/* Remap Bootstrap's default "primary" blue (links, badges, toggles, pagination, etc.) to the accent color */
+a {
+    color: var(--color-accent);
+}
+
+a:hover {
+    color: var(--color-accent-hover);
+}
+
+.text-primary {
+    color: var(--color-accent) !important;
+}
+
+.bg-primary {
+    background-color: var(--color-accent) !important;
+}
+
+.border-primary {
+    border-color: var(--color-accent) !important;
+}
+
+.badge-primary {
+    background-color: var(--color-accent);
+}
+
+.btn-link {
+    color: var(--color-accent);
+}
+
+.btn-outline-primary {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:not(:disabled):not(.disabled):active,
+.btn-outline-primary:not(:disabled):not(.disabled).active {
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+    color: #fff;
+}
+
+.custom-control-input:checked ~ .custom-control-label::before {
+    border-color: var(--color-accent);
+    background-color: var(--color-accent);
+}
+
+.page-link {
+    color: var(--color-accent);
+}
+
+.page-item.active .page-link {
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+.nav-pills .nav-link.active,
+.nav-pills .show > .nav-link {
+    background-color: var(--color-accent);
+}
+
+.progress-bar {
+    background-color: var(--color-accent);
+}
+
+.dropdown-item.active,
+.dropdown-item:active {
+    background-color: var(--color-accent);
+}
+
+.list-group-item.active {
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+/* Bootstrap hardcodes .text-dark to a fixed dark gray, which goes low-contrast
+   on dark backgrounds. Remap to the theme text color (black in light mode,
+   near-white in dark mode) so table headers/links stay readable in both. */
+.text-dark {
+    color: var(--color-text) !important;
+}
+
+.btn-outline-dark {
+    color: var(--color-text);
+    border-color: var(--color-border);
+}
+
+.btn-outline-dark:hover,
+.btn-outline-dark:focus,
+.btn-outline-dark:not(:disabled):not(.disabled):active,
+.btn-outline-dark:not(:disabled):not(.disabled).active {
+    color: #fff;
+    background-color: var(--color-text-muted);
+    border-color: var(--color-text-muted);
+}
+
+.btn-outline-secondary {
+    color: var(--color-text-muted);
+    border-color: var(--color-border);
+    background-color: var(--color-surface);
+}
+
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus,
+.btn-outline-secondary:not(:disabled):not(.disabled):active {
+    color: var(--color-accent-hover);
+    background-color: var(--color-accent-soft);
+    border-color: var(--color-accent);
+}
+
+/* Filter toolbar wrapper for ticket/KB list filter bars */
+.filter-toolbar {
+    background: var(--color-surface-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--card-radius);
+    padding: .85rem 1rem .35rem;
+    margin-bottom: 1rem;
+}
+
+/* ===== alga-psa inspired visual theme (.ticket-alga-theme is an alias kept for the ticket page) ===== */
+
+.ticket-alga-theme,
+.alga-theme {
+    background: var(--color-surface-alt);
+    padding: 1rem 0 .5rem;
+    margin: -1rem -.01px 0;
+}
+
+.ticket-alga-theme .card,
+.alga-theme .card {
+    border: none;
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+    margin-bottom: 1rem;
+}
+
+.ticket-alga-theme .form-control,
+.ticket-alga-theme select.form-control,
+.ticket-alga-theme .select2-container .select2-selection,
+.alga-theme .form-control,
+.alga-theme select.form-control,
+.alga-theme .select2-container .select2-selection {
+    border: 1px solid var(--color-border);
+    border-radius: var(--input-radius);
+    background-color: var(--color-surface);
+}
+
+.ticket-alga-theme .btn-primary,
+.ticket-alga-theme .btn-purple,
+.alga-theme .btn-primary,
+.alga-theme .btn-purple {
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+    color: #fff;
+}
+
+.ticket-alga-theme .btn-primary:hover,
+.ticket-alga-theme .btn-purple:hover,
+.alga-theme .btn-primary:hover,
+.alga-theme .btn-purple:hover {
+    background-color: var(--color-accent-hover);
+    border-color: var(--color-accent-hover);
+    color: #fff;
+}
+
+.ticket-alga-theme .btn-outline-purple,
+.alga-theme .btn-outline-purple {
+    color: var(--color-accent);
+    border: 1px solid var(--color-accent);
+    background-color: var(--color-surface);
+}
+
+.ticket-alga-theme .btn-outline-purple:hover,
+.alga-theme .btn-outline-purple:hover {
+    background-color: var(--color-accent-soft);
+    color: var(--color-accent-hover);
+    border-color: var(--color-accent);
+}
+
+/* Comment tabs (Client / Internal / System / All Comments) */
+.ticket-alga-theme .comment-tabs,
+.alga-theme .comment-tabs {
+    border-bottom: 1px solid var(--color-border);
+}
+
+.ticket-alga-theme .comment-tabs .nav-link,
+.alga-theme .comment-tabs .nav-link {
+    border: 0;
+    color: var(--color-text-muted);
+    font-weight: 500;
+    padding: .5rem .25rem;
+    margin-right: 1.25rem;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+}
+
+.ticket-alga-theme .comment-tabs .nav-link.active,
+.alga-theme .comment-tabs .nav-link.active {
+    color: var(--color-accent);
+    border-bottom: 2px solid var(--color-accent);
+    background: transparent;
+}
+
+/* Time Entry sidebar card */
+.ticket-alga-theme .time-entry-card,
+.alga-theme .time-entry-card {
+    background: rgba(var(--color-accent-rgb), .05);
+}
+
+/* ===== Base text color ===== */
+body:not(.dark-mode),
+body:not(.dark-mode) .content-wrapper,
+body:not(.dark-mode) .wrapper {
+    color: var(--color-text) !important;
+}
+/* Table cells need explicit override since DataTables resets inheritance */
+body:not(.dark-mode) .table td,
+body:not(.dark-mode) .table th,
+body:not(.dark-mode) table.dataTable td,
+body:not(.dark-mode) table.dataTable th {
+    color: var(--color-text) !important;
+}
+/* Muted text should still be muted */
+body:not(.dark-mode) .text-muted,
+body:not(.dark-mode) small.text-muted {
+    color: var(--color-text-muted) !important;
+}
+/* Dark-mode content text — mirrors the light rules via theme variables so header.php
+   no longer needs an inline !important block to keep content legible. */
+body.dark-mode .content-wrapper,
+body.dark-mode .content-wrapper .card-body,
+body.dark-mode .content-wrapper p {
+    color: var(--color-text) !important;
+}
+body.dark-mode .content-wrapper .table td,
+body.dark-mode .content-wrapper .table th,
+body.dark-mode .content-wrapper table.dataTable td,
+body.dark-mode .content-wrapper table.dataTable th {
+    color: var(--color-text) !important;
+}
+body.dark-mode .content-wrapper .text-muted,
+body.dark-mode .content-wrapper small.text-muted {
+    color: var(--color-text-muted) !important;
+}
+
+/* ===== Design-kit token additions ===== */
+:root {
+    --font-mono: 'Source Code Pro', ui-monospace, SFMono-Regular, Menlo,
+                 Consolas, 'Liberation Mono', monospace;
+    --priority-low:    #17A2B8;
+    --priority-medium: #FFC107;
+    --priority-high:   #DC3545;
+    --stat-slate:      #64748B;
+    --stat-amber:      #F59E0B;
+    --stat-blue:       #3B82F6;
+    --stat-orange:     #D97706;
+    --stat-red:        #EF4444;
+    --stat-violet:     #8B5CF6;
+}
+
+/* ===== Sidebar brand icon ===== */
+.brand-link .brand-image {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px;
+    max-height: 30px !important;
+    border-radius: 7px;
+    background: var(--color-accent);
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    float: none !important;
+    margin: 0 .5rem 0 0 !important;
+    line-height: 1;
+}
+.brand-link .brand-image::after {
+    content: '\f0e7';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    color: #fff;
+    font-size: 14px;
+    line-height: 1;
+}
+.brand-link {
+    display: flex !important;
+    align-items: center;
+}
+.brand-link .brand-text {
+    font-size: 1.15rem !important;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+/* ===== Sidebar nav: rounded active pills ===== */
+.main-sidebar .nav-sidebar .nav-link {
+    border-radius: 6px;
+    margin: 1px 0;
+    transition: background-color .15s ease, color .15s ease;
+}
+.main-sidebar .nav-sidebar .nav-link.active {
+    background-color: var(--color-accent) !important;
+    color: #fff !important;
+    border-radius: 6px;
+}
+.main-sidebar .nav-sidebar .nav-link:not(.active):hover {
+    background-color: rgba(255, 255, 255, .08) !important;
+    color: #fff;
+}
+/* Badge/count pills on sidebar nav items */
+.main-sidebar .nav-sidebar .badge {
+    font-size: .7rem;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 2px 7px;
+    background: rgba(255, 255, 255, .16) !important;
+    color: #fff !important;
+}
+.main-sidebar .nav-sidebar .nav-link.active .badge {
+    background: rgba(255, 255, 255, .25) !important;
+}
+
+/* ===== Global form control border-radius ===== */
+.form-control,
+.custom-select {
+    border-radius: var(--input-radius);
+    border-color: var(--color-border);
+}
+.form-control:focus,
+.custom-select:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 .2rem rgba(var(--color-accent-rgb), .2);
+}
+/* Preserve input-group shape */
+.input-group > .form-control:not(:last-child),
+.input-group > .custom-select:not(:last-child) {
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+}
+.input-group > .form-control:not(:first-child),
+.input-group > .custom-select:not(:first-child) {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+}
+.input-group-text {
+    border-color: var(--color-border);
+    background-color: var(--color-surface-alt);
+}
+.input-group > .input-group-prepend > .input-group-text {
+    border-radius: var(--input-radius) 0 0 var(--input-radius);
+}
+.input-group > .input-group-append > .input-group-text {
+    border-radius: 0 var(--input-radius) var(--input-radius) 0;
+}
+.input-group > .input-group-prepend > .btn {
+    border-radius: var(--input-radius) 0 0 var(--input-radius) !important;
+}
+.input-group > .input-group-append > .btn {
+    border-radius: 0 var(--input-radius) var(--input-radius) 0 !important;
+}
+
+/* Select2 border-radius */
+.select2-container--bootstrap4 .select2-selection--single,
+.select2-container--bootstrap4 .select2-selection--multiple {
+    border-radius: var(--input-radius) !important;
+    border-color: var(--color-border) !important;
+}
+.select2-container--bootstrap4.select2-container--focus .select2-selection {
+    border-color: var(--color-accent) !important;
+    box-shadow: 0 0 0 .2rem rgba(var(--color-accent-rgb), .2) !important;
+}
+
+/* ===== Dashboard small-box refinements ===== */
+.small-box {
+    border-radius: var(--input-radius);
+    overflow: hidden;
+}
+.small-box h3 {
+    font-weight: 700;
+    font-size: 2rem;
+}
+.small-box-footer {
+    background: rgba(0, 0, 0, .1) !important;
+    font-size: .8rem;
+    padding: .35rem .75rem;
+}
+.small-box-footer:hover {
+    background: rgba(0, 0, 0, .15) !important;
+}
+
+/* ===== Dropdown / modal border-radius ===== */
+.dropdown-menu {
+    border-radius: var(--input-radius);
+    border-color: var(--color-border);
+    box-shadow: 0 6px 14px -4px rgba(16, 24, 40, .18);
+}
+.modal-content {
+    border-radius: var(--card-radius);
+    border: none;
+    box-shadow: 0 10px 30px -5px rgba(16, 24, 40, .25);
+}
+.modal-header {
+    border-radius: var(--card-radius) var(--card-radius) 0 0;
+}
+/* Dark modal headers (modal-header.bg-dark, used app-wide for a "console/emphasis"
+   convention) never got their title color set, so it fell back to the default
+   dark body-text color on a dark background (~1.16:1 contrast, effectively
+   invisible). Only the close button was reliably given text-white/text-light. */
+.modal-header.bg-dark .modal-title {
+    color: #fff;
+}
+
+/* Same bug, different component: card-header.bg-dark (client/guest ticket and
+   item view headers) never got a text color either, so the ticket number/
+   subject heading was invisible-on-invisible in light mode. */
+.card-header.bg-dark {
+    color: #fff;
+}
+
+/* ===== Table row hover accent ===== */
+.table-hover tbody tr:hover {
+    background-color: var(--color-accent-soft);
+}
+
+/* ===== Ticket detail page — visual hierarchy pass =====
+   Goal: the conversation/composer (what a tech actually reads and does on every
+   visit) should read as the primary surface; the sidebar's low-frequency
+   reference cards should recede rather than compete with it 1-for-1. */
+
+/* Header card: identity+actions, the status/tags/chip rows, and the SLA meters
+   were stacked with equal spacing/borders as if they were peers - visually the
+   busiest block on the page before you even reach any content. Tightening the
+   rhythm and lightening the internal dividers reads as one cohesive strip
+   instead of four stacked sections, without removing any of the information. */
+.ticket-alga-theme .ticket-header-compact .card-body {
+    padding-top: .65rem;
+    padding-bottom: .65rem;
+}
+.ticket-alga-theme .ticket-header-compact .border-top {
+    border-top-color: var(--color-border-soft) !important;
+    padding-top: .5rem !important;
+    margin-top: .35rem !important;
+}
+
+/* Composer + conversation get a touch more presence than a generic .card. */
+.ticket-alga-theme .ticket-primary-panel {
+    box-shadow: 0 6px 16px -4px rgba(16, 24, 40, .14), 0 2px 6px -2px rgba(16, 24, 40, .08);
+}
+.ticket-alga-theme .ticket-thread-reply .card-body {
+    padding: .85rem 1rem;
+    font-size: .92rem;
+    line-height: 1.55;
+}
+
+/* Sidebar cards carry an explicit inline `order` (tiered by usage frequency,
+   see agent/ticket.php) - flex-column is what makes that `order` apply. */
+.ticket-alga-theme .ticket-sidebar {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Cards in the sidebar's collapsed-by-default tier: quieter chrome (smaller
+   headers, flatter shadow) so they read as reference material rather than
+   competing with the always-visible cards above them, plus a rotating chevron
+   on their native Bootstrap collapse toggle (data-bs-toggle="collapse" - same
+   idiom already used app-wide for #advancedFilter panels, no new JS needed). */
+.ticket-alga-theme .ticket-sidebar-compact.card {
+    box-shadow: none;
+    border: 1px solid var(--color-border-soft);
+}
+.ticket-alga-theme .ticket-sidebar-compact .card-header {
+    padding: .5rem .75rem;
+}
+.ticket-alga-theme .ticket-sidebar-compact .card-header .card-title {
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    border-radius: 4px;
+    transition: color .1s ease-out;
+}
+/* The title text itself carries the same collapse toggle as the chevron button
+   (see agent/ticket.php) - a much bigger, easier click target than the small
+   chevron alone for a row whose only job most of the time is "expand this". */
+.ticket-alga-theme .ticket-sidebar-compact .card-header .card-title:hover {
+    color: var(--color-accent);
+}
+.ticket-alga-theme .ticket-sidebar-compact .card-body {
+    padding: .65rem .75rem;
+    font-size: .82rem;
+}
+.ticket-alga-theme .ticket-sidebar-compact .card-tools .btn-tool .fa-chevron-down {
+    transition: transform .15s ease-out;
+}
+.ticket-alga-theme .ticket-sidebar-compact .card-tools .btn-tool[aria-expanded="true"] .fa-chevron-down {
+    transform: rotate(180deg);
+}
+

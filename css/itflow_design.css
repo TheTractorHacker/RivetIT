@@ -1,0 +1,260 @@
+/* =============================================================================
+   ITFlow design layer — "MSP ops tool" identity.
+   Loaded LAST (after adminlte4 + bridge + itflow_custom) so it sets the tone.
+   Boldness lives in ONE place: the teal accent + IBM Plex type. Everything
+   else is kept quiet and precise. Works in light + dark.
+   ============================================================================= */
+
+/* ---- Self-hosted type (CSP 'self') ---- */
+@font-face { font-family:'Plex Sans'; src:url('/fonts/plex-sans-400.woff2') format('woff2'); font-weight:400; font-style:normal; font-display:swap; }
+@font-face { font-family:'Plex Sans'; src:url('/fonts/plex-sans-500.woff2') format('woff2'); font-weight:500; font-style:normal; font-display:swap; }
+@font-face { font-family:'Plex Sans'; src:url('/fonts/plex-sans-600.woff2') format('woff2'); font-weight:600; font-style:normal; font-display:swap; }
+@font-face { font-family:'Plex Sans'; src:url('/fonts/plex-sans-700.woff2') format('woff2'); font-weight:700; font-style:normal; font-display:swap; }
+@font-face { font-family:'Plex Mono'; src:url('/fonts/plex-mono-400.woff2') format('woff2'); font-weight:400; font-style:normal; font-display:swap; }
+@font-face { font-family:'Plex Mono'; src:url('/fonts/plex-mono-500.woff2') format('woff2'); font-weight:500; font-style:normal; font-display:swap; }
+
+:root {
+  --if-sans: 'Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --if-mono: 'Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  /* intentional cool-slate neutrals with a faint teal bias (not a flat gray) */
+  --if-bg: #eef2f2;
+  --if-surface: #ffffff;
+  --if-border: #e3e9ea;
+  --if-border-strong: #d3dbdc;
+  --if-ink: #16232a;
+  --if-muted: #5d6f76;
+  --if-radius: 12px;
+  --if-radius-sm: 8px;
+  --if-shadow: 0 1px 2px rgba(20,35,42,.04), 0 3px 10px rgba(20,35,42,.05);
+}
+:root[data-bs-theme="dark"] {
+  --if-bg: #0d1417;
+  --if-surface: #14201f;
+  --if-border: #24332f;
+  --if-border-strong: #31433e;
+  --if-ink: #e7eeef;
+  --if-muted: #93a6ab;
+  --if-shadow: 0 1px 2px rgba(0,0,0,.35), 0 3px 12px rgba(0,0,0,.4);
+}
+
+/* ---- Base typography ---- */
+body, .app-wrapper, .app-main, .content, .modal, input, button, select, textarea,
+.btn, .form-control, .form-select, .nav, .card, .table, .dropdown-menu, .tom-select, .ts-control {
+  font-family: var(--if-sans);
+}
+body { -webkit-font-smoothing: antialiased; letter-spacing: -0.006em; background-color: var(--if-bg); color: var(--if-ink); }
+.app-main { background-color: var(--if-bg); }
+h1,h2,h3,h4,h5,h6, .h1,.h2,.h3,.h4,.h5,.h6 { font-weight: 650; letter-spacing: -0.02em; }
+h1,.h1 { font-size: 1.6rem; } h2,.h2 { font-size: 1.35rem; } h3,.h3 { font-size: 1.15rem; }
+.text-muted, small.text-muted { color: var(--if-muted) !important; }
+
+/* Mono for the data that defines the product: IDs, code, times, tabular figures */
+code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: var(--if-mono) !important; }
+.table td, .table th, .small-box h3, .info-box-number, td .badge, .table .text-end { font-variant-numeric: tabular-nums; }
+
+/* ---- Cards: crisp border, soft shadow, consistent radius ---- */
+.card {
+  background: var(--if-surface);
+  border: 1px solid var(--if-border);
+  border-radius: var(--if-radius);
+  box-shadow: var(--if-shadow);
+}
+.card > .card-header {
+  background: transparent;
+  border-bottom: 1px solid var(--if-border);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  padding: .8rem 1rem;
+}
+.card > .card-header:first-child { border-radius: var(--if-radius) var(--if-radius) 0 0; }
+.card-body { padding: 1rem 1.1rem; }
+
+/* ---- Buttons: quiet, precise ---- */
+.btn { font-weight: 500; border-radius: var(--if-radius-sm); padding: .4rem .85rem; letter-spacing: -0.01em; }
+.btn-sm { padding: .28rem .6rem; border-radius: 7px; }
+.btn-primary { background-color: var(--color-accent); border-color: var(--color-accent); box-shadow: 0 1px 2px rgba(13,148,136,.25); }
+.btn-primary:hover, .btn-primary:focus { background-color: var(--color-accent-hover, #0f766e); border-color: var(--color-accent-hover, #0f766e); }
+.btn-secondary, .btn-default { background-color: var(--if-surface); border-color: var(--if-border-strong); color: var(--if-ink); }
+.btn-secondary:hover, .btn-default:hover { background-color: var(--if-bg); color: var(--if-ink); }
+/* AdminLTE4 ships a more specific selector pinning this button's text to
+   --bs-body-color, which resolves to light gray because it inherits from the
+   dark-themed .app-header ancestor (data-bs-theme="dark") even though this
+   dropdown itself renders on a light surface. Match its specificity to win. */
+.navbar-nav > .user-menu > .dropdown-menu > .user-footer .btn-default {
+  color: var(--if-ink);
+}
+.navbar-nav > .user-menu > .dropdown-menu > .user-footer .btn-default:hover {
+  color: var(--if-ink);
+  background-color: var(--if-bg);
+}
+/* User profile dropdown panel: AdminLTE renders the header avatar at its raw
+   aspect ratio (a non-square photo comes out as an oval, not a circle) and
+   packs the header/footer with square corners and cramped spacing. */
+.navbar-nav > .user-menu > .dropdown-menu {
+  overflow: hidden;
+  padding: 0;
+  border-radius: var(--if-radius);
+}
+.navbar-nav > .user-menu > .dropdown-menu > .user-header {
+  padding: 1.75rem 1rem 1.4rem;
+}
+.navbar-nav > .user-menu > .dropdown-menu > .user-header img {
+  width: 84px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, .18);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .35);
+}
+.navbar-nav > .user-menu > .dropdown-menu > .user-header p {
+  margin: .85rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.navbar-nav > .user-menu > .dropdown-menu > .user-header p small {
+  display: block;
+  margin-top: .2rem;
+  font-size: .78rem;
+  font-weight: 500;
+  letter-spacing: .02em;
+  opacity: .85;
+}
+.navbar-nav > .user-menu > .dropdown-menu > .user-footer {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  padding: .75rem;
+}
+.navbar-nav > .user-menu > .dropdown-menu > .user-footer .btn-default {
+  border-radius: var(--if-radius-sm);
+  font-weight: 500;
+}
+
+/* ---- Chips / badges: the signature data element — crisp & consistent ---- */
+.badge { font-weight: 600; letter-spacing: .01em; border-radius: 999px; padding: .32em .62em; font-size: .72rem; }
+.rounded-pill { border-radius: 999px; }
+
+/* ---- Tables: scannable, calm ---- */
+.table { --bs-table-bg: transparent; color: var(--if-ink); }
+.table > thead th, .table > thead > tr > th {
+  font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--if-muted); border-bottom: 1px solid var(--if-border-strong); padding: .6rem .75rem; white-space: nowrap;
+}
+.table > tbody > tr > td { padding: .7rem .75rem; border-bottom: 1px solid var(--if-border); vertical-align: middle; }
+.table-hover > tbody > tr:hover > td { background-color: rgba(13,148,136,.045); }
+:root[data-bs-theme="dark"] .table-hover > tbody > tr:hover > td { background-color: rgba(45,212,191,.06); }
+
+/* Contextual rows (awaiting reply, overdue, etc.): a muted tint + left accent
+   reads as "this needs attention" without Bootstrap's default saturated fill. */
+.table-warning { --bs-table-bg: rgba(217,119,6,.09); box-shadow: inset 3px 0 0 #d97706; }
+.table-danger  { --bs-table-bg: rgba(220,38,38,.08); box-shadow: inset 3px 0 0 #dc2626; }
+.table-success { --bs-table-bg: rgba(5,150,105,.08); box-shadow: inset 3px 0 0 #059669; }
+.table-info    { --bs-table-bg: rgba(13,148,136,.08); box-shadow: inset 3px 0 0 #0d9488; }
+:root[data-bs-theme="dark"] .table-warning { --bs-table-bg: rgba(217,119,6,.14); }
+:root[data-bs-theme="dark"] .table-danger  { --bs-table-bg: rgba(220,38,38,.14); }
+:root[data-bs-theme="dark"] .table-success { --bs-table-bg: rgba(5,150,105,.14); }
+:root[data-bs-theme="dark"] .table-info    { --bs-table-bg: rgba(13,148,136,.14); }
+
+/* ---- Forms: tidy inputs ---- */
+.form-control, .form-select, .ts-control {
+  border-color: var(--if-border-strong); border-radius: var(--if-radius-sm);
+  background-color: var(--if-surface); color: var(--if-ink); padding: .45rem .7rem;
+}
+.form-control:focus, .form-select:focus, .ts-control.focus {
+  border-color: var(--color-accent); box-shadow: 0 0 0 3px rgba(13,148,136,.15);
+}
+.form-label, label { font-weight: 500; color: var(--if-ink); margin-bottom: .3rem; }
+.input-group-text { background-color: var(--if-bg); border-color: var(--if-border-strong); color: var(--if-muted); }
+
+/* ---- Sidebar: a teal rail marks the active item (quiet elsewhere) ---- */
+.app-sidebar .sidebar-menu .nav-link, .main-sidebar .nav-link { border-radius: 8px; font-weight: 450; }
+.app-sidebar .sidebar-menu .nav-link.active, .main-sidebar .nav-link.active { position: relative; font-weight: 600; }
+.app-sidebar .sidebar-menu .nav-link.active::before, .main-sidebar .nav-link.active::before {
+  content:""; position:absolute; left:-.5rem; top:20%; bottom:20%; width:3px; border-radius:0 3px 3px 0; background:#fff;
+}
+.app-sidebar .nav-header, .main-sidebar .nav-header { font-size:.68rem; letter-spacing:.08em; }
+
+/* ---- Stat tiles: number leads, label supports ---- */
+.small-box h3 { font-weight: 700; letter-spacing: -0.03em; }
+.small-box .small-box-footer { font-weight: 500; }
+.info-box-number { font-family: var(--if-mono); }
+
+/* ---- Modals: match the card language ---- */
+.modal-content { border: 1px solid var(--if-border); border-radius: var(--if-radius); box-shadow: 0 12px 40px rgba(20,35,42,.18); }
+.modal-header { border-bottom: 1px solid var(--if-border); }
+.modal-footer { border-top: 1px solid var(--if-border); }
+
+/* ---- Breadcrumbs: unstyled Bootstrap defaults read as an afterthought (tiny,
+   cramped, plain "/" separators) sitting right above each detail page's title
+   card - quiet but legible wayfinding instead. ---- */
+.breadcrumb {
+  --bs-breadcrumb-divider: "\2039";
+  font-size: .82rem;
+  padding: 0;
+  margin-bottom: .6rem;
+}
+.breadcrumb-item, .breadcrumb-item a { color: var(--if-muted); }
+.breadcrumb-item a { text-decoration: none; font-weight: 500; }
+.breadcrumb-item a:hover { color: var(--color-accent); text-decoration: underline; }
+.breadcrumb-item.active { color: var(--if-ink); font-weight: 600; }
+.breadcrumb-item + .breadcrumb-item::before {
+  color: var(--if-border-strong); font-weight: 700; padding-right: .6rem; padding-left: .1rem;
+}
+
+/* ---- Refined scrollbars (subtle, not loud) ---- */
+* { scrollbar-width: thin; scrollbar-color: var(--if-border-strong) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--if-border-strong); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+
+/* keyboard focus visible everywhere (quality floor) */
+a:focus-visible, .btn:focus-visible, .nav-link:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* ---- CSAT face rating widget: works with JS fully disabled (native radios,
+   no fill trick needed - unlike a star scale, each face is one discrete option
+   representing its own satisfaction level, not a cumulative "fill up to here").
+   Faces stay in full natural color at all times - emoji rely on color for
+   readability, and desaturating them (an earlier version of this rule did)
+   turns 5 distinct expressions into 5 near-identical muddy gray-brown blobs,
+   defeating the entire point of a face scale. Hover/selection is shown purely
+   via scale + a soft background + a ring, never by dimming the others. ---- */
+.csat-faces { border: 0; padding: 0; margin: 0; display: inline-flex; overflow: visible; min-width: 0; gap: .35rem; }
+.csat-face-input { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
+/* Color emoji glyphs render taller than their nominal font-size implies (their
+   font metrics bake in extra vertical space differently per platform), so a
+   line-height:1 box the same height as the font-size clips their bottom edge
+   - give the line box real breathing room instead of relying on font-size alone. */
+.csat-face-label { display: inline-flex; align-items: center; justify-content: center; overflow: visible; width: 3rem; height: 3rem; font-size: 2rem; line-height: 3rem; cursor: pointer; border-radius: 50%; transition: transform .15s ease, background-color .15s ease, box-shadow .15s ease; }
+.csat-face-label:hover { transform: scale(1.15); background-color: var(--if-surface); }
+.csat-face-input:checked + .csat-face-label { transform: scale(1.2); background-color: var(--if-surface); box-shadow: 0 0 0 2px var(--color-accent); }
+.csat-face-input:focus-visible + .csat-face-label { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.csat-face-display { font-size: 1.8rem; line-height: 1.4; vertical-align: middle; }
+
+/* CSAT prompt/thank-you card: deliberately NOT the dark-header record-card
+   treatment used above it (ticket subject/state/priority) - that pattern reads
+   as "formal record," which is wrong for what should feel like a quick,
+   personal, low-friction ask. A colored top accent (echoing the accent button
+   below it) plus a light surface differentiates "quick human interaction" from
+   "formal record" without introducing a new visual language. */
+.csat-card { border: 1px solid var(--if-border); border-top: 3px solid var(--color-accent); border-radius: var(--if-radius); background-color: var(--if-surface); box-shadow: none; }
+.csat-card .card-body { padding: 1.75rem 1.5rem; }
+.csat-card-lede { color: var(--if-muted); }
+
+/* Google review CTA: a soft accent wash (not a plain link) so it reads as a
+   reward for the 4-5 star rating that just happened, not one more form field.
+   The button itself is the one deliberate exception to the app's teal accent
+   in this whole file - it borrows Google's own blue, the same "wear the
+   destination's colors" convention every real "Sign in with Google"/"Pay with
+   PayPal" button uses, because its entire job is to signal "this leaves the
+   app" before the click happens. */
+.google-review-cta { background-color: var(--color-accent-soft); border-radius: var(--if-radius); padding: 1.1rem 1.25rem; }
+:root[data-bs-theme="dark"] .google-review-cta { background-color: rgba(13,148,136,.15); }
+.btn-google { background-color: #4285F4; border-color: #4285F4; color: #fff; font-weight: 600; box-shadow: 0 2px 6px rgba(66,133,244,.35); transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease; }
+.btn-google:hover, .btn-google:focus { background-color: #3367D6; border-color: #3367D6; color: #fff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(66,133,244,.45); }
+@media (prefers-reduced-motion: reduce) { .btn-google { transition: none; } .btn-google:hover, .btn-google:focus { transform: none; } }
+
+/* ---- Ticket detail sidebar: the stacked cards (Time Entry, Appointments,
+   Technicians, Live Chat, Activity Summary, Tasks, Worksheets, Attachments,
+   Charges, Contact) had no gap and no shadow between them, so they visually
+   fused into one flat, borderless block instead of reading as separate cards. ---- */
+.ticket-sidebar > .card { margin-bottom: 1rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); }
+.ticket-sidebar > .card:last-child { margin-bottom: 0; }

@@ -1,0 +1,2 @@
+# Deny direct HTTP access — files served through admin/post/backup.php only
+Require all denied

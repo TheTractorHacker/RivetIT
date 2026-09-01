@@ -1,0 +1,28 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.foleyit.itflow",
+      "sha256_cert_fingerprints": [
+        "4E:0B:8A:7B:D3:8B:6F:4C:9D:D7:3D:84:22:5C:59:5F:FC:01:28:3F:59:10:C1:FB:C0:53:E6:55:44:2B:C5:30"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.foleyit.itflow.beta",
+      "sha256_cert_fingerprints": [
+        "38:7E:CB:6E:EB:E3:0B:61:44:D3:87:72:41:4C:44:B8:4B:8D:9E:8A:23:DC:B1:84:1C:8B:79:E9:4D:17:30:F4"
+      ]
+    }
+  }
+]

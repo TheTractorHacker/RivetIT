@@ -1,0 +1,9 @@
+/* ============================================================
+   ITFlow — Webfonts
+   ITFlow ships AdminLTE 3, whose UI font is Source Sans Pro.
+   Source Sans Pro is published on Google Fonts as "Source Sans 3"
+   (the actively-maintained successor with identical metrics/design).
+   We load that here. ── SUBSTITUTION FLAGGED: see README.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=Source+Code+Pro:wght@400;500;600&display=swap');

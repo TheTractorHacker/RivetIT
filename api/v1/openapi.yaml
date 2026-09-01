@@ -1,0 +1,1951 @@
+openapi: 3.0.3
+info:
+  title: ITFlow API v1
+  version: 1.0.0
+  description: >
+    Companion REST API for ITFlow, consumed by the ITFlow MSP mobile app and
+    integrations (ITPanel Pro, RMM scripts). This spec documents the *live*
+    endpoints served by /api/v1/index.php and its per-resource handlers.
+
+
+    Authentication: send a bearer token issued by POST /auth
+    (`Authorization: Bearer <token>`) OR a legacy instance API key
+    (`X-Api-Key: <key>`). The legacy key resolves to the first active admin and
+    is intentionally denied on `/credentials` and `/me`. The `/auth`,
+    `/openapi` and `/docs` endpoints are public (no token required).
+
+
+    Response conventions:
+      * Paged list endpoints return `{ "data": [ ... ], "total": <int> }`
+        (some also add `page`/`limit`).
+      * Some list endpoints return a bare JSON array (noted per-endpoint).
+      * Creates return `{ "id": <int> }` (sometimes with extra fields).
+      * Simple mutations return `{ "ok": true }`.
+      * Errors return `{ "error": "<message>" }` with the matching HTTP status.
+servers:
+  - url: /api/v1
+    description: Relative to the ITFlow install host
+tags:
+  - name: Auth
+  - name: Dashboard
+  - name: Tickets
+  - name: Ticket Meta
+  - name: Clients
+  - name: Contacts
+  - name: Assets
+  - name: Credentials
+  - name: Quotes
+  - name: Invoices
+  - name: Expenses
+  - name: Worksheets
+  - name: Outtakes
+  - name: Products
+  - name: Search
+  - name: Reports
+  - name: Knowledge Base
+  - name: Profile
+  - name: Appointments
+  - name: Notifications
+  - name: Alerts
+  - name: Diagnostics
+  - name: Public
+  - name: Meta
+security:
+  - bearerAuth: []
+  - ApiKeyAuth: []
+paths:
+  /auth:
+    post:
+      tags: [Auth]
+      summary: Password login — returns a bearer token, or requires_2fa
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Token issued, or 2FA required, or (for passkey completion) token issued
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/LoginResponse'
+                  - type: object
+                    properties:
+                      requires_2fa: {type: boolean, example: true}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+    get:
+      tags: [Auth]
+      summary: Begin a WebAuthn/passkey assertion — returns a challenge
+      security: []
+      responses:
+        '200':
+          description: Passkey assertion options
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasskeyBeginResponse'
+        '429': {$ref: '#/components/responses/RateLimited'}
+    delete:
+      tags: [Auth]
+      summary: Logout — revoke the current bearer token
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+  /crash-reports:
+    post:
+      tags: [Diagnostics]
+      summary: Report a mobile app crash (logged to App Logs, category "mobile_crash")
+      description: >
+        Semi-public: reachable without a valid bearer token, because the crash most
+        worth seeing is exactly the one that happens before login succeeds or while
+        a token is invalid/expired. A token is honored for caller correlation when
+        present, but never required.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stack_trace]
+              properties:
+                platform: {type: string, example: android}
+                app_version_name: {type: string, example: "1.13.0"}
+                app_version_code: {type: integer, example: 19}
+                device_model: {type: string, example: "Pixel 8"}
+                os_version: {type: string, example: "15"}
+                sdk_int: {type: integer, example: 35}
+                thread_name: {type: string, example: main}
+                is_fatal: {type: boolean, default: true}
+                occurred_at: {type: string, format: date-time}
+                stack_trace: {type: string}
+      responses:
+        '201':
+          description: Logged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {logged: {type: boolean, example: true}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+  /csat:
+    get:
+      tags: [Public]
+      summary: Aggregate CSAT rating summary for public embedding (e.g. a website trust badge)
+      description: >
+        Fully public: no bearer token or API key accepted or required. Returns only
+        the aggregate rating and anonymous 4-5 star comment snippets - never client
+        names, contact names, or ticket subjects - so the response is safe to embed
+        directly on a public marketing site with no further filtering by the caller.
+        Cached for 5 minutes (Cache-Control: public, max-age=300).
+      security: []
+      responses:
+        '200':
+          description: CSAT summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  average_rating: {type: number, format: float, nullable: true, example: 4.8}
+                  total_ratings: {type: integer, example: 132}
+                  rating_breakdown:
+                    type: object
+                    properties:
+                      "1": {type: integer}
+                      "2": {type: integer}
+                      "3": {type: integer}
+                      "4": {type: integer}
+                      "5": {type: integer}
+                  testimonials:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rating: {type: integer, example: 5}
+                        comment: {type: string, example: "Great information on the specs. Thank you for putting this together."}
+                        date: {type: string, format: date, example: "2026-07-31"}
+        '405': {$ref: '#/components/responses/BadRequest'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      summary: Agent dashboard counters and personal ticket queue
+      responses:
+        '200':
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardResponse'
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /tickets:
+    get:
+      tags: [Tickets]
+      summary: List tickets (paged, filterable)
+      parameters:
+        - {name: status, in: query, schema: {type: string, enum: [open, closed, all], default: open}}
+        - {name: mine, in: query, schema: {type: integer, enum: [0, 1]}}
+        - {$ref: '#/components/parameters/SearchParam'}
+        - {$ref: '#/components/parameters/PageParam'}
+        - {$ref: '#/components/parameters/LimitParam'}
+        - {name: priority, in: query, schema: {type: string, enum: [low, medium, high, critical]}}
+        - {name: onsite, in: query, schema: {type: integer, enum: [0, 1]}}
+        - {name: category_id, in: query, schema: {type: integer}}
+        - {name: client_id, in: query, schema: {type: integer}}
+        - {name: contact_id, in: query, schema: {type: integer}}
+        - {name: overdue, in: query, schema: {type: integer}}
+        - {name: due_today, in: query, schema: {type: integer}}
+      responses:
+        '200':
+          description: Paged ticket list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/TicketListItem'}}
+                  total: {type: integer}
+                  page: {type: integer}
+                  limit: {type: integer}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+    post:
+      tags: [Tickets]
+      summary: Create a ticket (JSON or multipart with files)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTicketRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateTicketRequest'
+      responses:
+        '201':
+          description: Ticket created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: {type: integer}
+                  number: {type: integer}
+                  attachments: {type: array, items: {$ref: '#/components/schemas/Attachment'}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /tickets/{id}:
+    get:
+      tags: [Tickets]
+      summary: Ticket detail with replies and attachments
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Ticket detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketDetail'
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /tickets/{id}/reply:
+    post:
+      tags: [Tickets]
+      summary: Add a reply or internal note (JSON or multipart with files)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddReplyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AddReplyRequest'
+      responses:
+        '201':
+          description: Reply created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: {type: integer}
+                  type: {type: string}
+                  ticket_status: {type: object, properties: {id: {type: integer}, name: {type: string}}}
+                  attachments: {type: array, items: {$ref: '#/components/schemas/Attachment'}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /tickets/{id}/reply/{replyId}:
+    delete:
+      tags: [Tickets]
+      summary: Delete a reply (and its attachments)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+        - {name: replyId, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /tickets/{id}/time:
+    post:
+      tags: [Tickets]
+      summary: Log time against a ticket (creates an internal reply)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [time_worked]
+              properties:
+                time_worked: {type: string, example: "01:30:00", description: HH:MM:SS}
+                note: {type: string}
+      responses:
+        '201': {$ref: '#/components/responses/Ok'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /tickets/{id}/status:
+    post:
+      tags: [Tickets]
+      summary: Change ticket status (setting a Closed status resolves it)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status_id]
+              properties:
+                status_id: {type: integer}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /tickets/{id}/attachments:
+    post:
+      tags: [Tickets]
+      summary: Upload one or more attachments to a ticket
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: {type: string, format: binary}
+                'files[]': {type: array, items: {type: string, format: binary}}
+      responses:
+        '201':
+          description: Attachment(s) saved
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Attachment'
+                  - type: object
+                    properties:
+                      attachments: {type: array, items: {$ref: '#/components/schemas/Attachment'}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /tickets/{id}/chat:
+    get:
+      tags: [Tickets]
+      summary: Live-chat messages for a ticket (add ?stream=1 for an SSE feed)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+        - {name: since_id, in: query, schema: {type: integer, default: 0}}
+        - {name: stream, in: query, schema: {type: integer}, description: When present, responds with a text/event-stream SSE feed instead of JSON}
+      responses:
+        '200':
+          description: Chat messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/ChatMessage'}}
+            text/event-stream:
+              schema: {type: string}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      tags: [Tickets]
+      summary: Send a live-chat message
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message: {type: string}
+                contact_id: {type: integer, description: Post on behalf of one of the ticket's client's contacts}
+      responses:
+        '201':
+          description: Message stored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {id: {type: integer}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /tickets/{id}/charges:
+    get:
+      tags: [Tickets]
+      summary: List charges on a ticket
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Charges plus running total
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  charges: {type: array, items: {$ref: '#/components/schemas/Charge'}}
+                  total: {type: number}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Tickets]
+      summary: Add a charge to a ticket
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string}
+                description: {type: string}
+                quantity: {type: number, default: 1}
+                unit_price: {type: number, default: 0}
+      responses:
+        '201':
+          description: Charge created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {id: {type: integer}, total: {type: number}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /tickets/{id}/worksheets:
+    get:
+      tags: [Worksheets]
+      summary: List worksheets attached to a ticket
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Worksheet summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/WorksheetSummary'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Worksheets]
+      summary: Create a worksheet on a ticket from a template
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [template_id]
+              properties:
+                template_id: {type: integer}
+                is_outtake: {type: integer, enum: [0, 1]}
+      responses:
+        '201':
+          description: Worksheet created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {id: {type: integer}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /tickets/{id}/outtakes:
+    get:
+      tags: [Outtakes]
+      summary: List device-outtake (pickup) forms for a ticket
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Outtake summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/OuttakeSummary'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /tickets/{id}/outtake:
+    post:
+      tags: [Outtakes]
+      summary: Create a device-outtake form on a ticket
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '201':
+          description: Outtake created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {id: {type: integer}}
+  /statuses:
+    get:
+      tags: [Ticket Meta]
+      summary: List active ticket statuses (bare array)
+      responses:
+        '200':
+          description: Ticket statuses
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/TicketStatus'}
+  /ticket-categories:
+    get:
+      tags: [Ticket Meta]
+      summary: List ticket categories (bare array)
+      responses:
+        '200':
+          description: Ticket categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/TicketCategory'}
+  /ticket-views:
+    get:
+      tags: [Ticket Meta]
+      summary: List saved ticket views translated to list query params (bare array)
+      responses:
+        '200':
+          description: Saved views
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/SavedTicketView'}
+  /clients:
+    get:
+      tags: [Clients]
+      summary: List clients (paged)
+      parameters:
+        - {$ref: '#/components/parameters/SearchParam'}
+        - {$ref: '#/components/parameters/PageParam'}
+        - {$ref: '#/components/parameters/LimitParam'}
+      responses:
+        '200':
+          description: Paged client list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/ClientListItem'}}
+                  total: {type: integer}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /clients/{id}:
+    get:
+      tags: [Clients]
+      summary: Client detail with contacts and primary location
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Client detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientDetail'
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /clients/{id}/tickets:
+    get:
+      tags: [Clients]
+      summary: Recent tickets for a client (bare array)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Ticket summaries
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/TicketListItem'}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /clients/{id}/assets:
+    get:
+      tags: [Clients]
+      summary: Assets for a client (bare array)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Asset summaries
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/AssetListItem'}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /clients/{id}/locations:
+    get:
+      tags: [Clients]
+      summary: Locations for a client (bare array)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Locations
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/ClientLocation'}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /clients/{id}/credentials:
+    get:
+      tags: [Clients]
+      summary: Credential names for a client (no secrets; bare array)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Credential summaries
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/CredentialListItem'}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /clients/{id}/contracts:
+    get:
+      tags: [Clients]
+      summary: Contracts for a client (bare array)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Contracts
+          content:
+            application/json:
+              schema: {type: array, items: {type: object}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /clients/{id}/files:
+    get:
+      tags: [Clients]
+      summary: Signed outtake forms for a client (bare array)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Files
+          content:
+            application/json:
+              schema: {type: array, items: {type: object}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /contacts:
+    get:
+      tags: [Contacts]
+      summary: List contacts (paged, filterable by client)
+      parameters:
+        - {name: client_id, in: query, schema: {type: integer}}
+        - {$ref: '#/components/parameters/SearchParam'}
+        - {$ref: '#/components/parameters/PageParam'}
+        - {$ref: '#/components/parameters/LimitParam'}
+      responses:
+        '200':
+          description: Paged contact list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/Contact'}}
+                  total: {type: integer}
+  /assets:
+    get:
+      tags: [Assets]
+      summary: List assets (paged, filterable)
+      parameters:
+        - {$ref: '#/components/parameters/SearchParam'}
+        - {$ref: '#/components/parameters/PageParam'}
+        - {$ref: '#/components/parameters/LimitParam'}
+        - {name: type, in: query, schema: {type: string}}
+        - {name: client_id, in: query, schema: {type: integer}}
+      responses:
+        '200':
+          description: Paged asset list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/AssetListItem'}}
+                  total: {type: integer}
+  /assets/types:
+    get:
+      tags: [Assets]
+      summary: Distinct asset types in use (bare string array)
+      responses:
+        '200':
+          description: Asset type names
+          content:
+            application/json:
+              schema: {type: array, items: {type: string}}
+  /assets/{id}:
+    get:
+      tags: [Assets]
+      summary: Asset detail
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Asset detail
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AssetDetail'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /credentials:
+    get:
+      tags: [Credentials]
+      summary: List credentials (names/URIs only, no secrets; paged). Requires a user token — legacy API key is denied.
+      parameters:
+        - {$ref: '#/components/parameters/SearchParam'}
+        - {$ref: '#/components/parameters/PageParam'}
+        - {$ref: '#/components/parameters/LimitParam'}
+        - {name: client_id, in: query, schema: {type: integer}}
+      responses:
+        '200':
+          description: Paged credential list (no secrets)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/CredentialListItem'}}
+                  total: {type: integer}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /credentials/{id}:
+    get:
+      tags: [Credentials]
+      summary: Decrypted credential detail — requires a signed biometric step-up challenge
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+        - {name: X-Biometric-Challenge-Token, in: header, required: true, schema: {type: string}, description: challengeToken from GET /auth}
+        - {name: X-Biometric-Signature, in: header, required: true, schema: {type: string}, description: base64 signature of the challenge bytes}
+      responses:
+        '200':
+          description: Credential with decrypted secrets
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CredentialDetail'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /quotes:
+    get:
+      tags: [Quotes]
+      summary: List quotes (paged)
+      parameters:
+        - {$ref: '#/components/parameters/SearchParam'}
+        - {$ref: '#/components/parameters/PageParam'}
+        - {$ref: '#/components/parameters/LimitParam'}
+        - {name: client_id, in: query, schema: {type: integer}}
+      responses:
+        '200':
+          description: Paged quote list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/QuoteListItem'}}
+                  total: {type: integer}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /quotes/{id}:
+    get:
+      tags: [Quotes]
+      summary: Quote detail with line items
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Quote detail
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/QuoteDetail'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /invoices:
+    get:
+      tags: [Invoices]
+      summary: List invoices (paged)
+      parameters:
+        - {$ref: '#/components/parameters/PageParam'}
+        - {$ref: '#/components/parameters/LimitParam'}
+        - {name: client_id, in: query, schema: {type: integer}}
+        - {name: status, in: query, schema: {type: string}}
+      responses:
+        '200':
+          description: Paged invoice list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/InvoiceListItem'}}
+                  total: {type: integer}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /invoices/{id}:
+    get:
+      tags: [Invoices]
+      summary: Invoice detail with line items
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Invoice detail
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InvoiceDetail'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /expenses:
+    get:
+      tags: [Expenses]
+      summary: List expenses (paged)
+      parameters:
+        - {$ref: '#/components/parameters/PageParam'}
+        - {$ref: '#/components/parameters/LimitParam'}
+      responses:
+        '200':
+          description: Paged expense list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/Expense'}}
+                  total: {type: integer}
+    post:
+      tags: [Expenses]
+      summary: Create an expense (multipart, optional receipt upload)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [description, amount]
+              properties:
+                description: {type: string}
+                amount: {type: number}
+                date: {type: string, format: date}
+                currency: {type: string, default: USD}
+                reference: {type: string}
+                payment_method: {type: string}
+                client_id: {type: integer}
+                receipt: {type: string, format: binary}
+      responses:
+        '201':
+          description: Expense created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {id: {type: integer}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /worksheets/{id}:
+    get:
+      tags: [Worksheets]
+      summary: Worksheet detail with fields and current responses
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Worksheet detail
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorksheetDetail'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      tags: [Worksheets]
+      summary: Delete a worksheet
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+  /worksheets/{id}/sign:
+    post:
+      tags: [Worksheets]
+      summary: Sign a worksheet
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SignRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /worksheets/{id}/complete:
+    post:
+      tags: [Worksheets]
+      summary: Mark a worksheet complete or incomplete without signing
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {completed: {type: boolean}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /worksheets/{id}/responses:
+    post:
+      tags: [Worksheets]
+      summary: Save worksheet field responses (marks complete)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                responses:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      field_id: {type: integer}
+                      value: {type: string}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+  /worksheet-templates:
+    get:
+      tags: [Worksheets]
+      summary: List worksheet templates (bare array)
+      responses:
+        '200':
+          description: Templates
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/WorksheetTemplate'}}
+  /outtakes/{id}:
+    get:
+      tags: [Outtakes]
+      summary: Outtake form detail
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Outtake detail
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OuttakeDetail'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      tags: [Outtakes]
+      summary: Delete an outtake form
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+  /outtakes/{id}/sign:
+    post:
+      tags: [Outtakes]
+      summary: Sign an outtake form
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SignRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /products:
+    get:
+      tags: [Products]
+      summary: List products/services for charge selection (bare array)
+      parameters:
+        - {$ref: '#/components/parameters/SearchParam'}
+        - {name: type, in: query, schema: {type: string}}
+      responses:
+        '200':
+          description: Products
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/Product'}}
+  /search:
+    get:
+      tags: [Search]
+      summary: Global search across tickets, clients and assets
+      parameters:
+        - {name: q, in: query, required: true, schema: {type: string, minLength: 2}}
+      responses:
+        '200':
+          description: Grouped search results
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SearchResult'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /reports/time:
+    get:
+      tags: [Reports]
+      summary: Time logged grouped by client
+      parameters:
+        - {name: period, in: query, schema: {type: string, enum: [week, month, all], default: week}}
+        - {name: mine, in: query, schema: {type: integer, enum: [0, 1]}}
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+  /reports/tickets:
+    get:
+      tags: [Reports]
+      summary: Ticket volume by month for a year
+      parameters:
+        - {$ref: '#/components/parameters/YearParam'}
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+  /reports/tickets-by-client:
+    get:
+      tags: [Reports]
+      summary: Ticket counts by client
+      parameters:
+        - {$ref: '#/components/parameters/YearParam'}
+        - {name: month, in: query, schema: {type: integer}}
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+  /reports/time-by-tech:
+    get:
+      tags: [Reports]
+      summary: Time logged grouped by technician
+      parameters:
+        - {$ref: '#/components/parameters/YearParam'}
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+  /reports/tech-performance:
+    get:
+      tags: [Reports]
+      summary: Technician performance summary
+      parameters:
+        - {$ref: '#/components/parameters/YearParam'}
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+  /reports/technician-performance:
+    get:
+      tags: [Reports]
+      summary: Detailed technician performance report
+      parameters:
+        - {$ref: '#/components/parameters/YearParam'}
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+  /reports/service-desk:
+    get:
+      tags: [Reports]
+      summary: Service-desk report
+      parameters:
+        - {$ref: '#/components/parameters/YearParam'}
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+  /reports/csat:
+    get:
+      tags: [Reports]
+      summary: Customer satisfaction (CSAT) report - 1-5 star ratings, distribution, trend, per-technician/per-client breakdowns, raw feedback feed
+      parameters:
+        - {$ref: '#/components/parameters/YearParam'}
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+  /reports/mrr:
+    get:
+      tags: [Reports]
+      summary: Monthly recurring revenue report
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+  /reports/rmm-health:
+    get:
+      tags: [Reports]
+      summary: RMM fleet health report
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+  /reports/unbilled-tickets:
+    get:
+      tags: [Reports]
+      summary: Clients with unbilled billable closed tickets
+      parameters:
+        - {$ref: '#/components/parameters/YearParam'}
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+  /reports/clients-with-balance:
+    get:
+      tags: [Reports]
+      summary: Clients carrying an outstanding balance
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+  /reports/income-summary:
+    get:
+      tags: [Reports]
+      summary: Income summary for a year
+      parameters:
+        - {$ref: '#/components/parameters/YearParam'}
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+  /reports/expense-summary:
+    get:
+      tags: [Reports]
+      summary: Expense summary for a year
+      parameters:
+        - {$ref: '#/components/parameters/YearParam'}
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+  /reports/profit-loss:
+    get:
+      tags: [Reports]
+      summary: Monthly profit and loss for a year
+      parameters:
+        - {$ref: '#/components/parameters/YearParam'}
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+  /reports/expiring:
+    get:
+      tags: [Reports]
+      summary: Domains or certificates expiring within N days
+      parameters:
+        - {name: type, in: query, schema: {type: string, enum: [domains, certificates], default: domains}}
+        - {name: days, in: query, schema: {type: integer, default: 30}}
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /reports/overview:
+    get:
+      tags: [Reports]
+      summary: Open-ticket breakdown by priority/status/category plus avg resolution
+      parameters:
+        - {$ref: '#/components/parameters/YearParam'}
+      responses:
+        '200': {$ref: '#/components/responses/ReportObject'}
+  /kb/categories:
+    get:
+      tags: [Knowledge Base]
+      summary: List KB categories (bare array)
+      responses:
+        '200':
+          description: Categories
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/KbCategory'}}
+  /kb/articles:
+    get:
+      tags: [Knowledge Base]
+      summary: List KB articles (paged, filterable)
+      parameters:
+        - {name: category_id, in: query, schema: {type: integer}}
+        - {name: client_id, in: query, schema: {type: integer}}
+        - {$ref: '#/components/parameters/SearchParam'}
+        - {$ref: '#/components/parameters/PageParam'}
+        - {$ref: '#/components/parameters/LimitParam'}
+      responses:
+        '200':
+          description: Paged article list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/KbArticleListItem'}}
+                  total: {type: integer}
+  /kb/articles/{id}:
+    get:
+      tags: [Knowledge Base]
+      summary: KB article detail (content + attachments)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Article detail
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/KbArticleDetail'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /me:
+    get:
+      tags: [Profile]
+      summary: Current user profile. Requires a user token — legacy API key is denied.
+      responses:
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/UserProfile'}
+    put:
+      tags: [Profile]
+      summary: Update profile / password, or register FCM push or biometric key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UpdateProfileRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+    post:
+      tags: [Profile]
+      summary: Update profile / password (alias of PUT - FCM push and biometric key registration require PUT)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UpdateProfileRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /appointments:
+    get:
+      tags: [Appointments]
+      summary: List ticket appointments (bare array)
+      parameters:
+        - {name: when, in: query, schema: {type: string, enum: [past, today, future], default: future}}
+        - {name: mine, in: query, schema: {type: integer, enum: [0, 1]}}
+        - {name: client_id, in: query, schema: {type: integer}}
+      responses:
+        '200':
+          description: Appointments
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/Appointment'}}
+    post:
+      tags: [Appointments]
+      summary: Create a ticket appointment (schedule entry)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateAppointmentRequest'}
+      responses:
+        '201':
+          description: Appointment created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {id: {type: integer}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List undismissed notifications (paged)
+      parameters:
+        - {$ref: '#/components/parameters/PageParam'}
+        - {$ref: '#/components/parameters/LimitParam'}
+      responses:
+        '200':
+          description: Paged notification list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/Notification'}}
+                  total: {type: integer}
+  /notifications/{id}/read:
+    post:
+      tags: [Notifications]
+      summary: Mark a single notification read/dismissed
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+  /notifications/read-all:
+    post:
+      tags: [Notifications]
+      summary: Mark all notifications read/dismissed
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+  /notifications/stream:
+    get:
+      tags: [Notifications]
+      summary: Server-Sent Events stream of new notifications
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema: {type: string}
+  /alerts:
+    get:
+      tags: [Alerts]
+      summary: List combined RMM and backup alerts
+      parameters:
+        - {name: status, in: query, schema: {type: string, default: new}}
+        - {name: severity, in: query, schema: {type: string, enum: [critical, error, warning, info]}}
+        - {name: source, in: query, schema: {type: string, enum: [all, rmm, backup]}}
+        - {name: client_id, in: query, schema: {type: integer}}
+      responses:
+        '200':
+          description: Alert list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/Alert'}}
+                  total: {type: integer}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Alerts]
+      summary: Acknowledge or resolve an alert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AlertActionRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /validate_api_key:
+    get:
+      tags: [Meta]
+      summary: Validate the presented token/key (legacy compatibility probe)
+      responses:
+        '200':
+          description: Key is valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: {type: string, example: "True"}
+                  message: {type: string}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /openapi:
+    get:
+      tags: [Meta]
+      summary: This OpenAPI 3.0 spec as YAML (public)
+      security: []
+      responses:
+        '200':
+          description: OpenAPI document
+          content:
+            application/yaml:
+              schema: {type: string}
+  /docs:
+    get:
+      tags: [Meta]
+      summary: Human-readable HTML API reference (public, self-contained)
+      security: []
+      responses:
+        '200':
+          description: HTML docs page
+          content:
+            text/html:
+              schema: {type: string}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Token issued by POST /api/v1/auth
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: Legacy instance-wide API key (denied on /credentials and /me)
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema: {type: integer}
+    PageParam:
+      name: page
+      in: query
+      schema: {type: integer, default: 1, minimum: 1}
+    LimitParam:
+      name: limit
+      in: query
+      schema: {type: integer, default: 20}
+    SearchParam:
+      name: search
+      in: query
+      schema: {type: string}
+    YearParam:
+      name: year
+      in: query
+      schema: {type: integer}
+  responses:
+    Ok:
+      description: Success
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Ok'}
+    ReportObject:
+      description: Report payload (shape varies by report; always a JSON object)
+      content:
+        application/json:
+          schema: {type: object}
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Unauthorized:
+      description: Missing or invalid credentials
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Forbidden:
+      description: Authenticated but not permitted
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    MethodNotAllowed:
+      description: HTTP method not allowed for this resource
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    RateLimited:
+      description: Rate limit exceeded (see Retry-After header)
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: {type: string}
+    Ok:
+      type: object
+      properties:
+        ok: {type: boolean, example: true}
+    Attachment:
+      type: object
+      properties:
+        name: {type: string}
+        filename: {type: string}
+        url: {type: string}
+    LoginRequest:
+      type: object
+      description: Password login, or passkey completion (send passkey_response + challenge_token)
+      properties:
+        username: {type: string}
+        password: {type: string}
+        totp_code: {type: string}
+        device_name: {type: string}
+        passkey_response: {type: object}
+        challenge_token: {type: string}
+    LoginResponse:
+      type: object
+      properties:
+        token: {type: string}
+        user:
+          type: object
+          properties:
+            id: {type: integer}
+            name: {type: string}
+            email: {type: string}
+            type: {type: integer}
+    PasskeyBeginResponse:
+      type: object
+      properties:
+        challenge: {type: string}
+        timeout: {type: integer}
+        rpId: {type: string}
+        allowCredentials: {type: array, items: {type: object}}
+        userVerification: {type: string}
+        challengeToken: {type: string}
+    DashboardResponse:
+      type: object
+      properties:
+        my_open: {type: integer}
+        all_open: {type: integer}
+        unread: {type: integer}
+        overdue: {type: integer}
+        due_today: {type: integer}
+        onsite_open: {type: integer}
+        queue: {type: array, items: {$ref: '#/components/schemas/TicketListItem'}}
+    CreateTicketRequest:
+      type: object
+      required: [subject]
+      properties:
+        subject: {type: string}
+        details: {type: string}
+        client_id: {type: integer}
+        contact_id: {type: integer}
+        assigned_to: {type: integer}
+        category_id: {type: integer}
+        priority: {type: string, enum: [low, medium, high, critical]}
+        hostname: {type: string}
+    AddReplyRequest:
+      type: object
+      required: [reply]
+      properties:
+        reply: {type: string}
+        type: {type: string, description: "reply | note | client (customer/portal/website)"}
+        time_worked: {type: string, description: HH:MM:SS}
+        onsite: {type: integer, enum: [0, 1]}
+        contact_id: {type: integer}
+    TicketListItem:
+      type: object
+      properties:
+        id: {type: integer}
+        number: {type: integer}
+        subject: {type: string}
+        priority: {type: string}
+        status: {type: string}
+        status_color: {type: string}
+        client: {type: string}
+        assigned_to: {type: string}
+        created_at: {type: string}
+        due_at: {type: string, nullable: true}
+        resolved_at: {type: string, nullable: true}
+        updated_at: {type: string}
+    TicketDetail:
+      type: object
+      properties:
+        id: {type: integer}
+        number: {type: integer}
+        subject: {type: string}
+        details: {type: string}
+        priority: {type: string}
+        status: {type: string}
+        status_color: {type: string}
+        client: {type: string}
+        assigned_to: {type: string}
+        contact_name: {type: string}
+        contact_email: {type: string}
+        contact_phone: {type: string}
+        billable: {type: boolean}
+        created_at: {type: string}
+        due_at: {type: string, nullable: true}
+        resolved_at: {type: string, nullable: true}
+        attachments: {type: array, items: {$ref: '#/components/schemas/Attachment'}}
+        replies: {type: array, items: {$ref: '#/components/schemas/TicketReply'}}
+    TicketReply:
+      type: object
+      properties:
+        id: {type: integer}
+        body: {type: string}
+        type: {type: string}
+        time_worked: {type: string, nullable: true}
+        onsite: {type: boolean}
+        by: {type: string}
+        created_at: {type: string}
+        attachments: {type: array, items: {$ref: '#/components/schemas/Attachment'}}
+    ChatMessage:
+      type: object
+      properties:
+        id: {type: integer}
+        sender_type: {type: string, enum: [agent, contact]}
+        sender_id: {type: integer}
+        sender_name: {type: string}
+        message: {type: string}
+        created_at: {type: string}
+    TicketStatus:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        color: {type: string}
+    TicketCategory:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        color: {type: string}
+    SavedTicketView:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        icon: {type: string}
+        params: {type: object, additionalProperties: {type: string}}
+    ClientListItem:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        phone: {type: string, nullable: true}
+        city: {type: string, nullable: true}
+        state: {type: string, nullable: true}
+        website: {type: string, nullable: true}
+    ClientDetail:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        phone: {type: string, nullable: true}
+        address: {type: string, nullable: true}
+        city: {type: string, nullable: true}
+        state: {type: string, nullable: true}
+        zip: {type: string, nullable: true}
+        website: {type: string, nullable: true}
+        notes: {type: string}
+        open_tickets: {type: integer}
+        contacts: {type: array, items: {$ref: '#/components/schemas/Contact'}}
+    Contact:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        title: {type: string, nullable: true}
+        email: {type: string, nullable: true}
+        phone: {type: string, nullable: true}
+        extension: {type: string, nullable: true}
+        client: {type: string, nullable: true}
+    ClientLocation:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        address: {type: string, nullable: true}
+        city: {type: string, nullable: true}
+        state: {type: string, nullable: true}
+        zip: {type: string, nullable: true}
+        phone: {type: string, nullable: true}
+        primary: {type: boolean}
+    AssetListItem:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        type: {type: string, nullable: true}
+        make: {type: string, nullable: true}
+        model: {type: string, nullable: true}
+        serial: {type: string, nullable: true}
+        os: {type: string, nullable: true}
+        status: {type: string, nullable: true}
+        client: {type: string, nullable: true}
+    AssetDetail:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        type: {type: string, nullable: true}
+        make: {type: string, nullable: true}
+        model: {type: string, nullable: true}
+        serial: {type: string, nullable: true}
+        os: {type: string, nullable: true}
+        status: {type: string, nullable: true}
+        description: {type: string}
+        physical_location: {type: string}
+        location_name: {type: string}
+        location_city: {type: string}
+        location_state: {type: string}
+        contact_name: {type: string}
+        contact_phone: {type: string}
+        client: {type: string, nullable: true}
+        created_at: {type: string, nullable: true}
+        purchase_date: {type: string}
+        warranty_expire: {type: string}
+        notes: {type: string}
+    CredentialListItem:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        username: {type: string, nullable: true}
+        uri: {type: string, nullable: true}
+        client: {type: string, nullable: true}
+    CredentialDetail:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        username: {type: string}
+        password: {type: string}
+        uri: {type: string, nullable: true}
+        uri_2: {type: string}
+        otp_secret: {type: string}
+        note: {type: string}
+        client: {type: string, nullable: true}
+    LineItem:
+      type: object
+      properties:
+        description: {type: string}
+        quantity: {type: number}
+        unit_price: {type: number}
+        total: {type: number}
+        taxable: {type: boolean}
+    QuoteListItem:
+      type: object
+      properties:
+        id: {type: integer}
+        number: {type: string}
+        subject: {type: string}
+        status: {type: string}
+        date: {type: string}
+        total: {type: number}
+        client: {type: string, nullable: true}
+        guest_url: {type: string, nullable: true}
+    QuoteDetail:
+      allOf:
+        - $ref: '#/components/schemas/QuoteListItem'
+        - type: object
+          properties:
+            subtotal: {type: number}
+            tax: {type: number}
+            notes: {type: string}
+            items: {type: array, items: {$ref: '#/components/schemas/LineItem'}}
+    InvoiceListItem:
+      type: object
+      properties:
+        id: {type: integer}
+        number: {type: string}
+        date: {type: string}
+        due_date: {type: string, nullable: true}
+        status: {type: string}
+        total: {type: number}
+        client: {type: string, nullable: true}
+        guest_url: {type: string, nullable: true}
+    InvoiceDetail:
+      allOf:
+        - $ref: '#/components/schemas/InvoiceListItem'
+        - type: object
+          properties:
+            subtotal: {type: number}
+            tax: {type: number}
+            notes: {type: string}
+            items: {type: array, items: {$ref: '#/components/schemas/LineItem'}}
+    Expense:
+      type: object
+      properties:
+        id: {type: integer}
+        description: {type: string}
+        amount: {type: number}
+        currency: {type: string}
+        date: {type: string}
+        reference: {type: string, nullable: true}
+        payment_method: {type: string, nullable: true}
+        has_receipt: {type: boolean}
+        client: {type: string, nullable: true}
+    Charge:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        description: {type: string, nullable: true}
+        quantity: {type: number}
+        unit_price: {type: number}
+        total: {type: number}
+        invoiced: {type: boolean}
+        created_by: {type: string, nullable: true}
+        created_at: {type: string}
+    WorksheetSummary:
+      type: object
+      properties:
+        id: {type: integer}
+        template_name: {type: string, nullable: true}
+        created_by: {type: string, nullable: true}
+        created_at: {type: string}
+        completed_at: {type: string, nullable: true}
+        signed_name: {type: string, nullable: true}
+        signed_at: {type: string, nullable: true}
+        is_outtake: {type: boolean}
+        signed: {type: boolean}
+    WorksheetDetail:
+      type: object
+      properties:
+        id: {type: integer}
+        template_name: {type: string, nullable: true}
+        signed_name: {type: string, nullable: true}
+        signed_at: {type: string, nullable: true}
+        completed_at: {type: string, nullable: true}
+        signed: {type: boolean}
+        fields:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              name: {type: string}
+              type: {type: string}
+              options: {type: string, nullable: true}
+              required: {type: boolean}
+              value: {type: string, nullable: true}
+    WorksheetTemplate:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        description: {type: string, nullable: true}
+    OuttakeSummary:
+      type: object
+      properties:
+        id: {type: integer}
+        sign_token: {type: string, nullable: true}
+        notes: {type: string, nullable: true}
+        created_by: {type: string, nullable: true}
+        created_at: {type: string}
+        signed_name: {type: string, nullable: true}
+        signed_at: {type: string, nullable: true}
+        signed: {type: boolean}
+    OuttakeDetail:
+      allOf:
+        - $ref: '#/components/schemas/OuttakeSummary'
+        - type: object
+          properties:
+            ticket_subject: {type: string, nullable: true}
+            client: {type: string, nullable: true}
+            contact_name: {type: string, nullable: true}
+    SignRequest:
+      type: object
+      required: [signed_name]
+      properties:
+        signed_name: {type: string}
+        signature: {type: string, description: "data:image/png;base64,... (optional)"}
+    Product:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        type: {type: string, nullable: true}
+        description: {type: string, nullable: true}
+        price: {type: number}
+        currency: {type: string, nullable: true}
+        code: {type: string, nullable: true}
+    SearchResult:
+      type: object
+      properties:
+        tickets: {type: array, items: {$ref: '#/components/schemas/TicketListItem'}}
+        clients: {type: array, items: {$ref: '#/components/schemas/ClientListItem'}}
+        assets: {type: array, items: {$ref: '#/components/schemas/AssetListItem'}}
+    KbCategory:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        parent_id: {type: integer}
+        client_id: {type: integer}
+    KbArticleListItem:
+      type: object
+      properties:
+        id: {type: integer}
+        title: {type: string}
+        category_id: {type: integer}
+        category_name: {type: string, nullable: true}
+        client_id: {type: integer}
+        client_name: {type: string, nullable: true}
+        client_visible: {type: integer}
+        updated_at: {type: string}
+    KbArticleDetail:
+      allOf:
+        - $ref: '#/components/schemas/KbArticleListItem'
+        - type: object
+          properties:
+            content: {type: string}
+            attachments: {type: array, items: {$ref: '#/components/schemas/Attachment'}}
+    UserProfile:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        email: {type: string}
+        type: {type: integer}
+        color: {type: string, nullable: true}
+        avatar: {type: string, nullable: true}
+    UpdateProfileRequest:
+      type: object
+      description: >
+        One of several shapes. Profile update: name+email (+ current_password/new_password).
+        Push registration: fcm_token. Biometric registration: device_public_key_pem.
+      properties:
+        name: {type: string}
+        email: {type: string}
+        current_password: {type: string}
+        new_password: {type: string}
+        fcm_token: {type: string}
+        device_public_key_pem: {type: string}
+    Appointment:
+      type: object
+      properties:
+        id: {type: integer}
+        ticket_id: {type: integer}
+        number: {type: integer}
+        subject: {type: string}
+        schedule: {type: string, nullable: true}
+        schedule_end: {type: string, nullable: true}
+        onsite: {type: boolean}
+        notes: {type: string, nullable: true}
+        priority: {type: string, nullable: true}
+        status: {type: string, nullable: true}
+        status_color: {type: string, nullable: true}
+        client: {type: string, nullable: true}
+        assigned_to: {type: string, nullable: true}
+    CreateAppointmentRequest:
+      type: object
+      required: [ticket_id, schedule_start]
+      properties:
+        ticket_id: {type: integer}
+        schedule_start: {type: string, description: "Y-m-d H:i:s"}
+        schedule_end: {type: string, nullable: true}
+        onsite: {type: boolean}
+        notes: {type: string}
+    Notification:
+      type: object
+      properties:
+        id: {type: integer}
+        type: {type: string}
+        message: {type: string}
+        action: {type: string, nullable: true}
+        timestamp: {type: string}
+    Alert:
+      type: object
+      properties:
+        source: {type: string, enum: [rmm, backup]}
+        id: {type: integer}
+        severity: {type: string, enum: [critical, error, warning, info]}
+        message: {type: string}
+        subject: {type: string, nullable: true}
+        client_id: {type: integer, nullable: true}
+        client_name: {type: string, nullable: true}
+        status: {type: string}
+        created_at: {type: string}
+        ticket_id: {type: integer, nullable: true}
+        ticket_label: {type: string, nullable: true}
+    AlertActionRequest:
+      type: object
+      required: [source, id, action]
+      properties:
+        source: {type: string, enum: [rmm, backup]}
+        id: {type: integer}
+        action: {type: string, enum: [acknowledge, resolve]}

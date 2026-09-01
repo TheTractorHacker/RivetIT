@@ -1,0 +1,893 @@
+<?php
+
+require_once "../config.php";
+require_once "../functions.php";
+require_once "../includes/load_global_settings.php";
+
+session_start();
+
+require_once "../includes/inc_set_timezone.php"; // Must be included after session_start to work
+
+if (isset($_POST['accept_quote'], $_POST['url_key'])) {
+
+    $quote_id = intval($_POST['accept_quote']);
+    $url_key = sanitizeInput($_POST['url_key']);
+
+    // Select only the necessary fields
+    $sql = mysqli_query($mysqli, "SELECT quote_prefix, quote_number, client_name, client_id FROM quotes LEFT JOIN clients ON quote_client_id = client_id WHERE quote_id = $quote_id AND quote_url_key = '$url_key'");
+
+    if (mysqli_num_rows($sql) == 1) {
+        $row = mysqli_fetch_assoc($sql);
+        $quote_prefix = sanitizeInput($row['quote_prefix']);
+        $quote_number = intval($row['quote_number']);
+        $client_name = sanitizeInput($row['client_name']);
+        $client_id = intval($row['client_id']);
+
+        mysqli_query($mysqli, "UPDATE quotes SET quote_status = 'Accepted' WHERE quote_id = $quote_id");
+        mysqli_query($mysqli, "INSERT INTO history SET history_status = 'Accepted', history_description = 'Client accepted Quote!', history_quote_id = $quote_id");
+
+        // Notification
+        appNotify("Quote Accepted", "Quote $quote_prefix$quote_number has been accepted by $client_name", "/agent/quote.php?quote_id=$quote_id", $client_id);
+        customAction('quote_accept', $quote_id);
+
+        // Internal email notification
+
+        $sql_company = mysqli_query($mysqli, "SELECT company_name FROM companies WHERE company_id = 1");
+        $row = mysqli_fetch_assoc($sql_company);
+        $company_name = sanitizeInput($row['company_name']);
+
+        $sql_settings = mysqli_query($mysqli, "SELECT * FROM settings WHERE company_id = 1");
+        $row = mysqli_fetch_assoc($sql_settings);
+        $config_smtp_host = $row['config_smtp_host'];
+        $config_smtp_port = intval($row['config_smtp_port']);
+        $config_smtp_encryption = $row['config_smtp_encryption'];
+        $config_smtp_username = $row['config_smtp_username'];
+        $config_smtp_password = $row['config_smtp_password'];
+        $config_quote_from_name = sanitizeInput($row['config_quote_from_name']);
+        $config_quote_from_email = sanitizeInput($row['config_quote_from_email']);
+        $config_quote_notification_email = sanitizeInput($row['config_quote_notification_email']);
+        $config_base_url = sanitizeInput($config_base_url);
+
+        if (!empty($config_smtp_host) && !empty($config_quote_notification_email)) {
+            $subject = "Quote Accepted - $client_name - Quote $quote_prefix$quote_number";
+            $body = "Hello, <br><br>This is a notification that a quote has been accepted in ITFlow. <br><br>Client: $client_name<br>Quote: <a href=\'https://$config_base_url/quote.php?quote_id=$quote_id\'>$quote_prefix$quote_number</a><br><br>~<br>$company_name - Billing<br>$config_quote_from_email";
+
+            $data[] = [
+                'from' => $config_quote_from_email,
+                'from_name' => $config_quote_from_name,
+                'recipient' => $config_quote_notification_email,
+                'subject' => $subject,
+                'body' => $body,
+            ];
+
+            $mail = addToMailQueue($data);
+        }
+
+        flash_alert("Quote Accepted");
+
+        redirect();
+
+    } else {
+        echo "Invalid!!";
+    }
+
+}
+
+if (isset($_POST['decline_quote'], $_POST['url_key'])) {
+
+    $quote_id = intval($_POST['decline_quote']);
+    $url_key = sanitizeInput($_POST['url_key']);
+
+    // Select only the necessary fields
+    $sql = mysqli_query($mysqli, "SELECT quote_prefix, quote_number, client_name, client_id FROM quotes LEFT JOIN clients ON quote_client_id = client_id WHERE quote_id = $quote_id AND quote_url_key = '$url_key'");
+
+    if (mysqli_num_rows($sql) == 1) {
+        $row = mysqli_fetch_assoc($sql);
+        $quote_prefix = sanitizeInput($row['quote_prefix']);
+        $quote_number = intval($row['quote_number']);
+        $client_name = sanitizeInput($row['client_name']);
+        $client_id = intval($row['client_id']);
+
+        mysqli_query($mysqli, "UPDATE quotes SET quote_status = 'Declined' WHERE quote_id = $quote_id");
+        mysqli_query($mysqli, "INSERT INTO history SET history_status = 'Declined', history_description = 'Client declined Quote!', history_quote_id = $quote_id");
+
+        // Notification
+        appNotify("Quote Declined", "Quote $quote_prefix$quote_number has been declined by $client_name", "/agent/quote.php?quote_id=$quote_id", $client_id);
+        customAction('quote_decline', $quote_id);
+
+        // Internal email notification
+
+        $sql_company = mysqli_query($mysqli, "SELECT company_name FROM companies WHERE company_id = 1");
+        $row = mysqli_fetch_assoc($sql_company);
+        $company_name = sanitizeInput($row['company_name']);
+
+        $sql_settings = mysqli_query($mysqli, "SELECT * FROM settings WHERE company_id = 1");
+        $row = mysqli_fetch_assoc($sql_settings);
+        $config_smtp_host = $row['config_smtp_host'];
+        $config_smtp_port = intval($row['config_smtp_port']);
+        $config_smtp_encryption = $row['config_smtp_encryption'];
+        $config_smtp_username = $row['config_smtp_username'];
+        $config_smtp_password = $row['config_smtp_password'];
+        $config_quote_from_name = sanitizeInput($row['config_quote_from_name']);
+        $config_quote_from_email = sanitizeInput($row['config_quote_from_email']);
+        $config_quote_notification_email = sanitizeInput($row['config_quote_notification_email']);
+        $config_base_url = sanitizeInput($config_base_url);
+
+        if (!empty($config_smtp_host) && !empty($config_quote_notification_email)) {
+            $subject = "Quote Declined - $client_name - Quote $quote_prefix$quote_number";
+            $body = "Hello, <br><br>This is a notification that a quote has been declined in ITFlow. <br><br>Client: $client_name<br>Quote: <a href=\'https://$config_base_url/quote.php?quote_id=$quote_id\'>$quote_prefix$quote_number</a><br><br>~<br>$company_name - Billing<br>$config_quote_from_email";
+
+            $data[] = [
+                'from' => $config_quote_from_email,
+                'from_name' => $config_quote_from_name,
+                'recipient' => $config_quote_notification_email,
+                'subject' => $subject,
+                'body' => $body,
+            ];
+
+            $mail = addToMailQueue($data);
+        }
+        flash_alert("Quote Declined", 'danger');
+
+        redirect();
+
+    } else {
+        echo "Invalid!!";
+    }
+
+}
+
+if (isset($_POST['reopen_ticket'], $_POST['url_key'])) {
+
+    $ticket_id = intval($_POST['ticket_id']);
+    $url_key = sanitizeInput($_POST['url_key']);
+
+    // Select only the necessary fields
+    $sql = mysqli_query($mysqli, "SELECT ticket_id FROM tickets WHERE ticket_id = $ticket_id AND ticket_url_key = '$url_key' AND ticket_resolved_at IS NOT NULL AND ticket_closed_at IS NULL");
+
+    if (mysqli_num_rows($sql) == 1) {
+        // Update the ticket
+        mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 2, ticket_resolved_at = NULL WHERE ticket_id = $ticket_id AND ticket_url_key = '$url_key'");
+
+        // Add reply
+        mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Ticket reopened by client (guest URL).', ticket_reply_type = 'Internal', ticket_reply_by = 0, ticket_reply_ticket_id = $ticket_id");
+
+        customAction('ticket_update', $ticket_id);
+
+        flash_alert("Ticket reopened");
+
+        redirect();
+
+    } else {
+        echo "Invalid!!";
+    }
+
+}
+
+if (isset($_POST['close_ticket'], $_POST['url_key'])) {
+
+    $ticket_id = intval($_POST['ticket_id']);
+    $url_key = sanitizeInput($_POST['url_key']);
+
+    // Select only the necessary fields
+    $sql = mysqli_query($mysqli, "SELECT ticket_id FROM tickets WHERE ticket_id = $ticket_id AND ticket_url_key = '$url_key' AND ticket_resolved_at IS NOT NULL AND ticket_closed_at IS NULL");
+
+    if (mysqli_num_rows($sql) == 1) {
+
+        // Update the ticket
+        mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 5, ticket_closed_at = NOW() WHERE ticket_id = $ticket_id AND ticket_url_key = '$url_key'");
+
+        // Add reply
+        mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Ticket closed by client (guest URL).', ticket_reply_type = 'Internal', ticket_reply_by = 0, ticket_reply_ticket_id = $ticket_id");
+
+        customAction('ticket_close', $ticket_id);
+
+        flash_alert("Ticket closed");
+
+        redirect();
+
+    } else {
+        echo "Invalid!!";
+    }
+}
+
+if (isset($_POST['add_ticket_feedback'], $_POST['url_key'])) {
+
+    if (empty($config_ticket_csat_enable)) {
+        redirect();
+    }
+
+    $ticket_id = intval($_POST['ticket_id']);
+    $url_key = sanitizeInput($_POST['url_key']);
+    $rating = intval($_POST['csat_rating'] ?? 0);
+    $comment_raw = substr(trim($_POST['csat_comment'] ?? ''), 0, 1000);
+    $comment = sanitizeInput($comment_raw);
+
+    if ($rating < 1 || $rating > 5) {
+        flash_alert("Please select a rating.", "danger");
+        redirect();
+    }
+
+    // Select only the necessary fields
+    $sql = mysqli_query($mysqli, "SELECT ticket_id FROM tickets WHERE ticket_id = $ticket_id AND ticket_url_key = '$url_key' AND ticket_closed_at IS NOT NULL");
+
+    if (mysqli_num_rows($sql) == 1) {
+        applyCsatRating($mysqli, $ticket_id, $rating, $comment, 'a guest', $config_ticket_csat_low_rating_threshold);
+
+        customAction('ticket_feedback', $ticket_id);
+
+        flash_alert("Feedback recorded - thank you");
+
+        redirect();
+
+    } else {
+        echo "Invalid!!";
+    }
+
+}
+
+if (isset($_POST['add_ticket_csat_comment'], $_POST['url_key'])) {
+
+    $ticket_id = intval($_POST['ticket_id']);
+    $url_key = sanitizeInput($_POST['url_key']);
+    $comment_raw = substr(trim($_POST['csat_comment'] ?? ''), 0, 1000);
+    $comment = sanitizeInput($comment_raw);
+
+    // Only lets someone add a comment to a rating that already exists and has no
+    // comment yet (the one-click email star links can't carry free text, so the
+    // comment is a separate follow-up step on the landing page) - never lets this
+    // action set/overwrite the rating itself.
+    $sql = mysqli_query($mysqli, "SELECT ticket_id FROM tickets WHERE ticket_id = $ticket_id AND ticket_url_key = '$url_key' AND ticket_csat_rating IS NOT NULL AND (ticket_csat_comment IS NULL OR ticket_csat_comment = '')");
+
+    if (mysqli_num_rows($sql) == 1 && $comment !== '') {
+        mysqli_query($mysqli, "UPDATE tickets SET ticket_csat_comment = '$comment' WHERE ticket_id = $ticket_id AND ticket_url_key = '$url_key'");
+        flash_alert("Comment added - thank you");
+    }
+
+    redirect();
+
+}
+
+if (isset($_GET['approve_ticket_task'])) {
+
+    $task_id = intval($_GET['approve_ticket_task']);
+    $approval_id = intval($_GET['approval_id']);
+    $url_key = sanitizeInput($_GET['approval_url_key']);
+
+    $approval_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM task_approvals LEFT JOIN tasks on task_id = approval_task_id WHERE approval_id = $approval_id AND approval_task_id = $task_id AND approval_url_key = '$url_key' AND approval_status = 'pending' AND approval_scope = 'client'"));
+
+    $task_name = nullable_htmlentities($approval_row['task_name']);
+    $scope = nullable_htmlentities($approval_row['approval_scope']);
+    $type = nullable_htmlentities($approval_row['approval_type']);
+    $required_user = intval($approval_row['approval_required_user_id']);
+    $created_by = intval($approval_row['approval_created_by']);
+    $ticket_id = intval($approval_row['task_ticket_id']);
+
+    if (!$approval_row) {
+        exit("Cannot find/approve that task");
+    }
+
+    // Approve
+    mysqli_query($mysqli, "UPDATE task_approvals SET approval_status = 'approved', approval_approved_by = $required_user WHERE approval_id = $approval_id AND approval_task_id = $task_id AND approval_url_key = '$url_key' AND approval_status = 'pending' AND approval_scope = 'client'");
+
+    // Notify tech
+    mysqli_query($mysqli, "INSERT INTO notifications SET notification_type = 'Ticket', notification = 'Guest approved ticket task $task_name', notification_action = 'ticket.php?ticket_id=$ticket_id', notification_user_id = $created_by");
+
+    // Logging
+    logAction("Task", "Edit", "Guest user approved task $task_name via link (approval $approval_id)", 0, $task_id);
+
+    flash_alert("Task Approved");
+    redirect();
+
+}
+
+if (isset($_GET['export_quote_pdf'])) {
+
+    $quote_id = intval($_GET['export_quote_pdf']);
+    $url_key = sanitizeInput($_GET['url_key']);
+
+    $sql = mysqli_query(
+        $mysqli,
+        "SELECT * FROM quotes
+        LEFT JOIN clients ON quote_client_id = client_id
+        LEFT JOIN contacts ON clients.client_id = contacts.contact_client_id AND contact_primary = 1
+        LEFT JOIN locations ON clients.client_id = locations.location_client_id AND location_primary = 1
+        WHERE quote_id = $quote_id AND quote_url_key = '$url_key'
+        LIMIT 1"
+    );
+
+    if (mysqli_num_rows($sql) == 1) {
+
+        $row = mysqli_fetch_assoc($sql);
+        $quote_id = intval($row['quote_id']);
+        $quote_prefix = nullable_htmlentities($row['quote_prefix']);
+        $quote_number = intval($row['quote_number']);
+        $quote_scope = nullable_htmlentities($row['quote_scope']);
+        $quote_status = nullable_htmlentities($row['quote_status']);
+        $quote_date = nullable_htmlentities($row['quote_date']);
+        $quote_expire = nullable_htmlentities($row['quote_expire']);
+        $quote_amount = floatval($row['quote_amount']);
+        $quote_discount = floatval($row['quote_discount_amount']);
+        $quote_currency_code = nullable_htmlentities($row['quote_currency_code']);
+        $quote_note = nullable_htmlentities($row['quote_note']);
+        $quote_url_key = nullable_htmlentities($row['quote_url_key']);
+        $quote_created_at = nullable_htmlentities($row['quote_created_at']);
+        $category_id = intval($row['quote_category_id']);
+        $client_id = intval($row['client_id']);
+        $client_name = nullable_htmlentities($row['client_name']);
+        $location_address = nullable_htmlentities($row['location_address']);
+        $location_city = nullable_htmlentities($row['location_city']);
+        $location_state = nullable_htmlentities($row['location_state']);
+        $location_zip = nullable_htmlentities($row['location_zip']);
+        $location_country = nullable_htmlentities($row['location_country']);
+        $contact_email = nullable_htmlentities($row['contact_email']);
+        $contact_phone_country_code = nullable_htmlentities($row['contact_phone_country_code']);
+        $contact_phone = nullable_htmlentities(formatPhoneNumber($row['contact_phone'], $contact_phone_country_code));
+        $contact_extension = nullable_htmlentities($row['contact_extension']);
+        $contact_mobile_country_code = nullable_htmlentities($row['contact_mobile_country_code']);
+        $contact_mobile = nullable_htmlentities(formatPhoneNumber($row['contact_mobile'], $contact_mobile_country_code));
+        $client_website = nullable_htmlentities($row['client_website']);
+        $client_currency_code = nullable_htmlentities($row['client_currency_code']);
+        $client_net_terms = intval($row['client_net_terms']);
+        if ($client_net_terms == 0) {
+            $client_net_terms = $config_default_net_terms;
+        }
+
+        $sql = mysqli_query($mysqli, "SELECT * FROM companies, settings WHERE companies.company_id = settings.company_id AND companies.company_id = 1");
+        $row = mysqli_fetch_assoc($sql);
+
+        $company_id = intval($row['company_id']);
+        $company_name = nullable_htmlentities($row['company_name']);
+        $company_country = nullable_htmlentities($row['company_country']);
+        $company_address = nullable_htmlentities($row['company_address']);
+        $company_city = nullable_htmlentities($row['company_city']);
+        $company_state = nullable_htmlentities($row['company_state']);
+        $company_zip = nullable_htmlentities($row['company_zip']);
+        $company_phone_country_code = nullable_htmlentities($row['company_phone_country_code']);
+        $company_phone = nullable_htmlentities(formatPhoneNumber($row['company_phone'], $company_phone_country_code));
+        $company_email = nullable_htmlentities($row['company_email']);
+        $company_website = nullable_htmlentities($row['company_website']);
+        $company_logo = nullable_htmlentities($row['company_logo']);
+        $company_locale = nullable_htmlentities($row['company_locale']);
+        //Set Currency Format
+        $currency_format = numfmt_create($company_locale, NumberFormatter::CURRENCY);
+
+        require_once("../plugins/TCPDF/tcpdf.php");
+
+        // Start TCPDF
+        $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+        $pdf->SetMargins(10, 10, 10);
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->AddPage();
+        $pdf->SetFont('helvetica', '', 10);
+
+        // Logo + Right Columns
+        $html = '<table width="100%" cellspacing="0" cellpadding="3">
+        <tr>
+            <td width="40%">';
+        if (!empty($company_logo) && file_exists("../uploads/settings/$company_logo")) {
+            $html .= '<img src="/uploads/settings/' . $company_logo . '" width="120">';
+        }
+        $html .= '</td>
+            <td width="60%" align="right">
+                <span style="font-size:18pt; font-weight:bold;">QUOTE</span><br>
+                <span style="font-size:14pt;">' . $quote_prefix . $quote_number . '</span><br>';
+        if (strtolower($quote_status) === 'accepted') {
+            $html .= '<span style="color:green; font-weight:bold;">ACCEPTED</span><br>';
+        }
+        if (strtolower($quote_status) === 'declined') {
+            $html .= '<span style="color:red; font-weight:bold;">DECLINED</span><br>';
+        }
+        $html .= '</td>
+        </tr>
+        </table><br>';
+
+        // Billing titles
+        $html .= '<table width="100%" cellspacing="0" cellpadding="2">
+        <tr>
+            <td width="50%" style="font-size:14pt; font-weight:bold;">' . $company_name . '</td>
+            <td width="50%" align="right" style="font-size:14pt; font-weight:bold;">' . $client_name . '</td>
+        </tr>
+        <tr>
+            <td style="font-size:10pt; line-height:1.4;">' . nl2br("$company_address\n$company_city $company_state $company_zip\n$company_country\n$company_phone\n$company_website") . '</td>
+            <td style="font-size:10pt; line-height:1.4;" align="right">' . nl2br("$location_address\n$location_city $location_state $location_zip\n$location_country\n$contact_email\n$contact_phone") . '</td>
+        </tr>
+        </table><br>';
+
+        // Date table
+        $html .= '<table border="0" cellpadding="2" cellspacing="0" width="100%">
+        <tr>
+            <td width="60%"></td>
+            <td width="20%" style="font-size:10pt;"><strong>Date:</strong></td>
+            <td width="20%" style="font-size:10pt;" align="right">' . $quote_date . '</td>
+        </tr>
+        <tr>
+            <td></td>
+            <td style="font-size:10pt;"><strong>Expires:</strong></td>
+            <td style="font-size:10pt;" align="right">' . $quote_expire . '</td>
+        </tr>
+        </table><br><br>';
+
+        // Items header
+        $html .= '
+        <table border="0" cellpadding="5" cellspacing="0" width="100%">
+        <tr style="background-color:#f0f0f0;">
+            <th align="left" width="40%"><strong>Item</strong></th>
+            <th align="center" width="10%"><strong>Qty</strong></th>
+            <th align="right" width="15%"><strong>Price</strong></th>
+            <th align="right" width="15%"><strong>Tax</strong></th>
+            <th align="right" width="20%"><strong>Amount</strong></th>
+        </tr>';
+
+        // Load items
+        $sub_total = 0;
+        $total_tax = 0;
+
+        $sql_items = mysqli_query($mysqli, "SELECT * FROM quote_items WHERE item_quote_id = $quote_id ORDER BY item_order ASC");
+        while ($item = mysqli_fetch_assoc($sql_items)) {
+            $name = $item['item_name'];
+            $desc = $item['item_description'];
+            $qty = $item['item_quantity'];
+            $price = $item['item_price'];
+            $tax = $item['item_tax'];
+            $total = $item['item_total'];
+
+            $sub_total += $price * $qty;
+            $total_tax += $tax;
+
+            $html .= '
+            <tr>
+                <td><strong>' . $name . '</strong>
+                    <br><span style="font-style:italic; font-size:9pt;">' . nl2br($desc) . '</span>
+                </td>
+                <td align="center">' . number_format($qty, 2) . '</td>
+                <td align="right">' . numfmt_format_currency($currency_format, $price, $quote_currency_code) . '</td>
+                <td align="right">' . numfmt_format_currency($currency_format, $tax, $quote_currency_code) . '</td>
+                <td align="right">' . numfmt_format_currency($currency_format, $total, $quote_currency_code) . '</td>
+            </tr>';
+        }
+
+        $html .= '</table><br><hr><br><br>';
+
+        // Totals
+        $html .= '<table width="100%" cellspacing="0" cellpadding="4">
+        <tr>
+            <td width="60%"><i style="font-size:9pt;">' . nl2br($quote_note) . '</i></td>
+            <td width="40%">
+                <table width="100%" cellpadding="3" cellspacing="0">
+                    <tr><td>Subtotal:</td><td align="right">' . numfmt_format_currency($currency_format, $sub_total, $quote_currency_code) . '</td></tr>';
+        if ($quote_discount > 0) {
+            $html .= '<tr><td>Discount:</td><td align="right">-' . numfmt_format_currency($currency_format, $quote_discount, $quote_currency_code) . '</td></tr>';
+        }
+        if ($total_tax > 0) {
+            $html .= '<tr><td>Tax:</td><td align="right">' . numfmt_format_currency($currency_format, $total_tax, $quote_currency_code) . '</td></tr>';
+        }
+        $html .= '
+        <tr><td><h3><strong>Total:</strong></h3></td><td align="right"><h3><strong>' . numfmt_format_currency($currency_format, $quote_amount, $quote_currency_code) . '</strong></h3></td></tr>
+        </table>
+            </td>
+        </tr>
+        </table><br><br>';
+
+        // Footer
+        $html .= '<div style="text-align:center; font-size:9pt; color:gray;">' . nl2br($config_quote_footer) . '</div>';
+
+        $pdf->writeHTML($html, true, false, true, false, '');
+
+        $filename = preg_replace('/[^A-Za-z0-9_\-]/', '_', "{$quote_date}_{$company_name}_{$client_name}_Quote_{$quote_prefix}{$quote_number}");
+        $pdf->Output("$filename.pdf", 'I');
+    }
+    exit;
+
+}
+
+if (isset($_GET['export_invoice_pdf'])) {
+
+    $invoice_id = intval($_GET['export_invoice_pdf']);
+    $url_key = sanitizeInput($_GET['url_key']);
+
+    $sql = mysqli_query(
+        $mysqli,
+        "SELECT * FROM invoices
+        LEFT JOIN clients ON invoice_client_id = client_id
+        LEFT JOIN contacts ON clients.client_id = contacts.contact_client_id AND contact_primary = 1
+        LEFT JOIN locations ON clients.client_id = locations.location_client_id AND location_primary = 1
+        WHERE invoice_id = $invoice_id AND invoice_url_key = '$url_key'
+        LIMIT 1"
+    );
+
+    if (mysqli_num_rows($sql) == 1) {
+
+        $row = mysqli_fetch_assoc($sql);
+        $invoice_id = intval($row['invoice_id']);
+        $invoice_prefix = nullable_htmlentities($row['invoice_prefix']);
+        $invoice_number = intval($row['invoice_number']);
+        $invoice_scope = nullable_htmlentities($row['invoice_scope']);
+        $invoice_status = nullable_htmlentities($row['invoice_status']);
+        $invoice_date = nullable_htmlentities($row['invoice_date']);
+        $invoice_due = nullable_htmlentities($row['invoice_due']);
+        $invoice_amount = floatval($row['invoice_amount']);
+        $invoice_discount = floatval($row['invoice_discount_amount']);
+        $invoice_currency_code = nullable_htmlentities($row['invoice_currency_code']);
+        $invoice_note = nullable_htmlentities($row['invoice_note']);
+        $invoice_url_key = nullable_htmlentities($row['invoice_url_key']);
+        $invoice_created_at = nullable_htmlentities($row['invoice_created_at']);
+        $category_id = intval($row['invoice_category_id']);
+        $client_id = intval($row['client_id']);
+        $client_name = nullable_htmlentities($row['client_name']);
+        $location_address = nullable_htmlentities($row['location_address']);
+        $location_city = nullable_htmlentities($row['location_city']);
+        $location_state = nullable_htmlentities($row['location_state']);
+        $location_zip = nullable_htmlentities($row['location_zip']);
+        $location_country = nullable_htmlentities($row['location_country']);
+        $contact_email = nullable_htmlentities($row['contact_email']);
+        $contact_phone_country_code = nullable_htmlentities($row['contact_phone_country_code']);
+        $contact_phone = nullable_htmlentities(formatPhoneNumber($row['contact_phone'], $contact_phone_country_code));
+        $contact_extension = nullable_htmlentities($row['contact_extension']);
+        $contact_mobile_country_code = nullable_htmlentities($row['contact_mobile_country_code']);
+        $contact_mobile = nullable_htmlentities(formatPhoneNumber($row['contact_mobile'], $contact_mobile_country_code));
+        $client_website = nullable_htmlentities($row['client_website']);
+        $client_currency_code = nullable_htmlentities($row['client_currency_code']);
+        $client_net_terms = intval($row['client_net_terms']);
+        if ($client_net_terms == 0) {
+            $client_net_terms = $config_default_net_terms;
+        }
+
+        $sql = mysqli_query($mysqli, "SELECT * FROM companies WHERE company_id = 1");
+        $row = mysqli_fetch_assoc($sql);
+        $company_id = intval($row['company_id']);
+        $company_name = nullable_htmlentities($row['company_name']);
+        $company_country = nullable_htmlentities($row['company_country']);
+        $company_address = nullable_htmlentities($row['company_address']);
+        $company_city = nullable_htmlentities($row['company_city']);
+        $company_state = nullable_htmlentities($row['company_state']);
+        $company_zip = nullable_htmlentities($row['company_zip']);
+        $company_phone_country_code = nullable_htmlentities($row['company_phone_country_code']);
+        $company_phone = nullable_htmlentities(formatPhoneNumber($row['company_phone'], $company_phone_country_code));
+        $company_email = nullable_htmlentities($row['company_email']);
+        $company_website = nullable_htmlentities($row['company_website']);
+        $company_tax_id = nullable_htmlentities($row['company_tax_id']);
+        if ($config_invoice_show_tax_id && !empty($company_tax_id)) {
+            $company_tax_id_display = "Tax ID: $company_tax_id";
+        } else {
+            $company_tax_id_display = "";
+        }
+        $company_logo = nullable_htmlentities($row['company_logo']);
+        $company_locale = nullable_htmlentities($row['company_locale']);
+        //Set Currency Format
+        $currency_format = numfmt_create($company_locale, NumberFormatter::CURRENCY);
+
+        $sql_payments = mysqli_query($mysqli, "SELECT * FROM payments, accounts WHERE payment_account_id = account_id AND payment_invoice_id = $invoice_id ORDER BY payments.payment_id DESC");
+
+        //Add up all the payments for the invoice and get the total amount paid to the invoice
+        $sql_amount_paid = mysqli_query($mysqli, "SELECT SUM(payment_amount) AS amount_paid FROM payments WHERE payment_invoice_id = $invoice_id");
+        $row = mysqli_fetch_assoc($sql_amount_paid);
+        $amount_paid = floatval($row['amount_paid']);
+
+        $balance = $invoice_amount - $amount_paid;
+
+        //check to see if overdue
+        if ($invoice_status !== "Paid" && $invoice_status !== "Draft" && $invoice_status !== "Cancelled" && $invoice_status !== "Non-Billable") {
+            $unixtime_invoice_due = strtotime($invoice_due) + 86400;
+            if ($unixtime_invoice_due < time()) {
+                $invoice_overdue = "Overdue";
+            }
+        }
+
+        //Set Badge color based off of invoice status
+        $invoice_badge_color = getInvoiceBadgeColor($invoice_status);
+
+        require_once("../plugins/TCPDF/tcpdf.php");
+
+        // Start TCPDF
+        $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+        $pdf->SetMargins(10, 10, 10);
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->AddPage();
+        $pdf->SetFont('helvetica', '', 10);
+
+        // Logo + Right Columns
+        $html = '<table width="100%" cellspacing="0" cellpadding="3">
+        <tr>
+            <td width="40%">';
+        if (!empty($company_logo) && file_exists("../uploads/settings/$company_logo")) {
+            $html .= '<img src="/uploads/settings/' . $company_logo . '" width="120">';
+        }
+        $html .= '</td>
+            <td width="60%" align="right">
+                <span style="font-size:18pt; font-weight:bold;">Invoice</span><br>
+                <span style="font-size:14pt;">' . $invoice_prefix . $invoice_number . '</span><br>';
+        if (strtolower($invoice_status) === 'paid') {
+            $html .= '<span style="color:green; font-weight:bold;">PAID</span><br>';
+        }
+        $html .= '</td>
+        </tr>
+        </table><br>';
+
+        // Billing titles
+        $html .= '<table width="100%" cellspacing="0" cellpadding="2">
+        <tr>
+            <td width="50%" style="font-size:14pt; font-weight:bold;">' . $company_name . '</td>
+            <td width="50%" align="right" style="font-size:14pt; font-weight:bold;">' . $client_name . '</td>
+        </tr>
+        <tr>
+            <td style="font-size:10pt; line-height:1.4;">' . nl2br("$company_address\n$company_city $company_state $company_zip\n$company_country\n$company_phone\n$company_website\n$company_tax_id_display") . '</td>
+            <td style="font-size:10pt; line-height:1.4;" align="right">' . nl2br("$location_address\n$location_city $location_state $location_zip\n$location_country\n$contact_email\n$contact_phone") . '</td>
+        </tr>
+        </table><br>';
+
+        // Date table
+        $html .= '<table border="0" cellpadding="2" cellspacing="0" width="100%">
+        <tr>
+            <td width="60%"></td>
+            <td width="20%" style="font-size:10pt;"><strong>Date:</strong></td>
+            <td width="20%" style="font-size:10pt;" align="right">' . $invoice_date . '</td>
+        </tr>
+        <tr>
+            <td></td>
+            <td style="font-size:10pt;"><strong>Due:</strong></td>
+            <td style="font-size:10pt;" align="right">' . $invoice_due . '</td>
+        </tr>
+        </table><br><br>';
+
+        // Items header
+        $html .= '
+        <table border="0" cellpadding="5" cellspacing="0" width="100%">
+        <tr style="background-color:#f0f0f0;">
+            <th align="left" width="40%"><strong>Item</strong></th>
+            <th align="center" width="10%"><strong>Qty</strong></th>
+            <th align="right" width="15%"><strong>Price</strong></th>
+            <th align="right" width="15%"><strong>Tax</strong></th>
+            <th align="right" width="20%"><strong>Amount</strong></th>
+        </tr>';
+
+        // Load items
+        $sub_total = 0;
+        $total_tax = 0;
+
+        $sql_items = mysqli_query($mysqli, "SELECT * FROM invoice_items WHERE item_invoice_id = $invoice_id ORDER BY item_order ASC");
+        while ($item = mysqli_fetch_assoc($sql_items)) {
+            $name = $item['item_name'];
+            $desc = $item['item_description'];
+            $qty = $item['item_quantity'];
+            $price = $item['item_price'];
+            $tax = $item['item_tax'];
+            $total = $item['item_total'];
+
+            $sub_total += $price * $qty;
+            $total_tax += $tax;
+
+            $html .= '
+            <tr>
+                <td><strong>' . $name . '</strong>
+                    <br><span style="font-style:italic; font-size:9pt;">' . nl2br($desc) . '</span>
+                </td>
+                <td align="center">' . number_format($qty, 2) . '</td>
+                <td align="right">' . numfmt_format_currency($currency_format, $price, $invoice_currency_code) . '</td>
+                <td align="right">' . numfmt_format_currency($currency_format, $tax, $invoice_currency_code) . '</td>
+                <td align="right">' . numfmt_format_currency($currency_format, $total, $invoice_currency_code) . '</td>
+            </tr>';
+        }
+
+        $html .= '</table><br><hr><br><br>';
+
+        // Totals
+        $html .= '<table width="100%" cellspacing="0" cellpadding="4">
+        <tr>
+            <td width="60%"><i style="font-size:9pt;">' . nl2br($invoice_note) . '</i></td>
+            <td width="40%">
+                <table width="100%" cellpadding="3" cellspacing="0">
+                    <tr><td>Subtotal:</td><td align="right">' . numfmt_format_currency($currency_format, $sub_total, $invoice_currency_code) . '</td></tr>';
+        if ($invoice_discount > 0) {
+            $html .= '<tr><td>Discount:</td><td align="right">-' . numfmt_format_currency($currency_format, $invoice_discount, $invoice_currency_code) . '</td></tr>';
+        }
+        if ($total_tax > 0) {
+            $html .= '<tr><td>Tax:</td><td align="right">' . numfmt_format_currency($currency_format, $total_tax, $invoice_currency_code) . '</td></tr>';
+        }
+        $html .= '
+        <tr><td>Total:</td><td align="right">' . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . '</td></tr>';
+        if ($amount_paid > 0) {
+            $html .= '<tr><td>Paid:</td><td align="right">' . numfmt_format_currency($currency_format, $amount_paid, $invoice_currency_code) . '</td></tr>';
+        }
+        $html .= '
+        <tr><td><h3><strong>Balance:</strong></h3></td><td align="right"><h3><strong>' . numfmt_format_currency($currency_format, $balance, $invoice_currency_code) . '</strong></h3></td></tr>
+        </table>
+            </td>
+        </tr>
+        </table><br><br>';
+
+        // Footer
+        $html .= '<div style="text-align:center; font-size:9pt; color:gray;">' . nl2br($config_invoice_footer) . '</div>';
+
+        $pdf->writeHTML($html, true, false, true, false, '');
+
+        $filename = preg_replace('/[^A-Za-z0-9_\-]/', '_', "{$invoice_date}_{$company_name}_{$client_name}_Invoice_{$invoice_prefix}{$invoice_number}");
+        $pdf->Output("$filename.pdf", 'I');
+    }
+
+    exit;
+
+}
+
+if (isset($_POST['guest_quote_upload_file'])) {
+
+    $quote_id = intval($_POST['quote_id']);
+    $url_key = sanitizeInput($_POST['url_key']);
+
+    // Select only the necessary fields
+    $sql = mysqli_query($mysqli, "SELECT quote_prefix, quote_number, client_id FROM quotes LEFT JOIN clients ON quote_client_id = client_id WHERE quote_id = $quote_id AND quote_url_key = '$url_key'");
+
+    if (mysqli_num_rows($sql) == 1) {
+        $row = mysqli_fetch_assoc($sql);
+        $quote_prefix = sanitizeInput($row['quote_prefix']);
+        $quote_number = intval($row['quote_number']);
+        $client_id = intval($row['client_id']);
+
+        // Define & create directories, as required
+        $upload_file_dir = "../uploads/clients/$client_id/";
+        mkdirMissing($upload_file_dir);
+
+        // Store attached any file
+        if (!empty($_FILES)) {
+
+            for ($i = 0; $i < count($_FILES['file']['name']); $i++) {
+                // Extract file details for this iteration
+                $single_file = [
+                    'name' => $_FILES['file']['name'][$i],
+                    'type' => $_FILES['file']['type'][$i],
+                    'tmp_name' => $_FILES['file']['tmp_name'][$i],
+                    'error' => $_FILES['file']['error'][$i],
+                    'size' => $_FILES['file']['size'][$i]
+                ];
+
+                if ($file_reference_name = checkFileUpload($single_file, array('pdf'))) {
+
+                    $file_tmp_path = $_FILES['file']['tmp_name'][$i];
+
+                    $file_name = sanitizeInput($_FILES['file']['name'][$i]);
+                    $extarr = explode('.', $_FILES['file']['name'][$i]);
+                    $file_extension = sanitizeInput(strtolower(end($extarr)));
+
+                    // Extract the file mime type and size
+                    $file_mime_type = sanitizeInput($single_file['type']);
+                    $file_size = intval($single_file['size']);
+
+                    // Define destination file path
+                    $dest_path = $upload_file_dir . $file_reference_name;
+
+                    // Get/Create a top-level folder called Client Uploads
+                    $folder_sql = mysqli_query($mysqli, "SELECT * FROM folders WHERE folder_name = 'Client Uploads' AND parent_folder = 0 AND folder_client_id = $client_id LIMIT 1");
+                    if (mysqli_num_rows($folder_sql) == 1) {
+                        // Get
+                        $row = mysqli_fetch_assoc($folder_sql);
+                        $folder_id = $row['folder_id'];
+                    } else {
+                        // Create
+                        mysqli_query($mysqli,"INSERT INTO folders SET folder_name = 'Client Uploads', parent_folder = 0, folder_location = 1, folder_client_id = $client_id");
+                        $folder_id = mysqli_insert_id($mysqli);
+                        logAction("Folder", "Create", "Automatically created folder Client Uploads", $client_id, $folder_id);
+                    }
+
+                    // Do move/upload
+                    move_uploaded_file($file_tmp_path, $dest_path);
+
+                    // Create reference in files
+                    mysqli_query($mysqli,"INSERT INTO files SET file_reference_name = '$file_reference_name', file_name = '$file_name', file_description = 'Uploaded via $quote_prefix$quote_number', file_ext = '$file_extension', file_mime_type = '$file_mime_type', file_size = $file_size, file_folder_id = $folder_id, file_client_id = $client_id");
+                    $file_id = mysqli_insert_id($mysqli);
+
+                    // Associate file with quote
+                    mysqli_query($mysqli, "INSERT INTO quote_files SET quote_id = $quote_id, file_id = $file_id");
+
+                    // Logging & feedback
+                    flash_alert('File uploaded!');
+
+                    appNotify("Quote File", "$file_name was uploaded to quote $quote_prefix$quote_number", "/agent/quote.php?quote_id=$quote_id", $client_id);
+
+                    mysqli_query($mysqli, "INSERT INTO history SET history_status = 'Upload', history_description = 'Client uploaded file $file_name', history_quote_id = $quote_id");
+
+                    logAction("File", "Upload", "Guest uploaded file $file_name to quote $quote_prefix$quote_number", $client_id);
+
+                } else {
+                    flash_alert('Something went wrong uploading the file - please let the support team know.', 'error');
+
+                    logApp("Guest", "error", "Error uploading file to invoice");
+                }
+
+            }
+        }
+
+        redirect();
+
+    } else {
+        echo "Invalid!!";
+    }
+
+}
+
+if (isset($_POST['sign_outtake'], $_POST['outtake_sign_token'])) {
+
+    require_once "../includes/outtake_functions.php";
+
+    $token = sanitizeInput($_POST['outtake_sign_token']);
+    $signed_name = $_POST['signed_name'] ?? '';
+    $signature = isset($_POST['outtake_signature']) ? $_POST['outtake_signature'] : '';
+
+    $sql = mysqli_query($mysqli, "SELECT outtake_id FROM ticket_outtake_forms WHERE outtake_sign_token = '$token' AND outtake_signed_at IS NULL LIMIT 1");
+
+    if (mysqli_num_rows($sql) !== 1) {
+        echo "<div style='font-family:sans-serif;padding:60px;text-align:center;'><h2>This form has already been signed or the link is invalid.</h2></div>";
+        exit;
+    }
+
+    $outtake_id = intval(mysqli_fetch_assoc($sql)['outtake_id']);
+
+    $result = signOuttakeForm($mysqli, $outtake_id, $signed_name, $signature);
+
+    if (!$result['ok']) {
+        echo "<script nonce=\"" . htmlspecialchars($csp_nonce ?? '') . "\">alert(" . json_encode($result['error']) . "); history.back();</script>";
+        exit;
+    }
+
+    // If an agent is signed in (in-person signing), send them back to the ticket
+    if (!empty($_SESSION['user_id'])) {
+        $redirect_url = "/agent/ticket.php?ticket_id={$result['ticket_id']}" . ($result['client_id'] ? "&client_id={$result['client_id']}" : '');
+        header("Location: $redirect_url");
+    } else {
+        header("Location: outtake_sign.php?token=$token");
+    }
+    exit;
+}
+
+if (isset($_POST['sign_worksheet'], $_POST['worksheet_sign_token'])) {
+
+    $token = sanitizeInput($_POST['worksheet_sign_token']);
+    $signed_name = sanitizeInput($_POST['signed_name']);
+
+    $sql = mysqli_query($mysqli, "SELECT tw.worksheet_id, tw.worksheet_template_id, tw.worksheet_ticket_id FROM ticket_worksheets tw WHERE tw.worksheet_sign_token = '$token' AND tw.worksheet_is_outtake = 1 AND tw.worksheet_signed_at IS NULL LIMIT 1");
+
+    if (mysqli_num_rows($sql) !== 1) {
+        echo "<script nonce=\"" . htmlspecialchars($csp_nonce ?? '') . "\">alert('This form has already been signed or the link is invalid.'); history.back();</script>";
+        exit;
+    }
+
+    $ws = mysqli_fetch_assoc($sql);
+    $worksheet_id = intval($ws['worksheet_id']);
+    $template_id = intval($ws['worksheet_template_id']);
+
+    // Save field responses
+    $fields = mysqli_query($mysqli, "SELECT field_id, field_type FROM worksheet_template_fields WHERE field_template_id = $template_id ORDER BY field_order");
+    $main_sig = null;
+    while ($f = mysqli_fetch_assoc($fields)) {
+        $fid = intval($f['field_id']);
+        $key = "field_$fid";
+        $val = isset($_POST[$key]) ? sanitizeInput($_POST[$key]) : '';
+        if ($f['field_type'] === 'signature' && !empty($val) && preg_match('/^data:image\/(png|jpeg|jpg|gif);base64,[A-Za-z0-9+\/=]+$/', $val)) {
+            $main_sig = $val;
+        }
+        $existing = mysqli_fetch_row(mysqli_query($mysqli, "SELECT response_id FROM ticket_worksheet_responses WHERE response_worksheet_id = $worksheet_id AND response_field_id = $fid LIMIT 1"));
+        if ($existing) {
+            mysqli_query($mysqli, "UPDATE ticket_worksheet_responses SET response_value = '$val' WHERE response_id = {$existing[0]}");
+        } else {
+            mysqli_query($mysqli, "INSERT INTO ticket_worksheet_responses SET response_worksheet_id = $worksheet_id, response_field_id = $fid, response_value = '$val'");
+        }
+    }
+
+    // Use drawn main signature if provided, fall back to any signature field
+    if (!empty($_POST['main_signature'])) {
+        $main_sig = $_POST['main_signature'];
+        if (!preg_match('/^data:image\/(png|jpeg|jpg|gif);base64,[A-Za-z0-9+\/=]+$/', $main_sig)) {
+            $main_sig = '';
+        }
+    }
+    $sig_escaped = $main_sig ? mysqli_real_escape_string($mysqli, $main_sig) : '';
+    $sig_sql = $sig_escaped ? "worksheet_signature = '$sig_escaped'," : '';
+    mysqli_query($mysqli, "UPDATE ticket_worksheets SET worksheet_signed_name = '$signed_name', worksheet_signed_at = NOW(), $sig_sql worksheet_completed_at = NOW() WHERE worksheet_id = $worksheet_id");
+
+    logAction("Worksheet", "Sign", "Outtake form signed by $signed_name");
+
+    // Redirect to a confirmation page
+    header("Location: worksheet_sign.php?token=$token");
+    exit;
+}
