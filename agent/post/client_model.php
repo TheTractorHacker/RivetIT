@@ -24,3 +24,8 @@ $lead_source = cleanInput($_POST['lead_source'] ?? '');
 $lead_status = cleanInput($_POST['lead_status'] ?? '');
 $lead_owner = intval($_POST['lead_owner'] ?? 0);
 $lead_score = intval($_POST['lead_score'] ?? 0);
+
+// Master-plan Phase 1 department fields
+$cost_center = cleanInput($_POST['cost_center'] ?? '');
+$status = cleanInput($_POST['status'] ?? 'Active');
+$security_classification = cleanInput($_POST['security_classification'] ?? 'General');

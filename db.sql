@@ -712,6 +712,11 @@ DROP TABLE IF EXISTS `clients`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `clients` (
   `client_id` int(11) NOT NULL AUTO_INCREMENT,
+  `client_parent_id` int(11) DEFAULT NULL,
+  `client_head_contact_id` int(11) DEFAULT NULL,
+  `client_cost_center` varchar(100) DEFAULT NULL,
+  `client_status` varchar(50) NOT NULL DEFAULT 'Active',
+  `client_security_classification` enum('General','Confidential','Restricted') NOT NULL DEFAULT 'General',
   `client_lead` tinyint(1) NOT NULL DEFAULT 0,
   `client_name` varchar(200) NOT NULL,
   `client_type` varchar(200) DEFAULT NULL,
@@ -760,6 +765,10 @@ CREATE TABLE `companies` (
   `company_locale` varchar(200) DEFAULT NULL,
   `company_currency` varchar(200) DEFAULT 'USD',
   `company_tax_id` varchar(200) DEFAULT NULL,
+  `company_ms_tenant_id` varchar(100) DEFAULT NULL,
+  `company_default_email_domain` varchar(200) DEFAULT NULL,
+  `company_security_contact_email` varchar(200) DEFAULT NULL,
+  `company_hr_contact_email` varchar(200) DEFAULT NULL,
   `company_created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `company_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   PRIMARY KEY (`company_id`)
@@ -1191,6 +1200,23 @@ CREATE TABLE `custom_values` (
   `custom_value_value` mediumtext NOT NULL,
   `custom_value_field` int(11) NOT NULL,
   PRIMARY KEY (`custom_value_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `department_sites`
+--
+
+DROP TABLE IF EXISTS `department_sites`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `department_sites` (
+  `department_site_id` int(11) NOT NULL AUTO_INCREMENT,
+  `client_id` int(11) NOT NULL,
+  `location_id` int(11) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`department_site_id`),
+  UNIQUE KEY `uniq_department_site` (`client_id`,`location_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1629,6 +1655,8 @@ DROP TABLE IF EXISTS `locations`;
 CREATE TABLE `locations` (
   `location_id` int(11) NOT NULL AUTO_INCREMENT,
   `location_name` varchar(200) NOT NULL,
+  `location_type` varchar(50) DEFAULT NULL,
+  `location_manager_contact_id` int(11) DEFAULT NULL,
   `location_description` text DEFAULT NULL,
   `location_country` varchar(200) DEFAULT NULL,
   `location_address` varchar(200) DEFAULT NULL,
@@ -1641,6 +1669,8 @@ CREATE TABLE `locations` (
   `location_fax_country_code` varchar(10) DEFAULT NULL,
   `location_fax` varchar(200) DEFAULT NULL,
   `location_hours` varchar(200) DEFAULT NULL,
+  `location_emergency_contacts` text DEFAULT NULL,
+  `location_shipping_instructions` text DEFAULT NULL,
   `location_photo` varchar(200) DEFAULT NULL,
   `location_primary` tinyint(1) NOT NULL DEFAULT 0,
   `location_notes` text DEFAULT NULL,

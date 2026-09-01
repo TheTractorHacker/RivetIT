@@ -87,6 +87,20 @@ if (isset($_POST['add_client'])) {
         client_lead_score = $lead_score_sql
         WHERE client_id = $client_id");
 
+    // Master-plan Phase 1 department fields (supplementary update, same
+    // reasoning as the CRM fields above - keeps the core prepared statement
+    // untouched). Only editable via client_edit.php's modal today; the add
+    // modal doesn't expose these yet, so this applies client_model.php's
+    // defaults (Active/General) on create.
+    $cost_center_sql = mysqli_real_escape_string($mysqli, $cost_center);
+    $status_sql = mysqli_real_escape_string($mysqli, $status);
+    $security_classification_sql = mysqli_real_escape_string($mysqli, $security_classification);
+    mysqli_query($mysqli, "UPDATE clients SET
+        client_cost_center = '$cost_center_sql',
+        client_status = '$status_sql',
+        client_security_classification = '$security_classification_sql'
+        WHERE client_id = $client_id");
+
     // Create client folder
     $client_folder = $_SERVER['DOCUMENT_ROOT'] . "/uploads/clients/$client_id";
     if (!file_exists($client_folder)) {
@@ -323,6 +337,20 @@ if (isset($_POST['edit_client'])) {
         client_lead_status = $lead_status_sql,
         client_lead_owner = $lead_owner_sql,
         client_lead_score = $lead_score_sql
+        WHERE client_id = $client_id");
+
+    // Master-plan Phase 1 department fields (supplementary update, same
+    // reasoning as the CRM fields above - keeps the core prepared statement
+    // untouched). Only editable via client_edit.php's modal today; the add
+    // modal doesn't expose these yet, so this applies client_model.php's
+    // defaults (Active/General) on create.
+    $cost_center_sql = mysqli_real_escape_string($mysqli, $cost_center);
+    $status_sql = mysqli_real_escape_string($mysqli, $status);
+    $security_classification_sql = mysqli_real_escape_string($mysqli, $security_classification);
+    mysqli_query($mysqli, "UPDATE clients SET
+        client_cost_center = '$cost_center_sql',
+        client_status = '$status_sql',
+        client_security_classification = '$security_classification_sql'
         WHERE client_id = $client_id");
 
     // Create referral category if it doesn't exist

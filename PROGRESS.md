@@ -35,13 +35,14 @@ can resume across sessions. Updated as work lands, not retroactively.
 ---
 
 ## Phase 0 — Foundation
-Status: **in progress**
+Status: **done**
 
-- [ ] Composer PSR-4 autoload (`ITFlow\` → `src/`)
-- [ ] `audit_events` table + `AuditService`
-- [ ] `AuthorizationService` (thin wrapper over existing `lookupUserPermission`/`enforceClientAccess` — not a replacement)
-- [ ] `integration_jobs` table + minimal cron worker (job queue, DB-backed per Section 33)
-- [ ] Wire `AuditService` into one real path (login success/failure) as proof it works end to end
+- [x] Composer PSR-4 autoload (`ITFlow\` → `src/`)
+- [x] `audit_events` table + `AuditService` (DB 2.6.50 → 2.6.51)
+- [x] `AuthorizationService` (thin wrapper over existing `lookupUserPermission`/`enforceClientAccess` — not a replacement)
+- [x] `integration_jobs` table + minimal cron worker (job queue, DB-backed per Section 33) (DB 2.6.51 → 2.6.52)
+- [x] Wire `AuditService` into all 4 login outcomes (blocked/failed/success/MFA failed) — verified live: caught and fixed a real `bind_param()` ArgumentCountError this way (see session log), then confirmed a real row lands in `audit_events` on a failed login attempt against the live site.
+- Also fixed in passing: `config_module_enable_crm` (from the earlier CRM-toggle work) was never added to `load_global_settings.php`'s settings→PHP-variable mapping — undefined-variable warning on every single agent/admin page load since that shipped. Fixed.
 
 ## Phase 1 — Organization
 Status: **not started** (much of this already exists from earlier this session's rename/toggle work — gaps only)

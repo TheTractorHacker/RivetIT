@@ -18,6 +18,9 @@ $client_support_issues_included_onsite = $row['client_support_issues_included_on
 $client_tax_id_number = nullable_htmlentities($row['client_tax_id_number']);
 $client_abbreviation = nullable_htmlentities($row['client_abbreviation']);
 $client_rate = floatval($row['client_rate']);
+$client_status = nullable_htmlentities($row['client_status'] ?? 'Active');
+$client_security_classification = nullable_htmlentities($row['client_security_classification'] ?? 'General');
+$client_cost_center = nullable_htmlentities($row['client_cost_center']);
 $client_notes = nullable_htmlentities($row['client_notes']);
 $client_created_at = nullable_htmlentities($row['client_created_at']);
 $client_archived_at = nullable_htmlentities($row['client_archived_at']);
@@ -120,6 +123,35 @@ ob_start();
                         <input type="text" class="form-control" name="type" placeholder="Industry"
                                value="<?php echo $client_type; ?>">
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Cost Center</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-hashtag"></i></span>
+                        </div>
+                        <input type="text" class="form-control" name="cost_center" placeholder="e.g. CC-410" maxlength="100"
+                               value="<?php echo $client_cost_center; ?>">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Status</label>
+                    <select class="form-control select2" name="status">
+                        <?php foreach (['Active', 'Inactive', 'On Hold'] as $status_option) { ?>
+                            <option <?php if ($client_status == $status_option) { echo "selected"; } ?>><?php echo $status_option; ?></option>
+                        <?php } ?>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Security Classification <small class="text-secondary">(controls nothing yet on its own - pairs with per-user Department access restrictions under Users)</small></label>
+                    <select class="form-control select2" name="security_classification">
+                        <?php foreach (['General', 'Confidential', 'Restricted'] as $classification_option) { ?>
+                            <option <?php if ($client_security_classification == $classification_option) { echo "selected"; } ?>><?php echo $classification_option; ?></option>
+                        <?php } ?>
+                    </select>
                 </div>
 
                 <div class="form-group">

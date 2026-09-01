@@ -66,8 +66,12 @@ if (isset($_POST['edit_your_user_details'])) {
 
             move_uploaded_file($file_tmp_path, $dest_path);
 
-            // Delete old file
-            unlink("../../uploads/users/$session_user_id/$existing_file_name");
+            // Delete old file (only if one was actually set - otherwise this
+            // unlinks the user's upload directory itself, since there's no
+            // filename to append, and throws a warning on every first upload)
+            if ($existing_file_name) {
+                unlink("../../uploads/users/$session_user_id/$existing_file_name");
+            }
 
             // Set Avatar
             mysqli_query($mysqli,"UPDATE users SET user_avatar = '$new_file_name' WHERE user_id = $session_user_id");
@@ -100,7 +104,9 @@ if (isset($_GET['clear_your_user_avatar'])) {
 
     $user_avatar = sanitizeInput(getFieldById('users', $session_user_id, 'user_avatar'));
 
-    unlink("../../uploads/users/$session_user_id/$user_avatar");
+    if ($user_avatar) {
+        unlink("../../uploads/users/$session_user_id/$user_avatar");
+    }
 
     mysqli_query($mysqli,"UPDATE users SET user_avatar = NULL WHERE user_id = $session_user_id");
 

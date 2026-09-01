@@ -6243,3 +6243,52 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.52'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.52') {
+        // Master-plan Phase 1: organization-level fields (Section 6.1).
+        // Added to the existing single companies row rather than a new
+        // parallel `organizations` table - company_id=1 already IS the one
+        // organization, a second table would just be a second source of
+        // truth for the same row.
+        mysqli_query($mysqli, "ALTER TABLE `companies` ADD COLUMN IF NOT EXISTS `company_ms_tenant_id` varchar(100) DEFAULT NULL AFTER `company_tax_id`");
+        mysqli_query($mysqli, "ALTER TABLE `companies` ADD COLUMN IF NOT EXISTS `company_default_email_domain` varchar(200) DEFAULT NULL AFTER `company_ms_tenant_id`");
+        mysqli_query($mysqli, "ALTER TABLE `companies` ADD COLUMN IF NOT EXISTS `company_security_contact_email` varchar(200) DEFAULT NULL AFTER `company_default_email_domain`");
+        mysqli_query($mysqli, "ALTER TABLE `companies` ADD COLUMN IF NOT EXISTS `company_hr_contact_email` varchar(200) DEFAULT NULL AFTER `company_security_contact_email`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.53'");
+    }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.53') {
+        // Master-plan Phase 1: department fields (Section 6.2). client_status
+        // is a free-text label (not a rigid enum) matching how asset_status
+        // works elsewhere in this app - client_archived_at already covers
+        // the hard archived/active boundary, this is a softer descriptive
+        // status on top of that.
+        mysqli_query($mysqli, "ALTER TABLE `clients` ADD COLUMN IF NOT EXISTS `client_parent_id` int(11) DEFAULT NULL AFTER `client_id`");
+        mysqli_query($mysqli, "ALTER TABLE `clients` ADD COLUMN IF NOT EXISTS `client_head_contact_id` int(11) DEFAULT NULL AFTER `client_parent_id`");
+        mysqli_query($mysqli, "ALTER TABLE `clients` ADD COLUMN IF NOT EXISTS `client_cost_center` varchar(100) DEFAULT NULL AFTER `client_head_contact_id`");
+        mysqli_query($mysqli, "ALTER TABLE `clients` ADD COLUMN IF NOT EXISTS `client_status` varchar(50) NOT NULL DEFAULT 'Active' AFTER `client_cost_center`");
+        mysqli_query($mysqli, "ALTER TABLE `clients` ADD COLUMN IF NOT EXISTS `client_security_classification` enum('General','Confidential','Restricted') NOT NULL DEFAULT 'General' AFTER `client_status`");
+
+        // Master-plan Phase 1: site (location) fields (Section 6.3).
+        mysqli_query($mysqli, "ALTER TABLE `locations` ADD COLUMN IF NOT EXISTS `location_type` varchar(50) DEFAULT NULL AFTER `location_name`");
+        mysqli_query($mysqli, "ALTER TABLE `locations` ADD COLUMN IF NOT EXISTS `location_manager_contact_id` int(11) DEFAULT NULL AFTER `location_type`");
+        mysqli_query($mysqli, "ALTER TABLE `locations` ADD COLUMN IF NOT EXISTS `location_emergency_contacts` text DEFAULT NULL AFTER `location_hours`");
+        mysqli_query($mysqli, "ALTER TABLE `locations` ADD COLUMN IF NOT EXISTS `location_shipping_instructions` text DEFAULT NULL AFTER `location_emergency_contacts`");
+
+        // Master-plan Phase 1: department_sites many-to-many (Section 6.3).
+        // Additive only - location_client_id (single owner) stays the primary
+        // relationship every existing query/page already uses; this junction
+        // table is available for "one site serves several departments" once
+        // something is built to use it. Not yet wired into any UI.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `department_sites` (
+            `department_site_id` int(11) NOT NULL AUTO_INCREMENT,
+            `client_id` int(11) NOT NULL,
+            `location_id` int(11) NOT NULL,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`department_site_id`),
+            UNIQUE KEY `uniq_department_site` (`client_id`, `location_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.54'");
+    }
+

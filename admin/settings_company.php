@@ -20,6 +20,10 @@ $company_logo = nullable_htmlentities($row['company_logo']);
 $company_locale = nullable_htmlentities($row['company_locale']);
 $company_currency = nullable_htmlentities($row['company_currency']);
 $company_tax_id = nullable_htmlentities($row['company_tax_id']);
+$company_ms_tenant_id = nullable_htmlentities($row['company_ms_tenant_id']);
+$company_default_email_domain = nullable_htmlentities($row['company_default_email_domain']);
+$company_security_contact_email = nullable_htmlentities($row['company_security_contact_email']);
+$company_hr_contact_email = nullable_htmlentities($row['company_hr_contact_email']);
 
 $company_initials = nullable_htmlentities(initials($company_name));
 
@@ -154,6 +158,50 @@ $company_initials = nullable_htmlentities(initials($company_name));
                                         <span class="input-group-text"><i class="fa fa-fw fa-balance-scale"></i></span>
                                     </div>
                                     <input type="text" class="form-control" name="tax_id" value="<?php echo $company_tax_id; ?>" placeholder="Tax ID" maxlength="200">
+                                </div>
+                            </div>
+
+                            <hr>
+                            <h5>IT &amp; Directory</h5>
+                            <small class="text-muted d-block mb-3">Used by Microsoft/Entra sync and employee-lifecycle notifications once those are configured.</small>
+
+                            <div class="form-group">
+                                <label>Microsoft/Entra Tenant ID</label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text"><i class="fa fa-fw fa-cloud"></i></span>
+                                    </div>
+                                    <input type="text" class="form-control" name="ms_tenant_id" value="<?php echo $company_ms_tenant_id; ?>" placeholder="e.g. 72f988bf-86f1-41af-91ab-2d7cd011db47" maxlength="100">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Default Email Domain</label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text"><i class="fa fa-fw fa-at"></i></span>
+                                    </div>
+                                    <input type="text" class="form-control" name="default_email_domain" value="<?php echo $company_default_email_domain; ?>" placeholder="e.g. mwautomation.com" maxlength="200">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Security Contact Email</label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text"><i class="fa fa-fw fa-shield-alt"></i></span>
+                                    </div>
+                                    <input type="email" class="form-control" name="security_contact_email" value="<?php echo $company_security_contact_email; ?>" placeholder="e.g. security@yourcompany.com" maxlength="200">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>HR Contact Email</label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text"><i class="fa fa-fw fa-user-tie"></i></span>
+                                    </div>
+                                    <input type="email" class="form-control" name="hr_contact_email" value="<?php echo $company_hr_contact_email; ?>" placeholder="e.g. hr@yourcompany.com" maxlength="200">
                                 </div>
                             </div>
 
