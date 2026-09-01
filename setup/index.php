@@ -389,6 +389,11 @@ if (isset($_POST['add_user'])) {
 
     mysqli_query($mysqli,"INSERT INTO users SET user_name = '$name', user_email = '$email', user_password = '$password', user_specific_encryption_ciphertext = '$user_specific_encryption_ciphertext', user_role_id = 3");
 
+    // Persist the canonical copy now, while the freshly-minted master key is
+    // still in scope - the ?company step (a separate request) has no way to
+    // recover it otherwise. Must happen here, not later.
+    setCanonicalVaultKey($mysqli, $site_encryption_master_key);
+
     mkdirMissing("../uploads/users/1");
 
     //Check to see if a file is attached
@@ -400,7 +405,8 @@ if (isset($_POST['add_user'])) {
         $file_name = $_FILES['file']['name'];
         $file_size = $_FILES['file']['size'];
         $file_type = $_FILES['file']['type'];
-        $file_extension = strtolower(end(explode('.',$_FILES['file']['name'])));
+        $file_name_parts = explode('.', $_FILES['file']['name']);
+        $file_extension = strtolower(end($file_name_parts));
 
         // sanitize file-name
         $new_file_name = md5(time() . $file_name) . '.' . $file_extension;
@@ -468,7 +474,8 @@ if (isset($_POST['add_company_settings'])) {
         $file_name = $_FILES['file']['name'];
         $file_size = $_FILES['file']['size'];
         $file_type = $_FILES['file']['type'];
-        $file_extension = strtolower(end(explode('.',$_FILES['file']['name'])));
+        $file_name_parts = explode('.', $_FILES['file']['name']);
+        $file_extension = strtolower(end($file_name_parts));
 
         // sanitize file-name
         $new_file_name = md5(time() . $file_name) . '.' . $file_extension;
@@ -504,10 +511,10 @@ if (isset($_POST['add_company_settings'])) {
     $latest_database_version = LATEST_DATABASE_VERSION;
     mysqli_query($mysqli,"INSERT INTO settings SET company_id = 1, config_current_database_version = '$latest_database_version', config_invoice_prefix = 'INV-', config_invoice_next_number = 1, config_recurring_invoice_prefix = 'REC-', config_invoice_overdue_reminders = '1,3,7', config_quote_prefix = 'QUO-', config_quote_next_number = 1, config_default_net_terms = 30, config_ticket_next_number = 1, config_ticket_prefix = 'TCK-'");
 
-    // Seed the canonical copy of the site encryption master key. This is the only
-    // place (besides scripts/setup_cli.php) a brand-new master key is ever minted -
-    // every other self-heal path syncs from this canonical copy instead.
-    setCanonicalVaultKey($mysqli, $site_encryption_master_key);
+    // Note: the canonical vault key is seeded in the ?user step above (add_user),
+    // not here - $site_encryption_master_key only exists in that earlier request's
+    // scope, since the master key is minted at the same time it's wrapped for the
+    // first user's password.
 
     // Create Categories
     // Expense Categories Examples
