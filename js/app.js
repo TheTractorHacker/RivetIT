@@ -218,6 +218,13 @@ function initTinyMCEEditors() {
     // re-running this while the ticket page's own editor is open does not
     // duplicate or disturb it).
 
+    // Not every page that loads app.js also loads tinymce.min.js (e.g.
+    // setup/index.php has its own trimmed script list) - skip quietly
+    // instead of throwing on those pages.
+    if (typeof tinymce === 'undefined') {
+        return;
+    }
+
     // Initialize TinyMCE
     tinymce.init({
         selector: '.tinymce-simple',
