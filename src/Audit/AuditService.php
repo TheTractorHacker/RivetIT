@@ -44,7 +44,7 @@ class AuditService
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
         $stmt->bind_param(
-            'sisssssss',
+            'sissssssss',
             $eventType,
             $actorUserId,
             $entityType,
