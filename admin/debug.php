@@ -514,7 +514,7 @@ $mysqli->close();
 
         <h2>Debugging</h2>
         <ul>
-            <li>If you are experiencing a problem with ITFlow, this page should help you identify any configuration issues.</li>
+            <li>If you are experiencing a problem with ITFlow Internal IT, this page should help you identify any configuration issues.</li>
             <li>Note: You might also need to gather <a href="https://docs.itflow.org/gathering_logs#error_logs">error logs</a></li>
         </ul>
         <hr>
@@ -522,7 +522,7 @@ $mysqli->close();
         <div class="table-responsive">
             <table class="table table-bordered mb-3">
                 <tr>
-                    <th>ITFlow release version</th>
+                    <th>ITFlow Internal IT release version</th>
                     <th><?php echo APP_VERSION; ?></th>
                 </tr>
                 <tr>

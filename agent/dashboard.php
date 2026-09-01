@@ -234,7 +234,7 @@ $dash_attention_total = array_sum(array_column($dash_attention_items, 'count'));
         <div class="small-box text-bg-success bg-gradient mb-0">
             <div class="inner">
                 <h3><?= $dash_active_clients ?></h3>
-                <p>Active Clients</p>
+                <p>Active Departments</p>
             </div>
             <div class="icon"><i class="fas fa-building"></i></div>
         </div>
@@ -517,7 +517,7 @@ if ($user_config_dashboard_financial_enable == 1) {
             <a class="small-box bg-secondary" href="clients.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
                 <div class="inner">
                     <h3><?php echo $clients_added; ?></h3>
-                    <p>New Clients</p>
+                    <p>New Departments</p>
                 </div>
                 <div class="icon">
                     <i class="fa fa-users"></i>
@@ -896,7 +896,7 @@ if ($user_config_dashboard_technical_enable == 1) {
             <a class="small-box bg-secondary" href="clients.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
                 <div class="inner">
                     <h3><?php echo $clients_added; ?></h3>
-                    <p>New Clients</p>
+                    <p>New Departments</p>
                 </div>
                 <div class="icon">
                     <i class="fa fa-users"></i>
@@ -1182,7 +1182,7 @@ if ($user_config_dashboard_technical_enable == 1) {
                             <tr>
                                 <th>#</th>
                                 <th>Subject</th>
-                                <th>Client</th>
+                                <th>Department</th>
                                 <th>Resolved</th>
                             </tr>
                         </thead>
@@ -1230,7 +1230,7 @@ if ($user_config_dashboard_technical_enable == 1) {
                                 <tr>
                                     <th>Number</th>
                                     <th>Subject</th>
-                                    <th>Client</th>
+                                    <th>Department</th>
                                     <th>Contact</th>
                                     <th>Priority</th>
                                     <th>Status</th>

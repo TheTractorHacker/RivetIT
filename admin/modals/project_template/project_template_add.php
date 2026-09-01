@@ -51,7 +51,7 @@ ob_start();
                     <?php } ?>
                 </select>
             </div>
-            <small class="form-text text-secondary">Pre-selected when creating a project from this template, so the client gets this contract automatically.</small>
+            <small class="form-text text-secondary">Pre-selected when creating a project from this template, so the department gets this contract automatically.</small>
         </div>
 
     </div>

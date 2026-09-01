@@ -108,7 +108,7 @@ while ($sm = mysqli_fetch_assoc($sql_unifi_site_maps)) {
                     <div class="form-check form-check form-switch">
                         <input type="checkbox" class="form-check-input" id="rmm_module_enabled"
                                name="config_module_enable_rmm" value="1" <?= $config_module_enable_rmm ? 'checked' : '' ?>>
-                        <label class="form-check-label" for="rmm_module_enabled">Enable RMM module (shows RMM features in asset and client pages)</label>
+                        <label class="form-check-label" for="rmm_module_enabled">Enable RMM module (shows RMM features in asset and department pages)</label>
                     </div>
                 </div>
                 <button type="submit" name="save_rmm_module_settings" class="btn btn-primary btn-sm">
@@ -516,7 +516,7 @@ while ($sm = mysqli_fetch_assoc($sql_unifi_site_maps)) {
     <!-- Client mapping -->
     <div class="card">
         <div class="card-header py-2">
-            <h3 class="card-title"><i class="fas fa-fw fa-link me-2"></i>Client → Comet User Mapping</h3>
+            <h3 class="card-title"><i class="fas fa-fw fa-link me-2"></i>Department → Comet User Mapping</h3>
         </div>
         <div class="card-body p-0">
             <?php if (!$config_comet_enabled || !$comet_connected): ?>
@@ -539,7 +539,7 @@ while ($sm = mysqli_fetch_assoc($sql_unifi_site_maps)) {
                 <table class="table table-sm table-borderless table-hover mb-0">
                     <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
                         <tr>
-                            <th class="ps-3">ITFlow Client</th>
+                            <th class="ps-3">ITFlow Internal IT Department</th>
                             <th>Comet Username</th>
                         </tr>
                     </thead>
@@ -658,7 +658,7 @@ while ($sm = mysqli_fetch_assoc($sql_unifi_site_maps)) {
     <!-- Firewall → Client Mapping -->
     <div class="card mb-3">
         <div class="card-header py-2">
-            <h3 class="card-title"><i class="fas fa-fw fa-link me-2"></i>Firewall &rarr; Client Mapping</h3>
+            <h3 class="card-title"><i class="fas fa-fw fa-link me-2"></i>Firewall &rarr; Department Mapping</h3>
         </div>
         <div class="card-body p-0">
             <?php if (mysqli_num_rows($sql_fw_assets) === 0): ?>
@@ -678,7 +678,7 @@ while ($sm = mysqli_fetch_assoc($sql_unifi_site_maps)) {
                             <th>Device</th>
                             <th>Model</th>
                             <th>Firmware</th>
-                            <th>Assigned Client</th>
+                            <th>Assigned Department</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -815,14 +815,14 @@ while ($sm = mysqli_fetch_assoc($sql_unifi_site_maps)) {
                         </div>
 
                         <div class="form-group">
-                            <label class="small">Default Client</label>
+                            <label class="small">Default Department</label>
                             <select class="form-control form-control-sm" name="integration_default_client_id" id="fw_default_client_id">
                                 <option value="0">— None —</option>
                                 <?php foreach ($all_fw_clients as $cl): ?>
                                 <option value="<?= $cl['id'] ?>"><?= nullable_htmlentities($cl['name']) ?></option>
                                 <?php endforeach; ?>
                             </select>
-                            <small class="text-muted">Newly-synced firewalls are auto-assigned to this client. Override per-device in the mapping table.</small>
+                            <small class="text-muted">Newly-synced firewalls are auto-assigned to this department. Override per-device in the mapping table.</small>
                         </div>
 
                         <div class="form-check form-check form-switch">
@@ -863,7 +863,7 @@ while ($sm = mysqli_fetch_assoc($sql_unifi_site_maps)) {
         <div class="card-body">
             <p class="text-muted small">
                 Syncs UniFi access points/switches to Assets, Wi-Fi SSIDs to Credentials, and networks (VLANs/subnets)
-                to Networks. UniFi sites are matched to ITFlow clients by name (case-insensitive).
+                to Networks. UniFi sites are matched to ITFlow Internal IT departments by name (case-insensitive).
             </p>
             <form action="post.php" method="post">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
@@ -1032,7 +1032,7 @@ while ($sm = mysqli_fetch_assoc($sql_unifi_site_maps)) {
     <!-- ── Site → Client Mappings (all controllers) ─────────────────────── -->
     <div class="card mt-3">
         <div class="card-header py-2 d-flex align-items-center">
-            <h3 class="card-title me-auto"><i class="fas fa-fw fa-sitemap me-2"></i>Site &rarr; Client Mappings</h3>
+            <h3 class="card-title me-auto"><i class="fas fa-fw fa-sitemap me-2"></i>Site &rarr; Department Mappings</h3>
             <button type="button" class="btn btn-secondary btn-sm js-unifi-refresh-all-sites">
                 <i class="fas fa-sync me-1"></i>Refresh All Sites
             </button>
@@ -1066,7 +1066,7 @@ while ($sm = mysqli_fetch_assoc($sql_unifi_site_maps)) {
                         <tr>
                             <th style="width:30%">UniFi Site</th>
                             <th style="width:25%">Auto-Match</th>
-                            <th>Client Mapping</th>
+                            <th>Department Mapping</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1184,7 +1184,7 @@ while ($sm = mysqli_fetch_assoc($sql_unifi_site_maps)) {
                             <div class="alert alert-info py-2 mb-3">
                                 <i class="fas fa-cloud me-1"></i>
                                 <strong>UniFi Site Manager</strong> — connects to <code>api.ui.com</code> and syncs devices from
-                                <em>all</em> sites in your account. Each UniFi site is matched to an ITFlow client by name.<br>
+                                <em>all</em> sites in your account. Each UniFi site is matched to an ITFlow Internal IT department by name.<br>
                                 <small class="text-muted mt-1 d-block">Devices sync from the cloud API for all sites. Wi-Fi SSIDs/passwords and networks sync via each host's <code>*.id.ui.direct</code> local proxy — works for controllers on the same network as this server or with remote access enabled.</small>
                             </div>
                         </div>
@@ -1239,12 +1239,12 @@ while ($sm = mysqli_fetch_assoc($sql_unifi_site_maps)) {
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Site &rarr; Client Mapping <span id="unifi_siteMappingIntgName" class="text-muted"></span></h5>
+                    <h5 class="modal-title">Site &rarr; Department Mapping <span id="unifi_siteMappingIntgName" class="text-muted"></span></h5>
                     <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
                 </div>
                 <div class="modal-body">
                     <p class="text-muted small">
-                        By default, each UniFi site is matched to an ITFlow client by name (case-insensitive).
+                        By default, each UniFi site is matched to an ITFlow Internal IT department by name (case-insensitive).
                         Use this to override that match, or skip syncing a site entirely.
                     </p>
                     <div id="unifi_siteMappingBody">

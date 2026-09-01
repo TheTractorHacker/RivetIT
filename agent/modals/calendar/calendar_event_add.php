@@ -137,13 +137,13 @@
                             <?php } else{ ?>
 
                                 <div class="form-group">
-                                    <label>Client</label>
+                                    <label>Department</label>
                                     <div class="input-group">
                                         <div class="input-group-prepend">
                                             <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                                         </div>
                                         <select class="form-control select2" name="client_id">
-                                            <option value="">- Client -</option>
+                                            <option value="">- Department -</option>
                                             <?php
 
                                             $sql = mysqli_query($mysqli, "SELECT * FROM clients LEFT JOIN contacts ON clients.client_id = contacts.contact_client_id AND contact_primary = 1 ORDER BY client_name ASC");

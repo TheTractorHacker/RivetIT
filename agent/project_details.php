@@ -613,7 +613,7 @@ if (isset($_GET['project_id'])) {
                                     </th>
                                     <th>
                                         <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
-                                            Client <?php if ($sort == 'client_name') { echo $order_icon; } ?>
+                                            Department <?php if ($sort == 'client_name') { echo $order_icon; } ?>
                                         </a>
                                     </th>
                                 </tr>

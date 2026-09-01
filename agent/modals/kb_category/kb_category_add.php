@@ -40,7 +40,7 @@ ob_start();
             </div>
             <div class="col-md-6">
                 <div class="form-group">
-                    <label>Client</label>
+                    <label>Department</label>
                     <select class="form-control select2" name="client_id">
                         <option value="0" <?php if ($client_id == 0) { echo "selected"; } ?>>Central (Company-wide)</option>
                         <?php

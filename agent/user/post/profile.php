@@ -35,7 +35,7 @@ if (isset($_POST['edit_your_user_details'])) {
         $details = "Your email address was changed. New email: $email.";
 
         $subject = "$config_app_name account update confirmation for $name";
-        $body = "Hi $name, <br><br>Your $config_app_name account has been updated, details below: <br><br> <b>$details</b> <br><br> If you did not perform this change, contact your $config_app_name administrator immediately. <br><br>Thanks, <br>ITFlow<br>$session_company_name";
+        $body = "Hi $name, <br><br>Your $config_app_name account has been updated, details below: <br><br> <b>$details</b> <br><br> If you did not perform this change, contact your $config_app_name administrator immediately. <br><br>Thanks, <br>ITFlow Internal IT<br>$session_company_name";
 
         $data = [
             [
@@ -298,7 +298,7 @@ if (isset($_GET['disable_mfa'])){
     // Email notification
     if (!empty($config_smtp_host)) {
         $subject = "$config_app_name account update confirmation for $session_name";
-        $body = "Hi $session_name, <br><br>Your $config_app_name account has been updated, details below: <br><br> <b>2FA was disabled.</b> <br><br> If you did not perform this change, contact your $config_app_name administrator immediately. <br><br>Thanks, <br>ITFlow<br>$session_company_name";
+        $body = "Hi $session_name, <br><br>Your $config_app_name account has been updated, details below: <br><br> <b>2FA was disabled.</b> <br><br> If you did not perform this change, contact your $config_app_name administrator immediately. <br><br>Thanks, <br>ITFlow Internal IT<br>$session_company_name";
 
         $data = [
             [
@@ -382,7 +382,7 @@ if (isset($_POST['test_push_notification'])) {
     $sent = false;
     $sql_tokens = mysqli_query($mysqli, "SELECT token_fcm_token FROM api_tokens WHERE token_user_id = $session_user_id AND token_fcm_token IS NOT NULL");
     while ($tok = mysqli_fetch_assoc($sql_tokens)) {
-        if (firebase_send_push($tok['token_fcm_token'], 'ITFlow Test', 'Push notifications are working!', ['type' => 'test'])) {
+        if (firebase_send_push($tok['token_fcm_token'], 'ITFlow Internal IT Test', 'Push notifications are working!', ['type' => 'test'])) {
             $sent = true;
         }
     }

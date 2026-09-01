@@ -244,11 +244,11 @@ if (isset($_POST['bulk_edit_expense_client'])) {
 
             mysqli_query($mysqli,"UPDATE expenses SET expense_client_id = $client_id WHERE expense_id = $expense_id");
 
-            logAction("Expense", "Edit", "$session_name assigned expense $expense_description to client $client_name", $client_id, $expense_id);
+            logAction("Expense", "Edit", "$session_name assigned expense $expense_description to department $client_name", $client_id, $expense_id);
 
         } // End Assign Loop
 
-       flash_alert("You assigned Client <b>$client_name</b> to <b>$expense_count</b> expenses");
+       flash_alert("You assigned Department <b>$client_name</b> to <b>$expense_count</b> expenses");
     }
 
     redirect();

@@ -103,7 +103,7 @@ if (isset($_GET['calendar_id'])) {
                 <?php if (!isset($_GET['client_id'])) { ?>
 
                 <div class="form-group">
-                    <i class="fas fa-fw fa-circle me-2" style="color:brown;"></i>Clients
+                    <i class="fas fa-fw fa-circle me-2" style="color:brown;"></i>Departments
                 </div>
 
                 <?php } ?>
@@ -433,7 +433,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
                 $sql = mysqli_query($mysqli, "SELECT * FROM clients");
                 while ($row = mysqli_fetch_assoc($sql)) {
                     $event_id = intval($row['client_id']);
-                    $event_title = json_encode("Client: '" . $row['client_name'] . "' created");
+                    $event_title = json_encode("Department: '" . $row['client_name'] . "' created");
                     $event_start = json_encode($row['client_created_at']);
 
                     echo "{ id: $event_id, title: $event_title, start: $event_start, color: 'brown', url: 'client_overview.php?client_id=$event_id' },";

@@ -123,7 +123,7 @@ $result = $stmt->get_result();
     <div class="card-header bg-dark py-2">
         <h3 class="card-title mt-2">
             <i class="fas fa-fw fa-life-ring me-2"></i>
-            Client Time Detail Audit Report (<?php echo nullable_htmlentities($from); ?> to <?php echo nullable_htmlentities($to); ?>)
+            Department Time Detail Audit Report (<?php echo nullable_htmlentities($from); ?> to <?php echo nullable_htmlentities($to); ?>)
             <?php if ($billable_only) { ?>
                 <span class="badge text-bg-success ms-2">Billable Only</span>
             <?php } ?>

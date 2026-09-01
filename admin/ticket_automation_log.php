@@ -36,7 +36,7 @@ $trigger_labels = [
                     <th>Time</th>
                     <th>Rule</th>
                     <th>Trigger</th>
-                    <th>Client</th>
+                    <th>Department</th>
                     <th>Ticket / Asset</th>
                     <th>Result</th>
                 </tr>

@@ -177,7 +177,7 @@ ob_start();
         </div>
 
         <div class="form-group">
-            <label>Default Client (for unmatched senders)</label>
+            <label>Default Department (for unmatched senders)</label>
             <div class="input-group">
                 <div class="input-group-prepend"><span class="input-group-text"><i class="fa fa-fw fa-user-tag"></i></span></div>
                 <select class="form-control select2" name="mailbox_default_client_id">
@@ -192,7 +192,7 @@ ob_start();
                     <?php } ?>
                 </select>
             </div>
-            <small class="form-text text-muted">If set, tickets from senders that don't match a contact are routed to this client instead of a guest ticket.</small>
+            <small class="form-text text-muted">If set, tickets from senders that don't match a contact are routed to this department instead of a guest ticket.</small>
         </div>
 
         <div class="form-group">

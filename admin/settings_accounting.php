@@ -222,14 +222,14 @@ if (isset($_POST['link_client'])) {
     if (!$is_connected) {
         flash_alert("QuickBooks Online is not connected.", 'error');
     } elseif (!$client) {
-        flash_alert("Client not found.", 'error');
+        flash_alert("Department not found.", 'error');
     } elseif ($remote_id === '') {
         flash_alert("No QuickBooks customer was selected.", 'error');
     } else {
         setClientMapping($mysqli, $accounting_id, $client_id, $remote_id, $remote_name, $sync_token);
         accountingLog($mysqli, $accounting_id, 'client', $client_id, 'mapped',
             "Linked '{$client['client_name']}' to QBO customer '{$remote_name}' (Id {$remote_id}) by $session_name");
-        logAction("Accounting", "Edit", "$session_name linked client {$client['client_name']} to QuickBooks customer $remote_id", $client_id);
+        logAction("Accounting", "Edit", "$session_name linked department {$client['client_name']} to QuickBooks customer $remote_id", $client_id);
         flash_alert("Linked " . $client['client_name'] . " to QuickBooks customer " . ($remote_name !== '' ? $remote_name : $remote_id) . ".");
     }
 
@@ -249,11 +249,11 @@ if (isset($_POST['create_qbo_customer'])) {
         redirect($client_mapping_path);
     }
     if (!$client) {
-        flash_alert("Client not found.", 'error');
+        flash_alert("Department not found.", 'error');
         redirect($client_mapping_path);
     }
     if (getClientMapping($mysqli, $accounting_id, $client_id)) {
-        flash_alert("That client is already mapped. Unlink it first to remap.", 'warning');
+        flash_alert("That department is already mapped. Unlink it first to remap.", 'warning');
         redirect($client_mapping_path);
     }
 
@@ -272,7 +272,7 @@ if (isset($_POST['create_qbo_customer'])) {
             );
             accountingLog($mysqli, $accounting_id, 'client', $client_id, 'mapped',
                 "Matched '{$client['client_name']}' to existing QBO customer Id {$existing['Id']} by $session_name");
-            logAction("Accounting", "Edit", "$session_name matched client {$client['client_name']} to existing QuickBooks customer {$existing['Id']}", $client_id);
+            logAction("Accounting", "Edit", "$session_name matched department {$client['client_name']} to existing QuickBooks customer {$existing['Id']}", $client_id);
             flash_alert("A QuickBooks customer with that name already existed - linked to it instead of creating a duplicate.", 'warning');
             redirect($client_mapping_path);
         }
@@ -292,7 +292,7 @@ if (isset($_POST['create_qbo_customer'])) {
         );
         accountingLog($mysqli, $accounting_id, 'client', $client_id, 'created',
             "Created QBO customer Id {$created['Id']} for '{$client['client_name']}' by $session_name");
-        logAction("Accounting", "Create", "$session_name created QuickBooks customer {$created['Id']} for client {$client['client_name']}", $client_id);
+        logAction("Accounting", "Create", "$session_name created QuickBooks customer {$created['Id']} for department {$client['client_name']}", $client_id);
         flash_alert("Created QuickBooks customer for " . $client['client_name'] . ".");
     } catch (Throwable $e) {
         accountingLog($mysqli, $accounting_id, 'client', $client_id, 'error',
@@ -311,9 +311,9 @@ if (isset($_POST['unlink_client'])) {
     $client_id = intval($_POST['client_id'] ?? 0);
     if ($client_id > 0 && $accounting_id > 0) {
         deleteClientMapping($mysqli, $accounting_id, $client_id);
-        accountingLog($mysqli, $accounting_id, 'client', $client_id, 'unmapped', "Unlinked client mapping by $session_name");
-        logAction("Accounting", "Delete", "$session_name unlinked client $client_id from QuickBooks", $client_id);
-        flash_alert("Client mapping removed.");
+        accountingLog($mysqli, $accounting_id, 'client', $client_id, 'unmapped', "Unlinked department mapping by $session_name");
+        logAction("Accounting", "Delete", "$session_name unlinked department $client_id from QuickBooks", $client_id);
+        flash_alert("Department mapping removed.");
     }
 
     redirect($client_mapping_path);
@@ -422,7 +422,7 @@ if (isset($_POST['import_qbo_item'])) {
     }
 
     aim_import_qbo_item($mysqli, $accounting_id, $remote_id, $remote_name, $remote_price, $remote_type, $remote_sync);
-    logAction("Accounting", "Create", "$session_name imported QuickBooks item '$remote_name' into ITFlow");
+    logAction("Accounting", "Create", "$session_name imported QuickBooks item '$remote_name' into ITFlow Internal IT");
     flash_alert("Imported \"" . ($remote_name !== '' ? $remote_name : $remote_id) . "\" from QuickBooks.");
     redirect($item_mapping_path);
 }
@@ -859,7 +859,7 @@ function aim_import_qbo_invoice(mysqli $mysqli, int $accounting_id, array $qi, s
         }
 
         setAccountingMap($mysqli, $accounting_id, 'invoice', $invoice_id, $remote_id, $sync_token);
-        accountingLog($mysqli, $accounting_id, 'invoice', $invoice_id, 'mapped', "Imported QBO invoice (Id $remote_id) as a new ITFlow invoice");
+        accountingLog($mysqli, $accounting_id, 'invoice', $invoice_id, 'mapped', "Imported QBO invoice (Id $remote_id) as a new ITFlow Internal IT invoice");
 
         mysqli_commit($mysqli);
         return $invoice_id;
@@ -1005,7 +1005,7 @@ function aim_import_qbo_quote(mysqli $mysqli, int $accounting_id, array $qe, str
         }
 
         setAccountingMap($mysqli, $accounting_id, 'quote', $quote_id, $remote_id, $sync_token);
-        accountingLog($mysqli, $accounting_id, 'quote', $quote_id, 'mapped', "Imported QBO estimate (Id $remote_id) as a new ITFlow quote");
+        accountingLog($mysqli, $accounting_id, 'quote', $quote_id, 'mapped', "Imported QBO estimate (Id $remote_id) as a new ITFlow Internal IT quote");
 
         mysqli_commit($mysqli);
         return $quote_id;
@@ -1116,7 +1116,7 @@ function aim_import_qbo_payment(mysqli $mysqli, int $accounting_id, array $qp, i
                 mysqli_query($mysqli, "UPDATE invoices SET invoice_status = '$new_status_esc' WHERE invoice_id = $invoice_id AND invoice_status NOT IN ('Cancelled','Non-Billable')");
 
                 setAccountingMap($mysqli, $accounting_id, 'payment', $payment_id, $remote_id, $sync_token);
-                accountingLog($mysqli, $accounting_id, 'payment', $payment_id, 'mapped', "Imported QBO payment (Id $remote_id) as a new ITFlow payment");
+                accountingLog($mysqli, $accounting_id, 'payment', $payment_id, 'mapped', "Imported QBO payment (Id $remote_id) as a new ITFlow Internal IT payment");
                 $created++;
             }
         }
@@ -1166,12 +1166,12 @@ if (isset($_POST['import_qbo_invoice'])) {
         $remote_to_local_item   = getRemoteToLocalMap($mysqli, $accounting_id, 'item');
         $new_id = aim_import_qbo_invoice($mysqli, $accounting_id, $found, (string) $config_invoice_prefix, (string) $session_company_currency, $remote_to_local_client, $remote_to_local_item, $already_imported);
         if ($new_id > 0) {
-            logAction("Accounting", "Create", "$session_name imported QuickBooks invoice (Id $remote_id) into ITFlow");
+            logAction("Accounting", "Create", "$session_name imported QuickBooks invoice (Id $remote_id) into ITFlow Internal IT");
             flash_alert("Imported invoice from QuickBooks.");
         } elseif (isset($already_imported[$remote_id])) {
             flash_alert("That invoice was already imported.", 'warning');
         } else {
-            flash_alert("Could not import - that QuickBooks customer isn't linked to an ITFlow client yet. Map it on the Client Mapping tab first.", 'warning');
+            flash_alert("Could not import - that QuickBooks customer isn't linked to an ITFlow Internal IT department yet. Map it on the Department Mapping tab first.", 'warning');
         }
     } catch (Throwable $e) {
         flash_alert("Could not reach QuickBooks: " . $e->getMessage(), 'error');
@@ -1237,12 +1237,12 @@ if (isset($_POST['import_qbo_quote'])) {
         $remote_to_local_item   = getRemoteToLocalMap($mysqli, $accounting_id, 'item');
         $new_id = aim_import_qbo_quote($mysqli, $accounting_id, $found, (string) $config_quote_prefix, (string) $session_company_currency, $remote_to_local_client, $remote_to_local_item, $already_imported);
         if ($new_id > 0) {
-            logAction("Accounting", "Create", "$session_name imported QuickBooks estimate (Id $remote_id) into ITFlow");
+            logAction("Accounting", "Create", "$session_name imported QuickBooks estimate (Id $remote_id) into ITFlow Internal IT");
             flash_alert("Imported estimate from QuickBooks.");
         } elseif (isset($already_imported[$remote_id])) {
             flash_alert("That estimate was already imported.", 'warning');
         } else {
-            flash_alert("Could not import - that QuickBooks customer isn't linked to an ITFlow client yet. Map it on the Client Mapping tab first.", 'warning');
+            flash_alert("Could not import - that QuickBooks customer isn't linked to an ITFlow Internal IT department yet. Map it on the Department Mapping tab first.", 'warning');
         }
     } catch (Throwable $e) {
         flash_alert("Could not reach QuickBooks: " . $e->getMessage(), 'error');
@@ -1307,12 +1307,12 @@ if (isset($_POST['import_qbo_payment'])) {
         $remote_to_local_invoice = getRemoteToLocalMap($mysqli, $accounting_id, 'invoice');
         $new_id = aim_import_qbo_payment($mysqli, $accounting_id, $found, ass_default_account_id($mysqli), (string) $session_company_currency, $remote_to_local_invoice, $already_imported);
         if ($new_id > 0) {
-            logAction("Accounting", "Create", "$session_name imported QuickBooks payment (Id $remote_id) into ITFlow");
+            logAction("Accounting", "Create", "$session_name imported QuickBooks payment (Id $remote_id) into ITFlow Internal IT");
             flash_alert("Imported payment from QuickBooks.");
         } elseif (isset($already_imported[$remote_id])) {
             flash_alert("That payment was already imported.", 'warning');
         } else {
-            flash_alert("Could not import - its linked invoice isn't in ITFlow yet. Import or sync that invoice first.", 'warning');
+            flash_alert("Could not import - its linked invoice isn't in ITFlow Internal IT yet. Import or sync that invoice first.", 'warning');
         }
     } catch (Throwable $e) {
         flash_alert("Could not reach QuickBooks: " . $e->getMessage(), 'error');
@@ -1347,7 +1347,7 @@ if (isset($_POST['import_all_qbo_payments'])) {
         redirect($sync_status_path);
     }
     logAction("Accounting", "Create", "$session_name bulk-imported $imported payment(s) from QuickBooks" . ($skipped ? ", $skipped skipped" : "") . ($failed ? ", $failed failed" : ""));
-    flash_alert("Imported $imported payment(s) from QuickBooks" . ($skipped ? ", $skipped skipped (invoice not in ITFlow)" : "") . ($failed ? ", $failed failed" : "") . ".");
+    flash_alert("Imported $imported payment(s) from QuickBooks" . ($skipped ? ", $skipped skipped (invoice not in ITFlow Internal IT)" : "") . ($failed ? ", $failed failed" : "") . ".");
     redirect($sync_status_path);
 }
 
@@ -1694,7 +1694,7 @@ $money = static function ($v, $ccy) use ($currency_format) {
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $active_tab === 'client_mapping' ? 'active' : '' ?>" data-bs-toggle="tab" href="#tab-client_mapping" data-tabkey="client_mapping">
-            <i class="fas fa-people-arrows me-1"></i>Client Mapping
+            <i class="fas fa-people-arrows me-1"></i>Department Mapping
         </a>
     </li>
     <li class="nav-item">
@@ -1748,7 +1748,7 @@ $money = static function ($v, $ccy) use ($currency_format) {
                     <i class="fas fa-unlink me-1"></i>Disconnect
                 </a>
                 <a href="settings_accounting.php?tab=client_mapping" class="btn btn-outline-info btn-sm">
-                    <i class="fas fa-people-arrows me-1"></i>Client Mapping
+                    <i class="fas fa-people-arrows me-1"></i>Department Mapping
                 </a>
                 <a href="settings_accounting.php?tab=item_mapping" class="btn btn-outline-info btn-sm">
                     <i class="fas fa-boxes me-1"></i>Item Mapping
@@ -1757,7 +1757,7 @@ $money = static function ($v, $ccy) use ($currency_format) {
                     <i class="fas fa-sync-alt me-1"></i>Sync Status
                 </a>
             <?php else: ?>
-                <p class="text-muted">Save your QuickBooks app credentials below, then connect. One-way sync pushes ITFlow customers, items, invoices and payments to QuickBooks Online.</p>
+                <p class="text-muted">Save your QuickBooks app credentials below, then connect. One-way sync pushes ITFlow Internal IT customers, items, invoices and payments to QuickBooks Online.</p>
                 <?php if (!empty($acc_client_id) && $has_secret): ?>
                     <a href="oauth_quickbooks_connect.php" class="btn btn-success">
                         <i class="fas fa-plug me-1"></i>Connect to QuickBooks
@@ -1877,27 +1877,27 @@ $money = static function ($v, $ccy) use ($currency_format) {
     <div class="alert alert-warning">
         <i class="fas fa-exclamation-triangle me-1"></i>
         QuickBooks Online is <strong>not connected</strong>. Connect it under the
-        <a href="settings_accounting.php?tab=connection">Connection tab</a> before mapping clients to QuickBooks customers.
+        <a href="settings_accounting.php?tab=connection">Connection tab</a> before mapping departments to QuickBooks customers.
     </div>
     <?php endif; ?>
 
     <div class="card mb-3" style="border-top:3px solid #2ca01c;">
         <div class="card-header py-2 d-flex align-items-center">
-            <h3 class="card-title me-auto"><i class="fas fa-fw fa-link me-2"></i>Client &rarr; QuickBooks Customer</h3>
-            <span class="badge text-bg-info"><?php echo intval($mapped_client_count); ?> of <?php echo intval($total_clients); ?> clients mapped</span>
+            <h3 class="card-title me-auto"><i class="fas fa-fw fa-link me-2"></i>Department &rarr; QuickBooks Customer</h3>
+            <span class="badge text-bg-info"><?php echo intval($mapped_client_count); ?> of <?php echo intval($total_clients); ?> departments mapped</span>
         </div>
         <div class="card-body p-0">
             <?php if ($total_clients === 0): ?>
                 <div class="text-center text-muted py-5">
                     <i class="fas fa-users fa-3x mb-3"></i>
-                    <p class="mb-0">No active clients to map.</p>
+                    <p class="mb-0">No active departments to map.</p>
                 </div>
             <?php else: ?>
             <div class="table-responsive">
             <table class="table table-sm table-hover mb-0 align-middle">
                 <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
                     <tr>
-                        <th class="ps-3">ITFlow Client</th>
+                        <th class="ps-3">ITFlow Internal IT Department</th>
                         <th>QuickBooks Customer</th>
                         <th class="text-end pe-3">Actions</th>
                     </tr>
@@ -2020,14 +2020,14 @@ $money = static function ($v, $ccy) use ($currency_format) {
     <div class="card mb-3" style="border-top:3px solid #2ca01c;">
         <div class="card-header py-2 d-flex align-items-center">
             <h3 class="card-title me-auto"><i class="fas fa-fw fa-cloud-download-alt me-2"></i>Import from QuickBooks</h3>
-            <span class="badge text-bg-secondary"><?php echo count($qbo_unmapped_items); ?> not yet in ITFlow</span>
+            <span class="badge text-bg-secondary"><?php echo count($qbo_unmapped_items); ?> not yet in ITFlow Internal IT</span>
         </div>
         <div class="card-body p-0">
             <?php if ($qbo_pull_error !== ''): ?>
                 <div class="alert alert-danger m-3 mb-0"><i class="fas fa-exclamation-triangle me-1"></i>Could not read items from QuickBooks: <?php echo nullable_htmlentities($qbo_pull_error); ?></div>
             <?php elseif (empty($qbo_unmapped_items)): ?>
                 <div class="text-center text-muted py-4">
-                    <i class="fas fa-check-circle me-1"></i>Every QuickBooks item already has a matching ITFlow product/service.
+                    <i class="fas fa-check-circle me-1"></i>Every QuickBooks item already has a matching ITFlow Internal IT product/service.
                 </div>
             <?php else: ?>
                 <div class="d-flex justify-content-end p-2 border-bottom">
@@ -2063,7 +2063,7 @@ $money = static function ($v, $ccy) use ($currency_format) {
                                     <input type="hidden" name="qbo_item_type" value="<?php echo nullable_htmlentities($qi['Type']); ?>">
                                     <input type="hidden" name="qbo_sync_token" value="<?php echo nullable_htmlentities($qi['SyncToken']); ?>">
                                     <button type="submit" name="import_qbo_item" class="btn btn-xs btn-outline-success">
-                                        <i class="fas fa-plus me-1"></i>Add to ITFlow
+                                        <i class="fas fa-plus me-1"></i>Add to ITFlow Internal IT
                                     </button>
                                 </form>
                             </td>
@@ -2075,7 +2075,7 @@ $money = static function ($v, $ccy) use ($currency_format) {
             <?php endif; ?>
         </div>
         <div class="card-footer py-2 text-muted small">
-            One-way pull: creates a new ITFlow product/service for each QuickBooks item and links it immediately. Existing ITFlow items are never overwritten.
+            One-way pull: creates a new ITFlow Internal IT product/service for each QuickBooks item and links it immediately. Existing ITFlow Internal IT items are never overwritten.
         </div>
     </div>
     <?php endif; ?>
@@ -2096,7 +2096,7 @@ $money = static function ($v, $ccy) use ($currency_format) {
             <table class="table table-sm table-hover mb-0 align-middle">
                 <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
                     <tr>
-                        <th class="ps-3">ITFlow Product / Service</th>
+                        <th class="ps-3">ITFlow Internal IT Product / Service</th>
                         <th>QuickBooks Item</th>
                         <th class="text-end pe-3">Actions</th>
                     </tr>
@@ -2238,7 +2238,7 @@ $money = static function ($v, $ccy) use ($currency_format) {
             </button>
         </div>
         <div class="card-footer py-2 text-muted small">
-            The worker also runs automatically on the ITFlow cron schedule. "Run now" processes due jobs immediately, one at a time, with live progress below.
+            The worker also runs automatically on the ITFlow Internal IT cron schedule. "Run now" processes due jobs immediately, one at a time, with live progress below.
         </div>
         <div id="assProgressWrap" class="card-body border-top py-2" style="display:none;">
             <div class="progress mb-2" style="height: .5rem;">
@@ -2253,14 +2253,14 @@ $money = static function ($v, $ccy) use ($currency_format) {
     <div class="card mb-3" style="border-top:3px solid #2ca01c;">
         <div class="card-header py-2 d-flex align-items-center">
             <h3 class="card-title me-auto"><i class="fas fa-fw fa-cloud-download-alt me-2"></i>Import Invoices from QuickBooks</h3>
-            <span class="badge text-bg-secondary"><?php echo count($qbo_unmapped_invoices); ?> not yet in ITFlow</span>
+            <span class="badge text-bg-secondary"><?php echo count($qbo_unmapped_invoices); ?> not yet in ITFlow Internal IT</span>
         </div>
         <div class="card-body p-0">
             <?php if ($qbo_invoice_pull_error !== ''): ?>
                 <div class="alert alert-danger m-3 mb-0"><i class="fas fa-exclamation-triangle me-1"></i>Could not read invoices from QuickBooks: <?php echo nullable_htmlentities($qbo_invoice_pull_error); ?></div>
             <?php elseif (empty($qbo_unmapped_invoices)): ?>
                 <div class="text-center text-muted py-4">
-                    <i class="fas fa-check-circle me-1"></i>Every QuickBooks invoice already has a matching ITFlow invoice.
+                    <i class="fas fa-check-circle me-1"></i>Every QuickBooks invoice already has a matching ITFlow Internal IT invoice.
                 </div>
             <?php else: ?>
                 <div class="d-flex justify-content-end p-2 border-bottom">
@@ -2301,11 +2301,11 @@ $money = static function ($v, $ccy) use ($currency_format) {
                                     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                     <input type="hidden" name="qbo_invoice_id" value="<?php echo nullable_htmlentities($qi['Id']); ?>">
                                     <button type="submit" name="import_qbo_invoice" class="btn btn-xs btn-outline-success">
-                                        <i class="fas fa-plus me-1"></i>Add to ITFlow
+                                        <i class="fas fa-plus me-1"></i>Add to ITFlow Internal IT
                                     </button>
                                 </form>
                                 <?php else: ?>
-                                    <span class="text-muted small" title="Map this customer on the Client Mapping tab first">Customer not linked</span>
+                                    <span class="text-muted small" title="Map this customer on the Department Mapping tab first">Customer not linked</span>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -2316,7 +2316,7 @@ $money = static function ($v, $ccy) use ($currency_format) {
             <?php endif; ?>
         </div>
         <div class="card-footer py-2 text-muted small">
-            One-way pull: creates a new ITFlow invoice for each QuickBooks invoice (its customer must already be linked) and links it immediately - it will never be pushed back to QuickBooks as a duplicate.
+            One-way pull: creates a new ITFlow Internal IT invoice for each QuickBooks invoice (its customer must already be linked) and links it immediately - it will never be pushed back to QuickBooks as a duplicate.
         </div>
     </div>
     <?php endif; ?>
@@ -2332,7 +2332,7 @@ $money = static function ($v, $ccy) use ($currency_format) {
                 <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
                     <tr>
                         <th class="ps-3">Invoice</th>
-                        <th>Client</th>
+                        <th>Department</th>
                         <th class="text-end">Amount</th>
                         <th>Status</th>
                         <th>QBO</th>
@@ -2396,14 +2396,14 @@ $money = static function ($v, $ccy) use ($currency_format) {
     <div class="card mb-3" style="border-top:3px solid #2ca01c;">
         <div class="card-header py-2 d-flex align-items-center">
             <h3 class="card-title me-auto"><i class="fas fa-fw fa-cloud-download-alt me-2"></i>Import Estimates from QuickBooks</h3>
-            <span class="badge text-bg-secondary"><?php echo count($qbo_unmapped_quotes); ?> not yet in ITFlow</span>
+            <span class="badge text-bg-secondary"><?php echo count($qbo_unmapped_quotes); ?> not yet in ITFlow Internal IT</span>
         </div>
         <div class="card-body p-0">
             <?php if ($qbo_quote_pull_error !== ''): ?>
                 <div class="alert alert-danger m-3 mb-0"><i class="fas fa-exclamation-triangle me-1"></i>Could not read estimates from QuickBooks: <?php echo nullable_htmlentities($qbo_quote_pull_error); ?></div>
             <?php elseif (empty($qbo_unmapped_quotes)): ?>
                 <div class="text-center text-muted py-4">
-                    <i class="fas fa-check-circle me-1"></i>Every QuickBooks estimate already has a matching ITFlow quote.
+                    <i class="fas fa-check-circle me-1"></i>Every QuickBooks estimate already has a matching ITFlow Internal IT quote.
                 </div>
             <?php else: ?>
                 <div class="d-flex justify-content-end p-2 border-bottom">
@@ -2442,11 +2442,11 @@ $money = static function ($v, $ccy) use ($currency_format) {
                                     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                     <input type="hidden" name="qbo_quote_id" value="<?php echo nullable_htmlentities($qe['Id']); ?>">
                                     <button type="submit" name="import_qbo_quote" class="btn btn-xs btn-outline-success">
-                                        <i class="fas fa-plus me-1"></i>Add to ITFlow
+                                        <i class="fas fa-plus me-1"></i>Add to ITFlow Internal IT
                                     </button>
                                 </form>
                                 <?php else: ?>
-                                    <span class="text-muted small" title="Map this customer on the Client Mapping tab first">Customer not linked</span>
+                                    <span class="text-muted small" title="Map this customer on the Department Mapping tab first">Customer not linked</span>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -2457,7 +2457,7 @@ $money = static function ($v, $ccy) use ($currency_format) {
             <?php endif; ?>
         </div>
         <div class="card-footer py-2 text-muted small">
-            One-way pull: creates a new ITFlow quote for each QuickBooks estimate (its customer must already be linked) and links it immediately - it will never be pushed back to QuickBooks as a duplicate.
+            One-way pull: creates a new ITFlow Internal IT quote for each QuickBooks estimate (its customer must already be linked) and links it immediately - it will never be pushed back to QuickBooks as a duplicate.
         </div>
     </div>
     <?php endif; ?>
@@ -2473,7 +2473,7 @@ $money = static function ($v, $ccy) use ($currency_format) {
                 <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
                     <tr>
                         <th class="ps-3">Quote</th>
-                        <th>Client</th>
+                        <th>Department</th>
                         <th class="text-end">Amount</th>
                         <th>Status</th>
                         <th>QBO</th>
@@ -2537,14 +2537,14 @@ $money = static function ($v, $ccy) use ($currency_format) {
     <div class="card mb-3" style="border-top:3px solid #2ca01c;">
         <div class="card-header py-2 d-flex align-items-center">
             <h3 class="card-title me-auto"><i class="fas fa-fw fa-cloud-download-alt me-2"></i>Import Payments from QuickBooks</h3>
-            <span class="badge text-bg-secondary"><?php echo count($qbo_unmapped_payments); ?> not yet in ITFlow</span>
+            <span class="badge text-bg-secondary"><?php echo count($qbo_unmapped_payments); ?> not yet in ITFlow Internal IT</span>
         </div>
         <div class="card-body p-0">
             <?php if ($qbo_payment_pull_error !== ''): ?>
                 <div class="alert alert-danger m-3 mb-0"><i class="fas fa-exclamation-triangle me-1"></i>Could not read payments from QuickBooks: <?php echo nullable_htmlentities($qbo_payment_pull_error); ?></div>
             <?php elseif (empty($qbo_unmapped_payments)): ?>
                 <div class="text-center text-muted py-4">
-                    <i class="fas fa-check-circle me-1"></i>Every QuickBooks payment already has a matching ITFlow payment.
+                    <i class="fas fa-check-circle me-1"></i>Every QuickBooks payment already has a matching ITFlow Internal IT payment.
                 </div>
             <?php else: ?>
                 <div class="d-flex justify-content-end p-2 border-bottom">
@@ -2590,11 +2590,11 @@ $money = static function ($v, $ccy) use ($currency_format) {
                                     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                     <input type="hidden" name="qbo_payment_id" value="<?php echo nullable_htmlentities($qp['Id']); ?>">
                                     <button type="submit" name="import_qbo_payment" class="btn btn-xs btn-outline-success">
-                                        <i class="fas fa-plus me-1"></i>Add to ITFlow
+                                        <i class="fas fa-plus me-1"></i>Add to ITFlow Internal IT
                                     </button>
                                 </form>
                                 <?php else: ?>
-                                    <span class="text-muted small" title="Import or sync its invoice first">Invoice not in ITFlow</span>
+                                    <span class="text-muted small" title="Import or sync its invoice first">Invoice not in ITFlow Internal IT</span>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -2605,7 +2605,7 @@ $money = static function ($v, $ccy) use ($currency_format) {
             <?php endif; ?>
         </div>
         <div class="card-footer py-2 text-muted small">
-            One-way pull: creates a new ITFlow payment for each QuickBooks payment (its linked invoice must already be in ITFlow) and links it immediately - it will never be pushed back to QuickBooks as a duplicate.
+            One-way pull: creates a new ITFlow Internal IT payment for each QuickBooks payment (its linked invoice must already be in ITFlow Internal IT) and links it immediately - it will never be pushed back to QuickBooks as a duplicate.
         </div>
     </div>
     <?php endif; ?>
@@ -2622,7 +2622,7 @@ $money = static function ($v, $ccy) use ($currency_format) {
                     <tr>
                         <th class="ps-3">Payment</th>
                         <th>Invoice</th>
-                        <th>Client</th>
+                        <th>Department</th>
                         <th class="text-end">Amount</th>
                         <th>QBO</th>
                         <th>Queue</th>

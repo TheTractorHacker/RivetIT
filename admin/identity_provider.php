@@ -10,7 +10,7 @@ require_once "includes/inc_all_admin.php";
         <form action="post.php" method="post" autocomplete="off">
             <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
 
-            <h4>Client Portal SSO via Microsoft Entra</h4>
+            <h4>Department Portal SSO via Microsoft Entra</h4>
 
             <div class="form-group">
                 <label>Identity Provider <small class='text-secondary'>(Currently only works with Microsoft Entra ID/AAD)</small></label>

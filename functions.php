@@ -991,7 +991,7 @@ function report_schedulable_reports()
         'income_summary'         => 'Income Summary',
         'expense_summary'        => 'Expense Summary',
         'ticket_summary'         => 'Ticket Summary',
-        'clients_with_balance'   => 'Clients with a Balance (AR Aging)',
+        'clients_with_balance'   => 'Departments with a Balance (AR Aging)',
         'csat'                   => 'CSAT',
     ];
 }
@@ -1012,7 +1012,7 @@ function report_render_email_html(mysqli $mysqli, $report_key)
         return null;
     }
     $label = $reports[$report_key];
-    $brand = $company_name ?? ($session_company_name ?? 'ITFlow');
+    $brand = $company_name ?? ($session_company_name ?? 'ITFlow Internal IT');
     $ccy   = $session_company_currency ?? $company_currency ?? 'USD';
 
     $money = static function ($v) use ($currency_format, $ccy) {
@@ -2100,7 +2100,7 @@ function getClientProfitability(mysqli $mysqli, $year)
         $lv  = round($lab[$cid]['val'] ?? 0, 2);
         $out[] = [
             'client_id'     => $cid,
-            'client_name'   => $names[$cid] ?? ('Client #' . $cid),
+            'client_name'   => $names[$cid] ?? ('Department #' . $cid),
             'revenue'       => $r,
             'labor_value'   => $lv,
             'labor_seconds' => intval($lab[$cid]['secs'] ?? 0),
@@ -2285,7 +2285,7 @@ function getRmmHealthReport(mysqli $mysqli, $date_from, $date_to, ?int $client_i
     while ($r = mysqli_fetch_assoc($res)) {
         $noisiest_clients[] = [
             'client_id'   => intval($r['client_id']),
-            'client_name' => $r['client_name'] ?? ('Client #' . intval($r['client_id'])),
+            'client_name' => $r['client_name'] ?? ('Department #' . intval($r['client_id'])),
             'alerts'      => intval($r['c']),
             'with_ticket' => intval($r['with_ticket']),
         ];
@@ -3378,14 +3378,14 @@ function enforceClientAccess($client_id = null) {
     }
 
     logAction(
-        'Client',
+        'Department',
         'Access',
-        "$session_name was denied permission from accessing client",
+        "$session_name was denied permission from accessing department",
         $client_id,
         $client_id
     );
 
-    flash_alert('Access Denied - You do not have permission to access that client!', 'error');
+    flash_alert('Access Denied - You do not have permission to access that department!', 'error');
     redirect('clients.php');
 }
 
@@ -3760,7 +3760,7 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
     $id = mysqli_insert_id($mysqli);
 
     // Logging
-    logAction("Ticket", "Create", "Email parser: Client contact $contact_email_esc created ticket $ticket_prefix_esc$ticket_number ($subject) ($id)", $client_id, $id);
+    logAction("Ticket", "Create", "Email parser: Department contact $contact_email_esc created ticket $ticket_prefix_esc$ticket_number ($subject) ($id)", $client_id, $id);
 
     // Broadcast to active agents so the mobile app gets a push for it too,
     // even when the default-technician setting (Admin > Settings > Tickets)
@@ -3802,7 +3802,7 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
             mysqli_query($mysqli, "INSERT INTO ticket_attachments SET ticket_attachment_name = '$ticket_attachment_name_esc', ticket_attachment_reference_name = '$ticket_attachment_reference_name_esc', ticket_attachment_ticket_id = $id");
         } else {
             $ticket_attachment_name_esc = mysqli_real_escape_string($mysqli, $att_name);
-            logAction("Ticket", "Edit", "Email parser: Blocked attachment $ticket_attachment_name_esc from Client contact $contact_email_esc for ticket $ticket_prefix_esc$ticket_number", $client_id, $id);
+            logAction("Ticket", "Edit", "Email parser: Blocked attachment $ticket_attachment_name_esc from Department contact $contact_email_esc for ticket $ticket_prefix_esc$ticket_number", $client_id, $id);
         }
     }
 
@@ -3846,7 +3846,7 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
             $client_uri = "&client_id=$client_id";
         }
         $email_subject = "$config_app_name - New Ticket - $client_name: $subject";
-        $email_body = "Hello, <br><br>This is a notification that a new ticket has been raised in ITFlow. <br>Client: $client_name<br>Priority: Low (email parsed)<br>Link: https://$config_base_url/agent/ticket.php?ticket_id=$id$client_uri <br><br>--------------------------------<br><br><b>$subject</b><br>$message";
+        $email_body = "Hello, <br><br>This is a notification that a new ticket has been raised in ITFlow Internal IT. <br>Department: $client_name<br>Priority: Low (email parsed)<br>Link: https://$config_base_url/agent/ticket.php?ticket_id=$id$client_uri <br><br>--------------------------------<br><br><b>$subject</b><br>$message";
 
         $data[] = [
             'from' => $from_email,
@@ -4023,7 +4023,7 @@ function addReply($from_email, $date, $subject, $ticket_number, $message, $attac
                 mysqli_query($mysqli, "INSERT INTO ticket_attachments SET ticket_attachment_name = '$ticket_attachment_name_esc', ticket_attachment_reference_name = '$ticket_attachment_reference_name_esc', ticket_attachment_reply_id = $reply_id, ticket_attachment_ticket_id = $ticket_id");
             } else {
                 $ticket_attachment_name_esc = mysqli_real_escape_string($mysqli, $att_name);
-                logAction("Ticket", "Edit", "Email parser: Blocked attachment $ticket_attachment_name_esc from Client contact $from_email_esc for ticket $config_ticket_prefix$ticket_number_esc", $client_id, $ticket_id);
+                logAction("Ticket", "Edit", "Email parser: Blocked attachment $ticket_attachment_name_esc from Department contact $from_email_esc for ticket $config_ticket_prefix$ticket_number_esc", $client_id, $ticket_id);
             }
         }
 
@@ -4039,7 +4039,7 @@ function addReply($from_email, $date, $subject, $ticket_number, $message, $attac
                 $tech_name = sanitizeInput($tech_row['user_name']);
 
                 $email_subject = "$config_app_name - Ticket updated - [$config_ticket_prefix$ticket_number] $ticket_subject";
-                $email_body    = "Hello $tech_name,<br><br>A new reply has been added to the below ticket.<br><br>Client: $client_name<br>Ticket: $config_ticket_prefix$ticket_number<br>Subject: $ticket_subject<br>Link: https://$config_base_url/agent/ticket.php?ticket_id=$ticket_id$client_uri<br><br>--------------------------------<br>$message_esc";
+                $email_body    = "Hello $tech_name,<br><br>A new reply has been added to the below ticket.<br><br>Department: $client_name<br>Ticket: $config_ticket_prefix$ticket_number<br>Subject: $ticket_subject<br>Link: https://$config_base_url/agent/ticket.php?ticket_id=$ticket_id$client_uri<br><br>--------------------------------<br>$message_esc";
 
                 $data = [
                     [
@@ -4057,7 +4057,7 @@ function addReply($from_email, $date, $subject, $ticket_number, $message, $attac
 
         mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 2, ticket_resolved_at = NULL WHERE ticket_id = $ticket_id AND ticket_client_id = $client_id LIMIT 1");
 
-        logAction("Ticket", "Edit", "Email parser: Client contact $from_email_esc updated ticket $config_ticket_prefix$ticket_number_esc ($subject)", $client_id, $ticket_id);
+        logAction("Ticket", "Edit", "Email parser: Department contact $from_email_esc updated ticket $config_ticket_prefix$ticket_number_esc ($subject)", $client_id, $ticket_id);
         customAction('ticket_reply_client', $ticket_id);
         return true;
     } else {

@@ -53,13 +53,13 @@ ob_start();
                 <?php } else { ?>
 
                     <div class="form-group">
-                        <label>Client <strong class="text-danger">*</strong> / <span class="text-secondary">Use Primary Contact</label>
+                        <label>Department <strong class="text-danger">*</strong> / <span class="text-secondary">Use Primary Contact</label>
                         <div class="input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                             </div>
                             <select class="form-control select2" name="client_id" required>
-                                <option value="">- Client -</option>
+                                <option value="">- Department -</option>
                                 <?php
 
                                 $sql = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");

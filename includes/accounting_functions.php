@@ -362,12 +362,12 @@ function accountingMakeEnsureCustomer(mysqli $mysqli, QboClient $qbo, int $acc_i
         $res = mysqli_query($mysqli, "SELECT client_name, client_website, client_currency_code FROM clients WHERE client_id = $client_id LIMIT 1");
         $client = $res ? mysqli_fetch_assoc($res) : null;
         if (!$client) {
-            throw new QboException("Local client $client_id not found.");
+            throw new QboException("Local department $client_id not found.");
         }
 
         $display_name = trim((string) $client['client_name']);
         if ($display_name === '') {
-            $display_name = "Client $client_id";
+            $display_name = "Department $client_id";
         }
 
         // Primary contact for email/phone enrichment + dedupe.
@@ -416,7 +416,7 @@ function accountingMakeEnsureItem(mysqli $mysqli, QboClient $qbo, int $acc_id, s
 
         $item_name = trim($name);
         if ($item_name === '') {
-            $item_name = $product_id > 0 ? "Product $product_id" : 'ITFlow Services';
+            $item_name = $product_id > 0 ? "Product $product_id" : 'ITFlow Internal IT Services';
         }
 
         $found = $qbo->findItem($item_name);
@@ -483,7 +483,7 @@ function accountingSyncProcessJob(mysqli $mysqli, QboClient $qbo, int $acc_id, a
 
             case 'client':
                 $ensureCustomer($job_local_id);
-                $message = "Client #$job_local_id synced to QuickBooks.";
+                $message = "Department #$job_local_id synced to QuickBooks.";
                 break;
 
             case 'product':

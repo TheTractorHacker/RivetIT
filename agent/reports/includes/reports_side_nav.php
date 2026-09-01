@@ -26,13 +26,13 @@
                     <li class="nav-item">
                         <a href="/agent/reports/income_by_client.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "income_by_client.php") { echo "active"; } ?>">
                             <i class="far fa-user nav-icon"></i>
-                            <p>Income By Client</p>
+                            <p>Income By Department</p>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="/agent/reports/recurring_by_client.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "recurring_by_client.php") { echo "active"; } ?>">
                             <i class="fa fa-sync nav-icon"></i>
-                            <p>Recurring Income By Client</p>
+                            <p>Recurring Income By Department</p>
                         </a>
                     </li>
                     <li class="nav-item">
@@ -44,7 +44,7 @@
                     <li class="nav-item">
                         <a href="/agent/reports/clients_with_balance.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "clients_with_balance.php") { echo "active"; } ?>">
                             <i class="fa fa-exclamation-triangle nav-icon"></i>
-                            <p>Clients with a Balance</p>
+                            <p>Departments with a Balance</p>
                         </a>
                     </li>
                     <li class="nav-item">
@@ -86,7 +86,7 @@
                     <li class="nav-item">
                         <a href="/agent/reports/client_ticket_time_detail.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "client_ticket_time_detail.php") { echo "active"; } ?>">
                             <i class="nav-icon fas fa-history"></i>
-                            <p>Client Time Detail Audit</p>
+                            <p>Department Time Detail Audit</p>
                         </a>
                     </li>
                     <li class="nav-item">
@@ -125,7 +125,7 @@
                     <li class="nav-item">
                         <a href="/agent/reports/ticket_by_client.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "ticket_by_client.php") { echo "active"; } ?>">
                             <i class="nav-icon fas fa-users"></i>
-                            <p>Tickets by Client</p>
+                            <p>Tickets by Department</p>
                         </a>
                     </li>
 

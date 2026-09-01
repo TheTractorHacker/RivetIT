@@ -11,7 +11,7 @@ $b  = $ar['buckets'];
 
 // CSV export: per-client AR aging (same rows as the aging table + a totals row).
 if (!empty($report_export_csv)) {
-    $csv_header = ['Client', '0-30', '31-60', '61-90', '90+', 'Balance'];
+    $csv_header = ['Department', '0-30', '31-60', '61-90', '90+', 'Balance'];
     $csv_rows = [];
     foreach ($ar['clients'] as $row) {
         $csv_rows[] = [
@@ -35,7 +35,7 @@ if (!empty($report_export_csv)) {
 
 <div class="card card-dark">
     <div class="card-header py-2">
-        <h3 class="card-title mt-2"><i class="fas fa-fw fa-exclamation-triangle me-2"></i>Clients with a Balance &mdash; AR Aging</h3>
+        <h3 class="card-title mt-2"><i class="fas fa-fw fa-exclamation-triangle me-2"></i>Departments with a Balance &mdash; AR Aging</h3>
         <div class="card-tools">
             <a href="?<?php echo nullable_htmlentities(http_build_query(array_merge($_GET, ['export' => 'csv']))); ?>" class="btn btn-success d-print-none me-1"><i class="fas fa-fw fa-file-csv me-2"></i>Export CSV</a>
             <button type="button" class="btn btn-primary d-print-none js-print-page"><i class="fas fa-fw fa-print me-2"></i>Print</button>
@@ -101,7 +101,7 @@ if (!empty($report_export_csv)) {
                     <table class="table table-striped table-sm">
                         <thead>
                         <tr>
-                            <th>Client</th>
+                            <th>Department</th>
                             <th class="text-end">0-30</th>
                             <th class="text-end">31-60</th>
                             <th class="text-end">61-90</th>

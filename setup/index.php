@@ -549,7 +549,7 @@ if (isset($_POST['add_company_settings'])) {
     mysqli_query($mysqli,"INSERT INTO categories SET category_name = 'Partner', category_type = 'Referral', category_color = 'purple'");
     mysqli_query($mysqli,"INSERT INTO categories SET category_name = 'Event', category_type = 'Referral', category_color = 'red'");
     mysqli_query($mysqli,"INSERT INTO categories SET category_name = 'Affiliate', category_type = 'Referral', category_color = 'pink'");
-    mysqli_query($mysqli,"INSERT INTO categories SET category_name = 'Client', category_type = 'Referral', category_color = 'lightblue'");
+    mysqli_query($mysqli,"INSERT INTO categories SET category_name = 'Department', category_type = 'Referral', category_color = 'lightblue'");
 
     // Payment Methods
     mysqli_query($mysqli,"INSERT INTO payment_methods SET payment_method_name = 'Cash'");
@@ -568,9 +568,9 @@ if (isset($_POST['add_company_settings'])) {
     mysqli_query($mysqli, "INSERT INTO ticket_statuses SET ticket_status_name = 'Closed', ticket_status_color = '#343a40'"); // 5
 
     // Add default modules
-    mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_client', module_description = 'General client & contact management'");
+    mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_client', module_description = 'General department & contact management'");
     mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_support', module_description = 'Access to ticketing, assets and documentation'");
-    mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_credential', module_description = 'Access to client credentials - usernames, passwords and 2FA codes'");
+    mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_credential', module_description = 'Access to department credentials - usernames, passwords and 2FA codes'");
     mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_sales', module_description = 'Access to quotes, invoices and products'");
     mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_financial', module_description = 'Access to payments, accounts, expenses and budgets'");
     mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_reporting', module_description = 'Access to all reports'");
@@ -606,16 +606,16 @@ if (isset($_POST['add_company_settings'])) {
 
     // Asset statuses
     mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Ready to Deploy', category_description = 'Asset is configured and ready to be assigned', category_type = 'asset_status', category_color = '#0dcaf0', category_order = 1"); // 1
-    mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Deployed', category_description = 'Asset is actively in use and assigned to a client or location', category_type = 'asset_status', category_color = '#198754', category_order = 2"); // 2
+    mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Deployed', category_description = 'Asset is actively in use and assigned to a department or location', category_type = 'asset_status', category_color = '#198754', category_order = 2"); // 2
     mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Out for Repair', category_description = 'Asset has been sent out for servicing or repair', category_type = 'asset_status', category_color = '#fd7e14', category_order = 3"); // 3
     mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Lost', category_description = 'Asset location is unknown and cannot be accounted for', category_type = 'asset_status', category_color = '#dc3545', category_order = 4"); // 4
     mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Stolen', category_description = 'Asset has been reported stolen', category_type = 'asset_status', category_color = '#dc3545', category_order = 5"); // 5
     mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Retired', category_description = 'Asset has been decommissioned and is no longer in service', category_type = 'asset_status', category_color = '#6c757d', category_order = 6"); // 6
 
     // Contact note types
-    mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Call', category_description = 'Phone call with a client or contact', category_icon = 'fa-phone-alt', category_type = 'contact_note_type', category_order = 1"); // 1
-    mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Email', category_description = 'Email correspondence with a client or contact', category_icon = 'fa-envelope', category_type = 'contact_note_type', category_order = 2"); // 2
-    mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Meeting', category_description = 'Scheduled meeting with a client or contact', category_icon = 'fa-handshake', category_type = 'contact_note_type', category_order = 3"); // 3
+    mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Call', category_description = 'Phone call with a department or contact', category_icon = 'fa-phone-alt', category_type = 'contact_note_type', category_order = 1"); // 1
+    mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Email', category_description = 'Email correspondence with a department or contact', category_icon = 'fa-envelope', category_type = 'contact_note_type', category_order = 2"); // 2
+    mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Meeting', category_description = 'Scheduled meeting with a department or contact', category_icon = 'fa-handshake', category_type = 'contact_note_type', category_order = 3"); // 3
     mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'In Person', category_description = 'In person visit or on-site interaction', category_icon = 'fa-people-arrows', category_type = 'contact_note_type', category_order = 4"); // 4
     mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Note', category_description = 'General note or internal comment', category_icon = 'fa-sticky-note', category_type = 'contact_note_type', category_order = 5"); // 5
 
@@ -736,7 +736,7 @@ if (isset($_POST['add_telemetry'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
 
-    <title>ITFlow Setup</title>
+    <title>ITFlow Internal IT Setup</title>
 
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="/plugins/fontawesome-free/css/all.min.css">
@@ -773,7 +773,7 @@ if (isset($_POST['add_telemetry'])) {
 
         <!-- Brand Logo -->
         <a href="https://itflow.org" class="brand-link">
-            <h3 class="brand-text font-weight-light"><i class="fas fa-paper-plane text-primary mr-2"></i><span class="text-primary text-bold">IT</span>Flow</h3>
+            <h3 class="brand-text font-weight-light"><i class="fas fa-paper-plane text-primary mr-2"></i><span class="text-primary text-bold">IT</span>Flow Internal IT</h3>
         </a>
 
         <!-- Sidebar -->
@@ -1268,7 +1268,7 @@ if (isset($_POST['add_telemetry'])) {
                             </div>
                             <div class="card-body">
                                 <form method="post" enctype="multipart/form-data" autocomplete="off">
-                                    <label>Restore ITFlow Backup (.zip)</label>
+                                    <label>Restore ITFlow Internal IT Backup (.zip)</label>
                                     <input type="file" name="backup_zip" accept=".zip" required>
                                     <p class="text-muted mt-2 mb-0"><small>Large restores may take several minutes. Do not close this page.</small></p>
                                     <hr>
@@ -1577,11 +1577,11 @@ if (isset($_POST['add_telemetry'])) {
 
                     <div class="card card-dark">
                         <div class="card-header">
-                            <h3 class="card-title"><i class="fas fa-fw fa-cube mr-2"></i>ITFlow Setup</h3>
+                            <h3 class="card-title"><i class="fas fa-fw fa-cube mr-2"></i>ITFlow Internal IT Setup</h3>
                         </div>
                         <div class="card-body">
-                            <h2><b>Thank you</b> for choosing to try ITFlow!</h2>
-                            <p>This is the start of your journey towards amazing client management </p>
+                            <h2><b>Thank you</b> for choosing to try ITFlow Internal IT!</h2>
+                            <p>This is the start of your journey towards amazing department management </p>
                             <p>A few tips:</p>
                             <ul>
                                 <li>Please take a look over the install <a href="https://docs.itflow.org/installation">docs</a>, if you haven't already</li>
@@ -1590,7 +1590,7 @@ if (isset($_POST['add_telemetry'])) {
                             </ul>
                             <br><p>A database must be created before proceeding - click on the button below to get started.</p>
                             <br><hr>
-                            <p class="text-muted">ITFlow is <b>free software</b>: you can redistribute and/or modify it under the terms of the <a href="https://www.gnu.org/licenses/gpl-3.0.en.html" target="_blank">GNU General Public License</a>. <br> It is distributed in the hope that it will be useful, but <b>without any warranty</b>; without even the implied warranty of merchantability or fitness for a particular purpose.</p>
+                            <p class="text-muted">ITFlow Internal IT is <b>free software</b>: you can redistribute and/or modify it under the terms of the <a href="https://www.gnu.org/licenses/gpl-3.0.en.html" target="_blank">GNU General Public License</a>. <br> It is distributed in the hope that it will be useful, but <b>without any warranty</b>; without even the implied warranty of merchantability or fitness for a particular purpose.</p>
                             <?php
                             // Check that there is access to write to the current directory
                             if (!is_writable('.')) {

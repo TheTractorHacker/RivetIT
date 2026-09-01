@@ -20,7 +20,7 @@ ob_start();
 <div class="modal-header bg-dark">
     <h5 class="modal-title">
         <i class="fa fa-fw fa-people-carry me-2"></i>
-        Change <?php echo "$ticket_prefix$ticket_number"; ?> to another client
+        Change <?php echo "$ticket_prefix$ticket_number"; ?> to another department
     </h5>
     <button type="button" class="close text-white" data-bs-dismiss="modal"><span>&times;</span></button>
 </div>
@@ -31,7 +31,7 @@ ob_start();
 
     <div class="modal-body">
         <div class="form-group">
-            <label>New Client <strong class="text-danger">*</strong></label>
+            <label>New Department <strong class="text-danger">*</strong></label>
             <div class="input-group">
                 <div class="input-group-prepend">
                     <span class="input-group-text"><i class="fa fa-fw fa-users"></i></span>

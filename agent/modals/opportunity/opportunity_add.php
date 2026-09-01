@@ -33,13 +33,13 @@ ob_start();
         </div>
 
         <div class="form-group">
-            <label>Client</label>
+            <label>Department</label>
             <div class="input-group">
                 <div class="input-group-prepend">
                     <span class="input-group-text"><i class="fa fa-fw fa-users"></i></span>
                 </div>
                 <select class="form-control select2" name="client_id" id="opportunity_client_id" <?php if ($client_id) { echo 'disabled'; } ?>>
-                    <option value="0">- No Client -</option>
+                    <option value="0">- No Department -</option>
                     <?php
                     $sql = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");
                     while ($row = mysqli_fetch_assoc($sql)) {

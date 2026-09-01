@@ -30,7 +30,7 @@ ob_start();
 ?>
 
 <div class="modal-header bg-dark">
-    <h5 class="modal-title"><i class="fa fa-fw fa-user-plus me-2"></i>New <?php if($leads_filter == 0){ echo "Client"; } else { echo "Lead"; } ?></h5>
+    <h5 class="modal-title"><i class="fa fa-fw fa-user-plus me-2"></i>New <?php if($leads_filter == 0){ echo "Department"; } else { echo "Lead"; } ?></h5>
     <button type="button" class="close text-white" data-bs-dismiss="modal">
         <span>&times;</span>
     </button>
@@ -88,7 +88,7 @@ ob_start();
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-id-badge"></i></span>
                         </div>
-                        <input type="text" class="form-control js-uppercase-input" name="abbreviation" placeholder="Shortned name for client - Max chars 6" maxlength="6">
+                        <input type="text" class="form-control js-uppercase-input" name="abbreviation" placeholder="Shortned name for department - Max chars 6" maxlength="6">
                     </div>
                 </div>
 
@@ -414,7 +414,7 @@ ob_start();
         </div>
     </div>
     <div class="modal-footer">
-        <button type="submit" name="add_client" class="btn btn-primary text-bold js-prompt-primary-contact"><i class="fa fa-check me-2"></i>Create Client</button>
+        <button type="submit" name="add_client" class="btn btn-primary text-bold js-prompt-primary-contact"><i class="fa fa-check me-2"></i>Create Department</button>
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="fa fa-times me-2"></i>Close</button>
     </div>
 </form>

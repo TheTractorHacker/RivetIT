@@ -109,7 +109,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     <a class="dropdown-item ajax-modal" href="#"
                                         data-modal-size="lg"
                                         data-modal-url="modals/contract_template/contract_template_apply.php?id=<?= $id ?>">
-                                        <i class="fas fa-fw fa-copy me-2"></i>Apply to Clients
+                                        <i class="fas fa-fw fa-copy me-2"></i>Apply to Departments
                                     </a>
                                     <div class="dropdown-divider"></div>
                                     <a class="dropdown-item text-danger text-bold" href="post.php?delete_contract_template=<?php echo $id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>">

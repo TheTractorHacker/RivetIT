@@ -3,7 +3,7 @@
 <div class="card d-print-none mb-3">
     <div class="card-header pb-1 pt-2 px-3">
         <div class="card-title">
-            <a href="#" data-bs-toggle="collapse" data-bs-target="#clientHeader"><h4 class="text-dark" data-bs-toggle="tooltip" data-placement="right" title="Client ID: <?php echo $client_id; ?>"><strong><?php echo $client_name; ?></strong> <?php if ($client_archived_at) { echo "(archived)"; } ?></h4></a>
+            <a href="#" data-bs-toggle="collapse" data-bs-target="#clientHeader"><h4 class="text-dark" data-bs-toggle="tooltip" data-placement="right" title="Department ID: <?php echo $client_id; ?>"><strong><?php echo $client_name; ?></strong> <?php if ($client_archived_at) { echo "(archived)"; } ?></h4></a>
         </div>
         <?php if (!empty($client_tag_name_display_array)) { ?><div class="card-title ms-2"><?php echo $client_tags_display; ?></div> <?php } ?>
         <?php if (lookupUserPermission("module_client") >= 2) { ?>
@@ -21,7 +21,7 @@
                     <div class="dropdown-divider"></div>
                     <a class="dropdown-item ajax-modal" href="#"
                         data-modal-url="modals/client/client_edit.php?id=<?= $client_id ?>">
-                        <i class="fas fa-fw fa-edit me-2"></i>Edit Client
+                        <i class="fas fa-fw fa-edit me-2"></i>Edit Department
                     </a>
                     <?php if (lookupUserPermission("module_billing") >= 2) { ?>
                         <?php if ($show_add_credit) { ?>
@@ -41,19 +41,19 @@
                     <?php if (empty($client_archived_at)) { ?>
                         <div class="dropdown-divider"></div>
                         <a class="dropdown-item text-danger confirm-link" href="post.php?archive_client=<?php echo $client_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token'] ?>">
-                            <i class="fas fa-fw fa-archive me-2"></i>Archive Client
+                            <i class="fas fa-fw fa-archive me-2"></i>Archive Department
                         </a>
                     <?php } else { ?>
                         <div class="dropdown-divider"></div>
                         <a class="dropdown-item text-primary confirm-link" href="post.php?restore_client=<?= $client_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
-                            <i class="fas fa-fw fa-archive me-2"></i>Restore Client
+                            <i class="fas fa-fw fa-archive me-2"></i>Restore Department
                         </a>
                     <?php } ?>
 
                     <?php if (lookupUserPermission("module_client") >= 3 && $client_archived_at) { ?>
                     <div class="dropdown-divider"></div>
                     <a class="dropdown-item text-danger text-bold" href="#" data-bs-toggle="modal" data-bs-target="#deleteClientModal<?php echo $client_id; ?>">
-                        <i class="fas fa-fw fa-trash me-2"></i>Delete Client
+                        <i class="fas fa-fw fa-trash me-2"></i>Delete Department
                     </a>
                     <?php } ?>
 

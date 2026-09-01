@@ -17,7 +17,7 @@ $sql = mysqli_query($mysqli, "SELECT mr.*, m.mailbox_name, m.mailbox_email,
     </div>
 
     <div class="card-body">
-        <p class="text-muted">Emails from senders that don't match a known contact or domain land here for review. Convert a request into a ticket (picking the client it belongs to), or dismiss it.</p>
+        <p class="text-muted">Emails from senders that don't match a known contact or domain land here for review. Convert a request into a ticket (picking the department it belongs to), or dismiss it.</p>
         <hr>
         <div class="table-responsive-sm">
             <table class="table table-striped table-borderless table-hover">

@@ -22,13 +22,13 @@ ob_start();
             <input type="hidden" name="client_id" value="<?= $client_id ?>">
         <?php } else { ?>
             <div class="form-group">
-                <label>Client</label>
+                <label>Department</label>
                 <div class="input-group">
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-users"></i></span>
                     </div>
                     <select class="form-control select2" name="client_id">
-                        <option value="0">- No Client -</option>
+                        <option value="0">- No Department -</option>
                         <?php
                         $sql = mysqli_query($mysqli, "SELECT * FROM clients WHERE client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");
                         while ($row = mysqli_fetch_assoc($sql)) {
@@ -90,7 +90,7 @@ ob_start();
                     <?php } ?>
                 </select>
             </div>
-            <small class="form-text text-secondary">Creates a contract for this client from the template and adds its terms to the onboarding ticket(s).</small>
+            <small class="form-text text-secondary">Creates a contract for this department from the template and adds its terms to the onboarding ticket(s).</small>
         </div>
         <?php } ?>
 

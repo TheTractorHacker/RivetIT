@@ -39,7 +39,7 @@ if (
     && (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on')
     && (!isset($_SERVER['HTTP_X_FORWARDED_PROTO']) || $_SERVER['HTTP_X_FORWARDED_PROTO'] !== 'https')
 ) {
-    echo "Login is restricted as ITFlow defaults to HTTPS-only for enhanced security. To login using HTTP, modify the config.php file by setting config_https_only to false. However, this is strongly discouraged, especially when accessing from potentially unsafe networks like the internet.";
+    echo "Login is restricted as ITFlow Internal IT defaults to HTTPS-only for enhanced security. To login using HTTP, modify the config.php file by setting config_https_only to false. However, this is strongly discouraged, especially when accessing from potentially unsafe networks like the internet.";
     exit;
 }
 
@@ -433,7 +433,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
 
                         if ((!empty($config_smtp_host) || !empty($config_smtp_provider)) && $ip_previous_logins == 0 && $ua_prev_logins == 0) {
                             $subject = "$config_app_name new login for $user_name";
-                            $body    = "Hi $user_name, <br><br>A recent successful login to your $config_app_name account was considered a little unusual. If this was you, you can safely ignore this email!<br><br>IP Address: $session_ip<br> User Agent: $session_user_agent <br><br>If you did not perform this login, your credentials may be compromised. <br><br>Thanks, <br>ITFlow";
+                            $body    = "Hi $user_name, <br><br>A recent successful login to your $config_app_name account was considered a little unusual. If this was you, you can safely ignore this email!<br><br>IP Address: $session_ip<br> User Agent: $session_user_agent <br><br>If you did not perform this login, your credentials may be compromised. <br><br>Thanks, <br>ITFlow Internal IT";
 
                             $data = [[
                                 'from'           => $config_mail_from_email,
@@ -604,7 +604,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
 
                             if ((!empty($config_smtp_host) || !empty($config_smtp_provider))) {
                                 $subject = "Important: $config_app_name failed 2FA login attempt for $user_name";
-                                $body    = "Hi $user_name, <br><br>A recent login to your $config_app_name account was unsuccessful due to an incorrect 2FA code. If you did not attempt this login, your credentials may be compromised. <br><br>Thanks, <br>ITFlow";
+                                $body    = "Hi $user_name, <br><br>A recent login to your $config_app_name account was unsuccessful due to an incorrect 2FA code. If you did not attempt this login, your credentials may be compromised. <br><br>Thanks, <br>ITFlow Internal IT";
                                 $data    = [[
                                     'from'           => $config_mail_from_email,
                                     'from_name'      => $config_mail_from_name,
@@ -631,7 +631,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
                     if ($config_client_portal_enable != 1) {
                         header("HTTP/1.1 401 Unauthorized");
 
-                        logAction("Client Login", "Failed", "Client portal disabled; login attempt using $email");
+                        logAction("Department Login", "Failed", "Department portal disabled; login attempt using $email");
 
                         $response = "
                           <div class='alert alert-danger'>
@@ -666,7 +666,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
 
                             // Option B: set session_user_id BEFORE logAction()
                             $session_user_id = $user_id;
-                            logAction("Client Login", "Success", "Client contact $user_email successfully logged in locally", $client_id, $user_id);
+                            logAction("Department Login", "Success", "Department contact $user_email successfully logged in locally", $client_id, $user_id);
 
                             // Clear any pending sessions (avoid stale dual-role/MFA state)
                             unset($_SESSION['pending_dual_login']);
@@ -680,9 +680,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
                             // if we have a users.user_id, log it
                             $session_user_id = $user_id ?: 0;
                             logAction(
-                                "Client Login",
+                                "Department Login",
                                 "Failed",
-                                "Failed client portal login attempt using $email (invalid auth method or missing contact/client)",
+                                "Failed department portal login attempt using $email (invalid auth method or missing contact/department)",
                                 $client_id ?? 0,
                                 $user_id
                             );
@@ -799,7 +799,7 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form);
                 <div class="brand-icon"><i class="fas fa-bolt"></i></div>
             <?php } ?>
             <div class="brand-name"><?= nullable_htmlentities($company_name) ?></div>
-            <div class="brand-sub">ITFlow · MSP Edition</div>
+            <div class="brand-sub">ITFlow · Internal IT Edition</div>
         </div>
     </div>
 
@@ -831,7 +831,7 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form);
                     <!-- STEP 1: Email + Password -->
                     <div class="input-group mb-3">
                         <input type="email" class="form-control"
-                            placeholder="<?php if ($config_login_key_required) { if (!isset($_GET['key']) || !hash_equals((string) $config_login_key_secret, (string) $_GET['key'])) { echo "Client "; } } echo "Email"; ?>"
+                            placeholder="<?php if ($config_login_key_required) { if (!isset($_GET['key']) || !hash_equals((string) $config_login_key_secret, (string) $_GET['key'])) { echo "Department "; } } echo "Email"; ?>"
                             name="email"
                             value="<?php echo htmlspecialchars($email ?? '', ENT_QUOTES); ?>"
                             required autofocus
@@ -872,7 +872,7 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form);
                             Log in as Agent
                         </button>
                         <button type="submit" class="btn btn-light btn-block" name="role_choice" value="client">
-                            Log in as Client
+                            Log in as Department
                         </button>
                     </div>
                 <?php endif; ?>

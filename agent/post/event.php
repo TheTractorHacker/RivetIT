@@ -135,7 +135,7 @@ if (isset($_POST['add_event'])) {
 
         // Logging for email (success/fail)
         if ($mail === true) {
-            logAction("Calendar Event", "Email", "$session_name emailed event $title to $contact_name from client $client_name", $client_id, $event_id);
+            logAction("Calendar Event", "Email", "$session_name emailed event $title to $contact_name from department $client_name", $client_id, $event_id);
         } else {
             appNotify("Mail", "Failed to send email to $contact_email");
             logAction("Mail", "Error", "Failed to send email to $contact_email regarding $subject. $mail");

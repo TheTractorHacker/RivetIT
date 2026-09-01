@@ -1759,7 +1759,7 @@ if (isset($_GET['comet_client_status'])) {
         "SELECT map_comet_username FROM comet_client_map WHERE map_client_id = $client_id LIMIT 1"
     ));
     if (!$comet_map) {
-        echo '<p class="text-muted text-center py-3 mb-0">No Comet mapping configured for this client.</p>';
+        echo '<p class="text-muted text-center py-3 mb-0">No Comet mapping configured for this department.</p>';
         exit;
     }
 

@@ -46,7 +46,7 @@ while ($exc = mysqli_fetch_assoc($sql_exc)) {
 }
 
 echo json_encode([
-    'rp'    => ['id' => $rpId, 'name' => 'ITFlow'],
+    'rp'    => ['id' => $rpId, 'name' => 'ITFlow Internal IT'],
     'user'  => [
         'id'          => wa_b64u_encode(pack('N', $session_user_id)),
         'name'        => $session_email,

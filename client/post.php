@@ -66,8 +66,8 @@ if (isset($_POST['add_ticket'])) {
         $client_name = sanitizeInput($session_client_name);
         $details = removeEmoji($details);
 
-        $email_subject = "ITFlow - New Ticket - $client_name: $subject";
-        $email_body = "Hello, <br><br>This is a notification that a new ticket has been raised in ITFlow. <br>Client: $client_name<br>Priority: $priority<br>Link: https://$config_base_url/agent/ticket.php?ticket_id=$ticket_id&client_id=$session_client_id <br><br><b>$subject</b><br>$details";
+        $email_subject = "ITFlow Internal IT - New Ticket - $client_name: $subject";
+        $email_body = "Hello, <br><br>This is a notification that a new ticket has been raised in ITFlow Internal IT. <br>Department: $client_name<br>Priority: $priority<br>Link: https://$config_base_url/agent/ticket.php?ticket_id=$ticket_id&client_id=$session_client_id <br><br><b>$subject</b><br>$details";
 
         // Queue Mail
         $data = [
@@ -86,7 +86,7 @@ if (isset($_POST['add_ticket'])) {
     // Custom action/notif handler
     customAction('ticket_create', $ticket_id);
 
-    logAction("Ticket", "Create", "$session_contact_name created ticket $config_ticket_prefix$ticket_number - $subject from the client portal", $session_client_id, $ticket_id);
+    logAction("Ticket", "Create", "$session_contact_name created ticket $config_ticket_prefix$ticket_number - $subject from the department portal", $session_client_id, $ticket_id);
 
     redirect("ticket.php?id=" . $ticket_id);
 
@@ -141,7 +141,7 @@ if (isset($_POST['add_ticket_comment'])) {
             $tech_name = sanitizeInput($tech_details['user_name']);
 
             $subject = "$config_app_name Ticket updated - [$config_ticket_prefix$ticket_number] $ticket_subject";
-            $body    = "Hello $tech_name,<br><br>A new reply has been added to the below ticket, check ITFlow for full details.<br><br>Client: $client_name<br>Ticket: $config_ticket_prefix$ticket_number<br>Subject: $ticket_subject<br><br>https://$config_base_url/agent/ticket.php?ticket_id=$ticket_id&client_id=$session_client_id";
+            $body    = "Hello $tech_name,<br><br>A new reply has been added to the below ticket, check ITFlow Internal IT for full details.<br><br>Department: $client_name<br>Ticket: $config_ticket_prefix$ticket_number<br>Subject: $ticket_subject<br><br>https://$config_base_url/agent/ticket.php?ticket_id=$ticket_id&client_id=$session_client_id";
 
             $data = [
                 [
@@ -355,7 +355,7 @@ if (isset($_GET['resolve_ticket'])) {
 
         publishTicketEvent($ticket_id, 'reply', ['reply_id' => mysqli_insert_id($mysqli), 'reply_type' => 'Client', 'by' => $session_contact_name, 'by_type' => 'contact']);
 
-        logAction("Ticket", "Edit", "$session_contact_name marked ticket $ticket_prefix$ticket_number as resolved in the client portal", $session_client_id, $ticket_id);
+        logAction("Ticket", "Edit", "$session_contact_name marked ticket $ticket_prefix$ticket_number as resolved in the department portal", $session_client_id, $ticket_id);
 
         // Custom action/notif handler
         customAction('ticket_resolve', $ticket_id);
@@ -395,7 +395,7 @@ if (isset($_GET['reopen_ticket'])) {
 
         publishTicketEvent($ticket_id, 'reply', ['reply_id' => mysqli_insert_id($mysqli), 'reply_type' => 'Client', 'by' => $session_contact_name, 'by_type' => 'contact']);
 
-        logAction("Ticket", "Edit", "$session_contact_name reopend ticket $ticket_prefix$ticket_number in the client portal", $session_client_id, $ticket_id);
+        logAction("Ticket", "Edit", "$session_contact_name reopend ticket $ticket_prefix$ticket_number in the department portal", $session_client_id, $ticket_id);
 
         // Custom action/notif handler
         customAction('ticket_update', $ticket_id);
@@ -435,7 +435,7 @@ if (isset($_GET['close_ticket'])) {
 
         publishTicketEvent($ticket_id, 'reply', ['reply_id' => mysqli_insert_id($mysqli), 'reply_type' => 'Client', 'by' => $session_contact_name, 'by_type' => 'contact']);
 
-        logAction("Ticket", "Edit", "$session_contact_name closed ticket $ticket_prefix$ticket_number in the client portal", $session_client_id, $ticket_id);
+        logAction("Ticket", "Edit", "$session_contact_name closed ticket $ticket_prefix$ticket_number in the department portal", $session_client_id, $ticket_id);
 
         // Custom action/notif handler
         customAction('ticket_close', $ticket_id);
@@ -471,7 +471,7 @@ if (isset($_POST['edit_profile'])) {
         mysqli_query($mysqli, "UPDATE users SET user_password = '$password_hash' WHERE user_id = $session_user_id");
 
         // Logging
-        logAction("Contact", "Edit", "Client contact $session_contact_name edited their profile/password in the client portal", $session_client_id, $session_contact_id);
+        logAction("Contact", "Edit", "Department contact $session_contact_name edited their profile/password in the department portal", $session_client_id, $session_contact_id);
     }
 
     redirect('index.php');
@@ -517,7 +517,7 @@ if (isset($_POST['add_contact'])) {
     $contact_id = mysqli_insert_id($mysqli);
 
     // Logging
-    logAction("Contact", "Create", "Client contact $session_contact_name created contact $contact_name in the client portal", $session_client_id, $contact_id);
+    logAction("Contact", "Create", "Department contact $session_contact_name created contact $contact_name in the department portal", $session_client_id, $contact_id);
 
     customAction('contact_create', $contact_id);
 
@@ -569,7 +569,7 @@ if (isset($_POST['edit_contact'])) {
     // Update contact
     mysqli_query($mysqli, "UPDATE contacts SET contact_name = '$contact_name', contact_email = '$contact_email', contact_billing = $contact_billing, contact_technical = $contact_technical, contact_user_id = $contact_user_id WHERE contact_id = $contact_id AND contact_client_id = $session_client_id AND contact_archived_at IS NULL AND contact_primary = 0");
 
-    logAction("Contact", "Edit", "Client contact $session_contact_name edited contact $contact_name in the client portal", $session_client_id, $contact_id);
+    logAction("Contact", "Edit", "Department contact $session_contact_name edited contact $contact_name in the department portal", $session_client_id, $contact_id);
 
     flash_alert("Contact $contact_name updated");
 
@@ -652,7 +652,7 @@ if (isset($_GET['add_payment_by_provider'])) {
         flash_alert("Saved Payment method does not belong to you!", 'danger');
         redirect();
     } elseif (!$payment_provider_client || !$saved_payment_method) {
-        flash_alert("Stripe not enabled or no client card saved", 'error');
+        flash_alert("Stripe not enabled or no department card saved", 'error');
         redirect();
     } elseif ($invoice_status !== 'Sent' && $invoice_status !== 'Viewed') {
         flash_alert("Invalid invoice state (draft/partial/paid/not billable)", 'error');
@@ -667,7 +667,7 @@ if (isset($_GET['add_payment_by_provider'])) {
     $stripe = new \Stripe\StripeClient($private_key);
 
     $balance_to_pay = round($invoice_amount, 2);
-    $pi_description = "ITFlow: $client_name payment of $invoice_currency_code $balance_to_pay for $invoice_prefix$invoice_number";
+    $pi_description = "ITFlow Internal IT: $client_name payment of $invoice_currency_code $balance_to_pay for $invoice_prefix$invoice_number";
 
     // Create a payment intent
     try {
@@ -729,7 +729,7 @@ if (isset($_GET['add_payment_by_provider'])) {
             // Email the internal notification address too
             if (!empty($config_invoice_paid_notification_email)) {
                 $subject = "Payment Received - $client_name - Invoice $invoice_prefix$invoice_number";
-                $body = "Hello, <br><br>This is a notification that an invoice has been paid in ITFlow. Below is a copy of the receipt sent to the client:-<br><br>--------<br><br>Hello $contact_name,<br><br>We have received online payment for the amount of " . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . " for invoice <a href=\'https://$config_base_url/guest/guest_view_invoice.php?invoice_id=$invoice_id&url_key=$invoice_url_key\'>$invoice_prefix$invoice_number</a>. Please keep this email as a receipt for your records.<br><br>Amount Paid: " . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . "<br><br>Thank you for your business!<br><br><br>--<br>$company_name - Billing Department<br>$config_invoice_from_email<br>$company_phone";
+                $body = "Hello, <br><br>This is a notification that an invoice has been paid in ITFlow Internal IT. Below is a copy of the receipt sent to the department:-<br><br>--------<br><br>Hello $contact_name,<br><br>We have received online payment for the amount of " . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . " for invoice <a href=\'https://$config_base_url/guest/guest_view_invoice.php?invoice_id=$invoice_id&url_key=$invoice_url_key\'>$invoice_prefix$invoice_number</a>. Please keep this email as a receipt for your records.<br><br>Amount Paid: " . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . "<br><br>Thank you for your business!<br><br><br>--<br>$company_name - Billing Department<br>$config_invoice_from_email<br>$company_phone";
 
                 $data[] = [
                     'from' => $config_invoice_from_email,
@@ -1004,7 +1004,7 @@ if (isset($_GET['stripe_save_card'])) {
     $stripe_customer_id = sanitizeInput($client_provider['payment_provider_client'] ?? '');
 
     if (empty($stripe_customer_id)) {
-        flash_alert("Stripe customer ID not found for client.", 'danger');
+        flash_alert("Stripe customer ID not found for department.", 'danger');
         redirect("saved_payment_methods.php");
     }
 
@@ -1083,7 +1083,7 @@ if (isset($_GET['stripe_save_card'])) {
         $body = "Hello $session_contact_name<br><br>
         Were writing to confirm that your payment details have been securely stored with Stripe our trusted payment processor.<br><br>
         You authorized us to automatically bill your card ($saved_payment_description) for future invoices.<br><br>
-        You may update or remove your payment method at any time via the client portal.<br><br>
+        You may update or remove your payment method at any time via the department portal.<br><br>
         Thank you for your business!<br><br>
         --<br>$company_name - Billing Department<br>$config_invoice_from_email<br>$company_phone";
 
@@ -1309,7 +1309,7 @@ if (isset($_POST['client_add_document'])) {
     // Document update content
     mysqli_query($mysqli,"UPDATE documents SET document_content = '$processed_content' WHERE document_id = $document_id");
 
-    logAction("Document", "Create", "Client contact $session_contact_name created document $document_name", $session_client_id, $document_id);
+    logAction("Document", "Create", "Department contact $session_contact_name created document $document_name", $session_client_id, $document_id);
 
     flash_alert("Document <strong>$document_name</strong> created successfully");
 
@@ -1387,7 +1387,7 @@ if (isset($_POST['client_upload_document'])) {
                 // Link file to document
                 mysqli_query($mysqli, "INSERT INTO document_files SET document_id = $document_id, file_id = $file_id");
 
-                logAction("Document", "Upload", "Client contact $session_contact_name uploaded document $document_name with file $file_name", $session_client_id, $document_id);
+                logAction("Document", "Upload", "Department contact $session_contact_name uploaded document $document_name with file $file_name", $session_client_id, $document_id);
 
                 flash_alert("Document <strong>$document_name</strong> uploaded successfully");
 

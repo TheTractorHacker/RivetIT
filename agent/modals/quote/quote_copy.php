@@ -32,7 +32,7 @@ ob_start();
         <input type="hidden" name="client_id" value="<?php echo $client_id; ?>">
         <?php } else { ?>
         <div class="form-group">
-            <label>Client <strong class="text-danger">*</strong></label>
+            <label>Department <strong class="text-danger">*</strong></label>
             <div class="input-group">
                 <div class="input-group-prepend">
                     <span class="input-group-text"><i class="fa fa-fw fa-users"></i></span>

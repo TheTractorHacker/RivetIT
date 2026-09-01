@@ -151,7 +151,7 @@ $sign_url = "https://$config_base_url/guest/outtake_sign.php?token=$ot_token";
                         <h6 class="border-bottom pb-2">Form Details</h6>
                         <table class="table table-sm table-borderless mb-0">
                             <tr><td class="text-secondary">Ticket</td><td><?= $ticket_num ?></td></tr>
-                            <tr><td class="text-secondary">Client</td><td><?= $client_nm ?></td></tr>
+                            <tr><td class="text-secondary">Department</td><td><?= $client_nm ?></td></tr>
                             <?php if ($contact_nm) { ?><tr><td class="text-secondary">Contact</td><td><?= $contact_nm ?></td></tr><?php } ?>
                             <tr><td class="text-secondary">Subject</td><td><?= $subject ?></td></tr>
                             <tr><td class="text-secondary">Status</td><td><?= $signed_at ? '<span class="badge text-bg-success">Signed</span>' : '<span class="badge text-bg-warning text-dark">Unsigned</span>' ?></td></tr>

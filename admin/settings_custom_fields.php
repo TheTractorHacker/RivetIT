@@ -48,7 +48,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <div class="col-sm-8">
                         <div class="btn-group float-end">
                             <a href="?table=client_assets" class="btn <?php if ($table == 'client_assets') { echo 'btn-primary'; } else { echo 'btn-default'; } ?>">Assets</a>
-                            <a href="?table=clients" class="btn <?php if ($table == 'clients') { echo 'btn-primary'; } else { echo 'btn-default'; } ?>">Clients</a>
+                            <a href="?table=clients" class="btn <?php if ($table == 'clients') { echo 'btn-primary'; } else { echo 'btn-default'; } ?>">Departments</a>
                         </div>
                     </div>
                 </div>

@@ -55,19 +55,19 @@ ob_start();
                 </div>
 
                 <div class="form-group">
-                    <label>Client Access <strong class="text-danger">*</strong></label>
+                    <label>Department Access <strong class="text-danger">*</strong></label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                         </div>
                         <select class="form-control select2" name="client" required>
-                            <option value="0"> ALL CLIENTS </option>
+                            <option value="0"> ALL DEPARTMENTS </option>
                             <?php
                             $sql = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL ORDER BY client_name ASC");
                             while ($row = mysqli_fetch_assoc($sql)) {
                                 $client_id = intval($row['client_id']);
                                 $client_name = nullable_htmlentities($row['client_name']); ?>
-                                <option value="<?php echo $client_id; ?>"><?php echo "$client_name  (Client ID: $client_id)"; ?></option>
+                                <option value="<?php echo $client_id; ?>"><?php echo "$client_name  (Department ID: $client_id)"; ?></option>
                             <?php } ?>
                         </select>
                     </div>

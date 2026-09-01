@@ -22,7 +22,7 @@ ob_start();
 ?>
 
 <div class="modal-header bg-dark">
-    <h5 class="modal-title"><i class="fa fa-fw fa-calendar me-2"></i>Set Net Terms for <strong><?= $count ?></strong> Client(s)</h5>
+    <h5 class="modal-title"><i class="fa fa-fw fa-calendar me-2"></i>Set Net Terms for <strong><?= $count ?></strong> Department(s)</h5>
     <button type="button" class="close text-white" data-bs-dismiss="modal">
         <span>&times;</span>
     </button>

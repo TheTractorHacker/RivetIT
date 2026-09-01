@@ -59,7 +59,7 @@ $warn_date = date('Y-m-d', strtotime('+45 days'));
             <table class="table table-striped table-borderless table-hover">
                 <thead class="text-dark <?php if(!$num_rows[0]) echo 'd-none'; ?>">
                 <tr>
-                    <?php if (!$client_id) { ?><th>Client</th><?php } ?>
+                    <?php if (!$client_id) { ?><th>Department</th><?php } ?>
                     <th>Contract Name</th>
                     <th>Type</th>
                     <th>Status</th>

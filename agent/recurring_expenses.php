@@ -108,7 +108,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         </th>
                         <th>
                             <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
-                                Client  <?php if ($sort == 'client_name') { echo $order_icon; } ?>
+                                Department  <?php if ($sort == 'client_name') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th class="text-center">Action</th>

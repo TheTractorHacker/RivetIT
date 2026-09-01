@@ -33,7 +33,7 @@ ob_start();
     <div class="modal-body">
         <div class="form-group">
             <label>Visibility</label>
-            <p>Should this document be visible in the portal to client contacts with the 'Technical' role?</p>
+            <p>Should this document be visible in the portal to department contacts with the 'Technical' role?</p>
             <div class="input-group">
                 <div class="input-group-prepend">
                     <span class="input-group-text"><i class="fa fa-fw fa-eye"></i></span>

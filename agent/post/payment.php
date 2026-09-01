@@ -406,7 +406,7 @@ if (isset($_POST['add_payment_stripe'])) {
 
     // Sanity checks
     if (!$payment_provider_client || !$saved_payment_method) {
-        flash_alert("Stripe not enabled or no client card saved", 'error');
+        flash_alert("Stripe not enabled or no department card saved", 'error');
         redirect();
     } elseif ($invoice_status !== 'Sent' && $invoice_status !== 'Viewed') {
         flash_alert("Invalid invoice state (draft/partial/paid/not billable)", 'error');
@@ -421,7 +421,7 @@ if (isset($_POST['add_payment_stripe'])) {
     $provider = getPaymentProvider($provider_id);
 
     $balance_to_pay = round($invoice_amount, 2);
-    $pi_description = "ITFlow: $client_name payment of $invoice_currency_code $balance_to_pay for $invoice_prefix$invoice_number";
+    $pi_description = "ITFlow Internal IT: $client_name payment of $invoice_currency_code $balance_to_pay for $invoice_prefix$invoice_number";
 
     // Charge the saved payment method (off-session). The idempotency key is stable for
     // one minute so a double-click/browser-retry of this same submission collapses into
@@ -491,7 +491,7 @@ if (isset($_POST['add_payment_stripe'])) {
             // Email the internal notification address too
             if (!empty($config_invoice_paid_notification_email)) {
                 $subject = "Payment Received - $client_name - Invoice $invoice_prefix$invoice_number";
-                $body = "Hello, <br><br>This is a notification that an invoice has been paid in ITFlow. Below is a copy of the receipt sent to the client:-<br><br>--------<br><br>Hello $contact_name,<br><br>We have received online payment for the amount of " . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . " for invoice <a href=\'https://$config_base_url/guest/guest_view_invoice.php?invoice_id=$invoice_id&url_key=$invoice_url_key\'>$invoice_prefix$invoice_number</a>. Please keep this email as a receipt for your records.<br><br>Amount Paid: " . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . "<br><br>Thank you for your business!<br><br><br>--<br>$company_name - Billing Department<br>$config_invoice_from_email<br>$company_phone";
+                $body = "Hello, <br><br>This is a notification that an invoice has been paid in ITFlow Internal IT. Below is a copy of the receipt sent to the department:-<br><br>--------<br><br>Hello $contact_name,<br><br>We have received online payment for the amount of " . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . " for invoice <a href=\'https://$config_base_url/guest/guest_view_invoice.php?invoice_id=$invoice_id&url_key=$invoice_url_key\'>$invoice_prefix$invoice_number</a>. Please keep this email as a receipt for your records.<br><br>Amount Paid: " . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . "<br><br>Thank you for your business!<br><br><br>--<br>$company_name - Billing Department<br>$config_invoice_from_email<br>$company_phone";
 
                 $data[] = [
                     'from' => $config_invoice_from_email,
@@ -614,7 +614,7 @@ if (isset($_GET['add_payment_stripe'])) {
     $stripe = new \Stripe\StripeClient($config_stripe_secret);
 
     $balance_to_pay = round($invoice_amount, 2);
-    $pi_description = "ITFlow: $client_name payment of $invoice_currency_code $balance_to_pay for $invoice_prefix$invoice_number";
+    $pi_description = "ITFlow Internal IT: $client_name payment of $invoice_currency_code $balance_to_pay for $invoice_prefix$invoice_number";
 
     // Create a payment intent
     try {
@@ -676,7 +676,7 @@ if (isset($_GET['add_payment_stripe'])) {
             // Email the internal notification address too
             if (!empty($config_invoice_paid_notification_email)) {
                 $subject = "Payment Received - $client_name - Invoice $invoice_prefix$invoice_number";
-                $body = "Hello, <br><br>This is a notification that an invoice has been paid in ITFlow. Below is a copy of the receipt sent to the client:-<br><br>--------<br><br>Hello $contact_name,<br><br>We have received online payment for the amount of " . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . " for invoice <a href=\'https://$config_base_url/guest/guest_view_invoice.php?invoice_id=$invoice_id&url_key=$invoice_url_key\'>$invoice_prefix$invoice_number</a>. Please keep this email as a receipt for your records.<br><br>Amount Paid: " . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . "<br><br>Thank you for your business!<br><br><br>--<br>$company_name - Billing Department<br>$config_invoice_from_email<br>$company_phone";
+                $body = "Hello, <br><br>This is a notification that an invoice has been paid in ITFlow Internal IT. Below is a copy of the receipt sent to the department:-<br><br>--------<br><br>Hello $contact_name,<br><br>We have received online payment for the amount of " . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . " for invoice <a href=\'https://$config_base_url/guest/guest_view_invoice.php?invoice_id=$invoice_id&url_key=$invoice_url_key\'>$invoice_prefix$invoice_number</a>. Please keep this email as a receipt for your records.<br><br>Amount Paid: " . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . "<br><br>Thank you for your business!<br><br><br>--<br>$company_name - Billing Department<br>$config_invoice_from_email<br>$company_phone";
 
                 $data[] = [
                     'from' => $config_invoice_from_email,
@@ -751,7 +751,7 @@ if (isset($_POST['add_bulk_payment'])) {
 
     // Check if bulk_payment_amount exceeds total_account_balance
     if ($bulk_payment_amount > $total_account_balance) {
-        flash_alert("Payment exceeds Client Balance.", 'error');
+        flash_alert("Payment exceeds Department Balance.", 'error');
         redirect();
     }
 

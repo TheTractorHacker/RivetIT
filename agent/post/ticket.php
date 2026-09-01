@@ -1167,7 +1167,7 @@ if (isset($_POST['assign_ticket'])) {
             $ticket_from = resolveTicketFromIdentity($ticket_id);
 
             $subject = "$config_app_name - Ticket $ticket_prefix$ticket_number assigned to you - $ticket_subject";
-            $body = "Hi $agent_name, <br><br>A ticket has been assigned to you!<br><br>Client: $client_name<br>Ticket Number: $ticket_prefix$ticket_number<br> Subject: $ticket_subject<br><br>https://$config_base_url/agent/ticket.php?ticket_id=$ticket_id$client_uri <br><br>Thanks, <br>$session_name<br>$company_name";
+            $body = "Hi $agent_name, <br><br>A ticket has been assigned to you!<br><br>Department: $client_name<br>Ticket Number: $ticket_prefix$ticket_number<br> Subject: $ticket_subject<br><br>https://$config_base_url/agent/ticket.php?ticket_id=$ticket_id$client_uri <br><br>Thanks, <br>$session_name<br>$company_name";
 
             // Email Ticket Agent
             // Queue Mail
@@ -2590,7 +2590,7 @@ if (isset($_POST['change_client_ticket'])) {
 
     customAction('ticket_update', $ticket_id);
 
-    flash_alert("Ticket client updated");
+    flash_alert("Ticket department updated");
 
     redirect();
 

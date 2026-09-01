@@ -18,7 +18,7 @@ if (empty($config_smtp_host)) {
 
 // Check to see if client portal is enabled
 if($config_client_portal_enable == 0) {
-    echo "Client Portal is Disabled";
+    echo "Department Portal is Disabled";
     exit();
 }
 
@@ -79,8 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
             mysqli_query($mysqli, "INSERT INTO logs SET log_type = 'Contact', log_action = 'Modify', log_description = 'Sent a portal password reset e-mail for $email.', log_ip = '$ip', log_user_agent = '$user_agent', log_client_id = $client");
 
             // Send reset email
-            $subject = "Password reset for $company_name Client Portal";
-            $body = "Hello $name,<br><br>Someone (probably you) has requested a new password for your account on $company_name\'s Client Portal. <br><br><b>Please <a href=\'$url\'>click here</a> to reset your password.</b> <br><br>Alternatively, copy and paste this URL into your browser:<br> $url<br><br><i>If you didn\'t request this change, you can safely ignore this email.</i><br><br>--<br>$company_name - Support<br>$config_ticket_from_email<br>$company_phone";
+            $subject = "Password reset for $company_name Department Portal";
+            $body = "Hello $name,<br><br>Someone (probably you) has requested a new password for your account on $company_name\'s Department Portal. <br><br><b>Please <a href=\'$url\'>click here</a> to reset your password.</b> <br><br>Alternatively, copy and paste this URL into your browser:<br> $url<br><br><i>If you didn\'t request this change, you can safely ignore this email.</i><br><br>--<br>$company_name - Support<br>$config_ticket_from_email<br>$company_phone";
 
             $data = [
                 [
@@ -134,8 +134,8 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
             mysqli_query($mysqli, "INSERT INTO logs SET log_type = 'Contact User', log_action = 'Modify', log_description = 'Reset portal password for $email.', log_ip = '$ip', log_user_agent = '$user_agent', log_client_id = $client, log_user_id = $user_id");
 
             // Send confirmation email
-            $subject = "Password reset confirmation for $company_name Client Portal";
-            $body = "Hello $name,<br><br>Your password for your account on $company_name\'s Client Portal was successfully reset. You should be all set! <br><br><b>If you didn\'t reset your password, please get in touch ASAP.</b><br><br>--<br>$company_name - Support<br>$config_ticket_from_email<br>$company_phone";
+            $subject = "Password reset confirmation for $company_name Department Portal";
+            $body = "Hello $name,<br><br>Your password for your account on $company_name\'s Department Portal was successfully reset. You should be all set! <br><br><b>If you didn\'t reset your password, please get in touch ASAP.</b><br><br>--<br>$company_name - Support<br>$config_ticket_from_email<br>$company_phone";
 
 
             $data = [
@@ -259,7 +259,7 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
                 } else { ?>
 
                     <div class="input-group mb-3">
-                        <input type="email" class="form-control" placeholder="Registered Client Email" name="email" required autofocus>
+                        <input type="email" class="form-control" placeholder="Registered Department Email" name="email" required autofocus>
                         <div class="input-group-append">
                             <div class="input-group-text">
                                 <span class="fas fa-envelope"></span>

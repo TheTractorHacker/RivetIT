@@ -10,7 +10,7 @@ if (isset($_GET['type'])) {
     $type = intval($_GET['type']);
 
     if ($type === 1) {
-        $type_display = "Client";
+        $type_display = "Department";
     } elseif($type === 2) {
         $type_display = "Location";
     } elseif ($type === 3) {
@@ -62,7 +62,7 @@ ob_start();
                 </div>
                 <select class="form-control select2" name="type" required>
                     <option value="">- Type -</option>
-                    <option value="1">Client Tag</option>
+                    <option value="1">Department Tag</option>
                     <option value="2">Location Tag</option>
                     <option value="3">Contact Tag</option>
                     <option value="4">Credential Tag</option>

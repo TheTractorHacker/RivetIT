@@ -69,7 +69,7 @@
                         </div>
 
                         <div class="form-group">
-                            <textarea class="form-control" rows="6" name="note" id="share_note" placeholder="Client visible note" maxlength="255"></textarea>
+                            <textarea class="form-control" rows="6" name="note" id="share_note" placeholder="Department visible note" maxlength="255"></textarea>
                         </div>
 
                         <hr>

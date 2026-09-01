@@ -3,7 +3,7 @@ require_once "includes/inc_all_admin.php";
 
 $start_page_select_array = array (
     'dashboard.php'=>'Dashboard',
-    'clients.php'=> 'Client Management',
+    'clients.php'=> 'Department Management',
     'tickets.php'=> 'Support Tickets',
     'invoices.php' => 'Invoices'
 );
@@ -227,7 +227,7 @@ $net_terms_array = array (
             </div>
 
             <div class="form-group">
-                <label>Client Hourly Rate</label>
+                <label>Department Hourly Rate</label>
                 <div class="input-group">
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-clock"></i></span>

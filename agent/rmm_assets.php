@@ -163,7 +163,7 @@ $sync_target_name_js = json_encode($sync_target_name, JSON_HEX_TAG);
                 <tr>
                     <th class="ps-3">Status</th>
                     <th>Hostname</th>
-                    <th>Client</th>
+                    <th>Department</th>
                     <th>OS</th>
                     <th>Logged In User</th>
                     <th>Last Seen</th>
@@ -193,7 +193,7 @@ $sync_target_name_js = json_encode($sync_target_name, JSON_HEX_TAG);
                         </a>
                     <?php elseif (lookupUserPermission('module_rmm_sync') >= 1): ?>
                         <select class="form-control form-control-sm assign-client-select" style="width:auto;display:inline-block" data-asset-id="<?= intval($row['asset_id']) ?>">
-                            <option value="">Assign client...</option>
+                            <option value="">Assign department...</option>
                             <?php foreach ($clients_list as $cl): ?>
                             <option value="<?= intval($cl['client_id']) ?>"><?= nullable_htmlentities($cl['client_name']) ?></option>
                             <?php endforeach; ?>
@@ -278,12 +278,12 @@ document.querySelectorAll('.assign-client-select').forEach(function (sel) {
             if (d.success) {
                 location.reload();
             } else {
-                alert('Failed to assign client: ' + (d.error || 'Unknown error'));
+                alert('Failed to assign department: ' + (d.error || 'Unknown error'));
                 this.disabled = false;
             }
         })
         .catch(() => {
-            alert('Network error assigning client.');
+            alert('Network error assigning department.');
             this.disabled = false;
         });
     });

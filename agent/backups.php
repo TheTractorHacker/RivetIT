@@ -147,7 +147,7 @@ $sql_clients = mysqli_query($mysqli, "SELECT DISTINCT client_id, client_name FRO
         <form method="get" class="d-flex flex-wrap align-items-center" style="gap:6px">
             <?php if (mysqli_num_rows($sql_clients) > 0) { ?>
             <select name="client_id" class="form-control form-control-sm me-2 auto-submit-select" style="max-width:200px">
-                <option value="">All Clients</option>
+                <option value="">All Departments</option>
                 <?php while ($cl = mysqli_fetch_assoc($sql_clients)) { ?>
                 <option value="<?= $cl['client_id'] ?>" <?= $filter_client_id == $cl['client_id'] ? 'selected' : '' ?>>
                     <?= nullable_htmlentities($cl['client_name']) ?>
@@ -155,7 +155,7 @@ $sql_clients = mysqli_query($mysqli, "SELECT DISTINCT client_id, client_name FRO
                 <?php } ?>
             </select>
             <?php } ?>
-            <input type="text" name="q" value="<?= htmlspecialchars($filter_search) ?>" class="form-control form-control-sm me-2" placeholder="Search device, user, client…" style="max-width:220px">
+            <input type="text" name="q" value="<?= htmlspecialchars($filter_search) ?>" class="form-control form-control-sm me-2" placeholder="Search device, user, department…" style="max-width:220px">
             <button type="submit" class="btn btn-sm btn-secondary me-2"><i class="fas fa-search"></i></button>
             <?php if ($filter_client_id || $filter_search !== '') { ?>
             <a href="?" class="btn btn-sm btn-outline-secondary"><i class="fas fa-times me-1"></i>Clear</a>
@@ -184,7 +184,7 @@ $sql_clients = mysqli_query($mysqli, "SELECT DISTINCT client_id, client_name FRO
                     <th class="ps-3" style="width:36px;"></th>
                     <th>Device</th>
                     <th>Comet User</th>
-                    <th>Client</th>
+                    <th>Department</th>
                     <th>Status</th>
                     <th>Last Backup</th>
                     <th>Size</th>

@@ -123,7 +123,7 @@ if ($decrypted && $backup_loaded) {
 
         <form method="get" class="form-inline mb-3">
             <div class="input-group me-2 mb-2">
-                <input type="search" name="q" class="form-control" placeholder="Search name / username / client" value="<?php echo nullable_htmlentities($q); ?>">
+                <input type="search" name="q" class="form-control" placeholder="Search name / username / department" value="<?php echo nullable_htmlentities($q); ?>">
                 <div class="input-group-append">
                     <button class="btn btn-dark"><i class="fa fa-search"></i></button>
                 </div>
@@ -134,7 +134,7 @@ if ($decrypted && $backup_loaded) {
             <table class="table table-striped table-borderless table-hover">
                 <thead>
                     <tr>
-                        <th>Client</th>
+                        <th>Department</th>
                         <th>Credential</th>
                         <th>Username</th>
                         <th>Password</th>

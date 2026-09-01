@@ -247,7 +247,7 @@ $sql_noisy_clients = mysqli_query($mysqli,
      ORDER BY cnt DESC
      LIMIT 10");
 while ($r = mysqli_fetch_assoc($sql_noisy_clients)) {
-    $noisy_client_labels[] = $r['client_name'] ?: ('Client #' . intval($r['client_id']));
+    $noisy_client_labels[] = $r['client_name'] ?: ('Department #' . intval($r['client_id']));
     $noisy_client_counts[] = intval($r['cnt']);
 }
 $has_alert_analytics = array_sum($alert_trend_data) > 0 || !empty($sev_counts);
@@ -371,7 +371,7 @@ $has_alert_analytics = array_sum($alert_trend_data) > 0 || !empty($sev_counts);
                     <thead class="text-muted border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px">
                         <tr>
                             <th class="ps-3">Device</th>
-                            <th>Client</th>
+                            <th>Department</th>
                             <th class="text-center">CPU</th>
                             <th class="text-center">RAM</th>
                             <th class="text-center">Disk</th>
@@ -522,12 +522,12 @@ $has_alert_analytics = array_sum($alert_trend_data) > 0 || !empty($sev_counts);
     </div>
     <div class="col-lg-6">
         <div class="card card-dark mb-3">
-            <div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-volume-up me-2"></i>Noisiest Clients (last 30 days)</h6></div>
+            <div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-volume-up me-2"></i>Noisiest Departments (last 30 days)</h6></div>
             <div class="card-body">
                 <?php if (!empty($noisy_client_counts)): ?>
                 <div class="rmm-chart-h"><canvas id="noisyClientsChart"></canvas></div>
                 <?php else: ?>
-                <p class="text-muted text-center py-4 mb-0 small">No client alerts.</p>
+                <p class="text-muted text-center py-4 mb-0 small">No department alerts.</p>
                 <?php endif; ?>
             </div>
         </div>
@@ -564,7 +564,7 @@ $has_alert_analytics = array_sum($alert_trend_data) > 0 || !empty($sev_counts);
                     <thead class="text-muted border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px">
                         <tr>
                             <th class="ps-3">Asset</th>
-                            <th>Client</th>
+                            <th>Department</th>
                             <th>Last Seen</th>
                         </tr>
                     </thead>
@@ -659,17 +659,17 @@ $has_alert_analytics = array_sum($alert_trend_data) > 0 || !empty($sev_counts);
         <!-- Client Health -->
         <div class="card card-dark mb-3">
             <div class="card-header py-2 d-flex align-items-center">
-                <h6 class="mb-0 mr-auto"><i class="fas fa-users me-2"></i>Client Health</h6>
-                <a href="/agent/clients.php" class="btn btn-xs btn-secondary">All Clients</a>
+                <h6 class="mb-0 mr-auto"><i class="fas fa-users me-2"></i>Department Health</h6>
+                <a href="/agent/clients.php" class="btn btn-xs btn-secondary">All Departments</a>
             </div>
             <div class="card-body p-0">
             <?php if (mysqli_num_rows($sql_clients) === 0): ?>
-                <p class="text-muted text-center py-3 mb-0 small">No clients with RMM assets.</p>
+                <p class="text-muted text-center py-3 mb-0 small">No departments with RMM assets.</p>
             <?php else: ?>
                 <table class="table table-hover mb-0">
                     <thead class="text-muted border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px">
                         <tr>
-                            <th class="ps-3">Client</th>
+                            <th class="ps-3">Department</th>
                             <th class="text-center" title="Online / Total">Assets</th>
                             <th class="text-center text-danger">Offline</th>
                             <th class="text-center text-warning">Alerts</th>

@@ -81,7 +81,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         </th>
                         <th>
                             <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=api_key_client_id&order=<?php echo $disp; ?>">
-                                Client <?php if ($sort == 'api_key_client_id') { echo $order_icon; } ?>
+                                Department <?php if ($sort == 'api_key_client_id') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
@@ -116,7 +116,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         }
 
                         if ($row['api_key_client_id'] == 0) {
-                            $api_key_client = "<i>All Clients</i>";
+                            $api_key_client = "<i>All Departments</i>";
                         } else {
                             $api_key_client = nullable_htmlentities($row['client_name']);
                         }

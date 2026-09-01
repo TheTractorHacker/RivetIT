@@ -133,7 +133,7 @@ $picker_default = (!empty($config_theme_accent_custom) && preg_match('/^#[0-9A-F
         <h3 class="card-title"><i class="fas fa-fw fa-image me-2"></i>Company Logo</h3>
     </div>
     <div class="card-body">
-        <p class="mb-2">Your company logo is managed on the Company Details page and appears on invoices, quotes and the client portal.</p>
+        <p class="mb-2">Your company logo is managed on the Company Details page and appears on invoices, quotes and the department portal.</p>
         <a href="/admin/settings_company.php" class="btn btn-outline-secondary"><i class="fas fa-briefcase me-2"></i>Manage Company Logo</a>
     </div>
 </div>

@@ -21,7 +21,7 @@ ob_start();
     <input type="hidden" name="contract_template_id" value="<?= $contract_template_id ?>">
 
     <div class="modal-body">
-        <p class="text-secondary">Create a new contract from this template for each selected client.</p>
+        <p class="text-secondary">Create a new contract from this template for each selected department.</p>
 
         <div class="form-row">
             <div class="form-group col-md-6">
@@ -39,7 +39,7 @@ ob_start();
 
         <div class="form-group">
             <label class="d-block">
-                <input type="checkbox" id="select_all_clients"> <strong>Select All Clients</strong>
+                <input type="checkbox" id="select_all_clients"> <strong>Select All Departments</strong>
             </label>
             <hr class="mt-1 mb-2">
             <div style="max-height: 300px; overflow-y: auto;">
@@ -55,7 +55,7 @@ ob_start();
 
     <div class="modal-footer">
         <button type="submit" name="apply_contract_template" class="btn btn-primary text-bold">
-            <i class="fa fa-check me-2"></i>Apply to Selected Clients
+            <i class="fa fa-check me-2"></i>Apply to Selected Departments
         </button>
         <button type="button" class="btn btn-light" data-bs-dismiss="modal">
             <i class="fa fa-times me-2"></i>Cancel

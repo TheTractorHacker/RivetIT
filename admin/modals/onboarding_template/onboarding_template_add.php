@@ -22,7 +22,7 @@ ob_start();
                 <div class="input-group-prepend">
                     <span class="input-group-text"><i class="fa fa-fw fa-user-plus"></i></span>
                 </div>
-                <input type="text" class="form-control" name="name" placeholder="e.g. Client Onboarding" maxlength="255" required autofocus>
+                <input type="text" class="form-control" name="name" placeholder="e.g. Department Onboarding" maxlength="255" required autofocus>
             </div>
         </div>
 
@@ -52,7 +52,7 @@ ob_start();
                     <?php } ?>
                 </select>
             </div>
-            <small class="form-text text-secondary">Pre-selected when creating a project from this template, so the client gets this contract automatically.</small>
+            <small class="form-text text-secondary">Pre-selected when creating a project from this template, so the department gets this contract automatically.</small>
         </div>
 
     </div>

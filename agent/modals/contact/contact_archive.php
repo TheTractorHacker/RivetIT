@@ -13,7 +13,7 @@
                 <div class="modal-body">
 
                     <div class="alert alert-warning">
-                        Client Portal Access will be revoked upon archiving
+                        Department Portal Access will be revoked upon archiving
                     </div>
 
                     <label>Unassign:</label>

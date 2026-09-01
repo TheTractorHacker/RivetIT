@@ -109,7 +109,7 @@ $sql_replies = mysqli_query($mysqli, "SELECT tr.ticket_reply, tr.ticket_reply_ty
             <strong>Outtake Form</strong>
             Ticket #: <?= $ticket_num ?><br>
             Date: <?= $ticket_date ?><br>
-            Client: <?= $client_name ?><br>
+            Department: <?= $client_name ?><br>
             <?= $contact_name ? 'Contact: ' . $contact_name . '<br>' : '' ?>
             Subject: <?= $ticket_subj ?>
         </div>

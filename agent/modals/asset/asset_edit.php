@@ -404,12 +404,12 @@ ob_start();
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Client URI</label>
+                    <label>Department URI</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-globe"></i></span>
                         </div>
-                        <input type="text" class="form-control" name="uri_client" placeholder="URI http:// ftp:// ssh: etc -- viewable in Client Portal" maxlength="500" value="<?= $asset_uri_client ?>">
+                        <input type="text" class="form-control" name="uri_client" placeholder="URI http:// ftp:// ssh: etc -- viewable in Department Portal" maxlength="500" value="<?= $asset_uri_client ?>">
                     </div>
                 </div>
 

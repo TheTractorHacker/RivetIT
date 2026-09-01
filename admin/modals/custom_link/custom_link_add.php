@@ -71,7 +71,7 @@ ob_start();
                 <select class="form-control select2" name="location" required>
                     <option value="1">Main Side Nav</option>
                     <option value="2">Top Nav (Icon Required)</option>
-                    <option value="3">Client Portal Nav</option>
+                    <option value="3">Department Portal Nav</option>
                     <option value="4">Admin Nav</option>
                     <option value="5">Reports Nav</option>
                 </select>

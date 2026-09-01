@@ -44,6 +44,6 @@ if (isset($_POST['save_comet_maps'])) {
         }
     }
     logAction('Settings', 'Edit', "$session_name updated Comet client mappings");
-    flash_alert('Client mappings saved');
+    flash_alert('Department mappings saved');
     redirect();
 }

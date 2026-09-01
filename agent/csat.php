@@ -86,7 +86,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
             <div class="row">
                 <div class="col-md-4">
                     <div class="input-group mb-3 mb-md-0">
-                        <input type="search" class="form-control" name="q" value="<?php if (isset($q)) { echo stripslashes(nullable_htmlentities($q)); } ?>" placeholder="Search ticket, client, technician, comment">
+                        <input type="search" class="form-control" name="q" value="<?php if (isset($q)) { echo stripslashes(nullable_htmlentities($q)); } ?>" placeholder="Search ticket, department, technician, comment">
                         <div class="input-group-append">
                             <button class="btn btn-dark"><i class="fa fa-search"></i></button>
                         </div>
@@ -121,7 +121,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <?php } else { ?>
                 <div class="col-md-2">
                     <select class="form-control select2 auto-submit-select" name="client">
-                        <option value="" <?php if ($client == "") { echo "selected"; } ?>>- All Clients -</option>
+                        <option value="" <?php if ($client == "") { echo "selected"; } ?>>- All Departments -</option>
                         <?php
                         $sql_clients_filter = mysqli_query($mysqli, "SELECT DISTINCT client_id, client_name FROM clients
                             JOIN tickets ON ticket_client_id = client_id
@@ -159,7 +159,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <?php if (!$client_url) { ?>
                     <th>
                         <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
-                            Client <?php if ($sort == 'client_name') { echo $order_icon; } ?>
+                            Department <?php if ($sort == 'client_name') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <?php } ?>

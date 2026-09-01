@@ -49,7 +49,7 @@ enforceClientAccess($client_id);
 mysqli_query($mysqli, "DELETE FROM asset_rmm_links WHERE id=$link_id");
 
 logAction('RMM', 'Asset Unlinked',
-    "$session_name removed RMM link for asset \"{$link['asset_name']}\" (asset kept in ITFlow)",
+    "$session_name removed RMM link for asset \"{$link['asset_name']}\" (asset kept in ITFlow Internal IT)",
     $client_id, $asset_id
 );
 

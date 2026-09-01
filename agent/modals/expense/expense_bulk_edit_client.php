@@ -12,7 +12,7 @@ ob_start();
 ?>
 
 <div class="modal-header bg-dark">
-    <h5 class="modal-title"><i class="fa fa-fw fa-user me-2"></i>Set Client: <strong><?= $count ?></strong> Expense<?= $count == 1 ? '' : 's' ?></h5>
+    <h5 class="modal-title"><i class="fa fa-fw fa-user me-2"></i>Set Department: <strong><?= $count ?></strong> Expense<?= $count == 1 ? '' : 's' ?></h5>
     <button type="button" class="close text-white" data-bs-dismiss="modal">
         <span>&times;</span>
     </button>
@@ -27,13 +27,13 @@ ob_start();
 
 
         <div class="form-group">
-            <label>Client</label>
+            <label>Department</label>
             <div class="input-group">
                 <div class="input-group-prepend">
                     <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                 </div>
                 <select class="form-control select2" name="bulk_client_id">
-                    <option value="0">- No Client -</option>
+                    <option value="0">- No Department -</option>
                     <?php
 
                     $sql = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL ORDER BY client_name ASC");

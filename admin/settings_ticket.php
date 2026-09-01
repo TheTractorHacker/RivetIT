@@ -11,7 +11,7 @@ require_once "includes/inc_all_admin.php";
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
 
                 <div class="p-3 mb-3 border border-primary-subtle rounded-3 bg-primary-subtle bg-opacity-10">
-                    <label class="fw-bold mb-1"><i class="fab fa-fw fa-google me-1"></i>Google review link <small class="fw-normal text-secondary">(optional &mdash; shown to clients as a "Leave us a Google review" prompt after a 4-5 star rating)</small></label>
+                    <label class="fw-bold mb-1"><i class="fab fa-fw fa-google me-1"></i>Google review link <small class="fw-normal text-secondary">(optional &mdash; shown to departments as a "Leave us a Google review" prompt after a 4-5 star rating)</small></label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fab fa-fw fa-google"></i></span>
@@ -107,7 +107,7 @@ require_once "includes/inc_all_admin.php";
                 <div class="form-group">
                     <div class="form-check form-check form-switch">
                         <input type="checkbox" class="form-check-input" name="config_ticket_csat_enable" <?php if ($config_ticket_csat_enable == 1) { echo "checked"; } ?> value="1" id="csatEnableSwitch">
-                        <label class="form-check-label" for="csatEnableSwitch">Enable CSAT ratings <small class="text-secondary">(clients/guests can rate closed tickets <?= csatFaceEmoji(1) ?>&ndash;<?= csatFaceEmoji(5) ?>)</small></label>
+                        <label class="form-check-label" for="csatEnableSwitch">Enable CSAT ratings <small class="text-secondary">(departments/guests can rate closed tickets <?= csatFaceEmoji(1) ?>&ndash;<?= csatFaceEmoji(5) ?>)</small></label>
                     </div>
                 </div>
 

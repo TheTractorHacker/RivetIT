@@ -121,8 +121,8 @@ require_once "includes/inc_all_admin.php";
                     </div>
                     <div class="notif-row">
                         <div class="notif-row-meta">
-                            <div class="notif-label">Client Portal Notifications</div>
-                            <div class="notif-desc">Email clients automatically when their tickets are opened or closed.</div>
+                            <div class="notif-label">Department Portal Notifications</div>
+                            <div class="notif-desc">Email departments automatically when their tickets are opened or closed.</div>
                         </div>
                         <div class="notif-row-control">
                             <div class="form-check form-check form-switch">
@@ -144,8 +144,8 @@ require_once "includes/inc_all_admin.php";
                 <div class="notif-section-body">
                     <div class="notif-row">
                         <div class="notif-row-meta">
-                            <div class="notif-label">Client Overdue Reminders</div>
-                            <div class="notif-desc">Automatically email clients about overdue invoices every 30 days.</div>
+                            <div class="notif-label">Department Overdue Reminders</div>
+                            <div class="notif-desc">Automatically email departments about overdue invoices every 30 days.</div>
                         </div>
                         <div class="notif-row-control">
                             <div class="form-check form-check form-switch">
@@ -171,7 +171,7 @@ require_once "includes/inc_all_admin.php";
                     <div class="notif-row">
                         <div class="notif-row-meta">
                             <div class="notif-label">Invoice Paid Notification</div>
-                            <div class="notif-desc">Send an email when a client pays an invoice. Leave blank to disable.</div>
+                            <div class="notif-desc">Send an email when a department pays an invoice. Leave blank to disable.</div>
                             <div class="notif-email-input">
                                 <div class="input-group input-group-sm">
                                     <div class="input-group-prepend"><span class="input-group-text"><i class="fas fa-envelope"></i></span></div>
@@ -185,7 +185,7 @@ require_once "includes/inc_all_admin.php";
                     <div class="notif-row">
                         <div class="notif-row-meta">
                             <div class="notif-label">Recurring Invoice Emails</div>
-                            <div class="notif-desc">Email clients when their recurring invoices are automatically generated.</div>
+                            <div class="notif-desc">Email departments when their recurring invoices are automatically generated.</div>
                         </div>
                         <div class="notif-row-control">
                             <div class="form-check form-check form-switch">
@@ -208,7 +208,7 @@ require_once "includes/inc_all_admin.php";
                     <div class="notif-row">
                         <div class="notif-row-meta">
                             <div class="notif-label">Quote Accepted Notification</div>
-                            <div class="notif-desc">Send an email when a client accepts a quote. Leave blank to disable.</div>
+                            <div class="notif-desc">Send an email when a department accepts a quote. Leave blank to disable.</div>
                             <div class="notif-email-input">
                                 <div class="input-group input-group-sm">
                                     <div class="input-group-prepend"><span class="input-group-text"><i class="fas fa-envelope"></i></span></div>
@@ -423,7 +423,7 @@ require_once "includes/inc_all_admin.php";
                     <?php } else { ?>
                     <div class="p-3 text-muted text-center small" style="border:1px solid var(--color-border,#eee);border-radius:.4rem;">
                         <i class="fas fa-mobile-alt fa-2x mb-2 d-block text-secondary"></i>
-                        No devices have logged into the ITFlow mobile app yet.
+                        No devices have logged into the ITFlow Internal IT mobile app yet.
                     </div>
                     <?php } ?>
                 </div>
@@ -503,7 +503,7 @@ require_once "includes/inc_all_admin.php";
                         <div class="font-weight-semibold mb-1">Push notifications are not configured</div>
                         <div class="small text-muted">
                             Connect a Firebase project to send real-time push notifications to staff
-                            on the ITFlow mobile app. Firebase Cloud Messaging (FCM) is free with no per-message cost.
+                            on the ITFlow Internal IT mobile app. Firebase Cloud Messaging (FCM) is free with no per-message cost.
                         </div>
                     </div>
                 </div>
@@ -524,7 +524,7 @@ require_once "includes/inc_all_admin.php";
                         <div class="push-step">
                             <div class="push-step-num">2</div>
                             <div class="push-step-body">
-                                Click <strong>Add project</strong>, give it a name (e.g. <em>ITFlow</em>), and complete the wizard.
+                                Click <strong>Add project</strong>, give it a name (e.g. <em>ITFlow Internal IT</em>), and complete the wizard.
                                 Google Analytics is not required — you can disable it.
                             </div>
                         </div>
@@ -553,7 +553,7 @@ require_once "includes/inc_all_admin.php";
                         <div class="push-step" style="border-bottom:none;">
                             <div class="push-step-num">6</div>
                             <div class="push-step-body">
-                                Staff log into the <strong>ITFlow mobile app</strong> and their devices register automatically.
+                                Staff log into the <strong>ITFlow Internal IT mobile app</strong> and their devices register automatically.
                             </div>
                         </div>
                     </div>

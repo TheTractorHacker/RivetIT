@@ -48,7 +48,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
         <?php if ($num_rows[0] == 0) { ?>
             <p class="text-secondary">
-                No onboarding templates yet. Create one to define a checklist of tasks (and an optional contract) to apply when onboarding a new client to your services.
+                No onboarding templates yet. Create one to define a checklist of tasks (and an optional contract) to apply when onboarding a new department to your services.
             </p>
         <?php } ?>
 

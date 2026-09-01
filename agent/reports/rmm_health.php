@@ -233,13 +233,13 @@ $sev_bg = array_map(function ($s) use ($severity_colors) {
                 </div>
             </div>
             <div class="col-md-6">
-                <h6 class="mt-2"><i class="fas fa-building me-2"></i>Noisiest Clients</h6>
+                <h6 class="mt-2"><i class="fas fa-building me-2"></i>Noisiest Departments</h6>
                 <div class="table-responsive-sm">
                     <table class="table table-striped table-sm">
-                        <thead><tr><th>Client</th><th class="text-end">Alerts</th><th class="text-end">&rarr; Ticket</th></tr></thead>
+                        <thead><tr><th>Department</th><th class="text-end">Alerts</th><th class="text-end">&rarr; Ticket</th></tr></thead>
                         <tbody>
                             <?php if (empty($report['noisiest_clients'])) { ?>
-                                <tr><td colspan="3" class="text-center text-muted">No client-linked alerts.</td></tr>
+                                <tr><td colspan="3" class="text-center text-muted">No department-linked alerts.</td></tr>
                             <?php } else {
                                 foreach ($report['noisiest_clients'] as $c) { ?>
                                 <tr>

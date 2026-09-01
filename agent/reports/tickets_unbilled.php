@@ -21,7 +21,7 @@ $rows = 0;
 
     <div class="card card-dark">
         <div class="card-header py-2">
-            <h3 class="card-title mt-2"><i class="fas fa-fw fa-life-ring me-2"></i>Unbilled Tickets By Client</h3>
+            <h3 class="card-title mt-2"><i class="fas fa-fw fa-life-ring me-2"></i>Unbilled Tickets By Department</h3>
             <div class="card-tools">
                 <button type="button" class="btn btn-primary d-print-none js-print-page"><i class="fas fa-fw fa-print me-2"></i>Print</button>
             </div>
@@ -41,7 +41,7 @@ $rows = 0;
                 <table class="table table-striped">
                     <thead>
                     <tr>
-                        <th>Client</th>
+                        <th>Department</th>
                         <th class="text-end">Tickets Raised</th>
                         <th class="text-end">Billable Tickets</th>
                         <th class="text-end">Unbilled Tickets</th>

@@ -568,6 +568,6 @@ if (isset($_POST['add_verified_mailbox'])) {
 
     logAction("Mailbox", "Create", "$session_name added mailbox $name ($email) via shared-mailbox access check, reusing the {$source_mailbox['mailbox_imap_username']} connection", 0, $new_mailbox_id);
 
-    flash_alert("Mailbox <strong>$name</strong> ($email) added and connected. Edit it to rename it or set a default client.");
+    flash_alert("Mailbox <strong>$name</strong> ($email) added and connected. Edit it to rename it or set a default department.");
     redirect("mailbox.php");
 }

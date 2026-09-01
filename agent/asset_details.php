@@ -485,7 +485,7 @@ if (isset($_GET['asset_id'])) {
                         <?php } ?>
                         <?php
                         if ($asset_uri_client) { ?>
-                            <div class="mt-2"><i class="fa fa-fw fa-link text-secondary me-2"></i>Client URI: <a href="<?= $asset_uri_client; ?>" target="_blank" title="<?= $asset_uri_client ?>"><?= truncate($asset_uri_client, 40); ?></a></div>
+                            <div class="mt-2"><i class="fa fa-fw fa-link text-secondary me-2"></i>Department URI: <a href="<?= $asset_uri_client; ?>" target="_blank" title="<?= $asset_uri_client ?>"><?= truncate($asset_uri_client, 40); ?></a></div>
                         <?php } ?>
                     </div>
                 </div>
@@ -532,7 +532,7 @@ if (isset($_GET['asset_id'])) {
 
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item">
-                        <a href="clients.php">Clients</a>
+                        <a href="clients.php">Departments</a>
                     </li>
                     <li class="breadcrumb-item">
                         <a href="client_overview.php?client_id=<?= $client_id; ?>"><?= $client_name; ?></a>
@@ -1856,7 +1856,7 @@ function rmmConnect(linkId, type) {
     });
 }
 function rmmUnlink(linkId) {
-    if (!confirm('Remove this asset from RMM monitoring? The asset will remain in ITFlow, but RMM data, alerts, and remote connect options will be removed.')) return;
+    if (!confirm('Remove this asset from RMM monitoring? The asset will remain in ITFlow Internal IT, but RMM data, alerts, and remote connect options will be removed.')) return;
     fetch('/agent/post/rmm_unlink.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},

@@ -134,7 +134,7 @@
     var requestSeq = 0; // guards against out-of-order responses
 
     var GROUP_META = {
-        clients:  { label: 'Clients',  icon: 'fa-users' },
+        clients:  { label: 'Departments',  icon: 'fa-users' },
         contacts: { label: 'Contacts', icon: 'fa-address-book' },
         tickets:  { label: 'Tickets',  icon: 'fa-life-ring' },
         quotes:   { label: 'Quotes',   icon: 'fa-file-invoice' },

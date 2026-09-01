@@ -224,10 +224,10 @@ if (isset($_POST['apply_contract_template'])) {
     }
 
     if ($applied > 0) {
-        logAction("Contract Template", "Apply", "$session_name applied contract template $name to $applied client(s)", 0, $contract_template_id);
-        flash_alert("Contract template <strong>$name</strong> applied to <strong>$applied</strong> client(s).");
+        logAction("Contract Template", "Apply", "$session_name applied contract template $name to $applied department(s)", 0, $contract_template_id);
+        flash_alert("Contract template <strong>$name</strong> applied to <strong>$applied</strong> department(s).");
     } else {
-        flash_alert("No clients selected.", "danger");
+        flash_alert("No departments selected.", "danger");
     }
     redirect();
 }

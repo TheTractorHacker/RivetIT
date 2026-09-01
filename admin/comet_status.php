@@ -108,7 +108,7 @@ if ($comet_users) {
                     <th class="ps-3" style="width:36px;"></th>
                     <th>Device</th>
                     <th>Comet User</th>
-                    <th>Client</th>
+                    <th>Department</th>
                     <th>Status</th>
                     <th>Last Backup</th>
                     <th>Size</th>

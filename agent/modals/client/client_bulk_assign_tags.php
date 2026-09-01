@@ -11,7 +11,7 @@ ob_start();
 ?>
 
 <div class="modal-header bg-dark">
-    <h5 class="modal-title"><i class="fa fa-fw fa-tags me-2"></i>Assign Tags for <strong><?= $count ?></strong> Clients</h5>
+    <h5 class="modal-title"><i class="fa fa-fw fa-tags me-2"></i>Assign Tags for <strong><?= $count ?></strong> Departments</h5>
     <button type="button" class="close text-white" data-bs-dismiss="modal">
         <span>&times;</span>
     </button>

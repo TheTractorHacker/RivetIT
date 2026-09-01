@@ -398,8 +398,8 @@ if (mysqli_num_rows($sql_recurring_tickets) > 0) {
         // Notify agent's via the DL address of the new ticket, if it's populated with a valid email
         if (filter_var($config_ticket_new_ticket_notification_email, FILTER_VALIDATE_EMAIL)) {
 
-            $email_subject = "ITFlow - New Recurring Ticket - $client_name: $ticket_subject";
-            $email_body = "Hello, <br><br>This is a notification that a recurring (scheduled) ticket has been raised in ITFlow. <br>Ticket: $ticket_prefix$ticket_number<br>Client: $client_name<br>Priority: $priority<br>Link: https://$config_base_url/agent/ticket.php?ticket_id=$id$client_uri <br><br>--------------------------------<br><br><b>$ticket_subject</b><br>$ticket_details";
+            $email_subject = "ITFlow Internal IT - New Recurring Ticket - $client_name: $ticket_subject";
+            $email_body = "Hello, <br><br>This is a notification that a recurring (scheduled) ticket has been raised in ITFlow Internal IT. <br>Ticket: $ticket_prefix$ticket_number<br>Department: $client_name<br>Priority: $priority<br>Link: https://$config_base_url/agent/ticket.php?ticket_id=$id$client_uri <br><br>--------------------------------<br><br><b>$ticket_subject</b><br>$ticket_details";
 
             $email = [
                     'from' => $ticket_from['email'],
@@ -997,7 +997,7 @@ while ($row = mysqli_fetch_assoc($sql_recurring_payments)) {
                         // Internal notification
                         if (!empty($config_invoice_paid_notification_email)) {
                             $subject_int = "Payment Received - $client_name - Invoice $invoice_prefix$invoice_number";
-                            $body_int = "This is a notification that an invoice has been paid in ITFlow. Below is a copy of the receipt sent to the client:-<br><br>--------<br><br>$body";
+                            $body_int = "This is a notification that an invoice has been paid in ITFlow Internal IT. Below is a copy of the receipt sent to the department:-<br><br>--------<br><br>$body";
                             $data[] = [
                                 'from' => $config_invoice_from_email,
                                 'from_name' => $config_invoice_from_name,

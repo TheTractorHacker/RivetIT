@@ -268,8 +268,8 @@ if (isset($_POST['test_email_smtp'])) {
     }
 
     $email_to = sanitizeInput($_POST['email_to']);
-    $subject = "Test email from ITFlow";
-    $body = "This is a test email from ITFlow. If you are reading this, it worked!";
+    $subject = "Test email from ITFlow Internal IT";
+    $body = "This is a test email from ITFlow Internal IT. If you are reading this, it worked!";
 
     $data = [
         [

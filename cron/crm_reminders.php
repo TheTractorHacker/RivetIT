@@ -57,7 +57,7 @@ while ($crm_activity = mysqli_fetch_assoc($crm_reminder_result)) {
     } else {
         $crm_who_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT client_name FROM clients WHERE client_id = $crm_related_id LIMIT 1"));
         $crm_client_id = $crm_related_id;
-        $crm_who = sanitizeInput($crm_who_row['client_name'] ?? 'a client');
+        $crm_who = sanitizeInput($crm_who_row['client_name'] ?? 'a department');
         $crm_action = "client_overview.php?client_id=$crm_client_id";
     }
 

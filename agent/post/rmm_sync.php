@@ -125,7 +125,7 @@ if ($action === 'assign_client') {
 
     $client_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT client_name FROM clients WHERE client_id=$target_client_id AND client_archived_at IS NULL"));
     if (!$client_row) {
-        echo json_encode(['success' => false, 'error' => 'Client not found']);
+        echo json_encode(['success' => false, 'error' => 'Department not found']);
         exit;
     }
 

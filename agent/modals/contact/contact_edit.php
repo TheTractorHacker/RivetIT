@@ -210,7 +210,7 @@ ob_start();
                 <?php if ($config_client_portal_enable == 1) { ?>
                     <div class="authForm">
                         <div class="form-group">
-                            <label>Client Portal</label>
+                            <label>Department Portal</label>
                             <div class="input-group">
                                 <div class="input-group-prepend">
                                     <span class="input-group-text"><i class="fa fa-fw fa-user-circle"></i></span>

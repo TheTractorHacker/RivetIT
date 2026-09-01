@@ -140,7 +140,7 @@ if (!function_exists('crmCriteriaSummary')) {
         $parts = [];
         if (!empty($c['client_id'])) {
             $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT client_name FROM clients WHERE client_id = " . intval($c['client_id'])));
-            $parts[] = "Client: " . nullable_htmlentities($row['client_name'] ?? ('#' . intval($c['client_id'])));
+            $parts[] = "Department: " . nullable_htmlentities($row['client_name'] ?? ('#' . intval($c['client_id'])));
         }
         if (!empty($c['tag_id'])) {
             $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT tag_name FROM tags WHERE tag_id = " . intval($c['tag_id'])));

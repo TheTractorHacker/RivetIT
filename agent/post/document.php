@@ -677,9 +677,9 @@ if (isset($_POST['toggle_document_visibility'])) {
 
     mysqli_query($mysqli,"UPDATE documents SET document_client_visible = $document_visible, document_updated_at = document_updated_at WHERE document_id = $document_id");
 
-    logAction("Document", "Edit", "$session_name changed document $document_name visibilty to $visable_wording in the client portal", $client_id, $document_id);
+    logAction("Document", "Edit", "$session_name changed document $document_name visibilty to $visable_wording in the department portal", $client_id, $document_id);
 
-    flash_alert("Document <strong>$document_name</strong> changed to <strong>$visable_wording</strong> in the client portal");
+    flash_alert("Document <strong>$document_name</strong> changed to <strong>$visable_wording</strong> in the department portal");
 
     redirect();
 

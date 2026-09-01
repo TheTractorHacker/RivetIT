@@ -82,13 +82,13 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
 <div class="card">
     <div class="card-header py-2">
-        <h3 class="card-title mt-2"><i class="fa fa-fw fa-user-friends me-2"></i><?php if($leads_filter == 0){ echo "Clients"; } else { echo "Leads"; } ?></h3>
+        <h3 class="card-title mt-2"><i class="fa fa-fw fa-user-friends me-2"></i><?php if($leads_filter == 0){ echo "Departments"; } else { echo "Leads"; } ?></h3>
         <div class="card-tools">
             <?php if (lookupUserPermission("module_client") >= 2) { ?>
                 <div class="btn-group">
                     <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/client/client_add.php<?php if ($leads_filter) { echo "?lead=1"; } ?>">
                         <i class="fas fa-plus me-2"></i>New
-                        <?php if ($leads_filter == 0) { echo "Client"; } else { echo "Lead"; } ?>
+                        <?php if ($leads_filter == 0) { echo "Department"; } else { echo "Lead"; } ?>
                     </button>
                     <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"></button>
                     <div class="dropdown-menu">
@@ -114,7 +114,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <div class="col-md-5">
                     <div class="form-group mb-3">
                         <div class="d-flex" style="gap:.5rem;">
-                            <input type="search" class="form-control" name="q" value="<?php if (isset($q)) { echo stripslashes(nullable_htmlentities($q)); } ?>" placeholder="Search <?php if($leads_filter == 0){ echo "clients"; } else { echo "leads"; } ?>" autofocus>
+                            <input type="search" class="form-control" name="q" value="<?php if (isset($q)) { echo stripslashes(nullable_htmlentities($q)); } ?>" placeholder="Search <?php if($leads_filter == 0){ echo "departments"; } else { echo "leads"; } ?>" autofocus>
                             <button class="btn btn-secondary px-3" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilter"><i class="fas fa-filter"></i></button>
                             <button class="btn btn-primary px-3"><i class="fa fa-search"></i></button>
                         </div>
@@ -123,7 +123,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <div class="col-md-7">
                     <div class="btn-toolbar form-group mb-3 float-end">
                         <div class="btn-group me-2">
-                            <a href="?leads=0" class="btn btn-<?php if ($leads_filter == 0){ echo "primary"; } else { echo "default"; } ?>" title="Clients"><i class="fa fa-fw fa-user-friends"></i><span class="d-none d-sm-inline ms-2">Clients</span></a>
+                            <a href="?leads=0" class="btn btn-<?php if ($leads_filter == 0){ echo "primary"; } else { echo "default"; } ?>" title="Departments"><i class="fa fa-fw fa-user-friends"></i><span class="d-none d-sm-inline ms-2">Departments</span></a>
                             <a href="?leads=1" class="btn btn-<?php if ($leads_filter == 1){ echo "primary"; } else { echo "default"; } ?>"><i class="fa fa-fw fa-bullhorn"></i><span class="d-none d-sm-inline ms-2">Leads</span></a>
                         </div>
 
@@ -301,7 +301,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     </td>
                     <th>
                         <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
-                            Client Name <?php if ($sort == 'client_name') { echo $order_icon; } ?>
+                            Department Name <?php if ($sort == 'client_name') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
@@ -652,7 +652,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                         <?php if ($client_is_lead == 1 && !$client_archived_at) { ?>
                                         <div class="dropdown-divider"></div>
                                         <a class="dropdown-item text-success confirm-link" href="post.php?convert_lead=<?php echo $client_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token'] ?>">
-                                            <i class="fas fa-fw fa-user-check me-2"></i>Convert to Client
+                                            <i class="fas fa-fw fa-user-check me-2"></i>Convert to Department
                                         </a>
                                         <?php } ?>
 

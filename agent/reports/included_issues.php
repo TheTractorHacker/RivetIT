@@ -74,7 +74,7 @@ function renderIssuesUsageCells(array $u): void {
             <table class="table table-striped table-sm">
                 <thead>
                     <tr>
-                        <th rowspan="2" class="align-bottom">Client</th>
+                        <th rowspan="2" class="align-bottom">Department</th>
                         <th colspan="4" class="text-center"><i class="fas fa-fw fa-laptop me-1"></i>Remote</th>
                         <th colspan="4" class="text-center"><i class="fas fa-fw fa-house-user me-1"></i>Onsite</th>
                     </tr>
@@ -91,7 +91,7 @@ function renderIssuesUsageCells(array $u): void {
                 </thead>
                 <tbody>
                     <?php if (empty($rows)) { ?>
-                        <tr><td colspan="9" class="text-center text-muted">No clients have an included-issues plan configured. Set one on a client's Edit form.</td></tr>
+                        <tr><td colspan="9" class="text-center text-muted">No departments have an included-issues plan configured. Set one on a department's Edit form.</td></tr>
                     <?php } else { foreach ($rows as $r) { ?>
                         <tr>
                             <td><a href="../client_overview.php?client_id=<?= $r['client_id'] ?>"><?= nullable_htmlentities($r['client_name']) ?></a></td>

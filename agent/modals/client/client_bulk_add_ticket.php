@@ -12,7 +12,7 @@ ob_start();
 ?>
 
 <div class="modal-header bg-dark">
-    <h5 class="modal-title"><i class="fas fa-fw fa-life-ring me-2"></i>New Tickets for <strong><?= $count ?></strong> Client(s)</h5>
+    <h5 class="modal-title"><i class="fas fa-fw fa-life-ring me-2"></i>New Tickets for <strong><?= $count ?></strong> Department(s)</h5>
     <button type="button" class="close text-white" data-bs-dismiss="modal">
         <span>&times;</span>
     </button>

@@ -575,7 +575,7 @@ if (isset($_GET['ticket_id'])) {
                                     <?php } ?>
                                     <div class="dropdown-divider"></div>
                                     <a class="dropdown-item ajax-modal" href="#" id="clientChangeTicketModalLoad" data-modal-url="modals/ticket/ticket_change_client.php?ticket_id=<?= $ticket_id ?>">
-                                        <i class="fas fa-fw fa-people-carry me-2"></i>Change Client
+                                        <i class="fas fa-fw fa-people-carry me-2"></i>Change Department
                                     </a>
                                     <?php if (lookupUserPermission("module_support") == 3) { ?>
                                         <div class="dropdown-divider"></div>
@@ -1012,7 +1012,7 @@ if (isset($_GET['ticket_id'])) {
                 <!-- Comment tabs -->
                 <ul class="nav nav-tabs comment-tabs mb-3 d-print-none" id="commentTabs">
                     <li class="nav-item"><a class="nav-link active" href="#" data-comment-filter="all">All Comments</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#" data-comment-filter="client">Client</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" data-comment-filter="client">Department</a></li>
                     <li class="nav-item"><a class="nav-link" href="#" data-comment-filter="internal">Internal</a></li>
                     <li class="nav-item"><a class="nav-link" href="#" data-comment-filter="system">System</a></li>
                 </ul>
@@ -1034,7 +1034,7 @@ if (isset($_GET['ticket_id'])) {
                     // 'Public' covers both a tech's own reply that got emailed to the client and a
                     // public-visible note with no email sent — ticket_reply_emailed tells them apart
                     // for display. 'Client' (a genuine inbound reply from the client) is unaffected.
-                    $ticket_reply_type_label = ['Internal' => 'Internal Note', 'Public' => (!empty($row['ticket_reply_emailed']) ? 'Email Sent' : 'Public Note'), 'Client' => 'Client Reply', 'System' => 'System Note', 'Automation' => 'Automation Note', 'RMM Alert' => 'RMM Alert Note', 'Labor' => 'Labor Note'][$ticket_reply_type] ?? $ticket_reply_type;
+                    $ticket_reply_type_label = ['Internal' => 'Internal Note', 'Public' => (!empty($row['ticket_reply_emailed']) ? 'Email Sent' : 'Public Note'), 'Client' => 'Department Reply', 'System' => 'System Note', 'Automation' => 'Automation Note', 'RMM Alert' => 'RMM Alert Note', 'Labor' => 'Labor Note'][$ticket_reply_type] ?? $ticket_reply_type;
                     if ($ticket_reply_id === $ticket_initial_issue_reply_id) {
                         $ticket_reply_type_label = "Initial Issue";
                     }
@@ -1053,8 +1053,8 @@ if (isset($_GET['ticket_id'])) {
                         $user_avatar = nullable_htmlentities($row['contact_photo']);
                         $avatar_link = "../uploads/clients/$client_id/$user_avatar";
                     } elseif ($is_portal_reply) {
-                        $ticket_reply_by_display = 'Client Portal';
-                        $user_initials = 'CP';
+                        $ticket_reply_by_display = 'Department Portal';
+                        $user_initials = 'DP';
                         $user_avatar = '';
                         $avatar_link = '';
                     } elseif ($ticket_reply_by === 0 && $ticket_reply_id === $ticket_initial_issue_reply_id && !empty($client_name)) {

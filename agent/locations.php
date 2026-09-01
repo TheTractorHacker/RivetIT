@@ -149,7 +149,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <div class="col-md-2">
                     <div class="input-group mb-3 mb-md-0">
                         <select class="form-control select2 auto-submit-select" name="client">
-                            <option value="" <?php if ($client == "") { echo "selected"; } ?>>- All Clients -</option>
+                            <option value="" <?php if ($client == "") { echo "selected"; } ?>>- All Departments -</option>
 
                             <?php
                             $sql_clients_filter = mysqli_query($mysqli, "
@@ -251,7 +251,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         <?php if (!$client_url) { ?>
                         <th>
                             <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
-                                Client <?php if ($sort == 'client_name') { echo $order_icon; } ?>
+                                Department <?php if ($sort == 'client_name') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <?php } ?>

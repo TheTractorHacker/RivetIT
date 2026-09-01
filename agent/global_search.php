@@ -166,7 +166,7 @@ if (isset($_GET['query'])) {
             <div class="col-sm-6">
                 <div class="card card-dark mb-3">
                     <div class="card-header">
-                        <h6 class="card-title"><i class="fas fa-fw fa-users me-2"></i>Clients</h6>
+                        <h6 class="card-title"><i class="fas fa-fw fa-users me-2"></i>Departments</h6>
                     </div>
                     <div class="card-body">
                         <table class="table table-striped table-borderless">
@@ -219,7 +219,7 @@ if (isset($_GET['query'])) {
                                 <th>Email</th>
                                 <th>Phone</th>
                                 <th>Cell</th>
-                                <th>Client</th>
+                                <th>Department</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -276,7 +276,7 @@ if (isset($_GET['query'])) {
                                 <th>Name</th>
                                 <th>Description</th>
                                 <th>Phone</th>
-                                <th>Client</th>
+                                <th>Department</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -323,7 +323,7 @@ if (isset($_GET['query'])) {
                             <tr>
                                 <th>Name</th>
                                 <th>Expiry</th>
-                                <th>Client</th>
+                                <th>Department</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -405,7 +405,7 @@ if (isset($_GET['query'])) {
                             <thead>
                             <tr>
                                 <th>Document</th>
-                                <th>Client</th>
+                                <th>Department</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -450,7 +450,7 @@ if (isset($_GET['query'])) {
                             <tr>
                                 <th>File Name</th>
                                 <th>Description</th>
-                                <th>Client</th>
+                                <th>Department</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -501,7 +501,7 @@ if (isset($_GET['query'])) {
                                 <th>Ticket ID</th>
                                 <th>Description</th>
                                 <th>Status</th>
-                                <th>Client</th>
+                                <th>Department</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -551,7 +551,7 @@ if (isset($_GET['query'])) {
                                 <th>Subject</th>
                                 <th>Frequency</th>
                                 <th>Next</th>
-                                <th>Client</th>
+                                <th>Department</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -601,7 +601,7 @@ if (isset($_GET['query'])) {
                                 <th>Description</th>
                                 <th>Username</th>
                                 <th>Password</th>
-                                <th>Client</th>
+                                <th>Department</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -653,7 +653,7 @@ if (isset($_GET['query'])) {
                                 <th>Number</th>
                                 <th>Status</th>
                                 <th>Amount</th>
-                                <th>Client</th>
+                                <th>Department</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -704,7 +704,7 @@ if (isset($_GET['query'])) {
                                 <th>Number</th>
                                 <th>Status</th>
                                 <th>Amount</th>
-                                <th>Client</th>
+                                <th>Department</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -755,7 +755,7 @@ if (isset($_GET['query'])) {
                                 <th>Asset</th>
                                 <th>Type</th>
                                 <th>Serial</th>
-                                <th>Client</th>
+                                <th>Department</th>
                                 <th>Assigned</th>
                             </tr>
                             </thead>

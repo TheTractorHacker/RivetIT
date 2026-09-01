@@ -35,7 +35,7 @@ $num_software = $row['num'];
 
     <a class="pb-1 mt-1 brand-link" href="clients.php">
         <p class="h6"><i class="nav-icon fas fa-arrow-left ms-3 me-2"></i>
-            <span class="brand-text">Back | <strong>Client Overview</strong></span>
+            <span class="brand-text">Back | <strong>Department Overview</strong></span>
         </p>
     </a>
 

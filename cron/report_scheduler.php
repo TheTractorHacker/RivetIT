@@ -34,7 +34,7 @@ if ($scheduler_standalone) {
     $settings_row = mysqli_fetch_assoc(mysqli_query($mysqli,
         "SELECT * FROM companies, settings WHERE companies.company_id = settings.company_id AND companies.company_id = 1"));
     if ($settings_row) {
-        $company_name                = $settings_row['company_name'] ?? 'ITFlow';
+        $company_name                = $settings_row['company_name'] ?? 'ITFlow Internal IT';
         $company_currency            = $settings_row['company_currency'] ?? 'USD';
         $config_mail_from_email      = $settings_row['config_mail_from_email'] ?? '';
         $config_mail_from_name       = $settings_row['config_mail_from_name'] ?? $company_name;
@@ -46,7 +46,7 @@ if ($scheduler_standalone) {
 
 // Resolve a sensible From address/name (fall back to company email if the mail-from isn't configured).
 $scheduler_from_email = !empty($config_mail_from_email) ? $config_mail_from_email : ($company_email ?? '');
-$scheduler_from_name  = !empty($config_mail_from_name)  ? $config_mail_from_name  : ($company_name ?? 'ITFlow');
+$scheduler_from_name  = !empty($config_mail_from_name)  ? $config_mail_from_name  : ($company_name ?? 'ITFlow Internal IT');
 
 // Frequency -> strtotime interval used to decide whether a schedule is due again.
 $scheduler_intervals = [

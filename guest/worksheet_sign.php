@@ -112,7 +112,7 @@ $fields = mysqli_query($mysqli, "SELECT f.*, COALESCE(r.response_value,'') AS re
             <br>
             <strong>Ticket #</strong> <?= $ticket_num ?><br>
             <strong>Date</strong> <?= $ticket_date ?><br>
-            <strong>Client</strong> <?= $client_name ?><br>
+            <strong>Department</strong> <?= $client_name ?><br>
             <?php if ($contact_name) { ?><strong>Contact</strong> <?= $contact_name ?><br><?php } ?>
             <strong>Subject</strong> <?= $ticket_subject ?>
         </div>

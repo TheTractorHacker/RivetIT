@@ -46,9 +46,9 @@
                         <a href="/agent/clients.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "clients.php") { echo "active"; } ?>">
                             <i class="nav-icon fas fa-users"></i>
                             <p>
-                                Clients
+                                Departments
                                 <?php if ($num_active_clients) { ?>
-                                    <span class="right badge text-light" data-bs-toggle="tooltip" title="Active Clients"><?php echo $num_active_clients; ?></span>
+                                    <span class="right badge text-light" data-bs-toggle="tooltip" title="Active Departments"><?php echo $num_active_clients; ?></span>
                                 <?php } ?>
                             </p>
                         </a>
@@ -335,7 +335,7 @@
                 <li class="nav-item mt-3">
                     <a href="/agent/contacts.php" class="nav-link">
                         <i class="fas fa-users nav-icon"></i>
-                        <p>Client Overview</p>
+                        <p>Department Overview</p>
                         <i class="fas fa-angle-right nav-icon float-end"></i>
                     </a>
                 </li>

@@ -2,7 +2,7 @@
 <aside class="main-sidebar d-print-none">
 
     <a class="client-nav-back" href="/agent/clients.php">
-        <i class="fas fa-arrow-left"></i> All Clients
+        <i class="fas fa-arrow-left"></i> All Departments
     </a>
 
     <a class="client-nav-header" href="/agent/client_overview.php?client_id=<?php echo $client_id; ?>" title="<?php echo $client_name; ?>">

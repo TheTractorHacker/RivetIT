@@ -17,7 +17,7 @@ ob_start();
 ?>
 
 <div class="modal-header bg-dark">
-    <h5 class="modal-title"><i class="fa fa-fw fa-exchange-alt me-2"></i>Transfer <strong><?= $count ?></strong> Asset(s) to Client</h5>
+    <h5 class="modal-title"><i class="fa fa-fw fa-exchange-alt me-2"></i>Transfer <strong><?= $count ?></strong> Asset(s) to Department</h5>
     <button type="button" class="close text-white" data-bs-dismiss="modal">
         <span>&times;</span>
     </button>
@@ -30,13 +30,13 @@ ob_start();
     <div class="modal-body">
 
         <div class="form-group">
-            <label>Client <strong class="text-danger">*</strong></label>
+            <label>Department <strong class="text-danger">*</strong></label>
             <div class="input-group">
                 <div class="input-group-prepend">
                     <span class="input-group-text"><i class="fa fa-fw fa-users"></i></span>
                 </div>
                 <select class="form-control select2" name="bulk_client_id">
-                    <option value="">- Select Client -</option>
+                    <option value="">- Select Department -</option>
                     <?php
                         $clients_sql = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL $client_select_query");
 
@@ -59,7 +59,7 @@ ob_start();
     </div>
 
     <div class="modal-footer">
-        <button type="submit" name="bulk_transfer_client_asset" class="btn btn-primary text-bold"><i class="fa fa-check me-2"></i>Transfer to Client</button>
+        <button type="submit" name="bulk_transfer_client_asset" class="btn btn-primary text-bold"><i class="fa fa-check me-2"></i>Transfer to Department</button>
         <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-2"></i>Cancel</button>
     </div>
 </form>

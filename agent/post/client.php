@@ -217,7 +217,7 @@ if (isset($_POST['add_client'])) {
             $extended_log_description .= ", domain $website added";
         } catch (Exception $e) {
             $extended_log_description .= ", domain not added";
-            logApp("Client", "warning", "Failed to add domain $website during client creation");
+            logApp("Department", "warning", "Failed to add domain $website during department creation");
         }
 
         $domain_id = mysqli_insert_id($mysqli);
@@ -256,9 +256,9 @@ if (isset($_POST['add_client'])) {
         }
     }
 
-    logAction("Client", "Create", "$session_name created client $name$extended_log_description", $client_id, $client_id);
+    logAction("Department", "Create", "$session_name created department $name$extended_log_description", $client_id, $client_id);
 
-    flash_alert("Client <strong>$name</strong> created");
+    flash_alert("Department <strong>$name</strong> created");
 
     redirect();
 
@@ -352,9 +352,9 @@ if (isset($_POST['edit_client'])) {
         }
     }
 
-    logAction("Client", "Edit", "$session_name edited client $name", $client_id, $client_id);
+    logAction("Department", "Edit", "$session_name edited department $name", $client_id, $client_id);
 
-    flash_alert("Client <strong>$name</strong> updated");
+    flash_alert("Department <strong>$name</strong> updated");
 
     redirect();
 
@@ -376,9 +376,9 @@ if (isset($_GET['convert_lead'])) {
 
     mysqli_query($mysqli, "UPDATE clients SET client_lead = 0, client_lead_status = 'Converted' WHERE client_id = $client_id");
 
-    logAction("Client", "Convert", "$session_name converted lead $client_name to a client", $client_id, $client_id);
+    logAction("Department", "Convert", "$session_name converted lead $client_name to a department", $client_id, $client_id);
 
-    flash_alert("Lead <strong>$client_name</strong> converted to a client");
+    flash_alert("Lead <strong>$client_name</strong> converted to a department");
 
     redirect("clients.php");
 }
@@ -399,15 +399,15 @@ if (isset($_GET['archive_client'])) {
     while ($row = mysqli_fetch_assoc($sql_recurring_invoices)) {
         $recurring_invoice_id = intval($row['recurring_invoice_id']);
         mysqli_query($mysqli,"UPDATE recurring_invoices SET recurring_invoice_status = 0 WHERE recurring_invoice_id = $recurring_invoice_id AND recurring_invoice_client_id = $client_id");
-        mysqli_query($mysqli,"INSERT INTO history SET history_status = 0, history_description = 'Recurring Invoice inactive as client archived', history_recurring_invoice_id = $recurring_invoice_id");
+        mysqli_query($mysqli,"INSERT INTO history SET history_status = 0, history_description = 'Recurring Invoice inactive as department archived', history_recurring_invoice_id = $recurring_invoice_id");
     }
 
     // Get Client Name
     $client_name = sanitizeInput(getFieldById('clients', $client_id, 'client_name'));
 
-    logAction("Client", "Archive", "$session_name archived client $client_name", $client_id, $client_id);
+    logAction("Department", "Archive", "$session_name archived department $client_name", $client_id, $client_id);
 
-    flash_alert("Client <strong>$client_name</strong> archived", 'error');
+    flash_alert("Department <strong>$client_name</strong> archived", 'error');
 
     redirect();
 
@@ -426,9 +426,9 @@ if (isset($_GET['restore_client'])) {
 
     mysqli_query($mysqli, "UPDATE clients SET client_archived_at = NULL WHERE client_id = $client_id");
 
-    logAction("Client", "Restored", "$session_name restored client $client_name", $client_id);
+    logAction("Department", "Restored", "$session_name restored department $client_name", $client_id);
 
-    flash_alert("Client <strong>$client_name</strong> restored");
+    flash_alert("Department <strong>$client_name</strong> restored");
 
     redirect();
 
@@ -528,9 +528,9 @@ if (isset($_GET['delete_client'])) {
     //Finally Remove the Client
     mysqli_query($mysqli, "DELETE FROM clients WHERE client_id = $client_id");
 
-    logAction("Client", "Deleted", "$session_name deleted Client $client_name and all associated data");
+    logAction("Department", "Deleted", "$session_name deleted Department $client_name and all associated data");
 
-    flash_alert("Client <strong>$client_name</strong> deleted along with all associated data", 'error');
+    flash_alert("Department <strong>$client_name</strong> deleted along with all associated data", 'error');
 
     redirect('clients.php');
 
@@ -555,13 +555,13 @@ if (isset($_POST['export_clients_csv'])) {
         $delimiter = ",";
         $enclosure = '"';
         $escape    = '\\';   // backslash
-        $filename = sanitize_filename($session_company_name . "-Clients-" . date('Y-m-d_H-i-s') . ".csv");
+        $filename = sanitize_filename($session_company_name . "-Departments-" . date('Y-m-d_H-i-s') . ".csv");
 
         //create a file pointer
         $f = fopen('php://memory', 'w');
 
         //set column headers
-        $fields = array('Client Name', 'Industry', 'Referral', 'Website', 'Primary Location Name', 'Location Phone', 'Location Address', 'City', 'State', 'Postal Code', 'Country', 'Primary Contact Name', 'Title', 'Contact Phone', 'Extension', 'Contact Mobile', 'Contact Email', 'Hourly Rate', 'Currency', 'Payment Terms', 'Tax ID', 'Abbreviation');
+        $fields = array('Department Name', 'Industry', 'Referral', 'Website', 'Primary Location Name', 'Location Phone', 'Location Address', 'City', 'State', 'Postal Code', 'Country', 'Primary Contact Name', 'Title', 'Contact Phone', 'Extension', 'Contact Mobile', 'Contact Email', 'Hourly Rate', 'Currency', 'Payment Terms', 'Tax ID', 'Abbreviation');
         fputcsv($f, $fields, $delimiter, $enclosure, $escape);
 
         //output each row of the data, format line as csv and write to file pointer
@@ -580,7 +580,7 @@ if (isset($_POST['export_clients_csv'])) {
         //output all remaining data on a file pointer
         fpassthru($f);
 
-        logAction("Client", "Export", "$session_name exported $num_rows client(s) to a CSV file");
+        logAction("Department", "Export", "$session_name exported $num_rows department(s) to a CSV file");
 
     }
 
@@ -782,9 +782,9 @@ if (isset($_POST["import_clients_csv"])) {
         }
         fclose($file);
 
-        logAction("Client", "Import", "$session_name imported $row_count client(s) via CSV file, $duplicate_count duplicate(s) found");
+        logAction("Department", "Import", "$session_name imported $row_count department(s) via CSV file, $duplicate_count duplicate(s) found");
 
-        flash_alert("<strong>$row_count</strong> Client(s) added, <strong>$duplicate_count</strong> duplicate(s) found");
+        flash_alert("<strong>$row_count</strong> Department(s) added, <strong>$duplicate_count</strong> duplicate(s) found");
 
         redirect();
 
@@ -801,13 +801,13 @@ if (isset($_GET['download_clients_csv_template'])) {
     $delimiter = ",";
     $enclosure = '"';
     $escape    = '\\';   // backsla
-    $filename = "Clients-Template.csv";
+    $filename = "Departments-Template.csv";
 
     //create a file pointer
     $f = fopen('php://memory', 'w');
 
     //set column headers
-    $fields = array('Client Name', 'Industry', 'Referral', 'Website', 'Primary Location Name', 'Location Phone', 'Location Address', 'City', 'State', 'Postal Code', 'Country', 'Primary Contact Name', 'Title', 'Contact Phone', 'Extension', 'Contact Mobile', 'Contact Email', 'Hourly Rate', 'Currency', 'Payment Terms', 'Tax ID', 'Abbreviation');
+    $fields = array('Department Name', 'Industry', 'Referral', 'Website', 'Primary Location Name', 'Location Phone', 'Location Address', 'City', 'State', 'Postal Code', 'Country', 'Primary Contact Name', 'Title', 'Contact Phone', 'Extension', 'Contact Mobile', 'Contact Email', 'Hourly Rate', 'Currency', 'Payment Terms', 'Tax ID', 'Abbreviation');
     fputcsv($f, $fields, $delimiter, $enclosure, $escape);
 
     //move back to beginning of file
@@ -930,7 +930,7 @@ if (isset($_POST['bulk_add_client_ticket'])) {
 
         logAction("Ticket", "Bulk Create", "$session_name created $client_count tickets for $client_name");
 
-        flash_alert("<strong>$client_count</strong> tickets created for selected clients");
+        flash_alert("<strong>$client_count</strong> tickets created for selected departments");
 
     }
 
@@ -961,13 +961,13 @@ if (isset($_POST['bulk_edit_client_industry'])) {
 
             mysqli_query($mysqli,"UPDATE clients SET client_type = '$industry' WHERE client_id = $client_id");
 
-            logAction("Client", "Edit", "$session_name set Industry to $industry for $client_name", $client_id);
+            logAction("Department", "Edit", "$session_name set Industry to $industry for $client_name", $client_id);
 
         }
 
-        logAction("Client", "Bulk Edit", "$session_name set the department $industry for $count client(s)", $client_id);
+        logAction("Department", "Bulk Edit", "$session_name set the department $industry for $count department(s)", $client_id);
 
-        flash_alert("Set the Industry to <strong>$industry</strong> for <strong>$count</strong> clients");
+        flash_alert("Set the Industry to <strong>$industry</strong> for <strong>$count</strong> departments");
     }
 
     redirect();
@@ -997,13 +997,13 @@ if (isset($_POST['bulk_edit_client_referral'])) {
 
             mysqli_query($mysqli,"UPDATE clients SET client_referral = '$referral' WHERE client_id = $client_id");
 
-            logAction("Client", "Edit", "$session_name set Referral to $referral for $client_name", $client_id);
+            logAction("Department", "Edit", "$session_name set Referral to $referral for $client_name", $client_id);
 
         }
 
-        logAction("Client", "Bulk Edit", "$session_name set the referral $referral for $count client(s)", $client_id);
+        logAction("Department", "Bulk Edit", "$session_name set the referral $referral for $count department(s)", $client_id);
 
-        flash_alert("Set the Referral to <strong>$referral</strong> for <strong>$count</strong> clients");
+        flash_alert("Set the Referral to <strong>$referral</strong> for <strong>$count</strong> departments");
     }
 
     redirect();
@@ -1033,13 +1033,13 @@ if (isset($_POST['bulk_edit_client_hourly_rate'])) {
 
             mysqli_query($mysqli,"UPDATE clients SET client_rate = '$rate' WHERE client_id = $client_id");
 
-            logAction("Client", "Edit", "$session_name set Hourly Rate to" . numfmt_format_currency($currency_format, $rate, $session_company_currency) . "for $client_name", $client_id);
+            logAction("Department", "Edit", "$session_name set Hourly Rate to" . numfmt_format_currency($currency_format, $rate, $session_company_currency) . "for $client_name", $client_id);
 
         }
 
-        logAction("Client", "Bulk Edit", "$session_name set the hourly rate" . numfmt_format_currency($currency_format, $rate, $session_company_currency) . "for $count client(s)", $client_id);
+        logAction("Department", "Bulk Edit", "$session_name set the hourly rate" . numfmt_format_currency($currency_format, $rate, $session_company_currency) . "for $count department(s)", $client_id);
 
-        flash_alert("Set the Hourly Rate to <strong>" . numfmt_format_currency($currency_format, $rate, $session_company_currency) . "</strong> for <strong>$count</strong> client(s)");
+        flash_alert("Set the Hourly Rate to <strong>" . numfmt_format_currency($currency_format, $rate, $session_company_currency) . "</strong> for <strong>$count</strong> department(s)");
     }
 
     redirect();
@@ -1069,13 +1069,13 @@ if (isset($_POST['bulk_edit_client_net_terms'])) {
 
             mysqli_query($mysqli,"UPDATE clients SET client_net_terms = $net_terms WHERE client_id = $client_id");
 
-            logAction("Client", "Edit", "$session_name set net terms to $net_terms days for $client_name", $client_id);
+            logAction("Department", "Edit", "$session_name set net terms to $net_terms days for $client_name", $client_id);
 
         }
 
-        logAction("Client", "Bulk Edit", "$session_name set the net terms to $net_terms days for $count client(s)", $client_id);
+        logAction("Department", "Bulk Edit", "$session_name set the net terms to $net_terms days for $count department(s)", $client_id);
 
-        flash_alert("Set Net Term to <strong>$net_terms days</strong> for <strong>$count</strong> client(s)");
+        flash_alert("Set Net Term to <strong>$net_terms days</strong> for <strong>$count</strong> department(s)");
     }
 
     redirect();
@@ -1116,13 +1116,13 @@ if (isset($_POST['bulk_assign_client_tags'])) {
                 }
             }
 
-            logAction("Client", "Edit", "$session_name added tags to $client_name", $client_id, $client_id);
+            logAction("Department", "Edit", "$session_name added tags to $client_name", $client_id, $client_id);
 
         }
 
-        logAction("Client", "Bulk Edit", "$session_name added tags for $count clients", $client_id);
+        logAction("Department", "Bulk Edit", "$session_name added tags for $count departments", $client_id);
 
-        flash_alert("Assigned tags for <strong>$count</strong> clients");
+        flash_alert("Assigned tags for <strong>$count</strong> departments");
     }
 
     redirect();
@@ -1244,15 +1244,15 @@ if (isset($_POST['bulk_archive_clients'])) {
 
             mysqli_query($mysqli,"UPDATE clients SET client_archived_at = NOW() WHERE client_id = $client_id");
 
-            logAction("Client", "Archive", "$session_name archived $client_name", $client_id);
+            logAction("Department", "Archive", "$session_name archived $client_name", $client_id);
 
             $count++;
 
         }
 
-        logAction("Client", "Bulk Archive", "$session_name archived $count clients", $client_id);
+        logAction("Department", "Bulk Archive", "$session_name archived $count departments", $client_id);
 
-        flash_alert("Archived $count client(s)", 'error');
+        flash_alert("Archived $count department(s)", 'error');
 
     }
 
@@ -1282,13 +1282,13 @@ if (isset($_POST['bulk_unarchive_clients'])) {
 
             mysqli_query($mysqli,"UPDATE clients SET client_archived_at = NULL WHERE client_id = $client_id");
 
-            logAction("client", "Restore", "$session_name restored $client_name", $client_id);
+            logAction("Department", "Restore", "$session_name restored $client_name", $client_id);
 
         }
 
-        logAction("Client", "Bulk Restore", "$session_name restored $count client(s)", $client_id);
+        logAction("Department", "Bulk Restore", "$session_name restored $count department(s)", $client_id);
 
-        flash_alert("You restored <strong>$count</strong> client(s)");
+        flash_alert("You restored <strong>$count</strong> department(s)");
 
     }
 
@@ -1340,7 +1340,7 @@ if (isset($_POST["export_client_pdf"])) {
     $export_trips = intval($_POST["export_trips"]);
     $export_logs = intval($_POST["export_logs"]);
 
-    logAction("Client", "Export", "$session_name exported client data to a PDF file", $client_id, $client_id);
+    logAction("Department", "Export", "$session_name exported department data to a PDF file", $client_id, $client_id);
 
     // Get client record (joining primary contact and primary location)
     $sql = mysqli_query($mysqli, "SELECT * FROM clients

@@ -56,7 +56,7 @@ if ($reports_show_technical) {
                         <div class="small-box text-bg-warning bg-gradient mb-0">
                             <div class="inner">
                                 <h3><?php echo numfmt_format_currency($currency_format, $reports_ar['buckets']['total'], "$session_company_currency"); ?></h3>
-                                <p>Outstanding AR <?php echo "(" . count($reports_ar['clients']) . " " . (count($reports_ar['clients']) == 1 ? "client" : "clients") . ")"; ?></p>
+                                <p>Outstanding AR <?php echo "(" . count($reports_ar['clients']) . " " . (count($reports_ar['clients']) == 1 ? "department" : "departments") . ")"; ?></p>
                             </div>
                             <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
                         </div>

@@ -148,7 +148,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <?php if (!$client_url) { ?>
                     <th>
                         <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
-                            Client
+                            Department
                         </a>
                     </th>
                     <?php } ?>

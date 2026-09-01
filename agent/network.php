@@ -173,7 +173,7 @@ $type_labels = [
             <input type="hidden" name="device_type" value="<?= htmlspecialchars($filter_type) ?>">
             <?php endif; ?>
             <select name="client_id" class="form-control form-control-sm auto-submit-select" style="max-width:200px">
-                <option value="">All Clients</option>
+                <option value="">All Departments</option>
                 <?php while ($cl = mysqli_fetch_assoc($sql_clients)): ?>
                 <option value="<?= $cl['client_id'] ?>" <?= $filter_client_id == $cl['client_id'] ? 'selected' : '' ?>>
                     <?= nullable_htmlentities($cl['client_name']) ?>
@@ -187,7 +187,7 @@ $type_labels = [
             </select>
             <div class="input-group" style="max-width:240px">
                 <input type="text" name="q" value="<?= htmlspecialchars($filter_search) ?>"
-                       class="form-control form-control-sm" placeholder="Search device, client, IP…">
+                       class="form-control form-control-sm" placeholder="Search device, department, IP…">
                 <div class="input-group-append">
                     <button type="submit" class="btn btn-sm btn-secondary"><i class="fas fa-search"></i></button>
                 </div>
@@ -365,7 +365,7 @@ foreach ($net_sections as $sect):
             <tr>
                 <th class="ps-3" style="width:50px"></th>
                 <th>Device</th>
-                <th>Client</th>
+                <th>Department</th>
                 <th>IP Address</th>
                 <th>Model / Firmware</th>
                 <th>Source</th>

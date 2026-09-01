@@ -76,7 +76,7 @@ while ($row = mysqli_fetch_assoc($sql_tickets)) {
                     <thead>
                     <tr>
                         <th>Ticket</th>
-                        <th>Client</th>
+                        <th>Department</th>
                         <th class="text-end">Charges</th>
                         <th class="text-end">Total</th>
                         <th class="text-end">Uninvoiced</th>

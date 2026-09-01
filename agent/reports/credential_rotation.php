@@ -22,7 +22,7 @@ $passwords_not_rotated_sql = mysqli_query($mysqli,
 
     <div class="card card-dark">
         <div class="card-header py-2">
-            <h3 class="card-title mt-2"><i class="fas fa-fw fa-life-ring me-2"></i>Client credentials not changed/rotated in the last <?= intval($days) ?> days</h3>
+            <h3 class="card-title mt-2"><i class="fas fa-fw fa-life-ring me-2"></i>Department credentials not changed/rotated in the last <?= intval($days) ?> days</h3>
             <div class="card-tools">
                 <button type="button" class="btn btn-primary d-print-none js-print-page"><i class="fas fa-fw fa-print me-2"></i>Print</button>
             </div>
@@ -40,7 +40,7 @@ $passwords_not_rotated_sql = mysqli_query($mysqli,
                 <table class="table table-striped">
                     <thead>
                     <tr>
-                        <th>Client</th>
+                        <th>Department</th>
                         <th class="text-end">Credential Name</th>
                         <th class="text-end">Credential Description</th>
                         <th class="text-end">Credential Password Last Changed</th>

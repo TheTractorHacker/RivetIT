@@ -55,7 +55,7 @@ ob_start();
 ?>
 
 <div class="modal-header bg-dark">
-    <h5 class="modal-title"><i class='fa fa-fw fa-user-edit me-2'></i>Editing Client: <strong><?php echo $client_name; ?></strong></h5>
+    <h5 class="modal-title"><i class='fa fa-fw fa-user-edit me-2'></i>Editing Department: <strong><?php echo $client_name; ?></strong></h5>
     <button type="button" class="close text-white" data-bs-dismiss="modal">
         <span>&times;</span>
     </button>
@@ -107,7 +107,7 @@ ob_start();
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-id-badge"></i></span>
                         </div>
-                        <input type="text" class="form-control js-uppercase-input" name="abbreviation" placeholder="Shortned name for client - Max chars 6" value="<?php echo $client_abbreviation; ?>" maxlength="6">
+                        <input type="text" class="form-control js-uppercase-input" name="abbreviation" placeholder="Shortned name for department - Max chars 6" value="<?php echo $client_abbreviation; ?>" maxlength="6">
                     </div>
                 </div>
 

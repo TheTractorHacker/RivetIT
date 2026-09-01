@@ -65,7 +65,7 @@ $data = "otpauth://totp/ITFlow:$session_email?secret=$token";
             <?php if (!empty($company_logo)) { ?>
                 <img alt="<?= nullable_htmlentities($company_name)?> logo" height="110" width="380" class="img-fluid" src="<?php echo "../../uploads/settings/$company_logo"; ?>">
             <?php } else { ?>
-                <span class="text-primary text-bold"><i class="fas fa-paper-plane me-2"></i>IT</span>Flow
+                <span class="text-primary text-bold"><i class="fas fa-paper-plane me-2"></i>IT</span>Flow Internal IT
             <?php } ?>
         </div>
 

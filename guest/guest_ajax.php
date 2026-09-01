@@ -72,7 +72,7 @@ if (isset($_GET['stripe_create_pi'])) {
     require_once '../includes/payment_provider_factory.php';
     $provider = getPaymentProvider($provider_id);
 
-    $pi_description = "ITFlow: $client_name payment of $invoice_currency_code $balance_to_pay for $invoice_prefix$invoice_number";
+    $pi_description = "ITFlow Internal IT: $client_name payment of $invoice_currency_code $balance_to_pay for $invoice_prefix$invoice_number";
 
     // Same intent arguments as before (card-only preserves exact prior behaviour).
     $pi_args = [

@@ -40,7 +40,7 @@ if (!empty($git_log_raw)) {
                     <i>Error details:- <?php echo htmlspecialchars(shell_exec("git fetch fork 2>&1")); ?></i>
                     <br>
                     <br>Things to check: Is Git installed? Is the Git origin/remote correct? Are web server file permissions too strict?
-                    <br>Seek support on the <a href="https://forum.itflow.org">Forum</a> if required - include relevant PHP error logs & ITFlow debug output
+                    <br>Seek support on the <a href="https://forum.itflow.org">Forum</a> if required - include relevant PHP error logs & ITFlow Internal IT debug output
                 </div>
             <?php } ?>
 
@@ -82,7 +82,7 @@ if (!empty($git_log_raw)) {
                     <?php if (rand(1,10) == 1) { ?>
                         <br>
                         <div class="alert alert-info alert-dismissible fade show" role="alert">
-                            You're up to date, but when was the last time you checked your ITFlow backup works?
+                            You're up to date, but when was the last time you checked your ITFlow Internal IT backup works?
                             <button type="button" class="close" data-bs-dismiss="alert" aria-label="Close">
                                 <span aria-hidden="true">&times;</span>
                             </button>

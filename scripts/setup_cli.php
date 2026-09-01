@@ -74,7 +74,7 @@ $options = getopt($shortopts, $longopts);
 
 // If --help is set, print usage and exit
 if (isset($options['help'])) {
-    echo "ITFlow CLI Setup Script\n\n";
+    echo "ITFlow Internal IT CLI Setup Script\n\n";
     echo "Usage:\n";
     echo "  php setup_cli.php [options]\n\n";
     echo "Options:\n";
@@ -138,7 +138,7 @@ function getOptionOrPrompt($key, $promptMessage, $required = false, $default = '
 }
 
 // Start setup
-echo "Welcome to the ITFlow CLI Setup.\n";
+echo "Welcome to the ITFlow Internal IT CLI Setup.\n";
 
 // If config exists, abort
 if (file_exists('../config.php')) {
@@ -308,9 +308,9 @@ mysqli_query($mysqli, "INSERT INTO ticket_statuses SET ticket_status_name = 'Res
 mysqli_query($mysqli, "INSERT INTO ticket_statuses SET ticket_status_name = 'Closed', ticket_status_color = '#343a40'");
 
 // Modules
-mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_client', module_description = 'General client & contact management'");
+mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_client', module_description = 'General department & contact management'");
 mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_support', module_description = 'Access to ticketing, assets and documentation'");
-mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_credential', module_description = 'Access to client credentials - usernames, passwords and 2FA codes'");
+mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_credential', module_description = 'Access to department credentials - usernames, passwords and 2FA codes'");
 mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_sales', module_description = 'Access to quotes, invoices and products'");
 mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_financial', module_description = 'Access to payments, accounts, expenses and budgets'");
 mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_reporting', module_description = 'Access to all reports'");
@@ -346,16 +346,16 @@ mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'WiFi', catego
 
 // Asset statuses
 mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Ready to Deploy', category_description = 'Asset is configured and ready to be assigned', category_type = 'asset_status', category_color = '#0dcaf0', category_order = 1"); // 1
-mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Deployed', category_description = 'Asset is actively in use and assigned to a client or location', category_type = 'asset_status', category_color = '#198754', category_order = 2"); // 2
+mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Deployed', category_description = 'Asset is actively in use and assigned to a department or location', category_type = 'asset_status', category_color = '#198754', category_order = 2"); // 2
 mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Out for Repair', category_description = 'Asset has been sent out for servicing or repair', category_type = 'asset_status', category_color = '#fd7e14', category_order = 3"); // 3
 mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Lost', category_description = 'Asset location is unknown and cannot be accounted for', category_type = 'asset_status', category_color = '#dc3545', category_order = 4"); // 4
 mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Stolen', category_description = 'Asset has been reported stolen', category_type = 'asset_status', category_color = '#dc3545', category_order = 5"); // 5
 mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Retired', category_description = 'Asset has been decommissioned and is no longer in service', category_type = 'asset_status', category_color = '#6c757d', category_order = 6"); // 6
 
 // Contact note types
-mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Call', category_description = 'Phone call with a client or contact', category_icon = 'fa-phone-alt', category_type = 'contact_note_type', category_order = 1"); // 1
-mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Email', category_description = 'Email correspondence with a client or contact', category_icon = 'fa-envelope', category_type = 'contact_note_type', category_order = 2"); // 2
-mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Meeting', category_description = 'Scheduled meeting with a client or contact', category_icon = 'fa-handshake', category_type = 'contact_note_type', category_order = 3"); // 3
+mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Call', category_description = 'Phone call with a department or contact', category_icon = 'fa-phone-alt', category_type = 'contact_note_type', category_order = 1"); // 1
+mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Email', category_description = 'Email correspondence with a department or contact', category_icon = 'fa-envelope', category_type = 'contact_note_type', category_order = 2"); // 2
+mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Meeting', category_description = 'Scheduled meeting with a department or contact', category_icon = 'fa-handshake', category_type = 'contact_note_type', category_order = 3"); // 3
 mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'In Person', category_description = 'In person visit or on-site interaction', category_icon = 'fa-people-arrows', category_type = 'contact_note_type', category_order = 4"); // 4
 mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Note', category_description = 'General note or internal comment', category_icon = 'fa-sticky-note', category_type = 'contact_note_type', category_order = 5"); // 5
 

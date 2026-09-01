@@ -37,7 +37,7 @@ ob_start();
         </p>
 
         <div class="form-group">
-            <label>Client</label>
+            <label>Department</label>
             <div class="input-group">
                 <div class="input-group-prepend"><span class="input-group-text"><i class="fa fa-fw fa-user-tag"></i></span></div>
                 <select class="form-control select2" name="client_id">
@@ -52,7 +52,7 @@ ob_start();
                     <?php } ?>
                 </select>
             </div>
-            <small class="form-text text-muted">If the sender doesn't already exist as a contact under this client, a contact is created automatically. Leave as Guest to create an unassigned ticket, same as before.</small>
+            <small class="form-text text-muted">If the sender doesn't already exist as a contact under this department, a contact is created automatically. Leave as Guest to create an unassigned ticket, same as before.</small>
         </div>
 
     </div>

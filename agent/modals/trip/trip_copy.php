@@ -138,13 +138,13 @@ ob_start();
         <?php } else { ?>
 
             <div class="form-group">
-                <label>Client</label>
+                <label>Department</label>
                 <div class="input-group">
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                     </div>
                     <select class="form-control select2" name="client_id">
-                        <option value="">- Client (Optional) -</option>
+                        <option value="">- Department (Optional) -</option>
                         <?php
 
                         $sql_clients = mysqli_query($mysqli, "SELECT * FROM clients WHERE client_archived_at IS NULL ORDER BY client_name ASC");

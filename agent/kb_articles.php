@@ -179,9 +179,9 @@ if (isset($kb_groups['Uncategorized'])) {
                                         <span class="badge text-bg-secondary"><?= $kb_article_client_name ?></span>
                                     <?php } ?>
                                     <?php if ($kb_article_client_visible == 1) { ?>
-                                        <i class="fas fa-fw fa-check text-success" data-bs-toggle="tooltip" title="Visible in client portal"></i>
+                                        <i class="fas fa-fw fa-check text-success" data-bs-toggle="tooltip" title="Visible in department portal"></i>
                                     <?php } else { ?>
-                                        <i class="fas fa-fw fa-eye-slash text-muted" data-bs-toggle="tooltip" title="Hidden from client portal"></i>
+                                        <i class="fas fa-fw fa-eye-slash text-muted" data-bs-toggle="tooltip" title="Hidden from department portal"></i>
                                     <?php } ?>
                                     <small class="text-secondary ms-1"><?= nullable_htmlentities(date('M j, Y', strtotime($kb_article_updated_at))) ?></small>
                                 </div>

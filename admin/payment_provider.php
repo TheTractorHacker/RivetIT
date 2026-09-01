@@ -113,7 +113,7 @@ $num_rows = mysqli_num_rows($sql);
                                         <ul class="text-xs">
                                             <li>Related Recurring Payments</li>
                                             <li>Related Saved cards</li>
-                                            <li>Client Provider Relations</li>
+                                            <li>Department Provider Relations</li>
                                         </ul>
                                     </a>
                                 </div>
@@ -173,15 +173,15 @@ while ($row = mysqli_fetch_assoc($sql_spm)) {
     </div>
     <div class="card-body p-0">
         <?php if (empty($map_providers)): ?>
-            <p class="text-secondary text-center py-4 mb-0">Add a payment provider above to see client mappings here.</p>
+            <p class="text-secondary text-center py-4 mb-0">Add a payment provider above to see department mappings here.</p>
         <?php elseif (empty($map_clients)): ?>
-            <p class="text-secondary text-center py-4 mb-0">No active clients.</p>
+            <p class="text-secondary text-center py-4 mb-0">No active departments.</p>
         <?php else: ?>
         <div class="table-responsive-sm">
             <table class="table table-striped table-borderless table-hover mb-0">
                 <thead class="text-dark">
                 <tr>
-                    <th>Client</th>
+                    <th>Department</th>
                     <?php if (count($map_providers) > 1) { echo "<th>Provider</th>"; } ?>
                     <th>Linked Customer</th>
                     <th>Saved Payment Method(s)</th>

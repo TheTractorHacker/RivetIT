@@ -176,7 +176,7 @@ $client_issues_usage = getClientIncludedIssuesUsage($mysqli, $client_id);
                     </tbody>
                 </table>
                 <?php else: ?>
-                    <div class="p-3 text-muted text-center">No open opportunities for this client.</div>
+                    <div class="p-3 text-muted text-center">No open opportunities for this department.</div>
                 <?php endif; ?>
             </div>
         </div>

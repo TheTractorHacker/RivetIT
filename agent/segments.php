@@ -49,9 +49,9 @@ $sql_segments = mysqli_query($mysqli, "SELECT * FROM crm_segments ORDER BY segme
                     </div>
 
                     <div class="form-group">
-                        <label>Client</label>
+                        <label>Department</label>
                         <select class="form-control select2" name="client_id" id="seg_client_id">
-                            <option value="0">- Any Client -</option>
+                            <option value="0">- Any Department -</option>
                             <?php while ($c = mysqli_fetch_assoc($clients_options)) { ?>
                                 <option value="<?= intval($c['client_id']) ?>"><?= nullable_htmlentities($c['client_name']) ?></option>
                             <?php } ?>

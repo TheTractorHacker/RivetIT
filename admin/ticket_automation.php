@@ -48,7 +48,7 @@ $field_labels = [
     'severity'       => 'Alert severity',
     'message'        => 'Alert message',
     'asset_id'       => 'Asset ID',
-    'client_id'      => 'Client ID',
+    'client_id'      => 'Department ID',
     'integration_id' => 'RMM integration ID',
     'hostname'       => 'Asset hostname',
 ];

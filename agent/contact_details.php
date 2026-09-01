@@ -390,7 +390,7 @@ if (isset($_GET['contact_id'])) {
                                         <div>
                                             <span class="badge text-bg-secondary"><?= $a_meta['label'] ?></span>
                                             <?php if ($a_related_type == 'client') { ?>
-                                                <span class="badge text-bg-info" title="Logged against the client">Client</span>
+                                                <span class="badge text-bg-info" title="Logged against the department">Department</span>
                                             <?php } ?>
                                             <?php if ($a_subject) { ?><strong class="ms-1"><?= $a_subject ?></strong><?php } ?>
                                         </div>

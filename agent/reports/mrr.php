@@ -8,7 +8,7 @@ $report = getMrrReport($mysqli);
 
 // CSV export: top clients by MRR (same rows as the "Top Clients by MRR" table).
 if (!empty($report_export_csv)) {
-    $csv_header = ['Client', 'MRR', 'ARR'];
+    $csv_header = ['Department', 'MRR', 'ARR'];
     $csv_rows = [];
     foreach ($report['top_clients'] as $c) {
         $csv_rows[] = [
@@ -192,11 +192,11 @@ $freq_labels = [
 
         <!-- Top clients by MRR -->
         <div class="px-3 pb-3">
-            <h6 class="mt-2"><i class="fas fa-crown me-2"></i>Top Clients by MRR</h6>
+            <h6 class="mt-2"><i class="fas fa-crown me-2"></i>Top Departments by MRR</h6>
             <div class="table-responsive-sm">
                 <table class="table table-striped table-sm">
                     <thead>
-                        <tr><th>Client</th><th class="text-end">MRR</th><th class="text-end">ARR</th></tr>
+                        <tr><th>Department</th><th class="text-end">MRR</th><th class="text-end">ARR</th></tr>
                     </thead>
                     <tbody>
                         <?php if (empty($report['top_clients'])) { ?>

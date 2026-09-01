@@ -70,7 +70,7 @@ function signOuttakeForm($mysqli, $outtake_id, $signed_name, $signature) {
         WHERE tr.ticket_reply_ticket_id = $ticket_id AND tr.ticket_reply_archived_at IS NULL
         ORDER BY tr.ticket_reply_id ASC LIMIT 10");
     while ($r = mysqli_fetch_assoc($sql_replies)) {
-        $by   = htmlspecialchars($r['user_name'] ?: 'Client');
+        $by   = htmlspecialchars($r['user_name'] ?: 'Department');
         $dt   = date('M j, Y', strtotime($r['ticket_reply_created_at']));
         $body = nl2br(htmlspecialchars(html_entity_decode(substr(strip_tags($r['ticket_reply']), 0, 300), ENT_HTML5, 'UTF-8')));
         $replies_text .= "<tr>
@@ -107,7 +107,7 @@ function signOuttakeForm($mysqli, $outtake_id, $signed_name, $signature) {
     $contact_line  = htmlspecialchars(trim(implode(' &bull; ', array_filter([$co_phone, $co_email]))));
     $ticket_right  = 'Ticket: ' . htmlspecialchars($ticket_num) . '<br>'
         . 'Date: ' . date('m/d/Y', strtotime($row['ticket_created_at'])) . '<br>'
-        . 'Client: ' . htmlspecialchars($client_name) . '<br>'
+        . 'Department: ' . htmlspecialchars($client_name) . '<br>'
         . ($contact_name ? 'Contact: ' . htmlspecialchars($contact_name) . '<br>' : '')
         . 'Subject: ' . htmlspecialchars($ticket_subj);
 
@@ -173,7 +173,7 @@ function signOuttakeForm($mysqli, $outtake_id, $signed_name, $signature) {
         ['B', 'Signed by:'], ['', $signed_name],
         ['B', 'Date:'],      ['', $signed_at_str],
     ];
-    if ($client_name) { $sig_lines[] = ['B', 'Client:']; $sig_lines[] = ['', $client_name]; }
+    if ($client_name) { $sig_lines[] = ['B', 'Department:']; $sig_lines[] = ['', $client_name]; }
     $box_h = max(36, count($sig_lines) * ($lh + 1) + 14);
 
     // Section bar
@@ -242,7 +242,7 @@ function signOuttakeForm($mysqli, $outtake_id, $signed_name, $signature) {
     $file_id = mysqli_insert_id($mysqli);
 
     // Add internal ticket reply noting PDF is attached
-    $reply_msg = mysqli_real_escape_string($mysqli, "Outtake form signed by $signed_name on $signed_at_str. PDF saved to client files: $pdf_name");
+    $reply_msg = mysqli_real_escape_string($mysqli, "Outtake form signed by $signed_name on $signed_at_str. PDF saved to department files: $pdf_name");
     mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = '$reply_msg', ticket_reply_type = 'Internal', ticket_reply_by = 0, ticket_reply_ticket_id = $ticket_id");
 
     // Also copy the signed PDF into the ticket's attachments

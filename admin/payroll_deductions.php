@@ -17,7 +17,7 @@ $sql = mysqli_query($mysqli, "SELECT * FROM payroll_deduction_categories WHERE p
     </div>
 
     <div class="card-body">
-        <p class="text-muted">Define the deductions you want to subtract from gross pay (Health Insurance, 401k, etc.) - ITFlow just subtracts the dollar amount you assign per employee, no tax/benefit rules are calculated.</p>
+        <p class="text-muted">Define the deductions you want to subtract from gross pay (Health Insurance, 401k, etc.) - ITFlow Internal IT just subtracts the dollar amount you assign per employee, no tax/benefit rules are calculated.</p>
         <hr>
         <div class="table-responsive-sm">
             <table class="table table-striped table-borderless table-hover">

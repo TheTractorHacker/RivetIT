@@ -14,9 +14,9 @@ ob_start();
     <div class="modal-body">
         <?php if (!$client_id_pre) { ?>
         <div class="form-group">
-            <label>Client <strong class="text-danger">*</strong></label>
+            <label>Department <strong class="text-danger">*</strong></label>
             <select class="form-control select2" name="contract_client_id" required>
-                <option value="">- Select Client -</option>
+                <option value="">- Select Department -</option>
                 <?php $sql_c = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL ORDER BY client_name");
                 while ($c = mysqli_fetch_assoc($sql_c)) echo "<option value=\"{$c['client_id']}\">{$c['client_name']}</option>"; ?>
             </select>

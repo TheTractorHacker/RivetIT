@@ -48,7 +48,7 @@ $badge = ['completed'=>'success','failed'=>'danger','running'=>'warning','pendin
                     <tr><td class="text-muted">Type</td><td><?= nullable_htmlentities($run['script_type'] ?? '') ?></td></tr>
                     <tr><td class="text-muted">Asset</td>
                         <td><a href="/agent/asset_details.php?asset_id=<?= intval($run['asset_id']) ?>"><?= nullable_htmlentities($run['asset_name']) ?></a></td></tr>
-                    <tr><td class="text-muted">Client</td>
+                    <tr><td class="text-muted">Department</td>
                         <td><a href="/agent/client_details.php?client_id=<?= intval($run['asset_client_id']) ?>"><?= nullable_htmlentities($run['client_name']) ?></a></td></tr>
                     <tr><td class="text-muted">Run By</td><td><?= nullable_htmlentities($run['user_name']) ?></td></tr>
                     <tr><td class="text-muted">Status</td><td><span class="badge badge-<?= $badge ?>" id="run-status"><?= $run['status'] ?></span></td></tr>

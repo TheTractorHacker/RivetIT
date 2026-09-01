@@ -66,7 +66,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                             <th>
                                 <?php if (!$client_url) { ?>
                                 <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
-                                    Client <?php if ($sort == 'client_name') { echo $order_icon; } ?> /
+                                    Department <?php if ($sort == 'client_name') { echo $order_icon; } ?> /
                                 </a>
                                 <?php } ?>
                                 <a class="text-secondary <?php if ($client_url) { echo "text-dark"; } ?>" href="?<?php echo $url_query_strings_sort; ?>&sort=contact_name&order=<?php echo $disp; ?>">

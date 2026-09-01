@@ -16,7 +16,7 @@ $tag_color_palette = tagColorPalette();
 $tag_color_is_custom = !in_array(strtolower($tag_color), array_map('strtolower', $tag_color_palette));
 
 if ($tag_type == 1) {
-    $tag_type_display = "Client";
+    $tag_type_display = "Department";
 } elseif ( $tag_type == 2) {
     $tag_type_display = "Location";
 } elseif ( $tag_type == 3) {

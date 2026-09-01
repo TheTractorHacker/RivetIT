@@ -125,7 +125,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         </a>
                     </th>
                     <?php if (!$client_url) { ?>
-                    <th>Client</th>
+                    <th>Department</th>
                     <?php } ?>
                     <th>
                         <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=opportunity_stage&order=<?php echo $disp; ?>">

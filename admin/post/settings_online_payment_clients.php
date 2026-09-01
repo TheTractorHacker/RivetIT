@@ -66,7 +66,7 @@ if (isset($_GET['stripe_reset_customer'])) {
 
     logAction("Stripe", "Delete", "$session_name reset Stripe settings for client", $client_id);
 
-    flash_alert("Reset client Stripe settings", 'error');
+    flash_alert("Reset department Stripe settings", 'error');
 
     redirect();
 

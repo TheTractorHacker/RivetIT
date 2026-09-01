@@ -111,7 +111,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     <a class="dropdown-item ajax-modal" href="#"
                                         data-modal-url="modals/expense/expense_bulk_edit_client.php"
                                         data-bulk="true">
-                                        <i class="fas fa-fw fa-user me-2"></i>Set Client
+                                        <i class="fas fa-fw fa-user me-2"></i>Set Department
                                     </a>
                                     <?php if ($session_user_role == 3) { ?>
                                     <div class="dropdown-divider"></div>
@@ -243,7 +243,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         </th>
                         <th>
                             <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
-                                Client <?php if ($sort == 'client_name') { echo $order_icon; } ?>
+                                Department <?php if ($sort == 'client_name') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th class="text-center">Action</th>

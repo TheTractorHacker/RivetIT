@@ -66,8 +66,8 @@ if (isset($_POST['add_user'])) {
     // Send user e-mail, if specified
     if (isset($_POST['send_email']) && !empty($config_smtp_host) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
 
-        $subject = "Your new $company_name ITFlow account";
-        $body = "Hello $name,<br><br>An ITFlow account has been setup for you. Please contact your administrator for your initial login credentials, then change your password upon first login.<br><br>Username: $email <br>Login URL: https://$config_base_url/login.php?key=$config_login_key_secret<br><br>--<br>$company_name - Support<br>$config_ticket_from_email";
+        $subject = "Your new $company_name ITFlow Internal IT account";
+        $body = "Hello $name,<br><br>An ITFlow Internal IT account has been setup for you. Please contact your administrator for your initial login credentials, then change your password upon first login.<br><br>Username: $email <br>Login URL: https://$config_base_url/login.php?key=$config_login_key_secret<br><br>--<br>$company_name - Support<br>$config_ticket_from_email";
 
         $data = [
             [

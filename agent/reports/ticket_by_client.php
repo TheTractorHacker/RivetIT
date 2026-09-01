@@ -24,7 +24,7 @@ $sql_clients = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients
 
     <div class="card card-dark">
         <div class="card-header py-2">
-            <h3 class="card-title mt-2"><i class="fas fa-fw fa-life-ring me-2"></i>Tickets By Client</h3>
+            <h3 class="card-title mt-2"><i class="fas fa-fw fa-life-ring me-2"></i>Tickets By Department</h3>
             <div class="card-tools">
                 <button type="button" class="btn btn-primary d-print-none js-print-page"><i class="fas fa-fw fa-print me-2"></i>Print</button>
             </div>
@@ -63,7 +63,7 @@ $sql_clients = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients
                         <table class="table table-striped">
                             <thead>
                             <tr>
-                                <th>Client</th>
+                                <th>Department</th>
                                 <th class="text-end">Raised</th>
                                 <th class="text-end">Priority: Low</th>
                                 <th class="text-end">Priority: Med</th>
@@ -184,7 +184,7 @@ $sql_clients = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients
                         <table class="table table-striped">
                             <thead>
                             <tr>
-                                <th>Client</th>
+                                <th>Department</th>
                                 <th class="text-end">Raised</th>
                                 <th class="text-end">Priority: Low</th>
                                 <th class="text-end">Priority: Med</th>

@@ -25,7 +25,7 @@ $report = getCsatReport($mysqli, $report_from, $report_to, null, $config_ticket_
 
 // CSV export: raw feedback feed (same rows as the "Feedback" table below).
 if (!empty($report_export_csv)) {
-    $csv_header = ['Ticket #', 'Client', 'Technician', 'Rating', 'Comment', 'Rated at'];
+    $csv_header = ['Ticket #', 'Department', 'Technician', 'Rating', 'Comment', 'Rated at'];
     $csv_rows = [];
     foreach ($report['feedback'] as $f) {
         $csv_rows[] = [
@@ -247,12 +247,12 @@ $trend_avg    = array_map(function ($t) { return $t['avg_rating']; }, $report['t
                 </div>
             </div>
             <div class="col-lg-6">
-                <h6 class="mt-2"><i class="fas fa-building me-2"></i>By Client</h6>
+                <h6 class="mt-2"><i class="fas fa-building me-2"></i>By Department</h6>
                 <div class="table-responsive-sm">
                     <table class="table table-striped table-sm">
                         <thead>
                             <tr>
-                                <th>Client</th>
+                                <th>Department</th>
                                 <th class="text-end">Rated</th>
                                 <th class="text-end">Avg Rating</th>
                                 <th class="text-end">Satisfied %</th>
@@ -283,7 +283,7 @@ $trend_avg    = array_map(function ($t) { return $t['avg_rating']; }, $report['t
                     <thead>
                         <tr>
                             <th>Ticket</th>
-                            <th>Client</th>
+                            <th>Department</th>
                             <th>Technician</th>
                             <th>Rating</th>
                             <th>Comment</th>

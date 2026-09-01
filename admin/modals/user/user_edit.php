@@ -230,14 +230,14 @@ ob_start();
             <div class="tab-pane fade" id="pills-user-access<?php echo $user_id; ?>">
 
                 <div class="alert alert-info">
-                    Check boxes to authorize user client access. No boxes grant full client access. Admin users are unaffected.
+                    Check boxes to authorize user department access. No boxes grant full department access. Admin users are unaffected.
                 </div>
 
                 <ul class="list-group">
                     <li class="list-group-item" style="background: var(--color-accent-soft); box-shadow: inset 3px 0 0 var(--color-accent);">
                         <div class="form-check">
                             <input type="checkbox" class="form-check-input js-toggle-all-clients">
-                            <label class="form-check-label ms-3"><strong>Restrict Access to Clients</strong></label>
+                            <label class="form-check-label ms-3"><strong>Restrict Access to Departments</strong></label>
                         </div>
                     </li>
 

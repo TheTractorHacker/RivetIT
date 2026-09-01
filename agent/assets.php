@@ -309,7 +309,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                 <div class="col-md-2">
                     <div class="input-group mb-3 mb-md-0">
                         <select class="form-control select2 auto-submit-select" name="client">
-                            <option value="" <?php if ($client == "") { echo "selected"; } ?>>- All Clients -</option>
+                            <option value="" <?php if ($client == "") { echo "selected"; } ?>>- All Departments -</option>
 
                             <?php
                             $sql_clients_filter = mysqli_query($mysqli, "
@@ -439,7 +439,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                                 <a class="dropdown-item ajax-modal" href="#"
                                     data-modal-url="modals/asset/asset_bulk_transfer_client.php?<?= $client_url ?>"
                                     data-bulk="true">
-                                    <i class="fas fa-fw fa-arrow-right me-2"></i>Transfer to Client
+                                    <i class="fas fa-fw fa-arrow-right me-2"></i>Transfer to Department
                                 </a>
                                 <?php if ($archived) { ?>
                                     <div class="dropdown-divider"></div>
@@ -549,7 +549,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                         <?php if (!$client_url) { ?>
                         <th>
                             <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
-                                Client <?php if ($sort == 'client_name') { echo $order_icon; } ?>
+                                Department <?php if ($sort == 'client_name') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <?php } ?>
@@ -726,7 +726,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                                             <?php if ($asset_uri_client) { ?>
                                             <div class="dropdown-divider"></div>
                                             <a href="<?php echo $asset_uri_client; ?>" target="_blank" class="dropdown-item" >
-                                                <i class="fa fa-fw fa-external-link-alt me-2"></i>Client URI: <?php echo truncate($asset_uri_client,40); ?>
+                                                <i class="fa fa-fw fa-external-link-alt me-2"></i>Department URI: <?php echo truncate($asset_uri_client,40); ?>
                                             </a>
                                             <?php } ?>
                                         </div>

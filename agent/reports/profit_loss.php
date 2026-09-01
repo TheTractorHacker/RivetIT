@@ -511,13 +511,13 @@ $expense_categories[] = ['category_id' => 0, 'category_name' => 'Uncategorized']
 
             <!-- Wave 2: per-client profitability (revenue vs labor value) -->
             <div class="px-3 pb-3">
-                <h6 class="mt-2"><i class="fas fa-user-tie me-2"></i>Client Profitability (<?php echo intval($year); ?>) &mdash; Revenue vs Labor Value</h6>
+                <h6 class="mt-2"><i class="fas fa-user-tie me-2"></i>Department Profitability (<?php echo intval($year); ?>) &mdash; Revenue vs Labor Value</h6>
                 <small class="text-muted d-block mb-2">Revenue = payments received this year. Labor value = time logged &times; labor-type rate (billing rate, not internal wage cost).</small>
                 <div class="table-responsive-sm">
                     <table class="table table-sm table-striped">
                         <thead>
                             <tr>
-                                <th>Client</th>
+                                <th>Department</th>
                                 <th class="text-end">Revenue</th>
                                 <th class="text-end">Labor Value</th>
                                 <th class="text-end">Margin</th>
@@ -525,7 +525,7 @@ $expense_categories[] = ['category_id' => 0, 'category_name' => 'Uncategorized']
                         </thead>
                         <tbody>
                             <?php if (empty($client_profit['clients'])) { ?>
-                                <tr><td colspan="4" class="text-center text-muted">No client revenue or logged labor for <?php echo intval($year); ?>.</td></tr>
+                                <tr><td colspan="4" class="text-center text-muted">No department revenue or logged labor for <?php echo intval($year); ?>.</td></tr>
                             <?php } else {
                                 foreach ($client_profit['clients'] as $cp) {
                                     $m_class = $cp['margin'] >= 0 ? 'text-success' : 'text-danger'; ?>

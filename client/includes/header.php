@@ -14,7 +14,7 @@ header("Referrer-Policy: strict-origin-when-cross-origin");
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title><?php echo nullable_htmlentities($session_company_name); ?> | Client Portal</title>
+    <title><?php echo nullable_htmlentities($session_company_name); ?> | Department Portal</title>
 
     <!-- Tell the browser to be responsive to screen width -->
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -157,7 +157,7 @@ header("Referrer-Policy: strict-origin-when-cross-origin");
             <?php } ?>
             <div>
                 <h4 class="mb-0">Welcome back, <strong><?php echo stripslashes(nullable_htmlentities($session_contact_name)); ?></strong></h4>
-                <small class="text-muted"><?php echo nullable_htmlentities($session_company_name); ?> Client Portal</small>
+                <small class="text-muted"><?php echo nullable_htmlentities($session_company_name); ?> Department Portal</small>
             </div>
         </div>
     </div>

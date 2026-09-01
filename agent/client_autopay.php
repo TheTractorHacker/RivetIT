@@ -75,7 +75,7 @@ $saved_methods_query = mysqli_query($mysqli, "
 
         <?php if (!$provider_customer_id) { ?>
 
-            <p>This client has not authorized automatic payments yet. The client can grant consent and save a payment method from their client portal.</p>
+            <p>This department has not authorized automatic payments yet. The department can grant consent and save a payment method from their department portal.</p>
 
         <?php } else { ?>
 

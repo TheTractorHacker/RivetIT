@@ -13,7 +13,7 @@ if (isset($_GET['type'])) {
 }
 
 if ($type_filter == 1) {
-    $tag_type_display = "Client";
+    $tag_type_display = "Department";
 } elseif ( $type_filter == 2) {
     $tag_type_display = "Location";
 } elseif ( $type_filter == 3) {
@@ -67,7 +67,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 echo 'btn-primary';
                             } else {
                                 echo 'btn-default';
-                            } ?>">Client</a>
+                            } ?>">Department</a>
                         <a href="?type=2"
                             class="btn <?php if ($type_filter == 2) {
                                 echo 'btn-primary';

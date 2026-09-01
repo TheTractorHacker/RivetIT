@@ -292,7 +292,7 @@ ob_start();
                         <input type="text" class="form-control" inputmode="decimal" pattern="-?[0-9]*\.?[0-9]{0,2}" name="price" value="<?php echo number_format($client_rate, 2, '.', ''); ?>" required>
                     </div>
                     <small class="form-text text-muted">
-                        Based off Hourly Client rate of <strong><?= numfmt_format_currency($currency_format, $client_rate, $session_company_currency); ?></strong>
+                        Based off Hourly Department rate of <strong><?= numfmt_format_currency($currency_format, $client_rate, $session_company_currency); ?></strong>
                     </small>
                 </div>
 

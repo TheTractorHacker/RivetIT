@@ -101,7 +101,7 @@ $sql_attachments = mysqli_query(
                         <?php } ?>
                     </p>
                     <p class="mb-2">
-                        <strong>Client Portal</strong><br>
+                        <strong>Department Portal</strong><br>
                         <?php if ($kb_article_client_visible == 1) { ?>
                             <span class="badge text-bg-success">Visible</span>
                         <?php } else { ?>

@@ -49,7 +49,7 @@ ob_start();
         <div class="row">
             <div class="col-md-4">
                 <div class="form-group">
-                    <label>Client</label>
+                    <label>Department</label>
                     <select class="form-control select2" name="client_id">
                         <option value="0" <?php if ($kb_article_client_id == 0) { echo "selected"; } ?>>Central (Company-wide)</option>
                         <?php
@@ -60,7 +60,7 @@ ob_start();
                             <option value="<?php echo $select_client_id; ?>" <?php if ($kb_article_client_id == $select_client_id) { echo "selected"; } ?>><?php echo $select_client_name; ?></option>
                         <?php } ?>
                     </select>
-                    <small class="form-text text-muted">Central articles appear in every client's knowledge base. Client-specific articles are only visible to that client.</small>
+                    <small class="form-text text-muted">Central articles appear in every department's knowledge base. Department-specific articles are only visible to that department.</small>
                 </div>
             </div>
             <div class="col-md-4">
@@ -76,12 +76,12 @@ ob_start();
             </div>
             <div class="col-md-4">
                 <div class="form-group">
-                    <label>Visible to Client Portal</label>
+                    <label>Visible to Department Portal</label>
                     <select class="form-control select2" name="client_visible">
                         <option value="1" <?php if ($kb_article_client_visible == 1) { echo "selected"; } ?>>Yes</option>
                         <option value="0" <?php if ($kb_article_client_visible == 0) { echo "selected"; } ?>>No</option>
                     </select>
-                    <small class="form-text text-muted">Internal-only articles are still visible to agents, but hidden from clients.</small>
+                    <small class="form-text text-muted">Internal-only articles are still visible to agents, but hidden from departments.</small>
                 </div>
             </div>
         </div>

@@ -24,7 +24,7 @@ if (isset($_POST['accept_quote'], $_POST['url_key'])) {
         $client_id = intval($row['client_id']);
 
         mysqli_query($mysqli, "UPDATE quotes SET quote_status = 'Accepted' WHERE quote_id = $quote_id");
-        mysqli_query($mysqli, "INSERT INTO history SET history_status = 'Accepted', history_description = 'Client accepted Quote!', history_quote_id = $quote_id");
+        mysqli_query($mysqli, "INSERT INTO history SET history_status = 'Accepted', history_description = 'Department accepted Quote!', history_quote_id = $quote_id");
 
         // Notification
         appNotify("Quote Accepted", "Quote $quote_prefix$quote_number has been accepted by $client_name", "/agent/quote.php?quote_id=$quote_id", $client_id);
@@ -50,7 +50,7 @@ if (isset($_POST['accept_quote'], $_POST['url_key'])) {
 
         if (!empty($config_smtp_host) && !empty($config_quote_notification_email)) {
             $subject = "Quote Accepted - $client_name - Quote $quote_prefix$quote_number";
-            $body = "Hello, <br><br>This is a notification that a quote has been accepted in ITFlow. <br><br>Client: $client_name<br>Quote: <a href=\'https://$config_base_url/quote.php?quote_id=$quote_id\'>$quote_prefix$quote_number</a><br><br>~<br>$company_name - Billing<br>$config_quote_from_email";
+            $body = "Hello, <br><br>This is a notification that a quote has been accepted in ITFlow Internal IT. <br><br>Department: $client_name<br>Quote: <a href=\'https://$config_base_url/quote.php?quote_id=$quote_id\'>$quote_prefix$quote_number</a><br><br>~<br>$company_name - Billing<br>$config_quote_from_email";
 
             $data[] = [
                 'from' => $config_quote_from_email,
@@ -89,7 +89,7 @@ if (isset($_POST['decline_quote'], $_POST['url_key'])) {
         $client_id = intval($row['client_id']);
 
         mysqli_query($mysqli, "UPDATE quotes SET quote_status = 'Declined' WHERE quote_id = $quote_id");
-        mysqli_query($mysqli, "INSERT INTO history SET history_status = 'Declined', history_description = 'Client declined Quote!', history_quote_id = $quote_id");
+        mysqli_query($mysqli, "INSERT INTO history SET history_status = 'Declined', history_description = 'Department declined Quote!', history_quote_id = $quote_id");
 
         // Notification
         appNotify("Quote Declined", "Quote $quote_prefix$quote_number has been declined by $client_name", "/agent/quote.php?quote_id=$quote_id", $client_id);
@@ -115,7 +115,7 @@ if (isset($_POST['decline_quote'], $_POST['url_key'])) {
 
         if (!empty($config_smtp_host) && !empty($config_quote_notification_email)) {
             $subject = "Quote Declined - $client_name - Quote $quote_prefix$quote_number";
-            $body = "Hello, <br><br>This is a notification that a quote has been declined in ITFlow. <br><br>Client: $client_name<br>Quote: <a href=\'https://$config_base_url/quote.php?quote_id=$quote_id\'>$quote_prefix$quote_number</a><br><br>~<br>$company_name - Billing<br>$config_quote_from_email";
+            $body = "Hello, <br><br>This is a notification that a quote has been declined in ITFlow Internal IT. <br><br>Department: $client_name<br>Quote: <a href=\'https://$config_base_url/quote.php?quote_id=$quote_id\'>$quote_prefix$quote_number</a><br><br>~<br>$company_name - Billing<br>$config_quote_from_email";
 
             $data[] = [
                 'from' => $config_quote_from_email,
@@ -150,7 +150,7 @@ if (isset($_POST['reopen_ticket'], $_POST['url_key'])) {
         mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 2, ticket_resolved_at = NULL WHERE ticket_id = $ticket_id AND ticket_url_key = '$url_key'");
 
         // Add reply
-        mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Ticket reopened by client (guest URL).', ticket_reply_type = 'Internal', ticket_reply_by = 0, ticket_reply_ticket_id = $ticket_id");
+        mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Ticket reopened by department (guest URL).', ticket_reply_type = 'Internal', ticket_reply_by = 0, ticket_reply_ticket_id = $ticket_id");
 
         customAction('ticket_update', $ticket_id);
 
@@ -178,7 +178,7 @@ if (isset($_POST['close_ticket'], $_POST['url_key'])) {
         mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 5, ticket_closed_at = NOW() WHERE ticket_id = $ticket_id AND ticket_url_key = '$url_key'");
 
         // Add reply
-        mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Ticket closed by client (guest URL).', ticket_reply_type = 'Internal', ticket_reply_by = 0, ticket_reply_ticket_id = $ticket_id");
+        mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Ticket closed by department (guest URL).', ticket_reply_type = 'Internal', ticket_reply_by = 0, ticket_reply_ticket_id = $ticket_id");
 
         customAction('ticket_close', $ticket_id);
 
@@ -757,17 +757,17 @@ if (isset($_POST['guest_quote_upload_file'])) {
                     // Define destination file path
                     $dest_path = $upload_file_dir . $file_reference_name;
 
-                    // Get/Create a top-level folder called Client Uploads
-                    $folder_sql = mysqli_query($mysqli, "SELECT * FROM folders WHERE folder_name = 'Client Uploads' AND parent_folder = 0 AND folder_client_id = $client_id LIMIT 1");
+                    // Get/Create a top-level folder called Department Uploads
+                    $folder_sql = mysqli_query($mysqli, "SELECT * FROM folders WHERE folder_name = 'Department Uploads' AND parent_folder = 0 AND folder_client_id = $client_id LIMIT 1");
                     if (mysqli_num_rows($folder_sql) == 1) {
                         // Get
                         $row = mysqli_fetch_assoc($folder_sql);
                         $folder_id = $row['folder_id'];
                     } else {
                         // Create
-                        mysqli_query($mysqli,"INSERT INTO folders SET folder_name = 'Client Uploads', parent_folder = 0, folder_location = 1, folder_client_id = $client_id");
+                        mysqli_query($mysqli,"INSERT INTO folders SET folder_name = 'Department Uploads', parent_folder = 0, folder_location = 1, folder_client_id = $client_id");
                         $folder_id = mysqli_insert_id($mysqli);
-                        logAction("Folder", "Create", "Automatically created folder Client Uploads", $client_id, $folder_id);
+                        logAction("Folder", "Create", "Automatically created folder Department Uploads", $client_id, $folder_id);
                     }
 
                     // Do move/upload
@@ -785,7 +785,7 @@ if (isset($_POST['guest_quote_upload_file'])) {
 
                     appNotify("Quote File", "$file_name was uploaded to quote $quote_prefix$quote_number", "/agent/quote.php?quote_id=$quote_id", $client_id);
 
-                    mysqli_query($mysqli, "INSERT INTO history SET history_status = 'Upload', history_description = 'Client uploaded file $file_name', history_quote_id = $quote_id");
+                    mysqli_query($mysqli, "INSERT INTO history SET history_status = 'Upload', history_description = 'Department uploaded file $file_name', history_quote_id = $quote_id");
 
                     logAction("File", "Upload", "Guest uploaded file $file_name to quote $quote_prefix$quote_number", $client_id);
 

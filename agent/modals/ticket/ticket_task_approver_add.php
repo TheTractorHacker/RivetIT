@@ -41,7 +41,7 @@ ob_start();
                     <select class="form-control" name="approval_scope" id="approval_scope" required>
                         <option value="">Select scope...</option>
                         <option value="internal">Internal</option>
-                        <option value="client">Client</option>
+                        <option value="client">Department</option>
                     </select>
                 </div>
             </div>

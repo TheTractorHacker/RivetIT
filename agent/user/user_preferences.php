@@ -95,7 +95,7 @@ $has_fcm = mysqli_num_rows(mysqli_query($mysqli, "SELECT token_id FROM api_token
     <div class="card-body">
         <?php if (!$has_fcm) { ?>
         <div class="alert alert-warning py-2 mb-3">
-            <i class="fas fa-exclamation-triangle me-2"></i>No registered mobile devices found. Log in to the ITFlow mobile app and enable push notifications.
+            <i class="fas fa-exclamation-triangle me-2"></i>No registered mobile devices found. Log in to the ITFlow Internal IT mobile app and enable push notifications.
         </div>
         <?php } ?>
 

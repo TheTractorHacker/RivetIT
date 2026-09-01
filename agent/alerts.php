@@ -265,7 +265,7 @@ $has_active_filter = $filter_severity || $filter_client || $filter_search || $fi
             <!-- Client filter -->
             <?php if (mysqli_num_rows($sql_clients) > 0): ?>
             <select name="client_id" class="form-control form-control-sm me-2 auto-submit-select" style="max-width:180px">
-                <option value="">All Clients</option>
+                <option value="">All Departments</option>
                 <?php while ($cl = mysqli_fetch_assoc($sql_clients)): ?>
                 <option value="<?= $cl['client_id'] ?>" <?= $filter_client == $cl['client_id'] ? 'selected' : '' ?>>
                     <?= nullable_htmlentities($cl['client_name']) ?>
@@ -277,7 +277,7 @@ $has_active_filter = $filter_severity || $filter_client || $filter_search || $fi
             <?php if ($filter_severity): ?><input type="hidden" name="severity" value="<?= htmlspecialchars($filter_severity) ?>"><?php endif; ?>
             <?php endif; ?>
             <!-- Search -->
-            <input type="text" name="q" value="<?= htmlspecialchars($filter_search) ?>" class="form-control form-control-sm me-2" placeholder="Search message, device, client…" style="max-width:220px">
+            <input type="text" name="q" value="<?= htmlspecialchars($filter_search) ?>" class="form-control form-control-sm me-2" placeholder="Search message, device, department…" style="max-width:220px">
             <button type="submit" class="btn btn-sm btn-secondary me-2"><i class="fas fa-search"></i></button>
             <?php if ($has_active_filter || $filter_status !== 'new'): ?>
             <a href="?" class="btn btn-sm btn-outline-secondary"><i class="fas fa-times me-1"></i>Clear</a>
@@ -324,7 +324,7 @@ $has_active_filter = $filter_severity || $filter_client || $filter_search || $fi
                     <th>Severity</th>
                     <th>Message</th>
                     <th>Asset / Device</th>
-                    <th>Client</th>
+                    <th>Department</th>
                     <th>Status</th>
                     <th>Time</th>
                     <th></th>
