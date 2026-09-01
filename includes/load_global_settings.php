@@ -119,6 +119,7 @@ $config_module_enable_ticket_charges = intval($row['config_module_enable_ticket_
 $config_module_enable_kb = intval($row['config_module_enable_kb'] ?? 0);
 $config_module_enable_live_chat = intval($row['config_module_enable_live_chat'] ?? 0);
 $config_module_enable_payroll = intval($row['config_module_enable_payroll'] ?? 0);
+$config_module_enable_crm = intval($row['config_module_enable_crm'] ?? 0);
 $config_payroll_overtime_threshold_hours = floatval($row['config_payroll_overtime_threshold_hours'] ?? 40.00);
 $config_payroll_overtime_multiplier = floatval($row['config_payroll_overtime_multiplier'] ?? 1.50);
 $config_payroll_default_pay_frequency = (string) ($row['config_payroll_default_pay_frequency'] ?? 'biweekly');
