@@ -6171,3 +6171,13 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.48'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.48') {
+        // Dedicated AnyDesk ID field for assets, with a one-click "anydesk:"
+        // launch link on the asset details page - separate from the generic
+        // asset_uri/_2/_client fields so it's discoverable without needing to
+        // know AnyDesk's URI scheme.
+        mysqli_query($mysqli, "ALTER TABLE `assets` ADD COLUMN IF NOT EXISTS `asset_anydesk_id` varchar(50) DEFAULT NULL AFTER `asset_uri_client`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.49'");
+    }
+

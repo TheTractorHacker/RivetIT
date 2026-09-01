@@ -49,6 +49,8 @@ if (isset($_GET['asset_id'])) {
         $asset_uri = sanitize_url($row['asset_uri']);
         $asset_uri_2 = sanitize_url($row['asset_uri_2']);
         $asset_uri_client = sanitize_url($row['asset_uri_client']);
+        $asset_anydesk_id = nullable_htmlentities($row['asset_anydesk_id']);
+        $asset_anydesk_uri = $row['asset_anydesk_id'] ? sanitize_url('anydesk:' . preg_replace('/\D/', '', $row['asset_anydesk_id'])) : '';
         $asset_status = nullable_htmlentities($row['asset_status']);
         $asset_purchase_reference = nullable_htmlentities($row['asset_purchase_reference']);
         $asset_purchase_date = nullable_htmlentities($row['asset_purchase_date']);
@@ -455,6 +457,19 @@ if (isset($_GET['asset_id'])) {
                         <?php } ?>
                     </div>
                 </div>
+
+                <?php if ($asset_anydesk_uri): ?>
+                <div class="card card-dark">
+                    <div class="card-header">
+                        <h5 class="card-title">Remote Access</h5>
+                    </div>
+                    <div class="card-body">
+                        <a href="<?= $asset_anydesk_uri; ?>" class="btn btn-primary btn-block">
+                            <i class="fa fa-fw fa-desktop me-2"></i>Connect via AnyDesk (<?= $asset_anydesk_id; ?>)
+                        </a>
+                    </div>
+                </div>
+                <?php endif; ?>
 
                 <?php if ($asset_uri || $asset_uri_2 || $asset_uri_client): ?>
                 <div class="card card-dark">

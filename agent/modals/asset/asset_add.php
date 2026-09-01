@@ -388,6 +388,17 @@ ob_start();
                     <small class="text-muted">Viewable in client portal.</small>
                 </div>
 
+                <div class="form-group">
+                    <label>AnyDesk ID</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-desktop"></i></span>
+                        </div>
+                        <input type="text" class="form-control" name="anydesk_id" placeholder="e.g. 123 456 789" maxlength="50">
+                    </div>
+                    <small class="text-muted">Adds a one-click Connect button on the asset page.</small>
+                </div>
+
             </div>
 
             <div class="tab-pane fade" id="pills-asset-purchase">

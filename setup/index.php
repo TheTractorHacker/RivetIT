@@ -76,7 +76,7 @@ if (isset($_POST['add_database'])) {
     $new_config .= "\$dbpassword = " . var_export($password, true) . ";\n";
     $new_config .= "\$database = " . var_export($database, true) . ";\n";
     $new_config .= "\$mysqli = mysqli_connect(\$dbhost, \$dbusername, \$dbpassword, \$database) or die('Database Connection Failed');\n";
-    $new_config .= "\$config_app_name = 'ITFlow';\n";
+    $new_config .= "\$config_app_name = 'ITFlow Internal IT';\n";
     $new_config .= sprintf("\$config_base_url = '%s';\n", addslashes($config_base_url));
     $new_config .= "\$config_https_only = TRUE;\n";
     $new_config .= "\$repo_branch = 'master';\n";
