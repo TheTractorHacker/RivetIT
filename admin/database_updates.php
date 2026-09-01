@@ -6190,3 +6190,56 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.50'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.50') {
+        // Master-plan Phase 0: central audit trail. Append-only from the app's
+        // perspective - nothing in agent/admin code gets an UPDATE/DELETE path
+        // for this table, only INSERT via src/Audit/AuditService.php.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `audit_events` (
+            `audit_id` int(11) NOT NULL AUTO_INCREMENT,
+            `event_type` varchar(100) NOT NULL,
+            `actor_user_id` int(11) DEFAULT NULL,
+            `entity_type` varchar(100) DEFAULT NULL,
+            `entity_id` varchar(64) DEFAULT NULL,
+            `action` varchar(50) NOT NULL,
+            `summary` varchar(500) DEFAULT NULL,
+            `metadata_json` text DEFAULT NULL,
+            `ip_address` varchar(64) DEFAULT NULL,
+            `user_agent` varchar(255) DEFAULT NULL,
+            `request_id` varchar(64) DEFAULT NULL,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`audit_id`),
+            KEY `idx_audit_events_type_created` (`event_type`, `created_at`),
+            KEY `idx_audit_events_entity` (`entity_type`, `entity_id`),
+            KEY `idx_audit_events_actor` (`actor_user_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.51'");
+    }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.51') {
+        // Master-plan Phase 0: DB-backed job queue (Section 33) - foundation
+        // for async Microsoft/Odoo/RMM sync work in later phases. Nothing
+        // enqueues jobs yet; this just makes the table/worker exist first.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `integration_jobs` (
+            `job_id` int(11) NOT NULL AUTO_INCREMENT,
+            `integration_id` int(11) DEFAULT NULL,
+            `job_type` varchar(100) NOT NULL,
+            `resource_type` varchar(100) DEFAULT NULL,
+            `status` enum('pending','running','completed','failed','dead_letter') NOT NULL DEFAULT 'pending',
+            `priority` int(11) NOT NULL DEFAULT 0,
+            `attempts` int(11) NOT NULL DEFAULT 0,
+            `max_attempts` int(11) NOT NULL DEFAULT 5,
+            `available_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `started_at` datetime DEFAULT NULL,
+            `completed_at` datetime DEFAULT NULL,
+            `payload` text DEFAULT NULL,
+            `result` text DEFAULT NULL,
+            `error` text DEFAULT NULL,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`job_id`),
+            KEY `idx_integration_jobs_status_available` (`status`, `available_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.52'");
+    }
+

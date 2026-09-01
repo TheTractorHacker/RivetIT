@@ -12,6 +12,10 @@ class ComposerStaticInit690e04a27fa241bad9da145ee44cf2eb
             'Psr\\Http\\Message\\' => 17,
             'Predis\\' => 7,
         ),
+        'I' => 
+        array (
+            'ITFlow\\' => 7,
+        ),
     );
 
     public static $prefixDirsPsr4 = array (
@@ -22,6 +26,10 @@ class ComposerStaticInit690e04a27fa241bad9da145ee44cf2eb
         'Predis\\' => 
         array (
             0 => __DIR__ . '/..' . '/predis/predis/src',
+        ),
+        'ITFlow\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/src',
         ),
     );
 

@@ -399,6 +399,33 @@ CREATE TABLE `assets` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `audit_events`
+--
+
+DROP TABLE IF EXISTS `audit_events`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `audit_events` (
+  `audit_id` int(11) NOT NULL AUTO_INCREMENT,
+  `event_type` varchar(100) NOT NULL,
+  `actor_user_id` int(11) DEFAULT NULL,
+  `entity_type` varchar(100) DEFAULT NULL,
+  `entity_id` varchar(64) DEFAULT NULL,
+  `action` varchar(50) NOT NULL,
+  `summary` varchar(500) DEFAULT NULL,
+  `metadata_json` text DEFAULT NULL,
+  `ip_address` varchar(64) DEFAULT NULL,
+  `user_agent` varchar(255) DEFAULT NULL,
+  `request_id` varchar(64) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`audit_id`),
+  KEY `idx_audit_events_type_created` (`event_type`,`created_at`),
+  KEY `idx_audit_events_entity` (`entity_type`,`entity_id`),
+  KEY `idx_audit_events_actor` (`actor_user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `auth_logs`
 --
 
@@ -1438,6 +1465,34 @@ CREATE TABLE `history` (
   `history_recurring_invoice_id` int(11) NOT NULL DEFAULT 0,
   `history_quote_id` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`history_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `integration_jobs`
+--
+
+DROP TABLE IF EXISTS `integration_jobs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `integration_jobs` (
+  `job_id` int(11) NOT NULL AUTO_INCREMENT,
+  `integration_id` int(11) DEFAULT NULL,
+  `job_type` varchar(100) NOT NULL,
+  `resource_type` varchar(100) DEFAULT NULL,
+  `status` enum('pending','running','completed','failed','dead_letter') NOT NULL DEFAULT 'pending',
+  `priority` int(11) NOT NULL DEFAULT 0,
+  `attempts` int(11) NOT NULL DEFAULT 0,
+  `max_attempts` int(11) NOT NULL DEFAULT 5,
+  `available_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `started_at` datetime DEFAULT NULL,
+  `completed_at` datetime DEFAULT NULL,
+  `payload` text DEFAULT NULL,
+  `result` text DEFAULT NULL,
+  `error` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`job_id`),
+  KEY `idx_integration_jobs_status_available` (`status`,`available_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

@@ -65,6 +65,7 @@ $failed_login_count = intval($row['failed_login_count']);
 if ($failed_login_count >= 15) {
     // Make sure global session_user_id is not required here (will be 0 anyway)
     logAction("Login", "Blocked", "$session_ip was blocked access to login due to IP lockout");
+    \ITFlow\Audit\AuditService::record('auth.login_blocked', null, 'user', null, 'blocked', "$session_ip blocked after repeated failed logins");
     header("HTTP/1.1 429 Too Many Requests");
     exit("<h2>$config_app_name</h2>Your IP address has been blocked due to repeated failed login attempts. Please try again later. <br><br>This action has been logged.");
 }
@@ -273,6 +274,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
 
             // Option B not possible here (we don't know user_id reliably)
             logAction("Login", "Failed", "Failed login attempt using $email");
+            \ITFlow\Audit\AuditService::record('auth.login_failed', null, 'user', null, 'failed', "Failed login attempt using $email");
 
             $response = "
               <div class='alert alert-danger'>
@@ -449,6 +451,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
                         // Option B: set session_user_id BEFORE logAction()
                         $session_user_id = $user_id;
                         logAction("Login", "Success", "$user_name successfully logged in $extended_log", 0, $user_id);
+                        \ITFlow\Audit\AuditService::record('auth.login_success', $user_id, 'user', $user_id, 'success', "$user_name logged in", ['ip' => $session_ip]);
 
                         $_SESSION['user_id']    = $user_id;
                         $_SESSION['csrf_token'] = randomString(32);
@@ -601,6 +604,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
                             // Option B: set session_user_id BEFORE logAction()
                             $session_user_id = $user_id;
                             logAction("Login", "MFA Failed", "$user_email failed MFA", 0, $user_id);
+                            \ITFlow\Audit\AuditService::record('auth.mfa_failed', $user_id, 'user', $user_id, 'failed', "$user_email failed MFA");
 
                             if ((!empty($config_smtp_host) || !empty($config_smtp_provider))) {
                                 $subject = "Important: $config_app_name failed 2FA login attempt for $user_name";
