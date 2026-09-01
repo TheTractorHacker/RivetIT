@@ -164,10 +164,12 @@ $dash_expiring_certificates = intval(mysqli_fetch_row(mysqli_query($mysqli, "SEL
 
 $dash_attention_items = [
     ['count' => $dash_unassigned_tickets,      'label' => 'Unassigned tickets',        'href' => 'tickets.php?assigned=0',                              'icon' => 'fa-user-slash'],
-    ['count' => $dash_pending_invoices,         'label' => 'Unpaid invoices',           'href' => 'invoices.php',                                        'icon' => 'fa-file-invoice-dollar'],
     ['count' => $dash_expiring_domains,         'label' => 'Domains expiring (30d)',    'href' => 'domains.php?sort=domain_expire&order=ASC',            'icon' => 'fa-globe'],
     ['count' => $dash_expiring_certificates,    'label' => 'Certificates expiring (30d)','href' => 'certificates.php?sort=certificate_expire&order=ASC',  'icon' => 'fa-lock'],
 ];
+if ($config_module_enable_accounting) {
+    $dash_attention_items[] = ['count' => $dash_pending_invoices, 'label' => 'Unpaid invoices', 'href' => 'invoices.php', 'icon' => 'fa-file-invoice-dollar'];
+}
 
 $dash_csat_avg = null;
 if ($config_module_enable_ticketing == 1 && !empty($config_ticket_csat_enable)) {
@@ -240,6 +242,7 @@ $dash_attention_total = array_sum(array_column($dash_attention_items, 'count'));
         </div>
         </a>
     </div>
+    <?php if ($config_module_enable_accounting) { ?>
     <div class="col-6 col-md-3 mb-3">
         <a href="invoices.php" class="text-decoration-none">
         <div class="small-box text-bg-warning bg-gradient mb-0">
@@ -251,6 +254,7 @@ $dash_attention_total = array_sum(array_column($dash_attention_items, 'count'));
         </div>
         </a>
     </div>
+    <?php } ?>
     <?php if ($dash_csat_avg !== null) { ?>
     <div class="col-6 col-md-3 mb-3">
         <a href="reports/csat.php" class="text-decoration-none">

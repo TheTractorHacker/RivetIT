@@ -157,6 +157,10 @@
     font-size: 1.15rem;
     font-weight: 700;
     color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 165px;
 }
 
 /* ============================================================

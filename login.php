@@ -778,6 +778,8 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form);
             font-weight: 700;
             color: #fff;
             margin: 0;
+            max-width: 320px;
+            overflow-wrap: break-word;
         }
         .login-box-branding .brand-sub {
             font-size: .8rem;

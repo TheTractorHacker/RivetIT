@@ -2682,6 +2682,7 @@ CREATE TABLE `settings` (
   `config_payroll_overtime_multiplier` decimal(4,2) NOT NULL DEFAULT 1.50,
   `config_payroll_default_pay_frequency` varchar(20) NOT NULL DEFAULT 'biweekly',
   `config_module_enable_payroll` tinyint(1) NOT NULL DEFAULT 0,
+  `config_module_enable_crm` tinyint(1) NOT NULL DEFAULT 0,
   `config_ticket_default_technician_id` int(11) DEFAULT NULL,
   PRIMARY KEY (`company_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

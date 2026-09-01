@@ -6181,3 +6181,12 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.49'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.49') {
+        // CRM (Pipeline/Opportunities/Leads/Campaigns/Segments) is MSP sales-
+        // pipeline terminology that doesn't fit an internal-IT department -
+        // off by default here, same reasoning as the accounting module.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_module_enable_crm` tinyint(1) NOT NULL DEFAULT 0 AFTER `config_module_enable_payroll`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.50'");
+    }
+

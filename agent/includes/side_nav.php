@@ -8,7 +8,7 @@
             <?php } else { ?>
                 <div class="brand-image"><i class="fas fa-building fa-2x"></i></div>
             <?php } ?>
-            <span class="brand-text"><?php echo nullable_htmlentities($session_company_name); ?></span>
+            <span class="brand-text" title="<?php echo nullable_htmlentities($session_company_name); ?>"><?php echo nullable_htmlentities($session_company_name); ?></span>
         </a>
     </div>
 
@@ -55,7 +55,7 @@
                     </li>
                 <?php } ?>
 
-                <?php if (lookupUserPermission("module_sales") >= 1) { ?>
+                <?php if ($config_module_enable_crm == 1 && lookupUserPermission("module_sales") >= 1) { ?>
                     <li class="nav-header mt-3">CRM</li>
                     <li class="nav-item">
                         <a href="/agent/pipeline.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "pipeline.php") { echo "active"; } ?>">

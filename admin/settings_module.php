@@ -65,6 +65,13 @@ require_once "includes/inc_all_admin.php";
 
             <div class="form-group">
                 <div class="form-check form-check form-switch">
+                    <input type="checkbox" class="form-check-input" name="config_module_enable_crm" <?php if ($config_module_enable_crm == 1) { echo "checked"; } ?> value="1" id="customSwitch3f">
+                    <label class="form-check-label" for="customSwitch3f">Show CRM (Pipeline, Opportunities, Leads, Campaigns, Segments)</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="form-check form-check form-switch">
                     <input type="checkbox" class="form-check-input" name="config_client_portal_enable" <?php if ($config_client_portal_enable == 1) { echo "checked"; } ?> value="1" id="customSwitch4">
                     <label class="form-check-label" for="customSwitch4">Enable Department Portal</label>
                 </div>
