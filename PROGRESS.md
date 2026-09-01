@@ -45,15 +45,17 @@ Status: **done**
 - Also fixed in passing: `config_module_enable_crm` (from the earlier CRM-toggle work) was never added to `load_global_settings.php`'s settings→PHP-variable mapping — undefined-variable warning on every single agent/admin page load since that shipped. Fixed.
 
 ## Phase 1 — Organization
-Status: **not started** (much of this already exists from earlier this session's rename/toggle work — gaps only)
+Status: **done** (schema-complete; some fields are schema-only, no UI yet — noted below)
 
 - [x] Single-organization mode (already true — `company_id = 1` always)
 - [x] Internal terminology (Client → Department, done earlier this session)
 - [x] Hide billing/CRM navigation (done earlier this session)
-- [ ] Organization-level fields (Microsoft tenant ID, default email domain, security/HR contact, onboarding/offboarding policy defaults) — added to existing `companies`/`settings` rather than a new parallel table, to avoid a second source of truth for the one org record
-- [ ] Department fields: parent department, department head, cost center, status, security classification
-- [ ] Site (Location) fields: type, manager, hours, emergency contacts, shipping instructions
-- [ ] `department_sites` many-to-many junction table (additive — existing `location_client_id` single-owner relationship stays as the primary path; junction table available for the "one site serves several departments" case, not yet wired into UI)
+- [x] Organization-level fields (Microsoft tenant ID, default email domain, security/HR contact) — added to `companies` (not a new parallel table), full UI in `admin/settings_company.php`. Onboarding/offboarding default-policy fields deliberately deferred to Phase 9, once `workflow_templates` exists to actually reference — no point in a dangling FK-shaped column pointing at nothing yet.
+- [x] Department fields: parent department, department head contact, cost center, status, security classification — schema done; **status and security classification have real UI** in `client_edit.php`; parent department and head contact are schema-only, no UI yet (lower urgency — nothing depends on them yet).
+- [x] Site (Location) fields: type, manager contact, emergency contacts, shipping instructions — schema-only, no UI yet.
+- [x] `department_sites` many-to-many junction table — schema-only, additive (existing `location_client_id` single-owner relationship stays primary), not wired into any UI yet.
+
+**Known minor cleanup found but not fixed this pass:** ~15 more instances of the `unlink()`-on-empty-filename bug (fixed 4 of them while in nearby code) in `agent/post/{contact,expense,file,location,asset,rack}.php` and `admin/post/users.php`. Cosmetic (log noise on first upload for a given record), not breakage.
 
 ## Phase 2 — Directory (People)
 Status: **not started**
