@@ -922,10 +922,6 @@ if ($user_config_dashboard_technical_enable == 1) {
     $sql_your_tickets = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS your_tickets FROM tickets WHERE ticket_closed_at IS NULL AND ticket_assigned_to = $session_user_id"));
     $your_tickets = $sql_your_tickets['your_tickets'];
 
-    // Already computed unconditionally above (for the top-of-page attention strip) - reuse rather than re-query.
-    $expiring_domains = $dash_expiring_domains;
-    $expiring_certificates = $dash_expiring_certificates;
-
     $sql_your_tickets = mysqli_query($mysqli, "
         SELECT * FROM tickets
         LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id
@@ -947,8 +943,6 @@ if ($user_config_dashboard_technical_enable == 1) {
     ");
 
     // Ticket metrics
-    $unassigned_tickets = $dash_unassigned_tickets; // already computed above for the attention strip
-
     $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE DATE(ticket_created_at) = CURDATE()"));
     $tickets_opened_today = intval($row['c']);
 
@@ -986,6 +980,11 @@ if ($user_config_dashboard_technical_enable == 1) {
     $sql_top_techs = mysqli_query($mysqli, "SELECT user_name, COUNT(ticket_id) AS c FROM tickets LEFT JOIN users ON ticket_assigned_to = user_id WHERE ticket_closed_at IS NULL AND ticket_assigned_to > 0 GROUP BY user_name ORDER BY c DESC LIMIT 8");
     $tech_rows = [];
     while ($r = mysqli_fetch_assoc($sql_top_techs)) $tech_rows[] = $r;
+
+    // Whether there's anything at all to chart - an empty set of chart cards
+    // (all showing a bare axis/legend with zero data) looks broken, not clean.
+    $dash_has_ticket_chart_data = array_sum($monthly_opened) > 0 || array_sum($monthly_resolved) > 0
+        || !empty($priority_labels) || !empty($status_labels) || !empty($cat_labels) || !empty($tech_rows);
 
     // Historical ticket metrics for selected year
     $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE YEAR(ticket_created_at) = $year"));
@@ -1049,7 +1048,7 @@ if ($user_config_dashboard_technical_enable == 1) {
         </div>
         <!-- ./col -->
 
-        <div class="col-lg-4 col-6">
+        <div class="col-lg-3 col-6">
             <a class="small-box bg-danger" href="tickets.php">
                 <div class="inner">
                     <h3><?php echo $active_tickets; ?></h3>
@@ -1061,42 +1060,6 @@ if ($user_config_dashboard_technical_enable == 1) {
             </a>
         </div>
         <!-- ./col -->
-
-        <div class="col-lg-4 col-6">
-            <a class="small-box bg-warning" href="domains.php?sort=domain_expire&order=ASC">
-                <div class="inner">
-                    <h3><?php echo $expiring_domains; ?></h3>
-                    <p>Expiring Domains <small>30 Day</small></p>
-                </div>
-                <div class="icon">
-                    <i class="fa fa-globe"></i>
-                </div>
-            </a>
-        </div>
-        <!-- ./col -->
-
-        <div class="col-lg-4 col-6">
-            <a class="small-box bg-primary" href="certificates.php?sort=certificate_expire&order=ASC">
-                <div class="inner">
-                    <h3><?php echo $expiring_certificates; ?></h3>
-                    <p>Expiring Certificates<small>30 Day</small></p>
-                </div>
-                <div class="icon">
-                    <i class="fa fa-lock"></i>
-                </div>
-            </a>
-        </div>
-        <!-- ./col -->
-
-        <div class="col-lg-3 col-6">
-            <a class="small-box bg-danger" href="tickets.php?assigned=0">
-                <div class="inner">
-                    <h3><?php echo $unassigned_tickets; ?></h3>
-                    <p>Unassigned Tickets</p>
-                </div>
-                <div class="icon"><i class="fa fa-user-slash"></i></div>
-            </a>
-        </div>
 
         <div class="col-lg-3 col-6">
             <a class="small-box bg-info" href="tickets.php">
@@ -1130,6 +1093,12 @@ if ($user_config_dashboard_technical_enable == 1) {
     </div> <!-- row -->
 
     <!-- Ticket Charts -->
+    <?php if (!$dash_has_ticket_chart_data) { ?>
+    <div class="text-center text-muted py-4">
+        <i class="fas fa-fw fa-chart-line mb-2" style="font-size:1.6rem;"></i>
+        <p class="mb-0">No ticket activity yet - charts will fill in once tickets start moving.</p>
+    </div>
+    <?php } else { ?>
     <div class="row">
         <div class="col-md-12">
             <div class="card card-dark mb-3">
@@ -1218,6 +1187,7 @@ if ($user_config_dashboard_technical_enable == 1) {
         </div>
         <?php } ?>
     </div> <!-- ticket charts row -->
+    <?php } ?>
 
     <!-- Past / Historical Ticket Metrics -->
     <div class="row">
@@ -1305,7 +1275,10 @@ if ($user_config_dashboard_technical_enable == 1) {
                             </tr>
                         </thead>
                         <tbody>
-                            <?php while ($rr = mysqli_fetch_assoc($sql_recent_resolved)) {
+                            <?php
+                            $any_recent_resolved = false;
+                            while ($rr = mysqli_fetch_assoc($sql_recent_resolved)) {
+                                $any_recent_resolved = true;
                                 $rr_tid = intval($rr['ticket_id']);
                                 $rr_cid = intval($rr['ticket_client_id']);
                                 $rr_prefix = nullable_htmlentities($rr['ticket_prefix']);
@@ -1322,6 +1295,9 @@ if ($user_config_dashboard_technical_enable == 1) {
                                 <td><?= $rr_client ?></td>
                                 <td><?= $rr_closed ?></td>
                             </tr>
+                            <?php }
+                            if (!$any_recent_resolved) { ?>
+                            <tr><td colspan="4" class="text-muted">No tickets resolved yet.</td></tr>
                             <?php } ?>
                         </tbody>
                     </table>
