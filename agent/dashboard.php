@@ -181,6 +181,39 @@ if ($config_module_enable_ticketing == 1 && !empty($config_ticket_csat_enable)) 
 }
 
 $dash_attention_total = array_sum(array_column($dash_attention_items, 'count'));
+
+// Onboarding / offboarding workflow runs + assets-by-status (formerly the
+// separate "Internal IT Dashboard" page - folded in here so there's one
+// dashboard, not two). $access_permission_query assumes a `clients` table
+// join that none of these queries have, so scope by client_access_string
+// directly instead, same as the page it replaces did.
+$dash_scoped = ($client_access_string && !$session_is_admin);
+$dash_scope_wf_contact = $dash_scoped ? "AND c.contact_client_id IN ($client_access_string)" : '';
+$dash_scope_assets = $dash_scoped ? "AND asset_client_id IN ($client_access_string)" : '';
+
+$dash_onboarding_in_progress = intval(mysqli_fetch_row(mysqli_query($mysqli,
+    "SELECT COUNT(*) FROM workflow_runs wr INNER JOIN contacts c ON c.contact_id = wr.contact_id
+     WHERE wr.type = 'onboarding' AND wr.status = 'in_progress' $dash_scope_wf_contact"))[0]);
+$dash_offboarding_in_progress = intval(mysqli_fetch_row(mysqli_query($mysqli,
+    "SELECT COUNT(*) FROM workflow_runs wr INNER JOIN contacts c ON c.contact_id = wr.contact_id
+     WHERE wr.type = 'offboarding' AND wr.status = 'in_progress' $dash_scope_wf_contact"))[0]);
+$dash_workflows_in_progress = $dash_onboarding_in_progress + $dash_offboarding_in_progress;
+
+$sql_wf_in_progress = mysqli_query($mysqli,
+    "SELECT wr.run_id, wr.type, wr.started_at, c.contact_name, c.contact_client_id, cl.client_name
+     FROM workflow_runs wr
+     INNER JOIN contacts c ON c.contact_id = wr.contact_id
+     LEFT JOIN clients cl ON cl.client_id = c.contact_client_id
+     WHERE wr.status = 'in_progress' $dash_scope_wf_contact
+     ORDER BY wr.started_at ASC
+     LIMIT 25");
+
+$sql_assets_by_status = mysqli_query($mysqli,
+    "SELECT COALESCE(asset_status, 'Unknown') AS status_name, COUNT(*) AS c
+     FROM assets WHERE asset_archived_at IS NULL $dash_scope_assets
+     GROUP BY status_name ORDER BY c DESC");
+$dash_total_assets = intval(mysqli_fetch_row(mysqli_query($mysqli,
+    "SELECT COUNT(*) FROM assets WHERE asset_archived_at IS NULL $dash_scope_assets"))[0]);
 ?>
 <div class="mb-3 d-flex align-items-center justify-content-between flex-wrap" style="gap:.5rem;">
     <div>
@@ -268,7 +301,87 @@ $dash_attention_total = array_sum(array_column($dash_attention_items, 'count'));
         </a>
     </div>
     <?php } ?>
+    <?php if ($dash_workflows_in_progress > 0) { ?>
+    <div class="col-6 col-md-3 mb-3">
+        <div class="small-box bg-pink mb-0">
+            <div class="inner">
+                <h3><?= $dash_workflows_in_progress ?></h3>
+                <p>Onboarding/Offboarding In Progress</p>
+            </div>
+            <div class="icon"><i class="fas fa-user-clock"></i></div>
+        </div>
+    </div>
+    <?php } ?>
 </div>
+
+<?php if ($dash_total_assets > 0 || $dash_workflows_in_progress > 0) { ?>
+<div class="row">
+    <div class="col-lg-5 mb-3">
+        <div class="card card-dark h-100">
+            <div class="card-header py-2">
+                <h5 class="card-title"><i class="fas fa-fw fa-desktop me-2"></i>Assets by Status</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-borderless mb-0">
+                    <tbody>
+                        <?php
+                        $any_asset_row = false;
+                        while ($ar = mysqli_fetch_assoc($sql_assets_by_status)) {
+                            $any_asset_row = true;
+                            $pct = $dash_total_assets > 0 ? min(100, round(intval($ar['c']) / $dash_total_assets * 100)) : 0;
+                        ?>
+                        <tr>
+                            <td style="width:40%;"><?= nullable_htmlentities($ar['status_name']) ?></td>
+                            <td>
+                                <div class="progress" style="height:18px;">
+                                    <div class="progress-bar bg-primary" style="width:<?= $pct ?>%"><?= intval($ar['c']) ?></div>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php } ?>
+                        <?php if (!$any_asset_row) { ?>
+                        <tr><td class="text-muted">No assets found.</td></tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7 mb-3">
+        <div class="card card-dark h-100">
+            <div class="card-header py-2">
+                <h5 class="card-title"><i class="fas fa-fw fa-tasks me-2"></i>Onboarding / Offboarding In Progress</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-borderless mb-0">
+                    <thead>
+                        <tr><th>Person</th><th>Type</th><th>Department</th><th>Started</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        $any_wf_row = false;
+                        while ($wr = mysqli_fetch_assoc($sql_wf_in_progress)) {
+                            $any_wf_row = true;
+                        ?>
+                        <tr>
+                            <td><?= nullable_htmlentities($wr['contact_name']) ?></td>
+                            <td><span class="badge <?= $wr['type'] === 'onboarding' ? 'text-bg-success' : 'text-bg-danger' ?>"><?= ucfirst($wr['type']) ?></span></td>
+                            <td><?= nullable_htmlentities($wr['client_name']) ?></td>
+                            <td><?= nullable_htmlentities($wr['started_at']) ?></td>
+                            <td class="text-end"><a href="workflow_run.php?run_id=<?= intval($wr['run_id']) ?>" class="btn btn-sm btn-default"><i class="fas fa-arrow-right"></i></a></td>
+                        </tr>
+                        <?php } ?>
+                        <?php if (!$any_wf_row) { ?>
+                        <tr><td colspan="5" class="text-muted">No onboarding or offboarding runs in progress.</td></tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<?php } ?>
 
 <div class="card card-body">
     <form class="d-flex flex-wrap align-items-center gap-2">

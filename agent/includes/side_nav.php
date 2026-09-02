@@ -25,12 +25,6 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/agent/it_dashboard.php" class="nav-link <?php if (basename($_SERVER['PHP_SELF']) == 'it_dashboard.php') { echo 'active'; } ?>">
-                        <i class="nav-icon fas fa-th-large"></i>
-                        <p>Internal IT</p>
-                    </a>
-                </li>
-                <li class="nav-item">
                     <a href="/agent/intune_devices.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "intune_devices.php") { echo "active"; } ?>">
                         <i class="nav-icon fas fa-laptop"></i>
                         <p>Intune Devices</p>
