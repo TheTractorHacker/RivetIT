@@ -66,11 +66,24 @@ Status: **mostly done** (import + core fields done; activity timeline deferred)
 - [x] CSV import: `admin/people_import.php` + `src/Directory/PersonImportService.php`. Upload → preview (validates + resolves department/site/manager, flags per-row errors) → explicit approve → write. **Simplification vs. the full plan:** fixed CSV column headers required (no drag-and-drop column mapper) — reasonable for one company doing occasional imports; revisit if that changes. `people_import_runs` logs each approved run.
 - [ ] Person activity timeline — deferred. `audit_events` (Phase 0) and `logs` both have the raw data to build this from; not yet surfaced as a unified per-person timeline UI.
 
-## Phases 3–15
-Status: **not started** — Microsoft/Entra (3), Vault V2 (4), KB V2 (5), Assets/CMDB (6), Intune/RMM (7),
-Odoo (8), Employee Lifecycle workflows (9), Service Catalog (10), ITSM (11), Automation/API V2 (12),
-Reporting (13), Employee Portal (14), Polish (15). Not yet scoped in detail — will update this section
-as each phase starts.
+## Phase 3 — Microsoft 365 / Entra ID
+Status: **scaffolding done, no live connection** (per AFK decision log above)
+
+- [x] `src/Integrations/Microsoft/GraphClient.php` — real OAuth2 client-credentials flow + Graph API calls (testConnection/listUsers/getUser). App-only auth per Section 9.1, not the separate delegated SSO flow (Section 9.3 — not started, needs Entra app registration to build against realistically).
+- [x] `microsoft_integrations` table + `admin/settings_directory_sync.php` settings UI (Save + Test Connection, credentials encrypted via existing `encryptSetting()`).
+- [ ] Actual user/group/device sync logic (Section 9.2) — not built. Real API responses are needed to get field-mapping/conflict-resolution right; building that blind against no live tenant risks getting it wrong in ways that are expensive to unwind later. **Next step once real Entra credentials exist:** wire `GraphClient::listUsers()` into a sync job via the Phase 0 job queue.
+
+## Phase 8 — Odoo
+Status: **scaffolding done, no live connection**
+
+- [x] `src/Integrations/Odoo/OdooClient.php` — implements `BusinessApplicationProvider` via Odoo's real JSON-RPC endpoint. Only reads the small stable `res.users` field set per Section 10.4's "don't assume version-specific fields" rule.
+- [x] `odoo_integrations` table + settings UI (same page as Microsoft, Save + Test Connection).
+- [ ] Account provisioning/role sync (Section 10.3/10.4) — not built, same reasoning as Microsoft above.
+
+## Phases 4–7, 9–15
+Status: **not started** — Vault V2 (4), KB V2 (5), Assets/CMDB (6), Intune/RMM (7), Employee Lifecycle
+workflows (9), Service Catalog (10), ITSM (11), Automation/API V2 (12), Reporting (13), Employee
+Portal (14), Polish (15). Not yet scoped in detail — will update this section as each phase starts.
 
 ---
 
