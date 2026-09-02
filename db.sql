@@ -3565,6 +3565,7 @@ CREATE TABLE `tickets` (
   `ticket_archived_at` datetime DEFAULT NULL,
   `ticket_first_response_at` datetime DEFAULT NULL,
   `ticket_closed_at` datetime DEFAULT NULL,
+  `ticket_reopen_at` datetime DEFAULT NULL,
   `ticket_created_by` int(11) NOT NULL,
   `ticket_assigned_to` int(11) NOT NULL DEFAULT 0,
   `ticket_closed_by` int(11) NOT NULL DEFAULT 0,

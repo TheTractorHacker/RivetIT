@@ -138,6 +138,7 @@ if (isset($_GET['ticket_id'])) {
         $ticket_closed_at_ago = timeAgo($row['ticket_closed_at']);
         $ticket_closed_date = date('Y-m-d', strtotime($ticket_closed_at));
         $ticket_closed_by = intval($row['ticket_closed_by']);
+        $ticket_reopen_at = nullable_htmlentities($row['ticket_reopen_at']);
 
         $ticket_assigned_to = intval($row['ticket_assigned_to']);
         if (empty($ticket_assigned_to)) {
@@ -519,6 +520,12 @@ if (isset($_GET['ticket_id'])) {
                         <?php if (!empty($ticket_resolved_at) || !empty($ticket_closed_at)) { ?>
                             <a href="post.php?reopen_ticket=<?= $ticket_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-light btn-sm">
                                 <i class="fas fa-fw fa-redo me-2"></i>Reopen
+                            </a>
+                        <?php } ?>
+
+                        <?php if (!empty($ticket_closed_at)) { ?>
+                            <a href="#" class="btn btn-light btn-sm ajax-modal" data-modal-url="modals/ticket/ticket_schedule_reopen.php?ticket_id=<?= $ticket_id ?>">
+                                <i class="fas fa-fw fa-history me-2"></i><?= $ticket_reopen_at ? 'Reopen Scheduled' : 'Schedule Reopen' ?>
                             </a>
                         <?php } ?>
 
@@ -1710,6 +1717,13 @@ if (isset($_GET['ticket_id'])) {
                             <div class="mt-2">
                                 <i class="fas fa-fw fa-clock text-secondary me-1"></i><strong class="me-1">Closed:</strong><?= date('M d, Y • g:i A', strtotime($ticket_closed_at)) . " ($ticket_closed_at_ago)" ?>
                             </div>
+
+                            <?php if ($ticket_reopen_at) { ?>
+                            <div class="mt-2">
+                                <i class="fas fa-fw fa-history text-secondary me-1"></i><strong class="me-1">Reopens:</strong>
+                                <a href="#" class="ajax-modal" data-modal-url="modals/ticket/ticket_schedule_reopen.php?ticket_id=<?= $ticket_id ?>"><?= date('M d, Y • g:i A', strtotime($ticket_reopen_at)) ?></a>
+                            </div>
+                            <?php } ?>
 
                         <?php } ?>
                         <!-- END Ticket closure info -->

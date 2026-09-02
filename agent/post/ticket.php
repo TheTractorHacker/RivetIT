@@ -2860,13 +2860,65 @@ if (isset($_GET['reopen_ticket'])) {
         enforceClientAccess();
     }
 
-    mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 2, ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0 WHERE ticket_id = $ticket_id");
+    // Clear any pending scheduled reopen too - it no longer applies once the
+    // ticket is manually reopened ahead of it.
+    mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 2, ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0, ticket_reopen_at = NULL WHERE ticket_id = $ticket_id");
 
     logAction("Ticket", "Reopened", "$session_name reopened ticket ID $ticket_id", $client_id, $ticket_id);
 
     customAction('ticket_update', $ticket_id);
 
     flash_alert("Ticket re-opened");
+
+    redirect();
+
+}
+
+if (isset($_POST['schedule_ticket_reopen']) || isset($_POST['clear_ticket_reopen'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    enforceUserPermission('module_support', 2);
+
+    $ticket_id = intval($_POST['ticket_id']);
+
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_client_id, ticket_closed_at, ticket_prefix, ticket_number FROM tickets WHERE ticket_id = $ticket_id"));
+    $client_id = intval($row['ticket_client_id'] ?? 0);
+    $ticket_ref = ($row['ticket_prefix'] ?? '') . ($row['ticket_number'] ?? '');
+
+    if ($client_id) {
+        enforceClientAccess();
+    }
+
+    if (isset($_POST['clear_ticket_reopen'])) {
+        mysqli_query($mysqli, "UPDATE tickets SET ticket_reopen_at = NULL WHERE ticket_id = $ticket_id");
+        logAction("Ticket", "Edit", "$session_name cleared the scheduled reopen for ticket $ticket_ref", $client_id, $ticket_id);
+        flash_alert("Scheduled reopen cleared");
+        redirect();
+    }
+
+    // Only meaningful on a ticket that's actually closed - the modal itself
+    // disables the date field and submit button in that case, but a request
+    // crafted directly against this endpoint still needs the same guard.
+    if (empty($row['ticket_closed_at'])) {
+        flash_alert("Resolve/close the ticket first, then schedule the reopen.", "error");
+        redirect();
+    }
+
+    $reopen_ts = strtotime($_POST['reopen_at'] ?? '');
+    if (!$reopen_ts || $reopen_ts <= time()) {
+        flash_alert("Pick a reopen date/time in the future.", "error");
+        redirect();
+    }
+    $reopen_at_sql = date('Y-m-d H:i:s', $reopen_ts);
+    $reopen_at_display = date('M j, Y g:i A', $reopen_ts);
+
+    mysqli_query($mysqli, "UPDATE tickets SET ticket_reopen_at = '$reopen_at_sql' WHERE ticket_id = $ticket_id");
+    mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Scheduled to automatically reopen on $reopen_at_display.', ticket_reply_type = 'System', ticket_reply_time_worked = '00:00:00', ticket_reply_by = $session_user_id, ticket_reply_ticket_id = $ticket_id");
+
+    logAction("Ticket", "Edit", "$session_name scheduled ticket $ticket_ref to reopen on $reopen_at_display", $client_id, $ticket_id);
+
+    flash_alert("Ticket will automatically reopen on $reopen_at_display");
 
     redirect();
 

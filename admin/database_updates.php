@@ -6664,3 +6664,12 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.65'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.65') {
+        // Scheduled ticket reopen (Section: agent request) - resolve/close a
+        // ticket now, but have it automatically pop back open on a future
+        // date (e.g. "check back once the vendor's update ships").
+        mysqli_query($mysqli, "ALTER TABLE `tickets` ADD COLUMN IF NOT EXISTS `ticket_reopen_at` datetime DEFAULT NULL AFTER `ticket_closed_at`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.66'");
+    }
+

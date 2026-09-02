@@ -1512,6 +1512,37 @@ mysqli_query($mysqli, "DELETE FROM webhook_queue WHERE queue_status IN ('deliver
 
 /*
  * ###############################################################################################################
+ *  SCHEDULED TICKET REOPEN (Syncro-Beta)
+ * ###############################################################################################################
+ */
+
+$sql_due_reopens = mysqli_query($mysqli,
+    "SELECT ticket_id, ticket_prefix, ticket_number, ticket_client_id, ticket_reopen_at
+     FROM tickets
+     WHERE ticket_closed_at IS NOT NULL AND ticket_reopen_at IS NOT NULL AND ticket_reopen_at <= NOW()"
+);
+$reopen_count = 0;
+while ($due_reopen = mysqli_fetch_assoc($sql_due_reopens)) {
+    $reopen_ticket_id = intval($due_reopen['ticket_id']);
+    $reopen_client_id = intval($due_reopen['ticket_client_id']);
+    $reopen_ref = $due_reopen['ticket_prefix'] . $due_reopen['ticket_number'];
+    $reopen_at_display = date('M j, Y g:i A', strtotime($due_reopen['ticket_reopen_at']));
+
+    // Same fields the manual Reopen action resets (agent/post/ticket.php's
+    // reopen_ticket handler) - status back to Open, clear resolved/closed.
+    mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 2, ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0, ticket_reopen_at = NULL WHERE ticket_id = $reopen_ticket_id");
+    mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Automatically reopened (scheduled on $reopen_at_display).', ticket_reply_type = 'System', ticket_reply_time_worked = '00:00:00', ticket_reply_by = 0, ticket_reply_ticket_id = $reopen_ticket_id");
+
+    logAction("Ticket", "Reopened", "Ticket $reopen_ref automatically reopened (scheduled reopen)", $reopen_client_id, $reopen_ticket_id);
+    customAction('ticket_update', $reopen_ticket_id);
+    $reopen_count++;
+}
+if ($reopen_count > 0) {
+    logApp("Cron", "info", "Scheduled reopen: $reopen_count ticket(s) automatically reopened");
+}
+
+/*
+ * ###############################################################################################################
  *  TICKET AUTOMATION RULES
  * ###############################################################################################################
  */
