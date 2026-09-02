@@ -6368,3 +6368,24 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.56'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.56') {
+        // Master-plan Phase 6: asset assignment history (Section 11.5).
+        // assets.asset_contact_id stays the current-assignment pointer
+        // every existing query already uses - this is additive: a
+        // returned_at IS NULL row is "currently assigned", closed-out rows
+        // are history. Written by src/Assets/AssetAssignmentService.php.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `asset_assignments` (
+            `assignment_id` int(11) NOT NULL AUTO_INCREMENT,
+            `asset_id` int(11) NOT NULL,
+            `contact_id` int(11) NOT NULL,
+            `assigned_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `returned_at` datetime DEFAULT NULL,
+            `assigned_by` int(11) DEFAULT NULL,
+            `returned_by` int(11) DEFAULT NULL,
+            PRIMARY KEY (`assignment_id`),
+            KEY `idx_asset_assignments_asset` (`asset_id`, `returned_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.57'");
+    }
+

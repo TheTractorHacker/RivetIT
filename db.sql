@@ -4928,3 +4928,23 @@ CREATE TABLE `odoo_integrations` (
   PRIMARY KEY (`odoo_integration_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `asset_assignments`
+--
+
+DROP TABLE IF EXISTS `asset_assignments`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `asset_assignments` (
+  `assignment_id` int(11) NOT NULL AUTO_INCREMENT,
+  `asset_id` int(11) NOT NULL,
+  `contact_id` int(11) NOT NULL,
+  `assigned_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `returned_at` datetime DEFAULT NULL,
+  `assigned_by` int(11) DEFAULT NULL,
+  `returned_by` int(11) DEFAULT NULL,
+  PRIMARY KEY (`assignment_id`),
+  KEY `idx_asset_assignments_asset` (`asset_id`,`returned_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;

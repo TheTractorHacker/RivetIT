@@ -519,6 +519,28 @@ if (isset($_GET['asset_id'])) {
                     </div>
                 </div>
 
+                <?php
+                $asset_assignment_history = (new \ITFlow\Assets\AssetAssignmentService($mysqli))->history($asset_id);
+                if ($asset_assignment_history) { ?>
+                <div class="card card-dark">
+                    <div class="card-header">
+                        <h5 class="card-title">Assignment History</h5>
+                    </div>
+                    <div class="card-body">
+                        <?php foreach ($asset_assignment_history as $assignment) { ?>
+                            <div class="mt-1">
+                                <i class="fa fa-fw fa-user-clock text-secondary me-2"></i>
+                                <?= nullable_htmlentities($assignment['contact_name'] ?? 'Unknown contact') ?>
+                                <span class="text-secondary">
+                                    &mdash; <?= date('Y-m-d', strtotime($assignment['assigned_at'])) ?>
+                                    <?= $assignment['returned_at'] ? ' to ' . date('Y-m-d', strtotime($assignment['returned_at'])) : ' (current)' ?>
+                                </span>
+                            </div>
+                        <?php } ?>
+                    </div>
+                </div>
+                <?php } ?>
+
                 <div class="card card-dark mb-3">
                     <div class="card-header">
                         <h5 class="card-title">Additional Notes</h5>

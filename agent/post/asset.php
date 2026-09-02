@@ -24,6 +24,8 @@ if (isset($_POST['add_asset'])) {
 
     $asset_id = mysqli_insert_id($mysqli);
 
+    (new \ITFlow\Assets\AssetAssignmentService($mysqli))->recordChangeIfNeeded($asset_id, $contact, $session_user_id);
+
     // Add Tags
     if (isset($_POST['tags'])) {
         foreach($_POST['tags'] as $tag) {
@@ -97,6 +99,8 @@ if (isset($_POST['edit_asset'])) {
     enforceClientAccess();
 
     mysqli_query($mysqli,"UPDATE assets SET asset_name = '$name', asset_tag = '$asset_tag', asset_description = '$description', asset_type = '$type', asset_make = '$make', asset_model = '$model', asset_serial = '$serial', asset_os = '$os', asset_uri = '$uri', asset_uri_2 = '$uri_2', asset_uri_client = '$uri_client', asset_anydesk_id = '$anydesk_id', asset_location_id = $location, asset_vendor_id = $vendor, asset_contact_id = $contact, asset_status = '$status', asset_purchase_reference = '$purchase_reference', asset_purchase_date = $purchase_date, asset_warranty_expire = $warranty_expire, asset_install_date = $install_date, asset_physical_location = '$physical_location', asset_notes = '$notes', asset_favorite = $favorite WHERE asset_id = $asset_id");
+
+    (new \ITFlow\Assets\AssetAssignmentService($mysqli))->recordChangeIfNeeded($asset_id, $contact, $session_user_id);
 
     $sql_interfaces = mysqli_query($mysqli, "SELECT * FROM asset_interfaces WHERE interface_asset_id = $asset_id AND interface_primary = 1");
 
@@ -491,6 +495,8 @@ if (isset($_POST['bulk_assign_asset_contact'])) {
             enforceClientAccess($asset_client_id);
 
             mysqli_query($mysqli,"UPDATE assets SET asset_contact_id = $contact_id WHERE asset_id = $asset_id");
+
+            (new \ITFlow\Assets\AssetAssignmentService($mysqli))->recordChangeIfNeeded($asset_id, $contact_id, $session_user_id);
 
             logAction("Asset", "Edit", "$session_name assigned asset $asset_name to contact $contact_name", $client_id, $asset_id);
 
