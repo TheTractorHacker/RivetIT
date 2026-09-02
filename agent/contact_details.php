@@ -66,6 +66,10 @@ if (isset($_GET['contact_id'])) {
         }
     }
     $sql_direct_reports = mysqli_query($mysqli, "SELECT contact_id, contact_name, contact_title FROM contacts WHERE contact_manager_id = $contact_id AND contact_archived_at IS NULL ORDER BY contact_name ASC");
+
+    // Master-plan Phase 9: employee lifecycle workflows for this person
+    $sql_workflow_runs = mysqli_query($mysqli, "SELECT * FROM workflow_runs WHERE contact_id = $contact_id ORDER BY started_at DESC");
+    $sql_workflow_templates = mysqli_query($mysqli, "SELECT workflow_template_id, name, type FROM workflow_templates WHERE is_active = 1 AND archived_at IS NULL ORDER BY type ASC, name ASC");
     $contact_important = intval($row['contact_important']);
     $contact_billing = intval($row['contact_billing']);
     $contact_technical = intval($row['contact_technical']);
@@ -314,6 +318,52 @@ if (isset($_GET['contact_id'])) {
                 </div>
             </div>
             <?php } ?>
+
+            <div class="card card-dark mb-3">
+                <div class="card-header">
+                    <h5 class="card-title">Workflows</h5>
+                </div>
+                <div class="card-body">
+                    <?php if (mysqli_num_rows($sql_workflow_runs) === 0) { ?>
+                        <p class="text-muted mb-2">No onboarding/offboarding workflow has been started for this person.</p>
+                    <?php } else { ?>
+                        <?php while ($run = mysqli_fetch_assoc($sql_workflow_runs)) {
+                            $run_status_badge = [
+                                'in_progress' => 'text-bg-primary',
+                                'completed' => 'text-bg-success',
+                                'completed_with_exceptions' => 'text-bg-warning',
+                                'cancelled' => 'text-bg-secondary',
+                            ][$run['status']] ?? 'text-bg-secondary';
+                        ?>
+                            <div class="mt-1">
+                                <a href="workflow_run.php?run_id=<?= intval($run['run_id']) ?>">
+                                    <span class="badge <?= $run['type'] === 'onboarding' ? 'text-bg-success' : 'text-bg-danger' ?>"><?= ucfirst($run['type']) ?></span>
+                                </a>
+                                <span class="badge <?= $run_status_badge ?>"><?= ucwords(str_replace('_', ' ', $run['status'])) ?></span>
+                                <span class="text-secondary small">started <?= date('Y-m-d', strtotime($run['started_at'])) ?></span>
+                            </div>
+                        <?php } ?>
+                    <?php } ?>
+
+                    <?php if (mysqli_num_rows($sql_workflow_templates) > 0) { ?>
+                        <hr>
+                        <form action="post.php" method="post" class="d-flex gap-2">
+                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                            <input type="hidden" name="contact_id" value="<?= $contact_id ?>">
+                            <select class="form-control form-control-sm select2" name="workflow_template_id" style="max-width:250px" required>
+                                <option value="">- Select workflow -</option>
+                                <?php while ($tmpl = mysqli_fetch_assoc($sql_workflow_templates)) { ?>
+                                    <option value="<?= intval($tmpl['workflow_template_id']) ?>">[<?= ucfirst($tmpl['type']) ?>] <?= nullable_htmlentities($tmpl['name']) ?></option>
+                                <?php } ?>
+                            </select>
+                            <button type="submit" name="start_employee_workflow" class="btn btn-sm btn-primary"><i class="fas fa-play me-1"></i>Start</button>
+                        </form>
+                    <?php } else { ?>
+                        <hr>
+                        <small class="text-muted">No workflow templates exist yet - create one under Admin &gt; Employee Workflow Templates.</small>
+                    <?php } ?>
+                </div>
+            </div>
 
             <div class="card mb-3">
                 <div class="card-header">

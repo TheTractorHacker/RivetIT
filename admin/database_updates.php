@@ -6389,3 +6389,75 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.57'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.57') {
+        // Master-plan Phase 9: employee lifecycle workflow engine, manual-
+        // first version (Sections 16-18/22-23), matching Section 53's
+        // recommended first-release scope ("manual-first onboarding and
+        // offboarding workflows"). Deliberately NOT built this pass:
+        // task dependencies/blocking, approvals, automation actions, and
+        // relative-due-date scheduling (Section 16.1/16.2's fuller model) -
+        // those need real usage first to know if the added complexity is
+        // worth it. This is a checklist tied to a person, with history.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `workflow_templates` (
+            `workflow_template_id` int(11) NOT NULL AUTO_INCREMENT,
+            `name` varchar(200) NOT NULL,
+            `type` enum('onboarding','offboarding') NOT NULL,
+            `description` text DEFAULT NULL,
+            `is_active` tinyint(1) NOT NULL DEFAULT 1,
+            `created_by` int(11) DEFAULT NULL,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+            `archived_at` datetime DEFAULT NULL,
+            PRIMARY KEY (`workflow_template_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `workflow_template_tasks` (
+            `template_task_id` int(11) NOT NULL AUTO_INCREMENT,
+            `workflow_template_id` int(11) NOT NULL,
+            `title` varchar(255) NOT NULL,
+            `instructions` text DEFAULT NULL,
+            `category` varchar(100) DEFAULT NULL,
+            `default_owner` varchar(100) DEFAULT NULL,
+            `required` tinyint(1) NOT NULL DEFAULT 1,
+            `sort_order` int(11) NOT NULL DEFAULT 0,
+            PRIMARY KEY (`template_task_id`),
+            KEY `idx_template_task_template` (`workflow_template_id`, `sort_order`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `workflow_runs` (
+            `run_id` int(11) NOT NULL AUTO_INCREMENT,
+            `workflow_template_id` int(11) DEFAULT NULL,
+            `contact_id` int(11) NOT NULL,
+            `type` enum('onboarding','offboarding') NOT NULL,
+            `status` enum('in_progress','completed_with_exceptions','completed','cancelled') NOT NULL DEFAULT 'in_progress',
+            `started_by` int(11) DEFAULT NULL,
+            `started_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `completed_at` datetime DEFAULT NULL,
+            `notes` text DEFAULT NULL,
+            PRIMARY KEY (`run_id`),
+            KEY `idx_workflow_runs_contact` (`contact_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        // Tasks are snapshotted from the template onto the run (title/
+        // instructions copied at start time) so editing a template later
+        // doesn't rewrite the history of runs already in progress or done.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `workflow_run_tasks` (
+            `run_task_id` int(11) NOT NULL AUTO_INCREMENT,
+            `run_id` int(11) NOT NULL,
+            `title` varchar(255) NOT NULL,
+            `instructions` text DEFAULT NULL,
+            `category` varchar(100) DEFAULT NULL,
+            `default_owner` varchar(100) DEFAULT NULL,
+            `required` tinyint(1) NOT NULL DEFAULT 1,
+            `sort_order` int(11) NOT NULL DEFAULT 0,
+            `status` enum('pending','completed','skipped') NOT NULL DEFAULT 'pending',
+            `completed_by` int(11) DEFAULT NULL,
+            `completed_at` datetime DEFAULT NULL,
+            `skip_reason` varchar(500) DEFAULT NULL,
+            PRIMARY KEY (`run_task_id`),
+            KEY `idx_run_task_run` (`run_id`, `sort_order`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.58'");
+    }
+

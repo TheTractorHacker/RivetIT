@@ -4948,3 +4948,92 @@ CREATE TABLE `asset_assignments` (
   KEY `idx_asset_assignments_asset` (`asset_id`,`returned_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `workflow_templates`
+--
+
+DROP TABLE IF EXISTS `workflow_templates`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `workflow_templates` (
+  `workflow_template_id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(200) NOT NULL,
+  `type` enum('onboarding','offboarding') NOT NULL,
+  `description` text DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_by` int(11) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `archived_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`workflow_template_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `workflow_template_tasks`
+--
+
+DROP TABLE IF EXISTS `workflow_template_tasks`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `workflow_template_tasks` (
+  `template_task_id` int(11) NOT NULL AUTO_INCREMENT,
+  `workflow_template_id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `instructions` text DEFAULT NULL,
+  `category` varchar(100) DEFAULT NULL,
+  `default_owner` varchar(100) DEFAULT NULL,
+  `required` tinyint(1) NOT NULL DEFAULT 1,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`template_task_id`),
+  KEY `idx_template_task_template` (`workflow_template_id`,`sort_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `workflow_runs`
+--
+
+DROP TABLE IF EXISTS `workflow_runs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `workflow_runs` (
+  `run_id` int(11) NOT NULL AUTO_INCREMENT,
+  `workflow_template_id` int(11) DEFAULT NULL,
+  `contact_id` int(11) NOT NULL,
+  `type` enum('onboarding','offboarding') NOT NULL,
+  `status` enum('in_progress','completed_with_exceptions','completed','cancelled') NOT NULL DEFAULT 'in_progress',
+  `started_by` int(11) DEFAULT NULL,
+  `started_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `completed_at` datetime DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  PRIMARY KEY (`run_id`),
+  KEY `idx_workflow_runs_contact` (`contact_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `workflow_run_tasks`
+--
+
+DROP TABLE IF EXISTS `workflow_run_tasks`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `workflow_run_tasks` (
+  `run_task_id` int(11) NOT NULL AUTO_INCREMENT,
+  `run_id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `instructions` text DEFAULT NULL,
+  `category` varchar(100) DEFAULT NULL,
+  `default_owner` varchar(100) DEFAULT NULL,
+  `required` tinyint(1) NOT NULL DEFAULT 1,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `status` enum('pending','completed','skipped') NOT NULL DEFAULT 'pending',
+  `completed_by` int(11) DEFAULT NULL,
+  `completed_at` datetime DEFAULT NULL,
+  `skip_reason` varchar(500) DEFAULT NULL,
+  PRIMARY KEY (`run_task_id`),
+  KEY `idx_run_task_run` (`run_id`,`sort_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;

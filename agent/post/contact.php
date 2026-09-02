@@ -1477,3 +1477,45 @@ if (isset($_GET['download_contacts_csv_template'])) {
     exit;
 
 }
+
+if (isset($_POST['start_employee_workflow'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('module_client', 2);
+
+    $contact_id = intval($_POST['contact_id']);
+    $workflow_template_id = intval($_POST['workflow_template_id']);
+
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT contact_client_id, contact_name FROM contacts WHERE contact_id = $contact_id"));
+    if (!$row) {
+        flash_alert('Contact not found', 'error');
+        redirect();
+    }
+    $client_id = intval($row['contact_client_id']);
+    $contact_name = sanitizeInput($row['contact_name']);
+
+    enforceClientAccess($client_id);
+
+    $template = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM workflow_templates WHERE workflow_template_id = $workflow_template_id AND archived_at IS NULL"));
+    if (!$template) {
+        flash_alert('Workflow template not found', 'error');
+        redirect();
+    }
+
+    $service = new \ITFlow\Workflow\WorkflowService($mysqli);
+    $run_id = $service->startRun($workflow_template_id, $contact_id, $session_user_id);
+
+    \ITFlow\Audit\AuditService::record(
+        $template['type'] === 'onboarding' ? 'workflow.onboarding_started' : 'workflow.offboarding_started',
+        $session_user_id,
+        'contact',
+        $contact_id,
+        'started',
+        "$session_name started {$template['name']} for $contact_name"
+    );
+
+    logAction("Contact", "Edit", "$session_name started workflow \"{$template['name']}\" for $contact_name", $client_id, $contact_id);
+
+    flash_alert("Started \"{$template['name']}\" for $contact_name");
+    redirect("../workflow_run.php?run_id=$run_id");
+}

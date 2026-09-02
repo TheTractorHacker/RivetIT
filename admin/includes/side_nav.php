@@ -51,7 +51,7 @@
                 <li class="nav-header">CONFIGURATION</li>
 
                 <!-- TAGS & CATEGORIES Section -->
-                <li class="nav-item has-treeview mt-2 <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['tag.php', 'category.php', 'custom_link.php', 'ai_provider.php', 'ai_model.php']) ? 'menu-open' : ''); ?>">
+                <li class="nav-item has-treeview mt-2 <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['tag.php', 'category.php', 'custom_link.php', 'ai_provider.php', 'ai_model.php', 'people_import.php', 'employee_workflow_templates.php', 'employee_workflow_template_details.php']) ? 'menu-open' : ''); ?>">
                     <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-sliders-h"></i>
                         <p>
@@ -88,6 +88,12 @@
                             <a href="/admin/people_import.php" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'people_import.php' ? 'active' : ''); ?>">
                                 <i class="nav-icon fas fa-file-import"></i>
                                 <p>People Import</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/admin/employee_workflow_templates.php" class="nav-link <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['employee_workflow_templates.php', 'employee_workflow_template_details.php']) ? 'active' : ''); ?>">
+                                <i class="nav-icon fas fa-tasks"></i>
+                                <p>Employee Workflow Templates</p>
                             </a>
                         </li>
                     </ul>
