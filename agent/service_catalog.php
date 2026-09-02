@@ -69,7 +69,7 @@ $sql = mysqli_query(
 </div>
 
 <?php
-require_once "includes/footer.php";
+require_once "../includes/footer.php";
 ?>
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">

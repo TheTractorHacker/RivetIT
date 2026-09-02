@@ -115,8 +115,8 @@ $problem_status_badge = [
                 </tbody>
             </table>
         </div>
-        <?php require_once "includes/filter_footer.php"; ?>
+        <?php require_once "../includes/filter_footer.php"; ?>
     </div>
 </div>
 
-<?php require_once "includes/footer.php"; ?>
+<?php require_once "../includes/footer.php"; ?>

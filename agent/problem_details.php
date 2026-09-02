@@ -17,7 +17,7 @@ $problem = mysqli_fetch_assoc(mysqli_query(
 
 if (!$problem) {
     echo "<center><h1 class='text-secondary mt-5'>Nothing to see here</h1><a class='btn btn-lg btn-secondary mt-3' href='problems.php'><i class='fa fa-fw fa-arrow-left'></i> Go Back</a></center>";
-    require_once "includes/footer.php";
+    require_once "../includes/footer.php";
     exit;
 }
 
@@ -184,4 +184,4 @@ $available_changes = mysqli_query(
     </div>
 </div>
 
-<?php require_once "includes/footer.php"; ?>
+<?php require_once "../includes/footer.php"; ?>
