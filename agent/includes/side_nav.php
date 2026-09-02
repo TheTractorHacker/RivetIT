@@ -195,6 +195,72 @@
                     </li>
                 <?php } ?>
 
+                <?php if ($config_module_enable_itdoc == 1 && lookupUserPermission("module_support") >= 1) { ?>
+                    <li class="nav-header mt-3">DOCUMENTATION</li>
+
+                    <?php if (lookupUserPermission("module_credential") >= 1) { ?>
+                        <li class="nav-item">
+                            <a href="/agent/credentials.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "credentials.php") { echo "active"; } ?>">
+                                <i class="nav-icon fas fa-key"></i>
+                                <p>
+                                    Password Manager
+                                    <?php if ($num_credentials_all) { ?>
+                                        <span class="right badge text-light"><?php echo $num_credentials_all; ?></span>
+                                    <?php } ?>
+                                </p>
+                            </a>
+                        </li>
+                    <?php } ?>
+
+                    <li class="nav-item">
+                        <a href="/agent/locations.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "locations.php") { echo "active"; } ?>">
+                            <i class="nav-icon fas fa-map-marker-alt"></i>
+                            <p>
+                                Locations
+                                <?php if ($num_locations_all) { ?>
+                                    <span class="right badge text-light"><?php echo $num_locations_all; ?></span>
+                                <?php } ?>
+                            </p>
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a href="/agent/software.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "software.php") { echo "active"; } ?>">
+                            <i class="nav-icon fas fa-cube"></i>
+                            <p>
+                                Licenses
+                                <?php if ($num_software_all) { ?>
+                                    <span class="right badge text-light"><?php echo $num_software_all; ?></span>
+                                <?php } ?>
+                            </p>
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a href="/agent/domains.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "domains.php") { echo "active"; } ?>">
+                            <i class="nav-icon fas fa-globe"></i>
+                            <p>
+                                Domains
+                                <?php if ($num_domains_all) { ?>
+                                    <span class="right badge text-light"><?php echo $num_domains_all; ?></span>
+                                <?php } ?>
+                            </p>
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a href="/agent/certificates.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "certificates.php") { echo "active"; } ?>">
+                            <i class="nav-icon fas fa-lock"></i>
+                            <p>
+                                Certificates
+                                <?php if ($num_certificates_all) { ?>
+                                    <span class="right badge text-light"><?php echo $num_certificates_all; ?></span>
+                                <?php } ?>
+                            </p>
+                        </a>
+                    </li>
+                <?php } ?>
+
                 <?php if ($config_module_enable_accounting == 1 && lookupUserPermission("module_sales") >= 1) { ?>
                     <li class="nav-header mt-3">BILLING</li>
                     <li class="nav-item">

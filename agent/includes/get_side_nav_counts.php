@@ -27,18 +27,22 @@ $num_mail_requests = $row['num'];
 $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('project_id') AS num FROM projects LEFT JOIN clients ON client_id = project_client_id WHERE project_archived_at IS NULL AND project_completed_at IS NULL $access_permission_query"));
 $num_active_projects = $row['num'];
 
-// Open Invoices Count
-$row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('invoice_id') AS num FROM invoices LEFT JOIN clients ON client_id = invoice_client_id WHERE (invoice_status = 'Sent' OR invoice_status = 'Viewed' OR invoice_status = 'Partial') AND invoice_archived_at IS NULL $access_permission_query"));
-$num_open_invoices = $row['num'];
+// Credentials Count (central Password Manager nav item - all departments)
+$row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('credential_id') AS num FROM credentials LEFT JOIN clients ON client_id = credential_client_id WHERE credential_archived_at IS NULL $access_permission_query"));
+$num_credentials_all = $row['num'];
 
-// Recurring Invoice Count
-$row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('recurring_invoice_id') AS num FROM recurring_invoices LEFT JOIN clients ON client_id = recurring_invoice_client_id WHERE recurring_invoice_archived_at IS NULL $access_permission_query"));
-$num_recurring_invoices = $row['num'];
+// Locations Count (all departments)
+$row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('location_id') AS num FROM locations LEFT JOIN clients ON client_id = location_client_id WHERE location_archived_at IS NULL $access_permission_query"));
+$num_locations_all = $row['num'];
 
-// Open Quotes Count
-$row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('quote_id') AS num FROM quotes LEFT JOIN clients ON client_id = quote_client_id WHERE (quote_status = 'Sent' OR quote_status = 'Viewed') AND quote_archived_at IS NULL $access_permission_query"));
-$num_open_quotes = $row['num'];
+// Licenses (software) Count (all departments)
+$row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('software_id') AS num FROM software LEFT JOIN clients ON client_id = software_client_id WHERE software_archived_at IS NULL $access_permission_query"));
+$num_software_all = $row['num'];
 
-// Recurring Expenses Count
-$row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('recurring_expense_id') AS num FROM recurring_expenses LEFT JOIN clients ON client_id = recurring_expense_client_id WHERE recurring_expense_archived_at IS NULL $access_permission_query"));
-$num_recurring_expenses = $row['num'];
+// Domains Count (all departments)
+$row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('domain_id') AS num FROM domains LEFT JOIN clients ON client_id = domain_client_id WHERE domain_archived_at IS NULL $access_permission_query"));
+$num_domains_all = $row['num'];
+
+// Certificates Count (all departments)
+$row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('certificate_id') AS num FROM certificates LEFT JOIN clients ON client_id = certificate_client_id WHERE certificate_archived_at IS NULL $access_permission_query"));
+$num_certificates_all = $row['num'];

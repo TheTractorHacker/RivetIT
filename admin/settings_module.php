@@ -26,21 +26,6 @@ require_once "includes/inc_all_admin.php";
 
             <div class="form-group">
                 <div class="form-check form-check form-switch">
-                    <input type="checkbox" class="form-check-input" name="config_module_enable_accounting" <?php if ($config_module_enable_accounting == 1) { echo "checked"; } ?> value="1" id="customSwitch3">
-                    <label class="form-check-label" for="customSwitch3">Show Invoicing / Accounting</label>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <div class="form-check form-check form-switch">
-                    <input type="checkbox" class="form-check-input" name="config_module_enable_ticket_charges" <?php if ($config_module_enable_ticket_charges == 1) { echo "checked"; } ?> value="1" id="customSwitch3b">
-                    <label class="form-check-label" for="customSwitch3b">Show Ticket Charges (Billing)</label>
-                </div>
-                <small class="form-text text-muted">Lets techs add billable charges/labor to tickets, independent of Invoicing / Accounting. Useful if you handle invoicing elsewhere (e.g. QuickBooks) but still want to track billable time per ticket.</small>
-            </div>
-
-            <div class="form-group">
-                <div class="form-check form-check form-switch">
                     <input type="checkbox" class="form-check-input" name="config_module_enable_kb" <?php if ($config_module_enable_kb == 1) { echo "checked"; } ?> value="1" id="customSwitch3c">
                     <label class="form-check-label" for="customSwitch3c">Show Knowledge Base</label>
                 </div>
@@ -53,21 +38,6 @@ require_once "includes/inc_all_admin.php";
                     <label class="form-check-label" for="customSwitch3d">Show Live Chat on Tickets</label>
                 </div>
                 <small class="form-text text-muted">Adds a real-time chat panel to ticket views for agents and departments, alongside the normal email-style replies.</small>
-            </div>
-
-            <div class="form-group">
-                <div class="form-check form-check form-switch">
-                    <input type="checkbox" class="form-check-input" name="config_module_enable_payroll" <?php if ($config_module_enable_payroll == 1) { echo "checked"; } ?> value="1" id="customSwitch3e">
-                    <label class="form-check-label" for="customSwitch3e">Show Payroll</label>
-                </div>
-                <small class="form-text text-muted">Gross-pay-only payroll runs (hours &times; rate, overtime, deductions) for your own staff. No tax withholding is calculated - that stays with your accountant/payroll service.</small>
-            </div>
-
-            <div class="form-group">
-                <div class="form-check form-check form-switch">
-                    <input type="checkbox" class="form-check-input" name="config_module_enable_crm" <?php if ($config_module_enable_crm == 1) { echo "checked"; } ?> value="1" id="customSwitch3f">
-                    <label class="form-check-label" for="customSwitch3f">Show CRM (Pipeline, Opportunities, Leads, Campaigns, Segments)</label>
-                </div>
             </div>
 
             <div class="form-group">
