@@ -25,6 +25,7 @@ $credential_archived_at = nullable_htmlentities($row['credential_archived_at']);
 $credential_favorite = intval($row['credential_favorite']);
 $credential_contact_id = intval($row['credential_contact_id']);
 $credential_asset_id = intval($row['credential_asset_id']);
+$credential_rotation_due_at = nullable_htmlentities($row['credential_rotation_due_at']);
 
 // Tags
 $credential_tag_id_array = array();
@@ -127,6 +128,16 @@ ob_start();
                         <div class="input-group-append">
                             <button class="btn btn-default clipboardjs" type="button" data-clipboard-text="<?php echo $credential_password; ?>"><i class="fa fa-fw fa-copy"></i></button>
                         </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Rotation Due</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-history"></i></span>
+                        </div>
+                        <input type="date" class="form-control" name="rotation_due_at" max="2999-12-31" value="<?php echo $credential_rotation_due_at; ?>">
                     </div>
                 </div>
 

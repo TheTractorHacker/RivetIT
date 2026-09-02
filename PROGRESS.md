@@ -110,10 +110,95 @@ Status: **done (manual-first scope, per Section 53)**
   checklist, not a scheduling/dependency graph — revisit once there's real usage to learn from,
   per the plan's own Section 53 guidance to defer broad automation until manual flows are proven.
 
-## Phases 4, 5, 7, 10–15
-Status: **not started** — Vault V2 (4), KB V2 (5), Intune/RMM (7), Service Catalog (10), ITSM (11),
-Automation/API V2 (12), Reporting (13), Employee Portal (14), Polish (15). Not yet scoped in detail —
-will update this section as each phase starts.
+## Phase 4 — Vault V2
+Status: **partial** (rotation tracking + version history; built via parallel agent batch, 2026-09-01)
+
+- [x] Credential rotation due dates: `credential_rotation_due_at` / `credential_last_rotated_at` on
+  `credentials`, editable from `credential_add.php`/`credential_edit.php`.
+- [x] `agent/reports/credential_rotation_v2.php` — due-date-driven rotation report (overdue/upcoming
+  within N days), distinct from the pre-existing `credential_rotation.php` report.
+- [x] `credential_versions` table — a version snapshot (encrypted username/password) is written on
+  every credential edit, reusing the already-fetched `$old_row` in `agent/post/credential.php` /
+  `credential_model.php`. Masked "Recent History" surfaced on `credential_view.php`.
+- [x] Reveal-audit trail: viewing/sharing a credential's password now calls
+  `AuditService::record('vault.credential_revealed', ...)` from `credential_view.php` and `ajax.php`'s
+  "Share item" branch (gated: only if a password is present, only after `enforceClientAccess()`).
+- [ ] Not built: scheduled rotation reminders/notifications (still a pull-based report, nothing pushes
+  yet), bulk rotation workflows.
+
+## Phase 5 — Knowledge Base V2
+Status: **partial** (versioning + review-due tracking; built via parallel agent batch, 2026-09-01)
+
+- [x] `kb_article_review_due_at` / `kb_article_reviewer_user_id` on `kb_articles`; needs-review badge
+  and filter checkbox on `kb_article.php`/`kb_articles.php`.
+- [x] `kb_article_versions` — every edit snapshots the pre-overwrite content/content_raw (inserted in
+  `agent/post/kb_article.php`'s `edit_kb_article` handler, before the `UPDATE`). `kb_article_versions.php`
+  + its modal (`kb_article_version_view.php`) show history; `kb_article_review_edit.php` sets the
+  reviewer/due date.
+- [x] `src/Knowledge/CredentialReferenceRenderer.php` — renders inline references to vault credentials
+  inside article content.
+- [ ] Not built: article approval workflow, scheduled review reminders (same pull-based-report
+  limitation as Phase 4's rotation tracking).
+
+## Phase 10 — Service Catalog
+Status: **partial** (scoped down per Section 27.1 — a flat requestable-item list, no dynamic form
+builder; built via parallel agent batch, 2026-09-01)
+
+- [x] `service_catalog_items` table (name, description, icon, ticket subject template, category,
+  default priority, active/sort order) — admin-managed via `admin/service_catalog.php` +
+  add/edit modals + `admin/post/service_catalog.php`.
+- [x] Agent (`agent/service_catalog.php`) and client-portal (`client/service_catalog.php`) browsing
+  pages — selecting an item pre-fills a new ticket from its template.
+- [x] Nav links: "Request Something" (agent + client portal), "Service Catalog" (admin).
+- [ ] Not built: dynamic/custom request forms per item (Section 27.2's fuller model), approval
+  routing before ticket creation.
+
+## Phase 11 — ITSM (Problem & Change Management)
+Status: **partial** (core records + linkage; built via parallel agent batch, 2026-09-01)
+
+- [x] `problems` table + `src/ITSM/ProblemService.php` — status lifecycle (open/investigating/
+  resolved/closed), optional link to a `changes` row. `agent/problems.php` + `problem_details.php` +
+  add/edit modals + `agent/post/problem.php`.
+- [x] `changes` table + `src/ITSM/ChangeService.php` — draft → awaiting_approval → approved →
+  scheduled → in_progress → successful/failed/rolled_back → cancelled, with reason/impact/risk/
+  implementation/rollback plan fields. `agent/changes.php` + `change_details.php` + add/edit modals +
+  `agent/post/change.php`.
+- [x] `tickets.ticket_problem_id` — a ticket can be linked to the problem it's a symptom of.
+- [x] Nav links: "Problems" and "Changes" added to the agent sidebar's Support section.
+- [ ] Not built: change approval workflow (multi-step sign-off), CAB (change advisory board) scheduling/
+  calendar view, problem → root-cause KB article linkage.
+
+## Phase 12 — Automation, Webhooks V2, API v2
+Status: **partial** (webhooks-first, per the batch's own effort budgeting; built via parallel agent
+batch, 2026-09-01)
+
+- [x] `src/Webhooks/WebhookDispatcher.php` — synchronous curl-based delivery with the same
+  `X-ITFlow-Signature`/`X-ITFlow-Event` HMAC-SHA256 header format as the pre-existing `cron.php`
+  async path. Distinct from (not a replacement for) the pre-existing ticket-scoped
+  `webhooks`/`webhook_queue` async system — both read the same `webhooks` table.
+  Logs every attempt to a new `webhook_deliveries` table.
+- [x] `admin/includes/webhook_events.php` — single source of truth for subscribable event types
+  (Ticket Events = existing async path; Platform Events = `AuditService` event strings:
+  workflow/people-import/problem/change/kb/vault/auth/integration-test events). Wired into
+  `settings_webhooks.php`'s add/edit modals and a new "Direct Delivery Log" card.
+- [x] `src/Automation/AutomationRuleEvaluator.php` + `automation_rules` table — trigger event →
+  JSON condition → action (create_ticket / send_webhook / notify_user). Schema + evaluator only;
+  no admin UI to author rules yet.
+- [x] `api/v2/` — `index.php`, `workflow_runs.php` (first v2 endpoint, exposing Phase 9's workflow
+  runs), `.htaccess`.
+- [ ] Not built: admin UI for authoring automation rules, most other API v2 resource endpoints
+  (v2 currently covers workflow_runs only), OpenAPI docs for v2 (v1 has `admin/api_docs.php`; v2
+  does not yet).
+
+## Phase 13 — Dashboards and Reporting
+Status: **done** (no new schema — reuses Phase 9's workflow_runs + existing ticket/asset tables)
+
+- [x] `agent/it_dashboard.php` — "Internal IT" dashboard distinct from the existing MSP `dashboard.php`;
+  surfaces onboarding/offboarding run counts and status, not just tickets. Nav link added.
+
+## Phases 7, 14, 15
+Status: **not started** — Intune/RMM (7, blocked on real RMM credentials per the AFK decision log),
+Employee Portal (14), Polish (15). Not yet scoped in detail.
 
 ---
 
@@ -151,3 +236,14 @@ realistically, months of further work, not a few more sessions.
 
 ## Session log
 - 2026-09-01: PROGRESS.md created, decisions locked, Phase 0 started.
+- 2026-09-01: Phases 4, 5, 10, 11, 12, 13 built via a 6-agent parallel Workflow batch (each phase's
+  new files built independently in the same working tree with no overlap; each phase returned
+  `migration_sql`/`db_sql_additions`/`nav_snippets` instead of touching the 5 shared/sequential files
+  directly). Integrated sequentially by hand afterward: db.sql (+7 tables, 3 in-place column additions,
+  220 → 227 tables, verified via a fresh scratch-DB import), 6 new `admin/database_updates.php` blocks
+  (2.6.58 → 2.6.63), `includes/database_version.php` bumped, the KB versioning snapshot insert applied
+  to `agent/post/kb_article.php`, 5 nav snippets applied across `agent/includes/side_nav.php` (x3),
+  `admin/includes/side_nav.php`, and `client/includes/header.php`, plus a small completeness fix to
+  `admin/includes/webhook_events.php` (missing `change.created`/`change.status_changed`). All 50
+  touched/created PHP files pass `php -l`; `composer dump-autoload` run for the new `Knowledge`/`ITSM`/
+  `Webhooks`/`Automation` namespaces. Not yet committed/pushed/deployed to live as of this log line.

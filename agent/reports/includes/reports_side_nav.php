@@ -161,6 +161,12 @@
                             <p>Credential rotation</p>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a href="/agent/reports/credential_rotation_v2.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "credential_rotation_v2.php") { echo "active"; } ?>">
+                            <i class="nav-icon fas fa-history"></i>
+                            <p>Credential rotation due</p>
+                        </a>
+                    </li>
                 <?php } ?>
 
                 <li class="nav-header">DELIVERY</li>

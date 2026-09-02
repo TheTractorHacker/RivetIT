@@ -1,7 +1,6 @@
 <?php
 require_once '../../../includes/modal_header.php';
-
-$ALL_EVENTS = ['ticket.created','ticket.replied','ticket.assigned','ticket.status_changed','ticket.resolved'];
+require_once '../../includes/webhook_events.php';
 
 $wid = intval($_GET['id']);
 $wh  = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM webhooks WHERE webhook_id = $wid LIMIT 1"));
@@ -38,13 +37,16 @@ ob_start();
 
         <div class="form-group">
             <label>Subscribe to Events <span class="text-danger">*</span></label>
-            <?php foreach ($ALL_EVENTS as $ev) { ?>
+            <?php foreach (webhook_event_groups() as $group_label => $group_events) { ?>
+            <div class="text-secondary small text-uppercase mt-2 mb-1"><?= htmlspecialchars($group_label) ?></div>
+            <?php foreach ($group_events as $ev) {
+                $ev_id = 'ev_edit_' . preg_replace('/[^a-z0-9]+/', '_', $ev); ?>
             <div class="form-check form-check">
-                <input type="checkbox" class="form-check-input" id="ev_edit_<?= $ev ?>" name="webhook_events[]" value="<?= $ev ?>"
+                <input type="checkbox" class="form-check-input" id="<?= $ev_id ?>" name="webhook_events[]" value="<?= htmlspecialchars($ev) ?>"
                     <?= in_array($ev, $cur_events) ? 'checked' : '' ?>>
-                <label class="form-check-label" for="ev_edit_<?= $ev ?>"><code><?= $ev ?></code></label>
+                <label class="form-check-label" for="<?= $ev_id ?>"><code><?= htmlspecialchars($ev) ?></code></label>
             </div>
-            <?php } ?>
+            <?php } } ?>
         </div>
 
         <div class="form-group">

@@ -72,6 +72,28 @@ if (isset($_POST['edit_kb_article'])) {
     $content = mysqli_real_escape_string($mysqli, $_POST['content']);
     $content_raw = sanitizeInput($_POST['title'] . " " . str_replace("<", " <", $_POST['content']));
 
+    // Snapshot the pre-overwrite content into kb_article_versions before
+    // applying the edit (master plan Phase 5, Section 14 - KB versioning).
+    $sql_kb_version_current = mysqli_query($mysqli, "SELECT kb_article_content, kb_article_content_raw FROM kb_articles WHERE kb_article_id = $kb_article_id LIMIT 1");
+    $kb_version_current_row = mysqli_fetch_assoc($sql_kb_version_current);
+
+    $sql_kb_version_max = mysqli_query($mysqli, "SELECT MAX(kb_article_version_number) AS max_version FROM kb_article_versions WHERE kb_article_version_kb_article_id = $kb_article_id");
+    $kb_version_next_number = intval(mysqli_fetch_assoc($sql_kb_version_max)['max_version']) + 1;
+
+    $kb_version_prev_content = mysqli_real_escape_string($mysqli, $kb_version_current_row['kb_article_content'] ?? '');
+    $kb_version_prev_content_raw = mysqli_real_escape_string($mysqli, $kb_version_current_row['kb_article_content_raw'] ?? '');
+
+    mysqli_query(
+        $mysqli,
+        "INSERT INTO kb_article_versions SET
+            kb_article_version_kb_article_id = $kb_article_id,
+            kb_article_version_content = '$kb_version_prev_content',
+            kb_article_version_content_raw = '$kb_version_prev_content_raw',
+            kb_article_version_edited_by = $session_user_id,
+            kb_article_version_edited_at = NOW(),
+            kb_article_version_number = $kb_version_next_number"
+    );
+
     mysqli_query(
         $mysqli,
         "UPDATE kb_articles SET

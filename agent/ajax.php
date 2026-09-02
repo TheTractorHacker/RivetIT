@@ -400,6 +400,8 @@ if (isset($_GET['share_generate_link'])) {
             $otp_ct = openssl_encrypt($otp_plain, 'aes-128-cbc', $credential_encryption_key, 0, $iv_otp);
             $item_encrypted_otp = $iv_otp . $otp_ct;
         }
+
+        \ITFlow\Audit\AuditService::record('vault.credential_revealed', $session_user_id, 'credential', $item_id, 'shared', "$session_name generated a share link exposing credential $item_name");
     }
 
     // Insert entry into DB

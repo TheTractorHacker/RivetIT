@@ -14,3 +14,9 @@ $note = sanitizeInput($_POST['note']);
 $favorite = intval($_POST['favorite'] ?? 0);
 $contact_id = intval($_POST['contact'] ?? 0);
 $asset_id = intval($_POST['asset'] ?? 0);
+$rotation_due_at = sanitizeInput($_POST['rotation_due_at'] ?? '');
+if (empty($rotation_due_at)) {
+    $rotation_due_at = "NULL";
+} else {
+    $rotation_due_at = "'" . $rotation_due_at . "'";
+}

@@ -123,6 +123,16 @@ ob_start();
                 </div>
 
                 <div class="form-group">
+                    <label>Rotation Due</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-history"></i></span>
+                        </div>
+                        <input type="date" class="form-control" name="rotation_due_at" max="2999-12-31">
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label>TOTP Seed</label>
                     <div class="input-group">
                         <div class="input-group-prepend">

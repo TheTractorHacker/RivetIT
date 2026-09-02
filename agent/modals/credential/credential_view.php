@@ -30,6 +30,10 @@ if (empty($credential_otp_secret)) {
 
 enforceClientAccess();
 
+if ($credential_password_raw !== null && $credential_password_raw !== '') {
+    \ITFlow\Audit\AuditService::record('vault.credential_revealed', $session_user_id, 'credential', $credential_id, 'revealed', "$session_name viewed credential $credential_name");
+}
+
 ob_start();
 ?>
 
@@ -121,6 +125,29 @@ ob_start();
 
         </tbody>
     </table>
+
+    <?php
+    $sql_history = mysqli_query($mysqli, "SELECT * FROM credential_history WHERE history_credential_id = $credential_id ORDER BY history_created_at DESC LIMIT 5");
+    if (mysqli_num_rows($sql_history) > 0) {
+    ?>
+    <hr>
+    <h6 class="text-muted"><i class="fas fa-fw fa-history me-1"></i>Recent History</h6>
+    <table class="table table-sm table-borderless mb-0">
+        <tbody>
+        <?php while ($hr = mysqli_fetch_assoc($sql_history)) {
+            $h_field = nullable_htmlentities($hr['history_field']);
+            $h_by    = nullable_htmlentities($hr['history_user_name']);
+            $h_when  = timeAgo($hr['history_created_at']);
+        ?>
+            <tr>
+                <td class="text-muted text-nowrap" title="<?= nullable_htmlentities($hr['history_created_at']) ?>"><?= $h_when ?></td>
+                <td><strong><?= $h_field ?></strong> changed</td>
+                <td class="text-muted text-nowrap"><?= $h_by ?></td>
+            </tr>
+        <?php } ?>
+        </tbody>
+    </table>
+    <?php } ?>
 
 </div>
 

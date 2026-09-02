@@ -61,6 +61,9 @@ header("Referrer-Policy: strict-origin-when-cross-origin");
                 <li class="nav-item">
                     <a class="nav-link <?php if (basename($_SERVER['PHP_SELF']) == "tickets.php" || basename($_SERVER['PHP_SELF']) == "ticket_add.php" || basename($_SERVER['PHP_SELF']) == "ticket.php") {echo "active";} ?>" href="/client/tickets.php">Tickets</a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link <?php if (basename($_SERVER['PHP_SELF']) == "service_catalog.php") {echo "active";} ?>" href="/client/service_catalog.php">Request Something</a>
+                </li>
 
                 <?php if ($config_module_enable_kb == 1) { ?>
                     <li class="nav-item">

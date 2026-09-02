@@ -30,6 +30,9 @@ if (isset($_GET['filter_category_id']) && $_GET['filter_category_id'] !== '') {
     $kb_category_filter_query = '';
 }
 
+$filter_needs_review = isset($_GET['filter_needs_review']) && $_GET['filter_needs_review'] == '1';
+$kb_review_filter_query = $filter_needs_review ? "AND kb_article_review_due_at IS NOT NULL AND kb_article_review_due_at < CURDATE()" : '';
+
 if ($q) {
     $q_escaped = mysqli_real_escape_string($mysqli, $q);
     $kb_search_query = "AND (kb_article_title LIKE '%$q%' OR MATCH(kb_article_content_raw) AGAINST ('$q_escaped'))";
@@ -48,6 +51,7 @@ $sql = mysqli_query(
      AND kb_article_archived_at IS NULL
      $kb_scope_query
      $kb_category_filter_query
+     $kb_review_filter_query
      ORDER BY kb_category_name IS NULL, kb_category_name ASC, kb_article_title ASC
      LIMIT $record_from, $record_to"
 );
@@ -132,6 +136,12 @@ if (isset($kb_groups['Uncategorized'])) {
                         </select>
                     </div>
                 <?php } ?>
+                <div class="col-auto mb-2">
+                    <div class="form-check">
+                        <input class="form-check-input auto-submit-checkbox" type="checkbox" name="filter_needs_review" value="1" id="filterNeedsReview" <?php if ($filter_needs_review) { echo "checked"; } ?>>
+                        <label class="form-check-label" for="filterNeedsReview">Needs Review Only</label>
+                    </div>
+                </div>
             </div>
         </form>
 
@@ -151,6 +161,7 @@ if (isset($kb_groups['Uncategorized'])) {
                     $kb_article_client_name = nullable_htmlentities($row['client_name']);
                     $kb_article_client_visible = intval($row['kb_article_client_visible']);
                     $kb_article_updated_at = $row['kb_article_updated_at'] ?? $row['kb_article_created_at'];
+                    $kb_article_needs_review = !empty($row['kb_article_review_due_at']) && strtotime($row['kb_article_review_due_at']) < strtotime('today');
 
                     $kb_article_preview = strip_tags($row['kb_article_content_raw'] ?? '');
                     $kb_article_preview = trim(preg_replace('/\s+/', ' ', $kb_article_preview));
@@ -168,6 +179,9 @@ if (isset($kb_groups['Uncategorized'])) {
                             <div class="card-body">
                                 <h5 class="card-title">
                                     <a class="text-dark" href="<?= $kb_article_url ?>"><?= $kb_article_title ?></a>
+                                    <?php if ($kb_article_needs_review) { ?>
+                                        <span class="badge text-bg-warning" data-bs-toggle="tooltip" title="Review due date has passed"><i class="fas fa-fw fa-exclamation-triangle"></i> Needs Review</span>
+                                    <?php } ?>
                                 </h5>
                                 <p class="card-text text-secondary small"><?= nullable_htmlentities($kb_article_preview) ?></p>
                             </div>
@@ -223,9 +237,9 @@ require_once "../includes/footer.php";
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
 // The category/client filter selects used to rely on an inline onchange="this.form.submit()"
 // attribute, which this app's CSP (script-src with a nonce, no unsafe-inline) silently blocks.
-document.querySelectorAll('.auto-submit-select').forEach(function (select) {
-    select.addEventListener('change', function () {
-        select.form.submit();
+document.querySelectorAll('.auto-submit-select, .auto-submit-checkbox').forEach(function (el) {
+    el.addEventListener('change', function () {
+        el.form.submit();
     });
 });
 </script>

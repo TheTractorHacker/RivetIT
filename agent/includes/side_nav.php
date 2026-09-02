@@ -24,6 +24,12 @@
                         <p>Dashboard</p>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a href="/agent/it_dashboard.php" class="nav-link <?php if (basename($_SERVER['PHP_SELF']) == 'it_dashboard.php') { echo 'active'; } ?>">
+                        <i class="nav-icon fas fa-th-large"></i>
+                        <p>Internal IT</p>
+                    </a>
+                </li>
                 <?php if (lookupUserPermission("module_rmm_alerts") >= 1) { ?>
                 <li class="nav-item">
                     <a href="/agent/alerts.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "alerts.php") { echo "active"; } ?>">
@@ -116,6 +122,12 @@
                                 </p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="/agent/service_catalog.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "service_catalog.php") { echo "active"; } ?>">
+                                <i class="nav-icon fas fa-th-large"></i>
+                                <p>Request Something</p>
+                            </a>
+                        </li>
                         <?php if (!empty($config_ticket_csat_enable)) { ?>
                         <li class="nav-item">
                             <a href="/agent/csat.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "csat.php") { echo "active"; } ?>">
@@ -133,6 +145,18 @@
                                         <span class="right badge text-light" data-bs-toggle="tooltip" title="Unknown-sender emails awaiting review"><?php echo $num_mail_requests; ?></span>
                                     <?php } ?>
                                 </p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/agent/problems.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "problems.php" || basename($_SERVER["PHP_SELF"]) == "problem_details.php") { echo "active"; } ?>">
+                                <i class="nav-icon fas fa-exclamation-circle"></i>
+                                <p>Problems</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/agent/changes.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "changes.php" || basename($_SERVER["PHP_SELF"]) == "change_details.php") { echo "active"; } ?>">
+                                <i class="nav-icon fas fa-exchange-alt"></i>
+                                <p>Changes</p>
                             </a>
                         </li>
                         <li class="nav-item">
@@ -158,7 +182,7 @@
 
                 <?php if ($config_module_enable_kb == 1 && lookupUserPermission("module_kb") >= 1) { ?>
                     <li class="nav-item">
-                        <a href="/agent/kb_articles.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "kb_articles.php" || basename($_SERVER["PHP_SELF"]) == "kb_article.php") { echo "active"; } ?>">
+                        <a href="/agent/kb_articles.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "kb_articles.php" || basename($_SERVER["PHP_SELF"]) == "kb_article.php" || basename($_SERVER["PHP_SELF"]) == "kb_article_versions.php") { echo "active"; } ?>">
                             <i class="nav-icon fas fa-book"></i>
                             <p>Knowledge Base</p>
                         </a>

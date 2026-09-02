@@ -1,7 +1,6 @@
 <?php
 require_once "includes/inc_all_admin.php";
-
-$ALL_EVENTS = ['ticket.created', 'ticket.replied', 'ticket.assigned', 'ticket.status_changed', 'ticket.resolved'];
+require_once "includes/webhook_events.php";
 ?>
 
 <div class="card card-dark">
@@ -86,7 +85,7 @@ $ALL_EVENTS = ['ticket.created', 'ticket.replied', 'ticket.assigned', 'ticket.st
 <?php if (isset($sql_wh) && mysqli_num_rows($sql_wh) > 0) { ?>
 <div class="card card-dark mt-3">
     <div class="card-header py-2">
-        <h3 class="card-title"><i class="fas fa-fw fa-list me-2"></i>Delivery Log <small class="text-secondary ms-2">(last 100 entries)</small></h3>
+        <h3 class="card-title"><i class="fas fa-fw fa-list me-2"></i>Async Delivery Log <small class="text-secondary ms-2">(ticket events, queued via cron — last 100 entries)</small></h3>
     </div>
     <div class="card-body p-0">
         <table class="table table-sm table-striped table-borderless mb-0">
@@ -115,6 +114,45 @@ $ALL_EVENTS = ['ticket.created', 'ticket.replied', 'ticket.assigned', 'ticket.st
                     <td><?= intval($lrow['queue_attempts']) ?></td>
                 </tr>
             <?php } ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card card-dark mt-3">
+    <div class="card-header py-2">
+        <h3 class="card-title"><i class="fas fa-fw fa-bolt me-2"></i>Direct Delivery Log <small class="text-secondary ms-2">(platform events, sent immediately via WebhookDispatcher — last 100 entries)</small></h3>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-sm table-striped table-borderless mb-0">
+            <thead class="text-dark">
+                <tr><th>When</th><th>Webhook</th><th>Event</th><th>HTTP</th><th>Duration</th><th>Response</th></tr>
+            </thead>
+            <tbody>
+            <?php
+            $sql_direct = mysqli_query($mysqli,
+                "SELECT wd.*, w.webhook_name FROM webhook_deliveries wd
+                 JOIN webhooks w ON wd.webhook_id = w.webhook_id
+                 ORDER BY wd.delivery_id DESC LIMIT 100");
+            if (mysqli_num_rows($sql_direct) == 0) { ?>
+                <tr><td colspan="6" class="text-center text-muted py-4">No direct deliveries yet — nothing in the app calls WebhookDispatcher::deliver() yet.</td></tr>
+            <?php } else {
+                while ($drow = mysqli_fetch_assoc($sql_direct)) {
+                    $http = intval($drow['http_status']);
+                    $http_badge = $http >= 200 && $http < 300
+                        ? '<span class="badge text-bg-success">' . $http . '</span>'
+                        : ($http > 0 ? '<span class="badge text-bg-danger">' . $http . '</span>' : '<span class="badge text-bg-danger">no response</span>');
+                    ?>
+                    <tr>
+                        <td class="text-nowrap text-secondary" title="<?= nullable_htmlentities($drow['created_at']) ?>"><?= timeAgo($drow['created_at']) ?></td>
+                        <td><?= nullable_htmlentities($drow['webhook_name']) ?></td>
+                        <td><code><?= nullable_htmlentities($drow['event_type']) ?></code></td>
+                        <td><?= $http_badge ?></td>
+                        <td><?= intval($drow['duration_ms']) ?> ms</td>
+                        <td class="text-truncate" style="max-width:260px;" title="<?= nullable_htmlentities($drow['response_body_snippet']) ?>"><?= nullable_htmlentities($drow['response_body_snippet']) ?></td>
+                    </tr>
+                <?php }
+            } ?>
             </tbody>
         </table>
     </div>

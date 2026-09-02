@@ -2,7 +2,13 @@
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
-$ALL_EVENTS = ['ticket.created','ticket.replied','ticket.assigned','ticket.status_changed','ticket.resolved'];
+// Ticket events are the original set (queued/delivered async via
+// queueWebhookEvent()/cron.php). Platform events are AuditService event_type
+// strings (see src/Audit/AuditService.php callers) - subscribing a webhook to
+// one of these only records the subscription; nothing dispatches on them yet
+// (that's WebhookDispatcher's job, once a real trigger point wires it in).
+require_once __DIR__ . '/../includes/webhook_events.php';
+$ALL_EVENTS = all_webhook_event_types();
 
 /**
  * Reject webhook endpoint URLs that would let a saved webhook be used to make the

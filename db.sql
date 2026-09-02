@@ -1103,6 +1103,8 @@ DROP TABLE IF EXISTS `credentials`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `credentials` (
   `credential_id` int(11) NOT NULL AUTO_INCREMENT,
+  `credential_rotation_due_at` date DEFAULT NULL,
+  `credential_last_rotated_at` datetime DEFAULT NULL,
   `credential_name` varchar(200) NOT NULL,
   `credential_description` varchar(500) DEFAULT NULL,
   `credential_category` varchar(200) DEFAULT NULL,
@@ -1608,6 +1610,8 @@ CREATE TABLE `kb_articles` (
   `kb_article_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `kb_article_archived_at` datetime DEFAULT NULL,
   `kb_article_category_id` int(11) NOT NULL DEFAULT 0,
+  `kb_article_review_due_at` date DEFAULT NULL,
+  `kb_article_reviewer_user_id` int(11) DEFAULT NULL,
   PRIMARY KEY (`kb_article_id`),
   KEY `kb_article_client_id` (`kb_article_client_id`),
   KEY `kb_article_category_id` (`kb_article_category_id`),
@@ -3576,6 +3580,7 @@ CREATE TABLE `tickets` (
   `ticket_recurring_ticket_id` int(11) DEFAULT 0,
   `ticket_order` int(11) NOT NULL DEFAULT 0,
   `ticket_contract_id` int(11) DEFAULT NULL,
+  `ticket_problem_id` int(11) DEFAULT NULL,
   `ticket_sla_response_due` datetime DEFAULT NULL,
   `ticket_sla_resolution_due` datetime DEFAULT NULL,
   `ticket_outlook_event_id` varchar(255) DEFAULT NULL,
@@ -3587,7 +3592,8 @@ CREATE TABLE `tickets` (
   `ticket_sla_resolution_met` tinyint(4) DEFAULT NULL,
   `ticket_delivery_method` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`ticket_id`),
-  KEY `idx_tickets_client_archived_updated` (`ticket_client_id`,`ticket_archived_at`,`ticket_updated_at`)
+  KEY `idx_tickets_client_archived_updated` (`ticket_client_id`,`ticket_archived_at`,`ticket_updated_at`),
+  KEY `idx_tickets_problem` (`ticket_problem_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=136 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -5035,5 +5041,159 @@ CREATE TABLE `workflow_run_tasks` (
   `skip_reason` varchar(500) DEFAULT NULL,
   PRIMARY KEY (`run_task_id`),
   KEY `idx_run_task_run` (`run_id`,`sort_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `credential_versions`
+--
+
+DROP TABLE IF EXISTS `credential_versions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `credential_versions` (
+  `version_id` int(11) NOT NULL AUTO_INCREMENT,
+  `version_credential_id` int(11) NOT NULL,
+  `version_changed_by` int(11) NOT NULL DEFAULT 0,
+  `version_changed_by_name` varchar(200) NOT NULL DEFAULT '',
+  `version_previous_username_enc` varbinary(500) DEFAULT NULL,
+  `version_previous_password_enc` varbinary(500) DEFAULT NULL,
+  `version_changed_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`version_id`),
+  KEY `idx_credential_versions_credential` (`version_credential_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `kb_article_versions`
+--
+
+DROP TABLE IF EXISTS `kb_article_versions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `kb_article_versions` (
+  `kb_article_version_id` int(11) NOT NULL AUTO_INCREMENT,
+  `kb_article_version_kb_article_id` int(11) NOT NULL,
+  `kb_article_version_content` mediumtext DEFAULT NULL,
+  `kb_article_version_content_raw` mediumtext DEFAULT NULL,
+  `kb_article_version_edited_by` int(11) DEFAULT NULL,
+  `kb_article_version_edited_at` datetime DEFAULT current_timestamp(),
+  `kb_article_version_number` int(11) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`kb_article_version_id`),
+  KEY `kb_article_version_kb_article_id` (`kb_article_version_kb_article_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `service_catalog_items`
+--
+
+DROP TABLE IF EXISTS `service_catalog_items`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `service_catalog_items` (
+  `catalog_item_id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(200) NOT NULL,
+  `description` text DEFAULT NULL,
+  `icon` varchar(100) DEFAULT NULL,
+  `ticket_subject_template` varchar(500) DEFAULT NULL,
+  `ticket_category_id` int(11) DEFAULT NULL,
+  `default_priority` varchar(200) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`catalog_item_id`),
+  KEY `ticket_category_id` (`ticket_category_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `changes`
+--
+
+DROP TABLE IF EXISTS `changes`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `changes` (
+  `change_id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `reason` text DEFAULT NULL,
+  `impact` text DEFAULT NULL,
+  `risk` enum('low','medium','high') NOT NULL DEFAULT 'low',
+  `implementation_plan` text DEFAULT NULL,
+  `rollback_plan` text DEFAULT NULL,
+  `scheduled_at` datetime DEFAULT NULL,
+  `status` enum('draft','awaiting_approval','approved','scheduled','in_progress','successful','failed','rolled_back','cancelled') NOT NULL DEFAULT 'draft',
+  `created_by` int(11) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`change_id`),
+  KEY `idx_changes_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `problems`
+--
+
+DROP TABLE IF EXISTS `problems`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `problems` (
+  `problem_id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
+  `status` enum('open','investigating','resolved','closed') NOT NULL DEFAULT 'open',
+  `change_problem_id` int(11) DEFAULT NULL,
+  `created_by` int(11) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `resolved_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`problem_id`),
+  KEY `idx_problems_status` (`status`),
+  KEY `idx_problems_change` (`change_problem_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `webhook_deliveries`
+--
+
+DROP TABLE IF EXISTS `webhook_deliveries`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `webhook_deliveries` (
+  `delivery_id` int(11) NOT NULL AUTO_INCREMENT,
+  `webhook_id` int(11) NOT NULL,
+  `event_type` varchar(150) NOT NULL,
+  `http_status` smallint(6) DEFAULT NULL,
+  `duration_ms` int(11) NOT NULL DEFAULT 0,
+  `attempt_number` tinyint(3) NOT NULL DEFAULT 1,
+  `request_payload_json` longtext DEFAULT NULL,
+  `response_body_snippet` varchar(1000) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`delivery_id`),
+  KEY `idx_webhook_deliveries_webhook` (`webhook_id`,`created_at`),
+  KEY `idx_webhook_deliveries_event` (`event_type`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `automation_rules`
+--
+
+DROP TABLE IF EXISTS `automation_rules`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `automation_rules` (
+  `rule_id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(200) NOT NULL,
+  `trigger_event` varchar(150) NOT NULL,
+  `condition_json` text DEFAULT NULL,
+  `action_type` enum('create_ticket','send_webhook','notify_user') NOT NULL,
+  `action_config_json` text DEFAULT NULL,
+  `is_enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`rule_id`),
+  KEY `idx_automation_rules_trigger` (`trigger_event`,`is_enabled`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

@@ -292,6 +292,12 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a href="/admin/service_catalog.php" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'service_catalog.php' ? 'active' : ''); ?>">
+                                <i class="nav-icon fas fa-th-large"></i>
+                                <p>Service Catalog</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a href="/admin/canned_responses.php" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'canned_responses.php' ? 'active' : ''); ?>">
                                 <i class="nav-icon fas fa-comment-dots"></i>
                                 <p>

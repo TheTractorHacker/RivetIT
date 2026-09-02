@@ -6461,3 +6461,144 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.58'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.58') {
+        // Master-plan Phase 4: Vault V2 - credential rotation due dates +
+        // a version history snapshotted on every edit (Section 15).
+        mysqli_query($mysqli, "ALTER TABLE `credentials` ADD COLUMN IF NOT EXISTS `credential_rotation_due_at` date DEFAULT NULL AFTER `credential_password_changed_at`");
+        mysqli_query($mysqli, "ALTER TABLE `credentials` ADD COLUMN IF NOT EXISTS `credential_last_rotated_at` datetime DEFAULT NULL AFTER `credential_rotation_due_at`");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `credential_versions` (
+            `version_id` int(11) NOT NULL AUTO_INCREMENT,
+            `version_credential_id` int(11) NOT NULL,
+            `version_changed_by` int(11) NOT NULL DEFAULT 0,
+            `version_changed_by_name` varchar(200) NOT NULL DEFAULT '',
+            `version_previous_username_enc` varbinary(500) DEFAULT NULL,
+            `version_previous_password_enc` varbinary(500) DEFAULT NULL,
+            `version_changed_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`version_id`),
+            KEY `idx_credential_versions_credential` (`version_credential_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.59'");
+    }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.59') {
+        // Master-plan Phase 5: Knowledge Base V2 - review-due tracking +
+        // full version history on every edit (Section 14).
+        mysqli_query($mysqli, "ALTER TABLE `kb_articles` ADD COLUMN IF NOT EXISTS `kb_article_review_due_at` date DEFAULT NULL AFTER `kb_article_category_id`");
+        mysqli_query($mysqli, "ALTER TABLE `kb_articles` ADD COLUMN IF NOT EXISTS `kb_article_reviewer_user_id` int(11) DEFAULT NULL AFTER `kb_article_review_due_at`");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `kb_article_versions` (
+            `kb_article_version_id` int(11) NOT NULL AUTO_INCREMENT,
+            `kb_article_version_kb_article_id` int(11) NOT NULL,
+            `kb_article_version_content` mediumtext DEFAULT NULL,
+            `kb_article_version_content_raw` mediumtext DEFAULT NULL,
+            `kb_article_version_edited_by` int(11) DEFAULT NULL,
+            `kb_article_version_edited_at` datetime DEFAULT current_timestamp(),
+            `kb_article_version_number` int(11) NOT NULL DEFAULT 1,
+            PRIMARY KEY (`kb_article_version_id`),
+            KEY `kb_article_version_kb_article_id` (`kb_article_version_kb_article_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.60'");
+    }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.60') {
+        // Master-plan Phase 10: Service Catalog (Section 27.1, scoped down -
+        // a flat list of requestable items that pre-fill a new ticket, no
+        // dynamic form builder yet).
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `service_catalog_items` (
+            `catalog_item_id` int(11) NOT NULL AUTO_INCREMENT,
+            `name` varchar(200) NOT NULL,
+            `description` text DEFAULT NULL,
+            `icon` varchar(100) DEFAULT NULL,
+            `ticket_subject_template` varchar(500) DEFAULT NULL,
+            `ticket_category_id` int(11) DEFAULT NULL,
+            `default_priority` varchar(200) DEFAULT NULL,
+            `is_active` tinyint(1) NOT NULL DEFAULT 1,
+            `sort_order` int(11) NOT NULL DEFAULT 0,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+            PRIMARY KEY (`catalog_item_id`),
+            KEY `ticket_category_id` (`ticket_category_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.61'");
+    }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.61') {
+        // Master-plan Phase 11: Incident/Problem/Change management -
+        // problems and changes as first-class records, tickets optionally
+        // linked to a problem.
+        mysqli_query($mysqli, "ALTER TABLE `tickets` ADD COLUMN IF NOT EXISTS `ticket_problem_id` int(11) DEFAULT NULL AFTER `ticket_contract_id`");
+        mysqli_query($mysqli, "ALTER TABLE `tickets` ADD INDEX IF NOT EXISTS `idx_tickets_problem` (`ticket_problem_id`)");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `changes` (
+            `change_id` int(11) NOT NULL AUTO_INCREMENT,
+            `title` varchar(255) NOT NULL,
+            `reason` text DEFAULT NULL,
+            `impact` text DEFAULT NULL,
+            `risk` enum('low','medium','high') NOT NULL DEFAULT 'low',
+            `implementation_plan` text DEFAULT NULL,
+            `rollback_plan` text DEFAULT NULL,
+            `scheduled_at` datetime DEFAULT NULL,
+            `status` enum('draft','awaiting_approval','approved','scheduled','in_progress','successful','failed','rolled_back','cancelled') NOT NULL DEFAULT 'draft',
+            `created_by` int(11) DEFAULT NULL,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`change_id`),
+            KEY `idx_changes_status` (`status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `problems` (
+            `problem_id` int(11) NOT NULL AUTO_INCREMENT,
+            `title` varchar(255) NOT NULL,
+            `description` text DEFAULT NULL,
+            `status` enum('open','investigating','resolved','closed') NOT NULL DEFAULT 'open',
+            `change_problem_id` int(11) DEFAULT NULL,
+            `created_by` int(11) DEFAULT NULL,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `resolved_at` datetime DEFAULT NULL,
+            PRIMARY KEY (`problem_id`),
+            KEY `idx_problems_status` (`status`),
+            KEY `idx_problems_change` (`change_problem_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.62'");
+    }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.62') {
+        // Master-plan Phase 12: Automation, Webhooks V2, API v2 (Section 35) -
+        // a synchronous direct-delivery log distinct from the existing
+        // ticket-scoped async webhook_queue/cron.php path, plus a first
+        // automation-rule table (trigger -> condition -> action).
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `webhook_deliveries` (
+            `delivery_id` int(11) NOT NULL AUTO_INCREMENT,
+            `webhook_id` int(11) NOT NULL,
+            `event_type` varchar(150) NOT NULL,
+            `http_status` smallint(6) DEFAULT NULL,
+            `duration_ms` int(11) NOT NULL DEFAULT 0,
+            `attempt_number` tinyint(3) NOT NULL DEFAULT 1,
+            `request_payload_json` longtext DEFAULT NULL,
+            `response_body_snippet` varchar(1000) DEFAULT NULL,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`delivery_id`),
+            KEY `idx_webhook_deliveries_webhook` (`webhook_id`, `created_at`),
+            KEY `idx_webhook_deliveries_event` (`event_type`, `created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `automation_rules` (
+            `rule_id` int(11) NOT NULL AUTO_INCREMENT,
+            `name` varchar(200) NOT NULL,
+            `trigger_event` varchar(150) NOT NULL,
+            `condition_json` text DEFAULT NULL,
+            `action_type` enum('create_ticket','send_webhook','notify_user') NOT NULL,
+            `action_config_json` text DEFAULT NULL,
+            `is_enabled` tinyint(1) NOT NULL DEFAULT 1,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`rule_id`),
+            KEY `idx_automation_rules_trigger` (`trigger_event`, `is_enabled`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.63'");
+    }
+
