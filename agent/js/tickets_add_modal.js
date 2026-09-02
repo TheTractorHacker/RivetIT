@@ -15,8 +15,11 @@ if (clientSelectDropdown && clientSelectDropdown.disabled) {
 }
 
 // Listener for client selection. Populate select lists when a client is selected
-$(clientSelectDropdown).on('select2:select', function (e) {
-    let client_id = $(this).find(':selected').val();
+// Native 'change' - the .select2 class is now backed by TomSelect (see
+// js/app.js's initSelect2Widgets()), which syncs the underlying <select> and
+// dispatches a native change event, not jQuery-select2's 'select2:select'.
+$(clientSelectDropdown).on('change', function (e) {
+    let client_id = $(this).val();
 
     // Update the contacts dropdown list
     populateLists(client_id);
