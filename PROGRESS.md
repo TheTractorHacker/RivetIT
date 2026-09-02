@@ -88,10 +88,32 @@ Status: **partial**
 - [ ] Matching/reconciliation engine (Section 11.3) — not started; needs Phase 7 (RMM/Intune) to have something to reconcile against.
 - [ ] QR codes (Section 11.6) — deferred. Needs a real decision about label printing/hardware that doesn't exist yet; didn't want to guess at that.
 
-## Phases 4, 5, 7, 9–15
-Status: **not started** — Vault V2 (4), KB V2 (5), Intune/RMM (7), Employee Lifecycle workflows (9),
-Service Catalog (10), ITSM (11), Automation/API V2 (12), Reporting (13), Employee Portal (14),
-Polish (15). Not yet scoped in detail — will update this section as each phase starts.
+## Phase 9 — Employee Lifecycle Workflows
+Status: **done (manual-first scope, per Section 53)**
+
+- [x] `workflow_templates` / `workflow_template_tasks` — admin-managed checklist definitions (onboarding
+  or offboarding). `admin/employee_workflow_templates.php` (list/create) + `admin/employee_workflow_template_details.php`
+  (add/reorder/remove tasks). Named distinctly from the pre-existing, unrelated `admin/onboarding_templates.php`
+  (a PROJECT template for onboarding a new *department*, not a person).
+- [x] `workflow_runs` / `workflow_run_tasks` — starting a run snapshots the template's tasks (title/
+  instructions copied, not referenced), so editing a template later never rewrites an in-progress or
+  completed run's history.
+- [x] `src/Workflow/WorkflowService.php` — start/complete/skip/reopen/cancel, with auto-computed run
+  status (in_progress while any required task is pending → completed once all required tasks are
+  resolved → completed_with_exceptions if any required task was skipped; optional tasks never gate
+  completion). Verified directly against a scratch DB.
+- [x] Agent-facing: a "Workflows" card on `contact_details.php` (start a run, see history) +
+  `agent/workflow_run.php` checklist page (complete/skip-with-reason/reopen/cancel).
+- [ ] **Deliberately not built** (Section 16.1/16.2's fuller model): task dependencies/blocking,
+  multi-step approvals, automation actions (assisted/automatic task completion), relative due-date
+  scheduling, role-based template inheritance (Section 19's add-on templates). This is a flat
+  checklist, not a scheduling/dependency graph — revisit once there's real usage to learn from,
+  per the plan's own Section 53 guidance to defer broad automation until manual flows are proven.
+
+## Phases 4, 5, 7, 10–15
+Status: **not started** — Vault V2 (4), KB V2 (5), Intune/RMM (7), Service Catalog (10), ITSM (11),
+Automation/API V2 (12), Reporting (13), Employee Portal (14), Polish (15). Not yet scoped in detail —
+will update this section as each phase starts.
 
 ---
 
