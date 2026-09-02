@@ -549,7 +549,7 @@ if (isset($_GET['get_client_locations'])) {
 
     $locations_sql = mysqli_query(
         $mysqli,
-        "SELECT location_id, location_name FROM locations
+        "SELECT locations.location_id, locations.location_name FROM locations
         INNER JOIN department_sites ON department_sites.location_id = locations.location_id
         INNER JOIN clients ON clients.client_id = department_sites.client_id
         WHERE locations.location_archived_at IS NULL AND department_sites.client_id = $client_id
