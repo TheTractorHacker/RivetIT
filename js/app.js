@@ -182,6 +182,13 @@ function initSelect2Widgets() {
         };
         var ph = el.getAttribute('data-placeholder');
         if (ph) { opts.placeholder = ph; }
+        // data-searchable="0" - a plain click-to-pick dropdown, no typeahead
+        // text box. For short, fixed option lists (ticket filter pills, etc.)
+        // the search input is friction, not help - clicking should show the
+        // full list immediately, not ask the user to type first.
+        if (el.getAttribute('data-searchable') === '0') {
+            opts.controlInput = null;
+        }
         try { new TomSelect(el, opts); } catch (err) { /* noop */ }
     });
 }

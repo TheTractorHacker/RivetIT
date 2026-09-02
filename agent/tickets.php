@@ -512,7 +512,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                 <div class="filter-toolbar">
                 <div class="row align-items-center filter-row-nowrap">
                     <div class="col-auto mb-2">
-                        <select class="form-control select2 auto-submit-select" name="board" data-placeholder="Board" style="width:150px;">
+                        <select class="form-control select2 auto-submit-select" name="board" data-placeholder="Board" data-searchable="0" style="width:150px;">
                             <option value="">- All Boards -</option>
                             <?php
                             while ($row = mysqli_fetch_assoc($sql_boards_filter)) {
@@ -524,7 +524,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                         </select>
                     </div>
                     <div class="col-auto mb-2">
-                        <select class="form-control select2 auto-submit-select" name="category" data-placeholder="Category" style="width:170px;">
+                        <select class="form-control select2 auto-submit-select" name="category" data-placeholder="Category" data-searchable="0" style="width:170px;">
                             <option value="">- All Categories -</option>
                             <?php
                             while ($row = mysqli_fetch_assoc($sql_categories_filter)) {
@@ -536,7 +536,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                         </select>
                     </div>
                     <div class="col-auto mb-2">
-                        <select class="form-control select2 auto-submit-select" name="status" data-placeholder="Status" style="width:140px;">
+                        <select class="form-control select2 auto-submit-select" name="status" data-placeholder="Status" data-searchable="0" style="width:140px;">
                             <option value="Open" <?= $status === 'Open' ? 'selected' : '' ?>>All Open</option>
                             <option value="Closed" <?= $status === 'Closed' ? 'selected' : '' ?>>All Closed</option>
                             <option value="All" <?= $status === 'All' ? 'selected' : '' ?>>All (Open + Closed)</option>
@@ -550,7 +550,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                         </select>
                     </div>
                     <div class="col-auto mb-2">
-                        <select class="form-control select2 auto-submit-select" name="priority" id="priorityFilterSelect" data-placeholder="Priority" style="width:150px;">
+                        <select class="form-control select2 auto-submit-select" name="priority" id="priorityFilterSelect" data-placeholder="Priority" data-searchable="0" style="width:150px;">
                             <option value="">All Priorities</option>
                             <option value="High" data-dot="high" <?= $priority_filter === 'High' ? 'selected' : '' ?>>High</option>
                             <option value="Medium" data-dot="medium" <?= $priority_filter === 'Medium' ? 'selected' : '' ?>>Medium</option>
