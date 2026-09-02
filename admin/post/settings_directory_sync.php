@@ -3,6 +3,7 @@
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
 use ITFlow\Integrations\Microsoft\GraphClient;
+use ITFlow\Integrations\Microsoft\IntuneAssetMapper;
 use ITFlow\Integrations\Odoo\OdooClient;
 
 if (isset($_POST['save_microsoft_integration'])) {
@@ -13,6 +14,7 @@ if (isset($_POST['save_microsoft_integration'])) {
     $tenant_id = sanitizeInput($_POST['tenant_id'] ?? '');
     $client_id = sanitizeInput($_POST['client_id'] ?? '');
     $enabled = isset($_POST['enabled']) ? 1 : 0;
+    $intune_sync_enabled = isset($_POST['intune_sync_enabled']) ? 1 : 0;
 
     $existing = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT microsoft_integration_id FROM microsoft_integrations ORDER BY microsoft_integration_id DESC LIMIT 1"));
 
@@ -24,9 +26,9 @@ if (isset($_POST['save_microsoft_integration'])) {
 
     if ($existing) {
         $id = intval($existing['microsoft_integration_id']);
-        mysqli_query($mysqli, "UPDATE microsoft_integrations SET tenant_id = '$tenant_id', client_id = '$client_id', enabled = $enabled $secret_sql WHERE microsoft_integration_id = $id");
+        mysqli_query($mysqli, "UPDATE microsoft_integrations SET tenant_id = '$tenant_id', client_id = '$client_id', enabled = $enabled, intune_sync_enabled = $intune_sync_enabled $secret_sql WHERE microsoft_integration_id = $id");
     } else {
-        mysqli_query($mysqli, "INSERT INTO microsoft_integrations SET tenant_id = '$tenant_id', client_id = '$client_id', enabled = $enabled $secret_sql");
+        mysqli_query($mysqli, "INSERT INTO microsoft_integrations SET tenant_id = '$tenant_id', client_id = '$client_id', enabled = $enabled, intune_sync_enabled = $intune_sync_enabled $secret_sql");
     }
 
     logAction("Settings", "Edit", "$session_name updated the Microsoft/Entra integration settings");
@@ -57,6 +59,62 @@ if (isset($_POST['test_microsoft_integration'])) {
     \ITFlow\Audit\AuditService::record('integration.microsoft.test', $session_user_id, 'microsoft_integration', $id, $result->success ? 'success' : 'failed', $result->error);
 
     flash_alert($result->success ? 'Connection successful' : 'Connection failed: ' . $result->error, $result->success ? 'success' : 'error');
+    redirect();
+}
+
+if (isset($_POST['sync_intune_devices'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('module_client', 3);
+
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM microsoft_integrations ORDER BY microsoft_integration_id DESC LIMIT 1"));
+    $id = $row ? intval($row['microsoft_integration_id']) : null;
+
+    if (!$row) {
+        flash_alert('No Microsoft integration is configured yet.', 'error');
+        redirect();
+    }
+    if (empty($row['enabled'])) {
+        flash_alert('Enable the Microsoft integration before syncing Intune devices.', 'error');
+        redirect();
+    }
+    if (empty($row['client_secret_enc'])) {
+        flash_alert('Save a tenant ID, client ID, and client secret before syncing Intune devices.', 'error');
+        redirect();
+    }
+    if (empty($row['intune_sync_enabled'])) {
+        flash_alert('Enable "Sync devices from Intune" before syncing.', 'error');
+        redirect();
+    }
+
+    // Guard against overlapping runs (e.g. this button clicked while the cron
+    // job is mid-sync) - same 60-second running-lock pattern rmm_sync.php uses.
+    $recent = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT id FROM intune_sync_log WHERE microsoft_integration_id=$id
+         AND started_at > DATE_SUB(NOW(), INTERVAL 60 SECOND) AND status='running' LIMIT 1"
+    ));
+    if ($recent) {
+        flash_alert('A sync is already running. Please wait 60 seconds.', 'error');
+        redirect();
+    }
+
+    $client = new GraphClient($row['tenant_id'], $row['client_id'], decryptSetting($row['client_secret_enc']));
+    $mapper = new IntuneAssetMapper($mysqli, $id, $session_user_id);
+    $log_id = $mapper->startSyncLog();
+
+    try {
+        $devices = $client->listAllManagedDevices();
+        $stats = $mapper->syncDevices($devices);
+        $mapper->finishSyncLog($log_id, $stats);
+
+        logAction("Settings", "Edit", "$session_name synced Intune devices: {$stats['created']} created, {$stats['updated']} updated, {$stats['matched']} matched, {$stats['skipped']} skipped");
+        flash_alert("Intune sync complete: {$stats['created']} created, {$stats['updated']} updated, {$stats['matched']} matched, {$stats['skipped']} skipped");
+    } catch (\RuntimeException $e) {
+        mysqli_query($mysqli, "UPDATE intune_sync_log SET finished_at=NOW(), status='failed', errors='" .
+            mysqli_real_escape_string($mysqli, $e->getMessage()) . "' WHERE id=$log_id");
+        flash_alert($e->getMessage(), 'error');
+    }
+
     redirect();
 }
 

@@ -4901,6 +4901,7 @@ CREATE TABLE `microsoft_integrations` (
   `client_secret_enc` text DEFAULT NULL,
   `sync_scope` varchar(20) NOT NULL DEFAULT 'read_only',
   `enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `intune_sync_enabled` tinyint(1) NOT NULL DEFAULT 0,
   `last_test_at` datetime DEFAULT NULL,
   `last_test_success` tinyint(1) DEFAULT NULL,
   `last_test_error` varchar(500) DEFAULT NULL,
@@ -5195,5 +5196,63 @@ CREATE TABLE `automation_rules` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`rule_id`),
   KEY `idx_automation_rules_trigger` (`trigger_event`,`is_enabled`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `asset_intune_links`
+--
+
+DROP TABLE IF EXISTS `asset_intune_links`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `asset_intune_links` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `asset_id` int(11) NOT NULL,
+  `microsoft_integration_id` int(11) NOT NULL,
+  `intune_device_id` varchar(100) NOT NULL,
+  `azure_ad_device_id` varchar(100) DEFAULT NULL,
+  `hostname` varchar(200) DEFAULT NULL,
+  `serial_number` varchar(200) DEFAULT NULL,
+  `os_name` varchar(100) DEFAULT NULL,
+  `os_version` varchar(100) DEFAULT NULL,
+  `manufacturer` varchar(200) DEFAULT NULL,
+  `model` varchar(200) DEFAULT NULL,
+  `management_agent` varchar(100) DEFAULT NULL,
+  `compliance_state` varchar(50) DEFAULT NULL,
+  `is_encrypted` tinyint(1) DEFAULT NULL,
+  `primary_user_upn` varchar(200) DEFAULT NULL,
+  `enrolled_at` datetime DEFAULT NULL,
+  `intune_last_sync_at` datetime DEFAULT NULL,
+  `last_sync` datetime DEFAULT NULL,
+  `raw_data_json` longtext DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `asset_integration` (`asset_id`,`microsoft_integration_id`),
+  KEY `intune_device_id` (`intune_device_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `intune_sync_log`
+--
+
+DROP TABLE IF EXISTS `intune_sync_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `intune_sync_log` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `microsoft_integration_id` int(11) NOT NULL,
+  `started_at` datetime DEFAULT current_timestamp(),
+  `finished_at` datetime DEFAULT NULL,
+  `status` varchar(20) DEFAULT 'running',
+  `devices_created` int(11) DEFAULT 0,
+  `devices_updated` int(11) DEFAULT 0,
+  `devices_matched` int(11) DEFAULT 0,
+  `devices_skipped` int(11) DEFAULT 0,
+  `errors` text DEFAULT NULL,
+  `triggered_by` int(11) DEFAULT 0,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

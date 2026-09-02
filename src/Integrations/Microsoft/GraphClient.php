@@ -101,6 +101,38 @@ class GraphClient
         );
     }
 
+    /**
+     * Fetches every Intune-managed device from Graph, fully paginated.
+     * Returns raw Graph device dicts (not wrapped in a value object) since
+     * the Intune asset mapper needs many device-specific fields.
+     *
+     * @return array[]
+     */
+    public function listAllManagedDevices(): array
+    {
+        $this->authenticate();
+
+        $path = '/deviceManagement/managedDevices?$select=id,deviceName,serialNumber,operatingSystem,osVersion,manufacturer,model,complianceState,managementAgent,lastSyncDateTime,azureADDeviceId,userPrincipalName,enrolledDateTime,isEncrypted&$top=100';
+        $devices = [];
+
+        while ($path !== null) {
+            [$status, $body] = $this->request('GET', $path, absoluteIfFullUrl: true);
+
+            if ($status !== 200) {
+                throw new \RuntimeException("Graph API returned HTTP $status: " . $this->extractGraphError($body));
+            }
+
+            $data = json_decode($body, true);
+            foreach ($data['value'] ?? [] as $d) {
+                $devices[] = $d;
+            }
+
+            $path = $data['@odata.nextLink'] ?? null;
+        }
+
+        return $devices;
+    }
+
     private function authenticate(): void
     {
         if ($this->accessToken !== null) {

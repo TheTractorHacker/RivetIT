@@ -1749,6 +1749,45 @@ if ($config_module_enable_rmm) {
 
 /*
  * ###############################################################################################################
+ *  INTUNE DEVICE SYNC (Syncro-Beta)
+ * ###############################################################################################################
+ */
+
+$sql_ms_integration = mysqli_query($mysqli, "SELECT * FROM microsoft_integrations WHERE enabled=1 AND intune_sync_enabled=1 ORDER BY microsoft_integration_id DESC LIMIT 1");
+$ms_integration_row = $sql_ms_integration ? mysqli_fetch_assoc($sql_ms_integration) : null;
+
+if ($ms_integration_row) {
+    if (!class_exists(\ITFlow\Integrations\Microsoft\GraphClient::class)) {
+        require_once dirname(__DIR__) . '/vendor/autoload.php';
+    }
+
+    $ms_intg_id = intval($ms_integration_row['microsoft_integration_id']);
+
+    if (empty($ms_integration_row['client_secret_enc'])) {
+        logApp("Cron", "error", "Intune sync skipped: Microsoft integration has no client secret saved");
+    } else {
+        $ms_graph_client = new \ITFlow\Integrations\Microsoft\GraphClient($ms_integration_row['tenant_id'], $ms_integration_row['client_id'], decryptSetting($ms_integration_row['client_secret_enc']));
+        $ms_intune_mapper = new \ITFlow\Integrations\Microsoft\IntuneAssetMapper($mysqli, $ms_intg_id, 0);
+        $intune_log_id = $ms_intune_mapper->startSyncLog();
+
+        try {
+            $intune_devices = $ms_graph_client->listAllManagedDevices();
+            $intune_stats = $ms_intune_mapper->syncDevices($intune_devices);
+            $ms_intune_mapper->finishSyncLog($intune_log_id, $intune_stats);
+
+            logApp("Cron", "info",
+                "Intune sync: devices {$intune_stats['created']} created, {$intune_stats['updated']} updated, {$intune_stats['matched']} matched, {$intune_stats['skipped']} skipped"
+            );
+        } catch (RuntimeException $e) {
+            mysqli_query($mysqli, "UPDATE intune_sync_log SET finished_at=NOW(), status='failed', errors='" .
+                mysqli_real_escape_string($mysqli, $e->getMessage()) . "' WHERE id=$intune_log_id");
+            logApp("Cron", "error", "Intune sync failed: " . $e->getMessage());
+        }
+    }
+}
+
+/*
+ * ###############################################################################################################
  *  RMM ALERT AUTO-TICKETING (Syncro-Beta)
  * ###############################################################################################################
  */

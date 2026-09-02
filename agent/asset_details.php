@@ -398,6 +398,60 @@ if (isset($_GET['asset_id'])) {
         </div>
         <?php endif; ?>
 
+        <?php
+        // Intune Integration — load cached link data (device-management data
+        // synced from Microsoft Intune via Graph API; separate from RMM above).
+        $intune_link = null;
+        if (lookupUserPermission('module_client') >= 1) {
+            $intune_link = mysqli_fetch_assoc(mysqli_query($mysqli,
+                "SELECT * FROM asset_intune_links WHERE asset_id = $asset_id LIMIT 1"
+            ));
+        }
+
+        if ($intune_link):
+            $intune_compliance = strtolower((string) ($intune_link['compliance_state'] ?? ''));
+            if ($intune_compliance === 'compliant') {
+                $intune_badge = 'text-bg-success'; $intune_border = '#0078d4'; $intune_compliance_label = 'Compliant';
+            } elseif ($intune_compliance === 'noncompliant') {
+                $intune_badge = 'text-bg-danger'; $intune_border = '#dc3545'; $intune_compliance_label = 'Not Compliant';
+            } else {
+                $intune_badge = 'text-bg-secondary'; $intune_border = '#0078d4';
+                $intune_compliance_label = $intune_link['compliance_state'] ? nullable_htmlentities($intune_link['compliance_state']) : 'Unknown';
+            }
+        ?>
+        <div class="card card-dark mb-2" style="border-left:5px solid <?= $intune_border ?>; border-radius:4px;">
+            <div class="card-body py-2 px-3">
+                <div class="d-flex align-items-center flex-wrap" style="gap:8px">
+                    <div class="mr-auto">
+                        <strong class="h5 mb-0"><i class="fab fa-microsoft me-1"></i><?= nullable_htmlentities($intune_link['hostname'] ?: $asset_name) ?></strong>
+                        <span class="badge <?= $intune_badge ?> ms-2"><?= $intune_compliance_label ?></span>
+                        <?php if (intval($intune_link['is_encrypted'] ?? 0)): ?>
+                            <span class="badge text-bg-info ms-1"><i class="fas fa-lock me-1"></i>Encrypted</span>
+                        <?php endif; ?>
+                        <div class="text-muted small mt-1">
+                            <?php if ($intune_link['os_name']):
+                                $intune_os_lower = strtolower($intune_link['os_name']);
+                                if (str_contains($intune_os_lower, 'android')) {
+                                    $intune_os_icon = 'fa-android';
+                                } elseif (str_contains($intune_os_lower, 'ios') || str_contains($intune_os_lower, 'ipados') || str_contains($intune_os_lower, 'ipad')) {
+                                    $intune_os_icon = 'fa-apple';
+                                } elseif (str_contains($intune_os_lower, 'linux')) {
+                                    $intune_os_icon = 'fa-linux';
+                                } elseif (str_contains($intune_os_lower, 'mac') || str_contains($intune_os_lower, 'darwin')) {
+                                    $intune_os_icon = 'fa-apple';
+                                } else {
+                                    $intune_os_icon = 'fa-windows';
+                                }
+                            ?><i class="fab <?= $intune_os_icon ?> me-1"></i><?= nullable_htmlentities($intune_link['os_name']) ?><?php if ($intune_link['os_version']): ?>&nbsp;<?= nullable_htmlentities($intune_link['os_version']) ?><?php endif; ?>&nbsp;<?php endif; ?>
+                            <?php if ($intune_link['primary_user_upn']): ?>&bull;&nbsp;<i class="fas fa-user mx-1"></i><?= nullable_htmlentities($intune_link['primary_user_upn']) ?>&nbsp;<?php endif; ?>
+                            <?php if ($intune_link['intune_last_sync_at']): ?>&bull;&nbsp;<i class="fas fa-clock mx-1"></i>Intune sync: <?= nullable_htmlentities($intune_link['intune_last_sync_at']) ?><?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <style>
             #asset-details-content { font-size: 1.05rem; }
             #asset-details-content .small,

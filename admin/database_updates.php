@@ -6602,3 +6602,55 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.63'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.63') {
+        // Master-plan Phase 7: Microsoft Intune device sync into the CMDB -
+        // reuses the Phase 3 Microsoft/Entra app registration (GraphClient),
+        // just with the additional DeviceManagementManagedDevices.Read.All
+        // permission granted separately in the Azure/Entra portal.
+        mysqli_query($mysqli, "ALTER TABLE `microsoft_integrations` ADD COLUMN IF NOT EXISTS `intune_sync_enabled` tinyint(1) NOT NULL DEFAULT 0 AFTER `enabled`");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `asset_intune_links` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `asset_id` int(11) NOT NULL,
+            `microsoft_integration_id` int(11) NOT NULL,
+            `intune_device_id` varchar(100) NOT NULL,
+            `azure_ad_device_id` varchar(100) DEFAULT NULL,
+            `hostname` varchar(200) DEFAULT NULL,
+            `serial_number` varchar(200) DEFAULT NULL,
+            `os_name` varchar(100) DEFAULT NULL,
+            `os_version` varchar(100) DEFAULT NULL,
+            `manufacturer` varchar(200) DEFAULT NULL,
+            `model` varchar(200) DEFAULT NULL,
+            `management_agent` varchar(100) DEFAULT NULL,
+            `compliance_state` varchar(50) DEFAULT NULL,
+            `is_encrypted` tinyint(1) DEFAULT NULL,
+            `primary_user_upn` varchar(200) DEFAULT NULL,
+            `enrolled_at` datetime DEFAULT NULL,
+            `intune_last_sync_at` datetime DEFAULT NULL,
+            `last_sync` datetime DEFAULT NULL,
+            `raw_data_json` longtext DEFAULT NULL,
+            `created_at` datetime DEFAULT current_timestamp(),
+            `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `asset_integration` (`asset_id`,`microsoft_integration_id`),
+            KEY `intune_device_id` (`intune_device_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `intune_sync_log` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `microsoft_integration_id` int(11) NOT NULL,
+            `started_at` datetime DEFAULT current_timestamp(),
+            `finished_at` datetime DEFAULT NULL,
+            `status` varchar(20) DEFAULT 'running',
+            `devices_created` int(11) DEFAULT 0,
+            `devices_updated` int(11) DEFAULT 0,
+            `devices_matched` int(11) DEFAULT 0,
+            `devices_skipped` int(11) DEFAULT 0,
+            `errors` text DEFAULT NULL,
+            `triggered_by` int(11) DEFAULT 0,
+            PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.64'");
+    }
+
