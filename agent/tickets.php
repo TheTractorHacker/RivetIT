@@ -45,6 +45,10 @@ if (isset($_GET['status']) && is_array($_GET['status']) && !empty($_GET['status'
     if (isset($_GET['status']) && ($_GET['status']) == 'Closed') {
         $status = 'Closed';
         $ticket_status_snippet = "ticket_resolved_at IS NOT NULL";
+    } elseif (isset($_GET['status']) && ($_GET['status']) == 'All') {
+        // "All Tickets" stat box - genuinely no status filter, open or closed
+        $status = 'All';
+        $ticket_status_snippet = '1 = 1';
     } else {
         // Default - Show open tickets
         $status = 'Open';
@@ -165,7 +169,7 @@ $query =
     $onsite_query
     $stat_query
     AND DATE(ticket_created_at) BETWEEN '$dtf' AND '$dtt'
-    AND (CONCAT(ticket_prefix,ticket_number) LIKE '%$q%' OR client_name LIKE '%$q%' OR ticket_subject LIKE '%$q%' OR ticket_status_name LIKE '%$q%' OR ticket_priority LIKE '%$q%' OR user_name LIKE '%$q%' OR contact_name LIKE '%$q%' OR asset_name LIKE '%$q%' OR vendor_name LIKE '%$q%' OR ticket_vendor_ticket_number LIKE '%q%')
+    AND (CONCAT(ticket_prefix,ticket_number) LIKE '%$q%' OR client_name LIKE '%$q%' OR ticket_subject LIKE '%$q%' OR ticket_status_name LIKE '%$q%' OR ticket_priority LIKE '%$q%' OR user_name LIKE '%$q%' OR contact_name LIKE '%$q%' OR asset_name LIKE '%$q%' OR vendor_name LIKE '%$q%' OR ticket_vendor_ticket_number LIKE '%$q%')
     $ticket_billable_snippet
     $ticket_project_snippet
     $ticket_tag_query
@@ -440,13 +444,13 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
     <div class="row mb-3">
         <?php
         $_stats = [
-            ['label' => 'All Tickets',  'value' => $total_tickets_all,           'href' => '?' . $client_url,                                            'icon' => 'fa-list', 'color' => '#64748B', 'rgb' => '100,116,139'],
-            ['label' => 'Unassigned',   'value' => $total_tickets_unassigned,    'href' => '?' . $client_url . 'assigned=unassigned',                    'icon' => 'fa-user-slash', 'color' => '#F59E0B', 'rgb' => '245,158,11'],
-            ['label' => 'Unresolved',   'value' => $total_tickets_open,          'href' => '?' . $client_url . 'status=Open',                            'icon' => 'fa-exclamation-circle', 'color' => '#3B82F6', 'rgb' => '59,130,246'],
+            ['label' => 'All Tickets',  'value' => $total_tickets_all,           'href' => '?' . $client_url . 'status=All', 'active' => $status === 'All', 'icon' => 'fa-list', 'color' => '#64748B', 'rgb' => '100,116,139'],
+            ['label' => 'Unassigned',   'value' => $total_tickets_unassigned,    'href' => '?' . $client_url . 'assigned=unassigned', 'active' => $ticket_assigned_filter_id === 0, 'icon' => 'fa-user-slash', 'color' => '#F59E0B', 'rgb' => '245,158,11'],
+            ['label' => 'Unresolved',   'value' => $total_tickets_open,          'href' => '?' . $client_url . 'status=Open', 'active' => $status === 'Open' && !isset($_GET['due_today']) && !isset($_GET['overdue']) && $onsite_filter !== 1 && $ticket_assigned_filter_id === '', 'icon' => 'fa-exclamation-circle', 'color' => '#3B82F6', 'rgb' => '59,130,246'],
             ['label' => 'Due Today',    'value' => $total_tickets_due_today,     'href' => '?' . $client_url . 'status=Open&due_today=1', 'active' => isset($_GET['due_today']), 'icon' => 'fa-clock', 'color' => '#D97706', 'rgb' => '217,119,6'],
             ['label' => 'Overdue',      'value' => $total_tickets_overdue,       'href' => '?' . $client_url . 'status=Open&overdue=1', 'active' => isset($_GET['overdue']), 'icon' => 'fa-fire', 'color' => '#EF4444', 'rgb' => '239,68,68'],
             ['label' => 'On-Site Open', 'value' => $total_tickets_onsite_open,   'href' => '?' . $client_url . 'status=Open&onsite=1', 'active' => $onsite_filter === 1, 'icon' => 'fa-map-marker-alt', 'color' => '#8B5CF6', 'rgb' => '139,92,246'],
-            ['label' => 'My Active',    'value' => $user_active_assigned_tickets,'href' => '?' . $client_url . 'status=Open&assigned=' . $session_user_id, 'icon' => 'fa-user-check', 'color' => 'var(--color-accent)', 'rgb' => 'var(--color-accent-rgb)'],
+            ['label' => 'My Active',    'value' => $user_active_assigned_tickets,'href' => '?' . $client_url . 'status=Open&assigned=' . $session_user_id, 'active' => $ticket_assigned_filter_id !== '' && intval($ticket_assigned_filter_id) === intval($session_user_id), 'icon' => 'fa-user-check', 'color' => 'var(--color-accent)', 'rgb' => 'var(--color-accent-rgb)'],
         ];
         foreach ($_stats as $_stat) {
         ?>
@@ -535,6 +539,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                         <select class="form-control select2 auto-submit-select" name="status" data-placeholder="Status" style="width:140px;">
                             <option value="Open" <?= $status === 'Open' ? 'selected' : '' ?>>All Open</option>
                             <option value="Closed" <?= $status === 'Closed' ? 'selected' : '' ?>>All Closed</option>
+                            <option value="All" <?= $status === 'All' ? 'selected' : '' ?>>All (Open + Closed)</option>
                             <?php
                             while ($row = mysqli_fetch_assoc($sql_ticket_status_pill)) {
                                 $ticket_status_id = intval($row['ticket_status_id']);
