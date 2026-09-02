@@ -39,6 +39,36 @@ function populateLists(client_id) {
     populateVendorsDropdown(client_id);
 }
 
+// Repopulates a dynamic <select>'s options. Goes through TomSelect's own API
+// when it has already wrapped the element (js/app.js's initSelect2Widgets()) -
+// TomSelect renders from its own internal option list, so mutating the
+// underlying <select>'s raw DOM options (as this used to do) is invisible to
+// it and the visible widget stays empty even though the hidden <select> is
+// correctly populated.
+function refreshDynamicDropdown(selectEl, placeholderText, items) {
+    if (!selectEl) return;
+
+    if (selectEl.tomselect) {
+        const ts = selectEl.tomselect;
+        ts.clearOptions();
+        ts.addOption({ value: '0', text: placeholderText });
+        items.forEach(item => ts.addOption(item));
+        ts.refreshOptions(false);
+        ts.setValue('0', true);
+        return;
+    }
+
+    // Fallback for a plain native <select> (TomSelect not initialized yet).
+    let i, L = selectEl.options.length - 1;
+    for (i = L; i >= 0; i--) {
+        selectEl.remove(i);
+    }
+    selectEl[selectEl.length] = new Option(placeholderText, '0');
+    items.forEach(item => {
+        selectEl[selectEl.length] = new Option(item.text, item.value);
+    });
+}
+
 // Populate client contacts
 function populateContactsDropdown(client_id) {
     // Send a GET request to ajax.php as ajax.php?get_client_contacts=true&client_id=NUM
@@ -51,28 +81,19 @@ function populateContactsDropdown(client_id) {
             const response = JSON.parse(data);
 
             // Access the data for contacts (multiple)
-            const contacts = response.contacts;
+            const contacts = response.contacts || [];
 
-            // Contacts dropdown
-            const contactSelectDropdown = document.getElementById("contactSelect");
-
-            // Clear dropdown
-            let i, L = contactSelectDropdown.options.length - 1;
-            for (i = L; i >= 0; i--) {
-                contactSelectDropdown.remove(i);
-            }
-            contactSelectDropdown[contactSelectDropdown.length] = new Option('- Contact -', '0');
-
-            // Populate dropdown
-            contacts.forEach(contact => {
+            const items = contacts.map(contact => {
                 var appendText = "";
                 if (contact.contact_primary == "1") {
                     appendText = " (Primary)";
                 } else if (contact.contact_technical == "1") {
                     appendText = " (Technical)";
                 }
-                contactSelectDropdown[contactSelectDropdown.length] = new Option(contact.contact_name + appendText, contact.contact_id);
+                return { value: contact.contact_id, text: contact.contact_name + appendText };
             });
+
+            refreshDynamicDropdown(document.getElementById("contactSelect"), '- Contact -', items);
 
         }
     );
@@ -89,27 +110,17 @@ function populateAssetsDropdown(client_id) {
             const response = JSON.parse(data);
 
             // Access the data for assets (multiple)
-            const assets = response.assets;
+            const assets = response.assets || [];
 
-            // Assets dropdown
-            const assetSelectDropdown = document.getElementById("assetSelect");
-
-            // Clear dropdown
-            let i, L = assetSelectDropdown.options.length - 1;
-            for (i = L; i >= 0; i--) {
-                assetSelectDropdown.remove(i);
-            }
-            assetSelectDropdown[assetSelectDropdown.length] = new Option('- Asset -', '0');
-
-            // Populate dropdown with asset name (and contact, if set)
-            assets.forEach(asset => {
+            const items = assets.map(asset => {
                 let displayText = asset.asset_name;
                 if (asset.contact_name !== null) {
                     displayText = asset.asset_name + " - " + asset.contact_name;
                 }
-
-                assetSelectDropdown[assetSelectDropdown.length] = new Option(displayText, asset.asset_id);
+                return { value: asset.asset_id, text: displayText };
             });
+
+            refreshDynamicDropdown(document.getElementById("assetSelect"), '- Asset -', items);
 
         }
     );
@@ -126,22 +137,11 @@ function populateLocationsDropdown(client_id) {
             const response = JSON.parse(data);
 
             // Access the data for locations (multiple)
-            const locations = response.locations;
+            const locations = response.locations || [];
 
-            // Locations dropdown
-            const locationSelectDropdown = document.getElementById("locationSelect");
+            const items = locations.map(location => ({ value: location.location_id, text: location.location_name }));
 
-            // Clear dropdown
-            let i, L = locationSelectDropdown.options.length - 1;
-            for (i = L; i >= 0; i--) {
-                locationSelectDropdown.remove(i);
-            }
-            locationSelectDropdown[locationSelectDropdown.length] = new Option('- Location -', '0');
-
-            // Populate dropdown
-            locations.forEach(location => {
-                locationSelectDropdown[locationSelectDropdown.length] = new Option(location.location_name, location.location_id);
-            });
+            refreshDynamicDropdown(document.getElementById("locationSelect"), '- Location -', items);
 
         }
     );
@@ -157,23 +157,12 @@ function populateVendorsDropdown(client_id) {
             // If we get a response from ajax.php, parse it as JSON
             const response = JSON.parse(data);
 
-            // Access the data for locations (multiple)
-            const vendors = response.vendors;
+            // Access the data for vendors (multiple)
+            const vendors = response.vendors || [];
 
-            // Locations dropdown
-            const vendorSelectDropdown = document.getElementById("vendorSelect");
+            const items = vendors.map(vendor => ({ value: vendor.vendor_id, text: vendor.vendor_name }));
 
-            // Clear dropdown
-            let i, L = vendorSelectDropdown.options.length - 1;
-            for (i = L; i >= 0; i--) {
-                vendorSelectDropdown.remove(i);
-            }
-            vendorSelectDropdown[vendorSelectDropdown.length] = new Option('- Vendor -', '0');
-
-            // Populate dropdown
-            vendors.forEach(vendor => {
-                vendorSelectDropdown[vendorSelectDropdown.length] = new Option(vendor.vendor_name, vendor.vendor_id);
-            });
+            refreshDynamicDropdown(document.getElementById("vendorSelect"), '- Vendor -', items);
 
         }
     );
