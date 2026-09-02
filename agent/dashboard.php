@@ -56,6 +56,7 @@ $sql_years_select = mysqli_query($mysqli, "
   .small-box.bg-danger, .small-box.text-bg-danger,
   .small-box.bg-secondary, .small-box.text-bg-secondary, .small-box.bg-pink {
     color: #0b0b0b !important;
+    text-decoration: none !important;
     border: 1px solid #e6e5e0;
     border-left-width: 4px;
     box-shadow: none;
