@@ -1679,7 +1679,7 @@ CREATE TABLE `locations` (
   `location_phone_extension` varchar(10) DEFAULT NULL,
   `location_fax_country_code` varchar(10) DEFAULT NULL,
   `location_fax` varchar(200) DEFAULT NULL,
-  `location_hours` varchar(200) DEFAULT NULL,
+  `location_hours` text DEFAULT NULL,
   `location_emergency_contacts` text DEFAULT NULL,
   `location_shipping_instructions` text DEFAULT NULL,
   `location_photo` varchar(200) DEFAULT NULL,

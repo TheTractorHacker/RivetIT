@@ -4,6 +4,10 @@ require_once '../../../includes/modal_header.php';
 
 $client_id = intval($_GET['client_id'] ?? 0);
 
+// Departments checklist (optional - a location no longer requires a single
+// owning department at creation time; use this to link any that apply)
+$sql_departments_select = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");
+
 ob_start();
 
 ?>
@@ -30,6 +34,9 @@ ob_start();
                 <a class="nav-link" data-bs-toggle="pill" href="#pills-contact">Contact</a>
             </li>
             <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="pill" href="#pills-departments">Departments</a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link" data-bs-toggle="pill" href="#pills-notes">Notes</a>
             </li>
 
@@ -43,29 +50,6 @@ ob_start();
 
                 <?php if ($client_id) { ?>
                     <input type="hidden" name="client_id" value="<?php echo $client_id; ?>">
-                <?php } else { ?>
-
-                    <div class="form-group">
-                        <label>Department <strong class="text-danger">*</strong></label>
-                        <div class="input-group">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
-                            </div>
-                            <select class="form-control select2" name="client_id" required>
-                                <option value="">- Select Department -</option>
-                                <?php
-
-                                $sql = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");
-                                while ($row = mysqli_fetch_assoc($sql)) {
-                                    $client_id_select = intval($row['client_id']);
-                                    $client_name = nullable_htmlentities($row['client_name']); ?>
-                                    <option <?php if ($client_id == $client_id_select) { echo "selected"; } ?> value="<?= $client_id_select ?>"><?= $client_name ?></option>
-
-                                <?php } ?>
-                            </select>
-                        </div>
-                    </div>
-
                 <?php } ?>
 
                 <div class="form-group">
@@ -220,13 +204,38 @@ ob_start();
                 </div>
 
                 <div class="form-group">
-                    <label>Hours</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-clock"></i></span>
+                    <label>Hours of Operation</label>
+                    <table class="table table-sm table-borderless mb-0">
+                        <tbody>
+                            <?php foreach (['monday' => 'Monday', 'tuesday' => 'Tuesday', 'wednesday' => 'Wednesday', 'thursday' => 'Thursday', 'friday' => 'Friday', 'saturday' => 'Saturday', 'sunday' => 'Sunday'] as $hours_day_key => $hours_day_label) { ?>
+                            <tr>
+                                <td class="align-middle" style="width:110px;"><?= $hours_day_label ?></td>
+                                <td><input type="text" class="form-control form-control-sm" name="hours_<?= $hours_day_key ?>" placeholder="e.g. 9:00 AM - 5:00 PM, or Closed" maxlength="40"></td>
+                            </tr>
+                            <?php } ?>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+            <div class="tab-pane fade" id="pills-departments">
+
+                <p class="text-secondary small">Optional - link any departments that use this location. Not required to create the location.</p>
+
+                <div class="form-group" style="max-height:260px; overflow-y:auto;">
+                    <?php if (mysqli_num_rows($sql_departments_select) === 0) { ?>
+                        <p class="text-muted small mb-0">No departments yet.</p>
+                    <?php } ?>
+                    <?php while ($department_row = mysqli_fetch_assoc($sql_departments_select)) {
+                        $department_row_id = intval($department_row['client_id']);
+                        $department_row_name = nullable_htmlentities($department_row['client_name']);
+                    ?>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" name="departments[]" value="<?= $department_row_id ?>" id="dept_<?= $department_row_id ?>" <?php if ($client_id === $department_row_id) { echo 'checked'; } ?>>
+                            <label class="form-check-label" for="dept_<?= $department_row_id ?>"><?= $department_row_name ?></label>
                         </div>
-                        <input type="text" class="form-control" name="hours" placeholder="Hours of operation" maxlength="200">
-                    </div>
+                    <?php } ?>
                 </div>
 
             </div>

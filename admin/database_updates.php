@@ -6654,3 +6654,13 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.64'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.64') {
+        // Locations become an independent entity (a department picks from
+        // existing locations / links via department_sites instead of typing
+        // a fresh address every time) - location_hours widened from
+        // varchar(200) to fit a joined Monday-Sunday breakdown.
+        mysqli_query($mysqli, "ALTER TABLE `locations` MODIFY `location_hours` text DEFAULT NULL");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.65'");
+    }
+

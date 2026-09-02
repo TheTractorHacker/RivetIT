@@ -16,17 +16,10 @@ if (isset($_POST['add_client'])) {
 
     require_once 'client_model.php';
 
-    // Location inputs
-    $location_phone_country_code = preg_replace("/[^0-9]/", '', $_POST['location_phone_country_code']);
-    $location_phone = preg_replace("/[^0-9]/", '', $_POST['location_phone']);
-    $location_extension = preg_replace("/[^0-9]/", '', $_POST['location_extension']);
-    $location_fax_country_code = preg_replace("/[^0-9]/", '', $_POST['location_fax_country_code']);
-    $location_fax = preg_replace("/[^0-9]/", '', $_POST['location_fax']);
-    $address = cleanInput($_POST['address']);
-    $city = cleanInput($_POST['city']);
-    $state = cleanInput($_POST['state']);
-    $zip = cleanInput($_POST['zip']);
-    $country = cleanInput($_POST['country']);
+    // Location - optional, links to an EXISTING location (department_sites)
+    // rather than typing a fresh address inline every time a department is
+    // created.
+    $selected_location_id = intval($_POST['location_id'] ?? 0);
 
     // Contact inputs
     $contact = cleanInput($_POST['contact']);
@@ -121,42 +114,12 @@ if (isset($_POST['add_client'])) {
         logAction("Category", "Create", "$session_name created referral category $referral");
     }
 
-    // Insert primary location using SET
-    if (!empty($location_phone) || !empty($address) || !empty($city) || !empty($state) || !empty($zip)) {
-        $query = mysqli_prepare(
-            $mysqli,
-            "INSERT INTO locations SET
-            location_name = 'Primary',
-            location_address = ?,
-            location_city = ?,
-            location_state = ?,
-            location_zip = ?,
-            location_phone_country_code = ?,
-            location_phone = ?,
-            location_phone_extension = ?,
-            location_fax_country_code = ?,
-            location_fax = ?,
-            location_country = ?,
-            location_primary = 1,
-            location_client_id = ?"
-        );
-        mysqli_stmt_bind_param(
-            $query,
-            "ssssssssssi",
-            $address,
-            $city,
-            $state,
-            $zip,
-            $location_phone_country_code,
-            $location_phone,
-            $location_extension,
-            $location_fax_country_code,
-            $location_fax,
-            $country,
-            $client_id
-        );
-        mysqli_stmt_execute($query);
-        $extended_log_description .= ", primary location $address added";
+    // Link the selected existing location (optional) - department_sites,
+    // not location_client_id, so a location can be shared by more than one
+    // department.
+    if ($selected_location_id > 0) {
+        mysqli_query($mysqli, "INSERT IGNORE INTO department_sites SET client_id = $client_id, location_id = $selected_location_id");
+        $extended_log_description .= ", linked to location #$selected_location_id";
     }
 
     // Insert primary contact using SET

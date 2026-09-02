@@ -2,7 +2,7 @@
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
 $name = cleanInput($_POST['name']);
-$type = cleanInput($_POST['type']);
+$type = cleanInput($_POST['type'] ?? '');
 $website = preg_replace("(^https?://)", "", cleanInput($_POST['website']));
 $referral = cleanInput($_POST['referral']);
 $rate = floatval($_POST['rate'] ?? 0);

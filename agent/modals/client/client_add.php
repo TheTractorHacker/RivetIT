@@ -81,16 +81,6 @@ ob_start();
                 </div>
 
                 <div class="form-group">
-                    <label>Industry</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-briefcase"></i></span>
-                        </div>
-                        <input type="text" class="form-control" name="type" placeholder="Company Type" maxlength="200">
-                    </div>
-                </div>
-
-                <div class="form-group">
                     <label>Cost Center</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -184,94 +174,32 @@ ob_start();
             <div class="tab-pane fade" id="pills-location">
 
                 <div class="form-group">
-                    <label>Address</label>
+                    <label>Location <small class="text-secondary">(optional)</small></label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-map-marker-alt"></i></span>
                         </div>
-                        <input type="text" class="form-control" name="address" placeholder="Street Address" maxlength="200">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>City</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-city"></i></span>
-                        </div>
-                        <input type="text" class="form-control" name="city" placeholder="City" maxlength="200">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>State / Province</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-flag"></i></span>
-                        </div>
-                        <input type="text" class="form-control" name="state" placeholder="State or Province" maxlength="200">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Postal Code</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fab fa-fw fa-usps"></i></span>
-                        </div>
-                        <input type="text" class="form-control" name="zip" placeholder="Zip or Postal Code" maxlength="200">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Country</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-globe-americas"></i></span>
-                        </div>
-                        <select class="form-control select2" name="country">
-                            <option value="">- Select Country -</option>
-                            <?php foreach($countries_array as $country_name) { ?>
-                                <option <?php if ($session_company_country == $country_name) { echo "selected"; } ?> ><?php echo $country_name; ?></option>
+                        <select class="form-control select2" name="location_id">
+                            <option value="">- Select Location -</option>
+                            <?php
+                            $sql_locations_select = mysqli_query($mysqli, "SELECT location_id, location_name, location_city, location_state FROM locations WHERE location_archived_at IS NULL ORDER BY location_name ASC");
+                            while ($location_row = mysqli_fetch_assoc($sql_locations_select)) {
+                                $location_row_id = intval($location_row['location_id']);
+                                $location_row_label = nullable_htmlentities($location_row['location_name']);
+                                $location_row_place = trim(($location_row['location_city'] ?: '') . (($location_row['location_city'] && $location_row['location_state']) ? ', ' : '') . ($location_row['location_state'] ?: ''));
+                                if ($location_row_place !== '') { $location_row_label .= ' - ' . nullable_htmlentities($location_row_place); }
+                            ?>
+                                <option value="<?= $location_row_id ?>"><?= $location_row_label ?></option>
                             <?php } ?>
                         </select>
-                    </div>
-                </div>
-
-
-                <label>Location Phone / <span class="text-secondary">Extension</span></label>
-                <div class="form-row">
-                    <div class="col-9">
-                        <div class="form-group">
-                            <div class="input-group">
-                                <div class="input-group-prepend">
-                                    <span class="input-group-text"><i class="fa fa-fw fa-phone"></i></span>
-                                </div>
-                                <input type="tel" class="form-control col-2" name="location_phone_country_code" placeholder="+" maxlength="4">
-                                <input type="tel" class="form-control" name="location_phone" placeholder="Phone Number" maxlength="200">
-                            </div>
+                        <div class="input-group-append">
+                            <button class="btn btn-secondary ajax-modal" type="button"
+                                data-modal-url="../modals/location/location_add.php">
+                                <i class="fas fa-fw fa-plus"></i>
+                            </button>
                         </div>
                     </div>
-                    <div class="col-3">
-                        <div class="form-group">
-                            <input type="text" class="form-control" name="location_extension" placeholder="ext." maxlength="200">
-                        </div>
-                    </div>
-                </div>
-
-                <label>Location Fax</label>
-                <div class="form-row">
-                    <div class="col-9">
-                        <div class="form-group">
-                            <div class="input-group">
-                                <div class="input-group-prepend">
-                                    <span class="input-group-text"><i class="fa fa-fw fa-fax"></i></span>
-                                </div>
-                                <input type="tel" class="form-control col-2" name="location_fax_country_code" placeholder="+" maxlength="4">
-                                <input type="tel" class="form-control" name="location_fax" placeholder="Fax Number">
-                            </div>
-                        </div>
-                    </div>
+                    <small class="text-muted">Links this department to an existing location. Add a new location first if it isn't listed yet.</small>
                 </div>
 
             </div>

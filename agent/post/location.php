@@ -14,9 +14,14 @@ if(isset($_POST['add_location'])){
 
     require_once 'location_model.php';
 
-    $client_id = intval($_POST['client_id']);
+    // No department dropdown when adding from the standalone Locations page -
+    // a location is an independent entity now; 0 = not owned by any one
+    // department (departments can still be optionally linked below).
+    $client_id = intval($_POST['client_id'] ?? 0);
 
-    enforceClientAccess();
+    if ($client_id > 0) {
+        enforceClientAccess($client_id);
+    }
 
     if(!file_exists("../uploads/clients/$client_id")) {
         mkdir("../uploads/clients/$client_id");
@@ -31,6 +36,18 @@ if(isset($_POST['add_location'])){
         foreach($_POST['tags'] as $tag) {
             $tag = intval($tag);
             mysqli_query($mysqli, "INSERT INTO location_tags SET location_id = $location_id, tag_id = $tag");
+        }
+    }
+
+    // Optional Departments tab - additional departments that use this
+    // location, separate from (and not required to match) the single
+    // "owning" location_client_id above.
+    if (isset($_POST['departments']) && is_array($_POST['departments'])) {
+        foreach ($_POST['departments'] as $department_id) {
+            $department_id = intval($department_id);
+            if ($department_id > 0) {
+                mysqli_query($mysqli, "INSERT IGNORE INTO department_sites SET client_id = $department_id, location_id = $location_id");
+            }
         }
     }
 
@@ -80,7 +97,12 @@ if(isset($_POST['edit_location'])){
     $existing_file_name = sanitizeInput($row['location_photo']);
     $client_id = intval($row['location_client_id']);
 
-    enforceClientAccess();
+    // Unowned (no primary department) locations skip the check below, same
+    // reasoning as the add_location handler above - empty($client_id) in
+    // enforceClientAccess() would otherwise deny access outright.
+    if ($client_id > 0) {
+        enforceClientAccess($client_id);
+    }
 
     if(!file_exists("../uploads/clients/$client_id")) {
         mkdir("../uploads/clients/$client_id");
@@ -103,6 +125,18 @@ if(isset($_POST['edit_location'])){
         foreach($_POST['tags'] as $tag) {
             $tag = intval($tag);
             mysqli_query($mysqli, "INSERT INTO location_tags SET location_id = $location_id, tag_id = $tag");
+        }
+    }
+
+    // Optional Departments tab - full sync (delete then re-add) since editing
+    // can also remove a previously-linked department, unlike the add flow.
+    mysqli_query($mysqli, "DELETE FROM department_sites WHERE location_id = $location_id");
+    if (isset($_POST['departments']) && is_array($_POST['departments'])) {
+        foreach ($_POST['departments'] as $department_id) {
+            $department_id = intval($department_id);
+            if ($department_id > 0) {
+                mysqli_query($mysqli, "INSERT IGNORE INTO department_sites SET client_id = $department_id, location_id = $location_id");
+            }
         }
     }
 

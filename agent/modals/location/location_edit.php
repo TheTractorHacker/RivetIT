@@ -29,7 +29,11 @@ $location_archived_at = nullable_htmlentities($row['location_archived_at']);
 $location_contact_id = intval($row['location_contact_id']);
 $client_id = intval($row['location_client_id']);
 $location_primary = intval($row['location_primary']);
-enforceClientAccess($client_id);
+// Unowned (no primary department) locations skip this - empty($client_id)
+// in enforceClientAccess() would otherwise deny access outright.
+if ($client_id > 0) {
+    enforceClientAccess($client_id);
+}
 
 // Tags
 $location_tag_id_array = array();
@@ -37,6 +41,29 @@ $sql_location_tags = mysqli_query($mysqli, "SELECT * FROM location_tags WHERE lo
 while ($row = mysqli_fetch_assoc($sql_location_tags)) {
     $location_tag_id = intval($row['tag_id']);
     $location_tag_id_array[] = $location_tag_id;
+}
+
+// Hours of Operation - parse the joined "Monday: 9-5, Tuesday: 9-5, ..."
+// string (captured above as $location_hours, before $row got reused by the
+// Tags loop) back into one value per day; unparseable/legacy text is simply
+// left as blank fields rather than shown mangled.
+$hours_day_labels = ['monday' => 'Monday', 'tuesday' => 'Tuesday', 'wednesday' => 'Wednesday', 'thursday' => 'Thursday', 'friday' => 'Friday', 'saturday' => 'Saturday', 'sunday' => 'Sunday'];
+$hours_day_values = array_fill_keys(array_keys($hours_day_labels), '');
+foreach (explode(',', $location_hours) as $hours_segment) {
+    foreach ($hours_day_labels as $hours_day_key => $hours_day_label) {
+        if (preg_match('/^\s*' . preg_quote($hours_day_label, '/') . ':\s*(.*)$/', $hours_segment, $hours_m)) {
+            $hours_day_values[$hours_day_key] = trim($hours_m[1]);
+        }
+    }
+}
+
+// Departments checklist (optional many-to-many, separate from the single
+// "owning" $client_id above)
+$sql_departments_select = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");
+$location_department_id_array = array();
+$sql_location_departments = mysqli_query($mysqli, "SELECT client_id FROM department_sites WHERE location_id = $location_id");
+while ($dept_link_row = mysqli_fetch_assoc($sql_location_departments)) {
+    $location_department_id_array[] = intval($dept_link_row['client_id']);
 }
 
 // Generate the HTML form content using output buffering.
@@ -64,6 +91,9 @@ ob_start();
             </li>
             <li class="nav-item">
                 <a class="nav-link" data-bs-toggle="pill" href="#pills-contact<?php echo $location_id; ?>">Contact</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="pill" href="#pills-departments<?php echo $location_id; ?>">Departments</a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" data-bs-toggle="pill" href="#pills-notes<?php echo $location_id; ?>">Notes</a>
@@ -240,13 +270,38 @@ ob_start();
                 </div>
 
                 <div class="form-group">
-                    <label>Hours</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-clock"></i></span>
+                    <label>Hours of Operation</label>
+                    <table class="table table-sm table-borderless mb-0">
+                        <tbody>
+                            <?php foreach ($hours_day_labels as $hours_day_key => $hours_day_label) { ?>
+                            <tr>
+                                <td class="align-middle" style="width:110px;"><?= $hours_day_label ?></td>
+                                <td><input type="text" class="form-control form-control-sm" name="hours_<?= $hours_day_key ?>" placeholder="e.g. 9:00 AM - 5:00 PM, or Closed" maxlength="40" value="<?php echo $hours_day_values[$hours_day_key]; ?>"></td>
+                            </tr>
+                            <?php } ?>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+            <div class="tab-pane fade" id="pills-departments<?php echo $location_id; ?>">
+
+                <p class="text-secondary small">Optional - departments that use this location.</p>
+
+                <div class="form-group" style="max-height:260px; overflow-y:auto;">
+                    <?php if (mysqli_num_rows($sql_departments_select) === 0) { ?>
+                        <p class="text-muted small mb-0">No departments yet.</p>
+                    <?php } ?>
+                    <?php while ($department_row = mysqli_fetch_assoc($sql_departments_select)) {
+                        $department_row_id = intval($department_row['client_id']);
+                        $department_row_name = nullable_htmlentities($department_row['client_name']);
+                    ?>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" name="departments[]" value="<?= $department_row_id ?>" id="dept<?= $location_id ?>_<?= $department_row_id ?>" <?php if (in_array($department_row_id, $location_department_id_array, true)) { echo 'checked'; } ?>>
+                            <label class="form-check-label" for="dept<?= $location_id ?>_<?= $department_row_id ?>"><?= $department_row_name ?></label>
                         </div>
-                        <input type="text" class="form-control" name="hours" placeholder="Hours of operation" maxlength="200" value="<?php echo $location_hours; ?>">
-                    </div>
+                    <?php } ?>
                 </div>
 
             </div>
