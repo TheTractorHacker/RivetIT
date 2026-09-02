@@ -84,6 +84,12 @@
                                 <p>AI Providers</p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="/admin/people_import.php" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'people_import.php' ? 'active' : ''); ?>">
+                                <i class="nav-icon fas fa-file-import"></i>
+                                <p>People Import</p>
+                            </a>
+                        </li>
                     </ul>
                 </li>
 

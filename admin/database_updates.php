@@ -6292,3 +6292,38 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.54'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.54') {
+        // Master-plan Phase 2: People directory fields on the existing
+        // `contacts` table (Section 7.1/7.2) - not a new parallel `people`
+        // table. contacts already carries name/email/phone/location/client
+        // linkage and is already what every ticket/asset/credential
+        // assignment references; a second person table would fork that.
+        // contact_manager_id is self-referential (another row in the same
+        // table), matching Section 7.1's manager relationship.
+        mysqli_query($mysqli, "ALTER TABLE `contacts` ADD COLUMN IF NOT EXISTS `contact_employee_id` varchar(50) DEFAULT NULL AFTER `contact_name`");
+        mysqli_query($mysqli, "ALTER TABLE `contacts` ADD COLUMN IF NOT EXISTS `contact_employee_type` varchar(30) NOT NULL DEFAULT 'employee' AFTER `contact_employee_id`");
+        mysqli_query($mysqli, "ALTER TABLE `contacts` ADD COLUMN IF NOT EXISTS `contact_manager_id` int(11) DEFAULT NULL AFTER `contact_employee_type`");
+        mysqli_query($mysqli, "ALTER TABLE `contacts` ADD COLUMN IF NOT EXISTS `contact_employment_status` varchar(30) NOT NULL DEFAULT 'active' AFTER `contact_manager_id`");
+        mysqli_query($mysqli, "ALTER TABLE `contacts` ADD COLUMN IF NOT EXISTS `contact_work_arrangement` varchar(20) DEFAULT NULL AFTER `contact_employment_status`");
+        mysqli_query($mysqli, "ALTER TABLE `contacts` ADD COLUMN IF NOT EXISTS `contact_start_date` date DEFAULT NULL AFTER `contact_work_arrangement`");
+        mysqli_query($mysqli, "ALTER TABLE `contacts` ADD COLUMN IF NOT EXISTS `contact_expected_end_date` date DEFAULT NULL AFTER `contact_start_date`");
+
+        // Master-plan Phase 2: import history (Section 7.4) - one row per
+        // CSV import run, so admins can see what was imported and when.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `people_import_runs` (
+            `import_run_id` int(11) NOT NULL AUTO_INCREMENT,
+            `imported_by_user_id` int(11) DEFAULT NULL,
+            `original_filename` varchar(255) DEFAULT NULL,
+            `row_count` int(11) NOT NULL DEFAULT 0,
+            `created_count` int(11) NOT NULL DEFAULT 0,
+            `updated_count` int(11) NOT NULL DEFAULT 0,
+            `skipped_count` int(11) NOT NULL DEFAULT 0,
+            `status` enum('previewed','approved','failed') NOT NULL DEFAULT 'previewed',
+            `results_json` text DEFAULT NULL,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`import_run_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.55'");
+    }
+

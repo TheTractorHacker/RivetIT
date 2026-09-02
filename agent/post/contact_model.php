@@ -19,3 +19,12 @@ $contact_technical = intval($_POST['contact_technical'] ?? 0);
 $location_id = intval($_POST['location'] ?? 0);
 $pin = sanitizeInput($_POST['pin']);
 $auth_method = sanitizeInput($_POST['auth_method']);
+
+// Master-plan Phase 2 employee fields
+$employee_id = sanitizeInput($_POST['employee_id'] ?? '');
+$manager_id = intval($_POST['manager_id'] ?? 0);
+$employee_type = sanitizeInput($_POST['employee_type'] ?? 'employee');
+$employment_status = sanitizeInput($_POST['employment_status'] ?? 'active');
+$work_arrangement = sanitizeInput($_POST['work_arrangement'] ?? '');
+$start_date_raw = trim($_POST['start_date'] ?? '');
+$start_date = preg_match('/^\d{4}-\d{2}-\d{2}$/', $start_date_raw) ? $start_date_raw : '';

@@ -36,6 +36,15 @@ $contact_archived_at = nullable_htmlentities($row['contact_archived_at']);
 $contact_location_id = intval($row['contact_location_id']);
 $auth_method = nullable_htmlentities($row['user_auth_method']);
 $contact_user_id = intval($row['contact_user_id']);
+$contact_employee_id = nullable_htmlentities($row['contact_employee_id']);
+$contact_employee_type = nullable_htmlentities($row['contact_employee_type'] ?? 'employee');
+$contact_employment_status = nullable_htmlentities($row['contact_employment_status'] ?? 'active');
+$contact_work_arrangement = nullable_htmlentities($row['contact_work_arrangement']);
+$contact_start_date = nullable_htmlentities($row['contact_start_date']);
+$contact_manager_id = intval($row['contact_manager_id'] ?? 0);
+
+// Other contacts at the same department, for the manager picker - excludes self
+$sql_manager_select = mysqli_query($mysqli, "SELECT contact_id, contact_name FROM contacts WHERE contact_client_id = $client_id AND contact_archived_at IS NULL AND contact_id != $contact_id ORDER BY contact_name ASC");
 
 // Tags
 $contact_tag_id_array = array();
@@ -115,6 +124,64 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-users"></i></span>
                         </div>
                         <input type="text" class="form-control" name="department" placeholder="Department or group" maxlength="200" value="<?php echo $contact_department; ?>">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Employee ID</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-id-card"></i></span>
+                        </div>
+                        <input type="text" class="form-control" name="employee_id" placeholder="e.g. 1001" maxlength="50" value="<?php echo $contact_employee_id; ?>">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Manager</label>
+                    <select class="form-control select2" name="manager_id">
+                        <option value="">- No Manager -</option>
+                        <?php while ($row_manager = mysqli_fetch_assoc($sql_manager_select)) { ?>
+                            <option value="<?php echo intval($row_manager['contact_id']); ?>" <?php if ($contact_manager_id == $row_manager['contact_id']) { echo "selected"; } ?>><?php echo nullable_htmlentities($row_manager['contact_name']); ?></option>
+                        <?php } ?>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Employee Type</label>
+                    <select class="form-control select2" name="employee_type">
+                        <?php foreach (['employee', 'contractor', 'vendor', 'intern', 'service_account_owner'] as $type_option) { ?>
+                            <option <?php if ($contact_employee_type == $type_option) { echo "selected"; } ?>><?php echo $type_option; ?></option>
+                        <?php } ?>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Employment Status</label>
+                    <select class="form-control select2" name="employment_status">
+                        <?php foreach (['pre-hire', 'active', 'leave', 'suspended', 'transfer_pending', 'termination_pending', 'terminated', 'archived'] as $status_option) { ?>
+                            <option <?php if ($contact_employment_status == $status_option) { echo "selected"; } ?>><?php echo $status_option; ?></option>
+                        <?php } ?>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Work Arrangement</label>
+                    <select class="form-control select2" name="work_arrangement">
+                        <option value="">- Not Set -</option>
+                        <?php foreach (['remote', 'hybrid', 'onsite'] as $arrangement_option) { ?>
+                            <option <?php if ($contact_work_arrangement == $arrangement_option) { echo "selected"; } ?>><?php echo $arrangement_option; ?></option>
+                        <?php } ?>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Start Date</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-calendar-day"></i></span>
+                        </div>
+                        <input type="date" class="form-control" name="start_date" value="<?php echo $contact_start_date; ?>">
                     </div>
                 </div>
 

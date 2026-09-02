@@ -52,6 +52,20 @@ if (isset($_GET['contact_id'])) {
     $contact_initials = initials($contact_name);
     $contact_notes = nullable_htmlentities($row['contact_notes']);
     $contact_primary = intval($row['contact_primary']);
+    $contact_employee_id = nullable_htmlentities($row['contact_employee_id']);
+    $contact_employee_type = nullable_htmlentities($row['contact_employee_type'] ?? 'employee');
+    $contact_employment_status = nullable_htmlentities($row['contact_employment_status'] ?? 'active');
+    $contact_work_arrangement = nullable_htmlentities($row['contact_work_arrangement']);
+    $contact_start_date = nullable_htmlentities($row['contact_start_date']);
+    $contact_manager_id = intval($row['contact_manager_id'] ?? 0);
+    $contact_manager_name = null;
+    if ($contact_manager_id > 0) {
+        $sql_manager = mysqli_query($mysqli, "SELECT contact_name FROM contacts WHERE contact_id = $contact_manager_id");
+        if ($row_manager = mysqli_fetch_assoc($sql_manager)) {
+            $contact_manager_name = nullable_htmlentities($row_manager['contact_name']);
+        }
+    }
+    $sql_direct_reports = mysqli_query($mysqli, "SELECT contact_id, contact_name, contact_title FROM contacts WHERE contact_manager_id = $contact_id AND contact_archived_at IS NULL ORDER BY contact_name ASC");
     $contact_important = intval($row['contact_important']);
     $contact_billing = intval($row['contact_billing']);
     $contact_technical = intval($row['contact_technical']);
@@ -261,6 +275,45 @@ if (isset($_GET['contact_id'])) {
 
                 </div>
             </div>
+
+            <div class="card card-dark mb-3">
+                <div class="card-header">
+                    <h5 class="card-title">Employment</h5>
+                </div>
+                <div class="card-body">
+                    <?php if ($contact_employee_id) { ?>
+                        <div><i class="fa fa-fw fa-id-card text-secondary me-2"></i>ID: <?php echo $contact_employee_id; ?></div>
+                    <?php } ?>
+                    <div class="mt-2"><i class="fa fa-fw fa-user-tag text-secondary me-2"></i><?php echo ucwords(str_replace('_', ' ', $contact_employee_type)); ?></div>
+                    <div class="mt-2"><i class="fa fa-fw fa-circle text-secondary me-2"></i><?php echo ucwords(str_replace('_', ' ', $contact_employment_status)); ?></div>
+                    <?php if ($contact_work_arrangement) { ?>
+                        <div class="mt-2"><i class="fa fa-fw fa-house-laptop text-secondary me-2"></i><?php echo ucwords($contact_work_arrangement); ?></div>
+                    <?php } ?>
+                    <?php if ($contact_start_date) { ?>
+                        <div class="mt-2"><i class="fa fa-fw fa-calendar-day text-secondary me-2"></i>Started <?php echo $contact_start_date; ?></div>
+                    <?php } ?>
+                    <?php if ($contact_manager_name) { ?>
+                        <div class="mt-2"><i class="fa fa-fw fa-user-tie text-secondary me-2"></i>Reports to <?php echo $contact_manager_name; ?></div>
+                    <?php } ?>
+                </div>
+            </div>
+
+            <?php if (mysqli_num_rows($sql_direct_reports) > 0) { ?>
+            <div class="card card-dark mb-3">
+                <div class="card-header">
+                    <h5 class="card-title">Direct Reports</h5>
+                </div>
+                <div class="card-body">
+                    <?php while ($row_report = mysqli_fetch_assoc($sql_direct_reports)) { ?>
+                        <div class="mt-1">
+                            <i class="fa fa-fw fa-user text-secondary me-2"></i>
+                            <a href="contact_details.php?contact_id=<?php echo intval($row_report['contact_id']); ?>&client_id=<?php echo $client_id; ?>"><?php echo nullable_htmlentities($row_report['contact_name']); ?></a>
+                            <?php if ($row_report['contact_title']) { ?><span class="text-secondary">&mdash; <?php echo nullable_htmlentities($row_report['contact_title']); ?></span><?php } ?>
+                        </div>
+                    <?php } ?>
+                </div>
+            </div>
+            <?php } ?>
 
             <div class="card mb-3">
                 <div class="card-header">

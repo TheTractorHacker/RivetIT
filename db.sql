@@ -894,6 +894,13 @@ DROP TABLE IF EXISTS `contacts`;
 CREATE TABLE `contacts` (
   `contact_id` int(11) NOT NULL AUTO_INCREMENT,
   `contact_name` varchar(200) NOT NULL,
+  `contact_employee_id` varchar(50) DEFAULT NULL,
+  `contact_employee_type` varchar(30) NOT NULL DEFAULT 'employee',
+  `contact_manager_id` int(11) DEFAULT NULL,
+  `contact_employment_status` varchar(30) NOT NULL DEFAULT 'active',
+  `contact_work_arrangement` varchar(20) DEFAULT NULL,
+  `contact_start_date` date DEFAULT NULL,
+  `contact_expected_end_date` date DEFAULT NULL,
   `contact_title` varchar(200) DEFAULT NULL,
   `contact_email` varchar(200) DEFAULT NULL,
   `contact_phone_country_code` varchar(10) DEFAULT NULL,
@@ -1839,6 +1846,28 @@ CREATE TABLE `payments` (
   `payment_account_id` int(11) NOT NULL,
   `payment_invoice_id` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`payment_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `people_import_runs`
+--
+
+DROP TABLE IF EXISTS `people_import_runs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `people_import_runs` (
+  `import_run_id` int(11) NOT NULL AUTO_INCREMENT,
+  `imported_by_user_id` int(11) DEFAULT NULL,
+  `original_filename` varchar(255) DEFAULT NULL,
+  `row_count` int(11) NOT NULL DEFAULT 0,
+  `created_count` int(11) NOT NULL DEFAULT 0,
+  `updated_count` int(11) NOT NULL DEFAULT 0,
+  `skipped_count` int(11) NOT NULL DEFAULT 0,
+  `status` enum('previewed','approved','failed') NOT NULL DEFAULT 'previewed',
+  `results_json` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`import_run_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

@@ -134,6 +134,21 @@ if (isset($_POST['edit_contact'])) {
 
     mysqli_query($mysqli,"UPDATE contacts SET contact_name = '$name', contact_title = '$title', contact_phone_country_code = '$phone_country_code', contact_phone = '$phone', contact_extension = '$extension', contact_mobile_country_code = '$mobile_country_code', contact_mobile = '$mobile', contact_email = '$email', contact_pin = '$pin', contact_notes = '$notes', contact_important = $contact_important, contact_billing = $contact_billing, contact_technical = $contact_technical, contact_department = '$department', contact_location_id = $location_id, contact_user_id = $contact_user_id WHERE contact_id = $contact_id");
 
+    // Master-plan Phase 2 employee fields (supplementary update, same
+    // reasoning as the department fields in agent/post/client.php - keeps
+    // the core query above untouched). Manager can't be set to self.
+    $manager_id_sql = ($manager_id > 0 && $manager_id != $contact_id) ? $manager_id : 'NULL';
+    $start_date_sql = $start_date !== '' ? "'$start_date'" : 'NULL';
+    $work_arrangement_sql = $work_arrangement !== '' ? "'$work_arrangement'" : 'NULL';
+    mysqli_query($mysqli, "UPDATE contacts SET
+        contact_employee_id = '$employee_id',
+        contact_manager_id = $manager_id_sql,
+        contact_employee_type = '$employee_type',
+        contact_employment_status = '$employment_status',
+        contact_work_arrangement = $work_arrangement_sql,
+        contact_start_date = $start_date_sql
+        WHERE contact_id = $contact_id");
+
     // Upload Photo
     if (isset($_FILES['file']['tmp_name'])) {
         if ($new_file_name = checkFileUpload($_FILES['file'], array('jpg', 'jpeg', 'gif', 'png', 'webp'))) {
