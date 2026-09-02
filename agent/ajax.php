@@ -505,6 +505,7 @@ if (isset($_GET['get_client_contacts'])) {
         ORDER BY contact_primary DESC, contact_technical DESC, contact_important DESC, contact_name"
     );
 
+    $response['contacts'] = [];
     while ($row = mysqli_fetch_assoc($contact_sql)) {
         $response['contacts'][] = $row;
     }
@@ -530,6 +531,7 @@ if (isset($_GET['get_client_assets'])) {
         ORDER BY asset_favorite DESC, asset_name"
     );
 
+    $response['assets'] = [];
     while ($row = mysqli_fetch_assoc($asset_sql)) {
         $response['assets'][] = $row;
     }
@@ -548,12 +550,14 @@ if (isset($_GET['get_client_locations'])) {
     $locations_sql = mysqli_query(
         $mysqli,
         "SELECT location_id, location_name FROM locations
-        LEFT JOIN clients on location_client_id = client_id
-        WHERE locations.location_archived_at IS NULL AND location_client_id = $client_id
+        INNER JOIN department_sites ON department_sites.location_id = locations.location_id
+        INNER JOIN clients ON clients.client_id = department_sites.client_id
+        WHERE locations.location_archived_at IS NULL AND department_sites.client_id = $client_id
         $access_permission_query
         ORDER BY location_primary DESC, location_name ASC"
     );
 
+    $response['locations'] = [];
     while ($row = mysqli_fetch_assoc($locations_sql)) {
         $response['locations'][] = $row;
     }
@@ -578,6 +582,7 @@ if (isset($_GET['get_client_vendors'])) {
         ORDER BY vendor_name ASC"
     );
 
+    $response['vendors'] = [];
     while ($row = mysqli_fetch_assoc($vendors_sql)) {
         $response['vendors'][] = $row;
     }
