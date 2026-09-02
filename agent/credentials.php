@@ -22,7 +22,7 @@ if (isset($_GET['client_id'])) {
     logAction("Credential", "View", "$session_name viewed the Credentials page for client", $client_id);
 
 } else {
-    require_once "includes/inc_client_overview_all.php";
+    require_once "includes/inc_all.php";
     $client_query = '';
     $client_url = '';
     // Overide Filter Header Archived

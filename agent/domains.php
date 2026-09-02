@@ -18,7 +18,7 @@ if (isset($_GET['client_id'])) {
         $archive_query = "domain_archived_at IS NULL";
     }
 } else {
-    require_once "includes/inc_client_overview_all.php";
+    require_once "includes/inc_all.php";
     $client_query = '';
     $client_url = '';
     // Overide Filter Header Archived
