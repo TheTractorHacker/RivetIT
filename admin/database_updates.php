@@ -6673,3 +6673,20 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.66'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.66') {
+        // Restore client_support_issues_included_remote/_onsite, dropped by
+        // an earlier migration that intended to move this allowance to a new
+        // per-contract equivalent but never got the companion code (the
+        // contract-level usage function/UI was never written) - every real
+        // consumer (functions.php's getClientIncludedIssuesUsage(),
+        // client_edit.php, client.php, client_model.php,
+        // reports/included_issues.php) still reads/writes these client-level
+        // columns, so their absence throws an uncaught mysqli exception
+        // (blank page) on the ticket view, client overview, client edit save,
+        // and included-issues report.
+        mysqli_query($mysqli, "ALTER TABLE `clients` ADD COLUMN IF NOT EXISTS `client_support_issues_included_remote` int(11) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `clients` ADD COLUMN IF NOT EXISTS `client_support_issues_included_onsite` int(11) DEFAULT NULL");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.67'");
+    }
+

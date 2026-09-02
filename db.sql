@@ -738,6 +738,8 @@ CREATE TABLE `clients` (
   `client_lead_status` varchar(40) DEFAULT NULL,
   `client_lead_owner` int(11) DEFAULT NULL,
   `client_lead_score` int(11) DEFAULT NULL,
+  `client_support_issues_included_remote` int(11) DEFAULT NULL,
+  `client_support_issues_included_onsite` int(11) DEFAULT NULL,
   PRIMARY KEY (`client_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
