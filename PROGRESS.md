@@ -80,10 +80,50 @@ Status: **scaffolding done, no live connection**
 - [x] `odoo_integrations` table + settings UI (same page as Microsoft, Save + Test Connection).
 - [ ] Account provisioning/role sync (Section 10.3/10.4) — not built, same reasoning as Microsoft above.
 
-## Phases 4–7, 9–15
-Status: **not started** — Vault V2 (4), KB V2 (5), Assets/CMDB (6), Intune/RMM (7), Employee Lifecycle
-workflows (9), Service Catalog (10), ITSM (11), Automation/API V2 (12), Reporting (13), Employee
-Portal (14), Polish (15). Not yet scoped in detail — will update this section as each phase starts.
+## Phase 6 — Assets/CMDB
+Status: **partial**
+
+- [x] Assignment history (Section 11.5) — `asset_assignments` table + `src/Assets/AssetAssignmentService.php`, wired into create/edit/bulk-assign, displayed on `agent/asset_details.php`. Verified directly against a scratch DB (assign → no-op → reassign → unassign all behaved correctly, no duplicate rows).
+- [ ] Immutable asset UUID + external-ID linking (Section 11.2) — not started.
+- [ ] Matching/reconciliation engine (Section 11.3) — not started; needs Phase 7 (RMM/Intune) to have something to reconcile against.
+- [ ] QR codes (Section 11.6) — deferred. Needs a real decision about label printing/hardware that doesn't exist yet; didn't want to guess at that.
+
+## Phases 4, 5, 7, 9–15
+Status: **not started** — Vault V2 (4), KB V2 (5), Intune/RMM (7), Employee Lifecycle workflows (9),
+Service Catalog (10), ITSM (11), Automation/API V2 (12), Reporting (13), Employee Portal (14),
+Polish (15). Not yet scoped in detail — will update this section as each phase starts.
+
+---
+
+## Session summary (2026-09-01, built while user was AFK)
+
+Shipped and deployed live to `mw-itflow.foleyit.com`, each verified before deploy (php -l on every
+touched file, a full db.sql import into a scratch database checked table-by-table, and for the two
+riskiest pieces — AuditService and PersonImportService/AssetAssignmentService — a real functional
+test against a live or scratch database before calling it done):
+
+- **Phase 0 (Foundation):** Composer PSR-4 `/src`, AuditService + audit_events, AuthorizationService,
+  DB-backed job queue. Login auditing wired in for real (caught and fixed a real bind_param bug live).
+- **Phase 1 (Organization):** Microsoft tenant ID / email domain / security+HR contact fields on the
+  company; department parent/head/cost-center/status/security-classification; site type/manager/
+  emergency-contacts/shipping fields; department_sites junction table.
+- **Phase 2 (Directory):** Employee fields on contacts (employee ID/type, manager, employment status,
+  work arrangement, start date), full CSV import with preview/approve, Direct Reports display.
+- **Phase 3 & 8 (Microsoft + Odoo):** Real, working adapter code (OAuth2 Graph client, Odoo JSON-RPC
+  client) and settings UI — deliberately not connected to anything live, per the user's explicit
+  choice before going AFK.
+- **Phase 6 (Assets, partial):** Assignment history.
+
+**Also fixed in passing** (found while working nearby, not master-plan scope): `config_module_enable_crm`
+undefined-variable bug from earlier in the session, 4 of ~19 `unlink()`-on-empty-filename warnings,
+2 wrong-database-ID bugs from my own earlier cleanup (companies/users landed on id=2 instead of 1).
+
+**What's NOT done:** everything not checked off above. In particular, no Microsoft/Odoo credentials
+were provided, so those integrations are real code sitting disabled — nothing will sync until someone
+supplies a tenant/app registration and an Odoo API key and tests it. Phases 4, 5, 9-15 (Vault V2,
+Knowledge Base V2, the entire employee lifecycle workflow engine, service catalog, ITSM, automation/
+webhooks, API V2, reporting, employee portal, UI polish) have not been started at all — this remains,
+realistically, months of further work, not a few more sessions.
 
 ---
 
