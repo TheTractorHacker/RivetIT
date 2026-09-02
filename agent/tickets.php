@@ -300,6 +300,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
             align-items: center;
             gap: .75rem;
             text-align: left;
+            text-decoration: none;
             border-radius: var(--input-radius);
             padding: .6rem .85rem;
             background: var(--color-surface);
