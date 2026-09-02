@@ -4880,3 +4880,51 @@ CREATE TABLE `ticket_techs` (
   KEY `idx_ticket` (`tech_ticket_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `microsoft_integrations`
+--
+
+DROP TABLE IF EXISTS `microsoft_integrations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `microsoft_integrations` (
+  `microsoft_integration_id` int(11) NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(100) DEFAULT NULL,
+  `client_id` varchar(100) DEFAULT NULL,
+  `client_secret_enc` text DEFAULT NULL,
+  `sync_scope` varchar(20) NOT NULL DEFAULT 'read_only',
+  `enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `last_test_at` datetime DEFAULT NULL,
+  `last_test_success` tinyint(1) DEFAULT NULL,
+  `last_test_error` varchar(500) DEFAULT NULL,
+  `last_sync_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`microsoft_integration_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `odoo_integrations`
+--
+
+DROP TABLE IF EXISTS `odoo_integrations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `odoo_integrations` (
+  `odoo_integration_id` int(11) NOT NULL AUTO_INCREMENT,
+  `base_url` varchar(255) DEFAULT NULL,
+  `database_name` varchar(100) DEFAULT NULL,
+  `username` varchar(200) DEFAULT NULL,
+  `api_key_enc` text DEFAULT NULL,
+  `enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `last_test_at` datetime DEFAULT NULL,
+  `last_test_success` tinyint(1) DEFAULT NULL,
+  `last_test_error` varchar(500) DEFAULT NULL,
+  `last_sync_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`odoo_integration_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;

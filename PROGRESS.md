@@ -58,13 +58,13 @@ Status: **done** (schema-complete; some fields are schema-only, no UI yet — no
 **Known minor cleanup found but not fixed this pass:** ~15 more instances of the `unlink()`-on-empty-filename bug (fixed 4 of them while in nearby code) in `agent/post/{contact,expense,file,location,asset,rack}.php` and `admin/post/users.php`. Cosmetic (log noise on first upload for a given record), not breakage.
 
 ## Phase 2 — Directory (People)
-Status: **not started**
+Status: **mostly done** (import + core fields done; activity timeline deferred)
 
-- [ ] Extend `contacts` with employee fields: employee_id, employee_type, manager_id (self-referential), start_date, expected_end_date, employment_status, worker_classification, remote/hybrid/on-site
-- [ ] Employment state machine (pre-hire/active/leave/suspended/transfer pending/termination pending/terminated/archived)
-- [ ] Manager/direct-reports relationship + display on contact page
-- [ ] CSV import (template, upload, column mapping, validation, preview, dedup, approve, write, results) — new admin page
-- [ ] Person activity timeline
+- [x] Extend `contacts` with employee fields: employee_id, employee_type, manager_id (self-referential), start_date, expected_end_date, employment_status, work_arrangement. Full UI in `contact_edit.php` + `contact_details.php`.
+- [x] Employment state machine — implemented as a validated string field (pre-hire/active/leave/suspended/transfer_pending/termination_pending/terminated/archived), not a DB enum, to stay flexible; validated in `PersonImportService` and the edit modal's fixed option list.
+- [x] Manager/direct-reports relationship + display on contact page (`contact_details.php` "Employment" card + "Direct Reports" list)
+- [x] CSV import: `admin/people_import.php` + `src/Directory/PersonImportService.php`. Upload → preview (validates + resolves department/site/manager, flags per-row errors) → explicit approve → write. **Simplification vs. the full plan:** fixed CSV column headers required (no drag-and-drop column mapper) — reasonable for one company doing occasional imports; revisit if that changes. `people_import_runs` logs each approved run.
+- [ ] Person activity timeline — deferred. `audit_events` (Phase 0) and `logs` both have the raw data to build this from; not yet surfaced as a unified per-person timeline UI.
 
 ## Phases 3–15
 Status: **not started** — Microsoft/Entra (3), Vault V2 (4), KB V2 (5), Assets/CMDB (6), Intune/RMM (7),
