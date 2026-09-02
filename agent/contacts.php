@@ -90,7 +90,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
         <h3 class="card-title mt-2"><i class="fa fa-fw fa-address-book me-2"></i>Contacts</h3>
         <div class="card-tools">
             <div class="btn-group">
-                <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/contact/contact_add.php?client_id=<?= $client_id ?>">
+                <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/contact/contact_add.php?client_id=<?= intval($client_id ?? 0) ?>">
                     <i class="fas fa-plus me-2"></i>New Contact
                 </button>
                 <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"></button>

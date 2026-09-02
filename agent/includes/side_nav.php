@@ -186,18 +186,19 @@
                     </a>
                 </li>
 
-                <?php if ($config_module_enable_kb == 1 && lookupUserPermission("module_kb") >= 1) { ?>
-                    <li class="nav-item">
-                        <a href="/agent/kb_articles.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "kb_articles.php" || basename($_SERVER["PHP_SELF"]) == "kb_article.php" || basename($_SERVER["PHP_SELF"]) == "kb_article_versions.php") { echo "active"; } ?>">
-                            <i class="nav-icon fas fa-book"></i>
-                            <p>Knowledge Base</p>
-                        </a>
-                    </li>
-                <?php } ?>
-
-                <?php if ($config_module_enable_itdoc == 1 && lookupUserPermission("module_support") >= 1) { ?>
+                <?php if (($config_module_enable_itdoc == 1 && lookupUserPermission("module_support") >= 1) || ($config_module_enable_kb == 1 && lookupUserPermission("module_kb") >= 1)) { ?>
                     <li class="nav-header mt-3">DOCUMENTATION</li>
 
+                    <?php if ($config_module_enable_kb == 1 && lookupUserPermission("module_kb") >= 1) { ?>
+                        <li class="nav-item">
+                            <a href="/agent/kb_articles.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "kb_articles.php" || basename($_SERVER["PHP_SELF"]) == "kb_article.php" || basename($_SERVER["PHP_SELF"]) == "kb_article_versions.php") { echo "active"; } ?>">
+                                <i class="nav-icon fas fa-book"></i>
+                                <p>Knowledge Base</p>
+                            </a>
+                        </li>
+                    <?php } ?>
+
+                    <?php if ($config_module_enable_itdoc == 1 && lookupUserPermission("module_support") >= 1) { ?>
                     <?php if (lookupUserPermission("module_credential") >= 1) { ?>
                         <li class="nav-item">
                             <a href="/agent/credentials.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "credentials.php") { echo "active"; } ?>">
@@ -259,6 +260,7 @@
                             </p>
                         </a>
                     </li>
+                    <?php } ?>
                 <?php } ?>
 
                 <?php if ($config_module_enable_accounting == 1 && lookupUserPermission("module_sales") >= 1) { ?>
