@@ -246,4 +246,28 @@ realistically, months of further work, not a few more sessions.
   `admin/includes/side_nav.php`, and `client/includes/header.php`, plus a small completeness fix to
   `admin/includes/webhook_events.php` (missing `change.created`/`change.status_changed`). All 50
   touched/created PHP files pass `php -l`; `composer dump-autoload` run for the new `Knowledge`/`ITSM`/
-  `Webhooks`/`Automation` namespaces. Not yet committed/pushed/deployed to live as of this log line.
+  `Webhooks`/`Automation` namespaces. Committed, pushed, and deployed live (DB migrated 2.6.58 -> 2.6.63
+  directly against `midwest_itflow`, 227/227 tables confirmed).
+- 2026-09-01: Post-deploy authenticated smoke test (forged a file-based PHP session for user_id=1 -
+  `session.sid_length` defaults to 32, a longer hand-picked ID is silently rejected; the session file's
+  serialized content also can't have a trailing newline or `session_start()` fails to decode it) caught
+  a real bug the earlier php -l / unauthenticated-redirect checks couldn't see: **`agent/problems.php`,
+  `agent/changes.php`, `agent/problem_details.php`, `agent/change_details.php`, `agent/service_catalog.php`
+  all fatal on `require_once "includes/footer.php"`** - relative includes resolve against the including
+  script's own directory, and there is no `agent/includes/footer.php` (only `client/includes/` has its
+  own footer; agent pages must use `"../includes/footer.php"` to reach the project-root one, same as
+  `agent/tickets.php` already does). Also found the *identical* bug already live in `agent/workflow_run.php`
+  from Phase 9 - pre-existing, not introduced by this batch, just never hit until this smoke test.
+  Fixed all 6, verified clean via the same forged-session method (all render fully, zero new nginx error
+  log entries), then functionally verified the KB-versioning snapshot logic (`agent/post/kb_article.php`)
+  against a scratch DB (two sequential edits -> correct version numbers 1/2, correct pre-edit content
+  captured, special characters escape safely).
+- 2026-09-01: Also found and fixed a real routing gap: `api/v2/.htaccess` assumes Apache, but this
+  server runs nginx (which ignores `.htaccess`) - `/api/v1/` has a matching `location /api/v1/ { try_files
+  $uri /api/v1/index.php?$query_string; }` block in `/etc/nginx/snippets/itflow-locations.conf`, but v2
+  had no equivalent, so clean URLs like `/api/v2/workflow-runs` 404'd even with a valid Bearer token
+  (only the ugly `/api/v2/index.php` direct hit worked). Added the matching `location /api/v2/` block
+  (shared snippet file, used by all 4 vhosts - inert on the other 3, which have no `api/v2/` directory),
+  `nginx -t` + reload, verified end-to-end with a temporary real API token (issued, tested, deleted).
+  **Lesson for future phases:** a new `.htaccess`-based clean-URL front controller needs a matching
+  hand-added nginx location block - it will not work by just deploying the PHP.
