@@ -168,3 +168,5 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
         </form>
     </div>
 </div>
+
+<?php require_once "../includes/footer.php"; ?>
