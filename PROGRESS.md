@@ -196,9 +196,46 @@ Status: **done** (no new schema — reuses Phase 9's workflow_runs + existing ti
 - [x] `agent/it_dashboard.php` — "Internal IT" dashboard distinct from the existing MSP `dashboard.php`;
   surfaces onboarding/offboarding run counts and status, not just tickets. Nav link added.
 
-## Phases 7, 14, 15
-Status: **not started** — Intune/RMM (7, blocked on real RMM credentials per the AFK decision log),
-Employee Portal (14), Polish (15). Not yet scoped in detail.
+## Phase 7 — Microsoft Intune / RMM
+Status: **done** (Intune device sync built 2026-09-01; RMM was already complete pre-existing — see note)
+
+- [x] **RMM was already fully built** — inherited wholesale from the base MSP product, not part of
+  this session's work: real client classes for Tactical RMM/Level.io/Action1/Sophos Central
+  (`includes/class_*_rmm.php`), a factory (`includes/rmm_client_factory.php`), a mature
+  asset-matching/reconciliation engine (`includes/class_rmm_asset_mapper.php` — matches by link →
+  serial → MAC → unique hostname, creates CMDB assets, syncs alerts, auto-closes tickets on
+  vendor-side alert clear), cron-driven sync, and a complete admin credential UI with per-provider
+  guides already on `admin/settings_integrations.php` (RMM/Backups/Firewalls tabs). Only needs a
+  real API key entered to go live — this satisfies the "matching/reconciliation engine" gap noted
+  as open in Phase 6.
+- [x] `src/Integrations/Microsoft/GraphClient::listAllManagedDevices()` — paginated Graph
+  `/deviceManagement/managedDevices` client (follows `@odata.nextLink`), reusing the same
+  tenant/client/secret Phase 3 already collects — no new credential field.
+  `src/Integrations/Microsoft/IntuneAssetMapper` mirrors `RmmAssetMapper`'s exact matching priority
+  (link → serial → unique hostname → create) for Intune devices, logs each run to a new
+  `intune_sync_log` table.
+- [x] Admin UI: extended the existing Microsoft card on `admin/settings_directory_sync.php` (not a
+  new page) with a "Sync devices from Intune" toggle, guide text on the separate
+  `DeviceManagementManagedDevices.Read.All` Graph permission grant needed in the Entra portal, a
+  Sync Now button, and a Recent Syncs log table — same credential-entry pattern as Microsoft/Odoo
+  already used, per the explicit instruction to reuse "the admin ... like now" and keep the guides.
+- [x] Cron wiring (unattended periodic sync) + a read-only `agent/intune_devices.php` device list +
+  a compliance-state card on `agent/asset_details.php` alongside the existing RMM card.
+- Built via 2 parallel agents (backend engine+schema / admin UI+wiring) + 2 adversarial review
+  passes; fixed the one real bug they surfaced (cron's catch block wasn't marking `intune_sync_log`
+  rows failed, so an unattended sync failure would leave a permanently-`running` row) plus 2 minor
+  cleanups (a double-escaped GET filter; the OS-icon logic reused from the RMM card didn't
+  recognize iOS/Android, which matters since real Intune fleets are often mobile devices). Also
+  caught and fixed a real, unrelated pre-existing bug from Phase 3 while testing this page: `admin/
+  settings_directory_sync.php` never had a closing footer include at all (page rendered but never
+  closed its `</html>`) — undetected until this session's byte-for-byte live smoke test.
+  End-to-end verified live: a real POST save round-tripped `intune_sync_enabled`, a real Sync Now
+  click against a fake tenant produced a genuine Microsoft AADSTS error that landed correctly as
+  `status='failed'` in the log table (not a stuck `running` row) — confirming the cron fix's logic
+  live, not just in code review.
+
+## Phases 14, 15
+Status: **not started** — Employee Portal (14), Polish (15). Not yet scoped in detail.
 
 ---
 
@@ -271,3 +308,15 @@ realistically, months of further work, not a few more sessions.
   `nginx -t` + reload, verified end-to-end with a temporary real API token (issued, tested, deleted).
   **Lesson for future phases:** a new `.htaccess`-based clean-URL front controller needs a matching
   hand-added nginx location block - it will not work by just deploying the PHP.
+- 2026-09-01: Phase 7 (Intune device sync) built per explicit instruction to complete it now, reusing
+  the existing admin credential-entry pattern and preserving all existing guide text. Built via 2
+  parallel agents (backend engine+schema / admin UI+wiring) + 2 adversarial verify agents; found and
+  fixed 1 real bug (cron's Intune sync catch block never marked `intune_sync_log` failed) + 2 minor
+  cleanups + 1 unrelated pre-existing Phase-3 bug (`admin/settings_directory_sync.php` had no footer
+  include at all, caught by this session's byte-for-byte live response check). DB migrated 2.6.63 ->
+  2.6.64 (`asset_intune_links`, `intune_sync_log`, `microsoft_integrations.intune_sync_enabled`),
+  229/229 tables confirmed on both a scratch DB and live `midwest_itflow`. Verified live end-to-end
+  with real POST requests against a throwaway fake tenant (not just unauthenticated/redirect checks):
+  Save round-tripped `intune_sync_enabled`, Sync Now against the fake tenant produced a genuine
+  Microsoft AADSTS error that landed as `status='failed'` (not a stuck `running` row) - confirming the
+  cron fix's logic for real, then all test rows deleted and the forged test session removed.
