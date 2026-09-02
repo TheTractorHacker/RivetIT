@@ -2,17 +2,10 @@
 
 require_once '../../../includes/modal_header.php';
 
-// Filters
-$leads_filter = intval($_GET['lead'] ?? 0);
-
 // Selects
 $referral_sql = mysqli_query($mysqli, "SELECT * FROM categories WHERE category_type = 'Referral' AND category_archived_at IS NULL ORDER BY category_name ASC");
 
 $sql_tags_select = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_type = 1 ORDER BY tag_name ASC");
-
-// Lead owner options + lead status presets (CRM)
-$sql_lead_owners = mysqli_query($mysqli, "SELECT user_id, user_name FROM users WHERE user_status = 1 AND user_archived_at IS NULL ORDER BY user_name ASC");
-$lead_status_presets = array('New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Converted', 'Lost');
 
 $net_terms_array = array (
     '0'=>'On Receipt',
@@ -30,7 +23,7 @@ ob_start();
 ?>
 
 <div class="modal-header bg-dark">
-    <h5 class="modal-title"><i class="fa fa-fw fa-user-plus me-2"></i>New <?php if($leads_filter == 0){ echo "Department"; } else { echo "Lead"; } ?></h5>
+    <h5 class="modal-title"><i class="fa fa-fw fa-user-plus me-2"></i>New Department</h5>
     <button type="button" class="close text-white" data-bs-dismiss="modal">
         <span>&times;</span>
     </button>
@@ -65,17 +58,12 @@ ob_start();
             <div class="tab-pane fade show active" id="pills-details">
 
                 <div class="form-group">
-                    <label>Name <strong class="text-danger">*</strong> / <span class="text-secondary">Is Lead</span></label>
+                    <label>Name <strong class="text-danger">*</strong></label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                         </div>
                         <input type="text" class="form-control" name="name" id="client_name" placeholder="Name or Company" maxlength="200" onfocusout="client_duplicate_check()" required autofocus>
-                        <div class="input-group-append">
-                            <div class="input-group-text">
-                                <input type="checkbox" name="lead" value="1" <?php if($leads_filter == 1){ echo "checked"; } ?>>
-                            </div>
-                        </div>
                     </div>
                     <div class="mt-2">
                         <span class="text-info" id="client_duplicate_info"></span>
@@ -88,7 +76,7 @@ ob_start();
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-id-badge"></i></span>
                         </div>
-                        <input type="text" class="form-control js-uppercase-input" name="abbreviation" placeholder="Shortned name for department - Max chars 6" maxlength="6">
+                        <input type="text" class="form-control js-uppercase-input" name="abbreviation" placeholder="Shortened name for department - Max chars 6" maxlength="6">
                     </div>
                 </div>
 
@@ -100,6 +88,34 @@ ob_start();
                         </div>
                         <input type="text" class="form-control" name="type" placeholder="Company Type" maxlength="200">
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Cost Center</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-hashtag"></i></span>
+                        </div>
+                        <input type="text" class="form-control" name="cost_center" placeholder="e.g. CC-410" maxlength="100">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Status</label>
+                    <select class="form-control select2" name="status">
+                        <?php foreach (['Active', 'Inactive', 'On Hold'] as $status_option) { ?>
+                            <option><?php echo $status_option; ?></option>
+                        <?php } ?>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Security Classification <small class="text-secondary">(controls nothing yet on its own - pairs with per-user Department access restrictions under Users)</small></label>
+                    <select class="form-control select2" name="security_classification">
+                        <?php foreach (['General', 'Confidential', 'Restricted'] as $classification_option) { ?>
+                            <option><?php echo $classification_option; ?></option>
+                        <?php } ?>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -134,40 +150,6 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-globe"></i></span>
                         </div>
                         <input type="text" class="form-control" name="website" placeholder="ex. google.com" maxlength="200">
-                    </div>
-                </div>
-
-                <div class="card card-body bg-light mb-3">
-                    <label class="fw-bold text-secondary mb-2"><i class="fa fa-fw fa-bullhorn me-1"></i>Lead Details <small class="text-muted">(for sales / CRM)</small></label>
-                    <div class="form-row">
-                        <div class="form-group col-md-6 mb-2">
-                            <label>Lead Source</label>
-                            <input type="text" class="form-control" name="lead_source" placeholder="e.g. Website, Referral, Cold Call" maxlength="60">
-                        </div>
-                        <div class="form-group col-md-6 mb-2">
-                            <label>Lead Status</label>
-                            <select class="form-control select2" name="lead_status" data-tags="true">
-                                <option value="">- Select Status -</option>
-                                <?php foreach ($lead_status_presets as $preset) { ?>
-                                    <option value="<?php echo $preset; ?>"><?php echo $preset; ?></option>
-                                <?php } ?>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group col-md-6 mb-0">
-                            <label>Lead Owner</label>
-                            <select class="form-control select2" name="lead_owner">
-                                <option value="0">- Unassigned -</option>
-                                <?php while ($lo = mysqli_fetch_assoc($sql_lead_owners)) { ?>
-                                    <option value="<?php echo intval($lo['user_id']); ?>"><?php echo nullable_htmlentities($lo['user_name']); ?></option>
-                                <?php } ?>
-                            </select>
-                        </div>
-                        <div class="form-group col-md-6 mb-0">
-                            <label>Lead Score</label>
-                            <input type="number" min="0" max="100" step="1" class="form-control" name="lead_score" placeholder="0-100">
-                        </div>
                     </div>
                 </div>
 

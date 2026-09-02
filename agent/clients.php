@@ -9,15 +9,6 @@ require_once "includes/inc_all.php";
 // Perms
 enforceUserPermission('module_client');
 
-// Leads Filter
-if (isset($_GET['leads']) && $_GET['leads'] == 1) {
-    $leads_filter = 1;
-    $leads_query = "AND client_lead = 1";
-} else {
-    $leads_filter = 0;
-    $leads_query = "AND client_lead = 0";
-}
-
 // Tags Filter
 if (isset($_GET['tags']) && is_array($_GET['tags']) && !empty($_GET['tags'])) {
     // Sanitize each element of the tags array
@@ -66,7 +57,6 @@ $sql = mysqli_query(
            OR tag_name LIKE '%$q%' OR client_tax_id_number LIKE '%$q%')
       AND client_$archive_query
       AND DATE(client_created_at) BETWEEN '$dtf' AND '$dtt'
-      $leads_query
       $access_permission_query
       $tag_query
       $industry_query
@@ -82,13 +72,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
 <div class="card">
     <div class="card-header py-2">
-        <h3 class="card-title mt-2"><i class="fa fa-fw fa-user-friends me-2"></i><?php if($leads_filter == 0){ echo "Departments"; } else { echo "Leads"; } ?></h3>
+        <h3 class="card-title mt-2"><i class="fa fa-fw fa-user-friends me-2"></i>Departments</h3>
         <div class="card-tools">
             <?php if (lookupUserPermission("module_client") >= 2) { ?>
                 <div class="btn-group">
-                    <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/client/client_add.php<?php if ($leads_filter) { echo "?lead=1"; } ?>">
-                        <i class="fas fa-plus me-2"></i>New
-                        <?php if ($leads_filter == 0) { echo "Department"; } else { echo "Lead"; } ?>
+                    <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/client/client_add.php">
+                        <i class="fas fa-plus me-2"></i>New Department
                     </button>
                     <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"></button>
                     <div class="dropdown-menu">
@@ -108,13 +97,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
     </div>
     <div class="card-header pb-2 pt-3">
         <form autocomplete="off">
-            <input type="hidden" name="leads" value="<?php echo $leads_filter; ?>">
             <input type="hidden" name="archived" value="<?php echo $archived; ?>">
             <div class="row">
                 <div class="col-md-5">
                     <div class="form-group mb-3">
                         <div class="d-flex" style="gap:.5rem;">
-                            <input type="search" class="form-control" name="q" value="<?php if (isset($q)) { echo stripslashes(nullable_htmlentities($q)); } ?>" placeholder="Search <?php if($leads_filter == 0){ echo "departments"; } else { echo "leads"; } ?>" autofocus>
+                            <input type="search" class="form-control" name="q" value="<?php if (isset($q)) { echo stripslashes(nullable_htmlentities($q)); } ?>" placeholder="Search departments" autofocus>
                             <button class="btn btn-secondary px-3" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilter"><i class="fas fa-filter"></i></button>
                             <button class="btn btn-primary px-3"><i class="fa fa-search"></i></button>
                         </div>
@@ -122,11 +110,6 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 </div>
                 <div class="col-md-7">
                     <div class="btn-toolbar form-group mb-3 float-end">
-                        <div class="btn-group me-2">
-                            <a href="?leads=0" class="btn btn-<?php if ($leads_filter == 0){ echo "primary"; } else { echo "default"; } ?>" title="Departments"><i class="fa fa-fw fa-user-friends"></i><span class="d-none d-sm-inline ms-2">Departments</span></a>
-                            <a href="?leads=1" class="btn btn-<?php if ($leads_filter == 1){ echo "primary"; } else { echo "default"; } ?>"><i class="fa fa-fw fa-bullhorn"></i><span class="d-none d-sm-inline ms-2">Leads</span></a>
-                        </div>
-
                         <div class="btn-group">
                             <a href="?<?php echo $url_query_strings_sort ?>&archived=<?php if($archived == 1){ echo 0; } else { echo 1; } ?>"
                                 class="btn btn-<?php if ($archived == 1) { echo "primary"; } else { echo "default"; } ?>">
@@ -252,7 +235,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <option value="">- All Industries -</option>
 
                                 <?php
-                                $sql_industries_filter = mysqli_query($mysqli, "SELECT DISTINCT client_type FROM clients WHERE 1 = 1 AND client_$archive_query AND client_type != '' $leads_query ORDER BY client_type ASC");
+                                $sql_industries_filter = mysqli_query($mysqli, "SELECT DISTINCT client_type FROM clients WHERE 1 = 1 AND client_$archive_query AND client_type != '' ORDER BY client_type ASC");
                                 while ($row = mysqli_fetch_assoc($sql_industries_filter)) {
                                     $industry_name = nullable_htmlentities($row['client_type']);
                                 ?>
@@ -271,7 +254,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <option value="">- All Referrals -</option>
 
                                 <?php
-                                $sql_referrals_filter = mysqli_query($mysqli, "SELECT DISTINCT client_referral FROM clients WHERE 1 = 1 AND client_$archive_query AND client_referral != '' $leads_query ORDER BY client_referral ASC");
+                                $sql_referrals_filter = mysqli_query($mysqli, "SELECT DISTINCT client_referral FROM clients WHERE 1 = 1 AND client_$archive_query AND client_referral != '' ORDER BY client_referral ASC");
                                 while ($row = mysqli_fetch_assoc($sql_referrals_filter)) {
                                     $referral_name = nullable_htmlentities($row['client_referral']);
                                 ?>
@@ -316,9 +299,6 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         </a>
                     </th>
                     <th></th>
-                    <?php if ($leads_filter == 1) { ?>
-                    <th>Lead</th>
-                    <?php } ?>
                     <?php if ((lookupUserPermission("module_financial") >= 1) && $config_module_enable_accounting == 1) { ?>
                     <th>Billing</th>
                     <?php } ?>
@@ -365,18 +345,6 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     $client_created_at = date('Y-m-d', strtotime($row['client_created_at']));
                     $client_updated_at = nullable_htmlentities($row['client_updated_at']);
                     $client_archived_at = nullable_htmlentities($row['client_archived_at']);
-                    $client_is_lead = intval($row['client_lead']);
-
-                    // CRM lead qualification fields
-                    $client_lead_source = nullable_htmlentities($row['client_lead_source'] ?? '');
-                    $client_lead_status = nullable_htmlentities($row['client_lead_status'] ?? '');
-                    $client_lead_owner_id = intval($row['client_lead_owner'] ?? 0);
-                    $client_lead_score = isset($row['client_lead_score']) && $row['client_lead_score'] !== null ? intval($row['client_lead_score']) : null;
-                    $client_lead_owner_name = '';
-                    if ($leads_filter == 1 && $client_lead_owner_id) {
-                        $owner_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT user_name FROM users WHERE user_id = $client_lead_owner_id"));
-                        $client_lead_owner_name = nullable_htmlentities($owner_row['user_name'] ?? '');
-                    }
 
                     // Abbreviation
                     if (empty($client_abbreviation)) {
@@ -592,23 +560,6 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <i class="fas fa-fw fa-2x fa-info-circle"></i>
                             </a>
                         </td>
-                        <?php if ($leads_filter == 1) { ?>
-                        <td>
-                            <?php if ($client_lead_status) { ?>
-                                <div><span class="badge text-bg-info"><?php echo $client_lead_status; ?></span></div>
-                            <?php } ?>
-                            <?php if ($client_lead_source) { ?>
-                                <div class="small text-secondary mt-1"><i class="fa fa-fw fa-link me-1"></i><?php echo $client_lead_source; ?></div>
-                            <?php } ?>
-                            <?php if ($client_lead_owner_name) { ?>
-                                <div class="small text-secondary mt-1"><i class="fa fa-fw fa-user-tie me-1"></i><?php echo $client_lead_owner_name; ?></div>
-                            <?php } ?>
-                            <?php if ($client_lead_score !== null) { ?>
-                                <div class="small text-secondary mt-1"><i class="fa fa-fw fa-star me-1"></i>Score: <?php echo $client_lead_score; ?></div>
-                            <?php } ?>
-                            <?php if (!$client_lead_status && !$client_lead_source && !$client_lead_owner_name && $client_lead_score === null) { echo '<span class="text-muted">-</span>'; } ?>
-                        </td>
-                        <?php } ?>
                         <!-- Show Billing if perms & if accounting module is enabled -->
                         <?php if ((lookupUserPermission("module_financial") >= 1) && $config_module_enable_accounting == 1) { ?>
                             <td class="text-end">
@@ -648,13 +599,6 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                         <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/client/client_edit.php?id=<?= $client_id ?>">
                                             <i class="fas fa-fw fa-edit me-2"></i>Edit
                                         </a>
-
-                                        <?php if ($client_is_lead == 1 && !$client_archived_at) { ?>
-                                        <div class="dropdown-divider"></div>
-                                        <a class="dropdown-item text-success confirm-link" href="post.php?convert_lead=<?php echo $client_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token'] ?>">
-                                            <i class="fas fa-fw fa-user-check me-2"></i>Convert to Department
-                                        </a>
-                                        <?php } ?>
 
                                         <?php if ($client_archived_at) { ?>
                                         <div class="dropdown-divider"></div>

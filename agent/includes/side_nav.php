@@ -75,14 +75,6 @@
                             <p>Opportunities</p>
                         </a>
                     </li>
-                    <?php if (lookupUserPermission("module_client") >= 1) { ?>
-                    <li class="nav-item">
-                        <a href="/agent/clients.php?leads=1" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "clients.php" && isset($_GET['leads']) && $_GET['leads'] == 1) { echo "active"; } ?>">
-                            <i class="nav-icon fas fa-bullhorn"></i>
-                            <p>Leads</p>
-                        </a>
-                    </li>
-                    <?php } ?>
                     <li class="nav-item">
                         <a href="/agent/campaigns.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "campaigns.php") { echo "active"; } ?>">
                             <i class="nav-icon fas fa-paper-plane"></i>
