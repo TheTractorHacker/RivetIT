@@ -1,0 +1,60 @@
+# ITFlow-Internal-IT — daily backup oneshot service.
+#
+# Consumed by: deploy/install.sh (not yet wired up there — install.sh's own
+# "YOUR FILES" boundary in this project belongs to a different track; for
+# now, deploy this pair by hand or from your own automation) and meant to be
+# paired with itflow-backup.timer in this same directory. Deploy both to
+# /etc/systemd/system/ with the ${APP_DIR} placeholder below substituted for
+# the real instance webroot, e.g.:
+#
+#   sed 's|${APP_DIR}|/var/www/itflow.example.com|g' \
+#       deploy/templates/itflow-backup.service > /etc/systemd/system/itflow-backup.service
+#   sed 's|${APP_DIR}|/var/www/itflow.example.com|g' \
+#       deploy/templates/itflow-backup.timer > /etc/systemd/system/itflow-backup.timer
+#   systemctl daemon-reload
+#   systemctl enable --now itflow-backup.timer
+#
+# (envsubst works too, provided ${APP_DIR} is the only shell-style variable
+# in these two files — which it is.)
+#
+# Multiple companies on one box: each instance needs its OWN unit pair with
+# a distinct unit filename (e.g. itflow-backup@companyA.service, or simply
+# itflow-backup-companyA.service) — copying this file's rendered output
+# under a second name per instance is enough; nothing here assumes it's the
+# only ITFlow instance on the box, but two instances CANNOT share one
+# literal "itflow-backup.service" name since each needs a different
+# --app-dir baked into its ExecStart.
+#
+# The encryption passphrase lives in /etc/itflow/backup-passphrase (root-
+# only, 600) — NOT baked into this unit file — because unit files under
+# /etc/systemd/system/ are the kind of thing that ends up copy-pasted into
+# tickets/support bundles/config-management repos; keeping the passphrase
+# in its own dedicated, obviously-sensitive file makes that mistake harder
+# to make by accident. Create it once per box (or per company, with a
+# distinct --passphrase-file path per unit, if each company's backups
+# should be encrypted under a separate key) before enabling this timer:
+#   install -d -m 700 /etc/itflow
+#   openssl rand -base64 48 > /etc/itflow/backup-passphrase
+#   chmod 600 /etc/itflow/backup-passphrase
+
+[Unit]
+Description=ITFlow-Internal-IT encrypted backup (${APP_DIR})
+Documentation=https://github.com/TheTractorHacker/ITFlow-Internal-IT
+After=network.target mariadb.service
+Wants=mariadb.service
+
+[Service]
+Type=oneshot
+User=root
+# backup.sh itself enforces EUID 0 and dies with a clear message otherwise
+# (see its own header comment for why root, not www-data, must own the
+# final encrypted file). `env bash` rather than a bare path so this keeps
+# working unmodified if PATH-based bash ever moves, matching how the rest
+# of this deploy tooling invokes its own scripts.
+ExecStart=/usr/bin/env bash ${APP_DIR}/deploy/backup.sh --app-dir=${APP_DIR} --passphrase-file=/etc/itflow/backup-passphrase
+
+# Defense in depth beyond backup.sh's own logic: even if backup.sh somehow
+# ran to completion despite a corrupted/missing config, a non-zero exit
+# here is what actually surfaces the failure to `systemctl status` / any
+# alerting hooked to unit failure (OnFailure=, journald, etc).
+SuccessExitStatus=0

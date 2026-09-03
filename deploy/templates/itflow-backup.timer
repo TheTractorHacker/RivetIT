@@ -1,0 +1,29 @@
+# ITFlow-Internal-IT — daily backup timer, pairs with itflow-backup.service
+# in this same directory. See that file's header comment for deployment
+# instructions (substituting ${APP_DIR}) and the multi-company-on-one-box
+# naming note.
+
+[Unit]
+Description=Run ITFlow-Internal-IT encrypted backup daily (${APP_DIR})
+Documentation=https://github.com/TheTractorHacker/ITFlow-Internal-IT
+
+[Timer]
+# Off-peak; DB dump + uploads tar is unlikely to collide with real usage at
+# 02:30 local time. Not UTC-pinned — OnCalendar times are evaluated against
+# the system's configured local timezone (timedatectl), which is what an
+# admin picking an "off-peak" hour actually means.
+OnCalendar=*-*-* 02:30:00
+
+# If the box was off/asleep at 02:30, run the missed backup as soon as the
+# timer unit is next active again, instead of silently skipping a whole
+# day's backup.
+Persistent=true
+
+# Spread load when multiple company instances (each with their own unit
+# pair, see itflow-backup.service's header) or a fleet of boxes all use the
+# same 02:30 OnCalendar value — without this, they'd all hit disk/DB in the
+# same second.
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

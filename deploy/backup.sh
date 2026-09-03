@@ -1,0 +1,303 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ITFlow-Internal-IT — single-instance encrypted backup.
+#
+# Dumps one instance's database (mysqldump) and its uploads/ directory
+# (user-uploaded contracts/documents/tickets/etc — the content that isn't
+# reproducible by re-cloning the git repo), bundles both into one archive,
+# encrypts it, and enforces a retention window on old encrypted backups.
+#
+# Meant to be driven by deploy/templates/itflow-backup.{service,timer} (a
+# daily systemd timer) or root's own crontab — see this script's own
+# argument parsing below for exactly what it needs. It is also called
+# directly by deploy/update.sh as the mandatory pre-update backup step.
+#
+# Usage:
+#   backup.sh --app-dir=<path> --passphrase-file=<path> [options]
+#   backup.sh --help
+#
+# Required:
+#   --app-dir=<path>            Webroot of the ITFlow-Internal-IT instance to
+#                               back up (the directory containing config.php).
+#   --passphrase-file=<path>    Path to a 600-permission file holding the
+#                               encryption passphrase. REQUIRED — this script
+#                               refuses to run without it rather than ever
+#                               silently writing an unencrypted dump to disk.
+#                               The database dump contains password hashes
+#                               and this app's own encrypted-but-still-
+#                               sensitive credential vault ciphertexts, so an
+#                               unencrypted backup is a real exposure, not a
+#                               theoretical one.
+#
+# Options:
+#   --retention-days=<N>        Delete encrypted backups older than N days
+#                               from --dest. Default: 14.
+#   --dest=<dir>                Where encrypted backups are written. Default:
+#                               <app-dir>/backups (see the long comment above
+#                               cleanup_old_backups() for why sharing that
+#                               directory with the app's own admin-panel
+#                               backup feature is fine).
+#
+# Must be run as root (see require_root below): the final encrypted backup
+# is deliberately chmod 600, owned root:root — NOT readable by www-data —
+# since a webshell that somehow got code execution as www-data should not
+# be able to read this instance's entire backup history. That means this
+# script itself has to be run by something already running as root: root's
+# own crontab, or (the recommended path) the itflow-backup.service systemd
+# unit shipped in deploy/templates/, which runs as User=root.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./lib/common.sh
+source "${SCRIPT_DIR}/lib/common.sh"
+
+LOG_FILE="/var/log/itflow-backup.log"
+
+APP_DIR=""
+RETENTION_DAYS=14
+DEST=""
+PASSPHRASE_FILE=""
+
+print_help() {
+    cat <<'EOF'
+ITFlow-Internal-IT — single-instance encrypted backup
+
+Usage:
+  sudo deploy/backup.sh --app-dir=<path> --passphrase-file=<path> [options]
+
+Required:
+  --app-dir=<path>           Webroot of the instance to back up (must
+                              contain config.php).
+  --passphrase-file=<path>   600-permission file holding the encryption
+                              passphrase. Refused if missing or not locked
+                              down to owner-only access.
+
+Options:
+  --retention-days=<N>       Delete encrypted backups older than N days
+                              from --dest. Default: 14.
+  --dest=<dir>                Directory encrypted backups are written to.
+                              Default: <app-dir>/backups.
+  --help                      Show this help and exit.
+
+Must be run as root. Every run's outcome (success + file size + duration,
+or the specific failure) is logged to /var/log/itflow-backup.log.
+EOF
+}
+
+parse_args() {
+    local arg
+    for arg in "$@"; do
+        case "${arg}" in
+            --app-dir=*)          APP_DIR="${arg#*=}" ;;
+            --retention-days=*)   RETENTION_DAYS="${arg#*=}" ;;
+            --dest=*)              DEST="${arg#*=}" ;;
+            --passphrase-file=*)  PASSPHRASE_FILE="${arg#*=}" ;;
+            --help|-h)
+                print_help
+                exit 0
+                ;;
+            *)
+                print_help
+                die "Unknown option: ${arg}"
+                ;;
+        esac
+    done
+}
+
+validate_args() {
+    [[ -n "${APP_DIR}" ]] || { print_help; die "--app-dir is required."; }
+    [[ "${APP_DIR}" == /* ]] || die "--app-dir must be an absolute path (got: ${APP_DIR})"
+    [[ -d "${APP_DIR}" ]] || die "--app-dir '${APP_DIR}' does not exist or is not a directory."
+    [[ -f "${APP_DIR}/config.php" ]] || die "No config.php found under ${APP_DIR} — is this an installed ITFlow-Internal-IT instance? (delete a partial install and re-run deploy/install.sh, or point --app-dir at the correct instance)."
+
+    [[ -n "${PASSPHRASE_FILE}" ]] || { print_help; die "--passphrase-file is required — refusing to run without an encryption passphrase rather than silently writing an unencrypted database dump to disk."; }
+    [[ -f "${PASSPHRASE_FILE}" ]] || die "--passphrase-file '${PASSPHRASE_FILE}' does not exist."
+
+    local pf_perm
+    pf_perm="$(stat -c '%a' "${PASSPHRASE_FILE}")"
+    if [[ "${pf_perm: -2}" != "00" ]]; then
+        die "--passphrase-file '${PASSPHRASE_FILE}' has permissions ${pf_perm} (group/other can access it). Expected 600, owner-only — this file gates the key that decrypts every backup this instance has ever taken. Fix with: chmod 600 '${PASSPHRASE_FILE}'"
+    fi
+
+    [[ "${RETENTION_DAYS}" =~ ^[0-9]+$ ]] || die "--retention-days must be a non-negative integer (got: '${RETENTION_DAYS}')."
+
+    if [[ -z "${DEST}" ]]; then
+        DEST="${APP_DIR}/backups"
+    fi
+}
+
+setup_logging() {
+    touch "${LOG_FILE}"
+    chmod 640 "${LOG_FILE}"
+    chown root:root "${LOG_FILE}"
+    # Every run's narration lands in both places: the terminal (useful when
+    # run by hand) and the persistent logfile (what a systemd timer / cron
+    # run leaves behind for later inspection or monitoring to grep). No
+    # set -x here, unlike install.sh — every command below that touches a
+    # secret already keeps it off argv (defaults-extra-file, -pass file:),
+    # so nothing needs to be hidden from tracing, but a full command trace
+    # would just add noise against the "log the outcome" ask this script
+    # actually has.
+    exec > >(tee -a "${LOG_FILE}") 2>&1
+}
+
+# read_db_config(): populates DB_HOST/DB_USER/DB_PASS/DB_NAME by shelling
+# out to `php -r` with a small trusted snippet that requires config.php and
+# echoes the four values it defines. Deliberately NOT parsed out of the file
+# with grep/sed (config.php's values go through var_export(), so they can
+# contain escaped quotes, unicode, etc. — a text-munging parse would be
+# fragile) and deliberately NOT eval'd as arbitrary PHP from an untrusted
+# source — config.php is a trusted local file this same install already
+# wrote, so requiring it here carries no more risk than the app's own every-
+# request bootstrap already does.
+read_db_config() {
+    info "Reading database credentials from ${APP_DIR}/config.php..."
+    local raw
+    if ! raw="$(php -r '
+        require $argv[1];
+        echo $dbhost . "\n" . $dbusername . "\n" . $dbpassword . "\n" . $database . "\n";
+    ' -- "${APP_DIR}/config.php")"; then
+        die "Failed to read database credentials from ${APP_DIR}/config.php via 'php -r' (see PHP's error output above). config.php connects to MySQL as a side effect of being require()'d — this usually means the database is unreachable, not just a bad config file."
+    fi
+
+    local -a cfg_lines
+    mapfile -t cfg_lines <<< "${raw}"
+    DB_HOST="${cfg_lines[0]:-}"
+    DB_USER="${cfg_lines[1]:-}"
+    DB_PASS="${cfg_lines[2]:-}"
+    DB_NAME="${cfg_lines[3]:-}"
+
+    if [[ -z "${DB_HOST}" || -z "${DB_USER}" || -z "${DB_NAME}" ]]; then
+        die "config.php did not yield usable database settings (host='${DB_HOST}' user='${DB_USER}' database='${DB_NAME}'). Refusing to proceed with an incomplete backup target."
+    fi
+}
+
+# cleanup_old_backups(): enforces --retention-days on this script's OWN
+# output (backup-*.enc) in --dest. When --dest is left at its default
+# (<app-dir>/backups), that directory is shared with the app's own built-in
+# admin-panel backup feature (admin/post/backup.php), which writes its own
+# unencrypted dumps/zips there under different names — this only ever
+# touches files matching this script's own backup-*.enc naming, so the two
+# features coexist without either one deleting the other's files.
+cleanup_old_backups() {
+    info "Enforcing retention: removing backup-*.enc older than ${RETENTION_DAYS} day(s) from ${DEST}..."
+    local -a deleted=()
+    while IFS= read -r -d '' f; do
+        deleted+=("$(basename "${f}")")
+    done < <(find "${DEST}" -maxdepth 1 -type f -name 'backup-*.enc' -mtime "+${RETENTION_DAYS}" -print0)
+
+    if [[ "${#deleted[@]}" -gt 0 ]]; then
+        find "${DEST}" -maxdepth 1 -type f -name 'backup-*.enc' -mtime "+${RETENTION_DAYS}" -delete
+        info "Deleted ${#deleted[@]} backup(s) older than ${RETENTION_DAYS}d: ${deleted[*]}"
+    else
+        info "No backups older than ${RETENTION_DAYS} day(s) to delete."
+    fi
+}
+
+do_backup() {
+    local start_ts end_ts duration
+    start_ts="$(date +%s)"
+
+    mkdir -p "${DEST}"
+
+    local timestamp
+    timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    local sql_file="${DEST}/backup-${DB_NAME}-${timestamp}.sql"
+    local combined="${DEST}/backup-${DB_NAME}-${timestamp}.tar.gz"
+    local encrypted="${combined}.enc"
+
+    # Pre-create both intermediates chmod 600 BEFORE anything writes to
+    # them. A plain `mysqldump > file` / `tar -czf file ...` creates the
+    # file fresh via O_CREAT, which applies the process umask (typically
+    # leaving it group/world-readable) — but open() only applies that mode
+    # when it actually CREATES the file; if the file already exists with
+    # tighter permissions, writing into it does not loosen them. So these
+    # dumps are never even briefly world/group-readable on disk, not just
+    # "cleaned up eventually" once encryption finishes.
+    : > "${sql_file}"
+    chmod 600 "${sql_file}"
+    register_tmpfile "${sql_file}"
+
+    : > "${combined}"
+    chmod 600 "${combined}"
+    register_tmpfile "${combined}"
+
+    info "Dumping database '${DB_NAME}'..."
+    local defaults_file
+    defaults_file="$(mktemp)"
+    chmod 600 "${defaults_file}"
+    register_tmpfile "${defaults_file}"
+    cat > "${defaults_file}" <<EOF
+[client]
+host=${DB_HOST}
+user=${DB_USER}
+password=${DB_PASS}
+EOF
+
+    if ! mysqldump --defaults-extra-file="${defaults_file}" \
+        --single-transaction --quick --routines --triggers \
+        "${DB_NAME}" > "${sql_file}"; then
+        die "mysqldump failed for database '${DB_NAME}'. No encrypted backup was produced this run; the (600, root-only) partial dump will be shredded on exit."
+    fi
+    success "Database dump complete ($(du -h "${sql_file}" | awk '{print $1}'))."
+
+    info "Bundling the database dump with ${APP_DIR}/uploads into ${combined}..."
+    local -a tar_members=(-C "$(dirname "${sql_file}")" "$(basename "${sql_file}")")
+    if [[ -d "${APP_DIR}/uploads" ]]; then
+        tar_members+=(-C "${APP_DIR}" uploads)
+    else
+        warn "${APP_DIR}/uploads does not exist; backing up the database only. (Every ITFlow-Internal-IT install creates this directory — check --app-dir is correct.)"
+    fi
+    if ! tar -czf "${combined}" "${tar_members[@]}"; then
+        die "tar failed while bundling the backup archive. No encrypted backup was produced this run."
+    fi
+    success "Archive bundled ($(du -h "${combined}" | awk '{print $1}'))."
+
+    info "Encrypting archive..."
+    if ! openssl enc -aes-256-cbc -pbkdf2 -salt \
+        -in "${combined}" -out "${encrypted}" \
+        -pass file:"${PASSPHRASE_FILE}"; then
+        rm -f "${encrypted}"
+        die "openssl encryption failed. No usable backup was produced this run; the unencrypted intermediates will be shredded on exit, nothing sensitive was left on disk."
+    fi
+
+    # The unencrypted sql_file/combined are shredded by common.sh's shared
+    # EXIT trap (they were register_tmpfile'd above) — no separate cleanup
+    # needed here, and it fires whether this function returns normally or
+    # the script dies partway through a later step.
+    chmod 600 "${encrypted}"
+    chown root:root "${encrypted}"
+
+    end_ts="$(date +%s)"
+    duration=$(( end_ts - start_ts ))
+    local size_human
+    size_human="$(du -h "${encrypted}" | awk '{print $1}')"
+
+    success "Backup complete: ${encrypted} (${size_human}, ${duration}s)"
+    log "BACKUP OK database=${DB_NAME} file=${encrypted} size=${size_human} duration=${duration}s"
+
+    cleanup_old_backups
+}
+
+main() {
+    parse_args "$@"
+    require_root "$@"
+    validate_args
+    setup_logging
+
+    info "=== ITFlow-Internal-IT backup starting for ${APP_DIR} ==="
+    read_db_config
+    # Called as a plain statement, deliberately NOT as `if ! do_backup;
+    # then ...` — bash suspends `set -e` for the ENTIRE body of a function
+    # called as an if/while condition, not just its final return value, so
+    # wrapping it that way would silently swallow a failure in any command
+    # inside do_backup that isn't individually guarded with its own
+    # `if ! ...; then die; fi` (mysqldump/tar/openssl are; a handful of
+    # simpler steps like `mkdir -p` are not). Calling it as a bare statement
+    # keeps normal `set -e` propagation intact for the whole function, and
+    # do_backup's own die() calls already log a specific, actionable message
+    # for every failure that matters before this script exits non-zero.
+    do_backup
+}
+
+main "$@"

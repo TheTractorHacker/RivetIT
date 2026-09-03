@@ -83,7 +83,23 @@ This fork's base (before the internal-IT changes above) already included:
 
 ## Getting Started
 
-Installation is the same as upstream ITFlow. See the [official docs](https://docs.itflow.org/installation) for server requirements, then either run the standard installer against this repo's code or clone this repo directly into your web root and visit `/setup/` to run the guided setup.
+The fastest path to a running instance on a fresh Ubuntu/Debian box is the deployment tooling in
+[`deploy/`](deploy/README.md):
+
+```bash
+git clone https://github.com/TheTractorHacker/ITFlow-Internal-IT.git
+cd ITFlow-Internal-IT
+sudo deploy/install.sh --domain=itflow.example.com
+```
+
+It provisions nginx, PHP 8.4, and MariaDB; sets up TLS; applies security hardening; and runs the app's
+own first-run setup — see [`deploy/README.md`](deploy/README.md) for the full flag reference, worked
+examples (including adding a second company's instance to a box that already runs one), backups, and
+updates. If you'd rather install manually or use the browser-based `/setup/` wizard, see the [official
+upstream docs](https://docs.itflow.org/installation) for general server requirements.
+
+For a control-by-control look at what this deployment tooling does (and doesn't) cover from a security
+standpoint, see [`docs/ISO27001-COMPLIANCE.md`](docs/ISO27001-COMPLIANCE.md).
 
 ## License
 

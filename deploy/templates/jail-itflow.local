@@ -1,0 +1,46 @@
+# ITFlow-Internal-IT fail2ban jail drop-in
+#
+# Consumed by: deploy/harden.sh, copied verbatim to
+# /etc/fail2ban/jail.d/itflow.local and picked up on the next
+# `systemctl restart fail2ban`.
+#
+# This jail file alone is NOT enough for the [itflow-auth] jail below to
+# work - fail2ban also needs a matching filter definition at
+# /etc/fail2ban/filter.d/itflow-auth.conf, which this file does not own
+# (jail.d/ and filter.d/ are separate fail2ban directories). The exact
+# content harden.sh must write there is kept inline in this comment so both
+# pieces live next to each other and stay in sync:
+#
+#   # /etc/fail2ban/filter.d/itflow-auth.conf
+#   [Definition]
+#   failregex = ^<HOST> .* "POST /(login|post)\.php[^"]*" (401|403|429)
+#   ignoreregex =
+#
+# That regex is written against nginx's default combined access_log format
+# (client IP first, then `"METHOD /path HTTP/x.x" status ...`), which is
+# what every vhost this template targets uses.
+
+[sshd]
+# SSH brute-force is the most common real-world attack surface this box
+# faces - enabled even though the rest of this file is ITFlow-specific,
+# since a company running deploy/harden.sh standalone against an existing,
+# unhardened box should get this too. Port/logpath/backend are left to
+# fail2ban's own jail.conf defaults (they already resolve correctly via
+# %(sshd_log)s / %(sshd_backend)s on a stock Ubuntu box and don't need
+# restating here) - fail2ban bans the offending IP outright regardless of
+# which port sshd listens on, so the port doesn't need to be named here.
+enabled = true
+bantime = 3600
+findtime = 600
+maxretry = 5
+
+[itflow-auth]
+# Repeated failed/blocked requests against the app's own auth endpoints -
+# see the filter file content in the header comment above.
+enabled = true
+port = http,https
+filter = itflow-auth
+logpath = /var/log/nginx/access.log
+bantime = 3600
+findtime = 600
+maxretry = 5

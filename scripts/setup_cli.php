@@ -118,9 +118,29 @@ function prompt($message) {
 
 $non_interactive = isset($options['non-interactive']);
 
+// Secrets accepted via environment variable in preference to --password/--user-password
+// on argv, which is visible to any other local user via `ps` for the life of the process
+// and often ends up in shell history. A deploy script can export these instead.
+$secret_env_vars = [
+    'password'      => 'ITFLOW_DB_PASSWORD',
+    'user-password' => 'ITFLOW_ADMIN_PASSWORD',
+];
+
+function getSecretFromEnv($key) {
+    global $secret_env_vars;
+    if (!isset($secret_env_vars[$key])) {
+        return false;
+    }
+    $val = getenv($secret_env_vars[$key]);
+    return ($val === false || $val === '') ? false : $val;
+}
+
 function getOptionOrPrompt($key, $promptMessage, $required = false, $default = '', $optionsGlobal = []) {
     global $options, $non_interactive;
-    if (isset($options[$key])) {
+    $env_val = getSecretFromEnv($key);
+    if ($env_val !== false) {
+        return $env_val;
+    } elseif (isset($options[$key])) {
         return $options[$key];
     } else {
         if ($non_interactive && $required) {
@@ -148,9 +168,10 @@ if (file_exists('../config.php')) {
 }
 
 // If non-interactive is set, ensure all required arguments are present
+// (a secret supplied via ITFLOW_DB_PASSWORD/ITFLOW_ADMIN_PASSWORD counts too)
 if ($non_interactive) {
     foreach (array_keys($required_args) as $arg) {
-        if (!isset($options[$arg])) {
+        if (!isset($options[$arg]) && getSecretFromEnv($arg) === false) {
             die("Missing required argument: --$arg\n");
         }
     }

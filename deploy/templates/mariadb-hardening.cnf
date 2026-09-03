@@ -1,0 +1,53 @@
+# ITFlow-Internal-IT MariaDB hardening drop-in
+#
+# Consumed by: deploy/harden.sh (and deploy/install.sh, which calls it),
+# copied verbatim to /etc/mysql/mariadb.conf.d/99-itflow-hardening.cnf and
+# picked up on the next `systemctl restart mariadb`. The "99-" prefix loads
+# it after every other conf.d file (including 50-server.cnf) so nothing here
+# gets silently overridden by load order.
+#
+# This file only covers PERSISTENT configuration. The one-time cleanup work
+# a full mysql_secure_installation run would otherwise do - removing
+# anonymous users, dropping the test database, and deciding on root's auth
+# method - is deploy/harden.sh's job, not this file's: those are row-level
+# changes to the mysql.* grant tables, not server settings, and re-running
+# them via a .cnf file makes no sense. See harden.sh for that logic.
+
+[mariadb]
+
+# Never expose MariaDB beyond localhost. config.php always connects via
+# localhost/127.0.0.1 (see scripts/setup_cli.php) - there is no legitimate
+# reason for this app to reach MariaDB over a non-loopback address, and a
+# bound-to-0.0.0.0 database is a common lateral-movement target once any
+# other service on the box is compromised.
+bind-address = 127.0.0.1
+
+# Deliberately NOT setting skip-networking, even though bind-address alone
+# already prevents any non-localhost connection. skip-networking disables
+# TCP entirely, including on 127.0.0.1 - some setups (and some MySQL client
+# libraries/drivers) connect via TCP to 127.0.0.1 rather than the Unix
+# socket even for "localhost" connections, and skip-networking would break
+# those while adding no real additional protection over bind-address alone.
+
+# Disable LOAD DATA LOCAL INFILE. It lets a malicious or compromised query
+# read arbitrary files off the CLIENT's filesystem into a table - a known
+# lateral-movement/exfiltration vector - and this app never uses it.
+local-infile = 0
+
+# Sized with headroom over a busy PHP-FPM pool's pm.max_children (100 was
+# observed on one real instance's pool at /etc/php/8.4/fpm/pool.d/www.conf,
+# though neither install.sh nor harden.sh sets pm.max_children itself, and a
+# stock php8.4-fpm package ships a lower default) so normal web traffic
+# can't itself exhaust connections, while still leaving room for cron/CLI
+# scripts (cron/cron.php, scripts/update_cli.php, etc.) to connect
+# concurrently. Safe as a baseline either way; raise it if pm.max_children
+# is ever tuned above ~130 on a given box.
+max_connections = 150
+
+# Supports ISO/IEC 27001:2022 Annex A 8.15 (Logging). Query log destination
+# and error log both point under MariaDB's own log directory rather than
+# staying wherever the distro default puts them, so they're easy to find
+# and rotate consistently alongside each other.
+slow_query_log = 1
+slow_query_log_file = /var/log/mysql/mariadb-slow.log
+log_error = /var/log/mysql/mariadb-error.log
