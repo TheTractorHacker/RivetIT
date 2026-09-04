@@ -237,7 +237,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
             <input type="hidden" name="archived" value="<?php echo $archived; ?>">
             <div class="row">
 
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="input-group mb-3 mb-md-0">
                         <input type="search" class="form-control" name="q" value="<?php if (isset($q)) { echo stripslashes(nullable_htmlentities($q)); } ?>" placeholder="Search Credentials">
                         <div class="input-group-append">
@@ -246,7 +246,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     </div>
                 </div>
 
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <div class="input-group mb-3 mb-md-0">
                         <select class="form-control select2 auto-submit-select" name="tags[]" data-placeholder="- Select Tags -" multiple>
 
