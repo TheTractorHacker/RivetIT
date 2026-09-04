@@ -83,7 +83,7 @@ ob_start();
         <span class="text-white text-bold"><i class="fas fa-check mr-2"></i>Dismiss all</span>
     </a>
     <a href="/agent/notifications.php" class="btn btn-secondary">
-        <span class="text-white">See all Notifications</span>
+        <span>See all Notifications</span>
     </a>
     <?php } else { ?>
     <a href="/agent/notifications.php?dismissed" class="btn btn-dark">

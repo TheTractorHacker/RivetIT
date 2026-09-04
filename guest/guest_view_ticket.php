@@ -151,7 +151,7 @@ if ($ticket_row) {
                         <input type="hidden" name="reopen_ticket" value="1">
                         <input type="hidden" name="ticket_id" value="<?php echo $ticket_id; ?>">
                         <input type="hidden" name="url_key" value="<?php echo $url_key ?>">
-                        <button type="submit" class="btn btn-secondary btn-lg"><i class="fas fa-fw fa-redo text-white"></i> Reopen ticket</button>
+                        <button type="submit" class="btn btn-secondary btn-lg"><i class="fas fa-fw fa-redo"></i> Reopen ticket</button>
                     </form>
                 </div>
 

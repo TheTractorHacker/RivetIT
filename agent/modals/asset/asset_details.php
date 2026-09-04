@@ -920,7 +920,7 @@ ob_start();
         class="btn btn-primary text-bold"><span class="text-white"><i class="fas fa-info-circle me-2"></i>More Details</span>
     </a>
     <a href="#" class="btn btn-secondary ajax-modal" data-modal-url="modals/asset/asset_edit.php?id=<?= $asset_id ?>">
-        <span class="text-white"><i class="fas fa-edit me-2"></i>Edit</span>
+        <span><i class="fas fa-edit me-2"></i>Edit</span>
     </a>
     <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-2"></i>Close</button>
 </div>
