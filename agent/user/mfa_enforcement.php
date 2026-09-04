@@ -78,7 +78,7 @@ $data = "otpauth://totp/ITFlow:$session_email?secret=$token";
                 <form action="post.php" method="post" autocomplete="off">
                     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
 
-                    <img src='../../plugins/barcode/barcode.php?f=png&s=qr&d=<?php echo $data; ?>' data-bs-toggle="tooltip" title="Scan QR code into your MFA App">
+                    <img src='../../plugins/barcode/barcode.php?f=png&s=qr&d=<?php echo rawurlencode($data); ?>' data-bs-toggle="tooltip" title="Scan QR code into your MFA App">
 
                     <p>
                         <small data-bs-toggle="tooltip" title="Can't Scan? Copy and paste this code into your app"><?php echo $token; ?></small>

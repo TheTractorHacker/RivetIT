@@ -258,3 +258,10 @@ a:focus-visible, .btn:focus-visible, .nav-link:focus-visible { outline: 2px soli
    fused into one flat, borderless block instead of reading as separate cards. ---- */
 .ticket-sidebar > .card { margin-bottom: 1rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); }
 .ticket-sidebar > .card:last-child { margin-bottom: 0; }
+
+/* Account Security (agent/user/user_security.php): the Password, Two-Factor
+   Authentication, Passkeys, and Mobile App Tokens cards had no gap between
+   them (same root cause as .ticket-sidebar above - .card carries no default
+   margin-bottom) and visually fused into one block, except for a single
+   manual mt-3 before the last card. flex + gap fixes all the gaps at once. */
+.security-cards { display: flex; flex-direction: column; gap: 1rem; }

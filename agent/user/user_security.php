@@ -6,6 +6,8 @@ $sql_remember_tokens = mysqli_query($mysqli, "SELECT * FROM remember_tokens WHER
 $remember_token_count = mysqli_num_rows($sql_remember_tokens);
 ?>
 
+<div class="security-cards">
+
 <!-- Password -->
 <div class="card card-dark">
     <div class="card-header py-2">
@@ -297,7 +299,7 @@ document.addEventListener('click', function (e) {
 </script>
 
 <!-- API Tokens -->
-<div class="card card-dark mt-3">
+<div class="card card-dark">
     <div class="card-header py-2 d-flex align-items-center">
         <h3 class="card-title mr-auto"><i class="fas fa-fw fa-mobile-alt me-2"></i>Mobile App Tokens</h3>
         <span class="badge text-bg-secondary"><?= mysqli_num_rows($sql_api_tokens) ?> active</span>
@@ -343,6 +345,8 @@ document.addEventListener('click', function (e) {
         </div>
         <?php endif; ?>
     </div>
+</div>
+
 </div>
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
