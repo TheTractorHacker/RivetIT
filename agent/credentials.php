@@ -198,6 +198,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/credential/credential_add.php?<?= $client_url ?>folder_id=<?= $get_folder_id ?>" <?php if (!isset($_COOKIE['user_encryption_session_key'])) { echo 'disabled title="Credential encryption is not set up for your account. Ask an administrator to reset your password under Admin > Users to enable this."'; } ?>>
                     <i class="fas fa-plus me-2"></i>New Credential
                 </button>
+                <?php if ($client_url || $num_rows[0] > 0) { ?>
                 <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"></button>
                 <div class="dropdown-menu">
                     <?php if ($client_url) { ?>
@@ -210,7 +211,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         data-modal-url="modals/credential/credential_import.php?<?= $client_url ?>">
                         <i class="fa fa-fw fa-upload me-2"></i>Import
                     </a>
+                    <?php if ($num_rows[0] > 0) { ?>
                     <div class="dropdown-divider"></div>
+                    <?php } ?>
                     <?php } ?>
                     <?php if ($num_rows[0] > 0) { ?>
                         <a class="dropdown-item text-dark ajax-modal" href="#"
@@ -219,6 +222,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         </a>
                     <?php } ?>
                 </div>
+                <?php } ?>
             </div>
             <?php } ?>
         </div>
