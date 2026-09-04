@@ -2804,6 +2804,7 @@ CREATE TABLE `settings` (
   `config_module_enable_payroll` tinyint(1) NOT NULL DEFAULT 0,
   `config_module_enable_crm` tinyint(1) NOT NULL DEFAULT 0,
   `config_ticket_default_technician_id` int(11) DEFAULT NULL,
+  `config_module_enable_intune` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`company_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -5254,6 +5255,73 @@ CREATE TABLE `intune_sync_log` (
   `devices_updated` int(11) DEFAULT 0,
   `devices_matched` int(11) DEFAULT 0,
   `devices_skipped` int(11) DEFAULT 0,
+  `errors` text DEFAULT NULL,
+  `triggered_by` int(11) DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `client_odoo_links`
+--
+
+DROP TABLE IF EXISTS `client_odoo_links`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `client_odoo_links` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `client_id` int(11) NOT NULL,
+  `odoo_integration_id` int(11) NOT NULL,
+  `odoo_department_id` int(11) NOT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `client_integration` (`client_id`,`odoo_integration_id`),
+  KEY `odoo_department_id` (`odoo_department_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `contact_odoo_links`
+--
+
+DROP TABLE IF EXISTS `contact_odoo_links`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `contact_odoo_links` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `contact_id` int(11) NOT NULL,
+  `odoo_integration_id` int(11) NOT NULL,
+  `odoo_employee_id` int(11) NOT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `contact_integration` (`contact_id`,`odoo_integration_id`),
+  KEY `odoo_employee_id` (`odoo_employee_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `odoo_sync_log`
+--
+
+DROP TABLE IF EXISTS `odoo_sync_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `odoo_sync_log` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `odoo_integration_id` int(11) NOT NULL,
+  `started_at` datetime DEFAULT current_timestamp(),
+  `finished_at` datetime DEFAULT NULL,
+  `status` varchar(20) DEFAULT 'running',
+  `departments_created` int(11) DEFAULT 0,
+  `departments_updated` int(11) DEFAULT 0,
+  `departments_matched` int(11) DEFAULT 0,
+  `departments_skipped` int(11) DEFAULT 0,
+  `employees_created` int(11) DEFAULT 0,
+  `employees_updated` int(11) DEFAULT 0,
+  `employees_matched` int(11) DEFAULT 0,
+  `employees_skipped` int(11) DEFAULT 0,
   `errors` text DEFAULT NULL,
   `triggered_by` int(11) DEFAULT 0,
   PRIMARY KEY (`id`)

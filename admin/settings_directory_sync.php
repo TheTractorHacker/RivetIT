@@ -15,6 +15,7 @@ $ms_last_test_success = $row_ms['last_test_success'] ?? null;
 $ms_last_test_error = nullable_htmlentities($row_ms['last_test_error'] ?? '');
 
 $row_odoo = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM odoo_integrations ORDER BY odoo_integration_id DESC LIMIT 1")) ?: [];
+$odoo_id = intval($row_odoo['odoo_integration_id'] ?? 0);
 $odoo_base_url = nullable_htmlentities($row_odoo['base_url'] ?? '');
 $odoo_database = nullable_htmlentities($row_odoo['database_name'] ?? '');
 $odoo_username = nullable_htmlentities($row_odoo['username'] ?? '');
@@ -28,7 +29,36 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
 
 <div class="alert alert-info">
     <i class="fas fa-info-circle me-2"></i>
-    Scaffolding: both integrations below are fully wired (real OAuth2/JSON-RPC clients, Test Connection buttons, encrypted credential storage) but disabled until real credentials are entered - this internal-IT instance doesn't have a connected Microsoft tenant or Odoo instance yet.
+    Microsoft 365/Entra below is fully wired (real OAuth2 client, Test Connection, Intune device sync) but disabled until real credentials are entered - this internal-IT instance doesn't have a connected Microsoft tenant yet. Odoo below is a real, working directory sync (departments + employees, pulled one-way from Odoo) - save credentials, Test Connection, then Enable and Sync Now (or let the hourly cron pick it up) once a real Odoo instance is available.
+</div>
+
+<div class="card mb-3" style="border-top:3px solid #17a2b8;">
+    <div class="card-header py-2 d-flex align-items-center">
+        <h3 class="card-title me-auto"><i class="fas fa-fw fa-laptop me-2"></i>Intune Devices Module</h3>
+        <?php if ($config_module_enable_intune): ?>
+            <span class="badge text-bg-success"><i class="fas fa-check-circle me-1"></i>Module Enabled</span>
+        <?php else: ?>
+            <span class="badge text-bg-secondary"><i class="fas fa-times-circle me-1"></i>Module Disabled</span>
+        <?php endif; ?>
+    </div>
+    <div class="card-body">
+        <form action="post.php" method="post">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <div class="form-group mb-2">
+                <div class="form-check form-check form-switch">
+                    <input type="checkbox" class="form-check-input" id="intune_module_enabled"
+                           name="config_module_enable_intune" value="1" <?= $config_module_enable_intune ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="intune_module_enabled">Enable Intune Devices module (shows the "Intune Devices" menu item for technicians)</label>
+                </div>
+            </div>
+            <small class="text-muted d-block mb-3">
+                Independent of the Microsoft 365 connection below - browsing this menu doesn't require sync to already be configured, and turning sync on doesn't require showing the menu.
+            </small>
+            <button type="submit" name="save_intune_module_settings" class="btn btn-primary btn-sm">
+                <i class="fas fa-check me-1"></i>Save Module Settings
+            </button>
+        </form>
+    </div>
 </div>
 
 <div class="card card-dark mb-3">
@@ -165,7 +195,49 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
 
             <button type="submit" name="save_odoo_integration" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
             <button type="submit" name="test_odoo_integration" class="btn btn-secondary"><i class="fas fa-plug me-2"></i>Test Connection</button>
+            <?php if ($odoo_enabled && $odoo_has_key): ?>
+            <button type="submit" name="sync_odoo_directory" class="btn btn-success"><i class="fas fa-sync me-2"></i>Sync Now</button>
+            <?php endif; ?>
         </form>
+
+        <hr>
+
+        <h5 class="mb-2"><i class="fas fa-fw fa-history me-2"></i>Recent Odoo Syncs</h5>
+        <?php
+        $sql_odoo_log = mysqli_query($mysqli,
+            "SELECT * FROM odoo_sync_log WHERE odoo_integration_id = $odoo_id ORDER BY id DESC LIMIT 5"
+        );
+        if (!$sql_odoo_log || mysqli_num_rows($sql_odoo_log) == 0): ?>
+            <p class="text-muted small mb-0">No syncs yet.</p>
+        <?php else: ?>
+        <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
+                <tr>
+                    <th>Started</th>
+                    <th>Status</th>
+                    <th>Departments</th>
+                    <th>Employees</th>
+                    <th>Errors</th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php
+            $odoo_log_badge = ['success' => 'text-bg-success', 'failed' => 'text-bg-danger', 'running' => 'text-bg-secondary'];
+            while ($lr = mysqli_fetch_assoc($sql_odoo_log)):
+            ?>
+                <tr>
+                    <td class="text-muted small"><?= nullable_htmlentities($lr['started_at']) ?></td>
+                    <td><span class="badge <?= $odoo_log_badge[$lr['status']] ?? 'text-bg-secondary' ?>"><?= nullable_htmlentities($lr['status']) ?></span></td>
+                    <td class="text-muted small"><?= intval($lr['departments_created']) ?> created / <?= intval($lr['departments_updated']) ?> updated / <?= intval($lr['departments_matched']) ?> matched / <?= intval($lr['departments_skipped']) ?> skipped</td>
+                    <td class="text-muted small"><?= intval($lr['employees_created']) ?> created / <?= intval($lr['employees_updated']) ?> updated / <?= intval($lr['employees_matched']) ?> matched / <?= intval($lr['employees_skipped']) ?> skipped</td>
+                    <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= nullable_htmlentities($lr['errors']) ?></td>
+                </tr>
+            <?php endwhile; ?>
+            </tbody>
+        </table>
+        </div>
+        <?php endif; ?>
     </div>
 </div>
 

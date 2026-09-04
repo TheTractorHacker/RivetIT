@@ -135,6 +135,10 @@ $config_rmm_prefer_tactical = intval($row['config_rmm_prefer_tactical'] ?? 1);
 $config_module_enable_unifi = intval($row['config_module_enable_unifi'] ?? 0);
 $config_unifi_default_integration_id = intval($row['config_unifi_default_integration_id'] ?? 0);
 
+// Intune Devices nav/page - independent of microsoft_integrations' own
+// per-connection enabled/intune_sync_enabled flags (Settings > Integrations > Directory Sync)
+$config_module_enable_intune = intval($row['config_module_enable_intune'] ?? 0);
+
 // Login
 $config_login_message = $row['config_login_message'];
 $config_login_key_required = $row['config_login_key_required'];

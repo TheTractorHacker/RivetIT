@@ -1819,6 +1819,54 @@ if ($ms_integration_row) {
 
 /*
  * ###############################################################################################################
+ *  ODOO DIRECTORY SYNC (Departments + Employees)
+ * ###############################################################################################################
+ */
+
+$sql_odoo_integration = mysqli_query($mysqli, "SELECT * FROM odoo_integrations WHERE enabled=1 ORDER BY odoo_integration_id DESC LIMIT 1");
+$odoo_integration_row = $sql_odoo_integration ? mysqli_fetch_assoc($sql_odoo_integration) : null;
+
+if ($odoo_integration_row) {
+    if (!class_exists(\ITFlow\Integrations\Odoo\OdooClient::class)) {
+        require_once dirname(__DIR__) . '/vendor/autoload.php';
+    }
+
+    $odoo_intg_id = intval($odoo_integration_row['odoo_integration_id']);
+
+    if (empty($odoo_integration_row['base_url']) || empty($odoo_integration_row['database_name']) ||
+        empty($odoo_integration_row['username']) || empty($odoo_integration_row['api_key_enc'])) {
+        logApp("Cron", "error", "Odoo directory sync skipped: integration is missing base URL/database/username/API key");
+    } else {
+        $odoo_client = new \ITFlow\Integrations\Odoo\OdooClient(
+            $odoo_integration_row['base_url'], $odoo_integration_row['database_name'],
+            $odoo_integration_row['username'], decryptSetting($odoo_integration_row['api_key_enc'])
+        );
+        $odoo_mapper = new \ITFlow\Integrations\Odoo\OdooDirectoryMapper($mysqli, $odoo_intg_id, 0);
+        $odoo_log_id = $odoo_mapper->startSyncLog();
+
+        try {
+            $odoo_departments = $odoo_client->listDepartments();
+            $odoo_dept_stats = $odoo_mapper->syncDepartments($odoo_departments);
+
+            $odoo_employees = $odoo_client->listEmployees();
+            $odoo_emp_stats = $odoo_mapper->syncEmployees($odoo_employees, $odoo_dept_stats['idMap']);
+
+            $odoo_mapper->finishSyncLog($odoo_log_id, $odoo_dept_stats, $odoo_emp_stats);
+
+            logApp("Cron", "info",
+                "Odoo directory sync: departments {$odoo_dept_stats['created']} created/{$odoo_dept_stats['updated']} updated/{$odoo_dept_stats['matched']} matched/{$odoo_dept_stats['skipped']} skipped" .
+                "; employees {$odoo_emp_stats['created']} created/{$odoo_emp_stats['updated']} updated/{$odoo_emp_stats['matched']} matched/{$odoo_emp_stats['skipped']} skipped"
+            );
+        } catch (RuntimeException $e) {
+            mysqli_query($mysqli, "UPDATE odoo_sync_log SET finished_at=NOW(), status='failed', errors='" .
+                mysqli_real_escape_string($mysqli, $e->getMessage()) . "' WHERE id=$odoo_log_id");
+            logApp("Cron", "error", "Odoo directory sync failed: " . $e->getMessage());
+        }
+    }
+}
+
+/*
+ * ###############################################################################################################
  *  RMM ALERT AUTO-TICKETING (Syncro-Beta)
  * ###############################################################################################################
  */

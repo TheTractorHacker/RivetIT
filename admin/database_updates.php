@@ -6712,3 +6712,66 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.68'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.68') {
+        // Odoo directory sync (departments + employees), one-way pull from
+        // Odoo hr.department/hr.employee into clients/contacts. Mirrors the
+        // Intune device sync's link-table + sync-log pattern (asset_intune_links
+        // / intune_sync_log) further up this file.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `client_odoo_links` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `client_id` int(11) NOT NULL,
+            `odoo_integration_id` int(11) NOT NULL,
+            `odoo_department_id` int(11) NOT NULL,
+            `created_at` datetime DEFAULT current_timestamp(),
+            `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `client_integration` (`client_id`,`odoo_integration_id`),
+            KEY `odoo_department_id` (`odoo_department_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `contact_odoo_links` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `contact_id` int(11) NOT NULL,
+            `odoo_integration_id` int(11) NOT NULL,
+            `odoo_employee_id` int(11) NOT NULL,
+            `created_at` datetime DEFAULT current_timestamp(),
+            `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `contact_integration` (`contact_id`,`odoo_integration_id`),
+            KEY `odoo_employee_id` (`odoo_employee_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `odoo_sync_log` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `odoo_integration_id` int(11) NOT NULL,
+            `started_at` datetime DEFAULT current_timestamp(),
+            `finished_at` datetime DEFAULT NULL,
+            `status` varchar(20) DEFAULT 'running',
+            `departments_created` int(11) DEFAULT 0,
+            `departments_updated` int(11) DEFAULT 0,
+            `departments_matched` int(11) DEFAULT 0,
+            `departments_skipped` int(11) DEFAULT 0,
+            `employees_created` int(11) DEFAULT 0,
+            `employees_updated` int(11) DEFAULT 0,
+            `employees_matched` int(11) DEFAULT 0,
+            `employees_skipped` int(11) DEFAULT 0,
+            `errors` text DEFAULT NULL,
+            `triggered_by` int(11) DEFAULT 0,
+            PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.69'");
+    }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.69') {
+        // The "Intune Devices" nav link/page has never had an on/off switch -
+        // it always shows even for a company with no Microsoft tenant
+        // connected. Adds a company module toggle matching the existing
+        // config_module_enable_rmm/config_module_enable_unifi convention
+        // (Settings > Integrations), independent of microsoft_integrations'
+        // own per-connection enabled/intune_sync_enabled flags.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_module_enable_intune` tinyint(1) NOT NULL DEFAULT 0");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.70'");
+    }
+

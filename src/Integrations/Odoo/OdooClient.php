@@ -70,6 +70,56 @@ class OdooClient implements BusinessApplicationProvider
         return isset($records[0]) ? $this->mapUser($records[0]) : null;
     }
 
+    /**
+     * @return array raw hr.department records: [{id, name, parent_id: [id,name]|false}, ...], all pages
+     */
+    public function listDepartments(): array
+    {
+        $this->authenticate();
+
+        return $this->searchReadAll('hr.department', [], ['id', 'name', 'parent_id']);
+    }
+
+    /**
+     * @return array raw hr.employee records: [{id, name, work_email, department_id,
+     *   job_title, work_phone, mobile_phone, active}, ...], all pages, INCLUDING
+     *   inactive employees (see 'active_test' => false below - without it Odoo
+     *   silently drops active=false records from search_read, which would make
+     *   detecting a deactivation impossible).
+     */
+    public function listEmployees(): array
+    {
+        $this->authenticate();
+
+        return $this->searchReadAll('hr.employee', [], [
+            'id', 'name', 'work_email', 'department_id', 'job_title', 'work_phone', 'mobile_phone', 'active',
+        ], ['context' => ['active_test' => false]]);
+    }
+
+    private function searchReadAll(string $model, array $domain, array $fields, array $extraKwargs = []): array
+    {
+        $records = [];
+        $limit = 100;
+        $offset = 0;
+
+        do {
+            $batch = $this->executeKw($model, 'search_read', [$domain], array_merge([
+                'fields' => $fields,
+                'limit' => $limit,
+                'offset' => $offset,
+                'order' => 'id asc',
+            ], $extraKwargs));
+
+            foreach ($batch as $r) {
+                $records[] = $r;
+            }
+
+            $offset += $limit;
+        } while (count($batch) === $limit);
+
+        return $records;
+    }
+
     private function mapUser(array $r): ExternalUser
     {
         return new ExternalUser(

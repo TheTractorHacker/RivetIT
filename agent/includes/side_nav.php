@@ -24,12 +24,14 @@
                         <p>Dashboard</p>
                     </a>
                 </li>
+                <?php if ($config_module_enable_intune) { ?>
                 <li class="nav-item">
                     <a href="/agent/intune_devices.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "intune_devices.php") { echo "active"; } ?>">
                         <i class="nav-icon fas fa-laptop"></i>
                         <p>Intune Devices</p>
                     </a>
                 </li>
+                <?php } ?>
                 <?php if (lookupUserPermission("module_rmm_alerts") >= 1) { ?>
                 <li class="nav-item">
                     <a href="/agent/alerts.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "alerts.php") { echo "active"; } ?>">

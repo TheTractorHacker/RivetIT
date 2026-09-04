@@ -5,6 +5,19 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 use ITFlow\Integrations\Microsoft\GraphClient;
 use ITFlow\Integrations\Microsoft\IntuneAssetMapper;
 use ITFlow\Integrations\Odoo\OdooClient;
+use ITFlow\Integrations\Odoo\OdooDirectoryMapper;
+
+// Save module on/off toggle (nav visibility only - independent of
+// microsoft_integrations' own enabled/intune_sync_enabled flags below)
+if (isset($_POST['save_intune_module_settings'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('module_client', 3);
+    $enabled = isset($_POST['config_module_enable_intune']) ? 1 : 0;
+    mysqli_query($mysqli, "UPDATE settings SET config_module_enable_intune=$enabled WHERE company_id=1");
+    logAction('Settings', 'Edit', "$session_name " . ($enabled ? 'enabled' : 'disabled') . " the Intune Devices module");
+    flash_alert($enabled ? 'Intune Devices module enabled' : 'Intune Devices module disabled');
+    redirect();
+}
 
 if (isset($_POST['save_microsoft_integration'])) {
 
@@ -171,5 +184,61 @@ if (isset($_POST['test_odoo_integration'])) {
     \ITFlow\Audit\AuditService::record('integration.odoo.test', $session_user_id, 'odoo_integration', $id, $result->success ? 'success' : 'failed', $result->error);
 
     flash_alert($result->success ? 'Connection successful' : 'Connection failed: ' . $result->error, $result->success ? 'success' : 'error');
+    redirect();
+}
+
+if (isset($_POST['sync_odoo_directory'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('module_client', 3);
+
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM odoo_integrations ORDER BY odoo_integration_id DESC LIMIT 1"));
+    $id = $row ? intval($row['odoo_integration_id']) : null;
+
+    if (!$row) {
+        flash_alert('No Odoo integration is configured yet.', 'error');
+        redirect();
+    }
+    if (empty($row['enabled'])) {
+        flash_alert('Enable the Odoo integration before syncing the directory.', 'error');
+        redirect();
+    }
+    if (empty($row['base_url']) || empty($row['database_name']) || empty($row['username']) || empty($row['api_key_enc'])) {
+        flash_alert('Save a base URL, database name, username, and API key before syncing.', 'error');
+        redirect();
+    }
+
+    // Guard against overlapping runs (e.g. this button clicked while the cron
+    // job is mid-sync) - same 60-second running-lock pattern sync_intune_devices uses.
+    $recent = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT id FROM odoo_sync_log WHERE odoo_integration_id=$id
+         AND started_at > DATE_SUB(NOW(), INTERVAL 60 SECOND) AND status='running' LIMIT 1"
+    ));
+    if ($recent) {
+        flash_alert('A sync is already running. Please wait 60 seconds.', 'error');
+        redirect();
+    }
+
+    $client = new OdooClient($row['base_url'], $row['database_name'], $row['username'], decryptSetting($row['api_key_enc']));
+    $mapper = new OdooDirectoryMapper($mysqli, $id, $session_user_id);
+    $log_id = $mapper->startSyncLog();
+
+    try {
+        $departments = $client->listDepartments();
+        $deptStats = $mapper->syncDepartments($departments);
+
+        $employees = $client->listEmployees();
+        $empStats = $mapper->syncEmployees($employees, $deptStats['idMap']);
+
+        $mapper->finishSyncLog($log_id, $deptStats, $empStats);
+
+        logAction("Settings", "Edit", "$session_name synced Odoo directory: departments {$deptStats['created']} created/{$deptStats['updated']} updated/{$deptStats['matched']} matched, employees {$empStats['created']} created/{$empStats['updated']} updated/{$empStats['matched']} matched");
+        flash_alert("Odoo sync complete: departments {$deptStats['created']} created, {$deptStats['updated']} updated; employees {$empStats['created']} created, {$empStats['updated']} updated");
+    } catch (\RuntimeException $e) {
+        mysqli_query($mysqli, "UPDATE odoo_sync_log SET finished_at=NOW(), status='failed', errors='" .
+            mysqli_real_escape_string($mysqli, $e->getMessage()) . "' WHERE id=$log_id");
+        flash_alert($e->getMessage(), 'error');
+    }
+
     redirect();
 }
