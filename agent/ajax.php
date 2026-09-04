@@ -15,11 +15,17 @@ require_once "../plugins/totp/totp.php";
  * Live global-search dropdown (top nav). Read-only GET, no CSRF needed (mirrors
  * certificate_fetch_parse_json_details below). Auth already enforced by check_login.php above.
  * Mirrors global_search.php's own queries/scoping for clients, contacts, tickets, quotes,
- * invoices, and assets - a fast LIMIT-5-per-type subset for per-keystroke use. Documents,
- * files, credentials, vendors, domains, products, recurring_tickets, and ticket_replies are
- * intentionally out of scope here (kept cheap, and avoid decrypting credentials on every
- * keystroke); the full, unabridged search remains at global_search.php.
+ * invoices, assets, vendors, domains, products, documents, recurring tickets, credentials,
+ * KB articles, and (new, not DB-backed) settings pages - a fast LIMIT-5-per-type subset for
+ * per-keystroke use. Credentials match only on the plaintext name/description columns, same
+ * as global_search.php - nothing is decrypted for the match itself, only kept out of the
+ * result row entirely here (unlike global_search.php's full-page version, which does decrypt
+ * for display) to keep this endpoint cheap on every keystroke. Files and ticket_replies are
+ * still intentionally out of scope (full-text-ish scans with the least payoff for a live
+ * dropdown); the full, unabridged search remains at global_search.php.
  */
+require_once "../includes/settings_search_index.php";
+
 if (isset($_GET['global_search_live'])) {
     header('Content-Type: application/json');
 
@@ -182,6 +188,150 @@ if (isset($_GET['global_search_live'])) {
         ];
     }
     if ($rows) { $groups['assets'] = $rows; }
+
+    // Vendors
+    $sql = mysqli_query($mysqli, "SELECT vendors.vendor_id, vendor_name, clients.client_id, client_name
+        FROM vendors
+        LEFT JOIN clients ON vendor_client_id = client_id
+        WHERE vendor_archived_at IS NULL
+            AND (vendor_name LIKE '%$query%' OR vendor_phone LIKE '%$phone_query%')
+            $access_permission_query
+        ORDER BY vendor_id DESC LIMIT 5"
+    );
+    $rows = [];
+    while ($row = mysqli_fetch_assoc($sql)) {
+        $rows[] = [
+            'title' => $row['vendor_name'],
+            'subtitle' => (string) $row['client_name'],
+            'url' => '/agent/vendor_details.php?client_id=' . intval($row['client_id']) . '&vendor_id=' . intval($row['vendor_id']),
+        ];
+    }
+    if ($rows) { $groups['vendors'] = $rows; }
+
+    // Domains
+    $sql = mysqli_query($mysqli, "SELECT domains.domain_id, domain_name, domain_expire, clients.client_id, client_name
+        FROM domains
+        LEFT JOIN clients ON domain_client_id = client_id
+        WHERE domain_archived_at IS NULL
+            AND domain_name LIKE '%$query%'
+            $access_permission_query
+        ORDER BY domain_id DESC LIMIT 5"
+    );
+    $rows = [];
+    while ($row = mysqli_fetch_assoc($sql)) {
+        $subtitle = (string) $row['client_name'];
+        if (!empty($row['domain_expire'])) {
+            $subtitle .= ' · expires ' . $row['domain_expire'];
+        }
+        $rows[] = [
+            'title' => $row['domain_name'],
+            'subtitle' => $subtitle,
+            'url' => '/agent/domains.php?client_id=' . intval($row['client_id']) . '&domain_id=' . intval($row['domain_id']),
+        ];
+    }
+    if ($rows) { $groups['domains'] = $rows; }
+
+    // Products (shared catalog, not client-scoped - matches global_search.php)
+    $sql = mysqli_query($mysqli, "SELECT product_id, product_name, product_description FROM products
+        WHERE product_archived_at IS NULL
+            AND product_name LIKE '%$query%'
+        ORDER BY product_id DESC LIMIT 5"
+    );
+    $rows = [];
+    while ($row = mysqli_fetch_assoc($sql)) {
+        $rows[] = [
+            'title' => $row['product_name'],
+            'subtitle' => mb_substr((string) $row['product_description'], 0, 80),
+            'url' => '/agent/products.php?q=' . rawurlencode($row['product_name']),
+        ];
+    }
+    if ($rows) { $groups['products'] = $rows; }
+
+    // Documents (fulltext, same index/mode as global_search.php)
+    $sql = mysqli_query($mysqli, "SELECT documents.document_id, document_name, clients.client_id, client_name
+        FROM documents
+        LEFT JOIN clients ON document_client_id = clients.client_id
+        WHERE document_archived_at IS NULL
+            AND MATCH(document_content_raw) AGAINST ('$query')
+            $access_permission_query
+        ORDER BY document_id DESC LIMIT 5"
+    );
+    $rows = [];
+    while ($row = mysqli_fetch_assoc($sql)) {
+        $rows[] = [
+            'title' => $row['document_name'],
+            'subtitle' => (string) $row['client_name'],
+            'url' => '/agent/document_details.php?client_id=' . intval($row['client_id']) . '&document_id=' . intval($row['document_id']),
+        ];
+    }
+    if ($rows) { $groups['documents'] = $rows; }
+
+    // Recurring tickets
+    $sql = mysqli_query($mysqli, "SELECT recurring_tickets.recurring_ticket_id, recurring_ticket_subject, clients.client_id, client_name
+        FROM recurring_tickets
+        LEFT JOIN clients ON recurring_ticket_client_id = client_id
+        WHERE (recurring_ticket_subject LIKE '%$query%' OR recurring_ticket_details LIKE '%$query%')
+            $access_permission_query
+        ORDER BY recurring_ticket_id DESC LIMIT 5"
+    );
+    $rows = [];
+    while ($row = mysqli_fetch_assoc($sql)) {
+        $rows[] = [
+            'title' => $row['recurring_ticket_subject'],
+            'subtitle' => (string) $row['client_name'],
+            'url' => '/agent/recurring_tickets.php?client_id=' . intval($row['client_id']),
+        ];
+    }
+    if ($rows) { $groups['recurring_tickets'] = $rows; }
+
+    // Credentials - matches only the plaintext name/description columns
+    // (same as global_search.php), and nothing is decrypted here at all -
+    // the result row shows only the department, not the username/password.
+    if (lookupUserPermission('module_credential') >= 1) {
+        $sql = mysqli_query($mysqli, "SELECT credentials.credential_id, credential_name, credential_description, clients.client_id, client_name
+            FROM credentials
+            LEFT JOIN clients ON credential_client_id = client_id
+            WHERE credential_archived_at IS NULL
+                AND (credential_name LIKE '%$query%' OR credential_description LIKE '%$query%')
+                $access_permission_query
+            ORDER BY credential_id DESC LIMIT 5"
+        );
+        $rows = [];
+        while ($row = mysqli_fetch_assoc($sql)) {
+            $rows[] = [
+                'title' => $row['credential_name'],
+                'subtitle' => (string) $row['client_name'],
+                'url' => '/agent/credentials.php?client_id=' . intval($row['client_id']),
+            ];
+        }
+        if ($rows) { $groups['credentials'] = $rows; }
+    }
+
+    // Knowledge base articles - not client-scoped by $access_permission_query
+    // (matches agent/kb_articles.php's own central-list query), gated on both
+    // the instance-wide module toggle and the per-role KB permission.
+    if (!empty($config_module_enable_kb) && lookupUserPermission('module_kb') >= 1) {
+        $sql = mysqli_query($mysqli, "SELECT kb_article_id, kb_article_title FROM kb_articles
+            WHERE kb_article_archived_at IS NULL
+                AND (kb_article_title LIKE '%$query%' OR kb_article_content_raw LIKE '%$query%')
+            ORDER BY kb_article_updated_at DESC LIMIT 5"
+        );
+        $rows = [];
+        while ($row = mysqli_fetch_assoc($sql)) {
+            $rows[] = [
+                'title' => $row['kb_article_title'],
+                'subtitle' => 'Knowledge Base',
+                'url' => '/agent/kb_article.php?id=' . intval($row['kb_article_id']),
+            ];
+        }
+        if ($rows) { $groups['kb_articles'] = $rows; }
+    }
+
+    // Settings - not database rows, so matched against a static PHP index
+    // instead of SQL (uses $raw_query, not the SQL-escaped $query - this
+    // never touches a database). Admin-only (see searchSettingsIndex()).
+    $settings_matches = searchSettingsIndex($raw_query);
+    if ($settings_matches) { $groups['settings'] = $settings_matches; }
 
     echo json_encode(['ok' => true, 'groups' => $groups]);
     exit;

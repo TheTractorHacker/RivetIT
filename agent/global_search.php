@@ -147,6 +147,22 @@ if (isset($_GET['query'])) {
         ORDER BY ticket_id DESC, ticket_reply_id ASC LIMIT 20"
     );
 
+    // Knowledge base articles - not client-scoped by $access_permission_query,
+    // matching agent/kb_articles.php's own central-list query.
+    $sql_kb_articles = null;
+    if (!empty($config_module_enable_kb) && lookupUserPermission('module_kb') >= 1) {
+        $sql_kb_articles = mysqli_query($mysqli, "SELECT kb_article_id, kb_article_title FROM kb_articles
+            WHERE kb_article_archived_at IS NULL
+                AND (kb_article_title LIKE '%$query%' OR kb_article_content_raw LIKE '%$query%')
+            ORDER BY kb_article_updated_at DESC LIMIT 5"
+        );
+    }
+
+    // Settings - not database rows, matched against a static PHP index (see
+    // includes/settings_search_index.php), admin-only.
+    require_once "../includes/settings_search_index.php";
+    $settings_matches = searchSettingsIndex($_GET['query']);
+
     $q = nullable_htmlentities($_GET['query']);
 
     ?>
@@ -902,6 +918,70 @@ if (isset($_GET['query'])) {
 
             </div>
         </div>
+
+        <?php } ?>
+
+        <?php if ($sql_kb_articles && mysqli_num_rows($sql_kb_articles) > 0) { ?>
+
+            <!-- Knowledge Base Articles -->
+
+            <div class="col-sm-6">
+                <div class="card card-dark mb-3">
+                    <div class="card-header">
+                        <h6 class="card-title"><i class="fas fa-fw fa-book me-2"></i>Knowledge Base</h6>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-striped table-borderless">
+                            <thead>
+                            <tr>
+                                <th>Title</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <?php
+                            while ($row = mysqli_fetch_assoc($sql_kb_articles)) {
+                                $kb_article_id = intval($row['kb_article_id']);
+                                $kb_article_title = nullable_htmlentities($row['kb_article_title']);
+                            ?>
+                                <tr>
+                                    <td><a href="kb_article.php?id=<?php echo $kb_article_id; ?>"><?php echo $kb_article_title; ?></a></td>
+                                </tr>
+                            <?php } ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        <?php } ?>
+
+        <?php if (!empty($settings_matches)) { ?>
+
+            <!-- Settings -->
+
+            <div class="col-sm-6">
+                <div class="card card-dark mb-3">
+                    <div class="card-header">
+                        <h6 class="card-title"><i class="fas fa-fw fa-cog me-2"></i>Settings</h6>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-striped table-borderless">
+                            <thead>
+                            <tr>
+                                <th>Section</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($settings_matches as $setting_match) { ?>
+                                <tr>
+                                    <td><a href="<?php echo htmlspecialchars($setting_match['url'], ENT_QUOTES); ?>"><?php echo nullable_htmlentities($setting_match['title']); ?></a></td>
+                                </tr>
+                            <?php } ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
         <?php } ?>
 

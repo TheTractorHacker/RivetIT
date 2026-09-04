@@ -139,9 +139,19 @@
         tickets:  { label: 'Tickets',  icon: 'fa-life-ring' },
         quotes:   { label: 'Quotes',   icon: 'fa-file-invoice' },
         invoices: { label: 'Invoices', icon: 'fa-file-invoice-dollar' },
-        assets:   { label: 'Assets',   icon: 'fa-desktop' }
+        assets:   { label: 'Assets',   icon: 'fa-desktop' },
+        kb_articles: { label: 'Knowledge Base', icon: 'fa-book' },
+        credentials: { label: 'Credentials', icon: 'fa-key' },
+        vendors: { label: 'Vendors', icon: 'fa-building' },
+        domains: { label: 'Domains', icon: 'fa-globe' },
+        documents: { label: 'Documents', icon: 'fa-file-alt' },
+        recurring_tickets: { label: 'Recurring Tickets', icon: 'fa-sync' },
+        products: { label: 'Products', icon: 'fa-box' },
+        settings: { label: 'Settings', icon: 'fa-cog' }
     };
-    var GROUP_ORDER = ['clients', 'contacts', 'tickets', 'quotes', 'invoices', 'assets'];
+    var GROUP_ORDER = ['clients', 'contacts', 'tickets', 'quotes', 'invoices', 'assets',
+        'kb_articles', 'credentials', 'vendors', 'domains', 'documents', 'recurring_tickets',
+        'products', 'settings'];
 
     function closePanel() {
         panel.classList.add('d-none');
