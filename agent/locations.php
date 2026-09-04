@@ -76,7 +76,7 @@ $sql = mysqli_query(
     AND (location_name LIKE '%$q%' OR location_description LIKE '%$q%' OR location_address LIKE '%$q%' OR location_city LIKE '%$q%' OR location_state LIKE '%$q%' OR location_zip LIKE '%$q%' OR location_country LIKE '%$q%' OR location_phone LIKE '%$phone_query%' OR tag_name LIKE '%$q%' OR client_name LIKE '%$q%')
     $access_permission_query
     $client_query
-    GROUP BY location_id
+    GROUP BY locations.location_id
     ORDER BY location_primary DESC, $sort $order LIMIT $record_from, $record_to"
 );
 
@@ -160,7 +160,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
                             <?php
                             $sql_clients_filter = mysqli_query($mysqli, "
-                                SELECT DISTINCT client_id, client_name
+                                SELECT DISTINCT clients.client_id, clients.client_name
                                 FROM clients
                                 JOIN department_sites ON department_sites.client_id = clients.client_id
                                 JOIN locations ON locations.location_id = department_sites.location_id
