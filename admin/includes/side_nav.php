@@ -414,7 +414,7 @@
                 </li>
 
                 <!-- SETTINGS Section -->
-                <li class="nav-item has-treeview mt-2 <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['settings_company.php', 'settings_localization.php', 'settings_theme.php', 'settings_appearance.php', 'settings_security.php', 'settings_mail.php', 'settings_notification.php', 'settings_default.php', 'settings_invoice.php', 'settings_quote.php', 'settings_online_payment.php', 'settings_online_payment_clients.php', 'settings_project.php', 'settings_ticket.php', 'settings_ai.php', 'identity_provider.php', 'settings_telemetry.php', 'settings_module.php', 'settings_calendar_sync.php', 'settings_webhooks.php', 'settings_integrations.php', 'settings_comet.php', 'comet_status.php', 'settings_rmm.php', 'settings_unifi.php', 'settings_accounting.php', 'settings_directory_sync.php']) ? 'menu-open' : ''); ?>">
+                <li class="nav-item has-treeview mt-2 <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['settings_company.php', 'settings_localization.php', 'settings_theme.php', 'settings_appearance.php', 'settings_security.php', 'settings_mail.php', 'settings_notification.php', 'settings_default.php', 'settings_invoice.php', 'settings_quote.php', 'settings_online_payment.php', 'settings_online_payment_clients.php', 'settings_project.php', 'settings_ticket.php', 'settings_ai.php', 'identity_provider.php', 'settings_telemetry.php', 'settings_module.php', 'settings_calendar_sync.php', 'settings_webhooks.php', 'settings_integrations.php', 'settings_comet.php', 'comet_status.php', 'settings_rmm.php', 'settings_unifi.php', 'settings_accounting.php']) ? 'menu-open' : ''); ?>">
                     <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-cog"></i>
                         <p>
@@ -542,12 +542,6 @@
                             <a href="/admin/settings_integrations.php" class="nav-link <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['settings_integrations.php','settings_comet.php','comet_status.php','settings_rmm.php','settings_unifi.php']) ? 'active' : ''); ?>">
                                 <i class="nav-icon fas fa-plug"></i>
                                 <p>Integrations</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="/admin/settings_directory_sync.php" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_directory_sync.php' ? 'active' : ''); ?>">
-                                <i class="nav-icon fas fa-address-book"></i>
-                                <p>Microsoft / Odoo Sync</p>
                             </a>
                         </li>
                         <?php if ($config_module_enable_accounting) { ?>

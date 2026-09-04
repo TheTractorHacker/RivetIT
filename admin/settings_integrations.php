@@ -3,7 +3,7 @@ require_once "includes/inc_all_admin.php";
 enforceUserPermission('module_admin');
 require_once "../includes/comet.php";
 
-$active_tab = in_array($_GET['tab'] ?? '', ['rmm', 'backups', 'firewalls', 'unifi']) ? $_GET['tab'] : 'rmm';
+$active_tab = in_array($_GET['tab'] ?? '', ['rmm', 'backups', 'firewalls', 'unifi', 'directorysync']) ? $_GET['tab'] : 'rmm';
 
 // ─── RMM (non-Sophos) ───────────────────────────────────────────────────────
 $sql_rmm_integrations = mysqli_query($mysqli, "SELECT * FROM rmm_integrations WHERE type != 'sophos_central' ORDER BY name ASC");
@@ -61,6 +61,29 @@ while ($sm = mysqli_fetch_assoc($sql_unifi_site_maps)) {
     }
     $unifi_site_maps_by_integration[$iid]['sites'][] = $sm;
 }
+
+// ─── Directory Sync (Microsoft / Odoo) ──────────────────────────────────────
+$row_ms = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM microsoft_integrations ORDER BY microsoft_integration_id DESC LIMIT 1")) ?: [];
+$ms_id = intval($row_ms['microsoft_integration_id'] ?? 0);
+$ms_tenant_id = nullable_htmlentities($row_ms['tenant_id'] ?? '');
+$ms_client_id = nullable_htmlentities($row_ms['client_id'] ?? '');
+$ms_has_secret = !empty($row_ms['client_secret_enc']);
+$ms_enabled = intval($row_ms['enabled'] ?? 0);
+$ms_intune_sync_enabled = intval($row_ms['intune_sync_enabled'] ?? 0);
+$ms_last_test_at = $row_ms['last_test_at'] ?? null;
+$ms_last_test_success = $row_ms['last_test_success'] ?? null;
+$ms_last_test_error = nullable_htmlentities($row_ms['last_test_error'] ?? '');
+
+$row_odoo = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM odoo_integrations ORDER BY odoo_integration_id DESC LIMIT 1")) ?: [];
+$odoo_id = intval($row_odoo['odoo_integration_id'] ?? 0);
+$odoo_base_url = nullable_htmlentities($row_odoo['base_url'] ?? '');
+$odoo_database = nullable_htmlentities($row_odoo['database_name'] ?? '');
+$odoo_username = nullable_htmlentities($row_odoo['username'] ?? '');
+$odoo_has_key = !empty($row_odoo['api_key_enc']);
+$odoo_enabled = intval($row_odoo['enabled'] ?? 0);
+$odoo_last_test_at = $row_odoo['last_test_at'] ?? null;
+$odoo_last_test_success = $row_odoo['last_test_success'] ?? null;
+$odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? '');
 ?>
 
 <div class="d-flex align-items-center mb-3">
@@ -79,6 +102,9 @@ while ($sm = mysqli_fetch_assoc($sql_unifi_site_maps)) {
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $active_tab === 'unifi'     ? 'active' : '' ?>" data-bs-toggle="tab" href="#tab-unifi"     data-tabkey="unifi"><i class="fas fa-wifi me-1"></i>UniFi</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $active_tab === 'directorysync' ? 'active' : '' ?>" data-bs-toggle="tab" href="#tab-directorysync" data-tabkey="directorysync"><i class="fas fa-address-book me-1"></i>Directory Sync</a>
     </li>
     <li class="nav-item">
         <a class="nav-link" href="settings_accounting.php"><i class="fas fa-file-invoice-dollar me-1"></i>Accounting</a>
@@ -1262,6 +1288,230 @@ while ($sm = mysqli_fetch_assoc($sql_unifi_site_maps)) {
     </div>
 
 </div><!-- /#tab-unifi -->
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     DIRECTORY SYNC (MICROSOFT / ODOO) TAB
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="tab-pane <?= $active_tab === 'directorysync' ? 'show active' : '' ?>" id="tab-directorysync">
+
+    <div class="card mb-3" style="border-top:3px solid #17a2b8;">
+        <div class="card-header py-2 d-flex align-items-center">
+            <h3 class="card-title me-auto"><i class="fas fa-fw fa-laptop me-2"></i>Intune Devices Module</h3>
+            <?php if ($config_module_enable_intune): ?>
+                <span class="badge text-bg-success"><i class="fas fa-check-circle me-1"></i>Module Enabled</span>
+            <?php else: ?>
+                <span class="badge text-bg-secondary"><i class="fas fa-times-circle me-1"></i>Module Disabled</span>
+            <?php endif; ?>
+        </div>
+        <div class="card-body">
+            <form action="post.php" method="post">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                <div class="form-group mb-2">
+                    <div class="form-check form-check form-switch">
+                        <input type="checkbox" class="form-check-input" id="intune_module_enabled"
+                               name="config_module_enable_intune" value="1" <?= $config_module_enable_intune ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="intune_module_enabled">Enable Intune Devices module (shows the "Intune Devices" menu item for technicians)</label>
+                    </div>
+                </div>
+                <small class="text-muted d-block mb-3">
+                    Independent of the Microsoft 365 connection below - browsing this menu doesn't require sync to already be configured, and turning sync on doesn't require showing the menu.
+                </small>
+                <button type="submit" name="save_intune_module_settings" class="btn btn-primary btn-sm">
+                    <i class="fas fa-check me-1"></i>Save Module Settings
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-3" style="border-top:3px solid #0078D4;">
+        <div class="card-header py-2 d-flex align-items-center">
+            <h3 class="card-title me-auto"><i class="fab fa-fw fa-microsoft me-2"></i>Microsoft 365 / Entra ID</h3>
+            <?php if ($ms_last_test_at) { ?>
+                <span class="badge <?= $ms_last_test_success ? 'text-bg-success' : 'text-bg-danger' ?>">
+                    Last test: <?= $ms_last_test_success ? 'Success' : 'Failed' ?> (<?= nullable_htmlentities($ms_last_test_at) ?>)
+                </span>
+            <?php } ?>
+        </div>
+        <div class="card-body">
+            <?php if ($ms_last_test_error) { ?>
+                <div class="alert alert-danger"><?= $ms_last_test_error ?></div>
+            <?php } ?>
+            <form action="post.php" method="post" autocomplete="off">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+
+                <div class="form-group">
+                    <label>Tenant ID</label>
+                    <input type="text" class="form-control" name="tenant_id" value="<?= $ms_tenant_id ?>" placeholder="e.g. 72f988bf-86f1-41af-91ab-2d7cd011db47">
+                </div>
+                <div class="form-group">
+                    <label>Application (Client) ID</label>
+                    <input type="text" class="form-control" name="client_id" value="<?= $ms_client_id ?>">
+                </div>
+                <div class="form-group">
+                    <label>Client Secret</label>
+                    <input type="password" class="form-control" name="client_secret" placeholder="<?= $ms_has_secret ? 'Stored - leave blank to keep current' : 'Enter client secret' ?>" autocomplete="new-password">
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input type="checkbox" class="form-check-input" name="enabled" value="1" id="msEnabled" <?= $ms_enabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="msEnabled">Enabled</label>
+                </div>
+
+                <hr>
+
+                <div class="form-check form-switch mb-1">
+                    <input type="checkbox" class="form-check-input" name="intune_sync_enabled" value="1" id="msIntuneSyncEnabled" <?= $ms_intune_sync_enabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="msIntuneSyncEnabled">Sync devices from Intune</label>
+                </div>
+                <small class="text-muted d-block mb-3">
+                    Requires the <code>DeviceManagementManagedDevices.Read.All</code> Application permission on this same app registration - grant it in Entra ID → App registrations → (your app) → API permissions → Add a permission → Microsoft Graph → Application permissions, then Grant admin consent. This app cannot grant that permission for you; it must be added in the Azure/Entra portal.
+                </small>
+
+                <button type="submit" name="save_microsoft_integration" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
+                <button type="submit" name="test_microsoft_integration" class="btn btn-secondary"><i class="fas fa-plug me-2"></i>Test Connection</button>
+                <?php if ($ms_enabled && $ms_intune_sync_enabled && $ms_has_secret): ?>
+                <button type="submit" name="sync_intune_devices" class="btn btn-success"><i class="fas fa-sync me-2"></i>Sync Now</button>
+                <?php endif; ?>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header py-2">
+            <h3 class="card-title"><i class="fas fa-fw fa-history me-2"></i>Recent Intune Syncs</h3>
+        </div>
+        <div class="card-body p-0">
+            <?php
+            $sql_intune_log = mysqli_query($mysqli,
+                "SELECT * FROM intune_sync_log WHERE microsoft_integration_id = $ms_id ORDER BY id DESC LIMIT 5"
+            );
+            if (!$sql_intune_log || mysqli_num_rows($sql_intune_log) == 0): ?>
+                <p class="text-muted text-center py-3 mb-0">No syncs yet.</p>
+            <?php else: ?>
+            <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
+                    <tr>
+                        <th class="ps-3">Started</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Updated</th>
+                        <th>Matched</th>
+                        <th>Skipped</th>
+                        <th>Errors</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php
+                $intune_log_badge = ['success' => 'text-bg-success', 'failed' => 'text-bg-danger', 'running' => 'text-bg-secondary'];
+                while ($lr = mysqli_fetch_assoc($sql_intune_log)):
+                ?>
+                    <tr>
+                        <td class="ps-3 text-muted small"><?= nullable_htmlentities($lr['started_at']) ?></td>
+                        <td><span class="badge <?= $intune_log_badge[$lr['status']] ?? 'text-bg-secondary' ?>"><?= nullable_htmlentities($lr['status']) ?></span></td>
+                        <td><?= intval($lr['devices_created']) ?></td>
+                        <td><?= intval($lr['devices_updated']) ?></td>
+                        <td><?= intval($lr['devices_matched']) ?></td>
+                        <td><?= intval($lr['devices_skipped']) ?></td>
+                        <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= nullable_htmlentities($lr['errors']) ?></td>
+                    </tr>
+                <?php endwhile; ?>
+                </tbody>
+            </table>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <div class="card mb-3" style="border-top:3px solid #714B67;">
+        <div class="card-header py-2 d-flex align-items-center">
+            <h3 class="card-title me-auto"><i class="fas fa-fw fa-cogs me-2"></i>Odoo</h3>
+            <?php if ($odoo_last_test_at) { ?>
+                <span class="badge <?= $odoo_last_test_success ? 'text-bg-success' : 'text-bg-danger' ?>">
+                    Last test: <?= $odoo_last_test_success ? 'Success' : 'Failed' ?> (<?= nullable_htmlentities($odoo_last_test_at) ?>)
+                </span>
+            <?php } ?>
+        </div>
+        <div class="card-body">
+            <?php if ($odoo_last_test_error) { ?>
+                <div class="alert alert-danger"><?= $odoo_last_test_error ?></div>
+            <?php } ?>
+            <form action="post.php" method="post" autocomplete="off">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+
+                <div class="form-group">
+                    <label>Base URL</label>
+                    <input type="text" class="form-control" name="base_url" value="<?= $odoo_base_url ?>" placeholder="e.g. https://yourcompany.odoo.com">
+                </div>
+                <div class="form-group">
+                    <label>Database Name</label>
+                    <input type="text" class="form-control" name="database_name" value="<?= $odoo_database ?>">
+                </div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" class="form-control" name="username" value="<?= $odoo_username ?>" placeholder="e.g. admin@yourcompany.com">
+                </div>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="password" class="form-control" name="api_key" placeholder="<?= $odoo_has_key ? 'Stored - leave blank to keep current' : 'Enter API key' ?>" autocomplete="new-password">
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input type="checkbox" class="form-check-input" name="enabled" value="1" id="odooEnabled" <?= $odoo_enabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="odooEnabled">Enabled</label>
+                </div>
+
+                <button type="submit" name="save_odoo_integration" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
+                <button type="submit" name="test_odoo_integration" class="btn btn-secondary"><i class="fas fa-plug me-2"></i>Test Connection</button>
+                <?php if ($odoo_enabled && $odoo_has_key): ?>
+                <button type="submit" name="sync_odoo_directory" class="btn btn-success"><i class="fas fa-sync me-2"></i>Sync Now</button>
+                <?php endif; ?>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header py-2">
+            <h3 class="card-title"><i class="fas fa-fw fa-history me-2"></i>Recent Odoo Syncs</h3>
+        </div>
+        <div class="card-body p-0">
+            <?php
+            $sql_odoo_log = mysqli_query($mysqli,
+                "SELECT * FROM odoo_sync_log WHERE odoo_integration_id = $odoo_id ORDER BY id DESC LIMIT 5"
+            );
+            if (!$sql_odoo_log || mysqli_num_rows($sql_odoo_log) == 0): ?>
+                <p class="text-muted text-center py-3 mb-0">No syncs yet.</p>
+            <?php else: ?>
+            <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
+                    <tr>
+                        <th class="ps-3">Started</th>
+                        <th>Status</th>
+                        <th>Departments</th>
+                        <th>Employees</th>
+                        <th>Errors</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php
+                $odoo_log_badge = ['success' => 'text-bg-success', 'failed' => 'text-bg-danger', 'running' => 'text-bg-secondary'];
+                while ($lr = mysqli_fetch_assoc($sql_odoo_log)):
+                ?>
+                    <tr>
+                        <td class="ps-3 text-muted small"><?= nullable_htmlentities($lr['started_at']) ?></td>
+                        <td><span class="badge <?= $odoo_log_badge[$lr['status']] ?? 'text-bg-secondary' ?>"><?= nullable_htmlentities($lr['status']) ?></span></td>
+                        <td class="text-muted small"><?= intval($lr['departments_created']) ?> created / <?= intval($lr['departments_updated']) ?> updated / <?= intval($lr['departments_matched']) ?> matched / <?= intval($lr['departments_skipped']) ?> skipped</td>
+                        <td class="text-muted small"><?= intval($lr['employees_created']) ?> created / <?= intval($lr['employees_updated']) ?> updated / <?= intval($lr['employees_matched']) ?> matched / <?= intval($lr['employees_skipped']) ?> skipped</td>
+                        <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= nullable_htmlentities($lr['errors']) ?></td>
+                    </tr>
+                <?php endwhile; ?>
+                </tbody>
+            </table>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+</div><!-- /#tab-directorysync -->
 
 </div><!-- /.tab-content -->
 

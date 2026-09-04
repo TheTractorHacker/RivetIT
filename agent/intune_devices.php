@@ -45,7 +45,7 @@ while ($c = mysqli_fetch_assoc($sql_clients)) $clients_list[] = $c;
 
 <div class="d-flex align-items-center mb-3">
     <h4 class="mb-0 mr-auto"><i class="fab fa-microsoft me-2"></i>Intune Devices</h4>
-    <a href="/admin/settings_directory_sync.php" class="btn btn-secondary btn-sm">
+    <a href="/admin/settings_integrations.php?tab=directorysync" class="btn btn-secondary btn-sm">
         <i class="fas fa-cog me-1"></i>Settings
     </a>
 </div>
@@ -105,7 +105,7 @@ while ($c = mysqli_fetch_assoc($sql_clients)) $clients_list[] = $c;
         <?php if (count($intune_link_rows) === 0): ?>
             <div class="text-center text-muted py-5">
                 <i class="fab fa-microsoft fa-3x mb-3"></i>
-                <p>No Intune devices found. Sync devices from <a href="/admin/settings_directory_sync.php">Microsoft integration settings</a>.</p>
+                <p>No Intune devices found. Sync devices from <a href="/admin/settings_integrations.php?tab=directorysync">Microsoft integration settings</a>.</p>
             </div>
         <?php else: ?>
         <table class="table table-hover table-sm mb-0" id="intune-devices-table">
