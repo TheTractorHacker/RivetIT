@@ -27,7 +27,13 @@ if(isset($_POST['add_location'])){
         mkdir("../uploads/clients/$client_id");
     }
 
-    mysqli_query($mysqli,"INSERT INTO locations SET location_name = '$name', location_description = '$description', location_country = '$country', location_address = '$address', location_city = '$city', location_state = '$state', location_zip = '$zip', location_phone_country_code = '$phone_country_code', location_phone = '$phone', location_phone_extension = '$extension', location_fax_country_code = '$fax_country_code', location_fax = '$fax', location_hours = '$hours', location_notes = '$notes', location_contact_id = $contact, location_client_id = $client_id");
+    // Geocoded once here at save time and cached, not looked up again on
+    // every page view - see geocodeAddress()'s own doc comment for why.
+    $geocoded = geocodeAddress($address, $city, $state, $zip, $country);
+    $location_latitude_sql = $geocoded ? $geocoded[0] : 'NULL';
+    $location_longitude_sql = $geocoded ? $geocoded[1] : 'NULL';
+
+    mysqli_query($mysqli,"INSERT INTO locations SET location_name = '$name', location_description = '$description', location_country = '$country', location_latitude = $location_latitude_sql, location_longitude = $location_longitude_sql, location_address = '$address', location_city = '$city', location_state = '$state', location_zip = '$zip', location_phone_country_code = '$phone_country_code', location_phone = '$phone', location_phone_extension = '$extension', location_fax_country_code = '$fax_country_code', location_fax = '$fax', location_hours = '$hours', location_notes = '$notes', location_contact_id = $contact, location_client_id = $client_id");
 
     $location_id = mysqli_insert_id($mysqli);
 
@@ -91,11 +97,15 @@ if(isset($_POST['edit_location'])){
 
     $location_id = intval($_POST['location_id']);
 
-    // Get old location photo
-    $sql = mysqli_query($mysqli,"SELECT location_photo, location_client_id FROM locations WHERE location_id = $location_id");
+    // Get old location photo + address/coordinates (the latter so we can
+    // skip re-geocoding - and burning a Nominatim request - on a save that
+    // doesn't actually change the address, e.g. just editing hours or notes)
+    $sql = mysqli_query($mysqli,"SELECT location_photo, location_client_id, location_address, location_city, location_state, location_zip, location_country, location_latitude, location_longitude FROM locations WHERE location_id = $location_id");
     $row = mysqli_fetch_assoc($sql);
     $existing_file_name = sanitizeInput($row['location_photo']);
     $client_id = intval($row['location_client_id']);
+    $address_unchanged = ($row['location_address'] === $address && $row['location_city'] === $city
+        && $row['location_state'] === $state && $row['location_zip'] === $zip && $row['location_country'] === $country);
 
     // Unowned (no primary department) locations skip the check below, same
     // reasoning as the add_location handler above - empty($client_id) in
@@ -108,7 +118,18 @@ if(isset($_POST['edit_location'])){
         mkdir("../uploads/clients/$client_id");
     }
 
-    mysqli_query($mysqli,"UPDATE locations SET location_name = '$name', location_description = '$description', location_country = '$country', location_address = '$address', location_city = '$city', location_state = '$state', location_zip = '$zip',  location_phone_country_code = '$phone_country_code', location_phone = '$phone', location_phone_extension = '$extension',  location_fax_country_code = '$fax_country_code', location_fax = '$fax', location_hours = '$hours', location_notes = '$notes', location_contact_id = $contact WHERE location_id = $location_id");
+    if ($address_unchanged) {
+        // Keep whatever's already cached (still NULL if it was never
+        // successfully geocoded in the first place).
+        $location_latitude_sql = $row['location_latitude'] !== null ? $row['location_latitude'] : 'NULL';
+        $location_longitude_sql = $row['location_longitude'] !== null ? $row['location_longitude'] : 'NULL';
+    } else {
+        $geocoded = geocodeAddress($address, $city, $state, $zip, $country);
+        $location_latitude_sql = $geocoded ? $geocoded[0] : 'NULL';
+        $location_longitude_sql = $geocoded ? $geocoded[1] : 'NULL';
+    }
+
+    mysqli_query($mysqli,"UPDATE locations SET location_name = '$name', location_description = '$description', location_country = '$country', location_latitude = $location_latitude_sql, location_longitude = $location_longitude_sql, location_address = '$address', location_city = '$city', location_state = '$state', location_zip = '$zip',  location_phone_country_code = '$phone_country_code', location_phone = '$phone', location_phone_extension = '$extension',  location_fax_country_code = '$fax_country_code', location_fax = '$fax', location_hours = '$hours', location_notes = '$notes', location_contact_id = $contact WHERE location_id = $location_id");
 
     // Update Primay location in clients if primary location is checked
     if ($location_primary == 1) {

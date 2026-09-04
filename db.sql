@@ -1672,6 +1672,8 @@ CREATE TABLE `locations` (
   `location_manager_contact_id` int(11) DEFAULT NULL,
   `location_description` text DEFAULT NULL,
   `location_country` varchar(200) DEFAULT NULL,
+  `location_latitude` decimal(10,7) DEFAULT NULL,
+  `location_longitude` decimal(10,7) DEFAULT NULL,
   `location_address` varchar(200) DEFAULT NULL,
   `location_city` varchar(200) DEFAULT NULL,
   `location_state` varchar(200) DEFAULT NULL,

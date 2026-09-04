@@ -5041,3 +5041,122 @@ function opportunityStatusForStage($stage) {
     return 'open';
 }
 
+/**
+ * Geocodes a street address into [latitude, longitude] using OpenStreetMap's
+ * free Nominatim API - no API key needed, but its usage policy caps public
+ * requests at ~1/sec and expects a real, descriptive User-Agent identifying
+ * the calling application (unidentified/abusive traffic gets blocked), and
+ * expects the result to be cached rather than looked up again for the same
+ * address - callers should geocode once at save time and store the result,
+ * never re-geocode on every page view. Returns null (not an exception) on
+ * any failure - a network hiccup or an address Nominatim can't resolve
+ * should never block saving the location itself.
+ */
+function geocodeAddress(string $address, string $city, string $state, string $zip, string $country): ?array {
+    $query = trim(implode(', ', array_filter([$address, $city, $state, $zip, $country])));
+    if ($query === '') {
+        return null;
+    }
+
+    $url = 'https://nominatim.openstreetmap.org/search?' . http_build_query([
+        'q' => $query,
+        'format' => 'json',
+        'limit' => 1,
+    ]);
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 5,
+        CURLOPT_CONNECTTIMEOUT => 3,
+        // Required by Nominatim's usage policy - requests with a generic/blank
+        // User-Agent are liable to be blocked outright.
+        CURLOPT_HTTPHEADER => ['User-Agent: ITFlow-Internal-IT/1.0 (self-hosted IT documentation tool)'],
+    ]);
+    $response = curl_exec($ch);
+    $curl_error = curl_error($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($response === false || $curl_error !== '' || $http_code !== 200) {
+        return null;
+    }
+
+    $results = json_decode($response, true);
+    if (!is_array($results) || empty($results[0]['lat']) || empty($results[0]['lon'])) {
+        return null;
+    }
+
+    return [(float) $results[0]['lat'], (float) $results[0]['lon']];
+}
+
+/**
+ * Formats a location's stored hours string - "Monday: 9:00 AM - 5:00 PM,
+ * Tuesday: 9:00 AM - 5:00 PM, ..." (the joined format location_model.php
+ * writes and location_edit.php parses back apart) - into a compact display
+ * string, collapsing consecutive days that share the same value into a
+ * range (e.g. "Mon-Fri: 9:00 AM - 5:00 PM • Sat-Sun: Closed") instead of
+ * spelling out all seven days every time. Returns pre-escaped HTML (bolded
+ * day-range labels); echo it directly, don't nullable_htmlentities() it again.
+ */
+function formatLocationHoursDisplay(?string $raw): string {
+    $raw = trim((string) $raw);
+    if ($raw === '') {
+        return '';
+    }
+
+    $day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    $day_abbrev = ['Monday' => 'Mon', 'Tuesday' => 'Tue', 'Wednesday' => 'Wed', 'Thursday' => 'Thu', 'Friday' => 'Fri', 'Saturday' => 'Sat', 'Sunday' => 'Sun'];
+
+    $day_values = [];
+    foreach (explode(',', $raw) as $segment) {
+        foreach ($day_order as $day_label) {
+            if (preg_match('/^\s*' . preg_quote($day_label, '/') . ':\s*(.*)$/', $segment, $m)) {
+                $day_values[$day_label] = trim($m[1]);
+            }
+        }
+    }
+
+    if (empty($day_values)) {
+        // Doesn't match the expected "Day: value" format at all (e.g. free
+        // text from an import) - just show it as-is rather than silently
+        // dropping it.
+        return nullable_htmlentities($raw);
+    }
+
+    // Group consecutive days (in week order) that share the same value into ranges.
+    $groups = [];
+    $current_value = null;
+    $current_start = null;
+    $current_end = null;
+
+    foreach ($day_order as $day_label) {
+        if (!array_key_exists($day_label, $day_values)) {
+            continue;
+        }
+        $value = $day_values[$day_label];
+        if ($current_value !== null && $value === $current_value) {
+            $current_end = $day_label;
+            continue;
+        }
+        if ($current_value !== null) {
+            $groups[] = [$current_start, $current_end, $current_value];
+        }
+        $current_value = $value;
+        $current_start = $day_label;
+        $current_end = $day_label;
+    }
+    if ($current_value !== null) {
+        $groups[] = [$current_start, $current_end, $current_value];
+    }
+
+    $parts = [];
+    foreach ($groups as [$start, $end, $value]) {
+        $label = $start === $end ? $day_abbrev[$start] : $day_abbrev[$start] . '-' . $day_abbrev[$end];
+        $display_value = $value === '' ? 'Closed' : $value;
+        $parts[] = '<strong>' . $label . ':</strong> ' . nullable_htmlentities($display_value);
+    }
+
+    return implode(' &bull; ', $parts);
+}
+

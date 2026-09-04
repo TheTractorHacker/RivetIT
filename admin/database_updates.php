@@ -6799,3 +6799,16 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.72'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.72') {
+        // Geocoded once at save time (agent/post/location.php, via
+        // geocodeAddress() in functions.php calling OpenStreetMap's Nominatim
+        // API) and cached here rather than re-geocoded on every page view -
+        // Nominatim's usage policy caps public requests at ~1/sec and expects
+        // results to be cached, not looked up repeatedly. NULL means never
+        // successfully geocoded yet (no address entered, or the lookup failed).
+        mysqli_query($mysqli, "ALTER TABLE `locations` ADD COLUMN IF NOT EXISTS `location_latitude` decimal(10,7) DEFAULT NULL AFTER `location_country`");
+        mysqli_query($mysqli, "ALTER TABLE `locations` ADD COLUMN IF NOT EXISTS `location_longitude` decimal(10,7) DEFAULT NULL AFTER `location_latitude`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.73'");
+    }
+

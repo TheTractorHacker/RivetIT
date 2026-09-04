@@ -7,7 +7,11 @@ $order = "ASC";
 // If client_id is in URI then show client Side Bar and client header
 if (isset($_GET['client_id'])) {
     require_once "includes/inc_all_client.php";
-    $client_query = "AND location_client_id = $client_id";
+    // Locations are an independent entity, linked to departments via
+    // department_sites (many-to-many) rather than the legacy
+    // location_client_id single-owner column - a department's own
+    // locations page must show every location linked to it that way.
+    $client_query = "AND EXISTS (SELECT 1 FROM department_sites ds WHERE ds.location_id = locations.location_id AND ds.client_id = $client_id)";
     $client_url = "client_id=$client_id&";
     // Overide Filter Header Archived
     if (isset($_GET['archived']) && $_GET['archived'] == 1) {
@@ -29,8 +33,9 @@ enforceUserPermission('module_support');
 if (!$client_url) {
     // Client Filter
     if (isset($_GET['client']) & !empty($_GET['client'])) {
-        $client_query = 'AND (location_client_id = ' . intval($_GET['client']) . ')';
-        $client = intval($_GET['client']);
+        $filter_client_id = intval($_GET['client']);
+        $client_query = "AND EXISTS (SELECT 1 FROM department_sites ds WHERE ds.location_id = locations.location_id AND ds.client_id = $filter_client_id)";
+        $client = $filter_client_id;
     } else {
         // Default - any
         $client_query = '';
@@ -39,10 +44,10 @@ if (!$client_url) {
     // Overide Filter Header Archived
     if (isset($_GET['archived']) && $_GET['archived'] == 1) {
         $archived = 1;
-        $archive_query = "(client_archived_at IS NOT NULL OR location_archived_at IS NOT NULL)";
+        $archive_query = "location_archived_at IS NOT NULL";
     } else {
         $archived = 0;
-        $archive_query = "(client_archived_at IS NULL AND location_archived_at IS NULL)";
+        $archive_query = "location_archived_at IS NULL";
     }
 }
 
@@ -60,10 +65,12 @@ if (isset($_GET['tags']) && is_array($_GET['tags']) && !empty($_GET['tags'])) {
 
 $sql = mysqli_query(
     $mysqli,
-    "SELECT SQL_CALC_FOUND_ROWS locations.*, clients.*, GROUP_CONCAT(tag_name) FROM locations
-    LEFT JOIN clients ON client_id = location_client_id
+    "SELECT SQL_CALC_FOUND_ROWS locations.*
+    FROM locations
     LEFT JOIN location_tags ON location_tags.location_id = locations.location_id
     LEFT JOIN tags ON tags.tag_id = location_tags.tag_id
+    LEFT JOIN department_sites ON department_sites.location_id = locations.location_id
+    LEFT JOIN clients ON clients.client_id = department_sites.client_id AND clients.client_archived_at IS NULL
     WHERE $archive_query
     $tag_query
     AND (location_name LIKE '%$q%' OR location_description LIKE '%$q%' OR location_address LIKE '%$q%' OR location_city LIKE '%$q%' OR location_state LIKE '%$q%' OR location_zip LIKE '%$q%' OR location_country LIKE '%$q%' OR location_phone LIKE '%$phone_query%' OR tag_name LIKE '%$q%' OR client_name LIKE '%$q%')
@@ -155,8 +162,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             $sql_clients_filter = mysqli_query($mysqli, "
                                 SELECT DISTINCT client_id, client_name
                                 FROM clients
-                                JOIN locations ON location_client_id = client_id
-                                WHERE $archive_query
+                                JOIN department_sites ON department_sites.client_id = clients.client_id
+                                JOIN locations ON locations.location_id = department_sites.location_id
+                                WHERE $archive_query AND clients.client_archived_at IS NULL
                                 $access_permission_query
                                 ORDER BY client_name ASC
                             ");
@@ -261,9 +269,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <tbody>
                     <?php
 
+                    $map_locations = [];
+
                     while ($row = mysqli_fetch_assoc($sql)) {
-                        $client_id = intval($row['client_id']);
-                        $client_name = nullable_htmlentities($row['client_name']);
                         $location_id = intval($row['location_id']);
                         $location_name = nullable_htmlentities($row['location_name']);
                         $location_description = nullable_htmlentities($row['location_description']);
@@ -286,11 +294,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         } else {
                             $location_fax_display = '';
                         }
-                        $location_hours = nullable_htmlentities($row['location_hours']);
-                        if (empty($location_hours)) {
+                        $location_hours_display = formatLocationHoursDisplay($row['location_hours']);
+                        if ($location_hours_display === '') {
                             $location_hours_display = "-";
-                        } else {
-                            $location_hours_display = $location_hours;
                         }
                         $location_photo = nullable_htmlentities($row['location_photo']);
                         $location_notes = nullable_htmlentities($row['location_notes']);
@@ -302,6 +308,18 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             $location_primary_display = "<small class='text-success'><i class='fa fa-fw fa-check'></i> Primary</small>";
                         } else {
                             $location_primary_display = "";
+                        }
+
+                        // Collect coordinates for the map (geocoded once at save
+                        // time in agent/post/location.php - see geocodeAddress()).
+                        if ($row['location_latitude'] !== null && $row['location_longitude'] !== null) {
+                            $map_locations[] = [
+                                'id' => $location_id,
+                                'name' => $location_name,
+                                'lat' => (float) $row['location_latitude'],
+                                'lng' => (float) $row['location_longitude'],
+                                'address' => trim("$location_address, $location_city $location_state $location_zip"),
+                            ];
                         }
 
                         // Tags
@@ -326,6 +344,17 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             $location_tag_name_display_array[] = "<a href='locations.php?$client_url tags[]=$location_tag_id'><span class='badge " . tagTextClass($location_tag_color) . " p-1 me-1' style='background-color: $location_tag_color;'><i class='fa fa-fw fa-$location_tag_icon me-2'></i>$location_tag_name</span></a>";
                         }
                         $location_tags_display = implode('', $location_tag_name_display_array);
+
+                        // Departments (locations are independent entities, linked
+                        // to departments many-to-many via department_sites)
+                        $location_department_display_array = array();
+                        $sql_location_departments = mysqli_query($mysqli, "SELECT clients.client_id, clients.client_name FROM department_sites LEFT JOIN clients ON clients.client_id = department_sites.client_id WHERE department_sites.location_id = $location_id AND clients.client_archived_at IS NULL ORDER BY client_name ASC");
+                        while ($row = mysqli_fetch_assoc($sql_location_departments)) {
+                            $location_department_id = intval($row['client_id']);
+                            $location_department_name = nullable_htmlentities($row['client_name']);
+                            $location_department_display_array[] = "<a href='locations.php?client_id=$location_department_id' class='badge text-bg-secondary me-1 mb-1'>$location_department_name</a>";
+                        }
+                        $location_departments_display = implode('', $location_department_display_array);
 
                         ?>
                         <tr>
@@ -352,14 +381,24 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     </div>
                                 </a>
                             </td>
-                            <td><a href="//maps.<?php echo $session_map_source; ?>.com?q=<?php echo "$location_address $location_zip"; ?>" target="_blank"><?php echo $location_address; ?><br><?php echo "$location_city $location_state $location_zip<br><small>$location_country</small>"; ?></a></td>
+                            <td>
+                                <?php if ($location_address || $location_city || $location_state || $location_zip) { ?>
+                                <a href="//maps.<?php echo $session_map_source; ?>.com?q=<?php echo "$location_address $location_zip"; ?>" target="_blank">
+                                    <?php if ($location_address) { ?><div><?php echo $location_address; ?></div><?php } ?>
+                                    <?php $location_csz = trim(implode(' ', array_filter([$location_city ? "$location_city," : '', $location_state, $location_zip]))); ?>
+                                    <?php if ($location_csz) { ?><div class="text-secondary"><?php echo $location_csz; ?></div><?php } ?>
+                                </a>
+                                <?php } else { ?>
+                                -
+                                <?php } ?>
+                            </td>
                             <td>
                                 <?php echo $location_phone_display; ?>
                                 <?php echo $location_fax_display; ?>
                             </td>
                             <td><?php echo $location_hours_display; ?></td>
                             <?php if (!$client_url) { ?>
-                            <td><a href="locations.php?client_id=<?php echo $client_id; ?>"><?php echo $client_name; ?></a></td>
+                            <td><?php echo $location_departments_display ?: '-'; ?></td>
                             <?php } ?>
                             <td>
                                 <div class="dropdown dropleft text-center">
@@ -404,6 +443,54 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
         <?php require_once "../includes/filter_footer.php"; ?>
     </div>
 </div>
+
+<?php if (!empty($map_locations)) { ?>
+<link rel="stylesheet" href="../plugins/leaflet/leaflet.css">
+<div class="card card-dark mt-3">
+    <div class="card-header py-2">
+        <h3 class="card-title mt-2"><i class="fa fa-fw fa-map me-2"></i>Map</h3>
+    </div>
+    <div class="card-body p-0">
+        <div id="locationsMap" style="height: 420px;"></div>
+    </div>
+</div>
+<script src="../plugins/leaflet/leaflet.js"></script>
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+(function () {
+    var locations = <?php echo json_encode($map_locations, JSON_HEX_TAG); ?>;
+    if (!locations.length || typeof L === 'undefined') { return; }
+
+    var map = L.map('locationsMap');
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    var bounds = [];
+    locations.forEach(function (loc) {
+        var marker = L.marker([loc.lat, loc.lng]).addTo(map);
+        marker.bindPopup(
+            '<strong>' + loc.name + '</strong><br>' + loc.address +
+            '<br><a class="ajax-modal" href="#" data-modal-url="modals/location/location_edit.php?id=' + loc.id + '">Edit</a>'
+        );
+        bounds.push([loc.lat, loc.lng]);
+    });
+
+    if (bounds.length === 1) {
+        map.setView(bounds[0], 14);
+    } else {
+        map.fitBounds(bounds, { padding: [30, 30] });
+    }
+})();
+</script>
+<?php } else if ($num_rows[0] > 0) { ?>
+<div class="card card-dark mt-3">
+    <div class="card-body text-center text-secondary py-4">
+        <i class="fa fa-fw fa-map-marker-alt fa-2x mb-2"></i>
+        <p class="mb-0">No locations have map coordinates yet. Re-saving a location's address will geocode it automatically.</p>
+    </div>
+</div>
+<?php } ?>
 
 <script src="../js/bulk_actions.js"></script>
 
