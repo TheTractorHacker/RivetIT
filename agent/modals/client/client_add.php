@@ -34,7 +34,7 @@ ob_start();
         <a class="nav-link active" data-bs-toggle="pill" href="#pills-details">Details</a>
     </li>
     <li class="nav-item">
-        <a class="nav-link" data-bs-toggle="pill" href="#pills-location">Location</a>
+        <a class="nav-link" data-bs-toggle="pill" href="#pills-location">Locations</a>
     </li>
     <li class="nav-item">
         <a class="nav-link" data-bs-toggle="pill" href="#pills-contact" id="contactNavPill">Contact</a>
@@ -174,32 +174,32 @@ ob_start();
             <div class="tab-pane fade" id="pills-location">
 
                 <div class="form-group">
-                    <label>Location <small class="text-secondary">(optional)</small></label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-map-marker-alt"></i></span>
-                        </div>
-                        <select class="form-control select2" name="location_id">
-                            <option value="">- Select Location -</option>
-                            <?php
-                            $sql_locations_select = mysqli_query($mysqli, "SELECT location_id, location_name, location_city, location_state FROM locations WHERE location_archived_at IS NULL ORDER BY location_name ASC");
-                            while ($location_row = mysqli_fetch_assoc($sql_locations_select)) {
-                                $location_row_id = intval($location_row['location_id']);
-                                $location_row_label = nullable_htmlentities($location_row['location_name']);
-                                $location_row_place = trim(($location_row['location_city'] ?: '') . (($location_row['location_city'] && $location_row['location_state']) ? ', ' : '') . ($location_row['location_state'] ?: ''));
-                                if ($location_row_place !== '') { $location_row_label .= ' - ' . nullable_htmlentities($location_row_place); }
-                            ?>
-                                <option value="<?= $location_row_id ?>"><?= $location_row_label ?></option>
-                            <?php } ?>
-                        </select>
-                        <div class="input-group-append">
-                            <button class="btn btn-secondary ajax-modal" type="button"
-                                data-modal-url="../modals/location/location_add.php">
-                                <i class="fas fa-fw fa-plus"></i>
-                            </button>
-                        </div>
+                    <label>Locations <small class="text-secondary">(optional)</small></label>
+                    <div class="d-flex justify-content-end mb-2">
+                        <button class="btn btn-secondary btn-sm ajax-modal" type="button"
+                            data-modal-url="../modals/location/location_add.php">
+                            <i class="fas fa-fw fa-plus me-1"></i>New Location
+                        </button>
                     </div>
-                    <small class="text-muted">Links this department to an existing location. Add a new location first if it isn't listed yet.</small>
+                    <div style="max-height:260px; overflow-y:auto;">
+                        <?php
+                        $sql_locations_select = mysqli_query($mysqli, "SELECT location_id, location_name, location_city, location_state FROM locations WHERE location_archived_at IS NULL ORDER BY location_name ASC");
+                        if (mysqli_num_rows($sql_locations_select) === 0) { ?>
+                            <p class="text-muted small mb-0">No locations yet.</p>
+                        <?php }
+                        while ($location_row = mysqli_fetch_assoc($sql_locations_select)) {
+                            $location_row_id = intval($location_row['location_id']);
+                            $location_row_label = nullable_htmlentities($location_row['location_name']);
+                            $location_row_place = trim(($location_row['location_city'] ?: '') . (($location_row['location_city'] && $location_row['location_state']) ? ', ' : '') . ($location_row['location_state'] ?: ''));
+                            if ($location_row_place !== '') { $location_row_label .= ' - ' . nullable_htmlentities($location_row_place); }
+                        ?>
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="locations[]" value="<?= $location_row_id ?>" id="loc_<?= $location_row_id ?>">
+                                <label class="form-check-label" for="loc_<?= $location_row_id ?>"><?= $location_row_label ?></label>
+                            </div>
+                        <?php } ?>
+                    </div>
+                    <small class="text-muted">Links this department to any existing locations that apply. Not required - add a new location first if it isn't listed yet.</small>
                 </div>
 
             </div>
