@@ -18,6 +18,10 @@
     ·
     <a href="https://docs.itflow.org">Docs</a>
     ·
+    <a href="docs/ARCHITECTURE.md">Architecture</a>
+    ·
+    <a href="docs/API.md">API Reference</a>
+    ·
     <a href="https://github.com/TheTractorHacker/ITFlow-Internal-IT/releases">Releases</a>
     ·
     <a href="https://github.com/TheTractorHacker/ITFlow-Internal-IT/issues">Report Bug</a>
@@ -43,6 +47,8 @@ Compared to ITFlow MSP Edition, this fork:
 - **Adds AnyDesk quick-connect** — a dedicated AnyDesk ID field on assets with a one-click Connect button on the asset details page.
 
 Ticketing, assets/IT documentation, knowledge base, contracts, credentials, projects, and the RMM integrations all work the same as upstream ITFlow.
+
+New to this codebase? [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) covers the admin/agent/client/guest portal structure, auth & permission model, data model, module toggles, integrations, and how this edition differs from ITFlow MSP. [docs/API.md](docs/API.md) is the narrative companion to the REST API — including a note on why the API still says "client" while the UI says "department".
 
 ---
 
@@ -78,6 +84,7 @@ This fork's base (before the internal-IT changes above) already included:
 
 ### REST API
 - Full REST API layer under `/api/v1/` — tickets, clients (departments), assets, contacts, locations, credentials, worksheets, charges, appointments, search, reports
+- Full reference: [docs/API.md](docs/API.md) (narrative guide) · in-app searchable reference at Settings → API Docs (`/api/v1/docs` on your own instance)
 
 ---
 
