@@ -616,7 +616,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                         <div class="media">
                                             <i class="fa fa-fw fa-2x fa-key me-3"></i>
                                             <div class="media-body">
-                                                <div><?php echo $credential_name; ?> <?php if ($credential_favorite) { echo "<i class='fas fa-fw fa-star text-warning' title='Favorite'></i>"; } ?> <?php if ($credential_type === 'API Key') { echo "<span class='badge bg-info text-dark'>API Key</span>"; } ?></div>
+                                                <div><?php echo $credential_name; ?> <?php if ($credential_favorite) { echo "<i class='fas fa-fw fa-star text-warning ms-1' title='Favorite'></i>"; } ?> <?php if ($credential_type === 'API Key') { echo "<span class='badge bg-info text-dark ms-2'>API Key</span>"; } ?></div>
                                                 <div><small class="text-secondary"><?php echo $credential_description; ?></small></div>
                                                 <?php
                                                 if (!empty($credential_tags_display)) { ?>
