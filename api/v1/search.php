@@ -45,9 +45,17 @@ foreach ($rows as $row) {
 // Clients
 $clients = [];
 $rows = api_q(
+    // Departments link to locations via department_sites (many-to-many, added for
+    // multi-location support) - locations.location_client_id is no longer written by the
+    // department create/edit flows, so joining on it directly always missed.
     "SELECT c.client_id, c.client_name, l.location_phone
      FROM clients c
-     LEFT JOIN locations l ON l.location_client_id = c.client_id AND l.location_primary = 1
+     LEFT JOIN (
+         SELECT ds.client_id, MIN(ds.location_id) AS location_id
+         FROM department_sites ds
+         GROUP BY ds.client_id
+     ) ds_primary ON ds_primary.client_id = c.client_id
+     LEFT JOIN locations l ON l.location_id = ds_primary.location_id
      WHERE c.client_archived_at IS NULL AND c.client_name LIKE ?
        AND " . $scope_clause_for('c.client_id') . "
      ORDER BY c.client_name ASC LIMIT 5",
@@ -60,6 +68,85 @@ foreach ($rows as $row) {
         'name'  => $row['client_name'],
         'phone' => $row['location_phone'],
     ];
+}
+
+// Contacts - gated behind module_client like api/v1/contacts.php itself; omitted (not a
+// hard 403) if the caller lacks it, since search blends several entity types in one response.
+$contacts = [];
+if (api_has_module_permission($mysqli, $uid, 'module_client')) {
+    $rows = api_q(
+        "SELECT ct.contact_id, ct.contact_name, ct.contact_title, ct.contact_email,
+                ct.contact_phone, ct.contact_extension, c.client_id, c.client_name
+         FROM contacts ct
+         LEFT JOIN clients c ON ct.contact_client_id = c.client_id
+         WHERE ct.contact_archived_at IS NULL
+           AND (ct.contact_name LIKE ? OR ct.contact_email LIKE ?)
+           AND " . $scope_clause_for('ct.contact_client_id') . "
+         ORDER BY ct.contact_name ASC LIMIT 5",
+        'ss',
+        [$like, $like]
+    );
+    foreach ($rows as $row) {
+        $contacts[] = [
+            'id'        => intval($row['contact_id']),
+            'name'      => $row['contact_name'],
+            'title'     => $row['contact_title'],
+            'email'     => $row['contact_email'],
+            'phone'     => $row['contact_phone'],
+            'extension' => $row['contact_extension'],
+            'client_id' => $row['client_id'] !== null ? intval($row['client_id']) : null,
+            'client'    => $row['client_name'],
+        ];
+    }
+}
+
+// Credentials - name/description only, never decrypted secrets, matching the web app's own
+// global search. Gated behind module_credential like api/v1/credentials.php itself.
+$credentials = [];
+if (api_has_module_permission($mysqli, $uid, 'module_credential')) {
+    $rows = api_q(
+        "SELECT cr.credential_id, cr.credential_name, cr.credential_uri, c.client_name
+         FROM credentials cr
+         LEFT JOIN clients c ON cr.credential_client_id = c.client_id
+         WHERE cr.credential_archived_at IS NULL
+           AND (cr.credential_name LIKE ? OR cr.credential_description LIKE ?)
+           AND " . $scope_clause_for('cr.credential_client_id') . "
+         ORDER BY cr.credential_name ASC LIMIT 5",
+        'ss',
+        [$like, $like]
+    );
+    foreach ($rows as $row) {
+        $credentials[] = [
+            'id'     => intval($row['credential_id']),
+            'name'   => $row['credential_name'],
+            'uri'    => $row['credential_uri'],
+            'client' => $row['client_name'],
+        ];
+    }
+}
+
+// Knowledge base articles - gated behind module_kb like api/v1/kb.php itself. Company-wide
+// articles (kb_article_client_id = 0) are visible to everyone, mirroring kb.php's own scope
+// clause.
+$articles = [];
+if (api_has_module_permission($mysqli, $uid, 'module_kb')) {
+    $kb_scope = "(k.kb_article_client_id = 0 OR " . $scope_clause_for('k.kb_article_client_id') . ")";
+    $rows = api_q(
+        "SELECT k.kb_article_id, k.kb_article_title
+         FROM kb_articles k
+         WHERE k.kb_article_archived_at IS NULL
+           AND k.kb_article_title LIKE ?
+           AND $kb_scope
+         ORDER BY k.kb_article_title ASC LIMIT 5",
+        's',
+        [$like]
+    );
+    foreach ($rows as $row) {
+        $articles[] = [
+            'id'    => intval($row['kb_article_id']),
+            'title' => $row['kb_article_title'],
+        ];
+    }
 }
 
 // Assets
@@ -87,4 +174,11 @@ foreach ($rows as $row) {
     ];
 }
 
-api_response(200, ['tickets' => $tickets, 'clients' => $clients, 'assets' => $assets]);
+api_response(200, [
+    'tickets'     => $tickets,
+    'clients'     => $clients,
+    'assets'      => $assets,
+    'contacts'    => $contacts,
+    'credentials' => $credentials,
+    'articles'    => $articles,
+]);

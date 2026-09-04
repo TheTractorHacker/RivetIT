@@ -1026,7 +1026,7 @@ paths:
   /search:
     get:
       tags: [Search]
-      summary: Global search across tickets, clients and assets
+      summary: Global search across tickets, clients, assets, contacts, credentials, and KB articles
       parameters:
         - {name: q, in: query, required: true, schema: {type: string, minLength: 2}}
       responses:
@@ -1891,6 +1891,40 @@ components:
         tickets: {type: array, items: {$ref: '#/components/schemas/TicketListItem'}}
         clients: {type: array, items: {$ref: '#/components/schemas/ClientListItem'}}
         assets: {type: array, items: {$ref: '#/components/schemas/AssetListItem'}}
+        contacts:
+          type: array
+          description: Omitted (empty) if the caller lacks module_client permission.
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              name: {type: string}
+              title: {type: string, nullable: true}
+              email: {type: string, nullable: true}
+              phone: {type: string, nullable: true}
+              extension: {type: string, nullable: true}
+              client_id: {type: integer, nullable: true}
+              client: {type: string, nullable: true}
+        credentials:
+          type: array
+          description: >
+            Name/URI only, never decrypted secrets. Omitted (empty) if the caller lacks
+            module_credential permission.
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              name: {type: string}
+              uri: {type: string, nullable: true}
+              client: {type: string, nullable: true}
+        articles:
+          type: array
+          description: Knowledge base articles. Omitted (empty) if the caller lacks module_kb permission.
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              title: {type: string}
     KbCategory:
       type: object
       properties:

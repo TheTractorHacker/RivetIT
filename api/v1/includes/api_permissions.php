@@ -2,17 +2,18 @@
 defined('FROM_API') || die();
 
 /**
- * Mirrors the web app's enforceUserPermission() for the token-based API context, where
- * $_SESSION isn't populated. Ends the request with a 403 if the signed-in API user's role
- * lacks at least $min_level access to $module_name. Admin roles always pass.
+ * Non-fatal version of api_require_module_permission() below - returns a bool instead of
+ * ending the request. For endpoints that blend several entity types in one response (e.g.
+ * search.php), where one section lacking permission should just be omitted, not fail the
+ * whole request the way a hard 403 would.
  */
-function api_require_module_permission(mysqli $mysqli, int $api_user_id, string $module_name, int $min_level = 1): void {
+function api_has_module_permission(mysqli $mysqli, int $api_user_id, string $module_name, int $min_level = 1): bool {
     $role = mysqli_fetch_assoc(mysqli_query($mysqli,
         "SELECT u.user_role_id, r.role_is_admin
          FROM users u LEFT JOIN user_roles r ON r.role_id = u.user_role_id
          WHERE u.user_id = $api_user_id LIMIT 1"
     ));
-    if ($role && $role['role_is_admin']) return;
+    if ($role && $role['role_is_admin']) return true;
 
     $module_esc = mysqli_real_escape_string($mysqli, $module_name);
     $has_perm = $role ? mysqli_fetch_assoc(mysqli_query($mysqli,
@@ -25,7 +26,16 @@ function api_require_module_permission(mysqli $mysqli, int $api_user_id, string 
          LIMIT 1"
     )) : null;
 
-    if (!$has_perm) {
+    return (bool) $has_perm;
+}
+
+/**
+ * Mirrors the web app's enforceUserPermission() for the token-based API context, where
+ * $_SESSION isn't populated. Ends the request with a 403 if the signed-in API user's role
+ * lacks at least $min_level access to $module_name. Admin roles always pass.
+ */
+function api_require_module_permission(mysqli $mysqli, int $api_user_id, string $module_name, int $min_level = 1): void {
+    if (!api_has_module_permission($mysqli, $api_user_id, $module_name, $min_level)) {
         api_error(403, 'Insufficient permissions');
     }
 }
