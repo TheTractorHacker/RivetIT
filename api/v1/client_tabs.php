@@ -52,10 +52,18 @@ switch ($sub) {
 
     case 'locations':
         api_require_module_permission($mysqli, $uid, 'module_client');
+        // Departments link to locations via the department_sites many-to-many table (added
+        // alongside multi-location support), not the legacy locations.location_client_id
+        // column - that column is no longer written by the department create/edit flows, so
+        // querying it directly here always returned zero rows. Matches
+        // agent/client_overview.php's own department_sites-based query.
         $rows = []; $sql = mysqli_query($mysqli,
-            "SELECT location_id, location_name, location_address, location_city, location_state,
-                    location_zip, location_phone, location_primary
-             FROM locations WHERE location_client_id = $id AND location_archived_at IS NULL ORDER BY location_primary DESC, location_name ASC");
+            "SELECT l.location_id, l.location_name, l.location_address, l.location_city, l.location_state,
+                    l.location_zip, l.location_phone, l.location_primary
+             FROM department_sites ds
+             INNER JOIN locations l ON l.location_id = ds.location_id
+             WHERE ds.client_id = $id AND l.location_archived_at IS NULL
+             ORDER BY l.location_primary DESC, l.location_name ASC");
         while ($r = mysqli_fetch_assoc($sql)) {
             $rows[] = ['id'=>intval($r['location_id']),'name'=>$r['location_name'],
                 'address'=>$r['location_address'],'city'=>$r['location_city'],'state'=>$r['location_state'],

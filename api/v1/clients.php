@@ -24,12 +24,23 @@ if ($id === null) {
 
     $total = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS cnt FROM clients c WHERE $w"))['cnt']);
 
+    // Departments link to locations via department_sites (many-to-many, added for
+    // multi-location support) - locations.location_client_id is no longer written by the
+    // department create/edit flows, so joining on it directly always misses. The derived
+    // table below picks one linked location (lowest department_site row) per department for
+    // this convenience phone/city/state column; the full set is available via
+    // GET /clients/{id}/locations.
     $clients = [];
     $sql = mysqli_query($mysqli,
         "SELECT c.client_id, c.client_name, c.client_website,
                 l.location_phone, l.location_city, l.location_state
          FROM clients c
-         LEFT JOIN locations l ON l.location_client_id = c.client_id AND l.location_primary = 1
+         LEFT JOIN (
+             SELECT ds.client_id, MIN(ds.location_id) AS location_id
+             FROM department_sites ds
+             GROUP BY ds.client_id
+         ) ds_primary ON ds_primary.client_id = c.client_id
+         LEFT JOIN locations l ON l.location_id = ds_primary.location_id
          WHERE $w ORDER BY c.client_name ASC LIMIT $limit OFFSET $offset"
     );
     while ($row = mysqli_fetch_assoc($sql)) {
@@ -45,12 +56,17 @@ if ($id === null) {
     api_response(200, ['data' => $clients, 'total' => $total]);
 }
 
-// Detail
+// Detail - same department_sites-based location resolution as the list query above.
 $row = mysqli_fetch_assoc(mysqli_query($mysqli,
     "SELECT c.*, l.location_address, l.location_city, l.location_state,
              l.location_zip, l.location_phone
      FROM clients c
-     LEFT JOIN locations l ON l.location_client_id = c.client_id AND l.location_primary = 1
+     LEFT JOIN (
+         SELECT ds.client_id, MIN(ds.location_id) AS location_id
+         FROM department_sites ds
+         GROUP BY ds.client_id
+     ) ds_primary ON ds_primary.client_id = c.client_id
+     LEFT JOIN locations l ON l.location_id = ds_primary.location_id
      WHERE c.client_id = $id AND c.client_archived_at IS NULL AND $client_scope_clause LIMIT 1"
 ));
 if (!$row) api_error(404, 'Client not found');

@@ -21,7 +21,12 @@ if (isset($_GET['query'])) {
     $ticket_num_query = str_replace("$config_ticket_prefix", "", "$query");
 
     $sql_clients = mysqli_query($mysqli, "SELECT * FROM clients
-        LEFT JOIN locations ON clients.client_id = locations.location_client_id AND location_primary = 1
+        LEFT JOIN (
+            SELECT ds.client_id, MIN(ds.location_id) AS location_id
+            FROM department_sites ds
+            GROUP BY ds.client_id
+        ) ds_primary ON ds_primary.client_id = clients.client_id
+        LEFT JOIN locations ON locations.location_id = ds_primary.location_id
         WHERE client_archived_at IS NULL
             AND (client_name LIKE '%$query%' OR client_abbreviation LIKE '%$query%')
             $access_permission_query

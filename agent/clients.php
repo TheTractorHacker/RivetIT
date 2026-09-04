@@ -47,7 +47,12 @@ $sql = mysqli_query(
     SELECT SQL_CALC_FOUND_ROWS clients.*, contacts.*, locations.*, GROUP_CONCAT(tag_name)
     FROM clients
     LEFT JOIN contacts ON clients.client_id = contacts.contact_client_id AND contact_primary = 1
-    LEFT JOIN locations ON clients.client_id = locations.location_client_id AND location_primary = 1
+    LEFT JOIN (
+        SELECT ds.client_id, MIN(ds.location_id) AS location_id
+        FROM department_sites ds
+        GROUP BY ds.client_id
+    ) ds_primary ON ds_primary.client_id = clients.client_id
+    LEFT JOIN locations ON locations.location_id = ds_primary.location_id
     LEFT JOIN client_tags ON client_tags.client_id = clients.client_id
     LEFT JOIN tags ON tags.tag_id = client_tags.tag_id
     WHERE (client_name LIKE '%$q%' OR client_abbreviation LIKE '%$q%' OR client_type LIKE '%$q%' OR client_referral LIKE '%$q%'
