@@ -14,6 +14,10 @@ if ($method === 'GET') {
         'type'   => intval($row['user_type']),
         'color'  => $row['user_color'],
         'avatar' => $row['user_avatar'],
+        'modules' => [
+            'accounting_enabled'     => (bool) $config_module_enable_accounting,
+            'ticket_charges_enabled' => (bool) $config_module_enable_ticket_charges,
+        ],
     ]);
 }
 

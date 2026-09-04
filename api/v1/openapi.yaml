@@ -1925,6 +1925,15 @@ components:
         type: {type: integer}
         color: {type: string, nullable: true}
         avatar: {type: string, nullable: true}
+        modules:
+          type: object
+          description: >
+            Feature-module flags relevant to client UIs, e.g. gating billing UI
+            (Add Charge, Invoices/Quotes/Expenses) in the Internal IT edition's
+            Android app.
+          properties:
+            accounting_enabled: {type: boolean}
+            ticket_charges_enabled: {type: boolean}
     UpdateProfileRequest:
       type: object
       description: >
