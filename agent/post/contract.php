@@ -20,6 +20,8 @@ if (isset($_POST['add_contract'])) {
     $sla_mres = is_numeric($_POST['sla_medium_resolution'] ?? '') ? intval($_POST['sla_medium_resolution']) : 'NULL';
     $sla_hr = is_numeric($_POST['sla_high_response'] ?? '') ? intval($_POST['sla_high_response']) : 'NULL';
     $sla_hres = is_numeric($_POST['sla_high_resolution'] ?? '') ? intval($_POST['sla_high_resolution']) : 'NULL';
+    $hours_remote = is_numeric($_POST['support_hours_included_remote'] ?? '') ? floatval($_POST['support_hours_included_remote']) : 'NULL';
+    $hours_onsite = is_numeric($_POST['support_hours_included_onsite'] ?? '') ? floatval($_POST['support_hours_included_onsite']) : 'NULL';
 
     enforceClientAccess();
 
@@ -29,7 +31,7 @@ if (isset($_POST['add_contract'])) {
     $value_sql = is_numeric($value) ? $value : 'NULL';
     $freq_sql = $freq ? "'$freq'" : 'NULL';
 
-    mysqli_query($mysqli, "INSERT INTO contracts SET contract_client_id = $client_id, contract_name = '$name', contract_type = '$type', contract_status = '$status', contract_value = $value_sql, contract_renewal_frequency = $freq_sql, contract_start_date = $start_sql, contract_end_date = $end_sql, contract_renewal_date = $renewal_sql, contract_details = '$notes', contract_sla_low_response_time = $sla_lr, contract_sla_low_resolution_time = $sla_lres, contract_sla_medium_response_time = $sla_mr, contract_sla_medium_resolution_time = $sla_mres, contract_sla_high_response_time = $sla_hr, contract_sla_high_resolution_time = $sla_hres, contract_created_by = $session_user_id");
+    mysqli_query($mysqli, "INSERT INTO contracts SET contract_client_id = $client_id, contract_name = '$name', contract_type = '$type', contract_status = '$status', contract_value = $value_sql, contract_renewal_frequency = $freq_sql, contract_start_date = $start_sql, contract_end_date = $end_sql, contract_renewal_date = $renewal_sql, contract_details = '$notes', contract_sla_low_response_time = $sla_lr, contract_sla_low_resolution_time = $sla_lres, contract_sla_medium_response_time = $sla_mr, contract_sla_medium_resolution_time = $sla_mres, contract_sla_high_response_time = $sla_hr, contract_sla_high_resolution_time = $sla_hres, contract_support_hours_included_remote = $hours_remote, contract_support_hours_included_onsite = $hours_onsite, contract_created_by = $session_user_id");
 
     logAction("Contract", "Add", "Added contract $name", $client_id);
     flash_alert("Contract <strong>$name</strong> created.");
@@ -60,6 +62,8 @@ if (isset($_POST['edit_contract'])) {
     $sla_mres = is_numeric($_POST['sla_medium_resolution'] ?? '') ? intval($_POST['sla_medium_resolution']) : 'NULL';
     $sla_hr = is_numeric($_POST['sla_high_response'] ?? '') ? intval($_POST['sla_high_response']) : 'NULL';
     $sla_hres = is_numeric($_POST['sla_high_resolution'] ?? '') ? intval($_POST['sla_high_resolution']) : 'NULL';
+    $hours_remote = is_numeric($_POST['support_hours_included_remote'] ?? '') ? floatval($_POST['support_hours_included_remote']) : 'NULL';
+    $hours_onsite = is_numeric($_POST['support_hours_included_onsite'] ?? '') ? floatval($_POST['support_hours_included_onsite']) : 'NULL';
 
     // The form may also reassign the contract to a different client - confirm
     // access to that destination client too.
@@ -71,7 +75,7 @@ if (isset($_POST['edit_contract'])) {
     $value_sql = is_numeric($_POST['contract_value'] ?? '') ? floatval($_POST['contract_value']) : 'NULL';
     $freq_sql = $freq ? "'$freq'" : 'NULL';
 
-    mysqli_query($mysqli, "UPDATE contracts SET contract_name = '$name', contract_type = '$type', contract_status = '$status', contract_value = $value_sql, contract_renewal_frequency = $freq_sql, contract_start_date = $start_sql, contract_end_date = $end_sql, contract_renewal_date = $renewal_sql, contract_details = '$notes', contract_sla_low_response_time = $sla_lr, contract_sla_low_resolution_time = $sla_lres, contract_sla_medium_response_time = $sla_mr, contract_sla_medium_resolution_time = $sla_mres, contract_sla_high_response_time = $sla_hr, contract_sla_high_resolution_time = $sla_hres WHERE contract_id = $contract_id");
+    mysqli_query($mysqli, "UPDATE contracts SET contract_name = '$name', contract_type = '$type', contract_status = '$status', contract_value = $value_sql, contract_renewal_frequency = $freq_sql, contract_start_date = $start_sql, contract_end_date = $end_sql, contract_renewal_date = $renewal_sql, contract_details = '$notes', contract_sla_low_response_time = $sla_lr, contract_sla_low_resolution_time = $sla_lres, contract_sla_medium_response_time = $sla_mr, contract_sla_medium_resolution_time = $sla_mres, contract_sla_high_response_time = $sla_hr, contract_sla_high_resolution_time = $sla_hres, contract_support_hours_included_remote = $hours_remote, contract_support_hours_included_onsite = $hours_onsite WHERE contract_id = $contract_id");
 
     logAction("Contract", "Edit", "Updated contract $name", $client_id);
     flash_alert("Contract updated.");

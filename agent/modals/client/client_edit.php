@@ -12,8 +12,6 @@ $client_type = nullable_htmlentities($row['client_type']);
 $client_website = nullable_htmlentities($row['client_website']);
 $client_referral = nullable_htmlentities($row['client_referral']);
 $client_net_terms = intval($row['client_net_terms']);
-$client_support_issues_included_remote = $row['client_support_issues_included_remote'] !== null ? intval($row['client_support_issues_included_remote']) : null;
-$client_support_issues_included_onsite = $row['client_support_issues_included_onsite'] !== null ? intval($row['client_support_issues_included_onsite']) : null;
 $client_tax_id_number = nullable_htmlentities($row['client_tax_id_number']);
 $client_abbreviation = nullable_htmlentities($row['client_abbreviation']);
 $client_rate = floatval($row['client_rate']);
@@ -30,6 +28,15 @@ $sql_client_tags = mysqli_query($mysqli, "SELECT tag_id FROM client_tags WHERE c
 while ($row = mysqli_fetch_assoc($sql_client_tags)) {
     $client_tag_id = intval($row['tag_id']);
     $client_tag_id_array[] = $client_tag_id;
+}
+
+// Locations (many-to-many via department_sites - a department can have
+// multiple locations, and a location can be shared by multiple departments)
+$sql_locations_select = mysqli_query($mysqli, "SELECT location_id, location_name, location_city, location_state FROM locations WHERE location_archived_at IS NULL ORDER BY location_name ASC");
+$client_location_id_array = array();
+$sql_client_locations = mysqli_query($mysqli, "SELECT location_id FROM department_sites WHERE client_id = $client_id");
+while ($loc_link_row = mysqli_fetch_assoc($sql_client_locations)) {
+    $client_location_id_array[] = intval($loc_link_row['location_id']);
 }
 
 $net_terms_array = array (
@@ -61,6 +68,9 @@ ob_start();
     <ul class="modal-header nav nav-pills nav-justified mb-3">
         <li class="nav-item">
             <a class="nav-link active" data-bs-toggle="pill" href="#pills-client-details<?php echo $client_id; ?>">Details</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="pill" href="#pills-client-locations<?php echo $client_id; ?>">Locations</a>
         </li>
         <?php if ($config_module_enable_accounting) { ?>
             <li class="nav-item">
@@ -126,28 +136,6 @@ ob_start();
                             <option <?php if ($client_security_classification == $classification_option) { echo "selected"; } ?>><?php echo $classification_option; ?></option>
                         <?php } ?>
                     </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Included Support Issues <small class="text-secondary">(per month, optional &mdash; e.g. a residential subscription plan)</small></label>
-                    <div class="row">
-                        <div class="col">
-                            <div class="input-group">
-                                <div class="input-group-prepend">
-                                    <span class="input-group-text"><i class="fa fa-fw fa-laptop"></i></span>
-                                </div>
-                                <input type="number" min="0" step="1" class="form-control" name="support_issues_included_remote" placeholder="Remote / mo" value="<?php echo $client_support_issues_included_remote !== null ? $client_support_issues_included_remote : ''; ?>">
-                            </div>
-                        </div>
-                        <div class="col">
-                            <div class="input-group">
-                                <div class="input-group-prepend">
-                                    <span class="input-group-text"><i class="fa fa-fw fa-house-user"></i></span>
-                                </div>
-                                <input type="number" min="0" step="1" class="form-control" name="support_issues_included_onsite" placeholder="Onsite / mo" value="<?php echo $client_support_issues_included_onsite !== null ? $client_support_issues_included_onsite : ''; ?>">
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <div class="form-group">
@@ -219,6 +207,37 @@ ob_start();
                             </button>
                         </div>
                     </div>
+                </div>
+
+            </div>
+
+            <div class="tab-pane fade" id="pills-client-locations<?php echo $client_id; ?>">
+
+                <div class="form-group">
+                    <label>Locations <small class="text-secondary">(optional)</small></label>
+                    <div class="d-flex justify-content-end mb-2">
+                        <button class="btn btn-secondary btn-sm ajax-modal" type="button"
+                            data-modal-url="../modals/location/location_add.php">
+                            <i class="fas fa-fw fa-plus me-1"></i>New Location
+                        </button>
+                    </div>
+                    <div style="max-height:260px; overflow-y:auto;">
+                        <?php if (mysqli_num_rows($sql_locations_select) === 0) { ?>
+                            <p class="text-muted small mb-0">No locations yet.</p>
+                        <?php }
+                        while ($location_row = mysqli_fetch_assoc($sql_locations_select)) {
+                            $location_row_id = intval($location_row['location_id']);
+                            $location_row_label = nullable_htmlentities($location_row['location_name']);
+                            $location_row_place = trim(($location_row['location_city'] ?: '') . (($location_row['location_city'] && $location_row['location_state']) ? ', ' : '') . ($location_row['location_state'] ?: ''));
+                            if ($location_row_place !== '') { $location_row_label .= ' - ' . nullable_htmlentities($location_row_place); }
+                        ?>
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="locations[]" value="<?= $location_row_id ?>" id="editloc_<?= $location_row_id ?>_<?= $client_id ?>" <?php if (in_array($location_row_id, $client_location_id_array)) { echo 'checked'; } ?>>
+                                <label class="form-check-label" for="editloc_<?= $location_row_id ?>_<?= $client_id ?>"><?= $location_row_label ?></label>
+                            </div>
+                        <?php } ?>
+                    </div>
+                    <small class="text-muted">Links this department to any existing locations that apply.</small>
                 </div>
 
             </div>

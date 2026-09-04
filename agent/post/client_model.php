@@ -7,10 +7,6 @@ $website = preg_replace("(^https?://)", "", cleanInput($_POST['website']));
 $referral = cleanInput($_POST['referral']);
 $rate = floatval($_POST['rate'] ?? 0);
 $net_terms = intval($_POST['net_terms'] ?? $config_default_net_terms);
-$support_issues_included_remote = (isset($_POST['support_issues_included_remote']) && trim($_POST['support_issues_included_remote']) !== '')
-    ? intval($_POST['support_issues_included_remote']) : null;
-$support_issues_included_onsite = (isset($_POST['support_issues_included_onsite']) && trim($_POST['support_issues_included_onsite']) !== '')
-    ? intval($_POST['support_issues_included_onsite']) : null;
 $tax_id_number = cleanInput($_POST['tax_id_number'] ?? '');
 $abbreviation = cleanInput($_POST['abbreviation'] ?? '');
 if (empty($abbreviation)) {

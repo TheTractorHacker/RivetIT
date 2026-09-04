@@ -5,6 +5,7 @@
 // GET /api/v1/clients/{id}/credentials
 // GET /api/v1/clients/{id}/contracts
 // GET /api/v1/clients/{id}/files
+// GET /api/v1/clients/{id}/allowance
 defined('FROM_API') || die();
 require_once __DIR__ . '/includes/api_permissions.php';
 if ($method !== 'GET') api_error(405, 'Method not allowed');
@@ -107,6 +108,86 @@ switch ($sub) {
             ];
         }
         api_response(200, $rows);
+
+    case 'allowance':
+        // Rolled-up included-support-hours allowance vs. usage for the calendar
+        // month, mirroring agent/reports/included_issues.php. Same permission as
+        // the rest of the client tabs (module_client) since this is billing-adjacent
+        // client data, not support-ticket data.
+        api_require_module_permission($mysqli, $uid, 'module_client');
+
+        $month = isset($_GET['month']) ? intval($_GET['month']) : intval(date('n'));
+        $year  = isset($_GET['year']) ? intval($_GET['year']) : intval(date('Y'));
+        if ($month < 1 || $month > 12) api_error(400, 'Invalid month');
+        if ($year < 2000 || $year > 2100) api_error(400, 'Invalid year');
+
+        // Per-contract breakdown, computed in one pass alongside the rolled-up total
+        // (rather than also calling getClientIncludedIssuesUsage(), which would re-run
+        // the same per-contract queries a second time). getContractIncludedIssuesUsage()
+        // returns a period's real ticket-derived 'used' even when 'included' is null for
+        // that contract (its doc comment: null 'included' means "feature inactive,
+        // don't render") - zero 'used' out here in that case so a contract's entry
+        // doesn't show nonzero usage for an allowance it doesn't offer, and so summing
+        // contracts[].remote/onsite.used always reconciles with the rolled-up totals
+        // below (both only count a contract's usage where included !== null).
+        $contracts = [];
+        $remote_included = 0.0; $remote_used = 0.0; $remote_configured = false;
+        $onsite_included = 0.0; $onsite_used = 0.0; $onsite_configured = false;
+
+        $csql = mysqli_query($mysqli,
+            "SELECT contract_id, contract_name FROM contracts
+             WHERE contract_client_id = $id AND contract_status = 'Active' AND contract_archived_at IS NULL
+               AND (contract_support_hours_included_remote IS NOT NULL OR contract_support_hours_included_onsite IS NOT NULL)
+             ORDER BY contract_name ASC");
+        while ($c = mysqli_fetch_assoc($csql)) {
+            $usage = getContractIncludedIssuesUsage($mysqli, intval($c['contract_id']), $month, $year);
+
+            $c_remote = $usage['remote'];
+            if ($c_remote['included'] === null) {
+                $c_remote['used'] = 0;
+            } else {
+                $remote_configured = true;
+                $remote_included += $c_remote['included'];
+                $remote_used += $c_remote['used'];
+            }
+
+            $c_onsite = $usage['onsite'];
+            if ($c_onsite['included'] === null) {
+                $c_onsite['used'] = 0;
+            } else {
+                $onsite_configured = true;
+                $onsite_included += $c_onsite['included'];
+                $onsite_used += $c_onsite['used'];
+            }
+
+            $contracts[] = [
+                'id'     => intval($c['contract_id']),
+                'name'   => $c['contract_name'],
+                'remote' => $c_remote,
+                'onsite' => $c_onsite,
+            ];
+        }
+
+        // Mirrors getClientIncludedIssuesUsage()'s own summarize() closure exactly.
+        $summarize = function (bool $configured, float $included, float $used): array {
+            if (!$configured) {
+                return ['included' => null, 'used' => 0, 'remaining' => null, 'pct' => null];
+            }
+            return [
+                'included'  => $included,
+                'used'      => $used,
+                'remaining' => $included - $used,
+                'pct'       => $included > 0 ? round(min(100, $used / $included * 100), 1) : null,
+            ];
+        };
+
+        api_response(200, [
+            'month'     => $month,
+            'year'      => $year,
+            'remote'    => $summarize($remote_configured, $remote_included, $remote_used),
+            'onsite'    => $summarize($onsite_configured, $onsite_included, $onsite_used),
+            'contracts' => $contracts,
+        ]);
 
     default:
         api_error(404, 'Unknown tab');

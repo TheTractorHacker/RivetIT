@@ -188,8 +188,17 @@ if (!$api_user_id && $legacy_key_raw !== null) {
             $session_company_id = 1;
             $legacy_api_key_auth = true;
             $api_key_client_id  = intval($legacy_key_row['api_key_client_id'] ?? 0) ?: null;
+            $legacy_key_permission = ($legacy_key_row['api_key_permission'] ?? 'write') === 'read' ? 'read' : 'write';
         }
     }
+}
+
+// A 'read' legacy key (admin/api_keys.php "Permission" setting) may only GET -
+// blocked here, once, before routing, rather than trusting every individual
+// resource handler to check it. Bearer-token (per-user) auth is unaffected;
+// this only restricts the instance-wide legacy X-Api-Key mechanism.
+if ($legacy_api_key_auth && ($legacy_key_permission ?? 'write') === 'read' && $method !== 'GET') {
+    api_error(403, 'This API key is read-only');
 }
 
 // Semi-public endpoint: crash-reports. Bearer/legacy-key parsing above already ran

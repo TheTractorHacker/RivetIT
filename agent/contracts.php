@@ -85,6 +85,7 @@ $warn_date = date('Y-m-d', strtotime('+45 days'));
                     $cend = nullable_htmlentities($row['contract_end_date']);
                     $crenewal = nullable_htmlentities($row['contract_renewal_date']);
                     $has_sla = $row['contract_sla_high_response_time'] || $row['contract_sla_medium_response_time'] || $row['contract_sla_low_response_time'];
+                    $has_included_issues = $row['contract_support_hours_included_remote'] !== null || $row['contract_support_hours_included_onsite'] !== null;
                     $cclient_name = nullable_htmlentities($row['client_name']);
 
                     $renewal_class = '';
@@ -102,7 +103,11 @@ $warn_date = date('Y-m-d', strtotime('+45 days'));
                     <td><?= $cstatus ?></td>
                     <td><?= $cvalue ?></td>
                     <td><?= $cfreq ?: '-' ?></td>
-                    <td><?= $has_sla ? '<span class="badge text-bg-info"><i class="fas fa-stopwatch me-1"></i>SLA</span>' : '-' ?></td>
+                    <td>
+                        <?= $has_sla ? '<span class="badge text-bg-info"><i class="fas fa-stopwatch me-1"></i>SLA</span>' : '' ?>
+                        <?= $has_included_issues ? '<span class="badge text-bg-secondary"><i class="fas fa-house-user me-1"></i>Allowance</span>' : '' ?>
+                        <?= (!$has_sla && !$has_included_issues) ? '-' : '' ?>
+                    </td>
                     <td><?= $cstart ?: '-' ?></td>
                     <td><?= $cend ?: '-' ?></td>
                     <td class="<?= $renewal_class ?>">

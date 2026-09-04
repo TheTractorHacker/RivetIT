@@ -72,6 +72,19 @@ ob_start();
                         </select>
                     </div>
                 </div>
+
+                <div class="form-group">
+                    <label>Permission <strong class="text-danger">*</strong></label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-shield-alt"></i></span>
+                        </div>
+                        <select class="form-control" name="permission" required>
+                            <option value="write">Read &amp; Write &mdash; can create, update, and delete</option>
+                            <option value="read">Read Only &mdash; GET requests only, blocked from making any changes</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
             <div class="tab-pane fade" id="pills-api-keys">

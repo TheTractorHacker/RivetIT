@@ -103,6 +103,29 @@ ob_start();
             </table>
         </div>
 
+        <hr>
+        <div class="form-group">
+            <label>Included Support Hours <small class="text-secondary">(per month, optional &mdash; e.g. a residential subscription plan. Each remote ticket counts as 30 min, each onsite ticket as 1 hr, regardless of actual time worked)</small></label>
+            <div class="row">
+                <div class="col">
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-laptop"></i></span>
+                        </div>
+                        <input type="number" min="0" step="0.25" class="form-control" name="support_hours_included_remote" placeholder="Remote hrs / mo" value="<?= $row['contract_support_hours_included_remote'] !== null ? floatval($row['contract_support_hours_included_remote']) : '' ?>">
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-house-user"></i></span>
+                        </div>
+                        <input type="number" min="0" step="0.25" class="form-control" name="support_hours_included_onsite" placeholder="Onsite hrs / mo" value="<?= $row['contract_support_hours_included_onsite'] !== null ? floatval($row['contract_support_hours_included_onsite']) : '' ?>">
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="form-group">
             <label>Notes</label>
             <textarea class="form-control" name="contract_details" rows="2"><?= nullable_htmlentities($row['contract_details']) ?></textarea>

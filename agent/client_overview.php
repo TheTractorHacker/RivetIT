@@ -11,6 +11,13 @@ $sql_important_contacts = mysqli_query($mysqli,
        AND contact_archived_at IS NULL
      ORDER BY contact_primary DESC, contact_name DESC LIMIT 5");
 
+$sql_client_locations = mysqli_query($mysqli,
+    "SELECT locations.location_id, location_name, location_city, location_state
+     FROM department_sites
+     INNER JOIN locations ON locations.location_id = department_sites.location_id
+     WHERE department_sites.client_id = $client_id AND locations.location_archived_at IS NULL
+     ORDER BY location_name ASC");
+
 $sql_favorite_assets = mysqli_query($mysqli,
     "SELECT * FROM assets
      WHERE asset_client_id = $client_id AND asset_favorite = 1 AND asset_archived_at IS NULL
@@ -106,16 +113,16 @@ $client_issues_usage = getClientIncludedIssuesUsage($mysqli, $client_id);
     <div class="col-12">
         <div class="card mb-0">
             <div class="card-body py-2 d-flex align-items-center flex-wrap" style="gap:20px">
-                <span class="text-muted small fw-bold"><i class="fas fa-house-user me-1"></i>Included Support Issues</span>
+                <span class="text-muted small fw-bold"><i class="fas fa-house-user me-1"></i>Included Support Hours</span>
                 <?php foreach (['remote' => ['icon' => 'fa-laptop', 'label' => 'Remote'], 'onsite' => ['icon' => 'fa-house-user', 'label' => 'Onsite']] as $key => $meta):
                     $u = $client_issues_usage[$key];
                     if ($u['included'] === null) continue;
                 ?>
                 <span class="d-flex align-items-center" style="gap:6px;border-left:4px solid <?= $u['pct'] !== null && $u['pct'] >= 100 ? '#dc3545' : (($u['pct'] ?? 0) >= 80 ? '#ffc107' : '#28a745') ?>;padding-left:8px">
                     <i class="fas fa-fw <?= $meta['icon'] ?>"></i>
-                    <span><?= $meta['label'] ?>: <?= $u['used'] ?> / <?= $u['included'] ?> used this month</span>
+                    <span><?= $meta['label'] ?>: <?= number_format($u['used'], 2) ?> / <?= number_format($u['included'], 2) ?> hrs used this month</span>
                     <?php if ($u['remaining'] !== null && $u['remaining'] < 0): ?>
-                        <span class="badge text-bg-danger"><?= abs($u['remaining']) ?> over</span>
+                        <span class="badge text-bg-danger"><?= number_format(abs($u['remaining']), 2) ?> hrs over</span>
                     <?php endif; ?>
                 </span>
                 <?php endforeach; ?>
@@ -261,6 +268,32 @@ $client_issues_usage = getClientIncludedIssuesUsage($mysqli, $client_id);
     <?php endif; ?>
 
 </div>
+
+<!-- ── Locations ────────────────────────────────────────────────────────── -->
+<?php if (mysqli_num_rows($sql_client_locations) > 0): ?>
+<div class="row">
+    <div class="col-12">
+        <div class="card card-dark mb-3">
+            <div class="card-header p-2 d-flex align-items-center justify-content-between">
+                <h5 class="card-title mb-0"><i class="fas fa-fw fa-map-marker-alt me-2"></i>Locations</h5>
+                <a href="locations.php?client_id=<?= $client_id ?>" class="text-muted small">View all <i class="fas fa-chevron-right fa-xs"></i></a>
+            </div>
+            <div class="card-body p-2">
+                <?php while ($loc_row = mysqli_fetch_assoc($sql_client_locations)):
+                    $loc_id = intval($loc_row['location_id']);
+                    $loc_name = nullable_htmlentities($loc_row['location_name']);
+                    $loc_place = trim(($loc_row['location_city'] ?: '') . (($loc_row['location_city'] && $loc_row['location_state']) ? ', ' : '') . ($loc_row['location_state'] ?: ''));
+                    $loc_label = $loc_name . ($loc_place !== '' ? ' - ' . nullable_htmlentities($loc_place) : '');
+                ?>
+                    <a href="#" class="btn btn-outline-secondary btn-sm me-2 mb-1 ajax-modal" data-modal-url="modals/location/location_edit.php?id=<?= $loc_id ?>">
+                        <i class="fas fa-fw fa-map-marker-alt me-1"></i><?= $loc_label ?>
+                    </a>
+                <?php endwhile; ?>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- ── Row 2: Favorites ──────────────────────────────────────────────────── -->
 <?php

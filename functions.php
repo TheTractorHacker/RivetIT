@@ -1784,18 +1784,29 @@ function getCsatReport(mysqli $mysqli, $date_from, $date_to, ?int $client_id = n
     ];
 }
 
+// Flat per-ticket time charged against an included-hours allowance, regardless
+// of how long the ticket actually took - deliberately doesn't depend on
+// technicians consistently logging worked time (same philosophy as the
+// count-based design this replaced). Remote defaults to 30 min; onsite to a
+// full hour, since travel time makes onsite visits reliably longer.
+const INCLUDED_HOURS_PER_TICKET_REMOTE = 0.5;
+const INCLUDED_HOURS_PER_TICKET_ONSITE = 1.0;
+
 /**
- * Included support-issues usage for a client (e.g. residential subscriptions
- * that cover a set number of support issues per month), split remote vs
- * onsite. Always computed live from tickets.ticket_delivery_method /
- * ticket_created_at for the given calendar month - no stored balance/reset
- * cron needed, so it's always correct. Each of 'remote'/'onsite' has
- * 'included' => null when that allowance isn't configured for this client
- * (clients.client_support_issues_included_remote/_onsite is NULL) - callers
- * should treat that as "feature inactive" for that allowance and not render
- * anything for it.
+ * Included support-hours usage for a single contract (e.g. a residential
+ * subscription contract that covers a set number of support hours per
+ * month), split remote vs onsite. Each ticket counts as a flat
+ * INCLUDED_HOURS_PER_TICKET_REMOTE/ONSITE against the total regardless of
+ * its actual duration. Always computed live from
+ * tickets.ticket_delivery_method / ticket_contract_id / ticket_created_at
+ * for the given calendar month - no stored balance/reset cron needed, so
+ * it's always correct. Each of 'remote'/'onsite' has 'included' => null
+ * when that allowance isn't configured on this contract
+ * (contracts.contract_support_hours_included_remote/_onsite is NULL) -
+ * callers should treat that as "feature inactive" for that allowance and
+ * not render anything for it.
  */
-function getClientIncludedIssuesUsage(mysqli $mysqli, int $client_id, ?int $month = null, ?int $year = null): array {
+function getContractIncludedIssuesUsage(mysqli $mysqli, int $contract_id, ?int $month = null, ?int $year = null): array {
     $month = $month ?? intval(date('n'));
     $year  = $year ?? intval(date('Y'));
 
@@ -1804,25 +1815,25 @@ function getClientIncludedIssuesUsage(mysqli $mysqli, int $client_id, ?int $mont
     $from_dt = $period_start->format('Y-m-d H:i:s');
     $to_dt   = $period_end->format('Y-m-d H:i:s');
 
-    $client_row = mysqli_fetch_assoc(mysqli_query($mysqli,
-        "SELECT client_support_issues_included_remote, client_support_issues_included_onsite
-         FROM clients WHERE client_id = " . intval($client_id)));
-    $included_remote = ($client_row && $client_row['client_support_issues_included_remote'] !== null)
-        ? intval($client_row['client_support_issues_included_remote']) : null;
-    $included_onsite = ($client_row && $client_row['client_support_issues_included_onsite'] !== null)
-        ? intval($client_row['client_support_issues_included_onsite']) : null;
+    $contract_row = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT contract_support_hours_included_remote, contract_support_hours_included_onsite
+         FROM contracts WHERE contract_id = " . intval($contract_id)));
+    $included_remote = ($contract_row && $contract_row['contract_support_hours_included_remote'] !== null)
+        ? floatval($contract_row['contract_support_hours_included_remote']) : null;
+    $included_onsite = ($contract_row && $contract_row['contract_support_hours_included_onsite'] !== null)
+        ? floatval($contract_row['contract_support_hours_included_onsite']) : null;
 
     $counts_row = mysqli_fetch_assoc(mysqli_query($mysqli,
         "SELECT
             SUM(CASE WHEN ticket_delivery_method = 'Remote' THEN 1 ELSE 0 END) AS remote_count,
             SUM(CASE WHEN ticket_delivery_method = 'Onsite' THEN 1 ELSE 0 END) AS onsite_count
          FROM tickets
-         WHERE ticket_client_id = " . intval($client_id) . "
+         WHERE ticket_contract_id = " . intval($contract_id) . "
            AND ticket_created_at BETWEEN '$from_dt' AND '$to_dt'"));
-    $used_remote = intval($counts_row['remote_count'] ?? 0);
-    $used_onsite = intval($counts_row['onsite_count'] ?? 0);
+    $used_remote = intval($counts_row['remote_count'] ?? 0) * INCLUDED_HOURS_PER_TICKET_REMOTE;
+    $used_onsite = intval($counts_row['onsite_count'] ?? 0) * INCLUDED_HOURS_PER_TICKET_ONSITE;
 
-    $summarize = function (?int $included, int $used): array {
+    $summarize = function (?float $included, float $used): array {
         return [
             'included'  => $included,
             'used'      => $used,
@@ -1836,6 +1847,61 @@ function getClientIncludedIssuesUsage(mysqli $mysqli, int $client_id, ?int $mont
         'year'   => $year,
         'remote' => $summarize($included_remote, $used_remote),
         'onsite' => $summarize($included_onsite, $used_onsite),
+    ];
+}
+
+/**
+ * Included support-hours usage for a client, rolled up across every
+ * active, non-archived contract of theirs that has an allowance configured
+ * (a client can hold more than one contract at a time, each with its own
+ * allowance - see getContractIncludedIssuesUsage()). 'included'/'used' are
+ * the sum across those contracts; 'included' stays null when none of the
+ * client's active contracts configure that allowance.
+ */
+function getClientIncludedIssuesUsage(mysqli $mysqli, int $client_id, ?int $month = null, ?int $year = null): array {
+    $month = $month ?? intval(date('n'));
+    $year  = $year ?? intval(date('Y'));
+
+    $sql = mysqli_query($mysqli,
+        "SELECT contract_id FROM contracts
+         WHERE contract_client_id = " . intval($client_id) . "
+           AND contract_status = 'Active' AND contract_archived_at IS NULL
+           AND (contract_support_hours_included_remote IS NOT NULL OR contract_support_hours_included_onsite IS NOT NULL)");
+
+    $remote_configured = false; $remote_included = 0.0; $remote_used = 0.0;
+    $onsite_configured = false; $onsite_included = 0.0; $onsite_used = 0.0;
+
+    while ($row = mysqli_fetch_assoc($sql)) {
+        $usage = getContractIncludedIssuesUsage($mysqli, intval($row['contract_id']), $month, $year);
+        if ($usage['remote']['included'] !== null) {
+            $remote_configured = true;
+            $remote_included += $usage['remote']['included'];
+            $remote_used += $usage['remote']['used'];
+        }
+        if ($usage['onsite']['included'] !== null) {
+            $onsite_configured = true;
+            $onsite_included += $usage['onsite']['included'];
+            $onsite_used += $usage['onsite']['used'];
+        }
+    }
+
+    $summarize = function (bool $configured, float $included, float $used): array {
+        if (!$configured) {
+            return ['included' => null, 'used' => 0, 'remaining' => null, 'pct' => null];
+        }
+        return [
+            'included'  => $included,
+            'used'      => $used,
+            'remaining' => $included - $used,
+            'pct'       => $included > 0 ? round(min(100, $used / $included * 100), 1) : null,
+        ];
+    };
+
+    return [
+        'month'  => $month,
+        'year'   => $year,
+        'remote' => $summarize($remote_configured, $remote_included, $remote_used),
+        'onsite' => $summarize($onsite_configured, $onsite_included, $onsite_used),
     ];
 }
 

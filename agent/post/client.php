@@ -16,10 +16,11 @@ if (isset($_POST['add_client'])) {
 
     require_once 'client_model.php';
 
-    // Location - optional, links to an EXISTING location (department_sites)
-    // rather than typing a fresh address inline every time a department is
-    // created.
-    $selected_location_id = intval($_POST['location_id'] ?? 0);
+    // Locations - optional, links to any number of EXISTING locations
+    // (department_sites) rather than typing a fresh address inline every
+    // time a department is created. A department can have multiple
+    // locations, and a location can be shared by more than one department.
+    $selected_location_ids = array_map('intval', $_POST['locations'] ?? []);
 
     // Contact inputs
     $contact = cleanInput($_POST['contact']);
@@ -114,12 +115,14 @@ if (isset($_POST['add_client'])) {
         logAction("Category", "Create", "$session_name created referral category $referral");
     }
 
-    // Link the selected existing location (optional) - department_sites,
+    // Link the selected existing location(s) (optional) - department_sites,
     // not location_client_id, so a location can be shared by more than one
-    // department.
-    if ($selected_location_id > 0) {
-        mysqli_query($mysqli, "INSERT IGNORE INTO department_sites SET client_id = $client_id, location_id = $selected_location_id");
-        $extended_log_description .= ", linked to location #$selected_location_id";
+    // department and a department can have more than one location.
+    foreach ($selected_location_ids as $selected_location_id) {
+        if ($selected_location_id > 0) {
+            mysqli_query($mysqli, "INSERT IGNORE INTO department_sites SET client_id = $client_id, location_id = $selected_location_id");
+            $extended_log_description .= ", linked to location #$selected_location_id";
+        }
     }
 
     // Insert primary contact using SET
@@ -266,14 +269,12 @@ if (isset($_POST['edit_client'])) {
         client_tax_id_number = ?,
         client_lead = ?,
         client_abbreviation = ?,
-        client_notes = ?,
-        client_support_issues_included_remote = ?,
-        client_support_issues_included_onsite = ?
+        client_notes = ?
         WHERE client_id = ?"
     );
     mysqli_stmt_bind_param(
         $query,
-        "ssssdisissiii",
+        "ssssdisissi",
         $name,
         $type,
         $website,
@@ -284,8 +285,6 @@ if (isset($_POST['edit_client'])) {
         $lead,
         $abbreviation,
         $notes,
-        $support_issues_included_remote,
-        $support_issues_included_onsite,
         $client_id
     );
     mysqli_stmt_execute($query);
@@ -340,6 +339,19 @@ if (isset($_POST['edit_client'])) {
             $tag = intval($tag);
             mysqli_stmt_bind_param($query, "ii", $client_id, $tag);
             mysqli_stmt_execute($query);
+        }
+    }
+
+    // Locations - full sync (delete then re-add), mirrors location.php's own
+    // Departments-tab sync. A department can have multiple locations, and a
+    // location can be shared by more than one department.
+    mysqli_query($mysqli, "DELETE FROM department_sites WHERE client_id = $client_id");
+    if (isset($_POST['locations']) && is_array($_POST['locations'])) {
+        foreach ($_POST['locations'] as $location_id) {
+            $location_id = intval($location_id);
+            if ($location_id > 0) {
+                mysqli_query($mysqli, "INSERT IGNORE INTO department_sites SET client_id = $client_id, location_id = $location_id");
+            }
         }
     }
 

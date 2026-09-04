@@ -90,6 +90,11 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             </a>
                         </th>
                         <th>
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=api_key_permission&order=<?php echo $disp; ?>">
+                                Permission <?php if ($sort == 'api_key_permission') { echo $order_icon; } ?>
+                            </a>
+                        </th>
+                        <th>
                             <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=api_key_created_at&order=<?php echo $disp; ?>">
                                 Created <?php if ($sort == 'api_key_created_at') { echo $order_icon; } ?>
                             </a>
@@ -121,6 +126,11 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             $api_key_client = nullable_htmlentities($row['client_name']);
                         }
 
+                        $api_key_permission = $row['api_key_permission'] ?? 'write';
+                        $api_key_permission_display = $api_key_permission === 'read'
+                            ? '<span class="badge text-bg-secondary"><i class="fas fa-fw fa-eye me-1"></i>Read Only</span>'
+                            : '<span class="badge text-bg-primary"><i class="fas fa-fw fa-pen me-1"></i>Read &amp; Write</span>';
+
                         ?>
                         <tr>
                             <td class="pe-0">
@@ -131,6 +141,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             <td class="text-bold"><?php echo $api_key_name; ?></td>
                             <td><?php echo $api_key_client; ?></td>
                             <td><?php echo $api_key_secret; ?></td>
+                            <td><?php echo $api_key_permission_display; ?></td>
                             <td><?php echo $api_key_created_at; ?></td>
                             <td><?php echo $api_key_expire; ?></td>
                             <td>

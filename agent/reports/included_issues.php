@@ -13,8 +13,10 @@ if ($month < 1 || $month > 12) {
 $month_names = [1=>'January',2=>'February',3=>'March',4=>'April',5=>'May',6=>'June',7=>'July',8=>'August',9=>'September',10=>'October',11=>'November',12=>'December'];
 
 $sql_clients = mysqli_query($mysqli,
-    "SELECT client_id, client_name FROM clients
-     WHERE (client_support_issues_included_remote IS NOT NULL OR client_support_issues_included_onsite IS NOT NULL)
+    "SELECT DISTINCT client_id, client_name FROM clients
+     JOIN contracts ON contract_client_id = client_id
+     WHERE contract_status = 'Active' AND contract_archived_at IS NULL
+       AND (contract_support_hours_included_remote IS NOT NULL OR contract_support_hours_included_onsite IS NOT NULL)
        AND client_archived_at IS NULL
      ORDER BY client_name ASC");
 
@@ -29,15 +31,17 @@ while ($c = mysqli_fetch_assoc($sql_clients)) {
 }
 
 // Renders one Included/Used/Remaining/% cell group for remote or onsite.
+// 'included'/'used'/'remaining' are hours (fractional - each ticket charges
+// a flat 30 min remote / 1 hr onsite), so display with 2 decimal places.
 function renderIssuesUsageCells(array $u): void {
     if ($u['included'] === null) {
         echo '<td class="text-end text-muted" colspan="4">&mdash;</td>';
         return;
     }
     $over = $u['remaining'] !== null && $u['remaining'] < 0;
-    echo '<td class="text-end">' . $u['included'] . '</td>';
-    echo '<td class="text-end">' . $u['used'] . '</td>';
-    echo '<td class="text-end ' . ($over ? 'text-danger fw-bold' : '') . '">' . ($over ? '(' . abs($u['remaining']) . ' over)' : $u['remaining']) . '</td>';
+    echo '<td class="text-end">' . number_format($u['included'], 2) . '</td>';
+    echo '<td class="text-end">' . number_format($u['used'], 2) . '</td>';
+    echo '<td class="text-end ' . ($over ? 'text-danger fw-bold' : '') . '">' . ($over ? '(' . number_format(abs($u['remaining']), 2) . ' over)' : number_format($u['remaining'], 2)) . '</td>';
     echo '<td class="text-end">';
     if ($u['pct'] !== null) {
         echo '<span class="badge ' . ($u['pct'] >= 100 ? 'text-bg-danger' : ($u['pct'] >= 80 ? 'text-bg-warning' : 'text-bg-success')) . '">' . $u['pct'] . '%</span>';
@@ -51,7 +55,7 @@ function renderIssuesUsageCells(array $u): void {
 
 <div class="card card-dark">
     <div class="card-header py-2">
-        <h3 class="card-title mt-2"><i class="fas fa-fw fa-house-user me-2"></i>Included Support Issues</h3>
+        <h3 class="card-title mt-2"><i class="fas fa-fw fa-house-user me-2"></i>Included Support Hours</h3>
         <div class="card-tools">
             <button type="button" class="btn btn-primary d-print-none js-print-page"><i class="fas fa-fw fa-print me-2"></i>Print</button>
         </div>
@@ -75,8 +79,8 @@ function renderIssuesUsageCells(array $u): void {
                 <thead>
                     <tr>
                         <th rowspan="2" class="align-bottom">Department</th>
-                        <th colspan="4" class="text-center"><i class="fas fa-fw fa-laptop me-1"></i>Remote</th>
-                        <th colspan="4" class="text-center"><i class="fas fa-fw fa-house-user me-1"></i>Onsite</th>
+                        <th colspan="4" class="text-center"><i class="fas fa-fw fa-laptop me-1"></i>Remote <small class="text-muted">(hrs, 30 min/ticket)</small></th>
+                        <th colspan="4" class="text-center"><i class="fas fa-fw fa-house-user me-1"></i>Onsite <small class="text-muted">(hrs, 1 hr/ticket)</small></th>
                     </tr>
                     <tr>
                         <th class="text-end">Included</th>
@@ -91,7 +95,7 @@ function renderIssuesUsageCells(array $u): void {
                 </thead>
                 <tbody>
                     <?php if (empty($rows)) { ?>
-                        <tr><td colspan="9" class="text-center text-muted">No departments have an included-issues plan configured. Set one on a department's Edit form.</td></tr>
+                        <tr><td colspan="9" class="text-center text-muted">No departments have an included-hours plan configured. Set one on an active contract.</td></tr>
                     <?php } else { foreach ($rows as $r) { ?>
                         <tr>
                             <td><a href="../client_overview.php?client_id=<?= $r['client_id'] ?>"><?= nullable_htmlentities($r['client_name']) ?></a></td>

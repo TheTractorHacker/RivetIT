@@ -22,18 +22,59 @@ $slug = fn($tag) => 'tag-' . preg_replace('/[^a-z0-9]+/', '-', strtolower($tag))
 
 ?>
 <style>
-  /* Scoped to the API Docs page. Reuses the app's own tokens (css/itflow_custom.css,
-     css/itflow_design.css) so light/dark theme, radius and shadow stay consistent
-     with the rest of the admin area - this isn't a separate visual language, just
-     a denser, reference-manual layout for a page with 90+ rows to scan. */
-  .api-docs-shell { --api-get: #0a7d3f; --api-get-bg: #e6f4ec;
-    --api-post: #1b4fd8; --api-post-bg: #e6ecfd;
-    --api-put: #a8600a; --api-put-bg: #fbf0df;
-    --api-delete: #c1341a; --api-delete-bg: #fbe7e3; }
-  :root[data-bs-theme="dark"] .api-docs-shell { --api-get: #57d98a; --api-get-bg: #16311f;
-    --api-post: #8fb0ff; --api-post-bg: #1a2340;
-    --api-put: #e0b25f; --api-put-bg: #352a13;
-    --api-delete: #f08a75; --api-delete-bg: #3a1f19; }
+  /* ================================================================
+     DESIGN NOTE: this page's audience is developers integrating
+     against the API (mobile app, ITPanel Pro, RMM scripts) - people
+     who read references like this in a dark editor/terminal already.
+     Styling it as another light Bootstrap dashboard card (the
+     previous two passes) never had a shot at feeling considered to
+     that audience, no matter how much the spacing was refined.
+
+     So: the reference itself is a fixed-dark, monospace "console"
+     panel with its OWN identity, independent of the app's own
+     light/dark toggle - the way a code editor's terminal pane keeps
+     its own palette regardless of the editor's theme. The header
+     card above it stays in the app's normal theme; only the console
+     commits to something else. Sharp corners (no border-radius) are
+     deliberate too - real terminals don't have rounded corners, and
+     it lets the sticky prompt bar sit flush against the panel edge
+     instead of visually detaching from a rounded corner as it scrolls.
+
+     Method colors are ANSI-terminal-inspired and semantic (GET/POST/
+     PUT/DELETE each mean something specific), not one arbitrary neon
+     accent - deliberately different from the generic "dark bg, one
+     bright accent" AI-design default.
+     ================================================================ */
+  .api-console {
+    --c-bg: #0b1014;
+    --c-surface: #11181d;
+    --c-border: #1f2b31;
+    --c-ink: #d8e2e4;
+    --c-muted: #6b8087;
+    --c-accent: #5eead4;
+    --c-get: #7ee787;
+    --c-post: #79c0ff;
+    --c-put: #f2cc60;
+    --c-delete: #ff7b72;
+
+    background: var(--c-bg);
+    border: 1px solid var(--c-border);
+    font-family: var(--if-mono);
+    color: var(--c-ink);
+    display: flex;
+    align-items: stretch;
+    /* NOT overflow:hidden - same trap as the .app-main fix below: any
+       overflow != visible here would make .api-console itself the nearest
+       "scrolling ancestor" for the sticky TOC/prompt-bar's positioning math,
+       breaking them exactly like .app-main did. Sharp corners (no
+       border-radius) mean nothing needs clipping anyway. */
+  }
+  .api-console a { color: var(--c-post); }
+  .api-console a:focus-visible,
+  .api-console button:focus-visible,
+  .api-console input:focus-visible {
+    outline: 2px solid var(--c-accent); outline-offset: 1px;
+  }
 
   /* AdminLTE sets `.sidebar-expand-*.layout-fixed .app-main{overflow:auto}`
      (adminlte.min.css) at (0,0,3,0) specificity intending .app-main to be the
@@ -42,72 +83,91 @@ $slug = fn($tag) => 'tag-' . preg_replace('/[^a-z0-9]+/', '-', strtolower($tag))
      so .app-main's scrollHeight==clientHeight and it never actually scrolls;
      <html> does instead. position:sticky still computes against the nearest
      overflow!=visible ancestor regardless of whether that ancestor truly
-     scrolls, so .api-toc silently behaved as static and scrolled away instead
-     of sticking (confirmed: getBoundingClientRect().top went to -4136px after
-     scrolling 4500px). The !important is deliberate and scoped to only this
-     page (:has(.api-docs-shell)) - beating AdminLTE's 3-class selector cleanly
-     would require duplicating all 6 sidebar-expand-{sm,md,lg,xl,xxl,''} variants,
-     which is more fragile than one documented, narrowly-targeted override.
-     Must reset BOTH axes: per the CSS overflow spec, if overflow-x and
-     overflow-y are set to different values and neither is visible, "visible"
-     on just one axis computes back to auto anyway - confirmed via CDP
-     getMatchedStylesForNode that overflow-y:visible!important was winning the
-     cascade yet getComputedStyle() still reported auto, because the
-     3-class rule's overflow-x:auto was still in effect on the other axis. */
+     scrolls, so a sticky sidebar/prompt bar would silently behave as static
+     and scroll away instead of sticking. The !important is deliberate and
+     scoped to only this page (:has(.api-docs-shell)) - beating AdminLTE's
+     3-class selector cleanly would require duplicating all 6
+     sidebar-expand-{sm,md,lg,xl,xxl,''} variants. Must reset BOTH overflow
+     axes: if x/y differ and neither is visible, "visible" on just one axis
+     computes back to auto (confirmed via CDP getMatchedStylesForNode). */
   .app-main:has(.api-docs-shell) { overflow: visible !important; }
-  .api-toc { position: sticky; top: 1rem; max-height: calc(100vh - 6rem); overflow-y: auto; }
+
+  .api-toc-col {
+    flex: 0 0 240px; border-right: 1px solid var(--c-border);
+    background: var(--c-surface);
+  }
+  .api-toc { position: sticky; top: 1rem; max-height: calc(100vh - 6rem); overflow-y: auto; padding: .9rem 0; }
   .api-toc a {
     display: flex; justify-content: space-between; gap: .5rem;
-    padding: .38rem .7rem; border-radius: var(--if-radius-sm); font-size: .85rem;
-    color: var(--if-ink); text-decoration: none;
+    padding: .3rem .9rem; font-size: .78rem; text-decoration: none; color: var(--c-ink);
   }
-  .api-toc a:hover { background: var(--if-bg); }
-  .api-toc a .cnt { color: var(--if-muted); font-family: var(--if-mono); font-size: .78rem; }
-  .api-toc-legend { font-size: .74rem; color: var(--if-muted); border-top: 1px solid var(--if-border); margin-top: .6rem; padding-top: .6rem; }
-  .api-toc-legend .api-verb { margin-right: .25rem; }
-
-  .api-searchbar {
-    position: sticky; top: 0; z-index: 2; background: var(--if-bg);
-    padding: .85rem 0 .7rem; margin-bottom: .25rem;
+  .api-toc a:hover { background: rgba(94, 234, 212, .07); color: var(--c-accent); }
+  .api-toc a .cnt { color: var(--c-muted); }
+  .api-toc-legend {
+    font-size: .68rem; color: var(--c-muted); border-top: 1px solid var(--c-border);
+    margin: .7rem .9rem 0; padding-top: .6rem; line-height: 1.9;
   }
-  .api-searchbar .form-control:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent-soft); }
-  .api-count { white-space: nowrap; color: var(--if-muted); font-size: .85rem; }
+  .api-toc-legend .api-verb { display: inline-block; min-width: 3.2em; margin-right: .4em; }
 
-  /* .card:not(.card-outline) in itflow_custom.css resets border-top-* to `none`
-     at (0,0,2,0) specificity - a plain .api-section{border-top:...} rule (0,0,1,0)
-     loses to it regardless of source order. Use AdminLTE's own card-outline
-     variant hook instead (--lte-card-variant-bg, see adminlte.min.css's
-     `.card.card-outline{border-top:3px solid var(--lte-card-variant-bg)}`) rather
-     than fighting the cascade - the api-section div also carries card-outline. */
-  .api-section { --lte-card-variant-bg: var(--color-accent); margin-bottom: 1.1rem; }
-  .api-section .card-header { display: flex; align-items: baseline; gap: .5rem; }
-  .api-section .card-header h5 { margin: 0; }
-  .api-section .card-header .cnt { color: var(--if-muted); font-size: .8rem; }
+  .api-main-col { flex: 1 1 auto; min-width: 0; }
 
-  .api-row { display: flex; align-items: baseline; gap: .7rem; padding: .55rem .25rem; border-top: 1px solid var(--if-border); flex-wrap: wrap; }
-  .api-row:first-child { border-top: none; }
-  .api-verb {
-    display: inline-block; min-width: 56px; text-align: center; flex-shrink: 0;
-    font-family: var(--if-mono); font-size: .68rem; font-weight: 700; letter-spacing: .04em;
-    padding: .18rem 0; border-radius: 6px;
+  .api-prompt-bar {
+    position: sticky; top: 0; z-index: 2; background: var(--c-surface);
+    border-bottom: 1px solid var(--c-border);
+    display: flex; align-items: center; gap: .6rem; padding: .8rem 1.1rem;
   }
-  .api-verb.get { color: var(--api-get); background: var(--api-get-bg); }
-  .api-verb.post { color: var(--api-post); background: var(--api-post-bg); }
-  .api-verb.put { color: var(--api-put); background: var(--api-put-bg); }
-  .api-verb.delete { color: var(--api-delete); background: var(--api-delete-bg); }
-  .api-path { font-family: var(--if-mono); font-size: .86rem; word-break: break-all; }
-  .api-copy { border: 0; background: none; color: var(--if-muted); padding: 0 0 0 .3rem; cursor: pointer; }
-  .api-copy:hover { color: var(--color-accent); }
-  .api-summary { flex-basis: 100%; color: var(--if-muted); font-size: .83rem; margin-left: 66px; }
-  .api-row.api-hidden, .api-section.api-hidden { display: none; }
+  .api-prompt-label { color: var(--c-accent); font-weight: 600; font-size: .85rem; white-space: nowrap; user-select: none; }
+  .api-prompt-bar input[type="search"] {
+    flex: 1; min-width: 0; background: transparent; border: 0; outline: 0;
+    color: var(--c-ink); font-family: var(--if-mono); font-size: .85rem; caret-color: var(--c-accent);
+  }
+  .api-prompt-bar input[type="search"]::placeholder { color: var(--c-muted); }
+  .api-prompt-bar input[type="search"]::-webkit-search-cancel-button { filter: invert(60%); cursor: pointer; }
+  .api-count { white-space: nowrap; color: var(--c-muted); font-size: .78rem; }
 
-  .api-empty { display: none; padding: 2.5rem 1rem; text-align: center; color: var(--if-muted); }
+  .api-section-heading {
+    font-family: var(--if-mono); text-transform: uppercase; letter-spacing: .1em;
+    font-size: .72rem; font-weight: 700; color: var(--c-accent);
+    padding: 1.2rem 1.1rem .55rem; margin: 0;
+    border-top: 1px solid var(--c-border);
+  }
+  .api-main-col > .api-section:first-child .api-section-heading { border-top: 0; }
+  .api-section-heading .cnt { color: var(--c-muted); font-weight: 500; letter-spacing: 0; text-transform: none; margin-left: .5rem; }
+
+  .api-path-heading {
+    display: flex; align-items: center; gap: .5rem; padding: .55rem 1.1rem .15rem;
+    font-size: .86rem; font-weight: 600; color: var(--c-ink);
+  }
+  .api-copy { border: 0; background: none; color: var(--c-muted); padding: 0; cursor: pointer; font-size: .78rem; line-height: 1; }
+  .api-copy:hover { color: var(--c-accent); }
+
+  .api-row { display: flex; align-items: baseline; gap: .7rem; padding: .3rem 1.1rem .45rem 2.5rem; flex-wrap: wrap; }
+  .api-verb { font-weight: 700; font-size: .74rem; min-width: 3.4em; flex-shrink: 0; }
+  .api-verb.get { color: var(--c-get); }
+  .api-verb.post { color: var(--c-post); }
+  .api-verb.put { color: var(--c-put); }
+  .api-verb.delete { color: var(--c-delete); }
+  .api-op-body { min-width: 0; }
+  .api-summary { color: var(--c-ink); font-family: var(--if-sans); font-size: .84rem; }
+  .api-meta { margin-top: .2rem; font-size: .72rem; color: var(--c-muted); }
+  .api-meta .api-flag::before { content: "\00b7"; margin-right: .3em; }
+  .api-meta .api-flag { margin-right: .8em; }
+  .api-meta .api-flag-public { color: var(--c-accent); }
+  .api-meta .api-param-req { color: var(--c-ink); }
+  .api-row.api-hidden, .api-path-group.api-hidden, .api-section.api-hidden { display: none; }
+
+  .api-empty { display: none; padding: 3rem 1.5rem; text-align: center; color: var(--c-muted); font-family: var(--if-sans); }
   .api-empty.api-visible { display: block; }
+  .api-empty code { color: var(--c-accent); background: none; }
 
   @media (max-width: 767px) {
-    .api-toc { position: static; max-height: none; margin-bottom: 0; }
-    .api-searchbar { position: static; }
+    .api-console { flex-direction: column; }
+    .api-toc-col { flex: 0 0 auto; border-right: 0; border-top: 1px solid var(--c-border); order: 2; }
+    .api-toc { position: static; max-height: none; }
+    .api-main-col { order: 1; }
   }
+
+  @media (prefers-reduced-motion: reduce) { .api-console * { transition: none !important; } }
 </style>
 
 <div class="card card-dark api-docs-shell">
@@ -153,8 +213,8 @@ $slug = fn($tag) => 'tag-' . preg_replace('/[^a-z0-9]+/', '-', strtolower($tag))
 </div>
 
 <?php if ($endpoints): ?>
-<div class="row api-docs-shell">
-    <div class="col-12 col-md-3 order-2 order-md-1 mb-3 mb-md-0">
+<div class="api-console api-docs-shell mt-3">
+    <div class="api-toc-col">
         <div class="api-toc">
             <?php foreach ($tag_order as $tag): if (empty($by_tag[$tag])) continue; ?>
             <a href="#<?= $slug($tag) ?>" data-toc-for="<?= $slug($tag) ?>">
@@ -163,52 +223,82 @@ $slug = fn($tag) => 'tag-' . preg_replace('/[^a-z0-9]+/', '-', strtolower($tag))
             </a>
             <?php endforeach; ?>
             <div class="api-toc-legend">
-                <span class="api-verb get">GET</span>read
-                &nbsp;<span class="api-verb post">POST</span>create
-                &nbsp;<span class="api-verb put">PUT</span>update
-                &nbsp;<span class="api-verb delete">DELETE</span>remove
+                <div><span class="api-verb get">GET</span>read</div>
+                <div><span class="api-verb post">POST</span>create</div>
+                <div><span class="api-verb put">PUT</span>update</div>
+                <div><span class="api-verb delete">DELETE</span>remove</div>
             </div>
         </div>
     </div>
 
-    <div class="col-12 col-md-9 order-1 order-md-2">
-        <div class="api-searchbar d-flex align-items-center" style="gap:.75rem;">
-            <div class="input-group">
-                <span class="input-group-text bg-transparent"><i class="fa fa-search text-secondary"></i></span>
-                <input type="search" id="apiDocsSearch" class="form-control" placeholder="Filter by path, summary, or method&hellip;">
-            </div>
-            <span class="api-count"><span id="apiDocsCount"><?= count($endpoints) ?></span> / <?= count($endpoints) ?> endpoints</span>
+    <div class="api-main-col">
+        <div class="api-prompt-bar">
+            <span class="api-prompt-label">api-docs&nbsp;$</span>
+            <input type="search" id="apiDocsSearch" placeholder="grep path, summary, or method&hellip;" autocomplete="off" spellcheck="false">
+            <span class="api-count"><span id="apiDocsCount"><?= count($endpoints) ?></span>/<?= count($endpoints) ?></span>
         </div>
 
         <?php foreach ($tag_order as $tag): if (empty($by_tag[$tag])) continue; ?>
-        <div class="card card-outline api-section" id="<?= $slug($tag) ?>">
-            <div class="card-header py-2">
-                <h5><?= nullable_htmlentities($tag) ?></h5>
-                <span class="cnt">(<?= count($by_tag[$tag]) ?>)</span>
-            </div>
-            <div class="card-body py-2">
-                <?php foreach ($by_tag[$tag] as $ep):
-                    $cls  = $method_class[$ep['method']] ?? 'get';
-                    $path = $ep['path'];
-                ?>
-                <div class="api-row" data-search="<?= nullable_htmlentities(strtolower($ep['method'] . ' ' . $path . ' ' . $ep['summary'])) ?>">
-                    <span class="api-verb <?= $cls ?>"><?= nullable_htmlentities($ep['method']) ?></span>
-                    <span class="api-path"><?= nullable_htmlentities($path) ?></span>
-                    <button type="button" class="api-copy clipboardjs" data-clipboard-text="<?= nullable_htmlentities($path) ?>" title="Copy path">
-                        <i class="far fa-copy"></i>
-                    </button>
-                    <?php if ($ep['summary'] !== ''): ?>
-                    <span class="api-summary"><?= nullable_htmlentities($ep['summary']) ?></span>
-                    <?php endif; ?>
+        <section class="api-section" id="<?= $slug($tag) ?>">
+            <h4 class="api-section-heading">
+                <?= nullable_htmlentities($tag) ?>
+                <span class="cnt" data-total="<?= count($by_tag[$tag]) ?>">(<?= count($by_tag[$tag]) ?>)</span>
+            </h4>
+            <?php
+            // Group this tag's endpoints by path (they're already contiguous
+            // per-path in file order, since one YAML path key holds all its
+            // methods together) so the URL is shown once per resource.
+            $groups = [];
+            foreach ($by_tag[$tag] as $ep) {
+                $groups[$ep['path']][] = $ep;
+            }
+            foreach ($groups as $path => $ops): ?>
+                <div class="api-path-group" data-search="<?= nullable_htmlentities(strtolower($path)) ?>">
+                    <div class="api-path-heading">
+                        <span><?= nullable_htmlentities($path) ?></span>
+                        <button type="button" class="api-copy clipboardjs" data-clipboard-text="<?= nullable_htmlentities($path) ?>" title="Copy path">
+                            <i class="far fa-copy"></i>
+                        </button>
+                    </div>
+                    <?php foreach ($ops as $ep):
+                        $cls = $method_class[$ep['method']] ?? 'get';
+                        $query_params = array_values(array_filter($ep['params'], fn($p) => $p['in'] === 'query'));
+                    ?>
+                    <div class="api-row" data-search="<?= nullable_htmlentities(strtolower($ep['method'] . ' ' . $path . ' ' . $ep['summary'])) ?>">
+                        <span class="api-verb <?= $cls ?>"><?= nullable_htmlentities($ep['method']) ?></span>
+                        <div class="api-op-body">
+                            <?php if ($ep['summary'] !== ''): ?>
+                            <div class="api-summary"><?= nullable_htmlentities($ep['summary']) ?></div>
+                            <?php endif; ?>
+                            <?php if ($ep['no_auth'] || $ep['has_body'] || $query_params): ?>
+                            <div class="api-meta">
+                                <?php if ($ep['no_auth']): ?><span class="api-flag api-flag-public">public</span><?php endif; ?>
+                                <?php if ($ep['has_body']): ?><span class="api-flag">body required</span><?php endif; ?>
+                                <?php if ($query_params): ?>
+                                <span class="api-flag">query:
+                                <?php
+                                $parts = [];
+                                foreach ($query_params as $p) {
+                                    $parts[] = $p['required']
+                                        ? '<span class="api-param-req">' . nullable_htmlentities($p['name']) . '*</span>'
+                                        : nullable_htmlentities($p['name']);
+                                }
+                                echo implode(', ', $parts);
+                                ?>
+                                </span>
+                                <?php endif; ?>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
                 </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
+            <?php endforeach; ?>
+        </section>
         <?php endforeach; ?>
 
         <div class="api-empty" id="apiDocsEmpty">
-            <i class="fas fa-fw fa-search fa-2x mb-2"></i>
-            <p class="mb-0">No endpoints match "<span id="apiDocsEmptyQuery"></span>". Try a different path, summary word, or method.</p>
+            <p class="mb-0">no matches for <code id="apiDocsEmptyQuery"></code></p>
         </div>
     </div>
 </div>
@@ -236,19 +326,28 @@ $slug = fn($tag) => 'tag-' . preg_replace('/[^a-z0-9]+/', '-', strtolower($tag))
         var visible = 0;
 
         document.querySelectorAll('.api-section').forEach(function (section) {
-            var secRows = section.querySelectorAll('.api-row');
             var secVisible = 0;
-            secRows.forEach(function (row) {
-                var hay = row.getAttribute('data-search') || '';
-                var match = terms.every(function (t) { return hay.indexOf(t) !== -1; });
-                row.classList.toggle('api-hidden', !match);
-                if (match) secVisible++;
+            section.querySelectorAll('.api-path-group').forEach(function (group) {
+                var groupVisible = 0;
+                group.querySelectorAll('.api-row').forEach(function (row) {
+                    var hay = row.getAttribute('data-search') || '';
+                    var match = terms.every(function (t) { return hay.indexOf(t) !== -1; });
+                    row.classList.toggle('api-hidden', !match);
+                    if (match) groupVisible++;
+                });
+                group.classList.toggle('api-hidden', groupVisible === 0);
+                secVisible += groupVisible;
             });
             section.classList.toggle('api-hidden', secVisible === 0);
             var tocLink = document.querySelector('[data-toc-for="' + section.id + '"]');
             if (tocLink) {
-                var cnt = tocLink.querySelector('.cnt');
-                if (cnt) cnt.textContent = secVisible;
+                var tocCnt = tocLink.querySelector('.cnt');
+                if (tocCnt) tocCnt.textContent = secVisible;
+            }
+            var headerCnt = section.querySelector('.api-section-heading .cnt');
+            if (headerCnt) {
+                var total = headerCnt.getAttribute('data-total');
+                headerCnt.textContent = (q === '') ? '(' + total + ')' : '(' + secVisible + ' / ' + total + ')';
             }
             visible += secVisible;
         });

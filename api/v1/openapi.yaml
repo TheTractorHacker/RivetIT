@@ -664,6 +664,23 @@ paths:
             application/json:
               schema: {type: array, items: {type: object}}
         '403': {$ref: '#/components/responses/Forbidden'}
+  /clients/{id}/allowance:
+    get:
+      tags: [Clients]
+      summary: Included support-hours allowance vs. usage for a calendar month, rolled up across the client's active contracts plus a per-contract breakdown
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+        - {name: month, in: query, description: '1-12, defaults to current month', schema: {type: integer}}
+        - {name: year, in: query, description: 'defaults to current year', schema: {type: integer}}
+      responses:
+        '200':
+          description: Allowance usage
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllowanceUsage'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '403': {$ref: '#/components/responses/Forbidden'}
   /contacts:
     get:
       tags: [Contacts]
@@ -1493,6 +1510,31 @@ components:
         allowCredentials: {type: array, items: {type: object}}
         userVerification: {type: string}
         challengeToken: {type: string}
+    AllowanceUsagePeriod:
+      type: object
+      description: Included vs. used hours for one delivery method (remote or onsite) over the requested month. When this allowance isn't configured (no active contract sets it), included/remaining/pct are null and used is 0 - treat null 'included' as "feature inactive" and don't render this period.
+      properties:
+        included: {type: number, nullable: true, description: 'Hours included, or null if this allowance is not configured'}
+        used: {type: number, description: 'Hours used so far this month (flat per-ticket rate, not actual worked time); 0 when included is null'}
+        remaining: {type: number, nullable: true, description: 'included - used; negative when over allowance; null when included is null'}
+        pct: {type: number, nullable: true, description: 'used / included as a percentage, capped at 100; null when included is null'}
+    AllowanceUsage:
+      type: object
+      properties:
+        month: {type: integer, description: '1-12'}
+        year: {type: integer}
+        remote: {$ref: '#/components/schemas/AllowanceUsagePeriod'}
+        onsite: {$ref: '#/components/schemas/AllowanceUsagePeriod'}
+        contracts:
+          type: array
+          description: Per-contract breakdown across the client's active contracts that have an allowance configured
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              name: {type: string}
+              remote: {$ref: '#/components/schemas/AllowanceUsagePeriod'}
+              onsite: {$ref: '#/components/schemas/AllowanceUsagePeriod'}
     DashboardResponse:
       type: object
       properties:

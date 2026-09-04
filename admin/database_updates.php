@@ -6775,3 +6775,27 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.70'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.70') {
+        // The included-issues allowance is a count of hours, not tickets -
+        // each remote ticket charges a flat 30 min against it, each onsite
+        // ticket a flat hour (INCLUDED_HOURS_PER_TICKET_REMOTE/ONSITE in
+        // functions.php), regardless of how long the ticket actually took.
+        // Retype int (ticket count) -> decimal (hours) and rename to match.
+        // No contract had a non-null value set at the time of this
+        // migration, so there's no existing count to convert to hours.
+        mysqli_query($mysqli, "ALTER TABLE `contracts` CHANGE COLUMN `contract_support_issues_included_remote` `contract_support_hours_included_remote` decimal(6,2) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `contracts` CHANGE COLUMN `contract_support_issues_included_onsite` `contract_support_hours_included_onsite` decimal(6,2) DEFAULT NULL");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.71'");
+    }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.71') {
+        // Legacy API keys (admin/api_keys.php, X-Api-Key auth) previously had no
+        // permission concept at all - every key granted full read/write access
+        // to everything the resolved admin user could do. 'write' is the default
+        // so every existing key keeps its current (full) behavior unchanged.
+        mysqli_query($mysqli, "ALTER TABLE `api_keys` ADD COLUMN IF NOT EXISTS `api_key_permission` ENUM('read','write') NOT NULL DEFAULT 'write' AFTER `api_key_client_id`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.72'");
+    }
+
