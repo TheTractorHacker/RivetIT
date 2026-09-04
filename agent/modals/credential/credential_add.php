@@ -70,6 +70,19 @@ ob_start();
                 <?php } ?>
 
                 <div class="form-group">
+                    <label>Type</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-list"></i></span>
+                        </div>
+                        <select class="form-control select2 js-credential-type" name="type">
+                            <option value="Login" selected>Login</option>
+                            <option value="API Key">API Key</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label>Name <strong class="text-danger">*</strong> / <span class="text-secondary">Important?</span></label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -97,7 +110,7 @@ ob_start();
                 </div>
 
                 <div class="form-group">
-                    <label>Username / ID</label>
+                    <label class="js-credential-username-label">Username / ID</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
@@ -107,7 +120,7 @@ ob_start();
                 </div>
 
                 <div class="form-group">
-                    <label>Password / Key <strong class="text-danger">*</strong></label>
+                    <label class="js-credential-password-label">Password / Key <strong class="text-danger">*</strong></label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-lock"></i></span>
@@ -132,7 +145,7 @@ ob_start();
                     </div>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group js-credential-otp-group">
                     <label>TOTP Seed</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -146,7 +159,7 @@ ob_start();
                 </div>
 
                 <div class="form-group">
-                    <label>URI</label>
+                    <label class="js-credential-uri-label">URI</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-link"></i></span>
@@ -156,7 +169,7 @@ ob_start();
                 </div>
 
                 <div class="form-group">
-                    <label>URI 2</label>
+                    <label class="js-credential-uri2-label">URI 2</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-link"></i></span>
@@ -274,6 +287,7 @@ ob_start();
 </form>
 
 <script src="/agent/js/generate_password.js"></script>
+<script src="/agent/js/credential_type_toggle.js"></script>
 
 <?php
 

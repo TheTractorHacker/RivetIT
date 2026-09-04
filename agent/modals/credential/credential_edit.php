@@ -10,6 +10,7 @@ $sql = mysqli_query($mysqli, "SELECT * FROM credentials WHERE credential_id = $c
 
 $row = mysqli_fetch_assoc($sql);
 $client_id = intval($row['credential_client_id']);
+$credential_type = in_array($row['credential_type'] ?? '', ['Login', 'API Key'], true) ? $row['credential_type'] : 'Login';
 $credential_name = nullable_htmlentities($row['credential_name']);
 $credential_description = nullable_htmlentities($row['credential_description']);
 $credential_uri = nullable_htmlentities($row['credential_uri']);
@@ -75,6 +76,19 @@ ob_start();
             <div class="tab-pane fade show active" id="pills-credential-details<?php echo $credential_id; ?>">
 
                 <div class="form-group">
+                    <label>Type</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-list"></i></span>
+                        </div>
+                        <select class="form-control select2 js-credential-type" name="type">
+                            <option value="Login" <?php if ($credential_type === 'Login') { echo 'selected'; } ?>>Login</option>
+                            <option value="API Key" <?php if ($credential_type === 'API Key') { echo 'selected'; } ?>>API Key</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label>Name <strong class="text-danger">*</strong> / <span class="text-secondary">Important?</span></label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -106,7 +120,7 @@ ob_start();
                 </div>
 
                 <div class="form-group">
-                    <label>Username / ID</label>
+                    <label class="js-credential-username-label">Username / ID</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
@@ -116,7 +130,7 @@ ob_start();
                 </div>
 
                 <div class="form-group">
-                    <label>Password / Key <strong class="text-danger">*</strong></label>
+                    <label class="js-credential-password-label">Password / Key <strong class="text-danger">*</strong></label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-lock"></i></span>
@@ -141,7 +155,7 @@ ob_start();
                     </div>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group js-credential-otp-group">
                     <label>OTP</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -155,7 +169,7 @@ ob_start();
                 </div>
 
                 <div class="form-group">
-                    <label>URI</label>
+                    <label class="js-credential-uri-label">URI</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-link"></i></span>
@@ -172,7 +186,7 @@ ob_start();
                 </div>
 
                 <div class="form-group">
-                    <label>URI 2</label>
+                    <label class="js-credential-uri2-label">URI 2</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-link"></i></span>
@@ -320,6 +334,8 @@ ob_start();
         <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-2"></i>Cancel</button>
     </div>
 </form>
+
+<script src="/agent/js/credential_type_toggle.js"></script>
 
 <?php
 require_once '../../../includes/modal_footer.php';

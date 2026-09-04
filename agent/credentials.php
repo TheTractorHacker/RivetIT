@@ -142,6 +142,15 @@ if ($client_url && isset($_GET['location']) && !empty($_GET['location'])) {
     $location_filter = '';
 }
 
+// Type Filter (Login / API Key)
+if (isset($_GET['type']) && in_array($_GET['type'], ['Login', 'API Key'], true)) {
+    $type_filter = $_GET['type'];
+    $type_query = "AND c.credential_type = '$type_filter'";
+} else {
+    $type_filter = '';
+    $type_query = '';
+}
+
 // Folder filter (client view only)
 if ($client_url) {
     if ($get_folder_id == 0 && !empty($q)) {
@@ -166,6 +175,7 @@ $sql = mysqli_query(
     $location_query_innerjoin
     WHERE $archive_query
     $tag_query
+    $type_query
     AND (c.credential_name LIKE '%$q%' OR c.credential_description LIKE '%$q%' OR c.credential_uri LIKE '%$q%' OR tag_name LIKE '%$q%' OR client_name LIKE '%$q%')
     $location_query
     $folder_query
@@ -310,6 +320,16 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     </div>
                 </div>
                 <?php } ?>
+
+                <div class="col-md-2">
+                    <div class="input-group mb-3 mb-md-0">
+                        <select class="form-control select2 auto-submit-select" name="type">
+                            <option value="" <?php if ($type_filter === '') { echo "selected"; } ?>>- All Types -</option>
+                            <option value="Login" <?php if ($type_filter === 'Login') { echo "selected"; } ?>>Login</option>
+                            <option value="API Key" <?php if ($type_filter === 'API Key') { echo "selected"; } ?>>API Key</option>
+                        </select>
+                    </div>
+                </div>
 
                 <div class="col-md-3">
                     <div class="btn-group float-end">
@@ -500,6 +520,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             } else {
                                 $otp_display = "<span class='otp-reveal-trigger' data-credential-id='$credential_id'><i class='far fa-clock'></i> <span id='otp_$credential_id'><i>Hover..</i></span></span>";
                             }
+                            $credential_type = in_array($row['credential_type'] ?? '', ['Login', 'API Key'], true) ? $row['credential_type'] : 'Login';
                             $credential_note = nullable_htmlentities($row['credential_note']);
                             $credential_created_at = nullable_htmlentities($row['credential_created_at']);
                             $credential_archived_at = nullable_htmlentities($row['credential_archived_at']);
@@ -591,7 +612,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                         <div class="media">
                                             <i class="fa fa-fw fa-2x fa-key me-3"></i>
                                             <div class="media-body">
-                                                <div><?php echo $credential_name; ?> <?php if ($credential_favorite) { echo "<i class='fas fa-fw fa-star text-warning' title='Favorite'></i>"; } ?></div>
+                                                <div><?php echo $credential_name; ?> <?php if ($credential_favorite) { echo "<i class='fas fa-fw fa-star text-warning' title='Favorite'></i>"; } ?> <?php if ($credential_type === 'API Key') { echo "<span class='badge bg-info text-dark'>API Key</span>"; } ?></div>
                                                 <div><small class="text-secondary"><?php echo $credential_description; ?></small></div>
                                                 <?php
                                                 if (!empty($credential_tags_display)) { ?>

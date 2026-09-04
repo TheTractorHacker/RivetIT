@@ -214,7 +214,7 @@ if (isset($_POST['restore_credential'])) {
 
         $esc_name = mysqli_real_escape_string($mysqli, $old['credential_name']);
         $esc_description = mysqli_real_escape_string($mysqli, $old['credential_description'] ?? '');
-        $esc_category = mysqli_real_escape_string($mysqli, $old['credential_category'] ?? '');
+        $esc_type = mysqli_real_escape_string($mysqli, $old['credential_type'] ?? 'Login');
         $esc_uri = mysqli_real_escape_string($mysqli, $old['credential_uri'] ?? '');
         $esc_uri_2 = mysqli_real_escape_string($mysqli, $old['credential_uri_2'] ?? '');
         $esc_otp = mysqli_real_escape_string($mysqli, $old['credential_otp_secret'] ?? '');
@@ -224,7 +224,7 @@ if (isset($_POST['restore_credential'])) {
             credential_id = $credential_id,
             credential_name = '$esc_name',
             credential_description = '$esc_description',
-            credential_category = '$esc_category',
+            credential_type = '$esc_type',
             credential_uri = '$esc_uri',
             credential_uri_2 = '$esc_uri_2',
             credential_username = '$esc_username',

@@ -2,6 +2,7 @@
 // Model of reusable variables for client credentials - not to be confused with the ITFLow login process
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
+$type = in_array($_POST['type'] ?? '', ['Login', 'API Key'], true) ? $_POST['type'] : 'Login';
 $name = sanitizeInput($_POST['name']);
 $description = sanitizeInput($_POST['description']);
 $uri = sanitizeInput($_POST['uri']);

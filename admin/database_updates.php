@@ -6690,3 +6690,25 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.67'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.67') {
+        // credential_category has existed since the original "login_category"
+        // rename (see the 2.x migration further up this file) but was never
+        // read or written by any add/edit/list/view code - repurpose it as an
+        // explicit credential type (Login / API Key) instead of adding a new
+        // column. Existing rows predate this feature and were all logins, so
+        // backfill them to 'Login' rather than leaving them blank. Renamed
+        // first while still NULLable, backfilled, THEN tightened to NOT
+        // NULL - going straight to NOT NULL in the CHANGE COLUMN itself
+        // fails under strict mode ("Data truncated for column...") the
+        // moment any existing row's value is NULL, which every single row
+        // is here since the column was never written to before now.
+        mysqli_query($mysqli, "ALTER TABLE `credentials` CHANGE COLUMN `credential_category` `credential_type` VARCHAR(200) DEFAULT NULL");
+        mysqli_query($mysqli, "UPDATE `credentials` SET `credential_type` = 'Login' WHERE `credential_type` IS NULL OR `credential_type` = ''");
+        mysqli_query($mysqli, "ALTER TABLE `credentials` MODIFY `credential_type` VARCHAR(200) NOT NULL DEFAULT 'Login'");
+        mysqli_query($mysqli, "ALTER TABLE `credential_restore_staging` CHANGE COLUMN `credential_category` `credential_type` VARCHAR(200) DEFAULT NULL");
+        mysqli_query($mysqli, "UPDATE `credential_restore_staging` SET `credential_type` = 'Login' WHERE `credential_type` IS NULL OR `credential_type` = ''");
+        mysqli_query($mysqli, "ALTER TABLE `credential_restore_staging` MODIFY `credential_type` VARCHAR(200) NOT NULL DEFAULT 'Login'");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.68'");
+    }
+

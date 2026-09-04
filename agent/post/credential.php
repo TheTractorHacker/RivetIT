@@ -19,7 +19,7 @@ if (isset($_POST['add_credential'])) {
 
     enforceClientAccess();
 
-    mysqli_query($mysqli,"INSERT INTO credentials SET credential_name = '$name', credential_description = '$description', credential_uri = '$uri', credential_uri_2 = '$uri_2', credential_username = '$username', credential_password = '$password', credential_otp_secret = '$otp_secret', credential_note = '$note', credential_favorite = $favorite, credential_folder_id = $folder_id, credential_contact_id = $contact_id, credential_asset_id = $asset_id, credential_client_id = $client_id, credential_rotation_due_at = $rotation_due_at");
+    mysqli_query($mysqli,"INSERT INTO credentials SET credential_type = '$type', credential_name = '$name', credential_description = '$description', credential_uri = '$uri', credential_uri_2 = '$uri_2', credential_username = '$username', credential_password = '$password', credential_otp_secret = '$otp_secret', credential_note = '$note', credential_favorite = $favorite, credential_folder_id = $folder_id, credential_contact_id = $contact_id, credential_asset_id = $asset_id, credential_client_id = $client_id, credential_rotation_due_at = $rotation_due_at");
 
     $credential_id = mysqli_insert_id($mysqli);
 
@@ -54,7 +54,8 @@ if (isset($_POST['edit_credential'])) {
     enforceClientAccess();
 
     // Snapshot old values before update (for history tracking)
-    $old_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT credential_name, credential_description, credential_uri, credential_username, credential_password, credential_note FROM credentials WHERE credential_id = $credential_id"));
+    $old_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT credential_type, credential_name, credential_description, credential_uri, credential_username, credential_password, credential_note FROM credentials WHERE credential_id = $credential_id"));
+    $old_type_h         = $old_row['credential_type'];
     $old_name_h        = $old_row['credential_name'];
     $old_description_h = $old_row['credential_description'];
     $old_uri_h         = $old_row['credential_uri'];
@@ -86,10 +87,11 @@ if (isset($_POST['edit_credential'])) {
     }
 
     // Update the credential entry with the new details
-    mysqli_query($mysqli,"UPDATE credentials SET credential_name = '$name', credential_description = '$description', credential_uri = '$uri', credential_uri_2 = '$uri_2', credential_username = '$username', credential_password = '$password', credential_otp_secret = '$otp_secret', credential_note = '$note', credential_favorite = $favorite, credential_contact_id = $contact_id, credential_asset_id = $asset_id, credential_rotation_due_at = $rotation_due_at WHERE credential_id = $credential_id");
+    mysqli_query($mysqli,"UPDATE credentials SET credential_type = '$type', credential_name = '$name', credential_description = '$description', credential_uri = '$uri', credential_uri_2 = '$uri_2', credential_username = '$username', credential_password = '$password', credential_otp_secret = '$otp_secret', credential_note = '$note', credential_favorite = $favorite, credential_contact_id = $contact_id, credential_asset_id = $asset_id, credential_rotation_due_at = $rotation_due_at WHERE credential_id = $credential_id");
 
     // Record history for each changed field
     $history_changes = [
+        ['Type',        $old_type_h,        $type],
         ['Name',        $old_name_h,        $name],
         ['Description', $old_description_h,  $description],
         ['URL',         $old_uri_h,          $uri],

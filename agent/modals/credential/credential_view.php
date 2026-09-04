@@ -9,6 +9,8 @@ $credential_id = intval($_GET['id']);
 $sql = mysqli_query($mysqli, "SELECT * FROM credentials WHERE credential_id = $credential_id LIMIT 1");
 $row = mysqli_fetch_assoc($sql);
 $client_id               = intval($row['credential_client_id']);
+$credential_type         = in_array($row['credential_type'] ?? '', ['Login', 'API Key'], true) ? $row['credential_type'] : 'Login';
+$is_api_key              = ($credential_type === 'API Key');
 $credential_name         = nullable_htmlentities($row['credential_name']);
 $credential_description  = nullable_htmlentities($row['credential_description']);
 $credential_uri          = nullable_htmlentities($row['credential_uri']);
@@ -41,7 +43,12 @@ ob_start();
     <div class="d-flex align-items-center">
         <i class="fas fa-fw fa-key fa-2x me-3"></i>
         <div>
-            <h5 class="modal-title mb-0"><?= $credential_name ?></h5>
+            <h5 class="modal-title mb-0">
+                <?= $credential_name ?>
+                <?php if ($is_api_key) { ?>
+                    <span class="badge bg-info text-dark ms-1">API Key</span>
+                <?php } ?>
+            </h5>
             <?php if ($credential_description) { ?>
                 <small class="text-muted"><?= $credential_description ?></small>
             <?php } ?>
@@ -56,7 +63,7 @@ ob_start();
         <tbody>
 
             <tr>
-                <td class="text-muted" style="width:130px;white-space:nowrap;"><i class="fas fa-fw fa-user me-1"></i>Username</td>
+                <td class="text-muted" style="width:130px;white-space:nowrap;"><i class="fas fa-fw fa-user me-1"></i><?= $is_api_key ? 'Key ID' : 'Username' ?></td>
                 <td>
                     <?php if ($credential_username) { ?>
                         <span id="cred-username-<?= $credential_id ?>"><?= $credential_username ?></span>
@@ -68,7 +75,7 @@ ob_start();
             </tr>
 
             <tr>
-                <td class="text-muted"><i class="fas fa-fw fa-lock me-1"></i>Password</td>
+                <td class="text-muted"><i class="fas fa-fw fa-lock me-1"></i><?= $is_api_key ? 'API Key' : 'Password' ?></td>
                 <td>
                     <?php if ($credential_password_raw) { ?>
                         <span id="cred-pw-<?= $credential_id ?>"
@@ -84,13 +91,15 @@ ob_start();
                 </td>
             </tr>
 
+            <?php if (!$is_api_key) { ?>
             <tr>
                 <td class="text-muted"><i class="fas fa-fw fa-shield-alt me-1"></i>TOTP</td>
                 <td><?= $otp_display ?></td>
             </tr>
+            <?php } ?>
 
             <tr>
-                <td class="text-muted"><i class="fas fa-fw fa-link me-1"></i>URI</td>
+                <td class="text-muted"><i class="fas fa-fw fa-link me-1"></i><?= $is_api_key ? 'Base URL' : 'URI' ?></td>
                 <td>
                     <?php if ($credential_uri) { ?>
                         <a href="<?= $credential_uri_link ?>" target="_blank" rel="noopener noreferrer"><?= $credential_uri ?></a>
@@ -103,7 +112,7 @@ ob_start();
 
             <?php if ($credential_uri_2) { ?>
             <tr>
-                <td class="text-muted"><i class="fas fa-fw fa-link me-1"></i>URI 2</td>
+                <td class="text-muted"><i class="fas fa-fw fa-link me-1"></i><?= $is_api_key ? 'Docs / Console URL' : 'URI 2' ?></td>
                 <td>
                     <a href="<?= $credential_uri_2_link ?>" target="_blank" rel="noopener noreferrer"><?= $credential_uri_2 ?></a>
                     <button class="btn btn-sm clipboardjs ms-1" type="button" title="Copy URI 2" data-clipboard-text="<?= $credential_uri_2 ?>"><i class="far fa-copy text-secondary"></i></button>
