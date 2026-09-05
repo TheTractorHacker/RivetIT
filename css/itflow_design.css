@@ -35,6 +35,24 @@
   --if-ink: #e7eeef;
   --if-muted: #93a6ab;
   --if-shadow: 0 1px 2px rgba(0,0,0,.35), 0 3px 12px rgba(0,0,0,.4);
+  --if-shadow-md: 0 6px 18px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.35);
+}
+:root {
+  --if-shadow-md: 0 6px 16px rgba(20,35,42,.10), 0 2px 6px rgba(20,35,42,.08);
+}
+/* Brand/accent alias into this file's token namespace. Declared on `body`
+   (not `:root`) so it re-resolves against whichever --color-accent is
+   cascaded AT body — the plain default, or body.dark-mode's override —
+   instead of locking in :root's light-mode value regardless of theme
+   (a :root-level alias can't see a child selector's override). Source of
+   truth for the actual color stays includes/header.php's per-company inline
+   block + itflow_custom.css's body.dark-mode block; this just gives the
+   rest of this file (and includes/ui/ components) one consistent name for it. */
+body {
+  --if-primary: var(--color-accent, #0d9488);
+  --if-primary-hover: var(--color-accent-hover, #0f766e);
+  --if-primary-soft: var(--color-accent-soft, #ccfbf1);
+  --if-primary-rgb: var(--color-accent-rgb, 13, 148, 136);
 }
 
 /* ---- Base typography ---- */
@@ -72,8 +90,8 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
 /* ---- Buttons: quiet, precise ---- */
 .btn { font-weight: 500; border-radius: var(--if-radius-sm); padding: .4rem .85rem; letter-spacing: -0.01em; }
 .btn-sm { padding: .28rem .6rem; border-radius: 7px; }
-.btn-primary { background-color: var(--color-accent); border-color: var(--color-accent); box-shadow: 0 1px 2px rgba(13,148,136,.25); }
-.btn-primary:hover, .btn-primary:focus { background-color: var(--color-accent-hover, #0f766e); border-color: var(--color-accent-hover, #0f766e); }
+.btn-primary { background-color: var(--if-primary); border-color: var(--if-primary); box-shadow: 0 1px 2px rgba(var(--if-primary-rgb),.25); }
+.btn-primary:hover, .btn-primary:focus { background-color: var(--if-primary-hover); border-color: var(--if-primary-hover); }
 .btn-secondary, .btn-default { background-color: var(--if-surface); border-color: var(--if-border-strong); color: var(--if-ink); }
 .btn-secondary:hover, .btn-default:hover { background-color: var(--if-bg); color: var(--if-ink); }
 /* AdminLTE4 ships a more specific selector pinning this button's text to
@@ -141,8 +159,8 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
   color: var(--if-muted); border-bottom: 1px solid var(--if-border-strong); padding: .6rem .75rem; white-space: nowrap;
 }
 .table > tbody > tr > td { padding: .7rem .75rem; border-bottom: 1px solid var(--if-border); vertical-align: middle; }
-.table-hover > tbody > tr:hover > td { background-color: rgba(13,148,136,.045); }
-:root[data-bs-theme="dark"] .table-hover > tbody > tr:hover > td { background-color: rgba(45,212,191,.06); }
+.table-hover > tbody > tr:hover > td { background-color: rgba(var(--if-primary-rgb),.045); }
+:root[data-bs-theme="dark"] .table-hover > tbody > tr:hover > td { background-color: rgba(var(--if-primary-rgb),.06); }
 
 /* Contextual rows (awaiting reply, overdue, etc.): a muted tint + left accent
    reads as "this needs attention" without Bootstrap's default saturated fill. */
@@ -161,13 +179,44 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
   background-color: var(--if-surface); color: var(--if-ink); padding: .45rem .7rem;
 }
 .form-control:focus, .form-select:focus, .ts-control.focus {
-  border-color: var(--color-accent); box-shadow: 0 0 0 3px rgba(13,148,136,.15);
+  border-color: var(--if-primary); box-shadow: 0 0 0 3px rgba(var(--if-primary-rgb),.15);
 }
 .form-label, label { font-weight: 500; color: var(--if-ink); margin-bottom: .3rem; }
 .input-group-text { background-color: var(--if-bg); border-color: var(--if-border-strong); color: var(--if-muted); }
 
 /* ---- Sidebar: a teal rail marks the active item (quiet elsewhere) ---- */
 .app-sidebar .sidebar-menu .nav-link, .main-sidebar .nav-link { border-radius: 8px; font-weight: 450; }
+
+/* Group-header links (the ones that toggle a nested .nav-treeview) get a
+   touch more weight and brightness than plain single-destination links, so
+   "this is a category" reads differently from "this goes straight to a page"
+   at a glance - without them the whole menu was one visually flat list where
+   nothing signalled which rows expand and which just navigate. */
+.app-sidebar .sidebar-menu > .nav-item:has(> .nav-treeview) > .nav-link {
+  font-weight: 600;
+  color: #eef1f4 !important;
+}
+.app-sidebar .sidebar-menu > .nav-item:has(> .nav-treeview) > .nav-link .nav-icon {
+  color: #eef1f4 !important;
+}
+.app-sidebar .sidebar-menu > .nav-item:has(> .nav-treeview) > .nav-link .nav-arrow {
+  opacity: .6;
+}
+.app-sidebar .sidebar-menu > .nav-item.menu-open:has(> .nav-treeview) > .nav-link .nav-arrow {
+  opacity: 1;
+  color: var(--color-accent);
+}
+/* The chevron is absolutely positioned at the row's right edge; on a group
+   header that also shows a count badge (e.g. "Service Desk 27") the two sit
+   close together in the already-tight ~250px sidebar. Reserving space via
+   padding on the <p> was tried and made it worse - the sidebar is narrow
+   enough that it just pushed the badge itself into the ellipsis truncation
+   instead. Shrinking the badge a touch on these rows buys just enough gap
+   without touching the truncation width at all. */
+.app-sidebar .sidebar-menu > .nav-item:has(> .nav-treeview) > .nav-link .badge {
+  font-size: .65rem;
+  padding: .25em .45em;
+}
 .app-sidebar .sidebar-menu .nav-link.active, .main-sidebar .nav-link.active { position: relative; font-weight: 600; }
 .app-sidebar .sidebar-menu .nav-link.active::before, .main-sidebar .nav-link.active::before {
   content:""; position:absolute; left:-.5rem; top:20%; bottom:20%; width:3px; border-radius:0 3px 3px 0; background:#fff;
@@ -195,7 +244,7 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
 }
 .breadcrumb-item, .breadcrumb-item a { color: var(--if-muted); }
 .breadcrumb-item a { text-decoration: none; font-weight: 500; }
-.breadcrumb-item a:hover { color: var(--color-accent); text-decoration: underline; }
+.breadcrumb-item a:hover { color: var(--if-primary); text-decoration: underline; }
 .breadcrumb-item.active { color: var(--if-ink); font-weight: 600; }
 .breadcrumb-item + .breadcrumb-item::before {
   color: var(--if-border-strong); font-weight: 700; padding-right: .6rem; padding-left: .1rem;
@@ -207,7 +256,7 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
 ::-webkit-scrollbar-thumb { background: var(--if-border-strong); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
 
 /* keyboard focus visible everywhere (quality floor) */
-a:focus-visible, .btn:focus-visible, .nav-link:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+a:focus-visible, .btn:focus-visible, .nav-link:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 2px; }
 
 /* ---- CSAT face rating widget: works with JS fully disabled (native radios,
    no fill trick needed - unlike a star scale, each face is one discrete option
@@ -225,8 +274,8 @@ a:focus-visible, .btn:focus-visible, .nav-link:focus-visible { outline: 2px soli
    - give the line box real breathing room instead of relying on font-size alone. */
 .csat-face-label { display: inline-flex; align-items: center; justify-content: center; overflow: visible; width: 3rem; height: 3rem; font-size: 2rem; line-height: 3rem; cursor: pointer; border-radius: 50%; transition: transform .15s ease, background-color .15s ease, box-shadow .15s ease; }
 .csat-face-label:hover { transform: scale(1.15); background-color: var(--if-surface); }
-.csat-face-input:checked + .csat-face-label { transform: scale(1.2); background-color: var(--if-surface); box-shadow: 0 0 0 2px var(--color-accent); }
-.csat-face-input:focus-visible + .csat-face-label { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.csat-face-input:checked + .csat-face-label { transform: scale(1.2); background-color: var(--if-surface); box-shadow: 0 0 0 2px var(--if-primary); }
+.csat-face-input:focus-visible + .csat-face-label { outline: 2px solid var(--if-primary); outline-offset: 2px; }
 .csat-face-display { font-size: 1.8rem; line-height: 1.4; vertical-align: middle; }
 
 /* CSAT prompt/thank-you card: deliberately NOT the dark-header record-card
@@ -235,7 +284,7 @@ a:focus-visible, .btn:focus-visible, .nav-link:focus-visible { outline: 2px soli
    personal, low-friction ask. A colored top accent (echoing the accent button
    below it) plus a light surface differentiates "quick human interaction" from
    "formal record" without introducing a new visual language. */
-.csat-card { border: 1px solid var(--if-border); border-top: 3px solid var(--color-accent); border-radius: var(--if-radius); background-color: var(--if-surface); box-shadow: none; }
+.csat-card { border: 1px solid var(--if-border); border-top: 3px solid var(--if-primary); border-radius: var(--if-radius); background-color: var(--if-surface); box-shadow: none; }
 .csat-card .card-body { padding: 1.75rem 1.5rem; }
 .csat-card-lede { color: var(--if-muted); }
 
@@ -246,7 +295,7 @@ a:focus-visible, .btn:focus-visible, .nav-link:focus-visible { outline: 2px soli
    destination's colors" convention every real "Sign in with Google"/"Pay with
    PayPal" button uses, because its entire job is to signal "this leaves the
    app" before the click happens. */
-.google-review-cta { background-color: var(--color-accent-soft); border-radius: var(--if-radius); padding: 1.1rem 1.25rem; }
+.google-review-cta { background-color: var(--if-primary-soft); border-radius: var(--if-radius); padding: 1.1rem 1.25rem; }
 :root[data-bs-theme="dark"] .google-review-cta { background-color: rgba(13,148,136,.15); }
 .btn-google { background-color: #4285F4; border-color: #4285F4; color: #fff; font-weight: 600; box-shadow: 0 2px 6px rgba(66,133,244,.35); transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease; }
 .btn-google:hover, .btn-google:focus { background-color: #3367D6; border-color: #3367D6; color: #fff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(66,133,244,.45); }
@@ -265,3 +314,87 @@ a:focus-visible, .btn:focus-visible, .nav-link:focus-visible { outline: 2px soli
    margin-bottom) and visually fused into one block, except for a single
    manual mt-3 before the last card. flex + gap fixes all the gaps at once. */
 .security-cards { display: flex; flex-direction: column; gap: 1rem; }
+
+/* =============================================================================
+   Reusable UI components (modernization plan §8/§9) — backed by includes/ui/*.php.
+   New, additive, opt-in: nothing above this line is renamed or removed, and no
+   existing page markup is changed by adding these. Purely for pages that adopt
+   the includes/ui/ helpers going forward.
+   ============================================================================= */
+
+/* ---- Page header ---- */
+.it-page-header { margin-bottom: 1.25rem; }
+.it-page-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.it-page-title { font-size: 1.5rem; font-weight: 650; letter-spacing: -0.02em; margin: 0; color: var(--if-ink); }
+.it-page-subtitle { font-size: .875rem; color: var(--if-muted); margin: .3rem 0 0; }
+.it-page-actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+
+/* ---- Card ---- */
+.it-card { background: var(--if-surface); border: 1px solid var(--if-border); border-radius: var(--if-radius); box-shadow: var(--if-shadow); margin-bottom: 1rem; }
+.it-card-header { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .8rem 1rem; border-bottom: 1px solid var(--if-border); font-weight: 600; letter-spacing: -0.01em; }
+.it-card-header:first-child { border-radius: var(--if-radius) var(--if-radius) 0 0; }
+.it-card-body { padding: 1rem 1.1rem; }
+.it-card-body:last-child { border-radius: 0 0 var(--if-radius) var(--if-radius); }
+
+/* ---- Stat cards ---- */
+.it-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
+.it-stat-card {
+  display: flex; align-items: center; gap: .85rem;
+  background: var(--if-surface); border: 1px solid var(--if-border); border-radius: var(--if-radius); box-shadow: var(--if-shadow);
+  padding: 1rem 1.1rem; color: inherit; text-decoration: none !important;
+  transition: box-shadow .15s ease, transform .15s ease;
+}
+a.it-stat-card:hover, a.it-stat-card:focus-visible { box-shadow: var(--if-shadow-md); transform: translateY(-1px); }
+.it-stat-icon { width: 2.5rem; height: 2.5rem; min-width: 2.5rem; border-radius: var(--if-radius-sm); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+.it-stat-body { min-width: 0; }
+.it-stat-value { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; font-family: var(--if-mono); }
+.it-stat-label { font-size: .78rem; color: var(--if-muted); font-weight: 500; line-height: 1.3; }
+
+/* Semantic tint pairs for .it-stat-icon (background + icon color) — same
+   palette as the existing "contextual rows" / info-box accent colors above,
+   so a stat tile and a table row flagging the same condition read as the
+   same color language app-wide. */
+.it-stat-icon.it-tint-primary { background: var(--if-primary-soft); color: var(--if-primary); }
+.it-stat-icon.it-tint-slate   { background: rgba(100,116,139,.12); color: #64748b; }
+.it-stat-icon.it-tint-success { background: rgba(5,150,105,.12);  color: #059669; }
+.it-stat-icon.it-tint-warning { background: rgba(217,119,6,.12);  color: #d97706; }
+.it-stat-icon.it-tint-danger  { background: rgba(220,38,38,.12);  color: #dc2626; }
+.it-stat-icon.it-tint-info    { background: rgba(8,145,178,.12);  color: #0891b2; }
+.it-stat-icon.it-tint-violet  { background: rgba(139,92,246,.14); color: #7c3aed; }
+
+/* ---- Status / priority pills ----
+   .it-status-pill takes its color inline (style="background:...;color:...")
+   since ticket_statuses.ticket_status_color is a free-form per-row admin
+   setting, not a fixed palette — see includes/ui/status_badge.php. */
+.it-status-pill {
+  display: inline-flex; align-items: center; font-weight: 600; letter-spacing: .01em;
+  border-radius: 999px; padding: .32em .7em; font-size: .72rem; line-height: 1; white-space: nowrap;
+}
+
+/* .it-priority-pill IS a fixed small set (low/medium/high/critical), so it
+   gets real classes instead, reusing the --priority-* tokens already defined
+   in itflow_custom.css for the ticket-list priority dots. */
+.it-priority-pill {
+  display: inline-flex; align-items: center; gap: .4em; font-weight: 600; letter-spacing: .01em;
+  border-radius: 999px; padding: .32em .7em; font-size: .72rem; line-height: 1; white-space: nowrap;
+}
+.it-priority-pill::before { content: ""; width: .5em; height: .5em; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.it-priority-pill.it-priority-low      { background: rgba(23,162,184,.13);  color: #0e7490; }
+.it-priority-pill.it-priority-medium   { background: rgba(255,193,7,.18);   color: #92660a; }
+.it-priority-pill.it-priority-high     { background: rgba(220,53,69,.13);   color: #b02a37; }
+.it-priority-pill.it-priority-critical { background: rgba(220,38,38,.18);   color: #dc2626; }
+:root[data-bs-theme="dark"] .it-priority-pill.it-priority-low      { color: #67e8f9; }
+:root[data-bs-theme="dark"] .it-priority-pill.it-priority-medium   { color: #fde68a; }
+:root[data-bs-theme="dark"] .it-priority-pill.it-priority-high     { color: #fca5a5; }
+:root[data-bs-theme="dark"] .it-priority-pill.it-priority-critical { color: #fca5a5; }
+
+/* ---- Section grouping (e.g. Reports hub "Financial"/"Technical" blocks) ---- */
+.it-section { margin-bottom: 1.5rem; }
+.it-section-header { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--if-muted); margin-bottom: .6rem; }
+
+/* ---- Empty state ---- */
+.it-empty-state { text-align: center; padding: 3rem 1.5rem; }
+.it-empty-icon { font-size: 2.25rem; color: var(--if-border-strong); margin-bottom: .75rem; }
+.it-empty-title { font-size: 1rem; font-weight: 600; color: var(--if-ink); margin: 0 0 .35rem; }
+.it-empty-subtitle { font-size: .875rem; color: var(--if-muted); margin: 0 auto 1rem; max-width: 32rem; }
+.it-empty-actions { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; }

@@ -28,114 +28,56 @@ if ($reports_show_technical) {
         $reports_csat_avg = $reports_csat_avg_row['v'] !== null ? round(floatval($reports_csat_avg_row['v']), 2) : null;
     }
 }
+
+render_page_header(
+    'Reports',
+    'In addition to the general reporting permission, you must have read permissions to the reporting area you wish to view (e.g. support/financial). Use the menu on the left for the full list of reports.'
+);
 ?>
 
-    <div class="card card-dark">
-        <div class="card-header py-2">
-            <h3 class="card-title mt-2"><i class="fas fa-fw fa-coins me-2"></i>Reports</h3>
-        </div>
-        <div class="card-body">
-            <small class="text-muted d-block mb-3">In addition to the general reporting permission, you must have read permissions to the reporting area you wish to view (e.g. support/financial). Use the menu on the left for the full list of reports.</small>
-
-            <?php if ($reports_show_financial) { ?>
-            <h6 class="text-muted text-uppercase mb-2" style="font-size:.72rem; letter-spacing:.06em;">Financial</h6>
-            <div class="row mb-3">
-                <div class="col-6 col-md-4 mb-3">
-                    <a href="/agent/reports/income_summary.php" class="text-decoration-none">
-                        <div class="small-box text-bg-success bg-gradient mb-0">
-                            <div class="inner">
-                                <h3><?php echo numfmt_format_currency($currency_format, $reports_mtd_income, "$session_company_currency"); ?></h3>
-                                <p>Income This Month</p>
-                            </div>
-                            <div class="icon"><i class="fas fa-coins"></i></div>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-6 col-md-4 mb-3">
-                    <a href="/agent/reports/clients_with_balance.php" class="text-decoration-none">
-                        <div class="small-box text-bg-warning bg-gradient mb-0">
-                            <div class="inner">
-                                <h3><?php echo numfmt_format_currency($currency_format, $reports_ar['buckets']['total'], "$session_company_currency"); ?></h3>
-                                <p>Outstanding AR <?php echo "(" . count($reports_ar['clients']) . " " . (count($reports_ar['clients']) == 1 ? "department" : "departments") . ")"; ?></p>
-                            </div>
-                            <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-6 col-md-4 mb-3">
-                    <a href="/agent/reports/clients_with_balance.php" class="text-decoration-none">
-                        <div class="small-box text-bg-danger bg-gradient mb-0">
-                            <div class="inner">
-                                <h3><?php echo numfmt_format_currency($currency_format, $reports_ar['buckets']['b_90_plus'], "$session_company_currency"); ?></h3>
-                                <p>Seriously Overdue (90+ Days)</p>
-                            </div>
-                            <div class="icon"><i class="fas fa-clock"></i></div>
-                        </div>
-                    </a>
-                </div>
-            </div>
-            <?php } ?>
-
-            <?php if ($reports_show_technical) { ?>
-            <h6 class="text-muted text-uppercase mb-2" style="font-size:.72rem; letter-spacing:.06em;">Technical</h6>
-            <div class="row">
-                <div class="col-6 col-md-3 mb-3">
-                    <a href="/agent/reports/ticket_summary.php" class="text-decoration-none">
-                        <div class="small-box text-bg-primary bg-gradient mb-0">
-                            <div class="inner">
-                                <h3><?php echo $reports_open_tickets; ?></h3>
-                                <p>Open Tickets</p>
-                            </div>
-                            <div class="icon"><i class="fas fa-life-ring"></i></div>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-6 col-md-3 mb-3">
-                    <a href="/agent/reports/service_desk.php" class="text-decoration-none">
-                        <div class="small-box text-bg-danger bg-gradient mb-0">
-                            <div class="inner">
-                                <h3><?php echo $reports_unassigned_tickets; ?></h3>
-                                <p>Unassigned Tickets</p>
-                            </div>
-                            <div class="icon"><i class="fas fa-user-slash"></i></div>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-6 col-md-3 mb-3">
-                    <a href="/agent/reports/ticket_summary.php" class="text-decoration-none">
-                        <div class="small-box text-bg-info bg-gradient mb-0">
-                            <div class="inner">
-                                <h3><?php echo $reports_opened_today; ?></h3>
-                                <p>Opened Today</p>
-                            </div>
-                            <div class="icon"><i class="fas fa-calendar-day"></i></div>
-                        </div>
-                    </a>
-                </div>
-                <?php if (!empty($config_ticket_csat_enable)) { ?>
-                <div class="col-6 col-md-3 mb-3">
-                    <a href="/agent/reports/csat.php" class="text-decoration-none">
-                        <div class="small-box text-bg-warning bg-gradient mb-0">
-                            <div class="inner">
-                                <h3><?php echo $reports_csat_avg !== null ? $reports_csat_avg . '/5' : '—'; ?></h3>
-                                <p>CSAT (30 days)</p>
-                            </div>
-                            <div class="icon"><i class="fas fa-star"></i></div>
-                        </div>
-                    </a>
-                </div>
-                <?php } ?>
-            </div>
-            <?php } ?>
-
-            <?php if (!$reports_show_financial && !$reports_show_technical) { ?>
-                <div class="text-center text-muted py-4">
-                    <i class="fas fa-lock fa-2x mb-2 d-block"></i>
-                    You don't currently have read access to a specific reporting area. Ask an administrator for Financial or Support reporting permission, or use the menu on the left if you already have access to a particular report.
-                </div>
-            <?php } ?>
-        </div>
+<?php if ($reports_show_financial) { ?>
+<div class="it-section">
+    <div class="it-section-header">Financial</div>
+    <div class="it-stat-grid">
+        <?php render_stat_card(
+            'Income This Month',
+            numfmt_format_currency($currency_format, $reports_mtd_income, "$session_company_currency"),
+            'fas fa-coins', 'success', '/agent/reports/income_summary.php'
+        ); ?>
+        <?php render_stat_card(
+            'Outstanding AR (' . count($reports_ar['clients']) . ' ' . (count($reports_ar['clients']) == 1 ? 'department' : 'departments') . ')',
+            numfmt_format_currency($currency_format, $reports_ar['buckets']['total'], "$session_company_currency"),
+            'fas fa-exclamation-triangle', 'warning', '/agent/reports/clients_with_balance.php'
+        ); ?>
+        <?php render_stat_card(
+            'Seriously Overdue (90+ Days)',
+            numfmt_format_currency($currency_format, $reports_ar['buckets']['b_90_plus'], "$session_company_currency"),
+            'fas fa-clock', 'danger', '/agent/reports/clients_with_balance.php'
+        ); ?>
     </div>
+</div>
+<?php } ?>
+
+<?php if ($reports_show_technical) { ?>
+<div class="it-section">
+    <div class="it-section-header">Technical</div>
+    <div class="it-stat-grid">
+        <?php render_stat_card('Open Tickets', (string) $reports_open_tickets, 'fas fa-life-ring', 'primary', '/agent/reports/ticket_summary.php'); ?>
+        <?php render_stat_card('Unassigned Tickets', (string) $reports_unassigned_tickets, 'fas fa-user-slash', 'danger', '/agent/reports/service_desk.php'); ?>
+        <?php render_stat_card('Opened Today', (string) $reports_opened_today, 'fas fa-calendar-day', 'info', '/agent/reports/ticket_summary.php'); ?>
+        <?php if (!empty($config_ticket_csat_enable)) { ?>
+        <?php render_stat_card('CSAT (30 days)', $reports_csat_avg !== null ? $reports_csat_avg . '/5' : '—', 'fas fa-star', 'warning', '/agent/reports/csat.php'); ?>
+        <?php } ?>
+    </div>
+</div>
+<?php } ?>
+
+<?php if (!$reports_show_financial && !$reports_show_technical) {
+    render_empty_state(
+        'fas fa-lock',
+        'No reporting access yet',
+        "You don't currently have read access to a specific reporting area. Ask an administrator for Financial or Support reporting permission, or use the menu on the left if you already have access to a particular report."
+    );
+} ?>
 
 <?php require_once "../../includes/footer.php"; ?>
-

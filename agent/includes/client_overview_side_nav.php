@@ -33,10 +33,8 @@ $num_software = $row['num'];
 <!-- Main Sidebar Container -->
 <aside class="main-sidebar sidebar-dark-primary d-print-none">
 
-    <a class="pb-1 mt-1 brand-link" href="clients.php">
-        <p class="h6"><i class="nav-icon fas fa-arrow-left ms-3 me-2"></i>
-            <span class="brand-text">Back | <strong>Department Overview</strong></span>
-        </p>
+    <a class="section-nav-back" href="clients.php">
+        <i class="fas fa-arrow-left"></i> Department Overview
     </a>
 
     <!-- Sidebar -->

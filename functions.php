@@ -3,6 +3,7 @@
 require_once __DIR__ . '/includes/redis_functions.php';
 require_once __DIR__ . '/includes/firebase.php';
 require_once __DIR__ . '/includes/notification_categories.php';
+require_once __DIR__ . '/includes/ui/components.php';
 
 // Role check failed wording
 DEFINE("WORDING_ROLECHECK_FAILED", "You are not permitted to do that!");

@@ -23,16 +23,18 @@ if ($report_to === '2099-12-31') {
 $report = getTechnicianPerformanceReport($mysqli, $report_from, $report_to);
 
 // CSV export: per-technician detail (same rows as the "Per-Technician Detail" table).
+// Note: getTechnicianPerformanceReport() still returns a billable/non-billable split
+// (also consumed by api/v1/reports/technician_performance.php - an existing API
+// contract, not something to change here) - this page just displays the sum of the two
+// as one "hours logged" figure, since this edition has no billing concept to split on.
 if (!empty($report_export_csv)) {
-    $csv_header = ['Technician', 'Billable hours', 'Non-billable hours', 'Utilization %', 'Billable value', 'Tickets closed', 'Avg handle (seconds)', 'CSAT avg rating', 'CSAT rated count', 'CSAT satisfied %'];
+    $csv_header = ['Technician', 'Hours logged', 'Utilization %', 'Tickets closed', 'Avg handle (seconds)', 'CSAT avg rating', 'CSAT rated count', 'CSAT satisfied %'];
     $csv_rows = [];
     foreach ($report['technicians'] as $t) {
         $csv_rows[] = [
             $t['name'],
-            round($t['billable_seconds'] / 3600, 2),
-            round($t['nonbillable_seconds'] / 3600, 2),
+            round(($t['billable_seconds'] + $t['nonbillable_seconds']) / 3600, 2),
             $t['utilization_pct'] !== null ? $t['utilization_pct'] : '',
-            $t['billable_value'],
             intval($t['tickets_closed']),
             $t['avg_handle_seconds'] !== null ? intval($t['avg_handle_seconds']) : '',
             $t['csat_avg_rating'] !== null ? $t['csat_avg_rating'] : '',
@@ -62,10 +64,10 @@ if ($selected_canned === 'custom' && !isset($_GET['dtf'])) {
 
 // Build chart series (hours).
 $chart_labels = array_column($report['technicians'], 'name');
-$chart_billable = array_map(function ($t) { return round($t['billable_seconds'] / 3600, 2); }, $report['technicians']);
-$chart_nonbill  = array_map(function ($t) { return round($t['nonbillable_seconds'] / 3600, 2); }, $report['technicians']);
+$chart_hours = array_map(function ($t) { return round(($t['billable_seconds'] + $t['nonbillable_seconds']) / 3600, 2); }, $report['technicians']);
 
 $cap_hours_per_tech = $report['capacity']['capacity_hours_per_tech'];
+$total_hours = ($report['totals']['billable_seconds'] + $report['totals']['nonbillable_seconds']) / 3600;
 
 ?>
 
@@ -150,25 +152,16 @@ $cap_hours_per_tech = $report['capacity']['capacity_hours_per_tech'];
 
         <!-- Headline stats -->
         <div class="row px-3">
-            <div class="col-6 col-md-3">
+            <div class="col-6 col-md-4">
                 <div class="info-box bg-success mb-3">
-                    <span class="info-box-icon"><i class="fas fa-dollar-sign"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Billable Hours</span>
-                        <span class="info-box-number"><?php echo number_format($report['totals']['billable_seconds'] / 3600, 1); ?></span>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="info-box bg-secondary mb-3">
                     <span class="info-box-icon"><i class="fas fa-hourglass-half"></i></span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Non-Billable Hours</span>
-                        <span class="info-box-number"><?php echo number_format($report['totals']['nonbillable_seconds'] / 3600, 1); ?></span>
+                        <span class="info-box-text">Hours Logged</span>
+                        <span class="info-box-number"><?php echo number_format($total_hours, 1); ?></span>
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-6 col-md-4">
                 <div class="info-box bg-primary mb-3">
                     <span class="info-box-icon"><i class="fas fa-percentage"></i></span>
                     <div class="info-box-content">
@@ -177,7 +170,7 @@ $cap_hours_per_tech = $report['capacity']['capacity_hours_per_tech'];
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-6 col-md-4">
                 <div class="info-box bg-warning mb-3">
                     <span class="info-box-icon"><i class="fas fa-smile"></i></span>
                     <div class="info-box-content">
@@ -191,21 +184,13 @@ $cap_hours_per_tech = $report['capacity']['capacity_hours_per_tech'];
             </div>
         </div>
 
-        <!-- Charts -->
+        <!-- Chart -->
         <div class="row px-3">
-            <div class="col-lg-8">
+            <div class="col-12">
                 <div class="card card-outline card-secondary">
-                    <div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Billable vs Non-Billable Hours by Technician</h6></div>
+                    <div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Hours Logged by Technician</h6></div>
                     <div class="card-body">
                         <div class="chart-h-320"><canvas id="tpHoursChart"></canvas></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-4">
-                <div class="card card-outline card-secondary">
-                    <div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Team Billable Mix</h6></div>
-                    <div class="card-body">
-                        <div class="chart-h-320"><canvas id="tpMixChart"></canvas></div>
                     </div>
                 </div>
             </div>
@@ -219,10 +204,8 @@ $cap_hours_per_tech = $report['capacity']['capacity_hours_per_tech'];
                     <thead>
                         <tr>
                             <th>Technician</th>
-                            <th class="text-end">Billable h</th>
-                            <th class="text-end">Non-Billable h</th>
+                            <th class="text-end">Hours Logged</th>
                             <th class="text-end">Utilization</th>
-                            <th class="text-end">Billable Value</th>
                             <th class="text-end">Tickets Closed</th>
                             <th class="text-end">Avg Handle</th>
                             <th class="text-end">CSAT</th>
@@ -230,15 +213,13 @@ $cap_hours_per_tech = $report['capacity']['capacity_hours_per_tech'];
                     </thead>
                     <tbody>
                         <?php if (empty($report['technicians'])) { ?>
-                            <tr><td colspan="8" class="text-center text-muted">No technicians found.</td></tr>
+                            <tr><td colspan="6" class="text-center text-muted">No technicians found.</td></tr>
                         <?php } else {
                             foreach ($report['technicians'] as $t) { ?>
                             <tr>
                                 <td><?php echo nullable_htmlentities($t['name']); ?></td>
-                                <td class="text-end"><?php echo number_format($t['billable_seconds'] / 3600, 1); ?></td>
-                                <td class="text-end"><?php echo number_format($t['nonbillable_seconds'] / 3600, 1); ?></td>
+                                <td class="text-end"><?php echo number_format(($t['billable_seconds'] + $t['nonbillable_seconds']) / 3600, 1); ?></td>
                                 <td class="text-end"><?php echo $t['utilization_pct'] !== null ? $t['utilization_pct'] . '%' : '—'; ?></td>
-                                <td class="text-end"><?php echo numfmt_format_currency($currency_format, $t['billable_value'], $session_company_currency); ?></td>
                                 <td class="text-end"><?php echo intval($t['tickets_closed']); ?></td>
                                 <td class="text-end"><?php echo $t['avg_handle_seconds'] !== null ? secondsToTime($t['avg_handle_seconds']) : '—'; ?></td>
                                 <td class="text-end">
@@ -264,7 +245,7 @@ document.addEventListener('DOMContentLoaded', function () {
     Chart.defaults.font.family = '-apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
     Chart.defaults.color = '#292b2c';
 
-    // BILLABLE vs NON-BILLABLE HOURS (stacked bar per technician)
+    // HOURS LOGGED (bar per technician)
     (function () {
         var ctx = document.getElementById("tpHoursChart");
         if (!ctx) return;
@@ -274,14 +255,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 labels: <?php echo json_encode($chart_labels); ?>,
                 datasets: [
                     {
-                        label: 'Billable',
-                        data: <?php echo json_encode($chart_billable); ?>,
-                        backgroundColor: '#28a745'
-                    },
-                    {
-                        label: 'Non-Billable',
-                        data: <?php echo json_encode($chart_nonbill); ?>,
-                        backgroundColor: '#6c757d'
+                        label: 'Hours logged',
+                        data: <?php echo json_encode($chart_hours); ?>,
+                        backgroundColor: '#0d9488'
                     }
                 ]
             },
@@ -289,34 +265,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    x: { stacked: true, grid: { display: false } },
-                    y: { stacked: true, beginAtZero: true, ticks: { maxTicksLimit: 6 }, grid: { color: 'rgba(0,0,0,.125)' } }
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { maxTicksLimit: 6 }, grid: { color: 'rgba(0,0,0,.125)' } }
                 },
-                plugins: { legend: { display: true } }
-            }
-        });
-    })();
-
-    // TEAM BILLABLE MIX (doughnut)
-    (function () {
-        var ctx = document.getElementById("tpMixChart");
-        if (!ctx) return;
-        new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Billable', 'Non-Billable'],
-                datasets: [{
-                    data: [
-                        <?php echo round($report['totals']['billable_seconds'] / 3600, 2); ?>,
-                        <?php echo round($report['totals']['nonbillable_seconds'] / 3600, 2); ?>
-                    ],
-                    backgroundColor: ['#28a745', '#6c757d']
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' } }
+                plugins: { legend: { display: false } }
             }
         });
     })();

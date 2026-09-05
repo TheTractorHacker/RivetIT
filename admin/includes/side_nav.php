@@ -2,9 +2,8 @@
 <aside class="app-sidebar shadow d-print-none" data-bs-theme="dark">
 
     <div class="sidebar-brand">
-        <a class="brand-link" href="/agent/<?php echo $config_start_page ?>">
-            <i class="nav-icon fas fa-arrow-left ms-1 me-2"></i>
-            <span class="brand-text">Back | <strong>Administration</strong></span>
+        <a class="section-nav-back" href="/agent/<?php echo $config_start_page ?>">
+            <i class="fas fa-arrow-left"></i> Administration
         </a>
     </div>
 

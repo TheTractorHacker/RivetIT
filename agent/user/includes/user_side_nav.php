@@ -1,13 +1,8 @@
 <!-- Main Sidebar Container -->
 <aside class="main-sidebar sidebar-dark-<?php echo nullable_htmlentities($config_theme); ?> d-print-none">
 
-    <a class="brand-link pb-1 mt-1" href="/agent/<?php echo $config_start_page ?>">
-        <p class="h5">
-            <i class="nav-icon fas fa-arrow-left ms-3 me-2"></i> 
-            <span class="brand-text">
-                Back | <strong>Account</strong>
-            </span>
-        </p>
+    <a class="section-nav-back" href="/agent/<?php echo $config_start_page ?>">
+        <i class="fas fa-arrow-left"></i> Account
     </a>
 
     <!-- Sidebar -->

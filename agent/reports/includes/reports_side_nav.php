@@ -1,10 +1,8 @@
 <!-- Main Sidebar Container -->
 <aside class="main-sidebar sidebar-dark-primary d-print-none">
 
-    <a class="pb-1 mt-1 brand-link" href="/agent/<?php echo $config_start_page ?>">
-        <p class="h5"><i class="nav-icon fas fa-arrow-left ms-3 me-2"></i>
-            <span class="brand-text">Back | <strong>Reports</strong></span>
-        </p>
+    <a class="section-nav-back" href="/agent/<?php echo $config_start_page ?>">
+        <i class="fas fa-arrow-left"></i> Reports
     </a>
 
     <!-- Sidebar -->
@@ -15,8 +13,8 @@
 
             <ul class="nav nav-pills nav-sidebar flex-column mt-2" data-widget="treeview" data-accordion="false">
 
-                <li class="nav-header">FINANCIAL</li>
                 <?php if ($config_module_enable_accounting == 1 && lookupUserPermission("module_financial") >= 1) { ?>
+                    <li class="nav-header">FINANCIAL</li>
                     <li class="nav-item">
                         <a href="/agent/reports/income_summary.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "income_summary.php") { echo "active"; } ?>">
                             <i class="far fa-circle nav-icon"></i>
@@ -99,8 +97,10 @@
                 <?php } // End financial reports IF statement ?>
 
 
-                <li class="nav-header">TECHNICAL</li>
-                <?php  if ($config_module_enable_ticketing && lookupUserPermission("module_support") >= 1) { ?>
+                <?php if (($config_module_enable_ticketing && lookupUserPermission("module_support") >= 1) || lookupUserPermission("module_credential") >= 1) { ?>
+                    <li class="nav-header">TECHNICAL</li>
+                <?php } ?>
+                <?php if ($config_module_enable_ticketing && lookupUserPermission("module_support") >= 1) { ?>
                     <li class="nav-item">
                         <a href="/agent/reports/service_desk.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "service_desk.php") { echo "active"; } ?>">
                             <i class="nav-icon fas fa-headset"></i>
