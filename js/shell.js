@@ -27,7 +27,8 @@
 
    This file also OWNS two classes on the aside - .has-scroll-start and
    .has-scroll-end - whose only consumer is the sidebar scroll affordance block
-   in includes/header.php. Rename one and you must rename it there too.
+   in includes/header.php. Rename one and you must rename it there too. It owns
+   a third, .is-opening, on a nav group's panel: see "motion" below.
 
    WHAT THIS FILE DOES NOT DO
    - It does not read a breakpoint out of a CSS ::before content string the way
@@ -60,6 +61,47 @@
     }
     function writePref(key, value) {
         try { window.localStorage.setItem(key, value); } catch (e) { /* private mode / blocked site data */ }
+    }
+
+    /* --- motion ---------------------------------------------------------------
+       css/itflow_motion.css owns every animation in this app, including the one
+       global @media (prefers-reduced-motion: reduce) guard. This file adds only
+       the two things a stylesheet cannot express:
+
+       1. WHO opened a nav group. The group holding the current page is emitted
+          .show server-side, so a rule keyed on .show alone would replay the
+          submenu reveal on every single page load, next to the page entrance,
+          forever. Only a click - or an unfold that restores a group the user had
+          clicked open - can add .is-opening, so only a user-initiated expand
+          animates. The panel's HEIGHT is still not animated by anyone: it snaps
+          in one reflow and the rows slide into space already allocated, so
+          reveal() below still measures a settled box.
+       2. The preference itself. The CSS guard collapses durations to 1ms; read
+          here it means a reduced-motion user gets no animation at all rather
+          than a very short one, and this stays correct even with the stylesheet
+          absent or still deploying.
+
+       Deliberately NOT here, so a later pass does not "add the missing piece":
+       an IntersectionObserver that reveals below-the-fold content on scroll. The
+       motion spec gives .page-body exactly one 280ms entrance and rules out
+       per-card, per-tile and staggered list reveals - the dashboard alone has 13
+       tiles and 4 charts, and choreographing them puts a third of a second in
+       front of the number the user came to read. No stylesheet declares a reveal
+       class either, so an observer would cost one observer per long page to
+       toggle a class nothing paints. */
+    var reduceMotionMq = window.matchMedia
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
+        : null;
+    function motionAllowed() {
+        return !(reduceMotionMq && reduceMotionMq.matches);
+    }
+    /* Restart-safe with no forced reflow: .dropdown-menu:not(.show) is
+       display:none, and an element entering display:block starts its animations
+       fresh, so remove-then-add in the same tick is enough to replay it. */
+    function markOpening(panel, open) {
+        if (!panel) { return; }
+        panel.classList.remove('is-opening');
+        if (open && motionAllowed()) { panel.classList.add('is-opening'); }
     }
 
     function init() {
@@ -103,7 +145,10 @@
             var item = toggle.closest('.nav-item');
             toggle.classList.toggle('show', open);
             toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-            if (panel) { panel.classList.toggle('show', open); }
+            if (panel) {
+                panel.classList.toggle('show', open);
+                markOpening(panel, open);
+            }
             if (item) { item.classList.toggle('active', open); }
         }
         /* --- behaviour 3: keep a long nav navigable --------------------------
@@ -177,6 +222,20 @@
             markScrollEdges();
         });
 
+        /* .is-opening is transient and must clear itself. One delegated listener
+           rather than one addEventListener per expand, so nothing accumulates
+           however many times a group is toggled; animationend bubbles, so the
+           class test is what keeps an event from a descendant (or from .page-body
+           further up, which never reaches here) out of it. If no stylesheet paints
+           the class there is no animation and no event, and the leftover class is
+           inert - the next toggle clears it either way. */
+        sidebar.addEventListener('animationend', function (e) {
+            var el = e.target;
+            if (el && el.classList && el.classList.contains('is-opening')) {
+                el.classList.remove('is-opening');
+            }
+        });
+
         /* Folding turns every open group into an absolutely positioned flyout
            (Tabler: .navbar-folded .dropdown-menu { position:absolute; inset-inline-start:100% }),
            so a server-opened group would hang over the page content permanently.
@@ -240,14 +299,31 @@
             }
         });
 
+        /* markScrollEdges() reads scrollHeight/clientHeight - a forced layout -
+           and then writes two classes that a header.php rule fades on. Scrolling
+           the nav and dragging a window edge both fire dozens of times a second,
+           so coalesce those two to one read/write pair per frame; rAF runs before
+           the next paint, so the affordance still updates in the same frame the
+           user sees. Every other caller stays synchronous, because they run once
+           per user action and one of them (init) must settle before first paint. */
+        var edgeFrame = 0;
+        function markScrollEdgesSoon() {
+            if (!window.requestAnimationFrame) { markScrollEdges(); return; }
+            if (edgeFrame) { return; }
+            edgeFrame = window.requestAnimationFrame(function () {
+                edgeFrame = 0;
+                markScrollEdges();
+            });
+        }
+
         /* Keep state honest when the SIDEBAR's own .navbar-toggler (Bootstrap's
            collapse data-api) drives the same #sidebar-menu. */
         if (menu) {
             menu.addEventListener('shown.bs.collapse', sync);
             menu.addEventListener('hidden.bs.collapse', sync);
-            menu.addEventListener('scroll', markScrollEdges, { passive: true });
+            menu.addEventListener('scroll', markScrollEdgesSoon, { passive: true });
         }
-        window.addEventListener('resize', markScrollEdges);
+        window.addEventListener('resize', markScrollEdgesSoon);
 
         /* Crossing the breakpoint: leaving mobile drops the off-canvas open state
            (at >= lg Bootstrap forces .navbar-collapse visible anyway, so this only
