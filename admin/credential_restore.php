@@ -191,3 +191,5 @@ if ($decrypted && $backup_loaded) {
 
     </div>
 </div>
+
+<?php require_once "../includes/footer.php"; ?>

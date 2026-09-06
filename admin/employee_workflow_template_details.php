@@ -117,3 +117,5 @@ $sql_tasks = mysqli_query($mysqli, "SELECT * FROM workflow_template_tasks WHERE 
         </form>
     </div>
 </div>
+
+<?php require_once "../includes/footer.php"; ?>

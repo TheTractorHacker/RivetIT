@@ -97,3 +97,5 @@ $preview = $_SESSION['people_import_preview'] ?? null;
 
     </div>
 </div>
+
+<?php require_once "../includes/footer.php"; ?>

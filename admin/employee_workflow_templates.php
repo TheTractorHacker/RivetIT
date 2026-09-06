@@ -46,3 +46,5 @@ $sql = mysqli_query($mysqli, "SELECT wt.*,
         </table>
     </div>
 </div>
+
+<?php require_once "../includes/footer.php"; ?>
