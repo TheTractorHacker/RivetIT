@@ -151,3 +151,53 @@
     background-color: var(--tblr-primary);
     color: #fff;
 }
+
+/* =============================================================================
+   BOOTSTRAP TOKEN BACKFILL  --bs-*  <-  --tblr-*
+
+   The vendored plugin stylesheets are stock Bootstrap 5 builds and read --bs-*
+   variables directly. Those variables used to be declared by
+   plugins/bootstrap5/css/bootstrap.min.css. The Tabler migration dropped that
+   file (Tabler bundles its own Bootstrap and renames every token to --tblr-*),
+   so all 14 --bs-* variables the plugin CSS still references resolved to
+   nothing, and `background: var(--bs-body-bg)` computed to rgba(0,0,0,0).
+
+   The visible symptom was every TomSelect dropdown rendering with NO background:
+   the option list painted straight over the form behind it, so a department
+   picker inside a modal was unreadable. Measured on the KB article modal:
+   .ts-dropdown background-color = rgba(0, 0, 0, 0). Same failure mode reaches
+   tempus-dominus, simple-datatables and intl-tel-input, which read the same
+   tokens for their own popovers and borders.
+
+   Aliases, never literals: each maps onto the --tblr-* token that already
+   changes with [data-bs-theme="dark"], so dark mode stays correct here for free
+   and there is exactly one source of truth per value. The fallback after each
+   comma is what stock Bootstrap 5.3 ships, so a future Tabler that renames a
+   token degrades to Bootstrap's own value instead of to transparent.
+
+   NOTE on --bs-body-bg: it maps to --tblr-bg-surface (#ffffff), NOT
+   --tblr-body-bg (#eef2f2). In stock Bootstrap the body IS the white surface
+   that dropdowns and popovers sit on, and that is the meaning every consumer of
+   this token expects. Tabler instead paints the page ground grey and keeps
+   surfaces white, so --tblr-bg-surface is the semantic match; --tblr-body-bg
+   would give every dropdown a grey panel.
+
+   The accent tokens (--bs-primary, --bs-link-color and friends) are NOT set
+   here - includes/header.php emits them per-company in a later inline block.
+   ============================================================================= */
+:root {
+    --bs-body-bg:                   var(--tblr-bg-surface, #ffffff);
+    --bs-body-color:                var(--tblr-body-color, #212529);
+    --bs-border-color:              var(--tblr-border-color, #dee2e6);
+    --bs-border-color-translucent:  var(--tblr-border-color-translucent, rgba(0,0,0,.175));
+    --bs-border-radius:             var(--tblr-border-radius, .375rem);
+    --bs-border-radius-lg:          var(--tblr-border-radius-lg, .5rem);
+    --bs-border-radius-sm:          var(--tblr-border-radius-sm, .25rem);
+    --bs-border-width:              var(--tblr-border-width, 1px);
+    --bs-box-shadow-inset:          var(--tblr-box-shadow-inset, inset 0 1px 2px rgba(0,0,0,.075));
+    --bs-form-invalid-color:        var(--tblr-form-invalid-color, #dc3545);
+    --bs-form-valid-color:          var(--tblr-form-valid-color, #198754);
+    --bs-secondary-bg:              var(--tblr-secondary-bg, #e9ecef);
+    --bs-secondary-color:           var(--tblr-secondary-color, rgba(33,37,41,.75));
+    --bs-tertiary-bg:               var(--tblr-tertiary-bg, #f8f9fa);
+}
