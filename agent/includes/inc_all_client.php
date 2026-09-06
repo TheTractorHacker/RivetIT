@@ -16,12 +16,52 @@ if (isset($_GET['client_id'])) {
 
     $sql = mysqli_query($mysqli, "UPDATE clients SET client_accessed_at = NOW() WHERE client_id = $client_id");
 
+    /*
+     * Department -> location.
+     *
+     * The MSP lineage gave every client its OWN locations, so this joined
+     * `locations ON client_id = location_client_id AND location_primary = 1`.
+     * That relationship does not exist in the internal-IT edition: there is one
+     * company, its sites are shared, and every locations row carries
+     * location_client_id = 0. So that join matched nothing and the whole
+     * "Primary Location" card on the department header rendered blank - while
+     * the departments LIST showed an address for the same department, because
+     * agent/clients.php had already been moved onto the real relationship.
+     *
+     * The real relationship is department_sites (client_id, location_id), which
+     * is many-to-many: a department can occupy several buildings and a building
+     * houses several departments. "Primary" is therefore a choice, not a stored
+     * fact, so pick deterministically - a site the company flagged primary wins,
+     * otherwise the lowest location_id, which is the same tie-break clients.php
+     * uses so the two pages can never disagree about which address they show.
+     *
+     * The legacy location_client_id path is kept as a fallback rather than
+     * deleted: it costs one OR, and an install that still carries per-client
+     * locations (or a row imported before department_sites existed) would
+     * otherwise silently lose its address.
+     */
     $sql = mysqli_query(
         $mysqli,
-        "SELECT * FROM clients
-        LEFT JOIN locations ON client_id = location_client_id AND location_primary = 1
-        LEFT JOIN contacts ON client_id = contact_client_id AND contact_primary = 1
-        WHERE client_id = $client_id"
+        "SELECT clients.*, contacts.*, locations.*
+        FROM clients
+        LEFT JOIN (
+            SELECT ds.client_id,
+                   SUBSTRING_INDEX(
+                       GROUP_CONCAT(ds.location_id ORDER BY l.location_primary DESC, ds.location_id ASC),
+                       ',', 1
+                   ) AS location_id
+            FROM department_sites ds
+            LEFT JOIN locations l ON l.location_id = ds.location_id
+            WHERE l.location_archived_at IS NULL
+            GROUP BY ds.client_id
+        ) ds_primary ON ds_primary.client_id = clients.client_id
+        LEFT JOIN locations
+               ON locations.location_id = ds_primary.location_id
+               OR (ds_primary.location_id IS NULL
+                   AND locations.location_client_id = clients.client_id
+                   AND locations.location_primary = 1)
+        LEFT JOIN contacts ON clients.client_id = contacts.contact_client_id AND contact_primary = 1
+        WHERE clients.client_id = $client_id"
     );
 
     if (mysqli_num_rows($sql) == 0) {
