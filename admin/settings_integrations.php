@@ -222,22 +222,22 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
                         <label class="form-check-label" for="enable_device_metrics">Collect device performance metrics</label>
                     </div>
                 </div>
-                <div class="form-row">
-                    <div class="form-group col-md-4 mb-2">
+                <div class="row g-3">
+                    <div class="col-md-4">
                         <label class="small text-muted mb-1" for="metrics_interval">Collection interval (seconds)</label>
                         <input type="number" class="form-control form-control-sm" id="metrics_interval"
                                name="config_metrics_collect_interval_seconds" min="60" max="3600" step="30"
                                value="<?= intval($config_metrics_collect_interval_seconds) ?>">
                         <small class="form-text text-muted">The cron entry is the real floor &mdash; a 300s interval on a 15-minute cron collects every 15 minutes.</small>
                     </div>
-                    <div class="form-group col-md-4 mb-2">
+                    <div class="col-md-4">
                         <label class="small text-muted mb-1" for="metrics_raw_days">Keep full-resolution samples (days)</label>
                         <input type="number" class="form-control form-control-sm" id="metrics_raw_days"
                                name="config_metrics_raw_retention_days" min="1" max="365"
                                value="<?= intval($config_metrics_raw_retention_days) ?>">
                         <small class="form-text text-muted">Older samples are rolled up to hourly, not deleted outright.</small>
                     </div>
-                    <div class="form-group col-md-4 mb-2">
+                    <div class="col-md-4">
                         <label class="small text-muted mb-1" for="metrics_hour_days">Keep hourly rollups (days)</label>
                         <input type="number" class="form-control form-control-sm" id="metrics_hour_days"
                                name="config_metrics_hour_retention_days" min="1" max="3650"

@@ -92,9 +92,27 @@
          theme THEN the design layer. Deliberately still the REDUCED stylesheet
          set - guest pages load none of the tom-select / tempus-dominus /
          simple-datatables / intl-tel-input CSS the agent shell pulls in. -->
+    <!-- Compatibility shims. These were split out of css/itflow_bs5_bridge.css and
+         MUST be linked: 55 selectors the app still emits live only in these files
+         now, so without them .info-box, .small-box, .card-tools, .form-group,
+         .form-row, .input-group-prepend/-append, .btn-block and friends have no
+         styling at all under Tabler. Both load anywhere after tabler.min.css, and
+         both must precede css/itflow.bind-tabler.css (shim-adminlte's .small-box
+         .icon rule depends on winning against bind-tabler's .icon reset). -->
+    <link rel="stylesheet" href="/css/itflow.shim-bs4.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow.shim-bs4.css') ?>">
+    <link rel="stylesheet" href="/css/itflow.shim-adminlte.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow.shim-adminlte.css') ?>">
+
     <link rel="stylesheet" href="/css/itflow_bs5_bridge.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_bs5_bridge.css') ?>">
     <link rel="stylesheet" href="/css/itflow_custom.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_custom.css') ?>">
     <link rel="stylesheet" href="/css/itflow_design.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_design.css') ?>">
+
+    <!-- --color-* -> --if-* alias. MUST come after BOTH itflow_custom.css (which
+         declares --color-*) and itflow_design.css (which declares --if-*): it is a
+         pure alias layer and linked any earlier it silently does nothing. Keeps the
+         ~500 existing var(--color-...) reads resolving to one source of truth, and
+         fixes card headers rendering a different grey than their own card body in
+         dark mode. -->
+    <link rel="stylesheet" href="/css/itflow.compat-color.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow.compat-color.css') ?>">
 
     <!-- Token seam: maps this app's --if-* / --color-* tokens onto Tabler's
          --tblr-*. MUST load after the design layer so the mappings win. -->
