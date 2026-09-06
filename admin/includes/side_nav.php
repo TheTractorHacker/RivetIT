@@ -201,9 +201,22 @@
                 </li>
                 <?php } ?>
 
-                <?php if ($config_module_enable_kb == 1 && lookupUserPermission("module_kb") >= 1) { ?>
-                    <li class="nav-item<?php echo (in_array(basename($_SERVER['PHP_SELF']), ['kb_articles.php', 'kb_article.php']) ? ' active' : ''); ?>">
-                        <a href="/agent/kb_articles.php" class="nav-link <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['kb_articles.php', 'kb_article.php']) ? 'active' : ''); ?>">
+                <?php
+                /*
+                 * Admin > Knowledge Base is the KB *settings* page, not a cross-area redirect
+                 * into the agent article browser. That browser is still one click away: from
+                 * the agent sidebar and from two buttons on admin/settings_kb.php.
+                 *
+                 * The $config_module_enable_kb guard is deliberately NOT applied here (the old
+                 * link had it). This page is where the module gets switched back on, so hiding
+                 * it while the module is off would make it unreachable exactly when it is needed.
+                 * The old active-state test on ['kb_articles.php','kb_article.php'] is gone too -
+                 * those basenames only exist under /agent, so it could never fire on an admin page.
+                 */
+                ?>
+                <?php if (lookupUserPermission("module_kb") >= 1) { ?>
+                    <li class="nav-item<?php echo (basename($_SERVER['PHP_SELF']) == 'settings_kb.php' ? ' active' : ''); ?>">
+                        <a href="/admin/settings_kb.php" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_kb.php' ? 'active' : ''); ?>">
                             <span class="nav-link-icon"><i class="fas fa-book"></i></span>
                             <span class="nav-link-title">Knowledge Base</span>
                         </a>

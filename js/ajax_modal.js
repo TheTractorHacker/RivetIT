@@ -129,6 +129,26 @@ window.openAjaxModal = function (modalUrl, modalSize, options) {
     });
 };
 
+// TinyMCE renders its floating UI (the toolbar overflow flyout and the link / table /
+// source-code dialogs) into div.tox-silver-sink.tox-tinymce-aux, a direct child of <body>
+// and therefore OUTSIDE the .modal element. Bootstrap 5's modal FocusTrap listens for
+// focusin on document and, for any target its trapElement does not contain, force-focuses
+// the modal's first focusable child. Those TinyMCE popups move real DOM focus into the
+// sink when they open, so Bootstrap instantly steals it back to the modal's close button:
+// the overflow flyout is torn down within ~5ms (Alloy then logs "The component must be in
+// a context to execute: triggerEvent") and the dialogs open but cannot be typed into.
+// Marking TinyMCE's own UI as in-bounds fixes both. This lives here, not in js/app.js,
+// because modal_footer.php re-injects app.js on every ajax modal open (which would stack a
+// duplicate listener per modal); includes/footer.php loads this file exactly once per page,
+// always before any modal is shown, so this listener is registered ahead of the FocusTrap's
+// and stopImmediatePropagation() reliably suppresses it. The modal's Tab trap is a separate
+// keydown listener and is untouched.
+document.addEventListener('focusin', function (e) {
+  if (e.target && e.target.closest && e.target.closest('.tox-tinymce-aux, .tox-dialog')) {
+    e.stopImmediatePropagation();
+  }
+});
+
 document.addEventListener('click', function (e) {
   const trigger = e.target.closest('.ajax-modal');
   if (!trigger) { return; }

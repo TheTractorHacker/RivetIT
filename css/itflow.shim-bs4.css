@@ -240,3 +240,25 @@
     border: 0 !important;
     pointer-events: none;
 }
+
+/* ---- .alert: legacy markup vs Tabler's flex row ----------------------------
+   Tabler 1.5 makes .alert a flex ROW (display:flex, gap:1rem) with no
+   flex-wrap, on the assumption its children are a couple of deliberate blocks -
+   an icon and a body.
+
+   This app emits Bootstrap-4-shaped alerts: bare text nodes, <strong>, <code>
+   and <br> as direct children. Every one of those becomes its own flex item, and
+   with nowrap they are laid out on a single line that cannot break. Measured on
+   admin/people_import.php: document scrollWidth 3057px against a 1280px
+   viewport - and identical at 1600px, because the row is sized by its intrinsic
+   content and never responds to the viewport at all. 57 files carry this markup.
+
+   flex-wrap:wrap restores line breaking without giving up Tabler's icon+body
+   layout, which still works because a real icon child keeps its own flex slot.
+   align-items:flex-start stops a tall wrapped body from vertically centring the
+   icon against it. Verified on the same page: scrollWidth 3057 -> 1270. */
+.alert {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}

@@ -21,6 +21,7 @@ function getSettingsSearchIndex(): array {
         ['label' => 'Company Details',        'keywords' => ['company', 'address', 'logo', 'business info'],                          'url' => '/admin/settings_company.php',            'visible' => true],
         ['label' => 'Localization',            'keywords' => ['locale', 'timezone', 'currency', 'language', 'date format'],            'url' => '/admin/settings_localization.php',       'visible' => true],
         ['label' => 'Theme',                   'keywords' => ['theme', 'dark mode', 'color', 'accent', 'favicon'],                     'url' => '/admin/settings_theme.php',              'visible' => true],
+        ['label' => 'Knowledge Base Settings', 'keywords' => ['knowledge base', 'kb', 'articles', 'documentation'],                  'url' => '/admin/settings_kb.php',                 'visible' => true],
         ['label' => 'Appearance',              'keywords' => ['appearance', 'logo', 'branding'],                                       'url' => '/admin/settings_appearance.php',         'visible' => true],
         ['label' => 'Security',                'keywords' => ['security', 'vault', 'encryption', 'login key', 'passkey'],              'url' => '/admin/settings_security.php',           'visible' => true],
         ['label' => 'Mail',                    'keywords' => ['smtp', 'imap', 'email', 'oauth', 'mail'],                               'url' => '/admin/settings_mail.php',               'visible' => true],

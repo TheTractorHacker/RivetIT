@@ -37,9 +37,7 @@ ob_start();
 <div class="modal-header">
     <h5 class="modal-title"><i class="fas fa-fw fa-user-edit me-2"></i>Editing user:
         <strong><?php echo $user_name; ?></strong></h5>
-    <button type="button" class="close" data-bs-dismiss="modal">
-        <span>&times;</span>
-    </button>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
 <form action="post.php" method="post" enctype="multipart/form-data" autocomplete="off">
     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
@@ -64,83 +62,93 @@ ob_start();
 
             <div class="tab-pane fade show active" id="pills-user-details<?php echo $user_id; ?>">
 
-                <center class="mb-3">
-                    <?php if (!empty($user_avatar)) { ?>
-                        <img class="img-fluid" src="<?php echo "../uploads/users/$user_id/$user_avatar"; ?>">
-                    <?php } else { ?>
-                        <span class="fa-stack fa-4x">
-                            <i class="fa fa-circle fa-stack-2x text-secondary"></i>
-                            <span class="fa fa-stack-1x text-white"><?php echo $user_initials; ?></span>
-                        </span>
-                    <?php } ?>
-                </center>
+                <p class="text-muted small mb-3">Fields marked <strong class="text-danger">*</strong> are required.</p>
+
+                <h6 class="text-uppercase text-muted mb-2" style="font-size:.75rem;letter-spacing:.05em">
+                    <i class="fas fa-id-card me-1"></i>Account
+                </h6>
 
                 <div class="form-group">
-                    <label>Name <strong class="text-danger">*</strong></label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
-                        </div>
-                        <input type="text" class="form-control" name="name" placeholder="Full Name" maxlength="200"
-                               value="<?php echo $user_name; ?>" required>
-                    </div>
+                    <label for="user_edit_name<?php echo $user_id; ?>">Name <strong class="text-danger">*</strong></label>
+                    <input type="text" class="form-control" id="user_edit_name<?php echo $user_id; ?>" name="name" placeholder="Full Name" maxlength="200"
+                           value="<?php echo $user_name; ?>" required>
                 </div>
 
                 <div class="form-group">
-                    <label>Email <strong class="text-danger">*</strong></label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-envelope"></i></span>
-                        </div>
-                        <input type="email" class="form-control" name="email" placeholder="Email Address" maxlength="200"
-                               value="<?php echo $user_email; ?>" required>
-                    </div>
+                    <label for="user_edit_email<?php echo $user_id; ?>">Email <strong class="text-danger">*</strong></label>
+                    <input type="email" class="form-control" id="user_edit_email<?php echo $user_id; ?>" name="email" placeholder="Email Address" maxlength="200"
+                           value="<?php echo $user_email; ?>" required>
+                    <small class="form-text text-muted">Also used as the sign-in username.</small>
                 </div>
 
                 <div class="form-group">
-                    <label>New Password</label>
+                    <label for="user_edit_role<?php echo $user_id; ?>">Role <strong class="text-danger">*</strong></label>
+                    <select class="form-control select2" id="user_edit_role<?php echo $user_id; ?>" name="role" required>
+                        <?php
+                        $sql_user_roles = mysqli_query($mysqli, "SELECT * FROM user_roles WHERE role_archived_at IS NULL");
+                        while ($row = mysqli_fetch_assoc($sql_user_roles)) {
+                            $role_id = intval($row['role_id']);
+                            $role_name = nullable_htmlentities($row['role_name']);
+
+                            ?>
+                            <option <?php if ($role_id == $user_role_id) {echo "selected";} ?> value="<?php echo $role_id; ?>"><?php echo $role_name; ?></option>
+                        <?php } ?>
+
+                    </select>
+                    <small class="form-text text-muted">Department limits are set on the Access tab.</small>
+                </div>
+
+                <hr class="my-3">
+
+                <h6 class="text-uppercase text-muted mb-2" style="font-size:.75rem;letter-spacing:.05em">
+                    <i class="fas fa-key me-1"></i>Sign-in
+                </h6>
+
+                <div class="form-group">
+                    <label for="user_edit_password<?php echo $user_id; ?>">New Password</label>
                     <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-lock"></i></span>
-                        </div>
-                        <input type="password" class="form-control" data-toggle="password" name="new_password" id="password"
+                        <!-- The show/hide plugin binds EVERY .input-group-text inside this input's
+                             parent ($(this).parent().find(".input-group-text")), so the eye must be
+                             the only one here - a decorative addon would become a second, unlabelled
+                             reveal button. The generate button is deliberately a .btn, not an addon. -->
+                        <input type="password" class="form-control" data-toggle="password" name="new_password" id="user_edit_password<?php echo $user_id; ?>"
                                placeholder="Leave Blank For No Password Change" autocomplete="new-password">
-                        <div class="input-group-append">
-                            <span class="input-group-text"><i class="fa fa-fw fa-eye"></i></span>
-                        </div>
-                        <div class="input-group-append">
-                            <span class="btn btn-default"><i class="fa fa-fw fa-question js-generate-password"></i></span>
-                        </div>
+                        <span class="input-group-text" title="Show password"><i class="fa fa-fw fa-eye"></i></span>
+                        <button type="button" class="btn btn-outline-secondary js-generate-password" title="Generate a random password" aria-label="Generate a random password"><i class="fa fa-fw fa-dice"></i></button>
                     </div>
+                    <small class="form-text text-muted">Leave blank to keep the current password. Use at least 8 characters.</small>
                 </div>
 
                 <div class="form-group">
-                    <label>Role <strong class="text-danger">*</strong></label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-user-shield"></i></span>
-                        </div>
-                        <select class="form-control select2" name="role" required>
-                            <?php
-                            $sql_user_roles = mysqli_query($mysqli, "SELECT * FROM user_roles WHERE role_archived_at IS NULL");
-                            while ($row = mysqli_fetch_assoc($sql_user_roles)) {
-                                $role_id = intval($row['role_id']);
-                                $role_name = nullable_htmlentities($row['role_name']);
-
-                                ?>
-                                <option <?php if ($role_id == $user_role_id) {echo "selected";} ?> value="<?php echo $role_id; ?>"><?php echo $role_name; ?></option>
-                            <?php } ?>
-
-                        </select>
+                    <div class="form-check form-check">
+                        <input class="form-check-input" type="checkbox" id="forceMFASec<?php echo $user_id; ?>" name="force_mfa" value="1" <?php if($user_config_force_mfa == 1){ echo "checked"; } ?>>
+                        <label for="forceMFASec<?php echo $user_id; ?>" class="form-check-label">Force MFA on next login</label>
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Avatar</label>
-                    <input type="file" class="form-control-file" accept="image/*" name="file">
+                <hr class="my-3">
+
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <?php if (!empty($user_avatar)) { ?>
+                            <img class="rounded" style="width:64px; height:64px; object-fit:cover;"
+                                 src="<?php echo "../uploads/users/$user_id/$user_avatar"; ?>" alt="Current avatar">
+                        <?php } else { ?>
+                            <span class="fa-stack fa-2x">
+                                <i class="fa fa-circle fa-stack-2x text-secondary"></i>
+                                <span class="fa fa-stack-1x text-white"><?php echo $user_initials; ?></span>
+                            </span>
+                        <?php } ?>
+                    </div>
+                    <div class="flex-fill">
+                        <label for="user_edit_avatar<?php echo $user_id; ?>">Avatar <span class="text-muted fw-normal">(optional)</span></label>
+                        <input type="file" class="form-control" id="user_edit_avatar<?php echo $user_id; ?>" accept="image/*" name="file">
+                        <small class="form-text text-muted">Uploading a new image replaces the current one.</small>
+                    </div>
                 </div>
 
-                <p class="text-muted small"><i class="fas fa-shield-alt me-1"></i>Manage 2FA, passkeys, and sessions in the <a href="#" data-bs-toggle="pill" data-bs-target="#pills-user-security<?= $user_id ?>">Security tab</a>.</p>
+                <p class="text-muted small mt-3 mb-0"><i class="fas fa-shield-alt me-1"></i>Manage 2FA, passkeys, and sessions on the
+                    <a href="#" class="js-goto-tab" data-target-pane="#pills-user-security<?= $user_id ?>">Security tab</a>.</p>
             </div>
 
             <!-- Security Tab -->
@@ -151,7 +159,7 @@ ob_start();
                     <i class="fas fa-shield-alt me-1"></i>Two-Factor Authentication
                 </h6>
                 <?php if (!empty($user_token)): ?>
-                    <div class="d-flex align-items-center justify-content-between p-2 mb-3 border rounded">
+                    <div class="d-flex align-items-center justify-content-between p-2 mb-2 border rounded">
                         <span><i class="fas fa-lock text-success me-2"></i><strong>Enabled</strong> — TOTP authenticator app</span>
                         <a href="post.php?disable_2fa=<?= $user_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
                            class="btn btn-sm btn-outline-danger confirm-link">
@@ -159,17 +167,14 @@ ob_start();
                         </a>
                     </div>
                 <?php else: ?>
-                    <div class="d-flex align-items-center p-2 mb-3 border rounded">
+                    <div class="d-flex align-items-center p-2 mb-2 border rounded">
                         <i class="fas fa-unlock text-danger me-2"></i><span class="text-muted">Not configured</span>
                     </div>
                 <?php endif; ?>
 
-                <div class="form-group">
-                    <div class="form-check form-check">
-                        <input class="form-check-input" type="checkbox" id="forceMFASec<?php echo $user_id; ?>" name="force_mfa" value="1" <?php if($user_config_force_mfa == 1){ echo "checked"; } ?>>
-                        <label for="forceMFASec<?php echo $user_id; ?>" class="form-check-label">Force MFA on next login</label>
-                    </div>
-                </div>
+                <p class="text-muted small mb-3"><i class="fas fa-user-lock me-1"></i><strong>Force MFA on next login</strong> is set on the
+                    <a href="#" class="js-goto-tab" data-target-pane="#pills-user-details<?= $user_id ?>">Details tab</a>,
+                    alongside the password<?php if ($user_config_force_mfa == 1) { echo ' - it is currently ON for this user'; } ?>.</p>
 
                 <hr>
 
@@ -229,37 +234,47 @@ ob_start();
 
             <div class="tab-pane fade" id="pills-user-access<?php echo $user_id; ?>">
 
-                <div class="alert alert-info">
+                <div class="alert alert-info py-2 px-3 small">
                     Check boxes to authorize user department access. No boxes grant full department access. Admin users are unaffected.
                 </div>
 
-                <ul class="list-group">
-                    <li class="list-group-item" style="background: var(--color-accent-soft); box-shadow: inset 3px 0 0 var(--color-accent);">
-                        <div class="form-check">
-                            <input type="checkbox" class="form-check-input js-toggle-all-clients">
-                            <label class="form-check-label ms-3"><strong>Restrict Access to Departments</strong></label>
-                        </div>
-                    </li>
+                <?php
+                $sql_client_select = mysqli_query($mysqli, "SELECT * FROM clients WHERE client_archived_at IS NULL ORDER BY client_name ASC");
+                $client_count = intval(mysqli_num_rows($sql_client_select));
+                ?>
 
-                    <?php
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted small"><?php echo $client_count; ?> department<?php echo $client_count == 1 ? '' : 's'; ?></span>
+                    <div class="form-check mb-0">
+                        <input type="checkbox" class="form-check-input js-toggle-all-clients" id="user_edit_all_departments<?php echo $user_id; ?>">
+                        <label class="form-check-label ms-1" for="user_edit_all_departments<?php echo $user_id; ?>">Select all</label>
+                    </div>
+                </div>
 
-                    $sql_client_select = mysqli_query($mysqli, "SELECT * FROM clients WHERE client_archived_at IS NULL ORDER BY client_name ASC");
-                    while ($row = mysqli_fetch_assoc($sql_client_select)) {
-                        $client_id_select = intval($row['client_id']);
-                        $client_name_select = nullable_htmlentities($row['client_name']);
+                <!-- Capped so the modal footer stays on screen: 15 full-height list rows
+                     otherwise push Save ~700px below the fold at 1366x768. -->
+                <div class="border rounded" style="max-height:min(46vh,340px); overflow-y:auto;">
+                    <ul class="list-group list-group-flush">
 
-                    ?>
+                        <?php
 
-                    <li class="list-group-item">
-                        <div class="form-check">
-                            <input type="checkbox" class="form-check-input client-checkbox" name="clients[]" value="<?php echo $client_id_select; ?>" <?php if (in_array($client_id_select, $client_access_array)) { echo "checked"; } ?>>
-                            <label class="form-check-label ms-2"><?php echo $client_name_select; ?></label>
-                        </div>
-                    </li>
+                        while ($row = mysqli_fetch_assoc($sql_client_select)) {
+                            $client_id_select = intval($row['client_id']);
+                            $client_name_select = nullable_htmlentities($row['client_name']);
 
-                    <?php } ?>
+                        ?>
 
-                </ul>
+                        <li class="list-group-item py-2">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input client-checkbox" id="user_edit_client_<?php echo $user_id; ?>_<?php echo $client_id_select; ?>" name="clients[]" value="<?php echo $client_id_select; ?>" <?php if (in_array($client_id_select, $client_access_array)) { echo "checked"; } ?>>
+                                <label class="form-check-label ms-2" for="user_edit_client_<?php echo $user_id; ?>_<?php echo $client_id_select; ?>"><?php echo $client_name_select; ?></label>
+                            </div>
+                        </li>
+
+                        <?php } ?>
+
+                    </ul>
+                </div>
 
             </div>
 
@@ -273,30 +288,64 @@ ob_start();
 </form>
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+(function () {
 
-function generatePassword() {
-    // Send a GET request to ajax.php as ajax.php?get_readable_pass=true
-    jQuery.get(
-        "/agent/ajax.php", {
-            get_readable_pass: 'true'
-        },
-        function(data) {
-            //If we get a response from post.php, parse it as JSON
-            const password = JSON.parse(data);
-            document.getElementById("password").value = password;
-        }
-    );
-}
+    // Fill whichever password box sits next to the clicked generate button.
+    function generatePassword(input) {
+        jQuery.get(
+            "/agent/ajax.php", {
+                get_readable_pass: 'true'
+            },
+            function(data) {
+                input.value = JSON.parse(data);
+            }
+        );
+    }
 
-document.addEventListener('click', function (e) {
-    if (e.target.closest('.js-generate-password')) { generatePassword(); }
-});
-document.addEventListener('click', function (e) {
-    var el = e.target.closest('.js-toggle-all-clients');
-    if (!el) return;
-    el.closest('.tab-pane').querySelectorAll('.client-checkbox').forEach(function (checkbox) { checkbox.checked = el.checked; });
-});
+    // This script is re-executed on every ajax-modal open (ajax_modal.js re-runs
+    // injected scripts), so these document-level listeners would otherwise stack
+    // up - one extra ajax request / toggle pass per modal opened this page load.
+    if (!window.itflowUserModalWired) {
+        window.itflowUserModalWired = true;
 
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.js-generate-password');
+            if (!btn) return;
+            var group = btn.closest('.input-group');
+            var input = group && group.querySelector('input[name="password"], input[name="new_password"]');
+            if (input) { generatePassword(input); }
+        });
+
+        document.addEventListener('click', function (e) {
+            var el = e.target.closest('.js-toggle-all-clients');
+            if (!el) return;
+            el.closest('.tab-pane').querySelectorAll('.client-checkbox').forEach(function (checkbox) { checkbox.checked = el.checked; });
+        });
+
+        // Cross-references between tabs. data-bs-toggle="pill" on a link inside the
+        // tab body does NOT switch tabs (Bootstrap resolves the active state through
+        // the trigger's parent nav, which a body link has no part in - measured: the
+        // pane stayed on Details), so drive the real nav pill instead.
+        document.addEventListener('click', function (e) {
+            var link = e.target.closest('.js-goto-tab');
+            if (!link) return;
+            e.preventDefault();
+            var scope = link.closest('.modal') || document;
+            var pill = scope.querySelector('.nav-link[href="' + link.getAttribute('data-target-pane') + '"]');
+            if (pill && window.bootstrap) { bootstrap.Tab.getOrCreateInstance(pill).show(); }
+        });
+    }
+
+    // The autofocus attribute never fires for markup injected via innerHTML, and
+    // Bootstrap focuses the dialog itself on show - so focus the first field once
+    // the modal has finished animating in.
+    var field = document.getElementById('user_edit_name<?php echo $user_id; ?>');
+    var modalEl = field ? field.closest('.modal') : null;
+    if (modalEl) {
+        modalEl.addEventListener('shown.bs.modal', function () { field.focus(); }, { once: true });
+    }
+
+})();
 </script>
 
 <?php

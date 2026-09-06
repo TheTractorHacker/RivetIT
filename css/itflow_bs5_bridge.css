@@ -329,10 +329,16 @@
    its own comment that the brand box is deliberately padding-free (p-0) so THESE
    rules fill it. They are the contract between this file and those five.
 
-   .section-nav-back is the plain "back to the app" link used by Reports,
-   Administration, Account and Department Overview. .client-nav-* is the richer
-   client-scoped variant: back link stacked over a real name + avatar, replacing
-   the old cryptic "Back | ABC" abbreviation.
+   .section-nav-back is the plain "back to the app" link used by the rails that
+   are a SECTION of the app: Reports, Administration and Account. .client-nav-*
+   is the richer scoped variant - back link stacked over an identity block with a
+   name + avatar, replacing the old cryptic "Back | ABC" abbreviation - and it is
+   used by BOTH record rails, so they read as one system at two scopes:
+   client_side_nav.php names the department it is scoped to, and
+   client_overview_side_nav.php names its scope, "Company-wide". (That second
+   file used to wear .section-nav-back and the label "Department Overview" while
+   listing company-wide records, which is what made the app look like it had two
+   different maps of one department.)
 
    Colours are literal white/near-white rather than tokens on purpose: the aside
    is always dark regardless of app theme, and (see the chrome-token note at the
@@ -447,4 +453,56 @@
     font-size: .72rem;
     text-transform: uppercase;
     letter-spacing: .03em;
+}
+
+/* =============================================================================
+   SECONDARY-SIDEBAR NAV ROWS — COUNT BADGES
+
+   Every vertical rail in this app writes its count chip as the last child of the
+   row link:  <a class="nav-link"> <span.nav-link-icon> <span.nav-link-title>
+   <span class="ms-auto badge">258</span> </a>  — i.e. a flex item that the
+   ms-auto is supposed to push to the end of the row.
+
+   Tabler overrides that. plugins/tabler/css/tabler.min.css ships
+
+       .navbar .navbar-nav .nav-link .badge {
+           position: absolute; inset-inline-end: .5rem; top: .5rem;
+           transform: translate(calc(var(--tblr-dir) * 50%), -50%);
+       }
+
+   which is its notification-DOT pattern for the HORIZONTAL navbar: pin a tiny
+   dot to the corner of the item and let half of it hang outside. Our rails are
+   aside.navbar.navbar-vertical, so the selector matches them too and takes every
+   count chip OUT OF FLOW — ms-auto goes dead (computed margin-left 0px), the
+   chip is pinned to the row's top-right corner and then pushed right by half its
+   own width.
+
+   Measured on the live app at 1600x1100, /agent/contacts.php, 256px rail whose
+   .nav-link box ends at x=248:
+       "3"   -> badge right edge 251.7   (4.3px inside the rail)
+       "258" -> badge right edge 258.8   (2.8px PAST the 256px rail, and the
+                ancestor .navbar-collapse computes overflow-x:auto, so it was
+                shearing the chip's right rounded corner flat)
+   and every chip sat 14px ABOVE its own row's centreline (badge centre 86 vs
+   link centre 100).
+
+   Putting the chip back in the flex row lets the ms-auto that is already in the
+   markup do the job it was written for. Same measurement after: right edge 236
+   for one, two or three digits (20px inside the rail), badge centre == link
+   centre, and a forced 3-digit count on the longest label in the department rail
+   ("Recurring Tickets") still leaves 37.8px of clear space and clips nothing.
+
+   Scope notes:
+   - The child combinator keeps this off any badge nested deeper inside a link.
+   - .dropdown-item badges are untouched; Tabler's rule never matched those.
+   - Only position changes. text-bg-danger / text-bg-warning chips (open tickets,
+     expiring certificates, overdue invoices) keep their colours.
+   - The FOLDED rail is deliberately excluded. At 64px there is no room for a
+     number in the row, and Tabler's corner pin is the right behaviour there;
+     measured folded geometry is byte-identical with and without this rule.
+   ============================================================================= */
+.navbar-vertical:not(.navbar-folded):not(.navbar-folded-hover) .navbar-nav .nav-link > .badge {
+    position: static;
+    transform: none;
+    flex-shrink: 0;
 }
