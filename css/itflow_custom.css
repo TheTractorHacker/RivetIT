@@ -452,6 +452,15 @@ a:hover {
 
 .nav-pills .nav-link.active,
 .nav-pills .show > .nav-link {
+    /* This rule overrides ONLY the background. Tabler's own pill is red text on a
+       12% red tint (--tblr-nav-pills-link-active-color #DC2626 over
+       --tblr-nav-pills-link-active-bg rgba(220,38,38,.12)) - legible by design.
+       Swapping the tint for the SOLID accent while leaving Tabler's foreground in
+       place gave #DC2626 text on a #DC2626 fill, so the active tab label rendered
+       completely invisible - measured on the location edit modal, where the
+       "Details" pill was a blank red block. A background override has to move its
+       foreground with it. */
+    color: #fff;
     background-color: var(--color-accent);
 }
 

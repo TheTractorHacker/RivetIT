@@ -118,11 +118,16 @@ if(isset($_POST['edit_location'])){
         mkdir("../uploads/clients/$client_id");
     }
 
-    if ($address_unchanged) {
-        // Keep whatever's already cached (still NULL if it was never
-        // successfully geocoded in the first place).
-        $location_latitude_sql = $row['location_latitude'] !== null ? $row['location_latitude'] : 'NULL';
-        $location_longitude_sql = $row['location_longitude'] !== null ? $row['location_longitude'] : 'NULL';
+    // Re-geocode when the address CHANGED, and also when it did not change but we
+    // still have no coordinates. Without that second condition a location saved
+    // before geocoding existed could never acquire coordinates at all: the address
+    // matches itself, so the cached branch ran and wrote NULL over NULL forever.
+    // Re-saving the record looked like it should fix the missing map pin, and
+    // silently did nothing.
+    $has_coords = $row['location_latitude'] !== null && $row['location_longitude'] !== null;
+    if ($address_unchanged && $has_coords) {
+        $location_latitude_sql = $row['location_latitude'];
+        $location_longitude_sql = $row['location_longitude'];
     } else {
         $geocoded = geocodeAddress($address, $city, $state, $zip, $country);
         $location_latitude_sql = $geocoded ? $geocoded[0] : 'NULL';
