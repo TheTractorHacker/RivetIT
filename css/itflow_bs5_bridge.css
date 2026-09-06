@@ -383,10 +383,20 @@
     text-decoration: none;
     transition: color .15s ease-out, background-color .15s ease-out;
 }
+/* Tabler ships a bare `a:hover { text-decoration: underline }`. The base rule
+   above sets text-decoration:none but has no :hover variant, so these back links
+   were underlined on hover - measured: 'none' at rest, 'underline' on hover.
+   The hover affordance here is already the colour lift plus the background tint
+   and the arrow nudge; an underline on a full-width sidebar band just draws a
+   line across the chrome. Stated on :hover and :focus so keyboard users get the
+   same treatment as the mouse. */
 .client-nav-back:hover,
-.section-nav-back:hover {
+.client-nav-back:focus,
+.section-nav-back:hover,
+.section-nav-back:focus {
     color: #fff !important;
     background-color: rgba(255, 255, 255, .06);
+    text-decoration: none;
 }
 .client-nav-back i,
 .section-nav-back i { transition: transform .15s ease-out; }
