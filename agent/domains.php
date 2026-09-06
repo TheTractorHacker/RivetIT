@@ -107,9 +107,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 </div>
 
                 <?php if ($client_url) { ?>
-                <div class="col-md-2"></div>
+                <div class="col-md-3"></div>
                 <?php } else { ?>
-                <div class="col-md-2">
+                <div class="col-md-3">
                     <div class="input-group mb-3 mb-md-0">
                         <select class="form-control select2 auto-submit-select" name="client">
                             <option value="" <?php if ($client == "") { echo "selected"; } ?>>- All Departments -</option>
@@ -137,7 +137,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 </div>
                 <?php } ?>
 
-                <div class="col-md-6">
+                <div class="col-md-5">
                     <div class="btn-group float-end">
                         <a href="?<?php echo $client_url; ?>archived=<?php if($archived == 1){ echo 0; } else { echo 1; } ?>"
                             class="btn btn-<?php if($archived == 1){ echo "primary"; } else { echo "default"; } ?>">

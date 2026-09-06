@@ -119,11 +119,25 @@
    var(--tblr-bg-surface): css/itflow.bind-tabler.css redefines that on :root as a
    flat var(--if-surface) (white in light mode) and custom properties inherit, so a
    dark-scoped descendant would inherit the LIGHT surface and the navbar would
-   render white next to a dark sidebar. Hence an explicit chrome token. The default
-   is Tabler's own --tblr-gray-800 (#1f2937), i.e. the colour Tabler paints a
-   data-bs-theme="dark" surface, so navbar and sidebar agree by construction. */
+   render white next to a dark sidebar. Hence an explicit chrome token.
+
+   --if-chrome-bg IS THE SIDEBAR'S COLOUR, LITERALLY. This token used to hold
+   Tabler's --tblr-gray-800 (#1f2937) on the reasoning that Tabler paints a
+   data-bs-theme="dark" surface that colour anyway, "so navbar and sidebar agree
+   by construction". They did not: css/itflow.bind-tabler.css:95-105 pins the
+   always-dark chrome to a hard-coded #2b3038 instead, so the two abutted along
+   the whole x=256 edge in two different hues — #1f2937 is blue-cast, #2b3038 is
+   neutral — with a visible vertical seam at the top-left corner of every page.
+   Keep this value equal to bind-tabler's --tblr-navbar-bg; that file owns the
+   sidebar, this one owns the header, and the band only reads as one surface if
+   they match. Change them together or not at all.
+
+   --if-chrome-band is the height of that band. Both the header and every
+   sidebar's brand box are pinned to it below so their bottom rules land on the
+   same pixel row. */
 :root {
-    --if-chrome-bg:     #1f2937;
+    --if-chrome-bg:     #2b3038;
+    --if-chrome-band:    70px;
     --if-chrome-border:  rgba(255, 255, 255, .08);
     --if-chrome-ink:     rgba(255, 255, 255, .85);
     --if-chrome-ink-dim: rgba(255, 255, 255, .55);
@@ -184,9 +198,18 @@
    `.page:has(> [class*=navbar-expand]) > .navbar-vertical { display:none }` layout
    switch. Do not rename .app-header without editing top_nav.php in the same change.
    ============================================================================= */
+/* The header is one half of the app's top band; the sidebar's brand box is the
+   other (see SECONDARY-SIDEBAR BRAND AREA below). Pinning the height here rather
+   than letting the tallest nav item decide it is what lets the two halves share a
+   single rule across the whole width: padding is zeroed so the content is centred
+   by the navbar's own align-items:center inside exactly --if-chrome-band, instead
+   of adding 8px on top of a 56px minimum and landing on 70.27px. */
 .app-header.navbar {
     background-color: var(--if-chrome-bg) !important;
     border-bottom: 1px solid var(--if-chrome-border);
+    min-height: var(--if-chrome-band);
+    padding-top: 0;
+    padding-bottom: 0;
 }
 .app-header .nav-link { color: var(--if-chrome-ink); }
 .app-header .nav-link:hover { color: #fff; }
@@ -315,8 +338,37 @@
    is always dark regardless of app theme, and (see the chrome-token note at the
    top) the --tblr-* and --if-* surface tokens inherit the LIGHT values into it.
    ============================================================================= */
+
+/* ---- The band: sidebar brand box == header height --------------------------
+   The brand box and the top header sit side by side across the top of every
+   page, and each was sizing itself independently: the header at 70.27px, a
+   .section-nav-back brand at 38.58px, the client sidebar's stacked brand at
+   110.77px, and the main agent sidebar's logo brand at 56.98px with no bottom
+   rule at all. So the app drew two horizontal lines 31.7px apart across one
+   band, and walking Dashboard -> Reports jumped the divider 18px and made a
+   rule appear from nowhere.
+
+   Every sidebar's FIRST horizontal rule is now pinned to --if-chrome-band, the
+   same token the header uses, so the two halves close into one line. The brand
+   box gets the height too (it can only grow past it — the client sidebar's
+   identity row still sits below the band, which is why the border belongs to the
+   back link and not to the box). The main agent sidebar has no back link inside
+   its brand, so it is the one case where the box itself must carry the rule;
+   :has() picks it out rather than a marker class, since side_nav.php is not in
+   this change's ownership. row-gap:0 removes the .5rem Tabler puts between the
+   two stacked children of the client brand, which was floating the identity
+   block away from the rule above it. */
+.navbar-vertical .navbar-brand {
+    min-height: var(--if-chrome-band);
+    row-gap: 0;
+}
+.navbar-vertical .navbar-brand:not(:has(.section-nav-back)):not(:has(.client-nav-back)) {
+    border-bottom: 1px solid var(--if-chrome-border);
+}
+
 .client-nav-back,
 .section-nav-back {
+    min-height: var(--if-chrome-band);
     display: flex;
     align-items: center;
     gap: .5rem;
@@ -326,7 +378,8 @@
     color: rgba(255, 255, 255, .6) !important;
     font-size: .95rem;
     font-weight: 500;
-    border-bottom: 1px solid rgba(255, 255, 255, .06);
+    /* the header's own bottom rule, continued: same token, same pixel row */
+    border-bottom: 1px solid var(--if-chrome-border);
     text-decoration: none;
     transition: color .15s ease-out, background-color .15s ease-out;
 }
@@ -348,7 +401,7 @@
     width: 100%;
     padding: .85rem 1rem;
     text-decoration: none;
-    border-bottom: 1px solid rgba(255, 255, 255, .06);
+    border-bottom: 1px solid var(--if-chrome-border);
 }
 .client-nav-avatar {
     flex-shrink: 0;

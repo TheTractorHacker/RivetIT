@@ -2,7 +2,12 @@
 require_once "includes/inc_all_admin.php";
  ?>
 
-<div class="card card-dark">
+<!-- Plain .card, not the legacy AdminLTE .card-dark. css/itflow_custom.css records
+     that the class is otherwise inert, and on this page it only did harm: it squared
+     off the card's bottom two corners (`.card.card-dark` carries the header's
+     `border-radius: … 0 0 !important`) and out-ranked the design layer's own
+     .form-control colours, so every field on the page painted white in dark mode. -->
+<div class="card">
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-fw fa-cube me-2"></i>Modules</h3>
     </div>

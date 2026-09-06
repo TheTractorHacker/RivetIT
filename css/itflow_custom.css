@@ -90,11 +90,21 @@ body.dark-mode {
     margin: 0;
 }
 
-/* Form controls inside dark cards inherit white text — force readable colors */
+/* Form controls inside dark cards inherit white text — force readable colors.
+   These were hard-coded #495057-on-#fff, which is only correct in light mode:
+   .card-dark is 0,2,0 and out-ranks the design layer's own `.form-control`
+   (0,1,0), so in dark mode every control on a .card-dark page — the 7 tom-select
+   pills on the ticket filter bar included — painted pure white while the .item
+   text inside them inherited the dark theme's near-white ink (1.17:1, verified
+   headless). Reading the theme tokens keeps the original intent (a readable
+   control on a dark card) and is correct in BOTH modes; --color-* is aliased
+   onto the --if-* design layer by css/itflow.compat-color.css.
+   NOTE .card-dark is otherwise inert (see css/itflow.shim-adminlte.css); when
+   the last .card-dark leaves the markup, delete this rule with it. */
 .card-dark .form-control,
 .card-dark .custom-select {
-    color: #495057;
-    background-color: #fff;
+    color: var(--color-text);
+    background-color: var(--color-surface);
 }
 
 /* Client portal */
@@ -123,6 +133,16 @@ body.dark-mode {
     border-radius: 50rem !important;
 }
 
+/* The search input-group is the one control on the bar that is not a lone
+   pill. The generic `.input-group > .input-group-append > .btn` rule further
+   down this file (0,3,0, !important) beats the 50rem rule above (0,2,0), so the
+   submit button kept 8px corners and the pair read as the only square-ish shape
+   in a row of 800px pills. Restate it at the same weight, scoped to the bars. */
+.ticket-filter-bar .input-group > .input-group-append > .btn,
+.filter-bar .input-group > .input-group-append > .btn {
+    border-radius: 0 50rem 50rem 0 !important;
+}
+
 .ticket-filter-bar .select2-container,
 .filter-bar .select2-container {
     min-width: 120px;
@@ -145,12 +165,22 @@ body.dark-mode {
     top: 0 !important;
 }
 
+/* The filter row WRAPS; it does not scroll. It used to be flex-wrap:nowrap +
+   overflow-x:auto, which measured 1350px of controls inside a 1029px card at
+   1600 and 762px at 1280 — Tags Filter sliced in half, Reset Filters and More
+   Filters entirely outside the card, and no scrollbar painted (overlay
+   scrollbars take no layout space: offsetHeight == clientHeight == 56), so
+   nothing signalled that three of the eight controls existed. The clip also
+   leaked 88px of horizontal PAGE scroll at 1280, because tom-select's hidden
+   original <select name="tags[]"> is position:absolute and resolves against
+   .card-body, which sits outside the clip.
+   Wrapping shows every control at every width; the .col-auto children already
+   carry mb-2, which supplies the second row's gutter, so the .filter-toolbar
+   padding (.85rem top / .35rem bottom) still reads as an even box. */
 .ticket-filter-bar .filter-row-nowrap,
 .filter-bar .filter-row-nowrap {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding-bottom: .5rem;
+    flex-wrap: wrap;
+    overflow: visible;
 }
 
 .ticket-filter-bar .filter-row-nowrap > [class*="col-"],
@@ -298,7 +328,7 @@ body.dark-mode {
 }
 .nav-tabs .nav-link.active,
 .card-dark .card-header a.nav-link.active {
-    color: var(--color-accent) !important;
+    color: var(--color-link) !important;
     background: transparent;
     border: 0;
     border-bottom: 2px solid var(--color-accent);
@@ -321,17 +351,60 @@ body.dark-mode {
     border-radius: var(--input-radius);
 }
 
+/* ---- The accent USED AS TEXT -----------------------------------------------
+   --color-accent is a fill colour: it is chosen to carry white on top of it
+   (buttons, active pills, the sidebar's active row), and on a dark page it is
+   too dark to BE text. This install's accent (#DC2626) measured 3.38:1 against
+   the dark surface and 3.04:1 against the dark pagination strip — both under the
+   4.5:1 floor, both fine in light mode (4.62-4.83:1).
+
+   So the accent gets a second name for the one job it does badly: --color-link,
+   the accent as ink. In light mode it IS --color-accent, byte for byte, so
+   nothing about the light theme moves. In dark mode it is the accent mixed
+   toward white — the same trick includes/header.php already does for the dark
+   --color-accent-hover, done here with color-mix so it works for a company that
+   has no custom accent hex (and therefore gets no inline block at all).
+   Fills, borders and the active-pill backgrounds keep reading --color-accent;
+   only text switched over. */
+:root {
+    --color-link:       var(--color-accent);
+    --color-link-hover: var(--color-accent-hover);
+}
+body.dark-mode,
+:root[data-bs-theme="dark"] {
+    --color-link:       color-mix(in srgb, var(--color-accent) 72%, #fff);
+    --color-link-hover: color-mix(in srgb, var(--color-accent) 45%, #fff);
+}
+
 /* Remap Bootstrap's default "primary" blue (links, badges, toggles, pagination, etc.) to the accent color */
 a {
-    color: var(--color-accent);
+    color: var(--color-link);
 }
 
 a:hover {
-    color: var(--color-accent-hover);
+    color: var(--color-link-hover);
+}
+
+/* A link inside a data table is a ROW, not a call to action. Painting all of
+   them the accent made a directory of names, e-mail addresses and department
+   links read as an error state — and put two near-but-unequal reds in the same
+   row, the accent (#dc2626) next to Tabler's danger (#d63939) on the row's own
+   Archive/Anonymize items. Half the app already knew this and hand-wrote
+   `class="text-dark"` on its primary cell link (clients.php, contacts.php,
+   credentials.php); this makes that the default for the rest, and moves the
+   accent to hover, where it reads as "this one is clickable".
+   The guards keep every element that owns its colour: .btn/.badge/.dropdown-item
+   and anything wearing a text-* utility (.text-danger, .text-muted, .text-dark). */
+.table tbody a:not(.btn):not(.badge):not(.dropdown-item):not([class*="text-"]) {
+    color: var(--color-text);
+}
+.table tbody a:not(.btn):not(.badge):not(.dropdown-item):not([class*="text-"]):hover {
+    color: var(--color-link);
+    text-decoration: underline;
 }
 
 .text-primary {
-    color: var(--color-accent) !important;
+    color: var(--color-link) !important;
 }
 
 .bg-primary {
@@ -347,11 +420,11 @@ a:hover {
 }
 
 .btn-link {
-    color: var(--color-accent);
+    color: var(--color-link);
 }
 
 .btn-outline-primary {
-    color: var(--color-accent);
+    color: var(--color-link);
     border-color: var(--color-accent);
 }
 
@@ -369,7 +442,7 @@ a:hover {
 }
 
 .page-link {
-    color: var(--color-accent);
+    color: var(--color-link);
 }
 
 .page-item.active .page-link {
@@ -398,9 +471,32 @@ a:hover {
 
 /* Bootstrap hardcodes .text-dark to a fixed dark gray, which goes low-contrast
    on dark backgrounds. Remap to the theme text color (black in light mode,
-   near-white in dark mode) so table headers/links stay readable in both. */
-.text-dark {
+   near-white in dark mode) so table headers/links stay readable in both.
+
+   The :not() guard is load-bearing. `.text-bg-light` and friends are PAIRED
+   utilities: they set a background AND the matching foreground in one rule, so
+   they are already correct in both themes. Repainting their text with the theme
+   ink broke the pair — agent/tickets.php's `text-bg-light text-dark` count pill
+   rendered near-white ink on the utility's near-white fill in dark mode, i.e.
+   the "0 Open" badge vanished. Skipping those elements hands them back to their
+   own foreground. */
+.text-dark:not([class*="text-bg-"]) {
     color: var(--color-text) !important;
+}
+
+/* .bg-light is a utility that assumes a light page: it paints #f9fafb from
+   --tblr-light, which Tabler deliberately does NOT flip in dark mode (the same
+   token is the FOREGROUND of .text-light and of every <pre>, so flipping it
+   would black out those instead). On a dark page that left a bright white slab
+   wherever the utility is used structurally — the 10 checkbox-column cells plus
+   the thead on clients.php form a solid 44px white column down the left edge of
+   the table, and assets/contacts/credentials/expenses do the same. Repaint only
+   the background, only when the PAGE is dark (:root / body — never a dark chrome
+   island), and use --if-bg so the strip sits a shade under its card exactly the
+   way #f9fafb sits under #fff in light mode. */
+:root[data-bs-theme="dark"] .bg-light,
+body.dark-mode .bg-light {
+    background-color: var(--if-bg, #0d1417) !important;
 }
 
 .btn-outline-dark {
@@ -426,7 +522,7 @@ a:hover {
 .btn-outline-secondary:hover,
 .btn-outline-secondary:focus,
 .btn-outline-secondary:not(:disabled):not(.disabled):active {
-    color: var(--color-accent-hover);
+    color: var(--color-link-hover);
     background-color: var(--color-accent-soft);
     border-color: var(--color-accent);
 }
@@ -519,7 +615,7 @@ a:hover {
 
 .ticket-alga-theme .comment-tabs .nav-link.active,
 .alga-theme .comment-tabs .nav-link.active {
-    color: var(--color-accent);
+    color: var(--color-link);
     border-bottom: 2px solid var(--color-accent);
     background: transparent;
 }
@@ -760,6 +856,17 @@ body.dark-mode .content-wrapper small.text-muted {
     padding-top: .65rem;
     padding-bottom: .65rem;
 }
+/* The subject is the page's title, but its <h4> computed 14px — identical to
+   body text, and BELOW the 16px of every sidebar .card-title on the same
+   screen, so "Attachments" out-ranked "Google Maps API". (Tabler sizes h4 at
+   1rem and the base font is already .875rem, so an h4 buys nothing here.)
+   18px against 16px/500 card titles and 13px/600 breadcrumbs gives the page one
+   unambiguous top of the hierarchy; the weight stays with .fw-bold's 700. */
+.ticket-alga-theme .ticket-header-compact h4 {
+    font-size: 1.125rem;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+}
 .ticket-alga-theme .ticket-header-compact .border-top {
     border-top-color: var(--color-border-soft) !important;
     padding-top: .5rem !important;
@@ -794,6 +901,16 @@ body.dark-mode .content-wrapper small.text-muted {
 }
 .ticket-alga-theme .ticket-sidebar-compact .card-header {
     padding: .5rem .75rem;
+}
+/* Collapsed, the header IS the card: a 57px header inside a 59px card. Its
+   border-bottom has square corners and the card has 14px ones, so the rule ran
+   out past the curve on both sides and doubled the card's bottom edge. Drop it
+   while the body next to it is hidden — Bootstrap's .collapse only carries
+   .show when open, so this tracks the real state with no JS — and restore it
+   the moment the card is expanded and the border is actually separating two
+   things. */
+.ticket-alga-theme .ticket-sidebar-compact.card:has(> .collapse:not(.show)) > .card-header {
+    border-bottom-color: transparent;
 }
 .ticket-alga-theme .ticket-sidebar-compact .card-header .card-title {
     font-size: .8rem;

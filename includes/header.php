@@ -46,6 +46,25 @@ if (!empty($config_theme_accent_custom) && preg_match('/^#[0-9A-Fa-f]{6}$/', $co
 // Effective dark mode: per-user preference wins; otherwise the company default applies.
 $effective_theme_dark = $user_config_theme_dark ? 1 : $config_theme_dark_default;
 
+// ----- Shell helper: custom-link icons -----
+// Custom links (admin/custom_link.php) store a BARE Font Awesome 5 name - "handshake",
+// "question-circle" - and the icon field is optional, so a link saved without one used
+// to emit class="fas fa-": a 0x0 <i> that punched a hole in the sidebar's icon column
+// and left an orphan chevron behind in the folded 4rem rail. Normalised once here for
+// the three places that render those links (includes/top_nav.php,
+// agent/includes/side_nav.php, admin/includes/side_nav.php) so they cannot drift:
+// tolerate a name typed WITH its "fa-" / "fas fa-" prefix, drop anything that is not
+// safe in a class attribute, and fall back to fa-link so the row always has an icon.
+// Takes the RAW column value - it does its own escaping by construction.
+function itflow_nav_icon_class($icon, $fallback = 'fa-link')
+{
+    $icon = strtolower(trim((string) $icon));
+    $icon = preg_replace('/^fa[bdlrs]?\s+/', '', $icon);      // "fas fa-cog" -> "fa-cog"
+    $icon = preg_replace('/^fa-/', '', $icon);                // "fa-cog"     -> "cog"
+    $icon = preg_replace('/[^a-z0-9-]/', '', $icon);          // class-attribute safe
+    return $icon === '' ? $fallback : 'fa-' . $icon;
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -223,6 +242,51 @@ $effective_theme_dark = $user_config_theme_dark ? 1 : $config_theme_dark_default
     <?php endif; endif; ?>
     </style>
     <?php endif; ?>
+
+    <!-- Sidebar scroll affordance. The sidebar is position:fixed and #sidebar-menu is
+         its own scroll container, so a nav taller than the viewport (admin at 1100px:
+         1182px of items in a 1061px column) is cut flush at the column's bottom edge
+         with nothing to say so - scrolling the WINDOW moves none of it, and overlay
+         scrollbars, which is what current Chromium draws here, paint nothing at rest.
+         js/shell.js owns .has-scroll-start / .has-scroll-end and also scrolls the
+         current page's own entry into view on first paint; these two marks are the
+         visible half of that and are meaningless without it, which is why they live
+         with the rest of the shell rather than in a stylesheet.
+
+         Desktop only: below Tabler's navbar-expand-lg breakpoint the aside is not a
+         fixed full-height column and has no cut edge to mark. The gradient hangs off
+         the aside itself (already a containing block at position:fixed) so it adds no
+         new one - putting it on .container-fluid would have re-based the folded rail's
+         absolutely positioned flyouts. -->
+    <style nonce="<?php echo $csp_nonce; ?>">
+    @media (min-width: 992px) {
+        /* More nav below the fold: dissolve the last row into the sidebar. */
+        aside.navbar-vertical::after {
+            content: "";
+            position: absolute;
+            inset-inline: 0;
+            bottom: 0;
+            height: 3.5rem;
+            z-index: 3;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .15s ease-out;
+            background: linear-gradient(to top, var(--tblr-bg-surface) 35%, transparent);
+        }
+        aside.navbar-vertical.has-scroll-end::after { opacity: 1; }
+
+        /* More nav above the fold: lift the brand onto a shadow so the list reads as
+           running underneath it instead of starting mid-item. */
+        aside.navbar-vertical > .container-fluid > .navbar-brand {
+            position: relative;
+            z-index: 1;
+            transition: box-shadow .15s ease-out;
+        }
+        aside.navbar-vertical.has-scroll-start > .container-fluid > .navbar-brand {
+            box-shadow: 0 .75rem .75rem -.75rem rgba(0, 0, 0, .45);
+        }
+    }
+    </style>
 
     <!-- Scripts: jQuery kept as a coexistence shim for un-ported inline $() calls -->
     <script src="/plugins/jquery/jquery.min.js"></script>

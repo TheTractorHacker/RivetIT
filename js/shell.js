@@ -5,8 +5,10 @@
    PushMenu (the top-navbar hamburger) and Treeview (sidebar group expand). Both
    are reimplemented here in vanilla JS, with no dependency on adminlte.min.js,
    no jQuery, and no inline handlers (CSP: script-src 'self' 'nonce-...').
+   A third behaviour, which AdminLTE never had, keeps a nav taller than the
+   viewport usable: see "behaviour 3" below.
 
-   MARKUP CONTRACT - all five sidebars (agent, admin, client, client-overview,
+   MARKUP CONTRACT - all six sidebars (agent, admin, client, client-overview,
    reports, user) emit the same Tabler shape:
 
        aside.navbar.navbar-vertical.navbar-expand-lg
@@ -22,6 +24,10 @@
    and includes/top_nav.php emits the hamburger as
        button#itflowSidebarToggle[data-lte-toggle=sidebar][aria-controls=sidebar-menu]
    (the data-lte-toggle attribute is kept deliberately as the stable selector).
+
+   This file also OWNS two classes on the aside - .has-scroll-start and
+   .has-scroll-end - whose only consumer is the sidebar scroll affordance block
+   in includes/header.php. Rename one and you must rename it there too.
 
    WHAT THIS FILE DOES NOT DO
    - It does not read a breakpoint out of a CSS ::before content string the way
@@ -46,6 +52,8 @@
        --tblr-sidebar-width for the following .page-wrapper, so content reflows). */
     var MOBILE_QUERY = '(max-width: 991.98px)';
     var FOLD_KEY = 'itflow.sidebar.folded';
+    var SCROLL_SLACK = 4;       // px of overflow too small to be worth marking
+    var REVEAL_PAD = 24;        // breathing room kept around an entry scrolled into view
 
     function readPref(key) {
         try { return window.localStorage.getItem(key); } catch (e) { return null; }
@@ -78,6 +86,7 @@
             for (var i = 0; i < toggles.length; i++) {
                 toggles[i].setAttribute('aria-expanded', open ? 'true' : 'false');
             }
+            markScrollEdges();      // folding and off-canvas both change what fits
         }
 
         /* --- behaviour 2: nav group expand / collapse (replaces Treeview) ----- */
@@ -97,6 +106,60 @@
             if (panel) { panel.classList.toggle('show', open); }
             if (item) { item.classList.toggle('active', open); }
         }
+        /* --- behaviour 3: keep a long nav navigable --------------------------
+           #sidebar-menu is the sidebar's own scroll container and the aside is
+           position:fixed, so once the nav outgrows the viewport (admin at 1100px:
+           1182px of items in a 1061px column) the overflow is cut flush at the
+           bottom edge. Scrolling the WINDOW moves none of it, and overlay
+           scrollbars - what current Chromium draws here - paint nothing at rest,
+           so the cut carries no hint that there is more and the current page's own
+           entry can sit permanently below the fold.
+
+           Two halves, and both are needed: put the server-marked .active entry on
+           screen at first paint, and mark which edge still has nav behind it so
+           the gradient/brand shadow declared in includes/header.php can show it.
+           Nothing here is load-bearing for navigation - with JS off the sidebar
+           still renders and still scrolls, it just does neither for you. */
+        function overflow() {
+            return menu ? menu.scrollHeight - menu.clientHeight : 0;
+        }
+        function markScrollEdges() {
+            var slack = overflow();
+            var scrollable = !isMobile() && slack > SCROLL_SLACK;
+            sidebar.classList.toggle('has-scroll-start', scrollable && menu.scrollTop > SCROLL_SLACK);
+            sidebar.classList.toggle('has-scroll-end', scrollable && menu.scrollTop < slack - SCROLL_SLACK);
+        }
+        /* Nudge by the least that clears the overhanging edge, so whatever context
+           surrounds the entry (its section heading, its siblings) is kept. An
+           element taller than the column can only satisfy one edge, so the
+           downward nudge is clamped at "its top reaches the pad line": a long
+           group just opened shows its head, never its tail. */
+        function reveal(el) {
+            if (!el || !menu || overflow() <= SCROLL_SLACK) { return; }
+            var er = el.getBoundingClientRect();
+            if (!er.height) { return; }                             // inside a closed group
+            var mr = menu.getBoundingClientRect();
+            var below = er.bottom - (mr.bottom - REVEAL_PAD);
+            var above = (mr.top + REVEAL_PAD) - er.top;
+            if (above > 0) {
+                menu.scrollTop -= above;
+            } else if (below > 0) {
+                menu.scrollTop += Math.min(below, -above);
+            }
+        }
+        /* The group holding the current page is emitted already open server-side,
+           so the active .dropdown-item is normally measurable. If some page ever
+           marks one inside a CLOSED group, fall back to that group's own row -
+           a zero-height target would just be skipped. */
+        function currentEntry() {
+            if (!menu) { return null; }
+            var item = menu.querySelector('.dropdown-item.active');
+            if (item) {
+                return item.getBoundingClientRect().height ? item : item.closest('.nav-item');
+            }
+            return menu.querySelector('.nav-link.active');
+        }
+
         /* Delegated, so it also covers sidebars swapped in later. Multiple groups
            may be open at once (AdminLTE forced accordion behaviour through a
            hardcoded constant while the markup asked for data-accordion="false";
@@ -106,7 +169,12 @@
             var toggle = e.target.closest && e.target.closest('[data-if-toggle="submenu"]');
             if (!toggle || !sidebar.contains(toggle)) { return; }
             e.preventDefault();
-            setGroup(toggle, !toggle.classList.contains('show'));
+            var open = !toggle.classList.contains('show');
+            setGroup(toggle, open);
+            /* A group opened at the bottom of a full column would otherwise expand
+               entirely below the cut edge. */
+            if (open && !isMobile()) { reveal(toggle.closest('.nav-item') || toggle); }
+            markScrollEdges();
         });
 
         /* Folding turns every open group into an absolutely positioned flyout
@@ -177,7 +245,9 @@
         if (menu) {
             menu.addEventListener('shown.bs.collapse', sync);
             menu.addEventListener('hidden.bs.collapse', sync);
+            menu.addEventListener('scroll', markScrollEdges, { passive: true });
         }
+        window.addEventListener('resize', markScrollEdges);
 
         /* Crossing the breakpoint: leaving mobile drops the off-canvas open state
            (at >= lg Bootstrap forces .navbar-collapse visible anyway, so this only
@@ -195,6 +265,10 @@
            "unfolded" whenever localStorage is unavailable or throws. */
         if (readPref(FOLD_KEY) === '1') { setFolded(true); }
         sync();
+
+        /* Last, so it reads the column the fold preference actually produced. */
+        reveal(currentEntry());
+        markScrollEdges();
     }
 
     if (document.readyState === 'loading') {

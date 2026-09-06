@@ -428,7 +428,7 @@
                 while ($row = mysqli_fetch_assoc($sql_custom_links)) {
                     $custom_link_name = nullable_htmlentities($row['custom_link_name']);
                     $custom_link_uri = sanitize_url($row['custom_link_uri']);
-                    $custom_link_icon = nullable_htmlentities($row['custom_link_icon']);
+                    $custom_link_icon_class = itflow_nav_icon_class($row['custom_link_icon']);
                     $custom_link_new_tab = intval($row['custom_link_new_tab']);
                     if ($custom_link_new_tab == 1) {
                         $target = "target='_blank' rel='noopener noreferrer'";
@@ -440,7 +440,7 @@
 
                 <li class="nav-item<?php if (basename($_SERVER["PHP_SELF"]) == basename($custom_link_uri)) { echo " active"; } ?>">
                     <a href="<?php echo $custom_link_uri; ?>" <?php echo $target; ?> class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == basename($custom_link_uri)) { echo "active"; } ?>">
-                        <span class="nav-link-icon"><i class="fas fa-<?php echo $custom_link_icon; ?>"></i></span>
+                        <span class="nav-link-icon"><i class="fas <?php echo $custom_link_icon_class; ?>"></i></span>
                         <span class="nav-link-title"><?php echo $custom_link_name; ?></span>
                         <i class="fas fa-angle-right ms-auto"></i>
                     </a>

@@ -103,13 +103,21 @@ if (isset($_GET['ticket_id'])) {
             $ticket_scheduled_wording = "Add";
         }
 
-        //Set Ticket Badge Color based of priority
-        if ($ticket_priority == "High") {
-            $ticket_priority_display = "<span class='p-2 badge rounded-pill text-bg-danger'>$ticket_priority</span>";
-        } elseif ($ticket_priority == "Medium") {
-            $ticket_priority_display = "<span class='p-2 badge rounded-pill text-bg-warning'>$ticket_priority</span>";
-        } elseif ($ticket_priority == "Low") {
-            $ticket_priority_display = "<span class='p-2 badge rounded-pill text-bg-info'>$ticket_priority</span>";
+        // Set Ticket Badge Color based of priority.
+        // Sized with tkt-pill-badge - the shared status/priority pill scale - instead of
+        // p-2, which made priority half again as tall as the status pill it qualifies.
+        // Colours are literal rather than text-bg-*: those utilities carry white text,
+        // which measures 2.1:1 on the amber fill and 3.1:1 on the blue, and .text-dark
+        // cannot correct them (it is remapped to the theme ink, i.e. near-white in dark
+        // mode). Fills match the Tabler semantic hues so nothing shifts visually.
+        $ticket_priority_pills = [
+            'High'   => ['#D63939', '#ffffff'], // 4.7:1
+            'Medium' => ['#F59F00', '#16232A'], // 7.5:1
+            'Low'    => ['#4299E1', '#16232A'], // 5.3:1
+        ];
+        if (isset($ticket_priority_pills[$ticket_priority])) {
+            [$ticket_priority_fill, $ticket_priority_ink] = $ticket_priority_pills[$ticket_priority];
+            $ticket_priority_display = "<span class='badge rounded-pill tkt-pill-badge' style='background-color:$ticket_priority_fill;color:$ticket_priority_ink;'>$ticket_priority</span>";
         } else {
             $ticket_priority_display = "";
         }
@@ -2253,36 +2261,48 @@ if (isset($_GET['ticket_id'])) {
                         </div>
                         <div class="card-body p-3">
 
-                            <div>
-                                <i class="fa fa-fw fa-user text-secondary me-2"></i><a href="#" class="ajax-modal"
-                                   data-modal-size="lg"
-                                   data-modal-url="modals/contact/contact_details.php?id=<?= $contact_id ?>"><strong><?= $contact_name ?></strong>
-                                </a>
+                            <?php
+                            // Icon + value are a two-cell flex row: the value keeps its own
+                            // column so a long address wraps under itself instead of sliding
+                            // back under the icon. Detail lines sit one step down from the
+                            // contact name so a typical address still fits on one line.
+                            ?>
+                            <div class="d-flex align-items-start">
+                                <i class="fa fa-fw fa-user text-secondary me-2 flex-shrink-0"></i>
+                                <div class="text-break" style="min-width:0;">
+                                    <a href="#" class="ajax-modal"
+                                       data-modal-size="lg"
+                                       data-modal-url="modals/contact/contact_details.php?id=<?= $contact_id ?>"><strong><?= $contact_name ?></strong></a>
+                                </div>
                             </div>
 
                             <?php
 
                             if (!empty($location_name)) { ?>
-                                <div class="mt-2">
-                                    <i class="fa fa-fw fa-map-marker-alt text-secondary me-2"></i><?php echo $location_name; ?>
+                                <div class="mt-2 d-flex align-items-start">
+                                    <i class="fa fa-fw fa-map-marker-alt text-secondary me-2 flex-shrink-0"></i>
+                                    <div class="text-break small" style="min-width:0;"><?php echo $location_name; ?></div>
                                 </div>
                             <?php }
 
                             if (!empty($contact_email)) { ?>
-                                <div class="mt-2">
-                                    <i class="fa fa-fw fa-envelope text-secondary me-2"></i><a href="mailto:<?php echo $contact_email; ?>"><?php echo $contact_email; ?></a>
+                                <div class="mt-2 d-flex align-items-start">
+                                    <i class="fa fa-fw fa-envelope text-secondary me-2 flex-shrink-0"></i>
+                                    <div class="text-break small" style="min-width:0;"><a href="mailto:<?php echo $contact_email; ?>"><?php echo $contact_email; ?></a></div>
                                 </div>
                             <?php }
 
                             if (!empty($contact_phone)) { ?>
-                                <div class="mt-2">
-                                    <i class="fa fa-fw fa-phone text-secondary me-2"></i><a href="tel:<?php echo $contact_phone; ?>"><?php echo $contact_phone; ?></a>
+                                <div class="mt-2 d-flex align-items-start">
+                                    <i class="fa fa-fw fa-phone text-secondary me-2 flex-shrink-0"></i>
+                                    <div class="text-break small" style="min-width:0;"><a href="tel:<?php echo $contact_phone; ?>"><?php echo $contact_phone; ?></a></div>
                                 </div>
                             <?php }
 
                             if (!empty($contact_mobile)) { ?>
-                                <div class="mt-2">
-                                    <i class="fa fa-fw fa-mobile-alt text-secondary me-2"></i><a href="tel:<?php echo $contact_mobile; ?>"><?php echo $contact_mobile; ?></a>
+                                <div class="mt-2 d-flex align-items-start">
+                                    <i class="fa fa-fw fa-mobile-alt text-secondary me-2 flex-shrink-0"></i>
+                                    <div class="text-break small" style="min-width:0;"><a href="tel:<?php echo $contact_mobile; ?>"><?php echo $contact_mobile; ?></a></div>
                                 </div>
                             <?php } ?>
 

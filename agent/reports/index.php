@@ -29,44 +29,146 @@ if ($reports_show_technical) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Report catalog.
+//
+// The hub used to emit KPI tiles and nothing else: three tiles pointing at two
+// distinct reports, floating over ~800px of empty background, with the other
+// twenty reports reachable only from the left menu. The catalog below is that
+// menu made visible - same files, same order, same permission gates as
+// includes/reports_side_nav.php - plus a one-line description of what each
+// report answers, so the landing page is a directory rather than a dead end.
+//
+// Each item: [file, icon class, name, description]. Keep in sync with the
+// sidebar when a report is added or removed.
+// ---------------------------------------------------------------------------
+$report_catalog = [];
+
+if ($reports_show_financial) {
+    $report_catalog[] = ['title' => 'Financial', 'items' => [
+        ['income_summary.php',            'fas fa-coins',                'Income',                          'Payments and other revenue collected, month by month.'],
+        ['income_by_client.php',          'far fa-user',                 'Income By Department',            'Which departments the money came from.'],
+        ['recurring_by_client.php',       'fas fa-sync',                 'Recurring Income By Department',  'Recurring invoice value per department.'],
+        ['mrr.php',                       'fas fa-sync-alt',             'MRR &amp; Forecast',              'Monthly recurring revenue and its forecast.'],
+        ['clients_with_balance.php',      'fas fa-exclamation-triangle', 'Departments with a Balance',      'Outstanding AR, aged into 30/60/90-day buckets.'],
+        ['expense_summary.php',           'far fa-credit-card',          'Expense',                         'What was spent each month.'],
+        ['expense_by_vendor.php',         'far fa-building',             'Expense By Vendor',               'Spend grouped by vendor.'],
+        ['tax_summary.php',               'fas fa-percent',              'Tax Summary',                     'Tax collected on paid invoices.'],
+        ['profit_loss.php',               'fas fa-file-invoice-dollar',  'Profit &amp; Loss',               'Income against expenses for the period.'],
+        ['budget.php',                    'fas fa-calculator',           'Annual Budget',                   'Budgeted figures against actuals.'],
+        ['tickets_unbilled.php',          'fas fa-file-invoice',         'Unbilled Tickets',                'Ticket time logged but not yet invoiced.'],
+        ['client_ticket_time_detail.php', 'fas fa-history',              'Department Time Detail Audit',    'Every time entry behind a department&rsquo;s hours.'],
+        ['included_issues.php',           'fas fa-house-user',           'Included Support Issues',         'Remote and onsite hours included per department.'],
+    ]];
+}
+
+$report_catalog_technical = [];
+if ($reports_show_technical) {
+    $report_catalog_technical[] = ['service_desk.php',            'fas fa-headset',       'Service Desk &amp; SLA',   'Queue health, ticket aging and SLA breaches.'];
+    $report_catalog_technical[] = ['ticket_summary.php',          'fas fa-life-ring',     'Tickets',                  'Volume by status, priority and month.'];
+    if (!empty($config_module_enable_ticket_charges)) {
+        $report_catalog_technical[] = ['ticket_charges.php',      'fas fa-dollar-sign',   'Ticket Charges',           'Charges raised against tickets.'];
+    }
+    $report_catalog_technical[] = ['ticket_by_client.php',        'fas fa-users',         'Tickets by Department',    'Which departments raise the most work.'];
+    $report_catalog_technical[] = ['time_by_tech.php',            'fas fa-business-time', 'Time by Technician',       'Hours logged per technician, per month.'];
+    $report_catalog_technical[] = ['technician_performance.php',  'fas fa-user-clock',    'Technician Performance',   'Utilization, tickets closed and handle time.'];
+    $report_catalog_technical[] = ['csat.php',                    'fas fa-star',          'Customer Satisfaction',    'Ratings, trend and per-technician CSAT.'];
+    $report_catalog_technical[] = ['rmm_health.php',              'fas fa-heartbeat',     'RMM Health',               'Alert volume, severity and noisiest devices.'];
+}
+if (lookupUserPermission('module_credential') >= 1) {
+    $report_catalog_technical[] = ['credential_rotation.php',     'fas fa-key',           'Credential rotation',      'Credentials not changed in the rotation window.'];
+    $report_catalog_technical[] = ['credential_rotation_v2.php',  'fas fa-history',       'Credential rotation due',  'Credentials overdue, or due for rotation soon.'];
+}
+if (!empty($report_catalog_technical)) {
+    $report_catalog[] = ['title' => 'Technical', 'items' => $report_catalog_technical];
+}
+
+$report_catalog[] = ['title' => 'Delivery', 'items' => [
+    ['schedules.php', 'fas fa-paper-plane', 'Scheduled Reports', 'Reports emailed on a recurring schedule.'],
+]];
+
 render_page_header(
     'Reports',
-    'In addition to the general reporting permission, you must have read permissions to the reporting area you wish to view (e.g. support/financial). Use the menu on the left for the full list of reports.'
+    'Every report you have access to, grouped by area. Reporting permission plus read access to that area (support or financial) decides what appears here.'
 );
 ?>
 
-<?php if ($reports_show_financial) { ?>
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+  /* Report catalog tiles. Same visual family as .it-stat-card (surface, border,
+     radius, hover lift) but list-density rather than KPI-density, so a directory
+     of ~20 entries stays scannable. Tokens only - no raw colors. */
+  .rc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr)); gap: .75rem; }
+  .rc-item {
+      display: flex; align-items: flex-start; gap: .7rem;
+      padding: .8rem .9rem; background: var(--if-surface);
+      border: 1px solid var(--if-border); border-radius: var(--if-radius-sm);
+      color: inherit; text-decoration: none !important;
+      transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+  }
+  .rc-item:hover, .rc-item:focus-visible { border-color: var(--if-border-strong); box-shadow: var(--if-shadow); transform: translateY(-1px); }
+  .rc-icon {
+      width: 1.9rem; height: 1.9rem; min-width: 1.9rem; border-radius: var(--if-radius-sm);
+      display: flex; align-items: center; justify-content: center; font-size: .8rem;
+      background: var(--if-bg); color: var(--if-muted);
+  }
+  /* The red accent stays out of the resting state and only marks intent on hover. */
+  .rc-item:hover .rc-icon, .rc-item:focus-visible .rc-icon { background: var(--if-primary-soft); color: var(--if-primary); }
+  .rc-title { display: block; font-weight: 600; font-size: .875rem; line-height: 1.25; }
+  .rc-desc { display: block; font-size: .75rem; color: var(--if-muted); line-height: 1.35; margin-top: .15rem; }
+
+  /* Put the KPI row on the same column rhythm as the catalog beneath it, so the
+     whole hub reads as one grid instead of two unrelated ones. Page-scoped -
+     .it-stat-grid keeps its own auto-fit sizing everywhere else. */
+  .it-stat-grid { grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr)); gap: .75rem; }
+</style>
+
+<?php if ($reports_show_financial || $reports_show_technical) { ?>
 <div class="it-section">
-    <div class="it-section-header">Financial</div>
+    <div class="it-section-header">Snapshot</div>
     <div class="it-stat-grid">
-        <?php render_stat_card(
-            'Income This Month',
-            numfmt_format_currency($currency_format, $reports_mtd_income, "$session_company_currency"),
-            'fas fa-coins', 'success', '/agent/reports/income_summary.php'
-        ); ?>
-        <?php render_stat_card(
-            'Outstanding AR (' . count($reports_ar['clients']) . ' ' . (count($reports_ar['clients']) == 1 ? 'department' : 'departments') . ')',
-            numfmt_format_currency($currency_format, $reports_ar['buckets']['total'], "$session_company_currency"),
-            'fas fa-exclamation-triangle', 'warning', '/agent/reports/clients_with_balance.php'
-        ); ?>
-        <?php render_stat_card(
-            'Seriously Overdue (90+ Days)',
-            numfmt_format_currency($currency_format, $reports_ar['buckets']['b_90_plus'], "$session_company_currency"),
-            'fas fa-clock', 'danger', '/agent/reports/clients_with_balance.php'
-        ); ?>
+        <?php if ($reports_show_financial) { ?>
+            <?php render_stat_card(
+                'Income This Month',
+                numfmt_format_currency($currency_format, $reports_mtd_income, "$session_company_currency"),
+                'fas fa-coins', 'success', '/agent/reports/income_summary.php'
+            ); ?>
+            <?php render_stat_card(
+                'Outstanding AR (' . count($reports_ar['clients']) . ' ' . (count($reports_ar['clients']) == 1 ? 'department' : 'departments') . ')',
+                numfmt_format_currency($currency_format, $reports_ar['buckets']['total'], "$session_company_currency"),
+                'fas fa-exclamation-triangle', 'warning', '/agent/reports/clients_with_balance.php'
+            ); ?>
+            <?php render_stat_card(
+                'Seriously Overdue (90+ Days)',
+                numfmt_format_currency($currency_format, $reports_ar['buckets']['b_90_plus'], "$session_company_currency"),
+                'fas fa-clock', 'danger', '/agent/reports/clients_with_balance.php'
+            ); ?>
+        <?php } ?>
+        <?php if ($reports_show_technical) { ?>
+            <?php // Tints are semantic, and only one thing on this row is actually wrong:
+                  // open/opened-today are neutral counts, unassigned is the alarm. ?>
+            <?php render_stat_card('Open Tickets', (string) $reports_open_tickets, 'fas fa-life-ring', 'info', '/agent/reports/ticket_summary.php'); ?>
+            <?php render_stat_card('Unassigned Tickets', (string) $reports_unassigned_tickets, 'fas fa-user-slash', 'danger', '/agent/reports/service_desk.php'); ?>
+            <?php render_stat_card('Opened Today', (string) $reports_opened_today, 'fas fa-calendar-day', 'slate', '/agent/reports/ticket_summary.php'); ?>
+            <?php if (!empty($config_ticket_csat_enable)) { ?>
+            <?php render_stat_card('CSAT (30 days)', $reports_csat_avg !== null ? $reports_csat_avg . '/5' : '—', 'fas fa-star', 'warning', '/agent/reports/csat.php'); ?>
+            <?php } ?>
+        <?php } ?>
     </div>
 </div>
 <?php } ?>
 
-<?php if ($reports_show_technical) { ?>
+<?php foreach ($report_catalog as $report_group) { ?>
 <div class="it-section">
-    <div class="it-section-header">Technical</div>
-    <div class="it-stat-grid">
-        <?php render_stat_card('Open Tickets', (string) $reports_open_tickets, 'fas fa-life-ring', 'primary', '/agent/reports/ticket_summary.php'); ?>
-        <?php render_stat_card('Unassigned Tickets', (string) $reports_unassigned_tickets, 'fas fa-user-slash', 'danger', '/agent/reports/service_desk.php'); ?>
-        <?php render_stat_card('Opened Today', (string) $reports_opened_today, 'fas fa-calendar-day', 'info', '/agent/reports/ticket_summary.php'); ?>
-        <?php if (!empty($config_ticket_csat_enable)) { ?>
-        <?php render_stat_card('CSAT (30 days)', $reports_csat_avg !== null ? $reports_csat_avg . '/5' : '—', 'fas fa-star', 'warning', '/agent/reports/csat.php'); ?>
+    <div class="it-section-header"><?php echo $report_group['title']; ?></div>
+    <div class="rc-grid">
+        <?php foreach ($report_group['items'] as $report_item) { ?>
+        <a class="rc-item" href="/agent/reports/<?php echo $report_item[0]; ?>">
+            <span class="rc-icon"><i class="<?php echo $report_item[1]; ?>"></i></span>
+            <span>
+                <span class="rc-title"><?php echo $report_item[2]; ?></span>
+                <span class="rc-desc"><?php echo $report_item[3]; ?></span>
+            </span>
+        </a>
         <?php } ?>
     </div>
 </div>
@@ -75,8 +177,8 @@ render_page_header(
 <?php if (!$reports_show_financial && !$reports_show_technical) {
     render_empty_state(
         'fas fa-lock',
-        'No reporting access yet',
-        "You don't currently have read access to a specific reporting area. Ask an administrator for Financial or Support reporting permission, or use the menu on the left if you already have access to a particular report."
+        'No reporting area unlocked yet',
+        "You don't currently have read access to a specific reporting area, so there are no figures to summarise here. Ask an administrator for Financial or Support reporting permission; anything you can already open is listed above."
     );
 } ?>
 

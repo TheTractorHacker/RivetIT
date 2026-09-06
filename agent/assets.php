@@ -271,7 +271,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
             <input type="hidden" name="type" value="<?php echo stripslashes(nullable_htmlentities($_GET['type'])); ?>">
             <input type="hidden" name="archived" value="<?php echo $archived; ?>">
             <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="input-group mb-3 mb-md-0">
                         <input type="search" class="form-control" name="q" value="<?php if (isset($q)) { echo stripslashes(nullable_htmlentities($q)); } ?>" placeholder="Search <?php if (!empty($_GET['type'])) { echo ucwords(stripslashes(nullable_htmlentities($_GET['type']))); } else { echo "Asset"; } ?>s">
                         <div class="input-group-append">
@@ -280,7 +280,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                     </div>
                 </div>
                 <?php if ($client_url) { ?>
-                <div class="col-md-2">
+                <div class="col-md-3">
                     <div class="input-group mb-3 mb-md-0">
                         <select class="form-control select2 auto-submit-select" name="location">
                             <option value="">- All Locations -</option>
@@ -306,7 +306,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                     </div>
                 </div>
                 <?php } else { ?>
-                <div class="col-md-2">
+                <div class="col-md-3">
                     <div class="input-group mb-3 mb-md-0">
                         <select class="form-control select2 auto-submit-select" name="client">
                             <option value="" <?php if ($client == "") { echo "selected"; } ?>>- All Departments -</option>
@@ -360,7 +360,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                 </div>
                 <div class="col-md-2">
                     <div class="form-group">
-                        <select class="form-control select2 auto-submit-select" name="show_column[]" data-placeholder="- Show Additional Columns -" multiple>
+                        <select class="form-control select2 auto-submit-select" name="show_column[]" data-placeholder="- Show Columns -" multiple>
                             <option
                                 <?php if (isset($_GET['show_column']) && is_array($_GET['show_column']) && in_array('Mac_Address', $_GET['show_column'])) { echo 'selected'; } ?>>Mac_Address
                             </option>

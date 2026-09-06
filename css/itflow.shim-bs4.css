@@ -10,6 +10,8 @@
         .form-row                            67 files
         .media / .media-body                 25 files
         .thead-light                         21 files
+        .form-inline                          6 files /  8 occurrences
+        .border-left / -right (+ -0)          5 files /  7 occurrences
         .close, .btn-block, .sr-only, .badge-*, .dropdown-menu-right,
         .float-left/-right, .text-left/-right, .ml-*, .mr-*, .pl-*, .pr-*,
         .font-weight-*, .text-monospace, .font-italic
@@ -44,6 +46,28 @@
 .form-row { display: flex; flex-wrap: wrap; margin-right: -5px; margin-left: -5px; }
 .form-row > .col,
 .form-row > [class*="col-"] { padding-right: 5px; padding-left: 5px; }
+
+/* BS4's inline form. BS5 deleted .form-inline outright (its answer is a bespoke
+   row of flex utilities per form), so all 8 consumers were rendering as a plain
+   block: every control stretched to the full card width and every button dropped
+   onto its own line — most visibly the two stacked "Choose File → Load Backup" /
+   "Old master key → Decrypt" pairs on admin/credential_restore.php and the filter
+   selects on agent/rmm_assets.php and agent/intune_devices.php, which are
+   authored with .me-2/.me-3 spacing that only means anything in a row.
+   Declarations are BS4's own, with .form-select added to the control rule because
+   BS5 moved <select> onto its own class. */
+.form-inline { display: flex; flex-flow: row wrap; align-items: center; }
+.form-inline label { display: flex; align-items: center; margin-bottom: 0; }
+.form-inline .form-group {
+    display: flex;
+    flex: 0 0 auto;
+    flex-flow: row wrap;
+    align-items: center;
+    margin-bottom: 0;
+}
+.form-inline .form-control,
+.form-inline .form-select { display: inline-block; width: auto; vertical-align: middle; }
+.form-inline .input-group { width: auto; }
 
 /* BS4 wrapped input-group addons in a .input-group-prepend / -append element.
    BS5 puts .input-group-text as a direct child instead, and its corner-rounding
@@ -131,6 +155,32 @@
 .text-right { text-align: right !important; }
 .float-left  { float: left !important; }
 .float-right { float: right !important; }
+
+/* .border-left / .border-right (BS5: .border-start / .border-end).
+   Deliberately NOT BS4's `border-left: 1px solid #dee2e6 !important` shorthand.
+   The colour half of that shorthand would beat Tabler's own .border-<variant>
+   utilities — which set only border-color, !important, and load BEFORE this file
+   — and repaint every variant a flat grey. Splitting style from colour lets the
+   variant keep the colour and this rule supply only the missing style/width.
+
+   That split is what the ticket thread needs: agent/ticket.php:1107 marks each
+   reply `border-left border-<dark|warning|secondary|primary|danger|success|info>`
+   with an inline `border-left-width: 8px !important` to colour-code Internal /
+   Public / System / Automation / RMM Alert / Labor replies. The variant class was
+   resolving, the inline width was resolving, but with no border-STYLE anywhere
+   the computed width collapsed to 0 and every reply card looked identical.
+   (css/itflow_custom.css:452 `.ticket-alga-theme .card { border: none }` is what
+   zeroes it, which is also why the width here has to be !important to survive on
+   any other card; the page's own inline !important still outranks it at 8px.)
+   .border-right restores the column rules in admin/backup.php, agent/files.php
+   and agent/modals/service/service_details.php — those carry no variant class, so
+   they need a colour of their own, and it is left un-!important precisely so a
+   variant class can still take it over. Without one the border would fall back to
+   currentColor and draw a full-ink rule instead of a hairline. */
+.border-left  { border-left-style: solid !important;  border-left-width: 1px !important;  border-left-color: var(--if-border, #e3e9ea); }
+.border-right { border-right-style: solid !important; border-right-width: 1px !important; border-right-color: var(--if-border, #e3e9ea); }
+.border-left-0  { border-left: 0 !important; }
+.border-right-0 { border-right: 0 !important; }
 
 .ml-0 { margin-left: 0 !important; }      .mr-0 { margin-right: 0 !important; }
 .ml-1 { margin-left: .25rem !important; } .mr-1 { margin-right: .25rem !important; }

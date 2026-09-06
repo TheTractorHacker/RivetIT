@@ -69,6 +69,12 @@
     --tblr-body-color:         var(--if-ink, #e7eeef);
     --tblr-bg-surface:         var(--if-surface, #14201f);
     --tblr-bg-surface-secondary: var(--if-bg, #0d1417);
+    /* -tertiary is what Tabler paints a <thead> with. It was missed here, so it
+       kept its own light-dark(#f9fafb, #1f2937) default and every table header
+       came out #1f2937 — a blue-dominant navy (B-G = +14) glued onto the app's
+       teal-charcoal card (#14201f, B-G = -1). Same relationship as light mode,
+       where the header is one shade under its white card. */
+    --tblr-bg-surface-tertiary: var(--if-bg, #0d1417);
     --tblr-bg-forms:           var(--if-surface, #14201f);
     --tblr-secondary:          var(--if-muted, #93a6ab);
     --tblr-muted:              var(--if-muted, #93a6ab);
@@ -76,12 +82,49 @@
     --tblr-border-color-translucent: var(--if-border, #24332f);
 }
 
+/* The block above reads --if-* to get its dark values, which is right when the
+   attribute is on <html> (itflow_design.css switches --if-* on
+   :root[data-bs-theme="dark"]) and WRONG on a nested always-dark island: inside
+   header.app-header on a light page, --if-ink is still #16232a, so the user
+   menu was handed --tblr-body-color = near-black ink on the chrome's #2b3038
+   surface — 1.21:1, three unreadable ghost rows, verified headless.
+   An island is not :root, so key off exactly that and bind the chrome's own
+   token set (css/itflow_bs5_bridge.css owns those values) instead. Deliberately
+   only the FOREGROUND/border tokens: the page-surface tokens must keep pointing
+   at --if-* so the global-search panel, which lives inside this same header but
+   is drawn on the page surface on purpose, still renders light on a light page. */
+[data-bs-theme="dark"]:not(:root) {
+    --tblr-body-color:         var(--if-chrome-ink, rgba(255, 255, 255, .85));
+    --tblr-secondary:          var(--if-chrome-ink-dim, rgba(255, 255, 255, .55));
+    --tblr-muted:              var(--if-chrome-ink-dim, rgba(255, 255, 255, .55));
+    --tblr-border-color:       var(--if-chrome-border, rgba(255, 255, 255, .08));
+    --tblr-border-color-translucent: var(--if-chrome-border, rgba(255, 255, 255, .08));
+}
+/* .text-muted resolves --if-muted with !important in the design layer, which the
+   token remap above cannot reach. Its only two uses inside the chrome are both
+   in the user menu (the avatar placeholder and the role line under the name),
+   where the light --if-muted measured 2.53:1 on #2b3038. */
+[data-bs-theme="dark"]:not(:root) .text-muted {
+    color: var(--if-chrome-ink-dim, rgba(255, 255, 255, .55)) !important;
+}
+
 /* Tabler squashes a bare .icon to a fixed 20x20 box. This app uses class="icon"
    on 46 elements that predate Tabler and expect no such constraint - the only
    genuinely surprising restyling in the whole collision analysis. Neutralise it
    here rather than editing 46 call sites; new markup should use .ti or an
-   explicit size class instead of relying on this. */
-.icon:not([class*="ti-"]):not(.icon-sm):not(.icon-lg) {
+   explicit size class instead of relying on this.
+
+   THE .small-box EXCEPTION. A tile's icon is a component that sizes itself:
+   css/itflow.shim-adminlte.css makes it a 70px watermark, and the tile pages
+   that want a chip instead override that with an explicit box (agent/invoices.php
+   and agent/dashboard.php both ask for a 36px circle around a 15px glyph). Those
+   rules are 0,2,0 and this one is 0,4,0, so width/height fell back to auto and
+   the "circle" collapsed to the width of whatever glyph it happened to contain —
+   measured 12.92 / 14.92 / 16.92 / 18.92px across the dashboard's 13 tiles, i.e.
+   a lopsided tinted blob with the icon hanging out of both sides. Excluding tile
+   icons hands sizing back to the component that owns it, whatever it asks for;
+   the watermark pages are unaffected (they say width:auto themselves). */
+.icon:not([class*="ti-"]):not(.icon-sm):not(.icon-lg):not(.small-box .icon) {
     width: auto;
     height: auto;
     font-size: inherit;

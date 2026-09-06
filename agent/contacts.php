@@ -129,7 +129,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     </div>
                 </div>
 
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <div class="input-group mb-3 mb-md-0">
                         <select class="form-control select2 auto-submit-select" name="tags[]" data-placeholder="- Select Tags -" multiple>
 
@@ -156,7 +156,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 </div>
 
                 <?php if ($client_url) { ?>
-                <div class="col-md-2">
+                <div class="col-md-3">
                     <div class="input-group mb-3 mb-md-0">
                         <select class="form-control select2 auto-submit-select" name="location">
                             <option value="">- All Locations -</option>
@@ -182,7 +182,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     </div>
                 </div>
                 <?php } else { ?>
-                <div class="col-md-2">
+                <div class="col-md-3">
                     <div class="input-group mb-3 mb-md-0">
                         <select class="form-control select2 auto-submit-select" name="client">
                             <option value="" <?php if ($client == "") { echo "selected"; } ?>>- All Departments -</option>
@@ -304,7 +304,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         </th>
                         <th>
                             <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=contact_department&order=<?php echo $disp; ?>">
-                                Department <?php if ($sort == 'contact_department') { echo $order_icon; } ?>
+                                Group <?php if ($sort == 'contact_department') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>Contact</th>
@@ -313,7 +313,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 Location <?php if ($sort == 'location_name') { echo $order_icon; } ?>
                             </a>
                         </th>
-                        <th></th>
+                        <th>Records</th>
                         <?php if (!$client_url) { ?>
                         <th>
                             <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
@@ -338,7 +338,8 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         } else {
                             $contact_title_display = "<small class='text-secondary'>$contact_title</small>";
                         }
-                        $contact_department = getFallBack(nullable_htmlentities($row['contact_department']));
+                        $contact_department = nullable_htmlentities($row['contact_department']);
+                        $contact_department_display = empty($contact_department) ? "<span class='text-secondary'>&mdash;</span>" : $contact_department;
                         $contact_extension = nullable_htmlentities($row['contact_extension']);
                         if (empty($contact_extension)) {
                             $contact_extension_display = "";
@@ -499,7 +500,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 </a>
 
                             </td>
-                            <td><?php echo $contact_department; ?></td>
+                            <td><?php echo $contact_department_display; ?></td>
                             <td><?php echo $contact_info_display; ?></td>
                             <td><?php echo $location_name_display; ?></td>
                             <td>

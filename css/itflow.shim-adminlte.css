@@ -12,6 +12,8 @@
                                     card-warning 1, card-danger 1)
         .info-box        12 files
         .small-box        9 files
+        .img-circle      10 files
+        .img-size-50      6 files
         .text-<name>     AdminLTE 3's extra colour utilities (18 of them, most
                          visibly admin/settings_theme.php's theme swatches)
 
@@ -153,7 +155,17 @@
 }
 .small-box:hover { color: #fff; text-decoration: none; }
 .small-box > .inner { padding: 10px; }
-.small-box h3 { font-size: 2.2rem; font-weight: 700; margin: 0 0 10px; white-space: nowrap; padding: 0; }
+/* `color: inherit` is the whole point of this rule, not a tidy-up. tabler.min.css
+   ships `h1..h6 { color: var(--tblr-heading-color) }` — 0,0,1 but still enough to
+   outrank the inherited `color:#fff` from .small-box above, because that is not a
+   declaration on the <h3> at all. The result was the tile's headline NUMBER
+   rendering in near-black ink (#111827) on a saturated red/green/slate fill while
+   its own caption <p> beside it stayed white (/agent/alerts.php, network.php,
+   rmm_assets.php, intune_devices.php, rmm_alerts.php, client/index.php).
+   Inheriting is also what the tinted-tile pages need: agent/dashboard.php and
+   agent/invoices.php set a dark `color` on .small-box itself with !important, so
+   the numeral follows them down to dark ink rather than needing its own copy. */
+.small-box h3 { font-size: 2.2rem; font-weight: 700; margin: 0 0 10px; white-space: nowrap; padding: 0; color: inherit; }
 .small-box p  { font-size: 1rem; margin: 0; }
 
 /* SPECIFICITY NOTE — the !important here is load-bearing, do not drop it.
@@ -185,6 +197,28 @@
     text-decoration: none;
 }
 .small-box .small-box-footer:hover { background: rgba(0, 0, 0, .15); color: #fff; }
+
+/* The one solid fill white ink cannot sit on. Tabler's --tblr-warning (#f59f00)
+   measures 2.1:1 against #fff — under the 3:1 floor even for the 32px numeral,
+   and the caption under it is 16px — so the warning tile flips to dark ink
+   instead (agent/network.php's "With Alerts", the acknowledged state of
+   alerts.php and rmm_alerts.php, client/index.php's tech-alert tile). .bg-light
+   is here defensively for the same reason: white on a near-white fill would
+   erase the number outright. The other fills the app pairs with .small-box keep
+   white, as AdminLTE intended — danger 4.7:1 and secondary 5.2:1 clear AA
+   outright, info sits at 3.1:1 — and re-inking them would be a re-skin of pages
+   this file has no business re-skinning, not a fix. Two classes deep, so the
+   tinted-tile pages (dashboard, invoices) that set their own `color: …
+   !important` still win, and the watermark .icon is already black at 15%. */
+.small-box.bg-warning,
+.small-box.bg-light { color: var(--if-ink, #16232a); }
+/* Ink only: the footer's translucent-black wash is set with !important by
+   css/itflow_custom.css:706, which loads after this file, and a black wash reads
+   correctly on the light fill anyway. */
+.small-box.bg-warning .small-box-footer,
+.small-box.bg-light .small-box-footer { color: rgba(0, 0, 0, .65); }
+.small-box.bg-warning .small-box-footer:hover,
+.small-box.bg-light .small-box-footer:hover { color: var(--if-ink, #16232a); }
 
 /* =============================================================================
    .info-box  (AdminLTE 3 compact stat row)
@@ -259,6 +293,32 @@
 .info-box.bg-info      .info-box-icon { color: #0891b2; }
 .info-box.bg-dark      .info-box-icon { color: #475569; }
 .info-box.bg-teal      .info-box-icon { color: var(--if-primary, var(--color-accent, #0d9488)); }
+
+/* =============================================================================
+   AVATAR UTILITIES  (.img-size-* / .img-circle)
+   ============================================================================= */
+
+/* AdminLTE's two-class avatar idiom: a size box plus a circular mask. With
+   adminlte.min.css gone NEITHER had a definition anywhere in the 17 loaded
+   sheets, so every <img class="img-size-50 img-circle"> fell back to the image's
+   intrinsic size. A 2296x3056 phone photo therefore rendered ~890x1180 as the
+   first element of a ticket comment card (agent/ticket.php pushed
+   body.scrollHeight to 5688px on a four-reply ticket) and 619x824 inside a table
+   cell on admin/users.php, stretching one user row past the whole viewport.
+
+   object-fit:cover is the one deliberate departure from AdminLTE 3, which set
+   only width/height: without it a portrait photo is squeezed into the square
+   instead of cropped to it, and every avatar in the app is a phone photo.
+   .img-circle stays a pure border-radius so it keeps working on the large
+   .img-fluid photo panels (agent/contact_details.php, agent/asset_details.php)
+   that use it without a size class.
+
+   Only -50 is emitted today (6 files); -32 and -64 are the rest of AdminLTE's
+   set and are here so the next consumer cannot reintroduce the same blow-up. */
+.img-size-32 { width: 32px;  height: 32px;  object-fit: cover; }
+.img-size-50 { width: 50px;  height: 50px;  object-fit: cover; }
+.img-size-64 { width: 64px;  height: 64px;  object-fit: cover; }
+.img-circle  { border-radius: 50%; }
 
 /* =============================================================================
    AdminLTE 3 named .text-<colour> utilities

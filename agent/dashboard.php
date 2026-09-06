@@ -34,7 +34,7 @@ $sql_years_select = mysqli_query($mysqli, "
 ");
 ?>
 
-<!-- Responsive chart helpers -->
+<!-- Dashboard layout, chart wells and status-strip styles -->
 <style>
   .chart-h-320 { position: relative; height: 320px; }
   .chart-h-240 { position: relative; height: 240px; }
@@ -44,82 +44,81 @@ $sql_years_select = mysqli_query($mysqli, "
     .chart-h-240 { height: 200px; }
   } */
 
-  /* Dashboard stat tiles: every tile keeps a color identity (a soft tint,
-     not the old solid saturated fill), so the dashboard still feels lively -
-     but success/warning/danger are reserved status colors (good / attention
-     soon / attention now) while primary/info/secondary/pink are just
-     identity hues for informational counts, never implying good or bad. */
-  .small-box.bg-primary, .small-box.text-bg-primary,
-  .small-box.bg-info, .small-box.text-bg-info,
-  .small-box.bg-success, .small-box.text-bg-success,
-  .small-box.bg-warning, .small-box.text-bg-warning,
-  .small-box.bg-danger, .small-box.text-bg-danger,
-  .small-box.bg-secondary, .small-box.text-bg-secondary, .small-box.bg-pink {
-    color: #0b0b0b !important;
-    text-decoration: none !important;
-    border: 1px solid #e6e5e0;
-    border-left-width: 4px;
-    box-shadow: none;
-    transition: box-shadow .15s ease, border-color .15s ease;
-    overflow: visible;
+  /* ---- Tile and card grids -------------------------------------------------
+     Every stat row on this page used to pick its own Bootstrap column span
+     (col-md-3 at the top, col-lg-4 + col-lg-3 in the technical block,
+     col-lg-2 and col-lg-6 in the financial one), so a row only filled the
+     width when its tile count happened to match that span. The counts are
+     data-dependent - the accounting, CSAT and workflow tiles come and go - so
+     three tiles sat in a 4-up grid and left a quarter-width notch at the top
+     of the page, and one row carried two different tile widths at once.
+
+     auto-fit collapses the tracks it does not need, so a short row spreads to
+     fill instead of trailing off, and every tile in a row is the same width
+     whatever the count. min() keeps the track from overflowing a phone. */
+  .dash-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
+    gap: 1rem;
   }
-  .small-box:hover { box-shadow: 0 3px 10px rgba(0,0,0,.08); }
-  .small-box > .inner { padding: 14px 16px; }
-  .small-box .inner h3 { font-size: 1.9rem; margin-bottom: 2px; }
-  .small-box .inner p { color: #52514e; opacity: 1; font-weight: 500; font-size: .9rem; margin-bottom: 0; }
-  .small-box .inner p small { color: #898781 !important; opacity: 1; }
+  .dash-tiles > * { margin: 0; }
 
-  /* Icon: a small fixed chip instead of a giant faded watermark */
-  .small-box .icon {
-    position: absolute; top: 14px; right: 14px;
-    width: 36px; height: 36px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    opacity: 1;
+  /* Same rule for the chart and table cards, at a wider minimum so a chart is
+     never squeezed. Grid stretch also trues the bottoms of side-by-side cards,
+     which is what h-100 was doing by hand wherever anyone remembered it. */
+  .dash-charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+    gap: 1rem;
+    align-items: stretch;
   }
-  .small-box .icon i {
-    position: static !important;
-    font-size: 15px !important;
-    transform: none !important;
+  /* These stacks space themselves with `gap`, so css/itflow_design.css's
+     `.card + .card { margin-top: 1rem }` stands down inside them - the same
+     idiom that file already applies to .ticket-sidebar. */
+  .dash-charts > .card { margin-bottom: 0; }
+  .dash-charts > .card + .card { margin-top: 0; }
+
+  /* A quiet rule between tile groups, so "Historical" reads as a new band
+     rather than as more of the row above it. */
+  .dash-section-title {
+    display: flex; align-items: center; gap: .45rem;
+    font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--if-muted, #5d6f76);
+    margin: 1.75rem 0 .75rem;
   }
-  .small-box:hover .icon i { transform: none !important; }
 
-  /* Identity hues - informational counts, no good/bad meaning */
-  .small-box.bg-primary, .small-box.text-bg-primary { background: rgba(42,120,214,.07) !important; border-left-color: #2a78d6; }
-  .small-box.bg-primary .icon, .small-box.text-bg-primary .icon { background: rgba(42,120,214,.16); }
-  .small-box.bg-primary .icon i, .small-box.text-bg-primary .icon i { color: #2a78d6; }
+  /* Year picker: .form-select paints its chevron at `calc(100% - 16px)`, but
+     css/itflow_design.css gives the control a symmetric .7rem padding - so on
+     a select shrink-wrapped to "2026" the chevron was drawn straight through
+     the digits. Reserve the gutter the chevron actually occupies. */
+  .dash-year-select { width: auto; min-width: 7rem; padding-right: 2.25rem; }
 
-  .small-box.bg-info, .small-box.text-bg-info { background: rgba(27,175,122,.07) !important; border-left-color: #1baf7a; }
-  .small-box.bg-info .icon, .small-box.text-bg-info .icon { background: rgba(27,175,122,.16); }
-  .small-box.bg-info .icon i, .small-box.text-bg-info .icon i { color: #159763; }
+  /* Calm empty state: a breakdown with nothing to break down says so once,
+     instead of rendering as a row of blank chart boxes that read as charts
+     that failed to load. */
+  .dash-empty {
+    display: flex; align-items: center; gap: .6rem;
+    padding: 1rem 1.1rem;
+    border: 1px dashed var(--if-border-strong, #d3dbdc);
+    border-radius: var(--if-radius, 12px);
+    color: var(--if-muted, #5d6f76); font-size: .875rem;
+  }
 
-  .small-box.bg-secondary, .small-box.text-bg-secondary { background: rgba(74,58,167,.06) !important; border-left-color: #4a3aa7; }
-  .small-box.bg-secondary .icon, .small-box.text-bg-secondary .icon { background: rgba(74,58,167,.14); }
-  .small-box.bg-secondary .icon i, .small-box.text-bg-secondary .icon i { color: #4a3aa7; }
-
-  .small-box.bg-pink { background: rgba(232,123,164,.10) !important; border-left-color: #e87ba4; }
-  .small-box.bg-pink .icon { background: rgba(232,123,164,.20); }
-  .small-box.bg-pink .icon i { color: #c94c7c; }
-
-  /* Status hues - reserved meaning: good / attention soon / attention now.
-     The number stays in primary ink regardless of tile color; a colored
-     numeral is harder to read and the tint + icon + label already carry
-     the meaning. */
-  .small-box.bg-success, .small-box.text-bg-success { background: rgba(12,163,12,.07) !important; border-left-color: #0ca30c; }
-  .small-box.bg-success .icon, .small-box.text-bg-success .icon { background: rgba(12,163,12,.16); }
-  .small-box.bg-success .icon i, .small-box.text-bg-success .icon i { color: #0ca30c; }
-
-  .small-box.bg-warning, .small-box.text-bg-warning { background: rgba(250,178,25,.12) !important; border-left-color: #fab219; }
-  .small-box.bg-warning .icon, .small-box.text-bg-warning .icon { background: rgba(250,178,25,.22); }
-  .small-box.bg-warning .icon i, .small-box.text-bg-warning .icon i { color: #9c6b04; }
-
-  .small-box.bg-danger, .small-box.text-bg-danger { background: rgba(208,59,59,.07) !important; border-left-color: #d03b3b; }
-  .small-box.bg-danger .icon, .small-box.text-bg-danger .icon { background: rgba(208,59,59,.16); }
-  .small-box.bg-danger .icon i, .small-box.text-bg-danger .icon i { color: #d03b3b; }
+  /* The stat tiles themselves live in css/itflow_design.css (.small-box, its
+     seven hues and its icon chip). This page used to restate all of it inline
+     in hardcoded light-mode hexes - #0b0b0b numbers, #52514e labels and a
+     #e6e5e0 border - which in dark mode put black text on a near-black tile
+     (1.1:1) inside a near-white outline. The stylesheet's version is written
+     against --if-ink / --if-muted / --if-border and follows the theme, so the
+     page-local copy is gone rather than divergent. */
 
   /* "Needs attention" status strip: a NOC-style checklist, not another stat
-     tile. Items dim to near-invisible when clear so the eye jumps straight
-     to whatever is actually amber - the same "quiet unless it matters"
-     convention already used for sidebar active-states and table row accents. */
+     tile. A clear item recedes to a muted outline so the eye jumps straight to
+     whatever is actually amber - the same "quiet unless it matters" convention
+     already used for sidebar active-states and table row accents. It recedes
+     by colour, not by opacity: `opacity:.5` faded the ink AND the chip toward
+     the card together, which held the label and its count at about 3:1 and
+     made the counts the faintest text on the page. */
   .dash-attention {
     display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
     background: var(--if-surface, #fff); border: 1px solid var(--if-border, #e3e9ea);
@@ -138,7 +137,11 @@ $sql_years_select = mysqli_query($mysqli, "
   }
   .dash-attention-chip:hover { transform: translateY(-1px); box-shadow: var(--if-shadow, 0 1px 2px rgba(20,35,42,.04)); text-decoration: none; color: var(--if-ink, #16232a); }
   .dash-attention-chip .dash-attention-count { font-weight: 700; font-family: var(--if-mono, monospace); }
-  .dash-attention-chip.is-clear { opacity: .5; }
+  .dash-attention-chip.is-clear {
+    color: var(--if-muted, #5d6f76);
+    background: transparent;
+    border-color: var(--if-border, #e3e9ea);
+  }
   .dash-attention-chip.is-active {
     border-color: rgba(217,119,6,.35); background: rgba(217,119,6,.1); color: #9a5b00;
   }
@@ -242,155 +245,147 @@ $dash_total_assets = intval(mysqli_fetch_row(mysqli_query($mysqli,
     </div>
 </div>
 
-<div class="row mb-4">
-    <div class="col-6 col-md-3 mb-3">
-        <a href="tickets.php" class="text-decoration-none">
-        <div class="small-box text-bg-primary bg-gradient mb-0">
-            <div class="inner">
-                <h3><?= $dash_open_tickets ?></h3>
-                <p>Open Tickets</p>
-            </div>
-            <div class="icon"><i class="fas fa-ticket-alt"></i></div>
+<?php
+// Between three and six tiles land here depending on which modules are on, so
+// the row is a grid that fits itself to the count rather than a fixed 4-up
+// span that only filled at exactly four. The tile IS the link - the old
+// wrapper <div><a><div class="small-box"> nesting gave the top row a different
+// height from every other tile row on the page.
+?>
+<div class="dash-tiles mb-4">
+    <a href="tickets.php" class="small-box text-bg-primary">
+        <div class="inner">
+            <h3><?= $dash_open_tickets ?></h3>
+            <p>Open Tickets</p>
         </div>
-        </a>
-    </div>
-    <div class="col-6 col-md-3 mb-3">
-        <a href="tickets.php?assigned_to=<?= $session_user_id ?>" class="text-decoration-none">
-        <div class="small-box text-bg-info bg-gradient mb-0">
-            <div class="inner">
-                <h3><?= $dash_my_tickets ?></h3>
-                <p>My Tickets</p>
-            </div>
-            <div class="icon"><i class="fas fa-user-check"></i></div>
+        <div class="icon"><i class="fas fa-ticket-alt"></i></div>
+    </a>
+    <a href="tickets.php?assigned_to=<?= $session_user_id ?>" class="small-box text-bg-info">
+        <div class="inner">
+            <h3><?= $dash_my_tickets ?></h3>
+            <p>My Tickets</p>
         </div>
-        </a>
-    </div>
-    <div class="col-6 col-md-3 mb-3">
-        <a href="clients.php" class="text-decoration-none">
-        <div class="small-box text-bg-success bg-gradient mb-0">
-            <div class="inner">
-                <h3><?= $dash_active_clients ?></h3>
-                <p>Active Departments</p>
-            </div>
-            <div class="icon"><i class="fas fa-building"></i></div>
+        <div class="icon"><i class="fas fa-user-check"></i></div>
+    </a>
+    <a href="clients.php" class="small-box text-bg-success">
+        <div class="inner">
+            <h3><?= $dash_active_clients ?></h3>
+            <p>Active Departments</p>
         </div>
-        </a>
-    </div>
+        <div class="icon"><i class="fas fa-building"></i></div>
+    </a>
     <?php if ($config_module_enable_accounting) { ?>
-    <div class="col-6 col-md-3 mb-3">
-        <a href="invoices.php" class="text-decoration-none">
-        <div class="small-box text-bg-warning bg-gradient mb-0">
-            <div class="inner">
-                <h3><?= $dash_pending_invoices ?></h3>
-                <p>Unpaid Invoices</p>
-            </div>
-            <div class="icon"><i class="fas fa-file-invoice-dollar"></i></div>
+    <a href="invoices.php" class="small-box text-bg-warning">
+        <div class="inner">
+            <h3><?= $dash_pending_invoices ?></h3>
+            <p>Unpaid Invoices</p>
         </div>
-        </a>
-    </div>
+        <div class="icon"><i class="fas fa-file-invoice-dollar"></i></div>
+    </a>
     <?php } ?>
     <?php if ($dash_csat_avg !== null) { ?>
-    <div class="col-6 col-md-3 mb-3">
-        <a href="reports/csat.php" class="text-decoration-none">
-        <div class="small-box text-bg-secondary bg-gradient mb-0">
-            <div class="inner">
-                <h3><?= $dash_csat_avg ?>/5</h3>
-                <p>CSAT (30 days)</p>
-            </div>
-            <div class="icon"><i class="fas fa-star"></i></div>
+    <a href="reports/csat.php" class="small-box text-bg-secondary">
+        <div class="inner">
+            <h3><?= $dash_csat_avg ?>/5</h3>
+            <p>CSAT (30 days)</p>
         </div>
-        </a>
-    </div>
+        <div class="icon"><i class="fas fa-star"></i></div>
+    </a>
     <?php } ?>
     <?php if ($dash_workflows_in_progress > 0) { ?>
-    <div class="col-6 col-md-3 mb-3">
-        <div class="small-box bg-pink mb-0">
-            <div class="inner">
-                <h3><?= $dash_workflows_in_progress ?></h3>
-                <p>Onboarding/Offboarding In Progress</p>
-            </div>
-            <div class="icon"><i class="fas fa-user-clock"></i></div>
+    <div class="small-box bg-pink">
+        <div class="inner">
+            <h3><?= $dash_workflows_in_progress ?></h3>
+            <p>Onboarding/Offboarding In Progress</p>
         </div>
+        <div class="icon"><i class="fas fa-user-clock"></i></div>
     </div>
     <?php } ?>
 </div>
 
 <?php if ($dash_total_assets > 0 || $dash_workflows_in_progress > 0) { ?>
-<div class="row">
-    <div class="col-lg-5 mb-3">
-        <div class="card card-dark h-100">
-            <div class="card-header py-2">
-                <h5 class="card-title"><i class="fas fa-fw fa-desktop me-2"></i>Assets by Status</h5>
-            </div>
-            <div class="table-responsive">
-                <table class="table table-sm table-borderless mb-0">
-                    <tbody>
-                        <?php
-                        $any_asset_row = false;
-                        while ($ar = mysqli_fetch_assoc($sql_assets_by_status)) {
-                            $any_asset_row = true;
-                            $pct = $dash_total_assets > 0 ? min(100, round(intval($ar['c']) / $dash_total_assets * 100)) : 0;
-                        ?>
-                        <tr>
-                            <td style="width:40%;"><?= nullable_htmlentities($ar['status_name']) ?></td>
-                            <td>
-                                <div class="progress" style="height:18px;">
-                                    <div class="progress-bar bg-primary" style="width:<?= $pct ?>%"><?= intval($ar['c']) ?></div>
-                                </div>
-                            </td>
-                        </tr>
-                        <?php } ?>
-                        <?php if (!$any_asset_row) { ?>
-                        <tr><td class="text-muted">No assets found.</td></tr>
-                        <?php } ?>
-                    </tbody>
-                </table>
-            </div>
+<?php
+// Two cards side by side on the shared card grid: it stretches them to a
+// common bottom edge, so neither needs h-100 and neither trails the other.
+?>
+<div class="dash-charts mb-3">
+    <div class="card card-dark">
+        <div class="card-header py-2">
+            <h5 class="card-title"><i class="fas fa-fw fa-desktop me-2"></i>Assets by Status</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-borderless mb-0">
+                <tbody>
+                    <?php
+                    $any_asset_row = false;
+                    while ($ar = mysqli_fetch_assoc($sql_assets_by_status)) {
+                        $any_asset_row = true;
+                        $pct = $dash_total_assets > 0 ? min(100, round(intval($ar['c']) / $dash_total_assets * 100)) : 0;
+                    ?>
+                    <tr>
+                        <td style="width:45%;"><?= nullable_htmlentities($ar['status_name']) ?></td>
+                        <td>
+                            <div class="progress" style="height:12px;">
+                                <div class="progress-bar bg-primary" style="width:<?= $pct ?>%"></div>
+                            </div>
+                        </td>
+                        <td class="text-end fw-semibold" style="width:3.5rem;"><?= intval($ar['c']) ?></td>
+                    </tr>
+                    <?php } ?>
+                    <?php if (!$any_asset_row) { ?>
+                    <tr><td colspan="3" class="text-muted">No assets found.</td></tr>
+                    <?php } ?>
+                </tbody>
+            </table>
         </div>
     </div>
 
-    <div class="col-lg-7 mb-3">
-        <div class="card card-dark h-100">
-            <div class="card-header py-2">
-                <h5 class="card-title"><i class="fas fa-fw fa-tasks me-2"></i>Onboarding / Offboarding In Progress</h5>
-            </div>
-            <div class="table-responsive">
-                <table class="table table-sm table-borderless mb-0">
-                    <thead>
-                        <tr><th>Person</th><th>Type</th><th>Department</th><th>Started</th><th></th></tr>
-                    </thead>
-                    <tbody>
-                        <?php
-                        $any_wf_row = false;
-                        while ($wr = mysqli_fetch_assoc($sql_wf_in_progress)) {
-                            $any_wf_row = true;
-                        ?>
-                        <tr>
-                            <td><?= nullable_htmlentities($wr['contact_name']) ?></td>
-                            <td><span class="badge <?= $wr['type'] === 'onboarding' ? 'text-bg-success' : 'text-bg-danger' ?>"><?= ucfirst($wr['type']) ?></span></td>
-                            <td><?= nullable_htmlentities($wr['client_name']) ?></td>
-                            <td><?= nullable_htmlentities($wr['started_at']) ?></td>
-                            <td class="text-end"><a href="workflow_run.php?run_id=<?= intval($wr['run_id']) ?>" class="btn btn-sm btn-default"><i class="fas fa-arrow-right"></i></a></td>
-                        </tr>
-                        <?php } ?>
-                        <?php if (!$any_wf_row) { ?>
-                        <tr><td colspan="5" class="text-muted">No onboarding or offboarding runs in progress.</td></tr>
-                        <?php } ?>
-                    </tbody>
-                </table>
-            </div>
+    <div class="card card-dark">
+        <div class="card-header py-2">
+            <h5 class="card-title"><i class="fas fa-fw fa-tasks me-2"></i>Onboarding / Offboarding In Progress</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-borderless mb-0">
+                <thead>
+                    <tr><th>Person</th><th>Type</th><th>Department</th><th>Started</th><th></th></tr>
+                </thead>
+                <tbody>
+                    <?php
+                    $any_wf_row = false;
+                    while ($wr = mysqli_fetch_assoc($sql_wf_in_progress)) {
+                        $any_wf_row = true;
+                    ?>
+                    <tr>
+                        <td><?= nullable_htmlentities($wr['contact_name']) ?></td>
+                        <td><span class="badge <?= $wr['type'] === 'onboarding' ? 'text-bg-success' : 'text-bg-danger' ?>"><?= ucfirst($wr['type']) ?></span></td>
+                        <td><?= nullable_htmlentities($wr['client_name']) ?></td>
+                        <td><?= nullable_htmlentities($wr['started_at']) ?></td>
+                        <td class="text-end"><a href="workflow_run.php?run_id=<?= intval($wr['run_id']) ?>" class="btn btn-sm btn-default"><i class="fas fa-arrow-right"></i></a></td>
+                    </tr>
+                    <?php } ?>
+                    <?php if (!$any_wf_row) { ?>
+                    <tr><td colspan="5" class="text-muted">No onboarding or offboarding runs in progress.</td></tr>
+                    <?php } ?>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 <?php } ?>
 
-<div class="card card-body">
-    <form class="d-flex flex-wrap align-items-center gap-2">
+<div class="card card-body mb-4">
+    <?php
+    // The form is a flex row with `gap`, so the per-control me-*/mb-* margins it
+    // used to carry only fought that gap. `col-sm-2` was a grid span on a
+    // control that is not in a grid, and `width:auto` shrink-wrapped the select
+    // to "2026" - which is what put the chevron on top of the digits.
+    ?>
+    <form class="d-flex flex-wrap align-items-center gap-3">
         <input type="hidden" name="enable_financial" value="0">
         <input type="hidden" name="enable_technical" value="0">
 
-        <label for="year" class="me-sm-2">Select Year:</label>
-        <select id="year" class="form-select me-sm-3 col-sm-2 mb-3 mb-sm-0 auto-submit-select" style="width:auto;" name="year">
+        <label for="year" class="mb-0">Select Year:</label>
+        <select id="year" class="form-select dash-year-select auto-submit-select" name="year">
             <?php while ($row = mysqli_fetch_assoc($sql_years_select)) {
                 $year_select = $row['all_years'];
                 if (empty($year_select)) {
@@ -404,14 +399,14 @@ $dash_total_assets = intval(mysqli_fetch_row(mysqli_query($mysqli,
         </select>
 
         <?php if ($session_user_role == 1 || ($session_user_role == 3 && $config_module_enable_accounting == 1)) { ?>
-            <div class="form-check form-switch me-3">
+            <div class="form-check form-switch mb-0">
                 <input type="checkbox" class="form-check-input auto-submit-select" id="customSwitch1" name="enable_financial" value="1" <?php if ($user_config_dashboard_financial_enable == 1) { echo "checked"; } ?>>
                 <label class="form-check-label" for="customSwitch1">Financial</label>
             </div>
         <?php } ?>
 
         <?php if ($session_user_role >= 2 && $config_module_enable_ticketing == 1) { ?>
-            <div class="form-check form-switch">
+            <div class="form-check form-switch mb-0">
                 <input type="checkbox" class="form-check-input auto-submit-select" id="customSwitch2" name="enable_technical" value="1" <?php if ($user_config_dashboard_technical_enable == 1) { echo "checked"; } ?>>
                 <label class="form-check-label" for="customSwitch2">Technical</label>
             </div>
@@ -510,353 +505,261 @@ if ($user_config_dashboard_financial_enable == 1) {
     $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(vendor_id) AS vendors_added FROM vendors WHERE YEAR(vendor_created_at) = $year AND vendor_client_id = 0 AND vendor_archived_at IS NULL"));
     $vendors_added = intval($row['vendors_added']);
 ?>
-<div class="card card-body">
-    <!-- Icon Cards-->
-    <div class="row">
-        <div class="col-lg-4 col-md-6 col-sm-12">
-            <!-- small box -->
-            <a class="small-box bg-primary" href="payments.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
-                <div class="inner">
-                    <h3><?php echo numfmt_format_currency($currency_format, $total_income, "$session_company_currency"); ?></h3>
-                    <p>Income</p>
-                    <hr>
-                    <small>Receivables: <?php echo numfmt_format_currency($currency_format, $receivables, "$session_company_currency"); ?></small>
-                </div>
-                <div class="icon">
-                    <i class="fa fa-hand-holding-usd"></i>
-                </div>
-            </a>
-        </div>
-        <!-- ./col -->
+<?php
+// The financial and technical blocks used to sit inside a `.card.card-body`
+// wrapper, which put a second white panel behind every card they contain and
+// indented their rows by the wrapper's padding - so the top stat row started
+// 18px to the left of everything under it. They are page sections, not cards.
+?>
+<div class="dash-section">
+    <div class="dash-tiles mb-4">
+        <a class="small-box bg-primary" href="payments.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
+            <div class="inner">
+                <h3><?php echo numfmt_format_currency($currency_format, $total_income, "$session_company_currency"); ?></h3>
+                <p>Income</p>
+                <p class="mt-1"><small>Receivables: <?php echo numfmt_format_currency($currency_format, $receivables, "$session_company_currency"); ?></small></p>
+            </div>
+            <div class="icon"><i class="fa fa-hand-holding-usd"></i></div>
+        </a>
 
-        <div class="col-lg-4 col-md-6 col-sm-12">
-            <!-- small box -->
-            <a class="small-box bg-danger" href="expenses.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
-                <div class="inner">
-                    <h3><?php echo numfmt_format_currency($currency_format, $total_expenses, "$session_company_currency"); ?></h3>
-                    <p>Expenses</p>
-                </div>
-                <div class="icon">
-                    <i class="fa fa-shopping-cart"></i>
-                </div>
-            </a>
-        </div>
-        <!-- ./col -->
+        <a class="small-box bg-danger" href="expenses.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
+            <div class="inner">
+                <h3><?php echo numfmt_format_currency($currency_format, $total_expenses, "$session_company_currency"); ?></h3>
+                <p>Expenses</p>
+            </div>
+            <div class="icon"><i class="fa fa-shopping-cart"></i></div>
+        </a>
 
-        <div class="col-lg-4 col-md-6 col-sm-12">
-            <!-- small box -->
-            <a class="small-box bg-success" href="reports/profit_loss.php">
-                <div class="inner">
-                    <h3><?php echo numfmt_format_currency($currency_format, $profit, "$session_company_currency"); ?></h3>
-                    <p>Profit</p>
-                </div>
-                <div class="icon">
-                    <i class="fa fa-balance-scale"></i>
-                </div>
-            </a>
-        </div>
-        <!-- ./col -->
+        <a class="small-box bg-success" href="reports/profit_loss.php">
+            <div class="inner">
+                <h3><?php echo numfmt_format_currency($currency_format, $profit, "$session_company_currency"); ?></h3>
+                <p>Profit</p>
+            </div>
+            <div class="icon"><i class="fa fa-balance-scale"></i></div>
+        </a>
 
-        <div class="col-lg-6 col-md-6 col-sm-12">
-            <!-- small box -->
-            <a class="small-box bg-info" href="reports/recurring_by_client.php">
-                <div class="inner">
-                    <h3><?php echo numfmt_format_currency($currency_format, $recurring_monthly_total, "$session_company_currency"); ?></h3>
-                    <p>Monthly Recurring Income</p>
-                </div>
-                <div class="icon">
-                    <i class="fa fa-sync-alt"></i>
-                </div>
-            </a>
-        </div>
-        <!-- ./col -->
+        <a class="small-box bg-info" href="reports/recurring_by_client.php">
+            <div class="inner">
+                <h3><?php echo numfmt_format_currency($currency_format, $recurring_monthly_total, "$session_company_currency"); ?></h3>
+                <p>Monthly Recurring Income</p>
+            </div>
+            <div class="icon"><i class="fa fa-sync-alt"></i></div>
+        </a>
 
-        <div class="col-lg-6 col-md-6 col-sm-12">
-            <!-- small box -->
-            <a class="small-box bg-pink" href="recurring_expenses.php">
-                <div class="inner">
-                    <h3><?php echo numfmt_format_currency($currency_format, $recurring_expense_monthly_total, "$session_company_currency"); ?></h3>
-                    <p>Monthly Recurring Expense</p>
-                </div>
-                <div class="icon">
-                    <i class="fa fa-clock"></i>
-                </div>
-            </a>
-        </div>
-        <!-- ./col -->
+        <a class="small-box bg-pink" href="recurring_expenses.php">
+            <div class="inner">
+                <h3><?php echo numfmt_format_currency($currency_format, $recurring_expense_monthly_total, "$session_company_currency"); ?></h3>
+                <p>Monthly Recurring Expense</p>
+            </div>
+            <div class="icon"><i class="fa fa-clock"></i></div>
+        </a>
 
         <?php if ($config_module_enable_ticketing && $config_module_enable_accounting) { ?>
-            <div class="col-lg-2 col-md-6 col-sm-12">
-                <!-- small box -->
-                <a class="small-box bg-secondary" href="reports/tickets_unbilled.php">
-                    <div class="inner">
-                        <h3><?php echo $unbilled_tickets; ?></h3>
-                        <p>Unbilled Ticket<?php if ($unbilled_tickets > 1 || $unbilled_tickets == 0) { echo "s"; } ?></p>
-                    </div>
-                    <div class="icon">
-                        <i class="fa fa-ticket-alt"></i>
-                    </div>
-                </a>
+        <a class="small-box bg-secondary" href="reports/tickets_unbilled.php">
+            <div class="inner">
+                <h3><?php echo $unbilled_tickets; ?></h3>
+                <p>Unbilled Ticket<?php if ($unbilled_tickets > 1 || $unbilled_tickets == 0) { echo "s"; } ?></p>
             </div>
+            <div class="icon"><i class="fa fa-ticket-alt"></i></div>
+        </a>
         <?php } else { ?>
-            <div class="col-lg-3 col-md-6 col-sm-12">
-                <!-- small box -->
-                <a class="small-box bg-secondary" href="recurring_invoices.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
-                    <div class="inner">
-                        <h3><?php echo $recurring_invoices_added; ?></h3>
-                        <p>Recurring Invoices Added</p>
-                    </div>
-                    <div class="icon">
-                        <i class="fa fa-file-invoice"></i>
-                    </div>
-                </a>
+        <a class="small-box bg-secondary" href="recurring_invoices.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
+            <div class="inner">
+                <h3><?php echo $recurring_invoices_added; ?></h3>
+                <p>Recurring Invoices Added</p>
             </div>
+            <div class="icon"><i class="fa fa-file-invoice"></i></div>
+        </a>
         <?php } ?>
 
-        <div class="col-lg-2 col-6">
-            <!-- small box -->
-            <a class="small-box bg-secondary" href="clients.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
-                <div class="inner">
-                    <h3><?php echo $clients_added; ?></h3>
-                    <p>New Departments</p>
-                </div>
-                <div class="icon">
-                    <i class="fa fa-users"></i>
-                </div>
-            </a>
-        </div>
-        <!-- ./col -->
+        <a class="small-box bg-secondary" href="clients.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
+            <div class="inner">
+                <h3><?php echo $clients_added; ?></h3>
+                <p>New Departments</p>
+            </div>
+            <div class="icon"><i class="fa fa-users"></i></div>
+        </a>
 
-        <div class="col-lg-2 col-6">
-            <!-- small box -->
-            <a class="small-box bg-secondary" href="vendors.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
-                <div class="inner">
-                    <h3><?php echo $vendors_added; ?></h3>
-                    <p>New Vendors</p>
-                </div>
-                <div class="icon">
-                    <i class="fa fa-building"></i>
-                </div>
-            </a>
-        </div>
-        <!-- ./col -->
+        <a class="small-box bg-secondary" href="vendors.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
+            <div class="inner">
+                <h3><?php echo $vendors_added; ?></h3>
+                <p>New Vendors</p>
+            </div>
+            <div class="icon"><i class="fa fa-building"></i></div>
+        </a>
 
-        <div class="col-lg-3 col-md-6 col-sm-12">
-            <!-- small box -->
-            <a class="small-box bg-secondary" href="trips.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
-                <div class="inner">
-                    <h3><?php echo number_format($total_miles, 2); ?></h3>
-                    <p>Miles Traveled</p>
-                </div>
-                <div class="icon">
-                    <i class="fa fa-route"></i>
-                </div>
-            </a>
-        </div>
-        <!-- ./col -->
+        <a class="small-box bg-secondary" href="trips.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
+            <div class="inner">
+                <h3><?php echo number_format($total_miles, 2); ?></h3>
+                <p>Miles Traveled</p>
+            </div>
+            <div class="icon"><i class="fa fa-route"></i></div>
+        </a>
+    </div>
 
-        <div class="col-md-12">
-            <div class="card card-dark mb-3">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-fw fa-chart-area me-2"></i>Cash Flow</h3>
-                    <div class="card-tools">
-                        <a href="reports/income_summary.php" class="btn btn-tool">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="chart-h-320">
-                        <canvas id="cashFlow"></canvas>
-                    </div>
-                </div>
+    <div class="card card-dark mb-3">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-fw fa-chart-area me-2"></i>Cash Flow</h3>
+            <div class="card-tools">
+                <a href="reports/income_summary.php" class="btn btn-tool"><i class="fas fa-eye"></i></a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="chart-h-320"><canvas id="cashFlow"></canvas></div>
+        </div>
+    </div>
+
+    <div class="dash-charts mb-3">
+        <div class="card card-dark">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-fw fa-chart-pie me-2"></i>Income by Category <small>(Top 5)</small></h3>
+            </div>
+            <div class="card-body">
+                <div class="chart-h-240"><canvas id="incomeByCategoryPieChart"></canvas></div>
             </div>
         </div>
 
-        <div class="col-lg-4">
-            <div class="card card-dark mb-3">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-fw fa-chart-pie me-2"></i>Income by Category <small>(Top 5)</small></h3>
-                    <div class="card-tools">
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="chart-h-240">
-                        <canvas id="incomeByCategoryPieChart"></canvas>
-                    </div>
-                </div>
+        <div class="card card-dark">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fa fa-fw fa-shopping-cart me-2"></i>Expenses by Category <small>(Top 5)</small></h3>
+            </div>
+            <div class="card-body">
+                <div class="chart-h-240"><canvas id="expenseByCategoryPieChart"></canvas></div>
             </div>
         </div>
 
-        <div class="col-lg-4">
-            <div class="card card-dark mb-3">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fa fa-fw fa-shopping-cart me-2"></i>Expenses by Category <small>(Top 5)</small></h3>
-                    <div class="card-tools">
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="chart-h-240">
-                        <canvas id="expenseByCategoryPieChart"></canvas>
-                    </div>
-                </div>
+        <div class="card card-dark">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fa fa-fw fa-building me-2"></i>Expenses by Vendor <small>(Top 5)</small></h3>
+            </div>
+            <div class="card-body">
+                <div class="chart-h-240"><canvas id="expenseByVendorPieChart"></canvas></div>
             </div>
         </div>
+    </div>
 
-        <div class="col-lg-4">
-            <div class="card card-dark mb-3">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fa fa-fw fa-building me-2"></i>Expenses by Vendor <small>(Top 5)</small></h3>
-                    <div class="card-tools">
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="chart-h-240">
-                        <canvas id="expenseByVendorPieChart"></canvas>
-                    </div>
-                </div>
+    <div class="dash-charts mb-3">
+        <div class="card card-dark">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fa fa-fw fa-piggy-bank me-2"></i>Account Balances</h3>
             </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="card card-dark mb-3">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fa fa-fw fa-piggy-bank me-2"></i>Account Balances</h3>
-                    <div class="card-tools">
-                    </div>
-                </div>
-                <div class="table-responsive">
-                    <table class="table">
-                        <tbody>
-                            <?php while ($row = mysqli_fetch_assoc($sql_accounts)) {
-                                $account_id = intval($row['account_id']);
-                                $account_name = nullable_htmlentities($row['account_name']);
-                                $opening_balance = floatval($row['opening_balance']);
-                            ?>
-                                <tr>
-                                    <td><?php echo $account_name; ?></td>
-                                    <?php
-                                    $sql_payments = mysqli_query($mysqli, "SELECT SUM(payment_amount) AS total_payments FROM payments WHERE payment_account_id = $account_id");
-                                    $row = mysqli_fetch_assoc($sql_payments);
-                                    $total_payments = floatval($row['total_payments']);
-
-                                    $sql_revenues = mysqli_query($mysqli, "SELECT SUM(revenue_amount) AS total_revenues FROM revenues WHERE revenue_account_id = $account_id");
-                                    $row = mysqli_fetch_assoc($sql_revenues);
-                                    $total_revenues = floatval($row['total_revenues']);
-
-                                    $sql_expenses = mysqli_query($mysqli, "SELECT SUM(expense_amount) AS total_expenses FROM expenses WHERE expense_account_id = $account_id");
-                                    $row = mysqli_fetch_assoc($sql_expenses);
-                                    $total_expenses = floatval($row['total_expenses']);
-
-                                    $balance = $opening_balance + $total_payments + $total_revenues - $total_expenses;
-
-                                    if ($balance == '') {
-                                        $balance = '0.00';
-                                    }
-                                    ?>
-                                    <td class="text-end"><?php echo numfmt_format_currency($currency_format, $balance, "$session_company_currency"); ?></td>
-                                </tr>
-                            <?php } ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div> <!-- .col -->
-
-        <div class="col-md-4">
-            <div class="card card-dark mb-3">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-fw fa-credit-card me-2"></i>Latest Income</h3>
-                    <div class="card-tools">
-                    </div>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-borderless table-sm">
-                        <thead>
+            <div class="table-responsive">
+                <table class="table">
+                    <tbody>
+                        <?php while ($row = mysqli_fetch_assoc($sql_accounts)) {
+                            $account_id = intval($row['account_id']);
+                            $account_name = nullable_htmlentities($row['account_name']);
+                            $opening_balance = floatval($row['opening_balance']);
+                        ?>
                             <tr>
-                                <th>Date</th>
-                                <th>Customer</th>
-                                <th>Invoice</th>
-                                <th class="text-end">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php while ($row = mysqli_fetch_assoc($sql_latest_invoice_payments)) {
-                                $payment_date = nullable_htmlentities($row['payment_date']);
-                                $payment_amount = floatval($row['payment_amount']);
-                                $invoice_prefix = nullable_htmlentities($row['invoice_prefix']);
-                                $invoice_number = intval($row['invoice_number']);
-                                $client_name = nullable_htmlentities($row['client_name']);
-                            ?>
-                                <tr>
-                                    <td><?php echo $payment_date; ?></td>
-                                    <td><?php echo $client_name; ?></td>
-                                    <td><?php echo "$invoice_prefix$invoice_number"; ?></td>
-                                    <td class="text-end"><?php echo numfmt_format_currency($currency_format, $payment_amount, "$session_company_currency"); ?></td>
-                                </tr>
-                            <?php } ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div> <!-- .col -->
+                                <td><?php echo $account_name; ?></td>
+                                <?php
+                                $sql_payments = mysqli_query($mysqli, "SELECT SUM(payment_amount) AS total_payments FROM payments WHERE payment_account_id = $account_id");
+                                $row = mysqli_fetch_assoc($sql_payments);
+                                $total_payments = floatval($row['total_payments']);
 
-        <div class="col-md-4">
-            <div class="card card-dark mb-3">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-fw fa-shopping-cart me-2"></i>Latest Expenses</h3>
-                    <div class="card-tools">
-                    </div>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-sm table-borderless">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Vendor</th>
-                                <th>Category</th>
-                                <th class="text-end">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php while ($row = mysqli_fetch_assoc($sql_latest_expenses)) {
-                                $expense_date = nullable_htmlentities($row['expense_date']);
-                                $expense_amount = floatval($row['expense_amount']);
-                                $vendor_name = nullable_htmlentities($row['vendor_name']);
-                                $category_name = nullable_htmlentities($row['category_name']);
-                            ?>
-                                <tr>
-                                    <td><?php echo $expense_date; ?></td>
-                                    <td><?php echo $vendor_name; ?></td>
-                                    <td><?php echo $category_name; ?></td>
-                                    <td class="text-end"><?php echo numfmt_format_currency($currency_format, $expense_amount, "$session_company_currency"); ?></td>
-                                </tr>
-                            <?php } ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div> <!-- .col -->
+                                $sql_revenues = mysqli_query($mysqli, "SELECT SUM(revenue_amount) AS total_revenues FROM revenues WHERE revenue_account_id = $account_id");
+                                $row = mysqli_fetch_assoc($sql_revenues);
+                                $total_revenues = floatval($row['total_revenues']);
 
-        <div class="col-md-12">
-            <div class="card card-dark mb-3">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-fw fa-route me-2"></i>Trip Flow</h3>
-                    <div class="card-tools">
-                        <a href="trips.php" class="btn btn-tool">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="chart-h-320">
-                        <canvas id="tripFlow"></canvas>
-                    </div>
-                </div>
+                                $sql_expenses = mysqli_query($mysqli, "SELECT SUM(expense_amount) AS total_expenses FROM expenses WHERE expense_account_id = $account_id");
+                                $row = mysqli_fetch_assoc($sql_expenses);
+                                $total_expenses = floatval($row['total_expenses']);
+
+                                $balance = $opening_balance + $total_payments + $total_revenues - $total_expenses;
+
+                                if ($balance == '') {
+                                    $balance = '0.00';
+                                }
+                                ?>
+                                <td class="text-end"><?php echo numfmt_format_currency($currency_format, $balance, "$session_company_currency"); ?></td>
+                            </tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
             </div>
         </div>
-    </div> <!-- row -->
-</div> <!-- card -->
+
+        <div class="card card-dark">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-fw fa-credit-card me-2"></i>Latest Income</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-borderless table-sm">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Customer</th>
+                            <th>Invoice</th>
+                            <th class="text-end">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php while ($row = mysqli_fetch_assoc($sql_latest_invoice_payments)) {
+                            $payment_date = nullable_htmlentities($row['payment_date']);
+                            $payment_amount = floatval($row['payment_amount']);
+                            $invoice_prefix = nullable_htmlentities($row['invoice_prefix']);
+                            $invoice_number = intval($row['invoice_number']);
+                            $client_name = nullable_htmlentities($row['client_name']);
+                        ?>
+                            <tr>
+                                <td><?php echo $payment_date; ?></td>
+                                <td><?php echo $client_name; ?></td>
+                                <td><?php echo "$invoice_prefix$invoice_number"; ?></td>
+                                <td class="text-end"><?php echo numfmt_format_currency($currency_format, $payment_amount, "$session_company_currency"); ?></td>
+                            </tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card card-dark">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-fw fa-shopping-cart me-2"></i>Latest Expenses</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-borderless">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Vendor</th>
+                            <th>Category</th>
+                            <th class="text-end">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php while ($row = mysqli_fetch_assoc($sql_latest_expenses)) {
+                            $expense_date = nullable_htmlentities($row['expense_date']);
+                            $expense_amount = floatval($row['expense_amount']);
+                            $vendor_name = nullable_htmlentities($row['vendor_name']);
+                            $category_name = nullable_htmlentities($row['category_name']);
+                        ?>
+                            <tr>
+                                <td><?php echo $expense_date; ?></td>
+                                <td><?php echo $vendor_name; ?></td>
+                                <td><?php echo $category_name; ?></td>
+                                <td class="text-end"><?php echo numfmt_format_currency($currency_format, $expense_amount, "$session_company_currency"); ?></td>
+                            </tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card card-dark mb-3">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-fw fa-route me-2"></i>Trip Flow</h3>
+            <div class="card-tools">
+                <a href="trips.php" class="btn btn-tool"><i class="fas fa-eye"></i></a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="chart-h-320"><canvas id="tripFlow"></canvas></div>
+        </div>
+    </div>
+</div> <!-- .dash-section -->
 
 <?php } ?>
 
@@ -940,10 +843,20 @@ if ($user_config_dashboard_technical_enable == 1) {
     $tech_rows = [];
     while ($r = mysqli_fetch_assoc($sql_top_techs)) $tech_rows[] = $r;
 
-    // Whether there's anything at all to chart - an empty set of chart cards
-    // (all showing a bare axis/legend with zero data) looks broken, not clean.
-    $dash_has_ticket_chart_data = array_sum($monthly_opened) > 0 || array_sum($monthly_resolved) > 0
-        || !empty($priority_labels) || !empty($status_labels) || !empty($cat_labels) || !empty($tech_rows);
+    // An empty chart card (a bare axis or legend over nothing) reads as a chart
+    // that failed to load, so each card carries its own gate. The three
+    // breakdowns run off OPEN tickets while the flow chart runs off the whole
+    // year, so with the year busy and the queue empty - the normal healthy
+    // state - one OR'd flag across all of them switched on three permanently
+    // blank doughnuts. $dash_has_ticket_flow drives the chart it describes;
+    // $dash_ticket_breakdowns is the list of breakdown cards that actually
+    // have something to draw.
+    $dash_has_ticket_flow = array_sum($monthly_opened) > 0 || array_sum($monthly_resolved) > 0;
+
+    $dash_ticket_breakdowns = [];
+    if (!empty($priority_labels)) { $dash_ticket_breakdowns[] = ['id' => 'ticketPriorityChart', 'icon' => 'fa-chart-pie',  'title' => 'By Priority']; }
+    if (!empty($status_labels))   { $dash_ticket_breakdowns[] = ['id' => 'ticketStatusChart',   'icon' => 'fa-chart-pie',  'title' => 'By Status']; }
+    if (!empty($cat_labels))      { $dash_ticket_breakdowns[] = ['id' => 'ticketCategoryChart', 'icon' => 'fa-chart-pie',  'title' => 'By Category']; }
 
     // Historical ticket metrics for selected year
     $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE YEAR(ticket_created_at) = $year"));
@@ -964,257 +877,193 @@ if ($user_config_dashboard_technical_enable == 1) {
     $sql_recent_resolved = mysqli_query($mysqli, "SELECT tickets.ticket_id, ticket_subject, ticket_prefix, ticket_number, ticket_closed_at, ticket_priority, client_name, ticket_client_id, ticket_status_name, ticket_status_color FROM tickets LEFT JOIN clients ON ticket_client_id = client_id LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id WHERE ticket_closed_at IS NOT NULL ORDER BY ticket_closed_at DESC LIMIT 10");
 ?>
 
-<div class="card card-body">
-    <!-- Icon Cards-->
-    <div class="row">
-        <div class="col-lg-4 col-6">
-            <!-- small box -->
-            <a class="small-box bg-secondary" href="clients.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
-                <div class="inner">
-                    <h3><?php echo $clients_added; ?></h3>
-                    <p>New Departments</p>
-                </div>
-                <div class="icon">
-                    <i class="fa fa-users"></i>
-                </div>
-            </a>
-        </div>
-        <!-- ./col -->
+<div class="dash-section">
+    <div class="dash-tiles mb-4">
+        <a class="small-box bg-secondary" href="clients.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
+            <div class="inner">
+                <h3><?php echo $clients_added; ?></h3>
+                <p>New Departments</p>
+            </div>
+            <div class="icon"><i class="fa fa-users"></i></div>
+        </a>
 
-        <div class="col-lg-4 col-6">
-            <a class="small-box bg-success" href="contacts.php">
-                <div class="inner">
-                    <h3><?php echo $contacts_added; ?></h3>
-                    <p>New Contacts</p>
-                </div>
-                <div class="icon">
-                    <i class="fa fa-user"></i>
-                </div>
-            </a>
-        </div>
-        <!-- ./col -->
+        <a class="small-box bg-success" href="contacts.php">
+            <div class="inner">
+                <h3><?php echo $contacts_added; ?></h3>
+                <p>New Contacts</p>
+            </div>
+            <div class="icon"><i class="fa fa-user"></i></div>
+        </a>
 
-        <div class="col-lg-4 col-6">
-            <a class="small-box bg-info" href="assets.php">
-                <div class="inner">
-                    <h3><?php echo $assets_added; ?></h3>
-                    <p>New Assets</p>
-                </div>
-                <div class="icon">
-                    <i class="fa fa-desktop"></i>
-                </div>
-            </a>
-        </div>
-        <!-- ./col -->
+        <a class="small-box bg-info" href="assets.php">
+            <div class="inner">
+                <h3><?php echo $assets_added; ?></h3>
+                <p>New Assets</p>
+            </div>
+            <div class="icon"><i class="fa fa-desktop"></i></div>
+        </a>
 
-        <div class="col-lg-3 col-6">
-            <a class="small-box bg-danger" href="tickets.php">
-                <div class="inner">
-                    <h3><?php echo $active_tickets; ?></h3>
-                    <p>Active Tickets</p>
-                </div>
-                <div class="icon">
-                    <i class="fa fa-ticket-alt"></i>
-                </div>
-            </a>
-        </div>
-        <!-- ./col -->
+        <a class="small-box bg-danger" href="tickets.php">
+            <div class="inner">
+                <h3><?php echo $active_tickets; ?></h3>
+                <p>Active Tickets</p>
+            </div>
+            <div class="icon"><i class="fa fa-ticket-alt"></i></div>
+        </a>
 
-        <div class="col-lg-3 col-6">
-            <a class="small-box bg-info" href="tickets.php">
-                <div class="inner">
-                    <h3><?php echo $tickets_opened_today; ?></h3>
-                    <p>Opened Today</p>
-                </div>
-                <div class="icon"><i class="fa fa-plus-circle"></i></div>
-            </a>
-        </div>
+        <a class="small-box bg-info" href="tickets.php">
+            <div class="inner">
+                <h3><?php echo $tickets_opened_today; ?></h3>
+                <p>Opened Today</p>
+            </div>
+            <div class="icon"><i class="fa fa-plus-circle"></i></div>
+        </a>
 
-        <div class="col-lg-3 col-6">
-            <a class="small-box bg-success" href="tickets.php?status=Closed">
-                <div class="inner">
-                    <h3><?php echo $tickets_resolved_week; ?></h3>
-                    <p>Resolved This Week</p>
-                </div>
-                <div class="icon"><i class="fa fa-check-circle"></i></div>
-            </a>
-        </div>
+        <a class="small-box bg-success" href="tickets.php?status=Closed">
+            <div class="inner">
+                <h3><?php echo $tickets_resolved_week; ?></h3>
+                <p>Resolved This Week</p>
+            </div>
+            <div class="icon"><i class="fa fa-check-circle"></i></div>
+        </a>
 
-        <div class="col-lg-3 col-6">
-            <a class="small-box bg-warning" href="tickets.php">
-                <div class="inner">
-                    <h3><?php echo $tickets_waiting_customer; ?></h3>
-                    <p>Waiting on Customer</p>
-                </div>
-                <div class="icon"><i class="fa fa-clock"></i></div>
-            </a>
-        </div>
-    </div> <!-- row -->
+        <a class="small-box bg-warning" href="tickets.php">
+            <div class="inner">
+                <h3><?php echo $tickets_waiting_customer; ?></h3>
+                <p>Waiting on Customer</p>
+            </div>
+            <div class="icon"><i class="fa fa-clock"></i></div>
+        </a>
+    </div>
 
     <!-- Ticket Charts -->
-    <?php if (!$dash_has_ticket_chart_data) { ?>
-    <div class="text-center text-muted py-4">
-        <i class="fas fa-fw fa-chart-line mb-2" style="font-size:1.6rem;"></i>
-        <p class="mb-0">No ticket activity yet - charts will fill in once tickets start moving.</p>
+    <?php if ($dash_has_ticket_flow) { ?>
+    <div class="card card-dark mb-3">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-fw fa-chart-line me-2"></i>Tickets Opened vs Resolved <small>(<?php echo $year; ?>)</small></h3>
+        </div>
+        <div class="card-body">
+            <div class="chart-h-240"><canvas id="ticketFlowChart"></canvas></div>
+        </div>
     </div>
     <?php } else { ?>
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card card-dark mb-3">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-fw fa-chart-line me-2"></i>Tickets Opened vs Resolved <small>(<?php echo $year; ?>)</small></h3>
-                    <div class="card-tools">
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="chart-h-240"><canvas id="ticketFlowChart"></canvas></div>
-                </div>
-            </div>
-        </div>
+    <div class="dash-empty mb-3">
+        <i class="fas fa-fw fa-chart-line"></i>
+        <span>No tickets were opened or resolved in <?php echo $year; ?> - the flow chart fills in once tickets start moving.</span>
+    </div>
+    <?php } ?>
 
-        <div class="col-lg-4">
-            <div class="card card-dark mb-3">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-fw fa-chart-pie me-2"></i>By Priority</h3>
-                    <div class="card-tools">
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="chart-h-240"><canvas id="ticketPriorityChart"></canvas></div>
-                </div>
+    <?php if ($dash_ticket_breakdowns || $tech_rows) { ?>
+    <div class="dash-charts mb-3">
+        <?php foreach ($dash_ticket_breakdowns as $dash_bd) { ?>
+        <div class="card card-dark">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-fw <?= $dash_bd['icon'] ?> me-2"></i><?= $dash_bd['title'] ?></h3>
             </div>
-        </div>
-
-        <div class="col-lg-4">
-            <div class="card card-dark mb-3">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-fw fa-chart-pie me-2"></i>By Status</h3>
-                    <div class="card-tools">
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="chart-h-240"><canvas id="ticketStatusChart"></canvas></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-4">
-            <div class="card card-dark mb-3">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-fw fa-chart-pie me-2"></i>By Category</h3>
-                    <div class="card-tools">
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="chart-h-240"><canvas id="ticketCategoryChart"></canvas></div>
-                </div>
-            </div>
-        </div>
-
-        <?php if ($tech_rows) { ?>
-        <div class="col-lg-6">
-            <div class="card card-dark mb-3">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-fw fa-users me-2"></i>Open Tickets by Technician</h3>
-                    <div class="card-tools">
-                    </div>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-sm table-borderless mb-0">
-                        <tbody>
-                            <?php foreach ($tech_rows as $tr) { ?>
-                            <tr>
-                                <td><?= nullable_htmlentities($tr['user_name']) ?></td>
-                                <td>
-                                    <div class="progress" style="height:18px;">
-                                        <div class="progress-bar bg-primary" style="width:<?= min(100, round($tr['c'] / max(1, $active_tickets) * 100)) ?>%">
-                                            <?= intval($tr['c']) ?>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                            <?php } ?>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="card-body">
+                <div class="chart-h-240"><canvas id="<?= $dash_bd['id'] ?>"></canvas></div>
             </div>
         </div>
         <?php } ?>
-    </div> <!-- ticket charts row -->
+
+        <?php if ($tech_rows) { ?>
+        <div class="card card-dark">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-fw fa-users me-2"></i>Open Tickets by Technician</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-borderless mb-0">
+                    <tbody>
+                        <?php foreach ($tech_rows as $tr) { ?>
+                        <tr>
+                            <td style="width:45%;"><?= nullable_htmlentities($tr['user_name']) ?></td>
+                            <td>
+                                <div class="progress" style="height:12px;">
+                                    <div class="progress-bar bg-primary" style="width:<?= min(100, round($tr['c'] / max(1, $active_tickets) * 100)) ?>%"></div>
+                                </div>
+                            </td>
+                            <td class="text-end fw-semibold" style="width:3.5rem;"><?= intval($tr['c']) ?></td>
+                        </tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php } ?>
+    </div>
+    <?php } elseif ($active_tickets == 0 && $dash_has_ticket_flow) { ?>
+    <?php // Only worth saying when the year DID have traffic; on an install with
+          // no tickets at all the flow note above already covers it. ?>
+    <div class="dash-empty mb-3">
+        <i class="fas fa-fw fa-circle-check"></i>
+        <span>No open tickets right now - the priority, status, category and technician breakdowns appear as soon as the queue has something in it.</span>
+    </div>
     <?php } ?>
 
     <!-- Past / Historical Ticket Metrics -->
-    <div class="row">
-        <div class="col-12">
-            <h5 class="mt-2 mb-3 text-muted"><i class="fas fa-fw fa-history me-2"></i>Historical Tickets (<?php echo $year; ?>)</h5>
-        </div>
+    <h6 class="dash-section-title"><i class="fas fa-fw fa-history"></i>Historical Tickets (<?php echo $year; ?>)</h6>
 
-        <div class="col-lg-4 col-6">
-            <a class="small-box bg-secondary" href="tickets.php">
-                <div class="inner">
-                    <h3><?php echo $tickets_created_year; ?></h3>
-                    <p>Created in <?php echo $year; ?></p>
-                </div>
-                <div class="icon"><i class="fa fa-ticket-alt"></i></div>
-            </a>
-        </div>
-
-        <div class="col-lg-4 col-6">
-            <a class="small-box bg-success" href="tickets.php">
-                <div class="inner">
-                    <h3><?php echo $tickets_resolved_year; ?></h3>
-                    <p>Resolved in <?php echo $year; ?></p>
-                </div>
-                <div class="icon"><i class="fa fa-check-double"></i></div>
-            </a>
-        </div>
-
-        <div class="col-lg-4 col-6">
-            <div class="small-box bg-info">
-                <div class="inner">
-                    <h3><?php echo $avg_resolution_hours > 0 ? $avg_resolution_hours . 'h' : 'N/A'; ?></h3>
-                    <p>Avg Resolution Time</p>
-                </div>
-                <div class="icon"><i class="fa fa-stopwatch"></i></div>
+    <div class="dash-tiles mb-3">
+        <a class="small-box bg-secondary" href="tickets.php">
+            <div class="inner">
+                <h3><?php echo $tickets_created_year; ?></h3>
+                <p>Created in <?php echo $year; ?></p>
             </div>
-        </div>
+            <div class="icon"><i class="fa fa-ticket-alt"></i></div>
+        </a>
 
+        <a class="small-box bg-success" href="tickets.php">
+            <div class="inner">
+                <h3><?php echo $tickets_resolved_year; ?></h3>
+                <p>Resolved in <?php echo $year; ?></p>
+            </div>
+            <div class="icon"><i class="fa fa-check-double"></i></div>
+        </a>
+
+        <div class="small-box bg-info">
+            <div class="inner">
+                <h3><?php echo $avg_resolution_hours > 0 ? $avg_resolution_hours . 'h' : 'N/A'; ?></h3>
+                <p>Avg Resolution Time</p>
+            </div>
+            <div class="icon"><i class="fa fa-stopwatch"></i></div>
+        </div>
+    </div>
+
+    <div class="dash-charts mb-3">
         <?php if ($resolved_tech_rows) { ?>
-        <div class="col-lg-6">
-            <div class="card card-dark mb-3">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-fw fa-user-check me-2"></i>Resolved by Technician (<?php echo $year; ?>)</h3>
-                    <div class="card-tools">
-                    </div>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-sm table-borderless mb-0">
-                        <tbody>
-                            <?php foreach ($resolved_tech_rows as $tr) { ?>
-                            <tr>
-                                <td><?= nullable_htmlentities($tr['user_name']) ?></td>
-                                <td>
-                                    <div class="progress" style="height:18px;">
-                                        <div class="progress-bar bg-success" style="width:<?= min(100, round($tr['c'] / max(1, $tickets_resolved_year) * 100)) ?>%">
-                                            <?= intval($tr['c']) ?>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                            <?php } ?>
-                        </tbody>
-                    </table>
-                </div>
+        <?php
+        // The bar reads as a share of the year's resolved tickets, so the name
+        // gets a fixed 45% and the count sits outside the bar: the count used
+        // to be printed inside the fill, which put it at the far right of a
+        // 128px track with a 473px void beside the name.
+        ?>
+        <div class="card card-dark">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-fw fa-user-check me-2"></i>Resolved by Technician (<?php echo $year; ?>)</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-borderless mb-0">
+                    <tbody>
+                        <?php foreach ($resolved_tech_rows as $tr) { ?>
+                        <tr>
+                            <td style="width:45%;"><?= nullable_htmlentities($tr['user_name']) ?></td>
+                            <td>
+                                <div class="progress" style="height:12px;">
+                                    <div class="progress-bar bg-success" style="width:<?= min(100, round($tr['c'] / max(1, $tickets_resolved_year) * 100)) ?>%"></div>
+                                </div>
+                            </td>
+                            <td class="text-end fw-semibold" style="width:3.5rem;"><?= intval($tr['c']) ?></td>
+                        </tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
             </div>
         </div>
         <?php } ?>
 
-        <div class="col-lg-6">
-            <div class="card card-dark mb-3">
+        <div class="card card-dark">
                 <div class="card-header">
                     <h3 class="card-title"><i class="fas fa-fw fa-check-circle me-2"></i>Recently Resolved</h3>
-                    <div class="card-tools">
-                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-sm mb-0">
@@ -1254,162 +1103,149 @@ if ($user_config_dashboard_technical_enable == 1) {
                         </tbody>
                     </table>
                 </div>
-            </div>
         </div>
-    </div> <!-- historical row -->
+    </div>
 
     <?php if ($your_tickets) { ?>
-        <div class="row">
-            <div class="col-12">
-                <div class="card card-dark mb-3">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="fa fa-fw fa-life-ring me-2"></i>Your Open Tickets</h3>
-                        <div class="card-tools">
-                        </div>
-                    </div>
-                    <div class="table-responsive-sm">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Number</th>
-                                    <th>Subject</th>
-                                    <th>Department</th>
-                                    <th>Contact</th>
-                                    <th>Priority</th>
-                                    <th>Status</th>
-                                    <th>SLA</th>
-                                    <th>Last Response</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php while ($row = mysqli_fetch_assoc($sql_your_tickets)) {
-                                    $ticket_id = intval($row['ticket_id']);
-                                    $ticket_prefix = nullable_htmlentities($row['ticket_prefix']);
-                                    $ticket_number = intval($row['ticket_number']);
-                                    $ticket_subject = nullable_htmlentities($row['ticket_subject']);
-                                    $ticket_priority = nullable_htmlentities($row['ticket_priority']);
-                                    $ticket_status_id = intval($row['ticket_status']);
-                                    $ticket_status_name = nullable_htmlentities($row['ticket_status_name']);
-                                    $ticket_status_color = nullable_htmlentities($row['ticket_status_color']);
-                                    $ticket_created_at = nullable_htmlentities($row['ticket_created_at']);
-                                    $ticket_created_at_time_ago = timeAgo($row['ticket_created_at']);
-                                    $ticket_updated_at = nullable_htmlentities($row['ticket_updated_at']);
-                                    $ticket_updated_at_time_ago = timeAgo($row['ticket_updated_at']);
+        <div class="card card-dark mb-3">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fa fa-fw fa-life-ring me-2"></i>Your Open Tickets</h3>
+            </div>
+            <div class="table-responsive-sm">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Number</th>
+                            <th>Subject</th>
+                            <th>Department</th>
+                            <th>Contact</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>SLA</th>
+                            <th>Last Response</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php while ($row = mysqli_fetch_assoc($sql_your_tickets)) {
+                            $ticket_id = intval($row['ticket_id']);
+                            $ticket_prefix = nullable_htmlentities($row['ticket_prefix']);
+                            $ticket_number = intval($row['ticket_number']);
+                            $ticket_subject = nullable_htmlentities($row['ticket_subject']);
+                            $ticket_priority = nullable_htmlentities($row['ticket_priority']);
+                            $ticket_status_id = intval($row['ticket_status']);
+                            $ticket_status_name = nullable_htmlentities($row['ticket_status_name']);
+                            $ticket_status_color = nullable_htmlentities($row['ticket_status_color']);
+                            $ticket_created_at = nullable_htmlentities($row['ticket_created_at']);
+                            $ticket_created_at_time_ago = timeAgo($row['ticket_created_at']);
+                            $ticket_updated_at = nullable_htmlentities($row['ticket_updated_at']);
+                            $ticket_updated_at_time_ago = timeAgo($row['ticket_updated_at']);
 
-                                    $ticket_updated_at_display = empty($ticket_updated_at) ? (empty($ticket_closed_at) ? "<p class='text-danger'>Never</p>" : "<p>Never</p>") : $ticket_updated_at_time_ago;
+                            $ticket_updated_at_display = empty($ticket_updated_at) ? (empty($ticket_closed_at) ? "<p class='text-danger'>Never</p>" : "<p>Never</p>") : $ticket_updated_at_time_ago;
 
-                                    $client_id = intval($row['ticket_client_id']);
-                                    $client_name = nullable_htmlentities($row['client_name']);
-                                    $contact_id = intval($row['ticket_contact_id']);
-                                    $contact_name = nullable_htmlentities($row['contact_name']);
-                                    if ($client_id) {
-                                        $has_client = "&client_id=$client_id";
-                                    } else {
-                                        $has_client = "";
-                                    }
+                            $client_id = intval($row['ticket_client_id']);
+                            $client_name = nullable_htmlentities($row['client_name']);
+                            $contact_id = intval($row['ticket_contact_id']);
+                            $contact_name = nullable_htmlentities($row['contact_name']);
+                            if ($client_id) {
+                                $has_client = "&client_id=$client_id";
+                            } else {
+                                $has_client = "";
+                            }
 
-                                    $ticket_priority_color = $ticket_priority == "High" ? "danger" : ($ticket_priority == "Medium" ? "warning" : "info");
-                                    $contact_display = empty($contact_name) ? "-" : "<a href='contact_details.php?client_id=$client_id&contact_id=$contact_id'>$contact_name</a>";
+                            $ticket_priority_color = $ticket_priority == "High" ? "danger" : ($ticket_priority == "Medium" ? "warning" : "info");
+                            $contact_display = empty($contact_name) ? "-" : "<a href='contact_details.php?client_id=$client_id&contact_id=$contact_id'>$contact_name</a>";
 
-                                    $_sla_due = null;
-                                    if (empty($row['ticket_first_response_at']) && !empty($row['ticket_sla_response_due'])) {
-                                        $_sla_due = $row['ticket_sla_response_due'];
-                                    } elseif (!empty($row['ticket_sla_resolution_due'])) {
-                                        $_sla_due = $row['ticket_sla_resolution_due'];
-                                    }
-                                    $sla_badge = "<span class='text-muted'>-</span>";
-                                    if ($_sla_due) {
-                                        $_sla_breached = $_sla_due < date('Y-m-d H:i:s');
-                                        $_sla_color = $_sla_breached ? 'danger' : (strtotime($_sla_due) - time() < 7200 ? 'warning' : 'success');
-                                        $_sla_label = $_sla_breached ? 'Breached' : 'OK';
-                                        $sla_badge = "<span class='badge rounded-pill text-bg-$_sla_color'>$_sla_label</span>";
-                                    }
-                                ?>
-                                    <tr class="<?php echo empty($ticket_updated_at) ? 'fw-bold' : ''; ?>">
-                                        <td>
-                                            <a class="text-dark"
-                                                href="ticket.php?ticket_id=<?= "$ticket_id$has_client" ?>"><?= "$ticket_prefix$ticket_number" ?>
-                                            </a>
-                                        </td>
-                                        <td><a href="ticket.php?ticket_id=<?= "$ticket_id$has_client" ?>"><?= $ticket_subject ?></a></td>
-                                        <td><a href="tickets.php?client_id=<?php echo $client_id; ?>"><strong><?php echo $client_name; ?></strong></a></td>
-                                        <td><?php echo $contact_display; ?></td>
-                                        <td><span class='p-2 badge rounded-pill text-bg-<?php echo $ticket_priority_color; ?>'><?php echo $ticket_priority; ?></span></td>
-                                        <td><span class='badge rounded-pill <?php echo tagTextClass($ticket_status_color); ?> p-2' style="background-color: <?php echo $ticket_status_color; ?>"><?php echo $ticket_status_name; ?></span></td>
-                                        <td><?php echo $sla_badge; ?></td>
-                                        <td><?php echo $ticket_updated_at_display; ?></td>
-                                    </tr>
-                                <?php } ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                            $_sla_due = null;
+                            if (empty($row['ticket_first_response_at']) && !empty($row['ticket_sla_response_due'])) {
+                                $_sla_due = $row['ticket_sla_response_due'];
+                            } elseif (!empty($row['ticket_sla_resolution_due'])) {
+                                $_sla_due = $row['ticket_sla_resolution_due'];
+                            }
+                            $sla_badge = "<span class='text-muted'>-</span>";
+                            if ($_sla_due) {
+                                $_sla_breached = $_sla_due < date('Y-m-d H:i:s');
+                                $_sla_color = $_sla_breached ? 'danger' : (strtotime($_sla_due) - time() < 7200 ? 'warning' : 'success');
+                                $_sla_label = $_sla_breached ? 'Breached' : 'OK';
+                                $sla_badge = "<span class='badge rounded-pill text-bg-$_sla_color'>$_sla_label</span>";
+                            }
+                        ?>
+                            <tr class="<?php echo empty($ticket_updated_at) ? 'fw-bold' : ''; ?>">
+                                <td>
+                                    <a class="text-dark"
+                                        href="ticket.php?ticket_id=<?= "$ticket_id$has_client" ?>"><?= "$ticket_prefix$ticket_number" ?>
+                                    </a>
+                                </td>
+                                <td><a href="ticket.php?ticket_id=<?= "$ticket_id$has_client" ?>"><?= $ticket_subject ?></a></td>
+                                <td><a href="tickets.php?client_id=<?php echo $client_id; ?>"><strong><?php echo $client_name; ?></strong></a></td>
+                                <td><?php echo $contact_display; ?></td>
+                                <td><span class='p-2 badge rounded-pill text-bg-<?php echo $ticket_priority_color; ?>'><?php echo $ticket_priority; ?></span></td>
+                                <td><span class='badge rounded-pill <?php echo tagTextClass($ticket_status_color); ?> p-2' style="background-color: <?php echo $ticket_status_color; ?>"><?php echo $ticket_status_name; ?></span></td>
+                                <td><?php echo $sla_badge; ?></td>
+                                <td><?php echo $ticket_updated_at_display; ?></td>
+                            </tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
             </div>
         </div>
     <?php } ?>
 
     <?php if (mysqli_num_rows($sql_your_automation_runs) > 0) { ?>
-        <div class="row">
-            <div class="col-12">
-                <div class="card card-dark mb-3">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="fas fa-fw fa-history me-2"></i>Recent Automation Activity</h3>
-                        <div class="card-tools">
-                        </div>
-                    </div>
-                    <div class="table-responsive-sm">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Time</th>
-                                    <th>Rule</th>
-                                    <th>Trigger</th>
-                                    <th>Ticket</th>
-                                    <th>Result</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php
-                                $automation_trigger_labels = [
-                                    'schedule'      => 'Scheduled check',
-                                    'rmm_alert'     => 'New RMM alert',
-                                    'asset_offline' => 'Asset offline',
-                                    'asset_online'  => 'Asset online',
-                                ];
-                                while ($ar = mysqli_fetch_assoc($sql_your_automation_runs)) {
-                                    $ar_time_ago = timeAgo($ar['created_at']);
-                                    $ar_rule_name = nullable_htmlentities($ar['rule_name']);
-                                    $ar_trigger = $automation_trigger_labels[$ar['trigger_type']] ?? nullable_htmlentities($ar['trigger_type']);
-                                    $ar_summary = nullable_htmlentities($ar['summary']);
-                                    $ar_ticket_id = intval($ar['ticket_id']);
-                                    $ar_ticket_client_id = intval($ar['ticket_client_id']);
-                                    $ar_ticket_label = nullable_htmlentities($ar['ticket_prefix'] . $ar['ticket_number']);
-                                    $ar_ticket_subject = nullable_htmlentities($ar['ticket_subject']);
-                                ?>
-                                    <tr>
-                                        <td><?php echo $ar_time_ago; ?></td>
-                                        <td><?php echo $ar_rule_name; ?></td>
-                                        <td><span class="badge text-bg-info"><?php echo $ar_trigger; ?></span></td>
-                                        <td>
-                                            <?php if ($ar_ticket_id) { ?>
-                                                <a href="ticket.php?ticket_id=<?php echo $ar_ticket_id; ?>&client_id=<?php echo $ar_ticket_client_id; ?>">
-                                                    <?php echo $ar_ticket_label; ?> <?php echo $ar_ticket_subject; ?>
-                                                </a>
-                                            <?php } else { ?>
-                                                -
-                                            <?php } ?>
-                                        </td>
-                                        <td><?php echo $ar_summary; ?></td>
-                                    </tr>
-                                <?php } ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+        <div class="card card-dark mb-3">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-fw fa-history me-2"></i>Recent Automation Activity</h3>
+            </div>
+            <div class="table-responsive-sm">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Rule</th>
+                            <th>Trigger</th>
+                            <th>Ticket</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        $automation_trigger_labels = [
+                            'schedule'      => 'Scheduled check',
+                            'rmm_alert'     => 'New RMM alert',
+                            'asset_offline' => 'Asset offline',
+                            'asset_online'  => 'Asset online',
+                        ];
+                        while ($ar = mysqli_fetch_assoc($sql_your_automation_runs)) {
+                            $ar_time_ago = timeAgo($ar['created_at']);
+                            $ar_rule_name = nullable_htmlentities($ar['rule_name']);
+                            $ar_trigger = $automation_trigger_labels[$ar['trigger_type']] ?? nullable_htmlentities($ar['trigger_type']);
+                            $ar_summary = nullable_htmlentities($ar['summary']);
+                            $ar_ticket_id = intval($ar['ticket_id']);
+                            $ar_ticket_client_id = intval($ar['ticket_client_id']);
+                            $ar_ticket_label = nullable_htmlentities($ar['ticket_prefix'] . $ar['ticket_number']);
+                            $ar_ticket_subject = nullable_htmlentities($ar['ticket_subject']);
+                        ?>
+                            <tr>
+                                <td><?php echo $ar_time_ago; ?></td>
+                                <td><?php echo $ar_rule_name; ?></td>
+                                <td><span class="badge text-bg-info"><?php echo $ar_trigger; ?></span></td>
+                                <td>
+                                    <?php if ($ar_ticket_id) { ?>
+                                        <a href="ticket.php?ticket_id=<?php echo $ar_ticket_id; ?>&client_id=<?php echo $ar_ticket_client_id; ?>">
+                                            <?php echo $ar_ticket_label; ?> <?php echo $ar_ticket_subject; ?>
+                                        </a>
+                                    <?php } else { ?>
+                                        -
+                                    <?php } ?>
+                                </td>
+                                <td><?php echo $ar_summary; ?></td>
+                            </tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
             </div>
         </div>
     <?php } ?>
-</div> <!-- card -->
+</div> <!-- .dash-section -->
 
 <?php } ?>
 
@@ -1830,31 +1666,57 @@ document.addEventListener('DOMContentLoaded', function () {
 <?php if ($user_config_dashboard_technical_enable == 1) { ?>
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 document.addEventListener('DOMContentLoaded', function () {
+
+// Chart ink comes from the theme, not from hardcoded hexes: the axis ticks and
+// grid lines used to be rgba(0,0,0,.1) / Chart.js defaults, which are invisible
+// on the dark surface. Series colours are deliberate and stay fixed in both
+// themes - #2a78d6 / #0ca30c are the same two hues the "Open Tickets" and
+// "Resolved This Week" tiles wear, and they clear a colourblind-separation
+// check that the old red/green pair failed badly (deuteranopia dE 3.5).
+var dashTheme = (function () {
+    var cs = getComputedStyle(document.documentElement);
+    var tok = function (name, fallback) { return (cs.getPropertyValue(name) || '').trim() || fallback; };
+    return {
+        ink:     tok('--if-ink', '#16232a'),
+        muted:   tok('--if-muted', '#5d6f76'),
+        line:    tok('--if-border', '#e3e9ea'),
+        surface: tok('--if-surface', '#ffffff'),
+        opened:   '#2a78d6',
+        resolved: '#0ca30c'
+    };
+})();
+
 // TICKET FLOW (Opened vs Resolved)
+// Bars, not filled areas. Two translucent area fills composited into a flat
+// khaki band wherever the series overlapped - which for an opened-vs-resolved
+// pair is the normal case - and Chart.js drew the legend key as that same ~8%
+// fill inside a 3px line-coloured border, so each key read as an empty
+// checkbox. Monthly counts are discrete anyway: a smoothed line drew a bell
+// curve through August and October that never happened.
 (function() {
     var ctx = document.getElementById('ticketFlowChart');
     if (!ctx) return;
     new Chart(ctx, {
-        type: 'line',
+        type: 'bar',
         data: {
             labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
             datasets: [
                 {
                     label: 'Opened',
-                    borderColor: '#dc3545',
-                    backgroundColor: 'rgba(220,53,69,0.08)',
-                    pointBackgroundColor: '#dc3545',
-                    fill: true,
-                    tension: 0.3,
+                    backgroundColor: dashTheme.opened,
+                    hoverBackgroundColor: dashTheme.opened,
+                    borderRadius: 4,
+                    borderSkipped: 'bottom',
+                    maxBarThickness: 22,
                     data: [<?php echo implode(',', $monthly_opened); ?>]
                 },
                 {
                     label: 'Resolved',
-                    borderColor: '#28a745',
-                    backgroundColor: 'rgba(40,167,69,0.08)',
-                    pointBackgroundColor: '#28a745',
-                    fill: true,
-                    tension: 0.3,
+                    backgroundColor: dashTheme.resolved,
+                    hoverBackgroundColor: dashTheme.resolved,
+                    borderRadius: 4,
+                    borderSkipped: 'bottom',
+                    maxBarThickness: 22,
                     data: [<?php echo implode(',', $monthly_resolved); ?>]
                 }
             ]
@@ -1862,71 +1724,94 @@ document.addEventListener('DOMContentLoaded', function () {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
             scales: {
-                x: { grid: { display: false } },
-                y: { beginAtZero: true, ticks: { maxTicksLimit: 5 }, grid: { color: 'rgba(0,0,0,.1)' } }
+                x: { grid: { display: false }, border: { color: dashTheme.line }, ticks: { color: dashTheme.muted } },
+                y: {
+                    beginAtZero: true,
+                    border: { display: false },
+                    grid: { color: dashTheme.line },
+                    ticks: { color: dashTheme.muted, precision: 0, maxTicksLimit: 5 }
+                }
             },
-            plugins: { legend: { display: true } }
+            plugins: {
+                legend: {
+                    display: true, position: 'top', align: 'end',
+                    labels: {
+                        color: dashTheme.ink, usePointStyle: true, pointStyle: 'rectRounded',
+                        boxWidth: 10, boxHeight: 10, padding: 16
+                    }
+                },
+                tooltip: { boxPadding: 4 }
+            }
         }
     });
 })();
 
-// TICKET BY PRIORITY
-(function() {
-    var ctx = document.getElementById('ticketPriorityChart');
+// Open-ticket breakdowns. Each canvas only exists when its query returned rows
+// (see $dash_ticket_breakdowns), so these are no-ops rather than blank charts
+// when the queue is empty. The 2px ring in the surface colour separates
+// adjacent slices instead of letting two similar status colours run together.
+function dashDoughnut(id, labels, data, colors) {
+    var ctx = document.getElementById(id);
     if (!ctx) return;
     new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: [<?php echo implode(',', array_map('json_encode', $priority_labels)); ?>],
+            labels: labels,
             datasets: [{
-                data: [<?php echo implode(',', $priority_counts); ?>],
-                backgroundColor: <?php
-                    $pc = [];
-                    foreach ($priority_labels as $p) {
-                        $pc[] = $p === 'High' ? '"#dc3545"' : ($p === 'Medium' ? '"#ffc107"' : '"#17a2b8"');
+                data: data,
+                backgroundColor: colors,
+                borderColor: dashTheme.surface,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '58%',
+            plugins: {
+                legend: {
+                    display: true, position: 'right',
+                    labels: {
+                        color: dashTheme.ink, usePointStyle: true, pointStyle: 'circle',
+                        boxWidth: 8, boxHeight: 8, padding: 12
                     }
-                    echo '[' . implode(',', $pc) . ']';
-                ?>
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'right' } } }
+                }
+            }
+        }
     });
-})();
+}
 
-// TICKET BY STATUS
-(function() {
-    var ctx = document.getElementById('ticketStatusChart');
-    if (!ctx) return;
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: [<?php echo implode(',', array_map('json_encode', $status_labels)); ?>],
-            datasets: [{
-                data: [<?php echo implode(',', $status_counts); ?>],
-                backgroundColor: [<?php echo implode(',', array_map('json_encode', $status_colors)); ?>]
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'right' } } }
-    });
-})();
+dashDoughnut(
+    'ticketPriorityChart',
+    [<?php echo implode(',', array_map('json_encode', $priority_labels)); ?>],
+    [<?php echo implode(',', $priority_counts); ?>],
+    <?php
+        // Priority is a status scale, so it keeps the app's status hues rather
+        // than a categorical ramp: attention now / attention soon / routine.
+        $pc = [];
+        foreach ($priority_labels as $p) {
+            $pc[] = $p === 'High' ? '"#d03b3b"' : ($p === 'Medium' ? '"#fab219"' : '"#2a78d6"');
+        }
+        echo '[' . implode(',', $pc) . ']';
+    ?>
+);
 
-// TICKET BY CATEGORY
-(function() {
-    var ctx = document.getElementById('ticketCategoryChart');
-    if (!ctx) return;
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: [<?php echo implode(',', array_map('json_encode', $cat_labels)); ?>],
-            datasets: [{
-                data: [<?php echo implode(',', $cat_counts); ?>],
-                backgroundColor: [<?php echo implode(',', array_map('json_encode', $cat_colors)); ?>]
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'right' } } }
-    });
-})();
+dashDoughnut(
+    'ticketStatusChart',
+    [<?php echo implode(',', array_map('json_encode', $status_labels)); ?>],
+    [<?php echo implode(',', $status_counts); ?>],
+    [<?php echo implode(',', array_map('json_encode', $status_colors)); ?>]
+);
+
+dashDoughnut(
+    'ticketCategoryChart',
+    [<?php echo implode(',', array_map('json_encode', $cat_labels)); ?>],
+    [<?php echo implode(',', $cat_counts); ?>],
+    [<?php echo implode(',', array_map('json_encode', $cat_colors)); ?>]
+);
+
 });
 </script>
 <?php } ?>

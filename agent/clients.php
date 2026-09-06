@@ -100,21 +100,19 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
             <?php } ?>
         </div>
     </div>
-    <div class="card-header pb-2 pt-3">
+    <div class="card-body">
         <form autocomplete="off">
             <input type="hidden" name="archived" value="<?php echo $archived; ?>">
             <div class="row">
-                <div class="col-md-5">
-                    <div class="form-group mb-3">
-                        <div class="d-flex" style="gap:.5rem;">
-                            <input type="search" class="form-control" name="q" value="<?php if (isset($q)) { echo stripslashes(nullable_htmlentities($q)); } ?>" placeholder="Search departments" autofocus>
-                            <button class="btn btn-secondary px-3" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilter"><i class="fas fa-filter"></i></button>
-                            <button class="btn btn-primary px-3"><i class="fa fa-search"></i></button>
-                        </div>
+                <div class="col-md-4">
+                    <div class="input-group mb-3 mb-md-0">
+                        <input type="search" class="form-control" name="q" value="<?php if (isset($q)) { echo stripslashes(nullable_htmlentities($q)); } ?>" placeholder="Search departments">
+                        <button class="btn btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilter" aria-label="Advanced filters"><i class="fas fa-filter"></i></button>
+                        <button class="btn btn-dark" type="submit" aria-label="Search"><i class="fa fa-search"></i></button>
                     </div>
                 </div>
-                <div class="col-md-7">
-                    <div class="btn-toolbar form-group mb-3 float-end">
+                <div class="col-md-8">
+                    <div class="btn-toolbar mb-3 mb-md-0 float-end">
                         <div class="btn-group">
                             <a href="?<?php echo $url_query_strings_sort ?>&archived=<?php if($archived == 1){ echo 0; } else { echo 1; } ?>"
                                 class="btn btn-<?php if ($archived == 1) { echo "primary"; } else { echo "default"; } ?>">
@@ -303,7 +301,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             Primary Location <?php if ($sort == 'location_city') { echo $order_icon; } ?>
                         </a>
                     </th>
-                    <th></th>
+                    <th class="text-center">Records</th>
                     <?php if ((lookupUserPermission("module_financial") >= 1) && $config_module_enable_accounting == 1) { ?>
                     <th>Billing</th>
                     <?php } ?>
@@ -326,7 +324,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     $location_state = nullable_htmlentities($row['location_state']);
                     $location_zip = nullable_htmlentities($row['location_zip']);
                     if (empty($location_address) && empty($location_city) && empty($location_state) && empty($location_zip)) {
-                        $location_address_display = "-";
+                        $location_address_display = "<span class='text-secondary'>&mdash;</span>";
                     } else {
                         $location_address_display = "<div class='d-flex'><i class='fa fa-fw fa-map-marker-alt text-secondary mt-1 me-2'></i><div class='flex-grow-1'>$location_address<div>$location_city $location_state $location_zip</div><div><small>$location_country</small></div></div></div>";
                     }
@@ -512,8 +510,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         </td>
                         <td>
                             <?php
-                            if (empty($contact_name) && empty($contact_phone) && empty($contact_mobile) && empty($client_email)) {
-                                echo "-";
+                            // Single empty state: this guard used to be followed by a second
+                            // "-" in the name else-branch below, so contact-less rows printed
+                            // "--". It also tested $client_email, which does not exist in this
+                            // scope - $contact_email is the column actually selected above.
+                            if (empty($contact_name) && empty($contact_phone) && empty($contact_mobile) && empty($contact_email)) {
+                                echo "<span class='text-secondary'>&mdash;</span>";
                             }
 
                             if (!empty($contact_name)) { ?>
@@ -523,9 +525,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
                                      </a>
                                 </div>
-                            <?php } else {
-                                echo "-";
-                            }
+                            <?php }
 
                             if (!empty($contact_phone)) { ?>
                                 <div class="mt-1 text-dark">
@@ -546,8 +546,10 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             <?php } ?>
                         </td>
                         <td><?php echo $location_address_display; ?></td>
-                        <td>
+                        <td class="text-center">
                             <a href="#"
+                                class="text-secondary"
+                                aria-label="Related records"
                                 data-bs-toggle="popover"
                                 data-bs-trigger="hover"
                                 data-bs-placement="right"
@@ -562,7 +564,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     <div><?= $software_count_display ?></div>
                                     <div><?= $ticket_count_display ?></div>
                                 ">
-                                <i class="fas fa-fw fa-2x fa-info-circle"></i>
+                                <i class="fas fa-fw fa-lg fa-info-circle"></i>
                             </a>
                         </td>
                         <!-- Show Billing if perms & if accounting module is enabled -->

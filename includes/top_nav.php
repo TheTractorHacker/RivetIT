@@ -117,7 +117,7 @@ ob_start();
         while ($row = mysqli_fetch_assoc($sql_custom_links)) {
             $custom_link_name = nullable_htmlentities($row['custom_link_name']);
             $custom_link_uri = sanitize_url($row['custom_link_uri']);
-            $custom_link_icon = nullable_htmlentities($row['custom_link_icon']);
+            $custom_link_icon_class = itflow_nav_icon_class($row['custom_link_icon']);
             $custom_link_new_tab = intval($row['custom_link_new_tab']);
             if ($custom_link_new_tab == 1) {
                 $target = "target='_blank' rel='noopener noreferrer'";
@@ -129,7 +129,7 @@ ob_start();
 
         <li class="nav-item" title="<?php echo $custom_link_name; ?>">
             <a href="<?php echo $custom_link_uri; ?>" <?php echo $target; ?> class="nav-link">
-                <i class="fas fa-<?php echo $custom_link_icon; ?> nav-icon"></i>
+                <i class="fas <?php echo $custom_link_icon_class; ?> nav-icon"></i>
             </a>
         </li>
 

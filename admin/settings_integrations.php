@@ -86,8 +86,24 @@ $odoo_last_test_success = $row_odoo['last_test_success'] ?? null;
 $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? '');
 ?>
 
-<div class="d-flex align-items-center mb-3">
-    <h4 class="mb-0"><i class="fas fa-plug me-2"></i>Integrations</h4>
+<style nonce="<?php echo $csp_nonce; ?>">
+    /* Card-header rhythm for this page only.
+       The six cards on a tab mixed 41px headers (title only) with 45px ones
+       (title + button), and both sat 16px short of the 57px headers on the
+       sibling Settings pages (Users, Modules, Theme). Padding alone cannot
+       reconcile them because a button is taller than a line of text, so pin a
+       floor instead: 3.5625rem = 57px, exactly what `card-header py-3` produces
+       elsewhere. Scoped to #integrationsPanels so no other page moves. */
+    #integrationsPanels .card > .card-header { min-height: 3.5625rem; }
+</style>
+
+<div class="it-page-header">
+    <div class="it-page-header-row">
+        <div>
+            <h1 class="it-page-title">Integrations</h1>
+            <p class="it-page-subtitle">Connect ITFlow Internal IT to the RMM, backup, firewall, network and directory systems it reads from.</p>
+        </div>
+    </div>
 </div>
 
 <ul class="nav nav-tabs mb-3" id="integrationsTabs">
@@ -111,14 +127,14 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
     </li>
 </ul>
 
-<div class="tab-content">
+<div class="tab-content" id="integrationsPanels">
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
      RMM TAB
      ═══════════════════════════════════════════════════════════════════════════ -->
 <div class="tab-pane <?= $active_tab === 'rmm' ? 'show active' : '' ?>" id="tab-rmm">
 
-    <div class="card mb-3" style="border-top:3px solid #17a2b8;">
+    <div class="card mb-3">
         <div class="card-header py-2 d-flex align-items-center">
             <h3 class="card-title me-auto"><i class="fas fa-fw fa-desktop me-2"></i>RMM Integration Settings</h3>
             <?php if ($config_module_enable_rmm): ?>
@@ -262,10 +278,15 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
         </div>
         <div class="card-body p-0">
             <?php if (mysqli_num_rows($sql_rmm_integrations) == 0): ?>
-                <div class="text-center text-muted py-5">
-                    <i class="fas fa-plug fa-3x mb-3"></i>
-                    <p class="mb-1">No integrations configured.</p>
-                    <p class="small">Add a Tactical RMM, Level.io, or Action1 connection to get started.</p>
+                <div class="it-empty-state">
+                    <div class="it-empty-icon"><i class="fas fa-plug"></i></div>
+                    <p class="it-empty-title">No integrations configured</p>
+                    <p class="it-empty-subtitle">Add a Tactical RMM, Level.io or Action1 connection to start syncing devices into Assets.</p>
+                    <div class="it-empty-actions">
+                        <button class="btn btn-primary btn-sm js-rmm-reset-modal" data-bs-toggle="modal" data-bs-target="#rmm_addIntegrationModal">
+                            <i class="fas fa-plus me-1"></i>Add Integration
+                        </button>
+                    </div>
                 </div>
             <?php else: ?>
             <div class="table-responsive">
@@ -490,7 +511,7 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
      ═══════════════════════════════════════════════════════════════════════════ -->
 <div class="tab-pane <?= $active_tab === 'backups' ? 'show active' : '' ?>" id="tab-backups">
 
-    <div class="card mb-3" style="border-top:3px solid #f39c12;">
+    <div class="card mb-3">
         <div class="card-header py-2 d-flex align-items-center">
             <h3 class="card-title me-auto"><i class="fas fa-fw fa-cloud-upload-alt me-2"></i>Comet Backup Integration</h3>
             <?php if ($config_comet_enabled): ?>
@@ -664,7 +685,7 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
 <div class="tab-pane <?= $active_tab === 'firewalls' ? 'show active' : '' ?>" id="tab-firewalls">
 
     <!-- Sophos Central connections -->
-    <div class="card mb-3" style="border-top:3px solid #28a745;">
+    <div class="card mb-3">
         <div class="card-header py-2 d-flex align-items-center">
             <h3 class="card-title me-auto"><i class="fas fa-fw fa-fire-alt me-2"></i>Sophos Central Connections</h3>
             <button class="btn btn-primary btn-sm js-fw-reset-modal" data-bs-toggle="modal" data-bs-target="#fw_addModal">
@@ -673,10 +694,15 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
         </div>
         <div class="card-body p-0">
             <?php if (mysqli_num_rows($sql_fw_integrations) == 0): ?>
-                <div class="text-center text-muted py-5">
-                    <i class="fas fa-fire-alt fa-3x mb-3"></i>
-                    <p class="mb-1">No Sophos Central connections configured.</p>
-                    <p class="small">Add a Sophos Central API credential (Client ID + Secret) to start syncing firewall inventory.</p>
+                <div class="it-empty-state">
+                    <div class="it-empty-icon"><i class="fas fa-fire-alt"></i></div>
+                    <p class="it-empty-title">No Sophos Central connections</p>
+                    <p class="it-empty-subtitle">Add a Sophos Central API credential (Client ID + Secret) to start syncing firewall inventory.</p>
+                    <div class="it-empty-actions">
+                        <button class="btn btn-primary btn-sm js-fw-reset-modal" data-bs-toggle="modal" data-bs-target="#fw_addModal">
+                            <i class="fas fa-plus me-1"></i>Add Connection
+                        </button>
+                    </div>
                 </div>
             <?php else: ?>
             <div class="table-responsive">
@@ -744,10 +770,10 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
         </div>
         <div class="card-body p-0">
             <?php if (mysqli_num_rows($sql_fw_assets) === 0): ?>
-                <div class="text-center text-muted py-5">
-                    <i class="fas fa-fire-alt fa-3x mb-3"></i>
-                    <p class="mb-1">No firewalls synced yet.</p>
-                    <p class="small">Add a Sophos Central connection above and click <strong>Sync Now</strong> to import firewall inventory.</p>
+                <div class="it-empty-state">
+                    <div class="it-empty-icon"><i class="fas fa-fire-alt"></i></div>
+                    <p class="it-empty-title">No firewalls synced yet</p>
+                    <p class="it-empty-subtitle mb-0">Add a Sophos Central connection above and click <strong>Sync Now</strong> to import firewall inventory.</p>
                 </div>
             <?php else: ?>
             <form action="post.php" method="post">
@@ -933,7 +959,7 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
      ═══════════════════════════════════════════════════════════════════════════ -->
 <div class="tab-pane <?= $active_tab === 'unifi' ? 'show active' : '' ?>" id="tab-unifi">
 
-    <div class="card mb-3" style="border-top:3px solid #17a2b8;">
+    <div class="card mb-3">
         <div class="card-header py-2 d-flex align-items-center">
             <h3 class="card-title me-auto"><i class="fas fa-fw fa-wifi me-2"></i>UniFi Integration Settings</h3>
             <?php if ($config_module_enable_unifi): ?>
@@ -972,10 +998,15 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
         </div>
         <div class="card-body p-0">
             <?php if (mysqli_num_rows($sql_unifi_integrations) == 0): ?>
-                <div class="text-center text-muted py-5">
-                    <i class="fas fa-wifi fa-3x mb-3"></i>
-                    <p class="mb-1">No UniFi controllers configured.</p>
-                    <p class="small">Add a UniFi OS controller connection to get started.</p>
+                <div class="it-empty-state">
+                    <div class="it-empty-icon"><i class="fas fa-wifi"></i></div>
+                    <p class="it-empty-title">No UniFi controllers configured</p>
+                    <p class="it-empty-subtitle">Add a UniFi OS controller to sync access points, switches, SSIDs and VLANs.</p>
+                    <div class="it-empty-actions">
+                        <button class="btn btn-primary btn-sm js-unifi-reset-modal" data-bs-toggle="modal" data-bs-target="#unifi_addIntegrationModal">
+                            <i class="fas fa-plus me-1"></i>Add Controller
+                        </button>
+                    </div>
                 </div>
             <?php else: ?>
             <div class="table-responsive">
@@ -1120,10 +1151,10 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
             </button>
         </div>
         <?php if (empty($unifi_site_maps_by_integration)): ?>
-        <div class="card-body text-center text-muted py-5">
-            <i class="fas fa-sitemap fa-3x mb-3"></i>
-            <p class="mb-1">No sites discovered yet.</p>
-            <p class="small">Click <strong>Sync Now</strong> on a controller above, or <strong>Refresh All Sites</strong>, to import site data.</p>
+        <div class="card-body it-empty-state">
+            <div class="it-empty-icon"><i class="fas fa-sitemap"></i></div>
+            <p class="it-empty-title">No sites discovered yet</p>
+            <p class="it-empty-subtitle mb-0">Click <strong>Sync Now</strong> on a controller above, or <strong>Refresh All Sites</strong>, to import site data.</p>
         </div>
         <?php else: ?>
         <form action="post.php" method="post">
@@ -1350,7 +1381,7 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
      ═══════════════════════════════════════════════════════════════════════════ -->
 <div class="tab-pane <?= $active_tab === 'directorysync' ? 'show active' : '' ?>" id="tab-directorysync">
 
-    <div class="card mb-3" style="border-top:3px solid #17a2b8;">
+    <div class="card mb-3">
         <div class="card-header py-2 d-flex align-items-center">
             <h3 class="card-title me-auto"><i class="fas fa-fw fa-laptop me-2"></i>Intune Devices Module</h3>
             <?php if ($config_module_enable_intune): ?>
@@ -1379,7 +1410,7 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
         </div>
     </div>
 
-    <div class="card mb-3" style="border-top:3px solid #0078D4;">
+    <div class="card mb-3">
         <div class="card-header py-2 d-flex align-items-center">
             <h3 class="card-title me-auto"><i class="fab fa-fw fa-microsoft me-2"></i>Microsoft 365 / Entra ID</h3>
             <?php if ($ms_last_test_at) { ?>
@@ -1478,7 +1509,7 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
         </div>
     </div>
 
-    <div class="card mb-3" style="border-top:3px solid #714B67;">
+    <div class="card mb-3">
         <div class="card-header py-2 d-flex align-items-center">
             <h3 class="card-title me-auto"><i class="fas fa-fw fa-cogs me-2"></i>Odoo</h3>
             <?php if ($odoo_last_test_at) { ?>
