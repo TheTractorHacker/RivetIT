@@ -195,6 +195,62 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
             </form>
         </div>
     </div>
+
+    <div class="card mb-3">
+        <div class="card-header py-2 d-flex align-items-center">
+            <h3 class="card-title me-auto"><i class="fas fa-fw fa-chart-line me-2"></i>Device Metrics</h3>
+            <?php if ($config_enable_device_metrics): ?>
+                <span class="badge text-bg-success"><i class="fas fa-check-circle me-1"></i>Collecting</span>
+            <?php else: ?>
+                <span class="badge text-bg-secondary"><i class="fas fa-pause-circle me-1"></i>Paused</span>
+            <?php endif; ?>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">
+                Records CPU, memory, disk and network history for RMM-linked assets and draws it on the
+                <strong>Performance</strong> tab of each asset. Turning this off stops collection but keeps
+                everything already recorded &mdash; the charts stay readable, they just stop extending.
+                Collection runs from <span class="text-monospace">cron/metrics_collect.php</span>; if that cron
+                entry is not installed, nothing is gathered regardless of this switch.
+            </p>
+            <form action="post.php" method="post">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                <div class="form-group mb-3">
+                    <div class="form-check form-check form-switch">
+                        <input type="checkbox" class="form-check-input" id="enable_device_metrics"
+                               name="config_enable_device_metrics" value="1" <?= $config_enable_device_metrics ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="enable_device_metrics">Collect device performance metrics</label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group col-md-4 mb-2">
+                        <label class="small text-muted mb-1" for="metrics_interval">Collection interval (seconds)</label>
+                        <input type="number" class="form-control form-control-sm" id="metrics_interval"
+                               name="config_metrics_collect_interval_seconds" min="60" max="3600" step="30"
+                               value="<?= intval($config_metrics_collect_interval_seconds) ?>">
+                        <small class="form-text text-muted">The cron entry is the real floor &mdash; a 300s interval on a 15-minute cron collects every 15 minutes.</small>
+                    </div>
+                    <div class="form-group col-md-4 mb-2">
+                        <label class="small text-muted mb-1" for="metrics_raw_days">Keep full-resolution samples (days)</label>
+                        <input type="number" class="form-control form-control-sm" id="metrics_raw_days"
+                               name="config_metrics_raw_retention_days" min="1" max="365"
+                               value="<?= intval($config_metrics_raw_retention_days) ?>">
+                        <small class="form-text text-muted">Older samples are rolled up to hourly, not deleted outright.</small>
+                    </div>
+                    <div class="form-group col-md-4 mb-2">
+                        <label class="small text-muted mb-1" for="metrics_hour_days">Keep hourly rollups (days)</label>
+                        <input type="number" class="form-control form-control-sm" id="metrics_hour_days"
+                               name="config_metrics_hour_retention_days" min="1" max="3650"
+                               value="<?= intval($config_metrics_hour_retention_days) ?>">
+                        <small class="form-text text-muted">Daily rollups are kept indefinitely; they are tiny.</small>
+                    </div>
+                </div>
+                <button type="submit" name="save_device_metrics_settings" class="btn btn-primary btn-sm mt-2">
+                    <i class="fas fa-check me-1"></i>Save Metrics Settings
+                </button>
+            </form>
+        </div>
+    </div>
     <?php endif; ?>
 
     <div class="card mb-3">

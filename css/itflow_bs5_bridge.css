@@ -1,370 +1,245 @@
-/* ============================================================
-   ITFlow — Bootstrap 5.3 / AdminLTE 4 bridge
-   Maps Bootstrap 5's CSS custom properties onto the "Alga"
-   design tokens (tokens/colors.css + css/itflow_custom.css) so
-   every BS5 / AL4 component inherits the theme AND the per-company
-   accent injected by includes/header.php (--color-accent...).
+/* =============================================================================
+   ITFlow — TABLER SHELL GLUE
+   (historical filename: "bs5 bridge". Kept because eight PHP files link it by
+    name — includes/header.php, client/includes/header.php,
+    guest/includes/guest_header.php, guest/outtake_sign.php,
+    guest/worksheet_sign.php, login.php, client/login_reset.php,
+    agent/user/mfa_enforcement.php — and none of them are in this change's
+    ownership. Rename it only together with all eight <link> tags.)
 
-   Load order (see includes/header.php):
-     bootstrap5 -> adminlte4 -> tom-select -> tempus-dominus
-     -> simple-datatables -> THIS FILE -> itflow_custom.css
-   The inline accent <style> in header.php is emitted AFTER this
-   file, so a custom/preset accent overrides the token defaults
-   below in both light and dark mode.
-   ============================================================ */
+   WHAT IS LEFT IN HERE
+   Only first-party glue for markup the Tabler shell actually emits today:
 
-/* ---------- LIGHT (default) : map BS5 vars -> Alga tokens ---------- */
+     1. Accent focus ring on form controls.
+     2. Tom Select + Litepicker theming (vendor widgets Tabler knows nothing of).
+     3. The horizontal top navbar chrome and the live global-search dropdown
+        (includes/top_nav.php).
+     4. The secondary sidebars' brand-area identity blocks — .section-nav-back,
+        .client-nav-back / -header / -avatar / -identity / -name / -type — which
+        agent/includes/client_side_nav.php, agent/includes/client_overview_side_nav.php,
+        agent/reports/includes/reports_side_nav.php,
+        agent/user/includes/user_side_nav.php and admin/includes/side_nav.php all
+        name explicitly in their own comments as coming from this file.
+
+   WHAT MOVED OUT, AND WHERE  (this file was 544 lines doing four unrelated jobs
+   with four different end-of-life dates, which is why nothing in it could ever be
+   safely deleted)
+
+     css/itflow.shim-bs4.css       .form-group, .input-group-prepend/-append,
+                                   .form-row, .media, .close, .btn-block,
+                                   .thead-light/-dark, .sr-only, .dropdown-menu-right,
+                                   .badge-*, .float-* and .text-left|right, .ml-* and .mr-*,
+                                   .pl-* and .pr-*, .font-weight-*, .text-monospace,
+                                   .font-italic, the .js-btn-group-toggle input fix.
+                                   NO retirement date — Tabler styles none of them.
+
+     css/itflow.shim-adminlte.css  .small-box, .info-box (+ bg-* variants),
+                                   .card-tools, .btn-tool, .card-outline,
+                                   .card-header .card-title, the AL3 named
+                                   .text-<colour> utilities. Retires with the last
+                                   AdminLTE-era page. .card-tools / .btn-tool /
+                                   .card-outline got REAL base definitions there;
+                                   this file previously carried only a patch
+                                   (.card-header.py-2 .btn-tool { margin:-.5rem 0 })
+                                   compensating for AdminLTE 4's own margin:-1rem 0,
+                                   which no longer exists to compensate for.
+
+     css/itflow.compat-color.css   The --color-* deprecation shim: --color-* is now
+                                   a pure alias of --if-*, resolving the dark-mode
+                                   token conflict (--color-surface #343a40 vs
+                                   --if-surface #14201f) that made a card header
+                                   render in a different grey from its own body.
+
+   DELETED OUTRIGHT — recorded here so the loss is deliberate and traceable:
+
+     :root / :root[data-bs-theme="dark"] --bs-* MAPPING BLOCK
+       Mapped ~20 Bootstrap 5 custom properties onto --color-*, and hard-coded the
+       AdminLTE greys #2c3034 / #343a40 / #4b5158 for dark mode. Dead: Tabler emits
+       essentially no --bs-* (one in ~800KB) and reads --tblr-* instead, which
+       css/itflow.bind-tabler.css now owns. The hard-coded greys were also one half
+       of the token conflict described above. Only 8 var(--bs-…) reads existed
+       app-wide and every one of them has been rewritten onto --tblr-* / --if-*.
+
+     .app-main / .app-content BACKGROUND
+       Those two wrappers no longer exist. includes/inc_wrapper.php now opens
+       .page-wrapper > .page-body > .container-xl; the page background comes from
+       --tblr-body-bg (bind-tabler) and itflow_design.css's `body`.
+
+     .app-sidebar / .sidebar-brand / .sidebar-wrapper / --lte-sidebar-* BLOCK
+       The primary sidebar is now aside.navbar.navbar-vertical.navbar-expand-lg
+       with data-bs-theme="dark" (agent/includes/side_nav.php:41,
+       admin/includes/side_nav.php:15). Tabler owns its layout, its scroll
+       container and its active/hover states; the AdminLTE-4 overrides fought it.
+
+     .main-sidebar LAYOUT SYSTEM  *** READ THIS BEFORE ASSUMING IT IS UNUSED ***
+       ~90 lines: fixed 250px column, internal scroll, nav-link/nav-header
+       styling, `body:has(.main-sidebar) .app-header { margin-left:250px }`,
+       `body:has(.main-sidebar) .app-main { margin-left:250px }`, and the mobile
+       off-canvas pair
+           @media (max-width:991.98px) {
+             .main-sidebar { margin-left:-250px }
+             .sidebar-open .main-sidebar { margin-left:0 }
+           }
+       WHAT DEPENDED ON IT: the four AdminLTE-3-generation secondary sidebars —
+       client, client-overview, reports, user — reachable from 79 page includes.
+       All four (plus admin) have since been rewritten as Tabler
+       aside.navbar-vertical, so nothing emits .main-sidebar any more. Verified:
+       the only remaining `main-sidebar` string in the repo is setup/index.php:786,
+       which links plugins/adminlte (AdminLTE 3) and does NOT link this file, so it
+       is unaffected either way.
+       CONSEQUENCE FOR js/shell.js: the note in includes/top_nav.php:51 saying the
+       replacement toggle "MUST set the class sidebar-open on <body> exactly" was
+       true only for these rules. With them gone there is no `.sidebar-open`
+       consumer left in any first-party CSS. The five Tabler sidebars each toggle
+       via Bootstrap's own collapse data-api on
+       button.navbar-toggler[data-bs-target="#sidebar-menu"], which
+       bootstrap.bundle.min.js already wires. Setting body.sidebar-open is now
+       harmless but no longer sufficient on its own — if a future change re-adds a
+       CSS-driven off-canvas sidebar, restore this block from git history rather
+       than re-deriving it.
+
+     .btn-close { --bs-btn-close-color }
+       Tabler's .btn-close does not read that property. Dead.
+
+   LOAD ORDER (includes/header.php and the client/guest/login/mfa headers):
+     tabler.min.css
+       -> itflow_bs5_bridge.css (this file)
+       -> itflow.shim-bs4.css
+       -> itflow.shim-adminlte.css
+       -> itflow_custom.css
+       -> itflow_design.css
+       -> itflow.compat-color.css     (MUST be after itflow_custom.css)
+       -> itflow.bind-tabler.css
+       -> the per-company accent <style nonce> block, emitted last so it wins.
+   ============================================================================= */
+
+/* ---- Chrome tokens ---------------------------------------------------------
+   The top navbar carries data-bs-theme="dark" so it stays dark in BOTH app
+   themes, matching the always-dark sidebars. It cannot simply read
+   var(--tblr-bg-surface): css/itflow.bind-tabler.css redefines that on :root as a
+   flat var(--if-surface) (white in light mode) and custom properties inherit, so a
+   dark-scoped descendant would inherit the LIGHT surface and the navbar would
+   render white next to a dark sidebar. Hence an explicit chrome token. The default
+   is Tabler's own --tblr-gray-800 (#1f2937), i.e. the colour Tabler paints a
+   data-bs-theme="dark" surface, so navbar and sidebar agree by construction. */
 :root {
-    /* Brand / links -> accent */
-    --bs-primary:            var(--color-accent);
-    --bs-primary-rgb:        var(--color-accent-rgb);
-    --bs-link-color:         var(--color-accent);
-    --bs-link-color-rgb:     var(--color-accent-rgb);
-    --bs-link-hover-color:   var(--color-accent-hover);
-
-    /* Surfaces / text / borders */
-    --bs-body-bg:            var(--color-surface);
-    --bs-body-color:         var(--color-text);
-    --bs-secondary-bg:       var(--color-surface-alt, #f5f7f7);
-    --bs-tertiary-bg:        var(--color-surface-alt, #f5f7f7);
-    --bs-secondary-color:    var(--color-text-muted);
-    --bs-tertiary-color:     var(--color-text-muted);
-    --bs-emphasis-color:     var(--color-text);
-    --bs-border-color:       var(--color-border);
-    --bs-border-color-translucent: var(--color-border);
-
-    /* Radius (BS5 uses --bs-border-radius everywhere) */
-    --bs-border-radius:      var(--input-radius, 8px);
-    --bs-border-radius-sm:   calc(var(--input-radius, 8px) - 2px);
-    --bs-border-radius-lg:   var(--card-radius, 14px);
-
-    /* Form controls */
-    --bs-form-control-bg:    var(--color-surface);
+    --if-chrome-bg:     #1f2937;
+    --if-chrome-border:  rgba(255, 255, 255, .08);
+    --if-chrome-ink:     rgba(255, 255, 255, .85);
+    --if-chrome-ink-dim: rgba(255, 255, 255, .55);
 }
 
-/* Focus ring uses the accent */
+/* ---- Accent focus ring on form controls ------------------------------------
+   Tabler focuses with its own ring; this keeps the app's slightly wider .2rem
+   accent-tinted ring, which the rest of the design layer matches. */
 .form-control:focus,
 .form-select:focus,
 .form-check-input:focus {
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 .2rem rgba(var(--color-accent-rgb), .2);
+    border-color: var(--if-primary, var(--color-accent, #0d9488));
+    box-shadow: 0 0 0 .2rem rgba(var(--if-primary-rgb, var(--color-accent-rgb, 13, 148, 136)), .2);
 }
 .form-check-input:checked {
-    background-color: var(--color-accent);
-    border-color: var(--color-accent);
+    background-color: var(--if-primary, var(--color-accent, #0d9488));
+    border-color: var(--if-primary, var(--color-accent, #0d9488));
 }
 
-/* ---------- DARK : override with dark Alga token values ----------
-   The dark token hexes live on body.dark-mode (itflow_custom.css),
-   which is NOT reachable from an html-level :root[...] selector, so
-   the dark BS5 vars are set explicitly here to the same values.     */
-:root[data-bs-theme="dark"] {
-    --bs-primary:            var(--color-accent);
-    --bs-primary-rgb:        var(--color-accent-rgb);
-    --bs-link-color:         var(--color-accent);
-    --bs-link-color-rgb:     var(--color-accent-rgb);
-    --bs-link-hover-color:   var(--color-accent-hover);
-
-    --bs-body-bg:            #2c3034;
-    --bs-body-color:         #e9ecef;
-    --bs-body-color-rgb:     233, 236, 239;
-    --bs-secondary-bg:       #343a40;
-    --bs-tertiary-bg:        #2c3034;
-    --bs-secondary-color:    #adb5bd;
-    --bs-tertiary-color:     #adb5bd;
-    --bs-emphasis-color:     #e9ecef;
-    --bs-border-color:       #4b5158;
-    --bs-border-color-translucent: #4b5158;
-
-    --bs-secondary-bg-rgb:   52, 58, 64;
-    --bs-tertiary-bg-rgb:    44, 48, 52;
-
-    /* Card / surface tints BS5 derives from these */
-    --bs-card-bg:            #343a40;
-    --bs-card-color:         #e9ecef;
-    --bs-form-control-bg:    #343a40;
-}
-
-/* ============================================================
-   AdminLTE 4 chrome — always-dark sidebar + header ("Alga")
-   ============================================================ */
-
-/* App content background follows the theme surface-alt */
-.app-main,
-.app-content {
-    background-color: var(--color-surface-alt);
-}
-
-/* Header: match the always-dark sidebar (chrome stays dark in both
-   light and dark app themes). The nav itself carries data-bs-theme="dark". */
-.app-header.navbar {
-    background-color: #343a40 !important;
-    border-bottom: 1px solid #4b5158;
-}
-
-/* Sidebar chrome tokens -> accent for the active item */
-.app-sidebar {
-    background-color: #343a40 !important;
-    --lte-sidebar-menu-active-bg: var(--color-accent);
-    --lte-sidebar-menu-active-color: #fff;
-    --lte-sidebar-hover-bg: rgba(255, 255, 255, .08);
-    --lte-sidebar-hover-color: #fff;
-    --lte-sidebar-color: #c2c7d0;
-    --lte-sidebar-submenu-active-bg: var(--color-accent);
-}
-
-.app-sidebar .sidebar-menu .nav-link.active {
-    background-color: var(--color-accent) !important;
-    color: #fff !important;
-    border-radius: 6px;
-}
-.app-sidebar .sidebar-menu .nav-link {
-    border-radius: 6px;
-    margin: 1px .5rem;
-}
-.app-sidebar .sidebar-menu .nav-link:not(.active):hover {
-    background-color: rgba(255, 255, 255, .08) !important;
-    color: #fff;
-}
-/* Count badges on sidebar items */
-.app-sidebar .sidebar-menu .badge {
-    background: rgba(255, 255, 255, .16) !important;
-    color: #fff !important;
-    font-weight: 700;
-    border-radius: 10px;
-}
-.app-sidebar .sidebar-menu .nav-link.active .badge {
-    background: rgba(255, 255, 255, .25) !important;
-}
-
-/* Sidebar brand icon tile (mirrors the itflow_custom .brand-image rule
-   but targets the AL4 .sidebar-brand wrapper) */
-.sidebar-brand .brand-link {
-    display: flex;
-    align-items: center;
-    color: #fff;
-}
-.sidebar-brand .brand-image {
-    width: 30px;
-    height: 30px;
-    min-width: 30px;
-    border-radius: 7px;
-    object-fit: contain;
-    margin: 0 .5rem 0 0;
-    background: var(--color-accent);
-}
-.sidebar-brand .brand-text {
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: #fff;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 165px;
-}
-
-/* ============================================================
-   Component polish that used to rely on BS4/AL3 selectors
-   ============================================================ */
-
-/* Tom Select: make it read like the themed form controls */
+/* ---- Tom Select: read as a themed form control ----------------------------- */
 .ts-wrapper.form-control,
 .ts-wrapper .ts-control {
-    border-radius: var(--input-radius, 8px);
-    border-color: var(--color-border);
-    background-color: var(--color-surface);
+    border-radius: var(--if-radius-sm, 8px);
+    border-color: var(--if-border, #e3e9ea);
+    background-color: var(--if-surface, #fff);
     min-height: calc(1.5em + .75rem + 2px);
 }
 .ts-wrapper.focus .ts-control {
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 .2rem rgba(var(--color-accent-rgb), .2);
+    border-color: var(--if-primary, var(--color-accent, #0d9488));
+    box-shadow: 0 0 0 .2rem rgba(var(--if-primary-rgb, var(--color-accent-rgb, 13, 148, 136)), .2);
 }
-.ts-dropdown {
-    border-color: var(--color-border);
-}
+.ts-dropdown { border-color: var(--if-border, #e3e9ea); }
 .ts-dropdown .active {
-    background-color: var(--color-accent-soft);
-    color: var(--color-text);
+    background-color: var(--if-primary-soft, var(--color-accent-soft, #ccfbf1));
+    color: var(--if-ink, #16232a);
 }
 
-/* Litepicker themed to the accent */
+/* ---- Litepicker themed to the accent --------------------------------------- */
 .litepicker .container__days .day-item.is-start-date,
 .litepicker .container__days .day-item.is-end-date,
 .litepicker .container__days .day-item.is-in-range {
-    background-color: var(--color-accent) !important;
+    background-color: var(--if-primary, var(--color-accent, #0d9488)) !important;
     color: #fff;
 }
 .litepicker .container__days .day-item:hover {
-    box-shadow: inset 0 0 0 1px var(--color-accent) !important;
-    color: var(--color-accent);
+    box-shadow: inset 0 0 0 1px var(--if-primary, var(--color-accent, #0d9488)) !important;
+    color: var(--if-primary, var(--color-accent, #0d9488));
 }
 
-/* Bootstrap "close" (X) button on modals gets the themed muted color */
-.btn-close {
-    --bs-btn-close-color: var(--color-text);
+/* =============================================================================
+   TOP NAVBAR  (includes/top_nav.php)
+
+   The markup is <header class="app-header navbar navbar-expand d-print-none"
+   data-bs-theme="dark">. includes/top_nav.php keeps the .app-header class
+   deliberately, and names these rules in its own comment, because Tabler has no
+   equivalent for a horizontal navbar nested inside .page-wrapper — which is where
+   includes/inc_wrapper.php flushes it, to stay clear of Tabler's
+   `.page:has(> [class*=navbar-expand]) > .navbar-vertical { display:none }` layout
+   switch. Do not rename .app-header without editing top_nav.php in the same change.
+   ============================================================================= */
+.app-header.navbar {
+    background-color: var(--if-chrome-bg) !important;
+    border-bottom: 1px solid var(--if-chrome-border);
 }
-
-/* Legacy card padding parity: AL4 .card-title no longer floats, keep it inline */
-.card-header .card-title {
-    margin-bottom: 0;
-}
-
-/* AL4's .btn-tool ships margin:-1rem 0 (AL3 shipped -.75rem 0), sized to
-   balance against a default-padding .card-header. Compact headers app-wide
-   use the px-3/py-2 utility-class convention (.5rem vertical padding) instead
-   of AL4's default, so the wider AL4 negative margin now overshoots and pulls
-   the icon button (collapse/edit/expand) noticeably too far up/off-center. */
-.card-header.py-2 .btn-tool,
-.card-header.py-1 .btn-tool {
-    margin: -.5rem 0;
-}
-
-/* Bootstrap 5 dropped the BS4 data-toggle="buttons" radio/checkbox-styled-as-
-   button-group plugin entirely - including the CSS that hid the actual
-   <input type="radio"/checkbox"> nested inside each label.btn. Without this,
-   the native browser radio/checkbox renders visibly in front of the label
-   text (e.g. a raw "O" circle before "Internal") on every .js-btn-group-toggle
-   group app-wide - the JS half of this shim (app.js: initButtonGroupToggle)
-   only handles the .active class, not this. */
-.js-btn-group-toggle .btn input[type="radio"],
-.js-btn-group-toggle .btn input[type="checkbox"] {
-    position: absolute !important;
-    width: 1px !important;
-    height: 1px !important;
-    padding: 0 !important;
-    margin: -1px !important;
-    overflow: hidden !important;
-    clip: rect(0, 0, 0, 0) !important;
-    white-space: nowrap !important;
-    border: 0 !important;
-    pointer-events: none;
-}
-
-/* --- BS4->BS5 compatibility shims: harmless removed classes styled globally so
-       the codemod doesn't have to touch every occurrence --- */
-.form-group { margin-bottom: 1rem; }
-.media { display: flex; align-items: flex-start; }
-.media-body { flex: 1 1 auto; }
-.input-group-prepend, .input-group-append { display: flex; }
-.input-group-prepend > .input-group-text { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-.input-group-append > .input-group-text { border-top-left-radius: 0; border-bottom-left-radius: 0; }
-/* BS4 .close button (BS5 renamed to .btn-close with a bg image) — style legacy .close so unswept modals look right */
-.close { float: right; font-size: 1.4rem; font-weight: 700; line-height: 1; color: inherit; opacity: .5; background: transparent; border: 0; padding: .25rem .5rem; cursor: pointer; }
-.close:hover { opacity: .9; }
-
-/* ============================================================================
-   BS4 + AdminLTE-3 -> BS5/AL4 COMPATIBILITY LAYER
-   Restores components/utilities the codemod does not convert, so legacy markup
-   renders correctly app-wide without editing every page.
-   ============================================================================ */
-
-/* --- removed BS4 utilities --- */
-.btn-block { display: block; width: 100%; }
-.btn-block + .btn-block { margin-top: .5rem; }
-.form-row { display: flex; flex-wrap: wrap; margin-right: -5px; margin-left: -5px; }
-.form-row > .col, .form-row > [class*="col-"] { padding-right: 5px; padding-left: 5px; }
-.thead-light th, .thead-light > tr > th { background-color: #e9ecef; color: #212529; }
-.thead-dark th,  .thead-dark  > tr > th { background-color: #343a40; color: #fff; }
-.dropdown-menu-right { right: 0; left: auto; }
-.sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-.text-monospace { font-family: var(--bs-font-monospace) !important; }
-.font-italic { font-style: italic !important; }
-
-/* --- transitional BS4 spacing/align (belt-and-suspenders until every page is swept) --- */
-.text-left{text-align:left!important;} .text-right{text-align:right!important;}
-.float-left{float:left!important;} .float-right{float:right!important;}
-.ml-0{margin-left:0!important;} .ml-1{margin-left:.25rem!important;} .ml-2{margin-left:.5rem!important;} .ml-3{margin-left:1rem!important;} .ml-4{margin-left:1.5rem!important;} .ml-5{margin-left:3rem!important;} .ml-auto{margin-left:auto!important;}
-.mr-0{margin-right:0!important;} .mr-1{margin-right:.25rem!important;} .mr-2{margin-right:.5rem!important;} .mr-3{margin-right:1rem!important;} .mr-4{margin-right:1.5rem!important;} .mr-5{margin-right:3rem!important;} .mr-auto{margin-right:auto!important;}
-.pl-0{padding-left:0!important;} .pl-1{padding-left:.25rem!important;} .pl-2{padding-left:.5rem!important;} .pl-3{padding-left:1rem!important;} .pl-4{padding-left:1.5rem!important;} .pl-5{padding-left:3rem!important;}
-.pr-0{padding-right:0!important;} .pr-1{padding-right:.25rem!important;} .pr-2{padding-right:.5rem!important;} .pr-3{padding-right:1rem!important;} .pr-4{padding-right:1.5rem!important;} .pr-5{padding-right:3rem!important;}
-.font-weight-bold{font-weight:700!important;} .font-weight-bolder{font-weight:bolder!important;} .font-weight-normal{font-weight:400!important;} .font-weight-light{font-weight:300!important;}
-.badge-primary{color:#fff;background-color:var(--bs-primary)!important;} .badge-secondary{color:#fff;background-color:#6c757d!important;} .badge-success{color:#fff;background-color:var(--bs-success)!important;} .badge-danger{color:#fff;background-color:var(--bs-danger)!important;} .badge-warning{color:#000;background-color:var(--bs-warning)!important;} .badge-info{color:#000;background-color:var(--bs-info)!important;} .badge-light{color:#000;background-color:#f8f9fa!important;} .badge-dark{color:#fff;background-color:#343a40!important;}
-
-/* --- AdminLTE 3 small-box (dashboard stat tiles) --- */
-.small-box{position:relative;display:block;margin-bottom:1rem;border-radius:.5rem;box-shadow:0 0 1px rgba(0,0,0,.125),0 1px 3px rgba(0,0,0,.2);color:#fff;overflow:hidden;}
-.small-box>.inner{padding:10px;}
-.small-box h3{font-size:2.2rem;font-weight:700;margin:0 0 10px;white-space:nowrap;padding:0;}
-.small-box p{font-size:1rem;margin:0;}
-.small-box .icon{position:absolute;top:10px;right:15px;z-index:0;font-size:70px;color:rgba(0,0,0,.15);}
-.small-box .small-box-footer{position:relative;z-index:10;display:block;padding:3px 0;text-align:center;background:rgba(0,0,0,.1);color:rgba(255,255,255,.8);text-decoration:none;}
-.small-box .small-box-footer:hover{background:rgba(0,0,0,.15);color:#fff;}
-
-/* --- AdminLTE 3 info-box --- */
-.info-box{display:flex;min-height:80px;margin-bottom:1rem;border-radius:.5rem;background:var(--bs-body-bg,#fff);box-shadow:0 0 1px rgba(0,0,0,.125),0 1px 3px rgba(0,0,0,.2);}
-.info-box .info-box-icon{display:flex;align-items:center;justify-content:center;width:70px;font-size:1.8rem;color:#fff;border-radius:.5rem 0 0 .5rem;}
-.info-box .info-box-content{display:flex;flex-direction:column;justify-content:center;flex:1;padding:5px 10px;overflow:hidden;}
-.info-box .info-box-text{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.info-box .info-box-number{display:block;font-weight:700;font-size:1.2rem;}
-.info-box .progress{height:2px;margin:5px 0;background:rgba(0,0,0,.125);}
-
-/* Colored .info-box variants: Bootstrap's .bg-* utilities only set background-color,
-   so the default dark body text sits directly on a saturated fill (unreadable on
-   bg-dark/success/danger/primary/secondary), and the undefined .bg-teal utility
-   renders as a blank tile next to its colored siblings. Muted surface + colored left
-   accent + colored icon instead, matching the app's contextual-row treatment (see
-   itflow_design.css "Contextual rows"). Global so every .info-box usage app-wide gets
-   readable, on-brand tiles instead of each page needing its own copy of this fix. */
-.info-box.bg-primary, .info-box.bg-secondary, .info-box.bg-success, .info-box.bg-danger,
-.info-box.bg-warning, .info-box.bg-info, .info-box.bg-dark, .info-box.bg-teal {
-    background-color: var(--if-surface) !important;
-    color: var(--if-ink) !important;
-    border: 1px solid var(--if-border);
-    border-inline-start-width: 3px;
-    box-shadow: var(--if-shadow);
-}
-.info-box.bg-primary   { border-inline-start-color: #0d6efd; }
-.info-box.bg-secondary { border-inline-start-color: #6c757d; }
-.info-box.bg-success   { border-inline-start-color: #059669; }
-.info-box.bg-danger    { border-inline-start-color: #dc2626; }
-.info-box.bg-warning   { border-inline-start-color: #d97706; }
-.info-box.bg-info      { border-inline-start-color: #0891b2; }
-.info-box.bg-dark      { border-inline-start-color: #475569; }
-.info-box.bg-teal      { border-inline-start-color: var(--color-accent, #0d9488); }
-.info-box.bg-primary .info-box-icon   { color: #0d6efd; }
-.info-box.bg-secondary .info-box-icon { color: #6c757d; }
-.info-box.bg-success .info-box-icon   { color: #059669; }
-.info-box.bg-danger .info-box-icon    { color: #dc2626; }
-.info-box.bg-warning .info-box-icon   { color: #b45309; }
-.info-box.bg-info .info-box-icon      { color: #0891b2; }
-.info-box.bg-dark .info-box-icon      { color: #475569; }
-.info-box.bg-teal .info-box-icon      { color: var(--color-accent, #0d9488); }
-
-/* --- AdminLTE 3 callout --- */
-.callout{margin-bottom:1rem;padding:1rem;border-radius:.25rem;border-left:5px solid #6c757d;background:var(--bs-body-bg,#fff);box-shadow:0 0 1px rgba(0,0,0,.125),0 1px 3px rgba(0,0,0,.1);}
-.callout.callout-info{border-left-color:var(--bs-info);} .callout.callout-success{border-left-color:var(--bs-success);} .callout.callout-warning{border-left-color:var(--bs-warning);} .callout.callout-danger{border-left-color:var(--bs-danger);}
-
-/* --- AdminLTE 3 timeline --- */
-.timeline{position:relative;margin:0 0 30px;padding:0;list-style:none;}
-.timeline::before{content:'';position:absolute;top:0;bottom:0;left:31px;width:4px;background:#dee2e6;border-radius:2px;}
-.timeline>div{position:relative;margin-bottom:15px;}
-.timeline>div>.timeline-item{position:relative;margin-left:60px;margin-right:0;padding:0;border-radius:.25rem;background:var(--bs-body-bg,#fff);box-shadow:0 0 1px rgba(0,0,0,.125),0 1px 3px rgba(0,0,0,.1);}
-.timeline .timeline-item>.timeline-header{margin:0;padding:10px;font-size:1rem;line-height:1.1;border-bottom:1px solid rgba(0,0,0,.075);}
-.timeline .timeline-item>.timeline-body,.timeline .timeline-item>.timeline-footer{padding:10px;}
-.timeline>div>.fa,.timeline>div>.fas,.timeline>div>.far,.timeline>div>.fab,.timeline>div>i{position:absolute;left:18px;top:0;width:30px;height:30px;border-radius:50%;text-align:center;line-height:30px;font-size:15px;color:#fff;background:#6c757d;}
-.timeline>.time-label>span{display:inline-block;padding:5px 10px;font-weight:600;border-radius:4px;background:#fff;}
-:root[data-bs-theme="dark"] .info-box,:root[data-bs-theme="dark"] .callout,:root[data-bs-theme="dark"] .timeline>div>.timeline-item{background:var(--color-surface,#17242a);}
-
-/* --- AdminLTE 3 navbar search + badge (top nav) --- */
-.navbar .input-group.input-group-sm { border-radius:.375rem; overflow:hidden; }
-/* Anchored next to the sidebar toggle with a deliberate width — never a flex-stretched
-   element floating in whatever space the other nav groups don't claim. */
-.app-header-search { width: 280px; max-width: 32vw; margin-inline-start: .25rem; }
-/* Scoped under .app-header (not just .form-control-navbar) so this beats itflow_design.css's
-   plain ".form-control" rule on specificity alone - that file loads AFTER this one and its
-   ".form-control" selector has the same specificity (one class), so without the extra
-   ancestor scope it wins the cascade on load order and flattens the navbar search box to a
-   plain white input instead of the intended translucent-on-dark pill. */
-.app-header .form-control-navbar { background-color: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); color: #fff; }
-.app-header .form-control-navbar::placeholder { color: rgba(255,255,255,.55); }
-.app-header .form-control-navbar:focus { background-color: rgba(255,255,255,.16); color: #fff; box-shadow: none; border-color: rgba(255,255,255,.4); }
-.btn-navbar { background-color: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); border-left: 0; color: rgba(255,255,255,.75); }
-.btn-navbar:hover, .btn-navbar:focus { background-color: rgba(255,255,255,.24); color: #fff; }
-.navbar-badge { font-size: .6rem; padding: .2em .4em; }
-.app-header .nav-link { color: rgba(255,255,255,.85); }
+.app-header .nav-link { color: var(--if-chrome-ink); }
 .app-header .nav-link:hover { color: #fff; }
 
-/* --- Live global-search dropdown --- */
-.app-header-search { position: relative; }
+.navbar .input-group.input-group-sm {
+    border-radius: var(--if-radius-sm, .375rem);
+    overflow: hidden;
+}
+
+/* The search box is anchored next to the sidebar toggle at a deliberate width —
+   never a flex-stretched element floating in whatever space the other nav groups
+   happen not to claim. */
+.app-header-search {
+    position: relative;
+    width: 280px;
+    max-width: 32vw;
+    margin-inline-start: .25rem;
+}
+
+/* Scoped under .app-header rather than styling .form-control-navbar alone: this
+   file loads BEFORE css/itflow_design.css, whose plain `.form-control` rule has
+   the same one-class specificity and would therefore win on load order and
+   flatten the navbar search into a plain white input instead of the intended
+   translucent-on-dark pill. The extra ancestor buys the specificity. */
+.app-header .form-control-navbar {
+    background-color: rgba(255, 255, 255, .1);
+    border: 1px solid rgba(255, 255, 255, .16);
+    color: #fff;
+}
+.app-header .form-control-navbar::placeholder { color: var(--if-chrome-ink-dim); }
+.app-header .form-control-navbar:focus {
+    background-color: rgba(255, 255, 255, .16);
+    color: #fff;
+    box-shadow: none;
+    border-color: rgba(255, 255, 255, .4);
+}
+.btn-navbar {
+    background-color: rgba(255, 255, 255, .1);
+    border: 1px solid rgba(255, 255, 255, .16);
+    border-left: 0;
+    color: rgba(255, 255, 255, .75);
+}
+.btn-navbar:hover,
+.btn-navbar:focus { background-color: rgba(255, 255, 255, .24); color: #fff; }
+
+.navbar-badge { font-size: .6rem; padding: .2em .4em; }
+
+/* ---- Live global-search dropdown ------------------------------------------
+   Built element-by-element in top_nav.php's nonced inline script; every class
+   name below is assigned there (app-header-search-group / -group-label /
+   -result / -result-title / -result-subtitle / -empty / -seeall). Unlike the
+   navbar chrome above this panel sits on the page surface, not the dark chrome,
+   so it reads normal theme tokens. */
 .app-header-search-results {
     position: absolute;
     top: calc(100% + 4px);
@@ -372,10 +247,10 @@
     width: max(280px, 100%);
     max-height: 70vh;
     overflow-y: auto;
-    background: var(--if-surface);
-    color: var(--if-ink);
-    border: 1px solid var(--if-border-strong);
-    border-radius: var(--if-radius-sm);
+    background: var(--if-surface, #fff);
+    color: var(--if-ink, #16232a);
+    border: 1px solid var(--if-border-strong, #d3dbdc);
+    border-radius: var(--if-radius-sm, 8px);
     box-shadow: var(--if-shadow);
     z-index: 1050;
     padding: .35rem 0;
@@ -386,159 +261,127 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .04em;
-    color: var(--if-muted);
+    color: var(--if-muted, #5d6f76);
 }
 .app-header-search-result {
     display: block;
     padding: .35rem .75rem;
-    color: var(--if-ink);
+    color: var(--if-ink, #16232a);
     text-decoration: none;
-    border-radius: var(--if-radius-sm);
+    border-radius: var(--if-radius-sm, 8px);
 }
 .app-header-search-result:hover,
 .app-header-search-result:focus {
-    background: var(--if-bg);
-    color: var(--if-ink);
+    background: var(--if-bg, #eef2f2);
+    color: var(--if-ink, #16232a);
 }
 .app-header-search-result-title { font-weight: 500; font-size: .875rem; }
-.app-header-search-result-subtitle { font-size: .75rem; color: var(--if-muted); }
-.app-header-search-empty { padding: .5rem .75rem; font-size: .8rem; color: var(--if-muted); }
+.app-header-search-result-subtitle { font-size: .75rem; color: var(--if-muted, #5d6f76); }
+.app-header-search-empty { padding: .5rem .75rem; font-size: .8rem; color: var(--if-muted, #5d6f76); }
 .app-header-search-seeall {
     display: block;
     padding: .5rem .75rem;
     margin-top: .25rem;
-    border-top: 1px solid var(--if-border);
+    border-top: 1px solid var(--if-border, #e3e9ea);
     font-size: .8rem;
     text-align: center;
-    color: var(--color-accent, #0d9488);
+    color: var(--if-primary, var(--color-accent, #0d9488));
     text-decoration: none;
 }
 .app-header-search-seeall:hover { text-decoration: underline; }
 
-/* --- Force ITFlow dark brand sidebar (AL4 default is light; data-bs-theme was inconsistent) --- */
-.app-sidebar { --lte-sidebar-bg:#2b3038; background-color:#2b3038 !important; }
-/* AdminLTE4's stock .sidebar-brand centers its content (built for a centered
-   logo+wordmark); .section-nav-back needs the same left-aligned "icon then
-   label" layout the other sidebars get for free by not living inside it. */
-.app-sidebar .sidebar-brand { background-color:#232830 !important; border-bottom:1px solid rgba(255,255,255,.06); justify-content:flex-start !important; }
-.app-sidebar .sidebar-brand .section-nav-back { border-bottom:0; padding:0; width:100%; }
-.app-sidebar, .app-sidebar .brand-link, .app-sidebar .nav-link, .app-sidebar .nav-link p, .app-sidebar .nav-icon { color:#c2c7d0 !important; }
-.app-sidebar .nav-header { color:#8a94a6 !important; text-transform:uppercase; font-size:.72rem; letter-spacing:.04em; }
-.app-sidebar .nav-link.active { background-color:var(--color-accent) !important; }
-.app-sidebar .nav-link.active, .app-sidebar .nav-link.active .nav-icon, .app-sidebar .nav-link.active p { color:#fff !important; }
-.app-sidebar .nav-link:hover { background-color:rgba(255,255,255,.08) !important; color:#fff !important; }
+/* =============================================================================
+   SECONDARY-SIDEBAR BRAND AREA
 
-/* AdminLTE4 ships scrollbar-color/-width styling for .sidebar-wrapper but never
-   actually gives it overflow:auto (v4 expects a JS scroll library we don't vendor) -
-   so on any viewport shorter than the full nav list, the lower items overflow past
-   the fixed sidebar box uncontained instead of scrolling into view. Contain it
-   explicitly: absolutely-positioned below the fixed-height brand, filling the rest
-   of the sidebar, scrolling internally. */
-.app-sidebar { position: fixed; }
-.app-sidebar .sidebar-wrapper {
-  position: absolute;
-  top: 3.5rem; left: 0; right: 0; bottom: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-}
+   Every secondary sidebar now renders as
+       aside.navbar.navbar-vertical.navbar-expand-lg[data-bs-theme="dark"]
+         > .container-fluid
+           > button.navbar-toggler
+           + div.navbar-brand.p-0.w-100.flex-column.align-items-stretch
+           + div.collapse.navbar-collapse#sidebar-menu
+   and each of the five files (agent/includes/client_side_nav.php,
+   agent/includes/client_overview_side_nav.php,
+   agent/reports/includes/reports_side_nav.php,
+   agent/user/includes/user_side_nav.php, admin/includes/side_nav.php) states in
+   its own comment that the brand box is deliberately padding-free (p-0) so THESE
+   rules fill it. They are the contract between this file and those five.
 
-/* --- AL3 .main-sidebar (client-context sidebars) -> fixed like AL4 .app-sidebar --- */
-.main-sidebar {
-  position: fixed !important; top: 0; left: 0; bottom: 0; width: 250px; z-index: 1035;
-  background-color: #2b3038 !important;
-  overflow: hidden; display: flex; flex-direction: column;
-}
-/* Only the nav list scrolls - the back link + client identity stay put above it */
-.main-sidebar .sidebar { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
-.main-sidebar, .main-sidebar .sidebar, .main-sidebar .nav-link, .main-sidebar .nav-link p { color: #c2c7d0 !important; }
-.main-sidebar .nav-sidebar { padding: .5rem; }
-.main-sidebar .nav-link {
-  padding: .5rem 1rem; border-radius: .375rem;
-  display: flex; align-items: center; gap: .65rem;
-}
-.main-sidebar .nav-link .nav-icon {
-  flex-shrink: 0; width: 1.25rem; text-align: center; font-size: .95rem;
-}
-.main-sidebar .nav-link p {
-  margin: 0; flex: 1 1 auto; min-width: 0;
-  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.main-sidebar .nav-link p .badge { flex-shrink: 0; }
-.main-sidebar .nav-link.active { background-color: var(--color-accent) !important; color: #fff !important; }
-.main-sidebar .nav-link.active .nav-icon, .main-sidebar .nav-link.active p { color: #fff !important; }
-.main-sidebar .nav-link:not(.active):hover { background-color: rgba(255,255,255,.08) !important; color: #fff !important; }
-.main-sidebar .nav-header { color: #8a94a6 !important; padding: .8rem 1rem .3rem; text-transform: uppercase; font-size: .72rem; letter-spacing: .04em; }
+   .section-nav-back is the plain "back to the app" link used by Reports,
+   Administration, Account and Department Overview. .client-nav-* is the richer
+   client-scoped variant: back link stacked over a real name + avatar, replacing
+   the old cryptic "Back | ABC" abbreviation.
 
-/* Client identity block: replaces the old cryptic "Back | ABC" abbreviation link
-   with a real name + avatar, matching the app-sidebar brand's visual weight. */
-/* .section-nav-back is the same "Back" link, reused by every other sidebar
-   (Reports, Administration, Account, Department Overview, Custom) that isn't
-   scoped to a single client - previously each of those still had AdminLTE's
-   stock brand-link markup ("Back | <strong>Title</strong>"), left unstyled
-   and rendering as default blue underlined link text. */
-.client-nav-back, .section-nav-back {
-  display: flex; align-items: center; gap: .5rem; flex-shrink: 0;
-  padding: .7rem 1rem; color: rgba(255,255,255,.6) !important; font-size: .95rem; font-weight: 500;
-  border-bottom: 1px solid rgba(255,255,255,.06); text-decoration: none;
-  transition: color .15s ease-out, background-color .15s ease-out;
+   Colours are literal white/near-white rather than tokens on purpose: the aside
+   is always dark regardless of app theme, and (see the chrome-token note at the
+   top) the --tblr-* and --if-* surface tokens inherit the LIGHT values into it.
+   ============================================================================= */
+.client-nav-back,
+.section-nav-back {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex-shrink: 0;
+    width: 100%;
+    padding: .7rem 1rem;
+    color: rgba(255, 255, 255, .6) !important;
+    font-size: .95rem;
+    font-weight: 500;
+    border-bottom: 1px solid rgba(255, 255, 255, .06);
+    text-decoration: none;
+    transition: color .15s ease-out, background-color .15s ease-out;
 }
-.client-nav-back:hover, .section-nav-back:hover { color: #fff !important; background-color: rgba(255,255,255,.06); }
-.client-nav-back i, .section-nav-back i { transition: transform .15s ease-out; }
-.client-nav-back:hover i, .section-nav-back:hover i { transform: translateX(-2px); }
+.client-nav-back:hover,
+.section-nav-back:hover {
+    color: #fff !important;
+    background-color: rgba(255, 255, 255, .06);
+}
+.client-nav-back i,
+.section-nav-back i { transition: transform .15s ease-out; }
+.client-nav-back:hover i,
+.section-nav-back:hover i { transform: translateX(-2px); }
+
 .client-nav-header {
-  display: flex; align-items: center; gap: .7rem; flex-shrink: 0;
-  padding: .85rem 1rem; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.06);
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    flex-shrink: 0;
+    width: 100%;
+    padding: .85rem 1rem;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255, 255, 255, .06);
 }
 .client-nav-avatar {
-  flex-shrink: 0; width: 2.25rem; height: 2.25rem; border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--color-accent); color: #fff; font-weight: 700; font-size: .85rem; letter-spacing: .02em;
+    flex-shrink: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--if-radius-sm, 8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--if-primary, var(--color-accent, #0d9488));
+    color: #fff;
+    font-weight: 700;
+    font-size: .85rem;
+    letter-spacing: .02em;
 }
-.client-nav-identity { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.client-nav-identity {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
 .client-nav-name {
-  color: #fff; font-weight: 600; font-size: .92rem; line-height: 1.25;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: #fff;
+    font-weight: 600;
+    font-size: .92rem;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.client-nav-type { color: #8a94a6; font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; }
-/* When a page uses .main-sidebar (position:fixed, 250px wide, out of grid flow - see above),
-   nothing in the grid reserves room for it, so .app-header/.app-main render full-width and
-   the fixed sidebar simply overlaps on top of their left edge (e.g. the top-nav search bar
-   appearing clipped/overlapped). .app-main was already offset here; .app-header was missing
-   the same margin-left, which is the actual bug - the sidebar was never "covering" the search
-   bar, the header just never left room for it in the first place. */
-body:has(.main-sidebar) .app-header { position: sticky; top: 0; z-index: 1030; margin-left: 250px; }
-body:has(.main-sidebar) .app-main { margin-left: 250px; }
-
-/* --- Make .main-sidebar (client-context) responsive like AL4 .app-sidebar (off-canvas < lg) --- */
-@media (max-width: 991.98px) {
-  .main-sidebar { margin-left: -250px; transition: margin-left .3s ease; }
-  .sidebar-open .main-sidebar { margin-left: 0; box-shadow: 0 0 2rem rgba(0,0,0,.5); }
-  body:has(.main-sidebar) .app-main { margin-left: 0 !important; }
-  body:has(.main-sidebar) .app-header { margin-left: 0 !important; }
+.client-nav-type {
+    color: #8a94a6;
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .03em;
 }
-
-/* --- AdminLTE 3 named .text-<color> utilities, ported over for the AL4 switch ---
-   AL4's CSS dropped these (it only ships Bootstrap's palette), so every consumer
-   still asking for e.g. .text-lightblue/.text-navy/.text-maroon (admin/settings_theme.php's
-   "Select a Theme" swatches being the visible case - all 18 rendered as the same
-   inherited dark color instead of their real hue) silently fell through to inherit
-   text color instead. Values match AdminLTE 3's light-mode palette. */
-.text-lightblue { color: #3c8dbc !important; }
-.text-navy      { color: #001f3f !important; }
-.text-olive     { color: #3d9970 !important; }
-.text-fuchsia   { color: #f012be !important; }
-.text-maroon    { color: #d81b60 !important; }
-.text-indigo    { color: #6610f2 !important; }
-.text-purple    { color: #6f42c1 !important; }
-.text-pink      { color: #e83e8c !important; }
-.text-orange    { color: #fd7e14 !important; }
-.text-teal      { color: #20c997 !important; }
-.text-gray      { color: #6c757d !important; }
-.text-black     { color: #000000 !important; }
-.text-blue      { color: #007bff !important; }
-.text-cyan      { color: #17a2b8 !important; }
-.text-green     { color: #28a745 !important; }
-.text-red       { color: #dc3545 !important; }
-.text-yellow    { color: #ffc107 !important; }

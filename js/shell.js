@@ -1,0 +1,205 @@
+/* =============================================================================
+   js/shell.js - application shell behaviour (replaces plugins/adminlte4/js/adminlte.min.js)
+
+   AdminLTE 4 exported six widgets; only two were ever exercised by this app:
+   PushMenu (the top-navbar hamburger) and Treeview (sidebar group expand). Both
+   are reimplemented here in vanilla JS, with no dependency on adminlte.min.js,
+   no jQuery, and no inline handlers (CSP: script-src 'self' 'nonce-...').
+
+   MARKUP CONTRACT - all five sidebars (agent, admin, client, client-overview,
+   reports, user) emit the same Tabler shape:
+
+       aside.navbar.navbar-vertical.navbar-expand-lg
+         > .container-fluid
+           > button.navbar-toggler[data-bs-toggle=collapse][data-bs-target="#sidebar-menu"]
+           > .navbar-brand
+           > .collapse.navbar-collapse#sidebar-menu
+               > ul.navbar-nav
+                   > li.nav-item.dropdown[.active]
+                       > a.nav-link.dropdown-toggle[data-if-toggle=submenu][.show]
+                       > div.dropdown-menu#nav-group-<name>[.show]
+
+   and includes/top_nav.php emits the hamburger as
+       button#itflowSidebarToggle[data-lte-toggle=sidebar][aria-controls=sidebar-menu]
+   (the data-lte-toggle attribute is kept deliberately as the stable selector).
+
+   WHAT THIS FILE DOES NOT DO
+   - It does not read a breakpoint out of a CSS ::before content string the way
+     AL4's PushMenu did. The breakpoint lives here, in one matchMedia() query,
+     matching Tabler's own navbar-expand-lg (>= 992px).
+   - It does not re-wire the sidebar's own .navbar-toggler: that button carries
+     data-bs-toggle="collapse" and bootstrap.bundle.min.js already owns it. This
+     file drives the SAME collapse instance so the two togglers never disagree,
+     and listens to the collapse events so state stays in sync either way.
+   - It does not fight Bootstrap's dropdown data-api: the sidebar group toggles
+     carry data-if-toggle="submenu", NOT data-bs-toggle="dropdown".
+
+   Safe to load on pages with no sidebar (guest portal, login) - init() returns
+   early and binds nothing.
+   ============================================================================= */
+(function () {
+    'use strict';
+
+    /* Tabler's navbar-expand-lg breakpoint. Below it the sidebar is an off-canvas
+       collapse; at or above it the sidebar is a fixed column and the hamburger
+       folds it to Tabler's 4rem icon rail (.navbar-folded, which also retargets
+       --tblr-sidebar-width for the following .page-wrapper, so content reflows). */
+    var MOBILE_QUERY = '(max-width: 991.98px)';
+    var FOLD_KEY = 'itflow.sidebar.folded';
+
+    function readPref(key) {
+        try { return window.localStorage.getItem(key); } catch (e) { return null; }
+    }
+    function writePref(key, value) {
+        try { window.localStorage.setItem(key, value); } catch (e) { /* private mode / blocked site data */ }
+    }
+
+    function init() {
+        var sidebar = document.querySelector('aside.navbar-vertical');
+        if (!sidebar) { return; }                                   // guest / login pages
+
+        var menu = document.getElementById('sidebar-menu');
+        var toggles = document.querySelectorAll('[data-lte-toggle="sidebar"]');
+        var mq = window.matchMedia(MOBILE_QUERY);
+        var foldedGroups = [];                                      // groups closed by folding, to restore on unfold
+
+        function isMobile() { return mq.matches; }
+
+        /* --- shared state broadcast ------------------------------------------
+           body.sidebar-open is set/cleared on every state change. No first-party
+           CSS consumes it today (the .sidebar-open .main-sidebar rule died with
+           the AdminLTE-3-generation sidebars), but it is the documented contract
+           for this toggle and is what any future off-canvas CSS should key on. */
+        function sync() {
+            var open = isMobile()
+                ? !!(menu && menu.classList.contains('show'))
+                : !sidebar.classList.contains('navbar-folded');
+            document.body.classList.toggle('sidebar-open', open);
+            for (var i = 0; i < toggles.length; i++) {
+                toggles[i].setAttribute('aria-expanded', open ? 'true' : 'false');
+            }
+        }
+
+        /* --- behaviour 2: nav group expand / collapse (replaces Treeview) ----- */
+        function groupPanel(toggle) {
+            var id = toggle.getAttribute('aria-controls') ||
+                     (toggle.getAttribute('href') || '').replace(/^#/, '');
+            var panel = id ? document.getElementById(id) : null;
+            if (panel) { return panel; }
+            var next = toggle.nextElementSibling;
+            return (next && next.classList.contains('dropdown-menu')) ? next : null;
+        }
+        function setGroup(toggle, open) {
+            var panel = groupPanel(toggle);
+            var item = toggle.closest('.nav-item');
+            toggle.classList.toggle('show', open);
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            if (panel) { panel.classList.toggle('show', open); }
+            if (item) { item.classList.toggle('active', open); }
+        }
+        /* Delegated, so it also covers sidebars swapped in later. Multiple groups
+           may be open at once (AdminLTE forced accordion behaviour through a
+           hardcoded constant while the markup asked for data-accordion="false";
+           single-open was never intentional). The group containing the current
+           page is emitted already open server-side and is never collapsed here. */
+        sidebar.addEventListener('click', function (e) {
+            var toggle = e.target.closest && e.target.closest('[data-if-toggle="submenu"]');
+            if (!toggle || !sidebar.contains(toggle)) { return; }
+            e.preventDefault();
+            setGroup(toggle, !toggle.classList.contains('show'));
+        });
+
+        /* Folding turns every open group into an absolutely positioned flyout
+           (Tabler: .navbar-folded .dropdown-menu { position:absolute; inset-inline-start:100% }),
+           so a server-opened group would hang over the page content permanently.
+           Close them on fold, restore exactly those on unfold. */
+        function closeGroupsForFold() {
+            foldedGroups = [];
+            var open = sidebar.querySelectorAll('[data-if-toggle="submenu"].show');
+            for (var i = 0; i < open.length; i++) {
+                foldedGroups.push(open[i]);
+                setGroup(open[i], false);
+            }
+        }
+        function restoreGroupsAfterUnfold() {
+            for (var i = 0; i < foldedGroups.length; i++) { setGroup(foldedGroups[i], true); }
+            foldedGroups = [];
+        }
+
+        /* --- behaviour 1: sidebar toggle (replaces PushMenu) ------------------ */
+        function setFolded(folded) {
+            if (folded === sidebar.classList.contains('navbar-folded')) { return; }
+            sidebar.classList.toggle('navbar-folded', folded);
+            if (folded) { closeGroupsForFold(); } else { restoreGroupsAfterUnfold(); }
+            sync();
+        }
+        function setMenu(show) {
+            if (!menu) { return; }
+            if (window.bootstrap && window.bootstrap.Collapse) {
+                var c = window.bootstrap.Collapse.getOrCreateInstance(menu, { toggle: false });
+                if (show) { c.show(); } else { c.hide(); }
+            } else {
+                menu.classList.toggle('show', show);                 // .collapse:not(.show){display:none}
+            }
+            sync();
+        }
+
+        for (var t = 0; t < toggles.length; t++) {
+            toggles[t].addEventListener('click', function (e) {
+                e.preventDefault();
+                if (isMobile()) {
+                    setMenu(!(menu && menu.classList.contains('show')));
+                } else {
+                    var folded = !sidebar.classList.contains('navbar-folded');
+                    setFolded(folded);
+                    writePref(FOLD_KEY, folded ? '1' : '0');
+                }
+            });
+        }
+
+        /* Click-outside and Escape dismiss the off-canvas sidebar on mobile.
+           AdminLTE had no equivalent; without it the open sidebar could only be
+           closed from the hamburger it covers on narrow screens. */
+        document.addEventListener('click', function (e) {
+            if (!isMobile() || !menu || !menu.classList.contains('show')) { return; }
+            if (sidebar.contains(e.target)) { return; }
+            if (e.target.closest && e.target.closest('[data-lte-toggle="sidebar"]')) { return; }
+            setMenu(false);
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && isMobile() && menu && menu.classList.contains('show')) {
+                setMenu(false);
+            }
+        });
+
+        /* Keep state honest when the SIDEBAR's own .navbar-toggler (Bootstrap's
+           collapse data-api) drives the same #sidebar-menu. */
+        if (menu) {
+            menu.addEventListener('shown.bs.collapse', sync);
+            menu.addEventListener('hidden.bs.collapse', sync);
+        }
+
+        /* Crossing the breakpoint: leaving mobile drops the off-canvas open state
+           (at >= lg Bootstrap forces .navbar-collapse visible anyway, so this only
+           prevents the sidebar reappearing already-open on the way back down). */
+        var onMediaChange = function () {
+            if (!isMobile() && menu && menu.classList.contains('show')) { setMenu(false); }
+            sync();
+        };
+        if (mq.addEventListener) { mq.addEventListener('change', onMediaChange); }
+        else if (mq.addListener) { mq.addListener(onMediaChange); }     // Safari < 14
+
+        /* Restore the persisted desktop fold preference. AdminLTE advertised this
+           through data-enable-remember="TRUE" but AL4 beta3 shipped no persistence
+           code at all, so this is new behaviour, not a preserved one. Degrades to
+           "unfolded" whenever localStorage is unavailable or throws. */
+        if (readPref(FOLD_KEY) === '1') { setFolded(true); }
+        sync();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();                                                      // defer + already-parsed
+    }
+})();

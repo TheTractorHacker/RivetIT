@@ -6852,3 +6852,91 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.74'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.74') {
+        // Device metrics subsystem. Design and rationale: docs/REDESIGN_ARCHITECTURE_REPORT.md
+        // sections K (registry), N (schema) and O (rollups).
+        //
+        // device_metric_samples deliberately has NO surrogate key. Its composite primary key
+        // (asset_id, metric_id, instance_id, sampled_at) clusters every chart read - one device,
+        // one metric, one instance, one time range - into a contiguous leaf-page scan, AND doubles
+        // as the idempotency key so a retried collector batch dedupes via ON DUPLICATE KEY UPDATE
+        // rather than needing a nullable fingerprint column. That distinction matters: a nullable
+        // column inside a UNIQUE key does NOT dedupe in MariaDB, because NULLs compare as distinct -
+        // three identical inserts would produce three rows. Verified on MariaDB 10.11 before shipping.
+        //
+        // sampled_at is UTC. This is a deliberate divergence from the app's local-time convention so
+        // that hour bucketing is pure field extraction with no timezone function in the query path.
+        //
+        // Rollups carry sum + count rather than a precomputed average, so a coarser tier can be
+        // re-aggregated from a finer one without compounding rounding error.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `device_metric_defs` (
+            `metric_id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+            `metric_key` varchar(64) NOT NULL,
+            `display_name` varchar(100) NOT NULL,
+            `unit` varchar(24) NOT NULL,
+            `metric_kind` enum('gauge','counter') NOT NULL DEFAULT 'gauge',
+            `value_min` double DEFAULT NULL,
+            `value_max` double DEFAULT NULL,
+            `metric_dim` varchar(16) DEFAULT NULL,
+            `display_precision` tinyint(3) unsigned NOT NULL DEFAULT 1,
+            PRIMARY KEY (`metric_id`),
+            UNIQUE KEY `metric_key` (`metric_key`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `device_metric_instances` (
+            `instance_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+            `asset_id` int(11) NOT NULL,
+            `metric_dim` varchar(16) NOT NULL,
+            `instance_key` varchar(96) NOT NULL,
+            `instance_label` varchar(128) DEFAULT NULL,
+            `first_seen_at` datetime NOT NULL,
+            `last_seen_at` datetime NOT NULL,
+            PRIMARY KEY (`instance_id`),
+            UNIQUE KEY `asset_dim_key` (`asset_id`,`metric_dim`,`instance_key`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `device_metric_samples` (
+            `asset_id` int(11) NOT NULL,
+            `metric_id` smallint(5) unsigned NOT NULL,
+            `instance_id` int(10) unsigned NOT NULL DEFAULT 0,
+            `sampled_at` datetime NOT NULL,
+            `metric_value` double NOT NULL,
+            PRIMARY KEY (`asset_id`,`metric_id`,`instance_id`,`sampled_at`),
+            KEY `idx_samples_sampled_at` (`sampled_at`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `device_metric_rollups` (
+            `bucket` enum('hour','day') NOT NULL,
+            `asset_id` int(11) NOT NULL,
+            `metric_id` smallint(5) unsigned NOT NULL,
+            `instance_id` int(10) unsigned NOT NULL DEFAULT 0,
+            `period_start` datetime NOT NULL,
+            `min_value` double NOT NULL,
+            `max_value` double NOT NULL,
+            `sum_value` double NOT NULL,
+            `sample_count` int(10) unsigned NOT NULL,
+            PRIMARY KEY (`bucket`,`asset_id`,`metric_id`,`instance_id`,`period_start`),
+            KEY `idx_rollup_period` (`bucket`,`period_start`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `device_metric_rollup_state` (
+            `bucket` enum('hour','day') NOT NULL,
+            `rolled_through` datetime NOT NULL,
+            `last_run_at` datetime DEFAULT NULL,
+            PRIMARY KEY (`bucket`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `device_metric_collection_state` (
+            `asset_id` int(11) NOT NULL,
+            `integration_id` int(11) NOT NULL,
+            `last_collected_at` datetime DEFAULT NULL,
+            `last_sample_at` datetime DEFAULT NULL,
+            `last_error` varchar(255) DEFAULT NULL,
+            `consecutive_failures` int(10) unsigned NOT NULL DEFAULT 0,
+            `vendor_cursor_json` text DEFAULT NULL,
+            PRIMARY KEY (`asset_id`,`integration_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_enable_device_metrics` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_metrics_collect_interval_seconds` int(11) NOT NULL DEFAULT 300");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_metrics_raw_retention_days` int(11) NOT NULL DEFAULT 14");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_metrics_hour_retention_days` int(11) NOT NULL DEFAULT 90");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.75'");
+    }
+

@@ -131,6 +131,15 @@ $config_rmm_default_integration_id = intval($row['config_rmm_default_integration
 $config_rmm_auto_ticket_severities = sanitizeInput($row['config_rmm_auto_ticket_severities'] ?? '');
 $config_rmm_prefer_tactical = intval($row['config_rmm_prefer_tactical'] ?? 1);
 
+// Device metrics ("Metrics", never telemetry - config_telemetry below is the
+// unrelated anonymous phone-home flag). Defaults mirror the 2.6.75 migration's
+// column defaults so an install that has not run the migration yet reads as
+// "off" rather than as a PHP notice.
+$config_enable_device_metrics = intval($row['config_enable_device_metrics'] ?? 0);
+$config_metrics_collect_interval_seconds = intval($row['config_metrics_collect_interval_seconds'] ?? 300);
+$config_metrics_raw_retention_days = intval($row['config_metrics_raw_retention_days'] ?? 14);
+$config_metrics_hour_retention_days = intval($row['config_metrics_hour_retention_days'] ?? 90);
+
 // UniFi Integration (Syncro-Beta)
 $config_module_enable_unifi = intval($row['config_module_enable_unifi'] ?? 0);
 $config_unifi_default_integration_id = intval($row['config_unifi_default_integration_id'] ?? 0);

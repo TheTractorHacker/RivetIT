@@ -1,11 +1,86 @@
-<!-- Navbar (AdminLTE 4 app-header). data-bs-theme="dark" keeps the chrome dark in both app themes. -->
-<nav class="app-header navbar navbar-expand" data-bs-theme="dark">
+<?php
+/* ============================================================================
+   HORIZONTAL TOP NAVBAR (Tabler shell)
+
+   WHY THIS FILE BUFFERS INSTEAD OF PRINTING
+   All six bootstraps (agent/includes/inc_all.php, inc_all_client.php,
+   inc_client_overview_all.php, agent/reports/includes/inc_all_reports.php,
+   agent/user/includes/inc_all_user.php, admin/includes/inc_all_admin.php)
+   require this file in the order:
+
+       header.php  ->  top_nav.php  ->  <family>_side_nav.php  ->  inc_wrapper.php
+
+   so anything printed here lands as a DIRECT CHILD of .page, BEFORE the sidebar.
+   Both of those are wrong under Tabler 1.5:
+
+     1. Tabler implements its vertical/horizontal layout switch in pure CSS:
+            html:not([data-bs-navbar-position=vertical])
+              .page:has(> [class*=navbar-expand]:not(.navbar-vertical))
+              > .navbar-vertical                                  { display:none }
+            html[data-bs-navbar-position=vertical]
+              .page:has(> .navbar-vertical)
+              > [class*=navbar-expand]:not(.navbar-vertical)      { display:none }
+        A horizontal navbar sitting next to the sidebar as a direct child of
+        .page therefore DELETES one of the two navigations - silently, with no
+        console error. This app needs both.
+
+     2. Tabler offsets content past its position:fixed sidebar with
+            .navbar-expand-lg.navbar-vertical ~ .navbar,
+            .navbar-expand-lg.navbar-vertical ~ .page-wrapper
+                { margin-inline-start: var(--tblr-sidebar-width) }
+        a FOLLOWING-sibling rule. Printed here the navbar precedes the sidebar,
+        so it would get no offset and the fixed sidebar would overlap its left
+        15rem - clipping exactly the global search box.
+
+   Buffering into $itflow_top_nav_html lets includes/inc_wrapper.php flush this
+   markup inside .page-wrapper instead, which fixes both at once: out of reach of
+   the :has() layout switch, and already offset by .page-wrapper's own margin.
+
+   HOOK FOR js/shell.js
+   The sidebar toggle below is a plain <button> carrying, deliberately unchanged
+   from the AdminLTE shell:
+       data-lte-toggle="sidebar"        <- the stable selector to bind
+   plus, for the replacement implementation:
+       id="itflowSidebarToggle"
+       aria-controls="sidebar-menu"     <- the id of the sidebar's collapsible nav
+       aria-expanded="false"            <- shell.js should keep this in sync
+   Nothing binds it any more (adminlte.min.js is no longer loaded), so js/shell.js
+   owns it. Reminder from the audit: the four AdminLTE-3-generation sidebars
+   (client / client-overview / reports / user, reachable from 79 page includes)
+   are positioned by css/itflow_bs5_bridge.css's
+       @media (max-width:991.98px) { .sidebar-open .main-sidebar { margin-left:0 } }
+   so the replacement toggle MUST set the class "sidebar-open" on <body> exactly.
+
+   PRESERVED VERBATIM from the AdminLTE version: the global search form + its
+   inline nonced live-search script, the custom_links query and loop, the
+   notification count query and badge, and the user menu including its
+   $session_is_admin gate.
+   ============================================================================ */
+
+// Everything printed from here until ob_get_clean() below is captured, not sent.
+ob_start();
+?>
+<!-- Top navbar. Emitted by includes/inc_wrapper.php inside .page-wrapper.
+     The .app-header class is retained on purpose: css/itflow_bs5_bridge.css styles
+     the dark chrome and the navbar search box through it
+     (.app-header.navbar, .app-header .form-control-navbar, .app-header .nav-link,
+     and body:has(.main-sidebar) .app-header). data-bs-theme="dark" keeps the
+     chrome dark in both app themes.
+     navbar-expand (no breakpoint) = always a horizontal row; there is no
+     .navbar-collapse here, so a breakpointed navbar-expand-* would stack the
+     items vertically on small screens. -->
+<header class="app-header navbar navbar-expand d-print-none" data-bs-theme="dark">
     <div class="container-fluid">
 
     <!-- Left navbar links -->
     <ul class="navbar-nav align-items-center">
         <li class="nav-item">
-            <a class="nav-link" data-lte-toggle="sidebar" data-enable-remember="TRUE" href="#" role="button"><i class="fas fa-bars"></i></a>
+            <button type="button" class="nav-link border-0 bg-transparent shadow-none px-2"
+                    id="itflowSidebarToggle" data-lte-toggle="sidebar"
+                    aria-controls="sidebar-menu" aria-expanded="false"
+                    aria-label="Toggle navigation">
+                <i class="fas fa-bars"></i>
+            </button>
         </li>
         <li class="nav-item d-none d-md-block">
             <!-- SEARCH FORM -->
@@ -69,7 +144,9 @@
         ?>
 
         <li class="nav-item">
-            <a class="nav-link ajax-modal" href="#" data-modal-url="/modals/notifications.php">
+            <!-- position-relative added explicitly: AdminLTE supplied the positioning
+                 context for .navbar-badge's position-absolute, Tabler does not. -->
+            <a class="nav-link position-relative ajax-modal" href="#" data-modal-url="/modals/notifications.php">
                 <i class="fas fa-bell"></i>
                 <?php if ($num_notifications) { ?>
                 <span class="badge text-bg-light rounded-pill navbar-badge position-absolute" style="top: 1px; right: 3px;">
@@ -79,47 +156,49 @@
             </a>
         </li>
 
+        <!-- User menu. Rebuilt on plain Bootstrap/Tabler dropdown primitives:
+             AdminLTE's .user-menu / .user-header / .user-footer / .dropdown-menu-lg /
+             .img-circle / .btn-flat had no first-party definitions and died with
+             adminlte.min.css. The .user-menu class is kept only as a stable hook.
+             Links, ordering and the $session_is_admin gate are unchanged. -->
         <li class="nav-item dropdown user-menu">
-            <a href="#" class="nav-link" data-bs-toggle="dropdown">
+            <a href="#" class="nav-link d-flex align-items-center" data-bs-toggle="dropdown" role="button" aria-expanded="false">
                 <?php if (empty($session_avatar)) { ?>
                 <i class="fas fa-user-circle me-1"></i>
                 <?php }else{ ?>
                 <img src="<?php echo "/uploads/users/$session_user_id/$session_avatar"; ?>"
-                    class="user-image img-circle">
+                    class="rounded-circle me-1" width="28" height="28" alt="">
                 <?php } ?>
                 <span
                     class="d-none d-md-inline dropdown-toggle"><?php echo stripslashes(nullable_htmlentities($session_name)); ?></span>
             </a>
-            <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
-                <!-- User image -->
-                <li class="user-header bg-gray-dark text-center">
+            <div class="dropdown-menu dropdown-menu-end p-0" style="min-width: 17rem;">
+                <!-- User identity -->
+                <div class="text-center px-3 py-3 border-bottom">
                     <?php if (empty($session_avatar)) { ?>
-                    <i class="fas fa-user-circle fa-6x"></i>
+                    <i class="fas fa-user-circle fa-4x text-muted"></i>
                     <?php }else{ ?>
 
-                    <img src="<?php echo "/uploads/users/$session_user_id/$session_avatar"; ?>" class="img-circle">
+                    <img src="<?php echo "/uploads/users/$session_user_id/$session_avatar"; ?>" class="rounded-circle" width="72" height="72" alt="">
                     <?php } ?>
-                    <p>
-                        <?php echo stripslashes(nullable_htmlentities($session_name)); ?>
-                        <small><?php echo nullable_htmlentities($session_user_role_display); ?></small>
-                    </p>
-                </li>
+                    <div class="mt-2 fw-semibold"><?php echo stripslashes(nullable_htmlentities($session_name)); ?></div>
+                    <div class="small text-muted"><?php echo nullable_htmlentities($session_user_role_display); ?></div>
+                </div>
                 <!-- Menu Footer-->
-                <li class="user-footer">
+                <div class="py-1">
                     <?php if ($session_is_admin) { ?>
-                        <a href="/admin/" class="btn btn-default btn-block btn-flat"><i class="fas fa-user-shield me-2"></i>Administration</a>
+                        <a href="/admin/" class="dropdown-item"><i class="fas fa-fw fa-user-shield me-2"></i>Administration</a>
                     <?php } ?>
-                    <div class="d-flex gap-2">
-                        <a href="/agent/user/user_details.php" class="btn btn-default btn-flat flex-fill"><i class="fas fa-user-cog me-2"></i>Account</a>
-                        <a href="/agent/post.php?logout" class="btn btn-default btn-flat flex-fill"><i class="fas fa-sign-out-alt me-2"></i>Logout</a>
-                    </div>
-                </li>
-            </ul>
+                    <a href="/agent/user/user_details.php" class="dropdown-item"><i class="fas fa-fw fa-user-cog me-2"></i>Account</a>
+                    <div class="dropdown-divider"></div>
+                    <a href="/agent/post.php?logout" class="dropdown-item"><i class="fas fa-fw fa-sign-out-alt me-2"></i>Logout</a>
+                </div>
+            </div>
         </li>
 
     </ul>
     </div><!-- /.container-fluid -->
-</nav>
+</header>
 <!-- /.navbar -->
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
@@ -253,3 +332,8 @@
     });
 })();
 </script>
+<?php
+// Hand the finished markup to includes/inc_wrapper.php, which prints it inside
+// .page-wrapper. If a page ever includes this file without that wrapper the
+// navbar is simply not rendered - see the note in inc_wrapper.php.
+$itflow_top_nav_html = ob_get_clean();

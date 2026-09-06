@@ -2808,7 +2808,11 @@ CREATE TABLE `settings` (
   `config_module_enable_crm` tinyint(1) NOT NULL DEFAULT 0,
   `config_ticket_default_technician_id` int(11) DEFAULT NULL,
   `config_module_enable_intune` tinyint(1) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`company_id`)
+  PRIMARY KEY (`company_id`),
+  `config_enable_device_metrics` tinyint(1) NOT NULL DEFAULT 0,
+  `config_metrics_collect_interval_seconds` int(11) NOT NULL DEFAULT 300,
+  `config_metrics_raw_retention_days` int(11) NOT NULL DEFAULT 14,
+  `config_metrics_hour_retention_days` int(11) NOT NULL DEFAULT 90
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -3954,6 +3958,99 @@ CREATE TABLE `vendors` (
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+
+--
+-- Device metrics subsystem (see docs/REDESIGN_ARCHITECTURE_REPORT.md sections K-Q)
+--
+
+-- Metric catalogue: one row per canonical metric key. metric_id is a 2-byte
+-- surrogate so the samples table never repeats a 40-char key on every row.
+CREATE TABLE `device_metric_defs` (
+  `metric_id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `metric_key` varchar(64) NOT NULL,
+  `display_name` varchar(100) NOT NULL,
+  `unit` varchar(24) NOT NULL,
+  `metric_kind` enum('gauge','counter') NOT NULL DEFAULT 'gauge',
+  `value_min` double DEFAULT NULL,
+  `value_max` double DEFAULT NULL,
+  `metric_dim` varchar(16) DEFAULT NULL,
+  `display_precision` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  PRIMARY KEY (`metric_id`),
+  UNIQUE KEY `metric_key` (`metric_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Dimension catalogue: the per-volume / per-core / per-adapter instance a sample
+-- belongs to. instance_id 0 is the reserved host-level sentinel and has no row.
+CREATE TABLE `device_metric_instances` (
+  `instance_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `asset_id` int(11) NOT NULL,
+  `metric_dim` varchar(16) NOT NULL,
+  `instance_key` varchar(96) NOT NULL,
+  `instance_label` varchar(128) DEFAULT NULL,
+  `first_seen_at` datetime NOT NULL,
+  `last_seen_at` datetime NOT NULL,
+  PRIMARY KEY (`instance_id`),
+  UNIQUE KEY `asset_dim_key` (`asset_id`,`metric_dim`,`instance_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Raw samples. Deliberately NO surrogate key: the PK is the series tuple, which
+-- (a) clusters every chart read - one device, one metric, one instance, one time
+-- range - into a contiguous leaf-page scan with no secondary lookup, (b) doubles
+-- as the idempotency key so a retried collector batch dedupes via ON DUPLICATE
+-- KEY UPDATE rather than needing a nullable fingerprint column, and (c) saves
+-- ~45 bytes/row over a BIGINT id plus the secondary index it would have needed.
+-- At ~1,000 active series the hot right-edge leaf pages total ~16MB and stay
+-- resident; this trade would be wrong at 100,000 series, not at this scale.
+-- sampled_at is UTC (see MetricIngestService) - a deliberate divergence from the
+-- app's local-time convention, so hour bucketing is pure field extraction.
+CREATE TABLE `device_metric_samples` (
+  `asset_id` int(11) NOT NULL,
+  `metric_id` smallint(5) unsigned NOT NULL,
+  `instance_id` int(10) unsigned NOT NULL DEFAULT 0,
+  `sampled_at` datetime NOT NULL,
+  `metric_value` double NOT NULL,
+  PRIMARY KEY (`asset_id`,`metric_id`,`instance_id`,`sampled_at`),
+  KEY `idx_samples_sampled_at` (`sampled_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Rollups carry sum+count rather than a precomputed average so a coarser tier can
+-- be re-aggregated from a finer one without compounding rounding error.
+CREATE TABLE `device_metric_rollups` (
+  `bucket` enum('hour','day') NOT NULL,
+  `asset_id` int(11) NOT NULL,
+  `metric_id` smallint(5) unsigned NOT NULL,
+  `instance_id` int(10) unsigned NOT NULL DEFAULT 0,
+  `period_start` datetime NOT NULL,
+  `min_value` double NOT NULL,
+  `max_value` double NOT NULL,
+  `sum_value` double NOT NULL,
+  `sample_count` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`bucket`,`asset_id`,`metric_id`,`instance_id`,`period_start`),
+  KEY `idx_rollup_period` (`bucket`,`period_start`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Watermark so rollups are incremental and can catch up after downtime without
+-- rescanning history. One row per bucket tier.
+CREATE TABLE `device_metric_rollup_state` (
+  `bucket` enum('hour','day') NOT NULL,
+  `rolled_through` datetime NOT NULL,
+  `last_run_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`bucket`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Per-device collection bookkeeping: what we last asked the provider for, and
+-- whether the device is currently reporting at all.
+CREATE TABLE `device_metric_collection_state` (
+  `asset_id` int(11) NOT NULL,
+  `integration_id` int(11) NOT NULL,
+  `last_collected_at` datetime DEFAULT NULL,
+  `last_sample_at` datetime DEFAULT NULL,
+  `last_error` varchar(255) DEFAULT NULL,
+  `consecutive_failures` int(10) unsigned NOT NULL DEFAULT 0,
+  `vendor_cursor_json` text DEFAULT NULL,
+  PRIMARY KEY (`asset_id`,`integration_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Dump completed on 2026-04-04 18:13:53
 

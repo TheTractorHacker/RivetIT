@@ -2,6 +2,35 @@
 /*
  * Client Portal
  * HTML Header
+ *
+ * TABLER SHELL - part 1 of 2 for the client portal.
+ *
+ * The client portal does NOT share /includes/footer.php; it has its own
+ * client/includes/footer.php, so this header + that footer are a closed pair
+ * and the two must be edited together.
+ *
+ *   client/includes/header.php  opens  <html> <body>
+ *                                      <div class="page">
+ *                                        (navbar - internally balanced)
+ *                                        <div class="page-wrapper">
+ *                                          <div class="page-body">
+ *                                            <div class="container">
+ *   client/includes/footer.php  closes  container / page-body / page-wrapper /
+ *                                       page, then </body></html>
+ *
+ * Four structural levels below <body>, i.e. exactly the same depth the
+ * agent/admin and guest shells use, so the mental model is identical even
+ * though the closing file is different.
+ *
+ * TWO DEFECTS FIXED HERE (both pre-existing):
+ *   1. This file used to emit NO <body> tag at all and the client footer never
+ *      closed <body> or <html>. The document was invalid, and Tabler's .page
+ *      cannot lay out correctly without a real body element.
+ *   2. Because there was no body tag the portal never received the .dark-mode
+ *      class, so css/itflow_custom.css's dark --color-* token set never applied
+ *      and the portal's dark mode was broken. The body tag below carries it.
+ *      Tabler's own dark palette keys off html[data-bs-theme="dark"], which this
+ *      file already server-rendered, so both triggers now agree.
  */
 
 header("X-Frame-Options: DENY"); // Legacy
@@ -10,7 +39,44 @@ header("Referrer-Policy: strict-origin-when-cross-origin");
 ?>
 
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="<?= (!empty($config_theme_dark_default)) ? 'dark' : 'light' ?>">
+<?php
+/* ---------------------------------------------------------------------------
+   <html> attributes.
+
+   data-bs-theme   Bootstrap 5 / Tabler colour mode. Tabler keys its entire dark
+                   palette off html[data-bs-theme="dark"], and
+                   css/itflow_design.css declares its dark --if-* tokens on
+                   :root[data-bs-theme="dark"], so this one root-level trigger
+                   drives both. Unchanged from before.
+
+   data-accent     Per-company accent name. Same hook the agent shell exposes.
+
+   Deliberately NOT set here (unlike includes/header.php):
+
+     data-bs-layout="fluid"          The agent app is a dense ops tool and wants
+                                     full-bleed width. The portal has always used
+                                     a centred, capped .container (its navbar uses
+                                     one too) and keeps that reading width.
+
+     data-bs-navbar-position="vertical"
+                                     That attribute tells Tabler "this page's
+                                     navigation is the vertical sidebar", which
+                                     makes Tabler hide any horizontal navbar that
+                                     is a direct child of .page. The portal's only
+                                     navigation IS a horizontal navbar and it has
+                                     no sidebar at all, so setting it would hide
+                                     the portal's entire nav. Left unset, the
+                                     converse Tabler rule
+                                       html:not([data-bs-navbar-position=vertical])
+                                         .page:has(> [class*=navbar-expand]:not(.navbar-vertical))
+                                         > .navbar-vertical { display:none }
+                                     only ever hides .navbar-vertical elements,
+                                     of which this page has none. Safe.
+   --------------------------------------------------------------------------- */
+?>
+<html lang="en"
+      data-bs-theme="<?= (!empty($config_theme_dark_default)) ? 'dark' : 'light' ?>"
+      data-accent="<?= nullable_htmlentities($config_theme ?? '') ?>">
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -28,18 +94,46 @@ header("Referrer-Policy: strict-origin-when-cross-origin");
     <!-- Font Awesome -->
     <link rel="stylesheet" href="/plugins/fontawesome-free/css/all.min.css">
 
-    <!-- Core stack: Bootstrap 5.3 + AdminLTE 4 -->
-    <link rel="stylesheet" href="/plugins/bootstrap5/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/plugins/adminlte4/css/adminlte.min.css">
+    <!-- Core stack: Tabler 1.5 (vendored, self-contained). Tabler bundles its own
+         Bootstrap 5 build, so plugins/bootstrap5/css/bootstrap.min.css and
+         plugins/adminlte4/css/adminlte.min.css are both gone from this page.
+         bootstrap.bundle.min.js is deliberately KEPT in the footer - only the CSS
+         was replaced; plugins/tabler/js/tabler.min.js is NOT shipped because it
+         exports window.tabler and would double-wire the data-bs-toggle data-api.
+         (This portal never used a single AdminLTE class, so nothing else needed
+         to change to drop adminlte.min.css.) -->
+    <link rel="stylesheet" href="/plugins/tabler/css/tabler.min.css">
 
-    <!-- Theme: BS5 bridge (maps BS vars -> Alga tokens) THEN the custom theme -->
+    <!-- Theme: BS5 bridge (self-hosted components + app shims) THEN the custom
+         theme THEN the design layer. -->
     <link rel="stylesheet" href="/css/itflow_bs5_bridge.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_bs5_bridge.css') ?>">
     <link rel="stylesheet" href="/css/itflow_custom.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_custom.css') ?>">
     <link rel="stylesheet" href="/css/itflow_design.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_design.css') ?>">
 
-</head>
+    <!-- Token seam: maps this app's --if-* / --color-* tokens onto Tabler's
+         --tblr-*. MUST load after the design layer so the mappings win. -->
+    <link rel="stylesheet" href="/css/itflow.bind-tabler.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow.bind-tabler.css') ?>">
 
-<!-- Navbar -->
+</head>
+<?php
+/* ---------------------------------------------------------------------------
+   BODY
+
+   This element did not exist before this migration - see defect (2) at the top
+   of the file. Its classes mirror includes/header.php exactly:
+
+     accent-<name>  per-company accent hook.
+     dark-mode      css/itflow_custom.css declares the dark --color-* token set
+                    on body.dark-mode. Without it the portal rendered light
+                    --color-* tokens on a dark Tabler palette.
+   --------------------------------------------------------------------------- */
+?>
+<body class="accent-<?php echo nullable_htmlentities($config_theme ?? ''); ?><?php if (!empty($config_theme_dark_default)) echo ' dark-mode'; ?>">
+<div class="page">
+
+<!-- Navbar. A plain Bootstrap 5 navbar (it never used AdminLTE), kept verbatim.
+     It is a direct child of .page and is internally balanced, so it adds no
+     structural depth for client/includes/footer.php to close. -->
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark client-portal-nav" data-bs-theme="dark">
     <div class="container">
@@ -143,10 +237,20 @@ header("Referrer-Policy: strict-origin-when-cross-origin");
     </div>
 </nav>
 
-<br>
+<?php
+/* ---------------------------------------------------------------------------
+   Page content wrappers. Three levels, closed by client/includes/footer.php.
 
-<!-- Page content container -->
-<div class="container">
+   .page-body supplies the vertical rhythm (margin-block: var(--tblr-page-padding-y))
+   that the old markup faked with a bare <br> after the navbar, so that <br> is gone.
+
+   .container (NOT .container-xl) keeps the portal's existing centred, capped
+   reading width, which also lines up with the .container inside the navbar above.
+   --------------------------------------------------------------------------- */
+?>
+<div class="page-wrapper">
+    <div class="page-body">
+        <div class="container">
 
     <div class="card welcome-banner border-0 shadow-sm mb-4">
         <div class="card-body d-flex align-items-center">

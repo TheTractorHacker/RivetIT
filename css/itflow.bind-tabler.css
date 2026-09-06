@@ -1,0 +1,110 @@
+/* ============================================================================
+   ITFlow tokens -> Tabler tokens.
+
+   WHY THIS FILE EXISTS
+   Tabler emits essentially no --bs-* custom properties (one in ~800KB of CSS).
+   The per-company accent feature is an inline <style nonce> block in
+   includes/header.php that pins --bs-primary / --bs-primary-rgb / --bs-link-color
+   across three selectors. The moment bootstrap.min.css is dropped in favour of
+   tabler.min.css, every one of those becomes dead and branding silently stops
+   working - no error, the accent just reverts to Tabler's default blue.
+
+   Rather than teach header.php about a second framework, this file is the single
+   seam between "our tokens" and "the framework's tokens". header.php keeps
+   emitting --color-accent / --if-primary and knows nothing about Tabler; this
+   file maps them onto --tblr-*. If the framework is ever swapped again, only this
+   file changes.
+
+   Load order (includes/header.php): tabler.min.css -> bridge -> custom -> design
+   -> THIS FILE -> the inline per-company accent block. It must come after the
+   design layer so the mappings win, and before the inline accent block so a
+   custom accent still overrides the defaults.
+   ============================================================================ */
+
+:root {
+    /* ---- Brand / accent -------------------------------------------------- */
+    /* --color-accent is what includes/header.php actually writes per company;
+       --if-primary aliases it. Bind both ways round so this works whether the
+       accent block has run or not. */
+    --tblr-primary:            var(--if-primary, var(--color-accent, #0d9488));
+    --tblr-primary-rgb:        var(--if-primary-rgb, var(--color-accent-rgb, 13, 148, 136));
+    --tblr-primary-fg:         #ffffff;
+    --tblr-link-color:         var(--if-primary, var(--color-accent, #0d9488));
+    --tblr-link-color-rgb:     var(--if-primary-rgb, var(--color-accent-rgb, 13, 148, 136));
+    --tblr-link-hover-color:   var(--if-primary-hover, var(--color-accent-hover, #0f766e));
+    --tblr-active-bg:          var(--if-primary-soft, var(--color-accent-soft, #ccfbf1));
+
+    /* ---- Surfaces / text / borders --------------------------------------- */
+    --tblr-body-bg:            var(--if-bg, #eef2f2);
+    --tblr-body-color:         var(--if-ink, #16232a);
+    --tblr-bg-surface:         var(--if-surface, #ffffff);
+    --tblr-bg-surface-secondary: var(--if-bg, #eef2f2);
+    --tblr-bg-forms:           var(--if-surface, #ffffff);
+    --tblr-secondary:          var(--if-muted, #5d6f76);
+    --tblr-muted:              var(--if-muted, #5d6f76);
+    --tblr-border-color:       var(--if-border, #e3e9ea);
+    --tblr-border-color-translucent: var(--if-border, #e3e9ea);
+
+    /* ---- Shape ----------------------------------------------------------- */
+    /* Tabler multiplies its whole radius scale by --tblr-border-radius-scale, so
+       the existing per-company card-radius setting keeps working through it. */
+    --tblr-border-radius:      var(--if-radius-sm, 8px);
+    --tblr-border-radius-lg:   var(--if-radius, 12px);
+}
+
+/* Dark mode. Tabler keys off html[data-bs-theme="dark"], which includes/header.php
+   ALREADY server-renders - so this needs no new trigger, and the app's second,
+   non-equivalent trigger (body.dark-mode) becomes redundant for anything Tabler
+   styles. The client portal, which emits no <body> tag and therefore never
+   received .dark-mode, starts rendering dark correctly for free. */
+/* NOTE the selector: [data-bs-theme="dark"], NOT :root[data-bs-theme="dark"].
+   The app's chrome is deliberately always-dark in both app themes, which it achieves by
+   putting data-bs-theme="dark" on the sidebar/navbar element itself rather than on <html>.
+   A :root-scoped dark block cannot match that nested subtree, so Tabler would hand the
+   sidebar dark-theme TEXT colours while the surface tokens stayed light - white on white,
+   an invisible sidebar. Scoping to the attribute wherever it appears fixes both the
+   page-level dark theme and any always-dark chrome island. */
+[data-bs-theme="dark"] {
+    --tblr-body-bg:            var(--if-bg, #0d1417);
+    --tblr-body-color:         var(--if-ink, #e7eeef);
+    --tblr-bg-surface:         var(--if-surface, #14201f);
+    --tblr-bg-surface-secondary: var(--if-bg, #0d1417);
+    --tblr-bg-forms:           var(--if-surface, #14201f);
+    --tblr-secondary:          var(--if-muted, #93a6ab);
+    --tblr-muted:              var(--if-muted, #93a6ab);
+    --tblr-border-color:       var(--if-border, #24332f);
+    --tblr-border-color-translucent: var(--if-border, #24332f);
+}
+
+/* Tabler squashes a bare .icon to a fixed 20x20 box. This app uses class="icon"
+   on 46 elements that predate Tabler and expect no such constraint - the only
+   genuinely surprising restyling in the whole collision analysis. Neutralise it
+   here rather than editing 46 call sites; new markup should use .ti or an
+   explicit size class instead of relying on this. */
+.icon:not([class*="ti-"]):not(.icon-sm):not(.icon-lg) {
+    width: auto;
+    height: auto;
+    font-size: inherit;
+    vertical-align: baseline;
+}
+
+/* Always-dark chrome: bind Tabler's navbar tokens so a data-bs-theme="dark" sidebar or
+   header gets a dark surface as well as dark-theme text. Values track the app's existing
+   chrome colour rather than Tabler's default so the migration is not also a re-skin. */
+[data-bs-theme="dark"].navbar,
+[data-bs-theme="dark"] .navbar-vertical,
+.navbar-vertical[data-bs-theme="dark"] {
+    --tblr-navbar-bg: #2b3038;
+    --tblr-navbar-color: #c2c7d0;
+    --tblr-navbar-active-color: #ffffff;
+    --tblr-navbar-hover-color: #ffffff;
+    --tblr-bg-surface: #2b3038;
+    --tblr-border-color: rgba(255, 255, 255, .08);
+    background-color: #2b3038;
+    color: #c2c7d0;
+}
+[data-bs-theme="dark"] .navbar-vertical .nav-link.active,
+.navbar-vertical[data-bs-theme="dark"] .nav-link.active {
+    background-color: var(--tblr-primary);
+    color: #fff;
+}

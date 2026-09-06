@@ -709,6 +709,11 @@ if (isset($_GET['asset_id'])) {
                                     <i class="fas fa-heartbeat me-1"></i>Monitoring
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link small" data-bs-toggle="tab" href="#rdt-metrics">
+                                    <i class="fas fa-chart-line me-1"></i>Performance
+                                </a>
+                            </li>
                             <?php if ($rmm_type === 'tactical_rmm'): ?>
                             <li class="nav-item">
                                 <a class="nav-link small" data-bs-toggle="tab" href="#rdt-patches"
@@ -737,6 +742,18 @@ if (isset($_GET['asset_id'])) {
                         </ul>
                     </div>
                     <div class="tab-content">
+                        <?php
+                        /* Device Performance ("Metrics") pane. The partial owns the whole
+                           tab-pane wrapper, its capability detection and its own JSON endpoint;
+                           all this page supplies is which asset. It is emitted first in the
+                           tab-content but is NOT the active pane - within .tab-content only the
+                           .active pane is visible, so DOM order here is irrelevant and putting
+                           it first keeps the RMM Overview markup below unchanged. */
+                        $metrics_tab_asset_id    = $asset_id;
+                        $metrics_tab_render_pane = true;
+                        $metrics_tab_pane_active = false;
+                        require_once __DIR__ . '/includes/asset/metrics_tab.php';
+                        ?>
                         <div class="tab-pane active p-3" id="rdt-overview">
                             <div class="row">
                                 <div class="col-md-6">

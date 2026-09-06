@@ -710,7 +710,43 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form);
 
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<?php
+/* ---------------------------------------------------------------------------
+   TABLER CENTRED-PAGE SHELL (login).
+
+   This page is standalone: it shares no include with the agent, client or guest
+   shells, so the markup below opens and closes everything itself.
+
+   It used to depend on AdminLTE 4's .login-page / .login-box / .login-card-body
+   / .login-box-msg for full-viewport centring. NO first-party CSS ever provided
+   those, so dropping adminlte.min.css would have left the card glued to the top
+   left. Tabler's own centred-page pattern replaces them:
+
+       body.d-flex.flex-column
+         > div.page.page-center.min-vh-100      <- .page is display:flex/column,
+                                                   .page-center adds
+                                                   justify-content:center,
+                                                   .min-vh-100 gives it the
+                                                   viewport height to centre
+                                                   within (Tabler's .page uses
+                                                   min-height:100%, which needs
+                                                   an explicit height chain this
+                                                   page does not have).
+           > div.container.container-tight      <- narrow centred column
+
+   NOTE ON <html>: data-bs-theme is deliberately NOT set, so Tabler resolves to
+   its light palette and the card stays light - exactly as today. The dark look
+   comes only from the page background painted in the <style> block below, which
+   is the same dark backdrop + accent gradient this page has always had. Setting
+   data-bs-theme="dark" here would flip the card dark too and change the page.
+
+   The form markup, every auth branch, the CSRF/pending-token hidden fields and
+   the passkey button are byte-for-byte what they were - this is a shell swap.
+   .btn-block and .input-group-append are self-hosted in css/itflow_bs5_bridge.css
+   (lines ~248 and ~262), not AdminLTE, so the inputs and buttons need no edit.
+   --------------------------------------------------------------------------- */
+?>
+<html lang="en" data-accent="<?= nullable_htmlentities($config_theme) ?>">
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -724,32 +760,74 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form);
         <link rel="icon" type="image/x-icon" href="/uploads/favicon.ico">
     <?php } ?>
 
-    <!-- Core stack: Bootstrap 5.3 + AdminLTE 4 -->
-    <link rel="stylesheet" href="plugins/bootstrap5/css/bootstrap.min.css">
-    <link rel="stylesheet" href="plugins/adminlte4/css/adminlte.min.css">
+    <!-- Core stack: Tabler 1.5 (vendored, self-contained - zero @font-face, all
+         url() refs are inline data: SVGs, which matters here because this page's
+         CSP is default-src 'self' with img-src 'self' data:).
+         Tabler bundles its own Bootstrap 5 build, so
+         plugins/bootstrap5/css/bootstrap.min.css and
+         plugins/adminlte4/css/adminlte.min.css are both gone. Only the CSS is
+         Tabler's - plugins/tabler/js/tabler.min.js is NOT shipped (it exports
+         window.tabler, not window.bootstrap, and self-wires the data-bs-toggle
+         data-api); bootstrap.bundle.min.js is kept below. -->
+    <link rel="stylesheet" href="plugins/tabler/css/tabler.min.css">
 
-    <!-- Theme: BS5 bridge (maps BS vars -> Alga tokens) THEN the custom theme -->
+    <!-- Theme: BS5 bridge (self-hosted components + app shims) THEN the custom
+         theme THEN the design layer. -->
     <link rel="stylesheet" href="css/itflow_bs5_bridge.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_bs5_bridge.css') ?>">
     <link rel="stylesheet" href="css/itflow_custom.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_custom.css') ?>">
     <link rel="stylesheet" href="css/itflow_design.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_design.css') ?>">
+
+    <!-- Token seam: maps this app's --if-* / --color-* tokens onto Tabler's --tblr-*. -->
+    <link rel="stylesheet" href="css/itflow.bind-tabler.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow.bind-tabler.css') ?>">
+
+    <?php
+    /* The page-local style block, reconciled with the Tabler shell.
+
+       Was                              Now
+       -------------------------------  ------------------------------------------
+       body.login-page {background}     body {background} - plus the accent radial
+                                        gradient that used to be a style="" attribute
+                                        on <body>. Both were always inline CSS and
+                                        this page's CSP is style-src 'self'
+                                        'unsafe-inline', so folding the attribute
+                                        into this block changes nothing about what
+                                        the policy has to allow, and keeps all the
+                                        page's styling in one place.
+       .login-box {width:400px}         .page-center .container-tight {max-width:25rem}
+                                        Tabler's .container-tight is 32rem/512px;
+                                        25rem is the same 400px the card has always
+                                        been.
+       .login-logo {...}                .login-brand {...} - identical declarations,
+                                        renamed off the AdminLTE class name.
+       .login-box .card {...}           .page-center .card {...} - unchanged rules.
+       .login-box .card .card-body{...} .page-center .card .card-body {...}
+       .login-box-branding {...}        unchanged - it was already page-local, never
+                                        AdminLTE.
+       (.login-box-msg)                 dropped. It was an AdminLTE class used once,
+                                        for the optional login message; that <p> now
+                                        carries plain .text-center utilities. */
+    ?>
     <style>
-        body.login-page {
+        body {
             background-color: #343A40;
+            background-image:
+                radial-gradient(circle at 30% 20%, rgba(<?= $_login_accent_rgb ?>, .35), transparent 55%),
+                radial-gradient(circle at 80% 90%, rgba(<?= $_login_accent_rgb ?>, .20), transparent 50%);
         }
-        .login-box {
-            width: 400px;
+        .page-center .container-tight {
+            max-width: 25rem;
         }
-        .login-logo {
+        .login-brand {
             color: #fff;
             margin-bottom: 1.25rem;
             text-align: center;
         }
-        .login-box .card {
+        .page-center .card {
             border: none;
             border-radius: var(--card-radius);
             box-shadow: 0 6px 24px -6px rgba(0,0,0,.45);
         }
-        .login-box .card .card-body {
+        .page-center .card .card-body {
             border-radius: var(--card-radius);
             padding: 1.75rem;
         }
@@ -792,10 +870,12 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form);
         }
     </style>
 </head>
-<body class="hold-transition login-page accent-<?= $config_theme ?>" style="background-color:#343A40;background-image:radial-gradient(circle at 30% 20%,rgba(<?= $_login_accent_rgb ?>,.35),transparent 55%),radial-gradient(circle at 80% 90%,rgba(<?= $_login_accent_rgb ?>,.20),transparent 50%)">
+<body class="d-flex flex-column accent-<?= nullable_htmlentities($config_theme) ?>">
 
-<div class="login-box">
-    <div class="login-logo">
+<div class="page page-center min-vh-100">
+    <div class="container container-tight py-4">
+
+    <div class="login-brand">
         <div class="login-box-branding">
             <?php if (!empty($company_logo)) { ?>
                 <div class="brand-logo">
@@ -810,10 +890,10 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form);
     </div>
 
     <div class="card">
-        <div class="card-body login-card-body">
+        <div class="card-body">
 
             <?php if (!empty($config_login_message)){ ?>
-                <p class="login-box-msg px-0"><?php echo nl2br($config_login_message); ?></p>
+                <p class="text-center px-0"><?php echo nl2br($config_login_message); ?></p>
             <?php } ?>
 
             <?php if (isset($response)) { ?>
@@ -918,11 +998,18 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form);
 
         </div>
     </div>
-</div>
+
+    </div><!-- /.container-tight -->
+</div><!-- /.page.page-center -->
 
 <script src="plugins/jquery/jquery.min.js"></script>
 <script src="plugins/bootstrap5/js/bootstrap.bundle.min.js"></script>
-<script src="plugins/adminlte4/js/adminlte.min.js"></script>
+<?php
+/* plugins/adminlte4/js/adminlte.min.js is GONE. It only ever exported CardWidget,
+   DirectChat, FullScreen, Layout, PushMenu and Treeview - none of which exist on
+   a login page (no sidebar, no treeview, no cards with tools), and nothing here
+   ever called the adminlte.* API. Its CSS is replaced by Tabler above. */
+?>
 <script src="js/login_prevent_resubmit.js"></script>
 <script src="js/webauthn_signin.js"></script>
 

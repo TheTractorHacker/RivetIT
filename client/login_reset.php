@@ -173,7 +173,44 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
 ?>
 
 <!DOCTYPE html>
-<html>
+<?php
+/* ---------------------------------------------------------------------------
+   TABLER CENTRED-PAGE SHELL (client portal password reset).
+
+   This page used AdminLTE 4's .login-page / .login-box / .login-card-body /
+   .login-box-msg for full-viewport centring. NO first-party CSS ever provided
+   those, so removing adminlte.min.css without a replacement would have left the
+   card unstyled at the top left. Tabler's centred-page pattern replaces them:
+
+       body.d-flex.flex-column
+         > div.page.page-center.min-vh-100   <- .page is display:flex/column,
+                                                .page-center adds
+                                                justify-content:center, and
+                                                .min-vh-100 supplies the viewport
+                                                height to centre within (Tabler's
+                                                .page uses min-height:100%, which
+                                                needs an explicit height chain
+                                                this standalone page lacks).
+           > div.container.container-tight   <- narrow centred column
+
+   *** WHY THIS PAGE USES CLASSES ONLY, NEVER INLINE CSS ***
+   Line 7 of this file sends `Content-Security-Policy: default-src 'self'` with
+   no style-src of its own, so style-src falls back to default-src = 'self'.
+   That forbids BOTH <style> blocks and style="" attributes on this page (unlike
+   login.php, which explicitly allows 'unsafe-inline' for styles). Every rule
+   below therefore has to come from a linked stylesheet, which is why this page
+   accepts Tabler's stock .container-tight width instead of the 400px override
+   login.php applies in its own <style> block. Do not add inline CSS here - it
+   will be silently dropped by the browser, and the layout will look broken only
+   in production where the header is actually sent.
+
+   The reset logic above (token verification, hash_equals, mail queue, logging)
+   and the two form branches below are untouched - this is a shell swap.
+   .btn-block and .input-group-append are self-hosted in css/itflow_bs5_bridge.css
+   (lines ~248 and ~262), not AdminLTE, so the inputs and buttons need no edit.
+   --------------------------------------------------------------------------- */
+?>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -194,22 +231,37 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
         <link rel="icon" type="image/x-icon" href="../uploads/favicon.ico">
     <?php } ?>
 
-    <!-- Core stack: Bootstrap 5.3 + AdminLTE 4 -->
-    <link rel="stylesheet" href="../plugins/bootstrap5/css/bootstrap.min.css">
-    <link rel="stylesheet" href="../plugins/adminlte4/css/adminlte.min.css">
+    <!-- Core stack: Tabler 1.5 (vendored, self-contained - zero @font-face, and
+         all 28 url() refs are inline data: SVGs. That self-containment is what
+         makes it usable under this page's strict default-src 'self' policy,
+         which permits no external font or image host at all).
+         Tabler bundles its own Bootstrap 5 build, so
+         plugins/bootstrap5/css/bootstrap.min.css and
+         plugins/adminlte4/css/adminlte.min.css are both gone. -->
+    <link rel="stylesheet" href="../plugins/tabler/css/tabler.min.css">
 
-    <!-- Theme: BS5 bridge (maps BS vars -> Alga tokens) THEN the custom theme -->
+    <!-- Theme: BS5 bridge (self-hosted components + app shims) THEN the custom
+         theme THEN the design layer. -->
     <link rel="stylesheet" href="../css/itflow_bs5_bridge.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_bs5_bridge.css') ?>">
     <link rel="stylesheet" href="../css/itflow_custom.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_custom.css') ?>">
     <link rel="stylesheet" href="../css/itflow_design.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_design.css') ?>">
 
+    <!-- Token seam: maps this app's --if-* / --color-* tokens onto Tabler's --tblr-*. -->
+    <link rel="stylesheet" href="../css/itflow.bind-tabler.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow.bind-tabler.css') ?>">
+
 </head>
 
-<body class="hold-transition login-page">
-<div class="login-box">
-    <div class="login-logo"><b><?php echo nullable_htmlentities($company_name_display); ?></b> <br>Password Reset</div>
-    <div class="card">
-        <div class="card-body login-card-body">
+<body class="d-flex flex-column">
+<div class="page page-center min-vh-100">
+    <div class="container container-tight py-4">
+
+        <div class="text-center mb-4">
+            <div class="h2 mb-1"><b><?php echo nullable_htmlentities($company_name_display); ?></b></div>
+            <div class="text-muted">Password Reset</div>
+        </div>
+
+        <div class="card card-md">
+            <div class="card-body">
 
             <form method="post">
 
@@ -274,7 +326,14 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
 
             </form>
 
-            <p class="login-box-msg text-danger">
+            <?php
+            /* Was <p class="login-box-msg text-danger">. .login-box-msg was an
+               AdminLTE class (display:block; margin:0; padding:0 20px 20px;
+               text-align:center) with no first-party replacement, so it is
+               expressed with Bootstrap utilities instead. Same look, no
+               dependency on adminlte.min.css. */
+            ?>
+            <p class="text-center text-danger">
                 <?php
                 // Show feedback from session
                 if (!empty($_SESSION['login_message'])) {
@@ -287,14 +346,16 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
             <a href="/login.php">Back to login</a>
 
 
+            </div>
+            <!-- /.card-body -->
+
         </div>
-        <!-- /.login-card-body -->
+        <!-- /.card -->
 
     </div>
-    <!-- /.div.card -->
-
+    <!-- /.container-tight -->
 </div>
-<!-- /.login-box -->
+<!-- /.page.page-center -->
 
 <!-- jQuery -->
 <script src="../plugins/jquery/jquery.min.js"></script>
@@ -302,8 +363,12 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
 <!-- Bootstrap 5 (bundle includes Popper) -->
 <script src="../plugins/bootstrap5/js/bootstrap.bundle.min.js"></script>
 
-<!-- AdminLTE App -->
-<script src="../plugins/adminlte4/js/adminlte.min.js"></script>
+<?php
+/* plugins/adminlte4/js/adminlte.min.js is GONE. It only ever exported
+   CardWidget, DirectChat, FullScreen, Layout, PushMenu and Treeview - none of
+   which exist on a password-reset page - and nothing here ever called the
+   adminlte.* API. Its CSS is replaced by Tabler above. */
+?>
 
 <!-- Prevents resubmit on refresh or back -->
 <script src="../js/login_prevent_resubmit.js"></script>

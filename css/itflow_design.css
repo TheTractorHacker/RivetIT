@@ -305,8 +305,15 @@ a:focus-visible, .btn:focus-visible, .nav-link:focus-visible { outline: 2px soli
    Technicians, Live Chat, Activity Summary, Tasks, Worksheets, Attachments,
    Charges, Contact) had no gap and no shadow between them, so they visually
    fused into one flat, borderless block instead of reading as separate cards. ---- */
-.ticket-sidebar > .card { margin-bottom: 1rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); }
-.ticket-sidebar > .card:last-child { margin-bottom: 0; }
+/* Spacing here is `gap` on the flex container, NOT margin-bottom on the children.
+   The sidebar cards carry inline `order:N` (agent/ticket.php) so their VISUAL order
+   differs from their DOM order - which means a `:last-child { margin-bottom: 0 }` rule
+   zeroes the margin on whichever card happens to be last in the markup, not the one
+   that actually renders last. The result is a missing gap somewhere in the middle of
+   the stack and a stray trailing gap at the bottom. `gap` is order-agnostic and needs
+   no last-child special case. */
+.ticket-sidebar { display: flex; flex-direction: column; gap: 1rem; }
+.ticket-sidebar > .card { margin-bottom: 0; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); }
 
 /* Account Security (agent/user/user_security.php): the Password, Two-Factor
    Authentication, Passkeys, and Mobile App Tokens cards had no gap between
@@ -398,3 +405,26 @@ a.it-stat-card:hover, a.it-stat-card:focus-visible { box-shadow: var(--if-shadow
 .it-empty-title { font-size: 1rem; font-weight: 600; color: var(--if-ink); margin: 0 0 .35rem; }
 .it-empty-subtitle { font-size: .875rem; color: var(--if-muted); margin: 0 auto 1rem; max-width: 32rem; }
 .it-empty-actions { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; }
+
+/* ---- List-page vertical rhythm ----
+   Filter/search toolbars sit directly beneath a card header with no separation, so the
+   controls read as part of the header strip rather than as their own band, and the
+   results table butts straight up underneath them. Give the toolbar real breathing room
+   on both sides. Applies app-wide - every list page uses one of these two wrappers. */
+.card-body > .filter-toolbar:first-child,
+.card-body > .ticket-filter-bar:first-child,
+.card-body > .filter-bar:first-child {
+    margin-top: .25rem;
+}
+.filter-toolbar + .table-responsive,
+.filter-toolbar + .table,
+.ticket-filter-bar + .table-responsive,
+.filter-bar + .table-responsive {
+    margin-top: .25rem;
+}
+
+/* Empty states inside a list card were flush against the toolbar above them. */
+.card-body > .text-center.text-muted:last-child,
+.card-body > .it-empty-state:last-child {
+    padding-top: 1.5rem;
+}

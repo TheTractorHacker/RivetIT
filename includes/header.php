@@ -49,7 +49,64 @@ $effective_theme_dark = $user_config_theme_dark ? 1 : $config_theme_dark_default
 ?>
 
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="<?= $effective_theme_dark ? 'dark' : 'light' ?>" data-accent="<?= nullable_htmlentities($config_theme) ?>">
+<?php
+/* ---------------------------------------------------------------------------
+   <html> attributes, and why each one is here.
+
+   data-bs-theme            Bootstrap 5 / Tabler colour mode. Tabler keys its
+                            entire dark palette off html[data-bs-theme="dark"],
+                            and css/itflow_design.css already declares its dark
+                            --if-* tokens on :root[data-bs-theme="dark"], so this
+                            single root-level trigger drives both. (body.dark-mode
+                            below is the app's older, non-equivalent trigger; it
+                            still drives --color-* in itflow_custom.css and is
+                            still read by the per-company accent block further
+                            down, so it is kept.)
+
+   data-accent              Per-company accent name. Pre-existing hook.
+
+   data-bs-layout="fluid"   Tabler ships:
+                              html[data-bs-layout=fluid] .container,
+                              html[data-bs-layout=fluid] [class^=container-],
+                              html[data-bs-layout=fluid] [class*=" container-"]
+                                  { max-width: 100% }
+                            The AdminLTE shell wrapped page content in
+                            .container-fluid (full bleed). The Tabler shell wraps
+                            it in .container-xl, which is capped at 1140/1320px.
+                            For a dense ops tool full of wide tables that cap is a
+                            regression, so this attribute restores exactly the old
+                            full-bleed behaviour using Tabler's own supported
+                            switch instead of a custom max-width override.
+                            Remove this attribute to get the centred, capped
+                            Tabler reading width instead - nothing else has to
+                            change.
+
+   data-bs-navbar-position  Tabler 1.5 ships a layout switcher implemented purely
+     ="vertical"            in CSS:
+                              html:not([data-bs-navbar-position=vertical])
+                                .page:has(> [class*=navbar-expand]:not(.navbar-vertical))
+                                > .navbar-vertical            { display: none }
+                              html[data-bs-navbar-position=vertical]
+                                .page:has(> .navbar-vertical)
+                                > [class*=navbar-expand]:not(.navbar-vertical)
+                                                              { display: none }
+                            i.e. if .page has BOTH a vertical sidebar and a
+                            horizontal navbar as DIRECT children, Tabler hides one
+                            of them. This app needs both, so the horizontal top
+                            navbar is deliberately rendered INSIDE .page-wrapper
+                            (see includes/top_nav.php + includes/inc_wrapper.php)
+                            where neither rule can reach it. Declaring the layout
+                            as vertical here is belt-and-braces: if markup ever
+                            drifts and a horizontal navbar does become a direct
+                            child of .page, the sidebar - the app's only complete
+                            navigation - survives rather than vanishing.
+   --------------------------------------------------------------------------- */
+?>
+<html lang="en"
+      data-bs-theme="<?= $effective_theme_dark ? 'dark' : 'light' ?>"
+      data-accent="<?= nullable_htmlentities($config_theme) ?>"
+      data-bs-layout="fluid"
+      data-bs-navbar-position="vertical">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -66,9 +123,12 @@ $effective_theme_dark = $user_config_theme_dark ? 1 : $config_theme_dark_default
     <!-- Font Awesome -->
     <link rel="stylesheet" href="/plugins/fontawesome-free/css/all.min.css">
 
-    <!-- Core stack: Bootstrap 5.3 + AdminLTE 4 -->
-    <link rel="stylesheet" href="/plugins/bootstrap5/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/plugins/adminlte4/css/adminlte.min.css">
+    <!-- Core stack: Tabler 1.5 (vendored, self-contained - zero @font-face, all url()
+         refs are inline data: SVGs). Tabler bundles its own Bootstrap 5 build, so
+         plugins/bootstrap5/css/bootstrap.min.css and plugins/adminlte4/css/adminlte.min.css
+         are both gone. bootstrap.bundle.min.js is deliberately KEPT (see footer.php):
+         only the CSS was replaced. -->
+    <link rel="stylesheet" href="/plugins/tabler/css/tabler.min.css">
 
     <!-- Vanilla plugin styles (BS5 flavor) -->
     <link rel="stylesheet" href="/plugins/tom-select/css/tom-select.bootstrap5.min.css">
@@ -77,15 +137,27 @@ $effective_theme_dark = $user_config_theme_dark ? 1 : $config_theme_dark_default
     <link rel="stylesheet" href="/plugins/toastr/toastr.min.css">
     <link rel="stylesheet" href="/plugins/intl-tel-input/css/intlTelInput.min.css">
 
-    <!-- Theme: BS5 bridge (maps BS vars -> Alga tokens) THEN the custom theme -->
+    <!-- Theme: BS5 bridge (self-hosted AdminLTE components + app shims) THEN the
+         custom theme THEN the design layer. -->
     <link rel="stylesheet" href="/css/itflow_bs5_bridge.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_bs5_bridge.css') ?>">
     <link rel="stylesheet" href="/css/itflow_custom.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_custom.css') ?>">
     <link rel="stylesheet" href="/css/itflow_design.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_design.css') ?>">
 
+    <!-- Device metrics ("Metrics", never telemetry): styles for the Performance tab on
+         agent/asset_details.php. Global, but every rule is scoped under .ifm-* so it
+         cannot reach a page that does not render the tab. -->
+    <link rel="stylesheet" href="/css/itflow_metrics.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_metrics.css') ?>">
+
+    <!-- Token seam: maps this app's --if-* / --color-* tokens onto Tabler's --tblr-*.
+         MUST load after the design layer (so the mappings win) and BEFORE the
+         per-company accent block below (so a custom accent still overrides them). -->
+    <link rel="stylesheet" href="/css/itflow.bind-tabler.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow.bind-tabler.css') ?>">
+
     <!-- Per-company appearance customizer: recolor the CSS-variable theme from the chosen accent.
          $theme_accent_hex / $effective_theme_dark were resolved above (before <html>). This block
-         also pushes the accent straight into Bootstrap 5's own variables so BS5/AL4 components pick
-         it up, and is emitted AFTER itflow_bs5_bridge.css so it wins. -->
+         also pushes the accent straight into Bootstrap 5's own variables; css/itflow.bind-tabler.css
+         re-exports those onto --tblr-* so Tabler components pick the accent up too. Emitted LAST
+         so it wins. -->
     <?php if ($theme_accent_hex !== '' || !empty($config_theme_card_radius)): ?>
     <style nonce="<?php echo $csp_nonce; ?>">
     <?php if ($theme_accent_hex !== ''):
@@ -138,11 +210,50 @@ $effective_theme_dark = $user_config_theme_dark ? 1 : $config_theme_dark_default
     <script src="/plugins/jquery/jquery.min.js"></script>
     <script src="/plugins/toastr/toastr.min.js"></script>
 </head>
-<body class="
-    layout-fixed sidebar-expand-lg text-sm
-    accent-<?php echo nullable_htmlentities($config_theme); ?>
-    <?php if ($effective_theme_dark) echo 'dark-mode'; ?>
-">
-    <!-- AdminLTE 4 layout: app-wrapper > app-header + app-sidebar + app-main -->
-    <div class="app-wrapper">
+<?php
+/* ---------------------------------------------------------------------------
+   BODY CLASSES
 
+   Dropped (all AdminLTE 4 only, and all now dead):
+     layout-fixed        - AL4 grid layout modifier, no first-party consumer.
+     sidebar-expand-lg   - AL4 PushMenu read its responsive breakpoint out of
+                           getComputedStyle(body,'::before').content on this class,
+                           which only AL4's own CSS supplied. Both the CSS and the
+                           JS are gone in the same change, as they must be.
+     text-sm             - AL4 set 0.875rem here; Tabler's base font-size is
+                           already 0.875rem, so this is a no-op.
+
+   Kept (both still have live first-party consumers):
+     accent-<name>       - per-company accent hook.
+     dark-mode           - itflow_custom.css declares the dark --color-* token set
+                           on body.dark-mode, and the per-company accent block
+                           above targets body.dark-mode for its dark hover/soft
+                           variants. Removing it would silently break the accent
+                           in dark mode.
+   --------------------------------------------------------------------------- */
+?>
+<body class="accent-<?php echo nullable_htmlentities($config_theme); ?><?php if ($effective_theme_dark) echo ' dark-mode'; ?>">
+    <?php
+    /* -----------------------------------------------------------------------
+       TABLER SHELL - part 1 of 3. Opens ONE wrapper (.page). Closes nothing.
+
+         includes/header.php      opens  <html> <body> <div class="page">
+         includes/inc_wrapper.php opens  .page-wrapper > .page-body > .container-xl
+         includes/footer.php      closes container-xl / page-body / page-wrapper /
+                                  page, then </body></html>
+
+       Four structural levels below <body>, exactly as the AdminLTE shell had
+       (app-wrapper / app-main / app-content / container-fluid). Do not add or
+       remove a level here without changing footer.php AND guest/includes/inc_wrapper.php
+       in the same commit - 209 pages require includes/footer.php and none of them
+       would error, they would just render wrong.
+
+       .page's direct children, in DOM order, are:
+         1. the vertical sidebar  <aside class="navbar navbar-vertical navbar-expand-lg">
+            emitted by whichever side_nav include the page family uses
+         2. <div class="page-wrapper">
+       The horizontal top navbar is NOT a direct child of .page - see the
+       data-bs-navbar-position note above and includes/top_nav.php.
+       ----------------------------------------------------------------------- */
+    ?>
+    <div class="page">

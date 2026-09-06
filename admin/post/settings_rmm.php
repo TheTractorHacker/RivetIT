@@ -34,6 +34,37 @@ if (isset($_POST['save_rmm_auto_ticket_settings'])) {
     redirect();
 }
 
+// Save device metrics settings.
+//
+// The three retention/interval numbers are clamped rather than rejected: they come from
+// number inputs whose min/max the browser already enforces, so a value outside the range
+// means the form was bypassed, and silently pinning it to the nearest sane bound keeps the
+// collector's arithmetic safe without bouncing the admin back with an error they cannot act on.
+// Raw retention is additionally capped at the hourly retention - keeping full-resolution
+// samples for LONGER than the rollups they feed would make the prune step delete rollups that
+// still have live source rows, which reads as data loss on the charts.
+if (isset($_POST['save_device_metrics_settings'])) {
+    validateCSRFToken($_POST['csrf_token']);
+
+    $metrics_enabled  = isset($_POST['config_enable_device_metrics']) ? 1 : 0;
+    $metrics_interval = max(60, min(3600, intval($_POST['config_metrics_collect_interval_seconds'] ?? 300)));
+    $metrics_hour_days = max(1, min(3650, intval($_POST['config_metrics_hour_retention_days'] ?? 90)));
+    $metrics_raw_days  = max(1, min(365,  intval($_POST['config_metrics_raw_retention_days'] ?? 14)));
+    $metrics_raw_days  = min($metrics_raw_days, $metrics_hour_days);
+
+    mysqli_query($mysqli, "UPDATE settings SET
+        config_enable_device_metrics = $metrics_enabled,
+        config_metrics_collect_interval_seconds = $metrics_interval,
+        config_metrics_raw_retention_days = $metrics_raw_days,
+        config_metrics_hour_retention_days = $metrics_hour_days
+        WHERE company_id = 1");
+
+    logAction('Settings', 'Edit', "$session_name " . ($metrics_enabled ? 'enabled' : 'disabled') .
+        " device metrics collection (interval {$metrics_interval}s, raw {$metrics_raw_days}d, hourly {$metrics_hour_days}d)");
+    flash_alert('Device metrics settings saved');
+    redirect();
+}
+
 // Save/create integration
 if (isset($_POST['save_rmm_integration'])) {
     validateCSRFToken($_POST['csrf_token']);
