@@ -298,6 +298,41 @@ function itflow_nav_icon_class($icon, $fallback = 'fa-link')
     <!-- Scripts: jQuery kept as a coexistence shim for un-ported inline $() calls -->
     <script src="/plugins/jquery/jquery.min.js"></script>
     <script src="/plugins/toastr/toastr.min.js"></script>
+    <!-- Toast options - the single source of truth, applied on every page.
+
+         These used to live in includes/inc_alert_feedback.php inside
+         `if (!empty($_SESSION['alert_message']))`, so they applied only on a request
+         that already carried a flash message; every other toast (the AJAX ones,
+         agent/js/project_kanban.js) ran with toastr's stock defaults.
+
+         That began to matter when css/itflow_motion.css started animating the toast
+         in: toastr's default fadeIn writes an inline style="opacity:.." every frame,
+         which outranks a CSS animation, and the two fought - measured opacity
+         reaching 1 by frame 13, then four frames at 0 before jQuery cleared the
+         inline style, so every toast blinked out mid-entrance. show() only sets
+         display, so the CSS entrance owns the reveal with nothing to fight.
+
+         Exit stays with jQuery because toastr removes the node in its own callback
+         and there is no CSS hook for that; 1000ms was a full second of a dismissed
+         message covering the page, and 160ms matches --if-dur-ui. Opacity-only, so
+         it stays honest under reduced motion, which a media query cannot reach
+         inside a JS animation.
+
+         It lives HERE, not in js/app.js, because app.js is deferred and the flash
+         toast is emitted by the inc_all_*.php bootstraps near the top of the body -
+         a deferred config would be set after the toast had already been raised. -->
+    <script nonce="<?php echo $csp_nonce; ?>">
+    if (window.toastr) {
+        toastr.options = {
+            "closeButton": false, "debug": false, "newestOnTop": false,
+            "progressBar": false, "positionClass": "toast-top-center",
+            "preventDuplicates": false, "onclick": null,
+            "showDuration": "0",   "showEasing": "linear", "showMethod": "show",
+            "hideDuration": "160", "hideEasing": "linear", "hideMethod": "fadeOut",
+            "timeOut": "5000", "extendedTimeOut": "1000"
+        };
+    }
+    </script>
 </head>
 <?php
 /* ---------------------------------------------------------------------------
