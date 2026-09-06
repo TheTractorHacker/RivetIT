@@ -85,6 +85,24 @@
             Chart.defaults.color       = ink;
             Chart.defaults.borderColor = border;
 
+            /* Reduced motion. Chart.js draws on a canvas, so the global
+               @media (prefers-reduced-motion: reduce) guard in css/itflow_motion.css
+               physically cannot reach it - CSS does not apply inside a canvas. Left
+               alone, Chart.defaults.animation stays at the stock
+               {duration: 1000, easing: 'easeOutQuart'}, which made the dashboard the
+               one surface still moving for a full second on every load while every
+               other element on the page was pinned to 1ms. Measured: a probe bar
+               chart's final geometry first appeared at dt=1020ms under
+               reduced_motion="reduce".
+
+               Read at apply() time rather than cached at parse time, so repaint()
+               picks up a preference change without a reload. */
+            var reduceMotion = window.matchMedia
+                && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            Chart.defaults.animation = reduceMotion
+                ? false
+                : { duration: 1000, easing: 'easeOutQuart' };
+
             if (Chart.defaults.scales) {
                 ['linear', 'category', 'logarithmic', 'time', 'radialLinear'].forEach(function (kind) {
                     var scale = Chart.defaults.scales[kind];

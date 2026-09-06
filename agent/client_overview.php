@@ -2,6 +2,17 @@
 
 require_once "includes/inc_all_client.php";
 
+/*
+ * includes/page_title.php derives the browser tab title mechanically from the
+ * FILENAME, so this page announced itself as "Client Overview" while every
+ * visible label on it - All Departments, Edit Department, Archive Department -
+ * says Department. includes/footer.php composes document.title from $page_title
+ * at the very END of the request, so overriding it here (after the include, as
+ * agent/ticket.php and agent/project_details.php already do with $tab_title) is
+ * enough, and no file rename is needed.
+ */
+$page_title = 'Department Overview';
+
 // ── Queries ───────────────────────────────────────────────────────────────────
 
 $sql_important_contacts = mysqli_query($mysqli,
@@ -36,8 +47,34 @@ $sql_open_tickets = mysqli_query($mysqli,
      WHERE ticket_client_id = $client_id AND ticket_archived_at IS NULL AND ticket_closed_at IS NULL AND ticket_status != 4
      ORDER BY ticket_updated_at DESC LIMIT 6");
 
+/*
+ * Recent Activity feed.
+ *
+ * Every visit to a client-scoped page writes an audit row (agent/credentials.php
+ * logs "viewed the Credentials page" on every load, for instance), so a plain
+ * "ORDER BY log_created_at DESC LIMIT 8" on a quiet department was mostly the
+ * same sentence repeated - on department 18 five of the eight rows were the
+ * byte-identical page-view line, and the ticket events a technician came for
+ * were squeezed into the top third. Grouping identical descriptions collapses
+ * that repetition into ONE row carrying a count, so the eight slots hold eight
+ * different things. Nothing is lost: the verbatim, uncollapsed sequence is one
+ * click away behind the header's "Full log" link.
+ */
 $sql_recent_activities = mysqli_query($mysqli,
-    "SELECT * FROM logs WHERE log_client_id = $client_id ORDER BY log_created_at DESC LIMIT 8");
+    "SELECT log_description, log_type, log_action,
+            MAX(log_created_at) AS log_created_at, COUNT(*) AS log_count
+     FROM logs
+     WHERE log_client_id = $client_id
+     GROUP BY log_description, log_type, log_action
+     ORDER BY log_created_at DESC LIMIT 8");
+
+// Last thing that actually HAPPENED in this department - page views excluded,
+// since "someone opened the credentials list" is not a change. Drives the
+// "Last activity" tile in the at-a-glance strip below.
+$last_real_event = mysqli_fetch_assoc(mysqli_query($mysqli,
+    "SELECT log_description, log_created_at FROM logs
+     WHERE log_client_id = $client_id AND log_action != 'View'
+     ORDER BY log_created_at DESC LIMIT 1"));
 
 $sql_shared_items = mysqli_query($mysqli,
     "SELECT * FROM shared_items WHERE item_client_id = $client_id AND item_active = 1 ORDER BY item_created_at ASC LIMIT 5");
@@ -62,6 +99,20 @@ $sql_certificates_expired        = mysqli_query($mysqli, "SELECT * FROM certific
 $sql_licenses_expired            = mysqli_query($mysqli, "SELECT * FROM software WHERE software_client_id=$client_id AND software_expire IS NOT NULL AND software_archived_at IS NULL AND software_expire < CURRENT_DATE ORDER BY software_expire ASC");
 $sql_asset_warranties_expired    = mysqli_query($mysqli, "SELECT * FROM assets WHERE asset_client_id=$client_id AND asset_warranty_expire IS NOT NULL AND asset_archived_at IS NULL AND asset_warranty_expire < CURRENT_DATE ORDER BY asset_warranty_expire ASC");
 $sql_asset_retired               = mysqli_query($mysqli, "SELECT * FROM assets WHERE asset_client_id=$client_id AND asset_install_date IS NOT NULL AND asset_archived_at IS NULL AND asset_install_date + INTERVAL 7 YEAR < CURRENT_DATE ORDER BY asset_install_date ASC");
+
+/*
+ * Counts behind the at-a-glance strip and the attention row further down.
+ * mysqli_num_rows() does not move a buffered result's cursor, so every one of
+ * these result sets is still walked in full by the cards below - this just reads
+ * their size once, up front, instead of each consumer counting again.
+ */
+$num_stale_tickets = mysqli_num_rows($sql_stale_tickets);
+$num_expiring_45   = mysqli_num_rows($sql_domains_expiring) + mysqli_num_rows($sql_certificates_expiring)
+                   + mysqli_num_rows($sql_licenses_expiring) + mysqli_num_rows($sql_asset_warranties_expiring)
+                   + mysqli_num_rows($sql_asset_retire);
+$num_expired_items = mysqli_num_rows($sql_domains_expired) + mysqli_num_rows($sql_certificates_expired)
+                   + mysqli_num_rows($sql_licenses_expired) + mysqli_num_rows($sql_asset_warranties_expired)
+                   + mysqli_num_rows($sql_asset_retired);
 
 // RMM health
 $rmm_client_stats = null;
@@ -132,85 +183,251 @@ $client_issues_usage = getClientIncludedIssuesUsage($mysqli, $client_id);
 </div>
 <?php endif; ?>
 
-<!-- ── CRM Opportunities widget ──────────────────────────────────────────── -->
-<?php if (lookupUserPermission('module_sales') >= 1):
-    $sql_client_opps = mysqli_query($mysqli,
-        "SELECT * FROM opportunities
-         WHERE opportunity_client_id = $client_id
-           AND opportunity_status = 'open'
-           AND opportunity_archived_at IS NULL
-         ORDER BY opportunity_amount DESC LIMIT 8");
-    $client_opps_total = floatval(mysqli_fetch_assoc(mysqli_query($mysqli,
-        "SELECT COALESCE(SUM(opportunity_amount),0) AS t FROM opportunities
-         WHERE opportunity_client_id = $client_id AND opportunity_status = 'open' AND opportunity_archived_at IS NULL"))['t']);
+<!-- ── Department at a glance ────────────────────────────────────────────────
+     The first 600px of this page used to carry no operational signal at all: a
+     money widget, an empty textarea and a row of location chips came before the
+     ticket list a technician actually opened it for. These tiles answer "what is
+     the state of this department?" in one line, every one of them a link to the
+     section it counts, and every one of them rendering a calm zero rather than
+     disappearing - "no assets recorded" is itself an answer. -->
+<?php
+$stat_tiles = [];
+
+if ($config_module_enable_ticketing == 1 && lookupUserPermission('module_support') >= 1) {
+    $stat_tiles[] = [
+        'label' => 'Open tickets',
+        'icon'  => 'fa-ticket-alt',
+        'value' => intval($num_active_tickets),
+        'href'  => "tickets.php?client_id=$client_id",
+        'sub'   => $num_stale_tickets > 0
+            ? '<span class="text-warning">' . intval($num_stale_tickets) . ' stale</span>'
+            : intval($num_closed_tickets) . ' closed',
+    ];
+}
+
+$stat_tiles[] = [
+    'label' => 'Contacts',
+    'icon'  => 'fa-users',
+    'value' => intval($num_contacts),
+    'href'  => "contacts.php?client_id=$client_id",
+];
+
+if ($config_module_enable_itdoc == 1 && lookupUserPermission('module_support') >= 1) {
+    $stat_tiles[] = [
+        'label' => 'Assets',
+        'icon'  => 'fa-laptop',
+        'value' => intval($num_assets),
+        'href'  => "assets.php?client_id=$client_id",
+    ];
+}
+
+if ($config_module_enable_itdoc == 1 && lookupUserPermission('module_credential') >= 1) {
+    $stat_tiles[] = [
+        'label' => 'Credentials',
+        'icon'  => 'fa-key',
+        'value' => intval($num_credentials),
+        'href'  => "credentials.php?client_id=$client_id",
+    ];
+}
+
+$stat_tiles[] = [
+    'label'       => 'Expiring 45d',
+    'icon'        => 'fa-hourglass-half',
+    'value'       => $num_expiring_45,
+    'value_class' => $num_expiring_45 > 0 ? 'text-warning' : '',
+    // Anchors to the attention row further down, but only when that row renders.
+    'href'        => ($num_stale_tickets || $num_expiring_45 || $num_expired_items) ? '#dept-attention' : null,
+    'sub'         => $num_expired_items > 0 ? '<span class="text-danger">' . $num_expired_items . ' expired</span>' : '',
+];
+
+$stat_tiles[] = [
+    'label' => 'Last activity',
+    'icon'  => 'fa-history',
+    'text'  => $last_real_event ? nullable_htmlentities(timeAgo($last_real_event['log_created_at'])) : 'None yet',
+    'sub'   => $last_real_event ? nullable_htmlentities($last_real_event['log_description']) : '',
+];
+
+// One tile body, whether or not the tile is a link.
+$render_stat_tile = function (array $tile): string {
+    $value = isset($tile['text']) ? $tile['text'] : number_format($tile['value']);
+    $size  = isset($tile['text']) ? 'h4' : 'h2';
+    $sub   = $tile['sub'] ?? '';
+    $title = $sub !== '' ? ' title="' . htmlspecialchars(strip_tags(html_entity_decode($sub, ENT_QUOTES, 'UTF-8')), ENT_QUOTES, 'UTF-8') . '"' : '';
+    return '<div class="subheader text-truncate"><i class="fas fa-fw ' . $tile['icon'] . ' me-1"></i>' . $tile['label'] . '</div>'
+         . '<div class="d-flex align-items-center" style="min-height:2.1rem">'
+         . '<span class="' . $size . ' mb-0 lh-1 ' . ($tile['value_class'] ?? '') . '">' . $value . '</span>'
+         . '</div>'
+         . '<div class="small text-muted text-truncate"' . $title . '>' . ($sub !== '' ? $sub : '&nbsp;') . '</div>';
+};
 ?>
 <div class="row">
     <div class="col-12">
-        <div class="card card-dark mb-3">
-            <div class="card-header p-2 d-flex align-items-center justify-content-between">
-                <h5 class="card-title mb-0"><i class="fas fa-fw fa-funnel-dollar me-2"></i>Open Opportunities
-                    <span class="badge text-bg-success ms-1"><?= numfmt_format_currency($currency_format, $client_opps_total, "$session_company_currency") ?></span>
-                </h5>
-                <div>
-                    <a href="opportunities.php?client_id=<?= $client_id ?>" class="text-muted small me-2">View all <i class="fas fa-chevron-right fa-xs"></i></a>
-                    <?php if (lookupUserPermission('module_sales') >= 2): ?>
-                        <button type="button" class="btn btn-primary btn-xs ajax-modal" data-modal-url="modals/opportunity/opportunity_add.php?client_id=<?= $client_id ?>"><i class="fas fa-plus me-1"></i>Add Opportunity</button>
+        <!-- list-group-horizontal-md, not a hand-rolled grid: Bootstrap gives the
+             dividers, the equal columns and the hover state in both themes, and it
+             stacks on its own below md instead of squeezing six tiles onto a phone. -->
+        <div class="card mb-3 js-dept-stats">
+            <div class="list-group list-group-flush list-group-horizontal-md">
+                <?php foreach ($stat_tiles as $i => $tile):
+                    /*
+                     * flex:1 1 0 (not Bootstrap's .flex-fill, which is 1 1 auto)
+                     * so the tiles are equal columns instead of columns sized
+                     * by their own text; min-width:0 lets the long ones truncate
+                     * rather than push the row wider. The divider is dropped on
+                     * the last tile, and once the list stacks below md every item
+                     * is full width, so that edge lands on the card's own border
+                     * and vanishes - no responsive variant needed.
+                     */
+                    $tile_style = ' style="flex:1 1 0;min-width:0'
+                        . ($i < count($stat_tiles) - 1 ? ';border-inline-end:1px solid var(--tblr-border-color)' : '') . '"';
+                ?>
+                    <?php if (!empty($tile['href'])): ?>
+                    <a href="<?= $tile['href'] ?>" class="list-group-item list-group-item-action py-2 px-3 js-dept-stat"<?= $tile_style ?>><?= $render_stat_tile($tile) ?></a>
+                    <?php else: ?>
+                    <div class="list-group-item py-2 px-3 js-dept-stat"<?= $tile_style ?>><?= $render_stat_tile($tile) ?></div>
                     <?php endif; ?>
-                </div>
-            </div>
-            <div class="card-body p-0">
-                <?php if (mysqli_num_rows($sql_client_opps) > 0): ?>
-                <table class="table table-sm table-hover mb-0">
-                    <tbody>
-                    <?php while ($opp_row = mysqli_fetch_assoc($sql_client_opps)):
-                        $o_id = intval($opp_row['opportunity_id']);
-                        $o_name = nullable_htmlentities($opp_row['opportunity_name']);
-                        $o_stage = nullable_htmlentities($opp_row['opportunity_stage']);
-                        $o_color = opportunityStageColor($opp_row['opportunity_stage']);
-                        $o_amount = floatval($opp_row['opportunity_amount']);
-                        $o_prob = intval($opp_row['opportunity_probability']);
-                        $o_close = nullable_htmlentities($opp_row['opportunity_close_date']);
-                    ?>
-                        <tr>
-                            <td class="ps-3">
-                                <a href="#" class="text-dark ajax-modal" data-modal-url="modals/opportunity/opportunity_edit.php?id=<?= $o_id ?>"><?= $o_name ?></a>
-                            </td>
-                            <td><span class="badge badge-<?= $o_color ?>"><?= $o_stage ?></span></td>
-                            <td class="text-muted small"><?= $o_prob ?>%</td>
-                            <td class="text-end pe-3 fw-bold"><?= numfmt_format_currency($currency_format, $o_amount, "$session_company_currency") ?></td>
-                        </tr>
-                    <?php endwhile; ?>
-                    </tbody>
-                </table>
-                <?php else: ?>
-                    <div class="p-3 text-muted text-center">No open opportunities for this department.</div>
-                <?php endif; ?>
+                <?php endforeach; ?>
             </div>
         </div>
     </div>
 </div>
-<?php endif; ?>
 
-<!-- ── Row 1: Quick Notes + Key Contacts ────────────────────────────────── -->
+<!-- ── The department body: one deliberate two-column block ─────────────────
+     Everything below used to be paired row by row, so a tall card and a short
+     one sat side by side and the row's height was whatever the tallest card
+     happened to want - a 280px hole under Open Tickets here, 116px under Key
+     Contacts there. Two stacked columns instead: the wide one carries the work
+     (what is open, what just happened), the rail carries reference (who to call,
+     the scratchpad, which buildings). Both columns always have content - Open
+     Tickets and Quick Notes always render - so neither can leave a bare gutter
+     the way a lone col-md-8 card did on a department with nothing in it. -->
+<?php
+$has_key_contacts = mysqli_num_rows($sql_important_contacts) > 0;
+$has_activity     = mysqli_num_rows($sql_recent_activities) > 0;
+$has_locations    = mysqli_num_rows($sql_client_locations) > 0;
+?>
 <div class="row">
 
-    <!-- Quick Notes -->
-    <div class="col-md-8">
+    <div class="col-lg-8">
+
+        <!-- Open Tickets -->
         <div class="card card-dark mb-3">
-            <div class="card-header p-2">
-                <h5 class="card-title"><i class="fas fa-fw fa-edit me-2"></i>Quick Notes</h5>
+            <div class="card-header p-2 d-flex align-items-center justify-content-between">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-fw fa-ticket-alt me-2"></i>Open Tickets
+                    <?php if ($num_active_tickets > 0): ?>
+                        <span class="badge text-bg-danger ms-1"><?= $num_active_tickets ?></span>
+                    <?php endif; ?>
+                </h5>
+                <a href="tickets.php?client_id=<?= $client_id ?>" class="text-muted small">View all <i class="fas fa-chevron-right fa-xs"></i></a>
             </div>
-            <div class="card-body p-2">
-                <textarea class="form-control border-0 bg-white js-update-client-notes" rows="7" id="clientNotes"
-                    placeholder="Type notes here…"
-                    data-client-id="<?= $client_id ?>"><?= $client_notes ?></textarea>
+            <?php if (mysqli_num_rows($sql_open_tickets) > 0): ?>
+            <table class="table table-sm table-hover mb-0">
+                <tbody>
+                <?php while ($row = mysqli_fetch_assoc($sql_open_tickets)):
+                    $tid     = intval($row['ticket_id']);
+                    $tnum    = nullable_htmlentities($row['ticket_prefix'] . $row['ticket_number']);
+                    $tsubj   = nullable_htmlentities($row['ticket_subject']);
+                    $tprio   = nullable_htmlentities($row['ticket_priority']);
+                    $tsname  = nullable_htmlentities($row['ticket_status_name']);
+                    $tscolor = nullable_htmlentities($row['ticket_status_color']);
+                    $tago    = timeAgo($row['ticket_updated_at']);
+                    $prio_class = match(strtolower($tprio ?? '')) {
+                        'critical' => 'danger', 'high' => 'warning', 'medium' => 'info', default => 'secondary'
+                    };
+                ?>
+                <tr>
+                    <td style="width:60px" class="text-muted small text-nowrap"><?= $tnum ?></td>
+                    <td>
+                        <a href="ticket.php?client_id=<?= $client_id ?>&ticket_id=<?= $tid ?>" class="text-dark"><?= $tsubj ?></a>
+                        <div class="small mt-1">
+                            <span class="badge rounded-pill badge-<?= $prio_class ?>"><?= $tprio ?></span>
+                            <span class="badge rounded-pill <?= tagTextClass($tscolor) ?> ms-1" style="background:<?= $tscolor ?>"><?= $tsname ?></span>
+                            <span class="text-muted ms-1"><?= $tago ?></span>
+                        </div>
+                    </td>
+                </tr>
+                <?php endwhile; ?>
+                </tbody>
+            </table>
+            <?php else: ?>
+            <div class="card-body py-4 text-center text-muted">
+                <i class="fas fa-check-circle fa-2x mb-2 d-block text-success"></i>No open tickets
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <?php if ($has_activity): ?>
+        <!-- Recent Activity -->
+        <div class="card card-dark mb-3">
+            <div class="card-header p-2 d-flex align-items-center justify-content-between">
+                <h5 class="card-title mb-0"><i class="fas fa-fw fa-history me-2"></i>Recent Activity</h5>
+                <?php if ($session_user_role == 3): ?>
+                <a href="../admin/audit_log.php?client=<?= $client_id ?>" class="text-muted small">Full log <i class="fas fa-chevron-right fa-xs"></i></a>
+                <?php endif; ?>
+            </div>
+            <!-- Height is capped rather than left to however much eight rows want:
+                 this card used to run ~2.9x the height of the card beside it. The
+                 header "Full log" link is the single way out to the complete log -
+                 the old card-footer pointed at exactly the same URL and cost 41px
+                 of a row that was already ragged. -->
+            <div class="js-activity-scroll" style="max-height:264px;overflow-y:auto">
+                <table class="table table-sm table-hover mb-0">
+                    <tbody>
+                    <?php while ($row = mysqli_fetch_assoc($sql_recent_activities)):
+                        $log_action_raw  = $row['log_action'];
+                        $log_is_pageview = strcasecmp($log_action_raw ?? '', 'View') === 0;
+                        $log_count       = intval($row['log_count']);
+                        $log_created_at  = timeAgo($row['log_created_at']);
+                        $log_description = nullable_htmlentities($row['log_description']);
+
+                        /*
+                         * "…for client" is MSP-era wording that OTHER pages write
+                         * into the audit row itself (agent/credentials.php:22), and
+                         * it never names the department it is talking about. It is
+                         * rewritten here at render time only - the stored row is
+                         * untouched and still reads verbatim in the full audit log.
+                         * $client_name is already HTML-escaped; the callback keeps
+                         * it out of preg's replacement syntax, where a literal $ or
+                         * backslash in a department name would otherwise be eaten.
+                         */
+                        $log_description = preg_replace_callback('/\bfor client\s*$/i',
+                            fn($m) => 'for ' . $client_name, $log_description);
+                        $log_description = preg_replace('/\bfor client\b(?=\s+\S)/i', 'for', $log_description);
+
+                        $log_icon = match (strtolower($log_action_raw ?? '')) {
+                            'view'     => 'fa-eye',
+                            'create'   => 'fa-plus',
+                            'edit'     => 'fa-pen',
+                            'delete'   => 'fa-trash',
+                            'closed'   => 'fa-check-circle',
+                            'resolved' => 'fa-check',
+                            'reopened' => 'fa-undo',
+                            'reply'    => 'fa-reply',
+                            default    => 'fa-dot-circle',
+                        };
+                    ?>
+                    <tr>
+                        <td class="text-nowrap text-secondary small align-middle" style="width:1%"><?= $log_created_at ?></td>
+                        <td class="<?= $log_is_pageview ? 'text-muted' : '' ?>">
+                            <i class="fas fa-fw <?= $log_icon ?> text-secondary me-1"></i><?= $log_description ?>
+                            <?php if ($log_count > 1): ?>
+                                <span class="badge bg-secondary-lt ms-1" title="<?= $log_count ?> identical entries - each one is listed in the full log">&times;<?= $log_count ?></span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endwhile; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
+        <?php endif; ?>
+
     </div>
 
-    <!-- Key Contacts -->
-    <?php if (mysqli_num_rows($sql_important_contacts) > 0): ?>
-    <div class="col-md-4">
+    <div class="col-lg-4">
+
+        <?php if ($has_key_contacts): ?>
+        <!-- Key Contacts -->
         <div class="card card-dark mb-3">
             <div class="card-header p-2 d-flex align-items-center justify-content-between">
                 <h5 class="card-title mb-0"><i class="fas fa-fw fa-users me-2"></i>Key Contacts</h5>
@@ -264,38 +481,62 @@ $client_issues_usage = getClientIncludedIssuesUsage($mysqli, $client_id);
                 <?php endwhile; ?>
             </div>
         </div>
-    </div>
-    <?php endif; ?>
+        <?php endif; ?>
 
-</div>
+        <!-- Quick Notes -->
+        <div class="card card-dark mb-3">
+            <div class="card-header p-2">
+                <h5 class="card-title"><i class="fas fa-fw fa-edit me-2"></i>Quick Notes</h5>
+            </div>
+            <div class="card-body p-2">
+                <!-- No bg-white / border-0 here: that hardcoded a white field
+                     which stayed white under data-bs-theme="dark", putting
+                     near-white text on white (~1.2:1) and making the textarea the
+                     brightest object on a dark page. Plain .form-control takes the
+                     themed surface in both modes. rows="3" because this field is
+                     empty on nearly every department and has no business setting
+                     the height of a whole row; resize:vertical keeps it growable
+                     for a heavy note-taker. -->
+                <textarea class="form-control js-update-client-notes" rows="3" id="clientNotes"
+                    style="resize:vertical"
+                    placeholder="Type notes here…"
+                    data-client-id="<?= $client_id ?>"><?= $client_notes ?></textarea>
+            </div>
+        </div>
 
-<!-- ── Locations ────────────────────────────────────────────────────────── -->
-<?php if (mysqli_num_rows($sql_client_locations) > 0): ?>
-<div class="row">
-    <div class="col-12">
+        <?php if ($has_locations): ?>
+        <!-- Locations -->
         <div class="card card-dark mb-3">
             <div class="card-header p-2 d-flex align-items-center justify-content-between">
                 <h5 class="card-title mb-0"><i class="fas fa-fw fa-map-marker-alt me-2"></i>Locations</h5>
                 <a href="locations.php?client_id=<?= $client_id ?>" class="text-muted small">View all <i class="fas fa-chevron-right fa-xs"></i></a>
             </div>
-            <div class="card-body p-2">
+            <!-- Sites used to be outline BUTTONS on a full-width row, and clicking
+                 one opened the site EDIT form - a destructive-capable action dressed
+                 as navigation. Now a flush list like Key Contacts: the row itself
+                 goes to the site list, and editing is its own explicit pencil. -->
+            <div class="list-group list-group-flush">
                 <?php while ($loc_row = mysqli_fetch_assoc($sql_client_locations)):
-                    $loc_id = intval($loc_row['location_id']);
-                    $loc_name = nullable_htmlentities($loc_row['location_name']);
+                    $loc_id    = intval($loc_row['location_id']);
+                    $loc_name  = nullable_htmlentities($loc_row['location_name']);
                     $loc_place = trim(($loc_row['location_city'] ?: '') . (($loc_row['location_city'] && $loc_row['location_state']) ? ', ' : '') . ($loc_row['location_state'] ?: ''));
-                    $loc_label = $loc_name . ($loc_place !== '' ? ' - ' . nullable_htmlentities($loc_place) : '');
                 ?>
-                    <a href="#" class="btn btn-outline-secondary btn-sm me-2 mb-1 ajax-modal" data-modal-url="modals/location/location_edit.php?id=<?= $loc_id ?>">
-                        <i class="fas fa-fw fa-map-marker-alt me-1"></i><?= $loc_label ?>
-                    </a>
+                <div class="list-group-item py-2 d-flex align-items-center">
+                    <i class="fas fa-fw fa-map-marker-alt text-secondary me-2"></i>
+                    <a href="locations.php?client_id=<?= $client_id ?>" class="flex-grow-1 text-truncate text-reset text-decoration-none"><?= $loc_name ?><?php if ($loc_place !== ''): ?><span class="text-muted small ms-2"><?= nullable_htmlentities($loc_place) ?></span><?php endif; ?></a>
+                    <a href="#" class="btn btn-sm btn-icon text-muted ms-2 ajax-modal" title="Edit this site"
+                        data-modal-url="modals/location/location_edit.php?id=<?= $loc_id ?>"><i class="fas fa-fw fa-pen fa-xs"></i></a>
+                </div>
                 <?php endwhile; ?>
             </div>
         </div>
-    </div>
-</div>
-<?php endif; ?>
+        <?php endif; ?>
 
-<!-- ── Row 2: Favorites ──────────────────────────────────────────────────── -->
+    </div>
+
+</div>
+
+<!-- ── Favorites ────────────────────────────────────────────────────────── -->
 <?php
 $has_fav_assets = mysqli_num_rows($sql_favorite_assets) > 0;
 $has_fav_creds  = mysqli_num_rows($sql_favorite_credentials) > 0 && lookupUserPermission('module_credential');
@@ -403,101 +644,13 @@ if ($has_fav_assets || $has_fav_creds):
 </div>
 <?php endif; ?>
 
-<!-- ── Row 3: Open Tickets + Recent Activity ─────────────────────────────── -->
-<div class="row">
-
-    <!-- Open Tickets -->
-    <div class="col-md-6">
-        <div class="card card-dark mb-3">
-            <div class="card-header p-2 d-flex align-items-center justify-content-between">
-                <h5 class="card-title mb-0">
-                    <i class="fas fa-fw fa-ticket-alt me-2"></i>Open Tickets
-                    <?php if ($num_active_tickets > 0): ?>
-                        <span class="badge text-bg-danger ms-1"><?= $num_active_tickets ?></span>
-                    <?php endif; ?>
-                </h5>
-                <a href="tickets.php?client_id=<?= $client_id ?>" class="text-muted small">View all <i class="fas fa-chevron-right fa-xs"></i></a>
-            </div>
-            <?php if (mysqli_num_rows($sql_open_tickets) > 0): ?>
-            <table class="table table-sm table-hover mb-0">
-                <tbody>
-                <?php while ($row = mysqli_fetch_assoc($sql_open_tickets)):
-                    $tid     = intval($row['ticket_id']);
-                    $tnum    = nullable_htmlentities($row['ticket_prefix'] . $row['ticket_number']);
-                    $tsubj   = nullable_htmlentities($row['ticket_subject']);
-                    $tprio   = nullable_htmlentities($row['ticket_priority']);
-                    $tsname  = nullable_htmlentities($row['ticket_status_name']);
-                    $tscolor = nullable_htmlentities($row['ticket_status_color']);
-                    $tago    = timeAgo($row['ticket_updated_at']);
-                    $prio_class = match(strtolower($tprio ?? '')) {
-                        'critical' => 'danger', 'high' => 'warning', 'medium' => 'info', default => 'secondary'
-                    };
-                ?>
-                <tr>
-                    <td style="width:60px" class="text-muted small text-nowrap"><?= $tnum ?></td>
-                    <td>
-                        <a href="ticket.php?client_id=<?= $client_id ?>&ticket_id=<?= $tid ?>" class="text-dark"><?= $tsubj ?></a>
-                        <div class="small mt-1">
-                            <span class="badge rounded-pill badge-<?= $prio_class ?>"><?= $tprio ?></span>
-                            <span class="badge rounded-pill <?= tagTextClass($tscolor) ?> ms-1" style="background:<?= $tscolor ?>"><?= $tsname ?></span>
-                            <span class="text-muted ms-1"><?= $tago ?></span>
-                        </div>
-                    </td>
-                </tr>
-                <?php endwhile; ?>
-                </tbody>
-            </table>
-            <?php else: ?>
-            <div class="card-body py-4 text-center text-muted">
-                <i class="fas fa-check-circle fa-2x mb-2 d-block text-success"></i>No open tickets
-            </div>
-            <?php endif; ?>
-        </div>
-    </div>
-
-    <!-- Recent Activity -->
-    <?php if (mysqli_num_rows($sql_recent_activities) > 0): ?>
-    <div class="col-md-6">
-        <div class="card card-dark mb-3">
-            <div class="card-header p-2 d-flex align-items-center justify-content-between">
-                <h5 class="card-title mb-0"><i class="fas fa-fw fa-history me-2"></i>Recent Activity</h5>
-                <?php if ($session_user_role == 3): ?>
-                <a href="../admin/audit_log.php?client=<?= $client_id ?>" class="text-muted small">Full log <i class="fas fa-chevron-right fa-xs"></i></a>
-                <?php endif; ?>
-            </div>
-            <table class="table table-sm table-hover mb-0">
-                <tbody>
-                <?php while ($row = mysqli_fetch_assoc($sql_recent_activities)):
-                    $log_description = nullable_htmlentities($row['log_description']);
-                    $log_created_at  = timeAgo($row['log_created_at']);
-                ?>
-                <tr>
-                    <td class="text-nowrap text-secondary small"><?= $log_created_at ?></td>
-                    <td><?= $log_description ?></td>
-                </tr>
-                <?php endwhile; ?>
-                </tbody>
-            </table>
-            <?php if ($session_user_role == 3): ?>
-            <div class="card-footer p-2">
-                <a href="../admin/audit_log.php?client=<?= $client_id ?>">See More…</a>
-            </div>
-            <?php endif; ?>
-        </div>
-    </div>
-    <?php endif; ?>
-
-</div>
-
-<!-- ── Row 4: Alert cards (stale / expiring / expired) ───────────────────── -->
+<!-- ── Needs attention (stale / expiring / expired) ───────────────────────── -->
 <?php
-$has_stale    = mysqli_num_rows($sql_stale_tickets) > 0;
-$has_expiring = mysqli_num_rows($sql_domains_expiring) > 0 || mysqli_num_rows($sql_certificates_expiring) > 0
-             || mysqli_num_rows($sql_licenses_expiring) > 0 || mysqli_num_rows($sql_asset_warranties_expiring) > 0
-             || mysqli_num_rows($sql_asset_retire) > 0;
-$has_expired  = mysqli_num_rows($sql_domains_expired) > 0 || mysqli_num_rows($sql_certificates_expired) > 0
-             || mysqli_num_rows($sql_licenses_expired) > 0 || mysqli_num_rows($sql_asset_warranties_expired) > 0
-             || mysqli_num_rows($sql_asset_retired) > 0;
+// Counted once at the top of this file; the "Expiring 45d" tile in the
+// at-a-glance strip links down here whenever any of the three renders.
+$has_stale    = $num_stale_tickets > 0;
+$has_expiring = $num_expiring_45 > 0;
+$has_expired  = $num_expired_items > 0;
 
 if ($has_stale || $has_expiring || $has_expired):
     // Column width follows how many of the 3 alert cards actually render,
@@ -505,7 +658,7 @@ if ($has_stale || $has_expiring || $has_expired):
     $alert_card_count = ($has_stale ? 1 : 0) + ($has_expiring ? 1 : 0) + ($has_expired ? 1 : 0);
     $alert_col_class = $alert_card_count === 1 ? 'col-md-12' : ($alert_card_count === 2 ? 'col-md-6' : 'col-md-4');
 ?>
-<div class="row">
+<div class="row" id="dept-attention">
 
     <?php if ($has_stale): ?>
     <div class="<?= $alert_col_class ?>">
@@ -628,6 +781,75 @@ if ($has_stale || $has_expiring || $has_expired):
     </div>
     <?php endif; ?>
 
+</div>
+<?php endif; ?>
+
+<!-- ── Opportunities ────────────────────────────────────────────────────────
+     Still gated exactly as it was on module_sales - whether this edition runs a
+     sales module at all is the owner's call, not this page's. What changed is
+     volume and position: it no longer opens the page above the ticket list, it
+     no longer shouts a currency total in a green badge on an internal-IT
+     department overview, its "Add" button is a normal outline control instead of
+     the largest saturated element anywhere on the page, and, like every other
+     optional card here, it renders only when it has something to show. -->
+<?php if (lookupUserPermission('module_sales') >= 1):
+    $sql_client_opps = mysqli_query($mysqli,
+        "SELECT * FROM opportunities
+         WHERE opportunity_client_id = $client_id
+           AND opportunity_status = 'open'
+           AND opportunity_archived_at IS NULL
+         ORDER BY opportunity_amount DESC LIMIT 8");
+    $client_opp_count = $sql_client_opps ? mysqli_num_rows($sql_client_opps) : 0;
+    /* The CARD renders whenever module_sales is granted, not only when a row exists.
+       Gating the whole card on a row count removed the only "Add Opportunity" control
+       and the "View all" link from exactly the department where you would add the
+       first one - a department with none. The other cards made conditional on this
+       page (Key Contacts, Locations, Favorites) carry no create affordance, so that
+       precedent does not extend here. Only the table body is conditional; with no
+       rows the card shows its empty state and keeps both actions. */
+?>
+<div class="row">
+    <div class="col-12">
+        <div class="card card-dark mb-3">
+            <div class="card-header p-2 d-flex align-items-center justify-content-between">
+                <h5 class="card-title mb-0"><i class="fas fa-fw fa-funnel-dollar me-2"></i>Open Opportunities</h5>
+                <div>
+                    <a href="opportunities.php?client_id=<?= $client_id ?>" class="text-muted small me-2">View all <i class="fas fa-chevron-right fa-xs"></i></a>
+                    <?php if (lookupUserPermission('module_sales') >= 2): ?>
+                        <button type="button" class="btn btn-outline-secondary btn-xs ajax-modal" data-modal-url="modals/opportunity/opportunity_add.php?client_id=<?= $client_id ?>"><i class="fas fa-plus me-1"></i>Add Opportunity</button>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <?php if ($client_opp_count === 0): ?>
+                    <p class="text-muted text-center my-3 mb-0">No open opportunities for this department.</p>
+                <?php else: ?>
+                <table class="table table-sm table-hover mb-0">
+                    <tbody>
+                    <?php while ($opp_row = mysqli_fetch_assoc($sql_client_opps)):
+                        $o_id = intval($opp_row['opportunity_id']);
+                        $o_name = nullable_htmlentities($opp_row['opportunity_name']);
+                        $o_stage = nullable_htmlentities($opp_row['opportunity_stage']);
+                        $o_color = opportunityStageColor($opp_row['opportunity_stage']);
+                        $o_amount = floatval($opp_row['opportunity_amount']);
+                        $o_prob = intval($opp_row['opportunity_probability']);
+                        $o_close = nullable_htmlentities($opp_row['opportunity_close_date']);
+                    ?>
+                        <tr>
+                            <td class="ps-3">
+                                <a href="#" class="text-dark ajax-modal" data-modal-url="modals/opportunity/opportunity_edit.php?id=<?= $o_id ?>"><?= $o_name ?></a>
+                            </td>
+                            <td><span class="badge badge-<?= $o_color ?>"><?= $o_stage ?></span></td>
+                            <td class="text-muted small"><?= $o_prob ?>%</td>
+                            <td class="text-end pe-3 fw-bold"><?= numfmt_format_currency($currency_format, $o_amount, "$session_company_currency") ?></td>
+                        </tr>
+                    <?php endwhile; ?>
+                    </tbody>
+                </table>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
 </div>
 <?php endif; ?>
 

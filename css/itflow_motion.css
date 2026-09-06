@@ -66,9 +66,19 @@
   --if-skeleton-sheen: rgba(255,255,255,.55);
 }
 
-/* Both of this app's non-equivalent dark triggers, because the client portal
-   emits no <body> class and never receives .dark-mode. Measured: base resolves
-   to #24332f dark / #e3e9ea light, and the light sheen is invisible on both. */
+/* Both of this app's non-equivalent dark triggers. In production the two are
+   always set from the same flag - every shell emits html[data-bs-theme] and
+   body.dark-mode together - so this is belt-and-braces rather than a fix, but a
+   sheen that only knew one trigger would be a silent trap for anyone who later
+   toggles the theme client-side from one of them.
+
+   --if-skeleton-base rides --if-border, which itflow_design.css declares dark
+   ONLY under :root[data-bs-theme="dark"], so it follows the root trigger. That
+   is correct here because of the pairing above; if a future toggle ever sets
+   body.dark-mode alone, the base needs its own override next to this line.
+
+   Measured live: base resolves to #24332f dark / #e3e9ea light, and the light
+   .55 sheen would be invisible on the dark base, which is why it steps down. */
 :root[data-bs-theme="dark"],
 body.dark-mode { --if-skeleton-sheen: rgba(255,255,255,.07); }
 
@@ -80,10 +90,18 @@ body.dark-mode { --if-skeleton-sheen: rgba(255,255,255,.07); }
    -------------------------------------------------------------------------- */
 @keyframes if-page-in   { from { opacity: 0; transform: translate3d(0, var(--if-rise), 0) }             to { opacity: 1; transform: none } }
 @keyframes if-swap-in   { from { opacity: 0; transform: translate3d(0, var(--if-nudge), 0) }            to { opacity: 1; transform: none } }
-@keyframes if-pop-down  { from { opacity: 0; transform: translate3d(0, calc(var(--if-nudge) * -1), 0) } to { opacity: 1; transform: none } }
-@keyframes if-pop-up    { from { opacity: 0; transform: translate3d(0, var(--if-nudge), 0) }            to { opacity: 1; transform: none } }
-@keyframes if-pop-start { from { opacity: 0; transform: translate3d(var(--if-nudge), 0, 0) }            to { opacity: 1; transform: none } }
-@keyframes if-pop-end   { from { opacity: 0; transform: translate3d(calc(var(--if-nudge) * -1), 0, 0) } to { opacity: 1; transform: none } }
+/* These animate the INDEPENDENT `translate` property, never `transform`.
+   Popper positions every .dropdown-menu with an inline `transform: translate(x,y)`,
+   and a running CSS animation outranks inline style - so animating `transform`
+   here replaced Popper's placement for the whole 160ms. Measured on the live
+   clients.php row menu: it painted at x=1418 y=0 while fading to opacity 1, then
+   jumped 712px into place the frame the animation ended. `translate` is a separate
+   property that COMPOSES with `transform` instead of replacing it, so Popper keeps
+   its placement and we keep the directional nudge. */
+@keyframes if-pop-down  { from { opacity: 0; translate: 0 calc(var(--if-nudge) * -1) } to { opacity: 1; translate: none } }
+@keyframes if-pop-up    { from { opacity: 0; translate: 0 var(--if-nudge) }            to { opacity: 1; translate: none } }
+@keyframes if-pop-start { from { opacity: 0; translate: var(--if-nudge) 0 }            to { opacity: 1; translate: none } }
+@keyframes if-pop-end   { from { opacity: 0; translate: calc(var(--if-nudge) * -1) 0 } to { opacity: 1; translate: none } }
 @keyframes if-fade-in   { from { opacity: 0 }                                                           to { opacity: 1 } }
 @keyframes if-shimmer   { from { transform: translate3d(-100%, 0, 0) }                                  to { transform: translate3d(100%, 0, 0) } }
 
