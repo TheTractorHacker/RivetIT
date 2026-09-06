@@ -659,3 +659,27 @@ a.it-stat-card:hover, a.it-stat-card:focus-visible { box-shadow: var(--if-shadow
 .card-body > .it-empty-state:last-child {
     padding-top: 1.5rem;
 }
+
+/* ---- Outline button ink: amber and cyan fail contrast on white ----
+   Bootstrap/Tabler draw .btn-outline-* label text in the raw semantic hue. For
+   warning and info that is unreadable on a white card: measured on the alerts
+   severity filter at 12px, warning (#f59f00) is 2.13:1 and info (#4299e1) is
+   3.05:1 against white, both well under the 4.5:1 minimum -- the amber was the
+   faintest text anywhere in the app. danger (#d63939, 4.66:1) and the rest
+   already pass and are left alone.
+
+   Only the resting LABEL colour changes. The border and the hover/active fill
+   keep the true severity hue, so the colour-coding that makes a severity filter
+   readable at a glance is preserved -- flattening all four buttons to grey would
+   have deleted that information instead of fixing the contrast.
+
+   Values are darkened ramps of the same hues: #946200 = 5.24:1, #12719c = 5.43:1.
+   Dark mode needs the opposite correction, so those are lightened instead and
+   measured against the dark card surface: #f0a500 = 7.10:1, #6cb6f0 = 6.74:1. */
+.btn-outline-warning { color: #946200; }
+.btn-outline-info    { color: #12719c; }
+.btn-outline-warning:hover, .btn-outline-warning:focus-visible, .btn-outline-warning.active,
+.btn-outline-info:hover,    .btn-outline-info:focus-visible,    .btn-outline-info.active { color: #fff; }
+
+:root[data-bs-theme="dark"] .btn-outline-warning, body.dark-mode .btn-outline-warning { color: #f0a500; }
+:root[data-bs-theme="dark"] .btn-outline-info,    body.dark-mode .btn-outline-info    { color: #6cb6f0; }

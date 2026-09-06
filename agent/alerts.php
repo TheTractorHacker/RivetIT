@@ -255,6 +255,16 @@ $has_active_filter = $filter_severity || $filter_client || $filter_search || $fi
             </div>
             <!-- Severity filter -->
             <div class="btn-group btn-group-sm me-2">
+                <?php
+                /* btn-outline-warning and btn-outline-info draw their label in the raw
+                   amber/cyan, which on white at 12px measured 2.13:1 and 3.05:1 - both
+                   under the 4.5:1 minimum, and the amber was the faintest text on the
+                   page. The severity colour-coding is deliberate and worth keeping, so
+                   the fix is a darker ink for those two rather than flattening all four
+                   to grey: .btn-outline-warning / -info get an accessible text colour in
+                   css/itflow_design.css while their border and hover fill stay the
+                   severity hue. Critical and Error are the same red at 4.66:1 and pass. */
+                ?>
                 <?php foreach (['critical'=>'danger','error'=>'danger','warning'=>'warning','info'=>'info'] as $sev => $col): ?>
                 <a href="?status=<?= $h_status ?>&source=<?= $h_source ?>&severity=<?= $filter_severity === $sev ? '' : $sev ?>"
                    class="btn <?= $filter_severity === $sev ? "btn-$col" : "btn-outline-$col" ?>">
@@ -277,8 +287,14 @@ $has_active_filter = $filter_severity || $filter_client || $filter_search || $fi
             <?php if ($filter_severity): ?><input type="hidden" name="severity" value="<?= htmlspecialchars($filter_severity) ?>"><?php endif; ?>
             <?php endif; ?>
             <!-- Search -->
-            <input type="text" name="q" value="<?= htmlspecialchars($filter_search) ?>" class="form-control form-control-sm me-2" placeholder="Search message, device, department…" style="max-width:220px">
-            <button type="submit" class="btn btn-sm btn-secondary me-2"><i class="fas fa-search"></i></button>
+            <!-- Search + submit are one input-group so the button can never sit 2px low and
+                 4px short of the field again (measured: btn-group 30.78px, input 32.375px,
+                 button 28px, all on one line). max-width was 220px, which cut the placeholder
+                 mid-word at "departmen" with no ellipsis; 20rem fits it. -->
+            <div class="input-group input-group-sm me-2" style="max-width:20rem">
+                <input type="text" name="q" value="<?= htmlspecialchars($filter_search) ?>" class="form-control" placeholder="Search message, device, department…" aria-label="Search alerts">
+                <button type="submit" class="btn btn-secondary" aria-label="Search"><i class="fas fa-search"></i></button>
+            </div>
             <?php if ($has_active_filter || $filter_status !== 'new'): ?>
             <a href="?" class="btn btn-sm btn-outline-secondary"><i class="fas fa-times me-1"></i>Clear</a>
             <?php endif; ?>

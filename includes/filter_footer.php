@@ -122,7 +122,17 @@ if ($total_found_rows > 5) {
 }
 
 if ($total_found_rows == 0) {
-    echo "<center class='my-3'><i class='far fa-fw fa-6x fa-meh-rolling-eyes text-secondary'></i><h3 class='text-secondary mt-3'>No Results</h3></center>";
+    /* This is the shared empty state for every filtered list in the app (tickets,
+       assets, domains, contacts...). It used to render a 6x rolling-eyes face:
+       measured 105x84px, which made it the largest graphic on the page, above an
+       h3 at 18.4px/650 - heavier than the card's own title at 16px/500. So an
+       empty list shouted, and shouted with a cartoon eye-roll, which reads as
+       editorial commentary in an IT asset register. Same information, stated
+       calmly, and no longer competing with the page's real heading. */
+    echo "<div class='text-center text-muted py-5'>"
+       . "<i class='far fa-folder-open fa-2x d-block mb-3 opacity-50'></i>"
+       . "<p class='mb-0'>No results match your filters.</p>"
+       . "</div>";
 }
 
 ?>

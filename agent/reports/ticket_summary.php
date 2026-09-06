@@ -50,8 +50,14 @@ if (!empty($report_export_csv)) {
         </div>
     </div>
     <div class="card-body p-0">
-        <form class="p-3">
-            <select class="form-control auto-submit-select" name="year">
+        <!-- The select used to be the form's only child, so it stretched to the full
+             1270px card width and read as an empty text field containing "2026" rather
+             than as a filter. It also had no <label> and no aria-label anywhere on the
+             page, so its purpose was inferable only from its current value. -->
+        <form class="p-3 d-flex align-items-center gap-2">
+            <label class="form-label mb-0 text-muted small" for="ticket-summary-year">Year</label>
+            <select class="form-select form-select-sm auto-submit-select" name="year"
+                    id="ticket-summary-year" style="max-width:9rem">
                 <?php
                 while ($row = mysqli_fetch_assoc($sql_ticket_years)) {
                     $ticket_year = intval($row['ticket_year']); ?>
@@ -134,6 +140,7 @@ document.addEventListener('DOMContentLoaded', function () {
             ?>
         ];
 
+        const chartAccent = (getComputedStyle(document.body).getPropertyValue('--if-primary') || '').trim() || '#007bff';
         new Chart(ctx, {
             type: 'line',
             data: {
@@ -141,11 +148,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 datasets: [{
                     label: "Tickets Raised",
                     fill: false,
-                    borderColor: "#007bff",
-                    pointBackgroundColor: "#007bff",
-                    pointBorderColor: "#007bff",
+                    /* Reads the live accent off the design layer instead of hard-coding the
+                       Bootstrap 4 blue this chart used to carry, which matched no token on this
+                       install (accent is red here). Falls back to the old blue only if the token
+                       is somehow absent, so the chart can never end up with no colour at all. */
+                    borderColor: chartAccent,
+                    pointBackgroundColor: chartAccent,
+                    pointBorderColor: chartAccent,
                     pointHoverRadius: 5,
-                    pointHoverBackgroundColor: "#007bff",
+                    pointHoverBackgroundColor: chartAccent,
                     pointBorderWidth: 2,
                     data: dataPoints
                 }]
@@ -162,9 +173,22 @@ document.addEventListener('DOMContentLoaded', function () {
                         beginAtZero: true,
                         min: 0,
                         max: <?php
-                            // use your helper if available, otherwise largest_ticket_month as-is
-                            $max = max(5, $largest_ticket_month);
-                            echo function_exists('roundUpToNearestMultiple') ? roundUpToNearestMultiple($max) : $max;
+                            /* Was roundUpToNearestMultiple($max). That helper defaults to an
+                               increment of 1000 - correct for the currency charts that also call
+                               it, wrong here: ANY monthly ticket count from 1 to 1000 snapped the
+                               axis to 1000, so a real series rendered as a flat line welded to the
+                               x-axis (measured: 0.6px of movement across a 281px plot area).
+                               Pick a step from the magnitude of the data instead, so the tallest
+                               month always fills most of the plot. */
+                            $max = max(1, (int) $largest_ticket_month);
+                            $step = 1;
+                            foreach ([1, 2, 5, 10, 25, 50, 100, 250, 500, 1000] as $candidate) {
+                                $step = $candidate;
+                                if ((int) ceil($max / $candidate) <= 5) {
+                                    break;
+                                }
+                            }
+                            echo (int) ($step * ceil($max / $step));
                         ?>,
                         ticks: { maxTicksLimit: 5, precision: 0 },
                         grid: { color: "rgba(0, 0, 0, .125)" }
