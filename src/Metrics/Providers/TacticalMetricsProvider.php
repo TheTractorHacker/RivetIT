@@ -102,6 +102,14 @@ final class TacticalMetricsProvider implements MetricsProviderInterface
     private array $errors = [];
 
     /**
+     * Per-asset attribution for the subset of $errors that belongs to one device.
+     * Keyed by asset id, first error wins. See MetricsProviderInterface::deviceErrors().
+     *
+     * @var array<int,string>
+     */
+    private array $deviceErrors = [];
+
+    /**
      * Per-run memo of check lists, keyed by asset id, so a single cycle never
      * hits the database or the vendor twice for the same agent.
      *
@@ -173,6 +181,12 @@ final class TacticalMetricsProvider implements MetricsProviderInterface
         return $this->errors;
     }
 
+    /** @return array<int,string> asset id => first error blamed on that asset */
+    public function deviceErrors(): array
+    {
+        return $this->deviceErrors;
+    }
+
     /**
      * @param array<int,array{asset_id:int,agent_id:string,hostname:string}> $devices
      * @param \DateTimeImmutable|null $since UTC high-water mark
@@ -180,8 +194,9 @@ final class TacticalMetricsProvider implements MetricsProviderInterface
      */
     public function collect(array $devices, ?\DateTimeImmutable $since = null): array
     {
-        $this->errors = [];
-        $samples      = [];
+        $this->errors       = [];
+        $this->deviceErrors = [];
+        $samples            = [];
 
         if ($since !== null) {
             $since = $since->setTimezone(new \DateTimeZone('UTC'));
@@ -195,7 +210,7 @@ final class TacticalMetricsProvider implements MetricsProviderInterface
             $label    = $hostname !== '' ? $hostname : ('asset ' . $assetId);
 
             if ($assetId <= 0 || $agentId === '') {
-                $this->addError("Skipped $label: missing asset id or Tactical agent id");
+                $this->addError("Skipped $label: missing asset id or Tactical agent id", $assetId);
                 continue;
             }
 
@@ -205,7 +220,7 @@ final class TacticalMetricsProvider implements MetricsProviderInterface
                     $samples[] = $s;
                 }
             } catch (\Throwable $e) {
-                $this->addError("Check history failed for $label: " . $e->getMessage());
+                $this->addError("Check history failed for $label: " . $e->getMessage(), $assetId);
             }
 
             try {
@@ -213,7 +228,7 @@ final class TacticalMetricsProvider implements MetricsProviderInterface
                     $samples[] = $s;
                 }
             } catch (\Throwable $e) {
-                $this->addError("Agent state failed for $label: " . $e->getMessage());
+                $this->addError("Agent state failed for $label: " . $e->getMessage(), $assetId);
             }
         }
 
@@ -785,9 +800,21 @@ final class TacticalMetricsProvider implements MetricsProviderInterface
         return $dt->setTimezone($utc);
     }
 
-    /** Keep the error list bounded; a 26-device fleet cannot legitimately fill it. */
-    private function addError(string $message): void
+    /**
+     * Keep the error list bounded; a 26-device fleet cannot legitimately fill it.
+     *
+     * $assetId attributes the message to one device so the collector can write it
+     * into that device's device_metric_collection_state.last_error. Omit it for a
+     * provider-wide failure that belongs to no single device. The per-asset map is
+     * NOT subject to the 100-message cap: it holds at most one entry per device, so
+     * it is bounded by the fleet size already, and dropping entries there would
+     * silently un-explain a device on a large fleet.
+     */
+    private function addError(string $message, int $assetId = 0): void
     {
+        if ($assetId > 0 && !isset($this->deviceErrors[$assetId])) {
+            $this->deviceErrors[$assetId] = $message;
+        }
         if (count($this->errors) >= 100) {
             return;
         }

@@ -85,4 +85,16 @@ final class NullMetricsProvider implements MetricsProviderInterface
     {
         return $this->reason !== '' ? [$this->reason] : [];
     }
+
+    /**
+     * Always []. A null provider never collects, so it never fails at a device.
+     * Its construction failure, when there is one, is provider-wide and is
+     * reported through errors() alone.
+     *
+     * @return array<int,string>
+     */
+    public function deviceErrors(): array
+    {
+        return [];
+    }
 }

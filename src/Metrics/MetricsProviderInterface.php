@@ -59,10 +59,37 @@ interface MetricsProviderInterface
 
     /**
      * Human-readable failures from the most recent collect() call, newest last.
-     * The collector writes the last one into
-     * device_metric_collection_state.last_error (VARCHAR(255)).
+     * Includes provider-wide failures that belong to no single device, so this
+     * is what a human reads in the cron log.
      *
      * @return string[]
      */
     public function errors(): array;
+
+    /**
+     * The subset of errors() that can be blamed on one specific asset, keyed by
+     * asset id, from the most recent collect() call.
+     *
+     * This exists because errors() is a flat list of prose and the collector
+     * cannot parse an asset out of it. Without the attribution, a device the
+     * vendor could not reach records no failure at all: it produced no samples,
+     * so there is nothing to write a success from either, and its
+     * device_metric_collection_state row keeps a stale last_collected_at with a
+     * NULL last_error. The Performance tab then tells the user "no samples have
+     * been recorded yet" when the truthful answer is "the collector could not
+     * resolve the RMM host" - the tab has a branch for exactly that message and
+     * it would otherwise be unreachable.
+     *
+     * One entry per asset: the FIRST error wins, because a device that fails DNS
+     * fails every subsequent call for the same reason and the first message is
+     * the root cause rather than a downstream symptom.
+     *
+     * An asset appearing here is not by itself a failure - a provider may hit a
+     * partial error and still return samples for that device. The collector
+     * records a failure only for an asset that is listed here AND produced no
+     * samples at all.
+     *
+     * @return array<int,string> asset id => message
+     */
+    public function deviceErrors(): array;
 }

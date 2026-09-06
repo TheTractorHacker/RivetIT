@@ -360,6 +360,30 @@ if ($do_collect) {
 
             $provider_errors = $provider->errors();
 
+            // Per-device failures. A device the vendor could not reach produces no samples, so
+            // ingest() never records a success for it, and collect() did not throw, so the
+            // recordFailure() branch above never fires either - without this, its collection-state
+            // row keeps a stale last_collected_at and a NULL last_error, and the Performance tab
+            // says "no samples recorded yet" when the truthful answer is in $provider_errors.
+            //
+            // A device is only marked failed when it produced NOTHING. A partial error alongside
+            // real samples is a warning in the log, not a collection failure - recording it would
+            // increment consecutive_failures on a device that is in fact still reporting.
+            if (!$failed && !$flag_dry_run) {
+                $assets_with_samples = [];
+                foreach ($samples as $sample) {
+                    if ($sample instanceof MetricSample) {
+                        $assets_with_samples[$sample->assetId()] = true;
+                    }
+                }
+                foreach ($provider->deviceErrors() as $failed_asset_id => $failed_message) {
+                    $failed_asset_id = (int) $failed_asset_id;
+                    if ($failed_asset_id > 0 && !isset($assets_with_samples[$failed_asset_id])) {
+                        $ingest->recordFailure($failed_asset_id, $intg_id, $failed_message);
+                    }
+                }
+            }
+
             if (!$failed) {
                 $ingest_result = [
                     'inserted'  => 0,
