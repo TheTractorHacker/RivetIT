@@ -305,17 +305,15 @@ function itflow_nav_icon_class($icon, $fallback = 'fa-link')
          that already carried a flash message; every other toast (the AJAX ones,
          agent/js/project_kanban.js) ran with toastr's stock defaults.
 
-         That began to matter when css/itflow_motion.css started animating the toast
-         in: toastr's default fadeIn writes an inline style="opacity:.." every frame,
-         which outranks a CSS animation, and the two fought - measured opacity
-         reaching 1 by frame 13, then four frames at 0 before jQuery cleared the
-         inline style, so every toast blinked out mid-entrance. show() only sets
-         display, so the CSS entrance owns the reveal with nothing to fight.
+         The ENTRANCE is toastr's own fadeIn and css/itflow_motion.css deliberately
+         does not animate #toast-container - toastr stamps an inline opacity on the
+         node and animates it in JS, and a CSS animation cannot win that cleanly
+         (it outranks the inline style only while it runs, then snaps back to
+         whatever jQuery left). That was measured twice, both ways, and both blinked.
 
-         Exit stays with jQuery because toastr removes the node in its own callback
-         and there is no CSS hook for that; 1000ms was a full second of a dismissed
-         message covering the page, and 160ms matches --if-dur-ui. Opacity-only, so
-         it stays honest under reduced motion, which a media query cannot reach
+         Only the EXIT is retuned: 1000ms was a full second of a dismissed message
+         still covering the page, and 160ms matches --if-dur-ui. It is opacity-only,
+         so it stays honest under reduced motion, which a media query cannot reach
          inside a JS animation.
 
          It lives HERE, not in js/app.js, because app.js is deferred and the flash
@@ -327,7 +325,7 @@ function itflow_nav_icon_class($icon, $fallback = 'fa-link')
             "closeButton": false, "debug": false, "newestOnTop": false,
             "progressBar": false, "positionClass": "toast-top-center",
             "preventDuplicates": false, "onclick": null,
-            "showDuration": "0",   "showEasing": "linear", "showMethod": "show",
+            "showDuration": "300", "showEasing": "swing",  "showMethod": "fadeIn",
             "hideDuration": "160", "hideEasing": "linear", "hideMethod": "fadeOut",
             "timeOut": "5000", "extendedTimeOut": "1000"
         };

@@ -429,7 +429,16 @@ fieldset:disabled .btn {
    --if-dur-ui. It is opacity-only, so it stays honest under reduced motion even
    though the media query cannot reach a JS animation.
    -------------------------------------------------------------------------- */
-#toast-container > div,
+/* NO RULE for #toast-container > div. Deliberately.
+   toastr manages its own opacity with inline styles: it stamps opacity:0 on the
+   node at creation, animates it with jQuery, and its own stylesheet settles the
+   resting state at .8. A CSS animation cannot win that cleanly - it outranks the
+   inline style only while it runs, so the toast faded in over 240ms and then
+   snapped back to whatever inline value jQuery had left behind. Measured through
+   three attempts: with toastr's default fadeIn, 4 blackout frames mid-entrance;
+   after switching to showMethod:"show" so nothing would fight it, 9 blackout
+   frames, because show() sets display without ever clearing the inline opacity:0.
+   The plugin owns this element's opacity. The right move is not to animate it. */
 .toast-container > .toast {
   animation: if-pop-down var(--if-dur-overlay) var(--if-ease-out) backwards;
 }
