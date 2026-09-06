@@ -148,8 +148,6 @@ if (!empty($report_export_csv)) {
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 document.addEventListener('DOMContentLoaded', function () {
-    Chart.defaults.font.family = '-apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
-    Chart.defaults.color = '#292b2c';
 
     (function () {
         var ctx = document.getElementById("arAgingChart");

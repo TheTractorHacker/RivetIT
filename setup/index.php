@@ -581,6 +581,13 @@ if (isset($_POST['add_company_settings'])) {
     mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_sales', module_description = 'Access to quotes, invoices and products'");
     mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_financial', module_description = 'Access to payments, accounts, expenses and budgets'");
     mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_reporting', module_description = 'Access to all reports'");
+    mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_kb', module_description = 'Access to the knowledge base'");
+    mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_rmm', module_description = 'Access to RMM device monitoring and dashboards'");
+    mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_rmm_alerts', module_description = 'View RMM alerts'");
+    mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_rmm_alerts_ack', module_description = 'Acknowledge and resolve RMM alerts'");
+    mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_rmm_scripts', module_description = 'Run RMM scripts on managed endpoints'");
+    mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_rmm_sync', module_description = 'Trigger RMM integration syncs'");
+    mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_rmm_remote_connect', module_description = 'Launch remote sessions to managed endpoints'");
 
     // Add default roles
     mysqli_query($mysqli, "INSERT INTO user_roles SET role_id = 1, role_name = 'Accountant', role_description = 'Built-in - Limited access to financial-focused modules'");

@@ -436,12 +436,6 @@ if (isset($_GET['recurring_invoice_id'])) {
                 <div class="card-header text-bold">
                     <i class="fas fa-fw fa-history me-2"></i>History
                     <div class="card-tools">
-                        <button type="button" class="btn btn-tool" data-card-widget="collapse">
-                            <i class="fas fa-minus"></i>
-                        </button>
-                        <button type="button" class="btn btn-tool" data-card-widget="remove">
-                            <i class="fas fa-times"></i>
-                        </button>
                     </div>
                 </div>
                 <div class="card-body">

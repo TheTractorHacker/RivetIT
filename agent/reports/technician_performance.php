@@ -242,8 +242,6 @@ $total_hours = ($report['totals']['billable_seconds'] + $report['totals']['nonbi
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 document.addEventListener('DOMContentLoaded', function () {
-    Chart.defaults.font.family = '-apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
-    Chart.defaults.color = '#292b2c';
 
     // HOURS LOGGED (bar per technician)
     (function () {

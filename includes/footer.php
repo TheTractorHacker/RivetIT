@@ -70,7 +70,7 @@ window.CSP_NONCE = <?php echo json_encode($csp_nonce ?? ''); ?>;
 // file is somehow missing) so a stale Cloudflare/browser cache can't keep serving
 // an old copy after a deploy - static assets otherwise have no way to know they changed.
 // date_filter.js is intentionally dropped: its litepicker replacement now lives in app.js.
-foreach (['app.js', 'ajax_modal.js', 'confirm_modal.js'] as $__asset) {
+foreach (['chart_theme.js', 'app.js', 'ajax_modal.js', 'confirm_modal.js'] as $__asset) {
     $__asset_path = __DIR__ . '/../js/' . $__asset;
     $__asset_version = file_exists($__asset_path) ? filemtime($__asset_path) : time();
     echo '<script src="/js/' . $__asset . '?v=' . $__asset_version . '" defer></script>' . "\n";

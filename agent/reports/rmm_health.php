@@ -264,8 +264,6 @@ $sev_bg = array_map(function ($s) use ($severity_colors) {
 <?php if ($report['have_data']) { ?>
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 document.addEventListener('DOMContentLoaded', function () {
-    Chart.defaults.font.family = '-apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
-    Chart.defaults.color = '#292b2c';
 
     // ALERT VOLUME TREND
     (function () {

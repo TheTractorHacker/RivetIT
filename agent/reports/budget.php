@@ -107,8 +107,6 @@ $monthlyTotals = array_fill(1, 12, 0);  // Initialize monthly totals for each mo
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 document.addEventListener('DOMContentLoaded', function () {
-    Chart.defaults.font.family = '-apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
-    Chart.defaults.color = '#292b2c';
 
     (function () {
         var ctx = document.getElementById("cashFlow");

@@ -13,7 +13,7 @@ if (!defined("LATEST_DATABASE_VERSION") || !defined("CURRENT_DATABASE_VERSION") 
 }
 
 // Check if we need an update
-if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
+if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
     // We need updates!
 
@@ -6810,5 +6810,45 @@ if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) {
         mysqli_query($mysqli, "ALTER TABLE `locations` ADD COLUMN IF NOT EXISTS `location_longitude` decimal(10,7) DEFAULT NULL AFTER `location_latitude`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.73'");
+    }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.73') {
+        // The six module_rmm* permission modules gate 77 call sites across the RMM
+        // feature set, and module_kb gates the knowledge base - but none of them was
+        // ever seeded by setup/index.php or scripts/setup_cli.php. module_kb was only
+        // ever inserted by the 2.5.x migration below, so a FRESH install (which applies
+        // db.sql and stamps itself current without running this chain) never got it
+        // either. lookupUserPermission() JOINs modules -> user_role_permissions and
+        // returns false when no modules row exists, so every non-admin was denied the
+        // entire RMM surface and the KB. Admins never noticed because they bypass the
+        // lookup. modules.module_name has no unique key, so these are guarded with
+        // NOT EXISTS rather than INSERT IGNORE - re-running must not duplicate rows.
+        mysqli_query($mysqli, "INSERT INTO `modules` (`module_name`, `module_description`)
+            SELECT 'module_kb', 'Access to the knowledge base' FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM `modules` WHERE `module_name` = 'module_kb')");
+        mysqli_query($mysqli, "INSERT INTO `modules` (`module_name`, `module_description`)
+            SELECT 'module_rmm', 'Access to RMM device monitoring and dashboards' FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM `modules` WHERE `module_name` = 'module_rmm')");
+        mysqli_query($mysqli, "INSERT INTO `modules` (`module_name`, `module_description`)
+            SELECT 'module_rmm_alerts', 'View RMM alerts' FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM `modules` WHERE `module_name` = 'module_rmm_alerts')");
+        mysqli_query($mysqli, "INSERT INTO `modules` (`module_name`, `module_description`)
+            SELECT 'module_rmm_alerts_ack', 'Acknowledge and resolve RMM alerts' FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM `modules` WHERE `module_name` = 'module_rmm_alerts_ack')");
+        mysqli_query($mysqli, "INSERT INTO `modules` (`module_name`, `module_description`)
+            SELECT 'module_rmm_scripts', 'Run RMM scripts on managed endpoints' FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM `modules` WHERE `module_name` = 'module_rmm_scripts')");
+        mysqli_query($mysqli, "INSERT INTO `modules` (`module_name`, `module_description`)
+            SELECT 'module_rmm_sync', 'Trigger RMM integration syncs' FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM `modules` WHERE `module_name` = 'module_rmm_sync')");
+        mysqli_query($mysqli, "INSERT INTO `modules` (`module_name`, `module_description`)
+            SELECT 'module_rmm_remote_connect', 'Launch remote sessions to managed endpoints' FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM `modules` WHERE `module_name` = 'module_rmm_remote_connect')");
+
+        // Every RMM sync matches agents on assets.asset_serial (see
+        // RmmAssetMapper::syncAgent step 2) and the column had no index.
+        mysqli_query($mysqli, "ALTER TABLE `assets` ADD INDEX IF NOT EXISTS `idx_assets_serial` (`asset_serial`)");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.74'");
     }
 

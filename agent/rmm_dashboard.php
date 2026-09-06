@@ -876,8 +876,6 @@ document.addEventListener('click', function (e) {
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 document.addEventListener('DOMContentLoaded', function () {
     // Bootstrap-like defaults for Chart.js v4
-    Chart.defaults.font.family = '-apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
-    Chart.defaults.color = '#292b2c';
 
     // ALERT VOLUME TREND (last 30 days)
     (function () {

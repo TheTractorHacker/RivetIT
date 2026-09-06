@@ -44,7 +44,7 @@ if (!empty($git_log_raw)) {
                 </div>
             <?php } ?>
 
-            <?php if (LATEST_DATABASE_VERSION > CURRENT_DATABASE_VERSION) { ?>
+            <?php if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) { ?>
                 <div class="alert alert-danger">
                     <h1 class="fw-bold text-center">⚠️ DANGER ⚠️</h1>
                     <h2 class="fw-bold text-center">Do NOT run updates without first taking a backup</h2>

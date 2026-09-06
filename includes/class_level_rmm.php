@@ -112,20 +112,29 @@ class LevelRmmClient {
         $page     = 1;
         $per_page = 100;
         do {
-            $result = $this->get("/devices?per_page=$per_page&page=$page");
+            // include_disks=true is what makes disk_partitions[] (size + free_space)
+            // come back; without it Level returns no volume data at all and
+            // rmm_disk_percent stays NULL. Level v2 documents limit/starting_after
+            // cursor paging and a top-level has_more, while this client was written
+            // against per_page/page + meta.next_page. Both are sent and both response
+            // shapes are accepted so the change cannot regress whichever one the
+            // tenant's API version actually honours.
+            $result = $this->get("/devices?include_disks=true&limit=$per_page&per_page=$per_page&page=$page");
             $items  = $result['data'] ?? [];
             foreach ($items as $dev) {
                 $all[] = $this->normalizeDevice($dev);
             }
             $meta  = $result['meta'] ?? [];
-            $more  = !empty($meta['next_page']) || !empty($meta['next_cursor']);
+            $more  = !empty($result['has_more'])
+                  || !empty($meta['next_page'])
+                  || !empty($meta['next_cursor']);
             $page++;
         } while ($more && count($items) >= $per_page);
         return $all;
     }
 
     public function getAgent(string $agent_id): array {
-        $result = $this->get('/devices/' . urlencode($agent_id));
+        $result = $this->get('/devices/' . urlencode($agent_id) . '?include_disks=true');
         $dev    = $result['data'] ?? $result;
         return $this->normalizeDevice($dev);
     }
@@ -192,6 +201,11 @@ class LevelRmmClient {
     }
 
     public function resolveAlert(string $alert_id): array {
+        // NOTE: Level v2 now documents POST /v2/alerts/{id}/resolve, so this
+        // exception is likely stale. Left in place deliberately - it could not be
+        // verified against a live tenant from this install (the Level credentials
+        // live encrypted in the other install's database), and silently marking
+        // alerts resolved against an unverified endpoint is worse than refusing.
         throw new RuntimeException('Level.io does not support resolving alerts via the API. Resolve the alert from the Level web app.');
     }
 
@@ -384,12 +398,56 @@ class LevelRmmClient {
             'group_name'       => $dev['group_name'] ?? '',
             'display_name'     => $display,
             // Live-health hints the asset mapper persists onto asset_rmm_links.
-            // Level exposes maintenance mode and last reboot time but not live
-            // CPU/RAM/disk usage percentages, so those stay NULL.
+            // Level exposes no live CPU or RAM utilisation, so those stay NULL - but
+            // it DOES return per-volume capacity when include_disks=true is requested,
+            // which getAgents()/getAgent() now do. RmmAssetMapper::computeHealth()
+            // reads $agent['disks'][*]['percent'] provider-agnostically, so shaping
+            // the partitions into that array is all that is needed for
+            // rmm_disk_percent to start populating for Level devices - no mapper
+            // change required.
+            'disks'            => $this->normalizeDisks($dev),
             'maintenance_mode' => !empty($dev['maintenance_mode']) ? 1 : 0,
             'last_reboot_time' => $dev['last_reboot_time'] ?? $dev['last_reboot'] ?? null,
             '_provider'        => 'level',
             '_raw'             => $dev,
         ];
     }
+
+    /**
+     * Shape Level's disk_partitions[] into the {device, total, free, used, percent}
+     * array RmmAssetMapper::computeHealth() consumes. Level reports size and
+     * free_space in bytes; percent is derived rather than reported. Partitions with
+     * a non-positive or missing size are skipped so a bad row cannot produce a
+     * divide-by-zero or a misleading 100%.
+     */
+    private function normalizeDisks(array $dev): array {
+        $parts = $dev['disk_partitions'] ?? $dev['disks'] ?? [];
+        if (!is_array($parts)) {
+            return [];
+        }
+        $out = [];
+        foreach ($parts as $part) {
+            if (!is_array($part)) {
+                continue;
+            }
+            $total = $part['size'] ?? $part['total'] ?? null;
+            $free  = $part['free_space'] ?? $part['free'] ?? null;
+            if (!is_numeric($total) || !is_numeric($free) || $total <= 0) {
+                continue;
+            }
+            $total = (float) $total;
+            $free  = (float) $free;
+            $used  = max(0.0, $total - $free);
+            $out[] = [
+                'device'  => (string) ($part['name'] ?? $part['mount_point'] ?? $part['device'] ?? ''),
+                'fstype'  => (string) ($part['filesystem'] ?? $part['fstype'] ?? ''),
+                'total'   => $total,
+                'free'    => $free,
+                'used'    => $used,
+                'percent' => round(($used / $total) * 100, 1),
+            ];
+        }
+        return $out;
+    }
+
 }

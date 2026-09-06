@@ -317,8 +317,6 @@ $trend_avg    = array_map(function ($t) { return $t['avg_rating']; }, $report['t
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 document.addEventListener('DOMContentLoaded', function () {
-    Chart.defaults.font.family = '-apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
-    Chart.defaults.color = '#292b2c';
 
     // RATING DISTRIBUTION (bar - ordinal 1-5 reads better than a donut)
     (function () {

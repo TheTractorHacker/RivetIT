@@ -394,7 +394,8 @@ CREATE TABLE `assets` (
   `asset_contact_id` int(11) NOT NULL DEFAULT 0,
   `asset_client_id` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`asset_id`),
-  KEY `idx_assets_client_archived` (`asset_client_id`,`asset_archived_at`)
+  KEY `idx_assets_client_archived` (`asset_client_id`,`asset_archived_at`),
+  KEY `idx_assets_serial` (`asset_serial`)
 ) ENGINE=InnoDB AUTO_INCREMENT=92 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

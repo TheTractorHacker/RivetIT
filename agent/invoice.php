@@ -575,12 +575,6 @@ if (isset($_GET['invoice_id'])) {
                 <div class="card-header text-bold">
                     <i class="fa fa-history me-2"></i>History
                     <div class="card-tools">
-                        <button type="button" class="btn btn-tool" data-card-widget="collapse">
-                            <i class="fas fa-minus"></i>
-                        </button>
-                        <button type="button" class="btn btn-tool" data-card-widget="remove">
-                            <i class="fas fa-times"></i>
-                        </button>
                     </div>
                 </div>
                 <div class="card-body">
@@ -620,12 +614,6 @@ if (isset($_GET['invoice_id'])) {
                 <div class="card-header text-bold">
                     <i class="fa fa-credit-card me-2"></i>Payments
                     <div class="card-tools">
-                        <button type="button" class="btn btn-tool" data-card-widget="collapse">
-                            <i class="fas fa-minus"></i>
-                        </button>
-                        <button type="button" class="btn btn-tool" data-card-widget="remove">
-                            <i class="fas fa-times"></i>
-                        </button>
                     </div>
                 </div>
                 <div class="card-body">
@@ -683,14 +671,6 @@ if (isset($_GET['invoice_id'])) {
                         <a class="btn btn-tool" href="tickets.php?client_id=<?php echo $client_id; ?>">
                             <i class="fas fa-external-link-alt"></i>
                         </a>
-                        <button type="button" class="btn btn-tool" data-card-widget="collapse">
-                            <i class="fas fa-minus"></i>
-
-                        </button>
-                        <button type="button" class="btn btn-tool" data-card-widget="remove">
-                            <i class="fas fa-times"></i>
-
-                        </button>
                     </div>
                 </div>
 
