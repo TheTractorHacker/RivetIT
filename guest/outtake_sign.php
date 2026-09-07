@@ -68,7 +68,15 @@ $sql_replies = mysqli_query($mysqli, "SELECT tr.ticket_reply, tr.ticket_reply_ty
     LEFT JOIN users u ON tr.ticket_reply_by = u.user_id
     LEFT JOIN contacts co3 ON tr.ticket_reply_by = co3.contact_id
     WHERE tr.ticket_reply_ticket_id = $ticket_id AND tr.ticket_reply_archived_at IS NULL
-    AND tr.ticket_reply_type NOT IN ('Internal', 'System', 'Automation', 'RMM Alert', 'Labor')
+    /* ALLOW-list, not a deny-list. The only reply types this codebase ever writes are
+       Client, Public, Internal, System and Labor (grepped: no code path writes
+       'Automation' or 'RMM Alert', so those were dead entries in the previous deny
+       list). Only Client and Public are part of the customer-visible conversation.
+       An allow-list matters more here than on the sibling guest pages because this
+       one is reachable by anyone holding a forwarded equipment-signing link: with a
+       deny-list, any reply type added in future leaks to an external signer by
+       default, whereas here it stays hidden until someone deliberately adds it. */
+    AND tr.ticket_reply_type IN ('Client', 'Public')
     ORDER BY tr.ticket_reply_id ASC LIMIT 10");
 
 ?><!DOCTYPE html>

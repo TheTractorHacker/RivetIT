@@ -519,7 +519,14 @@ if (isset($_POST['add_company_settings'])) {
     }
 
     $latest_database_version = LATEST_DATABASE_VERSION;
-    mysqli_query($mysqli,"INSERT INTO settings SET company_id = 1, config_current_database_version = '$latest_database_version', config_invoice_prefix = 'INV-', config_invoice_next_number = 1, config_recurring_invoice_prefix = 'REC-', config_invoice_overdue_reminders = '1,3,7', config_quote_prefix = 'QUO-', config_quote_next_number = 1, config_default_net_terms = 30, config_ticket_next_number = 1, config_ticket_prefix = 'TCK-'");
+    // ON DUPLICATE KEY UPDATE because the ?user step may already have seeded this
+    // row via setCanonicalVaultKey() - a plain INSERT would now collide on the
+    // company_id primary key and abort setup. Deliberately does NOT touch
+    // config_vault_canonical_key: that column is written only by
+    // setCanonicalVaultKey(), and clobbering it here would destroy the vault key
+    // for every credential created up to this point.
+    mysqli_query($mysqli,"INSERT INTO settings SET company_id = 1, config_current_database_version = '$latest_database_version', config_invoice_prefix = 'INV-', config_invoice_next_number = 1, config_recurring_invoice_prefix = 'REC-', config_invoice_overdue_reminders = '1,3,7', config_quote_prefix = 'QUO-', config_quote_next_number = 1, config_default_net_terms = 30, config_ticket_next_number = 1, config_ticket_prefix = 'TCK-'
+        ON DUPLICATE KEY UPDATE config_current_database_version = VALUES(config_current_database_version)");
 
     // Note: the canonical vault key is seeded in the ?user step above (add_user),
     // not here - $site_encryption_master_key only exists in that earlier request's

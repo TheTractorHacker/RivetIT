@@ -445,7 +445,22 @@ function getCanonicalVaultKey($mysqli): ?string {
 // Persists the canonical site encryption master key (admin-only action).
 function setCanonicalVaultKey($mysqli, string $master_key): void {
     $esc = mysqli_real_escape_string($mysqli, encryptSetting($master_key));
-    mysqli_query($mysqli, "UPDATE settings SET config_vault_canonical_key = '$esc', config_vault_canonical_key_set_at = NOW() WHERE company_id = 1");
+
+    /* UPSERT, not UPDATE. On a fresh install setup/index.php calls this from the
+       ?user step - the only moment the freshly-minted master key is in scope - but
+       the settings row is not INSERTed until a later step in a later request. A
+       plain UPDATE therefore matched zero rows and the canonical key was silently
+       discarded on every new install, which is precisely the value the whole
+       fail-closed vault design depends on. company_id is the PRIMARY KEY, so
+       ON DUPLICATE KEY UPDATE makes this correct in both orders: it seeds the row
+       when setup runs, and it overwrites when an admin later re-establishes the key
+       from Settings > Security. */
+    mysqli_query($mysqli,
+        "INSERT INTO settings (company_id, config_vault_canonical_key, config_vault_canonical_key_set_at)
+         VALUES (1, '$esc', NOW())
+         ON DUPLICATE KEY UPDATE
+             config_vault_canonical_key = VALUES(config_vault_canonical_key),
+             config_vault_canonical_key_set_at = VALUES(config_vault_canonical_key_set_at)");
 }
 
 // Self-heals a missing/unusable user_specific_encryption_ciphertext (e.g. NULL on
