@@ -506,3 +506,23 @@
     transform: none;
     flex-shrink: 0;
 }
+
+/* ---- Sidebar brand box must not be compressed by its own flex parent ----
+   .navbar-brand is a flex ITEM of .container-fluid with the default
+   `flex: 0 1 auto`, so it is allowed to shrink. In the department and section
+   rails the brand box holds TWO stacked rows - the back link plus the identity
+   header - and their combined height exceeds what the parent was willing to
+   give it: measured 124.5px of box against 134.2px of content.
+
+   The children do not shrink, so the surplus simply overflowed the bottom of
+   the box, and .navbar-collapse - which starts at the box's edge, not its
+   content's - was laid out 1.7px ABOVE where the header actually ended. The
+   department name therefore sat on top of the first nav row ("Overview"),
+   hiding the header's own bottom border and fusing the two into one block.
+
+   flex-shrink:0 is the whole fix: the box then sizes to its content
+   (134.2 = 134.2) and the existing `pt-lg-2` on .navbar-nav supplies the 8px
+   separation it was always meant to. No new spacing value is invented here. */
+.navbar-vertical .navbar-brand {
+    flex-shrink: 0;
+}
