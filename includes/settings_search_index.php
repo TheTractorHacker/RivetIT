@@ -42,7 +42,6 @@ function getSettingsSearchIndex(): array {
         ['label' => 'Intune Devices Module',   'keywords' => ['intune', 'devices', 'microsoft', 'entra', 'azure ad', 'mdm'],            'url' => '/admin/settings_integrations.php?tab=directorysync', 'visible' => true],
         ['label' => 'Microsoft 365 / Entra ID','keywords' => ['microsoft 365', 'entra', 'azure ad', 'tenant', 'graph api'],             'url' => '/admin/settings_integrations.php?tab=directorysync', 'visible' => true],
         ['label' => 'Odoo Integration',        'keywords' => ['odoo', 'erp'],                                                          'url' => '/admin/settings_integrations.php?tab=directorysync', 'visible' => true],
-        ['label' => 'Accounting (QuickBooks)', 'keywords' => ['quickbooks', 'accounting', 'qbo'],                                       'url' => '/admin/settings_accounting.php',         'visible' => (bool) $config_module_enable_accounting],
         ['label' => 'Custom Fields',           'keywords' => ['custom field'],                                                         'url' => '/admin/settings_custom_fields.php',      'visible' => true],
         ['label' => 'API Keys',                'keywords' => ['api key', 'api access'],                                                'url' => '/admin/api_keys.php',                    'visible' => true],
         ['label' => 'API Documentation',       'keywords' => ['api docs', 'api reference', 'openapi'],                                 'url' => '/admin/api_docs.php',                    'visible' => true],

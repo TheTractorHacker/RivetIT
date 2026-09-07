@@ -333,7 +333,7 @@
                 </li>
 
                 <!-- SETTINGS Section -->
-                <?php $nav_open_settings = in_array(basename($_SERVER['PHP_SELF']), ['settings_company.php', 'settings_localization.php', 'settings_theme.php', 'settings_appearance.php', 'settings_security.php', 'settings_mail.php', 'settings_notification.php', 'settings_default.php', 'settings_invoice.php', 'settings_quote.php', 'settings_online_payment.php', 'settings_online_payment_clients.php', 'settings_project.php', 'settings_ticket.php', 'settings_ai.php', 'identity_provider.php', 'settings_telemetry.php', 'settings_module.php', 'settings_calendar_sync.php', 'settings_webhooks.php', 'settings_integrations.php', 'settings_comet.php', 'comet_status.php', 'settings_rmm.php', 'settings_unifi.php', 'settings_accounting.php']); ?>
+                <?php $nav_open_settings = in_array(basename($_SERVER['PHP_SELF']), ['settings_company.php', 'settings_localization.php', 'settings_theme.php', 'settings_appearance.php', 'settings_security.php', 'settings_mail.php', 'settings_notification.php', 'settings_default.php', 'settings_invoice.php', 'settings_quote.php', 'settings_online_payment.php', 'settings_online_payment_clients.php', 'settings_project.php', 'settings_ticket.php', 'settings_ai.php', 'identity_provider.php', 'settings_telemetry.php', 'settings_module.php', 'settings_calendar_sync.php', 'settings_webhooks.php', 'settings_integrations.php', 'settings_comet.php', 'comet_status.php', 'settings_rmm.php', 'settings_unifi.php']); ?>
                 <li class="nav-item dropdown mt-2<?php echo ($nav_open_settings ? ' active' : ''); ?>">
                     <a href="#nav-group-settings" class="nav-link dropdown-toggle<?php echo ($nav_open_settings ? ' show' : ''); ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-settings" aria-expanded="<?php echo ($nav_open_settings ? 'true' : 'false'); ?>">
                         <span class="nav-link-icon"><i class="fas fa-cog"></i></span>
@@ -423,12 +423,6 @@
                             <span class="dropdown-item-icon"><i class="fas fa-plug"></i></span>
                             <span class="text-truncate">Integrations</span>
                         </a>
-                        <?php if ($config_module_enable_accounting) { ?>
-                        <a href="/admin/settings_accounting.php" class="dropdown-item <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['settings_accounting.php', 'accounting_client_mapping.php', 'accounting_item_mapping.php', 'accounting_sync_status.php']) ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                            <span class="text-truncate">Accounting</span>
-                        </a>
-                        <?php } ?>
                     </div>
                 </li>
 

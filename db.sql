@@ -2754,7 +2754,7 @@ CREATE TABLE `settings` (
   `config_outlook_cal_client_secret` varchar(500) DEFAULT NULL,
   `config_outlook_cal_tenant_id` varchar(200) DEFAULT NULL,
   `config_module_enable_itdoc` tinyint(1) NOT NULL DEFAULT 1,
-  `config_module_enable_accounting` tinyint(1) NOT NULL DEFAULT 1,
+  `config_module_enable_accounting` tinyint(1) NOT NULL DEFAULT 0,
   `config_client_portal_enable` tinyint(1) NOT NULL DEFAULT 1,
   `config_login_message` text DEFAULT NULL,
   `config_login_key_required` tinyint(1) NOT NULL DEFAULT 0,

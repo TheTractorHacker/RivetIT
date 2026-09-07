@@ -122,9 +122,6 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
     <li class="nav-item">
         <a class="nav-link <?= $active_tab === 'directorysync' ? 'active' : '' ?>" data-bs-toggle="tab" href="#tab-directorysync" data-tabkey="directorysync"><i class="fas fa-address-book me-1"></i>Directory Sync</a>
     </li>
-    <li class="nav-item">
-        <a class="nav-link" href="settings_accounting.php"><i class="fas fa-file-invoice-dollar me-1"></i>Accounting</a>
-    </li>
 </ul>
 
 <div class="tab-content" id="integrationsPanels">

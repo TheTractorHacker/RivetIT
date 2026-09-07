@@ -75,6 +75,30 @@ $current_page = basename($_SERVER["PHP_SELF"]);
      client_side_nav.php lists them, and the three that no other nav in the app
      reaches (global Assets, Networks, Services) are still reachable only from here.
 
+     WHY FIVE OF THE NINE HREFS CARRY ?scope=company
+     -----------------------------------------------
+     The nine destinations do not all resolve their scope the same way.
+
+       contacts.php, assets.php, networks.php, services.php
+           have no app-level branch at all: with no client_id they ALWAYS include
+           inc_client_overview_all.php, so a bare href already lands on this rail.
+
+       locations.php, software.php (Licenses), credentials.php, certificates.php,
+       domains.php
+           are also destinations of the APP-LEVEL rail (includes/side_nav.php links
+           to all five, under Infrastructure and Knowledge), so with no client_id
+           they used to fall through to inc_all.php and draw side_nav.php instead.
+           Clicking any of those five from here therefore replaced this rail with
+           the twelve-item app rail: the sidebar swapped under the user and the
+           company-wide view was gone after one click. Measured before the fix, all
+           five landed on side_nav.php.
+
+     ?scope=company is that missing statement of intent. It is a marker, not a
+     filter - the rows those pages list are identical either way - so the app-level
+     rail keeps linking to them bare and keeps its own rail, and nothing is hidden
+     from anyone: every item, and every user who could reach it, is untouched. The
+     other four hrefs stay bare because for them the marker would be inert.
+
      Markup shape is the one every migrated sidebar uses:
 
        aside.navbar.navbar-vertical.navbar-expand-lg > .container-fluid
@@ -141,7 +165,7 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                     </li>
 
                     <li class="nav-item<?php if ($current_page == "locations.php") { echo " active"; } ?>">
-                        <a href="/agent/locations.php" class="nav-link<?php if ($current_page == "locations.php") { echo " active"; } ?>">
+                        <a href="/agent/locations.php?scope=company" class="nav-link<?php if ($current_page == "locations.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="fas fa-map-marker-alt"></i></span>
                             <span class="nav-link-title">Locations</span>
                             <?php
@@ -165,7 +189,7 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                     </li>
 
                     <li class="nav-item<?php if ($current_page == "software.php") { echo " active"; } ?>">
-                        <a href="/agent/software.php" class="nav-link<?php if ($current_page == "software.php") { echo " active"; } ?>">
+                        <a href="/agent/software.php?scope=company" class="nav-link<?php if ($current_page == "software.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="fas fa-cube"></i></span>
                             <span class="nav-link-title">Licenses</span>
                             <?php
@@ -176,7 +200,7 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                     </li>
 
                     <li class="nav-item<?php if ($current_page == "credentials.php") { echo " active"; } ?>">
-                        <a href="/agent/credentials.php" class="nav-link<?php if ($current_page == "credentials.php") { echo " active"; } ?>">
+                        <a href="/agent/credentials.php?scope=company" class="nav-link<?php if ($current_page == "credentials.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="fas fa-key"></i></span>
                             <span class="nav-link-title">Credentials</span>
                             <?php
@@ -198,7 +222,7 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                     </li>
 
                     <li class="nav-item<?php if ($current_page == "certificates.php") { echo " active"; } ?>">
-                        <a href="/agent/certificates.php" class="nav-link<?php if ($current_page == "certificates.php") { echo " active"; } ?>">
+                        <a href="/agent/certificates.php?scope=company" class="nav-link<?php if ($current_page == "certificates.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="fas fa-lock"></i></span>
                             <span class="nav-link-title">Certificates</span>
                             <?php
@@ -209,7 +233,7 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                     </li>
 
                     <li class="nav-item<?php if ($current_page == "domains.php") { echo " active"; } ?>">
-                        <a href="/agent/domains.php" class="nav-link<?php if ($current_page == "domains.php") { echo " active"; } ?>">
+                        <a href="/agent/domains.php?scope=company" class="nav-link<?php if ($current_page == "domains.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="fas fa-globe"></i></span>
                             <span class="nav-link-title">Domains</span>
                             <?php

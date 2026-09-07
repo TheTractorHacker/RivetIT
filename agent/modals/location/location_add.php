@@ -25,19 +25,16 @@ ob_start();
 
         <ul class="nav nav-pills nav-justified mb-3">
             <li class="nav-item">
-                <a class="nav-link active" data-bs-toggle="pill" href="#pills-details">Details</a>
+                <a class="nav-link active" data-bs-toggle="pill" href="#pills-location-add-details">Details</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="pill" href="#pills-address">Address</a>
+                <a class="nav-link" data-bs-toggle="pill" href="#pills-location-add-contact">Contact</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="pill" href="#pills-contact">Contact</a>
+                <a class="nav-link" data-bs-toggle="pill" href="#pills-location-add-departments">Departments</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="pill" href="#pills-departments">Departments</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="pill" href="#pills-notes">Notes</a>
+                <a class="nav-link" data-bs-toggle="pill" href="#pills-location-add-notes">Notes</a>
             </li>
 
         </ul>
@@ -46,93 +43,117 @@ ob_start();
 
         <div class="tab-content">
 
-            <div class="tab-pane fade show active" id="pills-details">
+            <!-- Details: identity + address, laid out to match location_edit.php field
+                 for field - add and edit disagreeing about the shape of the same form
+                 is its own defect. -->
+            <div class="tab-pane fade show active" id="pills-location-add-details">
 
                 <?php if ($client_id) { ?>
                     <input type="hidden" name="client_id" value="<?php echo $client_id; ?>">
                 <?php } ?>
 
                 <div class="form-group">
-                    <label>Location Name <strong class="text-danger">*</strong> / <span class="text-secondary">Primary</span></label>
+                    <label class="form-label" for="location_add_name">Location Name <strong class="text-danger">*</strong></label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-map-marker"></i></span>
                         </div>
-                        <input type="text" class="form-control" name="name" placeholder="Name of location" maxlength="200" required autofocus>
-                        <div class="input-group-append">
-                            <div class="input-group-text">
-                                <input type="checkbox" name="location_primary" value="1">
+                        <input type="text" class="form-control" id="location_add_name" name="name" placeholder="Name of location" maxlength="200" required autofocus>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="location_add_description">Description</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-align-left"></i></span>
+                        </div>
+                        <input type="text" class="form-control" id="location_add_description" name="description" placeholder="Short Description">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="location_add_primary" name="location_primary" value="1">
+                        <label class="form-check-label" for="location_add_primary">Primary location for this department</label>
+                    </div>
+                    <small class="form-text text-muted">Sorts to the top of the locations list and supplies the department address on quotes and invoices. Only one location per department can be primary.</small>
+                </div>
+
+                <div class="form-group">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <span class="d-flex align-items-center justify-content-center rounded border bg-light text-muted" style="width:64px; height:64px;"><i class="fa fa-2x fa-image"></i></span>
+                        </div>
+                        <div class="flex-fill">
+                            <label class="form-label" for="location_add_photo">Photo</label>
+                            <!-- .form-control, not the BS4-era .form-control-file: BS5 dropped that
+                                 class and nothing in css/ or Tabler defines it, so the input rendered
+                                 as raw OS chrome with no border, background or padding. -->
+                            <input type="file" class="form-control" id="location_add_photo" name="file" accept="image/*">
+                            <small class="form-text text-muted">Optional. A photo of the building or entrance.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-3">
+
+                <h6 class="text-uppercase text-muted mb-2" style="font-size:.75rem;letter-spacing:.05em">
+                    <i class="fa fa-fw fa-map-marker-alt me-1"></i>Address
+                </h6>
+
+                <div class="form-group">
+                    <label class="form-label" for="location_add_address">Street Address</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-road"></i></span>
+                        </div>
+                        <input type="text" class="form-control" id="location_add_address" name="address" placeholder="Street Address" maxlength="200">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="location_add_city">City</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-city"></i></span>
+                        </div>
+                        <input type="text" class="form-control" id="location_add_city" name="city" placeholder="City" maxlength="200">
+                    </div>
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-7">
+                        <div class="form-group">
+                            <label class="form-label" for="location_add_state">State / Province</label>
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text"><i class="fa fa-fw fa-flag"></i></span>
+                                </div>
+                                <input type="text" class="form-control" id="location_add_state" name="state" placeholder="State" maxlength="200">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-5">
+                        <div class="form-group">
+                            <label class="form-label" for="location_add_zip">Postal Code</label>
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text"><i class="fa fa-fw fa-mail-bulk"></i></span>
+                                </div>
+                                <input type="text" class="form-control" id="location_add_zip" name="zip" placeholder="Zip" maxlength="200">
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Description</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-align-left"></i></span>
-                        </div>
-                        <input type="text" class="form-control" name="description" placeholder="Short Description">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Photo</label>
-                    <input type="file" class="form-control-file" name="file" accept="image/*">
-                </div>
-
-            </div>
-
-            <div class="tab-pane fade" id="pills-address">
-
-                <div class="form-group">
-                    <label>Address</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-map-marker-alt"></i></span>
-                        </div>
-                        <input type="text" class="form-control" name="address" placeholder="Street Address" maxlength="200">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>City</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-city"></i></span>
-                        </div>
-                        <input type="text" class="form-control" name="city" placeholder="City" maxlength="200">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>State / Province</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-flag"></i></span>
-                        </div>
-                        <input type="text" class="form-control" name="state" placeholder="State or Province" maxlength="200">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Postal Code</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fab fa-fw fa-usps"></i></span>
-                        </div>
-                        <input type="text" class="form-control" name="zip" placeholder="Zip or Postal Code" maxlength="200">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Country</label>
+                <div class="form-group mb-0">
+                    <label class="form-label" for="location_add_country">Country</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-globe-americas"></i></span>
                         </div>
-                        <select class="form-control select2" name="country">
+                        <select class="form-control select2" id="location_add_country" name="country">
                             <option value="">- Country -</option>
                             <?php foreach($countries_array as $country_name) { ?>
                                 <option <?php if ($session_company_country == $country_name) { echo "selected"; } ?> ><?php echo $country_name; ?></option>
@@ -143,15 +164,15 @@ ob_start();
 
             </div>
 
-            <div class="tab-pane fade" id="pills-contact">
+            <div class="tab-pane fade" id="pills-location-add-contact">
                 <?php if ($client_id) { ?>
                 <div class="form-group">
-                    <label>Contact</label>
+                    <label class="form-label" for="location_add_contact">Contact</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                         </div>
-                        <select class="form-control select2" name="contact">
+                        <select class="form-control select2" id="location_add_contact" name="contact">
                             <option value="">- Contact -</option>
                             <?php
 
@@ -168,62 +189,64 @@ ob_start();
                 </div>
                 <?php } ?>
 
-                <label>Phone / <span class="text-secondary">Extension</span></label>
-                <div class="form-row">
-                    <div class="col-9">
+                <div class="row g-2">
+                    <div class="col-8">
                         <div class="form-group">
+                            <label class="form-label" for="location_add_phone">Phone</label>
                             <div class="input-group">
                                 <div class="input-group-prepend">
                                     <span class="input-group-text"><i class="fa fa-fw fa-phone"></i></span>
                                 </div>
-                                <input type="tel" class="form-control col-2" name="phone_country_code" placeholder="+" maxlength="4">
-                                <input type="tel" class="form-control" name="phone" placeholder="Phone Number" maxlength="200">
+                                <input type="tel" class="form-control flex-grow-0" style="width:4.5rem;" name="phone_country_code" placeholder="+" maxlength="4" aria-label="Phone country code">
+                                <input type="tel" class="form-control" id="location_add_phone" name="phone" placeholder="Phone Number" maxlength="200">
                             </div>
                         </div>
                     </div>
-                    <div class="col-3">
+                    <div class="col-4">
                         <div class="form-group">
-                            <input type="text" class="form-control" name="extension" placeholder="ext." maxlength="200">
-                        </div>
-                    </div>
-                </div>
-
-                <label>Fax</label>
-                <div class="form-row">
-                    <div class="col-9">
-                        <div class="form-group">
-                            <div class="input-group">
-                                <div class="input-group-prepend">
-                                    <span class="input-group-text"><i class="fa fa-fw fa-fax"></i></span>
-                                </div>
-                                <input type="tel" class="form-control col-2" name="fax_country_code" placeholder="+" maxlength="4">
-                                <input type="tel" class="form-control" name="fax" placeholder="Fax Number" maxlength="200">
-                            </div>
+                            <label class="form-label" for="location_add_extension">Extension</label>
+                            <input type="text" class="form-control" id="location_add_extension" name="extension" placeholder="ext." maxlength="200">
                         </div>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label>Hours of Operation</label>
-                    <table class="table table-sm table-borderless mb-0">
-                        <tbody>
-                            <?php foreach (['monday' => 'Monday', 'tuesday' => 'Tuesday', 'wednesday' => 'Wednesday', 'thursday' => 'Thursday', 'friday' => 'Friday', 'saturday' => 'Saturday', 'sunday' => 'Sunday'] as $hours_day_key => $hours_day_label) { ?>
-                            <tr>
-                                <td class="align-middle" style="width:110px;"><?= $hours_day_label ?></td>
-                                <td><input type="text" class="form-control form-control-sm" name="hours_<?= $hours_day_key ?>" placeholder="e.g. 9:00 AM - 5:00 PM, or Closed" maxlength="40"></td>
-                            </tr>
-                            <?php } ?>
-                        </tbody>
-                    </table>
+                    <label class="form-label" for="location_add_fax">Fax</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-fax"></i></span>
+                        </div>
+                        <input type="tel" class="form-control flex-grow-0" style="width:4.5rem;" name="fax_country_code" placeholder="+" maxlength="4" aria-label="Fax country code">
+                        <input type="tel" class="form-control" id="location_add_fax" name="fax" placeholder="Fax Number" maxlength="200">
+                    </div>
                 </div>
+
+                <hr class="my-3">
+
+                <h6 class="text-uppercase text-muted mb-2" style="font-size:.75rem;letter-spacing:.05em">
+                    <i class="fa fa-fw fa-clock me-1"></i>Hours of Operation
+                </h6>
+
+                <table class="table table-sm table-borderless mb-0">
+                    <tbody>
+                        <?php foreach (['monday' => 'Monday', 'tuesday' => 'Tuesday', 'wednesday' => 'Wednesday', 'thursday' => 'Thursday', 'friday' => 'Friday', 'saturday' => 'Saturday', 'sunday' => 'Sunday'] as $hours_day_key => $hours_day_label) { ?>
+                        <tr>
+                            <td class="align-middle" style="width:110px;">
+                                <label class="form-label mb-0" for="location_add_hours_<?= $hours_day_key ?>"><?= $hours_day_label ?></label>
+                            </td>
+                            <td><input type="text" class="form-control form-control-sm" id="location_add_hours_<?= $hours_day_key ?>" name="hours_<?= $hours_day_key ?>" placeholder="e.g. 9:00 AM - 5:00 PM, or Closed" maxlength="40"></td>
+                        </tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
 
             </div>
 
-            <div class="tab-pane fade" id="pills-departments">
+            <div class="tab-pane fade" id="pills-location-add-departments">
 
                 <p class="text-secondary small">Optional - link any departments that use this location. Not required to create the location.</p>
 
-                <div class="form-group" style="max-height:260px; overflow-y:auto;">
+                <div class="form-group border rounded p-2" style="max-height:260px; overflow-y:auto;">
                     <?php if (mysqli_num_rows($sql_departments_select) === 0) { ?>
                         <p class="text-muted small mb-0">No departments yet.</p>
                     <?php } ?>
@@ -240,19 +263,20 @@ ob_start();
 
             </div>
 
-            <div class="tab-pane fade" id="pills-notes">
+            <div class="tab-pane fade" id="pills-location-add-notes">
 
                 <div class="form-group">
-                    <textarea class="form-control" rows="12" name="notes" placeholder="Notes, eg Parking Info, Building Access etc"></textarea>
+                    <label class="form-label" for="location_add_notes">Notes</label>
+                    <textarea class="form-control" id="location_add_notes" rows="10" name="notes" placeholder="Notes, eg Parking Info, Building Access etc"></textarea>
                 </div>
 
-                <div class="form-group">
-                    <label>Tags</label>
+                <div class="form-group mb-0">
+                    <label class="form-label" for="location_add_tags">Tags</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-tags"></i></span>
                         </div>
-                        <select class="form-control select2" name="tags[]" data-placeholder="Add some tags" multiple>
+                        <select class="form-control select2" id="location_add_tags" name="tags[]" data-placeholder="Add some tags" multiple>
                             <?php
 
                             $sql_tags_select = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_type = 2 ORDER BY tag_name ASC");

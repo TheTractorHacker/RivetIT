@@ -4,6 +4,25 @@
 $sort = "credential_name";
 $order = "ASC";
 
+/*
+ * WHICH SIDEBAR THIS PAGE RENDERS is a SCOPE decision, and it is taken from the
+ * URL alone - never inferred from a leftover client_id or a session value:
+ *
+ *   ?client_id=N    ONE DEPARTMENT -> inc_all_client.php          -> client_side_nav.php
+ *   ?scope=company  COMPANY-WIDE   -> inc_client_overview_all.php -> client_overview_side_nav.php
+ *   neither         APP-LEVEL      -> inc_all.php                 -> side_nav.php
+ *
+ * All three show the same rows here; only the rail differs. The company-wide rail
+ * links to this page with ?scope=company, the app-level rail links to it bare.
+ * Before that marker existed both landed on the bare URL, so this page always drew
+ * the app-level rail and the company-wide rail vanished the moment you used it -
+ * five of its nine items silently changed scope under the user.
+ *
+ * $scope_url re-states the marker on every link that stays on this page. Sort and
+ * paging links do not need it: includes/filter_header.php and filter_footer.php
+ * rebuild those from $_GET, which already carries it.
+ */
+$scope_url = '';
 // If client_id is in URI then show client Side Bar and client header
 if (isset($_GET['client_id'])) {
     require_once "includes/inc_all_client.php";
@@ -22,7 +41,12 @@ if (isset($_GET['client_id'])) {
     logAction("Credential", "View", "$session_name viewed the Credentials page for client", $client_id);
 
 } else {
-    require_once "includes/inc_all.php";
+    if (isset($_GET['scope']) && $_GET['scope'] === 'company') {
+        require_once "includes/inc_client_overview_all.php";
+        $scope_url = 'scope=company&';
+    } else {
+        require_once "includes/inc_all.php";
+    }
     $client_query = '';
     $client_url = '';
     // Overide Filter Header Archived
@@ -238,6 +262,11 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
             <input type="hidden" name="client_id" value="<?php echo $client_id; ?>">
             <input type="hidden" name="folder_id" value="<?php echo $get_folder_id; ?>">
             <?php } ?>
+            <?php if ($scope_url) { ?>
+            <!-- Keeps the company-wide rail after a filter submit; without it the GET
+                 form rebuilds the URL bare and the sidebar swaps back to the app rail. -->
+            <input type="hidden" name="scope" value="company">
+            <?php } ?>
             <input type="hidden" name="archived" value="<?php echo $archived; ?>">
             <div class="row">
 
@@ -337,7 +366,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
                 <div class="col-md-3">
                     <div class="btn-group float-end">
-                        <a href="?<?php echo $client_url; ?>folder_id=<?= $get_folder_id ?>&archived=<?php if($archived == 1){ echo 0; } else { echo 1; } ?>"
+                        <a href="?<?php echo $client_url . $scope_url; ?>folder_id=<?= $get_folder_id ?>&archived=<?php if($archived == 1){ echo 0; } else { echo 1; } ?>"
                             class="btn btn-<?php if($archived == 1){ echo "primary"; } else { echo "default"; } ?>">
                             <i class="fa fa-fw fa-archive me-2"></i>Archived
                         </a>
@@ -552,7 +581,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 }
 
                                 $credential_tag_id_array[] = $credential_tag_id;
-                                $credential_tag_name_display_array[] = "<a href='credentials.php?$client_url tags[]=$credential_tag_id'><span class='badge " . tagTextClass($credential_tag_color) . " p-1 me-1' style='background-color: $credential_tag_color;'><i class='fa fa-fw fa-$credential_tag_icon me-2'></i>$credential_tag_name</span></a>";
+                                $credential_tag_name_display_array[] = "<a href='credentials.php?$client_url$scope_url tags[]=$credential_tag_id'><span class='badge " . tagTextClass($credential_tag_color) . " p-1 me-1' style='background-color: $credential_tag_color;'><i class='fa fa-fw fa-$credential_tag_icon me-2'></i>$credential_tag_name</span></a>";
                             }
                             $credential_tags_display = implode('', $credential_tag_name_display_array);
 

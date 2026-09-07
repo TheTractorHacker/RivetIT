@@ -6940,3 +6940,23 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.75'");
     }
 
+    if (CURRENT_DATABASE_VERSION == '2.6.75') {
+        // The Accounting/QuickBooks surface is removed from this edition - the owner's
+        // standing rule is "no billable anything here". admin/settings_accounting.php,
+        // admin/accounting_*_mapping.php, admin/accounting_sync_status.php and
+        // admin/oauth_quickbooks_*.php are deleted, and every nav entry that pointed at
+        // them is gone. Force the module flag off so the ~40 remaining call sites that
+        // still branch on `$config_module_enable_accounting` (agent sidebar Billing and
+        // Finance groups, the dashboard financial cards, ticket billable controls, the
+        // financial reports, the department portal invoice tab, api/v1/me.php) all
+        // resolve to hidden, and so cron/cron.php's accounting sync stays dormant.
+        //
+        // The column, every other accounting/QuickBooks settings column, and all
+        // invoice/quote/payment tables are deliberately left in place - this hides the
+        // surface, it does not destroy data. includes/accounting_functions.php and
+        // cron/accounting_sync*.php also stay on disk, unreferenced, so the port
+        // lineage to the MSP fork survives and this is one commit from being restored.
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_module_enable_accounting` = 0 WHERE `config_module_enable_accounting` <> 0");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.76'");
+    }
