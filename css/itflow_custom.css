@@ -452,17 +452,34 @@ a:hover {
 
 .nav-pills .nav-link.active,
 .nav-pills .show > .nav-link {
-    /* This rule overrides ONLY the background. Tabler's own pill is red text on a
-       12% red tint (--tblr-nav-pills-link-active-color #DC2626 over
-       --tblr-nav-pills-link-active-bg rgba(220,38,38,.12)) - legible by design.
-       Swapping the tint for the SOLID accent while leaving Tabler's foreground in
-       place gave #DC2626 text on a #DC2626 fill, so the active tab label rendered
-       completely invisible - measured on the location edit modal, where the
-       "Details" pill was a blank red block. A background override has to move its
-       foreground with it. */
-    color: #fff;
-    background-color: var(--color-accent);
+    /* An accent TINT with accent ink, not a solid accent slab.
+       History, because this rule has been wrong twice: it originally overrode only
+       the background to the solid accent and left Tabler's foreground alone, which
+       gave #DC2626 text on a #DC2626 fill - the active tab label was invisible.
+       That was fixed by forcing white text, which was legible but left a solid
+       245px accent block sitting in a 540px modal, louder than anything else on
+       screen. This is the version that solves both: Tabler's own tint treatment,
+       with the ink darkened enough to actually pass contrast.
+
+       --color-accent-hover is the app's own per-company darkened accent (computed
+       in includes/header.php), so this follows a custom accent instead of pinning
+       a hex. For the default red that is #b41f1f on the .12 tint = 5.53:1.
+       Tabler's stock pairing (#DC2626 on its own tint) measures 4.01:1 and fails
+       AA, which is why the plain framework value is not used here. */
+    color: var(--color-accent-hover, var(--color-accent));
+    background-color: rgba(var(--color-accent-rgb), .12);
+    font-weight: 600;
 }
+
+/* Modal tab strips: size pills to their label, not to the dialog.
+   .nav-justified stretches every pill to an equal share of the container, so a
+   two-tab strip in a 540px modal gave two 245px pills - and the active one, being
+   filled, read as a giant button rather than a tab. Ten admin modals use this
+   class (user, role, contract_template, vendor_template, payment_provider), so it
+   is corrected once here rather than in each file. Scoped to .modal so full-width
+   page-level tab strips, where justified IS the right behaviour, are untouched. */
+.modal .nav-pills.nav-justified { flex: 0 0 auto; }
+.modal .nav-pills.nav-justified > .nav-item { flex: 0 1 auto; }
 
 .progress-bar {
     background-color: var(--color-accent);
