@@ -99,6 +99,18 @@ $remember_token_count = mysqli_num_rows($sql_remember_tokens);
     <?php } ?>
 </div>
 
+<?php
+/* Passkeys can only open the credential vault when a canonical vault key exists.
+   The vault key is wrapped with the user's password and a passkey has no password
+   to unwrap it with, so without a canonical copy a passkey sign-in reaches the
+   vault only while this browser still holds the encryption cookie from an earlier
+   password sign-in. Surfaced here because this is where passkeys are added - the
+   admin Security page states the same thing, but someone adding a passkey would
+   never see it there. */
+$vault_canonical_ok = !empty(mysqli_fetch_assoc(mysqli_query($mysqli,
+    "SELECT config_vault_canonical_key FROM settings WHERE company_id = 1"
+))['config_vault_canonical_key']);
+?>
 <!-- Passkeys -->
 <div class="card card-dark">
     <div class="card-header py-2 d-flex align-items-center">
@@ -108,6 +120,21 @@ $remember_token_count = mysqli_num_rows($sql_remember_tokens);
         </button>
     </div>
     <div class="card-body p-0">
+        <?php if (!$vault_canonical_ok && lookupUserPermission('module_admin') >= 0): ?>
+        <div class="alert alert-warning mb-3">
+            <div>
+                <h4 class="alert-title"><i class="fas fa-fw fa-triangle-exclamation me-1"></i>Passkeys cannot open the credential vault yet</h4>
+                <p class="mb-0">
+                    The vault key is wrapped with your password, and a passkey has no password to unwrap it
+                    with. Until a canonical vault key is established, a passkey sign-in reaches the vault only
+                    while this browser still holds the cookie from an earlier password sign-in &mdash; on a new
+                    device or after clearing cookies it will show as locked. An administrator can fix this in
+                    one click under <a href="/admin/settings_security.php">Settings &rsaquo; Security</a>,
+                    while signed in with a password.
+                </p>
+            </div>
+        </div>
+        <?php endif; ?>
         <table class="table table-sm table-borderless table-hover mb-0" id="passkey-table">
             <thead class="text-muted small">
                 <tr class="border-bottom">

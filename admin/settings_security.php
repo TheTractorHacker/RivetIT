@@ -28,10 +28,24 @@ $vault_unsynced_users = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT 
             Canonical vault key established<?php if ($vault_canonical_key_set_at) { ?> on <?php echo nullable_htmlentities($vault_canonical_key_set_at); ?><?php } ?>.
         </p>
         <?php } else { ?>
-        <p>
-            <i class="fas fa-fw fa-exclamation-circle text-warning me-1"></i>
-            No canonical vault key has been established yet.
-        </p>
+        <div class="alert alert-warning">
+            <div>
+                <h4 class="alert-title"><i class="fas fa-fw fa-exclamation-circle me-1"></i>No canonical vault key has been established yet</h4>
+                <p class="mb-2">
+                    Until you establish one, <strong>signing in with a passkey cannot open the credential
+                    vault</strong>. The vault key is wrapped with your password, and a passkey has no password
+                    to unwrap it with, so a passkey sign-in can only reach the vault when this browser still
+                    holds the encryption cookie from an earlier password sign-in. On a new device, after
+                    clearing cookies, or once that cookie expires, the vault shows
+                    &ldquo;locked &mdash; sign in with your password&rdquo;.
+                </p>
+                <p class="mb-0">
+                    Establishing the canonical key stores one copy of the vault key that a passkey sign-in can
+                    recover. Do it now, while this session is unlocked, with the button below &mdash; it reads
+                    the key from your current session, so it only works when you signed in with your password.
+                </p>
+            </div>
+        </div>
         <?php } ?>
 
         <?php if ($vault_unsynced_users > 0) { ?>
