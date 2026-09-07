@@ -490,7 +490,16 @@ if (isset($_POST['add_contact'])) {
     $contact_email = sanitizeInput($_POST['contact_email']);
     $contact_technical = intval($_POST['contact_technical'] ?? 0);
     $contact_billing = intval($_POST['contact_billing'] ?? 0);
-    $contact_auth_method = sanitizeInput($_POST['contact_auth_method']);
+
+    // The auth method is written straight into users.user_auth_method, which decides how the
+    // account is allowed to log in, so it can't be free text off the wire - only the three values
+    // the form actually offers ('' = no portal access). Reject anything else outright rather than
+    // quietly falling back, so a legitimate submission is never silently changed.
+    $contact_auth_method = sanitizeInput($_POST['contact_auth_method'] ?? '');
+    if (!in_array($contact_auth_method, ['', 'local', 'azure'], true)) {
+        flash_alert("Invalid portal authentication method", 'danger');
+        redirect('contact_add.php');
+    }
 
     // Check the email isn't already in use
     $sql = mysqli_query($mysqli, "SELECT user_id FROM users WHERE user_email = '$contact_email'");
@@ -540,11 +549,37 @@ if (isset($_POST['edit_contact'])) {
     $contact_email = sanitizeInput($_POST['contact_email']);
     $contact_technical = intval($_POST['contact_technical'] ?? 0);
     $contact_billing = intval($_POST['contact_billing'] ?? 0);
-    $contact_auth_method = sanitizeInput($_POST['contact_auth_method']);
 
-    // Get the existing contact_user_id - we look it up ourselves so the user can't just overwrite random users
-    $sql = mysqli_query($mysqli,"SELECT contact_user_id FROM contacts WHERE contact_id = $contact_id AND contact_client_id = $session_client_id");
+    // The auth method is written straight into users.user_auth_method, which decides how the
+    // account is allowed to log in, so it can't be free text off the wire - only the three values
+    // the form actually offers ('' = no portal access). Reject anything else outright rather than
+    // quietly falling back, which would strip portal access off a working account.
+    $contact_auth_method = sanitizeInput($_POST['contact_auth_method'] ?? '');
+    if (!in_array($contact_auth_method, ['', 'local', 'azure'], true)) {
+        flash_alert("Invalid portal authentication method", 'danger');
+        redirect('contact_edit.php?id=' . $contact_id);
+    }
+
+    // Get the existing contact_user_id - we look it up ourselves so the user can't just overwrite
+    // random users. The contact_primary = 0 / contact_archived_at guards match the UPDATE below:
+    // without them $contact_user_id could resolve to the PRIMARY contact's user and the UPDATE
+    // users further down (which has no primary guard of its own) would hand this contact the
+    // primary's login identity - rewrite user_email, force user_auth_method = 'local', then pull a
+    // password reset (client/login_reset.php matches on exactly those two fields) and own the
+    // primary account. contact_edit.php only hides the Save button for these cases; the rule has
+    // to be enforced here, since the button is not what stops a hand-crafted POST.
+    $sql = mysqli_query($mysqli,"SELECT contact_user_id FROM contacts WHERE contact_id = $contact_id AND contact_client_id = $session_client_id AND contact_archived_at IS NULL AND contact_primary = 0 LIMIT 1");
     $row = mysqli_fetch_assoc($sql);
+
+    // Reject anything the form would not have offered a Save button for: a contact that isn't ours,
+    // is archived, or is the primary - and the editor's own contact, because self-editing here is
+    // how a plain contact would tick Billing/Technical on their own row and grant themselves the
+    // billing pages. Editing OTHER contacts is untouched, including for the primary contact.
+    if (!$row || $contact_id === $session_contact_id) {
+        flash_alert("You cannot edit that contact", 'danger');
+        redirect('contacts.php');
+    }
+
     $contact_user_id = intval($row['contact_user_id']);
 
     // Check the email isn't already in use
@@ -555,8 +590,11 @@ if (isset($_POST['edit_contact'])) {
     }
 
     // Update Existing User
+    // Belt and braces on top of the scoped lookup above: this statement rewrites the login identity
+    // (user_email / user_auth_method), so it also refuses to touch an agent account (user_type 2 is
+    // a portal contact) or the editor's own user row, whatever contact_user_id happens to hold.
     if ($contact_user_id > 0) {
-        mysqli_query($mysqli, "UPDATE users SET user_name = '$contact_name', user_email = '$contact_email', user_auth_method = '$contact_auth_method' WHERE user_id = $contact_user_id");
+        mysqli_query($mysqli, "UPDATE users SET user_name = '$contact_name', user_email = '$contact_email', user_auth_method = '$contact_auth_method' WHERE user_id = $contact_user_id AND user_type = 2 AND user_id != $session_user_id");
 
     // Else, create New User
     } elseif ($contact_user_id == 0 && $contact_name && $contact_email && $contact_auth_method) {

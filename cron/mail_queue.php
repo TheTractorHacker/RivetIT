@@ -65,10 +65,10 @@ $config_smtp_encryption  = $row['config_smtp_encryption'];
 // SMTP provider + shared OAuth fields
 $config_smtp_provider                      = $row['config_smtp_provider']; // 'standard_smtp' | 'google_oauth' | 'microsoft_oauth'
 $config_mail_oauth_client_id               = $row['config_mail_oauth_client_id'] ?? '';
-$config_mail_oauth_client_secret           = $row['config_mail_oauth_client_secret'] ?? '';
+$config_mail_oauth_client_secret           = decryptSetting($row['config_mail_oauth_client_secret'] ?? '');
 $config_mail_oauth_tenant_id               = $row['config_mail_oauth_tenant_id'] ?? '';
-$config_mail_oauth_refresh_token           = $row['config_mail_oauth_refresh_token'] ?? '';
-$config_mail_oauth_access_token            = $row['config_mail_oauth_access_token'] ?? '';
+$config_mail_oauth_refresh_token           = decryptSetting($row['config_mail_oauth_refresh_token'] ?? '');
+$config_mail_oauth_access_token            = decryptSetting($row['config_mail_oauth_access_token'] ?? '');
 $config_mail_oauth_access_token_expires_at = $row['config_mail_oauth_access_token_expires_at'] ?? '';
 
 if ($config_enable_cron == 0) {

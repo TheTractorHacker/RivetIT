@@ -8,7 +8,8 @@ if (isset($_POST['restore_kb_article_version'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_kb');
+    // Restoring a version overwrites the live article - that is a write
+    enforceUserPermission('module_kb', 2);
 
     $kb_article_version_id = intval($_POST['restore_kb_article_version']);
     $kb_article_id = intval($_POST['kb_article_id']);

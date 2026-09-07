@@ -129,6 +129,32 @@ if (isset($api_key)) {
         $api_key_decrypt_hash = $row['api_key_decrypt_hash']; // No sanitization
         $client_id = intval($row['api_key_client_id']);
 
+        // Enforce the key's read/write permission (admin/api_keys.php "Permission").
+        // api_key_permission was stored since 2.6.72 but read in exactly one place -
+        // api/v1/index.php's router. nginx serves api/v1/<resource>/<action>.php
+        // directly via try_files, so all 39 legacy endpoints that require this file
+        // never went through that check and a "read" key could still POST
+        // (create/update/delete). This is the choke point every one of them does
+        // pass through, so the check belongs here. GET-only, matching the API's
+        // GET=read / POST=write convention documented at the top of this file.
+        $api_key_permission = ($row['api_key_permission'] ?? 'write') === 'read' ? 'read' : 'write';
+        if ($api_key_permission === 'read' && $_SERVER['REQUEST_METHOD'] !== 'GET') {
+
+            // Logged as 'Blocked' rather than 'Failed' on purpose: a misconfigured
+            // but legitimate integration must not be able to trip the IP lockout
+            // counter above (which only counts log_action = 'Failed').
+            $url_path = sanitizeInput(parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH));
+            $log_key_name = mysqli_real_escape_string($mysqli, $api_key_name);
+            mysqli_query($mysqli, "INSERT INTO logs SET log_type = 'API', log_action = 'Blocked', log_description = 'Read-only key ($log_key_name) attempted a write (endpoint: $url_path)', log_ip = '$ip', log_user_agent = '$user_agent'");
+
+            $return_arr['success'] = "False";
+            $return_arr['message'] = "This API key is read-only. Only GET requests are permitted.";
+
+            header("HTTP/1.1 403 Forbidden");
+            echo json_encode($return_arr);
+            exit();
+        }
+
         // Set limit & offset for queries
         if (isset($_GET['limit'])) {
             $limit = intval($_GET['limit']);

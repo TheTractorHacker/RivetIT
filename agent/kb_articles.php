@@ -22,6 +22,12 @@ if (isset($_GET['client_id'])) {
 
 enforceUserPermission('module_kb');
 
+// module_kb Read is rendered as "Viewing Only" in the role editor and the KB post
+// handlers now enforce write/full for their writes, so hide the controls a
+// read-only user would only be rejected for pressing.
+$kb_can_write = lookupUserPermission('module_kb') >= 2;
+$kb_can_delete = lookupUserPermission('module_kb') >= 3;
+
 if (isset($_GET['filter_category_id']) && $_GET['filter_category_id'] !== '') {
     $filter_category_id = intval($_GET['filter_category_id']);
     $kb_category_filter_query = "AND kb_article_category_id = $filter_category_id";
@@ -85,12 +91,14 @@ if (isset($kb_groups['Uncategorized'])) {
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-book me-2"></i>Knowledge Base</h3>
         <div class="card-tools">
-            <button type="button" class="btn btn-secondary ajax-modal" data-modal-url="modals/kb_category/kb_category_manage.php">
-                <i class="fas fa-folder me-2"></i>Categories
-            </button>
-            <button type="button" class="btn btn-primary ajax-modal" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_add.php<?php if (isset($client_id)) { echo "?client_id=$client_id"; } ?>">
-                <i class="fas fa-plus me-2"></i>New Article
-            </button>
+            <?php if ($kb_can_write) { ?>
+                <button type="button" class="btn btn-secondary ajax-modal" data-modal-url="modals/kb_category/kb_category_manage.php">
+                    <i class="fas fa-folder me-2"></i>Categories
+                </button>
+                <button type="button" class="btn btn-primary ajax-modal" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_add.php<?php if (isset($client_id)) { echo "?client_id=$client_id"; } ?>">
+                    <i class="fas fa-plus me-2"></i>New Article
+                </button>
+            <?php } ?>
         </div>
     </div>
     <div class="card-body">
@@ -207,13 +215,17 @@ if (isset($kb_groups['Uncategorized'])) {
                                         <a class="dropdown-item" href="<?= $kb_article_url ?>">
                                             <i class="fas fa-fw fa-eye me-2"></i>View
                                         </a>
-                                        <a class="dropdown-item ajax-modal" href="#" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_edit.php?id=<?= $kb_article_id ?>">
-                                            <i class="fas fa-fw fa-edit me-2"></i>Edit
-                                        </a>
-                                        <div class="dropdown-divider"></div>
-                                        <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_kb_article=<?= $kb_article_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
-                                            <i class="fas fa-fw fa-trash me-2"></i>Delete
-                                        </a>
+                                        <?php if ($kb_can_write) { ?>
+                                            <a class="dropdown-item ajax-modal" href="#" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_edit.php?id=<?= $kb_article_id ?>">
+                                                <i class="fas fa-fw fa-edit me-2"></i>Edit
+                                            </a>
+                                        <?php } ?>
+                                        <?php if ($kb_can_delete) { ?>
+                                            <div class="dropdown-divider"></div>
+                                            <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_kb_article=<?= $kb_article_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                                <i class="fas fa-fw fa-trash me-2"></i>Delete
+                                            </a>
+                                        <?php } ?>
                                     </div>
                                 </div>
                             </div>

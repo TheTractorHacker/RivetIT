@@ -242,6 +242,9 @@ if (!$conn) {
 
 $installation_id = randomString(32);
 
+// Per-installation key for encryptSetting()/decryptSetting() - see below.
+$settings_enc_key = bin2hex(random_bytes(32));
+
 $new_config = "<?php\n\n";
 $new_config .= "\$dbhost = " . var_export($host, true) . ";\n";
 $new_config .= "\$dbusername = " . var_export($username, true) . ";\n";
@@ -253,6 +256,13 @@ $new_config .= "\$config_base_url = '" . addslashes($base_url) . "';\n";
 $new_config .= "\$config_https_only = TRUE;\n";
 $new_config .= "\$repo_branch = 'master';\n";
 $new_config .= "\$installation_id = '$installation_id';\n";
+// Per-installation key for encryptSetting()/decryptSetting() - SMTP and IMAP
+// passwords, OAuth refresh tokens, RMM/UniFi API keys, webhook secrets and the
+// canonical credential-vault master key are all wrapped with it. It MUST be
+// generated here: encryptSetting() now refuses to write a secret without one,
+// and before this line existed no code path ever created it, so every install
+// silently stored those columns in cleartext.
+$new_config .= "\$config_settings_enc_key = '$settings_enc_key';\n";
 
 if (file_put_contents("../config.php", $new_config) === false) {
     die("Failed to write config.php. Check file permissions.\n");

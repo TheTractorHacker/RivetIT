@@ -3727,8 +3727,15 @@ function logMailEvent(?int $mailbox_id, ?string $from_email, ?string $from_name,
 
 // Allow-list for saved ticket/mail-request attachments. Anything else is blocked
 // and logged rather than saved to disk.
+//
+// No 'svg' here. Inbound-email attachment bytes are written to /uploads verbatim (see
+// addTicket()/addReply() below) and agent/ticket.php links that raw path, so an SVG is
+// served from our own origin and its embedded <script> runs as the technician who
+// clicked "View" - a stored XSS that an unauthenticated stranger can plant just by
+// emailing the ticket address. Every interactive uploader already excluded svg; this
+// closes the one path that did not.
 function ticketAttachmentAllowedExtensions(): array {
-    return ['jpg', 'jpeg', 'gif', 'png', 'webp', 'svg', 'pdf', 'txt', 'md', 'doc', 'docx', 'csv', 'xls', 'xlsx', 'xlsm', 'zip', 'tar', 'gz'];
+    return ['jpg', 'jpeg', 'gif', 'png', 'webp', 'pdf', 'txt', 'md', 'doc', 'docx', 'csv', 'xls', 'xlsx', 'xlsm', 'zip', 'tar', 'gz'];
 }
 
 // Cached per-request; used in ticket notification emails.
@@ -4980,28 +4987,94 @@ function queueWebhookEvent($event, $data) {
     }
 }
 
-// Encrypts a sensitive settings value (SMTP password, OAuth secret, etc.) using
-// a per-installation key from config.php. Values are prefixed with "ENC:" so
-// legacy plaintext can still be read transparently (backward-compatible).
+// Encrypts a sensitive settings value (SMTP password, OAuth secret, RMM api_key_enc,
+// the canonical vault key, ...) using the per-installation key from config.php.
+//
+// Ciphertexts carry a prefix that names the scheme, so old values stay readable:
+//   ENC2:  base64(nonce[12] . tag[16] . ct)  aes-256-gcm  - what we write now
+//   ENC:   base64(iv[16] . ct)               aes-128-cbc  - legacy, read-only
+//   (no prefix)                              legacy plaintext, read-only
+//
+// FAIL CLOSED. This used to return $plaintext untouched when $config_settings_enc_key
+// was empty, and nothing in the codebase ever generated that variable - so on every
+// install ever made these "encrypted" columns were written in cleartext, including the
+// credential-vault MASTER KEY that setCanonicalVaultKey() parks in settings right next
+// to the ciphertexts it unlocks. Silently downgrading to plaintext is never the right
+// answer for a caller that asked for encryption: refuse the write instead, so the
+// failure is loud at configuration time rather than invisible forever. Setup now mints
+// $config_settings_enc_key, and DB update 2.6.77 re-wraps rows written without one.
 function encryptSetting(string $plaintext): string {
     global $config_settings_enc_key;
-    if (empty($plaintext) || empty($config_settings_enc_key)) return $plaintext;
-    $key = substr(hash('sha256', $config_settings_enc_key, true), 0, 16);
-    $iv  = random_bytes(16);
-    $ct  = openssl_encrypt($plaintext, 'aes-128-cbc', $key, OPENSSL_RAW_DATA, $iv);
-    return 'ENC:' . base64_encode($iv . $ct);
+
+    // An empty value is not a secret - callers pass '' to mean "this field is blank".
+    if ($plaintext === '') return $plaintext;
+
+    if (empty($config_settings_enc_key)) {
+        throw new RuntimeException(
+            'Refusing to store a secret in cleartext: $config_settings_enc_key is missing from config.php. ' .
+            'Add  $config_settings_enc_key = bin2hex(random_bytes(32));  to config.php and re-run the database update.'
+        );
+    }
+
+    // aes-256-gcm rather than the old aes-128-cbc: CBC here was unauthenticated, so
+    // anyone who could write to the settings/integration tables could flip ciphertext
+    // bits and have us decrypt attacker-chosen garbage without noticing. GCM values get
+    // their own "ENC2:" prefix, so switching schemes costs nothing - the CBC reader
+    // below is untouched and existing "ENC:" rows are never rewritten.
+    $key   = hash('sha256', $config_settings_enc_key, true); // 32 raw bytes
+    $nonce = random_bytes(12);
+    $tag   = '';
+    $ct    = openssl_encrypt($plaintext, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $nonce, $tag);
+    if ($ct === false) {
+        throw new RuntimeException('Refusing to store a secret in cleartext: openssl_encrypt() failed.');
+    }
+
+    return 'ENC2:' . base64_encode($nonce . $tag . $ct);
 }
 
 function decryptSetting(string $ciphertext): string {
     global $config_settings_enc_key;
-    if (empty($ciphertext) || empty($config_settings_enc_key)) return $ciphertext;
-    if (!str_starts_with($ciphertext, 'ENC:')) return $ciphertext; // legacy plaintext
+
+    if ($ciphertext === '') return $ciphertext;
+
+    $is_gcm = str_starts_with($ciphertext, 'ENC2:');
+    $is_cbc = str_starts_with($ciphertext, 'ENC:');
+
+    // LEGACY PLAINTEXT - must keep working forever, with or without a key. Every install
+    // that ran before $config_settings_enc_key existed stored these columns unprefixed
+    // and unencrypted, and DB update 2.6.77 deliberately leaves some of them that way
+    // (the columns that still have raw, non-decrypting readers). Reads must not fail
+    // closed the way writes do, or an upgrade would take the whole app down.
+    if (!$is_gcm && !$is_cbc) return $ciphertext;
+
+    // Prefixed, but no key to open it with (config.php lost or replaced). Handing the
+    // caller the raw "ENC2:..." string would be worse than useless - getCanonicalVaultKey()
+    // would take it for the vault master key and re-wrap that garbage into user accounts.
+    // Return '' so callers see "not configured" and the vault simply stays locked.
+    if (empty($config_settings_enc_key)) return '';
+
+    if ($is_gcm) {
+        $data = base64_decode(substr($ciphertext, 5), true);
+        if ($data === false || strlen($data) <= 28) return '';
+        $key   = hash('sha256', $config_settings_enc_key, true);
+        $nonce = substr($data, 0, 12);
+        $tag   = substr($data, 12, 16);
+        $ct    = substr($data, 28);
+        // Explicit === false, not ?: - a secret that is literally "0" is falsy and the
+        // ?: idiom the CBC path used to carry would silently blank it out.
+        $pt = openssl_decrypt($ct, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $nonce, $tag);
+        return $pt === false ? '' : $pt;
+    }
+
+    // Legacy aes-128-cbc, written before the GCM switch - still readable, byte for byte
+    // the same code path as before.
     $data = base64_decode(substr($ciphertext, 4));
     if (strlen($data) <= 16) return '';
     $key = substr(hash('sha256', $config_settings_enc_key, true), 0, 16);
     $iv  = substr($data, 0, 16);
     $ct  = substr($data, 16);
-    return openssl_decrypt($ct, 'aes-128-cbc', $key, OPENSSL_RAW_DATA, $iv) ?: '';
+    $pt  = openssl_decrypt($ct, 'aes-128-cbc', $key, OPENSSL_RAW_DATA, $iv);
+    return $pt === false ? '' : $pt;
 }
 
 // ── CRM / Sales helpers ────────────────────────────────────────────────────

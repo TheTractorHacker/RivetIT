@@ -204,6 +204,13 @@ if (isset($_GET['disable_user'])) {
 
     mysqli_query($mysqli, "UPDATE users SET user_status = 0 WHERE user_id = $user_id");
 
+    // Revoke API access. The bearer-token lookup in api/v1/index.php now filters
+    // on user_status, but the row still has to go: api/v1/auth.php caches the
+    // user's decrypted vault master key in api_tokens.token_enc_master_key at
+    // login, so leaving the row behind leaves a usable copy of that key sitting
+    // in the database. Same idea as the remember_tokens cleanup below.
+    mysqli_query($mysqli, "DELETE FROM api_tokens WHERE token_user_id = $user_id");
+
     // Un-assign tickets
     mysqli_query($mysqli, "UPDATE tickets SET ticket_assigned_to = 0 WHERE ticket_assigned_to = $user_id AND ticket_closed_at IS NULL");
     mysqli_query($mysqli, "UPDATE recurring_tickets SET recurring_ticket_assigned_to = 0 WHERE recurring_ticket_assigned_to = $user_id");
@@ -271,6 +278,13 @@ if (isset($_POST['archive_user'])) {
 
     // Archive user query
     mysqli_query($mysqli, "UPDATE users SET user_name = '$user_name (archived)', user_password = '$password', user_status = 0, user_specific_encryption_ciphertext = '', user_archived_at = NOW() WHERE user_id = $user_id");
+
+    // Revoke API access. Blanking user_specific_encryption_ciphertext above does
+    // NOT stop API credential decryption on its own - api/v1/auth.php stores the
+    // already-decrypted master key on the token row (token_enc_master_key), so an
+    // outstanding token would keep decrypting the vault long after the archive.
+    // Deleting the row is what destroys that cached key.
+    mysqli_query($mysqli, "DELETE FROM api_tokens WHERE token_user_id = $user_id");
 
     logAction("User", "Archive", "$session_name archived user $user_name", 0, $user_id);
 

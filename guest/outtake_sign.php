@@ -57,11 +57,18 @@ $signed_at     = $row['outtake_signed_at'];
 $existing_sig  = $row['outtake_signature'];
 
 // Load ticket replies
+// This page is reachable by anyone holding the signing link (no login), so it must filter reply
+// types the same way the other externally facing reply reads do (guest/guest_view_ticket.php,
+// client/ticket.php) - and then some. Internal is the obvious one, but agent/post/ticket.php
+// flips EVERY reply on a ticket to 'Internal' when the ticket is moved to another client, so
+// without the filter a whole reassigned ticket's internal notes render here. System, Automation,
+// RMM Alert and Labor replies are equally not meant for the person signing for the equipment.
 $sql_replies = mysqli_query($mysqli, "SELECT tr.ticket_reply, tr.ticket_reply_type, tr.ticket_reply_created_at, u.user_name, co3.contact_name as reply_contact
     FROM ticket_replies tr
     LEFT JOIN users u ON tr.ticket_reply_by = u.user_id
     LEFT JOIN contacts co3 ON tr.ticket_reply_by = co3.contact_id
     WHERE tr.ticket_reply_ticket_id = $ticket_id AND tr.ticket_reply_archived_at IS NULL
+    AND tr.ticket_reply_type NOT IN ('Internal', 'System', 'Automation', 'RMM Alert', 'Labor')
     ORDER BY tr.ticket_reply_id ASC LIMIT 10");
 
 ?><!DOCTYPE html>

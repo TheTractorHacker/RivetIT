@@ -27,7 +27,7 @@ $sql_settings = mysqli_query($mysqli, "SELECT config_azure_client_id, config_azu
 $settings = mysqli_fetch_assoc($sql_settings);
 
 $client_id = $settings['config_azure_client_id'];
-$client_secret = $settings['config_azure_client_secret'];
+$client_secret = decryptSetting($settings['config_azure_client_secret'] ?? '');
 
 $redirect_uri = "https://$config_base_url/client/login_microsoft.php";
 

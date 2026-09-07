@@ -126,11 +126,21 @@ if (preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $m)) {
     $raw_token  = $m[1];
     $token_hash = hash('sha256', $raw_token);
     $esc        = mysqli_real_escape_string($mysqli, $token_hash);
+    // The user filters are as important as the token hash itself. Every other
+    // auth path already refuses a disabled/archived/non-agent account
+    // (includes/auth_check.php, login.php, api/v1/auth.php's login query,
+    // includes/load_user_session.php which destroys the session per request) -
+    // this one did not, so a disabled or archived employee kept full API access
+    // forever. admin/post/users.php now also deletes the token rows on
+    // disable/archive; this is the belt to that braces.
     $sql        = mysqli_query($mysqli,
         "SELECT t.*, u.user_id, u.user_name, u.user_email, u.user_type
          FROM api_tokens t
          JOIN users u ON t.token_user_id = u.user_id
          WHERE t.token_hash = '$esc'
+           AND u.user_status = 1
+           AND u.user_archived_at IS NULL
+           AND u.user_type = 1
          LIMIT 1"
     );
     $api_token_row = mysqli_fetch_assoc($sql);

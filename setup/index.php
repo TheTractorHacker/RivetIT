@@ -58,6 +58,9 @@ if (isset($_POST['add_database'])) {
 
     $installation_id = randomString(32);
 
+    // Per-installation key for encryptSetting()/decryptSetting() - see below.
+    $settings_enc_key = bin2hex(random_bytes(32));
+
     // Ensure variables meet specific criteria (very basic examples)
     if (!preg_match('/^[a-zA-Z0-9.-]+$/', $host)) {
         die('Invalid host format.');
@@ -81,6 +84,13 @@ if (isset($_POST['add_database'])) {
     $new_config .= "\$config_https_only = TRUE;\n";
     $new_config .= "\$repo_branch = 'master';\n";
     $new_config .= "\$installation_id = '$installation_id';\n";
+    // Per-installation key for encryptSetting()/decryptSetting() - SMTP and IMAP
+    // passwords, OAuth refresh tokens, RMM/UniFi API keys, webhook secrets and the
+    // canonical credential-vault master key are all wrapped with it. It MUST be
+    // generated here: encryptSetting() now refuses to write a secret without one,
+    // and before this line existed no code path ever created it, so every install
+    // silently stored those columns in cleartext.
+    $new_config .= "\$config_settings_enc_key = '$settings_enc_key';\n";
 
     if (file_put_contents("../config.php", $new_config) !== false && file_exists('../config.php')) {
 

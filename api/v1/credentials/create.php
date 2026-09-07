@@ -1,5 +1,24 @@
 <?php
 
+/*
+ * Defence in depth: the legacy X-Api-Key mechanism must never reach credentials.
+ * api/v1/index.php already refuses /api/v1/credentials for a legacy key
+ * ("Credentials endpoint requires a user API token"), but nginx serves
+ * api/v1/<resource>/<action>.php directly via try_files, so this file is
+ * reachable without the router ever running. validate_api_key.php resolves any
+ * valid key to full instance-wide admin rights with no user identity, no 2FA and
+ * no per-user permission behind it - handing that a decryptable vault would
+ * undo the whole policy. Credentials over the API are Bearer-token only
+ * (api/v1/credentials.php). Denied before auth so the key is not even consulted.
+ */
+header('Content-Type: application/json');
+header('HTTP/1.1 403 Forbidden');
+echo json_encode([
+    'success' => 'False',
+    'message' => 'Credentials are not available via API key. Use a user API token (POST /api/v1/auth/login) and /api/v1/credentials.'
+]);
+exit();
+
 require_once '../validate_api_key.php';
 
 require_once '../require_post_method.php';

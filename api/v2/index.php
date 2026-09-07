@@ -57,10 +57,17 @@ if (empty($authHeader) && function_exists('getallheaders')) {
 if (preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $m)) {
     $token_hash = hash('sha256', $m[1]);
     $esc = mysqli_real_escape_string($mysqli, $token_hash);
+    // Same account-state filter as api/v1/index.php - a token alone must not
+    // outlive the account behind it. Without these a disabled or archived
+    // employee keeps API access indefinitely, which no other auth path allows.
     $row = mysqli_fetch_assoc(mysqli_query($mysqli,
         "SELECT t.token_id, u.user_id FROM api_tokens t
          JOIN users u ON t.token_user_id = u.user_id
-         WHERE t.token_hash = '$esc' LIMIT 1"
+         WHERE t.token_hash = '$esc'
+           AND u.user_status = 1
+           AND u.user_archived_at IS NULL
+           AND u.user_type = 1
+         LIMIT 1"
     ));
     if ($row) {
         $api_user_id = intval($row['user_id']);

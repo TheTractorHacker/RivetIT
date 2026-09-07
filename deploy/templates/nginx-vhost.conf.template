@@ -141,6 +141,45 @@ server {
         deny all;
     }
 
+    # Everything under /uploads/ is attacker-supplied content served from the
+    # app's own origin, so the browser must never RENDER it: an uploaded .html
+    # or .svg opened directly runs its script same-origin against whatever
+    # session the viewer has. Content-Disposition forces save-to-disk on a
+    # top-level navigation, and nosniff stops a mistyped response being
+    # re-sniffed into HTML. This is defence for direct navigation only - it
+    # does not affect <img>/<link rel=icon> subresource loads, so the company
+    # logo, user avatars and client file thumbnails still display normally.
+    #
+    # "^~" is required (a plain prefix would lose to the regex locations above
+    # and the headers would never be set) but "^~" is also the trap: it tells
+    # nginx to STOP at this prefix and skip regex evaluation entirely, which
+    # silently disables the top-level script-deny regex above for every URI
+    # under /uploads/. That is why the deny is repeated as a NESTED location
+    # here, inside this prefix's own location tree, where it is still
+    # evaluated. Keep BOTH copies, and never add a fastcgi_pass under this
+    # prefix the way "^~ /plugins/" does - that block needs PHP, this one must
+    # never have it or uploaded .php files become executable.
+    location ^~ /uploads/ {
+        location ~ ^/uploads/.*\.(php|phtml|phar|phps|cgi|pl|sh)$ {
+            deny all;
+        }
+
+        # add_header does not merge across levels: declaring ANY add_header in
+        # a location discards the entire inherited set from server{}, so the
+        # server-level headers must be repeated verbatim here or /uploads/
+        # responses would quietly lose X-Frame-Options, Referrer-Policy and
+        # Permissions-Policy. No Cache-Control: user content is replaced in
+        # place and must always be re-fetched.
+        # BEGIN DIRECT-TLS ONLY
+        add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+        # END DIRECT-TLS ONLY
+        add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Content-Disposition "attachment" always;
+    }
+
     # cron/.htaccess + scripts/.htaccess: these run via CLI only, never over HTTP
     location ~ ^/(cron|scripts)/.*\.php$ {
         deny all;
@@ -158,6 +197,27 @@ server {
     location ^~ /plugins/TCPDF/tools/ {
         deny all;
     }
+
+    # The legacy per-resource leaf scripts (api/v1/<resource>/<action>.php)
+    # must never be reachable over HTTP. They predate the router, each one
+    # re-implements its own auth, and reaching one directly skips every
+    # permission and client-scope gate api/v1/index.php applies - see the
+    # comment at the top of api/v1/credentials/read.php, which only exists
+    # because nginx serves that file. The plain-prefix "location /api/v1/"
+    # below does NOT stop this: a prefix match that is not "^~" still lets
+    # nginx go on to evaluate regex locations, and the generic
+    # "location ~ \.php$" then wins and hands the file to PHP-FPM.
+    #
+    # ORDERING IS THE FIX. nginx tries regex locations in the order they are
+    # written in the file and takes the FIRST that matches, so this deny only
+    # works because it sits ABOVE "location ~ \.php$" - keep it there. It
+    # cannot shadow the router: "location = /api/v1/index.php" is an exact
+    # match and exact matches beat every regex regardless of order, and
+    # /api/v1/index.php has no second path segment so it never matches this
+    # pattern anyway. Clean URLs (/api/v1/tickets/42/chat) carry no ".php"
+    # suffix and are untouched. Same rule already live on
+    # beta-itflow.foleyit.com.
+    location ~ ^/api/v1/.+/.+\.php$ { deny all; return 403; }
 
     # api/v1/.htaccess and api/v2/.htaccess: clean-URL front controllers
     location /api/v1/ {
@@ -223,8 +283,8 @@ server {
     # when they do. /js is NOT included here: some first-party scripts under
     # it are NOT ?v=-versioned, so immutable caching could serve a stale copy
     # after an edit - it gets a short revalidate-friendly max-age instead.
-    # /uploads is user content and intentionally left alone (a replaced file
-    # must be re-fetched).
+    # /uploads deliberately gets no Cache-Control (a replaced file must be
+    # re-fetched); its own block above sets security headers only.
     location ^~ /plugins/ {
         add_header Cache-Control "public, max-age=31536000, immutable";
     }

@@ -8,7 +8,9 @@ if (isset($_POST['add_kb_article'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_kb');
+    // Creating an article is a write - module_kb level 1 is "Viewing Only" in the role
+    // editor, so a read-only role must not be able to reach this handler
+    enforceUserPermission('module_kb', 2);
 
     $title = sanitizeInput($_POST['title']);
     $kb_article_client_id = intval($_POST['client_id'] ?? 0);
@@ -49,7 +51,8 @@ if (isset($_POST['edit_kb_article'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_kb');
+    // Editing an article is a write, not a read
+    enforceUserPermission('module_kb', 2);
 
     $kb_article_id = intval($_POST['kb_article_id']);
 
@@ -119,7 +122,8 @@ if (isset($_POST['upload_kb_article_attachment'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_kb');
+    // Attaching a file to an article is a write, not a read
+    enforceUserPermission('module_kb', 2);
 
     $kb_article_id = intval($_POST['kb_article_id']);
 
@@ -167,7 +171,8 @@ if (isset($_GET['delete_kb_article_attachment'])) {
 
     validateCSRFToken($_GET['csrf_token']);
 
-    enforceUserPermission('module_kb');
+    // Destroying an attachment (row + file on disk) is a delete - full access
+    enforceUserPermission('module_kb', 3);
 
     $attachment_id = intval($_GET['delete_kb_article_attachment']);
     $kb_article_id = intval($_GET['kb_article_id']);
@@ -200,7 +205,8 @@ if (isset($_GET['delete_kb_article'])) {
 
     validateCSRFToken($_GET['csrf_token']);
 
-    enforceUserPermission('module_kb');
+    // Deleting an article is a delete - full access, matching every other module
+    enforceUserPermission('module_kb', 3);
 
     $kb_article_id = intval($_GET['delete_kb_article']);
 

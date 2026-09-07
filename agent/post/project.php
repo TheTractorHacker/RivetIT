@@ -200,9 +200,23 @@ if (isset($_POST['edit_project'])) {
     $project_manager = intval($_POST['project_manager']);
     $client_id = intval($_POST['client_id']);
 
+    // Check the department the project CURRENTLY belongs to, read from the DB and
+    // not from the POST - enforceClientAccess() with no argument falls back to the
+    // global $client_id, which here is the value the submitter just posted, so on
+    // its own it never checks who actually owns the project being edited.
+    $project_current_client_id = intval(getFieldById('projects', $project_id, 'project_client_id'));
+
     // Don't Enforce Client Access if Project doesn't have an assigned client
+    // (project_client_id = 0 is the shared/unassigned bucket every department sees)
+    if ($project_current_client_id) {
+        enforceClientAccess($project_current_client_id);
+    }
+
+    // Also check the department the project is being moved TO. Guarding only the
+    // source would still let someone push one of their own projects into another
+    // department, so both ends need the check.
     if ($client_id) {
-        enforceClientAccess();
+        enforceClientAccess($client_id);
     }
 
     // Optional planning/budget fields

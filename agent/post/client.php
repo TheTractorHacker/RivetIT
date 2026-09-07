@@ -394,6 +394,10 @@ if (isset($_GET['archive_client'])) {
 
     $client_id = intval($_GET['archive_client']);
 
+    // Archive is a scoped write - confirm this user is allowed to touch this
+    // department before we act on an ID that came straight off the query string
+    enforceClientAccess($client_id);
+
     // Archive client
     mysqli_query($mysqli, "UPDATE clients SET client_archived_at = NOW() WHERE client_id = $client_id");
 
@@ -424,6 +428,10 @@ if (isset($_GET['restore_client'])) {
 
     $client_id = intval($_GET['restore_client']);
 
+    // Restore un-archives a department, so it needs the same scoping check as
+    // archive - the ID is attacker-supplied via the query string
+    enforceClientAccess($client_id);
+
     // Get Client Name
     $client_name = sanitizeInput(getFieldById('clients', $client_id, 'client_name'));
 
@@ -444,6 +452,11 @@ if (isset($_GET['delete_client'])) {
     enforceUserPermission('module_client', 3);
 
     $client_id = intval($_GET['delete_client']);
+
+    // Delete is irreversible (hard DELETE across every child table plus the
+    // client's upload directory), so scoping has to be enforced before the
+    // first DELETE runs - module_client full access alone is not enough
+    enforceClientAccess($client_id);
 
     // Get Client Name
     $client_name = sanitizeInput(getFieldById('clients', $client_id, 'client_name'));

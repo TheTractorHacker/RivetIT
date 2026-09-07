@@ -11,7 +11,8 @@ if (isset($_POST['set_kb_article_review'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_kb');
+    // Setting the review schedule updates the article - that is a write
+    enforceUserPermission('module_kb', 2);
 
     $kb_article_id = intval($_POST['kb_article_id']);
 

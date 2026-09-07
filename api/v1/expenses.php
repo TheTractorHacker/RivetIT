@@ -5,7 +5,10 @@ defined('FROM_API') || die();
 require_once __DIR__ . '/includes/api_permissions.php';
 
 $uid = $api_user_id;
-api_require_module_permission($mysqli, $uid, 'module_financial');
+// Reading the expense list is level 1, but creating one (and uploading a receipt with it)
+// is a write: the web equivalent, agent/post/expense.php, requires level 2. Same idiom as
+// tickets.php/worksheets.php - a read-only financial role could previously POST here.
+api_require_module_permission($mysqli, $uid, 'module_financial', $method === 'GET' ? 1 : 2);
 
 // Client-scope restriction, mirroring tickets.php/client_tabs.php.
 $expense_client_scope_clause = api_client_scope_sql('e.expense_client_id');
@@ -59,12 +62,23 @@ if ($method === 'POST') {
 
     $receipt_name = 'NULL';
     if (!empty($_FILES['receipt']['tmp_name'])) {
-        $allowed = ['image/jpeg','image/png','image/gif','application/pdf'];
+        // The stored extension is derived from the sniffed MIME type, never from the client's
+        // filename. Taking it verbatim let a polyglot through: a file starting "GIF89a;" and
+        // ending in script passes the finfo check as image/gif, but if it was uploaded as
+        // "x.html" it was saved as .html under the web root and served back as text/html from
+        // this app's own origin. This is the one upload path that doesn't go through
+        // checkFileUpload(), which enforces an extension allow-list for the web app.
+        $allowed = [
+            'image/jpeg'      => 'jpg',
+            'image/png'       => 'png',
+            'image/gif'       => 'gif',
+            'application/pdf' => 'pdf',
+        ];
         $finfo   = new finfo(FILEINFO_MIME_TYPE);
         $mime    = $finfo->file($_FILES['receipt']['tmp_name']);
-        if (!in_array($mime, $allowed)) api_error(400, 'Invalid receipt file type');
+        if (!isset($allowed[$mime])) api_error(400, 'Invalid receipt file type');
 
-        $ext      = strtolower(pathinfo($_FILES['receipt']['name'], PATHINFO_EXTENSION));
+        $ext      = $allowed[$mime];
         $filename = time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
         $dest     = $_SERVER['DOCUMENT_ROOT'] . '/uploads/expenses/' . $filename;
         @mkdir(dirname($dest), 0755, true);

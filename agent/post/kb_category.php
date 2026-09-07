@@ -8,11 +8,18 @@ if (isset($_POST['add_kb_category'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_kb');
+    // Creating a category is a write - module_kb level 1 is "Viewing Only"
+    enforceUserPermission('module_kb', 2);
 
     $name = sanitizeInput($_POST['name']);
     $parent_id = intval($_POST['parent_id'] ?? 0);
     $kb_category_client_id = intval($_POST['client_id'] ?? 0);
+
+    // The department comes straight off the POST, so scope it the same way
+    // kb_article.php does - 0 is the shared/global bucket and stays unscoped
+    if ($kb_category_client_id) {
+        enforceClientAccess($kb_category_client_id);
+    }
 
     $sql_order = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COALESCE(MAX(kb_category_order), -1) + 1 AS next_order FROM kb_categories WHERE kb_category_parent_id = $parent_id"));
     $order = intval($sql_order['next_order']);
@@ -40,7 +47,8 @@ if (isset($_POST['edit_kb_category'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_kb');
+    // Editing a category is a write, not a read
+    enforceUserPermission('module_kb', 2);
 
     $kb_category_id = intval($_POST['kb_category_id']);
     $name = sanitizeInput($_POST['name']);
@@ -73,7 +81,8 @@ if (isset($_GET['delete_kb_category'])) {
 
     validateCSRFToken($_GET['csrf_token']);
 
-    enforceUserPermission('module_kb');
+    // Deleting a category re-parents articles and sub-categories - full access
+    enforceUserPermission('module_kb', 3);
 
     $kb_category_id = intval($_GET['delete_kb_category']);
 

@@ -6960,3 +6960,113 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.76'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.76') {
+
+        // Re-wrap every settings/integration secret that was written while
+        // $config_settings_enc_key did not exist.
+        //
+        // encryptSetting() used to return its input unchanged when that config variable
+        // was empty, and no code path ever created it - so every "encrypted" column on
+        // every install is cleartext today, including settings.config_vault_canonical_key,
+        // which holds the credential-vault MASTER KEY sitting next to the ciphertexts it
+        // unlocks. encryptSetting() now throws instead of downgrading, setup/index.php and
+        // scripts/setup_cli.php mint the key, and this pass wraps what is already stored.
+        //
+        // Idempotent: a value that already starts with ENC2: (aes-256-gcm) or ENC: (the
+        // legacy aes-128-cbc) is skipped, so re-running this can never double-encrypt.
+        //
+        // NOT every encrypted-at-rest column is listed below. Five settings columns are
+        // deliberately left alone because they still have readers that pull the column
+        // straight out of the row WITHOUT calling decryptSetting(), and encrypting them
+        // here would break mail and Microsoft SSO for legitimate users:
+        //   config_smtp_password             login.php:92, guest/guest_post.php:45 & :110, cron/cron.php:49
+        //   config_azure_client_secret       client/login_microsoft.php:30
+        //   config_mail_oauth_client_secret  cron/mail_queue.php:68
+        //   config_mail_oauth_refresh_token  cron/mail_queue.php:70
+        //   config_mail_oauth_access_token   cron/mail_queue.php:71
+        // Those call sites need a decryptSetting() wrap before those columns can be
+        // migrated; until then they stay legacy plaintext, which decryptSetting() still
+        // reads transparently. Note this also means the next Mail Settings / Identity
+        // Provider save WILL encrypt them (the write path already goes through
+        // encryptSetting()), so fixing those readers is not optional for long.
+        $enc_key = $GLOBALS['config_settings_enc_key'] ?? '';
+        if (empty($enc_key)) {
+            // Refuse to advance the version rather than silently skip the re-wrap and
+            // leave the secrets in cleartext for good. Nothing has been changed yet, so
+            // the install keeps working exactly as before; add the key and run it again.
+            echo "Database update 2.6.76 -> 2.6.77 aborted: \$config_settings_enc_key is missing from config.php.\n";
+            echo "This update re-encrypts stored secrets, so it needs a key first. Add this line to config.php:\n";
+            echo "    \$config_settings_enc_key = bin2hex(random_bytes(32));\n";
+            echo "then run the database update again. The database has NOT been modified.\n";
+            exit();
+        }
+
+        // table => [primary key column, [secret columns]]
+        $enc_rewrap_targets = [
+            'settings'                => ['company_id', [
+                                             'config_vault_canonical_key',
+                                             'config_imap_password',
+                                             'config_outlook_cal_client_secret',
+                                             'config_comet_admin_pass',
+                                             'config_comet_totp_secret',
+                                             'config_comet_webhook_secret',
+                                         ]],
+            'payment_providers'       => ['payment_provider_id', ['payment_provider_private_key', 'payment_provider_webhook_secret']],
+            'ai_providers'            => ['ai_provider_id', ['ai_provider_api_key']],
+            'webhooks'                => ['webhook_id', ['webhook_secret']],
+            'rmm_integrations'        => ['id', ['api_key_enc']],
+            'unifi_integrations'      => ['id', ['api_key_enc']],
+            'microsoft_integrations'  => ['microsoft_integration_id', ['client_secret_enc']],
+            'odoo_integrations'       => ['odoo_integration_id', ['api_key_enc']],
+            'mailboxes'               => ['mailbox_id', ['mailbox_imap_password_enc', 'mailbox_oauth_refresh_token_enc', 'mailbox_oauth_access_token_enc']],
+            'accounting_integrations' => ['accounting_id', ['accounting_client_secret', 'accounting_refresh_token', 'accounting_access_token']],
+        ];
+
+        foreach ($enc_rewrap_targets as $enc_table => $enc_spec) {
+            list($enc_pk, $enc_cols) = $enc_spec;
+
+            foreach ($enc_cols as $enc_col) {
+
+                // Several of these columns are varchar, and a wrapped value is longer than
+                // the plaintext it replaces. Silently letting MySQL truncate one would
+                // destroy the secret permanently, so look the width up and skip (loudly)
+                // anything that would not fit.
+                $enc_len_row = mysqli_fetch_assoc(mysqli_query($mysqli,
+                    "SELECT CHARACTER_MAXIMUM_LENGTH AS max_len FROM information_schema.COLUMNS
+                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$enc_table' AND COLUMN_NAME = '$enc_col'"
+                ));
+                if (!$enc_len_row) {
+                    continue; // table/column not present on this install - nothing to re-wrap
+                }
+                $enc_max_len = intval($enc_len_row['max_len']);
+
+                // Only untouched, non-empty values. NOT LIKE 'ENC:%' / 'ENC2:%' is what
+                // makes this safe to run twice.
+                $enc_rows = mysqli_query($mysqli,
+                    "SELECT `$enc_pk` AS pk, `$enc_col` AS val FROM `$enc_table`
+                     WHERE `$enc_col` IS NOT NULL AND `$enc_col` <> ''
+                       AND `$enc_col` NOT LIKE 'ENC:%' AND `$enc_col` NOT LIKE 'ENC2:%'"
+                );
+                if (!$enc_rows) {
+                    continue;
+                }
+
+                while ($enc_row = mysqli_fetch_assoc($enc_rows)) {
+                    $enc_wrapped = encryptSetting($enc_row['val']);
+
+                    if ($enc_max_len > 0 && strlen($enc_wrapped) > $enc_max_len) {
+                        logApp("Database", "error", "DB update 2.6.77: left $enc_table.$enc_col (row {$enc_row['pk']}) in cleartext - the encrypted value needs " . strlen($enc_wrapped) . " chars but the column only holds $enc_max_len. Re-save this secret after widening the column.");
+                        echo "WARNING: $enc_table.$enc_col row {$enc_row['pk']} left as-is - encrypted value does not fit in the column.\n";
+                        continue;
+                    }
+
+                    $enc_wrapped_esc = mysqli_real_escape_string($mysqli, $enc_wrapped);
+                    $enc_pk_val      = intval($enc_row['pk']);
+                    mysqli_query($mysqli, "UPDATE `$enc_table` SET `$enc_col` = '$enc_wrapped_esc' WHERE `$enc_pk` = $enc_pk_val");
+                }
+            }
+        }
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.77'");
+    }
