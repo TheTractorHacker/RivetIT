@@ -11,6 +11,100 @@ require_once 'includes/check_login.php';
 require_once 'functions.php';
 require_once '../includes/redis_functions.php';
 
+/* ═════════════════════════════════════════════════════════════════════════════
+   PORTAL PREVIEW - GLOBAL WRITE GATE
+   ─────────────────────────────────────────────────────────────────────────────
+   An admin agent can open a READ-ONLY preview of a department's client portal
+   (client/includes/portal_preview.php). The preview holds no portal credential
+   and is re-authorised against the database on every request; the single thing
+   that keeps it from being an impersonation primitive is that it can write
+   nothing. This line is where that is enforced.
+
+   client/post.php is the portal's ONLY authenticated write path. Verified by
+   grep: the only other SQL writes anywhere under client/ are in
+   login_reset.php, which is a pre-auth page that never runs inside a portal
+   session. So one gate here covers the whole surface.
+
+   WHY IT IS HERE AND NOT PER-BRANCH
+   This file has 21 top-level branches and will grow more. A check inside each
+   one is correct exactly until the next branch someone adds and forgets, which
+   is the failure mode this feature cannot afford. The gate goes at the door.
+   It sits above every branch and above any read of a request VALUE - the only
+   request data touched before it is the KEY NAMES, and only to name the attempt
+   in the audit log.
+
+   ?logout IS BLOCKED, AND THAT IS LOAD-BEARING
+   The portal's Sign out link calls session_unset() + session_destroy() on the
+   SAME PHP session the admin's agent login lives in, so during a preview it
+   would sign the admin out of ITFlow itself. check_login.php (required above)
+   calls portalPreviewHandleExitRequest() before any gate runs, which turns
+   ?logout into "end the preview" while a preview is active and leaves a real
+   contact's Sign out completely untouched. By the time control reaches here,
+   that has already happened - so this gate never has to special-case it.
+
+   The exit control (?exit_portal_preview) is handled in the same place and for
+   the same reason, which is why there is no exit branch in this file.
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+/*
+ * Name the attempted action for the audit trail. KEYS ONLY - no request value
+ * is read, so nothing user-supplied is acted on. Keys are request-controlled
+ * strings, so they are stripped to [A-Za-z0-9_-] and the list is capped before
+ * it goes anywhere near a log.
+ */
+$portal_preview_attempt = [];
+foreach (['POST' => $_POST, 'GET' => $_GET] as $portal_preview_src => $portal_preview_bag) {
+    foreach (array_keys($portal_preview_bag) as $portal_preview_key) {
+        if ($portal_preview_key === 'csrf_token') {
+            continue;
+        }
+        $portal_preview_attempt[] = $portal_preview_src . ':' .
+            substr(preg_replace('/[^A-Za-z0-9_\-]/', '', (string) $portal_preview_key), 0, 40);
+    }
+}
+$portal_preview_attempt = $portal_preview_attempt
+    ? implode(' ', array_slice($portal_preview_attempt, 0, 12))
+    : 'client/post.php with no parameters';
+
+if (function_exists('portalPreviewBlockWrites')) {
+
+    /*
+     * A NO-OP for everyone who is not previewing: portalPreviewBlockWrites()
+     * returns immediately when portalPreviewResolve() says this is not a
+     * preview, and resolve() itself returns before touching the database when
+     * no preview blob is in the session. A genuine portal contact pays one
+     * array lookup for this line and nothing else.
+     *
+     * For a preview it is a HARD STOP that does not return: it audit-logs the
+     * attempt, sends 403, and renders JSON or an explanatory page. Enforcement
+     * and logging both live in that one function, so this file deliberately
+     * does not log the attempt itself - that would double-count every block.
+     */
+    portalPreviewBlockWrites($portal_preview_attempt);
+
+} elseif (!empty($_SESSION['portal_preview'])) {
+
+    /*
+     * FAIL CLOSED. The preview namespace is populated but the helper that
+     * enforces read-only is not loaded - helpers not deployed, renamed, or
+     * fataled. We cannot prove this request is safe, so we refuse it.
+     *
+     * This branch can only ever ADD blocking. It grants nothing and it can
+     * never be reached by a real portal contact, whose session has no
+     * 'portal_preview' key. The key is spelled literally because the constant
+     * that names it (PORTAL_PREVIEW_SESSION_KEY) lives in the very file whose
+     * absence this branch exists to survive.
+     */
+    if (!headers_sent()) {
+        http_response_code(403);
+        header('Content-Type: text/plain; charset=UTF-8');
+    }
+    exit('Read-only department portal preview: writes are disabled. Nothing was changed.');
+
+}
+/* ══ END PORTAL PREVIEW WRITE GATE ═══════════════════════════════════════════ */
+
+
 if (isset($_POST['add_ticket'])) {
 
     validateCSRFToken($_POST['csrf_token']);

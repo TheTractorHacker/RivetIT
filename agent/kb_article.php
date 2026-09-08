@@ -157,7 +157,6 @@ $sql_attachments = mysqli_query(
                     <?php while ($att = mysqli_fetch_assoc($sql_attachments)) {
                         $att_id = intval($att['kb_article_attachment_id']);
                         $att_name = nullable_htmlentities($att['kb_article_attachment_name']);
-                        $att_ref = $att['kb_article_attachment_reference_name'];
                     ?>
                     <li class="list-group-item d-flex align-items-center justify-content-between">
                         <span class="text-truncate me-2"><i class="fas fa-fw fa-file me-1"></i><?php echo $att_name; ?></span>
@@ -166,10 +165,20 @@ $sql_attachments = mysqli_query(
                                 <i class="fas fa-fw fa-ellipsis-v"></i>
                             </button>
                             <div class="dropdown-menu">
-                                <a target="_blank" class="dropdown-item" href="../uploads/kb/<?php echo $kb_article_id; ?>/<?php echo $att_ref; ?>">
+                                <?php /*
+                                     Both links go through kb_article_attachment.php, never the raw
+                                     /uploads/kb/ path. That path is unauthenticated, and its filename
+                                     is md5(contents) + 2 random chars - guessable by anyone who
+                                     already holds the same document. It also carries a blanket
+                                     Content-Disposition: attachment from nginx, so "View" there could
+                                     only ever download. The endpoint authenticates, re-checks the
+                                     article's department scope, and decides inline vs attachment from
+                                     the file's real bytes.
+                                */ ?>
+                                <a target="_blank" rel="noopener" class="dropdown-item" href="kb_article_attachment.php?id=<?php echo $att_id; ?>">
                                     <i class="fas fa-fw fa-eye me-2"></i>View
                                 </a>
-                                <a class="dropdown-item" download="<?php echo $att_name; ?>" href="../uploads/kb/<?php echo $kb_article_id; ?>/<?php echo $att_ref; ?>">
+                                <a class="dropdown-item" download="<?php echo $att_name; ?>" href="kb_article_attachment.php?id=<?php echo $att_id; ?>&amp;download=1">
                                     <i class="fas fa-fw fa-download me-2"></i>Download
                                 </a>
                                 <div class="dropdown-divider"></div>

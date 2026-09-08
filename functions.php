@@ -2487,10 +2487,16 @@ function checkFileUpload($file, $allowed_extensions)
     }
 
     // Read the file content
-    $fileContent = file_get_contents($tmp);
+    /* md5_file() streams the file in fixed-size chunks. This used to be
+       file_get_contents() + hash('md5', ...), which pulled the ENTIRE upload into
+       memory purely to name it - so with memory_limit 128M and the 500 MB ceiling
+       enforced just above, any large upload died with an allocation fatal before
+       the caller ever saw the file. Same digest, constant memory. All 31
+       checkFileUpload() call sites benefit, not just the KB importer that exposed
+       it. */
 
     // Hash the file content using SHA-256
-    $hashedContent = hash('md5', $fileContent);
+    $hashedContent = md5_file($tmp);
 
     // Generate a secure filename using the hashed content
     $secureFilename = $hashedContent . randomString(2) . '.' . $extension;

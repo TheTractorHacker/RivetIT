@@ -36,6 +36,86 @@
 header("X-Frame-Options: DENY"); // Legacy
 header("X-Content-Type-Options: nosniff");
 header("Referrer-Policy: strict-origin-when-cross-origin");
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   PORTAL PREVIEW BANNER - state resolution
+   ─────────────────────────────────────────────────────────────────────────────
+   An admin agent can open a READ-ONLY preview of a department's portal. This
+   file is included by client/includes/inc_all.php, which every portal page
+   pulls in, so putting the banner here is what makes it appear on ALL of them
+   instead of on whichever ones someone remembered.
+
+   The preview's own state lives in client/includes/portal_preview.php and is
+   re-proved against the database on every request. This file only READS it -
+   it must never decide, or appear to decide, whether a preview is legitimate.
+
+   NOTE ON $portal_preview* NAMES: client/includes/check_login.php already
+   publishes $portal_preview, $portal_preview_active, $portal_preview_client_id,
+   $portal_preview_agent_user_id and $portal_preview_agent_name into this scope.
+   Nothing here reassigns any of them - the banner keeps its own
+   $portal_preview_banner so a rename or a re-order on either side can never
+   silently flip the other lane's answer.
+
+   NOTE ON STYLING, because it constrains the markup further down: 19 of the
+   portal's pages send `Content-Security-Policy: default-src 'self'` from their
+   own line 7, before this file runs. Under CSP3 that blocks <style> blocks AND
+   style="" attributes alike, and the portal never defines $csp_nonce (only the
+   agent shell does). So the banner is built entirely from classes that already
+   exist in the vendored Tabler / Font Awesome CSS: no inline style, nothing to
+   nonce, and no CSP relaxation anywhere. That inline styles really are dead on
+   those pages is not a guess - client/kb_articles.php:61 already ships a
+   style="" that the browser drops.
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+/*
+ * $portal_preview_banner is the context array the banner renders from, or null
+ * when this is an ordinary portal request:
+ *
+ *   ['client_id','client_name','agent_user_id','agent_name','started_at','exit_url']
+ *
+ * Three sources, in cost order:
+ *
+ *   1. $portal_preview, already resolved by check_login.php THIS request. Reuse
+ *      it rather than re-running portalPreviewResolve(), which is deliberately
+ *      not memoised and would repeat its database checks.
+ *   2. portalPreviewContext(), if this file is ever reached without that.
+ *   3. A fail-CLOSED stub. If the preview namespace is populated but the helper
+ *      is unavailable, we cannot name the department - but rendering a portal
+ *      that LOOKS like the real thing is the one outcome that must not happen,
+ *      so the banner still goes up, saying exactly that. This branch can only
+ *      ever ADD a warning; it can never suppress one, and it grants nothing.
+ */
+$portal_preview_banner = null;
+
+if (isset($portal_preview) && is_array($portal_preview)) {
+    $portal_preview_banner = $portal_preview;
+} elseif (function_exists('portalPreviewContext')) {
+    $portal_preview_banner = portalPreviewContext();
+} elseif (!empty($_SESSION['portal_preview'])) {
+    $portal_preview_banner = [
+        'client_name' => '',
+        'agent_name'  => '',
+        // Spelled literally: the constant that names this route lives in the
+        // very file whose absence put us in this branch.
+        'exit_url'    => '/client/index.php?exit_portal_preview=1',
+    ];
+}
+
+// Escape once, here, so the markup below stays readable. client_name and
+// agent_name are raw database values by documented contract.
+$portal_preview_dept  = '';
+$portal_preview_agent = '';
+$portal_preview_exit  = '';
+
+if ($portal_preview_banner !== null) {
+    $portal_preview_dept = trim((string) ($portal_preview_banner['client_name'] ?? '')) !== ''
+        ? nullable_htmlentities($portal_preview_banner['client_name'])
+        : 'an unidentified department';
+    $portal_preview_agent = nullable_htmlentities((string) ($portal_preview_banner['agent_name'] ?? ''));
+    $portal_preview_exit  = nullable_htmlentities(
+        (string) ($portal_preview_banner['exit_url'] ?? '/client/index.php?exit_portal_preview=1')
+    );
+}
 ?>
 
 <!DOCTYPE html>
@@ -80,7 +160,9 @@ header("Referrer-Policy: strict-origin-when-cross-origin");
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title><?php echo nullable_htmlentities($session_company_name); ?> | Department Portal</title>
+    <!-- Tab title is prefixed during a preview so a tab left open in the
+         background is still identifiable as one, not as the real portal. -->
+    <title><?php if ($portal_preview_banner !== null) echo '[PREVIEW] '; ?><?php echo nullable_htmlentities($session_company_name); ?> | Department Portal</title>
 
     <!-- Tell the browser to be responsive to screen width -->
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -154,6 +236,71 @@ header("Referrer-Policy: strict-origin-when-cross-origin");
    --------------------------------------------------------------------------- */
 ?>
 <body class="accent-<?php echo nullable_htmlentities($config_theme ?? ''); ?><?php if (!empty($config_theme_dark_default)) echo ' dark-mode'; ?>">
+<?php
+/* ---------------------------------------------------------------------------
+   PORTAL PREVIEW BANNER
+
+   Sits OUTSIDE <div class="page">, as the first child of <body>. Two reasons:
+
+     1. Tabler sets `.page { contain: layout }`, which makes .page a containing
+        block and a new stacking context. Keeping the banner out of it means the
+        banner's stickiness and z-index are answerable to the viewport alone,
+        with nothing to fight.
+     2. The banner is chrome ABOUT the portal, not part of it. Leaving the page
+        shell byte-identical to what a real contact sees is the whole point of a
+        preview - the moment the banner is inside .container the thing being
+        previewed is no longer what ships.
+
+   .sticky-top (position:sticky; top:0; z-index:1020) keeps it on screen while
+   the page scrolls. The portal navbar is position:relative and scrolls away
+   underneath it, so there is no z-index contest, and modals (z-index 1055)
+   still correctly cover the banner. Nothing here fights the layout: the banner
+   is a plain block in normal flow, so it simply pushes .page down and needs no
+   compensating body padding.
+
+   COLOUR, and why it does not use theme tokens. The app has two non-equivalent
+   dark triggers - html[data-bs-theme="dark"] (Tabler's palette, and
+   itflow_design.css's --if-* set) and body.dark-mode (itflow_custom.css's
+   --color-* set) - and this file emits both together. Rather than satisfy two
+   trigger systems, the banner is painted in colours that do not move under
+   either: `.bg-warning` resolves --tblr-warning, declared #f59f00 in BOTH
+   Tabler's :root and its dark block and overridden by no app stylesheet, and
+   `.text-black` is a flat #000 !important in both tabler.min.css and
+   css/itflow.shim-adminlte.css:345. Black on #f59f00 measures ~11:1 either way.
+   That is the right call on the merits too: a warning about your own session
+   should look identical wherever you meet it, the way browser private-mode
+   chrome does.
+
+   Deliberately AVOIDED here, each for a specific reason:
+     .text-dark        css/itflow_custom.css:509 remaps it to var(--color-text),
+                       i.e. near-WHITE in dark mode - white on amber is ~2.1:1.
+     .text-bg-warning  Tabler forces color:#fff on it. Same ~2.1:1 problem.
+     .alert-warning    tinted, not solid; far too quiet for this.
+     .btn-outline-dark css/itflow_custom.css repaints it from --color-* tokens.
+     .bg-light         css/itflow_custom.css:523 repaints it on dark pages.
+
+   NOT DISMISSIBLE by construction: there is no close control and no JS - the
+   only way it leaves the page is by leaving the preview.
+   --------------------------------------------------------------------------- */
+?>
+<?php if ($portal_preview_banner !== null) { ?>
+<div class="sticky-top bg-warning text-black shadow-sm" role="region" aria-label="Read-only portal preview">
+    <div class="container d-flex flex-wrap align-items-center gap-2 py-2">
+        <i class="fas fa-eye fa-lg" aria-hidden="true"></i>
+        <strong class="text-uppercase text-nowrap">Read-only preview</strong>
+        <span class="d-none d-md-inline" aria-hidden="true">&middot;</span>
+        <span>
+            You are looking at the <strong><?php echo $portal_preview_dept; ?></strong>
+            department portal as an ITFlow agent<?php if ($portal_preview_agent !== '') { ?>
+            (<?php echo $portal_preview_agent; ?>)<?php } ?>.
+            Nothing here can be changed &mdash; every action is blocked and logged.
+        </span>
+        <a class="btn btn-sm btn-dark ms-auto text-nowrap" href="<?php echo $portal_preview_exit; ?>">
+            <i class="fas fa-sign-out-alt me-1" aria-hidden="true"></i>Exit preview
+        </a>
+    </div>
+</div>
+<?php } ?>
 <div class="page">
 
 <!-- Navbar. A plain Bootstrap 5 navbar (it never used AdminLTE), kept verbatim.
