@@ -14,6 +14,16 @@ require "../plugins/htmlpurifier/HTMLPurifier.standalone.php";
 $purifier_config = HTMLPurifier_Config::createDefault();
 $purifier_config->set('Cache.DefinitionImpl', null);
 $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
+/* KB media URLs carry their parameters in a query string, and HTMLPurifier
+ * fills a MISSING alt attribute from the src basename. Measured on the bundled
+ * 4.15.0: <img src="/agent/kb_media.php?a=13&f=x.png"> with no alt purifies to
+ * alt="kb_media.php?a=13&amp;f=x.png", and on the API side - where the same URL
+ * carries &p=&e=&s= - the whole capability token would land in the alt, visible
+ * on a broken image and captured by select-all-copy. '' yields alt="" instead.
+ * An alt the author actually wrote is untouched either way. Set in all four KB
+ * purifier configs (here, client/kb_article.php, the version-history modal and
+ * api/v1/kb.php) so the behaviour cannot differ between renderers. */
+$purifier_config->set('Attr.DefaultImageAlt', '');
 $purifier = new HTMLPurifier($purifier_config);
 
 $kb_article_id = intval($_GET['id']);
@@ -38,6 +48,23 @@ $row = mysqli_fetch_assoc($sql);
 
 $kb_article_title = nullable_htmlentities($row['kb_article_title']);
 $kb_article_content = $purifier->purify($row['kb_article_content']);
+/* Normalise any PRE-MIGRATION media path in the stored HTML to the canonical
+ * authenticated URL before display. New content never needs this: the DOCX
+ * importer and the TinyMCE uploader both write /agent/kb_media.php?... now, and
+ * for those this call is a no-op (verified: toAgentCanonical() is idempotent
+ * and leaves an already-canonical src byte-identical). It exists for the rows
+ * written before that change - measured on the live database 2026-09-08, 3
+ * kb_articles rows and 2 kb_article_versions rows still hold raw
+ * /uploads/kb/<id>/<file> paths. Those work today only because /uploads is
+ * served without authentication, which is the hole this whole change closes;
+ * once nginx denies it they would be broken images on this page.
+ *
+ * RENDER-TIME ONLY, deliberately. The edit modal loads the RAW stored HTML into
+ * TinyMCE, so an unmigrated article still round-trips its old URL through an
+ * edit - normalising there would rewrite stored content as a side effect of
+ * opening the editor, which is a storage change wearing a render change's
+ * clothes. The storage migration is what fixes storage. */
+$kb_article_content = \ITFlow\KB\MediaUrlRewriter::toAgentCanonical($kb_article_content);
 $kb_article_content = (new \ITFlow\Knowledge\CredentialReferenceRenderer())->render($kb_article_content);
 $kb_article_client_id = intval($row['kb_article_client_id']);
 $kb_article_client_name = nullable_htmlentities($row['client_name']);

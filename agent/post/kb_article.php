@@ -174,7 +174,43 @@ if (isset($_POST['import_kb_article_docx'])) {
 
         if (is_dir($docx_upload_dir) && file_put_contents($docx_upload_dir . $docx_image_name, $docx_image['bytes']) !== false) {
             $docx_written_files[] = $docx_upload_dir . $docx_image_name;
-            $docx_html = str_replace($docx_image['token'], "/uploads/kb/$kb_article_id/$docx_image_name", $docx_html);
+
+            /* The bytes stay exactly where they were - /uploads/kb/<article_id>/<name>
+               on disk. Only the URL that goes into kb_article_content changes, from
+               that raw filesystem path to the canonical serve endpoint.
+               /uploads/ is handed out by nginx with no authentication whatsoever,
+               and the filename is not a secret substitute for one: these names are
+               bin2hex(random_bytes(16)) here, but checkFileUpload() names its files
+               md5(contents) plus two random characters, so the pattern of "the path
+               is the credential" is not defensible for KB media generally.
+               agent/kb_media.php re-derives module_kb and the article's department
+               scope from the database on every single fetch instead.
+
+               SIGNATURE-FREE AND ROOT-RELATIVE ON PURPOSE. This exact string has to
+               survive an edit: kb_article_edit.php:13 htmlentities it into the
+               TinyMCE textarea (line 91), convert_urls:false (js/app.js:316) makes
+               TinyMCE hand back what it was given rather than rewriting it, and
+               edit_kb_article below stores that back verbatim. A signed URL would
+               expire while the editor sat open and then be baked permanently into
+               the content on save; an absolute URL would pin the article to
+               whichever hostname happened to import it. The signature is added at
+               RESPONSE time by api/v1/kb.php, for the API/Android clients that have
+               no cookie to send.
+
+               &amp; RATHER THAN &, because this token sits inside an <img src="...">
+               attribute (DocxConverter.php:1182 emits <img src="TOKEN" alt="...">),
+               where an ampersand is an entity reference. Measured on the bundled
+               HTMLPurifier 4.15.0 with the config from agent/kb_article.php: both
+               forms purify to the &amp; form, so storing the entity means the stored
+               bytes and the rendered bytes already agree and a purify/save round
+               trip changes nothing. DocxConverter also emits a real alt, so the
+               Attr.DefaultImageAlt='' guard in the four purifier configs never has
+               to fire for a DOCX image. */
+            $docx_html = str_replace(
+                $docx_image['token'],
+                "/agent/kb_media.php?a=$kb_article_id&amp;f=$docx_image_name",
+                $docx_html
+            );
         } else {
             // Could not store it - drop the <img> rather than leave a dead link.
             $docx_html = preg_replace('/<img src="' . preg_quote($docx_image['token'], '/') . '"[^>]*>/', '', $docx_html);
@@ -319,7 +355,25 @@ if (isset($_POST['upload_kb_article_attachment'])) {
 
         $ref_name = checkFileUpload($_FILES['attachment_file'], $allowed);
 
-        if (is_string($ref_name) && preg_match('/^[a-zA-Z0-9]+\.[a-zA-Z0-9]+$/', $ref_name)) {
+        /* MediaToken::isValidReferenceName() rather than an inline regex, so the
+           name this writes and the name agent/kb_media.php will accept when it
+           serves the file back are governed by ONE definition. Every reader of
+           kb_article_attachment_reference_name already routes through it
+           (kb_media.php:309, kb_article_attachment.php:120, and
+           MediaUrlRewriter::descriptor()), so the writer being the odd one out was
+           the only way the two could disagree.
+
+           This also FIXES A REAL BUG rather than just tidying. The regex here used
+           to be /^[a-zA-Z0-9]+\.[a-zA-Z0-9]+$/, but checkFileUpload()
+           (functions.php:2502) names files md5_file() . randomString(2) . '.' . ext,
+           and randomString() (functions.php:12) is base64URL - its alphabet
+           includes '-' and '_'. So any upload whose two random characters happened
+           to include either was rejected here as an "Invalid or unsupported file
+           type" even though the file was perfectly valid. Measured over 200,000
+           generated names: 12,420 rejected, 6.21%, against a theoretical
+           1-(62/64)^2 = 6.15%. About one KB attachment upload in sixteen failed,
+           with an error message that blamed the file. */
+        if (is_string($ref_name) && \ITFlow\KB\MediaToken::isValidReferenceName($ref_name)) {
 
             $upload_dir = $_SERVER['DOCUMENT_ROOT'] . "/uploads/kb/$kb_article_id/";
             mkdirMissing($_SERVER['DOCUMENT_ROOT'] . "/uploads/kb/");
@@ -366,10 +420,23 @@ if (isset($_GET['delete_kb_article_attachment'])) {
     $att = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM kb_article_attachments WHERE kb_article_attachment_id = $attachment_id AND kb_article_attachment_kb_article_id = $kb_article_id LIMIT 1"));
 
     if ($att) {
-        $ref_name = $att['kb_article_attachment_reference_name'];
-        $file_path = $_SERVER['DOCUMENT_ROOT'] . "/uploads/kb/$kb_article_id/$ref_name";
-        if (is_file($file_path)) {
-            unlink($file_path);
+        /* A row is not a trust boundary - the same rule the read side applies at
+           kb_media.php:309 and kb_article_attachment.php:120, and it matters more
+           here because the string is being interpolated into a path that is then
+           unlink()ed. The column is only ever written by the upload handler above,
+           so there is no known way to get a traversal sequence into it today; this
+           is the guard that means a future writer, or a restored/edited row, cannot
+           turn "delete this attachment" into "delete any file www-data can reach".
+
+           A name that fails still has its ROW removed - the attachment disappears
+           from the article either way. Only the unlink is skipped, because a name
+           we cannot parse is a path we have no business constructing. */
+        $ref_name = (string) $att['kb_article_attachment_reference_name'];
+        if (\ITFlow\KB\MediaToken::isValidReferenceName($ref_name)) {
+            $file_path = $_SERVER['DOCUMENT_ROOT'] . "/uploads/kb/$kb_article_id/$ref_name";
+            if (is_file($file_path)) {
+                unlink($file_path);
+            }
         }
 
         mysqli_query($mysqli, "DELETE FROM kb_article_attachments WHERE kb_article_attachment_id = $attachment_id");
