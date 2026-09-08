@@ -3719,7 +3719,7 @@ if (isset($_POST['upload_ticket_attachment'])) {
 
             $ref_name = checkFileUpload($single_file, $allowed);
 
-            if (!is_string($ref_name) || !preg_match('/^[a-zA-Z0-9]+\.[a-zA-Z0-9]+$/', $ref_name)) {
+            if (!isUploadReferenceName($ref_name)) {
                 $rejected_count++;
                 continue;
             }

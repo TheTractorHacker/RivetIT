@@ -60,7 +60,7 @@ function api_save_ticket_attachments($mysqli, int $ticket_id, ?int $reply_id, st
         if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) continue;
 
         $ref_name = checkFileUpload($file, $allowed);
-        if (!is_string($ref_name) || !preg_match('/^[a-zA-Z0-9]+\.[a-zA-Z0-9]+$/', $ref_name)) continue;
+        if (!isUploadReferenceName($ref_name)) continue;
 
         move_uploaded_file($file['tmp_name'], $upload_dir . $ref_name);
 

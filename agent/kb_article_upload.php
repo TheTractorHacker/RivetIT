@@ -20,7 +20,7 @@ if (empty($_FILES['file'])) {
 
 $ref_name = checkFileUpload($_FILES['file'], $allowed);
 
-if (!is_string($ref_name) || !preg_match('/^[a-zA-Z0-9]+\.[a-zA-Z0-9]+$/', $ref_name)) {
+if (!isUploadReferenceName($ref_name)) {
     http_response_code(400);
     echo json_encode(['error' => ['message' => 'Invalid or disallowed file']]);
     exit;

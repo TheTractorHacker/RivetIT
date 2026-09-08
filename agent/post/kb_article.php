@@ -319,7 +319,7 @@ if (isset($_POST['upload_kb_article_attachment'])) {
 
         $ref_name = checkFileUpload($_FILES['attachment_file'], $allowed);
 
-        if (is_string($ref_name) && preg_match('/^[a-zA-Z0-9]+\.[a-zA-Z0-9]+$/', $ref_name)) {
+        if (isUploadReferenceName($ref_name)) {
 
             $upload_dir = $_SERVER['DOCUMENT_ROOT'] . "/uploads/kb/$kb_article_id/";
             mkdirMissing($_SERVER['DOCUMENT_ROOT'] . "/uploads/kb/");
