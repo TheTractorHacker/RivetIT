@@ -446,22 +446,39 @@ function getCanonicalVaultKey($mysqli): ?string {
 function setCanonicalVaultKey($mysqli, string $master_key): void {
     $esc = mysqli_real_escape_string($mysqli, encryptSetting($master_key));
 
-    /* UPSERT, not UPDATE. On a fresh install setup/index.php calls this from the
-       ?user step - the only moment the freshly-minted master key is in scope - but
-       the settings row is not INSERTed until a later step in a later request. A
-       plain UPDATE therefore matched zero rows and the canonical key was silently
-       discarded on every new install, which is precisely the value the whole
-       fail-closed vault design depends on. company_id is the PRIMARY KEY, so
-       ON DUPLICATE KEY UPDATE makes this correct in both orders: it seeds the row
-       when setup runs, and it overwrites when an admin later re-establishes the key
-       from Settings > Security. */
+    /* UPDATE first, INSERT only if there is genuinely no row yet.
+       This was briefly an INSERT ... ON DUPLICATE KEY UPDATE, which is wrong here:
+       under STRICT_TRANS_TABLES MySQL validates the proposed INSERT row BEFORE it
+       detects the duplicate key, and settings.config_current_database_version is
+       NOT NULL with no default. Omitting it from the column list therefore raised
+       "Field 'config_current_database_version' doesn't have a default value" and
+       500'd Settings > Security on every normal install - i.e. exactly the case
+       where the row already exists and the UPDATE branch was all that was needed.
+
+       The INSERT path still matters: setup/index.php calls this from the ?user
+       step, the only moment the freshly minted master key is in scope, and the
+       settings row is not created until the company step in a later request. So
+       the fallback seeds the row and supplies every NOT NULL column that has no
+       default. */
+    mysqli_query($mysqli, "UPDATE settings SET config_vault_canonical_key = '$esc', config_vault_canonical_key_set_at = NOW() WHERE company_id = 1");
+    if (mysqli_affected_rows($mysqli) > 0) {
+        return;
+    }
+
+    /* affected_rows is also 0 when the row exists but the value is unchanged, so
+       existence has to be checked explicitly rather than inferred. */
+    $exists = mysqli_query($mysqli, "SELECT 1 FROM settings WHERE company_id = 1 LIMIT 1");
+    if ($exists && mysqli_num_rows($exists) > 0) {
+        return;
+    }
+
+    $version     = defined('LATEST_DATABASE_VERSION') ? LATEST_DATABASE_VERSION : '0.0.0';
+    $version_esc = mysqli_real_escape_string($mysqli, $version);
     mysqli_query($mysqli,
-        "INSERT INTO settings (company_id, config_vault_canonical_key, config_vault_canonical_key_set_at)
-         VALUES (1, '$esc', NOW())
-         ON DUPLICATE KEY UPDATE
-             config_vault_canonical_key = VALUES(config_vault_canonical_key),
-             config_vault_canonical_key_set_at = VALUES(config_vault_canonical_key_set_at)");
+        "INSERT INTO settings (company_id, config_current_database_version, config_vault_canonical_key, config_vault_canonical_key_set_at)
+         VALUES (1, '$version_esc', '$esc', NOW())");
 }
+
 
 // Self-heals a missing/unusable user_specific_encryption_ciphertext (e.g. NULL on
 // legacy accounts, an archived/reactivated user, or stale after a password change
