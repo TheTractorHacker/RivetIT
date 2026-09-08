@@ -98,6 +98,9 @@ if (isset($kb_groups['Uncategorized'])) {
                 <button type="button" class="btn btn-secondary ajax-modal" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_import_docx.php<?php if (isset($client_id)) { echo "?client_id=$client_id"; } ?>">
                     <i class="fas fa-file-word me-2"></i>Import Word Doc
                 </button>
+                <button type="button" class="btn btn-secondary ajax-modal" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_import_pdf.php<?php if (isset($client_id)) { echo "?client_id=$client_id"; } ?>">
+                    <i class="fas fa-file-pdf me-2"></i>Import PDF
+                </button>
                 <button type="button" class="btn btn-primary ajax-modal" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_add.php<?php if (isset($client_id)) { echo "?client_id=$client_id"; } ?>">
                     <i class="fas fa-plus me-2"></i>New Article
                 </button>
