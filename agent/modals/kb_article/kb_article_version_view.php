@@ -10,6 +10,11 @@ require_once "../../../plugins/htmlpurifier/HTMLPurifier.standalone.php";
 $purifier_config = HTMLPurifier_Config::createDefault();
 $purifier_config->set('Cache.DefinitionImpl', null);
 $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
+// Kept identical to the other three KB purifier configs. See agent/kb_article.php
+// for the measurement: without this, an <img> with no alt gets one synthesised
+// from the src basename, which for a query-string media URL means the URL's
+// parameters end up in the alt text.
+$purifier_config->set('Attr.DefaultImageAlt', '');
 $purifier = new HTMLPurifier($purifier_config);
 
 $kb_article_version_id = intval($_GET['id']);
@@ -32,6 +37,19 @@ $kb_article_title = nullable_htmlentities($row['kb_article_title']);
 $kb_article_version_editor = nullable_htmlentities($row['user_name']) ?: '<span class="text-muted">Unknown</span>';
 $kb_article_version_edited_at = nullable_htmlentities(date('M d, Y g:i A', strtotime($row['kb_article_version_edited_at'])));
 $kb_article_version_content = $purifier->purify($row['kb_article_version_content']);
+/* Historical snapshots are the corpus MOST likely to still hold pre-migration
+ * media paths - measured on the live database 2026-09-08, 2 of them do, against
+ * 3 live articles - because a version row is written once and never edited
+ * again. This is an agent session on the same origin, so the canonical
+ * /agent/kb_media.php URL authenticates itself with the cookie exactly as it
+ * does on the article page; all this call does is bring old rows up to that
+ * shape at render time. A no-op on anything already canonical.
+ *
+ * This modal still does NOT run CredentialReferenceRenderer, so a
+ * "[[credential:123]]" token in an old snapshot renders as literal text here
+ * while the article page turns it into a button. That is a pre-existing
+ * inconsistency, unrelated to media, and deliberately not fixed here. */
+$kb_article_version_content = \ITFlow\KB\MediaUrlRewriter::toAgentCanonical($kb_article_version_content);
 
 ob_start();
 ?>

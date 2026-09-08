@@ -1943,13 +1943,68 @@ components:
         client_name: {type: string, nullable: true}
         client_visible: {type: integer}
         updated_at: {type: string}
+    KbAttachment:
+      type: object
+      description: >
+        A KB article attachment. NOTE the shape differs from the shared
+        `Attachment` schema used by tickets: this one carries `id` and has no
+        `filename`. It always did - the spec previously pointed at `Attachment`
+        and was simply wrong about it.
+      properties:
+        id: {type: integer, description: kb_article_attachments.kb_article_attachment_id}
+        name: {type: string, description: The original filename as uploaded.}
+        url:
+          type: string
+          description: >
+            A SHORT-LIVED, SIGNED, ABSOLUTE URL. Fetch it with no credentials of
+            any kind - the signature in the query string IS the credential,
+            which is what lets an external browser or a WebView (neither of which
+            can send `Authorization` or `X-Api-Key`) open it.
+
+
+            Shape:
+            `https://<host>/agent/kb_media.php?att=<id>&p=<principal>&e=<unix expiry>&s=<hmac-sha256>`.
+
+
+            Valid for 24 hours, and bound to the CREDENTIAL that requested it -
+            a URL minted for your token is not usable by anyone else, and it
+            stops working the moment that token or key is revoked, expires, or
+            its user is disabled, archived or loses `module_kb`. Permissions are
+            re-derived from the database on every fetch, so the URL is proof of
+            identity and never a grant. Do not cache it, store it, or share it;
+            re-request the article to get a fresh one.
+
+
+            Adding `&download=1` forces a download instead of an inline preview.
+            That parameter is deliberately outside the signature, so the same URL
+            serves both. PDFs and common image types preview inline; everything
+            else downloads.
+
+
+            FALLBACK: on an install where signing is unavailable (no signing key
+            provisioned yet, or no configured base URL) this degrades to the
+            root-relative `/agent/kb_media.php?att=<id>`, which requires a
+            browser session cookie and will NOT work from the API. Clients that
+            prepend their own base URL to a relative value - as the Android app
+            does - should treat a redirect to the login page as "media
+            unavailable", not as an error to retry.
     KbArticleDetail:
       allOf:
         - $ref: '#/components/schemas/KbArticleListItem'
         - type: object
           properties:
-            content: {type: string}
-            attachments: {type: array, items: {$ref: '#/components/schemas/Attachment'}}
+            content:
+              type: string
+              description: >
+                Article body as HTML, run through HTMLPurifier. Every inline
+                `<img src>` is a signed absolute URL of the same form as
+                `KbAttachment.url` (`?a=<article_id>&f=<file>&p=&e=&s=`), valid
+                for 2 hours and fetchable with no headers - render it directly
+                (e.g. Android's `WebView.loadDataWithBaseURL`) and the images
+                load over the plain network stack. `alt` is empty rather than
+                derived from the filename, so no part of the token is ever
+                exposed as text. Raw `/uploads/...` paths are never emitted.
+            attachments: {type: array, items: {$ref: '#/components/schemas/KbAttachment'}}
     UserProfile:
       type: object
       properties:

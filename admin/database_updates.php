@@ -7070,3 +7070,35 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.77'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.77') {
+
+        /* KB media capability-token signing key.
+         *
+         * Holds an ENC2-wrapped 64-hex secret used by \ITFlow\KB\MediaToken to
+         * sign the media URLs api/v1/kb.php hands to the Android app, which has
+         * no way to send a session cookie or an API key on a WebView <img> or an
+         * external-browser download.
+         *
+         * The COLUMN is created here; the VALUE is minted lazily by
+         * MediaToken::key() on first use, with a race-free conditional UPDATE.
+         * That is deliberate - an install that upgrades and immediately serves
+         * an API request must work without an admin visiting a settings screen,
+         * and generating it here would put a secret in the update path of every
+         * install whether or not it ever uses the API.
+         *
+         * VARCHAR(300), not 255: encryptSetting() wraps 64 hex characters as
+         * 'ENC2:' + base64(12-byte nonce + 16-byte tag + 64-byte ciphertext) =
+         * 5 + ceil(92/3)*4 = 129 characters. 255 would fit, but the 2.6.77
+         * update exists precisely because several settings columns were too
+         * narrow for their wrapped secrets and had to be length-guarded at
+         * write time; 300 leaves room and costs nothing on utf8mb4 VARCHAR.
+         *
+         * Deliberately NOT surfaced in includes/load_global_settings.php. That
+         * file does SELECT *, so the ciphertext is transiently in its $row, but
+         * it must never become a page-scope global that a var_dump or a verbose
+         * error handler would print. Only MediaToken reads it. */
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_kb_media_key` VARCHAR(300) NULL DEFAULT NULL");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.78'");
+    }

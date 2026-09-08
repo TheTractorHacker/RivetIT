@@ -2528,7 +2528,10 @@ function checkFileUpload($file, $allowed_extensions)
  */
 function isUploadReferenceName($name): bool
 {
-    return is_string($name) && preg_match('/^[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/', $name) === 1;
+    if (!is_string($name) || $name === '' || strlen($name) > 255) {
+        return false;
+    }
+    return preg_match('/^[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/', $name) === 1;
 }
 
 function sanitizeInput($input) {
