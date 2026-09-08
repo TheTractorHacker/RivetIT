@@ -139,6 +139,97 @@ body.dark-mode {
     width: auto;
 }
 
+/* ---- Portal brand: department over company, and the 390px overflow fix ----
+
+   client/includes/header.php now renders the brand as two stacked lines - the
+   DEPARTMENT (where you are) over the COMPANY (who runs the install) - instead
+   of the company name alone.
+
+   THE BUG THIS FIXES. Measured on the live portal at a 390px viewport BEFORE
+   this change: document scrollWidth 461px against clientWidth 390px - 71px of
+   horizontal page scroll on every portal page on a phone. The single reported
+   overflowing element was the navbar brand, 419px wide inside a 380px navbar.
+   Mechanism: Bootstrap sets `.navbar-brand { white-space: nowrap }`, and a flex
+   item's default `min-width: auto` floors it at min-content - which, for an
+   unbreakable run of text, IS its full one-line width. So the brand's floor was
+   419px and `flex-shrink: 1` had nothing to give.
+
+   WHICH DECLARATION ACTUALLY FIXES IT - measured, at 390px, by disabling each
+   in turn on the live page and re-reading scrollWidth. Do not trim these on the
+   assumption the split alone is enough:
+
+     as shipped, live 39-char company name .......... scrollW 380, brand 270px
+       + min-width:0 disabled ....................... scrollW 380  (no change)
+       + ellipsis disabled too ...................... scrollW 380  (no change)
+     two spans forced back onto ONE row ............. scrollW 380, brand 348px,
+                                                      BOTH lines ellipsed, nav 93px
+     as shipped, company name stretched to 95 ch .... scrollW 380, brand 348px,
+                                                      company line ellipsed
+       + min-width:0 disabled ....................... scrollW 545  OVERFLOWS
+       + ellipsis disabled instead .................. scrollW 545  OVERFLOWS
+
+   So: the TYPE SPLIT is what fixes the live case - moving the company name to
+   11px drops the brand's max-content width from 419px to 270px, which simply
+   fits, and at that size min-width:0 and the ellipsis are both inert. They are
+   the guard that keeps it fixed for a company name longer than this install's,
+   and the last two rows prove each is independently necessary there: remove
+   either one and a 95-character name puts 155px of scroll back.
+
+   Truncation is per LINE rather than on the brand as a whole because the two
+   lines have very different lengths (live: department 20 chars max, company 39).
+   An ellipsis on the shared box would eat the department - the one string this
+   whole change exists to show - before it touched the company; per line, the
+   department survives intact and only the company clips.
+
+   THE TYPE SCALE. .navbar-brand's own 20px is now split: the department at 1rem
+   and the company at .6875rem / 70% opacity, so the company reads as attribution
+   rather than as a second title. line-height 1.2/1.25 keeps the stack at
+   19+14 = 33px, under the 34px the logo chip (css/itflow_design.css) already
+   occupies, so the logo - not this text - still sets the navbar height. Measured
+   after: navbar 61px at 390/768/992/1200/1500px, against 61px before at every
+   width except 390px, where the overflowing one-line brand had forced the
+   toggler onto a second row and made it 93px.
+
+   The opacity is 70% and not lower because this line still has to be READABLE,
+   not merely present. Measured in Chromium against the navbar's real background
+   rgb(31,41,55): the department line is 14.68:1 and the company line, whose
+   70% white composites to rgb(188,191,195), is 7.94:1. WCAG AA wants 4.5:1 for
+   text this size, so the quiet line clears AA with room and in fact also clears
+   AAA - worth keeping in mind before anyone dims it further.
+
+   Scoped to .client-portal-nav for the same reason the two rules above are: the
+   agent and admin navbars are Tabler's own and must not see any of this. */
+.client-portal-nav .navbar-brand {
+    min-width: 0;
+}
+
+.client-portal-nav .portal-brand-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.2;
+}
+
+.client-portal-nav .portal-brand-dept,
+.client-portal-nav .portal-brand-org {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.client-portal-nav .portal-brand-dept {
+    font-size: 1rem;
+}
+
+.client-portal-nav .portal-brand-org {
+    font-size: 0.6875rem;
+    font-weight: 400;
+    line-height: 1.25;
+    opacity: 0.7;
+}
+
 /* Controls that js/portal_preview_readonly.js has made inert for the duration of
    a read-only portal preview. Dimmed rather than hidden: the point of a preview
    is to show what the portal looks like, and a removed button is not what the

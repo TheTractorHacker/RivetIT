@@ -116,6 +116,36 @@ if ($portal_preview_banner !== null) {
         (string) ($portal_preview_banner['exit_url'] ?? '/client/index.php?exit_portal_preview=1')
     );
 }
+
+/* ---------------------------------------------------------------------------
+   SHELL IDENTITY: which department, and which organisation.
+
+   The portal is scoped to exactly ONE department for the whole session - every
+   list it renders is filtered `WHERE *_client_id = $session_client_id` - but
+   until now it printed only the COMPANY name in the tab title, the navbar brand
+   and the welcome banner, and the department name appeared in exactly one place
+   in the entire portal (client/profile.php:18). All 15 live departments produced
+   a byte-identical tab title, so an admin previewing several in a row could not
+   tell the tabs apart.
+
+   Both names are kept, with distinct jobs:
+     department = WHERE YOU ARE   -> tab title, navbar brand line 1, welcome banner
+     company    = WHO RUNS THIS   -> logo, navbar brand line 2, footer
+   Swapping one for the other would just move the lie, so neither is dropped.
+
+   $session_client_name is set at client/includes/check_login.php:315 from
+   `$client['client_name']` with NO null guard - if the clients row is deleted
+   mid-session $client is false and the value is null. Every use below therefore
+   goes through $portal_dept_html and falls back to the old company-only strings
+   rather than rendering an empty brand. (The missing guard itself is in
+   check_login.php, which this change does not own.)
+
+   Escaped once here so the markup stays readable, matching the
+   $portal_preview_* block directly above. --------------------------------- */
+$portal_dept_html = trim((string) ($session_client_name ?? '')) !== ''
+    ? nullable_htmlentities($session_client_name)
+    : '';
+$portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? ''));
 ?>
 
 <!DOCTYPE html>
@@ -161,8 +191,27 @@ if ($portal_preview_banner !== null) {
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <!-- Tab title is prefixed during a preview so a tab left open in the
-         background is still identifiable as one, not as the real portal. -->
-    <title><?php if ($portal_preview_banner !== null) echo '[PREVIEW] '; ?><?php echo nullable_htmlentities($session_company_name); ?> | Department Portal</title>
+         background is still identifiable as one, not as the real portal.
+
+         DEPARTMENT FIRST, company last. A browser tab truncates from the RIGHT,
+         so whatever distinguishes one tab from another has to be leftmost: with
+         the company name in front, all 15 departments rendered the identical
+         string "[PREVIEW] Midwest Automation & Custom Fabrication | Department
+         Portal" and a previewing admin with several tabs open could not tell
+         which was which. Reversed, the widest live case measured 90 chars
+         ("[PREVIEW] Shipping & Receiving Department Portal | Midwest Automation
+         & Custom Fabrication") and the narrowest 72 (IT's) - and both are
+         distinguishable inside the ~25 characters a tab actually shows, which
+         is the only length that matters here.
+
+         The old company-only string is the fallback, so a portal whose clients
+         row has gone missing still renders a sane title rather than a stray
+         leading space. -->
+    <title><?php if ($portal_preview_banner !== null) echo '[PREVIEW] '; ?><?php
+        echo $portal_dept_html !== ''
+            ? "$portal_dept_html Department Portal | $portal_org_html"
+            : "$portal_org_html | Department Portal";
+    ?></title>
 
     <!-- Tell the browser to be responsive to screen width -->
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -314,11 +363,61 @@ if ($portal_preview_banner !== null) {
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark client-portal-nav" data-bs-theme="dark">
     <div class="container">
-        <a class="navbar-brand d-flex align-items-center" href="index.php">
+        <?php
+        /* NAVBAR BRAND - two stacked lines, department over company.
+
+           This is the most prominent identity string in the portal and it used
+           to be the company name alone, which named a scope this page does not
+           have: the navbar's own Technical dropdown, ticket list, asset list and
+           document list are every one of them filtered to
+           `WHERE *_client_id = $session_client_id`. The department is now the
+           primary line; the company stays as the secondary line and keeps the
+           logo, because the company is genuinely the operator of the install.
+
+           THIS ALSO FIXES A LIVE HORIZONTAL-SCROLL BUG, measured before the
+           change on mw-itflow.foleyit.com at a 390px viewport: the page's
+           scrollWidth was 461px against a 390px client width - 71px of sideways
+           scroll on every portal page on a phone. The sole offending element was
+           this brand, 419px wide inside a 380px navbar, because Bootstrap's
+           `.navbar-brand { white-space: nowrap }` gives an unbreakable text run a
+           min-content width equal to its full one-line width, and a flex item's
+           default `min-width: auto` floors it there - so flex-shrink could never
+           act however narrow the viewport got.
+
+           Two lines rather than one is what fixes it: at 11px the company name
+           no longer sets the brand's width, and the brand's max-content drops
+           from 419px to 270px, which fits. Measured after, at 390px: scrollWidth
+           380 against clientWidth 390 (no horizontal scroll), and the toggler
+           comes back onto the brand's own flex row, taking the navbar from 93px
+           tall to 61px. css/itflow_custom.css carries the guard that keeps this
+           true for a company name longer than this install's, with the
+           per-declaration measurements.
+
+           Each line carries title= with its own full text: css/itflow_custom.css
+           ellipsis-truncates both, and a clipped name with no title cannot be
+           read at all - not on hover, not by a screen reader. The attribute
+           holds the same nullable_htmlentities() output the element does, which
+           is attribute-safe.
+
+           Each line is its own element so each truncates independently - the
+           39-character company name ellipsing must never be allowed to push the
+           20-character department name (the longest live one, "Shipping &
+           Receiving") off screen. */
+        ?>
+        <a class="navbar-brand portal-brand d-flex align-items-center" href="index.php">
             <?php if ($session_company_logo) { ?>
-                <img height="28" class="me-2" src="<?php echo "/uploads/settings/$session_company_logo"; ?>" alt="">
+                <img height="28" class="me-2 flex-shrink-0" src="<?php echo "/uploads/settings/$session_company_logo"; ?>" alt="">
             <?php } ?>
-            <?php echo nullable_htmlentities($session_company_name); ?>
+            <?php if ($portal_dept_html !== '') { ?>
+                <span class="portal-brand-text">
+                    <span class="portal-brand-dept" title="<?php echo $portal_dept_html; ?>"><?php echo $portal_dept_html; ?></span>
+                    <span class="portal-brand-org" title="<?php echo $portal_org_html; ?>"><?php echo $portal_org_html; ?></span>
+                </span>
+            <?php } else { ?>
+                <span class="portal-brand-text">
+                    <span class="portal-brand-dept" title="<?php echo $portal_org_html; ?>"><?php echo $portal_org_html; ?></span>
+                </span>
+            <?php } ?>
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
             <span class="navbar-toggler-icon"></span>
@@ -441,7 +540,26 @@ if ($portal_preview_banner !== null) {
             <?php } ?>
             <div>
                 <h4 class="mb-0">Welcome back, <strong><?php echo stripslashes(nullable_htmlentities($session_contact_name)); ?></strong></h4>
-                <small class="text-muted"><?php echo nullable_htmlentities($session_company_name); ?> Department Portal</small>
+                <?php
+                /* The sub-line used to read "<company name> Department Portal",
+                   i.e. it printed the words "Department Portal" immediately
+                   after the COMPANY name and so asserted that the company was
+                   the department. It is the most explicit false note in the
+                   portal, and it is the line a contact reads first.
+
+                   Naming the department here is strictly more truthful and it
+                   does not duplicate the navbar: the navbar brand is a
+                   glanceable label, this is the sentence that tells you which
+                   portal you just landed in. The company is not repeated - it
+                   is two lines up in the brand and again in the footer.
+                   Fallback keeps the old string verbatim when the department
+                   name is unavailable. */
+                ?>
+                <small class="text-muted"><?php
+                    echo $portal_dept_html !== ''
+                        ? "$portal_dept_html Department Portal"
+                        : "$portal_org_html Department Portal";
+                ?></small>
             </div>
         </div>
     </div>

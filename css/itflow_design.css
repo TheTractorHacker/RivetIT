@@ -683,3 +683,39 @@ a.it-stat-card:hover, a.it-stat-card:focus-visible { box-shadow: var(--if-shadow
 
 :root[data-bs-theme="dark"] .btn-outline-warning, body.dark-mode .btn-outline-warning { color: #f0a500; }
 :root[data-bs-theme="dark"] .btn-outline-info,    body.dark-mode .btn-outline-info    { color: #6cb6f0; }
+
+/* ---- Company logo on dark chrome ----
+   The uploaded logo is a PNG with an alpha channel and NO background of its own.
+   Measured on the live install (uploads/settings/...Kp.png, 274x224, 8-bit
+   colormap, 21 palette entries): 85.0% of its pixels are fully transparent and
+   every single one of the remaining 15% is rgb(0,0,0) - pure black - at 21
+   different alpha levels, which is just the edge antialiasing. There is not one
+   non-black pixel in the file.
+
+   That is invisible on this app's two dark chrome surfaces. Black against the
+   portal navbar (#1f2937) is 1.43:1; against the login page's body (#343a40,
+   under an accent gradient) it is 1.82:1. WCAG asks 3:1 of a non-text graphic,
+   so both are far under - the logo read as a smudge, which is exactly how it
+   was reported.
+
+   A WHITE CHIP rather than `filter: invert(1)`. Inverting is the prettier fix
+   and it happens to be right for THIS logo precisely because it is monochrome -
+   pure black inverts to pure white, 15.9:1 on the navbar. But CSS cannot know
+   that, and any customer who uploads a colour logo would get their hues
+   reversed with no way to say so. A light chip is correct for a black logo, a
+   white logo and a colour logo alike, and it costs nothing when the logo
+   already carries its own white background. Black on #fff measures 21:1.
+
+   box-sizing is content-box on purpose: both sites size the logo by height
+   (28px in the navbar, max-height 52px on login) and Tabler's global
+   border-box would spend that budget on the padding instead, shrinking the mark
+   to make room for its own chip. Measured: navbar logo stays 28px tall inside a
+   34px chip, in a 59px navbar. */
+.client-portal-nav .navbar-brand img,
+.login-box-branding .brand-logo img {
+    box-sizing: content-box;
+    background-color: #fff;
+    padding: 3px 5px;
+    border-radius: 5px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}

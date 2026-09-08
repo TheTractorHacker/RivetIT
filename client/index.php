@@ -8,33 +8,22 @@ header("Content-Security-Policy: default-src 'self'");
 
 require_once "includes/inc_all.php";
 
-// Billing Card Queries
- //Add up all the payments for the invoice and get the total amount paid to the invoice
-$sql_invoice_amounts = mysqli_query($mysqli, "SELECT SUM(invoice_amount) AS invoice_amounts FROM invoices WHERE invoice_client_id = $session_client_id AND invoice_status != 'Draft' AND invoice_status != 'Cancelled' AND invoice_status != 'Non-Billable'");
-$row = mysqli_fetch_assoc($sql_invoice_amounts);
-
-$invoice_amounts = floatval($row['invoice_amounts']);
-
-$sql_amount_paid = mysqli_query($mysqli, "SELECT SUM(payment_amount) AS amount_paid FROM payments, invoices WHERE payment_invoice_id = invoice_id AND invoice_client_id = $session_client_id");
-$row = mysqli_fetch_assoc($sql_amount_paid);
-
-$amount_paid = floatval($row['amount_paid']);
-
-$balance = $invoice_amounts - $amount_paid;
-
-//Get Monthly Recurring Total
-$sql_recurring_monthly_total = mysqli_query($mysqli, "SELECT SUM(recurring_invoice_amount) AS recurring_monthly_total FROM recurring_invoices WHERE recurring_invoice_status = 1 AND recurring_invoice_frequency = 'month' AND recurring_invoice_client_id = $session_client_id");
-$row = mysqli_fetch_assoc($sql_recurring_monthly_total);
-
-$recurring_monthly_total = floatval($row['recurring_monthly_total']);
-
-//Get Yearly Recurring Total
-$sql_recurring_yearly_total = mysqli_query($mysqli, "SELECT SUM(recurring_invoice_amount) AS recurring_yearly_total FROM recurring_invoices WHERE recurring_invoice_status = 1 AND recurring_invoice_frequency = 'year' AND recurring_invoice_client_id = $session_client_id");
-$row = mysqli_fetch_assoc($sql_recurring_yearly_total);
-
-$recurring_yearly_total = floatval($row['recurring_yearly_total']) / 12;
-
-$recurring_monthly = $recurring_monthly_total + $recurring_yearly_total;
+/*
+ * There are deliberately no billing queries here.
+ *
+ * This page used to open with four aggregate queries - SUM over invoices, SUM
+ * over payments, and two SUMs over recurring_invoices - purely to fill two stat
+ * boxes, "Account Balance Due" and "Recurring Monthly". Both boxes are gone:
+ * this edition has no billing, invoicing or quoting, and the accounting module
+ * is force-disabled. The queries went with them rather than being left to run
+ * on every portal home page load for a number nothing renders.
+ *
+ * The invoices, payments and recurring_invoices tables are still there and the
+ * page files that read them are still on disk - the scope for accounting removal
+ * on this fork is "hide the surface", so the MSP fork can port back. Nothing
+ * here needs restoring to bring them back; restore the two boxes below and these
+ * queries with them.
+ */
 
 // Technical Card Queries
 // 8 - 45 Day Warning
@@ -214,7 +203,7 @@ if ($session_contact_primary == 1 || $session_contact_is_technical_contact) {
 <!-- Stat boxes -->
 <div class="row mb-3">
 
-    <div class="col-lg-3 col-md-6 col-sm-12">
+    <div class="col-lg-4 col-md-6 col-sm-12">
         <a class="small-box <?php echo $open_tickets_count > 0 ? 'bg-info' : 'bg-secondary'; ?>" href="tickets.php">
             <div class="inner">
                 <h3><?php echo $open_tickets_count; ?></h3>
@@ -226,37 +215,9 @@ if ($session_contact_primary == 1 || $session_contact_is_technical_contact) {
         </a>
     </div>
 
-    <?php if ($session_contact_primary == 1 || $session_contact_is_billing_contact) { ?>
-
-        <div class="col-lg-3 col-md-6 col-sm-12">
-            <a class="small-box <?php echo $balance > 0 ? 'bg-danger' : 'bg-success'; ?>" href="<?php echo $balance > 0 ? 'unpaid_invoices.php' : 'invoices.php'; ?>">
-                <div class="inner">
-                    <h3><?php echo numfmt_format_currency($currency_format, $balance, $session_company_currency); ?></h3>
-                    <p>Account Balance Due</p>
-                </div>
-                <div class="icon">
-                    <i class="fas fa-file-invoice-dollar"></i>
-                </div>
-            </a>
-        </div>
-
-        <div class="col-lg-3 col-md-6 col-sm-12">
-            <a class="small-box bg-primary" href="recurring_invoices.php">
-                <div class="inner">
-                    <h3><?php echo numfmt_format_currency($currency_format, $recurring_monthly, $session_company_currency); ?></h3>
-                    <p>Recurring Monthly</p>
-                </div>
-                <div class="icon">
-                    <i class="fas fa-sync-alt"></i>
-                </div>
-            </a>
-        </div>
-
-    <?php } ?>
-
     <?php if ($session_contact_primary == 1 || $session_contact_is_technical_contact) { ?>
 
-        <div class="col-lg-3 col-md-6 col-sm-12">
+        <div class="col-lg-4 col-md-6 col-sm-12">
             <a class="small-box <?php echo count($tech_alerts) > 0 ? 'bg-warning' : 'bg-success'; ?>" href="#tech-alerts">
                 <div class="inner">
                     <h3><?php echo count($tech_alerts); ?></h3>
@@ -268,7 +229,7 @@ if ($session_contact_primary == 1 || $session_contact_is_technical_contact) {
             </a>
         </div>
 
-        <div class="col-lg-3 col-md-6 col-sm-12">
+        <div class="col-lg-4 col-md-6 col-sm-12">
             <a class="small-box bg-secondary" href="assets.php">
                 <div class="inner">
                     <h3><?php echo mysqli_num_rows($sql_assigned_assets); ?></h3>
@@ -435,7 +396,28 @@ if ($session_contact_primary == 1 || $session_contact_is_technical_contact) {
                 <h3 class="card-title"><i class="fas fa-fw fa-th-large me-2"></i>Quick Links</h3>
             </div>
             <div class="card-body">
-                <div class="row text-center">
+                <?php
+                /* justify-content-center, because this row's tile COUNT is not
+                   fixed - it is 5 for a primary/technical contact and 2 for
+                   everyone else, and `col-md-2` means neither total fills the
+                   12-column row.
+
+                   It was already ragged before the two billing tiles came out,
+                   and worse: 7 tiles is 14 columns, so at 1500px it measured as
+                   6 tiles on one row and "Contacts" stranded alone on a second.
+                   Left-aligning 5 tiles would just have moved the ragged gap to
+                   the right-hand 2 columns. Centring is the one arrangement that
+                   stays balanced for both gate outcomes and at all three widths.
+
+                   Measured after, primary contact, 5 tiles:
+                     1500px  one row, tiles x=217..1273 inside a row spanning
+                             112..1379 - 105px clear left, 106px clear right
+                      768px  one row, tiles x=98..660 inside a row 42..717
+                      390px  col-6 stack, 2 + 2 + 1, with the last tile at
+                             x=106 w=167 inside a row 23..358, i.e. centred
+                             rather than hanging off the left */
+                ?>
+                <div class="row text-center justify-content-center">
 
                     <div class="col-6 col-md-2 mb-3">
                         <a href="tickets.php" class="text-decoration-none">
@@ -444,20 +426,27 @@ if ($session_contact_primary == 1 || $session_contact_is_technical_contact) {
                         </a>
                     </div>
 
-                    <?php if ($session_contact_primary == 1 || $session_contact_is_billing_contact) { ?>
-                        <div class="col-6 col-md-2 mb-3">
-                            <a href="invoices.php" class="text-decoration-none">
-                                <i class="fas fa-2x fa-file-invoice-dollar text-primary mb-2"></i>
-                                <div>Invoices</div>
-                            </a>
-                        </div>
-                        <div class="col-6 col-md-2 mb-3">
-                            <a href="quotes.php" class="text-decoration-none">
-                                <i class="fas fa-2x fa-file-signature text-primary mb-2"></i>
-                                <div>Quotes</div>
-                            </a>
-                        </div>
-                    <?php } ?>
+                    <?php
+                    /* The Invoices and Quotes tiles were here, gated on
+                       ($session_contact_primary == 1 ||
+                        $session_contact_is_billing_contact)
+                       and on NOTHING else - in particular with no
+                       $config_module_enable_accounting check, unlike the Finance
+                       dropdown in client/includes/header.php (the $config_module_enable_accounting
+                       gate on the Finance dropdown) which has always
+                       had one. So on this install, where that setting is 0, the
+                       navbar correctly showed no Finance menu while this card
+                       still offered two tiles straight into /client/invoices.php
+                       and /client/quotes.php.
+
+                       Removed rather than gated: this edition has no billing,
+                       invoicing or quoting at all, so a gate would be dead code
+                       guarding a surface that must never come back here. The page
+                       files themselves stay on disk - the scope for accounting
+                       removal on this fork is "hide the surface", so the MSP fork
+                       can still port back. Restoring the tiles means restoring
+                       this block, nothing more. */
+                    ?>
 
                     <?php if ($session_contact_primary == 1 || $session_contact_is_technical_contact) { ?>
                         <div class="col-6 col-md-2 mb-3">
