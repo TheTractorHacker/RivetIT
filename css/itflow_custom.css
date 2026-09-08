@@ -112,6 +112,127 @@ body.dark-mode {
     border-bottom: 3px solid var(--color-accent);
 }
 
+/* The portal navbar is a hand-rolled Bootstrap navbar that predates the Tabler
+   migration (client/includes/header.php calls it "kept verbatim"), so two of
+   Tabler's own defaults land on it and neither is wanted here. Both measured in
+   Chromium at 1600x1000 against the live portal.
+
+   1. Tabler declares `.navbar-brand { margin-inline: auto }`, overriding
+      Bootstrap's --bs-navbar-brand-margin-end. In this flex row the auto margins
+      resolve to nothing, so the company name butted straight up against the
+      first nav link - "Midwest Automation & Custom FabricationHome", measured
+      gap 0px. Restoring an explicit end margin is the whole fix.
+   2. Tabler's reset carries `img { max-width:100%; height:auto }`, and a CSS
+      declaration beats the height="28" presentation attribute on the logo. The
+      logo therefore rendered at its natural 274x224 and dragged the navbar to
+      251px tall. Pinning the height in CSS puts the attribute's intent back;
+      width:auto keeps the aspect ratio rather than squashing it.
+
+   Scoped to .client-portal-nav so nothing here can reach the agent-side or
+   admin-side navbars, which are Tabler's own and want Tabler's defaults. */
+.client-portal-nav .navbar-brand {
+    margin-inline: 0 1rem;
+}
+
+.client-portal-nav .navbar-brand img {
+    height: 28px;
+    width: auto;
+}
+
+/* Controls that js/portal_preview_readonly.js has made inert for the duration of
+   a read-only portal preview. Dimmed rather than hidden: the point of a preview
+   is to show what the portal looks like, and a removed button is not what the
+   department sees. Kept out of :disabled so it cannot be confused with a control
+   the portal itself disabled for its own reasons. */
+.portal-preview-inert {
+    opacity: 0.55;
+    /* !important on the cursor only. Bootstrap's `.btn { cursor: pointer }` is
+       the same specificity and loads first in the cascade for some of these
+       controls but later for others depending on which sheet styles them, and
+       measuring showed pointer winning on .btn.portal-preview-inert. The
+       opacity has no such competition and is left to normal weight. */
+    cursor: not-allowed !important;
+}
+
+/* Portal styles that used to be style="" attributes on the page.
+   The portal sends "default-src 'self'" with no nonce (client/includes/inc_all.php),
+   which drops inline style attributes silently - no error, just unstyled markup.
+   Each of these is the exact declaration that was inline, moved somewhere the
+   policy allows. The one value that could not move is the ticket status dot's
+   colour, which is per-row database data; js/portal_ticket.js applies that
+   through the CSSOM, which CSP does not govern. */
+.portal-status-dot {
+    display: inline-block;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+}
+
+.portal-chat-scroll {
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.portal-csat-comment {
+    max-width: 420px;
+}
+
+.portal-chevron-sm {
+    font-size: 12px;
+}
+
+.portal-icon-cell {
+    width: 36px;
+}
+
+.portal-search-group {
+    max-width: 400px;
+}
+
+.portal-doc-image {
+    max-height: 600px;
+}
+
+/* The toast js/portal_preview_readonly.js raises when it stops a write. Styled
+   here rather than from JS because the portal sends "default-src 'self'" with no
+   nonce, which drops inline style attributes.
+   Colours are the banner's, for the same reason the banner picked them: #f59f00
+   with black text is ~11:1 and moves under neither of the app's two dark-mode
+   triggers. z-index 1090 clears Bootstrap's modal (1055) - a blocked submit
+   inside a modal has to be readable over it.
+   Reduced motion collapses the transition to 1ms, not 0s: several places in the
+   app wait on transitionend, and 0s can skip the event entirely. */
+.portal-preview-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 1.5rem;
+    z-index: 1090;
+    max-width: min(90vw, 28rem);
+    padding: 0.6rem 1rem;
+    border-radius: 0.5rem;
+    background-color: #f59f00;
+    color: #000;
+    font-weight: 600;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.25);
+    transform: translate(-50%, 0.75rem);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 160ms ease, transform 160ms ease, visibility 0s linear 160ms;
+}
+
+.portal-preview-toast.is-visible {
+    transform: translate(-50%, 0);
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 160ms ease, transform 160ms ease, visibility 0s linear 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .portal-preview-toast {
+        transition-duration: 1ms;
+    }
+}
+
 .welcome-banner {
     background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
     border-radius: 0.5rem;

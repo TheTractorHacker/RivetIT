@@ -135,7 +135,7 @@ if (mysqli_num_rows($sql_files) > 0) {
                 </div>
             </div>
             <div class="card-body text-center">
-                <img src="<?php echo $file_path; ?>" alt="<?php echo $file_name; ?>" class="img-fluid" style="max-height: 600px;">
+                <img src="<?php echo $file_path; ?>" alt="<?php echo $file_name; ?>" class="img-fluid portal-doc-image">
             </div>
         </div>
         <?php

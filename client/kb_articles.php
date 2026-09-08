@@ -58,7 +58,7 @@ if (isset($kb_groups['Uncategorized'])) {
 <div class="row mt-3">
     <div class="col-md-12">
         <form autocomplete="off" class="mb-3">
-            <div class="input-group" style="max-width: 400px">
+            <div class="input-group portal-search-group">
                 <input type="search" class="form-control" name="q" value="<?= nullable_htmlentities($q) ?>" placeholder="Search Knowledge Base">
                 <div class="input-group-append">
                     <button class="btn btn-primary"><i class="fa fa-search"></i></button>

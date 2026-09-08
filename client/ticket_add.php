@@ -4,6 +4,11 @@
  * New ticket form
  */
 
+// Ticket bodies and comments carry agent-authored HTML that can embed data: images
+// (TinyMCE inlines a pasted screenshot as base64). Same widening client/document.php
+// and client/kb_article.php make, and it must precede the include - see inc_all.php.
+header("Content-Security-Policy: default-src 'self'; img-src 'self' data:");
+
 require_once 'includes/inc_all.php';
 
 // Allow clients to select a related asset when raising a ticket

@@ -145,6 +145,33 @@ $client_header_can_edit_sites = (lookupUserPermission("module_support") >= 1);
                      * feature waiting to be switched on. Removed with the Billing cell
                      * below; agent/modals/client/client_credit_add.php is untouched.
                      */ ?>
+                    <?php
+                    /*
+                     * READ-ONLY PORTAL PREVIEW.
+                     *
+                     * $session_is_admin specifically, NOT the surrounding
+                     * lookupUserPermission("module_client") >= 2 that opens this
+                     * menu: looking at a department's client portal is an
+                     * administrative act, not a department-writer one, and
+                     * agent/post/client.php gates the handler behind exactly the
+                     * same test (a forged link therefore gets nowhere).
+                     *
+                     * Hidden rather than shown-and-refused in the two cases the
+                     * handler cannot honour: an archived department has no live
+                     * portal (portalPreviewEnter() requires client_archived_at
+                     * IS NULL), and with the portal module switched off there is
+                     * nothing on the other side to look at.
+                     *
+                     * Plain .dropdown-item with a fa-fw icon and me-2, like every
+                     * sibling here. No .confirm-link - this changes nothing.
+                     */
+                    if (!empty($session_is_admin) && empty($client_archived_at) && !empty($config_client_portal_enable)) { ?>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item" href="post.php?view_client_portal=<?= $client_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" title="Open a read-only preview of this department's client portal">
+                            <i class="fas fa-fw fa-eye me-2"></i>View Department Portal
+                        </a>
+                    <?php } ?>
+
                     <?php if (lookupUserPermission("module_client") >= 3) { ?>
                         <div class="dropdown-divider"></div>
                         <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#exportClientPDFModal">

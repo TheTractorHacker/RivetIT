@@ -63,7 +63,19 @@ if (!isset($_SESSION['client_logged_in']) || !$_SESSION['client_logged_in']) {
         $portal_preview_client_id     = $preview_state['client_id'];
         $portal_preview_agent_user_id = $preview_state['agent_user_id'];
         $portal_preview_agent_name    = $preview_state['agent_name'];
-        $portal_preview               = portalPreviewContext();
+
+        // Built from the resolve above rather than by calling
+        // portalPreviewContext(), which would re-run the whole (deliberately
+        // un-memoised) database check a second time on every preview page.
+        // Same shape portalPreviewContext() returns, by contract.
+        $portal_preview = [
+            'client_id'     => $preview_state['client_id'],
+            'client_name'   => $preview_state['client_name'],
+            'agent_user_id' => $preview_state['agent_user_id'],
+            'agent_name'    => $preview_state['agent_name'],
+            'started_at'    => $preview_state['started_at'],
+            'exit_url'      => portalPreviewExitUrl(),
+        ];
 
     } elseif ($preview_state['present']) {
 
@@ -94,6 +106,23 @@ if (!isset($_SESSION['client_logged_in']) || !$_SESSION['client_logged_in']) {
         redirect("/login.php");
 
     }
+
+} else {
+
+    /*
+     * A REAL portal login. The two states can never coexist, so any preview
+     * state left in this session is stale and gets binned here.
+     *
+     * It is reachable: login.php's CLIENT FLOW calls session_regenerate_id(true),
+     * which keeps $_SESSION contents, so an admin who previewed and then had a
+     * contact log in on the same browser would leave a blob behind. It grants
+     * nothing (portalPreviewResolve() refuses it with drop_reason
+     * 'real_portal_login'), but it would still be sitting in a real contact's
+     * session where a degraded "helpers missing" fallback could show them a
+     * preview banner they have no business seeing. Clearing it costs one unset.
+     */
+    portalPreviewClearState();
+
 }
 
 // Set Timezone
@@ -255,7 +284,18 @@ if (!$portal_preview_active) {
      * what makes the preview show the whole portal instead of the smallest
      * possible corner of it.
      */
-    $session_contact_name     = 'Portal Preview';
+    /*
+     * The name in the "Welcome back, ..." heading and the navbar dropdown is the
+     * PREVIEWING ADMIN'S OWN, not an invented persona. 'Portal Preview' sat here
+     * first and read as a person called Portal Preview - initials "PP" in the
+     * avatar and all. The admin's real name is the one identity that can go here
+     * without fabricating anyone or borrowing a department contact, and it is
+     * also the true answer to "who is looking at this page".
+     *
+     * Falls back to 'Portal Preview' only if resolve() somehow produced no name;
+     * an empty string would give initials() nothing to work with.
+     */
+    $session_contact_name     = $portal_preview_agent_name !== '' ? $portal_preview_agent_name : 'Portal Preview';
     $session_contact_initials = initials($session_contact_name);
     $session_contact_title    = 'Read-only preview';
     $session_contact_email    = '';

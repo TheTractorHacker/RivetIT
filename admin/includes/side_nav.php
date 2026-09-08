@@ -333,7 +333,7 @@
                 </li>
 
                 <!-- SETTINGS Section -->
-                <?php $nav_open_settings = in_array(basename($_SERVER['PHP_SELF']), ['settings_company.php', 'settings_localization.php', 'settings_theme.php', 'settings_appearance.php', 'settings_security.php', 'settings_mail.php', 'settings_notification.php', 'settings_default.php', 'settings_invoice.php', 'settings_quote.php', 'settings_online_payment.php', 'settings_online_payment_clients.php', 'settings_project.php', 'settings_ticket.php', 'settings_ai.php', 'identity_provider.php', 'settings_telemetry.php', 'settings_module.php', 'settings_calendar_sync.php', 'settings_webhooks.php', 'settings_integrations.php', 'settings_comet.php', 'comet_status.php', 'settings_rmm.php', 'settings_unifi.php']); ?>
+                <?php $nav_open_settings = in_array(basename($_SERVER['PHP_SELF']), ['settings_company.php', 'settings_localization.php', 'settings_theme.php', 'settings_appearance.php', 'settings_security.php', 'settings_mail.php', 'settings_notification.php', 'settings_default.php', 'settings_invoice.php', 'settings_quote.php', 'settings_online_payment.php', 'settings_online_payment_clients.php', 'settings_project.php', 'settings_ticket.php', 'settings_ai.php', 'identity_provider.php', 'settings_telemetry.php', 'settings_module.php', 'portal_preview.php', 'settings_calendar_sync.php', 'settings_webhooks.php', 'settings_integrations.php', 'settings_comet.php', 'comet_status.php', 'settings_rmm.php', 'settings_unifi.php']); ?>
                 <li class="nav-item dropdown mt-2<?php echo ($nav_open_settings ? ' active' : ''); ?>">
                     <a href="#nav-group-settings" class="nav-link dropdown-toggle<?php echo ($nav_open_settings ? ' show' : ''); ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-settings" aria-expanded="<?php echo ($nav_open_settings ? 'true' : 'false'); ?>">
                         <span class="nav-link-icon"><i class="fas fa-cog"></i></span>
@@ -401,6 +401,21 @@
                             <a href="/admin/identity_provider.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'identity_provider.php' ? 'active' : ''); ?>">
                                 <span class="dropdown-item-icon"><i class="fas fa-fingerprint"></i></span>
                                 <span class="text-truncate">Identity Provider</span>
+                            </a>
+                        <?php } ?>
+
+                        <?php
+                        /*
+                         * Gated on the portal flag for the same reason Identity Provider is: with the
+                         * portal switched off there is nothing to preview. The page itself still
+                         * handles the flag being off (bookmarks, or the module being turned off while
+                         * the page is open) - it just says so instead of offering dead buttons.
+                         */
+                        ?>
+                        <?php if ($config_client_portal_enable) { ?>
+                            <a href="/admin/portal_preview.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'portal_preview.php' ? 'active' : ''); ?>">
+                                <span class="dropdown-item-icon"><i class="fas fa-eye"></i></span>
+                                <span class="text-truncate">Portal Preview</span>
                             </a>
                         <?php } ?>
                         <a href="/admin/settings_calendar_sync.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_calendar_sync.php' ? 'active' : ''); ?>">

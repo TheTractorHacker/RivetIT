@@ -4,6 +4,11 @@
  * Ticket detail page
  */
 
+// Ticket bodies and comments carry agent-authored HTML that can embed data: images
+// (TinyMCE inlines a pasted screenshot as base64). Same widening client/document.php
+// and client/kb_article.php make, and it must precede the include - see inc_all.php.
+header("Content-Security-Policy: default-src 'self'; img-src 'self' data:");
+
 require_once "includes/inc_all.php";
 
 //Initialize the HTML Purifier to prevent XSS
@@ -109,7 +114,7 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
                 <h5><strong>Subject:</strong> <?php echo $ticket_subject ?></h5>
                 <p>
                     <strong>State:</strong>
-                    <span id="quickStatusColorDot" class="d-inline-block me-1" style="width:.6rem;height:.6rem;border-radius:50%;background-color: <?= $ticket_status_color ?>;"></span>
+                    <span id="quickStatusColorDot" class="portal-status-dot" data-status-color="<?= nullable_htmlentities($ticket_status_color) ?>"></span>
                     <span id="ticket-status-text"><?php echo $ticket_status ?></span><br>
                     <strong>Priority:</strong> <?php echo $ticket_priority ?><br>
                     <?php if (!empty($ticket_category)) { ?>
@@ -222,14 +227,14 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
                 <h5 class="card-title mt-1"><i class="fas fa-fw fa-comments me-2"></i>Live Chat</h5>
             </div>
             <div class="card-body p-3">
-                <div id="ticket-chat-messages" class="mb-2" style="max-height:260px;overflow-y:auto;"></div>
+                <div id="ticket-chat-messages" class="mb-2 portal-chat-scroll"></div>
                 <form id="ticket-chat-form" class="d-flex" autocomplete="off">
                     <input type="text" id="ticket-chat-input" class="form-control form-control-sm me-2" placeholder="Type a message...">
                     <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-paper-plane"></i></button>
                 </form>
             </div>
         </div>
-        <script>window.__ticketChatHistory = <?= json_encode($ticket_chat_history, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;</script>
+        <script type="application/json" id="ticket-chat-history"><?= json_encode($ticket_chat_history, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?></script>
         <?php } ?>
 
         <hr>
@@ -319,7 +324,7 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
                         </fieldset>
                         <div class="js-csat-live text-muted small mt-1" aria-live="polite"></div>
 
-                        <div class="mt-3 mx-auto" style="max-width:420px;">
+                        <div class="mt-3 mx-auto portal-csat-comment">
                             <textarea name="csat_comment" class="form-control" rows="2" maxlength="1000" placeholder="Anything you'd like to add? (optional)"></textarea>
                         </div>
 
@@ -419,6 +424,7 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
         ?>
 
         <script src="../js/pretty_content.js"></script>
+        <script src="../js/portal_ticket.js"></script>
 
         <!-- Live ticket updates (replies/status/chat via SSE) -->
         <script src="../js/live_ticket.js"></script>

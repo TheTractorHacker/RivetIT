@@ -47,7 +47,7 @@ while ($cr = mysqli_fetch_assoc($contracts_sql)) {
             $doc_count = count($cr['docs']);
         ?>
             <div class="card mb-2 border">
-                <div class="card-header py-2" id="ch<?= $cid ?>" style="cursor:pointer;"
+                <div class="card-header py-2 cursor-pointer" id="ch<?= $cid ?>"
                      data-bs-toggle="collapse" data-bs-target="#cc<?= $cid ?>" aria-expanded="<?= $i===0?'true':'false' ?>">
                     <div class="d-flex align-items-center">
                         <i class="fas fa-file-contract me-3 text-primary"></i>
@@ -58,7 +58,7 @@ while ($cr = mysqli_fetch_assoc($contracts_sql)) {
                         <span class="badge badge-<?= $badge ?> me-3"><?= $cstatus ?></span>
                         <span class="text-muted small me-3"><?= $cstart ?> – <?= $cend ?></span>
                         <span class="badge text-bg-secondary"><?= $doc_count ?> doc<?= $doc_count!==1?'s':'' ?></span>
-                        <i class="fas fa-chevron-down ms-3 text-muted" style="font-size:12px;"></i>
+                        <i class="fas fa-chevron-down ms-3 text-muted portal-chevron-sm"></i>
                     </div>
                 </div>
                 <div id="cc<?= $cid ?>" class="collapse <?= $i===0?'show':'' ?>" data-bs-parent="#contractAccordion">
@@ -82,7 +82,7 @@ while ($cr = mysqli_fetch_assoc($contracts_sql)) {
                                     : 'file-alt text-secondary'));
                             ?>
                                 <tr>
-                                    <td class="ps-3" style="width:36px;"><i class="fas fa-<?= $icon ?>"></i></td>
+                                    <td class="ps-3 portal-icon-cell"><i class="fas fa-<?= $icon ?>"></i></td>
                                     <td><strong class="small"><?= $fname ?></strong></td>
                                     <td class="text-muted small"><?= $size ?></td>
                                     <td class="text-muted small"><?= $date ?></td>

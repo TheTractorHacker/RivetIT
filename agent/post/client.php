@@ -552,6 +552,161 @@ if (isset($_GET['delete_client'])) {
 
 }
 
+/*
+ * READ-ONLY DEPARTMENT PORTAL PREVIEW
+ * ===================================
+ *
+ * "Show me what this department sees in the client portal."
+ *
+ * This is NOT impersonation and must never be allowed to become it. There is no
+ * portal login on this install to borrow (260 contacts, none with
+ * contact_user_id, and no user_type = 2 users), and the portal gate
+ * client/includes/check_login.php reads $_SESSION['user_id'] - the SAME key the
+ * agent gate includes/auth_check.php reads - so signing the admin in as a
+ * contact would overwrite the admin's own identity in their own browser
+ * session. These two handlers instead drive a separate, session-only preview
+ * state owned by client/includes/portal_preview.php:
+ *
+ *   portalPreviewEnter($client_id)  sets the state and audit-logs "Entered"
+ *   portalPreviewExit($reason)      clears the state and audit-logs "Exited"
+ *
+ * That state is not a credential. portal_preview.php re-derives the admin from
+ * the database on every single request, and every write on the portal side is
+ * blocked while a preview is running, so the admin can look and can do nothing.
+ *
+ * Both handlers are idempotent: entering twice ends at one preview, and exiting
+ * when nothing is running is a no-op.
+ */
+
+// Lazily load the preview library for whichever of the two handlers below runs.
+//  Lazily, because agent/post.php require_once's EVERY post/*.php file on EVERY
+//  agent request - a top-level require here would drag this into the path of
+//  hundreds of unrelated requests, and a deploy that landed this file before the
+//  portal one would take the whole agent side down instead of failing one menu
+//  item. portal_preview.php is include-guarded, so requiring it is safe.
+if (isset($_GET['view_client_portal']) || isset($_GET['exit_client_portal'])) {
+    $portal_preview_library = __DIR__ . '/../../client/includes/portal_preview.php';
+    if (file_exists($portal_preview_library)) {
+        require_once $portal_preview_library;
+    }
+}
+
+if (isset($_GET['view_client_portal'])) {
+
+    validateCSRFToken($_GET['csrf_token']);
+
+    $client_id = intval($_GET['view_client_portal']);
+
+    /*
+     * ADMIN, specifically - deliberately not a module_client level check.
+     * Looking at a department's portal is an administrative act, so it uses the
+     * same test the admin area itself uses (admin/post.php:26,
+     * admin/includes/inc_all_admin.php:7): $session_is_admin, which
+     * includes/load_user_session.php derives from user_roles.role_is_admin, not
+     * a legacy role number and not a permission level. This is the front door,
+     * not the only lock - portal_preview.php re-runs the equivalent check
+     * against the database on every later request.
+     */
+    if (empty($session_is_admin)) {
+        logAction("Portal Preview", "Denied", "$session_name was denied a read-only portal preview of department $client_id (not an administrator)", $client_id, $session_user_id);
+        flash_alert('Access Denied - only administrators can preview a department portal.', 'error');
+        redirect('clients.php');
+    }
+
+    /*
+     * Department scoping. Redundant while enforceClientAccess() short-circuits
+     * for admins, but it is the check every other handler in this file that
+     * takes a client_id straight off the query string was recently fixed to
+     * make, and it is what keeps this honest if admin scoping ever tightens.
+     */
+    enforceClientAccess($client_id);
+
+    if (!function_exists('portalPreviewEnter')) {
+        flash_alert('Portal preview is not available on this install.', 'error');
+        redirect("client_overview.php?client_id=$client_id");
+    }
+
+    // Nothing to preview if contacts cannot reach the portal at all. Checked
+    // here only for the error message - portalPreviewEnter() enforces it too.
+    if (isset($config_client_portal_enable) && intval($config_client_portal_enable) !== 1) {
+        flash_alert('The client portal is switched off, so there is nothing to preview.', 'error');
+        redirect("client_overview.php?client_id=$client_id");
+    }
+
+    // Switching departments mid-preview: close the old one explicitly so the
+    // audit trail reads Entered -> Exited -> Entered instead of silently
+    // swapping one department for another under a single "Entered" line.
+    $current_preview_client_id = portalPreviewClientId();
+    if ($current_preview_client_id > 0 && $current_preview_client_id !== $client_id) {
+        portalPreviewExit('switched_department');
+    }
+
+    if (!portalPreviewEnter($client_id)) {
+        /*
+         * enter() refuses without saying why: the department is archived or
+         * gone, the portal module is off, or the database says this session is
+         * not a live admin agent after all. Fail closed, say so plainly, and
+         * leave the admin where they were.
+         */
+        logAction("Portal Preview", "Failed", "$session_name could not open a read-only portal preview of department $client_id", $client_id, $session_user_id);
+        flash_alert('Could not open a read-only preview of that department portal.', 'error');
+        redirect("client_overview.php?client_id=$client_id");
+    }
+
+    // portalPreviewEnter() has already written the "Entered" audit line. No
+    // flash alert: the portal shell renders a persistent banner that says far
+    // more than a one-shot toast would.
+    redirect('/client/index.php');
+
+}
+
+if (isset($_GET['exit_client_portal'])) {
+
+    validateCSRFToken($_GET['csrf_token']);
+
+    $requested_client_id = intval($_GET['exit_client_portal']);
+
+    // Same admin gate as entry, on purpose. A non-admin never holds a valid
+    // preview (portal_preview.php drops one the instant the database stops
+    // saying "live admin agent"), so this is about keeping both halves of the
+    // pair on identical terms rather than about stopping anything.
+    if (empty($session_is_admin)) {
+        flash_alert('Access Denied - only administrators can preview a department portal.', 'error');
+        redirect('clients.php');
+    }
+
+    if (!function_exists('portalPreviewExit')) {
+        flash_alert('Portal preview is not available on this install.', 'error');
+        redirect($requested_client_id > 0 ? "client_overview.php?client_id=$requested_client_id" : 'clients.php');
+    }
+
+    // Where to land afterwards: the department actually being previewed, and
+    // only if there is none, whatever the link carried. Never a dead end.
+    $preview_client_id = portalPreviewClientId();
+    if ($preview_client_id < 1) {
+        $preview_client_id = $requested_client_id;
+    }
+
+    /*
+     * Tear down FIRST, then work out where to send them. Exiting must never be
+     * blockable: if the scoping check below bounces this admin to clients.php,
+     * the preview is still off. portalPreviewExit() writes the "Exited" audit
+     * line itself, and is a silent no-op when no preview is running - which is
+     * what makes this handler safe to hit twice.
+     */
+    portalPreviewExit('agent_exit');
+
+    if ($preview_client_id > 0) {
+        enforceClientAccess($preview_client_id);
+        flash_alert('Read-only portal preview ended.');
+        redirect("client_overview.php?client_id=$preview_client_id");
+    }
+
+    flash_alert('Read-only portal preview ended.');
+    redirect('clients.php');
+
+}
+
 if (isset($_POST['export_clients_csv'])) {
 
     validateCSRFToken($_POST['csrf_token']);

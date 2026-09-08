@@ -33,17 +33,20 @@ require_once '../includes/redis_functions.php';
    request data touched before it is the KEY NAMES, and only to name the attempt
    in the audit log.
 
-   ?logout IS BLOCKED, AND THAT IS LOAD-BEARING
+   ?logout AND ?exit_portal_preview ARE HANDLED UPSTREAM
    The portal's Sign out link calls session_unset() + session_destroy() on the
    SAME PHP session the admin's agent login lives in, so during a preview it
    would sign the admin out of ITFlow itself. check_login.php (required above)
-   calls portalPreviewHandleExitRequest() before any gate runs, which turns
-   ?logout into "end the preview" while a preview is active and leaves a real
-   contact's Sign out completely untouched. By the time control reaches here,
-   that has already happened - so this gate never has to special-case it.
+   calls portalPreviewHandleExitRequest() before any gate runs, which turns both
+   ?logout and the banner's ?exit_portal_preview into "end the preview and go
+   back to the agent side", and leaves a real contact's Sign out completely
+   untouched. Both have therefore already redirected before control reaches
+   here, which is why this file needs no exit branch and no ?logout special
+   case.
 
-   The exit control (?exit_portal_preview) is handled in the same place and for
-   the same reason, which is why there is no exit branch in this file.
+   If that upstream handler ever stops running, this gate is still the backstop:
+   ?logout arrives as an ordinary request, matches nothing above, and is refused
+   here like any other write rather than destroying the admin's session.
    ═════════════════════════════════════════════════════════════════════════════ */
 
 /*

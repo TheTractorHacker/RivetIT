@@ -66,44 +66,21 @@
 <!--- TinyMCE -->
 <script src="/plugins/tinymce/tinymce.min.js" referrerpolicy="origin"></script>
 
-<script>
-    
-    // Initialize TinyMCE
-    tinymce.init({
-        selector: '.tinymce',
-        browser_spellcheck: true,
-        resize: true,
-        min_height: 300,
-        max_height: 600,
-        promotion: false,
-        branding: false,
-        menubar: false,
-        statusbar: false,
-        license_key: 'gpl',
-        toolbar: [
-            { name: 'styles', items: [ 'styles' ] },
-            { name: 'formatting', items: [ 'bold', 'italic', 'forecolor' ] },
-            { name: 'lists', items: [ 'bullist', 'numlist' ] },
-            { name: 'alignment', items: [ 'alignleft', 'aligncenter', 'alignright', 'alignjustify' ] },
-            { name: 'indentation', items: [ 'outdent', 'indent' ] },
-            { name: 'table', items: [ 'table' ] },
-            { name: 'extra', items: [ 'fullscreen' ] }
-        ],
-        mobile: {
-        menubar: false,
-        plugins: 'autosave lists autolink',
-        toolbar: 'undo bold italic styles',
-    },
-        plugins: 'link image lists table code codesample fullscreen autoresize',
-    });
-
-</script>
+<script src="/js/portal_tinymce_init.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/portal_tinymce_init.js'); ?>"></script>
 
 <script src="/js/pretty_content.js"></script>
 
 <script src="/js/confirm_modal.js"></script>
 
 <script src="/js/keepalive.js"></script>
+
+<?php if (isset($portal_preview_banner) && $portal_preview_banner !== null) { ?>
+    <!-- Read-only portal preview. Loaded ONLY while an agent is previewing, so a
+         real portal contact never receives it. It is a usability layer, not the
+         gate: client/post.php calls portalPreviewBlockWrites() on every request
+         and refuses writes with or without this file. See its header comment. -->
+    <script src="/js/portal_preview_readonly.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/portal_preview_readonly.js'); ?>"></script>
+<?php } ?>
 
 </body>
 </html>

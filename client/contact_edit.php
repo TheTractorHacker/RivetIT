@@ -116,7 +116,9 @@ if ($row) {
                 </div>
             </div>
 
-            <?php if ($contact_primary || $contact_id == $_SESSION['contact_id']) { echo "<i>Cannot edit this contact</i>"; } else { ?>
+            <?php /* ?? 0: an admin portal preview deliberately never writes contact_id, so reading it raw
+   warned on every view. 0 matches no contact, which is the correct outcome here. */ ?>
+<?php if ($contact_primary || $contact_id == ($_SESSION['contact_id'] ?? 0)) { echo "<i>Cannot edit this contact</i>"; } else { ?>
                 <button class="btn btn-primary" name="edit_contact">Save</button>
             <?php } ?>
         </form>

@@ -15,18 +15,24 @@ require_once 'includes/inc_all.php';
     <p>Name: <?php echo stripslashes(nullable_htmlentities($session_contact_name)); ?></p>
     <p>Email: <?php echo $session_contact_email ?></p>
     <p>PIN: <?php echo $session_contact_pin ?></p>
-    <p>Department: <?php echo $session_client_name ?></p>
+    <p>Department: <?php echo nullable_htmlentities($session_client_name) ?></p>
     <br>
     <p>Department Primary Contact: <?php if ($session_contact_primary == 1) {echo "Yes"; } else {echo "No";} ?></p>
     <p>Department Technical Contact: <?php if ($session_contact_is_technical_contact) {echo "Yes"; } else {echo "No";} ?></p>
     <p>Department Billing Contact: <?php if ($session_contact_is_billing_contact == $session_contact_id) {echo "Yes"; } else {echo "No";} ?></p>
     <br>
-    <p>Login via: <?php echo $_SESSION['login_method'] ?> </p>
-    <p>User ID: <?php echo $_SESSION['user_id'] ?> </p>
+    <p>Login via: <?php echo nullable_htmlentities($_SESSION['login_method'] ?? 'Not signed in') ?> </p>
+    <?php /* $session_user_id, not $_SESSION['user_id']: check_login.php deliberately sets the
+       former to 0 during an admin portal preview so no real user id is exposed or targetable
+       from inside the portal. Reading the superglobal bypassed that and printed the ADMIN's own
+       agent user id on a page presented as the department's profile. */ ?>
+    <p>User ID: <?php echo intval($session_user_id) ?> </p>
 
 
     <!--  // Show option to change password if auth provider is local -->
-<?php if ($_SESSION['login_method'] == 'local'): ?>
+<?php /* ?? '': the agent login flow never sets login_method - only the client flows do - so in an
+   admin portal preview this raised an undefined-key warning on every view. */ ?>
+<?php if (($_SESSION['login_method'] ?? '') == 'local'): ?>
     <hr>
     <div class="col-md-6">
         <h4>Password</h4>

@@ -320,6 +320,39 @@ function portalPreviewBlockWrites(string $attempted_action = ''): void
     $state = portalPreviewResolve();
 
     if (!$state['ok']) {
+        /* FAIL CLOSED when a preview blob WAS present and resolve() has just torn it
+           down (expired, admin demoted, user_mismatch). Returning silently there would
+           let the very request that invalidated the preview complete its write - the
+           one moment the gate matters most. 'present' is what separates that case from
+           "nobody is previewing", which must carry on untouched. */
+        if (!empty($state['present'])) {
+            /* Self-contained denial: the rich 403 below needs $state['client_name'] and
+               ['agent_user_id'], which resolve() does not populate once it has refused.
+               Keep this minimal and dependency-free - it must not be able to fatal. */
+            if (!headers_sent()) {
+                http_response_code(403);
+            }
+            $inv_accept    = strtolower($_SERVER['HTTP_ACCEPT'] ?? '');
+            $inv_requested = strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '');
+            if ($inv_requested === 'xmlhttprequest'
+                || str_contains($inv_accept, 'application/json')
+                || str_contains($inv_accept, 'text/event-stream')) {
+                if (!headers_sent()) {
+                    header('Content-Type: application/json');
+                }
+                echo json_encode([
+                    'success' => false,
+                    'error'   => 'portal_preview_expired',
+                    'message' => 'That portal preview has ended. Nothing was changed.',
+                ]);
+                exit;
+            }
+            if (!headers_sent()) {
+                header('Content-Type: text/plain; charset=UTF-8');
+            }
+            echo "That portal preview has ended, so nothing was changed. Return to ITFlow and start a new preview if you still need one.\n";
+            exit;
+        }
         return; // Not previewing - a real portal contact, or nobody. Carry on.
     }
 
@@ -393,8 +426,9 @@ function portalPreviewBlockWrites(string $attempted_action = ''): void
         <p class="text-secondary">
           The action you tried has been blocked and recorded in the audit log.
         </p>
-        <div class="mt-4">
-          <a href="$exit_url" class="btn btn-primary">Leave the preview</a>
+        <div class="mt-4 d-flex flex-wrap justify-content-center gap-2">
+          <a href="/client/index.php" class="btn btn-primary">Back to the portal</a>
+          <a href="$exit_url" class="btn btn-outline-secondary">Leave the preview</a>
         </div>
       </div>
     </div>

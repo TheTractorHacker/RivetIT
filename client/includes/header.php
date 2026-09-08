@@ -236,42 +236,49 @@ if ($portal_preview_banner !== null) {
    --------------------------------------------------------------------------- */
 ?>
 <body class="accent-<?php echo nullable_htmlentities($config_theme ?? ''); ?><?php if (!empty($config_theme_dark_default)) echo ' dark-mode'; ?>">
+<div class="page">
 <?php
 /* ---------------------------------------------------------------------------
    PORTAL PREVIEW BANNER
 
-   Sits OUTSIDE <div class="page">, as the first child of <body>. Two reasons:
+   PLACEMENT: first child of <div class="page">, above the navbar. That position
+   is not cosmetic, it is what makes the banner stay put.
 
-     1. Tabler sets `.page { contain: layout }`, which makes .page a containing
-        block and a new stacking context. Keeping the banner out of it means the
-        banner's stickiness and z-index are answerable to the viewport alone,
-        with nothing to fight.
-     2. The banner is chrome ABOUT the portal, not part of it. Leaving the page
-        shell byte-identical to what a real contact sees is the whole point of a
-        preview - the moment the banner is inside .container the thing being
-        previewed is no longer what ships.
+   .sticky-top is position:sticky, and a sticky element can only travel within
+   its PARENT's box. The obvious home - first child of <body> - does not work
+   here: Tabler sets html/body to height:100%, so body's box is exactly one
+   viewport tall (measured: 900px against a 2387px document). A banner parented
+   there sticks for the first 800px of scroll and then slides away with the
+   page, which is the failure this comment exists to stop someone reintroducing.
+   Measured in Chromium at 1280x900: parented to <body> the banner's top went to
+   -587px at scrollY 1387; parented to .page it holds at 0px.
 
-   .sticky-top (position:sticky; top:0; z-index:1020) keeps it on screen while
-   the page scrolls. The portal navbar is position:relative and scrolls away
-   underneath it, so there is no z-index contest, and modals (z-index 1055)
-   still correctly cover the banner. Nothing here fights the layout: the banner
-   is a plain block in normal flow, so it simply pushes .page down and needs no
-   compensating body padding.
+   .page is display:flex/column and, being the shell that wraps the navbar and
+   all page content, is as tall as the document (measured 2287px), so a sticky
+   child of it has the whole page to stick across. flex-shrink-0 keeps the flex
+   column from ever compressing the banner to buy space for content.
 
-   COLOUR, and why it does not use theme tokens. The app has two non-equivalent
-   dark triggers - html[data-bs-theme="dark"] (Tabler's palette, and
-   itflow_design.css's --if-* set) and body.dark-mode (itflow_custom.css's
-   --color-* set) - and this file emits both together. Rather than satisfy two
-   trigger systems, the banner is painted in colours that do not move under
-   either: `.bg-warning` resolves --tblr-warning, declared #f59f00 in BOTH
-   Tabler's :root and its dark block and overridden by no app stylesheet, and
-   `.text-black` is a flat #000 !important in both tabler.min.css and
-   css/itflow.shim-adminlte.css:345. Black on #f59f00 measures ~11:1 either way.
-   That is the right call on the merits too: a warning about your own session
-   should look identical wherever you meet it, the way browser private-mode
+   The portal navbar is position:relative and scrolls away underneath, so there
+   is no z-index contest with it, and modals (z-index 1055) still correctly
+   cover the banner. Nothing here fights the layout: the banner is a normal
+   block in flow, so it simply pushes the navbar down and needs no compensating
+   body padding anywhere.
+
+   COLOUR, and why it uses no theme token. The app has two non-equivalent dark
+   triggers - html[data-bs-theme="dark"] (Tabler's palette plus itflow_design's
+   --if-* set) and body.dark-mode (itflow_custom's --color-* set) - and this
+   file emits both together. Rather than satisfy two trigger systems, the banner
+   is painted in colours that move under neither: .bg-warning resolves
+   --tblr-warning, declared #f59f00 in BOTH Tabler's :root and its dark block
+   and overridden by no app stylesheet, and .text-black is a flat #000
+   !important in both tabler.min.css and css/itflow.shim-adminlte.css:345.
+   Verified identical in Chromium under both themes: background
+   color(srgb 0.960784 0.623529 0) = #f59f00, text rgb(0,0,0) - about 11:1
+   either way. That is right on the merits too: a warning about your own session
+   should look the same wherever you meet it, the way private-mode browser
    chrome does.
 
-   Deliberately AVOIDED here, each for a specific reason:
+   Deliberately AVOIDED, each for a specific measured reason:
      .text-dark        css/itflow_custom.css:509 remaps it to var(--color-text),
                        i.e. near-WHITE in dark mode - white on amber is ~2.1:1.
      .text-bg-warning  Tabler forces color:#fff on it. Same ~2.1:1 problem.
@@ -279,21 +286,20 @@ if ($portal_preview_banner !== null) {
      .btn-outline-dark css/itflow_custom.css repaints it from --color-* tokens.
      .bg-light         css/itflow_custom.css:523 repaints it on dark pages.
 
-   NOT DISMISSIBLE by construction: there is no close control and no JS - the
-   only way it leaves the page is by leaving the preview.
+   NOT DISMISSIBLE by construction: no close control, no data-bs-dismiss, and no
+   JavaScript at all. The only way it leaves the page is by leaving the preview.
    --------------------------------------------------------------------------- */
 ?>
 <?php if ($portal_preview_banner !== null) { ?>
-<div class="sticky-top bg-warning text-black shadow-sm" role="region" aria-label="Read-only portal preview">
+<div class="sticky-top flex-shrink-0 bg-warning text-black shadow-sm" role="region" aria-label="Read-only portal preview">
     <div class="container d-flex flex-wrap align-items-center gap-2 py-2">
         <i class="fas fa-eye fa-lg" aria-hidden="true"></i>
         <strong class="text-uppercase text-nowrap">Read-only preview</strong>
-        <span class="d-none d-md-inline" aria-hidden="true">&middot;</span>
         <span>
-            You are looking at the <strong><?php echo $portal_preview_dept; ?></strong>
-            department portal as an ITFlow agent<?php if ($portal_preview_agent !== '') { ?>
-            (<?php echo $portal_preview_agent; ?>)<?php } ?>.
-            Nothing here can be changed &mdash; every action is blocked and logged.
+            <span aria-hidden="true">&middot;</span>
+            You are viewing the <strong><?php echo $portal_preview_dept; ?></strong> department portal
+            as an agent<?php if ($portal_preview_agent !== '') { ?><span class="d-none d-xxl-inline"> (<?php echo $portal_preview_agent; ?>)</span><?php } ?>.
+            Nothing here can be changed<span class="d-none d-xxl-inline"> &mdash; every action is blocked and logged</span>.
         </span>
         <a class="btn btn-sm btn-dark ms-auto text-nowrap" href="<?php echo $portal_preview_exit; ?>">
             <i class="fas fa-sign-out-alt me-1" aria-hidden="true"></i>Exit preview
@@ -301,7 +307,6 @@ if ($portal_preview_banner !== null) {
     </div>
 </div>
 <?php } ?>
-<div class="page">
 
 <!-- Navbar. A plain Bootstrap 5 navbar (it never used AdminLTE), kept verbatim.
      It is a direct child of .page and is internally balanced, so it adds no

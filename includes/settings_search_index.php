@@ -47,6 +47,7 @@ function getSettingsSearchIndex(): array {
         ['label' => 'API Documentation',       'keywords' => ['api docs', 'api reference', 'openapi'],                                 'url' => '/admin/api_docs.php',                    'visible' => true],
         ['label' => 'Users',                   'keywords' => ['user', 'technician', 'agent', 'staff'],                                 'url' => '/admin/users.php',                       'visible' => true],
         ['label' => 'Roles',                   'keywords' => ['role', 'permission'],                                                   'url' => '/admin/roles.php',                       'visible' => true],
+        ['label' => 'Department Portal Preview', 'keywords' => ['portal preview', 'view portal', 'department portal', 'impersonate', 'log in as', 'client portal'], 'url' => '/admin/portal_preview.php', 'visible' => (bool) $config_client_portal_enable],
         ['label' => 'Identity Provider (SSO)', 'keywords' => ['sso', 'saml', 'identity provider', 'single sign-on'],                    'url' => '/admin/identity_provider.php',           'visible' => (bool) $config_client_portal_enable],
     ];
 }

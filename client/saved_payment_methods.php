@@ -3,6 +3,17 @@
  * Client Portal - AutoPay Configuration (multi-provider - assumes Stripe for now)
  */
 
+/*
+ * Stripe Elements is loaded from js.stripe.com and mounts its card field in an
+ * iframe served from the same origin, so this page needs a wider policy than the
+ * portal default in client/includes/inc_all.php. Stripe does not support being
+ * self-hosted - loading v3 from their CDN is a documented requirement, because
+ * they push PCI and 3-D Secure changes to it - so an allow-list entry is the only
+ * option here. It stays scoped to this one page and names the exact origins.
+ * Set BEFORE the include, which is what makes inc_all.php leave it alone.
+ */
+header("Content-Security-Policy: default-src 'self'; script-src 'self' https://js.stripe.com; frame-src https://js.stripe.com https://hooks.stripe.com; connect-src 'self' https://api.stripe.com");
+
 require_once "includes/inc_all.php";
 
 if ($session_contact_primary == 0 && !$session_contact_is_billing_contact) {
