@@ -4,6 +4,17 @@ require_once "includes/inc_all.php";
 // Get current year or the selected year
 $year = isset($_GET['year']) ? intval($_GET['year']) : date('Y');
 
+// Chart-type preference for each section is a free-text-looking VARCHAR(20)
+// column, so unlike the enable flags (a simple intval) it goes through an
+// allow-list before it ever reaches SQL or a Chart.js `type` option - never
+// trust it as a bare string off the query string. The two lists are also the
+// <select> options below and are ordered to match each section's current,
+// pre-existing default (line for Financial, bar for Technical) first.
+$dash_chart_type_options = [
+    'financial' => ['line', 'bar'],
+    'technical' => ['bar', 'line'],
+];
+
 // Update user settings based on GET parameters
 if (isset($_GET['enable_financial'])) {
     $enable_financial = intval($_GET['enable_financial']);
@@ -15,11 +26,28 @@ if (isset($_GET['enable_technical'])) {
     mysqli_query($mysqli, "UPDATE user_settings SET user_config_dashboard_technical_enable = $enable_technical WHERE user_id = $session_user_id");
 }
 
+if (isset($_GET['financial_chart_type']) && in_array($_GET['financial_chart_type'], $dash_chart_type_options['financial'], true)) {
+    $financial_chart_type_set = $_GET['financial_chart_type'];
+    mysqli_query($mysqli, "UPDATE user_settings SET user_config_dashboard_financial_chart_type = '$financial_chart_type_set' WHERE user_id = $session_user_id");
+}
+
+if (isset($_GET['technical_chart_type']) && in_array($_GET['technical_chart_type'], $dash_chart_type_options['technical'], true)) {
+    $technical_chart_type_set = $_GET['technical_chart_type'];
+    mysqli_query($mysqli, "UPDATE user_settings SET user_config_dashboard_technical_chart_type = '$technical_chart_type_set' WHERE user_id = $session_user_id");
+}
+
 // Fetch User Dashboard Settings
 $sql_user_dashboard_settings = mysqli_query($mysqli, "SELECT * FROM user_settings WHERE user_id = $session_user_id");
 $row = mysqli_fetch_assoc($sql_user_dashboard_settings);
 $user_config_dashboard_financial_enable = intval($row['user_config_dashboard_financial_enable']);
 $user_config_dashboard_technical_enable = intval($row['user_config_dashboard_technical_enable']);
+// Re-validate what came back from the DB too (belt and suspenders against a
+// hand-edited row, and it doubles as the fallback for an upgrade that hasn't
+// run the migration yet) before it's ever echoed into a Chart.js `type`.
+$user_config_dashboard_financial_chart_type = in_array($row['user_config_dashboard_financial_chart_type'] ?? null, $dash_chart_type_options['financial'], true)
+    ? $row['user_config_dashboard_financial_chart_type'] : 'line';
+$user_config_dashboard_technical_chart_type = in_array($row['user_config_dashboard_technical_chart_type'] ?? null, $dash_chart_type_options['technical'], true)
+    ? $row['user_config_dashboard_technical_chart_type'] : 'bar';
 
 // Get unique years from expenses, payments, invoices, revenues, tickets, clients, and users
 $sql_years_select = mysqli_query($mysqli, "
@@ -398,10 +426,27 @@ $dash_total_assets = intval(mysqli_fetch_row(mysqli_query($mysqli,
             <?php } ?>
         </select>
 
-        <?php if ($session_user_role == 1 || ($session_user_role == 3 && $config_module_enable_accounting == 1)) { ?>
+        <?php
+        // Every other accounting surface in this app (Quick Links, the agent
+        // nav's Finance dropdown - agent/includes/side_nav.php's
+        // `config_module_enable_accounting == 1` checks) hides itself when
+        // accounting is off system-wide. This switch used to skip that check
+        // for role 1 (admin), so an admin could enable and see Cash Flow /
+        // revenue charts on an Internal IT install with accounting force-
+        // disabled. Gated for every role now, same as the section render
+        // below - see the note there on why the user's stored on/off
+        // preference is left alone rather than cleared when this hides it. ?>
+        <?php if ($config_module_enable_accounting == 1 && ($session_user_role == 1 || $session_user_role == 3)) { ?>
             <div class="form-check form-switch mb-0">
                 <input type="checkbox" class="form-check-input auto-submit-select" id="customSwitch1" name="enable_financial" value="1" <?php if ($user_config_dashboard_financial_enable == 1) { echo "checked"; } ?>>
                 <label class="form-check-label" for="customSwitch1">Financial</label>
+            </div>
+            <div class="d-flex align-items-center gap-1">
+                <label for="financial_chart_type" class="mb-0 small text-muted">Chart</label>
+                <select id="financial_chart_type" name="financial_chart_type" class="form-select form-select-sm dash-year-select auto-submit-select">
+                    <option value="line" <?php if ($user_config_dashboard_financial_chart_type === 'line') { echo "selected"; } ?>>Line</option>
+                    <option value="bar" <?php if ($user_config_dashboard_financial_chart_type === 'bar') { echo "selected"; } ?>>Bar</option>
+                </select>
             </div>
         <?php } ?>
 
@@ -410,12 +455,32 @@ $dash_total_assets = intval(mysqli_fetch_row(mysqli_query($mysqli,
                 <input type="checkbox" class="form-check-input auto-submit-select" id="customSwitch2" name="enable_technical" value="1" <?php if ($user_config_dashboard_technical_enable == 1) { echo "checked"; } ?>>
                 <label class="form-check-label" for="customSwitch2">Technical</label>
             </div>
+            <div class="d-flex align-items-center gap-1">
+                <label for="technical_chart_type" class="mb-0 small text-muted">Chart</label>
+                <select id="technical_chart_type" name="technical_chart_type" class="form-select form-select-sm dash-year-select auto-submit-select">
+                    <option value="bar" <?php if ($user_config_dashboard_technical_chart_type === 'bar') { echo "selected"; } ?>>Bar</option>
+                    <option value="line" <?php if ($user_config_dashboard_technical_chart_type === 'line') { echo "selected"; } ?>>Line</option>
+                </select>
+            </div>
         <?php } ?>
     </form>
 </div>
 
 <?php
-if ($user_config_dashboard_financial_enable == 1) {
+// Gated on config_module_enable_accounting too, not just the user's own
+// switch above: this section is Cash Flow / revenue / expense charts, the
+// same accounting surface Quick Links and the nav Finance dropdown already
+// hide when accounting is off system-wide (the default on this Internal IT
+// edition) - the switch alone let a user see it regardless.
+//
+// Deliberately NOT clearing user_config_dashboard_financial_enable when
+// accounting is off: it's the user's own saved preference, accounting can be
+// off temporarily (or per-deployment), and silently zeroing everyone's
+// stored choice the moment an admin flips the module would lose their intent
+// and make them re-enable it by hand later for no reason. Suppress the
+// render, leave the stored value alone - identical to how the switch itself
+// just disappears above rather than uncheck-and-save.
+if ($user_config_dashboard_financial_enable == 1 && $config_module_enable_accounting == 1) {
 
     // Fetch financial data for the dashboard
     // Define variables to avoid errors in logs
@@ -1251,7 +1316,10 @@ if ($user_config_dashboard_technical_enable == 1) {
 
 <?php require_once "../includes/footer.php"; ?>
 
-<?php if ($user_config_dashboard_financial_enable == 1) { ?>
+<?php // Same combined gate as the render block above - these <script> blocks read
+      // PHP variables ($largest_income_month etc.) that only exist when that
+      // block actually ran, so the two conditions must stay identical. ?>
+<?php if ($user_config_dashboard_financial_enable == 1 && $config_module_enable_accounting == 1) { ?>
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 document.addEventListener('DOMContentLoaded', function () {
@@ -1263,7 +1331,15 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!ctx) return;
 
         var myLineChart = new Chart(ctx, {
-            type: 'line',
+            // Reads the saved per-user preference (financial_chart_type
+            // select next to the "Financial" switch above); validated
+            // server-side against ['line','bar'] before it ever lands here.
+            // Bar mode needs its own backgroundColor per dataset below - the
+            // line-only styling (fill/point*) is simply ignored by the bar
+            // controller, but a bar with no backgroundColor falls back to
+            // Chart.js's translucent default and every series reads as the
+            // same grey block.
+            type: '<?php echo $user_config_dashboard_financial_chart_type; ?>',
             data: {
                 labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
                 datasets: [
@@ -1271,6 +1347,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         label: "Income",
                         fill: false,
                         borderColor: "#007bff",
+                        backgroundColor: "#007bff",
                         pointBackgroundColor: "#007bff",
                         pointBorderColor: "#007bff",
                         pointHoverRadius: 5,
@@ -1301,6 +1378,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         label: "LY Income",
                         fill: false,
                         borderColor: "#9932CC",
+                        backgroundColor: "#9932CC",
                         pointBackgroundColor: "#9932CC",
                         pointBorderColor: "#9932CC",
                         pointHoverRadius: 5,
@@ -1331,6 +1409,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         label: "Projected",
                         fill: false,
                         borderColor: "black",
+                        backgroundColor: "black",
                         pointBackgroundColor: "black",
                         pointBorderColor: "black",
                         pointHoverRadius: 5,
@@ -1357,6 +1436,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         tension: 0.3, // v4 name; v2 used lineTension
                         fill: false,
                         borderColor: "#dc3545",
+                        backgroundColor: "#dc3545",
                         pointBackgroundColor: "#dc3545",
                         pointBorderColor: "#dc3545",
                         pointHoverRadius: 5,
@@ -1409,7 +1489,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!ctx) return;
 
         var myLineChart = new Chart(ctx, {
-            type: 'line',
+            // Same saved Financial preference as Cash Flow above - the two are
+            // "the two line charts" this control governs, kept in lockstep.
+            type: '<?php echo $user_config_dashboard_financial_chart_type; ?>',
             data: {
                 labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
                 datasets: [{
@@ -1697,7 +1779,18 @@ var dashTheme = (function () {
     var ctx = document.getElementById('ticketFlowChart');
     if (!ctx) return;
     new Chart(ctx, {
-        type: 'bar',
+        // Reads the saved Technical preference (technical_chart_type select
+        // next to the "Technical" switch above; validated server-side
+        // against ['bar','line']). If it's switched to 'line', `fill: false`
+        // plus an explicit `borderColor` on both datasets below are what
+        // avoid the exact two defects the comment above the bar version was
+        // written to fix: a filled area chart composites two overlapping
+        // fills into a khaki band and draws its legend key as that same
+        // translucent box, and Chart.js v4 already defaults line tension to
+        // 0 (straight segments) so the "bell curve" smoothing doesn't come
+        // back either. `borderRadius`/`borderSkipped`/`maxBarThickness` below
+        // are bar-only options the line controller just ignores.
+        type: '<?php echo $user_config_dashboard_technical_chart_type; ?>',
         data: {
             labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
             datasets: [
@@ -1705,18 +1798,26 @@ var dashTheme = (function () {
                     label: 'Opened',
                     backgroundColor: dashTheme.opened,
                     hoverBackgroundColor: dashTheme.opened,
+                    borderColor: dashTheme.opened,
                     borderRadius: 4,
                     borderSkipped: 'bottom',
                     maxBarThickness: 22,
+                    fill: false,
+                    pointRadius: 3,
+                    pointBackgroundColor: dashTheme.opened,
                     data: [<?php echo implode(',', $monthly_opened); ?>]
                 },
                 {
                     label: 'Resolved',
                     backgroundColor: dashTheme.resolved,
                     hoverBackgroundColor: dashTheme.resolved,
+                    borderColor: dashTheme.resolved,
                     borderRadius: 4,
                     borderSkipped: 'bottom',
                     maxBarThickness: 22,
+                    fill: false,
+                    pointRadius: 3,
+                    pointBackgroundColor: dashTheme.resolved,
                     data: [<?php echo implode(',', $monthly_resolved); ?>]
                 }
             ]

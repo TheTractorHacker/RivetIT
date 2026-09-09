@@ -12,6 +12,14 @@ $row = mysqli_fetch_assoc($sql);
 $domain_name = nullable_htmlentities($row['domain_name']);
 $domain_description = nullable_htmlentities($row['domain_description']);
 $domain_expire = nullable_htmlentities($row['domain_expire']);
+// WHOIS-derived data (functions.php's getDomainRecords(), refreshed by
+// cron/domain_refresher.php) - read-only, same as domain_ip/name_servers/mail_servers/
+// txt/raw_whois below; nothing here is a user-editable form field.
+$domain_registered_at = nullable_htmlentities($row['domain_registered_at']);
+$domain_registered_ago = timeAgo($row['domain_registered_at']);
+$domain_registrar_name = nullable_htmlentities($row['domain_registrar_name']);
+$domain_status = nullable_htmlentities($row['domain_status']);
+$domain_dnssec = nullable_htmlentities($row['domain_dnssec']);
 $domain_registrar = intval($row['domain_registrar']);
 $domain_webhost = intval($row['domain_webhost']);
 $domain_dnshost = intval($row['domain_dnshost']);
@@ -199,6 +207,20 @@ ob_start();
                     </div>
                 </div>
 
+                <?php if ($domain_registered_at) { ?>
+                <div class="form-group">
+                    <!-- WHOIS-reported creation date - refreshed data, not user-editable,
+                         same reasoning as the disabled Records-tab fields below. -->
+                    <label>Domain Age</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-birthday-cake"></i></span>
+                        </div>
+                        <input type="text" class="form-control" value="Registered <?php echo $domain_registered_at; ?> (<?php echo $domain_registered_ago; ?>)" disabled>
+                    </div>
+                </div>
+                <?php } ?>
+
             </div>
 
             <div class="tab-pane fade" id="pills-records<?php echo $domain_id; ?>">
@@ -240,6 +262,39 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-check-double"></i></span>
                         </div>
                         <textarea class="form-control" rows="1" name="txt_records" disabled><?php echo $domain_txt; ?></textarea>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <!-- The WHOIS record's own reported registrar name - distinct from
+                         the "Domain Registrar" vendor picked on the Overview tab, which is
+                         which vendors.* row ITFlow considers the registrar. -->
+                    <label>WHOIS Registrar</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-building"></i></span>
+                        </div>
+                        <input type="text" class="form-control" name="whois_registrar" value="<?php echo $domain_registrar_name; ?>" disabled>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Domain Status</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-shield-alt"></i></span>
+                        </div>
+                        <textarea class="form-control" rows="1" name="domain_status" disabled><?php echo $domain_status; ?></textarea>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>DNSSEC</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-lock"></i></span>
+                        </div>
+                        <input type="text" class="form-control" name="dnssec" value="<?php echo $domain_dnssec; ?>" disabled>
                     </div>
                 </div>
 

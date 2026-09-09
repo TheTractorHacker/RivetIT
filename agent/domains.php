@@ -246,6 +246,11 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 Expires <?php if ($sort == 'domain_expire') { echo $order_icon; } ?>
                             </a>
                         </th>
+                        <th>
+                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=domain_registered_at&order=<?php echo $disp; ?>">
+                                Registered <?php if ($sort == 'domain_registered_at') { echo $order_icon; } ?>
+                            </a>
+                        </th>
                         <?php if (!$client_url) { ?>
                         <th>
                             <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
@@ -265,6 +270,11 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         $domain_description = nullable_htmlentities($row['domain_description']);
                         $domain_expire = nullable_htmlentities($row['domain_expire']);
                         $domain_expire_ago = timeAgo($domain_expire);
+                        // WHOIS-derived (functions.php's getDomainRecords(), populated by
+                        // cron/domain_refresher.php) - not every domain has been refreshed
+                        // yet, so this is commonly blank until its first daily pass.
+                        $domain_registered_at = nullable_htmlentities($row['domain_registered_at']);
+                        $domain_registered_ago = timeAgo($row['domain_registered_at']);
                         // Convert the expiry date to a timestamp
                         $domain_expire_timestamp = strtotime($row['domain_expire'] ?? '');
                         $current_timestamp = time(); // Get current timestamp
@@ -340,6 +350,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <div><?php echo $domain_expire ?: '-'; ?></div>
                                 <?php if (!empty($domain_expire)) { ?>
                                     <div><small><?php echo $domain_expire_ago; ?></small></div>
+                                <?php } ?>
+                            </td>
+                            <td>
+                                <div><?php echo $domain_registered_at ?: '-'; ?></div>
+                                <?php if (!empty($domain_registered_at)) { ?>
+                                    <div><small><?php echo $domain_registered_ago; ?></small></div>
                                 <?php } ?>
                             </td>
                             <?php if (!$client_url) { ?>

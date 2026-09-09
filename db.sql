@@ -1370,11 +1370,15 @@ CREATE TABLE `domains` (
   `domain_name` varchar(200) NOT NULL,
   `domain_description` text DEFAULT NULL,
   `domain_expire` date DEFAULT NULL,
+  `domain_registered_at` date DEFAULT NULL,
   `domain_ip` varchar(255) DEFAULT NULL,
   `domain_name_servers` varchar(255) DEFAULT NULL,
   `domain_mail_servers` varchar(255) DEFAULT NULL,
   `domain_txt` text DEFAULT NULL,
   `domain_raw_whois` text DEFAULT NULL,
+  `domain_registrar_name` varchar(255) DEFAULT NULL,
+  `domain_status` varchar(500) DEFAULT NULL,
+  `domain_dnssec` varchar(50) DEFAULT NULL,
   `domain_notes` text DEFAULT NULL,
   `domain_favorite` tinyint(1) NOT NULL DEFAULT 0,
   `domain_created_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -3789,7 +3793,9 @@ CREATE TABLE `user_settings` (
   `user_config_force_mfa` tinyint(1) NOT NULL DEFAULT 0,
   `user_config_records_per_page` int(11) NOT NULL DEFAULT 10,
   `user_config_dashboard_financial_enable` tinyint(1) NOT NULL DEFAULT 0,
+  `user_config_dashboard_financial_chart_type` varchar(20) NOT NULL DEFAULT 'line',
   `user_config_dashboard_technical_enable` tinyint(1) NOT NULL DEFAULT 0,
+  `user_config_dashboard_technical_chart_type` varchar(20) NOT NULL DEFAULT 'bar',
   `user_config_calendar_first_day` tinyint(1) NOT NULL DEFAULT 0,
   `user_config_signature` longtext DEFAULT NULL,
   `user_config_theme_dark` tinyint(1) NOT NULL DEFAULT 0,
@@ -5008,10 +5014,12 @@ CREATE TABLE `microsoft_integrations` (
   `sync_scope` varchar(20) NOT NULL DEFAULT 'read_only',
   `enabled` tinyint(1) NOT NULL DEFAULT 0,
   `intune_sync_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `directory_sync_enabled` tinyint(1) NOT NULL DEFAULT 0,
   `last_test_at` datetime DEFAULT NULL,
   `last_test_success` tinyint(1) DEFAULT NULL,
   `last_test_error` varchar(500) DEFAULT NULL,
   `last_sync_at` datetime DEFAULT NULL,
+  `last_directory_sync_at` datetime DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   PRIMARY KEY (`microsoft_integration_id`)
@@ -5413,6 +5421,115 @@ DROP TABLE IF EXISTS `odoo_sync_log`;
 CREATE TABLE `odoo_sync_log` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `odoo_integration_id` int(11) NOT NULL,
+  `started_at` datetime DEFAULT current_timestamp(),
+  `finished_at` datetime DEFAULT NULL,
+  `status` varchar(20) DEFAULT 'running',
+  `departments_created` int(11) DEFAULT 0,
+  `departments_updated` int(11) DEFAULT 0,
+  `departments_matched` int(11) DEFAULT 0,
+  `departments_skipped` int(11) DEFAULT 0,
+  `employees_created` int(11) DEFAULT 0,
+  `employees_updated` int(11) DEFAULT 0,
+  `employees_matched` int(11) DEFAULT 0,
+  `employees_skipped` int(11) DEFAULT 0,
+  `errors` text DEFAULT NULL,
+  `triggered_by` int(11) DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `directory_field_mappings`
+--
+
+DROP TABLE IF EXISTS `directory_field_mappings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `directory_field_mappings` (
+  `mapping_id` int(11) NOT NULL AUTO_INCREMENT,
+  `provider` varchar(20) NOT NULL,
+  `source_field` varchar(60) NOT NULL,
+  `target_field` varchar(60) NOT NULL,
+  `enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`mapping_id`),
+  UNIQUE KEY `provider_source_field` (`provider`,`source_field`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- Seed rows so a fresh install's Odoo field mapping starts out identical to
+-- what OdooDirectoryMapper::syncEmployee() hardcoded before this table
+-- existed - see DB update 2.6.80 in admin/database_updates.php, which
+-- inserts these same four rows for an install that is upgrading rather
+-- than installing fresh from this file.
+INSERT INTO `directory_field_mappings`
+  (`provider`, `source_field`, `target_field`, `enabled`) VALUES
+  ('odoo', 'job_title', 'contact_title', 1),
+  ('odoo', 'work_phone', 'contact_phone', 1),
+  ('odoo', 'mobile_phone', 'contact_mobile', 1),
+  ('odoo', 'work_email', 'contact_email', 1);
+
+--
+-- Table structure for table `google_integrations`
+--
+
+DROP TABLE IF EXISTS `google_integrations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `google_integrations` (
+  `google_integration_id` int(11) NOT NULL AUTO_INCREMENT,
+  `service_account_json_enc` text DEFAULT NULL,
+  `delegated_admin_email` varchar(255) DEFAULT NULL,
+  `workspace_domain` varchar(255) DEFAULT NULL,
+  `enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `last_test_at` datetime DEFAULT NULL,
+  `last_test_success` tinyint(1) DEFAULT NULL,
+  `last_test_error` varchar(500) DEFAULT NULL,
+  `last_sync_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`google_integration_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `google_sync_log`
+--
+
+DROP TABLE IF EXISTS `google_sync_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `google_sync_log` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `google_integration_id` int(11) NOT NULL,
+  `started_at` datetime DEFAULT current_timestamp(),
+  `finished_at` datetime DEFAULT NULL,
+  `status` varchar(20) DEFAULT 'running',
+  `departments_created` int(11) DEFAULT 0,
+  `departments_updated` int(11) DEFAULT 0,
+  `departments_matched` int(11) DEFAULT 0,
+  `departments_skipped` int(11) DEFAULT 0,
+  `employees_created` int(11) DEFAULT 0,
+  `employees_updated` int(11) DEFAULT 0,
+  `employees_matched` int(11) DEFAULT 0,
+  `employees_skipped` int(11) DEFAULT 0,
+  `errors` text DEFAULT NULL,
+  `triggered_by` int(11) DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `microsoft_directory_sync_log`
+--
+
+DROP TABLE IF EXISTS `microsoft_directory_sync_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `microsoft_directory_sync_log` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `microsoft_integration_id` int(11) NOT NULL,
   `started_at` datetime DEFAULT current_timestamp(),
   `finished_at` datetime DEFAULT NULL,
   `status` varchar(20) DEFAULT 'running',
