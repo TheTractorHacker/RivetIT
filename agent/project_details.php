@@ -256,7 +256,7 @@ if (isset($_GET['project_id'])) {
         $t_created_ticket_number = nullable_htmlentities($t['created_ticket_number'] ?? '');
         $t_created_ticket_open = intval($t['created_ticket_status'] ?? 0) != 5; // 5 = Closed, matches ticket_list.php's own convention
         $csrf = $_SESSION['csrf_token'];
-        $create_ticket_url = "modals/ticket/ticket_add.php?client_id=$client_id&project_id=$project_id&source_task_id=$t_id&subject=" . urlencode($t['task_name'] ?? '');
+        $create_ticket_url = "modals/ticket/ticket_add_v2.php?client_id=$client_id&project_id=$project_id&source_task_id=$t_id&subject=" . urlencode($t['task_name'] ?? '');
         ?>
         <tr>
             <td style="width: 28px;">
@@ -344,7 +344,7 @@ if (isset($_GET['project_id'])) {
                             <i class="fas fa-fw fa-plus me-2"></i>New
                         </button>
                         <div class="dropdown-menu">
-                            <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/ticket/ticket_add.php?<?= $client_url ?>&project_id=<?= $project_id ?>" data-modal-size="lg">
+                            <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/ticket/ticket_add_v2.php?<?= $client_url ?>&project_id=<?= $project_id ?>" data-modal-size="lg">
                                 <i class="fa fa-fw fa-life-ring me-2"></i>Ticket
                             </a>
                             <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/project/milestone_add.php?project_id=<?= $project_id ?>">
@@ -423,16 +423,31 @@ if (isset($_GET['project_id'])) {
     </div>
 
     <div class="card card-body">
+        <?php /* Label ABOVE each bar, not inside its fill div - matching the
+                 Budget & Effort card's own pattern below. A Bootstrap
+                 .progress-bar's label lives inside the fill, so at 0% (a brand
+                 new project, nothing closed or completed yet - exactly this
+                 project's state: 0 of 7 tasks done) the fill is 0px wide and
+                 the label has no room to render at all. The bar was there, the
+                 text was not - it just looked like an empty grey strip with a
+                 stray icon in the corner. Reproduced and confirmed fixed at
+                 both 0% and a real in-progress percentage. */ ?>
         <?php if ($ticket_count) { ?>
-            <div class="progress" style="height: 20px;">
-                <i class="fa fas fa-fw fa-life-ring me-2"></i>
-                <div class="progress-bar bg-primary" style="width: <?php echo $tickets_closed_percent; ?>%;"><?php echo $closed_ticket_count; ?> / <?php echo $ticket_count; ?></div>
+            <div class="d-flex justify-content-between">
+                <span class="text-secondary"><i class="fa fa-fw fa-life-ring me-2"></i>Tickets</span>
+                <span><strong><?php echo $closed_ticket_count; ?></strong> / <?php echo $ticket_count; ?> closed (<?php echo $tickets_closed_percent; ?>%)</span>
+            </div>
+            <div class="progress mt-1" style="height: 20px;">
+                <div class="progress-bar bg-primary" style="width: <?php echo $tickets_closed_percent; ?>%;"></div>
             </div>
         <?php } ?>
         <?php if ($task_count) { ?>
-            <div class="progress mt-2" style="height: 20px;">
-                <i class="fa fas fa-fw fa-tasks me-2"></i>
-                <div class="progress-bar bg-secondary" style="width: <?php echo $tasks_completed_percent; ?>%;"><?php echo $completed_task_count; ?> / <?php echo $task_count; ?></div>
+            <div class="d-flex justify-content-between<?php echo $ticket_count ? ' mt-3' : ''; ?>">
+                <span class="text-secondary"><i class="fa fa-fw fa-tasks me-2"></i>Tasks</span>
+                <span><strong><?php echo $completed_task_count; ?></strong> / <?php echo $task_count; ?> done (<?php echo $tasks_completed_percent; ?>%)</span>
+            </div>
+            <div class="progress mt-1" style="height: 20px;">
+                <div class="progress-bar bg-secondary" style="width: <?php echo $tasks_completed_percent; ?>%;"></div>
             </div>
         <?php } ?>
         <?php if ($ticket_collaborators) { ?>
@@ -457,7 +472,7 @@ if (isset($_GET['project_id'])) {
                         <span><strong><?php echo number_format($actual_hours, 1); ?></strong> / <?php echo number_format($estimated_hours, 1); ?> hrs (<?php echo $hours_percent; ?>%)</span>
                     </div>
                     <div class="progress mt-1" style="height: 20px;">
-                        <div class="progress-bar <?php echo $hours_percent > 100 ? 'bg-danger' : 'bg-info'; ?>" style="width: <?php echo min($hours_percent, 100); ?>%;"><?php echo $hours_percent; ?>%</div>
+                        <div class="progress-bar <?php echo $hours_percent > 100 ? 'bg-danger' : 'bg-info'; ?>" style="width: <?php echo min($hours_percent, 100); ?>%;"></div>
                     </div>
                 </div>
                 <div class="col-md-6">
@@ -466,7 +481,7 @@ if (isset($_GET['project_id'])) {
                         <span><strong><?php echo numfmt_format_currency($currency_format, $burned_amount, $session_company_currency); ?></strong> / <?php echo numfmt_format_currency($currency_format, $project_budget_amount, $session_company_currency); ?> (<?php echo $budget_percent; ?>%)</span>
                     </div>
                     <div class="progress mt-1" style="height: 20px;">
-                        <div class="progress-bar <?php echo $budget_percent > 100 ? 'bg-danger' : 'bg-success'; ?>" style="width: <?php echo min($budget_percent, 100); ?>%;"><?php echo $budget_percent; ?>%</div>
+                        <div class="progress-bar <?php echo $budget_percent > 100 ? 'bg-danger' : 'bg-success'; ?>" style="width: <?php echo min($budget_percent, 100); ?>%;"></div>
                     </div>
                 </div>
             </div>
@@ -486,7 +501,7 @@ if (isset($_GET['project_id'])) {
                 <span><strong><?php echo number_format($actual_hours, 1); ?></strong> / <?php echo number_format($estimated_hours, 1); ?> hrs (<?php echo $hours_percent; ?>%)</span>
             </div>
             <div class="progress mt-1" style="height: 20px;">
-                <div class="progress-bar <?php echo $hours_percent > 100 ? 'bg-danger' : 'bg-info'; ?>" style="width: <?php echo min($hours_percent, 100); ?>%;"><?php echo $hours_percent; ?>%</div>
+                <div class="progress-bar <?php echo $hours_percent > 100 ? 'bg-danger' : 'bg-info'; ?>" style="width: <?php echo min($hours_percent, 100); ?>%;"></div>
             </div>
         </div>
     </div>
@@ -518,7 +533,7 @@ if (isset($_GET['project_id'])) {
                     <a class="btn btn-secondary btn-sm ajax-modal" href="#" data-modal-url="modals/project/project_link_ticket.php?<?= $client_url ?>project_id=<?= $project_id ?>">
                         <i class="fas fa-fw fa-link me-1"></i>Link Existing Ticket
                     </a>
-                    <a class="btn btn-secondary btn-sm ajax-modal" href="#" data-modal-url="modals/ticket/ticket_add.php?client_id=<?= $client_id ?>&project_id=<?= $project_id ?>" data-modal-size="lg">
+                    <a class="btn btn-secondary btn-sm ajax-modal" href="#" data-modal-url="modals/ticket/ticket_add_v2.php?client_id=<?= $client_id ?>&project_id=<?= $project_id ?>" data-modal-size="lg">
                         <i class="fas fa-fw fa-plus me-1"></i>New Ticket
                     </a>
                 </div>
@@ -588,8 +603,17 @@ if (isset($_GET['project_id'])) {
                                     </div>
                                 </div>
                             </div>
-                            <div class="progress mt-2" style="height: 16px;">
-                                <div class="progress-bar <?php echo $ms_percent >= 100 ? 'bg-success' : 'bg-secondary'; ?>" style="width: <?php echo $ms_percent; ?>%;"><?php echo "$ms_done / $ms_total"; ?></div>
+                            <?php /* Same 0%-label bug as the cards above, here too: a brand
+                                     new milestone with nothing done yet is $ms_done=0, so the bar's
+                                     fill is 0px wide and "0 / N" had no room to render inside it -
+                                     it just looked like a bare grey strip. Label moved above,
+                                     small to match this card's already-compact row height. */ ?>
+                            <div class="d-flex justify-content-between mt-2">
+                                <small class="text-secondary"><?php echo "$ms_done / $ms_total tasks"; ?></small>
+                                <small class="text-secondary"><?php echo $ms_percent; ?>%</small>
+                            </div>
+                            <div class="progress mt-1" style="height: 16px;">
+                                <div class="progress-bar <?php echo $ms_percent >= 100 ? 'bg-success' : 'bg-secondary'; ?>" style="width: <?php echo $ms_percent; ?>%;"></div>
                             </div>
                             <?php if ($ms_total > 0) { ?>
                                 <table class="table table-sm mt-2 mb-0">

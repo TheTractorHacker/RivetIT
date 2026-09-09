@@ -16,9 +16,22 @@
    light-theme-only colors, so this board was unreadable/inconsistent in dark
    mode and visually out of step with the rest of the app's card treatment). */
 .kanban-column {
-    flex: 1;
-    min-width: 300px;
-    max-width: 300px;
+    /* flex: 1 1 0 - not flex: 1 (= 1 1 0%), which is the same in principle but
+       being explicit about the zero basis matters here: with min-width AND
+       max-width both pinned to 300px (the previous rule), flex-grow had no
+       room to act at all, so every column sat at a hard 300px regardless of
+       viewport width. Measured on the live board at 1600px with 4 lanes: the
+       four 300px columns filled only 1302px, leaving ~300px of dead board
+       background to the right - roughly a fifth column's worth of empty grey
+       space, which is what read as "not even" (not literally unequal to each
+       other - they were already that - but visibly not filling the row they
+       have, Trello-style, the way a kanban board is expected to). Dropping
+       max-width and giving every column the same flex-basis (0) lets them
+       share the container equally and actually reach its edges; min-width is
+       now a floor for narrow viewports, not a second ceiling fighting the
+       first. */
+    flex: 1 1 0;
+    min-width: 260px;
     margin: 0 10px;
     background: var(--if-bg);
     border: 1px solid var(--if-border);
