@@ -7,6 +7,17 @@ $contact_id = intval($_GET['contact_id'] ?? 0);
 $asset_id = intval($_GET['asset_id'] ?? 0);
 $project_id = intval($_GET['project_id'] ?? 0);
 
+/* Opened from a project task's "Create Ticket" action (project_details.php) - the
+   task's own name/notes seed the subject/details so the agent isn't retyping what
+   the task already says, and source_task_id rides along as a hidden field so
+   agent/post/ticket.php's add_ticket handler can link the new ticket back to the
+   task that spawned it once the insert succeeds. Both are prefill only: nothing
+   here is trusted - add_ticket re-validates source_task_id against the posted
+   project_id before writing anything back to it. */
+$prefill_subject = nullable_htmlentities(trim((string) ($_GET['subject'] ?? '')));
+$prefill_details  = nullable_htmlentities(trim((string) ($_GET['details'] ?? '')));
+$source_task_id   = intval($_GET['source_task_id'] ?? 0);
+
 if ($client_id) enforceClientAccess($client_id);
 
 ob_start();
@@ -23,6 +34,10 @@ ob_start();
 
     <?php if (isset($_GET['project_id'])) { ?>
     <input type="hidden" name="project_id" value="<?php echo intval($_GET['project_id']); ?>">
+    <?php } ?>
+
+    <?php if ($source_task_id) { ?>
+    <input type="hidden" name="source_task_id" value="<?php echo $source_task_id; ?>">
     <?php } ?>
 
     <div class="modal-body">
@@ -126,12 +141,12 @@ ob_start();
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
                         </div>
-                        <input type="text" class="form-control" id="subjectInput" name="subject" placeholder="Subject" maxlength="500" required>
+                        <input type="text" class="form-control" id="subjectInput" name="subject" placeholder="Subject" maxlength="500" value="<?php echo $prefill_subject; ?>" required>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <textarea class="form-control tinymceTicket" id="detailsInput" name="details"></textarea>
+                    <textarea class="form-control tinymceTicket" id="detailsInput" name="details"><?php echo $prefill_details; ?></textarea>
                 </div>
 
                 <div class="row">

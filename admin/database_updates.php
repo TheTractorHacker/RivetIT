@@ -7255,3 +7255,26 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.78'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.78') {
+
+        /* Lets a project TASK spawn a real ticket, and remember that it did.
+         *
+         * Deliberately a SEPARATE column from task_ticket_id, not a reuse of it.
+         * task_ticket_id already means something else entirely: it is how a
+         * ticket's own checklist items are stored - agent/ticket.php and
+         * agent/post/ticket.php both INSERT INTO tasks with task_ticket_id set,
+         * and project_details.php's own task query LEFT JOINs tickets ON
+         * tickets.ticket_id = tasks.task_ticket_id specifically to pull a linked
+         * ticket's checklist into the project view alongside its own tasks. A
+         * project task (task_project_id set) normally has task_ticket_id NULL;
+         * overloading that column for "this task became a ticket" would make a
+         * plain project task indistinguishable from a ticket checklist item the
+         * instant it got a ticket - breaking that exact JOIN and the milestone
+         * grouping built on top of it.
+         *
+         * Nullable and additive - every existing task row is unaffected. */
+        mysqli_query($mysqli, "ALTER TABLE `tasks` ADD COLUMN `task_created_ticket_id` int(11) DEFAULT NULL AFTER `task_ticket_id`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.79'");
+    }

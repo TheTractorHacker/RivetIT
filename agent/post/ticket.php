@@ -101,6 +101,27 @@ if (isset($_POST['add_ticket'])) {
 
     $ticket_id = mysqli_insert_id($mysqli);
 
+    /* "Create Ticket" from a project task (project_details.php's task rows) rides
+       in as source_task_id on the exact same add_ticket submit every other new
+       ticket uses - there is no separate handler for it. Re-validated here rather
+       than trusted from the form: the task must actually belong to THIS ticket's
+       project (task_project_id = $project_id, the value that just went into the
+       INSERT above, not whatever a crafted request might also send) and must not
+       already have a different ticket recorded against it - a task can spawn at
+       most one ticket. Either condition failing is a silent no-op: the ticket
+       still gets created either way, this only skips writing the back-reference,
+       exactly like every other optional field in this handler. */
+    $source_task_id = intval($_POST['source_task_id'] ?? 0);
+    if ($source_task_id > 0) {
+        mysqli_query(
+            $mysqli,
+            "UPDATE tasks SET task_created_ticket_id = $ticket_id
+             WHERE task_id = $source_task_id
+               AND task_project_id = $project_id
+               AND (task_created_ticket_id IS NULL OR task_created_ticket_id = 0)"
+        );
+    }
+
     // Apply the SLA engine (policy-aware; falls back to the legacy contract-hour
     // values just inserted when no policy target applies).
     recalculateTicketSla($mysqli, $ticket_id);
