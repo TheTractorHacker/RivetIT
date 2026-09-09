@@ -315,6 +315,21 @@ if ($sub === 'articles') {
         $kb_purifier_config->set('Cache.DefinitionImpl', null);
         $kb_purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
         $kb_purifier_config->set('Attr.DefaultImageAlt', '');
+        /* INTERACTIVE KB BLOCKS - the fourth and last of the KB purifier call
+         * sites (the others are agent/kb_article.php, client/kb_article.php and
+         * agent/modals/kb_article/kb_article_version_view.php).
+         *
+         * The Android app cannot RUN the render layer:
+         * KbArticleDetailScreen renders this HTML in a WebView with JavaScript
+         * disabled, so there is no checklist and no wizard on the phone. It gets
+         * the un-enhanced markup - a titled heading, labelled sections, every
+         * decision-tree branch visible in document order - which is exactly why
+         * the vocabulary is stored as ordinary semantic HTML. WITHOUT this line
+         * the app would instead receive bare <div>s with the structure stripped
+         * out and every class gone, so registering the vocabulary here is what
+         * makes the phone's version readable rather than what makes it
+         * interactive. */
+        \ITFlow\KB\InteractiveBlocks::apply($kb_purifier_config);
         $kb_purifier = new HTMLPurifier($kb_purifier_config);
 
         $kb_content = $kb_purifier->purify((string) $row['kb_article_content']);

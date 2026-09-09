@@ -25,6 +25,12 @@ $purifier_config->set('URI.AllowedSchemes', ['http' => true, 'https' => true]);
  * leaking its whole capability token into alt text, and the four KB purifier
  * configs are kept identical on this point so no renderer can drift. */
 $purifier_config->set('Attr.DefaultImageAlt', '');
+/* INTERACTIVE KB BLOCKS. Registers the data-ikb vocabulary so a department
+ * contact gets the working checklist / wizard / tab set / decision tree an agent
+ * gets, rather than the flattened prose this renderer would otherwise produce.
+ * MUST be above the constructor - see the note in agent/kb_article.php, which
+ * names all four call sites and why they must not drift. */
+\ITFlow\KB\InteractiveBlocks::apply($purifier_config);
 $purifier = new HTMLPurifier($purifier_config);
 
 // Check for an article ID
@@ -99,6 +105,78 @@ if ($row) {
     exit();
 }
 
+/* READ-ONLY, AND WHY THE PAGE DECIDES RATHER THAN THE ENDPOINT.
+ *
+ * An admin previewing a department portal holds no portal credential:
+ * client/includes/check_login.php gives the preview contact_id 0, and
+ * client/post.php calls portalPreviewBlockWrites() at its door for every single
+ * request. So a progress write from a preview would be both meaningless (there
+ * is no contact to own it) and refused.
+ *
+ * The design does not fight that and does not eat a 403: with
+ * data-ikb-readonly="1" the render layer records the change in memory and never
+ * issues the request at all. The admin gets a fully working preview of the
+ * interactive article - every tick, step, tab and branch behaves identically -
+ * nothing is written, nothing 403s, and the audit log is not filled with blocked
+ * writes for actions that were never real writes. Measured in headless Chromium:
+ * a normal contact's session issued POSTs, the preview issued ZERO, and every
+ * block behaved the same in both.
+ *
+ * $portal_preview_active is set once by check_login.php; portalPreviewActive()
+ * itself re-derives authority from the database on every call and its own
+ * docblock says to call it once per page. The contact_id test is the second
+ * condition rather than a duplicate: a session with no contact has no principal
+ * to save against however it got here. */
+$ikb_read_only = !empty($portal_preview_active) || $session_contact_id <= 0;
+
+/* THE READER'S SAVED PROGRESS, for the render root below.
+ *
+ * LOADED THROUGH THE PROGRESS WORK STREAM'S OWN STORE, not through a query
+ * written here. agent/includes/kb_progress_store.php holds the schema, the key
+ * grammar, the caps and the SQL exactly once precisely so that a second
+ * statement of them cannot drift; kbProgressLoad() states plainly that it does
+ * NO authorization and that every caller must have settled "may this principal
+ * read this article" before calling it. This page has: the article query above
+ * IS the visibility test (client_visible = 1, client_id IN (0,
+ * $session_client_id), archived_at IS NULL), and this runs on the far side of
+ * the redirect that fires when it returns nothing.
+ *
+ * THE PRINCIPAL IS A PAIR - ('c', contacts.contact_id) here, ('u',
+ * users.user_id) on the agent side. A department contact is not a users row and
+ * the two id spaces overlap numerically, so the type character is what keeps
+ * contact 7's ticks apart from agent 7's. A previewing admin has contact_id 0,
+ * which the guard below turns into "no saved progress" without a query.
+ *
+ * GUARDED ON EVERY STEP, and deliberately. The store, its endpoints and the
+ * 2.6.79 database update are three separate deployment steps on this project;
+ * an article page must not 500 because one of them has not happened yet. Each
+ * guard degrades to "no saved progress", which renders every block unticked and
+ * fully working - the same state a reader who has ticked nothing sees.
+ * kbProgressLoad() is itself wrapped in try/catch for the missing-table case.
+ *
+ * data-ikb-hashes is what the article says NOW; data-ikb-progress carries the
+ * hash recorded at tick time. The render layer marks the difference, so a tick
+ * against words that have since changed is neither silently kept nor silently
+ * dropped. hashesAttribute() short-circuits on an article with no blocks.
+ *
+ * PRIVACY: this puts ONE reader's state in the page body, which is safe only
+ * because article pages are not served from a shared cache. */
+$ikb_progress = [];
+$ikb_progress_store = $_SERVER['DOCUMENT_ROOT'] . '/agent/includes/kb_progress_store.php';
+if ($session_contact_id > 0 && is_file($ikb_progress_store)) {
+    if (!defined('FROM_KB_PROGRESS')) {
+        define('FROM_KB_PROGRESS', true);
+    }
+    require_once $ikb_progress_store;
+    if (function_exists('kbProgressLoad')) {
+        $ikb_progress = kbProgressLoad($mysqli, $kb_article_id, 'c', $session_contact_id);
+    }
+}
+$ikb_progress_json = \ITFlow\KB\InteractiveBlocks::progressAttribute($ikb_progress);
+$ikb_hashes_json = $ikb_progress === []
+    ? '{}'
+    : \ITFlow\KB\InteractiveBlocks::hashesAttribute($kb_article_content);
+
 /* ATTACHMENTS, visible to the department.
  *
  * Only reachable once the article query above has returned a row, so it is
@@ -137,7 +215,31 @@ $sql_attachments = mysqli_query(
 </ol>
 
 <div class="card">
-    <div class="card-body prettyContent">
+    <?php /*
+        THE INTERACTIVE-BLOCK RENDER ROOT. Page chrome, outside the purified
+        string. See the fuller note at the matching wrapper in
+        agent/kb_article.php for why configuration travels on data attributes
+        and not in an inline <script> - on THIS page that is not a preference,
+        it is the CSP at the top of this file: "default-src 'self'" with no
+        script-src, no nonce and no 'unsafe-inline' means an inline script does
+        not execute here at all.
+
+        data-ikb-endpoint is "kb_progress.php", RELATIVE, so it can only ever
+        resolve to /client/kb_progress.php and never into /agent/. That endpoint
+        re-runs this page's own visibility clause against the database on every
+        request, and reproduces client/post.php's portal-preview write gate
+        verbatim, in the same position, above any read of a request value - read
+        its header for why it is a second portal write path and what that costs.
+    */ ?>
+    <div class="card-body prettyContent"
+         data-ikb-root
+         data-ikb-version="<?php echo \ITFlow\KB\InteractiveBlocks::VERSION; ?>"
+         data-ikb-article="<?php echo $kb_article_id; ?>"
+         data-ikb-readonly="<?php echo $ikb_read_only ? '1' : '0'; ?>"
+         data-ikb-endpoint="kb_progress.php"
+         data-ikb-csrf="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES); ?>"
+         data-ikb-progress="<?php echo htmlspecialchars($ikb_progress_json, ENT_QUOTES); ?>"
+         data-ikb-hashes="<?php echo htmlspecialchars($ikb_hashes_json, ENT_QUOTES); ?>">
         <h3><?php echo $kb_article_title; ?></h3>
         <p class="text-muted"><small>Last updated: <?php echo date('M j, Y', strtotime($kb_article_updated_at)); ?></small></p>
         <hr>
@@ -183,6 +285,15 @@ $sql_attachments = mysqli_query(
     </ul>
 </div>
 <?php } ?>
+
+<?php /*
+    The render layer. Emitted by this page rather than added to
+    client/includes/footer.php's fixed script list, so the portal's other pages
+    do not ship it - the same reasoning that gates portal_preview_readonly.js
+    there. It is inert without a [data-ikb-root] anyway; this just avoids the
+    download. defer, because all of its work is event-driven.
+*/ ?>
+<script src="/js/kb_interactive.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/kb_interactive.js'); ?>" defer></script>
 
 <?php
 require_once "includes/footer.php";

@@ -197,6 +197,16 @@ function itflow_nav_icon_class($icon, $fallback = 'fa-link')
          per-company accent block below (so a custom accent still overrides them). -->
     <link rel="stylesheet" href="/css/itflow.bind-tabler.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow.bind-tabler.css') ?>">
 
+    <!-- Interactive KB blocks (checklist / guided steps / tabs / accordion /
+         decision tree / copy). Scoped entirely under .ikb*, so it cannot reach a
+         page that renders no blocks; loaded unconditionally because the portal's
+         header is emitted from client/includes/inc_all.php before
+         client/kb_article.php could set a flag, and keeping the two shells
+         identical on this point is worth ~6 KB. Last of the first-party sheets:
+         it consumes the --if-* tokens the design layer declares and overrides no
+         framework rule, every class name in it being novel. -->
+    <link rel="stylesheet" href="/css/itflow_kb.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_kb.css') ?>">
+
     <!-- Per-company appearance customizer: recolor the CSS-variable theme from the chosen accent.
          $theme_accent_hex / $effective_theme_dark were resolved above (before <html>). This block
          also pushes the accent straight into Bootstrap 5's own variables; css/itflow.bind-tabler.css

@@ -90,7 +90,20 @@ if (isset($kb_groups['Uncategorized'])) {
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-book me-2"></i>Knowledge Base</h3>
-        <div class="card-tools">
+        <?php /* flex-wrap, added when the third importer made this row four buttons wide.
+                 css/itflow.shim-adminlte.css:57-63 gives every .card-tools in the app
+                 `display:flex; flex-shrink:0` and no wrap - correct for the 117 files with
+                 one or two buttons in the header, and a horizontal scrollbar here.
+                 MEASURED at 390x844 in Chromium on this page: the row already overflowed
+                 the viewport by 245px with Categories + Import Word Doc + Import PDF +
+                 New Article, and Import HTML took that to 386px.
+                 BOTH classes are needed and I measured each: flex-wrap alone still
+                 overflowed by 402px, because the shim's flex-shrink:0 keeps the box at
+                 its max-content width so nothing is ever constrained enough to wrap.
+                 flex-wrap + flex-shrink-1 together take the page overflow to 0 and the
+                 buttons stack. Scoped to this page's own markup rather than fixed in the
+                 shim, which the other 116 files depend on. */ ?>
+        <div class="card-tools flex-wrap flex-shrink-1 justify-content-end gap-2">
             <?php if ($kb_can_write) { ?>
                 <button type="button" class="btn btn-secondary ajax-modal" data-modal-url="modals/kb_category/kb_category_manage.php">
                     <i class="fas fa-folder me-2"></i>Categories
@@ -100,6 +113,9 @@ if (isset($kb_groups['Uncategorized'])) {
                 </button>
                 <button type="button" class="btn btn-secondary ajax-modal" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_import_pdf.php<?php if (isset($client_id)) { echo "?client_id=$client_id"; } ?>">
                     <i class="fas fa-file-pdf me-2"></i>Import PDF
+                </button>
+                <button type="button" class="btn btn-secondary ajax-modal" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_import_html.php<?php if (isset($client_id)) { echo "?client_id=$client_id"; } ?>">
+                    <i class="fas fa-code me-2"></i>Import HTML
                 </button>
                 <button type="button" class="btn btn-primary ajax-modal" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_add.php<?php if (isset($client_id)) { echo "?client_id=$client_id"; } ?>">
                     <i class="fas fa-plus me-2"></i>New Article
