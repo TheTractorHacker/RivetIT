@@ -107,6 +107,18 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
    also add a stray gap under the last card on every page. */
 .card + .card { margin-top: 1rem; }
 
+/* Tabler's .card-group gives each child `flex: 1 0 0` (equal grow, no shrink,
+   zero basis) so siblings SHOULD end up equal-width - but it never sets
+   min-width on those children, and a flex item's default min-width is auto
+   (its own content's min-content size), not 0. Project Details' three-up
+   card-group (name/description, owner/dates, ticket+task progress) has
+   real, variable content in each slot - a client name, an assignee name, a
+   due date - and whichever slot's content happens to be widest wins extra
+   width at its siblings' expense instead of the row splitting evenly.
+   min-width: 0 removes that content-driven floor so flex-basis actually
+   governs the split, which is the equal-thirds look .card-group promises. */
+.card-group > .card { min-width: 0; }
+
 /* ---- Buttons: quiet, precise ---- */
 .btn { font-weight: 500; border-radius: var(--if-radius-sm); padding: .4rem .85rem; letter-spacing: -0.01em; }
 .btn-sm { padding: .28rem .6rem; border-radius: 7px; }
