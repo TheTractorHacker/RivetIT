@@ -235,15 +235,15 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         </td>
                         <td>
                             <?php if($ticket_count) { ?>
+                            <small class="text-secondary d-block"><i class="fa fa-fw fa-life-ring me-1"></i><?php echo $closed_ticket_count; ?> / <?php echo $ticket_count; ?> closed</small>
                             <div class="progress" style="height: 20px;">
-                                <i class="fa fas fa-fw fa-life-ring me-2"></i>
-                                <div class="progress-bar bg-primary" style="width: <?php echo $tickets_closed_percent; ?>%;"><?php echo $closed_ticket_count; ?> / <?php echo $ticket_count; ?></div>
+                                <div class="progress-bar bg-primary" style="width: <?php echo $tickets_closed_percent; ?>%;"></div>
                             </div>
                             <?php } else { echo "<div>-</div>"; } ?>
                             <?php if($task_count) { ?>
-                            <div class="progress mt-2" style="height: 20px;">
-                                <i class="fa fas fa-fw fa-tasks me-2"></i>
-                                <div class="progress-bar bg-secondary" style="width: <?php echo $tasks_completed_percent; ?>%;"><?php echo $completed_task_count; ?> / <?php echo $task_count; ?></div>
+                            <small class="text-secondary d-block mt-2"><i class="fa fa-fw fa-tasks me-1"></i><?php echo $completed_task_count; ?> / <?php echo $task_count; ?> done</small>
+                            <div class="progress mt-1" style="height: 20px;">
+                                <div class="progress-bar bg-secondary" style="width: <?php echo $tasks_completed_percent; ?>%;"></div>
                             </div>
                             <?php } ?>
                         </td>

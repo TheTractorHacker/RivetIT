@@ -94,7 +94,7 @@ while ($t = mysqli_fetch_assoc($sql_tasks)) {
 
 ?>
 
-<link rel="stylesheet" href="css/ticket_kanban.css">
+<link rel="stylesheet" href="css/ticket_kanban.css?v=<?= file_exists(__DIR__ . '/css/ticket_kanban.css') ? filemtime(__DIR__ . '/css/ticket_kanban.css') : time() ?>">
 <style>
     /* css/ticket_kanban.css hardcodes flat AdminLTE-3-era greys (#f4f4f4 column,
        #f9f9f9 status well, #fff/#ddd task cards) that clash with the light/dark
@@ -169,7 +169,7 @@ while ($t = mysqli_fetch_assoc($sql_tasks)) {
                     $t_created_ticket_id = intval($item['task_created_ticket_id'] ?? 0);
                     $t_created_ticket_prefix = nullable_htmlentities($item['created_ticket_prefix'] ?? '');
                     $t_created_ticket_number = nullable_htmlentities($item['created_ticket_number'] ?? '');
-                    $create_ticket_url = "modals/ticket/ticket_add.php?client_id=$project_client_id&project_id=$project_id&source_task_id=$t_id&subject=" . urlencode($item['task_name'] ?? '');
+                    $create_ticket_url = "modals/ticket/ticket_add_v2.php?client_id=$project_client_id&project_id=$project_id&source_task_id=$t_id&subject=" . urlencode($item['task_name'] ?? '');
                     ?>
                     <div class="task grab-cursor" data-task-id="<?= $t_id ?>" data-task-status="<?= $lane ?>">
                         <div class="d-flex justify-content-between align-items-start">

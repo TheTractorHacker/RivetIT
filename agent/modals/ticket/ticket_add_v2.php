@@ -6,6 +6,15 @@ $client_id = intval($_GET['client_id'] ?? 0);
 $contact_id = intval($_GET['contact_id'] ?? 0);
 $project_id = intval($_GET['project_id'] ?? 0);
 
+/* Opened from a project task's "Create Ticket" action (project_details.php,
+   project_kanban.php) - see agent/post/ticket.php's add_ticket handler for
+   where source_task_id is consumed. Prefill only, nothing here is trusted;
+   the handler re-validates against the posted project_id before writing
+   anything back to the task. */
+$prefill_subject = nullable_htmlentities(trim((string) ($_GET['subject'] ?? '')));
+$prefill_details  = nullable_htmlentities(trim((string) ($_GET['details'] ?? '')));
+$source_task_id   = intval($_GET['source_task_id'] ?? 0);
+
 ob_start();
 
 ?>
@@ -25,6 +34,10 @@ ob_start();
         <input type="hidden" name="project_id" value="<?php echo $project_id; ?>">
     <?php } ?>
     <input type="hidden" name="billable" value="0">
+
+    <?php if ($source_task_id) { ?>
+        <input type="hidden" name="source_task_id" value="<?php echo $source_task_id; ?>">
+    <?php } ?>
 
     <div class="modal-body">
 
@@ -95,12 +108,12 @@ ob_start();
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
                         </div>
-                        <input type="text" class="form-control" id="subjectInput" name="subject" placeholder="Subject" maxlength="500" required>
+                        <input type="text" class="form-control" id="subjectInput" name="subject" placeholder="Subject" maxlength="500" value="<?php echo $prefill_subject; ?>" required>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <textarea class="form-control tinymceTicket" id="detailsInput" name="details"></textarea>
+                    <textarea class="form-control tinymceTicket" id="detailsInput" name="details"><?php echo $prefill_details; ?></textarea>
                 </div>
 
                 <div class="row">
