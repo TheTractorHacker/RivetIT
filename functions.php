@@ -5193,9 +5193,61 @@ function opportunityStatusForStage($stage) {
  * never re-geocode on every page view. Returns null (not an exception) on
  * any failure - a network hiccup or an address Nominatim can't resolve
  * should never block saving the location itself.
+ *
+ * THREE PROGRESSIVELY LESS PRECISE ATTEMPTS, not one. Nominatim's data is
+ * OpenStreetMap's - crowdsourced, and a building's exact house number is
+ * routinely missing even when the street itself is well mapped. Measured on a
+ * real address from this install, "4721 S Zero St, Fort Smith, AR 72908, US":
+ * the full address returns zero results, but "S Zero St, Fort Smith, AR"
+ * resolves cleanly to the street centerline. Landing a marker on the right
+ * street, a few hundred feet from the true door, is a far better outcome than
+ * "not on the map at all" - which is what a single exact-address attempt gave
+ * this location. A location that still fails all three tiers (an address
+ * Nominatim has never heard of at any level) still returns null exactly as
+ * before; this only adds attempts that would otherwise not have been tried.
  */
 function geocodeAddress(string $address, string $city, string $state, string $zip, string $country): ?array {
-    $query = trim(implode(', ', array_filter([$address, $city, $state, $zip, $country])));
+    $full = trim(implode(', ', array_filter([$address, $city, $state, $zip, $country])));
+    $result = geocodeAddressQuery($full);
+    if ($result !== null) {
+        return $result;
+    }
+
+    // Tier 2: drop the house number, keep the street name. "4721 S Zero St"
+    // -> "S Zero St". Only attempted when $address actually starts with one -
+    // an address that is already just a street name (or is empty) gains
+    // nothing from this tier and would just repeat tier 1's query.
+    $street_only = preg_replace('/^\s*\d+[A-Za-z]?\s+/', '', $address);
+    if ($street_only !== '' && $street_only !== $address) {
+        sleep(1); // stay under Nominatim's ~1 req/sec policy between attempts
+        $query = trim(implode(', ', array_filter([$street_only, $city, $state, $zip, $country])));
+        $result = geocodeAddressQuery($query);
+        if ($result !== null) {
+            return $result;
+        }
+    }
+
+    // Tier 3: city + state (+ zip/country) alone, no street at all. The
+    // coarsest useful result - a marker somewhere in the right city beats no
+    // marker - and the last resort before giving up.
+    $city_only = trim(implode(', ', array_filter([$city, $state, $zip, $country])));
+    if ($city_only !== '' && $city_only !== $full) {
+        sleep(1);
+        $result = geocodeAddressQuery($city_only);
+        if ($result !== null) {
+            return $result;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * The single Nominatim call geocodeAddress()'s tiers each make. Split out
+ * purely so the three attempts above share one HTTP/parsing implementation
+ * rather than three copies of it.
+ */
+function geocodeAddressQuery(string $query): ?array {
     if ($query === '') {
         return null;
     }
