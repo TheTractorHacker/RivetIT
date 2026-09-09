@@ -301,7 +301,11 @@ foreach ($roots_by_department as $dept_id => $dept) {
     foreach ($dept['root_ids'] as $root_id) {
         $dept_body .= org_chart_render_subtree_html($root_id, $contacts_by_id, $children_by_manager, $rendered);
     }
-    $dept_name_display = nullable_htmlentities($dept['name']);
+    // $dept['name'] is already HTML-escaped: it's built from department_name
+    // (nullable_htmlentities($row['client_name']), line 96) or the literal
+    // '(No Department)' fallback above - escaping it again here would
+    // double-encode any department name containing &, <, >, or a quote.
+    $dept_name_display = $dept['name'];
     $root_count = count($dept['root_ids']);
     $root_label = $root_count === 1 ? 'root' : 'roots';
     $tree_html .= "<div class='card mb-3'>";

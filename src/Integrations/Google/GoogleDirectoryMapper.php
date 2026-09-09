@@ -39,9 +39,18 @@ use ITFlow\Directory\FieldMapping;
  * caller needs to change, but their distribution differs from Odoo's. It
  * also means a renamed org unit or an employee whose primaryEmail changed
  * since the last sync will not be re-linked to its old client/contact row
- * - it will read as a new department/employee instead. If full parity
- * with Odoo's rename-survival is wanted later, add
- * client_google_links/contact_google_links mirroring
+ * - it will read as a new department/employee instead.
+ *
+ * THIS IS NOT ONLY A RENAME-TIME EDGE CASE - bare-name matching against
+ * `clients.client_name` can collide on the very FIRST sync, not just after
+ * a later rename: if a client/department with that exact name already
+ * exists for any unrelated reason (created by hand, or by Odoo sync -
+ * "Sales" is exactly the kind of name two independent systems both use),
+ * this mapper silently attaches to and starts writing Google-sourced
+ * employees into it, with no signal to the admin that two different
+ * external sources are now feeding the same department. If full parity
+ * with Odoo's rename-survival AND day-one collision safety is wanted
+ * later, add client_google_links/contact_google_links mirroring
  * client_odoo_links/contact_odoo_links exactly and this class can adopt
  * the same three-step match Odoo uses.
  *
@@ -88,22 +97,6 @@ use ITFlow\Directory\FieldMapping;
  */
 class GoogleDirectoryMapper
 {
-    // Real, writable contacts.* columns only (grepped against db.sql) - a
-    // defense-in-depth allow-list. target_field ultimately comes from
-    // admin-supplied, DB-stored config (directory_field_mappings), so even
-    // though FieldMapping::forProvider() is expected to only ever return
-    // real column names, this class never trusts that assumption blindly
-    // before interpolating a target_field into a raw SQL identifier
-    // position, per THE FIXED CONTRACT's explicit instruction.
-    private const ALLOWED_TARGET_FIELDS = [
-        'contact_name',
-        'contact_title',
-        'contact_phone',
-        'contact_mobile',
-        'contact_email',
-        'contact_department',
-    ];
-
     private $mysqli;
     private int $googleIntegrationId;
     private int $triggeredBy;
@@ -375,7 +368,17 @@ class GoogleDirectoryMapper
         $targets = [];
 
         foreach (FieldMapping::forProvider($this->mysqli, 'google') as $sourceField => $targetField) {
-            if (!in_array($targetField, self::ALLOWED_TARGET_FIELDS, true)) {
+            // target_field ultimately comes from admin-supplied, DB-stored
+            // config (directory_field_mappings), so even though
+            // FieldMapping::forProvider() is expected to only ever return
+            // real column names, this class never trusts that assumption
+            // blindly before interpolating a target_field into a raw SQL
+            // identifier position, per THE FIXED CONTRACT's explicit
+            // instruction - re-checked here against the SAME shared
+            // allow-list forProvider() itself already filtered by
+            // (FieldMapping::isValidTargetField()), not a second,
+            // independently-maintained copy of it.
+            if (!FieldMapping::isValidTargetField($targetField)) {
                 continue;
             }
 

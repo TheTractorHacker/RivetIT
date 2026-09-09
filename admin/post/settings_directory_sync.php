@@ -30,15 +30,21 @@ if (isset($_POST['save_microsoft_integration'])) {
 
     $tenant_id = sanitizeInput($_POST['tenant_id'] ?? '');
     $client_id = sanitizeInput($_POST['client_id'] ?? '');
-    $enabled = isset($_POST['enabled']) ? 1 : 0;
-    $intune_sync_enabled = isset($_POST['intune_sync_enabled']) ? 1 : 0;
-    // New field (DB update 2.6.79) - additive, so any pre-existing caller of this
-    // same POST key that doesn't send it just gets 0, same as any other boolean
-    // field on this form it doesn't send; both the Directory Sync tab's full
-    // credential form and the Device Sync tab's slim Intune-only form (this
-    // handler's two real callers now) always pass it explicitly (live value or
-    // a hidden passthrough), so neither ever clobbers the other's setting.
-    $directory_sync_enabled = isset($_POST['directory_sync_enabled']) ? 1 : 0;
+    // Each of these three is a REAL checkbox (submitted only when checked,
+    // literal "1") on the tab that owns it, and a HIDDEN passthrough
+    // (always submitted, literal "1" or "0") on the OTHER tab's form - see
+    // admin/settings_integrations.php around msDirectorySyncEnabled/
+    // msIntuneSyncEnabled. A hidden field is present in $_POST regardless
+    // of its value, so isset() alone is always true for it - checking only
+    // presence made saving EITHER tab silently force the OTHER tab's
+    // setting back to enabled even when its hidden value was "0". Checking
+    // the actual submitted value (not just presence) is correct for both
+    // shapes: a checked checkbox submits "1", an unchecked one is absent
+    // (isset false -> 0), and a hidden passthrough submits its real "1"/"0"
+    // literally either way.
+    $enabled = (isset($_POST['enabled']) && $_POST['enabled'] === '1') ? 1 : 0;
+    $intune_sync_enabled = (isset($_POST['intune_sync_enabled']) && $_POST['intune_sync_enabled'] === '1') ? 1 : 0;
+    $directory_sync_enabled = (isset($_POST['directory_sync_enabled']) && $_POST['directory_sync_enabled'] === '1') ? 1 : 0;
 
     $existing = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT microsoft_integration_id FROM microsoft_integrations ORDER BY microsoft_integration_id DESC LIMIT 1"));
 

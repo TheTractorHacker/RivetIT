@@ -58,6 +58,27 @@ use ITFlow\Directory\FieldMapping;
  * (mirroring client_odoo_links/contact_odoo_links exactly) is the fix, for
  * whichever lane owns schema next.
  *
+ * TWO CONCRETE RISKS this email-only matching carries in practice, not just
+ * a theoretical "no updated outcome":
+ *   1. DUPLICATE CONTACTS ON EMAIL CHANGE. The match query searches by THIS
+ *      run's Graph `mail`/`userPrincipalName` value. If that value changed
+ *      since the contact was created (a rename, a domain migration), the
+ *      row holding the OLD email is never found - this run creates a
+ *      second contact instead of updating the first, and the mapper has
+ *      no way to notice or reconcile the two afterward.
+ *   2. UNRELATED ARCHIVES GET SILENTLY REACTIVATED. Because the match is
+ *      not filtered to non-archived contacts (see above - that filter is
+ *      what caused a re-enabled Entra user to wrongly duplicate instead of
+ *      reactivate), any contact sharing that email gets un-archived the
+ *      moment a Graph user with accountEnabled=true syncs to it - even if
+ *      that contact was archived through a completely unrelated path (a
+ *      manual archive, an Odoo-driven termination). There is no way for
+ *      this mapper to tell "archived by a previous Microsoft sync run" apart
+ *      from "archived for an unrelated reason" without a link table.
+ * Both are accepted v1 trade-offs of the no-link-table design above, not
+ * bugs to work around case-by-case - the fix for both is the same
+ * client_microsoft_links/contact_microsoft_links pair.
+ *
  * FIELD MAPPING — calls FieldMapping::forProvider($mysqli, 'microsoft')
  * for jobTitle, mobilePhone and businessPhones (first element only — Graph
  * returns this as an array; same "pick one field from a small set"
@@ -96,8 +117,12 @@ class MicrosoftDirectoryMapper
      * $entraGroupsOrDepartments, leaving the exact shape open:
      *   - a plain department-name string, or
      *   - a raw Graph user dict (as returned by GraphClient::getUsers()) —
-     *     its `department` field is read, or
-     *   - a group/record-like array carrying `displayName` or `name`.
+     *     its `department` field is read, and ONLY that field: a user with
+     *     no department set contributes nothing (extractDepartmentName()
+     *     deliberately does not fall back to displayName/name for an
+     *     array entry — the real caller, settings_directory_sync.php,
+     *     passes raw Graph user dicts here, and a name-based fallback
+     *     fabricated a bogus one-off department for every such user).
      * Duplicate names (expected — many users share one department string)
      * are resolved once and reused; the `clients` table is never queried
      * twice for the same name within one run.
@@ -334,7 +359,16 @@ class MicrosoftDirectoryMapper
             return trim($entry);
         }
         if (is_array($entry)) {
-            $name = $entry['department'] ?? $entry['displayName'] ?? $entry['name'] ?? '';
+            // Every real caller (settings_directory_sync.php) passes raw Graph
+            // USER dicts here, not group/record entries - every one of those
+            // carries a `department` key (possibly null/blank) AND a
+            // `displayName`. A displayName/name fallback therefore fired for
+            // every user with no department set, fabricating a bogus
+            // department record in that user's own name. v1 is documented
+            // (class docblock, "DEPARTMENTS") as user.department-only - a
+            // blank department means "no department", full stop, not "guess
+            // one from the name". No fallback for a user-shaped entry.
+            $name = $entry['department'] ?? '';
             return trim((string) $name);
         }
 

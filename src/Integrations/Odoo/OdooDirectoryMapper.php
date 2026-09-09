@@ -2,6 +2,8 @@
 
 namespace ITFlow\Integrations\Odoo;
 
+use ITFlow\Directory\FieldMapping;
+
 /**
  * OdooDirectoryMapper — matches Odoo hr.department/hr.employee records
  * (pulled via OdooClient::listDepartments()/listEmployees()) to ITFlow
@@ -96,10 +98,16 @@ class OdooDirectoryMapper {
     public function syncEmployees(array $employees, array $departmentIdMap): array {
         $stats = ['created' => 0, 'updated' => 0, 'matched' => 0, 'skipped' => 0, 'errors' => []];
 
+        // Loaded once per run, not per employee - same reasoning as
+        // MicrosoftDirectoryMapper::syncEmployees(): this table doesn't
+        // change mid-sync. FieldMapping::forProvider() already filters to
+        // enabled rows with an allow-listed target_field.
+        $fieldMap = FieldMapping::forProvider($this->mysqli, 'odoo');
+
         foreach ($employees as $emp) {
             $label = trim((string) ($emp['name'] ?? '')) ?: ('id ' . intval($emp['id'] ?? 0));
             try {
-                $outcome = $this->syncEmployee($emp, $departmentIdMap);
+                $outcome = $this->syncEmployee($emp, $departmentIdMap, $fieldMap);
                 $stats[$outcome]++;
             } catch (\Exception $e) {
                 $stats['errors'][] = "$label: " . $e->getMessage();
@@ -183,7 +191,7 @@ class OdooDirectoryMapper {
         }
     }
 
-    private function syncEmployee(array $emp, array $departmentIdMap): string {
+    private function syncEmployee(array $emp, array $departmentIdMap, array $fieldMap): string {
         $m       = $this->mysqli;
         $intg_id = $this->odooIntegrationId;
 
@@ -194,13 +202,15 @@ class OdooDirectoryMapper {
             return 'skipped';
         }
 
-        $name_esc   = mysqli_real_escape_string($m, $name);
-        $email      = trim((string) ($emp['work_email'] ?? ''));
-        $email_esc  = mysqli_real_escape_string($m, $email);
-        $title_esc  = mysqli_real_escape_string($m, trim((string) ($emp['job_title'] ?? '')));
-        $phone_esc  = mysqli_real_escape_string($m, trim((string) ($emp['work_phone'] ?? '')));
-        $mobile_esc = mysqli_real_escape_string($m, trim((string) ($emp['mobile_phone'] ?? '')));
-        $active     = !empty($emp['active']);
+        $name_esc  = mysqli_real_escape_string($m, $name);
+        // work_email is the unconditional match/create identity field, same
+        // as Microsoft's mail/userPrincipalName - it is never itself
+        // reconfigurable via Field Mapping, only the other 3 source fields
+        // (job_title/work_phone/mobile_phone) are.
+        $email     = trim((string) ($emp['work_email'] ?? ''));
+        $email_esc = mysqli_real_escape_string($m, $email);
+        $mapped_set_sql = $this->buildMappedFieldsSql($emp, $fieldMap);
+        $active    = !empty($emp['active']);
         $employment_status = $active ? 'active' : 'terminated';
 
         $dept_field   = $emp['department_id'] ?? false;
@@ -216,7 +226,7 @@ class OdooDirectoryMapper {
 
         if ($existing) {
             $contact_id = intval($existing['contact_id']);
-            $this->applyEmployeeFields($contact_id, $name_esc, $email, $email_esc, $title_esc, $phone_esc, $mobile_esc, $employment_status, $active, $contact_client_id);
+            $this->applyEmployeeFields($contact_id, $name_esc, $email, $email_esc, $employment_status, $active, $contact_client_id, $mapped_set_sql);
             return 'updated';
         }
 
@@ -232,7 +242,7 @@ class OdooDirectoryMapper {
         }
 
         if ($contact_id !== null) {
-            $this->applyEmployeeFields($contact_id, $name_esc, $email, $email_esc, $title_esc, $phone_esc, $mobile_esc, $employment_status, $active, $contact_client_id);
+            $this->applyEmployeeFields($contact_id, $name_esc, $email, $email_esc, $employment_status, $active, $contact_client_id, $mapped_set_sql);
             $this->upsertEmployeeLink($contact_id, $odoo_employee_id);
             return 'matched';
         }
@@ -241,11 +251,10 @@ class OdooDirectoryMapper {
         $archived_sql = $active ? 'NULL' : 'NOW()';
         mysqli_query($m,
             "INSERT INTO contacts SET
-             contact_name='$name_esc', contact_email='$email_esc', contact_title='$title_esc',
-             contact_phone='$phone_esc', contact_mobile='$mobile_esc',
+             contact_name='$name_esc', contact_email='$email_esc',
              contact_client_id=$contact_client_id, contact_employee_type='employee',
              contact_employment_status='$employment_status', contact_archived_at=$archived_sql,
-             contact_created_at=NOW()"
+             contact_created_at=NOW()" . ($mapped_set_sql !== '' ? ", $mapped_set_sql" : '')
         );
         $contact_id = intval(mysqli_insert_id($m));
         $this->upsertEmployeeLink($contact_id, $odoo_employee_id);
@@ -253,18 +262,55 @@ class OdooDirectoryMapper {
         return 'created';
     }
 
+    // Builds the SET fragment for whatever contacts.* columns the admin has
+    // enabled via Field Mapping for provider='odoo' (job_title/work_phone/
+    // mobile_phone - work_email is handled separately in syncEmployee(),
+    // it is this mapper's identity field and not itself reconfigurable).
+    // $fieldMap is already filtered to enabled rows with an allow-listed
+    // target_field by FieldMapping::forProvider(), but isValidTargetField()
+    // is checked again here anyway - same reasoning as
+    // MicrosoftDirectoryMapper::buildMappedFieldsSql(): target_field becomes
+    // a bare SQL column identifier below, and the fixed contract requires
+    // that check at every point a target_field reaches SQL.
+    private function buildMappedFieldsSql(array $emp, array $fieldMap): string {
+        $m = $this->mysqli;
+
+        $sourceValues = [
+            'job_title'     => trim((string) ($emp['job_title'] ?? '')),
+            'work_phone'    => trim((string) ($emp['work_phone'] ?? '')),
+            'mobile_phone'  => trim((string) ($emp['mobile_phone'] ?? '')),
+        ];
+
+        $assignments = [];
+        foreach ($fieldMap as $sourceField => $targetField) {
+            if (!array_key_exists($sourceField, $sourceValues)) {
+                continue; // a mapping row for a source field this provider doesn't offer (e.g. a stray 'work_email' row, or garbage)
+            }
+            if (!FieldMapping::isValidTargetField($targetField)) {
+                continue;
+            }
+
+            $value_esc = mysqli_real_escape_string($m, $sourceValues[$sourceField]);
+            $assignments[] = "`$targetField`='$value_esc'";
+        }
+
+        return implode(', ', $assignments);
+    }
+
     // $email/$emailEsc kept separate since an empty Odoo work_email should never
     // blank out a human-entered contact_email - the field is only included in
     // the SET clause when Odoo actually supplied a value.
-    private function applyEmployeeFields(int $contactId, string $nameEsc, string $email, string $emailEsc, string $titleEsc, string $phoneEsc, string $mobileEsc, string $employmentStatus, bool $active, int $contactClientId): void {
+    private function applyEmployeeFields(int $contactId, string $nameEsc, string $email, string $emailEsc, string $employmentStatus, bool $active, int $contactClientId, string $mappedSetSql): void {
         $sql = "UPDATE contacts SET
-            contact_name='$nameEsc', contact_title='$titleEsc',
-            contact_phone='$phoneEsc', contact_mobile='$mobileEsc',
+            contact_name='$nameEsc',
             contact_employment_status='$employmentStatus',
             contact_archived_at=" . ($active ? 'NULL' : 'COALESCE(contact_archived_at, NOW())');
 
         if ($email !== '') {
             $sql .= ", contact_email='$emailEsc'";
+        }
+        if ($mappedSetSql !== '') {
+            $sql .= ", $mappedSetSql";
         }
         // Only move a contact's department when this run actually resolved one -
         // a transient lookup miss (e.g. that department errored this run)
