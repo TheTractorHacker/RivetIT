@@ -41,10 +41,19 @@ REQUIRED_BASE_PACKAGES=(nginx mariadb-server certbot python3-certbot-nginx ufw f
 # with php8.4-common (a dependency of every package below) — nothing to list.
 REQUIRED_PHP_PACKAGES=(php8.4-fpm php8.4-cli php8.4-mysql php8.4-curl php8.4-gd php8.4-mbstring php8.4-intl php8.4-xml php8.4-zip php8.4-bcmath php8.4-opcache)
 
-# Mirrors .gitignore's uploads/* subdirectory list (the directories that
-# exist outside git, each normally holding a tracked `index.php` placeholder
-# that denies directory listing).
-UPLOAD_SUBDIRS=(contracts clients custom documents document_templates expenses recurring_tickets settings users tmp tickets ticket_templates)
+# Every uploads/* subdirectory the application writes to. All but `kb` also
+# appear in .gitignore, each normally holding a tracked `index.php` placeholder
+# that denies directory listing.
+#
+# `kb` is the KB media tree - DOCX/PDF-imported inline images and article
+# attachments. Until now nothing created it here and the importers relied on
+# mkdirMissing() at first use, which makes the directory under PHP-FPM's umask
+# instead of the ownership and mode set_file_permissions() applies to
+# everything else. Creating it here puts it on the same footing. NOTE for
+# whoever owns .gitignore: it still has no `uploads/kb/*` entry, so KB images
+# imported in a git working copy show up as untracked files; that entry should
+# land with the rest of this change.
+UPLOAD_SUBDIRS=(contracts clients custom documents document_templates expenses kb recurring_tickets settings users tmp tickets ticket_templates)
 
 # ---------------------------------------------------------------------------
 # Options (defaults — populated by parse_args)

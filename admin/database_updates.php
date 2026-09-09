@@ -7073,6 +7073,49 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
     if (CURRENT_DATABASE_VERSION == '2.6.77') {
 
+        /* DEPLOY ORDER IS ENFORCED HERE, NOT DOCUMENTED IN A RUNBOOK.
+         *
+         * The storage migration further down rewrites every stored KB media URL
+         * to point at /agent/kb_media.php. Running it against an install whose
+         * CODE has not been deployed yet turns every KB image on the agent
+         * page, the department portal and the Android app into a 404 - measured
+         * on the live box 2026-09-08, where /var/www/mw-itflow.foleyit.com has
+         * no agent/kb_media.php and no client/kb_media.php at all, while
+         * midwest_itflow.kb_articles holds 15 raw /uploads/kb/<id>/<name> URLs
+         * across 3 rows that render correctly today.
+         *
+         * So refuse rather than half-apply, the same way the 2.6.77 block above
+         * refuses when $config_settings_enc_key is missing. Nothing has been
+         * modified at this point, so the install keeps working exactly as it
+         * did; deploy the code and run the update again.
+         *
+         * dirname(__DIR__), not $_SERVER['DOCUMENT_ROOT']: this file is reached
+         * both over HTTP (admin/post/update.php:297) and from the CLI
+         * (scripts/update_cli.php:117), and DOCUMENT_ROOT is unset in the
+         * second. __DIR__ is this file's own directory, admin/, in both. */
+        /* BOTH endpoints, not just the agent one. The portal's render path is
+           repointed at /client/kb_media.php unconditionally at code-deploy time -
+           client/kb_article.php calls MediaUrlRewriter::toPortal() whether or not
+           this update has run - so an install carrying agent/kb_media.php but not
+           client/kb_media.php would pass a one-file guard and still have every
+           image broken for every department contact. Check what is actually
+           required, which is the whole serving surface. */
+        foreach (['agent/kb_media.php', 'client/kb_media.php'] as $kb_media_serve_endpoint) {
+            if (is_file(dirname(__DIR__) . '/' . $kb_media_serve_endpoint)) {
+                continue;
+            }
+            echo "Database update 2.6.77 -> 2.6.78 aborted: $kb_media_serve_endpoint is not on disk.\n";
+            echo "This update rewrites stored KB media URLs to point at those endpoints, so the\n";
+            echo "application code has to be deployed BEFORE the database is updated.\n";
+            echo "Deploy the code, then run the database update again.\n";
+            echo "The database has NOT been modified.\n";
+            /* exit(1), not exit(). deploy/update.sh runs this and checks the exit
+               status; a bare exit() returns 0, so a refused migration was reported
+               as a SUCCESS and the script carried on to composer install and the
+               php-fpm reload as if the database were up to date. */
+            exit(1);
+        }
+
         /* KB media capability-token signing key.
          *
          * Holds an ENC2-wrapped 64-hex secret used by \ITFlow\KB\MediaToken to
@@ -7081,11 +7124,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
          * external-browser download.
          *
          * The COLUMN is created here; the VALUE is minted lazily by
-         * MediaToken::key() on first use, with a race-free conditional UPDATE.
-         * That is deliberate - an install that upgrades and immediately serves
-         * an API request must work without an admin visiting a settings screen,
-         * and generating it here would put a secret in the update path of every
-         * install whether or not it ever uses the API.
+         * MediaToken::keyForSigning() on first SIGNING use, with a race-free
+         * conditional UPDATE. That is deliberate - an install that upgrades and
+         * immediately serves an API request must work without an admin visiting
+         * a settings screen, and generating it here would put a secret in the
+         * update path of every install whether or not it ever uses the API.
+         * (Minting deliberately does NOT hang off the verification path; see
+         * the note on MediaToken::key(), which is read-only for that reason.)
          *
          * VARCHAR(300), not 255: encryptSetting() wraps 64 hex characters as
          * 'ENC2:' + base64(12-byte nonce + 16-byte tag + 64-byte ciphertext) =
@@ -7098,7 +7143,115 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
          * file does SELECT *, so the ciphertext is transiently in its $row, but
          * it must never become a page-scope global that a var_dump or a verbose
          * error handler would print. Only MediaToken reads it. */
-        mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_kb_media_key` VARCHAR(300) NULL DEFAULT NULL");
+        /* IF NOT EXISTS because the 2.6.78 block does substantial work AFTER this
+         * line - the whole storage migration - and the version bump only happens at
+         * the end. If anything between them fails, the update is re-run from
+         * 2.6.77, and a bare ADD would then die on "Duplicate column" before
+         * reaching the rewrite that had not finished. MariaDB 10.11 supports it. */
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_kb_media_key` VARCHAR(300) NULL DEFAULT NULL");
+
+        /* STORAGE MIGRATION: legacy /uploads/kb/... -> the canonical
+         * authenticated URL, in the two columns that hold rendered article HTML.
+         *
+         * WHY IT HAS TO BE A STORAGE CHANGE and not just the render-time
+         * MediaUrlRewriter that agent/kb_article.php, client/kb_article.php,
+         * the version-history modal and api/v1/kb.php already run: the TinyMCE
+         * EDIT modal loads the RAW stored HTML on purpose - see the comment
+         * above the $kb_article_content assignment in
+         * agent/modals/kb_article/kb_article_edit.php; normalising there would
+         * rewrite stored content as a side effect of opening an editor. So
+         * without this, once
+         * /uploads/kb/ is denied at the web server an agent editing an
+         * unmigrated article sees broken images inside the editor and Save
+         * re-bakes the dead URL (agent/post/kb_article.php stores what the
+         * editor submitted). The corpus could never converge. The render-time
+         * rewriters stay as belt-and-braces for anything this misses.
+         *
+         * WHAT IS REWRITTEN. Only the two shapes the two writers actually
+         * produced - /uploads/kb/<article_id>/<name> (the DOCX and PDF
+         * importers) and flat /uploads/kb/<name> (the TinyMCE uploader pool) -
+         * and only when <name> matches the ONE definition of a valid reference
+         * name, functions.php::isUploadReferenceName(): [A-Za-z0-9_-]+.[A-Za-z0-9]+.
+         * A name outside that class is left alone deliberately: the serve
+         * endpoints re-validate against the same pattern and would refuse it,
+         * so rewriting it would swap a working URL for a guaranteed 403.
+         *
+         * THE TRAILING (?!...) IS LOAD-BEARING, and it is there because the
+         * first version of this migration was wrong. Without it the name part
+         * is unanchored, so '/uploads/kb/13/archive.tar.gz' matched only as far
+         * as 'archive.tar' and the row came out holding
+         * '/agent/kb_media.php?a=13&amp;f=archive.tar.gz' - a URL the serve
+         * endpoint refuses (two dots is not a reference name) built out of a
+         * path that used to work. Reproduced against the copy of the live
+         * tables in kbmedia_lane3 on MariaDB 10.11.14; with the lookahead the
+         * same row is left byte-identical and counted in the warning below.
+         * The class is the set of characters a longer filename, a percent
+         * escape, a query string or a fragment would continue with, so a
+         * partial match is impossible in all four cases.
+         *
+         * The two patterns cannot overlap. '/uploads/kb/13/x.png' does not
+         * match the flat pattern, because after '/uploads/kb/' the flat pattern
+         * needs a dot before the next '/' and '13' has none. Verified on this
+         * MariaDB 10.11.14 before writing this, and again on a full copy of the
+         * live KB tables (kbmedia_lane3).
+         *
+         * Idempotent, so a re-run or a partially-applied update cannot corrupt
+         * anything: the WHERE only selects rows that still contain the legacy
+         * prefix, and REGEXP_REPLACE on an already-canonical row is a no-op
+         * because '/agent/kb_media.php?a=' does not match either pattern.
+         * Measured: running the two statements a second time left
+         * MD5(GROUP_CONCAT(kb_article_content)) unchanged at
+         * 704a6f9e8ceb58952a120ab3b16ba79a.
+         *
+         * The *_content_raw columns are NOT touched: they are the plaintext
+         * FULLTEXT index columns and hold no markup (measured on live -
+         * 0 rows of kb_articles or kb_article_versions have '/uploads/kb' in
+         * them). */
+        $kb_media_name_end        = '(?![A-Za-z0-9_.%?#-])';
+        $kb_media_article_pattern = '/uploads/kb/([0-9]+)/([A-Za-z0-9_-]+[.][A-Za-z0-9]+)' . $kb_media_name_end;
+        $kb_media_pool_pattern    = '/uploads/kb/([A-Za-z0-9_-]+[.][A-Za-z0-9]+)' . $kb_media_name_end;
+
+        // '&amp;', not '&': every one of these URLs lives in an HTML attribute
+        // in the stored content, which is what the DOCX importer already writes
+        // (agent/post/kb_article.php) and what the purifier expects on the way
+        // back out.
+        mysqli_query($mysqli,
+            "UPDATE `kb_articles`
+                SET `kb_article_content` = REGEXP_REPLACE(
+                        REGEXP_REPLACE(`kb_article_content`,
+                            '$kb_media_article_pattern', '/agent/kb_media.php?a=\\\\1&amp;f=\\\\2'),
+                        '$kb_media_pool_pattern', '/agent/kb_media.php?f=\\\\1')
+              WHERE `kb_article_content` LIKE '%/uploads/kb/%'"
+        );
+        $kb_media_migrated_articles = mysqli_affected_rows($mysqli);
+
+        mysqli_query($mysqli,
+            "UPDATE `kb_article_versions`
+                SET `kb_article_version_content` = REGEXP_REPLACE(
+                        REGEXP_REPLACE(`kb_article_version_content`,
+                            '$kb_media_article_pattern', '/agent/kb_media.php?a=\\\\1&amp;f=\\\\2'),
+                        '$kb_media_pool_pattern', '/agent/kb_media.php?f=\\\\1')
+              WHERE `kb_article_version_content` LIKE '%/uploads/kb/%'"
+        );
+        $kb_media_migrated_versions = mysqli_affected_rows($mysqli);
+
+        /* Anything still holding a legacy path after that is a shape neither
+         * writer produces - a nested subdirectory, or a filename outside the
+         * reference-name class - and it will break when /uploads/kb/ is denied.
+         * Name it now, loudly, rather than letting it turn up as a broken image
+         * weeks later: there is no automatic repair for it, the file has to be
+         * re-inserted through the editor. */
+        $kb_media_leftover = intval(mysqli_fetch_assoc(mysqli_query($mysqli,
+            "SELECT
+                (SELECT COUNT(*) FROM `kb_articles` WHERE `kb_article_content` LIKE '%/uploads/kb/%')
+              + (SELECT COUNT(*) FROM `kb_article_versions` WHERE `kb_article_version_content` LIKE '%/uploads/kb/%')
+              AS cnt"))['cnt']);
+
+        echo "KB media: migrated $kb_media_migrated_articles article row(s) and $kb_media_migrated_versions version row(s) to the authenticated media URL.\n";
+        if ($kb_media_leftover > 0) {
+            echo "WARNING: $kb_media_leftover KB row(s) still contain a /uploads/kb/ path in an unrecognised shape (nested directory, or a filename outside [A-Za-z0-9_-]+.[A-Za-z0-9]+). Those images will break once /uploads/kb/ is denied at the web server; re-insert them through the editor.\n";
+            logApp("Database", "warning", "DB update 2.6.78: $kb_media_leftover KB content row(s) kept an unrecognised /uploads/kb/ path and were not migrated.");
+        }
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.78'");
     }

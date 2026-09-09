@@ -78,19 +78,30 @@ final class MediaToken
        query and a decrypt per image for no reason. $key_loaded is separate from
        $key_cache because null is a legitimate cached answer ("no key on this
        install"), and re-trying the lookup on every call would turn a
-       misconfigured install into a query storm. */
+       misconfigured install into a query storm.
+
+       $mint_attempted is the same guard for the WRITE side, and it is needed
+       for exactly the same reason. keyForSigning() runs after key() has already
+       cached its null, so without this flag an install whose settings column is
+       missing (the pre-2.6.78 state) would attempt an encryptSetting(), an
+       UPDATE and a re-read PER SIGNED URL - about 2 x (images + attachments)
+       throwing queries for one article response, instead of one failed attempt
+       for the whole request. One attempt per request either way. */
     private static ?string $key_cache = null;
     private static bool $key_loaded = false;
+    private static bool $mint_attempted = false;
 
     /**
      * The one true shape of a stored KB media filename.
      *
-     * The PERMISSIVE form, matching agent/kb_article_attachment.php:124. It has
-     * to match both generators actually in use: DOCX import names files
-     * bin2hex(random_bytes(16)) . '.' . ext, and checkFileUpload()
-     * (functions.php:2461) names them md5 . randomString(2) . '.' . ext where
-     * randomString() (functions.php:12) is base64url - so '-' and '_' really do
-     * occur, in a measured 1-(62/64)^2 = 6.15% of uploads.
+     * The PERMISSIVE form. It has to match every generator actually in use:
+     * BOTH KB importers in agent/post/kb_article.php - the DOCX one and the
+     * newer PDF one - name their extracted images
+     * bin2hex(random_bytes(16)) . '.' . ext, and
+     * checkFileUpload() (functions.php:2461) names uploads
+     * md5 . randomString(2) . '.' . ext where randomString()
+     * (functions.php:12) is base64url - so '-' and '_' really do occur, in a
+     * measured 1-(62/64)^2 = 6.15% of uploads.
      *
      * The character class also carries the injectivity proof for payload()
      * below: it cannot represent "\n", so a filename can never absorb the
@@ -134,8 +145,15 @@ final class MediaToken
      * Leading zeros are refused so that the string form is canonical: 't1' and
      * 't01' would otherwise be two distinct payloads naming one principal,
      * which breaks the "one principal, one signature" property that makes
-     * reasoning about replay possible. The 10-digit cap keeps the value inside
-     * a 32-bit signed int, which is what the id columns are.
+     * reasoning about replay possible.
+     *
+     * The 10-digit cap is a LENGTH bound, not a range check - do not read it as
+     * one. Ten digits reaches 9,999,999,999, which is about 4.7x the 2,147,483,647
+     * that api_tokens.token_id / api_keys.api_key_id / users.user_id actually
+     * hold (all int(11) signed, db.sql:88/123/3808). Its job is only to stop a
+     * multi-kilobyte digit string being carried into a signed payload and a
+     * query; the range check belongs to the database, which performs it by
+     * finding no row.
      */
     public static function isValidPrincipal(string $principal): bool
     {
@@ -213,7 +231,11 @@ final class MediaToken
             return null;
         }
 
-        $key = self::key();
+        // keyForSigning(), not key(): this is THE ONLY path allowed to create
+        // the secret, because minting writes to the settings table and this
+        // path is only ever reached from an already-authenticated caller. See
+        // the two functions at the bottom of this file.
+        $key = self::keyForSigning();
         if ($key === null) {
             return null;
         }
@@ -236,11 +258,29 @@ final class MediaToken
         if (!preg_match('/^[a-f0-9]{64}$/', $candidate)) {
             return false;
         }
-
-        $expected = self::sign($kind, $ref, $file, $principal, $expires);
-        if ($expected === null) {
+        if (!self::tupleOk($kind, $ref, $file, $principal, $expires)) {
             return false;
         }
+
+        /* DELIBERATELY NOT sign(). This used to be `$expected = self::sign(...)`,
+           and that one call made the whole endpoint reachable as a settings
+           WRITE by an anonymous stranger: agent/kb_media.php's signed branch
+           calls verify() before any principal is resolved, verify() called
+           sign(), sign() called key(), and key() minted the secret and UPDATEd
+           settings.config_kb_media_key. Reproduced with a single cookieless
+           curl carrying 64 zeros as the signature - the request 403'd, and the
+           key had been created by the time it did.
+
+           Verification is a READ. It uses the read-only key() and fails closed
+           when there is no key, so no unauthenticated request can cause a write
+           anywhere in this class. tupleOk() is re-run here rather than
+           inherited from sign(), so dropping that call cost no validation. */
+        $key = self::key();
+        if ($key === null) {
+            return false;
+        }
+
+        $expected = hash_hmac('sha256', self::payload($kind, $ref, $file, $principal, $expires), $key);
 
         return hash_equals($expected, $candidate);
     }
@@ -257,7 +297,7 @@ final class MediaToken
      *
      * $base_host is $config_base_url, which is HOST-ONLY on this codebase
      * (setup/index.php:57 sets it from $_SERVER['HTTP_HOST'], and
-     * functions.php:3938 writes "https://$config_base_url/..."), so the scheme
+     * functions.php:3968 writes "https://$config_base_url/..."), so the scheme
      * is prepended literally here for the same reason.
      *
      * Returns a RAW url with literal '&' separators. A caller putting this in
@@ -296,31 +336,29 @@ final class MediaToken
     }
 
     /**
-     * The signing key: 64 hex characters, stored ENC2-wrapped in
+     * The signing key, READ ONLY: 64 hex characters, stored ENC2-wrapped in
      * settings.config_kb_media_key and decrypted with config.php's
      * $config_settings_enc_key.
+     *
+     * THIS FUNCTION NEVER WRITES ANYTHING, AND THAT IS A SECURITY PROPERTY, NOT
+     * A STYLE CHOICE. It is on the verification path, and the verification path
+     * is reachable by a completely anonymous HTTP request: agent/kb_media.php's
+     * signed branch calls verify() before it has resolved any principal. When
+     * the mint lived in here, one cookieless curl with a junk signature caused
+     * an UPDATE to the settings table. Minting now lives in keyForSigning()
+     * below, which only sign() calls. Read the note there before moving either.
      *
      * WHY THAT COLUMN AND NOT A CONSTANT IN config.php. It has to be per
      * install and it has to survive a code deploy, so it belongs in the
      * database; and everything secret in the settings table is already wrapped
-     * by encryptSetting(), whose writer fails closed (functions.php:5050) rather
-     * than silently storing cleartext.
+     * by encryptSetting(), whose writer fails closed (it throws at
+     * functions.php:5081) rather than silently storing cleartext.
      *
      * DELIBERATELY NOT ADDED TO includes/load_global_settings.php. That file
      * does SELECT * (line 4), so the ciphertext is transiently in its $row, but
      * it must never become a page-scope global: a var_dump in a debug session
      * or a verbose error handler would then print the KB media signing key onto
      * a page. Nothing outside this class needs it.
-     *
-     * LAZY PROVISIONING, RACE-FREE. The key is minted on first use rather than
-     * by the database update, so an install that upgrades and immediately
-     * serves an API request works without an admin visiting a settings screen.
-     * The write is a single CONDITIONAL UPDATE whose WHERE re-tests emptiness,
-     * so two concurrent minters cannot both win: InnoDB serializes them on the
-     * row lock and the loser's UPDATE matches zero rows. Both then re-read, so
-     * both end up using whichever key was actually committed. Without the
-     * condition the loser would overwrite the winner and instantly invalidate
-     * every URL the winner had already signed.
      *
      * Returns null - never a fabricated or empty key - when anything is
      * missing. Every caller treats null as "cannot sign / cannot verify", which
@@ -339,37 +377,104 @@ final class MediaToken
             return null;
         }
 
-        // functions.php is what defines these. Guarded rather than assumed
+        // functions.php is what defines this. Guarded rather than assumed
         // because this class is autoloaded and could in principle be reached
         // from a bootstrap that never pulled functions.php in.
-        if (!function_exists('encryptSetting') || !function_exists('decryptSetting')) {
+        if (!function_exists('decryptSetting')) {
             return null;
         }
 
-        // No wrapping key means encryptSetting() would throw and decryptSetting()
-        // would return ''. Check first so the failure is a clean null rather
-        // than an exception escaping into a binary response.
+        // No wrapping key means decryptSetting() would return ''. Check first so
+        // the failure is a clean null rather than a garbage key that signs URLs
+        // nothing can verify.
         if (empty($GLOBALS['config_settings_enc_key'])) {
             return null;
         }
 
-        $existing = self::readKey($mysqli);
+        self::$key_cache = self::readKey($mysqli);
+        return self::$key_cache;
+    }
+
+    /**
+     * The key, minting it if this install has none. THE ONLY WRITER.
+     *
+     * WHO MAY REACH THIS, traced rather than assumed - re-trace it if you add a
+     * caller. keyForSigning() <- sign() <- signedUrl() <- exactly two places,
+     * both in api/v1/kb.php: the attachment loop calls signedUrl() directly, and
+     * the content rewrite calls MediaUrlRewriter::toSigned(), which is the only
+     * other caller of signedUrl() in the tree. api/v1/index.php has already
+     * authenticated the request (a Bearer token, or a legacy X-Api-Key that is
+     * still within api_key_expire) before kb.php is included at all. So the
+     * settings write can only ever be caused by a caller that has already proved
+     * who it is. verify() deliberately does not come through here; see key()
+     * above for what happened when it did. Cited by symbol, not by line: those
+     * two call sites move, and a stale line number reads as a lie.
+     *
+     * LAZY PROVISIONING, RACE-FREE. The key is minted on first signing use
+     * rather than by an admin action, so an install that has run the 2.6.78
+     * database update serves its first API article correctly with nobody
+     * visiting a settings screen. The write is a single CONDITIONAL UPDATE
+     * whose WHERE re-tests emptiness, so two concurrent minters cannot both
+     * win: InnoDB serializes them on the row lock and the loser's UPDATE
+     * matches zero rows. Both then re-read, so both end up using whichever key
+     * was actually committed. Without the condition the loser would overwrite
+     * the winner and instantly invalidate every URL the winner had already
+     * signed.
+     *
+     * LAZY IS NOT THE SAME AS SAFE TO DEPLOY IN ANY ORDER. Until
+     * config_kb_media_key exists as a COLUMN, readKey() catches the
+     * mysqli_sql_exception, the UPDATE below catches it too, and signing is
+     * simply off - which for the Android client means every KB inline image and
+     * every KB attachment link is broken, not degraded. The database update
+     * must therefore land BEFORE or WITH the code, never after. That ordering
+     * is a deploy-runbook obligation, not something this class can enforce.
+     */
+    private static function keyForSigning(): ?string
+    {
+        $existing = self::key();
         if ($existing !== null) {
-            self::$key_cache = $existing;
             return $existing;
         }
 
-        try {
-            $wrapped = \encryptSetting(bin2hex(random_bytes(32)));
-        } catch (\Throwable $e) {
-            // encryptSetting() throws rather than store cleartext. Signing is
-            // off on this install until config.php is fixed; serving already
-            // works for every cookie-bearing client.
+        // One mint attempt per request, no matter how many URLs get signed.
+        // See $mint_attempted at the top of the class for the measurement.
+        if (self::$mint_attempted) {
+            return null;
+        }
+        self::$mint_attempted = true;
+
+        $mysqli = $GLOBALS['mysqli'] ?? null;
+        if (!($mysqli instanceof \mysqli)) {
+            return null;
+        }
+        if (!function_exists('encryptSetting') || !function_exists('decryptSetting')) {
+            return null;
+        }
+        if (empty($GLOBALS['config_settings_enc_key'])) {
             return null;
         }
 
-        $wrapped_esc = mysqli_real_escape_string($mysqli, $wrapped);
+        /* ONE try AROUND THE WHOLE MINT, deliberately - all three statements can
+           throw and every one of them means the same thing ("this install
+           cannot sign right now"), so they share a fail-closed exit:
+             - encryptSetting() throws rather than store a secret in cleartext;
+             - mysqli_real_escape_string() throws a plain Error ("mysqli object
+               is already closed") on a handle that was never connected or has
+               been closed. This one used to sit BETWEEN the two try blocks and
+               was therefore uncaught: measured on PHP 8.4 by driving this class
+               with an unconnected mysqli, an anonymous verify() came out as an
+               uncaught Error, i.e. an HTTP 500 in the middle of an image
+               response. It is inside the try now;
+             - the UPDATE throws mysqli_sql_exception when config_kb_media_key
+               does not exist yet (PHP 8.1+ defaults to
+               MYSQLI_REPORT_ERROR|MYSQLI_REPORT_STRICT and this codebase never
+               calls mysqli_report - see readKey() below), which is exactly the
+               pre-2.6.78 state.
+           An escaping throwable here would land in the middle of what the
+           caller intends to be a JSON API response. */
         try {
+            $wrapped     = \encryptSetting(bin2hex(random_bytes(32)));
+            $wrapped_esc = mysqli_real_escape_string($mysqli, $wrapped);
             mysqli_query(
                 $mysqli,
                 "UPDATE settings
@@ -378,12 +483,12 @@ final class MediaToken
                     AND (config_kb_media_key IS NULL OR config_kb_media_key = '')"
             );
         } catch (\Throwable $e) {
-            // Same missing-column case as readKey() below. Nothing to mint into.
             return null;
         }
 
         // Re-read rather than trusting the value just written: under the race
-        // above this is how the loser discovers the winner's key.
+        // above this is how the loser discovers the winner's key. Assigning the
+        // memo directly is correct because key() has already set $key_loaded.
         self::$key_cache = self::readKey($mysqli);
         return self::$key_cache;
     }

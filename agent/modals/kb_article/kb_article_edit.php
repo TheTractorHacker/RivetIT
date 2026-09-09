@@ -10,6 +10,29 @@ $sql = mysqli_query($mysqli, "SELECT * FROM kb_articles WHERE kb_article_id = $k
 $row = mysqli_fetch_assoc($sql);
 
 $kb_article_title = nullable_htmlentities($row['kb_article_title']);
+
+/* RAW STORED HTML, ON PURPOSE - do not add a MediaUrlRewriter call here.
+ *
+ * The three VIEW paths (agent/kb_article.php, client/kb_article.php, the
+ * version-history modal) rewrite KB media URLs at render time. This one must
+ * not: whatever TinyMCE is handed is what post.php stores again on Save, so a
+ * render-time transform applied here would silently rewrite stored content as a
+ * side effect of somebody opening an editor - a storage change wearing a render
+ * change's clothes, and one that would fire on every article every time.
+ *
+ * What makes that safe is that STORAGE is already canonical. The 2.6.77 ->
+ * 2.6.78 database update rewrites every legacy /uploads/kb/... URL in
+ * kb_articles and kb_article_versions to /agent/kb_media.php?..., and it
+ * refuses to run until that endpoint is on disk. So by the time the web server
+ * starts denying /uploads/kb/, the HTML loaded here already points at the
+ * authenticated endpoint - which this agent's own session cookie satisfies, so
+ * the images render inside TinyMCE and a Save round-trips them unchanged.
+ *
+ * The one shape that does not survive is a hand-authored path the migration
+ * deliberately skipped (a nested subdirectory, or a filename outside
+ * isUploadReferenceName()'s character class). The update prints a warning
+ * naming how many of those it found; there is no automatic repair, the image
+ * has to be re-inserted. */
 $kb_article_content = nullable_htmlentities($row['kb_article_content']);
 $kb_article_client_id = intval($row['kb_article_client_id']);
 if ($kb_article_client_id) {

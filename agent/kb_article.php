@@ -54,16 +54,24 @@ $kb_article_content = $purifier->purify($row['kb_article_content']);
  * for those this call is a no-op (verified: toAgentCanonical() is idempotent
  * and leaves an already-canonical src byte-identical). It exists for the rows
  * written before that change - measured on the live database 2026-09-08, 3
- * kb_articles rows and 2 kb_article_versions rows still hold raw
- * /uploads/kb/<id>/<file> paths. Those work today only because /uploads is
+ * kb_articles rows (15 URLs) and 2 kb_article_versions rows (9 URLs) still hold
+ * raw /uploads/kb/<id>/<file> paths. Those work today only because /uploads is
  * served without authentication, which is the hole this whole change closes;
  * once nginx denies it they would be broken images on this page.
  *
+ * BELT, WITH BRACES ELSEWHERE. Storage itself is fixed by the 2.6.77 -> 2.6.78
+ * database update, which rewrites those same rows in place (verified against a
+ * full copy of the live tables: 3 + 2 rows migrated, 0 legacy paths left, and
+ * a re-run left the content hash unchanged). This call stays anyway - it costs
+ * 0.06 ms on content with no media because the rewriter short-circuits on
+ * containsMedia() - and it is what covers a row restored from a pre-migration
+ * backup.
+ *
  * RENDER-TIME ONLY, deliberately. The edit modal loads the RAW stored HTML into
- * TinyMCE, so an unmigrated article still round-trips its old URL through an
- * edit - normalising there would rewrite stored content as a side effect of
- * opening the editor, which is a storage change wearing a render change's
- * clothes. The storage migration is what fixes storage. */
+ * TinyMCE on purpose; see the note at the top of
+ * agent/modals/kb_article/kb_article_edit.php for why normalising there would
+ * be a storage change wearing a render change's clothes. The migration is what
+ * fixes storage. */
 $kb_article_content = \ITFlow\KB\MediaUrlRewriter::toAgentCanonical($kb_article_content);
 $kb_article_content = (new \ITFlow\Knowledge\CredentialReferenceRenderer())->render($kb_article_content);
 $kb_article_client_id = intval($row['kb_article_client_id']);

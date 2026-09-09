@@ -59,7 +59,7 @@ function kbMediaUserIsAdmin(int $user_id): bool
  * Byte-for-byte the same two queries as api_has_module_permission()
  * (api/v1/includes/api_permissions.php:10) - admin role bypasses, otherwise
  * user_role_permissions JOIN modules - which is itself the API mirror of
- * lookupUserPermission() (functions.php:3380).
+ * lookupUserPermission() (functions.php:3410).
  *
  * Level 1, not 2, at the call site: viewing an attachment or an inline image is
  * a READ, and requiring write would lock read-only KB roles out of the very
@@ -106,14 +106,14 @@ function kbMediaHasModuleKb(int $user_id, int $min_level = 1): bool
 
 /**
  * Department (client) scope for one already-known client id. The bool-returning
- * twin of enforceClientAccess() (functions.php:3439) and of
+ * twin of enforceClientAccess() (functions.php:3469) and of
  * api_client_scope_ok() (api/v1/includes/api_permissions.php:78).
  *
  * IDENTICAL RULE, stated explicitly because it is surprising:
  *   - an article with client_id 0 is not department-scoped and is readable by
  *     anyone who got past the module check. This mirrors the callers of
  *     enforceClientAccess(), which all guard it with `if ($client_id > 0)` -
- *     including agent/kb_article_attachment.php:105.
+ *     including agent/kb_article_attachment.php:106.
  *   - an admin role bypasses everything.
  *   - a user with ZERO user_client_permissions rows is allowed ALL departments.
  *     That is a fail-OPEN default and it looks wrong in isolation, but it is
@@ -124,9 +124,26 @@ function kbMediaHasModuleKb(int $user_id, int $min_level = 1): bool
  *
  * $key_client_id is the legacy X-Api-Key's own api_key_client_id restriction,
  * 0 for "no restriction". It is ANDed on top rather than replacing the user
- * scope, exactly as api_client_scope_ok():81 does - the key resolves to the
- * fallback admin user, so without this a department-scoped legacy key would
- * mint an admin-scoped capability.
+ * scope - the key resolves to the fallback admin user, so without it a
+ * department-scoped legacy key would mint an admin-scoped capability.
+ *
+ * THE RULE THIS MUST TRACK IS $kb_client_scope_clause IN api/v1/kb.php - NOT
+ * api_client_scope_ok(). That distinction was got wrong once, and it broke
+ * every image in every company-wide article for department-scoped legacy
+ * keys, so it is written down here. api_client_scope_ok()
+ * (api_permissions.php:81) applies the key restriction to EVERY client_id
+ * including 0 - but the KB article endpoint does not use it. It builds
+ *
+ *     (kb_articles.kb_article_client_id = 0 OR api_client_scope_sql(...))
+ *
+ * so a company-wide article is exempt from the key restriction entirely. This
+ * endpoint mints nothing; it only re-checks what kb.php already served. Being
+ * stricter than the endpoint that handed out the URL is not "safer", it is a
+ * guaranteed functional break - it was reproduced as a 200 on the article and
+ * a 403 on 100% of its images. Hence the `$client_id > 0` conjunct below. If
+ * that clause ever changes, change this with it. (Named by symbol, not by
+ * line: grep -n kb_client_scope_clause api/v1/kb.php finds it in one hop and
+ * cannot go stale under an unrelated edit.)
  */
 function kbMediaClientAccessOk(int $user_id, int $client_id, int $key_client_id = 0): bool
 {
@@ -136,9 +153,11 @@ function kbMediaClientAccessOk(int $user_id, int $client_id, int $key_client_id 
         return false;
     }
 
-    // The key's restriction binds even on an unscoped (client_id 0) article and
-    // even for an admin: it is a property of the credential, not of the person.
-    if ($key_client_id > 0 && $key_client_id !== $client_id) {
+    // The key's restriction binds even for an admin - it is a property of the
+    // credential, not of the person - but NOT on a company-wide (client_id 0)
+    // article, because api/v1/kb.php's $kb_client_scope_clause does not apply
+    // it there either.
+    if ($key_client_id > 0 && $client_id > 0 && $key_client_id !== $client_id) {
         return false;
     }
 
@@ -169,9 +188,9 @@ function kbMediaClientAccessOk(int $user_id, int $client_id, int $key_client_id 
  *
  * Returns ['user_id' => int, 'key_client_id' => int] or null.
  *
- * DELIBERATELY READ-ONLY. api/v1/index.php:150 DELETEs a Bearer token it finds
- * inactive for 90 days and UPDATEs token_last_used_at on every call; this does
- * neither. A GET for an image must not mutate credential state, and refreshing
+ * DELIBERATELY READ-ONLY. api/v1/index.php:151 DELETEs a Bearer token it finds
+ * inactive for 90 days, and :158 UPDATEs token_last_used_at on every call; this
+ * does neither. A GET for an image must not mutate credential state, and refreshing
  * token_last_used_at from a media fetch would let a stream of <img> requests
  * keep a token alive that no API client is actually using.
  */
@@ -192,11 +211,11 @@ function kbMediaResolvePrincipal(string $principal): ?array
     }
 
     if ($type === 't') {
-        /* Bearer token. The three user filters are api/v1/index.php:137-141
+        /* Bearer token. The three user filters are api/v1/index.php:141-143
            verbatim - a token whose owner was disabled, archived or demoted out
            of user_type 1 stops working everywhere else, so it must stop working
-           here too. The COALESCE clause is the SQL form of index.php:149's
-           90-day inactivity expiry: same cut-off, minus the DELETE. */
+           here too. The COALESCE clause is the SQL form of the 90-day inactivity
+           expiry at api/v1/index.php:149-150: same cut-off, minus the DELETE. */
         $row = mysqli_fetch_assoc(mysqli_query(
             $mysqli,
             "SELECT t.token_user_id
@@ -238,7 +257,7 @@ function kbMediaResolvePrincipal(string $principal): ?array
         }
 
         // api_keys has no user column at all, so the API resolves a legacy key
-        // to "the first admin". Same query as api/v1/index.php:189-193, so the
+        // to "the first admin". Same query as api/v1/index.php:190-192, so the
         // two cannot pick different users.
         $admin = mysqli_fetch_assoc(mysqli_query(
             $mysqli,

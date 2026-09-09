@@ -66,12 +66,14 @@
  * ---------------------------------------------------------------------------
  * ONE DECISION PER REQUEST
  * ---------------------------------------------------------------------------
- * The branch is taken on the PRESENCE of ?s=, not on its validity. A bad
- * signature is 403 even for a logged-in agent sitting in front of the article;
- * it never falls back to the cookie. That is what makes an access-log line
- * unambiguous about which rule admitted or refused a request, and it removes
- * the class of bug where a broken signature quietly works for exactly the
- * people who would never notice.
+ * The branch is taken on the PRESENCE of ?s=, not on its validity, and not on
+ * its SHAPE either - isset($_GET['s']) is the test, so ?s[]=x is a 403 rather
+ * than a quiet fall-through to the cookie (it used to be the latter; see the
+ * comment at the branch itself). A bad signature is 403 even for a logged-in
+ * agent sitting in front of the article; it never falls back to the cookie.
+ * That is what makes an access-log line unambiguous about which rule admitted
+ * or refused a request, and it removes the class of bug where a broken
+ * signature quietly works for exactly the people who would never notice.
  */
 
 // Binary endpoint: bootstrap $mysqli, the settings and the function library
@@ -157,20 +159,37 @@ $force_download = !empty($_GET['download']);
 //    $auth_user_id set to a live user (or the request already dead).
 // ---------------------------------------------------------------------------
 
-$signature = kbMediaParam('s');
+/* THE BRANCH IS TAKEN ON PRESENCE, NOT ON SHAPE - see the invariant at the top
+   of this file. isset($_GET['s']) rather than kbMediaParam('s') !== null,
+   because kbMediaParam() returns null for anything that is not a string, so
+   ?s[]=x used to make $signature null and take the SESSION branch - while this
+   file claimed in as many words that a request carrying ?s= never falls back to
+   the cookie. Verified by driving the four lines below with $_GET set to each
+   shape: 's' absent -> session branch; 's' a string (including '') -> signed
+   branch; 's' a list, an assoc array, or repeated -> 403 here. No privilege was
+   ever gained by the old behaviour (the session branch is itself fully
+   authenticated and the same agent could fetch the URL with no ?s= at all), but
+   an access-log line was not unambiguous about which rule admitted the request,
+   which is precisely the property the invariant exists to provide. */
+$has_signature = isset($_GET['s']);
+$signature     = kbMediaParam('s');
+if ($has_signature && $signature === null) {
+    kbMediaFail(403, 'Access denied');
+}
 
 // Whether the article must still be un-archived. Each mode mirrors ITS OWN
 // consumer's article query - that is the rule:
-//   - the signed branch serves the API, and api/v1/kb.php:44 filters on
-//     kb_article_archived_at IS NULL, so an archived article's media must be
-//     just as unreachable as the article itself.
+//   - the signed branch serves the API, and api/v1/kb.php's article-detail
+//     query filters on kb_article_archived_at IS NULL, so an archived
+//     article's media must be just as unreachable as the article itself.
 //   - the session branch serves agent/kb_article.php, which deliberately has NO
-//     archived filter and renders archived articles (it reads and displays
-//     $kb_article_archived_at at line 76). Adding the filter here would break
-//     every image in every archived article on the page that shows them.
+//     archived filter and renders archived articles: it assigns
+//     $kb_article_archived_at at line 73 and guards the "(Archived)" badge on
+//     it at lines 103-104. Adding the filter here would break every image in
+//     every archived article on the page that shows them.
 $require_live_article = false;
 
-if ($signature !== null) {
+if ($has_signature) {
 
     // -- SIGNED BRANCH -------------------------------------------------------
     // No session is touched anywhere in here.
@@ -194,9 +213,12 @@ if ($signature !== null) {
     if (!\ITFlow\KB\MediaToken::isValidPrincipal($principal)) {
         kbMediaFail(403, 'Access denied');
     }
-    // 10 digits caps the value inside a 32-bit int (year 2286) so intval()
-    // cannot silently saturate a longer string into something that then fails
-    // to reproduce the signed payload for a confusing reason.
+    // A LENGTH bound, not a range check. 10 digits reaches 9,999,999,999 - about
+    // 4.7x the 2,147,483,647 of a 32-bit signed int, so do not read this as one
+    // (an earlier version of this comment did, and was simply wrong). Its job is
+    // to stop a multi-kilobyte digit string being carried into intval() and into
+    // the signed payload; a value that is merely large still fails the two
+    // expiry comparisons below, which is where the real bound lives.
     if ($expires_raw === '' || strlen($expires_raw) > 10 || !ctype_digit($expires_raw)) {
         kbMediaFail(403, 'Access denied');
     }
@@ -356,12 +378,15 @@ if ($kind === \ITFlow\KB\MediaToken::KIND_ATTACHMENT) {
        /uploads/kb/<name>. There is no article id in the path, no row in any
        table, and no owner recorded anywhere - so there is nothing to scope
        against. Worse, js/app.js:318 wires that one upload URL to the `.tinymce`
-       class, and 17 files carry that class - 15 agent-side (KB articles, IT
-       documents, ticket replies, bulk emails) plus 2 in the portal, which use a
-       separate init in js/portal_tinymce_init.js that sets no
-       images_upload_url, so contacts never write to the pool. Counted, not
-       estimated. A picture pasted into a ticket reply and a picture pasted into
-       a KB article land in the same undifferentiated bucket.
+       class, and 16 files carry that class - 14 agent-side (10 under agent/, 4
+       under admin/: KB articles, IT documents, ticket replies, contract and
+       document templates, bulk emails) plus client/ticket.php and
+       client/ticket_add.php in the portal, which use a separate init in
+       js/portal_tinymce_init.js that sets no images_upload_url, so contacts
+       never write to the pool. Counted with
+       `grep -rln 'class="[^"]*\btinymce\b' --include=*.php`, re-run against
+       this tree; the same 16/14 is stated in agent/kb_article_upload.php, in
+       the comment above its json_encode() of the editor's `location`.
 
        So the rule here is "any live agent principal", with NO module check, and
        both branches agree on it. Two things follow, stated plainly:
@@ -391,8 +416,38 @@ if ($kind === \ITFlow\KB\MediaToken::KIND_ATTACHMENT) {
     /* A department-scoped legacy X-Api-Key cannot be satisfied here: a pool file
        belongs to no department, so there is no value that could match the key's
        api_key_client_id. Deny rather than treat "no department" as "any
-       department" - the branch is meant to be unreachable (api/v1/kb.php only
-       mints pool URLs for articles the key could read) and it still denies. */
+       department".
+
+       THIS BRANCH IS REACHABLE. An earlier version of this comment claimed it
+       was not; a reviewer reached it with one request. Any article whose stored
+       content holds a flat /uploads/kb/<name> pool image, fetched through the
+       API with a department-scoped legacy key, lands here and 403s that image
+       while the article itself returns 200. The deny is kept anyway, and the
+       asymmetry with the article rule above is deliberate: an article carries a
+       kb_article_client_id that api/v1/kb.php's $kb_client_scope_clause has
+       already scoped, so honouring its client_id-0 exemption is re-checking a
+       decision the API itself made - whereas a pool file carries nothing at
+       all. A picture pasted into ANOTHER department's ticket reply lives in the
+       same flat bucket, so letting a department-scoped credential read it by
+       name would hand it exactly the data its restriction exists to withhold.
+
+       The practical blast radius today is small but NOT zero, and the honest
+       version is worth writing down. Measured on the live install 2026-09-08:
+       /uploads/kb holds 20 files, 17 of them inside the per-article
+       subdirectories 13/14/15/16/18 and 3 FLAT at the top level (three copies
+       of one 3,553-byte PNG under different checkFileUpload() suffixes). So the
+       BYTES do reach the pool. What does not reach the editor is the URL:
+       agent/kb_article_upload.php requires includes/inc_all.php, which emits a
+       full HTML document ahead of its JSON, so TinyMCE never receives a usable
+       `location` and cannot have stored one - and the comment block in that
+       file records a database sweep of kb_article_content,
+       kb_article_version_content, document_content, ticket_details and
+       ticket_reply finding no flat /uploads/kb/<name> URL in any of them. (That
+       sweep is theirs, not re-run here - this session had no database access.)
+       If that endpoint is ever fixed, this deny becomes visible as broken
+       images for legacy-key callers, and the correct fix then is the schema
+       change described above - a row per pool file recording what it belongs
+       to - not relaxing this line. */
     if ($key_client_id > 0) {
         kbMediaFail(403, 'Access denied');
     }

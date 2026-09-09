@@ -391,7 +391,26 @@ if (isset($_POST['import_kb_article_pdf'])) {
 
         if (is_dir($pdf_upload_dir) && file_put_contents($pdf_upload_dir . $pdf_image_name, $pdf_image['bytes']) !== false) {
             $pdf_written_files[] = $pdf_upload_dir . $pdf_image_name;
-            $pdf_html = str_replace($pdf_image['token'], "/uploads/kb/$kb_article_id/$pdf_image_name", $pdf_html);
+
+            /* THE CANONICAL FORM, byte-identical to what the DOCX importer above
+               stores, and for every one of the same reasons - signature-free and
+               root-relative so it survives a TinyMCE edit, &amp; rather than & so
+               the stored bytes and the purified bytes already agree.
+
+               This importer was written while the media-authentication work was
+               parked on a branch, so it mirrored the DOCX handler as it stood THEN
+               and wrote a raw /uploads/kb/ path. Once the branch landed the two
+               importers disagreed: a DOCX article's images went through the
+               authenticated endpoint and a PDF article's did not. That is not
+               cosmetic - the 2.6.78 storage migration rewrites the legacy rows that
+               exist at migration time, and would silently not cover any PDF
+               imported afterwards, so once nginx denies /uploads/kb/ every image in
+               every future PDF import would 404 with nothing left to repair it. */
+            $pdf_html = str_replace(
+                $pdf_image['token'],
+                "/agent/kb_media.php?a=$kb_article_id&amp;f=$pdf_image_name",
+                $pdf_html
+            );
         } else {
             // Could not store it - drop the <img> rather than leave a dead link.
             $pdf_html = preg_replace('/<img src="' . preg_quote($pdf_image['token'], '/') . '"[^>]*>/', '', $pdf_html);

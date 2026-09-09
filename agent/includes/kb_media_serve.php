@@ -2,15 +2,17 @@
 /**
  * Shared byte-serving core for every authenticated Knowledge Base media route.
  *
- * WHY THIS FILE EXISTS - there are now three endpoints that hand a caller the
- * raw bytes of a file under /uploads/kb (agent/kb_article_attachment.php,
- * agent/kb_media.php, client/kb_media.php). Each answers a DIFFERENT
- * authorization question - an agent session, a signed API capability, a portal
- * contact - but they must all answer the "how do I put these bytes on the wire
- * without creating stored XSS at this origin" question IDENTICALLY. That part
- * is subtle, was measured painfully (see the finfo comment below), and is the
- * part where a divergence between copies becomes a vulnerability rather than a
- * bug. So it lives here exactly once.
+ * WHY THIS FILE EXISTS - three endpoints hand a caller the raw bytes of a file
+ * under /uploads/kb, and all three require THIS file (checked on disk, not
+ * assumed): agent/kb_article_attachment.php and agent/kb_media.php, plus
+ * client/kb_media.php, which src/KB/MediaUrlRewriter::PORTAL_PATH names as the
+ * portal's endpoint. Each answers a DIFFERENT authorization question - an agent
+ * session, a signed API capability, a portal contact - but they must all answer
+ * the "how do I put these bytes on the wire without creating stored XSS at this
+ * origin" question IDENTICALLY. That part is subtle, was measured painfully
+ * (see the finfo comment below), and is the part where a divergence between
+ * copies becomes a vulnerability rather than a bug. So it lives here exactly
+ * once, and a fourth caller must require it rather than re-derive it.
  *
  * Everything in this file was lifted verbatim from agent/kb_article_attachment.php
  * (the original reference implementation, lines 43-59 and 109-305 of the version
@@ -58,11 +60,19 @@ function kbMediaFail(int $status, string $message): void
  * Deliberately the PERMISSIVE form. checkFileUpload() names files
  * md5 . randomString(2) . '.' . ext, and randomString() (functions.php:12) is
  * base64url, so '-' and '_' genuinely occur - measured 1-(62/64)^2 = 6.15% of
- * uploads. The stricter /^[a-zA-Z0-9]+\.[a-zA-Z0-9]+$/ still used at
- * agent/post/kb_article.php:322 and agent/kb_article_upload.php:23 rejects
- * those, which is a pre-existing latent bug in the UPLOAD path (flagged, not
- * fixed here - it is another lane's file). The SERVE path must be permissive or
- * it would refuse to hand back files it already accepted.
+ * uploads. The SERVE path must be permissive or it would refuse to hand back
+ * files it already accepted.
+ *
+ * The stricter /^[a-zA-Z0-9]+\.[a-zA-Z0-9]+$/ that the upload path used to
+ * carry, and that rejected those 6.15%, is GONE from this repository - grep the
+ * pattern and the only hits left are this sentence and two others describing
+ * the same history. Every writer now validates through
+ * functions.php::isUploadReferenceName() (both call sites in
+ * agent/kb_article_upload.php and agent/post/kb_article.php), or through
+ * MediaToken::isValidReferenceName(), which delegates to the same function.
+ * One pattern, one definition, verified by grep after the change - not two
+ * that can drift. Named by symbol because those two files belong to another
+ * lane and their line numbers move.
  */
 function kbMediaValidReferenceName(string $reference_name): bool
 {

@@ -27,7 +27,7 @@
  * and the response are all exactly as before. What used to be ~165 lines of
  * path resolution, magic-number sniffing, inline allow-listing and RFC 5987
  * header building now lives in agent/includes/kb_media_serve.php, because
- * agent/kb_media.php (and, in the portal, client/kb_media.php) have to make the
+ * agent/kb_media.php and client/kb_media.php have to make the
  * IDENTICAL "how do I put these bytes on the wire without creating stored XSS
  * at this origin" decision. That part is subtle and was measured painfully; a
  * divergence between copies of it would be a vulnerability rather than a bug,
