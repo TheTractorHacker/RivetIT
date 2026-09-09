@@ -95,8 +95,9 @@ final class MediaToken
      * The one true shape of a stored KB media filename.
      *
      * The PERMISSIVE form. It has to match every generator actually in use:
-     * BOTH KB importers in agent/post/kb_article.php - the DOCX one and the
-     * newer PDF one - name their extracted images
+     * ALL THREE KB importers in agent/post/kb_article.php - the DOCX one,
+     * the PDF one, and the newer HTML one (line 754) - name their
+     * extracted images
      * bin2hex(random_bytes(16)) . '.' . ext, and
      * checkFileUpload() (functions.php:2461) names uploads
      * md5 . randomString(2) . '.' . ext where randomString()

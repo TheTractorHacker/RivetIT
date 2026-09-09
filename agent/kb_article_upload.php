@@ -85,8 +85,8 @@ if (!move_uploaded_file($_FILES['file']['tmp_name'], $upload_dir . $ref_name)) {
    /uploads/ is served directly by nginx with no authentication of any kind, so
    handing a raw path to the editor baked an unauthenticated URL into
    kb_article_content (and into document_content, ticket_details and every other
-   column whose editor carries the shared .tinymce class - js/app.js:289 sets
-   the selector, js/app.js:318 sets this upload URL, and 16 files carry that
+   column whose editor carries the shared .tinymce class - js/app.js:388 sets
+   the selector, js/app.js:466 sets this upload URL, and 16 files carry that
    class: 14 agent/admin-side plus client/ticket.php and client/ticket_add.php,
    which load js/portal_tinymce_init.js instead and set no images_upload_url,
    so a contact never reaches here).

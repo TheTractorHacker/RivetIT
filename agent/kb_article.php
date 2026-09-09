@@ -38,7 +38,7 @@ $purifier_config->set('Attr.DefaultImageAlt', '');
  * plugins/, then read off which results are display and which are storage).
  * Miss one of these four and that renderer shows a readable document with
  * every block's interactivity gone and no error anywhere. THERE IS A FIFTH
- * purify() call, agent/post/kb_article.php:800 in the HTML-import path - it
+ * purify() call, agent/post/kb_article.php:811 in the HTML-import path - it
  * purifies once at STORE time so imported markup is safe before it is even
  * written to kb_article_content, and every render site purifies again on its
  * own read, so missing it would not un-render anything that already renders
@@ -238,17 +238,23 @@ $sql_attachments = mysqli_query(
                     is the definition of the request body js/kb_interactive.js
                     sends.
 
-                    data-ikb-readonly is hard-coded "0": an agent session on this
-                    page has already passed enforceUserPermission('module_kb')
-                    and enforceClientAccess(), so there is no read-only agent
-                    case. The portal page computes it, because a previewing admin
-                    is one.
+                    data-ikb-readonly reflects whether the article is archived:
+                    agent/kb_progress.php correctly refuses a write when
+                    kb_article_archived_at IS NOT NULL (a 404, not a silent
+                    no-op), but the render layer still shipped live, clickable
+                    tick-boxes on an archived runbook until this echoed the
+                    actual state instead of a hard-coded "0" - an agent had no
+                    visual signal that ticking a box on an archived article
+                    would be refused. Session permission
+                    (enforceUserPermission('module_kb')/enforceClientAccess())
+                    is a separate axis from this; it gates whether the page
+                    loads at all, not whether ITS content is still writable.
                 */ ?>
                 <div class="card-body prettyContent"
                      data-ikb-root
                      data-ikb-version="<?php echo \ITFlow\KB\InteractiveBlocks::VERSION; ?>"
                      data-ikb-article="<?php echo $kb_article_id; ?>"
-                     data-ikb-readonly="0"
+                     data-ikb-readonly="<?php echo !empty($kb_article_archived_at) ? '1' : '0'; ?>"
                      data-ikb-endpoint="kb_progress.php"
                      data-ikb-csrf="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES); ?>"
                      data-ikb-progress="<?php echo htmlspecialchars($ikb_progress_json, ENT_QUOTES); ?>"

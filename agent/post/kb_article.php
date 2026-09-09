@@ -209,7 +209,7 @@ if (isset($_POST['import_kb_article_docx'])) {
 
                SIGNATURE-FREE AND ROOT-RELATIVE ON PURPOSE. This exact string has to
                survive an edit: kb_article_edit.php:13 htmlentities it into the
-               TinyMCE textarea (line 91), convert_urls:false (js/app.js:316) makes
+               TinyMCE textarea (line 91), convert_urls:false (js/app.js:433) makes
                TinyMCE hand back what it was given rather than rewriting it, and
                edit_kb_article below stores that back verbatim. A signed URL would
                expire while the editor sat open and then be baked permanently into

@@ -102,10 +102,12 @@
  * sandbox="allow-scripts" attribute and the identical ev.source identity
  * check this measurement exercised - see the "THREE LAYERS" note a few lines
  * down for exactly what each piece does today. What this measurement does
- * NOT cover, because the environment it was re-verified in afterward has no
- * Playwright-capable Node runtime (Playwright requires Node 20+; only Node
- * 18 was available), is an end-to-end headless-browser run THROUGH that real
- * binder rather than the harness's stand-in. The response policy these two
+ * NOT cover is an end-to-end headless-browser run THROUGH that real binder
+ * rather than the harness's stand-in - not because no Playwright toolchain
+ * exists in this environment (a Python-Playwright install works fine here
+ * and was the path used for other pages' verification this round), but
+ * because it was not re-run against these two endpoints specifically after
+ * js/kb_interactive.js's binder landed. The response policy these two
  * endpoints send - the only thing a missing or buggy binder could not
  * weaken, since it is enforced by the browser against the HTTP response
  * regardless of what framed it - is what this measurement verifies and

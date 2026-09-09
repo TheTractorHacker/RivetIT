@@ -43,10 +43,14 @@ namespace ITFlow\KB;
  *
  *   EMBED - the sandboxed escape hatch. The <p> is load-bearing: it is the
  *   no-JS fallback, the Android fallback, the print fallback, and the ONLY text
- *   about the embed that reaches the FULLTEXT index.
+ *   about the embed that reaches the FULLTEXT index. The href is RELATIVE
+ *   (see HtmlImporter::embedBlock()'s docblock for why) and resolves
+ *   correctly with no rewriting on agent/kb_article.php, client/kb_article.php
+ *   AND the API response the Android app reads (api/v1/kb.php rewrites it to
+ *   absolute there, since neither /agent/ nor /client/ is that response's base).
  *
  *     <div class="ikb" data-ikb="embed" data-ikb-embed="17" data-ikb-height="640">
- *       <p><a href="/agent/kb_embed.php?id=17">Interactive: VLAN subnet calculator</a>
+ *       <p><a href="kb_embed.php?id=17">Interactive: VLAN subnet calculator</a>
  *          &mdash; sizes VLAN allocations.</p>
  *     </div>
  *
@@ -589,7 +593,17 @@ final class InteractiveBlocks
     }
 
     /**
-     * JSON_UNESCAPED_SLASHES only. The value is emitted through
+     * JSON_FORCE_OBJECT, same reason kb_progress_store.php's kbProgressJson()
+     * needs it for the HTTP response: block/part keys are strings by
+     * grammar, but a sequence's part keys are commonly the numeric strings
+     * "0", "1", "2"... and PHP's json_encode() treats an array whose keys
+     * are exactly a 0-indexed numeric sequence as a JSON ARRAY, not an
+     * OBJECT, with no way to tell it apart from a real list after the fact.
+     * data-ikb-progress/data-ikb-hashes are documented (and js/kb_interactive.js
+     * parses them) as JSON OBJECTS keyed by part - without this, the exact
+     * sequences most likely to trigger it (a 3+ part sequence numbered from
+     * zero) would silently render as an array attribute instead.
+     * JSON_UNESCAPED_SLASHES otherwise: the value is emitted through
      * htmlspecialchars(..., ENT_QUOTES) at the render site, which is what makes
      * it safe inside an attribute; every key has already been through
      * isKey()/isStorableKey() and every value is an int or 16 hex characters, so
@@ -601,7 +615,7 @@ final class InteractiveBlocks
         if ($value === []) {
             return '{}';
         }
-        $json = json_encode($value, JSON_UNESCAPED_SLASHES);
+        $json = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_FORCE_OBJECT);
 
         return $json === false ? '{}' : $json;
     }
@@ -935,6 +949,19 @@ final class InteractiveBlocks
         foreach ($part->childNodes as $child) {
             if ($child instanceof \DOMElement) {
                 if (self::hasClass($child, 'ikb-body')) {
+                    continue;
+                }
+                // A part whose entire content is one nested interactive block
+                // (no separate label, no .ikb-body at this level) must not have
+                // THAT block's own container promoted as the outer part's
+                // label: render-time firstIn() (see nearestIkbAncestor() calls
+                // elsewhere in this class) correctly refuses to recognise a
+                // nested block's container as an ancestor part's label - its
+                // nearest [data-ikb] ancestor is itself, not $block - so doing
+                // it here would only add a stray ikb-label class onto the
+                // nested block while leaving the outer part exactly as
+                // unlabelled as before. Fall through to steps 2/3 instead.
+                if ($child->hasAttribute('data-ikb')) {
                     continue;
                 }
                 if (trim($child->textContent) === '') {

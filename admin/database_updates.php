@@ -7492,9 +7492,11 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
          * change to the minting format would silently break. The underscore
          * moves that guarantee into the validator.)
          *
-         * _part_hash is the stale-tick marker: substr(sha1(normalised label +
-         * "\n" + normalised body), 0, 16), written by the reader's client at
-         * tick time and handed back on load. When the key still matches but the
+         * _part_hash is the stale-tick marker: substr(sha1(normalised label .
+         * "\x1f" . normalised body), 0, 16), computed by InteractiveBlocks::
+         * partHash() at RENDER time, server-side - never by the reader's
+         * client, which only copies the value out of data-ikb-hashes and
+         * hands it back unchanged at tick time. When the key still matches but the
          * hash does not, the step has been REWRITTEN since it was ticked and the
          * render layer says so instead of silently keeping or silently dropping
          * the tick. It hashes label AND body deliberately: the design hashed the

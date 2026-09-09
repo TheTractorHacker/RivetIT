@@ -58,7 +58,7 @@
  * difference between "no such embed" and "not yours" is itself information.
  *
  * ---------------------------------------------------------------------------
- * REACHABILITY: THE IFRAME PATH WORKS TODAY: THE NO-JS FALLBACK LINK DOES NOT
+ * REACHABILITY: BOTH THE IFRAME AND THE NO-JS FALLBACK LINK WORK TODAY
  * ---------------------------------------------------------------------------
  * js/kb_interactive.js's bindEmbed() builds the iframe's src as a RELATIVE
  * URL ('kb_embed.php?id=' + id, no leading slash) - the same pattern
@@ -70,16 +70,14 @@
  * of authorization and every query below is real and independently correct:
  * the client/kb_media.php pattern applied to embeds, exactly as asked.
  *
- * WHAT STILL DOES NOT WORK: the block's no-JS fallback link, which is a
- * SEPARATE, ABSOLUTE URL baked into stored content at import time -
- * \ITFlow\KB\HtmlImporter::embedBlock() (src/KB/HtmlImporter.php) hard-codes
- * it as '/agent/kb_embed.php?id=N' - and nothing rewrites that for a portal
- * render. MediaUrlRewriter::toPortal() (src/KB/MediaUrlRewriter.php) rewrites
- * kb_media URLs the same shape needs; the equivalent case for kb_embed has
- * not been added. Until it is, a portal contact who cannot or does not run
- * JavaScript still lands on /agent/kb_embed.php and is bounced to the agent
- * login page. That gap belongs to whichever lane owns HtmlImporter.php and
- * MediaUrlRewriter.php, not this file - read those for the missing half.
+ * THE NO-JS FALLBACK LINK USES THE SAME RESOLUTION, deliberately, not a
+ * hard-coded absolute URL: \ITFlow\KB\HtmlImporter::embedBlock()
+ * (src/KB/HtmlImporter.php) stores it as the identical relative
+ * 'kb_embed.php?id=N' the iframe uses - see that method's docblock for why
+ * it departs from the kb_media convention (an absolute canonical URL
+ * rewritten per-lane by MediaUrlRewriter) on purpose. No MediaUrlRewriter
+ * case is needed here: a portal contact with JavaScript off or unavailable
+ * still lands on THIS file directly, with no bounce to the agent login page.
  */
 
 // See the bootstrap note above. Same four requires, same order, as

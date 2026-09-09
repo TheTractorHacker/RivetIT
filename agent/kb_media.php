@@ -33,7 +33,7 @@
  *     <img> subresource on a same-origin page sends it. Nothing has to be
  *     rewritten at render time, on the article page, in the portal, in the
  *     version-history modal, or - the case that actually forces this - inside
- *     the TinyMCE editor iframe. With convert_urls:false (js/app.js:316)
+ *     the TinyMCE editor iframe. With convert_urls:false (js/app.js:433)
  *     TinyMCE posts back byte-identical what it was handed, so a canonical URL
  *     round-trips through an edit unchanged. A SIGNED url in storage would
  *     either expire while the editor was open or get permanently baked into
@@ -377,7 +377,7 @@ if ($kind === \ITFlow\KB\MediaToken::KIND_ATTACHMENT) {
        agent/kb_article_upload.php writes TinyMCE's uploaded images FLAT into
        /uploads/kb/<name>. There is no article id in the path, no row in any
        table, and no owner recorded anywhere - so there is nothing to scope
-       against. Worse, js/app.js:318 wires that one upload URL to the `.tinymce`
+       against. Worse, js/app.js:466 wires that one upload URL to the `.tinymce`
        class, and 16 files carry that class - 14 agent-side (10 under agent/, 4
        under admin/: KB articles, IT documents, ticket replies, contract and
        document templates, bulk emails) plus client/ticket.php and

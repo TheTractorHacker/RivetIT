@@ -418,6 +418,41 @@ body.dark-mode .ikb-copy-wrap {
    class-toggle pattern just above. */
 .ikb-js.ikb-embed-js > .ikb-embed-fallback { display: none; }
 
+/* --------------------------------------------------------------- authoring --- */
+
+/* js/tinymce_ikb.js's New Article/Edit dialogs, NOT this file's .ikb tree - a
+   plain TinyMCE htmlpanel, so the --ikb-* tokens above (scoped to .ikb/
+   .ikb-copy-wrap) are not in scope here. Same warn colour --ikb-warn already
+   uses, applied directly rather than through the custom property, so an
+   authoring error visually matches the same tone the rendered block itself
+   uses for a warning. */
+.ikb-authoring-error {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.ikb-authoring-help,
+.ikb-authoring-note {
+  color: var(--if-muted, #5d6f76);
+  font-size: .875rem;
+}
+
+.ikb-authoring-note {
+  font-style: italic;
+}
+
+/* The dialog's live-preview mount point (a [data-ikb-root] div js/kb_interactive.js
+   renders into) - framed so the preview reads as a distinct "this is what it
+   will look like" panel rather than bleeding into the dialog's own form
+   controls above it. */
+.ikb-authoring-preview {
+  margin-top: .5rem;
+  padding: .75rem;
+  border: 1px solid var(--if-border, #e3e9ea);
+  border-radius: var(--if-radius-sm, 8px);
+  background: var(--if-bg, #f7f9fa);
+}
+
 /* ------------------------------------------------------- save indicator ---- */
 
 /* Built by js/kb_interactive.js as a Bootstrap/Tabler .alert (loaded globally

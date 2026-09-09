@@ -267,6 +267,19 @@ if (isset($kb_groups['Uncategorized'])) {
 </div>
 
 <?php
+/* The render layer, loaded from the page rather than from the shared footer
+   loop (same reasoning as agent/kb_article.php's own copy of this comment):
+   it is inert without a [data-ikb-root] element, which the New Article and
+   Edit modals' live preview provide but most pages don't. This is the ONLY
+   page that opens either modal, so without this the authoring live preview
+   never mounted at all - the dialog's "honest degrade" notice covered for
+   it, but the preview itself silently never worked. defer, so it runs after
+   the document is parsed; cache-busted by filemtime like every other
+   first-party asset. */
+?>
+<script src="/js/kb_interactive.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/kb_interactive.js'); ?>" defer></script>
+
+<?php
 require_once "../includes/footer.php";
 ?>
 

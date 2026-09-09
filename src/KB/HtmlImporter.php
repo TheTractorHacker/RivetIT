@@ -1249,15 +1249,21 @@ final class HtmlImporter
      * relative form for the same reason, and now resolves correctly with
      * JavaScript on OR off, on both the agent view and the portal.
      *
-     * THE GAP THIS DOES NOT CLOSE: api/v1/kb.php, which the Android app reads.
-     * A relative href has no defined resolution there - the app loads article
-     * HTML into a WebView via loadDataWithBaseURL() rather than fetching this
-     * page directly - but the app already cannot run the frame either (no
-     * sandboxed child WebView), so the fallback link was the only thing
-     * on offer there before this change and remains link-shaped-but-unusable
-     * after it, same as an unrewritten /agent/ URL was. Making it work on
-     * Android needs the same signed-URL treatment MediaUrlRewriter::toSigned()
-     * already gives kb_media - out of this lane's owned files; see handoff.
+     * THE GAP THIS WOULD HAVE OPENED, NOT MERELY LEFT CLOSED: api/v1/kb.php,
+     * which the Android app reads. A relative href has no defined resolution
+     * there - the app loads article HTML into a WebView via
+     * loadDataWithBaseURL() with a base that is neither '/agent/' nor
+     * '/client/', rather than fetching either page directly - and that is
+     * NOT equivalent to the old unrewritten-absolute-URL problem this
+     * comment used to describe: an absolute '/agent/kb_embed.php?id=N' at
+     * least resolved to a real, reachable path (merely login-gated for a
+     * portal reader); a relative href resolving against the API's own base
+     * can land on an entirely wrong, likely 404 path instead - worse, not
+     * the same. api/v1/kb.php closes this itself with its own small
+     * rewrite immediately after purifying (see the comment there) rather
+     * than through this class: MediaUrlRewriter's engine is purpose-built
+     * for the very different kb_media src=/href=/url() shapes with signed
+     * tokens, and this is one static link shape needing no signature.
      *
      * @param int    $embedId     kb_article_embeds.kb_article_embed_id
      * @param string $name        what the tool is, typed by the agent
@@ -1568,7 +1574,15 @@ final class HtmlImporter
                 // renderBlock(), and flag it once so run() can warn - this must
                 // never be a silent content loss.
                 $this->labelLostStructure = true;
-                $text = $this->text($node);
+                // visibleText(), not text(): text() collapses via
+                // $node->textContent directly, which inserts NO separator at
+                // element boundaries - "<p>Hello</p><p>World</p>" flattens to
+                // "HelloWorld", one run-together word, whenever the source
+                // markup had no whitespace text node between the two <p>s.
+                // visibleText() (already used by plainText() for the same
+                // reason) adds a space after every child as it recurses, so
+                // adjacent block children always end up separated.
+                $text = $this->normaliseText($this->visibleText($node, 0));
                 return $text === '' ? '' : $this->budget($this->esc($text) . ' ');
             }
             // A block element in inline context (a <div> inside a <p>, which

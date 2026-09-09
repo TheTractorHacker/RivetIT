@@ -374,6 +374,27 @@ if ($sub === 'articles') {
             $kb_content = (new \ITFlow\KB\MediaUrlRewriter($kb_media_host, $kb_media_principal))->toSigned($kb_content);
         }
 
+        /* THE EMBED FALLBACK LINK NEEDS THE SAME TREATMENT, for a different
+         * reason than media. src/KB/HtmlImporter::embedBlock() deliberately
+         * stores a RELATIVE href ('kb_embed.php?id=N') so it resolves
+         * correctly on both agent/kb_article.php and client/kb_article.php
+         * with no rewriting at all - see that method's docblock. This app
+         * loads article HTML into a WebView via loadDataWithBaseURL() with a
+         * base that is NOT '/agent/' or '/client/' (it reads from this API,
+         * not from either page), so the same relative href resolves against
+         * the wrong base here - not merely "unusable pending login" the way
+         * an unrewritten absolute /agent/ URL was before, but potentially a
+         * wrong path entirely. Not routed through MediaUrlRewriter (that
+         * class's engine is purpose-built for the very different kb_media
+         * src=/href=/url() shapes with signed tokens); this is one link
+         * shape, no signature needed - kb_embed.php re-runs its own
+         * permission check same as any agent/client page would. */
+        $kb_content = preg_replace(
+            '/href="kb_embed\.php\?id=(\d+)"/',
+            'href="https://' . $kb_media_host . '/agent/kb_embed.php?id=$1"',
+            $kb_content
+        );
+
         api_response(200, [
             'id'             => intval($row['kb_article_id']),
             'title'          => $row['kb_article_title'],
