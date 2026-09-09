@@ -1,11 +1,28 @@
 /*
- * agent/org_chart.php only.
+ * agent/org_chart.php only ("Rootline").
  *
- * A plain indented tree with a left "spine" line per nesting level - no
+ * Still a plain indented tree with a left "spine" line per nesting level - no
  * charting library, no canvas/SVG. <details>/<summary> supplies the
- * expand/collapse behaviour natively (no JS required for that part; the
- * Expand All / Collapse All buttons are the only JS on the page, and they just
- * flip the same native .open property).
+ * expand/collapse behaviour natively; agent/js/org_chart.js layers WAAPI
+ * (Web Animations API) height/opacity animation on TOP of that native
+ * behaviour for pointer/keyboard-triggered toggles only - Expand All /
+ * Collapse All stay the exact instant native .open flip they always were (see
+ * that file's comments for why), and above 800 nodes the animation layer
+ * isn't wired at all, so a huge chart degrades to plain-instant <details>
+ * rather than a slow one.
+ *
+ * TOKENS: this file declares no new custom-property namespace of its own -
+ * every rule below reads directly from css/itflow_design.css's --if-* tokens
+ * (already declared for both light and dark, see that file) and
+ * css/itflow_motion.css's --if-dur-*/--if-ease-* tokens, with a literal
+ * fallback value in each var() for the (rare, dev-only) case this file is
+ * previewed without those two loaded. The one exception is the department
+ * color ring below, which is a small deliberately-hardcoded palette (a
+ * design-system-provided validated 8-color categorical set, not invented
+ * hues) with its own light/dark pairs, same two-trigger dark-mode pattern
+ * css/itflow_kb.css's own token block uses
+ * (":root[data-bs-theme='dark']" and "body.dark-mode" - NOT interchangeable
+ * in this app, both are required).
  */
 
 .org-tree,
@@ -23,22 +40,85 @@
 
 .org-tree > li,
 .org-tree ul > li {
-    padding: .35rem 0;
+    padding: .1rem 0;
 }
 
-.org-tree summary {
+/* ---------------------------------------------------------- disclosure ---- */
+
+.org-tree summary,
+.org-node-row {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    padding: 0;
     cursor: pointer;
-    list-style: revert;
+    list-style: none;
 }
 
-.org-tree summary::marker {
-    color: var(--tblr-secondary, #6c757d);
+.org-node-row { cursor: default; }
+
+/* Belt-and-suspenders: list-style:none is enough in every current evergreen
+   browser, but older WebKit needs the marker pseudo-element hidden directly
+   too or a small triangle survives next to our own chevron. */
+.org-tree summary::-webkit-details-marker { display: none; }
+.org-tree summary::marker { content: ""; }
+
+.org-node-chevron,
+.org-node-chevron-spacer {
+    flex: 0 0 auto;
+    width: 1em;
+    text-align: center;
 }
 
-/* Leaf rows (no <details>/<summary>, so no native disclosure triangle) get a
-   matching left nudge so their card text lines up with expandable siblings'. */
-.org-tree li.org-leaf {
-    padding-left: 1.1rem;
+.org-node-chevron {
+    color: var(--if-muted, #5d6f76);
+    transition: transform var(--if-dur-panel, 200ms) var(--if-ease-out, ease-out);
+}
+
+details[open] > summary > .org-node-chevron {
+    transform: rotate(90deg);
+}
+
+/* --------------------------------------------------------------- rows ---- */
+
+.org-node {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: .5rem .75rem;
+    border: 1px solid transparent;
+    border-radius: var(--if-radius-sm, 8px);
+    transition: background-color var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out),
+                border-color var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out),
+                box-shadow var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out),
+                transform var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out),
+                opacity var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out);
+}
+
+/* Exact hover convention already established by .it-stat-card:hover
+   (css/itflow_design.css) - not a new "--if-lift" token, that token does not
+   exist anywhere in this codebase. */
+.org-node:hover,
+.org-node:focus-within {
+    background: var(--if-surface, #fff);
+    border-color: var(--if-border, #e3e9ea);
+    box-shadow: var(--if-shadow-md, 0 6px 16px rgba(20,35,42,.10), 0 2px 6px rgba(20,35,42,.08));
+    transform: translateY(-1px);
+}
+
+.org-node-text {
+    line-height: 1.25;
+    min-width: 0;
+}
+
+.org-node-name {
+    text-decoration: none;
+}
+.org-node-name:hover,
+.org-node-name:focus-visible {
+    text-decoration: underline;
 }
 
 .org-node-initials {
@@ -46,6 +126,364 @@
     font-style: normal;
 }
 
-.org-node-text {
-    line-height: 1.25;
+/* Leaf rows (no <details>/<summary>, so no native disclosure triangle and no
+   chevron) get an inert same-width spacer (emitted by
+   org_chart_open_node_html() in agent/org_chart.php) instead of a guessed
+   padding value, so their card still lines up with an expandable sibling's. */
+.org-tree li.org-leaf {
+    padding-left: 0;
+}
+
+/* ------------------------------------------------------------- avatar ---- */
+
+.org-node-avatar {
+    flex: 0 0 auto;
+    display: inline-flex;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--dept-ring, var(--if-border-strong, #d3dbdc));
+}
+.org-node-avatar .fa-stack {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+}
+.org-node-avatar-img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Department color ring - validated, colorblind-tested 8-color categorical
+   set. Assigned by department_id % 8 (agent/org_chart.php), so a department's
+   ring color is stable across reloads regardless of which other departments
+   happen to be rendered alongside it. Decorative only: the department name is
+   always also visible as plain text (card subtitle + section header), so
+   color is never the sole channel. Dept 9, 17, 25... reuse dept 1's hue - a
+   disclosed, accepted collision at real-world scale; text and section
+   grouping remain the actual disambiguator. */
+.org-dept-slot-0 { --dept-ring: #2a78d6; } /* blue    */
+.org-dept-slot-1 { --dept-ring: #eb6834; } /* orange  */
+.org-dept-slot-2 { --dept-ring: #1baf7a; } /* aqua    */
+.org-dept-slot-3 { --dept-ring: #eda100; } /* yellow  */
+.org-dept-slot-4 { --dept-ring: #e87ba4; } /* magenta */
+.org-dept-slot-5 { --dept-ring: #008300; } /* green   */
+.org-dept-slot-6 { --dept-ring: #4a3aa7; } /* violet  */
+.org-dept-slot-7 { --dept-ring: #e34948; } /* red     */
+
+:root[data-bs-theme="dark"] .org-dept-slot-0, body.dark-mode .org-dept-slot-0 { --dept-ring: #3987e5; }
+:root[data-bs-theme="dark"] .org-dept-slot-1, body.dark-mode .org-dept-slot-1 { --dept-ring: #d95926; }
+:root[data-bs-theme="dark"] .org-dept-slot-2, body.dark-mode .org-dept-slot-2 { --dept-ring: #199e70; }
+:root[data-bs-theme="dark"] .org-dept-slot-3, body.dark-mode .org-dept-slot-3 { --dept-ring: #c98500; }
+:root[data-bs-theme="dark"] .org-dept-slot-4, body.dark-mode .org-dept-slot-4 { --dept-ring: #d55181; }
+:root[data-bs-theme="dark"] .org-dept-slot-5, body.dark-mode .org-dept-slot-5 { --dept-ring: #008300; }
+:root[data-bs-theme="dark"] .org-dept-slot-6, body.dark-mode .org-dept-slot-6 { --dept-ring: #9085e9; }
+:root[data-bs-theme="dark"] .org-dept-slot-7, body.dark-mode .org-dept-slot-7 { --dept-ring: #e66767; }
+
+/* ------------------------------------------------------------ actions ---- */
+
+.org-node-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: .25rem;
+    margin-left: auto;
+    padding-left: .5rem;
+}
+
+.org-node-action {
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--if-muted, #5d6f76);
+    border-radius: var(--if-radius-sm, 8px);
+    opacity: .45;
+    transition: opacity var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out),
+                background-color var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out),
+                color var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out);
+}
+.org-node:hover .org-node-action,
+.org-node:focus-within .org-node-action,
+.org-node-action:focus-visible {
+    opacity: 1;
+}
+.org-node-action:hover,
+.org-node-action:focus-visible {
+    background: var(--if-bg, #eef2f2);
+    color: var(--if-primary, #0d9488);
+}
+/* Touch: no hover to reveal these on, so they stay discoverable at rest
+   instead of needing a hover state that can never happen. */
+@media (hover: none) {
+    .org-node-action { opacity: .6; }
+}
+
+.org-node-trace-btn.org-trace-active {
+    color: var(--if-primary, #0d9488);
+    opacity: 1;
+}
+
+/* ---------------------------------------------------------------- search --- */
+
+.org-node mark {
+    background: rgba(var(--if-primary-rgb, 13, 148, 136), .28);
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 1px;
+}
+
+/* Same opacity value and same "dim what didn't match" mechanism Trace to
+   Root uses below (#orgChartRoot.org-tracing) - one shared visual vocabulary
+   for "this is the thing that matters right now," not two. Applied per-node
+   by agent/js/org_chart.js rather than via a hierarchical selector, since a
+   search match is a flat yes/no per node, not a subtree relationship. */
+.org-node.org-node-dim {
+    opacity: .35;
+}
+
+@keyframes org-node-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(var(--if-primary-rgb, 13, 148, 136), .55); }
+    50%      { box-shadow: 0 0 0 6px rgba(var(--if-primary-rgb, 13, 148, 136), 0); }
+}
+.org-node-pulse {
+    animation: org-node-pulse 500ms ease-in-out 2;
+}
+
+/* Belt-and-suspenders alongside scrollAndPulse()'s own JS-level skip
+   (agent/js/org_chart.js never adds this class at all when the media query
+   below matches) - kept here too in case a future change adds the class
+   from a path that forgets to check prefersReducedMotion first. */
+@media (prefers-reduced-motion: reduce) {
+    .org-node-pulse { animation: none; }
+}
+
+/* ----------------------------------------------------------- trace-to-root */
+
+/* Dim everything except the traced chain. .org-trace-chain is added to the
+   traced node's own <li> and every ancestor <li> on its path
+   (agent/js/org_chart.js); the child-combinator pair below un-dims ONLY that
+   li's own card, not the whole subtree hanging under it (a plain descendant
+   selector would also catch every node further down inside that li's <ul>,
+   which is not what "trace to root" means). */
+#orgChartRoot.org-tracing .org-node {
+    opacity: .35;
+}
+#orgChartRoot.org-tracing li.org-trace-chain > details > summary > .org-node,
+#orgChartRoot.org-tracing li.org-trace-chain > .org-node-row > .org-node {
+    opacity: 1;
+}
+#orgChartRoot.org-tracing li.org-trace-chain > details > summary > .org-node .org-node-avatar,
+#orgChartRoot.org-tracing li.org-trace-chain > .org-node-row > .org-node .org-node-avatar {
+    box-shadow: 0 0 0 2px var(--if-primary, #0d9488);
+}
+#orgChartRoot.org-tracing li.org-trace-chain > details > summary > .org-node .org-node-name,
+#orgChartRoot.org-tracing li.org-trace-chain > .org-node-row > .org-node .org-node-name {
+    font-weight: 700;
+}
+
+/* The spine segment hanging below each traced ancestor (its immediate child
+   <ul>) - solid, not dashed, so it reads as "live" versus the default
+   structural line. Named simplification: this tints that ancestor's WHOLE
+   sibling spine, not only the exact sub-branch toward the traced node, since
+   one <ul>'s left border is shared by all of that ancestor's children - the
+   node-level ring + bold name above already carry the unambiguous exact-path
+   signal, this is a supporting container cue only. */
+.org-trace-spine {
+    border-left: 2px solid var(--if-primary, #0d9488) !important;
+}
+
+/* ------------------------------------------------------------ breadcrumb --- */
+
+#orgChartBreadcrumb {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .5rem .9rem;
+    margin-bottom: .75rem;
+    background: var(--if-surface, #fff);
+    border-bottom: 1px solid var(--if-border, #e3e9ea);
+    font-size: .85rem;
+    color: var(--if-muted, #5d6f76);
+    backdrop-filter: blur(6px);
+}
+#orgChartBreadcrumb[hidden] { display: none; }
+
+#orgChartBreadcrumbTrail {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.org-breadcrumb-seg {
+    border: none;
+    background: transparent;
+    padding: 0;
+    color: var(--if-ink, #16232a);
+    font-weight: 500;
+}
+.org-breadcrumb-seg:hover,
+.org-breadcrumb-seg:focus-visible {
+    color: var(--if-primary, #0d9488);
+    text-decoration: underline;
+}
+
+.org-breadcrumb-trace {
+    flex: 0 0 auto;
+    color: var(--if-primary, #0d9488);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.org-breadcrumb-trace[hidden] { display: none; }
+.org-breadcrumb-trace .btn-link {
+    color: var(--if-primary, #0d9488);
+    text-decoration: underline;
+    font-weight: 600;
+}
+
+/* ------------------------------------------------------- preview panel --- */
+
+.org-preview-panel {
+    position: fixed;
+    width: 280px;
+    max-width: calc(100vw - 1.5rem);
+    max-height: calc(100vh - 1.5rem);
+    overflow-y: auto;
+    display: flex;
+    gap: .75rem;
+    background: var(--if-surface, #fff);
+    border: 1px solid var(--if-border, #e3e9ea);
+    border-radius: var(--if-radius, 12px);
+    box-shadow: var(--if-shadow-md, 0 6px 16px rgba(20,35,42,.10));
+    padding: 1rem;
+    z-index: 1055;
+}
+.org-preview-panel[hidden] { display: none; }
+
+.org-preview-avatar {
+    flex: 0 0 auto;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px var(--dept-ring, var(--if-border-strong, #d3dbdc));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: var(--tblr-secondary, #6c757d);
+    color: #fff;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+.org-preview-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.org-preview-body {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+.org-preview-name {
+    font-weight: 700;
+    color: var(--if-ink, #16232a);
+}
+.org-preview-title {
+    color: var(--if-muted, #5d6f76);
+    font-size: .85rem;
+    margin-bottom: .35rem;
+}
+.org-preview-dept-row {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    flex-wrap: wrap;
+    margin-bottom: .5rem;
+}
+.org-preview-dept-badge {
+    display: inline-block;
+    padding: .15rem .5rem;
+    border-radius: 999px;
+    font-size: .72rem;
+    font-weight: 600;
+    color: #fff;
+    background: var(--dept-ring, var(--if-muted, #5d6f76));
+}
+.org-preview-dept-badge:empty { display: none; }
+.org-preview-reports,
+.org-preview-manages {
+    font-size: .82rem;
+    color: var(--if-muted, #5d6f76);
+}
+.org-preview-link {
+    display: inline-block;
+    margin-top: .5rem;
+    font-size: .85rem;
+    font-weight: 600;
+}
+
+.org-preview-close {
+    display: none;
+    position: absolute;
+    top: .25rem;
+    right: .25rem;
+    width: 44px;
+    height: 44px;
+    border: none;
+    background: transparent;
+    color: var(--if-muted, #5d6f76);
+    font-size: 1.4rem;
+    line-height: 1;
+}
+
+/* Touch: a bottom sheet instead of a positioned popover - never relying on
+   tap-elsewhere alone on a touch device, so it always carries an explicit
+   close affordance. */
+@media (hover: none) {
+    .org-preview-panel {
+        position: fixed;
+        inset-inline: 0;
+        bottom: 0;
+        top: auto !important;
+        left: 0 !important;
+        width: auto;
+        max-width: none;
+        max-height: 70vh;
+        border-radius: var(--if-radius, 12px) var(--if-radius, 12px) 0 0;
+        border-bottom: none;
+        padding-top: 1.5rem;
+    }
+    .org-preview-close {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+.org-preview-scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .35);
+    z-index: 1050;
+}
+.org-preview-scrim[hidden] { display: none; }
+
+/* --------------------------------------------------------------- print ---- */
+
+@media print {
+    #orgChartSearch, #orgChartSearchCounter, #orgChartBreadcrumb,
+    .org-node-actions, .org-preview-panel, .org-preview-scrim { display: none !important; }
+    .org-tree ul { border-left-color: #999; }
+    .org-tree summary { cursor: default; }
+    * { animation: none !important; transition: none !important; }
 }

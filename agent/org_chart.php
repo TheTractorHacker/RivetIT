@@ -1,7 +1,7 @@
 <?php
 
 /*
- * Organizational Chart
+ * Organizational Chart ("Rootline")
  *
  * Renders the company's manager / direct-report tree straight from
  * contacts.contact_manager_id - data that already exists and is already
@@ -25,6 +25,18 @@
  * cycle (A manages B manages A, or a contact set as its own manager), so this
  * page has to survive that without an infinite loop or a stack overflow at a
  * real company's headcount, not just in theory.
+ *
+ * INTERACTIVITY (search / trace-to-root / hover preview / sticky breadcrumb /
+ * animated expand-collapse) is a client-side AUGMENTATION of the markup this
+ * file already renders, wired by agent/js/org_chart.js - there is no second,
+ * client-rebuilt tree anywhere. Every bit of data that JS needs (name, title,
+ * team, department, status, manager name, direct-report count, and the ordered
+ * list of ancestor ids) is emitted a second time as data-* attributes on the
+ * same node this file already builds, sourced from strings already escaped by
+ * nullable_htmlentities() below - no new query, no new escaping path. If the JS
+ * file 404s, throws, or never runs, this page IS today's plain server-rendered
+ * tree, not a broken shell around a missing enhancement layer - see the single
+ * try/catch wrapping all of agent/js/org_chart.js's init().
  */
 
 require_once "includes/inc_all.php";
@@ -68,11 +80,17 @@ if ($department_filter_id > 0) {
 // otherwise out-of-scope) contact_manager_id is still a perfectly good reason a
 // contact becomes a ROOT: see org_chart_build_tree_index() below, a manager id
 // that is not a key of $contacts_by_id is treated as "missing" no matter why.
+//
+// contact_photo rides along here purely to decide avatar-vs-initials per node
+// (org_chart_node_card_html() below) - same column, same fallback rule, and the
+// same "../uploads/clients/{client_id}/{photo}" path every other page in this
+// app already serves it from (agent/contacts.php:477-479,
+// agent/contact_details.php:232-233).
 $sql_contacts = mysqli_query($mysqli, "
     SELECT contacts.contact_id, contacts.contact_name, contacts.contact_title,
            contacts.contact_department, contacts.contact_manager_id,
            contacts.contact_employment_status, contacts.contact_client_id,
-           clients.client_name
+           contacts.contact_photo, clients.client_name
     FROM contacts
     LEFT JOIN clients ON clients.client_id = contacts.contact_client_id
     WHERE contacts.contact_archived_at IS NULL
@@ -97,6 +115,7 @@ while ($row = mysqli_fetch_assoc($sql_contacts)) {
         'department_id'      => intval($row['contact_client_id']),
         'employment_status'  => nullable_htmlentities($row['contact_employment_status'] ?? 'active'),
         'manager_id'         => intval($row['contact_manager_id']),
+        'photo'              => nullable_htmlentities($row['contact_photo']),
     ];
 }
 
@@ -148,10 +167,18 @@ function org_chart_status_badge(string $status): string
     return " <span class='badge $class'>$label</span>";
 }
 
-// The card shown for one contact, reused for both an expandable node's
-// <summary> and a childless node's plain <li> - same avatar-initials-in-a-circle
-// markup agent/contacts.php already uses for its own contact rows.
-function org_chart_node_card_html(array $node): string
+/*
+ * The card shown for one contact, reused for both an expandable node's
+ * <summary> and a childless node's plain <li> - same avatar-initials-in-a-circle
+ * fallback markup agent/contacts.php already uses for its own contact rows, now
+ * with a real contact_photo <img> when one exists.
+ *
+ * $report_count and $ancestor_path are supplied by the caller
+ * (org_chart_render_subtree_html()) rather than recomputed here - both are O(1)
+ * byproducts of the explicit-stack walk it already does, so no extra pass over
+ * the tree is needed to hand this data to the browser.
+ */
+function org_chart_node_card_html(array $node, array $contacts_by_id, int $report_count, string $ancestor_path): string
 {
     $link = "contact_details.php?client_id={$node['department_id']}&contact_id={$node['id']}";
     $status_badge = org_chart_status_badge($node['employment_status']);
@@ -165,26 +192,69 @@ function org_chart_node_card_html(array $node): string
     }
     $subtitle = implode(' &middot; ', $subtitle_parts);
 
-    $html = "<span class='org-node d-inline-flex align-items-start gap-2'>";
-    $html .= "<span class='fa-stack fa-1x flex-shrink-0'><i class='fa fa-circle fa-stack-2x text-secondary'></i><span class='fa fa-stack-1x text-white org-node-initials'>{$node['initials']}</span></span>";
+    // Photo-vs-initials avatar - identical fallback rule to every other page in
+    // this app that renders a contact avatar. loading="lazy" decoding="async"
+    // are non-optional here: this is the first page in the app that can put a
+    // few hundred of these <img> tags on one screen at once.
+    if ($node['photo'] !== '') {
+        $avatar_inner = "<img class='org-node-avatar-img' loading='lazy' decoding='async' src='../uploads/clients/{$node['department_id']}/{$node['photo']}' alt=''>";
+    } else {
+        $avatar_inner = "<span class='fa-stack fa-1x flex-shrink-0'><i class='fa fa-circle fa-stack-2x text-secondary'></i><span class='fa fa-stack-1x text-white org-node-initials'>{$node['initials']}</span></span>";
+    }
+    // Department color ring: stable per department_id (not per render
+    // position - a department's color never shifts across reloads just
+    // because a different set of departments happens to be in view), drawn
+    // from the app's validated 8-color categorical set
+    // (agent/css/org_chart.css). Decorative only, never the sole signal - the
+    // department name is always also visible as plain text in the subtitle and
+    // as the section's card-header label.
+    $dept_slot = $node['department_id'] % 8;
+    $avatar = "<span class='org-node-avatar org-dept-slot-$dept_slot'>$avatar_inner</span>";
+
+    // '' when manager_id is 0 (a real root) or points outside the current
+    // scope (archived / different department under a filter) - same "missing
+    // manager" case org_chart_build_tree_index() already treats as a root.
+    $manager_name = $contacts_by_id[$node['manager_id']]['name'] ?? '';
+
+    // Every value below is already HTML-escaped via nullable_htmlentities()
+    // (ENT_QUOTES) back where $contacts_by_id was built, so it is as safe to
+    // drop into a "..."-quoted attribute as it already is inside the visible
+    // markup a few lines down - no second escaping pass, no new function.
+    $html = "<span class='org-node' data-contact-id='{$node['id']}' data-name=\"{$node['name']}\" data-title=\"{$node['title']}\" data-group=\"{$node['group']}\" data-dept=\"{$node['department_name']}\" data-status=\"{$node['employment_status']}\" data-manager-name=\"$manager_name\" data-report-count='$report_count' data-ancestor-path=\"$ancestor_path\">";
+    $html .= $avatar;
     $html .= "<span class='org-node-text'>";
-    $html .= "<a class='text-dark fw-bold' href='" . nullable_htmlentities($link) . "'>{$node['name']}</a>{$status_badge}";
+    $html .= "<a class='org-node-name text-dark fw-bold' href='" . nullable_htmlentities($link) . "'>{$node['name']}</a>{$status_badge}";
     if ($subtitle !== '') {
         $html .= "<div class='text-secondary small'>$subtitle</div>";
     }
-    $html .= "</span></span>";
+    $html .= "</span>";
+    $html .= "<span class='org-node-actions'>";
+    $html .= "<button type='button' class='org-node-action org-node-trace-btn' data-action='trace' aria-label='Trace {$node['name']} to root' title='Trace to root'><i class='fa fa-route' aria-hidden='true'></i></button>";
+    $html .= "<button type='button' class='org-node-action org-node-preview-btn' data-action='preview' aria-label='Preview {$node['name']}' title='Preview'><i class='fa fa-info-circle' aria-hidden='true'></i></button>";
+    $html .= "</span>";
+    $html .= "</span>";
 
     return $html;
 }
 
-function org_chart_open_node_html(array $node, int $depth, bool $has_children): string
+function org_chart_open_node_html(array $node, int $depth, bool $has_children, array $contacts_by_id, int $report_count, string $ancestor_path): string
 {
+    $card = org_chart_node_card_html($node, $contacts_by_id, $report_count, $ancestor_path);
+
     if (!$has_children) {
-        return "<li class='org-leaf'>" . org_chart_node_card_html($node) . "</li>";
+        // A leaf has no <summary>/chevron. It gets an inert same-width
+        // spacer in the chevron's place so its avatar/text column still lines
+        // up with an expandable sibling's - a guessed CSS padding value would
+        // drift the moment the chevron icon's own box model changes.
+        return "<li class='org-leaf'><span class='org-node-row'><span class='org-node-chevron-spacer' aria-hidden='true'></span>$card</span></li>";
     }
 
     $open_attr = ($depth === 0) ? ' open' : '';
-    return "<li><details$open_attr><summary>" . org_chart_node_card_html($node) . "</summary><ul class='org-tree'>";
+    // The disclosure chevron is a real element inside <summary>, not a
+    // ::marker restyle - a bare ::marker cannot be transitioned/rotated in any
+    // browser today, and this node needs to rotate it open/closed.
+    $chevron = "<i class='fa fa-chevron-right org-node-chevron' aria-hidden='true'></i>";
+    return "<li><details$open_attr><summary>$chevron$card</summary><ul class='org-tree'>";
 }
 
 /*
@@ -203,6 +273,13 @@ function org_chart_open_node_html(array $node, int $depth, bool $has_children): 
  *     exactly once (from wherever that leftover sweep starts it) instead of
  *     silently vanishing from the page.
  *
+ * $ancestry_path is an ORDERED twin of $ancestry, pushed/extended at the exact
+ * same two places $ancestry itself is (root init just below, per-child
+ * extension further down) - zero extra traversal over the existing stack walk.
+ * It exists purely so each rendered node's data-ancestor-path attribute (read
+ * by agent/js/org_chart.js for "Trace to Root" and the sticky breadcrumb) can
+ * be built in the same pass instead of a second walk over the tree.
+ *
  * A node's own <details> defaults OPEN only at depth 0, so a root and its
  * immediate direct reports are visible on load and everything below that is one
  * click away - the "collapse per branch" the tree needs so a few hundred
@@ -220,17 +297,19 @@ function org_chart_render_subtree_html(int $start_id, array $contacts_by_id, arr
 
     $rendered[$start_id] = true;
     $has_children = !empty($children_by_manager[$start_id]);
-    $html = org_chart_open_node_html($contacts_by_id[$start_id], 0, $has_children);
+    $report_count = count($children_by_manager[$start_id] ?? []);
+    $html = org_chart_open_node_html($contacts_by_id[$start_id], 0, $has_children, $contacts_by_id, $report_count, '');
 
     if (!$has_children) {
         return $html;
     }
 
     $stack = [[
-        'children' => $children_by_manager[$start_id],
-        'idx'      => 0,
-        'depth'    => 0,
-        'ancestry' => [$start_id => true],
+        'children'      => $children_by_manager[$start_id],
+        'idx'           => 0,
+        'depth'         => 0,
+        'ancestry'      => [$start_id => true],
+        'ancestry_path' => [$start_id],
     ]];
 
     $guard = 0;
@@ -255,16 +334,24 @@ function org_chart_render_subtree_html(int $start_id, array $contacts_by_id, arr
             $rendered[$child_id] = true;
             $child_depth = $top['depth'] + 1;
             $child_has_children = !empty($children_by_manager[$child_id]);
-            $html .= org_chart_open_node_html($contacts_by_id[$child_id], $child_depth, $child_has_children);
+            $child_report_count = count($children_by_manager[$child_id] ?? []);
+            // Ancestors of $child_id, root-first, NOT including $child_id
+            // itself - exactly $top['ancestry_path'] as it stands before this
+            // child is appended to it below.
+            $child_ancestor_path = implode(' ', $top['ancestry_path']);
+            $html .= org_chart_open_node_html($contacts_by_id[$child_id], $child_depth, $child_has_children, $contacts_by_id, $child_report_count, $child_ancestor_path);
 
             if ($child_has_children) {
                 $child_ancestry = $top['ancestry'];
                 $child_ancestry[$child_id] = true;
+                $child_ancestry_path = $top['ancestry_path'];
+                $child_ancestry_path[] = $child_id;
                 $stack[] = [
-                    'children' => $children_by_manager[$child_id],
-                    'idx'      => 0,
-                    'depth'    => $child_depth,
-                    'ancestry' => $child_ancestry,
+                    'children'      => $children_by_manager[$child_id],
+                    'idx'           => 0,
+                    'depth'         => $child_depth,
+                    'ancestry'      => $child_ancestry,
+                    'ancestry_path' => $child_ancestry_path,
                 ];
             }
         } else {
@@ -333,7 +420,7 @@ $total_departments = count($roots_by_department);
 
 ?>
 
-<link rel="stylesheet" href="css/org_chart.css">
+<link rel="stylesheet" href="css/org_chart.css?v=<?= file_exists(__DIR__ . '/css/org_chart.css') ? filemtime(__DIR__ . '/css/org_chart.css') : time() ?>">
 
 <div class="card card-dark mb-3">
     <div class="card-header py-2">
@@ -347,8 +434,8 @@ $total_departments = count($roots_by_department);
     </div>
     <div class="card-body">
         <form autocomplete="off" method="get">
-            <div class="row align-items-end">
-                <div class="col-md-4">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
                     <label class="form-label">Department</label>
                     <select class="form-control select2 auto-submit-select" name="client_id">
                         <option value="" <?php if (!$department_filter_id) { echo "selected"; } ?>>- All Departments -</option>
@@ -361,7 +448,16 @@ $total_departments = count($roots_by_department);
                         <?php } ?>
                     </select>
                 </div>
-                <div class="col-md-8 text-secondary">
+                <div class="col-md-4">
+                    <label class="form-label" for="orgChartSearch">Search</label>
+                    <input type="search" class="form-control" id="orgChartSearch" placeholder="Search name, title, team&hellip;" autocomplete="off">
+                    <div id="orgChartSearchCounter" class="small text-secondary mt-1" hidden>
+                        <span id="orgChartSearchCount">0 matches</span>
+                        <button type="button" class="btn btn-sm btn-link p-0 ms-2" id="orgChartSearchPrev" aria-label="Previous match" title="Previous match (Enter)"><i class="fa fa-fw fa-chevron-up"></i></button>
+                        <button type="button" class="btn btn-sm btn-link p-0 ms-1" id="orgChartSearchNext" aria-label="Next match" title="Next match (Enter)"><i class="fa fa-fw fa-chevron-down"></i></button>
+                    </div>
+                </div>
+                <div class="col-md-5 text-secondary">
                     <?php echo $total_contacts; ?> contact<?php echo $total_contacts === 1 ? '' : 's'; ?> across <?php echo $total_departments; ?> department<?php echo $total_departments === 1 ? '' : 's'; ?> shown below.
                     <?php if (!empty($cycle_leftover_ids)) { ?>
                         <span class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i><?php echo count($cycle_leftover_ids); ?> contact<?php echo count($cycle_leftover_ids) === 1 ? '' : 's'; ?> could not be placed under a real root - see "Reporting Cycle Detected" below.</span>
@@ -371,6 +467,11 @@ $total_departments = count($roots_by_department);
         </form>
     </div>
 </div>
+
+<nav id="orgChartBreadcrumb" hidden aria-label="Position in org chart">
+    <span id="orgChartBreadcrumbTrail"></span>
+    <span id="orgChartBreadcrumbTrace" class="org-breadcrumb-trace" hidden>Tracing &middot; <button type="button" id="orgChartTraceClear" class="btn btn-sm btn-link p-0">Clear</button></span>
+</nav>
 
 <div id="orgChartRoot">
     <?php if ($total_contacts === 0) { ?>
@@ -390,25 +491,24 @@ $total_departments = count($roots_by_department);
     <?php } ?>
 </div>
 
-<script>
-(function () {
-    var root = document.getElementById('orgChartRoot');
-    if (!root) { return; }
-
-    var expandBtn = document.getElementById('orgChartExpandAll');
-    var collapseBtn = document.getElementById('orgChartCollapseAll');
-
-    if (expandBtn) {
-        expandBtn.addEventListener('click', function () {
-            root.querySelectorAll('details').forEach(function (d) { d.open = true; });
-        });
+<?php
+/*
+ * includes/header.php sends a CSP of "script-src 'self' 'nonce-$csp_nonce' ..."
+ * with no 'unsafe-inline' - a plain <script> block with no nonce is silently
+ * dropped by the browser, not merely discouraged (this is what quietly broke
+ * this exact page's old inline Expand All / Collapse All handler; see
+ * agent/project_kanban.php for the same working nonce pattern used here).
+ *
+ * Load order matters: js/org_chart.js (which defines window.OrgChart) has to
+ * run BEFORE the nonce'd call below that invokes OrgChart.init() - so the
+ * external <script src> is emitted first, then the inline call.
+ */
+?>
+<script src="js/org_chart.js?v=<?= file_exists(__DIR__ . '/js/org_chart.js') ? filemtime(__DIR__ . '/js/org_chart.js') : time() ?>"></script>
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+    if (window.OrgChart) {
+        OrgChart.init({ maxAnimatedNodes: 800 });
     }
-    if (collapseBtn) {
-        collapseBtn.addEventListener('click', function () {
-            root.querySelectorAll('details').forEach(function (d) { d.open = false; });
-        });
-    }
-})();
 </script>
 
 <?php
