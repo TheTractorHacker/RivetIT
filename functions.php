@@ -5184,29 +5184,47 @@ function opportunityStatusForStage($stage) {
 }
 
 /**
- * Geocodes a street address into [latitude, longitude] using OpenStreetMap's
- * free Nominatim API - no API key needed, but its usage policy caps public
- * requests at ~1/sec and expects a real, descriptive User-Agent identifying
- * the calling application (unidentified/abusive traffic gets blocked), and
- * expects the result to be cached rather than looked up again for the same
- * address - callers should geocode once at save time and store the result,
- * never re-geocode on every page view. Returns null (not an exception) on
- * any failure - a network hiccup or an address Nominatim can't resolve
- * should never block saving the location itself.
+ * Geocodes a street address into [latitude, longitude]. Returns null (not an
+ * exception) on any failure - a network hiccup or an address neither source
+ * can resolve should never block saving the location itself. Callers should
+ * geocode once at save time and store the result, never re-geocode on every
+ * page view.
  *
- * THREE PROGRESSIVELY LESS PRECISE ATTEMPTS, not one. Nominatim's data is
- * OpenStreetMap's - crowdsourced, and a building's exact house number is
- * routinely missing even when the street itself is well mapped. Measured on a
- * real address from this install, "4721 S Zero St, Fort Smith, AR 72908, US":
- * the full address returns zero results, but "S Zero St, Fort Smith, AR"
- * resolves cleanly to the street centerline. Landing a marker on the right
- * street, a few hundred feet from the true door, is a far better outcome than
- * "not on the map at all" - which is what a single exact-address attempt gave
- * this location. A location that still fails all three tiers (an address
- * Nominatim has never heard of at any level) still returns null exactly as
- * before; this only adds attempts that would otherwise not have been tried.
+ * TWO SOURCES, tried in order, for a reason that is not "redundancy":
+ *
+ *   1. The US Census Bureau's free, keyless Geocoder (geocodeAddressCensusUS()
+ *      below), for a US address. It INTERPOLATES a point along the real
+ *      TIGER/Line address range for the street - the same technique Google
+ *      Maps uses - so it resolves an exact house number even when nobody has
+ *      ever mapped that specific building. This is not a hypothetical
+ *      advantage: it is what this function was missing. An earlier version of
+ *      this function used Nominatim alone, found no match for
+ *      "4721 S Zero St, Fort Smith, AR 72908", fell back to the bare street
+ *      name, and landed a marker on Zero Street's centerline - 4.5 KM from
+ *      the real building, because Zero Street runs that long. Blake caught it
+ *      by comparing against Google Maps. The Census Geocoder resolves the
+ *      exact address directly: 35.327335, -94.385741, confirmed against
+ *      Google's own result for the same address.
+ *
+ *   2. OpenStreetMap's Nominatim, for anything Census can't answer - a
+ *      non-US address (Census only understands US addresses), or a US
+ *      address Census has no TIGER record for at all. THREE progressively
+ *      less precise attempts here, not one, because Nominatim's data is
+ *      crowdsourced and an exact match is not guaranteed: the full address,
+ *      then the street name alone (house number dropped), then city+state
+ *      alone as a last resort. A marker on the right street beats no marker;
+ *      a marker in the right city beats a missing location entirely.
+ *
+ * A location that fails every tier still returns null exactly as before.
  */
 function geocodeAddress(string $address, string $city, string $state, string $zip, string $country): ?array {
+    if (isUSAddress($country)) {
+        $result = geocodeAddressCensusUS($address, $city, $state, $zip);
+        if ($result !== null) {
+            return $result;
+        }
+    }
+
     $full = trim(implode(', ', array_filter([$address, $city, $state, $zip, $country])));
     $result = geocodeAddressQuery($full);
     if ($result !== null) {
@@ -5240,6 +5258,81 @@ function geocodeAddress(string $address, string $city, string $state, string $zi
     }
 
     return null;
+}
+
+/**
+ * Is $country blank or some spelling of "United States"? Blank counts as US:
+ * every location on this install predates a country field being required,
+ * and defaulting an unset country to "try the more precise US source first,
+ * fall back to the worldwide one if that fails" costs nothing for a genuinely
+ * non-US address - Census will simply fail to match and geocodeAddress()
+ * falls through to Nominatim exactly as it did before this existed.
+ */
+function isUSAddress(string $country): bool {
+    $country = strtolower(trim($country));
+    return in_array($country, ['', 'us', 'usa', 'u.s.', 'u.s.a.', 'united states', 'united states of america'], true);
+}
+
+/**
+ * The US Census Bureau's Geocoder - geocoding.geo.census.gov, part of the
+ * TIGER/Line address-range dataset. Free, keyless, and (unlike Nominatim) not
+ * subject to a shared-infrastructure rate-limit policy, since it is a
+ * government API meant for exactly this kind of programmatic use.
+ *
+ * "Public_AR_Current" is the ADDRESS RANGE benchmark, not the current-year
+ * benchmark - it is what makes this an interpolation lookup rather than a
+ * point-database lookup, and it is what lets it resolve a house number that
+ * has literally never been surveyed. Returns null on anything but a single
+ * confident match - a NO-match, several ambiguous matches, or a malformed/
+ * unreachable response are all treated the same: fall through to the next
+ * source rather than guess.
+ */
+function geocodeAddressCensusUS(string $address, string $city, string $state, string $zip): ?array {
+    $oneline = trim(implode(', ', array_filter([$address, $city, $state, $zip])));
+    if ($oneline === '') {
+        return null;
+    }
+
+    $url = 'https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?' . http_build_query([
+        'address' => $oneline,
+        'benchmark' => 'Public_AR_Current',
+        'format' => 'json',
+    ]);
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 5,
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_HTTPHEADER => ['User-Agent: ITFlow-Internal-IT/1.0 (self-hosted IT documentation tool)'],
+    ]);
+    $response = curl_exec($ch);
+    $curl_error = curl_error($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($response === false || $curl_error !== '' || $http_code !== 200) {
+        return null;
+    }
+
+    $data = json_decode($response, true);
+    $matches = $data['result']['addressMatches'] ?? null;
+    if (!is_array($matches) || count($matches) !== 1) {
+        // Zero matches: nothing to return. More than one: Census itself is
+        // unsure which building this is (e.g. an ambiguous or incomplete
+        // address) - guessing the first one is exactly the kind of silent
+        // imprecision this function exists to avoid, so this falls through
+        // to Nominatim instead rather than picking one arbitrarily.
+        return null;
+    }
+
+    $lat = $matches[0]['coordinates']['y'] ?? null;
+    $lng = $matches[0]['coordinates']['x'] ?? null;
+    if (!is_numeric($lat) || !is_numeric($lng)) {
+        return null;
+    }
+
+    return [(float) $lat, (float) $lng];
 }
 
 /**
