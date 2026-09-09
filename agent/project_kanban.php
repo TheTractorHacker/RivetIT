@@ -46,6 +46,7 @@ $project_prefix = nullable_htmlentities($row['project_prefix']);
 $project_number = intval($row['project_number']);
 $project_name = nullable_htmlentities($row['project_name']);
 $project_completed_at = nullable_htmlentities($row['project_completed_at']);
+$project_client_id = intval($row['project_client_id']);
 
 $tab_title = "{$row['project_prefix']}{$row['project_number']}";
 $page_title = $row['project_name'];
@@ -66,9 +67,12 @@ foreach ($lanes as $l) {
 // Fetch project tasks (directly on the project, or via a project ticket)
 $sql_tasks = mysqli_query(
     $mysqli,
-    "SELECT tasks.*, tickets.ticket_prefix, tickets.ticket_number, users.user_name AS assigned_name
+    "SELECT tasks.*, tickets.ticket_prefix, tickets.ticket_number, users.user_name AS assigned_name,
+            created_ticket.ticket_prefix AS created_ticket_prefix,
+            created_ticket.ticket_number AS created_ticket_number
      FROM tasks
      LEFT JOIN tickets ON tickets.ticket_id = tasks.task_ticket_id
+     LEFT JOIN tickets AS created_ticket ON created_ticket.ticket_id = tasks.task_created_ticket_id
      LEFT JOIN users ON users.user_id = tasks.task_assigned_to
      WHERE (tasks.task_project_id = $project_id OR tickets.ticket_project_id = $project_id)
      ORDER BY tasks.task_order ASC, tasks.task_created_at ASC"
@@ -160,13 +164,26 @@ while ($t = mysqli_fetch_assoc($sql_tasks)) {
                     $t_prefix = nullable_htmlentities($item['ticket_prefix'] ?? '');
                     $t_number = nullable_htmlentities($item['ticket_number'] ?? '');
                     $t_assigned = nullable_htmlentities($item['assigned_name'] ?? '');
+                    // See project_details.php's render_task_row for why this is a
+                    // separate column/relationship from task_ticket_id above.
+                    $t_created_ticket_id = intval($item['task_created_ticket_id'] ?? 0);
+                    $t_created_ticket_prefix = nullable_htmlentities($item['created_ticket_prefix'] ?? '');
+                    $t_created_ticket_number = nullable_htmlentities($item['created_ticket_number'] ?? '');
+                    $create_ticket_url = "modals/ticket/ticket_add.php?client_id=$project_client_id&project_id=$project_id&source_task_id=$t_id&subject=" . urlencode($item['task_name'] ?? '');
                     ?>
                     <div class="task grab-cursor" data-task-id="<?= $t_id ?>" data-task-status="<?= $lane ?>">
                         <div class="d-flex justify-content-between align-items-start">
                             <strong><?= $t_name ?></strong>
-                            <a href="#" class="ajax-modal text-secondary ms-2" data-modal-url="modals/project/task_edit.php?id=<?= $t_id ?>" title="Edit task">
-                                <i class="fas fa-fw fa-pen"></i>
-                            </a>
+                            <div class="text-nowrap ms-2">
+                                <?php if (!$t_created_ticket_id && empty($project_completed_at)) { ?>
+                                    <a href="#" class="ajax-modal text-secondary" data-modal-url="<?= $create_ticket_url ?>" data-modal-size="lg" title="Create a ticket from this task">
+                                        <i class="fas fa-fw fa-life-ring"></i>
+                                    </a>
+                                <?php } ?>
+                                <a href="#" class="ajax-modal text-secondary" data-modal-url="modals/project/task_edit.php?id=<?= $t_id ?>" title="Edit task">
+                                    <i class="fas fa-fw fa-pen"></i>
+                                </a>
+                            </div>
                         </div>
 
                         <div class="btn btn-light drag-handle-class" style="display:none;">
@@ -176,6 +193,9 @@ while ($t = mysqli_fetch_assoc($sql_tasks)) {
                         <div class="mt-1">
                             <?php if ($t_ticket_id) { ?>
                                 <a href="ticket.php?ticket_id=<?= $t_ticket_id ?>" class="badge text-bg-light border"><?= "$t_prefix$t_number" ?></a>
+                            <?php } ?>
+                            <?php if ($t_created_ticket_id) { ?>
+                                <a href="ticket.php?ticket_id=<?= $t_created_ticket_id ?>" class="badge text-bg-primary" title="Ticket created from this task"><i class="fas fa-fw fa-life-ring me-1"></i><?= "$t_created_ticket_prefix$t_created_ticket_number" ?></a>
                             <?php } ?>
                             <?php if ($t_due) { ?>
                                 <span class="badge text-bg-light border"><i class="far fa-calendar me-1"></i><?= $t_due ?></span>

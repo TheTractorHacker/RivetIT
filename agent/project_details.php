@@ -125,9 +125,13 @@ if (isset($_GET['project_id'])) {
     // LEFT JOIN (plus OR task_project_id) so that project-only tasks (task_project_id set,
     // no task_ticket_id) are included alongside tasks belonging to the project's tickets.
     $sql_tasks = mysqli_query($mysqli,
-        "SELECT tasks.*, tickets.ticket_prefix, tickets.ticket_number, tickets.ticket_project_id
+        "SELECT tasks.*, tickets.ticket_prefix, tickets.ticket_number, tickets.ticket_project_id,
+                created_ticket.ticket_prefix AS created_ticket_prefix,
+                created_ticket.ticket_number AS created_ticket_number,
+                created_ticket.ticket_status AS created_ticket_status
         FROM tasks
         LEFT JOIN tickets ON tickets.ticket_id = tasks.task_ticket_id
+        LEFT JOIN tickets AS created_ticket ON created_ticket.ticket_id = tasks.task_created_ticket_id
         WHERE tickets.ticket_project_id = $project_id
         OR tasks.task_project_id = $project_id
         ORDER BY task_order ASC, task_created_at ASC"
@@ -217,10 +221,24 @@ if (isset($_GET['project_id'])) {
     $budget_percent = $project_budget_amount > 0 ? round(($burned_amount / $project_budget_amount) * 100) : 0;
 
     // Only show the budget card when there is something meaningful to display
-    $show_budget_card = ($estimated_hours > 0 || $project_budget_amount > 0 || $project_hourly_rate > 0 || $actual_hours > 0);
+    /* config_module_enable_accounting gated - project_hourly_rate and
+       project_budget_amount are dollar figures (this card shows a currency-
+       formatted "Budget" line, numfmt_format_currency() and all), and this
+       edition force-disables accounting/billing throughout the app. Without
+       this check, a project that had a rate or budget set BEFORE accounting
+       was turned off would keep showing it here regardless - the same class of
+       leak already found and fixed on Quick Links, the agent nav's Finance
+       dropdown, and the dashboard's Financial section. Time/effort tracking
+       (estimated vs actual hours) has no dollar figure and is not gated - it is
+       genuinely useful project-management data on its own, and this card
+       degrades to showing only the Hours row when accounting is off and only
+       time data exists. */
+    $show_budget_card = $config_module_enable_accounting == 1
+        && ($estimated_hours > 0 || $project_budget_amount > 0 || $project_hourly_rate > 0 || $actual_hours > 0);
+    $show_hours_only_card = $config_module_enable_accounting != 1 && ($estimated_hours > 0 || $actual_hours > 0);
 
     // Renderer for a single task row (shared by the milestones section and the tasks card)
-    $render_task_row = function ($t) {
+    $render_task_row = function ($t) use ($project_id, $client_id, $project_completed_at) {
         $t_id = intval($t['task_id']);
         $t_name = nullable_htmlentities($t['task_name']);
         $t_completed = !empty($t['task_completed_at']);
@@ -229,7 +247,16 @@ if (isset($_GET['project_id'])) {
         $t_ticket_id = intval($t['task_ticket_id']);
         $t_prefix = nullable_htmlentities($t['ticket_prefix'] ?? '');
         $t_number = nullable_htmlentities($t['ticket_number'] ?? '');
+        // The ticket THIS task spawned via "Create Ticket" - a different
+        // relationship from task_ticket_id above (a ticket's own checklist item),
+        // see the task_created_ticket_id migration comment for why they are two
+        // separate columns rather than one.
+        $t_created_ticket_id = intval($t['task_created_ticket_id'] ?? 0);
+        $t_created_ticket_prefix = nullable_htmlentities($t['created_ticket_prefix'] ?? '');
+        $t_created_ticket_number = nullable_htmlentities($t['created_ticket_number'] ?? '');
+        $t_created_ticket_open = intval($t['created_ticket_status'] ?? 0) != 5; // 5 = Closed, matches ticket_list.php's own convention
         $csrf = $_SESSION['csrf_token'];
+        $create_ticket_url = "modals/ticket/ticket_add.php?client_id=$client_id&project_id=$project_id&source_task_id=$t_id&subject=" . urlencode($t['task_name'] ?? '');
         ?>
         <tr>
             <td style="width: 28px;">
@@ -248,6 +275,13 @@ if (isset($_GET['project_id'])) {
                 <?php if ($t_ticket_id) { ?>
                     <a href="ticket.php?ticket_id=<?= $t_ticket_id ?>" class="badge text-bg-light border ms-1"><?= "$t_prefix$t_number" ?></a>
                 <?php } ?>
+                <?php if ($t_created_ticket_id) { ?>
+                    <a href="ticket.php?ticket_id=<?= $t_created_ticket_id ?>"
+                       class="badge <?= $t_created_ticket_open ? 'text-bg-primary' : 'text-bg-secondary' ?> ms-1"
+                       title="<?= $t_created_ticket_open ? 'Open' : 'Closed' ?> ticket created from this task">
+                        <i class="fas fa-fw fa-life-ring me-1"></i><?= "$t_created_ticket_prefix$t_created_ticket_number" ?>
+                    </a>
+                <?php } ?>
                 <?php if ($t_due) { ?>
                     <span class="badge text-bg-light border ms-1"><i class="far fa-calendar me-1"></i><?= $t_due ?></span>
                 <?php } ?>
@@ -260,6 +294,10 @@ if (isset($_GET['project_id'])) {
                     <a href="#" data-bs-toggle="dropdown"><i class="fas fa-ellipsis-v text-secondary"></i></a>
                     <div class="dropdown-menu dropdown-menu-right">
                         <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/project/task_edit.php?id=<?= $t_id ?>"><i class="fas fa-fw fa-edit me-2"></i>Edit</a>
+                        <?php if (!$t_created_ticket_id && empty($project_completed_at)) { ?>
+                            <a class="dropdown-item ajax-modal" href="#" data-modal-url="<?= $create_ticket_url ?>" data-modal-size="lg" title="Turn this task into a real ticket - assignment, status workflow, department communication"><i class="fas fa-fw fa-life-ring me-2"></i>Create Ticket</a>
+                        <?php } ?>
+                        <div class="dropdown-divider"></div>
                         <a class="dropdown-item text-danger confirm-link" href="post.php?delete_task=<?= $t_id ?>&csrf_token=<?= $csrf ?>"><i class="fas fa-fw fa-trash me-2"></i>Delete</a>
                     </div>
                 </div>
@@ -434,10 +472,59 @@ if (isset($_GET['project_id'])) {
             </div>
         </div>
     </div>
+<?php } elseif ($show_hours_only_card) { ?>
+    <!-- Same time-tracking row as the card above, no dollar figures - shown when
+         accounting is off but hours were tracked anyway, so that data is not
+         simply hidden along with the budget line it does not need. -->
+    <div class="card mb-3">
+        <div class="card-header py-2">
+            <h5 class="card-title mt-2 mb-2"><i class="far fa-fw fa-clock me-2"></i>Effort</h5>
+        </div>
+        <div class="card-body">
+            <div class="d-flex justify-content-between">
+                <span class="text-secondary"><i class="far fa-fw fa-clock me-2"></i>Hours</span>
+                <span><strong><?php echo number_format($actual_hours, 1); ?></strong> / <?php echo number_format($estimated_hours, 1); ?> hrs (<?php echo $hours_percent; ?>%)</span>
+            </div>
+            <div class="progress mt-1" style="height: 20px;">
+                <div class="progress-bar <?php echo $hours_percent > 100 ? 'bg-danger' : 'bg-info'; ?>" style="width: <?php echo min($hours_percent, 100); ?>%;"><?php echo $hours_percent; ?>%</div>
+            </div>
+        </div>
+    </div>
 <?php } ?>
 
 <div class="row">
     <div class="col-md-9">
+
+        <?php if ($milestone_count == 0 && $ticket_count == 0) { ?>
+        <!-- Nothing to show here at all: no milestones, no linked tickets. Without
+             this, col-md-9 rendered completely blank (both cards below are their
+             own "if count > 0" blocks) while col-md-3 held only the Tasks card -
+             a project with tasks but no milestones/tickets yet looked like a mostly
+             broken, empty page. Quick actions match what the card-tools buttons on
+             the (now-hidden) Milestones/Tickets cards already offer, so a new
+             project's very first action is one click away instead of requiring the
+             agent to already know those buttons exist elsewhere on a fuller project. -->
+        <div class="card mb-3">
+            <div class="card-body it-empty-state">
+                <div class="it-empty-icon"><i class="fas fa-project-diagram"></i></div>
+                <p class="it-empty-title">Nothing planned yet beyond tasks</p>
+                <p class="it-empty-subtitle">Break this project into milestones, or link the ticket(s) it already involves.</p>
+                <div class="it-empty-actions">
+                    <?php if (empty($project_completed_at)) { ?>
+                        <a class="btn btn-primary btn-sm ajax-modal" href="#" data-modal-url="modals/project/milestone_add.php?project_id=<?= $project_id ?>">
+                            <i class="fas fa-fw fa-flag-checkered me-1"></i>Add Milestone
+                        </a>
+                    <?php } ?>
+                    <a class="btn btn-secondary btn-sm ajax-modal" href="#" data-modal-url="modals/project/project_link_ticket.php?<?= $client_url ?>project_id=<?= $project_id ?>">
+                        <i class="fas fa-fw fa-link me-1"></i>Link Existing Ticket
+                    </a>
+                    <a class="btn btn-secondary btn-sm ajax-modal" href="#" data-modal-url="modals/ticket/ticket_add.php?client_id=<?= $client_id ?>&project_id=<?= $project_id ?>" data-modal-size="lg">
+                        <i class="fas fa-fw fa-plus me-1"></i>New Ticket
+                    </a>
+                </div>
+            </div>
+        </div>
+        <?php } ?>
 
         <!-- Milestones card -->
         <?php if ($milestone_count > 0) { ?>

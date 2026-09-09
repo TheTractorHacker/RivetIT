@@ -3115,6 +3115,7 @@ CREATE TABLE `tasks` (
   `task_created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `task_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `task_ticket_id` int(11) DEFAULT NULL,
+  `task_created_ticket_id` int(11) DEFAULT NULL,
   `task_project_id` int(11) DEFAULT NULL,
   `task_milestone_id` int(11) DEFAULT NULL,
   `task_assigned_to` int(11) DEFAULT NULL,
