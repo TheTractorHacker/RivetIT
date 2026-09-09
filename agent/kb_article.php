@@ -24,6 +24,20 @@ $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'htt
  * purifier configs (here, client/kb_article.php, the version-history modal and
  * api/v1/kb.php) so the behaviour cannot differ between renderers. */
 $purifier_config->set('Attr.DefaultImageAlt', '');
+/* INTERACTIVE KB BLOCKS. Registers the data-ikb vocabulary (checklist, guided
+ * steps, tabs, accordion, decision tree, copy marker, sandboxed embed) so this
+ * renderer keeps it instead of flattening it to prose. MUST be above the
+ * constructor: HTMLPurifier refuses a raw definition once a config has been
+ * used, and \ITFlow\KB\InteractiveBlocks::apply() turns that into a
+ * LogicException naming the fix rather than silently skipping registration.
+ *
+ * All FOUR KB renderers call it and those four are the complete set -
+ * here, client/kb_article.php, agent/modals/kb_article/kb_article_version_view.php
+ * and api/v1/kb.php. Miss one and that renderer shows a readable document with
+ * every block's interactivity gone and no error anywhere. Adds attributes only;
+ * measured byte-identical output on ordinary article content with and without
+ * it, so it composes with the media rewriting below by construction. */
+\ITFlow\KB\InteractiveBlocks::apply($purifier_config);
 $purifier = new HTMLPurifier($purifier_config);
 
 $kb_article_id = intval($_GET['id']);
@@ -88,6 +102,52 @@ if ($kb_article_client_id > 0) {
     enforceClientAccess($kb_article_client_id);
 }
 
+/* THE READER'S SAVED PROGRESS, for the render root below.
+ *
+ * LOADED THROUGH THE PROGRESS WORK STREAM'S OWN STORE, not through a query
+ * written here. agent/includes/kb_progress_store.php holds the schema, the key
+ * grammar, the caps and the SQL exactly once precisely so that a second
+ * statement of them cannot drift; kbProgressLoad() states plainly that it does
+ * NO authorization and that every caller must have settled "may this principal
+ * read this article" before calling it. This page has:
+ * enforceUserPermission('module_kb') at the top of the file, and
+ * enforceClientAccess() on the article's department above.
+ *
+ * THE PRINCIPAL IS A PAIR - ('u', users.user_id) here, ('c',
+ * contacts.contact_id) on the portal. A department contact is not a users row
+ * and the two id spaces overlap numerically, so the type character is what
+ * keeps agent 7's ticks apart from contact 7's.
+ *
+ * GUARDED ON EVERY STEP, and deliberately. The store, its endpoints and the
+ * 2.6.79 database update are three separate deployment steps on this project;
+ * an article page must not 500 because one of them has not happened yet. Each
+ * guard degrades to "no saved progress", which renders every block unticked and
+ * fully working - the same state a reader who has ticked nothing sees.
+ * kbProgressLoad() is itself wrapped in try/catch for the missing-table case.
+ *
+ * data-ikb-hashes is what the article says NOW; data-ikb-progress carries the
+ * hash recorded at tick time. The render layer marks the difference, so a tick
+ * against words that have since changed is neither silently kept nor silently
+ * dropped. hashesAttribute() short-circuits on an article with no blocks.
+ *
+ * PRIVACY: this puts ONE reader's state in the page body, which is safe only
+ * because article pages are not served from a shared cache. */
+$ikb_progress = [];
+$ikb_progress_store = $_SERVER['DOCUMENT_ROOT'] . '/agent/includes/kb_progress_store.php';
+if ($session_user_id > 0 && is_file($ikb_progress_store)) {
+    if (!defined('FROM_KB_PROGRESS')) {
+        define('FROM_KB_PROGRESS', true);
+    }
+    require_once $ikb_progress_store;
+    if (function_exists('kbProgressLoad')) {
+        $ikb_progress = kbProgressLoad($mysqli, $kb_article_id, 'u', $session_user_id);
+    }
+}
+$ikb_progress_json = \ITFlow\KB\InteractiveBlocks::progressAttribute($ikb_progress);
+$ikb_hashes_json = $ikb_progress === []
+    ? '{}'
+    : \ITFlow\KB\InteractiveBlocks::hashesAttribute($kb_article_content);
+
 $kb_articles_url = "kb_articles.php";
 if (isset($client_id)) {
     $kb_articles_url .= "?client_id=$client_id";
@@ -124,7 +184,48 @@ $sql_attachments = mysqli_query(
                 <div class="card-header">
                     <div class="h4 mb-0"><?php echo $kb_article_title; ?></div>
                 </div>
-                <div class="card-body prettyContent">
+                <?php /*
+                    THE INTERACTIVE-BLOCK RENDER ROOT.
+
+                    These data attributes are the ONLY channel between PHP and
+                    js/kb_interactive.js. Not an inline <script> carrying JSON:
+                    the portal shell sends "default-src 'self'" with no nonce, so
+                    an inline script does not run there at all, and one file that
+                    behaves identically on both shells is worth more than a
+                    per-lane special case. Not a .js config endpoint either -
+                    that is XSSI-shaped, and any third-party page could
+                    <script src> it to read a reader's progress. js/live_ticket.js
+                    already reads its ticket id and CSRF token exactly this way.
+
+                    This wrapper is PAGE CHROME, outside the purified string, so
+                    it is not subject to the vocabulary's own attribute grammar.
+
+                    data-ikb-endpoint is RELATIVE, so this page can only ever
+                    reach /agent/kb_progress.php and the portal page only ever
+                    /client/kb_progress.php. Those two endpoints answer the same
+                    request shape with completely different authorization
+                    questions - module_kb plus department scope here, the
+                    portal's article-visibility clause there - which is the split
+                    agent/kb_media.php and client/kb_media.php already make.
+                    kbProgressParseItems() in agent/includes/kb_progress_store.php
+                    is the definition of the request body js/kb_interactive.js
+                    sends.
+
+                    data-ikb-readonly is hard-coded "0": an agent session on this
+                    page has already passed enforceUserPermission('module_kb')
+                    and enforceClientAccess(), so there is no read-only agent
+                    case. The portal page computes it, because a previewing admin
+                    is one.
+                */ ?>
+                <div class="card-body prettyContent"
+                     data-ikb-root
+                     data-ikb-version="<?php echo \ITFlow\KB\InteractiveBlocks::VERSION; ?>"
+                     data-ikb-article="<?php echo $kb_article_id; ?>"
+                     data-ikb-readonly="0"
+                     data-ikb-endpoint="kb_progress.php"
+                     data-ikb-csrf="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES); ?>"
+                     data-ikb-progress="<?php echo htmlspecialchars($ikb_progress_json, ENT_QUOTES); ?>"
+                     data-ikb-hashes="<?php echo htmlspecialchars($ikb_hashes_json, ENT_QUOTES); ?>">
                     <?php echo $kb_article_content; ?>
                 </div>
             </div>
@@ -237,6 +338,15 @@ $sql_attachments = mysqli_query(
     </div>
 
 </div>
+
+<?php /*
+    The render layer, loaded from the page rather than from the shared footer
+    loop, because only this page and the version-history modal have a render
+    root and the file is inert without one. defer, so it runs after the document
+    is parsed - all its work is event-driven. Cache-busted by filemtime, the same
+    idiom includes/footer.php uses for its own first-party assets.
+*/ ?>
+<script src="/js/kb_interactive.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/kb_interactive.js'); ?>" defer></script>
 
 <?php
 require_once "../includes/footer.php";

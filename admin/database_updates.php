@@ -7449,3 +7449,177 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.80'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.80') {
+
+        /* INTERACTIVE KB (IKB) - the two tables the interactive block vocabulary
+         * needs. Purely additive: no existing table, column, index or row is
+         * touched, so this block cannot conflict with anything already stored.
+         *
+         * Both statements are byte-identical to the CREATE TABLE bodies appended
+         * to db.sql (search either table name there). That is the convergence
+         * contract for this repo - a fresh install loads db.sql, an existing
+         * install runs this block, and the two must end up with the same
+         * SHOW CREATE TABLE output. Proved by building both and diffing; see the
+         * commit message for the run.
+         *
+         * ---------------------------------------------------------------------
+         * kb_article_progress - PER-READER STATE, WHICH IS NOT CONTENT
+         * ---------------------------------------------------------------------
+         * A checklist tick and a wizard's position belong to the READER, not to
+         * the article, so they cannot live in kb_articles.kb_article_content
+         * (which is snapshotted into kb_article_versions and served to every
+         * reader alike). One row per (article, block, part, principal).
+         *
+         * THE PRINCIPAL IS A PAIR, and that is the whole point of the char(1).
+         * A department contact is a contacts row, an agent is a users row, and
+         * the two id spaces overlap numerically - contact 7 and user 7 are
+         * different people. The type character sits INSIDE the unique key, so
+         * their progress can never collide. No foreign keys, because this
+         * codebase uses none anywhere; a deleted user or contact leaves rows
+         * that are simply never selected again.
+         *
+         * _state is smallint, not tinyint(1), because it carries two meanings:
+         *   0/1              a checklist tick
+         *   0-based index    a wizard's saved position, stored under the
+         *                    RESERVED part key '_at'
+         * '_at' cannot collide with a real part key by construction, not by
+         * convention: content part keys match /^[a-z0-9][a-z0-9-]{0,23}$/ and
+         * '_' is not in that character class, so no author-supplied or
+         * normaliser-minted key can ever spell it. (The winning design used the
+         * literal 'at' and defended it with "minted keys are always 8 hex
+         * characters", which is an invariant living in one function that a later
+         * change to the minting format would silently break. The underscore
+         * moves that guarantee into the validator.)
+         *
+         * _part_hash is the stale-tick marker: substr(sha1(normalised label +
+         * "\n" + normalised body), 0, 16), written by the reader's client at
+         * tick time and handed back on load. When the key still matches but the
+         * hash does not, the step has been REWRITTEN since it was ticked and the
+         * render layer says so instead of silently keeping or silently dropping
+         * the tick. It hashes label AND body deliberately: the design hashed the
+         * label alone, which leaves "reboot the switch" -> "do NOT reboot the
+         * switch" in a step BODY completely unflagged, and that is the more
+         * dangerous edit of the two. Hence the column name - it is not a label
+         * hash and must not be read as one.
+         *
+         * INDEX SIZES. The unique key is 4 + 97 + 97 + 4 + 4 = 206 bytes of the
+         * 3072-byte InnoDB DYNAMIC limit (int = 4; varchar(24) utf8mb4 = 24*4+1;
+         * char(1) utf8mb4 = 4), so both varchars can stay at their full width.
+         * The reader index is the one the article page uses: it selects every
+         * row for one article and one principal in one range scan.
+         *
+         * WHAT ADDING A FIFTH BLOCK TYPE COSTS HERE: nothing. The table stores
+         * opaque (block, part) keys and one small integer; it has no idea what a
+         * checklist or a wizard is. A new block type that needs per-reader state
+         * either uses ordinary part keys, or reserves one more underscore-
+         * prefixed key beside '_at' - one entry in the reserved list in
+         * agent/includes/kb_progress_store.php. No migration, no new column.
+         *
+         * ---------------------------------------------------------------------
+         * kb_article_embeds - THE ESCAPE HATCH'S UN-PURIFIABLE HTML
+         * ---------------------------------------------------------------------
+         * kb_article_embed_untrusted_html IS THE ONLY COLUMN IN THIS DATABASE
+         * THAT HOLDS HTML NO FILTER EVER TOUCHED. It is named that way so every
+         * future call site has to read the word "untrusted" before using it. It
+         * is never purified (purifying it would defeat the escape hatch), never
+         * echoed into an app page, and reaches a browser only through
+         * agent/kb_embed.php / client/kb_embed.php, which serve it into an
+         * opaque-origin sandbox with their own Content-Security-Policy. Read the
+         * header comment of agent/includes/kb_embed_serve.php before touching
+         * any of it.
+         *
+         * kb_article_embed_kb_article_id IS THE ENTIRE AUTHORIZATION MODEL. Both
+         * serve endpoints look the row up by id AND re-derive the caller's access
+         * to THAT article, so the endpoint is a join rather than an enumeration
+         * oracle.
+         *
+         * kb_article_embed_text is strip_tags() of the stored document, kept so
+         * the authoring path can append it to kb_articles.kb_article_content_raw
+         * and the embed stops being completely invisible to FULLTEXT search.
+         * kb_article_embed_sha256 identifies the exact bytes for the audit log.
+         *
+         * IF NOT EXISTS on both, so a half-applied update can be re-run. The
+         * version row is only advanced once both tables are proved present.
+         *
+         * THE try/catch IS NOT DECORATION. PHP 8.1+ defaults to
+         * MYSQLI_REPORT_ERROR|MYSQLI_REPORT_STRICT and this codebase never calls
+         * mysqli_report() (the same fact src/KB/MediaToken.php:497-505 documents
+         * and measured), so a refused CREATE THROWS rather than returning false.
+         * Measured here on PHP 8.4.25 against a scratch database whose user had
+         * no CREATE privilege: without the catch the update died with an
+         * uncaught mysqli_sql_exception and a stack trace, and the operator got
+         * no instruction at all. The version row was still not advanced - the
+         * safety property held either way - but "the update crashed" and "the
+         * update refused, here is why, re-run it after fixing X" are different
+         * products. */
+
+        $ikb_create_error = '';
+        try {
+            mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `kb_article_progress` (
+  `kb_article_progress_id` int(11) NOT NULL AUTO_INCREMENT,
+  `kb_article_progress_kb_article_id` int(11) NOT NULL,
+  `kb_article_progress_block_key` varchar(24) NOT NULL,
+  `kb_article_progress_part_key` varchar(24) NOT NULL,
+  `kb_article_progress_principal_type` char(1) NOT NULL,
+  `kb_article_progress_principal_id` int(11) NOT NULL,
+  `kb_article_progress_state` smallint(6) NOT NULL DEFAULT 0,
+  `kb_article_progress_part_hash` char(16) NOT NULL DEFAULT '',
+  `kb_article_progress_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`kb_article_progress_id`),
+  UNIQUE KEY `kb_article_progress_unique` (`kb_article_progress_kb_article_id`,`kb_article_progress_block_key`,`kb_article_progress_part_key`,`kb_article_progress_principal_type`,`kb_article_progress_principal_id`),
+  KEY `kb_article_progress_reader` (`kb_article_progress_kb_article_id`,`kb_article_progress_principal_type`,`kb_article_progress_principal_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+            mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `kb_article_embeds` (
+  `kb_article_embed_id` int(11) NOT NULL AUTO_INCREMENT,
+  `kb_article_embed_kb_article_id` int(11) NOT NULL,
+  `kb_article_embed_name` varchar(255) NOT NULL,
+  `kb_article_embed_untrusted_html` mediumtext DEFAULT NULL,
+  `kb_article_embed_text` mediumtext DEFAULT NULL,
+  `kb_article_embed_sha256` char(64) NOT NULL DEFAULT '',
+  `kb_article_embed_height` int(11) NOT NULL DEFAULT 480,
+  `kb_article_embed_created_by` int(11) NOT NULL DEFAULT 0,
+  `kb_article_embed_created_at` datetime DEFAULT current_timestamp(),
+  `kb_article_embed_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`kb_article_embed_id`),
+  KEY `kb_article_embed_kb_article_id` (`kb_article_embed_kb_article_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        } catch (\Throwable $ikb_create_exception) {
+            $ikb_create_error = $ikb_create_exception->getMessage();
+        }
+
+        /* Do not advance the version on a CREATE that did not happen. Without
+         * this, a failed statement (disk full, a pre-existing table of the wrong
+         * shape, a permissions problem) would leave the install claiming 2.6.81
+         * with no tables, and no later block would ever create them - the
+         * failure would surface days later as a fatal in the article page.
+         * Ask the schema, not mysqli_query()'s return value: IF NOT EXISTS
+         * returns true for a table that already existed in some other shape. */
+        $ikb_tables_present = 0;
+        try {
+            $ikb_tables_present = intval(mysqli_fetch_assoc(mysqli_query($mysqli,
+                "SELECT COUNT(*) AS cnt
+                   FROM information_schema.TABLES
+                  WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME IN ('kb_article_progress','kb_article_embeds')"))['cnt']);
+        } catch (\Throwable $ikb_count_exception) {
+            $ikb_create_error = $ikb_create_error !== ''
+                ? $ikb_create_error
+                : $ikb_count_exception->getMessage();
+        }
+
+        if ($ikb_tables_present !== 2) {
+            echo "Database update 2.6.80 -> 2.6.81 aborted: expected 2 interactive-KB tables, found $ikb_tables_present.\n";
+            echo "kb_article_progress and kb_article_embeds could not be created. The database\n";
+            echo "version has NOT been advanced, so this update can be re-run once the cause is\n";
+            echo "fixed (both statements are CREATE TABLE IF NOT EXISTS and are safe to repeat).\n";
+            echo "MySQL said: " . ($ikb_create_error !== '' ? $ikb_create_error : mysqli_error($mysqli)) . "\n";
+            /* exit(1), not exit(): deploy/update.sh checks the exit status, and
+               the 2.6.77 block above sets the precedent that a refused migration
+               has to be reported as a failure rather than as success. */
+            exit(1);
+        }
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.81'");
+    }

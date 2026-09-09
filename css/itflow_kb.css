@@ -1,0 +1,425 @@
+/* =============================================================================
+   Interactive KB blocks.
+
+   Styles the vocabulary defined by src/KB/InteractiveBlocks.php and brought to
+   life by js/kb_interactive.js. Every selector is scoped under .ikb* so this
+   file cannot reach a page that renders no blocks — it ships unconditionally on
+   both shells (about 6 KB) because the portal header is emitted from
+   client/includes/inc_all.php before client/kb_article.php can set a flag, so a
+   conditional <link> is not available there.
+
+   TWO STATES, AND THE FIRST ONE IS NOT A FALLBACK. Rules that apply with no
+   JavaScript describe a readable document: a titled box, bold labels, indented
+   bodies, every branch of a decision tree visible. Rules that only make sense
+   once the render layer has run are written under .ikb-js, which that layer
+   adds. So a 404 on kb_interactive.js, an Android WebView with JavaScript
+   disabled and a printed page all get the document rather than a pile of
+   half-styled furniture.
+
+   ─────────────────────────────────────────────────────────────────────────────
+   DARK MODE: THIS APP HAS TWO NON-EQUIVALENT TRIGGERS AND BOTH ARE REQUIRED
+   ─────────────────────────────────────────────────────────────────────────────
+   html[data-bs-theme="dark"]  Tabler's palette and css/itflow_design.css's dark
+                               --if-* token set (itflow_design.css:30).
+   body.dark-mode              css/itflow_custom.css's dark --color-* token set
+                               (client/includes/header.php:297 and the agent
+                               shell both set it alongside the attribute).
+
+   They are NOT interchangeable. itflow_design.css declares its dark --if-*
+   values ONLY under :root[data-bs-theme="dark"], so a page that is dark by
+   body.dark-mode alone leaves every --if-* token at its LIGHT value — and a
+   component that trusted --if-surface would paint a white card on a dark page.
+   This file therefore declares its own --ikb-* tokens from --if-* for the
+   normal case and redeclares them explicitly under BOTH triggers. When both are
+   present (the usual case) the two blocks agree, so there is nothing to resolve.
+
+   LOAD ORDER: after css/itflow.bind-tabler.css and before the per-company
+   accent block, in includes/header.php and client/includes/header.php. Nothing
+   here overrides a framework rule — every class name is novel — so the position
+   only has to be late enough that the --if-* tokens exist.
+   ============================================================================= */
+
+/* ---------------------------------------------------------------- tokens ---- */
+
+.ikb,
+.ikb-copy-wrap {
+  --ikb-surface: var(--if-surface, #ffffff);
+  --ikb-border: var(--if-border, #e3e9ea);
+  --ikb-border-strong: var(--if-border-strong, #d3dbdc);
+  --ikb-ink: var(--if-ink, #16232a);
+  --ikb-muted: var(--if-muted, #5d6f76);
+  --ikb-accent: var(--if-primary, #0d9488);
+  --ikb-accent-ink: #ffffff;
+  --ikb-warn: #b45309;
+  --ikb-warn-bg: rgba(180, 83, 9, .10);
+  --ikb-radius: var(--if-radius, 12px);
+  --ikb-radius-sm: var(--if-radius-sm, 8px);
+}
+
+:root[data-bs-theme="dark"] .ikb,
+:root[data-bs-theme="dark"] .ikb-copy-wrap,
+body.dark-mode .ikb,
+body.dark-mode .ikb-copy-wrap {
+  --ikb-surface: #14201f;
+  --ikb-border: #24332f;
+  --ikb-border-strong: #31433e;
+  --ikb-ink: #e7eeef;
+  --ikb-muted: #93a6ab;
+  --ikb-warn: #fbbf24;
+  --ikb-warn-bg: rgba(251, 191, 36, .12);
+}
+
+/* ------------------------------------------------------------- the block ---- */
+
+.ikb {
+  margin: 1.25rem 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--ikb-border);
+  border-radius: var(--ikb-radius);
+  background: var(--ikb-surface);
+  color: var(--ikb-ink);
+}
+
+/* The render layer toggles el.hidden. Bootstrap and Tabler put display
+   utilities on plenty of things inside article content, and a utility class
+   would otherwise beat the [hidden] default. Same guard as
+   css/itflow_metrics.css:18, for the same reason. */
+.ikb [hidden],
+.ikb-copy-wrap [hidden] { display: none !important; }
+
+.ikb .ikb-title {
+  margin: 0 0 .75rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -.01em;
+  color: var(--ikb-ink);
+}
+
+.ikb .ikb-part {
+  padding: .55rem 0;
+  border-top: 1px solid var(--ikb-border);
+}
+.ikb .ikb-part:first-of-type { border-top: 0; }
+
+.ikb .ikb-label {
+  margin: 0;
+  font-size: .95rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--ikb-ink);
+}
+
+.ikb .ikb-body {
+  margin-top: .3rem;
+  color: var(--ikb-ink);
+  font-size: .92rem;
+}
+.ikb .ikb-body > :last-child { margin-bottom: 0; }
+
+/* Enhanced only: the caption moved into the tab strip, so showing it twice
+   would be noise. Never applied without JavaScript, where it is the heading. */
+.ikb .ikb-label-hidden { display: none; }
+
+/* A binder that threw. The markup is untouched and still readable; this is the
+   only visible sign, and it is deliberately quiet rather than an error banner —
+   the reader can still read the runbook. */
+.ikb.ikb-failed { border-style: dashed; }
+
+/* ------------------------------------------------------- checklist mode ---- */
+
+.ikb-js .ikb-progress {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  margin: 0 0 .85rem;
+}
+.ikb-js .ikb-progress-track {
+  flex: 1 1 auto;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ikb-border);
+  overflow: hidden;
+}
+.ikb-js .ikb-progress-fill {
+  /* width is written from JS as a CSSOM property — not an inline style
+     attribute — which is what keeps it working under the portal's
+     "default-src 'self'" with no style-src and no nonce. */
+  width: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ikb-accent);
+  transition: width .18s ease-out;
+}
+.ikb-js .ikb-progress-text {
+  flex: 0 0 auto;
+  font-size: .78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ikb-muted);
+}
+
+.ikb-js .ikb-tick {
+  display: flex;
+  align-items: flex-start;
+  gap: .6rem;
+  margin: 0;
+  cursor: pointer;
+  font-weight: inherit;
+}
+.ikb-js .ikb-tick-box {
+  flex: 0 0 auto;
+  width: 1.05em;
+  height: 1.05em;
+  margin-top: .18em;
+  accent-color: var(--ikb-accent);
+  cursor: pointer;
+}
+.ikb-js .ikb-tick-text { flex: 1 1 auto; }
+
+/* Line the body up with the label TEXT rather than with the checkbox, so a
+   step reads as one indented item instead of two stacked left-aligned ones.
+   1.65rem is the box (1.05em) plus the flex gap (.6rem). */
+.ikb-js.ikb-mode-checklist .ikb-body { margin-left: 1.65rem; }
+
+.ikb-js .ikb-part.ikb-done > .ikb-label .ikb-tick-text {
+  color: var(--ikb-muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.ikb-js.ikb-complete { border-color: var(--ikb-accent); }
+
+/* A tick recorded against words the article no longer shows. Neither silently
+   keeping it nor silently dropping it is acceptable; saying so is. */
+.ikb-js .ikb-part.ikb-stale > .ikb-label .ikb-tick-text { text-decoration: none; }
+.ikb-js .ikb-stale-note {
+  margin: .35rem 0 0 1.65rem;
+  padding: .35rem .6rem;
+  border-left: 3px solid var(--ikb-warn);
+  border-radius: 0 var(--ikb-radius-sm) var(--ikb-radius-sm) 0;
+  background: var(--ikb-warn-bg);
+  color: var(--ikb-warn);
+  font-size: .8rem;
+}
+
+/* ----------------------------------------------------------- steps mode ---- */
+
+.ikb-js.ikb-mode-steps .ikb-part { border-top: 0; padding-top: 0; }
+
+.ikb-js .ikb-nav {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-top: .9rem;
+  padding-top: .8rem;
+  border-top: 1px solid var(--ikb-border);
+}
+.ikb-js .ikb-status {
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: .8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ikb-muted);
+}
+
+/* ------------------------------------------------------- shared controls ---- */
+
+.ikb-js .ikb-btn,
+.ikb-copy-wrap .ikb-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .32rem .8rem;
+  border: 1px solid var(--ikb-border-strong);
+  border-radius: var(--ikb-radius-sm);
+  background: var(--ikb-surface);
+  color: var(--ikb-ink);
+  font: inherit;
+  font-size: .82rem;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.ikb-js .ikb-btn:hover:not(:disabled),
+.ikb-copy-wrap .ikb-copy-btn:hover { border-color: var(--ikb-accent); color: var(--ikb-accent); }
+.ikb-js .ikb-btn:disabled { opacity: .45; cursor: default; }
+
+.ikb-js .ikb-btn-primary {
+  border-color: var(--ikb-accent);
+  background: var(--ikb-accent);
+  color: var(--ikb-accent-ink);
+}
+.ikb-js .ikb-btn-primary:hover:not(:disabled) {
+  color: var(--ikb-accent-ink);
+  filter: brightness(1.08);
+}
+
+.ikb-js .ikb-btn:focus-visible,
+.ikb-js .ikb-tab:focus-visible,
+.ikb-js .ikb-acc-toggle:focus-visible,
+.ikb-copy-wrap .ikb-copy-btn:focus-visible,
+.ikb-tree-js .ikb-node:focus-visible {
+  outline: 2px solid var(--ikb-accent);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------ tabs mode ---- */
+
+.ikb-js .ikb-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem;
+  margin-bottom: .85rem;
+  border-bottom: 1px solid var(--ikb-border);
+}
+.ikb-js .ikb-tab {
+  padding: .4rem .8rem;
+  margin-bottom: -1px;
+  border: 1px solid transparent;
+  border-bottom-color: transparent;
+  border-radius: var(--ikb-radius-sm) var(--ikb-radius-sm) 0 0;
+  background: transparent;
+  color: var(--ikb-muted);
+  font: inherit;
+  font-size: .86rem;
+  font-weight: 550;
+  cursor: pointer;
+}
+.ikb-js .ikb-tab:hover { color: var(--ikb-ink); }
+.ikb-js .ikb-tab-active {
+  border-color: var(--ikb-border) var(--ikb-border) var(--ikb-surface);
+  background: var(--ikb-surface);
+  color: var(--ikb-accent);
+}
+.ikb-js.ikb-mode-tabs .ikb-part { border-top: 0; padding-top: 0; }
+
+/* ------------------------------------------------------- accordion mode ---- */
+
+.ikb-js.ikb-mode-accordion .ikb-label { margin: 0; }
+.ikb-js .ikb-acc-toggle {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  width: 100%;
+  padding: .35rem 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.ikb-js .ikb-acc-toggle:hover { color: var(--ikb-accent); }
+.ikb-js .ikb-acc-caret {
+  flex: 0 0 auto;
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform .15s ease-out;
+}
+.ikb-js .ikb-part.ikb-open .ikb-acc-caret { transform: rotate(90deg); }
+.ikb-js.ikb-mode-accordion .ikb-body { margin-left: 1rem; }
+
+/* ------------------------------------------------------------------ tree ---- */
+
+.ikb .ikb-node { padding: .3rem 0; }
+.ikb .ikb-node > ul {
+  margin: .55rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+}
+.ikb .ikb-node > ul > li { margin: 0; }
+
+/* A choice is an <a href="#..."> so that with no JavaScript it still looks and
+   copies like a link. It cannot actually jump — Attr.EnableID is off, so no
+   node carries the matching id — which is the accepted cost of never storing
+   an author-controlled id. */
+.ikb .ikb-node a[data-ikb-go] {
+  display: inline-block;
+  padding: .3rem .75rem;
+  border: 1px solid var(--ikb-border-strong);
+  border-radius: 999px;
+  color: var(--ikb-ink);
+  font-size: .85rem;
+  text-decoration: none;
+}
+.ikb .ikb-node a[data-ikb-go]:hover {
+  border-color: var(--ikb-accent);
+  color: var(--ikb-accent);
+}
+
+.ikb-tree-js .ikb-node:focus { outline: none; }
+.ikb-tree-js .ikb-tree-controls {
+  display: flex;
+  gap: .5rem;
+  margin-top: .9rem;
+  padding-top: .8rem;
+  border-top: 1px solid var(--ikb-border);
+}
+
+/* ------------------------------------------------------------------ copy ---- */
+
+.ikb-copy-wrap { position: relative; margin: 1rem 0; }
+.ikb-copy-wrap > pre { margin: 0; }
+
+.ikb-copy-wrap .ikb-copy-btn {
+  position: absolute;
+  top: .45rem;
+  right: .45rem;
+  z-index: 1;
+  padding: .18rem .55rem;
+  font-size: .74rem;
+  opacity: .82;
+}
+.ikb-copy-wrap:hover .ikb-copy-btn { opacity: 1; }
+.ikb-copy-wrap .ikb-copy-btn.ikb-copy-ok { border-color: var(--ikb-accent); color: var(--ikb-accent); }
+
+/* The off-screen textarea the execCommand('copy') fallback selects into.
+   Positioned rather than display:none — a hidden element cannot be selected,
+   and this app is served over plain HTTP where navigator.clipboard does not
+   exist, so this is the path that actually runs. */
+.ikb-copy-scratch {
+  position: fixed;
+  top: 0;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+/* ----------------------------------------------------------------- print ---- */
+
+@media print {
+  /* js/kb_interactive.js un-hides every pane, step and branch on beforeprint;
+     these rules remove the controls that would otherwise print as dead
+     furniture. A printed runbook is the whole runbook. */
+  .ikb-progress,
+  .ikb-nav,
+  .ikb-tabs,
+  .ikb-tree-controls,
+  .ikb-copy-btn,
+  .ikb-acc-caret { display: none !important; }
+
+  .ikb .ikb-label-hidden { display: block !important; }
+
+  .ikb {
+    border: 1px solid #999;
+    background: transparent;
+    break-inside: avoid;
+  }
+  .ikb .ikb-part { break-inside: avoid; }
+
+  /* An unticked box prints as an empty square to tick with a pen. */
+  .ikb-js .ikb-tick-box { -webkit-appearance: checkbox; appearance: checkbox; }
+}
+
+/* --------------------------------------------------------------- motion ---- */
+
+@media (prefers-reduced-motion: reduce) {
+  .ikb-js .ikb-progress-fill,
+  .ikb-js .ikb-acc-caret { transition: none; }
+}

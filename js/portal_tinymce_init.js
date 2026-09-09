@@ -9,6 +9,27 @@
  * client/includes/inc_all.php, and would have silently taken the editor with it.
  *
  * The agent side has its own TinyMCE setup and does not load this file.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * NO INTERACTIVE-KB PLUGIN HERE, AND THAT IS DELIBERATE
+ * ─────────────────────────────────────────────────────────────────────────────
+ * js/app.js's `.tinymce` init loads js/tinymce_ikb.js through external_plugins,
+ * which gives KB authors the Interactive menu and the structural guard. This
+ * init does NOT, and must not gain it:
+ *
+ *   * The only two .tinymce textareas on the portal are client/ticket.php and
+ *     client/ticket_add.php - a ticket reply and a new ticket. Departments do
+ *     not author knowledge-base articles; agents do.
+ *   * A block authored here would be written to tickets.ticket_details /
+ *     ticket_replies, which are NOT purified with the interactive vocabulary
+ *     registered (\ITFlow\KB\InteractiveBlocks::apply() is called by the four
+ *     KB renderers and nothing else). It would be flattened to prose on save,
+ *     with no error - a button that quietly does nothing.
+ *   * The plugin's own isKbEditor() would refuse to register the menu here
+ *     anyway, so the only thing loading it would achieve is one more request.
+ *
+ * If a portal-side KB editor ever exists, the hook is already there: give its
+ * textarea the class `tinymce-ikb` and add external_plugins to THAT init.
  */
 tinymce.init({
     selector: '.tinymce',
