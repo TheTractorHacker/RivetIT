@@ -209,7 +209,13 @@ $kb_portal_live = ($config_module_enable_kb == 1 && $config_client_portal_enable
             </div>
             <div class="col-6 col-md-4 col-xl-2">
                 <div class="text-muted small text-uppercase">Archived</div>
-                <div class="h1 mb-0"><?php echo $kb_archived; ?></div>
+                <?php if ($kb_archived > 0) { ?>
+                    <a href="/admin/kb_articles_archive.php" class="h1 mb-0 d-block text-reset text-decoration-none" title="View, restore or permanently delete archived articles">
+                        <?php echo $kb_archived; ?>
+                    </a>
+                <?php } else { ?>
+                    <div class="h1 mb-0"><?php echo $kb_archived; ?></div>
+                <?php } ?>
             </div>
         </div>
 
