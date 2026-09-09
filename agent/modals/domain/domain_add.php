@@ -86,6 +86,20 @@ ob_start();
 
                 <?php if ($client_id) { ?>
                 <div class="form-group">
+                    <?php
+                    /* Registrar/Webhost/DNSHost/Mailhost dropdowns below include CENTRAL
+                       vendors (vendor_client_id = 0) as well as this domain's own
+                       department's vendors - not vendor_client_id = $client_id alone, which
+                       is what these queries used to say. A shared registrar or DNS provider
+                       used across many departments (Cloudflare, GoDaddy, etc.) is exactly
+                       what "Central" vendor scope exists for (agent/vendors.php's own
+                       ?client_id=0 view), and excluding it meant these dropdowns held
+                       nothing for any department that had only central vendors on file -
+                       which, combined with Vendors being unreachable from the nav until
+                       today, was the whole of why editing a domain's hosting looked like a
+                       read-only view: the selects rendered with "- Select Vendor -" and
+                       nothing else to pick. */
+                    ?>
                     <label>Registrar</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -95,7 +109,7 @@ ob_start();
                             <option value="">- Vendor -</option>
                             <?php
 
-                            $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_archived_at IS NULL AND vendor_client_id = $client_id ORDER BY vendor_name ASC");
+                            $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = $client_id OR vendor_client_id = 0) ORDER BY (vendor_client_id = 0), vendor_name ASC");
                             while ($row = mysqli_fetch_assoc($sql)) {
                                 $vendor_id = intval($row['vendor_id']);
                                 $vendor_name = nullable_htmlentities($row['vendor_name']);
@@ -116,7 +130,7 @@ ob_start();
                             <option value="">- Vendor -</option>
                             <?php
 
-                            $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_archived_at IS NULL AND vendor_client_id = $client_id ORDER BY vendor_name ASC");
+                            $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = $client_id OR vendor_client_id = 0) ORDER BY (vendor_client_id = 0), vendor_name ASC");
                             while ($row = mysqli_fetch_assoc($sql)) {
                                 $vendor_id = intval($row['vendor_id']);
                                 $vendor_name = nullable_htmlentities($row['vendor_name']);
@@ -137,7 +151,7 @@ ob_start();
                             <option value="">- Vendor -</option>
                             <?php
 
-                            $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_archived_at IS NULL AND vendor_client_id = $client_id ORDER BY vendor_name ASC");
+                            $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = $client_id OR vendor_client_id = 0) ORDER BY (vendor_client_id = 0), vendor_name ASC");
                             while ($row = mysqli_fetch_assoc($sql)) {
                                 $vendor_id = intval($row['vendor_id']);
                                 $vendor_name = nullable_htmlentities($row['vendor_name']);
@@ -158,7 +172,7 @@ ob_start();
                             <option value="">- Vendor -</option>
                             <?php
 
-                            $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_archived_at IS NULL AND vendor_client_id = $client_id ORDER BY vendor_name ASC");
+                            $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = $client_id OR vendor_client_id = 0) ORDER BY (vendor_client_id = 0), vendor_name ASC");
                             while ($row = mysqli_fetch_assoc($sql)) {
                                 $vendor_id = intval($row['vendor_id']);
                                 $vendor_name = nullable_htmlentities($row['vendor_name']);

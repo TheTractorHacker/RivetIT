@@ -17,9 +17,9 @@ $section_pages = [
     'service_desk'  => ['tickets.php', 'ticket.php', 'recurring_tickets.php', 'service_catalog.php', 'csat.php', 'mail_requests.php', 'problems.php', 'problem_details.php', 'changes.php', 'change_details.php'],
     'work'          => ['projects.php', 'project_details.php', 'calendar.php'],
     'knowledge'     => ['kb_articles.php', 'kb_article.php', 'kb_article_versions.php', 'credentials.php'],
-    'infrastructure'=> ['locations.php', 'software.php', 'domains.php', 'certificates.php'],
+    'infrastructure'=> ['locations.php', 'vendors.php', 'software.php', 'domains.php', 'certificates.php'],
     'billing'       => ['quotes.php', 'quote.php', 'invoices.php', 'invoice.php', 'recurring_invoices.php', 'recurring_invoice.php', 'revenues.php', 'products.php'],
-    'finance'       => ['payments.php', 'vendors.php', 'expenses.php', 'recurring_expenses.php', 'accounts.php', 'transfers.php', 'trips.php'],
+    'finance'       => ['payments.php', 'expenses.php', 'recurring_expenses.php', 'accounts.php', 'transfers.php', 'trips.php'],
     'endpoint'      => ['intune_devices.php', 'rmm_dashboard.php', 'rmm_assets.php', 'rmm_asset.php', 'rmm_alerts.php', 'rmm_scripts.php', 'rmm_checks.php', 'network.php', 'firewalls.php'],
     'backups'       => ['backups.php'],
 ];
@@ -242,6 +242,10 @@ foreach ($section_pages as $key => $pages) {
                                 <span class="ms-auto badge text-light"><?php echo $num_locations_all; ?></span>
                             <?php } ?>
                         </a>
+                        <a href="/agent/vendors.php" class="dropdown-item<?php if ($current_page == "vendors.php") { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-building"></i></span>
+                            <span class="text-truncate">Vendors</span>
+                        </a>
                         <a href="/agent/software.php" class="dropdown-item<?php if ($current_page == "software.php") { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-cube"></i></span>
                             <span class="text-truncate">Licenses</span>
@@ -325,10 +329,6 @@ foreach ($section_pages as $key => $pages) {
                         <a href="/agent/payments.php" class="dropdown-item<?php if ($current_page == "payments.php") { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-credit-card"></i></span>
                             <span class="text-truncate">Payments</span>
-                        </a>
-                        <a href="/agent/vendors.php" class="dropdown-item<?php if ($current_page == "vendors.php") { echo " active"; } ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-building"></i></span>
-                            <span class="text-truncate">Vendors</span>
                         </a>
                         <a href="/agent/expenses.php" class="dropdown-item<?php if ($current_page == "expenses.php") { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-shopping-cart"></i></span>

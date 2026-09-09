@@ -88,6 +88,20 @@ ob_start();
                 </div>
 
                 <div class="form-group">
+                    <?php
+                    /* Registrar/Webhost/DNSHost/Mailhost dropdowns below include CENTRAL
+                       vendors (vendor_client_id = 0) as well as this domain's own
+                       department's vendors - not vendor_client_id = $client_id alone, which
+                       is what these queries used to say. A shared registrar or DNS provider
+                       used across many departments (Cloudflare, GoDaddy, etc.) is exactly
+                       what "Central" vendor scope exists for (agent/vendors.php's own
+                       ?client_id=0 view), and excluding it meant these dropdowns held
+                       nothing for any department that had only central vendors on file -
+                       which, combined with Vendors being unreachable from the nav until
+                       today, was the whole of why editing a domain's hosting looked like a
+                       read-only view: the selects rendered with "- Select Vendor -" and
+                       nothing else to pick. */
+                    ?>
                     <label>Domain Registrar</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -96,7 +110,7 @@ ob_start();
                         <select class="form-control select2" name="registrar">
                             <option value="">- Select Vendor -</option>
                             <?php
-                            $vendor_sql = mysqli_query($mysqli, "SELECT vendor_id, vendor_name FROM vendors WHERE vendor_client_id = $client_id AND vendor_archived_at IS NULL ORDER BY vendor_name ASC");
+                            $vendor_sql = mysqli_query($mysqli, "SELECT vendor_id, vendor_name FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = $client_id OR vendor_client_id = 0) ORDER BY (vendor_client_id = 0), vendor_name ASC");
                                 while ($row = mysqli_fetch_assoc($vendor_sql)) {
                                     $vendor_id = $row['vendor_id'];
                                     $vendor_name = $row['vendor_name'];
@@ -118,7 +132,7 @@ ob_start();
                         <select class="form-control select2" name="webhost">
                             <option value="">- Select Vendor -</option>
                             <?php
-                            $vendor_sql = mysqli_query($mysqli, "SELECT vendor_id, vendor_name FROM vendors WHERE vendor_client_id = $client_id AND vendor_archived_at IS NULL ORDER BY vendor_name ASC");
+                            $vendor_sql = mysqli_query($mysqli, "SELECT vendor_id, vendor_name FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = $client_id OR vendor_client_id = 0) ORDER BY (vendor_client_id = 0), vendor_name ASC");
                                 while ($row = mysqli_fetch_assoc($vendor_sql)) {
                                     $vendor_id = $row['vendor_id'];
                                     $vendor_name = $row['vendor_name'];
@@ -140,7 +154,7 @@ ob_start();
                         <select class="form-control select2" name="dnshost">
                             <option value="">- Select Vendor -</option>
                             <?php
-                            $vendor_sql = mysqli_query($mysqli, "SELECT vendor_id, vendor_name FROM vendors WHERE vendor_client_id = $client_id AND vendor_archived_at IS NULL ORDER BY vendor_name ASC");
+                            $vendor_sql = mysqli_query($mysqli, "SELECT vendor_id, vendor_name FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = $client_id OR vendor_client_id = 0) ORDER BY (vendor_client_id = 0), vendor_name ASC");
                                 while ($row = mysqli_fetch_assoc($vendor_sql)) {
                                     $vendor_id = $row['vendor_id'];
                                     $vendor_name = $row['vendor_name'];
@@ -162,7 +176,7 @@ ob_start();
                         <select class="form-control select2" name="mailhost">
                             <option value="">- Select Vendor -</option>
                             <?php
-                            $vendor_sql = mysqli_query($mysqli, "SELECT vendor_id, vendor_name FROM vendors WHERE vendor_client_id = $client_id AND vendor_archived_at IS NULL ORDER BY vendor_name ASC");
+                            $vendor_sql = mysqli_query($mysqli, "SELECT vendor_id, vendor_name FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = $client_id OR vendor_client_id = 0) ORDER BY (vendor_client_id = 0), vendor_name ASC");
                                 while ($row = mysqli_fetch_assoc($vendor_sql)) {
                                     $vendor_id = $row['vendor_id'];
                                     $vendor_name = $row['vendor_name'];
