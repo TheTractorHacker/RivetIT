@@ -2812,7 +2812,8 @@ CREATE TABLE `settings` (
   `config_enable_device_metrics` tinyint(1) NOT NULL DEFAULT 0,
   `config_metrics_collect_interval_seconds` int(11) NOT NULL DEFAULT 300,
   `config_metrics_raw_retention_days` int(11) NOT NULL DEFAULT 14,
-  `config_metrics_hour_retention_days` int(11) NOT NULL DEFAULT 90
+  `config_metrics_hour_retention_days` int(11) NOT NULL DEFAULT 90,
+  `config_kb_media_key` varchar(300) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

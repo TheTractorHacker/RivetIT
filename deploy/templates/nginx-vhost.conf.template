@@ -45,9 +45,21 @@
 #     delimits direct-TLS-only content (HSTS - see rationale below). In proxy
 #     mode, delete the whole range; in direct-TLS mode, keep the content and
 #     drop just the two marker lines.
-#   A safe sed one-liner per mode, run against the substituted file:
+#   FIRST strip THIS documentation header, then apply the per-mode sed. The
+#   header is not optional housekeeping: the four lines above mention the marker
+#   strings as inline documentation, and sed's /start/,/end/ range does not test
+#   the end pattern against the line that opened the range - so run directly on
+#   the un-stripped file, the "Every line between a ..." bullet above opens a
+#   range that only closes at the REAL end marker far below and takes the
+#   `server {` line with it. Reproduced 2026-09-08: the proxy-mode output lost
+#   its opening `server {` and nginx -t said "location directive is not allowed
+#   here". install.sh already does the strip (see the comment above its own
+#   copy of these two lines); anything rendering this by hand must too.
+#     header strip:    sed -i '1,/^server {/{ /^server {/!d }' file
 #     proxy mode:      sed -i '/# BEGIN DIRECT-TLS ONLY/,/# END DIRECT-TLS ONLY/d; /# __PROXY_MODE_BLOCK__/d; /# BEGIN PROXY-MODE ONLY/d; /# END PROXY-MODE ONLY/d' file
 #     direct-TLS mode:  sed -i '/# BEGIN PROXY-MODE ONLY/,/# END PROXY-MODE ONLY/d; /# __PROXY_MODE_BLOCK__/d; /# BEGIN DIRECT-TLS ONLY/d; /# END DIRECT-TLS ONLY/d' file
+#   With the strip applied first, both modes render with the /uploads/kb/ deny
+#   intact and pass `nginx -t` (measured 2026-09-08, nginx 1.24.0).
 #
 # Rate limiting: `limit_req_zone` MUST live in nginx's http{} context, which
 # this file (a server{} block pair) is not - install.sh must additionally
@@ -138,6 +150,43 @@ server {
 
     # uploads/.htaccess: never execute uploaded files as scripts
     location ~ ^/uploads/.*\.(php|phtml|phar|phps|cgi|pl|sh)$ {
+        deny all;
+    }
+
+    # KB media is the one part of /uploads/ that must never be served directly.
+    #
+    # Everything else under /uploads/ is addressed by a URL the application
+    # already decided you may see (an avatar, the company logo, a document
+    # image), but a KB attachment or a DOCX/PDF-imported inline image is
+    # department-scoped content whose on-disk name is md5(contents) + 2 random
+    # characters - guessable by anyone who already holds the same document, and
+    # permanent once leaked, because nothing about the path expires when a
+    # user's access does. Denying the prefix is what makes the authenticated
+    # endpoints the ONLY door: agent/kb_media.php, client/kb_media.php and
+    # agent/kb_article_attachment.php each re-derive the whole permission chain
+    # from the database per request and then stream the bytes with PHP
+    # (fpassthru), so nothing here needs X-Accel-Redirect and "internal" would
+    # buy nothing over a flat deny.
+    #
+    # SCOPED TO /uploads/kb/ ON PURPOSE. A deny on all of /uploads/ would break
+    # every avatar, company logo, client-file thumbnail and document image -
+    # they are <img> subresources with no serve endpoint in front of them. This
+    # prefix is the only one the KB serve endpoints cover.
+    #
+    # A SEPARATE TOP-LEVEL PREFIX, not a nested block: nginx picks the LONGEST
+    # matching prefix location, so "/uploads/kb/..." lands here and never in the
+    # "^~ /uploads/" block below, which is exactly the intent. The script-deny
+    # does not need repeating inside it the way it does below - "deny all"
+    # already refuses every method and every extension.
+    #
+    # DEPLOY ORDER. This deny is the LAST of the three steps, and applying it
+    # early is the one way to break working images: (1) deploy the code, so the
+    # three serve endpoints exist; (2) run the database update to 2.6.78, which
+    # rewrites stored KB URLs onto those endpoints and refuses to run if step 1
+    # has not happened; (3) add this block and reload. Between (2) and (3)
+    # everything works through both doors; after (3) only the authenticated one
+    # is open.
+    location ^~ /uploads/kb/ {
         deny all;
     }
 

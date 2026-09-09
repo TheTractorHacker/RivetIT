@@ -1943,13 +1943,106 @@ components:
         client_name: {type: string, nullable: true}
         client_visible: {type: integer}
         updated_at: {type: string}
+    KbAttachment:
+      type: object
+      description: >
+        A KB article attachment. NOTE the shape differs from the shared
+        `Attachment` schema used by tickets: this one carries `id` and has no
+        `filename`. It always did - the spec previously pointed at `Attachment`
+        and was simply wrong about it.
+      properties:
+        id: {type: integer, description: kb_article_attachments.kb_article_attachment_id}
+        name: {type: string, description: The original filename as uploaded.}
+        url:
+          type: string
+          description: >
+            A SHORT-LIVED, SIGNED, ABSOLUTE URL. Fetch it with no credentials of
+            any kind - the signature in the query string IS the credential,
+            which is what lets an external browser or a WebView (neither of which
+            can send `Authorization` or `X-Api-Key`) open it.
+
+
+            Shape:
+            `https://<host>/agent/kb_media.php?att=<id>&p=<principal>&e=<unix expiry>&s=<hmac-sha256>`.
+
+
+            Valid for 24 hours, and bound to the CREDENTIAL that requested it -
+            a URL minted for your token is not usable by anyone else, and it
+            stops working the moment that token or key is revoked, expires, or
+            its user is disabled, archived or loses `module_kb`. Permissions are
+            re-derived from the database on every fetch, so the URL is proof of
+            identity and never a grant. Do not cache it, store it, or share it;
+            re-request the article to get a fresh one.
+
+
+            Adding `&download=1` forces a download instead of an inline preview.
+            That parameter is deliberately outside the signature, so the same URL
+            serves both. PDFs and common image types preview inline; everything
+            else downloads.
+
+
+            FALLBACK, when this install cannot sign - it has no configured base
+            URL, or the signing key does not exist because the database is still
+            below version 2.6.78. The URL is then ROOT-RELATIVE, and which
+            relative form you get says what to do with it:
+
+
+            * `/uploads/kb/<article_id>/<stored filename>` - the pre-2.6.78
+            shape, emitted only while the database has not been migrated and the
+            file is verified present on disk. Resolve it against your server URL
+            and fetch it; it works with no credentials, exactly as this endpoint
+            behaved before signing existed. It disappears the moment the
+            database update runs.
+
+
+            * `/agent/kb_media.php?att=<id>` - the canonical authenticated form,
+            emitted on a migrated install that still cannot sign (a broken
+            configuration). It needs a browser session cookie and will NOT work
+            from the API. Treat a redirect to the login page as "media
+            unavailable", not as an error to retry.
     KbArticleDetail:
       allOf:
         - $ref: '#/components/schemas/KbArticleListItem'
         - type: object
           properties:
-            content: {type: string}
-            attachments: {type: array, items: {$ref: '#/components/schemas/Attachment'}}
+            content:
+              type: string
+              description: >
+                Article body as HTML, run through HTMLPurifier. Every KB media
+                reference the importers and the editor uploader produce -
+                `/uploads/kb/<article_id>/<file>` and flat `/uploads/kb/<file>`,
+                in `src`, `href` and CSS `url()` - is replaced with a signed
+                absolute URL of the same form as `KbAttachment.url`
+                (`?a=<article_id>&f=<file>&p=&e=&s=`), valid for 2 hours and
+                fetchable with no headers. Render the string directly (e.g.
+                Android's `WebView.loadDataWithBaseURL`) and the images load
+                over the plain network stack. `alt` is empty rather than derived
+                from the filename, so no part of the token is ever exposed as
+                text.
+
+
+                WHAT IS *NOT* REWRITTEN, stated exactly rather than promised
+                away: a `/uploads/...` path that is not one of those two shapes
+                is passed through untouched. That means a nested subdirectory
+                (`/uploads/kb/13/sub/x.png`), a filename outside
+                `[A-Za-z0-9_-]+.[A-Za-z0-9]+` (a space, which purification
+                percent-encodes, or a second dot as in `archive.tar.gz`), and
+                anything elsewhere under `/uploads/` such as a ticket
+                screenshot pasted into an article. None of these can be
+                produced by the DOCX importer, the PDF importer or the editor
+                uploader - every name they generate is hex or base64url plus a
+                single extension - and the media endpoint would refuse the first
+                two anyway, so rewriting them would trade a working URL for a
+                guaranteed 403. Treat them as ordinary relative URLs.
+
+
+                When this install cannot sign, the whole body is emitted exactly
+                as stored: pre-2.6.78 that is the legacy `/uploads/kb/...` form,
+                which is fetchable and is what this endpoint returned before
+                signing existed; from 2.6.78 it is the canonical
+                `/agent/kb_media.php?...` form, which needs a session cookie.
+                See `KbAttachment.url` for the same two cases.
+            attachments: {type: array, items: {$ref: '#/components/schemas/KbAttachment'}}
     UserProfile:
       type: object
       properties:

@@ -265,6 +265,45 @@ practice that means `--force_update` will not track this repo correctly. `deploy
 fixed upstream in `scripts/update_cli.php` itself (not something this deployment tooling patches around
 — see `docs/ISO27001-COMPLIANCE.md`'s "Known gaps").
 
+### Upgrading an EXISTING instance to authenticated KB media serving (database 2.6.78)
+
+This one change has an order, and getting it wrong is the difference between a clean rollout and a
+Knowledge Base full of broken images. A fresh `install.sh` needs none of this — it renders the vhost
+template and imports `db.sql`, so it starts in the finished state.
+
+1. **Deploy the code.** `agent/kb_media.php`, `client/kb_media.php`, `agent/kb_article_attachment.php`
+   and `src/KB/` are what serve KB media with authentication. Nothing changes for users at this point:
+   stored article HTML still points at `/uploads/kb/...`, the web server still serves that, and
+   `api/v1/kb.php` deliberately keeps emitting those same URLs while it cannot sign, so the Android app
+   is unaffected.
+2. **Run the database update** (`deploy/update.sh`, or `scripts/update_cli.php --update_db`). The
+   2.6.77 → 2.6.78 block adds `settings.config_kb_media_key` and rewrites every stored KB media URL onto
+   the authenticated endpoint. It **refuses to run and modifies nothing** if step 1 has not happened —
+   it checks that `agent/kb_media.php` is on disk first — so the order cannot be inverted by accident.
+   It prints how many rows it migrated, and warns about any it deliberately skipped (a path shape
+   neither importer produces; those images need re-inserting through the editor).
+3. **Add the `/uploads/kb/` deny to nginx and reload.** Until this lands the old unauthenticated path is
+   still open, so the defect is not actually closed; after it lands, the authenticated endpoints are the
+   only way to the bytes. The block is already in `templates/nginx-vhost.conf.template`, so instances
+   built by `install.sh` from this version have it; an existing hand-maintained vhost (or a shared
+   `snippets/` include) needs it added by hand:
+
+   ```nginx
+   location ^~ /uploads/kb/ {
+       deny all;
+   }
+   ```
+
+   It must sit beside the existing `location ^~ /uploads/`, not inside it — nginx picks the longest
+   matching prefix, which is what makes `/uploads/kb/...` land here while everything else (avatars,
+   company logos, ticket and document files) keeps working untouched. Verify with `nginx -t`, reload,
+   then confirm a KB media path returns 403 while `/uploads/users/<file>` still returns 200. If a shared
+   snippet serves several vhosts the rule applies to all of them, which is harmless for any instance
+   with no `uploads/kb` directory — it turns a 404 into a 403.
+
+Rolling back is step 3 in reverse (remove the block, `nginx -t`, reload); the migrated URLs keep working
+either way, because the authenticated endpoints do not depend on the deny.
+
 ---
 
 ## Security model
