@@ -1,0 +1,51 @@
+/*
+ * agent/org_chart.php only.
+ *
+ * A plain indented tree with a left "spine" line per nesting level - no
+ * charting library, no canvas/SVG. <details>/<summary> supplies the
+ * expand/collapse behaviour natively (no JS required for that part; the
+ * Expand All / Collapse All buttons are the only JS on the page, and they just
+ * flip the same native .open property).
+ */
+
+.org-tree,
+.org-tree ul {
+    list-style: none;
+    margin: 0;
+    padding-left: 0;
+}
+
+.org-tree ul {
+    padding-left: 1.5rem;
+    margin-top: .25rem;
+    border-left: 1px dashed var(--tblr-border-color, #dde1e6);
+}
+
+.org-tree > li,
+.org-tree ul > li {
+    padding: .35rem 0;
+}
+
+.org-tree summary {
+    cursor: pointer;
+    list-style: revert;
+}
+
+.org-tree summary::marker {
+    color: var(--tblr-secondary, #6c757d);
+}
+
+/* Leaf rows (no <details>/<summary>, so no native disclosure triangle) get a
+   matching left nudge so their card text lines up with expandable siblings'. */
+.org-tree li.org-leaf {
+    padding-left: 1.1rem;
+}
+
+.org-node-initials {
+    font-size: .6rem;
+    font-style: normal;
+}
+
+.org-node-text {
+    line-height: 1.25;
+}

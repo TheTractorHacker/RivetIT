@@ -3,7 +3,7 @@ require_once "includes/inc_all_admin.php";
 enforceUserPermission('module_admin');
 require_once "../includes/comet.php";
 
-$active_tab = in_array($_GET['tab'] ?? '', ['rmm', 'backups', 'firewalls', 'unifi', 'directorysync']) ? $_GET['tab'] : 'rmm';
+$active_tab = in_array($_GET['tab'] ?? '', ['rmm', 'backups', 'firewalls', 'unifi', 'directorysync', 'devicesync']) ? $_GET['tab'] : 'rmm';
 
 // ─── RMM (non-Sophos) ───────────────────────────────────────────────────────
 $sql_rmm_integrations = mysqli_query($mysqli, "SELECT * FROM rmm_integrations WHERE type != 'sophos_central' ORDER BY name ASC");
@@ -62,7 +62,7 @@ while ($sm = mysqli_fetch_assoc($sql_unifi_site_maps)) {
     $unifi_site_maps_by_integration[$iid]['sites'][] = $sm;
 }
 
-// ─── Directory Sync (Microsoft / Odoo) ──────────────────────────────────────
+// ─── Directory Sync (Microsoft / Odoo / Google) ─────────────────────────────
 $row_ms = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM microsoft_integrations ORDER BY microsoft_integration_id DESC LIMIT 1")) ?: [];
 $ms_id = intval($row_ms['microsoft_integration_id'] ?? 0);
 $ms_tenant_id = nullable_htmlentities($row_ms['tenant_id'] ?? '');
@@ -70,6 +70,9 @@ $ms_client_id = nullable_htmlentities($row_ms['client_id'] ?? '');
 $ms_has_secret = !empty($row_ms['client_secret_enc']);
 $ms_enabled = intval($row_ms['enabled'] ?? 0);
 $ms_intune_sync_enabled = intval($row_ms['intune_sync_enabled'] ?? 0);
+// Separate from intune_sync_enabled - "Sync users from Entra ID" (directory/contact
+// sync, this batch) vs "Sync devices from Intune" (device sync, pre-existing).
+$ms_directory_sync_enabled = intval($row_ms['directory_sync_enabled'] ?? 0);
 $ms_last_test_at = $row_ms['last_test_at'] ?? null;
 $ms_last_test_success = $row_ms['last_test_success'] ?? null;
 $ms_last_test_error = nullable_htmlentities($row_ms['last_test_error'] ?? '');
@@ -84,6 +87,85 @@ $odoo_enabled = intval($row_odoo['enabled'] ?? 0);
 $odoo_last_test_at = $row_odoo['last_test_at'] ?? null;
 $odoo_last_test_success = $row_odoo['last_test_success'] ?? null;
 $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? '');
+
+// Google Workspace - net new, mirrors microsoft_integrations' shape. No OAuth
+// client secret: Google's service-account flow signs its own JWT from the
+// pasted key file (src/Integrations/Google/GoogleDirectoryClient.php).
+$row_google = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM google_integrations ORDER BY google_integration_id DESC LIMIT 1")) ?: [];
+$google_id = intval($row_google['google_integration_id'] ?? 0);
+$google_delegated_admin_email = nullable_htmlentities($row_google['delegated_admin_email'] ?? '');
+$google_workspace_domain = nullable_htmlentities($row_google['workspace_domain'] ?? '');
+$google_has_key = !empty($row_google['service_account_json_enc']);
+$google_enabled = intval($row_google['enabled'] ?? 0);
+$google_last_test_at = $row_google['last_test_at'] ?? null;
+$google_last_test_success = $row_google['last_test_success'] ?? null;
+$google_last_test_error = nullable_htmlentities($row_google['last_test_error'] ?? '');
+
+// ─── Field Mapping (directory_field_mappings, via src/Directory/FieldMapping.php) ──
+// Canonical source fields per provider - MUST exactly match the literal strings
+// each mapper's own sourceValues/extractSourceValue table recognizes (grepped from
+// OdooDirectoryMapper::syncEmployee(), MicrosoftDirectoryMapper::buildMappedFieldsSql(),
+// and GoogleDirectoryMapper's own docblock/resolveTargetValues() on 2026-09-09) so a
+// row saved here actually takes effect the next time that provider syncs. Merged
+// below with whatever's actually configured in directory_field_mappings so every
+// provider's section is usable even before a single row exists for it - only Odoo's
+// 4 rows are seeded by DB update 2.6.79; Microsoft/Google start empty.
+$directory_field_canonical = [
+    'odoo' => [
+        'job_title'    => 'Job Title',
+        'work_phone'   => 'Work Phone',
+        'mobile_phone' => 'Mobile Phone',
+        'work_email'   => 'Work Email (also always used to match/create an employee - this mapping only controls whether it additionally writes to the field chosen below)',
+    ],
+    'microsoft' => [
+        'jobTitle'       => 'Job Title',
+        'mobilePhone'    => 'Mobile Phone',
+        'businessPhones' => 'Business Phone (first number on the account)',
+        'mail'           => 'Mail (also always used to match/create an employee - this mapping only controls whether it additionally writes to the field chosen below)',
+    ],
+    'google' => [
+        'organizations[0].title' => 'Job Title (organizations[0].title)',
+        'phones.work'            => 'Work Phone',
+        'phones.mobile'          => 'Mobile Phone',
+        'primaryEmail'           => 'Primary Email (also always used to match/create an employee - this mapping only controls whether it additionally writes to the field chosen below)',
+        'orgUnitPath'            => 'Org Unit Path (also always used for the department link - this mapping only controls whether it additionally writes to the field chosen below)',
+    ],
+];
+$directory_field_target_labels = [];
+foreach (\ITFlow\Directory\FieldMapping::ALLOWED_TARGET_FIELDS as $dft) {
+    $directory_field_target_labels[$dft] = ucwords(str_replace(['contact_', '_'], ['', ' '], $dft));
+}
+$directory_field_rows = []; // provider => list of {source_field,label,target_field,enabled}
+foreach ($directory_field_canonical as $df_provider => $df_fields) {
+    $df_existing = \ITFlow\Directory\FieldMapping::allForProvider($mysqli, $df_provider);
+    $df_by_source = [];
+    foreach ($df_existing as $df_row) {
+        $df_by_source[$df_row['source_field']] = $df_row;
+    }
+    $df_rows = [];
+    foreach ($df_fields as $df_source => $df_label) {
+        $df_ex = $df_by_source[$df_source] ?? null;
+        $df_rows[] = [
+            'source_field' => $df_source,
+            'label'        => $df_label,
+            'target_field' => $df_ex['target_field'] ?? '',
+            'enabled'      => $df_ex ? $df_ex['enabled'] : false,
+        ];
+        unset($df_by_source[$df_source]);
+    }
+    // Any row already in the DB for a source field this UI version doesn't otherwise
+    // list (a hand-edited row, or a field a future version adds) - stay visible rather
+    // than silently hiding an active mapping.
+    foreach ($df_by_source as $df_source => $df_ex) {
+        $df_rows[] = [
+            'source_field' => $df_source,
+            'label'        => $df_source,
+            'target_field' => $df_ex['target_field'],
+            'enabled'      => $df_ex['enabled'],
+        ];
+    }
+    $directory_field_rows[$df_provider] = $df_rows;
+}
 ?>
 
 <style nonce="<?php echo $csp_nonce; ?>">
@@ -121,6 +203,9 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $active_tab === 'directorysync' ? 'active' : '' ?>" data-bs-toggle="tab" href="#tab-directorysync" data-tabkey="directorysync"><i class="fas fa-address-book me-1"></i>Directory Sync</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $active_tab === 'devicesync' ? 'active' : '' ?>" data-bs-toggle="tab" href="#tab-devicesync" data-tabkey="devicesync"><i class="fas fa-laptop me-1"></i>Device Sync</a>
     </li>
 </ul>
 
@@ -1374,38 +1459,9 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
 </div><!-- /#tab-unifi -->
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
-     DIRECTORY SYNC (MICROSOFT / ODOO) TAB
+     DIRECTORY SYNC (MICROSOFT / ODOO / GOOGLE + FIELD MAPPING) TAB
      ═══════════════════════════════════════════════════════════════════════════ -->
 <div class="tab-pane <?= $active_tab === 'directorysync' ? 'show active' : '' ?>" id="tab-directorysync">
-
-    <div class="card mb-3">
-        <div class="card-header py-2 d-flex align-items-center">
-            <h3 class="card-title me-auto"><i class="fas fa-fw fa-laptop me-2"></i>Intune Devices Module</h3>
-            <?php if ($config_module_enable_intune): ?>
-                <span class="badge text-bg-success"><i class="fas fa-check-circle me-1"></i>Module Enabled</span>
-            <?php else: ?>
-                <span class="badge text-bg-secondary"><i class="fas fa-times-circle me-1"></i>Module Disabled</span>
-            <?php endif; ?>
-        </div>
-        <div class="card-body">
-            <form action="post.php" method="post">
-                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-                <div class="form-group mb-2">
-                    <div class="form-check form-check form-switch">
-                        <input type="checkbox" class="form-check-input" id="intune_module_enabled"
-                               name="config_module_enable_intune" value="1" <?= $config_module_enable_intune ? 'checked' : '' ?>>
-                        <label class="form-check-label" for="intune_module_enabled">Enable Intune Devices module (shows the "Intune Devices" menu item for technicians)</label>
-                    </div>
-                </div>
-                <small class="text-muted d-block mb-3">
-                    Independent of the Microsoft 365 connection below - browsing this menu doesn't require sync to already be configured, and turning sync on doesn't require showing the menu.
-                </small>
-                <button type="submit" name="save_intune_module_settings" class="btn btn-primary btn-sm">
-                    <i class="fas fa-check me-1"></i>Save Module Settings
-                </button>
-            </form>
-        </div>
-    </div>
 
     <div class="card mb-3">
         <div class="card-header py-2 d-flex align-items-center">
@@ -1420,8 +1476,16 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
             <?php if ($ms_last_test_error) { ?>
                 <div class="alert alert-danger"><?= $ms_last_test_error ?></div>
             <?php } ?>
+            <p class="text-muted small">
+                This is the one Microsoft 365 connection ITFlow Internal IT uses - both "Sync users from Entra ID"
+                below and Intune device sync (<a href="?tab=devicesync">Device Sync tab</a>) authenticate against
+                this same tenant/client/secret. Configure it here; the Device Sync tab only has its own on/off switch.
+            </p>
             <form action="post.php" method="post" autocomplete="off">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                <!-- Intune device sync's own toggle now lives on the Device Sync tab (see below) -
+                     passed through unchanged here so saving this form never resets it. -->
+                <input type="hidden" name="intune_sync_enabled" value="<?= $ms_intune_sync_enabled ? '1' : '0' ?>">
 
                 <div class="form-group">
                     <label>Tenant ID</label>
@@ -1443,66 +1507,74 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
                 <hr>
 
                 <div class="form-check form-switch mb-1">
-                    <input type="checkbox" class="form-check-input" name="intune_sync_enabled" value="1" id="msIntuneSyncEnabled" <?= $ms_intune_sync_enabled ? 'checked' : '' ?>>
-                    <label class="form-check-label" for="msIntuneSyncEnabled">Sync devices from Intune</label>
+                    <input type="checkbox" class="form-check-input" name="directory_sync_enabled" value="1" id="msDirectorySyncEnabled" <?= $ms_directory_sync_enabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="msDirectorySyncEnabled">Sync users from Entra ID</label>
                 </div>
                 <small class="text-muted d-block mb-3">
-                    Requires the <code>DeviceManagementManagedDevices.Read.All</code> Application permission on this same app registration - grant it in Entra ID → App registrations → (your app) → API permissions → Add a permission → Microsoft Graph → Application permissions, then Grant admin consent. This app cannot grant that permission for you; it must be added in the Azure/Entra portal.
+                    Requires the <code>User.Read.All</code> Application permission on this same app registration - grant it in Entra ID → App registrations → (your app) → API permissions → Add a permission → Microsoft Graph → Application permissions, then Grant admin consent. This is a DIFFERENT permission from <code>DeviceManagementManagedDevices.Read.All</code> (needed for Intune device sync, on the Device Sync tab) - grant both separately if you want both. This app cannot grant either for you; they must be added in the Azure/Entra portal.
                 </small>
 
                 <button type="submit" name="save_microsoft_integration" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
                 <button type="submit" name="test_microsoft_integration" class="btn btn-secondary"><i class="fas fa-plug me-2"></i>Test Connection</button>
-                <?php if ($ms_enabled && $ms_intune_sync_enabled && $ms_has_secret): ?>
-                <button type="submit" name="sync_intune_devices" class="btn btn-success"><i class="fas fa-sync me-2"></i>Sync Now</button>
+                <?php if ($ms_enabled && $ms_directory_sync_enabled && $ms_has_secret): ?>
+                <button type="submit" name="sync_microsoft_directory" class="btn btn-success"><i class="fas fa-sync me-2"></i>Sync Now</button>
                 <?php endif; ?>
             </form>
         </div>
     </div>
 
     <div class="card mb-3">
-        <div class="card-header py-2">
-            <h3 class="card-title"><i class="fas fa-fw fa-history me-2"></i>Recent Intune Syncs</h3>
+        <div class="card-header py-2 d-flex align-items-center">
+            <h3 class="card-title me-auto"><i class="fab fa-fw fa-google me-2"></i>Google Workspace</h3>
+            <?php if ($google_last_test_at) { ?>
+                <span class="badge <?= $google_last_test_success ? 'text-bg-success' : 'text-bg-danger' ?>">
+                    Last test: <?= $google_last_test_success ? 'Success' : 'Failed' ?> (<?= nullable_htmlentities($google_last_test_at) ?>)
+                </span>
+            <?php } ?>
         </div>
-        <div class="card-body p-0">
-            <?php
-            $sql_intune_log = mysqli_query($mysqli,
-                "SELECT * FROM intune_sync_log WHERE microsoft_integration_id = $ms_id ORDER BY id DESC LIMIT 5"
-            );
-            if (!$sql_intune_log || mysqli_num_rows($sql_intune_log) == 0): ?>
-                <p class="text-muted text-center py-3 mb-0">No syncs yet.</p>
-            <?php else: ?>
-            <div class="table-responsive">
-            <table class="table table-sm table-hover mb-0">
-                <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
-                    <tr>
-                        <th class="ps-3">Started</th>
-                        <th>Status</th>
-                        <th>Created</th>
-                        <th>Updated</th>
-                        <th>Matched</th>
-                        <th>Skipped</th>
-                        <th>Errors</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php
-                $intune_log_badge = ['success' => 'text-bg-success', 'failed' => 'text-bg-danger', 'running' => 'text-bg-secondary'];
-                while ($lr = mysqli_fetch_assoc($sql_intune_log)):
-                ?>
-                    <tr>
-                        <td class="ps-3 text-muted small"><?= nullable_htmlentities($lr['started_at']) ?></td>
-                        <td><span class="badge <?= $intune_log_badge[$lr['status']] ?? 'text-bg-secondary' ?>"><?= nullable_htmlentities($lr['status']) ?></span></td>
-                        <td><?= intval($lr['devices_created']) ?></td>
-                        <td><?= intval($lr['devices_updated']) ?></td>
-                        <td><?= intval($lr['devices_matched']) ?></td>
-                        <td><?= intval($lr['devices_skipped']) ?></td>
-                        <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= nullable_htmlentities($lr['errors']) ?></td>
-                    </tr>
-                <?php endwhile; ?>
-                </tbody>
-            </table>
-            </div>
-            <?php endif; ?>
+        <div class="card-body">
+            <?php if ($google_last_test_error) { ?>
+                <div class="alert alert-danger"><?= $google_last_test_error ?></div>
+            <?php } ?>
+            <p class="text-muted small">
+                Authenticates as a Google Cloud service account with domain-wide delegation - paste the full
+                contents of that service account's downloaded JSON key file below. Requires a GCP project with
+                the Admin SDK API enabled, a service account, and domain-wide delegation authorized in the
+                Workspace Admin console for the <code>admin.directory.user.readonly</code> and
+                <code>admin.directory.orgunit.readonly</code> scopes - see
+                <code>src/Integrations/Google/GoogleDirectoryClient.php</code> for the exact steps. This app
+                cannot grant any of that for you; it must be configured in the Google Cloud/Workspace consoles.
+            </p>
+            <form action="post.php" method="post" autocomplete="off">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+
+                <div class="form-group">
+                    <label>Service Account JSON</label>
+                    <textarea class="form-control font-monospace" name="service_account_json" rows="4" autocomplete="off"
+                              placeholder="<?= $google_has_key ? 'Stored - leave blank to keep current' : 'Paste the full contents of the downloaded service account key file' ?>"></textarea>
+                    <small class="text-muted">Stored encrypted, the same as a Client Secret field above - never re-displayed. <?= $google_has_key ? 'A key is currently saved; leave this blank to keep it.' : '' ?></small>
+                </div>
+                <div class="form-group">
+                    <label>Delegated Admin Email</label>
+                    <input type="email" class="form-control" name="delegated_admin_email" value="<?= $google_delegated_admin_email ?>" placeholder="admin@yourcompany.com">
+                    <small class="text-muted">A real, non-suspended Workspace super admin - Google requires this identity for domain-wide delegation to work at all.</small>
+                </div>
+                <div class="form-group">
+                    <label>Workspace Domain <small class="text-muted">(optional)</small></label>
+                    <input type="text" class="form-control" name="workspace_domain" value="<?= $google_workspace_domain ?>" placeholder="yourcompany.com">
+                    <small class="text-muted">Leave blank to sync every domain in this Workspace customer.</small>
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input type="checkbox" class="form-check-input" name="enabled" value="1" id="googleEnabled" <?= $google_enabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="googleEnabled">Enabled</label>
+                </div>
+
+                <button type="submit" name="save_google_integration" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
+                <button type="submit" name="test_google_integration" class="btn btn-secondary"><i class="fas fa-plug me-2"></i>Test Connection</button>
+                <?php if ($google_enabled && $google_has_key): ?>
+                <button type="submit" name="sync_google_directory" class="btn btn-success"><i class="fas fa-sync me-2"></i>Sync Now</button>
+                <?php endif; ?>
+            </form>
         </div>
     </div>
 
@@ -1552,6 +1624,163 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
         </div>
     </div>
 
+    <!-- ─── Field Mapping: what each provider's fields write to, and whether they do ─── -->
+    <div class="card mb-3">
+        <div class="card-header py-2">
+            <h3 class="card-title"><i class="fas fa-fw fa-random me-2"></i>Field Mapping</h3>
+        </div>
+        <div class="card-body p-0">
+            <p class="text-muted small px-3 pt-3 mb-2">
+                What each provider's field is written into on a synced contact, and whether it's synced at all.
+                A field left "— Not mapped —" is never written. Fields marked below as also used for
+                matching/identity (email, or Google's org unit path) are always used for that regardless of this
+                setting - this only controls whether they ALSO get written into the contact field you pick.
+            </p>
+            <form action="post.php" method="post">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+
+                <?php foreach ([
+                    'odoo'      => ['Odoo', 'fas fa-cogs'],
+                    'microsoft' => ['Microsoft 365 / Entra ID', 'fab fa-microsoft'],
+                    'google'    => ['Google Workspace', 'fab fa-google'],
+                ] as $fm_provider => [$fm_label, $fm_icon]): ?>
+                <h4 class="px-3 pt-2 pb-1 mb-0" style="font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:#8590a5;">
+                    <i class="<?= $fm_icon ?> fa-fw me-1"></i><?= htmlspecialchars($fm_label) ?>
+                </h4>
+                <div class="table-responsive">
+                <table class="table table-sm table-borderless mb-0">
+                    <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
+                        <tr>
+                            <th class="ps-3">Source Field</th>
+                            <th style="min-width:220px;">Maps To</th>
+                            <th class="text-center" style="width:80px;">Enabled</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($directory_field_rows[$fm_provider] as $fm_i => $fm_row):
+                        $fm_key = $fm_provider . '_' . $fm_i;
+                    ?>
+                        <tr>
+                            <td class="ps-3 small">
+                                <?= nullable_htmlentities($fm_row['label']) ?>
+                                <input type="hidden" name="mapping[<?= htmlspecialchars($fm_key) ?>][provider]" value="<?= htmlspecialchars($fm_provider) ?>">
+                                <input type="hidden" name="mapping[<?= htmlspecialchars($fm_key) ?>][source_field]" value="<?= htmlspecialchars($fm_row['source_field']) ?>">
+                            </td>
+                            <td>
+                                <select class="form-control form-control-sm" name="mapping[<?= htmlspecialchars($fm_key) ?>][target_field]">
+                                    <option value="">— Not mapped —</option>
+                                    <?php foreach ($directory_field_target_labels as $fm_target => $fm_target_label): ?>
+                                        <option value="<?= htmlspecialchars($fm_target) ?>" <?= $fm_row['target_field'] === $fm_target ? 'selected' : '' ?>><?= htmlspecialchars($fm_target_label) ?> (<?= htmlspecialchars($fm_target) ?>)</option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </td>
+                            <td class="text-center">
+                                <div class="form-check form-switch d-flex justify-content-center mb-0">
+                                    <input type="checkbox" class="form-check-input" name="mapping[<?= htmlspecialchars($fm_key) ?>][enabled]" value="1" <?= $fm_row['enabled'] ? 'checked' : '' ?>>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+                </div>
+                <?php endforeach; ?>
+
+                <div class="card-footer py-2">
+                    <button type="submit" name="save_field_mapping" class="btn btn-primary btn-sm">
+                        <i class="fas fa-check me-1"></i>Save Field Mappings
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header py-2">
+            <h3 class="card-title"><i class="fas fa-fw fa-history me-2"></i>Recent Microsoft Directory Syncs</h3>
+        </div>
+        <div class="card-body p-0">
+            <?php
+            $sql_ms_dir_log = mysqli_query($mysqli,
+                "SELECT * FROM microsoft_directory_sync_log WHERE microsoft_integration_id = $ms_id ORDER BY id DESC LIMIT 5"
+            );
+            if (!$sql_ms_dir_log || mysqli_num_rows($sql_ms_dir_log) == 0): ?>
+                <p class="text-muted text-center py-3 mb-0">No syncs yet.</p>
+            <?php else: ?>
+            <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
+                    <tr>
+                        <th class="ps-3">Started</th>
+                        <th>Status</th>
+                        <th>Departments</th>
+                        <th>Employees</th>
+                        <th>Errors</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php
+                $ms_dir_log_badge = ['success' => 'text-bg-success', 'failed' => 'text-bg-danger', 'running' => 'text-bg-secondary'];
+                while ($lr = mysqli_fetch_assoc($sql_ms_dir_log)):
+                ?>
+                    <tr>
+                        <td class="ps-3 text-muted small"><?= nullable_htmlentities($lr['started_at']) ?></td>
+                        <td><span class="badge <?= $ms_dir_log_badge[$lr['status']] ?? 'text-bg-secondary' ?>"><?= nullable_htmlentities($lr['status']) ?></span></td>
+                        <td class="text-muted small"><?= intval($lr['departments_created']) ?> created / <?= intval($lr['departments_updated']) ?> updated / <?= intval($lr['departments_matched']) ?> matched / <?= intval($lr['departments_skipped']) ?> skipped</td>
+                        <td class="text-muted small"><?= intval($lr['employees_created']) ?> created / <?= intval($lr['employees_updated']) ?> updated / <?= intval($lr['employees_matched']) ?> matched / <?= intval($lr['employees_skipped']) ?> skipped</td>
+                        <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= nullable_htmlentities($lr['errors']) ?></td>
+                    </tr>
+                <?php endwhile; ?>
+                </tbody>
+            </table>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header py-2">
+            <h3 class="card-title"><i class="fas fa-fw fa-history me-2"></i>Recent Google Syncs</h3>
+        </div>
+        <div class="card-body p-0">
+            <?php
+            $sql_google_log = mysqli_query($mysqli,
+                "SELECT * FROM google_sync_log WHERE google_integration_id = $google_id ORDER BY id DESC LIMIT 5"
+            );
+            if (!$sql_google_log || mysqli_num_rows($sql_google_log) == 0): ?>
+                <p class="text-muted text-center py-3 mb-0">No syncs yet.</p>
+            <?php else: ?>
+            <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
+                    <tr>
+                        <th class="ps-3">Started</th>
+                        <th>Status</th>
+                        <th>Departments</th>
+                        <th>Employees</th>
+                        <th>Errors</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php
+                $google_log_badge = ['success' => 'text-bg-success', 'failed' => 'text-bg-danger', 'running' => 'text-bg-secondary'];
+                while ($lr = mysqli_fetch_assoc($sql_google_log)):
+                ?>
+                    <tr>
+                        <td class="ps-3 text-muted small"><?= nullable_htmlentities($lr['started_at']) ?></td>
+                        <td><span class="badge <?= $google_log_badge[$lr['status']] ?? 'text-bg-secondary' ?>"><?= nullable_htmlentities($lr['status']) ?></span></td>
+                        <td class="text-muted small"><?= intval($lr['departments_created']) ?> created / <?= intval($lr['departments_updated']) ?> updated / <?= intval($lr['departments_matched']) ?> matched / <?= intval($lr['departments_skipped']) ?> skipped</td>
+                        <td class="text-muted small"><?= intval($lr['employees_created']) ?> created / <?= intval($lr['employees_updated']) ?> updated / <?= intval($lr['employees_matched']) ?> matched / <?= intval($lr['employees_skipped']) ?> skipped</td>
+                        <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= nullable_htmlentities($lr['errors']) ?></td>
+                    </tr>
+                <?php endwhile; ?>
+                </tbody>
+            </table>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
     <div class="card">
         <div class="card-header py-2">
             <h3 class="card-title"><i class="fas fa-fw fa-history me-2"></i>Recent Odoo Syncs</h3>
@@ -1596,6 +1825,129 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
     </div>
 
 </div><!-- /#tab-directorysync -->
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     DEVICE SYNC (INTUNE) TAB
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="tab-pane <?= $active_tab === 'devicesync' ? 'show active' : '' ?>" id="tab-devicesync">
+
+    <div class="card mb-3">
+        <div class="card-header py-2 d-flex align-items-center">
+            <h3 class="card-title me-auto"><i class="fas fa-fw fa-laptop me-2"></i>Intune Devices Module</h3>
+            <?php if ($config_module_enable_intune): ?>
+                <span class="badge text-bg-success"><i class="fas fa-check-circle me-1"></i>Module Enabled</span>
+            <?php else: ?>
+                <span class="badge text-bg-secondary"><i class="fas fa-times-circle me-1"></i>Module Disabled</span>
+            <?php endif; ?>
+        </div>
+        <div class="card-body">
+            <form action="post.php" method="post">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                <div class="form-group mb-2">
+                    <div class="form-check form-check form-switch">
+                        <input type="checkbox" class="form-check-input" id="intune_module_enabled"
+                               name="config_module_enable_intune" value="1" <?= $config_module_enable_intune ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="intune_module_enabled">Enable Intune Devices module (shows the "Intune Devices" menu item for technicians)</label>
+                    </div>
+                </div>
+                <small class="text-muted d-block mb-3">
+                    Independent of the Microsoft 365 connection below - browsing this menu doesn't require sync to already be configured, and turning sync on doesn't require showing the menu.
+                </small>
+                <button type="submit" name="save_intune_module_settings" class="btn btn-primary btn-sm">
+                    <i class="fas fa-check me-1"></i>Save Module Settings
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header py-2 d-flex align-items-center">
+            <h3 class="card-title me-auto"><i class="fab fa-fw fa-microsoft me-2"></i>Intune Sync</h3>
+            <?php if (!$ms_has_secret): ?>
+                <span class="badge text-bg-secondary">No Connection</span>
+            <?php else: ?>
+                <span class="badge <?= $ms_enabled ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $ms_enabled ? 'Connection Configured' : 'Connection Disabled' ?></span>
+            <?php endif; ?>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">
+                Uses the Microsoft 365 connection configured under <a href="?tab=directorysync">Directory Sync</a>
+                - tenant ID, client ID and secret live there as the one source of truth. This just turns Intune
+                device sync on or off against that connection.
+            </p>
+            <form action="post.php" method="post">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                <!-- These belong to the Microsoft 365 connection configured on the Directory Sync tab -
+                     passed through unchanged so saving this slim form never touches them. -->
+                <input type="hidden" name="tenant_id" value="<?= $ms_tenant_id ?>">
+                <input type="hidden" name="client_id" value="<?= $ms_client_id ?>">
+                <input type="hidden" name="enabled" value="<?= $ms_enabled ? '1' : '0' ?>">
+                <input type="hidden" name="directory_sync_enabled" value="<?= $ms_directory_sync_enabled ? '1' : '0' ?>">
+
+                <div class="form-check form-switch mb-1">
+                    <input type="checkbox" class="form-check-input" name="intune_sync_enabled" value="1" id="msIntuneSyncEnabled" <?= $ms_intune_sync_enabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="msIntuneSyncEnabled">Sync devices from Intune</label>
+                </div>
+                <small class="text-muted d-block mb-3">
+                    Requires the <code>DeviceManagementManagedDevices.Read.All</code> Application permission on the app registration configured under Directory Sync - grant it in Entra ID → App registrations → (your app) → API permissions → Add a permission → Microsoft Graph → Application permissions, then Grant admin consent.
+                </small>
+
+                <button type="submit" name="save_microsoft_integration" class="btn btn-primary btn-sm"><i class="fas fa-check me-1"></i>Save</button>
+                <?php if ($ms_enabled && $ms_intune_sync_enabled && $ms_has_secret): ?>
+                <button type="submit" name="sync_intune_devices" class="btn btn-success btn-sm"><i class="fas fa-sync me-1"></i>Sync Now</button>
+                <?php endif; ?>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header py-2">
+            <h3 class="card-title"><i class="fas fa-fw fa-history me-2"></i>Recent Intune Syncs</h3>
+        </div>
+        <div class="card-body p-0">
+            <?php
+            $sql_intune_log = mysqli_query($mysqli,
+                "SELECT * FROM intune_sync_log WHERE microsoft_integration_id = $ms_id ORDER BY id DESC LIMIT 5"
+            );
+            if (!$sql_intune_log || mysqli_num_rows($sql_intune_log) == 0): ?>
+                <p class="text-muted text-center py-3 mb-0">No syncs yet.</p>
+            <?php else: ?>
+            <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
+                    <tr>
+                        <th class="ps-3">Started</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Updated</th>
+                        <th>Matched</th>
+                        <th>Skipped</th>
+                        <th>Errors</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php
+                $intune_log_badge = ['success' => 'text-bg-success', 'failed' => 'text-bg-danger', 'running' => 'text-bg-secondary'];
+                while ($lr = mysqli_fetch_assoc($sql_intune_log)):
+                ?>
+                    <tr>
+                        <td class="ps-3 text-muted small"><?= nullable_htmlentities($lr['started_at']) ?></td>
+                        <td><span class="badge <?= $intune_log_badge[$lr['status']] ?? 'text-bg-secondary' ?>"><?= nullable_htmlentities($lr['status']) ?></span></td>
+                        <td><?= intval($lr['devices_created']) ?></td>
+                        <td><?= intval($lr['devices_updated']) ?></td>
+                        <td><?= intval($lr['devices_matched']) ?></td>
+                        <td><?= intval($lr['devices_skipped']) ?></td>
+                        <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= nullable_htmlentities($lr['errors']) ?></td>
+                    </tr>
+                <?php endwhile; ?>
+                </tbody>
+            </table>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+</div><!-- /#tab-devicesync -->
 
 </div><!-- /.tab-content -->
 

@@ -35,7 +35,7 @@ if ($config_enable_cron == 0) {
 
 // REFRESH DOMAIN WHOIS DATA (1 a day/run)
 //  Get the oldest updated domain (MariaDB shows NULLs first when ordering by default)
-$row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT domain_id, domain_name, domain_expire FROM `domains` WHERE domain_archived_at IS NULL ORDER BY domain_updated_at LIMIT 1"));
+$row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT domain_id, domain_name, domain_expire, domain_registered_at, domain_registrar_name, domain_status, domain_dnssec FROM `domains` WHERE domain_archived_at IS NULL ORDER BY domain_updated_at LIMIT 1"));
 
 if ($row) {
 
@@ -43,6 +43,10 @@ if ($row) {
     $domain_id = intval($row['domain_id']);
     $domain_name = sanitizeInput($row['domain_name']);
     $current_expire = sanitizeInput($row['domain_expire']);
+    $current_registered_at = sanitizeInput($row['domain_registered_at']);
+    $current_registrar_name = sanitizeInput($row['domain_registrar_name']);
+    $current_status = sanitizeInput($row['domain_status']);
+    $current_dnssec = sanitizeInput($row['domain_dnssec']);
 
     // Touch the record we're refreshing to ensure we don't loop
     mysqli_query($mysqli, "UPDATE domains SET domain_updated_at = NOW() WHERE domain_id = $domain_id");
@@ -55,6 +59,10 @@ if ($row) {
     $mx = sanitizeInput($records['mx']);
     $txt = sanitizeInput($records['txt']);
     $whois = sanitizeInput($records['whois']);
+    $registered_at = sanitizeInput($records['registered_at']);
+    $registrar_name = sanitizeInput($records['registrar_name']);
+    $status = sanitizeInput($records['status']);
+    $dnssec = sanitizeInput($records['dnssec']);
 
     // Handle expiry date
     if (strtotime($expire)) {
@@ -66,6 +74,24 @@ if ($row) {
         // Neither are valid, setting expiry to NULL
         $expire = 'NULL';
     }
+
+    // Handle registered/creation date - same fallback pattern as expiry above: a WHOIS
+    // response that today didn't yield a parseable creation date (rate-limited, a
+    // registrar/TLD format the parser doesn't recognize) shouldn't wipe out a
+    // previously-learned good value.
+    if (strtotime($registered_at)) {
+        $registered_at = "'" . $registered_at . "'";
+    } elseif (strtotime($current_registered_at)) {
+        $registered_at = "'" . $current_registered_at . "'";
+    } else {
+        $registered_at = 'NULL';
+    }
+
+    // Registrar name / EPP status / DNSSEC state - free text, not date-validated, but the
+    // same "keep the last-known-good value rather than null it out" reasoning applies.
+    $registrar_name = $registrar_name !== '' ? "'" . $registrar_name . "'" : ($current_registrar_name !== '' ? "'" . $current_registrar_name . "'" : 'NULL');
+    $status = $status !== '' ? "'" . $status . "'" : ($current_status !== '' ? "'" . $current_status . "'" : 'NULL');
+    $dnssec = $dnssec !== '' ? "'" . $dnssec . "'" : ($current_dnssec !== '' ? "'" . $current_dnssec . "'" : 'NULL');
 
     // Current domain info
     $original_domain_info = mysqli_fetch_assoc(mysqli_query($mysqli,"
@@ -84,7 +110,7 @@ if ($row) {
     "));
 
     // Update the domain
-    mysqli_query($mysqli, "UPDATE domains SET domain_name = '$domain_name',  domain_expire = $expire, domain_ip = '$a', domain_name_servers = '$ns', domain_mail_servers = '$mx', domain_txt = '$txt', domain_raw_whois = '$whois' WHERE domain_id = $domain_id");
+    mysqli_query($mysqli, "UPDATE domains SET domain_name = '$domain_name',  domain_expire = $expire, domain_ip = '$a', domain_name_servers = '$ns', domain_mail_servers = '$mx', domain_txt = '$txt', domain_raw_whois = '$whois', domain_registered_at = $registered_at, domain_registrar_name = $registrar_name, domain_status = $status, domain_dnssec = $dnssec WHERE domain_id = $domain_id");
     echo "Updated $domain_name.";
 
     // Fetch updated info

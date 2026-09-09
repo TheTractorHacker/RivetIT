@@ -102,6 +102,49 @@ class GraphClient
     }
 
     /**
+     * Fetches every user in the tenant, fully paginated, with the extra
+     * profile fields Microsoft directory sync needs (job title, phone
+     * numbers, department) that listUsers()'s slimmer $select above
+     * doesn't request. Returns raw Graph user dicts, not ExternalUser
+     * objects — matches OdooClient::listEmployees()'s raw-array
+     * convention, which MicrosoftDirectoryMapper (src/Integrations/
+     * Microsoft/MicrosoftDirectoryMapper.php) is written against.
+     *
+     * PERMISSION SCOPE: needs the Graph application permission
+     * User.Read.All granted with admin consent on this app registration -
+     * a DIFFERENT permission from DeviceManagementManagedDevices.Read.All,
+     * which listAllManagedDevices() below needs for Intune device sync.
+     * Grant this separately in the Entra portal; it does not come for free
+     * alongside the device-sync permission.
+     *
+     * @return array[]
+     */
+    public function getUsers(): array
+    {
+        $this->authenticate();
+
+        $path = '/users?$select=id,displayName,mail,userPrincipalName,accountEnabled,jobTitle,mobilePhone,businessPhones,department&$top=100';
+        $users = [];
+
+        while ($path !== null) {
+            [$status, $body] = $this->request('GET', $path, absoluteIfFullUrl: true);
+
+            if ($status !== 200) {
+                throw new \RuntimeException("Graph API returned HTTP $status: " . $this->extractGraphError($body));
+            }
+
+            $data = json_decode($body, true);
+            foreach ($data['value'] ?? [] as $u) {
+                $users[] = $u;
+            }
+
+            $path = $data['@odata.nextLink'] ?? null;
+        }
+
+        return $users;
+    }
+
+    /**
      * Fetches every Intune-managed device from Graph, fully paginated.
      * Returns raw Graph device dicts (not wrapped in a value object) since
      * the Intune asset mapper needs many device-specific fields.

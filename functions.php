@@ -754,7 +754,17 @@ function getDomainRecords($name)
         $records['a'] = '';
         $records['ns'] = '';
         $records['mx'] = '';
+        // Pre-existing gap: this early-return branch never set 'txt', so any caller
+        // reading $records['txt'] on a domain that fails the SOA check (as
+        // cron/domain_refresher.php does on every run) hit an undefined-array-key
+        // warning - confirmed live against a non-resolving domain while verifying the
+        // new fields below. One-line fix, no behavior change to any already-working path.
+        $records['txt'] = '';
         $records['whois'] = '';
+        $records['registered_at'] = null;
+        $records['registrar_name'] = null;
+        $records['status'] = null;
+        $records['dnssec'] = null;
         return $records;
     }
 
@@ -765,7 +775,25 @@ function getDomainRecords($name)
     $records['ns'] = trim(strip_tags(shell_exec("dig +short NS $domain")));
     $records['mx'] = trim(strip_tags(shell_exec("dig +short MX $domain")));
     $records['txt'] = trim(strip_tags(shell_exec("dig +short TXT $domain")));
-    $records['whois'] = substr(trim(strip_tags(shell_exec("whois -H $domain | head -30 | sed 's/   //g'"))), 0, 254);
+
+    // Fetch the raw WHOIS response ONCE and parse the FULL thing below for
+    // registered_at/registrar_name/status/dnssec - the 'whois' entry kept for storage/
+    // display still gets cut to the same 254 characters it always has (other code may
+    // depend on domain_raw_whois not regressing), but that cut now happens AFTER parsing,
+    // not before. Verified directly against 7 real domains' live WHOIS on 2026-09-09
+    // (mwautomation.com, github.com, cloudflare.com, wikipedia.org, microsoft.com,
+    // stackoverflow.com, bbc.co.uk): the OLD `head -30 | ... | substr(0, 254)` pipeline
+    // threw away Domain Status/DNSSEC lines (they sit past line 30 on several of these)
+    // and, for bbc.co.uk's Nominet-format response, the Registered-on/Registrar lines
+    // too. Dropping `head -30` does NOT change the stored/displayed substr(0, 254) result
+    // - 254 characters is well inside the first 30 lines on every domain tested - it only
+    // widens what the parsers below get to see.
+    $raw_whois = trim(strip_tags(shell_exec("whois -H $domain | sed 's/   //g'")));
+    $records['whois'] = substr($raw_whois, 0, 254);
+    $records['registered_at'] = getDomainCreationDate($raw_whois);
+    $records['registrar_name'] = getDomainRegistrarName($raw_whois);
+    $records['status'] = getDomainStatusCodes($raw_whois);
+    $records['dnssec'] = getDomainDnssec($raw_whois);
 
     // Sort A records (if multiple records exist)
     if (!empty($records['a'])) {
@@ -808,6 +836,221 @@ function getDomainRecords($name)
     }
 
     return $records;
+}
+
+// Parses a WHOIS date-value string (whatever text followed a matched label, e.g.
+// "2009-09-26T16:20:15Z" or "before Aug-1996") into a Y-m-d date, or null if it can't be
+// confidently parsed. Shared by getDomainCreationDate() below - kept as its own function
+// (rather than reusing/refactoring getDomainExpirationDate()'s inline copy of this same
+// format list further down this file) so this addition carries zero risk of regressing
+// the already-working expiry parse that function performs.
+function parseWhoisDateValue($dateString)
+{
+    $dateString = trim((string) $dateString);
+    if ($dateString === '') {
+        return null;
+    }
+
+    // Nominet (.uk) reports old registrations only as "before Aug-1996" rather than an
+    // exact date. DateTime::createFromFormat() can't match the literal word "before" as
+    // part of a format string - its lowercase "e" collides with the timezone-identifier
+    // format character and the match fails outright, confirmed with
+    // DateTime::getLastErrors() against real bbc.co.uk WHOIS output - so the qualifier is
+    // stripped here and what remains is parsed normally (falling through to
+    // date_create()'s loose parser below, which handles "Aug-1996" natively, defaulting
+    // to the 1st of that month).
+    if (preg_match('/^before\s+(.+)$/i', $dateString, $m)) {
+        $dateString = trim($m[1]);
+    }
+
+    // Same known-format list getDomainExpirationDate() already tries for expiry dates.
+    $knownFormats = [
+        "d-M-Y",
+        "d-F-Y",
+        "d-m-Y",
+        "Y-m-d",
+        "d.m.Y",
+        "Y.m.d",
+        "Y/m/d",
+        "Y/m/d H:i:s",
+        "Ymd",
+        "Ymd H:i:s",
+        "d/m/Y",
+        "Y. m. d.",
+        "Y.m.d H:i:s",
+        "d-M-Y H:i:s",
+        "D M d H:i:s T Y",
+        "D M d Y",
+        "Y-m-d\TH:i:s",
+        "Y-m-d\TH:i:s\Z",
+        "Y-m-d H:i:s\Z",
+        "Y-m-d H:i:s",
+        "d M Y H:i:s",
+        "d/m/Y H:i:s",
+        "d/m/Y H:i:s T",
+        "B d Y",
+        "d.m.Y H:i:s",
+        "Y-m-d H:i:s (\T\Z\Z)",
+        "Y-M-d.",
+    ];
+
+    foreach ($knownFormats as $format) {
+        $parsedDate = DateTime::createFromFormat($format, $dateString);
+        if ($parsedDate && $parsedDate->format($format) === $dateString) {
+            return $parsedDate->format('Y-m-d');
+        }
+    }
+
+    // None of the known formats matched exactly - try PHP's loose parser as a fallback,
+    // same as getDomainExpirationDate() does.
+    $parsedDate = date_create($dateString);
+    if ($parsedDate) {
+        return $parsedDate->format('Y-m-d');
+    }
+
+    return null;
+}
+
+// Extracts the domain's creation/registration date out of a raw WHOIS response.
+// Label variants below were chosen from real registries/TLDs - WHOIS formatting is
+// inherently inconsistent across them (same reasoning as getDomainExpirationDate()'s own
+// ~30-pattern list for the expiry date), verified directly against mwautomation.com,
+// github.com, cloudflare.com, wikipedia.org, microsoft.com and stackoverflow.com
+// ("Creation Date:") and bbc.co.uk ("Registered on: before Aug-1996", Nominet's own
+// style) on 2026-09-09. A field this can't confidently parse is left null, never guessed.
+function getDomainCreationDate($whois)
+{
+    if (empty($whois)) {
+        return null;
+    }
+
+    $patterns = [
+        '/Creation Date:\s*(.+)/i',
+        '/Registration Date:\s*(.+)/i',
+        '/Registered on:\s*(.+)/i',
+        '/Registered on\.*:\s*(.+)/i',
+        '/Domain Registration Date:\s*(.+)/i',
+        '/Created Date:\s*(.+)/i',
+        '/\[Created on\]\s+(.+)/i',
+        '/created-date:\s*(.+)/i',
+        '/Registered Date:\s*(.+)/i',
+        '/Domain Create Date\.*:\s*(.+)/i',
+        '/created on:\s*(.+)/i',
+        '/Record created:\s*(.+)/i',
+        '/Registration Time:\s*(.+)/i',
+        '/Domain Registered:\s*(.+)/i',
+        '/^created:\s*(.+)/im',
+        '/Registered:\s*(.+)/i',
+        '/Sponsoring Registrar Creation Date:\s*(.+)/i',
+    ];
+
+    foreach ($patterns as $pattern) {
+        if (preg_match($pattern, $whois, $matches)) {
+            $parsed = parseWhoisDateValue($matches[1]);
+            if ($parsed) {
+                return $parsed;
+            }
+        }
+    }
+
+    return null;
+}
+
+// Extracts the WHOIS record's own registrar name (distinct from the domain_registrar
+// vendor_id ITFlow already has - this is what the WHOIS response itself reports).
+// Verified against the same 7 real domains as getDomainCreationDate() above - most
+// registries print "Registrar: <name>" on one line, but Nominet (.uk) instead prints the
+// "Registrar:" label alone with the actual name on the following line, so that shape is
+// tried as a fallback.
+function getDomainRegistrarName($whois)
+{
+    if (empty($whois)) {
+        return null;
+    }
+
+    $patterns = [
+        '/Registrar:\s*(.+)/i',
+        '/Sponsoring Registrar:\s*(.+)/i',
+        '/Registrar Name:\s*(.+)/i',
+        '/Registrar Organization:\s*(.+)/i',
+    ];
+
+    foreach ($patterns as $pattern) {
+        if (preg_match($pattern, $whois, $matches)) {
+            $name = trim($matches[1]);
+            if ($name !== '' && stripos($name, 'http') !== 0) {
+                return substr($name, 0, 255);
+            }
+        }
+    }
+
+    // Nominet (.uk) style: label and value on separate lines, e.g.
+    //     Registrar:
+    //         British Broadcasting Corporation [Tag = BBC]
+    if (preg_match('/Registrar:\s*\n\s*(.+)/i', $whois, $matches)) {
+        $name = trim($matches[1]);
+        if ($name !== '') {
+            return substr($name, 0, 255);
+        }
+    }
+
+    return null;
+}
+
+// Extracts every distinct EPP status code (e.g. clientTransferProhibited) out of a raw
+// WHOIS response, comma-joined - a domain commonly carries several at once. Some
+// registrar-native WHOIS servers (Cloudflare's own, verified directly) repeat the whole
+// status list a second time in all-lowercase further down the same response; codes are
+// de-duped case-insensitively while keeping the first-seen casing.
+function getDomainStatusCodes($whois)
+{
+    if (empty($whois)) {
+        return null;
+    }
+
+    if (!preg_match_all('/Domain Status:\s*([A-Za-z][A-Za-z0-9]*)/i', $whois, $matches)) {
+        // A handful of ccTLDs use bare "Status:" instead of "Domain Status:"
+        if (!preg_match_all('/^Status:\s*([A-Za-z][A-Za-z0-9]*)/im', $whois, $matches)) {
+            return null;
+        }
+    }
+
+    $codes = [];
+    $seen = [];
+    foreach ($matches[1] as $code) {
+        $key = strtolower($code);
+        if (!isset($seen[$key])) {
+            $seen[$key] = true;
+            $codes[] = $code;
+        }
+    }
+
+    if (!$codes) {
+        return null;
+    }
+
+    return substr(implode(', ', $codes), 0, 500);
+}
+
+// Extracts the DNSSEC state (e.g. "unsigned", "signedDelegation") out of a raw WHOIS
+// response. Only the first word on the DNSSEC line is kept - some registries (Cloudflare,
+// verified directly) append a separate "DNSSEC DS Data: ..." line with the actual key
+// material, which is not part of the state itself.
+function getDomainDnssec($whois)
+{
+    if (empty($whois)) {
+        return null;
+    }
+
+    if (preg_match('/DNSSEC:\s*(.+)/i', $whois, $matches)) {
+        $value = trim($matches[1]);
+        $value = preg_split('/\s+/', $value)[0] ?? '';
+        if ($value !== '') {
+            return substr($value, 0, 50);
+        }
+    }
+
+    return null;
 }
 
 // Used to automatically attempt to get SSL certificates as part of adding domains

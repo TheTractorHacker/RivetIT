@@ -7278,3 +7278,174 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.79'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.79') {
+
+        // Directory Sync batch: configurable field mapping (Odoo already synced
+        // employees with 4 fields hardcoded in OdooDirectoryMapper::syncEmployee -
+        // job_title/work_phone/mobile_phone/work_email straight to
+        // contact_title/contact_phone/contact_mobile/contact_email, no way to
+        // change or disable any of them), a Google Workspace directory-sync
+        // provider (did not exist at all), a Microsoft Entra ID USER/contact sync
+        // (microsoft_integrations only ever drove Intune *device* sync until now -
+        // grepped src/Integrations/Microsoft/GraphClient.php and
+        // src/Integrations/Microsoft/IntuneAssetMapper.php before writing this;
+        // neither touches contacts), and 4 additive domains columns to stop
+        // throwing away most of a WHOIS response (cron/domain_refresher.php today
+        // keeps only IP/NS/MX/TXT plus a 254-char-truncated raw blob and a
+        // regex-matched expiry date - Creation Date, registrar name, EPP status
+        // and DNSSEC state are all in the same WHOIS response and are discarded).
+        // Every table/column name here is the FIXED CONTRACT every other lane of
+        // this batch is coding against in parallel - see the batch's contract doc.
+
+        // ----- directory_field_mappings -----
+        // provider/source_field/target_field are all admin-facing strings, not
+        // structural identifiers this schema enforces referential integrity on -
+        // varchar, not enum, so a future provider or field needs no migration to
+        // add. target_field is validated against a hardcoded allow-list of real
+        // contacts.* columns at READ time by src/Directory/FieldMapping.php
+        // (forProvider() silently drops any row that fails it) rather than here,
+        // because the allow-list is a PHP-side security control that has to keep
+        // working even if a row is later edited directly in the database.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `directory_field_mappings` (
+            `mapping_id` int(11) NOT NULL AUTO_INCREMENT,
+            `provider` varchar(20) NOT NULL,
+            `source_field` varchar(60) NOT NULL,
+            `target_field` varchar(60) NOT NULL,
+            `enabled` tinyint(1) NOT NULL DEFAULT 1,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+            PRIMARY KEY (`mapping_id`),
+            UNIQUE KEY `provider_source_field` (`provider`,`source_field`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        // Seed the same 4 mappings OdooDirectoryMapper::syncEmployee() hardcoded
+        // before this table existed, so an install that is upgrading (not
+        // installing fresh from db.sql, which seeds these same 4 rows directly)
+        // keeps syncing Odoo employees exactly as it did before this update - the
+        // FIXED CONTRACT requires this seed explicitly. INSERT IGNORE, not a
+        // bare INSERT: the UNIQUE KEY on (provider, source_field) means a re-run
+        // of this block (partially-applied update, resumed) would otherwise die
+        // on "Duplicate entry" before reaching anything after it.
+        mysqli_query($mysqli, "INSERT IGNORE INTO `directory_field_mappings`
+            (`provider`, `source_field`, `target_field`, `enabled`) VALUES
+            ('odoo', 'job_title', 'contact_title', 1),
+            ('odoo', 'work_phone', 'contact_phone', 1),
+            ('odoo', 'mobile_phone', 'contact_mobile', 1),
+            ('odoo', 'work_email', 'contact_email', 1)");
+
+        // ----- google_integrations / google_sync_log -----
+        // Shape mirrors microsoft_integrations (credential blob + enabled flag +
+        // last_test_*/last_sync_at) and odoo_sync_log (per-run stats +
+        // triggered_by) respectively, per the FIXED CONTRACT. No OAuth
+        // client_secret here - Google's service-account flow authenticates with
+        // an RS256-signed JWT built from the pasted key file's own private key
+        // (src/Integrations/Google/GoogleDirectoryClient.php), not a
+        // Microsoft-style client id/secret pair.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `google_integrations` (
+            `google_integration_id` int(11) NOT NULL AUTO_INCREMENT,
+            `service_account_json_enc` text DEFAULT NULL,
+            `delegated_admin_email` varchar(255) DEFAULT NULL,
+            `workspace_domain` varchar(255) DEFAULT NULL,
+            `enabled` tinyint(1) NOT NULL DEFAULT 0,
+            `last_test_at` datetime DEFAULT NULL,
+            `last_test_success` tinyint(1) DEFAULT NULL,
+            `last_test_error` varchar(500) DEFAULT NULL,
+            `last_sync_at` datetime DEFAULT NULL,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+            PRIMARY KEY (`google_integration_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `google_sync_log` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `google_integration_id` int(11) NOT NULL,
+            `started_at` datetime DEFAULT current_timestamp(),
+            `finished_at` datetime DEFAULT NULL,
+            `status` varchar(20) DEFAULT 'running',
+            `departments_created` int(11) DEFAULT 0,
+            `departments_updated` int(11) DEFAULT 0,
+            `departments_matched` int(11) DEFAULT 0,
+            `departments_skipped` int(11) DEFAULT 0,
+            `employees_created` int(11) DEFAULT 0,
+            `employees_updated` int(11) DEFAULT 0,
+            `employees_matched` int(11) DEFAULT 0,
+            `employees_skipped` int(11) DEFAULT 0,
+            `errors` text DEFAULT NULL,
+            `triggered_by` int(11) DEFAULT 0,
+            PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        // ----- microsoft_integrations: separate the new USER/contact sync from -----
+        // ----- the existing Intune DEVICE sync it already drives -----
+        // intune_sync_enabled (existing) stays exactly as-is and keeps meaning
+        // "sync devices from Intune" - directory_sync_enabled is new and
+        // independent, so an install can run one, both, or neither. Both reuse
+        // the SAME tenant_id/client_id/client_secret_enc credential row per the
+        // FIXED CONTRACT (Directory Sync tab is the one source of truth for the
+        // Microsoft 365 connection; Device Sync's card links to it rather than
+        // duplicating the fields) - reusing GraphClient for HTTP/auth is what
+        // makes that single-credential-row design work.
+        mysqli_query($mysqli, "ALTER TABLE `microsoft_integrations`
+            ADD COLUMN IF NOT EXISTS `directory_sync_enabled` tinyint(1) NOT NULL DEFAULT 0 AFTER `intune_sync_enabled`,
+            ADD COLUMN IF NOT EXISTS `last_directory_sync_at` datetime DEFAULT NULL AFTER `last_sync_at`");
+
+        // microsoft_directory_sync_log mirrors odoo_sync_log's shape exactly
+        // (prefixed microsoft_, keyed on microsoft_integration_id instead of
+        // odoo_integration_id) per the FIXED CONTRACT - kept entirely separate
+        // from the existing intune_sync_log table (device-sync runs), since this
+        // logs USER/contact directory-sync runs and the two have unrelated stat
+        // columns (devices_* vs departments_*/employees_*).
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `microsoft_directory_sync_log` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `microsoft_integration_id` int(11) NOT NULL,
+            `started_at` datetime DEFAULT current_timestamp(),
+            `finished_at` datetime DEFAULT NULL,
+            `status` varchar(20) DEFAULT 'running',
+            `departments_created` int(11) DEFAULT 0,
+            `departments_updated` int(11) DEFAULT 0,
+            `departments_matched` int(11) DEFAULT 0,
+            `departments_skipped` int(11) DEFAULT 0,
+            `employees_created` int(11) DEFAULT 0,
+            `employees_updated` int(11) DEFAULT 0,
+            `employees_matched` int(11) DEFAULT 0,
+            `employees_skipped` int(11) DEFAULT 0,
+            `errors` text DEFAULT NULL,
+            `triggered_by` int(11) DEFAULT 0,
+            PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        // ----- domains: keep what WHOIS actually returns, not just what the -----
+        // ----- 254-char truncated blob happens to still contain -----
+        // All 4 additive and nullable, so every existing domain row is unaffected
+        // until the next cron/domain_refresher.php pass populates them. Verified
+        // on the live install 2026-09-09: mwautomation.com's raw WHOIS carries
+        // Registry Domain ID, Registrar WHOIS Server, Registrar URL, Updated Date
+        // and Creation Date in its first ~7 lines alone - domain_registered_at
+        // captures Creation Date (the one the FIXED CONTRACT calls out by name),
+        // domain_registrar_name the WHOIS record's own registrar name (distinct
+        // from the domain_registrar vendor_id FK column that already exists -
+        // that FK is which vendor row ITFlow considers the registrar; this is
+        // what the WHOIS record itself reports as the registrar's name),
+        // domain_status the EPP status codes (e.g. clientTransferProhibited -
+        // varchar(500) since a domain commonly carries several, semicolon/
+        // comma-joined), domain_dnssec whatever DNSSEC state WHOIS reports
+        // (signedDelegation / unsigned / a per-TLD variant string).
+        mysqli_query($mysqli, "ALTER TABLE `domains`
+            ADD COLUMN IF NOT EXISTS `domain_registered_at` date DEFAULT NULL AFTER `domain_expire`,
+            ADD COLUMN IF NOT EXISTS `domain_registrar_name` varchar(255) DEFAULT NULL AFTER `domain_raw_whois`,
+            ADD COLUMN IF NOT EXISTS `domain_status` varchar(500) DEFAULT NULL AFTER `domain_registrar_name`,
+            ADD COLUMN IF NOT EXISTS `domain_dnssec` varchar(50) DEFAULT NULL AFTER `domain_status`");
+
+        // ----- user_settings: per-user dashboard chart-type choice -----
+        // Additive, NOT NULL with a default matching each widget's current
+        // hardcoded Chart.js type (agent/dashboard.php today: line charts under
+        // Financial, a bar chart under Technical) - so an existing user's
+        // dashboard renders identically after this update until they actually
+        // change the new setting. Placed next to the enable flag each governs.
+        mysqli_query($mysqli, "ALTER TABLE `user_settings`
+            ADD COLUMN IF NOT EXISTS `user_config_dashboard_financial_chart_type` varchar(20) NOT NULL DEFAULT 'line' AFTER `user_config_dashboard_financial_enable`,
+            ADD COLUMN IF NOT EXISTS `user_config_dashboard_technical_chart_type` varchar(20) NOT NULL DEFAULT 'bar' AFTER `user_config_dashboard_technical_enable`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.80'");
+    }

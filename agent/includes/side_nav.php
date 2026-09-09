@@ -12,7 +12,7 @@ $current_page = basename($_SERVER["PHP_SELF"]);
 $in_reports_section = (strpos($_SERVER["PHP_SELF"], '/agent/reports/') !== false);
 
 $section_pages = [
-    'organization'  => ['clients.php'],
+    'organization'  => ['clients.php', 'org_chart.php'],
     'crm'           => ['pipeline.php', 'opportunities.php', 'campaigns.php', 'segments.php'],
     'service_desk'  => ['tickets.php', 'ticket.php', 'recurring_tickets.php', 'service_catalog.php', 'csat.php', 'mail_requests.php', 'problems.php', 'problem_details.php', 'changes.php', 'change_details.php'],
     'work'          => ['projects.php', 'project_details.php', 'calendar.php'],
@@ -95,6 +95,10 @@ foreach ($section_pages as $key => $pages) {
                             <?php if ($num_active_clients) { ?>
                                 <span class="ms-auto badge text-light" data-bs-toggle="tooltip" title="Active Departments"><?php echo $num_active_clients; ?></span>
                             <?php } ?>
+                        </a>
+                        <a href="/agent/org_chart.php" class="dropdown-item<?php if ($current_page == "org_chart.php") { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-project-diagram"></i></span>
+                            <span class="text-truncate">Org Chart</span>
                         </a>
                     </div>
                 </li>
