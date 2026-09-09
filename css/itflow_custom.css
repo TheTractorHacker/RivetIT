@@ -697,14 +697,28 @@ a:hover {
     background-color: var(--color-accent);
 }
 
+/* Tabler's own --tblr-dropdown-link-active-color is var(--tblr-primary) -
+   i.e. Tabler's active-item design is already accent-colored TEXT paired
+   with a light accent-tinted background, coordinated together in its own
+   rule. This override replaces only the background with a SOLID full-
+   strength accent color while leaving that accent-colored text in place,
+   so the label became accent-on-accent - invisible on any install whose
+   accent isn't a pale color (confirmed on this red-accented install: the
+   Set Status/Priority/Category/Assign quick-dropdowns' currently-selected
+   row rendered as a blank red bar). Same anti-pattern the tab-pill fix
+   (22a0d9f, "accent tint, not a solid accent slab") already corrected
+   elsewhere; a solid highlight needs an explicit contrasting text color,
+   which Tabler's own coordinated pair never needed. */
 .dropdown-item.active,
 .dropdown-item:active {
     background-color: var(--color-accent);
+    color: #fff;
 }
 
 .list-group-item.active {
     background-color: var(--color-accent);
     border-color: var(--color-accent);
+    color: #fff;
 }
 
 /* Bootstrap hardcodes .text-dark to a fixed dark gray, which goes low-contrast
