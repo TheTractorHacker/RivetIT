@@ -197,6 +197,29 @@ function itflow_nav_icon_class($icon, $fallback = 'fa-link')
          per-company accent block below (so a custom accent still overrides them). -->
     <link rel="stylesheet" href="/css/itflow.bind-tabler.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow.bind-tabler.css') ?>">
 
+    <!-- Interactive KB blocks (checklist / guided steps / tabs / accordion /
+         decision tree / copy). Scoped entirely under .ikb*, so it cannot reach a
+         page that renders no blocks.
+
+         LOADED UNCONDITIONALLY HERE FOR A DIFFERENT REASON THAN THE PORTAL'S.
+         client/includes/header.php's matching comment cites its header being
+         emitted from client/includes/inc_all.php before client/kb_article.php
+         can set a flag - a real constraint THERE, because the portal's header
+         truly runs before that page's own code does. It does not apply to this
+         shell: an agent-side page could set a flag before includes/header.php
+         runs (includes/footer.php's versioned first-party JS loop already shows
+         the pattern for scripts). This file is unconditional anyway because KB
+         article content shows up in more than one place under this shell - the
+         article page, the version-history modal, and any future page that
+         embeds a snippet of one - and every one of them would have to remember
+         to set that flag or silently lose the styling with no error. Skipping
+         that bookkeeping costs this file even on a page with no KB content:
+         15.3 KB raw / 4.9 KB gzipped, measured against the file on disk.
+         Last of the first-party sheets: it consumes the --if-* tokens the
+         design layer declares and overrides no framework rule, every class
+         name in it being novel. -->
+    <link rel="stylesheet" href="/css/itflow_kb.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_kb.css') ?>">
+
     <!-- Per-company appearance customizer: recolor the CSS-variable theme from the chosen accent.
          $theme_accent_hex / $effective_theme_dark were resolved above (before <html>). This block
          also pushes the accent straight into Bootstrap 5's own variables; css/itflow.bind-tabler.css

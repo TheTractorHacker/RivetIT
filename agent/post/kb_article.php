@@ -21,8 +21,24 @@ if (isset($_POST['add_kb_article'])) {
         enforceClientAccess($kb_article_client_id);
     }
 
-    $content = mysqli_real_escape_string($mysqli, $_POST['content']);
-    $content_raw = sanitizeInput($_POST['title'] . " " . str_replace("<", " <", $_POST['content']));
+    /* THE SERVER BACKSTOP for interactive blocks. \ITFlow\KB\InteractiveBlocks::normalise()
+       mints a missing block or part key, re-mints the duplicates a copy-paste
+       leaves behind, restores a step title the editor deleted, drops the
+       <p>&nbsp;</p> a stray Enter leaves inside a step, and STRIPS
+       contenteditable - which is the one thing the stock purifier keeps
+       (measured: contenteditable="false" survives it untouched), so this is the
+       only place that can guarantee the editor's own marker never reaches
+       storage.
+
+       It early-returns on content with no data-ikb in it, so an ordinary
+       article save is byte-identical to before this call existed. Every path in
+       this file that writes kb_article_content runs it; a path that does not
+       would silently store a block whose keys collide with another's, and a
+       reader's ticks would land on the wrong steps. */
+    $ikb_add = \ITFlow\KB\InteractiveBlocks::normalise((string) $_POST['content']);
+
+    $content = mysqli_real_escape_string($mysqli, $ikb_add['html']);
+    $content_raw = sanitizeInput($_POST['title'] . " " . str_replace("<", " <", $ikb_add['html']));
 
     mysqli_query(
         $mysqli,
@@ -41,7 +57,12 @@ if (isset($_POST['add_kb_article'])) {
 
     logAction("Knowledge Base", "Create", "$session_name created KB article: $title", $kb_article_client_id, $kb_article_id);
 
-    flash_alert("Knowledge Base article <strong>$title</strong> created");
+    $add_flash = "Knowledge Base article <strong>$title</strong> created";
+    if (!empty($ikb_add['warnings'])) {
+        $add_flash .= " &mdash; " . nullable_htmlentities(implode(' ', $ikb_add['warnings']));
+    }
+
+    flash_alert($add_flash, empty($ikb_add['warnings']) ? 'success' : 'warning');
 
     redirect();
 
@@ -188,7 +209,7 @@ if (isset($_POST['import_kb_article_docx'])) {
 
                SIGNATURE-FREE AND ROOT-RELATIVE ON PURPOSE. This exact string has to
                survive an edit: kb_article_edit.php:13 htmlentities it into the
-               TinyMCE textarea (line 91), convert_urls:false (js/app.js:316) makes
+               TinyMCE textarea (line 91), convert_urls:false (js/app.js:433) makes
                TinyMCE hand back what it was given rather than rewriting it, and
                edit_kb_article below stores that back verbatim. A signed URL would
                expire while the editor sat open and then be baked permanently into
@@ -220,6 +241,13 @@ if (isset($_POST['import_kb_article_docx'])) {
         // otherwise hold every image in memory at once alongside the HTML.
         unset($docx_image, $docx_result['media'][$docx_image_key]);
     }
+
+    /* The same interactive-block backstop every other write path in this file
+       runs. DocxConverter emits no data-ikb today, so normalise() early-returns
+       and this is exactly a no-op - it is here so that "every path that writes
+       kb_article_content normalises first" is a property of the file rather
+       than of four separate memories. */
+    $docx_html = \ITFlow\KB\InteractiveBlocks::normalise($docx_html)['html'];
 
     // Same shape as add_kb_article: the HTML is escaped for SQL as-is, and the
     // raw copy is the tag-stripped text the FULLTEXT index searches on.
@@ -421,6 +449,10 @@ if (isset($_POST['import_kb_article_pdf'])) {
         unset($pdf_image, $pdf_result['media'][$pdf_image_key]);
     }
 
+    // The same interactive-block backstop, and the same no-op reasoning as the
+    // DOCX path above: PdfConverter emits no data-ikb either.
+    $pdf_html = \ITFlow\KB\InteractiveBlocks::normalise($pdf_html)['html'];
+
     // Same shape as add_kb_article: the HTML is escaped for SQL as-is, and the
     // raw copy is the tag-stripped text the FULLTEXT index searches on.
     // sanitizeInput() already escapes, so neither is escaped a second time.
@@ -469,6 +501,397 @@ if (isset($_POST['import_kb_article_pdf'])) {
 
 }
 
+if (isset($_POST['import_kb_article_html'])) {
+
+    /* `?? ''` rather than the bare $_POST['csrf_token'] its two sibling
+       importers use, deliberately: a POST with no token at all is exactly what a
+       cross-site attempt looks like, and the bare form makes PHP 8 emit
+       "Undefined array key" into the error log on every one of them - measured
+       here on 8.4.25 against a token-less upload. validateCSRFToken() already
+       treats a non-string as invalid (functions.php:868-880, where the same
+       reasoning is written up for the null case), so '' takes the identical
+       rejection path with no log noise an outsider can generate at will. */
+    validateCSRFToken($_POST['csrf_token'] ?? '');
+
+    // Importing an HTML page CREATES an article, so this is a write, exactly
+    // like add_kb_article above - module_kb level 1 is "Viewing Only".
+    enforceUserPermission('module_kb', 2);
+
+    $kb_article_client_id = intval($_POST['client_id'] ?? 0);
+    $kb_article_category_id = intval($_POST['category_id'] ?? 0);
+    $client_visible = intval($_POST['client_visible'] ?? 1);
+
+    if ($kb_article_client_id) {
+        enforceClientAccess($kb_article_client_id);
+    }
+
+    $html_file = $_FILES['html_file'] ?? ($_FILES['import_file'] ?? []);
+
+    if (empty($html_file) || ($html_file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        flash_alert("No HTML page was uploaded", 'error');
+        redirect();
+    }
+
+    /* The upload must be a genuine PHP upload, and it must pass the codebase's
+       canonical validator with a two-entry allow-list.
+
+       THE SOURCE FILE IS NEVER MOVED INTO /uploads/. That rule is a nicety for
+       the Word and PDF importers and it is the whole ballgame here: /uploads/ is
+       served straight off nginx with no authentication, so a .html file landing
+       there would be stored XSS on this application's own origin, with the
+       session cookie in reach - which would defeat every control in the
+       sandboxed embed below. checkFileUpload() is a pure validator and namer
+       (functions.php:2461-2505; it moves nothing), so it is used exactly as the
+       DOCX and PDF paths use it: to check the extension and produce a name that
+       is then deliberately never used. */
+    if (!is_uploaded_file($html_file['tmp_name'])) {
+        flash_alert("That upload could not be read", 'error');
+        redirect();
+    }
+
+    $html_ref_name = checkFileUpload($html_file, ['html', 'htm']);
+
+    if (!is_string($html_ref_name) || !preg_match('/^[a-zA-Z0-9_-]+\.html?$/', $html_ref_name)) {
+        flash_alert("Only .html and .htm files can be imported", 'error');
+        redirect();
+    }
+
+    // Two honest outcomes, and the agent chose between them in the modal with
+    // the policy in front of them: convert the page into article content, or
+    // keep it whole and running inside a sandboxed frame.
+    $html_mode = ($_POST['import_mode'] ?? 'blocks') === 'embed'
+        ? \ITFlow\KB\HtmlImporter::MODE_EMBED
+        : \ITFlow\KB\HtmlImporter::MODE_BLOCKS;
+
+    // "Leave lists, headings and collapsible sections alone" - the escape valve
+    // for the one mapping in the importer that guesses.
+    $html_options = ['map_blocks' => empty($_POST['leave_lists'])];
+
+    $html_embed_name = cleanInput(mb_substr(trim($_POST['embed_name'] ?? ''), 0, 200));
+    $html_embed_description = cleanInput(mb_substr(trim($_POST['embed_description'] ?? ''), 0, 255));
+
+    if ($html_mode === \ITFlow\KB\HtmlImporter::MODE_EMBED && ($html_embed_name === '' || $html_embed_description === '')) {
+        /* Not optional, and not merely a form nicety: an embed's HTML never
+           reaches kb_article_content_raw, so these two strings are the ONLY
+           words the knowledge base search will ever be able to find it by. */
+        flash_alert("An embedded tool needs a name and a one-line description - they are the only words it can be searched for by", 'error');
+        redirect();
+    }
+
+    // Convert BEFORE anything is created. HtmlImporter never writes to disk and
+    // never fetches a remote resource - it hands back the HTML and the image
+    // bytes in memory - so a page that is malformed, oversized or hostile leaves
+    // no article and no files behind.
+    try {
+        $html_result = \ITFlow\KB\HtmlImporter::convert($html_file['tmp_name'], $html_mode, $html_options);
+    } catch (\ITFlow\KB\HtmlImportException $e) {
+        flash_alert("Import failed: " . nullable_htmlentities($e->getMessage()), 'error');
+        redirect();
+    } catch (\Throwable $e) {
+        // Never leak an internal message; the detail goes to the error log.
+        error_log('KB HTML import failed: ' . $e->getMessage());
+        flash_alert("Import failed: that page could not be read", 'error');
+        redirect();
+    }
+
+    /* Title: an explicitly posted one wins, then the page's own <title>, then
+       the file name. The <title> is the extra step the other two importers do
+       not have - a .docx carries no equivalent and a PDF's is usually the
+       producing application - and it is nearly always the right answer for a
+       page exported from a wiki. */
+    $title = trim($_POST['title'] ?? '');
+
+    if ($title === '' && !empty($html_result['title'])) {
+        $title = (string) $html_result['title'];
+    }
+
+    if ($title === '') {
+        // basename() first so a crafted "name" can never contribute a path.
+        $title = basename(str_replace('\\', '/', $html_file['name']));
+        $title = preg_replace('/\.html?$/i', '', $title);
+        $title = str_replace(['_', '+', '-'], ' ', $title);
+        $title = trim(preg_replace('/\s+/', ' ', $title));
+
+        // "vpn onboarding runbook" -> "Vpn Onboarding Runbook", but a name that
+        // already carries capitals (e.g. "VPN Onboarding") is left alone.
+        if ($title !== '' && $title === mb_strtolower($title)) {
+            $title = mb_convert_case($title, MB_CASE_TITLE, 'UTF-8');
+        }
+    }
+
+    if ($title === '') {
+        $title = 'Imported Page';
+    }
+
+    // cleanInput() strips tags and trims but does NOT escape, so $title stays
+    // usable for the flash and the audit log; sanitizeInput() below is what
+    // escapes it for SQL, exactly as add_kb_article does.
+    $title = cleanInput(mb_substr($title, 0, 255));
+    $title_escaped = sanitizeInput($title);
+
+    // Create the row first so the images have an article id to live under, and
+    // so the embed row has an article to be bound to. The content is written
+    // exactly once, at the end - the INSERT deliberately leaves it empty rather
+    // than storing HTML that still carries substitution tokens.
+    /* PHP 8.1+ throws on a failed query and this codebase never calls
+       mysqli_report() (measured and documented at src/KB/MediaToken.php:495-512,
+       and restated below at the embed INSERT) - so, uncaught, a failed INSERT
+       here would 500 rather than fall into the "!$kb_article_id" guard right
+       below, which exists precisely to catch that case cleanly. Same
+       try/catch shape as the embed INSERT a few lines down, for the same
+       reason. */
+    $kb_article_id = 0;
+    try {
+        mysqli_query(
+            $mysqli,
+            "INSERT INTO kb_articles SET
+                kb_article_title = '$title_escaped',
+                kb_article_content = '',
+                kb_article_content_raw = '',
+                kb_article_client_id = $kb_article_client_id,
+                kb_article_category_id = $kb_article_category_id,
+                kb_article_client_visible = $client_visible,
+                kb_article_created_by = $session_user_id,
+                kb_article_updated_by = $session_user_id"
+        );
+        $kb_article_id = intval(mysqli_insert_id($mysqli));
+    } catch (\Throwable $e) {
+        error_log('KB HTML import: article insert failed: ' . $e->getMessage());
+    }
+
+    if (!$kb_article_id) {
+        flash_alert("Import failed: the article could not be created", 'error');
+        redirect();
+    }
+
+    $html_written_files = [];
+    $html_upload_dir = $_SERVER['DOCUMENT_ROOT'] . "/uploads/kb/$kb_article_id/";
+    $html_embed_id = 0;
+    $html_body = '';
+    $html_search_text = '';
+
+    if ($html_mode === \ITFlow\KB\HtmlImporter::MODE_EMBED) {
+
+        /* THE ESCAPE HATCH. kb_article_embed_untrusted_html is the only column
+           in this database that holds HTML no filter ever touched, and that is
+           deliberate - purifying it would defeat the point of the feature. The
+           containment is entirely in agent/kb_embed.php and client/kb_embed.php,
+           which serve it into an opaque-origin sandbox under their own
+           Content-Security-Policy. Nothing here echoes these bytes, and nothing
+           here is allowed to put them anywhere else.
+
+           The row is bound to ONE article, and that binding is the entire
+           authorization model for both serve endpoints. */
+        $html_embed_bytes = (string) ($html_result['embed'] ?? '');
+
+        $html_embed_html_escaped = mysqli_real_escape_string($mysqli, $html_embed_bytes);
+        $html_embed_name_escaped = sanitizeInput($html_embed_name);
+        $html_embed_text_escaped = sanitizeInput(mb_substr((string) ($html_result['text'] ?? ''), 0, 8192));
+        $html_embed_sha256 = hash('sha256', $html_embed_bytes);
+        $html_embed_height = intval(\ITFlow\KB\InteractiveBlocks::EMBED_HEIGHT_DEFAULT);
+
+        /* PHP 8.1+ throws on a failed query and this codebase never calls
+           mysqli_report(), so an install that has this code but has not run the
+           2.6.79 database update would take an uncaught fatal here rather than
+           reporting a missing table. The modal disables the choice in that
+           state; this is the second half of the same guard, for a POST that did
+           not come through the modal. */
+        $html_embed_stored = false;
+        try {
+            $html_embed_stored = (bool) mysqli_query(
+                $mysqli,
+                "INSERT INTO kb_article_embeds SET
+                    kb_article_embed_kb_article_id = $kb_article_id,
+                    kb_article_embed_name = '$html_embed_name_escaped',
+                    kb_article_embed_untrusted_html = '$html_embed_html_escaped',
+                    kb_article_embed_text = '$html_embed_text_escaped',
+                    kb_article_embed_sha256 = '$html_embed_sha256',
+                    kb_article_embed_height = $html_embed_height,
+                    kb_article_embed_created_by = $session_user_id"
+            );
+            $html_embed_id = intval(mysqli_insert_id($mysqli));
+        } catch (\Throwable $e) {
+            error_log('KB HTML embed import failed: ' . $e->getMessage());
+        }
+
+        if (!$html_embed_stored || !$html_embed_id) {
+            mysqli_query($mysqli, "DELETE FROM kb_articles WHERE kb_article_id = $kb_article_id");
+            flash_alert("Import failed: the embedded page could not be stored. If this install was upgraded recently, an admin needs to run the database update first (Maintenance &gt; Update).", 'error');
+            redirect();
+        }
+
+        /* The block, and the <p> inside it, are the whole of what the article
+           holds: the fallback for a reader with no JavaScript, what the Android
+           app shows (a frame cannot work there), and the only text about the
+           tool that FULLTEXT will ever see. */
+        $html_body = \ITFlow\KB\HtmlImporter::embedBlock(
+            $html_embed_id,
+            $html_embed_name,
+            $html_embed_description,
+            $html_embed_height
+        );
+
+        // The tool's own words, folded into the index the article is found by.
+        $html_search_text = $html_embed_name . ' ' . $html_embed_description . ' ' . (string) ($html_result['text'] ?? '');
+
+    } else {
+
+        // Write the extracted images. Every filename here is generated by us
+        // from random bytes plus the extension the importer derived from the
+        // image's own sniffed type - nothing in the path comes from the
+        // uploaded file.
+        if (!empty($html_result['media'])) {
+            mkdirMissing($_SERVER['DOCUMENT_ROOT'] . "/uploads/kb/");
+            mkdirMissing($html_upload_dir);
+        }
+
+        $html_body = $html_result['html'];
+
+        foreach (array_keys($html_result['media']) as $html_image_key) {
+
+            $html_image = $html_result['media'][$html_image_key];
+
+            $html_image_name = bin2hex(random_bytes(16)) . '.' . $html_image['extension'];
+
+            if (is_dir($html_upload_dir) && file_put_contents($html_upload_dir . $html_image_name, $html_image['bytes']) !== false) {
+                $html_written_files[] = $html_upload_dir . $html_image_name;
+
+                /* THE CANONICAL FORM, byte-identical to what the DOCX and PDF
+                   importers above store, and for every one of the same reasons:
+                   /uploads/ is handed out by nginx with no authentication, so
+                   agent/kb_media.php re-derives module_kb and the article's
+                   department scope from the database on every fetch instead;
+                   signature-free and root-relative so it survives a TinyMCE
+                   edit; and &amp; rather than & because the token sits inside an
+                   <img src="..."> attribute, where the stored bytes and the
+                   purified bytes then already agree. */
+                $html_body = str_replace(
+                    $html_image['token'],
+                    "/agent/kb_media.php?a=$kb_article_id&amp;f=$html_image_name",
+                    $html_body
+                );
+            } else {
+                // Could not store it - drop the <img> rather than leave a dead link.
+                $html_body = preg_replace('/<img src="' . preg_quote($html_image['token'], '/') . '"[^>]*>/', '', $html_body);
+            }
+
+            // Release the image bytes as we go - a picture-heavy page would
+            // otherwise hold every image in memory at once alongside the HTML.
+            unset($html_image, $html_result['media'][$html_image_key]);
+        }
+
+    }
+
+    /* THE SERVER BACKSTOP, then the second lock.
+
+       normalise() mints any missing block or part key, re-mints duplicates,
+       drops the editor-only contenteditable marker and reports what it repaired.
+       It is a no-op on content with no data-ikb in it.
+
+       Then HTMLPurifier, with agent/kb_article.php's exact config plus the
+       interactive vocabulary. The importer is already a closed emitter that can
+       only produce a fixed tag set with escaped text - this is the SECOND lock,
+       not the first, and it is here rather than only at render time because this
+       is the one import path whose input format is itself an attack language.
+       Measured on the fixtures: the emitted blocks survive it byte-for-byte and
+       a second purify of the result is identical, so nothing is lost by storing
+       the purified form. */
+    $html_normalised = \ITFlow\KB\InteractiveBlocks::normalise($html_body);
+    $html_body = $html_normalised['html'];
+
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/plugins/htmlpurifier/HTMLPurifier.standalone.php';
+
+    $html_purifier_config = HTMLPurifier_Config::createDefault();
+    $html_purifier_config->set('Cache.DefinitionImpl', null);
+    $html_purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
+    $html_purifier_config->set('Attr.DefaultImageAlt', '');
+    \ITFlow\KB\InteractiveBlocks::apply($html_purifier_config);
+    $html_purifier = new HTMLPurifier($html_purifier_config);
+
+    $html_body = $html_purifier->purify($html_body);
+
+    /* The FULLTEXT feed is derived AFTER the purify, so the index describes what
+       was actually stored rather than what was about to be. For an embed the two
+       are different things - the article holds only a link, so the search text is
+       the tool's name, its description and its own words, assembled above. */
+    if (!$html_embed_id) {
+        $html_search_text = str_replace("<", " <", $html_body);
+    }
+
+    // Same shape as add_kb_article: the HTML is escaped for SQL as-is, and the
+    // raw copy is the tag-stripped text the FULLTEXT index searches on.
+    // sanitizeInput() already escapes, so neither is escaped a second time.
+    $content = mysqli_real_escape_string($mysqli, $html_body);
+    $content_raw = sanitizeInput($title . " " . $html_search_text);
+
+    /* Wrapped for the identical reason as the INSERT above: PHP 8.1+ throws on
+       a failed query rather than returning false, so an unwrapped call here
+       would 500 on any failure (a lock, max_allowed_packet, disk full, or the
+       OOM a pathologically large import can itself trigger at this exact
+       point) instead of falling into the rollback below - which is the whole
+       reason $html_written_files and $html_embed_id were tracked through the
+       function in the first place. */
+    $html_stored = false;
+    try {
+        $html_stored = (bool) mysqli_query(
+            $mysqli,
+            "UPDATE kb_articles SET
+                kb_article_content = '$content',
+                kb_article_content_raw = '$content_raw'
+             WHERE kb_article_id = $kb_article_id"
+        );
+    } catch (\Throwable $e) {
+        error_log('KB HTML import: article content update failed: ' . $e->getMessage());
+    }
+
+    if (!$html_stored) {
+        // Roll the whole import back - no orphan article, no orphan files, no
+        // orphan embed row.
+        foreach ($html_written_files as $html_written_file) {
+            if (is_file($html_written_file)) {
+                unlink($html_written_file);
+            }
+        }
+        if (is_dir($html_upload_dir)) {
+            @rmdir($html_upload_dir);
+        }
+        if ($html_embed_id) {
+            mysqli_query($mysqli, "DELETE FROM kb_article_embeds WHERE kb_article_embed_id = $html_embed_id");
+        }
+        mysqli_query($mysqli, "DELETE FROM kb_articles WHERE kb_article_id = $kb_article_id");
+
+        flash_alert("Import failed: the converted article could not be saved", 'error');
+        redirect();
+    }
+
+    if ($html_embed_id) {
+        /* Audit-logged with the bytes' digest, because this is the one authoring
+           action in the application that ships arbitrary JavaScript to every
+           department contact who can read the article - caged, but arbitrary. */
+        logAction(
+            "Knowledge Base",
+            "Create",
+            "$session_name imported KB article as a sandboxed embed: $title (embed #$html_embed_id, sha256 " . substr($html_embed_sha256, 0, 16) . ")",
+            $kb_article_client_id,
+            $kb_article_id
+        );
+    } else {
+        logAction("Knowledge Base", "Create", "$session_name imported KB article from an HTML page: $title", $kb_article_client_id, $kb_article_id);
+    }
+
+    $html_warnings = array_merge((array) $html_result['warnings'], $html_normalised['warnings']);
+
+    $html_flash = "Knowledge Base article <strong>" . nullable_htmlentities($title) . "</strong> imported from an HTML page";
+    if (!empty($html_warnings)) {
+        $html_flash .= " &mdash; " . nullable_htmlentities(implode(' ', $html_warnings));
+    }
+
+    flash_alert($html_flash, empty($html_warnings) ? 'success' : 'warning');
+
+    redirect();
+
+}
+
 if (isset($_POST['edit_kb_article'])) {
 
     validateCSRFToken($_POST['csrf_token']);
@@ -494,8 +917,24 @@ if (isset($_POST['edit_kb_article'])) {
         enforceClientAccess($kb_article_client_id);
     }
 
-    $content = mysqli_real_escape_string($mysqli, $_POST['content']);
-    $content_raw = sanitizeInput($_POST['title'] . " " . str_replace("<", " <", $_POST['content']));
+    /* THE SERVER BACKSTOP for interactive blocks. \ITFlow\KB\InteractiveBlocks::normalise()
+       mints a missing block or part key, re-mints the duplicates a copy-paste
+       leaves behind, restores a step title the editor deleted, drops the
+       <p>&nbsp;</p> a stray Enter leaves inside a step, and STRIPS
+       contenteditable - which is the one thing the stock purifier keeps
+       (measured: contenteditable="false" survives it untouched), so this is the
+       only place that can guarantee the editor's own marker never reaches
+       storage.
+
+       It early-returns on content with no data-ikb in it, so an ordinary
+       article save is byte-identical to before this call existed. Every path in
+       this file that writes kb_article_content runs it; a path that does not
+       would silently store a block whose keys collide with another's, and a
+       reader's ticks would land on the wrong steps. */
+    $ikb_edit = \ITFlow\KB\InteractiveBlocks::normalise((string) $_POST['content']);
+
+    $content = mysqli_real_escape_string($mysqli, $ikb_edit['html']);
+    $content_raw = sanitizeInput($_POST['title'] . " " . str_replace("<", " <", $ikb_edit['html']));
 
     // Snapshot the pre-overwrite content into kb_article_versions before
     // applying the edit (master plan Phase 5, Section 14 - KB versioning).
@@ -534,7 +973,12 @@ if (isset($_POST['edit_kb_article'])) {
 
     logAction("Knowledge Base", "Edit", "$session_name edited KB article: $title", $kb_article_client_id, $kb_article_id);
 
-    flash_alert("Knowledge Base article <strong>$title</strong> updated");
+    $edit_flash = "Knowledge Base article <strong>$title</strong> updated";
+    if (!empty($ikb_edit['warnings'])) {
+        $edit_flash .= " &mdash; " . nullable_htmlentities(implode(' ', $ikb_edit['warnings']));
+    }
+
+    flash_alert($edit_flash, empty($ikb_edit['warnings']) ? 'success' : 'warning');
 
     redirect();
 
@@ -570,17 +1014,30 @@ if (isset($_POST['upload_kb_article_attachment'])) {
             mkdirMissing($_SERVER['DOCUMENT_ROOT'] . "/uploads/kb/");
             mkdirMissing($upload_dir);
 
-            move_uploaded_file($_FILES['attachment_file']['tmp_name'], $upload_dir . $ref_name);
+            /* The return value was previously discarded (kb-import review #5,
+               first round), so a failed move - disk full, permissions, a
+               directory that mkdirMissing() could not create - still inserted
+               the attachment row and told the agent it worked. kb_media.php
+               would then run the whole permission chain for a request and only
+               discover there are no bytes on disk. Same fix already applied at
+               agent/kb_article_upload.php:78 for the TinyMCE inline-image
+               uploader; this is the attachment-list uploader's copy of the
+               same bug. */
+            if (move_uploaded_file($_FILES['attachment_file']['tmp_name'], $upload_dir . $ref_name)) {
 
-            $name = sanitizeInput($_FILES['attachment_file']['name']);
-            $ref  = mysqli_real_escape_string($mysqli, $ref_name);
+                $name = sanitizeInput($_FILES['attachment_file']['name']);
+                $ref  = mysqli_real_escape_string($mysqli, $ref_name);
 
-            mysqli_query($mysqli,
-                "INSERT INTO kb_article_attachments SET kb_article_attachment_name='$name', kb_article_attachment_reference_name='$ref', kb_article_attachment_kb_article_id=$kb_article_id"
-            );
+                mysqli_query($mysqli,
+                    "INSERT INTO kb_article_attachments SET kb_article_attachment_name='$name', kb_article_attachment_reference_name='$ref', kb_article_attachment_kb_article_id=$kb_article_id"
+                );
 
-            logAction("Knowledge Base", "Edit", "$session_name uploaded attachment $name to KB article", 0, $kb_article_id);
-            flash_alert("Attachment uploaded", 'success');
+                logAction("Knowledge Base", "Edit", "$session_name uploaded attachment $name to KB article", 0, $kb_article_id);
+                flash_alert("Attachment uploaded", 'success');
+
+            } else {
+                flash_alert("Could not store the uploaded file", 'error');
+            }
 
         } else {
             flash_alert("Invalid or unsupported file type", 'error');

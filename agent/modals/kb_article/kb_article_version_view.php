@@ -15,6 +15,12 @@ $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'htt
 // from the src basename, which for a query-string media URL means the URL's
 // parameters end up in the alt text.
 $purifier_config->set('Attr.DefaultImageAlt', '');
+/* INTERACTIVE KB BLOCKS. Kept identical to the other three KB purifier configs
+ * (agent/kb_article.php, client/kb_article.php, api/v1/kb.php). Without it a
+ * historical snapshot containing blocks would render here as flat prose, so a
+ * reviewer comparing a version against the live article would be comparing two
+ * different renderings rather than two versions. */
+\ITFlow\KB\InteractiveBlocks::apply($purifier_config);
 $purifier = new HTMLPurifier($purifier_config);
 
 $kb_article_version_id = intval($_GET['id']);
@@ -62,12 +68,33 @@ ob_start();
 </div>
 <div class="modal-body">
     <p class="text-secondary small mb-3">Edited by <?php echo $kb_article_version_editor; ?> on <?php echo $kb_article_version_edited_at; ?></p>
-    <div class="prettyContent">
+    <?php /*
+        A render root, but a READ-ONLY one: no endpoint and no progress. A
+        version snapshot is a historical document, its part keys may not match
+        anything the live article still has, and a tick here would be a write
+        against a version that no longer exists. data-ikb-readonly="1" makes the
+        render layer's save() a no-op, so every block is fully walkable and
+        nothing is recorded.
+    */ ?>
+    <div class="prettyContent"
+         data-ikb-root
+         data-ikb-version="<?php echo \ITFlow\KB\InteractiveBlocks::VERSION; ?>"
+         data-ikb-article="<?php echo intval($row['kb_article_version_kb_article_id']); ?>"
+         data-ikb-readonly="1"
+         data-ikb-endpoint=""
+         data-ikb-progress="{}">
         <?php echo $kb_article_version_content; ?>
     </div>
 </div>
 
 <script src="../js/pretty_content.js"></script>
+<?php /*
+    ajax_modal.js re-creates every injected <script> with the page nonce and runs
+    them in order, so this loads inside the modal. kb_interactive.js detects that
+    it is already present on the page it was opened from and simply boots the new
+    root instead of re-running its own body.
+*/ ?>
+<script src="/js/kb_interactive.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/kb_interactive.js'); ?>"></script>
 
 <?php
 require_once '../../../includes/modal_footer.php';

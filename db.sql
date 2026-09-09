@@ -5494,6 +5494,29 @@ CREATE TABLE `google_integrations` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `kb_article_progress`
+--
+
+DROP TABLE IF EXISTS `kb_article_progress`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `kb_article_progress` (
+  `kb_article_progress_id` int(11) NOT NULL AUTO_INCREMENT,
+  `kb_article_progress_kb_article_id` int(11) NOT NULL,
+  `kb_article_progress_block_key` varchar(24) NOT NULL,
+  `kb_article_progress_part_key` varchar(24) NOT NULL,
+  `kb_article_progress_principal_type` char(1) NOT NULL,
+  `kb_article_progress_principal_id` int(11) NOT NULL,
+  `kb_article_progress_state` smallint(6) NOT NULL DEFAULT 0,
+  `kb_article_progress_part_hash` char(16) NOT NULL DEFAULT '',
+  `kb_article_progress_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`kb_article_progress_id`),
+  UNIQUE KEY `kb_article_progress_unique` (`kb_article_progress_kb_article_id`,`kb_article_progress_block_key`,`kb_article_progress_part_key`,`kb_article_progress_principal_type`,`kb_article_progress_principal_id`),
+  KEY `kb_article_progress_reader` (`kb_article_progress_kb_article_id`,`kb_article_progress_principal_type`,`kb_article_progress_principal_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `google_sync_log`
 --
 
@@ -5544,5 +5567,34 @@ CREATE TABLE `microsoft_directory_sync_log` (
   `errors` text DEFAULT NULL,
   `triggered_by` int(11) DEFAULT 0,
   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `kb_article_embeds`
+--
+-- kb_article_embed_untrusted_html is the ONLY column in this database that
+-- holds HTML no filter ever touched. It is never purified and never echoed
+-- into an app page; it reaches a browser only through agent/kb_embed.php and
+-- client/kb_embed.php, which serve it into an opaque-origin sandbox under
+-- their own Content-Security-Policy. See agent/includes/kb_embed_serve.php.
+--
+
+DROP TABLE IF EXISTS `kb_article_embeds`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `kb_article_embeds` (
+  `kb_article_embed_id` int(11) NOT NULL AUTO_INCREMENT,
+  `kb_article_embed_kb_article_id` int(11) NOT NULL,
+  `kb_article_embed_name` varchar(255) NOT NULL,
+  `kb_article_embed_untrusted_html` mediumtext DEFAULT NULL,
+  `kb_article_embed_text` mediumtext DEFAULT NULL,
+  `kb_article_embed_sha256` char(64) NOT NULL DEFAULT '',
+  `kb_article_embed_height` int(11) NOT NULL DEFAULT 480,
+  `kb_article_embed_created_by` int(11) NOT NULL DEFAULT 0,
+  `kb_article_embed_created_at` datetime DEFAULT current_timestamp(),
+  `kb_article_embed_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`kb_article_embed_id`),
+  KEY `kb_article_embed_kb_article_id` (`kb_article_embed_kb_article_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

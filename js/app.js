@@ -3,6 +3,54 @@
 // canonical source of truth: switching tabs always syncs edits made in the
 // Markdown/HTML boxes back into the editor first, then regenerates the
 // target box from the editor's current content.
+
+// Does this content contain interactive KB blocks? The tab bar below needs to
+// know, because ONE of its three tabs destroys them. See docBuilderBlocksMarkdown().
+// The attribute name is the vocabulary's own marker - \ITFlow\KB\InteractiveBlocks
+// and js/tinymce_ikb.js both key on data-ikb - and matching the attribute rather
+// than the class means content that lost its classes is still recognised.
+//
+// Tests the PARSED document (a real element carrying the attribute), not a
+// substring match on the serialised markup. A substring match also fires on
+// an article that merely MENTIONS the vocabulary - e.g. a <pre><code> sample
+// showing how to write one, in an article documenting this very feature -
+// where getBody().querySelector('[data-ikb]') is null because the text sits
+// inside a <code> block as escaped characters, not as a real attribute on a
+// real element. Querying the live body is also cheaper than serialising the
+// whole article with getContent() on every SetContent.
+function docBuilderHasInteractiveBlocks(root) {
+    return !!(root && root.querySelector
+        && root.querySelector('[data-ikb], [data-ikb-part], [data-ikb-node]'));
+}
+
+// THE MARKDOWN TAB DESTROYS INTERACTIVE BLOCKS, COMPLETELY AND SILENTLY.
+//
+// Measured, headless Chromium, this repo's own plugins/turndown/turndown.js and
+// plugins/marked/marked.min.js, on the full vocabulary (a checklist, a decision
+// tree, a copy marker and an embed):
+//
+//   turndown(getContent())  ->  data-ikb present: NO
+//   marked.parse(that)      ->  data-ikb present: NO
+//   every one of data-ikb="sequence", data-ikb-part, data-ikb="tree",
+//   data-ikb-go, data-ikb="copy", data-ikb="embed" and class="ikb-label": GONE.
+//
+// The WORDS all survive - the round trip leaves a readable document - but every
+// block, every part key and therefore every reader's saved progress is gone,
+// with no error and nothing on screen to say it happened. Turndown has never
+// heard of .ikb-part and never will; a Turndown passthrough rule would only
+// survive a clean there-and-back, not an agent editing the Markdown around a
+// block, which is the whole reason the tab exists.
+//
+// So the tab is refused while the article contains blocks. That is a usability
+// regression, deliberately chosen over silent destruction. The HTML tab stays
+// open and is the escape hatch for hand-editing: it round-trips through
+// editor.setContent(), which re-runs editor.parser, so the tinymce_ikb guard is
+// re-applied on the way back and the vocabulary survives byte-for-byte
+// (measured, proof p6).
+function docBuilderBlocksMarkdown(editor) {
+    return docBuilderHasInteractiveBlocks(editor.getBody());
+}
+
 function initDocBuilder(editor) {
     var textarea = editor.getElement();
     if (!textarea.classList.contains('tinymce-builder') || editor.docBuilderInitialized) {
@@ -81,6 +129,47 @@ function initDocBuilder(editor) {
         }
     }
 
+    // Keep the Markdown tab's appearance honest about whether it can be used.
+    // Deliberately NOT the `disabled` attribute: a dead button that swallows the
+    // click can never explain itself, and "why is Markdown greyed out" is a
+    // support question. It stays clickable, looks unavailable, carries the reason
+    // in its tooltip, and says the reason out loud if clicked.
+    var MARKDOWN_REASON = 'This article contains interactive blocks. Markdown cannot represent them, '
+        + 'and converting would delete every block and every reader\'s saved progress. '
+        + 'Use the HTML tab to hand-edit instead.';
+
+    var markdownBtn = tabBar.querySelector('button[data-mode="markdown"]');
+
+    function refreshMarkdownAvailability() {
+        if (!markdownBtn) {
+            return false;
+        }
+        var blocked = docBuilderBlocksMarkdown(editor);
+        markdownBtn.classList.toggle('disabled', blocked);
+        markdownBtn.setAttribute('aria-disabled', blocked ? 'true' : 'false');
+        markdownBtn.title = blocked ? MARKDOWN_REASON : '';
+        return blocked;
+    }
+
+    // Exposed so js/tinymce_ikb.js can re-check availability after the two
+    // Interactive-menu actions that mutate the block DOM WITHOUT firing
+    // SetContent (markCopy(), and the "Show this block as" mode flip) - both
+    // run inside undoManager.transact() with no reparse, so the SetContent/
+    // Undo/Redo binding below never sees them and this button would otherwise
+    // go stale until something else happened to trigger one of those events.
+    // Guarded with typeof on the caller's side, since not every .tinymce
+    // editor this plugin loads into has a Doc Builder (or the tinymce-ikb
+    // menu) at all.
+    editor.ikbRefreshTabs = refreshMarkdownAvailability;
+
+    // The states that can add or remove a block are all of these: the article
+    // being loaded in, the ikb plugin's own inserts (which end in setContent),
+    // undo/redo, and a round trip through the HTML tab. NodeChange is
+    // deliberately not in the list - it fires on every caret move and would run
+    // getContent() over the whole article each time.
+    editor.on('SetContent Undo Redo', refreshMarkdownAvailability);
+    refreshMarkdownAvailability();
+
     tabBar.addEventListener('click', function(e) {
         var btn = e.target.closest('button[data-mode]');
         if (!btn || btn.dataset.mode === currentMode) {
@@ -92,6 +181,16 @@ function initDocBuilder(editor) {
         if (currentMode !== 'richtext') {
             syncToEditor(currentMode);
         }
+
+        // Checked AFTER syncToEditor, so a block pasted into the HTML tab and not
+        // yet pushed into the editor is still seen. This is the hard stop; the
+        // greyed-out button above is only the signposting.
+        if (nextMode === 'markdown' && refreshMarkdownAvailability()) {
+            editor.notificationManager.open({ text: MARKDOWN_REASON, type: 'warning', timeout: 8000 });
+            showMode(currentMode);
+            return;
+        }
+
         if (nextMode !== 'richtext') {
             syncFromEditor(nextMode);
         }
@@ -300,7 +399,25 @@ function initTinyMCEEditors() {
             { name: 'styles', items: ['styles'] },
             { name: 'formatting', items: ['bold', 'italic', 'forecolor'] },
             { name: 'link', items: ['link'] },
-            { name: 'lists', items: ['bullist', 'numlist'] },
+            // 'ikb' is the interactive-KB authoring menu (js/tinymce_ikb.js). The
+            // plugin registers it ONLY on the KB's two editors - isKbEditor() in
+            // that file decides - and TinyMCE silently omits a toolbar item that
+            // nothing registered, so the other 14 .tinymce editors in the app
+            // (ticket replies, bulk email, contract/document templates) get no
+            // new button and no empty group. Verified in headless Chromium.
+            //
+            // BESIDE THE LIST BUTTONS, AND THAT POSITION IS MEASURED, NOT TASTE.
+            // The KB editor opens in a modal-lg, which makes the editor 766px
+            // wide, and TinyMCE's floating toolbar overflows there after
+            // 'Justify': in the real modal, everything from 'indentation'
+            // rightwards - table, image, source, fullscreen, undo, redo - sits
+            // behind the "Reveal or hide additional toolbar items" chevron. Put
+            // in the 'extra' group, the one control this whole feature exists
+            // for would have been invisible until an agent went looking for it.
+            // Next to the list buttons it is both visible and where it belongs:
+            // its highest-value action turns the list you are standing in into a
+            // saved-progress runbook.
+            { name: 'lists', items: ['bullist', 'numlist', 'ikb'] },
             { name: 'alignment', items: ['alignleft', 'aligncenter', 'alignright', 'alignjustify'] },
             { name: 'indentation', items: ['outdent', 'indent'] },
             { name: 'table', items: ['table'] },
@@ -315,6 +432,37 @@ function initTinyMCEEditors() {
         },
         convert_urls: false,
         plugins: 'link image lists table code codesample fullscreen autoresize',
+        // The interactive-KB authoring plugin: the structural guard that stops a
+        // stray Backspace destroying a block, plus the Interactive menu. This is
+        // a plain same-origin <script src> TinyMCE creates for us, so it is legal
+        // under this shell's script-src 'self' (includes/header.php:13) - no build
+        // step, no npm, no CDN.
+        //
+        // Deliberately NO valid_elements / extended_valid_elements: measured on
+        // this repo's own TinyMCE 8.5.0, the default schema already round-trips
+        // the whole data-ikb vocabulary byte-for-byte, and valid_elements would
+        // REPLACE the schema for every editor sharing this init.
+        external_plugins: { ikb: '/js/tinymce_ikb.js' },
+        // Make an interactive block LOOK like one while it is being edited.
+        // Without this it is a heading and some paragraphs, and the first thing
+        // an agent notices about it is that parts of it will not take a caret -
+        // which is the guard working, and reads as the editor being broken.
+        // Generated content only: ::before is not in the DOM, so getContent() is
+        // untouched and nothing here can reach storage. Injected by TinyMCE into
+        // its own iframe, which inherits this page's CSP, and the agent shell
+        // sends style-src 'self' 'unsafe-inline' (includes/header.php:13), so it
+        // is legal. The selectors match nothing in the other 15 .tinymce editors.
+        content_style:
+            '[data-ikb="sequence"],[data-ikb="tree"],[data-ikb="embed"]{'
+            + 'position:relative;border:1px dashed #adb5bd;border-radius:4px;'
+            + 'padding:2.1rem .75rem .75rem;margin:1rem 0;}'
+            + '[data-ikb="sequence"]::before,[data-ikb="tree"]::before,[data-ikb="embed"]::before{'
+            + 'content:attr(data-ikb-mode) " interactive block - use the Interactive toolbar button to edit it";'
+            + 'position:absolute;top:.3rem;left:.75rem;font:11px/1.4 system-ui,sans-serif;'
+            + 'letter-spacing:.02em;text-transform:uppercase;color:#6c757d;}'
+            + '[data-ikb="tree"]::before{content:"decision tree - use the Interactive toolbar button to edit it";}'
+            + '[data-ikb="embed"]::before{content:"embedded tool";}'
+            + 'pre[data-ikb="copy"]{border-left:3px solid #adb5bd;padding-left:.6rem;}',
         images_upload_url: '/agent/kb_article_upload.php',
         images_upload_credentials: true,
         license_key: 'gpl',

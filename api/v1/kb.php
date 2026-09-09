@@ -302,10 +302,15 @@ if ($sub === 'articles') {
          *     carrying that entire string again in alt="..."; with it set to ''
          *     the same input came back alt="", and an alt the author actually
          *     wrote ("Network diagram") was untouched in both runs. All four
-         *     places that purify KB article HTML set it - here,
-         *     agent/kb_article.php, agent/modals/kb_article/kb_article_version_view.php
-         *     and client/kb_article.php - and those four are the complete set
-         *     (grep -rn 'purify(' over the tree, excluding plugins/).
+         *     RENDER sites set it - here, agent/kb_article.php,
+         *     agent/modals/kb_article/kb_article_version_view.php and
+         *     client/kb_article.php, the complete set of places that turn
+         *     stored article HTML into a page a reader sees. A fifth call,
+         *     agent/post/kb_article.php's HTML-import path, sets it too (it
+         *     purifies once at STORE time, before this same content is ever
+         *     read back through one of the four above) - so five call sites
+         *     total set this option (grep -rn "purify(" over the tree,
+         *     excluding plugins/, finds all five).
          *
          * URI.AllowedSchemes matches agent/kb_article.php so the API and the
          * agent page agree on what an article may contain; a root-relative path
@@ -315,6 +320,25 @@ if ($sub === 'articles') {
         $kb_purifier_config->set('Cache.DefinitionImpl', null);
         $kb_purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
         $kb_purifier_config->set('Attr.DefaultImageAlt', '');
+        /* INTERACTIVE KB BLOCKS - the fourth of the four KB RENDER-site purifier
+         * calls (the others are agent/kb_article.php, client/kb_article.php and
+         * agent/modals/kb_article/kb_article_version_view.php). A fifth call,
+         * in agent/post/kb_article.php's HTML-import path, purifies at STORE
+         * time instead of render time and needs this same InteractiveBlocks::
+         * apply() so the importer's own blocks are not stripped back out by
+         * its own purify() call.
+         *
+         * The Android app cannot RUN the render layer:
+         * KbArticleDetailScreen renders this HTML in a WebView with JavaScript
+         * disabled, so there is no checklist and no wizard on the phone. It gets
+         * the un-enhanced markup - a titled heading, labelled sections, every
+         * decision-tree branch visible in document order - which is exactly why
+         * the vocabulary is stored as ordinary semantic HTML. WITHOUT this line
+         * the app would instead receive bare <div>s with the structure stripped
+         * out and every class gone, so registering the vocabulary here is what
+         * makes the phone's version readable rather than what makes it
+         * interactive. */
+        \ITFlow\KB\InteractiveBlocks::apply($kb_purifier_config);
         $kb_purifier = new HTMLPurifier($kb_purifier_config);
 
         $kb_content = $kb_purifier->purify((string) $row['kb_article_content']);
@@ -349,6 +373,27 @@ if ($sub === 'articles') {
         if ($kb_signing_on) {
             $kb_content = (new \ITFlow\KB\MediaUrlRewriter($kb_media_host, $kb_media_principal))->toSigned($kb_content);
         }
+
+        /* THE EMBED FALLBACK LINK NEEDS THE SAME TREATMENT, for a different
+         * reason than media. src/KB/HtmlImporter::embedBlock() deliberately
+         * stores a RELATIVE href ('kb_embed.php?id=N') so it resolves
+         * correctly on both agent/kb_article.php and client/kb_article.php
+         * with no rewriting at all - see that method's docblock. This app
+         * loads article HTML into a WebView via loadDataWithBaseURL() with a
+         * base that is NOT '/agent/' or '/client/' (it reads from this API,
+         * not from either page), so the same relative href resolves against
+         * the wrong base here - not merely "unusable pending login" the way
+         * an unrewritten absolute /agent/ URL was before, but potentially a
+         * wrong path entirely. Not routed through MediaUrlRewriter (that
+         * class's engine is purpose-built for the very different kb_media
+         * src=/href=/url() shapes with signed tokens); this is one link
+         * shape, no signature needed - kb_embed.php re-runs its own
+         * permission check same as any agent/client page would. */
+        $kb_content = preg_replace(
+            '/href="kb_embed\.php\?id=(\d+)"/',
+            'href="https://' . $kb_media_host . '/agent/kb_embed.php?id=$1"',
+            $kb_content
+        );
 
         api_response(200, [
             'id'             => intval($row['kb_article_id']),
