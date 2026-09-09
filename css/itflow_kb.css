@@ -4,9 +4,12 @@
    Styles the vocabulary defined by src/KB/InteractiveBlocks.php and brought to
    life by js/kb_interactive.js. Every selector is scoped under .ikb* so this
    file cannot reach a page that renders no blocks — it ships unconditionally on
-   both shells (about 6 KB) because the portal header is emitted from
-   client/includes/inc_all.php before client/kb_article.php can set a flag, so a
-   conditional <link> is not available there.
+   both shells (15.3 KB raw / 4.9 KB gzipped, measured against the file on
+   disk) because the portal header is emitted from client/includes/inc_all.php
+   before client/kb_article.php can set a flag, so a conditional <link> is not
+   available there. The agent shell has no such hard constraint but stays
+   unconditional too, for its own reason stated at the <link> in
+   includes/header.php.
 
    TWO STATES, AND THE FIRST ONE IS NOT A FALLBACK. Rules that apply with no
    JavaScript describe a readable document: a titled box, bold labels, indented
@@ -391,6 +394,39 @@ body.dark-mode .ikb-copy-wrap {
   opacity: 0;
 }
 
+/* ----------------------------------------------------------------- embed ---- */
+
+.ikb-js .ikb-embed-frame {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--ikb-border);
+  border-radius: var(--ikb-radius-sm);
+  /* The framed document is an opaque origin with its own light-only page
+     (agent/includes/kb_embed_serve.php sends no theme information across that
+     boundary), so a fixed light background reads correctly regardless of
+     this page's own dark/light state - the alternative, a transparent frame
+     background, would show THIS page's colour bleeding in around whatever
+     the embedded tool does not itself paint. */
+  background: #fff;
+}
+
+/* The frame is what a JavaScript-enabled reader sees once it mounts; the
+   stored fallback <p><a>...</a></p> stays in the DOM the whole time - it is
+   what a no-JS browser, the Android app's WebView (JavaScript disabled there)
+   and a printed page (see @media print below) all show instead - and is only
+   ever visually replaced, never removed. Mirrors .ikb-label-hidden's own
+   class-toggle pattern just above. */
+.ikb-js.ikb-embed-js > .ikb-embed-fallback { display: none; }
+
+/* ------------------------------------------------------- save indicator ---- */
+
+/* Built by js/kb_interactive.js as a Bootstrap/Tabler .alert (loaded globally
+   on both shells, so no colour or border rule is needed here), inserted once
+   per root on the first save failure and reused for every failure after -
+   never one per tick. This file only adds the spacing that keeps it from
+   sitting flush against the article title above it. */
+.ikb-save-status { margin-bottom: 1rem; }
+
 /* ----------------------------------------------------------------- print ---- */
 
 @media print {
@@ -402,9 +438,12 @@ body.dark-mode .ikb-copy-wrap {
   .ikb-tabs,
   .ikb-tree-controls,
   .ikb-copy-btn,
-  .ikb-acc-caret { display: none !important; }
+  .ikb-acc-caret,
+  .ikb-embed-frame,
+  .ikb-save-status { display: none !important; }
 
-  .ikb .ikb-label-hidden { display: block !important; }
+  .ikb .ikb-label-hidden,
+  .ikb.ikb-embed-js > .ikb-embed-fallback { display: block !important; }
 
   .ikb {
     border: 1px solid #999;

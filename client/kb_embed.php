@@ -56,6 +56,30 @@
  *
  * EVERY FAILURE IS 404, for the same reason as the agent endpoint: the
  * difference between "no such embed" and "not yours" is itself information.
+ *
+ * ---------------------------------------------------------------------------
+ * REACHABILITY: THE IFRAME PATH WORKS TODAY: THE NO-JS FALLBACK LINK DOES NOT
+ * ---------------------------------------------------------------------------
+ * js/kb_interactive.js's bindEmbed() builds the iframe's src as a RELATIVE
+ * URL ('kb_embed.php?id=' + id, no leading slash) - the same pattern
+ * data-ikb-endpoint already used for the progress endpoints. That resolves
+ * against the CURRENT PAGE: on client/kb_article.php it resolves to THIS
+ * file, on agent/kb_article.php to agent/kb_embed.php, with no rewrite step
+ * and no per-lane branch in the binder. So a department contact with
+ * JavaScript - the normal case - already reaches this file, and every piece
+ * of authorization and every query below is real and independently correct:
+ * the client/kb_media.php pattern applied to embeds, exactly as asked.
+ *
+ * WHAT STILL DOES NOT WORK: the block's no-JS fallback link, which is a
+ * SEPARATE, ABSOLUTE URL baked into stored content at import time -
+ * \ITFlow\KB\HtmlImporter::embedBlock() (src/KB/HtmlImporter.php) hard-codes
+ * it as '/agent/kb_embed.php?id=N' - and nothing rewrites that for a portal
+ * render. MediaUrlRewriter::toPortal() (src/KB/MediaUrlRewriter.php) rewrites
+ * kb_media URLs the same shape needs; the equivalent case for kb_embed has
+ * not been added. Until it is, a portal contact who cannot or does not run
+ * JavaScript still lands on /agent/kb_embed.php and is bounced to the agent
+ * login page. That gap belongs to whichever lane owns HtmlImporter.php and
+ * MediaUrlRewriter.php, not this file - read those for the missing half.
  */
 
 // See the bootstrap note above. Same four requires, same order, as
@@ -135,4 +159,7 @@ if (!$embed) {
     kbEmbedFail(404, 'Not found');
 }
 
-kbEmbedServe((string) ($embed['kb_article_embed_untrusted_html'] ?? ''));
+kbEmbedServe(
+    (string) ($embed['kb_article_embed_untrusted_html'] ?? ''),
+    intval($embed['kb_article_embed_height'] ?? 0)
+);

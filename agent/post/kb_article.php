@@ -633,20 +633,31 @@ if (isset($_POST['import_kb_article_html'])) {
     // so the embed row has an article to be bound to. The content is written
     // exactly once, at the end - the INSERT deliberately leaves it empty rather
     // than storing HTML that still carries substitution tokens.
-    mysqli_query(
-        $mysqli,
-        "INSERT INTO kb_articles SET
-            kb_article_title = '$title_escaped',
-            kb_article_content = '',
-            kb_article_content_raw = '',
-            kb_article_client_id = $kb_article_client_id,
-            kb_article_category_id = $kb_article_category_id,
-            kb_article_client_visible = $client_visible,
-            kb_article_created_by = $session_user_id,
-            kb_article_updated_by = $session_user_id"
-    );
-
-    $kb_article_id = intval(mysqli_insert_id($mysqli));
+    /* PHP 8.1+ throws on a failed query and this codebase never calls
+       mysqli_report() (measured and documented at src/KB/MediaToken.php:495-512,
+       and restated below at the embed INSERT) - so, uncaught, a failed INSERT
+       here would 500 rather than fall into the "!$kb_article_id" guard right
+       below, which exists precisely to catch that case cleanly. Same
+       try/catch shape as the embed INSERT a few lines down, for the same
+       reason. */
+    $kb_article_id = 0;
+    try {
+        mysqli_query(
+            $mysqli,
+            "INSERT INTO kb_articles SET
+                kb_article_title = '$title_escaped',
+                kb_article_content = '',
+                kb_article_content_raw = '',
+                kb_article_client_id = $kb_article_client_id,
+                kb_article_category_id = $kb_article_category_id,
+                kb_article_client_visible = $client_visible,
+                kb_article_created_by = $session_user_id,
+                kb_article_updated_by = $session_user_id"
+        );
+        $kb_article_id = intval(mysqli_insert_id($mysqli));
+    } catch (\Throwable $e) {
+        error_log('KB HTML import: article insert failed: ' . $e->getMessage());
+    }
 
     if (!$kb_article_id) {
         flash_alert("Import failed: the article could not be created", 'error');
@@ -813,13 +824,25 @@ if (isset($_POST['import_kb_article_html'])) {
     $content = mysqli_real_escape_string($mysqli, $html_body);
     $content_raw = sanitizeInput($title . " " . $html_search_text);
 
-    $html_stored = mysqli_query(
-        $mysqli,
-        "UPDATE kb_articles SET
-            kb_article_content = '$content',
-            kb_article_content_raw = '$content_raw'
-         WHERE kb_article_id = $kb_article_id"
-    );
+    /* Wrapped for the identical reason as the INSERT above: PHP 8.1+ throws on
+       a failed query rather than returning false, so an unwrapped call here
+       would 500 on any failure (a lock, max_allowed_packet, disk full, or the
+       OOM a pathologically large import can itself trigger at this exact
+       point) instead of falling into the rollback below - which is the whole
+       reason $html_written_files and $html_embed_id were tracked through the
+       function in the first place. */
+    $html_stored = false;
+    try {
+        $html_stored = (bool) mysqli_query(
+            $mysqli,
+            "UPDATE kb_articles SET
+                kb_article_content = '$content',
+                kb_article_content_raw = '$content_raw'
+             WHERE kb_article_id = $kb_article_id"
+        );
+    } catch (\Throwable $e) {
+        error_log('KB HTML import: article content update failed: ' . $e->getMessage());
+    }
 
     if (!$html_stored) {
         // Roll the whole import back - no orphan article, no orphan files, no
@@ -991,17 +1014,30 @@ if (isset($_POST['upload_kb_article_attachment'])) {
             mkdirMissing($_SERVER['DOCUMENT_ROOT'] . "/uploads/kb/");
             mkdirMissing($upload_dir);
 
-            move_uploaded_file($_FILES['attachment_file']['tmp_name'], $upload_dir . $ref_name);
+            /* The return value was previously discarded (kb-import review #5,
+               first round), so a failed move - disk full, permissions, a
+               directory that mkdirMissing() could not create - still inserted
+               the attachment row and told the agent it worked. kb_media.php
+               would then run the whole permission chain for a request and only
+               discover there are no bytes on disk. Same fix already applied at
+               agent/kb_article_upload.php:78 for the TinyMCE inline-image
+               uploader; this is the attachment-list uploader's copy of the
+               same bug. */
+            if (move_uploaded_file($_FILES['attachment_file']['tmp_name'], $upload_dir . $ref_name)) {
 
-            $name = sanitizeInput($_FILES['attachment_file']['name']);
-            $ref  = mysqli_real_escape_string($mysqli, $ref_name);
+                $name = sanitizeInput($_FILES['attachment_file']['name']);
+                $ref  = mysqli_real_escape_string($mysqli, $ref_name);
 
-            mysqli_query($mysqli,
-                "INSERT INTO kb_article_attachments SET kb_article_attachment_name='$name', kb_article_attachment_reference_name='$ref', kb_article_attachment_kb_article_id=$kb_article_id"
-            );
+                mysqli_query($mysqli,
+                    "INSERT INTO kb_article_attachments SET kb_article_attachment_name='$name', kb_article_attachment_reference_name='$ref', kb_article_attachment_kb_article_id=$kb_article_id"
+                );
 
-            logAction("Knowledge Base", "Edit", "$session_name uploaded attachment $name to KB article", 0, $kb_article_id);
-            flash_alert("Attachment uploaded", 'success');
+                logAction("Knowledge Base", "Edit", "$session_name uploaded attachment $name to KB article", 0, $kb_article_id);
+                flash_alert("Attachment uploaded", 'success');
+
+            } else {
+                flash_alert("Could not store the uploaded file", 'error');
+            }
 
         } else {
             flash_alert("Invalid or unsupported file type", 'error');

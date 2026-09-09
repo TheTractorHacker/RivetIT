@@ -92,7 +92,24 @@
  * ---------------------------------------------------------------------------
  * MEASURED, NOT ASSUMED. Headless Chromium (Playwright) against THESE two
  * endpoints, 2026-09-09, on a scratch database holding a deliberately hostile
- * embed that tries every escape it can reach. Both lanes, both cases:
+ * embed that tries every escape it can reach. Both lanes, both cases. AT THE
+ * TIME OF THIS MEASUREMENT the iframe and the postMessage listener below were
+ * the test harness's own, not this application's, because js/kb_interactive.js
+ * had no 'embed' binder yet. That gap has SINCE BEEN CLOSED in this same
+ * worktree: js/kb_interactive.js now registers one (bindEmbed(), plus
+ * wireEmbedMessages()/onEmbedHeight() for the height reports this file's own
+ * script appends below) and builds the iframe with the identical
+ * sandbox="allow-scripts" attribute and the identical ev.source identity
+ * check this measurement exercised - see the "THREE LAYERS" note a few lines
+ * down for exactly what each piece does today. What this measurement does
+ * NOT cover, because the environment it was re-verified in afterward has no
+ * Playwright-capable Node runtime (Playwright requires Node 20+; only Node
+ * 18 was available), is an end-to-end headless-browser run THROUGH that real
+ * binder rather than the harness's stand-in. The response policy these two
+ * endpoints send - the only thing a missing or buggy binder could not
+ * weaken, since it is enforced by the browser against the HTTP response
+ * regardless of what framed it - is what this measurement verifies and
+ * remains true either way.
  *
  *   FRAMED, parent under the live portal header
  *   (`default-src 'self'; img-src 'self' data:`), iframe sandbox="allow-scripts":
@@ -136,8 +153,27 @@ defined('FROM_KB_EMBED') || die("Direct file access is not allowed");
  * that can show a line of text and a button; 4000 is past any screen and is the
  * point where "tall" becomes "a denial of service on the article page". The
  * same two numbers bound the data-ikb-height purifier attribute
- * (src/KB/InteractiveBlocks.php) and the postMessage clamp in
- * js/kb_interactive.js - three layers, one pair of numbers. */
+ * (\ITFlow\KB\InteractiveBlocks::EMBED_HEIGHT_MIN/MAX, src/KB/InteractiveBlocks.php).
+ *
+ * THREE LAYERS, and as of this file's own history it is worth being precise
+ * about which is which rather than asserting a round number:
+ *   1. WRITE TIME - InteractiveBlocks::clampHeight() bounds data-ikb-height in
+ *      the stored article (that file, another lane's).
+ *   2. SERVE TIME - kbEmbedClampHeight() below bounds this file's own
+ *      X-Ikb-Embed-Height response header. Nothing in this codebase reads
+ *      that header today - js/kb_interactive.js's bindEmbed() sizes the
+ *      iframe from data-ikb-height (layer 1) instead - so this layer is
+ *      defense in depth on a column that is not a trust boundary (see
+ *      kbEmbedClampHeight()'s docblock), not something anything currently
+ *      depends on.
+ *   3. RUNTIME - js/kb_interactive.js's onEmbedHeight() clamps the postMessage
+ *      the height-reporter script below sends, to these same two numbers
+ *      (EMBED_HEIGHT_MIN/EMBED_HEIGHT_MAX there), before writing it to the
+ *      frame's CSSOM height. This is real and wired in - wireEmbedMessages()
+ *      identifies the sender with `ev.source === embeds[i].contentWindow`,
+ *      exactly the check the height-reporter script's own comment below
+ *      requires and for the same reason (`ev.origin` is the literal string
+ *      "null" for a sandboxed opaque-origin document and proves nothing). */
 const KB_EMBED_MIN_HEIGHT = 120;
 const KB_EMBED_MAX_HEIGHT = 4000;
 
@@ -166,14 +202,24 @@ const KB_EMBED_MAX_BYTES = 524288;
  */
 function kbEmbedFail(int $status, string $message): void
 {
-    if (!headers_sent()) {
-        http_response_code($status);
-        header('Content-Type: text/plain; charset=utf-8');
-        header("Content-Security-Policy: sandbox; default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'");
-        header('X-Content-Type-Options: nosniff');
-        header('Referrer-Policy: no-referrer');
-        header('Cache-Control: private, no-store');
+    /* Same refuse-rather-than-degrade rule as kbEmbedServe() below, applied
+     * for symmetry even though $message is always a constant string from a
+     * caller in this codebase (never attacker data) and so cannot itself be
+     * turned into script by a missing CSP. The point is not this call site -
+     * it is that "if headers_sent(), skip the headers but echo anyway" is a
+     * pattern this file must never contain anywhere, including here, so a
+     * future edit that starts passing a less-trusted $message does not
+     * silently inherit a fail-open path that was only ever safe by accident. */
+    if (headers_sent($sent_file, $sent_line)) {
+        error_log("kb_embed_serve: kbEmbedFail($status) refused - output already started at $sent_file:$sent_line");
+        exit;
     }
+    http_response_code($status);
+    header('Content-Type: text/plain; charset=utf-8');
+    header("Content-Security-Policy: sandbox; default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'");
+    header('X-Content-Type-Options: nosniff');
+    header('Referrer-Policy: no-referrer');
+    header('Cache-Control: private, no-store');
     echo $message;
     exit;
 }
@@ -181,12 +227,26 @@ function kbEmbedFail(int $status, string $message): void
 /**
  * Clamp a declared height into the range the render layer will honour.
  *
- * Called on the way OUT of the database as well as on the way in, because a
- * stored row is not a trust boundary: the purifier bounds the attribute in the
- * article, this bounds the column, and js/kb_interactive.js bounds the
- * postMessage. An unbounded integer from author-controlled markup reaching the
- * frame's height is a denial of service on the article page, which is one of
- * the three things the design review required be fixed rather than inherited.
+ * WHAT ACTUALLY CALLS THIS, so a future reader does not have to grep for it:
+ * kbEmbedServe() below, on the way OUT, to set the X-Ikb-Embed-Height response
+ * header. That is the ONLY call site in this codebase - a previous version of
+ * this comment claimed a "three layers, one pair of numbers" story while this
+ * function had zero callers at all. It is wired in now, and so is the third
+ * layer that comment referenced: js/kb_interactive.js's bindEmbed() /
+ * onEmbedHeight() (see the constants block near the top of that file). See
+ * KB_EMBED_MIN_HEIGHT's own comment above for which of the three layers does
+ * what today.
+ *
+ * \ITFlow\KB\InteractiveBlocks::clampHeight() (src/KB/InteractiveBlocks.php)
+ * is the SEPARATE function that bounds kb_article_embed_height on the way IN,
+ * at write time; it resets an out-of-range value to EMBED_HEIGHT_DEFAULT
+ * (480) rather than pinning it to the nearer edge, which is the right choice
+ * for something an author just typed. This function pins to the nearer edge
+ * instead, which is the right choice for a value being reported about a row
+ * that already exists: a stored row is not a trust boundary (a direct
+ * database edit, or a future importer bug, could still leave the column
+ * out of range), and re-deriving "closest valid height" from a corrupt value
+ * is more useful to a caller than silently substituting an unrelated default.
  */
 function kbEmbedClampHeight(int $height): int
 {
@@ -281,80 +341,122 @@ function kbEmbedOwningArticleId(mysqli $mysqli, int $embed_id): int
  * $html is the raw stored bytes. It is echoed VERBATIM and on purpose - see the
  * file header. Nothing below escapes, filters or rewrites it, because doing so
  * would defeat the feature; the containment is entirely in the headers.
+ *
+ * $height is kb_article_embeds.kb_article_embed_height, UNCLAMPED - clamping
+ * is this function's job (via kbEmbedClampHeight()), not the caller's, so
+ * every caller can pass the raw column straight through.
+ *
+ * REFUSING BEATS DEGRADING. The CSP set below - specifically its `sandbox`
+ * directive - is the ONLY thing standing between $html and stored XSS on this
+ * application's own origin (see the file header). A response that reaches the
+ * browser without it is not a smaller version of this feature, it is a
+ * different and dangerous one, so headers_sent() is checked FIRST, as a hard
+ * precondition: if it is true, NOTHING is echoed and the request ends with no
+ * body at all. There is no version of "serve anyway, minus the policy" that is
+ * an acceptable degradation here.
  */
-function kbEmbedServe(string $html): void
+function kbEmbedServe(string $html, int $height): void
 {
     if (strlen($html) > KB_EMBED_MAX_BYTES) {
         kbEmbedFail(413, 'Embed too large');
     }
 
-    if (!headers_sent()) {
-        header('Content-Type: text/html; charset=UTF-8');
-
-        /* THE POLICY. Every directive earns its place:
-         *
-         *   sandbox allow-scripts   The containment. Opaque origin, so no
-         *                           cookie, no storage, no parent access, and
-         *                           'self' matches nothing for this document.
-         *                           Scripts run - that is the whole point - but
-         *                           with nowhere to send anything. In the
-         *                           HEADER so a TOP-LEVEL visit to the stored
-         *                           fallback link is caged too, not only the
-         *                           framed one. NEVER add allow-same-origin.
-         *   default-src 'none'      Nothing loads unless named below.
-         *   script-src 'unsafe-inline'
-         *                           The embed's own <script>, and the height
-         *                           reporter appended below. NOT 'self': under
-         *                           an opaque origin 'self' matches nothing, so
-         *                           writing it would be a lie that reads like a
-         *                           permission. No 'unsafe-eval' - see header.
-         *   style-src 'unsafe-inline'
-         *                           Same reasoning for <style> and style="".
-         *   img-src / font-src / media-src  data: only. A remote URL would be a
-         *                           beacon: the fetch itself carries data out.
-         *                           data: cannot leave the document.
-         *   connect-src 'none'      No fetch, no XHR, no WebSocket, no
-         *                           sendBeacon.
-         *   form-action 'none'      A form drawn inside cannot submit anywhere.
-         *   base-uri 'none'         The document cannot re-root its own URLs.
-         *   frame-ancestors 'self'  Only this app may frame it. This is what
-         *                           replaces X-Frame-Options, which must NOT be
-         *                           sent here (it would make the frame
-         *                           unloadable). */
-        header(
-            "Content-Security-Policy: "
-            . "sandbox allow-scripts; "
-            . "default-src 'none'; "
-            . "script-src 'unsafe-inline'; "
-            . "style-src 'unsafe-inline'; "
-            . "img-src data:; "
-            . "font-src data:; "
-            . "media-src data:; "
-            . "connect-src 'none'; "
-            . "form-action 'none'; "
-            . "base-uri 'none'; "
-            . "frame-ancestors 'self'"
-        );
-
-        // Always. Without it a browser may sniff past the declared type.
-        header('X-Content-Type-Options: nosniff');
-
-        /* This URL is reachable as a top-level navigation from the stored
-           fallback link, and the document inside is author-controlled. Do not
-           hand it the article page's URL. */
-        header('Referrer-Policy: no-referrer');
-
-        // Authenticated content: never let a shared cache hold a copy.
-        header('Cache-Control: private, no-store, max-age=0');
-        header('Pragma: no-cache');
-
-        /* Deliberately NOT sent: X-Frame-Options. includes/header.php:12 and
-           client/includes/header.php:36 send DENY, which is why neither may be
-           included from an endpoint that calls this function - the frame would
-           simply never load and no console message would say why.
-           frame-ancestors 'self' above is the modern equivalent and is what
-           this response relies on. */
+    /* Checked BEFORE a single header call, not with `if (!headers_sent())`
+     * wrapped around the header block below: that shape is exactly the bug
+     * this function used to have - degrade to a cageless echo the moment
+     * anything upstream (a notice, a stray byte, a BOM in any file the
+     * bootstrap chain requires) had already produced output. Refuse instead,
+     * with the file:line PHP itself attributes the stray output to, so the
+     * operator can find and fix the actual leak rather than silently serving
+     * unsandboxed script on this origin in the meantime. */
+    if (headers_sent($sent_file, $sent_line)) {
+        /* No http_response_code() call here - it would be a guaranteed no-op
+         * (headers_sent() just proved a response is already underway) that
+         * only adds a "Cannot set response code - headers already sent" PHP
+         * warning of its own to whatever the real leak already emitted. The
+         * client is left with whatever status the leaked output implied; the
+         * error_log line is what actually matters for tracking this down. */
+        error_log("kb_embed_serve: refused to serve - output already started at $sent_file:$sent_line, cannot guarantee the sandbox CSP");
+        exit;
     }
+
+    header('Content-Type: text/html; charset=UTF-8');
+
+    /* Defense in depth on a column that is not a trust boundary (see
+     * kbEmbedClampHeight()'s docblock). Nothing in this codebase reads this
+     * header today - js/kb_interactive.js's bindEmbed() sizes the frame's
+     * INITIAL height from the purified data-ikb-height attribute instead (see
+     * the "THREE LAYERS" note above), which is already bounded server-side
+     * and does not need a round trip to this response's headers to get a
+     * number. This header is left in place anyway: it costs nothing to send
+     * and is available to a future binder revision that wants the DATABASE
+     * column's value specifically (which can differ from data-ikb-height if
+     * the two are ever edited out of step) without adding a second request. */
+    header('X-Ikb-Embed-Height: ' . kbEmbedClampHeight($height));
+
+    /* THE POLICY. Every directive earns its place:
+     *
+     *   sandbox allow-scripts   The containment. Opaque origin, so no
+     *                           cookie, no storage, no parent access, and
+     *                           'self' matches nothing for this document.
+     *                           Scripts run - that is the whole point - but
+     *                           with nowhere to send anything. In the
+     *                           HEADER so a TOP-LEVEL visit to the stored
+     *                           fallback link is caged too, not only the
+     *                           framed one. NEVER add allow-same-origin.
+     *   default-src 'none'      Nothing loads unless named below.
+     *   script-src 'unsafe-inline'
+     *                           The embed's own <script>, and the height
+     *                           reporter appended below. NOT 'self': under
+     *                           an opaque origin 'self' matches nothing, so
+     *                           writing it would be a lie that reads like a
+     *                           permission. No 'unsafe-eval' - see header.
+     *   style-src 'unsafe-inline'
+     *                           Same reasoning for <style> and style="".
+     *   img-src / font-src / media-src  data: only. A remote URL would be a
+     *                           beacon: the fetch itself carries data out.
+     *                           data: cannot leave the document.
+     *   connect-src 'none'      No fetch, no XHR, no WebSocket, no
+     *                           sendBeacon.
+     *   form-action 'none'      A form drawn inside cannot submit anywhere.
+     *   base-uri 'none'         The document cannot re-root its own URLs.
+     *   frame-ancestors 'self'  Only this app may frame it. This is what
+     *                           replaces X-Frame-Options, which must NOT be
+     *                           sent here (it would make the frame
+     *                           unloadable). */
+    header(
+        "Content-Security-Policy: "
+        . "sandbox allow-scripts; "
+        . "default-src 'none'; "
+        . "script-src 'unsafe-inline'; "
+        . "style-src 'unsafe-inline'; "
+        . "img-src data:; "
+        . "font-src data:; "
+        . "media-src data:; "
+        . "connect-src 'none'; "
+        . "form-action 'none'; "
+        . "base-uri 'none'; "
+        . "frame-ancestors 'self'"
+    );
+
+    // Always. Without it a browser may sniff past the declared type.
+    header('X-Content-Type-Options: nosniff');
+
+    /* This URL is reachable as a top-level navigation from the stored
+       fallback link, and the document inside is author-controlled. Do not
+       hand it the article page's URL. */
+    header('Referrer-Policy: no-referrer');
+
+    // Authenticated content: never let a shared cache hold a copy.
+    header('Cache-Control: private, no-store, max-age=0');
+    header('Pragma: no-cache');
+
+    /* Deliberately NOT sent: X-Frame-Options. includes/header.php:12 and
+       client/includes/header.php:36 send DENY, which is why neither may be
+       included from an endpoint that calls this function - the frame would
+       simply never load and no console message would say why.
+       frame-ancestors 'self' above is the modern equivalent and is what
+       this response relies on. */
 
     echo $html;
 
@@ -365,11 +467,17 @@ function kbEmbedServe(string $html): void
      * postMessage's target origin is '*' because the frame CANNOT learn the
      * parent's origin: it is in an opaque origin and window.parent.origin is
      * not readable. All that leaves the frame is one integer, which is why '*'
-     * is acceptable here and would not be for anything else. The listener in
-     * js/kb_interactive.js must prove identity with `ev.source ===
-     * frame.contentWindow` - ev.origin is the literal string "null" for a
-     * sandboxed document and is worthless as an identity check - and must clamp
-     * the value to the same bounds this file declares.
+     * is acceptable here and would not be for anything else.
+     *
+     * THE PARENT-SIDE LISTENER: js/kb_interactive.js's wireEmbedMessages(),
+     * one `window.addEventListener('message', ...)` for the whole page,
+     * wired lazily on the first embed a page actually mounts. It proves
+     * identity with `ev.source === embeds[i].contentWindow` - `ev.origin` is
+     * the literal string "null" for a sandboxed opaque-origin document and
+     * proves nothing - and onEmbedHeight() clamps the reported value to
+     * EMBED_HEIGHT_MIN/EMBED_HEIGHT_MAX (that file's copy of the two numbers
+     * this file declares as KB_EMBED_MIN_HEIGHT/KB_EMBED_MAX_HEIGHT) before
+     * it ever reaches the frame's CSSOM height write.
      *
      * ResizeObserver where available, plus load and resize, plus a BOUNDED
      * fallback poll. The design's version polled every second forever, which is

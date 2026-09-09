@@ -92,8 +92,10 @@ if (isset($kb_groups['Uncategorized'])) {
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-book me-2"></i>Knowledge Base</h3>
         <?php /* flex-wrap, added when the third importer made this row four buttons wide.
                  css/itflow.shim-adminlte.css:57-63 gives every .card-tools in the app
-                 `display:flex; flex-shrink:0` and no wrap - correct for the 117 files with
-                 one or two buttons in the header, and a horizontal scrollbar here.
+                 `display:flex; flex-shrink:0` and no wrap - correct for the other 120 files
+                 that share the class (re-measured this session: `grep -rl card-tools
+                 --include=*.php .`, excluding vendor/ and plugins/, returns 121 including
+                 this one), and a horizontal scrollbar here.
                  MEASURED at 390x844 in Chromium on this page: the row already overflowed
                  the viewport by 245px with Categories + Import Word Doc + Import PDF +
                  New Article, and Import HTML took that to 386px.
@@ -102,7 +104,7 @@ if (isset($kb_groups['Uncategorized'])) {
                  its max-content width so nothing is ever constrained enough to wrap.
                  flex-wrap + flex-shrink-1 together take the page overflow to 0 and the
                  buttons stack. Scoped to this page's own markup rather than fixed in the
-                 shim, which the other 116 files depend on. */ ?>
+                 shim, which the other 120 files depend on. */ ?>
         <div class="card-tools flex-wrap flex-shrink-1 justify-content-end gap-2">
             <?php if ($kb_can_write) { ?>
                 <button type="button" class="btn btn-secondary ajax-modal" data-modal-url="modals/kb_category/kb_category_manage.php">

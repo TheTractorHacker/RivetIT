@@ -4,15 +4,20 @@
  *
  *   /agent/kb_embed.php?id=<kb_article_embed_id>
  *
- * Framed by js/kb_interactive.js as
+ * Framed by js/kb_interactive.js's bindEmbed() as
  *
  *   <iframe sandbox="allow-scripts" referrerpolicy="no-referrer" loading="lazy"
- *           src="/agent/kb_embed.php?id=17" ...>
+ *           src="kb_embed.php?id=17" ...>
  *
- * and reachable TOP-LEVEL, because the block's no-JS fallback in the stored
- * article is an ordinary link to this URL. Both cases are caged; see
- * agent/includes/kb_embed_serve.php's header, which is the security document
- * for this endpoint and should be read before changing a line of it.
+ * RELATIVE, deliberately, not '/agent/kb_embed.php?id=17': the same markup and
+ * the same binder run on both agent/kb_article.php and client/kb_article.php,
+ * so a relative src resolves to THIS file on the agent page and to
+ * client/kb_embed.php on the portal page with no per-lane branch in that
+ * binder. Also reachable TOP-LEVEL, because the block's no-JS fallback in the
+ * stored article is an ordinary (absolute) link to this same URL shape. Both
+ * cases are caged; see agent/includes/kb_embed_serve.php's header, which is
+ * the security document for this endpoint and should be read before changing
+ * a line of it.
  *
  * The portal-session sibling is client/kb_embed.php. Same query shape, same
  * serve core, a COMPLETELY different authorization question - exactly the split
@@ -143,4 +148,7 @@ if (!$embed) {
     kbEmbedFail(404, 'Not found');
 }
 
-kbEmbedServe((string) ($embed['kb_article_embed_untrusted_html'] ?? ''));
+kbEmbedServe(
+    (string) ($embed['kb_article_embed_untrusted_html'] ?? ''),
+    intval($embed['kb_article_embed_height'] ?? 0)
+);

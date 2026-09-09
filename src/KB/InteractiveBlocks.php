@@ -112,12 +112,23 @@ namespace ITFlow\KB;
  * WHERE THE PIECES LIVE
  *   js/kb_interactive.js  the render layer (the extension seam is documented there)
  *   css/itflow_kb.css     the styling
- *   Four purifier call sites: agent/kb_article.php, client/kb_article.php,
+ *   Four RENDER sites: agent/kb_article.php, client/kb_article.php,
  *   api/v1/kb.php and agent/modals/kb_article/kb_article_version_view.php.
- *   Those four are the complete set of places that purify KB article HTML
- *   (grep -rn "purify(" over the tree, excluding plugins/). Miss one and that
- *   renderer silently flattens every block into prose - which is a readable
- *   document, not a broken one (proof 5), but it is not the feature.
+ *   Those four are the complete set of places that turn STORED article HTML
+ *   into a page a reader sees. Miss one and that renderer silently flattens
+ *   every block into prose - which is a readable document, not a broken one
+ *   (proof 5), but it is not the feature.
+ *
+ *   A FIFTH call site exists and is not one of the four above:
+ *   agent/post/kb_article.php's HTML-import path purifies once at STORE time
+ *   (grep -rn "purify(" over the tree, excluding plugins/, finds all five).
+ *   It must call apply() too - a config that forgot it would let this same
+ *   importer's own interactive blocks be stripped back out of the markup it
+ *   just built, before any of the four render sites ever saw them - but
+ *   missing it there is a different failure (an import that silently cannot
+ *   produce blocks) from missing it at a render site (a render that silently
+ *   cannot show blocks that ARE stored), which is why the two are counted
+ *   separately rather than folded into one "five call sites" line.
  */
 final class InteractiveBlocks
 {
@@ -376,10 +387,40 @@ final class InteractiveBlocks
         return $state;
     }
 
-    /** Cheap test used to decide whether an article needs any of this at all. */
+    /**
+     * Cheap test used to decide whether an article needs any of this at all -
+     * partHashes() and normalise() both skip the DOM parse entirely when this
+     * is false.
+     *
+     * A REGEX ON THE ATTRIBUTE=VALUE SHAPE, not a bare substring test. A plain
+     * `stripos($html, 'data-ikb') !== false` matched an article that only
+     * MENTIONS the bare word in prose or names an unrelated attribute
+     * (data-ikb-part, data-ikb-node, "the data-ikb attribute...") - measured:
+     * this file's own vocabulary documentation is exactly that kind of
+     * article - and normalise() would then run a full DOMDocument parse and
+     * re-serialise on every save of a page with no block at all, decoding
+     * named entities and auto-closing tags along the way. Not unsafe
+     * (normalise() never deletes authored text) but pointless churn of the
+     * stored bytes, and it makes every future safelist mistake here look
+     * "cheap" when it silently is not. Requiring the =value shape closes that
+     * for the common case.
+     *
+     * WHAT THIS DOES NOT AND CANNOT CLOSE: a code sample that spells the exact
+     * characters `data-ikb="sequence"` - inside a <code> or <pre>, as prose
+     * about the feature written character-for-character - is byte-identical
+     * to a real attribute at this point in the pipeline, and no substring or
+     * regex test over raw HTML text can tell the two apart; only a real parse
+     * can, which is the cost this function exists to skip. That residual
+     * false positive costs one DOM round trip, is idempotent, and (per this
+     * class's own guarantee above) deletes nothing - so it is accepted rather
+     * than chased with a parser this function was built specifically to avoid
+     * running. */
     public static function contains(string $html): bool
     {
-        return stripos($html, 'data-ikb') !== false;
+        return preg_match(
+            '/data-ikb\s*=\s*["\']?(?:' . implode('|', self::BLOCK_TYPES) . '|copy)\b/i',
+            $html
+        ) === 1;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -455,8 +496,8 @@ final class InteractiveBlocks
                 if (!self::isKey($partKey)) {
                     continue;
                 }
-                $label = self::firstByClass($part, 'ikb-label');
-                $body  = self::firstByClass($part, 'ikb-body');
+                $label = self::firstByClass($part, 'ikb-label', $block);
+                $body  = self::firstByClass($part, 'ikb-body', $block);
                 $parts[$partKey] = self::partHash(
                     $label === null ? '' : $label->textContent,
                     $body === null ? '' : $body->textContent
@@ -704,9 +745,9 @@ final class InteractiveBlocks
 
             self::dropEmptyParagraphs($part);
 
-            $label = self::firstByClass($part, 'ikb-label');
+            $label = self::firstByClass($part, 'ikb-label', $block);
             if ($label === null) {
-                $label = self::promoteLabel($doc, $part);
+                $label = self::promoteLabel($doc, $part, $block);
                 if ($label !== null) {
                     $repairedLabels++;
                 } else {
@@ -715,13 +756,13 @@ final class InteractiveBlocks
             }
 
             if ($label !== null) {
-                self::wrapBody($doc, $part, $label);
+                self::wrapBody($doc, $part, $label, $block);
             }
 
             /* A .ikb-body left holding nothing - which is what promoting its
              * only paragraph up to be the label produces - is furniture the
              * render layer would otherwise draw an empty panel for. */
-            $body = self::firstByClass($part, 'ikb-body');
+            $body = self::firstByClass($part, 'ikb-body', $block);
             if ($body !== null
                 && $body->getElementsByTagName('*')->length === 0
                 && trim(str_replace("\xc2\xa0", ' ', $body->textContent)) === '') {
@@ -772,10 +813,24 @@ final class InteractiveBlocks
             }
         }
 
-        // Choices. Dangling targets lose the binding, never the text.
+        /* Choices. Dangling targets lose the binding, never the text.
+         *
+         * getElementsByTagName('a') is a full DESCENDANT walk, so an anchor
+         * belonging to a tree NESTED inside this one (a troubleshooter step
+         * that itself contains a smaller decision tree) would otherwise be
+         * rewritten here, against THIS block's $seen map, before its own
+         * normaliseTree() pass ever runs - stripping data-ikb-go from every
+         * one of its choices because none of its node keys are in scope yet.
+         * blockElements() visits blocks in document order, so the OUTER tree
+         * is always processed first; without this filter every inner tree
+         * would lose its branches on the very first save. Mirrors
+         * childrenWithAttribute()'s direct-children rule and js/kb_interactive.js
+         * bindTree()'s own `choice.closest('[data-ikb]') !== block` guard on
+         * its click handler - an anchor only belongs to THIS block if walking
+         * up from it hits no [data-ikb] element before reaching $block. */
         $dangling = 0;
         foreach ($block->getElementsByTagName('a') as $anchor) {
-            if (!$anchor->hasAttribute('data-ikb-go')) {
+            if (!$anchor->hasAttribute('data-ikb-go') || self::nearestIkbAncestor($anchor) !== $block) {
                 continue;
             }
             $target = $anchor->getAttribute('data-ikb-go');
@@ -822,9 +877,9 @@ final class InteractiveBlocks
      * layer has one element to show, hide, collapse or put in a tab pane. A
      * part whose only content is its label keeps no body at all.
      */
-    private static function wrapBody(\DOMDocument $doc, \DOMElement $part, \DOMElement $label): void
+    private static function wrapBody(\DOMDocument $doc, \DOMElement $part, \DOMElement $label, \DOMElement $block): void
     {
-        $existing = self::firstByClass($part, 'ikb-body');
+        $existing = self::firstByClass($part, 'ikb-body', $block);
         if ($existing !== null) {
             return;
         }
@@ -875,7 +930,7 @@ final class InteractiveBlocks
      * three-paragraph preamble into a tab caption produces a worse article than
      * leaving the part untitled and saying so.
      */
-    private static function promoteLabel(\DOMDocument $doc, \DOMElement $part): ?\DOMElement
+    private static function promoteLabel(\DOMDocument $doc, \DOMElement $part, \DOMElement $block): ?\DOMElement
     {
         foreach ($part->childNodes as $child) {
             if ($child instanceof \DOMElement) {
@@ -897,7 +952,7 @@ final class InteractiveBlocks
             }
         }
 
-        $body = self::firstByClass($part, 'ikb-body');
+        $body = self::firstByClass($part, 'ikb-body', $block);
         if ($body === null) {
             return null;
         }
@@ -956,6 +1011,33 @@ final class InteractiveBlocks
      * mojibaked. LIBXML_NONET because a document must never fetch anything, and
      * LIBXML_NOERROR/NOWARNING because article HTML is routinely "invalid" in
      * ways libxml complains about and repairs correctly anyway.
+     *
+     * NEITHER FLAG SILENCES A FATAL, and that is why a fatal is checked for
+     * explicitly below rather than trusted to $ok. LIBXML_NOERROR/NOWARNING
+     * suppress libxml's ERROR and WARNING severities (levels 2 and 1) - the
+     * routine "invalid but repairable" noise the docblock above is about - but
+     * libxml issues a level-3 FATAL when a document exceeds its own
+     * undocumented nesting-depth limit, and past that point it does not
+     * repair the tree, it TRUNCATES it: the parse still reports success ($ok
+     * stays true) but everything past the limit is silently gone. Measured on
+     * the libxml bundled with this box (2.9.14): a fragment 300 levels of
+     * <div> deep round-trips through loadHTML() with $ok === true and ZERO
+     * entries from libxml_get_errors() at 250 levels, but at 256 the parse
+     * yields exactly one error - level 3 (LIBXML_ERR_FATAL), "Excessive depth
+     * in document: 256 use XML_PARSE_HUGE option" - and the serialised output
+     * is missing the innermost content, four elements short at 256 levels and
+     * unchanged in size at every depth beyond that (libxml stops at the same
+     * 256-level cutoff regardless of how much deeper the input goes). Left
+     * unchecked, normalise() would then serialise($doc) and hand back fewer
+     * elements than it was given with an empty warnings array - a silent
+     * deletion of authored content, exactly what this class's own contract
+     * ("WHAT IT DOES NOT DO... it never deletes a part, a node or any
+     * authored text") says cannot happen. Treating a fatal as a parse
+     * failure - the same outcome $ok === false already produces - is what
+     * keeps that promise: normalise() falls back to the ORIGINAL bytes with a
+     * warning instead of storing the truncated form, and partHashes() falls
+     * back to reporting no hashes rather than hashes computed over a mutilated
+     * tree.
      */
     private static function parse(string $html): ?\DOMDocument
     {
@@ -968,11 +1050,22 @@ final class InteractiveBlocks
             . '</body></html>';
 
         $previous = libxml_use_internal_errors(true);
+        libxml_clear_errors();
         $ok = $doc->loadHTML($wrapped, LIBXML_NOERROR | LIBXML_NOWARNING | LIBXML_NONET);
+        $errors = libxml_get_errors();
         libxml_clear_errors();
         libxml_use_internal_errors($previous);
 
-        return $ok ? $doc : null;
+        if (!$ok) {
+            return null;
+        }
+        foreach ($errors as $error) {
+            if ($error->level >= LIBXML_ERR_FATAL) {
+                return null;
+            }
+        }
+
+        return $doc;
     }
 
     /** Serialise the body's children back to a fragment. */
@@ -1037,12 +1130,44 @@ final class InteractiveBlocks
         return $out;
     }
 
-    private static function firstByClass(\DOMElement $scope, string $class): ?\DOMElement
+    /**
+     * First descendant of $scope carrying $class, but never one belonging to a
+     * NESTED block - mirrors js/kb_interactive.js's firstIn(), which requires
+     * `found[i].closest('[data-ikb]') === block`. Before this fix this method
+     * was a plain descendant search: a sequence part containing a nested block
+     * (a tabs-inside-a-wizard-step article) could have its .ikb-label / .ikb-body
+     * satisfied by the NESTED block's own label/body, so normaliseSequence()
+     * concluded the outer part was already labelled and left it exactly as
+     * un-tickable as firstIn() (correctly) sees it in the browser.
+     *
+     * $block is the [data-ikb] element a match must resolve back to - pass the
+     * part's own containing block, the same argument firstIn() takes.
+     */
+    private static function firstByClass(\DOMElement $scope, string $class, \DOMElement $block): ?\DOMElement
     {
         foreach ($scope->getElementsByTagName('*') as $el) {
-            if ($el instanceof \DOMElement && self::hasClass($el, $class)) {
+            if ($el instanceof \DOMElement
+                && self::hasClass($el, $class)
+                && self::nearestIkbAncestor($el) === $block) {
                 return $el;
             }
+        }
+        return null;
+    }
+
+    /**
+     * Walks up from $el (inclusive) to the nearest ancestor carrying data-ikb -
+     * the DOM equivalent of `element.closest('[data-ikb]')`, which DOMElement
+     * has no built-in method for.
+     */
+    private static function nearestIkbAncestor(\DOMElement $el): ?\DOMElement
+    {
+        $node = $el;
+        while ($node instanceof \DOMElement) {
+            if ($node->hasAttribute('data-ikb')) {
+                return $node;
+            }
+            $node = $node->parentNode instanceof \DOMElement ? $node->parentNode : null;
         }
         return null;
     }

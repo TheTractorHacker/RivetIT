@@ -275,9 +275,10 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
          page that renders no blocks; loaded unconditionally because the portal's
          header is emitted from client/includes/inc_all.php before
          client/kb_article.php could set a flag, and keeping the two shells
-         identical on this point is worth ~6 KB. Last of the first-party sheets:
-         it consumes the --if-* tokens the design layer declares and overrides no
-         framework rule, every class name in it being novel. -->
+         identical on this point is worth 15.3 KB raw / 4.9 KB gzipped (measured
+         against the file on disk). Last of the first-party sheets: it consumes
+         the --if-* tokens the design layer declares and overrides no framework
+         rule, every class name in it being novel. -->
     <link rel="stylesheet" href="/css/itflow_kb.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_kb.css') ?>">
 
 </head>

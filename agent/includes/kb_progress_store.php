@@ -34,11 +34,14 @@
  * THE KEY GRAMMAR, AND THE RESERVED KEYS
  * ---------------------------------------------------------------------------
  * A CONTENT key - a block key or a part key that names something actually in
- * the article - matches /^[a-z0-9][a-z0-9-]{0,23}$/. That is the same grammar
- * the purifier's attribute definition enforces on data-ikb-key / data-ikb-part
- * / data-ikb-node (src/KB/InteractiveBlocks.php, another lane's file), so a key
- * that could not survive purification into stored content cannot be written
- * here either.
+ * the article - matches /\A[a-z0-9][a-z0-9-]{0,23}\z/. That is exactly
+ * \ITFlow\KB\InteractiveBlocks::KEY_REGEX, the same grammar the purifier's
+ * attribute definition enforces on data-ikb-key / data-ikb-part / data-ikb-node
+ * (src/KB/InteractiveBlocks.php, another lane's file) - \A/\z anchors, not
+ * ^/$, because PCRE's $ matches before a trailing newline and \A[a-z0-9][a-z0-9-]{0,23}\z
+ * does not, and this file's validators must refuse exactly what that class
+ * would refuse, not a slightly larger set. So a key that could not survive
+ * purification into stored content cannot be written here either.
  *
  * RESERVED keys start with '_' and therefore CANNOT COLLIDE WITH A CONTENT KEY
  * BY CONSTRUCTION, not by convention: '_' is outside the content-key character
@@ -128,6 +131,25 @@ const KB_PROGRESS_RATE_WINDOW_SECS  = 60;
  * syntax error rather than data. `nosniff` plus application/json closes the
  * other half. The judges' warning about a ".js config endpoint" is exactly this
  * hazard; this shape is the answer to it.
+ *
+ * JSON_FORCE_OBJECT, AND WHY IT HAS TO BE EVERY LEVEL, NOT JUST THE TOP. The
+ * documented response carries a NESTED map: {block:{part:{s,h}}}. A part key
+ * is a content key (kbProgressValidContentKey() allows any [a-z0-9][a-z0-9-]{0,23}),
+ * so nothing stops a block's part keys from being the numeric strings "0",
+ * "1", "2", ... - and when a PHP array's keys are exactly 0,1,2,... in order,
+ * array_is_list() is true and plain json_encode() serialises it as a JSON
+ * ARRAY regardless of the fact every key started life as a string. A caller
+ * wrapping only the OUTER payload in (object) - the shape this endpoint used
+ * to ship - does not reach that inner level at all, so {"blk":{"0":{...},
+ * "1":{...}}} silently became {"blk":[{...},{...}]}, intermittently (a block
+ * with keys "0" and "5" is NOT a list and was unaffected, which is what made
+ * it easy to miss). JSON_FORCE_OBJECT applies to every nesting level in one
+ * pass, so this is fixed at the one function every response already funnels
+ * through rather than needing a recursive (object) cast at each call site.
+ * Every payload passed to this function today is associative-only (grep the
+ * two endpoints' kbProgressJson() calls) - there is no genuine JSON list
+ * anywhere in this contract - so forcing objects everywhere costs nothing and
+ * cannot turn a real list into a spurious object.
  */
 function kbProgressJson(int $status, array $payload): void
 {
@@ -139,7 +161,7 @@ function kbProgressJson(int $status, array $payload): void
         header('Cache-Control: private, no-store, max-age=0');
         header('Referrer-Policy: no-referrer');
     }
-    echo json_encode($payload);
+    echo json_encode($payload, JSON_FORCE_OBJECT);
     exit;
 }
 
@@ -154,7 +176,14 @@ function kbProgressJson(int $status, array $payload): void
  */
 function kbProgressValidContentKey(string $key): bool
 {
-    return (bool) preg_match('/^[a-z0-9][a-z0-9-]{0,23}$/', $key);
+    /* \A...\z, NOT ^...$. PCRE's $ matches before a TRAILING NEWLINE by
+     * default, so "abc\n" satisfied the old ^...$ pattern here while failing
+     * \ITFlow\KB\InteractiveBlocks::KEY_REGEX (src/KB/InteractiveBlocks.php),
+     * which has always been \A...\z - the two grammars silently disagreed.
+     * \z anchors to the true end of the string with no exception, which is
+     * what "the same grammar the purifier enforces" in this file's header
+     * actually requires. */
+    return (bool) preg_match('/\A[a-z0-9][a-z0-9-]{0,23}\z/', $key);
 }
 
 /**
@@ -178,22 +207,35 @@ function kbProgressValidPrincipalType(string $type): bool
 /**
  * The stale-part marker: 16 lowercase hex, or '' for "no hash recorded".
  *
- * The client computes substr(sha1(normalised label + "\n" + normalised body),
- * 0, 16) at tick time. THE BODY IS IN THE HASH ON PURPOSE. The design hashed
- * the label alone and listed the consequence in its own weaknesses: rewriting a
- * step's BODY from "reboot the switch" to "do not reboot the switch" while
- * leaving its label alone left every existing tick green with no warning at all,
- * which is the more dangerous of the two edits. Hashing both means the noisier
- * failure (a whitespace fix flags the tick as changed) replaces the silent one.
+ * \ITFlow\KB\InteractiveBlocks::partHash() (src/KB/InteractiveBlocks.php, another
+ * lane's file) computes substr(sha1(normalised label . "\x1f" . normalised body), 0, 16)
+ * at RENDER time, server-side, over the article as HTMLPurifier just parsed
+ * it - it is published into the data-ikb-hashes attribute the render sites
+ * emit. THE CLIENT COMPUTES NOTHING: js/kb_interactive.js's currentHash()
+ * copies this value straight out of that attribute at tick time and sends it
+ * back unchanged. A previous version of this comment said the client computed
+ * substr(sha1(label + "\n" + body), 0, 16) itself - both the "who computes it"
+ * and the separator ("\n" instead of "\x1f") were wrong, which would have sent
+ * anyone debugging a stale tick looking for client-side crypto and a digest
+ * this table never stores. THE BODY IS IN THE HASH ON PURPOSE. The design
+ * hashed the label alone and listed the consequence in its own weaknesses:
+ * rewriting a step's BODY from "reboot the switch" to "do not reboot the
+ * switch" while leaving its label alone left every existing tick green with no
+ * warning at all, which is the more dangerous of the two edits. Hashing both
+ * means the noisier failure (a whitespace fix flags the tick as changed)
+ * replaces the silent one.
  *
- * The server does not compute the hash and cannot: the label and body live in
- * purified HTML that only the render layer has parsed. It stores what it is
- * given and hands it back, and the render layer compares. That is why this
- * function validates the SHAPE and nothing else.
+ * This function only ever validates the SHAPE. It has no way to check the
+ * DIGEST, because that would mean re-parsing purified HTML on every write.
  */
 function kbProgressValidHash(string $hash): bool
 {
-    return $hash === '' || (bool) preg_match('/^[0-9a-f]{16}$/', $hash);
+    /* \A...\z - see kbProgressValidContentKey()'s comment; the same
+     * trailing-newline gap existed here (a hash ending "\n" passed this while
+     * a genuine 16-hex digest never has one, so the gap only ever let through
+     * garbage no render-layer comparison could match anyway - but a value
+     * that reaches SQL should never depend on that being true by accident). */
+    return $hash === '' || (bool) preg_match('/\A[0-9a-f]{16}\z/', $hash);
 }
 
 /**
@@ -293,10 +335,15 @@ function kbProgressParseItems(mixed $raw): array|string
 
         /* is_int OR a decimal-integer string. Not intval() on anything: that
          * turns "3abc" into 3 and true into 1, which would let a client store a
-         * state it did not ask for and would hide its own bug from itself. */
+         * state it did not ask for and would hide its own bug from itself.
+         * \A...\z, not ^...$ - see kbProgressValidContentKey()'s comment: a
+         * trailing "\n" would satisfy ^...$ and then be silently absorbed by
+         * the (int) cast below anyway, but this validator's job is to REJECT
+         * anything that is not exactly a decimal-integer string, not to rely
+         * on the cast to clean up after it. */
         if (isset($entry['s']) && is_int($entry['s'])) {
             $state = $entry['s'];
-        } elseif (isset($entry['s']) && is_string($entry['s']) && preg_match('/^[0-9]{1,5}$/', $entry['s'])) {
+        } elseif (isset($entry['s']) && is_string($entry['s']) && preg_match('/\A[0-9]{1,5}\z/', $entry['s'])) {
             $state = (int) $entry['s'];
         } else {
             return 'items_malformed';

@@ -22,8 +22,12 @@
  *     not author knowledge-base articles; agents do.
  *   * A block authored here would be written to tickets.ticket_details /
  *     ticket_replies, which are NOT purified with the interactive vocabulary
- *     registered (\ITFlow\KB\InteractiveBlocks::apply() is called by the four
- *     KB renderers and nothing else). It would be flattened to prose on save,
+ *     registered (\ITFlow\KB\InteractiveBlocks::apply() is called at five
+ *     sites and nothing else: the four KB renderers - agent/kb_article.php,
+ *     client/kb_article.php, agent/modals/kb_article/kb_article_version_view.php,
+ *     api/v1/kb.php - plus the HTML-import save path,
+ *     agent/post/kb_article.php:808, which applies it to attacker-supplied
+ *     HTML rather than to a render). It would be flattened to prose on save,
  *     with no error - a button that quietly does nothing.
  *   * The plugin's own isKbEditor() would refuse to register the menu here
  *     anyway, so the only thing loading it would achieve is one more request.

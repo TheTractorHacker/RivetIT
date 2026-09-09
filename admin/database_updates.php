@@ -7595,25 +7595,71 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
          * with no tables, and no later block would ever create them - the
          * failure would surface days later as a fatal in the article page.
          * Ask the schema, not mysqli_query()'s return value: IF NOT EXISTS
-         * returns true for a table that already existed in some other shape. */
-        $ikb_tables_present = 0;
+         * returns true for a table that already existed in some other shape -
+         * which is exactly why this checks COLUMN NAMES, not just table names.
+         * A name-only check (TABLE_NAME IN (...), COUNT(*) = 2) is confirmed
+         * present on this install for both tables and does not regress: it still
+         * catches "table missing entirely". It does NOT catch "kb_article_embeds
+         * already existed as, say, a stub with three columns" - IF NOT EXISTS
+         * leaves that alone and this code would otherwise report success while
+         * every write below fails on an unknown column. Comparing column NAMES
+         * (not full types - `int(11)` vs `int` vary by MySQL/MariaDB version and
+         * are not the blind spot this guards) is the cheap, portable half of
+         * "ask the schema" that actually closes it. */
+        $ikb_expected_columns = [
+            'kb_article_progress' => [
+                'kb_article_progress_id', 'kb_article_progress_kb_article_id',
+                'kb_article_progress_block_key', 'kb_article_progress_part_key',
+                'kb_article_progress_principal_type', 'kb_article_progress_principal_id',
+                'kb_article_progress_state', 'kb_article_progress_part_hash',
+                'kb_article_progress_updated_at',
+            ],
+            'kb_article_embeds' => [
+                'kb_article_embed_id', 'kb_article_embed_kb_article_id',
+                'kb_article_embed_name', 'kb_article_embed_untrusted_html',
+                'kb_article_embed_text', 'kb_article_embed_sha256',
+                'kb_article_embed_height', 'kb_article_embed_created_by',
+                'kb_article_embed_created_at', 'kb_article_embed_updated_at',
+            ],
+        ];
+
+        $ikb_shape_problems = [];
         try {
-            $ikb_tables_present = intval(mysqli_fetch_assoc(mysqli_query($mysqli,
-                "SELECT COUNT(*) AS cnt
-                   FROM information_schema.TABLES
-                  WHERE TABLE_SCHEMA = DATABASE()
-                    AND TABLE_NAME IN ('kb_article_progress','kb_article_embeds')"))['cnt']);
+            foreach ($ikb_expected_columns as $ikb_table => $ikb_columns) {
+                $ikb_found_columns = [];
+                $ikb_col_result = mysqli_query($mysqli,
+                    "SELECT COLUMN_NAME FROM information_schema.COLUMNS
+                      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$ikb_table'");
+                if ($ikb_col_result) {
+                    while ($ikb_col_row = mysqli_fetch_assoc($ikb_col_result)) {
+                        $ikb_found_columns[$ikb_col_row['COLUMN_NAME']] = true;
+                    }
+                }
+
+                if (empty($ikb_found_columns)) {
+                    $ikb_shape_problems[] = "$ikb_table does not exist";
+                    continue;
+                }
+
+                $ikb_missing = array_values(array_diff($ikb_columns, array_keys($ikb_found_columns)));
+                if ($ikb_missing) {
+                    $ikb_shape_problems[] = "$ikb_table is missing column(s): " . implode(', ', $ikb_missing);
+                }
+            }
         } catch (\Throwable $ikb_count_exception) {
             $ikb_create_error = $ikb_create_error !== ''
                 ? $ikb_create_error
                 : $ikb_count_exception->getMessage();
+            $ikb_shape_problems[] = 'the schema could not be inspected';
         }
 
-        if ($ikb_tables_present !== 2) {
-            echo "Database update 2.6.80 -> 2.6.81 aborted: expected 2 interactive-KB tables, found $ikb_tables_present.\n";
-            echo "kb_article_progress and kb_article_embeds could not be created. The database\n";
-            echo "version has NOT been advanced, so this update can be re-run once the cause is\n";
-            echo "fixed (both statements are CREATE TABLE IF NOT EXISTS and are safe to repeat).\n";
+        if ($ikb_shape_problems) {
+            echo "Database update 2.6.80 -> 2.6.81 aborted: " . implode('; ', $ikb_shape_problems) . ".\n";
+            echo "kb_article_progress and kb_article_embeds could not be created in the shape\n";
+            echo "this update expects. The database version has NOT been advanced, so this\n";
+            echo "update can be re-run once the cause is fixed (both CREATE statements are\n";
+            echo "IF NOT EXISTS and are safe to repeat; a table that exists with the wrong\n";
+            echo "columns needs to be dropped or renamed out of the way by hand first).\n";
             echo "MySQL said: " . ($ikb_create_error !== '' ? $ikb_create_error : mysqli_error($mysqli)) . "\n";
             /* exit(1), not exit(): deploy/update.sh checks the exit status, and
                the 2.6.77 block above sets the precedent that a refused migration

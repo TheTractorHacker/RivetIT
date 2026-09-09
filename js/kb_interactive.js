@@ -47,11 +47,12 @@
  *      this file, or in any script loaded after it;
  *   3. its rules in css/itflow_kb.css.
  * No change to mountWithin, to the boot sequence, to the save path, to the
- * print handling or to any existing binder. The escape-hatch embed is
- * deliberately NOT registered here - it is a separate piece of work, and when
- * it lands it is one register('embed', ...) call and nothing else. Until then
- * an embed block renders as its fallback paragraph, which is the correct
- * no-JavaScript behaviour anyway.
+ * print handling or to any existing binder. bindEmbed() below is the worked
+ * example: it costs exactly those three things and nothing else changed to
+ * add it. Until a binder for a given type is registered, that type is left as
+ * its fallback markup, which is the correct no-JavaScript behaviour anyway -
+ * this is also what an OLDER copy of this file does with a block type it
+ * predates (see data-ikb-version below).
  *
  * A binder is called ONCE per element, with the element and the page context,
  * and inside a try/catch: one block that throws is marked and skipped, and
@@ -80,6 +81,17 @@
      * or one hand-written into the markup, is clamped here as well as there. */
     var STATE_MAX = 9999;
 
+    /* Mirrors InteractiveBlocks::EMBED_HEIGHT_MIN/MAX/DEFAULT. Two uses: the
+     * initial frame height read from data-ikb-height (already bounded server
+     * side, but InteractiveUintAttrDef.php's own docblock promises a THIRD
+     * enforcement here before the number reaches an element - a row written
+     * before the bounds existed must not reach one either), and the clamp on
+     * every postMessage height report the framed document sends, which is a
+     * plain untrusted integer with no purifier between it and this file. */
+    var EMBED_HEIGHT_MIN = 120;
+    var EMBED_HEIGHT_MAX = 4000;
+    var EMBED_HEIGHT_DEFAULT = 480;
+
     /* Coalescing window for saves. Long enough that ticking five boxes in a row
      * is one request, short enough that a reader who ticks and immediately
      * closes the tab has almost always already been saved. */
@@ -97,9 +109,33 @@
     var VOCAB_VERSION = 1;
 
     var binders = {};
-    var revealers = [];   // called on beforeprint, undone on afterprint
     var uid = 0;
     var printWired = false;
+    var pagehideWired = false;
+    var embedMessagesWired = false;
+
+    /* EVERY CURRENTLY-LIVE ROOT'S CONTEXT, and the fix for a leak measured in
+     * the version-history modal: ajax_modal.js replaces the modal's whole DOM
+     * subtree on each open (js/ajax_modal.js's openAjaxModal, which builds a
+     * fresh #ajaxModal_<timestamp> every time and .remove()s it on hide), so
+     * this file used to accumulate state across re-opens with nothing ever
+     * torn down - a module-scope `revealers` array every binder appended to
+     * and never cleared, and a `window.addEventListener('pagehide', ...)`
+     * added fresh in bootRoot() on every boot. Five opens of that modal
+     * measured 5 pagehide listeners and 25 revealer closures still holding
+     * detached DOM. Fixed by moving both onto the per-root ctx (ctx.revealers,
+     * ctx.embeds) and tracking the ctx objects here instead of the closures
+     * directly: beforePrint/afterPrint and the ONE pagehide listener (wired
+     * once, see wirePagehide()) iterate this array rather than each getting
+     * their own; untrackRoot() below drops a root's ctx out of it when its
+     * modal reports hidden.bs.modal, which is what lets everything the ctx
+     * was holding become collectable instead of growing every re-open. */
+    var bootedRoots = [];
+
+    function untrackRoot(ctx) {
+        var idx = bootedRoots.indexOf(ctx);
+        if (idx !== -1) { bootedRoots.splice(idx, 1); }
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Small DOM helpers. Plain ES5 - no jQuery (the portal loads it, the agent
@@ -230,63 +266,218 @@
         var pending = {};
         var timer = null;
 
+        /* Builds ONE request's worth of items from `pending` and REMOVES only
+         * those from it - never the unconditional `pending = {}` this used to
+         * be. That distinction matters because of the cap below: with the old
+         * code, `break` only ever stopped the INNER per-part loop, the OUTER
+         * per-block loop kept running (so every block was still visited), and
+         * then every part of every block was thrown away regardless of
+         * whether it made it into `items` - silently dropping the 91st and
+         * later changes in one burst with no error and no retry. Deleting each
+         * item from `pending` at the moment it is queued means whatever is
+         * left over IS exactly what overflowed, and the caller (flush() /
+         * flushNow()) decides what to do with it instead of it vanishing here.
+         *
+         * Returns null when there is nothing to send, otherwise
+         * {payload, overflow}: `overflow` is true when MAX_CHANGES_PER_REQUEST
+         * was hit and `pending` still holds more.
+         */
         function body() {
             var items = [];
+            var overflow = false;
             for (var blockKey in pending) {
                 if (!Object.prototype.hasOwnProperty.call(pending, blockKey)) { continue; }
+                if (overflow) { break; }
                 for (var partKey in pending[blockKey]) {
                     if (!Object.prototype.hasOwnProperty.call(pending[blockKey], partKey)) { continue; }
-                    if (items.length >= MAX_CHANGES_PER_REQUEST) { break; }
+                    if (items.length >= MAX_CHANGES_PER_REQUEST) { overflow = true; break; }
                     items.push({
                         b: blockKey,
                         p: partKey,
                         s: pending[blockKey][partKey],
                         h: currentHash(ctx, blockKey, partKey)
                     });
+                    delete pending[blockKey][partKey];
+                }
+                if (!overflow) {
+                    /* This block's entire pending map was just drained -
+                       remove the now-empty object so a long session does not
+                       accumulate an ever-growing set of empty block keys. */
+                    delete pending[blockKey];
                 }
             }
-            pending = {};
             if (!items.length) { return null; }
-            return 'csrf_token=' + encodeURIComponent(ctx.csrf)
-                + '&a=' + encodeURIComponent(ctx.article)
-                + '&items=' + encodeURIComponent(JSON.stringify(items));
+            return {
+                overflow: overflow,
+                payload: 'csrf_token=' + encodeURIComponent(ctx.csrf)
+                    + '&a=' + encodeURIComponent(ctx.article)
+                    + '&items=' + encodeURIComponent(JSON.stringify(items))
+            };
         }
 
         function flush() {
             timer = null;
             if (ctx.readOnly || !ctx.endpoint) { pending = {}; return; }
-            var payload = body();
-            if (!payload) { return; }
+            var built = body();
+            if (!built) { return; }
+            if (built.overflow) {
+                /* More changes are queued than fit in one request (not
+                   reachable by a human ticking boxes - see
+                   MAX_CHANGES_PER_REQUEST's own comment). Schedule another
+                   flush for the remainder instead of the old unconditional
+                   `pending = {}`, which discarded it outright. */
+                timer = window.setTimeout(flush, SAVE_DELAY_MS);
+            }
             var xhr = new XMLHttpRequest();
             xhr.open('POST', ctx.endpoint, true);
             xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
             xhr.withCredentials = true;
-            xhr.send(payload);
+            /* EVERY PREVIOUS VERSION OF THIS FUNCTION ENDED HERE, at
+             * xhr.send(). No onload, no onerror, no readystatechange: a 403
+             * (csrf / an expired session), a 429 (rate_limited), a 400
+             * (items_too_many / progress_full / bad_*), a 503 (unavailable -
+             * the table this endpoint needs has not been created yet, a state
+             * four separate PHP comments anticipate) and a session-expiry
+             * 302-to-/login.php (which XHR follows and reports as status 200
+             * with an HTML body) were all indistinguishable from success: the
+             * checkbox stayed ticked on screen and nothing told the reader
+             * their work was not being kept. showSaveFailure()/clearSaveFailure()
+             * below are the fix - one unobtrusive, reused element per root,
+             * never one per tick.
+             *
+             * THE JSON BODY IS PARSED BEFORE branching on xhr.status, not
+             * after a `status < 200 || status >= 300` gate: every error this
+             * endpoint sends (agent/kb_progress.php, client/kb_progress.php -
+             * 403/429/400/503/404) carries a JSON {ok:false,error:"..."} body
+             * alongside its status code, and that `error` string is the key
+             * into SAVE_FAILURE_TEXT below. An earlier version of this
+             * handler branched on xhr.status FIRST and only reached the JSON
+             * body on a 2xx response - so every real error the server can
+             * send fell into the generic 'http_'+status bucket instead of
+             * its specific, more useful text, and SAVE_FAILURE_TEXT's
+             * entries for csrf/rate_limited/unavailable/not_found/forbidden/
+             * progress_full were unreachable dead code even though every one
+             * of those is a response this endpoint genuinely sends. The one
+             * case with no usable JSON body is the followed-302: an expired
+             * session makes XHR follow the redirect to /login.php and report
+             * status 200 with an HTML body, which JSON.parse throws on;
+             * `parsed` stays null and the success check below (which requires
+             * parsed.ok === true) correctly treats that as a failure too. */
+            xhr.onload = function () {
+                var parsed = null;
+                try { parsed = JSON.parse(xhr.responseText); } catch (e) { /* not JSON - e.g. the followed-302's HTML login page */ }
+                if (xhr.status >= 200 && xhr.status < 300 && parsed && parsed.ok === true) {
+                    clearSaveFailure(ctx);
+                    return;
+                }
+                showSaveFailure(ctx, (parsed && typeof parsed.error === 'string') ? parsed.error : ('http_' + xhr.status));
+            };
+            xhr.onerror = function () { showSaveFailure(ctx, ''); };
+            xhr.send(built.payload);
         }
 
         return {
-            /* Recorded in memory even when read-only, so anything reading back
-             * from the store behaves identically in a preview. */
+            /* READ-ONLY CHECKED FIRST, before `pending` is touched at all -
+             * nothing in this file ever reads `pending` back (there is no
+             * store.get()), so retaining a read-only click in it bought
+             * nothing but an object that grows for as long as an admin
+             * previews a portal article, never cleared because flush() also
+             * bails out before calling body() in that mode. The checkbox's
+             * own .checked property is what a read-only preview reflects on
+             * screen; the store never needs to remember it. */
             set: function (blockKey, partKey, state) {
+                if (ctx.readOnly || !ctx.endpoint) { return; }
                 state = Math.max(0, Math.min(STATE_MAX, state | 0));
                 if (!pending[blockKey]) { pending[blockKey] = {}; }
                 pending[blockKey][partKey] = state;
-                if (ctx.readOnly || !ctx.endpoint) { return; }
                 if (timer) { window.clearTimeout(timer); }
                 timer = window.setTimeout(flush, SAVE_DELAY_MS);
             },
             flushNow: function () {
                 if (timer) { window.clearTimeout(timer); timer = null; }
                 if (ctx.readOnly || !ctx.endpoint) { pending = {}; return; }
-                var payload = body();
-                if (!payload) { return; }
-                /* pagehide: a normal XHR is routinely cancelled here, sendBeacon
-                 * is not. Same URL, same body, same cookie. */
-                if (navigator.sendBeacon) {
-                    navigator.sendBeacon(ctx.endpoint, new Blob([payload], { type: 'application/x-www-form-urlencoded' }));
+                /* pagehide is a ONE-SHOT moment - there is no "later" to retry
+                 * an overflowed remainder into, unlike flush()'s setTimeout
+                 * path - so every remaining batch is drained here rather than
+                 * only the first MAX_CHANGES_PER_REQUEST of it. sendBeacon
+                 * (unlike a normal XHR, which is routinely cancelled here) is
+                 * documented to survive navigation, so several beacons queued
+                 * back to back all still go out. Its boolean return says only
+                 * that the browser accepted the request for later delivery,
+                 * never that the server stored it - there is nothing more to
+                 * check from here and nowhere left on an unloading page to
+                 * show it if there were, so a queueing failure is logged, not
+                 * surfaced to the reader. */
+                var built = body();
+                while (built) {
+                    if (navigator.sendBeacon) {
+                        var queued = navigator.sendBeacon(
+                            ctx.endpoint,
+                            new Blob([built.payload], { type: 'application/x-www-form-urlencoded' })
+                        );
+                        if (!queued && window.console && window.console.error) {
+                            window.console.error('kb_interactive: sendBeacon did not accept the final progress write');
+                        }
+                    }
+                    built = built.overflow ? body() : null;
                 }
             }
         };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Save-status indicator
+    //
+    // One per root, created lazily on first failure and reused - never one
+    // per tick. Uses the same 'alert alert-*' Bootstrap classes
+    // js/live_ticket.js already builds from JS (repliesNotice's alertBox):
+    // Tabler loads them globally on both the agent shell and the portal, so
+    // this needs no new stylesheet rule to be visible.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /* Text for the failures a reader can actually hit; anything not listed
+     * (a future error code, a non-JSON body) falls back to the generic line.
+     * This is a "your progress is not being saved" note, not an error
+     * console, so it never needs to be exhaustive - see the PHP side
+     * (agent/kb_progress.php, client/kb_progress.php) for the full set of
+     * `error` values this could be. */
+    var SAVE_FAILURE_TEXT = {
+        csrf: 'Your session has expired. Your progress is not being saved — reload the page to fix this.',
+        forbidden: 'You no longer have permission to save progress on this article.',
+        not_found: 'This article can no longer be found. Your progress is not being saved.',
+        rate_limited: 'Too many changes at once — saving is paused for a moment.',
+        unavailable: 'Progress saving is temporarily unavailable. Your ticks are shown but not being saved.',
+        progress_full: 'This article has reached its saved-progress limit. Some changes may not be saved.',
+        items_too_many: 'Too many changes were sent at once. Some of them were not saved.'
+    };
+
+    function saveStatusNode(ctx) {
+        if (ctx.saveStatus) { return ctx.saveStatus; }
+        var node = el('div', 'alert alert-warning ikb-save-status');
+        node.setAttribute('role', 'status');
+        node.setAttribute('aria-live', 'polite');
+        node.hidden = true;
+        ctx.root.insertBefore(node, ctx.root.firstChild);
+        ctx.saveStatus = node;
+        return node;
+    }
+
+    function showSaveFailure(ctx, reason) {
+        var node = saveStatusNode(ctx);
+        /* hasOwnProperty, not a bare SAVE_FAILURE_TEXT[reason] lookup: `reason`
+         * is always one of this codebase's own fixed server error strings or
+         * an 'http_<status>' literal built above, never attacker-controlled,
+         * but a plain object literal still inherits Object.prototype - the
+         * same class of hazard js/tinymce_ikb.js's byLabel had to be fixed for
+         * elsewhere in this review - so this checks rather than relies on that. */
+        node.textContent = Object.prototype.hasOwnProperty.call(SAVE_FAILURE_TEXT, reason)
+            ? SAVE_FAILURE_TEXT[reason]
+            : 'Your progress is not being saved.';
+        node.hidden = false;
+    }
+
+    function clearSaveFailure(ctx) {
+        if (ctx.saveStatus && !ctx.saveStatus.hidden) { ctx.saveStatus.hidden = true; }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -472,8 +663,9 @@
         back.addEventListener('click', function () { show(at - 1, true); });
         next.addEventListener('click', function () { show(at + 1, true); });
 
-        /* Printing must not print "Step 2 of 6" and one step. */
-        revealers.push({
+        /* Printing must not print "Step 2 of 6" and one step. On ctx.revealers,
+         * not the old module-scope `revealers` - see the note at bootedRoots. */
+        ctx.revealers.push({
             reveal: function () {
                 for (var i = 0; i < parts.length; i++) { parts[i].hidden = false; }
             },
@@ -531,7 +723,7 @@
             }(parts[i], i));
         }
 
-        revealers.push({
+        ctx.revealers.push({
             reveal: function () {
                 for (var j = 0; j < parts.length; j++) { parts[j].hidden = false; }
             },
@@ -575,7 +767,7 @@
                     if (open) { ctx.mountWithin(body); }
                 });
 
-                revealers.push({
+                ctx.revealers.push({
                     reveal: function () { body.hidden = false; },
                     restore: function () { body.hidden = (toggle.getAttribute('aria-expanded') !== 'true'); }
                 });
@@ -661,7 +853,7 @@
             show(start, true);
         });
 
-        revealers.push({
+        ctx.revealers.push({
             reveal: function () {
                 for (var j = 0; j < nodes.length; j++) { nodes[j].hidden = false; }
             },
@@ -730,6 +922,107 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // BINDER: embed - the sandboxed escape hatch
+    //
+    // THE FALLBACK <p><a>...</a></p> IS NEVER REMOVED, only visually replaced
+    // once the frame mounts (class toggle, mirroring .ikb-label-hidden's own
+    // pattern) - it is the no-JS reader's only affordance, the Android app's
+    // WHOLE rendering of this block (its WebView runs with JavaScript
+    // disabled), and what a printed page shows instead of a blank frame.
+    //
+    // src/KB/InteractiveBlocks.php's grammar comment is explicit that
+    // <iframe> is never stored - HTMLPurifier deletes it if it were, and
+    // storing one would put an author-controlled frame src in the database.
+    // This is why the frame is built here, from the bounded data-ikb-embed
+    // integer, exactly like every other control this file creates.
+    //
+    // sandbox="allow-scripts" MUST equal, token for token, the sandbox
+    // directive the framed response itself sends (agent/includes/
+    // kb_embed_serve.php: "Content-Security-Policy: sandbox allow-scripts; ...").
+    // A browser grants the INTERSECTION of the iframe attribute and the
+    // response header, so a token here that is not also in that header does
+    // nothing but read like a permission that was never really granted -
+    // and NEVER allow-same-origin, which paired with allow-scripts would let
+    // the framed document script its way back out of the opaque origin the
+    // whole design relies on.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function bindEmbed(block, ctx) {
+        var id = block.getAttribute('data-ikb-embed');
+        if (!/^[0-9]{1,7}$/.test(id || '')) { return; }   // no valid id: leave the fallback paragraph as-is
+
+        var height = parseInt(block.getAttribute('data-ikb-height') || '', 10);
+        if (!(height >= EMBED_HEIGHT_MIN && height <= EMBED_HEIGHT_MAX)) {
+            height = EMBED_HEIGHT_DEFAULT;
+        }
+
+        var fallback = block.querySelector('p');
+
+        var frame = document.createElement('iframe');
+        frame.className = 'ikb-embed-frame';
+        frame.setAttribute('sandbox', 'allow-scripts');
+        frame.setAttribute('referrerpolicy', 'no-referrer');
+        frame.setAttribute('loading', 'lazy');
+        frame.title = fallback ? fallback.textContent.replace(/\s+/g, ' ').trim() : 'Embedded tool';
+        /* A CSSOM property write, like the checklist progress bar's fill.style.width
+         * above - the one dimension on this block that varies, kept off the
+         * portal's nonce-free/style-src-free CSP the same way. */
+        frame.style.height = height + 'px';
+        /* RELATIVE, exactly like data-ikb-endpoint elsewhere in this file: on
+         * agent/kb_article.php this resolves to /agent/kb_embed.php, and on
+         * client/kb_article.php - the SAME markup, the SAME binder - it
+         * resolves to /client/kb_embed.php instead, with no per-lane branch
+         * in this file and no rewrite needed anywhere else. This is computed
+         * at RENDER time in the reader's browser; it is not what the stored
+         * fallback <a href> above uses; that link is built once at import
+         * time by src/KB/HtmlImporter.php's embedBlock() and is a separate,
+         * already-absolute URL this binder does not touch. */
+        frame.src = 'kb_embed.php?id=' + encodeURIComponent(id);
+
+        block.insertBefore(frame, block.firstChild);
+        block.classList.add('ikb-js', 'ikb-embed-js');
+        if (fallback) { fallback.classList.add('ikb-embed-fallback'); }
+
+        ctx.embeds.push(frame);
+        wireEmbedMessages();
+    }
+
+    /* ONE 'message' LISTENER FOR THE WHOLE PAGE, wired lazily on the first
+     * embed actually bound rather than one per frame - the same leak class
+     * the pagehide/revealers fix above closes, avoided here by construction
+     * instead of needing a later fix. Dispatches by matching ev.source, the
+     * only identity check that means anything for a sandboxed opaque-origin
+     * document: ev.origin is the literal string "null" for one (see
+     * agent/includes/kb_embed_serve.php's own note on this), and worthless as
+     * a check. */
+    function wireEmbedMessages() {
+        if (embedMessagesWired) { return; }
+        embedMessagesWired = true;
+        window.addEventListener('message', function (ev) {
+            for (var r = 0; r < bootedRoots.length; r++) {
+                var embeds = bootedRoots[r].embeds;
+                for (var i = 0; i < embeds.length; i++) {
+                    if (ev.source === embeds[i].contentWindow) {
+                        onEmbedHeight(embeds[i], ev.data);
+                        return;
+                    }
+                }
+            }
+        });
+    }
+
+    /* The framed document posts {ikbEmbedHeight: <number>} on load, resize,
+     * ResizeObserver and a bounded poll (agent/includes/kb_embed_serve.php's
+     * height reporter). Clamped to the SAME bounds as the initial height -
+     * this is a plain integer from an untrusted document with no purifier
+     * between it and this file. */
+    function onEmbedHeight(frame, data) {
+        if (!data || typeof data.ikbEmbedHeight !== 'number') { return; }
+        var h = Math.max(EMBED_HEIGHT_MIN, Math.min(EMBED_HEIGHT_MAX, data.ikbEmbedHeight | 0));
+        frame.style.height = h + 'px';
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Print: every binder un-hides itself, then puts itself back.
     //
     // A runbook that prints as "Step 2 of 6" and one visible step is a broken
@@ -739,14 +1032,20 @@
     // ─────────────────────────────────────────────────────────────────────────
 
     function beforePrint() {
-        for (var i = 0; i < revealers.length; i++) {
-            try { revealers[i].reveal(); } catch (e) { /* one block must not stop a print */ }
+        for (var r = 0; r < bootedRoots.length; r++) {
+            var revealers = bootedRoots[r].revealers;
+            for (var i = 0; i < revealers.length; i++) {
+                try { revealers[i].reveal(); } catch (e) { /* one block must not stop a print */ }
+            }
         }
     }
 
     function afterPrint() {
-        for (var i = 0; i < revealers.length; i++) {
-            try { revealers[i].restore(); } catch (e) { /* nor a restore */ }
+        for (var r = 0; r < bootedRoots.length; r++) {
+            var revealers = bootedRoots[r].revealers;
+            for (var i = 0; i < revealers.length; i++) {
+                try { revealers[i].restore(); } catch (e) { /* nor a restore */ }
+            }
         }
     }
 
@@ -757,7 +1056,41 @@
     register('sequence', bindSequence);
     register('tree', bindTree);
     register('copy', bindCopy);
-    /* 'embed' is deliberately absent - see the extension seam note at the top. */
+    register('embed', bindEmbed);
+
+    /* ONE pagehide LISTENER FOR THE WHOLE PAGE, wired once (guarded like
+     * printWired below) rather than one `window.addEventListener('pagehide',
+     * ...)` per root - see the note at bootedRoots for the leak this closes.
+     * Flushes every currently-tracked root's store, matching what each root's
+     * own listener used to do individually. */
+    function wirePagehide() {
+        if (pagehideWired) { return; }
+        pagehideWired = true;
+        window.addEventListener('pagehide', function () {
+            for (var i = 0; i < bootedRoots.length; i++) {
+                bootedRoots[i].store.flushNow();
+            }
+        });
+    }
+
+    /* Drops a root's ctx out of bootedRoots when its enclosing modal reports
+     * hidden.bs.modal, which is what lets its revealers/embeds/pending state
+     * become collectable instead of accumulating across re-opens - see the
+     * note at bootedRoots. Pages with no enclosing .modal (the article pages
+     * themselves) need no teardown: one root, living for the page's whole
+     * lifetime, is not a leak.
+     *
+     * Registered on the SAME modalEl js/ajax_modal.js's own hidden.bs.modal
+     * listener already removes on hide (js/ajax_modal.js:116-119) - both fire
+     * for the one event; this one only stops tracking ctx, it does not touch
+     * the DOM ajax_modal.js is already removing. */
+    function wireTeardown(root, ctx) {
+        var modalEl = root.closest('.modal');
+        if (!modalEl) { return; }
+        modalEl.addEventListener('hidden.bs.modal', function () {
+            untrackRoot(ctx);
+        });
+    }
 
     /* One root, one context. A function rather than a loop body because `var` is
      * function-scoped: a closure built inside the loop would capture the LAST
@@ -774,7 +1107,11 @@
             endpoint: root.getAttribute('data-ikb-endpoint') || '',
             csrf: root.getAttribute('data-ikb-csrf') || '',
             progress: parseMap(root.getAttribute('data-ikb-progress')),
-            hashes: parseMap(root.getAttribute('data-ikb-hashes'))
+            hashes: parseMap(root.getAttribute('data-ikb-hashes')),
+            /* Per-root, not module-scope - see the note at bootedRoots above
+             * for the leak this replaces. */
+            revealers: [],
+            embeds: []
         };
         ctx.store = makeStore(ctx);
         ctx.mountWithin = function (scope) { mountWithin(scope, ctx); };
@@ -791,7 +1128,9 @@
         root.classList.add('ikb-root-js');
         mountWithin(root, ctx);
 
-        window.addEventListener('pagehide', function () { ctx.store.flushNow(); });
+        bootedRoots.push(ctx);
+        wirePagehide();
+        wireTeardown(root, ctx);
     }
 
     function boot() {

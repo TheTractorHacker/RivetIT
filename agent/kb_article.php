@@ -31,10 +31,21 @@ $purifier_config->set('Attr.DefaultImageAlt', '');
  * used, and \ITFlow\KB\InteractiveBlocks::apply() turns that into a
  * LogicException naming the fix rather than silently skipping registration.
  *
- * All FOUR KB renderers call it and those four are the complete set -
- * here, client/kb_article.php, agent/modals/kb_article/kb_article_version_view.php
- * and api/v1/kb.php. Miss one and that renderer shows a readable document with
- * every block's interactivity gone and no error anywhere. Adds attributes only;
+ * All FOUR KB RENDER sites call it - here, client/kb_article.php,
+ * agent/modals/kb_article/kb_article_version_view.php and api/v1/kb.php - and
+ * those four are the complete set of places that turn stored article HTML
+ * into a page a reader sees (grep -rn "purify(" over the tree, excluding
+ * plugins/, then read off which results are display and which are storage).
+ * Miss one of these four and that renderer shows a readable document with
+ * every block's interactivity gone and no error anywhere. THERE IS A FIFTH
+ * purify() call, agent/post/kb_article.php:800 in the HTML-import path - it
+ * purifies once at STORE time so imported markup is safe before it is even
+ * written to kb_article_content, and every render site purifies again on its
+ * own read, so missing it would not un-render anything that already renders
+ * today. It calls InteractiveBlocks::apply() on its own purifier config too
+ * (it must: a config that forgot it would let the importer strip every
+ * interactive block it just built out of the stored HTML), so this is a fifth
+ * call site, not a fifth thing to remember. Adds attributes only;
  * measured byte-identical output on ordinary article content with and without
  * it, so it composes with the media rewriting below by construction. */
 \ITFlow\KB\InteractiveBlocks::apply($purifier_config);
@@ -128,7 +139,25 @@ if ($kb_article_client_id > 0) {
  * data-ikb-hashes is what the article says NOW; data-ikb-progress carries the
  * hash recorded at tick time. The render layer marks the difference, so a tick
  * against words that have since changed is neither silently kept nor silently
- * dropped. hashesAttribute() short-circuits on an article with no blocks.
+ * dropped.
+ *
+ * data-ikb-hashes IS COMPUTED UNCONDITIONALLY, NOT GATED ON $ikb_progress
+ * BEING NON-EMPTY. An earlier version of this line read
+ * `$ikb_progress === [] ? '{}' : hashesAttribute(...)` on the reasoning that
+ * an empty progress map has nothing to compare against, so the hashes were
+ * pointless to compute - but that reasoning is backwards: a reader's FIRST
+ * visit is exactly when $ikb_progress is empty, and it is also exactly the
+ * visit on which every tick they make that session gets saved with NO current
+ * hash to compare against later (currentHash() in js/kb_interactive.js reads
+ * data-ikb-hashes to build the "h" it sends on every save). Gating the hashes
+ * on progress already existing meant the FIRST tick of every checklist was
+ * permanently un-stale-checkable - reproduced end to end: a row saved that
+ * way carries no part_hash, and readState()'s `stored !== ''` test can then
+ * never be true for it again, on any later visit, even after the words behind
+ * it change. hashesAttribute() already short-circuits to '{}' with no DOM
+ * parse on an article with no blocks (partHashes() returns early on
+ * !contains($html)), so there was never a real cost being saved here - only
+ * the feature.
  *
  * PRIVACY: this puts ONE reader's state in the page body, which is safe only
  * because article pages are not served from a shared cache. */
@@ -144,9 +173,7 @@ if ($session_user_id > 0 && is_file($ikb_progress_store)) {
     }
 }
 $ikb_progress_json = \ITFlow\KB\InteractiveBlocks::progressAttribute($ikb_progress);
-$ikb_hashes_json = $ikb_progress === []
-    ? '{}'
-    : \ITFlow\KB\InteractiveBlocks::hashesAttribute($kb_article_content);
+$ikb_hashes_json = \ITFlow\KB\InteractiveBlocks::hashesAttribute($kb_article_content);
 
 $kb_articles_url = "kb_articles.php";
 if (isset($client_id)) {

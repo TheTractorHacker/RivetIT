@@ -234,16 +234,15 @@ if (!$is_post) {
         'ok'       => true,
         'readOnly' => false,
         'article'  => $article_id,
-        /* (object), not the bare array. An EMPTY progress map is an empty PHP
-           array, and json_encode() writes that as `[]` - so a reader with
-           nothing saved would get a JSON ARRAY where the contract (and every
-           non-empty response) says OBJECT, and the render layer would have to
-           handle two shapes. Measured: without this cast the first GET of a
-           fresh article returned "progress":[]. The cast is only needed at the
-           top level; every nested map has at least one key by construction,
-           because a block key only exists in the result if a part under it
-           does. */
-        'progress' => (object) kbProgressLoad($mysqli, $article_id, 'c', $session_contact_id),
+        /* An empty PHP array here (nothing saved yet) or one whose part keys
+           happen to be the numeric strings "0","1",... (a real, reachable
+           shape - kbProgressValidContentKey() allows it) would both encode as
+           a JSON ARRAY under plain json_encode(), where the contract says
+           OBJECT at every level. kbProgressJson() forces object encoding at
+           every nesting level (JSON_FORCE_OBJECT) precisely so a call site
+           does not have to reason about array_is_list() case by case - no
+           (object) cast needed here. */
+        'progress' => kbProgressLoad($mysqli, $article_id, 'c', $session_contact_id),
     ]);
 }
 

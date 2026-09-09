@@ -302,10 +302,15 @@ if ($sub === 'articles') {
          *     carrying that entire string again in alt="..."; with it set to ''
          *     the same input came back alt="", and an alt the author actually
          *     wrote ("Network diagram") was untouched in both runs. All four
-         *     places that purify KB article HTML set it - here,
-         *     agent/kb_article.php, agent/modals/kb_article/kb_article_version_view.php
-         *     and client/kb_article.php - and those four are the complete set
-         *     (grep -rn 'purify(' over the tree, excluding plugins/).
+         *     RENDER sites set it - here, agent/kb_article.php,
+         *     agent/modals/kb_article/kb_article_version_view.php and
+         *     client/kb_article.php, the complete set of places that turn
+         *     stored article HTML into a page a reader sees. A fifth call,
+         *     agent/post/kb_article.php's HTML-import path, sets it too (it
+         *     purifies once at STORE time, before this same content is ever
+         *     read back through one of the four above) - so five call sites
+         *     total set this option (grep -rn "purify(" over the tree,
+         *     excluding plugins/, finds all five).
          *
          * URI.AllowedSchemes matches agent/kb_article.php so the API and the
          * agent page agree on what an article may contain; a root-relative path
@@ -315,9 +320,13 @@ if ($sub === 'articles') {
         $kb_purifier_config->set('Cache.DefinitionImpl', null);
         $kb_purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
         $kb_purifier_config->set('Attr.DefaultImageAlt', '');
-        /* INTERACTIVE KB BLOCKS - the fourth and last of the KB purifier call
-         * sites (the others are agent/kb_article.php, client/kb_article.php and
-         * agent/modals/kb_article/kb_article_version_view.php).
+        /* INTERACTIVE KB BLOCKS - the fourth of the four KB RENDER-site purifier
+         * calls (the others are agent/kb_article.php, client/kb_article.php and
+         * agent/modals/kb_article/kb_article_version_view.php). A fifth call,
+         * in agent/post/kb_article.php's HTML-import path, purifies at STORE
+         * time instead of render time and needs this same InteractiveBlocks::
+         * apply() so the importer's own blocks are not stripped back out by
+         * its own purify() call.
          *
          * The Android app cannot RUN the render layer:
          * KbArticleDetailScreen renders this HTML in a WebView with JavaScript

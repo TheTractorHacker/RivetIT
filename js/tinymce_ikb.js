@@ -53,10 +53,18 @@
  *    guard's contenteditable="true" is for. STRUCTURE - reorder, add, delete,
  *    rename, switch display - reopens the dialog with the block's current steps
  *    already in the textarea and EVERY EXISTING PART KEY CARRIED THROUGH, so a
- *    reader's saved ticks survive a structural edit. A body that is not plain
- *    paragraphs (an image, a table, inline code, a nested block) is NOT
- *    flattened into the textarea: it stays attached to its key and is
- *    re-attached on save.
+ *    reader's saved ticks survive a structural edit. A LABEL kept word-for-word
+ *    keeps its own serialised HTML too - not just its key - so a link or
+ *    inline code in a label survives the same way a rich body already does; a
+ *    reworded label falls back to plain text, which is correct, since it is
+ *    no longer the label a reader ticked. A body that is not plain paragraphs
+ *    (an image, a table, inline code, a nested block) is NOT flattened into
+ *    the textarea: it stays attached to its key and is re-attached on save.
+ *    A decision tree re-edits the same way, from its own dialog: the outline
+ *    is rebuilt from the tree's current nodes, and a question kept
+ *    word-for-word keeps its node key, so a reader's saved position in the
+ *    tree survives too. Trees have no display modes, so there is no "Show
+ *    this block as" for one.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * EVERY INSERT IS A DOM WRITE FOLLOWED BY A RE-PARSE
@@ -82,13 +90,27 @@
  * ADDING A FIFTH BLOCK TYPE COSTS, IN THIS FILE:
  * ─────────────────────────────────────────────────────────────────────────────
  *   * one entry in MENU_BUILDERS (a label plus the function that opens its
- *     dialog), and
+ *     dialog to CREATE one), and
  *   * one build<Type>() that returns a markup string.
- * Nothing else: not the guard, not isKbEditor(), not the menu assembly, not the
- * preview, not the insert path. The render layer's matching cost is one
- * ITFlowKB.register() call (js/kb_interactive.js) and the purifier's is one
- * addAttribute() (src/KB/InteractiveBlocks.php).
+ * That is the whole cost of CREATING a fifth type: not the guard, not
+ * isKbEditor(), not the menu assembly, not the preview, not the insert path.
+ * The render layer's matching cost is one ITFlowKB.register() call
+ * (js/kb_interactive.js) and the purifier's is one addAttribute()
+ * (src/KB/InteractiveBlocks.php).
  *
+ * STRUCTURAL RE-EDIT and UN-BLOCKING are NOT covered by that seam - they are
+ * wired per shape, not generic, and a fifth type needs its own:
+ *   * read<Type>() for the re-edit dialog (readSequence() and readTree() share
+ *     nothing beyond "read the block's own data-ikb-key back out"), plus its
+ *     own branch in the Interactive menu's fetch(), gated on the type's own
+ *     `data-ikb` value;
+ *   * a "Show this block as" submenu ONLY if the type has display modes at
+ *     all - it is sequence-only by construction, not something every type
+ *     gets for free;
+ *   * a branch in removeInteractivity() for its own shape - `.ikb-part` and
+ *     `.ikb-node` are two separate branches today, each stripping that
+ *     shape's own dead interactive attributes, and a type un-blocked by
+ *     neither branch keeps whatever markup its innerHTML happens to carry.
  * ─────────────────────────────────────────────────────────────────────────────
  * WHAT WAS ACTUALLY RUN
  * ─────────────────────────────────────────────────────────────────────────────
@@ -125,6 +147,48 @@
  *       FocusTrap does not steal it - ajax_modal.js already suppresses that)
  *   p9  the New Article form is recognised too, and the preview degrades to
  *       readable structure when kb_interactive.js is not on the page
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * REMEDIATION PASS (round-2 review findings #15-20, #22-23)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Added: label-HTML carry-through on a sequence re-edit and its help-text
+ * twin (collect(), #15); Object.create(null) for both key-continuity maps and
+ * a try/catch around each dialog's preview onInit (#16); a full decision-tree
+ * re-edit path - readTree(), reconcileTreeKeys(), the menu wiring, the
+ * dialog's existing/block parameters (#17); interactive-attribute stripping
+ * when un-blocking a tree (#19); the honest static-preview notice when
+ * window.ITFlowKB is absent (#18/#39); the editor.ikbRefreshTabs hook
+ * markCopy() and the mode flip now call, so js/app.js's Markdown-tab
+ * signposting does not go stale after either (#20); the five-call-site
+ * correction here and in js/portal_tinymce_init.js (#23); and the
+ * documentation fixes to the "ADDING A FIFTH BLOCK TYPE" and "THE EXTENSION
+ * SEAM" comments above (#17's documentation half).
+ *
+ * VERIFIED, NOT REPRODUCING p0-p9: this pass did not re-run headless Chromium
+ * against the real TinyMCE 8.5.0 windowManager - p0-p9 above are the PRIOR
+ * round's proofs and are unchanged. What WAS run: this file's own source,
+ * loaded unmodified into a jsdom-backed Node vm context (no reimplementation)
+ * with a mock `editor` object (getBody/selection/windowManager/undoManager/
+ * notificationManager), driving the real fetch()/onAction/onInit/onSubmit
+ * functions against real DOM fixtures built from this file's own
+ * buildSequence()/buildTree() output - 46 assertions across 7 cases:
+ * a label carrying a real <a href> survives a no-op re-edit unchanged, incl.
+ * in the live preview panel (not double-escaped); a step or tree question
+ * worded exactly "constructor" opens its re-edit dialog without throwing; a
+ * genuinely reworded label/question falls back to plain text and mints a new
+ * key while an untouched sibling keeps its old one; "Edit this block…" now
+ * exists for a tree and reconstructs its outline (including stripping the
+ * synthetic "Answer:" prefix back out); "Remove interactivity" on a tree
+ * strips data-ikb-go and href from every choice while keeping the words;
+ * markCopy() and the mode flip each call editor.ikbRefreshTabs() exactly
+ * once when it exists, and neither throws when it does not; the preview
+ * shows the honest degrade note (and skips window.ITFlowKB.boot()) precisely
+ * when window.ITFlowKB is absent, and does the opposite when it is present.
+ * NOT covered by this harness: TinyMCE's own dialog lifecycle, its real
+ * windowManager/htmlpanel rendering, and the guard's parser/serializer
+ * filters (p1-p2 above) - those need the real TinyMCE integration harness
+ * the prior round used, which this pass did not have available. That gap
+ * should close before this ships.
  */
 (function () {
     'use strict';
@@ -539,6 +603,14 @@
             parts.push({
                 key: partEl.getAttribute('data-ikb-part') || '',
                 label: labelEl ? flatten(labelEl.textContent) : '',
+                /* The label's own serialised HTML, alongside the flattened
+                 * plain text above. collect() re-attaches this (and sets
+                 * labelIsHtml) whenever a step is matched to an unchanged
+                 * label, so a <a href>/<code>/<strong> in a label survives a
+                 * structural re-edit the same way a rich body already does -
+                 * only a genuinely reworded label falls back to escaped plain
+                 * text typed into the textarea. */
+                labelHtml: labelEl ? labelEl.innerHTML : '',
                 bodyText: bodyText,
                 bodyHtml: (bodyEl && bodyText === null) ? bodyEl.innerHTML : null
             });
@@ -555,6 +627,151 @@
             mode: block.getAttribute('data-ikb-mode') || DEFAULT_MODE,
             parts: parts
         };
+    }
+
+    /**
+     * A decision-tree block -> { key, title, outline, oldNodes }.
+     *
+     * outline is plain text in exactly parseOutline()'s grammar, rebuilt by
+     * walking the tree from data-ikb-start (falling back to the first node in
+     * document order - the same rule bindTree() uses in js/kb_interactive.js
+     * when data-ikb-start is missing or dangling) and printing each
+     * question/choice at the depth the walk reaches it.
+     *
+     * oldNodes is that same walk, in outline order, as { key, question } -
+     * what reconcileTreeKeys() matches a freshly re-parsed outline against so
+     * a question whose wording is unchanged keeps its node key, and a
+     * reader's saved position (\ITFlow\KB\InteractiveBlocks::POSITION_KEY,
+     * '_at' - js/kb_interactive.js:78) survives the edit instead of snapping
+     * back to the first question.
+     */
+    function readTree(block) {
+        var titleEl = firstChildByClass(block, 'ikb-title');
+        var nodeEls = childrenWith(block, 'data-ikb-node', 'ikb-node');
+        /* Object.create(null) for both maps below - a node key of exactly
+         * "constructor" is unlikely to be TYPED (mintKey() only ever
+         * produces 8 lowercase hex characters) but a hand-edited HTML import
+         * is not bound by that, and the failure mode is silent: `visited[k]`
+         * on a plain {} resolves an untouched "constructor" key to the
+         * INHERITED Object.prototype member before this function ever visits
+         * it, so walk() would treat a node it has never seen as already
+         * walked and silently drop it - and everything under it - from the
+         * reconstructed outline, with no error. Same reasoning as byLabel in
+         * collect() and byQuestion/remap in reconcileTreeKeys(), below. */
+        var byKey = Object.create(null);
+        var i;
+        for (i = 0; i < nodeEls.length; i++) {
+            byKey[nodeEls[i].getAttribute('data-ikb-node')] = nodeEls[i];
+        }
+
+        var startKey = block.getAttribute('data-ikb-start');
+        if (!byKey[startKey] && nodeEls.length) {
+            startKey = nodeEls[0].getAttribute('data-ikb-node');
+        }
+
+        var lines = [];
+        var oldNodes = [];
+        var visited = Object.create(null);
+
+        /* buildTree() prepends "<strong>Answer:</strong> " to a node with no
+         * choices; that is presentation DERIVED from the structure
+         * (parseOutline() sets .answer from whether choices exist), not
+         * something the agent typed, so it is stripped back out here rather
+         * than round-tripped as if it were part of the question. */
+        function nodeQuestion(el) {
+            var p = null;
+            var c;
+            for (c = 0; c < el.children.length; c++) {
+                if (el.children[c].tagName === 'P') { p = el.children[c]; break; }
+            }
+            if (!p) { return ''; }
+            var clone = p.cloneNode(true);
+            var first = clone.firstElementChild;
+            if (first && first.tagName === 'STRONG' && flatten(first.textContent) === 'Answer:') {
+                clone.removeChild(first);
+            }
+            return flatten(clone.textContent);
+        }
+
+        function walk(key, level) {
+            var el = byKey[key];
+            /* A dangling data-ikb-go (normaliseTree() drops one whose target
+             * vanished, but a hand-edited HTML import could still have one)
+             * or a cycle (illegal from this dialog, but not from an import):
+             * stop rather than loop forever or read past the end of byKey. */
+            if (!el || visited[key]) { return; }
+            visited[key] = true;
+
+            var question = nodeQuestion(el);
+            lines.push(new Array(level * 4 + 1).join(' ') + question);
+            oldNodes.push({ key: key, question: question });
+
+            var ul = null;
+            var c;
+            for (c = 0; c < el.children.length; c++) {
+                if (el.children[c].tagName === 'UL') { ul = el.children[c]; break; }
+            }
+            if (!ul) { return; }
+
+            for (var li = 0; li < ul.children.length; li++) {
+                var a = ul.children[li].firstElementChild;
+                if (!a || a.tagName !== 'A') { continue; }
+                lines.push(new Array((level + 1) * 4 + 1).join(' ') + flatten(a.textContent));
+                var go = a.getAttribute('data-ikb-go');
+                if (go) { walk(go, level + 2); }
+            }
+        }
+
+        if (startKey && byKey[startKey]) { walk(startKey, 0); }
+
+        return {
+            /* Carried through for the same reason readSequence() carries the
+             * block key: every saved position row is keyed on it. */
+            key: block.getAttribute('data-ikb-key') || '',
+            title: titleEl ? flatten(titleEl.textContent) : '',
+            outline: lines.join('\n'),
+            oldNodes: oldNodes
+        };
+    }
+
+    /**
+     * Re-parsing an outline always mints brand-new node keys - parseOutline()
+     * has no idea an "existing" tree exists, and cannot: it only ever sees
+     * the textarea's current text. This matches the FRESH nodes back onto the
+     * OLD ones by question text, in outline order (the same rule collect()
+     * uses for a sequence's part labels, just above), and rewrites every
+     * choice.to through the same table, so a reader's saved position keeps
+     * pointing at a real node whenever that node's wording did not change.
+     */
+    function reconcileTreeKeys(nodes, oldNodes) {
+        if (!oldNodes || !oldNodes.length) { return; }
+
+        /* Object.create(null): a question of exactly "constructor" or
+         * "__proto__" must not resolve to an inherited Object.prototype
+         * member here either - see collect()'s byLabel, above, for the
+         * reproduction of what that does to this dialog. */
+        var byQuestion = Object.create(null);
+        var i;
+        for (i = 0; i < oldNodes.length; i++) {
+            if (!byQuestion[oldNodes[i].question]) { byQuestion[oldNodes[i].question] = []; }
+            byQuestion[oldNodes[i].question].push(oldNodes[i]);
+        }
+
+        var remap = Object.create(null);
+        for (i = 0; i < nodes.length; i++) {
+            var queue = byQuestion[nodes[i].question];
+            if (queue && queue.length) {
+                var match = queue.shift();
+                remap[nodes[i].key] = match.key;
+                nodes[i].key = match.key;
+            }
+        }
+        for (i = 0; i < nodes.length; i++) {
+            for (var c = 0; c < nodes[i].choices.length; c++) {
+                var to = nodes[i].choices[c].to;
+                if (to && remap[to]) { nodes[i].choices[c].to = remap[to]; }
+            }
+        }
     }
 
     /* ─────────────────────────────────────────────────────────────────────────
@@ -761,6 +978,12 @@
             pre.classList.add('ikb-copy');
         });
         editor.nodeChanged();
+        /* This mutates the DOM without going through setContent(), so
+         * js/app.js's SetContent-driven Markdown-tab signposting never sees
+         * it on its own - and a code block just became exactly the shape the
+         * Markdown tab cannot represent. Nudge it directly instead of firing
+         * a synthetic SetContent, which would also cost a full re-parse. */
+        if (typeof editor.ikbRefreshTabs === 'function') { editor.ikbRefreshTabs(); }
         notify(editor, 'Readers now get a Copy button on that code block.', 'success');
     }
 
@@ -786,6 +1009,24 @@
                 var body = firstChildByClass(kid, 'ikb-body');
                 if (label) { replacement += '<h5>' + label.innerHTML + '</h5>'; }
                 if (body) { replacement += body.innerHTML; }
+            } else if (kid.classList.contains('ikb-node')) {
+                /* A tree node's choices are <a data-ikb-go="..." href="#ikb-
+                 * <blockkey>-<node>">, and that href can never resolve
+                 * (Attr.EnableID is off in every KB purifier config - see
+                 * buildTree()) even while the block was still interactive.
+                 * Copying the node's innerHTML verbatim, as the .ikb-part
+                 * branch above does for a sequence, would leave those dead
+                 * attributes on plain prose: a link that looks live and goes
+                 * nowhere, with no data-ikb-* left anywhere to say why.
+                 * Strip them from a clone so the block itself is untouched
+                 * until the transact below replaces it. */
+                var nodeClone = kid.cloneNode(true);
+                var anchors = nodeClone.querySelectorAll('a[data-ikb-go]');
+                for (var a = 0; a < anchors.length; a++) {
+                    anchors[a].removeAttribute('data-ikb-go');
+                    anchors[a].removeAttribute('href');
+                }
+                replacement += nodeClone.innerHTML;
             } else {
                 replacement += kid.innerHTML;
             }
@@ -854,7 +1095,15 @@
     function previewParts(parts) {
         var out = [];
         for (var i = 0; i < parts.length; i++) {
-            out.push({ key: parts[i].key, label: parts[i].label, body: previewBody(parts[i]) });
+            /* labelIsHtml carried through too: without it, a label re-attached
+             * as real markup (collect(), below) would be shown here escaped
+             * as literal "&lt;a href..." rather than the link it actually is. */
+            out.push({
+                key: parts[i].key,
+                label: parts[i].label,
+                labelIsHtml: !!parts[i].labelIsHtml,
+                body: previewBody(parts[i])
+            });
         }
         return out;
     }
@@ -866,12 +1115,31 @@
             ? '<p class="ikb-authoring-error">' + esc(errors[0]) + '</p>'
             : '';
 
+        /* THE HONEST-DEGRADE NOTICE. window.ITFlowKB is defined only by
+         * js/kb_interactive.js, and that file is not on every page that opens
+         * this dialog: agent/kb_articles.php - the ONLY page that opens both
+         * the New Article modal and the list page's own Edit modal - does not
+         * load it. Falling back to the raw markup with no comment left the
+         * Display dropdown previewing IDENTICALLY for checklist / steps /
+         * tabs / accordion, and a decision tree showing every node at once
+         * with nothing ticked or hidden - indistinguishable from a real,
+         * walkable preview unless the agent already knew to distrust it. Say
+         * so instead. The real fix is loading kb_interactive.js on that page
+         * too (see handoff notes); this is the honest fallback for wherever
+         * it is still missing. */
+        var live = !!(window.ITFlowKB && typeof window.ITFlowKB.boot === 'function');
+        var degraded = (!live && html)
+            ? '<p class="ikb-authoring-note">Static preview only on this page - ticking, tabs, steps and the'
+                + ' decision tree do not animate here. Save the article, then reopen Edit to see the live'
+                + ' version.</p>'
+            : '';
+
         /* Wiped and rebuilt rather than patched: a re-boot must not find a
          * half-mounted block left over from the previous keystroke. */
-        host.innerHTML = message + html;
+        host.innerHTML = message + degraded + html;
         host.ikbBooted = false;
 
-        if (window.ITFlowKB && typeof window.ITFlowKB.boot === 'function') {
+        if (live) {
             try {
                 window.ITFlowKB.boot();
             } catch (e) {
@@ -907,11 +1175,17 @@
     function openSequenceDialog(editor, existing, block) {
         var previewHost = null;
         var richCount = 0;
+        var labelRichCount = 0;
         var i;
 
         if (existing) {
             for (i = 0; i < existing.parts.length; i++) {
                 if (existing.parts[i].bodyHtml !== null) { richCount++; }
+                /* A text-only innerHTML never contains a literal "<" - the
+                 * browser entity-encodes any character content that could be
+                 * mistaken for one - so this is true only for a label holding
+                 * a real element (an <a href>, <code>, <strong>, ...). */
+                if (/</.test(existing.parts[i].labelHtml || '')) { labelRichCount++; }
             }
         }
 
@@ -925,6 +1199,11 @@
                 + ' detail that is more than plain text - an image, a table, formatting or a nested block.'
                 + ' That detail is not shown here, is kept exactly as it is, and stays below anything'
                 + ' you type under that step.';
+        }
+        if (labelRichCount > 0) {
+            help += ' ' + labelRichCount + ' step label' + (labelRichCount === 1 ? '' : 's')
+                + ' contain' + (labelRichCount === 1 ? 's' : '') + ' formatting or a link - kept exactly as'
+                + ' it is unless you actually reword that step here.';
         }
 
         /**
@@ -940,7 +1219,17 @@
             var parts = parseItems(data.items);
 
             if (existing) {
-                var byLabel = {};
+                /* Object.create(null), NOT {} - a step labelled exactly
+                 * "constructor", "toString", "valueOf" or "__proto__" would
+                 * otherwise resolve byLabel[old.label] to an INHERITED
+                 * Object.prototype member instead of undefined; the
+                 * `if (!byLabel[...])` guard then never creates the array,
+                 * and .push() on that inherited value throws. Measured: the
+                 * throw happened inside this dialog's own preview onInit (see
+                 * below), which took the whole dialog's footer down with it -
+                 * no Cancel, no Save, an unusable dialog with no way out but
+                 * the window's own close button. */
+                var byLabel = Object.create(null);
                 var k;
                 for (k = 0; k < existing.parts.length; k++) {
                     var old = existing.parts[k];
@@ -952,6 +1241,22 @@
                     if (queue && queue.length) {
                         var match = queue.shift();
                         parts[k].key = match.key;
+                        /* The label survives too, by the same rule as the body
+                         * just below: byLabel is keyed on the FLATTENED label,
+                         * so reaching this branch already means the typed
+                         * label matches match.label exactly. Re-attach the
+                         * ORIGINAL serialised label - plain text verbatim if
+                         * that is all it ever was, or a real <a href>/<code>/
+                         * <strong> if the step came from converting a list
+                         * (listItemToPart()) - instead of the escaped
+                         * plain-text line the textarea forced it through. A
+                         * step whose wording actually changed never reaches
+                         * this branch, so it correctly keeps the typed plain
+                         * text: see readSequence(). */
+                        if (match.labelHtml) {
+                            parts[k].label = match.labelHtml;
+                            parts[k].labelIsHtml = true;
+                        }
                         /* The rich body is re-attached to the key it belongs to,
                          * and anything the agent typed under that step goes
                          * ABOVE it rather than replacing it. Replacing would be
@@ -1002,13 +1307,27 @@
                         type: 'htmlpanel',
                         name: 'preview',
                         html: previewPanelHtml(),
+                        /* try/catch is not belt and braces: a throw in here used
+                         * to abort TinyMCE's own dialog construction mid-way,
+                         * leaving a footer with only a Close button and no way
+                         * to Cancel or Save normally - reproduced for a step
+                         * labelled "constructor" before the Object.create(null)
+                         * fix in collect(), above. A future throw here should
+                         * degrade the preview, not decapitate the dialog. */
                         onInit: function (element) {
                             previewHost = element.classList.contains(PREVIEW_CLASS)
                                 ? element
                                 : element.querySelector('.' + PREVIEW_CLASS);
-                            if (existing) {
-                                var shape = collect({ title: existing.title, mode: existing.mode, items: printItems(existing.parts) });
-                                renderPreview(previewHost, buildSequence(PREVIEW_KEY, shape.title, shape.mode, previewParts(shape.parts)), []);
+                            try {
+                                if (existing) {
+                                    var shape = collect({ title: existing.title, mode: existing.mode, items: printItems(existing.parts) });
+                                    renderPreview(previewHost, buildSequence(PREVIEW_KEY, shape.title, shape.mode, previewParts(shape.parts)), []);
+                                }
+                            } catch (e) {
+                                if (window.console && window.console.error) {
+                                    window.console.error('tinymce_ikb: preview onInit failed', e);
+                                }
+                                renderPreview(previewHost, '', ['Preview unavailable for this block; editing still works.']);
                             }
                         }
                     }
@@ -1057,16 +1376,30 @@
         '        Replace the PSU.'
     ].join('\n');
 
-    function openTreeDialog(editor) {
+    /**
+     * existing: null to create, or readTree(block) plus that block to re-edit
+     * its structure - the same shape openSequenceDialog() takes.
+     */
+    function openTreeDialog(editor, existing, block) {
         var previewHost = null;
 
         var help = 'One question at the left margin. Indent each choice under it by four spaces, then indent'
             + ' the next question - or the final answer - under that choice. Odd levels are choices; even'
             + ' levels are questions and answers.';
+        if (existing) {
+            help += ' A question kept word-for-word keeps a reader’s current place in the tree; a reworded'
+                + ' or new question starts them over from there, same as inserting a fresh one.';
+        }
 
+        /* Mirrors collect() in openSequenceDialog(): parse, then - for a
+         * re-edit only - reconcile the freshly minted node keys against the
+         * block's previous ones by question text, so an unchanged question
+         * keeps the key a reader's saved position ('_at') may point at. */
         function shapeOf(data) {
             var parsed = parseOutline(data.outline);
+            if (existing) { reconcileTreeKeys(parsed.nodes, existing.oldNodes); }
             return {
+                nodes: parsed.nodes,
                 html: parsed.nodes.length ? buildTree(PREVIEW_KEY, data.title, parsed.nodes) : '',
                 errors: parsed.errors.length
                     ? parsed.errors
@@ -1077,9 +1410,12 @@
         var preview = makePreviewer(function () { return previewHost; }, shapeOf);
 
         editor.windowManager.open({
-            title: 'New decision tree',
+            title: existing ? 'Edit decision tree' : 'New decision tree',
             size: 'large',
-            initialData: { title: '', outline: TREE_EXAMPLE },
+            initialData: {
+                title: existing ? existing.title : '',
+                outline: existing ? existing.outline : TREE_EXAMPLE
+            },
             body: {
                 type: 'panel',
                 items: [
@@ -1090,44 +1426,71 @@
                         type: 'htmlpanel',
                         name: 'preview',
                         html: previewPanelHtml(),
+                        /* Same defensive wrap as the sequence dialog's preview
+                         * onInit, above: a throw here must degrade the
+                         * preview, not take the dialog's Cancel/Save footer
+                         * with it. */
                         onInit: function (element) {
                             previewHost = element.classList.contains(PREVIEW_CLASS)
                                 ? element
                                 : element.querySelector('.' + PREVIEW_CLASS);
-                            var seeded = shapeOf({ title: '', outline: TREE_EXAMPLE });
-                            renderPreview(previewHost, seeded.html, seeded.errors);
+                            try {
+                                var seeded = shapeOf({
+                                    title: existing ? existing.title : '',
+                                    outline: existing ? existing.outline : TREE_EXAMPLE
+                                });
+                                renderPreview(previewHost, seeded.html, seeded.errors);
+                            } catch (e) {
+                                if (window.console && window.console.error) {
+                                    window.console.error('tinymce_ikb: preview onInit failed', e);
+                                }
+                                renderPreview(previewHost, '', ['Preview unavailable for this block; editing still works.']);
+                            }
                         }
                     }
                 ]
             },
             buttons: [
                 { type: 'cancel', name: 'cancel', text: 'Cancel' },
-                { type: 'submit', name: 'save', text: 'Insert tree', primary: true }
+                { type: 'submit', name: 'save', text: existing ? 'Save tree' : 'Insert tree', primary: true }
             ],
             onChange: preview,
             onSubmit: function (api) {
                 var data = api.getData();
-                var parsed = parseOutline(data.outline);
-                if (!parsed.nodes.length) {
+                var shape = shapeOf(data);
+                if (!shape.nodes.length) {
                     notify(editor, 'Nothing to insert - the outline has no first question.', 'warning');
                     return;
                 }
-                var blockKey = mintKey();
+                /* Editing keeps the block's own key; only a brand-new tree
+                 * mints one. See readTree(). */
+                var blockKey = (existing && isKey(existing.key)) ? existing.key : mintKey();
+                var html = buildTree(blockKey, data.title, shape.nodes);
                 api.close();
-                editor.undoManager.transact(function () {
-                    insertBlock(editor, buildTree(blockKey, data.title, parsed.nodes));
-                });
+                if (existing && block) {
+                    editor.undoManager.transact(function () {
+                        replaceElement(editor, block, html);
+                    });
+                } else {
+                    editor.undoManager.transact(function () {
+                        insertBlock(editor, html);
+                    });
+                }
                 selectByKey(editor, blockKey);
             }
         });
     }
 
     /* ─────────────────────────────────────────────────────────────────────────
-     * THE EXTENSION SEAM.
+     * THE EXTENSION SEAM - for CREATING a fifth block type from the menu.
      *
-     * A fifth block type is one entry here plus one build<Type>() above. The
-     * menu assembly, the gating, the guard, the notifications, the preview and
-     * the insert path all stay exactly as they are.
+     * One entry here plus one build<Type>() above is the whole cost of
+     * offering a fifth type in the "new block" menu, and of previewing and
+     * inserting it. The guard, isKbEditor() and the menu assembly all stay
+     * exactly as they are. Re-editing that type's structure, giving it a
+     * "Show this block as" submenu, and un-blocking it correctly are each a
+     * separate, per-shape cost - see the header comment's "ADDING A FIFTH
+     * BLOCK TYPE COSTS" section for what those actually require.
      * ───────────────────────────────────────────────────────────────────────── */
 
     var MENU_BUILDERS = [
@@ -1137,7 +1500,7 @@
         },
         {
             text: 'Decision tree…',
-            open: openTreeDialog
+            open: function (editor) { openTreeDialog(editor, null, null); }
         }
     ];
 
@@ -1151,8 +1514,12 @@
      * Only agent/modals/kb_article/kb_article_add.php and kb_article_edit.php
      * write kb_articles.kb_article_content, and only that column is purified
      * with the interactive vocabulary registered (InteractiveBlocks::apply(),
-     * four call sites). Offering the button anywhere else would let an agent
-     * author a block that is silently flattened to prose the moment they save.
+     * five call sites: the four KB renderers - agent/kb_article.php,
+     * client/kb_article.php, agent/modals/kb_article/kb_article_version_view.php,
+     * api/v1/kb.php - plus the HTML-import save path,
+     * agent/post/kb_article.php:808). Offering the button anywhere else would
+     * let an agent author a block that is silently flattened to prose the
+     * moment they save.
      *
      * The submit-button names are the discriminator because they are the one
      * thing in those two forms that is unique to the KB and greppable:
@@ -1227,7 +1594,9 @@
                 var list = block ? null : listInSelection(editor);
                 var pre = block ? null : preInSelection(editor);
 
-                if (block && block.getAttribute('data-ikb') === 'sequence') {
+                var blockType = block ? block.getAttribute('data-ikb') : null;
+
+                if (blockType === 'sequence') {
                     items.push({
                         type: 'menuitem',
                         text: 'Edit this block…',
@@ -1252,12 +1621,27 @@
                                             block.setAttribute('data-ikb-mode', mode.value);
                                         });
                                         editor.nodeChanged();
+                                        /* Does not change whether the article
+                                         * "contains interactive blocks" (the
+                                         * block was already data-ikb before and
+                                         * after), but it is DOM mutation with no
+                                         * SetContent all the same - keep the
+                                         * Markdown-tab signposting in js/app.js
+                                         * from being the one thing in this menu
+                                         * that does not refresh it. */
+                                        if (typeof editor.ikbRefreshTabs === 'function') { editor.ikbRefreshTabs(); }
                                         notify(editor, 'Now shown as ' + MODE_NAMES[mode.value].toLowerCase()
                                             + '. Nobody’s saved progress moved.', 'success');
                                     }
                                 };
                             });
                         }
+                    });
+                } else if (blockType === 'tree') {
+                    items.push({
+                        type: 'menuitem',
+                        text: 'Edit this block…',
+                        onAction: function () { openTreeDialog(editor, readTree(block), block); }
                     });
                 }
 

@@ -80,8 +80,12 @@ namespace ITFlow\KB;
  *    This is independent of the HTMLPurifier pass the caller runs; two locks.
  *
  * 5. Resource exhaustion.  A 2 MiB input cap, a 20,000 node cap, a depth cap of
- *    64, a 200 block cap, a 4 MiB output cap and the DOCX importer's image
- *    budgets. Every one of them is checked, not assumed. See the constants.
+ *    64, a 200 block cap, a 32-tab-per-widget cap with pane dedupe, a 4 MiB
+ *    output cap and the DOCX importer's image budgets. Every one of them is
+ *    checked, not assumed. See the constants - and MAX_TABS's comment
+ *    specifically for the one that WASN'T checked until this file's own
+ *    review measured a single tab widget rendering its pane thousands of
+ *    times over.
  *
  * THE ESCAPE HATCH (mode 'embed')
  * ---------------------------------------------------------------------------
@@ -104,7 +108,7 @@ namespace ITFlow\KB;
 final class HtmlImporter
 {
     /** Documentation only - the emitter is a closed set of literal strings. */
-    public const ALLOWED_TAGS_NOTE = 'p h1 h2 h3 h4 h5 h6 strong em u s br ul ol li table tr th td a img code pre div h4/h5(block furniture)';
+    public const ALLOWED_TAGS_NOTE = 'p h1 h2 h3 h4 h5 h6 strong em u s br ul ol li table tr th td a img code pre div hr blockquote h4/h5(block furniture)';
 
     public const MODE_BLOCKS = 'blocks';
     public const MODE_EMBED  = 'embed';
@@ -147,6 +151,30 @@ final class HtmlImporter
     // <details> elements would otherwise become 5,000 blocks, each of which the
     // render layer binds and each of which can hold a reader's saved progress.
     private const MAX_BLOCKS = 200;
+
+    // At most this many TABS in one tabs widget. Unlike every other structural
+    // cap in this file, this one does not bound the SOURCE tree (MAX_NODES
+    // already does that) or the number of blocks (MAX_BLOCKS does) - it bounds
+    // how many times detectTabs() renders a PANE, because a pane is looked up
+    // by id and nothing stopped more than one tab from naming the same one.
+    // MEASURED, PHP 8.4.25, before this cap (and before the dedupe below)
+    // existed: a 234,101-byte, 18,002-element fixture - one div.nav-tabs of
+    // 9,000 <a href="#p">, all naming the SAME div#p of 9,000 <p> - did not
+    // finish converting in 100 s and was killed; a 461,899-byte, 16,006-element
+    // fixture of the same shape took 160.1 s and produced 4,410,755 bytes of
+    // output for what should have been a two-pane widget. Both are UNDER the
+    // 2 MiB byte cap and the 20,000-element node cap, so neither of those caps
+    // ever saw the problem: the walk that builds $tabs is O(tabs in the
+    // widget), fine on its own, but rendering the shared pane once PER TAB
+    // makes the real cost O(tabs x pane size) - quadratic in the fixture above,
+    // since the pane grows with the tab count too. 32 is far above any
+    // hand-authored or generated tab widget (real ones measured in this
+    // project's own fixtures run single digits) and, combined with the dedupe
+    // in detectTabs() (a pane referenced by more than one tab renders ONCE,
+    // regardless of how many tabs name it), bounds the worst case to 32 renders
+    // of 32 DISTINCT panes even when nothing is shared - fast by construction,
+    // not by luck.
+    private const MAX_TABS = 32;
 
     // Same numbers as DocxConverter, so a document that imports one way imports
     // the other. kb_articles.kb_article_content is a MEDIUMTEXT (16 MiB) and the
@@ -247,6 +275,8 @@ final class HtmlImporter
     private int $blockCount = 0;
     private bool $truncated = false;
     private bool $mapBlocks = true;
+    /** Set once by renderLabel() when a label had to flatten block markup. */
+    private bool $labelLostStructure = false;
 
     /**
      * Convert an uploaded HTML file.
@@ -349,6 +379,9 @@ final class HtmlImporter
 
         if ($this->truncated) {
             $this->warn('The page was longer than the ' . round(self::MAX_HTML_BYTES / 1048576) . ' MB import limit and was truncated.');
+        }
+        if ($this->labelLostStructure) {
+            $this->warn('One or more section titles contained formatting this importer cannot keep in a title (a list, a table, or similar) - only the words were kept.');
         }
 
         $this->stats['mode'] = 'blocks';
@@ -742,7 +775,7 @@ final class HtmlImporter
             $content = [];
             foreach ($this->childArray($details) as $child) {
                 if ($label === null && $child instanceof \DOMElement && $child->nodeName === 'summary') {
-                    $label = $this->renderInline($this->childArray($child), $depth + 1);
+                    $label = $this->renderLabel($this->childArray($child), $depth + 1);
                     continue;
                 }
                 $content[] = $child;
@@ -780,8 +813,14 @@ final class HtmlImporter
             return null;
         }
 
-        // Caption + target id for every tab, in document order.
-        $tabs = [];
+        // Caption + target id for every tab, in document order, capped at
+        // MAX_TABS (see its comment for the measured reason). A pane that
+        // contains - or IS - the tab strip itself is refused outright: that
+        // shape is not a real tab widget, and walking into it would mean
+        // rendering the very markup this loop is reading.
+        $tabs          = [];
+        $tabsSeen      = 0;
+        $tabsOverCap   = false;
         foreach ($tablist->getElementsByTagName('*') as $el) {
             if (!$el instanceof \DOMElement) {
                 continue;
@@ -799,7 +838,17 @@ final class HtmlImporter
             if ($target === '' || $caption === '' || !isset($this->idMap[$target])) {
                 continue;
             }
-            $tabs[] = ['caption' => $caption, 'pane' => $this->idMap[$target]];
+            $pane = $this->idMap[$target];
+            if ($pane === $tablist || $this->isAncestorOrSelf($pane, $tablist)) {
+                continue;
+            }
+
+            $tabsSeen++;
+            if ($tabsSeen > self::MAX_TABS) {
+                $tabsOverCap = true;
+                continue;
+            }
+            $tabs[] = ['caption' => $caption, 'pane' => $pane];
         }
 
         if (count($tabs) < 2) {
@@ -808,7 +857,12 @@ final class HtmlImporter
 
         // Every pane must live inside the sibling run we are about to consume,
         // or we would render the same content twice - once here and once when
-        // the walk reaches wherever the pane actually is.
+        // the walk reaches wherever the pane actually is. This pass also
+        // dedupes by PANE IDENTITY: a pane referenced by more than one tab is
+        // rendered once, with every referencing caption folded into that one
+        // part's label - never once per tab. Without this, N tabs pointing at
+        // one pane render that pane N times; see MAX_TABS above for what that
+        // measured.
         $index = [];
         foreach ($nodes as $k => $node) {
             if ($node instanceof \DOMElement) {
@@ -816,39 +870,66 @@ final class HtmlImporter
             }
         }
 
-        $end = $i;
+        $end          = $i;
+        $paneCaptions = [];   // spl_object_id(pane) => captions, in first-seen order
+        $paneElements = [];   // spl_object_id(pane) => the \DOMElement, in first-seen order
         foreach ($tabs as $tab) {
             $owner = $this->siblingIndexOf($index, $tab['pane']);
             if ($owner === null || $owner < $i) {
                 return null;
             }
             $end = max($end, $owner);
+
+            $paneId = spl_object_id($tab['pane']);
+            if (!isset($paneElements[$paneId])) {
+                $paneElements[$paneId] = $tab['pane'];
+                $paneCaptions[$paneId] = [];
+            }
+            $paneCaptions[$paneId][] = $tab['caption'];
+        }
+
+        if (count($paneElements) < 2) {
+            // Every tab that survived the cap named the same pane - not a real
+            // tab widget, whatever it is.
+            return null;
         }
 
         // Nothing between the tab strip and the last pane may carry content of
-        // its own that is not part of the widget.
+        // its own that is not part of the widget. Each unique pane's text is
+        // measured once here, not once per tab that points at it.
         $widgetText = mb_strlen($this->text($tablist));
-        foreach ($tabs as $tab) {
-            $widgetText += mb_strlen($this->text($tab['pane']));
+        foreach ($paneElements as $pane) {
+            $widgetText += mb_strlen($this->text($pane));
         }
         $runText = 0;
         for ($k = $i; $k <= $end; $k++) {
             $runText += mb_strlen($this->text($nodes[$k]));
         }
-        if ($runText > $widgetText + 80) {
+        $strayChars = max(0, $runText - $widgetText);
+        if ($strayChars > 80) {
             return null;
+        }
+        if ($strayChars > 0) {
+            // Recognised anyway (the design's 80-character slack), but the
+            // agent must be told: this text is NOT in any rendered pane and is
+            // not coming back. Previously this branch dropped it with no
+            // warning at all - see the finding this fixes.
+            $this->warn('A tabbed section had some text between its tabs that was not inside any tab pane; that text was left out of the tabs block.');
         }
 
         $rendered = [];
-        foreach ($tabs as $tab) {
+        foreach ($paneElements as $paneId => $pane) {
             $rendered[] = [
-                'label' => $this->esc($tab['caption']),
-                'body'  => $this->renderFlow($this->childArray($tab['pane']), $depth + 1),
+                'label' => $this->esc(implode(' / ', array_unique($paneCaptions[$paneId]))),
+                'body'  => $this->renderFlow($this->childArray($pane), $depth + 1),
             ];
         }
 
         $this->stats['tabs'] = ($this->stats['tabs'] ?? 0) + 1;
         $this->warn('A tabbed section became a tabs block.');
+        if ($tabsOverCap) {
+            $this->warn('A tabbed section had more than ' . self::MAX_TABS . ' tabs; the rest were left out of the tabs block.');
+        }
 
         return ['html' => $this->emitSequence('tabs', $title, $rendered, $depth), 'end' => $end + 1];
     }
@@ -963,7 +1044,7 @@ final class HtmlImporter
                 $rest[] = $child;
             }
             $rendered[] = [
-                'label' => $heading === null ? '' : $this->renderInline($this->childArray($heading), $depth + 1),
+                'label' => $heading === null ? '' : $this->renderLabel($this->childArray($heading), $depth + 1),
                 'body'  => $this->renderFlow($rest, $depth + 1),
             ];
         }
@@ -1026,7 +1107,7 @@ final class HtmlImporter
         $rendered = [];
         foreach ($parts as $part) {
             $rendered[] = [
-                'label' => $this->renderInline($this->childArray($part['heading']), $depth + 1),
+                'label' => $this->renderLabel($this->childArray($part['heading']), $depth + 1),
                 'body'  => $this->renderFlow($part['body'], $depth + 1),
             ];
         }
@@ -1148,16 +1229,35 @@ final class HtmlImporter
      * text about the embed that FULLTEXT will ever see - so the name and the
      * description are TEXT NODES in it, never attributes.
      *
-     * THE HREF IS THE AGENT ENDPOINT, AND THAT IS THE CANONICAL STORED FORM -
-     * the same rule kb_media already follows. src/KB/MediaUrlRewriter stores
-     * /agent/kb_media.php?... and rewrites it to /client/kb_media.php?... on the
-     * portal's render path (toPortal(), MediaUrlRewriter.php:222); an embed's
-     * fallback link needs the identical treatment, because
-     * /agent/kb_embed.php sends a department contact to the agent login page.
-     * Nothing does that rewrite yet - grep for kb_embed outside its own files
-     * returns nothing - so it is stated in this lane's handoff as a contract on
-     * the portal renderer rather than solved by storing a portal URL, which
-     * would break the agent side instead.
+     * THE HREF IS DELIBERATELY RELATIVE, NOT ROOT-RELATIVE. This is the one
+     * place this class departs from the kb_media convention (an absolute
+     * /agent/... canonical URL, rewritten to /client/... at render time by
+     * src/KB/MediaUrlRewriter::toPortal()) - deliberately, because that
+     * rewriter has no entry for kb_embed and this file may not add one (out of
+     * this lane's owned files). A hard-coded '/agent/kb_embed.php?id=N' sends
+     * every department-portal reader who clicks it to the agent login page,
+     * which was exactly the defect this comment used to just document.
+     *
+     * js/kb_interactive.js's bindEmbed() already solves the identical problem
+     * for the iframe it builds, the SAME markup this <a> sits beside, with a
+     * plain relative 'kb_embed.php?id=' + id: on agent/kb_article.php that
+     * resolves to /agent/kb_embed.php, and on client/kb_article.php - same
+     * stored HTML, same page family, no per-lane branch anywhere - it resolves
+     * to /client/kb_embed.php instead, because both pages serve from a path
+     * exactly one segment above their matching kb_embed.php and neither emits
+     * a <base> tag (grepped; neither does). This fallback link uses the same
+     * relative form for the same reason, and now resolves correctly with
+     * JavaScript on OR off, on both the agent view and the portal.
+     *
+     * THE GAP THIS DOES NOT CLOSE: api/v1/kb.php, which the Android app reads.
+     * A relative href has no defined resolution there - the app loads article
+     * HTML into a WebView via loadDataWithBaseURL() rather than fetching this
+     * page directly - but the app already cannot run the frame either (no
+     * sandboxed child WebView), so the fallback link was the only thing
+     * on offer there before this change and remains link-shaped-but-unusable
+     * after it, same as an unrewritten /agent/ URL was. Making it work on
+     * Android needs the same signed-URL treatment MediaUrlRewriter::toSigned()
+     * already gives kb_media - out of this lane's owned files; see handoff.
      *
      * @param int    $embedId     kb_article_embeds.kb_article_embed_id
      * @param string $name        what the tool is, typed by the agent
@@ -1174,7 +1274,7 @@ final class HtmlImporter
         $html = '<div class="ikb" data-ikb="embed" data-ikb-embed="' . $embedId . '"'
             . ' data-ikb-key="' . InteractiveBlocks::mintKey() . '"'
             . ' data-ikb-height="' . $height . '">' . "\n"
-            . '<p><a href="/agent/kb_embed.php?id=' . $embedId . '">Interactive: '
+            . '<p><a href="kb_embed.php?id=' . $embedId . '">Interactive: '
             . $escape(mb_substr($name, 0, 200)) . '</a>';
 
         if (trim($description) !== '') {
@@ -1220,7 +1320,24 @@ final class HtmlImporter
                 return $this->renderPre($node);
 
             case 'hr':
-                return '';   // not in the vocabulary; a rule carries no words
+                // Kept, not dropped: HTMLPurifier permits it (no HTML.Allowed
+                // restriction narrows the default set in any of the four KB
+                // purifier configs) and this application's own TinyMCE editor
+                // produces it, so an imported page that used a rule to
+                // separate sections is entitled to keep doing so.
+                $this->stats['rules'] = ($this->stats['rules'] ?? 0) + 1;
+                return $this->account('<hr>');
+
+            case 'blockquote':
+                // Kept as a real <blockquote>, not unwrapped to a plain
+                // paragraph: HTMLPurifier permits it for the same reason as
+                // <hr> above, and a quoted policy statement or vendor warning
+                // deserves to stay visually distinguishable from surrounding
+                // prose, which unwrapping silently threw away.
+                $inner = $this->renderFlow($this->childArray($node), $depth + 1);
+                return trim($inner) === ''
+                    ? ''
+                    : $this->account('<blockquote>') . $inner . $this->account('</blockquote>');
 
             case 'details':
                 // Reached only when the run recogniser is switched off or the
@@ -1400,16 +1517,16 @@ final class HtmlImporter
     // Inline rendering
     // =====================================================================
 
-    private function renderInline(array $nodes, int $depth): string
+    private function renderInline(array $nodes, int $depth, bool $labelOnly = false): string
     {
         $out = '';
         foreach ($nodes as $node) {
-            $out .= $this->renderInlineNode($node, $depth);
+            $out .= $this->renderInlineNode($node, $depth, $labelOnly);
         }
         return $out;
     }
 
-    private function renderInlineNode(\DOMNode $node, int $depth): string
+    private function renderInlineNode(\DOMNode $node, int $depth, bool $labelOnly = false): string
     {
         if ($depth > self::MAX_DEPTH) {
             return '';
@@ -1440,6 +1557,20 @@ final class HtmlImporter
         }
 
         if ($this->isBlock($node)) {
+            if ($labelOnly) {
+                // renderLabel()'s whole reason to exist: a label is written
+                // straight into <h5 class="ikb-label">...</h5> by emitSequence(),
+                // and HTMLPurifier does not allow block children inside a
+                // heading - it hoists them OUT, leaving an EMPTY label with the
+                // real words orphaned as loose siblings, and normalise() sees a
+                // present (if empty) .ikb-label element so it never repairs it.
+                // Flatten to the block's own text instead of recursing into
+                // renderBlock(), and flag it once so run() can warn - this must
+                // never be a silent content loss.
+                $this->labelLostStructure = true;
+                $text = $this->text($node);
+                return $text === '' ? '' : $this->budget($this->esc($text) . ' ');
+            }
             // A block element in inline context (a <div> inside a <p>, which
             // libxml keeps where it found it) still has to render.
             return $this->renderBlock($node, $depth);
@@ -1447,39 +1578,39 @@ final class HtmlImporter
 
         switch ($name) {
             case 'strong': case 'b':
-                return $this->wrapInline('strong', $node, $depth);
+                return $this->wrapInline('strong', $node, $depth, $labelOnly);
             case 'em': case 'i': case 'cite': case 'var': case 'dfn':
-                return $this->wrapInline('em', $node, $depth);
+                return $this->wrapInline('em', $node, $depth, $labelOnly);
             case 'u': case 'ins':
-                return $this->wrapInline('u', $node, $depth);
+                return $this->wrapInline('u', $node, $depth, $labelOnly);
             case 's': case 'strike': case 'del':
-                return $this->wrapInline('s', $node, $depth);
+                return $this->wrapInline('s', $node, $depth, $labelOnly);
             case 'code': case 'kbd': case 'samp': case 'tt':
-                return $this->wrapInline('code', $node, $depth);
+                return $this->wrapInline('code', $node, $depth, $labelOnly);
             case 'br':
                 return $this->account('<br>');
             case 'img':
                 return $this->renderImage($node);
             case 'a':
-                return $this->renderAnchor($node, $depth);
+                return $this->renderAnchor($node, $depth, $labelOnly);
             default:
                 // span, small, mark, sup, sub, font, abbr, time, bdi, ...
-                return $this->renderInline($this->childArray($node), $depth + 1);
+                return $this->renderInline($this->childArray($node), $depth + 1, $labelOnly);
         }
     }
 
-    private function wrapInline(string $tag, \DOMElement $node, int $depth): string
+    private function wrapInline(string $tag, \DOMElement $node, int $depth, bool $labelOnly = false): string
     {
-        $inner = $this->renderInline($this->childArray($node), $depth + 1);
+        $inner = $this->renderInline($this->childArray($node), $depth + 1, $labelOnly);
         if (!$this->hasVisibleContent($inner)) {
             return '';
         }
         return $this->account("<$tag>") . $inner . $this->account("</$tag>");
     }
 
-    private function renderAnchor(\DOMElement $anchor, int $depth): string
+    private function renderAnchor(\DOMElement $anchor, int $depth, bool $labelOnly = false): string
     {
-        $inner = $this->renderInline($this->childArray($anchor), $depth + 1);
+        $inner = $this->renderInline($this->childArray($anchor), $depth + 1, $labelOnly);
         if (!$this->hasVisibleContent($inner)) {
             return '';
         }
@@ -1492,6 +1623,18 @@ final class HtmlImporter
         }
 
         return $this->account('<a href="' . $this->esc($href) . '">') . $inner . $this->account('</a>');
+    }
+
+    /**
+     * Render a label: INLINE CONTENT ONLY, ever. Every call site that builds a
+     * part's or a section's label - never a body - must go through this, not
+     * renderInline() directly. See renderInlineNode()'s $labelOnly branch for
+     * why: a label is written straight into <h5 class="ikb-label"> and a block
+     * child there is worse than useless once HTMLPurifier is done with it.
+     */
+    private function renderLabel(array $nodes, int $depth): string
+    {
+        return trim($this->renderInline($nodes, $depth, true));
     }
 
     /**
@@ -1537,12 +1680,24 @@ final class HtmlImporter
     /**
      * The one place bytes come out of the document.
      *
-     * data: URIs are imported. Remote http(s) images KEEP THEIR ORIGINAL URL and
-     * are reported - rewriting them would mean fetching them, and this importer
-     * fetches nothing (see threat model 2); the purifier permits those schemes,
-     * so leaving them is the existing policy rather than a new one. Everything
-     * else - a relative path, a file: URL, a blob: - is dropped, because the
-     * only thing this server could do with it is read its own disk.
+     * data: URIs are imported. Everything else - a relative path, a remote
+     * http(s) URL, a file: URL, a blob: - is DROPPED, and reported once with a
+     * count.
+     *
+     * Remote http(s) images used to be kept, pointing at their original
+     * address, with a warning that they "will only show for readers who can
+     * reach that site". Measured false on both renderers: client/kb_article.php
+     * sends `Content-Security-Policy: default-src 'self'; img-src 'self'
+     * data:` and includes/header.php sends `img-src 'self' data: blob:
+     * https://*.foleyit.com https://tile.openstreetmap.org
+     * https://*.tile.openstreetmap.org` - neither origin list has room for an
+     * arbitrary third-party host, so a browser refuses the request under the
+     * page's OWN policy, unconditionally, for every reader regardless of their
+     * network. This importer fetches nothing (see threat model 2), so there is
+     * no way to make that URL actually display without downloading the bytes
+     * at import time - out of scope here - and keeping a link that can never
+     * resolve is worse than dropping it the same way a same-directory relative
+     * path already is.
      */
     private function renderImage(\DOMElement $img): string
     {
@@ -1562,13 +1717,9 @@ final class HtmlImporter
         }
 
         if (preg_match('#^https?://#i', $src) === 1) {
-            $url = $this->safeUrl($src);
-            if ($url === null) {
-                $this->countDropped('images');
-                return '';
-            }
-            $this->warn('Pictures hosted on other websites were left pointing at their original address - they will only show for readers who can reach that site.');
-            return $this->budget('<img src="' . $this->esc($url) . '" alt="' . $this->esc($alt) . '">');
+            $this->warn('Pictures hosted on other websites could not be imported: this application only ever loads images from its own server, so a picture at another address would never display for any reader. Add it to the article from the editor.');
+            $this->countDropped('images');
+            return '';
         }
 
         $this->warn('Pictures stored beside the HTML file could not be imported (only the page itself was uploaded). Add them to the article from the editor.');
@@ -1716,6 +1867,55 @@ final class HtmlImporter
     }
 
     /**
+     * The children taskItemMarker() and partFromListItem() should actually
+     * look at: the item's own children, except that a LEADING wrapping <p> -
+     * if the item opens with one - is replaced by ITS children in place.
+     *
+     * GitHub, Pandoc and MkDocs all render a LOOSE task-list item (GFM's term
+     * for one with a blank line around it in the source Markdown) as
+     * <li><p><input type=checkbox> text</p></li>, never the tight
+     * <li><input type=checkbox> text</li> this class was written against - and
+     * a loose item can legitimately carry a nested sub-list right after that
+     * paragraph, e.g. <li><p><input ...> text</p><ul>...</ul></li>, the normal
+     * rendering of a task item that itself has sub-bullets in the source.
+     * Without this, both callers see the <p> as one opaque child: taskItemMarker()
+     * never finds the checkbox inside it (so the item does not count as
+     * "ticky" and detectTaskList() can miss the whole list), and
+     * partFromListItem() files the entire <p> - marker text included - as
+     * body content, leaving the label empty. Splicing only the leading <p>'s
+     * children into its place, and leaving any later sibling (the sub-list)
+     * untouched, fixes both without disturbing content that was never the
+     * label to begin with.
+     */
+    private function taskListChildren(\DOMElement $item): array
+    {
+        $out    = [];
+        $sawReal = false;
+        foreach ($item->childNodes as $child) {
+            if (!$sawReal && $child instanceof \DOMText && trim($child->textContent) === '') {
+                $out[] = $child;
+                continue;
+            }
+            if (!$sawReal && $child instanceof \DOMElement && $child->nodeName === 'p') {
+                // Splice the wrapping <p>'s own children in its place, and
+                // keep walking the REST of the item unchanged - a loose task
+                // item can carry a genuine nested sub-list right after its
+                // marker paragraph (the standard rendering of a task item
+                // that itself has sub-bullets in the source Markdown), and
+                // that sibling is real block content, not part of the label.
+                foreach ($child->childNodes as $inner) {
+                    $out[] = $inner;
+                }
+                $sawReal = true;
+                continue;
+            }
+            $sawReal = true;
+            $out[]   = $child;
+        }
+        return $out;
+    }
+
+    /**
      * The literal task marker at the start of a list item, or null.
      *
      * Returns '' for the <input type=checkbox> form (nothing to strip from the
@@ -1723,7 +1923,7 @@ final class HtmlImporter
      */
     private function taskItemMarker(\DOMElement $item): ?string
     {
-        foreach ($item->childNodes as $child) {
+        foreach ($this->taskListChildren($item) as $child) {
             if ($child instanceof \DOMText && trim($child->textContent) === '') {
                 continue;
             }
@@ -1735,6 +1935,8 @@ final class HtmlImporter
             break;
         }
 
+        // textContent recurses through a loose item's wrapping <p> on its own,
+        // so this half needed no change to see through it.
         $text = $this->text($item);
         if (preg_match('/\A(\[\s*[xX\x{2713}\x{2714}]?\s*\]|\x{2610}|\x{2611}|\x{2612}|\x{25A1}|\x{2705})/u', $text, $m) === 1) {
             return $m[1];
@@ -1755,7 +1957,7 @@ final class HtmlImporter
 
         $inline = [];
         $blocks = [];
-        foreach ($this->childArray($item) as $child) {
+        foreach ($this->taskListChildren($item) as $child) {
             if ($child instanceof \DOMElement
                 && $child->nodeName === 'input'
                 && strcasecmp($child->getAttribute('type'), 'checkbox') === 0) {
@@ -1768,13 +1970,30 @@ final class HtmlImporter
             $inline[] = $child;
         }
 
-        $label = $this->renderInline($inline, $depth + 1);
+        $label = $this->renderLabel($inline, $depth + 1);
         if ($marker !== null && $marker !== '') {
             $label = preg_replace('/\A\s*' . preg_quote($this->esc($marker), '/') . '\s*/u', '', $label, 1) ?? $label;
         }
+        $label = trim($label);
+
+        if ($label === '' && $blocks !== []) {
+            // Nothing inline survived - the item opened straight into block
+            // content with no leading <p> for taskListChildren() to splice
+            // (e.g. <li><ul>...</ul></li>), so there is no text anywhere in
+            // the item outside a block. Promote the FIRST block to the label
+            // rather than leaving an empty <h5 class="ikb-label"> for
+            // emitSequence()'s "Section N" placeholder to swallow the real
+            // words into the body - the same failure this method exists to
+            // avoid for the loose-list shape.
+            $first = array_shift($blocks);
+            $label = trim($this->renderLabel([$first], $depth + 1));
+            if ($label === '') {
+                $label = trim($this->text($first));
+            }
+        }
 
         return [
-            'label' => trim($label),
+            'label' => $label,
             'body'  => $this->renderFlow($blocks, $depth + 1),
         ];
     }
@@ -1803,6 +2022,25 @@ final class HtmlImporter
         }
 
         return null;
+    }
+
+    /**
+     * Is $ancestor the same node as $node, or does it contain $node? Same
+     * MAX_DEPTH-bounded parent walk as siblingIndexOf() and findTablist(), for
+     * the same reason: a pane that turns out to BE (or wrap) the tab strip
+     * that names it is not a real tab widget, and detectTabs() must refuse it
+     * before trying to render it.
+     */
+    private function isAncestorOrSelf(\DOMNode $ancestor, \DOMNode $node): bool
+    {
+        $hops = 0;
+        while ($node !== null && $hops++ < self::MAX_DEPTH) {
+            if ($node === $ancestor) {
+                return true;
+            }
+            $node = $node->parentNode;
+        }
+        return false;
     }
 
     /** Which of $index's siblings contains $target, or null if none does. */

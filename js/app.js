@@ -9,8 +9,18 @@
 // The attribute name is the vocabulary's own marker - \ITFlow\KB\InteractiveBlocks
 // and js/tinymce_ikb.js both key on data-ikb - and matching the attribute rather
 // than the class means content that lost its classes is still recognised.
-function docBuilderHasInteractiveBlocks(html) {
-    return /\sdata-ikb[\s=]/.test(html || '');
+//
+// Tests the PARSED document (a real element carrying the attribute), not a
+// substring match on the serialised markup. A substring match also fires on
+// an article that merely MENTIONS the vocabulary - e.g. a <pre><code> sample
+// showing how to write one, in an article documenting this very feature -
+// where getBody().querySelector('[data-ikb]') is null because the text sits
+// inside a <code> block as escaped characters, not as a real attribute on a
+// real element. Querying the live body is also cheaper than serialising the
+// whole article with getContent() on every SetContent.
+function docBuilderHasInteractiveBlocks(root) {
+    return !!(root && root.querySelector
+        && root.querySelector('[data-ikb], [data-ikb-part], [data-ikb-node]'));
 }
 
 // THE MARKDOWN TAB DESTROYS INTERACTIVE BLOCKS, COMPLETELY AND SILENTLY.
@@ -38,7 +48,7 @@ function docBuilderHasInteractiveBlocks(html) {
 // re-applied on the way back and the vocabulary survives byte-for-byte
 // (measured, proof p6).
 function docBuilderBlocksMarkdown(editor) {
-    return docBuilderHasInteractiveBlocks(editor.getContent());
+    return docBuilderHasInteractiveBlocks(editor.getBody());
 }
 
 function initDocBuilder(editor) {
@@ -140,6 +150,17 @@ function initDocBuilder(editor) {
         markdownBtn.title = blocked ? MARKDOWN_REASON : '';
         return blocked;
     }
+
+    // Exposed so js/tinymce_ikb.js can re-check availability after the two
+    // Interactive-menu actions that mutate the block DOM WITHOUT firing
+    // SetContent (markCopy(), and the "Show this block as" mode flip) - both
+    // run inside undoManager.transact() with no reparse, so the SetContent/
+    // Undo/Redo binding below never sees them and this button would otherwise
+    // go stale until something else happened to trigger one of those events.
+    // Guarded with typeof on the caller's side, since not every .tinymce
+    // editor this plugin loads into has a Doc Builder (or the tinymce-ikb
+    // menu) at all.
+    editor.ikbRefreshTabs = refreshMarkdownAvailability;
 
     // The states that can add or remove a block are all of these: the article
     // being loaded in, the ikb plugin's own inserts (which end in setContent),

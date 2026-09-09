@@ -157,7 +157,17 @@ $ikb_read_only = !empty($portal_preview_active) || $session_contact_id <= 0;
  * data-ikb-hashes is what the article says NOW; data-ikb-progress carries the
  * hash recorded at tick time. The render layer marks the difference, so a tick
  * against words that have since changed is neither silently kept nor silently
- * dropped. hashesAttribute() short-circuits on an article with no blocks.
+ * dropped.
+ *
+ * data-ikb-hashes IS COMPUTED UNCONDITIONALLY, NOT GATED ON $ikb_progress
+ * BEING NON-EMPTY - see the fuller note at the matching line in
+ * agent/kb_article.php. In short: a contact's FIRST visit is exactly when
+ * $ikb_progress is empty, and gating the hash computation on it meant every
+ * tick made on a first visit was saved with no hash to compare against later,
+ * so the stale-tick warning could never fire for it on any future visit.
+ * hashesAttribute() already short-circuits to '{}' with no DOM parse on an
+ * article with no blocks, so there was no real cost being saved by the guard
+ * this replaced - only the feature.
  *
  * PRIVACY: this puts ONE reader's state in the page body, which is safe only
  * because article pages are not served from a shared cache. */
@@ -173,9 +183,7 @@ if ($session_contact_id > 0 && is_file($ikb_progress_store)) {
     }
 }
 $ikb_progress_json = \ITFlow\KB\InteractiveBlocks::progressAttribute($ikb_progress);
-$ikb_hashes_json = $ikb_progress === []
-    ? '{}'
-    : \ITFlow\KB\InteractiveBlocks::hashesAttribute($kb_article_content);
+$ikb_hashes_json = \ITFlow\KB\InteractiveBlocks::hashesAttribute($kb_article_content);
 
 /* ATTACHMENTS, visible to the department.
  *
