@@ -570,7 +570,16 @@ details[open] > summary > .org-node-chevron {
 
 .org-chart-scroll {
     overflow-x: auto;
-    overflow-y: hidden;
+    /* visible, NOT hidden: agent/js/org_chart.js's performLayout() can now
+       wrap independent root-trees onto many rows (a department with little
+       or no manager data set produces one row PER FEW PEOPLE, not one row
+       total - see packRootsIntoBands()'s own comment), so this container's
+       height is no longer reliably small. overflow-y:hidden would silently
+       CLIP every band past whatever height happened to be visible, rather
+       than letting the page's own normal vertical scroll reveal them - the
+       intent was always "clip horizontal overflow only, let vertical
+       overflow flow into the page", which only 'visible' actually does. */
+    overflow-y: visible;
     padding: .25rem 0 1rem;
     -webkit-overflow-scrolling: touch;
 }

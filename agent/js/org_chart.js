@@ -451,6 +451,51 @@
         });
     }
 
+    // Packs independent root-trees into ROWS ("bands") instead of one
+    // endless horizontal line, first-fit in original document order.
+    //
+    // WHY THIS EXISTS: a root-tree is "independent" whenever
+    // org_chart_build_tree_index() (PHP) could not find its manager among
+    // the currently-visible contacts - manager_id is 0/NULL, archived, or
+    // outside the current department filter. On a fresh install (verified
+    // against the live database: EVERY contact currently has manager_id
+    // NULL - nobody has set the "Manager" field on anyone yet), that makes
+    // EVERY contact its own one-node root-tree, and a department of 30-140
+    // people is 30-140 independent trees. Laid out on one line (the
+    // original design), that is a 10,000+px-wide canvas where centerCanvas()
+    // can show at most a handful of them at once - not merely "not a real
+    // hierarchy chart", but most of the department silently invisible with
+    // no cue there was more to scroll to (confirmed against real data: a
+    // 5-person, zero-hierarchy department already left 3 of 5 people
+    // off-screen at a normal viewport width). Wrapping onto multiple rows,
+    // sized to the container's OWN current width, fixes this for exactly
+    // that case (a flat team wraps into a clean grid, entirely visible via
+    // ordinary vertical scroll) while changing nothing about how any ONE
+    // tree with real depth renders - a department that DOES have manager
+    // data set still draws as a normal top-down hierarchy, wrapping (if at
+    // all) only where independent trees/orphans sit side by side.
+    function packRootsIntoBands(rootEntries, maxUnitsPerRow) {
+        var bands = [];
+        var band = null;
+        var bandUnits = 0;
+        rootEntries.forEach(function (entry) {
+            var gap = (band && band.length) ? ROOT_GAP_UNITS : 0;
+            if (band && band.length && bandUnits + gap + entry.rec.width > maxUnitsPerRow) {
+                band = null;
+            }
+            if (!band) {
+                band = [];
+                bands.push(band);
+                bandUnits = 0;
+            } else {
+                bandUnits += gap;
+            }
+            band.push(entry);
+            bandUnits += entry.rec.width;
+        });
+        return bands;
+    }
+
     // The pure-compute-then-DOM-apply pass, run once at setup and again on
     // every relayout. Left to throw naturally - callers decide what a
     // failure means (see wireChartLayout()'s initial-build teardown vs.
@@ -458,23 +503,47 @@
     function performLayout(ctx) {
         var rootLis = Array.prototype.slice.call(ctx.ul.children).filter(function (li) { return li.tagName === 'LI'; });
         var flat = [];
-        var cursor = 0;
+        var rootEntries = []; // {rec, maxDepth, flatStart, flatEnd} - one per independent root-tree
 
-        rootLis.forEach(function (li, i) {
+        rootLis.forEach(function (li) {
+            var flatStart = flat.length;
             var rec = collectVisibleTree(li, 0, flat);
             if (!rec) {
                 return;
             }
             computeWidth(rec);
-            assignX(rec, cursor);
-            cursor += rec.width + (i < rootLis.length - 1 ? ROOT_GAP_UNITS : 0);
+            var maxDepth = 0;
+            for (var i = flatStart; i < flat.length; i++) {
+                if (flat[i].depth > maxDepth) { maxDepth = flat[i].depth; }
+            }
+            rootEntries.push({ rec: rec, maxDepth: maxDepth, flatStart: flatStart, flatEnd: flat.length });
         });
 
-        var maxDepth = 0;
-        flat.forEach(function (rec) { if (rec.depth > maxDepth) { maxDepth = rec.depth; } });
+        // clientWidth, not the canvas's own (stale, pre-relayout) width -
+        // this is what makes the wrap boundary responsive to the actual
+        // viewport/container size rather than a fixed guess.
+        var maxUnitsPerRow = Math.max(1, Math.floor(ctx.scrollWrap.clientWidth / UNIT_W));
+        var bands = packRootsIntoBands(rootEntries, maxUnitsPerRow);
 
-        var extentW = Math.max(cursor, 1) * UNIT_W;
-        var extentH = (maxDepth + 1) * ROW_H;
+        var bandYOffsetPx = 0;
+        var maxUnitsUsed = 0;
+        bands.forEach(function (bandEntries) {
+            var cursor = 0;
+            var bandMaxDepth = 0;
+            bandEntries.forEach(function (entry, i) {
+                assignX(entry.rec, cursor);
+                cursor += entry.rec.width + (i < bandEntries.length - 1 ? ROOT_GAP_UNITS : 0);
+                if (entry.maxDepth > bandMaxDepth) { bandMaxDepth = entry.maxDepth; }
+                for (var j = entry.flatStart; j < entry.flatEnd; j++) {
+                    flat[j].bandYOffsetPx = bandYOffsetPx;
+                }
+            });
+            if (cursor > maxUnitsUsed) { maxUnitsUsed = cursor; }
+            bandYOffsetPx += (bandMaxDepth + 1) * ROW_H;
+        });
+
+        var extentW = Math.max(maxUnitsUsed, 1) * UNIT_W;
+        var extentH = Math.max(bandYOffsetPx, ROW_H);
 
         ctx.canvas.style.width = extentW + 'px';
         ctx.canvas.style.height = extentH + 'px';
@@ -484,7 +553,7 @@
 
         flat.forEach(function (rec) {
             var leftPx = rec.x * UNIT_W - BOX_W / 2;
-            var topPx = rec.depth * ROW_H;
+            var topPx = rec.bandYOffsetPx + rec.depth * ROW_H;
             rec.row.style.left = leftPx + 'px';
             rec.row.style.top = topPx + 'px';
             rec.pxCenterX = leftPx + BOX_W / 2;
