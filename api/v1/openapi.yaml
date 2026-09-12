@@ -33,6 +33,7 @@ tags:
   - name: Clients
   - name: Contacts
   - name: Assets
+  - name: Projects
   - name: Credentials
   - name: Quotes
   - name: Invoices
@@ -742,6 +743,44 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AssetDetail'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /projects:
+    get:
+      tags: [Projects]
+      summary: List projects (paged, filterable)
+      parameters:
+        - {$ref: '#/components/parameters/SearchParam'}
+        - {$ref: '#/components/parameters/PageParam'}
+        - {$ref: '#/components/parameters/LimitParam'}
+        - {name: status, in: query, schema: {type: string, enum: [open, completed, all], default: open}}
+        - {name: archived, in: query, schema: {type: integer, enum: [0, 1], default: 0}}
+        - {name: client_id, in: query, schema: {type: integer}}
+        - {name: mine, in: query, schema: {type: integer, enum: [0, 1]}, description: Only projects managed by the caller}
+      responses:
+        '200':
+          description: Paged project list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/ProjectListItem'}}
+                  total: {type: integer}
+                  page: {type: integer}
+                  limit: {type: integer}
+  /projects/{id}:
+    get:
+      tags: [Projects]
+      summary: Project detail with milestones, tasks and linked tickets
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Project detail
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProjectDetail'}
+        '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
   /credentials:
     get:
@@ -1720,6 +1759,79 @@ components:
         purchase_date: {type: string}
         warranty_expire: {type: string}
         notes: {type: string}
+    ProjectListItem:
+      type: object
+      properties:
+        id: {type: integer}
+        prefix: {type: string, nullable: true}
+        number: {type: integer}
+        name: {type: string}
+        due_at: {type: string, nullable: true}
+        created_at: {type: string, nullable: true}
+        completed_at: {type: string, nullable: true}
+        archived_at: {type: string, nullable: true}
+        client: {type: string, nullable: true}
+        manager: {type: string, nullable: true}
+        ticket_count: {type: integer}
+        ticket_closed_count: {type: integer}
+        task_count: {type: integer}
+        task_completed_count: {type: integer}
+    ProjectMilestone:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        description: {type: string, nullable: true}
+        due_at: {type: string, nullable: true}
+        order: {type: integer}
+        status: {type: string}
+        completed_at: {type: string, nullable: true}
+    ProjectTask:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        status: {type: string, nullable: true}
+        progress: {type: integer}
+        due_at: {type: string, nullable: true}
+        start_at: {type: string, nullable: true}
+        milestone_id: {type: integer, nullable: true}
+        completed_at: {type: string, nullable: true}
+        assigned_to: {type: string, nullable: true}
+        ticket_number: {type: string, nullable: true}
+    ProjectTicket:
+      type: object
+      properties:
+        id: {type: integer}
+        number: {type: string}
+        subject: {type: string}
+        status: {type: string, nullable: true}
+        status_color: {type: string, nullable: true}
+        due_at: {type: string, nullable: true}
+        closed_at: {type: string, nullable: true}
+        assigned_to: {type: string, nullable: true}
+    ProjectDetail:
+      type: object
+      properties:
+        id: {type: integer}
+        prefix: {type: string, nullable: true}
+        number: {type: integer}
+        name: {type: string}
+        description: {type: string}
+        due_at: {type: string, nullable: true}
+        start_at: {type: string, nullable: true}
+        created_at: {type: string, nullable: true}
+        updated_at: {type: string, nullable: true}
+        completed_at: {type: string, nullable: true}
+        archived_at: {type: string, nullable: true}
+        client: {type: string, nullable: true}
+        manager: {type: string, nullable: true}
+        estimated_hours: {type: number, nullable: true}
+        budget_amount: {type: number, nullable: true}
+        hourly_rate: {type: number, nullable: true}
+        milestones: {type: array, items: {$ref: '#/components/schemas/ProjectMilestone'}}
+        tasks: {type: array, items: {$ref: '#/components/schemas/ProjectTask'}}
+        tickets: {type: array, items: {$ref: '#/components/schemas/ProjectTicket'}}
     CredentialListItem:
       type: object
       properties:
