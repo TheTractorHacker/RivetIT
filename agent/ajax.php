@@ -674,12 +674,27 @@ if (isset($_GET['get_client_contacts'])) {
  * Department <select> (#changeClientSelect, see ticket_add_v2.php) itself
  * offers: a contact whose department isn't a selectable option there would
  * auto-fill Department to a value the <select> doesn't have, silently
- * leaving that required field unset.
+ * leaving that required field unset. (agent/modals/recurring_ticket/
+ * recurring_ticket_add.php's own Department <select> is kept in sync with
+ * this same client_lead = 0 filter for exactly that reason - see its own
+ * query - since it uses this same endpoint/widget.)
+ *
+ * OPTIONAL client_id: once the agent has already picked (or been given) a
+ * department, tickets_add_modal.js passes it here to NARROW the search to
+ * that one department instead of searching every department again - see
+ * that file's onItemAdd() for why: an unscoped search after a department is
+ * already set could return a match in a DIFFERENT department, and picking
+ * it would either silently reassign the department out from under the
+ * agent, or (worse) leave a contact selected whose real department doesn't
+ * match the ticket's. Narrowing the search itself, rather than only
+ * gating what onItemAdd does with the result, keeps the results the agent
+ * sees honest about which department they will actually get.
  */
 if (isset($_GET['search_contacts'])) {
     enforceUserPermission('module_client');
 
     $raw_query = trim((string) ($_GET['q'] ?? ''));
+    $scoped_client_id = intval($_GET['client_id'] ?? 0);
 
     $response = ['contacts' => []];
 
@@ -696,6 +711,8 @@ if (isset($_GET['search_contacts'])) {
         $phone_query = $query;
     }
 
+    $scope_sql = $scoped_client_id > 0 ? "AND contacts.contact_client_id = $scoped_client_id" : '';
+
     $contact_sql = mysqli_query(
         $mysqli,
         "SELECT contacts.contact_id, contact_name, contact_title, contact_email, contact_phone,
@@ -705,6 +722,7 @@ if (isset($_GET['search_contacts'])) {
         WHERE contact_archived_at IS NULL
             AND clients.client_lead = 0
             AND clients.client_archived_at IS NULL
+            $scope_sql
             AND (contact_name LIKE '%$query%'
             OR contact_title LIKE '%$query%'
             OR contact_email LIKE '%$query%'

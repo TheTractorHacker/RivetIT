@@ -98,8 +98,6 @@
             }
         });
 
-        wireExpandCollapseAll(root);
-
         // traceApi is built before the chart layout so wireChartLayout can
         // hand it to each department's ctx - a relayout that rebuilds a
         // department's SVG connector paths from scratch (any toggle) needs
@@ -114,7 +112,11 @@
         // layout's own position-based relayout instead of the old
         // height-grow/shrink animation, which would otherwise be animating
         // a <ul> that no longer has any visible footprint in chart mode.
+        // Also run BEFORE wireExpandCollapseAll, which needs chartCtxs to
+        // re-center each chart after a bulk toggle - see that function.
         var chartCtxs = wireChartLayout(root, animationsEnabled, traceApi);
+
+        wireExpandCollapseAll(root, chartCtxs);
 
         if (animationsEnabled) {
             wireDetailsAnimation(root, prefersReducedMotion);
@@ -139,18 +141,43 @@
     // every node simultaneously on a several-hundred-contact chart is
     // exactly the animation storm the rest of this file avoids elsewhere.
     // ------------------------------------------------------------------
-    function wireExpandCollapseAll(root) {
+    function wireExpandCollapseAll(root, chartCtxs) {
         var expandBtn = document.getElementById('orgChartExpandAll');
         var collapseBtn = document.getElementById('orgChartCollapseAll');
+
+        // Re-center every chart-mode canvas after a bulk toggle. Each
+        // <details>'s own 'toggle' listener (setupCanvas() in the chart
+        // layout section above) already turns this click into a relayout,
+        // rAF-coalesced into ONE performLayout() per canvas - but that
+        // coalesced call runs in a LATER frame than this click handler's
+        // own synchronous code, so centering has to wait for it too or it
+        // reads the canvas's PRE-toggle size/position. Two nested rAFs:
+        // the first lands in the same frame the coalesced relayout's own
+        // rAF callback runs in (both were queued around the same point),
+        // the second is the first frame guaranteed to run strictly after
+        // it painted.
+        function recenterSoon() {
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
+                    (chartCtxs || []).forEach(function (ctx) {
+                        if (!ctx.dead) {
+                            centerCanvas(ctx);
+                        }
+                    });
+                });
+            });
+        }
 
         if (expandBtn) {
             expandBtn.addEventListener('click', function () {
                 root.querySelectorAll('details').forEach(function (d) { d.open = true; });
+                recenterSoon();
             });
         }
         if (collapseBtn) {
             collapseBtn.addEventListener('click', function () {
                 root.querySelectorAll('details').forEach(function (d) { d.open = false; });
+                recenterSoon();
             });
         }
     }
@@ -567,6 +594,30 @@
         return ctx;
     }
 
+    // A canvas wider than its visible scroll strip (agent/css/org_chart.css's
+    // .org-chart-scroll{overflow-x:auto}) defaults to scrollLeft=0 - flush
+    // against whichever edge the first root happens to land at. For any
+    // generation with more than 2-3 siblings, that edge is very often NOT
+    // where the root sits (assignX() centers a root at ITS subtree's own
+    // midpoint, which is the canvas's overall midpoint only for a single-
+    // root department), so the root - the one node every other node's
+    // position is relative to - could render completely off-screen with no
+    // visible content and no cue to scroll right. Centers the canvas's own
+    // midpoint in the scroll strip instead: exactly correct for the (most
+    // common) single-root case, since assignX() puts that root exactly at
+    // width/2; a reasonable "show the most central part" default for the
+    // multi-root case, where no single scroll position can center every
+    // root simultaneously.
+    function centerCanvas(ctx) {
+        var wrapWidth = ctx.scrollWrap.clientWidth;
+        var canvasWidth = ctx.canvas.offsetWidth;
+        if (canvasWidth <= wrapWidth) {
+            ctx.scrollWrap.scrollLeft = 0;
+            return;
+        }
+        ctx.scrollWrap.scrollLeft = (canvasWidth - wrapWidth) / 2;
+    }
+
     // Best-effort revert of setupCanvas()'s mutation: moves the (fully
     // intact - never rebuilt) <ul class="org-tree"> back to exactly where
     // it was and removes the wrapper, leaving the department as today's
@@ -598,6 +649,7 @@
             try {
                 ctx = setupCanvas(ul, animationsEnabled, traceApi);
                 performLayout(ctx);
+                centerCanvas(ctx);
                 contexts.push(ctx);
             } catch (err) {
                 if (ctx) {
@@ -951,9 +1003,24 @@
     }
 
     // ------------------------------------------------------------------
-    // Sticky breadcrumb - IntersectionObserver over each node's <li>, redrawn
-    // from that node's own data-ancestor-path + name whenever the topmost
-    // visible node changes.
+    // Sticky breadcrumb - IntersectionObserver over each node's OWN ROW
+    // (.org-node, not its containing <li> - a prior round's fix, an
+    // ancestor's <li> also wraps its own expanded subtree, which broke
+    // "topmost visible" tracking after a large jump), redrawn from that
+    // node's own data-ancestor-path + name whenever the topmost visible
+    // node changes.
+    //
+    // LEFT AS-IS for this round's box-and-line chart layout, deliberately,
+    // not by oversight: this mechanism is layout-agnostic by construction -
+    // it watches each .org-node's OWN geometry, wherever that node's row
+    // actually renders (a chart-mode canvas absolutely-positions .org-node
+    // itself, see agent/css/org_chart.css's ".org-chart-active summary,
+    // .org-chart-active .org-node-row" rule - the element the observer
+    // watches is unaffected by how its ANCESTORS are laid out) - so a
+    // "topmost visible" reading stays meaningful in chart mode exactly as
+    // it did in the plain-list layout, with zero changes needed here.
+    // scrollAndPulse() (used by both search and a breadcrumb-segment click)
+    // is what DID need a chart-mode-aware change - see that function.
     // ------------------------------------------------------------------
     function wireBreadcrumb(root, nodes, idToNode, traceApi, prefersReducedMotion) {
         var nav = document.getElementById('orgChartBreadcrumb');
@@ -1319,8 +1386,15 @@
         // full extent - nothing clipped, nothing still mid-collapse -
         // before the browser paints the print output. The CSS half of this
         // is .org-chart-scroll{overflow:visible!important} under
-        // @media print in agent/css/org_chart.css, so that full extent is
-        // never scroll-clipped either.
+        // @media print in agent/css/org_chart.css, so the SCROLL WRAPPER
+        // never clips that extent - but overflow:visible only stops the
+        // wrapper's own box from cutting content off, it does nothing about
+        // the PAGE's fixed physical width. A canvas wider than the
+        // printable page area still ran off the page's right edge with no
+        // pagination and no shrink (confirmed with a real headless-Chrome
+        // PDF render: a department with as few as 3 siblings already
+        // exceeds a typical Letter page's ~700px printable width at 96 CSS
+        // px/inch) - applyPrintScale() below is what actually fixes that.
         function forceLayoutAll() {
             (chartCtxs || []).forEach(function (ctx) {
                 if (ctx.dead) {
@@ -1332,6 +1406,40 @@
                     logRelayoutErr(err);
                 }
             });
+        }
+
+        // Conservative estimate of a page's printable content width in CSS
+        // px (96/inch): a Letter page is 8.5in wide; browsers commonly
+        // default to ~0.5-1in margins per side when no @page rule states
+        // otherwise, and JS has no API to read the ACTUAL page box a given
+        // browser/OS print dialog will use. 700px is deliberately on the
+        // narrow side of that range (undershooting wastes a little paper
+        // width; overshooting is the actual bug this exists to fix).
+        var PRINT_SAFE_WIDTH_PX = 700;
+
+        // Shrinks a too-wide chart-mode canvas to fit PRINT_SAFE_WIDTH_PX,
+        // via a CSS transform (the only way to scale rendered content
+        // without re-running the whole subtree-width layout math at a
+        // different BOX_W). transform does not participate in layout, so
+        // the scroll-wrapper's own height is set explicitly to the SCALED
+        // height - left alone, the wrapper would keep its unscaled height
+        // and print a tall blank gap below the now-smaller chart.
+        function applyPrintScale(ctx) {
+            var naturalW = ctx.canvas.offsetWidth;
+            if (naturalW <= PRINT_SAFE_WIDTH_PX) {
+                ctx.canvas.style.transform = '';
+                ctx.scrollWrap.style.height = '';
+                return;
+            }
+            var scale = PRINT_SAFE_WIDTH_PX / naturalW;
+            ctx.canvas.style.transformOrigin = 'top left';
+            ctx.canvas.style.transform = 'scale(' + scale + ')';
+            ctx.scrollWrap.style.height = (ctx.canvas.offsetHeight * scale) + 'px';
+        }
+
+        function clearPrintScale(ctx) {
+            ctx.canvas.style.transform = '';
+            ctx.scrollWrap.style.height = '';
         }
 
         window.addEventListener('beforeprint', function () {
@@ -1352,12 +1460,22 @@
                 previewApi.close();
             }
             forceLayoutAll();
+            (chartCtxs || []).forEach(function (ctx) {
+                if (!ctx.dead) {
+                    applyPrintScale(ctx);
+                }
+            });
         });
 
         window.addEventListener('afterprint', function () {
             if (!snapshot) {
                 return;
             }
+            (chartCtxs || []).forEach(function (ctx) {
+                if (!ctx.dead) {
+                    clearPrintScale(ctx);
+                }
+            });
             root.querySelectorAll('details').forEach(function (d) {
                 d.open = snapshot.has(d);
             });

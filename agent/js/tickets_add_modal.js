@@ -128,9 +128,32 @@ function initContactSearchSelect() {
             return query.length >= 2;
         },
         load: function (query, callback) {
+            // this.clearOptions() before every load: without it, options
+            // added by an EARLIER, unrelated query never get removed (load()
+            // only ever adds), and the neutralized score() above (see its
+            // own comment - server results are already correctly scoped/
+            // ordered/limited, so local re-filtering is deliberately
+            // disabled) means every one of those stale options stays
+            // visible AND selectable against whatever the agent types next,
+            // not just visually stale but actually pickable. This is safe
+            // to call unconditionally here - TomSelect always re-adds
+            // whatever a fresh load() callback below hands it.
+            this.clearOptions();
+
+            // Current department, if the agent already has one set (either
+            // picked directly, or from an earlier cross-department pick
+            // here) - narrows the search to that ONE department instead of
+            // searching every department again. Read fresh on every call,
+            // not captured once at setup: it can change over the modal's
+            // lifetime (a fresh, not-yet-set department when this widget
+            // first mounts; a real one after the agent picks something).
+            const currentClientId = clientSelectDropdown.tomselect
+                ? clientSelectDropdown.tomselect.getValue()
+                : clientSelectDropdown.value;
+
             jQuery.get(
                 "ajax.php",
-                { search_contacts: 'true', q: query },
+                { search_contacts: 'true', q: query, client_id: currentClientId || '' },
                 function (data) {
                     let response;
                     try {

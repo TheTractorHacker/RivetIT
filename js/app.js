@@ -271,7 +271,21 @@ function initSelect2Widgets() {
     // holding Ctrl/Cmd deselects the first. Calling this directly re-runs it
     // on every modal load and picks up newly-added elements; the el.tomselect
     // guard makes repeat calls safe for ones already initialized.
-    document.querySelectorAll('.select2').forEach(function (el) {
+    //
+    // 'select.select2, input.select2', NOT bare '.select2': TomSelect copies
+    // the source element's own classList onto the wrapper it builds
+    // (measured: a <select class="select2"> wrapped by TomSelect produces
+    // <div class="ts-wrapper ... select2 ...">) - a bare '.select2' query
+    // re-matches that WRAPPER on every later call to this function (every
+    // AJAX modal load, per the comment above), including for a <select>
+    // some other script already wrapped in its own custom TomSelect config
+    // before this ran (agent/js/tickets_add_modal.js's #contactSelect does
+    // exactly this). new TomSelect() on a wrapper <div> - not a real form
+    // control - is nonsense input, and el.tomselect above cannot save this,
+    // since it is a property of the ORIGINAL <select>, not its wrapper.
+    // Scoping to real form elements makes a wrapper structurally impossible
+    // to match here, for this case and any future one shaped the same way.
+    document.querySelectorAll('select.select2, input.select2').forEach(function (el) {
         if (el.tomselect) { return; }
         var opts = {
             plugins: el.multiple ? ['remove_button'] : [],
