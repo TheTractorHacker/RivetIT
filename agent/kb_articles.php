@@ -90,38 +90,40 @@ if (isset($kb_groups['Uncategorized'])) {
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-book me-2"></i>Knowledge Base</h3>
-        <?php /* flex-wrap, added when the third importer made this row four buttons wide.
-                 css/itflow.shim-adminlte.css:57-63 gives every .card-tools in the app
-                 `display:flex; flex-shrink:0` and no wrap - correct for the other 120 files
-                 that share the class (re-measured this session: `grep -rl card-tools
-                 --include=*.php .`, excluding vendor/ and plugins/, returns 121 including
-                 this one), and a horizontal scrollbar here.
-                 MEASURED at 390x844 in Chromium on this page: the row already overflowed
-                 the viewport by 245px with Categories + Import Word Doc + Import PDF +
-                 New Article, and Import HTML took that to 386px.
-                 BOTH classes are needed and I measured each: flex-wrap alone still
-                 overflowed by 402px, because the shim's flex-shrink:0 keeps the box at
-                 its max-content width so nothing is ever constrained enough to wrap.
-                 flex-wrap + flex-shrink-1 together take the page overflow to 0 and the
-                 buttons stack. Scoped to this page's own markup rather than fixed in the
-                 shim, which the other 120 files depend on. */ ?>
-        <div class="card-tools flex-wrap flex-shrink-1 justify-content-end gap-2">
+        <?php /* Was 5 buttons wide (Categories + New Article + 3 separate importers),
+                 which needed flex-wrap/flex-shrink-1 overrides against
+                 css/itflow.shim-adminlte.css:57-63's app-wide `flex-shrink:0`/no-wrap
+                 default just to avoid overflowing a mobile viewport (measured at
+                 390x844: 386px of overflow at its worst). Down to 2 items now that the
+                 three importers live under the "New" split button below instead of as
+                 their own top-level buttons - comfortably fits without either override,
+                 re-measured at the same 390x844 viewport. */ ?>
+        <div class="card-tools justify-content-end gap-2">
             <?php if ($kb_can_write) { ?>
                 <button type="button" class="btn btn-secondary ajax-modal" data-modal-url="modals/kb_category/kb_category_manage.php">
                     <i class="fas fa-folder me-2"></i>Categories
                 </button>
-                <button type="button" class="btn btn-secondary ajax-modal" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_import_docx.php<?php if (isset($client_id)) { echo "?client_id=$client_id"; } ?>">
-                    <i class="fas fa-file-word me-2"></i>Import Word Doc
-                </button>
-                <button type="button" class="btn btn-secondary ajax-modal" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_import_pdf.php<?php if (isset($client_id)) { echo "?client_id=$client_id"; } ?>">
-                    <i class="fas fa-file-pdf me-2"></i>Import PDF
-                </button>
-                <button type="button" class="btn btn-secondary ajax-modal" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_import_html.php<?php if (isset($client_id)) { echo "?client_id=$client_id"; } ?>">
-                    <i class="fas fa-code me-2"></i>Import HTML
-                </button>
-                <button type="button" class="btn btn-primary ajax-modal" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_add.php<?php if (isset($client_id)) { echo "?client_id=$client_id"; } ?>">
-                    <i class="fas fa-plus me-2"></i>New Article
-                </button>
+                <div class="dropdown">
+                    <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-plus me-2"></i>New
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end">
+                        <a class="dropdown-item ajax-modal" href="#" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_add.php<?php if (isset($client_id)) { echo "?client_id=$client_id"; } ?>">
+                            <i class="fas fa-fw fa-plus me-2"></i>Article
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <h6 class="dropdown-header">Import</h6>
+                        <a class="dropdown-item ajax-modal" href="#" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_import_docx.php<?php if (isset($client_id)) { echo "?client_id=$client_id"; } ?>">
+                            <i class="fas fa-fw fa-file-word me-2"></i>Word Doc
+                        </a>
+                        <a class="dropdown-item ajax-modal" href="#" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_import_pdf.php<?php if (isset($client_id)) { echo "?client_id=$client_id"; } ?>">
+                            <i class="fas fa-fw fa-file-pdf me-2"></i>PDF
+                        </a>
+                        <a class="dropdown-item ajax-modal" href="#" data-modal-size="lg" data-modal-url="modals/kb_article/kb_article_import_html.php<?php if (isset($client_id)) { echo "?client_id=$client_id"; } ?>">
+                            <i class="fas fa-fw fa-code me-2"></i>HTML
+                        </a>
+                    </div>
+                </div>
             <?php } ?>
         </div>
     </div>

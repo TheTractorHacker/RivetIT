@@ -578,6 +578,19 @@ if (isset($_POST['import_kb_article_html'])) {
         redirect();
     }
 
+    // A dense-text page anywhere near HtmlImporter::MAX_INPUT_BYTES (50 MiB)
+    // needs more than this pool's normal 128M memory_limit to finish - the DOM
+    // itself lives in libxml's own heap, outside memory_limit's reach, but the
+    // plain PHP strings this class builds from it do not, and building the
+    // (pre-truncation) output for a genuinely large page is what actually
+    // exhausts it. MEASURED on this box: a 51 MB / 335,077-element fixture
+    // peaked at 369 MB RSS and fatals at 128M building that output string;
+    // 512M is comfortable headroom above that measurement. Scoped to THIS
+    // request only via ini_set (not the pool's own php.ini) - every other
+    // request on this install keeps the conservative 128M default; this one
+    // rare, admin-gated, one-shot action is the only place that needs more.
+    ini_set('memory_limit', '512M');
+
     // Convert BEFORE anything is created. HtmlImporter never writes to disk and
     // never fetches a remote resource - it hands back the HTML and the image
     // bytes in memory - so a page that is malformed, oversized or hostile leaves

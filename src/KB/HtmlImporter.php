@@ -115,36 +115,64 @@ final class HtmlImporter
 
     // ---- Budgets ---------------------------------------------------------
     //
-    // MAX_INPUT_BYTES is 2 MiB, the number two of the three design judges
-    // independently arrived at, and it is not arbitrary: a DOM lives in
-    // libxml's own heap rather than in PHP's allocator, so php.ini
-    // memory_limit (128M here) does not bound it - only this does.
+    // MAX_INPUT_BYTES was originally 2 MiB, sized for a THEN-current 128M
+    // php-fpm memory_limit. Raised to 50 MiB once the host had real headroom
+    // to spend on it (16 GB RAM) - the real-world case this serves is a wiki/
+    // Confluence/OneNote export with several full-resolution screenshots
+    // embedded as base64 <img> data, which bloats raw file size far more than
+    // it bloats actual article content (images are extracted out, not stored
+    // as article HTML - see MAX_MEDIA_BYTES_TOTAL below). It is still not
+    // unlimited: a DOM lives in libxml's own heap rather than in PHP's
+    // allocator, so php.ini memory_limit does not bound it - only this does -
+    // and agent/post/kb_article.php raises ITS OWN request's memory_limit to
+    // 512M right before calling convert() for exactly this reason (a dense
+    // TEXT page, not an image-heavy one, genuinely needs it - see below).
     //
     // MEASURED ON THIS BOX (PHP 8.4.25, libxml 2.9.14), max RSS from
-    // /usr/bin/time, against an empty `php -r` baseline of 34.4 MB:
-    //     2,097,061 bytes / 19,006 elements   203 ms   55.6 MB   (+21 MB)
-    //       205,826 bytes / 19,602 elements   126 ms   43.9 MB   (+9.5 MB)
-    // So the input SIZE binds the memory and the node count binds the time,
-    // and at both caps together one import costs about a fifth of a second and
-    // a sixth of the process's memory limit. A knowledge-base page exported
-    // from any wiki is far under this; a page that is not is a page that wanted
-    // to be an attachment.
-    private const MAX_INPUT_BYTES = 2097152;    // 2 MiB
+    // /usr/bin/time, against an empty `php -r` baseline of 34.4 MB, at the
+    // original 2 MiB ceiling:
+    //      2,097,061 bytes /  19,006 elements     203 ms    55.6 MB  (+21 MB)
+    //        205,826 bytes /  19,602 elements     126 ms    43.9 MB  (+9.5 MB)
+    // Re-measured at the current 50 MiB ceiling, same box, same method, two
+    // realistic shapes:
+    //     51,380,261 bytes / 335,077 elements   4,216 ms   369.2 MB  - dense
+    //         text/tables, the worst case for this cap. Needed
+    //         agent/post/kb_article.php's request-scoped memory_limit raise
+    //         to 512M to finish; at the old 128M default it fatals building
+    //         the output string (libxml's own heap stays outside
+    //         memory_limit, as above, but the plain PHP strings this class
+    //         builds from it do not).
+    //     50,333,408 bytes /      37 elements   1,432 ms   237.9 MB  - 12
+    //         embedded screenshots, the realistic motivating case (a wiki/
+    //         Confluence/OneNote export whose size is almost entirely
+    //         base64 image data, not text). Comfortably fits even the old
+    //         128M default, since the actual DOM here stays tiny.
+    // A knowledge-base page exported from any wiki is far under this; a page
+    // that is not is a page that wanted to be an attachment.
+    private const MAX_INPUT_BYTES = 52428800;   // 50 MiB
 
     // The serve-side restatement of this exact number is at
     // agent/includes/kb_embed_serve.php:150 (KB_EMBED_MAX_BYTES). Both must
     // agree or a stored embed becomes a 413 nobody can explain.
     private const MAX_EMBED_BYTES = 524288;     // 512 KiB
 
-    // Structural caps. 20,000 elements is the second half of the measurement
-    // above - 19,602 of them cost 126 ms, and the count is checked immediately
-    // after the parse so nothing walks a document bigger than this. 64 is
-    // deeper than any hand-written or generated page; measured against 5,000
-    // nested <div>s, the depth guard returns empty from the walk rather than
-    // recursing until the stack dies (that fixture is refused as "no importable
-    // content", which is the right answer for a page whose only text is 5,000
-    // levels down).
-    private const MAX_NODES  = 20000;
+    // Structural caps. MAX_NODES was originally 20,000 (the second half of
+    // the ORIGINAL 2 MiB measurement above - 19,602 of them cost 126 ms),
+    // checked immediately after the parse so nothing walks a document
+    // bigger than this. Raised to 500,000 alongside MAX_INPUT_BYTES: the
+    // dense-text 50 MiB fixture measured above has 335,077 elements, so
+    // 500,000 keeps real headroom above the worst realistic case rather
+    // than sitting flush against one measurement. Time still scales with
+    // node count the way the original measurement predicted (126 ms per
+    // ~19,600 nodes extrapolates to ~2.1 s at 335,077; measured 4,216 ms -
+    // higher because the OUTPUT this fixture produces is also large, not
+    // because the walk itself is slower than predicted). 64 is deeper than
+    // any hand-written or generated page; measured against 5,000 nested
+    // <div>s, the depth guard returns empty from the walk rather than
+    // recursing until the stack dies (that fixture is refused as "no
+    // importable content", which is the right answer for a page whose only
+    // text is 5,000 levels down).
+    private const MAX_NODES  = 500000;
     private const MAX_DEPTH  = 64;
 
     // At most this many interactive blocks per article. A page of 5,000

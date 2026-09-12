@@ -35,12 +35,13 @@ $html_ini_bytes = static function ($value) {
 
 /* The PHP ini ceiling is far above the real limit for an HTML import, and
    advertising it invites a failure. src/KB/HtmlImporter.php refuses anything over
-   MAX_INPUT_BYTES (2 MiB) before it parses a byte - measured there: 2 MiB of
-   markup is 203 ms and 21 MB over baseline, and a DOM lives in libxml's heap where
-   php.ini memory_limit cannot reach it. Cap at the same 2 MB the importer enforces
-   and take whichever of that and the ini values is smaller, so a host configured
-   lower than this still wins. */
-$html_importer_max_bytes = 2 * 1024 * 1024;
+   MAX_INPUT_BYTES (50 MiB) before it parses a byte - see that class's own
+   "Budgets" comment for the real measurements at this size (up to ~370 MB RSS
+   for a dense-text worst case, which is why agent/post/kb_article.php also
+   raises this request's own memory_limit to 512M before calling convert()).
+   Cap at the same 50 MB the importer enforces and take whichever of that and
+   the ini values is smaller, so a host configured lower than this still wins. */
+$html_importer_max_bytes = 50 * 1024 * 1024;
 $html_max_bytes = min($html_ini_bytes(ini_get('upload_max_filesize')), $html_importer_max_bytes);
 $html_post_bytes = $html_ini_bytes(ini_get('post_max_size'));
 
