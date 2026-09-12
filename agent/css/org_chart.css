@@ -478,6 +478,133 @@ details[open] > summary > .org-node-chevron {
 }
 .org-preview-scrim[hidden] { display: none; }
 
+/* --------------------------------------------------------- chart canvas --- */
+
+/*
+ * Box-and-line chart layout, built on top of the SAME <details>/<ul> markup
+ * above by agent/js/org_chart.js's wireChartLayout() - no new elements
+ * inside a node, no markup change in agent/org_chart.php. The existing
+ * <ul class="org-tree"> for one department/section is moved (as a single
+ * unit, not rebuilt) inside a new sized, position:relative canvas div, and
+ * every node's own visible row (<summary> for an expandable node, or
+ * .org-node-row for a leaf) becomes position:absolute, placed via inline
+ * left/top the layout script computes.
+ *
+ * Everything BETWEEN a row and the canvas (<li>, <details>, nested
+ * <ul class="org-tree">) is left at `position: static` on purpose - an
+ * absolutely positioned element's "nearest positioned ancestor" search
+ * walks straight past any static ancestor, so a row at ANY nesting depth
+ * still positions directly against the one shared canvas coordinate space
+ * regardless of how deep the tree nests in the DOM - no per-level offset
+ * math, no per-depth CSS.
+ *
+ * `.org-chart-active` lands on a department's .card-body only once that
+ * department's layout has actually succeeded (agent/js/org_chart.js). If it
+ * never gets added - the chart script never ran, or that one department's
+ * layout threw - none of the rules below apply and the ORIGINAL indented
+ * list (the rules earlier in this file) renders exactly as it always has.
+ */
+
+.org-chart-active .org-tree,
+.org-chart-active .org-tree ul {
+    border-left: none;
+    padding: 0;
+    margin: 0;
+    position: static;
+}
+.org-chart-active .org-tree > li,
+.org-chart-active .org-tree ul > li {
+    padding: 0;
+    position: static;
+}
+.org-chart-active details {
+    position: static;
+}
+
+/* BOX_W/BOX_H below are hardcoded twins of agent/js/org_chart.js's own
+   BOX_W/BOX_H layout constants - same "keep both in sync by hand" caveat
+   that file's own EASE_OUT/EASE_IN twins already carry. */
+.org-chart-active summary,
+.org-chart-active .org-node-row {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 300px;
+    height: 86px;
+    margin: 0;
+    align-items: stretch;
+    transition: left var(--if-dur-panel, 200ms) var(--if-ease-out, ease-out),
+                top var(--if-dur-panel, 200ms) var(--if-ease-out, ease-out);
+}
+/* Huge charts (above OrgChart.init()'s maxAnimatedNodes) skip the position
+   transition entirely - the same "instant above a size threshold"
+   convention the old height-animation already used. */
+.org-chart-instant summary,
+.org-chart-instant .org-node-row {
+    transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+    .org-chart-active summary,
+    .org-chart-active .org-node-row {
+        transition: none;
+    }
+}
+
+.org-chart-active .org-node {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+.org-chart-active .org-node-text {
+    overflow: hidden;
+    min-width: 0;
+}
+.org-chart-active .org-node-name {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+}
+
+.org-chart-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: .25rem 0 1rem;
+    -webkit-overflow-scrolling: touch;
+}
+.org-chart-canvas {
+    position: relative;
+}
+
+.org-chart-lines {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    pointer-events: none;
+}
+.org-chart-edge {
+    fill: none;
+    stroke: var(--if-border-strong, #d3dbdc);
+    stroke-width: 1.5;
+}
+.org-chart-edge.org-trace-edge-active {
+    stroke: var(--if-primary, #0d9488);
+    stroke-width: 2.5;
+}
+
+/* The old vertical-list "spine" (a colored left border on the ancestor's
+   child <ul>) has no meaningful position once that <ul> is a
+   zero-footprint wrapper in chart mode - .org-trace-edge-active above
+   (set by wireTrace() via each SVG path's data-child-id) is its
+   replacement, so the old rule is explicitly neutralized here rather than
+   left to silently draw a stray line at whatever position the collapsed,
+   now-invisible <ul> happens to occupy. */
+.org-chart-active .org-trace-spine {
+    border-left: none !important;
+}
+
 /* --------------------------------------------------------------- print ---- */
 
 @media print {
@@ -485,5 +612,11 @@ details[open] > summary > .org-node-chevron {
     .org-node-actions, .org-preview-panel, .org-preview-scrim { display: none !important; }
     .org-tree ul { border-left-color: #999; }
     .org-tree summary { cursor: default; }
+    /* The chart canvas is already sized to its full natural content extent
+       in px (agent/js/org_chart.js's performLayout(), re-forced
+       synchronously right before print by that file's wirePrint()) - this
+       only has to stop the SCROLL WRAPPER from clipping/scrolling that
+       extent away, so nothing prints cut off or hidden. */
+    .org-chart-scroll { overflow: visible !important; }
     * { animation: none !important; transition: none !important; }
 }

@@ -34,6 +34,23 @@
     var DUR_PANEL = 200;
     var DUR_OVERLAY = 240;
 
+    // ------------------------------------------------------------------
+    // Box-chart layout constants ("Rootline" box-and-line pass).
+    //
+    // BOX_W/BOX_H are hardcoded twins of css/org_chart.css's own
+    // .org-chart-active summary / .org-node-row box size - same caveat as
+    // EASE_OUT/EASE_IN above, keep both in sync by hand if either changes.
+    // GUTTER_X/GUTTER_Y are pure layout spacing with no CSS counterpart.
+    // ------------------------------------------------------------------
+    var BOX_W = 300;
+    var BOX_H = 86;
+    var GUTTER_X = 30;
+    var GUTTER_Y = 54;
+    var UNIT_W = BOX_W + GUTTER_X;   // one horizontal "slot" in the subtree-width layout
+    var ROW_H = BOX_H + GUTTER_Y;    // one generation's vertical step
+    var ROOT_GAP_UNITS = 1;          // empty slot between separate root-trees in one department
+    var CHART_MAX_DEPTH = 300;       // defensive-only: real org depth never approaches this
+
     function init(config) {
         try {
             run(config || {});
@@ -83,11 +100,26 @@
 
         wireExpandCollapseAll(root);
 
+        // traceApi is built before the chart layout so wireChartLayout can
+        // hand it to each department's ctx - a relayout that rebuilds a
+        // department's SVG connector paths from scratch (any toggle) needs
+        // to be able to reapply an in-progress "Trace to Root" edge
+        // highlight afterwards, see wireTrace()'s reapplyEdgeHighlight().
+        var traceApi = wireTrace(root, nodes, idToNode, nodeToLi);
+
+        // Chart layout runs BEFORE wireDetailsAnimation so the latter can
+        // skip any <details> that now lives inside a successfully
+        // chart-ified department (marked '.org-chart-active') - that
+        // department's open/close visual transition is owned by the box
+        // layout's own position-based relayout instead of the old
+        // height-grow/shrink animation, which would otherwise be animating
+        // a <ul> that no longer has any visible footprint in chart mode.
+        var chartCtxs = wireChartLayout(root, animationsEnabled, traceApi);
+
         if (animationsEnabled) {
             wireDetailsAnimation(root, prefersReducedMotion);
         }
 
-        var traceApi = wireTrace(root, nodes, idToNode, nodeToLi);
         var searchApi = wireSearch(root, nodes, idToNode, prefersReducedMotion, traceApi);
         wireBreadcrumb(root, nodes, idToNode, traceApi, prefersReducedMotion);
 
@@ -97,7 +129,7 @@
         }
 
         wireGlobalKeys(searchApi, traceApi, previewApi);
-        wirePrint(root, searchApi, traceApi, previewApi);
+        wirePrint(root, searchApi, traceApi, previewApi, chartCtxs);
     }
 
     // ------------------------------------------------------------------
@@ -202,6 +234,14 @@
             if (!details) {
                 return;
             }
+            if (details.closest('.org-chart-active')) {
+                // This department's <ul class="org-tree"> is now a
+                // zero-footprint wrapper inside a box-chart canvas (see
+                // wireChartLayout()) - animating its height is invisible
+                // and its own 'toggle' listener there owns the real
+                // (position-based) visual transition instead.
+                return;
+            }
             var ul = childList(details);
             if (!ul) {
                 return;
@@ -241,6 +281,336 @@
     }
 
     // ------------------------------------------------------------------
+    // Box-chart layout ("Rootline" box-and-line pass).
+    //
+    // Turns each department's/section's existing <ul class="org-tree"> -
+    // the SAME nested <li>/<details> markup agent/org_chart.php already
+    // renders, structurally untouched - into a real hierarchical
+    // box-and-line chart: a generation-by-generation subtree-width layout
+    // (Reingold-Tilford family, simplified - bottom-up width, top-down
+    // center-of-subtree x) positions every visible node's row as an
+    // absolutely-positioned box inside a sized canvas div, with an SVG
+    // layer drawing an elbow connector from each parent's bottom-center to
+    // each child's top-center.
+    //
+    // THE TREE ITSELF IS READ STRAIGHT BACK OUT OF THE DOM, not rebuilt
+    // from a second data source - collectVisibleTree() below walks the
+    // exact <li>/<details>/<ul> nesting agent/org_chart.php already
+    // produced (open/closed <details> state is what decides which
+    // children are "visible" for this pass, exactly matching what a user
+    // sees). No data-manager-id attribute was added to agent/org_chart.php
+    // for this: a "root because its manager is missing/out-of-scope" node
+    // (see org_chart_build_tree_index()) still carries its ORIGINAL
+    // non-zero contact_manager_id server-side, so a naive JS reconstruction
+    // from a raw manager-id attribute would have to re-derive that same
+    // "does this id actually exist as a rendered node" rule to avoid
+    // mis-parenting such a node - the DOM nesting already IS that resolved
+    // answer, with zero risk of drifting from what org_chart_build_tree_index()
+    // /org_chart_render_subtree_html() actually decided.
+    //
+    // GRACEFUL DEGRADATION: each department is built in its own try/catch
+    // (see wireChartLayout()) - a department whose layout throws is torn
+    // back down to its original, untouched, plain indented list rather
+    // than being left half-migrated. This is IN ADDITION TO, not a
+    // replacement for, OrgChart.init()'s own single top-level try/catch -
+    // a failure this per-department net doesn't catch still degrades the
+    // WHOLE page to the plain server-rendered tree exactly as before.
+    // ------------------------------------------------------------------
+
+    function logChartErr(err) {
+        if (window.console && console.error) {
+            console.error('[OrgChart] chart layout failed for one department - reverted to the plain list for it.', err);
+        }
+    }
+
+    function logRelayoutErr(err) {
+        if (window.console && console.error) {
+            console.error('[OrgChart] chart relayout failed - that chart may be stale until the next toggle.', err);
+        }
+    }
+
+    // The row element that IS a node's visual box: <summary> for an
+    // expandable node (chevron + card), .org-node-row for a leaf (spacer +
+    // card) - the exact same two shapes org_chart_open_node_html() already
+    // emits server-side, nothing new.
+    function nodeRowEl(li) {
+        if (li.classList.contains('org-leaf')) {
+            return li.querySelector(':scope > .org-node-row');
+        }
+        var details = li.querySelector(':scope > details');
+        return details ? details.querySelector(':scope > summary') : null;
+    }
+
+    function childUl(li) {
+        var details = li.querySelector(':scope > details');
+        return details ? details.querySelector(':scope > ul.org-tree') : null;
+    }
+
+    // A leaf has no <details> to be open/closed - it trivially counts as
+    // "open" since it has no children to hide.
+    function isOpenLi(li) {
+        var details = li.querySelector(':scope > details');
+        return !details || details.open;
+    }
+
+    // Walks the LIVE DOM (only descending into currently-open subtrees) and
+    // returns the root record of one root <li>'s visible tree, pushing
+    // every visited record (root-first) onto the shared `flat` array so the
+    // two width/position passes below don't need their own traversal.
+    function collectVisibleTree(li, depth, flat) {
+        if (depth > CHART_MAX_DEPTH) {
+            // Defensive only (see CHART_MAX_DEPTH) - truncate rather than
+            // recurse indefinitely. The DOM here is guaranteed acyclic
+            // (org_chart_render_subtree_html()'s own cycle guards already
+            // ran server-side), so this should never actually bind.
+            return null;
+        }
+        var row = nodeRowEl(li);
+        if (!row) {
+            return null;
+        }
+        var orgNode = row.querySelector('.org-node');
+        var rec = {
+            li: li,
+            row: row,
+            contactId: orgNode ? orgNode.getAttribute('data-contact-id') : '',
+            depth: depth,
+            children: [],
+            width: 1,
+            x: 0
+        };
+        flat.push(rec);
+
+        if (isOpenLi(li)) {
+            var cul = childUl(li);
+            if (cul) {
+                Array.prototype.forEach.call(cul.children, function (childLi) {
+                    if (childLi.tagName !== 'LI') {
+                        return;
+                    }
+                    var childRec = collectVisibleTree(childLi, depth + 1, flat);
+                    if (childRec) {
+                        rec.children.push(childRec);
+                    }
+                });
+            }
+        }
+
+        return rec;
+    }
+
+    // Bottom-up subtree width, in "box slot" units (a leaf, or a node whose
+    // children are all currently collapsed/hidden, is 1 slot wide).
+    function computeWidth(rec) {
+        if (!rec.children.length) {
+            rec.width = 1;
+            return 1;
+        }
+        var w = 0;
+        rec.children.forEach(function (c) { w += computeWidth(c); });
+        rec.width = Math.max(w, 1);
+        return rec.width;
+    }
+
+    // Top-down: each node's x is the horizontal center of its own subtree's
+    // allocated slot range; each child gets a consecutive slice of that
+    // range in turn.
+    function assignX(rec, leftEdge) {
+        rec.x = leftEdge + rec.width / 2;
+        var cursor = leftEdge;
+        rec.children.forEach(function (c) {
+            assignX(c, cursor);
+            cursor += c.width;
+        });
+    }
+
+    // The pure-compute-then-DOM-apply pass, run once at setup and again on
+    // every relayout. Left to throw naturally - callers decide what a
+    // failure means (see wireChartLayout()'s initial-build teardown vs.
+    // scheduleRelayout()'s log-and-leave-stale, both below).
+    function performLayout(ctx) {
+        var rootLis = Array.prototype.slice.call(ctx.ul.children).filter(function (li) { return li.tagName === 'LI'; });
+        var flat = [];
+        var cursor = 0;
+
+        rootLis.forEach(function (li, i) {
+            var rec = collectVisibleTree(li, 0, flat);
+            if (!rec) {
+                return;
+            }
+            computeWidth(rec);
+            assignX(rec, cursor);
+            cursor += rec.width + (i < rootLis.length - 1 ? ROOT_GAP_UNITS : 0);
+        });
+
+        var maxDepth = 0;
+        flat.forEach(function (rec) { if (rec.depth > maxDepth) { maxDepth = rec.depth; } });
+
+        var extentW = Math.max(cursor, 1) * UNIT_W;
+        var extentH = (maxDepth + 1) * ROW_H;
+
+        ctx.canvas.style.width = extentW + 'px';
+        ctx.canvas.style.height = extentH + 'px';
+        ctx.svg.setAttribute('width', extentW);
+        ctx.svg.setAttribute('height', extentH);
+        ctx.svg.setAttribute('viewBox', '0 0 ' + extentW + ' ' + extentH);
+
+        flat.forEach(function (rec) {
+            var leftPx = rec.x * UNIT_W - BOX_W / 2;
+            var topPx = rec.depth * ROW_H;
+            rec.row.style.left = leftPx + 'px';
+            rec.row.style.top = topPx + 'px';
+            rec.pxCenterX = leftPx + BOX_W / 2;
+            rec.pxTop = topPx;
+            rec.pxBottom = topPx + BOX_H;
+        });
+
+        // Rebuilt from scratch every pass via the DOM API only (never
+        // innerHTML - same "no markup built from string concatenation of
+        // node data" discipline wirePreviewPanel() already follows below)
+        // so a contact name/title can never end up interpreted as markup.
+        while (ctx.svg.firstChild) {
+            ctx.svg.removeChild(ctx.svg.firstChild);
+        }
+        var svgNS = 'http://www.w3.org/2000/svg';
+        flat.forEach(function (rec) {
+            rec.children.forEach(function (child) {
+                var midY = rec.pxBottom + GUTTER_Y / 2;
+                var path = document.createElementNS(svgNS, 'path');
+                path.setAttribute('class', 'org-chart-edge');
+                path.setAttribute('data-child-id', child.contactId || '');
+                path.setAttribute('d',
+                    'M ' + rec.pxCenterX + ' ' + rec.pxBottom +
+                    ' V ' + midY +
+                    ' H ' + child.pxCenterX +
+                    ' V ' + child.pxTop);
+                ctx.svg.appendChild(path);
+            });
+        });
+
+        // A relayout can happen mid-trace (the user expands/collapses a
+        // sibling elsewhere in the same department while another node's
+        // chain is traced) - the fresh <path> elements just built never
+        // carry the highlight class, so reapply it from the still-active
+        // trace state rather than leaving it silently dropped.
+        if (ctx.traceApi && typeof ctx.traceApi.reapplyEdgeHighlight === 'function') {
+            ctx.traceApi.reapplyEdgeHighlight();
+        }
+    }
+
+    // rAF-coalesced relayout for interactive toggles - if several
+    // <details> flip in the same tick (Expand All / Collapse All, or
+    // search force-opening every match's ancestor chain at once), this
+    // collapses them into exactly one relayout instead of one per toggle.
+    function scheduleRelayout(ctx) {
+        if (ctx.dead || ctx.pendingFrame) {
+            return;
+        }
+        ctx.pendingFrame = requestAnimationFrame(function () {
+            ctx.pendingFrame = null;
+            if (ctx.dead) {
+                return;
+            }
+            try {
+                performLayout(ctx);
+            } catch (err) {
+                // A relayout failure AFTER a department already committed
+                // to chart mode does not revert it - the last known-good
+                // positions simply stay on screen rather than the chart
+                // vanishing out from under an interaction in progress.
+                logRelayoutErr(err);
+            }
+        });
+    }
+
+    // Wraps one <ul class="org-tree"> in a sized, position:relative canvas
+    // + SVG line layer, and attaches the toggle -> relayout wiring - pure
+    // DOM scaffolding (createElement/appendChild/classList/addEventListener),
+    // deliberately kept free of anything that does real computation and so
+    // is extremely unlikely to throw; performLayout() (called right after,
+    // by the caller) is where real failure risk lives.
+    function setupCanvas(ul, animationsEnabled, traceApi) {
+        var cardBody = ul.parentElement;
+        var scrollWrap = document.createElement('div');
+        scrollWrap.className = 'org-chart-scroll';
+        var canvas = document.createElement('div');
+        canvas.className = 'org-chart-canvas';
+        if (!animationsEnabled) {
+            canvas.classList.add('org-chart-instant');
+        }
+        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'org-chart-lines');
+        svg.setAttribute('aria-hidden', 'true');
+        svg.setAttribute('focusable', 'false');
+
+        cardBody.insertBefore(scrollWrap, ul);
+        canvas.appendChild(svg);
+        canvas.appendChild(ul); // moves the WHOLE existing subtree as one unit - nothing rebuilt/duplicated
+        scrollWrap.appendChild(canvas);
+        cardBody.classList.add('org-chart-active');
+
+        var ctx = {
+            ul: ul,
+            canvas: canvas,
+            svg: svg,
+            scrollWrap: scrollWrap,
+            cardBody: cardBody,
+            traceApi: traceApi,
+            pendingFrame: null,
+            dead: false
+        };
+
+        Array.prototype.forEach.call(ul.querySelectorAll('details'), function (d) {
+            d.addEventListener('toggle', function () { scheduleRelayout(ctx); });
+        });
+
+        return ctx;
+    }
+
+    // Best-effort revert of setupCanvas()'s mutation: moves the (fully
+    // intact - never rebuilt) <ul class="org-tree"> back to exactly where
+    // it was and removes the wrapper, leaving the department as today's
+    // plain indented list. The 'toggle' listeners attached above stay
+    // harmlessly in place (they early-return on ctx.dead).
+    function teardownCanvas(ctx) {
+        ctx.dead = true;
+        try {
+            ctx.cardBody.insertBefore(ctx.ul, ctx.scrollWrap);
+            ctx.cardBody.removeChild(ctx.scrollWrap);
+            ctx.cardBody.classList.remove('org-chart-active');
+        } catch (err) {
+            logChartErr(err);
+        }
+    }
+
+    // Entry point, called once from run(). Builds a chart canvas for every
+    // top-level <ul class="org-tree"> directly inside a .card > .card-body -
+    // every department "swim lane" card AND the "Reporting Cycle Detected"
+    // card share that exact shape, so one selector covers both uniformly.
+    // Returns the list of successfully-built contexts (wirePrint() needs it
+    // to force a synchronous relayout around printing).
+    function wireChartLayout(root, animationsEnabled, traceApi) {
+        var sources = Array.prototype.slice.call(root.querySelectorAll(':scope > .card > .card-body > ul.org-tree'));
+        var contexts = [];
+
+        sources.forEach(function (ul) {
+            var ctx = null;
+            try {
+                ctx = setupCanvas(ul, animationsEnabled, traceApi);
+                performLayout(ctx);
+                contexts.push(ctx);
+            } catch (err) {
+                if (ctx) {
+                    teardownCanvas(ctx);
+                }
+                logChartErr(err);
+            }
+        });
+
+        return contexts;
+    }
+
+    // ------------------------------------------------------------------
     // Trace to Root.
     // ------------------------------------------------------------------
     function wireTrace(root, nodes, idToNode, nodeToLi) {
@@ -249,6 +619,23 @@
         function ancestorIds(node) {
             var raw = node.getAttribute('data-ancestor-path') || '';
             return raw.length ? raw.split(' ') : [];
+        }
+
+        // Highlights the SVG connector edges (agent/css/org_chart.css
+        // .org-chart-edge, drawn by wireChartLayout()) whose data-child-id
+        // falls on the traced chain - the box-chart's replacement for the
+        // old vertical-list "spine" border, which has no meaningful
+        // position once its <ul> is a zero-footprint chart-mode wrapper
+        // (see .org-chart-active .org-trace-spine in the CSS). A no-op
+        // when a department never got chart-ified (no matching paths
+        // exist) - the li-level ring + bold name remain the primary signal
+        // there, exactly as before.
+        function setEdgeHighlight(chain) {
+            var idSet = {};
+            chain.forEach(function (id) { idSet[id] = true; });
+            root.querySelectorAll('.org-chart-lines path[data-child-id]').forEach(function (p) {
+                p.classList.toggle('org-trace-edge-active', !!idSet[p.getAttribute('data-child-id')]);
+            });
         }
 
         // No-notify core, shared by the public clear() and by apply()'s own
@@ -269,6 +656,9 @@
             });
             root.querySelectorAll('.org-trace-active').forEach(function (btn) {
                 btn.classList.remove('org-trace-active');
+            });
+            root.querySelectorAll('.org-trace-edge-active').forEach(function (p) {
+                p.classList.remove('org-trace-edge-active');
             });
             root.classList.remove('org-tracing');
             activeId = null;
@@ -317,7 +707,24 @@
 
             root.classList.add('org-tracing');
             activeId = contactId;
+            setEdgeHighlight(chain);
             notify();
+        }
+
+        // Called by wireChartLayout() after a relayout rebuilds a
+        // department's SVG edges from scratch (any expand/collapse toggle
+        // does this) - the fresh <path> elements never carry the previous
+        // org-trace-edge-active class, so an in-progress trace needs this
+        // to restore it. A no-op when nothing is currently traced.
+        function reapplyEdgeHighlight() {
+            if (activeId === null) {
+                return;
+            }
+            var node = idToNode[activeId];
+            if (!node) {
+                return;
+            }
+            setEdgeHighlight(ancestorIds(node).concat([activeId]));
         }
 
         function toggle(contactId) {
@@ -351,6 +758,7 @@
             isActive: function () { return activeId !== null; },
             getActiveId: function () { return activeId; },
             onChange: function (fn) { listeners.push(fn); },
+            reapplyEdgeHighlight: reapplyEdgeHighlight,
         };
     }
 
@@ -897,8 +1305,34 @@
     // exactly what was open beforehand - a small, deliberate improvement over
     // js/kb_interactive.js's own one-way beforeprint-only precedent.
     // ------------------------------------------------------------------
-    function wirePrint(root, searchApi, traceApi, previewApi) {
+    function wirePrint(root, searchApi, traceApi, previewApi, chartCtxs) {
         var snapshot = null;
+
+        // Every chart-mode department's own layout to its full, nothing-
+        // collapsed extent, synchronously - the forced d.open = true loop
+        // below fires a native 'toggle' per <details>, which
+        // wireChartLayout()'s own listener already turns into a relayout,
+        // but that path is deliberately rAF-coalesced (scheduleRelayout)
+        // for smooth interactive use, and the print engine can capture the
+        // page before that frame runs. Calling performLayout() directly
+        // here guarantees every canvas is sized/positioned to its correct
+        // full extent - nothing clipped, nothing still mid-collapse -
+        // before the browser paints the print output. The CSS half of this
+        // is .org-chart-scroll{overflow:visible!important} under
+        // @media print in agent/css/org_chart.css, so that full extent is
+        // never scroll-clipped either.
+        function forceLayoutAll() {
+            (chartCtxs || []).forEach(function (ctx) {
+                if (ctx.dead) {
+                    return;
+                }
+                try {
+                    performLayout(ctx);
+                } catch (err) {
+                    logRelayoutErr(err);
+                }
+            });
+        }
 
         window.addEventListener('beforeprint', function () {
             snapshot = new Set();
@@ -917,6 +1351,7 @@
             if (previewApi && previewApi.isOpen()) {
                 previewApi.close();
             }
+            forceLayoutAll();
         });
 
         window.addEventListener('afterprint', function () {
@@ -927,6 +1362,7 @@
                 d.open = snapshot.has(d);
             });
             snapshot = null;
+            forceLayoutAll();
         });
     }
 
@@ -939,8 +1375,14 @@
         if (!node) {
             return;
         }
-        var target = node.closest('li') || node;
-        target.scrollIntoView({ block: 'center', behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+        // Scroll the .org-node itself, not its containing <li> - in a
+        // chart-mode department, the <li> is a zero-footprint wrapper
+        // (its actual visible row is absolutely positioned elsewhere in
+        // the canvas), so its own bounding rect no longer reflects where
+        // the box actually renders. .org-node's rect is always correct
+        // regardless of layout mode, and in the plain-list fallback the
+        // two are visually equivalent anyway (the <li> tightly wraps it).
+        node.scrollIntoView({ block: 'center', inline: 'center', behavior: prefersReducedMotion ? 'auto' : 'smooth' });
 
         // Reduced-motion: the scroll behavior above already switches to 'auto',
         // but the pulse itself is a separate CSS @keyframes animation with no

@@ -664,6 +664,74 @@ if (isset($_GET['get_client_contacts'])) {
 }
 
 /*
+ * Cross-department contact search for the ticket-add modal (#contactSelect,
+ * see agent/js/tickets_add_modal.js). Lets an agent find a contact by name
+ * without first knowing/selecting which department (client) they belong to.
+ * Mirrors global_search_live's contacts query and $access_permission_query
+ * scoping above (same WHERE clause, same permission check) - do not weaken
+ * or reinvent that. Additionally restricted to client_lead = 0 AND
+ * client_archived_at IS NULL, matching the exact set of clients the
+ * Department <select> (#changeClientSelect, see ticket_add_v2.php) itself
+ * offers: a contact whose department isn't a selectable option there would
+ * auto-fill Department to a value the <select> doesn't have, silently
+ * leaving that required field unset.
+ */
+if (isset($_GET['search_contacts'])) {
+    enforceUserPermission('module_client');
+
+    $raw_query = trim((string) ($_GET['q'] ?? ''));
+
+    $response = ['contacts' => []];
+
+    // A live-search dropdown, not a report - don't return the whole table on
+    // a short/empty query.
+    if (mb_strlen($raw_query) < 2) {
+        echo json_encode($response);
+        exit;
+    }
+
+    $query = sanitizeInput($raw_query);
+    $phone_query = preg_replace("/[^0-9]/", '', $query);
+    if (empty($phone_query)) {
+        $phone_query = $query;
+    }
+
+    $contact_sql = mysqli_query(
+        $mysqli,
+        "SELECT contacts.contact_id, contact_name, contact_title, contact_email, contact_phone,
+                contact_primary, contact_technical, clients.client_id, client_name
+        FROM contacts
+        LEFT JOIN clients ON client_id = contact_client_id
+        WHERE contact_archived_at IS NULL
+            AND clients.client_lead = 0
+            AND clients.client_archived_at IS NULL
+            AND (contact_name LIKE '%$query%'
+            OR contact_title LIKE '%$query%'
+            OR contact_email LIKE '%$query%'
+            OR contact_phone LIKE '%$phone_query%'
+            OR contact_mobile LIKE '%$phone_query%')
+            $access_permission_query
+        ORDER BY contact_name ASC LIMIT 20"
+    );
+
+    while ($row = mysqli_fetch_assoc($contact_sql)) {
+        $response['contacts'][] = [
+            'contact_id' => intval($row['contact_id']),
+            'contact_name' => $row['contact_name'],
+            'contact_title' => $row['contact_title'],
+            'contact_email' => $row['contact_email'],
+            'contact_phone' => $row['contact_phone'],
+            'contact_primary' => $row['contact_primary'],
+            'contact_technical' => $row['contact_technical'],
+            'client_id' => intval($row['client_id']),
+            'client_name' => $row['client_name'],
+        ];
+    }
+
+    echo json_encode($response);
+}
+
+/*
  * Returns ordered list of active assets for a specified client
  */
 if (isset($_GET['get_client_assets'])) {
