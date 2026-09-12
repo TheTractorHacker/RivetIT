@@ -82,17 +82,26 @@ class OdooClient implements BusinessApplicationProvider
 
     /**
      * @return array raw hr.employee records: [{id, name, work_email, department_id,
-     *   job_title, work_phone, mobile_phone, active}, ...], all pages, INCLUDING
-     *   inactive employees (see 'active_test' => false below - without it Odoo
-     *   silently drops active=false records from search_read, which would make
-     *   detecting a deactivation impossible).
+     *   job_title, work_phone, mobile_phone, active, parent_id: [id,name]|false}, ...],
+     *   all pages, INCLUDING inactive employees (see 'active_test' => false below -
+     *   without it Odoo silently drops active=false records from search_read,
+     *   which would make detecting a deactivation impossible - and would also
+     *   make a manager who has since left unresolvable, since an inactive
+     *   manager's own record needs to come back too for
+     *   OdooDirectoryMapper::syncEmployees() to link a still-active report to
+     *   them). parent_id is hr.employee's own "Manager" field - Odoo's
+     *   employee-to-employee reporting link, not to be confused with
+     *   department_id (which department they belong to) or hr.department's
+     *   OWN parent_id (that department's parent department, read by
+     *   listDepartments() above - an entirely different field on an entirely
+     *   different model, despite the identical name).
      */
     public function listEmployees(): array
     {
         $this->authenticate();
 
         return $this->searchReadAll('hr.employee', [], [
-            'id', 'name', 'work_email', 'department_id', 'job_title', 'work_phone', 'mobile_phone', 'active',
+            'id', 'name', 'work_email', 'department_id', 'job_title', 'work_phone', 'mobile_phone', 'active', 'parent_id',
         ], ['context' => ['active_test' => false]]);
     }
 

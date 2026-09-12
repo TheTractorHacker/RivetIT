@@ -21,6 +21,21 @@ use ITFlow\Directory\FieldMapping;
  * this odoo_employee_id, (2) exact contacts.contact_email match among
  * non-archived contacts, (3) create a new contact.
  *
+ * REPORTING STRUCTURE: hr.employee.parent_id (Odoo's own "Manager" field on
+ * an employee - distinct from hr.department.parent_id, that department's
+ * parent department, despite the identical field name on a different model)
+ * is synced into contacts.contact_manager_id, the same column
+ * agent/org_chart.php's org chart reads to draw reporting lines. Resolved
+ * in a second pass after every employee in the run has a contact_id -
+ * same two-pass shape as syncDepartments()'s own client_parent_id
+ * resolution just below, and for the identical reason: Odoo can return a
+ * report before their manager within one page of results. ONLY WRITES
+ * WHEN A MANAGER WAS ACTUALLY RESOLVED this run (see syncEmployees()'s own
+ * comment) - an employee with no manager in Odoo, or whose manager could
+ * not be resolved this run, keeps whatever contact_manager_id already had
+ * rather than being forced to NULL; a manager who is their own report
+ * (self-reference) is refused and reported as an error, never applied.
+ *
  * One-way pull only - never writes to Odoo.
  */
 class OdooDirectoryMapper {
@@ -104,15 +119,59 @@ class OdooDirectoryMapper {
         // enabled rows with an allow-listed target_field.
         $fieldMap = FieldMapping::forProvider($this->mysqli, 'odoo');
 
+        $contactMap = []; // odoo_employee_id => contact_id, for the manager-resolution pass below
+        $managerMap = []; // odoo_employee_id => odoo_manager_id|null (that employee's own hr.employee.parent_id)
+
         foreach ($employees as $emp) {
             $label = trim((string) ($emp['name'] ?? '')) ?: ('id ' . intval($emp['id'] ?? 0));
             try {
-                $outcome = $this->syncEmployee($emp, $departmentIdMap, $fieldMap);
+                [$outcome, $contactId] = $this->syncEmployee($emp, $departmentIdMap, $fieldMap);
                 $stats[$outcome]++;
+
+                if ($outcome !== 'skipped') {
+                    $odoo_id = intval($emp['id']);
+                    $contactMap[$odoo_id] = $contactId;
+
+                    $manager_field = $emp['parent_id'] ?? false;
+                    $managerMap[$odoo_id] = is_array($manager_field) ? intval($manager_field[0]) : null;
+                }
             } catch (\Exception $e) {
                 $stats['errors'][] = "$label: " . $e->getMessage();
                 $stats['skipped']++;
             }
+        }
+
+        // Second pass: resolve contact_manager_id now that every employee in
+        // this run has a contact_id, since Odoo can return a report before
+        // their manager within one page of results - same reasoning, same
+        // shape, as syncDepartments()'s own client_parent_id pass above.
+        //
+        // ONLY WRITES WHEN A MANAGER WAS ACTUALLY RESOLVED, same as
+        // applyEmployeeFields()'s own contact_client_id handling just above
+        // ("only move a contact's department when this run actually
+        // resolved one... shouldn't regress an already-assigned contact")-
+        // a transient miss (this employee's manager exists in Odoo but was
+        // not itself found among the employees resolved this run - filtered
+        // out on the Odoo side, or that specific record errored) must not
+        // silently blank out a manager that was set by a PREVIOUS sync, or
+        // set by hand locally on a contact this integration never touched
+        // before. Odoo genuinely reporting "no manager" for this employee
+        // is indistinguishable, at this point, from "could not resolve" -
+        // both leave the field alone rather than guessing which one it was.
+        foreach ($contactMap as $odooId => $contactId) {
+            $managerOdooId = $managerMap[$odooId] ?? null;
+            $managerContactId = $managerOdooId !== null ? ($contactMap[$managerOdooId] ?? null) : null;
+
+            if ($managerContactId === null) {
+                continue;
+            }
+
+            if ($managerContactId === $contactId) {
+                $stats['errors'][] = "Employee (odoo id $odooId) lists itself as its own manager - skipped";
+                continue;
+            }
+
+            mysqli_query($this->mysqli, "UPDATE contacts SET contact_manager_id=$managerContactId WHERE contact_id=$contactId");
         }
 
         return $stats;
@@ -191,7 +250,8 @@ class OdooDirectoryMapper {
         }
     }
 
-    private function syncEmployee(array $emp, array $departmentIdMap, array $fieldMap): string {
+    /** @return array{0:string,1:?int} [outcome, contact_id|null] - contact_id is null only when outcome is 'skipped' */
+    private function syncEmployee(array $emp, array $departmentIdMap, array $fieldMap): array {
         $m       = $this->mysqli;
         $intg_id = $this->odooIntegrationId;
 
@@ -199,7 +259,7 @@ class OdooDirectoryMapper {
         $name = trim((string) ($emp['name'] ?? ''));
 
         if ($odoo_employee_id <= 0 || $name === '') {
-            return 'skipped';
+            return ['skipped', null];
         }
 
         $name_esc  = mysqli_real_escape_string($m, $name);
@@ -227,7 +287,7 @@ class OdooDirectoryMapper {
         if ($existing) {
             $contact_id = intval($existing['contact_id']);
             $this->applyEmployeeFields($contact_id, $name_esc, $email, $email_esc, $employment_status, $active, $contact_client_id, $mapped_set_sql);
-            return 'updated';
+            return ['updated', $contact_id];
         }
 
         // ----- Step 2: match by email among non-archived contacts -----
@@ -244,7 +304,7 @@ class OdooDirectoryMapper {
         if ($contact_id !== null) {
             $this->applyEmployeeFields($contact_id, $name_esc, $email, $email_esc, $employment_status, $active, $contact_client_id, $mapped_set_sql);
             $this->upsertEmployeeLink($contact_id, $odoo_employee_id);
-            return 'matched';
+            return ['matched', $contact_id];
         }
 
         // ----- Step 3: create a new contact -----
@@ -259,7 +319,7 @@ class OdooDirectoryMapper {
         $contact_id = intval(mysqli_insert_id($m));
         $this->upsertEmployeeLink($contact_id, $odoo_employee_id);
 
-        return 'created';
+        return ['created', $contact_id];
     }
 
     // Builds the SET fragment for whatever contacts.* columns the admin has
