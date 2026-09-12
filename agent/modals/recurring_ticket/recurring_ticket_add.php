@@ -153,7 +153,14 @@ ob_start();
                             <option value="">- Department -</option>
                             <?php
 
-                            $sql = mysqli_query($mysqli, "SELECT * FROM clients WHERE client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");
+                            // client_lead = 0, matching agent/modals/ticket/ticket_add_v2.php's own
+                            // identical Department query - both modals share the same #contactSelect
+                            // cross-department search widget (agent/ajax.php's search_contacts,
+                            // agent/js/tickets_add_modal.js), which filters to client_lead = 0 on its
+                            // own side; leaving a "lead" client selectable here but excluded there
+                            // would silently hide that department's contacts from search while still
+                            // listing the department itself as a valid pick.
+                            $sql = mysqli_query($mysqli, "SELECT * FROM clients WHERE client_archived_at IS NULL AND client_lead = 0 $access_permission_query ORDER BY client_name ASC");
                             while ($row = mysqli_fetch_assoc($sql)) {
                                 $client_id_select = intval($row['client_id']);
                                 $client_name = nullable_htmlentities($row['client_name']); ?>
@@ -346,7 +353,7 @@ ob_start();
 <!-- Recurring Ticket Client/Contact JS -->
 <link rel="stylesheet" href="/plugins/jquery-ui/jquery-ui.min.css">
 <script src="/plugins/jquery-ui/jquery-ui.min.js"></script>
-<script src="/agent/js/tickets_add_modal.js"></script>
+<script src="/agent/js/tickets_add_modal.js?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/agent/js/tickets_add_modal.js') ?>"></script>
 
 <?php
 

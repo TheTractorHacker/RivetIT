@@ -326,7 +326,7 @@ $(document).on('change', '#ticket_template_select', function () {
 <!-- Ticket Client/Contact JS -->
 <link rel="stylesheet" href="/plugins/jquery-ui/jquery-ui.min.css">
 <script src="/plugins/jquery-ui/jquery-ui.min.js"></script>
-<script src="/agent/js/tickets_add_modal.js"></script>
+<script src="/agent/js/tickets_add_modal.js?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/agent/js/tickets_add_modal.js') ?>"></script>
 
 <?php
 
