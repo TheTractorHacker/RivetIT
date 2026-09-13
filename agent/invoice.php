@@ -728,6 +728,7 @@ require_once "../includes/footer.php";
 }
 </style>
 
+<?php if (isset($_GET['invoice_id'])): ?>
 <!-- JSON Autocomplete / type ahead -->
 <link rel="stylesheet" href="../plugins/jquery-ui/jquery-ui.min.css">
 <script src="../plugins/jquery-ui/jquery-ui.min.js"></script>
@@ -814,3 +815,4 @@ new Sortable(document.querySelector('table#items tbody'), {
     }
 });
 </script>
+<?php endif; ?>

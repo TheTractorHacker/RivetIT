@@ -578,6 +578,7 @@ require_once "../includes/footer.php";
 }
 </style>
 
+<?php if (isset($_GET['quote_id'])): ?>
 <!-- JSON Autocomplete / type ahead -->
 <!-- //TODO: Move to js/ -->
 <link rel="stylesheet" href="../plugins/jquery-ui/jquery-ui.min.css">
@@ -622,3 +623,4 @@ new Sortable(document.querySelector('table#items tbody'), {
 });
 </script>
 <link rel="stylesheet" href="css/quote_dropdowns_fix.css">
+<?php endif; ?>

@@ -139,7 +139,7 @@ if (isset($_GET['archive_certificate'])) {
 
     logAction("Certificate", "Archive", "$session_name archived certificate $certificate_name", $client_id, $certificate_id);
 
-    flash_alert("Certificate <strong>$certificate_name</strong> archived", 'alert');
+    flash_alert("Certificate <strong>$certificate_name</strong> archived", 'error');
 
     redirect();
 
