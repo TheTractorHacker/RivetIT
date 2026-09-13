@@ -70,6 +70,28 @@ if (isset($_GET['contact_id'])) {
     // Master-plan Phase 9: employee lifecycle workflows for this person
     $sql_workflow_runs = mysqli_query($mysqli, "SELECT * FROM workflow_runs WHERE contact_id = $contact_id ORDER BY started_at DESC");
     $sql_workflow_templates = mysqli_query($mysqli, "SELECT workflow_template_id, name, type FROM workflow_templates WHERE is_active = 1 AND archived_at IS NULL ORDER BY type ASC, name ASC");
+
+    // Master-plan Phase 2: per-person change history. Merges the two logging
+    // systems that already record events against a contact rather than adding
+    // a third: `logs` (log_type='Contact') is the app's general CRUD/note/field-
+    // change/workflow-start trail; `audit_events` (entity_type='contact') is the
+    // newer, narrower security/lifecycle trail (currently just workflow start/
+    // cancel - see AuditService). Distinct from the "Activity Timeline" card
+    // below, which is CRM engagement (calls/emails/meetings) a user logs by hand.
+    $sql_contact_history = mysqli_query($mysqli, "
+        (SELECT log_created_at AS event_at, log_action AS event_action, log_description AS event_description, user_name AS actor_name
+         FROM logs
+         LEFT JOIN users ON user_id = log_user_id
+         WHERE log_type = 'Contact' AND log_entity_id = $contact_id)
+        UNION ALL
+        (SELECT created_at AS event_at, action AS event_action, summary AS event_description, user_name AS actor_name
+         FROM audit_events
+         LEFT JOIN users ON user_id = audit_events.actor_user_id
+         WHERE entity_type = 'contact' AND entity_id = '$contact_id')
+        ORDER BY event_at DESC
+        LIMIT 50
+    ");
+    $contact_history_count = mysqli_num_rows($sql_contact_history);
     $contact_important = intval($row['contact_important']);
     $contact_billing = intval($row['contact_billing']);
     $contact_technical = intval($row['contact_technical']);
@@ -518,6 +540,37 @@ if (isset($_GET['contact_id'])) {
                             </div>
                         <?php }
                     } ?>
+                </div>
+            </div>
+
+            <div class="card card-dark">
+                <div class="card-header py-2">
+                    <h3 class="card-title mt-2"><i class="fa fa-fw fa-history me-2"></i>History</h3>
+                </div>
+                <div class="card-body">
+                    <?php if ($contact_history_count == 0) { ?>
+                        <p class="text-secondary mb-0">No recorded history for this contact yet.</p>
+                    <?php } else { ?>
+                        <ul class="list-unstyled mb-0">
+                            <?php while ($h = mysqli_fetch_assoc($sql_contact_history)) {
+                                $h_at = nullable_htmlentities($h['event_at']);
+                                $h_action = nullable_htmlentities($h['event_action']);
+                                $h_description = nullable_htmlentities($h['event_description']);
+                                $h_actor = nullable_htmlentities($h['actor_name']);
+                                ?>
+                                <li class="pb-2 mb-2 border-bottom">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <span class="badge text-bg-secondary"><?= $h_action ?></span>
+                                            <?= $h_description ?>
+                                        </div>
+                                        <small class="text-muted text-nowrap ms-2"><?= $h_at ?></small>
+                                    </div>
+                                    <?php if ($h_actor) { ?><div class="small text-muted"><i class="fa fa-fw fa-user me-1"></i><?= $h_actor ?></div><?php } ?>
+                                </li>
+                            <?php } ?>
+                        </ul>
+                    <?php } ?>
                 </div>
             </div>
 
