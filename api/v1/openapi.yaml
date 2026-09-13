@@ -822,6 +822,34 @@ paths:
               schema: {$ref: '#/components/schemas/ContractDetail'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /tasks/{id}/toggle:
+    post:
+      tags: [Projects]
+      summary: Toggle a task's completed state (works for both project-only tasks and ticket-linked tasks)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Updated task
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProjectTask'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /milestones/{id}/toggle:
+    post:
+      tags: [Projects]
+      summary: Toggle a project milestone's completed state
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Updated milestone
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProjectMilestone'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
   /credentials:
     get:
       tags: [Credentials]

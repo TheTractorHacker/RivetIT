@@ -299,6 +299,8 @@ switch ($resource) {
     case 'assets':        require __DIR__ . '/assets.php';        break;
     case 'projects':      require __DIR__ . '/projects.php';      break;
     case 'contracts':     require __DIR__ . '/contracts.php';     break;
+    case 'tasks':         require __DIR__ . '/tasks.php';         break;
+    case 'milestones':    require __DIR__ . '/milestones.php';    break;
     case 'credentials':
         if ($legacy_api_key_auth) { api_error(403, 'Credentials endpoint requires a user API token'); }
         require __DIR__ . '/credentials.php'; break;
