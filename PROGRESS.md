@@ -58,13 +58,13 @@ Status: **done** (schema-complete; some fields are schema-only, no UI yet — no
 **Known minor cleanup found but not fixed this pass:** ~15 more instances of the `unlink()`-on-empty-filename bug (fixed 4 of them while in nearby code) in `agent/post/{contact,expense,file,location,asset,rack}.php` and `admin/post/users.php`. Cosmetic (log noise on first upload for a given record), not breakage.
 
 ## Phase 2 — Directory (People)
-Status: **mostly done** (import + core fields done; activity timeline deferred)
+Status: **done**
 
 - [x] Extend `contacts` with employee fields: employee_id, employee_type, manager_id (self-referential), start_date, expected_end_date, employment_status, work_arrangement. Full UI in `contact_edit.php` + `contact_details.php`.
 - [x] Employment state machine — implemented as a validated string field (pre-hire/active/leave/suspended/transfer_pending/termination_pending/terminated/archived), not a DB enum, to stay flexible; validated in `PersonImportService` and the edit modal's fixed option list.
 - [x] Manager/direct-reports relationship + display on contact page (`contact_details.php` "Employment" card + "Direct Reports" list)
 - [x] CSV import: `admin/people_import.php` + `src/Directory/PersonImportService.php`. Upload → preview (validates + resolves department/site/manager, flags per-row errors) → explicit approve → write. **Simplification vs. the full plan:** fixed CSV column headers required (no drag-and-drop column mapper) — reasonable for one company doing occasional imports; revisit if that changes. `people_import_runs` logs each approved run.
-- [ ] Person activity timeline — deferred. `audit_events` (Phase 0) and `logs` both have the raw data to build this from; not yet surfaced as a unified per-person timeline UI.
+- [x] Person activity timeline — `contact_details.php` "History" card. Built from the raw data that already existed (`logs` where `log_type='Contact'`, `audit_events` where `entity_type='contact'`) rather than new instrumentation; kept distinct from the pre-existing "Activity Timeline" card, which is manually-logged CRM engagement, not a system change trail.
 
 ## Phase 3 — Microsoft 365 / Entra ID
 Status: **scaffolding done, no live connection** (per AFK decision log above)
