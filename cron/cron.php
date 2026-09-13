@@ -85,7 +85,7 @@ $config_login_remember_me_expire = intval($row['config_login_remember_me_expire'
 $config_log_retention = intval($row['config_log_retention']);
 
 // Set Currency Format
-$currency_format = numfmt_create($company_locale, NumberFormatter::CURRENCY);
+$currency_format = numfmt_create($company_locale ?: 'en_US', NumberFormatter::CURRENCY);
 
 // Check cron is enabled
 if ($config_enable_cron == 0) {

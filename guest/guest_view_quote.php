@@ -81,7 +81,7 @@ $company_locale = nullable_htmlentities($row['company_locale']);
 $config_quote_footer = nullable_htmlentities($row['config_quote_footer']);
 
 //Set Currency Format
-$currency_format = numfmt_create($company_locale, NumberFormatter::CURRENCY);
+$currency_format = numfmt_create($company_locale ?: 'en_US', NumberFormatter::CURRENCY);
 
 //Set Badge color based off of quote status
 if ($quote_status == "Sent") {

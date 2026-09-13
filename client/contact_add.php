@@ -6,9 +6,15 @@
 
 header("Content-Security-Policy: default-src 'self'");
 
+// inc_all.php streams the page chrome (header.php) before control returns
+// here, so the redirect below needs output buffered - otherwise header()
+// silently fails ("headers already sent") and the page just dies with no
+// content and no redirect.
+ob_start();
 require_once "includes/inc_all.php";
 
 if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
+    ob_end_clean();
     header("Location: post.php?logout");
     exit();
 }

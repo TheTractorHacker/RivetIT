@@ -112,7 +112,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                         <i class="fas fa-fw fa-copy me-2"></i>Apply to Departments
                                     </a>
                                     <div class="dropdown-divider"></div>
-                                    <a class="dropdown-item text-danger text-bold" href="post.php?delete_contract_template=<?php echo $id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>">
+                                    <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_contract_template=<?php echo $id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>">
                                         <i class="fas fa-fw fa-trash me-2"></i>Delete
                                     </a>
                                 </div>

@@ -1,5 +1,13 @@
 <?php
 
+// This page is always client-scoped - without client_id it crashes on an
+// undefined $client_id further down, since inc_all_client.php only defines
+// it when the param is present.
+if (!isset($_GET['client_id']) || !intval($_GET['client_id'])) {
+    header("Location: clients.php");
+    exit();
+}
+
 require_once "includes/inc_all_client.php";
 
 
@@ -11,9 +19,11 @@ $purifier_config->set('Cache.DefinitionImpl', null); // Disable cache by setting
 $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
 $purifier = new HTMLPurifier($purifier_config);
 
-if (isset($_GET['document_id'])) {
-    $document_id = intval($_GET['document_id']);
+if (!isset($_GET['document_id']) || !intval($_GET['document_id'])) {
+    header("Location: files.php?client_id=$client_id");
+    exit();
 }
+$document_id = intval($_GET['document_id']);
 
 $folder_location = 0;
 

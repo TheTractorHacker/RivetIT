@@ -230,7 +230,11 @@ if (isset($_GET['project_template_id'])) {
 
 <script src="../plugins/SortableJS/Sortable.min.js"></script>
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
-new Sortable(document.querySelector('table#ticket_templates tbody'), {
+// A brand-new template has zero task rows, so the <tbody> below it isn't
+// rendered at all - guard against that instead of throwing on init.
+var _ticketTemplatesTbody = document.querySelector('table#ticket_templates tbody');
+if (_ticketTemplatesTbody) {
+new Sortable(_ticketTemplatesTbody, {
     handle: '.drag-handle',
     animation: 150,
     onEnd: function (evt) {
@@ -248,6 +252,7 @@ new Sortable(document.querySelector('table#ticket_templates tbody'), {
         });
     }
 });
+}
 </script>
 
 <?php

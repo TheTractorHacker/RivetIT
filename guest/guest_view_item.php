@@ -32,7 +32,7 @@ $company_locale = nullable_htmlentities($row['company_locale']);
 $config_invoice_footer = nullable_htmlentities($row['config_invoice_footer']);
 
 //Set Currency Format
-$currency_format = numfmt_create($company_locale, NumberFormatter::CURRENCY);
+$currency_format = numfmt_create($company_locale ?: 'en_US', NumberFormatter::CURRENCY);
 
 ?>
 

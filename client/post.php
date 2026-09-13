@@ -115,7 +115,7 @@ if (isset($_POST['add_ticket'])) {
     $subject = sanitizeInput($_POST['subject']);
     $details = mysqli_real_escape_string($mysqli, ($_POST['details']));
     $category = intval($_POST['category']);
-    $asset = intval($_POST['asset']);
+    $asset = intval($_POST['asset'] ?? 0);
 
     // Get settings from load_global_settings.php
     $config_ticket_prefix = sanitizeInput($config_ticket_prefix);

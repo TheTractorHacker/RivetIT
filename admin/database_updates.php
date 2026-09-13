@@ -7671,3 +7671,16 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.81'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.81') {
+        // Catch-up: the 2.6.48 -> 2.6.49 block above (asset_anydesk_id) was
+        // added to this file after this installation's database_version had
+        // already advanced past '2.6.48', so that block's condition can never
+        // match again here and the column was never actually added - every
+        // asset_details.php load has been throwing "Undefined array key
+        // asset_anydesk_id" ever since. IF NOT EXISTS makes this safe to run
+        // regardless of whether an install somehow does already have it.
+        mysqli_query($mysqli, "ALTER TABLE `assets` ADD COLUMN IF NOT EXISTS `asset_anydesk_id` varchar(50) DEFAULT NULL AFTER `asset_uri_client`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.82'");
+    }

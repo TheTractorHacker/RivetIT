@@ -8,4 +8,4 @@ $session_company_country = $row['company_country'];
 $session_company_locale = $row['company_locale'];
 $session_company_currency = $row['company_currency'];
 
-$currency_format = numfmt_create($session_company_locale, NumberFormatter::CURRENCY);
+$currency_format = numfmt_create($session_company_locale ?: 'en_US', NumberFormatter::CURRENCY);

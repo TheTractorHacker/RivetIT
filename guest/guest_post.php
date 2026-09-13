@@ -350,7 +350,7 @@ if (isset($_GET['export_quote_pdf'])) {
         $company_logo = nullable_htmlentities($row['company_logo']);
         $company_locale = nullable_htmlentities($row['company_locale']);
         //Set Currency Format
-        $currency_format = numfmt_create($company_locale, NumberFormatter::CURRENCY);
+        $currency_format = numfmt_create($company_locale ?: 'en_US', NumberFormatter::CURRENCY);
 
         require_once("../plugins/TCPDF/tcpdf.php");
 
@@ -556,7 +556,7 @@ if (isset($_GET['export_invoice_pdf'])) {
         $company_logo = nullable_htmlentities($row['company_logo']);
         $company_locale = nullable_htmlentities($row['company_locale']);
         //Set Currency Format
-        $currency_format = numfmt_create($company_locale, NumberFormatter::CURRENCY);
+        $currency_format = numfmt_create($company_locale ?: 'en_US', NumberFormatter::CURRENCY);
 
         $sql_payments = mysqli_query($mysqli, "SELECT * FROM payments, accounts WHERE payment_account_id = account_id AND payment_invoice_id = $invoice_id ORDER BY payments.payment_id DESC");
 

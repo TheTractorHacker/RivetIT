@@ -136,7 +136,11 @@ $sql_task_templates = mysqli_query($mysqli, "SELECT * FROM task_templates WHERE 
 
 <script src="../plugins/SortableJS/Sortable.min.js"></script>
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
-new Sortable(document.querySelector('table#tasks tbody'), {
+// A brand-new template has zero task rows, so the <tbody> below it isn't
+// rendered at all - guard against that instead of throwing on init.
+var _tasksTbody = document.querySelector('table#tasks tbody');
+if (_tasksTbody) {
+new Sortable(_tasksTbody, {
     handle: '.drag-handle',
     animation: 150,
     onEnd: function (evt) {
@@ -154,6 +158,7 @@ new Sortable(document.querySelector('table#tasks tbody'), {
         });
     }
 });
+}
 </script>
 
 <?php

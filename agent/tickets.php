@@ -1,5 +1,9 @@
 <?php
 
+// Marks ticket_list.php as reached through this bootstrapped page, not
+// requested directly (it has no session/$mysqli setup of its own).
+define('FROM_TICKETS_PAGE', true);
+
 // Default Column Sortby Filter
 $sort = "ticket_number";
 $order = "DESC";

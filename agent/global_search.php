@@ -30,7 +30,7 @@ if (isset($_GET['query'])) {
         WHERE client_archived_at IS NULL
             AND (client_name LIKE '%$query%' OR client_abbreviation LIKE '%$query%')
             $access_permission_query
-        ORDER BY client_id DESC LIMIT 5"
+        ORDER BY clients.client_id DESC LIMIT 5"
     );
 
     $sql_contacts = mysqli_query($mysqli, "SELECT * FROM contacts

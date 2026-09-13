@@ -1,4 +1,13 @@
 <?php
+// Not a standalone page - only ever require_once'd from tickets.php, which
+// bootstraps $mysqli/session/etc first. Direct navigation to this URL (no
+// FROM_TICKETS_PAGE marker set) has none of that and crashes; bounce it
+// to the real page instead.
+if (!defined('FROM_TICKETS_PAGE')) {
+    header("Location: tickets.php");
+    exit();
+}
+
 // Pre-load all techs for inline assignment dropdowns
 $_techs_list = [];
 $_sql_techs = mysqli_query($mysqli, "SELECT user_id, user_name FROM users WHERE user_type = 1 AND user_status = 1 AND user_archived_at IS NULL ORDER BY user_name ASC");

@@ -6,9 +6,15 @@
 
 header("Content-Security-Policy: default-src 'self'; img-src 'self' data:");
 
+// inc_all.php streams the page chrome (header.php) before control returns
+// here, so the redirects below need output buffered - otherwise header()
+// silently fails ("headers already sent") and the page just dies with no
+// content and no redirect.
+ob_start();
 require_once "includes/inc_all.php";
 
 if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
+    ob_end_clean();
     header("Location: post.php?logout");
     exit();
 }
@@ -23,6 +29,7 @@ $purifier = new HTMLPurifier($purifier_config);
 
 // Check for a document ID
 if (!isset($_GET['id']) && !intval($_GET['id'])) {
+    ob_end_clean();
     header("Location: documents.php");
     exit();
 }
@@ -43,6 +50,7 @@ if ($row) {
     $document_content = $purifier->purify($row['document_content']);
     $document_description = nullable_htmlentities($row['document_description']);
 } else {
+    ob_end_clean();
     header("Location: post.php?logout");
     exit();
 }

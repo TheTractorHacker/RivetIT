@@ -11,8 +11,8 @@ if (isset($_GET['client_id'])) {
 
 enforceUserPermission('module_support');
 
-$outtake_id = intval($_GET['outtake_id']);
-$ticket_id  = intval($_GET['ticket_id']);
+$outtake_id = intval($_GET['outtake_id'] ?? 0);
+$ticket_id  = intval($_GET['ticket_id'] ?? 0);
 
 $sql = mysqli_query($mysqli, "SELECT ot.*, t.ticket_prefix, t.ticket_number, t.ticket_subject, t.ticket_details, t.ticket_created_at, c.client_name, co.contact_name
     FROM ticket_outtake_forms ot

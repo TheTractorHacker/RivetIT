@@ -4,6 +4,15 @@
 $sort = "name";
 $order = "ASC";
 
+// This page is always client-scoped (unlike assets.php etc., it has no
+// "all departments" mode) - without client_id it crashes on an undefined
+// $client_id further down, since inc_all_client.php only defines it when
+// the param is present.
+if (!isset($_GET['client_id']) || !intval($_GET['client_id'])) {
+    header("Location: clients.php");
+    exit();
+}
+
 require_once "includes/inc_all_client.php";
 
 // Folder

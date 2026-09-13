@@ -733,8 +733,8 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                                             <div class="dropdown-divider"></div>
                                                             <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_credential=<?php echo $credential_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                                                 <i class="fas fa-fw fa-trash me-2"></i>Delete
+                                                            </a>
                                                         <?php } ?>
-                                                        </a>
                                                     <?php } else { ?>
                                                         <div class="dropdown-divider"></div>
                                                         <a class="dropdown-item text-danger confirm-link" href="post.php?archive_credential=<?php echo $credential_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">

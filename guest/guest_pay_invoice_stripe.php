@@ -75,7 +75,7 @@ if (isset($_GET['invoice_id'], $_GET['url_key']) && !isset($_GET['payment_intent
     $sql_invoice_items = mysqli_query($mysqli, "SELECT * FROM invoice_items WHERE item_invoice_id = $invoice_id ORDER BY item_id ASC");
 
     // Currency formatting
-    $currency_format = numfmt_create($company_locale, NumberFormatter::CURRENCY);
+    $currency_format = numfmt_create($company_locale ?: 'en_US', NumberFormatter::CURRENCY);
 
     ?>
 
@@ -245,7 +245,7 @@ if (isset($_GET['invoice_id'], $_GET['url_key']) && !isset($_GET['payment_intent
     $company_phone = sanitizeInput(formatPhoneNumber($row['company_phone']));
     $company_locale = sanitizeInput($row['company_locale']);
 
-    $currency_format = numfmt_create($company_locale, NumberFormatter::CURRENCY);
+    $currency_format = numfmt_create($company_locale ?: 'en_US', NumberFormatter::CURRENCY);
 
     $sql_amount_paid_previously = mysqli_query($mysqli, "SELECT SUM(payment_amount) AS amount_paid FROM payments WHERE payment_invoice_id = $invoice_id");
     $amount_paid_previously = floatval(mysqli_fetch_assoc($sql_amount_paid_previously)['amount_paid']);

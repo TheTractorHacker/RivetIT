@@ -3,7 +3,7 @@ require_once '../../../includes/modal_header.php';
 
 $contract_template_id = intval($_GET['id']);
 
-$contract_types_array = ['Fully Managed', 'Partialy Managed', 'Break/Fix'];
+$contract_types_array = ['Fully Managed', 'Partially Managed', 'Break/Fix'];
 $renewal_frequency_array = ['Manual', 'Annually', '2 Year', '3 Year', '5 Year', '7 Year'];
 
 // Fetch existing template

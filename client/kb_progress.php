@@ -97,6 +97,12 @@
 // use for). Its first four requires are reproduced in its own order; the fifth
 // and sixth (client/functions.php, ticket-portal helpers this file never calls,
 // and header.php) are left out. Same shape as client/kb_media.php:86-93.
+// Always returns JSON - buffer the bootstrap chain and discard whatever it
+// prints (a stray PHP notice/warning would otherwise land ahead of the JSON
+// response and corrupt it - this happened for real with a NULL company_locale
+// pulled in via check_login.php) so only a genuine fatal error here can still
+// break a response.
+ob_start();
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/functions.php';
 
@@ -105,6 +111,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/agent/includes/kb_progress_store.php'
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/load_global_settings.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/client/includes/check_login.php';
+ob_end_clean();
 
 /* ═════════════════════════════════════════════════════════════════════════════
    PORTAL PREVIEW - WRITE GATE. Reproduced from client/post.php:72-108, in the

@@ -110,12 +110,17 @@ if (isset($_GET['recurring_invoice_id'])) {
     //Product autocomplete
     $products_sql = mysqli_query($mysqli, "SELECT product_name AS label, product_description AS description, product_price AS price, product_tax_id AS tax FROM products WHERE product_archived_at IS NULL");
 
+    $products = [];
     if (mysqli_num_rows($products_sql) > 0) {
         while ($row = mysqli_fetch_assoc($products_sql)) {
             $products[] = $row;
         }
-        $json_products = json_encode($products);
     }
+    // Always defined, even with zero active products - the inline <script>
+    // below echoes this unconditionally, and an undefined $json_products
+    // there doesn't just warn, it emits `var availableProducts = ;`, a JS
+    // syntax error that breaks every script on the page after it.
+    $json_products = json_encode($products);
 
     ?>
 

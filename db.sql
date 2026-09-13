@@ -376,6 +376,7 @@ CREATE TABLE `assets` (
   `asset_uri` varchar(500) DEFAULT NULL,
   `asset_uri_2` varchar(500) DEFAULT NULL,
   `asset_uri_client` varchar(500) DEFAULT NULL,
+  `asset_anydesk_id` varchar(50) DEFAULT NULL,
   `asset_status` varchar(200) DEFAULT NULL,
   `asset_purchase_reference` varchar(200) DEFAULT NULL,
   `asset_purchase_date` date DEFAULT NULL,

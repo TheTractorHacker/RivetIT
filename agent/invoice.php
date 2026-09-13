@@ -180,12 +180,16 @@ if (isset($_GET['invoice_id'])) {
         GROUP BY product_id
     ");
 
+    $products = [];
     if (mysqli_num_rows($products_sql) > 0) {
         while ($row = mysqli_fetch_assoc($products_sql)) {
             $products[] = $row;
         }
-        $json_products = json_encode($products);
     }
+    // Always defined, even with zero active products - an undefined
+    // $json_products where this is echoed inline in a <script> doesn't just
+    // warn, it emits invalid JS that breaks every script after it on the page.
+    $json_products = json_encode($products);
 
     // Saved Payment Methods
     $sql_saved_payment_methods = mysqli_query($mysqli, "

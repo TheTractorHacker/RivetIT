@@ -629,6 +629,11 @@ function repairUserSpecificKeyWithKnownKey($mysqli, int $user_id, string $user_p
 // Decrypts an encrypted password (website/asset credentials), returns it as a string
 function decryptCredentialEntry($credential_password_ciphertext)
 {
+    // A credential with no password set (an empty/NULL column) has nothing to
+    // decrypt - return early rather than passing null into substr() below.
+    if ($credential_password_ciphertext === null || $credential_password_ciphertext === '') {
+        return '';
+    }
 
     // Split the credential into IV and Ciphertext
     $credential_iv =  substr($credential_password_ciphertext, 0, 16);
@@ -3724,9 +3729,19 @@ function enforceClientAccess($client_id = null) {
     $client_id = (int) $client_id;
     $session_user_id = (int) $session_user_id;
 
-    if (empty($client_id) || empty($session_user_id)) {
+    if ($client_id < 0 || empty($session_user_id)) {
         flash_alert('Access Denied.', 'error');
         redirect('clients.php');
+    }
+
+    // client_id 0 means "not assigned to any specific department" - a global
+    // vendor/asset/etc. Visible to any authenticated staff member the same way
+    // an admin sees it, so no per-department permission check applies. Without
+    // this, a non-admin following a real in-app link to a global-scoped record
+    // (e.g. the topbar quick-search result for a vendor with no department) was
+    // silently bounced to the department list instead of shown the record.
+    if ($client_id === 0) {
+        return true;
     }
 
     // Check if this user has any client permissions set

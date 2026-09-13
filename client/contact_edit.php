@@ -6,15 +6,22 @@
 
 header("Content-Security-Policy: default-src 'self'");
 
+// inc_all.php streams the page chrome (header.php) before control returns
+// here, so the redirects below need output buffered - otherwise header()
+// silently fails ("headers already sent") and the page just dies with no
+// content and no redirect.
+ob_start();
 require_once "includes/inc_all.php";
 
 if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
+    ob_end_clean();
     header("Location: post.php?logout");
     exit();
 }
 
 // Check for a contact ID
 if (!isset($_GET['id']) && !intval($_GET['id'])) {
+    ob_end_clean();
     header("Location: contacts.php");
     exit();
 }
@@ -39,6 +46,7 @@ if ($row) {
     $contact_billing = intval($row['contact_billing']);
     $contact_auth_method = nullable_htmlentities($row['user_auth_method']);
 } else {
+    ob_end_clean();
     header("Location: post.php?logout");
     exit();
 }

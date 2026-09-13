@@ -95,7 +95,7 @@ $payment_provider_name = nullable_htmlentities($row['payment_provider_name']);
 $payment_provider_threshold = floatval($row['payment_provider_threshold']);
 
 //Set Currency Format
-$currency_format = numfmt_create($company_locale, NumberFormatter::CURRENCY);
+$currency_format = numfmt_create($company_locale ?: 'en_US', NumberFormatter::CURRENCY);
 
 $invoice_tally_total = 0; // Default
 

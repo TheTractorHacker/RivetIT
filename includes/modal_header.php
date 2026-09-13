@@ -1,8 +1,15 @@
 <?php
 
+// Every modal response must be pure JSON (see modal_footer.php). Buffer the
+// bootstrap chain and discard whatever it prints (a stray PHP notice/warning
+// would otherwise land ahead of the JSON and break every modal at once - this
+// happened for real with a NULL company_locale, see git history) so only a
+// genuine fatal error here can still break a modal response.
+ob_start();
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/functions.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/check_login.php';
+ob_end_clean();
 
 // check_login.php only verifies the session is logged in (any role) - admin/modals/*.php
 // files are meant to be admin-only (mirroring admin/includes/inc_all_admin.php's own gate),

@@ -70,6 +70,11 @@
 // the page chrome. includes/inc_all.php cannot be used here - it pulls in
 // includes/header.php and would emit a full HTML document ahead of the JSON.
 // Same four requires, same order, as agent/kb_media.php's session branch.
+// Always returns JSON - buffer the bootstrap chain and discard whatever it
+// prints (a stray PHP notice/warning would otherwise land ahead of the JSON
+// response and corrupt it - see kbProgressJson()'s callers below) so only a
+// genuine fatal error here can still break a response.
+ob_start();
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/functions.php';
 
@@ -81,6 +86,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/agent/includes/kb_progress_store.php'
    which the render layer treats as "saving is unavailable" - the correct
    visible outcome for "your session ended". */
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/check_login.php';
+ob_end_clean();
 
 // The KB module being switched off must hide progress as well as the pages.
 if ($config_module_enable_kb != 1) {

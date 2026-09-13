@@ -11,10 +11,16 @@
  *   ?segment_preview    (POST) - live count + sample for segment criteria
  */
 
+// Always returns JSON - buffer the bootstrap chain and discard whatever it
+// prints (a stray PHP notice/warning would otherwise land ahead of the JSON
+// response and corrupt it) so only a genuine fatal error here can still break
+// a response.
+ob_start();
 require_once "../config.php";
 require_once "../functions.php";
 require_once "../includes/check_login.php";
 require_once __DIR__ . '/modals/crm/crm_helpers.php';
+ob_end_clean();
 
 header('Content-Type: application/json');
 

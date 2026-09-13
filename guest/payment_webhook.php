@@ -167,7 +167,7 @@ $config_invoice_from_name  = sanitizeInput($company_row['config_invoice_from_nam
 $config_invoice_from_email = sanitizeInput($company_row['config_invoice_from_email'] ?? '');
 $config_invoice_paid_notification_email = sanitizeInput($company_row['config_invoice_paid_notification_email'] ?? '');
 
-$currency_format = numfmt_create($company_locale, NumberFormatter::CURRENCY);
+$currency_format = numfmt_create($company_locale ?: 'en_US', NumberFormatter::CURRENCY);
 
 // --- Record the payment ---
 mysqli_query($mysqli, "INSERT INTO payments SET payment_date = '$pi_date', payment_amount = $pi_amount_paid, payment_currency_code = '$pi_currency', payment_account_id = $provider_account_id, payment_method = '$provider_display_safe', payment_reference = 'Stripe - $pi_id', payment_invoice_id = $invoice_id");

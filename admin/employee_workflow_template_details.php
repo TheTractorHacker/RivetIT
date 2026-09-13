@@ -20,6 +20,19 @@ $sql_tasks = mysqli_query($mysqli, "SELECT * FROM workflow_template_tasks WHERE 
         <h3 class="card-title me-auto"><i class="fas fa-fw fa-tasks me-2"></i><?= nullable_htmlentities($template['name']) ?>
             <span class="badge <?= $template['type'] === 'onboarding' ? 'text-bg-success' : 'text-bg-danger' ?> ms-2"><?= ucfirst($template['type']) ?></span>
         </h3>
+        <div class="dropdown dropleft text-center me-2">
+            <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown">
+                <i class="fas fa-fw fa-ellipsis-v"></i>
+            </button>
+            <div class="dropdown-menu">
+                <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/employee_workflow/employee_workflow_template_edit.php?id=<?= $workflow_template_id ?>">
+                    <i class="fas fa-fw fa-edit me-2"></i>Edit Template
+                </a>
+                <a class="dropdown-item text-danger confirm-link" href="post.php?archive_employee_workflow_template=<?php echo $workflow_template_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                    <i class="fas fa-fw fa-archive me-2"></i>Archive
+                </a>
+            </div>
+        </div>
         <a href="employee_workflow_templates.php" class="btn btn-sm btn-default"><i class="fas fa-arrow-left me-1"></i>Back</a>
     </div>
     <?php if ($template['description']) { ?>

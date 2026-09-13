@@ -6,10 +6,16 @@
 
 // header("Content-Security-Policy: default-src 'self'"); -- JQ 2025-07-09 - BREAKS onchange(submit)
 
+// inc_all.php streams the page chrome (header.php) before control returns
+// here, so the redirect below needs output buffered - otherwise header()
+// silently fails ("headers already sent") and the page just dies with no
+// content and no redirect.
+ob_start();
 require_once "includes/inc_all.php";
 
 
 if ($session_contact_primary == 0 && !$session_contact_is_billing_contact) {
+    ob_end_clean();
     header("Location: post.php?logout");
     exit();
 }
@@ -23,10 +29,10 @@ $recurring_invoices_sql = mysqli_query($mysqli, "SELECT * FROM recurring_invoice
 
 // Get Payment Provide Details
 $payment_provider_sql = mysqli_query($mysqli, "SELECT * FROM payment_providers WHERE payment_provider_active = 1 LIMIT 1");
-$row = mysqli_fetch_assoc($payment_provider_sql);
-$payment_provider_id = intval($row['payment_provider_id']);
-$payment_provider_name = nullable_htmlentities($row['payment_provider_name']);
-$payment_provider_threshold = floatval($row['payment_provider_threshold']);
+$row = mysqli_fetch_assoc($payment_provider_sql) ?: [];
+$payment_provider_id = intval($row['payment_provider_id'] ?? 0);
+$payment_provider_name = nullable_htmlentities($row['payment_provider_name'] ?? '');
+$payment_provider_threshold = floatval($row['payment_provider_threshold'] ?? 0);
 
 ?>
 

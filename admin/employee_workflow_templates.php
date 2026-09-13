@@ -39,6 +39,21 @@ $sql = mysqli_query($mysqli, "SELECT wt.*,
                         <td><?= $row['is_active'] ? '<span class="text-success">Active</span>' : '<span class="text-muted">Inactive</span>' ?></td>
                         <td class="text-end">
                             <a href="employee_workflow_template_details.php?id=<?= intval($row['workflow_template_id']) ?>" class="btn btn-sm btn-default"><i class="fas fa-cog"></i></a>
+                            <div class="dropdown d-inline-block">
+                                <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end">
+                                    <a class="dropdown-item ajax-modal" href="#"
+                                        data-modal-url="modals/employee_workflow/employee_workflow_template_edit.php?id=<?= intval($row['workflow_template_id']) ?>">
+                                        <i class="fas fa-fw fa-edit me-2"></i>Edit
+                                    </a>
+                                    <a class="dropdown-item text-danger confirm-link"
+                                        href="post.php?archive_employee_workflow_template=<?= intval($row['workflow_template_id']) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                        <i class="fas fa-fw fa-archive me-2"></i>Archive
+                                    </a>
+                                </div>
+                            </div>
                         </td>
                     </tr>
                 <?php } ?>

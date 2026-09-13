@@ -111,10 +111,13 @@ if (isset($_POST['edit_mail_smtp_settings'])) {
     validateCSRFToken($_POST['csrf_token']);
 
     $config_smtp_provider            = sanitizeInput($_POST['config_smtp_provider']);
-    $config_smtp_host                = sanitizeInput($_POST['config_smtp_host']);
+    // Host/Encryption/Username are disabled client-side (and so never sent)
+    // whenever the selected provider isn't "Standard SMTP" - same reasoning
+    // as the password field below.
+    $config_smtp_host                = sanitizeInput($_POST['config_smtp_host'] ?? '');
     $config_smtp_port                = intval($_POST['config_smtp_port'] ?? 0);
-    $config_smtp_encryption          = sanitizeInput($_POST['config_smtp_encryption']);
-    $config_smtp_username            = sanitizeInput($_POST['config_smtp_username']);
+    $config_smtp_encryption          = sanitizeInput($_POST['config_smtp_encryption'] ?? '');
+    $config_smtp_username            = sanitizeInput($_POST['config_smtp_username'] ?? '');
 
     // The password field is left blank on the form when a password is already saved
     // (no longer prefilled with the decrypted value) - an empty submission means "keep

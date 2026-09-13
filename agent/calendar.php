@@ -404,7 +404,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
                 $tech_name = $row['user_name'] ? substr($row['user_name'], 0, 9) . '...' : '';
                 if (!empty($row['user_color'])) {
                     $event_color = nullable_htmlentities($row['user_color']);
-                } elseif (strtotime($row['schedule_start']) < time()) {
+                } elseif (!empty($row['schedule_start']) && strtotime($row['schedule_start']) < time()) {
                     $event_color = 'red';
                 } else {
                     $event_color = 'grey';

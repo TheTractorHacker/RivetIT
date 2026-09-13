@@ -9,6 +9,11 @@
 // and client/kb_article.php make, and it must precede the include - see inc_all.php.
 header("Content-Security-Policy: default-src 'self'; img-src 'self' data:");
 
+// inc_all.php streams the page chrome (header.php) before control returns
+// here, so the "no ticket id" redirect at the bottom of this file needs
+// output buffered - otherwise header() silently fails ("headers already
+// sent") and the contact is left on a page with no content and no redirect.
+ob_start();
 require_once "includes/inc_all.php";
 
 //Initialize the HTML Purifier to prevent XSS
@@ -423,7 +428,6 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
 
         ?>
 
-        <script src="../js/pretty_content.js"></script>
         <script src="../js/portal_ticket.js"></script>
 
         <!-- Live ticket updates (replies/status/chat via SSE) -->
@@ -436,7 +440,9 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
     }
 
 } else {
+    ob_end_clean();
     header("Location: index.php");
+    exit();
 }
 
 require_once "includes/footer.php";

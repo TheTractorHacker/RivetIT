@@ -6,9 +6,17 @@
 
 header("Content-Security-Policy: default-src 'self'; img-src 'self' data:");
 
+// inc_all.php streams the page chrome (header.php) before control returns
+// here, so the redirects below need output buffered - otherwise header()
+// silently fails ("headers already sent"), the page just dies with no
+// content, and a flash_alert() set right before the failed redirect is never
+// consumed on this request - it silently carries over onto whichever page
+// the contact happens to load next.
+ob_start();
 require_once "includes/inc_all.php";
 
 if ($config_module_enable_kb != 1) {
+    ob_end_clean();
     header("Location: index.php");
     exit();
 }
@@ -35,6 +43,7 @@ $purifier = new HTMLPurifier($purifier_config);
 
 // Check for an article ID
 if (!isset($_GET['id']) || !intval($_GET['id'])) {
+    ob_end_clean();
     header("Location: kb_articles.php");
     exit();
 }
@@ -100,6 +109,7 @@ if ($row) {
     $kb_article_content = \ITFlow\KB\MediaUrlRewriter::toPortal($kb_article_content);
     $kb_article_updated_at = $row['kb_article_updated_at'] ?? $row['kb_article_created_at'];
 } else {
+    ob_end_clean();
     flash_alert("Article not found", "error");
     header("Location: kb_articles.php");
     exit();

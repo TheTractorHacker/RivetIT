@@ -22,7 +22,7 @@ if (isset($_POST['edit_ticket_settings'])) {
     $config_ticket_default_view = intval($_POST['config_ticket_default_view']);
     $config_ticket_moving_columns = intval($_POST['config_ticket_moving_columns']);
     $config_ticket_ordering = intval($_POST['config_ticket_ordering']);
-    $config_ticket_timer_autostart = intval($_POST['config_ticket_timer_autostart']);
+    $config_ticket_timer_autostart = intval($_POST['config_ticket_timer_autostart'] ?? 0);
     $config_ticket_csat_enable = intval($_POST['config_ticket_csat_enable'] ?? 0);
     $config_ticket_csat_reminder_days = max(1, intval($_POST['config_ticket_csat_reminder_days'] ?? 3));
     $config_ticket_csat_low_rating_threshold = min(4, max(1, intval($_POST['config_ticket_csat_low_rating_threshold'] ?? 2)));
