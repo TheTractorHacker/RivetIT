@@ -264,13 +264,13 @@ if (isset($_POST['apply_credit'])) {
 
     // Check to see if amount entered is greater than the balance of the invoice
     if ($credit_amount_applied > $invoice_balance) {
-        flash_alert("Credit can not be more than the balance", 'alert');
+        flash_alert("Credit can not be more than the balance", 'error');
         redirect();
     }
 
     // Check to see if amount entered is greater than the credit balance
     if ($credit_amount_applied > $credit_balance) {
-        flash_alert("Credit can not be more than the available credit", 'alert');
+        flash_alert("Credit can not be more than the available credit", 'error');
         redirect();
     }
 

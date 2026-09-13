@@ -245,7 +245,7 @@ if (isset($_POST['delete_file'])) {
 
     logAction("File", "Delete", "$session_name deleted file $file_name", $client_id);
 
-    flash_alert("File <strong>$file_name</strong> deleted", 'alert');
+    flash_alert("File <strong>$file_name</strong> deleted", 'error');
 
     redirect();
 
