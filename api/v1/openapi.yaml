@@ -34,6 +34,7 @@ tags:
   - name: Contacts
   - name: Assets
   - name: Projects
+  - name: Contracts
   - name: Credentials
   - name: Quotes
   - name: Invoices
@@ -780,6 +781,45 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ProjectDetail'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /contracts:
+    get:
+      tags: [Contracts]
+      summary: List contracts (paged, filterable). Billing-adjacent client data - requires module_client.
+      parameters:
+        - {$ref: '#/components/parameters/SearchParam'}
+        - {$ref: '#/components/parameters/PageParam'}
+        - {$ref: '#/components/parameters/LimitParam'}
+        - {name: status, in: query, schema: {type: string}, description: 'Raw contract_status value (e.g. Active, Expired, Cancelled) - manually set, not auto-derived from dates'}
+        - {name: client_id, in: query, schema: {type: integer}}
+        - {name: expiring, in: query, schema: {type: integer, enum: [0, 1]}, description: 'Only contracts already past renewal_date or due within 45 days'}
+      responses:
+        '200':
+          description: Paged contract list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/ContractListItem'}}
+                  total: {type: integer}
+                  page: {type: integer}
+                  limit: {type: integer}
+  /contracts/{id}:
+    get:
+      tags: [Contracts]
+      summary: Contract detail with SLA, current-month hours-allowance usage, and documents
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+        - {name: month, in: query, description: 'Allowance month, 1-12, defaults to current month', schema: {type: integer}}
+        - {name: year, in: query, description: 'Allowance year, defaults to current year', schema: {type: integer}}
+      responses:
+        '200':
+          description: Contract detail
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ContractDetail'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
   /credentials:
@@ -1832,6 +1872,71 @@ components:
         milestones: {type: array, items: {$ref: '#/components/schemas/ProjectMilestone'}}
         tasks: {type: array, items: {$ref: '#/components/schemas/ProjectTask'}}
         tickets: {type: array, items: {$ref: '#/components/schemas/ProjectTicket'}}
+    ContractListItem:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        type: {type: string, nullable: true}
+        status: {type: string, nullable: true, description: 'Raw contract_status value - manually set, may disagree with renewal_date; see is_expired/is_due_soon'}
+        client: {type: string, nullable: true}
+        value: {type: number, nullable: true}
+        renewal_frequency: {type: string, nullable: true}
+        start_date: {type: string, nullable: true}
+        end_date: {type: string, nullable: true}
+        renewal_date: {type: string, nullable: true}
+        is_expired: {type: boolean}
+        is_due_soon: {type: boolean, description: 'renewal_date is today or within the next 45 days'}
+        has_sla: {type: boolean}
+        has_allowance: {type: boolean}
+    ContractSlaTier:
+      type: object
+      properties:
+        response_time: {type: integer, nullable: true, description: 'Hours; null when not configured'}
+        resolution_time: {type: integer, nullable: true, description: 'Hours; null when not configured'}
+    ContractDetail:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        type: {type: string, nullable: true}
+        status: {type: string, nullable: true}
+        client: {type: string, nullable: true}
+        value: {type: number, nullable: true}
+        renewal_frequency: {type: string, nullable: true}
+        start_date: {type: string, nullable: true}
+        end_date: {type: string, nullable: true}
+        renewal_date: {type: string, nullable: true}
+        is_expired: {type: boolean}
+        is_due_soon: {type: boolean}
+        details: {type: string}
+        sla:
+          type: object
+          properties:
+            high: {$ref: '#/components/schemas/ContractSlaTier'}
+            medium: {$ref: '#/components/schemas/ContractSlaTier'}
+            low: {$ref: '#/components/schemas/ContractSlaTier'}
+        allowance:
+          type: object
+          description: Same shape as the month/year/remote/onsite fields of AllowanceUsage, for this one contract
+          properties:
+            month: {type: integer}
+            year: {type: integer}
+            remote: {$ref: '#/components/schemas/AllowanceUsagePeriod'}
+            onsite: {$ref: '#/components/schemas/AllowanceUsagePeriod'}
+        documents:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              name: {type: string}
+              mime_type: {type: string, nullable: true}
+              size: {type: integer}
+              uploaded_at: {type: string, nullable: true}
+              url: {type: string}
+        created_at: {type: string, nullable: true}
+        updated_at: {type: string, nullable: true}
     CredentialListItem:
       type: object
       properties:
