@@ -337,7 +337,16 @@ if (isset($_GET['project_id'])) {
             <span class="h4"><?= "$project_prefix$project_number$project_status_display" ?></span>
         </h5>
         <div class="card-tools d-print-none">
-            <div class="btn-group">
+            <?php /* Not a real .btn-group: these are separate, unrelated actions
+                     (New / Link / Close / overflow menu) spaced apart with their
+                     own me-2/me-3 margins, not a joined segmented control. But
+                     .btn-group's CSS still saw the "Close" <a class="btn"> as a
+                     direct-child button sitting between two .dropdown wrappers
+                     and treated it as a middle segment: zeroed all 4 of its
+                     corners square and pulled it left 1px with a border, which
+                     showed up as a stray vertical line between Link and Close
+                     and a Close button that wasn't rounded like its neighbors. */ ?>
+            <div class="d-flex align-items-center">
                 <?php if (empty($project_completed_at)) { ?>
                     <div class="dropdown me-2">
                         <button class="btn btn-primary btn-sm" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown">

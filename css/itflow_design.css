@@ -106,6 +106,12 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
    Space the pair instead of giving every card a trailing margin, which would
    also add a stray gap under the last card on every page. */
 .card + .card { margin-top: 1rem; }
+/* ...but NOT inside a .card-group: those siblings sit side-by-side in one flex
+   row (Tabler zeroes the border between them to read as one seamless bar), so
+   the margin-top above was shoving every card but the first down by 1rem and
+   breaking that alignment - e.g. Project Details' name/description | owner |
+   progress row read as three disconnected floating panels instead of one bar. */
+.card-group > .card + .card { margin-top: 0; }
 
 /* Tabler's .card-group gives each child `flex: 1 0 0` (equal grow, no shrink,
    zero basis) so siblings SHOULD end up equal-width - but it never sets
