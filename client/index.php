@@ -161,8 +161,19 @@ $sql_open_tickets_count = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FR
 $row = mysqli_fetch_assoc($sql_open_tickets_count);
 $open_tickets_count = intval($row['c']);
 
-// Recent tickets for this contact
-$sql_recent_tickets = mysqli_query($mysqli, "SELECT ticket_id, ticket_prefix, ticket_number, ticket_subject, ticket_status_name, ticket_updated_at FROM tickets LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id WHERE ticket_client_id = $session_client_id AND ticket_contact_id = $session_contact_id ORDER BY ticket_id DESC LIMIT 5");
+// Recent tickets for this contact - ordered by last activity (ticket_updated_at,
+// which the table already displays as "Last Update"), not creation order. A
+// ticket sorted by ticket_id DESC drops off this top-5 the moment 5 other
+// tickets get CREATED after it, even if it was just closed and those other
+// ones are untouched - so a just-closed ticket could be visible under the
+// Closed filter on tickets.php but missing here. ticket_updated_at has
+// ON UPDATE current_timestamp() at the schema level, so closing a ticket
+// (or any other change to it) already bumps this automatically.
+// COALESCE to ticket_created_at: portal-created tickets (client/post.php)
+// never set ticket_updated_at at insert time, so a brand-new, never-touched
+// ticket has it NULL - sorting bare DESC would push a just-submitted ticket
+// to the bottom (MySQL sorts NULL last in DESC), hiding it here too.
+$sql_recent_tickets = mysqli_query($mysqli, "SELECT ticket_id, ticket_prefix, ticket_number, ticket_subject, ticket_status_name, ticket_updated_at FROM tickets LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id WHERE ticket_client_id = $session_client_id AND ticket_contact_id = $session_contact_id ORDER BY COALESCE(ticket_updated_at, ticket_created_at) DESC, ticket_id DESC LIMIT 5");
 
 // Build a combined "needs attention" list for technical contacts
 $tech_alerts = [];
