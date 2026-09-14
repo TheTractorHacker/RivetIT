@@ -346,6 +346,9 @@ if ($method === 'POST' && $id !== null && $sub === 'reply') {
 
         require_once $DOCUMENT_ROOT . '/includes/sla_functions.php';
         slaAccruePause($mysqli, $id, $sla_old_status_id, $new_status_id);
+        if ($target_name === 'Resolved' || $target_name === 'Closed') {
+            slaStampResponseIfMissing($mysqli, $id);
+        }
     } elseif ($type === 'Client') {
         // Customer reply: reopen resolved/closed ticket, then move to In Progress.
         if (!empty($ticket_row['ticket_resolved_at'])) {
@@ -769,6 +772,8 @@ if ($method === 'POST' && $id !== null && $sub === 'status') {
     $closed_by = intval($session_user_id ?? 0);
     if ($status_name_row['ticket_status_name'] === 'Closed') {
         mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $status, ticket_updated_at = NOW(), ticket_resolved_at = NOW(), ticket_closed_at = NOW(), ticket_closed_by = $closed_by WHERE ticket_id = $id");
+        require_once $DOCUMENT_ROOT . '/includes/sla_functions.php';
+        slaStampResponseIfMissing($mysqli, $id);
     } else {
         // Moving to any non-Closed status reopens the ticket if it was closed.
         // ticket_closed_by is NOT NULL (default 0), unlike the two timestamp columns.

@@ -9,6 +9,8 @@
  * a rule are AND-ed together; actions run in order.
  */
 
+require_once __DIR__ . '/sla_functions.php';
+
 function automationGetConditions(array $rule): array {
     if (!empty($rule['rule_conditions_json'])) {
         $decoded = json_decode($rule['rule_conditions_json'], true);
@@ -156,6 +158,7 @@ function automationExecuteAction($mysqli, array $action, array &$context, array 
             $sid = resolveTicketStatusId(intval($aval));
             if ($sid == 5) {
                 mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 5, ticket_resolved_at = NOW(), ticket_closed_at = NOW() WHERE ticket_id = $tid");
+                slaStampResponseIfMissing($mysqli, $tid);
             } else {
                 mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $sid WHERE ticket_id = $tid");
             }
@@ -297,10 +300,17 @@ function automationExecuteAction($mysqli, array $action, array &$context, array 
             if (!$tid) return null;
             $assigned_to = intval($context['assigned_to'] ?? 0);
             $closer = $assigned_to > 0 ? $assigned_to : 1;
+            // ticket_resolved_at was missing from this SET list - every other close
+            // path in the app sets it alongside ticket_closed_at (the web "is this
+            // open" queries key off ticket_resolved_at, not ticket_status), so a
+            // ticket closed via this action alone would count as still-open forever
+            // in any view/report that filters on it, and its Resolution SLA would
+            // never resolve to met/breached either.
             mysqli_query($mysqli,
-                "UPDATE tickets SET ticket_status = 5, ticket_closed_at = NOW(), ticket_closed_by = $closer
+                "UPDATE tickets SET ticket_status = 5, ticket_resolved_at = NOW(), ticket_closed_at = NOW(), ticket_closed_by = $closer
                  WHERE ticket_id = $tid AND ticket_resolved_at IS NULL"
             );
+            slaStampResponseIfMissing($mysqli, $tid);
             logAction("Automation", "Close", "Rule '$rule_name': auto-closed ticket $tid", $client_id, $tid);
             return "closed ticket #$tid";
 

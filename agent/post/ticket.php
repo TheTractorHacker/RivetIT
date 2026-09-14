@@ -490,6 +490,7 @@ if (isset($_POST['edit_ticket_status'])) {
     mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $new_status_id WHERE ticket_id = $ticket_id");
     if ($new_status_id == 5) {
         mysqli_query($mysqli, "UPDATE tickets SET ticket_resolved_at = NOW(), ticket_closed_at = NOW(), ticket_closed_by = $session_user_id WHERE ticket_id = $ticket_id AND ticket_resolved_at IS NULL");
+        slaStampResponseIfMissing($mysqli, $ticket_id);
     } else {
         // Moving a ticket to any non-Closed status must clear these, or the ticket
         // page (which gates the reply form / edit controls on ticket_closed_at, not
@@ -1080,6 +1081,7 @@ if (isset($_POST['quick_status_ticket'])) {
     mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $new_status_id WHERE ticket_id = $ticket_id");
     if ($new_status_id == 5) {
         mysqli_query($mysqli, "UPDATE tickets SET ticket_resolved_at = NOW(), ticket_closed_at = NOW(), ticket_closed_by = $session_user_id WHERE ticket_id = $ticket_id");
+        slaStampResponseIfMissing($mysqli, $ticket_id);
         mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Ticket closed.', ticket_reply_type = 'System', ticket_reply_time_worked = '00:01:00', ticket_reply_by = $session_user_id, ticket_reply_ticket_id = $ticket_id");
         logAction("Ticket", "Closed", "$session_name closed ticket $ticket_prefix$ticket_number via quick status", $client_id, $ticket_id);
         customAction('ticket_close', $ticket_id);
@@ -2182,6 +2184,12 @@ if (isset($_POST['add_ticket_reply'])) {
     // Resolve the ticket, if set
     if ($ticket_status == 4) {
         mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 5, ticket_resolved_at = NOW(), ticket_closed_at = NOW(), ticket_closed_by = $session_user_id WHERE ticket_id = $ticket_id");
+        // Belt-and-suspenders alongside the Public-reply-gated stamp further down
+        // this handler (idempotent - a no-op if that one already fired): an
+        // Internal-only reply (or no reply text at all) submitted together with
+        // Resolve would otherwise resolve the ticket with no first-response
+        // timestamp at all, since that gate only fires for Public replies.
+        slaStampResponseIfMissing($mysqli, $ticket_id);
         mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Ticket closed.', ticket_reply_type = 'System', ticket_reply_time_worked = '00:01:00', ticket_reply_by = $session_user_id, ticket_reply_ticket_id = $ticket_id");
 
         logAction("Ticket", "Resolved", "$session_name resolved Ticket ticket ID $ticket_id", $client_id, $ticket_id);
@@ -2779,6 +2787,7 @@ if (isset($_GET['close_ticket'])) {
     }
 
     mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 5, ticket_resolved_at = NOW(), ticket_closed_at = NOW(), ticket_closed_by = $session_user_id WHERE ticket_id = $ticket_id") or die(mysqli_error($mysqli));
+    slaStampResponseIfMissing($mysqli, $ticket_id);
 
     mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Ticket closed.', ticket_reply_type = 'System', ticket_reply_time_worked = '00:01:00', ticket_reply_by = $session_user_id, ticket_reply_ticket_id = $ticket_id");
 

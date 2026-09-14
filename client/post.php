@@ -10,6 +10,7 @@ require_once '../includes/load_global_settings.php';
 require_once 'includes/check_login.php';
 require_once 'functions.php';
 require_once '../includes/redis_functions.php';
+require_once '../includes/sla_functions.php';
 
 /* ═════════════════════════════════════════════════════════════════════════════
    PORTAL PREVIEW - GLOBAL WRITE GATE
@@ -443,6 +444,7 @@ if (isset($_GET['resolve_ticket'])) {
         // relying on the slow cron-based auto-close.
         $resolved_status_id = resolveTicketStatusId(4);
         mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $resolved_status_id, ticket_resolved_at = NOW(), ticket_closed_at = NOW() WHERE ticket_id = $ticket_id AND ticket_client_id = $session_client_id");
+        slaStampResponseIfMissing($mysqli, $ticket_id);
 
         $resolve_status_info = getTicketStatusInfo($mysqli, $resolved_status_id);
         publishTicketEvent($ticket_id, 'status', ['status_id' => $resolve_status_info['id'], 'status_name' => $resolve_status_info['name'], 'status_color' => $resolve_status_info['color'], 'by' => $session_contact_name]);

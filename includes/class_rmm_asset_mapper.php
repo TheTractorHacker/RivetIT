@@ -9,6 +9,8 @@
  *   4. Case-insensitive hostname match on asset_name (only if unique)
  */
 
+require_once __DIR__ . '/sla_functions.php';
+
 class RmmAssetMapper {
 
     private $mysqli;
@@ -225,6 +227,7 @@ class RmmAssetMapper {
              WHERE ticket_id = $ticket_id
                AND ticket_resolved_at IS NULL AND ticket_closed_at IS NULL"
         );
+        slaStampResponseIfMissing($m, $ticket_id);
         mysqli_query($m,
             "INSERT INTO ticket_replies SET
              ticket_reply = 'Auto-closed: RMM alert cleared',

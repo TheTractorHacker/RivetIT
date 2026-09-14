@@ -15,6 +15,7 @@ require_once "../config.php";
 require_once "../functions.php";
 require_once "../includes/check_login.php";
 require_once "../plugins/totp/totp.php";
+require_once "../includes/sla_functions.php";
 ob_end_clean();
 
 /*
@@ -993,6 +994,7 @@ if (isset($_POST['update_kanban_ticket'])) {
                 // the slow cron-based auto-close.
                 $final_status = resolveTicketStatusId($status);
                 mysqli_query($mysqli, "UPDATE tickets SET ticket_order = $kanban, ticket_status = $final_status, ticket_resolved_at = NOW(), ticket_closed_at = NOW(), ticket_closed_by = $session_user_id WHERE ticket_id = $ticket_id");
+                slaStampResponseIfMissing($mysqli, $ticket_id);
                 customAction('ticket_update', $ticket_id);
 
                 // Client notification email

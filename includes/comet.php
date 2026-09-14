@@ -3,6 +3,8 @@
 // Ref: https://docs.cometbackup.com/latest/api/api-guide
 // SDK: https://github.com/CometBackup/comet-php-sdk
 
+require_once __DIR__ . '/sla_functions.php';
+
 // ── Job status constants (from Comet SDK Def.php) ─────────────────────────────
 // Successful
 define('COMET_JOB_SUCCESS',           5000);
@@ -428,6 +430,7 @@ function comet_process_job(array $job): array {
         // relying on the slow cron-based auto-close.
         $comet_resolved_status_id = resolveTicketStatusId(4);
         mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $comet_resolved_status_id, ticket_resolved_at = NOW(), ticket_closed_at = NOW() WHERE ticket_id = $tid");
+        slaStampResponseIfMissing($mysqli, $tid);
 
         return ['action' => 'ticket_resolved', 'ticket_id' => $tid, 'device_name' => $dev_name];
     }

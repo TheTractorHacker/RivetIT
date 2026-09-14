@@ -412,6 +412,32 @@ function slaLogEvent($mysqli, int $ticket_id, string $event_type, ?int $from_sta
 }
 
 /**
+ * Stamp ticket_first_response_at = NOW() if it isn't already set - call this
+ * at EVERY point a ticket transitions to Resolved/Closed, in addition to the
+ * existing "first Public reply" trigger in agent/post/ticket.php.
+ *
+ * Without this, a ticket resolved directly (status dropdown, kanban drag,
+ * bulk action, the API, or any automation/RMM/Comet/cron auto-resolve)
+ * without ever having had an explicit agent reply has NO first-response
+ * timestamp at all. slaStatus() (below) derives "met" purely from
+ * timestamps - ticket_sla_response_met/ticket_sla_resolution_met are never
+ * written anywhere in this codebase, by design or omission; every read path
+ * (this file's slaStatus(), and getServiceDeskReport()'s SLA compliance %)
+ * independently recomputes met-vs-breached from ticket_first_response_at /
+ * ticket_resolved_at vs. the _due columns. So a resolved ticket with no
+ * first-response timestamp has no "met" signal to fall back to either - its
+ * Response bar sits at Breached or Running forever, even though the ticket
+ * itself is long done. Only ever writes a timestamp that wasn't there
+ * before; never overwrites a real first-response time.
+ */
+function slaStampResponseIfMissing($mysqli, int $ticket_id): void {
+    $ticket_id = intval($ticket_id);
+    mysqli_query($mysqli,
+        "UPDATE tickets SET ticket_first_response_at = NOW() WHERE ticket_id = $ticket_id AND ticket_first_response_at IS NULL"
+    );
+}
+
+/**
  * UI helper: response/resolution progress for a ticket. Returns:
  *   [
  *     'response'   => ['state'=>running|paused|met|breached|none, 'pct'=>0..100|null, 'remaining_sec'=>int|null],
