@@ -9,6 +9,7 @@ $latest_version      = $updates->latest_version;
 $current_version     = $updates->current_version;
 $current_version_tag = $updates->current_version_tag;
 $latest_version_tag  = $updates->latest_version_tag;
+$git_fetch_output    = $updates->output;
 $result = $updates->result;
 
 $git_log_raw = shell_exec("git log $repo_branch..fork/$repo_branch --pretty=format:'%h|%ar|%s'");
@@ -37,7 +38,12 @@ if (!empty($git_log_raw)) {
                 <div class="alert alert-danger">
                     <strong>WARNING: Could not find execute 'git fetch'.</strong>
                     <br><br>
-                    <i>Error details:- <?php echo htmlspecialchars(shell_exec("git fetch fork 2>&1")); ?></i>
+                    <?php /* Reuses fetchUpdates()'s own already-captured output instead of running
+                             a second, unguarded `git fetch fork` here - that second call had no
+                             timeout wrapper, so on the same host/condition that made the first one
+                             need one (see functions.php's fetchUpdates()), this would hang a second
+                             time on every single page load of this exact warning. */ ?>
+                    <i>Error details:- <?php echo htmlspecialchars(implode("\n", $git_fetch_output ?: [])); ?></i>
                     <br>
                     <br>Things to check: Is Git installed? Is the Git origin/remote correct? Are web server file permissions too strict?
                     <br>Seek support on the <a href="https://forum.itflow.org">Forum</a> if required - include relevant PHP error logs & ITFlow Internal IT debug output

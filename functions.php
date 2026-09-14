@@ -3597,8 +3597,20 @@ function fetchUpdates() {
 
     global $repo_branch;
 
-    // Fetch the latest code changes but don't apply them
-    exec("git fetch fork", $output, $result);
+    // Fetch the latest code changes but don't apply them.
+    //
+    // `timeout 15` is load-bearing, not cosmetic: this runs from a PHP-FPM
+    // worker with request_terminate_timeout disabled, so a child process
+    // that never exits (confirmed live on this host - an outbound SSH
+    // connection from a real FPM worker can sit forever in ppoll() waiting
+    // on data that never arrives, even though the identical command
+    // succeeds immediately from an interactive shell as the same user) pins
+    // that worker forever. Nothing else in this request path will ever kill
+    // it - each hang like that permanently removes one worker from the
+    // pool, and enough of them over time exhausts pm.max_children and takes
+    // the whole site down. Bounding the child process here means the worst
+    // case is a slow request, never a leaked one.
+    exec("timeout 15 git fetch fork 2>&1", $output, $result);
     $latest_version  = exec("git rev-parse fork/$repo_branch");
     $current_version = exec("git rev-parse HEAD");
 
