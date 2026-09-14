@@ -721,6 +721,21 @@ a:hover {
     color: #fff;
 }
 
+/* Tabler hardcodes .text-bg-warning (and plain .badge.bg-warning, which shares
+   the same warning background) to `color:#fff !important` - a reasonable
+   default against Bootstrap's own pale warning yellow, but this install's
+   --tblr-warning is a saturated amber/orange (rgb(245,159,0)) where white text
+   measures ~2.1:1 contrast - well under WCAG AA's 4.5:1, and visibly hard to
+   read (confirmed via a real rendered screenshot: "SpamTitan (TitanHQ)" on an
+   orange Spam Filter badge). Dark text against this same amber measures
+   ~7.2:1. Same anti-pattern as the dropdown/list-group fix above - a solid
+   highlight needs a text color chosen for ITS OWN background, not inherited
+   from an assumption (pale yellow) that doesn't hold for this accent. */
+.text-bg-warning,
+.badge.bg-warning {
+    color: #212529 !important;
+}
+
 /* Bootstrap hardcodes .text-dark to a fixed dark gray, which goes low-contrast
    on dark backgrounds. Remap to the theme text color (black in light mode,
    near-white in dark mode) so table headers/links stay readable in both.

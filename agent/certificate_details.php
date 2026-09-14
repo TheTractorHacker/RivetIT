@@ -42,17 +42,22 @@ if (mysqli_num_rows($sql) == 0) {
     $certificate_expire = $row['certificate_expire'];
     $certificate_created_at = nullable_htmlentities($row['certificate_created_at']);
 
+    // text-bg-* (not bare bg-*) is load-bearing: it's Tabler's PAIRED
+    // background+foreground utility, already correct in both themes. A bare
+    // bg-* badge has no text-color rule of its own and falls back to the
+    // ambient card ink - confirmed via a real rendered screenshot to come out
+    // as low-contrast muted gray text on every one of these colors.
     $days_until_expiry = $certificate_expire ? (strtotime($certificate_expire) - time()) / 86400 : null;
     if ($days_until_expiry === null) {
-        $expire_badge = ['label' => 'No expiry on file', 'class' => 'bg-secondary'];
+        $expire_badge = ['label' => 'No expiry on file', 'class' => 'text-bg-secondary'];
     } elseif ($days_until_expiry <= 0) {
-        $expire_badge = ['label' => 'Expired', 'class' => 'bg-secondary'];
+        $expire_badge = ['label' => 'Expired', 'class' => 'text-bg-secondary'];
     } elseif ($days_until_expiry <= 1) {
-        $expire_badge = ['label' => 'Expiring today', 'class' => 'bg-danger'];
+        $expire_badge = ['label' => 'Expiring today', 'class' => 'text-bg-danger'];
     } elseif ($days_until_expiry <= 7) {
-        $expire_badge = ['label' => 'Renew soon', 'class' => 'bg-warning text-dark'];
+        $expire_badge = ['label' => 'Renew soon', 'class' => 'text-bg-warning'];
     } else {
-        $expire_badge = ['label' => 'Active', 'class' => 'bg-success'];
+        $expire_badge = ['label' => 'Active', 'class' => 'text-bg-success'];
     }
 
     // Sibling certificates on the same domain - the cross-link this page adds.

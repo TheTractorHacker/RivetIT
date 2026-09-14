@@ -68,16 +68,21 @@ if (mysqli_num_rows($sql) == 0) {
 
     // Same expiry-urgency thresholds as the domains.php list row coloring.
     $days_until_expiry = $domain_expire ? (strtotime($domain_expire) - time()) / 86400 : null;
+    // text-bg-* (not bare bg-*) is load-bearing: it's Tabler's PAIRED
+    // background+foreground utility, already correct in both themes. A bare
+    // bg-* badge has no text-color rule of its own and falls back to the
+    // ambient card ink - confirmed via a real rendered screenshot to come out
+    // as low-contrast muted gray text on every one of these colors.
     if ($days_until_expiry === null) {
-        $expire_badge = ['label' => 'No expiry on file', 'class' => 'bg-secondary'];
+        $expire_badge = ['label' => 'No expiry on file', 'class' => 'text-bg-secondary'];
     } elseif ($days_until_expiry <= 0) {
-        $expire_badge = ['label' => 'Expired', 'class' => 'bg-secondary'];
+        $expire_badge = ['label' => 'Expired', 'class' => 'text-bg-secondary'];
     } elseif ($days_until_expiry <= 14) {
-        $expire_badge = ['label' => 'Expiring soon', 'class' => 'bg-danger'];
+        $expire_badge = ['label' => 'Expiring soon', 'class' => 'text-bg-danger'];
     } elseif ($days_until_expiry <= 90) {
-        $expire_badge = ['label' => 'Renew soon', 'class' => 'bg-warning text-dark'];
+        $expire_badge = ['label' => 'Renew soon', 'class' => 'text-bg-warning'];
     } else {
-        $expire_badge = ['label' => 'Active', 'class' => 'bg-success'];
+        $expire_badge = ['label' => 'Active', 'class' => 'text-bg-success'];
     }
 
     // "Who's who" - DNS/email provider and spam-filter gateway, pattern-matched
@@ -165,7 +170,7 @@ if (mysqli_num_rows($sql) == 0) {
                             <td class="text-secondary" style="width:180px"><i class="fa fa-fw fa-building me-1"></i>Domain Registrar</td>
                             <td>
                                 <?php if ($domain_registrar_name) { ?>
-                                    <span class="badge bg-primary"><?= $domain_registrar_name ?></span>
+                                    <span class="badge text-bg-primary"><?= $domain_registrar_name ?></span>
                                 <?php } else { ?>
                                     <span class="text-secondary">Not identified from WHOIS yet</span>
                                 <?php } ?>
@@ -175,7 +180,7 @@ if (mysqli_num_rows($sql) == 0) {
                             <td class="text-secondary"><i class="fa fa-fw fa-server me-1"></i>DNS Provider</td>
                             <td>
                                 <?php if ($dns_providers) { foreach ($dns_providers as $p) { ?>
-                                    <span class="badge bg-info me-1"><?= nullable_htmlentities($p) ?></span>
+                                    <span class="badge text-bg-info me-1"><?= nullable_htmlentities($p) ?></span>
                                 <?php } } else { ?>
                                     <span class="text-secondary">Not identified from name servers</span>
                                 <?php } ?>
@@ -185,7 +190,7 @@ if (mysqli_num_rows($sql) == 0) {
                             <td class="text-secondary"><i class="fa fa-fw fa-envelope me-1"></i>Email Provider</td>
                             <td>
                                 <?php if ($email_intel['mailbox']) { foreach ($email_intel['mailbox'] as $p) { ?>
-                                    <span class="badge bg-success me-1"><?= nullable_htmlentities($p) ?></span>
+                                    <span class="badge text-bg-success me-1"><?= nullable_htmlentities($p) ?></span>
                                 <?php } } else { ?>
                                     <span class="text-secondary"><?= $email_intel['spam_filter'] ? 'Not visible — hidden behind the spam filter below' : 'Not identified from MX records' ?></span>
                                 <?php } ?>
@@ -195,7 +200,7 @@ if (mysqli_num_rows($sql) == 0) {
                             <td class="text-secondary"><i class="fa fa-fw fa-shield-alt me-1"></i>Spam Filter</td>
                             <td>
                                 <?php if ($email_intel['spam_filter']) { foreach ($email_intel['spam_filter'] as $p) { ?>
-                                    <span class="badge bg-warning text-dark me-1"><?= nullable_htmlentities($p) ?></span>
+                                    <span class="badge text-bg-warning me-1"><?= nullable_htmlentities($p) ?></span>
                                 <?php } } else { ?>
                                     <span class="text-secondary">None detected in MX records</span>
                                 <?php } ?>
