@@ -23,7 +23,17 @@ function api_rate_limit(string $bucket, int $limit, int $window): bool {
     // bucket entirely - not just IP-keyed ones - since the intent is "this
     // caller's traffic is never rate-limited," regardless of which endpoint
     // or bucket shape it happens to hit.
-    if (defined('CONST_API_RATE_LIMIT_ALLOWLIST') && in_array(getIP(), CONST_API_RATE_LIMIT_ALLOWLIST, true)) {
+    //
+    // Deliberately checks $_SERVER['REMOTE_ADDR'] directly, NOT getIP(): if
+    // this deployment ever sets CONST_GET_IP_METHOD to trust
+    // X-Forwarded-For/CF-Connecting-IP (plausible - this box sits behind a
+    // reverse-proxy chain with no nginx real_ip config yet), getIP() starts
+    // trusting a client-supplied header. A bypass gate must never do that -
+    // anyone could then send `X-Forwarded-For: 10.1.0.13` and skip rate
+    // limiting on auth/crash-report/csat/device-metrics entirely. REMOTE_ADDR
+    // is always the literal TCP peer, regardless of that setting.
+    $remote_addr = $_SERVER['REMOTE_ADDR'] ?? '';
+    if (defined('CONST_API_RATE_LIMIT_ALLOWLIST') && $remote_addr !== '' && in_array($remote_addr, CONST_API_RATE_LIMIT_ALLOWLIST, true)) {
         return true;
     }
 
