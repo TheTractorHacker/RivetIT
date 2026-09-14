@@ -19,6 +19,14 @@ defined('FROM_API') || die();
  * @return bool true = allowed, false = over limit
  */
 function api_rate_limit(string $bucket, int $limit, int $window): bool {
+    // Trusted callers (config.php: CONST_API_RATE_LIMIT_ALLOWLIST) skip every
+    // bucket entirely - not just IP-keyed ones - since the intent is "this
+    // caller's traffic is never rate-limited," regardless of which endpoint
+    // or bucket shape it happens to hit.
+    if (defined('CONST_API_RATE_LIMIT_ALLOWLIST') && in_array(getIP(), CONST_API_RATE_LIMIT_ALLOWLIST, true)) {
+        return true;
+    }
+
     $redis = getRedisClient();
     if (!$redis) {
         return true; // fail open — Redis down
