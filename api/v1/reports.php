@@ -36,6 +36,9 @@ switch ($sub) {
     case 'service-desk':
         require __DIR__ . '/reports/service_desk.php';
         break;
+    case 'ticket-day-breakdown':
+        require __DIR__ . '/reports/ticket_day_breakdown.php';
+        break;
     case 'csat':
         require __DIR__ . '/reports/csat.php';
         break;

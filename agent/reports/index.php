@@ -66,6 +66,7 @@ $report_catalog_technical = [];
 if ($reports_show_technical) {
     $report_catalog_technical[] = ['service_desk.php',            'fas fa-headset',       'Service Desk &amp; SLA',   'Queue health, ticket aging and SLA breaches.'];
     $report_catalog_technical[] = ['ticket_summary.php',          'fas fa-life-ring',     'Tickets',                  'Volume by status, priority and month.'];
+    $report_catalog_technical[] = ['ticket_day_breakdown.php',    'fas fa-calendar-day',  'Tickets: Day by Day',      'Created vs. closed, one row per day.'];
     if (!empty($config_module_enable_ticket_charges)) {
         $report_catalog_technical[] = ['ticket_charges.php',      'fas fa-dollar-sign',   'Ticket Charges',           'Charges raised against tickets.'];
     }

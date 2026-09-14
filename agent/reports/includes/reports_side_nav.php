@@ -141,6 +141,12 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                             <span class="nav-link-title">Tickets</span>
                         </a>
                     </li>
+                    <li class="nav-item<?php if ($current_page == "ticket_day_breakdown.php") { echo " active"; } ?>">
+                        <a href="/agent/reports/ticket_day_breakdown.php" class="nav-link<?php if ($current_page == "ticket_day_breakdown.php") { echo " active"; } ?>">
+                            <span class="nav-link-icon"><i class="fas fa-calendar-day"></i></span>
+                            <span class="nav-link-title">Tickets: Day by Day</span>
+                        </a>
+                    </li>
                     <?php if ($config_module_enable_ticket_charges) { ?>
                     <li class="nav-item<?php if ($current_page == "ticket_charges.php") { echo " active"; } ?>">
                         <a href="/agent/reports/ticket_charges.php" class="nav-link<?php if ($current_page == "ticket_charges.php") { echo " active"; } ?>">

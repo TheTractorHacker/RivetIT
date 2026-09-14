@@ -1627,6 +1627,89 @@ function getServiceDeskReport(mysqli $mysqli, $date_from, $date_to, ?int $client
     ];
 }
 
+/**
+ * Day-by-day ticket breakdown: created vs. closed per calendar day, for the
+ * given date range. Same shape/philosophy as getServiceDeskReport()'s volume
+ * trend, just at day instead of month granularity - shared between the web
+ * report and the API so both return identical numbers.
+ *
+ * Day axis is capped at 400 days so an "all time" range on a long-lived
+ * install renders a bounded table/chart rather than several years of rows;
+ * $report['truncated'] is true when the requested range was cut short.
+ */
+function getTicketDayBreakdownReport(mysqli $mysqli, $date_from, $date_to, ?int $client_id = null)
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $date_from)) {
+        $date_from = date('Y-m-d', strtotime('-29 days'));
+    }
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $date_to)) {
+        $date_to = date('Y-m-d');
+    }
+    $from_dt = "$date_from 00:00:00";
+    $to_dt   = "$date_to 23:59:59";
+    $client_clause = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : '';
+
+    $created_by_day = [];
+    $res = mysqli_query($mysqli,
+        "SELECT DATE(ticket_created_at) AS d, COUNT(ticket_id) AS c
+         FROM tickets
+         WHERE ticket_created_at BETWEEN '$from_dt' AND '$to_dt' AND ticket_archived_at IS NULL$client_clause
+         GROUP BY d");
+    while ($row = mysqli_fetch_assoc($res)) {
+        $created_by_day[$row['d']] = intval($row['c']);
+    }
+
+    $closed_by_day = [];
+    $res = mysqli_query($mysqli,
+        "SELECT DATE(ticket_closed_at) AS d, COUNT(ticket_id) AS c
+         FROM tickets
+         WHERE ticket_closed_at BETWEEN '$from_dt' AND '$to_dt' AND ticket_archived_at IS NULL$client_clause
+         GROUP BY d");
+    while ($row = mysqli_fetch_assoc($res)) {
+        $closed_by_day[$row['d']] = intval($row['c']);
+    }
+
+    $days = [];
+    $total_created = 0;
+    $total_closed  = 0;
+    $cursor = new DateTime($date_from);
+    $last   = new DateTime($date_to);
+    $guard  = 0;
+    $truncated = false;
+    while ($cursor <= $last) {
+        if ($guard >= 400) {
+            $truncated = true;
+            break;
+        }
+        $key     = $cursor->format('Y-m-d');
+        $created = $created_by_day[$key] ?? 0;
+        $closed  = $closed_by_day[$key]  ?? 0;
+        $days[] = [
+            'date'    => $key,
+            'label'   => $cursor->format('M j'),
+            'created' => $created,
+            'closed'  => $closed,
+            'net'     => $created - $closed,
+        ];
+        $total_created += $created;
+        $total_closed  += $closed;
+        $cursor->modify('+1 day');
+        $guard++;
+    }
+
+    return [
+        'date_from'  => $date_from,
+        'date_to'    => $date_to,
+        'truncated'  => $truncated,
+        'days'       => $days,
+        'totals'     => [
+            'created' => $total_created,
+            'closed'  => $total_closed,
+            'net'     => $total_created - $total_closed,
+        ],
+    ];
+}
+
 // -----------------------------------------------------------------------------
 // Analytics / reporting helpers (Wave 2). All set-based (no per-row PHP loops for
 // aggregates) and shared between the web report pages under agent/reports/ and the
