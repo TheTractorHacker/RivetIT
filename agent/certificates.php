@@ -263,8 +263,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 </div>
                             </td>
                             <td>
-                                <a class="text-dark ajax-modal" href="#"
-                                    data-modal-url="modals/certificate/certificate_edit.php?<?= $client_url ?>&id=<?= $certificate_id ?>">
+                                <a class="text-dark" href="certificate_details.php?<?= $client_url ?>id=<?= $certificate_id ?>">
                                     <div class="media">
                                         <i class="fa fa-fw fa-2x fa-lock me-3"></i>
                                         <div class="media-body">

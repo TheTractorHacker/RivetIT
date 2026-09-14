@@ -330,9 +330,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 </div>
                             </td>
                             <td class="">
-                                <a class="text-dark ajax-modal" href="#"
-                                    data-modal-size="lg"
-                                    data-modal-url="modals/domain/domain_edit.php?<?= $client_url ?>&id=<?= $domain_id ?>">
+                                <a class="text-dark" href="domain_details.php?<?= $client_url ?>id=<?= $domain_id ?>">
                                     <div class="media">
                                         <i class="fa fa-fw fa-2x fa-globe me-3"></i>
                                         <div class="media-body">
