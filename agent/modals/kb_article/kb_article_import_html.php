@@ -88,9 +88,9 @@ try {
     $html_embed_ready = false;
 }
 
-// 512 KB, the cap src/KB/HtmlImporter.php enforces on an embedded page and the one
+// 50 MB, the cap src/KB/HtmlImporter.php enforces on an embedded page and the one
 // agent/includes/kb_embed_serve.php:150 restates on the way back out.
-$html_embed_max_label = '512 KB';
+$html_embed_max_label = '50 MB';
 
 ob_start();
 
@@ -277,10 +277,10 @@ ob_start();
     // the oversized upload here, where the file's real size is still known.
     var maxBytes = <?php echo (int) $html_guard_bytes; ?>;
     var maxLabel = <?php echo json_encode($html_max_label); ?>;
-    // The embed path has a second, much lower ceiling - the stored page has to
-    // fit the 512 KB cap the serve endpoint restates. Same reasoning: say so
-    // before the upload, not after it.
-    var embedMaxBytes = 524288;
+    // The embed path has its own ceiling, restated on the serve side (both must
+    // agree - see agent/includes/kb_embed_serve.php's KB_EMBED_MAX_BYTES). Same
+    // reasoning: say so before the upload, not after it.
+    var embedMaxBytes = 52428800;
 
     function chosenMode() {
         return (modeEmbed && modeEmbed.checked) ? 'embed' : 'blocks';
@@ -302,10 +302,10 @@ ob_start();
 
     function checkSelectedFile() {
         if (selectedFileIsTooBig()) {
-            var kilobytes = (fileInput.files[0].size / 1024).toFixed(0);
+            var megabytes = (fileInput.files[0].size / 1048576).toFixed(1);
             sizeError.textContent = chosenMode() === 'embed'
-                ? 'That page is ' + kilobytes + ' KB. A page kept whole in a frame may be at most 512 KB - import it as article content instead, or trim the page.'
-                : 'That page is ' + (fileInput.files[0].size / 1048576).toFixed(1) + ' MB. This server accepts uploads up to ' + maxLabel + ', and anything larger is dropped before it arrives - please choose a smaller file.';
+                ? 'That page is ' + megabytes + ' MB. A page kept whole in a frame may be at most 50 MB - import it as article content instead, or trim the page.'
+                : 'That page is ' + megabytes + ' MB. This server accepts uploads up to ' + maxLabel + ', and anything larger is dropped before it arrives - please choose a smaller file.';
             sizeError.classList.remove('d-none');
             submitButton.disabled = true;
         } else {

@@ -7684,3 +7684,16 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.82'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.82') {
+        // The KB sandboxed-embed cap (src/KB/HtmlImporter.php MAX_EMBED_BYTES,
+        // agent/includes/kb_embed_serve.php KB_EMBED_MAX_BYTES - both must agree)
+        // is being raised from 512 KB to 50 MB to match the HTML-import ceiling.
+        // mediumtext (16 MB) has no headroom for that once mysqli_real_escape_string()
+        // overhead is counted, so this widens the column to longtext (4 GB) - the
+        // same column this fork already documented as "16 MB, nowhere near the cap"
+        // when the cap was still 512 KB.
+        mysqli_query($mysqli, "ALTER TABLE `kb_article_embeds` MODIFY COLUMN `kb_article_embed_untrusted_html` longtext DEFAULT NULL");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.83'");
+    }

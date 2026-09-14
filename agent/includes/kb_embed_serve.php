@@ -180,12 +180,14 @@ const KB_EMBED_MIN_HEIGHT = 120;
 const KB_EMBED_MAX_HEIGHT = 4000;
 
 /* Refuse to serve anything larger than this. The authoring path caps a stored
- * embed at 512 KB; this is the serve-side restatement of that cap, so a row
- * that got large by some other route (a direct database edit, a future importer
- * bug) cannot be turned into a multi-megabyte response by anyone who can guess
- * an id. mediumtext holds 16 MB, which is what makes the restatement worth
- * having. */
-const KB_EMBED_MAX_BYTES = 524288;
+ * embed at 50 MB (src/KB/HtmlImporter.php MAX_EMBED_BYTES - both must agree);
+ * this is the serve-side restatement of that cap, so a row that got large by
+ * some other route (a direct database edit, a future importer bug) cannot be
+ * turned into an even-larger response by anyone who can guess an id. The
+ * column is longtext (4 GB, DB migration 2.6.82 -> 2.6.83) - was mediumtext
+ * (16 MB) when this cap was still 512 KB, which is what made the restatement
+ * worth having; it still is, just against a wider ceiling now. */
+const KB_EMBED_MAX_BYTES = 52428800;
 
 /**
  * Bail out with a status code and a plain-text body.
@@ -363,6 +365,30 @@ function kbEmbedServe(string $html, int $height): void
         kbEmbedFail(413, 'Embed too large');
     }
 
+    /* Raising KB_EMBED_MAX_BYTES from 512 KiB to 50 MiB (see the constant's
+     * comment) made "no-store, re-fetch on every article view" a real cost
+     * instead of a rounding error. This computes an ETag from the bytes
+     * actually being served (not the stored kb_article_embed_sha256 column -
+     * this stays correct even if a future edit path ever let those drift)
+     * and answers 304 on a match, so a browser that already has this exact
+     * embed cached does not re-download it on every view. Cache-Control
+     * still says "private" (never a shared cache) and "no-cache" (never
+     * served without asking first) - this is revalidate-every-time, not
+     * cache-and-trust. */
+    $etag = '"' . hash('sha256', $html) . '"';
+    $if_none_match = trim((string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? ''));
+    if ($if_none_match !== '' && $if_none_match === $etag) {
+        if (headers_sent($sent_file, $sent_line)) {
+            error_log("kb_embed_serve: refused 304 - output already started at $sent_file:$sent_line");
+            exit;
+        }
+        http_response_code(304);
+        header('ETag: ' . $etag);
+        header('Cache-Control: private, no-cache');
+        header('Pragma: no-cache');
+        exit;
+    }
+
     /* Checked BEFORE a single header call, not with `if (!headers_sent())`
      * wrapped around the header block below: that shape is exactly the bug
      * this function used to have - degrade to a cageless echo the moment
@@ -449,9 +475,12 @@ function kbEmbedServe(string $html, int $height): void
        hand it the article page's URL. */
     header('Referrer-Policy: no-referrer');
 
-    // Authenticated content: never let a shared cache hold a copy.
-    header('Cache-Control: private, no-store, max-age=0');
+    // Authenticated content: never let a shared cache hold a copy, and never
+    // served without revalidating first (see the ETag/If-None-Match block
+    // above - this is what makes revalidation cheap instead of a full re-fetch).
+    header('Cache-Control: private, no-cache');
     header('Pragma: no-cache');
+    header('ETag: ' . $etag);
 
     /* Deliberately NOT sent: X-Frame-Options. includes/header.php:12 and
        client/includes/header.php:36 send DENY, which is why neither may be

@@ -5588,7 +5588,7 @@ CREATE TABLE `kb_article_embeds` (
   `kb_article_embed_id` int(11) NOT NULL AUTO_INCREMENT,
   `kb_article_embed_kb_article_id` int(11) NOT NULL,
   `kb_article_embed_name` varchar(255) NOT NULL,
-  `kb_article_embed_untrusted_html` mediumtext DEFAULT NULL,
+  `kb_article_embed_untrusted_html` longtext DEFAULT NULL,
   `kb_article_embed_text` mediumtext DEFAULT NULL,
   `kb_article_embed_sha256` char(64) NOT NULL DEFAULT '',
   `kb_article_embed_height` int(11) NOT NULL DEFAULT 480,

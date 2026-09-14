@@ -154,7 +154,17 @@ final class HtmlImporter
     // The serve-side restatement of this exact number is at
     // agent/includes/kb_embed_serve.php:150 (KB_EMBED_MAX_BYTES). Both must
     // agree or a stored embed becomes a 413 nobody can explain.
-    private const MAX_EMBED_BYTES = 524288;     // 512 KiB
+    //
+    // Matches MAX_INPUT_BYTES above - raised from the original 512 KiB
+    // (picked at design time with no measurement behind it, unlike every
+    // other budget in this file) once nothing else turned out to actually
+    // cap it: kb_article_embed_untrusted_html is longtext (DB migration
+    // 2.6.82 -> 2.6.83, was mediumtext), delivery is a real HTTP response
+    // via iframe src= (no srcdoc/data: URI size ceiling in play), and
+    // max_allowed_packet was raised to 64 MiB to clear this with room for
+    // mysqli_real_escape_string() overhead on the INSERT in
+    // agent/post/kb_article.php.
+    private const MAX_EMBED_BYTES = 52428800;   // 50 MiB
 
     // Structural caps. MAX_NODES was originally 20,000 (the second half of
     // the ORIGINAL 2 MiB measurement above - 19,602 of them cost 126 ms),
@@ -357,7 +367,7 @@ final class HtmlImporter
             if (strlen($raw) > self::MAX_EMBED_BYTES) {
                 throw new HtmlImportException(
                     'That page is ' . $this->megabytes(strlen($raw)) . ' and an embedded tool may be at most '
-                    . round(self::MAX_EMBED_BYTES / 1024) . ' KB. Import it as article content instead, or trim the page.'
+                    . $this->megabytes(self::MAX_EMBED_BYTES) . '. Import it as article content instead, or trim the page.'
                 );
             }
             if (trim($text) === '' && stripos($utf8, '<script') === false) {
