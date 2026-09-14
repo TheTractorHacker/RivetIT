@@ -129,7 +129,7 @@ if (mysqli_num_rows($sql) == 0) {
             <div class="card card-dark mb-3">
                 <div class="card-header py-2"><h3 class="card-title mt-2"><i class="fa fa-fw fa-key me-2"></i>Public Key</h3></div>
                 <div class="card-body">
-                    <pre class="bg-light p-2 border rounded mb-0" style="max-height:300px;overflow:auto;white-space:pre-wrap;"><?= $certificate_public_key ?></pre>
+                    <pre class="bg-dark text-light p-2 rounded mb-0" style="max-height:300px;overflow:auto;white-space:pre-wrap;"><?= $certificate_public_key ?></pre>
                 </div>
             </div>
             <?php } ?>

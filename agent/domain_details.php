@@ -10,6 +10,7 @@ if (isset($_GET['client_id'])) {
 }
 
 enforceUserPermission('module_support');
+require_once "../includes/dns_intel.php";
 
 $domain_id = intval($_GET['id'] ?? 0);
 
@@ -78,6 +79,11 @@ if (mysqli_num_rows($sql) == 0) {
     } else {
         $expire_badge = ['label' => 'Active', 'class' => 'bg-success'];
     }
+
+    // "Who's who" - DNS/email provider and spam-filter gateway, pattern-matched
+    // from the already-stored NS/MX record text (includes/dns_intel.php).
+    $dns_providers = dnsIntelDnsProviders($domain_name_servers);
+    $email_intel   = dnsIntelEmailProviders($domain_mail_servers);
 
     // Certificates issued for this domain - the cross-link this page adds.
     $cert_sql = mysqli_query($mysqli, "SELECT certificate_id, certificate_name, certificate_issued_by, certificate_expire
@@ -148,6 +154,60 @@ if (mysqli_num_rows($sql) == 0) {
 
             <div class="card card-dark mb-3">
                 <div class="card-header py-2">
+                    <h3 class="card-title mt-2"><i class="fa fa-fw fa-address-card me-2"></i>Who&rsquo;s Who</h3>
+                </div>
+                <div class="card-body">
+                    <?php if (!$domain_registrar_name && empty($dns_providers) && empty($email_intel['mailbox']) && empty($email_intel['spam_filter'])) { ?>
+                        <p class="text-secondary mb-0">Nothing to identify yet &mdash; not refreshed from WHOIS/DNS, or none of the known providers matched. Registrar/DNS/MX still show as raw text below.</p>
+                    <?php } else { ?>
+                    <table class="table table-sm table-borderless mb-0">
+                        <tr>
+                            <td class="text-secondary" style="width:180px"><i class="fa fa-fw fa-building me-1"></i>Domain Registrar</td>
+                            <td>
+                                <?php if ($domain_registrar_name) { ?>
+                                    <span class="badge bg-primary"><?= $domain_registrar_name ?></span>
+                                <?php } else { ?>
+                                    <span class="text-secondary">Not identified from WHOIS yet</span>
+                                <?php } ?>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary"><i class="fa fa-fw fa-server me-1"></i>DNS Provider</td>
+                            <td>
+                                <?php if ($dns_providers) { foreach ($dns_providers as $p) { ?>
+                                    <span class="badge bg-info me-1"><?= nullable_htmlentities($p) ?></span>
+                                <?php } } else { ?>
+                                    <span class="text-secondary">Not identified from name servers</span>
+                                <?php } ?>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary"><i class="fa fa-fw fa-envelope me-1"></i>Email Provider</td>
+                            <td>
+                                <?php if ($email_intel['mailbox']) { foreach ($email_intel['mailbox'] as $p) { ?>
+                                    <span class="badge bg-success me-1"><?= nullable_htmlentities($p) ?></span>
+                                <?php } } else { ?>
+                                    <span class="text-secondary"><?= $email_intel['spam_filter'] ? 'Not visible — hidden behind the spam filter below' : 'Not identified from MX records' ?></span>
+                                <?php } ?>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary"><i class="fa fa-fw fa-shield-alt me-1"></i>Spam Filter</td>
+                            <td>
+                                <?php if ($email_intel['spam_filter']) { foreach ($email_intel['spam_filter'] as $p) { ?>
+                                    <span class="badge bg-warning text-dark me-1"><?= nullable_htmlentities($p) ?></span>
+                                <?php } } else { ?>
+                                    <span class="text-secondary">None detected in MX records</span>
+                                <?php } ?>
+                            </td>
+                        </tr>
+                    </table>
+                    <?php } ?>
+                </div>
+            </div>
+
+            <div class="card card-dark mb-3">
+                <div class="card-header py-2">
                     <h3 class="card-title mt-2"><i class="fa fa-fw fa-search-plus me-2"></i>WHOIS &amp; DNS Records</h3>
                 </div>
                 <div class="card-body">
@@ -189,7 +249,7 @@ if (mysqli_num_rows($sql) == 0) {
                             <i class="fas fa-fw fa-code me-1"></i>Show raw WHOIS
                         </button>
                         <div class="collapse mt-2" id="rawWhois">
-                            <pre class="bg-light p-2 border rounded" style="max-height:300px;overflow:auto;white-space:pre-wrap;"><?= $domain_raw_whois ?></pre>
+                            <pre class="bg-dark text-light p-2 rounded" style="max-height:300px;overflow:auto;white-space:pre-wrap;"><?= $domain_raw_whois ?></pre>
                         </div>
                     <?php } ?>
                     <?php } ?>
