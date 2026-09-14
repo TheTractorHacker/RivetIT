@@ -147,7 +147,11 @@ if (isset($_POST['add_ticket'])) {
     $ticket_number = mysqli_insert_id($mysqli);
 
     $resolved_assigned_to = resolveTicketAssignee(0);
-    $ticket_status = $resolved_assigned_to > 0 ? 2 : 1;
+    $ticket_status = resolveTicketCreationStatus($resolved_assigned_to);
+    // Customers don't always pick a category (or the dropdown's blank/"None"
+    // option is chosen) - fall back to "Remote" instead of leaving the ticket
+    // uncategorized.
+    $category = resolveTicketCategory($category);
 
     mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$config_ticket_prefix', ticket_number = $ticket_number, ticket_source = 'Portal', ticket_category = $category, ticket_subject = '$subject', ticket_details = '$details', ticket_priority = '$priority', ticket_status = $ticket_status, ticket_billable = $config_ticket_default_billable, ticket_created_by = $session_user_id, ticket_contact_id = $session_contact_id, ticket_asset_id = $asset, ticket_url_key = '$url_key', ticket_client_id = $session_client_id, ticket_assigned_to = $resolved_assigned_to");
     $ticket_id = mysqli_insert_id($mysqli);

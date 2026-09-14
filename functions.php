@@ -4194,6 +4194,42 @@ function resolveTicketAssignee(int $explicit_assigned_to): int {
     return intval($config_ticket_default_technician_id ?? 0);
 }
 
+// Resolves a ticket's category at creation time for the unattended creation
+// paths (API, client portal) - keeps an already-picked/validated category,
+// falls back to the "Remote" Ticket-type category when none was given, so
+// triage/reporting isn't left with a pile of uncategorized tickets from
+// sources where no human chose one. Looked up by name/type rather than a
+// hardcoded id, since category_id is per-install. Returns 0 (uncategorized,
+// today's existing behavior) if this install has no "Remote" category.
+function resolveTicketCategory(int $category_id): int {
+    global $mysqli;
+    if ($category_id > 0) {
+        return $category_id;
+    }
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT category_id FROM categories WHERE category_name = 'Remote' AND category_type = 'Ticket' AND category_archived_at IS NULL LIMIT 1"));
+    return $row ? intval($row['category_id']) : 0;
+}
+
+// Resolves a newly-created ticket's starting status for the unattended
+// creation paths (API, client portal): "Assigned" when the ticket already
+// has an agent on it at creation (an explicit assignee, or the configured
+// default technician via resolveTicketAssignee()), otherwise "New". Same
+// by-name-with-fallback lookup api/v1/tickets.php already used for "New"
+// alone, generalized to cover both names so an install that renamed or
+// deactivated either status still gets a sane status instead of 0.
+function resolveTicketCreationStatus(int $assigned_to): int {
+    global $mysqli;
+    $status_name = $assigned_to > 0 ? 'Assigned' : 'New';
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_name = '$status_name' AND ticket_status_active = 1 LIMIT 1"));
+    if (!$row) {
+        $row = mysqli_fetch_assoc(mysqli_query($mysqli,
+            "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_active = 1 ORDER BY ticket_status_order ASC, ticket_status_id ASC LIMIT 1"));
+    }
+    return $row ? intval($row['ticket_status_id']) : 0;
+}
+
 function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date, $subject, $message, $attachments, $original_message_file, $ccs, $mailbox_id = null) {
     global $mysqli, $config_app_name, $config_ticket_prefix, $config_ticket_client_general_notifications, $config_ticket_new_ticket_notification_email, $config_base_url, $config_ticket_from_name, $config_ticket_from_email, $config_ticket_default_billable;
     $company = getCompanyNameAndPhone();

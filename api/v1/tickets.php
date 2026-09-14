@@ -649,6 +649,9 @@ if ($method === 'POST' && $id === null) {
             "SELECT category_id FROM categories WHERE category_id = $category AND category_type = 'Ticket' AND category_archived_at IS NULL LIMIT 1"));
         if (!$cat_row) $category = 0;
     }
+    // API callers don't get a human picking a category the way the agent UI
+    // does - fall back to "Remote" instead of leaving the ticket uncategorized.
+    $category = resolveTicketCategory($category);
 
     // Auto-link to a matching asset for this client by hostname/asset name
     $asset_id = 0;
@@ -672,13 +675,9 @@ if ($method === 'POST' && $id === null) {
         WHERE company_id = 1
     ");
     $next_num = mysqli_insert_id($mysqli);
-    $status_row = mysqli_fetch_assoc(mysqli_query($mysqli,
-        "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_name = 'New' AND ticket_status_active = 1 LIMIT 1"));
-    if (!$status_row) {
-        $status_row = mysqli_fetch_assoc(mysqli_query($mysqli,
-            "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_active = 1 ORDER BY ticket_status_order ASC, ticket_status_id ASC LIMIT 1"));
-    }
-    $status = intval($status_row['ticket_status_id']);
+    // "Assigned" instead of "New" when the ticket already has an agent on it
+    // at creation (explicit assigned_to, or the configured default technician).
+    $status = resolveTicketCreationStatus($assigned);
 
     $prefix_esc = mysqli_real_escape_string($mysqli, $config_ticket_prefix ?? '');
 
