@@ -65,7 +65,7 @@ ob_start();
                                 <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                             </div>
                             <select class="form-control select2" name="client_id" required>
-                                <option value="">- Select Department -</option>
+                                <option value="">Select Department</option>
                                 <?php
 
                                 $sql = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");
@@ -88,7 +88,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
                         </div>
                         <select class="form-control select2" name="type" required>
-                            <option value="">- Select Type -</option>
+                            <option value="">Select Type</option>
                             <<?php
                             $sql_software_types_select = mysqli_query($mysqli, "
                                 SELECT category_name FROM categories
@@ -133,7 +133,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-building"></i></span>
                         </div>
                         <select class="form-control select2" name="vendor">
-                            <option value="">- Select Vendor -</option>
+                            <option value="">Select Vendor</option>
                             <?php
 
                             $sql = mysqli_query($mysqli, "SELECT vendor_name, vendor_id FROM vendors WHERE vendor_archived_at IS NULL AND vendor_client_id = $client_id ORDER BY vendor_name ASC");
@@ -169,7 +169,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-cube"></i></span>
                         </div>
                         <select class="form-control select2" name="license_type">
-                            <option value="">- Select a License Type -</option>
+                            <option value="">Select a License Type</option>
                             <?php foreach ($license_types_array as $license_type) { ?>
                                 <option><?php echo $license_type; ?></option>
                             <?php } ?>

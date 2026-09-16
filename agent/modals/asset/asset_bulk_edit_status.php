@@ -29,7 +29,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-circle"></i></span>
                 </div>
                 <select class="form-control select2" name="bulk_status">
-                    <option value="">- Select Status -</option>
+                    <option value="">Select Status</option>
                     <?php
                     $sql_interface_types_select = mysqli_query($mysqli, "
                         SELECT category_name FROM categories

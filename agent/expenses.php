@@ -141,7 +141,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             <div class="form-group">
                                 <label>Vendor</label>
                                 <select class="form-control select2 auto-submit-select" name="vendor">
-                                    <option value="">- All Vendors -</option>
+                                    <option value="">All Vendors</option>
 
                                     <?php
                                     $sql_vendors_filter = mysqli_query($mysqli, "SELECT vendor_id, vendor_name FROM vendors WHERE EXISTS (SELECT 1 FROM expenses WHERE expense_vendor_id = vendor_id) ORDER BY vendor_name ASC");
@@ -162,7 +162,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             <div class="form-group">
                                 <label>Category</label>
                                 <select class="form-control select2 auto-submit-select" name="category">
-                                    <option value="">- All Categories -</option>
+                                    <option value="">All Categories</option>
 
                                     <?php
                                     $sql_categories_filter = mysqli_query($mysqli, "SELECT category_id, category_name FROM categories WHERE category_type = 'Expense' AND EXISTS (SELECT 1 FROM expenses WHERE expense_category_id = category_id) ORDER BY category_name ASC");
@@ -182,7 +182,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             <div class="form-group">
                                 <label>Account</label>
                                 <select class="form-control select2 auto-submit-select" name="account">
-                                    <option value="">- All Accounts -</option>
+                                    <option value="">All Accounts</option>
 
                                     <?php
                                     $sql_accounts_filter = mysqli_query($mysqli, "SELECT account_id, account_name FROM accounts WHERE EXISTS (SELECT 1 FROM expenses WHERE expense_account_id = account_id) ORDER BY account_name ASC");

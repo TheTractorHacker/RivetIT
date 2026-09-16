@@ -171,6 +171,11 @@ $config_currency_format = "US_en";
 $config_timezone = $row['config_timezone'];
 $config_date_format = "M d, Y";
 $config_time_format = "g:i A";
+// Phone Numbers (Admin > Localization): default calling code prefilled into
+// new records' phone_country_code boxes, and whether WhatsApp click-to-chat
+// links are offered next to mobile numbers app-wide.
+$config_phone_default_country_code = $row['config_phone_default_country_code'] ?? '1';
+$config_whatsapp_enabled = intval($row['config_whatsapp_enabled'] ?? 0);
 
 // Theme
 $config_theme = $row['config_theme'];

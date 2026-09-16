@@ -103,7 +103,7 @@ ob_start();
                             </div>
 
                             <select class="form-control select2" name="category">
-                                <option value="">- Select a Category -</option>
+                                <option value="">Select a Category</option>
                                 <?php
                                 $sql = mysqli_query($mysqli, "SELECT * FROM categories WHERE category_type = 'Income' AND category_archived_at IS NULL ORDER BY category_name ASC");
                                 while ($row = mysqli_fetch_assoc($sql)) {

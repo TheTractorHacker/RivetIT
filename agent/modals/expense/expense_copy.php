@@ -174,7 +174,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                         </div>
                         <select class="form-control select2" name="client_id">
-                            <option value="">- Select Department -</option>
+                            <option value="">Select Department</option>
                             <?php
 
                             $sql_clients = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients ORDER BY client_name ASC");

@@ -72,7 +72,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <div class="col-sm-3">
                         <div class="form-group">
                             <select class="form-control select2 auto-submit-select" name="outcome">
-                                <option value="">- All Outcomes -</option>
+                                <option value="">All Outcomes</option>
                                 <?php foreach ($outcome_labels as $key => $info) { ?>
                                     <option value="<?= $key ?>" <?php if ($outcome_filter === $key) { echo "selected"; } ?>><?= $info['label'] ?></option>
                                 <?php } ?>
@@ -83,7 +83,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <div class="col-sm-3">
                         <div class="form-group">
                             <select class="form-control select2 auto-submit-select" name="mailbox_id">
-                                <option value="">- All Mailboxes -</option>
+                                <option value="">All Mailboxes</option>
                                 <?php
                                 $sql_mailboxes_filter = mysqli_query($mysqli, "SELECT mailbox_id, mailbox_name FROM mailboxes WHERE mailbox_archived_at IS NULL ORDER BY mailbox_name ASC");
                                 while ($mb_row = mysqli_fetch_assoc($sql_mailboxes_filter)) {

@@ -283,7 +283,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                 <div class="col-md-3">
                     <div class="input-group mb-3 mb-md-0">
                         <select class="form-control select2 auto-submit-select" name="location">
-                            <option value="">- All Locations -</option>
+                            <option value="">All Locations</option>
 
                             <?php
                             $sql_locations_filter = mysqli_query($mysqli, "

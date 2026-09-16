@@ -69,7 +69,7 @@ $change_risk_badge = [
             <div class="row align-items-center">
                 <div class="col-auto mb-2">
                     <select class="form-control select2 auto-submit-select" name="status" data-placeholder="Status" style="width:170px;">
-                        <option value="">- All Statuses -</option>
+                        <option value="">All Statuses</option>
                         <?php foreach (['draft' => 'Draft', 'awaiting_approval' => 'Awaiting Approval', 'approved' => 'Approved', 'scheduled' => 'Scheduled', 'in_progress' => 'In Progress', 'successful' => 'Successful', 'failed' => 'Failed', 'rolled_back' => 'Rolled Back', 'cancelled' => 'Cancelled'] as $val => $label) { ?>
                             <option value="<?= $val ?>" <?= $status_filter === $val ? 'selected' : '' ?>><?= $label ?></option>
                         <?php } ?>
@@ -77,7 +77,7 @@ $change_risk_badge = [
                 </div>
                 <div class="col-auto mb-2">
                     <select class="form-control select2 auto-submit-select" name="risk" data-placeholder="Risk" style="width:130px;">
-                        <option value="">- All Risk -</option>
+                        <option value="">All Risk</option>
                         <?php foreach (['low' => 'Low', 'medium' => 'Medium', 'high' => 'High'] as $val => $label) { ?>
                             <option value="<?= $val ?>" <?= $risk_filter === $val ? 'selected' : '' ?>><?= $label ?></option>
                         <?php } ?>

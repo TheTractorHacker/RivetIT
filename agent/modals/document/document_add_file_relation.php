@@ -18,7 +18,7 @@
                                 <span class="input-group-text"><i class="fa fa-fw fa-paperclip"></i></span>
                             </div>
                             <select class="form-control select2" name="file_id">
-                                <option value="">- Select a File -</option>
+                                <option value="">Select a File</option>
                                 <?php
                                 $sql_files_select = mysqli_query($mysqli, "SELECT * FROM files
                                     LEFT JOIN folders ON folder_id = file_folder_id

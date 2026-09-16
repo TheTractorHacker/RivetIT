@@ -237,7 +237,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <div class="col-sm-3">
                     <div class="form-group mb-md-0">
                         <select class="form-control select2 auto-submit-select" name="category">
-                            <option value="">- All Categories -</option>
+                            <option value="">All Categories</option>
 
                             <?php
                             $sql_categories_filter = mysqli_query($mysqli, "SELECT category_id, category_name FROM categories WHERE category_type = 'Income' AND EXISTS (SELECT 1 FROM invoices WHERE invoice_category_id = category_id) ORDER BY category_name ASC");

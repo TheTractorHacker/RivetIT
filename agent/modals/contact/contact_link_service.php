@@ -36,7 +36,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-stream"></i></span>
                 </div>
                 <select class="form-control select2" name="service_id">
-                    <option value="">- Select a Service -</option>
+                    <option value="">Select a Service</option>
                     <?php
                     $sql_services_select = mysqli_query($mysqli, "
                         SELECT services.service_id, services.service_name

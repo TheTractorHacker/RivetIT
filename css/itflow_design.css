@@ -232,6 +232,24 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
   min-width: 0; max-width: 100%;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* "- Department -"-style first options (client_id/location/vendor/category
+   pickers) exist only so a required <select> starts on no real choice - Tom
+   Select's global allowEmptyOption:true (js/app.js) always renders that empty
+   value as a genuine selected item, not as its own placeholder mechanism, so
+   the label showed up as ordinary dark selected text instead of a soft hint.
+   Tom Select does mark the rendered item with data-value="" though, so once
+   the option's own text is trimmed down to a plain label (no more "- -"
+   wrapping - see the option text itself), this alone makes it read exactly
+   like the grey placeholder text in every other input on these same forms. */
+.ts-control .item[data-value=""] { color: var(--if-muted) !important; font-weight: 400; }
+/* Country-code inputs ("+1", "+44"...) are capped at 4 characters but were
+   sized with Bootstrap's .col-2 grid class (16.67% of the input-group) - a
+   grid utility repurposed as a "keep it small" hack, and wildly oversized for
+   what it holds. agent/modals/location/*.php had already solved this per-field
+   with an inline flex-grow-0 + width:4.5rem; promoted here into one shared
+   class so every phone/mobile/fax country-code box in the app sizes the same
+   way without repeating the inline style. */
+.form-control.phone-country-code { flex: 0 0 auto; width: 4.5rem; }
 /* Tom Select leaves the original <select> in place as a hidden first child, so
    when the wrapper is alone in an .input-group Bootstrap's "not the first child"
    rule squares off its left corners (and pulls it 1px left to overlap a border

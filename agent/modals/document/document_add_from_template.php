@@ -29,7 +29,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-puzzle-piece"></i></span>
                 </div>
                 <select class="form-control" name="document_template_id" required>
-                    <option value="">- Select Template -</option>
+                    <option value="">Select Template</option>
                     <?php
                     $sql_document_templates = mysqli_query($mysqli, "SELECT * FROM document_templates WHERE document_template_archived_at IS NULL ORDER BY document_template_name ASC");
                     while ($row = mysqli_fetch_assoc($sql_document_templates)) {

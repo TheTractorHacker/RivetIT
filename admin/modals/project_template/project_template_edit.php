@@ -52,7 +52,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-file-contract"></i></span>
                 </div>
                 <select class="form-control select2" name="default_contract_template_id">
-                    <option value="">- None -</option>
+                    <option value="">None</option>
                     <?php
                     $sql_contract_templates = mysqli_query($mysqli, "SELECT contract_template_id, contract_template_name FROM contract_templates WHERE contract_template_archived_at IS NULL ORDER BY contract_template_name ASC");
                     while ($contract_template_row = mysqli_fetch_assoc($sql_contract_templates)) {

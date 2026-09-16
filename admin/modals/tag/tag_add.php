@@ -61,7 +61,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-th"></i></span>
                 </div>
                 <select class="form-control select2" name="type" required>
-                    <option value="">- Type -</option>
+                    <option value="">Type</option>
                     <option value="1">Department Tag</option>
                     <option value="2">Location Tag</option>
                     <option value="3">Contact Tag</option>

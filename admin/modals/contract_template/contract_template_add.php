@@ -65,7 +65,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-list"></i></span>
                         </div>
                         <select class="form-control select2" name="type" required>
-                            <option value="">- Select Type -</option>
+                            <option value="">Select Type</option>
                             <?php foreach ($contract_types_array as $type) { ?>
                                 <option><?= $type ?></option>
                             <?php } ?>
@@ -80,7 +80,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-sync-alt"></i></span>
                         </div>
                         <select class="form-control select2" name="renewal_frequency">
-                            <option value="">- Select Frequency -</option>
+                            <option value="">Select Frequency</option>
                             <?php foreach ($renewal_frequency_array as $renewal_frequency) { ?>
                                 <option><?= $renewal_frequency ?></option>
                             <?php } ?>

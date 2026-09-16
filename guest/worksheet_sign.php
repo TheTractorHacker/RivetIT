@@ -172,7 +172,7 @@ $fields = mysqli_query($mysqli, "SELECT f.*, COALESCE(r.response_value,'') AS re
                 <span class="field-label"><?= $fname ?> <?= $freq ? '<span style="color:red">*</span>' : '' ?></span>
                 <span class="field-input">
                     <select class="form-control form-control-sm" name="field_<?= $fid ?>" <?= $freq ? 'required' : '' ?>>
-                        <option value="">- Select -</option>
+                        <option value="">Select</option>
                         <?php foreach (array_filter(explode("\n", $fopts)) as $opt) {
                             $opt = trim($opt);
                             echo "<option" . ($fval === $opt ? ' selected' : '') . ">" . htmlspecialchars($opt) . "</option>";

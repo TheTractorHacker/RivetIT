@@ -211,7 +211,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-globe-americas"></i></span>
                         </div>
                         <select class="form-control select2" id="location_country<?php echo $location_id; ?>" name="country">
-                            <option value="">- Country -</option>
+                            <option value="">Country</option>
                             <?php foreach($countries_array as $country_name) { ?>
                                 <option <?php if ($location_country == $country_name) { echo "selected"; } ?>><?php echo $country_name; ?></option>
                             <?php } ?>
@@ -230,7 +230,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                         </div>
                         <select class="form-control select2" id="location_contact<?php echo $location_id; ?>" name="contact">
-                            <option value="">- Contact -</option>
+                            <option value="">Contact</option>
                             <?php
 
                             $sql_contacts = mysqli_query($mysqli, "SELECT * FROM contacts WHERE (contact_archived_at > '$location_created_at' OR contact_archived_at IS NULL) AND contact_client_id = $client_id ORDER BY contact_archived_at ASC, contact_name ASC");
@@ -260,8 +260,8 @@ ob_start();
                                 <div class="input-group-prepend">
                                     <span class="input-group-text"><i class="fa fa-fw fa-phone"></i></span>
                                 </div>
-                                <input type="tel" class="form-control flex-grow-0" style="width:4.5rem;" name="phone_country_code" value="<?php echo $location_phone_country_code; ?>" placeholder="+" maxlength="4" aria-label="Phone country code">
-                                <input type="tel" class="form-control" id="location_phone<?php echo $location_id; ?>" name="phone" value="<?php echo $location_phone; ?>" placeholder="Phone Number" maxlength="200">
+                                <input type="tel" class="form-control phone-country-code" name="phone_country_code" value="<?php echo $location_phone_country_code; ?>" placeholder="+" maxlength="4" aria-label="Phone country code">
+                                <input type="tel" class="form-control phone-number-format" id="location_phone<?php echo $location_id; ?>" name="phone" value="<?php echo $location_phone; ?>" placeholder="Phone Number" maxlength="200">
                             </div>
                         </div>
                     </div>
@@ -279,8 +279,8 @@ ob_start();
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-fax"></i></span>
                         </div>
-                        <input type="tel" class="form-control flex-grow-0" style="width:4.5rem;" name="fax_country_code" value="<?php echo $location_fax_country_code; ?>" placeholder="+" maxlength="4" aria-label="Fax country code">
-                        <input type="tel" class="form-control" id="location_fax<?php echo $location_id; ?>" name="fax" value="<?php echo $location_fax; ?>" placeholder="Fax Number" maxlength="200">
+                        <input type="tel" class="form-control phone-country-code" name="fax_country_code" value="<?php echo $location_fax_country_code; ?>" placeholder="+" maxlength="4" aria-label="Fax country code">
+                        <input type="tel" class="form-control phone-number-format" id="location_fax<?php echo $location_id; ?>" name="fax" value="<?php echo $location_fax; ?>" placeholder="Fax Number" maxlength="200">
                     </div>
                 </div>
 

@@ -18,7 +18,7 @@
                                 <span class="input-group-text"><i class="fa fa-fw fa-desktop"></i></span>
                             </div>
                             <select class="form-control select2" name="asset_id">
-                                <option value="">- Select an Asset -</option>
+                                <option value="">Select an Asset</option>
                                 <?php
 
                                 $sql_assets_select = mysqli_query($mysqli, "SELECT * FROM assets

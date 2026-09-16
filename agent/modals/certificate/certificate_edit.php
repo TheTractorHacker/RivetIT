@@ -88,7 +88,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-globe"></i></span>
                         </div>
                         <select class="form-control select2" name="domain_id">
-                            <option value="">- Select Domain -</option>
+                            <option value="">Select Domain</option>
                             <?php
                             $domains_sql = mysqli_query($mysqli, "SELECT domain_id, domain_name FROM domains WHERE domain_client_id = $client_id");
                             while ($row = mysqli_fetch_assoc($domains_sql)) {

@@ -89,7 +89,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-thermometer-half"></i></span>
                         </div>
                         <select class="form-control select2" name="default_priority">
-                            <option value="">- Not set -</option>
+                            <option value="">Not set</option>
                             <option>Low</option>
                             <option selected>Medium</option>
                             <option>High</option>

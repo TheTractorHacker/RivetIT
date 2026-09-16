@@ -87,8 +87,8 @@ ob_start();
                                 <div class="input-group-prepend">
                                     <span class="input-group-text"><i class="fa fa-fw fa-phone"></i></span>
                                 </div>
-                                <input type="tel" class="form-control col-2" name="phone_country_code" placeholder="+" maxlength="4">
-                                <input type="tel" class="form-control" name="phone" placeholder="Phone Number" maxlength="200">
+                                <input type="tel" class="form-control phone-country-code" name="phone_country_code" value="<?php echo $config_phone_default_country_code ?? '1'; ?>" placeholder="+" maxlength="4">
+                                <input type="tel" class="form-control phone-number-format" name="phone" placeholder="Phone Number" maxlength="200">
                             </div>
                         </div>
                     </div>

@@ -37,7 +37,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-money-check-alt"></i></span>
                 </div>
                 <select class="form-control select2" name="saved_payment_id" required>
-                    <option value="">- Saved Payment Methods -</option>
+                    <option value="">Saved Payment Methods</option>
                     <?php
 
                     $sql = mysqli_query($mysqli, "SELECT * FROM client_saved_payment_methods WHERE saved_payment_client_id = $client_id ORDER BY saved_payment_description ASC");

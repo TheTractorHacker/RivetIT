@@ -31,7 +31,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-network-wired"></i></span>
                 </div>
                 <select class="form-control select2" name="bulk_network">
-                    <option value="">- Select a Network -</option>
+                    <option value="">Select a Network</option>
                     <?php
                     $sql_network_select = mysqli_query($mysqli, "
                         SELECT network_id, network_name, network

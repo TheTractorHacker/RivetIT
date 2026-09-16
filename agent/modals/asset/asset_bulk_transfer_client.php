@@ -36,7 +36,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-users"></i></span>
                 </div>
                 <select class="form-control select2" name="bulk_client_id">
-                    <option value="">- Select Department -</option>
+                    <option value="">Select Department</option>
                     <?php
                         $clients_sql = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL $client_select_query");
 

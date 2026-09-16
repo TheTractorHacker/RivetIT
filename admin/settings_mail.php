@@ -421,7 +421,7 @@ require_once "includes/inc_all_admin.php";
 
                 <div class="input-group">
                     <select class="form-control select2" name="test_email" required>
-                        <option value="">- Select an Email Address to send from -</option>
+                        <option value="">Select an Email Address to send from</option>
                         <?php
                         if ($config_mail_from_email) {
                         ?>

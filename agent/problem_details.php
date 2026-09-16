@@ -169,7 +169,7 @@ $available_changes = mysqli_query(
                         <input type="hidden" name="problem_id" value="<?= $problem_id ?>">
                         <div class="form-group">
                             <select class="form-control select2" name="change_id" required>
-                                <option value="">- Select Change -</option>
+                                <option value="">Select Change</option>
                                 <?php while ($c = mysqli_fetch_assoc($available_changes)) { ?>
                                     <option value="<?= intval($c['change_id']) ?>"><?= nullable_htmlentities($c['title']) ?></option>
                                 <?php } ?>

@@ -65,7 +65,7 @@ ob_start();
                         <span class="input-group-text"><i class="fa fa-fw fa-piggy-bank"></i></span>
                     </div>
                     <select class="form-control select2" name="account" required>
-                        <option value="">- Select Account -</option>
+                        <option value="">Select Account</option>
                         <?php
 
                         $sql_accounts = mysqli_query($mysqli, "SELECT * FROM accounts WHERE (account_archived_at > '$revenue_created_at' OR account_archived_at IS NULL) ORDER BY account_archived_at ASC, account_name ASC");
@@ -111,7 +111,7 @@ ob_start();
                         <span class="input-group-text"><i class="fa fa-fw fa-money-check-alt"></i></span>
                     </div>
                     <select class="form-control select2" name="category" required>
-                        <option value="">- Select Category -</option>
+                        <option value="">Select Category</option>
                         <?php
 
                         $sql_category = mysqli_query($mysqli, "SELECT * FROM categories WHERE category_type = 'Income' AND (category_archived_at > '$revenue_created_at' OR category_archived_at IS NULL) ORDER BY category_name ASC");
@@ -150,7 +150,7 @@ ob_start();
                         <span class="input-group-text"><i class="fa fa-fw fa-money-check-alt"></i></span>
                     </div>
                     <select class="form-control select2" name="payment_method" required>
-                        <option value="">- Select Method of Payment -</option>
+                        <option value="">Select Method of Payment</option>
                         <?php
 
                         $sql_categories = mysqli_query($mysqli, "SELECT * FROM payment_methods ORDER BY payment_method_name ASC");

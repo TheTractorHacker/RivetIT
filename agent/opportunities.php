@@ -95,7 +95,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 </div>
                 <div class="col-sm-3">
                     <select class="form-control select2 auto-submit-select" name="stage">
-                        <option value="">- All Stages -</option>
+                        <option value="">All Stages</option>
                         <?php foreach ($stages as $stage_name => $stage_prob) { ?>
                             <option value="<?php echo $stage_name; ?>" <?php if ($stage_filter === $stage_name) { echo 'selected'; } ?>><?php echo $stage_name; ?></option>
                         <?php } ?>

@@ -47,7 +47,7 @@ ob_start();
                                 <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                             </div>
                             <select class="form-control select2" name="client_id" required>
-                                <option value="">- Select Department -</option>
+                                <option value="">Select Department</option>
                                 <?php
 
                                 $sql = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");
@@ -91,7 +91,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-globe"></i></span>
                         </div>
                         <select class="form-control select2" name="domain_id">
-                            <option value="">- Domain -</option>
+                            <option value="">Domain</option>
                             <?php
                             $domains_sql = mysqli_query($mysqli, "SELECT * FROM domains WHERE domain_archived_at IS NULL AND domain_client_id = $client_id ORDER BY domain_name ASC");
                             while ($domain_row = mysqli_fetch_assoc($domains_sql)) {

@@ -632,7 +632,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                 <div class="row align-items-center filter-row-nowrap">
                     <div class="col-auto mb-2">
                         <select class="form-control select2 auto-submit-select" name="board" data-placeholder="Board" data-searchable="0" style="width:150px;">
-                            <option value="">- All Boards -</option>
+                            <option value="">All Boards</option>
                             <?php
                             while ($row = mysqli_fetch_assoc($sql_boards_filter)) {
                                 $board_id = intval($row['category_id']);
@@ -644,7 +644,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                     </div>
                     <div class="col-auto mb-2">
                         <select class="form-control select2 auto-submit-select" name="category" data-placeholder="Category" data-searchable="0" style="width:170px;">
-                            <option value="">- All Categories -</option>
+                            <option value="">All Categories</option>
                             <?php
                             while ($row = mysqli_fetch_assoc($sql_categories_filter)) {
                                 $category_id = intval($row['category_id']);

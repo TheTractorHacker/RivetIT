@@ -47,7 +47,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-piggy-bank"></i></span>
                 </div>
                 <select class="form-control select2" name="account_from" required>
-                    <option value="">- Account From -</option>
+                    <option value="">Account From</option>
                     <?php
 
                     $sql = mysqli_query($mysqli, "SELECT * FROM accounts WHERE account_archived_at IS NULL ORDER BY account_name ASC");
@@ -85,7 +85,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-arrow-right"></i></span>
                 </div>
                 <select class="form-control select2" name="account_to" required>
-                    <option value="">- Account To -</option>
+                    <option value="">Account To</option>
                     <?php
 
                     $sql = mysqli_query($mysqli, "SELECT * FROM accounts WHERE account_archived_at IS NULL ORDER BY account_name ASC");
@@ -156,7 +156,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-money-check-alt"></i></span>
                 </div>
                 <select class="form-control select2" name="transfer_method">
-                    <option value="">- Method of Transfer -</option>
+                    <option value="">Method of Transfer</option>
                     <?php
 
                     $sql = mysqli_query($mysqli, "SELECT * FROM payment_methods ORDER BY payment_method_name ASC");

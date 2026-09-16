@@ -62,7 +62,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-server"></i></span>
                         </div>
                         <select class="form-control select2" name="type" required>
-                            <option value="">- Type -</option>
+                            <option value="">Type</option>
                             <?php
                             $sql_rack_types_select = mysqli_query($mysqli, "
                                 SELECT category_name FROM categories
@@ -128,7 +128,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-map-marker-alt"></i></span>
                         </div>
                         <select class="form-control select2" name="location">
-                            <option value="">- Location -</option>
+                            <option value="">Location</option>
                             <?php
 
                             $sql_location_select = mysqli_query($mysqli, "SELECT * FROM locations WHERE location_archived_at IS NULL AND location_client_id = $client_id ORDER BY location_name ASC");

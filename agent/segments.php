@@ -61,7 +61,7 @@ $sql_segments = mysqli_query($mysqli, "SELECT * FROM crm_segments ORDER BY segme
                     <div class="form-group">
                         <label>Lead / Customer Status</label>
                         <select class="form-control" name="lead_status" id="seg_lead_status">
-                            <option value="">- Any -</option>
+                            <option value="">Any</option>
                             <option value="lead">Leads only</option>
                             <option value="customer">Customers only</option>
                         </select>

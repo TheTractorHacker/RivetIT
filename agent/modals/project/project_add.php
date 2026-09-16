@@ -59,7 +59,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-cube"></i></span>
                 </div>
                 <select class="form-control select2" name="project_template_id" id="project_template_id">
-                    <option value="">- Template -</option>
+                    <option value="">Template</option>
                     <?php
                     $sql = mysqli_query($mysqli, "SELECT * FROM project_templates WHERE project_template_archived_at IS NULL ORDER BY project_template_name ASC");
                     while ($row = mysqli_fetch_assoc($sql)) {
@@ -81,7 +81,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-file-contract"></i></span>
                 </div>
                 <select class="form-control select2" name="contract_template_id">
-                    <option value="">- None -</option>
+                    <option value="">None</option>
                     <?php
                     $sql_contract_templates = mysqli_query($mysqli, "SELECT contract_template_id, contract_template_name FROM contract_templates WHERE contract_template_archived_at IS NULL ORDER BY contract_template_name ASC");
                     while ($contract_template_row = mysqli_fetch_assoc($sql_contract_templates)) {

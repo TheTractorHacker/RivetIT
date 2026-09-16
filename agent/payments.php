@@ -88,7 +88,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <div class="col-md-2">
                         <div class="input-group mb-3 mb-sm-0">
                             <select class="form-control select2 auto-submit-select" name="account">
-                                <option value="">- All Accounts -</option>
+                                <option value="">All Accounts</option>
 
                                 <?php
                                 $sql_accounts_filter = mysqli_query($mysqli, "SELECT account_id, account_name FROM accounts WHERE EXISTS (SELECT 1 FROM payments WHERE payment_account_id = account_id) ORDER BY account_name ASC");
@@ -108,7 +108,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <div class="col-sm-2">
                         <div class="input-group">
                             <select class="form-control select2 auto-submit-select" name="method">
-                                <option value="">- All Payment Methods -</option>
+                                <option value="">All Payment Methods</option>
 
                                 <?php
                                 $sql_payment_methods_filter = mysqli_query($mysqli, "SELECT DISTINCT payment_method FROM payments WHERE payment_method != '' ORDER BY payment_method ASC");

@@ -122,7 +122,7 @@ $is_completed = !empty($completed_at);
                 <div class="form-group">
                     <label><?= $fname ?> <?= $freq ? '<strong class="text-danger">*</strong>' : '' ?></label>
                     <select class="form-control select2" name="field_<?= $fid ?>" <?= $freq ? 'required' : '' ?> <?= $disabled ?>>
-                        <option value="">- Select -</option>
+                        <option value="">Select</option>
                         <?php foreach (array_filter(explode("\n", $fopts)) as $opt) {
                             $opt = trim($opt);
                             echo "<option value=\"" . htmlspecialchars($opt) . "\"" . ($fval === $opt ? ' selected' : '') . ">" . htmlspecialchars($opt) . "</option>";

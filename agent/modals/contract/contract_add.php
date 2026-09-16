@@ -16,7 +16,7 @@ ob_start();
         <div class="form-group">
             <label>Department <strong class="text-danger">*</strong></label>
             <select class="form-control select2" name="contract_client_id" required>
-                <option value="">- Select Department -</option>
+                <option value="">Select Department</option>
                 <?php $sql_c = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL ORDER BY client_name");
                 while ($c = mysqli_fetch_assoc($sql_c)) echo "<option value=\"{$c['client_id']}\">{$c['client_name']}</option>"; ?>
             </select>
@@ -35,7 +35,7 @@ ob_start();
             <div class="form-group col-md-6">
                 <label>Type</label>
                 <select class="form-control select2" name="contract_type">
-                    <option value="">- Select Type -</option>
+                    <option value="">Select Type</option>
                     <?php foreach ($contract_types as $t) echo "<option>$t</option>"; ?>
                 </select>
             </div>
@@ -57,7 +57,7 @@ ob_start();
             <div class="form-group col-md-6">
                 <label>Billing Frequency</label>
                 <select class="form-control select2" name="contract_renewal_frequency">
-                    <option value="">- Select -</option>
+                    <option value="">Select</option>
                     <option>Monthly</option>
                     <option>Quarterly</option>
                     <option>Annual</option>

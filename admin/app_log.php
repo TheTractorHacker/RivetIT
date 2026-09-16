@@ -62,7 +62,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <div class="col-sm-2">
                         <div class="form-group">
                             <select class="form-control select2 auto-submit-select" name="type">
-                                <option value="">- All Types -</option>
+                                <option value="">All Types</option>
 
                                 <?php
                                 $sql_types_filter = mysqli_query($mysqli, "SELECT DISTINCT app_log_type FROM app_logs ORDER BY app_log_type ASC");
@@ -81,7 +81,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <div class="col-sm-2">
                         <div class="form-group">
                             <select class="form-control select2 auto-submit-select" name="category">
-                                <option value="">- All Categories -</option>
+                                <option value="">All Categories</option>
 
                                 <?php
                                 $sql_categories_filter = mysqli_query($mysqli, "SELECT DISTINCT app_log_category FROM app_logs ORDER BY app_log_category ASC");

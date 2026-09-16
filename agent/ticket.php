@@ -2019,7 +2019,7 @@ if (isset($_GET['ticket_id'])) {
                                         <div class="form-group mt-2 mb-1">
                                             <label class="mb-0 small text-secondary"><?= $fname ?></label>
                                             <select class="form-control form-control-sm" name="field_<?= $fid ?>" <?= $fdisabled ?>>
-                                                <option value="">- Select -</option>
+                                                <option value="">Select</option>
                                                 <?php foreach (array_filter(explode("
 ", $fopts)) as $opt) {
                                                     $opt = trim($opt);

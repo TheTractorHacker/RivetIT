@@ -39,7 +39,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-cube"></i></span>
                 </div>
                 <select class="form-control select2" name="software_id">
-                    <option value="">- Select a Device Software License -</option>
+                    <option value="">Select a Device Software License</option>
                     <?php
                     $sql_software_select = mysqli_query($mysqli, "
                         SELECT software.software_id, software.software_name

@@ -27,7 +27,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-life-ring"></i></span>
                 </div>
                 <select class="form-control select2" name="ticket_template_id" required>
-                    <option value="">- Select a Ticket Template -</option>
+                    <option value="">Select a Ticket Template</option>
                     <?php
 
                     $sql_ticket_templates_select = mysqli_query($mysqli, "SELECT ticket_template_id, ticket_template_name FROM ticket_templates

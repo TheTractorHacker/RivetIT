@@ -45,7 +45,7 @@ ob_start();
                                 <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                             </div>
                             <select class="form-control select2" name="client_id" required>
-                                <option value="">- Select Department -</option>
+                                <option value="">Select Department</option>
                                 <?php
 
                                 $sql = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");
@@ -106,7 +106,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-server"></i></span>
                         </div>
                         <select class="form-control select2" name="registrar">
-                            <option value="">- Vendor -</option>
+                            <option value="">Vendor</option>
                             <?php
 
                             $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = $client_id OR vendor_client_id = 0) ORDER BY (vendor_client_id = 0), vendor_name ASC");
@@ -127,7 +127,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-server"></i></span>
                         </div>
                         <select class="form-control select2" name="webhost">
-                            <option value="">- Vendor -</option>
+                            <option value="">Vendor</option>
                             <?php
 
                             $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = $client_id OR vendor_client_id = 0) ORDER BY (vendor_client_id = 0), vendor_name ASC");
@@ -148,7 +148,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-server"></i></span>
                         </div>
                         <select class="form-control select2" name="dnshost">
-                            <option value="">- Vendor -</option>
+                            <option value="">Vendor</option>
                             <?php
 
                             $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = $client_id OR vendor_client_id = 0) ORDER BY (vendor_client_id = 0), vendor_name ASC");
@@ -169,7 +169,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-envelope"></i></span>
                         </div>
                         <select class="form-control select2" name="mailhost">
-                            <option value="">- Vendor -</option>
+                            <option value="">Vendor</option>
                             <?php
 
                             $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = $client_id OR vendor_client_id = 0) ORDER BY (vendor_client_id = 0), vendor_name ASC");

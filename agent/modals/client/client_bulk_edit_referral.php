@@ -29,7 +29,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-link"></i></span>
                 </div>
                 <select class="form-control select2" name="bulk_referral">
-                    <option value="">- Select a Referral -</option>
+                    <option value="">Select a Referral</option>
                     <?php
                     $referral_sql = mysqli_query($mysqli, "SELECT * FROM categories WHERE category_type = 'Referral' AND category_archived_at IS NULL ORDER BY category_name ASC");
                     while ($row = mysqli_fetch_assoc($referral_sql)) {

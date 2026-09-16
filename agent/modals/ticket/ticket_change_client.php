@@ -58,7 +58,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                 </div>
                 <select class="form-control select2" name="new_contact_id" id="contact_select">
-                    <option value="">- Select a contact -</option>
+                    <option value="">Select a contact</option>
                 </select>
             </div>
         </div>

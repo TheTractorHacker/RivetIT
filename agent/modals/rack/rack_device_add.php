@@ -47,7 +47,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-desktop"></i></span>
                 </div>
                 <select class="form-control select2" name="asset">
-                    <option value="">- Select Asset -</option>
+                    <option value="">Select Asset</option>
                     <?php
                     // Fetch IDs of all assets already assigned to any rack
                     $assigned_assets = [];

@@ -30,7 +30,7 @@ $category_types_array = ['Expense', 'Income', 'Referral', 'Ticket'];
                     <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
                 </div>
                 <select class="form-control select2" name="type" required>
-                    <option value="">- Select Type -</option>
+                    <option value="">Select Type</option>
                     <?php foreach ($category_types_array as $type_select) { ?>
                         <option><?= $type_select ?></option>
                     <?php } ?>

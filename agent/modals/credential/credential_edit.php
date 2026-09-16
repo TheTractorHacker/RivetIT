@@ -212,7 +212,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                         </div>
                         <select class="form-control select2" name="contact">
-                            <option value="">- Select Contact -</option>
+                            <option value="">Select Contact</option>
                             <?php
 
                             $sql_contacts = mysqli_query($mysqli, "SELECT contact_id, contact_name FROM contacts WHERE contact_client_id = $client_id ORDER BY contact_name ASC");

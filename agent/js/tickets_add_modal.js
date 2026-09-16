@@ -257,7 +257,7 @@ function populateContactsDropdown(client_id) {
                 return { value: contact.contact_id, text: contact.contact_name + appendText };
             });
 
-            refreshDynamicDropdown(document.getElementById("contactSelect"), '- Contact -', items);
+            refreshDynamicDropdown(document.getElementById("contactSelect"), 'Contact', items);
 
         }
     );
@@ -284,7 +284,7 @@ function populateAssetsDropdown(client_id) {
                 return { value: asset.asset_id, text: displayText };
             });
 
-            refreshDynamicDropdown(document.getElementById("assetSelect"), '- Asset -', items);
+            refreshDynamicDropdown(document.getElementById("assetSelect"), 'Asset', items);
 
         }
     );
@@ -305,7 +305,7 @@ function populateLocationsDropdown(client_id) {
 
             const items = locations.map(location => ({ value: location.location_id, text: location.location_name }));
 
-            refreshDynamicDropdown(document.getElementById("locationSelect"), '- Location -', items);
+            refreshDynamicDropdown(document.getElementById("locationSelect"), 'Location', items);
 
         }
     );
@@ -326,7 +326,7 @@ function populateVendorsDropdown(client_id) {
 
             const items = vendors.map(vendor => ({ value: vendor.vendor_id, text: vendor.vendor_name }));
 
-            refreshDynamicDropdown(document.getElementById("vendorSelect"), '- Vendor -', items);
+            refreshDynamicDropdown(document.getElementById("vendorSelect"), 'Vendor', items);
 
         }
     );

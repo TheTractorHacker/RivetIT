@@ -24,7 +24,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-robot"></i></span>
                 </div>
                 <select class="form-control select2" name="provider" required>
-                    <option value="">- Select an AI Provider -</option>
+                    <option value="">Select an AI Provider</option>
                     <?php
                         $sql_ai_providers = mysqli_query($mysqli, "SELECT * FROM ai_providers");
                         while ($row = mysqli_fetch_assoc($sql_ai_providers)) {

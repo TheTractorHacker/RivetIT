@@ -82,7 +82,7 @@ if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
                         <span class="input-group-text"><i class="fa fa-fw fa-user-circle"></i></span>
                     </div>
                     <select class="form-control select2 authMethod" name="contact_auth_method">
-                        <option value="">- No portal access -</option>
+                        <option value="">No portal access</option>
                         <option value="local">Local (Email and password)</option>
                         <?php if (!empty($config_azure_client_id)) { ?>
                             <option value="azure">Azure (Microsoft 365)</option>

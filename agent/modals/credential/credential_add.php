@@ -53,7 +53,7 @@ ob_start();
                                 <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                             </div>
                             <select class="form-control select2" name="client_id" required>
-                                <option value="">- Select Department -</option>
+                                <option value="">Select Department</option>
                                 <?php
 
                                 $sql = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");
@@ -189,7 +189,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                         </div>
                         <select class="form-control select2" name="contact">
-                            <option value="">- Select Contact -</option>
+                            <option value="">Select Contact</option>
                             <?php
 
                             $sql = mysqli_query($mysqli, "SELECT * FROM contacts WHERE contact_client_id = $client_id ORDER BY contact_name ASC");
@@ -216,7 +216,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
                         </div>
                         <select class="form-control select2" name="asset">
-                            <option value="">- Select Asset -</option>
+                            <option value="">Select Asset</option>
                             <?php
 
                             $sql = mysqli_query($mysqli, "SELECT * FROM assets LEFT JOIN locations on asset_location_id = location_id WHERE asset_client_id = $client_id AND asset_archived_at IS NULL ORDER BY asset_name ASC");

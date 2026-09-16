@@ -63,7 +63,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-plug"></i></span>
                         </div>
                         <select class="form-control select2" name="type">
-                            <option value="">- Select Type -</option>
+                            <option value="">Select Type</option>
                             <?php
                             $sql_interface_types_select = mysqli_query($mysqli, "
                                 SELECT category_name FROM categories
@@ -109,7 +109,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-network-wired"></i></span>
                         </div>
                         <select class="form-control select2" name="network">
-                            <option value="">- Select Network -</option>
+                            <option value="">Select Network</option>
                             <?php
                             $sql_network_select = mysqli_query($mysqli, "SELECT * FROM networks WHERE network_archived_at IS NULL AND network_client_id = $client_id ORDER BY network_name ASC");
                             while ($row = mysqli_fetch_assoc($sql_network_select)) {
@@ -189,7 +189,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-plug"></i></span>
                         </div>
                         <select class="form-control select2" name="connected_to">
-                            <option value="">- Select Asset and Interface -</option>
+                            <option value="">Select Asset and Interface</option>
                             <?php
                             $sql_interfaces_select = mysqli_query($mysqli, "
                                 SELECT interface_id, interface_name, asset_name

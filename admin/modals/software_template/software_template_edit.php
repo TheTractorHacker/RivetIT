@@ -76,7 +76,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
                 </div>
                 <select class="form-control select2" name="type" required>
-                    <option value="">- Select Type -</option>
+                    <option value="">Select Type</option>
                     <<?php
                     $sql_software_types_select = mysqli_query($mysqli, "
                         SELECT category_name FROM categories
@@ -102,7 +102,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-cube"></i></span>
                 </div>
                 <select class="form-control select2" name="license_type">
-                    <option value="">- Select a License Type -</option>
+                    <option value="">Select a License Type</option>
                     <?php foreach($license_types_array as $license_type_select) { ?>
                         <option <?php if($license_type_select == $software_license_type){ echo "selected"; } ?>><?php echo $license_type_select; ?></option>
                     <?php } ?>

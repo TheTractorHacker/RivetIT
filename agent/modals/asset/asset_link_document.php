@@ -38,7 +38,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-folder"></i></span>
                 </div>
                 <select class="form-control select2" name="document_id">
-                    <option value="">- Select a Document -</option>
+                    <option value="">Select a Document</option>
                     <?php
                     $sql_documents_select = mysqli_query($mysqli, "
                         SELECT documents.document_id, document_name

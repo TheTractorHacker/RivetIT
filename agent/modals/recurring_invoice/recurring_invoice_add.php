@@ -39,7 +39,7 @@ ob_start();
                         <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                     </div>
                     <select class="form-control select2" name="client_id" required>
-                        <option value="">- Department -</option>
+                        <option value="">Department</option>
                         <?php
                         //select unarchived clients
                         $sql = mysqli_query($mysqli, "SELECT * FROM clients WHERE client_archived_at IS NULL ORDER BY client_name ASC");
@@ -75,7 +75,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-clock"></i></span>
                 </div>
                 <select class="form-control select2" name="frequency" required>
-                    <option value="">- Frequency -</option>
+                    <option value="">Frequency</option>
                     <option value="month">Monthly</option>
                     <option value="year">Yearly</option>
                 </select>
@@ -89,7 +89,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
                 </div>
                 <select class="form-control select2" name="category" required>
-                    <option value="">- Category -</option>
+                    <option value="">Category</option>
                     <?php
 
                     $sql = mysqli_query($mysqli, "SELECT * FROM categories WHERE category_type = 'Income' AND category_archived_at IS NULL ORDER BY category_name ASC");

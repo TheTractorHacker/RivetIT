@@ -205,7 +205,7 @@ ob_start();
                                 <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                             </div>
                             <select class="form-control select2" name="client_id" id="changeClientSelect" required <?php if ($client_id) { echo "disabled"; } ?>>
-                                <option value="">- Department -</option>
+                                <option value="">Department</option>
                                 <?php
 
                                 $sql = mysqli_query($mysqli, "SELECT * FROM clients WHERE client_lead = 0 AND client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");

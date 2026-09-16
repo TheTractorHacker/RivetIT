@@ -114,7 +114,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <div class="col-sm-2">
                     <div class="form-group">
                         <select class="form-control select2 auto-submit-select" name="category">
-                            <option value="">- All Categories -</option>
+                            <option value="">All Categories</option>
 
                             <?php
                             $sql_categories_filter = mysqli_query($mysqli, "SELECT category_id, category_name FROM categories WHERE category_type = 'Ticket' AND EXISTS (SELECT 1 FROM recurring_tickets WHERE recurring_ticket_category = category_id $client_query) ORDER BY category_name ASC");
@@ -133,7 +133,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <div class="col-sm-2">
                     <div class="form-group">
                         <select class="form-control select2 auto-submit-select" name="assigned_agent">
-                            <option value="">- All Agents -</option>
+                            <option value="">All Agents</option>
 
                             <?php
                             $sql_assigned_agents_filter = mysqli_query($mysqli, "SELECT user_id, user_name FROM users WHERE user_type = 1 AND EXISTS (SELECT 1 FROM recurring_tickets WHERE recurring_ticket_assigned_to = user_id $client_query) ORDER BY user_name ASC");
@@ -152,7 +152,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <div class="col-sm-2">
                     <div class="form-group">
                         <select class="form-control select2 auto-submit-select" name="billable">
-                            <option value="">- Billable Status -</option>
+                            <option value="">Billable Status</option>
                             <option <?php if ($billable_filter == 1) { echo "selected"; } ?> value="1">Billable</option>
                             <option <?php if ($billable_filter == 0) { echo "selected"; } ?> value="0">Non-Billable</option>
                         </select>

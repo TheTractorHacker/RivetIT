@@ -144,7 +144,7 @@ if (isset($kb_groups['Uncategorized'])) {
                 </div>
                 <div class="col-auto mb-2">
                     <select class="form-control select2 auto-submit-select" name="filter_category_id" data-placeholder="All Categories" style="width: 200px">
-                        <option value="">- All Categories -</option>
+                        <option value="">All Categories</option>
                         <option value="0" <?php if ($filter_category_id === 0) { echo "selected"; } ?>>Uncategorized</option>
                         <?php
                         while ($row = mysqli_fetch_assoc($sql_category_filter_select)) {
@@ -158,7 +158,7 @@ if (isset($kb_groups['Uncategorized'])) {
                 <?php if (!isset($client_id)) { ?>
                     <div class="col-auto mb-2">
                         <select class="form-control select2 auto-submit-select" name="filter_client_id" data-placeholder="All Articles" style="width: 220px">
-                            <option value="">- All Articles -</option>
+                            <option value="">All Articles</option>
                             <option value="0" <?php if ($filter_client_id === 0) { echo "selected"; } ?>>Central (Company-wide)</option>
                             <?php
                             while ($row = mysqli_fetch_assoc($sql_client_select)) {

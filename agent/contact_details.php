@@ -46,6 +46,8 @@ if (isset($_GET['contact_id'])) {
     $contact_extension = nullable_htmlentities($row['contact_extension']);
     $contact_mobile_country_code = nullable_htmlentities($row['contact_mobile_country_code']);
     $contact_mobile = nullable_htmlentities(formatPhoneNumber($row['contact_mobile'], $contact_mobile_country_code));
+    // wa.me wants country code + national number as bare digits, no formatting/punctuation.
+    $contact_mobile_whatsapp_digits = preg_replace('/\D/', '', $row['contact_mobile_country_code'] . $row['contact_mobile']);
     $contact_email = nullable_htmlentities($row['contact_email']);
     $contact_photo = nullable_htmlentities($row['contact_photo']);
     $contact_pin = nullable_htmlentities($row['contact_pin']);
@@ -280,7 +282,12 @@ if (isset($_GET['contact_id'])) {
                         <div class="ms-4">x<?php echo $contact_extension; ?></div>
                     <?php }
                     if ($contact_mobile) { ?>
-                        <div class="mt-l"><i class="fa fa-fw fa-mobile-alt text-secondary me-2"></i><a href="tel:<?php echo $contact_mobile; ?>"><?php echo $contact_mobile; ?></a></div>
+                        <div class="mt-l">
+                            <i class="fa fa-fw fa-mobile-alt text-secondary me-2"></i><a href="tel:<?php echo $contact_mobile; ?>"><?php echo $contact_mobile; ?></a>
+                            <?php if ($config_whatsapp_enabled && $contact_mobile_whatsapp_digits) { ?>
+                                <a href="https://wa.me/<?php echo $contact_mobile_whatsapp_digits; ?>" target="_blank" rel="noopener" title="Chat on WhatsApp" class="ms-1"><i class="fab fa-whatsapp text-success"></i></a>
+                            <?php } ?>
+                        </div>
                     <?php }
                     if ($contact_pin) { ?>
                         <div class="mt-2"><i class="fa fa-fw fa-key text-secondary me-2"></i><?php echo $contact_pin; ?></div>
@@ -373,7 +380,7 @@ if (isset($_GET['contact_id'])) {
                             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                             <input type="hidden" name="contact_id" value="<?= $contact_id ?>">
                             <select class="form-control form-control-sm select2" name="workflow_template_id" style="max-width:250px" required>
-                                <option value="">- Select workflow -</option>
+                                <option value="">Select workflow</option>
                                 <?php while ($tmpl = mysqli_fetch_assoc($sql_workflow_templates)) { ?>
                                     <option value="<?= intval($tmpl['workflow_template_id']) ?>">[<?= ucfirst($tmpl['type']) ?>] <?= nullable_htmlentities($tmpl['name']) ?></option>
                                 <?php } ?>

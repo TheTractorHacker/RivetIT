@@ -140,7 +140,7 @@ ob_start();
                 <div class="form-group">
                     <label>Manager</label>
                     <select class="form-control select2" name="manager_id">
-                        <option value="">- No Manager -</option>
+                        <option value="">No Manager</option>
                         <?php while ($row_manager = mysqli_fetch_assoc($sql_manager_select)) { ?>
                             <option value="<?php echo intval($row_manager['contact_id']); ?>" <?php if ($contact_manager_id == $row_manager['contact_id']) { echo "selected"; } ?>><?php echo nullable_htmlentities($row_manager['contact_name']); ?></option>
                         <?php } ?>
@@ -168,7 +168,7 @@ ob_start();
                 <div class="form-group">
                     <label>Work Arrangement</label>
                     <select class="form-control select2" name="work_arrangement">
-                        <option value="">- Not Set -</option>
+                        <option value="">Not Set</option>
                         <?php foreach (['remote', 'hybrid', 'onsite'] as $arrangement_option) { ?>
                             <option <?php if ($contact_work_arrangement == $arrangement_option) { echo "selected"; } ?>><?php echo $arrangement_option; ?></option>
                         <?php } ?>
@@ -193,8 +193,8 @@ ob_start();
                                 <div class="input-group-prepend">
                                     <span class="input-group-text"><i class="fa fa-fw fa-phone"></i></span>
                                 </div>
-                                <input type="tel" class="form-control col-2" name="phone_country_code" value="<?php echo "$contact_phone_country_code"; ?>" placeholder="+" maxlength="4">
-                                <input type="tel" class="form-control" name="phone" value="<?php echo $contact_phone; ?>" placeholder="Phone Number" maxlength="200">
+                                <input type="tel" class="form-control phone-country-code" name="phone_country_code" value="<?php echo "$contact_phone_country_code"; ?>" placeholder="+" maxlength="4">
+                                <input type="tel" class="form-control phone-number-format" name="phone" value="<?php echo $contact_phone; ?>" placeholder="Phone Number" maxlength="200">
                             </div>
                         </div>
                     </div>
@@ -213,8 +213,8 @@ ob_start();
                                 <div class="input-group-prepend">
                                     <span class="input-group-text"><i class="fa fa-fw fa-mobile-alt"></i></span>
                                 </div>
-                                <input type="tel" class="form-control col-2" name="mobile_country_code" value="<?php echo "$contact_mobile_country_code"; ?>" placeholder="+" maxlength="4">
-                                <input type="tel" class="form-control" name="mobile" value="<?php echo $contact_mobile; ?>" placeholder="Phone Number">
+                                <input type="tel" class="form-control phone-country-code" name="mobile_country_code" value="<?php echo "$contact_mobile_country_code"; ?>" placeholder="+" maxlength="4">
+                                <input type="tel" class="form-control phone-number-format" name="mobile" value="<?php echo $contact_mobile; ?>" placeholder="Phone Number">
                             </div>
                         </div>
                     </div>
@@ -237,7 +237,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-map-marker-alt"></i></span>
                         </div>
                         <select class="form-control select2" name="location">
-                            <option value="">- Select Location -</option>
+                            <option value="">Select Location</option>
                             <?php
 
                             $sql_locations = mysqli_query($mysqli, "SELECT * FROM locations WHERE location_id = $contact_location_id OR location_archived_at IS NULL AND location_client_id = $client_id ORDER BY location_name ASC");
@@ -283,7 +283,7 @@ ob_start();
                                     <span class="input-group-text"><i class="fa fa-fw fa-user-circle"></i></span>
                                 </div>
                                 <select class="form-control select2 authMethod" name="auth_method">
-                                    <option value="">- No Access -</option>
+                                    <option value="">No Access</option>
                                     <option value="local" <?php if ($auth_method == "local") { echo "selected"; } ?>>Using Set Password</option>
                                     <option value="azure" <?php if ($auth_method == "azure") { echo "selected"; } ?>>Using Azure Credentials</option>
                                 </select>

@@ -178,7 +178,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-building"></i></span>
                         </div>
                         <select class="form-control select2" name="location">
-                            <option value="">- Select Location -</option>
+                            <option value="">Select Location</option>
                             <?php
 
                             $sql_locations = mysqli_query($mysqli, "SELECT * FROM locations WHERE location_archived_at IS NULL AND location_client_id = $client_id ORDER BY location_name ASC");
@@ -210,7 +210,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-user-check"></i></span>
                         </div>
                         <select class="form-control select2" name="contact">
-                            <option value="">- Select Contact -</option>
+                            <option value="">Select Contact</option>
                             <?php
 
                             $sql_contacts = mysqli_query($mysqli, "SELECT * FROM contacts WHERE contact_archived_at IS NULL AND contact_client_id = $client_id ORDER BY contact_name ASC");
@@ -232,7 +232,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-circle"></i></span>
                         </div>
                         <select class="form-control select2" name="status">
-                            <option value="">- Select Status -</option>
+                            <option value="">Select Status</option>
                             <?php
                             $sql_interface_types_select = mysqli_query($mysqli, "
                                 SELECT category_name FROM categories
@@ -262,7 +262,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-network-wired"></i></span>
                         </div>
                         <select class="form-control select2" name="network">
-                            <option value="">- Select Network -</option>
+                            <option value="">Select Network</option>
                             <?php
 
                             $sql_networks = mysqli_query($mysqli, "SELECT * FROM networks WHERE network_archived_at IS NULL AND network_client_id = $client_id ORDER BY network_name ASC");
@@ -355,7 +355,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-building"></i></span>
                         </div>
                         <select class="form-control select2" name="vendor">
-                            <option value="">- Select Vendor -</option>
+                            <option value="">Select Vendor</option>
                             <?php
 
                             $sql_vendors = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_archived_at IS NULL AND vendor_client_id = $client_id ORDER BY vendor_name ASC");

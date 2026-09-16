@@ -111,7 +111,7 @@ window.CSP_NONCE = <?php echo json_encode($csp_nonce ?? ''); ?>;
      called the adminlte.* JS API; only PushMenu (sidebar toggle) and Treeview
      (submenu expand) were ever exercised, and both are reimplemented in
      js/shell.js, which is loaded by the versioned first-party loop below. -->
-<script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">window.csrfToken = <?= json_encode($_SESSION['csrf_token'] ?? '') ?>;</script>
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">window.csrfToken = <?= json_encode($_SESSION['csrf_token'] ?? '') ?>;window.PHONE_FORMAT_DEFAULT_COUNTRY_CODE = <?= json_encode($config_phone_default_country_code ?? '1') ?>;</script>
 <?php
 // Cache-bust first-party JS on every edit (falls back to the request time if the
 // file is somehow missing) so a stale Cloudflare/browser cache can't keep serving
@@ -125,7 +125,7 @@ window.CSP_NONCE = <?php echo json_encode($csp_nonce ?? ''); ?>;
 // [data-asset-metrics] element, which only agent/asset_details.php emits. It is last
 // because it reads the Chart.defaults that chart_theme.js sets, and it must also land
 // after plugins/chart.js above - both hold with defer, which preserves document order.
-foreach (['shell.js', 'chart_theme.js', 'app.js', 'ajax_modal.js', 'confirm_modal.js', 'asset_metrics.js'] as $__asset) {
+foreach (['shell.js', 'chart_theme.js', 'app.js', 'ajax_modal.js', 'confirm_modal.js', 'asset_metrics.js', 'phone_format.js'] as $__asset) {
     $__asset_path = __DIR__ . '/../js/' . $__asset;
     $__asset_version = file_exists($__asset_path) ? filemtime($__asset_path) : time();
     echo '<script src="/js/' . $__asset . '?v=' . $__asset_version . '" defer></script>' . "\n";

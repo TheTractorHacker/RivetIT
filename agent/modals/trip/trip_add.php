@@ -92,7 +92,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                 </div>
                 <select class="form-control select2" name="user" required>
-                    <option value="">- Driver -</option>
+                    <option value="">Driver</option>
                     <?php
 
                     $sql = mysqli_query($mysqli, "SELECT user_id, user_name FROM users

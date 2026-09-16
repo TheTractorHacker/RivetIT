@@ -98,7 +98,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-piggy-bank"></i></span>
                         </div>
                         <select class="form-control select2" name="account" required>
-                            <option value="">- Select an Account -</option>
+                            <option value="">Select an Account</option>
                             <?php
 
                             $sql = mysqli_query($mysqli, "SELECT account_id, account_name FROM accounts WHERE account_archived_at IS NULL ORDER BY account_name ASC");
@@ -163,7 +163,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-list"></i></span>
                         </div>
                         <select class="form-control select2" name="expense_category" required>
-                            <option value="">- Select a Category -</option>
+                            <option value="">Select a Category</option>
                             <?php
 
                             $sql_category = mysqli_query($mysqli, "SELECT category_id, category_name FROM categories WHERE category_type = 'Expense' AND category_archived_at IS NULL ORDER BY category_name ASC");

@@ -309,7 +309,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <div class="col-md-2">
                     <div class="input-group mb-3 mb-md-0">
                         <select class="form-control select2 auto-submit-select" name="location">
-                            <option value="">- All Asset Locations -</option>
+                            <option value="">All Asset Locations</option>
 
                             <?php
                             $sql_locations_filter = mysqli_query($mysqli, "SELECT * FROM locations WHERE location_client_id = $client_id AND location_archived_at IS NULL ORDER BY location_name ASC");

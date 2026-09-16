@@ -36,7 +36,7 @@
                                         <span class="input-group-text"><i class="fa fa-fw fa-calendar"></i></span>
                                     </div>
                                     <select class="form-control select2" name="calendar" required>
-                                        <option value="">- Calendar -</option>
+                                        <option value="">Calendar</option>
                                         <?php
 
                                         $sql = mysqli_query($mysqli, "SELECT * FROM calendars ORDER BY calendar_name ASC");
@@ -143,7 +143,7 @@
                                             <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                                         </div>
                                         <select class="form-control select2" name="client_id">
-                                            <option value="">- Department -</option>
+                                            <option value="">Department</option>
                                             <?php
 
                                             $sql = mysqli_query($mysqli, "SELECT * FROM clients LEFT JOIN contacts ON clients.client_id = contacts.contact_client_id AND contact_primary = 1 ORDER BY client_name ASC");

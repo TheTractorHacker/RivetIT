@@ -21,3 +21,20 @@ if (isset($_POST['edit_localization'])) {
     redirect();
 
 }
+
+if (isset($_POST['edit_phone_settings'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    $phone_default_country_code = preg_replace('/\D/', '', $_POST['phone_default_country_code'] ?? '') ?: '1';
+    $whatsapp_enabled = isset($_POST['whatsapp_enabled']) ? 1 : 0;
+
+    mysqli_query($mysqli, "UPDATE settings SET config_phone_default_country_code = '$phone_default_country_code', config_whatsapp_enabled = $whatsapp_enabled WHERE company_id = 1");
+
+    logAction("Settings", "Edit", "$session_name edited phone number settings");
+
+    flash_alert("Phone number settings updated");
+
+    redirect();
+
+}

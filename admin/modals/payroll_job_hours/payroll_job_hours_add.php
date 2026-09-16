@@ -47,7 +47,7 @@ ob_start();
         <div class="form-group">
             <label>Employee <strong class="text-danger">*</strong></label>
             <select class="form-control" name="user_id" required>
-                <option value="">- Select Employee -</option>
+                <option value="">Select Employee</option>
                 <?php while ($row = mysqli_fetch_assoc($employees_sql)) { ?>
                 <option value="<?= intval($row['user_id']) ?>"><?= nullable_htmlentities($row['user_name']) ?></option>
                 <?php } ?>

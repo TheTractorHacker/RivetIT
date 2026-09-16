@@ -51,7 +51,7 @@ $problem_status_badge = [
             <div class="row align-items-center">
                 <div class="col-auto mb-2">
                     <select class="form-control select2 auto-submit-select" name="status" data-placeholder="Status" style="width:160px;">
-                        <option value="">- All Statuses -</option>
+                        <option value="">All Statuses</option>
                         <?php foreach (['open' => 'Open', 'investigating' => 'Investigating', 'resolved' => 'Resolved', 'closed' => 'Closed'] as $val => $label) { ?>
                             <option value="<?= $val ?>" <?= $status_filter === $val ? 'selected' : '' ?>><?= $label ?></option>
                         <?php } ?>

@@ -14,7 +14,7 @@ ob_start();
         <div class="form-group">
             <label>Select Worksheet Template <strong class="text-danger">*</strong></label>
             <select class="form-control select2" name="worksheet_template_id" required>
-                <option value="">- Select Template -</option>
+                <option value="">Select Template</option>
                 <?php
                 $sql_templates = mysqli_query($mysqli, "SELECT * FROM worksheet_templates WHERE worksheet_template_archived_at IS NULL ORDER BY worksheet_template_name");
                 while ($t = mysqli_fetch_assoc($sql_templates)) {

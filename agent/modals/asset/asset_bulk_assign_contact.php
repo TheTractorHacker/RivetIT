@@ -30,7 +30,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                 </div>
                 <select class="form-control select2" name="bulk_contact_id">
-                    <option value="">- Contact -</option>
+                    <option value="">Contact</option>
                     <?php
 
                     $sql = mysqli_query($mysqli, "SELECT * FROM contacts WHERE contact_archived_at IS NULL AND contact_client_id = $client_id ORDER BY contact_name ASC");

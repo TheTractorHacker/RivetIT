@@ -43,7 +43,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-money-bill"></i></span>
                 </div>
                 <select class="form-control select2" name="currency_code" required>
-                    <option value="">- Currency -</option>
+                    <option value="">Currency</option>
                     <?php foreach ($currencies_array as $currency_code => $currency_name) { ?>
                         <option <?php if ($session_company_currency == $currency_code) { echo "selected"; } ?> value="<?php echo $currency_code; ?>"><?php echo "$currency_code - $currency_name"; ?></option>
                     <?php } ?>

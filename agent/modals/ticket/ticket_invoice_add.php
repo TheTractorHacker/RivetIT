@@ -176,7 +176,7 @@ ob_start();
                                     <span class="input-group-text"><i class="fa fa-fw fa-list"></i></span>
                                 </div>
                                 <select class="form-control select2" name="category">
-                                    <option value="">- Select a Category -</option>
+                                    <option value="">Select a Category</option>
                                     <?php
 
                                     $sql = mysqli_query($mysqli, "SELECT * FROM categories WHERE category_type = 'Income' AND category_archived_at IS NULL ORDER BY category_name ASC");

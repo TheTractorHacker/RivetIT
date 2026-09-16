@@ -47,7 +47,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
                 </div>
                 <select class="form-control select2" name="type" required>
-                    <option value="">- Select Type -</option>
+                    <option value="">Select Type</option>
                     <?php foreach ($product_types_array as $type_select) { ?>
                         <option><?= $type_select ?></option>
                     <?php } ?>
@@ -64,7 +64,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
                 </div>
                 <select class="form-control select2" name="category" required>
-                    <option value="">- Select Category -</option>
+                    <option value="">Select Category</option>
                     <?php
 
                     $sql = mysqli_query($mysqli, "SELECT * FROM categories WHERE category_type = 'Income' AND category_archived_at IS NULL");

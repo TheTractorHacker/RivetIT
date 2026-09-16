@@ -30,7 +30,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-clock"></i></span>
                 </div>
                 <select class="form-control select2" name="frequency" required>
-                    <option value="">- Frequency -</option>
+                    <option value="">Frequency</option>
                     <option value="month">Monthly</option>
                     <option value="year">Yearly</option>
                 </select>

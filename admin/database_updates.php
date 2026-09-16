@@ -7697,3 +7697,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.83'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.83') {
+        // Admin > Localization's new "Phone Numbers" section: a default calling
+        // code to prefill new records' phone_country_code boxes with, and a
+        // toggle for whether WhatsApp click-to-chat links are offered next to
+        // mobile numbers app-wide.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_phone_default_country_code` varchar(10) NOT NULL DEFAULT '1' AFTER `config_timezone`");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_whatsapp_enabled` tinyint(1) NOT NULL DEFAULT 0 AFTER `config_phone_default_country_code`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.84'");
+    }

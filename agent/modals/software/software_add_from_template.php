@@ -30,7 +30,7 @@ ob_start();
                         <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                     </div>
                     <select class="form-control select2" name="client_id" required>
-                        <option value="">- Select Department -</option>
+                        <option value="">Select Department</option>
                         <?php
 
                         $sql = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");
@@ -53,7 +53,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-puzzle-piece"></i></span>
                 </div>
                 <select class="form-control" name="software_template_id" required>
-                    <option value="">- Select Template -</option>
+                    <option value="">Select Template</option>
                     <?php
                     $sql_software_templates = mysqli_query($mysqli, "SELECT * FROM software_templates WHERE software_template_archived_at IS NULL ORDER BY software_template_name ASC");
                     while ($row = mysqli_fetch_assoc($sql_software_templates)) {

@@ -65,7 +65,7 @@ ob_start();
                         <span class="input-group-text"><i class="fa fa-fw fa-calendar"></i></span>
                     </div>
                     <select class="form-control select2" name="month" required>
-                        <option value="">- Select a Month -</option>
+                        <option value="">Select a Month</option>
                         <option value="1" <?php if($recurring_expense_next_month == 1) { echo "selected"; } ?>>01 - January</option>
                         <option value="2" <?php if($recurring_expense_next_month == 2) { echo "selected"; } ?>>02 - February</option>
                         <option value="3" <?php if($recurring_expense_next_month == 3) { echo "selected"; } ?>>03 - March</option>
@@ -237,7 +237,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                         </div>
                         <select class="form-control select2" name="client">
-                            <option value="">- Select Department -</option>
+                            <option value="">Select Department</option>
                             <?php
 
                             $sql_clients = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients ORDER BY client_name ASC");

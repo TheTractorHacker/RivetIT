@@ -82,7 +82,7 @@ ob_start();
                                 <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                             </div>
                             <select class="form-control select2" name="client_id" required>
-                                <option value="">- Select Department -</option>
+                                <option value="">Select Department</option>
                                 <?php
 
                                 while ($row = mysqli_fetch_assoc($sql_client_select)) {
@@ -104,7 +104,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-layer-group"></i></span>
                         </div>
                         <select class="form-control select2" name="type" required>
-                            <option value="">- Select Type -</option>
+                            <option value="">Select Type</option>
                             <?php foreach($asset_types_array as $asset_type => $asset_icon) { ?>
                                 <option><?= $asset_type ?></option>
                             <?php } ?>
@@ -206,7 +206,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-building"></i></span>
                         </div>
                         <select class="form-control select2" name="location">
-                            <option value="">- Select Location -</option>
+                            <option value="">Select Location</option>
                             <?php
 
                             while ($row = mysqli_fetch_assoc($sql_location_select)) {
@@ -239,7 +239,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-user-check"></i></span>
                         </div>
                         <select class="form-control select2" name="contact">
-                            <option value="">- Select Contact -</option>
+                            <option value="">Select Contact</option>
                             <?php
 
                             while ($row = mysqli_fetch_assoc($sql_contact_select)) {
@@ -267,7 +267,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-circle"></i></span>
                         </div>
                         <select class="form-control select2" name="status">
-                            <option value="">- Select Status -</option>
+                            <option value="">Select Status</option>
                             <?php
                             $sql_interface_types_select = mysqli_query($mysqli, "
                                 SELECT category_name FROM categories
@@ -295,7 +295,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-network-wired"></i></span>
                         </div>
                         <select class="form-control select2" name="network">
-                            <option value="">- Select Network -</option>
+                            <option value="">Select Network</option>
                             <?php
 
                             while ($row = mysqli_fetch_assoc($sql_network_select)) {
@@ -411,7 +411,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-building"></i></span>
                         </div>
                         <select class="form-control select2" name="vendor">
-                            <option value="">- Select Vendor -</option>
+                            <option value="">Select Vendor</option>
                             <?php
 
                             while ($row = mysqli_fetch_assoc($sql_vendor_select)) {

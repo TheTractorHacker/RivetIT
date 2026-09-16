@@ -173,7 +173,7 @@ $net_terms_array = array (
                         <span class="input-group-text"><i class="fa fa-fw fa-credit-card"></i></span>
                     </div>
                     <select class="form-control select2" name="payment_method">
-                        <option value="">- None -</option>
+                        <option value="">None</option>
                         <?php
 
                         $sql = mysqli_query($mysqli, "SELECT * FROM categories WHERE category_type = 'Payment Method' ORDER BY category_name ASC");
@@ -195,7 +195,7 @@ $net_terms_array = array (
                         <span class="input-group-text"><i class="fa fa-fw fa-credit-card"></i></span>
                     </div>
                     <select class="form-control select2" name="expense_payment_method">
-                        <option value="">- None -</option>
+                        <option value="">None</option>
                         <?php
 
                         $sql = mysqli_query($mysqli, "SELECT * FROM categories WHERE category_type = 'Payment Method' ORDER BY category_name ASC");

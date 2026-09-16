@@ -116,7 +116,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-server"></i></span>
                         </div>
                         <select class="form-control select2" name="registrar">
-                            <option value="">- Select Vendor -</option>
+                            <option value="">Select Vendor</option>
                             <?php
                             $vendor_sql = mysqli_query($mysqli, "SELECT vendor_id, vendor_name FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = $client_id OR vendor_client_id = 0) ORDER BY (vendor_client_id = 0), vendor_name ASC");
                                 while ($row = mysqli_fetch_assoc($vendor_sql)) {
@@ -138,7 +138,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-server"></i></span>
                         </div>
                         <select class="form-control select2" name="webhost">
-                            <option value="">- Select Vendor -</option>
+                            <option value="">Select Vendor</option>
                             <?php
                             $vendor_sql = mysqli_query($mysqli, "SELECT vendor_id, vendor_name FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = $client_id OR vendor_client_id = 0) ORDER BY (vendor_client_id = 0), vendor_name ASC");
                                 while ($row = mysqli_fetch_assoc($vendor_sql)) {
@@ -160,7 +160,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-server"></i></span>
                         </div>
                         <select class="form-control select2" name="dnshost">
-                            <option value="">- Select Vendor -</option>
+                            <option value="">Select Vendor</option>
                             <?php
                             $vendor_sql = mysqli_query($mysqli, "SELECT vendor_id, vendor_name FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = $client_id OR vendor_client_id = 0) ORDER BY (vendor_client_id = 0), vendor_name ASC");
                                 while ($row = mysqli_fetch_assoc($vendor_sql)) {
@@ -182,7 +182,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-envelope"></i></span>
                         </div>
                         <select class="form-control select2" name="mailhost">
-                            <option value="">- Select Vendor -</option>
+                            <option value="">Select Vendor</option>
                             <?php
                             $vendor_sql = mysqli_query($mysqli, "SELECT vendor_id, vendor_name FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = $client_id OR vendor_client_id = 0) ORDER BY (vendor_client_id = 0), vendor_name ASC");
                                 while ($row = mysqli_fetch_assoc($vendor_sql)) {

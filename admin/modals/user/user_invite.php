@@ -37,7 +37,7 @@ ob_start();
         <div class="form-group">
             <label for="user_invite_role">Role <strong class="text-danger">*</strong></label>
             <select class="form-control select2" id="user_invite_role" name="role" required>
-                <option value="">- Role -</option>
+                <option value="">Role</option>
                 <?php
                     $sql_user_roles = mysqli_query($mysqli, "SELECT * FROM user_roles WHERE role_archived_at IS NULL");
                     while ($row = mysqli_fetch_assoc($sql_user_roles)) {

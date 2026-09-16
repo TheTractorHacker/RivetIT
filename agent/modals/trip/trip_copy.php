@@ -115,7 +115,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                 </div>
                 <select class="form-control select2" name="user" required>
-                    <option value="">- Driver -</option>
+                    <option value="">Driver</option>
                     <?php
 
                     $sql_users = mysqli_query($mysqli, "SELECT users.user_id, user_name FROM users
@@ -144,7 +144,7 @@ ob_start();
                         <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                     </div>
                     <select class="form-control select2" name="client_id">
-                        <option value="">- Department (Optional) -</option>
+                        <option value="">Department (Optional)</option>
                         <?php
 
                         $sql_clients = mysqli_query($mysqli, "SELECT * FROM clients WHERE client_archived_at IS NULL ORDER BY client_name ASC");

@@ -33,7 +33,7 @@ ob_start();
             <div class="form-group col-md-6">
                 <label>Type</label>
                 <select class="form-control select2" name="contract_type">
-                    <option value="">- Select Type -</option>
+                    <option value="">Select Type</option>
                     <?php foreach ($contract_types as $t) echo "<option" . ($row['contract_type'] === $t ? ' selected' : '') . ">$t</option>"; ?>
                 </select>
             </div>
@@ -56,7 +56,7 @@ ob_start();
                 <label>Billing Frequency</label>
                 <?php $freq = $row['contract_renewal_frequency'] ?? ''; ?>
                 <select class="form-control select2" name="contract_renewal_frequency">
-                    <option value="">- Select -</option>
+                    <option value="">Select</option>
                     <?php foreach (['Monthly','Quarterly','Annual','Other'] as $f) echo "<option" . ($freq === $f ? ' selected' : '') . ">$f</option>"; ?>
                 </select>
             </div>

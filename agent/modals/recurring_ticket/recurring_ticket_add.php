@@ -150,7 +150,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                         </div>
                         <select class="form-control select2" name="client_id" id="changeClientSelect" required <?php if ($client_id) { echo "disabled"; } ?>>
-                            <option value="">- Department -</option>
+                            <option value="">Department</option>
                             <?php
 
                             // client_lead = 0, matching agent/modals/ticket/ticket_add_v2.php's own
@@ -200,7 +200,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-recycle"></i></span>
                         </div>
                         <select class="form-control select2" name="frequency" required>
-                            <option value="">- Select Frequency -</option>
+                            <option value="">Select Frequency</option>
                             <optgroup label="Days">
                                 <option>Three Days</option>
                                 <option>Weekly</option>

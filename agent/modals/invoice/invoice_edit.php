@@ -63,7 +63,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
                 </div>
                 <select class="form-control select2" name="category" required>
-                    <option value="">- Category -</option>
+                    <option value="">Category</option>
                     <?php
 
                     $sql_income_category = mysqli_query($mysqli, "SELECT * FROM categories WHERE category_type = 'Income' AND (category_archived_at > '$invoice_created_at' OR category_archived_at IS NULL) ORDER BY category_name ASC");

@@ -80,7 +80,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             <div class="form-group">
                                 <label>Account From</label>
                                 <select class="form-control select2 auto-submit-select" name="account_from">
-                                    <option value="">- All Accounts -</option>
+                                    <option value="">All Accounts</option>
 
                                     <?php
                                     $sql_accounts_from_filter = mysqli_query($mysqli, "SELECT account_id, account_name FROM accounts WHERE EXISTS (SELECT 1 FROM expenses WHERE expense_account_id = account_id) ORDER BY account_name ASC");
@@ -100,7 +100,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             <div class="form-group">
                                 <label>Account To</label>
                                 <select class="form-control select2 auto-submit-select" name="account_to">
-                                    <option value="">- All Accounts -</option>
+                                    <option value="">All Accounts</option>
 
                                     <?php
                                     $sql_accounts_to_filter = mysqli_query($mysqli, "SELECT account_id, account_name FROM accounts WHERE EXISTS (SELECT 1 FROM revenues WHERE revenue_account_id = account_id) ORDER BY account_name ASC");

@@ -164,7 +164,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-money-check-alt"></i></span>
                 </div>
                 <select class="form-control select2" name="transfer_method">
-                    <option value="">- Method of Transfer -</option>
+                    <option value="">Method of Transfer</option>
                     <?php
 
                     $sql_transfer_method_select = mysqli_query($mysqli, "SELECT * FROM payment_methods ORDER BY payment_method_name ASC");
