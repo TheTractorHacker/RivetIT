@@ -7752,3 +7752,17 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.85'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.85') {
+        // Printers' Location field splits in two, matching the Assets module's
+        // own Location/Physical Location pair: a real Location record picked
+        // from the `locations` table (printer_location_id, like asset_location_id)
+        // plus free-text for where within that location (printer_physical_location,
+        // like asset_physical_location - "Floor 2, Closet B"). The rename below
+        // preserves whatever free text is already in printer_location (a real
+        // user was already using this module before this migration landed).
+        mysqli_query($mysqli, "ALTER TABLE `printers` ADD COLUMN IF NOT EXISTS `printer_location_id` int(11) NOT NULL DEFAULT 0 AFTER `printer_client_id`");
+        mysqli_query($mysqli, "ALTER TABLE `printers` CHANGE COLUMN `printer_location` `printer_physical_location` varchar(200) DEFAULT NULL");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.86'");
+    }

@@ -22,8 +22,9 @@ $sql = mysqli_query(
     $mysqli,
     "SELECT SQL_CALC_FOUND_ROWS * FROM printers
     LEFT JOIN clients ON client_id = printer_client_id
+    LEFT JOIN locations ON location_id = printer_location_id
     WHERE printer_$archive_query
-    AND (printer_name LIKE '%$q%' OR printer_ip_address LIKE '%$q%' OR printer_location LIKE '%$q%' OR printer_model LIKE '%$q%' OR printer_serial_number LIKE '%$q%')
+    AND (printer_name LIKE '%$q%' OR printer_ip_address LIKE '%$q%' OR location_name LIKE '%$q%' OR printer_physical_location LIKE '%$q%' OR printer_model LIKE '%$q%' OR printer_serial_number LIKE '%$q%')
     $client_query
     $access_permission_query
     ORDER BY $sort $order LIMIT $record_from, $record_to"
@@ -136,9 +137,11 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         $printer_id = intval($row['printer_id']);
                         $printer_name = nullable_htmlentities($row['printer_name']);
                         $printer_ip_address = nullable_htmlentities($row['printer_ip_address']);
-                        $printer_location = nullable_htmlentities($row['printer_location']);
-                        if ($printer_location) {
-                            $printer_location_display = "<div class='text-secondary'>$printer_location</div>";
+                        $location_name = nullable_htmlentities($row['location_name']);
+                        $printer_physical_location = nullable_htmlentities($row['printer_physical_location']);
+                        $printer_location_parts = array_filter([$location_name, $printer_physical_location]);
+                        if ($printer_location_parts) {
+                            $printer_location_display = "<div class='text-secondary'>" . implode(' - ', $printer_location_parts) . "</div>";
                         } else {
                             $printer_location_display = '';
                         }

@@ -13,11 +13,17 @@ enforceClientAccess($client_id);
 
 $printer_name = nullable_htmlentities($row['printer_name']);
 $printer_ip_address = nullable_htmlentities($row['printer_ip_address']);
-$printer_location = nullable_htmlentities($row['printer_location']);
+$printer_location_id = intval($row['printer_location_id']);
+$printer_physical_location = nullable_htmlentities($row['printer_physical_location']);
 $printer_model = nullable_htmlentities($row['printer_model']);
 $printer_serial_number = nullable_htmlentities($row['printer_serial_number']);
 $printer_mac_address = nullable_htmlentities($row['printer_mac_address']);
 $printer_notes = nullable_htmlentities($row['printer_notes']);
+
+// location_client_id = 0 is a real, populated scope here (company-wide
+// sites), not just an empty "no department picked yet" case - so this is
+// NOT gated behind $client_id being set, unlike Assets' own Location select.
+$sql_location_select = mysqli_query($mysqli, "SELECT location_id, location_name FROM locations WHERE location_archived_at IS NULL AND location_client_id = $client_id ORDER BY location_name ASC");
 
 ob_start();
 
@@ -58,9 +64,28 @@ ob_start();
             <label>Location</label>
             <div class="input-group">
                 <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="fa fa-fw fa-building"></i></span>
+                </div>
+                <select class="form-control select2" name="location_id">
+                    <option value="">Select Location</option>
+                    <?php
+                    while ($row_location = mysqli_fetch_assoc($sql_location_select)) {
+                        $location_id = intval($row_location['location_id']);
+                        $location_name = nullable_htmlentities($row_location['location_name']);
+                        ?>
+                        <option value="<?= $location_id ?>" <?php if ($location_id === $printer_location_id) { echo 'selected'; } ?>><?= $location_name ?></option>
+                    <?php } ?>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Physical Location</label>
+            <div class="input-group">
+                <div class="input-group-prepend">
                     <span class="input-group-text"><i class="fa fa-fw fa-map-marker-alt"></i></span>
                 </div>
-                <input type="text" class="form-control" name="location" value="<?php echo $printer_location; ?>" placeholder="e.g. 2nd Floor Copy Room" maxlength="200">
+                <input type="text" class="form-control" name="physical_location" value="<?php echo $printer_physical_location; ?>" placeholder="e.g. 2nd Floor Copy Room" maxlength="200">
             </div>
         </div>
 

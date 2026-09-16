@@ -4,6 +4,11 @@ require_once '../../../includes/modal_header.php';
 
 $client_id = intval($_GET['client_id'] ?? 0);
 
+// location_client_id = 0 is a real, populated scope here (company-wide
+// sites), not just an empty "no department picked yet" case - so this is
+// NOT gated behind $client_id being set, unlike Assets' own Location select.
+$sql_location_select = mysqli_query($mysqli, "SELECT location_id, location_name FROM locations WHERE location_archived_at IS NULL AND location_client_id = $client_id ORDER BY location_name ASC");
+
 ob_start();
 
 ?>
@@ -43,9 +48,28 @@ ob_start();
             <label>Location</label>
             <div class="input-group">
                 <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="fa fa-fw fa-building"></i></span>
+                </div>
+                <select class="form-control select2" name="location_id">
+                    <option value="">Select Location</option>
+                    <?php
+                    while ($row = mysqli_fetch_assoc($sql_location_select)) {
+                        $location_id = intval($row['location_id']);
+                        $location_name = nullable_htmlentities($row['location_name']);
+                        ?>
+                        <option value="<?= $location_id ?>"><?= $location_name ?></option>
+                    <?php } ?>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Physical Location</label>
+            <div class="input-group">
+                <div class="input-group-prepend">
                     <span class="input-group-text"><i class="fa fa-fw fa-map-marker-alt"></i></span>
                 </div>
-                <input type="text" class="form-control" name="location" placeholder="e.g. 2nd Floor Copy Room" maxlength="200">
+                <input type="text" class="form-control" name="physical_location" placeholder="e.g. 2nd Floor Copy Room" maxlength="200">
             </div>
         </div>
 

@@ -18,7 +18,7 @@ if (isset($_POST['add_printer'])) {
 
     enforceClientAccess();
 
-    mysqli_query($mysqli, "INSERT INTO printers SET printer_name = '$name', printer_ip_address = '$ip_address', printer_location = '$location', printer_model = '$model', printer_serial_number = '$serial_number', printer_mac_address = '$mac_address', printer_notes = '$notes', printer_client_id = $client_id, printer_created_by = $session_user_id, printer_updated_by = $session_user_id");
+    mysqli_query($mysqli, "INSERT INTO printers SET printer_name = '$name', printer_ip_address = '$ip_address', printer_location_id = $location_id, printer_physical_location = '$physical_location', printer_model = '$model', printer_serial_number = '$serial_number', printer_mac_address = '$mac_address', printer_notes = '$notes', printer_client_id = $client_id, printer_created_by = $session_user_id, printer_updated_by = $session_user_id");
 
     $printer_id = mysqli_insert_id($mysqli);
 
@@ -44,7 +44,7 @@ if (isset($_POST['edit_printer'])) {
     enforceUserPermission('module_support', 2);
     enforceClientAccess();
 
-    mysqli_query($mysqli, "UPDATE printers SET printer_name = '$name', printer_ip_address = '$ip_address', printer_location = '$location', printer_model = '$model', printer_serial_number = '$serial_number', printer_mac_address = '$mac_address', printer_notes = '$notes', printer_updated_by = $session_user_id WHERE printer_id = $printer_id");
+    mysqli_query($mysqli, "UPDATE printers SET printer_name = '$name', printer_ip_address = '$ip_address', printer_location_id = $location_id, printer_physical_location = '$physical_location', printer_model = '$model', printer_serial_number = '$serial_number', printer_mac_address = '$mac_address', printer_notes = '$notes', printer_updated_by = $session_user_id WHERE printer_id = $printer_id");
 
     logAction("Printer", "Edit", "$session_name edited printer $name", $client_id, $printer_id);
 
