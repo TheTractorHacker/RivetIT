@@ -200,6 +200,12 @@ if (isset($_GET['client_id'])) {
         $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('network_id') AS num FROM networks WHERE network_archived_at IS NULL AND network_client_id = $client_id"));
         $num_networks = $row['num'];
 
+        $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('printer_id') AS num FROM printers WHERE printer_archived_at IS NULL AND printer_client_id = $client_id"));
+        $num_printers = $row['num'];
+
+        $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('network_drive_id') AS num FROM network_drives WHERE network_drive_archived_at IS NULL AND network_drive_client_id = $client_id"));
+        $num_network_drives = $row['num'];
+
         $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('rack_id') AS num FROM racks WHERE rack_archived_at IS NULL AND rack_client_id = $client_id"));
         $num_racks = $row['num'];
 

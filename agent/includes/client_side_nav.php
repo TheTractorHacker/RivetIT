@@ -207,6 +207,28 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                             </a>
                         </li>
 
+                        <li class="nav-item<?php if ($current_page == "printers.php") { echo " active"; } ?>">
+                            <a href="/agent/printers.php?client_id=<?php echo $client_id; ?>" class="nav-link<?php if ($current_page == "printers.php") { echo " active"; } ?>">
+                                <span class="nav-link-icon"><i class="fas fa-print"></i></span>
+                                <span class="nav-link-title">Printers</span>
+                                <?php
+                                if ($num_printers > 0) { ?>
+                                    <span class="ms-auto badge text-light"><?php echo $num_printers; ?></span>
+                                <?php } ?>
+                            </a>
+                        </li>
+
+                        <li class="nav-item<?php if ($current_page == "network_drives.php") { echo " active"; } ?>">
+                            <a href="/agent/network_drives.php?client_id=<?php echo $client_id; ?>" class="nav-link<?php if ($current_page == "network_drives.php") { echo " active"; } ?>">
+                                <span class="nav-link-icon"><i class="fas fa-hdd"></i></span>
+                                <span class="nav-link-title">Network Drives</span>
+                                <?php
+                                if ($num_network_drives > 0) { ?>
+                                    <span class="ms-auto badge text-light"><?php echo $num_network_drives; ?></span>
+                                <?php } ?>
+                            </a>
+                        </li>
+
                         <li class="nav-item<?php if ($current_page == "racks.php") { echo " active"; } ?>">
                             <a href="/agent/racks.php?client_id=<?php echo $client_id; ?>" class="nav-link<?php if ($current_page == "racks.php") { echo " active"; } ?>">
                                 <span class="nav-link-icon"><i class="fas fa-server"></i></span>

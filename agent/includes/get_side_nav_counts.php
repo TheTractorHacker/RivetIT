@@ -46,3 +46,11 @@ $num_domains_all = $row['num'];
 // Certificates Count (all departments)
 $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('certificate_id') AS num FROM certificates LEFT JOIN clients ON client_id = certificate_client_id WHERE certificate_archived_at IS NULL $access_permission_query"));
 $num_certificates_all = $row['num'];
+
+// Printers Count (all departments)
+$row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('printer_id') AS num FROM printers LEFT JOIN clients ON client_id = printer_client_id WHERE printer_archived_at IS NULL $access_permission_query"));
+$num_printers_all = $row['num'];
+
+// Network Drives Count (all departments)
+$row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('network_drive_id') AS num FROM network_drives LEFT JOIN clients ON client_id = network_drive_client_id WHERE network_drive_archived_at IS NULL $access_permission_query"));
+$num_network_drives_all = $row['num'];

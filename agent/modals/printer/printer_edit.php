@@ -1,0 +1,111 @@
+<?php
+
+require_once '../../../includes/modal_header.php';
+
+$printer_id = intval($_GET['id']);
+
+$sql = mysqli_query($mysqli, "SELECT * FROM printers WHERE printer_id = $printer_id LIMIT 1");
+
+$row = mysqli_fetch_assoc($sql);
+$client_id = intval($row['printer_client_id']);
+enforceUserPermission('module_support', 2);
+enforceClientAccess($client_id);
+
+$printer_name = nullable_htmlentities($row['printer_name']);
+$printer_ip_address = nullable_htmlentities($row['printer_ip_address']);
+$printer_location = nullable_htmlentities($row['printer_location']);
+$printer_model = nullable_htmlentities($row['printer_model']);
+$printer_serial_number = nullable_htmlentities($row['printer_serial_number']);
+$printer_mac_address = nullable_htmlentities($row['printer_mac_address']);
+$printer_notes = nullable_htmlentities($row['printer_notes']);
+
+ob_start();
+
+?>
+<div class="modal-header bg-dark">
+    <h5 class="modal-title"><i class="fas fa-fw fa-print me-2"></i>Edit Printer</h5>
+    <button type="button" class="close text-white" data-bs-dismiss="modal">
+        <span>&times;</span>
+    </button>
+</div>
+<form action="post.php" method="post" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+    <input type="hidden" name="printer_id" value="<?= $printer_id ?>">
+
+    <div class="modal-body">
+
+        <div class="form-group">
+            <label>Printer Name <strong class="text-danger">*</strong></label>
+            <div class="input-group">
+                <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="fa fa-fw fa-print"></i></span>
+                </div>
+                <input type="text" class="form-control" name="name" value="<?php echo $printer_name; ?>" placeholder="Printer Name" maxlength="200" required autofocus>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>IP Address</label>
+            <div class="input-group">
+                <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="fa fa-fw fa-network-wired"></i></span>
+                </div>
+                <input type="text" class="form-control" name="ip_address" value="<?php echo $printer_ip_address; ?>" placeholder="e.g. 10.0.1.50" maxlength="200">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Location</label>
+            <div class="input-group">
+                <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="fa fa-fw fa-map-marker-alt"></i></span>
+                </div>
+                <input type="text" class="form-control" name="location" value="<?php echo $printer_location; ?>" placeholder="e.g. 2nd Floor Copy Room" maxlength="200">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Model</label>
+            <div class="input-group">
+                <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
+                </div>
+                <input type="text" class="form-control" name="model" value="<?php echo $printer_model; ?>" placeholder="Manufacturer / Model" maxlength="200">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Serial Number</label>
+            <div class="input-group">
+                <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="fa fa-fw fa-fingerprint"></i></span>
+                </div>
+                <input type="text" class="form-control" name="serial_number" value="<?php echo $printer_serial_number; ?>" placeholder="Serial Number" maxlength="200">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>MAC Address</label>
+            <div class="input-group">
+                <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="fa fa-fw fa-ethernet"></i></span>
+                </div>
+                <input type="text" class="form-control" name="mac_address" value="<?php echo $printer_mac_address; ?>" placeholder="e.g. 00:1A:2B:3C:4D:5E" maxlength="200">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Notes</label>
+            <textarea class="form-control" rows="6" placeholder="Enter some notes" name="notes"><?php echo $printer_notes; ?></textarea>
+        </div>
+
+    </div>
+    <div class="modal-footer">
+        <button type="submit" name="edit_printer" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-2"></i>Cancel</button>
+    </div>
+</form>
+
+<?php
+
+require_once '../../../includes/modal_footer.php';

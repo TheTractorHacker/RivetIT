@@ -7708,3 +7708,47 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.84'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.84') {
+        // Printers and Network Drives: structured IT-documentation modules under
+        // the Knowledge sidebar dropdown, modeled on the Networks/Assets shape
+        // (fixed typed fields + list/detail views), not the KB free-text wiki.
+        // See agent/printers.php, agent/network_drives.php.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `printers` (
+            `printer_id` int(11) NOT NULL AUTO_INCREMENT,
+            `printer_client_id` int(11) NOT NULL DEFAULT 0,
+            `printer_name` varchar(200) NOT NULL,
+            `printer_ip_address` varchar(200) DEFAULT NULL,
+            `printer_location` varchar(200) DEFAULT NULL,
+            `printer_model` varchar(200) DEFAULT NULL,
+            `printer_serial_number` varchar(200) DEFAULT NULL,
+            `printer_mac_address` varchar(200) DEFAULT NULL,
+            `printer_notes` text DEFAULT NULL,
+            `printer_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `printer_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+            `printer_archived_at` datetime DEFAULT NULL,
+            `printer_created_by` int(11) NOT NULL DEFAULT 0,
+            `printer_updated_by` int(11) NOT NULL DEFAULT 0,
+            PRIMARY KEY (`printer_id`),
+            KEY `idx_printers_client_archived` (`printer_client_id`,`printer_archived_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `network_drives` (
+            `network_drive_id` int(11) NOT NULL AUTO_INCREMENT,
+            `network_drive_client_id` int(11) NOT NULL DEFAULT 0,
+            `network_drive_name` varchar(200) NOT NULL,
+            `network_drive_letter` varchar(10) DEFAULT NULL,
+            `network_drive_path` varchar(500) DEFAULT NULL,
+            `network_drive_purpose` varchar(200) DEFAULT NULL,
+            `network_drive_notes` text DEFAULT NULL,
+            `network_drive_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `network_drive_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+            `network_drive_archived_at` datetime DEFAULT NULL,
+            `network_drive_created_by` int(11) NOT NULL DEFAULT 0,
+            `network_drive_updated_by` int(11) NOT NULL DEFAULT 0,
+            PRIMARY KEY (`network_drive_id`),
+            KEY `idx_network_drives_client_archived` (`network_drive_client_id`,`network_drive_archived_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.85'");
+    }

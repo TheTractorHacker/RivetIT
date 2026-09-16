@@ -16,7 +16,7 @@ $section_pages = [
     'crm'           => ['pipeline.php', 'opportunities.php', 'campaigns.php', 'segments.php'],
     'service_desk'  => ['tickets.php', 'ticket.php', 'recurring_tickets.php', 'service_catalog.php', 'csat.php', 'mail_requests.php', 'problems.php', 'problem_details.php', 'changes.php', 'change_details.php'],
     'work'          => ['projects.php', 'project_details.php', 'calendar.php'],
-    'knowledge'     => ['kb_articles.php', 'kb_article.php', 'kb_article_versions.php', 'credentials.php'],
+    'knowledge'     => ['kb_articles.php', 'kb_article.php', 'kb_article_versions.php', 'credentials.php', 'printers.php', 'network_drives.php'],
     'infrastructure'=> ['locations.php', 'vendors.php', 'software.php', 'domains.php', 'certificates.php'],
     'billing'       => ['quotes.php', 'quote.php', 'invoices.php', 'invoice.php', 'recurring_invoices.php', 'recurring_invoice.php', 'revenues.php', 'products.php'],
     'finance'       => ['payments.php', 'expenses.php', 'recurring_expenses.php', 'accounts.php', 'transfers.php', 'trips.php'],
@@ -206,7 +206,7 @@ foreach ($section_pages as $key => $pages) {
                     </div>
                 </li>
 
-                <?php if (($config_module_enable_itdoc == 1 && lookupUserPermission("module_support") >= 1 && lookupUserPermission("module_credential") >= 1) || ($config_module_enable_kb == 1 && lookupUserPermission("module_kb") >= 1)) { ?>
+                <?php if (($config_module_enable_itdoc == 1 && lookupUserPermission("module_support") >= 1 && lookupUserPermission("module_credential") >= 1) || ($config_module_enable_kb == 1 && lookupUserPermission("module_kb") >= 1) || ($config_module_enable_itdoc == 1 && lookupUserPermission("module_support") >= 1)) { ?>
                 <li class="nav-item dropdown mt-2<?php echo $section_open['knowledge'] ? ' active' : ''; ?>">
                     <a href="#nav-group-knowledge" class="nav-link dropdown-toggle<?php echo $section_open['knowledge'] ? ' show' : ''; ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-knowledge" aria-expanded="<?php echo $section_open['knowledge'] ? 'true' : 'false'; ?>">
                         <span class="nav-link-icon"><i class="fas fa-book"></i></span>
@@ -225,6 +225,22 @@ foreach ($section_pages as $key => $pages) {
                             <span class="text-truncate">Credentials</span>
                             <?php if ($num_credentials_all) { ?>
                                 <span class="ms-auto badge text-light"><?php echo $num_credentials_all; ?></span>
+                            <?php } ?>
+                        </a>
+                        <?php } ?>
+                        <?php if ($config_module_enable_itdoc == 1 && lookupUserPermission("module_support") >= 1) { ?>
+                        <a href="/agent/printers.php" class="dropdown-item<?php if ($current_page == "printers.php") { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-print"></i></span>
+                            <span class="text-truncate">Printers</span>
+                            <?php if ($num_printers_all) { ?>
+                                <span class="ms-auto badge text-light"><?php echo $num_printers_all; ?></span>
+                            <?php } ?>
+                        </a>
+                        <a href="/agent/network_drives.php" class="dropdown-item<?php if ($current_page == "network_drives.php") { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-hdd"></i></span>
+                            <span class="text-truncate">Network Drives</span>
+                            <?php if ($num_network_drives_all) { ?>
+                                <span class="ms-auto badge text-light"><?php echo $num_network_drives_all; ?></span>
                             <?php } ?>
                         </a>
                         <?php } ?>
