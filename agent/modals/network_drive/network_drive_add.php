@@ -35,7 +35,12 @@ ob_start();
                 <div class="input-group-prepend">
                     <span class="input-group-text"><i class="fa fa-fw fa-font"></i></span>
                 </div>
-                <input type="text" class="form-control" name="letter" placeholder="e.g. Z:" maxlength="10">
+                <select class="form-control select2" name="letter">
+                    <option value="">Drive Letter</option>
+                    <?php foreach (range('A', 'Z') as $drive_letter_option) { ?>
+                        <option value="<?php echo $drive_letter_option; ?>:" <?php if ($drive_letter_option === 'C') { echo 'disabled'; } ?>><?php echo $drive_letter_option; ?>: <?php if ($drive_letter_option === 'C') { echo '(system drive)'; } ?></option>
+                    <?php } ?>
+                </select>
             </div>
         </div>
 

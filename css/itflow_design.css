@@ -242,6 +242,20 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
    wrapping - see the option text itself), this alone makes it read exactly
    like the grey placeholder text in every other input on these same forms. */
 .ts-control .item[data-value=""] { color: var(--if-muted) !important; font-weight: 400; }
+/* The same empty/placeholder row, but inside the OPEN dropdown list rather
+   than the closed control above - it should read as a soft "clear this
+   field" hint there too, not as an ordinary, equally-weighted choice. */
+.ts-dropdown .option[data-value=""] { color: var(--if-muted); font-style: italic; }
+/* A genuinely disabled option (e.g. Network Drive's "C: (system drive)",
+   reserved because it's always the local system drive) needs to visibly read
+   as unavailable. Tom Select's own bootstrap5 theme tries to dim it via
+   opacity on a `[data-disabled]` selector, but a *plain* `.option{opacity:1}`
+   rule immediately after it in that same stylesheet - same specificity, later
+   in source order - wins the cascade and cancels the dimming for every option,
+   disabled or not (measured: a disabled option rendered at full opacity with
+   a normal pointer cursor). Tom Select does mark a disabled option with
+   aria-disabled="true" reliably, so target that directly instead. */
+.ts-dropdown .option[aria-disabled="true"] { color: var(--if-muted); opacity: .55; cursor: not-allowed; }
 /* Country-code inputs ("+1", "+44"...) are capped at 4 characters but were
    sized with Bootstrap's .col-2 grid class (16.67% of the input-group) - a
    grid utility repurposed as a "keep it small" hack, and wildly oversized for
