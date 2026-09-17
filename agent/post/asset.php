@@ -568,6 +568,44 @@ if (isset($_POST['bulk_edit_asset_status'])) {
 
 }
 
+if (isset($_POST['bulk_edit_asset_type'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    enforceUserPermission('module_support', 2);
+
+    $type = sanitizeInput($_POST['bulk_type']);
+
+    if (isset($_POST['asset_ids'])) {
+
+        $asset_count = count($_POST['asset_ids']);
+
+        foreach($_POST['asset_ids'] as $asset_id) {
+            $asset_id = intval($asset_id);
+
+            // Get Asset Details for Logging
+            $sql = mysqli_query($mysqli,"SELECT asset_name, asset_client_id FROM assets WHERE asset_id = $asset_id");
+            $row = mysqli_fetch_assoc($sql);
+            $asset_name = sanitizeInput($row['asset_name']);
+            $client_id = intval($row['asset_client_id']);
+
+            enforceClientAccess();
+
+            mysqli_query($mysqli,"UPDATE assets SET asset_type = '$type' WHERE asset_id = $asset_id");
+
+            logAction("Asset", "Edit", "$session_name set type to $type on $asset_name", $client_id, $asset_id);
+
+        }
+
+        logAction("Asset", "Bulk Edit", "$session_name set type to $type on $asset_count assets", $client_id);
+
+        flash_alert("You set the type <strong>$type</strong> on <strong>$asset_count</strong> assets.");
+    }
+
+    redirect();
+
+}
+
 if (isset($_POST['bulk_favorite_assets'])) {
 
     validateCSRFToken($_POST['csrf_token']);

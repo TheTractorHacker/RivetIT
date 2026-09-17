@@ -464,6 +464,12 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                                 </a>
                                 <div class="dropdown-divider"></div>
                                 <a class="dropdown-item ajax-modal" href="#"
+                                    data-modal-url="modals/asset/asset_bulk_edit_type.php"
+                                    data-bulk="true">
+                                    <i class="fas fa-fw fa-layer-group me-2"></i>Set Type
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item ajax-modal" href="#"
                                     data-modal-url="modals/asset/asset_bulk_add_ticket.php"
                                     data-modal-size="lg"
                                     data-bulk="true">
