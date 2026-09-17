@@ -168,6 +168,16 @@ $config_log_retention = intval($row['config_log_retention']);
 $config_backup_auto_enabled  = intval($row['config_backup_auto_enabled'] ?? 0);
 $config_backup_frequency     = $row['config_backup_frequency'] ?? 'daily';
 $config_backup_retain_count  = max(1, intval($row['config_backup_retain_count'] ?? 7));
+// Backup > Remote Storage (S3-compatible - AWS S3 or a self-hosted service
+// like RustFS/MinIO). Secret key is encrypted at rest, same as Comet's below.
+$config_backup_s3_enabled     = intval($row['config_backup_s3_enabled'] ?? 0);
+$config_backup_s3_endpoint    = $row['config_backup_s3_endpoint'] ?? '';
+$config_backup_s3_region      = $row['config_backup_s3_region'] ?? 'us-east-1';
+$config_backup_s3_bucket      = $row['config_backup_s3_bucket'] ?? '';
+$config_backup_s3_access_key  = $row['config_backup_s3_access_key'] ?? '';
+$config_backup_s3_secret_key  = decryptSetting($row['config_backup_s3_secret_key'] ?? '');
+$config_backup_s3_path_style  = intval($row['config_backup_s3_path_style'] ?? 1);
+$config_backup_s3_prefix      = $row['config_backup_s3_prefix'] ?? '';
 // Comet Backup
 $config_comet_enabled      = intval($row['config_comet_enabled'] ?? 0);
 $config_comet_server_url   = $row['config_comet_server_url'] ?? 'http://10.1.0.35:8060';

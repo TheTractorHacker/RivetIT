@@ -168,6 +168,101 @@ function fmt_age(?int $ts): string {
     </div>
 </div>
 
+<!-- ── Remote Storage (S3-compatible) ─────────────────────────────────────── -->
+<div class="card card-dark mb-3">
+    <div class="card-header py-2">
+        <h3 class="card-title"><i class="fas fa-fw fa-cloud-upload-alt me-2"></i>Remote Storage (S3-compatible)</h3>
+    </div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">
+            Upload every backup (manual or auto) to an S3-compatible bucket in addition to keeping it on this server - AWS S3 itself, or a self-hosted service such as RustFS or MinIO. Point <strong>Endpoint</strong> at your provider's S3 API URL; leave it blank for real AWS S3.
+        </p>
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+
+            <div class="form-group mb-3">
+                <div class="form-check form-check form-switch">
+                    <input type="checkbox" class="form-check-input" id="backup_s3_enabled"
+                           name="config_backup_s3_enabled" value="1"
+                           <?= $config_backup_s3_enabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="backup_s3_enabled">
+                        Upload backups to S3-compatible storage
+                    </label>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-sm-6">
+                    <div class="form-group">
+                        <label class="text-muted small mb-1">Endpoint URL <span class="text-muted">(blank = AWS S3)</span></label>
+                        <input type="text" class="form-control form-control-sm" name="config_backup_s3_endpoint"
+                               placeholder="e.g. https://s3.example.com:9000 (RustFS/MinIO)"
+                               value="<?= nullable_htmlentities($config_backup_s3_endpoint) ?>">
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="form-group">
+                        <label class="text-muted small mb-1">Region</label>
+                        <input type="text" class="form-control form-control-sm" name="config_backup_s3_region"
+                               placeholder="us-east-1" value="<?= nullable_htmlentities($config_backup_s3_region) ?>">
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="form-group">
+                        <label class="text-muted small mb-1">Bucket</label>
+                        <input type="text" class="form-control form-control-sm" name="config_backup_s3_bucket"
+                               value="<?= nullable_htmlentities($config_backup_s3_bucket) ?>" required>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-sm-4">
+                    <div class="form-group">
+                        <label class="text-muted small mb-1">Access Key</label>
+                        <input type="text" class="form-control form-control-sm" name="config_backup_s3_access_key"
+                               autocomplete="off" value="<?= nullable_htmlentities($config_backup_s3_access_key) ?>">
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="form-group">
+                        <label class="text-muted small mb-1">Secret Key</label>
+                        <input type="password" class="form-control form-control-sm" name="config_backup_s3_secret_key"
+                               autocomplete="new-password"
+                               placeholder="<?= $config_backup_s3_secret_key ? '(saved — leave blank to keep)' : '' ?>">
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="form-group">
+                        <label class="text-muted small mb-1">Key Prefix <span class="text-muted">(optional)</span></label>
+                        <input type="text" class="form-control form-control-sm" name="config_backup_s3_prefix"
+                               placeholder="e.g. itflow-backups/" value="<?= nullable_htmlentities($config_backup_s3_prefix) ?>">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group mb-3">
+                <div class="form-check form-check form-switch">
+                    <input type="checkbox" class="form-check-input" id="backup_s3_path_style"
+                           name="config_backup_s3_path_style" value="1"
+                           <?= $config_backup_s3_path_style ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="backup_s3_path_style">
+                        Path-style addressing
+                    </label>
+                </div>
+                <small class="text-muted">On by default - required by most self-hosted S3-compatible services (RustFS, MinIO). Real AWS S3 works with either; turn this off only if your provider specifically requires virtual-hosted-style URLs.</small>
+            </div>
+
+            <button type="submit" name="save_backup_s3_settings" class="btn btn-primary btn-sm">
+                <i class="fas fa-check me-1"></i>Save Remote Storage
+            </button>
+            <button type="submit" name="backup_s3_test" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-plug me-1"></i>Test Connection
+            </button>
+        </form>
+    </div>
+</div>
+
 <!-- ── Backup history ─────────────────────────────────────────────────────── -->
 <div class="card card-dark">
     <div class="card-header py-2 d-flex align-items-center">

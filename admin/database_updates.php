@@ -7809,3 +7809,21 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.88'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.88') {
+        // Backup > Remote Storage: upload each backup zip to an S3-compatible
+        // bucket (AWS S3 itself, or a self-hosted service like RustFS/MinIO)
+        // in addition to keeping it in webroot/backups. config_backup_s3_secret_key
+        // is encrypted at rest via encryptSetting()/decryptSetting(), same as
+        // config_comet_admin_pass.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_backup_s3_enabled` tinyint(1) NOT NULL DEFAULT 0 AFTER `config_backup_retain_count`");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_backup_s3_endpoint` varchar(255) DEFAULT NULL AFTER `config_backup_s3_enabled`");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_backup_s3_region` varchar(100) NOT NULL DEFAULT 'us-east-1' AFTER `config_backup_s3_endpoint`");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_backup_s3_bucket` varchar(255) DEFAULT NULL AFTER `config_backup_s3_region`");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_backup_s3_access_key` varchar(255) DEFAULT NULL AFTER `config_backup_s3_bucket`");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_backup_s3_secret_key` text DEFAULT NULL AFTER `config_backup_s3_access_key`");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_backup_s3_path_style` tinyint(1) NOT NULL DEFAULT 1 AFTER `config_backup_s3_secret_key`");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_backup_s3_prefix` varchar(255) DEFAULT NULL AFTER `config_backup_s3_path_style`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.89'");
+    }

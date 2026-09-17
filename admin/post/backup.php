@@ -174,6 +174,78 @@ function safe_backup_filename(string $name): string {
     return $base;
 }
 
+// ── Remote Storage (S3-compatible) ──────────────────────────────────────────
+
+/**
+ * Builds an S3Client from an explicit config array (not globals), so the
+ * same code path serves both the real save/upload flow (already-persisted
+ * settings) and "Test Connection" (whatever is currently in the form,
+ * possibly not saved yet). $cfg keys: endpoint, region, access_key,
+ * secret_key, path_style.
+ */
+function backup_s3_client(array $cfg): \Aws\S3\S3Client {
+    require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+
+    $args = [
+        'version'                 => 'latest',
+        'region'                  => $cfg['region'] ?: 'us-east-1',
+        'credentials'             => [
+            'key'    => $cfg['access_key'] ?? '',
+            'secret' => $cfg['secret_key'] ?? '',
+        ],
+        'use_path_style_endpoint' => !empty($cfg['path_style']),
+    ];
+    // Only AWS itself resolves without one - a self-hosted service (RustFS,
+    // MinIO, etc.) always needs its own API URL here.
+    if (!empty($cfg['endpoint'])) {
+        $args['endpoint'] = $cfg['endpoint'];
+    }
+
+    return new \Aws\S3\S3Client($args);
+}
+
+/**
+ * Uploads one backup zip to the configured S3-compatible bucket. Reads the
+ * already-saved, already-decrypted config_backup_s3_* globals (loaded by
+ * includes/load_global_settings.php) - not meant for "Test Connection",
+ * which builds its own $cfg from the submitted form instead. Returns true
+ * on success; failures are logged, never thrown - a broken remote-storage
+ * config must not stop the local backup that already succeeded.
+ */
+function backup_upload_to_s3(string $filePath, string $fileName): bool {
+    global $mysqli, $config_backup_s3_enabled, $config_backup_s3_endpoint, $config_backup_s3_region,
+           $config_backup_s3_bucket, $config_backup_s3_access_key, $config_backup_s3_secret_key,
+           $config_backup_s3_path_style, $config_backup_s3_prefix;
+
+    if (empty($config_backup_s3_enabled) || empty($config_backup_s3_bucket)) {
+        return false;
+    }
+
+    try {
+        $client = backup_s3_client([
+            'endpoint'    => $config_backup_s3_endpoint,
+            'region'      => $config_backup_s3_region,
+            'access_key'  => $config_backup_s3_access_key,
+            'secret_key'  => $config_backup_s3_secret_key,
+            'path_style'  => $config_backup_s3_path_style,
+        ]);
+
+        $key = ltrim(($config_backup_s3_prefix ?: '') . $fileName, '/');
+
+        $client->putObject([
+            'Bucket'     => $config_backup_s3_bucket,
+            'Key'        => $key,
+            'SourceFile' => $filePath,
+        ]);
+
+        logApp('Backup', 'info', "Uploaded backup $fileName to S3 bucket {$config_backup_s3_bucket} (key: $key)");
+        return true;
+    } catch (\Throwable $e) {
+        logApp('Backup', 'error', "S3 upload failed for $fileName: " . $e->getMessage());
+        return false;
+    }
+}
+
 // ── Download fresh backup (stream to browser) ─────────────────────────────────
 if (isset($_GET['backup_download_fresh'])) {
     validateCSRFToken($_GET['csrf_token']);
@@ -223,7 +295,9 @@ if (isset($_GET['backup_save'])) {
     validateCSRFToken($_GET['csrf_token']);
     $result = build_backup($mysqli, 'manual', $BACKUP_DIR);
     logAction('System', 'Backup Save', "$session_name saved backup {$result['name']} to server");
-    flash_alert("Backup <strong>{$result['name']}</strong> saved to server");
+    $s3_ok = backup_upload_to_s3($result['path'], $result['name']);
+    $s3_note = $config_backup_s3_enabled ? ($s3_ok ? ' and uploaded to remote storage' : ' (remote storage upload failed - check Admin > Backup)') : '';
+    flash_alert("Backup <strong>{$result['name']}</strong> saved to server$s3_note");
     redirect();
 }
 
@@ -268,6 +342,68 @@ if (isset($_POST['save_backup_settings'])) {
     mysqli_query($mysqli, "UPDATE settings SET config_backup_auto_enabled = $auto, config_backup_frequency = '$freq', config_backup_retain_count = $retain WHERE company_id = 1");
     logAction('Settings', 'Edit', "$session_name updated backup settings");
     flash_alert('Backup settings saved');
+    redirect();
+}
+
+// ── Save Remote Storage (S3) settings ──────────────────────────────────────────
+if (isset($_POST['save_backup_s3_settings'])) {
+    validateCSRFToken($_POST['csrf_token']);
+
+    $s3_enabled    = isset($_POST['config_backup_s3_enabled']) ? 1 : 0;
+    $s3_endpoint   = mysqli_real_escape_string($mysqli, sanitizeInput($_POST['config_backup_s3_endpoint'] ?? ''));
+    $s3_region     = mysqli_real_escape_string($mysqli, sanitizeInput($_POST['config_backup_s3_region'] ?? '') ?: 'us-east-1');
+    $s3_bucket     = mysqli_real_escape_string($mysqli, sanitizeInput($_POST['config_backup_s3_bucket'] ?? ''));
+    $s3_access_key = mysqli_real_escape_string($mysqli, sanitizeInput($_POST['config_backup_s3_access_key'] ?? ''));
+    $s3_path_style = isset($_POST['config_backup_s3_path_style']) ? 1 : 0;
+    $s3_prefix     = mysqli_real_escape_string($mysqli, sanitizeInput($_POST['config_backup_s3_prefix'] ?? ''));
+
+    $set = "config_backup_s3_enabled = $s3_enabled, config_backup_s3_endpoint = '$s3_endpoint', config_backup_s3_region = '$s3_region', config_backup_s3_bucket = '$s3_bucket', config_backup_s3_access_key = '$s3_access_key', config_backup_s3_path_style = $s3_path_style, config_backup_s3_prefix = '$s3_prefix'";
+
+    // Blank = keep whatever's already saved (same "don't overwrite a secret
+    // with nothing" convention as Comet's admin password).
+    if (trim($_POST['config_backup_s3_secret_key'] ?? '') !== '') {
+        $s3_secret = mysqli_real_escape_string($mysqli, encryptSetting(trim($_POST['config_backup_s3_secret_key'])));
+        $set .= ", config_backup_s3_secret_key = '$s3_secret'";
+    }
+
+    mysqli_query($mysqli, "UPDATE settings SET $set WHERE company_id = 1");
+    logAction('Settings', 'Edit', "$session_name updated backup remote storage (S3) settings");
+    flash_alert('Remote storage settings saved');
+    redirect();
+}
+
+// ── Test Remote Storage (S3) connection ────────────────────────────────────────
+if (isset($_POST['backup_s3_test'])) {
+    validateCSRFToken($_POST['csrf_token']);
+
+    $test_bucket = sanitizeInput($_POST['config_backup_s3_bucket'] ?? '');
+    if ($test_bucket === '') {
+        flash_alert('Enter a bucket name before testing', 'error');
+        redirect();
+    }
+
+    // Uses whatever is in the form right now (so a not-yet-saved change can be
+    // tested before committing it) - falls back to the already-saved secret
+    // key when the field was left blank, same "blank = keep existing" as the
+    // save handler above.
+    $test_secret = trim($_POST['config_backup_s3_secret_key'] ?? '');
+    if ($test_secret === '') {
+        $test_secret = $config_backup_s3_secret_key;
+    }
+
+    try {
+        $client = backup_s3_client([
+            'endpoint'   => sanitizeInput($_POST['config_backup_s3_endpoint'] ?? ''),
+            'region'     => sanitizeInput($_POST['config_backup_s3_region'] ?? '') ?: 'us-east-1',
+            'access_key' => sanitizeInput($_POST['config_backup_s3_access_key'] ?? ''),
+            'secret_key' => $test_secret,
+            'path_style' => isset($_POST['config_backup_s3_path_style']),
+        ]);
+        $client->headBucket(['Bucket' => $test_bucket]);
+        flash_alert("Connected to bucket <strong>" . nullable_htmlentities($test_bucket) . "</strong> successfully");
+    } catch (\Throwable $e) {
+        flash_alert('Connection failed: ' . nullable_htmlentities($e->getMessage()), 'error');
+    }
     redirect();
 }
 

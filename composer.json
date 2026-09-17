@@ -1,6 +1,7 @@
 {
     "require": {
-        "predis/predis": "^3.5"
+        "predis/predis": "^3.5",
+        "aws/aws-sdk-php": "^3.395"
     },
     "autoload": {
         "psr-4": {
