@@ -302,7 +302,7 @@ function fmt_age(?int $ts): string {
                     <th style="width:80px;">Type</th>
                     <th style="width:80px;">Size</th>
                     <th style="width:160px;">Created</th>
-                    <th style="width:90px;"></th>
+                    <th style="width:110px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -330,16 +330,18 @@ function fmt_age(?int $ts): string {
                     <td class="text-muted small"><?= $bmb ?></td>
                     <td class="text-muted small" title="<?= $bdate ?>"><?= $bago ?></td>
                     <td class="pe-3 text-end">
-                        <a href="post.php?backup_serve=<?= urlencode($bbase) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                           class="btn btn-xs btn-outline-primary"
-                           title="Download">
-                            <i class="fas fa-download"></i>
-                        </a>
-                        <a href="post.php?backup_delete=<?= urlencode($bbase) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                           class="btn btn-xs btn-outline-danger ms-1 confirm-link"
-                           title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </a>
+                        <div class="d-inline-flex gap-1">
+                            <a href="post.php?backup_serve=<?= urlencode($bbase) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
+                               class="btn btn-sm btn-outline-primary"
+                               title="Download">
+                                <i class="fas fa-download"></i>
+                            </a>
+                            <a href="post.php?backup_delete=<?= urlencode($bbase) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
+                               class="btn btn-sm btn-outline-danger confirm-link"
+                               title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                        </div>
                     </td>
                 </tr>
             <?php endforeach; ?>
