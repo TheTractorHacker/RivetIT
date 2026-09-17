@@ -139,6 +139,50 @@ if (isset($_POST['add_sla_holiday'])) {
     redirect();
 }
 
+if (isset($_GET['load_federal_holidays'])) {
+
+    validateCSRFToken($_GET['csrf_token']);
+
+    require_once __DIR__ . '/../../includes/holiday_functions.php';
+
+    $calendar_id = intval($_GET['load_federal_holidays']);
+    $calendar_name = sanitizeInput(getFieldById('sla_business_hours', $calendar_id, 'calendar_name'));
+    if ($calendar_name === '') {
+        flash_alert("Calendar not found", 'error');
+        redirect();
+    }
+
+    $company_country = sanitizeInput(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT company_country FROM companies WHERE company_id = 1"))['company_country'] ?? '');
+    if (!in_array($company_country, getFederalHolidayCountries(), true)) {
+        flash_alert("No default federal holiday list available for the configured company country.", 'error');
+        redirect();
+    }
+
+    // Existing dates for this calendar, so re-running this (e.g. next year,
+    // to top up) never creates duplicates for a date already there -
+    // whether it came from this same loader before or was added by hand.
+    $existing_dates = [];
+    $eres = mysqli_query($mysqli, "SELECT holiday_date FROM sla_holidays WHERE calendar_id = $calendar_id");
+    while ($er = mysqli_fetch_assoc($eres)) { $existing_dates[$er['holiday_date']] = true; }
+
+    $this_year = intval(date('Y'));
+    $added = 0;
+    foreach ([$this_year, $this_year + 1] as $year) {
+        foreach (getFederalHolidaysForCountry($company_country, $year) as $h) {
+            if (isset($existing_dates[$h['date']])) { continue; }
+            $h_date = mysqli_real_escape_string($mysqli, $h['date']);
+            $h_name = mysqli_real_escape_string($mysqli, $h['name']);
+            mysqli_query($mysqli, "INSERT INTO sla_holidays SET calendar_id = $calendar_id, holiday_date = '$h_date', holiday_name = '$h_name'");
+            $existing_dates[$h['date']] = true;
+            $added++;
+        }
+    }
+
+    logAction("SLA Calendar", "Edit", "$session_name loaded $added $company_country federal holiday(s) into SLA calendar $calendar_name", 0, $calendar_id);
+    flash_alert("Loaded <strong>$added</strong> $company_country federal holiday(s) for $this_year&ndash;" . ($this_year + 1));
+    redirect();
+}
+
 if (isset($_GET['delete_sla_holiday'])) {
 
     validateCSRFToken($_GET['csrf_token']);

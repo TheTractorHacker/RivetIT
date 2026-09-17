@@ -1,7 +1,17 @@
 <?php
 require_once '../../../includes/modal_header.php';
+require_once '../../../includes/holiday_functions.php';
 
 $calendar_id = intval($_GET['id']);
+
+// Company's configured country (Admin > Settings > Company) drives which
+// federal/bank holiday list "Load Federal Holidays" below can offer -
+// see includes/holiday_functions.php for exactly which countries are covered.
+$company_country = sanitizeInput(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT company_country FROM companies WHERE company_id = 1"))['company_country'] ?? '');
+$federal_holiday_countries = getFederalHolidayCountries();
+$company_country_supported = $company_country !== '' && in_array($company_country, $federal_holiday_countries, true);
+$this_year = intval(date('Y'));
+$next_year = $this_year + 1;
 
 $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM sla_business_hours WHERE calendar_id = $calendar_id LIMIT 1"));
 if (!$row) { exit('Calendar not found'); }
@@ -128,6 +138,19 @@ ob_start();
                 </li>
             <?php } ?>
         </ul>
+    <?php } ?>
+
+    <?php if ($company_country_supported) { ?>
+        <div class="p-2 mb-3 border rounded-3 bg-light bg-opacity-50 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="small text-secondary"><i class="fas fa-fw fa-flag me-1"></i>Company country: <strong><?php echo nullable_htmlentities($company_country); ?></strong></span>
+            <a class="btn btn-outline-secondary btn-sm confirm-link" href="post.php?load_federal_holidays=<?php echo $calendar_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>">
+                <i class="fas fa-fw fa-calendar-plus me-1"></i>Load <?php echo nullable_htmlentities($company_country); ?> Federal Holidays (<?php echo $this_year; ?>&ndash;<?php echo $next_year; ?>)
+            </a>
+        </div>
+    <?php } elseif ($company_country !== '') { ?>
+        <p class="text-secondary small">No default federal holiday list available yet for <strong><?php echo nullable_htmlentities($company_country); ?></strong> &mdash; add holidays manually below.</p>
+    <?php } else { ?>
+        <p class="text-secondary small">Set a country on <a href="../settings_company.php" target="_blank">Admin &gt; Settings &gt; Company</a> to load that country's federal holidays here automatically.</p>
     <?php } ?>
 
     <form action="post.php" method="post" autocomplete="off" class="form-row align-items-end">
