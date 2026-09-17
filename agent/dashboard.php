@@ -21,11 +21,6 @@ if (isset($_GET['enable_financial'])) {
     mysqli_query($mysqli, "UPDATE user_settings SET user_config_dashboard_financial_enable = $enable_financial WHERE user_id = $session_user_id");
 }
 
-if (isset($_GET['enable_technical'])) {
-    $enable_technical = intval($_GET['enable_technical']);
-    mysqli_query($mysqli, "UPDATE user_settings SET user_config_dashboard_technical_enable = $enable_technical WHERE user_id = $session_user_id");
-}
-
 if (isset($_GET['financial_chart_type']) && in_array($_GET['financial_chart_type'], $dash_chart_type_options['financial'], true)) {
     $financial_chart_type_set = $_GET['financial_chart_type'];
     mysqli_query($mysqli, "UPDATE user_settings SET user_config_dashboard_financial_chart_type = '$financial_chart_type_set' WHERE user_id = $session_user_id");
@@ -40,7 +35,6 @@ if (isset($_GET['technical_chart_type']) && in_array($_GET['technical_chart_type
 $sql_user_dashboard_settings = mysqli_query($mysqli, "SELECT * FROM user_settings WHERE user_id = $session_user_id");
 $row = mysqli_fetch_assoc($sql_user_dashboard_settings);
 $user_config_dashboard_financial_enable = intval($row['user_config_dashboard_financial_enable']);
-$user_config_dashboard_technical_enable = intval($row['user_config_dashboard_technical_enable']);
 // Re-validate what came back from the DB too (belt and suspenders against a
 // hand-edited row, and it doubles as the fallback for an upgrade that hasn't
 // run the migration yet) before it's ever echoed into a Chart.js `type`.
@@ -48,18 +42,6 @@ $user_config_dashboard_financial_chart_type = in_array($row['user_config_dashboa
     ? $row['user_config_dashboard_financial_chart_type'] : 'line';
 $user_config_dashboard_technical_chart_type = in_array($row['user_config_dashboard_technical_chart_type'] ?? null, $dash_chart_type_options['technical'], true)
     ? $row['user_config_dashboard_technical_chart_type'] : 'bar';
-
-// Get unique years from expenses, payments, invoices, revenues, tickets, clients, and users
-$sql_years_select = mysqli_query($mysqli, "
-    SELECT YEAR(expense_date) AS all_years FROM expenses
-    UNION DISTINCT SELECT YEAR(payment_date) FROM payments
-    UNION DISTINCT SELECT YEAR(revenue_date) FROM revenues
-    UNION DISTINCT SELECT YEAR(invoice_date) FROM invoices
-    UNION DISTINCT SELECT YEAR(ticket_created_at) FROM tickets
-    UNION DISTINCT SELECT YEAR(client_created_at) FROM clients
-    UNION DISTINCT SELECT YEAR(user_created_at) FROM users
-    ORDER BY all_years DESC
-");
 ?>
 
 <!-- Dashboard layout, chart wells and status-strip styles -->
@@ -401,6 +383,28 @@ $dash_total_assets = intval(mysqli_fetch_row(mysqli_query($mysqli,
 </div>
 <?php } ?>
 
+<?php
+// Every other accounting surface in this app (Quick Links, the agent
+// nav's Finance dropdown - agent/includes/side_nav.php's
+// `config_module_enable_accounting == 1` checks) hides itself when
+// accounting is off system-wide. This switch used to skip that check
+// for role 1 (admin), so an admin could enable and see Cash Flow /
+// revenue charts on an Internal IT install with accounting force-
+// disabled. Gated for every role now, same as the section render
+// below - see the note there on why the user's stored on/off
+// preference is left alone rather than cleared when this hides it.
+//
+// This form is the ONLY thing that ever lived in the top filter bar now
+// that Select Year (moved to Reports) and the Technical switch (Technical
+// is always on) are both gone - so on an install with accounting off (like
+// this one), rendering the wrapping .card here would just be an empty
+// white bar. The Technical chart-type <select>, further down in the
+// "Tickets Opened vs Resolved" card header, still needs *some* <form> to
+// submit via its form="dashboardFiltersForm" attribute (auto-submit-select
+// calls el.form.submit()) regardless of whether Financial's own controls
+// render, so an invisible form is always emitted as the else-branch.
+?>
+<?php if ($config_module_enable_accounting == 1 && ($session_user_role == 1 || $session_user_role == 3)) { ?>
 <div class="card card-body mb-4">
     <?php
     // The form is a flex row with `gap`, so the per-control me-*/mb-* margins it
@@ -408,63 +412,24 @@ $dash_total_assets = intval(mysqli_fetch_row(mysqli_query($mysqli,
     // control that is not in a grid, and `width:auto` shrink-wrapped the select
     // to "2026" - which is what put the chevron on top of the digits.
     ?>
-    <form class="d-flex flex-wrap align-items-center gap-3">
+    <form id="dashboardFiltersForm" class="d-flex flex-wrap align-items-center gap-3">
         <input type="hidden" name="enable_financial" value="0">
-        <input type="hidden" name="enable_technical" value="0">
-
-        <label for="year" class="mb-0">Select Year:</label>
-        <select id="year" class="form-select dash-year-select auto-submit-select" name="year">
-            <?php while ($row = mysqli_fetch_assoc($sql_years_select)) {
-                $year_select = $row['all_years'];
-                if (empty($year_select)) {
-                    $year_select = date('Y');
-                }
-            ?>
-                <option value="<?php echo $year_select; ?>" <?php if ($year == $year_select) { echo "selected"; } ?>>
-                    <?php echo $year_select; ?>
-                </option>
-            <?php } ?>
-        </select>
-
-        <?php
-        // Every other accounting surface in this app (Quick Links, the agent
-        // nav's Finance dropdown - agent/includes/side_nav.php's
-        // `config_module_enable_accounting == 1` checks) hides itself when
-        // accounting is off system-wide. This switch used to skip that check
-        // for role 1 (admin), so an admin could enable and see Cash Flow /
-        // revenue charts on an Internal IT install with accounting force-
-        // disabled. Gated for every role now, same as the section render
-        // below - see the note there on why the user's stored on/off
-        // preference is left alone rather than cleared when this hides it. ?>
-        <?php if ($config_module_enable_accounting == 1 && ($session_user_role == 1 || $session_user_role == 3)) { ?>
-            <div class="form-check form-switch mb-0">
-                <input type="checkbox" class="form-check-input auto-submit-select" id="customSwitch1" name="enable_financial" value="1" <?php if ($user_config_dashboard_financial_enable == 1) { echo "checked"; } ?>>
-                <label class="form-check-label" for="customSwitch1">Financial</label>
-            </div>
-            <div class="d-flex align-items-center gap-1">
-                <label for="financial_chart_type" class="mb-0 small text-muted">Chart</label>
-                <select id="financial_chart_type" name="financial_chart_type" class="form-select form-select-sm dash-year-select auto-submit-select">
-                    <option value="line" <?php if ($user_config_dashboard_financial_chart_type === 'line') { echo "selected"; } ?>>Line</option>
-                    <option value="bar" <?php if ($user_config_dashboard_financial_chart_type === 'bar') { echo "selected"; } ?>>Bar</option>
-                </select>
-            </div>
-        <?php } ?>
-
-        <?php if ($session_user_role >= 2 && $config_module_enable_ticketing == 1) { ?>
-            <div class="form-check form-switch mb-0">
-                <input type="checkbox" class="form-check-input auto-submit-select" id="customSwitch2" name="enable_technical" value="1" <?php if ($user_config_dashboard_technical_enable == 1) { echo "checked"; } ?>>
-                <label class="form-check-label" for="customSwitch2">Technical</label>
-            </div>
-            <div class="d-flex align-items-center gap-1">
-                <label for="technical_chart_type" class="mb-0 small text-muted">Chart</label>
-                <select id="technical_chart_type" name="technical_chart_type" class="form-select form-select-sm dash-year-select auto-submit-select">
-                    <option value="bar" <?php if ($user_config_dashboard_technical_chart_type === 'bar') { echo "selected"; } ?>>Bar</option>
-                    <option value="line" <?php if ($user_config_dashboard_technical_chart_type === 'line') { echo "selected"; } ?>>Line</option>
-                </select>
-            </div>
-        <?php } ?>
+        <div class="form-check form-switch mb-0">
+            <input type="checkbox" class="form-check-input auto-submit-select" id="customSwitch1" name="enable_financial" value="1" <?php if ($user_config_dashboard_financial_enable == 1) { echo "checked"; } ?>>
+            <label class="form-check-label" for="customSwitch1">Financial</label>
+        </div>
+        <div class="d-flex align-items-center gap-1">
+            <label for="financial_chart_type" class="mb-0 small text-muted">Chart</label>
+            <select id="financial_chart_type" name="financial_chart_type" class="form-select form-select-sm dash-year-select auto-submit-select">
+                <option value="line" <?php if ($user_config_dashboard_financial_chart_type === 'line') { echo "selected"; } ?>>Line</option>
+                <option value="bar" <?php if ($user_config_dashboard_financial_chart_type === 'bar') { echo "selected"; } ?>>Bar</option>
+            </select>
+        </div>
     </form>
 </div>
+<?php } else { ?>
+<form id="dashboardFiltersForm" class="d-none"></form>
+<?php } ?>
 
 <?php
 // Gated on config_module_enable_accounting too, not just the user's own
@@ -831,7 +796,7 @@ if ($user_config_dashboard_financial_enable == 1 && $config_module_enable_accoun
 <!-- Technical Dashboard -->
 
 <?php
-if ($user_config_dashboard_technical_enable == 1) {
+if (true) {  // Technical dashboard is always shown now - no more enable toggle.
 
     // Fetch technical data for the dashboard
     $sql_clients = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(client_id) AS clients_added FROM clients WHERE YEAR(client_created_at) = $year"));
@@ -1006,6 +971,15 @@ if ($user_config_dashboard_technical_enable == 1) {
     <div class="card card-dark mb-3">
         <div class="card-header">
             <h3 class="card-title"><i class="fas fa-fw fa-chart-line me-2"></i>Tickets Opened vs Resolved <small>(<?php echo $year; ?>)</small></h3>
+            <div class="card-tools">
+                <div class="d-flex align-items-center gap-1">
+                    <label for="technical_chart_type" class="mb-0 small text-muted">Chart</label>
+                    <select id="technical_chart_type" name="technical_chart_type" form="dashboardFiltersForm" class="form-select form-select-sm auto-submit-select">
+                        <option value="bar" <?php if ($user_config_dashboard_technical_chart_type === 'bar') { echo "selected"; } ?>>Bar</option>
+                        <option value="line" <?php if ($user_config_dashboard_technical_chart_type === 'line') { echo "selected"; } ?>>Line</option>
+                    </select>
+                </div>
+            </div>
         </div>
         <div class="card-body">
             <div class="chart-h-240"><canvas id="ticketFlowChart"></canvas></div>
@@ -1745,7 +1719,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <?php } ?>
 
-<?php if ($user_config_dashboard_technical_enable == 1) { ?>
+<?php if (true) { ?>
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 document.addEventListener('DOMContentLoaded', function () {
 
