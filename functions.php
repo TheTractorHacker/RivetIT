@@ -4194,32 +4194,44 @@ function resolveTicketAssignee(int $explicit_assigned_to): int {
     return intval($config_ticket_default_technician_id ?? 0);
 }
 
-// Resolves a ticket's category at creation time for the unattended creation
-// paths (API, client portal) - keeps an already-picked/validated category,
-// falls back to the "Remote" Ticket-type category when none was given, so
-// triage/reporting isn't left with a pile of uncategorized tickets from
-// sources where no human chose one. Looked up by name/type rather than a
-// hardcoded id, since category_id is per-install. Returns 0 (uncategorized,
-// today's existing behavior) if this install has no "Remote" category.
+// Resolves a ticket's category at creation time for every creation path
+// (agent UI, API, client portal, email parser) - keeps an already-picked/
+// validated category, otherwise falls back to Admin > Settings > Tickets'
+// "Default Category" (config_ticket_default_category_id) if one is set,
+// then to the "Remote" Ticket-type category by name if not, so triage/
+// reporting isn't left with a pile of uncategorized tickets from sources
+// where no human chose one. Returns 0 (uncategorized, today's existing
+// behavior) if neither is configured/found.
 function resolveTicketCategory(int $category_id): int {
-    global $mysqli;
+    global $mysqli, $config_ticket_default_category_id;
     if ($category_id > 0) {
         return $category_id;
+    }
+    if (!empty($config_ticket_default_category_id)) {
+        return intval($config_ticket_default_category_id);
     }
     $row = mysqli_fetch_assoc(mysqli_query($mysqli,
         "SELECT category_id FROM categories WHERE category_name = 'Remote' AND category_type = 'Ticket' AND category_archived_at IS NULL LIMIT 1"));
     return $row ? intval($row['category_id']) : 0;
 }
 
-// Resolves a newly-created ticket's starting status for the unattended
-// creation paths (API, client portal): "Assigned" when the ticket already
-// has an agent on it at creation (an explicit assignee, or the configured
-// default technician via resolveTicketAssignee()), otherwise "New". Same
-// by-name-with-fallback lookup api/v1/tickets.php already used for "New"
-// alone, generalized to cover both names so an install that renamed or
-// deactivated either status still gets a sane status instead of 0.
+// Resolves a newly-created ticket's starting status for every creation path
+// (agent UI, API, client portal, email parser). Admin > Settings > Tickets'
+// "Default Status" (config_ticket_default_status_id), when set, wins
+// outright regardless of assignee - an admin who picked a specific status
+// (e.g. a custom "Triage" status) wants every new ticket to land there, not
+// just the ones nobody assigned. Otherwise: "Assigned" when the ticket
+// already has an agent on it at creation (an explicit assignee, or the
+// configured default technician via resolveTicketAssignee()), otherwise
+// "New" - looked up by name (not a hardcoded id, since ids are per-install)
+// with a further fallback to the first active status by display order, so
+// an install that renamed or deactivated either status still gets a sane
+// status instead of 0.
 function resolveTicketCreationStatus(int $assigned_to): int {
-    global $mysqli;
+    global $mysqli, $config_ticket_default_status_id;
+    if (!empty($config_ticket_default_status_id)) {
+        return intval($config_ticket_default_status_id);
+    }
     $status_name = $assigned_to > 0 ? 'Assigned' : 'New';
     $row = mysqli_fetch_assoc(mysqli_query($mysqli,
         "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_name = '$status_name' AND ticket_status_active = 1 LIMIT 1"));
@@ -4228,6 +4240,25 @@ function resolveTicketCreationStatus(int $assigned_to): int {
             "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_active = 1 ORDER BY ticket_status_order ASC, ticket_status_id ASC LIMIT 1"));
     }
     return $row ? intval($row['ticket_status_id']) : 0;
+}
+
+// Avg Resolution Time (dashboard tile, api/v1/reports/overview.php): hours
+// between creation and close, averaged across tickets closed in $year.
+// Admin > Settings > Tickets' "Exclude project-linked tickets" toggle
+// (config_avg_resolution_exclude_projects, on by default) drops any ticket
+// with ticket_project_id > 0 from the average - project work skews this
+// number in a way a support-ticket SLA metric shouldn't reflect, unlike an
+// ordinary Remote/Onsite/unset-delivery-method ticket, which always counts.
+// $extra_where is an optional, already-safe SQL fragment (e.g. a client-
+// scoping clause) appended as-is - callers build it, this function never
+// interpolates unescaped input into it.
+function getAvgResolutionTimeHours($mysqli, int $year, string $extra_where = ''): float {
+    global $config_avg_resolution_exclude_projects;
+    $project_clause = empty($config_avg_resolution_exclude_projects) ? '' : ' AND ticket_project_id = 0';
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT ROUND(AVG(TIMESTAMPDIFF(HOUR, ticket_created_at, ticket_closed_at)),1) AS avg_h
+         FROM tickets WHERE ticket_closed_at IS NOT NULL AND YEAR(ticket_closed_at) = $year$project_clause$extra_where"));
+    return floatval($row['avg_h'] ?? 0);
 }
 
 function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date, $subject, $message, $attachments, $original_message_file, $ccs, $mailbox_id = null) {
@@ -4285,9 +4316,10 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
     $url_key = randomString(32);
     $ticket_mailbox_id_sql = ($mailbox_id !== null && $mailbox_id !== '') ? intval($mailbox_id) : 'NULL';
     $resolved_assigned_to = resolveTicketAssignee(0);
-    $ticket_status = $resolved_assigned_to > 0 ? 2 : 1;
+    $ticket_status = resolveTicketCreationStatus($resolved_assigned_to);
+    $category_id = resolveTicketCategory(0);
 
-    mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$ticket_prefix_esc', ticket_number = $ticket_number, ticket_source = 'Email', ticket_subject = '$subject_esc', ticket_details = '$message_esc', ticket_priority = 'Low', ticket_status = $ticket_status, ticket_billable = $config_ticket_default_billable, ticket_created_by = 0, ticket_contact_id = $contact_id, ticket_url_key = '$url_key', ticket_client_id = $client_id, ticket_mailbox_id = $ticket_mailbox_id_sql, ticket_assigned_to = $resolved_assigned_to");
+    mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$ticket_prefix_esc', ticket_number = $ticket_number, ticket_source = 'Email', ticket_subject = '$subject_esc', ticket_details = '$message_esc', ticket_priority = 'Low', ticket_status = $ticket_status, ticket_category = $category_id, ticket_billable = $config_ticket_default_billable, ticket_created_by = 0, ticket_contact_id = $contact_id, ticket_url_key = '$url_key', ticket_client_id = $client_id, ticket_mailbox_id = $ticket_mailbox_id_sql, ticket_assigned_to = $resolved_assigned_to");
     $id = mysqli_insert_id($mysqli);
 
     // Logging

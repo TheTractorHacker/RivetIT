@@ -7766,3 +7766,23 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.86'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.86') {
+        // Ticket-creation defaults (Admin > Settings > Tickets): a configured
+        // default category/status override the ad-hoc "Remote"/"New"-or-
+        // "Assigned" by-name fallback that resolveTicketCategory()/
+        // resolveTicketCreationStatus() (functions.php) already use for API/
+        // portal-created tickets, and now also drive agent-UI ticket creation
+        // (agent/post/ticket.php), which previously had no fallback at all
+        // (category) or a hardcoded, wrong-on-this-install status id pair
+        // (1/2, meant to mean New/Assigned but actually New/Open).
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_ticket_default_category_id` int(11) NOT NULL DEFAULT 0 AFTER `config_ticket_default_technician_id`");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_ticket_default_status_id` int(11) NOT NULL DEFAULT 0 AFTER `config_ticket_default_category_id`");
+
+        // Avg Resolution Time (dashboard): whether project-linked tickets
+        // count toward the average, and whether the tile shows at all.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_avg_resolution_exclude_projects` tinyint(1) NOT NULL DEFAULT 1 AFTER `config_ticket_default_status_id`");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_dashboard_avg_resolution_enable` tinyint(1) NOT NULL DEFAULT 1 AFTER `config_avg_resolution_exclude_projects`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.87'");
+    }

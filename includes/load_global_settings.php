@@ -101,6 +101,16 @@ $config_ticket_moving_columns = intval($row['config_ticket_moving_columns']);
 $config_ticket_ordering = intval($row['config_ticket_ordering']);
 $config_ticket_timer_autostart = intval($row['config_ticket_timer_autostart']);
 $config_ticket_default_technician_id = intval($row['config_ticket_default_technician_id'] ?? 0);
+// Category/status a UI-created ticket lands on when left blank - see
+// resolveTicketCategory()/resolveTicketCreationStatus() (functions.php),
+// which fall back further (by-name "Remote"/"New"/"Assigned" lookup) when
+// these are 0 (unset).
+$config_ticket_default_category_id = intval($row['config_ticket_default_category_id'] ?? 0);
+$config_ticket_default_status_id = intval($row['config_ticket_default_status_id'] ?? 0);
+// Avg Resolution Time (dashboard tile): whether project-linked tickets count
+// toward the average, and whether the tile shows at all.
+$config_avg_resolution_exclude_projects = intval($row['config_avg_resolution_exclude_projects'] ?? 1);
+$config_dashboard_avg_resolution_enable = intval($row['config_dashboard_avg_resolution_enable'] ?? 1);
 
 // Cron
 $config_enable_cron = intval($row['config_enable_cron']);

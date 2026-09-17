@@ -1002,14 +1002,10 @@ if (isset($_POST['bulk_add_client_ticket'])) {
     enforceUserPermission('module_support', 2);
 
     $assigned_to = resolveTicketAssignee(intval($_POST['bulk_assigned_to']));
-    if ($assigned_to == 0) {
-        $ticket_status = 1;
-    } else {
-        $ticket_status = 2;
-    }
+    $ticket_status = resolveTicketCreationStatus($assigned_to);
     $subject = sanitizeInput($_POST['bulk_subject']);
     $priority = sanitizeInput($_POST['bulk_priority']);
-    $category_id = intval($_POST['bulk_category']);
+    $category_id = resolveTicketCategory(intval($_POST['bulk_category']));
     $details = mysqli_real_escape_string($mysqli, $_POST['bulk_details']);
     $project_id = intval($_POST['bulk_project']);
     $use_primary_contact = intval($_POST['use_primary_contact']);

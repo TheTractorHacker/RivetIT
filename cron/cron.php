@@ -310,12 +310,9 @@ if (mysqli_num_rows($sql_recurring_tickets) > 0) {
         $client_id = intval($row['recurring_ticket_client_id']);
         $contact_id = intval($row['recurring_ticket_contact_id']);
         $asset_id = intval($row['recurring_ticket_asset_id']);
-        $category = intval($row['recurring_ticket_category']);
+        $category = resolveTicketCategory(intval($row['recurring_ticket_category']));
 
-        $ticket_status = 1; // Default
-        if ($assigned_id > 0) {
-            $ticket_status = 2; // Set to open if we've auto-assigned an agent
-        }
+        $ticket_status = resolveTicketCreationStatus($assigned_id);
 
         if ($client_id) {
             $client_uri = "&client_id=$client_id";

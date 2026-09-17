@@ -101,6 +101,53 @@ require_once "includes/inc_all_admin.php";
                     </div>
                 </div>
 
+                <div class="form-group">
+                    <label>Default Category <small class="text-secondary">(every new ticket that's left uncategorized - a blank Category field in the New Ticket form, or an unattended API/portal/email-parsed ticket - defaults to this instead of staying uncategorized; falls back further to a "Remote" category by name if this is left unset)</small></label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-layer-group"></i></span>
+                        </div>
+                        <select class="form-control select2" name="config_ticket_default_category_id">
+                            <option value="0">- Not Categorized -</option>
+                            <?php echo ticketCategoryOptions($mysqli, $config_ticket_default_category_id); ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Default Status <small class="text-secondary">(overrides the usual New/Assigned logic outright for every new ticket, regardless of who it's assigned to - leave unset to keep the normal behavior: "Assigned" when a technician is on it at creation, otherwise "New")</small></label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-flag"></i></span>
+                        </div>
+                        <select class="form-control select2" name="config_ticket_default_status_id">
+                            <option value="0">- Use New/Assigned logic -</option>
+                            <?php
+                            $sql_default_status = mysqli_query($mysqli, "SELECT ticket_status_id, ticket_status_name FROM ticket_statuses WHERE ticket_status_active = 1 ORDER BY ticket_status_order ASC, ticket_status_name ASC");
+                            while ($row = mysqli_fetch_assoc($sql_default_status)) {
+                                $default_status_id = intval($row['ticket_status_id']);
+                                $default_status_name = nullable_htmlentities($row['ticket_status_name']); ?>
+                                <option <?php if ($config_ticket_default_status_id == $default_status_id) { echo "selected"; } ?>
+                                    value="<?php echo $default_status_id; ?>"><?php echo $default_status_name; ?></option>
+                            <?php } ?>
+                        </select>
+                    </div>
+                </div>
+
+                <hr>
+                <h6 class="text-muted text-uppercase mb-2" style="font-size:.72rem; letter-spacing:.06em;">Reporting</h6>
+
+                <div class="form-group">
+                    <div class="form-check form-check form-switch">
+                        <input type="checkbox" class="form-check-input" name="config_dashboard_avg_resolution_enable" <?php if ($config_dashboard_avg_resolution_enable == 1) { echo "checked"; } ?> value="1" id="avgResolutionEnableSwitch">
+                        <label class="form-check-label" for="avgResolutionEnableSwitch">Show Avg Resolution Time on the dashboard</label>
+                    </div>
+                    <div class="form-check form-check form-switch">
+                        <input type="checkbox" class="form-check-input" name="config_avg_resolution_exclude_projects" <?php if ($config_avg_resolution_exclude_projects == 1) { echo "checked"; } ?> value="1" id="avgResolutionExcludeProjectsSwitch">
+                        <label class="form-check-label" for="avgResolutionExcludeProjectsSwitch">Exclude project-linked tickets from Avg Resolution Time <small class="text-secondary">(project work skews this number; an ordinary Remote/Onsite ticket always counts)</small></label>
+                    </div>
+                </div>
+
                 <hr>
                 <h6 class="text-muted text-uppercase mb-2" style="font-size:.72rem; letter-spacing:.06em;">Customer Satisfaction (CSAT)</h6>
 

@@ -101,15 +101,12 @@ if (isset($_POST['bulk_force_recurring_tickets'])) {
                 $contact_id = intval($row['recurring_ticket_contact_id']);
                 $client_id = intval($row['recurring_ticket_client_id']);
                 $asset_id = intval($row['recurring_ticket_asset_id']);
-                $category = intval($row['recurring_ticket_category']);
+                $category = resolveTicketCategory(intval($row['recurring_ticket_category']));
                 $url_key = randomString(32);
 
                 enforceClientAccess();
 
-                $ticket_status = 1; // Default
-                if ($assigned_id > 0) {
-                    $ticket_status = 2; // Set to open if we've auto-assigned an agent
-                }
+                $ticket_status = resolveTicketCreationStatus($assigned_id);
 
                 // Sanitize Config Vars from get_settings.php and Session Vars from check_login.php
                 $config_ticket_prefix = sanitizeInput($config_ticket_prefix);
@@ -243,15 +240,12 @@ if (isset($_GET['force_recurring_ticket'])) {
         $contact_id = intval($row['recurring_ticket_contact_id']);
         $client_id = intval($row['recurring_ticket_client_id']);
         $asset_id = intval($row['recurring_ticket_asset_id']);
-        $category = intval($row['recurring_ticket_category']);
+        $category = resolveTicketCategory(intval($row['recurring_ticket_category']));
         $url_key = randomString(32);
 
         enforceClientAccess();
 
-        $ticket_status = 1; // Default
-        if ($assigned_id > 0) {
-            $ticket_status = 2; // Set to open if we've auto-assigned an agent
-        }
+        $ticket_status = resolveTicketCreationStatus($assigned_id);
 
         // Sanitize Config Vars from get_settings.php and Session Vars from check_login.php
         $config_ticket_prefix = sanitizeInput($config_ticket_prefix);

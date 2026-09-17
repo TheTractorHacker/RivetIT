@@ -57,12 +57,8 @@ while ($row = mysqli_fetch_assoc($sql)) {
     ];
 }
 
-$avg_row = mysqli_fetch_assoc(mysqli_query($mysqli,
-    "SELECT ROUND(AVG(TIMESTAMPDIFF(HOUR, ticket_created_at, ticket_closed_at)), 1) AS avg_h
-     FROM tickets
-     WHERE ticket_closed_at IS NOT NULL AND YEAR(ticket_closed_at) = $year$client_where"
-));
-$avg_resolution_hours = $avg_row && $avg_row['avg_h'] !== null ? floatval($avg_row['avg_h']) : null;
+$avg_resolution_hours_raw = getAvgResolutionTimeHours($mysqli, $year, $client_where);
+$avg_resolution_hours = $avg_resolution_hours_raw > 0 ? $avg_resolution_hours_raw : null;
 
 api_response(200, [
     'year'                  => $year,
