@@ -169,7 +169,15 @@
     border-color: var(--if-primary, var(--color-accent, #0d9488));
     box-shadow: 0 0 0 .2rem rgba(var(--if-primary-rgb, var(--color-accent-rgb, 13, 148, 136)), .2);
 }
-.ts-dropdown { border-color: var(--if-border, #e3e9ea); }
+/* A floating panel needs more contrast than an input's own resting border -
+   --if-border (#e3e9ea) is nearly invisible against the white card surfaces
+   these dropdowns almost always open over, leaving the option list looking
+   like it has no edge at all. Darker border + a real shadow read clearly as
+   "this is floating above the page" regardless of what's behind it. */
+.ts-dropdown {
+    border-color: var(--if-border-strong, #d3dbdc);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, .16);
+}
 .ts-dropdown .active {
     background-color: var(--if-primary-soft, var(--color-accent-soft, #ccfbf1));
     color: var(--if-ink, #16232a);
