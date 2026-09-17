@@ -1493,6 +1493,27 @@ CREATE TABLE `folders` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `holidays`
+--
+
+DROP TABLE IF EXISTS `holidays`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `holidays` (
+  `holiday_id` int(11) NOT NULL AUTO_INCREMENT,
+  `holiday_country` varchar(200) NOT NULL,
+  `holiday_year` int(4) NOT NULL,
+  `holiday_date` date NOT NULL,
+  `holiday_name` varchar(150) NOT NULL,
+  `holiday_is_custom` tinyint(1) NOT NULL DEFAULT 0,
+  `holiday_created_by` int(11) NOT NULL DEFAULT 0,
+  `holiday_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`holiday_id`),
+  KEY `idx_holidays_country_year` (`holiday_country`,`holiday_year`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `history`
 --
 
@@ -1741,6 +1762,31 @@ CREATE TABLE `modules` (
   `module_name` varchar(200) NOT NULL,
   `module_description` varchar(200) DEFAULT NULL,
   PRIMARY KEY (`module_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `network_drives`
+--
+
+DROP TABLE IF EXISTS `network_drives`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `network_drives` (
+  `network_drive_id` int(11) NOT NULL AUTO_INCREMENT,
+  `network_drive_client_id` int(11) NOT NULL DEFAULT 0,
+  `network_drive_name` varchar(200) NOT NULL,
+  `network_drive_letter` varchar(10) DEFAULT NULL,
+  `network_drive_path` varchar(500) DEFAULT NULL,
+  `network_drive_purpose` varchar(200) DEFAULT NULL,
+  `network_drive_notes` text DEFAULT NULL,
+  `network_drive_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `network_drive_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `network_drive_archived_at` datetime DEFAULT NULL,
+  `network_drive_created_by` int(11) NOT NULL DEFAULT 0,
+  `network_drive_updated_by` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`network_drive_id`),
+  KEY `idx_network_drives_client_archived` (`network_drive_client_id`,`network_drive_archived_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -2774,6 +2820,8 @@ CREATE TABLE `settings` (
   `config_theme` varchar(200) DEFAULT 'blue',
   `config_telemetry` tinyint(1) DEFAULT 0,
   `config_timezone` varchar(200) NOT NULL DEFAULT 'America/New_York',
+  `config_phone_default_country_code` varchar(10) NOT NULL DEFAULT '1',
+  `config_whatsapp_enabled` tinyint(1) NOT NULL DEFAULT 0,
   `config_destructive_deletes_enable` tinyint(1) NOT NULL DEFAULT 0,
   `config_whitelabel_enabled` int(11) NOT NULL DEFAULT 0,
   `config_whitelabel_key` text DEFAULT NULL,
@@ -2812,6 +2860,10 @@ CREATE TABLE `settings` (
   `config_module_enable_payroll` tinyint(1) NOT NULL DEFAULT 0,
   `config_module_enable_crm` tinyint(1) NOT NULL DEFAULT 0,
   `config_ticket_default_technician_id` int(11) DEFAULT NULL,
+  `config_ticket_default_category_id` int(11) NOT NULL DEFAULT 0,
+  `config_ticket_default_status_id` int(11) NOT NULL DEFAULT 0,
+  `config_avg_resolution_exclude_projects` tinyint(1) NOT NULL DEFAULT 1,
+  `config_dashboard_avg_resolution_enable` tinyint(1) NOT NULL DEFAULT 1,
   `config_module_enable_intune` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`company_id`),
   `config_enable_device_metrics` tinyint(1) NOT NULL DEFAULT 0,
@@ -5245,6 +5297,34 @@ CREATE TABLE `changes` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`change_id`),
   KEY `idx_changes_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `printers`
+--
+
+DROP TABLE IF EXISTS `printers`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `printers` (
+  `printer_id` int(11) NOT NULL AUTO_INCREMENT,
+  `printer_client_id` int(11) NOT NULL DEFAULT 0,
+  `printer_location_id` int(11) NOT NULL DEFAULT 0,
+  `printer_name` varchar(200) NOT NULL,
+  `printer_ip_address` varchar(200) DEFAULT NULL,
+  `printer_physical_location` varchar(200) DEFAULT NULL,
+  `printer_model` varchar(200) DEFAULT NULL,
+  `printer_serial_number` varchar(200) DEFAULT NULL,
+  `printer_mac_address` varchar(200) DEFAULT NULL,
+  `printer_notes` text DEFAULT NULL,
+  `printer_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `printer_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `printer_archived_at` datetime DEFAULT NULL,
+  `printer_created_by` int(11) NOT NULL DEFAULT 0,
+  `printer_updated_by` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`printer_id`),
+  KEY `idx_printers_client_archived` (`printer_client_id`,`printer_archived_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
