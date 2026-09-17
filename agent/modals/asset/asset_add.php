@@ -170,6 +170,16 @@ ob_start();
                             <input type="text" class="form-control" name="serial" placeholder="e.g. ABC1234XYZ" maxlength="200">
                         </div>
                     </div>
+
+                    <div class="form-group">
+                        <label>PIN / Passcode</label>
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text"><i class="fa fa-fw fa-key"></i></span>
+                            </div>
+                            <input type="text" class="form-control" name="pin" placeholder="Device unlock PIN/passcode" maxlength="50">
+                        </div>
+                    </div>
                 <?php } ?>
 
                 <?php if ($type !== 'Network' && $type !== 'Other') { ?>

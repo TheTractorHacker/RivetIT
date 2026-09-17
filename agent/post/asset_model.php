@@ -8,6 +8,7 @@ $type = sanitizeInput($_POST['type']);
 $make = sanitizeInput($_POST['make']);
 $model = sanitizeInput($_POST['model']);
 $serial = sanitizeInput($_POST['serial']);
+$pin = sanitizeInput($_POST['pin'] ?? '');
 $os = sanitizeInput($_POST['os']);
 $ip = sanitizeInput($_POST['ip']);
 $dhcp = intval($_POST['dhcp'] ?? 0);

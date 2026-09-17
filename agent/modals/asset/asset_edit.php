@@ -21,6 +21,7 @@ $asset_description = nullable_htmlentities($row['asset_description']);
 $asset_make = nullable_htmlentities($row['asset_make']);
 $asset_model = nullable_htmlentities($row['asset_model']);
 $asset_serial = nullable_htmlentities($row['asset_serial']);
+$asset_pin = nullable_htmlentities($row['asset_pin']);
 $asset_os = nullable_htmlentities($row['asset_os']);
 $asset_ip = nullable_htmlentities($row['interface_ip']);
 $asset_ipv6 = nullable_htmlentities($row['interface_ipv6']);
@@ -181,6 +182,16 @@ ob_start();
                                 <span class="input-group-text"><i class="fa fa-fw fa-barcode"></i></span>
                             </div>
                             <input type="text" class="form-control" name="serial" placeholder="Serial number" maxlength="200" value="<?= $asset_serial ?>">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>PIN / Passcode</label>
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text"><i class="fa fa-fw fa-key"></i></span>
+                            </div>
+                            <input type="text" class="form-control" name="pin" placeholder="Device unlock PIN/passcode" maxlength="50" value="<?= $asset_pin ?>">
                         </div>
                     </div>
                 <?php } ?>

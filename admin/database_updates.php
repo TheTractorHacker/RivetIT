@@ -7827,3 +7827,12 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.89'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.89') {
+        // Mobile device tracking (Assets > Mobile filter): PIN/passcode for
+        // phones/tablets, alongside the existing asset_tag/asset_serial
+        // fields already on this table.
+        mysqli_query($mysqli, "ALTER TABLE `assets` ADD COLUMN IF NOT EXISTS `asset_pin` varchar(50) DEFAULT NULL AFTER `asset_serial`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.90'");
+    }

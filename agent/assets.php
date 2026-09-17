@@ -4,6 +4,19 @@
 $sort = "asset_name";
 $order = "ASC";
 
+/*
+ * WHICH SIDEBAR THIS PAGE RENDERS is a SCOPE decision, taken from the URL
+ * alone (same convention as agent/credentials.php):
+ *
+ *   ?client_id=N    ONE DEPARTMENT -> inc_all_client.php          -> client_side_nav.php
+ *   ?scope=company  COMPANY-WIDE   -> inc_client_overview_all.php -> client_overview_side_nav.php
+ *   neither         APP-LEVEL      -> inc_all.php                 -> side_nav.php
+ *
+ * The plain sidebar link (Infrastructure > Assets) is bare, so it lands on
+ * APP-LEVEL, not company-wide - matching how Credentials' own top-level link
+ * behaves, rather than dropping straight into the company-wide rail.
+ */
+$scope_url = '';
 // If client_id is in URI then show client Side Bar and client header
 if (isset($_GET['client_id'])) {
     require_once "includes/inc_all_client.php";
@@ -18,7 +31,12 @@ if (isset($_GET['client_id'])) {
         $archive_query = "asset_archived_at IS NULL";
     }
 } else {
-    require_once "includes/inc_client_overview_all.php";
+    if (isset($_GET['scope']) && $_GET['scope'] === 'company') {
+        require_once "includes/inc_client_overview_all.php";
+        $scope_url = 'scope=company&';
+    } else {
+        require_once "includes/inc_all.php";
+    }
     $client_query = '';
     $client_url = '';
     // Overide Filter Header Archived
@@ -47,8 +65,11 @@ if (isset($_GET['type']) && ($_GET['type']) == 'workstation') {
 } elseif (isset($_GET['type']) && ($_GET['type']) == 'network') {
     $type_query = "asset_type = 'Switch' OR asset_type = 'Access Point'";
     $type_filter = "network";
+} elseif (isset($_GET['type']) && ($_GET['type']) == 'mobile') {
+    $type_query = "asset_type IN ('Phone', 'Mobile Phone', 'Tablet')";
+    $type_filter = "mobile";
 } elseif (isset($_GET['type']) && ($_GET['type']) == 'other') {
-    $type_query = "asset_type NOT LIKE 'laptop' AND asset_type NOT LIKE 'desktop' AND asset_type NOT LIKE 'server' AND asset_type NOT LIKE 'virtual machine' AND asset_type NOT LIKE 'firewall/router' AND asset_type NOT LIKE 'switch' AND asset_type NOT LIKE 'access point'";
+    $type_query = "asset_type NOT LIKE 'laptop' AND asset_type NOT LIKE 'desktop' AND asset_type NOT LIKE 'server' AND asset_type NOT LIKE 'virtual machine' AND asset_type NOT LIKE 'firewall/router' AND asset_type NOT LIKE 'switch' AND asset_type NOT LIKE 'access point' AND asset_type NOT LIKE 'phone' AND asset_type NOT LIKE 'mobile phone' AND asset_type NOT LIKE 'tablet'";
     $type_filter = "other";
 } else {
     $type_query = "asset_type != 'Firewall/Router'";
@@ -98,7 +119,8 @@ $row = mysqli_fetch_assoc(mysqli_query($mysqli, "
         SUM(CASE WHEN asset_type = 'server' THEN 1 ELSE 0 END) AS server_count,
         SUM(CASE WHEN asset_type = 'virtual machine' THEN 1 ELSE 0 END) AS virtual_count,
         SUM(CASE WHEN asset_type IN ('switch', 'access point') THEN 1 ELSE 0 END) AS network_count,
-        SUM(CASE WHEN asset_type NOT IN ('laptop', 'desktop', 'server', 'virtual machine', 'Firewall/Router', 'switch', 'access point') THEN 1 ELSE 0 END) AS other_count
+        SUM(CASE WHEN asset_type IN ('phone', 'mobile phone', 'tablet') THEN 1 ELSE 0 END) AS mobile_count,
+        SUM(CASE WHEN asset_type NOT IN ('laptop', 'desktop', 'server', 'virtual machine', 'Firewall/Router', 'switch', 'access point', 'phone', 'mobile phone', 'tablet') THEN 1 ELSE 0 END) AS other_count
     FROM (
         SELECT assets.* FROM assets
         LEFT JOIN clients ON client_id = asset_client_id
@@ -129,6 +151,9 @@ $virtual_count = intval($row['virtual_count']);
 
 //Network Device Count
 $network_count = intval($row['network_count']);
+
+//Mobile Device Count
+$mobile_count = intval($row['mobile_count']);
 
 //Other Count
 $other_count = intval($row['other_count']);
@@ -225,6 +250,10 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                 <a href="?<?php echo $url_query_strings_sort; ?>&type=network" class="btn <?php if ($_GET['type'] == 'network') { echo 'btn-primary'; } else { echo 'btn-default'; } ?>"><i class="fa fa-fw fa-network-wired me-2"></i>Network<span class="right badge text-bg-light ms-2"><?php echo $network_count; ?></span></a>
                 <?php
             }
+            if ($mobile_count > 0) { ?>
+                <a href="?<?php echo $url_query_strings_sort; ?>&type=mobile" class="btn <?php if ($_GET['type'] == 'mobile') { echo 'btn-primary'; } else { echo 'btn-default'; } ?>"><i class="fa fa-fw fa-mobile-alt me-2"></i>Mobile<span class="right badge text-bg-light ms-2"><?php echo $mobile_count; ?></span></a>
+                <?php
+            }
             if ($other_count > 0) { ?>
                 <a href="?<?php echo $url_query_strings_sort; ?>&type=other" class="btn <?php if ($_GET['type'] == 'other') { echo 'btn-primary'; } else { echo 'btn-default'; } ?>"><i class="fa fa-fw fa-tag me-2"></i>Other<span class="right badge text-bg-light ms-2"><?php echo $other_count; ?></span></a>
                 <?php
@@ -267,6 +296,11 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
         <form autocomplete="off">
             <?php if ($client_url) { ?>
             <input type="hidden" name="client_id" value="<?php echo $client_id; ?>">
+            <?php } ?>
+            <?php if ($scope_url) { ?>
+            <!-- Keeps the company-wide rail after a filter submit; without it the GET
+                 form rebuilds the URL bare and the sidebar swaps back to the app rail. -->
+            <input type="hidden" name="scope" value="company">
             <?php } ?>
             <input type="hidden" name="type" value="<?php echo stripslashes(nullable_htmlentities($_GET['type'])); ?>">
             <input type="hidden" name="archived" value="<?php echo $archived; ?>">
@@ -378,7 +412,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                 </div>
                 <div class="col-md-2">
                     <div class="btn-group float-end">
-                        <a href="?<?php echo $client_url; ?>&archived=<?php if($archived == 1){ echo 0; } else { echo 1; } ?>"
+                        <a href="?<?php echo $client_url . $scope_url; ?>&archived=<?php if($archived == 1){ echo 0; } else { echo 1; } ?>"
                             class="btn btn-<?php if($archived == 1){ echo "primary"; } else { echo "default"; } ?>">
                             <i class="fa fa-fw fa-archive me-2"></i>Archived
                         </a>
@@ -580,6 +614,8 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                         } else {
                             $asset_serial_display = "-";
                         }
+                        $asset_tag_display = getFallBack(nullable_htmlentities($row['asset_tag']));
+                        $asset_pin_display = getFallBack(nullable_htmlentities($row['asset_pin']));
                         $asset_os = nullable_htmlentities($row['asset_os']);
                         $asset_ip = getFallBack(nullable_htmlentities($row['interface_ip']));
                         $asset_ipv6 = nullable_htmlentities($row['interface_ipv6']);
@@ -672,7 +708,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                             }
 
                             $asset_tag_id_array[] = $asset_tag_id;
-                            $asset_tag_name_display_array[] = "<a href='assets.php?$client_url tags[]=$asset_tag_id'><span class='badge " . tagTextClass($asset_tag_color) . " p-1 me-1' style='background-color: $asset_tag_color;'><i class='fa fa-fw fa-$asset_tag_icon me-1'></i>$asset_tag_name</span></a>";
+                            $asset_tag_name_display_array[] = "<a href='assets.php?$client_url$scope_url tags[]=$asset_tag_id'><span class='badge " . tagTextClass($asset_tag_color) . " p-1 me-1' style='background-color: $asset_tag_color;'><i class='fa fa-fw fa-$asset_tag_icon me-1'></i>$asset_tag_name</span></a>";
                         }
                         $asset_tags_display = implode('', $asset_tag_name_display_array);
 
@@ -740,6 +776,9 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                                 <td>
                                     <div><?php echo "$asset_make $asset_model"; ?></div>
                                     <div><small class="text-secondary"><?php echo $asset_serial_display; ?></small></div>
+                                    <?php if ($_GET['type'] === 'mobile') { ?>
+                                    <div><small class="text-secondary">Tag: <?= $asset_tag_display ?> &middot; PIN: <?= $asset_pin_display ?></small></div>
+                                    <?php } ?>
                                 </td>
                             <?php } ?>
                                 <td>

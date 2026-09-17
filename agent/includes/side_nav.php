@@ -17,7 +17,7 @@ $section_pages = [
     'service_desk'  => ['tickets.php', 'ticket.php', 'recurring_tickets.php', 'service_catalog.php', 'csat.php', 'mail_requests.php', 'problems.php', 'problem_details.php', 'changes.php', 'change_details.php'],
     'work'          => ['projects.php', 'project_details.php', 'calendar.php'],
     'knowledge'     => ['kb_articles.php', 'kb_article.php', 'kb_article_versions.php', 'credentials.php', 'printers.php', 'network_drives.php'],
-    'infrastructure'=> ['locations.php', 'vendors.php', 'software.php', 'domains.php', 'certificates.php'],
+    'infrastructure'=> ['assets.php', 'asset_details.php', 'locations.php', 'vendors.php', 'software.php', 'domains.php', 'certificates.php'],
     'billing'       => ['quotes.php', 'quote.php', 'invoices.php', 'invoice.php', 'recurring_invoices.php', 'recurring_invoice.php', 'revenues.php', 'products.php'],
     'finance'       => ['payments.php', 'expenses.php', 'recurring_expenses.php', 'accounts.php', 'transfers.php', 'trips.php'],
     'endpoint'      => ['intune_devices.php', 'rmm_dashboard.php', 'rmm_assets.php', 'rmm_asset.php', 'rmm_alerts.php', 'rmm_scripts.php', 'rmm_checks.php', 'network.php', 'firewalls.php'],
@@ -255,6 +255,10 @@ foreach ($section_pages as $key => $pages) {
                         <span class="nav-link-title">Infrastructure</span>
                     </a>
                     <div class="dropdown-menu<?php echo $section_open['infrastructure'] ? ' show' : ''; ?>" id="nav-group-infrastructure">
+                        <a href="/agent/assets.php" class="dropdown-item<?php if ($current_page == "assets.php") { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-desktop"></i></span>
+                            <span class="text-truncate">Assets</span>
+                        </a>
                         <a href="/agent/locations.php" class="dropdown-item<?php if ($current_page == "locations.php") { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-map-marker-alt"></i></span>
                             <span class="text-truncate">Locations</span>

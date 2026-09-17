@@ -178,7 +178,7 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                     <li class="nav-item nav-section-title">DOCUMENTATION</li>
 
                     <li class="nav-item<?php if ($current_page == "assets.php" || $current_page == "asset_details.php") { echo " active"; } ?>">
-                        <a href="/agent/assets.php" class="nav-link<?php if ($current_page == "assets.php" || $current_page == "asset_details.php") { echo " active"; } ?>">
+                        <a href="/agent/assets.php?scope=company" class="nav-link<?php if ($current_page == "assets.php" || $current_page == "asset_details.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="fas fa-desktop"></i></span>
                             <span class="nav-link-title">Assets</span>
                             <?php

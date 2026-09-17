@@ -20,7 +20,7 @@ if (isset($_POST['add_asset'])) {
 
     $alert_extended = "";
 
-    mysqli_query($mysqli,"INSERT INTO assets SET asset_name = '$name', asset_tag = '$asset_tag', asset_description = '$description', asset_type = '$type', asset_make = '$make', asset_model = '$model', asset_serial = '$serial', asset_os = '$os', asset_uri = '$uri', asset_uri_2 = '$uri_2', asset_uri_client = '$uri_client', asset_anydesk_id = '$anydesk_id', asset_location_id = $location, asset_vendor_id = $vendor, asset_contact_id = $contact, asset_status = '$status', asset_purchase_reference = '$purchase_reference', asset_purchase_date = $purchase_date, asset_warranty_expire = $warranty_expire, asset_install_date = $install_date, asset_physical_location = '$physical_location', asset_notes = '$notes', asset_favorite = $favorite, asset_client_id = $client_id");
+    mysqli_query($mysqli,"INSERT INTO assets SET asset_name = '$name', asset_tag = '$asset_tag', asset_description = '$description', asset_type = '$type', asset_make = '$make', asset_model = '$model', asset_serial = '$serial', asset_pin = '$pin', asset_os = '$os', asset_uri = '$uri', asset_uri_2 = '$uri_2', asset_uri_client = '$uri_client', asset_anydesk_id = '$anydesk_id', asset_location_id = $location, asset_vendor_id = $vendor, asset_contact_id = $contact, asset_status = '$status', asset_purchase_reference = '$purchase_reference', asset_purchase_date = $purchase_date, asset_warranty_expire = $warranty_expire, asset_install_date = $install_date, asset_physical_location = '$physical_location', asset_notes = '$notes', asset_favorite = $favorite, asset_client_id = $client_id");
 
     $asset_id = mysqli_insert_id($mysqli);
 
@@ -98,7 +98,7 @@ if (isset($_POST['edit_asset'])) {
 
     enforceClientAccess();
 
-    mysqli_query($mysqli,"UPDATE assets SET asset_name = '$name', asset_tag = '$asset_tag', asset_description = '$description', asset_type = '$type', asset_make = '$make', asset_model = '$model', asset_serial = '$serial', asset_os = '$os', asset_uri = '$uri', asset_uri_2 = '$uri_2', asset_uri_client = '$uri_client', asset_anydesk_id = '$anydesk_id', asset_location_id = $location, asset_vendor_id = $vendor, asset_contact_id = $contact, asset_status = '$status', asset_purchase_reference = '$purchase_reference', asset_purchase_date = $purchase_date, asset_warranty_expire = $warranty_expire, asset_install_date = $install_date, asset_physical_location = '$physical_location', asset_notes = '$notes', asset_favorite = $favorite WHERE asset_id = $asset_id");
+    mysqli_query($mysqli,"UPDATE assets SET asset_name = '$name', asset_tag = '$asset_tag', asset_description = '$description', asset_type = '$type', asset_make = '$make', asset_model = '$model', asset_serial = '$serial', asset_pin = '$pin', asset_os = '$os', asset_uri = '$uri', asset_uri_2 = '$uri_2', asset_uri_client = '$uri_client', asset_anydesk_id = '$anydesk_id', asset_location_id = $location, asset_vendor_id = $vendor, asset_contact_id = $contact, asset_status = '$status', asset_purchase_reference = '$purchase_reference', asset_purchase_date = $purchase_date, asset_warranty_expire = $warranty_expire, asset_install_date = $install_date, asset_physical_location = '$physical_location', asset_notes = '$notes', asset_favorite = $favorite WHERE asset_id = $asset_id");
 
     (new \ITFlow\Assets\AssetAssignmentService($mysqli))->recordChangeIfNeeded($asset_id, $contact, $session_user_id);
 
@@ -1053,10 +1053,10 @@ if (isset($_POST["import_assets_csv"])) {
         flash_alert("Bad file size (empty?)", 'error');
     }
 
-    //(Else)Check column count (name, desc, type, make, model, serial, os, purchase date, assigned to, location, notes)
+    //(Else)Check column count (name, desc, type, make, model, serial, asset tag, pin, os, purchase date, assigned to, location, physical location, notes)
     $f = fopen($file_name, "r");
     $f_columns = fgetcsv($f, 1000, ",");
-    if (!$error & count($f_columns) != 12) {
+    if (!$error & count($f_columns) != 14) {
         $error = true;
         flash_alert("Invalid column count.", 'error');
     }
@@ -1070,7 +1070,7 @@ if (isset($_POST["import_assets_csv"])) {
         while(($column = fgetcsv($file, 1000, ",")) !== false) {
 
             // Default variables (if undefined)
-            $description = $type = $make = $model = $serial = $os = '';
+            $description = $type = $make = $model = $serial = $asset_tag = $pin = $os = '';
             $contact_id = $location_id = 0;
             $purchase_date = '0000-00-00';
 
@@ -1109,14 +1109,24 @@ if (isset($_POST["import_assets_csv"])) {
                 $serial = sanitizeInput($column[5]);
             }
 
-            // OS
+            // Asset Tag
             if (!empty($column[6])) {
-                $os = sanitizeInput($column[6]);
+                $asset_tag = sanitizeInput($column[6]);
+            }
+
+            // PIN
+            if (!empty($column[7])) {
+                $pin = sanitizeInput($column[7]);
+            }
+
+            // OS
+            if (!empty($column[8])) {
+                $os = sanitizeInput($column[8]);
             }
 
             // Purchase date
-            if (!empty($column[7])) {
-                $purchase_date = sanitizeInput($column[7]);
+            if (!empty($column[9])) {
+                $purchase_date = sanitizeInput($column[9]);
 
                 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $purchase_date) ||  empty($purchase_date)) {
                     $purchase_date = "NULL";
@@ -1126,8 +1136,8 @@ if (isset($_POST["import_assets_csv"])) {
             }
 
             // Assigned to (contact)
-            if (!empty($column[8])) {
-                $contact = sanitizeInput($column[8]);
+            if (!empty($column[10])) {
+                $contact = sanitizeInput($column[10]);
                 if ($contact) {
                     $sql_contact = mysqli_query($mysqli,"SELECT * FROM contacts WHERE contact_name = '$contact' AND contact_client_id = $client_id");
                     $row = mysqli_fetch_assoc($sql_contact);
@@ -1136,8 +1146,8 @@ if (isset($_POST["import_assets_csv"])) {
             }
 
             // Location (lookup)
-            if (!empty($column[9])) {
-                $location = sanitizeInput($column[9]);
+            if (!empty($column[11])) {
+                $location = sanitizeInput($column[11]);
                 if ($location) {
                     $sql_location = mysqli_query($mysqli,"SELECT * FROM locations WHERE location_name = '$location' AND location_client_id = $client_id");
                     $row = mysqli_fetch_assoc($sql_location);
@@ -1146,19 +1156,19 @@ if (isset($_POST["import_assets_csv"])) {
             }
 
             // Physical location (varchar)
-            if (!empty($column[10])) {
-                $physical_location = sanitizeInput($column[10]);
+            if (!empty($column[12])) {
+                $physical_location = sanitizeInput($column[12]);
             }
 
             // Notes (varchar)
-            if (!empty($column[11])) {
-                $notes = sanitizeInput($column[11]);
+            if (!empty($column[13])) {
+                $notes = sanitizeInput($column[13]);
             }
 
             // Check if duplicate was detected
             if ($duplicate_detect == 0) {
                 //Add
-                mysqli_query($mysqli,"INSERT INTO assets SET asset_name = '$name', asset_description = '$description', asset_type = '$type', asset_make = '$make', asset_model = '$model', asset_serial = '$serial', asset_os = '$os', asset_purchase_date = $purchase_date, asset_physical_location = '$physical_location', asset_notes = '$notes', asset_contact_id = $contact_id, asset_location_id = $location_id, asset_client_id = $client_id");
+                mysqli_query($mysqli,"INSERT INTO assets SET asset_name = '$name', asset_description = '$description', asset_type = '$type', asset_make = '$make', asset_model = '$model', asset_serial = '$serial', asset_tag = '$asset_tag', asset_pin = '$pin', asset_os = '$os', asset_purchase_date = $purchase_date, asset_physical_location = '$physical_location', asset_notes = '$notes', asset_contact_id = $contact_id, asset_location_id = $location_id, asset_client_id = $client_id");
 
                 $asset_id = mysqli_insert_id($mysqli);
 
@@ -1205,7 +1215,7 @@ if (isset($_GET['download_assets_csv_template'])) {
     $f = fopen('php://memory', 'w');
 
     //set column headers
-    $fields = array('Name', 'Description', 'Type', 'Make', 'Model', 'Serial', 'OS', 'Purchase Date', 'Assigned To', 'Location', 'Physical Location', 'Notes');
+    $fields = array('Name', 'Description', 'Type', 'Make', 'Model', 'Serial', 'Asset Tag', 'PIN', 'OS', 'Purchase Date', 'Assigned To', 'Location', 'Physical Location', 'Notes');
     fputcsv($f, $fields, $delimiter, $enclosure, $escape);
 
     //move back to beginning of file
@@ -1254,12 +1264,12 @@ if (isset($_POST['export_assets_csv'])) {
         $f = fopen('php://memory', 'w');
 
         //set column headers
-        $fields = array('Name', 'Description', 'Type', 'Make', 'Model', 'Serial Number', 'Operating System', 'Purchase Date', 'Warranty Expire', 'Install Date', 'Assigned To', 'Location', 'Physical Location', 'Notes');
+        $fields = array('Name', 'Description', 'Type', 'Make', 'Model', 'Serial Number', 'Asset Tag', 'PIN', 'Operating System', 'Purchase Date', 'Warranty Expire', 'Install Date', 'Assigned To', 'Location', 'Physical Location', 'Notes');
         fputcsv($f, $fields, $delimiter, $enclosure, $escape);
 
         //output each row of the data, format line as csv and write to file pointer
         while ($row = mysqli_fetch_assoc($sql)) {
-            $lineData = array($row['asset_name'], $row['asset_description'], $row['asset_type'], $row['asset_make'], $row['asset_model'], $row['asset_serial'], $row['asset_os'], $row['asset_purchase_date'], $row['asset_warranty_expire'], $row['asset_install_date'], $row['contact_name'], $row['location_name'], $row['asset_physical_location'], $row['asset_notes']);
+            $lineData = array($row['asset_name'], $row['asset_description'], $row['asset_type'], $row['asset_make'], $row['asset_model'], $row['asset_serial'], $row['asset_tag'], $row['asset_pin'], $row['asset_os'], $row['asset_purchase_date'], $row['asset_warranty_expire'], $row['asset_install_date'], $row['contact_name'], $row['location_name'], $row['asset_physical_location'], $row['asset_notes']);
             fputcsv($f, $lineData, $delimiter, $enclosure, $escape);
         }
 

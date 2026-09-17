@@ -45,6 +45,7 @@ if (isset($_GET['asset_id'])) {
         $asset_make = nullable_htmlentities($row['asset_make']);
         $asset_model = nullable_htmlentities($row['asset_model']);
         $asset_serial = nullable_htmlentities($row['asset_serial']);
+        $asset_pin = nullable_htmlentities($row['asset_pin']);
         $asset_os = nullable_htmlentities($row['asset_os']);
         $asset_uri = sanitize_url($row['asset_uri']);
         $asset_uri_2 = sanitize_url($row['asset_uri_2']);
@@ -499,6 +500,9 @@ if (isset($_GET['asset_id'])) {
                         <?php }
                         if ($asset_serial) { ?>
                             <div class="mt-2"><i class="fa fa-fw fa-barcode text-secondary me-2"></i><?= $asset_serial; ?></div>
+                        <?php }
+                        if ($asset_pin) { ?>
+                            <div class="mt-2"><i class="fa fa-fw fa-key text-secondary me-2"></i>PIN: <?= $asset_pin; ?></div>
                         <?php }
                         if ($asset_purchase_date) { ?>
                             <div class="mt-2"><i class="fa fa-fw fa-shopping-cart text-secondary me-2"></i><?= date('Y-m-d', strtotime($asset_purchase_date)); ?></div>
