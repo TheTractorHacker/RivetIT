@@ -50,6 +50,26 @@ function getFederalHolidayCountries(): array {
     return ['United States', 'United Kingdom', 'Canada', 'Australia'];
 }
 
+// The generic term "Federal Holidays" is US-specific - other countries call
+// this list something else officially (the UK/Australia don't have a
+// federal system of government at all). Used everywhere the holiday
+// catalog/loader talks about "this country's list of holidays" so the
+// wording matches the configured country instead of defaulting to the US term.
+function getHolidayTermForCountry(string $country): string {
+    switch ($country) {
+        case 'United States':
+            return 'Federal Holidays';
+        case 'United Kingdom':
+            return 'Bank Holidays';
+        case 'Canada':
+            return 'Statutory Holidays';
+        case 'Australia':
+            return 'Public Holidays';
+        default:
+            return 'Public Holidays';
+    }
+}
+
 // Returns a list of ['date' => 'Y-m-d', 'name' => string], sorted by date.
 // UK/Canada/Australia are the nominal calendar date (no weekend
 // substitution) - only the US list is "observed" - so treat those three as

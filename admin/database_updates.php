@@ -7786,3 +7786,26 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.87'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.87') {
+        // Holiday catalog: a real, persisted table of country-holiday rows
+        // (system-generated from includes/holiday_functions.php's rule
+        // engine, or hand-added), managed on its own admin page
+        // (admin/holidays.php) and picked from - not just computed and
+        // thrown directly into one SLA calendar - when adding a holiday to
+        // any SLA Business Hours calendar (admin/modals/sla/calendar_edit.php).
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `holidays` (
+            `holiday_id` int(11) NOT NULL AUTO_INCREMENT,
+            `holiday_country` varchar(200) NOT NULL,
+            `holiday_year` int(4) NOT NULL,
+            `holiday_date` date NOT NULL,
+            `holiday_name` varchar(150) NOT NULL,
+            `holiday_is_custom` tinyint(1) NOT NULL DEFAULT 0,
+            `holiday_created_by` int(11) NOT NULL DEFAULT 0,
+            `holiday_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`holiday_id`),
+            KEY `idx_holidays_country_year` (`holiday_country`,`holiday_year`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.88'");
+    }

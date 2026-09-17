@@ -162,7 +162,7 @@
 
                 <?php if ($config_module_enable_ticketing) { ?>
                 <!-- TICKETING Section -->
-                <?php $nav_open_ticketing = in_array(basename($_SERVER['PHP_SELF']), ['ticket_status.php', 'labor_type.php', 'ticket_automation.php', 'mailbox.php', 'mail_requests.php', 'sla_calendars.php', 'sla_policies.php']); ?>
+                <?php $nav_open_ticketing = in_array(basename($_SERVER['PHP_SELF']), ['ticket_status.php', 'labor_type.php', 'ticket_automation.php', 'mailbox.php', 'mail_requests.php', 'sla_calendars.php', 'sla_policies.php', 'holidays.php']); ?>
                 <li class="nav-item dropdown mt-2<?php echo ($nav_open_ticketing ? ' active' : ''); ?>">
                     <a href="#nav-group-ticketing" class="nav-link dropdown-toggle<?php echo ($nav_open_ticketing ? ' show' : ''); ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-ticketing" aria-expanded="<?php echo ($nav_open_ticketing ? 'true' : 'false'); ?>">
                         <span class="nav-link-icon"><i class="fas fa-life-ring"></i></span>
@@ -196,6 +196,10 @@
                         <a href="/admin/sla_calendars.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'sla_calendars.php' ? 'active' : ''); ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-business-time"></i></span>
                             <span class="text-truncate">SLA Business Hours</span>
+                        </a>
+                        <a href="/admin/holidays.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'holidays.php' ? 'active' : ''); ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-calendar-day"></i></span>
+                            <span class="text-truncate">Holidays</span>
                         </a>
                     </div>
                 </li>
