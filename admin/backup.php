@@ -30,7 +30,7 @@ function fmt_age(?int $ts): string {
 <div class="card card-dark mb-3" style="border-top:3px solid #007bff;">
     <div class="card-body">
         <div class="row align-items-center">
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <h4 class="mb-1"><i class="fas fa-database me-2 text-primary"></i>System Backup</h4>
                 <p class="text-muted mb-0 small">
                     <?php if ($last_backup): ?>
@@ -41,16 +41,19 @@ function fmt_age(?int $ts): string {
                     <?php endif; ?>
                 </p>
             </div>
-            <div class="col-md-6 text-md-right mt-3 mt-md-0">
+            <?php // Middle third matches the "Last Auto" tile's own col-4 in the
+            // stat row below, so the buttons land centered directly above it. ?>
+            <div class="col-md-4 text-center mt-3 mt-md-0 text-nowrap">
                 <a href="post.php?backup_download_fresh=1&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                   class="btn btn-primary me-2">
-                    <i class="fas fa-download me-2"></i>Download Backup
+                   class="btn btn-sm btn-primary me-1">
+                    <i class="fas fa-download me-1"></i>Download Backup
                 </a>
                 <a href="post.php?backup_save=1&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                   class="btn btn-outline-secondary">
-                    <i class="fas fa-save me-2"></i>Save to Server
+                   class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-save me-1"></i>Save to Server
                 </a>
             </div>
+            <div class="col-md-4"></div>
         </div>
 
         <!-- Quick-stat row -->
