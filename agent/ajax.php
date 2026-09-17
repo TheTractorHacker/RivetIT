@@ -769,7 +769,7 @@ if (isset($_GET['get_client_assets'])) {
         "SELECT asset_id, asset_name, contact_name FROM assets
         LEFT JOIN clients on asset_client_id = client_id
         LEFT JOIN contacts ON contact_id = asset_contact_id
-        WHERE assets.asset_archived_at IS NULL AND asset_client_id = $client_id
+        WHERE assets.asset_archived_at IS NULL AND (asset_client_id = $client_id OR asset_client_id = 0)
         $access_permission_query
         ORDER BY asset_favorite DESC, asset_name"
     );

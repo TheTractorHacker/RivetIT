@@ -1,7 +1,13 @@
 <?php
 
-// If client_id is in URI then show client Side Bar and client header
-if (isset($_GET['client_id'])) {
+// If client_id is in URI then show client Side Bar and client header.
+// client_id=0 means "no department" (a real, valid value on assets - see
+// enforceClientAccess()'s own client_id===0 special case) rather than an
+// actual department to load, so it's treated the same as client_id being
+// absent entirely - inc_all_client.php's own client lookup finds no row for
+// id 0 and would otherwise dead-end on "Nothing to see here" before this
+// page ever gets to look up the asset itself.
+if (isset($_GET['client_id']) && intval($_GET['client_id']) > 0) {
     require_once "includes/inc_all_client.php";
     $client_query = "AND asset_client_id = $client_id";
     $client_url = "client_id=$client_id&";

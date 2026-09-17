@@ -17,8 +17,10 @@ $order = "ASC";
  * behaves, rather than dropping straight into the company-wide rail.
  */
 $scope_url = '';
-// If client_id is in URI then show client Side Bar and client header
-if (isset($_GET['client_id'])) {
+// If client_id is in URI then show client Side Bar and client header.
+// client_id=0 ("no department", a real value assets can have) is treated the
+// same as client_id being absent - see asset_details.php for why.
+if (isset($_GET['client_id']) && intval($_GET['client_id']) > 0) {
     require_once "includes/inc_all_client.php";
     $client_query = "AND asset_client_id = $client_id";
     $client_url = "client_id=$client_id&";
@@ -718,7 +720,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                                 </div>
                             </td>
                             <td>
-                                <a class="text-dark" href="asset_details.php?client_id=<?= $client_id ?>&asset_id=<?= $asset_id ?>">
+                                <a class="text-dark" href="asset_details.php?<?= $client_id ? "client_id=$client_id&" : '' ?>asset_id=<?= $asset_id ?>">
                                     <div class="media">
                                         <i class="fa fa-fw fa-2x fa-<?= $device_icon ?> me-3 mt-1"></i>
                                         <div class="media-body">
@@ -810,7 +812,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                                 <?php } ?>
                             </td>
                             <?php if (!$client_url) { ?>
-                            <td><a href="assets.php?client_id=<?php echo $client_id; ?>"><?php echo $client_name; ?></a></td>
+                            <td><?php if ($client_id) { ?><a href="assets.php?client_id=<?php echo $client_id; ?>"><?php echo $client_name; ?></a><?php } else { ?><span class="text-secondary">-</span><?php } ?></td>
                             <?php } ?>
                             <td class="text-center">
                                 <div class="btn-group">

@@ -262,11 +262,17 @@ ob_start();
 
                 <div class="form-group">
                     <label>Assign To</label>
+                    <!-- Cross-department contact search (agent/js/asset_edit_modal.js):
+                         searches every department, not just this asset's own - picking
+                         a match from a different department updates this hidden field,
+                         which post/asset.php's edit_asset handler uses to move the
+                         asset there too. -->
+                    <input type="hidden" name="resolved_client_id" id="assetResolvedClientId" value="<?= $client_id ?>">
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-user-check"></i></span>
                         </div>
-                        <select class="form-control select2" name="contact">
+                        <select class="form-control select2" name="contact" id="assetContactSelect">
                             <option value="">Select Contact</option>
                             <?php
 
@@ -588,6 +594,8 @@ ob_start();
         <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-2"></i>Cancel</button>
     </div>
 </form>
+
+<script src="/agent/js/asset_edit_modal.js?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/agent/js/asset_edit_modal.js') ?>"></script>
 
 <?php
 require_once '../../../includes/modal_footer.php';
