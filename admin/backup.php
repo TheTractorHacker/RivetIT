@@ -52,24 +52,6 @@ function fmt_age(?int $ts): string {
                 </a>
             </div>
         </div>
-        <?php
-        // The caption used to live inside the button column itself, which
-        // made that column taller than the title column - .row.align-items-
-        // center then centered each column as a WHOLE block against the
-        // other, so the buttons (just the top slice of the taller block)
-        // ended up sitting visibly above where they'd line up with the
-        // title. As its own row below, it no longer feeds into that
-        // centering calculation at all - the button row and the title block
-        // are now the only two things being centered against each other,
-        // and they're already almost the same height. ?>
-        <div class="row">
-            <div class="col-md-6"></div>
-            <div class="col-md-12 col-lg-6 text-md-right">
-                <p class="text-muted mt-2 mb-0" style="font-size:11px;">
-                    Download streams to your browser. Save to Server stores it in history below.
-                </p>
-            </div>
-        </div>
 
         <!-- Quick-stat row -->
         <div class="row mt-3 text-center">
