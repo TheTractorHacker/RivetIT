@@ -1073,15 +1073,18 @@ if (isset($_POST["import_assets_csv"])) {
             $description = $type = $make = $model = $serial = $asset_tag = $pin = $os = '';
             $contact_id = $location_id = 0;
             $purchase_date = '0000-00-00';
+            // When importing from the "All Departments" view (no single department
+            // chosen - $client_id is 0), each row's department is derived from its
+            // own Assigned To contact below, rather than importing everything
+            // company-wide. A department was already chosen, this just stays that
+            // department for every row, unchanged from before.
+            $row_client_id = $client_id;
 
             $duplicate_detect = 0;
 
             // Name
             if (isset($column[0])) {
                 $name = sanitizeInput($column[0]);
-                if (mysqli_num_rows(mysqli_query($mysqli,"SELECT * FROM assets WHERE asset_name = '$name' AND asset_client_id = $client_id")) > 0) {
-                    $duplicate_detect = 1;
-                }
             }
 
             // Desc
@@ -1135,21 +1138,41 @@ if (isset($_POST["import_assets_csv"])) {
                 }
             }
 
-            // Assigned to (contact)
+            // Assigned to (contact) - when no department was pre-chosen, search by
+            // name across every department instead of one, and adopt whichever
+            // department that contact belongs to for this row. A name matching
+            // contacts in more than one department picks the first match; get more
+            // specific department data (or a Location instead) to disambiguate.
             if (!empty($column[10])) {
                 $contact = sanitizeInput($column[10]);
                 if ($contact) {
-                    $sql_contact = mysqli_query($mysqli,"SELECT * FROM contacts WHERE contact_name = '$contact' AND contact_client_id = $client_id");
+                    if ($client_id === 0) {
+                        $sql_contact = mysqli_query($mysqli,"SELECT * FROM contacts WHERE contact_name = '$contact' LIMIT 1");
+                    } else {
+                        $sql_contact = mysqli_query($mysqli,"SELECT * FROM contacts WHERE contact_name = '$contact' AND contact_client_id = $client_id");
+                    }
                     $row = mysqli_fetch_assoc($sql_contact);
-                    $contact_id = intval($row['contact_id']);
+                    if ($row) {
+                        $contact_id = intval($row['contact_id']);
+                        if ($client_id === 0) {
+                            $row_client_id = intval($row['contact_client_id']);
+                        }
+                    }
                 }
             }
 
-            // Location (lookup)
+            enforceClientAccess($row_client_id);
+
+            if (mysqli_num_rows(mysqli_query($mysqli,"SELECT * FROM assets WHERE asset_name = '$name' AND asset_client_id = $row_client_id")) > 0) {
+                $duplicate_detect = 1;
+            }
+
+            // Location (lookup) - scoped to the row's resolved department, so a
+            // company-wide import still matches each department's own locations.
             if (!empty($column[11])) {
                 $location = sanitizeInput($column[11]);
                 if ($location) {
-                    $sql_location = mysqli_query($mysqli,"SELECT * FROM locations WHERE location_name = '$location' AND location_client_id = $client_id");
+                    $sql_location = mysqli_query($mysqli,"SELECT * FROM locations WHERE location_name = '$location' AND location_client_id = $row_client_id");
                     $row = mysqli_fetch_assoc($sql_location);
                     $location_id = intval($row['location_id']);
                 }
@@ -1168,7 +1191,7 @@ if (isset($_POST["import_assets_csv"])) {
             // Check if duplicate was detected
             if ($duplicate_detect == 0) {
                 //Add
-                mysqli_query($mysqli,"INSERT INTO assets SET asset_name = '$name', asset_description = '$description', asset_type = '$type', asset_make = '$make', asset_model = '$model', asset_serial = '$serial', asset_tag = '$asset_tag', asset_pin = '$pin', asset_os = '$os', asset_purchase_date = $purchase_date, asset_physical_location = '$physical_location', asset_notes = '$notes', asset_contact_id = $contact_id, asset_location_id = $location_id, asset_client_id = $client_id");
+                mysqli_query($mysqli,"INSERT INTO assets SET asset_name = '$name', asset_description = '$description', asset_type = '$type', asset_make = '$make', asset_model = '$model', asset_serial = '$serial', asset_tag = '$asset_tag', asset_pin = '$pin', asset_os = '$os', asset_purchase_date = $purchase_date, asset_physical_location = '$physical_location', asset_notes = '$notes', asset_contact_id = $contact_id, asset_location_id = $location_id, asset_client_id = $row_client_id");
 
                 $asset_id = mysqli_insert_id($mysqli);
 

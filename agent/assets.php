@@ -273,13 +273,11 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                 </button>
                 <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"></button>
                 <div class="dropdown-menu">
-                    <?php if ($client_url) { ?>
                     <a class="dropdown-item text-dark ajax-modal" href="#"
                         data-modal-url="modals/asset/asset_import.php?<?= $client_url ?>">
                         <i class="fa fa-fw fa-upload me-2"></i>Import
                     </a>
                     <div class="dropdown-divider"></div>
-                    <?php } ?>
                     <?php if ($num_rows[0] > 0) { ?>
 
                         <a class="dropdown-item text-dark ajax-modal" href="#"

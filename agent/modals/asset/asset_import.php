@@ -19,7 +19,10 @@ ob_start();
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
 
     <div class="modal-body">
-        <p><strong>Format csv file with headings & data:</strong><br>Name, Description, Type, Make, Model, Serial, OS, Purchase Date, Assigned To, Location, Physical Location, Notes</p>
+        <p><strong>Format csv file with headings & data:</strong><br>Name, Description, Type, Make, Model, Serial, Asset Tag, PIN, OS, Purchase Date, Assigned To, Location, Physical Location, Notes</p>
+        <?php if (!$client_id) { ?>
+        <p class="text-secondary small">No department selected - each row's department is looked up from its <strong>Assigned To</strong> name. Rows left blank, or naming someone not found, are imported unassigned rather than skipped.</p>
+        <?php } ?>
         <hr>
         <div class="form-group my-4">
             <input type="file" class="form-control-file" name="file" accept=".csv" required>
