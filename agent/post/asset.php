@@ -1201,7 +1201,16 @@ if (isset($_POST["import_assets_csv"])) {
                 $contact = sanitizeInput($column[10]);
                 if ($contact) {
                     if ($client_id === 0) {
-                        $sql_contact = mysqli_query($mysqli,"SELECT * FROM contacts WHERE contact_name = '$contact' LIMIT 1");
+                        // Scoped the same way ajax.php's cross-department contact
+                        // search already is ($access_permission_query, real/non-
+                        // archived departments only) - an out-of-scope match must
+                        // not even be returned here. Resolving to a real client_id
+                        // regardless and only blocking the later write via
+                        // enforceClientAccess() would let a restricted user probe
+                        // which employee names exist in departments they can't
+                        // see, by reading "Access Denied" vs. a normal success
+                        // flash as a per-guess yes/no oracle.
+                        $sql_contact = mysqli_query($mysqli,"SELECT contacts.* FROM contacts LEFT JOIN clients ON client_id = contact_client_id WHERE contact_name = '$contact' AND clients.client_lead = 0 AND clients.client_archived_at IS NULL $access_permission_query LIMIT 1");
                     } else {
                         $sql_contact = mysqli_query($mysqli,"SELECT * FROM contacts WHERE contact_name = '$contact' AND contact_client_id = $client_id");
                     }
