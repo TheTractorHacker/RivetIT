@@ -196,14 +196,22 @@ ob_start();
                     </div>
                 <?php } ?>
 
-                <?php if ($asset_type !== 'Phone' && $asset_type !== 'Mobile Phone' && $asset_type !== 'Tablet' && $asset_type !== 'Access Point' && $asset_type !== 'Printer' && $asset_type !== 'Camera' && $asset_type !== 'TV' && $asset_type !== 'Other') { ?>
+                <?php
+                // Phones/tablets have an OS worth recording (iOS/iPadOS/Android), so
+                // they get the field. The types below still don't show it - but
+                // they carry their stored value through in a hidden input: with no
+                // "os" in the POST at all, the save wrote an empty OS over whatever
+                // an import (or an earlier type) had put there.
+                if (in_array($asset_type, ['Access Point', 'Printer', 'Camera', 'TV', 'Other'], true)) { ?>
+                    <input type="hidden" name="os" value="<?= $asset_os ?>">
+                <?php } else { ?>
                     <div class="form-group">
                         <label>Operating System</label>
                         <div class="input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text"><i class="fas fa-fw fa-laptop-code"></i></span>
                             </div>
-                            <input type="text" class="form-control" name="os" id="os" placeholder="ex Windows 10 Pro" maxlength="200" value="<?= $asset_os ?>">
+                            <input type="text" class="form-control" name="os" id="os" placeholder="e.g. Windows 11 Pro, iOS 18, Android 15" maxlength="200" value="<?= $asset_os ?>">
                         </div>
                     </div>
                 <?php } ?>
