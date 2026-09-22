@@ -4799,6 +4799,41 @@ function getFallback($data) {
     return !empty($data) ? $data : '-';
 }
 
+// An asset's photo is stored in uploads/clients/<its department>/, and every
+// page that shows it builds that path from the asset's CURRENT department
+// (asset_details.php, modals/asset/asset_edit.php, ...). So a department move
+// has to carry the file along, or the photo 404s from then on. Call it after
+// asset_client_id has changed; a no-op when there's no photo or no move.
+function moveAssetPhotoToClient($asset_id, $from_client_id, $to_client_id) {
+    global $mysqli;
+
+    $asset_id = intval($asset_id);
+    $from_client_id = intval($from_client_id);
+    $to_client_id = intval($to_client_id);
+
+    if ($from_client_id === $to_client_id || $from_client_id < 0 || $to_client_id < 0) {
+        return;
+    }
+
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT asset_photo FROM assets WHERE asset_id = $asset_id"));
+    $photo = basename((string) ($row['asset_photo'] ?? ''));
+    if ($photo === '' || $photo === '.' || $photo === '..') {
+        return;
+    }
+
+    $source = __DIR__ . "/uploads/clients/$from_client_id/$photo";
+    $target_dir = __DIR__ . "/uploads/clients/$to_client_id";
+    if (!is_file($source)) {
+        return;
+    }
+    if (!is_dir($target_dir)) {
+        mkdir($target_dir);
+    }
+    if (!file_exists("$target_dir/$photo")) {
+        rename($source, "$target_dir/$photo");
+    }
+}
+
 /**
  * Retrieves a specified field's value from a table based on the record's id.
  * It validates the table and field names, automatically determines the primary key (or uses the first column as fallback),

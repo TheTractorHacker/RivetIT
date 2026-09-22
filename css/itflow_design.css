@@ -769,3 +769,105 @@ a.it-stat-card:hover, a.it-stat-card:focus-visible { box-shadow: var(--if-shadow
     border-radius: 5px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
+
+/* Inline-edit cells on the Assets list (agent/assets.php +
+   agent/js/asset_inline_edit.js). The trigger is a bare button that reads like
+   the plain text/badge it replaced - a caret and a soft hover fill are the only
+   hint it's clickable, so the table doesn't turn into a wall of form controls.
+   The caret stays faintly visible (not hover-only) so it's discoverable on touch. */
+.asset-inline-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    max-width: 100%;
+    margin: -.25rem -.4rem;
+    padding: .25rem .4rem;
+    border: 1px solid transparent;
+    border-radius: var(--if-radius-sm, 8px);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color .12s ease, border-color .12s ease;
+}
+.asset-inline-trigger:hover,
+.asset-inline-trigger:focus-visible {
+    background-color: var(--if-bg, #eef2f2);
+    border-color: var(--if-border-strong, #d3dbdc);
+    outline: none;
+}
+.asset-inline-caret {
+    font-size: .75em;
+    opacity: .35;
+    transition: opacity .12s ease;
+}
+.asset-inline-trigger:hover .asset-inline-caret,
+.asset-inline-trigger:focus-visible .asset-inline-caret {
+    opacity: .85;
+}
+.asset-inline-cell.is-editing .asset-inline-trigger,
+.asset-inline-cell.is-editing .asset-inline-link {
+    display: none;
+}
+/* Contact-card / department link beside a trigger - the navigation the cell
+   had before it became a dropdown. Faint until hovered, like the caret. */
+.asset-inline-link {
+    margin-left: .5rem;
+    color: inherit;
+    opacity: .35;
+    transition: opacity .12s ease;
+}
+.asset-inline-link:hover,
+.asset-inline-link:focus-visible,
+tr:hover .asset-inline-link {
+    opacity: .85;
+}
+/* A fixed width, not the wrapper's default 100%: that let an open editor
+   stretch its whole column and shove the rest of the table sideways. */
+.asset-inline-cell .ts-wrapper {
+    width: 14rem;
+}
+.asset-inline-option {
+    display: flex;
+    align-items: center;
+}
+.asset-inline-check {
+    margin-left: auto;
+    padding-left: .75rem;
+    font-size: .8em;
+    color: var(--if-primary, #0d9488);
+}
+.asset-inline-cell.is-saving .asset-inline-trigger {
+    opacity: .5;
+    pointer-events: none;
+}
+.asset-inline-cell.is-saving .asset-inline-caret::before {
+    content: "\f110"; /* fa-spinner */
+    display: inline-block;
+    animation: asset-inline-spin 1s linear infinite;
+}
+@keyframes asset-inline-spin { to { transform: rotate(360deg); } }
+.asset-inline-dot {
+    display: inline-block;
+    width: .6rem;
+    height: .6rem;
+    margin-right: .5rem;
+    border-radius: 50%;
+    background-color: var(--if-border-strong, #d3dbdc);
+    vertical-align: baseline;
+}
+.asset-inline-saved {
+    animation: asset-inline-saved 1.4s ease-out;
+}
+@keyframes asset-inline-saved {
+    0%   { background-color: rgba(25, 135, 84, .22); }
+    100% { background-color: transparent; }
+}
+tr.asset-inline-moved-out > td {
+    opacity: .45;
+}
+@media (prefers-reduced-motion: reduce) {
+    .asset-inline-saved,
+    .asset-inline-cell.is-saving .asset-inline-caret::before { animation: none; }
+}

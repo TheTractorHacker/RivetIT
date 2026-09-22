@@ -757,6 +757,238 @@ if (isset($_GET['search_contacts'])) {
 }
 
 /*
+ * Inline edit on the Assets list (agent/js/asset_inline_edit.js): changes ONE
+ * of Assigned To / Location / Status / Department on one asset, without the
+ * Edit modal. JSON in, JSON out - so every failure below answers with a JSON
+ * error instead of the redirect validateCSRFToken()/enforceClientAccess()
+ * would issue (a fetch() silently follows that redirect and gets a whole HTML
+ * page back). The checks themselves are the same ones those helpers make.
+ *
+ * Each field applies the rule its full-form equivalent in post/asset.php
+ * already does - notably Assigned To moves the asset into that person's
+ * department, exactly like the Edit modal's cross-department contact search.
+ * Answers with the asset's whole post-save state, since one change can move
+ * more than one column (a new assignee can change the Department too).
+ */
+if (isset($_GET['asset_inline_update'])) {
+    header('Content-Type: application/json');
+
+    $inline_fail = function ($http_code, $message) {
+        http_response_code($http_code);
+        echo json_encode(['ok' => false, 'error' => $message]);
+        exit;
+    };
+
+    // Mirrors enforceClientAccess(): admins, department 0 ("no department")
+    // and users with no per-department restrictions pass; everyone else
+    // needs that department in their user_client_permissions rows. Negative
+    // ids are refused for everyone - stricter than enforceClientAccess(),
+    // which lets an admin through before its own negative-id check.
+    $inline_can_access_client = function ($check_client_id) use ($session_is_admin, $client_access_array) {
+        $check_client_id = intval($check_client_id);
+        if ($check_client_id < 0) {
+            return false;
+        }
+        if ($session_is_admin || $check_client_id === 0 || empty($client_access_array)) {
+            return true;
+        }
+        return in_array($check_client_id, array_map('intval', $client_access_array), true);
+    };
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        $inline_fail(405, 'POST required.');
+    }
+
+    $csrf_token = $_POST['csrf_token'] ?? '';
+    if (!is_string($csrf_token) || !hash_equals($_SESSION['csrf_token'], $csrf_token)) {
+        $inline_fail(403, 'Your session token expired - reload the page and try again.');
+    }
+
+    $inline_permission = lookupUserPermission('module_support');
+    if (!$inline_permission || $inline_permission < 2) {
+        $inline_fail(403, 'Your role does not have write access to assets.');
+    }
+
+    $asset_id = intval($_POST['asset_id'] ?? 0);
+    $field = (string) ($_POST['field'] ?? '');
+    $value = trim((string) ($_POST['value'] ?? ''));
+
+    $asset_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT asset_name, asset_client_id, asset_contact_id, asset_location_id, asset_status FROM assets WHERE asset_id = $asset_id"));
+    if (!$asset_row) {
+        $inline_fail(404, 'That asset no longer exists.');
+    }
+
+    $asset_name = sanitizeInput($asset_row['asset_name']);
+    $client_id = intval($asset_row['asset_client_id']);
+    $moved_department = false;
+
+    if (!$inline_can_access_client($client_id)) {
+        $inline_fail(403, 'You do not have access to this asset\'s department.');
+    }
+
+    if ($field === 'status') {
+
+        $status = sanitizeInput($value);
+
+        // Only a configured, non-archived Asset Status - the same list the
+        // Edit modal's Status <select> offers.
+        $status_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT category_name FROM categories WHERE category_type = 'asset_status' AND category_archived_at IS NULL AND category_name = '$status' LIMIT 1"));
+        if (!$status_row) {
+            $inline_fail(422, 'That status is not in the Asset Status list.');
+        }
+
+        if ($value !== (string) $asset_row['asset_status']) {
+            mysqli_query($mysqli, "UPDATE assets SET asset_status = '$status' WHERE asset_id = $asset_id");
+            mysqli_query($mysqli, "INSERT INTO asset_history SET asset_history_status = '$status', asset_history_description = '$session_name updated $asset_name', asset_history_asset_id = $asset_id");
+            logAction("Asset", "Edit", "$session_name set status to $status on $asset_name", $client_id, $asset_id);
+        }
+
+    } elseif ($field === 'location') {
+
+        $location_id = intval($value);
+        $location_name = '';
+
+        // 0 is "no location"; anything below it is not a real id and would
+        // otherwise skip the lookup below and be written as-is.
+        if ($location_id < 0) {
+            $inline_fail(422, 'That location is not available for this asset.');
+        }
+
+        if ($location_id > 0) {
+            // Company-wide sites (location_client_id = 0) plus this asset's
+            // own department's - never another department's.
+            $location_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT location_name FROM locations WHERE location_id = $location_id AND location_archived_at IS NULL AND location_client_id IN (0, $client_id)"));
+            if (!$location_row) {
+                $inline_fail(422, 'That location is not available for this asset.');
+            }
+            $location_name = sanitizeInput($location_row['location_name']);
+        }
+
+        if ($location_id !== intval($asset_row['asset_location_id'])) {
+            mysqli_query($mysqli, "UPDATE assets SET asset_location_id = $location_id WHERE asset_id = $asset_id");
+            if ($location_id > 0) {
+                logAction("Asset", "Edit", "$session_name assigned asset $asset_name to location $location_name", $client_id, $asset_id);
+            } else {
+                logAction("Asset", "Edit", "$session_name cleared the location on asset $asset_name", $client_id, $asset_id);
+            }
+        }
+
+    } elseif ($field === 'contact') {
+
+        $contact_id = intval($value);
+        $new_client_id = $client_id;
+
+        if ($contact_id < 0) {
+            $inline_fail(422, 'That contact is archived or no longer exists.');
+        }
+
+        if ($contact_id > 0) {
+            // Same pool ajax.php?search_contacts offers: live contacts in a
+            // live, non-lead department.
+            $contact_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT contact_name, contact_client_id FROM contacts LEFT JOIN clients ON client_id = contact_client_id WHERE contact_id = $contact_id AND contact_archived_at IS NULL AND clients.client_lead = 0 AND clients.client_archived_at IS NULL"));
+            if (!$contact_row) {
+                $inline_fail(422, 'That contact is archived or no longer exists.');
+            }
+            $contact_name = sanitizeInput($contact_row['contact_name']);
+            $new_client_id = intval($contact_row['contact_client_id']);
+
+            if (!$inline_can_access_client($new_client_id)) {
+                $inline_fail(403, 'You do not have access to that contact\'s department.');
+            }
+        }
+
+        if ($contact_id !== intval($asset_row['asset_contact_id']) || $new_client_id !== $client_id) {
+            // The asset follows its person's department - the Edit modal's rule.
+            mysqli_query($mysqli, "UPDATE assets SET asset_contact_id = $contact_id, asset_client_id = $new_client_id WHERE asset_id = $asset_id");
+
+            (new \ITFlow\Assets\AssetAssignmentService($mysqli))->recordChangeIfNeeded($asset_id, $contact_id, $session_user_id);
+
+            moveAssetPhotoToClient($asset_id, $client_id, $new_client_id);
+
+            if ($contact_id > 0) {
+                logAction("Asset", "Edit", "$session_name assigned asset $asset_name to contact $contact_name", $new_client_id, $asset_id);
+            } else {
+                logAction("Asset", "Edit", "$session_name unassigned asset $asset_name", $client_id, $asset_id);
+            }
+
+            if ($new_client_id !== $client_id) {
+                $moved_department = true;
+                $new_client_name = sanitizeInput(getFieldById('clients', $new_client_id, 'client_name'));
+                logAction("Asset", "Edit", "$session_name moved asset $asset_name to department $new_client_name (assigned to $contact_name)", $new_client_id, $asset_id);
+            }
+        }
+
+    } elseif ($field === 'client') {
+
+        $new_client_id = intval($value);
+        $new_client_name = 'no department';
+
+        if ($new_client_id < 0) {
+            $inline_fail(422, 'That department is archived or no longer exists.');
+        }
+
+        if ($new_client_id > 0) {
+            $client_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT client_name FROM clients WHERE client_id = $new_client_id AND client_archived_at IS NULL AND client_lead = 0"));
+            if (!$client_row) {
+                $inline_fail(422, 'That department is archived or no longer exists.');
+            }
+            $new_client_name = sanitizeInput($client_row['client_name']);
+        }
+
+        if (!$inline_can_access_client($new_client_id)) {
+            $inline_fail(403, 'You do not have access to that department.');
+        }
+
+        if ($new_client_id !== $client_id) {
+            // A direct move, as the Edit modal does - not Bulk Action >
+            // Transfer's copy-then-archive, which would change the asset's id
+            // and strand its tickets/history on the archived original.
+            mysqli_query($mysqli, "UPDATE assets SET asset_client_id = $new_client_id WHERE asset_id = $asset_id");
+            moveAssetPhotoToClient($asset_id, $client_id, $new_client_id);
+            $moved_department = true;
+            logAction("Asset", "Edit", "$session_name moved asset $asset_name to department $new_client_name", $new_client_id, $asset_id);
+        }
+
+    } else {
+        $inline_fail(400, 'Unknown field.');
+    }
+
+    $state = mysqli_fetch_assoc(mysqli_query($mysqli, "
+        SELECT asset_client_id, asset_contact_id, asset_location_id, asset_status,
+               client_name, contact_name, contact_archived_at, location_name, location_archived_at,
+               status_cat.category_color AS asset_status_color
+        FROM assets
+        LEFT JOIN clients ON client_id = asset_client_id
+        LEFT JOIN contacts ON contact_id = asset_contact_id
+        LEFT JOIN locations ON location_id = asset_location_id
+        LEFT JOIN categories AS status_cat ON status_cat.category_name = assets.asset_status AND status_cat.category_type = 'asset_status' AND status_cat.category_archived_at IS NULL
+        WHERE asset_id = $asset_id
+    "));
+
+    $status_color = (string) ($state['asset_status_color'] ?? '');
+
+    // Raw values: the page renders them with textContent, never innerHTML.
+    echo json_encode([
+        'ok' => true,
+        'moved_department' => $moved_department,
+        'asset' => [
+            'client_id' => intval($state['asset_client_id']),
+            'client_name' => (string) ($state['client_name'] ?? ''),
+            'contact_id' => intval($state['asset_contact_id']),
+            'contact_name' => (string) ($state['contact_name'] ?? ''),
+            'contact_archived' => !empty($state['contact_archived_at']),
+            'location_id' => intval($state['asset_location_id']),
+            'location_name' => (string) ($state['location_name'] ?? ''),
+            'location_archived' => !empty($state['location_archived_at']),
+            'status' => (string) ($state['asset_status'] ?? ''),
+            'status_color' => preg_match('/^#[0-9a-fA-F]{3,8}$/', $status_color) ? $status_color : '',
+            'status_text_class' => $status_color !== '' ? tagTextClass($status_color) : '',
+        ],
+    ]);
+    exit;
+}
+
+/*
  * Returns ordered list of active assets for a specified client
  */
 if (isset($_GET['get_client_assets'])) {

@@ -1611,6 +1611,9 @@ if (isset($_GET['asset_id'])) {
                                     $file_name = nullable_htmlentities($row['file_name']);
                                     $file_description = nullable_htmlentities($row['file_description']);
                                     $file_reference_name = nullable_htmlentities($row['file_reference_name']);
+                                    // The file's own folder, not the asset's: a file stays where it was
+                                    // uploaded even after its asset moves to another department.
+                                    $file_owner_client_id = intval($row['file_client_id']);
                                     $file_ext = nullable_htmlentities($row['file_ext']);
                                     if ($file_ext == 'pdf') {
                                         $file_icon = "file-pdf";
@@ -1641,7 +1644,7 @@ if (isset($_GET['asset_id'])) {
 
                                     ?>
                                     <tr>
-                                        <td><a class="text-dark" href="<?= "../uploads/clients/$client_id/$file_reference_name"; ?>" target="_blank" ><?= "$file_name<br><span class='text-secondary'>$file_description</span>"; ?></a></td>
+                                        <td><a class="text-dark" href="<?= "../uploads/clients/$file_owner_client_id/$file_reference_name"; ?>" target="_blank" ><?= "$file_name<br><span class='text-secondary'>$file_description</span>"; ?></a></td>
                                         <td><?= $file_created_at; ?></td>
                                         <td class="text-center">
                                             <a href="post.php?unlink_asset_from_file&asset_id=<?= $asset_id; ?>&file_id=<?= $file_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-secondary btn-sm" title="Unlink"><i class="fas fa-fw fa-unlink"></i></a>

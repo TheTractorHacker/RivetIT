@@ -54,6 +54,53 @@ if (isset($_GET['client_id']) && intval($_GET['client_id']) > 0) {
 // Perms
 enforceUserPermission('module_support');
 
+// Inline edit (agent/js/asset_inline_edit.js): Assigned To / Location /
+// Status / Department become click-to-change dropdowns for anyone with
+// write access. Captured here, not later - the row loop below reassigns
+// $client_id per row, so by then it no longer means "this page's department".
+$page_client_id = $client_url ? intval($client_id) : 0;
+$can_inline_edit = lookupUserPermission('module_support') >= 2;
+$inline_edit_data = null;
+if ($can_inline_edit) {
+    $inline_edit_data = [
+        'csrf_token' => $_SESSION['csrf_token'],
+        'page_client_id' => $page_client_id,
+        'statuses' => [],
+        'locations' => [],
+        'departments' => [],
+    ];
+
+    $sql_inline = mysqli_query($mysqli, "SELECT category_name, category_color FROM categories WHERE category_type = 'asset_status' AND category_archived_at IS NULL ORDER BY category_order ASC, category_name ASC");
+    while ($row = mysqli_fetch_assoc($sql_inline)) {
+        $inline_color = (string) $row['category_color'];
+        $inline_edit_data['statuses'][] = [
+            'name' => $row['category_name'],
+            'color' => preg_match('/^#[0-9a-fA-F]{3,8}$/', $inline_color) ? $inline_color : '',
+            'text_class' => $inline_color !== '' ? tagTextClass($inline_color) : '',
+        ];
+    }
+
+    // Company-wide sites (location_client_id = 0) plus any department's own
+    // the user can reach - the script narrows these per row to "company-wide
+    // + this asset's department", the same rule ajax.php enforces on save.
+    $sql_inline = mysqli_query($mysqli, "SELECT location_id, location_name, location_client_id FROM locations LEFT JOIN clients ON client_id = location_client_id WHERE location_archived_at IS NULL AND (location_client_id = 0 OR (clients.client_archived_at IS NULL $access_permission_query)) ORDER BY location_name ASC");
+    while ($row = mysqli_fetch_assoc($sql_inline)) {
+        $inline_edit_data['locations'][] = [
+            'id' => intval($row['location_id']),
+            'name' => $row['location_name'],
+            'client_id' => intval($row['location_client_id']),
+        ];
+    }
+
+    $sql_inline = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL AND client_lead = 0 $access_permission_query ORDER BY client_name ASC");
+    while ($row = mysqli_fetch_assoc($sql_inline)) {
+        $inline_edit_data['departments'][] = [
+            'id' => intval($row['client_id']),
+            'name' => $row['client_name'],
+        ];
+    }
+}
+
 //Asset Type from GET
 if (isset($_GET['type']) && ($_GET['type']) == 'workstation') {
     $type_query = "asset_type = 'desktop' OR asset_type = 'laptop'";
@@ -631,7 +678,9 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                         $asset_uri_2 = sanitize_url($row['asset_uri_2']);
                         $asset_uri_client = sanitize_url($row['asset_uri_client']);
                         $asset_status = nullable_htmlentities($row['asset_status']);
-                        $asset_status_color = nullable_htmlentities($row['asset_status_color']);
+                        // Hex only: it lands in a style="" attribute, where
+                        // HTML-escaping alone doesn't stop CSS injection.
+                        $asset_status_color = preg_match('/^#[0-9a-fA-F]{3,8}$/', (string) $row['asset_status_color']) ? $row['asset_status_color'] : '';
                         $asset_purchase_reference = nullable_htmlentities($row['asset_purchase_reference']);
                         $asset_purchase_date = nullable_htmlentities($row['asset_purchase_date']);
                         if ($asset_purchase_date) {
@@ -719,7 +768,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                         $asset_tags_display = implode('', $asset_tag_name_display_array);
 
                         ?>
-                        <tr>
+                        <tr data-asset-id="<?= $asset_id ?>" data-client-id="<?= $client_id ?>">
                             <td class="bg-light checkbox-column">
                                 <div class="form-check">
                                     <input class="form-check-input bulk-select" type="checkbox" name="asset_ids[]" value="<?= $asset_id ?>">
@@ -803,6 +852,43 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                             <?php if (isset($_GET['show_column']) && is_array($_GET['show_column']) && in_array('Warranty_Expire', $_GET['show_column'])) { ?>
                                 <td><?php echo $asset_warranty_expire_display; ?></td>
                             <?php } ?>
+                            <?php if ($can_inline_edit) { ?>
+                                <?php /* Click-to-change cells - markup mirrored by agent/js/asset_inline_edit.js's render(), keep the two in step. */ ?>
+                                <?php if ($_GET['type'] !== 'network' && $_GET['type'] !== 'other' && $_GET['type'] !== 'server') { ?>
+                                <td class="asset-inline-cell" data-field="contact" data-value="<?= $asset_contact_id ?>" data-label="<?= $contact_name ?>">
+                                    <button type="button" class="asset-inline-trigger" title="Change who this is assigned to">
+                                        <span class="asset-inline-text<?= $contact_name ? '' : ' text-secondary' ?>"><?= $contact_name ?: '-' ?></span><?php if ($contact_name && $contact_archived_at) { ?><span class="asset-inline-note text-danger ms-1">(Archived)</span><?php } ?><i class="fas fa-caret-down asset-inline-caret"></i>
+                                    </button>
+                                    <?php /* The name itself is now the dropdown - this keeps the contact card one click away. */ ?>
+                                    <a href="#" class="asset-inline-link ajax-modal<?= $contact_name ? '' : ' d-none' ?>" data-modal-url="modals/contact/contact_details.php?id=<?= $asset_contact_id ?>" data-modal-size="lg" title="Open contact card"><i class="far fa-id-card"></i></a>
+                                </td>
+                                <?php } ?>
+                                <td class="asset-inline-cell" data-field="location" data-value="<?= $asset_location_id ?>" data-label="<?= $location_name === '-' ? '' : $location_name ?>" data-archived="<?= $location_archived_at ? 1 : 0 ?>">
+                                    <button type="button" class="asset-inline-trigger" title="Change location">
+                                        <span class="asset-inline-text<?= $location_name === '-' ? ' text-secondary' : ($location_archived_at ? ' text-danger text-decoration-line-through' : '') ?>"><?= $location_name ?></span><i class="fas fa-caret-down asset-inline-caret"></i>
+                                    </button>
+                                    <div><small><?php echo $asset_physical_location_display; ?></small></div>
+                                </td>
+                                <td class="asset-inline-cell" data-field="status" data-value="<?= $asset_status ?>" data-label="<?= $asset_status ?>">
+                                    <button type="button" class="asset-inline-trigger" title="Change status">
+                                        <?php if ($asset_status === '') { ?>
+                                            <span class="asset-inline-badge badge rounded-pill text-bg-light p-2">Set status</span>
+                                        <?php } elseif ($asset_status_color) { ?>
+                                            <span class="asset-inline-badge badge rounded-pill <?php echo tagTextClass($asset_status_color); ?> p-2" style="background-color: <?php echo $asset_status_color; ?>;"><?php echo $asset_status; ?></span>
+                                        <?php } else { ?>
+                                            <span class="asset-inline-badge badge rounded-pill text-bg-secondary p-2"><?php echo $asset_status; ?></span>
+                                        <?php } ?><i class="fas fa-caret-down asset-inline-caret"></i>
+                                    </button>
+                                </td>
+                                <?php if (!$client_url) { ?>
+                                <td class="asset-inline-cell" data-field="client" data-value="<?= $client_id ?>" data-label="<?= $client_id ? $client_name : '' ?>">
+                                    <button type="button" class="asset-inline-trigger" title="Change department">
+                                        <span class="asset-inline-text<?= $client_id ? '' : ' text-secondary' ?>"><?= $client_id ? $client_name : '-' ?></span><i class="fas fa-caret-down asset-inline-caret"></i>
+                                    </button>
+                                    <a href="assets.php?client_id=<?= $client_id ?>" class="asset-inline-link<?= $client_id ? '' : ' d-none' ?>" title="Show this department's assets"><i class="fas fa-arrow-right"></i></a>
+                                </td>
+                                <?php } ?>
+                            <?php } else { ?>
                             <?php if ($_GET['type'] !== 'network' && $_GET['type'] !== 'other' && $_GET['type'] !== 'server') { ?>
                                 <td><?php echo $contact_name_display; ?></td>
                             <?php } ?>
@@ -819,6 +905,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                             </td>
                             <?php if (!$client_url) { ?>
                             <td><?php if ($client_id) { ?><a href="assets.php?client_id=<?php echo $client_id; ?>"><?php echo $client_name; ?></a><?php } else { ?><span class="text-secondary">-</span><?php } ?></td>
+                            <?php } ?>
                             <?php } ?>
                             <td class="text-center">
                                 <div class="btn-group">
@@ -881,6 +968,13 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
 </div>
 
 <script src="../js/bulk_actions.js"></script>
+
+<?php if ($inline_edit_data !== null) { ?>
+<!-- Option lists for the inline-edit cells: a data block, not code, so the
+     CSP nonce rule for executable inline scripts doesn't apply to it. -->
+<script type="application/json" id="assetInlineEditData"><?= json_encode($inline_edit_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+<script src="/agent/js/asset_inline_edit.js?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/agent/js/asset_inline_edit.js') ?>"></script>
+<?php } ?>
 
 <?php if ($config_module_enable_rmm && $can_rmm_remote_connect) { ?>
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">

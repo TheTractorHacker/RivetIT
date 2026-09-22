@@ -105,6 +105,7 @@ if (isset($_POST['edit_asset'])) {
     // Validated against a real, non-archived department before trusting it,
     // since it's set client-side from a search result rather than picked
     // from a vetted <select> the way client_id elsewhere in this app is.
+    $original_client_id = $client_id;
     $resolved_client_id = intval($_POST['resolved_client_id'] ?? $client_id);
     if ($resolved_client_id !== $client_id) {
         $valid_target = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT client_id FROM clients WHERE client_id = $resolved_client_id AND client_archived_at IS NULL"));
@@ -117,6 +118,10 @@ if (isset($_POST['edit_asset'])) {
     mysqli_query($mysqli,"UPDATE assets SET asset_name = '$name', asset_tag = '$asset_tag', asset_description = '$description', asset_type = '$type', asset_make = '$make', asset_model = '$model', asset_serial = '$serial', asset_pin = '$pin', asset_os = '$os', asset_uri = '$uri', asset_uri_2 = '$uri_2', asset_uri_client = '$uri_client', asset_anydesk_id = '$anydesk_id', asset_location_id = $location, asset_vendor_id = $vendor, asset_contact_id = $contact, asset_status = '$status', asset_purchase_reference = '$purchase_reference', asset_purchase_date = $purchase_date, asset_warranty_expire = $warranty_expire, asset_install_date = $install_date, asset_physical_location = '$physical_location', asset_notes = '$notes', asset_favorite = $favorite, asset_client_id = $client_id WHERE asset_id = $asset_id");
 
     (new \ITFlow\Assets\AssetAssignmentService($mysqli))->recordChangeIfNeeded($asset_id, $contact, $session_user_id);
+
+    // Before the photo-replacement block below, which looks for the old file
+    // in the NEW department's folder.
+    moveAssetPhotoToClient($asset_id, $original_client_id, $client_id);
 
     $sql_interfaces = mysqli_query($mysqli, "SELECT * FROM asset_interfaces WHERE interface_asset_id = $asset_id AND interface_primary = 1");
 

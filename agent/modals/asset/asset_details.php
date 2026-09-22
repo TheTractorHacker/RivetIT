@@ -867,6 +867,9 @@ ob_start();
                         $file_mime_type = nullable_htmlentities($row['file_mime_type']);
                         $file_description = nullable_htmlentities($row['file_description']);
                         $file_reference_name = nullable_htmlentities($row['file_reference_name']);
+                        // The file's own folder, not the asset's: a file stays where it was
+                        // uploaded even after its asset moves to another department.
+                        $file_owner_client_id = intval($row['file_client_id']);
                         $file_ext = nullable_htmlentities($row['file_ext']);
                         if ($file_ext == 'pdf') {
                             $file_icon = "file-pdf";
@@ -894,7 +897,7 @@ ob_start();
                         $file_created_at = nullable_htmlentities($row['file_created_at']);
                         ?>
                         <tr>
-                            <td><a class="text-dark" href="<?php echo "../uploads/clients/$client_id/$file_reference_name"; ?>" target="_blank" ><?php echo "$file_name<br><span class='text-secondary'>$file_description</span>"; ?></a></td>
+                            <td><a class="text-dark" href="<?php echo "../uploads/clients/$file_owner_client_id/$file_reference_name"; ?>" target="_blank" ><?php echo "$file_name<br><span class='text-secondary'>$file_description</span>"; ?></a></td>
                             <td><?php echo $file_mime_type; ?></td>
                             <td><?php echo $file_created_at; ?></td>
                         </tr>
