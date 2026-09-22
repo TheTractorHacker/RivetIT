@@ -871,3 +871,59 @@ tr.asset-inline-moved-out > td {
     .asset-inline-saved,
     .asset-inline-cell.is-saving .asset-inline-caret::before { animation: none; }
 }
+
+/* Contact card modal (agent/modals/contact/contact_details.php) - the quick
+   view opened from contact names/icons across the app (Assets list, etc). */
+.contact-card-avatar {
+    flex: 0 0 auto;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, .25);
+}
+.contact-card-initials {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, .14);
+    color: #fff;
+    font-weight: 600;
+    font-size: .95rem;
+    letter-spacing: .02em;
+}
+.contact-card-subtitle {
+    font-size: .85rem;
+    color: rgba(255, 255, 255, .7);
+}
+.min-w-0 { min-width: 0; }
+/* Wrapping grid of whichever contact fields are filled in - no "-" columns. */
+.contact-card-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+    gap: .85rem 1.5rem;
+    padding: .9rem 1rem;
+    border: 1px solid var(--if-border, #e3e9ea);
+    border-radius: var(--if-radius-sm, 8px);
+    background: var(--if-bg, #eef2f2);
+}
+.contact-card-fact { min-width: 0; }
+.contact-card-label {
+    margin-bottom: .15rem;
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--if-muted, #5d6f76);
+}
+.contact-card-tabs .nav-link {
+    padding: .45rem .8rem;
+    white-space: nowrap;
+}
+.contact-card-table > thead th {
+    font-size: .7rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--if-muted, #5d6f76);
+}
