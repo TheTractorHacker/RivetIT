@@ -75,14 +75,18 @@ ob_start();
                     <input type="hidden" name="client_id" value="<?= $client_id ?>">
                 <?php } else { ?>
 
+                    <!-- Optional: left blank, the asset is saved with no department
+                         (client_id 0) - the same "unassigned" state CSV import and the
+                         Assets list's inline Department dropdown already produce, and
+                         which add_asset in post/asset.php already accepts. -->
                     <div class="form-group">
-                        <label>Department <strong class="text-danger">*</strong></label>
+                        <label>Department</label>
                         <div class="input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                             </div>
-                            <select class="form-control select2" name="client_id" required>
-                                <option value="">Select Department</option>
+                            <select class="form-control select2" name="client_id">
+                                <option value="0">- No Department -</option>
                                 <?php
 
                                 while ($row = mysqli_fetch_assoc($sql_client_select)) {
