@@ -1,0 +1,66 @@
+# ITFlow-Internal-IT — Docker Compose quick start.
+#
+# For local evaluation or a lightweight self-hosted deployment. This is NOT
+# the same tooling as deploy/install.sh (see deploy/README.md) — that's the
+# hardened, TLS-terminating, systemd-integrated bare-metal path recommended
+# for a production instance you're running long-term. This is the "git
+# clone && docker compose up" path: fast to try, deliberately dumb about
+# hardening (no fail2ban/ufw/unattended-upgrades equivalent — a container
+# has none of those concepts), and expects YOU to put a real reverse proxy
+# with TLS in front of it for anything beyond localhost. See the top-level
+# README's Docker section for the full walkthrough.
+#
+# App code is bind-mounted from this checkout (not baked into the image),
+# so config.php/uploads/backups/vendor all persist on the host across
+# `docker compose down` and image rebuilds, and `git pull` is the update
+# path — same model as deploy/update.sh, just without the wrapper script.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    depends_on:
+      - db
+    ports:
+      - "${APP_PORT:-8080}:80"
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      # Only consumed for an unattended RESTORE_FROM first boot (see below)
+      # — a normal fresh install still gets these interactively from the
+      # browser /setup wizard, same as before.
+      DB_NAME: "${DB_NAME:-itflow}"
+      DB_USER: "${DB_USER:-itflow}"
+      DB_PASSWORD: "${DB_PASSWORD:?set DB_PASSWORD in .env}"
+      APP_BASE_URL: "${APP_BASE_URL:-localhost:8080}"
+      DOCKER_UID: "${DOCKER_UID:-33}"
+      DOCKER_GID: "${DOCKER_GID:-33}"
+      # Unset by default — set both in .env to restore a deploy/backup.sh
+      # backup on first boot instead of a fresh install. Paths are inside
+      # the container; drop the matching files under ./restore/ on the host
+      # (see the ./restore mount below and .env.example).
+      RESTORE_FROM: "${RESTORE_FROM:-}"
+      RESTORE_PASSPHRASE_FILE: "${RESTORE_PASSPHRASE_FILE:-}"
+    volumes:
+      - .:/var/www/html
+      # Always mounted (harmless if empty) so RESTORE_FROM/
+      # RESTORE_PASSPHRASE_FILE above can point into it without a separate
+      # compose profile — put your backup-*.tar.gz.enc and passphrase file
+      # here to restore instead of running a fresh install.
+      - ./restore:/var/www/restore:ro
+    restart: unless-stopped
+
+  db:
+    image: mariadb:11
+    environment:
+      MARIADB_DATABASE: "${DB_NAME:-itflow}"
+      MARIADB_USER: "${DB_USER:-itflow}"
+      MARIADB_PASSWORD: "${DB_PASSWORD:?set DB_PASSWORD in .env}"
+      MARIADB_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:?set DB_ROOT_PASSWORD in .env}"
+    volumes:
+      - itflow_db_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  itflow_db_data:

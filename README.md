@@ -22,6 +22,8 @@
     ·
     <a href="docs/API.md">API Reference</a>
     ·
+    <a href="docs/DEPLOYMENT.md">Deployment</a>
+    ·
     <a href="https://github.com/TheTractorHacker/ITFlow-Internal-IT/releases">Releases</a>
     ·
     <a href="https://github.com/TheTractorHacker/ITFlow-Internal-IT/issues">Report Bug</a>
@@ -90,8 +92,37 @@ This fork's base (before the internal-IT changes above) already included:
 
 ## Getting Started
 
-The fastest path to a running instance on a fresh Ubuntu/Debian box is the deployment tooling in
-[`deploy/`](deploy/README.md):
+Two supported ways to get a running instance, depending on what you're doing (see
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full guide — how to choose between them, and the
+backup/disaster-recovery story for each):
+
+### Option 1 — Docker Compose (fastest way to try it)
+
+```bash
+git clone https://github.com/TheTractorHacker/ITFlow-Internal-IT.git
+cd ITFlow-Internal-IT
+cp .env.example .env    # edit DB_PASSWORD/DB_ROOT_PASSWORD, and DOCKER_UID/DOCKER_GID (run `id -u`/`id -g`)
+docker compose up -d --build
+```
+
+Then visit `http://localhost:8080/` (or whatever `APP_PORT` you set in `.env`) — it redirects straight
+to the same browser-based `/setup/` wizard a manual install would use. When it asks for a database host,
+enter `db` and the credentials from your `.env`.
+
+This runs nginx + PHP-FPM + MariaDB in containers, with the app code bind-mounted from this checkout so
+`config.php`/`uploads/`/`backups/` all persist on the host and `git pull` + `docker compose up -d --build`
+is the update path. It's deliberately not hardened the way `deploy/install.sh` is (no fail2ban/ufw
+equivalent, no TLS termination) — put a real reverse proxy in front of it for anything beyond local
+evaluation. It's a companion to, not a replacement for, the tooling below.
+
+Standing this container up from an existing `deploy/backup.sh` backup instead of a fresh install: drop
+the backup file and its passphrase file under `./restore/` (bind-mounted read-only into the container),
+set `RESTORE_FROM`/`RESTORE_PASSPHRASE_FILE` in `.env` to point at them, then `docker compose up -d
+--build` — see the comments in `.env.example` and [`deploy/README.md`](deploy/README.md#restoresh).
+
+### Option 2 — bare-metal install (recommended for a production instance)
+
+The deployment tooling in [`deploy/`](deploy/README.md) provisions a whole box from scratch:
 
 ```bash
 git clone https://github.com/TheTractorHacker/ITFlow-Internal-IT.git
@@ -100,10 +131,16 @@ sudo deploy/install.sh --domain=itflow.example.com
 ```
 
 It provisions nginx, PHP 8.4, and MariaDB; sets up TLS; applies security hardening; and runs the app's
-own first-run setup — see [`deploy/README.md`](deploy/README.md) for the full flag reference, worked
-examples (including adding a second company's instance to a box that already runs one), backups, and
-updates. If you'd rather install manually or use the browser-based `/setup/` wizard, see the [official
-upstream docs](https://docs.itflow.org/installation) for general server requirements.
+own first-run setup (or, with `--restore-from`/`--restore-passphrase-file`, restores an existing
+`deploy/backup.sh` backup onto the new box instead) — see [`deploy/README.md`](deploy/README.md) for the
+full flag reference, worked examples (including adding a second company's instance to a box that already
+runs one), backups, and updates. If you'd rather install manually or use the browser-based `/setup/`
+wizard, see the [official upstream docs](https://docs.itflow.org/installation) for general server
+requirements.
+
+Either way, `deploy/backup.sh` (encrypted, scheduled) is the disaster-recovery path, with
+`deploy/restore.sh` as its counterpart for standing a fresh box back up from one of those backups — see
+[`deploy/README.md`](deploy/README.md#restoresh).
 
 For a control-by-control look at what this deployment tooling does (and doesn't) cover from a security
 standpoint, see [`docs/ISO27001-COMPLIANCE.md`](docs/ISO27001-COMPLIANCE.md).

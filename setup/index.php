@@ -1298,6 +1298,12 @@ if (isset($_POST['add_telemetry'])) {
                                 <h3 class="card-title"><i class="fas fa-fw fa-database mr-2"></i>Restore from Backup</h3>
                             </div>
                             <div class="card-body">
+                                <p class="text-muted"><small>This restores a <code>.zip</code> from this app's own backup feature
+                                (Settings &rarr; Backup &rarr; "Download Backup" / "Save to Server", or one pulled from your
+                                configured S3-compatible remote storage). Restoring a <em>server-level disaster-recovery
+                                backup</em> (an encrypted <code>backup-*.tar.gz.enc</code> from the <code>deploy/backup.sh</code>
+                                scheduled timer) is a separate, command-line operation — see
+                                <code>deploy/restore.sh</code> in <code>deploy/README.md</code>, not this form.</small></p>
                                 <form method="post" enctype="multipart/form-data" autocomplete="off">
                                     <label>Restore ITFlow Internal IT Backup (.zip)</label>
                                     <input type="file" name="backup_zip" accept=".zip" required>

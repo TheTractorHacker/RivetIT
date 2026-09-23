@@ -6,9 +6,15 @@ keystore_base64.txt
 .claude/
 backups/*.zip
 
+# Docker Compose (docker-compose.yml, docker/) — real DB passwords and,
+# under restore/, a backup decryption passphrase. Never commit either.
+.env
+/restore/
+
 uploads/favicon.ico
 uploads/contracts/*
 uploads/clients/*
+uploads/kb/
 !uploads/clients/index.php
 uploads/custom/*
 !uploads/custom/index.php

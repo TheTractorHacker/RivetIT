@@ -11,6 +11,7 @@ instance alongside the first, on the same box.
 | `install.sh` | Stand up a brand-new instance end to end: packages, code, database, TLS/vhost, hardening, firewall, cron, and the app's own first-run setup. |
 | `harden.sh` | A standalone, idempotent, re-runnable hardening pass — the fuller superset of what `install.sh` applies inline during a fresh install. |
 | `backup.sh` (+ systemd timer) | Encrypted, scheduled backups of the database and `uploads/`. |
+| `restore.sh` | Restore a `backup.sh` archive into an instance — standalone, or via `install.sh --restore-from` to stand up a brand-new box straight from a backup. |
 | `update.sh` | Pull application updates and run any pending database migrations. |
 | `lib/common.sh` | Shared helpers (logging, `gen_secret`, OS detection, service checks) — sourced by every script above, never run directly. |
 | `templates/` | The actual config content applied by `install.sh`/`harden.sh` — nginx vhost, PHP-FPM hardening ini, MariaDB hardening cnf, fail2ban jail. Read these if you want to see exactly what gets changed on your box before running anything. |
@@ -77,6 +78,9 @@ Full reference: `sudo deploy/install.sh --help`. The ones worth knowing up front
   argv, so it's not visible to other users on the box via `ps`. It IS visible on *this* script's own
   command line and shell history, though — leave it out and answer `setup_cli.php`'s interactive prompt
   instead whenever you have a terminal in front of you, which touches neither.
+- `--restore-from=<path>` + `--restore-passphrase-file=<path>` — restore a `backup.sh` archive onto this
+  new box instead of a fresh company setup; see `restore.sh` below. Every company/localization/admin-user
+  flag above is ignored when these are given.
 
 ### Worked example 1 — fresh dedicated box
 
@@ -206,28 +210,6 @@ sudo systemctl list-timers itflow-backup.timer     # confirm the next scheduled 
 Run `deploy/backup.sh` once by hand first (`sudo deploy/backup.sh`) to confirm it succeeds and to see
 where it writes output, before trusting the timer to run it unattended.
 
-### Testing a restore
-
-**Test this before you need it for real.** A backup you've never restored is a backup you don't actually
-have.
-
-1. Decrypt the backup:
-   ```bash
-   openssl enc -d -aes-256-cbc -pbkdf2 \
-     -pass file:/etc/itflow/backup-passphrase \
-     -in itflow-backup-<timestamp>.sql.enc -out restored.sql
-   ```
-2. Import the SQL dump into a **scratch** database first — never straight into a live instance you care
-   about — to confirm it imports cleanly:
-   ```bash
-   mysql -u root scratch_db_name < restored.sql
-   ```
-3. Untar the uploads archive back into place (against that same scratch instance's app directory, not a
-   live one, for a test restore):
-   ```bash
-   tar -xzf itflow-uploads-<timestamp>.tar.gz -C /var/www/<scratch-instance>/uploads/
-   ```
-
 One app-specific wrinkle worth knowing: credential vault data in the database is encrypted with each
 user's own zero-knowledge key, derived from their password — not a separate recoverable secret bundled
 into the SQL dump. As long as the admin account's password is unchanged after a restore, vault data
@@ -239,7 +221,55 @@ The application also has its own independent, manual, on-demand backup feature r
 app (Settings → Backup → "Download Backup" / "Save to Server", `admin/backup.php`) that produces the same
 kind of database-dump-plus-uploads-zip on demand — useful before a risky change, but it is **not**
 encrypted and **not** scheduled, so it does not replace `deploy/backup.sh` + the systemd timer for actual
-disaster-recovery purposes.
+disaster-recovery purposes. It has its own restore path too, from the browser: the `/setup` wizard's
+"Restore from Backup" option (reachable from the Welcome screen, or the `?restore` Utilities link) accepts
+a zip from that feature. It does **not** accept a `deploy/backup.sh` archive — those are handled by
+`restore.sh` below instead.
+
+## restore.sh
+
+The counterpart `backup.sh` didn't have until now: decrypts a `backup-*.tar.gz.enc` archive and restores
+it into an already-installed instance (run `install.sh` first on a fresh box — or pass `install.sh`
+`--restore-from`/`--restore-passphrase-file` to do both in one step, see below).
+
+```bash
+sudo deploy/restore.sh --app-dir=/var/www/itflow.example.com \
+    --backup=/path/to/backup-itflow-20260101T000000Z.tar.gz.enc \
+    --passphrase-file=/etc/itflow/backup-passphrase \
+    --confirm-restore
+```
+
+`--confirm-restore` is mandatory and has no interactive y/n prompt to click through — this REPLACES every
+table in the target database and everything under `--app-dir/uploads`. By default it takes a fresh safety
+backup of the target's *current* state first (via `backup.sh` itself) and aborts before touching anything
+if that fails; pass `--no-pre-restore-backup-confirmed` only when the target has nothing worth keeping
+(e.g. it was just created and never used).
+
+If the archive has a `backup-manifest.json` (every backup taken since this feature shipped), `restore.sh`
+also applies its `settings_enc_key` to the target's `config.php` after import — without this, SMTP/IMAP
+passwords, RMM/UniFi API keys, webhook secrets, and the wrapped credential-vault master key would decrypt
+to garbage under a *different* instance's own randomly-generated key. A pre-existing backup taken before
+this shipped has no manifest; `restore.sh` warns loudly and leaves those secrets for you to re-enter by
+hand instead of silently producing an instance with broken integrations.
+
+**Standing up a brand-new server straight from a backup** (the disaster-recovery scenario this exists
+for): `install.sh` accepts the same restore in one step instead of its normal fresh-company setup:
+
+```bash
+sudo deploy/install.sh --domain=itflow.example.com \
+    --restore-from=/path/to/backup-itflow-20260101T000000Z.tar.gz.enc \
+    --restore-passphrase-file=/etc/itflow/backup-passphrase
+```
+
+This skips every company/localization/admin-user prompt (the restored data already has all of that) —
+`install.sh` provisions the box and an empty database exactly as it normally would, then hands off to
+`restore.sh` to fill it in.
+
+**Testing a restore without touching a real instance:** point `--app-dir` at a disposable one instead —
+either `install.sh --domain=restore-test.local --skip-tls --skip-firewall --skip-fail2ban` on a spare box
+or VM, or just `scripts/setup_cli.php --config-only` against a scratch database on this one — then inspect
+it and throw it away. `--app-dir`'s target must already have a `config.php` either way; `restore.sh` never
+creates an instance from nothing, only restores data into one that already exists.
 
 ---
 

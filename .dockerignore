@@ -1,0 +1,10 @@
+.git
+.github
+node_modules
+backups
+uploads/*
+!uploads/*/index.php
+vendor
+.claude
+.env
+restore/

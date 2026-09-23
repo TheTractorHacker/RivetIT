@@ -159,6 +159,50 @@ command_exists() {
 }
 
 # ---------------------------------------------------------------------------
+# Application config (config.php)
+# ---------------------------------------------------------------------------
+
+# read_app_config(app_dir): populates DB_HOST/DB_USER/DB_PASS/DB_NAME/
+# INSTALLATION_ID/SETTINGS_ENC_KEY by shelling out to `php -r` with a small
+# trusted snippet that requires app_dir/config.php and echoes the six values
+# it defines. Shared by backup.sh (to capture INSTALLATION_ID/
+# SETTINGS_ENC_KEY into its backup manifest) and restore.sh (to find the
+# target database). Deliberately NOT parsed out of the file with grep/sed
+# (config.php's values go through var_export(), so they can contain escaped
+# quotes, unicode, etc. — a text-munging parse would be fragile) and
+# deliberately NOT eval'd as arbitrary PHP from an untrusted source —
+# config.php is a trusted local file this same install already wrote (or
+# that scripts/setup_cli.php --config-only just wrote), so requiring it here
+# carries no more risk than the app's own every-request bootstrap already
+# does.
+read_app_config() {
+    local app_dir="$1"
+    info "Reading configuration from ${app_dir}/config.php..."
+    local raw
+    if ! raw="$(php -r '
+        require $argv[1];
+        echo $dbhost . "\n" . $dbusername . "\n" . $dbpassword . "\n" . $database . "\n";
+        echo ($installation_id ?? "") . "\n";
+        echo ($config_settings_enc_key ?? "") . "\n";
+    ' -- "${app_dir}/config.php")"; then
+        die "Failed to read configuration from ${app_dir}/config.php via 'php -r' (see PHP's error output above). config.php connects to MySQL as a side effect of being require()'d — this usually means the database is unreachable, not just a bad config file."
+    fi
+
+    local -a cfg_lines
+    mapfile -t cfg_lines <<< "${raw}"
+    DB_HOST="${cfg_lines[0]:-}"
+    DB_USER="${cfg_lines[1]:-}"
+    DB_PASS="${cfg_lines[2]:-}"
+    DB_NAME="${cfg_lines[3]:-}"
+    INSTALLATION_ID="${cfg_lines[4]:-}"
+    SETTINGS_ENC_KEY="${cfg_lines[5]:-}"
+
+    if [[ -z "${DB_HOST}" || -z "${DB_USER}" || -z "${DB_NAME}" ]]; then
+        die "config.php did not yield usable database settings (host='${DB_HOST}' user='${DB_USER}' database='${DB_NAME}'). Refusing to proceed with an incomplete target."
+    fi
+}
+
+# ---------------------------------------------------------------------------
 # Misc
 # ---------------------------------------------------------------------------
 
@@ -195,7 +239,8 @@ detect_ssh_port() {
 # Temp-file cleanup (secrets)
 # ---------------------------------------------------------------------------
 # Any script that writes a secret to a temp file (a generated DB password, a
-# `mysql --defaults-extra-file`) should register it here with
+# `mysql --defaults-extra-file`) OR extracts one into a temp directory (e.g.
+# a decrypted backup archive) should register it here with
 # register_tmpfile() rather than rolling its own trap. This is the ONE EXIT
 # trap for the whole process — bash keeps only a single handler per signal,
 # so a script that later called `trap ... EXIT` again would silently replace
@@ -211,7 +256,16 @@ _cleanup_tmpfiles() {
     local f
     for f in "${_ITFLOW_TMPFILES[@]:-}"; do
         [[ -n "${f}" && -e "${f}" ]] || continue
-        shred -u "${f}" 2>/dev/null || rm -f "${f}"
+        if [[ -d "${f}" ]]; then
+            # A registered directory (e.g. restore.sh's decrypted-archive
+            # extraction dir) may hold sensitive files of its own — shred
+            # each one individually before removing the tree, same intent
+            # as the plain-file branch below, just recursive.
+            find "${f}" -type f -exec shred -u {} + 2>/dev/null
+            rm -rf "${f}"
+        else
+            shred -u "${f}" 2>/dev/null || rm -f "${f}"
+        fi
     done
 }
 trap _cleanup_tmpfiles EXIT

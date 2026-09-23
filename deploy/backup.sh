@@ -3,10 +3,14 @@ set -euo pipefail
 
 # ITFlow-Internal-IT — single-instance encrypted backup.
 #
-# Dumps one instance's database (mysqldump) and its uploads/ directory
+# Dumps one instance's database (mysqldump), its uploads/ directory
 # (user-uploaded contracts/documents/tickets/etc — the content that isn't
-# reproducible by re-cloning the git repo), bundles both into one archive,
-# encrypts it, and enforces a retention window on old encrypted backups.
+# reproducible by re-cloning the git repo), and a small backup-manifest.json
+# (installation_id + config_settings_enc_key, needed to restore onto a fresh
+# instance — see the comment above the manifest write in do_backup() below),
+# bundles all of it into one archive, encrypts it, and enforces a retention
+# window on old encrypted backups. See deploy/restore.sh for the matching
+# restore path.
 #
 # Meant to be driven by deploy/templates/itflow-backup.{service,timer} (a
 # daily systemd timer) or root's own crontab — see this script's own
@@ -141,37 +145,6 @@ setup_logging() {
     exec > >(tee -a "${LOG_FILE}") 2>&1
 }
 
-# read_db_config(): populates DB_HOST/DB_USER/DB_PASS/DB_NAME by shelling
-# out to `php -r` with a small trusted snippet that requires config.php and
-# echoes the four values it defines. Deliberately NOT parsed out of the file
-# with grep/sed (config.php's values go through var_export(), so they can
-# contain escaped quotes, unicode, etc. — a text-munging parse would be
-# fragile) and deliberately NOT eval'd as arbitrary PHP from an untrusted
-# source — config.php is a trusted local file this same install already
-# wrote, so requiring it here carries no more risk than the app's own every-
-# request bootstrap already does.
-read_db_config() {
-    info "Reading database credentials from ${APP_DIR}/config.php..."
-    local raw
-    if ! raw="$(php -r '
-        require $argv[1];
-        echo $dbhost . "\n" . $dbusername . "\n" . $dbpassword . "\n" . $database . "\n";
-    ' -- "${APP_DIR}/config.php")"; then
-        die "Failed to read database credentials from ${APP_DIR}/config.php via 'php -r' (see PHP's error output above). config.php connects to MySQL as a side effect of being require()'d — this usually means the database is unreachable, not just a bad config file."
-    fi
-
-    local -a cfg_lines
-    mapfile -t cfg_lines <<< "${raw}"
-    DB_HOST="${cfg_lines[0]:-}"
-    DB_USER="${cfg_lines[1]:-}"
-    DB_PASS="${cfg_lines[2]:-}"
-    DB_NAME="${cfg_lines[3]:-}"
-
-    if [[ -z "${DB_HOST}" || -z "${DB_USER}" || -z "${DB_NAME}" ]]; then
-        die "config.php did not yield usable database settings (host='${DB_HOST}' user='${DB_USER}' database='${DB_NAME}'). Refusing to proceed with an incomplete backup target."
-    fi
-}
-
 # cleanup_old_backups(): enforces --retention-days on this script's OWN
 # output (backup-*.enc) in --dest. When --dest is left at its default
 # (<app-dir>/backups), that directory is shared with the app's own built-in
@@ -241,8 +214,32 @@ EOF
     fi
     success "Database dump complete ($(du -h "${sql_file}" | awk '{print $1}'))."
 
+    # backup-manifest.json travels inside the encrypted archive alongside the
+    # dump so deploy/restore.sh can recover config_settings_enc_key on a
+    # brand-new box — that key never appears in the SQL dump itself (it lives
+    # only in config.php, which this script does not back up), so without
+    # this manifest a restore onto a fresh instance would decrypt every
+    # SMTP/IMAP password, RMM/webhook secret, and the wrapped credential-vault
+    # master key to garbage. The whole archive is openssl-encrypted end to
+    # end below, same as the SQL dump itself, so this is no less protected
+    # than the data it travels with.
+    local manifest_file="${DEST}/backup-manifest.json"
+    : > "${manifest_file}"
+    chmod 600 "${manifest_file}"
+    register_tmpfile "${manifest_file}"
+    php -r '
+        $data = [
+            "schema_version"    => 1,
+            "db_name"           => $argv[1],
+            "installation_id"   => $argv[2],
+            "settings_enc_key"  => $argv[3],
+            "backup_timestamp"  => $argv[4],
+        ];
+        file_put_contents($argv[5], json_encode($data, JSON_PRETTY_PRINT));
+    ' -- "${DB_NAME}" "${INSTALLATION_ID}" "${SETTINGS_ENC_KEY}" "${timestamp}" "${manifest_file}"
+
     info "Bundling the database dump with ${APP_DIR}/uploads into ${combined}..."
-    local -a tar_members=(-C "$(dirname "${sql_file}")" "$(basename "${sql_file}")")
+    local -a tar_members=(-C "$(dirname "${sql_file}")" "$(basename "${sql_file}")" "$(basename "${manifest_file}")")
     if [[ -d "${APP_DIR}/uploads" ]]; then
         tar_members+=(-C "${APP_DIR}" uploads)
     else
@@ -286,7 +283,7 @@ main() {
     setup_logging
 
     info "=== ITFlow-Internal-IT backup starting for ${APP_DIR} ==="
-    read_db_config
+    read_app_config "${APP_DIR}"
     # Called as a plain statement, deliberately NOT as `if ! do_backup;
     # then ...` — bash suspends `set -e` for the ENTIRE body of a function
     # called as an if/while condition, not just its final return value, so

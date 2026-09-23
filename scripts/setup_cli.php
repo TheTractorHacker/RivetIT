@@ -67,7 +67,9 @@ $longopts = [
     "user-name:",
     "user-email:",
     "user-password:",
-    "non-interactive"
+    "non-interactive",
+    "config-only",
+    "settings-enc-key:"
 ];
 
 $options = getopt($shortopts, $longopts);
@@ -85,11 +87,24 @@ if (isset($options['help'])) {
         echo "  --$arg\t$desc\n";
     }
     echo "  --non-interactive\tRun in non-interactive mode (fail if required args missing)\n";
+    echo "  --config-only\t\tWrite config.php from --host/--username/--password/--database/\n";
+    echo "  \t\t\t--base-url only, then exit — skips schema import, admin user\n";
+    echo "  \t\t\tcreation, and every other prompt/argument above. For a target\n";
+    echo "  \t\t\tthat will have its data restored from a backup immediately\n";
+    echo "  \t\t\tafterward (see deploy/install.sh --restore-from and\n";
+    echo "  \t\t\tdeploy/restore.sh) rather than set up fresh.\n";
+    echo "  --settings-enc-key=<hex>\tWith --config-only: use this value for config.php's\n";
+    echo "  \t\t\t\tconfig_settings_enc_key instead of generating a new random\n";
+    echo "  \t\t\t\tone (deploy/restore.sh passes the key recovered from a\n";
+    echo "  \t\t\t\tbackup's manifest here, so restored SMTP/IMAP/RMM/webhook\n";
+    echo "  \t\t\t\tsecrets keep decrypting correctly).\n";
     echo "  --help\t\tShow this help message\n\n";
     echo "If running interactively (without --non-interactive), any missing required arguments will be prompted.\n";
     echo "If running non-interactively, all required arguments must be provided.\n\n";
     exit(0);
 }
+
+$config_only = isset($options['config-only']);
 
 if (file_exists("../config.php")) {
     include_once "../config.php";
@@ -168,9 +183,14 @@ if (file_exists('../config.php')) {
 }
 
 // If non-interactive is set, ensure all required arguments are present
-// (a secret supplied via ITFLOW_DB_PASSWORD/ITFLOW_ADMIN_PASSWORD counts too)
+// (a secret supplied via ITFLOW_DB_PASSWORD/ITFLOW_ADMIN_PASSWORD counts too).
+// --config-only only ever needs the DB/base-url args below, not the
+// company/admin-user ones - it never prompts for or inserts any of that.
 if ($non_interactive) {
-    foreach (array_keys($required_args) as $arg) {
+    $args_to_check = $config_only
+        ? ['host', 'username', 'password', 'database', 'base-url']
+        : array_keys($required_args);
+    foreach ($args_to_check as $arg) {
         if (!isset($options[$arg]) && getSecretFromEnv($arg) === false) {
             die("Missing required argument: --$arg\n");
         }
@@ -189,44 +209,46 @@ $password = getOptionOrPrompt('password', "Enter the database password", true);
 $base_url = getOptionOrPrompt('base-url', "Enter the base URL (e.g. example.com/itflow)", true);
 $base_url = rtrim($base_url, '/');
 
-// Locale, Timezone, Currency
-echo "\n=== Localization ===\n";
-$locale = getOptionOrPrompt('locale', "Enter the locale (e.g. en_US)", true);
-$timezone = getOptionOrPrompt('timezone', "Enter the timezone (e.g. UTC or America/New_York)", true);
-$currency_code = getOptionOrPrompt('currency', "Enter the currency code (e.g. USD)", true);
+if (!$config_only) {
+    // Locale, Timezone, Currency
+    echo "\n=== Localization ===\n";
+    $locale = getOptionOrPrompt('locale', "Enter the locale (e.g. en_US)", true);
+    $timezone = getOptionOrPrompt('timezone', "Enter the timezone (e.g. UTC or America/New_York)", true);
+    $currency_code = getOptionOrPrompt('currency', "Enter the currency code (e.g. USD)", true);
 
-// Company Details
-echo "\n=== Company Details ===\n";
-$company_name = getOptionOrPrompt('company-name', "Company Name", true);
-$country = getOptionOrPrompt('country', "Country (e.g. United States)", true);
-$address = getOptionOrPrompt('address', "Address (optional)", false);
-$city = getOptionOrPrompt('city', "City (optional)", false);
-$state = getOptionOrPrompt('state', "State/Province (optional)", false);
-$zip = getOptionOrPrompt('zip', "Postal Code (optional)", false);
-$phone = getOptionOrPrompt('phone', "Phone (optional)", false);
-$phone = preg_replace("/[^0-9]/", '', $phone);
-$company_email = getOptionOrPrompt('company-email', "Company Email (optional)", false);
-$website = getOptionOrPrompt('website', "Website (optional)", false);
+    // Company Details
+    echo "\n=== Company Details ===\n";
+    $company_name = getOptionOrPrompt('company-name', "Company Name", true);
+    $country = getOptionOrPrompt('country', "Country (e.g. United States)", true);
+    $address = getOptionOrPrompt('address', "Address (optional)", false);
+    $city = getOptionOrPrompt('city', "City (optional)", false);
+    $state = getOptionOrPrompt('state', "State/Province (optional)", false);
+    $zip = getOptionOrPrompt('zip', "Postal Code (optional)", false);
+    $phone = getOptionOrPrompt('phone', "Phone (optional)", false);
+    $phone = preg_replace("/[^0-9]/", '', $phone);
+    $company_email = getOptionOrPrompt('company-email', "Company Email (optional)", false);
+    $website = getOptionOrPrompt('website', "Website (optional)", false);
 
-// User Setup
-echo "\n=== Create First User ===\n";
-$user_name = getOptionOrPrompt('user-name', "Full Name", true);
-$user_email = getOptionOrPrompt('user-email', "Email Address", true);
-while (!filter_var($user_email, FILTER_VALIDATE_EMAIL)) {
-    echo "Invalid email.\n";
-    if ($non_interactive) {
-        die("Invalid email address: $user_email\n");
+    // User Setup
+    echo "\n=== Create First User ===\n";
+    $user_name = getOptionOrPrompt('user-name', "Full Name", true);
+    $user_email = getOptionOrPrompt('user-email', "Email Address", true);
+    while (!filter_var($user_email, FILTER_VALIDATE_EMAIL)) {
+        echo "Invalid email.\n";
+        if ($non_interactive) {
+            die("Invalid email address: $user_email\n");
+        }
+        $user_email = prompt("Email Address");
     }
-    $user_email = prompt("Email Address");
-}
-$user_password_plain = getOptionOrPrompt('user-password', "Password (at least 8 chars)", true);
-if (strlen($user_password_plain) < 8) {
-    if ($non_interactive) {
-        die("Password must be at least 8 characters.\n");
-    }
-    while (strlen($user_password_plain) < 8) {
-        echo "Password too short. Try again.\n";
-        $user_password_plain = prompt("Password");
+    $user_password_plain = getOptionOrPrompt('user-password', "Password (at least 8 chars)", true);
+    if (strlen($user_password_plain) < 8) {
+        if ($non_interactive) {
+            die("Password must be at least 8 characters.\n");
+        }
+        while (strlen($user_password_plain) < 8) {
+            echo "Password too short. Try again.\n";
+            $user_password_plain = prompt("Password");
+        }
     }
 }
 
@@ -243,7 +265,13 @@ if (!$conn) {
 $installation_id = randomString(32);
 
 // Per-installation key for encryptSetting()/decryptSetting() - see below.
-$settings_enc_key = bin2hex(random_bytes(32));
+// --settings-enc-key lets a caller (deploy/restore.sh, via a backup's own
+// manifest) supply the ORIGINAL key instead of minting a new one, so
+// restored SMTP/IMAP passwords, RMM/webhook secrets, and the wrapped
+// credential-vault master key keep decrypting correctly. Only meaningful
+// with --config-only - a fresh (non-restore) install has no prior key to
+// preserve, and always mints its own.
+$settings_enc_key = $options['settings-enc-key'] ?? bin2hex(random_bytes(32));
 
 $new_config = "<?php\n\n";
 $new_config .= "\$dbhost = " . var_export($host, true) . ";\n";
@@ -254,7 +282,7 @@ $new_config .= "\$mysqli = mysqli_connect(\$dbhost, \$dbusername, \$dbpassword, 
 $new_config .= "\$config_app_name = 'ITFlow Internal IT';\n";
 $new_config .= "\$config_base_url = '" . addslashes($base_url) . "';\n";
 $new_config .= "\$config_https_only = TRUE;\n";
-$new_config .= "\$repo_branch = 'master';\n";
+$new_config .= "\$repo_branch = 'main';\n";
 $new_config .= "\$installation_id = '$installation_id';\n";
 // Per-installation key for encryptSetting()/decryptSetting() - SMTP and IMAP
 // passwords, OAuth refresh tokens, RMM/UniFi API keys, webhook secrets and the
@@ -273,6 +301,12 @@ if (!file_exists('../config.php')) {
 }
 
 require "../config.php";
+
+if ($config_only) {
+    echo "\nconfig.php written (--config-only) - schema import, admin user, and company setup were skipped.\n";
+    echo "Restore data into '$database' next (see deploy/restore.sh); this instance will be ready to log in once that completes.\n";
+    exit(0);
+}
 
 // Import DB Schema
 echo "Importing database schema...\n";

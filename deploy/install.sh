@@ -82,6 +82,8 @@ ZIP=""
 PHONE=""
 COMPANY_EMAIL=""
 WEBSITE=""
+RESTORE_FROM=""
+RESTORE_PASSPHRASE_FILE=""
 
 # Populated later in main(), after DOMAIN/PROXY_MODE/SKIP_TLS are known.
 NEED_CERTBOT=0
@@ -153,6 +155,14 @@ Company / localization details (optional — same prompt-if-omitted rule):
   --company-email=<address>
   --website=<url>
 
+Restore onto this new box instead of a fresh company setup (both required
+together; every company/localization/admin-user option above is ignored and
+not prompted for — the restored backup already has all of that):
+  --restore-from=<path>            Path to a backup-*.tar.gz.enc produced by
+                            deploy/backup.sh.
+  --restore-passphrase-file=<path>  600-permission file holding the
+                            passphrase that backup was encrypted with.
+
   --help                           Show this help and exit.
 
 Adding another company to a box that already runs an ITFlow-Internal-IT
@@ -190,6 +200,8 @@ parse_args() {
             --phone=*)              PHONE="${arg#*=}" ;;
             --company-email=*)   COMPANY_EMAIL="${arg#*=}" ;;
             --website=*)          WEBSITE="${arg#*=}" ;;
+            --restore-from=*)              RESTORE_FROM="${arg#*=}" ;;
+            --restore-passphrase-file=*)   RESTORE_PASSPHRASE_FILE="${arg#*=}" ;;
             --help|-h)
                 print_help
                 exit 0
@@ -249,18 +261,33 @@ default_db_name() {
     printf '%s' "${s:0:32}"
 }
 
+validate_restore_args() {
+    if [[ -n "${RESTORE_FROM}" || -n "${RESTORE_PASSPHRASE_FILE}" ]]; then
+        [[ -n "${RESTORE_FROM}" ]] || die "--restore-passphrase-file was given without --restore-from — both are required together."
+        [[ -n "${RESTORE_PASSPHRASE_FILE}" ]] || die "--restore-from was given without --restore-passphrase-file — both are required together."
+        [[ -f "${RESTORE_FROM}" ]] || die "--restore-from '${RESTORE_FROM}' does not exist."
+        [[ -f "${RESTORE_PASSPHRASE_FILE}" ]] || die "--restore-passphrase-file '${RESTORE_PASSPHRASE_FILE}' does not exist."
+    fi
+}
+
 validate_non_interactive_requirements() {
     [[ "${NON_INTERACTIVE}" -eq 1 ]] || return 0
 
     local missing=()
-    [[ -n "${ADMIN_NAME}" ]]     || missing+=("--admin-name")
-    [[ -n "${ADMIN_EMAIL}" ]]    || missing+=("--admin-email")
-    [[ -n "${ADMIN_PASSWORD}" ]] || missing+=("--admin-password")
-    [[ -n "${LOCALE}" ]]         || missing+=("--locale")
-    [[ -n "${TIMEZONE}" ]]       || missing+=("--timezone")
-    [[ -n "${CURRENCY}" ]]       || missing+=("--currency")
-    [[ -n "${COMPANY_NAME}" ]]   || missing+=("--company-name")
-    [[ -n "${COUNTRY}" ]]        || missing+=("--country")
+    # Restoring a backup skips scripts/setup_cli.php's company/localization/
+    # admin-user prompts entirely (run_app_restore uses --config-only
+    # instead) — none of those flags apply, and requiring them here would
+    # just be dead weight a restore-from-backup script has to pass anyway.
+    if [[ -z "${RESTORE_FROM}" ]]; then
+        [[ -n "${ADMIN_NAME}" ]]     || missing+=("--admin-name")
+        [[ -n "${ADMIN_EMAIL}" ]]    || missing+=("--admin-email")
+        [[ -n "${ADMIN_PASSWORD}" ]] || missing+=("--admin-password")
+        [[ -n "${LOCALE}" ]]         || missing+=("--locale")
+        [[ -n "${TIMEZONE}" ]]       || missing+=("--timezone")
+        [[ -n "${CURRENCY}" ]]       || missing+=("--currency")
+        [[ -n "${COMPANY_NAME}" ]]   || missing+=("--company-name")
+        [[ -n "${COUNTRY}" ]]        || missing+=("--country")
+    fi
     if [[ "${NEED_CERTBOT}" -eq 1 && -z "${CERTBOT_EMAIL}" ]]; then
         missing+=("--email")
     fi
@@ -856,6 +883,56 @@ run_app_setup() {
     success "Application setup complete."
 }
 
+# run_app_restore(): the --restore-from counterpart to run_app_setup() —
+# writes config.php via setup_cli.php --config-only (no schema import, no
+# admin user/company created, since the backup already has all of that),
+# then hands off to deploy/restore.sh to import it. Only config_enable_setup
+# is left for THIS function to set afterward: setup_cli.php --config-only
+# deliberately does not set it, so a restore that fails partway still leaves
+# the box bouncing to /setup for a retry instead of claiming to be ready.
+run_app_restore() {
+    if [[ -f "${APP_DIR}/config.php" ]]; then
+        info "config.php already exists in ${APP_DIR}; skipping restore (already completed by a previous run)."
+        return 0
+    fi
+
+    info "Writing config.php for the restore target (scripts/setup_cli.php --config-only)..."
+    set +x
+    # --non-interactive unconditionally: every value --config-only needs
+    # (host/username/database/base-url via flags, password via the env var
+    # below) is always already known here, so there is no legitimate prompt
+    # to wait on — only a risk of silently hanging on STDIN if that were
+    # ever untrue in an unattended run.
+    if ! ( cd "${APP_DIR}/scripts" && sudo -u www-data env ITFLOW_DB_PASSWORD="${DB_PASSWORD}" php setup_cli.php \
+        --config-only --non-interactive --host=localhost --username="${DB_NAME}" --database="${DB_NAME}" --base-url="${DOMAIN}" ); then
+        set -x
+        die "scripts/setup_cli.php --config-only failed. See its output above."
+    fi
+    set -x
+    if [[ -f "${APP_DIR}/config.php" ]]; then
+        chmod 640 "${APP_DIR}/config.php"
+        chown www-data:www-data "${APP_DIR}/config.php"
+    fi
+
+    announce "Restoring ${RESTORE_FROM} into ${APP_DIR} (deploy/restore.sh)..."
+    # --no-pre-restore-backup-confirmed: config.php was just written above
+    # against a database provision_database() created moments ago in this
+    # same run — there is nothing yet in it worth a safety backup of.
+    if ! "${SCRIPT_DIR}/restore.sh" --app-dir="${APP_DIR}" --backup="${RESTORE_FROM}" \
+        --passphrase-file="${RESTORE_PASSPHRASE_FILE}" --confirm-restore \
+        --no-pre-restore-backup-confirmed; then
+        die "deploy/restore.sh failed. See its output above; ${APP_DIR}/config.php exists but config_enable_setup was NOT disabled, so it still bounces to /setup — fix the failure and re-run restore.sh directly (this installer refuses to re-run app-level setup once config.php exists)."
+    fi
+
+    # Mirrors setup_cli.php's own finalize step, and only reached once the
+    # restore above actually succeeded.
+    local config_file="${APP_DIR}/config.php"
+    if ! grep -q '^\$config_enable_setup = 0;' "${config_file}"; then
+        printf '$config_enable_setup = 0;\n\n' | sudo -u www-data tee -a "${config_file}" >/dev/null
+    fi
+    success "Restore complete; ${DOMAIN} is ready to log in with the restored data."
+}
+
 # ---------------------------------------------------------------------------
 # Final summary
 # ---------------------------------------------------------------------------
@@ -885,17 +962,16 @@ print_summary() {
 
   NEXT STEPS
   ----------
-  1. Log in at the URL above with the admin account you just created (or
-     were prompted to create).
+  1. $([[ -n "${RESTORE_FROM}" ]] && echo "Log in at the URL above with an account from the restored backup (${RESTORE_FROM})." || echo "Log in at the URL above with the admin account you just created (or were prompted to create).")
   2. The system cron entry fires every 5 minutes already, but cron/cron.php
      does nothing until you turn on "Enable Cron" in Settings inside the
      app — it defaults to off, and the app controls its own effective
      frequency from there.
-  3. config.php was written with \$repo_branch = 'master', but this
-     repository's actual default branch is 'main'. scripts/update_cli.php
-     --force_update hardcodes 'master' too and will misbehave until that's
-     corrected upstream — a plain 'git pull' (what deploy/update.sh uses)
-     is unaffected and is the recommended update path for now.
+  3. scripts/update_cli.php --force_update hardcodes 'git reset --hard
+     origin/master', which does not match this repository's actual 'main'
+     branch and will misbehave. deploy/update.sh (a plain 'git pull', which
+     tracks whatever branch is actually checked out) is the recommended
+     update path and is unaffected by that.
   4. See docs/ISO27001-COMPLIANCE.md for the full Annex A control mapping
      this deployment supports.
 
@@ -943,6 +1019,7 @@ main() {
     SSL_CERT_PATH="/etc/ssl/certs/${DOMAIN}.crt"
     SSL_CERT_KEY_PATH="/etc/ssl/private/${DOMAIN}.key"
 
+    validate_restore_args
     validate_non_interactive_requirements
 
     setup_logging
@@ -976,7 +1053,11 @@ main() {
     configure_fail2ban
 
     install_cron_entry
-    run_app_setup
+    if [[ -n "${RESTORE_FROM}" ]]; then
+        run_app_restore
+    else
+        run_app_setup
+    fi
 
     set +x
     print_summary
