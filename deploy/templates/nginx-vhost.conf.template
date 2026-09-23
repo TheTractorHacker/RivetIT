@@ -148,6 +148,27 @@ server {
         return 404;
     }
 
+    # Every dotfile (.env, .env.example, .gitignore, ...) and the deployment
+    # tooling/docs shipped in this same checkout - none is meant to be served.
+    # /restore/ is where the Docker Compose flow drops an encrypted backup and
+    # its passphrase; denied here too so the two vhosts stay in step (see
+    # docker/nginx.conf). /.well-known/ stays reachable for ACME/certbot.
+    location ^~ /.well-known/ {
+        try_files $uri =404;
+    }
+
+    location ~ /\. {
+        deny all;
+    }
+
+    location ^~ /restore/ {
+        deny all;
+    }
+
+    location ~ ^/(deploy|docker|docs)/ {
+        deny all;
+    }
+
     # uploads/.htaccess: never execute uploaded files as scripts
     location ~ ^/uploads/.*\.(php|phtml|phar|phps|cgi|pl|sh)$ {
         deny all;
