@@ -243,6 +243,15 @@ final class MediaUrlRewriter
     }
 
     /**
+     * Generic access to the same tag-anchored engine for callers that need their own mapping
+     * (the Training KB snapshot import copies each KB file into its store and points the URL
+     * at the copy). $map receives the parsed descriptor ['kind', 'ref', 'file', 'download'] and
+     * returns the replacement URL. Same precondition as every other transform here: run it on
+     * purifier output.
+     */
+    public static function mapMedia(string $html, callable $map): string { return self::rewriteMediaUrls($html, $map); }
+
+    /**
      * The engine. Walks every START TAG and rewrites the media URLs inside it,
      * handing each parsed media descriptor to $map, which returns the
      * replacement URL. See the class comment for why the anchor is the tag and
