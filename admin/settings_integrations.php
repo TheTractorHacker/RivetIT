@@ -90,6 +90,10 @@ $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? ''
 // API protocol (odoo_integrations.api_protocol, DB 2.6.91): 'jsonrpc' / 'json2' in
 // Automatic mode, 'rpc_pinned' when pinned - see OdooConnectorFactory. A row read
 // before the migration has no such key and reads as Automatic/JSON-RPC.
+// Until then the protocol select is disabled: the save handler can't store a choice.
+$odoo_protocol_column = $row_odoo
+    ? \ITFlow\Integrations\Odoo\OdooConnectorFactory::hasProtocolColumn($row_odoo)
+    : mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM odoo_integrations LIKE 'api_protocol'")) > 0;
 $odoo_protocol_stored = \ITFlow\Integrations\Odoo\OdooConnectorFactory::storedProtocol($row_odoo);
 $odoo_protocol_pinned = $odoo_protocol_stored === \ITFlow\Integrations\Odoo\OdooConnectorFactory::STORED_JSONRPC_PINNED;
 $odoo_protocol_json2 = $odoo_protocol_stored === \ITFlow\Integrations\Odoo\OdooConnectorFactory::PROTOCOL_JSON2;
@@ -1624,14 +1628,18 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                 </div>
                 <div class="form-group">
                     <label for="odooApiProtocol">API Protocol</label>
-                    <select class="form-control" name="api_protocol" id="odooApiProtocol">
+                    <select class="form-control" name="api_protocol" id="odooApiProtocol" <?= $odoo_protocol_column ? '' : 'disabled' ?>>
                         <option value="auto" <?= $odoo_protocol_pinned ? '' : 'selected' ?>>Automatic (JSON-2 when available)</option>
                         <option value="jsonrpc_pinned" <?= $odoo_protocol_pinned ? 'selected' : '' ?>>JSON-RPC (legacy, pinned)</option>
                     </select>
                     <small class="text-muted">
-                        Automatic keeps using JSON-RPC until <strong>Test Connection</strong> succeeds over JSON-2 (Odoo 19 or later, <code>https://</code> base URL), then syncs over JSON-2.
-                        If the JSON-2 test fails, JSON-RPC stays in use and the reason is shown.
-                        Currently: <strong><?= $odoo_protocol_json2 ? 'JSON-2' : 'JSON-RPC' ?></strong>.
+                        <?php if (!$odoo_protocol_column) { ?>
+                            Available once the database is updated (Maintenance &rsaquo; Update &rsaquo; Update Database). Until then the sync uses JSON-RPC.
+                        <?php } else { ?>
+                            Automatic keeps using JSON-RPC until <strong>Test Connection</strong> succeeds over JSON-2 (Odoo 19 or later, <code>https://</code> base URL) - including a check that the directory sync's own reads work there - then syncs over JSON-2.
+                            If the JSON-2 test fails, JSON-RPC stays in use and the reason is shown; pin JSON-RPC to stop trying JSON-2.
+                            Currently: <strong><?= $odoo_protocol_json2 ? 'JSON-2' : 'JSON-RPC' ?></strong>.
+                        <?php } ?>
                     </small>
                 </div>
                 <div class="form-check form-switch mb-3">

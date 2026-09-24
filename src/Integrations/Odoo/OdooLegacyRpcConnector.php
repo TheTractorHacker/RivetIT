@@ -14,15 +14,20 @@ namespace ITFlow\Integrations\Odoo;
  * Odoo 19 each call logs a deprecation warning server-side, and the endpoint
  * is scheduled for removal in Odoo 22 - OdooJson2Connector is the successor.
  *
- * Named-argument calls ($kwargs, see OdooConnectorInterface) map straight
- * onto execute_kw's kwargs, except 'ids': Odoo's execute_kw takes a
- * recordset method's ids as the first positional argument, so that one is
- * moved to the front of $args here.
+ * Named-argument calls ($kwargs, see OdooConnectorInterface) map onto
+ * execute_kw's kwargs, except the arguments the pre-connector OdooClient
+ * always sent positionally, which are moved into $args so the wire request
+ * stays exactly what it was: a recordset method's 'ids', and a search
+ * method's 'domain' (search_read(domain=...) is accepted by name too, but
+ * the default sync path has only ever been run with it positional).
  */
 final class OdooLegacyRpcConnector extends AbstractOdooConnector
 {
     /** error.data.name values that mean "bad credentials" / "not allowed". */
     private const AUTH_ERRORS = ['odoo.exceptions.AccessDenied', 'odoo.exceptions.AccessError'];
+
+    /** Model methods whose first parameter is the domain. */
+    private const DOMAIN_FIRST_METHODS = ['search', 'search_read', 'search_count'];
 
     private ?int $uid = null;
 
@@ -58,6 +63,9 @@ final class OdooLegacyRpcConnector extends AbstractOdooConnector
         if (array_key_exists('ids', $kwargs)) {
             array_unshift($args, $kwargs['ids']);
             unset($kwargs['ids']);
+        } elseif ($args === [] && array_key_exists('domain', $kwargs) && in_array($method, self::DOMAIN_FIRST_METHODS, true)) {
+            $args = [$kwargs['domain']];
+            unset($kwargs['domain']);
         }
 
         return $this->rpc('object', 'execute_kw', [

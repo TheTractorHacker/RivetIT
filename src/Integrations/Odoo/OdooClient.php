@@ -40,6 +40,26 @@ class OdooClient implements BusinessApplicationProvider
      */
     private const TEST_OPTS = ['connect_timeout' => 5, 'timeout' => 15];
 
+    /**
+     * verifyDirectoryReads() runs up to four calls; together they get this
+     * many seconds. A Test Connection that tries JSON-2 (context_get 15 s,
+     * version 10 s, these checks 15 s) and then JSON-RPC (login, context_get,
+     * version: 40 s) so stays around 80 s even against a server that answers
+     * every call just inside its timeout - under Cloudflare's 100 s.
+     */
+    private const VERIFY_BUDGET = 15;
+
+    /** What listDepartments() reads (and verifyDirectoryReads() checks). */
+    private const DEPARTMENT_FIELDS = ['id', 'name', 'parent_id'];
+
+    /** What listEmployees() reads (and verifyDirectoryReads() checks). */
+    private const EMPLOYEE_FIELDS = [
+        'id', 'name', 'work_email', 'department_id', 'job_title', 'work_phone', 'mobile_phone', 'active', 'parent_id',
+    ];
+
+    /** listEmployees()' extra kwargs - archived employees too; see listEmployees(). */
+    private const EMPLOYEE_KWARGS = ['context' => ['active_test' => false]];
+
     private OdooConnectorInterface $connector;
 
     /**
@@ -97,6 +117,52 @@ class OdooClient implements BusinessApplicationProvider
     }
 
     /**
+     * Proves the directory sync itself will work on this client's protocol -
+     * what Test Connection checks before it moves a live integration onto
+     * JSON-2 (testConnection()'s context_get only proves the key works).
+     *
+     *   1. listDepartments()' and listEmployees()' own search_read calls, with
+     *      their exact arguments, one record each: field names, access rights
+     *      and argument binding all as the real sync sends them.
+     *   2. That the active_test=false context is honoured: hr.employee counted
+     *      through that context must match the count through an explicit
+     *      "active in (true, false)" domain. If the context were dropped,
+     *      archived employees would silently stop coming back and
+     *      OdooDirectoryMapper would never see anyone leave. (An Odoo user
+     *      without HR read access gets the explicit count filtered down
+     *      instead - that direction is never treated as a failure.)
+     *
+     * Read-only. Throws a \RuntimeException naming the check that failed.
+     */
+    public function verifyDirectoryReads(): void
+    {
+        $deadline = microtime(true) + self::VERIFY_BUDGET;
+
+        $this->checked('hr.department.search_read', fn() => $this->searchReadPage(
+            'hr.department', [], self::DEPARTMENT_FIELDS, 1, 0, [], $this->budgetOpts($deadline)
+        ));
+        $this->checked('hr.employee.search_read', fn() => $this->searchReadPage(
+            'hr.employee', [], self::EMPLOYEE_FIELDS, 1, 0, self::EMPLOYEE_KWARGS, $this->budgetOpts($deadline)
+        ));
+
+        $viaContext = $this->checked('hr.employee.search_count', fn() => $this->connector->call(
+            'hr.employee', 'search_count', [], ['domain' => []] + self::EMPLOYEE_KWARGS, $this->budgetOpts($deadline)
+        ));
+        $viaDomain = $this->checked('hr.employee.search_count', fn() => $this->connector->call(
+            'hr.employee', 'search_count', [], ['domain' => [['active', 'in', [true, false]]]], $this->budgetOpts($deadline)
+        ));
+
+        if (!is_int($viaContext) || !is_int($viaDomain)) {
+            throw new \RuntimeException('Unexpected response from Odoo for hr.employee.search_count');
+        }
+        if ($viaContext < $viaDomain) {
+            throw new \RuntimeException(
+                "Odoo ignored the active_test context ($viaContext of $viaDomain employees returned) - the sync would miss archived employees"
+            );
+        }
+    }
+
+    /**
      * @return ExternalUser[]
      */
     public function listUsers(?string $cursor = null): array
@@ -127,7 +193,7 @@ class OdooClient implements BusinessApplicationProvider
      */
     public function listDepartments(): array
     {
-        return $this->searchReadAll('hr.department', [], ['id', 'name', 'parent_id']);
+        return $this->searchReadAll('hr.department', [], self::DEPARTMENT_FIELDS);
     }
 
     /**
@@ -148,9 +214,7 @@ class OdooClient implements BusinessApplicationProvider
      */
     public function listEmployees(): array
     {
-        return $this->searchReadAll('hr.employee', [], [
-            'id', 'name', 'work_email', 'department_id', 'job_title', 'work_phone', 'mobile_phone', 'active', 'parent_id',
-        ], ['context' => ['active_test' => false]]);
+        return $this->searchReadAll('hr.employee', [], self::EMPLOYEE_FIELDS, self::EMPLOYEE_KWARGS);
     }
 
     private function searchReadAll(string $model, array $domain, array $fields, array $extraKwargs = []): array
@@ -160,13 +224,7 @@ class OdooClient implements BusinessApplicationProvider
         $offset = 0;
 
         do {
-            $batch = $this->callList($model, 'search_read', array_merge([
-                'domain' => $domain,
-                'fields' => $fields,
-                'limit' => $limit,
-                'offset' => $offset,
-                'order' => 'id asc',
-            ], $extraKwargs));
+            $batch = $this->searchReadPage($model, $domain, $fields, $limit, $offset, $extraKwargs, self::CALL_OPTS);
 
             foreach ($batch as $r) {
                 $records[] = $r;
@@ -176,6 +234,42 @@ class OdooClient implements BusinessApplicationProvider
         } while (count($batch) === $limit);
 
         return $records;
+    }
+
+    /** One search_read page - the one call shape the sync and verifyDirectoryReads() share. */
+    private function searchReadPage(string $model, array $domain, array $fields, int $limit, int $offset, array $extraKwargs, array $opts): array
+    {
+        return $this->callList($model, 'search_read', array_merge([
+            'domain' => $domain,
+            'fields' => $fields,
+            'limit' => $limit,
+            'offset' => $offset,
+            'order' => 'id asc',
+        ], $extraKwargs), $opts);
+    }
+
+    /** Runs one verifyDirectoryReads() check, naming it in any failure. */
+    private function checked(string $what, callable $check): mixed
+    {
+        try {
+            return $check();
+        } catch (\RuntimeException $e) {
+            throw new \RuntimeException("$what: " . $e->getMessage(), (int) $e->getCode(), $e);
+        }
+    }
+
+    /** Per-call timeouts for whatever is left of verifyDirectoryReads()' budget. */
+    private function budgetOpts(float $deadline): array
+    {
+        $left = $deadline - microtime(true);
+        if ($left < 1) {
+            throw new \RuntimeException('Odoo took too long to answer the directory sync checks');
+        }
+
+        return [
+            'connect_timeout' => min((float) self::TEST_OPTS['connect_timeout'], $left),
+            'timeout' => min((float) self::TEST_OPTS['timeout'], $left),
+        ];
     }
 
     private function mapUser(array $r): ExternalUser
@@ -194,9 +288,9 @@ class OdooClient implements BusinessApplicationProvider
      * connectors return any JSON value; this keeps the old executeKw()
      * guarantee for the methods above that index into the result.
      */
-    private function callList(string $model, string $method, array $kwargs): array
+    private function callList(string $model, string $method, array $kwargs, array $opts = self::CALL_OPTS): array
     {
-        $result = $this->connector->call($model, $method, [], $kwargs, self::CALL_OPTS);
+        $result = $this->connector->call($model, $method, [], $kwargs, $opts);
 
         if (!is_array($result)) {
             throw new \RuntimeException("Unexpected response from Odoo for $model.$method");

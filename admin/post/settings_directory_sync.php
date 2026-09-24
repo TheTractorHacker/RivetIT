@@ -309,10 +309,20 @@ if (isset($_POST['test_odoo_integration'])) {
     $json2_error = null;
     $result = null;
     if ($has_protocol_column && !$pinned) {
-        $result = OdooConnectorFactory::clientFromRow($row, OdooConnectorFactory::PROTOCOL_JSON2)->testConnection();
-        if (!$result->success) {
-            $json2_error = $result->error;
-            $result = null;
+        $json2_client = OdooConnectorFactory::clientFromRow($row, OdooConnectorFactory::PROTOCOL_JSON2);
+        $json2_result = $json2_client->testConnection();
+        if (!$json2_result->success) {
+            $json2_error = $json2_result->error;
+        } else {
+            // Passing here moves every later sync onto JSON-2, so the key
+            // working is not enough: the sync's own reads (fields, access,
+            // the archived-employees context) must work over JSON-2 too.
+            try {
+                $json2_client->verifyDirectoryReads();
+                $result = $json2_result;
+            } catch (\RuntimeException $e) {
+                $json2_error = 'connected, but the directory sync check failed: ' . $e->getMessage();
+            }
         }
     }
     if ($result === null) {
@@ -350,7 +360,9 @@ if (isset($_POST['test_odoo_integration'])) {
         logAction("Settings", "Edit", "$session_name's Odoo connection test switched the Odoo API protocol to " . OdooConnectorFactory::label($new_protocol));
     }
 
-    \ITFlow\Audit\AuditService::record('integration.odoo.test', $session_user_id, 'odoo_integration', $id, $result->success ? 'success' : 'failed', $stored_error, [
+    // audit_events.summary is varchar(500) and strict mode throws on overflow;
+    // both protocols' errors together can exceed that.
+    \ITFlow\Audit\AuditService::record('integration.odoo.test', $session_user_id, 'odoo_integration', $id, $result->success ? 'success' : 'failed', $stored_error !== null ? mb_substr($stored_error, 0, 500) : null, [
         'protocol' => $tested_protocol,
         'pinned' => $pinned,
         'server_version' => $server_version,

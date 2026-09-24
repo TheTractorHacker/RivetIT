@@ -94,19 +94,35 @@ abstract class AbstractOdooConnector implements OdooConnectorInterface
             throw new \RuntimeException('Could not initialise cURL for the Odoo request');
         }
 
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $body,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => false,
-            CURLOPT_PROTOCOLS_STR => 'http,https',
+        // Time limits first: curl_setopt_array() stops at the first option
+        // libcurl rejects, and no request may ever run without them.
+        $options = [
             CURLOPT_CONNECTTIMEOUT_MS => (int) ceil($connectTimeout * 1000),
             CURLOPT_TIMEOUT_MS => (int) ceil($timeout * 1000),
             // Required for sub-second timeouts with the synchronous resolver,
             // which otherwise implements them with SIGALRM (and gives up at once).
             CURLOPT_NOSIGNAL => true,
-        ]);
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $body,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => false,
+        ];
+        // http/https only. CURLOPT_PROTOCOLS_STR exists only on PHP 8.3+ built
+        // against libcurl 7.85+ - PHP 8.4 on an older distro libcurl (Ubuntu
+        // 22.04: 7.81, Debian 11: 7.74) doesn't have it - so fall back to the
+        // bitmask form, which libcurl still honours. Referencing the missing
+        // constant would be an \Error, not a \RuntimeException: it would escape
+        // every caller's catch, and in cron/cron.php end the whole run.
+        if (defined('CURLOPT_PROTOCOLS_STR')) {
+            $options[\CURLOPT_PROTOCOLS_STR] = 'http,https';
+        } else {
+            $options[CURLOPT_PROTOCOLS] = CURLPROTO_HTTP | CURLPROTO_HTTPS;
+        }
+
+        if (!curl_setopt_array($ch, $options)) {
+            throw new \RuntimeException('Could not configure cURL for the Odoo request (this PHP/libcurl build rejected an option)');
+        }
 
         $response = curl_exec($ch);
 
