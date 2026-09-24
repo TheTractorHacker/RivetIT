@@ -8,12 +8,14 @@ use ITFlow\Training\Authoring\CourseDuplicator;
 use ITFlow\Training\Authoring\CourseService;
 use ITFlow\Training\Authoring\Guard;
 use ITFlow\Training\Authoring\OutlineService;
+use ITFlow\Training\Authoring\Patch;
 use ITFlow\Training\Authoring\SectionService;
 use ITFlow\Training\Authoring\TagService;
 use ITFlow\Training\Authoring\TemplateCatalog;
 use ITFlow\Training\Authoring\UserDirectory;
 use ITFlow\Training\Catalog\PrereqService;
 use ITFlow\Training\Core\Ctx;
+use ITFlow\Training\Media\CoverLibrary;
 
 /**
  * JSON handlers for courses, sections, the outline, templates, categories, tags and the user
@@ -59,7 +61,9 @@ final class CourseActions
             $name,
             $a->int('category_id', false, 1),
             $languages,
-            $a->str('template_key', 40, false)
+            $a->str('template_key', 40, false),
+            $a->str('cover_key', 40, false),
+            $a->has('color') ? Patch::color(['color' => $a->str('color', 7, false)], 'color') : null
         );
         self::log('Create', "Created training course '$name'", $id);
         return ['course_id' => $id, 'url' => self::builderUrl($id)];
@@ -185,7 +189,12 @@ final class CourseActions
 
     public static function templateList(Ctx $c, ApiContext $a): array
     {
-        return ['templates' => TemplateCatalog::all()];
+        $templates = TemplateCatalog::all();
+        foreach ($templates as &$t) {
+            $t['cover'] = CoverLibrary::defaultFor($t['kind'], $t['key']);
+        }
+        unset($t);
+        return ['templates' => $templates];
     }
 
     public static function categoryList(Ctx $c, ApiContext $a): array

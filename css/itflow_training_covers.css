@@ -1,0 +1,202 @@
+/*
+ * Training covers (plan A20): the tinted cover box used on every card, and the cover picker
+ * dialog (agent/js/training_cover_picker.js).
+ *
+ * The gallery art is a transparent PNG, so every cover box draws a soft wash of the course or
+ * path colour (--tr-cover-color) behind it. An uploaded photo simply covers the wash.
+ */
+
+.tr-cover-art {
+  --tr-cover-color: #475569;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--tr-cover-color) 16%, var(--if-surface, #fff));
+}
+.tr-cover-art > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* The art is drawn with dark ink outlines, so dark mode keeps a light (dimmed) panel behind it
+   rather than a dark wash the outlines would disappear into. */
+:root[data-bs-theme="dark"] .tr-cover-art {
+  background: color-mix(in srgb, var(--tr-cover-color) 24%, #c9d1d9);
+}
+
+/* ----------------------------------------------------------------------------- picker */
+.tr-cover-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 991.98px) {
+  .tr-cover-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .tr-cover-side { order: -1; position: static; }
+  /* Compact preview on small screens: art beside the name, so the gallery starts on screen one. */
+  .tr-cover-preview { display: grid; grid-template-columns: 132px minmax(0, 1fr); align-items: center; }
+  .tr-cover-preview__none .fas { font-size: 16px; }
+}
+.tr-cover-side {
+  position: sticky;
+  top: 0;
+}
+.tr-cover-side__label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--if-muted);
+  margin-bottom: 8px;
+}
+
+.tr-cover-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.tr-cover-cat {
+  border: 1px solid var(--if-border);
+  background: var(--if-surface);
+  color: var(--if-ink);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.tr-cover-cat:hover { border-color: var(--if-border-strong); }
+.tr-cover-cat.is-active {
+  background: var(--if-ink);
+  border-color: var(--if-ink);
+  color: var(--if-surface);
+}
+.tr-cover-cat:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 2px; }
+
+.tr-cover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.tr-cover-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--if-border);
+  border-radius: var(--if-radius, 10px);
+  background: var(--if-surface);
+  color: var(--if-ink);
+  text-align: left;
+  cursor: pointer;
+}
+.tr-cover-tile:hover { border-color: var(--if-border-strong); box-shadow: var(--if-shadow, 0 1px 2px rgba(0, 0, 0, .06)); }
+.tr-cover-tile:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 2px; }
+.tr-cover-tile.is-selected {
+  border-color: var(--if-primary);
+  box-shadow: 0 0 0 2px var(--if-primary);
+}
+.tr-cover-tile__art { border-radius: calc(var(--if-radius, 10px) - 4px); }
+.tr-cover-tile__label {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25;
+  padding: 0 2px 2px;
+}
+.tr-cover-tile__check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  background: var(--if-primary);
+  color: #fff;
+}
+.tr-cover-empty { padding: 32px 0; text-align: center; }
+
+.tr-cover-drop {
+  border: 2px dashed var(--if-border-strong);
+  border-radius: var(--if-radius, 10px);
+  padding: 40px 24px;
+  text-align: center;
+  background: var(--if-bg);
+}
+.tr-cover-drop.is-over {
+  border-color: var(--if-primary);
+  background: color-mix(in srgb, var(--if-primary) 8%, var(--if-surface));
+}
+.tr-cover-drop__icon { font-size: 28px; color: var(--if-muted); margin-bottom: 8px; }
+
+.tr-cover-preview {
+  border: 1px solid var(--if-border);
+  border-radius: var(--if-radius, 10px);
+  overflow: hidden;
+  background: var(--if-surface);
+  box-shadow: var(--if-shadow, 0 1px 2px rgba(0, 0, 0, .06));
+}
+.tr-cover-preview__none {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 4px;
+  color: var(--if-muted);
+  font-size: 13px;
+}
+.tr-cover-preview__none .fas { font-size: 22px; }
+.tr-cover-preview__body { padding: 10px 12px 12px; }
+.tr-cover-preview__name { font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.tr-cover-preview__meta { font-size: 12px; color: var(--if-muted); margin-top: 2px; }
+
+.tr-cover-swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.tr-cover-swatch {
+  --tr-swatch: #475569;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--if-surface);
+  background: var(--tr-swatch);
+  box-shadow: 0 0 0 1px var(--if-border-strong);
+  cursor: pointer;
+}
+.tr-cover-swatch.is-selected,
+.tr-cover-custom.is-selected { box-shadow: 0 0 0 2px var(--if-ink); }
+.tr-cover-swatch:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 2px; }
+/* The custom colour well, drawn as one more round swatch with a conic "any colour" ring. */
+.tr-cover-custom {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  padding: 3px;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background: conic-gradient(#DC2626, #D97706, #16A34A, #0D9488, #2563EB, #4F46E5, #DB2777, #DC2626);
+}
+.tr-cover-custom::-webkit-color-swatch-wrapper { padding: 0; }
+.tr-cover-custom::-webkit-color-swatch { border: 2px solid var(--if-surface); border-radius: 50%; }
+.tr-cover-custom::-moz-color-swatch { border: 2px solid var(--if-surface); border-radius: 50%; }
+.tr-cover-custom:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 2px; }
+
+/* Path cards are wide (16:6). The whole 16:9 art stays in view (never cut off), centred on the wash. */
+.tr-path-card__cover.tr-cover-art,
+.tr-cat-cover.tr-cover-art { aspect-ratio: 16 / 6; }
+.tr-path-card__cover.tr-cover-art > img,
+.tr-cat-cover.tr-cover-art > img { object-fit: contain; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .tr-cover-tile, .tr-cover-cat, .tr-cover-swatch { transition: border-color .12s ease, box-shadow .12s ease, background-color .12s ease; }
+}
