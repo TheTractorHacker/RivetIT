@@ -2906,7 +2906,28 @@ CREATE TABLE `settings` (
   `config_training_odoo_sync_last_result` varchar(255) DEFAULT NULL,
   `config_training_odoo_link_checked_at_utc` datetime(3) DEFAULT NULL,
   `config_training_odoo_target_sha` char(64) DEFAULT NULL,
-  `config_training_hire_fill_since` date DEFAULT NULL
+  `config_training_hire_fill_since` date DEFAULT NULL,
+  `config_training_kiosk_idle_s` smallint(5) unsigned NOT NULL DEFAULT 180,
+  `config_training_trainer_idle_s` smallint(5) unsigned NOT NULL DEFAULT 300,
+  `config_training_checkin_idle_s` smallint(5) unsigned NOT NULL DEFAULT 1200,
+  `config_training_learner_max_minutes` smallint(5) unsigned NOT NULL DEFAULT 60,
+  `config_training_trainer_max_minutes` smallint(5) unsigned NOT NULL DEFAULT 240,
+  `config_training_pin_soft_failures` tinyint(3) unsigned NOT NULL DEFAULT 5,
+  `config_training_pin_lock_minutes` smallint(5) unsigned NOT NULL DEFAULT 15,
+  `config_training_pin_hard_failures` tinyint(3) unsigned NOT NULL DEFAULT 10,
+  `config_training_kiosk_fail_cap` smallint(5) unsigned NOT NULL DEFAULT 15,
+  `config_training_global_fail_cap` smallint(5) unsigned NOT NULL DEFAULT 40,
+  `config_training_kiosk_fail_cap_24h` smallint(5) unsigned NOT NULL DEFAULT 60,
+  `config_training_global_fail_cap_24h` smallint(5) unsigned NOT NULL DEFAULT 200,
+  `config_training_kiosk_distinct_cap_24h` smallint(5) unsigned NOT NULL DEFAULT 20,
+  `config_training_kiosk_search_per_min` smallint(5) unsigned NOT NULL DEFAULT 60,
+  `config_training_setup_code_days` tinyint(3) unsigned NOT NULL DEFAULT 7,
+  `config_training_odoo_pin_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `config_training_pin_pause_until_utc` datetime(3) DEFAULT NULL,
+  `config_training_enroll_pause_until_utc` datetime(3) DEFAULT NULL,
+  `config_training_odoo_breaker_errors` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `config_training_odoo_breaker_until_utc` datetime(3) DEFAULT NULL,
+  `config_training_pin_sources_synced_at_utc` datetime(3) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -3704,6 +3725,38 @@ CREATE TABLE `tickets` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `training_achievement_awards`
+--
+
+DROP TABLE IF EXISTS `training_achievement_awards`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_achievement_awards` (
+  `taward_id` int(11) NOT NULL AUTO_INCREMENT,
+  `taward_achievement_id` int(11) NOT NULL,
+  `taward_achievement_uid` char(12) NOT NULL,
+  `taward_contact_id` int(11) NOT NULL,
+  `taward_rule_type` varchar(40) NOT NULL,
+  `taward_scope_key` varchar(64) NOT NULL DEFAULT '',
+  `taward_source` enum('rule','manual') NOT NULL,
+  `taward_evidence_json` varchar(1000) DEFAULT NULL,
+  `taward_reason` varchar(500) DEFAULT NULL,
+  `taward_awarded_by_user_id` int(11) DEFAULT NULL,
+  `taward_awarded_by_contact_id` int(11) DEFAULT NULL,
+  `taward_snap_name` varchar(100) NOT NULL,
+  `taward_snap_icon` varchar(40) NOT NULL,
+  `taward_snap_color` char(7) NOT NULL,
+  `taward_awarded_at_utc` datetime(3) NOT NULL,
+  `taward_kiosk_id` int(11) DEFAULT NULL,
+  `taward_hash_v` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  `taward_row_sha256` char(64) NOT NULL,
+  PRIMARY KEY (`taward_id`),
+  UNIQUE KEY `uq_training_taward` (`taward_achievement_id`,`taward_contact_id`,`taward_scope_key`),
+  KEY `idx_training_taward_contact` (`taward_contact_id`,`taward_awarded_at_utc`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `training_achievements`
 --
 
@@ -3765,6 +3818,111 @@ CREATE TABLE `training_assignments` (
   UNIQUE KEY `uq_training_assign_open` (`tassign_contact_id`,`tassign_course_id`,`tassign_open_guard`),
   KEY `idx_training_assign_status_due` (`tassign_status`,`tassign_due_on`),
   KEY `idx_training_assign_course` (`tassign_course_id`,`tassign_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_attempt_answer_log`
+--
+
+DROP TABLE IF EXISTS `training_attempt_answer_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_attempt_answer_log` (
+  `talog_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `talog_attempt_id` int(11) NOT NULL,
+  `talog_question_uid` char(12) NOT NULL,
+  `talog_selected` varchar(255) NOT NULL DEFAULT '',
+  `talog_saved_at_utc` datetime(3) NOT NULL,
+  `talog_ksess_id` int(11) DEFAULT NULL,
+  PRIMARY KEY (`talog_id`),
+  KEY `idx_training_talog_attempt` (`talog_attempt_id`,`talog_question_uid`,`talog_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_attempt_answers`
+--
+
+DROP TABLE IF EXISTS `training_attempt_answers`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_attempt_answers` (
+  `tanswer_attempt_id` int(11) NOT NULL,
+  `tanswer_question_uid` char(12) NOT NULL,
+  `tanswer_position` smallint(5) unsigned NOT NULL,
+  `tanswer_type` enum('single','multi','truefalse') NOT NULL,
+  `tanswer_presented` varchar(255) NOT NULL,
+  `tanswer_selected` varchar(255) NOT NULL DEFAULT '',
+  `tanswer_is_correct` tinyint(1) NOT NULL,
+  `tanswer_points_awarded` tinyint(3) unsigned NOT NULL,
+  `tanswer_points_possible` tinyint(3) unsigned NOT NULL,
+  `tanswer_critical` tinyint(1) NOT NULL,
+  PRIMARY KEY (`tanswer_attempt_id`,`tanswer_question_uid`),
+  KEY `idx_training_tanswer_question` (`tanswer_question_uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_attempt_results`
+--
+
+DROP TABLE IF EXISTS `training_attempt_results`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_attempt_results` (
+  `tresult_attempt_id` int(11) NOT NULL,
+  `tresult_submitted_at_utc` datetime(3) NOT NULL,
+  `tresult_points_earned` smallint(5) unsigned NOT NULL,
+  `tresult_points_possible` smallint(5) unsigned NOT NULL,
+  `tresult_score_pct` decimal(5,2) NOT NULL,
+  `tresult_pass_mark_pct` tinyint(3) unsigned NOT NULL,
+  `tresult_critical_missed` tinyint(3) unsigned NOT NULL,
+  `tresult_passed` tinyint(1) NOT NULL,
+  `tresult_timed_out` tinyint(1) NOT NULL DEFAULT 0,
+  `tresult_duration_seconds` int(10) unsigned NOT NULL,
+  `tresult_rapid_flag` tinyint(1) NOT NULL DEFAULT 0,
+  `tresult_finalized_by` enum('learner','finalizer') NOT NULL DEFAULT 'learner',
+  `tresult_answers_sha256` char(64) NOT NULL,
+  `tresult_log_sha256` char(64) NOT NULL,
+  `tresult_log_max_id` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `tresult_hash_v` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  `tresult_row_sha256` char(64) NOT NULL,
+  PRIMARY KEY (`tresult_attempt_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_attempts`
+--
+
+DROP TABLE IF EXISTS `training_attempts`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_attempts` (
+  `tattempt_id` int(11) NOT NULL AUTO_INCREMENT,
+  `tattempt_run_id` int(11) NOT NULL,
+  `tattempt_contact_id` int(11) NOT NULL,
+  `tattempt_course_id` int(11) NOT NULL,
+  `tattempt_revision_id` int(11) NOT NULL,
+  `tattempt_lesson_uid` char(12) NOT NULL,
+  `tattempt_quiz_uid` char(12) NOT NULL,
+  `tattempt_kind` enum('standalone','exam','check') NOT NULL,
+  `tattempt_number` smallint(5) unsigned NOT NULL,
+  `tattempt_language` varchar(10) NOT NULL,
+  `tattempt_draw_json` text NOT NULL,
+  `tattempt_pass_mark_pct` tinyint(3) unsigned NOT NULL,
+  `tattempt_time_limit_s` smallint(5) unsigned DEFAULT NULL,
+  `tattempt_started_at_utc` datetime(3) NOT NULL,
+  `tattempt_deadline_utc` datetime(3) DEFAULT NULL,
+  `tattempt_ksess_id` int(11) DEFAULT NULL,
+  `tattempt_kiosk_id` int(11) DEFAULT NULL,
+  `tattempt_hash_v` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  `tattempt_row_sha256` char(64) NOT NULL,
+  PRIMARY KEY (`tattempt_id`),
+  UNIQUE KEY `uq_training_attempt` (`tattempt_run_id`,`tattempt_lesson_uid`,`tattempt_number`),
+  KEY `idx_training_attempt_contact` (`tattempt_contact_id`,`tattempt_course_id`),
+  KEY `idx_training_attempt_deadline` (`tattempt_deadline_utc`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -4186,6 +4344,138 @@ CREATE TABLE `training_job_groups` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `training_kiosk_sessions`
+--
+
+DROP TABLE IF EXISTS `training_kiosk_sessions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_kiosk_sessions` (
+  `ksess_id` int(11) NOT NULL AUTO_INCREMENT,
+  `ksess_kiosk_id` int(11) NOT NULL,
+  `ksess_contact_id` int(11) NOT NULL,
+  `ksess_role` enum('learner','trainer','checkin','handoff') NOT NULL,
+  `ksess_tsession_id` int(11) DEFAULT NULL,
+  `ksess_token_hash` char(64) NOT NULL,
+  `ksess_pin_source` enum('odoo','local') NOT NULL,
+  `ksess_odoo_employee_id` int(11) DEFAULT NULL,
+  `ksess_language` varchar(10) NOT NULL DEFAULT 'en',
+  `ksess_idle_limit_s` smallint(5) unsigned NOT NULL,
+  `ksess_started_at_utc` datetime(3) NOT NULL,
+  `ksess_last_seen_at_utc` datetime(3) NOT NULL,
+  `ksess_absolute_until_utc` datetime(3) NOT NULL,
+  `ksess_ended_at_utc` datetime(3) DEFAULT NULL,
+  `ksess_end_reason` enum('done','idle','absolute','replaced','revoked','device','contact_ineligible','pin_locked','checkin_enter','checkin_exit','handoff_enter','handoff_exit','error') DEFAULT NULL,
+  `ksess_open_guard` tinyint(1) DEFAULT 1,
+  `ksess_user_agent` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`ksess_id`),
+  UNIQUE KEY `uq_training_ksess_token` (`ksess_token_hash`),
+  UNIQUE KEY `uq_training_ksess_open` (`ksess_kiosk_id`,`ksess_open_guard`),
+  KEY `idx_training_ksess_contact` (`ksess_contact_id`,`ksess_started_at_utc`),
+  KEY `idx_training_ksess_open_seen` (`ksess_open_guard`,`ksess_last_seen_at_utc`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_kiosks`
+--
+
+DROP TABLE IF EXISTS `training_kiosks`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_kiosks` (
+  `kiosk_id` int(11) NOT NULL AUTO_INCREMENT,
+  `kiosk_asset_id` int(11) NOT NULL,
+  `kiosk_asset_type` varchar(200) NOT NULL,
+  `kiosk_asset_serial` varchar(200) DEFAULT NULL,
+  `kiosk_personal_contact_id` int(11) DEFAULT NULL,
+  `kiosk_label` varchar(100) NOT NULL,
+  `kiosk_default_client_id` int(11) NOT NULL DEFAULT 0,
+  `kiosk_status` enum('pending','active','revoked') NOT NULL DEFAULT 'pending',
+  `kiosk_enroll_method` enum('agent_device','setup_code') DEFAULT NULL,
+  `kiosk_enroll_code_hash` char(64) DEFAULT NULL,
+  `kiosk_enroll_expires_at_utc` datetime(3) DEFAULT NULL,
+  `kiosk_enroll_failures` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `kiosk_token_hash` char(64) DEFAULT NULL,
+  `kiosk_token_issued_at_utc` datetime(3) DEFAULT NULL,
+  `kiosk_enrolled_at_utc` datetime(3) DEFAULT NULL,
+  `kiosk_enrolled_by` int(11) DEFAULT NULL,
+  `kiosk_created_by` int(11) NOT NULL,
+  `kiosk_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `kiosk_last_seen_at_utc` datetime(3) DEFAULT NULL,
+  `kiosk_last_user_agent` varchar(255) DEFAULT NULL,
+  `kiosk_cooldown_until_utc` datetime(3) DEFAULT NULL,
+  `kiosk_cooldown_reason` varchar(40) DEFAULT NULL,
+  `kiosk_revoked_at_utc` datetime(3) DEFAULT NULL,
+  `kiosk_revoked_by` int(11) DEFAULT NULL,
+  `kiosk_revoke_reason` varchar(255) DEFAULT NULL,
+  `kiosk_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`kiosk_id`),
+  UNIQUE KEY `uq_training_kiosk_token` (`kiosk_token_hash`),
+  UNIQUE KEY `uq_training_kiosk_code` (`kiosk_enroll_code_hash`),
+  KEY `idx_training_kiosk_asset` (`kiosk_asset_id`,`kiosk_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_learner_credentials`
+--
+
+DROP TABLE IF EXISTS `training_learner_credentials`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_learner_credentials` (
+  `tcred_contact_id` int(11) NOT NULL,
+  `tcred_source` enum('odoo','local') NOT NULL DEFAULT 'local',
+  `tcred_source_pinned` tinyint(1) NOT NULL DEFAULT 0,
+  `tcred_odoo_integration_id` int(11) DEFAULT NULL,
+  `tcred_odoo_employee_id` int(11) DEFAULT NULL,
+  `tcred_odoo_confirmed_at_utc` datetime(3) DEFAULT NULL,
+  `tcred_odoo_blocked` tinyint(1) NOT NULL DEFAULT 0,
+  `tcred_odoo_fp_hash` varchar(255) DEFAULT NULL,
+  `tcred_odoo_fp_changed_at_utc` datetime(3) DEFAULT NULL,
+  `tcred_pin_hash` varchar(255) DEFAULT NULL,
+  `tcred_prev_pin_hash` varchar(255) DEFAULT NULL,
+  `tcred_pepper_version` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  `tcred_set_method` enum('setup_code','trainer_assisted','self_change') DEFAULT NULL,
+  `tcred_set_at_utc` datetime(3) DEFAULT NULL,
+  `tcred_set_by_trainer_contact_id` int(11) DEFAULT NULL,
+  `tcred_setup_code_hash` varchar(255) DEFAULT NULL,
+  `tcred_setup_code_expires_at_utc` datetime(3) DEFAULT NULL,
+  `tcred_setup_code_issued_by` int(11) DEFAULT NULL,
+  `tcred_setup_code_issued_at_utc` datetime(3) DEFAULT NULL,
+  `tcred_setup_token_hash` char(64) DEFAULT NULL,
+  `tcred_setup_token_expires_at_utc` datetime(3) DEFAULT NULL,
+  `tcred_failed_count` smallint(5) unsigned NOT NULL DEFAULT 0,
+  `tcred_locked_until_utc` datetime(3) DEFAULT NULL,
+  `tcred_hard_locked` tinyint(1) NOT NULL DEFAULT 0,
+  `tcred_last_success_at_utc` datetime(3) DEFAULT NULL,
+  `tcred_reset_notice` tinyint(1) NOT NULL DEFAULT 0,
+  `tcred_reset_notice_at_utc` datetime(3) DEFAULT NULL,
+  `tcred_reset_by_label` varchar(200) DEFAULT NULL,
+  `tcred_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `tcred_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`tcred_contact_id`),
+  KEY `idx_training_tcred_source` (`tcred_source`,`tcred_odoo_employee_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_learner_prefs`
+--
+
+DROP TABLE IF EXISTS `training_learner_prefs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_learner_prefs` (
+  `tpref_contact_id` int(11) NOT NULL,
+  `tpref_language` varchar(10) NOT NULL DEFAULT 'en',
+  `tpref_updated_at_utc` datetime(3) NOT NULL,
+  PRIMARY KEY (`tpref_contact_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `training_ledger_head`
 --
 
@@ -4202,6 +4492,40 @@ CREATE TABLE `training_ledger_head` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 INSERT IGNORE INTO `training_ledger_head` (`lhead_id`, `lhead_last_seq`, `lhead_last_hash`, `lhead_updated_at_utc`) VALUES (1, 0, '0000000000000000000000000000000000000000000000000000000000000000', NULL);
+
+--
+-- Table structure for table `training_lesson_completions`
+--
+
+DROP TABLE IF EXISTS `training_lesson_completions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_lesson_completions` (
+  `lcomp_id` int(11) NOT NULL AUTO_INCREMENT,
+  `lcomp_run_id` int(11) NOT NULL,
+  `lcomp_contact_id` int(11) NOT NULL,
+  `lcomp_course_id` int(11) NOT NULL,
+  `lcomp_revision_id` int(11) NOT NULL,
+  `lcomp_lesson_uid` char(12) NOT NULL,
+  `lcomp_lesson_type` varchar(20) NOT NULL,
+  `lcomp_language` varchar(10) NOT NULL,
+  `lcomp_opened_at_utc` datetime(3) NOT NULL,
+  `lcomp_completed_at_utc` datetime(3) NOT NULL,
+  `lcomp_server_seconds` int(10) unsigned NOT NULL,
+  `lcomp_required_seconds` int(10) unsigned NOT NULL,
+  `lcomp_max_position` int(10) unsigned DEFAULT NULL,
+  `lcomp_coverage_json` varchar(1000) DEFAULT NULL,
+  `lcomp_attempt_id` int(11) DEFAULT NULL,
+  `lcomp_tsig_id` int(11) DEFAULT NULL,
+  `lcomp_ksess_id` int(11) DEFAULT NULL,
+  `lcomp_kiosk_id` int(11) DEFAULT NULL,
+  `lcomp_hash_v` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  `lcomp_row_sha256` char(64) NOT NULL,
+  PRIMARY KEY (`lcomp_id`),
+  UNIQUE KEY `uq_training_lcomp` (`lcomp_run_id`,`lcomp_lesson_uid`),
+  KEY `idx_training_lcomp_contact` (`lcomp_contact_id`,`lcomp_course_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
 -- Table structure for table `training_lesson_resources`
@@ -4554,6 +4878,22 @@ CREATE TABLE `training_quizzes` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `training_rate_buckets`
+--
+
+DROP TABLE IF EXISTS `training_rate_buckets`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_rate_buckets` (
+  `trate_key` varchar(80) NOT NULL,
+  `trate_window_start_utc` datetime NOT NULL,
+  `trate_count` int(10) unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`trate_key`,`trate_window_start_utc`),
+  KEY `idx_training_trate_window` (`trate_window_start_utc`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `training_requirement_criteria`
 --
 
@@ -4669,6 +5009,58 @@ CREATE TABLE `training_roster` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `training_runs`
+--
+
+DROP TABLE IF EXISTS `training_runs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_runs` (
+  `trun_id` int(11) NOT NULL AUTO_INCREMENT,
+  `trun_contact_id` int(11) NOT NULL,
+  `trun_course_id` int(11) NOT NULL,
+  `trun_revision_id` int(11) NOT NULL,
+  `trun_revision_sha256` char(64) NOT NULL,
+  `trun_assignment_id` int(11) DEFAULT NULL,
+  `trun_language` varchar(10) NOT NULL,
+  `trun_status` enum('in_progress','awaiting_signature','awaiting_session','awaiting_evaluation','completed','abandoned','superseded') NOT NULL DEFAULT 'in_progress',
+  `trun_open_guard` tinyint(1) DEFAULT 1,
+  `trun_channel` enum('kiosk','portal') NOT NULL DEFAULT 'kiosk',
+  `trun_started_at_utc` datetime(3) NOT NULL,
+  `trun_started_kiosk_id` int(11) DEFAULT NULL,
+  `trun_current_lesson_uid` char(12) DEFAULT NULL,
+  `trun_lesson_opened_at_utc` datetime(3) DEFAULT NULL,
+  `trun_lesson_last_tick_at_utc` datetime(3) DEFAULT NULL,
+  `trun_lesson_last_active` tinyint(1) NOT NULL DEFAULT 0,
+  `trun_lesson_credit_s` int(10) unsigned NOT NULL DEFAULT 0,
+  `trun_lesson_max_position` int(10) unsigned NOT NULL DEFAULT 0,
+  `trun_lesson_pages_hex` varchar(64) DEFAULT NULL,
+  `trun_lesson_rejected_ticks` smallint(5) unsigned NOT NULL DEFAULT 0,
+  `trun_progress_pct` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `trun_extra_attempts` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `trun_locked_at_utc` datetime(3) DEFAULT NULL,
+  `trun_locked_lesson_uid` char(12) DEFAULT NULL,
+  `trun_blocked_reason` enum('video_changed','video_unavailable') DEFAULT NULL,
+  `trun_blocked_lesson_uid` char(12) DEFAULT NULL,
+  `trun_passed_attempt_id` int(11) DEFAULT NULL,
+  `trun_attested_at_utc` datetime(3) DEFAULT NULL,
+  `trun_attest_tsig_id` int(11) DEFAULT NULL,
+  `trun_attest_proof` enum('self_pin_signature','self_pin') DEFAULT NULL,
+  `trun_attest_pin_source` enum('odoo','local') DEFAULT NULL,
+  `trun_attest_odoo_employee_id` int(11) DEFAULT NULL,
+  `trun_last_activity_at_utc` datetime(3) NOT NULL,
+  `trun_ended_at_utc` datetime(3) DEFAULT NULL,
+  `trun_completion_id` int(11) DEFAULT NULL,
+  `trun_superseded_by_run_id` int(11) DEFAULT NULL,
+  PRIMARY KEY (`trun_id`),
+  UNIQUE KEY `uq_training_run_open` (`trun_contact_id`,`trun_course_id`,`trun_open_guard`),
+  KEY `idx_training_run_contact` (`trun_contact_id`,`trun_status`),
+  KEY `idx_training_run_status` (`trun_status`,`trun_last_activity_at_utc`),
+  KEY `idx_training_run_revision` (`trun_revision_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `training_session_attendees`
 --
 
@@ -4741,6 +5133,37 @@ CREATE TABLE `training_sessions` (
   UNIQUE KEY `uq_training_tsession_request` (`tsession_request_uid`),
   KEY `idx_training_tsession_course` (`tsession_course_id`,`tsession_held_on`),
   KEY `idx_training_tsession_status` (`tsession_status`,`tsession_held_on`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_signatures`
+--
+
+DROP TABLE IF EXISTS `training_signatures`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_signatures` (
+  `tsig_id` int(11) NOT NULL AUTO_INCREMENT,
+  `tsig_purpose` enum('learner_attest','ack','attendee','trainer','evaluator','evaluatee') NOT NULL,
+  `tsig_contact_id` int(11) DEFAULT NULL,
+  `tsig_signer_name` varchar(200) NOT NULL,
+  `tsig_png_base64` mediumtext NOT NULL,
+  `tsig_png_sha256` char(64) NOT NULL,
+  `tsig_width` smallint(5) unsigned NOT NULL,
+  `tsig_height` smallint(5) unsigned NOT NULL,
+  `tsig_ink_px` int(10) unsigned NOT NULL,
+  `tsig_statement_sha256` char(64) DEFAULT NULL,
+  `tsig_kiosk_id` int(11) DEFAULT NULL,
+  `tsig_ksess_id` int(11) DEFAULT NULL,
+  `tsig_run_id` int(11) DEFAULT NULL,
+  `tsig_tsession_id` int(11) DEFAULT NULL,
+  `tsig_captured_at_utc` datetime(3) NOT NULL,
+  `tsig_hash_v` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  `tsig_row_sha256` char(64) NOT NULL,
+  PRIMARY KEY (`tsig_id`),
+  KEY `idx_training_tsig_contact` (`tsig_contact_id`),
+  KEY `idx_training_tsig_run` (`tsig_run_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
