@@ -32,6 +32,16 @@ function dump_database_streaming(mysqli $mysqli, string $sqlFile): void {
     fwrite_ln($fh, "SET AUTOCOMMIT = 0;");
     fwrite_ln($fh, "");
 
+    // One consistent read view for the whole dump. Without it every table's
+    // SELECT ran in its own autocommit snapshot, so a backup taken while
+    // people were working could capture a child row whose parent was written
+    // a moment later (or a counter ahead of the rows it counts) - a restore
+    // then brings back data that never existed together. All tables are
+    // InnoDB, and a consistent-snapshot read takes no locks, so writers are
+    // never blocked by a backup.
+    $mysqli->query("SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ");
+    $mysqli->query("START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY");
+
     $tables = []; $views = [];
     $res = $mysqli->query("SHOW FULL TABLES");
     while ($row = $res->fetch_array(MYSQLI_NUM)) {
@@ -86,6 +96,9 @@ function dump_database_streaming(mysqli $mysqli, string $sqlFile): void {
         }
         $tr->close();
     }
+
+    // Ends the read-only snapshot opened above (nothing to commit).
+    $mysqli->query("COMMIT");
 
     fwrite_ln($fh, "SET FOREIGN_KEY_CHECKS = 1;");
     fwrite_ln($fh, "SET UNIQUE_CHECKS = 1;");
