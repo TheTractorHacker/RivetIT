@@ -10,6 +10,8 @@ namespace ITFlow\Training\Core;
  * the file - the row, its hash and its events stay (spec §3.3 MediaPurger) - so SUM(media_bytes)
  * alone would over-count after a purge. The media budget and Admin › Training's usage bar both
  * use this definition, which counts bytes actually stored (the budget protects the disk).
+ * Since Phase 2, liveBytes() (the budget figure) leaves out evidence scans; liveByKind() still
+ * lists them so the admin page can show them separately.
  */
 final class MediaUsage
 {

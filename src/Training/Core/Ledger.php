@@ -23,6 +23,10 @@ namespace ITFlow\Training\Core;
  * append() must run inside the caller's Db::tx and be its LAST locking statement (lock order:
  * entity rows -> owning course row -> ledger head), so the head's X lock is held for as short
  * a time as possible and every appender acquires locks in the same order.
+ *
+ * EVENT TYPES. Each phase declares its own `TYPES_PHASEn` constant; append() accepts the union
+ * of every constant named /^TYPES_PHASE\d+$/ (allowedTypes(), by reflection), so a later phase
+ * adds a constant and never edits the check. An unknown type throws before anything is written.
  */
 final class Ledger
 {
