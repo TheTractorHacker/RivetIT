@@ -52,6 +52,16 @@ final class Db
         'uq_training_tevent_hash'        => 'hash',
         'uq_training_certtok_completion' => 'completion_id',
         'uq_training_certtok_token'      => 'token',
+        // Phase 2 (spec §3.1)
+        'uq_training_jobgroup_name'      => 'name',
+        'uq_training_req_request'        => 'request_uid',
+        'uq_training_assign_open'        => 'course_id',
+        'uq_training_completion_source'  => 'request_uid',
+        'uq_training_completion_cert'    => 'cert_number',
+        'uq_training_cvoid'              => 'completion_id',
+        'uq_training_tsession_request'   => 'request_uid',
+        'uq_training_tattendee'          => 'contact_id',
+        'uq_training_eval_source'        => 'request_uid',
         'PRIMARY'                        => 'id',
     ];
 
