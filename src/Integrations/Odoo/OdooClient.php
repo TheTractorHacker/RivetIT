@@ -34,9 +34,9 @@ class OdooClient implements BusinessApplicationProvider
 
     /**
      * testConnection() is interactive, and Test Connection may try both
-     * protocols in one request: 15 s per call keeps a hung server's worst case
-     * (JSON-2, then JSON-RPC) around 30 s - well inside Cloudflare's 100 s
-     * proxy timeout in front of the admin page.
+     * protocols in one request, so each call gets 15 s (version lookups 10 s).
+     * VERIFY_BUDGET below adds up the whole request's worst case against
+     * Cloudflare's 100 s proxy timeout in front of the admin page.
      */
     private const TEST_OPTS = ['connect_timeout' => 5, 'timeout' => 15];
 

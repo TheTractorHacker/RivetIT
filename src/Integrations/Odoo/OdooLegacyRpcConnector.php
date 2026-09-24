@@ -4,7 +4,8 @@ namespace ITFlow\Integrations\Odoo;
 
 /**
  * Odoo's legacy JSON-RPC external API - the behaviour OdooClient has always
- * had, moved here unchanged apart from per-call timeouts and scalar results:
+ * had, moved here unchanged apart from per-call timeouts, scalar results and
+ * an X-Odoo-Database header (see rpc()):
  *
  *   POST {base}/jsonrpc  {"jsonrpc":"2.0","method":"call","params":{"service":..,"method":..,"args":[..]}}
  *   common.login(db, username, api_key)                          -> uid (cached for this instance)
@@ -16,7 +17,7 @@ namespace ITFlow\Integrations\Odoo;
  *
  * Named-argument calls ($kwargs, see OdooConnectorInterface) map onto
  * execute_kw's kwargs, except the arguments the pre-connector OdooClient
- * always sent positionally, which are moved into $args so the wire request
+ * always sent positionally, which are moved into $args so the request body
  * stays exactly what it was: a recordset method's 'ids', and a search
  * method's 'domain' (search_read(domain=...) is accepted by name too, but
  * the default sync path has only ever been run with it positional).
@@ -107,7 +108,18 @@ final class OdooLegacyRpcConnector extends AbstractOdooConnector
             'id' => random_int(1, PHP_INT_MAX),
         ]);
 
-        [$status, $body] = $this->httpPost($this->baseUrl . '/jsonrpc', ['Content-Type: application/json'], $payload, $opts);
+        // X-Odoo-Database names the database the args already name. From Odoo 18
+        // /jsonrpc lives in a per-database module, so a server hosting more than
+        // one database answers 404 "No database is selected" without it (seen on
+        // the live Odoo 19 staging server once it gained a second database).
+        // Older servers ignore the header; the request body is unchanged.
+        $headers = ['Content-Type: application/json'];
+        if ($this->database !== '') {
+            self::assertHeaderSafe($this->database, 'database name');
+            $headers[] = 'X-Odoo-Database: ' . $this->database;
+        }
+
+        [$status, $body] = $this->httpPost($this->baseUrl . '/jsonrpc', $headers, $payload, $opts);
 
         // /jsonrpc reports Odoo errors inside a 200. A non-2xx here comes from
         // in front of Odoo (proxy/WAF/gateway) or means there is no such route.
