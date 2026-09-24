@@ -274,7 +274,7 @@ a.trr-kpi:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 
 .trr-longest a:hover { text-decoration: underline; }
 
 /* ---- Heatmap ---------------------------------------------------------------------------- */
-.trr-heat-wrap { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
+.trr-heat-wrap { position: relative; overflow-x: auto; margin: 0 -4px; padding: 0 4px; }   /* relative: the cells' visually-hidden text stays inside the scroller */
 .trr-heat-wrap:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 2px; }
 .trr-heat { width: 100%; border-collapse: separate; border-spacing: 3px; font-size: .875rem; }
 .trr-heat th { font-weight: 600; color: var(--if-ink); }
@@ -401,7 +401,7 @@ a.trr-seg__btn { display: inline-flex; align-items: center; text-decoration: non
 .trr-people__sub { color: var(--if-muted); font-size: .8125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---- Tables (reports, transcript) ------------------------------------------------------------------ */
-.trr-table-wrap { overflow-x: auto; }
+.trr-table-wrap { position: relative; overflow-x: auto; }
 .trr-table { margin: 0; }
 .trr-table th { font-size: .6875rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--if-muted); white-space: nowrap; }
 .trr-table td { vertical-align: middle; }
