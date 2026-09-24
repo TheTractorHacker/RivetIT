@@ -169,9 +169,13 @@ final class MatrixService
      * Who is missing in one department × course cell: every required pair there that does not
      * count as current (waived pairs are listed last, for context), with the PairStatus.
      *
+     * $f may narrow the cell like the matrix filters do (job_id, location_id), so a drill-down
+     * from a filtered matrix lists exactly the people that cell counted.
+     *
+     * @param array{job_id?:?int, location_id?:?int} $f
      * @return array{department:array, course:array, people:list<array>, required:int, current:int}
      */
-    public function cellPeople(int $clientId, int $courseId): array
+    public function cellPeople(int $clientId, int $courseId, array $f = []): array
     {
         if ($this->scope->isNone() || !$this->scope->allows($clientId)) {
             throw new ApiException(404, 'not_found', 'That department was not found.');
@@ -180,9 +184,10 @@ final class MatrixService
         if ($course === null) {
             throw new ApiException(404, 'not_found', 'That course was not found.');
         }
-        $pairs = $this->src->pairs(['client_id' => $clientId, 'course_id' => $courseId]);
+        $narrow = array_filter(['job_id' => $f['job_id'] ?? null, 'location_id' => $f['location_id'] ?? null], static fn($v) => $v !== null);
+        $pairs = $this->src->pairs(['client_id' => $clientId, 'course_id' => $courseId] + $narrow);
         $names = [];
-        foreach ($this->src->people(['client_id' => $clientId]) as $p) {
+        foreach ($this->src->people(['client_id' => $clientId] + $narrow) as $p) {
             $names[$p['contact_id']] = $p;
         }
         $order = ['overdue' => 0, 'expired' => 1, 'not_started' => 2, 'due_soon' => 3, 'due' => 4, 'waived' => 9];

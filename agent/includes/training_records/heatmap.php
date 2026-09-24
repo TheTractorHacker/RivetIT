@@ -9,6 +9,13 @@ defined('TRAINING_PAGE') || exit;
  */
 
 $trr_hm_target = (int) ($trr_m['target'] ?? 95);
+// Reports › Matrix passes its job / location filters on to the drill-down.
+$trr_hm_narrow = '';
+foreach (['job' => $trr_hm_job ?? null, 'location' => $trr_hm_location ?? null] as $trr_hm_k => $trr_hm_v) {
+    if ($trr_hm_v !== null) {
+        $trr_hm_narrow .= ' data-' . $trr_hm_k . '="' . (int) $trr_hm_v . '"';
+    }
+}
 if ($trr_m['rows'] === [] || $trr_m['courses'] === []) {
     echo '<p class="trr-empty-line">No required training for the people in view yet.</p>';
     return;
@@ -41,7 +48,7 @@ if ($trr_m['rows'] === [] || $trr_m['courses'] === []) {
                         . ' (' . trr_band_label($trr_b, $trr_hm_target) . ').' . ($trr_cell['current'] < $trr_cell['required'] ? ' Show who is missing.' : '');
                     ?>
             <td class="trr-heat__cell">
-                <button type="button" class="trr-cell trr-band-<?= $trr_b ?>" data-trr-cell data-client="<?= (int) $trr_r['client_id'] ?>" data-course="<?= (int) $trr_c['id'] ?>"
+                <button type="button" class="trr-cell trr-band-<?= $trr_b ?>" data-trr-cell data-client="<?= (int) $trr_r['client_id'] ?>" data-course="<?= (int) $trr_c['id'] ?>"<?= $trr_hm_narrow ?>
                     data-dept-name="<?= trr_h($trr_r['name']) ?>" data-course-name="<?= trr_h($trr_c['name']) ?>" aria-label="<?= trr_h($trr_label) ?>" title="<?= (int) $trr_cell['current'] ?> of <?= (int) $trr_cell['required'] ?> current">
                     <i class="<?= trr_band_icon($trr_b) ?>" aria-hidden="true"></i><?= (int) $trr_cell['pct'] ?>%
                 </button>
@@ -52,6 +59,18 @@ if ($trr_m['rows'] === [] || $trr_m['courses'] === []) {
         </tr>
         <?php } ?>
     </tbody>
+    <?php if (!empty($trr_hm_totals) && isset($trr_m['totals'])) { $trr_t = $trr_m['totals']; ?>
+    <tfoot>
+        <tr>
+            <th scope="row" class="trr-heat__dept">All departments <span class="trr-muted">· <?= (int) $trr_m['people'] ?></span></th>
+            <?php foreach ($trr_m['courses'] as $trr_c) {
+                $trr_tc = $trr_t['cells']['c' . $trr_c['id']] ?? null; ?>
+            <td class="trr-heat__cell"><?php if ($trr_tc === null || $trr_tc['pct'] === null) { ?><span class="trr-cell trr-cell--na">—</span><?php } else { ?><span class="trr-cell trr-cell--total" title="<?= (int) $trr_tc['current'] ?> of <?= (int) $trr_tc['required'] ?> current"><?= (int) $trr_tc['pct'] ?>%</span><?php } ?></td>
+            <?php } ?>
+            <td class="trr-heat__overall"><?= $trr_t['overall_pct'] === null ? '—' : (int) $trr_t['overall_pct'] . '%' ?></td>
+        </tr>
+    </tfoot>
+    <?php } ?>
 </table>
 </div>
 <div class="trr-legend" aria-hidden="true">

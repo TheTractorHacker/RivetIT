@@ -189,7 +189,10 @@
             parts.body.appendChild(el('div', { class: 'tr-banner alert alert-danger', role: 'alert', text: 'The page did not finish loading. Reload and try again.' }));
             return;
         }
-        window.TrainingApi.get('report_cell_people', { client_id: clientId, course_id: courseId }).then(function (d) {
+        var params = { client_id: clientId, course_id: courseId };
+        if (btn.hasAttribute('data-job')) { params.job_id = btn.getAttribute('data-job'); }
+        if (btn.hasAttribute('data-location')) { params.location_id = btn.getAttribute('data-location'); }
+        window.TrainingApi.get('report_cell_people', params).then(function (d) {
             if (seq !== loadSeq) { return; }
             parts.body.removeAttribute('aria-busy');
             renderCell(parts, d);
@@ -232,13 +235,19 @@
         var primary = sem.primary || cssVar('--if-primary', '#0d9488');
         var danger = cssVar('--trr-danger', sem.danger || '#dc2626');
         var pass = typeof data.pass_mark === 'number' ? data.pass_mark : null;
+        // Show from 50–59 up (the mockup), or lower when there are scores (or a pass mark) below 50.
+        var first = 9;
+        data.buckets.forEach(function (n, idx) { if (n > 0 && idx < first) { first = idx; } });
+        var start = Math.min(first, 5, pass !== null ? Math.max(0, Math.floor(pass / 10) - 1) : 5);
         var labels = [];
         var colors = [];
-        for (var i = 0; i < 10; i++) {
+        var values = [];
+        for (var i = start; i < 10; i++) {
             labels.push(i === 9 ? '90–100' : (i * 10) + '–' + (i * 10 + 9));
             colors.push(pass !== null && (i + 1) * 10 <= pass ? danger : primary);
+            values.push(data.buckets[i] || 0);
         }
-        var passIndex = pass !== null ? pass / 10 - 0.5 : null;
+        var passIndex = pass !== null ? pass / 10 - 0.5 - start : null;
         var passLine = {
             id: 'trrPassLine',
             afterDatasetsDraw: function (chart) {
@@ -282,7 +291,7 @@
         // eslint-disable-next-line no-new
         new window.Chart(canvas.getContext('2d'), {
             type: 'bar',
-            data: { labels: labels, datasets: [{ label: data.basis === 'attempts' ? 'Attempts' : 'Records', data: data.buckets, backgroundColor: colors, borderRadius: 3, maxBarThickness: 64 }] },
+            data: { labels: labels, datasets: [{ label: data.basis === 'attempts' ? 'Attempts' : 'Records', data: values, backgroundColor: colors, borderRadius: 3, maxBarThickness: 64 }] },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -292,7 +301,7 @@
                     tooltip: { callbacks: { title: function (items) { return 'Score ' + items[0].label + '%'; } } }
                 },
                 scales: {
-                    x: { grid: { display: false }, title: { display: true, text: 'Score (%)' } },
+                    x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: false }, title: { display: true, text: 'Score (%)' } },
                     y: { beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: data.basis === 'attempts' ? 'Attempts' : 'Records' } }
                 }
             },

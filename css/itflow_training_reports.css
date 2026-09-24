@@ -570,3 +570,58 @@ a.trr-seg__btn { display: inline-flex; align-items: center; text-decoration: non
 /* The app spaces stacked cards with .card + .card; inside a report grid the gap does that job. */
 .trr-grid > .card + .card { margin-top: 0; }
 .trr-transcript #trr-pane-quals .trr-table td:first-child { min-width: 16rem; }
+.trr-heat tfoot th, .trr-heat tfoot td { padding-top: 6px; }
+.trr-heat tfoot .trr-heat__dept { padding: 6px 12px 0 8px; text-align: left; white-space: nowrap; }
+.trr-cell--total { background: transparent; box-shadow: inset 0 0 0 1px var(--if-border-strong); color: var(--if-ink); }
+
+/* ---- Reports page details ---------------------------------------------------------------------------- */
+.trr-page .min-w-0 { min-width: 0; }
+.trr-bignum { display: inline-flex; align-items: baseline; gap: 6px; color: var(--if-muted); font-size: .875rem; white-space: nowrap; }
+.trr-bignum > span { font-size: 1.5rem; font-weight: 700; color: var(--if-ink); font-variant-numeric: tabular-nums; }
+.trr-agechips { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; list-style: none; font-size: .8125rem; }
+.trr-agechips strong { font-variant-numeric: tabular-nums; }
+.trr-kpi__unit { font-size: 1rem; font-weight: 500; color: var(--if-muted); }
+.trr-kpi__icon--neutral { background: var(--trr-neutral-bg); color: var(--trr-neutral-fg); }
+.trr-kpi-grid > .trr-kpi { justify-content: flex-start; }
+.trr-kpi-grid .trr-kpi__foot { margin-top: auto; }
+.trr-funnel__fill--1 { background: var(--trr-band-1); }
+.trr-funnel__fill--2 { background: var(--trr-band-2); }
+.trr-funnel__fill--3 { background: var(--trr-band-3); }
+.trr-funnel__fill--4 { background: var(--trr-band-4); }
+.trr-legend-inline__sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--if-primary); }
+.trr-legend-inline__sw--below { background: var(--trr-danger); }
+.trr-stack { display: flex; height: 14px; margin: 4px 0 10px; border-radius: 7px; overflow: hidden; background: var(--trr-surface-2); box-shadow: inset 0 0 0 1px var(--if-border); }
+.trr-stack__seg { display: block; height: 100%; }
+.trr-stack__seg--ok { background: var(--if-primary); }
+.trr-stack__seg--info { background: color-mix(in srgb, var(--if-primary) 40%, var(--if-surface)); }
+.trr-stack__seg--err { background: color-mix(in srgb, var(--trr-danger) 75%, var(--if-surface)); }
+.trr-stack-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none; font-size: .8125rem; color: var(--if-muted); }
+.trr-stack-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.trr-stack-legend strong { color: var(--if-ink); }
+.trr-stack-legend__sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+.trr-link-btn { padding: 2px 8px; font-weight: 600; }
+.trr-bydept tfoot th, .trr-bydept tfoot td { border-top: 1px solid var(--if-border-strong); }
+@media print {
+  .trr-tabs, .trr-filterbar noscript { display: none !important; }
+  .trr-stack__seg, .trr-funnel__fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+.trr-table tbody th, .trr-table tfoot th { font-size: .875rem; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--if-ink); white-space: normal; }
+.trr-bydept td:nth-child(2) { min-width: 15rem; }
+.trr-bydept td:nth-child(2) > div { flex-wrap: nowrap !important; }
+.trr-placeholder--sm { min-height: 96px; padding: 16px; }
+/* A card whose head sits above a flush table: the head must not stretch (Tabler .card-body is flex: 1). */
+.trr-card > .card-body:first-child:not(:only-child) { flex: 0 0 auto; }
+/* Overdue: one table per department, same column grid for all of them. */
+.trr-table--overdue { table-layout: fixed; min-width: 760px; }
+.trr-table--overdue .trr-col-person { width: 26%; }
+.trr-table--overdue .trr-col-course { width: 27%; }
+.trr-table--overdue .trr-col-why { width: 25%; }
+.trr-table--overdue .trr-col-due { width: 11%; }
+.trr-table--overdue .trr-col-late { width: 11%; }
+.trr-table--overdue td { overflow-wrap: anywhere; }
+@media print {
+  .trr-table--overdue { min-width: 0; }
+  .trr-table--overdue .trr-col-why { width: 20%; }
+  .trr-table--overdue .trr-col-sched { width: 14%; }
+  .d-print-table-column { display: table-column !important; }
+}

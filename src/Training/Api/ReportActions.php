@@ -40,7 +40,7 @@ final class ReportActions
     {
         $scope = Scope::forCtx($c);
         return (new MatrixService($c, $scope, RecordsSettings::fromDb($c->db)))
-            ->cellPeople((int) $a->int('client_id', true, 0), (int) $a->int('course_id', true, 1));
+            ->cellPeople((int) $a->int('client_id', true, 0), (int) $a->int('course_id', true, 1), self::jobLocation($a));
     }
 
     public static function matrix(Ctx $c, ApiContext $a): array

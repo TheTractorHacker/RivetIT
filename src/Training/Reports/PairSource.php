@@ -62,7 +62,7 @@ final class PairSource
 
     /**
      * Eligible in-scope people: list of {contact_id, name, title, client_id, client_name,
-     * job_name, location_name, hire_date, employee_no, manager_id}.
+     * job_id, job_name, location_id, location_name, hire_date, employee_no, manager_id}.
      *
      * @return list<array<string, mixed>>
      */
@@ -82,7 +82,9 @@ final class PairSource
                 'title' => isset($p['title']) ? (string) $p['title'] : null,
                 'client_id' => (int) ($p['client_id'] ?? 0),
                 'client_name' => isset($p['client_name']) ? (string) $p['client_name'] : null,
+                'job_id' => isset($p['job_id']) ? (int) $p['job_id'] : null,
                 'job_name' => isset($p['job_name']) ? (string) $p['job_name'] : null,
+                'location_id' => isset($p['location_id']) ? (int) $p['location_id'] : null,
                 'location_name' => isset($p['location_name']) ? (string) $p['location_name'] : null,
                 'hire_date' => $p['hire_date'] ?? null,
                 'employee_no' => isset($p['employee_no']) ? (string) $p['employee_no'] : null,
