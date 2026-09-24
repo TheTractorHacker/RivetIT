@@ -41,11 +41,13 @@ $tr_types = [
                 <span class="tr-cover__glyph" id="tr-cover-glyph" aria-hidden="true"><i class="fas fa-graduation-cap"></i></span>
                 <img id="tr-cover-img" alt="" hidden>
                 <div class="tr-drop__progress" id="tr-cover-progress" aria-live="polite"></div>
-                <div class="tr-cover__actions tr-edit-only">
-                    <button type="button" class="tr-cover__btn" id="tr-cover-upload" data-tr-upload-button><i class="fas fa-image" aria-hidden="true"></i><span id="tr-cover-upload-label">Add cover</span></button>
-                    <button type="button" class="tr-cover__btn" id="tr-cover-video" hidden><i class="fas fa-film" aria-hidden="true"></i>Use video thumbnail</button>
-                    <button type="button" class="tr-cover__btn" id="tr-cover-remove" hidden aria-label="Remove cover"><i class="fas fa-times" aria-hidden="true"></i></button>
-                </div>
+                <button type="button" class="tr-cover__btn tr-cover__remove tr-edit-only" id="tr-cover-remove" hidden aria-label="Remove cover" title="Remove cover"><i class="fas fa-times" aria-hidden="true"></i></button>
+            </div>
+            <!-- Below the cover, not over it: the art stays fully visible. -->
+            <div class="tr-cover-actions tr-edit-only">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="tr-cover-gallery" hidden><i class="fas fa-images me-1" aria-hidden="true"></i>Choose from gallery</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="tr-cover-upload" data-tr-upload-button><i class="fas fa-upload me-1" aria-hidden="true"></i><span id="tr-cover-upload-label">Upload…</span></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="tr-cover-video" hidden><i class="fas fa-film me-1" aria-hidden="true"></i>Use video thumbnail</button>
             </div>
             <dl class="tr-facts" id="tr-facts"></dl>
             <p class="tr-aside-summary" id="tr-aside-summary" hidden></p>

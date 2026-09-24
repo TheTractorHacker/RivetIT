@@ -191,11 +191,11 @@
 .tr-cover-custom::-moz-color-swatch { border: 2px solid var(--if-surface); border-radius: 50%; }
 .tr-cover-custom:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 2px; }
 
-/* Path cards are wide (16:6); keep the art's lower-middle in view rather than its empty top. */
+/* Path cards are wide (16:6). The whole 16:9 art stays in view (never cut off), centred on the wash. */
 .tr-path-card__cover.tr-cover-art,
 .tr-cat-cover.tr-cover-art { aspect-ratio: 16 / 6; }
 .tr-path-card__cover.tr-cover-art > img,
-.tr-cat-cover.tr-cover-art > img { object-position: 50% 70%; }
+.tr-cat-cover.tr-cover-art > img { object-fit: contain; }
 
 @media (prefers-reduced-motion: no-preference) {
   .tr-cover-tile, .tr-cover-cat, .tr-cover-swatch { transition: border-color .12s ease, box-shadow .12s ease, background-color .12s ease; }

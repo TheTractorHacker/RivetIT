@@ -347,8 +347,10 @@
         if (state && state.resolve) { state.resolve(null); }
         var cur = opts.coverKey ? { kind: 'preset', key: opts.coverKey }
             : opts.cover && opts.cover.id ? { kind: 'media', id: opts.cover.id, url: opts.cover.url, uploaded: false } : { kind: 'none' };
+        // The current tint is preselected, but picking another gallery cover adopts that cover's own
+        // tint until the author picks a tint in this dialog (the preview shows it either way).
         state = { opts: opts, choice: cur, color: HEX_RE.test(opts.color || '') ? opts.color.toUpperCase() : null,
-                  colorTouched: HEX_RE.test(opts.color || ''), category: 'All', resolve: null };
+                  colorTouched: false, category: 'All', resolve: null };
         modal.title.textContent = opts.title || 'Choose a cover';
         modal.search.value = '';
         modal.uploadStatus.textContent = '';
@@ -364,10 +366,17 @@
         loadPresets().then(function () {
             if (state !== token) { return; }
             modal.loading.hidden = true;
+            // A preselected gallery cover (coverKey) without a tint starts on that cover's own tint.
+            if (!state.color && state.choice.kind === 'preset') {
+                var pre = coverByKey(state.choice.key);
+                if (pre) { state.color = pre.color; } else { state.choice = { kind: 'none' }; }
+            }
             renderCats();
             renderSwatches();
             renderGrid();
             renderPreview();
+            var sel = modal.grid.querySelector('.tr-cover-tile.is-selected');
+            if (sel && modal.root.classList.contains('show') && sel.scrollIntoView) { sel.scrollIntoView({ block: 'nearest' }); }
         }, function (err) {
             if (state !== token) { return; }
             modal.loading.textContent = (err && err.message) || 'The gallery could not be loaded.';
@@ -376,6 +385,8 @@
         modal.root.addEventListener('shown.bs.modal', function focusSearch() {
             modal.root.removeEventListener('shown.bs.modal', focusSearch);
             if (window.matchMedia('(pointer: fine)').matches) { modal.search.focus(); }
+            var sel = modal.grid.querySelector('.tr-cover-tile.is-selected');
+            if (sel && sel.scrollIntoView) { sel.scrollIntoView({ block: 'nearest' }); }
         });
         return p;
     }

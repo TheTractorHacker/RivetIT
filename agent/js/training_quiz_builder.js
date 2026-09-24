@@ -63,6 +63,11 @@
         ta.style.height = 'auto';
         ta.style.height = Math.max(ta.scrollHeight, 38) + 'px';
     }
+    /** Answer text: grows with its lines; while it is not laid out yet (hidden), it keeps its one row. */
+    function growOption(ta) {
+        ta.style.height = 'auto';
+        if (ta.scrollHeight) { ta.style.height = (ta.scrollHeight + 2) + 'px'; }
+    }
     function errMessage(err) { return (err && err.message) || 'Something went wrong. Try again.'; }
     function fieldMessage(err) {
         if (!err || !err.fields) { return errMessage(err); }
@@ -1972,13 +1977,18 @@
             if (isTf) {
                 textNode = el('span', { class: 'trq-opt__fixed', text: ot.text || (i === 0 ? 'True' : 'False') });
             } else {
-                textNode = el('input', { type: 'text', class: 'trq-opt__text', maxlength: String(OPTION_MAX), value: ot.text || '', disabled: b.readOnly,
+                // A one-line textarea that wraps, so a long answer is never cut off in a narrow card.
+                textNode = el('textarea', { class: 'trq-opt__text', rows: '1', maxlength: String(OPTION_MAX), disabled: b.readOnly,
                     placeholder: showRef ? (refT || 'Translate this answer') : 'Answer ' + LETTERS[i], 'aria-label': 'Answer ' + LETTERS[i] + (showRef ? ' (' + langName(lang) + ')' : '') });
+                textNode.value = ot.text || '';
                 textNode.addEventListener('input', function () {
+                    if (/[\r\n]/.test(textNode.value)) { textNode.value = textNode.value.replace(/\s*[\r\n]+\s*/g, ' '); }
                     o.texts[lang] = Object.assign({ text: '', feedback: null }, o.texts[lang] || {});
                     o.texts[lang].text = textNode.value;
+                    growOption(textNode);
                     self.store.set('options', true, SAVE_DELAY);
                 });
+                textNode.addEventListener('focus', function () { growOption(textNode); });
                 textNode.addEventListener('keydown', function (e) {
                     if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
                         e.preventDefault();
@@ -2025,6 +2035,9 @@
             ]);
             self.optsEl.appendChild(li);
         });
+        // Measured once the card is in the page (a card is built before it is attached).
+        var optsEl = this.optsEl;
+        setTimeout(function () { optsEl.querySelectorAll('textarea.trq-opt__text').forEach(growOption); }, 0);
         if (this.optSortable) { try { this.optSortable.destroy(); } catch (e) { /* ignore */ } this.optSortable = null; }
         if (window.Sortable && can && q.type !== 'truefalse') {
             this.optSortable = window.Sortable.create(this.optsEl, {

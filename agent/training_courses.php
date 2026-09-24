@@ -10,7 +10,7 @@
  * nodes only, and keeps the URL in step with history.replaceState.
  */
 
-$page_extra_css = ['/css/itflow_training.css'];   // BEFORE inc_all: header.php reads it
+$page_extra_css = ['/css/itflow_training.css', '/css/itflow_training_covers.css'];   // BEFORE inc_all: header.php reads it
 require_once "includes/inc_all.php";
 if (\ITFlow\Training\Core\Access::pageGuard(1)) { require_once "../includes/footer.php"; exit; }
 define('TRAINING_PAGE', 1);
@@ -19,6 +19,7 @@ use ITFlow\Training\Authoring\CategoryService;
 use ITFlow\Training\Authoring\CourseService;
 use ITFlow\Training\Authoring\TemplateCatalog;
 use ITFlow\Training\Core\Icons;
+use ITFlow\Training\Media\CoverLibrary;
 
 $tr_ctx = \ITFlow\Training\Core\Access::ctx($mysqli);
 $tr_level = $tr_ctx->level;
@@ -65,10 +66,13 @@ try {
 }
 
 $tr_templates = [];
+$tr_covers = null;
 if ($tr_can_author) {
     foreach (TemplateCatalog::all() as $tr_t) {
+        $tr_t['cover'] = CoverLibrary::defaultFor($tr_t['kind'], $tr_t['key']);   // as template_list does
         $tr_templates[] = $tr_t;
     }
+    $tr_covers = CoverLibrary::api();   // the New course window shows the cover it will use
 }
 
 $tr_data = [
@@ -84,9 +88,8 @@ $tr_data = [
     'filters' => $tr_filters,
     'categories' => $tr_categories,
     'templates' => $tr_templates,
+    'covers' => $tr_covers,
     'icons' => $tr_can_full ? Icons::ALLOWED : [],
-    'preview_available' => is_file(__DIR__ . '/training_preview.php'),
-    'banks_available' => is_file(__DIR__ . '/training_banks.php'),
 ];
 
 // ---- header ----------------------------------------------------------------------------------
@@ -148,7 +151,7 @@ if ($tr_can_author) {
         <?php } ?>
         <div data-tr-stat="documents"><?php render_stat_card('Required documents', (string) (int) ($tr_stats['documents'] ?? 0), 'fas fa-file-signature', 'info'); ?></div>
         <?php if ($tr_can_author) { ?>
-        <div data-tr-stat="questions"><?php render_stat_card('Question Library: questions', (string) (int) ($tr_stats['questions'] ?? 0), 'fas fa-layer-group', 'slate', is_file(__DIR__ . '/training_banks.php') ? '/agent/training_banks.php' : null); ?></div>
+        <div data-tr-stat="questions"><?php render_stat_card('Question Library: questions', (string) (int) ($tr_stats['questions'] ?? 0), 'fas fa-layer-group', 'slate', '/agent/training_banks.php'); ?></div>
         <?php } ?>
     </div>
 
@@ -227,5 +230,8 @@ if ($tr_can_full) {
 
 <script type="application/json" id="tr-page-data"><?= json_encode($tr_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?></script>
 <script src="/js/training_common.js?v=<?= filemtime(__DIR__ . '/../js/training_common.js') ?>" defer></script>
+<?php if ($tr_can_author) { ?>
+<script src="/agent/js/training_cover_picker.js?v=<?= filemtime(__DIR__ . '/js/training_cover_picker.js') ?>" defer></script>
+<?php } ?>
 <script src="/agent/js/training_list.js?v=<?= filemtime(__DIR__ . '/js/training_list.js') ?>" defer></script>
 <?php require_once "../includes/footer.php";

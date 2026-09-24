@@ -222,13 +222,20 @@
 .trq-mark:hover:not(:disabled) { border-color: var(--trq-ok); }
 .trq-opt__letter { flex: none; width: 16px; font-family: var(--if-mono, monospace); font-size: .8125rem; color: var(--trq-muted); }
 .trq-opt__main { flex: 1 1 auto; min-width: 0; }
-.trq-opt__text { width: 100%; padding: 5px 8px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--trq-ink); font: inherit; font-size: .9375rem; }
+.trq-opt__text { display: block; width: 100%; padding: 5px 8px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--trq-ink); font: inherit; font-size: .9375rem; line-height: 1.4; resize: none; overflow: hidden; }
 .trq-opt__text:hover { border-color: var(--trq-border); background: var(--trq-surface); }
 .trq-opt__text:focus { outline: none; border-color: var(--trq-accent); background: var(--trq-surface); }
 .trq-opt.is-correct .trq-opt__text { font-weight: 600; }
 .trq-opt__fixed { display: block; padding: 5px 8px; font-weight: 600; }
+/* Question cards are containers: in a narrow card (the 3-column page, a small window) the green
+   mark and tint already say "correct", so the chip goes and the answer text keeps the room. */
+.trq-list > .trq-card { container-type: inline-size; container-name: trq-q; }
 .trq-correct { flex: none; display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; background: color-mix(in srgb, var(--trq-ok) 16%, var(--trq-surface)); color: color-mix(in srgb, var(--trq-ok) 80%, var(--trq-ink)); font-size: .75rem; font-weight: 700; }
-.trq-iconbtn { flex: none; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--trq-muted); font-size: .8125rem; cursor: pointer; opacity: .55; }
+@container trq-q (max-width: 520px) {
+  .trq-correct { display: none; }
+  .trq-opt__row { gap: 4px; }
+}
+.trq-iconbtn { flex: none; width: 28px; height: 30px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--trq-muted); font-size: .8125rem; cursor: pointer; opacity: .55; }
 .trq-opt:hover .trq-iconbtn, .trq-opt:focus-within .trq-iconbtn, .trq-iconbtn.is-on { opacity: 1; }
 .trq-iconbtn:hover:not(:disabled) { background: var(--trq-bg); color: var(--trq-ink); }
 .trq-iconbtn.is-on { color: var(--trq-accent); }

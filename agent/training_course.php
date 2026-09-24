@@ -13,7 +13,7 @@
  * agent/js/training_builder.js from #tr-page-data with DOM nodes only.
  */
 
-$page_extra_css = ['/css/itflow_training.css', '/css/itflow_training_quiz.css'];   // BEFORE inc_all: header.php reads it
+$page_extra_css = ['/css/itflow_training.css', '/css/itflow_training_quiz.css', '/css/itflow_training_covers.css'];   // BEFORE inc_all: header.php reads it
 require_once "includes/inc_all.php";
 if (\ITFlow\Training\Core\Access::pageGuard(2)) { require_once "../includes/footer.php"; exit; }
 define('TRAINING_PAGE', 1);
@@ -76,14 +76,9 @@ try {
     error_log('Training builder lookups: ' . $e->getMessage());
 }
 
-$tr_root = dirname(__DIR__);
 $tr_flags = [
-    'quiz_builder' => is_file(__DIR__ . '/js/training_quiz_builder.js'),
-    'quiz_page' => is_file(__DIR__ . '/training_quiz.php'),
-    'video_frame' => is_file(__DIR__ . '/training_video_frame.php'),
-    'preview' => is_file(__DIR__ . '/training_preview.php'),
-    'banks' => is_file(__DIR__ . '/training_banks.php'),
-    'article_css' => is_file($tr_root . '/css/itflow_training_article.css') ? '/css/itflow_training_article.css?v=' . filemtime($tr_root . '/css/itflow_training_article.css') : null,
+    // TinyMCE content_css: the player's article sheet, so the editor looks like the iPad.
+    'article_css' => '/css/itflow_training_article.css?v=' . filemtime(dirname(__DIR__) . '/css/itflow_training_article.css'),
     'kb' => Access::canUseKb(),
 ];
 
@@ -138,12 +133,10 @@ $tr_name = (string) $tr_course['name'];
             </div>
         </div>
         <div class="tr-b-head__actions">
-            <?php if ($tr_flags['preview']) { ?>
             <div class="dropdown">
                 <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" id="tr-preview-btn"><i class="fas fa-eye me-2" aria-hidden="true"></i>Preview</button>
                 <ul class="dropdown-menu dropdown-menu-end" id="tr-preview-menu"></ul>
             </div>
-            <?php } ?>
             <?php if ($tr_can_full && !$tr_archived) { ?>
             <span class="tr-b-publish-wrap" id="tr-publish-wrap" tabindex="-1">
                 <button type="button" class="btn btn-primary" id="tr-publish-btn" disabled><i class="fas fa-rocket me-2" aria-hidden="true"></i>Publish</button>
@@ -218,9 +211,10 @@ if ($tr_can_full) {
 <script src="/plugins/SortableJS/Sortable.min.js" defer></script>
 <script src="/js/training_common.js?v=<?= filemtime(__DIR__ . '/../js/training_common.js') ?>" defer></script>
 <script src="/agent/js/training_uploader.js?v=<?= filemtime(__DIR__ . '/js/training_uploader.js') ?>" defer></script>
-<?php if ($tr_flags['quiz_builder']) { ?>
-<script src="/agent/js/training_quiz_builder.js?v=<?= filemtime(__DIR__ . '/js/training_quiz_builder.js') ?>" defer></script>
+<?php if (!$tr_archived) { ?>
+<script src="/agent/js/training_cover_picker.js?v=<?= filemtime(__DIR__ . '/js/training_cover_picker.js') ?>" defer></script>
 <?php } ?>
+<script src="/agent/js/training_quiz_builder.js?v=<?= filemtime(__DIR__ . '/js/training_quiz_builder.js') ?>" defer></script>
 <script src="/agent/js/training_content_modal.js?v=<?= filemtime(__DIR__ . '/js/training_content_modal.js') ?>" defer></script>
 <script src="/agent/js/training_publish.js?v=<?= filemtime(__DIR__ . '/js/training_publish.js') ?>" defer></script>
 <script src="/agent/js/training_builder.js?v=<?= filemtime(__DIR__ . '/js/training_builder.js') ?>" defer></script>

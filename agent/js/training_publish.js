@@ -1,7 +1,7 @@
 /*
  * Publish modal (spec §5.10, level 3).
  *
- *   TrainingPublish.open({courseId, courseName, kind, previewAvailable, lessonTitle(id)?,
+ *   TrainingPublish.open({courseId, courseName, kind, lessonTitle(id)?,
  *                         onOpenIssue(issue)?}) -> Promise<{published:boolean, revision?}>
  *
  * Loads publish_check?network=1 (fresh video checks, 20 s budget on the server), shows
@@ -257,15 +257,11 @@
             var langs = Array.isArray(r.languages) ? r.languages.join(' · ').toUpperCase() : '';
             $('tr-pub-success-sub').textContent = (langs ? 'Published in ' + langs + '. ' : '') + 'Employees will see it once Training goes live.';
             var prev = $('tr-pub-success-preview');
-            if (opts.previewAvailable) {
-                prev.hidden = false;
-                prev.href = '/agent/training_preview.php?course_id=' + encodeURIComponent(opts.courseId) + '&revision_id=' + encodeURIComponent(r.revision_id);
-                prev.textContent = '';
-                prev.appendChild(icon('eye', 'me-1'));
-                prev.appendChild(document.createTextNode('Preview Version ' + r.number));
-            } else {
-                prev.hidden = true;
-            }
+            prev.hidden = false;
+            prev.href = '/agent/training_preview.php?course_id=' + encodeURIComponent(opts.courseId) + '&revision_id=' + encodeURIComponent(r.revision_id);
+            prev.textContent = '';
+            prev.appendChild(icon('eye', 'me-1'));
+            prev.appendChild(document.createTextNode('Preview Version ' + r.number));
             var det = $('tr-pub-success-details');
             det.textContent = '';
             det.appendChild(el('div', {}, ['Fingerprint ', el('span', { class: 'tr-mono', text: r.sha12 || String(r.sha256 || '').slice(0, 12) })]));

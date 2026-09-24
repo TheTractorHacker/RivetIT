@@ -391,7 +391,7 @@
             var next = firstOpen();
             var ex = exam();
 
-            var cover = h('div', { class: 'trp-hero__cover', style: c.color ? { '--trp-course': c.color } : undefined });
+            var cover = h('div', { class: 'trp-hero__cover' + (c.cover_url ? ' has-art' : ''), style: c.color ? { '--trp-course': c.color } : undefined });
             if (c.cover_url) { cover.appendChild(h('img', { src: c.cover_url, alt: '' })); }
             else { cover.appendChild(h('span', { class: 'trp-hero__glyph', 'aria-hidden': 'true' }, icon(c.kind === 'document' ? 'fa-file-signature' : 'fa-hard-hat'))); }
 
