@@ -378,10 +378,10 @@ final class RequirementService
             $f = $facts[$cid][$courseId] ?? RecordFacts::none();
             if ($p === null || !$p['eligible']) {
                 $o = 'not_eligible';
-            } elseif (isset($after[$cid]) && $after[$cid]['requirement_id'] === $ruleId) {
-                $o = 'assigned';
-            } elseif (isset($before[$cid]) || isset($after[$cid])) {
+            } elseif (isset($before[$cid])) {
                 $o = 'already_assigned';
+            } elseif (isset($after[$cid])) {
+                $o = $after[$cid]['requirement_id'] === $ruleId ? 'assigned' : 'already_assigned';
             } elseif (!empty($f['waiver'])) {
                 $o = 'waived';
             } else {
