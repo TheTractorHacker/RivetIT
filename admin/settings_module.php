@@ -37,6 +37,16 @@ require_once "includes/inc_all_admin.php";
                 <small class="form-text text-muted">Adds a Knowledge Base section for agents and departments - per-department articles plus a Central (company-wide) library.</small>
             </div>
 
+            <?php if (!empty($config_training_schema_ready)) { ?>
+            <div class="form-group">
+                <div class="form-check form-check form-switch">
+                    <input type="checkbox" class="form-check-input" name="config_module_enable_training" <?php if ($config_module_enable_training == 1) { echo "checked"; } ?> value="1" id="customSwitchTraining">
+                    <label class="form-check-label" for="customSwitchTraining">Show Training (LMS)</label>
+                </div>
+                <small class="form-text text-muted">Course builder and quizzes now; compliance records and the iPad kiosk in later phases. Visible only to roles granted the Training permission.</small>
+            </div>
+            <?php } ?>
+
             <div class="form-group">
                 <div class="form-check form-check form-switch">
                     <input type="checkbox" class="form-check-input" name="config_module_enable_live_chat" <?php if ($config_module_enable_live_chat == 1) { echo "checked"; } ?> value="1" id="customSwitch3d">

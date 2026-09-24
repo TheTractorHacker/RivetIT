@@ -211,6 +211,37 @@ server {
         deny all;
     }
 
+    # Training content media. INTERNAL: reachable only via X-Accel-Redirect from
+    # agent/training_media.php, which authorizes every request from the database
+    # first. nginx then serves the bytes (sendfile, Range/206 for iOS video) so a
+    # 95 MB MP4 never holds a PHP-FPM worker. Evidence is never served.
+    #
+    # A separate "^~" prefix, longer than "^~ /uploads/", so /uploads/training/...
+    # lands here and never in the attachment-forcing block below. The script
+    # deny is repeated as a nested location for the same reason it is there.
+    # add_header does not inherit into a location that declares its own, so
+    # the server-level headers are repeated.
+    location ^~ /uploads/training/ {
+        internal;
+        location ~ \.(php|phtml|phar|phps|cgi|pl|sh)$ { deny all; }
+        location ^~ /uploads/training/evidence/ { deny all; }
+        types {
+            application/pdf pdf; image/jpeg jpg; image/png png; image/webp webp; image/gif gif; video/mp4 mp4;
+            text/plain txt; text/csv csv;
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document docx;
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet xlsx;
+            application/vnd.openxmlformats-officedocument.presentationml.presentation pptx;
+        }
+        default_type application/octet-stream;
+        # BEGIN DIRECT-TLS ONLY
+        add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+        # END DIRECT-TLS ONLY
+        add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header X-Frame-Options "DENY" always;
+    }
+
     # Everything under /uploads/ is attacker-supplied content served from the
     # app's own origin, so the browser must never RENDER it: an uploaded .html
     # or .svg opened directly runs its script same-origin against whatever
@@ -338,6 +369,23 @@ server {
         fastcgi_pass unix:${PHP_SOCK};
         fastcgi_read_timeout 300s;
         fastcgi_buffering off;
+    }
+
+    # The one agent page the app frames itself (in-window video check). The page sends
+    # CSP frame-ancestors 'self' instead of X-Frame-Options (same pattern as kb_embed_serve.php).
+    # An exact match, so it wins over the generic PHP location below regardless of order;
+    # same fastcgi lines. The server-level headers are repeated WITHOUT X-Frame-Options
+    # (declaring add_header here drops the inherited set, which is the point).
+    location = /agent/training_video_frame.php {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:${PHP_SOCK};
+        fastcgi_read_timeout 300s;
+        # BEGIN DIRECT-TLS ONLY
+        add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+        # END DIRECT-TLS ONLY
+        add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     }
 
     # PHP-FPM

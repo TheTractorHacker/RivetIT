@@ -227,6 +227,21 @@
                     </li>
                 <?php } ?>
 
+                <?php
+                /*
+                 * Admin > Training (LMS) settings. Not gated on $config_module_enable_training:
+                 * the module is switched on from Settings > Modules or this page, so hiding the
+                 * link while the module is off would make it unreachable exactly when it is needed
+                 * (same reasoning as the Knowledge Base link above).
+                 */
+                ?>
+                <li class="nav-item<?php echo (basename($_SERVER['PHP_SELF']) == 'settings_training.php' ? ' active' : ''); ?>">
+                    <a href="/admin/settings_training.php" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_training.php' ? 'active' : ''); ?>">
+                        <span class="nav-link-icon"><i class="fas fa-hard-hat"></i></span>
+                        <span class="nav-link-title">Training</span>
+                    </a>
+                </li>
+
                 <?php if ($config_module_enable_itdoc) { ?>
                 <!-- TEMPLATES Section -->
                 <?php $nav_open_templates = in_array(basename($_SERVER['PHP_SELF']), ['contract_template.php', 'contract_template_details.php', 'project_template.php', 'project_template_details.php', 'onboarding_templates.php', 'onboarding_template_details.php', 'ticket_template.php', 'ticket_template_details.php', 'canned_responses.php', 'worksheet_template.php', 'worksheet_template_details.php', 'vendor_template.php', 'software_template.php', 'document_template.php', 'document_template_details.php']); ?>

@@ -54,3 +54,18 @@ $num_printers_all = $row['num'];
 // Network Drives Count (all departments)
 $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('network_drive_id') AS num FROM network_drives LEFT JOIN clients ON client_id = network_drive_client_id WHERE network_drive_archived_at IS NULL $access_permission_query"));
 $num_network_drives_all = $row['num'];
+
+// Training: courses with unpublished draft changes. Gated + try/catch so a disabled module, a missing
+// permission or a not-yet-migrated schema can never 500 an agent page. Own variable name: $row is shared.
+$num_training_unpublished = 0;
+if (($config_module_enable_training ?? 0) == 1 && lookupUserPermission('module_training') >= 2) {
+    try {
+        $tr_nav_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS num FROM training_courses c
+            LEFT JOIN training_revisions r ON r.revision_id = c.course_current_revision_id
+            WHERE c.course_archived_at IS NULL AND c.course_draft_updated_at_utc IS NOT NULL
+              AND (r.revision_id IS NULL OR c.course_draft_updated_at_utc > r.revision_published_at_utc)"));
+        $num_training_unpublished = intval($tr_nav_row['num'] ?? 0);
+    } catch (\Throwable $e) {
+        $num_training_unpublished = 0;
+    }
+}

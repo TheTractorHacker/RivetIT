@@ -605,6 +605,8 @@ if (isset($_POST['add_company_settings'])) {
     mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_rmm_scripts', module_description = 'Run RMM scripts on managed endpoints'");
     mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_rmm_sync', module_description = 'Trigger RMM integration syncs'");
     mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_rmm_remote_connect', module_description = 'Launch remote sessions to managed endpoints'");
+    mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_training', module_description = 'Training: courses, content, quizzes, records and reports'");
+    mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_training_kiosk', module_description = 'Training kiosks and learner PINs (grants impersonation ability)'");
 
     // Add default roles
     mysqli_query($mysqli, "INSERT INTO user_roles SET role_id = 1, role_name = 'Accountant', role_description = 'Built-in - Limited access to financial-focused modules'");

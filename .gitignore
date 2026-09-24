@@ -15,6 +15,7 @@ uploads/favicon.ico
 uploads/contracts/*
 uploads/clients/*
 uploads/kb/
+uploads/training/
 !uploads/clients/index.php
 uploads/custom/*
 !uploads/custom/index.php

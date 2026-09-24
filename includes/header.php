@@ -10,7 +10,16 @@
 $csp_nonce = base64_encode(random_bytes(16));
 
 header("X-Frame-Options: DENY");
-header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$csp_nonce' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.foleyit.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org; connect-src 'self' https://cloudflareinsights.com");
+$csp_script_src = "'self' 'nonce-$csp_nonce' https://static.cloudflareinsights.com";
+$csp_frame_src  = '';
+// Training preview only (agent/training_preview.php sets this BEFORE inc_all.php): the YouTube/Vimeo player
+// APIs and embed frames. Path-scoped sources. 'self' is kept because declaring frame-src stops the
+// default-src fallback for frames.
+if (!empty($page_csp_external_video)) {
+    $csp_script_src .= " https://www.youtube.com/iframe_api https://www.youtube.com/s/player/ https://player.vimeo.com/api/player.js";
+    $csp_frame_src   = " frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com;";
+}
+header("Content-Security-Policy: default-src 'self'; script-src $csp_script_src; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.foleyit.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org; connect-src 'self' https://cloudflareinsights.com;$csp_frame_src");
 header("X-Content-Type-Options: nosniff");
 header("Referrer-Policy: strict-origin-when-cross-origin");
 
@@ -219,6 +228,16 @@ function itflow_nav_icon_class($icon, $fallback = 'fa-link')
          design layer declares and overrides no framework rule, every class
          name in it being novel. -->
     <link rel="stylesheet" href="/css/itflow_kb.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_kb.css') ?>">
+
+    <!-- Per-page first-party sheets (Training pages set $page_extra_css BEFORE inc_all.php).
+         Only /css/*.css files that exist are emitted, versioned like the sheets above. They
+         load after the design layer, so they can consume the --if-* tokens, and before the
+         accent block below, so a custom accent still wins. -->
+    <?php foreach ((isset($page_extra_css) && is_array($page_extra_css) ? $page_extra_css : []) as $__css) {
+        if (is_string($__css) && preg_match('#^/css/[a-z0-9_.-]+\.css$#', $__css) && is_file($_SERVER['DOCUMENT_ROOT'] . $__css)) {
+            echo '<link rel="stylesheet" href="' . $__css . '?v=' . filemtime($_SERVER['DOCUMENT_ROOT'] . $__css) . '">' . "\n";
+        }
+    } ?>
 
     <!-- Per-company appearance customizer: recolor the CSS-variable theme from the chosen accent.
          $theme_accent_hex / $effective_theme_dark were resolved above (before <html>). This block

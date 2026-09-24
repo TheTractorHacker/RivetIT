@@ -21,7 +21,14 @@ function fwrite_ln($fh, string $s): void {
     fwrite($fh, $s . PHP_EOL);
 }
 
-function dump_database_streaming(mysqli $mysqli, string $sqlFile): void {
+/**
+ * $ledgerHead (by reference) receives the Training ledger head read INSIDE the dump's
+ * consistent snapshot - ['seq' => int, 'hash' => string] - or stays null when the install has
+ * no training_ledger_head table (pre-2.6.91) or the read fails. Callers write it into
+ * version.txt, which anchors the hash chain outside the database (plan A8): a restored or
+ * tampered database whose chain no longer reaches that head is detectable.
+ */
+function dump_database_streaming(mysqli $mysqli, string $sqlFile, ?array &$ledgerHead = null): void {
     $fh = fopen($sqlFile, 'wb');
     if (!$fh) { http_response_code(500); exit("Cannot open dump file"); }
 
@@ -97,6 +104,21 @@ function dump_database_streaming(mysqli $mysqli, string $sqlFile): void {
         $tr->close();
     }
 
+    // Training ledger head, from the same snapshot as the rows dumped above.
+    $ledgerHead = null;
+    if (in_array('training_ledger_head', $tables, true)) {
+        try {
+            $lh = $mysqli->query("SELECT lhead_last_seq, lhead_last_hash FROM training_ledger_head WHERE lhead_id = 1");
+            $lhRow = $lh ? $lh->fetch_assoc() : null;
+            if ($lh) { $lh->close(); }
+            if ($lhRow) {
+                $ledgerHead = ['seq' => (int) $lhRow['lhead_last_seq'], 'hash' => (string) $lhRow['lhead_last_hash']];
+            }
+        } catch (\Throwable $e) {
+            $ledgerHead = null;
+        }
+    }
+
     // Ends the read-only snapshot opened above (nothing to commit).
     $mysqli->query("COMMIT");
 
@@ -121,7 +143,13 @@ function zip_uploads(string $uploadsPath, string $zipFilePath): void {
         if ($file->isDir() || $file->isLink()) continue;
         $fp = $file->getRealPath();
         if (!$fp || strpos($fp, $real . DIRECTORY_SEPARATOR) !== 0) continue;
-        $zip->addFile($fp, substr($fp, strlen($real) + 1));
+        $rel = substr($fp, strlen($real) + 1);
+        $zip->addFile($fp, $rel);
+        // Training media (MP4, JPEG, PDF) is already compressed - deflating it again only
+        // burns CPU on every backup. Store those entries as-is.
+        if (strpos($rel, 'training/') === 0) {
+            $zip->setCompressionName($rel, ZipArchive::CM_STORE);
+        }
     }
     $zip->close();
 }
@@ -140,7 +168,8 @@ function build_backup(mysqli $mysqli, string $type, string $backupDir): array {
 
     foreach ([$sqlFile, $uploadsZip, $versionFile] as $f) @chmod($f, 0600);
 
-    dump_database_streaming($mysqli, $sqlFile);
+    $ledgerHead = null;
+    dump_database_streaming($mysqli, $sqlFile, $ledgerHead);
     zip_uploads(dirname(__DIR__, 2) . '/uploads', $uploadsZip);
 
     $commitHash = trim(@shell_exec('git log -1 --format=%H 2>/dev/null') ?: 'N/A');
@@ -155,6 +184,9 @@ function build_backup(mysqli $mysqli, string $type, string $backupDir): array {
     $meta .= "DB Version: " . (defined('CURRENT_DATABASE_VERSION') ? CURRENT_DATABASE_VERSION : 'N/A') . "\n";
     $meta .= "SHA256 db.sql: $dbSha\n";
     $meta .= "SHA256 uploads.zip: $upSha\n";
+    if ($ledgerHead !== null) {
+        $meta .= "Training ledger head: #{$ledgerHead['seq']} {$ledgerHead['hash']}\n";
+    }
     file_put_contents($versionFile, $meta);
 
     $final = new ZipArchive();
@@ -274,7 +306,8 @@ if (isset($_GET['backup_download_fresh'])) {
         foreach ([$sqlFile, $uploadsZip, $versionFile, $finalZip] as $f) @unlink($f);
     });
 
-    dump_database_streaming($mysqli, $sqlFile);
+    $ledgerHead = null;
+    dump_database_streaming($mysqli, $sqlFile, $ledgerHead);
     zip_uploads(dirname(__DIR__, 2) . '/uploads', $uploadsZip);
 
     $meta  = "ITFlow Internal IT Backup Metadata\n";
@@ -282,6 +315,9 @@ if (isset($_GET['backup_download_fresh'])) {
     $meta .= "Type: manual (browser download)\n";
     $meta .= "SHA256 db.sql: " . (hash_file('sha256', $sqlFile) ?: 'N/A') . "\n";
     $meta .= "SHA256 uploads.zip: " . (hash_file('sha256', $uploadsZip) ?: 'N/A') . "\n";
+    if ($ledgerHead !== null) {
+        $meta .= "Training ledger head: #{$ledgerHead['seq']} {$ledgerHead['hash']}\n";
+    }
     file_put_contents($versionFile, $meta);
 
     $final = new ZipArchive();

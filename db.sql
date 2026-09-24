@@ -372,6 +372,7 @@ CREATE TABLE `assets` (
   `asset_make` varchar(200) NOT NULL,
   `asset_model` varchar(200) DEFAULT NULL,
   `asset_serial` varchar(200) DEFAULT NULL,
+  `asset_pin` varchar(50) DEFAULT NULL,
   `asset_os` varchar(200) DEFAULT NULL,
   `asset_uri` varchar(500) DEFAULT NULL,
   `asset_uri_2` varchar(500) DEFAULT NULL,
@@ -2878,7 +2879,21 @@ CREATE TABLE `settings` (
   `config_metrics_collect_interval_seconds` int(11) NOT NULL DEFAULT 300,
   `config_metrics_raw_retention_days` int(11) NOT NULL DEFAULT 14,
   `config_metrics_hour_retention_days` int(11) NOT NULL DEFAULT 90,
-  `config_kb_media_key` varchar(300) DEFAULT NULL
+  `config_kb_media_key` varchar(300) DEFAULT NULL,
+  `config_module_enable_training` tinyint(1) NOT NULL DEFAULT 0,
+  `config_training_languages` varchar(40) NOT NULL DEFAULT 'en,es',
+  `config_training_default_pass_pct` tinyint(3) unsigned NOT NULL DEFAULT 80,
+  `config_training_default_max_attempts` tinyint(3) unsigned NOT NULL DEFAULT 3,
+  `config_training_attestation_text` text DEFAULT NULL,
+  `config_training_video_max_mb` smallint(5) unsigned NOT NULL DEFAULT 95,
+  `config_training_pdf_max_mb` smallint(5) unsigned NOT NULL DEFAULT 50,
+  `config_training_pdf_max_pages` smallint(5) unsigned NOT NULL DEFAULT 150,
+  `config_training_image_max_mb` smallint(5) unsigned NOT NULL DEFAULT 15,
+  `config_training_file_max_mb` smallint(5) unsigned NOT NULL DEFAULT 50,
+  `config_training_media_budget_mb` int(10) unsigned NOT NULL DEFAULT 1024,
+  `config_training_youtube_api_key` text DEFAULT NULL,
+  `config_training_ledger_verified_at_utc` datetime(3) DEFAULT NULL,
+  `config_training_ledger_verify_result` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -3673,6 +3688,720 @@ CREATE TABLE `tickets` (
   KEY `idx_tickets_client_archived_updated` (`ticket_client_id`,`ticket_archived_at`,`ticket_updated_at`),
   KEY `idx_tickets_problem` (`ticket_problem_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=136 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_achievements`
+--
+
+DROP TABLE IF EXISTS `training_achievements`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_achievements` (
+  `achievement_id` int(11) NOT NULL AUTO_INCREMENT,
+  `achievement_uid` char(12) NOT NULL,
+  `achievement_name` varchar(100) NOT NULL,
+  `achievement_description` varchar(500) DEFAULT NULL,
+  `achievement_icon` varchar(40) NOT NULL DEFAULT 'award',
+  `achievement_color` char(7) NOT NULL DEFAULT '#D97706',
+  `achievement_rule_type` enum('manual','course_completed','category_completed','path_completed','perfect_score','first_attempt_pass','on_time_streak','courses_completed_count') NOT NULL DEFAULT 'manual',
+  `achievement_rule_json` text DEFAULT NULL,
+  `achievement_active` tinyint(1) NOT NULL DEFAULT 1,
+  `achievement_sort` smallint(5) unsigned NOT NULL DEFAULT 0,
+  `achievement_version` int(10) unsigned NOT NULL DEFAULT 0,
+  `achievement_created_by` int(11) NOT NULL,
+  `achievement_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `achievement_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `achievement_archived_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`achievement_id`),
+  UNIQUE KEY `uq_training_achievement_uid` (`achievement_uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_categories`
+--
+
+DROP TABLE IF EXISTS `training_categories`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_categories` (
+  `tcat_id` int(11) NOT NULL AUTO_INCREMENT,
+  `tcat_name` varchar(100) NOT NULL,
+  `tcat_color` char(7) NOT NULL DEFAULT '#0D9488',
+  `tcat_icon` varchar(40) NOT NULL DEFAULT 'graduation-cap',
+  `tcat_sort` smallint(5) unsigned NOT NULL DEFAULT 0,
+  `tcat_created_by` int(11) NOT NULL DEFAULT 0,
+  `tcat_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `tcat_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `tcat_archived_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`tcat_id`),
+  UNIQUE KEY `uq_training_tcat_name` (`tcat_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+INSERT IGNORE INTO `training_categories` (`tcat_name`, `tcat_color`, `tcat_icon`, `tcat_sort`, `tcat_created_by`) VALUES ('Safety','#DC2626','hard-hat',1,0), ('Equipment','#D97706','truck-loading',2,0), ('Quality','#2563EB','check-double',3,0), ('HR & Policy','#7C3AED','user-shield',4,0), ('IT','#0891B2','laptop',5,0), ('Other','#475569','graduation-cap',6,0);
+
+--
+-- Table structure for table `training_cert_counters`
+--
+
+DROP TABLE IF EXISTS `training_cert_counters`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_cert_counters` (
+  `certctr_year` smallint(5) unsigned NOT NULL,
+  `certctr_last_seq` int(10) unsigned NOT NULL DEFAULT 0,
+  `certctr_updated_at_utc` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`certctr_year`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_cert_tokens`
+--
+
+DROP TABLE IF EXISTS `training_cert_tokens`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_cert_tokens` (
+  `certtok_id` int(11) NOT NULL AUTO_INCREMENT,
+  `certtok_completion_id` int(11) NOT NULL,
+  `certtok_nonce` char(32) NOT NULL,
+  `certtok_token_sha256` char(64) NOT NULL,
+  `certtok_created_at_utc` datetime(3) NOT NULL,
+  `certtok_hash_v` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  `certtok_row_sha256` char(64) NOT NULL,
+  PRIMARY KEY (`certtok_id`),
+  UNIQUE KEY `uq_training_certtok_completion` (`certtok_completion_id`),
+  UNIQUE KEY `uq_training_certtok_token` (`certtok_token_sha256`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_course_prereqs`
+--
+
+DROP TABLE IF EXISTS `training_course_prereqs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_course_prereqs` (
+  `prereq_course_id` int(11) NOT NULL,
+  `prereq_requires_course_id` int(11) NOT NULL,
+  `prereq_created_by` int(11) NOT NULL,
+  `prereq_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`prereq_course_id`,`prereq_requires_course_id`),
+  KEY `idx_training_prereq_requires` (`prereq_requires_course_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_course_sections`
+--
+
+DROP TABLE IF EXISTS `training_course_sections`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_course_sections` (
+  `csection_id` int(11) NOT NULL AUTO_INCREMENT,
+  `csection_uid` char(12) NOT NULL,
+  `csection_course_id` int(11) NOT NULL,
+  `csection_title` varchar(200) NOT NULL,
+  `csection_sort` smallint(5) unsigned NOT NULL DEFAULT 0,
+  `csection_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `csection_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`csection_id`),
+  UNIQUE KEY `uq_training_csection_uid` (`csection_uid`),
+  KEY `idx_training_csection_course` (`csection_course_id`,`csection_sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_courses`
+--
+
+DROP TABLE IF EXISTS `training_courses`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_courses` (
+  `course_id` int(11) NOT NULL AUTO_INCREMENT,
+  `course_uid` char(12) NOT NULL,
+  `course_kind` enum('training','document') NOT NULL DEFAULT 'training',
+  `course_code` varchar(40) DEFAULT NULL,
+  `course_name` varchar(200) NOT NULL,
+  `course_summary` varchar(500) DEFAULT NULL,
+  `course_description_html` mediumtext DEFAULT NULL,
+  `course_category_id` int(11) DEFAULT NULL,
+  `course_cover_media_id` int(11) DEFAULT NULL,
+  `course_color` char(7) DEFAULT NULL,
+  `course_default_language` varchar(10) NOT NULL DEFAULT 'en',
+  `course_languages` varchar(40) NOT NULL DEFAULT 'en',
+  `course_required_languages` varchar(40) NOT NULL DEFAULT 'en',
+  `course_regulation_ref` varchar(100) DEFAULT NULL,
+  `course_responsible_user_id` int(11) DEFAULT NULL,
+  `course_sequential` tinyint(1) NOT NULL DEFAULT 1,
+  `course_est_minutes` smallint(5) unsigned DEFAULT NULL,
+  `course_validity_months` smallint(5) unsigned DEFAULT NULL,
+  `course_renewal_lead_days` smallint(5) unsigned NOT NULL DEFAULT 30,
+  `course_requires_signature` tinyint(1) NOT NULL DEFAULT 1,
+  `course_attestation_text` text DEFAULT NULL,
+  `course_is_qualification` tinyint(1) NOT NULL DEFAULT 0,
+  `course_needs_online` tinyint(1) NOT NULL DEFAULT 1,
+  `course_needs_session` tinyint(1) NOT NULL DEFAULT 0,
+  `course_needs_practical` tinyint(1) NOT NULL DEFAULT 0,
+  `course_external_only` tinyint(1) NOT NULL DEFAULT 0,
+  `course_component_window_days` smallint(5) unsigned NOT NULL DEFAULT 90,
+  `course_allow_trainer_attest` tinyint(1) NOT NULL DEFAULT 1,
+  `course_eval_checklist` text DEFAULT NULL,
+  `course_template_key` varchar(40) DEFAULT NULL,
+  `course_current_revision_id` int(11) DEFAULT NULL,
+  `course_draft_updated_at_utc` datetime(3) DEFAULT NULL,
+  `course_version` int(10) unsigned NOT NULL DEFAULT 0,
+  `course_created_by` int(11) NOT NULL,
+  `course_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `course_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `course_archived_at` datetime DEFAULT NULL,
+  `course_archived_by` int(11) DEFAULT NULL,
+  PRIMARY KEY (`course_id`),
+  UNIQUE KEY `uq_training_course_uid` (`course_uid`),
+  UNIQUE KEY `uq_training_course_code` (`course_code`),
+  KEY `idx_training_course_archived` (`course_archived_at`,`course_draft_updated_at_utc`),
+  KEY `idx_training_course_category` (`course_category_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_events`
+--
+
+DROP TABLE IF EXISTS `training_events`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_events` (
+  `tevent_seq` bigint(20) unsigned NOT NULL,
+  `tevent_at_utc` datetime(3) NOT NULL,
+  `tevent_type` varchar(64) NOT NULL,
+  `tevent_actor_type` enum('user','contact','kiosk','system') NOT NULL,
+  `tevent_actor_user_id` int(11) DEFAULT NULL,
+  `tevent_actor_contact_id` int(11) DEFAULT NULL,
+  `tevent_kiosk_id` int(11) DEFAULT NULL,
+  `tevent_ksess_id` int(11) DEFAULT NULL,
+  `tevent_subject_contact_id` int(11) DEFAULT NULL,
+  `tevent_course_id` int(11) DEFAULT NULL,
+  `tevent_entity_type` varchar(40) DEFAULT NULL,
+  `tevent_entity_id` int(11) DEFAULT NULL,
+  `tevent_entity_sha256` char(64) DEFAULT NULL,
+  `tevent_payload_json` mediumtext NOT NULL,
+  `tevent_user_agent` varchar(255) DEFAULT NULL,
+  `tevent_hash_v` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  `tevent_prev_hash` char(64) NOT NULL,
+  `tevent_hash` char(64) NOT NULL,
+  PRIMARY KEY (`tevent_seq`),
+  UNIQUE KEY `uq_training_tevent_hash` (`tevent_hash`),
+  KEY `idx_training_tevent_subject` (`tevent_subject_contact_id`,`tevent_at_utc`),
+  KEY `idx_training_tevent_type` (`tevent_type`,`tevent_at_utc`),
+  KEY `idx_training_tevent_entity` (`tevent_entity_type`,`tevent_entity_id`),
+  KEY `idx_training_tevent_kiosk` (`tevent_kiosk_id`,`tevent_type`,`tevent_at_utc`),
+  KEY `idx_training_tevent_course` (`tevent_course_id`,`tevent_at_utc`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_i18n`
+--
+
+DROP TABLE IF EXISTS `training_i18n`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_i18n` (
+  `ti18n_entity` varchar(20) NOT NULL,
+  `ti18n_entity_id` int(11) NOT NULL,
+  `ti18n_lang` varchar(10) NOT NULL,
+  `ti18n_field` varchar(40) NOT NULL,
+  `ti18n_value` mediumtext NOT NULL,
+  `ti18n_updated_by` int(11) NOT NULL,
+  `ti18n_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`ti18n_entity`,`ti18n_entity_id`,`ti18n_lang`,`ti18n_field`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_ledger_head`
+--
+
+DROP TABLE IF EXISTS `training_ledger_head`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_ledger_head` (
+  `lhead_id` tinyint(3) unsigned NOT NULL,
+  `lhead_last_seq` bigint(20) unsigned NOT NULL,
+  `lhead_last_hash` char(64) NOT NULL,
+  `lhead_updated_at_utc` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`lhead_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+INSERT IGNORE INTO `training_ledger_head` (`lhead_id`, `lhead_last_seq`, `lhead_last_hash`, `lhead_updated_at_utc`) VALUES (1, 0, '0000000000000000000000000000000000000000000000000000000000000000', NULL);
+
+--
+-- Table structure for table `training_lesson_resources`
+--
+
+DROP TABLE IF EXISTS `training_lesson_resources`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_lesson_resources` (
+  `lres_id` int(11) NOT NULL AUTO_INCREMENT,
+  `lres_uid` char(12) NOT NULL,
+  `lres_lesson_id` int(11) NOT NULL,
+  `lres_lang` varchar(10) DEFAULT NULL,
+  `lres_kind` enum('file','link') NOT NULL,
+  `lres_title` varchar(200) NOT NULL,
+  `lres_media_id` int(11) DEFAULT NULL,
+  `lres_url` varchar(500) DEFAULT NULL,
+  `lres_sort` smallint(5) unsigned NOT NULL DEFAULT 0,
+  `lres_created_by` int(11) NOT NULL,
+  `lres_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `lres_archived_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`lres_id`),
+  UNIQUE KEY `uq_training_lres_uid` (`lres_uid`),
+  KEY `idx_training_lres_lesson` (`lres_lesson_id`,`lres_archived_at`,`lres_sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_lesson_variants`
+--
+
+DROP TABLE IF EXISTS `training_lesson_variants`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_lesson_variants` (
+  `lvar_lesson_id` int(11) NOT NULL,
+  `lvar_lang` varchar(10) NOT NULL,
+  `lvar_title` varchar(200) NOT NULL DEFAULT '',
+  `lvar_description_html` mediumtext DEFAULT NULL,
+  `lvar_body_html` mediumtext DEFAULT NULL,
+  `lvar_word_count` int(10) unsigned NOT NULL DEFAULT 0,
+  `lvar_media_id` int(11) DEFAULT NULL,
+  `lvar_caption` varchar(500) DEFAULT NULL,
+  `lvar_video_provider` enum('upload','youtube','vimeo') DEFAULT NULL,
+  `lvar_video_ext_id` varchar(20) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `lvar_video_ext_hash` varchar(20) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `lvar_kb_source_article_id` int(11) DEFAULT NULL,
+  `lvar_kb_source_sha256` char(64) DEFAULT NULL,
+  `lvar_kb_import_body_sha256` char(64) DEFAULT NULL,
+  `lvar_kb_imported_at_utc` datetime(3) DEFAULT NULL,
+  `lvar_updated_by` int(11) DEFAULT NULL,
+  `lvar_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`lvar_lesson_id`,`lvar_lang`),
+  KEY `idx_training_lvar_media` (`lvar_media_id`),
+  KEY `idx_training_lvar_kb` (`lvar_kb_source_article_id`),
+  KEY `idx_training_lvar_video` (`lvar_video_provider`,`lvar_video_ext_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_lessons`
+--
+
+DROP TABLE IF EXISTS `training_lessons`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_lessons` (
+  `lesson_id` int(11) NOT NULL AUTO_INCREMENT,
+  `lesson_uid` char(12) NOT NULL,
+  `lesson_course_id` int(11) NOT NULL,
+  `lesson_section_id` int(11) DEFAULT NULL,
+  `lesson_sort` smallint(5) unsigned NOT NULL DEFAULT 0,
+  `lesson_type` enum('article','document','video','image','quiz','acknowledgment') NOT NULL,
+  `lesson_required` tinyint(1) NOT NULL DEFAULT 1,
+  `lesson_duration_s` int(10) unsigned DEFAULT NULL,
+  `lesson_allow_download` tinyint(1) NOT NULL DEFAULT 0,
+  `lesson_preview_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `lesson_responsible_user_id` int(11) DEFAULT NULL,
+  `lesson_thumb_media_id` int(11) DEFAULT NULL,
+  `lesson_min_watch_pct` tinyint(3) unsigned NOT NULL DEFAULT 90,
+  `lesson_ack_require_signature` tinyint(1) NOT NULL DEFAULT 1,
+  `lesson_ack_require_pin` tinyint(1) NOT NULL DEFAULT 1,
+  `lesson_version` int(10) unsigned NOT NULL DEFAULT 0,
+  `lesson_created_by` int(11) NOT NULL,
+  `lesson_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `lesson_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `lesson_archived_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`lesson_id`),
+  UNIQUE KEY `uq_training_lesson_uid` (`lesson_uid`),
+  KEY `idx_training_lesson_course` (`lesson_course_id`,`lesson_archived_at`,`lesson_section_id`,`lesson_sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_media`
+--
+
+DROP TABLE IF EXISTS `training_media`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_media` (
+  `media_id` int(11) NOT NULL AUTO_INCREMENT,
+  `media_sha256` char(64) NOT NULL,
+  `media_kind` enum('pdf','page','video','image','file','evidence') NOT NULL,
+  `media_mime` varchar(100) NOT NULL,
+  `media_ext` varchar(10) NOT NULL,
+  `media_bytes` bigint(20) unsigned NOT NULL,
+  `media_path` varchar(255) NOT NULL,
+  `media_original_name` varchar(255) DEFAULT NULL,
+  `media_width` smallint(5) unsigned DEFAULT NULL,
+  `media_height` smallint(5) unsigned DEFAULT NULL,
+  `media_page_count` smallint(5) unsigned DEFAULT NULL,
+  `media_duration_ms` int(10) unsigned DEFAULT NULL,
+  `media_video_codec` varchar(8) DEFAULT NULL,
+  `media_audio_codec` varchar(8) DEFAULT NULL,
+  `media_faststart` tinyint(1) DEFAULT NULL,
+  `media_uploaded_by` int(11) NOT NULL,
+  `media_created_at_utc` datetime(3) NOT NULL,
+  `media_hash_v` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  `media_row_sha256` char(64) NOT NULL,
+  PRIMARY KEY (`media_id`),
+  UNIQUE KEY `uq_training_media_sha_kind` (`media_sha256`,`media_kind`),
+  KEY `idx_training_media_kind` (`media_kind`,`media_created_at_utc`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_media_pages`
+--
+
+DROP TABLE IF EXISTS `training_media_pages`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_media_pages` (
+  `mpage_pdf_media_id` int(11) NOT NULL,
+  `mpage_number` smallint(5) unsigned NOT NULL,
+  `mpage_media_id` int(11) NOT NULL,
+  `mpage_created_at_utc` datetime(3) NOT NULL,
+  `mpage_hash_v` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  `mpage_row_sha256` char(64) NOT NULL,
+  PRIMARY KEY (`mpage_pdf_media_id`,`mpage_number`),
+  KEY `idx_training_mpage_media` (`mpage_media_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_option_texts`
+--
+
+DROP TABLE IF EXISTS `training_option_texts`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_option_texts` (
+  `otext_option_id` int(11) NOT NULL,
+  `otext_lang` varchar(10) NOT NULL,
+  `otext_text` varchar(1000) NOT NULL,
+  `otext_feedback` varchar(500) DEFAULT NULL,
+  PRIMARY KEY (`otext_option_id`,`otext_lang`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_path_courses`
+--
+
+DROP TABLE IF EXISTS `training_path_courses`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_path_courses` (
+  `tpcourse_path_id` int(11) NOT NULL,
+  `tpcourse_course_id` int(11) NOT NULL,
+  `tpcourse_sort` smallint(5) unsigned NOT NULL DEFAULT 0,
+  `tpcourse_required` tinyint(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`tpcourse_path_id`,`tpcourse_course_id`),
+  KEY `idx_training_tpcourse_course` (`tpcourse_course_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_paths`
+--
+
+DROP TABLE IF EXISTS `training_paths`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_paths` (
+  `tpath_id` int(11) NOT NULL AUTO_INCREMENT,
+  `tpath_uid` char(12) NOT NULL,
+  `tpath_name` varchar(200) NOT NULL,
+  `tpath_description` varchar(1000) DEFAULT NULL,
+  `tpath_color` char(7) DEFAULT NULL,
+  `tpath_cover_media_id` int(11) DEFAULT NULL,
+  `tpath_sequential` tinyint(1) NOT NULL DEFAULT 1,
+  `tpath_achievement_id` int(11) DEFAULT NULL,
+  `tpath_version` int(10) unsigned NOT NULL DEFAULT 0,
+  `tpath_created_by` int(11) NOT NULL,
+  `tpath_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `tpath_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `tpath_archived_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`tpath_id`),
+  UNIQUE KEY `uq_training_tpath_uid` (`tpath_uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_question_banks`
+--
+
+DROP TABLE IF EXISTS `training_question_banks`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_question_banks` (
+  `qbank_id` int(11) NOT NULL AUTO_INCREMENT,
+  `qbank_uid` char(12) NOT NULL,
+  `qbank_parent_id` int(11) DEFAULT NULL,
+  `qbank_name` varchar(150) NOT NULL,
+  `qbank_description` varchar(500) DEFAULT NULL,
+  `qbank_course_id` int(11) DEFAULT NULL,
+  `qbank_quiz_lesson_id` int(11) DEFAULT NULL,
+  `qbank_sort` smallint(5) unsigned NOT NULL DEFAULT 0,
+  `qbank_created_by` int(11) NOT NULL,
+  `qbank_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `qbank_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `qbank_archived_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`qbank_id`),
+  UNIQUE KEY `uq_training_qbank_uid` (`qbank_uid`),
+  KEY `idx_training_qbank_parent` (`qbank_parent_id`,`qbank_archived_at`,`qbank_sort`),
+  KEY `idx_training_qbank_course` (`qbank_course_id`),
+  KEY `idx_training_qbank_lesson` (`qbank_quiz_lesson_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_question_options`
+--
+
+DROP TABLE IF EXISTS `training_question_options`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_question_options` (
+  `option_id` int(11) NOT NULL AUTO_INCREMENT,
+  `option_uid` char(12) NOT NULL,
+  `option_question_id` int(11) NOT NULL,
+  `option_sort` smallint(5) unsigned NOT NULL DEFAULT 0,
+  `option_is_correct` tinyint(1) NOT NULL DEFAULT 0,
+  `option_pinned` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`option_id`),
+  UNIQUE KEY `uq_training_option_uid` (`option_uid`),
+  KEY `idx_training_option_question` (`option_question_id`,`option_sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_question_texts`
+--
+
+DROP TABLE IF EXISTS `training_question_texts`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_question_texts` (
+  `qtext_question_id` int(11) NOT NULL,
+  `qtext_lang` varchar(10) NOT NULL,
+  `qtext_text` text NOT NULL,
+  `qtext_explanation` text DEFAULT NULL,
+  `qtext_topic` varchar(100) DEFAULT NULL,
+  `qtext_media_id` int(11) DEFAULT NULL,
+  `qtext_updated_by` int(11) NOT NULL,
+  `qtext_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`qtext_question_id`,`qtext_lang`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_questions`
+--
+
+DROP TABLE IF EXISTS `training_questions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_questions` (
+  `question_id` int(11) NOT NULL AUTO_INCREMENT,
+  `question_uid` char(12) NOT NULL,
+  `question_bank_id` int(11) NOT NULL,
+  `question_type` enum('single','multi','truefalse') NOT NULL,
+  `question_media_id` int(11) DEFAULT NULL,
+  `question_points` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  `question_critical` tinyint(1) NOT NULL DEFAULT 0,
+  `question_sort` int(10) unsigned NOT NULL DEFAULT 0,
+  `question_version` int(10) unsigned NOT NULL DEFAULT 0,
+  `question_created_by` int(11) NOT NULL,
+  `question_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `question_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `question_archived_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`question_id`),
+  UNIQUE KEY `uq_training_question_uid` (`question_uid`),
+  KEY `idx_training_question_bank` (`question_bank_id`,`question_archived_at`,`question_sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_quiz_rules`
+--
+
+DROP TABLE IF EXISTS `training_quiz_rules`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_quiz_rules` (
+  `qrule_id` int(11) NOT NULL AUTO_INCREMENT,
+  `qrule_uid` char(12) NOT NULL,
+  `qrule_quiz_id` int(11) NOT NULL,
+  `qrule_bank_id` int(11) NOT NULL,
+  `qrule_include_descendants` tinyint(1) NOT NULL DEFAULT 1,
+  `qrule_count` smallint(5) unsigned NOT NULL DEFAULT 0,
+  `qrule_sort` smallint(5) unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`qrule_id`),
+  UNIQUE KEY `uq_training_qrule_uid` (`qrule_uid`),
+  KEY `idx_training_qrule_quiz` (`qrule_quiz_id`,`qrule_sort`),
+  KEY `idx_training_qrule_bank` (`qrule_bank_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_quizzes`
+--
+
+DROP TABLE IF EXISTS `training_quizzes`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_quizzes` (
+  `quiz_id` int(11) NOT NULL AUTO_INCREMENT,
+  `quiz_uid` char(12) NOT NULL,
+  `quiz_lesson_id` int(11) NOT NULL,
+  `quiz_role` enum('standalone','exam','check') NOT NULL,
+  `quiz_pass_pct` tinyint(3) unsigned NOT NULL DEFAULT 80,
+  `quiz_max_attempts` tinyint(3) unsigned NOT NULL DEFAULT 3,
+  `quiz_time_limit_s` smallint(5) unsigned DEFAULT NULL,
+  `quiz_shuffle_questions` tinyint(1) NOT NULL DEFAULT 1,
+  `quiz_shuffle_options` tinyint(1) NOT NULL DEFAULT 1,
+  `quiz_feedback_mode` enum('score_only','missed_questions','answers_after_pass') NOT NULL DEFAULT 'missed_questions',
+  `quiz_show_review` tinyint(1) NOT NULL DEFAULT 1,
+  `quiz_must_pass` tinyint(1) NOT NULL DEFAULT 1,
+  `quiz_intro` varchar(1000) DEFAULT NULL,
+  `quiz_version` int(10) unsigned NOT NULL DEFAULT 0,
+  `quiz_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `quiz_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`quiz_id`),
+  UNIQUE KEY `uq_training_quiz_uid` (`quiz_uid`),
+  UNIQUE KEY `uq_training_quiz_lesson` (`quiz_lesson_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_revision_media`
+--
+
+DROP TABLE IF EXISTS `training_revision_media`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_revision_media` (
+  `rmedia_revision_id` int(11) NOT NULL,
+  `rmedia_media_id` int(11) NOT NULL,
+  `rmedia_media_sha256` char(64) NOT NULL,
+  `rmedia_downloadable` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`rmedia_revision_id`,`rmedia_media_id`),
+  KEY `idx_training_rmedia_media` (`rmedia_media_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_revisions`
+--
+
+DROP TABLE IF EXISTS `training_revisions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_revisions` (
+  `revision_id` int(11) NOT NULL AUTO_INCREMENT,
+  `revision_course_id` int(11) NOT NULL,
+  `revision_number` smallint(5) unsigned NOT NULL,
+  `revision_kind` enum('training','document') NOT NULL,
+  `revision_schema` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  `revision_json` longtext NOT NULL,
+  `revision_sha256` char(64) NOT NULL,
+  `revision_languages` varchar(40) NOT NULL,
+  `revision_change_note` varchar(1000) NOT NULL,
+  `revision_requires_retraining` tinyint(1) NOT NULL DEFAULT 0,
+  `revision_retrain_due_days` smallint(5) unsigned DEFAULT NULL,
+  `revision_published_by` int(11) NOT NULL,
+  `revision_published_at_utc` datetime(3) NOT NULL,
+  `revision_hash_v` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  `revision_row_sha256` char(64) NOT NULL,
+  PRIMARY KEY (`revision_id`),
+  UNIQUE KEY `uq_training_revision` (`revision_course_id`,`revision_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_tag_links`
+--
+
+DROP TABLE IF EXISTS `training_tag_links`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_tag_links` (
+  `ttlink_tag_id` int(11) NOT NULL,
+  `ttlink_entity` enum('course','lesson') NOT NULL,
+  `ttlink_entity_id` int(11) NOT NULL,
+  PRIMARY KEY (`ttlink_entity`,`ttlink_entity_id`,`ttlink_tag_id`),
+  KEY `idx_training_ttlink_tag` (`ttlink_tag_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_tags`
+--
+
+DROP TABLE IF EXISTS `training_tags`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_tags` (
+  `ttag_id` int(11) NOT NULL AUTO_INCREMENT,
+  `ttag_name` varchar(60) NOT NULL,
+  `ttag_color` char(7) DEFAULT NULL,
+  `ttag_created_by` int(11) NOT NULL,
+  `ttag_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `ttag_archived_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`ttag_id`),
+  UNIQUE KEY `uq_training_ttag_name` (`ttag_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_video_checks`
+--
+
+DROP TABLE IF EXISTS `training_video_checks`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_video_checks` (
+  `vcheck_id` int(11) NOT NULL AUTO_INCREMENT,
+  `vcheck_provider` enum('youtube','vimeo') NOT NULL,
+  `vcheck_ext_id` varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `vcheck_ext_hash` varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',
+  `vcheck_title` varchar(255) DEFAULT NULL,
+  `vcheck_author` varchar(255) DEFAULT NULL,
+  `vcheck_thumb_media_id` int(11) DEFAULT NULL,
+  `vcheck_status` enum('ok','not_found','private','embed_disabled','live','error') DEFAULT NULL,
+  `vcheck_http` smallint(5) unsigned DEFAULT NULL,
+  `vcheck_meta_duration_s` int(10) unsigned DEFAULT NULL,
+  `vcheck_meta_duration_source` enum('oembed','data_api') DEFAULT NULL,
+  `vcheck_checked_at_utc` datetime(3) DEFAULT NULL,
+  `vcheck_play_duration_s` int(10) unsigned DEFAULT NULL,
+  `vcheck_verified_at_utc` datetime(3) DEFAULT NULL,
+  `vcheck_verified_by` int(11) DEFAULT NULL,
+  `vcheck_last_error` varchar(40) DEFAULT NULL,
+  `vcheck_last_error_at_utc` datetime(3) DEFAULT NULL,
+  `vcheck_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`vcheck_id`),
+  UNIQUE KEY `uq_training_vcheck` (`vcheck_provider`,`vcheck_ext_id`,`vcheck_ext_hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -5100,6 +5829,7 @@ CREATE TABLE `odoo_integrations` (
   `database_name` varchar(100) DEFAULT NULL,
   `username` varchar(200) DEFAULT NULL,
   `api_key_enc` text DEFAULT NULL,
+  `api_protocol` varchar(10) NOT NULL DEFAULT 'jsonrpc',
   `enabled` tinyint(1) NOT NULL DEFAULT 0,
   `last_test_at` datetime DEFAULT NULL,
   `last_test_success` tinyint(1) DEFAULT NULL,
