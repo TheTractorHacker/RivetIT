@@ -22,11 +22,19 @@ use ITFlow\Training\Core\Uid;
  * shared, a course's banks stay in that course); course roots and quiz banks never move; quiz
  * banks have no sub-banks. Archiving refuses (422 bank_in_use) while any rule of a live course
  * draws from the bank or anything below it.
+ *
+ * CONCURRENCY. Every structural change (create under a parent, re-parent) runs under the
+ * database-scoped named lock 'trbanks', taken BEFORE the transaction and released after it
+ * commits, so the cycle and depth checks always see the other writers' committed tree: two
+ * requests moving A under B and B under A cannot both pass. Course roots are created without
+ * locking the course row first (lock order: entity rows -> course row -> ledger head).
  */
 final class BankService
 {
     public const NAME_MAX = 150;
     public const DESCRIPTION_MAX = 500;
+    private const TREE_LOCK = 'trbanks';
+    private const TREE_LOCK_TIMEOUT_S = 5;
 
     public function __construct(private readonly Ctx $c)
     {
@@ -81,7 +89,7 @@ final class BankService
         $description = $this->cleanDescription($description);
         $db = $this->c->db;
 
-        $id = Db::tx($db, function () use ($db, $parentId, $name, $courseId, $description): int {
+        $id = $this->underTreeLock(fn(): int => Db::tx($db, function () use ($db, $parentId, $name, $courseId, $description): int {
             if ($parentId === null && $courseId !== null) {
                 // A course has exactly one root bank; new course banks go below it.
                 $parentId = $this->ensureCourseRoot($courseId);
@@ -105,7 +113,7 @@ final class BankService
             return Db::insert($db, 'INSERT INTO training_question_banks (qbank_uid, qbank_parent_id, qbank_name, qbank_description,
                     qbank_course_id, qbank_quiz_lesson_id, qbank_sort, qbank_created_by) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)',
                 'sissiii', [Uid::new('b'), $parentId, $name, $description, $bankCourse, $sort, $this->c->userId]);
-        });
+        }));
         return $this->get($id);
     }
 
@@ -116,7 +124,7 @@ final class BankService
     public function update(int $bankId, array $f): array
     {
         $db = $this->c->db;
-        Db::tx($db, function () use ($db, $bankId, $f): void {
+        $write = function () use ($db, $bankId, $f): void {
             $bank = Guard::writableBank($db, $bankId, true);
             $tree = BankTree::load($db);
             $sets = [];
@@ -180,7 +188,12 @@ final class BankService
                 $affected = array_merge($affected, Usage::coursesForBanks($db, array_merge($after->subtree($bankId, true), $newAncestors), $after));
                 Usage::touch($db, $affected);
             }
-        });
+        };
+        if (array_key_exists('parent_id', $f)) {
+            $this->underTreeLock(static fn() => Db::tx($db, $write));
+        } else {
+            Db::tx($db, $write);
+        }
         return $this->get($bankId);
     }
 
@@ -206,22 +219,43 @@ final class BankService
         });
     }
 
-    /** The course's root bank (created, or unarchived, when needed). Returns its id. */
+    /**
+     * The course's root bank (created, or unarchived, when needed). Returns its id.
+     *
+     * Lock order (spec §0: entity rows -> course row): an existing root is found with a plain
+     * read and locked by its own row only. The course row is locked just for the one-time
+     * creation, to serialise two first creators; the locking re-read after it sees a root the
+     * other creator committed meanwhile. Nobody else can hold the new root's row yet.
+     */
     public function ensureCourseRoot(int $courseId): int
     {
         $db = $this->c->db;
         return Db::tx($db, function () use ($db, $courseId): int {
+            $course = Guard::course($db, $courseId);
+            if ($course['course_archived_at'] !== null) {
+                throw ApiException::archived();
+            }
+            $find = static fn(bool $lock): ?array => Db::one($db, 'SELECT qbank_id, qbank_archived_at FROM training_question_banks
+                WHERE qbank_course_id = ? AND qbank_parent_id IS NULL AND qbank_quiz_lesson_id IS NULL
+                ORDER BY qbank_id LIMIT 1' . ($lock ? ' FOR UPDATE' : ''), 'i', [$courseId]);
+            $unarchive = static function (int $id) use ($db): void {
+                Db::exec($db, 'UPDATE training_question_banks SET qbank_archived_at = NULL WHERE qbank_id = ? AND qbank_archived_at IS NOT NULL', 'i', [$id]);
+            };
+            $row = $find(false);
+            if ($row !== null) {
+                $id = (int) $row['qbank_id'];
+                if (Db::one($db, 'SELECT qbank_id FROM training_question_banks WHERE qbank_id = ? FOR UPDATE', 'i', [$id]) !== null) {
+                    $unarchive($id);
+                    return $id;
+                }
+            }
             $course = Guard::course($db, $courseId, true);
             if ($course['course_archived_at'] !== null) {
                 throw ApiException::archived();
             }
-            $row = Db::one($db, 'SELECT qbank_id, qbank_archived_at FROM training_question_banks
-                WHERE qbank_course_id = ? AND qbank_parent_id IS NULL AND qbank_quiz_lesson_id IS NULL
-                ORDER BY qbank_id LIMIT 1 FOR UPDATE', 'i', [$courseId]);
+            $row = $find(true);
             if ($row !== null) {
-                if ($row['qbank_archived_at'] !== null) {
-                    Db::exec($db, 'UPDATE training_question_banks SET qbank_archived_at = NULL WHERE qbank_id = ?', 'i', [(int) $row['qbank_id']]);
-                }
+                $unarchive((int) $row['qbank_id']);
                 return (int) $row['qbank_id'];
             }
             $name = Text::clip(trim((string) $course['course_name']), self::NAME_MAX) ?: 'Course questions';
@@ -301,6 +335,28 @@ final class BankService
     }
 
     // ------------------------------------------------------------------------------------------
+
+    /**
+     * Runs $fn under the 'trbanks' named lock (409 busy when another structural change holds it
+     * for 5 s). Taken outside the transaction, so the tree is read only after the previous
+     * writer committed; released after $fn (and its transaction) returns or throws.
+     *
+     * @template T
+     * @param callable():T $fn
+     * @return T
+     */
+    private function underTreeLock(callable $fn): mixed
+    {
+        $db = $this->c->db;
+        if (!Db::lock($db, self::TREE_LOCK, self::TREE_LOCK_TIMEOUT_S)) {
+            throw ApiException::busy('Someone else is reorganising the question library; try again.');
+        }
+        try {
+            return $fn();
+        } finally {
+            Db::unlock($db, self::TREE_LOCK);
+        }
+    }
 
     private function assertMovable(\mysqli $db, BankTree $tree, array $bank, ?int $newParent): void
     {

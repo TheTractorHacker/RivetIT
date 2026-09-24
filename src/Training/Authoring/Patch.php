@@ -3,6 +3,7 @@
 namespace ITFlow\Training\Authoring;
 
 use ITFlow\Training\Api\ApiException;
+use ITFlow\Training\Media\ArticleSanitizer;
 
 /**
  * Validation of one `fields{}` patch value at a time (the keys were already allowlisted by
@@ -15,7 +16,7 @@ use ITFlow\Training\Api\ApiException;
  */
 final class Patch
 {
-    public const COLOR_RE = '/^#[0-9A-Fa-f]{6}$/';
+    public const COLOR_RE = '/^#[0-9A-Fa-f]{6}$/D';
 
     /** Loose equality between a stored column value and a normalised patch value. */
     public static function same(mixed $stored, mixed $new): bool
@@ -61,8 +62,12 @@ final class Patch
         return $v;
     }
 
-    /** Raw HTML string (not trimmed of inner content; size-capped). null/'' => null. */
-    public static function html(array $f, string $k, int $maxBytes = 1048576): ?string
+    /**
+     * Raw HTML string (not trimmed of inner content). null/'' => null. Capped at
+     * ArticleSanitizer::MAX_HTML_BYTES by default - the one limit every import also enforces,
+     * so whatever is imported can be saved again and projected (sanitiser memory grows with size).
+     */
+    public static function html(array $f, string $k, int $maxBytes = ArticleSanitizer::MAX_HTML_BYTES): ?string
     {
         $v = $f[$k] ?? null;
         if ($v === null) {
@@ -75,7 +80,8 @@ final class Patch
             throw ApiException::validation([$k => 'Contains characters that could not be read. Retype it and try again.']);
         }
         if (strlen($v) > $maxBytes) {
-            throw ApiException::validation([$k => 'This content is too long to save.']);
+            throw ApiException::validation([$k => 'This content is too long to save (at most ' . intdiv($maxBytes, 1024)
+                . ' KB of text and formatting). Split it into more than one lesson.']);
         }
         return trim($v) === '' ? null : $v;
     }
@@ -90,7 +96,7 @@ final class Patch
             }
             throw ApiException::validation([$k => 'Required.']);
         }
-        if (is_string($v) && preg_match('/^-?[0-9]{1,18}$/', trim($v)) === 1) {
+        if (is_string($v) && preg_match('/^-?[0-9]{1,18}$/D', trim($v)) === 1) {
             $v = (int) trim($v);
         }
         if (!is_int($v)) {

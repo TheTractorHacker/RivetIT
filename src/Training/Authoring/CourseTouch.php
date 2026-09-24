@@ -30,4 +30,16 @@ final class CourseTouch
     {
         Db::exec($db, 'UPDATE training_courses SET course_draft_updated_at_utc = ? WHERE course_id = ?', 'si', [$publishedAtUtc, $courseId]);
     }
+
+    /**
+     * settle(), but only while the draft is still the one that was compared: the course's
+     * draft timestamp must still equal $draftUpdatedAtUtc as read by that build (NULL-safe).
+     * An autosave that landed after the build keeps its newer timestamp, so "Unpublished
+     * changes" is not wiped out. Returns whether the course was settled.
+     */
+    public static function settleIfUnchanged(\mysqli $db, int $courseId, string $publishedAtUtc, ?string $draftUpdatedAtUtc): bool
+    {
+        return Db::exec($db, 'UPDATE training_courses SET course_draft_updated_at_utc = ? WHERE course_id = ? AND course_draft_updated_at_utc <=> ?',
+            'sis', [$publishedAtUtc, $courseId, $draftUpdatedAtUtc]) > 0;
+    }
 }

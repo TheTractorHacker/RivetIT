@@ -6,7 +6,6 @@ use ITFlow\Training\Api\ApiException;
 use ITFlow\Training\Core\Clock;
 use ITFlow\Training\Core\Ctx;
 use ITFlow\Training\Core\Db;
-use ITFlow\Training\Media\ArticleSanitizer;
 use ITFlow\Training\Media\MediaStore;
 use ITFlow\Training\Media\VideoLink;
 use ITFlow\Training\Publish\RevisionBuilder;
@@ -51,8 +50,8 @@ final class LearnerView
             if ($html === null || trim($html) === '') {
                 return null;
             }
-            $out = ArticleSanitizer::purify($html, static fn(int $id): ?string => $kinds[$id] ?? null);
-            $clean = is_array($out) ? (string) ($out['html'] ?? '') : (string) $out;
+            // Purified again at projection (§3.7); the same input is served from PurifyCache.
+            $clean = PurifyCache::purify($html, $kinds);
             return trim($clean) === '' ? null : $clean;
         };
         $pick = static fn(?array $map) => $map === null ? null : ($map[$lang] ?? $map[$default] ?? (reset($map) ?: null));

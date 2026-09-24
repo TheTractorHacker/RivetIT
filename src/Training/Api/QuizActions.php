@@ -196,7 +196,7 @@ final class QuizActions
     public static function importCommit(Ctx $c, ApiContext $a): array
     {
         $token = (string) $a->str('import_token', 32);
-        if (preg_match('/^[0-9a-f]{32}$/', $token) !== 1) {
+        if (preg_match('/^[0-9a-f]{32}$/D', $token) !== 1) {
             throw ApiException::validation(['import_token' => 'This import preview expired. Check the questions again.']);
         }
         $bankId = (int) $a->int('bank_id', true, 1);
@@ -214,6 +214,7 @@ final class QuizActions
     /** GET (raw, level 3) bank_export_csv: bank_id => CSV download with answer keys */
     public static function bankExportCsv(Ctx $c, ApiContext $a): never
     {
+        PublishActions::assertNotCrossSite();   // answer keys + an export log row: never from another site's link
         $bankId = (int) $a->int('bank_id', true, 1);
         $bank = Guard::bank($c->db, $bankId);
         $rows = QuestionExporter::bankRows($c->db, $bankId);
@@ -318,11 +319,9 @@ final class QuizActions
 
     // ------------------------------------------------------------------------------------------
 
-    /** logAction() after the service committed (legacy helper; absent in CLI harnesses). */
+    /** logAction() after the service committed (legacy helper; absent in CLI harnesses). Best-effort. */
     private static function log(string $action, string $description, int $entityId): void
     {
-        if (function_exists('logAction')) {
-            logAction('Training', $action, $description, 0, $entityId);
-        }
+        CourseActions::log($action, $description, $entityId);
     }
 }

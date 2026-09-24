@@ -32,7 +32,7 @@ final class I18nService
     public function set(string $entity, int $id, string $lang, string $field, ?string $value): bool
     {
         self::assertField($entity, $field);
-        if (preg_match('/^[a-z]{2}$/', $lang) !== 1) {
+        if (preg_match('/^[a-z]{2}$/D', $lang) !== 1) {
             throw new \InvalidArgumentException("I18nService: bad language '$lang'");
         }
         $current = Db::one(

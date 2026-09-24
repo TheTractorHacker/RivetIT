@@ -32,7 +32,7 @@ final class YouTubeDataApi
         if (preg_match(VideoLink::YOUTUBE_ID_RE, $id) !== 1) {
             throw new \InvalidArgumentException('YouTubeDataApi::details: bad video id');
         }
-        if ($key === '' || preg_match('/^[A-Za-z0-9_-]{10,100}$/', $key) !== 1) {
+        if ($key === '' || preg_match('/^[A-Za-z0-9_-]{10,100}$/D', $key) !== 1) {
             return null;
         }
         $url = self::ENDPOINT . '?' . http_build_query([
@@ -73,7 +73,7 @@ final class YouTubeDataApi
     /** ISO-8601 duration (PT1H2M3S, P1DT2H, P0D) to seconds; null when absent or zero. */
     public static function isoDuration(string $d): ?int
     {
-        if (preg_match('/^P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:\.\d+)?S)?)?$/', $d, $m) !== 1) {
+        if (preg_match('/^P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:\.\d+)?S)?)?$/D', $d, $m) !== 1) {
             return null;
         }
         $s = (int) ($m[1] ?? 0) * 604800 + (int) ($m[2] ?? 0) * 86400 + (int) ($m[3] ?? 0) * 3600 + (int) ($m[4] ?? 0) * 60 + (int) ($m[5] ?? 0);

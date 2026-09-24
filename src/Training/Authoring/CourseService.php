@@ -35,6 +35,11 @@ final class CourseService
     public const LIST_STATUSES = ['active', 'draft', 'published', 'changes', 'archived', 'all'];
     public const LIST_SORTS = ['updated', 'name', 'lessons'];
 
+    /** The published revision's default-language name / summary and its code (level-1 search, sort and display). */
+    private const REV_NAME_SQL = "JSON_VALUE(r.revision_json, CONCAT('$.course.text.', JSON_VALUE(r.revision_json, '$.course.default_language'), '.name'))";
+    private const REV_SUMMARY_SQL = "JSON_VALUE(r.revision_json, CONCAT('$.course.text.', JSON_VALUE(r.revision_json, '$.course.default_language'), '.summary'))";
+    private const REV_CODE_SQL = "JSON_VALUE(r.revision_json, '$.course.code')";
+
     private const ACK_STATEMENT = [
         'en' => ['I have read and understand ', '. I will follow it.'],
         'es' => ['He leído y entiendo ', '. Lo cumpliré.'],
@@ -51,7 +56,9 @@ final class CourseService
 
     /**
      * CourseSummary list, level-aware: level 1 sees published, non-archived courses only, with
-     * the name, summary and counts of the PUBLISHED version; level 2+ sees drafts too.
+     * the name, code, summary and counts of the PUBLISHED version; level 2+ sees drafts too.
+     * Nothing a level-1 reader can observe depends on the draft: the search matches the published
+     * text, the order uses published values, and updated_at is the version's publish time.
      *
      * @param array{q?:?string, kind?:?string, status?:?string, category_id?:?int, tag_ids?:list<int>, mine?:bool, sort?:?string} $filters
      * @return array{courses: list<array>, facets: array}
@@ -107,15 +114,23 @@ final class CourseService
         $q = trim((string) ($filters['q'] ?? ''));
         if ($q !== '') {
             $like = Patch::like($q);
-            $where[] = '(c.course_name LIKE ? OR c.course_code LIKE ? OR c.course_summary LIKE ?)';
+            $where[] = $reader
+                ? '(' . self::REV_NAME_SQL . ' LIKE ? OR ' . self::REV_CODE_SQL . ' LIKE ? OR ' . self::REV_SUMMARY_SQL . ' LIKE ?)'
+                : '(c.course_name LIKE ? OR c.course_code LIKE ? OR c.course_summary LIKE ?)';
             $types .= 'sss';
             array_push($params, $like, $like, $like);
         }
-        $order = match ($filters['sort'] ?? 'updated') {
-            'name' => 'c.course_name ASC, c.course_id ASC',
-            'lessons' => 'lessons_count DESC, c.course_name ASC',
-            default => 'COALESCE(c.course_updated_at, c.course_created_at) DESC, c.course_id DESC',
-        };
+        $order = $reader
+            ? match ($filters['sort'] ?? 'updated') {
+                'name' => 'rev_name ASC, c.course_id ASC',
+                'lessons' => 'rev_lessons DESC, rev_name ASC',
+                default => 'r.revision_published_at_utc DESC, c.course_id DESC',
+            }
+            : match ($filters['sort'] ?? 'updated') {
+                'name' => 'c.course_name ASC, c.course_id ASC',
+                'lessons' => 'lessons_count DESC, c.course_name ASC',
+                default => 'COALESCE(c.course_updated_at, c.course_created_at) DESC, c.course_id DESC',
+            };
 
         $rows = Db::all($db, 'SELECT ' . self::summaryColumns($reader) . '
             FROM training_courses c
@@ -430,7 +445,10 @@ final class CourseService
                 throw ApiException::validation(['languages' => 'That language is not offered. An administrator can add it in Admin › Training.']);
             }
         }
-        Db::tx($db, function () use ($db, $courseId, $offered, $required, $default): void {
+        Db::tx($db, function () use ($db, $courseId, $offered, $required, $default, $course): void {
+            if ($default !== $course['course_default_language']) {
+                $this->lockLanguageChildren($courseId);   // entity rows before the course row (spec §0)
+            }
             $current = Guard::writableCourse($db, $courseId, true);
             $csv = implode(',', array_merge([$default], array_values(array_diff($offered, [$default]))));
             if ($current['course_languages'] !== $csv) {
@@ -455,6 +473,9 @@ final class CourseService
     {
         $db = $this->c->db;
         Db::tx($db, function () use ($db, $courseId, $lang): void {
+            // The swap rewrites section titles and quiz intros: lock those entity rows first,
+            // then the course row (spec §0 lock order, same as section_update / quiz_update).
+            $this->lockLanguageChildren($courseId);
             $course = Guard::writableCourse($db, $courseId, true);
             $old = (string) $course['course_default_language'];
             if ($lang === $old) {
@@ -611,6 +632,22 @@ final class CourseService
         $this->assertBanksUnused($courseId);
 
         Db::tx($db, function () use ($db, $courseId, $course): void {
+            // Lock order (spec §0): every entity row this deletes, then the course row - the
+            // order lesson_update, section_update, quiz and question edits and bank moves use
+            // (they lock their own row, then touch the course).
+            // Lessons before sections, like OutlineService and SectionService::delete.
+            $lessonIds = array_map(static fn($r) => (int) $r['lesson_id'],
+                Db::all($db, 'SELECT lesson_id FROM training_lessons WHERE lesson_course_id = ? ORDER BY lesson_id FOR UPDATE', 'i', [$courseId]));
+            Db::all($db, 'SELECT csection_id FROM training_course_sections WHERE csection_course_id = ? ORDER BY csection_id FOR UPDATE', 'i', [$courseId]);
+            foreach (array_chunk($lessonIds, 500) as $chunk) {
+                Db::all($db, 'SELECT quiz_id FROM training_quizzes WHERE quiz_lesson_id IN (' . implode(',', array_fill(0, count($chunk), '?')) . ') ORDER BY quiz_id FOR UPDATE',
+                    str_repeat('i', count($chunk)), $chunk);
+            }
+            $bankIds = array_map(static fn($r) => (int) $r['qbank_id'], Db::all($db, 'SELECT qbank_id FROM training_question_banks WHERE qbank_course_id = ? ORDER BY qbank_id FOR UPDATE', 'i', [$courseId]));
+            foreach (array_chunk($bankIds, 500) as $chunk) {
+                Db::all($db, 'SELECT question_id FROM training_questions WHERE question_bank_id IN (' . implode(',', array_fill(0, count($chunk), '?')) . ') ORDER BY question_id FOR UPDATE',
+                    str_repeat('i', count($chunk)), $chunk);
+            }
             Guard::writableCourse($db, $courseId, true);
             if (Db::one($db, 'SELECT revision_id FROM training_revisions WHERE revision_course_id = ? LIMIT 1', 'i', [$courseId]) !== null) {
                 throw ApiException::validation(['course_id' => 'This course has been published. Archive it instead.'], 'Published courses can only be archived.');
@@ -641,6 +678,22 @@ final class CourseService
     // =========================================================================================
     // Helpers
     // =========================================================================================
+
+    /**
+     * Locks the rows a default-language swap rewrites (sections, then quizzes) before the course
+     * row. Lesson rows are only read (not locked), so this never takes lessons after sections -
+     * the reverse of OutlineService's order.
+     */
+    private function lockLanguageChildren(int $courseId): void
+    {
+        $db = $this->c->db;
+        Db::all($db, 'SELECT csection_id FROM training_course_sections WHERE csection_course_id = ? ORDER BY csection_id FOR UPDATE', 'i', [$courseId]);
+        $lessonIds = array_map(static fn($r) => (int) $r['lesson_id'], Db::all($db, 'SELECT lesson_id FROM training_lessons WHERE lesson_course_id = ?', 'i', [$courseId]));
+        foreach (array_chunk($lessonIds, 500) as $chunk) {
+            Db::all($db, 'SELECT quiz_id FROM training_quizzes WHERE quiz_lesson_id IN (' . implode(',', array_fill(0, count($chunk), '?')) . ') ORDER BY quiz_id FOR UPDATE',
+                str_repeat('i', count($chunk)), $chunk);
+        }
+    }
 
     /** [{course_id, name}] the course requires. */
     public static function prereqs(\mysqli $db, int $courseId): array
@@ -786,8 +839,9 @@ final class CourseService
         if ($reader) {
             // Level 1 sees the PUBLISHED version's text and shape, never the draft's.
             $cols .= ",
-            JSON_VALUE(r.revision_json, CONCAT('$.course.text.', JSON_VALUE(r.revision_json, '$.course.default_language'), '.name')) AS rev_name,
-            JSON_VALUE(r.revision_json, CONCAT('$.course.text.', JSON_VALUE(r.revision_json, '$.course.default_language'), '.summary')) AS rev_summary,
+            " . self::REV_NAME_SQL . " AS rev_name,
+            " . self::REV_SUMMARY_SQL . " AS rev_summary,
+            " . self::REV_CODE_SQL . " AS rev_code,
             JSON_VALUE(r.revision_json, '$.course.est_minutes') AS rev_est_minutes,
             JSON_VALUE(r.revision_json, '$.course.cover_media_id') AS rev_cover_media_id,
             JSON_VALUE(r.revision_json, '$.course.color') AS rev_color,
@@ -841,6 +895,8 @@ final class CourseService
                 $hasExam = (int) ($r['rev_has_exam'] ?? 0) === 1;
                 $est = (int) ($r['rev_est_minutes'] ?? 0);
                 $languages = array_values(array_filter(explode(',', (string) $r['revision_languages'])));
+                $code = $r['rev_code'] ?? null;
+                $updatedAt = Clock::toIso($r['revision_published_at_utc'], true);   // the version's date, not the draft's
             } else {
                 $name = (string) $r['course_name'];
                 $summary = $r['course_summary'];
@@ -851,12 +907,14 @@ final class CourseService
                 $hasExam = $quiz[$id]['exam'] ?? false;
                 $est = $r['course_est_minutes'] !== null ? (int) $r['course_est_minutes'] : ($auto[$id] ?? 0);
                 $languages = Guard::languages($r);
+                $code = $r['course_code'];
+                $updatedAt = Clock::toIso($r['course_updated_at'] ?? $r['course_created_at'], false);
             }
             $out[] = [
                 'id' => $id,
                 'uid' => (string) $r['course_uid'],
                 'kind' => (string) $r['course_kind'],
-                'code' => $r['course_code'],
+                'code' => $code,
                 'name' => $name,
                 'summary' => $summary,
                 'category' => $r['course_category_id'] !== null ? ($cats[(int) $r['course_category_id']] ?? null) : null,
@@ -873,7 +931,7 @@ final class CourseService
                 'languages' => $languages,
                 'required_languages' => $reader ? $languages : Guard::requiredLanguages($r),
                 'responsible_user_id' => $r['course_responsible_user_id'] === null ? null : (int) $r['course_responsible_user_id'],
-                'updated_at' => Clock::toIso($r['course_updated_at'] ?? $r['course_created_at'], false),
+                'updated_at' => $updatedAt,
                 'counts' => null,
             ];
         }

@@ -17,7 +17,7 @@ namespace ITFlow\Training\Media;
  */
 final class KbFileLocator
 {
-    private const NAME_RE = '/^[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/';
+    private const NAME_RE = '/^[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/D';
 
     private static ?string $rootOverride = null;
 

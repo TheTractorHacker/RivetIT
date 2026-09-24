@@ -38,8 +38,8 @@ final class DriftService
         $current = $repo->current($courseId);
         $hasChanges = $current === null || !hash_equals($current['sha256'], $build['sha256']);
         if (!$hasChanges && $build['course']['course_archived_at'] === null) {
-            Db::tx($db, function () use ($db, $courseId, $current): void {
-                CourseTouch::settle($db, $courseId, $current['published_at_utc']);
+            Db::tx($db, function () use ($db, $courseId, $current, $build): void {
+                CourseTouch::settleIfUnchanged($db, $courseId, $current['published_at_utc'], $build['draft_updated_at_utc']);
             });
         }
 
@@ -155,7 +155,7 @@ final class DriftService
                 'last_error' => $vc['vcheck_last_error'] ?? null,
                 'unverified' => $verifiedTs === null,
                 'stale' => $stale,
-                'problem' => $verifiedTs === null || $stale || $failed || ($status !== null && $status !== 'ok'),
+                'problem' => $verifiedTs === null || $stale || $failed || VideoRecheck::storedUnavailable($vc) !== null,
             ];
         }
         return $out;

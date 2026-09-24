@@ -81,8 +81,8 @@ final class RevisionPublisher
             $repo = new RevisionRepository($this->c);
             $head = $repo->currentHead($courseId);
             if ($head !== null && hash_equals($head['sha256'], $build['sha256'])) {
-                Db::tx($db, function () use ($db, $courseId, $head): void {
-                    CourseTouch::settle($db, $courseId, $head['published_at_utc']);
+                Db::tx($db, function () use ($db, $courseId, $head, $build): void {
+                    CourseTouch::settleIfUnchanged($db, $courseId, $head['published_at_utc'], $build['draft_updated_at_utc']);
                 });
                 throw new ApiException(409, 'no_changes', "Nothing has changed since Version {$head['number']}.");
             }

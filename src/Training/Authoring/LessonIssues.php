@@ -249,14 +249,14 @@ final class LessonIssues
         return MediaRefs::htmlEmpty($variant['lvar_body_html'] ?? null);
     }
 
+    /** video_check_failed = the player reported an error after the last successful play; the stored link-check status hints why. */
     private static function failedMessage(array $check): string
     {
         return match ($check['vcheck_status'] ?? null) {
-            'private' => 'This video is private. In YouTube Studio set Visibility to Unlisted.',
-            'embed_disabled' => 'Embedding is turned off for this video. Studio › Video › Show more › Allow embedding.',
-            'not_found' => 'This video could not be found. Check the link.',
-            'live' => "Live streams and Premieres can't be used.",
-            default => 'The last check of this video failed. Press play once to confirm it works.',
+            'private' => "This video didn't play. It may be private: in YouTube Studio set Visibility to Unlisted, then press play once.",
+            'embed_disabled' => "This video didn't play. Embedding may be turned off (Studio › Video › Show more › Allow embedding); then press play once.",
+            'not_found' => "This video didn't play and could not be found. Check the link.",
+            default => "This video didn't play the last time it was tried. Press play once to confirm it works.",
         };
     }
 }

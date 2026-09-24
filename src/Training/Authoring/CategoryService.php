@@ -25,8 +25,10 @@ final class CategoryService
     /** Live categories in display order, with how many live courses use each. */
     public function list(bool $includeArchived = false): array
     {
+        // A level-1 reader's counts cover published courses only (draft work is not visible to them).
+        $published = $this->c->level < 2 ? ' AND tc.course_current_revision_id IS NOT NULL' : '';
         $rows = Db::all($this->c->db, 'SELECT c.tcat_id, c.tcat_name, c.tcat_color, c.tcat_icon, c.tcat_sort, c.tcat_archived_at,
-                (SELECT COUNT(*) FROM training_courses tc WHERE tc.course_category_id = c.tcat_id AND tc.course_archived_at IS NULL) AS courses
+                (SELECT COUNT(*) FROM training_courses tc WHERE tc.course_category_id = c.tcat_id AND tc.course_archived_at IS NULL' . $published . ') AS courses
             FROM training_categories c' . ($includeArchived ? '' : ' WHERE c.tcat_archived_at IS NULL') . '
             ORDER BY c.tcat_sort, c.tcat_name');
         return array_map(static fn($r) => self::shape($r) + ['courses' => (int) $r['courses']], $rows);

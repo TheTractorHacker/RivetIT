@@ -249,23 +249,25 @@ final class PublishValidator
             if ($dur < self::VIDEO_MIN_S) {
                 $add(self::issue('video_duration_short', 'This video is shorter than 10 seconds, or its length is unknown.', $ref));
             }
-            if (in_array($vc['vcheck_status'], ['not_found', 'private', 'embed_disabled', 'live'], true)) {
-                $add(self::issue('video_unavailable', self::unavailableMessage((string) $vc['vcheck_status']), $ref));
-            }
         }
-        if ($network && $distinct !== []) {
-            $results = VideoRecheck::run($this->c->baseUrl, array_values($distinct));
-            foreach ($distinct as $key => $v) {
-                $r = $results[$key] ?? null;
-                $ref = $this->lessonRef($build, $v['uses'][0]['lesson_uid']) + ['lang' => $v['uses'][0]['lang']];
-                if ($r === null) {
-                    continue;
-                }
-                if ($r['status'] === 'unavailable') {
-                    $add(self::issue('video_unavailable', self::unavailableMessage((string) $r['reason']), $ref));
-                } elseif ($r['status'] === 'failed') {
-                    $add(self::issue('video_recheck_failed', "This video couldn't be checked just now. It will be published as last confirmed.", $ref));
-                }
+        // video_unavailable: a FRESH oEmbed answer of 401/403/404 decides when there is one (§3.5).
+        // Without one (network=0, or the re-check failed), the stored link-check answer counts only
+        // while it is newer than the last successful play - a video fixed in YouTube Studio and
+        // then played is not held to its old "private".
+        $results = ($network && $distinct !== []) ? VideoRecheck::run($this->c->baseUrl, array_values($distinct)) : [];
+        foreach ($distinct as $key => $v) {
+            $ref = $this->lessonRef($build, $v['uses'][0]['lesson_uid']) + ['lang' => $v['uses'][0]['lang']];
+            $r = $results[$key] ?? null;
+            if ($r !== null && $r['status'] === 'failed') {
+                $add(self::issue('video_recheck_failed', "This video couldn't be checked just now. It will be published as last confirmed.", $ref));
+            }
+            $reason = match ($r['status'] ?? null) {
+                'unavailable' => (string) $r['reason'],
+                'ok' => null,
+                default => VideoRecheck::storedUnavailable($v['vcheck']),
+            };
+            if ($reason !== null) {
+                $add(self::issue('video_unavailable', self::unavailableMessage($reason), $ref));
             }
         }
 

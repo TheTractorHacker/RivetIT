@@ -14,6 +14,9 @@ use ITFlow\Training\Media\SafeHttp;
  * Outcome per video: ok | unavailable (oEmbed answered 401/403/404: deleted, private or
  * embedding disabled) | failed (network error, timeout, or any other answer). "failed" is only
  * ever a warning - a flaky network must never block publishing.
+ *
+ * A stored check is reused only when it is still the newest evidence: an author who fixed the
+ * video's visibility and then played it successfully is re-checked, not held to the old answer.
  */
 final class VideoRecheck
 {
@@ -34,7 +37,8 @@ final class VideoRecheck
             $key = RevisionBuilder::videoKey($v['provider'], $v['id'], $v['hash']);
             $vc = $v['vcheck'];
             $checked = $vc === null ? null : self::ts($vc['vcheck_checked_at_utc'] ?? null);
-            if ($checked !== null && $nowTs - $checked < self::FRESH_S && $vc['vcheck_status'] !== null) {
+            if ($checked !== null && $nowTs - $checked < self::FRESH_S && $vc['vcheck_status'] !== null
+                && ($vc['vcheck_status'] === 'ok' || !self::playedAfterCheck($vc))) {
                 $out[$key] = self::fromStatus((string) $vc['vcheck_status'], $vc['vcheck_http'] === null ? null : (int) $vc['vcheck_http']);
                 continue;
             }
@@ -81,6 +85,31 @@ final class VideoRecheck
             'headers' => ['Referer' => rtrim($baseUrl, '/') . '/'],
             'max_bytes' => self::MAX_BYTES,
         ];
+    }
+
+    /**
+     * The stored link-check status when it says the video cannot be embedded AND it is newer than
+     * the last successful play (a later play proves it works here). Null otherwise - including a
+     * stored 'error', which is only a network failure at link-check time.
+     */
+    public static function storedUnavailable(?array $vc): ?string
+    {
+        $status = $vc['vcheck_status'] ?? null;
+        if (!in_array($status, ['not_found', 'private', 'embed_disabled', 'live'], true) || self::playedAfterCheck($vc)) {
+            return null;
+        }
+        return (string) $status;
+    }
+
+    /** A successful play was recorded after (or without) the stored link check. */
+    public static function playedAfterCheck(?array $vc): bool
+    {
+        $verified = $vc === null ? null : self::ts($vc['vcheck_verified_at_utc'] ?? null);
+        if ($verified === null) {
+            return false;
+        }
+        $checked = self::ts($vc['vcheck_checked_at_utc'] ?? null);
+        return $checked === null || $verified > $checked;
     }
 
     private static function fromStatus(string $status, ?int $http): array

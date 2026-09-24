@@ -21,15 +21,30 @@ final class TagService
     {
     }
 
-    /** Live tags with how many courses/lessons use them. */
+    /**
+     * Live tags with how many courses/lessons use them. A level-1 reader sees only tags on
+     * published, non-archived courses, counted over those courses (lesson tags live in drafts,
+     * so their count is 0) - tag names and counts never reveal draft or archived work.
+     */
     public function list(): array
     {
-        $rows = Db::all($this->c->db, "SELECT t.ttag_id, t.ttag_name, t.ttag_color,
-                SUM(l.ttlink_entity = 'course') AS courses, SUM(l.ttlink_entity = 'lesson') AS lessons
-            FROM training_tags t LEFT JOIN training_tag_links l ON l.ttlink_tag_id = t.ttag_id
-            WHERE t.ttag_archived_at IS NULL
-            GROUP BY t.ttag_id, t.ttag_name, t.ttag_color
-            ORDER BY t.ttag_name");
+        if ($this->c->level < 2) {
+            $rows = Db::all($this->c->db, "SELECT t.ttag_id, t.ttag_name, t.ttag_color, COUNT(DISTINCT c.course_id) AS courses, 0 AS lessons
+                FROM training_tags t
+                JOIN training_tag_links l ON l.ttlink_tag_id = t.ttag_id AND l.ttlink_entity = 'course'
+                JOIN training_courses c ON c.course_id = l.ttlink_entity_id
+                    AND c.course_archived_at IS NULL AND c.course_current_revision_id IS NOT NULL
+                WHERE t.ttag_archived_at IS NULL
+                GROUP BY t.ttag_id, t.ttag_name, t.ttag_color
+                ORDER BY t.ttag_name");
+        } else {
+            $rows = Db::all($this->c->db, "SELECT t.ttag_id, t.ttag_name, t.ttag_color,
+                    SUM(l.ttlink_entity = 'course') AS courses, SUM(l.ttlink_entity = 'lesson') AS lessons
+                FROM training_tags t LEFT JOIN training_tag_links l ON l.ttlink_tag_id = t.ttag_id
+                WHERE t.ttag_archived_at IS NULL
+                GROUP BY t.ttag_id, t.ttag_name, t.ttag_color
+                ORDER BY t.ttag_name");
+        }
         return array_map(static fn($r) => [
             'id' => (int) $r['ttag_id'],
             'name' => (string) $r['ttag_name'],

@@ -43,7 +43,7 @@ use ITFlow\Training\Core\Text;
  */
 final class MediaStore
 {
-    public const PATH_RE = '#^(content|evidence)/[0-9a-f]{2}/[0-9a-f]{64}\.(pdf|jpg|png|webp|gif|mp4|docx|xlsx|pptx|txt|csv)$#';
+    public const PATH_RE = '#^(content|evidence)/[0-9a-f]{2}/[0-9a-f]{64}\.(pdf|jpg|png|webp|gif|mp4|docx|xlsx|pptx|txt|csv)$#D';
 
     /** Kinds Phase 1 stores. 'evidence' belongs to the Phase 2 evidence pipeline and is never served. */
     public const KINDS = ['pdf', 'page', 'video', 'image', 'file'];
@@ -225,6 +225,32 @@ final class MediaStore
         return '/agent/training_media.php?m=' . $mediaId . ($download ? '&dl=1' : '');
     }
 
+    /**
+     * The ids among $mediaIds whose file is purged: their LATEST file event (media.file_purged /
+     * media.file_restored) is a purge. One query for any number of ids.
+     *
+     * @param list<int> $mediaIds
+     * @return array<int, true>
+     */
+    public static function purgedIds(\mysqli $db, array $mediaIds): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $mediaIds), static fn(int $i): bool => $i > 0)));
+        $out = [];
+        foreach (array_chunk($ids, 500) as $chunk) {
+            $in = implode(',', array_fill(0, count($chunk), '?'));
+            $rows = Db::all($db, "SELECT e.tevent_entity_id AS mid FROM training_events e
+                JOIN (SELECT tevent_entity_id AS mid, MAX(tevent_seq) AS last_seq FROM training_events
+                      WHERE tevent_entity_type = 'media' AND tevent_type IN ('media.file_purged', 'media.file_restored')
+                        AND tevent_entity_id IN ($in)
+                      GROUP BY tevent_entity_id) f ON f.last_seq = e.tevent_seq
+                WHERE e.tevent_type = 'media.file_purged'", str_repeat('i', count($chunk)), $chunk);
+            foreach ($rows as $r) {
+                $out[(int) $r['mid']] = true;
+            }
+        }
+        return $out;
+    }
+
     /** The type of the latest file event (stored / purged / restored) for a media id. */
     public function latestFileEvent(int $mediaId): ?string
     {
@@ -255,8 +281,8 @@ final class MediaStore
         }
         $pagesReady = null;
         if ($kind === 'pdf') {
-            $pr = Db::one($this->c->db, 'SELECT COUNT(*) AS n FROM training_media_pages WHERE mpage_pdf_media_id = ?', 'i', [$id]);
-            $pagesReady = (int) ($pr['n'] ?? 0);
+            // Pages whose file was purged are not ready: they are rendered again (PdfRenderService).
+            $pagesReady = PdfRenderService::readyCounts($this->c->db, [$id])[$id] ?? 0;
         }
         $int = static fn($v): ?int => $v === null ? null : (int) $v;
         return [
@@ -298,7 +324,7 @@ final class MediaStore
                             ?string $originalName, array $meta, string $purpose): array
     {
         $this->validateType($kind, $mime, $ext);
-        if (preg_match('/^[a-z0-9_]{0,40}$/', $purpose) !== 1) {
+        if (preg_match('/^[a-z0-9_]{0,40}$/D', $purpose) !== 1) {
             throw new \InvalidArgumentException('MediaStore: bad purpose');
         }
         $relPath = 'content/' . substr($sha, 0, 2) . '/' . $sha . '.' . $ext;
@@ -570,7 +596,7 @@ final class MediaStore
     {
         $u16 = static fn($v): ?string => (is_int($v) && $v > 0 && $v <= 65535) ? (string) $v : null;
         $u32 = static fn($v): ?string => (is_int($v) && $v >= 0 && $v <= 4294967295) ? (string) $v : null;
-        $codec = static fn($v): ?string => (is_string($v) && preg_match('/^[A-Za-z0-9 ._-]{1,8}$/', $v) === 1) ? $v : null;
+        $codec = static fn($v): ?string => (is_string($v) && preg_match('/^[A-Za-z0-9 ._-]{1,8}$/D', $v) === 1) ? $v : null;
         $fs = $meta['faststart'] ?? null;
         return [
             'media_width' => $u16($meta['width'] ?? null),

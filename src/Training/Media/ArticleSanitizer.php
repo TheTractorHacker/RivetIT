@@ -25,14 +25,27 @@ namespace ITFlow\Training\Media;
  *
  * The kind check needs the database, so callers pass $mediaKindOf (MediaStore::kindLookup());
  * without it only the URL shape is enforced.
+ *
+ * SIZE. HTMLPurifier's memory grows with the number of elements: measured on this box, 512 KB of
+ * the densest inline markup peaks near 170 MB (ordinary paragraphs: about 22 MB). One cap,
+ * MAX_HTML_BYTES, therefore applies at every entry point - the save patch (Authoring\Patch::html),
+ * DOCX import and KB import - so nothing is stored that cannot be saved again or projected, and
+ * purify() raises the request's memory_limit to MEMORY_FLOOR for inputs past 64 KB (only ever
+ * raising it; FPM's default is 128M).
  */
 final class ArticleSanitizer
 {
     public const ALLOWED_CLASSES = ['table', 'table-bordered', 'table-striped', 'table-sm', 'text-start', 'text-center', 'text-end',
         'fw-bold', 'fst-italic', 'small', 'lead', 'img-fluid', 'tr-callout', 'tr-callout--info', 'tr-callout--warning', 'tr-callout--danger'];
 
-    public const MEDIA_SRC_RE = '#^/agent/training_media\.php\?m=([1-9][0-9]{0,9})$#';
-    public const MEDIA_HREF_RE = '#^/agent/training_media\.php\?m=([1-9][0-9]{0,9})(&dl=1)?$#';
+    /** The largest authored HTML field, in bytes, anywhere in Training. */
+    public const MAX_HTML_BYTES = 524288;
+    /** An importer refuses source HTML larger than this before any work (the result must still fit MAX_HTML_BYTES). */
+    public const MAX_SOURCE_HTML_BYTES = 1048576;
+    private const MEMORY_FLOOR = 268435456;
+
+    public const MEDIA_SRC_RE = '#^/agent/training_media\.php\?m=([1-9][0-9]{0,9})$#D';
+    public const MEDIA_HREF_RE = '#^/agent/training_media\.php\?m=([1-9][0-9]{0,9})(&dl=1)?$#D';
 
     /** Attributes that can carry a URL; outside <img src> / <a href> they are dropped outright. */
     private const URL_ATTRS = ['src', 'href', 'cite', 'longdesc', 'background', 'action', 'formaction', 'data', 'poster', 'srcset',
@@ -50,6 +63,7 @@ final class ArticleSanitizer
         if (trim($html) === '') {
             return ['html' => '', 'removed' => $removed];
         }
+        self::ensureMemory(strlen($html));
         $pre = self::prePass($html);
         $removed['ikb'] = $pre['ikb'];
         $removed['class'] = $pre['class'];
@@ -74,8 +88,31 @@ final class ArticleSanitizer
         if (trim($html) === '') {
             return ['html' => '', 'removed' => ['class' => 0, 'ikb' => 0]];
         }
+        self::ensureMemory(strlen($html));
         $pre = self::prePass($html);
         return ['html' => self::purifier()->purify($pre['html']), 'removed' => ['class' => $pre['class'], 'ikb' => $pre['ikb']]];
+    }
+
+    /** Raises memory_limit to MEMORY_FLOOR for a large input (never lowers it; -1 = unlimited stays). */
+    private static function ensureMemory(int $bytes): void
+    {
+        if ($bytes <= 65536) {
+            return;
+        }
+        $cur = trim((string) ini_get('memory_limit'));
+        if ($cur === '' || $cur === '-1') {
+            return;
+        }
+        $n = (int) $cur;
+        $n *= match (strtolower(substr($cur, -1))) {
+            'g' => 1073741824,
+            'm' => 1048576,
+            'k' => 1024,
+            default => 1,
+        };
+        if ($n > 0 && $n < self::MEMORY_FLOOR) {
+            @ini_set('memory_limit', (string) self::MEMORY_FLOOR);
+        }
     }
 
     /**
@@ -251,7 +288,7 @@ final class ArticleSanitizer
         if (preg_match(self::MEDIA_HREF_RE, $href, $m) === 1) {
             return $kindOf === null || in_array($kindOf((int) $m[1]), ['file', 'pdf'], true);
         }
-        if (preg_match('/^mailto:[^\s<>"]+$/i', $href) === 1) {
+        if (preg_match('/^mailto:[^\s<>"]+$/iD', $href) === 1) {
             return true;
         }
         if (preg_match('#^https://#i', $href) === 1) {

@@ -80,7 +80,7 @@ final class LessonService
             if ($ref === null) {
                 throw ApiException::validation(['media_id' => 'This content type has no file.']);
             }
-            MediaRefs::require($db, $mediaId, $ref, 'media_id');
+            $this->assertDocumentPages(MediaRefs::require($db, $mediaId, $ref, 'media_id'), $ref);
             $variant['lvar_media_id'] = $mediaId;
             if ($type === 'video') {
                 $variant['lvar_video_provider'] = 'upload';
@@ -173,7 +173,7 @@ final class LessonService
             }
             $mediaId = Patch::id($fields, 'media_id');
             if ($mediaId !== null) {
-                MediaRefs::require($db, $mediaId, $ref, 'media_id');
+                $this->assertDocumentPages(MediaRefs::require($db, $mediaId, $ref, 'media_id'), $ref);
             }
             $v['lvar_media_id'] = $mediaId;
             if ($type === 'video' && $mediaId !== null) {
@@ -505,7 +505,7 @@ final class LessonService
         $html = (string) ($import['html'] ?? '');
         $sourceSha = (string) ($import['source_sha256'] ?? '');
         $bodySha = (string) ($import['body_sha256'] ?? '');
-        if ($articleId <= 0 || preg_match('/^[0-9a-f]{64}$/', $sourceSha) !== 1 || preg_match('/^[0-9a-f]{64}$/', $bodySha) !== 1) {
+        if ($articleId <= 0 || preg_match('/^[0-9a-f]{64}$/D', $sourceSha) !== 1 || preg_match('/^[0-9a-f]{64}$/D', $bodySha) !== 1) {
             throw new \InvalidArgumentException('applyImportedArticle: import needs article_id, source_sha256 and body_sha256');
         }
         $title = Text::clip(trim((string) ($import['title'] ?? '')), 200);
@@ -575,10 +575,27 @@ final class LessonService
         }
     }
 
+    /**
+     * A document's PDF must fit Admin › Training's page limit, whatever it was uploaded as: a
+     * resource-file or KB-copied PDF is not page-capped at upload, and every page of a document
+     * is rendered (media budget, render time).
+     */
+    private function assertDocumentPages(array $media, string $ref): void
+    {
+        if ($ref !== 'document') {
+            return;
+        }
+        $pages = (int) ($media['media_page_count'] ?? 0);
+        $max = $this->c->settings->pdfMaxPages;
+        if ($max > 0 && $pages > $max) {
+            throw ApiException::validation(['media_id' => "This PDF has $pages pages; the limit is $max. Split it into smaller documents."]);
+        }
+    }
+
     /** Persists a video link check (depth 0) and returns the variant columns for it. */
     private function persistVideo(string $token): array
     {
-        if (preg_match('/^[0-9a-f]{32}$/', $token) !== 1) {
+        if (preg_match('/^[0-9a-f]{32}$/D', $token) !== 1) {
             throw ApiException::validation(['video_check_token' => 'Check the link again.']);
         }
         try {

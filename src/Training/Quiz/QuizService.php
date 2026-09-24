@@ -679,7 +679,7 @@ final class QuizService
 
     private static function intIn(mixed $v, int $min, int $max, string $field): int
     {
-        if (is_string($v) && preg_match('/^-?[0-9]{1,9}$/', trim($v))) {
+        if (is_string($v) && preg_match('/^-?[0-9]{1,9}$/D', trim($v))) {
             $v = (int) trim($v);
         }
         if (!is_int($v) || $v < $min || $v > $max) {

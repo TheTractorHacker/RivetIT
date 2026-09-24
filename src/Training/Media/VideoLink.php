@@ -17,9 +17,9 @@ namespace ITFlow\Training\Media;
  */
 final class VideoLink
 {
-    public const YOUTUBE_ID_RE = '/^[A-Za-z0-9_-]{11}$/';
-    public const VIMEO_ID_RE = '/^[0-9]{6,12}$/';
-    public const VIMEO_HASH_RE = '/^[0-9a-f]{6,20}$/';
+    public const YOUTUBE_ID_RE = '/^[A-Za-z0-9_-]{11}$/D';
+    public const VIMEO_ID_RE = '/^[0-9]{6,12}$/D';
+    public const VIMEO_HASH_RE = '/^[0-9a-f]{6,20}$/D';
 
     private const YOUTUBE_HOSTS = ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'];
     private const NOCOOKIE_HOSTS = ['youtube-nocookie.com', 'www.youtube-nocookie.com'];

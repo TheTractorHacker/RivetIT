@@ -20,7 +20,7 @@ final class ArticleMediaRefs
 {
     private const TAG_RE = '/<(img|a)(?=[\s>\/])[^>]*>/i';
     private const ATTR_RE = '/\s+([^\s"\'>\/=]+)(?:\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'=<>`]+)))?/';
-    private const URL_RE = '#^/agent/training_media\.php\?m=([1-9][0-9]{0,9})(&dl=1)?$#';
+    private const URL_RE = '#^/agent/training_media\.php\?m=([1-9][0-9]{0,9})(&dl=1)?$#D';
 
     /** @return list<int> */
     public static function extract(string $html): array

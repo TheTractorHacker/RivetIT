@@ -40,7 +40,7 @@ final class PreviewActions
     public static function submit(Ctx $c, ApiContext $a): array
     {
         $token = (string) $a->str('attempt_token', 32);
-        if (preg_match('/^[0-9a-f]{32}$/', $token) !== 1) {
+        if (preg_match('/^[0-9a-f]{32}$/D', $token) !== 1) {
             throw ApiException::notFound('This preview attempt has expired. Start the quiz again.');
         }
         $answers = $a->has('answers') ? $a->arr('answers') : [];

@@ -226,7 +226,7 @@ final class QuestionImporter
             $pointsRaw = trim($get('points'));
             $points = 1;
             if ($pointsRaw !== '') {
-                if (preg_match('/^[0-9]{1,3}$/', $pointsRaw) !== 1 || (int) $pointsRaw < QuestionRules::MIN_POINTS || (int) $pointsRaw > QuestionRules::MAX_POINTS) {
+                if (preg_match('/^[0-9]{1,3}$/D', $pointsRaw) !== 1 || (int) $pointsRaw < QuestionRules::MIN_POINTS || (int) $pointsRaw > QuestionRules::MAX_POINTS) {
                     $rowErrors[] = ['field' => 'points', 'message' => 'Points must be a whole number from 1 to 10.'];
                 } else {
                     $points = (int) $pointsRaw;
@@ -315,14 +315,14 @@ final class QuestionImporter
             $answer = null;
             $bad = null;
             foreach ($lines as $line) {
-                if (preg_match('/^(?:ANSWER|RESPUESTA)\s*[:：]\s*(.*)$/iu', $line, $m) === 1) {
+                if (preg_match('/^(?:ANSWER|RESPUESTA)\s*[:：]\s*(.*)$/iuD', $line, $m) === 1) {
                     $answer = self::letters($m[1]);
                     if ($answer === null || $answer === []) {
                         $bad = 'The ANSWER line must name letters, e.g. ANSWER: B.';
                     }
                     continue;
                 }
-                if (preg_match('/^(\*?)\s*([A-Ha-h])\s*[\).]\s*(\*?)\s*(.+)$/u', $line, $m) === 1 && ($question !== [] || $opts !== [])) {
+                if (preg_match('/^(\*?)\s*([A-Ha-h])\s*[\).]\s*(\*?)\s*(.+)$/uD', $line, $m) === 1 && ($question !== [] || $opts !== [])) {
                     $L = strtoupper($m[2]);
                     if (isset($opts[$L])) {
                         $bad = "Answer $L appears twice.";
@@ -585,7 +585,7 @@ final class QuestionImporter
         if ($raw === '') {
             return [];
         }
-        if (preg_match('/^[A-H](?:\s*[,;\/ ]?\s*[A-H])*$/', $raw) !== 1) {
+        if (preg_match('/^[A-H](?:\s*[,;\/ ]?\s*[A-H])*$/D', $raw) !== 1) {
             return null;
         }
         preg_match_all('/[A-H]/', $raw, $m);

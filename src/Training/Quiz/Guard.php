@@ -93,13 +93,13 @@ final class Guard
     public static function languages(array $course): array
     {
         $default = (string) ($course['course_default_language'] ?? 'en');
-        if (preg_match('/^[a-z]{2}$/', $default) !== 1) {
+        if (preg_match('/^[a-z]{2}$/D', $default) !== 1) {
             $default = 'en';
         }
         $offered = [$default];
         foreach (explode(',', (string) ($course['course_languages'] ?? '')) as $l) {
             $l = strtolower(trim($l));
-            if (preg_match('/^[a-z]{2}$/', $l) === 1 && !in_array($l, $offered, true)) {
+            if (preg_match('/^[a-z]{2}$/D', $l) === 1 && !in_array($l, $offered, true)) {
                 $offered[] = $l;
             }
         }

@@ -61,7 +61,7 @@ if ($tr_method !== 'GET' && $tr_method !== 'HEAD') {
     exit;
 }
 $tr_m = $_GET['m'] ?? null;
-if (!is_string($tr_m) || preg_match('/^[1-9][0-9]{0,9}$/', $tr_m) !== 1 || Access::level() < 1) {
+if (!is_string($tr_m) || preg_match('/^[1-9][0-9]{0,9}$/D', $tr_m) !== 1 || Access::level() < 1) {
     tr_media_not_found();
 }
 $tr_download = ($_GET['dl'] ?? null) === '1';

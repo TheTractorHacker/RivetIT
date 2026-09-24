@@ -173,7 +173,7 @@ final class PathService
         $seen = [];
         foreach ($list as $item) {
             $cid = is_array($item) ? ($item['course_id'] ?? null) : $item;
-            if (is_string($cid) && preg_match('/^[0-9]{1,10}$/', $cid) === 1) {
+            if (is_string($cid) && preg_match('/^[0-9]{1,10}$/D', $cid) === 1) {
                 $cid = (int) $cid;
             }
             if (!is_int($cid) || $cid < 1) {

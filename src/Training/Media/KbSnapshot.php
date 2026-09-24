@@ -82,6 +82,11 @@ final class KbSnapshot
         }
         $raw = (string) ($art['kb_article_content'] ?? '');
         $warnings = [];
+        // One HTML limit everywhere (ArticleSanitizer::MAX_HTML_BYTES): an article that could be
+        // imported but never saved or previewed again is refused up front, before any copy.
+        if (strlen($raw) > ArticleSanitizer::MAX_SOURCE_HTML_BYTES) {
+            throw self::tooLong(strlen($raw));
+        }
 
         $stage1 = ArticleSanitizer::purifyMarkup($raw);
         $notes = ['other_article' => 0, 'missing' => 0, 'unsupported' => 0, 'too_large' => 0];
@@ -119,6 +124,9 @@ final class KbSnapshot
 
         $final = ArticleSanitizer::purify($mapped, $s->kindLookup());
         $html = $final['html'];
+        if (strlen($html) > ArticleSanitizer::MAX_HTML_BYTES) {
+            throw self::tooLong(strlen($html));
+        }
 
         if ($notes['other_article'] > 0) {
             $warnings[] = self::plural($notes['other_article'], 'picture or file belonging to another article was', 'pictures or files belonging to other articles were') . ' removed.';
@@ -223,6 +231,12 @@ final class KbSnapshot
         $start = ($pos === false || $pos < 60) ? 0 : $pos - 60;
         $snippet = mb_substr($text, $start, 180, 'UTF-8');
         return ($start > 0 ? '…' : '') . $snippet . (mb_strlen($text, 'UTF-8') > $start + 180 ? '…' : '');
+    }
+
+    private static function tooLong(int $bytes): MediaException
+    {
+        return new MediaException(413, 'too_large', 'This Knowledge Base article is too long for one lesson (' . (int) ceil($bytes / 1024)
+            . ' KB of text and formatting; the limit is ' . intdiv(ArticleSanitizer::MAX_HTML_BYTES, 1024) . ' KB). Split the article, or import part of it.');
     }
 
     private static function plural(int $n, string $one, string $many): string

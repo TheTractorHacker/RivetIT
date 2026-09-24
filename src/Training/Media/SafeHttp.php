@@ -211,7 +211,7 @@ final class SafeHttp
         foreach ($headers as $name => $value) {
             $name = (string) $name;
             $value = (string) $value;
-            if (preg_match('/^[A-Za-z0-9-]{1,64}$/', $name) !== 1 || preg_match('/[\r\n\0]/', $value) === 1 || strlen($value) > 1024) {
+            if (preg_match('/^[A-Za-z0-9-]{1,64}$/D', $name) !== 1 || preg_match('/[\r\n\0]/', $value) === 1 || strlen($value) > 1024) {
                 throw new SafeHttpException('bad_url', 'Invalid request header');
             }
             $hdr[] = $name . ': ' . $value;

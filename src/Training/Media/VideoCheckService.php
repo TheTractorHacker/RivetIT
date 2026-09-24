@@ -157,7 +157,7 @@ final class VideoCheckService
     public function persist(string $checkToken): array
     {
         MediaStore::assertOutsideTx();
-        $d = preg_match('/^[0-9a-f]{32}$/', $checkToken) === 1 ? Scratch::get('vcheck', $checkToken, $this->c->userId) : null;
+        $d = preg_match('/^[0-9a-f]{32}$/D', $checkToken) === 1 ? Scratch::get('vcheck', $checkToken, $this->c->userId) : null;
         if ($d === null) {
             throw MediaException::validation('video_check_token', 'The video check expired. Paste the link again.');
         }
@@ -190,7 +190,7 @@ final class VideoCheckService
         $dur = $d['meta_duration_s'] ?? null;
         $dur = (is_int($dur) && $dur > 0) ? $dur : null;
         $src = in_array($d['meta_duration_source'] ?? null, ['oembed', 'data_api'], true) && $dur !== null ? $d['meta_duration_source'] : null;
-        $checkedAt = is_string($d['checked_at_utc'] ?? null) && preg_match('/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}$/', $d['checked_at_utc']) === 1
+        $checkedAt = is_string($d['checked_at_utc'] ?? null) && preg_match('/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}$/D', $d['checked_at_utc']) === 1
             ? $d['checked_at_utc'] : Clock::nowUtc();
         $http = is_int($d['http'] ?? null) && $d['http'] >= 0 && $d['http'] <= 999 ? $d['http'] : null;
 
@@ -244,7 +244,7 @@ final class VideoCheckService
                     vcheck_verified_at_utc = VALUES(vcheck_verified_at_utc), vcheck_verified_by = VALUES(vcheck_verified_by)",
                 'sssisi', [$v['provider'], $v['id'], $v['hash'], $durationS, $now, $this->c->userId]);
         } else {
-            $code = ($errorCode !== null && preg_match('/^[A-Za-z0-9_.-]{1,40}$/', $errorCode) === 1) ? $errorCode : 'player_error';
+            $code = ($errorCode !== null && preg_match('/^[A-Za-z0-9_.-]{1,40}$/D', $errorCode) === 1) ? $errorCode : 'player_error';
             Db::exec($this->c->db, "INSERT INTO training_video_checks
                     (vcheck_provider, vcheck_ext_id, vcheck_ext_hash, vcheck_last_error, vcheck_last_error_at_utc)
                 VALUES (?, ?, ?, ?, ?)
@@ -301,6 +301,10 @@ final class VideoCheckService
         $errorAt = $row['vcheck_last_error_at_utc'] ?? null;
         $cutoff = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->modify('-' . self::FRESH_DAYS . ' days')->format('Y-m-d H:i:s.v');
         $fresh = $verifiedAt !== null && (string) $verifiedAt >= $cutoff && ($errorAt === null || (string) $errorAt <= (string) $verifiedAt);
+        // A successful play newer than the link check proves the video plays here: the check's
+        // fix-it hint ("set Visibility to Unlisted", "service did not answer") no longer applies.
+        $checkedAt = $row['vcheck_checked_at_utc'] ?? null;
+        $superseded = $verifiedAt !== null && ($checkedAt === null || (string) $verifiedAt > (string) $checkedAt);
         $thumb = $int($row['vcheck_thumb_media_id'] ?? null);
         $meta = $int($row['vcheck_meta_duration_s'] ?? null);
         $play = $int($row['vcheck_play_duration_s'] ?? null);
@@ -315,7 +319,7 @@ final class VideoCheckService
             'thumb_media_id' => $thumb,
             'thumb_url' => $thumb === null ? null : MediaStore::url($thumb),
             'status' => $row['vcheck_status'] === null ? null : (string) $row['vcheck_status'],
-            'status_message' => $row['vcheck_status'] === null ? null : (self::STATUS_MESSAGES[(string) $row['vcheck_status']] ?? null),
+            'status_message' => $row['vcheck_status'] === null || $superseded ? null : (self::STATUS_MESSAGES[(string) $row['vcheck_status']] ?? null),
             'meta_duration_s' => $meta,
             'meta_duration_source' => $row['vcheck_meta_duration_source'] === null ? null : (string) $row['vcheck_meta_duration_source'],
             'checked_at' => Clock::toIso($row['vcheck_checked_at_utc'] === null ? null : (string) $row['vcheck_checked_at_utc'], true),

@@ -12,6 +12,13 @@ namespace ITFlow\Training\Media;
  * on any edge) are enforced BEFORE any decode: a 20 MP or 9000 px image is refused without GD
  * ever allocating its bitmap (a 16 MP truecolor bitmap is already 64 MB).
  *
+ * CPU. The size caps bound memory, not decode time: a progressive JPEG can repeat its scans
+ * thousands of times within them, and libjpeg decodes every one in this PHP worker. A JPEG with
+ * more than MAX_JPEG_SCANS start-of-scan markers is therefore refused before decoding (a normal
+ * progressive photo has about 10; our own output has 10). Counting the FF DA byte pair is enough:
+ * inside entropy-coded data every FF is stuffed (FF 00), so the pair only appears as a marker -
+ * or in metadata, which can only over-count.
+ *
  * Output: the long edge scaled down to at most 2400 px; JPEG orientation from EXIF applied to
  * the pixels (so every viewer shows it upright without reading EXIF); opaque images as JPEG
  * quality 85, images with real transparency as PNG. Deterministic for the same input, which
@@ -23,6 +30,7 @@ final class ImageProcessor
     public const MAX_EDGE = 8000;
     public const TARGET_EDGE = 2400;
     public const JPEG_QUALITY = 85;
+    public const MAX_JPEG_SCANS = 64;
 
     /** Input types accepted for decoding (uploads are narrowed further by FileValidator). */
     private const TYPES = [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP, IMAGETYPE_GIF, IMAGETYPE_BMP];
@@ -49,6 +57,9 @@ final class ImageProcessor
     {
         $info = self::inspectBytes($bytes);
         $type = $info['type'];
+        if ($type === IMAGETYPE_JPEG && substr_count($bytes, "\xFF\xDA") > self::MAX_JPEG_SCANS) {
+            throw MediaException::unsupported('That JPEG is saved in an unusual way that takes too long to open. Save it again as a normal JPEG or PNG.');
+        }
 
         // The type was verified from the header above; GD picks its decoder from the same magic.
         $img = @imagecreatefromstring($bytes);

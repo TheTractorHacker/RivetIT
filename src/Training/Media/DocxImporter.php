@@ -34,6 +34,11 @@ final class DocxImporter
         }
         $warnings = array_values(array_map('strval', $doc['warnings'] ?? []));
         $html = (string) $doc['html'];
+        // Refused before any picture is stored: the article must fit the one HTML limit
+        // (ArticleSanitizer::MAX_HTML_BYTES) to be saved, edited and previewed afterwards.
+        if (strlen($html) > ArticleSanitizer::MAX_SOURCE_HTML_BYTES) {
+            throw self::tooLong(strlen($html));
+        }
         $dropped = 0;
         $tooBig = 0;
         $replace = [];
@@ -63,6 +68,9 @@ final class DocxImporter
             $html = strtr($html, $replace);
         }
         $clean = ArticleSanitizer::purify($html, $s->kindLookup());
+        if (strlen($clean['html']) > ArticleSanitizer::MAX_HTML_BYTES) {
+            throw self::tooLong(strlen($clean['html']));
+        }
 
         if ($tooBig > 0) {
             $warnings[] = $tooBig === 1 ? '1 picture was larger than 16 megapixels and was left out.' : "$tooBig pictures were larger than 16 megapixels and were left out.";
@@ -76,5 +84,11 @@ final class DocxImporter
                 : "$links links that are not web (https) or email links were turned into plain text.";
         }
         return ['html' => $clean['html'], 'media_ids' => ArticleMediaRefs::extract($clean['html']), 'warnings' => $warnings];
+    }
+
+    private static function tooLong(int $bytes): MediaException
+    {
+        return new MediaException(413, 'too_large', 'This document is too long for one article (' . (int) ceil($bytes / 1024) . ' KB of text and formatting; the limit is '
+            . intdiv(ArticleSanitizer::MAX_HTML_BYTES, 1024) . ' KB). Split it into smaller documents.');
     }
 }

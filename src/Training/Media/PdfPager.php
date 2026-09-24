@@ -65,6 +65,23 @@ final class PdfPager
      */
     public static function renderRange(string $pdfPath, int $first, int $last, string $scratch): array
     {
+        $out = self::renderRangeWithin($pdfPath, $first, $last, $scratch, self::RENDER_TIMEOUT_MS);
+        if ($out === null) {
+            throw MediaException::unsupported("Page $first of this PDF took too long to prepare. Save the PDF again (File › Save As › PDF) and retry.");
+        }
+        return $out;
+    }
+
+    /**
+     * As renderRange(), with the caller's time limit (at most 60 s): null when pdftoppm did not
+     * finish in time. The caller then discards the whole chunk - a killed pdftoppm may have left
+     * a truncated JPEG behind, and page media is immutable once stored.
+     *
+     * @return array<int, string>|null
+     */
+    public static function renderRangeWithin(string $pdfPath, int $first, int $last, string $scratch, int $timeoutMs): ?array
+    {
+        $timeoutMs = max(1000, min(self::RENDER_TIMEOUT_MS, $timeoutMs));
         $pdfPath = self::checkedPath($pdfPath);
         if ($first < 1 || $last < $first) {
             throw new \InvalidArgumentException('PdfPager::renderRange: bad page range');
@@ -77,9 +94,9 @@ final class PdfPager
             self::PDFTOPPM, '-jpeg', '-jpegopt', 'quality=82,optimize=y', '-scale-to', '1600',
             '-f', (string) $first, '-l', (string) $last, $pdfPath, $scratchReal . '/pg',
         ]);
-        $r = Process::run($argv, $scratchReal, self::RENDER_TIMEOUT_MS);
+        $r = Process::run($argv, $scratchReal, $timeoutMs);
         if ($r['timedout']) {
-            throw MediaException::unsupported("Page $first of this PDF took too long to prepare. Save the PDF again (File › Save As › PDF) and retry.");
+            return null;
         }
         if ($r['code'] !== 0) {
             if (stripos($r['stderr'], 'password') !== false) {

@@ -106,7 +106,7 @@ final class OutlineService
 
     private static function intId(mixed $v, string $field): int
     {
-        if (is_string($v) && preg_match('/^[0-9]{1,10}$/', $v) === 1) {
+        if (is_string($v) && preg_match('/^[0-9]{1,10}$/D', $v) === 1) {
             $v = (int) $v;
         }
         if (!is_int($v) || $v < 1) {

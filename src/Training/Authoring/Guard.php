@@ -142,7 +142,7 @@ final class Guard
         $out = [$default];
         foreach (explode(',', $csv) as $l) {
             $l = strtolower(trim($l));
-            if (preg_match('/^[a-z]{2}$/', $l) === 1 && !in_array($l, $out, true)) {
+            if (preg_match('/^[a-z]{2}$/D', $l) === 1 && !in_array($l, $out, true)) {
                 $out[] = $l;
             }
         }

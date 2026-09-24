@@ -119,7 +119,7 @@ final class Process
         if ($base === false) {
             throw new \RuntimeException('Process: no writable temporary directory');
         }
-        if (preg_match('/^[a-z0-9_-]{1,32}$/', $prefix) !== 1) {
+        if (preg_match('/^[a-z0-9_-]{1,32}$/D', $prefix) !== 1) {
             throw new \InvalidArgumentException('Process: bad scratch prefix');
         }
         $dir = $base . '/' . $prefix . '-' . bin2hex(random_bytes(16));

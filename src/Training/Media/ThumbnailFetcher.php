@@ -18,7 +18,7 @@ namespace ITFlow\Training\Media;
 final class ThumbnailFetcher
 {
     private const MAX_BYTES = 2097152;
-    private const VIMEO_PATH_RE = '#^/video/[0-9A-Za-z_-]{1,200}(?:\.(?:jpg|jpeg|png|webp))?$#';
+    private const VIMEO_PATH_RE = '#^/video/[0-9A-Za-z_-]{1,200}(?:\.(?:jpg|jpeg|png|webp))?$#D';
 
     /** @return string|null JPEG bytes */
     public static function fetchBytes(array $v, ?string $oembedThumb): ?string

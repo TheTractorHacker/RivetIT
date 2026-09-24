@@ -12,6 +12,12 @@ use ITFlow\Training\Media\MediaStore;
  * video. Read-only here - VideoCheckService (Lane B) is the only writer.
  *
  * A verification counts when it is at most 30 days old and no error was recorded after it.
+ *
+ * "failed" means exactly that: a player error recorded after the last successful play (spec
+ * §4.4 "no error recorded after it"). The oEmbed status stored at link-check time is NOT a
+ * failure here - an 'error' there is only a network hiccup (§3.5: never an error), and
+ * private / embed_disabled / not_found are judged at publish by a fresh re-check
+ * (PublishValidator video_unavailable). Pressing play clears a failure, as the message says.
  */
 final class VideoRefs
 {
@@ -71,13 +77,12 @@ final class VideoRefs
             $fresh = strcmp((string) $verifiedAt, $cut) >= 0;
         }
         $failedAfter = $errorAt !== null && ($verifiedAt === null || strcmp((string) $errorAt, (string) $verifiedAt) > 0);
-        $status = $row['vcheck_status'] ?? null;
         $duration = self::duration($row);
         return [
             'verified' => $verified,
             'fresh' => $verified && $fresh && !$failedAfter,
             'stale' => $verified && !$fresh,
-            'failed' => $failedAfter || ($status !== null && $status !== 'ok'),
+            'failed' => $failedAfter,
             'duration_s' => $duration,
         ];
     }
@@ -124,11 +129,11 @@ final class VideoRefs
     /** The canonical watch URL for a stored (validated) provider id. */
     public static function canonicalUrl(string $provider, string $extId, ?string $extHash): ?string
     {
-        if ($provider === 'youtube' && preg_match('/^[A-Za-z0-9_-]{11}$/', $extId) === 1) {
+        if ($provider === 'youtube' && preg_match('/^[A-Za-z0-9_-]{11}$/D', $extId) === 1) {
             return 'https://www.youtube.com/watch?v=' . $extId;
         }
-        if ($provider === 'vimeo' && preg_match('/^[0-9]{6,12}$/', $extId) === 1) {
-            return 'https://vimeo.com/' . $extId . (($extHash !== null && preg_match('/^[0-9a-f]{6,20}$/', $extHash) === 1) ? '/' . $extHash : '');
+        if ($provider === 'vimeo' && preg_match('/^[0-9]{6,12}$/D', $extId) === 1) {
+            return 'https://vimeo.com/' . $extId . (($extHash !== null && preg_match('/^[0-9a-f]{6,20}$/D', $extHash) === 1) ? '/' . $extHash : '');
         }
         return null;
     }

@@ -6,6 +6,7 @@ use ITFlow\Training\Api\ApiException;
 use ITFlow\Training\Core\Db;
 use ITFlow\Training\Media\ArticleSanitizer;
 use ITFlow\Training\Media\MediaStore;
+use ITFlow\Training\Media\PdfRenderService;
 
 /**
  * Media references from authoring: kind validation (spec §3.4 table), the §6.1 `Media` shape,
@@ -50,21 +51,15 @@ final class MediaRefs
     }
 
     /**
-     * Rendered page counts per PDF media id.
+     * Ready page counts per PDF media id: rendered pages whose file has not been purged (Lane B's
+     * definition, so a purged page shows as pdf_pages_pending and the builder renders it again).
      *
      * @param list<int> $pdfIds
      * @return array<int, int>
      */
     public static function pagesReady(\mysqli $db, array $pdfIds): array
     {
-        $pdfIds = array_values(array_unique(array_filter(array_map('intval', $pdfIds), static fn($i) => $i > 0)));
-        $out = [];
-        foreach (array_chunk($pdfIds, 500) as $chunk) {
-            foreach (Db::all($db, 'SELECT mpage_pdf_media_id, COUNT(*) AS n FROM training_media_pages WHERE mpage_pdf_media_id IN (' . implode(',', array_fill(0, count($chunk), '?')) . ') GROUP BY mpage_pdf_media_id', str_repeat('i', count($chunk)), $chunk) as $r) {
-                $out[(int) $r['mpage_pdf_media_id']] = (int) $r['n'];
-            }
-        }
-        return $out;
+        return PdfRenderService::readyCounts($db, $pdfIds);
     }
 
     /**
