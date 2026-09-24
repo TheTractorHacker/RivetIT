@@ -67,7 +67,7 @@ final class Clock
      */
     public static function localDate(string $utc): string
     {
-        if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,6})?$/', $utc) !== 1) {
+        if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,6})?$/D', $utc) !== 1) {
             throw new \InvalidArgumentException("Clock::localDate: not a UTC datetime: '$utc'");
         }
         $format = str_contains($utc, '.') ? 'Y-m-d H:i:s.u' : 'Y-m-d H:i:s';
@@ -113,7 +113,7 @@ final class Clock
     /** Strict 'Y-m-d': ^\d{4}-\d{2}-\d{2}$ and a real calendar date (checkdate). */
     public static function isYmd(?string $s): bool
     {
-        if ($s === null || preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $s, $m) !== 1) {
+        if ($s === null || preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $s, $m) !== 1) {
             return false;
         }
         return (int) $m[1] >= 1 && checkdate((int) $m[2], (int) $m[3], (int) $m[1]);
