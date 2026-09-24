@@ -49,7 +49,7 @@ final class VideoCheckService
     }
 
     /**
-     * @return array{provider:string, id:string, hash:string, canonical_url:string, status:string, title:?string, author:?string,
+     * @return array{provider:string, id:string, hash:?string, canonical_url:string, status:string, title:?string, author:?string,
      *               duration_s:?int, duration_source:?string, thumb_data_uri:?string, check_token:string, check:?array, warnings:list<string>}
      * @throws MediaException 422 validation (not a video link)
      */
@@ -132,7 +132,7 @@ final class VideoCheckService
         return [
             'provider' => $v['provider'],
             'id' => $v['id'],
-            'hash' => $v['hash'],
+            'hash' => $v['hash'] === '' ? null : $v['hash'],
             'canonical_url' => $v['canonical_url'],
             'status' => $status,
             'status_message' => self::STATUS_MESSAGES[$status] ?? null,
@@ -308,7 +308,8 @@ final class VideoCheckService
             'id' => (int) $row['vcheck_id'],
             'provider' => (string) $row['vcheck_provider'],
             'ext_id' => (string) $row['vcheck_ext_id'],
-            'ext_hash' => (string) $row['vcheck_ext_hash'],
+            // No hash is null in every JSON shape (LessonDetail video.hash, revision "h"); the column stores ''.
+            'ext_hash' => (string) $row['vcheck_ext_hash'] === '' ? null : (string) $row['vcheck_ext_hash'],
             'title' => $row['vcheck_title'] === null ? null : (string) $row['vcheck_title'],
             'author' => $row['vcheck_author'] === null ? null : (string) $row['vcheck_author'],
             'thumb_media_id' => $thumb,

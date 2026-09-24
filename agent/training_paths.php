@@ -247,7 +247,7 @@ render_page_header(
 <script src="/plugins/SortableJS/Sortable.min.js" defer></script>
 <?php } ?>
 <script src="/js/training_common.js?v=<?= filemtime(__DIR__ . '/../js/training_common.js') ?>" defer></script>
-<?php if ($tr_can_edit && is_file(__DIR__ . '/js/training_uploader.js')) { ?>
+<?php if ($tr_can_edit) { ?>
 <script src="/agent/js/training_uploader.js?v=<?= filemtime(__DIR__ . '/js/training_uploader.js') ?>" defer></script>
 <?php } ?>
 <script src="/agent/js/training_paths.js?v=<?= filemtime(__DIR__ . '/js/training_paths.js') ?>" defer></script>

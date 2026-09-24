@@ -67,11 +67,25 @@ final class MediaRefs
         return $out;
     }
 
-    /** The §6.1 Media shape. Upload-time warnings/info are not stored, so they are empty here. */
+    /**
+     * The §6.1 Media shape. Upload-time warnings/info are not stored; the two that follow from the
+     * stored row (HEVC video, not faststart) are derived exactly as MediaStore::toApi() does, so
+     * lesson_get and media_get describe the same file the same way.
+     */
     public static function shape(array $row, ?int $pagesReady = null): array
     {
         $id = (int) $row['media_id'];
         $kind = (string) $row['media_kind'];
+        $warnings = [];
+        $info = [];
+        if ($kind === 'video') {
+            if (in_array((string) ($row['media_video_codec'] ?? ''), ['hvc1', 'hev1'], true)) {
+                $warnings[] = 'hevc';
+            }
+            if (($row['media_faststart'] ?? null) !== null && (int) $row['media_faststart'] === 0) {
+                $info[] = 'not_faststart';
+            }
+        }
         return [
             'id' => $id,
             'kind' => $kind,
@@ -90,8 +104,8 @@ final class MediaRefs
             'video_codec' => $row['media_video_codec'],
             'audio_codec' => $row['media_audio_codec'],
             'faststart' => $row['media_faststart'] === null ? null : ((int) $row['media_faststart'] === 1),
-            'warnings' => [],
-            'info' => [],
+            'warnings' => $warnings,
+            'info' => $info,
         ];
     }
 

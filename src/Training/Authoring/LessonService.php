@@ -8,6 +8,7 @@ use ITFlow\Training\Core\Ctx;
 use ITFlow\Training\Core\Db;
 use ITFlow\Training\Core\Text;
 use ITFlow\Training\Media\ArticleSanitizer;
+use ITFlow\Training\Media\MediaException;
 use ITFlow\Training\Media\VideoCheckService;
 use ITFlow\Training\Quiz\QuizCloner;
 use ITFlow\Training\Quiz\QuizService;
@@ -580,7 +581,12 @@ final class LessonService
         if (preg_match('/^[0-9a-f]{32}$/', $token) !== 1) {
             throw ApiException::validation(['video_check_token' => 'Check the link again.']);
         }
-        $row = (new VideoCheckService($this->c))->persist($token);
+        try {
+            $row = (new VideoCheckService($this->c))->persist($token);
+        } catch (MediaException $e) {
+            // The Router maps only ApiException (expired token 422, video_live 422, …).
+            throw $e->toApi();
+        }
         $provider = (string) ($row['vcheck_provider'] ?? ($row['provider'] ?? ''));
         $extId = (string) ($row['vcheck_ext_id'] ?? ($row['ext_id'] ?? ''));
         $extHash = $row['vcheck_ext_hash'] ?? ($row['ext_hash'] ?? null);

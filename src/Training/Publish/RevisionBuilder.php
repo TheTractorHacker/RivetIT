@@ -648,7 +648,10 @@ final class RevisionBuilder
             if ($h === null) {
                 return false;
             }
-            return trim(html_entity_decode(strip_tags($h), ENT_QUOTES | ENT_HTML5, 'UTF-8')) !== '' || stripos($h, '<img') !== false;
+            // Same emptiness rule as Authoring's LessonIssues (non-breaking spaces are blank), so a
+            // language this build publishes is never flagged translation_incomplete by the validator.
+            return trim(str_replace("\u{00A0}", ' ', html_entity_decode(strip_tags($h), ENT_QUOTES | ENT_HTML5, 'UTF-8'))) !== ''
+                || stripos($h, '<img') !== false;
         };
         $media = static function (string $kind) use ($v, $mediaKinds): bool {
             if ($v['lvar_media_id'] === null) {

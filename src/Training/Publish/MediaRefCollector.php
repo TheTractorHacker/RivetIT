@@ -29,12 +29,15 @@ final class MediaRefCollector
         }
     }
 
-    /** Images and file links embedded in purified HTML (ArticleMediaRefs::extract). */
+    /**
+     * Images and file links embedded in purified HTML. A link (<a href>) to a training file or PDF
+     * is a download the author put in the text, so it is downloadable (dl) - MediaAccess serves a
+     * pdf/file to a level-1 reader only when its rmedia row is downloadable. Images are not.
+     */
     public function addHtml(string $html, string $where): void
     {
-        foreach (ArticleMediaRefs::extract($html) as $ref) {
-            $id = is_array($ref) ? (int) ($ref['media_id'] ?? $ref['id'] ?? 0) : (int) $ref;
-            $this->add($id, false, $where);
+        foreach (ArticleMediaRefs::extractDetailed($html) as $ref) {
+            $this->add((int) $ref['id'], $ref['tag'] === 'a', $where);
         }
     }
 
