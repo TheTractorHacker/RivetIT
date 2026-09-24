@@ -531,3 +531,4 @@ td.tro-inline-cell { background: var(--tro-surface-2); }
   .tro-tri > button { height: 38px; padding: 0 12px; }
   .tro-cond__remove, .tro-pchip__x { min-width: 36px; min-height: 36px; }
 }
+.tro-toolbar .tro-date-sm { width: 150px; min-width: 0; }
