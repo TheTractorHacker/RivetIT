@@ -238,7 +238,7 @@ final class SessionService
         $db = $this->c->db;
         $today = Clock::todayLocal();
 
-        $r = Db::tx($db, function () use ($db, $id, $version, $today, $cs): array {
+        $r = Db::tx($db, function () use ($db, $id, $version, $today, $cs, $scope): array {
             $s = $this->lockOpen($db, $id, $version);
             $atts = Db::all($db, 'SELECT ' . self::ATT_COLS . ' FROM training_session_attendees WHERE tattendee_tsession_id = ? ORDER BY tattendee_contact_id FOR UPDATE', 'i', [$id]);
             RecordsMutex::acquire($db);
@@ -246,6 +246,11 @@ final class SessionService
             $present = array_values(array_filter($atts, static fn($a) => $a['tattendee_removed_at_utc'] === null && $a['tattendee_attendance'] === 'present'));
             if ($present === []) {
                 throw ApiException::validation(['attendees' => 'Mark at least one person present.']);
+            }
+            // Finalizing issues records for everyone present: an editor who cannot see some of them
+            // (fail-closed scope) must not issue records for people outside their departments.
+            if ($this->hiddenContacts($db, array_map(static fn($a) => (int) $a['tattendee_contact_id'], $present), $scope) !== []) {
+                throw ApiException::validation(['attendees' => 'Some people marked present are in departments you cannot see. Ask someone with access to all of them to finalize.']);
             }
             if (trim((string) $s['tsession_trainer_name']) === '') {
                 throw ApiException::validation(['trainer_name' => 'Name the trainer.']);
@@ -345,7 +350,9 @@ final class SessionService
                     $res = $cs->issue([
                         'contact_id' => $cid,
                         'course_id' => $courseId,
-                        'method' => $needs['practical'] ? 'blended' : 'session',
+                        // Attendance plus the practical marked in the session is 'blended' when the
+                        // course needs both; a practical-only course is an 'evaluation' record.
+                        'method' => $needs['practical'] ? ($needs['session'] ? 'blended' : 'evaluation') : 'session',
                         'proof' => (string) $a['tattendee_proof'],
                         'source_key' => 'att:' . $attId,
                         'completed_on' => $heldOn,

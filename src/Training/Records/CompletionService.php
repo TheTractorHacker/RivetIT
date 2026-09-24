@@ -554,7 +554,7 @@ final class CompletionService
             $events[] = $tok['event'];
         }
         if ($satisfied) {
-            $events[] = AssignmentStore::closeCompleted($db, $open, $id, $this->c->userId > 0 ? $this->c->userId : null);
+            $events[] = AssignmentStore::closeCompleted($db, $open, $id, $this->c->userId > 0 ? $this->c->userId : null, $actor);
         }
 
         if (!$deferEvents) {
