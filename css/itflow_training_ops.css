@@ -439,7 +439,8 @@ td.tro-inline-cell { background: var(--tro-surface-2); }
 .tro-rule-result { margin-bottom: 16px; }
 
 /* Rule list cells */
-.tro-policy { font-size: 12.5px; color: var(--if-muted, #5d6f76); line-height: 1.4; }
+.tro-policy { font-size: 12.5px; color: var(--if-muted, #5d6f76); line-height: 1.4; min-width: 190px; }
+#tro-r-table .tro-chips { max-width: 320px; }
 .tro-stat-trio { display: inline-flex; gap: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tro-stat-trio b { font-weight: 600; }
 .tro-stat-trio .is-bad { color: var(--tro-err-fg); }

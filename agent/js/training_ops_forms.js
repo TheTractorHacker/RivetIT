@@ -162,10 +162,10 @@
         cancelled: ['outline', null, 'Cancelled']
     };
     /** Assignment display_status chip; overdue adds the day count. */
-    function statusChip(status, row) {
+    function statusChip(status, row, opts) {
         var s = STATUS[status] || ['outline', null, String(status || '')];
         var label = s[2];
-        if (status === 'overdue' && row && row.days_overdue > 0) { label = 'Overdue ' + plural(row.days_overdue, 'day'); }
+        if (status === 'overdue' && row && row.days_overdue > 0 && !(opts && opts.days === false)) { label = 'Overdue ' + plural(row.days_overdue, 'day'); }
         if (status === 'waived' && row && row.waived_until) { label = 'Waived to ' + fmtDate(row.waived_until, true); }
         return chip(label, s[0], s[1]);
     }
@@ -546,7 +546,7 @@
     PeoplePicker.prototype.pick = function (i) {
         var p = this.results[i];
         if (!p) { return; }
-        if (this.has(p.contact_id)) { this.remove(p.contact_id); } else { this.add(p); }
+        if (!this.has(p.contact_id)) { this.add(p); }   // already added: removal is the chip's x
         if (this.multiple) { this.input.value = ''; this.hide(); this.input.focus(); } else { this.hide(); }
     };
     PeoplePicker.prototype.onKey = function (e) {
