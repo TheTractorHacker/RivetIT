@@ -278,6 +278,57 @@
     }
     function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
+    /** Row kebab menu: items are {label, icon, onClick|href, danger} or '-' (divider); null items are skipped. */
+    function kebab(label, items) {
+        items = (items || []).filter(Boolean);
+        while (items.length && items[0] === '-') { items.shift(); }
+        while (items.length && items[items.length - 1] === '-') { items.pop(); }
+        if (!items.length) { return null; }
+        var menu = el('ul', { class: 'dropdown-menu dropdown-menu-end' }, items.map(function (it) {
+            if (it === '-') { return el('li', {}, [el('hr', { class: 'dropdown-divider' })]); }
+            var node = it.href
+                ? el('a', { class: 'dropdown-item' + (it.danger ? ' text-danger' : ''), href: it.href }, [icon(it.icon + ' fa-fw me-2'), it.label])
+                : el('button', { type: 'button', class: 'dropdown-item' + (it.danger ? ' text-danger' : ''), on: { click: it.onClick } }, [icon(it.icon + ' fa-fw me-2'), it.label]);
+            return el('li', {}, [node]);
+        }));
+        return el('div', { class: 'dropdown' }, [
+            el('button', { type: 'button', class: 'btn btn-sm btn-ghost-secondary btn-icon', 'aria-label': label, 'aria-expanded': 'false', dataset: { bsToggle: 'dropdown', bsPopperConfig: '{"strategy":"fixed"}' } }, [icon('fas fa-ellipsis-v')]),
+            menu
+        ]);
+    }
+    /** "Showing a–b of n" + Previous/Next into a .tro-pager (50 per page). */
+    function pager(node, total, shown, pageNo, go, per) {
+        while (node.firstChild) { node.removeChild(node.firstChild); }
+        per = per || 50;
+        node.hidden = !total;
+        if (!total) { return; }
+        var from = (pageNo - 1) * per + 1;
+        node.appendChild(el('span', { text: 'Showing ' + from + '–' + (from + shown - 1) + ' of ' + total }));
+        if (total > per) {
+            node.appendChild(el('div', { class: 'btn-group' }, [
+                el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', disabled: pageNo <= 1, on: { click: function () { go(pageNo - 1); } } }, [icon('fas fa-chevron-left me-1'), 'Previous']),
+                el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', disabled: pageNo * per >= total, on: { click: function () { go(pageNo + 1); } } }, ['Next', icon('fas fa-chevron-right ms-1')])
+            ]));
+        }
+    }
+    /** Keeps the page URL in step with the filters (drops empty values). */
+    function setUrl(params) {
+        var qs = new URLSearchParams();
+        Object.keys(params).forEach(function (k) { if (params[k] !== null && params[k] !== undefined && params[k] !== '') { qs.set(k, String(params[k])); } });
+        try { window.history.replaceState(null, '', window.location.pathname + (qs.toString() ? '?' + qs.toString() : '')); } catch (e) { /* ignore */ }
+    }
+    function clearNode(node) { while (node && node.firstChild) { node.removeChild(node.firstChild); } }
+    /** A Bootstrap form-switch row: returns {root, input}. */
+    function switchRow(o) {
+        var id = o.id || ('tro-sw-' + Math.random().toString(36).slice(2, 9));
+        var input = el('input', { class: 'form-check-input', type: 'checkbox', role: 'switch', id: id, checked: o.checked ? true : null, disabled: o.disabled ? true : null });
+        var root = el('div', { class: 'tro-switch-row' + (o.class ? ' ' + o.class : '') }, [
+            el('div', { class: 'tro-switch-row__text' }, [el('label', { class: 'tro-switch-row__title', for: id, text: o.label }), o.hint ? el('div', { class: 'tro-switch-row__hint', text: o.hint }) : null]),
+            el('div', { class: 'form-check form-switch m-0' }, [input])
+        ]);
+        return { root: root, input: input };
+    }
+
     /** POST with the spec's client rule: a 409 busy is retried once. */
     function post(action, body) {
         return Api.post(action, body).catch(function (err) {
@@ -1366,6 +1417,7 @@
             courseSummary: courseSummary, courseById: courseById, courseSelect: courseSelect,
             emptyState: emptyState, failState: failState, skeletonRows: skeletonRows, errorText: errorText,
             busy: busy, post: post, load: load, fetchAction: fetchAction, uid32: uid32,
+            kebab: kebab, pager: pager, setUrl: setUrl, clear: clearNode, switchRow: switchRow,
             field: field, dateInput: dateInput, textArea: textArea, reasonInput: reasonInput, cancelBtn: cancelBtn,
             showFieldErrors: showFieldErrors, clearFieldErrors: clearFieldErrors, alertBox: alertBox, timeline: timeline,
             transcriptUrl: transcriptUrl, recordUrl: recordUrl, certificateUrl: certificateUrl, uploadEvidence: uploadEvidence

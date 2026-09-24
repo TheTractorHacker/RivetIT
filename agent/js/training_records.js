@@ -51,7 +51,17 @@
             })));
         }
 
-        // ---- header actions ---------------------------------------------------------------
+        // ---- header actions (hidden while their action is not installed) ----------------------
+        (function () {
+            var ext = $('tro-rec-external'), more = $('tro-rec-more'), ev = $('tro-rec-eval'), ses = $('tro-rec-session'), csvA = $('tro-rec-csv');
+            if (ext) { ext.hidden = routes.completion_record === false; }
+            if (ev) { ev.parentNode.hidden = routes.evaluation_record === false; }
+            if (ses) { ses.parentNode.hidden = routes.session_save === false; }
+            if (more) { more.hidden = routes.evaluation_record === false && routes.session_save === false; }
+            if (ext && more && ext.hidden) { more.classList.remove('dropdown-toggle-split'); more.setAttribute('aria-label', 'Record training'); }
+            if (ext && more && ext.hidden && more.hidden) { ext.parentNode.hidden = true; }
+            if (csvA) { csvA.hidden = routes.report_csv === false; }
+        })();
         var extBtn = $('tro-rec-external');
         if (extBtn) {
             extBtn.addEventListener('click', function () {

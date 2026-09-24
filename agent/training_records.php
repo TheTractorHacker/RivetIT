@@ -68,19 +68,16 @@ $tr_data = [
 
 $tr_actions = '';
 if ($tr_level >= 2) {
-    $tr_more = [];
-    if ($tr_routes['evaluation_record']) {
-        $tr_more[] = '<li><button type="button" class="dropdown-item" id="tro-rec-eval"><i class="fas fa-clipboard-check fa-fw me-2 text-muted" aria-hidden="true"></i>Record practical evaluation</button></li>';
-    }
-    if ($tr_routes['session_save']) {
-        $tr_more[] = '<li><a class="dropdown-item" href="/agent/training_session.php?new=1"><i class="fas fa-chalkboard-teacher fa-fw me-2 text-muted" aria-hidden="true"></i>New session</a></li>';
-    }
-    $tr_actions .= '<div class="btn-group">'
-        . '<button type="button" class="btn btn-primary" id="tro-rec-external"' . ($tr_routes['completion_record'] ? '' : ' hidden') . '><i class="fas fa-id-card me-2" aria-hidden="true"></i>Record external card or paper record</button>'
-        . ($tr_more !== [] ? '<button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More ways to record training"></button><ul class="dropdown-menu dropdown-menu-end">' . implode('', $tr_more) . '</ul>' : '')
-        . '</div>';
+    // Every item is rendered; training_records.js hides the ones whose action is not installed yet (routes).
+    $tr_actions .= '<div class="btn-group" id="tro-rec-actions">'
+        . '<button type="button" class="btn btn-primary" id="tro-rec-external"><i class="fas fa-id-card me-2" aria-hidden="true"></i>Record external card or paper record</button>'
+        . '<button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" id="tro-rec-more" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More ways to record training"></button>'
+        . '<ul class="dropdown-menu dropdown-menu-end">'
+        . '<li><button type="button" class="dropdown-item" id="tro-rec-eval"><i class="fas fa-clipboard-check fa-fw me-2 text-muted" aria-hidden="true"></i>Record practical evaluation</button></li>'
+        . '<li><a class="dropdown-item" id="tro-rec-session" href="/agent/training_session.php?new=1"><i class="fas fa-chalkboard-teacher fa-fw me-2 text-muted" aria-hidden="true"></i>New session</a></li>'
+        . '</ul></div>';
 }
-if ($tr_routes['report_csv'] && $tr_tab === 'log') {
+if ($tr_tab === 'log') {
     $tr_actions = '<a class="btn btn-outline-secondary" id="tro-rec-csv" href="#"><i class="fas fa-file-csv me-2" aria-hidden="true"></i>CSV</a>' . $tr_actions;
 }
 $tr_actions = $tr_actions === '' ? '' : '<div class="d-flex flex-wrap gap-2">' . $tr_actions . '</div>';
