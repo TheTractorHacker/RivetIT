@@ -171,7 +171,11 @@ final class RuleMatcher
             $types .= str_repeat('i', count($ids));
             array_push($params, ...$ids);
         }
-        $rows = Db::all($db, 'SELECT r.* FROM training_requirements r JOIN training_courses c ON c.course_id = r.requirement_course_id'
+        $rows = Db::all($db, 'SELECT r.requirement_id, r.requirement_request_uid, r.requirement_name, r.requirement_course_id, r.requirement_all_people,
+                r.requirement_required, r.requirement_new_hires_only, r.requirement_due_days, r.requirement_baseline_due_on, r.requirement_due_days_from_hire,
+                r.requirement_one_time, r.requirement_is_manual, r.requirement_note, r.requirement_effective_on, r.requirement_criteria_sha256,
+                r.requirement_version, r.requirement_created_by, r.requirement_created_at_utc, r.requirement_archived_at, r.requirement_archived_by
+            FROM training_requirements r JOIN training_courses c ON c.course_id = r.requirement_course_id'
             . ($where === [] ? '' : ' WHERE ' . implode(' AND ', $where)) . ' ORDER BY r.requirement_id', $types, $params);
         if ($rows === []) {
             return [];
