@@ -52,11 +52,10 @@ final class LinkStates
         $stats = ['ok' => 0, 'mismatch' => 0, 'missing' => 0, 'repointed' => 0, 'new' => 0, 'newly_flagged' => []];
 
         Db::tx($db, function () use ($db, $integrationId, $targetSha, $emp, $byName, $now, &$stats): void {
-            $links = Db::all($db, 'SELECT l.contact_id, l.odoo_employee_id, c.contact_name, cl.client_name,
+            $links = Db::all($db, 'SELECT l.contact_id, l.odoo_employee_id, c.contact_name, c.contact_client_id,
                     a.coattr_contact_id, a.coattr_odoo_employee_id, a.coattr_odoo_name, a.coattr_link_state, a.coattr_link_detail
                 FROM contact_odoo_links l
                 JOIN contacts c ON c.contact_id = l.contact_id
-                LEFT JOIN clients cl ON cl.client_id = c.contact_client_id
                 LEFT JOIN contact_odoo_attributes a ON a.coattr_contact_id = l.contact_id
                 WHERE l.odoo_integration_id = ?
                 ORDER BY l.contact_id FOR UPDATE', 'i', [$integrationId]);
@@ -68,11 +67,6 @@ final class LinkStates
             $depts = [];
             foreach (Db::all($db, 'SELECT client_id, odoo_department_id FROM client_odoo_links WHERE odoo_integration_id = ?', 'i', [$integrationId]) as $d) {
                 $depts[(int) $d['odoo_department_id']] = (int) $d['client_id'];
-            }
-            $clientOf = [];
-            foreach (Db::all($db, 'SELECT contact_id, contact_client_id FROM contacts WHERE contact_id IN (SELECT contact_id FROM contact_odoo_links WHERE odoo_integration_id = ?)',
-                'i', [$integrationId]) as $r) {
-                $clientOf[(int) $r['contact_id']] = (int) $r['contact_client_id'];
             }
 
             foreach ($links as $l) {
@@ -118,7 +112,7 @@ final class LinkStates
                 }
                 if ($e !== null && $e['dept'] !== null && $e['dept'][0] > 0) {
                     $mapped = $depts[$e['dept'][0]] ?? null;
-                    if ($mapped !== null && $mapped !== ($clientOf[$cid] ?? 0)) {
+                    if ($mapped !== null && $mapped !== (int) $l['contact_client_id']) {
                         $detail = trim(($detail ?? '') . ' Department differs: Odoo "' . Text::clip($e['dept'][1], 60) . '".');
                     }
                 }
