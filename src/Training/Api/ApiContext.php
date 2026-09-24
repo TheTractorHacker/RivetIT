@@ -2,6 +2,7 @@
 
 namespace ITFlow\Training\Api;
 
+use ITFlow\Training\Core\Clock;
 use ITFlow\Training\Core\TrainingSettings;
 
 /**
@@ -134,6 +135,28 @@ final class ApiContext
         $v = $this->input[$k];
         if (!is_string($v) || !in_array($v, $allowed, true)) {
             throw ApiException::validation([$k => 'Not a valid choice.']);
+        }
+        return $v;
+    }
+
+    /**
+     * A calendar date, strictly 'Y-m-d' (Clock::isYmd: the pattern and a real date), returned
+     * unchanged. Missing or '' is 'Required.' when $required, else null (Phase 2 spec §3.1).
+     */
+    public function date(string $k, bool $required = true): ?string
+    {
+        if (!$this->has($k) || $this->input[$k] === '') {
+            if ($required) {
+                throw ApiException::validation([$k => 'Required.']);
+            }
+            return null;
+        }
+        $v = $this->input[$k];
+        if (is_string($v)) {
+            $v = trim($v);
+        }
+        if (!is_string($v) || !Clock::isYmd($v)) {
+            throw ApiException::validation([$k => 'Must be a date (YYYY-MM-DD).']);
         }
         return $v;
     }

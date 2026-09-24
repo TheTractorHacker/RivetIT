@@ -14,6 +14,14 @@ namespace ITFlow\Training\Core;
  *                        and the rmedia rows equal the JSON's media manifest (rmedia_mismatch)
  *   entities -> events:  every media, media page and revision row is covered by an event
  *                        (entity_unevented)
+ *   Phase 2 (spec §3.1): events named in HashSpecs::EVENT_ROWS (completion.recorded,
+ *                        completion.voided, evaluation.recorded) go through the generic path
+ *                        above, both ways; session.finalized requires the session to be
+ *                        finalized and its stored tsession_sha256 = SessionDigest::computeFromDb()
+ *                        = the event's entity_sha256, and every finalized session needs its event.
+ *                        One information_schema probe per run: the Phase 2 checks are skipped
+ *                        while their tables are absent (a 2.6.91 database), and an event that
+ *                        names a missing table is reported, never a 500.
  *   deep:                every media file exists and re-hashes to media_sha256 (media_file); a
  *                        missing file is fine only when the latest file event for that media id
  *                        is media.file_purged
@@ -48,6 +56,13 @@ final class LedgerVerifier
     /** @var array<string, true> */ private array $linkedPages = [];
     /** @var array<int, true> */ private array $publishedRevisions = [];
     /** @var array<int, true> */ private array $issuedTokens = [];
+    /** @var array<string, array<int, true>> table => ids named by an EVENT_ROWS event */ private array $seenRows = [];
+    /** @var array<int, true> */ private array $seenSessions = [];
+    /** @var array<string, true> Phase 2 tables present in this database (schema probe) */ private array $tables = [];
+
+    /** Tables the Phase 2 checks read; probed once per run so a 2.6.91 database verifies clean. */
+    private const PHASE2_TABLES = ['training_completions', 'training_completion_voids', 'training_evaluations',
+                                   'training_sessions', 'training_session_attendees'];
 
     private function __construct(private readonly \mysqli $db, array $opts)
     {
@@ -78,6 +93,7 @@ final class LedgerVerifier
             $db->query("START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY");
         }
         try {
+            $v->probeSchema();
             $head = null;
             try {
                 $head = Ledger::head($db);
@@ -229,6 +245,19 @@ final class LedgerVerifier
                 $pdfIds[(int) $ev['tevent_entity_id']] = true;
             }
         }
+        $rowIds = [];
+        foreach ($events as $ev) {
+            if ($ev['tevent_entity_id'] !== null && isset(HashSpecs::EVENT_ROWS[$ev['tevent_type']])) {
+                [$t, $idCol] = HashSpecs::EVENT_ROWS[$ev['tevent_type']];
+                $rowIds[$t][$idCol][(int) $ev['tevent_entity_id']] = true;
+            }
+        }
+        $rows = [];
+        foreach ($rowIds as $t => $byCol) {
+            foreach ($byCol as $idCol => $ids) {
+                $rows[$t] = ($rows[$t] ?? []) + ($this->tableExists($t) ? $this->fetchByIds($t, $idCol, array_keys($ids)) : []);
+            }
+        }
         $media = $this->fetchByIds('training_media', 'media_id', array_keys($mediaIds));
         $pages = [];
         if ($pdfIds !== []) {
@@ -284,6 +313,10 @@ final class LedgerVerifier
                 if ($ev['tevent_entity_sha256'] !== Ledger::pagesEntitySha($shas)) {
                     $this->addBreak($seq, 'entity_hash', "pages_linked entity sha differs for pdf #$id");
                 }
+            } elseif (isset(HashSpecs::EVENT_ROWS[$type])) {
+                $this->checkEventRow($seq, $type, $id, $ev, $rows);
+            } elseif ($type === 'session.finalized') {
+                $this->checkFinalizedSession($seq, $id, $ev);
             } elseif ($type === 'revision.published') {
                 $this->checkRevision($seq, $id, $ev, $payload);
             } elseif ($type === 'cert.token_issued') {
@@ -302,6 +335,60 @@ final class LedgerVerifier
             if ($this->stopped()) {
                 return;
             }
+        }
+    }
+
+    /** Generic Phase 2 path: an EVENT_ROWS event names an existing row whose hash re-computes and equals entity_sha256. */
+    private function checkEventRow(int $seq, string $type, ?int $id, array $ev, array $rows): void
+    {
+        [$table] = HashSpecs::EVENT_ROWS[$type];
+        if (!$this->tableExists($table)) {
+            $this->addBreak($seq, 'entity_missing', "$type names $table #$id but the table does not exist");
+            return;
+        }
+        if ($id === null || !isset($rows[$table][$id])) {
+            $this->addBreak($seq, 'entity_missing', "$table #$id ($type)");
+            return;
+        }
+        $row = $rows[$table][$id];
+        $meta = HashSpecs::meta($table);
+        $this->checkRowHash($seq, $table, $row, "$table #$id");
+        if ($ev['tevent_entity_sha256'] !== $row[$meta['hash']]) {
+            $this->addBreak($seq, 'entity_hash', "$type sha differs from $table #$id row hash");
+        }
+        $this->seenRows[$table][$id] = true;
+    }
+
+    /** session.finalized: the session is finalized and its digest re-computes to both stored values. */
+    private function checkFinalizedSession(int $seq, ?int $id, array $ev): void
+    {
+        if (!$this->tableExists('training_sessions') || !$this->tableExists('training_session_attendees')) {
+            $this->addBreak($seq, 'entity_missing', "session.finalized names session #$id but the session tables do not exist");
+            return;
+        }
+        if ($id === null) {
+            $this->addBreak($seq, 'entity_missing', 'session.finalized without a session id');
+            return;
+        }
+        $res = $this->db->query("SELECT tsession_status, tsession_sha256, tsession_digest_v FROM training_sessions WHERE tsession_id = " . intval($id));
+        $row = $res->fetch_assoc();
+        $res->free();
+        if (!$row) {
+            $this->addBreak($seq, 'entity_missing', "training_sessions #$id (session.finalized)");
+            return;
+        }
+        $this->seenSessions[$id] = true;
+        $digest = null;
+        try {
+            $v = (int) ($row['tsession_digest_v'] ?? 0);
+            $digest = SessionDigest::computeFromDb($this->db, $id, $v > 0 ? $v : 1);
+        } catch (\InvalidArgumentException | \RuntimeException) {
+            $digest = null;
+        }
+        if ($row['tsession_status'] !== 'finalized' || $digest === null
+            || !hash_equals((string) $row['tsession_sha256'], $digest)
+            || $ev['tevent_entity_sha256'] !== $digest) {
+            $this->addBreak($seq, 'entity_hash', "session #$id digest does not re-compute");
         }
     }
 
@@ -409,6 +496,61 @@ final class LedgerVerifier
                 }
             } while (count($ids) === self::PAGE && !$this->stopped());
         }
+
+        // Phase 2: every row of an EVENT_ROWS table, and every finalized session, needs its event.
+        $byTable = [];
+        foreach (HashSpecs::EVENT_ROWS as $evt => [$table, $col]) {
+            $byTable[$table] ??= [$col, $evt];
+        }
+        foreach ($byTable as $table => [$col, $evt]) {
+            if (!$this->tableExists($table)) {
+                continue;
+            }
+            $seen = $this->seenRows[$table] ?? [];
+            $after = 0;
+            do {
+                $res = $this->db->query("SELECT $col FROM $table WHERE $col > $after ORDER BY $col LIMIT " . self::PAGE);
+                $ids = array_map('intval', array_column($res->fetch_all(MYSQLI_ASSOC), $col));
+                $res->free();
+                foreach ($ids as $rid) {
+                    if (!isset($seen[$rid])) {
+                        $this->addBreak(null, 'entity_unevented', "$table #$rid has no $evt event");
+                    }
+                    $after = $rid;
+                }
+            } while (count($ids) === self::PAGE && !$this->stopped());
+        }
+        if ($this->tableExists('training_sessions')) {
+            $after = 0;
+            do {
+                $res = $this->db->query("SELECT tsession_id FROM training_sessions WHERE tsession_status = 'finalized' AND tsession_id > $after
+                    ORDER BY tsession_id LIMIT " . self::PAGE);
+                $ids = array_map('intval', array_column($res->fetch_all(MYSQLI_ASSOC), 'tsession_id'));
+                $res->free();
+                foreach ($ids as $sid) {
+                    if (!isset($this->seenSessions[$sid])) {
+                        $this->addBreak(null, 'entity_unevented', "training_sessions #$sid is finalized but has no session.finalized event");
+                    }
+                    $after = $sid;
+                }
+            } while (count($ids) === self::PAGE && !$this->stopped());
+        }
+    }
+
+    /** One information_schema query per run: which Phase 2 tables exist in this database. */
+    private function probeSchema(): void
+    {
+        $in = "'" . implode("','", self::PHASE2_TABLES) . "'";
+        $res = $this->db->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ($in)");
+        foreach ($res->fetch_all(MYSQLI_NUM) as $r) {
+            $this->tables[(string) $r[0]] = true;
+        }
+        $res->free();
+    }
+
+    private function tableExists(string $table): bool
+    {
+        return isset($this->tables[$table]);
     }
 
     /** Deep: every media file present and intact (or purged by a recorded event). */
