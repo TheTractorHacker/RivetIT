@@ -16,7 +16,7 @@ use ITFlow\Training\Core\Text;
  *   0 schema probe (contact_odoo_attributes + the 2.6.92 settings columns); absent => {schema_ready:false}
  *   1 LinkStates::apply against the current target - ALWAYS (module on or off, clean sync or not)
  *   2 links newly flagged (re-pointed / name changed) => ONE aggregated notification per run
- *   3 OdooTarget::acceptIfUnset (a fresh install's first sync accepts its target)
+ *   3 OdooTarget::acceptIfUnset when the main sync was clean (a fresh install's first clean sync accepts its target)
  *   4 module off, or the main sync reported errors => stop here (no attribute call)
  *   5 job / work location / create_date: one combined read, else one read per field, each in its own
  *     try/catch; hire-date fill only when config_training_hire_fill_since is set (opt-in), for local
@@ -69,8 +69,10 @@ final class OdooTrainingSync
         }
         $linkStats = ['ok' => $links['ok'], 'mismatch' => $links['mismatch'], 'missing' => $links['missing'], 'repointed' => $links['repointed'], 'new' => $links['new']];
 
-        // 3. First clean sync on a fresh install accepts the target.
-        OdooTarget::acceptIfUnset($this->db, $integrationRow);
+        // 3. The first CLEAN sync on a fresh install accepts the target (spec §2.3).
+        if ($mainClean) {
+            OdooTarget::acceptIfUnset($this->db, $integrationRow);
+        }
 
         // 4.
         $moduleOn = (int) (Db::one($this->db, 'SELECT config_module_enable_training AS m FROM settings WHERE company_id = 1')['m'] ?? 0) === 1;
