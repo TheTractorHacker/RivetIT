@@ -131,14 +131,27 @@ if (isset($_POST['training_ledger_verify'])) {
         redirect();
     }
 
+    // A NEW break signature alerts once, from whichever path saw it first - the same block as
+    // cron/training_cron.php. recordResult() just stored this line, so the nightly run will not
+    // see it as new; if this path did not notify, no other admin would ever hear of it.
     if ($tr_record['new_break']) {
         $tr_first = $tr_result['breaks'][0];
         logApp('Training', 'error', 'Training ledger verification found a break: ' . $tr_record['line'] . ' - ' . $tr_first['detail']);
-        \ITFlow\Audit\AuditService::record('training.ledger_break', $session_user_id, 'training_ledger', $tr_first['seq'], 'verify', $tr_record['line'], [
-            'breaks' => array_slice($tr_result['breaks'], 0, 20),
-            'head' => $tr_result['head'],
-            'deep' => false,
-        ]);
+        $tr_admins = mysqli_query($mysqli, "SELECT users.user_id FROM users
+            JOIN user_roles ON users.user_role_id = user_roles.role_id
+            WHERE user_roles.role_is_admin = 1 AND users.user_type = 1 AND users.user_status = 1 AND users.user_archived_at IS NULL");
+        while ($tr_admin = mysqli_fetch_assoc($tr_admins)) {
+            notifyUser(intval($tr_admin['user_id']), 'Training', 'Training records integrity check found a problem: ' . $tr_record['line'] . '. Open Admin > Training for details.', '/admin/settings_training.php');
+        }
+        try {
+            \ITFlow\Audit\AuditService::record('training.ledger_break', $session_user_id, 'training_ledger', $tr_first['seq'], 'verify', $tr_record['line'], [
+                'breaks' => array_slice($tr_result['breaks'], 0, 20),
+                'head' => $tr_result['head'],
+                'deep' => false,
+            ]);
+        } catch (\Throwable $e) {
+            logApp('Training', 'error', 'Could not write the ledger-break audit event: ' . $e->getMessage());
+        }
     }
 
     logAction("Training", "Verify", "$session_name verified the training ledger: " . $tr_record['line']);
@@ -160,10 +173,10 @@ if (isset($_POST['training_youtube_key_test'])) {
         flash_alert('Key testing becomes available with the media pipeline update.', 'warning');
         redirect();
     }
-    $tr_enc = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_training_youtube_api_key FROM settings WHERE company_id = 1"))['config_training_youtube_api_key'] ?? '';
-    $tr_key = decryptSetting((string) $tr_enc);
-    if ($tr_key === '') {
-        flash_alert('No YouTube Data API key is saved.', 'warning');
+    // The key is decrypted only through Ctx::youtubeKey() (spec §8 Secrets).
+    $tr_key = \ITFlow\Training\Core\Access::ctx($mysqli)->youtubeKey();
+    if ($tr_key === null) {
+        flash_alert('No YouTube Data API key is saved, or it cannot be decrypted with this server\'s settings key. Save the key again.', 'warning');
         redirect();
     }
 
@@ -213,8 +226,28 @@ if (isset($_POST['training_media_purge'])) {
         redirect();
     }
 
+    // Never trust the posted ids. The list on the page can be stale (an author may have attached
+    // one of those files to a draft since it was rendered) and a crafted POST can name any id,
+    // including evidence. Re-list what is unreferenced NOW and purge only the intersection.
+    // This closes the stale-form case and keeps anything the list never offered out of the purge.
+    // It does not close the race between this re-list and the unlink: MediaPurger::purge() must
+    // itself re-check "still unreferenced, not evidence" per id under its 'trmedia' lock (Lane B).
+    $tr_skipped = [];
     try {
         $tr_purger = new \ITFlow\Training\Media\MediaPurger(\ITFlow\Training\Core\Access::ctx($mysqli));
+        $tr_still = [];
+        foreach ($tr_purger->unreferenced(7) as $tr_u) {
+            $tr_uid = intval($tr_u['media_id'] ?? $tr_u['id'] ?? 0);
+            if ($tr_uid > 0 && (string) ($tr_u['media_kind'] ?? $tr_u['kind'] ?? '') !== 'evidence') {
+                $tr_still[$tr_uid] = true;
+            }
+        }
+        $tr_skipped = array_values(array_filter($tr_ids, fn($id) => !isset($tr_still[$id])));
+        $tr_ids = array_values(array_filter($tr_ids, fn($id) => isset($tr_still[$id])));
+        if (!$tr_ids) {
+            flash_alert('Nothing was purged: the selected file(s) are in use again or can no longer be purged. The list has been refreshed.', 'warning');
+            redirect();
+        }
         $tr_outcome = $tr_purger->purge($tr_ids, $tr_reason);
     } catch (\Throwable $e) {
         error_log('Training media purge: ' . get_class($e) . ': ' . $e->getMessage());
@@ -225,8 +258,9 @@ if (isset($_POST['training_media_purge'])) {
     $tr_count = is_array($tr_outcome['purged'] ?? null) ? count($tr_outcome['purged']) : count($tr_ids);
     logAction("Training", "Delete", "$session_name purged $tr_count unreferenced training media file(s)");
     \ITFlow\Audit\AuditService::record('training.media_purged', $session_user_id, 'training_media', null, 'purge',
-        "$session_name purged $tr_count unreferenced training media file(s)", ['media_ids' => $tr_ids, 'reason' => $tr_reason]);
+        "$session_name purged $tr_count unreferenced training media file(s)", ['media_ids' => $tr_ids, 'skipped_in_use' => $tr_skipped, 'reason' => $tr_reason]);
 
-    flash_alert("Purged $tr_count unreferenced media file(s).");
+    $tr_skip_note = $tr_skipped ? ' ' . count($tr_skipped) . ' selected file(s) were skipped because they are in use again or can no longer be purged.' : '';
+    flash_alert("Purged $tr_count unreferenced media file(s).$tr_skip_note", $tr_skipped ? 'warning' : 'success');
     redirect();
 }

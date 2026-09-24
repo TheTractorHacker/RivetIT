@@ -14,8 +14,7 @@
  *   sudo -n php scripts/training_ledger_verify.php --db=<scratch db> [--deep] [--media-root=DIR]
  *       Connects over the unix socket as the invoking OS user (root under sudo) to a scratch
  *       or verify database only - a hard allowlist, so this mode can never point at the live
- *       database. Allowed: midwest_itflow_scratch, midwest_itflow_verify, and per-lane test
- *       copies named midwest_itflow_<lane>_scratch / midwest_itflow_<lane>_verify.
+ *       database. Allowed: exactly midwest_itflow_scratch and midwest_itflow_verify.
  */
 
 if (php_sapi_name() !== 'cli') {
@@ -31,10 +30,10 @@ if (isset($options['help'])) {
     exit(0);
 }
 
+/** Hard allowlist (spec §3.1): exactly these two names, never a pattern. */
 function training_verify_db_allowed(string $name): bool
 {
-    return in_array($name, ['midwest_itflow_scratch', 'midwest_itflow_verify'], true)
-        || preg_match('/^midwest_itflow_[a-z0-9]{1,16}_(scratch|verify)$/', $name) === 1;
+    return in_array($name, ['midwest_itflow_scratch', 'midwest_itflow_verify'], true);
 }
 
 if (isset($options['db'])) {

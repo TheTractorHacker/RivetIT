@@ -11,11 +11,18 @@ namespace ITFlow\Training\Core;
  * \mysqli_sql_exception and the Router maps 1062 / 1205 / 1213 to user-facing codes.
  *
  * TRANSACTIONS. tx() is depth-counted: only the outermost call begins and commits, so a
- * service may call another service that also uses tx(). If ANY level throws, the whole
- * transaction is marked rollback-only - an outer caller that catches the exception and
- * returns normally still gets a rollback plus a \LogicException, never a silent partial
- * commit. Lock order inside a transaction is always: entity rows -> owning course row ->
- * ledger head (Ledger::append is always the last locking statement).
+ * service may call another service that also uses tx(). A nested tx() is NOT a savepoint:
+ * if any level throws, the whole transaction is marked rollback-only, and an outer caller
+ * that catches the exception and carries on still gets a rollback - never a silent partial
+ * commit (after a 1213 deadlock InnoDB has already rolled everything back, and later
+ * statements would otherwise run outside any transaction). The outermost tx() then rethrows
+ * that FIRST inner exception itself, so the Router still maps it (1062 -> 422, 1213/1205 ->
+ * 409 busy) and the log shows the real cause.
+ *   Rule for every lane: never catch-and-continue around a nested Db::tx(). For "1062 =>
+ *   reuse the existing row", call Db::insert() directly inside the outer tx and catch the
+ *   \mysqli_sql_exception there (a failed INSERT undoes only itself).
+ * Lock order inside a transaction is always: entity rows -> owning course row -> ledger head
+ * (Ledger::append is always the last locking statement).
  *
  * NAMED LOCKS are prefixed with DATABASE() so a scratch/verify database on the same server
  * never blocks the live one (MariaDB user-level locks are server-wide).
@@ -50,6 +57,7 @@ final class Db
 
     private static int $depth = 0;
     private static bool $rollbackOnly = false;
+    private static ?\Throwable $innerError = null;
     private static ?\mysqli $txDb = null;
 
     /**
@@ -69,6 +77,7 @@ final class Db
             $db->begin_transaction();
             self::$txDb = $db;
             self::$rollbackOnly = false;
+            self::$innerError = null;
         }
         self::$depth++;
         try {
@@ -79,14 +88,21 @@ final class Db
                 self::finish($db, false);
             } else {
                 self::$rollbackOnly = true;
+                self::$innerError ??= $e;
             }
             throw $e;
         }
         self::$depth--;
         if ($outermost) {
             if (self::$rollbackOnly) {
+                $inner = self::$innerError;
                 self::finish($db, false);
-                throw new \LogicException('Db::tx: an inner transaction failed; the whole transaction was rolled back');
+                // A caller caught an exception from a nested tx() and carried on. That is a bug in
+                // the caller (see the class comment), so say so in the log - then surface the
+                // original failure, not a generic one, so its HTTP mapping and cause survive.
+                error_log('Training Db::tx: an exception from a nested Db::tx was caught and ignored by its caller; the whole transaction was rolled back. Cause: '
+                    . ($inner ? get_class($inner) . ': ' . $inner->getMessage() : 'unknown'));
+                throw $inner ?? new \LogicException('Db::tx: an inner transaction failed; the whole transaction was rolled back');
             }
             try {
                 $db->commit();
@@ -238,5 +254,6 @@ final class Db
         self::$depth = 0;
         self::$txDb = null;
         self::$rollbackOnly = false;
+        self::$innerError = null;
     }
 }

@@ -183,9 +183,20 @@
     // store.set(field, value, delayMs) queues a patch; store.flush() sends now and resolves
     // when nothing is pending or in flight. One request in flight per entity; patches that
     // arrive meanwhile are coalesced into the next request.
+    //
+    // Rejected values (validation / archived / too_large, or a server error that survived its
+    // retries) are not re-sent in a loop, but they are NOT forgotten either: they stay in
+    // store.failedFields() and keep isDirty() true (so the leave-page warning still fires) until
+    // a later save of that field succeeds, store.discard(fields) is called (the UI reverted
+    // them), or store.reset(). While any remain, a successful save of OTHER fields reports
+    // state 'error' (info {error, patch: failedFields}) rather than 'saved'.
+    // A 500 'server' on an update is retried twice with backoff (a create is never retried:
+    // it might have committed). A 409 whose current row already holds our value for a field
+    // treats that field as saved (e.g. the earlier attempt committed before its response was lost).
 
     var stores = {};
     var BACKOFF = [2000, 4000, 8000, 16000];
+    var SERVER_RETRIES = 2;
 
     function same(a, b) {
         if (a === b) { return true; }
@@ -209,10 +220,15 @@
         this.inflightPromise = null;
         this.timer = null;
         this.retry = 0;
+        this.serverRetry = 0;
+        this.failed = {};          // field -> value the server rejected; unsaved, not re-sent
+        this.lastError = null;
         this.state = 'idle';
         this.stopped = false;
         this.waiters = [];
     }
+
+    function has(obj, k) { return Object.prototype.hasOwnProperty.call(obj, k); }
 
     EntityStore.prototype.setState = function (state, info) {
         this.state = state;
@@ -221,14 +237,45 @@
         }
     };
 
-    EntityStore.prototype.isDirty = function () {
+    /** Something is queued or on the wire (what flush() waits for). */
+    EntityStore.prototype.hasWork = function () {
         return Object.keys(this.pending).length > 0 || this.inflight !== null;
     };
 
-    /** True while $field has an unsent or in-flight value - server echoes must not overwrite it. */
+    /** Anything not on the server yet: queued, in flight, or rejected and not discarded. */
+    EntityStore.prototype.isDirty = function () {
+        return this.hasWork() || Object.keys(this.failed).length > 0;
+    };
+
+    /** True while $field has an unsent, in-flight or rejected value - server echoes must not overwrite it. */
     EntityStore.prototype.isFieldDirty = function (field) {
-        return Object.prototype.hasOwnProperty.call(this.pending, field)
-            || (this.inflight !== null && Object.prototype.hasOwnProperty.call(this.inflight, field));
+        return has(this.pending, field) || has(this.failed, field)
+            || (this.inflight !== null && has(this.inflight, field));
+    };
+
+    /** {field: value} the server rejected and nothing has replaced yet. */
+    EntityStore.prototype.failedFields = function () {
+        return Object.assign({}, this.failed);
+    };
+
+    /** Forget rejected values (the UI put those fields back to base). No argument = all of them. */
+    EntityStore.prototype.discard = function (fields) {
+        var self = this;
+        (Array.isArray(fields) ? fields : Object.keys(this.failed)).forEach(function (k) { delete self.failed[k]; });
+        if (Object.keys(this.failed).length === 0 && !this.hasWork() && this.state === 'error' && !this.stopped) {
+            this.lastError = null;
+            this.setState('saved');
+        }
+    };
+
+    /** State after a request settles: saving while more is queued, error while rejects remain. */
+    EntityStore.prototype.settledState = function () {
+        if (Object.keys(this.pending).length) { this.setState('saving'); return; }
+        if (Object.keys(this.failed).length) {
+            this.setState('error', { error: this.lastError, patch: this.failedFields() });
+            return;
+        }
+        this.setState('saved');
     };
 
     EntityStore.prototype.set = function (field, value, delayMs) {
@@ -254,7 +301,7 @@
     EntityStore.prototype.flush = function () {
         var self = this;
         if (this.timer) { clearTimeout(this.timer); this.timer = null; }
-        if (!this.isDirty() || this.stopped) { return Promise.resolve(); }
+        if (!this.hasWork() || this.stopped) { return Promise.resolve(); }
         return new Promise(function (resolve) {
             self.waiters.push(resolve);
             self.pump();
@@ -262,7 +309,7 @@
     };
 
     EntityStore.prototype.settleWaiters = function () {
-        if (this.isDirty() && !this.stopped && this.state !== 'error') { return; }
+        if (this.hasWork() && !this.stopped && this.state !== 'error') { return; }
         var w = this.waiters;
         this.waiters = [];
         w.forEach(function (fn) { fn(); });
@@ -284,6 +331,8 @@
         this.inflightPromise = Promise.resolve(p).then(function (data) {
             self.inflight = null;
             self.retry = 0;
+            self.serverRetry = 0;
+            Object.keys(patch).forEach(function (k) { delete self.failed[k]; });
             if (creating) {
                 var newId = typeof self.cfg.idOf === 'function' ? self.cfg.idOf(data) : (data && data.id);
                 if (newId !== undefined && newId !== null) {
@@ -299,11 +348,11 @@
             if (typeof self.cfg.onSaved === 'function') {
                 try { self.cfg.onSaved(data, patch); } catch (e) { /* ignore UI errors */ }
             }
-            self.setState(Object.keys(self.pending).length ? 'saving' : 'saved');
+            self.settledState();
             self.pump();
         }, function (err) {
             self.inflight = null;
-            self.handleError(err, patch);
+            self.handleError(err, patch, creating);
         });
     };
 
@@ -313,21 +362,46 @@
         this.pending = merged;
     };
 
-    EntityStore.prototype.handleError = function (err, patch) {
+    EntityStore.prototype.backoff = function (patch, state) {
+        var self = this;
+        this.requeue(patch);
+        var delay = BACKOFF[Math.min(this.retry, BACKOFF.length - 1)];
+        this.retry++;
+        this.setState(state, { retryInMs: delay });
+        if (this.timer) { clearTimeout(this.timer); }
+        this.timer = setTimeout(function () { self.timer = null; self.pump(); }, delay);
+    };
+
+    EntityStore.prototype.handleError = function (err, patch, creating) {
         var self = this;
         var code = err && err.code;
 
         if (code === 'conflict' && err.data && err.data.current) {
             var current = err.data.current;
             var snap = typeof this.cfg.snapshotOf === 'function' ? this.cfg.snapshotOf(current) : current;
+            var theirs = function (f) { return snap ? snap[f] : undefined; };
+            var holdsOurs = function (f) { return !!snap && has(snap, f) && same(patch[f], snap[f]); };
+            // A field only clashes when someone else changed it AND the server does not already
+            // hold our value (an earlier attempt that committed but lost its response).
             var clash = Object.keys(patch).some(function (f) {
-                return !same(self.base[f], snap ? snap[f] : undefined);
+                return !same(self.base[f], theirs(f)) && !holdsOurs(f);
             });
             if (!clash && typeof current.version === 'number') {
-                // Someone changed OTHER fields: adopt their version and resend ours silently.
+                // Someone changed OTHER fields: adopt their version and resend what is still ours.
                 this.version = current.version;
                 this.base = Object.assign({}, snap || {});
-                this.requeue(patch);
+                var rest = {};
+                Object.keys(patch).forEach(function (f) {
+                    if (holdsOurs(f)) { delete self.failed[f]; } else { rest[f] = patch[f]; }
+                });
+                this.requeue(rest);
+                if (Object.keys(this.pending).length === 0) {
+                    this.retry = 0;
+                    this.serverRetry = 0;
+                    this.settledState();
+                    this.settleWaiters();
+                    return;
+                }
                 this.pump();
                 return;
             }
@@ -342,12 +416,15 @@
         }
 
         if (code === 'network' || code === 'busy') {
-            this.requeue(patch);
-            var delay = BACKOFF[Math.min(this.retry, BACKOFF.length - 1)];
-            this.retry++;
-            this.setState(code === 'network' ? 'offline' : 'saving', { retryInMs: delay });
-            if (this.timer) { clearTimeout(this.timer); }
-            this.timer = setTimeout(function () { self.timer = null; self.pump(); }, delay);
+            this.backoff(patch, code === 'network' ? 'offline' : 'saving');
+            return;
+        }
+
+        if (code === 'server' && !creating && this.serverRetry < SERVER_RETRIES) {
+            // Often transient (a dropped DB connection). Updates carry a version, so a retry of
+            // one that did commit comes back as a 409 the conflict branch above resolves.
+            this.serverRetry++;
+            this.backoff(patch, 'saving');
             return;
         }
 
@@ -366,8 +443,15 @@
             return;
         }
 
-        // validation / archived / too_large / server: this patch is rejected as sent. Drop it (so
-        // it is not re-sent in a loop), report, and keep saving later edits.
+        // validation / archived / too_large / server (retries used up): this patch is rejected as
+        // sent. Do not re-send it in a loop, but keep it as failed (still dirty, so the leave-page
+        // warning fires) until a later save of the field succeeds or the UI discards it. A newer
+        // value typed meanwhile is already queued and supersedes the rejected one.
+        this.serverRetry = 0;
+        this.lastError = err;
+        Object.keys(patch).forEach(function (k) {
+            if (!has(self.pending, k)) { self.failed[k] = patch[k]; }
+        });
         this.setState('error', { error: err, patch: patch });
         if (typeof this.cfg.onError === 'function') {
             try { this.cfg.onError(err, patch); } catch (e) { /* ignore */ }
@@ -388,7 +472,10 @@
         this.version = typeof version === 'number' ? version : this.version;
         this.base = Object.assign({}, base || {});
         this.pending = {};
+        this.failed = {};
+        this.lastError = null;
         this.retry = 0;
+        this.serverRetry = 0;
         this.stopped = authStopped;
         this.setState('idle');
     };

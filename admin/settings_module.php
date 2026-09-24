@@ -37,7 +37,11 @@ require_once "includes/inc_all_admin.php";
                 <small class="form-text text-muted">Adds a Knowledge Base section for agents and departments - per-department articles plus a Central (company-wide) library.</small>
             </div>
 
-            <?php if (!empty($config_training_schema_ready)) { ?>
+            <?php
+            // Offered once the 2.6.91 schema exists AND the Training pages are installed (they ship
+            // after the foundation update; switching on earlier would only lead to 404s). If it is
+            // somehow already on, the switch stays visible so it can be turned off.
+            if (!empty($config_training_schema_ready) && (is_file(dirname(__DIR__) . '/agent/training_courses.php') || $config_module_enable_training == 1)) { ?>
             <div class="form-group">
                 <div class="form-check form-check form-switch">
                     <input type="checkbox" class="form-check-input" name="config_module_enable_training" <?php if ($config_module_enable_training == 1) { echo "checked"; } ?> value="1" id="customSwitchTraining">

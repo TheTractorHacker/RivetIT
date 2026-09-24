@@ -17,7 +17,14 @@
  *
  * Schedule (ops, once Phase 1 is verified): /etc/cron.d/mw-itflow-training
  *   15 5 * * * www-data /usr/bin/php /var/www/mw-itflow.foleyit.com/cron/training_cron.php >> /var/log/itflow_mw_training.log 2>&1
- * Runs once per UTC day (a second run the same day exits silently) unless --force.
+ * Runs once per UTC day (a second run the same day exits silently) unless --force. "Ran today"
+ * is a stamp only THIS runner writes (next to its lock file), never the settings columns:
+ * Admin > Training > Verify now writes those too, and a click in the evening (already the next
+ * UTC day from 19:00 CDT) must not cancel that night's run or Sunday's deep one. On a Sunday a
+ * shallow stamp does not count; only a deep run does. --deep asks for a deep verify on any day
+ * (and, like Sunday, is not satisfied by an earlier shallow run the same day).
+ * Must run as www-data (config.php and media files are www-data 0640; the lock and stamp are
+ * created by whoever runs first).
  * Exits silently when the Training module is off or the 2.6.91 schema is not there yet.
  * Prints one summary line per run.
  */
@@ -36,10 +43,11 @@ require_once "../vendor/autoload.php";
 use ITFlow\Training\Core\LedgerVerifier;
 
 $force = in_array('--force', $argv ?? [], true);
+$deep_requested = in_array('--deep', $argv ?? [], true);
 
 // Module toggle + schema presence. A missing column (pre-2.6.91) means "off".
 try {
-    $tr_settings = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_module_enable_training, config_training_ledger_verified_at_utc FROM settings WHERE company_id = 1"));
+    $tr_settings = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_module_enable_training FROM settings WHERE company_id = 1"));
 } catch (\Throwable $e) {
     exit(0);
 }
@@ -48,21 +56,32 @@ if (!$tr_settings || intval($tr_settings['config_module_enable_training']) !== 1
 }
 
 // One runner at a time (a manual --force run while the nightly one is going).
-$tr_lock_path = sys_get_temp_dir() . '/itflow_training_cron_' . md5(__DIR__) . '.lock';
-$tr_lock = fopen($tr_lock_path, 'c');
-if ($tr_lock === false || !flock($tr_lock, LOCK_EX | LOCK_NB)) {
+$tr_state_base = sys_get_temp_dir() . '/itflow_training_cron_' . md5(__DIR__);
+$tr_lock_path = $tr_state_base . '.lock';
+$tr_lock = @fopen($tr_lock_path, 'c');
+if ($tr_lock === false) {
+    // Not contention: the file exists but belongs to another OS user (fs.protected_regular
+    // refuses O_CREAT on someone else's file in /tmp). Say so instead of "skipping" forever.
+    echo gmdate('Y-m-d\TH:i:s\Z') . " training_cron: ERROR cannot open $tr_lock_path (created by another OS user? run as www-data)\n";
+    exit(1);
+}
+if (!flock($tr_lock, LOCK_EX | LOCK_NB)) {
     echo gmdate('Y-m-d\TH:i:s\Z') . " training_cron: another run holds the lock, skipping\n";
     exit(0);
 }
 
-// Once per UTC day unless --force.
+// Once per UTC day unless --force, keyed on this runner's own stamp ("<Y-m-d> deep|shallow").
 $tr_today_utc = gmdate('Y-m-d');
-$tr_last = (string) ($tr_settings['config_training_ledger_verified_at_utc'] ?? '');
-if (!$force && $tr_last !== '' && substr($tr_last, 0, 10) === $tr_today_utc) {
-    exit(0);
+$tr_deep = $deep_requested || gmdate('w') === '0';
+$tr_stamp_path = $tr_state_base . '.stamp';
+if (!$force) {
+    $tr_stamp = @file_get_contents($tr_stamp_path);
+    if (is_string($tr_stamp) && preg_match('/^(\d{4}-\d{2}-\d{2}) (deep|shallow)$/', trim($tr_stamp), $tr_m)
+        && $tr_m[1] === $tr_today_utc && (!$tr_deep || $tr_m[2] === 'deep')) {
+        exit(0);
+    }
 }
 
-$tr_deep = gmdate('w') === '0';
 $tr_started = microtime(true);
 
 // 1. Ledger verify ---------------------------------------------------------------------------
@@ -76,10 +95,25 @@ try {
     exit(1);
 }
 
+// The run happened: stamp it (after the result is stored, so a run that died above is retried).
+$tr_stamp_note = '';
+if (@file_put_contents($tr_stamp_path, $tr_today_utc . ' ' . ($tr_deep ? 'deep' : 'shallow') . "\n", LOCK_EX) === false) {
+    $tr_stamp_note = " (WARNING: could not write $tr_stamp_path)";
+}
+
+// A NEW break signature alerts once, from whichever path saw it first. Admin > Training >
+// Verify now runs the same block (admin/post/settings_training.php), so a break an admin
+// found first still reaches every admin.
 if ($tr_record['new_break']) {
     $tr_first = $tr_result['breaks'][0];
     $tr_detail = $tr_record['line'] . ' - ' . $tr_first['detail'];
     logApp('Training', 'error', 'Training ledger verification found a break: ' . $tr_detail);
+    $tr_admins = mysqli_query($mysqli, "SELECT users.user_id FROM users
+        JOIN user_roles ON users.user_role_id = user_roles.role_id
+        WHERE user_roles.role_is_admin = 1 AND users.user_type = 1 AND users.user_status = 1 AND users.user_archived_at IS NULL");
+    while ($tr_admin = mysqli_fetch_assoc($tr_admins)) {
+        notifyUser(intval($tr_admin['user_id']), 'Training', 'Training records integrity check found a problem: ' . $tr_record['line'] . '. Open Admin > Training for details.', '/admin/settings_training.php');
+    }
     try {
         \ITFlow\Audit\AuditService::record('training.ledger_break', null, 'training_ledger', $tr_first['seq'], 'verify', $tr_record['line'], [
             'breaks' => array_slice($tr_result['breaks'], 0, 20),
@@ -88,12 +122,6 @@ if ($tr_record['new_break']) {
         ]);
     } catch (\Throwable $e) {
         logApp('Training', 'error', 'Could not write the ledger-break audit event: ' . $e->getMessage());
-    }
-    $tr_admins = mysqli_query($mysqli, "SELECT users.user_id FROM users
-        JOIN user_roles ON users.user_role_id = user_roles.role_id
-        WHERE user_roles.role_is_admin = 1 AND users.user_type = 1 AND users.user_status = 1 AND users.user_archived_at IS NULL");
-    while ($tr_admin = mysqli_fetch_assoc($tr_admins)) {
-        notifyUser(intval($tr_admin['user_id']), 'Training', 'Training records integrity check found a problem: ' . $tr_record['line'] . '. Open Admin > Training for details.', '/admin/settings_training.php');
     }
 }
 
@@ -112,9 +140,9 @@ if (is_dir($tr_media_root)) {
     }
 }
 
-printf("%s training_cron: ledger verify (%s) %s; checked %d events in %.1fs; swept %d temp file(s)\n",
+printf("%s training_cron: ledger verify (%s) %s; checked %d events in %.1fs; swept %d temp file(s)%s\n",
     gmdate('Y-m-d\TH:i:s\Z'), $tr_deep ? 'deep' : 'shallow', $tr_record['line'], $tr_result['checked'],
-    microtime(true) - $tr_started, $tr_swept);
+    microtime(true) - $tr_started, $tr_swept, $tr_stamp_note);
 
 flock($tr_lock, LOCK_UN);
 fclose($tr_lock);

@@ -161,7 +161,7 @@ $config_module_enable_intune = intval($row['config_module_enable_intune'] ?? 0);
 // Training (LMS). ?? defaults mirror the 2.6.91 column defaults, so before the migration the app reads "off".
 // $config_training_schema_ready lets admin/post/settings_module.php skip the column until 2.6.91 has run.
 $config_module_enable_training = intval($row['config_module_enable_training'] ?? 0);
-$config_training_schema_ready  = array_key_exists('config_module_enable_training', $row);
+$config_training_schema_ready  = is_array($row) && array_key_exists('config_module_enable_training', $row);
 
 // Login
 $config_login_message = $row['config_login_message'];

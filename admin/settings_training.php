@@ -25,6 +25,7 @@ $tr_ready = false;
 $tr_error = false;
 $tr_row = [];
 $tr_head = null;
+$tr_head_missing = false;    // head row gone (tamper / bad restore): the page still renders, Verify now reports it
 $tr_usage = [];
 $tr_live_bytes = 0;
 $tr_unreferenced = null;     // null = purger not installed yet
@@ -40,7 +41,14 @@ if (!empty($config_training_schema_ready)) {
                     (config_training_youtube_api_key IS NOT NULL AND config_training_youtube_api_key <> '') AS youtube_key_set,
                     config_training_ledger_verified_at_utc, config_training_ledger_verify_result
                 FROM settings WHERE company_id = 1")) ?: [];
-            $tr_head = Ledger::head($mysqli);
+            try {
+                $tr_head = Ledger::head($mysqli);
+            } catch (\RuntimeException $e) {
+                if ($e->getMessage() !== 'ledger_uninitialized') {
+                    throw $e;
+                }
+                $tr_head_missing = true;
+            }
             $tr_usage = MediaUsage::liveByKind($mysqli);
             foreach ($tr_usage as $tr_k) {
                 $tr_live_bytes += $tr_k['bytes'];
@@ -114,6 +122,10 @@ function tr_admin_fmt_bytes(int $b): string {
     return ($v >= 100 ? round($v) : rtrim(rtrim(number_format($v, 1), '0'), '.')) . ' ' . $u[$i];
 }
 
+// The module switch appears in Modules only once the Training pages are installed (the course
+// pages ship after this foundation update); until then there is nothing to open.
+$tr_pages_ready = is_file(dirname(__DIR__) . '/agent/training_courses.php');
+
 $tr_kind_labels = ['pdf' => 'PDF documents', 'page' => 'PDF page images', 'video' => 'Videos', 'image' => 'Images', 'file' => 'Resource files', 'evidence' => 'Evidence'];
 $tr_kind_colors = ['pdf' => 'bg-red', 'page' => 'bg-orange', 'video' => 'bg-purple', 'image' => 'bg-cyan', 'file' => 'bg-blue', 'evidence' => 'bg-secondary'];
 
@@ -154,7 +166,7 @@ $tr_head_updated_iso = $tr_head ? Clock::toIso($tr_head['updated_at_utc'], true)
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-fw fa-hard-hat me-2"></i>Training (LMS)</h3>
         <div class="card-actions">
-            <?php if (intval($tr_row['config_module_enable_training'] ?? 0) === 1) { ?>
+            <?php if (intval($tr_row['config_module_enable_training'] ?? 0) === 1 && $tr_pages_ready) { ?>
                 <a href="/agent/training_courses.php" class="btn btn-outline-primary btn-sm"><i class="fas fa-fw fa-graduation-cap me-1"></i>Open Training</a>
             <?php } ?>
         </div>
@@ -167,7 +179,11 @@ $tr_head_updated_iso = $tr_head ? Clock::toIso($tr_head['updated_at_utc'], true)
             <?php } else { ?>
                 <span class="badge text-bg-secondary">Off</span>
             <?php } ?>
-            <a href="/admin/settings_module.php" class="ms-2">Change in Modules</a>
+            <?php if ($tr_pages_ready || intval($tr_row['config_module_enable_training'] ?? 0) === 1) { ?>
+                <a href="/admin/settings_module.php" class="ms-2">Change in Modules</a>
+            <?php } else { ?>
+                <span class="text-muted small ms-2">The switch appears in Modules once the Training pages are installed (a later update).</span>
+            <?php } ?>
         </div>
         <p class="text-muted small mb-0">
             Training is visible only to roles granted the <code>module_training</code> permission (1 Read, 2 Modify, 3 Full); admins always have full access.
@@ -423,6 +439,9 @@ $tr_head_updated_iso = $tr_head ? Clock::toIso($tr_head['updated_at_utc'], true)
                 <?php if ($tr_head) { ?>
                     <span class="font-monospace">#<?php echo intval($tr_head['seq']); ?> / <?php echo nullable_htmlentities(substr($tr_head['hash'], 0, 16)); ?></span>
                     <?php if ($tr_head_updated_iso) { ?><span class="text-muted small ms-2">updated <?php echo nullable_htmlentities(date('Y-m-d H:i', strtotime($tr_head_updated_iso))); ?></span><?php } ?>
+                <?php } elseif ($tr_head_missing) { ?>
+                    <span class="badge text-bg-danger">Ledger head missing</span>
+                    <div class="small text-danger mt-1">The ledger head row is gone, which means the records were tampered with or a restore was incomplete. New media and publishes will fail until it is back. Run <strong>Verify now</strong> and restore from a backup whose <code>version.txt</code> head matches.</div>
                 <?php } ?>
             </dd>
             <dt class="col-sm-3">Last verified</dt>
