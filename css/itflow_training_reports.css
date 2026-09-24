@@ -625,3 +625,4 @@ a.trr-seg__btn { display: inline-flex; align-items: center; text-decoration: non
   .trr-table--overdue .trr-col-sched { width: 14%; }
   .d-print-table-column { display: table-column !important; }
 }
+.trr-bars__fill.is-empty { min-width: 0; }

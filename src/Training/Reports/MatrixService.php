@@ -219,7 +219,10 @@ final class MatrixService
             unset($row['_o']);
         }
         unset($row);
-        $deptName = Lookup::departmentNames($this->c->db, [$clientId])[$clientId] ?? ('Department #' . $clientId);
+        $deptName = Lookup::departmentNames($this->c->db, [$clientId])[$clientId] ?? null;
+        if ($deptName === null) {
+            throw new ApiException(404, 'not_found', 'That department was not found.');
+        }
         return [
             'department' => ['id' => $clientId, 'name' => $deptName],
             'course' => ['id' => $course['id'], 'name' => $course['name'], 'code' => $course['code'], 'kind' => $course['kind']],

@@ -184,7 +184,7 @@ $trr_actions = '<a class="btn btn-outline-secondary" href="' . trr_h($trr_csv) .
                     <?php foreach ($trr['ageing'] as $trr_i => $trr_a) { ?>
                     <li class="trr-bars__row">
                         <span class="trr-bars__label"><?= trr_h(str_replace('-', '–', $trr_a['bucket'])) ?> days</span>
-                        <span class="trr-bars__track"><span class="trr-bars__fill trr-bars__fill--<?= $trr_i + 1 ?>" style="width: <?= round(100 * (int) $trr_a['count'] / $trr_max, 1) ?>%"></span></span>
+                        <span class="trr-bars__track"><span class="trr-bars__fill trr-bars__fill--<?= $trr_i + 1 ?><?= (int) $trr_a['count'] === 0 ? ' is-empty' : '' ?>" style="width: <?= round(100 * (int) $trr_a['count'] / $trr_max, 1) ?>%"></span></span>
                         <span class="trr-bars__count"><?= (int) $trr_a['count'] ?></span>
                     </li>
                     <?php } ?>

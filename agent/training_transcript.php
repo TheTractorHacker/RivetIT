@@ -91,7 +91,8 @@ try {
 $trr_crumbs = [['label' => 'Training', 'url' => '/agent/training.php'], ['label' => 'Records & sessions', 'url' => '/agent/training_records.php']];
 
 if ($trr === null) {
-    http_response_code($trr_not_found ? 404 : 500);
+    // The shell has already been sent by inc_all, so the refusal is the page's not-found state
+    // (the JSON actions and the standalone print documents answer 404).
     ?>
 <div class="trr-page trr-transcript">
     <?php render_page_header('Transcript', null, '', array_merge($trr_crumbs, [['label' => 'Transcript']])); ?>

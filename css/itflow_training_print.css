@@ -276,9 +276,10 @@ body.trr-print {
 .trr-cert__status {
   position: absolute;
   left: 50%;
-  top: 3em;
-  transform: translateX(-50%);
+  top: 1.65em;                    /* straddles the outer frame line, clear of the company name */
+  transform: translate(-50%, -50%);
   max-width: 44em;
+  z-index: 2;
   padding: .35em 1.1em;
   border-radius: 999px;
   font-size: .8em;
