@@ -263,12 +263,12 @@ $trr_delta = static function (?int $d, string $unit, string $versus, bool $lower
             <div class="tr-empty"><?php render_empty_state('fas fa-check-circle', 'Nothing is overdue', 'Everyone in view is on time with their required training.', ''); ?></div>
             <?php } ?>
         </div>
-        <?php foreach ($trr_data['groups'] as $trr_g) { ?>
-        <div class="trr-print-group">
+        <?php foreach ($trr_data['groups'] as $trr_gi => $trr_g) { ?>
+        <div class="trr-print-group<?= $trr_gi === 0 ? ' trr-print-group--first' : '' ?>">
             <h3 class="trr-group-title px-3"><?= trr_h($trr_g['name']) ?> <span class="trr-muted"><?= (int) $trr_g['count'] ?> overdue · <?= (int) $trr_g['people'] ?> <?= $trr_g['people'] === 1 ? 'person' : 'people' ?></span></h3>
             <div class="trr-table-wrap">
                 <table class="table table-vcenter card-table trr-table trr-table--overdue">
-                    <colgroup><col class="trr-col-person"><col class="trr-col-course"><col class="trr-col-why"><col class="trr-col-due"><col class="trr-col-late"><col class="trr-col-sched d-none d-print-table-column"></colgroup>
+                    <colgroup><col class="trr-col-person"><col class="trr-col-course"><col class="trr-col-why"><col class="trr-col-due"><col class="trr-col-late"><col class="trr-col-sched"></colgroup>
                     <thead>
                         <tr>
                             <th scope="col">Person</th>

@@ -553,7 +553,7 @@ a.trr-seg__btn { display: inline-flex; align-items: center; text-decoration: non
   .trr-rows__item[hidden] { display: none !important; }
   .trr-heat-wrap { overflow: visible; }
   .trr-print-group { break-before: page; }
-  .trr-print-group:first-of-type { break-before: auto; }
+  .trr-print-group--first { break-before: auto; }
 }
 
 /* ---- Transcript details (added with the transcript page) ------------------------------------------- */
@@ -619,10 +619,15 @@ a.trr-seg__btn { display: inline-flex; align-items: center; text-decoration: non
 .trr-table--overdue .trr-col-due { width: 11%; }
 .trr-table--overdue .trr-col-late { width: 11%; }
 .trr-table--overdue td { overflow-wrap: anywhere; }
+.trr-table--overdue .trr-col-sched { display: none; }   /* print-only column (Scheduled for) */
 @media print {
   .trr-table--overdue { min-width: 0; }
-  .trr-table--overdue .trr-col-why { width: 20%; }
+  .trr-table--overdue .trr-col-person { width: 23%; }
+  .trr-table--overdue .trr-col-course { width: 24%; }
+  .trr-table--overdue .trr-col-why { width: 19%; }
+  .trr-table--overdue .trr-col-due { width: 11%; }
+  .trr-table--overdue .trr-col-late { width: 9%; }
   .trr-table--overdue .trr-col-sched { width: 14%; }
-  .d-print-table-column { display: table-column !important; }
+  .trr-table--overdue .trr-col-sched { display: table-column; }
 }
 .trr-bars__fill.is-empty { min-width: 0; }
