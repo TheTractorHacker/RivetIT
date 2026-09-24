@@ -101,7 +101,7 @@
 .tro-seg__btn--completed .tro-seg__dot { background: #16a34a; }
 
 /* ---- Tables ------------------------------------------------------------------------ */
-.tro-table-wrap { overflow-x: auto; }
+.tro-table-wrap { overflow-x: auto; position: relative; }   /* contains .visually-hidden (absolute) so it cannot widen the page */
 .tro-table { margin: 0; }
 .tro-table > :not(caption) > * > * { padding: 12px 14px; vertical-align: middle; }
 .tro-table thead th {
@@ -581,3 +581,11 @@ td.tro-inline-cell { background: var(--tro-surface-2); }
 }
 .tro-ses-aside .tro-scan { flex-wrap: wrap; }
 .tro-ses-aside .tro-scan__text { flex: 1 1 150px; }
+@media (max-width: 575.98px) {
+  .tro-toolbar { padding: 12px 16px; }
+  .tro-toolbar .form-select, .tro-toolbar .form-control { min-width: 0; max-width: none; flex: 1 1 140px; }
+  .tro-toolbar__search { flex-basis: 100%; max-width: none; }
+  .tro-toolbar > .d-flex { flex-wrap: wrap; width: 100%; }
+  .tro-toolbar .tro-date-sm { width: auto; flex: 1 1 120px; }
+  .tro-seg { padding: 12px 16px 0; }
+}
