@@ -1,0 +1,1489 @@
+/*
+ * Training learner player - spec §5.9 (preview as learner; the Phase 3 kiosk reuses it), A9/A17 look.
+ * Vanilla JS, no dependencies beyond an optional TrainingVideoEmbed (js/training_video_embed.js).
+ *
+ *   TrainingPlayer.mount(root, view, adapter) -> {destroy(), open(uid), home(), reset(), progress()}
+ *       view     LearnerView v1 (§3.7) - never contains an answer key
+ *       adapter  { mode:'preview'|'kiosk', canGrade, brand?, learnerName?,
+ *                  startQuiz(lessonUid, lang) -> Promise<preview_quiz_start data>,
+ *                  submitQuiz(token, answers) -> Promise<preview_quiz_submit data>,
+ *                  onLessonOpen(uid), onLessonComplete(uid, evidence) -> Promise,
+ *                  onVideoReady(lesson, lang, {provider, extId, extHash, durationS}) -> Promise<{verified, check}>|void,
+ *                  onVideoError(lesson, lang, {provider, extId, extHash, code}),
+ *                  initialProgress?, onProgress?(progress), onLanguage?(lang), initialLesson? }
+ *
+ *   TrainingPlayer.renderQuestion(container, q, opts) -> {destroy()}
+ *       q    {uid?, type, text, image_url, options:[{uid, text}]} - the builder strips every key field first
+ *       opts {mode:'author', index, total, title, strings?, lang?, brand?}
+ *
+ * Security: the only HTML sinks are the server-purified description_html, body_html and
+ * statement_html (LearnerView re-purifies them at projection). Every other string - titles,
+ * questions, options, feedback - goes through textContent. Nothing is written to storage here;
+ * the adapter decides what (if anything) to remember, and never question or option data.
+ */
+(function () {
+    'use strict';
+
+    // ------------------------------------------------------------------------------------------
+    // Strings: LearnerView.strings first, then these player-level extras (EN / ES).
+    // ------------------------------------------------------------------------------------------
+    var EXTRA = {
+        en: {
+            lessons_n: '{n} lessons', lesson_1: '1 lesson', course_content: 'Course content', sections_meta: '{s} sections · {n} lessons',
+            section_n: 'Section {n}', done: 'Done', in_progress: 'In progress', n_of_m_done: '{n} of {m} done',
+            lessons_done: '{n} of {m} lessons done', continue_to: 'Continue: {title}', start_course: 'Start course', review_course: 'Review course',
+            up_next: 'Up next', lesson_n_of: 'Lesson {n} of {total}', next_lesson: 'Next lesson', back_to_course: 'Back to course',
+            t_article: 'Article', t_document: 'Document (PDF)', t_video: 'Video', t_image: 'Image', t_quiz: 'Quiz', t_acknowledgment: 'Acknowledgment',
+            t_exam: 'Final exam', t_check: 'Quick check',
+            min_read: '{n} min read', pages_n: '{n} pages', page_1: '1 page', questions_n: '{n} questions', question_1: '1 question',
+            read_and_sign: 'read and sign', pass_pct: 'Pass {pct}%', attempts_n: '{n} attempts', attempts_1: '1 attempt', unlimited: 'Unlimited tries',
+            time_limit_min: '{n} min limit', pages_viewed: '{n} of {total} pages viewed', go_through_pages: 'Go through all {n} pages to finish',
+            all_pages_viewed: 'All pages viewed', swipe_hint: 'Swipe to turn pages · pinch to zoom',
+            watch_progress: 'Watch progress', keep_watching: 'Watched {pct}% — keep watching to finish', watched_enough: 'Watched {pct}% — you can finish this lesson',
+            about_left: 'About {t} left', skip_not_counted: "Skipping ahead isn't counted.", only_watched: 'Only what you watch adds up.',
+            furthest: 'Furthest watched', fullscreen: 'Full screen', exit_fullscreen: 'Exit full screen',
+            req_watch: 'watching {pct}% of the video', req_pages: 'viewing all {n} pages', req_quiz: 'passing the quiz', req_sign: 'ticking the box and signing',
+            available_after: 'Available after {req}', ready_to_finish: 'Ready to finish', resources_1: '1 file',
+            preview_gate: 'Learners finish this after {req}. In preview you can continue anyway.', verifying: 'Checking the video…', verified_at: 'Verified · {t}',
+            video_note_upload: 'Video', answered_n: '{n} of {total} answered', pick_one: 'Pick one answer', pick_tf: 'True or false',
+            question_kicker: 'Question {n}', flag: 'Flag for review', flagged: 'Flagged', next_question: 'Next question', review_answers: 'Review answers',
+            n_unanswered: '{n} not answered. Unanswered questions count as wrong.', all_answered: 'Every question is answered.',
+            you_passed: 'You passed!', not_passed: 'Not this time', pass_mark: 'Pass mark {pct}%', points_of: '{n} of {m} points',
+            correct_label: 'Correct', time_label: 'Time', passmark_label: 'Pass mark', of: '{n} of {m}', took: 'took {t}', finished_at: 'Finished {time}',
+            what_to_review: 'What to review', n_missed: '{n} missed', quick_look: 'A quick look now helps it stick for next time.',
+            nothing_missed: 'Nothing missed. Nice work.', score_only_note: 'This quiz shows the score only.',
+            no_achievements: 'Achievements are awarded once the Learning Center launches.', time_up: "Time's up. Your answers were sent.",
+            time_up_ungraded: "Time's up.", leave_quiz: 'Leave quiz', passed_chip: 'Passed', failed_chip: 'Not yet',
+            pass_msg: 'Nice work. You can continue to the next lesson.', fail_msg: 'Review the questions below, then try again.',
+            fail_critical_msg: 'A must-know question was missed. Review it, then try again.', quiz_not_graded: 'Preview only: answers are not graded at this level.',
+            submitting: 'Sending your answers…', starting: 'Getting your questions…', ack_title: 'Read and sign',
+            signature_needed: 'Sign in the box to continue', pin_hint: 'Dots only. The PIN is never sent in preview.', pin_label: 'PIN',
+            complete_title: 'Course complete', complete_sub: 'You finished {course}.', completed_on: 'Completed {date}', learner: 'Preview learner',
+            attest_by: 'Signed by {name}', open_image: 'Open full size', about_course: 'About this course', learner_view: 'Preview',
+            resources_n: '{n} files', mark_done: 'Mark done', optional_chip: 'Optional', open_chip: 'Open without starting',
+            locked_chip: 'Locked', start_chip: 'Start', review_chip: 'Review', correct_answers: 'Correct answer', answer_label: 'Answer {l}',
+            course_name_label: 'Course', minutes_total: '{n} min', video_error_detail: 'Details: {code}', play_first: 'Press play inside the video first.',
+            review_hint: 'Tap a question to change your answer.', graded_hidden: 'Grading is available to course authors', in_order: 'Lessons in order', attest_default: 'I completed this training and I understand it.',
+            question_of: 'Question {n} of {total}', next: 'Next', select_all: 'Select all that apply'
+        },
+        es: {
+            lessons_n: '{n} lecciones', lesson_1: '1 lección', course_content: 'Contenido del curso', sections_meta: '{s} secciones · {n} lecciones',
+            section_n: 'Sección {n}', done: 'Hecho', in_progress: 'En curso', n_of_m_done: '{n} de {m} hechas',
+            lessons_done: '{n} de {m} lecciones hechas', continue_to: 'Continuar: {title}', start_course: 'Comenzar el curso', review_course: 'Repasar el curso',
+            up_next: 'Siguiente', lesson_n_of: 'Lección {n} de {total}', next_lesson: 'Siguiente lección', back_to_course: 'Volver al curso',
+            t_article: 'Artículo', t_document: 'Documento (PDF)', t_video: 'Video', t_image: 'Imagen', t_quiz: 'Prueba', t_acknowledgment: 'Constancia',
+            t_exam: 'Examen final', t_check: 'Repaso rápido',
+            min_read: '{n} min de lectura', pages_n: '{n} páginas', page_1: '1 página', questions_n: '{n} preguntas', question_1: '1 pregunta',
+            read_and_sign: 'leer y firmar', pass_pct: 'Aprobar con {pct}%', attempts_n: '{n} intentos', attempts_1: '1 intento', unlimited: 'Intentos ilimitados',
+            time_limit_min: 'Límite de {n} min', pages_viewed: '{n} de {total} páginas vistas', go_through_pages: 'Revise las {n} páginas para terminar',
+            all_pages_viewed: 'Todas las páginas vistas', swipe_hint: 'Deslice para cambiar de página · pellizque para acercar',
+            watch_progress: 'Progreso del video', keep_watching: 'Visto {pct}% — siga viendo para terminar', watched_enough: 'Visto {pct}% — ya puede terminar esta lección',
+            about_left: 'Faltan unos {t}', skip_not_counted: 'Adelantar no cuenta.', only_watched: 'Solo cuenta lo que ve.',
+            furthest: 'Lo más lejos visto', fullscreen: 'Pantalla completa', exit_fullscreen: 'Salir de pantalla completa',
+            req_watch: 'ver el {pct}% del video', req_pages: 'ver las {n} páginas', req_quiz: 'aprobar la prueba', req_sign: 'marcar la casilla y firmar',
+            available_after: 'Disponible después de {req}', ready_to_finish: 'Listo para terminar', resources_1: '1 archivo',
+            preview_gate: 'Los participantes terminan esto después de {req}. En la vista previa puede continuar.', verifying: 'Verificando el video…', verified_at: 'Verificado · {t}',
+            video_note_upload: 'Video', answered_n: '{n} de {total} respondidas', pick_one: 'Elija una respuesta', pick_tf: 'Verdadero o falso',
+            question_kicker: 'Pregunta {n}', flag: 'Marcar para revisar', flagged: 'Marcada', next_question: 'Siguiente pregunta', review_answers: 'Revisar respuestas',
+            n_unanswered: '{n} sin responder. Las preguntas sin respuesta cuentan como incorrectas.', all_answered: 'Todas las preguntas tienen respuesta.',
+            you_passed: '¡Aprobó!', not_passed: 'Esta vez no', pass_mark: 'Nota para aprobar {pct}%', points_of: '{n} de {m} puntos',
+            correct_label: 'Correctas', time_label: 'Tiempo', passmark_label: 'Para aprobar', of: '{n} de {m}', took: 'tardó {t}', finished_at: 'Terminó {time}',
+            what_to_review: 'Qué repasar', n_missed: '{n} falladas', quick_look: 'Un repaso rápido ahora ayuda a recordarlo.',
+            nothing_missed: 'No falló ninguna. Buen trabajo.', score_only_note: 'Esta prueba solo muestra la puntuación.',
+            no_achievements: 'Los logros se otorgan cuando se lance el Centro de aprendizaje.', time_up: 'Se acabó el tiempo. Se enviaron sus respuestas.',
+            time_up_ungraded: 'Se acabó el tiempo.', leave_quiz: 'Salir de la prueba', passed_chip: 'Aprobado', failed_chip: 'Todavía no',
+            pass_msg: 'Buen trabajo. Puede continuar con la siguiente lección.', fail_msg: 'Repase las preguntas de abajo y vuelva a intentarlo.',
+            fail_critical_msg: 'Falló una pregunta esencial. Repásela y vuelva a intentarlo.', quiz_not_graded: 'Solo vista previa: las respuestas no se califican en este nivel.',
+            submitting: 'Enviando sus respuestas…', starting: 'Preparando sus preguntas…', ack_title: 'Leer y firmar',
+            signature_needed: 'Firme en el recuadro para continuar', pin_hint: 'Solo puntos. El PIN nunca se envía en la vista previa.', pin_label: 'PIN',
+            complete_title: 'Curso completado', complete_sub: 'Terminó {course}.', completed_on: 'Completado el {date}', learner: 'Participante de prueba',
+            attest_by: 'Firmado por {name}', open_image: 'Ver en tamaño completo', about_course: 'Acerca de este curso', learner_view: 'Vista previa',
+            resources_n: '{n} archivos', mark_done: 'Marcar como hecho', optional_chip: 'Opcional', open_chip: 'Abrir sin comenzar',
+            locked_chip: 'Bloqueada', start_chip: 'Comenzar', review_chip: 'Repasar', correct_answers: 'Respuesta correcta', answer_label: 'Respuesta {l}',
+            course_name_label: 'Curso', minutes_total: '{n} min', video_error_detail: 'Detalle: {code}', play_first: 'Primero presione reproducir dentro del video.',
+            review_hint: 'Toque una pregunta para cambiar su respuesta.', graded_hidden: 'La calificación está disponible para los autores del curso', in_order: 'Lecciones en orden', attest_default: 'Completé esta capacitación y la entiendo.',
+            question_of: 'Pregunta {n} de {total}', next: 'Siguiente', select_all: 'Seleccione todas las que correspondan'
+        }
+    };
+    var LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    var TYPE_ICON = {
+        article: 'fa-file-alt', document: 'fa-file-pdf', video: 'fa-play-circle', image: 'fa-image',
+        quiz: 'fa-question-circle', acknowledgment: 'fa-file-signature'
+    };
+
+    function makeT(strings, lang) {
+        var extra = EXTRA[lang] || EXTRA.en;
+        return function t(key, vars) {
+            var s = (strings && typeof strings[key] === 'string') ? strings[key] : (extra[key] || EXTRA.en[key] || key);
+            if (vars) {
+                s = s.replace(/\{([a-z_]+)\}/g, function (m, k) { return vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : m; });
+            }
+            return s;
+        };
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // DOM helpers (no HTML sinks; the three allowlisted fields use setTrustedHtml()).
+    // ------------------------------------------------------------------------------------------
+    function h(tag, attrs, children) {
+        var n = document.createElement(tag);
+        attrs = attrs || {};
+        Object.keys(attrs).forEach(function (k) {
+            var v = attrs[k];
+            if (v === undefined || v === null || v === false) { return; }
+            if (k === 'class') { n.className = Array.isArray(v) ? v.filter(Boolean).join(' ') : v; }
+            else if (k === 'text') { n.textContent = String(v); }
+            else if (k === 'on') { Object.keys(v).forEach(function (e) { n.addEventListener(e, v[e]); }); }
+            else if (k === 'style') { Object.keys(v).forEach(function (s) { n.style.setProperty(s, v[s]); }); }
+            else if (k === 'dataset') { Object.keys(v).forEach(function (d) { n.dataset[d] = String(v[d]); }); }
+            else if (/^on/i.test(k) || k === 'html' || k === 'innerHTML') { throw new Error('TrainingPlayer: no inline handlers or HTML sinks'); }
+            else if ((k === 'href' || k === 'src') && /^\s*(javascript|vbscript|data):/i.test(String(v))) { throw new Error('TrainingPlayer: unsafe URL'); }
+            else if (v === true) { n.setAttribute(k, ''); }
+            else { n.setAttribute(k, String(v)); }
+        });
+        (Array.isArray(children) ? children : [children]).forEach(function (c) {
+            if (c === null || c === undefined || c === false) { return; }
+            n.appendChild(c instanceof Node ? c : document.createTextNode(String(c)));
+        });
+        return n;
+    }
+    function icon(name, extra) { return h('i', { class: 'fas ' + name + (extra ? ' ' + extra : ''), 'aria-hidden': 'true' }); }
+    /** Server-purified HTML only: description_html, body_html (article), statement_html (ack). */
+    function setTrustedHtml(node, html) {
+        node.innerHTML = typeof html === 'string' ? html : '';
+        node.querySelectorAll('a[href]').forEach(function (a) {
+            if (/^https?:/i.test(a.getAttribute('href') || '')) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener noreferrer'); }
+        });
+        return node;
+    }
+    function clear(node) { while (node && node.firstChild) { node.removeChild(node.firstChild); } }
+    function fmt(seconds) {
+        var s = Math.max(0, Math.round(Number(seconds) || 0));
+        var hh = Math.floor(s / 3600);
+        var m = Math.floor((s % 3600) / 60);
+        var sec = s % 60;
+        var pad = function (x) { return (x < 10 ? '0' : '') + x; };
+        return hh > 0 ? hh + ':' + pad(m) + ':' + pad(sec) : m + ':' + pad(sec);
+    }
+    function minutes(seconds) { return Math.max(1, Math.round((Number(seconds) || 0) / 60)); }
+    function reducedMotion() {
+        try { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
+    }
+    function ring(pct, cls, label) {
+        var p = Math.max(0, Math.min(100, Number(pct) || 0));
+        var svgNs = 'http://www.w3.org/2000/svg';
+        var svg = document.createElementNS(svgNs, 'svg');
+        svg.setAttribute('viewBox', '0 0 120 120');
+        svg.setAttribute('class', 'trp-ring__svg');
+        svg.setAttribute('aria-hidden', 'true');
+        var track = document.createElementNS(svgNs, 'circle');
+        track.setAttribute('cx', '60'); track.setAttribute('cy', '60'); track.setAttribute('r', '52');
+        track.setAttribute('class', 'trp-ring__track');
+        var bar = document.createElementNS(svgNs, 'circle');
+        bar.setAttribute('cx', '60'); bar.setAttribute('cy', '60'); bar.setAttribute('r', '52');
+        bar.setAttribute('class', 'trp-ring__bar');
+        var len = 2 * Math.PI * 52;
+        bar.setAttribute('stroke-dasharray', String(len));
+        bar.setAttribute('stroke-dashoffset', String(len * (1 - p / 100)));
+        svg.appendChild(track);
+        svg.appendChild(bar);
+        return h('div', { class: ['trp-ring', cls], role: 'img', 'aria-label': label || (Math.round(p) + '%') }, [svg]);
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Question screen (shared by the runner and the author preview)
+    // ------------------------------------------------------------------------------------------
+    /**
+     * @param q     {uid, type, text, image_url, options:[{uid,text}]}
+     * @param state {selected:[uids], flagged:bool}
+     * @param o     {t, index, total, compact, onChange(selectedUids)}
+     */
+    function questionCard(q, state, o) {
+        var t = o.t;
+        var multi = q.type === 'multi';
+        var kicker = t('question_kicker', { n: o.index + 1 }) + ' · ' + (multi ? t('select_all') : (q.type === 'truefalse' ? t('pick_tf') : t('pick_one')));
+        var qid = 'trp-q-' + Math.random().toString(36).slice(2, 9);
+        var list = h('div', { class: 'trp-opts' + (o.compact && q.options.length <= 4 ? ' trp-opts--grid' : ''), role: multi ? 'group' : 'radiogroup', 'aria-labelledby': qid });
+        var buttons = [];
+        function sync() {
+            buttons.forEach(function (b) {
+                var on = state.selected.indexOf(b.dataset.uid) !== -1;
+                b.classList.toggle('is-selected', on);
+                b.setAttribute('aria-checked', on ? 'true' : 'false');
+            });
+            if (!multi) {
+                // Roving tabindex for the radio group.
+                var sel = buttons.filter(function (b) { return b.classList.contains('is-selected'); })[0] || buttons[0];
+                buttons.forEach(function (b) { b.tabIndex = b === sel ? 0 : -1; });
+            }
+        }
+        function choose(uid) {
+            if (multi) {
+                var i = state.selected.indexOf(uid);
+                if (i === -1) { state.selected.push(uid); } else { state.selected.splice(i, 1); }
+            } else {
+                state.selected = [uid];
+            }
+            sync();
+            if (typeof o.onChange === 'function') { o.onChange(state.selected.slice()); }
+        }
+        q.options.forEach(function (opt, i) {
+            var b = h('button', {
+                type: 'button', class: 'trp-opt', role: multi ? 'checkbox' : 'radio', 'aria-checked': 'false', dataset: { uid: opt.uid },
+                on: {
+                    click: function () { choose(opt.uid); },
+                    keydown: function (e) {
+                        if (multi) { return; }
+                        var k = e.key;
+                        if (k === 'ArrowDown' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowLeft') {
+                            e.preventDefault();
+                            var dir = (k === 'ArrowDown' || k === 'ArrowRight') ? 1 : -1;
+                            var nx = buttons[(i + dir + buttons.length) % buttons.length];
+                            nx.focus({ preventScroll: true });
+                            choose(nx.dataset.uid);
+                        }
+                    }
+                }
+            }, [
+                h('span', { class: 'trp-opt__letter', 'aria-hidden': 'true', text: LETTERS[i] || '' }),
+                h('span', { class: 'trp-opt__text', text: opt.text || '' }),
+                h('span', { class: 'trp-opt__mark trp-opt__mark--' + (multi ? 'box' : 'dot'), 'aria-hidden': 'true' }, multi ? icon('fa-check') : null)
+            ]);
+            buttons.push(b);
+            list.appendChild(b);
+        });
+        sync();
+        var card = h('div', { class: 'trp-qcard' + (o.compact ? ' trp-qcard--compact' : '') }, [
+            h('div', { class: 'trp-qcard__kicker', text: kicker }),
+            h('h2', { class: 'trp-qcard__text', id: qid, text: q.text || '' }),
+            q.image_url ? h('div', { class: 'trp-qcard__img' }, h('img', { src: q.image_url, alt: '', loading: 'lazy' })) : null,
+            list
+        ]);
+        return {
+            el: card,
+            choose: function (index) { var b = buttons[index]; if (b) { choose(b.dataset.uid); b.focus({ preventScroll: true }); } },
+            focusFirst: function () { var b = buttons.filter(function (x) { return x.tabIndex === 0; })[0] || buttons[0]; if (b) { b.focus({ preventScroll: true }); } }
+        };
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // TrainingPlayer.mount
+    // ------------------------------------------------------------------------------------------
+    function mount(root, view, adapter) {
+        adapter = adapter || {};
+        var lang = view.lang || 'en';
+        var t = makeT(view.strings || {}, lang);
+        var isKiosk = adapter.mode === 'kiosk';
+        var canGrade = adapter.canGrade !== undefined ? !!adapter.canGrade : !!view.can_grade;
+        var lessons = view.lessons || [];
+        var byUid = {};
+        lessons.forEach(function (l) { byUid[l.uid] = l; });
+        var order = (view.lesson_order || []).filter(function (u) { return byUid[u]; });
+        lessons.forEach(function (l) { if (order.indexOf(l.uid) === -1) { order.push(l.uid); } });
+        var sectionOf = {};
+        (view.sections || []).forEach(function (s, i) { (s.lesson_uids || []).forEach(function (u) { sectionOf[u] = { s: s, n: i + 1 }; }); });
+
+        var progress = normaliseProgress(adapter.initialProgress);
+        var cleanup = [];
+        var keyHandler = null;
+
+        function normaliseProgress(p) {
+            p = (p && typeof p === 'object') ? p : {};
+            return { done: Object.assign({}, p.done || {}), pages: Object.assign({}, p.pages || {}), watch: Object.assign({}, p.watch || {}), current: p.current || null };
+        }
+        function saveProgress() {
+            if (typeof adapter.onProgress === 'function') {
+                try { adapter.onProgress(JSON.parse(JSON.stringify(progress))); } catch (e) { /* ignore */ }
+            }
+        }
+        function runCleanup() {
+            cleanup.splice(0).forEach(function (fn) { try { fn(); } catch (e) { /* ignore */ } });
+            if (keyHandler) { document.removeEventListener('keydown', keyHandler); keyHandler = null; }
+        }
+        function onKeys(fn) {
+            keyHandler = function (e) {
+                if (!root.isConnected) { return; }
+                var tag = (e.target && e.target.tagName) || '';
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) { return; }
+                fn(e);
+            };
+            document.addEventListener('keydown', keyHandler);
+        }
+
+        function isLocked(uid) {
+            var l = byUid[uid];
+            if (!l || !view.course.sequential || l.preview_enabled || progress.done[uid]) { return false; }
+            var idx = order.indexOf(uid);
+            for (var i = 0; i < idx; i++) {
+                var prev = byUid[order[i]];
+                if (prev && prev.required && !progress.done[prev.uid]) { return true; }
+            }
+            return false;
+        }
+        function doneCount() { return order.filter(function (u) { return progress.done[u]; }).length; }
+        function nextUid(after) {
+            var idx = after ? order.indexOf(after) : -1;
+            for (var i = idx + 1; i < order.length; i++) { if (!progress.done[order[i]]) { return order[i]; } }
+            return null;
+        }
+        function firstOpen() {
+            for (var i = 0; i < order.length; i++) { if (!progress.done[order[i]]) { return order[i]; } }
+            return null;
+        }
+        function exam() { return lessons.filter(function (l) { return l.quiz && l.quiz.role === 'exam'; })[0] || null; }
+        function typeLabel(l) {
+            if (l.type === 'quiz' && l.quiz) { return l.quiz.role === 'exam' ? t('t_exam') : t('t_quiz'); }
+            return t('t_' + l.type);
+        }
+        function lessonSub(l) {
+            var parts = [typeLabel(l)];
+            if (l.type === 'video' && l.duration_s) { parts.push(fmt(l.duration_s)); }
+            else if (l.type === 'article') { parts.push(t('min_read', { n: minutes(l.duration_s) })); }
+            else if (l.type === 'document' && l.document) { parts.push(l.document.page_count === 1 ? t('page_1') : t('pages_n', { n: l.document.page_count })); }
+            else if (l.type === 'quiz' && l.quiz) {
+                parts.push(l.quiz.question_count === 1 ? t('question_1') : t('questions_n', { n: l.quiz.question_count }));
+                if (l.quiz.role === 'exam') { parts.push(t('pass_pct', { pct: l.quiz.pass_pct })); }
+            } else if (l.type === 'acknowledgment') { parts.push(t('read_and_sign')); }
+            else if (l.type === 'image') { parts.push(t('minutes', { n: minutes(l.duration_s || 60) })); }
+            return parts.join(' · ');
+        }
+
+        // ---------------- chrome ----------------
+        clear(root);
+        root.classList.add('trp');
+        root.setAttribute('lang', lang);
+        var top = h('header', { class: 'trp-top' }, [
+            h('div', { class: 'trp-top__brand' }, [
+                h('span', { class: 'trp-top__mark', 'aria-hidden': 'true' }, icon('fa-hard-hat')),
+                h('span', { class: 'trp-top__name' }, [adapter.brand ? (adapter.brand + ' ') : '', h('span', { class: 'trp-top__accent', text: 'Training' })])
+            ]),
+            h('div', { class: 'trp-top__right' }, [
+                (view.languages || []).length > 1 ? h('div', { class: 'trp-seg', role: 'group', 'aria-label': t('language') }, view.languages.map(function (lg) {
+                    return h('button', {
+                        type: 'button', class: 'trp-seg__btn' + (lg === lang ? ' is-on' : ''), 'aria-pressed': lg === lang ? 'true' : 'false', lang: lg,
+                        text: lg.toUpperCase(), on: { click: function () { if (lg !== lang && typeof adapter.onLanguage === 'function') { adapter.onLanguage(lg); } } }
+                    });
+                })) : null,
+                h('div', { class: 'trp-top__who' }, [
+                    h('span', { class: 'trp-avatar', 'aria-hidden': 'true', text: initials(adapter.learnerName || t('learner')) }),
+                    h('span', { class: 'trp-top__whoname', text: adapter.learnerName || t('learner') })
+                ])
+            ])
+        ]);
+        var screen = h('div', { class: 'trp-screen' });
+        root.appendChild(top);
+        root.appendChild(screen);
+
+        function initials(name) {
+            return String(name || '').split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase(); }).join('') || 'PL';
+        }
+
+        // ---------------- course home ----------------
+        function renderHome() {
+            runCleanup();
+            progress.current = null;
+            clear(screen);
+            screen.scrollTop = 0;
+            var c = view.course || {};
+            var total = order.length;
+            var done = doneCount();
+            var pct = total ? Math.round(done * 100 / total) : 0;
+            var next = firstOpen();
+            var ex = exam();
+
+            var cover = h('div', { class: 'trp-hero__cover', style: c.color ? { '--trp-course': c.color } : undefined });
+            if (c.cover_url) { cover.appendChild(h('img', { src: c.cover_url, alt: '' })); }
+            else { cover.appendChild(h('span', { class: 'trp-hero__glyph', 'aria-hidden': 'true' }, icon(c.kind === 'document' ? 'fa-file-signature' : 'fa-hard-hat'))); }
+
+            var meta = [
+                h('span', null, [icon('fa-list-ul'), total === 1 ? t('lesson_1') : t('lessons_n', { n: total })]),
+                view.course.sequential ? h('span', null, [icon('fa-sort-numeric-down'), t('in_order')]) : null
+            ];
+            if (ex && ex.quiz) {
+                meta.push(h('span', null, [icon('fa-graduation-cap'), t('t_exam') + ' · ' + (ex.quiz.question_count === 1 ? t('question_1') : t('questions_n', { n: ex.quiz.question_count }))]));
+                meta.push(h('span', null, [icon('fa-bullseye'), t('pass_pct', { pct: ex.quiz.pass_pct })]));
+                meta.push(h('span', null, [icon('fa-redo'), ex.quiz.max_attempts === 0 ? t('unlimited') : (ex.quiz.max_attempts === 1 ? t('attempts_1') : t('attempts_n', { n: ex.quiz.max_attempts }))]));
+            }
+            var cta = h('button', {
+                type: 'button', class: 'trp-btn trp-btn--primary trp-btn--xl', disabled: total === 0,
+                on: { click: function () { var u = next || order[0]; if (u) { openLesson(u); } } }
+            }, [next && done > 0 ? t('continue_to', { title: byUid[next].title }) : (next ? t('start_course') : t('review_course')), icon('fa-arrow-right')]);
+
+            var hero = h('section', { class: 'trp-hero' }, [
+                cover,
+                h('div', { class: 'trp-hero__body' }, [
+                    h('div', { class: 'trp-chips' }, [
+                        h('span', { class: 'trp-chip trp-chip--accent' }, [icon(c.kind === 'document' ? 'fa-file-signature' : 'fa-shield-alt'), c.kind === 'document' ? t('t_document') : t('course_name_label')]),
+                        c.est_minutes ? h('span', { class: 'trp-chip' }, [icon('fa-clock'), t('minutes_total', { n: c.est_minutes })]) : null
+                    ]),
+                    h('h1', { class: 'trp-hero__title', text: c.name || '' }),
+                    c.summary ? h('p', { class: 'trp-hero__summary', text: c.summary }) : null,
+                    h('div', { class: 'trp-meta' }, meta),
+                    h('div', { class: 'trp-hero__progress' }, [
+                        h('div', { class: 'trp-hero__bar' }, [
+                            h('div', { class: 'trp-hero__barhead' }, [h('strong', { text: t('lessons_done', { n: done, m: total }) }), h('span', { class: 'trp-mono', text: pct + '%' })]),
+                            h('div', { class: 'trp-bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct), 'aria-label': t('lessons_done', { n: done, m: total }) },
+                                h('span', { class: 'trp-bar__fill', style: { width: pct + '%' } }))
+                        ]),
+                        cta
+                    ])
+                ])
+            ]);
+            screen.appendChild(h('div', { class: 'trp-page' }, [hero, curriculum(), c.description_html ? aboutCard(c.description_html) : null]));
+        }
+
+        function aboutCard(html) {
+            return h('section', { class: 'trp-card trp-about' }, [
+                h('h2', { class: 'trp-card__title', text: t('about_course') }),
+                setTrustedHtml(h('div', { class: 'trp-article trp-article--compact' }), html)
+            ]);
+        }
+
+        function curriculum() {
+            var card = h('section', { class: 'trp-card trp-curr' });
+            var sections = view.sections || [];
+            var total = order.length;
+            card.appendChild(h('header', { class: 'trp-curr__head' }, [
+                h('h2', { class: 'trp-card__title', text: t('course_content') }),
+                h('span', { class: 'trp-muted', text: sections.length ? t('sections_meta', { s: sections.length, n: total }) : (total === 1 ? t('lesson_1') : t('lessons_n', { n: total })) })
+            ]));
+            var loose = order.filter(function (u) { return !sectionOf[u]; });
+            if (loose.length) { card.appendChild(sectionBlock(null, loose, 0)); }
+            sections.forEach(function (s, i) {
+                var uids = (s.lesson_uids || []).filter(function (u) { return byUid[u]; });
+                if (uids.length) { card.appendChild(sectionBlock(s, uids, i + 1)); }
+            });
+            if (!total) { card.appendChild(h('p', { class: 'trp-muted trp-curr__empty', text: t('lessons_n', { n: 0 }) })); }
+            return card;
+        }
+
+        function sectionBlock(s, uids, n) {
+            var done = uids.filter(function (u) { return progress.done[u]; }).length;
+            var locked = uids.every(function (u) { return isLocked(u); });
+            var pill = null;
+            if (done === uids.length) { pill = h('span', { class: 'trp-pill trp-pill--ok' }, [icon('fa-check'), t('n_of_m_done', { n: done, m: uids.length })]); }
+            else if (locked) { pill = h('span', { class: 'trp-pill trp-pill--muted' }, [icon('fa-lock'), t('locked_chip')]); }
+            else if (done > 0 || uids.indexOf(progress.current) !== -1) { pill = h('span', { class: 'trp-pill trp-pill--info' }, [icon('fa-circle-notch'), t('in_progress') + ' · ' + t('n_of_m_done', { n: done, m: uids.length })]); }
+            var block = h('div', { class: 'trp-sec' }, [
+                s ? h('div', { class: 'trp-sec__head' }, [
+                    h('span', { class: 'trp-sec__num', text: t('section_n', { n: n }) }),
+                    h('h3', { class: 'trp-sec__title', text: s.title || '' }),
+                    pill
+                ]) : null
+            ]);
+            var list = h('ol', { class: 'trp-lessons' });
+            uids.forEach(function (u) { list.appendChild(lessonRow(byUid[u])); });
+            block.appendChild(list);
+            return block;
+        }
+
+        function lessonRow(l) {
+            var locked = isLocked(l.uid);
+            var done = !!progress.done[l.uid];
+            var next = firstOpen() === l.uid;
+            var stateEl;
+            if (done) {
+                stateEl = [h('span', { class: 'trp-row__state trp-row__state--ok', text: t('done') }), h('span', { class: 'trp-round trp-round--ok', 'aria-hidden': 'true' }, icon('fa-check'))];
+            } else if (locked) {
+                stateEl = [h('span', { class: 'trp-row__state', text: t('locked') }), h('span', { class: 'trp-round trp-round--muted', 'aria-hidden': 'true' }, icon('fa-lock'))];
+            } else if (next) {
+                stateEl = [h('span', { class: 'trp-pill trp-pill--info', text: progress.current === l.uid || doneCount() > 0 ? t('in_progress') : t('start_chip') }),
+                    h('span', { class: 'trp-round trp-round--primary', 'aria-hidden': 'true' }, icon('fa-play'))];
+            } else {
+                stateEl = [h('span', { class: 'trp-row__state', text: t('start_chip') }), h('span', { class: 'trp-round', 'aria-hidden': 'true' }, icon('fa-play'))];
+            }
+            var chips = [];
+            if (!l.required) { chips.push(h('span', { class: 'trp-chip trp-chip--sm', text: t('optional_chip') })); }
+            if (l.preview_enabled) { chips.push(h('span', { class: 'trp-chip trp-chip--sm', text: t('open_chip') })); }
+            var btn = h('button', {
+                type: 'button', class: 'trp-row' + (next && !done ? ' is-current' : '') + (locked ? ' is-locked' : ''), 'aria-disabled': locked ? 'true' : null,
+                on: { click: function () { if (!locked) { openLesson(l.uid); } } }
+            }, [
+                h('span', { class: 'trp-tile trp-tile--' + l.type, 'aria-hidden': 'true' }, icon(TYPE_ICON[l.type] || 'fa-file')),
+                h('span', { class: 'trp-row__main' }, [
+                    h('span', { class: 'trp-row__title', text: l.title || typeLabel(l) }),
+                    h('span', { class: 'trp-row__sub' }, [lessonSub(l)].concat(chips))
+                ]),
+                h('span', { class: 'trp-row__end' }, stateEl)
+            ]);
+            return h('li', null, btn);
+        }
+
+        // ---------------- lesson frame ----------------
+        function openLesson(uid) {
+            var l = byUid[uid];
+            if (!l) { renderHome(); return; }
+            runCleanup();
+            progress.current = uid;
+            saveProgress();
+            if (typeof adapter.onLessonOpen === 'function') { try { adapter.onLessonOpen(uid); } catch (e) { /* ignore */ } }
+            clear(screen);
+            screen.scrollTop = 0;
+            var idx = order.indexOf(uid);
+            var sec = sectionOf[uid];
+            var ticks = h('div', { class: 'trp-ticks', 'aria-hidden': 'true' }, order.map(function (u) {
+                return h('span', { class: 'trp-ticks__t' + (progress.done[u] ? ' is-done' : '') + (u === uid ? ' is-current' : '') });
+            }));
+            var headRight = h('div', { class: 'trp-lhead__right' }, [
+                h('div', { class: 'trp-lhead__count' }, [h('strong', { text: t('lesson_n_of', { n: idx + 1, total: order.length }) }), ticks])
+            ]);
+            var head = h('header', { class: 'trp-lhead' }, [
+                h('button', { type: 'button', class: 'trp-btn trp-btn--ghost trp-btn--back', on: { click: renderHome } }, [icon('fa-arrow-left'), t('course_home')]),
+                h('div', { class: 'trp-lhead__titles' }, [
+                    h('div', { class: 'trp-lhead__crumb', text: (view.course.name || '') + (sec ? ' · ' + t('section_n', { n: sec.n }) : '') }),
+                    h('h1', { class: 'trp-lhead__title', text: l.title || typeLabel(l) })
+                ]),
+                headRight
+            ]);
+            var body = h('div', { class: 'trp-lbody' });
+            var main = h('div', { class: 'trp-lmain' });
+            var aside = h('aside', { class: 'trp-laside' });
+            body.appendChild(main);
+            var footStatus = h('div', { class: 'trp-foot__status' });
+            var nextBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--ghost', on: { click: goNext } }, [t('next_lesson'), icon('fa-arrow-right')]);
+            var completeBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--primary', on: { click: function () { complete({}); } } }, [
+                icon('fa-check'), t('mark_complete') + (isKiosk ? '' : ' ' + t('preview_suffix'))
+            ]);
+            var foot = h('footer', { class: 'trp-foot' }, [footStatus, h('div', { class: 'trp-foot__actions' }, [nextBtn, completeBtn])]);
+            var wrap = h('div', { class: 'trp-lesson trp-lesson--' + l.type }, [head, h('div', { class: 'trp-lscroll' }, [
+                l.description_html && l.type !== 'quiz' ? setTrustedHtml(h('div', { class: 'trp-article trp-article--desc' }), l.description_html) : null,
+                body
+            ]), foot]);
+            screen.appendChild(wrap);
+
+            var gate = {
+                met: true, text: '', pct: null,
+                set: function (met, text, pct) {
+                    gate.met = met; gate.text = text; gate.pct = pct;
+                    clear(footStatus);
+                    footStatus.appendChild(h('span', { class: 'trp-round trp-round--sm' + (met ? ' trp-round--ok' : ' trp-round--muted'), 'aria-hidden': 'true' }, icon(met ? 'fa-check' : 'fa-lock')));
+                    var col = h('div', { class: 'trp-foot__text' }, [h('span', { text: met ? t('ready_to_finish') : (isKiosk ? t('available_after', { req: text }) : t('preview_gate', { req: text })) })]);
+                    if (typeof pct === 'number') {
+                        col.appendChild(h('span', { class: 'trp-bar trp-bar--sm' + (met ? ' is-ok' : '') }, h('span', { class: 'trp-bar__fill', style: { width: Math.max(0, Math.min(100, pct)) + '%' } })));
+                    }
+                    footStatus.appendChild(col);
+                    // Preview never traps the author: the button stays usable and the hint shows the rule.
+                    var blocked = isKiosk && !met;
+                    completeBtn.disabled = blocked;
+                    completeBtn.classList.toggle('is-soft', !met);
+                }
+            };
+            gate.set(true, '');
+            nextBtn.hidden = idx === order.length - 1;
+            if (progress.done[uid]) { completeBtn.hidden = true; nextBtn.classList.add('trp-btn--primary'); nextBtn.classList.remove('trp-btn--ghost'); }
+
+            function complete(evidence) {
+                if (isKiosk && !gate.met) { return; }
+                progress.done[uid] = true;
+                saveProgress();
+                var p = typeof adapter.onLessonComplete === 'function' ? adapter.onLessonComplete(uid, evidence || {}) : null;
+                Promise.resolve(p).then(goNext, goNext);
+            }
+            function goNext() {
+                var n = order[idx + 1];
+                if (n && !isLocked(n)) { openLesson(n); return; }
+                if (!nextUid(null) && order.every(function (u) { return progress.done[u] || !byUid[u].required; })) { renderComplete(); return; }
+                renderHome();
+            }
+
+            var ctx = { lesson: l, main: main, aside: aside, body: body, gate: gate, complete: complete, foot: foot, head: head, headRight: headRight, wrap: wrap };
+            var renderers = { article: renderArticle, document: renderDocument, video: renderVideo, image: renderImage, acknowledgment: renderAck, quiz: renderQuizIntro };
+            (renderers[l.type] || renderArticle)(ctx);
+            var res = resourcesCard(l);
+            if (res) { aside.appendChild(res); }
+            var upNext = upNextCard(idx);
+            if (upNext) { aside.appendChild(upNext); }
+            if (aside.childNodes.length) { body.appendChild(aside); body.classList.add('has-aside'); }
+            onKeys(function (e) {
+                if (e.key === 'Escape' && !root.querySelector('.trp-lightbox')) { renderHome(); }
+                if (typeof ctx.onKey === 'function') { ctx.onKey(e); }
+            });
+            var focusTarget = head.querySelector('.trp-lhead__title');
+            if (focusTarget) { focusTarget.tabIndex = -1; focusTarget.focus({ preventScroll: true }); }
+        }
+
+        function resourcesCard(l) {
+            var list = l.resources || [];
+            if (!list.length) { return null; }
+            return h('section', { class: 'trp-card trp-side' }, [
+                h('header', { class: 'trp-side__head' }, [h('h2', { class: 'trp-card__title', text: t('resources') }), h('span', { class: 'trp-muted', text: list.length === 1 ? t('resources_1') : t('resources_n', { n: list.length }) })]),
+                h('ul', { class: 'trp-res' }, list.map(function (r) {
+                    var link = r.kind === 'link';
+                    return h('li', null, h('a', { class: 'trp-res__item', href: r.url, target: '_blank', rel: 'noopener noreferrer' }, [
+                        h('span', { class: 'trp-tile trp-tile--' + (link ? 'article' : 'document'), 'aria-hidden': 'true' }, icon(link ? 'fa-link' : 'fa-file-download')),
+                        h('span', { class: 'trp-res__title', text: r.title }),
+                        h('span', { class: 'trp-round trp-round--sm', 'aria-hidden': 'true' }, icon(link ? 'fa-external-link-alt' : 'fa-download')),
+                        h('span', { class: 'visually-hidden', text: link ? t('open_link') : t('download') })
+                    ]));
+                }))
+            ]);
+        }
+
+        function upNextCard(idx) {
+            var n = byUid[order[idx + 1]];
+            if (!n) { return null; }
+            return h('section', { class: 'trp-card trp-upnext' }, [
+                h('span', { class: 'trp-tile trp-tile--' + n.type, 'aria-hidden': 'true' }, icon(TYPE_ICON[n.type] || 'fa-file')),
+                h('div', null, [h('div', { class: 'trp-kicker', text: t('up_next') }), h('div', { class: 'trp-upnext__title', text: n.title }), h('div', { class: 'trp-muted trp-upnext__sub', text: lessonSub(n) })])
+            ]);
+        }
+
+        // ---------------- article ----------------
+        function renderArticle(ctx) {
+            var a = ctx.lesson.article || {};
+            ctx.main.appendChild(h('div', { class: 'trp-reading' }, setTrustedHtml(h('article', { class: 'trp-article' }), a.body_html || '')));
+        }
+
+        // ---------------- document ----------------
+        function renderDocument(ctx) {
+            var l = ctx.lesson;
+            var d = l.document || { pages: [], page_count: 0 };
+            var pages = d.pages || [];
+            var viewed = {};
+            (progress.pages[l.uid] || []).forEach(function (n) { viewed[n] = true; });
+            var cur = 0;
+            var zoom = 1;
+            if (d.download_url) {
+                ctx.headRight.appendChild(h('a', { class: 'trp-btn trp-btn--ghost', href: d.download_url, rel: 'noopener' }, [icon('fa-download'), t('download')]));
+            }
+            if (!pages.length) {
+                ctx.main.appendChild(h('div', { class: 'trp-card trp-empty-note', text: t('pages_n', { n: 0 }) }));
+                return;
+            }
+            var img = h('img', { class: 'trp-doc__page', alt: '' });
+            var pageBox = h('div', { class: 'trp-doc__viewport' }, img);
+            var prev = h('button', { type: 'button', class: 'trp-doc__nav trp-doc__nav--prev', 'aria-label': t('previous'), on: { click: function () { go(cur - 1); } } }, icon('fa-chevron-left'));
+            var next = h('button', { type: 'button', class: 'trp-doc__nav trp-doc__nav--next', 'aria-label': t('next'), on: { click: function () { go(cur + 1); } } }, icon('fa-chevron-right'));
+            var zoomOut = h('button', { type: 'button', class: 'trp-round trp-round--btn', 'aria-label': t('zoom_out'), on: { click: function () { setZoom(zoom - 0.5); } } }, icon('fa-search-minus'));
+            var zoomIn = h('button', { type: 'button', class: 'trp-round trp-round--btn', 'aria-label': t('zoom_in'), on: { click: function () { setZoom(zoom + 0.5); } } }, icon('fa-search-plus'));
+            var stage = h('div', { class: 'trp-doc__stage' }, [
+                h('span', { class: 'trp-doc__hint' }, [icon('fa-search-plus'), t('swipe_hint')]),
+                h('div', { class: 'trp-doc__zoom' }, [zoomOut, zoomIn]),
+                pageBox, prev, next
+            ]);
+            var label = h('strong', { class: 'trp-doc__label' });
+            var viewedLabel = h('span', { class: 'trp-muted' });
+            var thumbs = h('div', { class: 'trp-doc__thumbs', role: 'list' });
+            var thumbBtns = pages.map(function (p, i) {
+                var b = h('button', { type: 'button', class: 'trp-doc__thumb', role: 'listitem', 'aria-label': t('page_of', { n: p.n, total: pages.length }), on: { click: function () { go(i); } } }, [
+                    h('img', { src: p.url, alt: '', loading: 'lazy' }), h('span', { class: 'trp-doc__thumbn', text: String(p.n) }), h('span', { class: 'trp-doc__thumbok', 'aria-hidden': 'true' }, icon('fa-check'))
+                ]);
+                thumbs.appendChild(b);
+                return b;
+            });
+            ctx.main.appendChild(h('div', { class: 'trp-doc' }, [stage, h('div', { class: 'trp-doc__bar' }, [h('div', { class: 'trp-doc__labels' }, [label, viewedLabel]), thumbs])]));
+
+            function setZoom(z) {
+                zoom = Math.max(1, Math.min(3, z));
+                pageBox.classList.toggle('is-zoomed', zoom > 1);
+                img.style.setProperty('--trp-zoom', String(zoom));
+                zoomOut.disabled = zoom <= 1;
+                zoomIn.disabled = zoom >= 3;
+            }
+            function go(i) {
+                if (i < 0 || i >= pages.length) { return; }
+                cur = i;
+                var p = pages[i];
+                img.src = p.url;
+                img.alt = t('page_of', { n: p.n, total: pages.length });
+                if (p.w && p.h) { img.width = p.w; img.height = p.h; }
+                viewed[p.n] = true;
+                progress.pages[l.uid] = Object.keys(viewed).map(Number);
+                saveProgress();
+                prev.disabled = i === 0;
+                next.disabled = i === pages.length - 1;
+                label.textContent = t('page_of', { n: p.n, total: pages.length });
+                var nViewed = Object.keys(viewed).length;
+                viewedLabel.textContent = t('pages_viewed', { n: nViewed, total: pages.length });
+                thumbBtns.forEach(function (b, j) {
+                    b.classList.toggle('is-current', j === i);
+                    b.classList.toggle('is-viewed', !!viewed[pages[j].n]);
+                    if (j === i) { b.setAttribute('aria-current', 'page'); } else { b.removeAttribute('aria-current'); }
+                });
+                var cb = thumbBtns[i];
+                if (cb) {
+                    // Only the strip scrolls (scrollIntoView would also scroll the lesson).
+                    var left = cb.offsetLeft - thumbs.offsetLeft;
+                    if (left < thumbs.scrollLeft) { thumbs.scrollLeft = left - 8; }
+                    else if (left + cb.offsetWidth > thumbs.scrollLeft + thumbs.clientWidth) { thumbs.scrollLeft = left + cb.offsetWidth - thumbs.clientWidth + 8; }
+                }
+                var all = nViewed >= pages.length;
+                ctx.gate.set(all, t('req_pages', { n: pages.length }), Math.round(nViewed * 100 / pages.length));
+                setZoom(1);
+            }
+            ctx.onKey = function (e) {
+                if (e.key === 'ArrowLeft') { go(cur - 1); }
+                if (e.key === 'ArrowRight') { go(cur + 1); }
+            };
+            // Swipe (pointer) to turn pages; ignored while zoomed (then the page pans).
+            var sx = null;
+            pageBox.addEventListener('pointerdown', function (e) { sx = zoom > 1 ? null : e.clientX; });
+            pageBox.addEventListener('pointerup', function (e) {
+                if (sx === null) { return; }
+                var dx = e.clientX - sx;
+                sx = null;
+                if (Math.abs(dx) > 50) { go(cur + (dx < 0 ? 1 : -1)); }
+            });
+            go(0);
+        }
+
+        // ---------------- video ----------------
+        function renderVideo(ctx) {
+            var l = ctx.lesson;
+            var v = l.video;
+            if (!v) { ctx.main.appendChild(h('div', { class: 'trp-card trp-empty-note', text: t('video_error') })); return; }
+            var minPct = typeof v.min_watch_pct === 'number' ? v.min_watch_pct : 90;
+            var duration = v.duration_s || 0;
+            var maxWatched = Number(progress.watch[l.uid] || 0);
+            var ringBox = h('div', { class: 'trp-watch__ring' });
+            var ringText = h('div', { class: 'trp-watch__text' });
+            var watchCard = h('section', { class: 'trp-card trp-side trp-watch' }, [
+                h('header', { class: 'trp-side__head' }, [h('h2', { class: 'trp-card__title', text: t('watch_progress') })]),
+                h('div', { class: 'trp-watch__body' }, [ringBox, ringText]),
+                h('div', { class: 'trp-note' }, [icon('fa-info-circle'), h('div', null, [h('strong', { text: t('skip_not_counted') }), h('div', { text: t('only_watched') })])])
+            ]);
+            ctx.aside.appendChild(watchCard);
+            var status = h('div', { class: 'trp-vstatus', role: 'status', 'aria-live': 'polite' });
+
+            function watchedPct() { return duration > 0 ? Math.min(100, Math.round(maxWatched * 100 / duration)) : 0; }
+            function updateWatch() {
+                var p = watchedPct();
+                clear(ringBox);
+                ringBox.appendChild(ring(p, p >= minPct ? 'trp-ring--ok' : '', p + '%'));
+                ringBox.appendChild(h('span', { class: 'trp-ring__label', text: p + '%' }));
+                clear(ringText);
+                ringText.appendChild(h('strong', { text: p >= minPct ? t('watched_enough', { pct: p }) : t('keep_watching', { pct: p }) }));
+                if (duration > 0 && p < 100) { ringText.appendChild(h('div', { class: 'trp-muted', text: t('about_left', { t: fmt(Math.max(0, duration - maxWatched)) }) })); }
+                ctx.gate.set(p >= minPct, t('req_watch', { pct: minPct }), p);
+            }
+            function record(cur) {
+                if (cur > maxWatched) {
+                    maxWatched = cur;
+                    progress.watch[l.uid] = Math.round(maxWatched);
+                    saveProgress();
+                }
+            }
+
+            if (v.provider === 'upload') {
+                var video = h('video', { class: 'trp-video__el', preload: 'metadata', playsinline: true, src: v.src_url });
+                var playBtn = h('button', { type: 'button', class: 'trp-vbtn trp-vbtn--play', 'aria-label': t('play') }, icon('fa-play'));
+                var backBtn = h('button', { type: 'button', class: 'trp-vbtn trp-vbtn--wide' }, [icon('fa-undo'), t('back_10')]);
+                var fsBtn = h('button', { type: 'button', class: 'trp-vbtn', 'aria-label': t('fullscreen') }, icon('fa-expand'));
+                var fill = h('span', { class: 'trp-scrub__fill' });
+                var maxEl = h('span', { class: 'trp-scrub__max' });
+                var knob = h('span', { class: 'trp-scrub__knob' });
+                var scrub = h('div', { class: 'trp-scrub', role: 'slider', tabindex: '0', 'aria-label': t('furthest'), 'aria-valuemin': '0' }, [maxEl, fill, knob]);
+                var timeEl = h('span', { class: 'trp-vtime trp-mono' });
+                var box = h('div', { class: 'trp-video' }, [
+                    h('div', { class: 'trp-video__stage' }, [video, h('span', { class: 'trp-video__badge' }, [icon('fa-film'), t('video_note_upload')])]),
+                    h('div', { class: 'trp-vcontrols' }, [playBtn, backBtn, h('div', { class: 'trp-scrub__wrap' }, [scrub, h('span', { class: 'trp-scrub__cap', text: t('furthest') })]), timeEl, fsBtn])
+                ]);
+                ctx.main.appendChild(box);
+                ctx.main.appendChild(status);
+                var syncUi = function () {
+                    var d = duration || video.duration || 0;
+                    var cur = video.currentTime || 0;
+                    var pctCur = d ? (cur * 100 / d) : 0;
+                    var pctMax = d ? (maxWatched * 100 / d) : 0;
+                    fill.style.width = pctCur + '%';
+                    knob.style.left = pctCur + '%';
+                    maxEl.style.width = Math.min(100, pctMax) + '%';
+                    timeEl.textContent = fmt(cur) + ' / ' + fmt(d);
+                    scrub.setAttribute('aria-valuemax', String(Math.round(d)));
+                    scrub.setAttribute('aria-valuenow', String(Math.round(cur)));
+                    var playing = !video.paused && !video.ended;
+                    playBtn.setAttribute('aria-label', playing ? t('pause') : t('play'));
+                    clear(playBtn);
+                    playBtn.appendChild(icon(playing ? 'fa-pause' : 'fa-play'));
+                };
+                video.addEventListener('loadedmetadata', function () { if (!duration && video.duration && isFinite(video.duration)) { duration = video.duration; } updateWatch(); syncUi(); });
+                video.addEventListener('timeupdate', function () {
+                    // No seeking past the furthest point watched (UX only; the kiosk server rules are the control).
+                    if (video.currentTime > maxWatched + 2) { video.currentTime = maxWatched; return; }
+                    record(video.currentTime);
+                    updateWatch();
+                    syncUi();
+                });
+                video.addEventListener('play', syncUi);
+                video.addEventListener('pause', syncUi);
+                video.addEventListener('ended', function () { record(duration || video.duration || 0); updateWatch(); syncUi(); });
+                video.addEventListener('ratechange', function () { if (video.playbackRate !== 1) { video.playbackRate = 1; video.pause(); } });
+                video.addEventListener('error', function () {
+                    clear(status);
+                    status.className = 'trp-vstatus is-error';
+                    status.appendChild(icon('fa-exclamation-triangle'));
+                    status.appendChild(h('span', { text: t('video_error') }));
+                });
+                playBtn.addEventListener('click', function () { if (video.paused) { video.play().catch(function () { /* blocked or unsupported */ }); } else { video.pause(); } });
+                backBtn.addEventListener('click', function () { video.currentTime = Math.max(0, video.currentTime - 10); });
+                fsBtn.addEventListener('click', function () { var st = box.querySelector('.trp-video__stage'); if (st && st.requestFullscreen) { st.requestFullscreen().catch(function () { /* ignore */ }); } });
+                function seekFromEvent(clientX) {
+                    var r = scrub.getBoundingClientRect();
+                    var d = duration || video.duration || 0;
+                    if (!d || !r.width) { return; }
+                    var target = Math.max(0, Math.min(1, (clientX - r.left) / r.width)) * d;
+                    video.currentTime = Math.min(target, maxWatched);
+                }
+                scrub.addEventListener('click', function (e) { seekFromEvent(e.clientX); });
+                scrub.addEventListener('keydown', function (e) {
+                    if (e.key === 'ArrowLeft') { video.currentTime = Math.max(0, video.currentTime - 5); e.preventDefault(); }
+                    if (e.key === 'ArrowRight') { video.currentTime = Math.min(maxWatched, video.currentTime + 5); e.preventDefault(); }
+                });
+                ctx.onKey = function (e) { if (e.key === ' ' && e.target === document.body) { e.preventDefault(); playBtn.click(); } };
+                cleanup.push(function () { try { video.pause(); video.removeAttribute('src'); video.load(); } catch (e) { /* ignore */ } });
+                updateWatch();
+                syncUi();
+                return;
+            }
+
+            // YouTube / Vimeo
+            var ext = parseExt(v);
+            var holder = h('div', { class: 'trp-embed' });
+            var verifiedChip = h('span', { class: 'trp-pill trp-pill--ok', hidden: !v.verified }, [icon('fa-check-circle'), t('verified')]);
+            var tapNote = h('div', { class: 'trp-tapnote' }, [icon('fa-hand-pointer'), t('tap_to_start')]);
+            var ePlay = h('button', { type: 'button', class: 'trp-vbtn trp-vbtn--play', 'aria-label': t('play') }, icon('fa-play'));
+            var eBack = h('button', { type: 'button', class: 'trp-vbtn trp-vbtn--wide' }, [icon('fa-undo'), t('back_10')]);
+            var eFill = h('span', { class: 'trp-scrub__max' });
+            var eTime = h('span', { class: 'trp-vtime trp-mono' });
+            var controller = null;
+            ctx.main.appendChild(h('div', { class: 'trp-video trp-video--embed' }, [
+                h('div', { class: 'trp-video__top' }, [h('span', { class: 'trp-chip' }, [h('i', { class: 'fab ' + (v.provider === 'vimeo' ? 'fa-vimeo-v' : 'fa-youtube'), 'aria-hidden': 'true' }), v.provider === 'vimeo' ? 'Vimeo' : 'YouTube']), tapNote, verifiedChip]),
+                holder,
+                h('div', { class: 'trp-vcontrols' }, [ePlay, eBack, h('div', { class: 'trp-scrub__wrap' }, [h('div', { class: 'trp-scrub trp-scrub--static' }, eFill), h('span', { class: 'trp-scrub__cap', text: t('furthest') })]), eTime])
+            ]));
+            ctx.main.appendChild(status);
+            function syncEmbed(cur, d) {
+                if (d > 0 && !duration) { duration = d; }
+                var dd = duration || d || 0;
+                eFill.style.width = (dd ? Math.min(100, maxWatched * 100 / dd) : 0) + '%';
+                eTime.textContent = fmt(cur) + ' / ' + (dd ? fmt(dd) : '–:––');
+            }
+            function showError(code, message) {
+                clear(status);
+                status.className = 'trp-vstatus is-error';
+                status.appendChild(icon('fa-exclamation-triangle'));
+                status.appendChild(h('div', null, [h('strong', { text: t('video_error') }), h('div', { class: 'trp-muted', text: message || '' }), h('div', { class: 'trp-muted trp-mono', text: t('video_error_detail', { code: code }) })]));
+                if (typeof adapter.onVideoError === 'function') {
+                    try { adapter.onVideoError(l, lang, { provider: v.provider, extId: ext.id, extHash: ext.hash, code: code }); } catch (e) { /* ignore */ }
+                }
+            }
+            if (!window.TrainingVideoEmbed) { showError('api_load_failed', ''); updateWatch(); return; }
+            controller = window.TrainingVideoEmbed.mount(holder, {
+                provider: v.provider, embedUrl: v.embed_url, title: l.title || 'Video',
+                onPlaying: function (durationS) {
+                    tapNote.hidden = true;
+                    if (durationS > 0 && !duration) { duration = durationS; }
+                    if (view.can_verify_video && !v.verified && typeof adapter.onVideoReady === 'function') {
+                        clear(status);
+                        status.className = 'trp-vstatus';
+                        status.appendChild(icon('fa-circle-notch', 'fa-spin'));
+                        status.appendChild(h('span', { text: t('verifying') }));
+                        Promise.resolve(adapter.onVideoReady(l, lang, { provider: v.provider, extId: ext.id, extHash: ext.hash, durationS: durationS })).then(function (r) {
+                            clear(status);
+                            status.className = 'trp-vstatus';
+                            if (r && r.verified) {
+                                v.verified = true;
+                                verifiedChip.hidden = false;
+                                clear(verifiedChip);
+                                verifiedChip.appendChild(icon('fa-check-circle'));
+                                verifiedChip.appendChild(document.createTextNode(t('verified_at', { t: fmt(durationS) })));
+                            }
+                        }, function (err) {
+                            clear(status);
+                            status.className = 'trp-vstatus is-error';
+                            status.appendChild(icon('fa-exclamation-triangle'));
+                            status.appendChild(h('span', { text: (err && err.message) || t('video_error') }));
+                        });
+                    }
+                },
+                onState: function (s) {
+                    var playing = s === 'playing';
+                    clear(ePlay);
+                    ePlay.appendChild(icon(playing ? 'fa-pause' : 'fa-play'));
+                    ePlay.setAttribute('aria-label', playing ? t('pause') : t('play'));
+                    if (s === 'ended' && controller) { record(controller.getDuration() || duration); updateWatch(); }
+                },
+                onTime: function (tm) {
+                    // Seeking ahead is snapped back (UX only).
+                    if (tm.current > maxWatched + 3 && controller) { controller.seekTo(maxWatched); return; }
+                    record(tm.current);
+                    updateWatch();
+                    syncEmbed(tm.current, tm.duration);
+                },
+                onError: showError
+            });
+            ePlay.addEventListener('click', function () { if (controller) { controller.toggle(); } });
+            eBack.addEventListener('click', function () { if (controller) { controller.seekBy(-10); } });
+            cleanup.push(function () { if (controller) { controller.destroy(); } });
+            syncEmbed(0, duration);
+            updateWatch();
+        }
+
+        function parseExt(v) {
+            var id = v.video_id || '';
+            var hash = null;
+            try {
+                var u = new URL(v.embed_url);
+                if (v.provider === 'vimeo') { hash = u.searchParams.get('h'); }
+            } catch (e) { hash = null; }
+            return { id: id, hash: hash || null };
+        }
+
+        // ---------------- image ----------------
+        function renderImage(ctx) {
+            var im = ctx.lesson.image;
+            if (!im) { ctx.main.appendChild(h('div', { class: 'trp-card trp-empty-note', text: t('t_image') })); return; }
+            var img = h('img', { src: im.url, alt: im.caption || ctx.lesson.title || '', width: im.w || null, height: im.h || null });
+            var btn = h('button', { type: 'button', class: 'trp-image__btn', 'aria-label': t('open_image'), on: { click: openBox } }, [img, h('span', { class: 'trp-image__zoom', 'aria-hidden': 'true' }, icon('fa-expand'))]);
+            ctx.main.appendChild(h('figure', { class: 'trp-image' }, [btn, im.caption ? h('figcaption', { text: im.caption }) : null]));
+            function openBox() {
+                var close = h('button', { type: 'button', class: 'trp-lightbox__close', 'aria-label': t('close') }, icon('fa-times'));
+                var box = h('div', { class: 'trp-lightbox', role: 'dialog', 'aria-modal': 'true', 'aria-label': ctx.lesson.title || t('t_image') }, [
+                    h('img', { src: im.url, alt: im.caption || '' }), im.caption ? h('p', { class: 'trp-lightbox__cap', text: im.caption }) : null, close
+                ]);
+                function shut() { document.removeEventListener('keydown', onEsc, true); if (box.parentNode) { box.parentNode.removeChild(box); } btn.focus({ preventScroll: true }); }
+                function onEsc(e) { if (e.key === 'Escape') { e.stopPropagation(); shut(); } }
+                close.addEventListener('click', shut);
+                box.addEventListener('click', function (e) { if (e.target === box) { shut(); } });
+                document.addEventListener('keydown', onEsc, true);
+                root.appendChild(box);
+                close.focus({ preventScroll: true });
+                cleanup.push(shut);
+            }
+        }
+
+        // ---------------- acknowledgment ----------------
+        function renderAck(ctx) {
+            var a = ctx.lesson.ack || { statement_html: '', require_signature: true, require_pin: true };
+            var checked = false;
+            var inked = !a.require_signature;
+            var pin = '';
+            var check = h('button', { type: 'button', class: 'trp-check', role: 'checkbox', 'aria-checked': 'false' }, [
+                h('span', { class: 'trp-check__box', 'aria-hidden': 'true' }, icon('fa-check')), h('span', { text: t('ack_confirm') })
+            ]);
+            var signBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--xl' }, [icon('fa-pen-nib'), t('sign_continue')]);
+            var parts = [
+                h('section', { class: 'trp-card trp-ack__statement' }, [
+                    h('div', { class: 'trp-kicker', text: t('ack_title') }),
+                    setTrustedHtml(h('div', { class: 'trp-article trp-article--statement' }), a.statement_html || '')
+                ]),
+                check
+            ];
+            var pad = null;
+            if (a.require_signature) {
+                pad = signaturePad(function (ok) { inked = ok; sync(); });
+                parts.push(pad.el);
+            }
+            var dots = null;
+            if (a.require_pin) {
+                dots = h('div', { class: 'trp-pin__dots', 'aria-live': 'polite' });
+                var keys = h('div', { class: 'trp-pin__keys' });
+                ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back'].forEach(function (k) {
+                    keys.appendChild(h('button', {
+                        type: 'button', class: 'trp-pin__key' + (k.length > 1 ? ' trp-pin__key--fn' : ''), 'aria-label': k === 'clear' ? t('clear') : (k === 'back' ? t('back') : k),
+                        on: { click: function () { press(k); } }
+                    }, k === 'back' ? icon('fa-backspace') : (k === 'clear' ? t('clear') : k)));
+                });
+                parts.push(h('section', { class: 'trp-card trp-pin' }, [
+                    h('div', { class: 'trp-pin__head' }, [h('strong', { text: t('enter_pin') }), h('span', { class: 'trp-muted', text: t('pin_hint') })]),
+                    dots, keys
+                ]));
+            }
+            parts.push(h('div', { class: 'trp-ack__actions' }, signBtn));
+            ctx.main.appendChild(h('div', { class: 'trp-ack' }, parts));
+            function press(k) {
+                if (k === 'clear') { pin = ''; } else if (k === 'back') { pin = pin.slice(0, -1); } else if (pin.length < 6) { pin += k; }
+                sync();
+            }
+            function sync() {
+                check.setAttribute('aria-checked', checked ? 'true' : 'false');
+                check.classList.toggle('is-on', checked);
+                if (dots) {
+                    clear(dots);
+                    for (var i = 0; i < Math.max(4, pin.length); i++) { dots.appendChild(h('span', { class: 'trp-pin__dot' + (i < pin.length ? ' is-on' : '') })); }
+                    dots.setAttribute('aria-label', pin.length + ' / 4');
+                }
+                var ok = checked && inked && (!a.require_pin || pin.length >= 4);
+                signBtn.disabled = !ok;
+                ctx.gate.set(ok, t('req_sign'), null);
+            }
+            check.addEventListener('click', function () { checked = !checked; sync(); });
+            signBtn.addEventListener('click', function () {
+                if (signBtn.disabled) { return; }
+                pin = '';   // never kept, never sent
+                ctx.complete({ acknowledged: true, signed: !!a.require_signature });
+            });
+            ctx.foot.querySelector('.trp-foot__actions .trp-btn--primary').hidden = true;
+            sync();
+        }
+
+        function signaturePad(onChange) {
+            var canvas = h('canvas', { class: 'trp-sign__canvas', 'aria-label': t('sign_here'), role: 'img' });
+            var clearBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--ghost trp-btn--sm' }, [icon('fa-eraser'), t('clear')]);
+            var el = h('section', { class: 'trp-card trp-sign' }, [
+                h('div', { class: 'trp-sign__head' }, [h('strong', { text: t('sign_here') }), clearBtn]),
+                h('div', { class: 'trp-sign__area' }, [canvas, h('span', { class: 'trp-sign__line', 'aria-hidden': 'true' })])
+            ]);
+            var ctx2 = null;
+            var drawing = false;
+            var last = null;
+            var ink = 0;
+            function size() {
+                var r = canvas.getBoundingClientRect();
+                var dpr = window.devicePixelRatio || 1;
+                if (!r.width) { return; }
+                canvas.width = Math.round(r.width * dpr);
+                canvas.height = Math.round(r.height * dpr);
+                ctx2 = canvas.getContext('2d');
+                ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx2.lineWidth = 2.6;
+                ctx2.lineCap = 'round';
+                ctx2.lineJoin = 'round';
+                ctx2.strokeStyle = getComputedStyle(canvas).color || '#16232a';
+                ink = 0;
+                onChange(false);
+            }
+            function pos(e) { var r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+            canvas.addEventListener('pointerdown', function (e) {
+                if (!ctx2) { size(); }
+                drawing = true;
+                last = pos(e);
+                try { canvas.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ }
+                e.preventDefault();
+            });
+            canvas.addEventListener('pointermove', function (e) {
+                if (!drawing || !ctx2) { return; }
+                var p = pos(e);
+                ctx2.beginPath();
+                ctx2.moveTo(last.x, last.y);
+                ctx2.lineTo(p.x, p.y);
+                ctx2.stroke();
+                ink += Math.hypot(p.x - last.x, p.y - last.y);
+                last = p;
+                if (ink >= 60) { onChange(true); }
+            });
+            function end() { drawing = false; last = null; }
+            canvas.addEventListener('pointerup', end);
+            canvas.addEventListener('pointercancel', end);
+            clearBtn.addEventListener('click', function () { if (ctx2) { ctx2.clearRect(0, 0, canvas.width, canvas.height); } ink = 0; onChange(false); });
+            setTimeout(size, 0);
+            var onResize = function () { size(); };
+            window.addEventListener('resize', onResize);
+            cleanup.push(function () { window.removeEventListener('resize', onResize); });
+            return { el: el };
+        }
+
+        // ---------------- quiz ----------------
+        function quizMeta(qz) {
+            var out = [h('span', null, [icon('fa-list-ol'), qz.question_count === 1 ? t('question_1') : t('questions_n', { n: qz.question_count })]),
+                h('span', null, [icon('fa-bullseye'), t('pass_pct', { pct: qz.pass_pct })])];
+            if (qz.time_limit_s) { out.push(h('span', null, [icon('fa-stopwatch'), t('time_limit_min', { n: Math.round(qz.time_limit_s / 60) })])); }
+            out.push(h('span', null, [icon('fa-redo'), qz.max_attempts === 0 ? t('unlimited') : (qz.max_attempts === 1 ? t('attempts_1') : t('attempts_n', { n: qz.max_attempts }))]));
+            return out;
+        }
+
+        function renderQuizIntro(ctx) {
+            var l = ctx.lesson;
+            var qz = l.quiz;
+            ctx.foot.querySelector('.trp-foot__actions .trp-btn--primary').hidden = true;
+            if (!qz) { ctx.main.appendChild(h('div', { class: 'trp-card trp-empty-note', text: t('questions_n', { n: 0 }) })); return; }
+            var err = h('div', { class: 'trp-vstatus', role: 'status', 'aria-live': 'polite', hidden: true });
+            var start = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--xl' }, [t('quiz_start'), icon('fa-arrow-right')]);
+            var card = h('section', { class: 'trp-card trp-qintro' }, [
+                h('span', { class: 'trp-qintro__icon', 'aria-hidden': 'true' }, icon(qz.role === 'exam' ? 'fa-graduation-cap' : 'fa-question-circle')),
+                h('div', { class: 'trp-kicker', text: qz.role === 'exam' ? t('t_exam') : (qz.role === 'check' ? t('t_check') : t('t_quiz')) }),
+                h('h2', { class: 'trp-qintro__title', text: l.title || t('t_quiz') }),
+                qz.intro ? h('p', { class: 'trp-qintro__text', text: qz.intro }) : null,
+                l.description_html ? setTrustedHtml(h('div', { class: 'trp-article trp-article--desc' }), l.description_html) : null,
+                h('div', { class: 'trp-meta trp-meta--center' }, quizMeta(qz)),
+                !canGrade ? h('p', { class: 'trp-note trp-note--center' }, [icon('fa-info-circle'), h('span', { text: t('grading_authors_only') })]) : null,
+                start, err
+            ]);
+            ctx.main.appendChild(card);
+            ctx.gate.set(!!progress.done[l.uid], t('req_quiz'), null);
+            start.addEventListener('click', function () {
+                start.disabled = true;
+                err.hidden = false;
+                err.className = 'trp-vstatus';
+                clear(err);
+                err.appendChild(icon('fa-circle-notch', 'fa-spin'));
+                err.appendChild(h('span', { text: t('starting') }));
+                Promise.resolve(typeof adapter.startQuiz === 'function' ? adapter.startQuiz(l.uid, lang) : Promise.reject(new Error('No quiz runner.'))).then(function (data) {
+                    runQuiz(l, data);
+                }, function (e) {
+                    start.disabled = false;
+                    err.className = 'trp-vstatus is-error';
+                    clear(err);
+                    err.appendChild(icon('fa-exclamation-triangle'));
+                    err.appendChild(h('span', { text: (e && e.message) || t('video_error') }));
+                });
+            });
+        }
+
+        function runQuiz(l, data) {
+            runCleanup();
+            clear(screen);
+            screen.scrollTop = 0;
+            var qs = data.questions || [];
+            var quiz = data.quiz || {};
+            var graded = !!data.graded && canGrade;
+            var answers = {};
+            var flags = {};
+            var cur = 0;
+            var startedAt = Date.now();
+            var remaining = typeof quiz.deadline_remaining_s === 'number' ? quiz.deadline_remaining_s : null;
+            var deadline = remaining !== null ? Date.now() + remaining * 1000 : null;
+            var submitted = false;
+            var timerPill = h('div', { class: 'trp-timer', hidden: deadline === null, role: 'timer', 'aria-live': 'off' });
+            var headTitle = (quiz.title || l.title || '') + (view.course.name ? ' · ' + view.course.name : '');
+            var header = h('header', { class: 'trp-qhead' }, [
+                h('span', { class: 'trp-qhead__icon', 'aria-hidden': 'true' }, icon(l.quiz && l.quiz.role === 'exam' ? 'fa-lock' : 'fa-question-circle')),
+                h('h1', { class: 'trp-qhead__title', text: headTitle }),
+                h('button', { type: 'button', class: 'trp-btn trp-btn--ghost trp-btn--sm', on: { click: function () { openLesson(l.uid); } } }, [icon('fa-times'), t('leave_quiz')]),
+                timerPill
+            ]);
+            var progLabel = h('strong', { class: 'trp-qprog__label' });
+            var segs = h('div', { class: 'trp-qprog__segs' + (qs.length > 20 ? ' is-continuous' : ''), 'aria-hidden': 'true' });
+            var answeredLabel = h('span', { class: 'trp-muted' });
+            var prog = h('div', { class: 'trp-qprog' }, [progLabel, segs, answeredLabel]);
+            var cardHost = h('div', { class: 'trp-qhost' });
+            var prevBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--ghost trp-btn--lg' }, [icon('fa-chevron-left'), t('previous')]);
+            var flagBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--text', 'aria-pressed': 'false' }, [icon('fa-flag'), t('flag')]);
+            var nextBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--lg' });
+            var footNote = h('span', { class: 'trp-muted trp-qfoot__note' }, [icon('fa-eye'), t('nothing_recorded')]);
+            var foot = h('footer', { class: 'trp-qfoot' }, [prevBtn, flagBtn, h('span', { class: 'trp-qfoot__spacer' }), footNote, nextBtn]);
+            var page = h('div', { class: 'trp-quiz' }, [header, prog, cardHost, foot]);
+            screen.appendChild(page);
+            var card = null;
+
+            function answeredCount() { return qs.filter(function (q) { return (answers[q.uid] || []).length > 0; }).length; }
+            function renderProgress() {
+                progLabel.textContent = t('question_of', { n: cur + 1, total: qs.length });
+                answeredLabel.textContent = t('answered_n', { n: answeredCount(), total: qs.length });
+                clear(segs);
+                if (qs.length > 20) {
+                    segs.appendChild(h('span', { class: 'trp-qprog__fill', style: { width: Math.round((cur + 1) * 100 / qs.length) + '%' } }));
+                } else {
+                    qs.forEach(function (q, i) {
+                        segs.appendChild(h('span', { class: 'trp-qprog__seg' + ((answers[q.uid] || []).length ? ' is-answered' : '') + (i === cur ? ' is-current' : '') }));
+                    });
+                }
+            }
+            function isLast() { return cur === qs.length - 1; }
+            function renderQuestion() {
+                var q = qs[cur];
+                clear(cardHost);
+                card = questionCard(q, { selected: (answers[q.uid] || []).slice() }, {
+                    t: t, index: cur, total: qs.length,
+                    onChange: function (sel) { answers[q.uid] = sel; renderProgress(); syncNext(); }
+                });
+                cardHost.appendChild(card.el);
+                prevBtn.disabled = cur === 0;
+                flagBtn.setAttribute('aria-pressed', flags[q.uid] ? 'true' : 'false');
+                flagBtn.classList.toggle('is-on', !!flags[q.uid]);
+                clear(flagBtn);
+                flagBtn.appendChild(icon('fa-flag'));
+                flagBtn.appendChild(document.createTextNode(flags[q.uid] ? t('flagged') : t('flag')));
+                renderProgress();
+                syncNext();
+                card.focusFirst();
+            }
+            function syncNext() {
+                var q = qs[cur];
+                var answered = (answers[q.uid] || []).length > 0;
+                clear(nextBtn);
+                var last = isLast();
+                var label = !last ? t('next_question') : (quiz.show_review !== false ? t('review_answers') : (graded ? t('submit') : t('review_answers')));
+                nextBtn.appendChild(document.createTextNode(label));
+                nextBtn.appendChild(icon(last && graded && quiz.show_review === false ? 'fa-paper-plane' : 'fa-chevron-right'));
+                nextBtn.className = 'trp-btn trp-btn--lg ' + (answered ? 'trp-btn--primary' : 'trp-btn--soft');
+            }
+            var mode = 'question';
+            function goTo(i) {
+                if (i < 0 || i >= qs.length) { return; }
+                cur = i;
+                mode = 'question';
+                flagBtn.hidden = false;
+                nextBtn.hidden = false;
+                renderQuestion();
+            }
+            prevBtn.addEventListener('click', function () {
+                if (mode === 'review') { goTo(qs.length - 1); return; }
+                goTo(cur - 1);
+            });
+            flagBtn.addEventListener('click', function () { var q = qs[cur]; flags[q.uid] = !flags[q.uid]; renderQuestion(); });
+            nextBtn.addEventListener('click', function () {
+                if (!isLast()) { goTo(cur + 1); return; }
+                if (quiz.show_review === false && graded) { submit(false); return; }
+                renderReview();
+            });
+            onKeys(function (e) {
+                if (!page.isConnected || mode !== 'question' || !card) { return; }
+                if (/^[1-8]$/.test(e.key)) { card.choose(Number(e.key) - 1); e.preventDefault(); return; }
+                var onOpt = e.target && e.target.classList && e.target.classList.contains('trp-opt');
+                if (e.key === 'Enter' && (onOpt || e.target === document.body)) { e.preventDefault(); nextBtn.click(); }
+            });
+
+            function renderReview(timeUp) {
+                mode = 'review';
+                clear(cardHost);
+                card = null;
+                var unanswered = qs.filter(function (q) { return !(answers[q.uid] || []).length; }).length;
+                var grid = h('ol', { class: 'trp-review' });
+                qs.forEach(function (q, i) {
+                    var ans = (answers[q.uid] || []).length > 0;
+                    grid.appendChild(h('li', null, h('button', {
+                        type: 'button', class: 'trp-review__item' + (ans ? ' is-answered' : '') + (flags[q.uid] ? ' is-flagged' : ''), disabled: submitted || timeUp,
+                        on: { click: function () { goTo(i); } }
+                    }, [
+                        h('span', { class: 'trp-review__n', text: String(i + 1) }),
+                        h('span', { class: 'trp-review__text', text: q.text }),
+                        h('span', { class: 'trp-review__state' }, [flags[q.uid] ? icon('fa-flag') : null, ans ? t('change') : t('unanswered')])
+                    ])));
+                });
+                var submitBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--xl' }, [icon('fa-paper-plane'), t('submit')]);
+                submitBtn.addEventListener('click', function () { submit(false); });
+                cardHost.appendChild(h('section', { class: 'trp-card trp-reviewcard' }, [
+                    h('h2', { class: 'trp-card__title', text: t('review') }),
+                    h('p', { class: 'trp-muted', text: timeUp ? t('time_up_ungraded') : t('review_hint') }),
+                    h('p', { class: unanswered ? 'trp-note trp-note--warn' : 'trp-note' }, [icon(unanswered ? 'fa-exclamation-circle' : 'fa-check-circle'), h('span', { text: unanswered ? t('n_unanswered', { n: unanswered }) : t('all_answered') })]),
+                    grid,
+                    graded ? h('div', { class: 'trp-reviewcard__actions' }, submitBtn)
+                        : h('div', { class: 'trp-note trp-note--center trp-note--lock' }, [icon('fa-lock'), h('span', { text: t('grading_authors_only') })])
+                ]));
+                progLabel.textContent = t('review');
+                answeredLabel.textContent = t('answered_n', { n: answeredCount(), total: qs.length });
+                prevBtn.disabled = !!(submitted || timeUp);
+                flagBtn.hidden = true;
+                nextBtn.hidden = true;
+                if (!graded) { footNote.textContent = t('quiz_not_graded'); }
+                var hd = cardHost.querySelector('.trp-card__title');
+                if (hd) { hd.tabIndex = -1; hd.focus({ preventScroll: true }); }
+            }
+
+            function submit(timeUp) {
+                if (submitted || !graded) { if (timeUp && !graded) { renderReview(true); } return; }
+                submitted = true;
+                stopTimer();
+                clear(cardHost);
+                cardHost.appendChild(h('div', { class: 'trp-card trp-busy', role: 'status' }, [icon('fa-circle-notch', 'fa-spin'), h('span', { text: t('submitting') })]));
+                foot.hidden = true;
+                var body = {};
+                qs.forEach(function (q) { if ((answers[q.uid] || []).length) { body[q.uid] = answers[q.uid].slice(); } });
+                Promise.resolve(adapter.submitQuiz(data.attempt_token, body)).then(function (res) {
+                    renderResult(l, data, answers, res, Date.now() - startedAt, timeUp);
+                }, function (e) {
+                    submitted = false;
+                    foot.hidden = false;
+                    renderReview();
+                    cardHost.insertBefore(h('div', { class: 'trp-vstatus is-error', role: 'alert' }, [icon('fa-exclamation-triangle'), h('span', { text: (e && e.message) || t('video_error') })]), cardHost.firstChild);
+                });
+            }
+
+            var timer = null;
+            function stopTimer() { if (timer) { clearInterval(timer); timer = null; } }
+            function tick() {
+                if (deadline === null) { return; }
+                var left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+                clear(timerPill);
+                timerPill.appendChild(icon('fa-stopwatch'));
+                timerPill.appendChild(h('span', { class: 'trp-mono', text: fmt(left) }));
+                timerPill.appendChild(h('span', { class: 'visually-hidden', text: t('time_left') }));
+                timerPill.classList.toggle('is-low', left <= 60);
+                if (left <= 0) {
+                    stopTimer();
+                    if (graded) { submit(true); } else { renderReview(true); }
+                }
+            }
+            if (deadline !== null) { tick(); timer = setInterval(tick, 1000); cleanup.push(stopTimer); }
+            if (!qs.length) { cardHost.appendChild(h('div', { class: 'trp-card trp-empty-note', text: t('questions_n', { n: 0 }) })); return; }
+            renderQuestion();
+        }
+
+        function renderResult(l, data, answers, res, tookMs, timeUp) {
+            runCleanup();
+            clear(screen);
+            screen.scrollTop = 0;
+            var passed = !!res.passed;
+            var score = Math.round(Number(res.score_pct) || 0);
+            var fb = res.feedback || { mode: 'score_only', missed: [] };
+            var total = (data.questions || []).length;
+            var missed = fb.missed || [];
+            var optText = {};
+            var qText = {};
+            (data.questions || []).forEach(function (q) { qText[q.uid] = q.text; (q.options || []).forEach(function (o, i) { optText[o.uid] = { text: o.text, letter: LETTERS[i] }; }); });
+            var correctN = fb.mode === 'score_only' ? null : total - missed.length;
+            var mustPass = !(l.quiz && l.quiz.must_pass === false);
+            if (passed || !mustPass) { progress.done[l.uid] = true; saveProgress(); }
+
+            var ringEl = h('div', { class: 'trp-result__ring' }, [
+                ring(score, passed ? 'trp-ring--ok' : 'trp-ring--bad', score + '%'),
+                h('div', { class: 'trp-result__score' }, [h('span', { class: 'trp-result__num', text: String(score) }), h('span', { class: 'trp-result__pct', text: '%' }), h('span', { class: 'trp-result__cap', text: t('your_score') })])
+            ]);
+            if (passed && !reducedMotion()) { ringEl.appendChild(confetti()); }
+            var stats = h('div', { class: 'trp-stats' }, [
+                correctN !== null ? stat(t('correct_label'), t('of', { n: correctN, m: total })) : stat(t('correct_label'), t('points_of', { n: res.points_earned, m: res.points_possible })),
+                stat(t('time_label'), fmtTook(tookMs)),
+                stat(t('passmark_label'), res.pass_pct + '%')
+            ]);
+            var headline = passed ? t('you_passed') : t('not_passed');
+            var msg = passed ? t('pass_msg') : (res.critical_missed > 0 ? t('fail_critical_msg') : t('fail_msg'));
+            var hero = h('section', { class: 'trp-card trp-result' + (passed ? ' is-pass' : ' is-fail') }, [
+                ringEl,
+                h('div', { class: 'trp-result__body' }, [
+                    h('span', { class: 'trp-pill ' + (passed ? 'trp-pill--ok' : 'trp-pill--bad') }, [icon(passed ? 'fa-check-circle' : 'fa-times-circle'), passed ? t('passed_chip') : t('failed_chip')]),
+                    h('h1', { class: 'trp-result__title', text: headline }),
+                    h('p', { class: 'trp-result__line' }, [t('pass_mark', { pct: res.pass_pct }) + ' · ' + t('points_of', { n: res.points_earned, m: res.points_possible })]),
+                    !passed ? h('p', { class: 'trp-result__need', text: t('you_needed', { pct: res.pass_pct }) }) : null,
+                    h('p', { class: 'trp-result__msg', text: timeUp ? t('time_up') + ' ' + msg : msg }),
+                    stats
+                ])
+            ]);
+            var parts = [h('div', { class: 'trp-result__meta' }, [
+                h('span', null, [icon(l.quiz && l.quiz.role === 'exam' ? 'fa-lock' : 'fa-question-circle'), (l.title || '') + (view.course.name ? ' · ' + view.course.name : '')]),
+                h('span', { class: 'trp-muted', text: t('finished_at', { time: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }) + ' · ' + t('took', { t: fmtTook(tookMs) }) })
+            ]), hero];
+            if (res.critical_missed > 0) {
+                parts.push(h('div', { class: 'trp-banner trp-banner--bad', role: 'alert' }, [icon('fa-exclamation-triangle'), h('span', { text: t('critical_missed') })]));
+            }
+            var reviewCard = h('section', { class: 'trp-card trp-missed' }, [
+                h('header', { class: 'trp-missed__head' }, [
+                    h('span', { class: 'trp-tile trp-tile--muted', 'aria-hidden': 'true' }, icon('fa-book-open')),
+                    h('h2', { class: 'trp-card__title', text: t('what_to_review') }),
+                    missed.length ? h('span', { class: 'trp-pill trp-pill--bad' }, [icon('fa-times'), t('n_missed', { n: missed.length })]) : null
+                ])
+            ]);
+            if (fb.mode === 'score_only') {
+                reviewCard.appendChild(h('p', { class: 'trp-muted', text: t('score_only_note') }));
+            } else if (!missed.length) {
+                reviewCard.appendChild(h('p', { class: 'trp-muted', text: t('nothing_missed') }));
+            } else {
+                reviewCard.appendChild(h('p', { class: 'trp-muted', text: t('quick_look') }));
+                if ((res.topics_missed || []).length) {
+                    reviewCard.appendChild(h('div', { class: 'trp-topics' }, [h('strong', { text: t('topics_missed') })].concat(res.topics_missed.map(function (tp) { return h('span', { class: 'trp-chip', text: tp }); }))));
+                }
+                reviewCard.appendChild(h('ol', { class: 'trp-missed__list' }, missed.map(function (m) {
+                    var items = [h('div', { class: 'trp-missed__q', text: m.text || qText[m.uid] || '' })];
+                    if (m.topic) { items.push(h('div', { class: 'trp-muted trp-missed__topic', text: m.topic })); }
+                    if (m.explanation) { items.push(h('div', { class: 'trp-missed__why' }, [h('strong', { text: t('why') }), h('span', { text: m.explanation })])); }
+                    (m.chosen_feedback || []).forEach(function (f) { items.push(h('div', { class: 'trp-missed__fb' }, [h('strong', { text: t('your_choice') }), h('span', { text: f })])); });
+                    if (fb.answers && fb.answers[m.uid]) {
+                        var labels = fb.answers[m.uid].map(function (u) { return optText[u] ? optText[u].letter + ') ' + optText[u].text : ''; }).filter(Boolean);
+                        if (labels.length) { items.push(h('div', { class: 'trp-missed__ans' }, [h('strong', { text: t('correct_answer') }), h('span', { text: labels.join('; ') })])); }
+                    }
+                    return h('li', null, items);
+                })));
+            }
+            var ach = h('section', { class: 'trp-card trp-ach' }, [
+                h('span', { class: 'trp-ach__medal', 'aria-hidden': 'true' }, icon('fa-medal')),
+                h('div', null, [h('div', { class: 'trp-kicker', text: t('achievements') }), h('p', { class: 'trp-muted', text: t('no_achievements') })])
+            ]);
+            parts.push(h('div', { class: 'trp-result__grid' }, [reviewCard, ach]));
+            var retry = h('button', { type: 'button', class: 'trp-btn trp-btn--ghost trp-btn--lg' }, [icon('fa-redo'), t('retry')]);
+            var cont = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--lg' }, [t('continue'), icon('fa-arrow-right')]);
+            retry.addEventListener('click', function () { openLesson(l.uid); });
+            cont.addEventListener('click', function () {
+                var idx = order.indexOf(l.uid);
+                var n = order[idx + 1];
+                if (n && !isLocked(n)) { openLesson(n); return; }
+                if (order.every(function (u) { return progress.done[u] || !byUid[u].required; })) { renderComplete(); return; }
+                renderHome();
+            });
+            var footer = h('footer', { class: 'trp-foot trp-foot--result' }, [
+                h('div', { class: 'trp-foot__status' }, [icon('fa-info-circle'), h('span', { text: t('nothing_recorded') })]),
+                h('div', { class: 'trp-foot__actions' }, [retry, cont])
+            ]);
+            screen.appendChild(h('div', { class: 'trp-lesson trp-lesson--result' }, [h('div', { class: 'trp-lscroll' }, h('div', { class: 'trp-page' }, parts)), footer]));
+            var ttl = hero.querySelector('.trp-result__title');
+            if (ttl) { ttl.tabIndex = -1; ttl.focus({ preventScroll: true }); }
+        }
+
+        function stat(label, value) { return h('div', { class: 'trp-stat' }, [h('span', { class: 'trp-stat__label', text: label }), h('strong', { class: 'trp-stat__value', text: value })]); }
+        function fmtTook(ms) { var s = Math.round(ms / 1000); return s < 60 ? s + ' s' : t('minutes', { n: Math.round(s / 60) }); }
+        function confetti() {
+            var box = h('div', { class: 'trp-confetti', 'aria-hidden': 'true' });
+            var colors = ['var(--trp-accent)', '#16a34a', '#2563eb', '#d97706', '#7c3aed', '#0891b2'];
+            for (var i = 0; i < 26; i++) {
+                box.appendChild(h('span', {
+                    class: 'trp-confetti__p', style: {
+                        left: Math.round(Math.random() * 100) + '%', background: colors[i % colors.length],
+                        'animation-delay': (Math.random() * 0.6).toFixed(2) + 's', '--x': String(Math.round(Math.random() * 240 - 120))
+                    }
+                }));
+            }
+            return box;
+        }
+
+        // ---------------- completion ----------------
+        function renderComplete() {
+            runCleanup();
+            clear(screen);
+            var c = view.course || {};
+            var name = adapter.learnerName || t('learner');
+            var date = new Date().toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' });
+            var parts = [
+                h('span', { class: 'trp-complete__badge', 'aria-hidden': 'true' }, icon('fa-check')),
+                h('h1', { class: 'trp-complete__title', text: t('course_complete') }),
+                h('p', { class: 'trp-complete__sub', text: t('complete_sub', { course: c.name || '' }) })
+            ];
+            if (c.attestation_text || c.requires_signature) {
+                parts.push(h('section', { class: 'trp-card trp-attest' }, [
+                    h('div', { class: 'trp-kicker', text: t('attestation') }),
+                    h('p', { class: 'trp-attest__text', text: c.attestation_text || t('attest_default') }),
+                    h('div', { class: 'trp-attest__meta' }, [h('span', { text: t('attest_by', { name: name }) }), h('span', { text: t('completed_on', { date: date }) })])
+                ]));
+            }
+            parts.push(h('div', { class: 'trp-complete__actions' }, [
+                h('button', { type: 'button', class: 'trp-btn trp-btn--ghost trp-btn--lg', on: { click: renderHome } }, [icon('fa-list-ul'), t('back_to_course')])
+            ]));
+            screen.appendChild(h('div', { class: 'trp-page trp-complete' }, parts));
+        }
+
+        // ---------------- start ----------------
+        var initial = adapter.initialLesson && byUid[adapter.initialLesson] ? adapter.initialLesson : null;
+        if (initial) { openLesson(initial); } else { renderHome(); }
+
+        return {
+            destroy: function () { runCleanup(); clear(root); root.classList.remove('trp'); },
+            open: openLesson,
+            home: renderHome,
+            reset: function () { progress = normaliseProgress(null); saveProgress(); renderHome(); },
+            progress: function () { return JSON.parse(JSON.stringify(progress)); }
+        };
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // TrainingPlayer.renderQuestion - the builder's live learner-look preview
+    // ------------------------------------------------------------------------------------------
+    function renderQuestion(container, q, opts) {
+        opts = opts || {};
+        var lang = opts.lang || 'en';
+        var t = makeT(opts.strings || {}, lang);
+        clear(container);
+        if (!q) { return { destroy: function () { clear(container); } }; }
+        var clean = {
+            uid: q.uid || 'preview', type: q.type === 'multi' ? 'multi' : (q.type === 'truefalse' ? 'truefalse' : 'single'),
+            text: String(q.text || ''), image_url: q.image_url || null,
+            options: (q.options || []).map(function (o, i) { return { uid: o.uid || ('o' + i), text: String(o.text || '') }; })
+        };
+        var total = Math.max(1, opts.total || 1);
+        var index = Math.max(0, Math.min(total - 1, opts.index || 0));
+        var qc = questionCard(clean, { selected: [] }, { t: t, index: index, total: total, compact: true });
+        var root = h('div', { class: 'trp trp--mini', lang: lang }, [
+            h('header', { class: 'trp-top trp-top--mini' }, [
+                h('div', { class: 'trp-top__brand' }, [h('span', { class: 'trp-top__mark', 'aria-hidden': 'true' }, icon('fa-hard-hat')), h('span', { class: 'trp-top__name' }, [opts.brand ? opts.brand + ' ' : '', h('span', { class: 'trp-top__accent', text: 'Training' })])]),
+                h('span', { class: 'trp-seg trp-seg--static' }, h('span', { class: 'trp-seg__btn is-on', text: lang.toUpperCase() }))
+            ]),
+            h('div', { class: 'trp-mini' }, [
+                h('div', { class: 'trp-mini__head' }, [h('span', { class: 'trp-muted', text: opts.title || '' }), h('strong', { text: t('question_of', { n: index + 1, total: total }) })]),
+                h('div', { class: 'trp-bar trp-bar--sm' }, h('span', { class: 'trp-bar__fill', style: { width: Math.round((index + 1) * 100 / total) + '%' } })),
+                qc.el,
+                h('div', { class: 'trp-mini__foot' }, h('span', { class: 'trp-btn trp-btn--primary trp-btn--sm', 'aria-hidden': 'true', text: t('next') }))
+            ])
+        ]);
+        container.appendChild(root);
+        return { destroy: function () { clear(container); } };
+    }
+
+    window.TrainingPlayer = { mount: mount, renderQuestion: renderQuestion };
+})();

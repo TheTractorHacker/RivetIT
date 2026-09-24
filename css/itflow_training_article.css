@@ -1,0 +1,90 @@
+/* =============================================================================
+   Training article typography - spec §5.4 / §5.9 / §8.
+   One sheet for two places, so the editor looks like the iPad:
+     - the player's .trp-article containers (article body, lesson description,
+       acknowledgment statement, course description), and
+     - the TinyMCE training editor (Lane E sets content_css to this file; its
+       iframe body carries .mce-content-body).
+   Only the classes ArticleSanitizer allows are styled here (table*, text-*,
+   fw-bold, fst-italic, small, lead, img-fluid, tr-callout*).
+
+   .trp-article is a hard container: contain + isolation + overflow hidden, so
+   authored markup can never paint outside it or stack above the player chrome.
+   ============================================================================= */
+
+/* The TinyMCE iframe loads only this sheet, so it declares the app's own font files too
+   (same family name and files as css/itflow_design.css; the browser dedupes them). */
+@font-face { font-family: 'Plex Sans'; src: url('/fonts/plex-sans-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Plex Sans'; src: url('/fonts/plex-sans-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Plex Sans'; src: url('/fonts/plex-sans-700.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+
+.trp-article {
+  contain: layout paint;
+  isolation: isolate;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+:is(.trp-article, .mce-content-body) {
+  --tra-ink: var(--trp-ink, var(--if-ink, #16232a));
+  --tra-muted: var(--trp-muted, var(--if-muted, #5d6f76));
+  --tra-border: var(--trp-border, var(--if-border, #e3e9ea));
+  --tra-surface: var(--trp-surface, var(--if-surface, #fff));
+  --tra-soft: var(--trp-bg, var(--if-bg, #eef2f2));
+  --tra-accent: var(--trp-accent, var(--if-primary, #0d9488));
+  color: var(--tra-ink);
+  font-family: var(--if-sans, 'IBM Plex Sans', 'Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif);
+  font-size: 19px;
+  line-height: 1.6;
+}
+.mce-content-body { margin: 16px 20px; background: var(--tra-surface); }
+
+:is(.trp-article, .mce-content-body) > :first-child { margin-top: 0; }
+:is(.trp-article, .mce-content-body) > :last-child { margin-bottom: 0; }
+:is(.trp-article, .mce-content-body) :is(h1, h2, h3, h4) { color: var(--tra-ink); font-weight: 700; line-height: 1.25; letter-spacing: -.01em; margin: 1.3em 0 .5em; }
+:is(.trp-article, .mce-content-body) h1 { font-size: 1.7em; }
+:is(.trp-article, .mce-content-body) h2 { font-size: 1.45em; }
+:is(.trp-article, .mce-content-body) h3 { font-size: 1.2em; }
+:is(.trp-article, .mce-content-body) h4 { font-size: 1.05em; }
+:is(.trp-article, .mce-content-body) p { margin: 0 0 .9em; }
+:is(.trp-article, .mce-content-body) :is(ul, ol) { margin: 0 0 1em; padding-left: 1.4em; }
+:is(.trp-article, .mce-content-body) li { margin: .3em 0; }
+:is(.trp-article, .mce-content-body) li::marker { color: var(--tra-muted); }
+:is(.trp-article, .mce-content-body) a { color: var(--tra-accent); text-decoration: underline; text-underline-offset: 3px; }
+:is(.trp-article, .mce-content-body) strong, :is(.trp-article, .mce-content-body) .fw-bold { font-weight: 700; }
+:is(.trp-article, .mce-content-body) .fst-italic { font-style: italic; }
+:is(.trp-article, .mce-content-body) .small, :is(.trp-article, .mce-content-body) small { font-size: .85em; color: var(--tra-muted); }
+:is(.trp-article, .mce-content-body) .lead { font-size: 1.15em; color: var(--tra-muted); }
+:is(.trp-article, .mce-content-body) .text-start { text-align: left; }
+:is(.trp-article, .mce-content-body) .text-center { text-align: center; }
+:is(.trp-article, .mce-content-body) .text-end { text-align: right; }
+:is(.trp-article, .mce-content-body) img { max-width: 100%; height: auto; border-radius: 8px; }
+:is(.trp-article, .mce-content-body) .img-fluid { max-width: 100%; height: auto; }
+:is(.trp-article, .mce-content-body) hr { border: 0; border-top: 1px solid var(--tra-border); margin: 1.6em 0; }
+:is(.trp-article, .mce-content-body) blockquote {
+  margin: 1em 0; padding: .6em 1em; border-left: 4px solid var(--tra-border); color: var(--tra-muted); background: var(--tra-soft); border-radius: 0 8px 8px 0;
+}
+:is(.trp-article, .mce-content-body) :is(code, pre) { font-family: var(--if-mono, 'IBM Plex Mono', ui-monospace, monospace); font-size: .88em; }
+:is(.trp-article, .mce-content-body) pre { padding: .8em 1em; border-radius: 8px; background: var(--tra-soft); overflow: auto; white-space: pre-wrap; }
+
+/* tables (the sanitizer keeps .table, .table-bordered, .table-striped, .table-sm) */
+:is(.trp-article, .mce-content-body) table { width: 100%; max-width: 100%; margin: 0 0 1.1em; border-collapse: collapse; font-size: .92em; }
+:is(.trp-article, .mce-content-body) :is(th, td) { padding: .55em .75em; border-bottom: 1px solid var(--tra-border); text-align: left; vertical-align: top; }
+:is(.trp-article, .mce-content-body) th { font-weight: 700; background: var(--tra-soft); }
+:is(.trp-article, .mce-content-body) .table-bordered :is(th, td) { border: 1px solid var(--tra-border); }
+:is(.trp-article, .mce-content-body) .table-striped tbody tr:nth-child(odd) { background: color-mix(in srgb, var(--tra-soft) 60%, transparent); }
+:is(.trp-article, .mce-content-body) .table-sm :is(th, td) { padding: .3em .5em; }
+
+/* callouts (tr-callout--info / --warning / --danger) */
+:is(.trp-article, .mce-content-body) .tr-callout {
+  --tra-callout: var(--tra-accent);
+  margin: 1em 0; padding: .8em 1em .8em 1.1em; border-radius: 10px;
+  border-left: 5px solid var(--tra-callout); background: color-mix(in srgb, var(--tra-callout) 9%, var(--tra-surface));
+}
+:is(.trp-article, .mce-content-body) .tr-callout--info { --tra-callout: #2563eb; }
+:is(.trp-article, .mce-content-body) .tr-callout--warning { --tra-callout: #d97706; }
+:is(.trp-article, .mce-content-body) .tr-callout--danger { --tra-callout: var(--tblr-danger, #d63939); }
+:is(.trp-article, .mce-content-body) .tr-callout > :last-child { margin-bottom: 0; }
+
+/* compact variants inside the player (descriptions, course "About") */
+.trp-article--compact, .trp-article--desc { font-size: 17px; }
