@@ -8,7 +8,7 @@ use ITFlow\Integrations\Google\GoogleDirectoryMapper;
 use ITFlow\Integrations\Microsoft\GraphClient;
 use ITFlow\Integrations\Microsoft\IntuneAssetMapper;
 use ITFlow\Integrations\Microsoft\MicrosoftDirectoryMapper;
-use ITFlow\Integrations\Odoo\OdooClient;
+use ITFlow\Integrations\Odoo\OdooConnectorFactory;
 use ITFlow\Integrations\Odoo\OdooDirectoryMapper;
 
 // Save module on/off toggle (nav visibility only - independent of
@@ -223,8 +223,11 @@ if (isset($_POST['save_odoo_integration'])) {
     $database_name = sanitizeInput($_POST['database_name'] ?? '');
     $username = sanitizeInput($_POST['username'] ?? '');
     $enabled = isset($_POST['enabled']) ? 1 : 0;
+    // Whitelisted: "auto" (JSON-2 once Test Connection proves it, JSON-RPC until then)
+    // or "jsonrpc_pinned" (always legacy JSON-RPC). Anything else is treated as auto.
+    $api_protocol_choice = ($_POST['api_protocol'] ?? 'auto') === 'jsonrpc_pinned' ? 'jsonrpc_pinned' : 'auto';
 
-    $existing = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT odoo_integration_id FROM odoo_integrations ORDER BY odoo_integration_id DESC LIMIT 1"));
+    $existing = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM odoo_integrations ORDER BY odoo_integration_id DESC LIMIT 1"));
 
     $key_sql = '';
     if (!empty($_POST['api_key'])) {
@@ -232,15 +235,52 @@ if (isset($_POST['save_odoo_integration'])) {
         $key_sql = ", api_key_enc = '$key_enc'";
     }
 
+    // api_protocol (DB 2.6.91). Only written once the column exists - a row
+    // read before the migration simply has no such key, and a first-ever
+    // INSERT checks the table itself.
+    $protocol_sql = '';
+    $protocol_note = '';
+    $has_protocol_column = $existing
+        ? OdooConnectorFactory::hasProtocolColumn($existing)
+        : mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM odoo_integrations LIKE 'api_protocol'")) > 0;
+
+    if ($has_protocol_column) {
+        $current_protocol = $existing ? OdooConnectorFactory::storedProtocol($existing) : OdooConnectorFactory::PROTOCOL_JSONRPC;
+
+        if ($api_protocol_choice === 'jsonrpc_pinned') {
+            $new_protocol = OdooConnectorFactory::STORED_JSONRPC_PINNED;
+        } else {
+            // Automatic. JSON-2 stays selected only while it still points at the
+            // server it was tested against: a different base URL or database is
+            // an untested server, so fall back to JSON-RPC until Test Connection
+            // passes there. (A new API key alone doesn't matter - the same key
+            // works on both protocols, so a bad one fails either way.)
+            $plain = static fn($v) => rtrim(strtolower(trim(strip_tags((string) $v))), '/');
+            $same_server = $existing
+                && $plain($_POST['base_url'] ?? '') === $plain($existing['base_url'] ?? '')
+                && trim(strip_tags((string) ($_POST['database_name'] ?? ''))) === trim((string) ($existing['database_name'] ?? ''));
+
+            $new_protocol = ($current_protocol === OdooConnectorFactory::PROTOCOL_JSON2 && $same_server)
+                ? OdooConnectorFactory::PROTOCOL_JSON2
+                : OdooConnectorFactory::PROTOCOL_JSONRPC;
+
+            if ($new_protocol === OdooConnectorFactory::PROTOCOL_JSONRPC && $current_protocol !== OdooConnectorFactory::PROTOCOL_JSONRPC) {
+                $protocol_note = ' - run Test Connection to switch to JSON-2 where available';
+            }
+        }
+
+        $protocol_sql = ", api_protocol = '" . mysqli_real_escape_string($mysqli, $new_protocol) . "'";
+    }
+
     if ($existing) {
         $id = intval($existing['odoo_integration_id']);
-        mysqli_query($mysqli, "UPDATE odoo_integrations SET base_url = '$base_url', database_name = '$database_name', username = '$username', enabled = $enabled $key_sql WHERE odoo_integration_id = $id");
+        mysqli_query($mysqli, "UPDATE odoo_integrations SET base_url = '$base_url', database_name = '$database_name', username = '$username', enabled = $enabled $key_sql $protocol_sql WHERE odoo_integration_id = $id");
     } else {
-        mysqli_query($mysqli, "INSERT INTO odoo_integrations SET base_url = '$base_url', database_name = '$database_name', username = '$username', enabled = $enabled $key_sql");
+        mysqli_query($mysqli, "INSERT INTO odoo_integrations SET base_url = '$base_url', database_name = '$database_name', username = '$username', enabled = $enabled $key_sql $protocol_sql");
     }
 
     logAction("Settings", "Edit", "$session_name updated the Odoo integration settings");
-    flash_alert("Odoo integration settings saved");
+    flash_alert("Odoo integration settings saved$protocol_note");
     redirect();
 }
 
@@ -257,16 +297,74 @@ if (isset($_POST['test_odoo_integration'])) {
         redirect();
     }
 
-    $client = new OdooClient($row['base_url'], $row['database_name'], $row['username'], decryptSetting($row['api_key_enc']));
-    $result = $client->testConnection();
+    // Protocol auto-detect (LMS plan A7). Unless an admin pinned JSON-RPC, try
+    // JSON-2 first; api_protocol becomes 'json2' ONLY when that test passes -
+    // the directory sync (here and in cron) just reads the stored value, so
+    // this is the one place the live protocol ever changes. When JSON-2 fails
+    // the legacy protocol is tested and kept, and the reason is shown.
+    $has_protocol_column = OdooConnectorFactory::hasProtocolColumn($row);
+    $pinned = $has_protocol_column && OdooConnectorFactory::isPinned($row);
+    $previous_protocol = OdooConnectorFactory::storedProtocol($row);
+
+    $json2_error = null;
+    $result = null;
+    if ($has_protocol_column && !$pinned) {
+        $result = OdooConnectorFactory::clientFromRow($row, OdooConnectorFactory::PROTOCOL_JSON2)->testConnection();
+        if (!$result->success) {
+            $json2_error = $result->error;
+            $result = null;
+        }
+    }
+    if ($result === null) {
+        $result = OdooConnectorFactory::clientFromRow($row, OdooConnectorFactory::PROTOCOL_JSONRPC)->testConnection();
+    }
+
+    $tested_protocol = $result->details['protocol'] ?? OdooConnectorFactory::PROTOCOL_JSONRPC;
+    $protocol_label = OdooConnectorFactory::label($tested_protocol) . ($pinned ? ' (pinned)' : '');
+    $server_version = $result->details['server_version'] ?? null;
+    $version_text = $server_version ? " (Odoo $server_version)" : '';
+
+    // What last_test_error keeps: the failure, or - on a JSON-RPC success after
+    // a JSON-2 failure - why JSON-2 isn't in use (the card shows that as a warning).
+    if (!$result->success) {
+        $stored_error = $result->error . ($json2_error !== null ? " (JSON-2 also failed: $json2_error)" : '');
+    } elseif ($json2_error !== null) {
+        $stored_error = "JSON-2 failed: $json2_error; using JSON-RPC";
+    } else {
+        $stored_error = null;
+    }
 
     $success = $result->success ? 1 : 0;
-    $error_sql = $result->error ? "'" . mysqli_real_escape_string($mysqli, substr($result->error, 0, 500)) . "'" : 'NULL';
-    mysqli_query($mysqli, "UPDATE odoo_integrations SET last_test_at = NOW(), last_test_success = $success, last_test_error = $error_sql WHERE odoo_integration_id = $id");
+    $error_sql = $stored_error !== null ? "'" . mysqli_real_escape_string($mysqli, mb_substr($stored_error, 0, 500)) . "'" : 'NULL';
+    $protocol_sql = '';
+    $new_protocol = $previous_protocol;
+    if ($has_protocol_column && !$pinned) {
+        $new_protocol = ($result->success && $tested_protocol === OdooConnectorFactory::PROTOCOL_JSON2)
+            ? OdooConnectorFactory::PROTOCOL_JSON2
+            : OdooConnectorFactory::PROTOCOL_JSONRPC;
+        $protocol_sql = ", api_protocol = '$new_protocol'";
+    }
+    mysqli_query($mysqli, "UPDATE odoo_integrations SET last_test_at = NOW(), last_test_success = $success, last_test_error = $error_sql $protocol_sql WHERE odoo_integration_id = $id");
 
-    \ITFlow\Audit\AuditService::record('integration.odoo.test', $session_user_id, 'odoo_integration', $id, $result->success ? 'success' : 'failed', $result->error);
+    if ($new_protocol !== $previous_protocol) {
+        logAction("Settings", "Edit", "$session_name's Odoo connection test switched the Odoo API protocol to " . OdooConnectorFactory::label($new_protocol));
+    }
 
-    flash_alert($result->success ? 'Connection successful' : 'Connection failed: ' . $result->error, $result->success ? 'success' : 'error');
+    \ITFlow\Audit\AuditService::record('integration.odoo.test', $session_user_id, 'odoo_integration', $id, $result->success ? 'success' : 'failed', $stored_error, [
+        'protocol' => $tested_protocol,
+        'pinned' => $pinned,
+        'server_version' => $server_version,
+        'json2_error' => $json2_error,
+    ]);
+
+    // toastr renders the message as HTML - Odoo's error text is escaped.
+    if (!$result->success) {
+        flash_alert('Connection failed: ' . nullable_htmlentities($stored_error), 'error');
+    } elseif ($json2_error !== null) {
+        flash_alert(nullable_htmlentities("Connection successful via JSON-RPC$version_text. JSON-2 failed: $json2_error; using JSON-RPC"), 'warning');
+    } else {
+        flash_alert(nullable_htmlentities("Connection successful via $protocol_label$version_text"));
+    }
     redirect();
 }
 
@@ -302,7 +400,10 @@ if (isset($_POST['sync_odoo_directory'])) {
         redirect();
     }
 
-    $client = new OdooClient($row['base_url'], $row['database_name'], $row['username'], decryptSetting($row['api_key_enc']));
+    // The protocol the last passing Test Connection settled on (legacy JSON-RPC
+    // until one has passed on JSON-2). Never changed from here.
+    $client = OdooConnectorFactory::clientFromRow($row);
+    $protocol_label = OdooConnectorFactory::label($client->protocol());
     $mapper = new OdooDirectoryMapper($mysqli, $id, $session_user_id);
     $log_id = $mapper->startSyncLog();
 
@@ -315,12 +416,13 @@ if (isset($_POST['sync_odoo_directory'])) {
 
         $mapper->finishSyncLog($log_id, $deptStats, $empStats);
 
-        logAction("Settings", "Edit", "$session_name synced Odoo directory: departments {$deptStats['created']} created/{$deptStats['updated']} updated/{$deptStats['matched']} matched, employees {$empStats['created']} created/{$empStats['updated']} updated/{$empStats['matched']} matched");
-        flash_alert("Odoo sync complete: departments {$deptStats['created']} created, {$deptStats['updated']} updated; employees {$empStats['created']} created, {$empStats['updated']} updated");
+        logAction("Settings", "Edit", "$session_name synced Odoo directory ($protocol_label): departments {$deptStats['created']} created/{$deptStats['updated']} updated/{$deptStats['matched']} matched, employees {$empStats['created']} created/{$empStats['updated']} updated/{$empStats['matched']} matched");
+        flash_alert("Odoo sync complete via $protocol_label: departments {$deptStats['created']} created, {$deptStats['updated']} updated; employees {$empStats['created']} created, {$empStats['updated']} updated");
     } catch (\RuntimeException $e) {
         mysqli_query($mysqli, "UPDATE odoo_sync_log SET finished_at=NOW(), status='failed', errors='" .
             mysqli_real_escape_string($mysqli, $e->getMessage()) . "' WHERE id=$log_id");
-        flash_alert($e->getMessage(), 'error');
+        // toastr renders HTML; the message can quote Odoo's own error text.
+        flash_alert(nullable_htmlentities("Odoo sync failed via $protocol_label: " . $e->getMessage()), 'error');
     }
 
     redirect();

@@ -87,6 +87,12 @@ $odoo_enabled = intval($row_odoo['enabled'] ?? 0);
 $odoo_last_test_at = $row_odoo['last_test_at'] ?? null;
 $odoo_last_test_success = $row_odoo['last_test_success'] ?? null;
 $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? '');
+// API protocol (odoo_integrations.api_protocol, DB 2.6.91): 'jsonrpc' / 'json2' in
+// Automatic mode, 'rpc_pinned' when pinned - see OdooConnectorFactory. A row read
+// before the migration has no such key and reads as Automatic/JSON-RPC.
+$odoo_protocol_stored = \ITFlow\Integrations\Odoo\OdooConnectorFactory::storedProtocol($row_odoo);
+$odoo_protocol_pinned = $odoo_protocol_stored === \ITFlow\Integrations\Odoo\OdooConnectorFactory::STORED_JSONRPC_PINNED;
+$odoo_protocol_json2 = $odoo_protocol_stored === \ITFlow\Integrations\Odoo\OdooConnectorFactory::PROTOCOL_JSON2;
 
 // Google Workspace - net new, mirrors microsoft_integrations' shape. No OAuth
 // client secret: Google's service-account flow signs its own JWT from the
@@ -1581,6 +1587,11 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
     <div class="card mb-3">
         <div class="card-header py-2 d-flex align-items-center">
             <h3 class="card-title me-auto"><i class="fas fa-fw fa-cogs me-2"></i>Odoo</h3>
+            <?php if ($odoo_id) { ?>
+                <span class="badge text-bg-secondary me-2" title="API protocol the directory sync uses">
+                    <?= $odoo_protocol_json2 ? 'JSON-2' : ($odoo_protocol_pinned ? 'JSON-RPC (pinned)' : 'JSON-RPC') ?>
+                </span>
+            <?php } ?>
             <?php if ($odoo_last_test_at) { ?>
                 <span class="badge <?= $odoo_last_test_success ? 'text-bg-success' : 'text-bg-danger' ?>">
                     Last test: <?= $odoo_last_test_success ? 'Success' : 'Failed' ?> (<?= nullable_htmlentities($odoo_last_test_at) ?>)
@@ -1589,7 +1600,8 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
         </div>
         <div class="card-body">
             <?php if ($odoo_last_test_error) { ?>
-                <div class="alert alert-danger"><?= $odoo_last_test_error ?></div>
+                <?php // A successful test can still carry a note - "JSON-2 failed: ...; using JSON-RPC". ?>
+                <div class="alert <?= $odoo_last_test_success ? 'alert-warning' : 'alert-danger' ?>"><?= $odoo_last_test_error ?></div>
             <?php } ?>
             <form action="post.php" method="post" autocomplete="off">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
@@ -1609,6 +1621,18 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                 <div class="form-group">
                     <label>API Key</label>
                     <input type="password" class="form-control" name="api_key" placeholder="<?= $odoo_has_key ? 'Stored - leave blank to keep current' : 'Enter API key' ?>" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label for="odooApiProtocol">API Protocol</label>
+                    <select class="form-control" name="api_protocol" id="odooApiProtocol">
+                        <option value="auto" <?= $odoo_protocol_pinned ? '' : 'selected' ?>>Automatic (JSON-2 when available)</option>
+                        <option value="jsonrpc_pinned" <?= $odoo_protocol_pinned ? 'selected' : '' ?>>JSON-RPC (legacy, pinned)</option>
+                    </select>
+                    <small class="text-muted">
+                        Automatic keeps using JSON-RPC until <strong>Test Connection</strong> succeeds over JSON-2 (Odoo 19 or later, <code>https://</code> base URL), then syncs over JSON-2.
+                        If the JSON-2 test fails, JSON-RPC stays in use and the reason is shown.
+                        Currently: <strong><?= $odoo_protocol_json2 ? 'JSON-2' : 'JSON-RPC' ?></strong>.
+                    </small>
                 </div>
                 <div class="form-check form-switch mb-3">
                     <input type="checkbox" class="form-check-input" name="enabled" value="1" id="odooEnabled" <?= $odoo_enabled ? 'checked' : '' ?>>

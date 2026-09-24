@@ -7,10 +7,15 @@ use ITFlow\Integrations\ConnectionResult;
 use ITFlow\Integrations\ExternalUser;
 
 /**
- * Odoo client via JSON-RPC (Odoo's /jsonrpc endpoint - common.login for
- * auth, then object.execute_kw for model calls). Scaffolding per
- * PROGRESS.md: real, working JSON-RPC code, but no Odoo instance/API key
- * has been provided yet to test it against.
+ * Odoo client for the directory sync and the admin connection test. The wire
+ * protocol lives in an OdooConnectorInterface: OdooLegacyRpcConnector (the
+ * /jsonrpc common.login + object.execute_kw calls this class used to make
+ * itself - still the default) or OdooJson2Connector (Odoo 19+ JSON-2).
+ * Callers normally build it through OdooConnectorFactory::clientFromRow(),
+ * which picks the connector from odoo_integrations.api_protocol.
+ *
+ * Every call below passes its arguments by name ($kwargs: 'domain', 'ids',
+ * 'fields'...), the one form both protocols accept.
  *
  * Per Section 10.4: never assume res.users field names or group names are
  * identical across Odoo versions/environments - this only reads the
@@ -19,25 +24,76 @@ use ITFlow\Integrations\ExternalUser;
  */
 class OdooClient implements BusinessApplicationProvider
 {
-    private ?int $uid = null;
+    /**
+     * Timeouts for this class's calls. The sync is a batch job, so it keeps
+     * the 30 s per-request budget it always had and allows 10 s to connect -
+     * more than the connectors' 2 s default, which is sized for interactive
+     * callers - so a slow DNS/TLS handshake doesn't fail a whole sync.
+     */
+    private const CALL_OPTS = ['connect_timeout' => 10, 'timeout' => 30];
 
+    /**
+     * testConnection() is interactive, and Test Connection may try both
+     * protocols in one request: 15 s per call keeps a hung server's worst case
+     * (JSON-2, then JSON-RPC) around 30 s - well inside Cloudflare's 100 s
+     * proxy timeout in front of the admin page.
+     */
+    private const TEST_OPTS = ['connect_timeout' => 5, 'timeout' => 15];
+
+    private OdooConnectorInterface $connector;
+
+    /**
+     * @param OdooConnectorInterface|null $connector the protocol to use; null = legacy
+     *        JSON-RPC built from the four credentials (the pre-connector behaviour)
+     */
     public function __construct(
-        private readonly string $baseUrl,
-        private readonly string $database,
-        private readonly string $username,
-        private readonly string $apiKey
+        string $baseUrl,
+        string $database,
+        string $username,
+        string $apiKey,
+        ?OdooConnectorInterface $connector = null
     ) {
+        $this->connector = $connector ?? new OdooLegacyRpcConnector($baseUrl, $database, $username, $apiKey);
     }
 
+    public function connector(): OdooConnectorInterface
+    {
+        return $this->connector;
+    }
+
+    /** OdooConnectorFactory::PROTOCOL_JSON2 or ::PROTOCOL_JSONRPC. */
+    public function protocol(): string
+    {
+        return $this->connector->protocol();
+    }
+
+    /**
+     * Proves the credentials work on this client's protocol with one cheap,
+     * read-only call every Odoo user may make (res.users.context_get - the
+     * user's own lang/tz), then reads the server version.
+     *
+     * details: 'protocol' always; on success 'server_version' (string|null)
+     * and, on the legacy protocol, 'uid'.
+     */
     public function testConnection(): ConnectionResult
     {
+        $details = ['protocol' => $this->connector->protocol()];
+
         try {
-            $this->authenticate();
+            $context = $this->connector->call('res.users', 'context_get', [], [], self::TEST_OPTS);
+            if (!is_array($context)) {
+                throw new \RuntimeException('Unexpected response from Odoo for res.users.context_get');
+            }
         } catch (\RuntimeException $e) {
-            return new ConnectionResult(false, $e->getMessage());
+            return new ConnectionResult(false, $e->getMessage(), $details);
         }
 
-        return new ConnectionResult(true, null, ['uid' => $this->uid]);
+        if ($this->connector instanceof OdooLegacyRpcConnector) {
+            $details['uid'] = $this->connector->uid();
+        }
+        $details['server_version'] = $this->connector->serverVersion()['server_version'] ?? null;
+
+        return new ConnectionResult(true, null, $details);
     }
 
     /**
@@ -45,12 +101,9 @@ class OdooClient implements BusinessApplicationProvider
      */
     public function listUsers(?string $cursor = null): array
     {
-        $this->authenticate();
-
         $offset = $cursor !== null ? (int) $cursor : 0;
-        $records = $this->executeKw('res.users', 'search_read', [
-            [], // no domain filter - all users
-        ], [
+        $records = $this->callList('res.users', 'search_read', [
+            'domain' => [], // no domain filter - all users
             'fields' => ['id', 'name', 'login', 'active', 'partner_id'],
             'limit' => 100,
             'offset' => $offset,
@@ -61,9 +114,8 @@ class OdooClient implements BusinessApplicationProvider
 
     public function getUser(string $externalId): ?ExternalUser
     {
-        $this->authenticate();
-
-        $records = $this->executeKw('res.users', 'read', [[(int) $externalId]], [
+        $records = $this->callList('res.users', 'read', [
+            'ids' => [(int) $externalId],
             'fields' => ['id', 'name', 'login', 'active', 'partner_id'],
         ]);
 
@@ -75,8 +127,6 @@ class OdooClient implements BusinessApplicationProvider
      */
     public function listDepartments(): array
     {
-        $this->authenticate();
-
         return $this->searchReadAll('hr.department', [], ['id', 'name', 'parent_id']);
     }
 
@@ -98,8 +148,6 @@ class OdooClient implements BusinessApplicationProvider
      */
     public function listEmployees(): array
     {
-        $this->authenticate();
-
         return $this->searchReadAll('hr.employee', [], [
             'id', 'name', 'work_email', 'department_id', 'job_title', 'work_phone', 'mobile_phone', 'active', 'parent_id',
         ], ['context' => ['active_test' => false]]);
@@ -112,7 +160,8 @@ class OdooClient implements BusinessApplicationProvider
         $offset = 0;
 
         do {
-            $batch = $this->executeKw($model, 'search_read', [$domain], array_merge([
+            $batch = $this->callList($model, 'search_read', array_merge([
+                'domain' => $domain,
                 'fields' => $fields,
                 'limit' => $limit,
                 'offset' => $offset,
@@ -140,68 +189,19 @@ class OdooClient implements BusinessApplicationProvider
         );
     }
 
-    private function authenticate(): void
+    /**
+     * A call whose result must be a list/dict (search_read, read). The
+     * connectors return any JSON value; this keeps the old executeKw()
+     * guarantee for the methods above that index into the result.
+     */
+    private function callList(string $model, string $method, array $kwargs): array
     {
-        if ($this->uid !== null) {
-            return;
-        }
-
-        $result = $this->call('common', 'login', [$this->database, $this->username, $this->apiKey]);
-        if (!is_int($result)) {
-            throw new \RuntimeException('Odoo login failed - check database name, username, and API key.');
-        }
-
-        $this->uid = $result;
-    }
-
-    private function executeKw(string $model, string $method, array $args, array $kwargs = []): array
-    {
-        $result = $this->call('object', 'execute_kw', [
-            $this->database, $this->uid, $this->apiKey, $model, $method, $args, $kwargs,
-        ]);
+        $result = $this->connector->call($model, $method, [], $kwargs, self::CALL_OPTS);
 
         if (!is_array($result)) {
             throw new \RuntimeException("Unexpected response from Odoo for $model.$method");
         }
 
         return $result;
-    }
-
-    private function call(string $service, string $method, array $args)
-    {
-        $payload = json_encode([
-            'jsonrpc' => '2.0',
-            'method' => 'call',
-            'params' => [
-                'service' => $service,
-                'method' => $method,
-                'args' => $args,
-            ],
-            'id' => random_int(1, PHP_INT_MAX),
-        ]);
-
-        $ch = curl_init(rtrim($this->baseUrl, '/') . '/jsonrpc');
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $payload,
-            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 30,
-        ]);
-        $body = curl_exec($ch);
-        $curlError = curl_error($ch);
-        curl_close($ch);
-
-        if ($body === false) {
-            throw new \RuntimeException("Could not reach Odoo at {$this->baseUrl}: $curlError");
-        }
-
-        $data = json_decode($body, true);
-        if (isset($data['error'])) {
-            $message = $data['error']['data']['message'] ?? $data['error']['message'] ?? 'Unknown Odoo error';
-            throw new \RuntimeException("Odoo error: $message");
-        }
-
-        return $data['result'] ?? null;
     }
 }
