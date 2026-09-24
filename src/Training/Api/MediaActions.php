@@ -5,6 +5,7 @@ namespace ITFlow\Training\Api;
 use ITFlow\Training\Authoring\LessonService;
 use ITFlow\Training\Core\Ctx;
 use ITFlow\Training\Core\Db;
+use ITFlow\Training\Media\CoverLibrary;
 use ITFlow\Training\Media\KbSnapshot;
 use ITFlow\Training\Media\MediaAccess;
 use ITFlow\Training\Media\MediaException;
@@ -131,6 +132,30 @@ final class MediaActions
      * @param callable():T $fn
      * @return T
      */
+    /** GET cover_presets (L2): the built-in cover gallery - covers, categories, tints, defaults. */
+    public static function coverPresets(Ctx $c, ApiContext $a): array
+    {
+        return CoverLibrary::api();
+    }
+
+    /**
+     * POST cover_preset_ingest (L2): stores a gallery cover as media (deduplicated) and returns it.
+     * The caller then sets it with course_update / path_save {cover_media_id, color}, so the
+     * version check and the draft change log stay in one place.
+     */
+    public static function coverPresetIngest(Ctx $c, ApiContext $a): array
+    {
+        $key = (string) $a->str('key', 40);
+        $cover = CoverLibrary::get($key);
+        if ($cover === null) {
+            throw ApiException::validation(['key' => 'That cover does not exist.']);
+        }
+        return self::run(static function () use ($c, $key, $cover): array {
+            $row = CoverLibrary::ingest($c, $key);
+            return ['media' => (new MediaStore($c))->toApi($row), 'key' => $key, 'color' => $cover['color']];
+        });
+    }
+
     private static function run(callable $fn): mixed
     {
         try {
