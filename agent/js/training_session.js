@@ -95,7 +95,7 @@
                 (result.pending || []).forEach(function (x) { var t = u.pendingText(x && x.reason); if (t) { reasons[t] = (reasons[t] || 0) + 1; } });
                 var why = Object.keys(reasons).map(function (t) { return reasons[t] + ' ' + t; }).join('; ');
                 banner('success', 'fas fa-check-circle', 'Session finalized.', (issued ? u.plural(issued, 'training record') + ' issued.' : 'No records were issued.')
-                    + (pending ? ' ' + u.plural(pending, 'person', 'people') + ' have no record yet' + (why ? ' (' + why + ')' : '') + '.' : ''));
+                    + (pending ? ' ' + u.plural(pending, 'person has', 'people have') + ' no record yet' + (why ? ' (' + why + ')' : '') + '.' : ''));
             }
             var F = [];
             function add(label, value) { F.push(el('div', {}, [el('dt', { text: label }), el('dd', { class: value ? null : 'is-empty', text: value || '—' })])); }
