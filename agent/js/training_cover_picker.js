@@ -2,9 +2,11 @@
  * Training cover picker (plan A20). Loaded (deferred) after js/training_common.js and, for the
  * "Upload your own" tab, agent/js/training_uploader.js.
  *
- *   TrainingCoverPicker.open({name, color, cover:{id,url}|null, purpose:'course_cover'|'path_cover',
- *                             uploadOpts:{courseId?|pathId?}, title?})
- *       -> Promise({cover:{id,url}|null, color:string|null})   or null when cancelled
+ *   TrainingCoverPicker.open({name, color, cover:{id,url}|null, coverKey?, purpose:'course_cover'|'path_cover',
+ *                             uploadOpts:{courseId?|pathId?}, allowUpload = true, title?})
+ *       -> Promise({cover:{id,url,key?}|null, color:string|null})   or null when cancelled
+ *   coverKey preselects a gallery cover (the New course window, before the course exists);
+ *   allowUpload:false hides the upload tab (an upload needs the course to exist first).
  *
  * Gallery covers come from cover_presets. Choosing one only previews it; "Use this cover" runs
  * cover_preset_ingest (the server stores the PNG once, deduplicated) and hands back the media id.
@@ -343,7 +345,8 @@
         opts = opts || {};
         modal = modal || build();
         if (state && state.resolve) { state.resolve(null); }
-        var cur = opts.cover && opts.cover.id ? { kind: 'media', id: opts.cover.id, url: opts.cover.url, uploaded: false } : { kind: 'none' };
+        var cur = opts.coverKey ? { kind: 'preset', key: opts.coverKey }
+            : opts.cover && opts.cover.id ? { kind: 'media', id: opts.cover.id, url: opts.cover.url, uploaded: false } : { kind: 'none' };
         state = { opts: opts, choice: cur, color: HEX_RE.test(opts.color || '') ? opts.color.toUpperCase() : null,
                   colorTouched: HEX_RE.test(opts.color || ''), category: 'All', resolve: null };
         modal.title.textContent = opts.title || 'Choose a cover';
@@ -352,6 +355,7 @@
         modal.uploadBtn.disabled = false;
         busy(false);
         showTab('gallery');
+        modal.tabUpload.hidden = opts.allowUpload === false;
         renderPreview();
 
         var p = new Promise(function (resolve) { state.resolve = resolve; });
@@ -363,6 +367,7 @@
             renderCats();
             renderSwatches();
             renderGrid();
+            renderPreview();
         }, function (err) {
             if (state !== token) { return; }
             modal.loading.textContent = (err && err.message) || 'The gallery could not be loaded.';
