@@ -10,9 +10,14 @@ namespace ITFlow\Training\Core;
  * the file - the row, its hash and its events stay (spec §3.3 MediaPurger) - so SUM(media_bytes)
  * alone would over-count after a purge. The media budget and Admin › Training's usage bar both
  * use this definition, which counts bytes actually stored (the budget protects the disk).
+ * Since Phase 2, liveBytes() (the budget figure) leaves out evidence scans; liveByKind() still
+ * lists them so the admin page can show them separately.
  */
 final class MediaUsage
 {
+    /** The media kind liveBytes() leaves out of the content budget. */
+    public const EXCLUDED_FROM_BUDGET = 'evidence';
+
     /** @return array<string, array{count:int, bytes:int}> kind => totals (only kinds that have rows) */
     public static function liveByKind(\mysqli $db): array
     {
@@ -35,10 +40,18 @@ final class MediaUsage
         return $out;
     }
 
+    /**
+     * Live bytes that count toward the content budget: every kind except 'evidence' (Phase 2
+     * spec §3.1). Evidence scans are records, never purgeable, and have their own per-file cap,
+     * so they must never block a course upload; liveByKind() still reports them.
+     */
     public static function liveBytes(\mysqli $db): int
     {
         $total = 0;
-        foreach (self::liveByKind($db) as $k) {
+        foreach (self::liveByKind($db) as $kind => $k) {
+            if ($kind === self::EXCLUDED_FROM_BUDGET) {
+                continue;
+            }
             $total += $k['bytes'];
         }
         return $total;
