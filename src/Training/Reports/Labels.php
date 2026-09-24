@@ -49,21 +49,15 @@ final class Labels
     }
 
     /**
-     * Whole percent, never rounded up to 100 unless everything counts (99.6% shows 99%) and
-     * never down to 0 unless nothing does. Null when there is no denominator.
+     * Whole percent, rounded down like Compliance\PairRules::pct (so 99.6% shows 99%, never a
+     * 100% that is not). Null when there is no denominator.
      */
     public static function pct(int $num, int $den): ?int
     {
         if ($den <= 0) {
             return null;
         }
-        if ($num >= $den) {
-            return 100;
-        }
-        if ($num <= 0) {
-            return 0;
-        }
-        return max(1, min(99, (int) round(100 * $num / $den)));
+        return (int) floor(100 * max(0, min($num, $den)) / $den);
     }
 
     /**

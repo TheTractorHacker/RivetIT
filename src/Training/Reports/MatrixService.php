@@ -43,7 +43,8 @@ final class MatrixService
     /**
      * Builds the matrix from already-loaded pairs and people (the dashboard reuses its load).
      *
-     * Columns are the courses with at least one required pair, most-required first. Rows are
+     * Columns are the courses with at least one required pair: training courses first, each
+     * group most-required first. Rows are
      * departments with eligible people, by name, "No department" last.
      */
     public static function build(\mysqli $db, array $pairs, array $people, int $target, ?int $maxCourses = null): array
@@ -82,7 +83,8 @@ final class MatrixService
                 $cells[$dep][$cid]['overdue']++;
             }
         }
-        uasort($courses, static fn($a, $b) => [$b['pairs'], $a['name']] <=> [$a['pairs'], $b['name']]);
+        // Training courses first (most-required first), then document acknowledgments.
+        uasort($courses, static fn($a, $b) => [$a['kind'] === 'document', $b['pairs'], $a['name']] <=> [$b['kind'] === 'document', $a['pairs'], $b['name']]);
         $shown = array_values($courses);
         $hidden = 0;
         if ($maxCourses !== null && count($shown) > $maxCourses) {
