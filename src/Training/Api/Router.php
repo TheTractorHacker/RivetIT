@@ -84,15 +84,12 @@ final class Router
 
             self::send(200, ['ok' => true, 'data' => ($data === [] || $data === null) ? new \stdClass() : $data]);
         } catch (ApiException $e) {
-            $body = ['ok' => false, 'error' => [
-                'code' => $e->errCode,
-                'message' => $e->getMessage(),
-                'fields' => $e->fields === [] ? new \stdClass() : $e->fields,
-            ]];
-            if ($e->data !== []) {
-                $body['data'] = $e->data;
-            }
-            self::send($e->http, $body);
+            self::sendApiError($e);
+        } catch (\ITFlow\Training\Media\MediaException $e) {
+            // Media-layer failures (bad upload, unreadable PDF, dead video link) carry their
+            // own HTTP status and message; a handler that let one escape still answers
+            // with that error instead of a 500.
+            self::sendApiError($e->toApi());
         } catch (\mysqli_sql_exception $e) {
             $errno = (int) $e->getCode();
             if ($errno === 1062) {
@@ -111,6 +108,19 @@ final class Router
         } catch (\Throwable $e) {
             self::serverError($action, $e);
         }
+    }
+
+    private static function sendApiError(ApiException $e): never
+    {
+        $body = ['ok' => false, 'error' => [
+            'code' => $e->errCode,
+            'message' => $e->getMessage(),
+            'fields' => $e->fields === [] ? new \stdClass() : $e->fields,
+        ]];
+        if ($e->data !== []) {
+            $body['data'] = $e->data;
+        }
+        self::send($e->http, $body);
     }
 
     /**
