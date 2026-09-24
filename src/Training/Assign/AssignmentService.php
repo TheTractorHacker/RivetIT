@@ -35,6 +35,7 @@ final class AssignmentService
     public const PAGE = 50;
     public const USER_TRIGGERS = ['rule_save', 'rule_archive', 'assign_manual', 'roster', 'hire_date', 'jobgroup', 'reconcile_now'];
     public const STATUS_FILTERS = ['open', 'overdue', 'due_soon', 'waived', 'completed', 'cancelled', 'cancelled_overdue', 'all'];
+    public const SORT_KEYS = ['due', 'due_desc', 'name', 'course', 'created', 'closed'];
     private const SORTS = [
         'due' => 'a.tassign_due_on ASC, a.tassign_id ASC',
         'due_desc' => 'a.tassign_due_on DESC, a.tassign_id DESC',

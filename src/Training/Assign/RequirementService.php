@@ -134,6 +134,7 @@ final class RequirementService
         $overlapRules = [];
         $counts = ['assign' => 0, 'current' => 0, 'assigned' => 0, 'waived' => 0, 'new_hire' => 0];
         $sample = [];
+        $sampleMax = max(1, min(1000, (int) ($draft['sample_limit'] ?? self::SAMPLE)));
         foreach ($matched as $cid => $p) {
             $f = $facts[$cid][$courseId] ?? RecordFacts::none();
             $due = RuleMatcher::ruleDue($rule, $p, $today);
@@ -164,7 +165,7 @@ final class RequirementService
                     $overlapRules[$rid] = $rid;
                 }
             }
-            if (count($sample) < self::SAMPLE) {
+            if (count($sample) < $sampleMax) {
                 $sample[] = ['person' => Directory::ref($p), 'outcome' => $outcome, 'due_on' => $due];
             }
         }
@@ -217,6 +218,7 @@ final class RequirementService
             if ($version === null) {
                 throw ApiException::validation(['version' => 'Required.']);
             }
+            $v['is_manual'] = $existing['is_manual'];
         } else {
             $dup = Db::one($db, 'SELECT requirement_id FROM training_requirements WHERE requirement_request_uid = ?', 's', [$v['request_uid']]);
             if ($dup !== null) {
@@ -360,7 +362,9 @@ final class RequirementService
             '_manual' => true,
         ], false);
         $ruleId = (int) $saved['rule']['id'];
-        $reconcile = AssignmentService::safeReconcile($this->c, $saved['rule']['criteria']['contact'], 'assign_manual');
+        // The rule's own contact list (a retried request returns the original rule), never the scope-filtered view.
+        $ruleContacts = RuleMatcher::loadRules($db, false, [$ruleId], true)[0]['criteria']['contact'] ?? $ids;
+        $reconcile = AssignmentService::safeReconcile($this->c, $ruleContacts, 'assign_manual');
 
         // Per-person outcome, decided from the same rules reconcile uses (so a busy reconcile still reports what will happen).
         $s = RecordsSettings::fromDb($db);
