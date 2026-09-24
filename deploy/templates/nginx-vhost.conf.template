@@ -242,6 +242,30 @@ server {
         add_header X-Frame-Options "DENY" always;
     }
 
+    # Training kiosk (/kiosk/, P3 spec §7.11). A public path OUTSIDE /agent/, so the edge's
+    # Turnstile challenge on /agent/* never interrupts employees (plan A19). Every kiosk PHP
+    # request authenticates itself (device cookie + PIN session). The generic \.php$ location
+    # would otherwise execute the include files; "^~" beats that regex.
+    location ^~ /kiosk/includes/ {
+        deny all;
+    }
+
+    # Kiosk PHP: the pages send their own CSP and Referrer-Policy (no-referrer, or
+    # strict-origin-when-cross-origin on the video page), so there is NO server-level
+    # Referrer-Policy here. add_header does not inherit into a location that declares its own,
+    # so HSTS and the other server-level headers are repeated. Must stay above the generic
+    # "location ~ \.php$" (nginx takes the first matching regex).
+    location ~ ^/kiosk/.*\.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:${PHP_SOCK};
+        fastcgi_read_timeout 300s;
+        # BEGIN DIRECT-TLS ONLY
+        add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+        # END DIRECT-TLS ONLY
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+    }
+
     # Everything under /uploads/ is attacker-supplied content served from the
     # app's own origin, so the browser must never RENDER it: an uploaded .html
     # or .svg opened directly runs its script same-origin against whatever

@@ -45,7 +45,8 @@ if (!empty($config_theme_accent_custom) && preg_match('/^#[0-9A-Fa-f]{6}$/D', (s
 }
 $k_dark = intval($config_theme_dark_default ?? 0) === 1;
 $k_brand = $kctx->ks->brandWord();
-$k_toggle = ($k_page['lang_toggle'] ?? true) !== false;
+// set_language needs an enrolled device (pre-auth) or a session; the not-set-up screen is bilingual instead.
+$k_toggle = ($k_page['lang_toggle'] ?? true) !== false && $kctx->device !== null;
 $k_t = static fn(string $key, array $vars = []): string => \ITFlow\Training\Kiosk\Core\KioskStrings::t($k_lang, $key, $vars);
 ?>
 <!doctype html>

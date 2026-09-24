@@ -15,6 +15,9 @@ use ITFlow\Training\Core\Ctx;
  */
 final class KioskCtx
 {
+    /** User agent of the context cron and CLI scripts build with system(); eventBase() then says 'system'. */
+    public const SYSTEM_UA = 'training_kiosk_system';
+
     public function __construct(
         public readonly Ctx $core,
         public readonly KioskSettings $ks,
@@ -55,18 +58,32 @@ final class KioskCtx
 
     /**
      * Ledger actor fields for this request (§0.9): a session => 'contact' (the ksess contact);
-     * a device or anonymous pre-auth request => 'kiosk'. Merge into Ledger::append()'s array.
+     * a device or anonymous pre-auth request => 'kiosk'; no device and no session (cron, CLI:
+     * KioskCtx::system()) => 'system'. Merge into Ledger::append()'s array.
      */
     public function eventBase(): array
     {
         $cid = $this->contactId();
+        $system = $cid < 1 && $this->device === null && $this->core->userAgent === self::SYSTEM_UA;
         return [
-            'actor_type' => $cid > 0 ? 'contact' : 'kiosk',
+            'actor_type' => $cid > 0 ? 'contact' : ($system ? 'system' : 'kiosk'),
             'actor_contact_id' => $cid > 0 ? $cid : null,
             'kiosk_id' => $this->kioskId() > 0 ? $this->kioskId() : null,
             'ksess_id' => $this->ksessId(),
             'user_agent' => $this->core->userAgent,
         ];
+    }
+
+    /**
+     * A context for cron and CLI work (cron/training_kiosk_cron.php, harnesses): no device, no
+     * session, language 'en', ledger actor 'system'. $encKey is config.php's $config_settings_enc_key.
+     */
+    public static function system(\mysqli $db, string $encKey, ?string $baseHost = null): self
+    {
+        $host = $baseHost ?? (string) ($GLOBALS['config_base_url'] ?? '');
+        $host = (string) preg_replace('#^https?://#i', '', trim($host));
+        $core = new Ctx($db, 0, false, 0, 'https://' . rtrim($host, '/'), \ITFlow\Training\Core\TrainingSettings::fromDb($db), self::SYSTEM_UA);
+        return new self($core, KioskSettings::fromDb($db), KioskKeys::fromSecret($encKey), null, null, 'en', hrtime(true));
     }
 
     public function withKsess(array $ksess): self

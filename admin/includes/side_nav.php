@@ -241,6 +241,13 @@
                         <span class="nav-link-title">Training</span>
                     </a>
                 </li>
+                <?php // Training kiosk thresholds and the Odoo-PIN switch (P3 spec §7.8); same reasoning as the Training link above. ?>
+                <li class="nav-item<?php echo (basename($_SERVER['PHP_SELF']) == 'settings_training_kiosk.php' ? ' active' : ''); ?>">
+                    <a href="/admin/settings_training_kiosk.php" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_training_kiosk.php' ? 'active' : ''); ?>">
+                        <span class="nav-link-icon"><i class="fas fa-tablet-alt"></i></span>
+                        <span class="nav-link-title">Training kiosk</span>
+                    </a>
+                </li>
 
                 <?php if ($config_module_enable_itdoc) { ?>
                 <!-- TEMPLATES Section -->

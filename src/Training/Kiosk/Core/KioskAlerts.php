@@ -61,7 +61,7 @@ final class KioskAlerts
               JOIN user_roles r ON r.role_id = u.user_role_id
               LEFT JOIN user_role_permissions p ON p.user_role_id = r.role_id
               LEFT JOIN modules m ON m.module_id = p.module_id AND m.module_name = 'module_training_kiosk'
-             WHERE u.user_status = 1 AND u.user_archived_at IS NULL AND r.role_archived_at IS NULL
+             WHERE u.user_type = 1 AND u.user_status = 1 AND u.user_archived_at IS NULL AND r.role_archived_at IS NULL
                AND (r.role_is_admin = 1 OR (m.module_id IS NOT NULL AND p.user_role_permission_level >= 2))
              ORDER BY u.user_id");
         return array_map(static fn(array $r) => (int) $r['user_id'], $rows);
