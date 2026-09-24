@@ -555,3 +555,18 @@ a.trr-seg__btn { display: inline-flex; align-items: center; text-decoration: non
   .trr-print-group { break-before: page; }
   .trr-print-group:first-of-type { break-before: auto; }
 }
+
+/* ---- Transcript details (added with the transcript page) ------------------------------------------- */
+.trr-crumbs-only { margin-bottom: 12px; }
+.trr-struck { text-decoration: line-through; color: var(--if-muted); }
+.trr-warn-text { color: var(--trr-warn-fg) !important; }
+.trr-link-ink { color: var(--if-ink); text-decoration: none; }
+.trr-link-ink:hover { color: var(--if-ink); text-decoration: underline; }
+.trr-table tr.is-revoked > td { background: color-mix(in srgb, var(--trr-neutral-bg) 45%, transparent); }
+.trr-table tr[hidden] { display: none; }
+.trr-table .trr-sub .trr-chip { min-height: 18px; padding: 0 6px; font-size: .6875rem; }
+.trr-person .dropdown { display: inline-block; }
+.trr-transcript .trr-card .card-body .trr-strip { margin-bottom: -20px; }
+/* The app spaces stacked cards with .card + .card; inside a report grid the gap does that job. */
+.trr-grid > .card + .card { margin-top: 0; }
+.trr-transcript #trr-pane-quals .trr-table td:first-child { min-width: 16rem; }

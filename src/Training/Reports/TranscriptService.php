@@ -286,7 +286,12 @@ final class TranscriptService
                 'reason' => (string) $r['cvoid_reason'],
                 'by' => $r['void_by'] ?? null,
             ] : null,
-            'rr' => $rr !== null && ($cert['reason'] ?? null) === 'retrain_required' ? ['revision_number' => $rr['revision_number']] : null,
+            // Revoked by a retrain revision: its number and the first day the record stopped
+            // counting (PairRules: revoked once today > published_on + retrain_due_days).
+            'rr' => $rr !== null && ($cert['reason'] ?? null) === 'retrain_required' ? [
+                'revision_number' => $rr['revision_number'],
+                'revoked_on' => Clock::addDays((string) $rr['published_on'], (int) $rr['retrain_due_days'] + 1),
+            ] : null,
         ];
     }
 
