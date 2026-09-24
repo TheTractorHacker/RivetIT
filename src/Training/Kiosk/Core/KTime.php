@@ -6,7 +6,7 @@ use ITFlow\Training\Core\Clock;
 
 /**
  * UTC arithmetic for the kiosk (P3 spec §0.11): every comparison against a `*_utc` column binds a
- * literal computed HERE from Clock::nowUtc(), never NOW()/UTC_TIMESTAMP()/INTERVAL in SQL (the
+ * literal computed HERE from Clock::nowUtc(), never an SQL-side clock function (the
  * MySQL session zone is the app's local offset). Strings are 'Y-m-d H:i:s.v' (DATETIME(3)).
  */
 final class KTime
