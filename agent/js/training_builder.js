@@ -1903,7 +1903,7 @@
                 chips.push(el('span', { class: 'tr-chip', text: plural(r.counts.lessons || 0, 'lesson', 'lessons') }));
                 if (r.counts.questions) { chips.push(el('span', { class: 'tr-chip', text: plural(r.counts.questions, 'question', 'questions') })); }
             }
-            var detailsBtn = el('button', { type: 'button', class: 'btn btn-sm btn-link', 'aria-expanded': 'false', text: 'Details' });
+            var detailsBtn = el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', 'aria-expanded': 'false' }, [icon('info-circle', 'me-1'), 'Details']);
             detailsBtn.addEventListener('click', function () {
                 details.hidden = !details.hidden;
                 detailsBtn.setAttribute('aria-expanded', details.hidden ? 'false' : 'true');

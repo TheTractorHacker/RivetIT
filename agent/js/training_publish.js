@@ -316,6 +316,13 @@
     }
 
     /** One diff item (shared with the Versions tab through TrainingPublish.diffItem). */
+    /** ['title', 'content (EN)'] -> "Title and content (EN)" (the server sends plain lowercase words; the badge says Changed). */
+    function fieldsText(fields) {
+        var f = fields.map(String);
+        var t = f.length > 1 ? f.slice(0, -1).join(', ') + ' and ' + f[f.length - 1] : f[0];
+        return t.charAt(0).toUpperCase() + t.slice(1);
+    }
+
     function diffItem(it) {
         var el = window.TrainingUi.el;
         var KIND = { added: 'Added', removed: 'Removed', changed: 'Changed', moved: 'Moved' };
@@ -325,7 +332,7 @@
             el('span', { class: 'tr-min0' }, [
                 it.area === 'course' ? null : el('span', { class: 'tr-diff__area', text: (AREA[it.area] || it.area || '') + ' ' }),
                 el('span', { class: 'tr-diff__label', text: it.label || '(untitled)' }),
-                Array.isArray(it.fields) && it.fields.length ? el('span', { class: 'tr-diff__fields', text: it.fields.join(', ') }) : null
+                Array.isArray(it.fields) && it.fields.length ? el('span', { class: 'tr-diff__fields', text: fieldsText(it.fields) }) : null
             ])
         ]);
     }

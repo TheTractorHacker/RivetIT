@@ -2208,7 +2208,11 @@
                 E.context.textContent = 'Required document';
             } else if (s) {
                 var idx = st.sections.indexOf(s) + 1;
-                E.context.textContent = (st.lessonId ? 'in' : 'to') + ' Section ' + idx + ', ' + (s.title || 'Untitled');
+                var label = 'Section ' + idx;
+                var t = String(s.title || '').trim();
+                // a default "Section N" title would read "Section 1, Section 1"
+                if (t && t.toLowerCase() !== label.toLowerCase()) { label += ', ' + t; }
+                E.context.textContent = (st.lessonId ? 'in ' : 'to ') + label;
             } else {
                 E.context.textContent = st.lessonId ? '' : 'to this course';
             }

@@ -261,6 +261,7 @@ button.tr-chip[aria-pressed="true"] { background: var(--if-primary-soft); border
   background: var(--if-border-strong);
 }
 .tr-save-state[data-state="idle"]:empty { visibility: hidden; }
+.tr-b-head__sub .tr-save-state[data-state="idle"]:empty { display: none; }
 .tr-save-state[data-state="saving"]::before {
   width: 12px;
   height: 12px;
@@ -1157,6 +1158,8 @@ body.tr-has-tray .toast-container.position-fixed.bottom-0 { bottom: var(--tr-tra
 .tr-issue-menu .dropdown-item { white-space: normal; border-radius: 6px; padding: 6px 8px; display: flex; gap: 8px; font-size: 13px; }
 .tr-lesson__ready { color: #16a34a; font-size: 13px; }
 .tr-lesson__actions { flex: none; display: flex; align-items: center; gap: 2px; }
+/* the approved builder mockup shows each row's pencil + kebab at rest (muted), not only on hover */
+.tr-lesson .tr-lesson__actions.tr-hover-actions { opacity: 1; }
 .tr-lesson .tr-type-icon { width: 34px; height: 34px; }
 
 /* empty course hero */
@@ -1213,7 +1216,8 @@ body.tr-has-tray .toast-container.position-fixed.bottom-0 { bottom: var(--tr-tra
 }
 .tr-type-tile[aria-checked="true"] .tr-type-tile__check { display: grid; }
 .tr-type-grid--compact { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.tr-type-grid--compact .tr-type-tile { gap: 10px; min-height: 48px; padding: 8px 10px; font-size: 13px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+/* Quick add: icon above the label, so "Acknowledgment" never breaks mid-word in the 340px aside */
+.tr-type-grid--compact .tr-type-tile { flex-direction: column; justify-content: center; gap: 6px; min-height: 68px; padding: 10px 6px; min-width: 0; font-size: 13px; font-weight: 600; line-height: 1.2; text-align: center; }
 
 /* ---- Course builder: aside cards ---------------------------------------------------- */
 .tr-aside-card {
@@ -1515,7 +1519,7 @@ body.tr-has-tray .toast-container.position-fixed.bottom-0 { bottom: var(--tr-tra
 .tr-tag-input { width: 150px; height: 30px; padding: 0 10px; border: 1px solid var(--if-border-strong); border-radius: 999px; font-size: 13px; background: var(--if-surface); color: var(--if-ink); }
 .tr-tag-input:focus { outline: none; border-color: var(--if-primary); }
 .tr-cm__thumb {
-  flex: 0 0 160px;
+  flex: none; /* the wrap is a column flexbox: a 160px basis would make it 160px tall */
   width: 160px;
   height: 100px;
   padding: 0;
