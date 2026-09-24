@@ -75,6 +75,7 @@
                         backgroundColor: rgbaFromToken('--if-primary-rgb', '.10', 'rgba(13,148,136,.10)'),
                         fill: 'start',
                         tension: 0.25,
+                        cubicInterpolationMode: 'monotone',
                         spanGaps: true,
                         pointRadius: values.map(function (v, i) { return i === lastIdx ? 5 : 3; }),
                         pointBackgroundColor: primary,
