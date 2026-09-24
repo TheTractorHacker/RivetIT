@@ -7,10 +7,15 @@ use ITFlow\Integrations\ConnectionResult;
 use ITFlow\Integrations\ExternalUser;
 
 /**
- * Odoo client via JSON-RPC (Odoo's /jsonrpc endpoint - common.login for
- * auth, then object.execute_kw for model calls). Scaffolding per
- * PROGRESS.md: real, working JSON-RPC code, but no Odoo instance/API key
- * has been provided yet to test it against.
+ * Odoo client for the directory sync and the admin connection test. The wire
+ * protocol lives in an OdooConnectorInterface: OdooLegacyRpcConnector (the
+ * /jsonrpc common.login + object.execute_kw calls this class used to make
+ * itself - still the default) or OdooJson2Connector (Odoo 19+ JSON-2).
+ * Callers normally build it through OdooConnectorFactory::clientFromRow(),
+ * which picks the connector from odoo_integrations.api_protocol.
+ *
+ * Every call below passes its arguments by name ($kwargs: 'domain', 'ids',
+ * 'fields'...), the one form both protocols accept.
  *
  * Per Section 10.4: never assume res.users field names or group names are
  * identical across Odoo versions/environments - this only reads the
@@ -19,25 +24,142 @@ use ITFlow\Integrations\ExternalUser;
  */
 class OdooClient implements BusinessApplicationProvider
 {
-    private ?int $uid = null;
+    /**
+     * Timeouts for this class's calls. The sync is a batch job, so it keeps
+     * the 30 s per-request budget it always had and allows 10 s to connect -
+     * more than the connectors' 2 s default, which is sized for interactive
+     * callers - so a slow DNS/TLS handshake doesn't fail a whole sync.
+     */
+    private const CALL_OPTS = ['connect_timeout' => 10, 'timeout' => 30];
 
+    /**
+     * testConnection() is interactive, and Test Connection may try both
+     * protocols in one request, so each call gets 15 s (version lookups 10 s).
+     * VERIFY_BUDGET below adds up the whole request's worst case against
+     * Cloudflare's 100 s proxy timeout in front of the admin page.
+     */
+    private const TEST_OPTS = ['connect_timeout' => 5, 'timeout' => 15];
+
+    /**
+     * verifyDirectoryReads() runs up to four calls; together they get this
+     * many seconds. A Test Connection that tries JSON-2 (context_get 15 s,
+     * version 10 s, these checks 15 s) and then JSON-RPC (login, context_get,
+     * version: 40 s) so stays around 80 s even against a server that answers
+     * every call just inside its timeout - under Cloudflare's 100 s.
+     */
+    private const VERIFY_BUDGET = 15;
+
+    /** What listDepartments() reads (and verifyDirectoryReads() checks). */
+    private const DEPARTMENT_FIELDS = ['id', 'name', 'parent_id'];
+
+    /** What listEmployees() reads (and verifyDirectoryReads() checks). */
+    private const EMPLOYEE_FIELDS = [
+        'id', 'name', 'work_email', 'department_id', 'job_title', 'work_phone', 'mobile_phone', 'active', 'parent_id',
+    ];
+
+    /** listEmployees()' extra kwargs - archived employees too; see listEmployees(). */
+    private const EMPLOYEE_KWARGS = ['context' => ['active_test' => false]];
+
+    private OdooConnectorInterface $connector;
+
+    /**
+     * @param OdooConnectorInterface|null $connector the protocol to use; null = legacy
+     *        JSON-RPC built from the four credentials (the pre-connector behaviour)
+     */
     public function __construct(
-        private readonly string $baseUrl,
-        private readonly string $database,
-        private readonly string $username,
-        private readonly string $apiKey
+        string $baseUrl,
+        string $database,
+        string $username,
+        string $apiKey,
+        ?OdooConnectorInterface $connector = null
     ) {
+        $this->connector = $connector ?? new OdooLegacyRpcConnector($baseUrl, $database, $username, $apiKey);
     }
 
+    public function connector(): OdooConnectorInterface
+    {
+        return $this->connector;
+    }
+
+    /** OdooConnectorFactory::PROTOCOL_JSON2 or ::PROTOCOL_JSONRPC. */
+    public function protocol(): string
+    {
+        return $this->connector->protocol();
+    }
+
+    /**
+     * Proves the credentials work on this client's protocol with one cheap,
+     * read-only call every Odoo user may make (res.users.context_get - the
+     * user's own lang/tz), then reads the server version.
+     *
+     * details: 'protocol' always; on success 'server_version' (string|null)
+     * and, on the legacy protocol, 'uid'.
+     */
     public function testConnection(): ConnectionResult
     {
+        $details = ['protocol' => $this->connector->protocol()];
+
         try {
-            $this->authenticate();
+            $context = $this->connector->call('res.users', 'context_get', [], [], self::TEST_OPTS);
+            if (!is_array($context)) {
+                throw new \RuntimeException('Unexpected response from Odoo for res.users.context_get');
+            }
         } catch (\RuntimeException $e) {
-            return new ConnectionResult(false, $e->getMessage());
+            return new ConnectionResult(false, $e->getMessage(), $details);
         }
 
-        return new ConnectionResult(true, null, ['uid' => $this->uid]);
+        if ($this->connector instanceof OdooLegacyRpcConnector) {
+            $details['uid'] = $this->connector->uid();
+        }
+        $details['server_version'] = $this->connector->serverVersion()['server_version'] ?? null;
+
+        return new ConnectionResult(true, null, $details);
+    }
+
+    /**
+     * Proves the directory sync itself will work on this client's protocol -
+     * what Test Connection checks before it moves a live integration onto
+     * JSON-2 (testConnection()'s context_get only proves the key works).
+     *
+     *   1. listDepartments()' and listEmployees()' own search_read calls, with
+     *      their exact arguments, one record each: field names, access rights
+     *      and argument binding all as the real sync sends them.
+     *   2. That the active_test=false context is honoured: hr.employee counted
+     *      through that context must match the count through an explicit
+     *      "active in (true, false)" domain. If the context were dropped,
+     *      archived employees would silently stop coming back and
+     *      OdooDirectoryMapper would never see anyone leave. (An Odoo user
+     *      without HR read access gets the explicit count filtered down
+     *      instead - that direction is never treated as a failure.)
+     *
+     * Read-only. Throws a \RuntimeException naming the check that failed.
+     */
+    public function verifyDirectoryReads(): void
+    {
+        $deadline = microtime(true) + self::VERIFY_BUDGET;
+
+        $this->checked('hr.department.search_read', fn() => $this->searchReadPage(
+            'hr.department', [], self::DEPARTMENT_FIELDS, 1, 0, [], $this->budgetOpts($deadline)
+        ));
+        $this->checked('hr.employee.search_read', fn() => $this->searchReadPage(
+            'hr.employee', [], self::EMPLOYEE_FIELDS, 1, 0, self::EMPLOYEE_KWARGS, $this->budgetOpts($deadline)
+        ));
+
+        $viaContext = $this->checked('hr.employee.search_count', fn() => $this->connector->call(
+            'hr.employee', 'search_count', [], ['domain' => []] + self::EMPLOYEE_KWARGS, $this->budgetOpts($deadline)
+        ));
+        $viaDomain = $this->checked('hr.employee.search_count', fn() => $this->connector->call(
+            'hr.employee', 'search_count', [], ['domain' => [['active', 'in', [true, false]]]], $this->budgetOpts($deadline)
+        ));
+
+        if (!is_int($viaContext) || !is_int($viaDomain)) {
+            throw new \RuntimeException('Unexpected response from Odoo for hr.employee.search_count');
+        }
+        if ($viaContext < $viaDomain) {
+            throw new \RuntimeException(
+                "Odoo ignored the active_test context ($viaContext of $viaDomain employees returned) - the sync would miss archived employees"
+            );
+        }
     }
 
     /**
@@ -45,12 +167,9 @@ class OdooClient implements BusinessApplicationProvider
      */
     public function listUsers(?string $cursor = null): array
     {
-        $this->authenticate();
-
         $offset = $cursor !== null ? (int) $cursor : 0;
-        $records = $this->executeKw('res.users', 'search_read', [
-            [], // no domain filter - all users
-        ], [
+        $records = $this->callList('res.users', 'search_read', [
+            'domain' => [], // no domain filter - all users
             'fields' => ['id', 'name', 'login', 'active', 'partner_id'],
             'limit' => 100,
             'offset' => $offset,
@@ -61,9 +180,8 @@ class OdooClient implements BusinessApplicationProvider
 
     public function getUser(string $externalId): ?ExternalUser
     {
-        $this->authenticate();
-
-        $records = $this->executeKw('res.users', 'read', [[(int) $externalId]], [
+        $records = $this->callList('res.users', 'read', [
+            'ids' => [(int) $externalId],
             'fields' => ['id', 'name', 'login', 'active', 'partner_id'],
         ]);
 
@@ -75,9 +193,7 @@ class OdooClient implements BusinessApplicationProvider
      */
     public function listDepartments(): array
     {
-        $this->authenticate();
-
-        return $this->searchReadAll('hr.department', [], ['id', 'name', 'parent_id']);
+        return $this->searchReadAll('hr.department', [], self::DEPARTMENT_FIELDS);
     }
 
     /**
@@ -98,11 +214,7 @@ class OdooClient implements BusinessApplicationProvider
      */
     public function listEmployees(): array
     {
-        $this->authenticate();
-
-        return $this->searchReadAll('hr.employee', [], [
-            'id', 'name', 'work_email', 'department_id', 'job_title', 'work_phone', 'mobile_phone', 'active', 'parent_id',
-        ], ['context' => ['active_test' => false]]);
+        return $this->searchReadAll('hr.employee', [], self::EMPLOYEE_FIELDS, self::EMPLOYEE_KWARGS);
     }
 
     private function searchReadAll(string $model, array $domain, array $fields, array $extraKwargs = []): array
@@ -112,12 +224,7 @@ class OdooClient implements BusinessApplicationProvider
         $offset = 0;
 
         do {
-            $batch = $this->executeKw($model, 'search_read', [$domain], array_merge([
-                'fields' => $fields,
-                'limit' => $limit,
-                'offset' => $offset,
-                'order' => 'id asc',
-            ], $extraKwargs));
+            $batch = $this->searchReadPage($model, $domain, $fields, $limit, $offset, $extraKwargs, self::CALL_OPTS);
 
             foreach ($batch as $r) {
                 $records[] = $r;
@@ -127,6 +234,42 @@ class OdooClient implements BusinessApplicationProvider
         } while (count($batch) === $limit);
 
         return $records;
+    }
+
+    /** One search_read page - the one call shape the sync and verifyDirectoryReads() share. */
+    private function searchReadPage(string $model, array $domain, array $fields, int $limit, int $offset, array $extraKwargs, array $opts): array
+    {
+        return $this->callList($model, 'search_read', array_merge([
+            'domain' => $domain,
+            'fields' => $fields,
+            'limit' => $limit,
+            'offset' => $offset,
+            'order' => 'id asc',
+        ], $extraKwargs), $opts);
+    }
+
+    /** Runs one verifyDirectoryReads() check, naming it in any failure. */
+    private function checked(string $what, callable $check): mixed
+    {
+        try {
+            return $check();
+        } catch (\RuntimeException $e) {
+            throw new \RuntimeException("$what: " . $e->getMessage(), (int) $e->getCode(), $e);
+        }
+    }
+
+    /** Per-call timeouts for whatever is left of verifyDirectoryReads()' budget. */
+    private function budgetOpts(float $deadline): array
+    {
+        $left = $deadline - microtime(true);
+        if ($left < 1) {
+            throw new \RuntimeException('Odoo took too long to answer the directory sync checks');
+        }
+
+        return [
+            'connect_timeout' => min((float) self::TEST_OPTS['connect_timeout'], $left),
+            'timeout' => min((float) self::TEST_OPTS['timeout'], $left),
+        ];
     }
 
     private function mapUser(array $r): ExternalUser
@@ -140,68 +283,19 @@ class OdooClient implements BusinessApplicationProvider
         );
     }
 
-    private function authenticate(): void
+    /**
+     * A call whose result must be a list/dict (search_read, read). The
+     * connectors return any JSON value; this keeps the old executeKw()
+     * guarantee for the methods above that index into the result.
+     */
+    private function callList(string $model, string $method, array $kwargs, array $opts = self::CALL_OPTS): array
     {
-        if ($this->uid !== null) {
-            return;
-        }
-
-        $result = $this->call('common', 'login', [$this->database, $this->username, $this->apiKey]);
-        if (!is_int($result)) {
-            throw new \RuntimeException('Odoo login failed - check database name, username, and API key.');
-        }
-
-        $this->uid = $result;
-    }
-
-    private function executeKw(string $model, string $method, array $args, array $kwargs = []): array
-    {
-        $result = $this->call('object', 'execute_kw', [
-            $this->database, $this->uid, $this->apiKey, $model, $method, $args, $kwargs,
-        ]);
+        $result = $this->connector->call($model, $method, [], $kwargs, $opts);
 
         if (!is_array($result)) {
             throw new \RuntimeException("Unexpected response from Odoo for $model.$method");
         }
 
         return $result;
-    }
-
-    private function call(string $service, string $method, array $args)
-    {
-        $payload = json_encode([
-            'jsonrpc' => '2.0',
-            'method' => 'call',
-            'params' => [
-                'service' => $service,
-                'method' => $method,
-                'args' => $args,
-            ],
-            'id' => random_int(1, PHP_INT_MAX),
-        ]);
-
-        $ch = curl_init(rtrim($this->baseUrl, '/') . '/jsonrpc');
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $payload,
-            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 30,
-        ]);
-        $body = curl_exec($ch);
-        $curlError = curl_error($ch);
-        curl_close($ch);
-
-        if ($body === false) {
-            throw new \RuntimeException("Could not reach Odoo at {$this->baseUrl}: $curlError");
-        }
-
-        $data = json_decode($body, true);
-        if (isset($data['error'])) {
-            $message = $data['error']['data']['message'] ?? $data['error']['message'] ?? 'Unknown Odoo error';
-            throw new \RuntimeException("Odoo error: $message");
-        }
-
-        return $data['result'] ?? null;
     }
 }

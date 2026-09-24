@@ -1834,10 +1834,8 @@ if ($odoo_integration_row) {
         empty($odoo_integration_row['username']) || empty($odoo_integration_row['api_key_enc'])) {
         logApp("Cron", "error", "Odoo directory sync skipped: integration is missing base URL/database/username/API key");
     } else {
-        $odoo_client = new \ITFlow\Integrations\Odoo\OdooClient(
-            $odoo_integration_row['base_url'], $odoo_integration_row['database_name'],
-            $odoo_integration_row['username'], decryptSetting($odoo_integration_row['api_key_enc'])
-        );
+        // Protocol from odoo_integrations.api_protocol (JSON-RPC unless Test Connection proved JSON-2).
+        $odoo_client = \ITFlow\Integrations\Odoo\OdooConnectorFactory::clientFromRow($odoo_integration_row);
         $odoo_mapper = new \ITFlow\Integrations\Odoo\OdooDirectoryMapper($mysqli, $odoo_intg_id, 0);
         $odoo_log_id = $odoo_mapper->startSyncLog();
 
