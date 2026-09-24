@@ -186,6 +186,22 @@
             el('span', { text: label || STRENGTH_LABELS[letter] || '' })
         ]);
     }
+    /** Records\CompletionService pending reasons (why a component did not issue a record yet), in plain words. */
+    var PENDING_TEXT = {
+        needs_online: 'needs the online part on the kiosk',
+        needs_session: 'needs the classroom session',
+        needs_practical: 'needs a passed practical evaluation',
+        outside_window: 'the parts were done too far apart, so the oldest part must be redone',
+        already_recorded: 'already has a record for this',
+        course_unpublished: 'the course is not published',
+        no_components: 'the course has no parts set up',
+        pending: 'waiting for another part of the course'
+    };
+    function pendingText(code) {
+        if (!code) { return ''; }
+        var c = String(code);
+        return PENDING_TEXT[c] || (/^[a-z_]+$/.test(c) ? c.replace(/_/g, ' ') : c);
+    }
     var METHOD_LABELS = { online: 'Online course', session: 'Instructor-led session', blended: 'Blended', evaluation: 'Practical evaluation', external: 'External card', legacy_paper: 'Paper record' };
 
     function courseSummary(c) {
@@ -1363,7 +1379,7 @@
                     result = d || {};
                     var passed = result.result === 'pass';
                     var line = passed
-                        ? (result.completion_id ? 'A training record was issued.' : (result.pending ? 'Saved. The record is issued once the rest of the course is done: ' + (typeof result.pending === 'string' ? result.pending : 'other parts are still open') + '.' : 'Saved.'))
+                        ? (result.completion_id ? 'A training record was issued' + (result.cert_number ? ': ' + result.cert_number : '') + '.' : (result.pending ? 'Saved. No record yet: ' + (typeof result.pending === 'string' ? pendingText(result.pending) : 'other parts of the course are still open') + '.' : 'Saved.'))
                         : 'No record is issued for a failed evaluation. Schedule another one when they are ready.';
                     h.setTitle('Record practical evaluation', 'Saved');
                     h.setBody(el('div', { class: 'alert ' + (passed ? 'alert-success' : 'alert-warning') + ' d-flex gap-2', role: 'status' }, [icon((passed ? 'fas fa-check-circle' : 'fas fa-times-circle') + ' mt-1'), el('div', {}, [
@@ -1414,7 +1430,7 @@
             today: today, addDays: addDays, addMonths: addMonths, diffDays: diffDays, isYmd: isYmd,
             fmtDate: fmtDate, fmtDateTime: fmtDateTime, relTime: relTime,
             personCell: personCell, personMeta: personMeta, statusChip: statusChip, certChip: certChip, strength: strength,
-            STRENGTH_LABELS: STRENGTH_LABELS, METHOD_LABELS: METHOD_LABELS, EVENT_LABELS: EVENT_LABELS,
+            STRENGTH_LABELS: STRENGTH_LABELS, METHOD_LABELS: METHOD_LABELS, EVENT_LABELS: EVENT_LABELS, pendingText: pendingText,
             courseSummary: courseSummary, courseById: courseById, courseSelect: courseSelect,
             emptyState: emptyState, failState: failState, skeletonRows: skeletonRows, errorText: errorText,
             busy: busy, post: post, load: load, fetchAction: fetchAction, uid32: uid32,

@@ -91,7 +91,11 @@
             }
             if (result) {
                 var issued = (result.issued || []).length, pending = (result.pending || []).length;
-                banner('success', 'fas fa-check-circle', 'Session finalized.', (issued ? u.plural(issued, 'training record') + ' issued.' : 'No records were issued.') + (pending ? ' ' + u.plural(pending, 'person', 'people') + ' still need another part of the course.' : ''));
+                var reasons = {};
+                (result.pending || []).forEach(function (x) { var t = u.pendingText(x && x.reason); if (t) { reasons[t] = (reasons[t] || 0) + 1; } });
+                var why = Object.keys(reasons).map(function (t) { return reasons[t] + ' ' + t; }).join('; ');
+                banner('success', 'fas fa-check-circle', 'Session finalized.', (issued ? u.plural(issued, 'training record') + ' issued.' : 'No records were issued.')
+                    + (pending ? ' ' + u.plural(pending, 'person', 'people') + ' have no record yet' + (why ? ' (' + why + ')' : '') + '.' : ''));
             }
             var F = [];
             function add(label, value) { F.push(el('div', {}, [el('dt', { text: label }), el('dd', { class: value ? null : 'is-empty', text: value || '—' })])); }
@@ -115,7 +119,7 @@
                 if (a.completion_id) {
                     outcome = el('a', { class: 'tro-chip tro-chip--ok', href: u.recordUrl(a.completion_id) }, [u.icon('fas fa-check'), el('span', { text: 'Record issued' })]);
                 } else if (a.pending) {
-                    outcome = u.chip('Pending: ' + a.pending, 'warn', 'far fa-clock');
+                    outcome = u.chip('No record yet: ' + u.pendingText(a.pending), 'warn', 'far fa-clock');
                 } else if (s.status === 'finalized') {
                     outcome = u.chip(a.attendance === 'present' ? 'No record' : 'No record (' + a.attendance + ')', 'outline');
                 } else {
