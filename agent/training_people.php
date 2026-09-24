@@ -43,6 +43,7 @@ $tr_routes = [
     'jobgroup_archive' => tro_has_route('jobgroup_archive'),
     'jobgroup_titles' => tro_has_route('jobgroup_titles'),
     'trainer_save' => tro_has_route('trainer_save'),
+    'assign_manual' => tro_has_route('assign_manual'),
 ];
 
 $tr_data = [

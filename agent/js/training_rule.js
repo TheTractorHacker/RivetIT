@@ -151,7 +151,13 @@
             var c = course();
             var who = whoPhrase();
             if (!c || !who) { return null; }
-            var s = who + (st.newHiresOnly ? ', once they are hired (hire date on or after ' + u.fmtDate(st.effectiveOn) + '),' : '');
+            var s = who;
+            if (st.newHiresOnly) {
+                var hired = 'hired on or after ' + u.fmtDate(st.effectiveOn);
+                if (st.allPeople) { s = 'Everyone on the training roster who is ' + hired; }
+                else if (/^Everyone who /.test(who)) { s = who + ' and is ' + hired; }
+                else { s = who + ' (only if ' + hired + ')'; }
+            }
             s += ' must ' + (c.kind === 'document' ? 'read and sign ' : 'complete ') + c.name + '.';
             if (!st.required) { s += ' It is optional: it shows on the kiosk but does not count toward compliance.'; }
             if (st.newHiresOnly) {
@@ -587,7 +593,7 @@
                 el('span', { class: 'tro-preview__label', text: matched === 1 ? 'person matches' : 'people match' })
             ]));
             var segs = [
-                ['assign', Number(p.will_assign || 0), 'tro-meter__assign', 'will be assigned', p.due_on_current_staff ? 'due ' + u.fmtDate(p.due_on_current_staff) : ''],
+                ['assign', Number(p.will_assign || 0), 'tro-meter__assign', 'will be assigned', st.newHiresOnly ? (Number(p.will_assign || 0) ? 'due ' + u.plural(st.hireDays, 'day') + ' after their hire date' : '') : (p.due_on_current_staff ? 'due ' + u.fmtDate(p.due_on_current_staff) : '')],
                 ['current', Number(p.already_current || 0), 'tro-meter__current', 'already current', 'renew on their own dates'],
                 ['assigned', Number(p.already_assigned || 0), 'tro-meter__assigned', 'already assigned', 'keep the due date they have'],
                 ['waived', Number(p.waived || 0), 'tro-meter__waived', 'waived', 'not asked while the waiver lasts']

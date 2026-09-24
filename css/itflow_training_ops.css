@@ -589,3 +589,4 @@ td.tro-inline-cell { background: var(--tro-surface-2); }
   .tro-toolbar .tro-date-sm { width: auto; flex: 1 1 120px; }
   .tro-seg { padding: 12px 16px 0; }
 }
+.tro-att__note-btn { font-size: 12px; justify-self: start; }

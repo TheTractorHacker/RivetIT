@@ -142,7 +142,7 @@
                     if (level >= 3 && routes.hire_date_set !== false && !p.archived) {
                         items.push({ label: p.hire_date ? 'Change hire date / Rehired…' : 'Set hire date…', icon: 'far fa-calendar-alt', onClick: function () { hireDate(p); } });
                     }
-                    if (level >= 2 && p.eligible) {
+                    if (level >= 2 && p.eligible && routes.assign_manual !== false) {
                         items.push({ label: 'Assign training…', icon: 'fas fa-user-plus', onClick: function () { Ops.open('assign', { people: [p] }); } });
                     }
                     items.push('-');

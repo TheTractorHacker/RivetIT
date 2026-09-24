@@ -321,6 +321,10 @@
                     if (a.proof !== 'document' && a.proof !== 'agent_recorded') { proof.appendChild(el('option', { value: a.proof, text: PROOF[a.proof] || a.proof })); }
                     proof.value = a.proof;
                     proof.addEventListener('change', function () { a.proof = proof.value; reason.hidden = a.proof !== 'agent_recorded'; if (!reason.hidden) { reason.focus(); } markDirty(); sync(); });
+                    var note = el('input', { type: 'text', class: 'form-control form-control-sm', maxlength: '500', value: a.notes || null, placeholder: 'Note (for example: left at 10:30)', hidden: !a.notes, 'aria-label': 'Note for ' + a.person.name });
+                    note.addEventListener('input', function () { a.notes = note.value; markDirty(); sync(); });
+                    var noteBtn = el('button', { type: 'button', class: 'btn btn-link btn-sm p-0 text-start tro-att__note-btn', hidden: !!a.notes, text: 'Add a note' });
+                    noteBtn.addEventListener('click', function () { note.hidden = false; noteBtn.hidden = true; note.focus(); });
                     var remove = el('button', { type: 'button', class: 'btn btn-sm btn-ghost-secondary btn-icon tro-att__remove', 'aria-label': 'Remove ' + a.person.name, title: 'Remove from this session' }, [u.icon('fas fa-times')]);
                     remove.addEventListener('click', function () { st.attendees.splice(i, 1); markDirty(); renderAttendees(); sync(); });
                     attList.appendChild(el('li', { dataset: { id: a.person.contact_id } }, [
@@ -329,7 +333,7 @@
                             tri(ATT, a.attendance, 'Attendance for ' + a.person.name, function (v) { a.attendance = v; markDirty(); sync(); }),
                             np ? tri(PRAC, a.practical, 'Practical for ' + a.person.name, function (v) { a.practical = v; markDirty(); sync(); }) : null
                         ]),
-                        el('div', { class: 'tro-att__proof' }, [proof, reason]),
+                        el('div', { class: 'tro-att__proof' }, [proof, reason, note, noteBtn]),
                         remove
                     ]));
                 });
