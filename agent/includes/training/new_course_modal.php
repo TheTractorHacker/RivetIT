@@ -31,6 +31,15 @@ $tr_nc_lang_label = ['es' => 'Spanish'];
                     <div class="tr-nc__main">
                         <div class="tr-nc__cards" id="tr-nc-cards" role="radiogroup" aria-labelledby="tr-nc-tab-scratch"></div>
                         <form class="tr-nc__form" id="tr-nc-form" novalidate autocomplete="off">
+                            <div class="tr-nc__cover">
+                                <span class="form-label" id="tr-nc-cover-label">Cover</span>
+                                <button type="button" class="tr-nc__cover-art tr-cover-art" id="tr-nc-cover-art" aria-labelledby="tr-nc-cover-label tr-nc-cover-name" title="Change cover">
+                                    <img alt="" id="tr-nc-cover-img" hidden>
+                                    <span class="tr-nc__cover-none" id="tr-nc-cover-none" hidden><i class="fas fa-image" aria-hidden="true"></i>No cover</span>
+                                </button>
+                                <span class="tr-nc__cover-name" id="tr-nc-cover-name" aria-live="polite"></span>
+                                <button type="button" class="btn btn-link btn-sm tr-nc__cover-change" id="tr-nc-cover-change"><i class="fas fa-images me-1" aria-hidden="true"></i>Change cover</button>
+                            </div>
                             <div>
                                 <label class="form-label required" for="tr-nc-name">Name</label>
                                 <input type="text" class="form-control" id="tr-nc-name" maxlength="200" required placeholder="Lockout/Tagout - Authorized Employee">

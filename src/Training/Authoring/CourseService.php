@@ -9,6 +9,8 @@ use ITFlow\Training\Core\Db;
 use ITFlow\Training\Core\Ledger;
 use ITFlow\Training\Core\Uid;
 use ITFlow\Training\Media\ArticleSanitizer;
+use ITFlow\Training\Media\CoverLibrary;
+use ITFlow\Training\Media\MediaException;
 use ITFlow\Training\Media\MediaStore;
 use ITFlow\Training\Quiz\QuizService;
 
@@ -146,8 +148,13 @@ final class CourseService
     // Create
     // =========================================================================================
 
-    /** @param list<string> $languages */
-    public function create(string $kind, string $name, ?int $categoryId, array $languages, ?string $templateKey): int
+    /**
+     * @param list<string> $languages
+     * @param string|null $coverKey a CoverLibrary key; null = the template's (or kind's) default, 'none' = no cover
+     * @param string|null $color    null = the chosen cover's default tint
+     */
+    public function create(string $kind, string $name, ?int $categoryId, array $languages, ?string $templateKey,
+        ?string $coverKey = null, ?string $color = null): int
     {
         $db = $this->c->db;
         if (!in_array($kind, ['training', 'document'], true)) {
@@ -169,6 +176,23 @@ final class CourseService
             }
         }
 
+        // The cover is ingested BEFORE the transaction (MediaStore never runs inside one). It is
+        // decoration: if storing it fails (media budget full, lock busy) the course is still created.
+        $coverKey ??= CoverLibrary::defaultFor($kind, $templateKey);
+        $coverId = null;
+        if ($coverKey !== 'none') {
+            $cover = CoverLibrary::get($coverKey);
+            if ($cover === null) {
+                throw ApiException::validation(['cover_key' => 'That cover does not exist.']);
+            }
+            $color ??= $cover['color'];
+            try {
+                $coverId = (int) CoverLibrary::ingest($this->c, $coverKey)['media_id'];
+            } catch (MediaException | \RuntimeException $e) {
+                error_log('Training: default cover ' . $coverKey . ' not stored: ' . $e->getMessage());
+            }
+        }
+
         // The document shape's statements are generated HTML; purify them like any author HTML.
         $statements = [];
         if ($kind === 'document') {
@@ -181,14 +205,15 @@ final class CourseService
             }
         }
 
-        return Db::tx($db, function () use ($db, $kind, $name, $categoryId, $default, $langs, $templateKey, $statements): int {
+        return Db::tx($db, function () use ($db, $kind, $name, $categoryId, $default, $langs, $templateKey, $statements, $coverId, $color): int {
             $courseId = Db::insert(
                 $db,
-                'INSERT INTO training_courses (course_uid, course_kind, course_name, course_category_id, course_default_language,
-                    course_languages, course_required_languages, course_attestation_text, course_draft_updated_at_utc, course_created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                'sssisssssi',
-                [Uid::new('c'), $kind, $name, $categoryId, $default, implode(',', $langs), $default,
+                'INSERT INTO training_courses (course_uid, course_kind, course_name, course_category_id, course_cover_media_id, course_color,
+                    course_default_language, course_languages, course_required_languages, course_attestation_text, course_draft_updated_at_utc,
+                    course_created_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                'sssiissssssi',
+                [Uid::new('c'), $kind, $name, $categoryId, $coverId, $color, $default, implode(',', $langs), $default,
                  $this->c->settings->attestationDefault, Clock::nowUtc(), $this->c->userId]
             );
 

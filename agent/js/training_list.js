@@ -15,7 +15,6 @@
         var data = ui.readJson('tr-page-data');
         var canAuthor = !!data.can_author;
         var canFull = !!data.can_full;
-        var previewAvailable = !!data.preview_available;
         var templates = Array.isArray(data.templates) ? data.templates : [];
         var categories = Array.isArray(data.categories) ? data.categories : [];
         var list = data.list || { courses: [], facets: {} };
@@ -78,8 +77,7 @@
             return '/agent/training_preview.php?course_id=' + encodeURIComponent(c.id);
         }
         function openUrl(c) {
-            if (canAuthor) { return builderUrl(c); }
-            return previewAvailable ? previewUrl(c) : null;
+            return canAuthor ? builderUrl(c) : previewUrl(c);
         }
         function coverColor(c) {
             return safeColor(c.color, safeColor(c.category && c.category.color, c.kind === 'document' ? '#0891B2' : '#475569'));
@@ -135,7 +133,7 @@
             if (canAuthor && c.status !== 'archived') {
                 items.push(el('li', {}, [el('a', { class: 'dropdown-item', href: builderUrl(c) }, [icon('edit', 'fa-fw me-2 text-muted'), 'Edit'])]));
             }
-            if (previewAvailable && (canAuthor || c.current_revision_number)) {
+            if (canAuthor || c.current_revision_number) {
                 items.push(el('li', {}, [el('a', { class: 'dropdown-item', href: previewUrl(c), target: '_blank', rel: 'noopener' }, [icon('eye', 'fa-fw me-2 text-muted'), 'Preview'])]));
             }
             if (canAuthor && c.status !== 'archived') {
@@ -161,9 +159,16 @@
         }
 
         // ------------------------------------------------------------------ card and row
+        /** A cover image sits on a soft wash of the course colour (.tr-cover-art): gallery art is transparent. */
+        function paintCover(node, c) {
+            node.style.setProperty('--tr-cover', coverColor(c));
+            node.style.setProperty('--tr-cover-color', coverColor(c));
+            node.classList.toggle('tr-cover-art', !!c.cover_url);
+        }
+
         function coverNode(c) {
             var cover = el('div', { class: 'tr-course-card__cover' });
-            cover.style.setProperty('--tr-cover', coverColor(c));
+            paintCover(cover, c);
             if (c.cover_url) {
                 cover.appendChild(el('img', { src: c.cover_url, alt: '', loading: 'lazy' }));
             } else {
@@ -225,7 +230,7 @@
             var thumb = el('span', { class: 'tr-course-table__thumb', 'aria-hidden': 'true' }, [
                 c.cover_url ? el('img', { src: c.cover_url, alt: '', loading: 'lazy' }) : icon(glyphIcon(c))
             ]);
-            thumb.style.setProperty('--tr-cover', coverColor(c));
+            paintCover(thumb, c);
             var name = el('div', { class: 'tr-course-table__name' }, [
                 thumb,
                 el('div', { class: 'tr-min0' }, [
@@ -599,6 +604,19 @@
             var autoName = '';
             var busy = false;
 
+            // Cover (plan A20): the chosen template's default cover (or the kind's) is shown with its
+            // tint; "Change cover" opens the gallery. cover_key / color go to course_create only
+            // when the author changed them - otherwise the server applies the same default.
+            var gallery = data.covers || null;
+            var coverArt = document.getElementById('tr-nc-cover-art');
+            var coverImg = document.getElementById('tr-nc-cover-img');
+            var coverNone = document.getElementById('tr-nc-cover-none');
+            var coverName = document.getElementById('tr-nc-cover-name');
+            var coverChange = document.getElementById('tr-nc-cover-change');
+            var cover = { key: null, color: null, touched: false, colorTouched: false };
+            var coverPicking = false;
+            var focusCoverOnShow = false;
+
             var SCRATCH = [
                 { key: '__training', kind: 'training', icon: 'graduation-cap', color: '#2563EB', name: 'Training course',
                   description: 'Sections and lessons: articles, PDFs, videos, images, quizzes and sign-offs, with an optional final exam.' },
@@ -703,6 +721,85 @@
                     b.setAttribute('aria-checked', on ? 'true' : 'false');
                     b.tabIndex = on ? 0 : -1;
                 });
+                syncDefaultCover();
+            }
+
+            // ---- cover
+            function presetByKey(key) {
+                var list = gallery && Array.isArray(gallery.covers) ? gallery.covers : [];
+                for (var i = 0; i < list.length; i++) { if (list[i].key === key) { return list[i]; } }
+                return null;
+            }
+            function defaultCoverKey() {
+                var t = choice.template ? templates.find(function (x) { return x.key === choice.template; }) : null;
+                if (t && t.cover) { return t.cover; }
+                return (gallery && gallery.defaults && gallery.defaults['kind:' + choice.kind]) || 'general';
+            }
+            /** A new starting point brings its own cover, unless the author already picked one. */
+            function syncDefaultCover() {
+                if (!gallery) { return; }
+                if (!cover.touched) {
+                    var key = defaultCoverKey();
+                    var p = presetByKey(key);
+                    cover = { key: p ? key : null, color: p ? p.color : null, touched: false, colorTouched: false };
+                }
+                renderCover();
+            }
+            function renderCover() {
+                if (!coverArt) { return; }
+                var p = cover.key ? presetByKey(cover.key) : null;
+                coverArt.style.setProperty('--tr-cover-color', safeColor(cover.color, '#475569'));
+                if (p) {
+                    if (coverImg.getAttribute('src') !== p.thumb_url) { coverImg.src = p.thumb_url; }
+                    coverImg.hidden = false;
+                    coverNone.hidden = true;
+                    coverName.textContent = p.label;
+                } else {
+                    coverImg.removeAttribute('src');
+                    coverImg.hidden = true;
+                    coverNone.hidden = false;
+                    coverName.textContent = 'No cover';
+                }
+            }
+            /** Resolves when a modal element has finished hiding (at once when it is not shown). */
+            function whenHidden(node) {
+                return new Promise(function (resolve) {
+                    if (!node || node.style.display === 'none' || !node.style.display) { resolve(); return; }
+                    node.addEventListener('hidden.bs.modal', function done() { node.removeEventListener('hidden.bs.modal', done); resolve(); });
+                });
+            }
+            function changeCover() {
+                if (!window.TrainingCoverPicker || coverPicking || busy) { return; }
+                coverPicking = true;
+                var opts = { title: 'Course cover', name: nameInput.value.trim() || 'New course', purpose: 'course_cover', allowUpload: false };
+                if (cover.key) { opts.coverKey = cover.key; }
+                if (cover.colorTouched && cover.color) { opts.color = cover.color; }
+                // Bootstrap modals do not stack: step aside while the gallery is open, then come back.
+                var back = whenHidden(modalEl);
+                modal.hide();
+                back.then(function () {
+                    return window.TrainingCoverPicker.open(opts);
+                }).then(function (res) {
+                    if (res) {
+                        var key = res.cover && res.cover.key ? res.cover.key : null;
+                        var p = key ? presetByKey(key) : null;
+                        cover = { key: key, color: res.color || (p ? p.color : null), touched: true, colorTouched: !!(res.color && (!p || res.color !== p.color)) };
+                        renderCover();
+                    }
+                    return whenHidden(document.querySelector('.tr-cover-picker'));
+                }).then(function () {
+                    coverPicking = false;
+                    focusCoverOnShow = true;
+                    modal.show();
+                });
+            }
+            if (coverArt) {
+                if (!gallery || !window.TrainingCoverPicker) {
+                    coverArt.closest('.tr-nc__cover').hidden = true;
+                } else {
+                    coverArt.addEventListener('click', changeCover);
+                    coverChange.addEventListener('click', changeCover);
+                }
             }
 
             /** Switching groups keeps the choice visible: pick the group's first card when the choice is elsewhere. */
@@ -753,6 +850,14 @@
                 var body = { kind: choice.kind, name: name, languages: langs };
                 if (catSel.value) { body.category_id = parseInt(catSel.value, 10); }
                 if (choice.template) { body.template_key = choice.template; }
+                if (cover.touched) {
+                    var dflt = presetByKey(defaultCoverKey());
+                    var sameAsDefault = dflt && cover.key === dflt.key && !cover.colorTouched;
+                    if (!sameAsDefault) {
+                        body.cover_key = cover.key || 'none';
+                        if (cover.key && cover.color) { body.color = cover.color; }
+                    }
+                }
                 busy = true;
                 createBtn.disabled = true;
                 createBtn.querySelector('.spinner-border').classList.remove('d-none');
@@ -767,14 +872,18 @@
                         nameInput.classList.add('is-invalid');
                         nameErr.textContent = f.name;
                     }
-                    errEl.textContent = f.template_key || f.languages || f.category_id || (err && err.message) || 'The course could not be created.';
+                    errEl.textContent = f.template_key || f.languages || f.category_id || f.cover_key || f.color || (err && err.message) || 'The course could not be created.';
                 });
             }
             createBtn.addEventListener('click', create);
             document.getElementById('tr-nc-form').addEventListener('submit', function (e) { e.preventDefault(); create(); });
             nameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); create(); } });
             nameInput.addEventListener('input', function () { nameInput.classList.remove('is-invalid'); });
-            modalEl.addEventListener('shown.bs.modal', function () { nameInput.focus(); if (nameInput.value) { nameInput.select(); } });
+            modalEl.addEventListener('shown.bs.modal', function () {
+                if (focusCoverOnShow) { focusCoverOnShow = false; coverChange.focus(); return; }
+                nameInput.focus();
+                if (nameInput.value) { nameInput.select(); }
+            });
 
             fillCategories();
 
@@ -787,6 +896,7 @@
                     catSel.value = '';
                     note.textContent = '';
                     modalEl.querySelectorAll('[data-tr-lang]').forEach(function (cb) { cb.checked = false; });
+                    cover = { key: null, color: null, touched: false, colorTouched: false };
                     var t = templates.find(function (x) { return x.key === mode; });
                     if (t) {
                         setGroup(t.group);
