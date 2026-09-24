@@ -10,7 +10,10 @@ namespace ITFlow\Training\Preview;
  * `explanation` / `feedback` appear only in a submit response (after grading).
  *
  * Maps whose keys are data rather than field names are named in FREE_MAPS: `strings` (UI
- * string id => text) and `answers` (question uid => option uids, answers_after_pass only).
+ * string id => text), `answers` (question uid => option uids, answers_after_pass only) and
+ * `saved` (kiosk resume: question uid => chosen option uids). SUB_SHAPES name keys whose value
+ * is walked with its own allowlist: `achievements` items may carry only AWARD_PUBLIC keys, so
+ * `name`/`icon`/`color` are allowed there and nowhere else in a kiosk quiz payload.
  *
  * The Actions run every learner-facing payload through assert() before sending it: a leak is
  * a 500, never a response.
@@ -37,10 +40,31 @@ final class PayloadGuard
         'missed', 'uid', 'text', 'topic', 'explanation', 'chosen_feedback', 'answers',
     ];
 
-    /** Keys whose value is a map with data keys: name => 'strings' (scalar values) | 'uid_lists' (lists of uid strings). */
-    public const FREE_MAPS = ['strings' => 'strings', 'answers' => 'uid_lists'];
+    /** Kiosk exam start (P3 spec §7.4): every QUIZ_START key plus the attempt bookkeeping and the resumed answers. */
+    public const KIOSK_QUIZ_START = [
+        'graded', 'attempt_token', 'quiz', 'title', 'intro', 'time_limit_s', 'deadline_remaining_s', 'show_review', 'question_count',
+        'questions', 'uid', 'type', 'text', 'image_url', 'options',
+        'attempt_id', 'attempt_number', 'attempts_max', 'saved',
+    ];
 
-    private const SHAPES = ['learner_view' => self::LEARNER_VIEW, 'quiz_start' => self::QUIZ_START, 'quiz_submit' => self::QUIZ_SUBMIT];
+    /** Kiosk exam submit: every QUIZ_SUBMIT key plus attempts, run state and the awards (walked with AWARD_PUBLIC only). */
+    public const KIOSK_QUIZ_SUBMIT = [
+        'score_pct', 'points_earned', 'points_possible', 'passed', 'pass_pct', 'critical_missed', 'topics_missed', 'feedback', 'mode',
+        'missed', 'uid', 'text', 'topic', 'explanation', 'chosen_feedback', 'answers',
+        'attempt_number', 'attempts_max', 'attempts_left', 'locked', 'run_status', 'next', 'achievements',
+    ];
+
+    /** One awarded achievement as a learner sees it. */
+    public const AWARD_PUBLIC = ['uid', 'name', 'description', 'icon', 'color', 'awarded_at'];
+
+    /** Keys whose value is walked with its OWN allowlist instead of the parent's. */
+    public const SUB_SHAPES = ['achievements' => self::AWARD_PUBLIC];
+
+    /** Keys whose value is a map with data keys: name => 'strings' (scalar values) | 'uid_lists' (lists of uid strings). */
+    public const FREE_MAPS = ['strings' => 'strings', 'answers' => 'uid_lists', 'saved' => 'uid_lists'];
+
+    private const SHAPES = ['learner_view' => self::LEARNER_VIEW, 'quiz_start' => self::QUIZ_START, 'quiz_submit' => self::QUIZ_SUBMIT,
+                            'kiosk_quiz_start' => self::KIOSK_QUIZ_START, 'kiosk_quiz_submit' => self::KIOSK_QUIZ_SUBMIT];
 
     /** @throws \LogicException naming the first offending path */
     public static function assert(mixed $payload, string $shape): void
@@ -78,6 +102,10 @@ final class PayloadGuard
         }
         foreach ($v as $k => $item) {
             $k = (string) $k;
+            if (isset(self::SUB_SHAPES[$k]) && isset($allowed[$k])) {
+                self::walk($item, array_fill_keys(self::SUB_SHAPES[$k], true), "$path.$k", $out);
+                continue;
+            }
             if (isset(self::FREE_MAPS[$k]) && isset($allowed[$k])) {
                 self::checkFreeMap($item, self::FREE_MAPS[$k], "$path.$k", $out);
                 continue;

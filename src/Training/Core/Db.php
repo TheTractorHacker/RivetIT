@@ -31,6 +31,10 @@ final class Db
 {
     /** Unique-key name => request field, for turning a 1062 into a 422 with `fields` (spec §0). */
     public const KEY_FIELDS = [
+        // Phase 3+4 kiosk (P3 spec §7.5)
+        'uq_training_kiosk_token' => 'token', 'uq_training_kiosk_code' => 'code', 'uq_training_ksess_open' => 'kiosk_id',
+        'uq_training_run_open' => 'course_id', 'uq_training_lcomp' => 'lesson_uid', 'uq_training_attempt' => 'attempt',
+        'uq_training_taward' => 'achievement_id',
         'uq_training_tcat_name'          => 'name',
         'uq_training_ttag_name'          => 'name',
         'uq_training_course_uid'         => 'uid',

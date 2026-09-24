@@ -64,6 +64,10 @@ final class LedgerVerifier
     private const PHASE2_TABLES = ['training_completions', 'training_completion_voids', 'training_evaluations',
                                    'training_sessions', 'training_session_attendees'];
 
+    /** Phase 3+4 kiosk evidence tables (HashSpecs::EVENT_ROWS); probed the same way so a 2.6.92 database verifies clean. */
+    private const PHASE3_TABLES = ['training_lesson_completions', 'training_attempts', 'training_attempt_results',
+                                   'training_signatures', 'training_achievement_awards'];
+
     private function __construct(private readonly \mysqli $db, array $opts)
     {
         $this->maxBreaks = max(1, (int) ($opts['max_breaks'] ?? 20));
@@ -109,6 +113,10 @@ final class LedgerVerifier
                         . ", last event is #$lastSeq/" . substr($lastHash, 0, 16));
                 }
                 $v->checkUnevented();
+                if (class_exists(\ITFlow\Training\Kiosk\Verify\KioskLedgerChecks::class)) {
+                    \ITFlow\Training\Kiosk\Verify\KioskLedgerChecks::run($db,
+                        fn (?int $seq, string $kind, string $detail) => $v->addBreak($seq, $kind, $detail), fn (): bool => $v->stopped());
+                }
             }
         } finally {
             if ($ownSnapshot) {
@@ -537,10 +545,10 @@ final class LedgerVerifier
         }
     }
 
-    /** One information_schema query per run: which Phase 2 tables exist in this database. */
+    /** One information_schema query per run: which Phase 2 and Phase 3 tables exist in this database. */
     private function probeSchema(): void
     {
-        $in = "'" . implode("','", self::PHASE2_TABLES) . "'";
+        $in = "'" . implode("','", array_merge(self::PHASE2_TABLES, self::PHASE3_TABLES)) . "'";
         $res = $this->db->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ($in)");
         foreach ($res->fetch_all(MYSQLI_NUM) as $r) {
             $this->tables[(string) $r[0]] = true;
