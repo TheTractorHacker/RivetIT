@@ -48,6 +48,13 @@ final class MediaStore
     /** Kinds Phase 1 stores. 'evidence' belongs to the Phase 2 evidence pipeline and is never served. */
     public const KINDS = ['pdf', 'page', 'video', 'image', 'file'];
 
+    /**
+     * Every kind ingest() accepts (validateType only): KINDS plus Phase 2 'evidence' scans
+     * (Records\EvidenceStore). KINDS itself stays Phase 1's list, so MediaAccess and the purger
+     * never treat evidence as servable or purgeable (Phase 2 spec §3.5).
+     */
+    public const STORE_KINDS = [...self::KINDS, 'evidence'];
+
     /** The extensions each kind may carry. */
     public const KIND_EXTS = [
         'pdf' => ['pdf'],
@@ -55,6 +62,7 @@ final class MediaStore
         'video' => ['mp4'],
         'image' => ['jpg', 'png', 'webp', 'gif'],
         'file' => ['docx', 'xlsx', 'pptx', 'txt', 'csv'],
+        'evidence' => ['pdf', 'jpg', 'png'],
     ];
 
     /** Stored MIME per extension (also the serving Content-Type, see agent/training_media.php). */
@@ -327,7 +335,9 @@ final class MediaStore
         if (preg_match('/^[a-z0-9_]{0,40}$/D', $purpose) !== 1) {
             throw new \InvalidArgumentException('MediaStore: bad purpose');
         }
-        $relPath = 'content/' . substr($sha, 0, 2) . '/' . $sha . '.' . $ext;
+        // Evidence scans live under evidence/ (nginx: deny all; streamed only by
+        // agent/training_evidence.php after Records\EvidenceStore::canServe).
+        $relPath = ($kind === 'evidence' ? 'evidence/' : 'content/') . substr($sha, 0, 2) . '/' . $sha . '.' . $ext;
         $final = $this->root . '/' . $relPath;
         $name = self::cleanName($originalName);
         $metaCols = self::metaColumns($meta);
@@ -376,7 +386,11 @@ final class MediaStore
                 if ($existing !== null) {
                     return $this->reuseLocked($existing, $tmp, $final);
                 }
-                $this->checkBudget($size);
+                if ($kind !== 'evidence') {
+                    // Evidence has its own per-file cap (config_training_evidence_max_mb) and is
+                    // not counted toward the content budget (MediaUsage::liveBytes excludes it).
+                    $this->checkBudget($size);
+                }
 
                 $createdFile = !is_file($final);
                 if ($createdFile) {
@@ -425,8 +439,8 @@ final class MediaStore
         if ($fileOk && !$purged) {
             return $this->result($existing, true, false);
         }
-        if ($purged) {
-            // The file comes back into the live total.
+        if ($purged && (string) $existing['media_kind'] !== 'evidence') {
+            // The file comes back into the live total (evidence is never counted, nor purged).
             $this->checkBudget((int) $existing['media_bytes']);
         }
         if (!$fileOk) {
@@ -567,7 +581,7 @@ final class MediaStore
 
     private function validateType(string $kind, string $mime, string $ext): void
     {
-        if (!in_array($kind, self::KINDS, true)) {
+        if (!in_array($kind, self::STORE_KINDS, true)) {
             throw new \InvalidArgumentException("MediaStore: kind '$kind' cannot be stored here");
         }
         if (!in_array($ext, self::KIND_EXTS[$kind], true)) {
