@@ -357,7 +357,8 @@
                     return u.fetchAction('people_roster', { client_id: cid, state: 'eligible', page: pageNo }).then(function (d) {
                         var rows = (d && (d.people || d.rows)) || [];
                         rows.forEach(function (p) { if (p.eligible !== false && addPerson(p, true)) { added++; } });
-                        if (rows.length >= 50 && pageNo < 6 && pageNo * 50 < Number(d.total || 0)) { pageNo++; return step(); }
+                        var per = Number((d && d.per_page) || 50);
+                        if (rows.length && pageNo < 10 && pageNo * per < Number((d && d.total) || 0)) { pageNo++; return step(); }
                         return null;
                     });
                 }

@@ -86,7 +86,7 @@
             var list = OPTS[kind] || [];
             for (var i = 0; i < list.length; i++) { if (list[i].id === Number(id)) { return list[i].name; } }
             var l = st.labels[kind] && st.labels[kind][id];
-            return l ? l.name : (KINDS[kind].label + ' #' + id);
+            return l && l.name ? l.name : (KINDS[kind].label + ' #' + id);
         }
         function isKnown(kind, id) {
             if (kind === 'contact' || kind === 'department') { return true; }

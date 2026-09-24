@@ -1046,7 +1046,8 @@
     function timeline(events) {
         if (!events || !events.length) { return el('p', { class: 'text-muted small', text: 'No history yet.' }); }
         return el('ol', { class: 'tro-timeline' }, events.map(function (ev) {
-            var who = ev.actor_name || ev.actor || (ev.actor_type === 'system' ? 'System' : '');
+            var a = ev.actor;
+            var who = ev.actor_name || (a && typeof a === 'object' ? (a.name || (a.type === 'system' ? 'System' : '')) : a) || (ev.actor_type === 'system' ? 'System' : '');
             return el('li', {}, [
                 el('div', { class: 'tro-timeline__what', text: EVENT_LABELS[ev.type] || ev.type }),
                 eventDetail(ev) ? el('div', { class: 'small', text: eventDetail(ev) }) : null,

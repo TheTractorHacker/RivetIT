@@ -337,17 +337,20 @@
                     cc.appendChild(cb);
                     left.appendChild(cc);
                 }
+                // The record's own scan, or else the signed checklist of the evaluation behind it.
+                var scanRef = (c.evidence && c.evidence.media_id) ? c.evidence
+                    : (comps.evaluation && comps.evaluation.evidence && comps.evaluation.evidence.media_id ? comps.evaluation.evidence : null);
                 var ev = el('div', { class: 'tro-card' }, [el('div', { class: 'tro-card__head' }, [el('h2', { class: 'tro-card__title', text: 'Evidence' }),
-                    el('span', { class: 'tro-card__sub', text: c.evidence ? (c.evidence.original_name || '') : '' })])]);
+                    el('span', { class: 'tro-card__sub', text: scanRef ? (scanRef.original_name || '') + (scanRef !== c.evidence ? ' (evaluation checklist)' : '') : '' })])]);
                 var evb = el('div', { class: 'tro-card__body' });
-                if (c.evidence && c.evidence.media_id) {
-                    var src = '/agent/training_evidence.php?m=' + encodeURIComponent(c.evidence.media_id);
-                    if (/^image\//.test(c.evidence.mime || '')) {
+                if (scanRef) {
+                    var src = '/agent/training_evidence.php?m=' + encodeURIComponent(scanRef.media_id);
+                    if (/^image\//.test(scanRef.mime || '')) {
                         evb.appendChild(el('div', { class: 'tro-evidence' }, [el('a', { href: src, target: '_blank', rel: 'noopener', title: 'Open full size' }, [el('img', { src: src, alt: 'Scan of the ' + (c.method === 'external' ? 'card' : 'signed record') + ' for ' + name })])]));
                         evb.appendChild(el('div', { class: 'mt-2' }, [el('a', { class: 'btn btn-sm btn-outline-secondary', href: src + '&dl=1' }, [u.icon('fas fa-download me-1'), 'Download'])]));
                     } else {
                         evb.appendChild(el('div', { class: 'tro-evidence' }, [el('div', { class: 'tro-evidence__file' }, [u.icon('fas fa-file-pdf'),
-                            el('div', { class: 'flex-grow-1' }, [el('div', { class: 'fw-semibold', text: c.evidence.original_name || 'Scan (PDF)' }), el('div', { class: 'tro-sub', text: 'PDF · opens as a download' })]),
+                            el('div', { class: 'flex-grow-1' }, [el('div', { class: 'fw-semibold', text: scanRef.original_name || 'Scan (PDF)' }), el('div', { class: 'tro-sub', text: 'PDF · opens as a download' })]),
                             el('a', { class: 'btn btn-sm btn-outline-secondary', href: src + '&dl=1' }, [u.icon('fas fa-download me-1'), 'Download'])])]));
                     }
                 } else {
@@ -379,7 +382,7 @@
                     dbody.appendChild(el('div', { class: 'tro-table-wrap' }, [el('table', { class: 'table table-sm tro-table' }, [
                         el('thead', {}, [el('tr', {}, [el('th', { text: '#' }), el('th', { text: 'What' }), el('th', { text: 'When' }), el('th', { text: 'By' })])]),
                         el('tbody', {}, evs.map(function (x) {
-                            return el('tr', {}, [el('td', { class: 'tro-mono', text: String(x.seq) }), el('td', { text: u.EVENT_LABELS[x.type] || x.type }), el('td', { class: 'tro-nowrap', text: u.fmtDateTime(x.at) }), el('td', { text: x.actor || '' })]);
+                            return el('tr', {}, [el('td', { class: 'tro-mono', text: String(x.seq) }), el('td', { text: u.EVENT_LABELS[x.type] || x.type }), el('td', { class: 'tro-nowrap', text: u.fmtDateTime(x.at) }), el('td', { text: x.actor && typeof x.actor === 'object' ? (x.actor.name || x.actor.type || '') : (x.actor || '') })]);
                         }))
                     ])]));
                 } else {

@@ -22,8 +22,8 @@ $tr_level = (int) lookupUserPermission('module_training');
 $tr_tab = tro_get_enum('tab', ['roster', 'groups', 'trainers', 'links'], 'roster');
 $tr_scope = tro_scope($mysqli, $tr_ctx);
 
-// Roster filter states (the people_roster `state` values this page sends).
-$tr_states = ['eligible', 'no_department', 'included', 'excluded', 'link_issues'];
+// Roster filter states: the people_roster `state` values (auto|include|exclude|eligible|ineligible|all).
+$tr_states = ['eligible', 'ineligible', 'include', 'exclude'];
 $tr_filters = [
     'q' => tro_get_str('q', 100),
     'client_id' => tro_get_id('client_id', true),
@@ -32,8 +32,9 @@ $tr_filters = [
 ];
 
 $tr_roster = $tr_tab === 'roster' ? tro_action($mysqli, 'people_roster', array_filter($tr_filters, static fn($v) => $v !== null)) : null;
-$tr_links = $tr_tab === 'links' ? tro_action($mysqli, 'people_roster', ['state' => 'link_issues']) : null;
-$tr_groups = $tr_tab === 'groups' ? tro_action($mysqli, 'jobgroup_list') : null;
+// Links: the first roster page; the page script reads the remaining pages and keeps the links that need review.
+$tr_links = $tr_tab === 'links' ? tro_action($mysqli, 'people_roster', ['state' => 'all']) : null;
+$tr_groups = $tr_tab === 'groups' ? tro_action($mysqli, 'jobgroup_list', ['include_archived' => '1']) : null;
 $tr_trainers = $tr_tab === 'trainers' ? tro_action($mysqli, 'trainer_list') : null;
 
 $tr_routes = [
@@ -75,10 +76,9 @@ if ($tr_tab === 'groups' && $tr_level >= 3) {
 
 $tr_state_labels = [
     'eligible' => 'On the roster',
-    'no_department' => 'No department',
-    'included' => 'Included by hand',
-    'excluded' => 'Excluded',
-    'link_issues' => 'Odoo link needs review',
+    'ineligible' => 'Not on the roster',
+    'include' => 'Included by hand',
+    'exclude' => 'Excluded',
 ];
 ?>
 

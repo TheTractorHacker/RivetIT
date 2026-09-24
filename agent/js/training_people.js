@@ -196,7 +196,7 @@
                 function listOf(d) { return (d && (d.groups || d.rows || d.job_groups)) || (Array.isArray(d) ? d : []); }
                 function refetch() {
                     skeleton();
-                    return u.fetchAction('jobgroup_list', {}).then(function (d) { render(listOf(d)); }, fail);
+                    return u.fetchAction('jobgroup_list', { include_archived: 1 }).then(function (d) { render(listOf(d)); }, fail);
                 }
                 function skeleton() {
                     clear(grid); clear(empty);
@@ -220,13 +220,16 @@
                             on: { click: function () { showArchived = !showArchived; render(groups); } } })]));
                     }
                 }
+                function titleText(t) { return t && typeof t === 'object' ? String(t.title || '') : String(t || ''); }
                 function tile(g) {
-                    var titles = Array.isArray(g.titles) ? g.titles : [];
-                    var named = g.member_ids ? g.member_ids.length : (Array.isArray(g.members) ? g.members.length : (g.named_count !== undefined ? Number(g.named_count) : null));
+                    var titles = (Array.isArray(g.titles) ? g.titles : []).map(titleText);
+                    var titleCount = g.title_count !== undefined && g.title_count !== null ? Number(g.title_count) : titles.length;
+                    var named = Array.isArray(g.members) ? g.members.length : (g.member_count !== undefined && g.member_count !== null ? Number(g.member_count) : null);
                     var meta = [];
-                    if (g.member_count !== undefined && g.member_count !== null) { meta.push(u.plural(Number(g.member_count), 'person', 'people')); }
-                    meta.push(u.plural(titles.length, 'job title'));
-                    if (named !== null) { meta.push(named + ' named'); }
+                    if (g.matched !== undefined && g.matched !== null) { meta.push(u.plural(Number(g.matched), 'person', 'people') + (D.scope === 'all' ? '' : ' in your departments')); }
+                    if (titleCount > 0) { meta.push('by ' + u.plural(titleCount, 'job title')); }
+                    if (named) { meta.push(u.plural(named, 'person', 'people') + ' named by hand'); }
+                    if (!titleCount && !named) { meta.push('No titles or people yet'); }
                     var chips = el('div', { class: 'tro-chips' });
                     titles.slice(0, 5).forEach(function (t) { chips.appendChild(el('span', { class: 'tro-crit', text: t })); });
                     if (titles.length > 5) { chips.appendChild(el('span', { class: 'tro-crit', text: '+' + (titles.length - 5), title: titles.slice(5).join(', ') })); }
@@ -285,14 +288,15 @@
                     }, function (err) { h.setBody(u.failState(err)); });
                 }
                 function viewer(h, g) {
-                    var titles = Array.isArray(g.titles) ? g.titles : [];
+                    var titles = (Array.isArray(g.titles) ? g.titles : []).map(titleText);
                     var members = Array.isArray(g.members) ? g.members : [];
                     var wrap = el('div', {}, [
                         g.description ? el('p', { text: g.description }) : null,
                         el('h3', { class: 'h5 mt-2', text: 'Job titles' }),
                         titles.length ? el('div', { class: 'tro-chips mb-3' }, titles.map(function (t) { return el('span', { class: 'tro-crit', text: t }); })) : el('p', { class: 'text-muted small', text: 'No titles. Only the people named below are in this group.' }),
                         el('h3', { class: 'h5 mt-2', text: 'Named people' }),
-                        members.length ? el('ul', { class: 'tro-outcomes' }, members.map(function (p) { return el('li', {}, [u.personCell(p)]); })) : el('p', { class: 'text-muted small', text: 'No one is named by hand.' })
+                        members.length ? el('ul', { class: 'tro-outcomes' }, members.map(function (p) { return el('li', {}, [u.personCell(p)]); })) : el('p', { class: 'text-muted small', text: 'No one is named by hand.' }),
+                        g.members_hidden ? el('p', { class: 'text-muted small mt-2', text: u.plural(Number(g.members_hidden), 'more person', 'more people') + ' outside your departments.' }) : null
                     ]);
                     h.setBody(wrap);
                     h.setFoot([el('button', { type: 'button', class: 'btn btn-primary ms-auto', text: 'Close', dataset: { bsDismiss: 'offcanvas' } })]);
@@ -303,7 +307,7 @@
                     var name = el('input', { type: 'text', class: 'form-control', maxlength: '100', required: true, value: g ? g.name : null, placeholder: 'For example: Welders' });
                     var desc = el('input', { type: 'text', class: 'form-control', maxlength: '255', value: g && g.description ? g.description : null, placeholder: 'Optional: who belongs here' });
                     var chosen = {};
-                    (Array.isArray(g && g.titles) ? g.titles : []).forEach(function (t) { chosen[String(t).toLowerCase()] = true; });
+                    (Array.isArray(g && g.titles) ? g.titles : []).forEach(function (t) { var k = titleText(t).toLowerCase(); if (k) { chosen[k] = true; } });
                     var counts = {};
                     titleOpts.forEach(function (t) { counts[String(t.title).toLowerCase()] = Number(t.count || 0); });
                     Object.keys(chosen).forEach(function (t) { if (counts[t] === undefined) { counts[t] = 0; } });
@@ -577,7 +581,8 @@
                 head.appendChild(el('div', { class: 'd-flex flex-wrap align-items-center gap-3' }, [
                     el('div', { class: 'flex-grow-1' }, [
                         el('div', { class: 'fw-semibold', text: checked ? 'Last checked ' + u.relTime(checked) : 'Not checked yet' }),
-                        el('div', { class: 'tro-sub', text: checked ? u.fmtDateTime(checked) : 'Links are checked by every directory sync, or with Check now in Admin › Training compliance.' })
+                        el('div', { class: 'tro-sub', text: checked ? u.fmtDateTime(checked) : 'Links are checked by every directory sync, or with Check now in Admin › Training compliance.' }),
+                        el('div', { class: 'tro-sub', id: 'tro-pl-extra' })
                     ]),
                     el('div', { class: 'tro-links-count', id: 'tro-pl-count' })
                 ]));
@@ -587,15 +592,39 @@
                     return el('div', { class: 'd-flex align-items-center gap-2 flex-wrap' }, [linkChip({ odoo_linked: true, link_state: k }), el('span', { class: 'text-muted small', text: LINK_TEXT[k] })]);
                 })));
 
+                /**
+                 * people_roster has no link-state filter: read every page (50 a page, at most 40 pages)
+                 * starting from the embedded first page, and keep the links that need review.
+                 */
+                function collect(first) {
+                    var all = [];
+                    var pageNo = 1;
+                    function take(d) {
+                        var rows = (d && (d.people || d.rows)) || [];
+                        var per = Number((d && d.per_page) || 50);
+                        var total = Number((d && d.total) || 0);
+                        all = all.concat(rows);
+                        if (rows.length && pageNo * per < total && pageNo < 40) {
+                            pageNo++;
+                            return u.fetchAction('people_roster', { state: 'all', page: pageNo }).then(take);
+                        }
+                        return { rows: all, total: total };
+                    }
+                    return first.then(take);
+                }
                 function refetch() {
                     u.skeletonRows(body, 4, 4);
                     clear(empty);
-                    return u.fetchAction('people_roster', { state: 'link_issues' }).then(render, fail);
+                    return collect(u.fetchAction('people_roster', { state: 'all' })).then(render, fail);
                 }
                 function fail(err) { clear(body); clear(empty); empty.appendChild(u.failState(err, refetch)); }
                 function render(d) {
-                    var rows = ((d && (d.people || d.rows)) || []);
-                    var issues = rows.filter(function (p) { return ISSUE_STATES.indexOf(p.link_state) !== -1; });
+                    var rows = d.rows || [];
+                    var order = { repointed: 0, mismatch: 1, missing: 2 };
+                    var issues = rows.filter(function (p) { return ISSUE_STATES.indexOf(p.link_state) !== -1; })
+                        .sort(function (a, b) { return order[a.link_state] - order[b.link_state] || String(a.name).localeCompare(String(b.name)); });
+                    var unchecked = rows.filter(function (p) { return p.odoo_linked && p.link_state === 'unchecked'; }).length;
+                    var unlinked = rows.filter(function (p) { return !p.odoo_linked; }).length;
                     clear(body); clear(empty);
                     issues.forEach(function (p) {
                         body.appendChild(el('tr', { dataset: { id: p.contact_id } }, [
@@ -605,6 +634,10 @@
                             el('td', { class: 'small' }, [el('span', { text: LINK_TEXT[p.link_state] || '' }), p.link_detail ? el('span', { class: 'tro-sub', text: p.link_detail }) : null])
                         ]));
                     });
+                    var extra = [];
+                    if (unchecked) { extra.push(u.plural(unchecked, 'link has', 'links have') + ' not been checked yet.'); }
+                    if (unlinked) { extra.push(u.plural(unlinked, 'person has', 'people have') + ' no Odoo link.'); }
+                    if (extra.length) { $('tro-pl-extra').textContent = extra.join(' '); }
                     var count = $('tro-pl-count');
                     clear(count);
                     count.appendChild(issues.length ? u.chip(u.plural(issues.length, 'link needs', 'links need') + ' review', 'warn', 'fas fa-exclamation-triangle') : u.chip('No links need review', 'ok', 'fas fa-check'));
@@ -614,7 +647,7 @@
                     }
                 }
                 u.skeletonRows(body, 4, 4);
-                u.load(D.links).then(render, fail);
+                collect(u.load(D.links)).then(render, fail);
             })();
         }
     });
