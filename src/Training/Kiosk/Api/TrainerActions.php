@@ -143,6 +143,33 @@ final class TrainerActions
         }
     }
 
+    /** [S] A-5 GET trainer_badges: the manual badges a trainer can give. */
+    public static function trainerBadges(KioskCtx $k, ApiContext $a): array
+    {
+        return (new TrainerService($k))->badges();
+    }
+
+    /** [S] A-5 POST trainer_award {achievement_id, contact_id, sig, reason, pin} */
+    public static function trainerAward(KioskCtx $k, ApiContext $a): array
+    {
+        try {
+            $pin = $a->input['pin'] ?? null;
+            $cid = (int) $a->int('contact_id', true, 1);
+            if (!hash_equals($k->keys->pickSig($k->kioskId(), $cid), (string) $a->str('sig', 32))) {
+                throw ApiException::notFound('That person was not found.');
+            }
+            return (new TrainerService($k))->award(
+                (int) $a->int('achievement_id', true, 1),
+                $cid,
+                (string) $a->str('reason', 500),
+                $pin
+            );
+        } finally {
+            unset($pin);
+            TrainerPin::pad($k);
+        }
+    }
+
     /** [S] POST attendee_mark {attendee_id, attendance?, practical?, notes?, pin} */
     public static function attendeeMark(KioskCtx $k, ApiContext $a): array
     {

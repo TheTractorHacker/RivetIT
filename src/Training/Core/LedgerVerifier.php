@@ -113,10 +113,9 @@ final class LedgerVerifier
                         . ", last event is #$lastSeq/" . substr($lastHash, 0, 16));
                 }
                 $v->checkUnevented();
-                if (class_exists(\ITFlow\Training\Kiosk\Verify\KioskLedgerChecks::class)) {
-                    \ITFlow\Training\Kiosk\Verify\KioskLedgerChecks::run($db,
-                        fn (?int $seq, string $kind, string $detail) => $v->addBreak($seq, $kind, $detail), fn (): bool => $v->stopped());
-                }
+                // Phase 3+4 kiosk digests (P3 spec §7.10); it skips itself on a database without the 2.6.93 tables.
+                \ITFlow\Training\Kiosk\Verify\KioskLedgerChecks::run($db,
+                    fn (?int $seq, string $kind, string $detail) => $v->addBreak($seq, $kind, $detail), fn (): bool => $v->stopped());
             }
         } finally {
             if ($ownSnapshot) {

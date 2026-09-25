@@ -5,6 +5,8 @@ namespace ITFlow\Training\Kiosk\Trainer;
 use ITFlow\Training\Api\ApiException;
 use ITFlow\Training\Core\Db;
 use ITFlow\Training\Kiosk\Core\KioskCtx;
+use ITFlow\Training\Kiosk\Learn\SignatureException;
+use ITFlow\Training\Kiosk\Learn\SignatureService;
 
 /**
  * Finger signatures in trainer mode (attendee, trainer, evaluator, evaluatee) through lane K3's
@@ -17,12 +19,12 @@ use ITFlow\Training\Kiosk\Core\KioskCtx;
  */
 final class TrainerSig
 {
-    public const SERVICE = '\\ITFlow\\Training\\Kiosk\\Learn\\SignatureService';
     public const PURPOSES = ['attendee', 'trainer', 'evaluator', 'evaluatee'];
 
+    /** Lane K3's SignatureService ships in the same build. */
     public static function available(): bool
     {
-        return class_exists(self::SERVICE);
+        return true;
     }
 
     /**
@@ -40,22 +42,12 @@ final class TrainerSig
         if (!is_string($dataUrl)) {
             throw new ApiException(422, 'signature_invalid', 'That signature could not be read. Clear it and sign again.', ['signature_png' => 'Invalid.']);
         }
-        if (!self::available()) {
-            throw new ApiException(503, 'records_unavailable', 'Signatures are not available on this device yet.');
-        }
-        $cls = self::SERVICE;
         try {
-            return $cls::prepare($dataUrl);
-        } catch (ApiException $e) {
-            throw $e;
-        } catch (\Throwable $e) {
-            if (str_ends_with(get_class($e), 'SignatureException')) {
-                $reason = property_exists($e, 'reason') && is_string($e->reason) ? $e->reason : 'signature_invalid';
-                $code = $reason === 'signature_empty' ? 'signature_empty' : 'signature_invalid';
-                throw new ApiException(422, $code, $code === 'signature_empty' ? 'Please sign in the box.' : 'That signature could not be read. Clear it and sign again.',
-                    ['signature_png' => $code === 'signature_empty' ? 'Required.' : 'Invalid.']);
-            }
-            throw $e;
+            return SignatureService::prepare($dataUrl);
+        } catch (SignatureException $e) {
+            $code = $e->reason === 'signature_empty' ? 'signature_empty' : 'signature_invalid';
+            throw new ApiException(422, $code, $code === 'signature_empty' ? 'Please sign in the box.' : 'That signature could not be read. Clear it and sign again.',
+                ['signature_png' => $code === 'signature_empty' ? 'Required.' : 'Invalid.']);
         }
     }
 
@@ -73,7 +65,6 @@ final class TrainerSig
         if (!in_array($meta['purpose'] ?? '', self::PURPOSES, true)) {
             throw new \InvalidArgumentException('TrainerSig: bad purpose');
         }
-        $cls = self::SERVICE;
         $full = [
             'purpose' => (string) $meta['purpose'],
             'contact_id' => isset($meta['contact_id']) ? (int) $meta['contact_id'] : null,
@@ -84,16 +75,9 @@ final class TrainerSig
             'run_id' => isset($meta['run_id']) ? (int) $meta['run_id'] : null,
             'tsession_id' => isset($meta['tsession_id']) ? (int) $meta['tsession_id'] : null,
         ];
-        $r = $cls::insert($k->db(), $prep, $full);
-        $id = (int) ($r['id'] ?? $r['tsig_id'] ?? 0);
-        if ($id < 1) {
-            throw new \RuntimeException('TrainerSig: signature insert returned no id');
-        }
-        $sha = $r['sha'] ?? null;
-        if (!is_string($sha) || preg_match('/^[0-9a-f]{64}$/D', $sha) !== 1) {
-            $row = Db::one($k->db(), 'SELECT tsig_row_sha256 FROM training_signatures WHERE tsig_id = ?', 'i', [$id]);
-            $sha = (string) ($row['tsig_row_sha256'] ?? '');
-        }
+        $r = SignatureService::insert($k->db(), $prep, $full);
+        $id = $r['id'];
+        $sha = $r['sha'];
         $event = array_merge($k->eventBase(), [
             'type' => 'signature.captured',
             'subject_contact_id' => $full['contact_id'],

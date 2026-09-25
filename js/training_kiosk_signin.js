@@ -2,7 +2,7 @@
  * Kiosk Home / sign-in (P3 spec §5.2, lane K2; mockups Kiosk-SignIn and Kiosk-PIN).
  *
  * Screens (all rendered with Kiosk.ui.el / textContent - never HTML strings):
- *   adopt     /kiosk/#d=<token>: replaceState('/kiosk/') at once, POST adopt_device, confirm before
+ *   adopt     /kiosk/#d=<token> (or /kiosk/?d=<token>): replaceState('/kiosk/') at once, POST adopt_device, confirm before
  *             replacing a valid device (409 device_replace_confirm), then location.replace('/kiosk/')
  *   notsetup  server-rendered; [S] "Enter a setup code" (POST enroll_code)
  *   switch    "Sign out {name}?" (POST end)
@@ -26,6 +26,10 @@
     var t = K.t;
     var IDLE_MS = 60000;
     var TOKEN_RE = /^#d=([A-Za-z0-9_-]{43})$/;
+    // The same start URL written with a query string (/kiosk/?d=<token>, e.g. typed into an Edge/Chrome
+    // kiosk-mode shortcut) is accepted too; it leaves the address bar just as fast. The issued form
+    // stays the fragment, which never reaches a server log.
+    var QUERY_RE = /^\?d=([A-Za-z0-9_-]{43})$/;
 
     var mode = 'learner';          // 'learner' | 'trainer'
     var screen = null;             // current screen name
@@ -194,8 +198,13 @@
             mode = mode === 'trainer' ? 'learner' : 'trainer';
             showSearch('');
         });
+        // [S] T-6: a trainer's class is open - people can check themselves in from this device too.
+        var checkin = page.checkin_open && mode === 'learner' ? el('a', { class: 'kx-btn kx-btn--ghost kx-signin__mode', href: '/kiosk/checkin.php' }, [
+            icon('fa-users'), el('span', { text: t('signin.checkin_link') })
+        ]) : null;
         return el('footer', { class: 'kx-foot kx-signin__foot' }, [
             el('span', { class: 'kx-note' }, [icon('fa-tablet-alt'), el('span', { text: t('signin.device', { label: dev }) })]),
+            checkin,
             toggle
         ]);
     }
@@ -479,9 +488,9 @@
     }
 
     // ------------------------------------------------------------------ boot
-    /** Adopts a #d=<token> start URL: the fragment leaves the address bar before anything else happens. */
+    /** Adopts a #d=<token> (or ?d=<token>) start URL: the token leaves the address bar before anything else happens. */
     function adoptFromHash() {
-        var hash = TOKEN_RE.exec(location.hash || '');
+        var hash = TOKEN_RE.exec(location.hash || '') || QUERY_RE.exec(location.search || '');
         if (!hash) { return false; }
         try { history.replaceState(null, '', '/kiosk/'); } catch (e) { /* ignore */ }
         var ns = document.getElementById('kx-ns');

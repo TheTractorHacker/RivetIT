@@ -458,19 +458,13 @@ $trr_close_reason = static fn(?string $r): string => match ($r) {
             <?php if ($trr['achievements'] !== null) { ?>
             <!-- Achievements (Phase 3 table) -->
             <div class="tab-pane fade" id="trr-pane-ach" role="tabpanel" aria-labelledby="trr-tab-ach" tabindex="0">
-                <?php if ($trr['achievements'] === []) { ?>
-                <div class="card-body"><?php render_empty_state('fas fa-medal', 'No achievements yet', 'Badges earned on the kiosk appear here.', ''); ?></div>
-                <?php } else { ?>
-                <ul class="trr-rows card-body">
-                    <?php foreach ($trr['achievements'] as $trr_aw) { ?>
-                    <li class="trr-rows__item">
-                        <span class="trr-avatar"<?= $trr_aw['color'] !== null ? ' style="color: ' . trr_h($trr_aw['color']) . '"' : '' ?> aria-hidden="true"><i class="<?= trr_h(preg_match('/^(fas|far|fab) fa-[a-z0-9-]+$/', $trr_aw['icon']) ? $trr_aw['icon'] : 'fas fa-medal') ?>"></i></span>
-                        <div class="trr-rows__main"><div><strong><?= trr_h($trr_aw['name']) ?></strong></div><?php if (!empty($trr_aw['reason'])) { ?><div class="trr-muted"><?= trr_h($trr_aw['reason']) ?></div><?php } ?></div>
-                        <span class="trr-muted"><?= trr_h(trr_date($trr_aw['awarded_on'])) ?></span>
-                    </li>
-                    <?php } ?>
-                </ul>
-                <?php } ?>
+                <?php
+                // Phase 3 (P3 spec §7.9 [S]): K6's partial reads the awards through AwardRepository and
+                // renders the stored bare Font Awesome name ("award") checked against Core\Icons, so each
+                // badge shows its own icon and colour; the person is already scope-checked above.
+                $tr_awards_contact_id = (int) $trr_p['id'];
+                require __DIR__ . '/includes/training/awards_partial.php';
+                ?>
             </div>
             <?php } ?>
         </div>

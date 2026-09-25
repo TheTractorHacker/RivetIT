@@ -207,8 +207,9 @@
         }
         if (h.can_train) { tiles.appendChild(tile('fa-users', t('trn.tile_session'), t('trn.tile_session_sub'), pickSessionCourse, h.sessions)); }
         if (h.can_evaluate) { tiles.appendChild(tile('fa-clipboard-check', t('trn.tile_evaluate'), t('trn.tile_evaluate_sub'), function () { location.assign('/kiosk/evaluate.php'); }, h.evaluate)); }
+        if (h.award) { tiles.appendChild(tile('fa-award', t('trn.tile_award'), t('trn.tile_award_sub'), viewAward, true)); }
         var parts = [heading(null, t('trn.hello', { first: SESSION.first || '' }), t('trn.hello_sub')), tiles];
-        if (!h.sessions && !h.evaluate) { parts.push(alertBox('info', t('trn.nothing_to_do'))); }
+        if (!h.sessions && !h.evaluate && !h.award) { parts.push(alertBox('info', t('trn.nothing_to_do'))); }
         if (h.sessions) {
             var list = el('div', { class: 'kx-stack' });
             (h.open_sessions || []).forEach(function (s) {
@@ -223,6 +224,55 @@
             parts.push(el('section', { class: 'kt-block' }, [el('h2', { class: 'kx-h3', text: t('trn.open_sessions') }), list]));
         }
         show(parts);
+    }
+
+    // ------------------------------------------------------------------ [S] A-5 give a badge
+    function backBtn(onClick) { return el('div', { class: 'kx-actions' }, [btn(t('shell.back'), 'kx-btn--ghost', 'fa-arrow-left', onClick)]); }
+    function viewAward() {
+        show(spinner());
+        K.api.get('trainer_badges').then(function (res) {
+            var badges = (res && res.badges) || [];
+            if (!badges.length) { show([heading(t('trn.tile_award'), t('trn.award_pick_badge')), alertBox('info', t('trn.award_none')), backBtn(viewHome)]); return; }
+            var list = el('div', { class: 'kx-stack' });
+            badges.forEach(function (b) {
+                var medal = el('span', { class: 'kx-tile__icon', 'aria-hidden': 'true' }, [icon('fa-' + b.icon)]);
+                if (/^#[0-9a-fA-F]{6}$/.test(b.color || '')) { medal.style.color = b.color; }
+                list.appendChild(el('button', { type: 'button', class: 'kx-row', on: { click: function () { awardPerson(b); } } }, [
+                    medal,
+                    el('span', { class: 'kx-row__main' }, [el('span', { class: 'kx-row__title', text: b.name }), b.description ? el('span', { class: 'kx-row__sub', text: b.description }) : null]),
+                    el('span', { class: 'kx-row__end' }, [icon('fa-chevron-right')])
+                ]));
+            });
+            show([heading(t('trn.tile_award'), t('trn.award_pick_badge')), list, backBtn(viewHome)]);
+        }, function (err) { show([alertBox('bad', errText(err)), backBtn(viewHome)]); });
+    }
+    function awardPerson(b) {
+        var sb = searchBox('learner', t('trn.award_search'), function (p) { awardReason(b, p); });
+        show([heading(b.name, t('trn.award_pick_person')), sb.el, backBtn(viewAward)]);
+        setTimeout(function () { sb.input.focus(); }, 50);
+    }
+    function awardReason(b, p) {
+        var text = el('textarea', { class: 'kt-input kt-textarea', rows: '3', maxlength: '500' });
+        var go = btn(t('trn.award_give'), 'kx-btn--primary kx-btn--xl', 'fa-award', function () {
+            var v = text.value.trim();
+            if (v.length < 5) { K.ui.toast(t('trn.reason_short'), 'warn'); text.focus(); return; }
+            pinAction(t('trn.award_confirm', { badge: b.name, first: p.first }), 'trainer_award',
+                { achievement_id: b.id, contact_id: p.contact_id, sig: p.sig, reason: v }).then(function (res) {
+                if (!res) { return; }
+                show(el('div', { class: 'kx-center kt-done' }, [
+                    el('span', { class: 'kt-done__icon', 'aria-hidden': 'true' }, [icon('fa-award')]),
+                    el('h1', { text: t('trn.award_done', { first: res.first || p.first }) }),
+                    el('p', { class: 'kx-lead', text: t('trn.award_done_sub', { badge: res.badge || b.name }) }),
+                    el('div', { class: 'kx-actions kx-actions--center' }, [
+                        btn(t('trn.award_another'), 'kx-btn--ghost kx-btn--xl', 'fa-award', viewAward),
+                        btn(t('trn.back_home'), 'kx-btn--primary kx-btn--xl', 'fa-home', viewHome)
+                    ])
+                ]));
+            });
+        });
+        show([heading(b.name, t('trn.award_for', { name: p.name })), field(t('trn.award_reason'), text, t('trn.award_reason_hint')),
+            el('div', { class: 'kx-actions' }, [btn(t('shell.back'), 'kx-btn--ghost', 'fa-arrow-left', function () { awardPerson(b); }), go])]);
+        setTimeout(function () { text.focus(); }, 50);
     }
 
     var trainerCourses = null;

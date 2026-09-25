@@ -2,6 +2,7 @@
 
 namespace ITFlow\Training\Kiosk\Learn;
 
+use ITFlow\Training\Achievements\AwardEngine;
 use ITFlow\Training\Api\ApiException;
 use ITFlow\Training\Core\Canonical;
 use ITFlow\Training\Core\Db;
@@ -83,12 +84,8 @@ final class AttemptService
             }
             RunRepo::assertUnlocked($doc, $done, $lessonUid);
             $kind = (string) ($quiz['role'] ?? 'standalone');
-            if ($kind === 'exam') {
-                foreach (RunRepo::requiredUids($doc) as $u) {
-                    if ($u !== $lessonUid && !isset($done[$u])) {
-                        throw new ApiException(409, 'exam_locked', 'Finish every other lesson before the final exam.', [], ['lesson_uid' => $u]);
-                    }
-                }
+            if ($kind === 'exam' && ($u = RunRepo::examBlocker($doc, $done, $lessonUid)) !== null) {
+                throw new ApiException(409, 'exam_locked', 'Finish every other lesson before the final exam.', [], ['lesson_uid' => $u]);
             }
             $now = KTime::now();
 
@@ -457,16 +454,14 @@ final class AttemptService
         return Db::one($db, 'SELECT ' . self::ATTEMPT_COLUMNS . ' FROM training_attempts WHERE tattempt_id = ?' . ($forUpdate ? ' FOR UPDATE' : ''), 'i', [$attemptId]);
     }
 
-    /** P2 award listener for exams (K6), after COMMIT; never throws. @return list<array> AwardPublic rows */
+    /** K6's exam award rules, after COMMIT (§3.4 submit step 13); never throws. @return list<array> AwardPublic rows */
     public static function examAwards(\mysqli $db, array $actor, int $cid, array $facts): array
     {
-        $cls = 'ITFlow\\Training\\Achievements\\AwardEngine';
-        if (!class_exists($cls) || Db::depth() !== 0) {
+        if (Db::depth() !== 0) {
             return [];
         }
         try {
-            $out = $cls::onExamSubmitted($db, $actor, $cid, $facts);
-            return is_array($out) ? array_values($out) : [];
+            return array_values(AwardEngine::onExamSubmitted($db, $actor, $cid, $facts));
         } catch (\Throwable $e) {
             error_log('Kiosk AttemptService awards: ' . get_class($e));
             return [];

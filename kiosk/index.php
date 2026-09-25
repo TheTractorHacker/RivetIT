@@ -50,6 +50,15 @@ if ($k_dev !== null && $k_switch === null && is_array($k_dev['personal'] ?? null
 }
 
 $k_state = $k_dev === null ? 'not_setup' : ($k_switch !== null ? 'switch' : 'signin');
+// [S] T-6: the group-session check-in link shows only while a trainer has a class open (CheckinService, 12 h).
+$k_checkin = false;
+if ($k_dev !== null && $k_switch === null) {
+    try {
+        $k_checkin = (new \ITFlow\Training\Kiosk\Trainer\CheckinService($kctx))->openSessions()['sessions'] !== [];
+    } catch (\Throwable $e) {
+        error_log('Kiosk index checkin: ' . get_class($e));
+    }
+}
 $k_page = [
     'title' => $k_dev === null ? 'Not set up' : 'Sign in',
     'css' => ['/css/itflow_training_kiosk_signin.css'],
@@ -60,7 +69,8 @@ $k_page = [
         'personal' => $k_personal,
         'switch' => $k_switch,
         'lock_note' => ['n' => $kctx->ks->pinSoft, 'minutes' => $kctx->ks->pinLockMin],
-        'trainers_available' => Seam::trainersAvailable(),
+        'trainers_available' => Seam::trainersAvailable($kctx->db()),
+        'checkin_open' => $k_checkin,
         'setup_url' => '/agent/training_device_setup.php',
         'kiosk_idle' => false,
     ],

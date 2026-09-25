@@ -2,7 +2,9 @@
 
 namespace ITFlow\Training\Kiosk\Trainer;
 
+use ITFlow\Training\Achievements\AwardEngine;
 use ITFlow\Training\Api\ApiException;
+use ITFlow\Training\Core\Icons;
 use ITFlow\Training\Core\Db;
 use ITFlow\Training\Core\Ledger;
 use ITFlow\Training\Core\Text;
@@ -12,6 +14,7 @@ use ITFlow\Training\Kiosk\Core\Eligibility;
 use ITFlow\Training\Kiosk\Core\KioskAuth;
 use ITFlow\Training\Kiosk\Core\KioskCtx;
 use ITFlow\Training\Kiosk\Core\KioskStrings;
+use ITFlow\Training\Kiosk\Learn\RunService;
 
 /**
  * Trainer mode, trainer role (P3 spec §3.6, §5.7; v0 §6.4 T1-T6; lane K5).
@@ -64,6 +67,7 @@ final class TrainerService
             'sessions' => $sessions,
             'evaluate' => $evaluate,
             'team' => false,   // [S] T-8 team status is cut for this release (spec §9.3 step 6 cut order)
+            'award' => $this->badgeRows() !== [],   // [S] A-5 "Give a badge" (manual badges exist)
             'open_sessions' => $sessions ? $this->openSessions() : [],
         ];
     }
@@ -451,19 +455,84 @@ final class TrainerService
         return $c['name'] ?? '';
     }
 
+    // =========================================================================================
+    // [S] A-5 manual badges from the kiosk (trainer PIN; K6 AwardEngine::awardManual)
+    // =========================================================================================
+
+    /**
+     * GET trainer_badges: the manual badges a trainer can give (active, not archived).
+     *
+     * @return array{badges:list<array{id:int, name:string, description:?string, icon:string, color:string}>}
+     */
+    public function badges(): array
+    {
+        $this->me();
+        return ['badges' => $this->badgeRows()];
+    }
+
+    /**
+     * POST trainer_award: a manual badge for a person in the trainer's departments. Everything
+     * that can be refused without the PIN (badge, person, scope, reason) is checked first, so a
+     * typo never costs a PIN try; then the trainer PIN ('trainer_action'), then K6's awardManual
+     * with the trainer session as the ledger actor (actor_type contact, kiosk and ksess ids).
+     */
+    public function award(int $achievementId, int $contactId, string $reason, mixed $trainerPin): array
+    {
+        $t = $this->me();
+        $badge = null;
+        foreach ($this->badgeRows() as $b) {
+            if ($b['id'] === $achievementId) {
+                $badge = $b;
+            }
+        }
+        if ($badge === null) {
+            throw ApiException::validation(['achievement_id' => 'Pick a badge from the list.']);
+        }
+        if ($contactId === $this->k->contactId()) {
+            throw ApiException::validation(['contact_id' => 'You cannot give yourself a badge.']);
+        }
+        $person = $this->person($contactId);
+        if (!(new TrainerBridge($this->k->db()))->inScope($t, $person['client_id'])) {
+            throw ApiException::notFound('That person is not in your departments.');
+        }
+        $reason = trim($reason);
+        $len = mb_strlen($reason, 'UTF-8');
+        if ($len < AwardEngine::REASON_MIN || $len > AwardEngine::REASON_MAX) {
+            throw ApiException::validation(['reason' => 'Say why in ' . AwardEngine::REASON_MIN . ' to ' . AwardEngine::REASON_MAX . ' characters.']);
+        }
+        TrainerPin::require($this->k, $this->k->contactId(), $trainerPin, 'trainer_action');
+        unset($trainerPin);
+        $award = AwardEngine::awardManual($this->k->db(), $achievementId, $contactId, $reason, $this->k->eventBase());
+        return ['first' => $person['first'], 'name' => $person['name'], 'badge' => $badge['name'], 'award_id' => (int) ($award['id'] ?? 0)];
+    }
+
+    /** @return list<array{id:int, name:string, description:?string, icon:string, color:string}> */
+    private function badgeRows(): array
+    {
+        if (!AwardEngine::ready($this->k->db())) {
+            return [];
+        }
+        $rows = Db::all($this->k->db(), "SELECT achievement_id, achievement_name, achievement_description, achievement_icon, achievement_color
+            FROM training_achievements WHERE achievement_rule_type = 'manual' AND achievement_active = 1 AND achievement_archived_at IS NULL
+            ORDER BY achievement_sort, achievement_name, achievement_id LIMIT 100");
+        return array_map(static fn(array $r): array => [
+            'id' => (int) $r['achievement_id'],
+            'name' => (string) $r['achievement_name'],
+            'description' => $r['achievement_description'] === null || $r['achievement_description'] === '' ? null : (string) $r['achievement_description'],
+            'icon' => Icons::valid((string) $r['achievement_icon']) ? (string) $r['achievement_icon'] : AwardEngine::DEFAULT_ICON,
+            'color' => preg_match('/^#[0-9A-Fa-f]{6}$/D', (string) $r['achievement_color']) === 1 ? (string) $r['achievement_color'] : AwardEngine::DEFAULT_COLOR,
+        ], $rows);
+    }
+
     /** After a session or evaluation commit: K3's RunService::settleAwaiting for each affected person (closes awaiting_* runs). Best-effort. */
     public static function settle(KioskCtx $k, array $contactIds): void
     {
-        $cls = '\\ITFlow\\Training\\Kiosk\\Learn\\RunService';
-        if (!class_exists($cls) || !method_exists($cls, 'settleAwaiting')) {
-            return;
-        }
         foreach (array_values(array_unique(array_map('intval', $contactIds))) as $cid) {
             if ($cid < 1) {
                 continue;
             }
             try {
-                (new $cls($k))->settleAwaiting($cid);
+                (new RunService($k))->settleAwaiting($cid);
             } catch (\Throwable $e) {
                 error_log('Kiosk trainer settleAwaiting: ' . get_class($e));
             }

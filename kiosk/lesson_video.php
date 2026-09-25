@@ -15,6 +15,7 @@ require __DIR__ . '/includes/guard.php';
 use ITFlow\Training\Core\Db;
 use ITFlow\Training\Kiosk\Core\KioskStrings;
 use ITFlow\Training\Kiosk\Core\RevisionCache;
+use ITFlow\Training\Kiosk\Learn\KioskLearnerView;
 
 $k_session = kiosk_require_session(['learner']);
 $db = $kctx->db();
@@ -44,13 +45,12 @@ $lesson = null;
 $view = null;
 if ($kiosk_video_unsupported) {
     $k_page = $k_message('shell.update_device_title', 'shell.update_device_body', $courseUrl);
-} elseif ($run === null || $uid === '' || $run['trun_status'] !== 'in_progress' || $run['trun_locked_at_utc'] !== null || $run['trun_blocked_reason'] !== null
-    || !class_exists(\ITFlow\Training\Kiosk\Learn\KioskLearnerView::class)) {
+} elseif ($run === null || $uid === '' || $run['trun_status'] !== 'in_progress' || $run['trun_locked_at_utc'] !== null || $run['trun_blocked_reason'] !== null) {
     $k_page = $k_message('course.unavailable_title', 'video.unavailable', $courseUrl);
 } else {
     try {
         $rev = RevisionCache::get($db, (int) $run['trun_revision_id']);
-        $view = \ITFlow\Training\Kiosk\Learn\KioskLearnerView::build($kctx, $rev, (string) $run['trun_language']);
+        $view = KioskLearnerView::build($kctx, $rev, (string) $run['trun_language']);
         foreach ((array) ($view['lessons'] ?? []) as $l) {
             if (is_array($l) && ($l['uid'] ?? '') === $uid) {
                 $lesson = $l;

@@ -16,6 +16,8 @@ use ITFlow\Training\Kiosk\Core\Eligibility;
 use ITFlow\Training\Kiosk\Core\KioskAuth;
 use ITFlow\Training\Kiosk\Core\KTime;
 use ITFlow\Training\Kiosk\Trainer\CourseInfo;
+use ITFlow\Training\Records\CertSecret;
+use ITFlow\Training\Records\CompletionService;
 
 /**
  * Kiosk-channel group sessions (P3 spec §3.7, C-P2-7; lane K5). The ONLY place trainer mode
@@ -42,13 +44,11 @@ use ITFlow\Training\Kiosk\Trainer\CourseInfo;
  * SessionDigest, HashedInsert, TYPES_PHASE2). If Phase 2 later ships kiosk parameters on
  * SessionService (C-P2-7), only the bodies below change.
  *
- * available() is false (trainer mode hides session tiles) until the Phase 2 tables and the
- * Records completion service are both present.
+ * available() is false (trainer mode hides session tiles) on a database without the Phase 2
+ * session and record tables (before 2.6.92).
  */
 final class SessionBridge
 {
-    public const COMPLETION_SERVICE = '\\ITFlow\\Training\\Records\\CompletionService';
-    public const CERT_SECRET = '\\ITFlow\\Training\\Records\\CertSecret';
     public const FINALIZE_ATTEST = 'I led this session and the people listed attended all of it.';
     public const ATTENDANCE = ['present', 'partial', 'absent'];
     public const PRACTICAL = ['not_evaluated', 'pass', 'fail'];
@@ -70,7 +70,7 @@ final class SessionBridge
     {
     }
 
-    /** Phase 2 session tables + the Records completion service are present (memoised per database). */
+    /** The Phase 2 session and record tables are present (memoised per database). */
     public static function available(\mysqli $db): bool
     {
         $res = $db->query('SELECT DATABASE() AS d');
@@ -81,13 +81,9 @@ final class SessionBridge
         }
         $ok = false;
         try {
-            $cs = self::COMPLETION_SERVICE;
             $row = Db::one($db, "SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN
                 ('training_sessions', 'training_session_attendees', 'training_evaluations', 'training_completions', 'training_cert_counters')");
-            $ok = (int) ($row['n'] ?? 0) === 5
-                && class_exists($cs) && method_exists($cs, 'issue') && method_exists($cs, 'tryIssueComponents') && method_exists($cs, 'afterCommit')
-                && class_exists(self::CERT_SECRET)
-                && isset(HashSpecs::DIGESTS['training_sessions'][1]);
+            $ok = (int) ($row['n'] ?? 0) === 5 && isset(HashSpecs::DIGESTS['training_sessions'][1]);
         } catch (\Throwable $e) {
             error_log('Kiosk SessionBridge::available: ' . get_class($e));
             $ok = false;
@@ -556,7 +552,7 @@ final class SessionBridge
             } else {
                 $res = $cs->tryIssueComponents($cid, $courseId, true);
                 if ($res === null) {
-                    $why = method_exists($cs, 'lastPendingReason') ? ($cs->lastPendingReason() ?? 'pending') : 'pending';
+                    $why = $cs->lastPendingReason() ?? 'pending';
                     $pending[] = ['contact_id' => $cid, 'name' => $names[$cid] ?? '', 'reason' => (string) $why];
                 }
             }
@@ -610,10 +606,9 @@ final class SessionBridge
                 error_log('Kiosk SessionBridge::afterCommit completion: ' . get_class($e));
             }
         }
-        $cls = self::COMPLETION_SERVICE;
-        if (method_exists($cls, 'reconcile') && ($opaque['present'] ?? []) !== []) {
+        if (($opaque['present'] ?? []) !== []) {
             try {
-                $cls::reconcile($this->c, $opaque['present'], 'session');
+                CompletionService::reconcile($this->c, $opaque['present'], 'session');
             } catch (\Throwable $e) {
                 error_log('Kiosk SessionBridge::afterCommit reconcile: ' . get_class($e));
             }
@@ -644,14 +639,9 @@ final class SessionBridge
     // internals
     // =========================================================================================
 
-    private function completionService(): object
+    private function completionService(): CompletionService
     {
-        $cls = self::COMPLETION_SERVICE;
-        $secret = self::CERT_SECRET;
-        if (!class_exists($cls) || !class_exists($secret)) {
-            throw new ApiException(503, 'records_unavailable', "Training records aren't available right now.");
-        }
-        return new $cls($this->c, $secret::fromGlobals());
+        return new CompletionService($this->c, CertSecret::fromGlobals());
     }
 
     private function lockedRow(int $tsessionId): array

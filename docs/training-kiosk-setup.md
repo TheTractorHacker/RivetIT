@@ -8,6 +8,8 @@ This guide covers how to turn an iPad or a Windows PC into a **training device**
 - Enrolling gives the device a **start URL**, `https://<site>/kiosk/#d=<token>`:
   - It is shown only once. Re-issuing it (**New start URL**) rotates it.
   - The token is a URL *fragment*, so it never reaches a server or an access log.
+  - The same URL written as `https://<site>/kiosk/?d=<token>` also works (for a kiosk shortcut or policy that drops
+    the `#` part). Prefer the `#d=` form: the `?d=` form reaches the web server, so the token lands in its access log.
   - The page adopts the token with a POST and stores it as a device cookie (`Path=/kiosk/`, `Secure`, `HttpOnly`, `SameSite=Strict`).
   - If the device is already set up as another device, it asks before switching.
 - **Shared device**: the asset is not assigned to anyone. People type their name, tap it, then enter their PIN.

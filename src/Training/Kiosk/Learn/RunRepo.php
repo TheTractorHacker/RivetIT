@@ -113,6 +113,31 @@ final class RunRepo
         return $out;
     }
 
+    /**
+     * The first required lesson that keeps the final exam $examUid locked (409 exam_locked), or null.
+     * §3.4 start step 2: the exam needs every other required lesson done. In a SEQUENTIAL course a
+     * required lesson placed after the exam (an acknowledgment, say) is itself gated behind the exam,
+     * so it is not counted - otherwise the exam and that lesson would lock each other and the learner
+     * could never finish. In a free-order course every other required lesson counts (each can be done
+     * first).
+     */
+    public static function examBlocker(array $doc, array $done, string $examUid): ?string
+    {
+        $sequential = !empty($doc['course']['sequential']);
+        foreach (self::requiredUids($doc) as $u) {
+            if ($u === $examUid) {
+                if ($sequential) {
+                    return null;
+                }
+                continue;
+            }
+            if (!isset($done[$u])) {
+                return $u;
+            }
+        }
+        return null;
+    }
+
     /** @return array<string, true> lesson uids with a lesson completion in the run */
     public static function done(\mysqli $db, int $runId): array
     {

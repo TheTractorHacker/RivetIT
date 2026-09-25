@@ -38,11 +38,16 @@ require_once "../includes/inc_set_timezone.php";
 require_once "../functions.php";
 require_once "../vendor/autoload.php";
 
+use ITFlow\Training\Achievements\AwardEngine;
 use ITFlow\Training\Core\Db;
 use ITFlow\Training\Kiosk\Core\KioskAuth;
 use ITFlow\Training\Kiosk\Core\KioskCtx;
 use ITFlow\Training\Kiosk\Core\KioskSettings;
 use ITFlow\Training\Kiosk\Core\KTime;
+use ITFlow\Training\Kiosk\Learn\AttemptFinalizer;
+use ITFlow\Training\Kiosk\Learn\RunService;
+use ITFlow\Training\Kiosk\Pin\OdooPinVerifier;
+use ITFlow\Training\Kiosk\Pin\PinSourceSync;
 
 $force = in_array('--force', $argv ?? [], true);
 
@@ -104,32 +109,26 @@ $tk_summary[] = 'ended=' . (int) tk_step('sessions', static function () use ($my
 });
 
 // ---- 2. + 3. lazy learner housekeeping (lane K3) -----------------------------------------------
-$tk_finalizer = '\\ITFlow\\Training\\Kiosk\\Learn\\AttemptFinalizer';
-if (class_exists($tk_finalizer) && method_exists($tk_finalizer, 'finalizeExpired')) {
-    $tk_summary[] = 'finalized=' . (int) tk_step('finalize', static fn() => $tk_finalizer::finalizeExpired($mysqli, null, 200, $tk_system));
-}
-$tk_runs = '\\ITFlow\\Training\\Kiosk\\Learn\\RunService';
-if (class_exists($tk_runs) && method_exists($tk_runs, 'settleAwaiting')) {
-    $tk_summary[] = 'settled=' . (int) tk_step('settle', static function () use ($mysqli, $tk_runs): int {
-        $cids = Db::all($mysqli, "SELECT DISTINCT r.trun_contact_id AS cid FROM training_runs r
-              JOIN training_courses c ON c.course_id = r.trun_course_id
-             WHERE r.trun_open_guard = 1
-               AND (r.trun_status IN ('awaiting_signature','awaiting_session','awaiting_evaluation') OR c.course_archived_at IS NOT NULL)
-             ORDER BY r.trun_contact_id LIMIT 500");
-        if ($cids === []) {
-            return 0;
-        }
-        $svc = new $tk_runs(KioskCtx::system($mysqli, (string) ($GLOBALS['config_settings_enc_key'] ?? '')));
-        $n = 0;
-        foreach ($cids as $r) {
-            tk_step('settle#' . (int) $r['cid'], static function () use ($svc, $r, &$n): void {
-                $svc->settleAwaiting((int) $r['cid']);
-                $n++;
-            });
-        }
-        return $n;
-    });
-}
+$tk_summary[] = 'finalized=' . (int) tk_step('finalize', static fn() => AttemptFinalizer::finalizeExpired($mysqli, null, 200, $tk_system));
+$tk_summary[] = 'settled=' . (int) tk_step('settle', static function () use ($mysqli): int {
+    $cids = Db::all($mysqli, "SELECT DISTINCT r.trun_contact_id AS cid FROM training_runs r
+          JOIN training_courses c ON c.course_id = r.trun_course_id
+         WHERE r.trun_open_guard = 1
+           AND (r.trun_status IN ('awaiting_signature','awaiting_session','awaiting_evaluation') OR c.course_archived_at IS NOT NULL)
+         ORDER BY r.trun_contact_id LIMIT 500");
+    if ($cids === []) {
+        return 0;
+    }
+    $svc = new RunService(KioskCtx::system($mysqli, (string) ($GLOBALS['config_settings_enc_key'] ?? '')));
+    $n = 0;
+    foreach ($cids as $r) {
+        tk_step('settle#' . (int) $r['cid'], static function () use ($svc, $r, &$n): void {
+            $svc->settleAwaiting((int) $r['cid']);
+            $n++;
+        });
+    }
+    return $n;
+});
 
 // ---- 4. expired enroll codes and setup tokens --------------------------------------------------
 $tk_summary[] = 'expired=' . (int) tk_step('expire', static function () use ($mysqli): int {
@@ -153,23 +152,14 @@ $tk_stamp_path = $tk_state_base . '.stamp';
 $tk_stamp = @file_get_contents($tk_stamp_path);
 $tk_nightly = $force || ((int) date('G') >= 3 && trim((string) $tk_stamp) !== $tk_today);
 if ($tk_nightly) {
-    $tk_sync = '\\ITFlow\\Training\\Kiosk\\Pin\\PinSourceSync';
-    $tk_verifier = '\\ITFlow\\Training\\Kiosk\\Pin\\OdooPinVerifier';
-    if ($tk_ks->odooPinEnabled && class_exists($tk_sync) && class_exists($tk_verifier)) {
-        $tk_r = tk_step('pin_sources', static fn() => $tk_sync::run($mysqli, new $tk_verifier($mysqli, $tk_ks), $tk_system), true);
+    if ($tk_ks->odooPinEnabled) {
+        $tk_r = tk_step('pin_sources', static fn() => PinSourceSync::run($mysqli, new OdooPinVerifier($mysqli, $tk_ks), $tk_system), true);
         $tk_summary[] = 'pin_sources=' . (is_array($tk_r) ? (int) ($tk_r['changed'] ?? 0) . ' changed' : 'skipped');
     } else {
         $tk_summary[] = 'pin_sources=off';
     }
-    $tk_awards = '\\ITFlow\\Training\\Achievements\\AwardEngine';
-    if (class_exists($tk_awards)) {
-        if (method_exists($tk_awards, 'backfill')) {
-            $tk_summary[] = 'backfill=' . (int) tk_step('backfill', static fn() => $tk_awards::backfill($mysqli));
-        }
-        if (method_exists($tk_awards, 'nightlyStreaks')) {
-            $tk_summary[] = 'streaks=' . (int) tk_step('streaks', static fn() => $tk_awards::nightlyStreaks($mysqli));
-        }
-    }
+    $tk_summary[] = 'backfill=' . (int) tk_step('backfill', static fn() => AwardEngine::backfill($mysqli));
+    $tk_summary[] = 'streaks=' . (int) tk_step('streaks', static fn() => AwardEngine::nightlyStreaks($mysqli));
     if (!$force || (int) date('G') >= 3) {
         @file_put_contents($tk_stamp_path, $tk_today . "\n");
         @chmod($tk_stamp_path, 0600);

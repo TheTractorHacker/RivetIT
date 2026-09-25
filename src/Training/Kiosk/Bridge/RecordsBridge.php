@@ -3,16 +3,23 @@
 namespace ITFlow\Training\Kiosk\Bridge;
 
 use ITFlow\Training\Api\ApiException;
+use ITFlow\Training\Assign\AssignmentService;
+use ITFlow\Training\Compliance\LearnerSummary;
 use ITFlow\Training\Core\Clock;
 use ITFlow\Training\Core\Ctx;
 use ITFlow\Training\Core\Db;
+use ITFlow\Training\Core\RecordsSettings;
 use ITFlow\Training\Core\SystemCtx;
+use ITFlow\Training\People\Roster;
+use ITFlow\Training\People\Scope;
+use ITFlow\Training\Records\CertSecret;
+use ITFlow\Training\Records\CompletionService;
 
 /**
  * The ONLY place Phase 3+4 reaches Phase 2's records, assignments, roster and scope (P3 spec
- * §0.7, §2.6 C-P2-*, §3.7). Every P2 class is named here as a string and used only after
- * class_exists(), so the kiosk runs - with records "unavailable" - on a tree without Phase 2, and a
- * P2 rename changes only this file.
+ * §0.7, §2.6 C-P2-*, §3.7), so a P2 rename changes only this file. Phase 2 ships in the same
+ * tree (2.6.92), so its classes are called directly; available() still probes the tables, and a
+ * database that has not run 2.6.92 reports records "unavailable" (503 records_unavailable).
  *
  * P2 services are constructed with a system Ctx (Core\SystemCtx, user 0, level 3) whose base URL
  * matches the calling context; the ledger actor of the records they write comes from the input
@@ -25,14 +32,6 @@ use ITFlow\Training\Core\SystemCtx;
  */
 final class RecordsBridge
 {
-    private const COMPLETION = 'ITFlow\\Training\\Records\\CompletionService';
-    private const CERT_SECRET = 'ITFlow\\Training\\Records\\CertSecret';
-    private const ASSIGNMENTS = 'ITFlow\\Training\\Assign\\AssignmentService';
-    private const SUMMARY = 'ITFlow\\Training\\Compliance\\LearnerSummary';
-    private const ROSTER = 'ITFlow\\Training\\People\\Roster';
-    private const SCOPE = 'ITFlow\\Training\\People\\Scope';
-    private const RECORDS_SETTINGS = 'ITFlow\\Training\\Core\\RecordsSettings';
-
     /** @var array<int, bool> available() per connection */
     private static array $available = [];
     /** @var array<int, bool> roster table present per connection */
@@ -44,18 +43,16 @@ final class RecordsBridge
     {
     }
 
-    /** Phase 2 records are usable: its tables exist AND its CompletionService is deployed (memoised per connection). */
+    /** Phase 2 records are usable: its 2.6.92 tables exist (memoised per connection). */
     public static function available(\mysqli $db): bool
     {
         $id = spl_object_id($db);
         if (!array_key_exists($id, self::$available)) {
             $ok = false;
             try {
-                if (class_exists(self::COMPLETION) && class_exists(self::CERT_SECRET)) {
-                    $row = Db::one($db, "SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()
-                        AND TABLE_NAME IN ('training_completions', 'training_assignments', 'training_completion_voids')");
-                    $ok = (int) ($row['n'] ?? 0) === 3;
-                }
+                $row = Db::one($db, "SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME IN ('training_completions', 'training_assignments', 'training_completion_voids')");
+                $ok = (int) ($row['n'] ?? 0) === 3;
             } catch (\Throwable $e) {
                 error_log('Kiosk RecordsBridge::available: ' . get_class($e));
                 $ok = false;
@@ -76,8 +73,8 @@ final class RecordsBridge
 
     /**
      * Roster eligibility as SQL over a contacts alias: {join, where, types, params}. P2's
-     * Roster::JOIN/ELIGIBLE (alias c) re-aliased; without P2 the fallback is "not archived and in
-     * a department".
+     * Roster::JOIN/ELIGIBLE (alias c) re-aliased; before 2.6.92 (no training_roster table) the
+     * fallback is "not archived and in a department".
      *
      * @return array{join:string, where:string, types:string, params:list<mixed>}
      */
@@ -87,10 +84,9 @@ final class RecordsBridge
             throw new \InvalidArgumentException('RecordsBridge::eligibleSql: bad alias');
         }
         if ($this->rosterReady()) {
-            $cls = self::ROSTER;
             $rAlias = 'tr_r_' . $alias;
-            $join = str_replace(['tr_r', 'c.contact_'], [$rAlias, $alias . '.contact_'], (string) $cls::JOIN);
-            $where = str_replace(['tr_r.', 'c.contact_'], [$rAlias . '.', $alias . '.contact_'], (string) $cls::ELIGIBLE);
+            $join = str_replace(['tr_r', 'c.contact_'], [$rAlias, $alias . '.contact_'], Roster::JOIN);
+            $where = str_replace(['tr_r.', 'c.contact_'], [$rAlias . '.', $alias . '.contact_'], Roster::ELIGIBLE);
             return ['join' => $join, 'where' => '(' . $where . ')', 'types' => '', 'params' => []];
         }
         return ['join' => '', 'where' => "($alias.contact_archived_at IS NULL AND $alias.contact_client_id > 0)", 'types' => '', 'params' => []];
@@ -102,8 +98,7 @@ final class RecordsBridge
             return false;
         }
         if ($this->rosterReady()) {
-            $cls = self::ROSTER;
-            return (bool) $cls::isEligible($this->c->db, $cid);
+            return Roster::isEligible($this->c->db, $cid);
         }
         return Db::one($this->c->db, 'SELECT 1 AS ok FROM contacts WHERE contact_id = ? AND contact_archived_at IS NULL AND contact_client_id > 0', 'i', [$cid]) !== null;
     }
@@ -220,12 +215,11 @@ final class RecordsBridge
     /** P2's one-contact reconcile after a kiosk sign-in (trigger 'kiosk', lock wait 1 s). Outside any transaction; never throws. */
     public function reconcileContact(int $cid): void
     {
-        $cls = self::ASSIGNMENTS;
-        if ($cid < 1 || Db::depth() !== 0 || !self::available($this->c->db) || !class_exists($cls)) {
+        if ($cid < 1 || Db::depth() !== 0 || !self::available($this->c->db)) {
             return;
         }
         try {
-            (new $cls($this->sys()))->reconcile([$cid], 'kiosk', 1);
+            (new AssignmentService($this->sys()))->reconcile([$cid], 'kiosk', 1);
         } catch (\Throwable $e) {
             error_log('Kiosk RecordsBridge::reconcileContact: ' . get_class($e));
         }
@@ -238,12 +232,10 @@ final class RecordsBridge
      */
     public function learnerSummary(int $cid): array
     {
-        $cls = self::SUMMARY;
-        $rs = self::RECORDS_SETTINGS;
-        if (!self::available($this->c->db) || !class_exists($cls) || !class_exists($rs)) {
+        if (!self::available($this->c->db)) {
             return ['available' => false];
         }
-        $out = $cls::forContact($this->c->db, $cid, $rs::fromDb($this->c->db), Clock::todayLocal());
+        $out = LearnerSummary::forContact($this->c->db, $cid, RecordsSettings::fromDb($this->c->db), Clock::todayLocal());
         return ['available' => true] + $out;
     }
 
@@ -435,60 +427,27 @@ final class RecordsBridge
     // ---- agent scope --------------------------------------------------------------------------------
 
     /**
-     * Agent actions on one person: 404 unless the contact is in the user's department scope.
-     * P2's People\Scope when deployed; else fail-closed: admin or level 3 sees all, otherwise only
-     * departments with a user_client_permissions row (none => nothing).
+     * Agent actions on one person: 404 unless the contact is in the user's department scope
+     * (P2's People\Scope, fail-closed: admin or level 3 sees all, otherwise only departments with
+     * a user_client_permissions row; none => nothing).
      */
     public function assertContactInScope(Ctx $user, int $cid): void
     {
-        $cls = self::SCOPE;
-        if (class_exists($cls)) {
-            $cls::forCtx($user)->assertContact($user->db, $cid);
-            return;
-        }
-        $row = $cid > 0 ? Db::one($user->db, 'SELECT contact_client_id FROM contacts WHERE contact_id = ?', 'i', [$cid]) : null;
-        if ($row === null) {
-            throw ApiException::notFound('That person was not found.');
-        }
-        $ids = $this->scopeClientIds($user);
-        if ($ids !== null && !in_array((int) $row['contact_client_id'], $ids, true)) {
-            throw ApiException::notFound('That person was not found.');
-        }
+        Scope::forCtx($user)->assertContact($user->db, $cid);
     }
 
     /** @return list<int>|null null = every department; [] = none */
     public function scopeClientIds(Ctx $user): ?array
     {
-        $cls = self::SCOPE;
-        if (class_exists($cls)) {
-            $s = $cls::forCtx($user);
-            return $s->isAll() ? null : array_values(array_map('intval', $s->clientIds()));
-        }
-        if ($user->isAdmin || $user->level >= 3) {
-            return null;
-        }
-        if ($user->userId < 1) {
-            return [];
-        }
-        $ids = [];
-        foreach (Db::all($user->db, 'SELECT client_id FROM user_client_permissions WHERE user_id = ? ORDER BY client_id', 'i', [$user->userId]) as $r) {
-            if ((int) $r['client_id'] > 0) {
-                $ids[(int) $r['client_id']] = (int) $r['client_id'];
-            }
-        }
-        return array_values($ids);
+        $s = Scope::forCtx($user);
+        return $s->isAll() ? null : array_values(array_map('intval', $s->clientIds()));
     }
 
     // ---- internals ------------------------------------------------------------------------------------
 
-    private function completionService(): object
+    private function completionService(): CompletionService
     {
-        $cls = self::COMPLETION;
-        $secret = self::CERT_SECRET;
-        if (!class_exists($cls) || !class_exists($secret)) {
-            throw new ApiException(503, 'records_unavailable', 'Training records are not available yet. Your work is saved - see your trainer.');
-        }
-        return new $cls($this->sys(), $secret::fromGlobals());
+        return new CompletionService($this->sys(), CertSecret::fromGlobals());
     }
 
     /** The system Ctx P2 services run with (same connection, same base URL as the caller). */
@@ -503,9 +462,6 @@ final class RecordsBridge
 
     private function rosterReady(): bool
     {
-        if (!class_exists(self::ROSTER)) {
-            return false;
-        }
         $id = spl_object_id($this->c->db);
         if (!array_key_exists($id, self::$roster)) {
             $row = Db::one($this->c->db, "SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'training_roster'");

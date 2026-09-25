@@ -4,12 +4,13 @@ namespace ITFlow\Training\Achievements;
 
 use ITFlow\Training\Core\Ctx;
 use ITFlow\Training\Core\SystemCtx;
+use ITFlow\Training\Kiosk\Bridge\RecordsBridge;
 
 /**
  * Where the award engine gets its RecordsFacts (P3 spec §3.5, §3.7, §0.7).
  *
- * The facts come from K3's \ITFlow\Training\Kiosk\Bridge\RecordsBridge when that class exists
- * and reports available() (Phase 2 records present). Otherwise get() returns null and the
+ * The facts come from K3's \ITFlow\Training\Kiosk\Bridge\RecordsBridge when it reports
+ * available() (the Phase 2 record tables exist). Otherwise get() returns null and the
  * engine skips every completion-based rule: exam rules and manual awards still work, and the
  * nightly backfill awards whatever was missed once the records arrive (the unique key absorbs
  * repeats).
@@ -19,8 +20,6 @@ use ITFlow\Training\Core\SystemCtx;
  */
 final class AwardFacts
 {
-    public const BRIDGE = '\\ITFlow\\Training\\Kiosk\\Bridge\\RecordsBridge';
-
     private static ?RecordsFacts $override = null;
     private static bool $overridden = false;
 
@@ -29,11 +28,10 @@ final class AwardFacts
         if (self::$overridden) {
             return self::$override;
         }
-        $bridge = self::BRIDGE;
-        if (!class_exists($bridge) || !$bridge::available($db)) {
+        if (!RecordsBridge::available($db)) {
             return null;
         }
-        return new BridgeRecordsFacts(new $bridge($c ?? SystemCtx::make($db, 0, 'training_awards')));
+        return new BridgeRecordsFacts(new RecordsBridge($c ?? SystemCtx::make($db, 0, 'training_awards')));
     }
 
     /** Tests only: every later get() returns $facts (null = "records unavailable"). */

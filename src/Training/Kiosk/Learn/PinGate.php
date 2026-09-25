@@ -5,6 +5,7 @@ namespace ITFlow\Training\Kiosk\Learn;
 use ITFlow\Training\Api\ApiException;
 use ITFlow\Training\Kiosk\Core\KioskAuth;
 use ITFlow\Training\Kiosk\Core\KioskCtx;
+use ITFlow\Training\Kiosk\Pin\PinService;
 
 /**
  * The learner engine's PIN re-entry (ack_sign, attest) through lane K2's frozen
@@ -14,23 +15,17 @@ use ITFlow\Training\Kiosk\Core\KioskCtx;
  * stepUp() returns the verified source for the evidence ({source, odoo_employee_id}) or throws the
  * §4.4 error for the PinResult status. A hard lock on the session's own contact also ends the
  * kiosk session (PinService does it; repeated here idempotently) and clears the cookie.
- * Without K2's PinService (a partial deploy) it refuses with 503 signin_unavailable.
  */
 final class PinGate
 {
-    public const PIN_SERVICE = 'ITFlow\\Training\\Kiosk\\Pin\\PinService';
-    public const MIN_RESPONSE_MS = 800;
+    public const MIN_RESPONSE_MS = PinService::MIN_RESPONSE_MS;
 
     /** @return array{source:string, odoo_employee_id:?int} */
     public static function stepUp(KioskCtx $k, mixed $pin, string $purpose): array
     {
-        $cls = self::PIN_SERVICE;
-        if (!class_exists($cls)) {
-            throw new ApiException(503, 'signin_unavailable', 'PIN check is not available right now. See your trainer.', [], ['reason' => 'disabled']);
-        }
-        $res = (new $cls($k))->stepUp($k->contactId(), $pin, $purpose);
+        $res = (new PinService($k))->stepUp($k->contactId(), $pin, $purpose);
         unset($pin);
-        $status = (string) ($res->status ?? 'unavailable');
+        $status = $res->status;
         if ($status === 'ok') {
             $src = (string) ($res->source ?? ($k->ksess['ksess_pin_source'] ?? 'local'));
             $emp = $res->odooEmployeeId ?? ($k->ksess['ksess_odoo_employee_id'] ?? null);
@@ -44,7 +39,7 @@ final class PinGate
             }
             KioskAuth::clearSessionCookie();
         }
-        throw self::error($status, $res->triesLeft ?? null, $res->lockMinutes ?? null, $res->reason ?? null);
+        throw self::error($status, $res->triesLeft, $res->lockMinutes, $res->reason);
     }
 
     /** The §4.4 error for a non-ok PinResult status. */
@@ -65,17 +60,9 @@ final class PinGate
         };
     }
 
-    /** Pads a PIN-verifying response to >= 800 ms since the request started (PinService::pad when deployed). */
+    /** Pads a PIN-verifying response to >= 800 ms since the request started. */
     public static function pad(KioskCtx $k): void
     {
-        $cls = self::PIN_SERVICE;
-        if (class_exists($cls) && method_exists($cls, 'pad')) {
-            $cls::pad($k->startedNs);
-            return;
-        }
-        $elapsedMs = (hrtime(true) - $k->startedNs) / 1e6;
-        if ($elapsedMs < self::MIN_RESPONSE_MS) {
-            usleep((int) ((self::MIN_RESPONSE_MS - $elapsedMs) * 1000));
-        }
+        PinService::pad($k->startedNs);
     }
 }

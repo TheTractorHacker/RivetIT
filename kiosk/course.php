@@ -14,8 +14,12 @@ require __DIR__ . '/includes/bootstrap.php';
 require __DIR__ . '/includes/guard.php';
 
 use ITFlow\Training\Core\Db;
+use ITFlow\Training\Kiosk\Bridge\RecordsBridge;
 use ITFlow\Training\Kiosk\Core\KioskStrings;
 use ITFlow\Training\Kiosk\Core\RevisionCache;
+use ITFlow\Training\Kiosk\Learn\AttemptFinalizer;
+use ITFlow\Training\Kiosk\Learn\KioskLearnerView;
+use ITFlow\Training\Kiosk\Learn\RunService;
 
 $k_session = kiosk_require_session(['learner']);
 $db = $kctx->db();
@@ -42,42 +46,38 @@ $loadRun = static fn(): ?array => Db::one($db, 'SELECT '
     'ii', [$cid, $courseId]);
 $run = $loadRun();
 try {
-    if ($run !== null && class_exists(\ITFlow\Training\Kiosk\Learn\AttemptFinalizer::class)) {
-        \ITFlow\Training\Kiosk\Learn\AttemptFinalizer::finalizeExpired($db, (int) $run['trun_id'], 50, $kctx->eventBase());
+    if ($run !== null) {
+        AttemptFinalizer::finalizeExpired($db, (int) $run['trun_id'], 50, $kctx->eventBase());
     }
-    if (class_exists(\ITFlow\Training\Kiosk\Learn\RunService::class)) {
-        (new \ITFlow\Training\Kiosk\Learn\RunService($kctx))->settleAwaiting($cid);
-    }
+    (new RunService($kctx))->settleAwaiting($cid);
 } catch (\Throwable $e) {
     error_log('Kiosk course.php housekeeping: ' . get_class($e));
 }
 $run = $loadRun();
 
-$notReady = !class_exists(\ITFlow\Training\Kiosk\Learn\KioskLearnerView::class);
+$notReady = false;
 $view = null;
 $state = null;
-if (!$notReady) {
-    try {
-        $revId = $run !== null ? (int) $run['trun_revision_id'] : (int) $course['course_current_revision_id'];
-        $rev = RevisionCache::get($db, $revId);
-        $lang = $run !== null ? (string) $run['trun_language'] : $kctx->lang;
-        $view = \ITFlow\Training\Kiosk\Learn\KioskLearnerView::build($kctx, $rev, $lang);
-        if ($run !== null && class_exists(\ITFlow\Training\Kiosk\Learn\RunService::class)) {
-            $state = (new \ITFlow\Training\Kiosk\Learn\RunService($kctx))->state($run);
-        }
-    } catch (\Throwable $e) {
-        error_log('Kiosk course.php view: ' . get_class($e));
-        $notReady = true;
-        $view = null;
+try {
+    $revId = $run !== null ? (int) $run['trun_revision_id'] : (int) $course['course_current_revision_id'];
+    $rev = RevisionCache::get($db, $revId);
+    $lang = $run !== null ? (string) $run['trun_language'] : $kctx->lang;
+    $view = KioskLearnerView::build($kctx, $rev, $lang);
+    if ($run !== null) {
+        $state = (new RunService($kctx))->state($run);
     }
+} catch (\Throwable $e) {
+    error_log('Kiosk course.php view: ' . get_class($e));
+    $notReady = true;
+    $view = null;
 }
 
 // Assignment facts and a valid record (P2, through the bridge only).
 $assignment = null;
 $completed = null;
 try {
-    if (class_exists(\ITFlow\Training\Kiosk\Bridge\RecordsBridge::class) && \ITFlow\Training\Kiosk\Bridge\RecordsBridge::available($db)) {
-        $bridge = new \ITFlow\Training\Kiosk\Bridge\RecordsBridge($kctx->core);
+    if (RecordsBridge::available($db)) {
+        $bridge = new RecordsBridge($kctx->core);
         $sum = $bridge->learnerSummary($cid);
         foreach (array_merge((array) ($sum['required'] ?? []), (array) ($sum['optional'] ?? [])) as $it) {
             if ((int) ($it['course_id'] ?? 0) === $courseId) {

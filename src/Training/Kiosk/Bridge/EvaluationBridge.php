@@ -10,6 +10,8 @@ use ITFlow\Training\Core\HashedInsert;
 use ITFlow\Training\Core\RecordsMutex;
 use ITFlow\Training\Core\Text;
 use ITFlow\Training\Kiosk\Core\KTime;
+use ITFlow\Training\Records\CertSecret;
+use ITFlow\Training\Records\CompletionService;
 
 /**
  * Kiosk practical evaluations (P3 spec §3.7, C-P2-7; lane K5). The ONLY place trainer mode
@@ -46,11 +48,9 @@ final class EvaluationBridge
         }
         $ok = false;
         try {
-            $cs = SessionBridge::COMPLETION_SERVICE;
             $row = Db::one($db, "SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN
                 ('training_evaluations', 'training_completions', 'training_cert_counters')");
-            $ok = (int) ($row['n'] ?? 0) === 3 && class_exists($cs) && method_exists($cs, 'tryIssueComponents') && method_exists($cs, 'afterCommit')
-                && class_exists(SessionBridge::CERT_SECRET);
+            $ok = (int) ($row['n'] ?? 0) === 3;
         } catch (\Throwable $e) {
             error_log('Kiosk EvaluationBridge::available: ' . get_class($e));
             $ok = false;
@@ -144,12 +144,10 @@ final class EvaluationBridge
         $pending = null;
         $opaque = null;
         if ($result === 'pass') {
-            $cls = SessionBridge::COMPLETION_SERVICE;
-            $secret = SessionBridge::CERT_SECRET;
-            $cs = new $cls($this->c, $secret::fromGlobals());
+            $cs = new CompletionService($this->c, CertSecret::fromGlobals());
             $issued = $cs->tryIssueComponents($contactId, $courseId, true);
             if ($issued === null) {
-                $pending = method_exists($cs, 'lastPendingReason') ? ($cs->lastPendingReason() ?? 'pending') : 'pending';
+                $pending = $cs->lastPendingReason() ?? 'pending';
             } else {
                 foreach ($issued['events'] ?? [] as $ev) {
                     $events[] = $ev;
@@ -171,9 +169,7 @@ final class EvaluationBridge
             return;
         }
         try {
-            $cls = SessionBridge::COMPLETION_SERVICE;
-            $secret = SessionBridge::CERT_SECRET;
-            (new $cls($this->c, $secret::fromGlobals()))->afterCommit($r['opaque']);
+            (new CompletionService($this->c, CertSecret::fromGlobals()))->afterCommit($r['opaque']);
         } catch (\Throwable $e) {
             error_log('Kiosk EvaluationBridge::afterCommit: ' . get_class($e));
         }

@@ -27,4 +27,6 @@ return [
     'checkin_sessions'    => ['handler' => TrainerActions::class . '::checkinSessions', 'method' => 'GET', 'auth' => ['device']],
     'checkin_self'        => ['handler' => TrainerActions::class . '::checkinSelf', 'method' => 'POST', 'auth' => ['device']],
     'handoff_cancel'      => ['handler' => TrainerActions::class . '::handoffCancel', 'method' => 'POST', 'auth' => ['handoff']],
+    'trainer_badges'      => ['handler' => TrainerActions::class . '::trainerBadges', 'method' => 'GET', 'auth' => ['trainer']],
+    'trainer_award'       => ['handler' => TrainerActions::class . '::trainerAward', 'method' => 'POST', 'auth' => ['trainer']],
 ];

@@ -90,6 +90,15 @@ final class TrainerBridge
         return $t !== null && $t['active'] && ($t['can_train'] || $t['can_evaluate']);
     }
 
+    /** Is there at least one active trainer or evaluator (the sign-in page shows its "Trainer sign-in" link only then)? */
+    public function anyActive(): bool
+    {
+        if (!self::tablesReady($this->db)) {
+            return false;
+        }
+        return Db::one($this->db, 'SELECT 1 AS ok FROM training_trainers WHERE trainer_active = 1 AND (trainer_can_train = 1 OR trainer_can_evaluate = 1) LIMIT 1') !== null;
+    }
+
     /** May this trainer train / evaluate this course? */
     public function canCourse(array $t, int $courseId): bool
     {

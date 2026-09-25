@@ -337,3 +337,20 @@ realistically, months of further work, not a few more sessions.
   `CompletionService` before the first external record); whether a later passing practical evaluation after a blended
   session record should issue a second blended record (currently it does, read as a re-evaluation).
   Runbook (R7): a supervisor's `user_client_permissions` rows narrow their WHOLE ITFlow access, not only Training.
+- 2026-09-25: **Training (LMS) Phases 3+4** integrated on branch `lms-phase34` (spec `lms-phase34-spec.md`; lanes K1
+  platform + schema, K2 identity/devices/PINs, K3 learner engine + records bridge, K4 learner UI, K5 trainer mode, K6
+  achievement awards). DB 2.6.92 -> 2.6.93 (13 new tables, 21 settings columns). **Migration note: apply only through
+  Admin > Update > Update Database**, then check 2.6.93, 58 `training_%` tables and 47 `config_training_*` columns.
+  Verified on a schema-only scratch DB with generated fixtures (no live rows, no Odoo call; Odoo-PIN paths only against a
+  fake connector): every lane's suite on the merged tree, a real-stack browser end-to-end at iPad 1024x768/768x1024 and
+  Windows 1366x768 (start URL -> name -> PIN -> Learning Center -> course -> exam -> ack -> sign -> LMS certificate +
+  badges; document acknowledgment; trainer badge; YouTube lesson page) with zero console/CSP errors, deep ledger verify
+  ok, fresh-install `db.sql` = migrated schema (only the pre-existing `config_module_enable_accounting` default drift),
+  migration re-run idempotent.
+  **Ops still to do after the merge (spec §7.11, §6):** the live vhost `location ^~ /kiosk/includes/ { deny all; }`
+  (curl -> 403), `/var/log/itflow_mw_training_kiosk.log` (www-data) and `/etc/cron.d/mw-itflow-training-kiosk` (every
+  10 min, line in the cron file header), `$config_settings_enc_key` present in the live `config.php`.
+  **Before the pilot:** issue setup slips for the pilot crew and trainers; add trainer rows (People > Trainers); enroll
+  1-2 iPads (iPadOS >= 16.4, inside the Home Screen app) and the Windows PC (Edge `--kiosk <start URL>
+  --edge-kiosk-type=public-browsing`). Leave Odoo-PIN sign-in OFF until the A22 production switch, a clean "Check
+  employee links" and Refresh PIN sources (spec §9.3 step 7).

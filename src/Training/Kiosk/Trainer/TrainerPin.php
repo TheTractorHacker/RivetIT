@@ -4,6 +4,7 @@ namespace ITFlow\Training\Kiosk\Trainer;
 
 use ITFlow\Training\Api\ApiException;
 use ITFlow\Training\Kiosk\Core\KioskCtx;
+use ITFlow\Training\Kiosk\Pin\PinService;
 
 /**
  * PIN step-ups for trainer mode (P3 spec §3.2 "stepUp", §3.6, §8 "Trainer power").
@@ -18,23 +19,18 @@ use ITFlow\Training\Kiosk\Core\KioskCtx;
  */
 final class TrainerPin
 {
-    public const PIN_SERVICE = '\\ITFlow\\Training\\Kiosk\\Pin\\PinService';
-    public const MIN_RESPONSE_MS = 800;
+    public const MIN_RESPONSE_MS = PinService::MIN_RESPONSE_MS;
 
-    /** True when lane K2's PIN service is in this build. */
+    /** Lane K2's PIN service ships in the same build. */
     public static function available(): bool
     {
-        return class_exists(self::PIN_SERVICE);
+        return true;
     }
 
     /** Re-enter a PIN or throw the §4.4 error for the result. */
     public static function require(KioskCtx $k, int $contactId, mixed $pin, string $purpose): void
     {
-        if (!self::available()) {
-            throw new ApiException(503, 'signin_unavailable', 'PIN checks are not available on this device yet.', [], ['reason' => 'disabled']);
-        }
-        $cls = self::PIN_SERVICE;
-        $result = (new $cls($k))->stepUp($contactId, $pin, $purpose);
+        $result = (new PinService($k))->stepUp($contactId, $pin, $purpose);
         unset($pin);
         self::assertOk($result);
     }
@@ -72,17 +68,9 @@ final class TrainerPin
         }
     }
 
-    /** Pads a PIN-verifying response to >= 800 ms from the request start (K2's pad when present). */
+    /** Pads a PIN-verifying response to >= 800 ms from the request start (K2's pad). */
     public static function pad(KioskCtx $k): void
     {
-        $cls = self::PIN_SERVICE;
-        if (class_exists($cls) && method_exists($cls, 'pad')) {
-            $cls::pad($k->startedNs);
-            return;
-        }
-        $elapsedMs = (hrtime(true) - $k->startedNs) / 1e6;
-        if ($elapsedMs < self::MIN_RESPONSE_MS) {
-            usleep((int) ((self::MIN_RESPONSE_MS - $elapsedMs) * 1000));
-        }
+        PinService::pad($k->startedNs);
     }
 }

@@ -408,15 +408,17 @@
         }
 
         /**
-         * Kiosk: a final exam waits for the required lessons before it (server rule exam_locked). Lessons
-         * placed AFTER the exam (an acknowledgment, say) are not counted here, so a sequential course
-         * never shows both locked; the server's answer (exam_locked) is shown if it disagrees.
+         * Kiosk: the final exam waits for every other required lesson (server rule exam_locked,
+         * RunRepo::examBlocker). In a sequential course a lesson placed AFTER the exam (an
+         * acknowledgment, say) is gated behind the exam, so it is not counted and the two never lock
+         * each other; in a free-order course every other required lesson counts.
          */
         function examWaits(uid) {
             var l = byUid[uid];
             if (!isKiosk || !l || !l.quiz || l.quiz.role !== 'exam' || progress.done[uid]) { return false; }
             var idx = order.indexOf(uid);
-            return order.some(function (u, i) { return i < idx && byUid[u].required && !progress.done[u]; });
+            var seq = !!view.course.sequential;
+            return order.some(function (u, i) { return u !== uid && (!seq || i < idx) && byUid[u] && byUid[u].required && !progress.done[u]; });
         }
         function isLocked(uid) {
             var l = byUid[uid];

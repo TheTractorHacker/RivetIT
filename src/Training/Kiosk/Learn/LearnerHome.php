@@ -2,11 +2,13 @@
 
 namespace ITFlow\Training\Kiosk\Learn;
 
+use ITFlow\Training\Achievements\AwardRepository;
 use ITFlow\Training\Core\Clock;
 use ITFlow\Training\Core\Db;
 use ITFlow\Training\Kiosk\Bridge\RecordsBridge;
 use ITFlow\Training\Kiosk\Core\KioskCtx;
 use ITFlow\Training\Kiosk\Core\RevisionCache;
+use ITFlow\Training\Kiosk\Pin\PinService;
 
 /**
  * The Learning Center's data (P3 spec §5.3, kiosk/me.php). Runs the lazy housekeeping first
@@ -30,7 +32,6 @@ final class LearnerHome
 {
     public const COMPLETED_SHOWN = 3;
     public const AVAILABLE_MAX = 12;
-    public const NOTICE_DAYS = 14;
 
     public static function build(KioskCtx $k): array
     {
@@ -99,7 +100,7 @@ final class LearnerHome
             'person' => $person,
             'today' => Clock::todayLocal(),
             'records_available' => $available,
-            'notices' => self::notices($db, $cid),
+            'notices' => self::notices($db, (int) $k->ksessId(), $cid),
             'counts' => [
                 'completed' => $available ? (int) ($summary['counts']['completed'] ?? count($completed)) : 0,
                 'in_progress' => $inProgress,
@@ -227,37 +228,32 @@ final class LearnerHome
         return $out;
     }
 
-    /** PIN notices from the credential row (K2's table): a reset by an agent, or an Odoo PIN change, in the last NOTICE_DAYS. */
-    private static function notices(\mysqli $db, int $cid): array
+    /** PIN notices through K2 (PinService::noticesForKsess): a reset by an agent or an Odoo PIN change, flagged at this session's sign-in. */
+    private static function notices(\mysqli $db, int $ksessId, int $cid): array
     {
-        try {
-            $row = Db::one($db, 'SELECT tcred_reset_notice_at_utc, tcred_reset_by_label, tcred_odoo_fp_changed_at_utc FROM training_learner_credentials
-                WHERE tcred_contact_id = ?', 'i', [$cid]);
-        } catch (\mysqli_sql_exception) {
-            return [];
-        }
-        if ($row === null) {
-            return [];
-        }
-        $since = Clock::addDays(Clock::todayLocal(), -self::NOTICE_DAYS);
         $out = [];
-        if ($row['tcred_reset_notice_at_utc'] !== null && Clock::localDate((string) $row['tcred_reset_notice_at_utc']) >= $since) {
-            $out[] = ['kind' => 'pin_reset', 'on' => Clock::localDate((string) $row['tcred_reset_notice_at_utc']), 'by' => (string) ($row['tcred_reset_by_label'] ?? '')];
-        }
-        if ($row['tcred_odoo_fp_changed_at_utc'] !== null && Clock::localDate((string) $row['tcred_odoo_fp_changed_at_utc']) >= $since) {
-            $out[] = ['kind' => 'pin_changed', 'on' => Clock::localDate((string) $row['tcred_odoo_fp_changed_at_utc'])];
+        try {
+            foreach (PinService::noticesForKsess($db, $ksessId, $cid) as $n) {
+                if (!is_string($n['at_utc'] ?? null) || $n['at_utc'] === '') {
+                    continue;
+                }
+                $on = Clock::localDate((string) $n['at_utc']);
+                if (($n['type'] ?? '') === 'reset') {
+                    $out[] = ['kind' => 'pin_reset', 'on' => $on, 'by' => (string) ($n['by'] ?? '')];
+                } elseif (($n['type'] ?? '') === 'fp_changed') {
+                    $out[] = ['kind' => 'pin_changed', 'on' => $on];
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('Kiosk LearnerHome notices: ' . get_class($e));
         }
         return $out;
     }
 
     private static function awards(\mysqli $db, int $cid, string $lang, string $fn): array
     {
-        $cls = 'ITFlow\\Training\\Achievements\\AwardRepository';
-        if (!class_exists($cls)) {
-            return [];
-        }
         try {
-            return array_values($cls::$fn($db, $cid, $lang));
+            return array_values($fn === 'progress' ? AwardRepository::progress($db, $cid, $lang) : AwardRepository::forContact($db, $cid, $lang));
         } catch (\Throwable $e) {
             error_log('Kiosk LearnerHome awards: ' . get_class($e));
             return [];

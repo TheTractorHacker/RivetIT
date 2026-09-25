@@ -5,14 +5,16 @@ namespace ITFlow\Training\Achievements;
 use ITFlow\Training\Api\ApiException;
 use ITFlow\Training\Core\Ctx;
 use ITFlow\Training\Core\Db;
+use ITFlow\Training\Core\SystemCtx;
+use ITFlow\Training\Kiosk\Bridge\RecordsBridge;
 
 /**
  * Who an agent may see and award, and who the nightly jobs look at (P3 spec §4.3, §8 "Agent side").
  *
  * Department scope goes through K3's RecordsBridge (assertContactInScope / scopeClientIds, which
- * wrap Phase 2's department scope) when that class exists. Without it the same fail-closed rule is
- * applied here: an admin or module_training level 3 sees every department; anyone else sees
- * only the departments in their user_client_permissions rows, and no rows means nobody.
+ * wrap Phase 2's fail-closed department scope): an admin or module_training level 3 sees every
+ * department; anyone else sees only the departments in their user_client_permissions rows, and
+ * no rows means nobody.
  * Contacts outside the scope are a 404, never a 403, so an id cannot be probed.
  *
  * Eligible contacts (nightly backfill and streaks) come from RecordsBridge::eligibleSql() when
@@ -23,23 +25,8 @@ final class AwardScope
     /** @return list<int>|null null = every department, [] = none */
     public static function clientIds(Ctx $c): ?array
     {
-        $bridge = self::bridge($c);
-        if ($bridge !== null) {
-            $ids = $bridge->scopeClientIds($c);
-            return $ids === null ? null : array_values(array_unique(array_map('intval', (array) $ids)));
-        }
-        if ($c->isAdmin || $c->level >= 3) {
-            return null;
-        }
-        if ($c->userId < 1) {
-            return [];
-        }
-        return array_map(static fn($r) => (int) $r['client_id'], Db::all(
-            $c->db,
-            'SELECT client_id FROM user_client_permissions WHERE user_id = ? ORDER BY client_id',
-            'i',
-            [$c->userId]
-        ));
+        $ids = (new RecordsBridge($c))->scopeClientIds($c);
+        return $ids === null ? null : array_values(array_unique(array_map('intval', $ids)));
     }
 
     /**
@@ -51,20 +38,10 @@ final class AwardScope
         if ($contactId < 1) {
             throw ApiException::notFound('That person was not found.');
         }
-        $bridge = self::bridge($c);
-        if ($bridge !== null) {
-            $bridge->assertContactInScope($c, $contactId);
-        }
+        (new RecordsBridge($c))->assertContactInScope($c, $contactId);
         $row = Db::one($c->db, 'SELECT contact_id, contact_name, contact_client_id, contact_archived_at FROM contacts WHERE contact_id = ?', 'i', [$contactId]);
         if ($row === null) {
             throw ApiException::notFound('That person was not found.');
-        }
-        if ($bridge === null) {
-            $scope = self::clientIds($c);
-            $client = (int) $row['contact_client_id'];
-            if ($scope !== null && ($client < 1 || !in_array($client, $scope, true))) {
-                throw ApiException::notFound('That person was not found.');
-            }
         }
         return [
             'contact_id' => (int) $row['contact_id'],
@@ -125,24 +102,14 @@ final class AwardScope
     private static function eligible(\mysqli $db, string $a): array
     {
         $fallback = ['', "$a.contact_archived_at IS NULL AND $a.contact_client_id > 0", '', []];
-        $bridge = AwardFacts::BRIDGE;
         try {
-            if (class_exists($bridge) && $bridge::available($db)) {
-                $sql = (new $bridge(\ITFlow\Training\Core\SystemCtx::make($db, 0, 'training_awards')))->eligibleSql($a);
-                if (is_array($sql) && isset($sql['where']) && is_string($sql['where']) && $sql['where'] !== '') {
-                    return [(string) ($sql['join'] ?? ''), (string) $sql['where'], (string) ($sql['types'] ?? ''), array_values((array) ($sql['params'] ?? []))];
-                }
+            $sql = (new RecordsBridge(SystemCtx::make($db, 0, 'training_awards')))->eligibleSql($a);
+            if ($sql['where'] !== '') {
+                return [$sql['join'], $sql['where'], $sql['types'], array_values($sql['params'])];
             }
         } catch (\Throwable $e) {
             error_log('Training awards: eligibility bridge failed: ' . get_class($e));
         }
         return $fallback;
-    }
-
-    /** The RecordsBridge for an agent context, or null when K3's class is not deployed. */
-    private static function bridge(Ctx $c): ?object
-    {
-        $bridge = AwardFacts::BRIDGE;
-        return class_exists($bridge) ? new $bridge($c) : null;
     }
 }

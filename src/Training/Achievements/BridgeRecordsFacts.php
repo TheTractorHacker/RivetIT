@@ -2,14 +2,16 @@
 
 namespace ITFlow\Training\Achievements;
 
+use ITFlow\Training\Kiosk\Bridge\RecordsBridge;
+
 /**
  * RecordsFacts over K3's Kiosk\Bridge\RecordsBridge (P3 spec §3.7). Only AwardFacts builds it,
- * after checking that the bridge class exists and is available(). Results are normalised to
+ * after checking that the bridge is available(). Results are normalised to
  * plain ints so a bridge returning numeric strings cannot change a rule's outcome.
  */
 final class BridgeRecordsFacts implements RecordsFacts
 {
-    public function __construct(private readonly object $bridge)
+    public function __construct(private readonly RecordsBridge $bridge)
     {
     }
 

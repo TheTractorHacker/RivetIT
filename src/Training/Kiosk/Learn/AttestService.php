@@ -2,6 +2,7 @@
 
 namespace ITFlow\Training\Kiosk\Learn;
 
+use ITFlow\Training\Achievements\AwardRepository;
 use ITFlow\Training\Api\ApiException;
 use ITFlow\Training\Core\Clock;
 use ITFlow\Training\Core\Db;
@@ -264,15 +265,11 @@ final class AttestService
         return (string) ($doc['course']['text'][$lang]['name'] ?? $doc['course']['text'][$default]['name'] ?? '');
     }
 
-    /** @return list<array> AwardPublic rows since $sinceUtc (K6), [] when achievements are not deployed */
+    /** @return list<array> AwardPublic rows since $sinceUtc (K6); [] on a read failure (logged) */
     public static function awardsSince(\mysqli $db, int $cid, string $sinceUtc, ?string $lang = null): array
     {
-        $cls = 'ITFlow\\Training\\Achievements\\AwardRepository';
-        if (!class_exists($cls)) {
-            return [];
-        }
         try {
-            return array_values($cls::since($db, $cid, $sinceUtc, $lang));
+            return array_values(AwardRepository::since($db, $cid, $sinceUtc, $lang));
         } catch (\Throwable $e) {
             error_log('Kiosk AttestService awards: ' . get_class($e));
             return [];

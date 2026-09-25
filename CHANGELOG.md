@@ -2,6 +2,33 @@
 
 This file documents all notable changes made to ITFlow.
 
+## [Unreleased] ITFlow Internal IT - Training (LMS) Phases 3+4: kiosk, learner flow, achievement awards, trainer mode
+Database 2.6.92 -> 2.6.93 (13 new tables, 21 settings columns). Apply it only through **Admin > Update > Update
+Database**; fresh installs get the same schema from `db.sql`. The kiosk answers only while the Training module is on,
+and Odoo-PIN sign-in stays off (`config_training_odoo_pin_enabled = 0`) until the owner switches it on.
+
+### New Features & Updates
+- Training kiosk at `/kiosk/` for shop iPads and Windows PCs (outside `/agent/`): an admin enrolls the device while
+  signed in on it and gets a permanent start URL (`/kiosk/#d=<token>`; `/kiosk/?d=<token>` also works for Edge/Chrome
+  kiosk mode); employees type their name, then their PIN. Local PINs come from printed setup slips; Odoo-PIN sign-in is
+  built in behind a switch. Lockouts per person, per device and site-wide, with Clear cooldown / Clear pause.
+- Learning Center (required, due soon, documents to sign, my courses, certificates, badges, PIN-change notices), the
+  course player with server-credited lesson time, final exams with saved answers, time limits and attempt limits, a
+  separate YouTube/Vimeo lesson page, finger signature + PIN sign-off, and a receipt with the certificate number. English
+  and Spanish throughout.
+- Records: a kiosk sign-off issues the Phase 2 completion (certificate, assignment closed); the record page shows the
+  kiosk evidence (lesson time, attempts, signatures). People and departments with kiosk evidence cannot be hard-deleted.
+- Achievement awards: automatic badges (course, category, path, course count, perfect score, first-try pass, on-time
+  streak), manual badges from the agent page or by a trainer on the kiosk, shown on the result screen, receipt,
+  Learning Center and transcript.
+- Trainer mode on the kiosk: run a session and pass the iPad around for check-in (signature + PIN), finish with the
+  trainer's signature and PIN, practical evaluations with an employee hand-off, check-in from a second device.
+- Agent pages: Devices & PINs (enroll, revoke, new start URL, setup slips, unlock), Locked courses (+N attempts or
+  restart), Awarded badges. Admin > Training kiosk for idle times, session caps and lockout thresholds.
+- Cron: new `cron/training_kiosk_cron.php` (every 10 minutes; see its header for the cron.d line and log file).
+- Publishing: a lesson quick check marked "must pass" is refused for now (the kiosk does not run quick checks yet);
+  other quick checks publish with a warning.
+
 ## [Unreleased] ITFlow Internal IT - Training (LMS) Phase 2: assignments, compliance, records and reports
 Database 2.6.91 -> 2.6.92. Apply it only through **Admin > Update > Update Database** (the migration block in
 `admin/database_updates.php`; fresh installs get the same schema from `db.sql`). Nothing changes for users until the

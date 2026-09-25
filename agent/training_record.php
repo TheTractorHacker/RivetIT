@@ -56,6 +56,23 @@ $tr_title = $tr_rec !== null ? (string) ($tr_rec['course']['name'] ?? 'Training 
         </div>
         <?php } ?>
     </div>
+    <?php
+    // Phase 3 (P3 spec §7.9 [S]): a record the kiosk signed off carries its run's evidence - timeline,
+    // credited seconds, attempts as shown and chosen, signatures. Only after completion_get found the
+    // record in the agent's scope; the partial re-checks scope itself and renders nothing on any error.
+    if ($tr_rec !== null && $tr_id !== null) {
+        try {
+            $tr_kiosk_run_id = (int) ((new \ITFlow\Training\Kiosk\Bridge\RecordsBridge($tr_ctx))->completion($tr_id)['run_id'] ?? 0);
+        } catch (\Throwable $tr_e) {
+            $tr_kiosk_run_id = 0;
+            error_log('Training record: kiosk evidence lookup failed: ' . get_class($tr_e));
+        }
+        if ($tr_kiosk_run_id > 0) {
+            $tr_kiosk_ctx = $tr_ctx;
+            require __DIR__ . '/includes/training/kiosk_evidence_partial.php';
+        }
+    }
+    ?>
 </div>
 
 <?php

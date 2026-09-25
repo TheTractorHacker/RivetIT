@@ -17,7 +17,11 @@ require __DIR__ . '/includes/guard.php';
 use ITFlow\Training\Core\Clock;
 use ITFlow\Training\Core\Db;
 use ITFlow\Training\Kiosk\Core\KioskStrings;
+use ITFlow\Training\Achievements\AwardRepository;
+use ITFlow\Training\Kiosk\Bridge\RecordsBridge;
 use ITFlow\Training\Kiosk\Core\RevisionCache;
+use ITFlow\Training\Kiosk\Learn\AttestService;
+use ITFlow\Training\Kiosk\Learn\RunService;
 
 $k_session = kiosk_require_session(['learner']);
 $db = $kctx->db();
@@ -30,9 +34,7 @@ if ($runId <= 0) {
     kiosk_redirect('/kiosk/me.php');
 }
 try {
-    if (class_exists(\ITFlow\Training\Kiosk\Learn\RunService::class)) {
-        (new \ITFlow\Training\Kiosk\Learn\RunService($kctx))->settleAwaiting($cid);
-    }
+    (new RunService($kctx))->settleAwaiting($cid);
 } catch (\Throwable $e) {
     error_log('Kiosk sign.php housekeeping: ' . get_class($e));
 }
@@ -79,9 +81,7 @@ $data = ['run_id' => $runId, 'course_id' => (int) $course['course_id'], 'course_
 if ($status === 'awaiting_signature') {
     $text = null;
     try {
-        if (class_exists(\ITFlow\Training\Kiosk\Learn\AttestService::class)) {
-            $text = (new \ITFlow\Training\Kiosk\Learn\AttestService($kctx))->attestationText($run, $doc);
-        }
+        $text = (new AttestService($kctx))->attestationText($run, $doc);
     } catch (\Throwable $e) {
         error_log('Kiosk sign.php attestation: ' . get_class($e));
     }
@@ -108,19 +108,22 @@ if ($status === 'awaiting_signature') {
         'kind' => (string) $course['course_kind'], 'cert_number' => null, 'score_pct' => $score, 'completed_on' => null, 'expires_on' => null,
         'course_name' => $courseName, 'achievements' => []];
     try {
-        if ($status === 'completed' && class_exists(\ITFlow\Training\Kiosk\Bridge\RecordsBridge::class)
-            && \ITFlow\Training\Kiosk\Bridge\RecordsBridge::available($db)) {
-            $bridge = new \ITFlow\Training\Kiosk\Bridge\RecordsBridge($kctx->core);
-            $vc = $bridge->validCompletion($cid, (int) $course['course_id']);
+        if ($status === 'completed' && RecordsBridge::available($db)) {
+            $bridge = new RecordsBridge($kctx->core);
+            // This run's own record (trun_completion_id); else the pair's newest valid record.
+            $vc = $run['trun_completion_id'] !== null ? $bridge->receipt((int) $run['trun_completion_id']) : null;
+            if (!is_array($vc) || !empty($vc['voided'])) {
+                $vc = $bridge->validCompletion($cid, (int) $course['course_id']);
+            }
             if (is_array($vc)) {
                 $receipt['cert_number'] = isset($vc['cert_number']) ? (string) $vc['cert_number'] : null;
                 $receipt['completed_on'] = isset($vc['completed_on']) ? (string) $vc['completed_on'] : null;
                 $receipt['expires_on'] = isset($vc['expires_on']) ? (string) $vc['expires_on'] : null;
             }
         }
-        if (class_exists(\ITFlow\Training\Achievements\AwardRepository::class) && is_string($closedAt)) {
+        if (is_string($closedAt)) {
             $since = gmdate('Y-m-d H:i:s', strtotime($closedAt . ' UTC') - 900);
-            foreach (\ITFlow\Training\Achievements\AwardRepository::since($db, $cid, $since) as $a) {
+            foreach (AwardRepository::since($db, $cid, $since, $runLang) as $a) {
                 if (!is_array($a)) {
                     continue;
                 }
