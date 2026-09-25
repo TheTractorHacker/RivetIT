@@ -324,7 +324,9 @@
                         var names = l.map(function (x) { return x.name || ('#' + x.id); });
                         var text = names.length > 3 ? names.slice(0, 3).join(', ') + ' +' + (names.length - 3) : names.join(', ');
                         var unknown = l.some(function (x) { return x.known === false; });
-                        wrap.appendChild(el('span', { class: 'tro-crit' + (unknown ? ' tro-crit--warn' : ''), title: ({ department: 'Department', odoo_job: 'Job position', odoo_location: 'Work location', jobgroup: 'Job group' })[k] + ': ' + names.join(', ') + (unknown ? ' (some are no longer in Odoo)' : '') },
+                        // Why a value is flagged depends on its kind: Odoo ids nobody carries, archived job groups, deleted departments.
+                        var why = ({ department: ' (some were deleted)', odoo_job: ' (some are no longer in Odoo)', odoo_location: ' (some are no longer in Odoo)', jobgroup: ' (some are archived and match no one)' })[k];
+                        wrap.appendChild(el('span', { class: 'tro-crit' + (unknown ? ' tro-crit--warn' : ''), title: ({ department: 'Department', odoo_job: 'Job position', odoo_location: 'Work location', jobgroup: 'Job group' })[k] + ': ' + names.join(', ') + (unknown ? why : '') },
                             [unknown ? u.icon('fas fa-exclamation-triangle me-1') : null, text]));
                     });
                     var people = (labels.contact || []).length + Number(r.contact_hidden || 0);

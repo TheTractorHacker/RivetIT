@@ -8,13 +8,14 @@ use ITFlow\Integrations\Odoo\OdooDirectoryMapper;
 use ITFlow\Training\Assign\AssignmentService;
 use ITFlow\Training\Core\Db;
 use ITFlow\Training\Core\SystemCtx;
+use ITFlow\Training\People\DepartmentGroups;
 
 /**
  * The Odoo directory sync for the nightly cron (S5; Phase 2 spec §3.4, §6.2). It mirrors the admin
  * handler's sync_odoo_directory step for step (the handler is not rewritten to call this; §1.3):
  *   latest integration row (must be enabled, with credentials) -> OdooTarget::guard -> `trodoo`
  *   (0 s) -> the 60 s `running` guard -> clientFromRow -> startSyncLog -> departments -> employees ->
- *   finishSyncLog -> OdooTrainingSync::run -> (module on + schema ready) reconcile(null,'directory_sync').
+ *   finishSyncLog -> DepartmentGroups::safeSync -> OdooTrainingSync::run -> (module on + schema ready) reconcile(null,'directory_sync').
  * Never inside a transaction; the lock is released at the end.
  */
 final class DirectorySyncRunner
@@ -72,6 +73,9 @@ final class DirectorySyncRunner
             }
             unset($deptStats['idMap']);
             $out = ['ok' => true, 'protocol' => $protocol, 'dept' => $deptStats, 'emp' => $empStats, 'training' => null, 'reconcile' => null];
+            // Department job groups follow the departments this sync created, renamed or archived (module on +
+            // schema ready; never throws). Before the reconcile below, so a rule on a new department's group assigns.
+            $out['dept_groups'] = DepartmentGroups::safeSync($db, 'directory_sync');
             try {
                 $clean = empty($deptStats['errors']) && empty($empStats['errors']);
                 $out['training'] = (new OdooTrainingSync($db, $id, $triggeredBy > 0 ? $triggeredBy : null, $notify))->run($client, $row, $employees, $clean);

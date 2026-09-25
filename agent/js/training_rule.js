@@ -7,6 +7,12 @@
  * the roster" is exclusive. rule_preview is debounced 400 ms and stale answers are dropped.
  * Save sends the request_uid made on page load (a double click or a retry cannot create two
  * rules) and the version for an edit (409 conflict -> reload prompt).
+ *
+ * Job groups: the picker lists "Your groups" and "Department groups" under their own headings,
+ * with each group's in-scope people count (the same number its tile and the preview show). A
+ * department group matches the same people as a Department condition on that department, also
+ * after the department is archived. ?jobgroup_id= pre-fills a Job group condition (the group
+ * viewer's "New rule for this group"), as ?course_id= pre-fills the course.
  */
 (function () {
     'use strict';
@@ -28,10 +34,10 @@
 
         var KIND_ORDER = ['department', 'odoo_job', 'odoo_location', 'jobgroup', 'contact'];
         var KINDS = {
-            department: { label: 'Department', icon: 'fas fa-sitemap', add: 'People in one or more departments', noun: 'departments' },
+            department: { label: 'Department', icon: 'fas fa-sitemap', add: 'People in one or more departments (the same as picking a department group)', noun: 'departments' },
             odoo_job: { label: 'Job position', icon: 'fas fa-hard-hat', add: 'Job positions from Odoo, like Welder', noun: 'job positions' },
             odoo_location: { label: 'Work location', icon: 'fas fa-map-marker-alt', add: 'Work locations from Odoo, like Main Shop', noun: 'work locations' },
-            jobgroup: { label: 'Job group', icon: 'fas fa-users-cog', add: 'Your own groups of titles or people', noun: 'job groups' },
+            jobgroup: { label: 'Job group', icon: 'fas fa-users-cog', add: 'Your own groups of titles or people, or a department\'s group', noun: 'job groups' },
             contact: { label: 'Specific people', icon: 'fas fa-user', add: 'Pick people by name', noun: 'people' }
         };
 
@@ -51,8 +57,12 @@
         }
         function setGroups(data) {
             var g = (data && (data.groups || data.rows || data.job_groups)) || (Array.isArray(data) ? data : []);
-            OPTS.jobgroup = g.filter(function (x) { return !x.archived; }).map(function (x) {
-                return { id: Number(x.id), name: x.name, count: x.member_count !== undefined ? x.member_count : x.members_count };
+            // Your groups first, then department groups (the picker shows each under its own heading).
+            g = g.filter(function (x) { return !x.archived; });
+            OPTS.jobgroup = g.filter(function (x) { return !x.auto; }).concat(g.filter(function (x) { return !!x.auto; })).map(function (x) {
+                // matched = the people the group reaches now (eligible, in scope): what its tile and the preview count.
+                var n = x.matched !== undefined && x.matched !== null ? x.matched : (x.member_count !== undefined ? x.member_count : x.members_count);
+                return { id: Number(x.id), name: x.name, count: n, auto: !!x.auto, dept: x.auto && x.department ? x.department.name : null };
             });
         }
         if (listFrom(D.attr_options, 'jobs') !== null) { setAttrOptions(D.attr_options.data); }
@@ -92,9 +102,26 @@
             if (kind === 'contact' || kind === 'department') { return true; }
             var l = st.labels[kind] && st.labels[kind][id];
             if (l && l.known === false) { return false; }
+            // A saved job group the server says still matches people (an archived department's group, or one of a
+            // department outside a reader's departments, which their list leaves out) is known even when not listed.
+            if (kind === 'jobgroup' && l) { return true; }
             var list = OPTS[kind];
             if (list === null) { return true; }   // options not loaded: cannot judge
             return list.some(function (o) { return o.id === Number(id); });
+        }
+        /** Job group facts from the option list, else from the saved rule's label: {auto, dept, archived}. */
+        function groupInfo(id) {
+            var o = (OPTS.jobgroup || []).filter(function (x) { return x.id === Number(id); })[0];
+            if (o) { return { auto: !!o.auto, dept: o.dept || o.name, archived: false }; }
+            var l = st.labels.jobgroup && st.labels.jobgroup[id];
+            return { auto: !!(l && l.auto), dept: l && l.name ? l.name : optName('jobgroup', id), archived: !!(l && l.archived) };
+        }
+        /** " (archived)" style suffix for a saved value that is no longer offered, by kind. */
+        function goneSuffix(kind, id) {
+            if (kind !== 'jobgroup') { return isKnown(kind, id) ? '' : ' (not in Odoo)'; }
+            var gi = groupInfo(id);
+            if (!isKnown(kind, id)) { return gi.auto ? ' (department deleted)' : ' (archived)'; }
+            return gi.auto && gi.archived ? ' (department archived)' : '';
         }
         function activeKinds() { return st.allPeople ? [] : st.kinds.filter(function (k) { return st.values[k].length > 0; }); }
         function criteria() {
@@ -140,7 +167,15 @@
                     case 'department': return 'is in ' + joinOr(shortList(names, 4));
                     case 'odoo_job': return 'works as ' + joinOr(shortList(names, 4));
                     case 'odoo_location': return 'is based at ' + joinOr(shortList(names, 4));
-                    case 'jobgroup': return 'is in the ' + joinOr(shortList(names, 4)) + ' job group' + (names.length > 1 ? 's' : '');
+                    case 'jobgroup': {
+                        // A department group reads as its department: "is in the Crane department".
+                        var dn = [], hn = [];
+                        st.values[k].forEach(function (id) { var gi = groupInfo(id); if (gi.auto) { dn.push(gi.dept); } else { hn.push(optName(k, id)); } });
+                        var bits = [];
+                        if (dn.length) { bits.push('the ' + joinOr(shortList(dn, 4)) + ' department' + (dn.length > 1 ? 's' : '')); }
+                        if (hn.length) { bits.push('the ' + joinOr(shortList(hn, 4)) + ' job group' + (hn.length > 1 ? 's' : '')); }
+                        return 'is in ' + bits.join(' or ');
+                    }
                     case 'contact': return 'is one of the ' + u.plural(names.length, 'person', 'people') + ' picked by name';
                 }
                 return '';
@@ -287,12 +322,16 @@
                 closeAfterSelect: false,
                 placeholder: 'Choose ' + KINDS[kind].noun + '…',
                 render: {
-                    option: function (d, escape) {
-                        return '<div class="d-flex align-items-center gap-2"><span class="flex-grow-1">' + escape(d.text) + '</span>'
-                            + (d.count !== undefined && d.count !== null && d.count !== '' ? '<span class="text-muted small">' + escape(String(d.count)) + '</span>' : '') + '</div>';
+                    option: function (d) {
+                        // DOM nodes (TomSelect accepts an element): name and count. Job groups sit under "Your groups" /
+                        // "Department groups" headings (optgroups), so no per-line badge.
+                        return el('div', { class: 'd-flex align-items-center gap-2' }, [
+                            el('span', { class: 'flex-grow-1', text: String(d.text) }),
+                            d.count !== undefined && d.count !== null && d.count !== '' ? el('span', { class: 'text-muted small', text: String(d.count) }) : null
+                        ]);
                     },
-                    item: function (d, escape) {
-                        return '<div' + (d.unknown ? ' class="text-warning" title="Not found in Odoo any more"' : '') + '>' + escape(d.text) + '</div>';
+                    item: function (d) {
+                        return el('div', d.unknown ? { class: 'text-warning', title: kind === 'jobgroup' ? 'This group matches no one any more' : 'Not found in Odoo any more' } : {}, [String(d.text)]);
                     },
                     no_results: function () { return '<div class="no-results">No matches</div>'; }
                 },
@@ -340,12 +379,21 @@
             }
             var select = el('select', { multiple: true, 'aria-labelledby': 'tro-cond-' + kind });
             var have = {};
+            // Job groups: "Your groups" then "Department groups", each under a heading (TomSelect reads the optgroups).
+            var heads = kind === 'jobgroup' ? { own: el('optgroup', { label: 'Your groups' }), dept: el('optgroup', { label: 'Department groups' }) } : null;
             list.forEach(function (o) {
                 have[o.id] = true;
-                select.appendChild(el('option', { value: String(o.id), text: o.name, dataset: { count: o.count === undefined || o.count === null ? '' : String(o.count) } }));
+                var opt = el('option', { value: String(o.id), text: o.name, dataset: { count: o.count === undefined || o.count === null ? '' : String(o.count) } });
+                (heads ? (o.auto ? heads.dept : heads.own) : select).appendChild(opt);
             });
+            if (heads) {
+                if (heads.own.children.length) { select.appendChild(heads.own); }
+                if (heads.dept.children.length) { select.appendChild(heads.dept); }
+            }
             st.values[kind].forEach(function (id) {
-                if (!have[id]) { select.appendChild(el('option', { value: String(id), text: optName(kind, id) + (isKnown(kind, id) ? '' : ' (not in Odoo)'), dataset: { unknown: '1' } })); }
+                // Not offered any more: flagged (warning colour) unless it is a job group that still matches people.
+                var gone = kind === 'jobgroup' ? !isKnown(kind, id) : true;
+                if (!have[id]) { select.appendChild(el('option', { value: String(id), text: optName(kind, id) + goneSuffix(kind, id), dataset: gone ? { unknown: '1' } : {} })); }
             });
             st.values[kind].forEach(function (id) {
                 Array.prototype.forEach.call(select.options, function (o) { if (Number(o.value) === Number(id)) { o.selected = true; } });
@@ -357,7 +405,9 @@
                     var opt = row.ts.options[key];
                     var src = list.filter(function (o) { return String(o.id) === key; })[0];
                     opt.count = src ? src.count : '';
-                    opt.unknown = !src || !isKnown(kind, Number(key));
+                    opt.auto = !!(src && src.auto);
+                    // A saved job group that is not offered any more can still match people (an archived department's group).
+                    opt.unknown = kind === 'jobgroup' ? !isKnown(kind, Number(key)) : (!src || !isKnown(kind, Number(key)));
                 });
                 if (st.readOnly) { row.ts.lock(); }
             } else {
@@ -376,7 +426,19 @@
             if (!row || kind === 'contact') { return; }
             while (row.warn.firstChild) { row.warn.removeChild(row.warn.firstChild); }
             var unknown = st.values[kind].filter(function (id) { return !isKnown(kind, id); });
-            if (unknown.length) {
+            if (kind === 'jobgroup') {
+                if (unknown.length) {
+                    row.warn.appendChild(u.chip(unknown.length === 1 ? optName(kind, unknown[0]) + ' matches no one any more. Remove it to save.'
+                        : u.plural(unknown.length, 'group') + ' match no one any more. Remove them to save.', 'warn', 'fas fa-exclamation-triangle'));
+                }
+                // An archived department's group still reaches the people left in it, like a Department condition.
+                var archivedDepts = st.values[kind].filter(function (id) { var gi = groupInfo(id); return isKnown(kind, id) && gi.auto && gi.archived; })
+                    .map(function (id) { return groupInfo(id).dept; });
+                if (archivedDepts.length) {
+                    row.warn.appendChild(u.chip('The ' + joinOr(archivedDepts) + ' department' + (archivedDepts.length > 1 ? 's are' : ' is') + ' archived. The people still in '
+                        + (archivedDepts.length > 1 ? 'them' : 'it') + ' stay matched.', 'outline', 'fas fa-archive'));
+                }
+            } else if (unknown.length) {
                 row.warn.appendChild(u.chip(u.plural(unknown.length, 'value') + ' no longer in Odoo', 'warn', 'fas fa-exclamation-triangle'));
             }
             row.op.textContent = (kind === 'odoo_location' && st.values[kind].length <= 1) ? 'is' : 'is any of';
@@ -918,7 +980,8 @@
             st.labels = {};
             Object.keys(labels).forEach(function (k) {
                 st.labels[k] = {};
-                (labels[k] || []).forEach(function (l) { st.labels[k][l.id] = { name: l.name, known: l.known !== false }; });
+                // Job group labels also say whether the group is a department's (auto) and archived.
+                (labels[k] || []).forEach(function (l) { st.labels[k][l.id] = { name: l.name, known: l.known !== false, auto: !!l.auto, archived: !!l.archived }; });
             });
             st.kinds = [];
             KIND_ORDER.forEach(function (k) {
@@ -987,8 +1050,15 @@
                 banner('info', 'fas fa-lock', 'Only people with Full Training access can create rules.', 'Ask an administrator if you need to require training.');
                 st.readOnly = true;
             }
-            var pre = new URLSearchParams(window.location.search).get('course_id');
+            var qs = new URLSearchParams(window.location.search);
+            var pre = qs.get('course_id');
             if (pre && u.courseById(pre)) { st.courseId = Number(pre); }
+            // "New rule for this group" (People › Job groups): start with a Job group condition on that group.
+            var preGroup = Number(qs.get('jobgroup_id'));
+            if (st.canEdit && preGroup > 0 && (OPTS.jobgroup === null || OPTS.jobgroup.some(function (o) { return o.id === preGroup; }))) {
+                st.kinds = ['jobgroup'];
+                st.values.jobgroup = [preGroup];
+            }
             start();
         }
     });

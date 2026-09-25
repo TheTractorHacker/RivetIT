@@ -4,6 +4,7 @@ namespace ITFlow\Training\Api;
 
 use ITFlow\Training\Core\Ctx;
 use ITFlow\Training\Core\Db;
+use ITFlow\Training\People\DepartmentGroups;
 use ITFlow\Training\People\Directory;
 use ITFlow\Training\People\HireDateService;
 use ITFlow\Training\People\JobGroupService;
@@ -85,9 +86,14 @@ final class PeopleActions
         return ['person' => $r['person'], 'reconcile' => $r['reconcile']];
     }
 
-    /** GET include_archived? -> {groups:[…]} (matched = eligible people in the caller's scope). */
+    /**
+     * GET include_archived? -> {groups:[…]} (matched = eligible people in the caller's scope). Department
+     * groups come first (auto:true, department:{id,name}). Brings them in step with the departments
+     * first when the last sync is over DepartmentGroups::STALE_S old (never fails the list).
+     */
     public static function jobgroupList(Ctx $c, ApiContext $a): array
     {
+        DepartmentGroups::syncIfStale($c->db);
         return ['groups' => (new JobGroupService($c))->list(Scope::forCtx($c), (bool) $a->bool('include_archived', false))];
     }
 
@@ -97,7 +103,7 @@ final class PeopleActions
         return (new JobGroupService($c))->get((int) $a->int('jobgroup_id', true, 1), Scope::forCtx($c));
     }
 
-    /** POST {id?, version?, name, description, members:[ids], titles:[str]} (L3) -> group (+ reconcile). */
+    /** POST {id?, version?, name, description, members:[ids], titles:[str]} (L3) -> group (+ reconcile). 409 department_group for a department group. */
     public static function jobgroupSave(Ctx $c, ApiContext $a): array
     {
         $id = $a->int('id', false, 1) ?? $a->int('jobgroup_id', false, 1);
@@ -117,7 +123,7 @@ final class PeopleActions
         return $group;
     }
 
-    /** POST {id} (L3) -> {reconcile}. */
+    /** POST {id} (L3) -> {reconcile}. 409 department_group for a department group. */
     public static function jobgroupArchive(Ctx $c, ApiContext $a): array
     {
         $id = $a->int('id', false, 1) ?? (int) $a->int('jobgroup_id', true, 1);

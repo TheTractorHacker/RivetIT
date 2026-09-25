@@ -6,6 +6,12 @@
  * include/exclude (TrainingOps 'roster'), hire date (TrainingOps 'hire_date'), the job-group
  * and trainer editors (offcanvas, jobgroup_save / jobgroup_archive / trainer_save with the
  * row version; a 409 offers a reload). DOM nodes only.
+ *
+ * The tab has two sections: "Your groups" (hand-made, with New job group) first, then
+ * "Department groups" (auto:true, one per department, made and kept in step by the server; the
+ * server lists only the caller's departments). Department groups are view-only (no Edit /
+ * Archive); their viewer lists the department's people, links to the department and lists the
+ * rules that use the group, with "New rule for this group" for level 3.
  */
 (function () {
     'use strict';
@@ -191,6 +197,8 @@
         if ($('tro-pg-grid')) {
             (function () {
                 var grid = $('tro-pg-grid'), empty = $('tro-pg-empty');
+                var dgrid = $('tro-pg-dgrid'), dempty = $('tro-pg-dempty'), foot = $('tro-pg-foot');
+                var canCreate = level >= 3 && routes.jobgroup_save !== false;
                 var showArchived = false;
                 var groups = [];
                 var titleCache = null;
@@ -201,29 +209,87 @@
                     return u.fetchAction('jobgroup_list', { include_archived: 1 }).then(function (d) { render(listOf(d)); }, fail);
                 }
                 function skeleton() {
-                    clear(grid); clear(empty);
-                    for (var i = 0; i < 3; i++) {
-                        grid.appendChild(el('div', { class: 'tro-tile', 'aria-hidden': 'true' }, [el('span', { class: 'tro-skel tro-skel--w60' }), el('span', { class: 'tro-skel tro-skel--w80' }), el('span', { class: 'tro-skel tro-skel--w40' })]));
-                    }
+                    [grid, dgrid].forEach(function (g) {
+                        clear(g);
+                        g.hidden = false;
+                        for (var i = 0; i < 3; i++) {
+                            g.appendChild(el('div', { class: 'tro-tile', 'aria-hidden': 'true' }, [el('span', { class: 'tro-skel tro-skel--w60' }), el('span', { class: 'tro-skel tro-skel--w80' }), el('span', { class: 'tro-skel tro-skel--w40' })]));
+                        }
+                    });
+                    clear(empty); clear(dempty); clear(foot);
                 }
-                function fail(err) { clear(grid); clear(empty); empty.appendChild(u.failState(err, refetch)); }
+                function fail(err) {
+                    clear(grid); clear(dgrid); clear(empty); clear(dempty); clear(foot);
+                    dgrid.hidden = true;
+                    empty.appendChild(u.failState(err, refetch));
+                }
                 function render(list) {
+                    clear(grid); clear(dgrid); clear(empty); clear(dempty); clear(foot);
                     groups = list;
-                    clear(grid); clear(empty);
-                    var active = list.filter(function (g) { return !g.archived; });
-                    var archived = list.filter(function (g) { return !!g.archived; });
-                    (showArchived ? list : active).forEach(function (g) { grid.appendChild(tile(g)); });
-                    if (!active.length && !showArchived) {
-                        empty.appendChild(u.emptyState({ icon: 'fas fa-users-cog', title: 'No job groups yet', text: 'Group people by job title, for example every "Welder" and "Lead Welder", so a rule can require training for all of them.',
-                            actions: level >= 3 && routes.jobgroup_save !== false ? [el('button', { type: 'button', class: 'btn btn-primary', on: { click: function () { edit(null); } } }, [u.icon('fas fa-plus me-2'), 'New job group'])] : [] }));
+                    var own = list.filter(function (g) { return !g.auto; });
+                    var dept = list.filter(function (g) { return !!g.auto; });
+                    var ownShown = showArchived ? own : own.filter(function (g) { return !g.archived; });
+                    var deptShown = showArchived ? dept : dept.filter(function (g) { return !g.archived; });
+                    var archivedCount = list.filter(function (g) { return !!g.archived; }).length;
+                    ownShown.forEach(function (g) { grid.appendChild(tile(g)); });
+                    deptShown.forEach(function (g) { dgrid.appendChild(deptTile(g)); });
+                    grid.hidden = !ownShown.length;
+                    dgrid.hidden = !deptShown.length;
+                    if (!ownShown.length) {
+                        // Only people who can make a group are told how (the button is in this section's head).
+                        empty.appendChild(el('p', { class: 'tro-pg-note', text: canCreate
+                            ? 'None yet. For people across departments, like every welder, make a group by job title or by name.'
+                            : 'No groups have been made by hand yet.' }));
                     }
-                    if (archived.length) {
-                        empty.appendChild(el('div', { class: 'px-4 pb-3' }, [el('button', { type: 'button', class: 'btn btn-link btn-sm p-0', text: showArchived ? 'Hide archived groups' : 'Show archived groups (' + archived.length + ')',
+                    if (!deptShown.length) {
+                        dempty.appendChild(el('p', { class: 'tro-pg-note', text: D.scope === 'none'
+                            ? 'You have no departments in Training yet, so no department groups show here.'
+                            : (D.scope === 'all' ? 'No departments yet. Each department gets its own group here.' : 'None of your departments has a group yet.') }));
+                    }
+                    if (archivedCount) {
+                        foot.appendChild(el('div', { class: 'tro-pg-note' }, [el('button', { type: 'button', class: 'btn btn-link btn-sm p-0', text: showArchived ? 'Hide archived groups' : 'Show archived groups (' + archivedCount + ')',
                             on: { click: function () { showArchived = !showArchived; render(groups); } } })]));
                     }
                 }
                 function titleText(t) { return t && typeof t === 'object' ? String(t.title || '') : String(t || ''); }
+                function groupDeptName(g) { return (g.department && g.department.name) || g.name; }
+                function deptStatus(g) { return (g.department && g.department.status) || 'active'; }
+                /**
+                 * Why an archived department group is archived, and who it still reaches: the people still in an
+                 * archived department stay matched (the same as a Department condition); a deleted one has no one.
+                 */
+                function deptArchivedText(g) {
+                    var name = groupDeptName(g), st = deptStatus(g), n = Number(g.matched || 0);
+                    if (st === 'deleted') { return 'The department was deleted, so this group matches no one.'; }
+                    return (st === 'lead' ? name + ' is now a lead, not a department.' : 'The ' + name + ' department is archived.')
+                        + (n ? ' Rules on this group still reach the ' + u.plural(n, 'person', 'people') + ' left in it.' : ' No one is left in it.');
+                }
+                /** A department group (its section's head says it is kept in sync): people, View only. */
+                function deptTile(g) {
+                    var dname = groupDeptName(g);
+                    return el('div', { class: 'tro-tile tro-tile--dept' + (g.archived ? ' is-archived' : ''), dataset: { id: g.id } }, [
+                        el('div', { class: 'd-flex align-items-start gap-2' }, [el('div', { class: 'tro-tile__title flex-grow-1', text: g.name }),
+                            g.archived ? u.chip(deptStatus(g) === 'deleted' ? 'Deleted' : 'Archived', 'outline', null, { class: 'tro-chip tro-chip--outline tro-chip--sm' }) : null]),
+                        // A name that had to differ from its department's (another group had it) says which department it follows.
+                        dname !== g.name ? el('div', { class: 'small', text: 'Follows the ' + dname + ' department' }) : null,
+                        el('div', { class: 'tro-tile__meta', text: g.archived ? deptArchivedText(g) : u.plural(Number(g.matched || 0), 'person', 'people') }),
+                        el('div', { class: 'tro-tile__foot' }, [el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', 'aria-label': 'View the ' + g.name + ' department group',
+                            on: { click: function () { edit(g); } } }, [u.icon('far fa-eye me-1'), 'View'])])
+                    ]);
+                }
+                /** "Rules that use this group": links to each active rule that targets it (rule names are visible to every Training reader). */
+                function rulesBlock(g) {
+                    var rules = Array.isArray(g.rules) ? g.rules : [];
+                    return [
+                        el('h3', { class: 'h5 mt-3', text: 'Rules that use this group' + (rules.length ? ' (' + rules.length + ')' : '') }),
+                        rules.length ? el('ul', { class: 'tro-jg-rules' }, rules.map(function (r) {
+                            return el('li', {}, [el('a', { href: '/agent/training_rule.php?id=' + encodeURIComponent(String(r.id)), text: r.name }),
+                                r.course ? el('span', { class: 'text-muted small ms-2', text: r.course }) : null]);
+                        })) : el('p', { class: 'text-muted small', text: 'No rule targets this group yet.' })
+                    ];
+                }
                 function tile(g) {
+                    if (g.auto) { return deptTile(g); }
                     var titles = (Array.isArray(g.titles) ? g.titles : []).map(titleText);
                     var titleCount = g.title_count !== undefined && g.title_count !== null ? Number(g.title_count) : titles.length;
                     var named = Array.isArray(g.members) ? g.members.length : (g.member_count !== undefined && g.member_count !== null ? Number(g.member_count) : null);
@@ -280,13 +346,13 @@
                     return u.fetchAction('jobgroup_titles', {}).then(function (d) { titleCache = (d && d.titles) || []; return titleCache; }, function () { return []; });
                 }
                 function edit(g) {
-                    var canEdit = level >= 3 && routes.jobgroup_save !== false && !(g && g.archived);
+                    var canEdit = level >= 3 && routes.jobgroup_save !== false && !(g && (g.archived || g.auto));
                     var holder = el('div', {}, [el('div', { class: 'tr-skeleton' }, [el('div', { class: 'tro-skel tro-skel--w60 mb-3' }), el('div', { class: 'tro-skel tro-skel--w80 mb-3' }), el('div', { class: 'tro-skel tro-skel--w40' })])]);
-                    var h = Ops.sheet({ title: g ? (canEdit ? 'Edit job group' : g.name) : 'New job group', subtitle: g && canEdit ? g.name : '', body: holder, foot: [], wide: true });
+                    var h = Ops.sheet({ title: g ? (canEdit ? 'Edit job group' : g.name) : 'New job group', subtitle: g && canEdit ? g.name : (g && g.auto ? 'Department group' : ''), body: holder, foot: [], wide: true });
                     var detail = g ? u.fetchAction('jobgroup_get', { jobgroup_id: g.id }).then(function (d) { return (d && (d.group || d)) || g; }) : Promise.resolve(null);
                     Promise.all([detail, canEdit ? loadTitles() : Promise.resolve([])]).then(function (res) {
                         var full = res[0];
-                        if (canEdit) { editor(h, full, res[1]); } else { viewer(h, full || g); }
+                        if (canEdit) { editor(h, full, res[1]); } else if ((full || g).auto) { deptViewer(h, full || g); } else { viewer(h, full || g); }
                     }, function (err) { h.setBody(u.failState(err)); });
                 }
                 function viewer(h, g) {
@@ -299,9 +365,41 @@
                         el('h3', { class: 'h5 mt-2', text: 'Named people' }),
                         members.length ? el('ul', { class: 'tro-outcomes' }, members.map(function (p) { return el('li', {}, [u.personCell(p)]); })) : el('p', { class: 'text-muted small', text: 'No one is named by hand.' }),
                         g.members_hidden ? el('p', { class: 'text-muted small mt-2', text: u.plural(Number(g.members_hidden), 'more person', 'more people') + ' outside your departments.' }) : null
-                    ]);
+                    ].concat(rulesBlock(g)));
                     h.setBody(wrap);
                     h.setFoot([el('button', { type: 'button', class: 'btn btn-primary ms-auto', text: 'Close', dataset: { bsDismiss: 'offcanvas' } })]);
+                }
+                /**
+                 * A department group, read-only: what it follows (with a link to the department, for people who
+                 * can open Departments), who is in it now, the rules that use it and, for level 3, a new rule on it.
+                 */
+                function deptViewer(h, g) {
+                    var people = Array.isArray(g.people) ? g.people : [];
+                    var SHOW = 100;
+                    var dept = groupDeptName(g);
+                    var deptId = g.department && Number(g.department.id);
+                    var open = D.can_open_departments && deptId > 0 && deptStatus(g) !== 'deleted'
+                        ? el('a', { href: '/agent/client_overview.php?client_id=' + encodeURIComponent(String(deptId)) }, ['Open the ' + dept + ' department', u.icon('fas fa-arrow-right ms-1')])
+                        : null;
+                    var wrap = el('div', {}, [
+                        el('div', { class: 'tro-consequence mb-3' }, [u.icon('fas fa-sync-alt'), el('div', {}, [
+                            el('div', { class: 'fw-semibold', text: 'Kept in sync automatically' }),
+                            el('div', { text: 'People join and leave this group as they join or leave the ' + dept + ' department, and it is renamed and archived with the department. '
+                                + 'It cannot be edited here: to change who is in it, change the department or move people on their contact page.' }),
+                            open ? el('div', { class: 'mt-2' }, [open]) : null
+                        ])]),
+                        g.archived ? el('p', { class: 'text-muted', text: deptArchivedText(g) + (deptStatus(g) === 'deleted' ? '' : ' This is the same as a Department condition. Move them to another department to take them out.') }) : null,
+                        el('h3', { class: 'h5 mt-2', text: 'People in this group' + (g.matched ? ' (' + Number(g.matched) + ')' : '') }),
+                        people.length ? el('ul', { class: 'tro-outcomes' }, people.slice(0, SHOW).map(function (p) { return el('li', {}, [u.personCell(p)]); }))
+                            : el('p', { class: 'text-muted small', text: 'No one in this department is on the training roster yet.' }),
+                        people.length > SHOW ? el('p', { class: 'text-muted small mt-2', text: 'And ' + u.plural(people.length - SHOW, 'more person', 'more people') + '. The Roster tab lists everyone by department.' }) : null
+                    ].concat(rulesBlock(g)));
+                    h.setBody(wrap);
+                    var canRule = level >= 3 && routes.rule_save !== false && !g.archived;
+                    h.setFoot([
+                        canRule ? el('a', { class: 'btn btn-outline-primary', href: '/agent/training_rule.php?jobgroup_id=' + encodeURIComponent(String(g.id)) }, [u.icon('fas fa-plus me-1'), 'New rule for this group']) : null,
+                        el('button', { type: 'button', class: 'btn btn-primary ms-auto', text: 'Close', dataset: { bsDismiss: 'offcanvas' } })
+                    ]);
                 }
                 function editor(h, g, titleOpts) {
                     g = g || null;

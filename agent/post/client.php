@@ -236,6 +236,10 @@ if (isset($_POST['add_client'])) {
         }
     }
 
+    // Training: keep the department job groups in step (one per active department). Never blocks the department save.
+    try { if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\People\DepartmentGroups::class)) { \ITFlow\Training\People\DepartmentGroups::safeSync($mysqli, 'department'); } }
+    catch (\Throwable $e) { error_log('Training: department job group sync failed: ' . $e->getMessage()); }
+
     logAction("Department", "Create", "$session_name created department $name$extended_log_description", $client_id, $client_id);
 
     flash_alert("Department <strong>$name</strong> created");
@@ -355,6 +359,10 @@ if (isset($_POST['edit_client'])) {
         }
     }
 
+    // Training: keep the department job groups in step (one per active department). Never blocks the department save.
+    try { if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\People\DepartmentGroups::class)) { \ITFlow\Training\People\DepartmentGroups::safeSync($mysqli, 'department'); } }
+    catch (\Throwable $e) { error_log('Training: department job group sync failed: ' . $e->getMessage()); }
+
     logAction("Department", "Edit", "$session_name edited department $name", $client_id, $client_id);
 
     flash_alert("Department <strong>$name</strong> updated");
@@ -378,6 +386,10 @@ if (isset($_GET['convert_lead'])) {
     $client_name = sanitizeInput($row['client_name'] ?? '');
 
     mysqli_query($mysqli, "UPDATE clients SET client_lead = 0, client_lead_status = 'Converted' WHERE client_id = $client_id");
+
+    // Training: keep the department job groups in step (one per active department). Never blocks the department save.
+    try { if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\People\DepartmentGroups::class)) { \ITFlow\Training\People\DepartmentGroups::safeSync($mysqli, 'department'); } }
+    catch (\Throwable $e) { error_log('Training: department job group sync failed: ' . $e->getMessage()); }
 
     logAction("Department", "Convert", "$session_name converted lead $client_name to a department", $client_id, $client_id);
 
@@ -412,6 +424,10 @@ if (isset($_GET['archive_client'])) {
     // Get Client Name
     $client_name = sanitizeInput(getFieldById('clients', $client_id, 'client_name'));
 
+    // Training: keep the department job groups in step (one per active department). Never blocks the department save.
+    try { if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\People\DepartmentGroups::class)) { \ITFlow\Training\People\DepartmentGroups::safeSync($mysqli, 'department'); } }
+    catch (\Throwable $e) { error_log('Training: department job group sync failed: ' . $e->getMessage()); }
+
     logAction("Department", "Archive", "$session_name archived department $client_name", $client_id, $client_id);
 
     flash_alert("Department <strong>$client_name</strong> archived", 'error');
@@ -436,6 +452,10 @@ if (isset($_GET['restore_client'])) {
     $client_name = sanitizeInput(getFieldById('clients', $client_id, 'client_name'));
 
     mysqli_query($mysqli, "UPDATE clients SET client_archived_at = NULL WHERE client_id = $client_id");
+
+    // Training: keep the department job groups in step (one per active department). Never blocks the department save.
+    try { if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\People\DepartmentGroups::class)) { \ITFlow\Training\People\DepartmentGroups::safeSync($mysqli, 'department'); } }
+    catch (\Throwable $e) { error_log('Training: department job group sync failed: ' . $e->getMessage()); }
 
     logAction("Department", "Restored", "$session_name restored department $client_name", $client_id);
 
@@ -550,6 +570,10 @@ if (isset($_GET['delete_client'])) {
 
     //Finally Remove the Client
     mysqli_query($mysqli, "DELETE FROM clients WHERE client_id = $client_id");
+
+    // Training: keep the department job groups in step (one per active department). Never blocks the department save.
+    try { if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\People\DepartmentGroups::class)) { \ITFlow\Training\People\DepartmentGroups::safeSync($mysqli, 'department'); } }
+    catch (\Throwable $e) { error_log('Training: department job group sync failed: ' . $e->getMessage()); }
 
     logAction("Department", "Deleted", "$session_name deleted Department $client_name and all associated data");
 
@@ -959,6 +983,10 @@ if (isset($_POST["import_clients_csv"])) {
 
         }
         fclose($file);
+
+        // Training: keep the department job groups in step (one per active department). Never blocks the department save.
+        try { if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\People\DepartmentGroups::class)) { \ITFlow\Training\People\DepartmentGroups::safeSync($mysqli, 'department'); } }
+        catch (\Throwable $e) { error_log('Training: department job group sync failed: ' . $e->getMessage()); }
 
         logAction("Department", "Import", "$session_name imported $row_count department(s) via CSV file, $duplicate_count duplicate(s) found");
 
@@ -1424,6 +1452,10 @@ if (isset($_POST['bulk_archive_clients'])) {
 
         }
 
+        // Training: keep the department job groups in step (one per active department). Never blocks the department save.
+        try { if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\People\DepartmentGroups::class)) { \ITFlow\Training\People\DepartmentGroups::safeSync($mysqli, 'department'); } }
+        catch (\Throwable $e) { error_log('Training: department job group sync failed: ' . $e->getMessage()); }
+
         logAction("Department", "Bulk Archive", "$session_name archived $count departments", $client_id);
 
         flash_alert("Archived $count department(s)", 'error');
@@ -1459,6 +1491,10 @@ if (isset($_POST['bulk_unarchive_clients'])) {
             logAction("Department", "Restore", "$session_name restored $client_name", $client_id);
 
         }
+
+        // Training: keep the department job groups in step (one per active department). Never blocks the department save.
+        try { if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\People\DepartmentGroups::class)) { \ITFlow\Training\People\DepartmentGroups::safeSync($mysqli, 'department'); } }
+        catch (\Throwable $e) { error_log('Training: department job group sync failed: ' . $e->getMessage()); }
 
         logAction("Department", "Bulk Restore", "$session_name restored $count department(s)", $client_id);
 

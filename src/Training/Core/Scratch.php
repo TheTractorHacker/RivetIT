@@ -131,6 +131,43 @@ final class Scratch
         return $n;
     }
 
+    /**
+     * Seconds since stamp($name) last ran, or null when it never did (or the stamp is unreadable).
+     * For cheap "at most every N seconds" throttles (department job group sync); not user-bound.
+     */
+    public static function stampAge(string $name): ?int
+    {
+        $path = self::stampPath($name);
+        clearstatcache(true, $path);
+        if (!is_file($path) || is_link($path)) {
+            return null;
+        }
+        $mtime = @filemtime($path);
+        return $mtime === false ? null : max(0, time() - $mtime);
+    }
+
+    /** Marks $name as done now (the file's mtime is the stamp; it holds no data). */
+    public static function stamp(string $name): void
+    {
+        $path = self::stampPath($name);
+        $old = umask(0077);
+        try {
+            if (!@touch($path)) {
+                throw new \RuntimeException('Scratch: stamp failed');
+            }
+        } finally {
+            umask($old);
+        }
+    }
+
+    private static function stampPath(string $name): string
+    {
+        if (preg_match(self::KIND_RE, $name) !== 1) {
+            throw new \InvalidArgumentException("Scratch: bad stamp name '$name'");
+        }
+        return self::dir('stamps') . '/' . $name . '.stamp';
+    }
+
     private static function path(string $kind, string $token): string
     {
         return self::dir($kind) . '/' . hash('sha256', $token) . '.json';

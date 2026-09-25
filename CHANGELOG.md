@@ -26,6 +26,15 @@ Training module is on.
   Capture today's snapshot, and the nightly Odoo directory sync switch (off by default).
 - Cron: `cron/training_cron.php` also reconciles assignments and captures the daily compliance snapshot;
   new `cron/odoo_sync_cron.php` (inert until switched on).
+- Training: department job groups. Every active department gets its own job group, created and kept in step for you
+  (renamed, archived and restored with the department). Its people are the department's contacts right now, so a new
+  hire or a department move takes effect at once. A rule on a department group matches the same people as a
+  Department condition, also after the department is archived. People › Job groups now has two sections, "Your
+  groups" (with New job group) and "Department groups" (view-only; each lists its people, links to the department,
+  lists the rules that use it and offers "New rule for this group"). Users limited to some departments see only
+  their departments' groups. The rule editor's group picker groups them under headings with the same people counts
+  as the tiles. The Microsoft and Google directory syncs now recalculate assignments right away, as the Odoo sync
+  does. No database change: the link is a reserved row in the job-group titles table that no real job title can match.
 
 ## [26.05] Stable Release
 ### Bug Fixes

@@ -14,12 +14,14 @@
  *      every admin, writes an app log line and an audit event - once, not every night.
  *   2. Sweeps abandoned upload temp files (uploads/training/<dir>/.<rand>.tmp older than 1 h)
  *      left behind if a request died between copy and rename (spec §4.2).
+ *   3a. Brings the department job groups in step with the departments (one group per active
+ *      department: created, renamed, archived, restored; DepartmentGroups). System actor.
  *   3. Reconciles assignments for everyone (Phase 2 M6/M12): renewal windows open by date, new
  *      hires and department moves are picked up, waivers lapse. System actor, trigger "cron".
  *   4. Captures today's compliance snapshot (training_compliance_daily, local date, idempotent
  *      per date) for the dashboard trend (Phase 2 M12).
  *   A step-1 failure is logged and printed but steps 2-4 still run; the script then exits 1.
- *   Steps 3-4 are skipped (and say so) until the 2.6.92 schema exists.
+ *   Steps 3a-4 are skipped (and say so) until the 2.6.92 schema exists.
  *
  * Schedule (ops, once Phase 1 is verified): /etc/cron.d/mw-itflow-training
  *   15 5 * * * www-data /usr/bin/php /var/www/mw-itflow.foleyit.com/cron/training_cron.php >> /var/log/itflow_mw_training.log 2>&1
@@ -157,6 +159,17 @@ try {
     logApp('Training', 'error', 'Training records settings could not be read: ' . $e->getMessage());
 }
 
+// 3a. Department job groups (before reconcile, so a rule on a new department's group assigns tonight) --
+$tr_dg_line = $tr_p2_ready ? 'dept groups skipped' : 'dept groups skipped (schema)';
+if ($tr_p2_ready) {
+    try {
+        // No per-group reconcile here: step 3 reconciles everyone right after.
+        $tr_dg = \ITFlow\Training\People\DepartmentGroups::sync($mysqli, 'cron', 30, false);
+        $tr_dg_line = $tr_dg['busy'] ? 'dept groups busy'
+            : "dept groups +{$tr_dg['created']} ~{$tr_dg['renamed']} -{$tr_dg['archived']} ^{$tr_dg['restored']}" . ($tr_dg['errors'] ? " ERRORS{$tr_dg['errors']}" : '');
+    } catch (\Throwable $e) { logApp('Training', 'error', 'Training department job groups failed: ' . $e->getMessage()); $tr_dg_line = 'dept groups ERROR'; }
+}
+
 // 3. Reconcile assignments (renewal windows open by date) --------------------------------------
 $tr_rec_line = $tr_p2_ready ? 'reconcile skipped' : 'reconcile skipped (schema)';
 if ($tr_p2_ready) {
@@ -179,16 +192,16 @@ if ($tr_p2_ready) {
 }
 
 if ($tr_verify_failed) {
-    printf("%s training_cron: ERROR %s; swept %d temp file(s); %s; %s\n",
-        gmdate('Y-m-d\TH:i:s\Z'), $tr_msg, $tr_swept, $tr_rec_line, $tr_snap_line);
+    printf("%s training_cron: ERROR %s; swept %d temp file(s); %s; %s; %s\n",
+        gmdate('Y-m-d\TH:i:s\Z'), $tr_msg, $tr_swept, $tr_dg_line, $tr_rec_line, $tr_snap_line);
     flock($tr_lock, LOCK_UN);
     fclose($tr_lock);
     exit(1);
 }
 
-printf("%s training_cron: ledger verify (%s) %s; checked %d events in %.1fs; swept %d temp file(s); %s; %s%s\n",
+printf("%s training_cron: ledger verify (%s) %s; checked %d events in %.1fs; swept %d temp file(s); %s; %s; %s%s\n",
     gmdate('Y-m-d\TH:i:s\Z'), $tr_deep ? 'deep' : 'shallow', $tr_record['line'], $tr_result['checked'],
-    microtime(true) - $tr_started, $tr_swept, $tr_rec_line, $tr_snap_line, $tr_stamp_note);
+    microtime(true) - $tr_started, $tr_swept, $tr_dg_line, $tr_rec_line, $tr_snap_line, $tr_stamp_note);
 
 flock($tr_lock, LOCK_UN);
 fclose($tr_lock);
