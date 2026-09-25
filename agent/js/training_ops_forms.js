@@ -890,17 +890,26 @@
             var a = opts.assignment || {};
             var result = null;
             var body = el('form', { novalidate: true });
-            var until = dateInput({ min: addDays(today(), 1) });
+            // Below level 3 a waiver needs an end date within a year (the server enforces the same rule):
+            // nothing ends a waiver early, so an open-ended one is for a Training manager to decide.
+            var openEnded = S.level >= 3;
+            var maxUntil = openEnded ? null : addDays(today(), 365);
+            var until = dateInput({ min: addDays(today(), 1), max: maxUntil, required: !openEnded });
             var reason = reasonInput(5, 255, 'For example: "Holds a current card from a previous employer" or "Office role, never operates the equipment"');
             body.appendChild(assignmentSummary(a));
-            body.appendChild(field({ label: 'Waive until', control: until, name: 'until', hint: 'Leave empty to waive it with no end date.' }));
+            body.appendChild(field({ label: 'Waive until', control: until, name: 'until', required: !openEnded,
+                hint: openEnded ? 'Leave empty to waive it with no end date. A waiver cannot be ended early, so prefer an end date.'
+                    : 'Up to a year from today. Only a Training manager can waive with no end date.' }));
             var rf = field({ label: 'Reason', control: reason.input, name: 'reason', required: true });
             rf.insertBefore(reason.counter, rf.querySelector('.invalid-feedback'));
             body.appendChild(rf);
             body.appendChild(el('div', { class: 'tro-consequence' }, [icon('fas fa-info-circle'), el('div', { text: 'While waived, ' + (a.person ? a.person.name : 'this person') + ' is not asked to complete this course and is left out of compliance numbers. The waiver and its reason stay on record.' })]));
             var submit = el('button', { type: 'button', class: 'btn btn-primary', text: 'Waive' });
             var h = sheet({ title: 'Waive assignment', subtitle: a.course ? a.course.name : '', body: body, foot: [cancelBtn(), submit], onHidden: function () { resolve(result); } });
-            function sync() { submit.disabled = !(reason.ok() && (!until.value || (isYmd(until.value) && until.value > today()))); }
+            function sync() {
+                var okDate = until.value ? (isYmd(until.value) && until.value > today() && (!maxUntil || until.value <= maxUntil)) : openEnded;
+                submit.disabled = !(reason.ok() && okDate);
+            }
             until.addEventListener('input', sync);
             reason.input.addEventListener('input', sync);
             sync();

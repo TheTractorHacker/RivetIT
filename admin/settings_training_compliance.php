@@ -255,7 +255,7 @@ $tc_csrf = $_SESSION['csrf_token'] ?? '';
             <?php if ($tc_target_state === 'pending') { ?>
                 <div class="alert alert-danger">
                     <div class="fw-bold mb-1">The Odoo connection changed. Directory sync is blocked until links are checked.</div>
-                    <div class="small">Run <strong>Check now</strong>. When no link is re-pointed or has a changed name, the new connection is accepted automatically.
+                    <div class="small">Run <strong>Check now</strong>. When every link checks out (none missing, re-pointed or with a changed name), the new connection is accepted automatically.
                         Otherwise resolve the flagged links below, or accept the new connection if you are sure the employee ids still mean the same people.</div>
                 </div>
                 <details class="mb-3">

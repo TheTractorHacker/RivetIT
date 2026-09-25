@@ -16,7 +16,9 @@ use ITFlow\Training\Core\Db;
  * Frozen transitions: repointed -> ok only by confirm or relink; relink only to the checked
  * suggestion and never to an employee linked to another contact; unlink only in missing/mismatch.
  * After a relink or confirm the target is accepted automatically when nothing is flagged any more
- * and every ok link was checked against the current target.
+ * (missing links that still exist count as flagged) and every ok link was checked against the current target.
+ * Check now accepts a changed target only when every link checked out ok (none missing): a different
+ * database shows up as all-missing, and accepting it would duplicate contacts on the next sync.
  */
 final class OdooLinkChecker
 {
@@ -50,7 +52,7 @@ final class OdooLinkChecker
     /**
      * Reads the Odoo employee list (network, outside any transaction, under `trodoo`), applies the
      * link rules, stamps config_training_odoo_link_checked_at_utc and accepts a changed target
-     * automatically when nothing is mismatched or re-pointed.
+     * automatically only when at least one link is ok and none is missing, mismatched or re-pointed.
      *
      * @return array{checked:int, ok:int, mismatch:int, missing:int, repointed:int, new:int, accepted_now:bool,
      *               target:array{current:string, accepted:?string, pending:bool}, rows:list<array>}
@@ -72,8 +74,12 @@ final class OdooLinkChecker
             Db::exec($this->db, 'UPDATE settings SET config_training_odoo_link_checked_at_utc = ? WHERE company_id = 1', 's', [Clock::nowUtc()]);
             $accepted = OdooTarget::accepted($this->db);
             $acceptedNow = false;
-            if ($accepted !== false && $accepted !== $current && $st['mismatch'] === 0 && $st['repointed'] === 0) {
-                $this->acceptTarget($userId, $accepted, $current, 'Link check found no mismatched or re-pointed links');
+            // A different database with other employee ids shows up as every link "missing" (not mismatched):
+            // accepting it would let the next sync create a duplicate contact for every employee it cannot match
+            // by email. So a changed target is accepted automatically only when every link checked out ok.
+            if ($accepted !== false && $accepted !== $current && $st['mismatch'] === 0 && $st['repointed'] === 0
+                && $st['missing'] === 0 && $st['ok'] > 0) {
+                $this->acceptTarget($userId, $accepted, $current, 'Link check found every link ok (none missing, mismatched or re-pointed)');
                 $acceptedNow = true;
             }
         } finally {
@@ -194,6 +200,7 @@ final class OdooLinkChecker
             return $link === null ? null : (int) $link['odoo_employee_id'];
         });
         $this->audit($userId, $contactId, 'unlink', "Unlinked contact #$contactId from Odoo employee #" . ($from ?? 0), ['from' => $from]);
+        $this->maybeAccept($userId);   // missing links now block the auto-accept, so resolving the last one by Unlink counts too
     }
 
     /** Accepts the link as it is now: baseline := the linked employee and the name Odoo showed at the last check. */
@@ -237,7 +244,7 @@ final class OdooLinkChecker
         return $a;
     }
 
-    /** Accepts the current target when nothing is flagged and every ok link was checked against it. */
+    /** Accepts the current target when nothing is flagged (missing included), at least one link is ok and every ok link was checked against it. */
     private function maybeAccept(int $userId): void
     {
         $accepted = OdooTarget::accepted($this->db);
@@ -246,12 +253,14 @@ final class OdooLinkChecker
             return;
         }
         $iid = (int) $this->row['odoo_integration_id'];
+        // 'missing' counts while the link row still exists: it is resolved by Unlink (the admin's explicit choice) or Relink.
         $left = Db::one($this->db, "SELECT
-                SUM(a.coattr_link_state IN ('mismatch', 'repointed', 'unchecked')) AS flagged,
-                SUM(a.coattr_link_state = 'ok' AND (a.coattr_odoo_target_sha IS NULL OR a.coattr_odoo_target_sha <> ?)) AS stale
+                SUM(a.coattr_link_state IN ('mismatch', 'repointed', 'missing', 'unchecked')) AS flagged,
+                SUM(a.coattr_link_state = 'ok' AND (a.coattr_odoo_target_sha IS NULL OR a.coattr_odoo_target_sha <> ?)) AS stale,
+                SUM(a.coattr_link_state = 'ok') AS ok
             FROM contact_odoo_links l JOIN contact_odoo_attributes a ON a.coattr_contact_id = l.contact_id
             WHERE l.odoo_integration_id = ?", 'si', [$current, $iid]);
-        if ((int) ($left['flagged'] ?? 0) === 0 && (int) ($left['stale'] ?? 0) === 0) {
+        if ((int) ($left['flagged'] ?? 0) === 0 && (int) ($left['stale'] ?? 0) === 0 && (int) ($left['ok'] ?? 0) > 0) {
             $this->acceptTarget($userId, $accepted, $current, 'All links resolved');
         }
     }

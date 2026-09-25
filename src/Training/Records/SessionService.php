@@ -165,6 +165,7 @@ final class SessionService
                 $existing = [];
             } else {
                 $s = $this->lockOpen($db, $id, $version);
+                $this->assertEditable($db, $s, $scope);
                 $sessionId = (int) $s['tsession_id'];
                 $sets = implode(', ', array_map(static fn($k) => "$k = ?", array_keys($fields)));
                 Db::exec($db, "UPDATE training_sessions SET $sets, tsession_version = tsession_version + 1 WHERE tsession_id = ?",
@@ -241,6 +242,7 @@ final class SessionService
         $r = Db::tx($db, function () use ($db, $id, $version, $today, $cs, $scope): array {
             $s = $this->lockOpen($db, $id, $version);
             $atts = Db::all($db, 'SELECT ' . self::ATT_COLS . ' FROM training_session_attendees WHERE tattendee_tsession_id = ? ORDER BY tattendee_contact_id FOR UPDATE', 'i', [$id]);
+            $this->assertEditable($db, $s, $scope);
             RecordsMutex::acquire($db);
 
             $present = array_values(array_filter($atts, static fn($a) => $a['tattendee_removed_at_utc'] === null && $a['tattendee_attendance'] === 'present'));
@@ -420,8 +422,9 @@ final class SessionService
             throw ApiException::validation(['reason' => 'Give a reason (5 to 255 characters).']);
         }
         $db = $this->c->db;
-        Db::tx($db, function () use ($db, $id, $reason): void {
+        Db::tx($db, function () use ($db, $id, $reason, $scope): void {
             $s = $this->lockOpen($db, $id, null);
+            $this->assertEditable($db, $s, $scope);
             Db::exec($db, "UPDATE training_sessions SET tsession_status = 'cancelled', tsession_cancel_reason = ?, tsession_version = tsession_version + 1
                 WHERE tsession_id = ?", 'si', [$reason, $id]);
             $active = array_map('intval', array_column(Db::all($db, 'SELECT tattendee_contact_id FROM training_session_attendees
@@ -520,6 +523,7 @@ final class SessionService
             'cancel_reason' => $row['tsession_cancel_reason'],
             'attendees' => $outAtts,
             'hidden_attendees' => $hiddenCount,
+            'can_edit' => $row['tsession_status'] === 'open' && $this->editable($db, $row, $s),
         ];
     }
 
@@ -647,6 +651,33 @@ final class SessionService
         [$sql, $t, $p] = $s->sqlIn('c.contact_client_id');
         return Db::one($this->c->db, "SELECT 1 AS ok FROM training_session_attendees ta JOIN contacts c ON c.contact_id = ta.tattendee_contact_id
             WHERE ta.tattendee_tsession_id = ? AND ta.tattendee_removed_at_utc IS NULL$sql LIMIT 1", 'i' . $t, array_merge([(int) $row['tsession_id']], $p)) !== null;
+    }
+
+    /**
+     * Changing an existing session (save, finalize, cancel) needs more than seeing it: its department must be in
+     * the editor's scope (department 0, "several departments / none", counts as in scope) and so must every person
+     * still on its roster. Otherwise a supervisor could move, rename or cancel another department's session just
+     * because one of their own people is on it. 403 session_scope (not "forbidden": that code means the role changed).
+     */
+    private function assertEditable(\mysqli $db, array $session, ?Scope $scope): void
+    {
+        if (!$this->editable($db, $session, $scope)) {
+            throw new ApiException(403, 'session_scope', 'This session belongs to another department or lists people you cannot see. Ask someone with access to all of them to change it.');
+        }
+    }
+
+    private function editable(\mysqli $db, array $session, ?Scope $scope): bool
+    {
+        if ($scope === null || $scope->isAll()) {
+            return true;
+        }
+        $clientId = (int) $session['tsession_client_id'];
+        if ($clientId > 0 && !$scope->allows($clientId)) {
+            return false;
+        }
+        $ids = array_map('intval', array_column(Db::all($db, 'SELECT tattendee_contact_id FROM training_session_attendees
+            WHERE tattendee_tsession_id = ? AND tattendee_removed_at_utc IS NULL', 'i', [(int) $session['tsession_id']]), 'tattendee_contact_id'));
+        return $this->hiddenContacts($db, $ids, $scope) === [];
     }
 
     /** @return array<int, true> contacts among $ids that $s does not see (none for all-scope or a null scope) */

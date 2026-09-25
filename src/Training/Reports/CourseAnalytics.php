@@ -279,6 +279,30 @@ final class CourseAnalytics
                 }
             }
         }
+        // A record that closed one of these assignments counts even when it is dated before the period (an existing
+        // card or paper record backfilled after the rule was saved): it is not in $rows above, so load it by id. It
+        // feeds the funnel only; the period's completion, score and time numbers stay limited to records dated in it.
+        $seen = array_fill_keys(array_map(static fn($r) => (int) $r['completion_id'], $rows), true);
+        $extra = array_values(array_diff(array_keys($closedBy), array_keys($seen)));
+        foreach (array_chunk($extra, 500) as $chunk) {
+            $in = implode(',', array_fill(0, count($chunk), '?'));
+            foreach (Db::all($db, "SELECT tc.completion_contact_id, tc.completion_score_pct, tc.completion_pass_mark_pct
+                    FROM training_completions tc
+                    WHERE tc.completion_id IN ($in) AND tc.completion_course_id = ?
+                      AND NOT EXISTS (SELECT 1 FROM training_completion_voids v WHERE v.cvoid_completion_id = tc.completion_id)",
+                str_repeat('i', count($chunk)) . 'i', array_merge($chunk, [$courseId])) as $r) {
+                $cid = (int) $r['completion_contact_id'];
+                if (!isset($out['assigned'][$cid])) {
+                    continue;
+                }
+                $score = $r['completion_score_pct'] !== null ? (float) $r['completion_score_pct'] : null;
+                $pm = $r['completion_pass_mark_pct'] !== null ? (int) $r['completion_pass_mark_pct'] : $passMark;
+                $funnelDone[$cid] = true;
+                if ($score === null || $pm === null || $score >= $pm) {
+                    $funnelPassed[$cid] = true;
+                }
+            }
+        }
         $out['funnel_completed'] = count($funnelDone);
         $out['funnel_passed'] = count($funnelPassed);
         $out['avg_score'] = $scores !== [] ? (int) round(array_sum($scores) / count($scores)) : null;

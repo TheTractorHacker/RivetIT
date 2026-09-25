@@ -144,6 +144,8 @@
             aside.appendChild(evidenceCard(s, null));
             if (s.status === 'open' && level < 2) {
                 aside.appendChild(el('div', { class: 'tro-card tro-card__body small text-muted', text: 'This session is still a draft. Someone with Training level 2 finishes it.' }));
+            } else if (s.status === 'open' && s.can_edit === false) {
+                aside.appendChild(el('div', { class: 'tro-card tro-card__body small text-muted', text: 'This draft belongs to another department or lists people outside your departments. Someone with access to all of them finishes it.' }));
             }
             host.appendChild(el('div', { class: 'tro-session' }, [el('div', {}, [details, att]), aside]));
         }
@@ -555,7 +557,7 @@
         // Boot
         // ------------------------------------------------------------------------------------
         function show(s) {
-            if (s.status === 'open' && level >= 2 && routes.session_save !== false) { renderEditor(s); } else { renderReadOnly(s, null); }
+            if (s.status === 'open' && level >= 2 && s.can_edit !== false && routes.session_save !== false) { renderEditor(s); } else { renderReadOnly(s, null); }
         }
         function boot() {
         if (D.is_new) {

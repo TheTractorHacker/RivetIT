@@ -6,6 +6,7 @@ use ITFlow\Audit\AuditService;
 use ITFlow\Training\Assign\AssignmentService;
 use ITFlow\Training\Assign\RequirementService;
 use ITFlow\Training\Compliance\ComplianceService;
+use ITFlow\Training\Core\Clock;
 use ITFlow\Training\Core\Ctx;
 use ITFlow\Training\Core\RecordsSettings;
 use ITFlow\Training\People\Scope;
@@ -17,6 +18,9 @@ use ITFlow\Training\People\Scope;
  */
 final class AssignActions
 {
+    /** Longest waiver a level-2 user may set (days from today); level 3 may leave it open-ended. */
+    public const WAIVE_MAX_DAYS_L2 = 365;
+
     /** GET course_id?, include_archived?, manual? -> {rules:[Rule]} (stats over the caller's scope). */
     public static function ruleList(Ctx $c, ApiContext $a): array
     {
@@ -127,6 +131,19 @@ final class AssignActions
         $svc = new AssignmentService($c);
         $svc->get($id, Scope::forCtx($c));
         $until = $a->date('until', false);
+        // Nothing in Phase 2 ends a waiver early, and an open-ended one keeps the pair out of assignments and the
+        // compliance count for good. So below level 3 a waiver needs an end date within a year; only level 3 may
+        // waive with no end date (or further out).
+        if ($c->level < 3) {
+            $max = Clock::addDays(Clock::todayLocal(), self::WAIVE_MAX_DAYS_L2);
+            if ($until === null) {
+                throw ApiException::validation(['until' => 'Pick an end date. Only Training managers (level 3) can waive with no end date.']);
+            }
+            if ($until > $max) {
+                throw new ApiException(422, 'date_out_of_range', 'A waiver can run for up to a year. Ask a Training manager (level 3) for a longer one.',
+                    ['until' => 'Must be on or before ' . $max . '.']);
+            }
+        }
         $reason = (string) $a->str('reason', 500);
         $row = $svc->waive($id, $until, $reason);
         CourseActions::log('Edit', 'Waived training assignment #' . $id . ($until !== null ? ' until ' . $until : ''), $id);
