@@ -1,0 +1,134 @@
+/* =============================================================================
+   Training kiosk - trainer mode (.kt-*) - P3 spec §5.7, lane K5.
+   Builds on the K1 shell sheet (itflow_training_kiosk.css): same tokens (--kx-*,
+   --if-* / Bootstrap theme, dark via :root[data-bs-theme=dark]), no hard-coded
+   accent. Tap targets >= 64 px, body text >= 20 px, icon + text for every status.
+   Layouts: 1024x768 / 768x1024 iPad, 1366x768 Windows.
+   ============================================================================= */
+
+/* The check-in and hand-off roles have no Done: leaving needs the trainer PIN. */
+.kx-checkin .kx-done, .kx-handoff .kx-done { display: none; }
+
+.kt-loading { min-height: 40vh; }
+.kt-head { display: flex; flex-direction: column; gap: 8px; }
+.kt-block { display: flex; flex-direction: column; gap: 14px; }
+.kt-foot { margin-top: 8px; }
+
+/* tiles */
+.kt-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.kt-tile { min-height: 168px; padding: 24px 28px; gap: 10px; }
+.kt-tile[disabled] { opacity: .55; cursor: not-allowed; }
+.kt-tile__label { font-size: 26px; font-weight: 700; }
+
+/* status chips (icon + text) */
+.kt-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.kt-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 32px; padding: 3px 12px; border-radius: 999px;
+  font-size: 16px; font-weight: 600; line-height: 1.2;
+  background: var(--kx-bg); color: var(--kx-muted); border: 1px solid var(--kx-border);
+}
+.kt-chip--ok { background: var(--kx-ok-soft); color: var(--kx-ok); border-color: transparent; }
+.kt-chip--warn { background: var(--kx-warn-soft); color: var(--kx-warn); border-color: transparent; }
+.kt-chip--bad { background: var(--kx-bad-soft); color: var(--kx-bad); border-color: transparent; }
+
+/* rows that hold their own buttons */
+.kt-row--static { cursor: default; flex-wrap: wrap; }
+.kt-row--static:hover { border-color: var(--kx-border); box-shadow: var(--kx-shadow); }
+.kt-row--static:active { transform: none; }
+.kt-row-actions { flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.kt-row-actions .kx-btn { min-height: 56px; padding: 0 14px; font-size: 17px; }
+
+/* session: action bar + two columns */
+.kt-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
+.kt-cols { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 28px; align-items: start; }
+
+/* form fields */
+.kt-form { display: flex; flex-direction: column; gap: 20px; }
+.kt-field { display: flex; flex-direction: column; gap: 8px; }
+.kt-label { font-size: 18px; font-weight: 600; }
+.kt-input {
+  width: 100%; min-height: 64px; padding: 12px 18px;
+  background: var(--kx-surface); color: var(--kx-ink);
+  border: 1px solid var(--kx-border-strong); border-radius: var(--kx-radius-sm);
+  font: inherit; font-size: 20px;
+}
+.kt-input:focus { outline: 3px solid var(--kx-accent); outline-offset: 1px; border-color: var(--kx-accent); }
+.kt-textarea { min-height: 96px; resize: vertical; line-height: 1.4; }
+select.kt-input { appearance: auto; }
+.kt-check { display: flex; align-items: flex-start; gap: 16px; padding: 18px 22px; background: var(--kx-surface); border: 1px solid var(--kx-border); border-radius: var(--kx-radius); font-size: 21px; font-weight: 600; cursor: pointer; }
+.kt-check__box { width: 32px; height: 32px; flex-shrink: 0; margin: 0; accent-color: var(--kx-accent); }
+.kt-plain { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.kt-plain li { display: flex; align-items: center; gap: 12px; font-size: 20px; }
+.kt-plain .fas { color: var(--kx-ok); }
+
+/* segmented choice (reasons, pass/fail) */
+.kt-seg { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+.kt-seg__btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 64px; min-width: 120px; padding: 0 20px;
+  background: var(--kx-surface); color: var(--kx-ink);
+  border: 2px solid var(--kx-border-strong); border-radius: var(--kx-radius-sm);
+  font: inherit; font-size: 19px; font-weight: 600; cursor: pointer;
+}
+.kt-seg__btn[aria-checked="true"] { border-color: var(--kx-accent); background: var(--kx-accent-soft); }
+.kt-seg__btn--pass[aria-checked="true"] { border-color: var(--kx-ok); background: var(--kx-ok-soft); color: var(--kx-ok); }
+.kt-seg__btn--fail[aria-checked="true"] { border-color: var(--kx-bad); background: var(--kx-bad-soft); color: var(--kx-bad); }
+
+/* checklist */
+.kt-checklist { margin: 0; padding: 0; list-style: none; counter-reset: kt; display: flex; flex-direction: column; gap: 12px; }
+.kt-check-item {
+  counter-increment: kt;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 16px 20px; background: var(--kx-surface); border: 1px solid var(--kx-border); border-radius: var(--kx-radius);
+}
+.kt-check-item__text { flex: 1 1 320px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 20px; }
+.kt-check-item__text::before { content: counter(kt) "."; font-weight: 700; color: var(--kx-muted); min-width: 1.6em; }
+.kt-checklist--ro .kt-check-item { padding: 12px 18px; }
+.kt-summary { display: flex; flex-direction: column; gap: 14px; }
+.kt-result { font-size: 22px; font-weight: 700; color: var(--kx-muted); }
+.kt-result.is-pass { color: var(--kx-ok); }
+.kt-result.is-fail { color: var(--kx-bad); }
+
+/* check-in: name grid, person screen, done flash */
+.kt-names { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.kt-name {
+  display: flex; align-items: center; gap: 14px; min-height: 88px; padding: 12px 18px;
+  background: var(--kx-surface); color: var(--kx-ink); border: 1px solid var(--kx-border); border-radius: var(--kx-radius);
+  box-shadow: var(--kx-shadow); font: inherit; text-align: left; cursor: pointer;
+}
+.kt-name:hover { border-color: var(--kx-border-strong); box-shadow: var(--kx-shadow-md); }
+.kt-name__text { display: flex; flex-direction: column; min-width: 0; }
+.kt-name__name { font-size: 21px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.kt-search { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
+.kt-results { display: flex; flex-direction: column; gap: 10px; }
+.kt-here { display: flex; flex-wrap: wrap; gap: 8px; }
+.kt-person { display: flex; align-items: center; gap: 22px; }
+.kt-split { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 32px; align-items: start; }
+.kt-single { display: flex; justify-content: center; }
+.kt-pinbox { align-items: center; padding: 24px 28px; background: var(--kx-surface); border: 1px solid var(--kx-border); border-radius: var(--kx-radius); box-shadow: var(--kx-shadow); }
+.kt-pin-msg { font-size: 18px; font-weight: 600; color: var(--kx-bad); text-align: center; max-width: 360px; }
+.kt-done { min-height: 50vh; text-align: center; }
+.kt-done__icon {
+  width: 112px; height: 112px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 52px; background: var(--kx-ok-soft); color: var(--kx-ok);
+}
+.kt-done__icon.is-already { background: var(--kx-info-soft); color: var(--kx-accent); }
+.kt-exit { border-top: 1px solid var(--kx-border); margin-top: 20px; }
+
+/* PIN dialog */
+body.kt-pin-open { overflow: hidden; }
+.kt-pin-card { max-width: 520px; align-items: center; text-align: center; }
+.kt-pin-card .kx-dialog__actions { justify-content: center; }
+
+/* responsive */
+@media (max-width: 1000px) {
+  .kt-cols { grid-template-columns: 1fr; }
+  .kt-split { grid-template-columns: 1fr; }
+  .kt-pinbox { justify-self: center; }
+}
+@media (max-height: 800px) and (min-width: 1001px) {
+  .kt-split .kx-sign__area { height: 200px; }
+  .kt-pin-card { padding-top: 24px; padding-bottom: 20px; gap: 12px; }
+  .kt-pin-card .kx-key { height: 64px; }
+}
