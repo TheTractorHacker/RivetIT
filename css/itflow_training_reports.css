@@ -58,6 +58,9 @@ body {
 .trr-page .card { border-radius: var(--trr-radius); }
 .trr-muted { color: var(--if-muted); }
 .trr-mono { font-family: var(--if-mono); font-size: .8125rem; white-space: nowrap; }
+.trr-cert-link { color: var(--if-primary, var(--bs-link-color)); text-decoration: underline; text-underline-offset: 2px; }
+.trr-cert-link:hover { color: var(--if-primary, var(--bs-link-hover-color)); text-decoration-thickness: 2px; }
+.trr-cert-link .fa-certificate { margin-right: 4px; font-size: .75rem; }
 .trr-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .trr-good { color: var(--trr-ok-fg) !important; }
 .trr-bad { color: var(--trr-err-fg) !important; }

@@ -219,7 +219,7 @@ $trr_actions = '<a class="btn btn-outline-secondary" href="' . trr_h($trr_csv) .
                 </div>
                 <a class="trr-card__link" href="<?= trr_h(trr_url('training_reports.php', ['tab' => 'matrix', 'client_id' => $trr_client, 'course_id' => $trr_course])) ?>">Open full matrix <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
             </div>
-            <?php require __DIR__ . '/includes/training_records/heatmap.php'; ?>
+            <?php $trr_hm_skip_empty = true; require __DIR__ . '/includes/training_records/heatmap.php'; ?>
         </div>
     </section>
 

@@ -16,7 +16,22 @@ foreach (['job' => $trr_hm_job ?? null, 'location' => $trr_hm_location ?? null] 
         $trr_hm_narrow .= ' data-' . $trr_hm_k . '="' . (int) $trr_hm_v . '"';
     }
 }
-if ($trr_m['rows'] === [] || $trr_m['courses'] === []) {
+// The dashboard leaves out departments with nothing required in the courses shown (all "—" rows push the ones that
+// matter down the page) and says how many it left out; Reports › Matrix keeps every department.
+$trr_hm_rows = $trr_m['rows'];
+$trr_hm_skipped = 0;
+if (!empty($trr_hm_skip_empty) && $trr_m['courses'] !== []) {
+    $trr_hm_rows = array_values(array_filter($trr_m['rows'], static function (array $r) use ($trr_m): bool {
+        foreach ($trr_m['courses'] as $c) {
+            if (($r['cells']['c' . $c['id']] ?? null) !== null) {
+                return true;
+            }
+        }
+        return false;
+    }));
+    $trr_hm_skipped = count($trr_m['rows']) - count($trr_hm_rows);
+}
+if ($trr_hm_rows === [] || $trr_m['courses'] === []) {
     echo '<p class="trr-empty-line">No required training for the people in view yet.</p>';
     return;
 }
@@ -33,7 +48,7 @@ if ($trr_m['rows'] === [] || $trr_m['courses'] === []) {
         </tr>
     </thead>
     <tbody>
-        <?php foreach ($trr_m['rows'] as $trr_r) { ?>
+        <?php foreach ($trr_hm_rows as $trr_r) { ?>
         <tr>
             <th scope="row" class="trr-heat__dept"><?= trr_h($trr_r['name']) ?> <span class="trr-muted">· <?= (int) $trr_r['headcount'] ?></span></th>
             <?php foreach ($trr_m['courses'] as $trr_c) {
@@ -73,6 +88,9 @@ if ($trr_m['rows'] === [] || $trr_m['courses'] === []) {
     <?php } ?>
 </table>
 </div>
+<?php if ($trr_hm_skipped > 0) { ?>
+<p class="trr-muted small mt-2 mb-0"><?= (int) $trr_hm_skipped ?> <?= $trr_hm_skipped === 1 ? 'department has' : 'departments have' ?> no required training in these courses and <?= $trr_hm_skipped === 1 ? 'is' : 'are' ?> not shown. Reports › Matrix lists every department.</p>
+<?php } ?>
 <div class="trr-legend" aria-hidden="true">
     <span class="trr-legend__title">Current</span>
     <span><i class="trr-legend__sw trr-band-0"></i>Under 70%</span>

@@ -270,6 +270,11 @@
                 onetime.disabled = true;
                 $('tro-rule-onetime-hint').textContent = 'The course does not expire, so there is nothing to renew';
             }
+            // The renewal period belongs to the course (validity + renewal lead on its Settings tab): give authors a way there.
+            if (c.id && Ops.can && Ops.can(2)) {
+                host.appendChild(el('a', { class: 'tro-renew__change', href: '/agent/training_course.php?id=' + encodeURIComponent(String(c.id)) + '#settings',
+                    text: 'Change on the course ›', title: 'Opens the course Settings tab, where the certificate validity and renewal lead are set' }));
+            }
         }
 
         // ---- 2 Who -------------------------------------------------------------------------
@@ -602,7 +607,10 @@
                 el('span', { class: 'tro-preview__label', text: matched === 1 ? 'person matches' : 'people match' })
             ]));
             var segs = [
-                ['assign', Number(p.will_assign || 0), 'tro-meter__assign', 'will be assigned', !Number(p.will_assign || 0) ? '' : (st.newHiresOnly ? 'due ' + u.plural(st.hireDays, 'day') + ' after their hire date' : (p.due_on_current_staff ? 'due ' + u.fmtDate(p.due_on_current_staff) : ''))],
+                ['assign', Number(p.will_assign || 0), 'tro-meter__assign', 'will be assigned', !Number(p.will_assign || 0) ? '' : [
+                    st.newHiresOnly ? 'due ' + u.plural(st.hireDays, 'day') + ' after their hire date' : (p.due_on_current_staff ? 'due ' + u.fmtDate(p.due_on_current_staff) : ''),
+                    Number(p.will_renew || 0) ? u.plural(Number(p.will_renew), 'renewal') + (Number(p.will_renew_lapsed || 0) ? ', ' + Number(p.will_renew_lapsed) + ' already expired' : '') : ''
+                ].filter(Boolean).join(' · ')],
                 ['current', Number(p.already_current || 0), 'tro-meter__current', 'already current', 'renew on their own dates'],
                 ['assigned', Number(p.already_assigned || 0), 'tro-meter__assigned', 'already assigned', 'keep the due date they have'],
                 ['waived', Number(p.waived || 0), 'tro-meter__waived', 'waived', 'not asked while the waiver lasts']
@@ -645,10 +653,24 @@
         function plainBox(text) {
             return el('div', { class: 'tro-plain' }, [el('span', { class: 'tro-plain__label', text: 'In plain words' }), el('span', { text: text })]);
         }
+        /** Why this person would be assigned: a renewal (expired or expiring), a retrain, or a recent hire who counts as current staff. */
+        function sampleWhy(s) {
+            if (s.kind === 'renewal' && s.expires_on) {
+                var lapsed = s.expires_on < today;
+                return el('div', { class: 'tro-sample__why' + (lapsed ? ' is-bad' : ''), text: 'Renewal · ' + (lapsed ? 'expired ' : 'expires ') + u.fmtDate(s.expires_on) });
+            }
+            if (s.kind === 'retrain') { return el('div', { class: 'tro-sample__why', text: 'Retrain on the new version' }); }
+            if (s.kind === 'reissue') { return el('div', { class: 'tro-sample__why', text: 'Record voided · redo' }); }
+            if (s.recent_hire && s.person && s.person.hire_date) {
+                return el('div', { class: 'tro-sample__why', text: 'Hired ' + u.fmtDate(s.person.hire_date) + ' · counts as current staff' + (s.due_on ? ' (due ' + u.fmtDate(s.due_on, true) + ')' : ''),
+                    title: 'The new-hire due date only applies to people hired on or after the day the rule is saved.' });
+            }
+            return null;
+        }
         function sampleRow(s) {
             var p = s.person || {};
             return el('li', {}, [u.avatar(p.name), el('div', { class: 'tro-sample__text' }, [
-                el('div', { class: 'tro-sample__name', text: p.name || '' }), el('div', { class: 'tro-sample__meta', text: u.personMeta(p) })
+                el('div', { class: 'tro-sample__name', text: p.name || '' }), el('div', { class: 'tro-sample__meta', text: u.personMeta(p) }), sampleWhy(s)
             ]), outcomeChip(s)]);
         }
         function showAll() {
@@ -768,14 +790,13 @@
                     el('a', { class: 'btn btn-sm btn-outline-dark', href: '/agent/training_assignments.php?tab=rules', text: 'Back to rules' })
                 ];
                 if (rec.error) {
-                    UI.toast('Rule saved. Assignments will update on the next recalculation.', { type: 'warning' });
                     banner('warning', 'fas fa-check-circle', 'Rule saved.', 'Assignments will update on the next recalculation.', actions);
                 } else {
                     var created = Number(rec.created || 0) + Number(rec.reopened || 0);
                     var text = created > 0
                         ? u.plural(created, 'person was', 'people were') + ' assigned ' + (c ? c.name : 'the course') + '.'
                         : 'No new assignments were needed' + (Number(rec.cancelled || 0) ? '; ' + u.plural(Number(rec.cancelled), 'assignment') + ' no longer required ' + (Number(rec.cancelled) === 1 ? 'was' : 'were') + ' closed' : '') + '.';
-                    UI.toast(wasNew ? 'Rule saved.' : 'Rule updated.');
+                    // The banner says it (and stays); a toast on top of it would only cover the preview.
                     banner('success', 'fas fa-check-circle', wasNew ? 'Rule saved.' : 'Changes saved.', text, actions);
                 }
                 refreshName();

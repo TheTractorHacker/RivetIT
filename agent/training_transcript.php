@@ -179,7 +179,7 @@ $trr_trainer_cell = static function (array $q): string {
 
 $trr_record_link = static function (array $q): string {
     $label = $q['cert_number'] ?? ('#' . $q['completion_id']);
-    return '<a class="trr-mono" href="/agent/training_certificate.php?id=' . (int) $q['completion_id'] . '" target="_blank" rel="noopener" title="Open the certificate">' . trr_h($label) . '</a>';
+    return '<a class="trr-mono trr-cert-link" href="/agent/training_certificate.php?id=' . (int) $q['completion_id'] . '" target="_blank" rel="noopener" title="Open certificate"><i class="fas fa-certificate" aria-hidden="true"></i>' . trr_h($label) . '<span class="visually-hidden"> (opens the certificate in a new tab)</span></a>';
 };
 
 $trr_strength_bars = static function (string $grade): string {

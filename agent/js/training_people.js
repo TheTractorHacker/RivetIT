@@ -129,7 +129,9 @@
                         hire.appendChild(el('span', { text: u.fmtDate(p.hire_date) }));
                         var dd = u.diffDays(u.today(), p.hire_date);
                         if (dd !== null && dd > 0) { hire.appendChild(el('span', { class: 'tro-sub', text: 'starts in ' + u.plural(dd, 'day') })); }
-                        else if (dd !== null && dd >= -90) { hire.appendChild(el('span', { class: 'tro-sub', text: 'new hire' })); }
+                        // "hired N days ago", not "new hire": a rule's new-hire due date only applies to people hired on or
+                        // after the day the rule was saved, so a generic "new hire" label would suggest the wrong thing.
+                        else if (dd !== null && dd >= -90) { hire.appendChild(el('span', { class: 'tro-sub', text: dd === 0 ? 'hired today' : 'hired ' + u.plural(-dd, 'day') + ' ago' })); }
                     } else {
                         hire.appendChild(el('span', { class: 'text-muted', text: 'Not set' }));
                     }

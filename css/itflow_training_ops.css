@@ -375,6 +375,7 @@ td.tro-inline-cell { background: var(--tro-surface-2); }
   background: var(--if-surface, #fff); border: 1px solid var(--if-border, #e3e9ea); font-size: 14px;
 }
 .tro-renew .tro-renew__src { color: var(--if-muted, #5d6f76); }
+.tro-renew__change { display: inline-block; margin-left: 10px; font-size: 13px; white-space: nowrap; vertical-align: middle; }
 .tro-custom-date { font-size: 12px; }
 
 /* Preview aside */
@@ -413,6 +414,8 @@ td.tro-inline-cell { background: var(--tro-surface-2); }
 .tro-sample__text { min-width: 0; flex: 1; }
 .tro-sample__name { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tro-sample__meta { font-size: 12.5px; color: var(--if-muted, #5d6f76); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tro-sample__why { font-size: 12px; color: var(--if-muted, #5d6f76); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tro-sample__why.is-bad { color: var(--tro-err-fg); font-weight: 600; }
 .tro-preview__more { padding: 4px 20px 16px; }
 .tro-preview__note {
   margin: 0 20px 16px; padding: 10px 12px; display: flex; gap: 8px; font-size: 13px; line-height: 1.45;

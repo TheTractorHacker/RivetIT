@@ -277,7 +277,7 @@ foreach ($section_pages as $key => $pages) {
                             <span class="dropdown-item-icon"><i class="fas fa-route"></i></span>
                             <span class="text-truncate">Learning Paths</span>
                         </a>
-                        <a href="/agent/training_assignments.php" class="dropdown-item<?php if (in_array($current_page, ['training_assignments.php', 'training_rule.php'], true)) { echo " active"; } ?>">
+                        <a href="/agent/training_assignments.php<?php if (!empty($num_training_overdue) && $num_training_overdue > 0) { echo '?status=overdue'; } ?>" class="dropdown-item<?php if (in_array($current_page, ['training_assignments.php', 'training_rule.php'], true)) { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-tasks"></i></span>
                             <span class="text-truncate">Assignments</span>
                             <?php if (!empty($num_training_overdue) && $num_training_overdue > 0) { ?>

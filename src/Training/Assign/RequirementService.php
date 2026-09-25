@@ -133,12 +133,16 @@ final class RequirementService
         $overlapPeople = 0;
         $overlapRules = [];
         $counts = ['assign' => 0, 'current' => 0, 'assigned' => 0, 'waived' => 0, 'new_hire' => 0];
+        $renewals = 0;
+        $lapsedN = 0;
         $sample = [];
         $sampleMax = max(1, min(1000, (int) ($draft['sample_limit'] ?? self::SAMPLE)));
         foreach ($matched as $cid => $p) {
             $f = $facts[$cid][$courseId] ?? RecordFacts::none();
             $due = RuleMatcher::ruleDue($rule, $p, $today);
             $newHire = $p['hire_date'] !== null && $p['hire_date'] >= $rule['effective_on'] && !$rule['is_manual'];
+            $kind = null;
+            $expiresOn = null;
             if (!empty($f['waiver'])) {
                 $outcome = 'waived';
             } elseif (isset($open[$cid])) {
@@ -155,6 +159,16 @@ final class RequirementService
                 } else {
                     $outcome = $newHire ? 'new_hire' : 'assign';
                     $due = $want['due_on'];
+                    // What the assignment would be for, so the preview can tell a renewal (and an already-expired
+                    // certificate) from a first assignment.
+                    $kind = match ($want['reason']) { 'renewal' => 'renewal', 'retrain' => 'retrain', 'reissue' => 'reissue', default => 'new' };
+                    if ($kind === 'renewal') {
+                        $renewals++;
+                        $expiresOn = $ff['latest']['expires_on'] ?? null;
+                        if ($expiresOn !== null && (string) $expiresOn < $today) {
+                            $lapsedN++;
+                        }
+                    }
                 }
             }
             $counts[$outcome]++;
@@ -166,7 +180,11 @@ final class RequirementService
                 }
             }
             if (count($sample) < $sampleMax) {
-                $sample[] = ['person' => Directory::ref($p), 'outcome' => $outcome, 'due_on' => $due];
+                // hired recently but before the rule took effect: gets the current-staff due date, not hire + N days
+                $recentHire = $outcome === 'assign' && !$rule['new_hires_only'] && $p['hire_date'] !== null && !$newHire
+                    && (string) $p['hire_date'] >= Clock::addDays($today, -max(1, $rule['due_days_from_hire'])) && (string) $p['hire_date'] <= $today;
+                $sample[] = ['person' => Directory::ref($p), 'outcome' => $outcome, 'due_on' => $due, 'kind' => $kind, 'expires_on' => $expiresOn,
+                             'recent_hire' => $recentHire];
             }
         }
         usort($sample, static fn($a, $b) => strcmp($a['person']['name'], $b['person']['name']));
@@ -176,6 +194,8 @@ final class RequirementService
             'course' => CourseCards::card($course),
             'matched' => count($matched),
             'will_assign' => $counts['assign'] + $counts['new_hire'],
+            'will_renew' => $renewals,
+            'will_renew_lapsed' => $lapsedN,
             'already_current' => $counts['current'],
             'already_assigned' => $counts['assigned'],
             'waived' => $counts['waived'],
