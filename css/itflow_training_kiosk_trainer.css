@@ -36,6 +36,7 @@
 .kt-row--static { cursor: default; flex-wrap: wrap; }
 .kt-row--static:hover { border-color: var(--kx-border); box-shadow: var(--kx-shadow); }
 .kt-row--static:active { transform: none; }
+.kt-row--static .kx-row__main { flex: 1 1 240px; }
 .kt-row-actions { flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
 .kt-row-actions .kx-btn { min-height: 56px; padding: 0 14px; font-size: 17px; }
 

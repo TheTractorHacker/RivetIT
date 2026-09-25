@@ -182,10 +182,10 @@
         return { el: el('div', { class: 'kt-search' }, [box, note, list]), input: box, reset: function () { box.value = ''; clear(list); note.hidden = true; } };
     }
 
-    function signBlock(label, name) {
+    function signBlock(label, name, onChange) {
         var holder = el('div', { class: 'kt-sign' });
         var wrap = el('section', { class: 'kt-block' }, [el('h2', { class: 'kx-h3', text: label }), holder]);
-        var pad = K.ui.signaturePad(holder, { name: name || '', date: today() });
+        var pad = K.ui.signaturePad(holder, { name: name || '', date: today(), onChange: onChange || null });
         return { el: wrap, pad: pad };
     }
 
@@ -484,8 +484,8 @@
 
     function checkinPerson(p) {
         var s = C.session;
-        var sign = s.requires_signature ? signBlock(t('trn.checkin_sign'), p.name) : null;
         var msg = el('p', { class: 'kt-pin-msg', role: 'alert', hidden: true });
+        var sign = s.requires_signature ? signBlock(t('trn.checkin_sign'), p.name, function () { msg.hidden = true; }) : null;
         var padBox = el('div', { class: 'kt-pin-pad' });
         var pad = K.ui.keypad(padBox, {
             minLen: 4, maxLen: 12,
@@ -667,15 +667,15 @@
         var fail = st.result === 'fail';
         return el('div', { class: 'kx-card kt-summary' }, [
             rows,
-            st.equipment ? el('p', { class: 'kx-note', text: t('trn.eval_equipment') + ': ' + st.equipment }) : null,
-            st.notes ? el('p', { class: 'kx-note', text: t('trn.eval_notes') + ': ' + st.notes }) : null,
+            st.equipment ? el('p', { class: 'kx-note', text: t('trn.eval_equipment_label') + ': ' + st.equipment }) : null,
+            st.notes ? el('p', { class: 'kx-note', text: t('trn.eval_notes_label') + ': ' + st.notes }) : null,
             el('p', { class: 'kt-result ' + (fail ? 'is-fail' : 'is-pass'), text: t(fail ? 'trn.eval_result_fail' : 'trn.eval_result_pass') })
         ]);
     }
 
     function signAndPin(signLabel, signName, pinLabel, onPin) {
-        var sign = signBlock(signLabel, signName);
         var msg = el('p', { class: 'kt-pin-msg', role: 'alert', hidden: true });
+        var sign = signBlock(signLabel, signName, function () { msg.hidden = true; });
         var padBox = el('div', { class: 'kt-pin-pad' });
         var pad = K.ui.keypad(padBox, {
             minLen: 4, maxLen: 12,
