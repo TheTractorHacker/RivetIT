@@ -162,6 +162,9 @@
             if (!st.required) { s += ' It is optional: it shows on the kiosk but does not count toward compliance.'; }
             if (st.newHiresOnly) {
                 s += ' Each new hire is due ' + u.plural(st.hireDays, 'day') + ' after their hire date.';
+            } else if (!st.allPeople && activeKinds().length === 1 && activeKinds()[0] === 'contact') {
+                // Named people only: nobody new can join the rule, so there is no new-hire clause.
+                s += ' They are due by ' + u.fmtDate(st.baseline) + '.';
             } else {
                 s += ' People on file today are due by ' + u.fmtDate(st.baseline) + '; anyone hired from now on is due ' + u.plural(st.hireDays, 'day') + ' after their hire date.';
             }
@@ -608,7 +611,7 @@
                 return el('li', {}, [el('span', { class: 'tro-legend__sw ' + s[2], 'aria-hidden': 'true' }),
                     el('span', {}, [el('b', { text: s[1] + ' ' + s[3] }), s[4] ? el('span', { class: 'tro-legend__sub', text: ' · ' + s[4] }) : null])]);
             }));
-            previewEl.appendChild(el('div', { class: 'tro-preview__body' }, [meter, legend, p.due_rule_text ? el('div', { class: 'tro-hint mt-2', text: u.readableDates(p.due_rule_text) }) : null, sent ? plainBox(sent) : null]));
+            previewEl.appendChild(el('div', { class: 'tro-preview__body' }, [meter, legend, (p.due_rule_text && !sent) ? el('div', { class: 'tro-hint mt-2', text: u.readableDates(p.due_rule_text) }) : null, sent ? plainBox(sent) : null]));
 
             var sample = p.sample || [];
             if (sample.length) {
