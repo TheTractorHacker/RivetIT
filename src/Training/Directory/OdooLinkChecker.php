@@ -32,9 +32,12 @@ final class OdooLinkChecker
         $this->row = $row;
     }
 
+    /** The same row the admin sync handler picks (latest id); an explicit column list, no SELECT * under src/Training. */
     public static function latestIntegration(\mysqli $db): ?array
     {
-        $res = $db->query('SELECT * FROM odoo_integrations ORDER BY odoo_integration_id DESC LIMIT 1');
+        $res = $db->query('SELECT odoo_integration_id, base_url, database_name, username, api_key_enc, api_protocol, enabled,
+            last_test_at, last_test_success, last_test_error, last_sync_at, created_at, updated_at
+            FROM odoo_integrations ORDER BY odoo_integration_id DESC LIMIT 1');
         $row = $res->fetch_assoc();
         $res->free();
         return $row ?: null;
