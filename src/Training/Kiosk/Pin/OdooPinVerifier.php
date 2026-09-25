@@ -28,8 +28,8 @@ use ITFlow\Training\Kiosk\Core\KTime;
  *
  * Circuit breaker (settings row, shared by every PHP worker): while
  * config_training_odoo_breaker_until_utc is in the future, no call is made ('unavailable').
- * Three consecutive errors open it for 60 s (breakerOpened() then reports true so the caller
- * can alert 'odoo_down'); any real answer resets the error count.
+ * Three consecutive errors (a malformed answer is an error) open it for 60 s (breakerOpened()
+ * then reports true so the caller can alert 'odoo_down'); any well-formed answer resets the count.
  */
 final class OdooPinVerifier
 {
@@ -80,11 +80,9 @@ final class OdooPinVerifier
             return $this->lastOutcome = $result['outcome'];
         }
         $v = $result['value'];
-        if ($v === 1) {
-            return $this->lastOutcome = 'match';
-        }
-        if ($v === 0) {
-            return $this->lastOutcome = 'nomatch';
+        if ($v === 1 || $v === 0) {
+            $this->recordAnswer();
+            return $this->lastOutcome = $v === 1 ? 'match' : 'nomatch';
         }
         $this->recordError();
         return $this->lastOutcome = 'unavailable';
@@ -107,11 +105,9 @@ final class OdooPinVerifier
         if ($result['outcome'] !== 'answer') {
             return null;
         }
-        if ($result['value'] === 1) {
-            return true;
-        }
-        if ($result['value'] === 0) {
-            return false;
+        if ($result['value'] === 1 || $result['value'] === 0) {
+            $this->recordAnswer();
+            return $result['value'] === 1;
         }
         $this->recordError();
         return null;
@@ -151,6 +147,7 @@ final class OdooPinVerifier
             }
             $ids[$id] = $id;
         }
+        $this->recordAnswer();
         return array_values($ids);
     }
 
@@ -179,7 +176,8 @@ final class OdooPinVerifier
             $this->recordError();
             return ['outcome' => 'unavailable'];
         }
-        $this->recordAnswer();
+        // The caller records the answer (recordAnswer) only when it is well-formed; a malformed
+        // 2xx answer counts as an error, so it can open the breaker too.
         return ['outcome' => 'answer', 'value' => $value];
     }
 
