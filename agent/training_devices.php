@@ -1,0 +1,155 @@
+<?php
+
+/*
+ * Training › Devices & PINs (P3 spec §5.8, lane K2; module_training_kiosk >= 1).
+ *
+ *   Devices tab       every training device: label, type, asset, personal owner (or "Assignment
+ *                     changed - re-enroll"), status, last seen, browser, cooldown. Revoke and New
+ *                     start URL (kiosk 3), Clear cooldown (kiosk >= 2), [S] setup code. A banner
+ *                     for the system-wide sign-in pause with Clear pause (kiosk >= 2).
+ *   People & PINs     (scoped) PIN source, local PIN, failures, locks, Odoo block, last sign-in,
+ *                     trainer. Unlock, [S★] Unblock Odoo link, Issue setup slips (-> print page),
+ *                     [S★] Refresh PIN sources. The Odoo-PIN switch state is shown.
+ *   Setup guide       [S] D-7: iPad and Windows kiosk setup (the docs/ path is denied by nginx).
+ */
+
+$page_extra_css = ['/css/itflow_training.css'];
+require_once "includes/inc_all.php";
+if (\ITFlow\Training\Core\Access::pageGuardKiosk(1)) { require_once "../includes/footer.php"; exit; }
+define('TRAINING_PAGE', 1);
+
+$tr_ctx = \ITFlow\Training\Core\Access::ctx($mysqli);
+$tr_klevel = \ITFlow\Training\Core\Access::kioskLevel();
+$tr_ks = \ITFlow\Training\Kiosk\Core\KioskSettings::fromDb($mysqli);
+$tr_scope = \ITFlow\Training\Kiosk\Pin\Seam::scopeClientIds($tr_ctx);
+$tr_departments = [];
+$tr_res = mysqli_query($mysqli, 'SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL ORDER BY client_name');
+while ($tr_res && ($tr_row = mysqli_fetch_assoc($tr_res))) {
+    if ($tr_scope === null || in_array((int) $tr_row['client_id'], $tr_scope, true)) {
+        $tr_departments[] = ['id' => (int) $tr_row['client_id'], 'name' => (string) $tr_row['client_name']];
+    }
+}
+$tr_tab = in_array($_GET['tab'] ?? '', ['devices', 'people', 'guide'], true) ? $_GET['tab'] : 'devices';
+$tr_data = [
+    'kiosk_level' => $tr_klevel,
+    'training_level' => $tr_ctx->level,
+    'is_admin' => $tr_ctx->isAdmin,
+    'departments' => $tr_departments,
+    'odoo_pin_enabled' => $tr_ks->odooPinEnabled,
+    'schema_ready' => $tr_ks->schemaReady,
+    'tab' => $tr_tab,
+];
+
+render_page_header(
+    'Devices & PINs',
+    'Training iPads and PCs, and the PINs people use on them.',
+    $tr_klevel >= 3 ? '<a class="btn btn-primary" href="/agent/training_device_setup.php"><i class="fas fa-plus me-2"></i>Set up a device</a>' : '',
+    [['label' => 'Training', 'url' => '/agent/training_courses.php'], ['label' => 'Devices & PINs']]
+);
+?>
+<?php if (!$tr_ks->schemaReady) { ?>
+<div class="alert alert-warning" role="status">The training kiosk tables are not installed yet. Run Admin › Update › Update Database.</div>
+<?php } else { ?>
+<div id="tr-devices-root">
+    <div id="tr-pause-banner"></div>
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item" role="presentation"><button class="nav-link<?= $tr_tab === 'devices' ? ' active' : '' ?>" data-bs-toggle="tab" data-bs-target="#tr-tab-devices" type="button" role="tab" aria-controls="tr-tab-devices" aria-selected="<?= $tr_tab === 'devices' ? 'true' : 'false' ?>" data-tab="devices"><i class="fas fa-tablet-alt me-2" aria-hidden="true"></i>Devices</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link<?= $tr_tab === 'people' ? ' active' : '' ?>" data-bs-toggle="tab" data-bs-target="#tr-tab-people" type="button" role="tab" aria-controls="tr-tab-people" aria-selected="<?= $tr_tab === 'people' ? 'true' : 'false' ?>" data-tab="people"><i class="fas fa-key me-2" aria-hidden="true"></i>People &amp; PINs</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link<?= $tr_tab === 'guide' ? ' active' : '' ?>" data-bs-toggle="tab" data-bs-target="#tr-tab-guide" type="button" role="tab" aria-controls="tr-tab-guide" aria-selected="<?= $tr_tab === 'guide' ? 'true' : 'false' ?>" data-tab="guide"><i class="fas fa-book me-2" aria-hidden="true"></i>Setup guide</button></li>
+    </ul>
+    <div class="tab-content">
+        <div class="tab-pane fade<?= $tr_tab === 'devices' ? ' show active' : '' ?>" id="tr-tab-devices" role="tabpanel">
+            <div class="row row-cards" id="tr-device-list" aria-busy="true"></div>
+        </div>
+        <div class="tab-pane fade<?= $tr_tab === 'people' ? ' show active' : '' ?>" id="tr-tab-people" role="tabpanel">
+            <div class="alert <?= $tr_ks->odooPinEnabled ? 'alert-info' : 'alert-secondary' ?> d-flex flex-wrap align-items-center gap-2" role="note">
+                <i class="fas <?= $tr_ks->odooPinEnabled ? 'fa-plug' : 'fa-key' ?>" aria-hidden="true"></i>
+                <span class="me-auto"><?= $tr_ks->odooPinEnabled
+                    ? 'Odoo-PIN sign-in is ON: people with a usable Odoo PIN sign in with it; everyone else uses a training PIN.'
+                    : 'Odoo-PIN sign-in is OFF — everyone uses training PINs.' ?></span>
+                <?php if ($tr_ctx->isAdmin) { ?><a class="btn btn-sm btn-outline-dark" href="/admin/settings_training_kiosk.php">Kiosk settings</a><?php } ?>
+            </div>
+            <div class="card">
+                <div class="card-body border-bottom py-3">
+                    <div class="d-flex flex-wrap gap-2 align-items-end">
+                        <div class="flex-grow-1" style="min-width:200px">
+                            <label class="form-label" for="tr-people-q">Search</label>
+                            <input type="search" class="form-control" id="tr-people-q" placeholder="Name" autocomplete="off" maxlength="80">
+                        </div>
+                        <div>
+                            <label class="form-label" for="tr-people-dept">Department</label>
+                            <select class="form-select" id="tr-people-dept"><option value="0">All departments</option></select>
+                        </div>
+                        <div>
+                            <label class="form-label" for="tr-people-filter">Show</label>
+                            <select class="form-select" id="tr-people-filter">
+                                <option value="all">Everyone</option>
+                                <option value="needs_slip">Needs a setup slip</option>
+                                <option value="locked">Locked</option>
+                                <option value="blocked">Odoo link blocked</option>
+                            </select>
+                        </div>
+                        <?php if ($tr_klevel >= 2) { ?>
+                        <div class="d-flex gap-2 ms-auto">
+                            <button type="button" class="btn btn-primary" id="tr-people-slips" disabled><i class="fas fa-receipt me-2" aria-hidden="true"></i>Issue setup slips <span class="badge bg-white text-primary ms-1" id="tr-people-count">0</span></button>
+                            <?php if ($tr_ks->odooPinEnabled) { ?>
+                            <button type="button" class="btn btn-outline-secondary" id="tr-people-refresh"><i class="fas fa-sync me-2" aria-hidden="true"></i>Refresh PIN sources</button>
+                            <?php } ?>
+                        </div>
+                        <?php } ?>
+                    </div>
+                    <div class="form-check mt-2<?= $tr_ks->odooPinEnabled && $tr_klevel >= 2 ? '' : ' d-none' ?>">
+                        <input class="form-check-input" type="checkbox" id="tr-people-switch">
+                        <label class="form-check-label" for="tr-people-switch">Switch Odoo-PIN people to a training PIN (they keep it even after the nightly Odoo check)</label>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-vcenter card-table">
+                        <thead><tr>
+                            <?php if ($tr_klevel >= 2) { ?><th class="w-1"><input class="form-check-input" type="checkbox" id="tr-people-all" aria-label="Select everyone shown"></th><?php } ?>
+                            <th>Name</th><th>Source</th><th>Training PIN</th><th>Failed</th><th>Locked</th><th>Blocked</th><th>Last sign-in</th><th>Trainer</th><th class="w-1"><span class="visually-hidden">Actions</span></th>
+                        </tr></thead>
+                        <tbody id="tr-people-body"></tbody>
+                    </table>
+                </div>
+                <div class="card-footer text-secondary small" id="tr-people-foot"></div>
+            </div>
+        </div>
+        <div class="tab-pane fade<?= $tr_tab === 'guide' ? ' show active' : '' ?>" id="tr-tab-guide" role="tabpanel">
+            <div class="row row-cards">
+                <div class="col-lg-6">
+                    <div class="card h-100"><div class="card-header"><h2 class="card-title"><i class="fas fa-tablet-alt me-2" aria-hidden="true"></i>iPad</h2></div>
+                    <div class="card-body">
+                        <ol class="ps-3">
+                            <li class="mb-2">Update to <strong>iPadOS 16.4 or later</strong> (older iPads can't play YouTube/Vimeo lessons safely).</li>
+                            <li class="mb-2">In Safari open <code><?= nullable_htmlentities('https://' . preg_replace('#^https?://#', '', (string) $config_base_url)) ?>/kiosk/</code>, tap <strong>Share › Add to Home Screen</strong>, then open the new <strong>Training</strong> icon.</li>
+                            <li class="mb-2">Inside that app tap <strong>Set up this device (admin)</strong>, sign in to ITFlow, pick the iPad's asset and tap <strong>Use this device for training</strong>. Enrollment must happen inside the Home Screen app — Safari and the app keep separate cookies.</li>
+                            <li class="mb-2">Tap <strong>Open training on this device</strong>. You are signed out and the iPad shows the name search (or the owner's PIN on a personal iPad).</li>
+                            <li class="mb-2">Settings › Display &amp; Brightness › <strong>Auto-Lock: Never</strong> while it sits on its charger.</li>
+                            <li class="mb-2">Optional: Settings › Accessibility › <strong>Guided Access</strong> on, then triple-click the top button in the Training app to lock the iPad to it.</li>
+                            <li>If the iPad was set up in Safari by mistake, or its cookies were cleared, open the <strong>start URL</strong> again (or use <strong>New start URL</strong> on the Devices tab).</li>
+                        </ol>
+                    </div></div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card h-100"><div class="card-header"><h2 class="card-title"><i class="fab fa-windows me-2" aria-hidden="true"></i>Windows PC (Edge kiosk)</h2></div>
+                    <div class="card-body">
+                        <ol class="ps-3">
+                            <li class="mb-2">Set up the PC in Edge: open <code>/kiosk/</code>, <strong>Set up this device (admin)</strong>, pick the PC's asset, and <strong>copy the start URL</strong> from the success screen before you tap <em>Open training</em>.</li>
+                            <li class="mb-2">Run Edge in public-browsing kiosk mode with the start URL:<br><code>msedge --kiosk "&lt;start URL&gt;" --edge-kiosk-type=public-browsing</code><br>or Settings › Accounts › Other users › <strong>Set up a kiosk</strong> (assigned access) with Edge and the start URL.</li>
+                            <li class="mb-2">Public browsing clears cookies between sessions; the start URL re-adopts the device each time, so it keeps working.</li>
+                            <li class="mb-2">Power &amp; sleep: <strong>Screen and sleep: Never</strong> while plugged in; turn off Windows Update active-hours restarts during shifts.</li>
+                            <li>Touch screens work like the iPad; with a mouse and keyboard people can type their PIN on the number keys.</li>
+                        </ol>
+                        <div class="alert alert-warning mb-0">Treat the start URL like a key: anyone with it can set up a copy of the device (people still need their own PIN). If it leaks, use <strong>New start URL</strong>.</div>
+                    </div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<?php } ?>
+<script type="application/json" id="tr-page-data"><?= json_encode($tr_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?></script>
+<script src="/js/training_common.js?v=<?= filemtime(__DIR__ . '/../js/training_common.js') ?>" defer></script>
+<script src="/agent/js/training_devices.js?v=<?= filemtime(__DIR__ . '/js/training_devices.js') ?>" defer></script>
+<?php require_once "../includes/footer.php";
