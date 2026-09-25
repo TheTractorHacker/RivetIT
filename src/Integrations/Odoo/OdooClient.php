@@ -217,6 +217,69 @@ class OdooClient implements BusinessApplicationProvider
         return $this->searchReadAll('hr.employee', [], self::EMPLOYEE_FIELDS, self::EMPLOYEE_KWARGS);
     }
 
+    /**
+     * Training (LMS Phase 2): the extra hr.employee fields the directory sync's training
+     * extension reads in a separate call. EMPLOYEE_FIELDS (the main sync) is deliberately
+     * untouched, so a field an Odoo version lacks can never break the directory sync itself.
+     */
+    private const EXTRA_EMPLOYEE_FIELDS = ['job_id', 'work_location_id', 'create_date'];
+
+    /**
+     * All employees (archived included), paged like listEmployees(), reading only $fields
+     * (a subset of EXTRA_EMPLOYEE_FIELDS; 'id' is always read).
+     *
+     * @param list<string> $fields
+     * @return array<int, array<string, mixed>> odoo employee id => [field => raw Odoo value]
+     * @throws \RuntimeException on any Odoo or transport error
+     * @throws \InvalidArgumentException for a field outside EXTRA_EMPLOYEE_FIELDS
+     */
+    public function readEmployeeFields(array $fields): array
+    {
+        $fields = array_values(array_unique($fields));
+        if ($fields === [] || array_diff($fields, self::EXTRA_EMPLOYEE_FIELDS) !== []) {
+            throw new \InvalidArgumentException('readEmployeeFields: fields must be a non-empty subset of ' . implode(', ', self::EXTRA_EMPLOYEE_FIELDS));
+        }
+        $out = [];
+        foreach ($this->searchReadAll('hr.employee', [], array_merge(['id'], $fields), self::EMPLOYEE_KWARGS) as $r) {
+            if (!is_array($r) || !isset($r['id']) || !is_int($r['id'])) {
+                throw new \RuntimeException('Unexpected hr.employee record from Odoo');
+            }
+            $row = [];
+            foreach ($fields as $f) {
+                $row[$f] = $r[$f] ?? false;
+            }
+            $out[$r['id']] = $row;
+        }
+        return $out;
+    }
+
+    /**
+     * Ids of employees (archived included) whose kiosk PIN is set and at least $minLen
+     * characters long. PIN VALUES ARE NEVER READ: this is an ids-only `search` with an
+     * `=like` pattern of $minLen underscores, so only the match leaves Odoo.
+     *
+     * @return list<int>
+     * @throws \RuntimeException on any Odoo or transport error
+     */
+    public function employeeIdsWithUsablePin(int $minLen = 4): array
+    {
+        $minLen = max(1, min(32, $minLen));
+        $ids = $this->connector->call('hr.employee', 'search', [], [
+            'domain' => [['pin', '!=', false], ['pin', '=like', str_repeat('_', $minLen) . '%']],
+        ] + self::EMPLOYEE_KWARGS, self::CALL_OPTS);
+        if (!is_array($ids)) {
+            throw new \RuntimeException('Unexpected response from Odoo for hr.employee.search');
+        }
+        $out = [];
+        foreach ($ids as $id) {
+            if (!is_int($id)) {
+                throw new \RuntimeException('Unexpected response from Odoo for hr.employee.search');
+            }
+            $out[] = $id;
+        }
+        return $out;
+    }
+
     private function searchReadAll(string $model, array $domain, array $fields, array $extraKwargs = []): array
     {
         $records = [];
