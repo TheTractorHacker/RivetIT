@@ -90,7 +90,7 @@
             el('div', { class: 'kl-kicker' }, [el('span', { text: t('sign.receipt_preview') }), el('span', { class: 'kl-muted', text: ' · ' + t('sign.receipt_preview_note') })]),
             el('div', { class: 'kl-preview__row' }, [
                 el('span', { class: 'kl-chip kl-chip--ok' }, [icon('fa-check'), el('span', { text: t('sign.recorded') })]),
-                P.kind === 'document' ? null : el('span', null, [el('span', { class: 'kl-muted', text: t('sign.certificate') + ' ' }), el('strong', { class: 'kl-mono', text: t('sign.cert_after') })]),
+                P.kind === 'document' ? null : el('span', null, [el('span', { class: 'kl-muted', text: t('sign.certificate') + ' ' }), el('strong', { text: t('sign.cert_after') })]),
                 P.score_pct !== null && P.score_pct !== undefined ? el('span', null, [el('span', { class: 'kl-muted', text: t('sign.score') + ' ' }), el('strong', { text: pct(P.score_pct) })]) : null,
                 P.validity_months ? el('span', null, [el('span', { class: 'kl-muted', text: t('sign.expires') + ' ' }), el('strong', { text: addMonths(P.today, P.validity_months) })])
                     : el('span', { class: 'kl-muted', text: t('sign.no_expiry') })

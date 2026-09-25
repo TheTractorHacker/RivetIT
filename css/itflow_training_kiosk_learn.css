@@ -212,6 +212,7 @@ body.kx-course .kl-player:not(.trp) { overflow: auto; padding: 40px; }
 .trp-ach__item { display: flex; align-items: center; gap: 14px; }
 .trp-ach--won .trp-ach__medal { --trp-ach: var(--trp-accent); background: var(--trp-ach); color: #fff; }
 .trp-ach__name { font-size: 19px; }
+.trp-result__grid.is-single { grid-template-columns: minmax(0, 1fr); }
 
 /* ---- sign + receipt ---------------------------------------------------------------- */
 .kl-signoff { gap: 24px; }
@@ -273,8 +274,9 @@ body.kx-video-page .kx-main { padding-bottom: 0; }
 .kl-vmain { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .kl-vstage { position: relative; overflow: hidden; border-radius: var(--kx-radius); background: #0f171a; box-shadow: var(--kx-shadow); }
 .kl-vstage.is-off { opacity: .5; }
-.kl-vstage__top { position: absolute; left: 14px; top: 14px; right: 14px; z-index: 2; display: flex; align-items: center; gap: 12px; pointer-events: none; }
-.kl-vchip, .kl-vtap { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(15,23,26,.72); color: #fff; font-size: 15px; font-weight: 600; }
+/* Nothing is ever laid over the third-party player (plan A2): the chips sit in a bar above it. */
+.kl-vstage__top { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #0f171a; }
+.kl-vchip, .kl-vtap { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,.12); color: #fff; font-size: 15px; font-weight: 600; }
 .kl-vtap { margin-left: auto; }
 .kl-vtap[hidden] { display: none; }
 .kl-vframe { position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 200px; }
@@ -299,7 +301,8 @@ body.kx-video-page .kx-main { padding-bottom: 0; }
 .kl-vstatus[hidden] { display: none; }
 .kl-vside { display: flex; flex-direction: column; gap: 16px; }
 .kl-side { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; background: var(--kx-surface); border: 1px solid var(--kx-border); border-radius: var(--kx-radius); box-shadow: var(--kx-shadow); color: var(--kx-ink); text-decoration: none; }
-.kl-side__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.kl-side__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.kl-side__head .kl-chip { white-space: nowrap; }
 .kl-res { list-style: none; margin: 0; padding: 0; }
 .kl-res__row { display: flex; align-items: center; gap: 12px; min-height: 64px; color: var(--kx-ink); text-decoration: none; border-top: 1px solid var(--kx-border); }
 .kl-res li:first-child .kl-res__row { border-top: 0; }
@@ -337,10 +340,12 @@ body.kx-video-page .kx-main { padding-bottom: 0; }
   .kl-top .kl-sec--docs .kl-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kl-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kl-bottom { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .kl-vgrid, .kl-signgrid { grid-template-columns: minmax(0, 1fr); }
-  .kl-signpin { max-width: 420px; width: 100%; margin: 0 auto; }
+  .kl-vgrid { grid-template-columns: minmax(0, 1fr) 280px; }
+  .kl-signgrid { grid-template-columns: minmax(0, 1fr) 300px; }
 }
 @media (max-width: 900px) {
+  .kl-vgrid, .kl-signgrid { grid-template-columns: minmax(0, 1fr); }
+  .kl-signpin { max-width: 420px; width: 100%; margin: 0 auto; }
   .kl-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kl-bottom { grid-template-columns: minmax(0, 1fr); }
   .kl-signfoot { grid-template-columns: minmax(0, 1fr); }

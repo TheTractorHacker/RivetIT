@@ -1926,7 +1926,8 @@
                     h('div', null, [h('div', { class: 'trp-kicker', text: t('achievements') }), h('p', { class: 'trp-muted', text: t('no_achievements') })])
                 ]);
             }
-            parts.push(h('div', { class: 'trp-result__grid' }, [reviewCard, ach]));
+            // Kiosk: an empty achievements card only says what preview can't do - leave it out.
+            parts.push(h('div', { class: 'trp-result__grid' + (isKiosk && !awards.length ? ' is-single' : '') }, [reviewCard, isKiosk && !awards.length ? null : ach]));
             var retry = h('button', { type: 'button', class: 'trp-btn trp-btn--ghost trp-btn--lg' }, [icon('fa-redo'), t('retry')]);
             var cont = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--lg' }, [t('continue'), icon('fa-arrow-right')]);
             retry.addEventListener('click', function () { openLesson(l.uid); });
@@ -1942,6 +1943,7 @@
             if (isKiosk) {
                 footText = kx && kx.signLabel ? t('k_score_saved') : t('k_score_recorded');
                 if (passed || kLocked) { retry.hidden = true; }
+                if (!passed && !kLocked) { retry.className = 'trp-btn trp-btn--primary trp-btn--lg'; cont.className = 'trp-btn trp-btn--ghost trp-btn--lg'; }
                 if (kLocked) {
                     cont = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--lg', on: { click: function () { renderHome(); } } }, [icon('fa-list-ul'), t('back_to_course')]);
                     actions = [retry, cont];
