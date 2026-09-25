@@ -12,6 +12,23 @@
  *                  onVideoError(lesson, lang, {provider, extId, extHash, code}),
  *                  initialProgress?, onProgress?(progress), onLanguage?(lang), initialLesson? }
  *
+ *       Kiosk hooks (P3 spec §7.6; every one optional and additive - preview behaviour is unchanged):
+ *                  chrome:false                 no .trp-top (the kiosk shell owns brand / EN|ES / Done)
+ *                  ensureRun() -> Promise<RunState>   awaited once before the first lesson opens; its done map is merged
+ *                  onLessonOpen(uid) -> Promise<Gate> kiosk: the server gate drives Mark complete (skipped when gate.quiz)
+ *                  onTick(uid, sample) -> Promise<Gate>   sample {position_s, pages_seen:[new], playing, visible, active}
+ *                  onLessonComplete(uid, evidence) -> Promise<{done, run_status, ...}>  kiosk: done only after it resolves
+ *                  signAck(uid, {signature_png, pin}) -> Promise<{run_status, receipt}>   kiosk acknowledgment
+ *                  signaturePad(container, {onChange, name, date}) -> {toPng, clear, isInked, destroy}
+ *                  externalVideoUrl(uid)        YouTube/Vimeo open on their own page (a card with Watch video)
+ *                  onAnswer(token, qUid, optionUids) -> Promise   debounced 400 ms, flushed before submit
+ *                  quizInfo(uid) -> {used, max, left, locked, passed}|null
+ *                  onQuizResult(uid, res) -> {signLabel}|null ; onSign() ; onCourseComplete() (replaces the completion screen)
+ *                  courseChips() -> [{icon, text, tone}] ; homeNotice() -> {tone, icon, title, text}|null ;
+ *                  homeCta() -> {label, icon, onClick, disabled}|null ; homeSubline() -> string|null ;
+ *                  runFrozen() -> truthy when the run takes no lesson work (locked, blocked, awaiting_*)
+ *                  learnerFirst, validityMonths
+ *
  *   TrainingPlayer.renderQuestion(container, q, opts) -> {destroy()}
  *       q    {uid?, type, text, image_url, options:[{uid, text}]} - the builder strips every key field first
  *       opts {mode:'author', index, total, title, strings?, lang?, brand?}
@@ -64,7 +81,18 @@
             locked_chip: 'Locked', start_chip: 'Start', review_chip: 'Review', correct_answers: 'Correct answer', answer_label: 'Answer {l}',
             course_name_label: 'Course', minutes_total: '{n} min', video_error_detail: 'Details: {code}', play_first: 'Press play inside the video first.',
             review_hint: 'Tap a question to change your answer.', graded_hidden: 'Grading is available to course authors', in_order: 'Lessons in order', attest_default: 'I completed this training and I understand it.',
-            question_of: 'Question {n} of {total}', next: 'Next', select_all: 'Select all that apply'
+            question_of: 'Question {n} of {total}', next: 'Next', select_all: 'Select all that apply',
+            // kiosk (P3 §7.6)
+            k_checking: 'Checking your progress…', k_keep_going: 'Keep going: about {t} more', k_saving_note: 'Answers save as you go',
+            k_save_failed: "Couldn't save that answer yet. It is sent again when you finish.", k_score_saved: 'Your score is saved. Signing adds it to your training record.',
+            k_score_recorded: 'Your score is saved.', attempt_of: 'Attempt {n} of {max}', attempt_n: 'Attempt {n}', attempts_left_n: '{n} tries left', attempts_left_1: '1 try left',
+            locked_trainer: 'Locked — see your trainer', ach_unlocked: 'Achievement unlocked', ach_unlocked_n: 'Achievements unlocked', ach_added: 'Added to your profile',
+            good_for: 'Good for', months_n: '{n} months', month_1: '1 month', sign_to_finish: 'Sign to finish', watch_video: 'Watch video',
+            ext_video_note: 'The video opens on its own screen. Come back here when you finish.', k_pin_hint: 'Same PIN you use to sign in.',
+            k_pin_doc_hint: 'Your PIN confirms you read this document.', exam_after: 'Finish the other lessons first', k_saving: 'Saving…',
+            k_pass_sign_msg: 'Nice work, {first}. One last step: sign to put {course} on your training record.', k_pass_msg: 'Nice work, {first}.',
+            k_locked_msg: 'You used all your tries. Your trainer can give you another try.', k_retry_msg: 'Review the questions below, then try again.',
+            k_read_first: 'Take a moment to read it, then sign.', k_passed_already: 'You passed this quiz.', passed_chip_short: 'Passed', minutes_short: '{n} min'
         },
         es: {
             lessons_n: '{n} lecciones', lesson_1: '1 lección', course_content: 'Contenido del curso', sections_meta: '{s} secciones · {n} lecciones',
@@ -102,7 +130,18 @@
             locked_chip: 'Bloqueada', start_chip: 'Comenzar', review_chip: 'Repasar', correct_answers: 'Respuesta correcta', answer_label: 'Respuesta {l}',
             course_name_label: 'Curso', minutes_total: '{n} min', video_error_detail: 'Detalle: {code}', play_first: 'Primero presione reproducir dentro del video.',
             review_hint: 'Toque una pregunta para cambiar su respuesta.', graded_hidden: 'La calificación está disponible para los autores del curso', in_order: 'Lecciones en orden', attest_default: 'Completé esta capacitación y la entiendo.',
-            question_of: 'Pregunta {n} de {total}', next: 'Siguiente', select_all: 'Seleccione todas las que correspondan'
+            question_of: 'Pregunta {n} de {total}', next: 'Siguiente', select_all: 'Seleccione todas las que correspondan',
+            // kiosk (P3 §7.6)
+            k_checking: 'Revisando su avance…', k_keep_going: 'Siga: faltan unos {t}', k_saving_note: 'Las respuestas se guardan solas',
+            k_save_failed: 'Todavía no se guardó esa respuesta. Se envía otra vez al terminar.', k_score_saved: 'Su calificación está guardada. Al firmar queda en su registro de capacitación.',
+            k_score_recorded: 'Su calificación está guardada.', attempt_of: 'Intento {n} de {max}', attempt_n: 'Intento {n}', attempts_left_n: 'Le quedan {n} intentos', attempts_left_1: 'Le queda 1 intento',
+            locked_trainer: 'Bloqueado — hable con su instructor', ach_unlocked: 'Logro desbloqueado', ach_unlocked_n: 'Logros desbloqueados', ach_added: 'Agregado a su perfil',
+            good_for: 'Vale por', months_n: '{n} meses', month_1: '1 mes', sign_to_finish: 'Firmar para terminar', watch_video: 'Ver el video',
+            ext_video_note: 'El video se abre en su propia pantalla. Vuelva aquí cuando termine.', k_pin_hint: 'El mismo PIN que usa para entrar.',
+            k_pin_doc_hint: 'Su PIN confirma que leyó este documento.', exam_after: 'Primero termine las otras lecciones', k_saving: 'Guardando…',
+            k_pass_sign_msg: 'Buen trabajo, {first}. Un último paso: firme para que {course} quede en su registro.', k_pass_msg: 'Buen trabajo, {first}.',
+            k_locked_msg: 'Usó todos sus intentos. Su instructor le puede dar otro intento.', k_retry_msg: 'Repase las preguntas de abajo y vuelva a intentarlo.',
+            k_read_first: 'Tómese un momento para leerlo y luego firme.', k_passed_already: 'Ya aprobó esta prueba.', passed_chip_short: 'Aprobado', minutes_short: '{n} min'
         }
     };
     var LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -286,6 +325,60 @@
         var progress = normaliseProgress(adapter.initialProgress);
         var cleanup = [];
         var keyHandler = null;
+        // Kiosk (P3 §7.6): the run must exist before any lesson opens; the adapter says when it does.
+        var runReady = typeof adapter.ensureRun !== 'function';
+        var runPending = null;
+
+        function fn(name) { return typeof adapter[name] === 'function' ? adapter[name] : null; }
+        function errText(e) { return (e && e.message) ? String(e.message) : t('video_error'); }
+        function mergeDone(map) {
+            if (!map || typeof map !== 'object') { return; }
+            Object.keys(map).forEach(function (u) { if (map[u] && byUid[u]) { progress.done[u] = true; } });
+        }
+        function allRequiredDone() { return order.every(function (u) { return progress.done[u] || !byUid[u].required; }); }
+        function isFrozen() { return isKiosk && fn('runFrozen') ? !!adapter.runFrozen() : false; }
+        /** A dismissible message at the top of the current screen (errors from the adapter). */
+        function flash(msg, tone) {
+            var old = screen.querySelector('.trp-flash');
+            if (old && old.parentNode) { old.parentNode.removeChild(old); }
+            var close = h('button', { type: 'button', class: 'trp-flash__close', 'aria-label': t('close') }, icon('fa-times'));
+            var box = h('div', { class: 'trp-flash trp-flash--' + (tone || 'bad'), role: 'alert' }, [
+                icon(tone === 'info' ? 'fa-info-circle' : 'fa-exclamation-triangle'), h('span', { class: 'trp-flash__text', text: msg }), close
+            ]);
+            close.addEventListener('click', function () { if (box.parentNode) { box.parentNode.removeChild(box); } });
+            screen.insertBefore(box, screen.firstChild);
+            setTimeout(function () { if (box.parentNode) { box.parentNode.removeChild(box); } }, 9000);
+        }
+        function setBusy(btn, on) {
+            if (!btn) { return; }
+            btn.disabled = !!on;
+            btn.classList.toggle('is-busy', !!on);
+            if (on) { btn.setAttribute('aria-busy', 'true'); } else { btn.removeAttribute('aria-busy'); }
+        }
+        /** Runs fn once the run exists (kiosk ensureRun), else at once. */
+        function withRun(btn, then) {
+            if (runReady) { then(); return; }
+            setBusy(btn, true);
+            if (!runPending) {
+                runPending = Promise.resolve().then(function () { return adapter.ensureRun(); });
+            }
+            runPending.then(function (st) {
+                runPending = null;
+                runReady = true;
+                if (st && st.done) { mergeDone(st.done); saveProgress(); }
+                setBusy(btn, false);
+                then();
+            }, function (e) {
+                runPending = null;
+                setBusy(btn, false);
+                renderHome();
+                flash(errText(e));
+            });
+        }
+        function finishCourse(res) {
+            if (fn('onCourseComplete')) { adapter.onCourseComplete(res || null); return; }
+            renderComplete();
+        }
 
         function normaliseProgress(p) {
             p = (p && typeof p === 'object') ? p : {};
@@ -310,8 +403,15 @@
             document.addEventListener('keydown', keyHandler);
         }
 
+        /** Kiosk: a final exam opens only when every other required lesson is done (server rule exam_locked). */
+        function examWaits(uid) {
+            var l = byUid[uid];
+            if (!isKiosk || !l || !l.quiz || l.quiz.role !== 'exam' || progress.done[uid]) { return false; }
+            return order.some(function (u) { return u !== uid && byUid[u].required && !progress.done[u]; });
+        }
         function isLocked(uid) {
             var l = byUid[uid];
+            if (examWaits(uid)) { return true; }
             if (!l || !view.course.sequential || l.preview_enabled || progress.done[uid]) { return false; }
             var idx = order.indexOf(uid);
             for (var i = 0; i < idx; i++) {
@@ -371,7 +471,8 @@
             ])
         ]);
         var screen = h('div', { class: 'trp-screen' });
-        root.appendChild(top);
+        if (adapter.chrome !== false) { root.appendChild(top); } else { root.classList.add('trp--nochrome'); }
+        if (isKiosk) { root.classList.add('trp--kiosk'); }
         root.appendChild(screen);
 
         function initials(name) {
@@ -404,10 +505,25 @@
                 meta.push(h('span', null, [icon('fa-bullseye'), t('pass_pct', { pct: ex.quiz.pass_pct })]));
                 meta.push(h('span', null, [icon('fa-redo'), ex.quiz.max_attempts === 0 ? t('unlimited') : (ex.quiz.max_attempts === 1 ? t('attempts_1') : t('attempts_n', { n: ex.quiz.max_attempts }))]));
             }
-            var cta = h('button', {
-                type: 'button', class: 'trp-btn trp-btn--primary trp-btn--xl', disabled: total === 0,
-                on: { click: function () { var u = next || order[0]; if (u) { openLesson(u); } } }
-            }, [next && done > 0 ? t('continue_to', { title: byUid[next].title }) : (next ? t('start_course') : t('review_course')), icon('fa-arrow-right')]);
+            var ctaOverride = isKiosk && fn('homeCta') ? adapter.homeCta() : null;
+            var cta;
+            if (ctaOverride && ctaOverride.hidden) {
+                cta = null;
+            } else if (ctaOverride) {
+                cta = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--xl', disabled: !!ctaOverride.disabled }, [
+                    ctaOverride.icon && ctaOverride.iconFirst ? icon(ctaOverride.icon) : null, String(ctaOverride.label || ''),
+                    ctaOverride.icon && !ctaOverride.iconFirst ? icon(ctaOverride.icon) : null
+                ]);
+                if (typeof ctaOverride.onClick === 'function') { cta.addEventListener('click', function () { ctaOverride.onClick(cta); }); }
+            } else {
+                cta = h('button', {
+                    type: 'button', class: 'trp-btn trp-btn--primary trp-btn--xl', disabled: total === 0,
+                    on: { click: function () { withRun(cta, function () { var u = firstOpen() || order[0]; if (u) { openLesson(u); } }); } }
+                }, [next && done > 0 ? t('continue_to', { title: byUid[next].title }) : (next ? t('start_course') : t('review_course')), icon('fa-arrow-right')]);
+            }
+            var extraChips = isKiosk && fn('courseChips') ? (adapter.courseChips() || []) : [];
+            var subline = isKiosk && fn('homeSubline') ? adapter.homeSubline() : null;
+            var notice = isKiosk && fn('homeNotice') ? adapter.homeNotice() : null;
 
             var hero = h('section', { class: 'trp-hero' }, [
                 cover,
@@ -415,7 +531,10 @@
                     h('div', { class: 'trp-chips' }, [
                         h('span', { class: 'trp-chip trp-chip--accent' }, [icon(c.kind === 'document' ? 'fa-file-signature' : 'fa-shield-alt'), c.kind === 'document' ? t('t_document') : t('course_name_label')]),
                         c.est_minutes ? h('span', { class: 'trp-chip' }, [icon('fa-clock'), t('minutes_total', { n: c.est_minutes })]) : null
-                    ]),
+                    ].concat(extraChips.map(function (ch) {
+                        var tone = /^(warn|bad|ok|info)$/.test(ch && ch.tone || '') ? ch.tone : '';
+                        return h('span', { class: 'trp-chip' + (tone ? ' trp-chip--' + tone : '') }, [/^fa-[a-z0-9-]+$/.test(ch.icon || '') ? icon(ch.icon) : null, String(ch.text || '')]);
+                    }))),
                     h('h1', { class: 'trp-hero__title', text: c.name || '' }),
                     c.summary ? h('p', { class: 'trp-hero__summary', text: c.summary }) : null,
                     h('div', { class: 'trp-meta' }, meta),
@@ -426,10 +545,22 @@
                                 h('span', { class: 'trp-bar__fill', style: { width: pct + '%' } }))
                         ]),
                         cta
-                    ])
+                    ]),
+                    subline ? h('p', { class: 'trp-hero__subline trp-muted', text: String(subline) }) : null
                 ])
             ]);
-            screen.appendChild(h('div', { class: 'trp-page' }, [hero, curriculum(), c.description_html ? aboutCard(c.description_html) : null]));
+            var noticeEl = null;
+            if (notice && (notice.title || notice.text)) {
+                var tone = /^(warn|bad|ok|info)$/.test(notice.tone || '') ? notice.tone : 'info';
+                noticeEl = h('section', { class: 'trp-knotice trp-knotice--' + tone, role: 'status' }, [
+                    h('span', { class: 'trp-knotice__icon', 'aria-hidden': 'true' }, icon(/^fa-[a-z0-9-]+$/.test(notice.icon || '') ? notice.icon : 'fa-info-circle')),
+                    h('div', { class: 'trp-knotice__body' }, [
+                        notice.title ? h('strong', { class: 'trp-knotice__title', text: String(notice.title) }) : null,
+                        notice.text ? h('span', { class: 'trp-knotice__text', text: String(notice.text) }) : null
+                    ])
+                ]);
+            }
+            screen.appendChild(h('div', { class: 'trp-page' }, [hero, noticeEl, curriculum(), c.description_html ? aboutCard(c.description_html) : null]));
         }
 
         function aboutCard(html) {
@@ -478,14 +609,15 @@
         }
 
         function lessonRow(l) {
-            var locked = isLocked(l.uid);
+            var frozen = isFrozen();
+            var locked = frozen || isLocked(l.uid);
             var done = !!progress.done[l.uid];
-            var next = firstOpen() === l.uid;
+            var next = !frozen && firstOpen() === l.uid;
             var stateEl;
             if (done) {
                 stateEl = [h('span', { class: 'trp-row__state trp-row__state--ok', text: t('done') }), h('span', { class: 'trp-round trp-round--ok', 'aria-hidden': 'true' }, icon('fa-check'))];
             } else if (locked) {
-                stateEl = [h('span', { class: 'trp-row__state', text: t('locked') }), h('span', { class: 'trp-round trp-round--muted', 'aria-hidden': 'true' }, icon('fa-lock'))];
+                stateEl = [h('span', { class: 'trp-row__state', text: !frozen && examWaits(l.uid) ? t('exam_after') : t('locked') }), h('span', { class: 'trp-round trp-round--muted', 'aria-hidden': 'true' }, icon('fa-lock'))];
             } else if (next) {
                 stateEl = [h('span', { class: 'trp-pill trp-pill--info', text: progress.current === l.uid || doneCount() > 0 ? t('in_progress') : t('start_chip') }),
                     h('span', { class: 'trp-round trp-round--primary', 'aria-hidden': 'true' }, icon('fa-play'))];
@@ -495,9 +627,10 @@
             var chips = [];
             if (!l.required) { chips.push(h('span', { class: 'trp-chip trp-chip--sm', text: t('optional_chip') })); }
             if (l.preview_enabled) { chips.push(h('span', { class: 'trp-chip trp-chip--sm', text: t('open_chip') })); }
+            var rowLocked = locked && !(done && !frozen);
             var btn = h('button', {
-                type: 'button', class: 'trp-row' + (next && !done ? ' is-current' : '') + (locked ? ' is-locked' : ''), 'aria-disabled': locked ? 'true' : null,
-                on: { click: function () { if (!locked) { openLesson(l.uid); } } }
+                type: 'button', class: 'trp-row' + (next && !done ? ' is-current' : '') + (rowLocked ? ' is-locked' : ''), 'aria-disabled': rowLocked ? 'true' : null,
+                on: { click: function () { if (!rowLocked) { withRun(btn, function () { openLesson(l.uid); }); } } }
             }, [
                 h('span', { class: 'trp-tile trp-tile--' + l.type, 'aria-hidden': 'true' }, icon(TYPE_ICON[l.type] || 'fa-file')),
                 h('span', { class: 'trp-row__main' }, [
@@ -513,10 +646,16 @@
         function openLesson(uid) {
             var l = byUid[uid];
             if (!l) { renderHome(); return; }
+            if (!runReady) { withRun(null, function () { openLesson(uid); }); return; }
             runCleanup();
             progress.current = uid;
             saveProgress();
-            if (typeof adapter.onLessonOpen === 'function') { try { adapter.onLessonOpen(uid); } catch (e) { /* ignore */ } }
+            var live = true;
+            cleanup.push(function () { live = false; });
+            var openP = null;
+            if (typeof adapter.onLessonOpen === 'function') { try { openP = adapter.onLessonOpen(uid); } catch (e) { openP = null; } }
+            // Kiosk: the server gate (lesson_open / lesson_tick) decides when "Mark complete" unlocks (§7.6 #3, #4).
+            var kGate = isKiosk && openP && typeof openP.then === 'function';
             clear(screen);
             screen.scrollTop = 0;
             var idx = order.indexOf(uid);
@@ -539,7 +678,7 @@
             var main = h('div', { class: 'trp-lmain' });
             var aside = h('aside', { class: 'trp-laside' });
             body.appendChild(main);
-            var footStatus = h('div', { class: 'trp-foot__status' });
+            var footStatus = h('div', { class: 'trp-foot__status', role: 'status', 'aria-live': 'polite' });
             var nextBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--ghost', on: { click: goNext } }, [t('next_lesson'), icon('fa-arrow-right')]);
             var completeBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--primary', on: { click: function () { complete({}); } } }, [
                 icon('fa-check'), t('mark_complete') + (isKiosk ? '' : ' ' + t('preview_suffix'))
@@ -551,42 +690,191 @@
             ]), foot]);
             screen.appendChild(wrap);
 
+            // The gate. Preview: the renderer's own rule (never blocking). Kiosk: the renderer supplies the
+            // wording and a local percentage; the server gate (null until lesson_open answers) decides.
+            var server = null;
+            var serverOff = false;   // quiz lessons: lesson_open returns {quiz:true} and no gate
+            var footErr = null;
             var gate = {
-                met: true, text: '', pct: null,
-                set: function (met, text, pct) {
+                met: true, text: '', pct: null, cMet: true, cText: '', cPct: null,
+                set: function (met, text, pct) { gate.cMet = met; gate.cText = text; gate.cPct = pct; gate.render(); },
+                server: function (g) {
+                    if (!g || typeof g !== 'object') { return; }
+                    if (g.quiz) { serverOff = true; gate.render(); return; }
+                    server = g;
+                    if (g.done) { progress.done[uid] = true; }
+                    if (typeof ctx.onServerGate === 'function') { try { ctx.onServerGate(g); } catch (e) { /* ignore */ } }
+                    gate.render();
+                },
+                render: function () {
+                    var met = gate.cMet;
+                    var text = gate.cText;
+                    var pct = gate.cPct;
+                    var pending = false;
+                    if (kGate && !serverOff) {
+                        if (server === null) {
+                            met = false;
+                            pending = true;
+                        } else if (server.done) {
+                            met = true;
+                            pct = 100;
+                        } else {
+                            met = !!server.can_complete;
+                            var sp = serverPct(server);
+                            pct = gate.cPct === null && sp === null ? null : Math.max(0, Math.min(99, sp === null ? gate.cPct : sp));
+                            if (met) { pct = 100; }
+                            if (!met && gate.cMet) {
+                                var left = Math.max(0, Number(server.required_s || 0) - Number(server.credit_s || 0));
+                                text = left > 0 ? null : gate.cText;
+                                if (left > 0) { text = '\u0000' + t('k_keep_going', { t: fmt(left) }); }
+                            }
+                        }
+                    }
                     gate.met = met; gate.text = text; gate.pct = pct;
                     clear(footStatus);
-                    footStatus.appendChild(h('span', { class: 'trp-round trp-round--sm' + (met ? ' trp-round--ok' : ' trp-round--muted'), 'aria-hidden': 'true' }, icon(met ? 'fa-check' : 'fa-lock')));
-                    var col = h('div', { class: 'trp-foot__text' }, [h('span', { text: met ? t('ready_to_finish') : (isKiosk ? t('available_after', { req: text }) : t('preview_gate', { req: text })) })]);
+                    footStatus.appendChild(h('span', { class: 'trp-round trp-round--sm' + (met ? ' trp-round--ok' : ' trp-round--muted'), 'aria-hidden': 'true' },
+                        pending ? icon('fa-circle-notch', 'fa-spin') : icon(met ? 'fa-check' : 'fa-lock')));
+                    var label;
+                    if (pending) { label = t('k_checking'); }
+                    else if (met) { label = t('ready_to_finish'); }
+                    else if (typeof text === 'string' && text.charAt(0) === '\u0000') { label = text.slice(1); }
+                    else { label = isKiosk ? t('available_after', { req: text }) : t('preview_gate', { req: text }); }
+                    var col = h('div', { class: 'trp-foot__text' }, [h('span', { text: label })]);
                     if (typeof pct === 'number') {
                         col.appendChild(h('span', { class: 'trp-bar trp-bar--sm' + (met ? ' is-ok' : '') }, h('span', { class: 'trp-bar__fill', style: { width: Math.max(0, Math.min(100, pct)) + '%' } })));
                     }
+                    if (footErr) { col.appendChild(h('span', { class: 'trp-foot__err', role: 'alert' }, [icon('fa-exclamation-triangle'), h('span', { text: footErr })])); }
                     footStatus.appendChild(col);
                     // Preview never traps the author: the button stays usable and the hint shows the rule.
                     var blocked = isKiosk && !met;
-                    completeBtn.disabled = blocked;
+                    if (!completeBtn.classList.contains('is-busy')) { completeBtn.disabled = blocked; }
                     completeBtn.classList.toggle('is-soft', !met);
-                }
+                    if (typeof ctx.onGate === 'function') { try { ctx.onGate(met); } catch (e) { /* ignore */ } }
+                },
+                error: function (msg) { footErr = msg || null; gate.render(); }
             };
+            function serverPct(g) {
+                var parts = [];
+                if (Number(g.required_s) > 0) { parts.push(Number(g.credit_s || 0) * 100 / Number(g.required_s)); }
+                if (l.type === 'video' && Number(g.duration_s) > 0) {
+                    var need = Math.max(1, Number(g.duration_s) * Number(g.min_watch_pct || 0) / 100 - 5);
+                    parts.push(Number(g.max_position_s || 0) * 100 / need);
+                }
+                if (l.type === 'document' && Number(g.page_count) > 0) { parts.push(Number(g.pages_seen || 0) * 100 / Number(g.page_count)); }
+                if (!parts.length) { return null; }
+                return Math.round(Math.min.apply(null, parts.map(function (x) { return Math.min(100, x); })));
+            }
             gate.set(true, '');
             nextBtn.hidden = idx === order.length - 1;
             if (progress.done[uid]) { completeBtn.hidden = true; nextBtn.classList.add('trp-btn--primary'); nextBtn.classList.remove('trp-btn--ghost'); }
 
+            // ---- kiosk ticks (§7.6 #4): 15 s while visible (article, document, image, ack), 10 s while an
+            //      uploaded video plays plus one on every play/pause; the response drives the gate.
+            var tickState = { pages: [], lastInteraction: Date.now(), timer: null, first: null, seq: 0, sent: 0 };
+            function interacted() { tickState.lastInteraction = Date.now(); }
+            function sampleNow(extra) {
+                var s = {
+                    playing: false,
+                    visible: document.visibilityState !== 'hidden',
+                    active: Date.now() - tickState.lastInteraction < 60000,
+                    pages_seen: tickState.pages.splice(0)
+                };
+                if (typeof ctx.tickSample === 'function') {
+                    var x = ctx.tickSample() || {};
+                    Object.keys(x).forEach(function (k) { s[k] = x[k]; });
+                }
+                if (extra) { Object.keys(extra).forEach(function (k) { s[k] = extra[k]; }); }
+                if (!s.pages_seen.length) { delete s.pages_seen; }
+                return s;
+            }
+            function sendTick(extra) {
+                if (!live || !isKiosk || !fn('onTick') || serverOff || progress.done[uid]) { return Promise.resolve(null); }
+                var mySeq = ++tickState.seq;
+                var s = sampleNow(extra);
+                tickState.sent = Date.now();
+                return Promise.resolve().then(function () { return adapter.onTick(uid, s); }).then(function (g) {
+                    if (live && mySeq === tickState.seq && g) { gate.server(g); }
+                    return g;
+                }, function (e) {
+                    if (s.pages_seen) { Array.prototype.push.apply(tickState.pages, s.pages_seen); }   // resend next time
+                    if (live && e && (e.code === 'run_locked' || e.code === 'run_blocked' || e.code === 'video_changed')) { gate.error(errText(e)); }
+                    return null;
+                });
+            }
+            function startTicks() {
+                if (!isKiosk || !fn('onTick') || serverOff || progress.done[uid]) { return; }
+                var evs = ['pointerdown', 'keydown', 'wheel', 'touchstart'];
+                evs.forEach(function (ev) { root.addEventListener(ev, interacted, { passive: true }); });
+                var scroller = wrap.querySelector('.trp-lscroll');
+                if (scroller) { scroller.addEventListener('scroll', interacted, { passive: true }); }
+                var onVis = function () { sendTick(); };
+                document.addEventListener('visibilitychange', onVis);
+                var isVideo = l.type === 'video';
+                if (!isVideo) {
+                    // First credit after ~6 s (image and acknowledgment need 5 s), then every 15 s while visible.
+                    tickState.first = setTimeout(function () { if (document.visibilityState !== 'hidden') { sendTick(); } }, 6000);
+                    tickState.timer = setInterval(function () { if (document.visibilityState !== 'hidden') { sendTick(); } }, 15000);
+                } else {
+                    tickState.timer = setInterval(function () {
+                        var st = typeof ctx.tickSample === 'function' ? ctx.tickSample() : null;
+                        if (st && st.playing) { sendTick(); }
+                    }, 10000);
+                }
+                cleanup.push(function () {
+                    clearTimeout(tickState.first);
+                    clearInterval(tickState.timer);
+                    evs.forEach(function (ev) { root.removeEventListener(ev, interacted, { passive: true }); });
+                    if (scroller) { scroller.removeEventListener('scroll', interacted, { passive: true }); }
+                    document.removeEventListener('visibilitychange', onVis);
+                });
+                sendTick();   // one immediately after the open
+            }
+
             function complete(evidence) {
                 if (isKiosk && !gate.met) { return; }
-                progress.done[uid] = true;
-                saveProgress();
-                var p = typeof adapter.onLessonComplete === 'function' ? adapter.onLessonComplete(uid, evidence || {}) : null;
-                Promise.resolve(p).then(goNext, goNext);
+                if (!isKiosk) {
+                    progress.done[uid] = true;
+                    saveProgress();
+                    var p = typeof adapter.onLessonComplete === 'function' ? adapter.onLessonComplete(uid, evidence || {}) : null;
+                    Promise.resolve(p).then(goNext, goNext);
+                    return;
+                }
+                // Kiosk (§7.6 #5): done only after the server says so; a refusal keeps the learner here.
+                if (completeBtn.classList.contains('is-busy')) { return; }
+                var ev = evidence || {};
+                if (typeof ctx.evidence === 'function') {
+                    var x = ctx.evidence() || {};
+                    Object.keys(x).forEach(function (k) { if (ev[k] === undefined) { ev[k] = x[k]; } });
+                }
+                if (tickState.pages.length && !ev.pages_seen) { ev.pages_seen = tickState.pages.splice(0); }
+                setBusy(completeBtn, true);
+                gate.error(null);
+                Promise.resolve().then(function () { return fn('onLessonComplete') ? adapter.onLessonComplete(uid, ev) : null; }).then(function (res) {
+                    if (!live) { return; }
+                    progress.done[uid] = true;
+                    if (res && res.done) { mergeDone(res.done); }
+                    saveProgress();
+                    setBusy(completeBtn, false);
+                    goNext();
+                }, function (e) {
+                    if (!live) { return; }
+                    setBusy(completeBtn, false);
+                    if (e && e.data && typeof e.data === 'object' && 'can_complete' in e.data) { gate.server(e.data); }
+                    gate.error(errText(e));
+                });
             }
             function goNext() {
                 var n = order[idx + 1];
-                if (n && !isLocked(n)) { openLesson(n); return; }
-                if (!nextUid(null) && order.every(function (u) { return progress.done[u] || !byUid[u].required; })) { renderComplete(); return; }
+                if (n && !isLocked(n) && !(isKiosk && progress.done[n] && !nextUid(uid) && allRequiredDone())) { openLesson(n); return; }
+                if (!nextUid(null) && allRequiredDone()) { finishCourse(); return; }
+                if (isKiosk && allRequiredDone()) { finishCourse(); return; }
                 renderHome();
             }
 
-            var ctx = { lesson: l, main: main, aside: aside, body: body, gate: gate, complete: complete, foot: foot, head: head, headRight: headRight, wrap: wrap };
+            var ctx = { lesson: l, main: main, aside: aside, body: body, gate: gate, complete: complete, foot: foot, head: head, headRight: headRight, wrap: wrap,
+                goNext: goNext, live: function () { return live; } };
+            ctx.sendTick = sendTick;
+            ctx.pageSeen = function (n) { if (tickState.pages.indexOf(n) === -1) { tickState.pages.push(n); } };
             var renderers = { article: renderArticle, document: renderDocument, video: renderVideo, image: renderImage, acknowledgment: renderAck, quiz: renderQuizIntro };
             (renderers[l.type] || renderArticle)(ctx);
             var res = resourcesCard(l);
@@ -600,6 +888,19 @@
             });
             var focusTarget = head.querySelector('.trp-lhead__title');
             if (focusTarget) { focusTarget.tabIndex = -1; focusTarget.focus({ preventScroll: true }); }
+            if (kGate) {
+                gate.render();
+                openP.then(function (g) {
+                    if (!live) { return; }
+                    gate.server(g || {});
+                    if (server === null && !serverOff) { server = { can_complete: false }; gate.render(); }
+                    startTicks();
+                }, function (e) {
+                    if (!live) { return; }
+                    renderHome();
+                    flash(errText(e));
+                });
+            }
         }
 
         function resourcesCard(l) {
