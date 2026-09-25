@@ -50,8 +50,13 @@ render_page_header(
 <?php if (!$tr_slips) { ?>
     <div class="card"><div class="card-body text-center py-5">
         <i class="fas fa-receipt fa-2x text-secondary mb-3" aria-hidden="true"></i>
+        <?php if (isset($_GET['cleared'])) { ?>
+        <h2 class="h3">Slips cleared</h2>
+        <p class="text-secondary mb-3">The codes are no longer stored on the server. People use the slips you handed out.</p>
+        <?php } else { ?>
         <h2 class="h3">These slips expired</h2>
         <p class="text-secondary mb-3">Slips can be printed for 10 minutes after they are issued, or until you clear them. Issue new ones.</p>
+        <?php } ?>
         <a class="btn btn-primary" href="/agent/training_devices.php?tab=people"><i class="fas fa-arrow-left me-2"></i>Back to People &amp; PINs</a>
     </div></div>
 <?php } else { ?>

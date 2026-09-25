@@ -103,7 +103,7 @@ final class PinAdmin
                         tcred_setup_token_hash = NULL, tcred_setup_token_expires_at_utc = NULL,
                         tcred_failed_count = 0, tcred_locked_until_utc = NULL, tcred_hard_locked = 0,
                         tcred_reset_notice = 1, tcred_reset_notice_at_utc = ?, tcred_reset_by_label = ?
-                    WHERE tcred_contact_id = ?", 'isssissi',
+                    WHERE tcred_contact_id = ?", 'ississsi',
                     [$switch ? 1 : 0, $hash, $expiresUtc, $this->c->userId, $now, $now, $label, $cid]);
                 if ($switch) {
                     Ledger::append($db, array_merge($base, ['type' => 'pin.source_changed', 'subject_contact_id' => $cid,
