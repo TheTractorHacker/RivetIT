@@ -127,7 +127,7 @@ final class OverdueReport
                     'reason' => (string) $r['tassign_reason'],
                     'anchor' => (string) $r['tassign_anchor'],
                     'anchor_label' => Labels::anchor((string) $r['tassign_anchor'], $r['requirement_name'],
-                        $r['renew_expires_on'], $r['retrain_number'] !== null ? (int) $r['retrain_number'] : null),
+                        $r['renew_expires_on'], $r['retrain_number'] !== null ? (int) $r['retrain_number'] : null, (bool) $r['requirement_is_manual']),
                     'requirement_name' => $r['requirement_name'],
                     'is_manual' => (bool) $r['requirement_is_manual'],
                     'original_due_on' => $r['tassign_original_due_on'],

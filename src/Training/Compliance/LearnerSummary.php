@@ -156,9 +156,10 @@ final class LearnerSummary
         $in = static fn(array $ids) => implode(',', array_fill(0, count($ids), '?'));
         $names = [];
         if ($req !== []) {
-            foreach (Db::all($db, 'SELECT requirement_id, requirement_name FROM training_requirements WHERE requirement_id IN (' . $in($req) . ')',
+            foreach (Db::all($db, 'SELECT requirement_id, requirement_name, requirement_is_manual FROM training_requirements WHERE requirement_id IN (' . $in($req) . ')',
                 str_repeat('i', count($req)), array_values($req)) as $r) {
-                $names[(int) $r['requirement_id']] = (string) $r['requirement_name'];
+                $names[(int) $r['requirement_id']] = (int) $r['requirement_is_manual'] === 1
+                    ? ['manual', (string) $r['requirement_name']] : ['rule', (string) $r['requirement_name']];
             }
         }
         $exp = [];
@@ -182,7 +183,8 @@ final class LearnerSummary
                 'renew' => 'Renewal · expires ' . ($exp[$p['id']] ?? '?'),
                 'retrain' => 'Retrain · Version ' . ($num[$p['id']] ?? '?'),
                 'reissue' => 'Record voided · redo',
-                default => 'Required by ' . ($a['requirement_id'] !== null ? ($names[$a['requirement_id']] ?? 'a rule') : 'a rule'),
+                default => (($n = $a['requirement_id'] !== null ? ($names[$a['requirement_id']] ?? null) : null) !== null && $n[0] === 'manual')
+                    ? $n[1] : 'Required by ' . ($n[1] ?? 'a rule'),
             };
         }
         return $out;

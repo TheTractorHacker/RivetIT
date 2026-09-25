@@ -529,7 +529,8 @@ final class AssignmentService
                 'renew' => 'Renewal · expires ' . ($comps[$anchor['id']] ?? '?'),
                 'retrain' => 'Retrain · Version ' . ($revs[$anchor['id']] ?? '?'),
                 'reissue' => 'Record voided · redo',
-                default => 'Required by ' . ($req['name'] ?? 'a rule'),
+                // A hand-made (Assign training) rule is named "Assigned by {user} on {date}": show it as is, not "Required by Assigned by …".
+                default => ($req !== null && $req['is_manual']) ? $req['name'] : 'Required by ' . ($req['name'] ?? 'a rule'),
             };
             $display = match ($a['status']) {
                 'open' => $a['due_on'] < $today ? 'overdue' : ($a['due_on'] <= Clock::addDays($today, $settings->dueSoonDays) ? 'due_soon' : 'due'),

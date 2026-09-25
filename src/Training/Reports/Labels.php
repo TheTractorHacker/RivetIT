@@ -122,7 +122,7 @@ final class Labels
      * Assignment anchor label (§4.1): initial "Required by {rule}", renew "Renewal · expires
      * {date}", retrain "Retrain · Version {n}", reissue "Record voided · redo".
      */
-    public static function anchor(?string $anchor, ?string $ruleName, ?string $expiresOn = null, ?int $revisionNumber = null): string
+    public static function anchor(?string $anchor, ?string $ruleName, ?string $expiresOn = null, ?int $revisionNumber = null, bool $manual = false): string
     {
         $anchor = (string) $anchor;
         if (str_starts_with($anchor, 'renew:')) {
@@ -133,6 +133,9 @@ final class Labels
         }
         if (str_starts_with($anchor, 'reissue:')) {
             return 'Record voided · redo';
+        }
+        if ($manual && $ruleName !== null && $ruleName !== '') {
+            return $ruleName;   // a hand-made rule is named "Assigned by {user} on {date}"
         }
         return $ruleName !== null && $ruleName !== '' ? 'Required by ' . $ruleName : 'Required';
     }

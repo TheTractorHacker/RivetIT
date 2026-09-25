@@ -347,7 +347,7 @@ final class TranscriptService
                 'code' => $r['course_code'] ?? null, 'kind' => (string) ($r['course_kind'] ?? 'training')],
             'reason' => (string) $r['tassign_reason'],
             'anchor' => (string) $r['tassign_anchor'],
-            'anchor_label' => $detail['anchor_label'] ?? Labels::anchor((string) $r['tassign_anchor'], $r['requirement_name'] ?? null),
+            'anchor_label' => $detail['anchor_label'] ?? Labels::anchor((string) $r['tassign_anchor'], $r['requirement_name'] ?? null, null, null, (bool) ($r['requirement_is_manual'] ?? false)),
             'requirement' => $r['tassign_requirement_id'] !== null
                 ? ['id' => (int) $r['tassign_requirement_id'], 'name' => $r['requirement_name'] ?? null, 'is_manual' => (bool) ($r['requirement_is_manual'] ?? false)]
                 : null,
