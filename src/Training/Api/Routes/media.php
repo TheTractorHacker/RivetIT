@@ -16,4 +16,6 @@ return [
     'video_verify'     => ['handler' => MediaActions::class . '::videoVerify',    'method' => 'POST', 'level' => 2],
     'kb_search'        => ['handler' => MediaActions::class . '::kbSearch',       'method' => 'GET',  'level' => 2, 'kb' => true],
     'kb_import'        => ['handler' => MediaActions::class . '::kbImport',       'method' => 'POST', 'level' => 2, 'kb' => true],
+    'cover_presets'       => ['handler' => MediaActions::class . '::coverPresets',      'method' => 'GET',  'level' => 2],
+    'cover_preset_ingest' => ['handler' => MediaActions::class . '::coverPresetIngest', 'method' => 'POST', 'level' => 2],
 ];

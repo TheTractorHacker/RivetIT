@@ -8,7 +8,7 @@
  * #tr-page-data JSON block; agent/js/training_paths.js renders it with DOM nodes only.
  */
 
-$page_extra_css = ['/css/itflow_training.css', '/css/itflow_training_catalog.css'];   // BEFORE inc_all: header.php reads it
+$page_extra_css = ['/css/itflow_training.css', '/css/itflow_training_catalog.css', '/css/itflow_training_covers.css'];   // BEFORE inc_all: header.php reads it
 require_once "includes/inc_all.php";
 if (\ITFlow\Training\Core\Access::pageGuard(1)) { require_once "../includes/footer.php"; exit; }
 define('TRAINING_PAGE', 1);
@@ -186,7 +186,8 @@ render_page_header(
                         <img class="tr-cat-cover__img" id="tr-path-cover-img" alt="" hidden>
                         <div class="tr-drop__hint" id="tr-path-cover-hint"><i class="fas fa-image me-1"></i>Drop an image</div>
                     </div>
-                    <div class="d-flex gap-2 mt-2">
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="tr-path-cover-gallery"><i class="fas fa-images me-1"></i>Choose a cover…</button>
                         <button type="button" class="btn btn-sm btn-outline-secondary" id="tr-path-cover-upload"><i class="fas fa-upload me-1"></i>Upload…</button>
                         <button type="button" class="btn btn-sm btn-link text-danger" id="tr-path-cover-remove" hidden>Remove</button>
                         <input type="file" class="d-none" id="tr-path-cover-file" accept="image/jpeg,image/png,image/webp,image/gif">
@@ -249,6 +250,7 @@ render_page_header(
 <script src="/js/training_common.js?v=<?= filemtime(__DIR__ . '/../js/training_common.js') ?>" defer></script>
 <?php if ($tr_can_edit) { ?>
 <script src="/agent/js/training_uploader.js?v=<?= filemtime(__DIR__ . '/js/training_uploader.js') ?>" defer></script>
+<script src="/agent/js/training_cover_picker.js?v=<?= filemtime(__DIR__ . '/js/training_cover_picker.js') ?>" defer></script>
 <?php } ?>
 <script src="/agent/js/training_paths.js?v=<?= filemtime(__DIR__ . '/js/training_paths.js') ?>" defer></script>
 <?php require_once "../includes/footer.php";

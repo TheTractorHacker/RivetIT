@@ -72,12 +72,17 @@ $tr_ro = $tr_archived ? ' disabled' : '';
                             <img alt="" hidden>
                             <div class="tr-drop__progress" aria-live="polite"></div>
                         </div>
-                        <div class="d-flex flex-column gap-2 align-items-start">
+                        <div class="d-flex flex-column gap-2 align-items-start tr-min0">
                             <div class="d-flex flex-wrap gap-2 tr-edit-only">
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="tr-set-cover-gallery" hidden><i class="fas fa-images me-1" aria-hidden="true"></i>Choose from gallery</button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="tr-set-cover-upload"><i class="fas fa-upload me-1" aria-hidden="true"></i>Upload…</button>
                                 <button type="button" class="btn btn-link btn-sm text-danger" id="tr-set-cover-remove" hidden>Remove</button>
                             </div>
-                            <div class="form-hint">A wide photo works best (16:9). JPG, PNG or WebP. Without one, the card uses the category colour.</div>
+                            <div class="form-hint">Pick an illustration from the gallery, or upload a wide photo (16:9; JPG, PNG or WebP). Without a cover, the card uses the course colour and its icon.</div>
+                            <div class="tr-tint" id="tr-set-tint-row" hidden>
+                                <span class="tr-tint__label" id="tr-set-tint-label">Tint</span>
+                                <div class="tr-tint__swatches" id="tr-set-tint" role="radiogroup" aria-labelledby="tr-set-tint-label"></div>
+                            </div>
                         </div>
                     </div>
                 </div>

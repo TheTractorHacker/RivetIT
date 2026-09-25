@@ -377,7 +377,7 @@
             var rich = kind === 'body';
             var contentCss = [];
             contentCss.push(darkMode() ? 'dark' : 'default');
-            if (flags.article_css) { contentCss.push(flags.article_css); }
+            contentCss.push(flags.article_css);
             var ctx = st;
             st.editorInit[kind] = window.tinymce.init({
                 target: $(EDITORS[kind]),
@@ -1028,15 +1028,6 @@
                 return;
             }
             wrap.hidden = false;
-            if (!flags.video_frame) {
-                host.textContent = '';
-                if (!(check && check.verified_fresh)) {
-                    setCaption(cap, 'wait', 'Open Preview as learner and press play once to confirm this video works.');
-                } else {
-                    captionVerified(cap, check);
-                }
-                return;
-            }
             var src = '/agent/training_video_frame.php?p=' + encodeURIComponent(saved.provider) + '&id=' + encodeURIComponent(saved.ext_id) + (saved.hash ? '&h=' + encodeURIComponent(saved.hash) : '');
             var frame = host.querySelector('iframe');
             if (!frame || frame.getAttribute('src') !== src) {
@@ -1046,13 +1037,34 @@
                     referrerpolicy: 'strict-origin-when-cross-origin', loading: 'lazy'
                 }));
             }
-            if (check && check.verified_fresh) {
+            // What the player just reported in this window wins; then the saved check.
+            var lastErr = st.videoError && st.videoError.ext_id === saved.ext_id ? st.videoError : null;
+            if (lastErr) {
+                setCaption(cap, 'err', playerErrorText(lastErr.code, lastErr.message) + ' Press play again to re-check.');
+            } else if (check && check.verified_fresh) {
                 captionVerified(cap, check);
             } else if (check && check.last_error) {
-                setCaption(cap, 'err', 'The player reported a problem (' + check.last_error + '). Press play again to re-check.');
+                setCaption(cap, 'err', playerErrorText(check.last_error) + ' Press play again to re-check.');
             } else {
                 setCaption(cap, 'wait', 'Press play once to confirm this video works.');
             }
+        }
+
+        /** The frame reports the player's plain-language message; a code alone (from a saved check) maps here. */
+        var PLAYER_ERRORS = {   // same wording as js/training_video_embed.js errorMessage()
+            yt_2: "This link doesn't point to a playable video. Check the link.",
+            yt_5: "This video can't be played in this browser.",
+            yt_100: 'This video was removed or is private. In YouTube Studio set Visibility to Unlisted.',
+            yt_101: "The owner doesn't allow embedding. In YouTube Studio: Video › Show more › Allow embedding.",
+            yt_150: "The owner doesn't allow embedding. In YouTube Studio: Video › Show more › Allow embedding.",
+            vimeo_PrivacyError: 'This Vimeo video is private, or the link is missing its privacy code.',
+            vimeo_NotFoundError: 'This Vimeo video was not found. Check the link.',
+            api_load_failed: "The video player couldn't load. Check the internet connection and try again.",
+            no_duration: "The player didn't report the video's length."
+        };
+        function playerErrorText(code, message) {
+            if (message) { return /[.!?]$/.test(message) ? message : message + '.'; }
+            return PLAYER_ERRORS[code] || 'The player reported a problem (' + code + ').';
         }
 
         function captionVerified(cap, check) {
@@ -1114,14 +1126,27 @@
             });
         }
 
+        var lastVideoMsg = { key: '', at: 0 };
         function onVideoMessage(type, payload) {
             if (!st || !st.lessonId || st.type !== 'video') { return; }
             var v = variant(st.lesson) || {};
             var vid = v.video;
             if (!vid || !vid.ext_id) { return; }
             if (payload && payload.ext_id && payload.ext_id !== vid.ext_id) { return; }
+            // The check frame reports twice (postMessage to this window + the BroadcastChannel for
+            // other tabs); act once.
+            var key = type + ':' + vid.ext_id + ':' + ((payload && payload.error_code) || '');
+            if (key === lastVideoMsg.key && Date.now() - lastVideoMsg.at < 3000) { return; }
+            lastVideoMsg = { key: key, at: Date.now() };
             st.linkCheck = null;
-            if (type === 'tr-video-verified') { ui.toast('Video verified.', { type: 'success' }); }
+            if (type === 'tr-video-verified') {
+                st.videoError = null;
+                ui.toast('Video verified.', { type: 'success' });
+            } else {
+                st.videoError = { ext_id: vid.ext_id, code: (payload && payload.error_code) || 'error', message: (payload && payload.message) || '' };
+                var cap = $('tr-cm-vframe-caption');
+                if (cap) { setCaption(cap, 'err', playerErrorText(st.videoError.code, st.videoError.message) + ' Press play again to re-check.'); }
+            }
             refreshDetailQuietly();
         }
 
@@ -1165,7 +1190,7 @@
             var examRow = $('tr-cm-exam-row');
             gate.hidden = !!st.lessonId;
             examRow.hidden = !st.lessonId || st.course.kind === 'document';
-            full.hidden = !(st.lessonId && flags.quiz_page);
+            full.hidden = !st.lessonId;
             if (st.lessonId) { full.href = '/agent/training_quiz.php?lesson_id=' + encodeURIComponent(st.lessonId); }
             var q = st.lesson && st.lesson.quiz;
             var exam = $('tr-cm-exam');
@@ -1177,21 +1202,29 @@
         function mountBuilder(slot, host) {
             if (st.mounts[slot]) { return; }
             host.textContent = '';
-            if (window.TrainingQuizBuilder && typeof window.TrainingQuizBuilder.mount === 'function') {
-                try {
-                    st.mounts[slot] = window.TrainingQuizBuilder.mount(host, {
-                        lessonId: st.lessonId, courseId: st.courseId, lang: st.lang,
-                        languages: st.course.languages || [st.lang], embedded: true
-                    }) || { destroy: function () {}, refresh: function () {} };
-                } catch (e) {
-                    host.appendChild(el('div', { class: 'tr-quiz-missing', text: 'The question builder could not start. Reload the page and try again.' }));
-                }
-                return;
+            var t = st;
+            try {
+                st.mounts[slot] = window.TrainingQuizBuilder.mount(host, {
+                    lessonId: st.lessonId, courseId: st.courseId, lang: st.lang,
+                    languages: st.course.languages || [st.lang], defaultLanguage: st.course.default_language,
+                    lessonType: st.type, embedded: true,
+                    // The builder's quiz_changed broadcast never reaches this window (a
+                    // BroadcastChannel does not deliver to itself), so it reports here.
+                    onChange: function (qz) { onQuizChange(t, qz); }
+                });
+            } catch (e) {
+                st.mounts[slot] = null;
+                host.appendChild(el('div', { class: 'tr-quiz-missing', text: 'The question builder could not start. Reload the page and try again.' }));
             }
-            host.appendChild(el('div', { class: 'tr-quiz-missing' }, [
-                icon('tools', 'me-2'),
-                'The question builder is not installed on this server yet. The quiz is saved; add questions once it is available.'
-            ]));
+        }
+
+        function onQuizChange(t, qz) {
+            if (t !== st || !qz || !st.lesson) { return; }
+            var before = st.lesson.quiz;
+            if (!before || before.id !== qz.id || before.question_count !== qz.question_count || before.role !== qz.role) { st.changed = true; }
+            st.lesson.quiz = Object.assign({}, before || {}, { id: qz.id, role: qz.role, question_count: qz.question_count });
+            E.quizCount.textContent = String(qz.question_count || 0);
+            if (!st.examBusy && st.type === 'quiz') { $('tr-cm-exam').checked = qz.role === 'exam'; }
         }
 
         function unmountBuilder(slot) {
@@ -1244,7 +1277,7 @@
             gate.hidden = !!st.lessonId;
             sw.disabled = !st.lessonId || st.readOnly;
             if (!st.checkBusy) { sw.checked = !!q; }
-            full.hidden = !(q && st.lessonId && flags.quiz_page);
+            full.hidden = !(q && st.lessonId);
             if (st.lessonId) { full.href = '/agent/training_quiz.php?lesson_id=' + encodeURIComponent(st.lessonId); }
             if (q && st.lessonId) {
                 if (st.activeTab === 'quiz') { mountBuilder('check', host); }
@@ -1473,7 +1506,7 @@
             E.again.disabled = st.uploads > 0 || st.course.kind === 'document';
             E.again.hidden = st.course.kind === 'document';
             E.done.title = st.uploads > 0 ? 'Wait for the upload to finish' : '';
-            E.preview.hidden = !(flags.preview && st.lessonId);
+            E.preview.hidden = !st.lessonId;
             E.del.hidden = !st.lessonId || st.readOnly || (st.course.kind === 'document' && st.type === 'acknowledgment');
             E.done.textContent = busy ? 'Saving…' : 'Done';
         }
@@ -2115,7 +2148,12 @@
                 if (t.editorDirty[k]) { return saveEditor(k); }
                 return Promise.resolve();
             });
-            return Promise.all(editorSaves).then(function () {
+            // Questions typed in the embedded quiz builder autosave on their own timer; send them too.
+            var quizSaves = ['quiz', 'check'].map(function (slot) {
+                var m = t.mounts && t.mounts[slot];
+                return m && typeof m.flush === 'function' ? Promise.resolve(m.flush()).catch(function () { /* its card shows the error */ }) : Promise.resolve();
+            });
+            return Promise.all(editorSaves.concat(quizSaves)).then(function () {
                 // A title typed but not sent yet goes now.
                 return t.store ? t.store.flush() : undefined;
             });

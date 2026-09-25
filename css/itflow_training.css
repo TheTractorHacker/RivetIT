@@ -769,6 +769,11 @@ body.tr-has-tray .toast-container.position-fixed.bottom-0 { bottom: var(--tr-tra
   position: relative;
   aspect-ratio: 16 / 9;
   overflow: hidden;
+}
+/* No cover: a gradient from the course colour with the type icon and code. A cover image
+   (.tr-cover-art, itflow_training_covers.css) sits on a flat soft wash instead, because the
+   gallery art is transparent. Every cover box is 16:9, the shape of the art, so nothing is cropped. */
+.tr-course-card__cover:not(.tr-cover-art) {
   background:
     radial-gradient(120% 90% at 100% 100%, color-mix(in srgb, var(--tr-cover) 42%, transparent) 0%, transparent 60%),
     linear-gradient(135deg, color-mix(in srgb, var(--tr-cover) 16%, var(--if-surface)) 0%, color-mix(in srgb, var(--tr-cover) 30%, var(--if-surface)) 100%);
@@ -871,8 +876,8 @@ body.tr-has-tray .toast-container.position-fixed.bottom-0 { bottom: var(--tr-tra
   place-items: center;
   font-size: 13px;
   color: color-mix(in srgb, var(--tr-cover) 80%, var(--if-ink));
-  background: linear-gradient(135deg, color-mix(in srgb, var(--tr-cover) 16%, var(--if-surface)), color-mix(in srgb, var(--tr-cover) 32%, var(--if-surface)));
 }
+.tr-course-table__thumb:not(.tr-cover-art) { background: linear-gradient(135deg, color-mix(in srgb, var(--tr-cover) 16%, var(--if-surface)), color-mix(in srgb, var(--tr-cover) 32%, var(--if-surface))); }
 .tr-course-table__thumb > img { width: 100%; height: 100%; object-fit: cover; }
 .tr-course-table__title { font-weight: 600; color: var(--if-ink); text-decoration: none; }
 .tr-course-table__title:hover { text-decoration: underline; }
@@ -937,13 +942,28 @@ body.tr-has-tray .toast-container.position-fixed.bottom-0 { bottom: var(--tr-tra
   font-size: 10px;
 }
 .tr-nc-card[aria-checked="true"] .tr-nc-card__check { display: grid; }
-.tr-nc__form { margin-top: auto; padding: 14px 18px; border-top: 1px solid var(--if-border); display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: 12px; align-items: end; }
-.tr-nc__note { grid-column: 1 / -1; font-size: 12.5px; color: var(--if-muted); }
+.tr-nc__form { margin-top: auto; padding: 14px 18px; border-top: 1px solid var(--if-border); display: grid; grid-template-columns: 148px minmax(0, 2fr) minmax(0, 1fr) auto; grid-template-rows: auto 1fr; gap: 10px 14px; align-items: end; }
+.tr-nc__note { grid-column: 2 / -1; align-self: start; font-size: 12.5px; color: var(--if-muted); }
 .tr-nc__note:empty { display: none; }
+/* The cover the new course will get (template or kind default, or the author's gallery pick). */
+.tr-nc__cover { grid-row: 1 / span 2; align-self: start; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.tr-nc__cover > .form-label { margin-bottom: 2px; }
+.tr-nc__cover-art { display: block; width: 148px; padding: 0; border: 1px solid var(--if-border); border-radius: 8px; cursor: pointer; }
+.tr-nc__cover-art:hover { border-color: var(--if-primary); }
+.tr-nc__cover-art:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 2px; }
+.tr-nc__cover-none { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 2px; font-size: 12px; color: var(--if-muted); }
+.tr-nc__cover-name { max-width: 148px; font-size: 12px; color: var(--if-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tr-nc__cover-change { padding: 0; font-size: 12.5px; font-weight: 600; text-decoration: none; }
 @media (max-width: 767.98px) {
   .tr-nc__layout { grid-template-columns: 1fr; }
   .tr-nc__rail { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--if-border); }
-  .tr-nc__form { grid-template-columns: 1fr; }
+  .tr-nc__form { grid-template-columns: 1fr; grid-template-rows: none; }
+  .tr-nc__cover { grid-row: auto; display: grid; grid-template-columns: 120px minmax(0, 1fr); grid-template-areas: "label label" "art name" "art change"; align-items: center; column-gap: 12px; }
+  .tr-nc__cover > .form-label { grid-area: label; }
+  .tr-nc__cover-art { grid-area: art; width: 120px; }
+  .tr-nc__cover-name { grid-area: name; align-self: end; }
+  .tr-nc__cover-change { grid-area: change; align-self: start; justify-self: start; }
+  .tr-nc__note { grid-column: auto; }
 }
 
 /* ---- Course builder: header ----------------------------------------------------- */
@@ -955,16 +975,17 @@ body.tr-has-tray .toast-container.position-fixed.bottom-0 { bottom: var(--tr-tra
 .tr-b-head__cover {
   --tr-cover: #475569;
   flex: none;
-  width: 44px;
-  height: 44px;
+  width: 78px;
+  height: 44px;               /* 16:9 like the art, so the subject is never cut off */
   border-radius: 10px;
   overflow: hidden;
   display: grid;
   place-items: center;
   font-size: 16px;
   color: color-mix(in srgb, var(--tr-cover) 80%, var(--if-ink));
-  background: linear-gradient(135deg, color-mix(in srgb, var(--tr-cover) 16%, var(--if-surface)), color-mix(in srgb, var(--tr-cover) 32%, var(--if-surface)));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tr-cover) 18%, transparent);
 }
+.tr-b-head__cover:not(.tr-cover-art) { background: linear-gradient(135deg, color-mix(in srgb, var(--tr-cover) 16%, var(--if-surface)), color-mix(in srgb, var(--tr-cover) 32%, var(--if-surface))); }
 .tr-b-head__cover > img { width: 100%; height: 100%; object-fit: cover; }
 .tr-b-head__name {
   flex: 0 1 auto;
@@ -1252,14 +1273,14 @@ body.tr-has-tray .toast-container.position-fixed.bottom-0 { bottom: var(--tr-tra
   overflow: hidden;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--tr-cover) 16%, var(--if-surface)), color-mix(in srgb, var(--tr-cover) 34%, var(--if-surface)));
   color: color-mix(in srgb, var(--tr-cover) 80%, var(--if-ink));
 }
+.tr-cover:not(.tr-cover-art) { background: linear-gradient(135deg, color-mix(in srgb, var(--tr-cover) 16%, var(--if-surface)), color-mix(in srgb, var(--tr-cover) 34%, var(--if-surface))); }
+.tr-cover.tr-cover-art .tr-cover__glyph { display: none; }
 .tr-cover.tr-drop { padding: 0; border-width: 1.5px; border-style: dashed; border-color: transparent; }
 .tr-cover.tr-drop.is-over { border-color: var(--if-primary); }
 .tr-cover > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .tr-cover__glyph { font-size: 30px; opacity: .85; }
-.tr-cover__actions { position: absolute; left: 8px; bottom: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 6px; z-index: 2; }
 .tr-cover__btn {
   display: inline-flex;
   align-items: center;
@@ -1275,6 +1296,30 @@ body.tr-has-tray .toast-container.position-fixed.bottom-0 { bottom: var(--tr-tra
   box-shadow: 0 1px 3px rgba(20, 35, 42, .18);
 }
 .tr-cover__btn:hover { background: var(--if-surface); }
+.tr-cover-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tr-cover-actions .btn { white-space: nowrap; }
+.tr-cover__btn:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 2px; }
+/* Remove sits in the top-right corner, clear of the art's subject and of the bottom actions. */
+.tr-cover__remove { position: absolute; top: 8px; right: 8px; z-index: 2; width: 30px; padding: 0; justify-content: center; }
+.tr-cover__remove[hidden] { display: none; }
+
+/* Tint swatches (Settings › Basics › Cover). The same eight tints as the cover gallery. */
+.tr-tint { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
+.tr-tint__label { font-size: 13px; color: var(--if-muted); }
+.tr-tint__swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.tr-tint__swatch {
+  --tr-swatch: #475569;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--if-surface);
+  background: var(--tr-swatch);
+  box-shadow: 0 0 0 1px var(--if-border-strong);
+  cursor: pointer;
+}
+.tr-tint__swatch.is-selected { box-shadow: 0 0 0 2px var(--if-ink); }
+.tr-tint__swatch:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 2px; }
 .tr-cover .tr-drop__progress { position: absolute; top: 8px; left: 8px; right: 8px; padding: 4px 8px; border-radius: 6px; background: var(--if-surface); z-index: 2; }
 .tr-facts { display: grid; grid-template-columns: 1fr 1fr; margin-top: 12px; border: 1px solid var(--if-border); border-radius: 10px; overflow: hidden; }
 .tr-facts > div { padding: 8px 12px; border-top: 1px solid var(--if-border); min-width: 0; }

@@ -79,6 +79,14 @@
         function sectionById(id) { return (detail.sections || []).find(function (s) { return s.id === id; }) || null; }
         function coverColor() { return safeColor(course.color, safeColor(course.category && course.category.color, isDoc ? '#0891B2' : '#475569')); }
         function coverIcon() { return (course.category && course.category.icon) || (isDoc ? 'file-signature' : 'graduation-cap'); }
+        /** Every cover box: the course colour, and a soft wash of it behind a cover image (.tr-cover-art; gallery art is transparent). */
+        function paintCover(node) {
+            if (!node) { return; }
+            node.style.setProperty('--tr-cover', coverColor());
+            node.style.setProperty('--tr-cover-color', coverColor());
+            node.classList.toggle('tr-cover-art', !!course.cover_url);
+        }
+        var picker = !readOnly && window.TrainingCoverPicker ? window.TrainingCoverPicker : null;
         function mediaIdFromUrl(url) { var m = /[?&]m=(\d+)/.exec(url || ''); return m ? parseInt(m[1], 10) : null; }
         function htmlText(html) {
             if (!html) { return ''; }
@@ -228,7 +236,7 @@
             document.title = (course.name || 'Course') + ' - Training';
             var cov = $('tr-head-cover');
             cov.textContent = '';
-            cov.style.setProperty('--tr-cover', coverColor());
+            paintCover(cov);
             if (course.cover_url) { cov.appendChild(el('img', { src: course.cover_url, alt: '' })); } else { cov.appendChild(icon(coverIcon())); }
 
             var badges = $('tr-head-badges');
@@ -483,10 +491,8 @@
                     menuItems.push(el('li', {}, [el('button', { type: 'button', class: 'dropdown-item', on: { click: function () { moveLessonTo(l, null); } } }, [icon('level-down-alt', 'fa-fw me-2 text-muted'), 'No section'])]));
                 }
             }
-            if (flags.preview) {
-                menuItems.push(el('li', {}, [el('hr', { class: 'dropdown-divider' })]));
-                menuItems.push(el('li', {}, [el('a', { class: 'dropdown-item', href: '/agent/training_preview.php?course_id=' + courseId + '&lesson=' + encodeURIComponent(l.uid), target: '_blank', rel: 'noopener' }, [icon('eye', 'fa-fw me-2 text-muted'), 'Preview as learner'])]));
-            }
+            menuItems.push(el('li', {}, [el('hr', { class: 'dropdown-divider' })]));
+            menuItems.push(el('li', {}, [el('a', { class: 'dropdown-item', href: '/agent/training_preview.php?course_id=' + courseId + '&lesson=' + encodeURIComponent(l.uid), target: '_blank', rel: 'noopener' }, [icon('eye', 'fa-fw me-2 text-muted'), 'Preview as learner'])]));
             menuItems.push(el('li', {}, [el('hr', { class: 'dropdown-divider' })]));
             menuItems.push(el('li', {}, [el('button', { type: 'button', class: 'dropdown-item text-danger', on: { click: function () { deleteLesson(l); } } }, [icon('trash-alt', 'fa-fw me-2'), 'Delete'])]));
 
@@ -1126,12 +1132,13 @@
             if (!$('tr-aside')) { return; }
             // cover
             var cov = $('tr-cover');
-            cov.style.setProperty('--tr-cover', coverColor());
+            paintCover(cov);
             var img = $('tr-cover-img');
             $('tr-cover-glyph').textContent = '';
             $('tr-cover-glyph').appendChild(icon(coverIcon()));
-            if (course.cover_url) { img.src = course.cover_url; img.hidden = false; } else { img.hidden = true; img.removeAttribute('src'); }
-            $('tr-cover-upload-label').textContent = course.cover_url ? 'Change cover' : 'Add cover';
+            if (course.cover_url) { if (img.getAttribute('src') !== course.cover_url) { img.src = course.cover_url; } img.hidden = false; } else { img.hidden = true; img.removeAttribute('src'); }
+            $('tr-cover-gallery').hidden = !picker;
+            $('tr-cover-upload-label').textContent = picker ? 'Upload…' : (course.cover_url ? 'Change cover' : 'Add cover');
             $('tr-cover-remove').hidden = !course.cover_url;
             var vthumb = videoThumbMediaId();
             $('tr-cover-video').hidden = !(vthumb && vthumb !== course.cover_media_id);
@@ -1268,14 +1275,33 @@
             if (rev) { note.querySelector('span').textContent = 'People who finished Version ' + rev.number + ' stay current when you publish. You choose whether anyone has to retake it.'; }
         }
 
-        // cover upload (aside + settings)
-        function applyCover(mediaId, url) {
-            course.cover_media_id = mediaId;
-            course.cover_url = url;
-            setCourseField('cover_media_id', mediaId, 0);
+        // cover: gallery, upload, video thumbnail, remove (aside + settings). Everything saves through
+        // the course store, so the version check and conflict handling are the same as any field.
+        function applyCover(mediaId, url, color) {
+            if (readOnly) { return; }
+            if (mediaId !== course.cover_media_id) {
+                course.cover_media_id = mediaId;
+                course.cover_url = url;
+                setCourseField('cover_media_id', mediaId, 0);
+            }
+            if (color !== undefined && color !== course.color) {
+                course.color = color;
+                setCourseField('color', color, 0);
+            }
             renderHeader();
             renderAside();
             renderSettingsCover();
+        }
+        function openGallery(returnFocus) {
+            if (!picker) { return; }
+            picker.open({
+                title: 'Course cover', name: course.name || 'Untitled course', color: safeColor(course.color, null),
+                cover: course.cover_media_id ? { id: course.cover_media_id, url: course.cover_url } : null,
+                purpose: 'course_cover', uploadOpts: { courseId: courseId }
+            }).then(function (res) {
+                if (res) { applyCover(res.cover ? res.cover.id : null, res.cover ? res.cover.url : null, res.color || null); }
+                if (returnFocus && returnFocus.focus) { returnFocus.focus(); }
+            });
         }
         function wireCover(dropEl, button, progressEl) {
             if (!up || !dropEl || readOnly) { return; }
@@ -1295,6 +1321,7 @@
             });
         }
         if ($('tr-cover')) {
+            $('tr-cover-gallery').addEventListener('click', function () { openGallery($('tr-cover-gallery')); });
             wireCover($('tr-cover'), $('tr-cover-upload'), $('tr-cover-progress'));
             $('tr-cover-remove').addEventListener('click', function () { applyCover(null, null); });
             $('tr-cover-video').addEventListener('click', function () {
@@ -1467,13 +1494,21 @@
                     cb.textContent = '';
                     var host = el('div', { class: 'tr-quiz-host' });
                     cb.appendChild(host);
-                    if (window.TrainingQuizBuilder && typeof window.TrainingQuizBuilder.mount === 'function') {
-                        try {
-                            docCheckMount = window.TrainingQuizBuilder.mount(host, { lessonId: d.id, courseId: courseId, lang: lang, languages: course.languages, embedded: true }) || {};
-                        } catch (e) { host.appendChild(el('div', { class: 'tr-quiz-missing', text: 'The question builder could not start. Reload the page.' })); }
-                    } else {
-                        host.appendChild(el('div', { class: 'tr-quiz-missing' }, [icon('tools', 'me-2'), 'The question builder is not installed on this server yet. The check is on; add questions once it is available.']));
-                    }
+                    try {
+                        docCheckMount = window.TrainingQuizBuilder.mount(host, {
+                            lessonId: d.id, courseId: courseId, lang: lang, languages: course.languages, defaultLanguage: course.default_language,
+                            lessonType: d.type, embedded: true,
+                            // The builder's own quiz_changed broadcast never reaches this page (a
+                            // BroadcastChannel does not deliver to itself), so it reports here.
+                            onChange: function (qz) {
+                                var cur = docLessons.doc;
+                                if (!qz || !cur || !cur.quiz) { return; }
+                                cur.quiz.question_count = qz.question_count;
+                                $('tr-doc-step-check').classList.toggle('is-done', qz.question_count > 0);
+                                scheduleCheck();
+                            }
+                        }) || {};
+                    } catch (e) { host.appendChild(el('div', { class: 'tr-quiz-missing', text: 'The question builder could not start. Reload the page.' })); }
                 }
             } else {
                 if (docCheckMount && docCheckMount.destroy) { try { docCheckMount.destroy(); } catch (e) { /* ignore */ } }
@@ -1561,10 +1596,47 @@
         function renderSettingsCover() {
             var box = $('tr-set-cover');
             if (!box) { return; }
-            box.style.setProperty('--tr-cover', coverColor());
+            paintCover(box);
             var img = box.querySelector('img');
-            if (course.cover_url) { img.src = course.cover_url; img.hidden = false; } else { img.hidden = true; img.removeAttribute('src'); }
+            if (course.cover_url) { if (img.getAttribute('src') !== course.cover_url) { img.src = course.cover_url; } img.hidden = false; } else { img.hidden = true; img.removeAttribute('src'); }
             $('tr-set-cover-remove').hidden = !course.cover_url;
+            $('tr-set-cover-gallery').hidden = !picker;
+            renderTints();
+        }
+        // Tint swatches (the gallery's tints plus the current colour when it is a custom one).
+        var tints = null;
+        function renderTints() {
+            var row = $('tr-set-tint-row');
+            if (!row || !tints || readOnly) { return; }
+            var host = $('tr-set-tint');
+            host.textContent = '';
+            var list = tints.slice();
+            var cur = safeColor(course.color, null);
+            if (cur && !list.some(function (t) { return t.color.toUpperCase() === cur.toUpperCase(); })) { list.push({ name: 'custom', color: cur }); }
+            list.forEach(function (t) {
+                var on = !!cur && t.color.toUpperCase() === cur.toUpperCase();
+                var name = t.name.charAt(0).toUpperCase() + t.name.slice(1);
+                var b = el('button', { type: 'button', class: 'tr-tint__swatch' + (on ? ' is-selected' : ''), role: 'radio', 'aria-checked': on ? 'true' : 'false',
+                    'aria-label': name, title: name, tabindex: on || (!cur && t === list[0]) ? '0' : '-1',
+                    on: { click: function () { applyCover(course.cover_media_id, course.cover_url, t.color.toUpperCase()); } } });
+                b.style.setProperty('--tr-swatch', t.color);
+                host.appendChild(b);
+            });
+            row.hidden = false;
+        }
+        if (picker && $('tr-set-tint')) {
+            picker.presets().then(function (p) { tints = (p && p.tints) || []; renderTints(); }, function () { /* the gallery button still works */ });
+            $('tr-set-tint').addEventListener('keydown', function (e) {
+                var btns = Array.prototype.slice.call(this.querySelectorAll('[role=radio]'));
+                var i = btns.indexOf(document.activeElement);
+                var step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+                if (i === -1 || !step) { return; }
+                e.preventDefault();
+                var next = btns[(i + step + btns.length) % btns.length];
+                next.click();
+                var again = this.querySelectorAll('[role=radio]')[(i + step + btns.length) % btns.length];
+                if (again) { again.focus(); }
+            });
         }
         function renderLanguageSwitches() {
             document.querySelectorAll('[data-tr-offer]').forEach(function (inp) {
@@ -1589,7 +1661,7 @@
                 menubar: false, statusbar: false, promotion: false, branding: false, license_key: 'gpl', convert_urls: false,
                 min_height: 180, max_height: 480, autoresize_bottom_margin: 12, readonly: readOnly,
                 skin: document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'oxide-dark' : 'oxide',
-                content_css: [document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'default'].concat(flags.article_css ? [flags.article_css] : []),
+                content_css: [document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'default', flags.article_css],
                 setup: function (ed) {
                     ed.on('init', function () { setSettingsEditor(courseValue('description_html', settingsLang) || ''); });
                     ed.on('input change undo redo', function () { if (!settingEditor) { descDirty = true; saveDescSoon(); } });
@@ -1657,6 +1729,7 @@
             $('tr-set-est-reset').addEventListener('click', function () { $('tr-set-est').value = ''; setCourseField('est_minutes', null, 0); course.est_minutes = null; renderEstimate(); });
         }
         if ($('tr-set-cover')) {
+            $('tr-set-cover-gallery').addEventListener('click', function () { openGallery($('tr-set-cover-gallery')); });
             wireCover($('tr-set-cover'), $('tr-set-cover-upload'), $('tr-set-cover').querySelector('.tr-drop__progress'));
             $('tr-set-cover-remove').addEventListener('click', function () { applyCover(null, null); });
         }
@@ -1918,7 +1991,7 @@
                 el('p', { class: 'tr-timeline__note', text: r.change_note }),
                 chips.length ? el('div', { class: 'tr-timeline__chips' }, chips) : null,
                 el('div', { class: 'tr-timeline__actions' }, [
-                    flags.preview ? el('a', { class: 'btn btn-sm btn-outline-secondary', href: '/agent/training_preview.php?course_id=' + courseId + '&revision_id=' + r.id, target: '_blank', rel: 'noopener' }, [icon('eye', 'me-1'), 'Preview']) : null,
+                    el('a', { class: 'btn btn-sm btn-outline-secondary', href: '/agent/training_preview.php?course_id=' + courseId + '&revision_id=' + r.id, target: '_blank', rel: 'noopener' }, [icon('eye', 'me-1'), 'Preview']),
                     el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', on: { click: function () { openCompare(r); } } }, [icon('exchange-alt', 'me-1'), 'Compare to draft']),
                     detailsBtn
                 ]),
@@ -2080,7 +2153,7 @@
             if (!window.TrainingPublish || !$('tr-pub')) { return; }
             store.flush().then(function () {
                 return window.TrainingPublish.open({
-                    courseId: courseId, courseName: course.name, kind: course.kind, previewAvailable: !!flags.preview,
+                    courseId: courseId, courseName: course.name, kind: course.kind,
                     lessonTitle: function (id) { var l = lessonById(id); return l ? (l.title || 'Untitled') : null; },
                     onOpenIssue: function (i) { gotoIssue(i); }
                 });

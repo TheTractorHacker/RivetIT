@@ -53,8 +53,9 @@
 
         function card(p) {
             var color = safeColor(p.color, '#0D9488');
-            var cover = el('div', { class: 'tr-path-card__cover' + (p.cover_url ? '' : ' is-fallback') });
+            var cover = el('div', { class: 'tr-path-card__cover' + (p.cover_url ? ' tr-cover-art' : ' is-fallback') });
             cover.style.setProperty('--tr-path-color', color);
+            cover.style.setProperty('--tr-cover-color', color);
             if (p.cover_url) {
                 cover.appendChild(el('img', { src: p.cover_url, alt: '', loading: 'lazy' }));
             } else {
@@ -170,7 +171,9 @@
         function renderSwatches() {
             var wrap = field('tr-path-colors');
             wrap.textContent = '';
-            [null].concat(data.swatches || []).forEach(function (c) {
+            var swatches = (data.swatches || []).slice();
+            if (editor.color && swatches.indexOf(editor.color) === -1) { swatches.push(editor.color); }   // a gallery tint
+            [null].concat(swatches).forEach(function (c) {
                 var selected = (editor.color || null) === c;
                 var b = el('button', {
                     type: 'button', class: 'tr-cat-swatch' + (c ? '' : ' tr-cat-swatch--none') + (selected ? ' is-selected' : ''), role: 'radio',
@@ -187,6 +190,8 @@
             var hint = field('tr-path-cover-hint');
             var box = field('tr-path-cover');
             box.style.setProperty('--tr-path-color', safeColor(editor.color, '#0D9488'));
+            box.style.setProperty('--tr-cover-color', safeColor(editor.color, '#0D9488'));
+            box.classList.toggle('tr-cover-art', !!(editor.cover && editor.cover.url));
             if (editor.cover && editor.cover.url) {
                 img.src = editor.cover.url;
                 img.hidden = false;
@@ -431,6 +436,25 @@
             field('tr-path-form').addEventListener('input', markDirty);
             field('tr-path-form').addEventListener('change', markDirty);
             field('tr-path-form').addEventListener('submit', function (e) { e.preventDefault(); save(); });
+
+            var galleryBtn = field('tr-path-cover-gallery');
+            if (!window.TrainingCoverPicker) {
+                galleryBtn.hidden = true;
+            }
+            galleryBtn.addEventListener('click', function () {
+                var opts = {
+                    title: 'Learning path cover', name: field('tr-path-name').value.trim() || 'New learning path',
+                    color: editor.color, cover: editor.cover, purpose: 'path_cover', uploadOpts: editor.path ? { pathId: editor.path.id } : {}
+                };
+                window.TrainingCoverPicker.open(opts).then(function (res) {
+                    if (!res || !editor) { return; }
+                    editor.cover = res.cover ? { id: res.cover.id, url: res.cover.url } : null;
+                    editor.color = res.color || null;
+                    markDirty();
+                    renderSwatches();
+                    renderCover();
+                });
+            });
 
             var fileInput = field('tr-path-cover-file');
             field('tr-path-cover-upload').addEventListener('click', function () { fileInput.click(); });
