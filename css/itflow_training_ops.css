@@ -120,10 +120,13 @@
 /* Assignments: the Why cell stays one line (full text in the tooltip) so a 50-row page is not 3 lines a row. */
 .tro-why__text { display: block; max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tro-why .tro-sub { max-width: 16rem; }
-/* Records log: room for the course name; the certificate chip takes only what it needs. */
-#tro-rec-table td:nth-child(3) { min-width: 13rem; }
+/* Records log: room for the course name, everything else as narrow as its content, so the table fits its card. */
+#tro-rec-table td:nth-child(3) { min-width: 12rem; }
 #tro-rec-table td:nth-child(7) { width: 1%; white-space: nowrap; }
-.tro-rec-by { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; }
+#tro-rec-table .tro-person { min-width: 0; }
+#tro-rec-table .tro-person__text { overflow-wrap: anywhere; }
+#tro-rec-table .tro-strength { white-space: normal; }
+#tro-rec-table td.tro-nowrap .tro-rec-by { white-space: normal; }
 .tro-mono { font-family: var(--if-mono, ui-monospace, monospace); font-size: 12.5px; letter-spacing: 0; }
 .tro-nowrap { white-space: nowrap; }
 .tro-link-strong { font-weight: 600; color: var(--if-ink, #16232a); text-decoration: none; }

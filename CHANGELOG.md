@@ -19,6 +19,8 @@ Training module is on.
   with QR, and a Training panel on the contact page.
 - Training: Assignments, People (roster, job groups, trainers, hire dates), Records & sessions pages; side-nav overdue
   badge and dashboard chips; training-only roles land on the Training overview.
+- Contacts: the Add Contact form has a Start Date (hire date), as the edit form already did; with Training on, a new
+  contact is matched against the assignment rules as soon as it is saved.
 - Admin > Training compliance: compliance defaults, the opt-in hire-date fill from Odoo, Odoo employee link check and
   resolution (a changed Odoo database blocks the directory sync until the links are checked), Recalculate now,
   Capture today's snapshot, and the nightly Odoo directory sync switch (off by default).

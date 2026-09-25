@@ -142,14 +142,20 @@
                             // Who recorded it, as a sub-line (a column of its own pushed the table past its card).
                             recordedBy(c)]),
                         el('td', { class: 'tro-nowrap', text: c.expires_on ? u.fmtDate(c.expires_on) : 'Does not expire' }),
-                        el('td', {}, [u.certChip(c.cert_status, voided ? 'Voided' : c.cert_status_label)])
+                        el('td', {}, [certCell(c, voided)])
                     ]);
                 }
+                /** The Expires column already has the date: the chip says the state only (full label in the tooltip). */
+                function certCell(c, voided) {
+                    var short = voided ? 'Voided' : ({ valid: 'Valid', expiring: 'Expiring', expired: 'Expired' })[c.cert_status];
+                    var chip = u.certChip(c.cert_status, short || c.cert_status_label);
+                    if (!voided && c.cert_status_label) { chip.title = u.readableDates(c.cert_status_label); }
+                    return chip;
+                }
                 function recordedBy(c) {
-                    var who = c.recorded_by_name || (c.method === 'online' ? 'Kiosk' : '');
-                    var when = u.relTime(c.recorded_at);
-                    var text = [who ? 'by ' + who : '', when].filter(Boolean).join(' · ');
-                    return text ? el('span', { class: 'tro-sub tro-rec-by', text: text, title: 'Recorded ' + (who ? 'by ' + who + ', ' : '') + u.fmtDateTime(c.recorded_at) }) : null;
+                    var text = c.recorded_by_name ? 'by ' + c.recorded_by_name : (c.method === 'online' ? 'on the kiosk' : '');
+                    var when = c.recorded_at ? u.fmtDateTime(c.recorded_at) + ' (' + u.relTime(c.recorded_at) + ')' : '';
+                    return text ? el('span', { class: 'tro-sub tro-rec-by', text: text, title: 'Recorded ' + text + (when ? ', ' + when : '') }) : null;
                 }
                 function clearFilters() {
                     f = { voided: 'include', page: 1 };
