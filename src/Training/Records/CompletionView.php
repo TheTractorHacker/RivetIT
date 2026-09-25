@@ -10,6 +10,7 @@ use ITFlow\Training\Core\Db;
 use ITFlow\Training\Core\HashSpecs;
 use ITFlow\Training\Core\RecordsSettings;
 use ITFlow\Training\Core\RowHasher;
+use ITFlow\Training\Core\SessionDigest;
 use ITFlow\Training\People\Scope;
 
 /**
@@ -28,7 +29,9 @@ use ITFlow\Training\People\Scope;
  *     cert_number, cert_status, cert_status_label, revoked_reason, voided:{at,by_name,reason}|null,
  *     recorded_at, recorded_by_name, notes, assignment_id, session_id, evaluation_id, certificate_url}
  *   CompletionDetail = Completion + {hash_ok, events:[{seq,type,at,actor}],
- *     components:{session:{…}|null, evaluation:{…, checklist}|null}, verify_url}
+ *     components:{session:{…, sha12, digest_ok}|null, evaluation:{…, checklist}|null}, verify_url}
+ *   hash_ok: the completion, token and void rows re-hash to their stored hashes, those equal their
+ *   ledger events' entity_sha256, and a finalized session behind the record re-computes to its digest.
  */
 final class CompletionView
 {
@@ -132,11 +135,15 @@ final class CompletionView
         $out = $this->shapeMany([$row])[0];
         $db = $this->c->db;
 
-        // Row hashes: re-read through the text protocol (what the verifier sees) and re-hash.
-        $out['hash_ok'] = self::rowHashOk($db, 'training_completions', 'completion_id', $id)
-            && ($row['cvoid_id'] === null || self::rowHashOk($db, 'training_completion_voids', 'cvoid_id', (int) $row['cvoid_id']));
-
         $tok = Db::one($db, 'SELECT certtok_id FROM training_cert_tokens WHERE certtok_completion_id = ?', 'i', [$id]);
+
+        // "Hash verified": every row of this record (completion, token, void) re-hashes to its
+        // stored hash from a text-protocol re-read (what the verifier sees) AND that hash is the
+        // one its ledger event recorded, so a row edited together with its hash column still
+        // fails. A finalized session behind the record must still re-compute to its digest.
+        $out['hash_ok'] = self::ledgeredOk($db, 'training_completions', 'completion_id', $id, 'completion', 'completion.recorded')
+            && ($tok === null || self::ledgeredOk($db, 'training_cert_tokens', 'certtok_id', (int) $tok['certtok_id'], 'cert_token', 'cert.token_issued'))
+            && ($row['cvoid_id'] === null || self::ledgeredOk($db, 'training_completion_voids', 'cvoid_id', (int) $row['cvoid_id'], 'completion_void', 'completion.voided'));
         $out['events'] = $this->events($id, $row['cvoid_id'] === null ? null : (int) $row['cvoid_id'],
             $tok === null ? null : (int) $tok['certtok_id'], $row['completion_assignment_id'] === null ? null : (int) $row['completion_assignment_id']);
 
@@ -144,6 +151,9 @@ final class CompletionView
             'session' => $this->sessionComponent($row),
             'evaluation' => $this->evaluationComponent($row),
         ];
+        if (($out['components']['session']['digest_ok'] ?? null) === false) {
+            $out['hash_ok'] = false;
+        }
 
         $out['verify_url'] = null;
         if ($tok !== null) {
@@ -231,6 +241,22 @@ final class CompletionView
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    /**
+     * rowHashOk() plus: the stored hash equals the entity_sha256 of the row's own ledger event
+     * ($eventType on $entityType/$id). A missing event is not ok (the verifier's entity_unevented).
+     */
+    public static function ledgeredOk(\mysqli $db, string $table, string $idCol, int $id, string $entityType, string $eventType): bool
+    {
+        if (!self::rowHashOk($db, $table, $idCol, $id)) {
+            return false;
+        }
+        $hashCol = HashSpecs::meta($table)['hash'];
+        $stored = Db::one($db, "SELECT $hashCol AS h FROM $table WHERE $idCol = ?", 'i', [$id]);
+        $ev = Db::one($db, 'SELECT tevent_entity_sha256 AS h FROM training_events WHERE tevent_entity_type = ? AND tevent_entity_id = ? AND tevent_type = ?
+            ORDER BY tevent_seq LIMIT 1', 'sis', [$entityType, $id, $eventType]);
+        return $stored !== null && $ev !== null && $ev['h'] !== null && hash_equals((string) $ev['h'], (string) $stored['h']);
     }
 
     // ------------------------------------------------------------------------------------------
@@ -393,9 +419,19 @@ final class CompletionView
             return null;
         }
         $s = Db::one($this->c->db, 'SELECT tsession_id, tsession_held_on, tsession_topic, tsession_trainer_name, tsession_location, tsession_status,
-                tsession_sha256 FROM training_sessions WHERE tsession_id = ?', 'i', [$sid]);
+                tsession_digest_v, tsession_sha256 FROM training_sessions WHERE tsession_id = ?', 'i', [$sid]);
         if ($s === null) {
             return null;
+        }
+        // A finalized session is digest-frozen: it must still re-compute to its stored digest.
+        $digestOk = null;
+        if ($s['tsession_status'] === 'finalized' && $s['tsession_sha256'] !== null) {
+            try {
+                $digestOk = hash_equals((string) $s['tsession_sha256'],
+                    SessionDigest::computeFromDb($this->c->db, $sid, max(1, (int) $s['tsession_digest_v'])));
+            } catch (\Throwable $e) {
+                $digestOk = false;
+            }
         }
         $a = null;
         if ($row['completion_tattendee_id'] !== null) {
@@ -410,6 +446,7 @@ final class CompletionView
             'trainer_name' => (string) $s['tsession_trainer_name'],
             'status' => (string) $s['tsession_status'],
             'sha12' => $s['tsession_sha256'] === null ? null : substr((string) $s['tsession_sha256'], 0, 12),
+            'digest_ok' => $digestOk,
             'attendance' => $a['tattendee_attendance'] ?? null,
             'proof' => $a['tattendee_proof'] ?? null,
             'practical' => $a['tattendee_practical'] ?? null,

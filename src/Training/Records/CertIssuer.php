@@ -21,6 +21,10 @@ use ITFlow\Training\Core\HashedInsert;
  *   stored: the nonce and sha256(token) - never the token. Reprints re-derive the same token
  *   from the stored nonce. Tokens never appear in ledger payloads or logs.
  *   Frozen verify URL: {baseUrl}/verify/?t={token} (Phase 5 builds the page on PublicVerify).
+ *
+ * FROZEN TEST VECTOR (spec §10.3; asserted by the records CLI suite, never to change):
+ *   certKey = CertSecret::derive('test-key'); deriveToken(certKey, 1, str_repeat('0', 32))
+ *   === '9tPHK890CIIAQ5lT-xGnvV_g'
  */
 final class CertIssuer
 {
