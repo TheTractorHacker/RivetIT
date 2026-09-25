@@ -17,6 +17,7 @@ $page_extra_css = ['/css/itflow_training.css', '/css/itflow_training_ops.css']; 
 require_once "includes/inc_all.php";
 if (\ITFlow\Training\Core\Access::pageGuard(1)) { require_once "../includes/footer.php"; exit; }
 define('TRAINING_PAGE', 1);
+session_write_close();   // spec §0 #9: nothing below writes the session (inc_all has shown the flash); free its lock for the page's JSON calls
 require_once __DIR__ . '/includes/training_ops/ops.php';
 
 $tr_ctx = \ITFlow\Training\Core\Access::ctx($mysqli);
