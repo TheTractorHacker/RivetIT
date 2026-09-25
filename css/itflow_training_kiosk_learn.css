@@ -360,3 +360,8 @@ body.kx-video-page .kx-main { padding-bottom: 0; }
   .kl-vfoot { flex-direction: column; align-items: stretch; }
   .kl-vfoot__act { flex-direction: column; }
 }
+
+/* ---- kiosk tap targets inside the player (>= 64 px, A9) ------------------------------ */
+.trp--kiosk .trp-pin__key { min-height: 64px; min-width: 64px; font-size: 26px; }
+.trp--kiosk .trp-btn { min-height: 64px; }
+.trp--kiosk .trp-check { min-height: 64px; }
