@@ -77,9 +77,15 @@ final class AwardEngine
             if ($completionId < 1 || !self::ready($db)) {
                 return;
             }
+            if (Db::depth() !== 0) {
+                // P2 calls listeners after COMMIT; a caller still inside a transaction would make the
+                // award part of work that may yet roll back. Skip; the nightly backfill repairs it.
+                error_log('Training awards: onCompletionRecorded called inside a transaction; left to the nightly backfill');
+                return;
+            }
             $facts = AwardFacts::get($db, $c);
             $completion = $facts?->completion($completionId);
-            if ($completion === null || (int) $completion['contact_id'] < 1) {
+            if ($completion === null || (int) $completion['contact_id'] < 1 || !empty($completion['voided'])) {
                 return;
             }
             $actor = $c->userId > 0
@@ -92,9 +98,11 @@ final class AwardEngine
     }
 
     /**
-     * After an exam submit has committed. $facts {attempt_id, course_id, kind, passed, score_pct, attempt_number};
-     * the stored attempt and result rows win over $facts when attempt_id names them. kind must be 'exam'.
-     * Never throws. @return list<array> the NEW AwardPublic rows
+     * After an exam submit has committed (K3 AttemptService::submit step 13). $facts is
+     * {attempt_id, course_id, kind, passed, score_pct, attempt_number}; only attempt_id is trusted:
+     * the rules read the STORED attempt and result (it must be this contact's resulted attempt of
+     * kind 'exam'), so an award always points at evidence that exists. Never throws.
+     * @return list<array> the NEW AwardPublic rows (for the result screen)
      */
     public static function onExamSubmitted(\mysqli $db, array $actor, int $contactId, array $facts): array
     {

@@ -36,6 +36,7 @@ final class BridgeRecordsFacts implements RecordsFacts
             'course_id' => (int) $r['course_id'],
             'run_id' => isset($r['run_id']) ? (int) $r['run_id'] : null,
             'recorded_at_utc' => isset($r['recorded_at_utc']) ? (string) $r['recorded_at_utc'] : null,
+            'voided' => !empty($r['voided']),
         ];
     }
 

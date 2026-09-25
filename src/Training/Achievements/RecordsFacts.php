@@ -13,7 +13,7 @@ interface RecordsFacts
     /** Course ids of the contact's valid completions (not voided, not expired). @return list<int> */
     public function validCourseIds(int $contactId): array;
 
-    /** {contact_id, course_id, run_id, recorded_at_utc} or null. */
+    /** {contact_id, course_id, run_id, recorded_at_utc, voided} or null. */
     public function completion(int $completionId): ?array;
 
     /** Whole months in a row with every required training on time; 0 when unknown. */

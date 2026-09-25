@@ -10,7 +10,7 @@ use ITFlow\Training\Core\Db;
  * Who an agent may see and award, and who the nightly jobs look at (P3 spec §4.3, §8 "Agent side").
  *
  * Department scope goes through K3's RecordsBridge (assertContactInScope / scopeClientIds, which
- * wrap Phase 2's People\Scope) when that class exists. Without it the same fail-closed rule is
+ * wrap Phase 2's department scope) when that class exists. Without it the same fail-closed rule is
  * applied here: an admin or module_training level 3 sees every department; anyone else sees
  * only the departments in their user_client_permissions rows, and no rows means nobody.
  * Contacts outside the scope are a 404, never a 403, so an id cannot be probed.
