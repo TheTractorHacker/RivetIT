@@ -53,7 +53,7 @@ final class TrainerService
             'can_view_team' => $t['can_view_team'],
             'sessions' => $sessions,
             'evaluate' => $evaluate,
-            'team' => $t['can_view_team'] && TeamService::available($db),
+            'team' => false,   // [S] T-8 team status is cut for this release (spec §9.3 step 6 cut order)
             'open_sessions' => $sessions ? $this->openSessions() : [],
         ];
     }
@@ -332,9 +332,7 @@ final class TrainerService
         }
         $sb = new SessionBridge($this->k->core, $this->k->eventBase());
         $s = $this->ownOpen($sb, $tsessionId);
-        $present = Db::one($db, "SELECT COUNT(*) AS n FROM training_session_attendees WHERE tattendee_tsession_id = ? AND tattendee_removed_at_utc IS NULL
-            AND tattendee_attendance = 'present'", 'i', [$tsessionId]);
-        if ((int) ($present['n'] ?? 0) < 1) {
+        if ($sb->presentCount($tsessionId) < 1) {
             throw new ApiException(422, 'validation', 'Check in at least one person, or mark someone present, before finishing.', ['attendees' => 'Nobody is present.']);
         }
         $prep = TrainerSig::prepare($sigDataUrl, true);

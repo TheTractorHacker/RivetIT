@@ -389,6 +389,21 @@ final class SessionBridge
         });
     }
 
+    /** Is this person on the session now (a row that is not removed)? Plain read; checkIn() re-checks under the lock. */
+    public function isCheckedIn(int $tsessionId, int $contactId): bool
+    {
+        return Db::one($this->c->db, 'SELECT tattendee_id FROM training_session_attendees WHERE tattendee_tsession_id = ? AND tattendee_contact_id = ?
+            AND tattendee_removed_at_utc IS NULL', 'ii', [$tsessionId, $contactId]) !== null;
+    }
+
+    /** How many people are marked present (not removed) - finalize needs at least one. */
+    public function presentCount(int $tsessionId): int
+    {
+        $r = Db::one($this->c->db, "SELECT COUNT(*) AS n FROM training_session_attendees WHERE tattendee_tsession_id = ? AND tattendee_removed_at_utc IS NULL
+            AND tattendee_attendance = 'present'", 'i', [$tsessionId]);
+        return (int) ($r['n'] ?? 0);
+    }
+
     /** The session an attendee belongs to (no lock) - for ownership checks. */
     public function sessionOfAttendee(int $attendeeId): ?array
     {
