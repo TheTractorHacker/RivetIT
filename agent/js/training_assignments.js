@@ -220,7 +220,7 @@
                         { label: 'History', icon: 'fas fa-history', onClick: function () { Ops.open('history', { assignmentId: a.id, assignment: a }); } }
                     ] : [{ label: 'History', icon: 'fas fa-history', onClick: function () { Ops.open('history', { assignmentId: a.id, assignment: a }); } }];
                     if (actions[0] === null && actions[1] === null) { actions = actions.filter(function (x) { return x !== '-'; }); }
-                    var reason = el('td', {}, [el('span', { text: a.anchor_label || '' })]);
+                    var reason = el('td', {}, [el('span', { text: u.readableDates(a.anchor_label || '') })]);
                     if (a.requirement && a.requirement.is_manual && a.anchor === 'initial') { reason.appendChild(el('span', { class: 'tro-sub', text: 'Assigned by hand' })); }
                     return el('tr', { dataset: { id: a.id } }, [
                         el('td', {}, [u.personCell(a.person, { sub: a.person ? (a.person.title || '') : '' })]),

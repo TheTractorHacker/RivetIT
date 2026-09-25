@@ -379,12 +379,14 @@
                 dbody.appendChild(el('div', { class: 'form-label', text: 'Ledger events' }));
                 var evs = c.events || [];
                 if (evs.length) {
-                    dbody.appendChild(el('div', { class: 'tro-table-wrap' }, [el('table', { class: 'table table-sm tro-table' }, [
-                        el('thead', {}, [el('tr', {}, [el('th', { text: '#' }), el('th', { text: 'What' }), el('th', { text: 'When' }), el('th', { text: 'By' })])]),
-                        el('tbody', {}, evs.map(function (x) {
-                            return el('tr', {}, [el('td', { class: 'tro-mono', text: String(x.seq) }), el('td', { text: u.EVENT_LABELS[x.type] || x.type }), el('td', { class: 'tro-nowrap', text: u.fmtDateTime(x.at) }), el('td', { text: x.actor && typeof x.actor === 'object' ? (x.actor.name || x.actor.type || '') : (x.actor || '') })]);
-                        }))
-                    ])]));
+                    // A narrow column: one compact entry per event (what · #seq, then when · by) instead of a 4-column table.
+                    dbody.appendChild(el('ol', { class: 'tro-events' }, evs.map(function (x) {
+                        var by = x.actor && typeof x.actor === 'object' ? (x.actor.name || x.actor.type || '') : (x.actor || '');
+                        return el('li', { class: 'tro-events__item' }, [
+                            el('div', { class: 'tro-events__what' }, [el('span', { text: u.EVENT_LABELS[x.type] || x.type }), el('span', { class: 'tro-events__seq tro-mono', text: '#' + String(x.seq) })]),
+                            el('div', { class: 'tro-events__meta', text: [u.fmtDateTime(x.at), by].filter(Boolean).join(' · ') })
+                        ]);
+                    })));
                 } else {
                     dbody.appendChild(el('p', { class: 'text-muted small', text: 'No events.' }));
                 }

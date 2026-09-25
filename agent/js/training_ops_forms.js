@@ -102,6 +102,12 @@
         return fut ? 'in ' + out : out + ' ago';
     }
     function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+    /** "3 people are" / "1 person is". */
+    function pluralBe(n, one, many) { return plural(n, one, many) + (n === 1 ? ' is' : ' are'); }
+    /** Engine texts carry ISO dates ("expires 2026-08-15"); show them the way the rest of the page does. */
+    function readableDates(text) {
+        return String(text == null ? '' : text).replace(/\b(\d{4}-\d{2}-\d{2})\b/g, function (m) { return isYmd(m) ? fmtDate(m) : m; });
+    }
 
     // ------------------------------------------------------------------------------------
     // Small DOM pieces
@@ -743,7 +749,7 @@
             ['Person', a.person ? a.person.name : ''],
             ['Course', a.course ? a.course.name : ''],
             ['Due', fmtDate(a.due_on) + (a.original_due_on && a.original_due_on !== a.due_on ? ' (was ' + fmtDate(a.original_due_on) + ')' : '')],
-            ['Why', a.anchor_label || '']
+            ['Why', readableDates(a.anchor_label || '')]
         ]);
     }
 
@@ -829,8 +835,8 @@
             : 'No one new was assigned.';
         var notes = [];
         if (counts.already_assigned) { notes.push(plural(counts.already_assigned, 'person', 'people') + ' already had it assigned.'); }
-        if (counts.current) { notes.push(plural(counts.current, 'person', 'people') + ' are already current.'); }
-        if (counts.not_eligible) { notes.push(plural(counts.not_eligible, 'person', 'people') + ' are not on the training roster (no department or excluded).'); }
+        if (counts.current) { notes.push(pluralBe(counts.current, 'person', 'people') + ' already current.'); }
+        if (counts.not_eligible) { notes.push(pluralBe(counts.not_eligible, 'person', 'people') + ' not on the training roster (no department or excluded).'); }
         var rec = d.reconcile || {};
         var wrap = el('div', {}, [
             el('div', { class: 'alert alert-success d-flex gap-2', role: 'status' }, [icon('fas fa-check-circle mt-1'), el('div', {}, [el('div', { class: 'fw-semibold', text: head }), notes.length ? el('div', { text: notes.join(' ') }) : null])]),
@@ -1082,7 +1088,7 @@
                     el('div', { class: 'd-flex align-items-center gap-2 mb-3' }, [statusChip(a.display_status || a.status, a), a.required === false ? chip('Optional', 'outline') : null]),
                     summaryBox([
                         ['Person', a.person ? a.person.name : ''], ['Course', a.course ? a.course.name : ''],
-                        ['Why', a.anchor_label || ''], ['Rule', a.requirement ? a.requirement.name : 'None'],
+                        ['Why', readableDates(a.anchor_label || '')], ['Rule', a.requirement ? a.requirement.name : 'None'],
                         ['Due', fmtDate(a.due_on)], ['Originally due', fmtDate(a.original_due_on)],
                         ['Assigned', fmtDateTime(a.created_at)], a.closed_at ? ['Closed', fmtDateTime(a.closed_at) + (a.close_reason ? ' · ' + (CLOSE_REASONS[a.close_reason] || a.close_reason) : '')] : null,
                         a.close_note ? ['Note', a.close_note] : null, a.reopened_count ? ['Reopened', plural(a.reopened_count, 'time')] : null
@@ -1428,7 +1434,7 @@
         u: {
             el: el, icon: icon, chip: chip, avatar: avatar, initials: initials, plural: plural,
             today: today, addDays: addDays, addMonths: addMonths, diffDays: diffDays, isYmd: isYmd,
-            fmtDate: fmtDate, fmtDateTime: fmtDateTime, relTime: relTime,
+            fmtDate: fmtDate, fmtDateTime: fmtDateTime, relTime: relTime, readableDates: readableDates, pluralBe: pluralBe,
             personCell: personCell, personMeta: personMeta, statusChip: statusChip, certChip: certChip, strength: strength,
             STRENGTH_LABELS: STRENGTH_LABELS, METHOD_LABELS: METHOD_LABELS, EVENT_LABELS: EVENT_LABELS, pendingText: pendingText,
             courseSummary: courseSummary, courseById: courseById, courseSelect: courseSelect,
