@@ -220,7 +220,8 @@ final class RunService
         }
         self::assertRunUsable($run);
         if ($run['trun_current_lesson_uid'] !== $uid) {
-            throw new ApiException(409, 'lesson_locked', 'Open this lesson again to continue.');
+            // A late tick from a lesson the learner already left: nothing is credited; the gate is returned as-is.
+            return self::gateFor($run, $doc, $lesson, $done);
         }
         [$type, $duration, $videoId, $pages] = self::lessonFacts($run, $doc, $lesson);
         $old = LessonCredit::fromRun($run);
