@@ -114,5 +114,5 @@ $k_page = [
 ];
 require __DIR__ . '/includes/layout_top.php';
 ?>
-<div class="kl-player" id="kl-player"></div>
+<div class="kl-player trp-host" id="kl-player"></div>
 <?php require __DIR__ . '/includes/layout_bottom.php';

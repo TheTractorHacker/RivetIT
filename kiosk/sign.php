@@ -76,7 +76,9 @@ foreach ((array) ($doc['lessons'] ?? []) as $l) {
 
 $data = ['run_id' => $runId, 'course_id' => (int) $course['course_id'], 'course_name' => $courseName, 'kind' => (string) $course['course_kind'],
     'score_pct' => $score, 'has_exam' => $hasExam, 'validity_months' => $course['course_validity_months'] === null ? null : (int) $course['course_validity_months'],
-    'today' => date('Y-m-d')];
+    'today' => date('Y-m-d'),
+    // A class or a hands-on evaluation still finishes a blended course: the preview must not promise a certificate at signing.
+    'pending' => !empty($doc['course']['components']['practical']) ? 'evaluation' : (!empty($doc['course']['components']['session']) ? 'session' : null)];
 
 if ($status === 'awaiting_signature') {
     $text = null;

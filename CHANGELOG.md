@@ -29,6 +29,17 @@ and Odoo-PIN sign-in stays off (`config_training_odoo_pin_enabled = 0`) until th
 - Publishing: a lesson quick check marked "must pass" is refused for now (the kiosk does not run quick checks yet);
   other quick checks publish with a warning.
 
+### Fixes (Phase 3+4 end-to-end QA)
+- Kiosk course pages on a portrait iPad (768-834 px wide) now use the player's narrow layout: the video, PDF and article
+  side panels move below the lesson, and the lesson and quiz footers wrap instead of cutting off buttons or squeezing
+  the "Available after ..." text. The header no longer clips the brand in Spanish.
+- A Spanish screen shows Spanish course names and "Pick up at" lesson titles in the Learning Center (cards, completed
+  courses, certificates) wherever the course has them.
+- Blended courses (a class or hands-on evaluation still to come): the kiosk sign-off statement says the employee
+  completed the online part, and the receipt preview no longer promises a certificate and expiry at signing.
+- Trainer session header shows the date as "Sep 25, 2026" instead of 2026-09-25.
+- Rule editor: "Change on the course" opened a "course no longer exists" page; it now opens the course Settings tab.
+
 ## [Unreleased] ITFlow Internal IT - Training (LMS) Phase 2: assignments, compliance, records and reports
 Database 2.6.91 -> 2.6.92. Apply it only through **Admin > Update > Update Database** (the migration block in
 `admin/database_updates.php`; fresh installs get the same schema from `db.sql`). Nothing changes for users until the

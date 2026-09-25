@@ -29,7 +29,7 @@ $cid = $kctx->contactId();
 
 // ---- housekeeping (idempotent; a failure never blocks the page) ------------------------------
 $k_open_runs = static fn(): array => Db::all($db, 'SELECT trun_id, trun_course_id, trun_revision_id, trun_status, trun_progress_pct,
-        trun_current_lesson_uid, trun_locked_at_utc, trun_blocked_reason, trun_last_activity_at_utc
+        trun_language, trun_current_lesson_uid, trun_locked_at_utc, trun_blocked_reason, trun_last_activity_at_utc
     FROM training_runs WHERE trun_contact_id = ? AND trun_open_guard = 1 ORDER BY trun_last_activity_at_utc DESC', 'i', [$cid]);
 try {
     foreach ($k_open_runs() as $r) {
@@ -72,21 +72,44 @@ if ($courseIds !== []) {
     }
 }
 
-/** Lesson count, page count (documents), version number and the lesson list of a revision. */
-$revFacts = static function (?int $revId) use ($db): array {
+/**
+ * The language a revision is shown in: the open run's language (the run keeps it), else the
+ * screen language when the course has it, else the course default - so a Spanish screen shows
+ * Spanish course names and lesson titles wherever the author wrote them.
+ */
+$k_lang_for = static function (array $doc, ?string $runLang) use ($kctx): string {
+    $c = is_array($doc['course'] ?? null) ? $doc['course'] : [];
+    $default = (string) ($c['default_language'] ?? 'en');
+    $langs = is_array($c['languages'] ?? null) ? $c['languages'] : [$default];
+    foreach ([$runLang, $kctx->lang] as $l) {
+        if (is_string($l) && in_array($l, $langs, true)) {
+            return $l;
+        }
+    }
+    return $default;
+};
+/** The course name of a revision document in $lang (falls back to the default language). */
+$k_doc_name = static function (array $doc, string $lang): string {
+    $text = is_array($doc['course']['text'] ?? null) ? $doc['course']['text'] : [];
+    $default = (string) ($doc['course']['default_language'] ?? 'en');
+    return trim((string) ($text[$lang]['name'] ?? $text[$default]['name'] ?? ''));
+};
+
+/** Lesson count, page count (documents), version number, the course name and the lesson list of a revision. */
+$revFacts = static function (?int $revId, ?string $runLang = null) use ($db, $k_lang_for, $k_doc_name): array {
     if ($revId === null || $revId <= 0) {
-        return ['lessons' => 0, 'pages' => null, 'number' => null, 'titles' => [], 'order' => []];
+        return ['lessons' => 0, 'pages' => null, 'number' => null, 'name' => '', 'titles' => [], 'order' => []];
     }
     try {
         $rev = RevisionCache::get($db, $revId);
     } catch (\Throwable) {
-        return ['lessons' => 0, 'pages' => null, 'number' => null, 'titles' => [], 'order' => []];
+        return ['lessons' => 0, 'pages' => null, 'number' => null, 'name' => '', 'titles' => [], 'order' => []];
     }
     $doc = is_array($rev['doc'] ?? null) ? $rev['doc'] : [];
     $lessons = is_array($doc['lessons'] ?? null) ? $doc['lessons'] : [];
     $titles = [];
     $pages = null;
-    $lang = (string) ($doc['course']['default_language'] ?? 'en');
+    $lang = $k_lang_for($doc, $runLang);
     foreach ($lessons as $uid => $l) {
         $u = is_string($uid) ? $uid : (string) ($l['uid'] ?? '');
         $v = $l['variants'][$lang] ?? (is_array($l['variants'] ?? null) ? reset($l['variants']) : []);
@@ -97,7 +120,7 @@ $revFacts = static function (?int $revId) use ($db): array {
     }
     $order = is_array($doc['lesson_order'] ?? null) ? array_values(array_map('strval', $doc['lesson_order'])) : array_keys($titles);
     return ['lessons' => count($lessons), 'pages' => $pages, 'number' => isset($rev['number']) ? (int) $rev['number'] : null,
-        'titles' => $titles, 'order' => $order];
+        'name' => $k_doc_name($doc, $lang), 'titles' => $titles, 'order' => $order];
 };
 
 $today = new \DateTimeImmutable('today');
@@ -108,7 +131,7 @@ $card = static function (int $courseId, ?array $item) use ($courses, $runs, $rev
     }
     $run = $runs[$courseId] ?? null;
     $revId = $run !== null ? (int) $run['trun_revision_id'] : ($c['course_current_revision_id'] === null ? null : (int) $c['course_current_revision_id']);
-    $f = $revFacts($revId);
+    $f = $revFacts($revId, $run !== null ? (string) ($run['trun_language'] ?? '') : null);
     $pct = $run !== null ? (int) $run['trun_progress_pct'] : 0;
     $state = 'start';
     if ((int) $c['course_needs_online'] !== 1) {
@@ -138,7 +161,7 @@ $card = static function (int $courseId, ?array $item) use ($courses, $runs, $rev
     }
     return [
         'course_id' => $courseId,
-        'name' => (string) $c['course_name'],
+        'name' => $f['name'] !== '' ? $f['name'] : (string) $c['course_name'],
         'kind' => (string) $c['course_kind'],
         'needs_session' => (int) $c['course_needs_session'] === 1,
         'needs_practical' => (int) $c['course_needs_practical'] === 1,
@@ -226,6 +249,27 @@ try {
     error_log('Kiosk me.php notices: ' . get_class($e));
 }
 
+// Completed courses and certificates: the course's current name in the screen language (P2 gives the default one).
+$k_names = [];
+$k_done_ids = array_values(array_unique(array_filter(array_map(static fn($c) => is_array($c) ? (int) ($c['course_id'] ?? 0) : 0,
+    array_merge((array) ($summary['completed'] ?? []), (array) ($summary['certificates'] ?? []))))));
+if ($k_done_ids !== []) {
+    try {
+        foreach (Db::all($db, 'SELECT course_id, course_current_revision_id FROM training_courses WHERE course_id IN ('
+                . implode(',', array_fill(0, count($k_done_ids), '?')) . ')', str_repeat('i', count($k_done_ids)), $k_done_ids) as $r) {
+            if ($r['course_current_revision_id'] !== null) {
+                $f = $revFacts((int) $r['course_current_revision_id']);
+                if ($f['name'] !== '') {
+                    $k_names[(int) $r['course_id']] = $f['name'];
+                }
+            }
+        }
+    } catch (\Throwable $e) {
+        error_log('Kiosk me.php names: ' . get_class($e));
+    }
+}
+$k_name = static fn(array $c): string => $k_names[(int) ($c['course_id'] ?? 0)] ?? (string) ($c['course_name'] ?? '');
+
 $counts = is_array($summary['counts'] ?? null) ? $summary['counts'] : [];
 $hour = (int) date('G');
 $k_page = [
@@ -247,12 +291,12 @@ $k_page = [
         'documents' => $documents,
         'in_progress' => $inProgress,
         'completed' => array_map(static fn(array $c): array => [
-            'course_id' => (int) ($c['course_id'] ?? 0), 'name' => (string) ($c['course_name'] ?? ''), 'kind' => (string) ($c['kind'] ?? 'training'),
+            'course_id' => (int) ($c['course_id'] ?? 0), 'name' => $k_name($c), 'kind' => (string) ($c['kind'] ?? 'training'),
             'completed_on' => (string) ($c['completed_on'] ?? ''), 'score_pct' => isset($c['score_pct']) ? (string) $c['score_pct'] : null,
         ], array_values((array) ($summary['completed'] ?? []))),
         'completed_total' => (int) ($counts['completed'] ?? count((array) ($summary['completed'] ?? []))),
         'certificates' => array_map(static fn(array $c): array => [
-            'course_name' => (string) ($c['course_name'] ?? ''), 'cert_number' => (string) ($c['cert_number'] ?? ''),
+            'course_name' => $k_name($c), 'cert_number' => (string) ($c['cert_number'] ?? ''),
             'completed_on' => (string) ($c['completed_on'] ?? ''), 'expires_on' => isset($c['expires_on']) ? (string) $c['expires_on'] : null,
             'status' => (string) ($c['status'] ?? 'current'),
         ], array_values((array) ($summary['certificates'] ?? []))),

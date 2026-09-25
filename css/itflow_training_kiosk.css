@@ -108,7 +108,7 @@ body.kx {
   background: var(--kx-surface);
   border-bottom: 1px solid var(--kx-border);
 }
-.kx-brand { display: flex; align-items: center; gap: .3em; min-width: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
+.kx-brand { display: flex; align-items: center; gap: .3em; flex-shrink: 0; min-width: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
 .kx-brand__accent { color: var(--kx-accent); }
 .kx-top__right { display: flex; align-items: center; gap: 20px; min-width: 0; }
 .kx-top__sep { width: 1px; height: 32px; background: var(--kx-border); flex-shrink: 0; }
@@ -372,6 +372,8 @@ body.kx-has-dialog { overflow: hidden; }
   .kx-top { padding-left: calc(20px + var(--kx-safe-l)); padding-right: calc(20px + var(--kx-safe-r)); gap: 12px; }
   .kx-top__right { gap: 12px; }
   .kx-who__name { max-width: 200px; }
+  .kx-brand { font-size: 20px; }
+  .kx-done { padding: 0 18px; }
   .kx-card--split { flex-direction: column; }
   .kx-card--split > * { padding: 32px 32px; }
   .kx-card__side { border-left: 0; border-top: 1px solid var(--kx-border); }

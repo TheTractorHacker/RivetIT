@@ -354,3 +354,18 @@ realistically, months of further work, not a few more sessions.
   1-2 iPads (iPadOS >= 16.4, inside the Home Screen app) and the Windows PC (Edge `--kiosk <start URL>
   --edge-kiosk-type=public-browsing`). Leave Odoo-PIN sign-in OFF until the A22 production switch, a clean "Check
   employee links" and Refresh PIN sources (spec §9.3 step 7).
+- 2026-09-25: **Phases 3+4 end-to-end QA** (branch `lms-phase34`, scratch p34e2e, generated fixtures: 29 people in
+  Crane / CNC Machining / Fabrication / Safety, local PINs from printed slips, one Odoo-PIN person answered by a fake
+  connector; no live rows, no Odoo call). Real browser at iPad 1024x768 + 768x1024 (touch, Safari UA) and Windows
+  1366x768 (Edge UA): LOTO authored and published through the agent API (article, PDF, MP4, 3-question exam with 1
+  critical, acknowledgment), the P2 rule "Crane, due in 14 days" built in the rule editor, slips issued/reprinted/
+  cleared; device enrollment signed in on the device and Edge kiosk `?d=`; learner flow with a wrong PIN, exam fail then
+  pass, finger signature + PIN, `LMS-YYYY-NNNNNN` receipt, badge, auto-return, assignment closed, transcript/record/
+  dashboard/awards; Spanish end to end; PIN lockout + unlock, search/PIN rate limits, device cooldown + clear, revoke,
+  idle "Still there?" and the 2-minute absolute cap; trainer session with pass-the-iPad check-in and finalize, a
+  practical evaluation hand-off, a trainer badge; isolation (Back/bfcache, other people's runs/attempts/receipts,
+  evidence media); module OFF -> `/kiosk/` 404. 330 checks, zero console/CSP errors (deliberate 4xx probes aside),
+  deep ledger verify ok, no PIN or setup code in the ledger, logs, notifications or PHP log, no `Login` log rows.
+  Fixed on the way: portrait-iPad course layout (player container queries never applied on the kiosk), Spanish course
+  names in the Learning Center, blended-course sign-off wording and receipt preview, trainer session date, the rule
+  editor's dead "Change on the course" link. Re-run: scratchpad `p34e2e/run_all.sh`.

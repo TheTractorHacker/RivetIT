@@ -26,6 +26,9 @@ final class AttestService
 {
     public const BUILTIN_TEXT = 'I, {name}, completed {course} (version {revision}) on {date}. I understood it and I will follow it at work.';
     public const BUILTIN_TEXT_ES = 'Yo, {name}, completé {course} (versión {revision}) el {date}. Lo entendí y lo voy a seguir en el trabajo.';
+    /** Blended courses (a class or a hands-on evaluation still to come): the learner signs for the online part only. */
+    public const BUILTIN_TEXT_PART = 'I, {name}, completed the online part of {course} (version {revision}) on {date}. I understood it and I will follow it at work.';
+    public const BUILTIN_TEXT_PART_ES = 'Yo, {name}, completé la parte en línea de {course} (versión {revision}) el {date}. Lo entendí y lo voy a seguir en el trabajo.';
 
     public function __construct(private readonly KioskCtx $k)
     {
@@ -41,7 +44,10 @@ final class AttestService
             $text = $this->k->core->settings->attestationDefault ?? null;
         }
         if (!is_string($text) || trim($text) === '') {
-            $text = $lang === 'es' ? self::BUILTIN_TEXT_ES : self::BUILTIN_TEXT;
+            $parts = is_array($doc['course']['components'] ?? null) ? $doc['course']['components'] : [];
+            $text = !empty($parts['session']) || !empty($parts['practical'])
+                ? ($lang === 'es' ? self::BUILTIN_TEXT_PART_ES : self::BUILTIN_TEXT_PART)
+                : ($lang === 'es' ? self::BUILTIN_TEXT_ES : self::BUILTIN_TEXT);
         }
         $rev = (int) \ITFlow\Training\Kiosk\Core\RevisionCache::get($this->k->db(), (int) $run['trun_revision_id'])['number'];
         return strtr(trim($text), [

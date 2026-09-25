@@ -85,6 +85,12 @@
     function today() {
         try { return new Date().toLocaleDateString(K.lang() === 'es' ? 'es-US' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' }); } catch (e) { return ''; }
     }
+    /** A YYYY-MM-DD day as "Sep 25, 2026" (parsed as a local date, so it never shifts a day). */
+    function dayDate(iso) {
+        var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+        if (!m) { return iso || ''; }
+        try { return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString(K.lang() === 'es' ? 'es-US' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' }); } catch (e) { return iso; }
+    }
     function fmtDate(iso) {
         if (!iso) { return ''; }
         var d = new Date(iso);
@@ -368,7 +374,7 @@
         });
         var cancel = btn(t('trn.cancel_session'), 'kx-btn--ghost', 'fa-times', cancelFlow);
         show([
-            heading(t('trn.tile_session'), s.course, [s.held_on, s.location, s.dept, s.topic].filter(Boolean).join(' · ')),
+            heading(t('trn.tile_session'), s.course, [dayDate(s.held_on), s.location, s.dept, s.topic].filter(Boolean).join(' · ')),
             el('div', { class: 'kt-bar' }, [hand, el('p', { class: 'kx-note', text: t('trn.hand_around_sub') })]),
             el('div', { class: 'kt-cols' }, [
                 el('section', { class: 'kt-block' }, [el('h2', { class: 'kx-h3', text: t('trn.roster', { n: active.length }) }), roster]),
