@@ -131,7 +131,7 @@
                         u.chip(a.attendance === 'present' ? 'Present' : a.attendance === 'partial' ? 'Partial' : 'Absent', a.attendance === 'present' ? 'ok' : a.attendance === 'partial' ? 'warn' : 'outline'),
                         needsPractical ? u.chip('Practical: ' + (a.practical === 'pass' ? 'Pass' : a.practical === 'fail' ? 'Fail' : 'not evaluated'), a.practical === 'pass' ? 'ok' : a.practical === 'fail' ? 'err' : 'outline') : null
                     ]),
-                    el('div', { class: 'tro-att__proof' }, [el('span', { class: 'small', text: PROOF[a.proof] || a.proof || '' }), a.attest_reason ? el('span', { class: 'tro-sub', text: a.attest_reason }) : null, a.notes ? el('span', { class: 'tro-sub', text: a.notes }) : null]),
+                    el('div', { class: 'tro-att__proof' }, [a.attendance === 'absent' ? el('span', { class: 'small text-muted', text: 'Did not attend' }) : el('span', { class: 'small', text: PROOF[a.proof] || a.proof || '' }), a.attendance !== 'absent' && a.attest_reason ? el('span', { class: 'tro-sub', text: a.attest_reason }) : null, a.notes ? el('span', { class: 'tro-sub', text: a.notes }) : null]),
                     el('div', { class: 'tro-att__outcome' }, [outcome])
                 ]));
             });
