@@ -90,14 +90,14 @@
             var main = data.transcript
                 ? el('a', { href: '/agent/training_transcript.php?contact_id=' + encodeURIComponent(c.id), text: name })
                 : el('span', { class: 'fw-medium', text: name });
-            var only = el('button', {
-                type: 'button', class: 'btn btn-link btn-sm p-0 ms-2 align-baseline', text: 'Only this person',
+            var only = contact ? null : el('button', {
+                type: 'button', class: 'btn btn-link p-0 align-baseline small', text: 'Only this person',
                 'aria-label': 'Show only ' + c.name + '’s badges',
                 on: { click: function () { setContact({ id: c.id, name: c.name }); } }
             });
             return el('td', {}, [
-                el('div', {}, [main, contact ? null : only]),
-                el('div', { class: 'small text-muted', text: c.dept || 'No department' })
+                el('div', {}, [main]),
+                el('div', { class: 'small text-muted' }, [c.dept || 'No department', only ? ' · ' : null, only])
             ]);
         }
 
