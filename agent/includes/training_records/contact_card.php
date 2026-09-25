@@ -101,6 +101,9 @@ defined('TRAINING_PAGE') || exit;
                     <ul class="list-unstyled mb-2">
                         <?php foreach ($shown as $p) {
                             [$cls, $text] = $badge((string) ($p['status'] ?? ''));
+                            if (($p['status'] ?? '') === 'overdue' && str_starts_with((string) ($p['label'] ?? ''), 'Expired')) {
+                                $text = (string) $p['label'];   // a lapsed renewal: "Expired — not qualified", not just "Overdue" (§3.3 frozen label)
+                            }
                             $when = '';
                             if (in_array($p['status'] ?? '', ['overdue', 'due_soon', 'due', 'retrain_due'], true) && !empty($p['due_on'])) {
                                 $when = 'Due ' . $date($p['due_on']);
