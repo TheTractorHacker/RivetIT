@@ -403,11 +403,16 @@
             document.addEventListener('keydown', keyHandler);
         }
 
-        /** Kiosk: a final exam opens only when every other required lesson is done (server rule exam_locked). */
+        /**
+         * Kiosk: a final exam waits for the required lessons before it (server rule exam_locked). Lessons
+         * placed AFTER the exam (an acknowledgment, say) are not counted here, so a sequential course
+         * never shows both locked; the server's answer (exam_locked) is shown if it disagrees.
+         */
         function examWaits(uid) {
             var l = byUid[uid];
             if (!isKiosk || !l || !l.quiz || l.quiz.role !== 'exam' || progress.done[uid]) { return false; }
-            return order.some(function (u) { return u !== uid && byUid[u].required && !progress.done[u]; });
+            var idx = order.indexOf(uid);
+            return order.some(function (u, i) { return i < idx && byUid[u].required && !progress.done[u]; });
         }
         function isLocked(uid) {
             var l = byUid[uid];
@@ -703,7 +708,7 @@
                     if (g.quiz) { serverOff = true; gate.render(); return; }
                     server = g;
                     if (g.done) { progress.done[uid] = true; }
-                    if (typeof ctx.onServerGate === 'function') { try { ctx.onServerGate(g); } catch (e) { /* ignore */ } }
+                    if (ctx && typeof ctx.onServerGate === 'function') { try { ctx.onServerGate(g); } catch (e) { /* ignore */ } }
                     gate.render();
                 },
                 render: function () {
@@ -749,7 +754,7 @@
                     var blocked = isKiosk && !met;
                     if (!completeBtn.classList.contains('is-busy')) { completeBtn.disabled = blocked; }
                     completeBtn.classList.toggle('is-soft', !met);
-                    if (typeof ctx.onGate === 'function') { try { ctx.onGate(met); } catch (e) { /* ignore */ } }
+                    if (ctx && typeof ctx.onGate === 'function') { try { ctx.onGate(met); } catch (e) { /* ignore */ } }
                 },
                 error: function (msg) { footErr = msg || null; gate.render(); }
             };
@@ -779,7 +784,7 @@
                     active: Date.now() - tickState.lastInteraction < 60000,
                     pages_seen: tickState.pages.splice(0)
                 };
-                if (typeof ctx.tickSample === 'function') {
+                if (ctx && typeof ctx.tickSample === 'function') {
                     var x = ctx.tickSample() || {};
                     Object.keys(x).forEach(function (k) { s[k] = x[k]; });
                 }

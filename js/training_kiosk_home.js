@@ -126,19 +126,19 @@
     function cover(c) {
         var art = el('div', { class: 'kl-card__cover kl-cover--' + (c.kind === 'document' ? 'doc' : 'course') });
         if (c.color) { art.style.setProperty('--kl-tint', c.color); }
+        art.appendChild(el('span', { class: 'kl-card__art', 'aria-hidden': 'true' }, icon(c.kind === 'document' ? 'fa-file-signature' : 'fa-hard-hat')));
         if (c.cover_url) {
             var img = el('img', { src: c.cover_url, alt: '', loading: 'lazy', decoding: 'async' });
             img.addEventListener('error', function () { if (img.parentNode) { img.parentNode.removeChild(img); } });
             art.appendChild(img);
-        } else {
-            art.appendChild(el('span', { class: 'kl-card__art', 'aria-hidden': 'true' }, icon(c.kind === 'document' ? 'fa-file-signature' : 'fa-hard-hat')));
         }
         var chip = dueChip(c);
         art.appendChild(el('span', { class: 'kl-chip kl-chip--' + chip.tone }, [icon(chip.icon), el('span', { text: chip.text })]));
         return art;
     }
-    function courseCard(c) {
+    function courseCard(c, i) {
         var a = action(c);
+        if (i === 0 && a.href && c.kind !== 'document') { a.primary = true; }   // the most urgent course leads
         var body = [
             el('h3', { class: 'kl-card__title', text: c.name }),
             el('p', { class: 'kl-card__meta', text: kindLine(c) })
@@ -167,7 +167,7 @@
             foot.push(el('p', { class: 'kl-state kl-state--' + a.tone, role: 'status' }, [icon(a.icon), el('span', { text: a.note })]));
         }
         if (a.href) {
-            var btn = el('a', { class: 'kx-btn kl-card__btn ' + (a.primary ? 'kx-btn--primary' : 'kx-btn--ghost'), href: a.href },
+            var btn = el('a', { class: 'kx-btn kl-card__btn' + (a.primary ? ' kx-btn--primary' : ''), href: a.href },
                 a.iconFirst ? [icon(a.icon), el('span', { text: a.label })] : [el('span', { text: a.label }), icon(a.icon)]);
             btn.addEventListener('click', function () { K.ui.busy(btn, true); });
             foot.push(btn);
@@ -206,14 +206,14 @@
             var hd = sectionHead(t('home.documents'), documents.length);
             hd.id = 'kl-h-docs';
             docSec.appendChild(hd);
-            docSec.appendChild(el('div', { class: 'kl-cards' }, documents.map(courseCard)));
+            docSec.appendChild(el('div', { class: 'kl-cards' }, documents.map(function (c) { return courseCard(c, -1); })));
             top.appendChild(docSec);
         }
         root.appendChild(top);
     }
     var inProg = list(P.in_progress);
     if (inProg.length) {
-        var ip = el('section', { class: 'kl-sec' }, [sectionHead(t('home.stat_in_progress'), inProg.length), el('div', { class: 'kl-cards' }, inProg.map(courseCard))]);
+        var ip = el('section', { class: 'kl-sec' }, [sectionHead(t('home.stat_in_progress'), inProg.length), el('div', { class: 'kl-cards' }, inProg.map(function (c) { return courseCard(c, -1); }))]);
         root.appendChild(ip);
     }
 
