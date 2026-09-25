@@ -69,3 +69,11 @@ if (($config_module_enable_training ?? 0) == 1 && lookupUserPermission('module_t
         $num_training_unpublished = 0;
     }
 }
+
+// Training (Phase 2): overdue required assignments in the user's fail-closed training scope. Gated + try/catch.
+$num_training_overdue = 0;
+if (($config_module_enable_training ?? 0) == 1 && lookupUserPermission('module_training') >= 1) {
+    try {
+        $num_training_overdue = intval(\ITFlow\Training\Compliance\NavCounts::forCtx(\ITFlow\Training\Core\Access::ctx($mysqli))['overdue'] ?? 0);
+    } catch (\Throwable $e) { $num_training_overdue = 0; }
+}

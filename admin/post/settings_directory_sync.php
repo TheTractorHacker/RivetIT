@@ -412,6 +412,24 @@ if (isset($_POST['sync_odoo_directory'])) {
         redirect();
     }
 
+    // Training (Phase 2, plan A22): never sync against a different Odoo database until the links are checked,
+    // and never overlap a training-side Odoo job. Fail-open only when the Phase 2 code/schema is absent or errors.
+    if (class_exists(\ITFlow\Training\Directory\OdooTarget::class)) {
+        try {
+            $tr_guard = \ITFlow\Training\Directory\OdooTarget::guard($mysqli, $row);
+            if (!$tr_guard['ok']) {
+                flash_alert(nullable_htmlentities($tr_guard['message']), 'error');   // "The Odoo connection now points at a different database. Open Admin > Training compliance and run Check now first."
+                redirect();
+            }
+            if (!\ITFlow\Training\Core\Db::lock($mysqli, 'trodoo', 0)) {
+                flash_alert('A sync is already running. Please wait a minute.', 'error');
+                redirect();
+            }
+        } catch (\Throwable $e) {
+            error_log('Training Odoo guard: ' . $e->getMessage());
+        }
+    }
+
     // The protocol the last passing Test Connection settled on (legacy JSON-RPC
     // until one has passed on JSON-2). Never changed from here.
     $client = OdooConnectorFactory::clientFromRow($row);
@@ -428,8 +446,27 @@ if (isset($_POST['sync_odoo_directory'])) {
 
         $mapper->finishSyncLog($log_id, $deptStats, $empStats);
 
+        // Training (Phase 2, M4): link-state bookkeeping always; attributes only after a clean sync with the module on.
+        $tr_note = '';
+        if (class_exists(\ITFlow\Training\Directory\OdooTrainingSync::class)) {
+            try {
+                $tr_clean = empty($deptStats['errors']) && empty($empStats['errors']);
+                $tr_sync = (new \ITFlow\Training\Directory\OdooTrainingSync($mysqli, $id, $session_user_id))->run($client, $row, $employees, $tr_clean);
+                if (!empty($tr_sync['schema_ready'])) {
+                    $tr_note = ' Training: ' . \ITFlow\Training\Directory\OdooTrainingSync::summary($tr_sync) . '.';
+                    if (($config_module_enable_training ?? 0) == 1) {
+                        (new \ITFlow\Training\Assign\AssignmentService(\ITFlow\Training\Core\Access::ctx($mysqli)))->reconcile(null, 'directory_sync');
+                    }
+                }
+            } catch (\Throwable $e) {
+                error_log('Training Odoo extension: ' . $e->getMessage());
+                $tr_note = ' Training attributes were not updated (see the error log).';
+            }
+        }
+
         logAction("Settings", "Edit", "$session_name synced Odoo directory ($protocol_label): departments {$deptStats['created']} created/{$deptStats['updated']} updated/{$deptStats['matched']} matched, employees {$empStats['created']} created/{$empStats['updated']} updated/{$empStats['matched']} matched");
-        flash_alert("Odoo sync complete via $protocol_label: departments {$deptStats['created']} created, {$deptStats['updated']} updated; employees {$empStats['created']} created, {$empStats['updated']} updated");
+        // toastr renders HTML; the training summary can quote Odoo error text.
+        flash_alert("Odoo sync complete via $protocol_label: departments {$deptStats['created']} created, {$deptStats['updated']} updated; employees {$empStats['created']} created, {$empStats['updated']} updated" . nullable_htmlentities($tr_note));
     } catch (\RuntimeException $e) {
         mysqli_query($mysqli, "UPDATE odoo_sync_log SET finished_at=NOW(), status='failed', errors='" .
             mysqli_real_escape_string($mysqli, $e->getMessage()) . "' WHERE id=$log_id");

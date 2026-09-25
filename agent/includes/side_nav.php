@@ -17,7 +17,7 @@ $section_pages = [
     'service_desk'  => ['tickets.php', 'ticket.php', 'recurring_tickets.php', 'service_catalog.php', 'csat.php', 'mail_requests.php', 'problems.php', 'problem_details.php', 'changes.php', 'change_details.php'],
     'work'          => ['projects.php', 'project_details.php', 'calendar.php'],
     'knowledge'     => ['kb_articles.php', 'kb_article.php', 'kb_article_versions.php', 'credentials.php', 'printers.php', 'network_drives.php'],
-    'training'      => ['training.php', 'training_courses.php', 'training_course.php', 'training_quiz.php', 'training_banks.php', 'training_paths.php', 'training_achievements.php', 'training_preview.php'],
+    'training'      => ['training.php', 'training_courses.php', 'training_course.php', 'training_quiz.php', 'training_banks.php', 'training_paths.php', 'training_achievements.php', 'training_preview.php', 'training_dashboard.php', 'training_reports.php', 'training_transcript.php', 'training_assignments.php', 'training_rule.php', 'training_records.php', 'training_record.php', 'training_session.php', 'training_people.php'],
     'infrastructure'=> ['assets.php', 'asset_details.php', 'locations.php', 'vendors.php', 'software.php', 'domains.php', 'certificates.php'],
     'billing'       => ['quotes.php', 'quote.php', 'invoices.php', 'invoice.php', 'recurring_invoices.php', 'recurring_invoice.php', 'revenues.php', 'products.php'],
     'finance'       => ['payments.php', 'expenses.php', 'recurring_expenses.php', 'accounts.php', 'transfers.php', 'trips.php'],
@@ -256,7 +256,11 @@ foreach ($section_pages as $key => $pages) {
                         <span class="nav-link-title">Training</span>
                     </a>
                     <div class="dropdown-menu<?php echo $section_open['training'] ? ' show' : ''; ?>" id="nav-group-training">
-                        <a href="/agent/training_courses.php" class="dropdown-item<?php if (in_array($current_page, ['training.php', 'training_courses.php', 'training_course.php', 'training_quiz.php', 'training_preview.php'], true)) { echo " active"; } ?>">
+                        <a href="/agent/training.php" class="dropdown-item<?php if (in_array($current_page, ['training.php', 'training_dashboard.php'], true)) { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-chart-pie"></i></span>
+                            <span class="text-truncate">Overview</span>
+                        </a>
+                        <a href="/agent/training_courses.php" class="dropdown-item<?php if (in_array($current_page, ['training_courses.php', 'training_course.php', 'training_quiz.php', 'training_preview.php'], true)) { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-graduation-cap"></i></span>
                             <span class="text-truncate">Courses</span>
                             <?php if (!empty($num_training_unpublished)) { ?>
@@ -273,12 +277,31 @@ foreach ($section_pages as $key => $pages) {
                             <span class="dropdown-item-icon"><i class="fas fa-route"></i></span>
                             <span class="text-truncate">Learning Paths</span>
                         </a>
+                        <a href="/agent/training_assignments.php<?php if (!empty($num_training_overdue) && $num_training_overdue > 0) { echo '?status=overdue'; } ?>" class="dropdown-item<?php if (in_array($current_page, ['training_assignments.php', 'training_rule.php'], true)) { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-tasks"></i></span>
+                            <span class="text-truncate">Assignments</span>
+                            <?php if (!empty($num_training_overdue) && $num_training_overdue > 0) { ?>
+                                <span class="ms-auto badge text-bg-danger" title="Overdue"><?php echo intval($num_training_overdue); ?></span>
+                            <?php } ?>
+                        </a>
+                        <a href="/agent/training_records.php" class="dropdown-item<?php if (in_array($current_page, ['training_records.php', 'training_record.php', 'training_session.php', 'training_transcript.php'], true)) { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-id-card"></i></span>
+                            <span class="text-truncate">Records &amp; sessions</span>
+                        </a>
+                        <a href="/agent/training_reports.php" class="dropdown-item<?php if ($current_page == "training_reports.php") { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-chart-bar"></i></span>
+                            <span class="text-truncate">Reports</span>
+                        </a>
                         <?php if (lookupUserPermission("module_training") >= 2) { ?>
                         <a href="/agent/training_achievements.php" class="dropdown-item<?php if ($current_page == "training_achievements.php") { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-award"></i></span>
                             <span class="text-truncate">Achievements</span>
                         </a>
                         <?php } ?>
+                        <a href="/agent/training_people.php" class="dropdown-item<?php if ($current_page == "training_people.php") { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-users"></i></span>
+                            <span class="text-truncate">People</span>
+                        </a>
                     </div>
                 </li>
                 <?php } ?>

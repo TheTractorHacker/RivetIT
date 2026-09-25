@@ -23,15 +23,30 @@ namespace ITFlow\Training\Core;
  * append() must run inside the caller's Db::tx and be its LAST locking statement (lock order:
  * entity rows -> owning course row -> ledger head), so the head's X lock is held for as short
  * a time as possible and every appender acquires locks in the same order.
+ *
+ * EVENT TYPES. Each phase declares its own `TYPES_PHASEn` constant; append() accepts the union
+ * of every constant named /^TYPES_PHASE\d+$/ (allowedTypes(), by reflection), so a later phase
+ * adds a constant and never edits the check. An unknown type throws before anything is written.
  */
 final class Ledger
 {
     public const TYPES_PHASE1 = ['media.stored', 'media.pages_linked', 'media.file_purged', 'media.file_restored',
                                  'revision.published', 'course.archived', 'course.restored'];
 
+    /** Phase 2 (spec §3.1 / §3.7). Each phase adds its own TYPES_PHASEn; allowedTypes() picks them all up. */
+    public const TYPES_PHASE2 = ['requirement.saved', 'requirement.archived',
+                                 'assignment.created', 'assignment.reopened', 'assignment.completed', 'assignment.cancelled',
+                                 'assignment.waived', 'assignment.due_changed',
+                                 'completion.recorded', 'completion.voided', 'cert.token_issued', 'evaluation.recorded',
+                                 'session.opened', 'session.updated', 'session.finalized', 'session.cancelled',
+                                 'roster.changed', 'jobgroup.saved', 'jobgroup.archived', 'trainer.changed', 'contact.hire_date_set'];
+
     public const ZERO_HASH = '0000000000000000000000000000000000000000000000000000000000000000';
 
     private const ACTOR_TYPES = ['user', 'contact', 'kiosk', 'system'];
+
+    /** @var array<string, true>|null memoised allowedTypes() as a set */
+    private static ?array $allowed = null;
 
     /**
      * @param array{type:string, actor_type?:string, actor_user_id?:?int, actor_contact_id?:?int,
@@ -46,7 +61,7 @@ final class Ledger
             throw new \LogicException('Ledger::append must run inside Db::tx');
         }
         $type = (string) ($e['type'] ?? '');
-        if (!in_array($type, self::TYPES_PHASE1, true)) {
+        if (!in_array($type, self::allowedTypes(), true)) {
             throw new \InvalidArgumentException("Ledger: unknown event type '$type'");
         }
         $actorUserId = self::optInt($e, 'actor_user_id');
@@ -143,6 +158,27 @@ final class Ledger
             'hash' => (string) $row['lhead_last_hash'],
             'updated_at_utc' => $row['lhead_updated_at_utc'],
         ];
+    }
+
+    /**
+     * Every event type any phase registered: the array_merge of each class constant whose name
+     * matches /^TYPES_PHASE\d+$/ (spec §1.5), found by reflection so a later phase only adds its
+     * own constant and never edits this method. Static-memoised for the process.
+     *
+     * @return list<string>
+     */
+    private static function allowedTypes(): array
+    {
+        if (self::$allowed === null) {
+            $types = [];
+            foreach ((new \ReflectionClass(self::class))->getConstants() as $name => $value) {
+                if (preg_match('/^TYPES_PHASE\d+$/', (string) $name) === 1 && is_array($value)) {
+                    $types = array_merge($types, array_values($value));
+                }
+            }
+            self::$allowed = array_fill_keys(array_map('strval', $types), true);
+        }
+        return array_keys(self::$allowed);
     }
 
     private static function optInt(array $e, string $k): ?int

@@ -14,6 +14,12 @@
  *      every admin, writes an app log line and an audit event - once, not every night.
  *   2. Sweeps abandoned upload temp files (uploads/training/<dir>/.<rand>.tmp older than 1 h)
  *      left behind if a request died between copy and rename (spec §4.2).
+ *   3. Reconciles assignments for everyone (Phase 2 M6/M12): renewal windows open by date, new
+ *      hires and department moves are picked up, waivers lapse. System actor, trigger "cron".
+ *   4. Captures today's compliance snapshot (training_compliance_daily, local date, idempotent
+ *      per date) for the dashboard trend (Phase 2 M12).
+ *   A step-1 failure is logged and printed but steps 2-4 still run; the script then exits 1.
+ *   Steps 3-4 are skipped (and say so) until the 2.6.92 schema exists.
  *
  * Schedule (ops, once Phase 1 is verified): /etc/cron.d/mw-itflow-training
  *   15 5 * * * www-data /usr/bin/php /var/www/mw-itflow.foleyit.com/cron/training_cron.php >> /var/log/itflow_mw_training.log 2>&1
@@ -85,26 +91,29 @@ if (!$force) {
 $tr_started = microtime(true);
 
 // 1. Ledger verify ---------------------------------------------------------------------------
+// A failure to RUN the verifier is logged and printed, but steps 2-4 still run (a verifier bug
+// must not stop assignments and snapshots); the script exits 1 at the end.
+$tr_verify_failed = false;
+$tr_msg = '';
 try {
     $tr_result = LedgerVerifier::verify($mysqli, ['deep' => $tr_deep]);
     $tr_record = LedgerVerifier::recordResult($mysqli, $tr_result);
 } catch (\Throwable $e) {
     $tr_msg = 'Training ledger verify failed to run: ' . get_class($e) . ': ' . $e->getMessage();
     logApp('Training', 'error', $tr_msg);
-    echo gmdate('Y-m-d\TH:i:s\Z') . " training_cron: ERROR $tr_msg\n";
-    exit(1);
+    $tr_verify_failed = true;
 }
 
-// The run happened: stamp it (after the result is stored, so a run that died above is retried).
+// The run happened: stamp it (after the result is stored, so a run whose verify died is retried).
 $tr_stamp_note = '';
-if (@file_put_contents($tr_stamp_path, $tr_today_utc . ' ' . ($tr_deep ? 'deep' : 'shallow') . "\n", LOCK_EX) === false) {
+if (!$tr_verify_failed && @file_put_contents($tr_stamp_path, $tr_today_utc . ' ' . ($tr_deep ? 'deep' : 'shallow') . "\n", LOCK_EX) === false) {
     $tr_stamp_note = " (WARNING: could not write $tr_stamp_path)";
 }
 
 // A NEW break signature alerts once, from whichever path saw it first. Admin > Training >
 // Verify now runs the same block (admin/post/settings_training.php), so a break an admin
 // found first still reaches every admin.
-if ($tr_record['new_break']) {
+if (!$tr_verify_failed && $tr_record['new_break']) {
     $tr_first = $tr_result['breaks'][0];
     $tr_detail = $tr_record['line'] . ' - ' . $tr_first['detail'];
     logApp('Training', 'error', 'Training ledger verification found a break: ' . $tr_detail);
@@ -140,9 +149,46 @@ if (is_dir($tr_media_root)) {
     }
 }
 
-printf("%s training_cron: ledger verify (%s) %s; checked %d events in %.1fs; swept %d temp file(s)%s\n",
+// Steps 3-4 need the 2.6.92 tables (Phase 2); before Update Database has run they are skipped.
+$tr_p2_ready = false;
+try {
+    $tr_p2_ready = \ITFlow\Training\Core\RecordsSettings::fromDb($mysqli)->schemaReady;
+} catch (\Throwable $e) {
+    logApp('Training', 'error', 'Training records settings could not be read: ' . $e->getMessage());
+}
+
+// 3. Reconcile assignments (renewal windows open by date) --------------------------------------
+$tr_rec_line = $tr_p2_ready ? 'reconcile skipped' : 'reconcile skipped (schema)';
+if ($tr_p2_ready) {
+    try {
+        $tr_sys_ctx = \ITFlow\Training\Core\SystemCtx::make($mysqli, 0, 'training_cron');
+        $tr_rec = (new \ITFlow\Training\Assign\AssignmentService($tr_sys_ctx))->reconcile(null, 'cron');
+        $tr_rec_line = empty($tr_rec['skipped_busy'])
+            ? "reconcile +{$tr_rec['created']} ~{$tr_rec['reopened']} -{$tr_rec['cancelled']} done{$tr_rec['completed']}" . ($tr_rec['failed_chunks'] ? " FAILED{$tr_rec['failed_chunks']}" : '')
+            : 'reconcile busy';
+    } catch (\Throwable $e) { logApp('Training', 'error', 'Training reconcile failed: ' . $e->getMessage()); $tr_rec_line = 'reconcile ERROR'; }
+}
+
+// 4. Daily compliance snapshot (local date; idempotent per date) --------------------------------
+$tr_snap_line = $tr_p2_ready ? 'snapshot skipped' : 'snapshot skipped (schema)';
+if ($tr_p2_ready) {
+    try {
+        $tr_snap = \ITFlow\Training\Reports\SnapshotService::capture($mysqli, \ITFlow\Training\Core\Clock::todayLocal());
+        $tr_snap_line = 'snapshot ' . (($tr_snap['skipped'] ?? false) ? 'busy' : $tr_snap['rows'] . ' rows');
+    } catch (\Throwable $e) { logApp('Training', 'error', 'Training snapshot failed: ' . $e->getMessage()); $tr_snap_line = 'snapshot ERROR'; }
+}
+
+if ($tr_verify_failed) {
+    printf("%s training_cron: ERROR %s; swept %d temp file(s); %s; %s\n",
+        gmdate('Y-m-d\TH:i:s\Z'), $tr_msg, $tr_swept, $tr_rec_line, $tr_snap_line);
+    flock($tr_lock, LOCK_UN);
+    fclose($tr_lock);
+    exit(1);
+}
+
+printf("%s training_cron: ledger verify (%s) %s; checked %d events in %.1fs; swept %d temp file(s); %s; %s%s\n",
     gmdate('Y-m-d\TH:i:s\Z'), $tr_deep ? 'deep' : 'shallow', $tr_record['line'], $tr_result['checked'],
-    microtime(true) - $tr_started, $tr_swept, $tr_stamp_note);
+    microtime(true) - $tr_started, $tr_swept, $tr_rec_line, $tr_snap_line, $tr_stamp_note);
 
 flock($tr_lock, LOCK_UN);
 fclose($tr_lock);

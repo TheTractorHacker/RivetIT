@@ -458,6 +458,13 @@ if (isset($_GET['delete_client'])) {
     // first DELETE runs - module_client full access alone is not enough
     enforceClientAccess($client_id);
 
+    // Training (Phase 2, S14): a department with training records (its people, sessions or completion
+    // snapshots) is never hard-deleted; refuse before the first DELETE.
+    if (class_exists(\ITFlow\Training\Records\RecordGuard::class) && \ITFlow\Training\Records\RecordGuard::clientHasRecords($mysqli, $client_id)) {
+        flash_alert('This department has training records. Archive it instead of deleting it.', 'error');
+        redirect();
+    }
+
     // Get Client Name
     $client_name = sanitizeInput(getFieldById('clients', $client_id, 'client_name'));
 

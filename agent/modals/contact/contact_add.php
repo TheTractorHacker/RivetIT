@@ -109,6 +109,17 @@ ob_start();
                     </div>
                 </div>
 
+                <div class="form-group">
+                    <label>Start Date</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-calendar-day"></i></span>
+                        </div>
+                        <input type="date" class="form-control" name="start_date">
+                    </div>
+                    <small class="form-text text-muted">Hire date. Training rules use it to give new hires their own due date.</small>
+                </div>
+
                 <label>Phone / <span class="text-secondary">Extension</span></label>
                 <div class="form-row">
                     <div class="col-9">

@@ -394,6 +394,8 @@ if (isset($_GET['contact_id'])) {
                 </div>
             </div>
 
+            <?php if (($config_module_enable_training ?? 0) == 1 && lookupUserPermission('module_training') >= 1 && is_file(__DIR__ . '/includes/training_records/contact_card.php')) { defined('TRAINING_PAGE') || define('TRAINING_PAGE', 1); require __DIR__ . '/includes/training_records/contact_card.php'; } ?>
+
             <div class="card mb-3">
                 <div class="card-header">
                     <h5 class="card-title">Notes</h5>

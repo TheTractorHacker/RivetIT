@@ -36,6 +36,34 @@ final class HashSpecs
             // Phase 2 writes these; registered now so the contract is fixed before completions exist (spec §2.5).
             1 => ['certtok_completion_id', 'certtok_nonce', 'certtok_token_sha256', 'certtok_created_at_utc', 'certtok_hash_v'],
         ],
+        // ---- Phase 2 (spec §2.4): records are insert-only and written only through Core\HashedInsert ----
+        'training_completions' => [
+            1 => ['completion_contact_id', 'completion_course_id', 'completion_course_kind', 'completion_revision_id',
+                  'completion_revision_sha256', 'completion_assignment_id', 'completion_source_key', 'completion_method',
+                  'completion_proof', 'completion_completed_on', 'completion_trained_on', 'completion_evaluated_on',
+                  'completion_expires_on', 'completion_language', 'completion_score_pct', 'completion_pass_mark_pct',
+                  'completion_attempts_used', 'completion_duration_minutes', 'completion_run_id', 'completion_attempt_id',
+                  'completion_tsession_id', 'completion_tattendee_id', 'completion_evaluation_id', 'completion_trainer_contact_id',
+                  'completion_trainer_user_id', 'completion_trainer_name', 'completion_evaluator_name', 'completion_learner_tsig_id',
+                  'completion_trainer_tsig_id', 'completion_kiosk_id', 'completion_asset_id', 'completion_pin_source',
+                  'completion_odoo_employee_id', 'completion_external_issuer', 'completion_external_ref',
+                  'completion_evidence_media_id', 'completion_recorded_by_user_id', 'completion_attestation_text',
+                  'completion_notes', 'completion_cert_number', 'completion_snap_contact_name', 'completion_snap_contact_title',
+                  'completion_snap_client_id', 'completion_snap_client_name', 'completion_snap_course_name',
+                  'completion_snap_course_code', 'completion_snap_revision_number', 'completion_snap_regulation_ref',
+                  'completion_supersedes_id', 'completion_recorded_at_utc', 'completion_hash_v'],
+        ],
+        'training_completion_voids' => [
+            1 => ['cvoid_completion_id', 'cvoid_reason', 'cvoid_by_user_id', 'cvoid_at_utc', 'cvoid_hash_v'],
+        ],
+        'training_evaluations' => [
+            1 => ['evaluation_source_key', 'evaluation_contact_id', 'evaluation_course_id', 'evaluation_revision_id',
+                  'evaluation_run_id', 'evaluation_tsession_id', 'evaluation_channel', 'evaluation_evaluator_contact_id',
+                  'evaluation_evaluator_user_id', 'evaluation_evaluator_name', 'evaluation_evaluated_on', 'evaluation_result',
+                  'evaluation_equipment', 'evaluation_checklist_json', 'evaluation_notes', 'evaluation_proof',
+                  'evaluation_evaluator_tsig_id', 'evaluation_evaluatee_tsig_id', 'evaluation_evidence_media_id',
+                  'evaluation_kiosk_id', 'evaluation_recorded_by_user_id', 'evaluation_recorded_at_utc', 'evaluation_hash_v'],
+        ],
         'training_events' => [
             // tevent_hash = sha256(tevent_prev_hash . "\n" . Canonical::row(these columns)).
             1 => ['tevent_seq', 'tevent_at_utc', 'tevent_type', 'tevent_actor_type', 'tevent_actor_user_id', 'tevent_actor_contact_id',
@@ -54,7 +82,42 @@ final class HashSpecs
         'training_media_pages' => ['id' => ['mpage_pdf_media_id', 'mpage_number'], 'hash' => 'mpage_row_sha256', 'version' => 'mpage_hash_v', 'chain' => null],
         'training_revisions'   => ['id' => ['revision_id'], 'hash' => 'revision_row_sha256', 'version' => 'revision_hash_v', 'chain' => null],
         'training_cert_tokens' => ['id' => ['certtok_id'], 'hash' => 'certtok_row_sha256', 'version' => 'certtok_hash_v', 'chain' => null],
+        'training_completions' => ['id' => ['completion_id'], 'hash' => 'completion_row_sha256', 'version' => 'completion_hash_v', 'chain' => null],
+        'training_completion_voids' => ['id' => ['cvoid_id'], 'hash' => 'cvoid_row_sha256', 'version' => 'cvoid_hash_v', 'chain' => null],
+        'training_evaluations' => ['id' => ['evaluation_id'], 'hash' => 'evaluation_row_sha256', 'version' => 'evaluation_hash_v', 'chain' => null],
         'training_events'      => ['id' => ['tevent_seq'], 'hash' => 'tevent_hash', 'version' => 'tevent_hash_v', 'chain' => 'tevent_prev_hash'],
+    ];
+
+    /**
+     * Event type => [table, id column] for the generic verifier path (spec §3.1): the event's
+     * entity_id names a row of that table, whose row hash must re-compute and equal the event's
+     * entity_sha256, and every row of the table must be named by such an event.
+     */
+    public const EVENT_ROWS = [
+        'completion.recorded' => ['training_completions', 'completion_id'],
+        'completion.voided'   => ['training_completion_voids', 'cvoid_id'],
+        'evaluation.recorded' => ['training_evaluations', 'evaluation_id'],
+    ];
+
+    /**
+     * Composite digests, frozen at finalize (spec §2.4). Computed only by Core\SessionDigest:
+     *   tsession_sha256 = sha256(Canonical::doc(['v' => '1', 'session' => session subset,
+     *                     'attendees' => [attendee subsets sorted by (int) tattendee_contact_id]]))
+     * over a text-protocol re-read. Same rule as SPECS: a published version is never edited.
+     */
+    public const DIGESTS = [
+        'training_sessions' => [1 => [
+            'session' => ['tsession_course_id', 'tsession_revision_id', 'tsession_held_on', 'tsession_start_time', 'tsession_duration_minutes',
+                          'tsession_client_id', 'tsession_location', 'tsession_topic', 'tsession_notes', 'tsession_trainer_contact_id',
+                          'tsession_trainer_user_id', 'tsession_trainer_name', 'tsession_channel', 'tsession_is_backfill',
+                          'tsession_evidence_media_id', 'tsession_created_kiosk_id', 'tsession_started_at_utc', 'tsession_trainer_tsig_id',
+                          'tsession_finalized_at_utc', 'tsession_finalized_by_user_id', 'tsession_finalized_by_contact_id',
+                          'tsession_finalize_attest', 'tsession_digest_v'],
+            'attendees' => ['tattendee_contact_id', 'tattendee_proof', 'tattendee_attest_reason', 'tattendee_checked_in_at_utc',
+                            'tattendee_kiosk_id', 'tattendee_tsig_id', 'tattendee_attendance', 'tattendee_practical', 'tattendee_notes',
+                            'tattendee_marked_by_contact_id', 'tattendee_marked_by_user_id', 'tattendee_removed_at_utc',
+                            'tattendee_removed_reason'],
+        ]],
     ];
 
     /** @return list<string> */

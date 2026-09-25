@@ -35,6 +35,7 @@ function getSettingsSearchIndex(): array {
         ['label' => 'Telemetry',               'keywords' => ['telemetry', 'analytics', 'usage data'],                                 'url' => '/admin/settings_telemetry.php',          'visible' => true],
         ['label' => 'Modules',                 'keywords' => ['module', 'documentation', 'knowledge base', 'live chat', 'department portal', 'enable'], 'url' => '/admin/settings_module.php', 'visible' => true],
         ['label' => 'Training (LMS)',          'keywords' => ['training', 'lms', 'course', 'quiz', 'safety', 'ledger', 'youtube', 'media'], 'url' => '/admin/settings_training.php', 'visible' => true],
+        ['label' => 'Training compliance', 'keywords' => ['training','compliance','assignment','odoo','sync','links','hire date','snapshot','certificate'], 'url' => '/admin/settings_training_compliance.php', 'visible' => true],
         ['label' => 'Webhooks',                'keywords' => ['webhook', 'api', 'delivery log'],                                       'url' => '/admin/settings_webhooks.php',           'visible' => true],
         ['label' => 'RMM Integration',         'keywords' => ['rmm', 'remote monitoring', 'tactical', 'level.io', 'sophos', 'action1', 'connectwise'], 'url' => '/admin/settings_integrations.php?tab=rmm', 'visible' => true],
         ['label' => 'Backups Integration',     'keywords' => ['backup', 'comet'],                                                      'url' => '/admin/settings_integrations.php?tab=backups', 'visible' => true],

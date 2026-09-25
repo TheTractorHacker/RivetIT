@@ -39,6 +39,19 @@ if (isset($_POST['add_contact'])) {
 
     $contact_id = mysqli_insert_id($mysqli);
 
+    // Hire / start date (same supplementary pattern as the edit branch; $start_date is YYYY-MM-DD or '').
+    $start_date_ok = $start_date !== '' && ($start_date_dt = DateTime::createFromFormat('!Y-m-d', $start_date)) && $start_date_dt->format('Y-m-d') === $start_date;
+    if ($start_date_ok) {
+        mysqli_query($mysqli, "UPDATE contacts SET contact_start_date = '$start_date' WHERE contact_id = $contact_id");
+    }
+
+    // Training (Phase 2, S20): a new person can match assignment rules at once (with their hire date, a new-hire
+    // rule gives them hire + N days) instead of waiting for the nightly reconcile.
+    if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\Assign\AssignmentService::class)) {
+        try { (new \ITFlow\Training\Assign\AssignmentService(\ITFlow\Training\Core\Access::ctx($mysqli)))->reconcile([intval($contact_id)], 'contact_edit'); }
+        catch (\Throwable $e) { error_log('Training: reconcile after contact add failed: ' . $e->getMessage()); }
+    }
+
     // Add Tags
     if (isset($_POST['tags'])) {
         foreach($_POST['tags'] as $tag) {
@@ -148,6 +161,12 @@ if (isset($_POST['edit_contact'])) {
         contact_work_arrangement = $work_arrangement_sql,
         contact_start_date = $start_date_sql
         WHERE contact_id = $contact_id");
+
+    // Training (Phase 2, S20): a hire-date (or other employment) change can open or close assignments.
+    if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\Assign\AssignmentService::class)) {
+        try { (new \ITFlow\Training\Assign\AssignmentService(\ITFlow\Training\Core\Access::ctx($mysqli)))->reconcile([intval($contact_id)], 'contact_edit'); }
+        catch (\Throwable $e) { error_log('Training: reconcile after contact edit failed: ' . $e->getMessage()); }
+    }
 
     // Upload Photo
     if (isset($_FILES['file']['tmp_name'])) {
@@ -736,6 +755,7 @@ if (isset($_POST['bulk_delete_contacts'])) {
 
         // Get Selected Contacts Count
         $count = count($_POST['contact_ids']);
+        $training_skipped = 0;   // Training (Phase 2, S14): people with training records are never hard-deleted
 
         // Cycle through array and delete each record
         foreach ($_POST['contact_ids'] as $contact_id) {
@@ -751,6 +771,11 @@ if (isset($_POST['bulk_delete_contacts'])) {
 
             enforceClientAccess();
 
+            if (class_exists(\ITFlow\Training\Records\RecordGuard::class) && \ITFlow\Training\Records\RecordGuard::contactHasRecords($mysqli, $contact_id)) {
+                $training_skipped++;
+                continue;
+            }
+
             // Delete Contact User
             if ($contact_user_id > 0) {
                 mysqli_query($mysqli,"DELETE FROM users WHERE user_id = $contact_user_id");
@@ -762,9 +787,15 @@ if (isset($_POST['bulk_delete_contacts'])) {
 
         }
 
+        $count -= $training_skipped;
+
         logAction("Contact", "Bulk Delete", "$session_name deleted $count contacts", $client_id);
 
-        flash_alert("You deleted <strong>$count</strong> contact(s)");
+        if ($training_skipped > 0) {
+            flash_alert("You deleted <strong>$count</strong> contact(s). <strong>$training_skipped</strong> were skipped because they have training records; archive them instead.", 'warning');
+        } else {
+            flash_alert("You deleted <strong>$count</strong> contact(s)");
+        }
 
     }
 
@@ -960,6 +991,7 @@ if (isset($_GET['delete_contact'])) {
     $contact_user_id = intval($row['contact_user_id']);
 
     enforceClientAccess();
+    if (class_exists(\ITFlow\Training\Records\RecordGuard::class) && \ITFlow\Training\Records\RecordGuard::contactHasRecords($mysqli, $contact_id)) { flash_alert('This person has training records. Archive the contact instead of deleting it.', 'error'); redirect(); }
 
     // Delete User
     if ($contact_user_id > 0) {

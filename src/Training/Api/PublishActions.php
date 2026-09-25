@@ -92,6 +92,11 @@ final class PublishActions
             'revision_id' => $r['revision_id'], 'number' => $r['number'], 'sha256' => $r['sha256'],
             'languages' => $r['languages'], 'requires_retraining' => $retrain, 'retrain_due_days' => $days,
         ]);
+        // Phase 2 (M6): a retraining revision opens retrain assignments at once (system actor, trigger publish_retrain).
+        if ($retrain) {
+            try { (new \ITFlow\Training\Assign\AssignmentService($c))->reconcile(null, 'publish_retrain'); }
+            catch (\Throwable $e) { error_log('Training: reconcile after retrain publish failed: ' . $e->getMessage()); }
+        }
         return ['revision_id' => $r['revision_id'], 'number' => $r['number'], 'sha256' => $r['sha256'],
             'sha12' => substr($r['sha256'], 0, 12), 'languages' => $r['languages'], 'published_at' => $r['published_at']];
     }

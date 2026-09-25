@@ -960,6 +960,23 @@ final class CourseService
                 'counts' => null,
             ];
         }
+        // Phase 2 (S15): required / current / overdue pairs per course over the caller's fail-closed
+        // people scope. A course nobody is required to take keeps counts null (the card shows no slot);
+        // any failure leaves every row null.
+        if ($out !== [] && class_exists(\ITFlow\Training\Compliance\ComplianceService::class)) {
+            try {
+                $counts = (new \ITFlow\Training\Compliance\ComplianceService($this->c, \ITFlow\Training\People\Scope::forCtx($this->c)))
+                    ->courseCounts(array_column($out, 'id'));
+                foreach ($out as $i => $row) {
+                    $n = $counts[$row['id']] ?? null;
+                    if ($n !== null && ($n['required'] > 0 || $n['overdue'] > 0)) {
+                        $out[$i]['counts'] = ['required' => (int) $n['required'], 'current' => (int) $n['current'], 'overdue' => (int) $n['overdue']];
+                    }
+                }
+            } catch (\Throwable $e) {
+                error_log('Training: course counts failed: ' . $e->getMessage());
+            }
+        }
         return $out;
     }
 

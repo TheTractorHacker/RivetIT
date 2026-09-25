@@ -8373,3 +8373,408 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.91'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.91') {
+        // Training / LMS Phase 2 - assignments, compliance, records, reports (plan rev 3 §B; A5/A6/A8/A10/A16/A22).
+        // Idempotent: IF NOT EXISTS / ADD COLUMN IF NOT EXISTS / INSERT IGNORE. No triggers, no FKs (plan A8).
+        // One mysqli_query per CREATE TABLE, DDL exactly as Phase 2 spec §2.1 incl. table options (17 statements).
+
+        // ---------- people / directory (M) ----------
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `contact_odoo_attributes` (
+              `coattr_contact_id` int(11) NOT NULL,
+              `coattr_odoo_integration_id` int(11) NOT NULL,
+              `coattr_odoo_employee_id` int(11) NOT NULL,
+              `coattr_odoo_name` varchar(200) DEFAULT NULL,
+              `coattr_odoo_target_sha` char(64) DEFAULT NULL,
+              `coattr_job_id` int(11) DEFAULT NULL,
+              `coattr_job_name` varchar(200) DEFAULT NULL,
+              `coattr_work_location_id` int(11) DEFAULT NULL,
+              `coattr_work_location_name` varchar(200) DEFAULT NULL,
+              `coattr_odoo_create_date` date DEFAULT NULL,
+              `coattr_odoo_pin_ok` tinyint(1) DEFAULT NULL,
+              `coattr_attrs_synced_at_utc` datetime(3) DEFAULT NULL,
+              `coattr_pin_synced_at_utc` datetime(3) DEFAULT NULL,
+              `coattr_link_state` enum('unchecked','ok','repointed','mismatch','missing') NOT NULL DEFAULT 'unchecked',
+              `coattr_link_detail` varchar(255) DEFAULT NULL,
+              `coattr_link_seen_name` varchar(200) DEFAULT NULL,
+              `coattr_link_suggested_employee_id` int(11) DEFAULT NULL,
+              `coattr_link_checked_at_utc` datetime(3) DEFAULT NULL,
+              `coattr_link_confirmed_by` int(11) DEFAULT NULL,
+              `coattr_link_confirmed_at_utc` datetime(3) DEFAULT NULL,
+              `coattr_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+              PRIMARY KEY (`coattr_contact_id`),
+              KEY `idx_coattr_job` (`coattr_job_id`),
+              KEY `idx_coattr_location` (`coattr_work_location_id`),
+              KEY `idx_coattr_employee` (`coattr_odoo_integration_id`,`coattr_odoo_employee_id`),
+              KEY `idx_coattr_state` (`coattr_link_state`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_roster` (
+              `roster_contact_id` int(11) NOT NULL,
+              `roster_state` enum('auto','include','exclude') NOT NULL DEFAULT 'auto',
+              `roster_reason` varchar(255) DEFAULT NULL,
+              `roster_updated_by` int(11) NOT NULL,
+              `roster_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+              PRIMARY KEY (`roster_contact_id`),
+              KEY `idx_training_roster_state` (`roster_state`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_job_groups` (
+              `jobgroup_id` int(11) NOT NULL AUTO_INCREMENT,
+              `jobgroup_name` varchar(100) NOT NULL,
+              `jobgroup_description` varchar(255) DEFAULT NULL,
+              `jobgroup_version` int(10) unsigned NOT NULL DEFAULT 0,
+              `jobgroup_created_by` int(11) NOT NULL,
+              `jobgroup_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+              `jobgroup_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+              `jobgroup_archived_at` datetime DEFAULT NULL,
+              PRIMARY KEY (`jobgroup_id`),
+              UNIQUE KEY `uq_training_jobgroup_name` (`jobgroup_name`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_job_group_members` (
+              `jgmember_jobgroup_id` int(11) NOT NULL,
+              `jgmember_contact_id` int(11) NOT NULL,
+              `jgmember_added_by` int(11) NOT NULL,
+              `jgmember_added_at` datetime NOT NULL DEFAULT current_timestamp(),
+              PRIMARY KEY (`jgmember_jobgroup_id`,`jgmember_contact_id`),
+              KEY `idx_training_jgmember_contact` (`jgmember_contact_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_job_group_titles` (
+              `jgtitle_jobgroup_id` int(11) NOT NULL,
+              `jgtitle_normalized` varchar(200) NOT NULL,
+              PRIMARY KEY (`jgtitle_jobgroup_id`,`jgtitle_normalized`),
+              KEY `idx_training_jgtitle` (`jgtitle_normalized`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+
+        // ---------- rules and assignments (M) ----------
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_requirements` (
+              `requirement_id` int(11) NOT NULL AUTO_INCREMENT,
+              `requirement_request_uid` char(32) DEFAULT NULL,
+              `requirement_name` varchar(150) NOT NULL,
+              `requirement_course_id` int(11) NOT NULL,
+              `requirement_all_people` tinyint(1) NOT NULL DEFAULT 0,
+              `requirement_required` tinyint(1) NOT NULL DEFAULT 1,
+              `requirement_new_hires_only` tinyint(1) NOT NULL DEFAULT 0,
+              `requirement_due_days` smallint(5) unsigned NOT NULL DEFAULT 30,
+              `requirement_baseline_due_on` date NOT NULL,
+              `requirement_due_days_from_hire` smallint(5) unsigned NOT NULL DEFAULT 7,
+              `requirement_one_time` tinyint(1) NOT NULL DEFAULT 0,
+              `requirement_is_manual` tinyint(1) NOT NULL DEFAULT 0,
+              `requirement_note` varchar(500) DEFAULT NULL,
+              `requirement_effective_on` date NOT NULL,
+              `requirement_criteria_sha256` char(64) NOT NULL,
+              `requirement_version` int(10) unsigned NOT NULL DEFAULT 0,
+              `requirement_created_by` int(11) NOT NULL,
+              `requirement_created_at_utc` datetime(3) NOT NULL,
+              `requirement_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+              `requirement_archived_at` datetime DEFAULT NULL,
+              `requirement_archived_by` int(11) DEFAULT NULL,
+              PRIMARY KEY (`requirement_id`),
+              UNIQUE KEY `uq_training_req_request` (`requirement_request_uid`),
+              KEY `idx_training_req_course` (`requirement_course_id`,`requirement_archived_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_requirement_criteria` (
+              `rcrit_requirement_id` int(11) NOT NULL,
+              `rcrit_kind` enum('department','odoo_job','odoo_location','jobgroup','contact') NOT NULL,
+              `rcrit_value_id` int(11) NOT NULL,
+              `rcrit_value_label` varchar(200) DEFAULT NULL,
+              PRIMARY KEY (`rcrit_requirement_id`,`rcrit_kind`,`rcrit_value_id`),
+              KEY `idx_training_rcrit_value` (`rcrit_kind`,`rcrit_value_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_assignments` (
+              `tassign_id` int(11) NOT NULL AUTO_INCREMENT,
+              `tassign_contact_id` int(11) NOT NULL,
+              `tassign_course_id` int(11) NOT NULL,
+              `tassign_reason` enum('requirement','renewal','retrain','reissue') NOT NULL,
+              `tassign_anchor` varchar(64) NOT NULL,
+              `tassign_requirement_id` int(11) DEFAULT NULL,
+              `tassign_required` tinyint(1) NOT NULL DEFAULT 1,
+              `tassign_due_on` date NOT NULL,
+              `tassign_original_due_on` date NOT NULL,
+              `tassign_onboarding_from_on` date DEFAULT NULL,
+              `tassign_status` enum('open','completed','waived','cancelled') NOT NULL DEFAULT 'open',
+              `tassign_open_guard` tinyint(1) DEFAULT 1,
+              `tassign_waived_until` date DEFAULT NULL,
+              `tassign_completion_id` int(11) DEFAULT NULL,
+              `tassign_created_at_utc` datetime(3) NOT NULL,
+              `tassign_created_by` int(11) DEFAULT NULL,
+              `tassign_closed_at_utc` datetime(3) DEFAULT NULL,
+              `tassign_closed_by_user_id` int(11) DEFAULT NULL,
+              `tassign_close_reason` varchar(40) DEFAULT NULL,
+              `tassign_close_note` varchar(500) DEFAULT NULL,
+              `tassign_reopened_count` smallint(5) unsigned NOT NULL DEFAULT 0,
+              `tassign_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+              PRIMARY KEY (`tassign_id`),
+              UNIQUE KEY `uq_training_assign_open` (`tassign_contact_id`,`tassign_course_id`,`tassign_open_guard`),
+              KEY `idx_training_assign_status_due` (`tassign_status`,`tassign_due_on`),
+              KEY `idx_training_assign_course` (`tassign_course_id`,`tassign_status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+
+        // ---------- records (A) ----------
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_completions` (
+              `completion_id` int(11) NOT NULL AUTO_INCREMENT,
+              `completion_contact_id` int(11) NOT NULL,
+              `completion_course_id` int(11) NOT NULL,
+              `completion_course_kind` enum('training','document') NOT NULL,
+              `completion_revision_id` int(11) DEFAULT NULL,
+              `completion_revision_sha256` char(64) DEFAULT NULL,
+              `completion_assignment_id` int(11) DEFAULT NULL,
+              `completion_source_key` varchar(48) NOT NULL,
+              `completion_method` enum('online','session','blended','evaluation','external','legacy_paper') NOT NULL,
+              `completion_proof` enum('self_pin_signature','evaluator_signed','self_pin','portal_login','trainer_attested','document','agent_recorded') NOT NULL,
+              `completion_completed_on` date NOT NULL,
+              `completion_trained_on` date DEFAULT NULL,
+              `completion_evaluated_on` date DEFAULT NULL,
+              `completion_expires_on` date DEFAULT NULL,
+              `completion_language` varchar(10) NOT NULL DEFAULT 'en',
+              `completion_score_pct` decimal(5,2) DEFAULT NULL,
+              `completion_pass_mark_pct` tinyint(3) unsigned DEFAULT NULL,
+              `completion_attempts_used` tinyint(3) unsigned DEFAULT NULL,
+              `completion_duration_minutes` smallint(5) unsigned DEFAULT NULL,
+              `completion_run_id` int(11) DEFAULT NULL,
+              `completion_attempt_id` int(11) DEFAULT NULL,
+              `completion_tsession_id` int(11) DEFAULT NULL,
+              `completion_tattendee_id` int(11) DEFAULT NULL,
+              `completion_evaluation_id` int(11) DEFAULT NULL,
+              `completion_trainer_contact_id` int(11) DEFAULT NULL,
+              `completion_trainer_user_id` int(11) DEFAULT NULL,
+              `completion_trainer_name` varchar(200) DEFAULT NULL,
+              `completion_evaluator_name` varchar(200) DEFAULT NULL,
+              `completion_learner_tsig_id` int(11) DEFAULT NULL,
+              `completion_trainer_tsig_id` int(11) DEFAULT NULL,
+              `completion_kiosk_id` int(11) DEFAULT NULL,
+              `completion_asset_id` int(11) DEFAULT NULL,
+              `completion_pin_source` enum('odoo','local') DEFAULT NULL,
+              `completion_odoo_employee_id` int(11) DEFAULT NULL,
+              `completion_external_issuer` varchar(200) DEFAULT NULL,
+              `completion_external_ref` varchar(100) DEFAULT NULL,
+              `completion_evidence_media_id` int(11) DEFAULT NULL,
+              `completion_recorded_by_user_id` int(11) DEFAULT NULL,
+              `completion_attestation_text` text DEFAULT NULL,
+              `completion_notes` text DEFAULT NULL,
+              `completion_cert_number` varchar(20) DEFAULT NULL,
+              `completion_snap_contact_name` varchar(200) NOT NULL,
+              `completion_snap_contact_title` varchar(200) DEFAULT NULL,
+              `completion_snap_client_id` int(11) NOT NULL DEFAULT 0,
+              `completion_snap_client_name` varchar(200) DEFAULT NULL,
+              `completion_snap_course_name` varchar(200) NOT NULL,
+              `completion_snap_course_code` varchar(40) DEFAULT NULL,
+              `completion_snap_revision_number` smallint(5) unsigned DEFAULT NULL,
+              `completion_snap_regulation_ref` varchar(100) DEFAULT NULL,
+              `completion_supersedes_id` int(11) DEFAULT NULL,
+              `completion_recorded_at_utc` datetime(3) NOT NULL,
+              `completion_hash_v` tinyint(3) unsigned NOT NULL DEFAULT 1,
+              `completion_row_sha256` char(64) NOT NULL,
+              PRIMARY KEY (`completion_id`),
+              UNIQUE KEY `uq_training_completion_source` (`completion_source_key`),
+              UNIQUE KEY `uq_training_completion_cert` (`completion_cert_number`),
+              KEY `idx_training_completion_contact` (`completion_contact_id`,`completion_course_id`,`completion_completed_on`),
+              KEY `idx_training_completion_course_exp` (`completion_course_id`,`completion_expires_on`),
+              KEY `idx_training_completion_exp` (`completion_expires_on`),
+              KEY `idx_training_completion_recorded` (`completion_recorded_at_utc`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_completion_voids` (
+              `cvoid_id` int(11) NOT NULL AUTO_INCREMENT,
+              `cvoid_completion_id` int(11) NOT NULL,
+              `cvoid_reason` varchar(1000) NOT NULL,
+              `cvoid_by_user_id` int(11) NOT NULL,
+              `cvoid_at_utc` datetime(3) NOT NULL,
+              `cvoid_hash_v` tinyint(3) unsigned NOT NULL DEFAULT 1,
+              `cvoid_row_sha256` char(64) NOT NULL,
+              PRIMARY KEY (`cvoid_id`),
+              UNIQUE KEY `uq_training_cvoid` (`cvoid_completion_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+
+        // ---------- sessions (M while open; digest-frozen at finalize) ----------
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_sessions` (
+              `tsession_id` int(11) NOT NULL AUTO_INCREMENT,
+              `tsession_request_uid` char(32) DEFAULT NULL,
+              `tsession_course_id` int(11) NOT NULL,
+              `tsession_revision_id` int(11) DEFAULT NULL,
+              `tsession_status` enum('open','finalized','cancelled') NOT NULL DEFAULT 'open',
+              `tsession_held_on` date NOT NULL,
+              `tsession_start_time` time DEFAULT NULL,
+              `tsession_duration_minutes` smallint(5) unsigned DEFAULT NULL,
+              `tsession_client_id` int(11) NOT NULL DEFAULT 0,
+              `tsession_location` varchar(200) DEFAULT NULL,
+              `tsession_topic` varchar(200) DEFAULT NULL,
+              `tsession_notes` text DEFAULT NULL,
+              `tsession_trainer_contact_id` int(11) DEFAULT NULL,
+              `tsession_trainer_user_id` int(11) DEFAULT NULL,
+              `tsession_trainer_name` varchar(200) NOT NULL,
+              `tsession_channel` enum('agent','kiosk') NOT NULL DEFAULT 'agent',
+              `tsession_is_backfill` tinyint(1) NOT NULL DEFAULT 0,
+              `tsession_evidence_media_id` int(11) DEFAULT NULL,
+              `tsession_created_by_user_id` int(11) DEFAULT NULL,
+              `tsession_created_kiosk_id` int(11) DEFAULT NULL,
+              `tsession_started_at_utc` datetime(3) DEFAULT NULL,
+              `tsession_trainer_tsig_id` int(11) DEFAULT NULL,
+              `tsession_finalized_at_utc` datetime(3) DEFAULT NULL,
+              `tsession_finalized_by_user_id` int(11) DEFAULT NULL,
+              `tsession_finalized_by_contact_id` int(11) DEFAULT NULL,
+              `tsession_finalize_attest` varchar(255) DEFAULT NULL,
+              `tsession_digest_v` tinyint(3) unsigned DEFAULT NULL,
+              `tsession_sha256` char(64) DEFAULT NULL,
+              `tsession_cancel_reason` varchar(255) DEFAULT NULL,
+              `tsession_version` int(10) unsigned NOT NULL DEFAULT 0,
+              `tsession_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+              `tsession_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+              PRIMARY KEY (`tsession_id`),
+              UNIQUE KEY `uq_training_tsession_request` (`tsession_request_uid`),
+              KEY `idx_training_tsession_course` (`tsession_course_id`,`tsession_held_on`),
+              KEY `idx_training_tsession_status` (`tsession_status`,`tsession_held_on`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_session_attendees` (
+              `tattendee_id` int(11) NOT NULL AUTO_INCREMENT,
+              `tattendee_tsession_id` int(11) NOT NULL,
+              `tattendee_contact_id` int(11) NOT NULL,
+              `tattendee_proof` enum('self_pin_signature','self_pin','trainer_attested','document','agent_recorded') NOT NULL,
+              `tattendee_attest_reason` varchar(255) DEFAULT NULL,
+              `tattendee_checked_in_at_utc` datetime(3) NOT NULL,
+              `tattendee_kiosk_id` int(11) DEFAULT NULL,
+              `tattendee_tsig_id` int(11) DEFAULT NULL,
+              `tattendee_attendance` enum('present','partial','absent') NOT NULL DEFAULT 'present',
+              `tattendee_practical` enum('not_evaluated','pass','fail') NOT NULL DEFAULT 'not_evaluated',
+              `tattendee_notes` varchar(500) DEFAULT NULL,
+              `tattendee_marked_by_contact_id` int(11) DEFAULT NULL,
+              `tattendee_marked_by_user_id` int(11) DEFAULT NULL,
+              `tattendee_removed_at_utc` datetime(3) DEFAULT NULL,
+              `tattendee_removed_reason` varchar(255) DEFAULT NULL,
+              PRIMARY KEY (`tattendee_id`),
+              UNIQUE KEY `uq_training_tattendee` (`tattendee_tsession_id`,`tattendee_contact_id`),
+              KEY `idx_training_tattendee_contact` (`tattendee_contact_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_evaluations` (
+              `evaluation_id` int(11) NOT NULL AUTO_INCREMENT,
+              `evaluation_source_key` varchar(48) NOT NULL,
+              `evaluation_contact_id` int(11) NOT NULL,
+              `evaluation_course_id` int(11) NOT NULL,
+              `evaluation_revision_id` int(11) DEFAULT NULL,
+              `evaluation_run_id` int(11) DEFAULT NULL,
+              `evaluation_tsession_id` int(11) DEFAULT NULL,
+              `evaluation_channel` enum('agent','kiosk','session') NOT NULL,
+              `evaluation_evaluator_contact_id` int(11) DEFAULT NULL,
+              `evaluation_evaluator_user_id` int(11) DEFAULT NULL,
+              `evaluation_evaluator_name` varchar(200) NOT NULL,
+              `evaluation_evaluated_on` date NOT NULL,
+              `evaluation_result` enum('pass','fail') NOT NULL,
+              `evaluation_equipment` varchar(200) DEFAULT NULL,
+              `evaluation_checklist_json` text DEFAULT NULL,
+              `evaluation_notes` text DEFAULT NULL,
+              `evaluation_proof` enum('evaluator_signed','document','agent_recorded') NOT NULL,
+              `evaluation_evaluator_tsig_id` int(11) DEFAULT NULL,
+              `evaluation_evaluatee_tsig_id` int(11) DEFAULT NULL,
+              `evaluation_evidence_media_id` int(11) DEFAULT NULL,
+              `evaluation_kiosk_id` int(11) DEFAULT NULL,
+              `evaluation_recorded_by_user_id` int(11) DEFAULT NULL,
+              `evaluation_recorded_at_utc` datetime(3) NOT NULL,
+              `evaluation_hash_v` tinyint(3) unsigned NOT NULL DEFAULT 1,
+              `evaluation_row_sha256` char(64) NOT NULL,
+              PRIMARY KEY (`evaluation_id`),
+              UNIQUE KEY `uq_training_eval_source` (`evaluation_source_key`),
+              KEY `idx_training_eval_contact` (`evaluation_contact_id`,`evaluation_course_id`,`evaluation_evaluated_on`),
+              KEY `idx_training_eval_session` (`evaluation_tsession_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+
+        // ---------- trainers (M) ----------
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_trainers` (
+              `trainer_contact_id` int(11) NOT NULL,
+              `trainer_user_id` int(11) DEFAULT NULL,
+              `trainer_title` varchar(100) DEFAULT NULL,
+              `trainer_can_train` tinyint(1) NOT NULL DEFAULT 1,
+              `trainer_can_evaluate` tinyint(1) NOT NULL DEFAULT 0,
+              `trainer_can_setup_pins` tinyint(1) NOT NULL DEFAULT 0,
+              `trainer_can_unlock` tinyint(1) NOT NULL DEFAULT 0,
+              `trainer_can_view_team` tinyint(1) NOT NULL DEFAULT 1,
+              `trainer_all_courses` tinyint(1) NOT NULL DEFAULT 0,
+              `trainer_all_departments` tinyint(1) NOT NULL DEFAULT 0,
+              `trainer_qualifications` text DEFAULT NULL,
+              `trainer_active` tinyint(1) NOT NULL DEFAULT 1,
+              `trainer_version` int(10) unsigned NOT NULL DEFAULT 0,
+              `trainer_added_by` int(11) NOT NULL,
+              `trainer_added_at` datetime NOT NULL DEFAULT current_timestamp(),
+              `trainer_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+              PRIMARY KEY (`trainer_contact_id`),
+              KEY `idx_training_trainer_user` (`trainer_user_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_trainer_courses` (
+              `ttcourse_contact_id` int(11) NOT NULL,
+              `ttcourse_course_id` int(11) NOT NULL,
+              PRIMARY KEY (`ttcourse_contact_id`,`ttcourse_course_id`),
+              KEY `idx_training_ttcourse_course` (`ttcourse_course_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_trainer_departments` (
+              `ttdept_contact_id` int(11) NOT NULL,
+              `ttdept_client_id` int(11) NOT NULL,
+              PRIMARY KEY (`ttdept_contact_id`,`ttdept_client_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+
+        // ---------- snapshots (D) ----------
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_compliance_daily` (
+              `tdaily_date` date NOT NULL,
+              `tdaily_client_id` int(11) NOT NULL,
+              `tdaily_course_id` int(11) NOT NULL,
+              `tdaily_eligible_people` int(11) NOT NULL DEFAULT 0,
+              `tdaily_required_pairs` int(11) NOT NULL DEFAULT 0,
+              `tdaily_current_pairs` int(11) NOT NULL DEFAULT 0,
+              `tdaily_overdue_pairs` int(11) NOT NULL DEFAULT 0,
+              `tdaily_overdue_people` int(11) NOT NULL DEFAULT 0,
+              `tdaily_expiring_30` int(11) NOT NULL DEFAULT 0,
+              `tdaily_waived_pairs` int(11) NOT NULL DEFAULT 0,
+              `tdaily_completions` int(11) NOT NULL DEFAULT 0,
+              `tdaily_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+              PRIMARY KEY (`tdaily_date`,`tdaily_client_id`,`tdaily_course_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        foreach ([
+            "`config_training_due_soon_days` smallint(5) unsigned NOT NULL DEFAULT 30",
+            "`config_training_reissue_days` smallint(5) unsigned NOT NULL DEFAULT 14",
+            "`config_training_reopen_window_days` smallint(5) unsigned NOT NULL DEFAULT 90",
+            "`config_training_evidence_max_mb` smallint(5) unsigned NOT NULL DEFAULT 20",
+            "`config_training_compliance_target_pct` tinyint(3) unsigned NOT NULL DEFAULT 95",
+            "`config_training_reconciled_at_utc` datetime(3) DEFAULT NULL",
+            "`config_training_snapshot_last_on` date DEFAULT NULL",
+            "`config_training_odoo_sync_enabled` tinyint(1) NOT NULL DEFAULT 0",
+            "`config_training_odoo_sync_last_on` date DEFAULT NULL",
+            "`config_training_odoo_sync_last_result` varchar(255) DEFAULT NULL",
+            "`config_training_odoo_link_checked_at_utc` datetime(3) DEFAULT NULL",
+            "`config_training_odoo_target_sha` char(64) DEFAULT NULL",
+            "`config_training_hire_fill_since` date DEFAULT NULL",
+        ] as $col) {
+            mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS $col");
+        }
+
+        // Records mutex (spec §0 #4 / §1.4 #11): the row every completion writer locks first.
+        // The ONLY place it is created (plus db.sql); RecordsMutex::acquire never inserts it.
+        mysqli_query($mysqli, "INSERT IGNORE INTO `training_cert_counters` (`certctr_year`, `certctr_last_seq`, `certctr_updated_at_utc`) VALUES (0, 0, NULL)");
+
+        // Odoo link baseline + accepted target (spec §1.4 #12). Same integration selection as the sync handler.
+        // The expression for $tr_sha is frozen and must equal Directory\OdooTarget::sha().
+        $tr_oi = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT odoo_integration_id, base_url, database_name FROM odoo_integrations ORDER BY odoo_integration_id DESC LIMIT 1"));
+        if ($tr_oi) {
+            $tr_iid = intval($tr_oi['odoo_integration_id']);
+            $tr_sha = hash('sha256', strtolower(rtrim(trim((string) $tr_oi['base_url']), '/')) . '|' . trim((string) $tr_oi['database_name']));
+            mysqli_query($mysqli, "INSERT IGNORE INTO `contact_odoo_attributes`
+                (`coattr_contact_id`, `coattr_odoo_integration_id`, `coattr_odoo_employee_id`, `coattr_odoo_name`, `coattr_odoo_target_sha`, `coattr_link_state`)
+                SELECT l.contact_id, l.odoo_integration_id, l.odoo_employee_id, LEFT(c.contact_name, 200), '$tr_sha', 'unchecked'
+                FROM contact_odoo_links l JOIN contacts c ON c.contact_id = l.contact_id
+                WHERE l.odoo_integration_id = $tr_iid");
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_training_odoo_target_sha` = '$tr_sha' WHERE `config_training_odoo_target_sha` IS NULL");
+        }
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.92'");
+    }
