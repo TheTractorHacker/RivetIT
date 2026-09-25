@@ -28,6 +28,7 @@ $tr_head = null;
 $tr_head_missing = false;    // head row gone (tamper / bad restore): the page still renders, Verify now reports it
 $tr_usage = [];
 $tr_live_bytes = 0;
+$tr_evidence = null;         // {bytes, count} of evidence scans (Phase 2), outside the budget
 $tr_unreferenced = null;     // null = purger not installed yet
 $tr_unreferenced_error = false;
 
@@ -50,6 +51,12 @@ if (!empty($config_training_schema_ready)) {
                 $tr_head_missing = true;
             }
             $tr_usage = MediaUsage::liveByKind($mysqli);
+            // Phase 2: evidence scans are records, not course content - never counted toward the budget
+            // (MediaUsage::liveBytes excludes them too); shown on their own line under the bar.
+            if (isset($tr_usage['evidence'])) {
+                $tr_evidence = $tr_usage['evidence'];
+                unset($tr_usage['evidence']);
+            }
             foreach ($tr_usage as $tr_k) {
                 $tr_live_bytes += $tr_k['bytes'];
             }
@@ -166,6 +173,7 @@ $tr_head_updated_iso = $tr_head ? Clock::toIso($tr_head['updated_at_utc'], true)
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-fw fa-hard-hat me-2"></i>Training (LMS)</h3>
         <div class="card-actions">
+            <a href="/admin/settings_training_compliance.php" class="btn btn-outline-secondary btn-sm">Compliance &amp; Odoo</a>
             <?php if (intval($tr_row['config_module_enable_training'] ?? 0) === 1 && $tr_pages_ready) { ?>
                 <a href="/agent/training_courses.php" class="btn btn-outline-primary btn-sm"><i class="fas fa-fw fa-graduation-cap me-1"></i>Open Training</a>
             <?php } ?>
@@ -355,6 +363,9 @@ $tr_head_updated_iso = $tr_head ? Clock::toIso($tr_head['updated_at_utc'], true)
             </ul>
         <?php } else { ?>
             <p class="small text-muted mb-3">No training media stored yet.</p>
+        <?php } ?>
+        <?php if ($tr_evidence !== null && intval($tr_evidence['count'] ?? 0) > 0) { ?>
+            <p class="small text-muted mb-3">Evidence scans: <?php echo nullable_htmlentities(tr_admin_fmt_bytes(intval($tr_evidence['bytes'])) . ' (' . intval($tr_evidence['count']) . ')'); ?> (not counted toward the budget)</p>
         <?php } ?>
 
         <div class="mb-3">

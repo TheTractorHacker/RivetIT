@@ -1,12 +1,12 @@
 <?php
 
 /*
- * Training › entry point (spec §5.1, plan reconciliation §1.3 #9).
+ * Training › entry point (Phase 1 spec §5.1, plan reconciliation §1.3 #9; Phase 2 Overview).
  *
- * Phase 1 has no Overview dashboard yet (it arrives in Phase 2), so a permitted user is sent
- * straight to the course list. A lean bootstrap decides that before any page markup; everyone
- * else falls through to the normal shell, where Access::pageGuard renders the "turned off" or
- * "no access" state with the footer at top level.
+ * Phase 2 adds the Overview dashboard (training_dashboard.php), so a permitted user is sent
+ * there. A lean bootstrap decides that before any page markup; everyone else falls through to
+ * the normal shell, where Access::pageGuard renders the "turned off" or "no access" state with
+ * the footer at top level.
  */
 
 require_once "../config.php";
@@ -14,7 +14,7 @@ require_once "../functions.php";
 require_once "../includes/check_login.php";
 
 if (\ITFlow\Training\Core\Access::enabled() && \ITFlow\Training\Core\Access::level() >= 1) {
-    header('Location: training_courses.php');
+    header('Location: training_dashboard.php');
     exit;
 }
 

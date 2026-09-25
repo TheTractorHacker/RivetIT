@@ -241,6 +241,12 @@
                         <span class="nav-link-title">Training</span>
                     </a>
                 </li>
+                <li class="nav-item<?php echo (basename($_SERVER['PHP_SELF']) == 'settings_training_compliance.php' ? ' active' : ''); ?>">
+                    <a href="/admin/settings_training_compliance.php" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_training_compliance.php' ? 'active' : ''); ?>">
+                        <span class="nav-link-icon"><i class="fas fa-clipboard-check"></i></span>
+                        <span class="nav-link-title">Training compliance</span>
+                    </a>
+                </li>
 
                 <?php if ($config_module_enable_itdoc) { ?>
                 <!-- TEMPLATES Section -->

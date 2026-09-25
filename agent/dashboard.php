@@ -1,4 +1,15 @@
 <?php
+// Training (Phase 2, S19): training-only roles land on the Training overview instead of this dashboard.
+// Same paths as inc_all.php, so its require_once calls de-duplicate these.
+require_once $_SERVER['DOCUMENT_ROOT'] . '/config.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/functions.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/check_login.php';
+if (($config_module_enable_training ?? 0) == 1 && empty($session_is_admin) && !isset($_GET['home'])
+    && intval(lookupUserPermission('module_training')) >= 1
+    && intval(lookupUserPermission('module_support')) < 1 && intval(lookupUserPermission('module_client')) < 1) {
+    header('Location: training_dashboard.php');
+    exit;
+}
 require_once "includes/inc_all.php";
 
 // Get current year or the selected year
@@ -192,6 +203,15 @@ if ($config_module_enable_ticketing == 1 && !empty($config_ticket_csat_enable)) 
 
     $dash_csat_avg_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT AVG(ticket_csat_rating) AS v FROM tickets WHERE ticket_csat_rated_at >= NOW() - INTERVAL 30 DAY"));
     $dash_csat_avg = $dash_csat_avg_row['v'] !== null ? round(floatval($dash_csat_avg_row['v']), 2) : null;
+}
+
+// Training (Phase 2, S9): overdue assignments and expiring qualifications in the user's fail-closed training scope.
+if (($config_module_enable_training ?? 0) == 1 && lookupUserPermission('module_training') >= 1) {
+    try {
+        $tr_chip = \ITFlow\Training\Compliance\NavCounts::forCtx(\ITFlow\Training\Core\Access::ctx($mysqli), true);
+        $dash_attention_items[] = ['count' => intval($tr_chip['overdue'] ?? 0), 'label' => 'Training overdue', 'href' => 'training_assignments.php?status=overdue', 'icon' => 'fa-hard-hat'];
+        $dash_attention_items[] = ['count' => intval($tr_chip['expiring_30'] ?? 0), 'label' => 'Qualifications expiring (30d)', 'href' => 'training_reports.php?tab=expiring&days=30', 'icon' => 'fa-id-card'];
+    } catch (\Throwable $e) { error_log('Training dashboard chips: ' . $e->getMessage()); }
 }
 
 $dash_attention_total = array_sum(array_column($dash_attention_items, 'count'));

@@ -113,6 +113,9 @@ final class CourseActions
         (new CourseService($c))->archive($id, $reason);
         self::log('Archive', "Archived training course '$name'", $id);
         self::audit($c, 'training.course_archived', $id, 'archived', "Archived training course '$name'", ['reason' => $reason]);
+        // Phase 2 (S18): open assignments for an archived course are cancelled (system actor).
+        try { (new \ITFlow\Training\Assign\AssignmentService($c))->reconcile(null, 'course_archived'); }
+        catch (\Throwable $e) { error_log('Training: reconcile after course archive failed: ' . $e->getMessage()); }
         return ['status' => 'archived'];
     }
 
@@ -122,6 +125,10 @@ final class CourseActions
         (new CourseService($c))->restore($id);
         $course = Guard::course($c->db, $id);
         self::log('Edit', "Restored training course '" . $course['course_name'] . "'", $id);
+        // Phase 2 (S18): a restored published course's rules apply again (system actor). The restore has no
+        // audit call of its own, so the hook follows the log line.
+        try { (new \ITFlow\Training\Assign\AssignmentService($c))->reconcile(null, 'course_restored'); }
+        catch (\Throwable $e) { error_log('Training: reconcile after course restore failed: ' . $e->getMessage()); }
         return ['status' => $course['course_current_revision_id'] === null ? 'draft' : 'published'];
     }
 
