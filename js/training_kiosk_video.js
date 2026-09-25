@@ -130,7 +130,7 @@
     function paint() {
         var d = duration || (server && server.duration_s) || 0;
         var pctW = d > 0 ? Math.min(100, Math.round(maxWatched * 100 / d)) : 0;
-        ringFill.style.setProperty('--p', String(pctW));
+        ring.style.setProperty('--p', String(pctW));
         ringText.textContent = pctW + '%';
         ring.setAttribute('aria-label', pctW + '%');
         ring.classList.toggle('is-ok', pctW >= minPct);
