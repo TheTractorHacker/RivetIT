@@ -15,7 +15,7 @@
 .kl-center { text-align: center; }
 .kl-mono { font-family: var(--if-mono, 'IBM Plex Mono', ui-monospace, monospace); font-variant-numeric: tabular-nums; letter-spacing: .01em; }
 .kl-hidden { visibility: hidden !important; }
-.kl-kicker { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--kx-muted); }
+.kl-kicker { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--kx-muted); }
 .kl-h1 { margin: 0; font-size: 34px; line-height: 1.15; font-weight: 700; letter-spacing: -.015em; }
 .kl-h2 { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; font-size: 26px; line-height: 1.2; font-weight: 700; letter-spacing: -.01em; }
 .kl-h3 { margin: 0; font-size: 21px; font-weight: 700; line-height: 1.25; }
@@ -79,6 +79,7 @@
 .kl-card__cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .kl-card__art { position: absolute; right: 22px; bottom: 10px; font-size: 58px; color: var(--kl-tint); opacity: .8; }
 .kl-cover--doc .kl-card__art { color: var(--kx-muted); }
+.kl-card__mono { position: absolute; left: 18px; bottom: 8px; font-size: 44px; line-height: 1; font-weight: 800; letter-spacing: -.02em; color: var(--kl-tint); opacity: .9; }
 .kl-card__cover .kl-chip { position: absolute; left: 14px; top: 14px; box-shadow: var(--kx-shadow); }
 .kl-card__cover .kl-chip--muted, .kl-card__cover .kl-chip--ok, .kl-card__cover .kl-chip--bad, .kl-card__cover .kl-chip--warn, .kl-card__cover .kl-chip--info { background-clip: padding-box; }
 .kl-card__cover .kl-chip--bad { background: var(--kx-surface); }
@@ -175,7 +176,8 @@ body.kx-course .kl-player:not(.trp) { overflow: auto; padding: 40px; }
   display: flex; align-items: flex-start; gap: 16px; padding: 18px 22px; border-radius: var(--trp-radius);
   background: var(--trp-info-soft); color: var(--trp-ink); border: 1px solid transparent;
 }
-.trp-knotice__icon { font-size: 24px; color: var(--trp-accent); margin-top: 2px; }
+.trp-knotice__icon { font-size: 24px; color: var(--kx-info); margin-top: 2px; }   /* info is neutral blue, never the (possibly red) accent */
+.trp-knotice--info { background: var(--kx-info-soft); }
 .trp-knotice__body { display: flex; flex-direction: column; gap: 4px; }
 .trp-knotice__title { font-size: 21px; }
 .trp-knotice--bad { background: var(--kx-bad-soft); }
@@ -228,12 +230,26 @@ body.kx-course .kl-player:not(.trp) { overflow: auto; padding: 40px; }
 .kl-attest { padding: 22px 26px; background: var(--kx-surface); border: 1px solid var(--kx-border); border-radius: var(--kx-radius); box-shadow: var(--kx-shadow); }
 .kl-attest__text { margin: 12px 0 0; padding-left: 18px; border-left: 4px solid var(--kx-accent); font-size: 22px; line-height: 1.5; white-space: pre-line; }
 .kl-signpad { display: flex; flex-direction: column; gap: 10px; }
-.kl-signpad .kx-sign { background: var(--kx-surface); border: 1px solid var(--kx-border); border-radius: var(--kx-radius); box-shadow: var(--kx-shadow); }
+.kl-signpad .kx-sign { padding: 8px 18px 16px; background: var(--kx-surface); border: 1px solid var(--kx-border); border-radius: var(--kx-radius); box-shadow: var(--kx-shadow); }
 .kl-signpin { padding: 22px; display: flex; flex-direction: column; gap: 8px; background: var(--kx-surface); border: 1px solid var(--kx-border); border-radius: var(--kx-radius); box-shadow: var(--kx-shadow); }
 .kl-signpin p { margin: 0; }
 .kl-signpin__pad { padding: 12px 0; }
-.kl-signpin__pad.is-waiting { opacity: .55; }
-.kl-signfoot { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center; }
+/* The keypad fits its card (3 flexible columns), and before the signature its keys read as
+   "not yet" (55 %) instead of disappearing; the note above says why. */
+.kl-signpin .kx-pad { width: 100%; }
+.kl-signpin .kx-keypad { grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; gap: 10px; }
+.kl-signpin .kx-key { width: 100%; height: 68px; }
+.kl-signpin .kx-key[disabled] { opacity: .55; }
+.kl-signpin__wait { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 4px 0 0; padding: 10px 12px; border-radius: 10px;
+  background: var(--kx-info-soft); color: var(--kx-ink); font-size: 17px; font-weight: 600; text-align: center; }
+.kl-signpin__wait .fas { color: var(--kx-info); }
+/* Sign & finish stays on screen (1024x768 and 1366x768 put it below the fold otherwise). */
+.kl-signfoot {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center;
+  position: sticky; bottom: 0; z-index: 3; margin: 0 calc(-1 * var(--kx-pad-x)); padding: 14px var(--kx-pad-x) calc(14px + var(--kx-safe-b));
+  background: var(--kx-canvas); border-top: 1px solid var(--kx-border);
+}
+body.kx-sign-page .kx-main { padding-bottom: 0; }
 .kl-signfoot__act { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .kl-signstatus { margin: 0; color: var(--kx-muted); font-size: 17px; text-align: right; }
 .kl-finish { min-width: 240px; }
@@ -276,7 +292,7 @@ body.kx-video-page .kx-main { padding-bottom: 0; }
 .kl-vstage.is-off { opacity: .5; }
 /* Nothing is ever laid over the third-party player (plan A2): the chips sit in a bar above it. */
 .kl-vstage__top { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #0f171a; }
-.kl-vchip, .kl-vtap { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,.12); color: #fff; font-size: 15px; font-weight: 600; }
+.kl-vchip, .kl-vtap { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,.12); color: #fff; font-size: 16px; font-weight: 600; }
 .kl-vtap { margin-left: auto; }
 .kl-vtap[hidden] { display: none; }
 .kl-vframe { position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 200px; }
@@ -295,7 +311,7 @@ body.kx-video-page .kx-main { padding-bottom: 0; }
 .kl-vbar { position: relative; height: 8px; border-radius: 999px; background: var(--kx-bg); overflow: hidden; }
 .kl-vbar__max { position: absolute; left: 0; top: 0; bottom: 0; background: var(--kx-accent-soft); }
 .kl-vbar__cur { position: absolute; left: 0; top: 0; bottom: 0; background: var(--kx-accent); }
-.kl-vbar__cap { color: var(--kx-muted); font-size: 14px; font-weight: 600; text-align: center; }
+.kl-vbar__cap { color: var(--kx-muted); font-size: 16px; font-weight: 600; text-align: center; }
 .kl-vtime { flex: none; font-size: 19px; font-weight: 600; }
 .kl-vstatus { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 10px; background: var(--kx-bad-soft); color: var(--kx-bad); font-weight: 600; }
 .kl-vstatus[hidden] { display: none; }
@@ -365,3 +381,39 @@ body.kx-video-page .kx-main { padding-bottom: 0; }
 .trp--kiosk .trp-pin__key { min-height: 64px; min-width: 64px; font-size: 26px; }
 .trp--kiosk .trp-btn { min-height: 64px; }
 .trp--kiosk .trp-check { min-height: 64px; }
+
+/* ---- kiosk readability: 16 px minimum for chips, kickers and labels inside the player ---- */
+.trp--kiosk .trp-chip { font-size: 16px; height: 36px; }
+.trp--kiosk .trp-chip--sm { font-size: 15px; height: 28px; }
+.trp--kiosk .trp-kicker, .trp--kiosk .trp-sec__num { font-size: 16px; }
+.trp--kiosk .trp-upnext__sub, .trp--kiosk .trp-scrub__cap, .trp--kiosk .trp-lhead__crumb, .trp--kiosk .trp-doc__hint { font-size: 16px; }
+/* the video scrubber: a 44 px hit area around the 10 px bar */
+.trp--kiosk .trp-scrub::before { content: ''; position: absolute; left: 0; right: 0; top: -17px; bottom: -17px; }
+
+/* ---- kiosk PDF lesson: one column like the mockup, the page fit to the width and scrolling
+   inside the stage, and a stage sized so "Page n of N" and the thumbnails stay above the footer ---- */
+.trp--kiosk .trp-lesson--document .trp-lbody.has-aside { grid-template-columns: minmax(0, 1fr); }
+.trp--kiosk .trp-lesson--document .trp-laside { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.trp--kiosk .trp-doc__stage { height: max(300px, calc(100vh - var(--kx-top-h, 72px) - 350px)); height: max(300px, calc(100dvh - var(--kx-top-h, 72px) - 350px)); }
+.trp--kiosk .trp-doc__viewport { left: 84px; right: 84px; }
+.trp--kiosk .trp-doc__viewport:not(.is-zoomed) { overflow-y: auto; overflow-x: hidden; align-items: flex-start; touch-action: pan-y pinch-zoom; }
+.trp--kiosk .trp-doc__viewport:not(.is-zoomed) .trp-doc__page { width: 100%; max-width: 100%; height: auto; max-height: none; }
+.trp--kiosk .trp-doc__viewport.is-zoomed .trp-doc__page { width: calc(100% * var(--trp-zoom)); height: auto; }
+.trp--kiosk .trp-doc__bar { min-height: 76px; }
+@container trp (max-width: 640px) { .trp--kiosk .trp-doc__viewport { left: 12px; right: 12px; } }
+/* portrait: the lesson title wraps under the Course button (about 90 px more above the stage) */
+@media (max-width: 900px) {
+  .trp--kiosk .trp-doc__stage { height: max(300px, calc(100vh - var(--kx-top-h, 72px) - 450px)); height: max(300px, calc(100dvh - var(--kx-top-h, 72px) - 450px)); }
+}
+
+/* ---- the quiz header drops the course name on narrow screens (portrait Spanish truncated it) ---- */
+@media (max-width: 900px) { .trp--kiosk .trp-qhead__course { display: none; } }
+
+/* ---- course overview: back to the Learning Center (same look as the lesson's "← Course") ---- */
+.trp-homeback { display: flex; margin-bottom: -8px; }
+/* ---- first Start of a two-language course: big English / Español choice ---- */
+.kl-langpick__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.kl-langpick__btn { min-height: 96px; font-size: 26px; }
+@media (max-width: 600px) { .kl-langpick__row { grid-template-columns: minmax(0, 1fr); } }
+/* A long "Continue: <lesson title>" wraps instead of being cut off at both ends. */
+.trp--kiosk .trp-hero__progress .trp-btn--xl { white-space: normal; text-align: center; line-height: 1.25; padding-top: 10px; padding-bottom: 10px; overflow: visible; }

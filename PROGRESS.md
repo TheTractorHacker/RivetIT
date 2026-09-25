@@ -369,3 +369,18 @@ realistically, months of further work, not a few more sessions.
   Fixed on the way: portrait-iPad course layout (player container queries never applied on the kiosk), Spanish course
   names in the Learning Center, blended-course sign-off wording and receipt preview, trainer session date, the rule
   editor's dead "Change on the course" link. Re-run: scratchpad `p34e2e/run_all.sh`.
+- 2026-09-25: **Phases 3+4 security + employee-UX review fixes** (branch `lms-phase34`, scratch p34fix). Security: a
+  valid start-URL token is never rate-limited (only unknown tokens fill the adopt bucket); check-in and hand-off are left
+  only with the trainer PIN or a server-confirmed idle timeout (`?switch=1` redirects home, `end {done}` is 403, `end`
+  no longer refreshes last_seen); session practical marks need can_evaluate + course + the person's department, and
+  finalize re-checks and drops a stale mark; the YouTube/Vimeo page loads no provider script (the players are driven
+  over postMessage, CSP script-src = strict), so no third-party code runs in the kiosk origin; `/kiosk/?d=<token>` gets
+  a bare 302 to `/kiosk/#d=<token>` (PHP, plus an nginx `location = /kiosk/` rule with `access_log off` in the repo
+  mirrors) and the setup page issues the `?d=` form for kiosk-mode browsers. Employee UX: no "Next lesson" before a
+  lesson is done, acknowledgment Sign button in the footer, English/Español choice at the first Start and fresh runs
+  follow a language change, "My training" back button, fit-width PDF with the page counter visible, sign-page keypad
+  and sticky Sign & finish, long-form statement dates, Spanish wording (Salir, instructor, examen), mouse wording on
+  PCs, neutral info colour, logo, distinct covers, bigger labels, live idle countdown, Enter/keystroke buffering on
+  PCs, check-in header and heading. Verified: the full E2E (330 checks) plus 77 probe checks (security S1-S5, real
+  YouTube and Vimeo embeds over postMessage, UX), zero console/CSP errors, no PIN/token in the ledger, logs or PHP log.
+  Re-run: scratchpad `p34fix/final.sh`.

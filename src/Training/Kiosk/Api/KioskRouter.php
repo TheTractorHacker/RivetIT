@@ -91,7 +91,8 @@ final class KioskRouter
             }
             $principal = null;
             if ($sessionRoles !== [] && isset($_COOKIE[KioskAuth::SESS_COOKIE])) {
-                $touch = !($action === 'lesson_tick' && empty($input['active']) && empty($input['playing']));
+                // An idle tick is not activity, and neither is `end` itself (its idle path checks last_seen).
+                $touch = $action !== 'end' && !($action === 'lesson_tick' && empty($input['active']) && empty($input['playing']));
                 try {
                     $k = $k->withKsess(KioskAuth::session($k, $sessionRoles, $touch));
                     $principal = 'session';

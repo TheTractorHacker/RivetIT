@@ -20,10 +20,11 @@ final class LearnerActions
 {
     private const UID_RE = '/^[a-z][0-9a-z]{11}$/D';
 
-    /** POST run_start {course_id} => RunState */
+    /** POST run_start {course_id, lang?} => RunState */
     public static function runStart(KioskCtx $k, ApiContext $a): array
     {
-        return (new RunService($k))->start((int) $a->int('course_id', true, 1));
+        $lang = $a->enum('lang', \ITFlow\Training\Kiosk\Core\KioskStrings::LANGS, false);
+        return (new RunService($k))->start((int) $a->int('course_id', true, 1), $lang);
     }
 
     /** POST lesson_open {run_id, lesson_uid} => Gate */

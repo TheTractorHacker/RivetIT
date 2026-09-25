@@ -54,8 +54,27 @@ final class AttestService
             '{name}' => (string) ($this->k->ksess['contact_name'] ?? ''),
             '{course}' => self::courseName($doc, $lang),
             '{revision}' => (string) $rev,
-            '{date}' => Clock::todayLocal(),
+            '{date}' => self::longDate(Clock::todayLocal(), $lang),
         ]);
+    }
+
+    /** "September 25, 2026" / "25 de septiembre de 2026" from a Y-m-d (the signed statement reads like the mockup, not ISO). */
+    public static function longDate(string $ymd, string $lang): string
+    {
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $ymd, $m) !== 1) {
+            return $ymd;
+        }
+        $mon = (int) $m[2];
+        if ($mon < 1 || $mon > 12) {
+            return $ymd;
+        }
+        $day = (int) $m[3];
+        if ($lang === 'es') {
+            $es = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+            return $day . ' de ' . $es[$mon - 1] . ' de ' . $m[1];
+        }
+        $en = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        return $en[$mon - 1] . ' ' . $day . ', ' . $m[1];
     }
 
     /**

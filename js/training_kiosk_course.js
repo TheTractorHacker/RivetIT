@@ -87,6 +87,63 @@
         if (m > 0) { out.push({ icon: 'fa-sync-alt', text: m === 1 ? t('course.chip_good_for_1') : t('course.chip_good_for', { n: m }), tone: '' }); }
         return out;
     }
+    // ---- language: the run's language vs the screen's (L-9; a run with nothing done follows a new choice) ----
+    var LANGS = Array.isArray(view.languages) ? view.languages.filter(function (x) { return x === 'en' || x === 'es'; }) : [];
+    function langName(lg) { return t('course.lang_name_' + lg); }
+    function runLang() { return run && run.language ? String(run.language) : (view.lang || 'en'); }
+    function langNotice() {
+        var screen = K.lang();
+        if (!run || runLang() === screen || run.fresh) { return null; }
+        if (LANGS.indexOf(screen) === -1) {
+            return { tone: 'info', icon: 'fa-language', title: t('course.lang_only_title', { run: langName(runLang()) }), text: t('course.lang_only', { screen: langName(screen) }) };
+        }
+        return { tone: 'info', icon: 'fa-language', title: t('course.lang_locked_title', { run: langName(runLang()) }),
+            text: t('course.lang_locked', { run: langName(runLang()), screen: langName(screen) }) };
+    }
+    /** Big English / Español choice before the first Start of a course that has both. Resolves 'en' | 'es' | null (cancelled). */
+    function chooseLanguage() {
+        return new Promise(function (resolve) {
+            var prev = document.activeElement;
+            var done = false;
+            function finish(v) {
+                if (done) { return; }
+                done = true;
+                document.removeEventListener('keydown', onKey, true);
+                if (overlay.parentNode) { overlay.parentNode.removeChild(overlay); }
+                document.body.classList.remove('kx-has-dialog');
+                if (prev && typeof prev.focus === 'function' && document.body.contains(prev)) { try { prev.focus(); } catch (e) { /* ignore */ } }
+                resolve(v);
+            }
+            function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); finish(null); } }
+            var order = K.lang() === 'es' ? ['es', 'en'] : ['en', 'es'];
+            var btns = order.filter(function (lg) { return LANGS.indexOf(lg) !== -1; }).map(function (lg) {
+                return el('button', { type: 'button', class: 'kx-btn kx-btn--xl kl-langpick__btn' + (lg === K.lang() ? ' kx-btn--primary' : ''), lang: lg,
+                    on: { click: function () { finish(lg); } } }, [el('span', { text: lg === 'es' ? 'Español' : 'English' })]);
+            });
+            var cancel = el('button', { type: 'button', class: 'kx-btn kx-btn--ghost' }, [el('span', { text: t('shell.cancel') })]);
+            cancel.addEventListener('click', function () { finish(null); });
+            var overlay = el('div', { class: 'kx-dialog' }, [el('div', { class: 'kx-dialog__card kl-langpick', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'kl-langpick-t' }, [
+                el('h2', { class: 'kx-dialog__title', id: 'kl-langpick-t', text: t('course.lang_pick_title') }),
+                el('p', { class: 'kx-dialog__body', text: t('course.lang_pick_body') }),
+                el('div', { class: 'kl-langpick__row' }, btns),
+                el('div', { class: 'kx-dialog__actions' }, [cancel])
+            ])]);
+            document.addEventListener('keydown', onKey, true);
+            document.body.appendChild(overlay);
+            document.body.classList.add('kx-has-dialog');
+            setTimeout(function () { if (btns[0]) { btns[0].focus(); } }, 0);
+        });
+    }
+    /** Reload this course in its run's language, straight into its first lesson. */
+    function reopenAt(lang) {
+        var first = (view.lesson_order || [])[0];
+        var url = '/kiosk/course.php?c=' + encodeURIComponent(String(P.course_id)) + (first ? '&l=' + encodeURIComponent(String(first)) : '');
+        // The screen follows the course language the person chose (set_language), then the page reloads in it.
+        var go = function () { location.replace(url); };
+        if (lang && lang !== K.lang()) { K.api.post('set_language', { lang: lang }).then(go, go); } else { go(); }
+        return new Promise(function () { /* navigating */ });
+    }
+
     function notice() {
         if (P.needs_online === false) { return { tone: 'info', icon: 'fa-users', title: t('course.session_title'), text: t('course.e_no_online') }; }
         if (!run) {
@@ -101,7 +158,7 @@
         if (status() === 'awaiting_signature') { return { tone: 'info', icon: 'fa-pen-nib', title: t('course.sign_title'), text: t('course.sign_body') }; }
         if (status() === 'awaiting_session') { return { tone: 'info', icon: 'fa-users', title: t('course.session_title'), text: t('course.session_body') }; }
         if (status() === 'awaiting_evaluation') { return { tone: 'info', icon: 'fa-hard-hat', title: t('course.evaluation_title'), text: t('course.evaluation_body') }; }
-        return null;
+        return langNotice();
     }
     function cta() {
         if (P.needs_online === false) { return { hidden: true }; }
@@ -126,14 +183,22 @@
         initialLesson: P.lesson && !frozen() ? P.lesson : null,
         signaturePad: function (container, o) { return K.ui.signaturePad(container, o); },
         ensureRun: function () {
-            if (run && status() === 'in_progress') { return Promise.resolve(run); }
-            return post('run_start', { course_id: P.course_id }).then(function (st) {
+            var screen = K.lang();
+            // A run with nothing done yet, in the other language, switches to the screen's language (when the course has it).
+            var switchFresh = run && status() === 'in_progress' && run.fresh && runLang() !== screen && LANGS.indexOf(screen) !== -1;
+            if (run && status() === 'in_progress' && !switchFresh) { return Promise.resolve(run); }
+            var pick = switchFresh ? Promise.resolve(screen) : (!run && LANGS.length > 1 ? chooseLanguage() : Promise.resolve(undefined));
+            return pick.then(function (lg) {
+                if (lg === null) { var e = new Error(''); e.silent = true; throw e; }   // closed the language choice: stay on the overview
+                return post('run_start', lg ? { course_id: P.course_id, lang: lg } : { course_id: P.course_id });
+            }).then(function (st) {
                 run = st;
                 if (status() !== 'in_progress') {
                     // A resumed run that is waiting (sign/session/evaluation) or stuck: show why.
                     location.replace('/kiosk/course.php?c=' + encodeURIComponent(String(P.course_id)));
                     return new Promise(function () { /* navigating */ });
                 }
+                if (runLang() !== (view.lang || 'en')) { return reopenAt(runLang()); }   // this page shows the other language
                 return run;
             });
         },
@@ -182,6 +247,7 @@
         onSign: function () { location.assign('/kiosk/sign.php?run=' + runId()); },
         onCourseComplete: function () { location.assign('/kiosk/sign.php?run=' + runId() + '&receipt=1'); },
         onLanguage: function (lg) { K.setLang(lg); },
+        homeBack: function () { return { label: t('home.title'), onClick: function () { location.assign('/kiosk/me.php'); } }; },
         courseChips: chips,
         homeNotice: notice,
         homeCta: cta,
@@ -201,7 +267,7 @@
     K.idle.start({
         onWarn: function (left) {
             mediaHidden(true);
-            K.ui.confirm(t('shell.idle_body', { seconds: left }), t('shell.idle_stay'), t('shell.idle_leave'), { title: t('shell.idle_title') }).then(function (stay) {
+            K.ui.idleDialog(left).then(function (stay) {
                 mediaHidden(false);
                 if (stay) { K.idle.touch(); K.session.beat(); } else { K.session.end('done'); }
             });

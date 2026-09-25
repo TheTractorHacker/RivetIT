@@ -34,8 +34,10 @@
   --kx-warn-soft: #fef3c7;
   --kx-bad: #b91c1c;
   --kx-bad-soft: #fee2e2;
-  --kx-info: var(--kx-accent);
-  --kx-info-soft: var(--kx-accent-soft);
+  /* Info never follows the accent: on a red theme an info message ("Checking…") must not look like an error. */
+  --kx-info: #0369a1;
+  --kx-info-soft: #e0f2fe;
+  --kx-info-border: #0284c7;
   --kx-pad-x: 40px;
   --kx-top-h: 72px;
   --kx-safe-l: env(safe-area-inset-left, 0px);
@@ -54,6 +56,9 @@
   --kx-bad: #f87171;
   --kx-bad-soft: rgba(248,113,113,.14);
   --kx-accent-soft: rgba(var(--if-primary-rgb, 13, 148, 136), .22);
+  --kx-info: #38bdf8;
+  --kx-info-soft: rgba(56,189,248,.14);
+  --kx-info-border: #0ea5e9;
 }
 
 /* ---- page -------------------------------------------------------------------- */
@@ -91,7 +96,7 @@ body.kx {
   clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 .kx [hidden] { display: none !important; }
-.kx-kicker { font-size: 15px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--kx-muted); }
+.kx-kicker { font-size: 16px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--kx-muted); }
 
 /* ---- header -------------------------------------------------------------------- */
 .kx-top {
@@ -109,6 +114,7 @@ body.kx {
   border-bottom: 1px solid var(--kx-border);
 }
 .kx-brand { display: flex; align-items: center; gap: .3em; flex-shrink: 0; min-width: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
+.kx-brand__logo { height: 40px; width: auto; max-width: 150px; object-fit: contain; margin-right: 12px; padding-right: 16px; border-right: 1px solid var(--kx-border); box-sizing: content-box; }
 .kx-brand__accent { color: var(--kx-accent); }
 .kx-top__right { display: flex; align-items: center; gap: 20px; min-width: 0; }
 .kx-top__sep { width: 1px; height: 32px; background: var(--kx-border); flex-shrink: 0; }
@@ -274,8 +280,8 @@ button.kx-tile:hover, a.kx-tile:hover { border-color: var(--kx-border-strong); b
 }
 .kx-alert > .fas { flex-shrink: 0; margin-top: 3px; font-size: 22px; }
 .kx-alert__title { display: block; font-weight: 700; }
-.kx-alert--info { background: var(--kx-info-soft); border-color: var(--kx-accent); color: var(--kx-ink); }
-.kx-alert--info > .fas { color: var(--kx-accent); }
+.kx-alert--info { background: var(--kx-info-soft); border-color: var(--kx-info-border); color: var(--kx-ink); }
+.kx-alert--info > .fas { color: var(--kx-info); }
 .kx-alert--warn { background: var(--kx-warn-soft); border-color: #f59e0b; color: var(--kx-ink); }
 .kx-alert--warn > .fas { color: var(--kx-warn); }
 .kx-alert--bad { background: var(--kx-bad-soft); border-color: #ef4444; color: var(--kx-ink); }
@@ -285,7 +291,9 @@ button.kx-tile:hover, a.kx-tile:hover { border-color: var(--kx-border-strong); b
 
 /* ---- signature pad -------------------------------------------------------------------- */
 .kx-sign { display: flex; flex-direction: column; gap: 8px; width: 100%; }
-.kx-sign__head { display: flex; align-items: center; justify-content: flex-end; min-height: 52px; }
+.kx-sign__head { display: flex; align-items: center; justify-content: flex-end; gap: 12px; min-height: 52px; }
+.kx-sign__head.has-title { justify-content: space-between; }
+.kx-sign__title { font-size: 21px; font-weight: 700; }
 .kx-sign__clear { min-height: 64px; margin: -6px 0; font-size: 18px; }
 .kx-sign__area {
   position: relative; width: 100%; height: 220px;
@@ -299,7 +307,7 @@ button.kx-tile:hover, a.kx-tile:hover { border-color: var(--kx-border-strong); b
 :root[data-bs-theme="dark"] .kx-sign__area { background: #f6f8f8; border-color: #b8c3c6; }
 .kx-sign__line { position: absolute; left: 40px; right: 40px; bottom: 48px; border-top: 2px dashed #b8c3c6; pointer-events: none; }
 .kx-sign__x { position: absolute; left: 42px; bottom: 50px; font-size: 26px; line-height: 1; color: #5d6f76; pointer-events: none; }
-.kx-sign__hint { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-80%); text-align: center; font-size: 20px; color: #93a6ab; pointer-events: none; }
+.kx-sign__hint { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-80%); text-align: center; font-size: 20px; color: #5d6f76; pointer-events: none; }  /* 5.2:1 on white */
 .kx-sign__area.is-inked .kx-sign__hint { display: none; }
 .kx-sign__meta {
   position: absolute; left: 40px; right: 40px; bottom: 14px;
@@ -394,3 +402,5 @@ body.kx-has-dialog { overflow: hidden; }
   .kx-card--split > * { padding: 32px 44px; }
   .kx-key { height: 72px; }
 }
+
+@media (max-width: 700px) { .kx-brand__logo { display: none; } }

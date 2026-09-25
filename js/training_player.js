@@ -94,7 +94,11 @@
             k_pin_doc_hint: 'Your PIN confirms you read this document.', exam_after: 'Finish the other lessons first', k_saving: 'Saving…',
             k_pass_sign_msg: 'Nice work, {first}. One last step: sign to put {course} on your training record.', k_pass_msg: 'Nice work, {first}.',
             k_locked_msg: 'You used all your tries. Your trainer can give you another try.', k_retry_msg: 'Review the questions below, then try again.',
-            k_read_first: 'Take a moment to read it, then sign.', k_passed_already: 'You passed this quiz.', passed_chip_short: 'Passed', minutes_short: '{n} min'
+            k_read_first: 'Take a moment to read it, then sign.', k_passed_already: 'You passed this quiz.', passed_chip_short: 'Passed', minutes_short: '{n} min',
+            k_finish_first: 'Finish this lesson first.', k_arrows_hint: 'Use the arrows to turn pages',
+            k_ack_tsp: 'Tick the box, sign, then enter your PIN', k_ack_ts: 'Tick the box and sign', k_ack_tp: 'Tick the box, then enter your PIN', k_ack_t: 'Tick the box',
+            k_ack_sp: 'Sign, then enter your PIN', k_ack_s: 'Sign in the box', k_ack_p: 'Enter your PIN', k_ack_step: 'Step 1 of 2 · then sign the course',
+            k_exam_start: 'Start the exam', k_exam_leave: 'Leave exam', k_exam_after: 'Available after passing the exam'
         },
         es: {
             lessons_n: '{n} lecciones', lesson_1: '1 lección', course_content: 'Contenido del curso', sections_meta: '{s} secciones · {n} lecciones',
@@ -145,7 +149,11 @@
             k_pin_doc_hint: 'Su PIN confirma que leyó este documento.', exam_after: 'Primero termine las otras lecciones', k_saving: 'Guardando…',
             k_pass_sign_msg: 'Buen trabajo, {first}. Un último paso: firme para que {course} quede en su registro.', k_pass_msg: 'Buen trabajo, {first}.',
             k_locked_msg: 'Usó todos sus intentos. Su instructor le puede dar otro intento.', k_retry_msg: 'Repase las preguntas de abajo y vuelva a intentarlo.',
-            k_read_first: 'Tómese un momento para leerlo y luego firme.', k_passed_already: 'Ya aprobó esta prueba.', passed_chip_short: 'Aprobado', minutes_short: '{n} min'
+            k_read_first: 'Tómese un momento para leerlo y luego firme.', k_passed_already: 'Ya aprobó esta prueba.', passed_chip_short: 'Aprobado', minutes_short: '{n} min',
+            k_finish_first: 'Primero termine esta lección.', k_arrows_hint: 'Use las flechas para cambiar de página',
+            k_ack_tsp: 'Marque la casilla, firme y escriba su PIN', k_ack_ts: 'Marque la casilla y firme', k_ack_tp: 'Marque la casilla y escriba su PIN', k_ack_t: 'Marque la casilla',
+            k_ack_sp: 'Firme y escriba su PIN', k_ack_s: 'Firme en el recuadro', k_ack_p: 'Escriba su PIN', k_ack_step: 'Paso 1 de 2 · después firme el curso',
+            k_exam_start: 'Empezar el examen', k_exam_leave: 'Salir del examen', k_exam_after: 'Disponible después de aprobar el examen'
         }
     };
     var LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -209,6 +217,13 @@
         return hh > 0 ? hh + ':' + pad(m) + ':' + pad(sec) : m + ':' + pad(sec);
     }
     function minutes(seconds) { return Math.max(1, Math.round((Number(seconds) || 0) / 60)); }
+    /** A mouse-only screen (Windows PC): wording says "mouse" / "arrows" instead of finger and swipe. */
+    function mouseOnly() {
+        try {
+            return !!(window.matchMedia && window.matchMedia('(pointer: fine)').matches && !window.matchMedia('(any-pointer: coarse)').matches
+                && !(navigator.maxTouchPoints > 0) && !('ontouchstart' in window));
+        } catch (e) { return false; }
+    }
     function reducedMotion() {
         try { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
     }
@@ -375,6 +390,7 @@
             }, function (e) {
                 runPending = null;
                 setBusy(btn, false);
+                if (e && e.silent) { return; }   // the adapter's own dialog was closed: nothing to report
                 renderHome();
                 flash(errText(e));
             });
@@ -540,7 +556,8 @@
                 cover,
                 h('div', { class: 'trp-hero__body' }, [
                     h('div', { class: 'trp-chips' }, [
-                        h('span', { class: 'trp-chip trp-chip--accent' }, [icon(c.kind === 'document' ? 'fa-file-signature' : 'fa-shield-alt'), c.kind === 'document' ? t('t_document') : t('course_name_label')]),
+                        isKiosk && c.kind !== 'document' ? null
+                            : h('span', { class: 'trp-chip trp-chip--accent' }, [icon(c.kind === 'document' ? 'fa-file-signature' : 'fa-shield-alt'), c.kind === 'document' ? t('t_document') : t('course_name_label')]),
                         c.est_minutes ? h('span', { class: 'trp-chip' }, [icon('fa-clock'), t('minutes_total', { n: c.est_minutes })]) : null
                     ].concat(extraChips.map(function (ch) {
                         var tone = /^(warn|bad|ok|info)$/.test(ch && ch.tone || '') ? ch.tone : '';
@@ -571,7 +588,15 @@
                     ])
                 ]);
             }
-            screen.appendChild(h('div', { class: 'trp-page' }, [hero, noticeEl, curriculum(), c.description_html ? aboutCard(c.description_html) : null]));
+            // Kiosk: a way back to the Learning Center that does not sign the person out (Done does).
+            var hb = isKiosk && fn('homeBack') ? adapter.homeBack() : null;
+            var backRow = null;
+            if (hb && hb.label) {
+                var backBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--ghost trp-btn--back' }, [icon('fa-arrow-left'), String(hb.label)]);
+                if (typeof hb.onClick === 'function') { backBtn.addEventListener('click', function () { setBusy(backBtn, true); hb.onClick(); }); }
+                backRow = h('div', { class: 'trp-homeback' }, backBtn);
+            }
+            screen.appendChild(h('div', { class: 'trp-page' }, [backRow, hero, noticeEl, curriculum(), c.description_html ? aboutCard(c.description_html) : null]));
         }
 
         function aboutCard(html) {
@@ -742,6 +767,10 @@
                             }
                         }
                     }
+                    var serverMet = met;
+                    // A renderer with its own to-do (the acknowledgment: tick, sign, PIN) keeps saying what
+                    // is left until those steps are done, whatever the server gate says.
+                    if (isKiosk && kGate && !serverOff && !pending && gate.cPlain && !gate.cMet) { met = false; text = gate.cText; pct = null; }
                     gate.met = met; gate.text = text; gate.pct = pct;
                     clear(footStatus);
                     var plainNow = gate.cPlain && !pending && text === gate.cText;
@@ -763,10 +792,21 @@
                     var blocked = isKiosk && !met;
                     if (!completeBtn.classList.contains('is-busy')) { completeBtn.disabled = blocked; }
                     completeBtn.classList.toggle('is-soft', !met);
-                    if (ctx && typeof ctx.onGate === 'function') { try { ctx.onGate(met); } catch (e) { /* ignore */ } }
+                    if (ctx && typeof ctx.onGate === 'function') { try { ctx.onGate(serverMet); } catch (e) { /* ignore */ } }
+                    if (typeof syncNextBtn === 'function') { syncNextBtn(); }
                 },
                 error: function (msg) { footErr = msg || null; gate.render(); }
             };
+            /**
+             * "Next lesson" shows only when it would open something. Kiosk: a next lesson that is still
+             * locked (an in-order course, before this one is credited) hides the button, so the only
+             * way on is the lesson's own finish button; it comes back once this lesson is done.
+             */
+            function syncNextBtn() {
+                var n = order[idx + 1];
+                nextBtn.hidden = !n || (isKiosk && isLocked(n));
+                if (ctx && ctx.noNext) { nextBtn.hidden = true; }
+            }
             function serverPct(g) {
                 var parts = [];
                 if (Number(g.required_s) > 0) { parts.push(Number(g.credit_s || 0) * 100 / Number(g.required_s)); }
@@ -779,7 +819,7 @@
                 return Math.round(Math.min.apply(null, parts.map(function (x) { return Math.min(100, x); })));
             }
             gate.set(true, '');
-            nextBtn.hidden = idx === order.length - 1;
+            syncNextBtn();
             if (progress.done[uid]) { completeBtn.hidden = true; nextBtn.classList.add('trp-btn--primary'); nextBtn.classList.remove('trp-btn--ghost'); }
 
             // ---- kiosk ticks (§7.6 #4): 15 s while visible (article, document, image, ack), 10 s while an
@@ -879,6 +919,7 @@
             }
             function goNext() {
                 var n = order[idx + 1];
+                if (isKiosk && n && isLocked(n) && !progress.done[uid]) { gate.error(t('k_finish_first')); return; }
                 if (n && !isLocked(n) && !(isKiosk && progress.done[n] && !nextUid(uid) && allRequiredDone())) { openLesson(n); return; }
                 if (!nextUid(null) && allRequiredDone()) { finishCourse(); return; }
                 if (isKiosk && allRequiredDone()) { finishCourse(); return; }
@@ -971,7 +1012,7 @@
             var next = h('button', { type: 'button', class: 'trp-doc__nav trp-doc__nav--next', 'aria-label': t('next'), on: { click: function () { go(cur + 1); } } }, icon('fa-chevron-right'));
             var zoomOut = h('button', { type: 'button', class: 'trp-round trp-round--btn', 'aria-label': t('zoom_out'), on: { click: function () { setZoom(zoom - 0.5); } } }, icon('fa-search-minus'));
             var zoomIn = h('button', { type: 'button', class: 'trp-round trp-round--btn', 'aria-label': t('zoom_in'), on: { click: function () { setZoom(zoom + 0.5); } } }, icon('fa-search-plus'));
-            var hint = h('span', { class: 'trp-doc__hint' }, [icon('fa-search-plus'), t('swipe_hint')]);
+            var hint = h('span', { class: 'trp-doc__hint' }, [icon(isKiosk && mouseOnly() ? 'fa-arrows-alt-h' : 'fa-search-plus'), isKiosk && mouseOnly() ? t('k_arrows_hint') : t('swipe_hint')]);
             var hintTimer = setTimeout(function () { hint.classList.add('is-faded'); }, 3000);
             cleanup.push(function () { clearTimeout(hintTimer); });
             var stage = h('div', { class: 'trp-doc__stage' }, [
@@ -1094,8 +1135,9 @@
                 var knob = h('span', { class: 'trp-scrub__knob' });
                 var scrub = h('div', { class: 'trp-scrub', role: 'slider', tabindex: '0', 'aria-label': t('furthest'), 'aria-valuemin': '0' }, [maxEl, fill, knob]);
                 var timeEl = h('span', { class: 'trp-vtime trp-mono' });
+                var bigPlay = h('button', { type: 'button', class: 'trp-video__bigplay', 'aria-label': t('play') }, icon('fa-play'));
                 var box = h('div', { class: 'trp-video' }, [
-                    h('div', { class: 'trp-video__stage' }, [video, h('span', { class: 'trp-video__badge' }, [icon('fa-film'), t('video_note_upload')])]),
+                    h('div', { class: 'trp-video__stage' }, [video, bigPlay, h('span', { class: 'trp-video__badge' }, [icon('fa-film'), t('video_note_upload')])]),
                     h('div', { class: 'trp-vcontrols' }, [playBtn, backBtn, h('div', { class: 'trp-scrub__wrap' }, [scrub, h('span', { class: 'trp-scrub__cap', text: t('furthest') })]), timeEl, fsBtn])
                 ]);
                 ctx.main.appendChild(box);
@@ -1112,6 +1154,7 @@
                     scrub.setAttribute('aria-valuemax', String(Math.round(d)));
                     scrub.setAttribute('aria-valuenow', String(Math.round(cur)));
                     var playing = !video.paused && !video.ended;
+                    bigPlay.hidden = playing;
                     playBtn.setAttribute('aria-label', playing ? t('pause') : t('play'));
                     clear(playBtn);
                     playBtn.appendChild(icon(playing ? 'fa-pause' : 'fa-play'));
@@ -1135,6 +1178,7 @@
                     status.appendChild(h('span', { text: t('video_error') }));
                 });
                 playBtn.addEventListener('click', function () { if (video.paused) { video.play().catch(function () { /* blocked or unsupported */ }); } else { video.pause(); } });
+                bigPlay.addEventListener('click', function () { video.play().catch(function () { /* blocked or unsupported */ }); });
                 backBtn.addEventListener('click', function () { video.currentTime = Math.max(0, video.currentTime - 10); });
                 fsBtn.addEventListener('click', function () { var st = box.querySelector('.trp-video__stage'); if (st && st.requestFullscreen) { st.requestFullscreen().catch(function () { /* ignore */ }); } });
                 function seekFromEvent(clientX) {
@@ -1405,20 +1449,24 @@
             var check = h('button', { type: 'button', class: 'trp-check', role: 'checkbox', 'aria-checked': 'false' }, [
                 h('span', { class: 'trp-check__box', 'aria-hidden': 'true' }, icon('fa-check')), h('span', { text: t('ack_confirm') })
             ]);
-            var signBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--xl' }, [icon('fa-pen-nib'), t('sign_continue')]);
-            var msg = h('div', { class: 'trp-vstatus is-error', role: 'alert', hidden: true });
+            // The Sign button lives in the sticky footer (always on screen, like the mockup), in place of
+            // Next / Mark complete; the footer status says what is left: tick, sign, PIN.
+            var signBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--lg trp-ack__sign' }, [icon('fa-pen-nib'), t('sign_continue')]);
+            // The last lesson of a course that is then signed off on sign.php: say this is step 1 of 2.
+            var lastThenSign = order.indexOf(l.uid) === order.length - 1 && !(view.course && view.course.kind === 'document');
             var parts = [
                 h('section', { class: 'trp-card trp-ack__statement' }, [
-                    h('div', { class: 'trp-kicker', text: t('ack_title') }),
+                    h('div', { class: 'trp-kicker', text: lastThenSign ? t('ack_title') + ' · ' + t('k_ack_step') : t('ack_title') }),
                     setTrustedHtml(h('div', { class: 'trp-article trp-article--statement' }), a.statement_html || '')
                 ]),
                 check
             ];
             var pad = null;
             if (a.require_signature) {
-                var padHost = h('section', { class: 'trp-card trp-sign trp-sign--kiosk' }, [h('div', { class: 'trp-sign__head' }, [h('strong', { text: t('sign_here') })])]);
+                var padHost = h('section', { class: 'trp-card trp-sign trp-sign--kiosk' });
                 parts.push(padHost);
                 var padOpts = {
+                    title: t('sign_here'),
                     onChange: function (ok) { inked = !!ok; sync(); },
                     name: adapter.learnerName || '',
                     date: new Date().toLocaleDateString(lang === 'es' ? 'es' : 'en', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -1426,6 +1474,7 @@
                 if (fn('signaturePad')) {
                     pad = adapter.signaturePad(padHost, padOpts);
                 } else {
+                    padHost.appendChild(h('div', { class: 'trp-sign__head' }, [h('strong', { text: t('sign_here') })]));
                     var own = signaturePad(function (ok) { inked = ok; sync(); });
                     padHost.appendChild(own.el);
                     pad = null;
@@ -1450,9 +1499,10 @@
                     dots, keys
                 ]));
             }
-            parts.push(msg);
-            parts.push(h('div', { class: 'trp-ack__actions' }, signBtn));
             ctx.main.appendChild(h('div', { class: 'trp-ack' }, parts));
+            var actions = ctx.foot.querySelector('.trp-foot__actions');
+            ctx.foot.querySelector('.trp-foot__actions .trp-btn--primary').hidden = true;
+            actions.appendChild(signBtn);
             ctx.onGate = function (met) { serverOk = !!met; syncBtn(); };
             function press(k) {
                 if (busy) { return; }
@@ -1461,6 +1511,10 @@
             }
             function localOk() { return checked && inked && (!needPin || pin.length >= 4); }
             function syncBtn() { signBtn.disabled = busy || !localOk() || !serverOk; }
+            function todo() {
+                var key = 'k_ack_' + (checked ? '' : 't') + (inked ? '' : 's') + (!needPin || pin.length >= 4 ? '' : 'p');
+                return key === 'k_ack_' ? '' : t(key);
+            }
             function sync() {
                 check.setAttribute('aria-checked', checked ? 'true' : 'false');
                 check.classList.toggle('is-on', checked);
@@ -1468,6 +1522,7 @@
                     clear(dots);
                     for (var i = 0; i < Math.max(4, pin.length); i++) { dots.appendChild(h('span', { class: 'trp-pin__dot' + (i < pin.length ? ' is-on' : '') })); }
                 }
+                ctx.gate.set(localOk(), localOk() ? t('k_checking') : todo(), null, true);
                 syncBtn();
             }
             check.addEventListener('click', function () { if (!busy) { checked = !checked; sync(); } });
@@ -1478,7 +1533,7 @@
                 var p = pin;
                 pin = '';   // never kept after the call
                 busy = true;
-                msg.hidden = true;
+                ctx.gate.error(null);
                 setBusy(signBtn, true);
                 keyBtns.forEach(function (b) { b.disabled = true; });
                 sync();
@@ -1500,17 +1555,12 @@
                     busy = false;
                     setBusy(signBtn, false);
                     keyBtns.forEach(function (b) { b.disabled = false; });
-                    clear(msg);
-                    msg.appendChild(icon('fa-exclamation-triangle'));
-                    msg.appendChild(h('span', { text: errText(e) }));
-                    msg.hidden = false;
                     if (e && (e.code === 'signature_invalid' || e.code === 'signature_empty') && pad && typeof pad.clear === 'function') { pad.clear(); inked = false; }
                     if (e && e.data && typeof e.data === 'object' && 'can_complete' in e.data) { ctx.gate.server(e.data); }
                     sync();
+                    ctx.gate.error(errText(e));   // in the footer, next to the button
                 });
             });
-            ctx.foot.querySelector('.trp-foot__actions .trp-btn--primary').hidden = true;
-            ctx.gate.set(true, t('req_sign'), null);
             sync();
         }
 
@@ -1571,11 +1621,11 @@
         }
 
         // ---------------- quiz ----------------
-        function quizMeta(qz) {
+        function quizMeta(qz, noAttempts) {
             var out = [h('span', null, [icon('fa-list-ol'), qz.question_count === 1 ? t('question_1') : t('questions_n', { n: qz.question_count })]),
                 h('span', null, [icon('fa-bullseye'), t('pass_pct', { pct: qz.pass_pct })])];
             if (qz.time_limit_s) { out.push(h('span', null, [icon('fa-stopwatch'), t('time_limit_min', { n: Math.round(qz.time_limit_s / 60) })])); }
-            out.push(h('span', null, [icon('fa-redo'), qz.max_attempts === 0 ? t('unlimited') : (qz.max_attempts === 1 ? t('attempts_1') : t('attempts_n', { n: qz.max_attempts }))]));
+            if (!noAttempts) { out.push(h('span', null, [icon('fa-redo'), qz.max_attempts === 0 ? t('unlimited') : (qz.max_attempts === 1 ? t('attempts_1') : t('attempts_n', { n: qz.max_attempts }))])); }
             return out;
         }
 
@@ -1585,20 +1635,26 @@
             ctx.foot.querySelector('.trp-foot__actions .trp-btn--primary').hidden = true;
             if (!qz) { ctx.main.appendChild(h('div', { class: 'trp-card trp-empty-note', text: t('questions_n', { n: 0 }) })); return; }
             var err = h('div', { class: 'trp-vstatus', role: 'status', 'aria-live': 'polite', hidden: true });
-            var start = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--xl' }, [t('quiz_start'), icon('fa-arrow-right')]);
+            var isExam = qz.role === 'exam';
+            var info = isKiosk && fn('quizInfo') ? adapter.quizInfo(l.uid) : null;
+            // The kiosk says "N tries left" under the facts, so the facts leave out "N attempts".
+            var triesNote = !!(info && typeof info === 'object' && !info.passed && !info.locked && Number(info.max) > 0 && typeof info.left === 'number');
+            var start = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--xl' }, [isKiosk && isExam ? t('k_exam_start') : t('quiz_start'), icon('fa-arrow-right')]);
+            var kicker = isExam ? t('t_exam') : (qz.role === 'check' ? t('t_check') : t('t_quiz'));
+            var sameAsTitle = String(l.title || '').trim().toLowerCase() === String(kicker).trim().toLowerCase();
             var card = h('section', { class: 'trp-card trp-qintro' }, [
-                h('span', { class: 'trp-qintro__icon', 'aria-hidden': 'true' }, icon(qz.role === 'exam' ? 'fa-graduation-cap' : 'fa-question-circle')),
-                h('div', { class: 'trp-kicker', text: qz.role === 'exam' ? t('t_exam') : (qz.role === 'check' ? t('t_check') : t('t_quiz')) }),
+                h('span', { class: 'trp-qintro__icon', 'aria-hidden': 'true' }, icon(isExam ? 'fa-graduation-cap' : 'fa-question-circle')),
+                sameAsTitle ? null : h('div', { class: 'trp-kicker', text: kicker }),
                 h('h2', { class: 'trp-qintro__title', text: l.title || t('t_quiz') }),
                 qz.intro ? h('p', { class: 'trp-qintro__text', text: qz.intro }) : null,
                 l.description_html ? setTrustedHtml(h('div', { class: 'trp-article trp-article--desc' }), l.description_html) : null,
-                h('div', { class: 'trp-meta trp-meta--center' }, quizMeta(qz)),
+                h('div', { class: 'trp-meta trp-meta--center' }, quizMeta(qz, triesNote)),
                 !canGrade ? h('p', { class: 'trp-note trp-note--center' }, [icon('fa-info-circle'), h('span', { text: t('grading_authors_only') })]) : null,
                 start, err
             ]);
             ctx.main.appendChild(card);
-            ctx.gate.set(!!progress.done[l.uid], t('req_quiz'), null);
-            var info = isKiosk && fn('quizInfo') ? adapter.quizInfo(l.uid) : null;
+            // '\u0000' = the text is the whole footer line (the exam's own wording, with the lock icon)
+            if (isKiosk && isExam) { ctx.gate.set(!!progress.done[l.uid], '\u0000' + t('k_exam_after'), null); } else { ctx.gate.set(!!progress.done[l.uid], t('req_quiz'), null); }
             if (info && typeof info === 'object') {
                 var note = null;
                 if (info.passed) {
@@ -1671,13 +1727,14 @@
             }
             cleanup.push(function () { if (!submitted) { flushSaves(); } });
             var timerPill = h('div', { class: 'trp-timer', hidden: deadline === null, role: 'timer', 'aria-live': 'off' });
-            var headTitle = (quiz.title || l.title || '') + (view.course.name ? ' · ' + view.course.name : '');
+            var exam = !!(l.quiz && l.quiz.role === 'exam');
             var header = h('header', { class: 'trp-qhead' }, [
-                h('span', { class: 'trp-qhead__icon', 'aria-hidden': 'true' }, icon(l.quiz && l.quiz.role === 'exam' ? 'fa-lock' : 'fa-question-circle')),
-                h('h1', { class: 'trp-qhead__title', text: headTitle }),
+                h('span', { class: 'trp-qhead__icon', 'aria-hidden': 'true' }, icon(exam ? 'fa-lock' : 'fa-question-circle')),
+                h('h1', { class: 'trp-qhead__title' }, [h('span', { text: quiz.title || l.title || '' }),
+                    view.course.name ? h('span', { class: 'trp-qhead__course', text: ' · ' + view.course.name }) : null]),
                 isKiosk && data.attempt_number ? h('span', { class: 'trp-pill trp-pill--info' }, [icon('fa-redo'),
                     Number(data.attempts_max) > 0 ? t('k_attempt_of', { n: data.attempt_number, max: data.attempts_max }) : t('attempt_n', { n: data.attempt_number })]) : null,
-                h('button', { type: 'button', class: 'trp-btn trp-btn--ghost trp-btn--sm', on: { click: function () { openLesson(l.uid); } } }, [icon('fa-times'), t('leave_quiz')]),
+                h('button', { type: 'button', class: 'trp-btn trp-btn--ghost trp-btn--sm', on: { click: function () { openLesson(l.uid); } } }, [icon('fa-times'), isKiosk && exam ? t('k_exam_leave') : t('leave_quiz')]),
                 timerPill
             ]);
             var progLabel = h('strong', { class: 'trp-qprog__label' });
@@ -1974,7 +2031,11 @@
             if (isKiosk) {
                 footText = kx && kx.signLabel ? t('k_score_saved') : t('k_score_recorded');
                 if (passed || kLocked) { retry.hidden = true; }
-                if (!passed && !kLocked) { retry.className = 'trp-btn trp-btn--primary trp-btn--lg'; cont.className = 'trp-btn trp-btn--ghost trp-btn--lg'; }
+                if (!passed && !kLocked) {
+                    retry.className = 'trp-btn trp-btn--primary trp-btn--lg';
+                    cont = h('button', { type: 'button', class: 'trp-btn trp-btn--ghost trp-btn--lg', on: { click: function () { renderHome(); } } }, [icon('fa-list-ul'), t('back_to_course')]);
+                    actions = [retry, cont];
+                }
                 if (kLocked) {
                     cont = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--lg', on: { click: function () { renderHome(); } } }, [icon('fa-list-ul'), t('back_to_course')]);
                     actions = [retry, cont];

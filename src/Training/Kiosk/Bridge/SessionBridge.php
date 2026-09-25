@@ -400,6 +400,13 @@ final class SessionBridge
         return (int) ($r['n'] ?? 0);
     }
 
+    /** The contact on an attendee row (no lock), or null - for the trainer's rights checks. */
+    public function attendeeContactId(int $attendeeId): ?int
+    {
+        $a = Db::one($this->c->db, 'SELECT tattendee_contact_id FROM training_session_attendees WHERE tattendee_id = ?', 'i', [$attendeeId]);
+        return $a === null ? null : (int) $a['tattendee_contact_id'];
+    }
+
     /** The session an attendee belongs to (no lock) - for ownership checks. */
     public function sessionOfAttendee(int $attendeeId): ?array
     {
@@ -419,7 +426,7 @@ final class SessionBridge
      * @return array{completions:list<array{contact_id:int, name:string, completion_id:int, cert_number:?string}>,
      *   pending:list<array{contact_id:int, name:string, reason:string}>, events:list<array>, opaque:array}
      */
-    public function finalize(int $tsessionId, int $trainerContactId, int $trainerTsigId, int $kioskId): array
+    public function finalize(int $tsessionId, int $trainerContactId, int $trainerTsigId, int $kioskId, ?\Closure $mayEvaluate = null): array
     {
         if (Db::depth() < 1) {
             throw new \LogicException('SessionBridge::finalize must run inside Db::tx');
@@ -431,6 +438,17 @@ final class SessionBridge
         RecordsMutex::acquire($db);
 
         $present = array_values(array_filter($atts, static fn($a) => $a['tattendee_removed_at_utc'] === null && $a['tattendee_attendance'] === 'present'));
+        // A practical pass/fail counts only when the finalizing trainer may evaluate that person now
+        // ($mayEvaluate, from the caller's rights check); otherwise the mark is left out and the
+        // person waits for a hands-on evaluation like anyone without a mark.
+        foreach ($present as $i => $a) {
+            $m = (string) $a['tattendee_practical'];
+            if (($m === 'pass' || $m === 'fail') && $mayEvaluate !== null && !$mayEvaluate((int) $a['tattendee_contact_id'])) {
+                $present[$i]['tattendee_practical'] = 'not_evaluated';
+                // The frozen roster (and its digest below) must not show a result that was never recorded.
+                Db::exec($db, "UPDATE training_session_attendees SET tattendee_practical = 'not_evaluated' WHERE tattendee_id = ?", 'i', [(int) $a['tattendee_id']]);
+            }
+        }
         if ($present === []) {
             throw new ApiException(422, 'validation', 'Check in at least one person, or mark someone present, before finishing.', ['attendees' => 'Nobody is present.']);
         }

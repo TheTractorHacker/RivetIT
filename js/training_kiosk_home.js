@@ -123,9 +123,18 @@
         if (st === 'continue') { return { href: courseUrl(c), label: t('home.btn_continue'), icon: 'fa-arrow-right', primary: true }; }
         return { href: courseUrl(c), label: t('home.btn_start'), icon: 'fa-arrow-right', primary: false };
     }
+    // Courses without a chosen cover or colour still look different from each other: a tint picked
+    // from the course id and the course's initials on the cover (Forklift and LOTO no longer match).
+    var TINTS = ['#0d9488', '#2563eb', '#7c3aed', '#d97706', '#16a34a', '#0891b2', '#db2777', '#475569'];
+    function monogram(name) {
+        var w = String(name || '').replace(/[^A-Za-z0-9À-ɏ\s/-]/g, ' ').split(/[\s/-]+/).filter(Boolean);
+        return (w.length > 1 ? w[0].charAt(0) + w[1].charAt(0) : (w[0] || '').slice(0, 2)).toUpperCase();
+    }
     function cover(c) {
         var art = el('div', { class: 'kl-card__cover kl-cover--' + (c.kind === 'document' ? 'doc' : 'course') });
-        if (c.color) { art.style.setProperty('--kl-tint', c.color); }
+        var tint = c.color || (c.kind === 'document' ? null : TINTS[Math.abs(Number(c.course_id) || 0) % TINTS.length]);
+        if (tint) { art.style.setProperty('--kl-tint', tint); }
+        if (!c.cover_url) { art.appendChild(el('span', { class: 'kl-card__mono', 'aria-hidden': 'true', text: monogram(c.name) })); }
         art.appendChild(el('span', { class: 'kl-card__art', 'aria-hidden': 'true' }, icon(c.kind === 'document' ? 'fa-file-signature' : 'fa-hard-hat')));
         if (c.cover_url) {
             var img = el('img', { src: c.cover_url, alt: '', loading: 'lazy', decoding: 'async' });

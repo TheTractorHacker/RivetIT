@@ -191,8 +191,9 @@
 
     function signBlock(label, name, onChange) {
         var holder = el('div', { class: 'kt-sign' });
-        var wrap = el('section', { class: 'kt-block' }, [el('h2', { class: 'kx-h3', text: label }), holder]);
-        var pad = K.ui.signaturePad(holder, { name: name || '', date: today(), onChange: onChange || null });
+        var wrap = el('section', { class: 'kt-block' }, [holder]);
+        // the heading sits on one row with "Clear signature", as in the mockup
+        var pad = K.ui.signaturePad(holder, { title: label, name: name || '', date: today(), onChange: onChange || null });
         return { el: wrap, pad: pad };
     }
 
@@ -395,7 +396,7 @@
         function mark(body, title) {
             pinAction(title, 'attendee_mark', Object.assign({ attendee_id: a.attendee_id }, body)).then(function (res) { if (res) { S = res; renderSession(); } });
         }
-        if (s.needs_practical) {
+        if (s.needs_practical && a.can_mark_practical) {   // the server says whether this trainer may record a hands-on result for this person
             actions.appendChild(btn(t('trn.pr_pass'), 'kx-btn--ghost', 'fa-check', function () { mark({ practical: 'pass' }, a.first + ': ' + t('trn.pr_pass')); }));
             actions.appendChild(btn(t('trn.pr_fail'), 'kx-btn--ghost', 'fa-times', function () { mark({ practical: 'fail' }, a.first + ': ' + t('trn.pr_fail')); }));
         }
@@ -526,13 +527,14 @@
                 avatar(p.initials, 'md'), el('span', { class: 'kt-name__text' }, [el('span', { class: 'kt-name__name', text: p.name }), el('span', { class: 'kx-row__sub', text: p.dept })])
             ]));
         });
-        var search = searchBox('checkin', t('trn.checkin_search'), checkinPerson, null);
+        var search = searchBox('checkin', t('trn.checkin_placeholder'), checkinPerson, null);
         var here = el('div', { class: 'kt-here' });
+        var listed = (C.suggested || []).length > 0;   // "Not on the list?" only when a list is shown
         (C.attendees || []).forEach(function (a) { here.appendChild(chip(a.name, 'ok', 'fa-check')); });
         show([
             heading(t('trn.hand_around'), t('trn.checkin_title', { course: s.course }), t('trn.checkin_sub')),
-            (C.suggested || []).length ? grid : null,
-            el('section', { class: 'kt-block' }, [el('h2', { class: 'kx-h3', text: t('trn.checkin_search') }), search.el,
+            listed ? grid : null,
+            el('section', { class: 'kt-block' }, [el('h2', { class: 'kx-h3', text: listed ? t('trn.checkin_search') : t('trn.checkin_type') }), search.el,
                 el('p', { class: 'kx-note', text: t('trn.checkin_search_hint') })]),
             el('section', { class: 'kt-block' }, [el('h2', { class: 'kx-h3', text: t('trn.checkin_in', { n: (C.attendees || []).length }) }), here]),
             exitLink()
@@ -609,7 +611,7 @@
     }
 
     function selfSession(s) {
-        var search = searchBox('checkin', t('trn.checkin_search'), function (p) {
+        var search = searchBox('checkin', t('trn.checkin_placeholder'), function (p) {
             checkinPerson(p, { session: s, action: 'checkin_self', extra: { tsession_id: s.tsession_id }, back: function () { selfSession(s); }, after: viewSelf });
         }, null);
         show([heading(s.trainer, t('trn.checkin_title', { course: s.course }), t('trn.checkin_search_hint')), search.el,

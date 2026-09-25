@@ -274,6 +274,7 @@
         var labels = o.labels || {};
         var value = '';
         var isBusy = false;
+        var typedWhileBusy = '';   // o.bufferWhileBusy: digits typed on a hardware keyboard while "Checking…" are kept for the next try
         var dotCount = maxLen <= 8 ? maxLen : Math.max(6, minLen);
         var dots = el('div', { class: 'kx-dots', 'aria-hidden': 'true' });
         var status = el('span', { class: 'kx-sr', role: 'status', 'aria-live': 'polite' });
@@ -311,8 +312,15 @@
         function back() { if (value.length) { value = value.slice(0, -1); changed(); } }
         function submit() { if (value.length >= minLen && typeof o.onSubmit === 'function') { o.onSubmit(value); } }
         function onKey(e) {
-            if (!document.body.contains(wrap) || isBusy || document.body.classList.contains('kx-has-dialog')) { return; }
+            if (!document.body.contains(wrap) || document.body.classList.contains('kx-has-dialog')) { return; }
             var tgt = e.target;
+            if (isBusy) {
+                if (o.bufferWhileBusy && /^[0-9]$/.test(e.key) && !(tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable))) {
+                    e.preventDefault();
+                    if (typedWhileBusy.length < maxLen) { typedWhileBusy += e.key; }
+                }
+                return;
+            }
             if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable)) { return; }
             if (/^[0-9]$/.test(e.key)) { e.preventDefault(); press(e.key); }
             else if (e.key === 'Backspace') { e.preventDefault(); back(); }
@@ -324,8 +332,12 @@
             el: wrap,
             clear: function () { value = ''; changed(); },
             value: function () { return value; },
+            /** Types digits as if pressed (a hardware keyboard's digits typed before the keypad was ready). */
+            feed: function (digits) { String(digits || '').replace(/[^0-9]/g, '').split('').forEach(function (d) { if (!isBusy) { press(d); } }); },
             setBusy: function (b) {
+                var wasBusy = isBusy;
                 isBusy = !!b;
+                if (!isBusy && wasBusy && typedWhileBusy) { var q = typedWhileBusy; typedWhileBusy = ''; q.split('').forEach(function (d) { if (value.length < maxLen) { value += d; } }); }
                 keys.forEach(function (k) { k.disabled = isBusy; });
                 wrap.classList.toggle('is-busy', isBusy);
                 if (isBusy) { wrap.setAttribute('aria-busy', 'true'); } else { wrap.removeAttribute('aria-busy'); }
@@ -333,6 +345,7 @@
             },
             destroy: function () {
                 value = '';
+                typedWhileBusy = '';
                 document.removeEventListener('keydown', onKey);
                 if (wrap.parentNode) { wrap.parentNode.removeChild(wrap); }
             }
@@ -348,11 +361,21 @@
      * 500 + margin). The name/date/baseline decorations are DOM, never part of the PNG. A resize
      * or rotation clears the pad and asks again.
      */
+    /** A mouse-only screen (a Windows PC): wording says "mouse" instead of "finger". */
+    function mouseOnly() {
+        try {
+            return !!(window.matchMedia && window.matchMedia('(pointer: fine)').matches && !window.matchMedia('(any-pointer: coarse)').matches
+                && !(navigator.maxTouchPoints > 0) && !('ontouchstart' in window));
+        } catch (e) { return false; }
+    }
+
+    /** o.title: a heading shown on the same row as "Clear signature" (the mockup's layout). */
     function signaturePad(container, o) {
         o = o || {};
-        var canvas = el('canvas', { class: 'kx-sign__canvas', role: 'img', 'aria-label': t('shell.sign_here') });
+        var hereText = mouseOnly() ? t('shell.sign_here_mouse') : t('shell.sign_here');
+        var canvas = el('canvas', { class: 'kx-sign__canvas', role: 'img', 'aria-label': hereText });
         var clearBtn = el('button', { type: 'button', class: 'kx-btn kx-btn--ghost kx-sign__clear' }, [icon('fa-undo'), el('span', { text: t('shell.sign_clear') })]);
-        var hint = el('span', { class: 'kx-sign__hint', 'aria-hidden': 'true', text: t('shell.sign_here') });
+        var hint = el('span', { class: 'kx-sign__hint', 'aria-hidden': 'true', text: hereText });
         var note = el('p', { class: 'kx-note kx-sign__note', role: 'status', 'aria-live': 'polite', hidden: true });
         var meta = el('div', { class: 'kx-sign__meta', 'aria-hidden': 'true' }, [
             el('span', { text: o.name ? String(o.name) : '' }), el('span', { text: o.date ? String(o.date) : '' })
@@ -364,7 +387,8 @@
             hint,
             meta
         ]);
-        var wrap = el('div', { class: 'kx-sign' }, [el('div', { class: 'kx-sign__head' }, [clearBtn]), area, note]);
+        var wrap = el('div', { class: 'kx-sign' }, [el('div', { class: 'kx-sign__head' + (o.title ? ' has-title' : '') }, [
+            o.title ? el('strong', { class: 'kx-sign__title', text: String(o.title) }) : null, clearBtn]), area, note]);
         container.appendChild(wrap);
 
         var strokes = [];        // [[{x,y}, ...], ...] in CSS px of the visible canvas
@@ -540,8 +564,25 @@
         warnShown = false;
     }
 
+    /** Check-in and hand-off are left only with the trainer PIN: their screens offer no sign-out. */
+    function restrictedRole() {
+        var s = data().session;
+        return !!(s && (s.role === 'checkin' || s.role === 'handoff'));
+    }
+
+    /** "Still there?" for a page's own onWarn: the seconds count down on screen (a page's custom warning is not refreshed by idleCheck). */
+    function idleDialog(left) {
+        var d = confirmDialog(t('shell.idle_body', { seconds: left }), t('shell.idle_stay'), restrictedRole() ? null : t('shell.idle_leave'), { title: t('shell.idle_title') });
+        var end = Date.now() + Math.max(1, Number(left) || 1) * 1000;
+        var timer = setInterval(function () {
+            if (d.body) { d.body.textContent = t('shell.idle_body', { seconds: Math.max(0, Math.ceil((end - Date.now()) / 1000)) }); }
+        }, 1000);
+        d.then(function () { clearInterval(timer); });
+        return d;
+    }
+
     function defaultWarn(left) {
-        var d = confirmDialog(t('shell.idle_body', { seconds: left }), t('shell.idle_stay'), t('shell.idle_leave'), { title: t('shell.idle_title') });
+        var d = confirmDialog(t('shell.idle_body', { seconds: left }), t('shell.idle_stay'), restrictedRole() ? null : t('shell.idle_leave'), { title: t('shell.idle_title') });
         warnDialog = d;
         d.then(function (stay) {
             warnDialog = null;
@@ -722,7 +763,8 @@
         setLang: setLang,
         idle: idle,
         session: session,
-        ui: { el: el, icon: icon, keypad: keypad, signaturePad: signaturePad, toast: toast, confirm: confirmDialog, busy: busy },
+        ui: { el: el, icon: icon, keypad: keypad, signaturePad: signaturePad, toast: toast, confirm: confirmDialog, busy: busy, idleDialog: idleDialog },
+        mouseOnly: mouseOnly,
         guardBfcache: guardBfcache,
         KioskError: KioskError
     };

@@ -113,7 +113,7 @@ final class KioskAdminActions
         Access::apiKiosk(3);
         $r = (new DeviceEnrollment($c, self::keys()))->enrollHere((int) $a->int('asset_id', true, 1), (string) $a->str('label', 100),
             (int) ($a->int('default_client_id', false, 0) ?? 0), (bool) $a->bool('replace', false));
-        return ['kiosk_id' => $r['kiosk_id'], 'label' => $r['label'], 'start_url' => $r['start_url'], 'personal' => $r['personal']];
+        return ['kiosk_id' => $r['kiosk_id'], 'label' => $r['label'], 'start_url' => $r['start_url'], 'open_url' => $r['open_url'], 'personal' => $r['personal']];
     }
 
     /** POST kiosk_enroll_code {asset_id, label, default_client_id, replace?} (kiosk 3) [S]. */
@@ -138,7 +138,7 @@ final class KioskAdminActions
     {
         Access::apiKiosk(3);
         $r = (new DeviceEnrollment($c, self::keys()))->reissue((int) $a->int('kiosk_id', true, 1));
-        return ['start_url' => $r['start_url'], 'label' => $r['label'], 'personal' => $r['personal']];
+        return ['start_url' => $r['start_url'], 'open_url' => $r['open_url'], 'label' => $r['label'], 'personal' => $r['personal']];
     }
 
     /** POST kiosk_clear_cooldown {kiosk_id, reason} (kiosk >= 2). */

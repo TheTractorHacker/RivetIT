@@ -45,6 +45,18 @@ if (!empty($config_theme_accent_custom) && preg_match('/^#[0-9A-Fa-f]{6}$/D', (s
 }
 $k_dark = intval($config_theme_dark_default ?? 0) === 1;
 $k_brand = $kctx->ks->brandWord();
+// The company logo (Settings > Company), shown left of the brand as in the mockups; a plain file name only.
+$k_logo = null;
+try {
+    $k_logo_row = \ITFlow\Training\Core\Db::one($kctx->db(), 'SELECT company_logo FROM companies WHERE company_id = 1');
+    $k_logo_file = (string) ($k_logo_row['company_logo'] ?? '');
+    if ($k_logo_file !== '' && preg_match('/^[A-Za-z0-9._-]{1,200}$/D', $k_logo_file) === 1 && !str_contains($k_logo_file, '..')
+        && preg_match('/\.(png|jpe?g|gif|webp|svg)$/iD', $k_logo_file) === 1 && is_file(dirname(__DIR__, 2) . '/uploads/settings/' . $k_logo_file)) {
+        $k_logo = '/uploads/settings/' . rawurlencode($k_logo_file);
+    }
+} catch (\Throwable $e) {
+    $k_logo = null;
+}
 // set_language needs an enrolled device (pre-auth) or a session; the not-set-up screen is bilingual instead.
 $k_toggle = ($k_page['lang_toggle'] ?? true) !== false && $kctx->device !== null;
 $k_t = static fn(string $key, array $vars = []): string => \ITFlow\Training\Kiosk\Core\KioskStrings::t($k_lang, $key, $vars);
@@ -80,7 +92,7 @@ $k_t = static fn(string $key, array $vars = []): string => \ITFlow\Training\Kios
 </head>
 <body class="kx<?= isset($k_page['body_class']) && preg_match('/^[a-z0-9 _-]{1,80}$/D', (string) $k_page['body_class']) === 1 ? ' ' . $k_h($k_page['body_class']) : '' ?>">
 <header class="kx-top">
-  <div class="kx-brand"><span class="kx-brand__word"><?= $k_h($k_brand) ?></span> <span class="kx-brand__accent"><?= $k_h($k_t('shell.brand_suffix')) ?></span></div>
+  <div class="kx-brand"><?php if ($k_logo !== null) { ?><img class="kx-brand__logo" src="<?= $k_h($k_logo) ?>" alt=""><?php } ?><span class="kx-brand__word"><?= $k_h($k_brand) ?></span> <span class="kx-brand__accent"><?= $k_h($k_t('shell.brand_suffix')) ?></span></div>
   <div class="kx-top__right">
 <?php if ($k_toggle) { ?>
     <div class="kx-seg" role="group" aria-label="<?= $k_h($k_t('shell.lang_group')) ?>">
@@ -88,7 +100,10 @@ $k_t = static fn(string $key, array $vars = []): string => \ITFlow\Training\Kios
       <button type="button" class="kx-seg__btn" data-kx-lang="es" lang="es" aria-label="Español" aria-pressed="<?= $k_lang === 'es' ? 'true' : 'false' ?>"><span>ES</span></button>
     </div>
 <?php } ?>
-<?php if ($k_session !== null) { ?>
+<?php
+// Check-in and hand-off hand the device to other people: the header shows no one's name (the trainer's
+// would sit over "Hi Marisol") and no Done (leaving those modes needs the trainer PIN).
+if ($k_session !== null && !in_array((string) ($k_session['ksess_role'] ?? ''), ['checkin', 'handoff'], true)) { ?>
     <span class="kx-top__sep" aria-hidden="true"></span>
     <div class="kx-who">
       <span class="kx-avatar" aria-hidden="true"><?= $k_h($k_session['initials'] ?? '') ?></span>

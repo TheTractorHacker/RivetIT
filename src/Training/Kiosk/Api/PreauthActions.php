@@ -31,18 +31,31 @@ final class PreauthActions
     public const PIN_PER_MIN = 20;
     public const ADOPT_PER_MIN = 10;
 
-    /** POST adopt_device {token, replace?} (anon). */
+    /**
+     * POST adopt_device {token, replace?} (anon).
+     *
+     * The token is looked up FIRST: a valid start-URL token (256 random bits, so it can't be
+     * guessed) is never rate-limited, which keeps an anonymous flood from stopping real devices
+     * (a Windows kiosk re-adopts after every public-browsing reset). Only malformed or unknown
+     * tokens count in the shared bucket, and once it is full they get 429 instead of 403.
+     */
     public static function adoptDevice(KioskCtx $k, ApiContext $a): array
     {
-        if (!RateLimiter::hit($k->db(), 'adopt:all', 60, self::ADOPT_PER_MIN)) {
-            throw new ApiException(429, 'rate_limited', 'Too many tries. Wait a minute.');
-        }
         $token = $a->input['token'] ?? null;
-        if (!is_string($token)) {
-            throw ApiException::validation(['token' => 'Invalid.']);
+        try {
+            if (!is_string($token)) {
+                throw ApiException::validation(['token' => 'Invalid.']);
+            }
+            $r = KioskAuth::adopt($k->db(), $k->ks, $token, (bool) $a->bool('replace', false));
+        } catch (ApiException $e) {
+            if (in_array($e->errCode, ['validation', 'device_not_enrolled'], true)
+                && !RateLimiter::hit($k->db(), 'adopt:bad', 60, self::ADOPT_PER_MIN)) {
+                throw new ApiException(429, 'rate_limited', 'Too many tries. Wait a minute.');
+            }
+            throw $e;
+        } finally {
+            unset($token);
         }
-        $r = KioskAuth::adopt($k->db(), $k->ks, $token, (bool) $a->bool('replace', false));
-        unset($token);
         return ['label' => $r['label'], 'next' => '/kiosk/'];
     }
 

@@ -23,6 +23,12 @@
  *   - Playback speed is pinned to 1x: a speed change is reset and the video paused.
  *   - The API <script> carries the page's CSP nonce (window.CSP_NONCE, opts.nonce, or the nonce of
  *     an existing script); the CSP also allowlists the exact API paths.
+ *   - opts.transport === 'postmessage' (the kiosk video page): NO provider script is loaded at all. The
+ *     page drives the player iframe with the providers' own postMessage protocols (YouTube's widget
+ *     channel: "listening" / "command" out, "onReady" / "infoDelivery" / "onStateChange" / "onError" in;
+ *     Vimeo's {method, value} out, {event, data} / {method, value} in), accepting messages only from the
+ *     iframe's window and the provider's origin. Third-party code then never runs in the kiosk origin,
+ *     so it can never open or read another kiosk page (the full session CSRF token lives there).
  */
 (function () {
     'use strict';
@@ -109,6 +115,129 @@
     function safeCode(prefix, raw) {
         var c = prefix + String(raw === undefined || raw === null ? 'error' : raw).replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 30);
         return c.length > 40 ? c.slice(0, 40) : c;
+    }
+
+    /**
+     * YouTube without iframe_api: the same widget protocol iframe_api speaks. The embed URL carries
+     * enablejsapi=1 and origin=<this site> (VideoLink::embedUrl), so the player posts to this page.
+     */
+    function ytBridge(iframe, h) {
+        var ORIGIN = 'https://www.youtube-nocookie.com';
+        var id = 1 + Math.floor(Math.random() * 100000);
+        var info = { currentTime: 0, duration: 0, playerState: -1, videoData: null, playbackRate: 1 };
+        var ready = false;
+        var heard = false;
+        var listenTimer = null;
+        function send(o) { try { iframe.contentWindow.postMessage(JSON.stringify(o), ORIGIN); } catch (e) { /* frame gone */ } }
+        function cmd(func, args) { send({ event: 'command', func: func, args: args || [], id: id, channel: 'widget' }); }
+        function num(v) { v = Number(v); return isFinite(v) ? v : null; }
+        function absorb(i) {
+            if (!i || typeof i !== 'object') { return; }
+            if (num(i.currentTime) !== null) { info.currentTime = num(i.currentTime); }
+            if (num(i.duration) !== null && num(i.duration) > 0) { info.duration = num(i.duration); }
+            if (i.videoData && typeof i.videoData === 'object') { info.videoData = { video_id: String(i.videoData.video_id || '') }; }
+            if (num(i.playbackRate) !== null && num(i.playbackRate) !== info.playbackRate) { info.playbackRate = num(i.playbackRate); h.rate(info.playbackRate); }
+            if (num(i.playerState) !== null && num(i.playerState) !== info.playerState) { info.playerState = num(i.playerState); h.state(info.playerState); }
+        }
+        function onMsg(e) {
+            if (e.source !== iframe.contentWindow || e.origin !== ORIGIN) { return; }
+            var d = e.data;
+            if (typeof d === 'string') { try { d = JSON.parse(d); } catch (x) { return; } }
+            if (!d || typeof d !== 'object' || typeof d.event !== 'string') { return; }
+            heard = true;
+            if (listenTimer) { clearInterval(listenTimer); listenTimer = null; }
+            if (d.event === 'onReady' || d.event === 'initialDelivery') {
+                absorb(d.info);
+                if (!ready) {
+                    ready = true;
+                    ['onStateChange', 'onError', 'onPlaybackRateChange'].forEach(function (ev) { cmd('addEventListener', [ev]); });
+                    h.ready();
+                }
+            } else if (d.event === 'infoDelivery') {
+                absorb(d.info);
+            } else if (d.event === 'onStateChange') {
+                if (num(d.info) !== null && num(d.info) !== info.playerState) { info.playerState = num(d.info); h.state(info.playerState); }
+            } else if (d.event === 'onError') {
+                h.error(d.info);
+            } else if (d.event === 'onPlaybackRateChange') {
+                if (num(d.info) !== null) { info.playbackRate = num(d.info); h.rate(info.playbackRate); }
+            }
+        }
+        window.addEventListener('message', onMsg);
+        function listen() { if (!heard) { send({ event: 'listening', id: id, channel: 'widget' }); } }
+        iframe.addEventListener('load', function () { listen(); if (!listenTimer && !heard) { listenTimer = setInterval(listen, 250); } });
+        var giveUp = setTimeout(function () { if (!ready) { h.fail(); } }, API_TIMEOUT_MS);
+        return {
+            playVideo: function () { cmd('playVideo'); },
+            pauseVideo: function () { cmd('pauseVideo'); },
+            seekTo: function (sec, ahead) { cmd('seekTo', [sec, !!ahead]); info.currentTime = sec; },
+            setPlaybackRate: function (r) { cmd('setPlaybackRate', [r]); },
+            getDuration: function () { return info.duration || 0; },
+            getCurrentTime: function () { return info.currentTime || 0; },
+            getVideoData: function () { return info.videoData; },
+            isReady: function () { return ready; },
+            destroy: function () { clearTimeout(giveUp); if (listenTimer) { clearInterval(listenTimer); } window.removeEventListener('message', onMsg); }
+        };
+    }
+
+    /** Vimeo without player.js: the embed's own {method, value} message API. */
+    function vimeoBridge(iframe, h) {
+        var ORIGIN = 'https://player.vimeo.com';
+        var ready = false;
+        var heard = false;
+        var pingTimer = null;
+        var duration = 0;
+        var current = 0;
+        var videoId = null;
+        function send(method, value) {
+            var m = { method: method };
+            if (value !== undefined) { m.value = value; }
+            try { iframe.contentWindow.postMessage(m, ORIGIN); } catch (e) { /* frame gone */ }
+        }
+        function onMsg(e) {
+            if (e.source !== iframe.contentWindow || e.origin !== ORIGIN) { return; }
+            var d = e.data;
+            if (typeof d === 'string') { try { d = JSON.parse(d); } catch (x) { return; } }
+            if (!d || typeof d !== 'object') { return; }
+            if (!heard) {
+                heard = true;
+                if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }
+                ['play', 'playing', 'pause', 'ended', 'timeupdate', 'playbackratechange', 'error'].forEach(function (ev) { send('addEventListener', ev); });
+                send('getDuration');
+                send('getVideoId');
+            }
+            if (d.method === 'getDuration' && Number(d.value) > 0) { duration = Number(d.value); if (!ready) { ready = true; h.ready(); } return; }
+            if (d.method === 'getVideoId' && /^[0-9]{1,12}$/.test(String(d.value))) { videoId = String(d.value); return; }
+            var data = d.data && typeof d.data === 'object' ? d.data : {};
+            if (typeof data.seconds === 'number') { current = data.seconds; }
+            if (typeof data.duration === 'number' && data.duration > 0) { duration = data.duration; }
+            switch (d.event) {
+                case 'ready': if (!ready && duration > 0) { ready = true; h.ready(); } else { send('getDuration'); } break;
+                case 'play': h.play(false); break;
+                case 'playing': h.play(true); break;
+                case 'pause': h.pause(); break;
+                case 'ended': h.ended(); break;
+                case 'timeupdate': h.time(); break;
+                case 'playbackratechange': if (typeof data.playbackRate === 'number') { h.rate(data.playbackRate); } break;
+                case 'error': h.error(data.name || 'error'); break;
+                default: break;
+            }
+        }
+        window.addEventListener('message', onMsg);
+        function ping() { if (!heard) { send('ping'); send('addEventListener', 'ready'); } }
+        iframe.addEventListener('load', function () { ping(); if (!pingTimer && !heard) { pingTimer = setInterval(ping, 400); } });
+        var giveUp = setTimeout(function () { if (!ready) { h.fail(); } }, API_TIMEOUT_MS);
+        var resolved = function (v) { return Promise.resolve(v); };
+        return {
+            play: function () { send('play'); return resolved(); },
+            pause: function () { send('pause'); return resolved(); },
+            setCurrentTime: function (sec) { send('setCurrentTime', sec); current = sec; return resolved(sec); },
+            setPlaybackRate: function (r) { send('setPlaybackRate', r); return resolved(r); },
+            getDuration: function () { return resolved(duration); },
+            getCurrentTime: function () { return resolved(current); },
+            getVideoId: function () { return videoId ? resolved(videoId) : Promise.reject(new Error('unknown')); },
+            unload: function () { clearTimeout(giveUp); if (pingTimer) { clearInterval(pingTimer); } window.removeEventListener('message', onMsg); return resolved(); }
+        };
     }
 
     function mount(container, opts) {
@@ -218,6 +347,47 @@
             }
         }
 
+        if (opts.transport === 'postmessage' && provider === 'youtube') {
+            var ytRead = function () { return Promise.resolve(player ? player.getCurrentTime() : 0); };
+            var ytDur = function () { return Promise.resolve(player ? player.getDuration() : 0); };
+            player = ytBridge(iframe, {
+                ready: function () { lastDuration = Number(player.getDuration()) || 0; call('onReady', ctrl); },
+                state: function (st) {
+                    if (st === 1) { onPlay(ytDur, ytRead); return; }
+                    if (st === 2 || st === 0) {
+                        playing = false;
+                        stopPoll();
+                        lastTime = Number(player.getCurrentTime()) || lastTime;
+                        call('onTime', { current: lastTime, duration: lastDuration });
+                        call('onState', st === 0 ? 'ended' : 'paused');
+                        return;
+                    }
+                    if (st === 3) { call('onState', 'buffering'); }
+                },
+                rate: function (r) { if (r !== 1) { player.setPlaybackRate(1); player.pauseVideo(); } },
+                error: function (code) { playing = false; stopPoll(); fail(safeCode('yt_', code)); },
+                fail: function () { fail('api_load_failed'); }
+            });
+            return ctrl;
+        }
+        if (opts.transport === 'postmessage' && provider === 'vimeo') {
+            player = vimeoBridge(iframe, {
+                ready: function () { player.getDuration().then(function (d) { lastDuration = Number(d) || 0; call('onReady', ctrl); }); },
+                play: function (confirmed) { onPlay(function () { return player.getDuration(); }, function () { return player.getCurrentTime(); }, confirmed); },
+                pause: function () { playing = false; stopPoll(); player.getCurrentTime().then(function (t) { lastTime = t; }); call('onState', 'paused'); },
+                ended: function () { playing = false; stopPoll(); call('onState', 'ended'); },
+                time: function () {
+                    player.getCurrentTime().then(function (t) { lastTime = t; });
+                    player.getDuration().then(function (d) { if (d > 0) { lastDuration = d; } });
+                    // no 'playing' event from an older embed: time moving while playing is the proof of play
+                    if (playing && !firedPlaying && lastTime > 0.5) { onPlay(function () { return player.getDuration(); }, function () { return player.getCurrentTime(); }, true); }
+                },
+                rate: function (r) { if (r !== 1) { player.setPlaybackRate(1); player.pause(); } },
+                error: function (name) { playing = false; stopPoll(); fail(safeCode('vimeo_', name)); },
+                fail: function () { fail('api_load_failed'); }
+            });
+            return ctrl;
+        }
         if (provider === 'youtube') {
             loadYouTube(pageNonce(opts)).then(function (YT) {
                 if (destroyed) { return; }

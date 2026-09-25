@@ -10,7 +10,9 @@
  *        HTML pages: Sec-Fetch-Dest present and not document, or Sec-Fetch-Mode present and not
  *        navigate                                        -> 403 (a same-origin fetch() can't read pages)
  *        external_video: Sec-Fetch-Mode must be PRESENT, else $kiosk_video_unsupported = true and the
- *        page falls back to the strict profile (it renders "update this device", never the player)
+ *        page falls back to the strict profile (it renders "update this device", never the player).
+ *        external_video differs from strict only by frame-src (the two player hosts) and its
+ *        Referrer-Policy; no third-party script is allowed on any kiosk page
  *   2  headers: XFO DENY, nosniff, no-store, COOP, Permissions-Policy, and the profile's CSP
  *   3  the app (config, functions, global settings, time zone) inside an output buffer; then assert
  *      that NO PHP session is active - /kiosk/ never starts one (§0.2)
@@ -92,8 +94,11 @@ if ($KIOSK_CSP_PROFILE === 'strict') {
     header('Content-Security-Policy: ' . $kiosk_csp_strict);
     header('Referrer-Policy: no-referrer');
 } elseif ($KIOSK_CSP_PROFILE === 'external_video') {
-    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$kiosk_csp_nonce' https://static.cloudflareinsights.com "
-        . "https://www.youtube.com/iframe_api https://www.youtube.com/s/player/ https://player.vimeo.com/api/player.js; "
+    // The YouTube/Vimeo player runs ONLY inside its cross-origin iframe: the page drives it over
+    // postMessage (js/training_video_embed.js, transport 'postmessage') and loads no provider script,
+    // so script-src is the same as strict. A provider script in this origin could window.open() another
+    // kiosk page (CSP does not govern that) and read its full session CSRF token (security review).
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$kiosk_csp_nonce' https://static.cloudflareinsights.com; "
         . "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self'; font-src 'self'; "
         . "connect-src 'self' https://cloudflareinsights.com; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; "
         . "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'");

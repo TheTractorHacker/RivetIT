@@ -40,11 +40,16 @@ final class RunService
     // =========================================================================================
 
     /**
-     * run_start {course_id}: resumes the open run or opens a new one on the course's CURRENT
+     * run_start {course_id, lang?}: resumes the open run or opens a new one on the course's CURRENT
      * revision (§3.4). An in-progress run that is blocked, or on a revision that requires
      * retraining, is superseded by a fresh run on the current revision.
+     *
+     * $lang (the learner's explicit choice, when the course has it) sets a new run's language. A run
+     * keeps its language once work is recorded (L-9), but an open run with nothing done yet (no
+     * lesson completion, no exam attempt) in another language is superseded by a new run in $lang,
+     * so a person who tapped Start on the wrong language is not stuck with it.
      */
-    public function start(int $courseId): array
+    public function start(int $courseId, ?string $lang = null): array
     {
         $db = $this->k->db();
         $cid = $this->contact();
@@ -60,13 +65,16 @@ final class RunService
         }
         $bridge = new RecordsBridge($this->k->core);
         $assignmentId = $bridge->openAssignmentId($cid, $courseId);
-        $lang = $this->preferredLanguage($cid, $doc);
+        $asked = $lang !== null && in_array($lang, $doc['course']['languages'] ?? [], true) ? $lang : null;
+        $lang = $asked ?? $this->preferredLanguage($cid, $doc);
         $actor = $this->k->eventBase();
 
-        $run = Db::tx($db, function () use ($db, $cid, $courseId, $course, $rev, $doc, $bridge, $assignmentId, $lang, $actor): array {
+        $run = Db::tx($db, function () use ($db, $cid, $courseId, $course, $rev, $doc, $bridge, $assignmentId, $lang, $asked, $actor): array {
             $open = RunRepo::open($db, $cid, $courseId, true);
             $old = null;
-            if ($open !== null) {
+            if ($open !== null && $asked !== null && (string) $open['trun_language'] !== $asked && self::isFresh($db, $open)) {
+                $old = $open;   // nothing done yet: start over in the language the person chose
+            } elseif ($open !== null) {
                 $inProgress = $open['trun_status'] === 'in_progress';
                 $sameRev = (int) $open['trun_revision_id'] === $rev['id'];
                 if ($inProgress && $open['trun_blocked_reason'] !== null && !$sameRev) {
@@ -145,9 +153,45 @@ final class RunService
             'current_gate' => $currentLesson === null ? null : self::gateFor($run, $doc, $currentLesson, $done),
             'quizzes' => (object) $quizzes,
             'attested' => $run['trun_attested_at_utc'] !== null,
+            // nothing recorded yet: the course page may still switch the run to the screen's language
+            'fresh' => $status === 'in_progress' && $done === [] && $run['trun_locked_at_utc'] === null && $run['trun_blocked_reason'] === null
+                && array_sum(array_map(static fn($q) => (int) ($q['used'] ?? 0), $quizzes)) === 0,
             'completion_id' => $run['trun_completion_id'] === null ? null : (int) $run['trun_completion_id'],
             'awaiting' => in_array($status, RunRepo::AWAITING, true) ? $status : null,
         ];
+    }
+
+    /**
+     * set_language (learner): open runs with nothing done yet follow the person's new language when
+     * their course has it (each is superseded by a new run via start()). Best-effort: a course that
+     * can't start now is left as it is.
+     */
+    public function followLanguage(string $lang): void
+    {
+        $db = $this->k->db();
+        $cid = $this->contact();
+        foreach (RunRepo::openRuns($db, $cid) as $r) {
+            if ((string) $r['trun_language'] === $lang || !self::isFresh($db, $r)) {
+                continue;
+            }
+            try {
+                $this->start((int) $r['trun_course_id'], $lang);
+            } catch (\Throwable $e) {
+                error_log('Kiosk followLanguage: ' . get_class($e));
+            }
+        }
+    }
+
+    /** An open in-progress run with nothing recorded yet: no lesson completion, no exam attempt, not locked, blocked or signed. */
+    public static function isFresh(\mysqli $db, array $run): bool
+    {
+        if ((string) $run['trun_status'] !== 'in_progress' || $run['trun_locked_at_utc'] !== null || $run['trun_blocked_reason'] !== null
+            || $run['trun_attested_at_utc'] !== null) {
+            return false;
+        }
+        $id = (int) $run['trun_id'];
+        return Db::one($db, 'SELECT 1 AS x FROM training_lesson_completions WHERE lcomp_run_id = ? LIMIT 1', 'i', [$id]) === null
+            && Db::one($db, 'SELECT 1 AS x FROM training_attempts WHERE tattempt_run_id = ? LIMIT 1', 'i', [$id]) === null;
     }
 
     /** The state of the caller's own run by id (course.php, sign.php). */

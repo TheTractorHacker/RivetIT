@@ -2,7 +2,7 @@
  * Training › Set up this device (P3 spec §5.8, plan A21). Asset search (kiosk_asset_options),
  * name + default department, kiosk_enroll_here, then the one-time start URL. "Open training on
  * this device" always signs the agent out first: fetch('/agent/post.php?logout') with
- * redirect:'manual', then location.replace(start_url). Everything renders with textContent.
+ * redirect:'manual', then location.replace(open_url) (the #d= form; the ?d= start_url is only shown, for kiosk-mode browsers). Everything renders with textContent.
  */
 (function () {
     'use strict';
@@ -19,7 +19,8 @@
         var details = $('tr-setup-details');
         var done = $('tr-setup-done');
         var chosen = null;
-        var startUrl = null;
+        var startUrl = null;   // /kiosk/?d=<token>: shown once, for a kiosk-mode browser's start page
+        var openUrl = null;    // /kiosk/#d=<token>: "Open training" here (a fragment never reaches a server)
         var seq = 0;
 
         (data.departments || []).forEach(function (d) {
@@ -102,6 +103,7 @@
                 default_client_id: parseInt($('tr-setup-dept').value, 10) || 0, replace: !!chosen.active_kiosk
             }).then(function (res) {
                 startUrl = res.start_url;
+                openUrl = res.open_url || res.start_url;
                 $('tr-setup-form-card').hidden = true;
                 details.hidden = true;
                 done.hidden = false;
@@ -139,12 +141,13 @@
         });
 
         $('tr-setup-open').addEventListener('click', function () {
-            if (!startUrl) { return; }
+            if (!openUrl) { return; }
             var btn = this;
             btn.disabled = true;
             var go = function () {
-                var u = startUrl;
+                var u = openUrl;
                 startUrl = null;
+                openUrl = null;
                 $('tr-setup-url').value = '';
                 window.location.replace(u);
             };

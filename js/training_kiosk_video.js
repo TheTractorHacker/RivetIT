@@ -145,6 +145,9 @@
         doneBtn.hidden = !!isDone;
         nextBtn.classList.toggle('kx-btn--primary', !!isDone);
         nextBtn.classList.toggle('kx-btn--ghost', !isDone);
+        // Before this lesson is done the next one is still locked (it would only bounce back to the course page),
+        // and the last lesson has no next one: the finish button (or "← Course") is the way on.
+        nextBtn.hidden = !isDone || !P.up_next;
         while (chip.firstChild) { chip.removeChild(chip.firstChild); }
         chip.className = 'kl-chip ' + (isDone ? 'kl-chip--ok' : 'kl-chip--info');
         chip.appendChild(icon(isDone ? 'fa-check' : 'fa-sync-alt'));
@@ -218,6 +221,7 @@
         if (!window.TrainingVideoEmbed) { showError(t('video.error')); return; }
         controller = window.TrainingVideoEmbed.mount(holder, {
             provider: P.provider, embedUrl: P.embed_url, title: P.title || 'Video',
+            transport: 'postmessage',   // no YouTube/Vimeo script in the kiosk origin (security review: it could read other kiosk pages)
             onPlaying: function (durationS) {
                 tapNote.hidden = true;
                 if (durationS > 0 && !reportedDuration) {
@@ -289,7 +293,7 @@
         onWarn: function (left) {
             if (controller) { try { controller.pause(); } catch (e) { /* ignore */ } }
             holder.classList.add('kl-hidden');
-            K.ui.confirm(t('shell.idle_body', { seconds: left }), t('shell.idle_stay'), t('shell.idle_leave'), { title: t('shell.idle_title') }).then(function (stay) {
+            K.ui.idleDialog(left).then(function (stay) {
                 if (endedBox.hidden) { holder.classList.remove('kl-hidden'); }
                 if (stay) { K.idle.touch(); K.session.beat(); } else { K.session.end('done'); }
             });

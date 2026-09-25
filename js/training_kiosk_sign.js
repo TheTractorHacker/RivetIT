@@ -41,13 +41,14 @@
 
     // ---------------------------------------------------------------- form
     var needSig = !!P.requires_signature;
+    var mouse = typeof K.mouseOnly === 'function' && K.mouseOnly();   // a Windows PC: "with the mouse", not "with your finger"
     var steps = el('ol', { class: 'kl-steps', 'aria-label': t('sign.title') }, [
         el('li', { class: 'kl-steps__item is-done' }, [el('span', { class: 'kl-steps__dot', 'aria-hidden': 'true' }, icon('fa-check')), el('span', { text: t('sign.step_lessons') })]),
         P.has_exam ? el('li', { class: 'kl-steps__item is-done' }, [el('span', { class: 'kl-steps__dot', 'aria-hidden': 'true' }, icon('fa-check')), el('span', { text: t('sign.step_exam') })]) : null,
         el('li', { class: 'kl-steps__item is-current', 'aria-current': 'step' }, [el('span', { class: 'kl-steps__dot', text: P.has_exam ? '3' : '2' }), el('span', { text: t('sign.step_sign') })])
     ]);
     root.appendChild(el('header', { class: 'kl-signhead' }, [
-        el('div', null, [el('h1', { class: 'kl-h1', text: t('sign.title') }), el('p', { class: 'kl-sub', text: needSig ? t('sign.sub') : t('sign.sub_nosig') })]),
+        el('div', null, [el('h1', { class: 'kl-h1', text: t('sign.title') }), el('p', { class: 'kl-sub', text: needSig ? (mouse ? t('sign.sub_mouse') : t('sign.sub')) : t('sign.sub_nosig') })]),
         steps
     ]));
 
@@ -60,9 +61,10 @@
     var pad = null;
     var inked = !needSig;
     if (needSig) {
-        var padSec = el('section', { class: 'kl-signpad' }, [el('h2', { class: 'kl-h3', text: t('sign.sign_with_finger') })]);
+        var padSec = el('section', { class: 'kl-signpad' });
         left.appendChild(padSec);
         pad = K.ui.signaturePad(padSec, {
+            title: mouse ? t('sign.sign_with_mouse') : t('sign.sign_with_finger'),   // on one row with "Clear signature", as in the mockup
             name: S.name || '', date: date(P.today),
             onChange: function (ok) { inked = !!ok; sync(); }
         });
@@ -71,6 +73,8 @@
     var pinBox = el('div', { class: 'kl-signpin__pad' });
     right.appendChild(el('h2', { class: 'kl-h3 kl-center', text: t('sign.pin_title') }));
     right.appendChild(el('p', { class: 'kl-muted kl-center', text: t('sign.pin_sub') }));
+    var waitNote = el('p', { class: 'kl-signpin__wait', role: 'status' }, [icon('fa-pen-nib'), el('span', { text: t('sign.sign_first_pin') })]);
+    if (needSig) { right.appendChild(waitNote); }
     right.appendChild(pinBox);
     right.appendChild(el('p', { class: 'kl-muted kl-center kl-small', text: t('sign.forgot') }));
     var pinLen = 0;
@@ -113,6 +117,7 @@
         var ok = inked && len >= 4 && !busy;
         finishBtn.disabled = !ok;
         pinBox.classList.toggle('is-waiting', !inked);
+        waitNote.hidden = inked;
         if (typeof keypad.setBusy === 'function') { keypad.setBusy(busy || !inked); }
         if (busy) { status.textContent = t('sign.sending'); }
         else if (!inked) { status.textContent = t('sign.need_signature'); }

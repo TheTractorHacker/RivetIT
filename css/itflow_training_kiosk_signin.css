@@ -107,3 +107,11 @@
   .kx-signin__title { font-size: 36px !important; }
   .kx-search__label { margin-top: 22px; }
 }
+
+/* Touch + focused name field (landscape iPad: the on-screen keyboard covers the lower half):
+   the subtitle and label go and the title shrinks, so the first results sit near the top. */
+.kx-signin__wrap.is-typing .kx-lead, .kx-signin__wrap.is-typing .kx-search__label { display: none; }
+.kx-signin__wrap.is-typing .kx-signin__title { font-size: 28px !important; }
+.kx-signin__wrap.is-typing .kx-search { margin-top: 12px; }
+.kx-signin__wrap.is-typing .kx-search__results { margin-top: 16px; }
+.kx-signin-page .kx-main:has(.kx-signin__wrap.is-typing) { padding-top: 16px; }

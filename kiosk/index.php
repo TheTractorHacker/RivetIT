@@ -10,7 +10,11 @@
  *     once, adopts the token by POST (asking before replacing a valid device) and reloads /kiosk/.
  *     The fragment never reaches a server.
  *   - a live learner/trainer/checkin/handoff session on this device: 302 to its home; with
- *     ?switch=1 instead "Sign out {name}?" (POST end - never a GET state change).
+ *     ?switch=1 instead "Sign out {name}?" (POST end - never a GET state change). Check-in and
+ *     hand-off ignore ?switch=1: leaving them needs the trainer PIN.
+ *   - /kiosk/?d=<token> (the Windows kiosk-mode start URL): 302 to /kiosk/#d=<token> before any
+ *     HTML, so the page never renders with the device token in its URL; the fragment is adopted
+ *     by POST as above.
  *   - otherwise the sign-in screens, rendered by the page script from k-page-data; a personal
  *     device (A19/D-4) opens straight on "Hi {first}" + PIN with "Not {first}?".
  */
@@ -19,15 +23,28 @@ $KIOSK_CSP_PROFILE = 'strict';
 require __DIR__ . '/includes/bootstrap.php';
 require __DIR__ . '/includes/guard.php';
 
+use ITFlow\Training\Kiosk\Core\KioskAuth;
 use ITFlow\Training\Kiosk\Core\KioskStrings;
 use ITFlow\Training\Kiosk\Pin\Seam;
+
+// The Windows kiosk-mode start URL /kiosk/?d=<token>: answer with a bare redirect to the fragment
+// form (never rendered with the token in the address bar; the page adopts it by POST). A malformed
+// ?d= just goes home. nginx answers this hop itself where its kiosk rule is deployed (no access log).
+if (array_key_exists('d', $_GET)) {
+    $k_d = $_GET['d'];
+    $k_loc = is_string($k_d) && preg_match(KioskAuth::TOKEN_RE, $k_d) === 1 ? '/kiosk/#d=' . $k_d : '/kiosk/';
+    unset($k_d);
+    header('Location: ' . $k_loc, true, 302);
+    exit;
+}
 
 $k_dev = kiosk_require_device();
 $k_switch = null;
 if ($k_dev !== null) {
     $k_live = kiosk_peek_session();
     if ($k_live !== null) {
-        if (($_GET['switch'] ?? null) !== '1') {
+        // Check-in and hand-off modes are left only with the trainer PIN (T-3, T-5): no "Sign out {name}?" for them.
+        if (($_GET['switch'] ?? null) !== '1' || in_array((string) $k_live['ksess_role'], ['checkin', 'handoff'], true)) {
             kiosk_redirect(kiosk_role_home((string) $k_live['ksess_role'], $k_live));
         }
         $k_switch = ['name' => (string) $k_live['contact_name'], 'home' => kiosk_role_home((string) $k_live['ksess_role'], $k_live)];

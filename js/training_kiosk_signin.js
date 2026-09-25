@@ -43,6 +43,7 @@
 
     function setScreen(name, nodes) {
         if (keypadObj) { keypadObj.destroy(); keypadObj = null; }
+        earlyDigits = '';
         screen = name;
         root.setAttribute('data-screen', name);
         clear(root);
@@ -262,9 +263,12 @@
                 el('span', { class: 'kx-search__hint-text' }, [el('strong', { text: t('signin.hint_title') }), el('span', { text: t('signin.hint_body') })])
             ]));
         }
+        var shown = { q: null, list: [] };   // what is on screen now (Enter picks a single match)
+        var enterWanted = false;
         function renderResults(q, res) {
             clear(results);
             var list = (res && res.results) || [];
+            shown = { q: q, list: list };
             if (!list.length) {
                 results.appendChild(el('div', { class: 'kx-search__hint kx-search__hint--empty', role: 'status' }, [
                     el('span', { class: 'kx-search__hint-icon', 'aria-hidden': 'true' }, [icon('fa-search-minus')]),
@@ -293,6 +297,11 @@
             });
             results.appendChild(grid);
             if (res.more) { results.appendChild(el('p', { class: 'kx-note kx-search__more' }, [icon('fa-filter'), el('span', { text: t('signin.more') })])); }
+            // Keep the first result in view (an on-screen keyboard covers the lower half on an iPad in landscape).
+            var firstRow = grid.firstChild;
+            if (firstRow && typeof firstRow.scrollIntoView === 'function') { try { firstRow.scrollIntoView({ block: 'nearest' }); } catch (e) { /* ignore */ } }
+            if (enterWanted && list.length === 1 && !res.more) { enterWanted = false; showPin(list[0], true); return; }
+            enterWanted = false;
         }
         var timer = null;
         function run() {
@@ -317,9 +326,23 @@
         input.addEventListener('input', function () {
             clearBtn.hidden = input.value === '';
             if (timer) { clearTimeout(timer); }
-            timer = setTimeout(run, 250);
+            timer = setTimeout(function () { timer = null; run(); }, 250);
         });
-        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); if (timer) { clearTimeout(timer); } run(); } });
+        input.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter') { return; }
+            e.preventDefault();
+            var q = input.value.replace(/\s+/g, ' ').trim();
+            // Enter with exactly one match on screen signs that person in (keyboard users on a PC).
+            if (shown.q === q && shown.list.length === 1 && !timer) { showPin(shown.list[0], true); return; }
+            if (timer) { clearTimeout(timer); timer = null; }
+            enterWanted = true;
+            run();
+        });
+        // Touch screens: while the name field has focus, the heading shrinks so results sit above the on-screen keyboard.
+        var coarse = false;
+        try { coarse = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches); } catch (e2) { coarse = false; }
+        input.addEventListener('focus', function () { if (coarse) { wrap.classList.add('is-typing'); } });
+        input.addEventListener('blur', function () { if (input.value === '') { wrap.classList.remove('is-typing'); } });
         clearBtn.addEventListener('click', function () { input.value = ''; lastQuery = ''; clearBtn.hidden = true; searchSeq++; renderHint(); input.focus(); });
         if (initial) { input.value = initial; run(); } else { renderHint(); }
         setTimeout(function () { try { input.focus({ preventScroll: true }); } catch (e) { input.focus(); } }, 30);
@@ -361,14 +384,23 @@
 
     function mountKeypad(c, o) {
         keypadObj = K.ui.keypad(c.side, {
-            minLen: o.minLen, maxLen: o.maxLen,
+            minLen: o.minLen, maxLen: o.maxLen, bufferWhileBusy: true,
             labels: { group: t('pin.keypad'), okAria: o.okAria || t('pin.ok_aria') },
             onSubmit: o.onSubmit
         });
         var dots = keypadObj.el.querySelector('.kx-dots');
         if (dots) { c.dotsHost.appendChild(dots); }   // the dots sit under the prompt, as in the mockup
+        if (earlyDigits) { keypadObj.feed(earlyDigits); earlyDigits = ''; }
         return keypadObj;
     }
+    // Digits typed on a PC keyboard while "pick" is still answering (the keypad appears ~300 ms after the tap) are kept.
+    var earlyDigits = '';
+    document.addEventListener('keydown', function (e) {
+        if ((screen !== 'pin' && screen !== 'setup' && screen !== 'newpin') || keypadObj || !/^[0-9]$/.test(e.key)) { return; }
+        var tg = e.target;
+        if (tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA' || tg.isContentEditable)) { return; }
+        if (earlyDigits.length < 12) { earlyDigits += e.key; }
+    }, true);
 
     function showPin(p, fromSearch) {
         var personalFirst = !!(page.personal && page.personal.contact_id === p.contact_id);

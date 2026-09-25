@@ -215,9 +215,15 @@ final class TrainerService
             $suggested[] = $p;
         }
         $dept = $s['tsession_client_id'] > 0 ? Db::one($db, 'SELECT client_name FROM clients WHERE client_id = ?', 'i', [$s['tsession_client_id']]) : null;
+        $attendees = $g['attendees'];
+        $practical = (bool) ($course['needs_practical'] ?? false);
+        foreach ($attendees as $i => $a) {
+            // Pass / fail buttons only where this trainer may record a hands-on result (mark() re-checks).
+            $attendees[$i]['can_mark_practical'] = $practical && $this->mayEvaluate($t, (int) $s['tsession_course_id'], (int) $a['contact_id']);
+        }
         return [
             'session' => $this->sessionShape($s, $course, (string) ($dept['client_name'] ?? '')),
-            'attendees' => $g['attendees'],
+            'attendees' => $attendees,
             'suggested' => $suggested,
         ];
     }
@@ -290,7 +296,7 @@ final class TrainerService
     /** [S] POST attendee_mark: attendance / practical / notes with the trainer PIN. */
     public function mark(int $attendeeId, ?string $attendance, ?string $practical, ?string $notes, mixed $trainerPin): array
     {
-        $this->sessionTrainer();
+        $t = $this->sessionTrainer();
         $db = $this->k->db();
         $sb = new SessionBridge($this->k->core, $this->k->eventBase());
         $s = $sb->sessionOfAttendee($attendeeId);
@@ -301,6 +307,14 @@ final class TrainerService
         $course = CourseInfo::atRevision($db, $s['tsession_course_id'], (int) $s['tsession_revision_id']);
         if ($practical !== null && ($course === null || !$course['needs_practical'])) {
             throw ApiException::validation(['practical' => 'This course has no practical part.']);
+        }
+        if ($practical === 'pass' || $practical === 'fail') {
+            // A practical mark becomes a training_evaluations row at finalize, so it needs the same
+            // rights as the kiosk evaluation (T-5): can_evaluate, the course, and the person's department.
+            $cid = $sb->attendeeContactId($attendeeId);
+            if (!$this->mayEvaluate($t, (int) $s['tsession_course_id'], $cid)) {
+                throw new ApiException(403, 'not_trainer', 'You are not set up to do hands-on evaluations for this person.');
+            }
         }
         if ($attendance === null && $practical === null && $notes === null) {
             throw ApiException::validation(['attendance' => 'Nothing to change.']);
@@ -358,13 +372,18 @@ final class TrainerService
         $k = $this->k;
         $name = $this->contactName($k->contactId());
         $statement = KioskStrings::t($k->lang, 'trn.finalize_attest');
-        $r = Db::tx($db, static function () use ($db, $k, $sb, $prep, $tsessionId, $name, $statement): array {
+        // Practical marks turn into evaluations only when THIS trainer may evaluate that person now
+        // (re-checked at finalize: rights can change after the mark); other marks are left out and
+        // those people wait for a hands-on evaluation.
+        $courseId = (int) $s['tsession_course_id'];
+        $mayEvaluate = fn(int $contactId): bool => $this->mayEvaluate($t, $courseId, $contactId);
+        $r = Db::tx($db, static function () use ($db, $k, $sb, $prep, $tsessionId, $name, $statement, $mayEvaluate): array {
             $sb->lockOpen($tsessionId, $k->contactId());
             $sig = TrainerSig::insert($k, $prep, [
                 'purpose' => 'trainer', 'contact_id' => $k->contactId(), 'signer_name' => $name,
                 'statement_sha256' => TrainerSig::statementSha($statement), 'tsession_id' => $tsessionId,
             ]);
-            $r = $sb->finalize($tsessionId, $k->contactId(), $sig['id'], $k->kioskId());
+            $r = $sb->finalize($tsessionId, $k->contactId(), $sig['id'], $k->kioskId(), $mayEvaluate);
             Ledger::append($db, $sig['event']);
             foreach ($r['events'] as $e) {
                 Ledger::append($db, $e);
@@ -399,6 +418,24 @@ final class TrainerService
     }
 
     // ---------------------------------------------------------------------------------------
+
+    /**
+     * May trainer $t record a hands-on (practical) result for this person on this course? The same
+     * rule as the kiosk evaluation (T-5): can_evaluate, the course in the trainer's list, and the
+     * person's department in the trainer's scope. Never for the trainer themself.
+     */
+    private function mayEvaluate(array $t, int $courseId, ?int $contactId): bool
+    {
+        if ($contactId === null || $contactId < 1 || $contactId === $this->k->contactId() || empty($t['can_evaluate'])) {
+            return false;
+        }
+        $tb = new TrainerBridge($this->k->db());
+        if (!$tb->canCourse($t, $courseId)) {
+            return false;
+        }
+        $r = Db::one($this->k->db(), 'SELECT contact_client_id FROM contacts WHERE contact_id = ?', 'i', [$contactId]);
+        return $r !== null && $tb->inScope($t, (int) $r['contact_client_id']);
+    }
 
     /** The session when it is OPEN and led by this trainer; 404 otherwise (never "someone else's"). */
     public function ownOpen(SessionBridge $sb, int $tsessionId): array

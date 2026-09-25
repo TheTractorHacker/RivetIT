@@ -420,6 +420,14 @@ final class KioskAuth
         self::cookie(self::LANG_COOKIE, KioskStrings::lang($lang), time() + self::LANG_COOKIE_MAX_AGE);
     }
 
+    /** After a sign-out the sign-in screens go back to the default language (the next person gets their own saved one at sign-in). */
+    public static function clearLangCookie(): void
+    {
+        if (isset($_COOKIE[self::LANG_COOKIE])) {
+            self::cookie(self::LANG_COOKIE, '', 1);
+        }
+    }
+
     /**
      * [S] P-11: on an ENROLLED device (the caller checks device() first) expire stray agent
      * cookies left by the enrollment step: Set-Cookie <name>=; Max-Age=0; Path=/ for each one

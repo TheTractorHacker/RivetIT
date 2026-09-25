@@ -9,8 +9,9 @@ and Odoo-PIN sign-in stays off (`config_training_odoo_pin_enabled = 0`) until th
 
 ### New Features & Updates
 - Training kiosk at `/kiosk/` for shop iPads and Windows PCs (outside `/agent/`): an admin enrolls the device while
-  signed in on it and gets a permanent start URL (`/kiosk/#d=<token>`; `/kiosk/?d=<token>` also works for Edge/Chrome
-  kiosk mode); employees type their name, then their PIN. Local PINs come from printed setup slips; Odoo-PIN sign-in is
+  signed in on it and gets a permanent start URL (`/kiosk/?d=<token>` for the Edge/Chrome kiosk-mode start page; the
+  server answers it with a bare redirect to `/kiosk/#d=<token>`, and the nginx rule keeps it out of the access log);
+  employees type their name, then their PIN. Local PINs come from printed setup slips; Odoo-PIN sign-in is
   built in behind a switch. Lockouts per person, per device and site-wide, with Clear cooldown / Clear pause.
 - Learning Center (required, due soon, documents to sign, my courses, certificates, badges, PIN-change notices), the
   course player with server-credited lesson time, final exams with saved answers, time limits and attempt limits, a
@@ -39,6 +40,33 @@ and Odoo-PIN sign-in stays off (`config_training_odoo_pin_enabled = 0`) until th
   completed the online part, and the receipt preview no longer promises a certificate and expiry at signing.
 - Trainer session header shows the date as "Sep 25, 2026" instead of 2026-09-25.
 - Rule editor: "Change on the course" opened a "course no longer exists" page; it now opens the course Settings tab.
+
+### Fixes (Phase 3+4 security and employee-UX review)
+- Security: a flood of bogus start-URL adoptions no longer blocks real devices (a valid token is never rate-limited;
+  only unknown tokens count). Check-in and hand-off can only be left with the trainer PIN (or a genuine idle timeout):
+  `/kiosk/?switch=1` and a direct sign-out are refused there. A trainer needs the evaluate permission, the course and the
+  person's department to record a hands-on pass/fail in a session, re-checked when the session is finished. The
+  YouTube/Vimeo lesson page runs sandboxed without pop-ups, so the video provider's script cannot open another kiosk
+  page. `/kiosk/?d=<token>` is redirected before any page renders; add the nginx rule in the release notes.
+- Lessons in an in-order course no longer offer "Next lesson" before the lesson is done (it used to drop people back
+  on the course page); acknowledgment lessons have the Sign button in the always-visible footer with a to-do line
+  ("Tick the box, sign, then enter your PIN"), and say "Step 1 of 2" when the course sign-off follows.
+- Two-language courses ask "English / Español" at the first Start; a course with nothing done yet follows a language
+  change; otherwise the course page says why it stays in the language it was started in.
+- Course page: a "My training" button back to the Learning Center. PDF lessons fill the width with the page counter
+  and thumbnails always visible. Uploaded videos have a big Play button. Exam wording ("Start the exam"), no duplicate
+  "Final exam" heading or attempts count, and a failed exam offers "Back to course".
+- Sign page: the keypad fits its card, keys stay readable before signing with "Sign first, then enter your PIN here",
+  Sign & finish stays on screen, and the signed statement reads "September 25, 2026" / "25 de septiembre de 2026".
+- Spanish: the header button is "Salir"; learner messages say "instructor", "examen" and "este dispositivo". Windows
+  PCs say "with the mouse" and "Use the arrows to turn pages"; trainer screens say "this device" instead of "iPad".
+- Info messages use a neutral blue instead of the theme colour (on a red theme they looked like errors); the company
+  logo shows in the kiosk header; courses without a cover get their own colour and initials; chips, labels and the
+  signature hint are larger and higher-contrast; the "Still there?" seconds count down.
+- Sign-in: on a touch screen the heading shrinks while typing a name so results stay above the on-screen keyboard;
+  on a PC, Enter picks a single match and digits typed before the keypad appears are kept. After Done, the sign-in
+  screen goes back to the default language. Check-in says "Type your name to check in" when there is no list and no
+  longer shows the trainer's name in the header; evaluation results read "Passed" / "Did not pass".
 
 ## [Unreleased] ITFlow Internal IT - Training (LMS) Phase 2: assignments, compliance, records and reports
 Database 2.6.91 -> 2.6.92. Apply it only through **Admin > Update > Update Database** (the migration block in

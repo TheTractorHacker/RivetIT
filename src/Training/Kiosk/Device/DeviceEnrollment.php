@@ -19,9 +19,12 @@ use ITFlow\Training\Kiosk\Core\KTime;
  *
  * A device is a training_kiosks row bound to an asset (Tablet, Phone, Mobile Phone, Laptop,
  * Desktop). Its secret is a random 43-character token: only sha256(token) is stored, and the
- * plain token is returned ONCE inside the permanent start URL /kiosk/#d=<token> (a fragment:
- * never sent to a server, never in an access log). Re-issuing rotates it. One active kiosk per
- * asset; enrolling an asset that already has one needs $replace (the old one is revoked).
+ * plain token is returned ONCE, in two forms of the permanent start URL: 'start_url'
+ * /kiosk/?d=<token> (the owner's form for the Windows Edge/Chrome kiosk-mode start page; the server
+ * - or nginx, which keeps it out of the access log - answers it with a bare 302 to the fragment
+ * form) and 'open_url' /kiosk/#d=<token> (a fragment, never sent to a server; the setup page's
+ * "Open training" uses it). Re-issuing rotates it. One active kiosk per asset; enrolling an asset
+ * that already has one needs $replace (the old one is revoked).
  *
  * Personal-device mode (A19, D-4): the asset's assigned contact at enrollment (when eligible) is
  * snapshotted into kiosk_personal_contact_id; KioskAuth::device() locks the device out as soon as
@@ -87,7 +90,8 @@ final class DeviceEnrollment
 
     /**
      * Enroll THIS browser's future kiosk: an active row + token. Returns
-     * ['kiosk_id', 'start_url' => https://host/kiosk/#d=<token>, 'label', 'personal' => {id,name}|null].
+     * ['kiosk_id', 'start_url' => https://host/kiosk/?d=<token>, 'open_url' => https://host/kiosk/#d=<token>, 'label',
+     *  'personal' => {id,name}|null].
      */
     public function enrollHere(int $assetId, string $label, int $defaultClientId, bool $replace): array
     {
@@ -95,6 +99,7 @@ final class DeviceEnrollment
         $r = $this->insertKiosk($assetId, $label, $defaultClientId, $replace, 'agent_device', KioskAuth::tokenHash($token), null);
         $this->audit('training.kiosk_enrolled', $r['kiosk_id'], 'enroll', 'Enrolled training device "' . $r['label'] . '"', ['asset_id' => $assetId, 'personal' => $r['personal'] !== null]);
         $r['start_url'] = $this->startUrl($token);
+        $r['open_url'] = $this->openUrl($token);
         unset($token);
         return $r;
     }
@@ -171,6 +176,7 @@ final class DeviceEnrollment
         });
         $this->audit('training.kiosk_token_reissued', $kioskId, 'reissue', 'New start URL for training device "' . $r['label'] . '"', ['personal' => $r['personal'] !== null]);
         $r['start_url'] = $this->startUrl($token);
+        $r['open_url'] = $this->openUrl($token);
         unset($token);
         return $r;
     }
@@ -263,7 +269,14 @@ final class DeviceEnrollment
         return $c === null ? null : ['id' => $cid, 'name' => trim((string) $c['contact_name'])];
     }
 
+    /** The permanent start URL to copy into a kiosk-mode browser: /kiosk/?d=<token> (answered with a 302 to the fragment form). */
     private function startUrl(string $token): string
+    {
+        return rtrim($this->c->baseUrl, '/') . '/kiosk/?d=' . $token;
+    }
+
+    /** The same token as a fragment, for opening training on this browser right now (never reaches a server). */
+    private function openUrl(string $token): string
     {
         return rtrim($this->c->baseUrl, '/') . '/kiosk/#d=' . $token;
     }
