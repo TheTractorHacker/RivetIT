@@ -183,7 +183,9 @@
                 var k = activeKinds()[0];
                 if (!k) { return c.name; }
                 var names = st.values[k].map(function (id) { return optName(k, id); });
-                who = k === 'contact' ? shortList(st.contactPeople.map(function (p) { return p.name; }), 2).join(', ') : shortList(names, 2).join(', ');
+                // Named people are not put in the default name: rule names are shown to every Training reader, while the
+                // people themselves are scoped (rule_get hides out-of-scope people as contact_hidden).
+                who = k === 'contact' ? u.plural(st.contactPeople.length, 'named person', 'named people') : shortList(names, 2).join(', ');
             }
             var n = c.name + ': ' + who + (st.newHiresOnly ? ' (new hires)' : '');
             return n.length > 150 ? n.slice(0, 149) + '…' : n;
