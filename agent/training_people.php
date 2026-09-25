@@ -46,6 +46,7 @@ $tr_routes = [
     'jobgroup_titles' => tro_has_route('jobgroup_titles'),
     'trainer_save' => tro_has_route('trainer_save'),
     'assign_manual' => tro_has_route('assign_manual'),
+    'rule_save' => tro_has_route('rule_save'),
 ];
 
 $tr_data = [
@@ -64,12 +65,12 @@ $tr_data = [
     'departments' => tro_departments($mysqli, $tr_scope, true),
     'settings' => tro_records_settings($mysqli),
     'routes' => $tr_routes,
+    // The department group viewer links to the department itself (Departments needs module_client).
+    'can_open_departments' => $tr_tab === 'groups' && (int) lookupUserPermission('module_client') >= 1,
 ];
 
 $tr_actions = '';
-if ($tr_tab === 'groups' && $tr_level >= 3) {
-    $tr_actions = '<button type="button" class="btn btn-primary" id="tro-pg-new"><i class="fas fa-plus me-2" aria-hidden="true"></i>New job group</button>';
-} elseif ($tr_tab === 'trainers' && $tr_level >= 3) {
+if ($tr_tab === 'trainers' && $tr_level >= 3) {
     $tr_actions = '<button type="button" class="btn btn-primary" id="tro-pt-new"><i class="fas fa-user-plus me-2" aria-hidden="true"></i>Add trainer</button>';
 } elseif ($tr_tab === 'links' && $tr_ctx->isAdmin) {
     $tr_actions = '<a class="btn btn-outline-secondary" href="/admin/settings_training_compliance.php"><i class="fas fa-cog me-2" aria-hidden="true"></i>Manage links</a>';
@@ -141,11 +142,30 @@ $tr_state_labels = [
         <div id="tro-pr-empty"></div>
         <div class="tro-pager" id="tro-pr-pager" hidden></div>
         <?php } elseif ($tr_tab === 'groups') { ?>
-        <div class="tro-card__body pb-0">
-            <p class="text-muted small mb-0">Every department has its own group, made and kept in sync for you: people join or leave it as they join or leave the department. Make your own groups by job title or by hand, for example "Welders" or "Forklift drivers". Rules can then target any group, and new people who match join it automatically.</p>
-        </div>
-        <div class="tro-grid" id="tro-pg-grid"></div>
-        <div id="tro-pg-empty"></div>
+        <section class="tro-pg-section" aria-labelledby="tro-pg-own-title">
+            <div class="tro-pg-section__head">
+                <div class="tro-pg-section__text">
+                    <h2 class="tro-card__title" id="tro-pg-own-title"><?= $tr_level >= 3 ? 'Your groups' : 'Groups made by hand' ?></h2>
+                    <span class="tro-card__sub">People named by job title or by hand, for example "Welders" or "Forklift drivers", across departments. New people with a matching title join automatically.</span>
+                </div>
+                <?php if ($tr_level >= 3) { ?>
+                <button type="button" class="btn btn-primary btn-sm" id="tro-pg-new"><i class="fas fa-plus me-2" aria-hidden="true"></i>New job group</button>
+                <?php } ?>
+            </div>
+            <div class="tro-grid" id="tro-pg-grid"></div>
+            <div id="tro-pg-empty"></div>
+        </section>
+        <section class="tro-pg-section" aria-labelledby="tro-pg-dept-title">
+            <div class="tro-pg-section__head">
+                <div class="tro-pg-section__text">
+                    <h2 class="tro-card__title" id="tro-pg-dept-title">Department groups <span class="tro-pg-section__auto"><i class="fas fa-sync-alt" aria-hidden="true"></i>Kept in sync automatically</span></h2>
+                    <span class="tro-card__sub">One per department, made for you. People join or leave as they join or leave the department. Targeting one is the same as a Department condition.</span>
+                </div>
+            </div>
+            <div class="tro-grid" id="tro-pg-dgrid"></div>
+            <div id="tro-pg-dempty"></div>
+        </section>
+        <div id="tro-pg-foot"></div>
         <?php } elseif ($tr_tab === 'trainers') { ?>
         <div class="tro-table-wrap">
             <table class="table table-vcenter card-table tro-table" id="tro-pt-table">

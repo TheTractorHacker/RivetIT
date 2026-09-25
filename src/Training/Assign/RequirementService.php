@@ -11,6 +11,7 @@ use ITFlow\Training\Core\Db;
 use ITFlow\Training\Core\Ledger;
 use ITFlow\Training\Core\RecordsSettings;
 use ITFlow\Training\People\Directory;
+use ITFlow\Training\People\JobGroupService;
 use ITFlow\Training\People\Roster;
 use ITFlow\Training\People\Scope;
 
@@ -590,7 +591,11 @@ final class RequirementService
         ];
     }
 
-    /** Departments, job groups and contacts must exist; Odoo ids may be unknown (flagged known:false). */
+    /**
+     * Departments, job groups and contacts must exist; Odoo ids may be unknown (flagged known:false). A job
+     * group must still be able to match people (JobGroupService::states live): an archived department group
+     * whose department still exists is accepted, like a Department condition on an archived department.
+     */
     private function checkCriteriaIds(array $criteria): void
     {
         $db = $this->c->db;
@@ -604,8 +609,19 @@ final class RequirementService
             }
         };
         $check($criteria['department'], 'SELECT client_id FROM clients WHERE client_id IN (%s)', 'criteria', 'One of those departments no longer exists.');
-        $check($criteria['jobgroup'], 'SELECT jobgroup_id FROM training_job_groups WHERE jobgroup_archived_at IS NULL AND jobgroup_id IN (%s)', 'criteria',
-            'One of those job groups no longer exists.');
+        if ($criteria['jobgroup'] !== []) {
+            $states = JobGroupService::states($db, $criteria['jobgroup']);
+            if (count($states) !== count($criteria['jobgroup'])) {
+                throw ApiException::validation(['criteria' => 'One of those job groups no longer exists.']);
+            }
+            foreach ($states as $g) {
+                if (!$g['live']) {
+                    throw ApiException::validation(['criteria' => $g['department_status'] === 'deleted'
+                        ? 'The "' . $g['name'] . '" department was deleted, so its job group matches no one. Remove it from the rule to save.'
+                        : 'The "' . $g['name'] . '" job group is archived, so it matches no one. Remove it from the rule to save.']);
+                }
+            }
+        }
         $check($criteria['contact'], 'SELECT contact_id FROM contacts WHERE contact_id IN (%s)', 'criteria', 'One of those people no longer exists.');
     }
 
@@ -709,8 +725,12 @@ final class RequirementService
                 $known['odoo_location'][(int) $r['l']] = true;
             }
         }
-        foreach (Db::all($db, 'SELECT jobgroup_id FROM training_job_groups WHERE jobgroup_archived_at IS NULL') as $r) {
-            $known['jobgroup'][(int) $r['jobgroup_id']] = true;
+        // Job groups: known = can still match people (an archived department group keeps its department's people).
+        $groupStates = JobGroupService::states($db);
+        foreach ($groupStates as $gid => $g) {
+            if ($g['live']) {
+                $known['jobgroup'][$gid] = true;
+            }
         }
         foreach (Db::all($db, 'SELECT client_id FROM clients') as $r) {
             $known['department'][(int) $r['client_id']] = true;
@@ -784,7 +804,13 @@ final class RequirementService
                         $labels[$k][] = ['id' => $vid, 'name' => (string) $row['contact_name'], 'known' => true];
                         continue;
                     }
-                    $labels[$k][] = ['id' => $vid, 'name' => $r['labels'][$k][$vid] ?? null, 'known' => isset($known[$k][$vid])];
+                    $label = ['id' => $vid, 'name' => $r['labels'][$k][$vid] ?? null, 'known' => isset($known[$k][$vid])];
+                    if ($k === 'jobgroup') {
+                        // So the editor and the rule list can say "archived" or "department archived", not "no longer in Odoo".
+                        $label['auto'] = $groupStates[$vid]['auto'] ?? false;
+                        $label['archived'] = $groupStates[$vid]['archived'] ?? true;
+                    }
+                    $labels[$k][] = $label;
                 }
             }
             $criteria = $r['criteria'];

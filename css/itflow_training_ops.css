@@ -564,12 +564,18 @@ td.tro-inline-cell { background: var(--tro-surface-2); }
 }
 .tro-tile.is-archived { background: var(--tro-surface-2); }
 .tro-tile.is-archived .tro-tile__title { color: var(--if-muted, #5d6f76); }
+/* Job groups tab: "Your groups" then "Department groups", each with its own head */
+.tro-pg-section + .tro-pg-section { border-top: 1px solid var(--if-border, #e3e9ea); }
+.tro-pg-section__head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 16px; padding: 16px 20px 0; }
+.tro-pg-section__text { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tro-pg-section__auto { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; font-size: 12.5px; font-weight: 500; color: var(--tro-info-fg); white-space: nowrap; }
+.tro-pg-section__auto .fas { font-size: 11px; }
+.tro-pg-note { padding: 12px 20px 16px; font-size: 13px; color: var(--if-muted, #5d6f76); }
 /* Department job groups: made and kept in step by the server, view-only */
 .tro-tile--dept { box-shadow: inset 3px 0 0 var(--tro-info-fg); }
 .tro-tile--dept .tro-tile__title { overflow-wrap: anywhere; }
-.tro-tile__auto { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--tro-info-fg); }
-.tro-tile__auto .fas { font-size: 11px; }
-.tro-pg-own { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--if-muted, #5d6f76); }
+.tro-jg-rules { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.tro-jg-rules a { font-weight: 600; }
 .tro-links-head { border-bottom: 1px solid var(--if-border, #e3e9ea); }
 .tro-links-count { flex: none; }
 .tro-check-list + .form-hint { margin-top: 6px; }

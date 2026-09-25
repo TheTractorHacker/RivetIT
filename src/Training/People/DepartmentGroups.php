@@ -23,6 +23,14 @@ use ITFlow\Training\Core\SystemCtx;
  * someone who moves department is in the right group at once; the existing contact_edit / roster /
  * hire_date reconcile hooks then fix their assignments.
  *
+ * SAME PEOPLE AS A DEPARTMENT CONDITION. A rule on a department group and a rule with a Department
+ * condition on that department match exactly the same people, also after the department is archived:
+ * the group is archived with its department (so it is no longer offered for new rules and is listed
+ * under the archived groups), but the people still in the department stay matched, as a Department
+ * condition keeps matching them. Archiving or restoring a department therefore changes no one's
+ * assignments. Only a retired duplicate (a second group carrying the same marker; the lowest group id
+ * is the department's group) matches no one.
+ *
  * THE LINK, WITHOUT A SCHEMA CHANGE. The group <-> department link is one reserved row in
  * training_job_group_titles: jgtitle_normalized = MARKER_PREFIX . client_id, e.g. " #dept:12" (the
  * first character is U+0020, a plain space). It can never collide with a real title:
@@ -133,7 +141,27 @@ final class DepartmentGroups
     }
 
     /**
-     * Department facts for the given client ids: id => {id, name, active, people}.
+     * Each department's own group: client_id => the lowest group id carrying its marker (archived or not).
+     * Any other group with that marker is a duplicate that sync() retires and that matches no one.
+     *
+     * @return array<int, int>
+     */
+    public static function canonical(\mysqli $db): array
+    {
+        $out = [];
+        foreach (Db::all($db, 'SELECT t.jgtitle_normalized AS m, MIN(t.jgtitle_jobgroup_id) AS gid FROM training_job_group_titles t WHERE '
+            . self::SQL_MARKER_ROW . ' GROUP BY t.jgtitle_normalized') as $r) {
+            $cid = self::clientIdOf((string) $r['m']);
+            if ($cid !== null) {
+                $out[$cid] = (int) $r['gid'];
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Department facts for the given client ids: id => {id, name, active, status, people}.
+     * status = 'active' | 'archived' | 'lead' (a CRM lead is not a department); a deleted department is absent.
      * people = non-archived contacts in the department (the live head count).
      */
     public static function departments(\mysqli $db, array $clientIds): array
@@ -146,10 +174,12 @@ final class DepartmentGroups
         foreach (Db::all($db, 'SELECT cl.client_id, cl.client_name, cl.client_archived_at, cl.client_lead,
                 (SELECT COUNT(*) FROM contacts c WHERE c.contact_client_id = cl.client_id AND c.contact_archived_at IS NULL) AS people
             FROM clients cl WHERE cl.client_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')', str_repeat('i', count($ids)), $ids) as $r) {
+            $status = $r['client_archived_at'] !== null ? 'archived' : ((int) $r['client_lead'] !== 0 ? 'lead' : 'active');
             $out[(int) $r['client_id']] = [
                 'id' => (int) $r['client_id'],
                 'name' => (string) $r['client_name'],
-                'active' => $r['client_archived_at'] === null && (int) $r['client_lead'] === 0,
+                'active' => $status === 'active',
+                'status' => $status,
                 'people' => (int) $r['people'],
             ];
         }
@@ -213,6 +243,36 @@ final class DepartmentGroups
     }
 
     /**
+     * For the Microsoft and Google directory syncs (admin/post/settings_directory_sync.php). They create,
+     * rename and archive departments and move people between them but, unlike the Odoo sync, have no
+     * Training step of their own: this brings the department groups in step, then reconciles everyone
+     * (trigger directory_sync), so a move changes department-group and Department-condition assignments now
+     * rather than at the nightly cron. Module on and schema ready only; never throws and never runs inside a
+     * transaction (null when skipped or failed).
+     *
+     * @return array{dept_groups:?array, reconcile:array}|null
+     */
+    public static function afterDirectorySync(Ctx $c): ?array
+    {
+        try {
+            $db = $c->db;
+            if (Db::depth() !== 0) {
+                error_log('Training: after the directory sync, skipped: called inside a transaction');
+                return null;
+            }
+            $on = Db::one($db, 'SELECT config_module_enable_training AS m FROM settings WHERE company_id = 1');
+            if ((int) ($on['m'] ?? 0) !== 1 || !RecordsSettings::fromDb($db)->schemaReady) {
+                return null;
+            }
+            $groups = self::safeSync($db, 'directory_sync', false);   // no per-group reconcile: everyone is reconciled next
+            return ['dept_groups' => $groups, 'reconcile' => AssignmentService::safeReconcile($c, null, 'directory_sync')];
+        } catch (\Throwable $e) {
+            error_log('Training: after the directory sync, failed: ' . get_class($e) . ': ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
      * For jobgroup_list (the Job groups tab and the rule editor's group picker): syncs when the last
      * sync is older than $maxAgeS. Never throws. Needs a bound Core\Scratch (any Ctx does that).
      */
@@ -242,8 +302,10 @@ final class DepartmentGroups
      * Brings the department groups in line with the departments. Idempotent; a no-op run takes no
      * lock and writes nothing. Must not run inside a transaction.
      *
-     * @param bool $reconcile reconcile the people of an archived/restored group that an active rule
-     *                        targets (the training cron passes false: its full reconcile follows)
+     * @param bool $reconcile reconcile the department's people when a retired duplicate group (whose people
+     *                        stop matching) is targeted by an active rule (the training cron passes false:
+     *                        its full reconcile follows). Archiving or restoring a department's own group
+     *                        changes no one's membership, so it needs no reconcile.
      * @return array{created:int, renamed:int, archived:int, restored:int, errors:int, busy:bool, reconcile:list<array>}
      */
     public static function sync(\mysqli $db, string $trigger = 'manual', int $lockWaitS = 5, bool $reconcile = true): array
@@ -260,7 +322,7 @@ final class DepartmentGroups
             return $stats;
         }
         $ctx = SystemCtx::make($db, 0, self::UA . ':' . preg_replace('/[^a-z0-9_]/', '', strtolower($trigger)));
-        $touched = [];   // gid => client_id, for groups whose membership switched on or off
+        $touched = [];   // gid => client_id, for retired duplicates (the only change that switches membership off)
         try {
             foreach (self::plan($db) as $op) {
                 try {
@@ -272,7 +334,7 @@ final class DepartmentGroups
                     };
                     if ($done) {
                         $stats[['create' => 'created', 'rename' => 'renamed', 'restore' => 'restored', 'archive' => 'archived'][$op['op']]]++;
-                        if ($op['op'] === 'restore' || $op['op'] === 'archive') {
+                        if ($op['op'] === 'archive' && ($op['reason'] ?? '') === 'duplicate') {
                             $touched[$op['gid']] = $op['client_id'];
                         }
                     }
@@ -503,7 +565,7 @@ final class DepartmentGroups
         ]);
     }
 
-    /** After an archive/restore switched a group's membership off/on: reconcile its people when an active rule targets it. */
+    /** After a retired duplicate stopped matching its department's people: reconcile them when an active rule targets it. */
     private static function reconcileIfUsed(Ctx $c, int $gid, int $cid): ?array
     {
         $used = Db::one($c->db, "SELECT 1 AS u FROM training_requirement_criteria rc JOIN training_requirements r ON r.requirement_id = rc.rcrit_requirement_id
