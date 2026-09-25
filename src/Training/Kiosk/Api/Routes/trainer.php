@@ -24,5 +24,7 @@ return [
     'evaluate_state'      => ['handler' => TrainerActions::class . '::evaluateState', 'method' => 'GET', 'auth' => ['handoff']],
     'evaluate_evaluatee'  => ['handler' => TrainerActions::class . '::evaluateEvaluatee', 'method' => 'POST', 'auth' => ['handoff']],
     'evaluate_submit'     => ['handler' => TrainerActions::class . '::evaluateSubmit', 'method' => 'POST', 'auth' => ['handoff']],
+    'checkin_sessions'    => ['handler' => TrainerActions::class . '::checkinSessions', 'method' => 'GET', 'auth' => ['device']],
+    'checkin_self'        => ['handler' => TrainerActions::class . '::checkinSelf', 'method' => 'POST', 'auth' => ['device']],
     'handoff_cancel'      => ['handler' => TrainerActions::class . '::handoffCancel', 'method' => 'POST', 'auth' => ['handoff']],
 ];

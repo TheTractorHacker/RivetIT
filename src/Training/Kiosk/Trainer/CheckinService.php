@@ -22,6 +22,9 @@ use ITFlow\Training\Kiosk\Core\KioskStrings;
  */
 final class CheckinService
 {
+    /** [S] T-6: parallel check-in accepts sessions started within this many hours. */
+    public const SELF_MAX_AGE_H = 12;
+
     public function __construct(private readonly KioskCtx $k)
     {
     }
@@ -92,14 +95,65 @@ final class CheckinService
     public function checkIn(int $contactId, string $sig, mixed $pin, mixed $sigDataUrl): array
     {
         $s = $this->boundSession();
-        $db = $this->k->db();
-        if (!$this->trainerStillActive()) {
+        if (!$this->trainerStillActive($this->k->contactId())) {
             throw new ApiException(403, 'not_trainer', 'The trainer of this session is no longer set up to run sessions.');
         }
+        return $this->record($s, $contactId, $sig, $pin, $sigDataUrl);
+    }
+
+    /**
+     * [S] T-6 GET checkin_sessions (device, pre-auth): open kiosk sessions started in the last
+     * 12 hours whose trainer is still an active trainer - for parallel check-in on another device.
+     */
+    public function openSessions(): array
+    {
+        $db = $this->k->db();
+        if (!SessionBridge::available($db)) {
+            return ['sessions' => []];
+        }
+        $out = [];
+        foreach ((new SessionBridge($this->k->core))->listOpen(null, self::SELF_MAX_AGE_H) as $row) {
+            if (!$this->trainerStillActive($row['trainer_contact_id'])) {
+                continue;
+            }
+            $c = CourseInfo::current($db, $row['course_id'], $this->k->lang);
+            $out[] = ['tsession_id' => $row['tsession_id'], 'course' => $c['name'] ?? '', 'trainer' => $row['trainer_name'],
+                      'started_at' => \ITFlow\Training\Core\Clock::toIso($row['started_at_utc'], true), 'location' => $row['location'],
+                      'requires_signature' => (bool) ($c['requires_signature'] ?? true)];
+        }
+        return ['sessions' => $out];
+    }
+
+    /**
+     * [S] T-6 POST checkin_self {tsession_id, contact_id, sig, pin, signature_png?} (device,
+     * pre-auth): the same check-in as the pass-the-iPad screen, on another enrolled device, into
+     * an open kiosk session started within 12 hours. No ksess is created.
+     */
+    public function selfCheckIn(int $tsessionId, int $contactId, string $sig, mixed $pin, mixed $sigDataUrl): array
+    {
+        $db = $this->k->db();
+        if ($this->k->device === null || !SessionBridge::available($db)) {
+            throw ApiException::notFound('That session was not found.');
+        }
+        $s = (new SessionBridge($this->k->core))->row($tsessionId);
+        $since = \ITFlow\Training\Kiosk\Core\KTime::plus(-self::SELF_MAX_AGE_H * 3600);
+        if ($s === null || $s['tsession_status'] !== 'open' || $s['tsession_channel'] !== 'kiosk' || $s['tsession_trainer_contact_id'] === null
+            || $s['tsession_started_at_utc'] === null || (string) $s['tsession_started_at_utc'] < $since
+            || !$this->trainerStillActive((int) $s['tsession_trainer_contact_id'])) {
+            throw ApiException::notFound('That session was not found.');
+        }
+        return $this->record($s, $contactId, $sig, $pin, $sigDataUrl);
+    }
+
+    /** Shared check-in: pick signature, eligibility, duplicate, signature BEFORE the PIN, the person's PIN, then one tx. */
+    private function record(array $s, int $contactId, string $sig, mixed $pin, mixed $sigDataUrl): array
+    {
+        $db = $this->k->db();
+        $trainerId = (int) $s['tsession_trainer_contact_id'];
         if (!hash_equals($this->k->keys->pickSig($this->k->kioskId(), $contactId), $sig)) {
             throw ApiException::notFound('That person was not found.');
         }
-        if ($contactId === $this->k->contactId()) {
+        if ($contactId === $trainerId) {
             throw ApiException::validation(['contact_id' => 'The trainer leads this session and does not check in.']);
         }
         $person = (new TrainerService($this->k))->person($contactId);
@@ -117,8 +171,8 @@ final class CheckinService
         $tsid = $s['tsession_id'];
         $statement = KioskStrings::t($this->k->lang, 'trn.checkin_statement', ['course' => (string) ($course['name'] ?? '')]);
         $actor = $this->actorFor($contactId);
-        $r = Db::tx($db, static function () use ($db, $k, $sb, $prep, $tsid, $contactId, $person, $statement, $actor): array {
-            $sb->lockOpen($tsid, $k->contactId());
+        $r = Db::tx($db, static function () use ($db, $k, $sb, $prep, $tsid, $trainerId, $contactId, $person, $statement, $actor): array {
+            $sb->lockOpen($tsid, $trainerId);
             if ($sb->isCheckedIn($tsid, $contactId)) {
                 return ['already' => true];
             }
@@ -175,9 +229,9 @@ final class CheckinService
     }
 
     /** Is the trainer of this session still an active trainer who may train? (Re-read per request, v0 §6.4 T1.) */
-    public function trainerStillActive(): bool
+    public function trainerStillActive(int $trainerContactId): bool
     {
-        $t = (new TrainerBridge($this->k->db()))->trainer($this->k->contactId());
+        $t = (new TrainerBridge($this->k->db()))->trainer($trainerContactId);
         return $t !== null && $t['active'] && $t['can_train'];
     }
 }

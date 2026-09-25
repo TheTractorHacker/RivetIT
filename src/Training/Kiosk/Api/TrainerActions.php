@@ -68,6 +68,30 @@ final class TrainerActions
         }
     }
 
+    /** [S] T-6 GET checkin_sessions (device, pre-auth): open kiosk sessions for parallel check-in. */
+    public static function checkinSessions(KioskCtx $k, ApiContext $a): array
+    {
+        return (new CheckinService($k))->openSessions();
+    }
+
+    /** [S] T-6 POST checkin_self {tsession_id, contact_id, sig, pin, signature_png?} (device, pre-auth) */
+    public static function checkinSelf(KioskCtx $k, ApiContext $a): array
+    {
+        try {
+            $pin = $a->input['pin'] ?? null;
+            return (new CheckinService($k))->selfCheckIn(
+                (int) $a->int('tsession_id', true, 1),
+                (int) $a->int('contact_id', true, 1),
+                (string) $a->str('sig', 32),
+                $pin,
+                $a->input['signature_png'] ?? null
+            );
+        } finally {
+            unset($pin);
+            TrainerPin::pad($k);
+        }
+    }
+
     /** POST checkin_exit {pin} (check-in role) */
     public static function checkinExit(KioskCtx $k, ApiContext $a): array
     {

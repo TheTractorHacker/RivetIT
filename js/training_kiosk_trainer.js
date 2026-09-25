@@ -482,8 +482,12 @@
         ]);
     }
 
-    function checkinPerson(p) {
-        var s = C.session;
+    function checkinPerson(p, opts) {
+        opts = opts || {};
+        var s = opts.session || C.session;
+        var back = opts.back || renderCheckin;
+        var action = opts.action || 'checkin_attendee';
+        var extra = opts.extra || {};
         var msg = el('p', { class: 'kt-pin-msg', role: 'alert', hidden: true });
         var sign = s.requires_signature ? signBlock(t('trn.checkin_sign'), p.name, function () { msg.hidden = true; }) : null;
         var padBox = el('div', { class: 'kt-pin-pad' });
@@ -497,9 +501,11 @@
                     png = sign.pad.toPng();
                 }
                 pad.setBusy(true);
-                K.api.post('checkin_attendee', { contact_id: p.contact_id, sig: p.sig, pin: pin, signature_png: png }).then(function (res) {
+                var body = { contact_id: p.contact_id, sig: p.sig, pin: pin, signature_png: png };
+                Object.keys(extra).forEach(function (k) { body[k] = extra[k]; });
+                K.api.post(action, body).then(function (res) {
                     pad.destroy();
-                    checkedIn(res);
+                    checkedIn(res, opts.after);
                 }, function (err) {
                     pad.clear();
                     pad.setBusy(false);
@@ -514,16 +520,44 @@
                 sign ? sign.el : null,
                 el('section', { class: 'kt-block kt-pinbox' }, [el('h2', { class: 'kx-h3', text: t('trn.checkin_pin') }), msg, padBox])
             ]),
-            el('div', { class: 'kx-actions' }, [btn(t('trn.checkin_not_you'), 'kx-btn--ghost', 'fa-arrow-left', function () { pad.destroy(); renderCheckin(); })])
+            el('div', { class: 'kx-actions' }, [btn(t('trn.checkin_not_you'), 'kx-btn--ghost', 'fa-arrow-left', function () { pad.destroy(); back(); })])
         ]);
     }
 
-    function checkedIn(res) {
+    function checkedIn(res, after) {
         show(el('div', { class: 'kx-center kt-done' }, [
             el('span', { class: 'kt-done__icon' + (res.already ? ' is-already' : ''), 'aria-hidden': 'true' }, [icon(res.already ? 'fa-info' : 'fa-check')]),
             el('h1', { text: t(res.already ? 'trn.checkin_already' : 'trn.checkin_ok', { first: res.first }) })
         ]));
-        setTimeout(function () { show(spinner()); loadCheckin(); }, 3000);
+        setTimeout(function () { show(spinner()); (after || loadCheckin)(); }, 3000);
+    }
+
+    // ================================================================== [S] T-6 parallel check-in (pre-auth device)
+    function viewSelf() {
+        show(spinner());
+        K.api.get('checkin_sessions').then(function (res) {
+            var list = el('div', { class: 'kx-stack' });
+            (res.sessions || []).forEach(function (s) {
+                list.appendChild(el('button', { type: 'button', class: 'kx-row', on: { click: function () { selfSession(s); } } }, [
+                    el('span', { class: 'kx-tile__icon', 'aria-hidden': 'true' }, [icon('fa-users')]),
+                    el('span', { class: 'kx-row__main' }, [el('span', { class: 'kx-row__title', text: s.course }),
+                        el('span', { class: 'kx-row__sub', text: [s.trainer, s.location, fmtDate(s.started_at)].filter(Boolean).join(' · ') })]),
+                    el('span', { class: 'kx-row__end' }, [icon('fa-chevron-right')])
+                ]));
+            });
+            if (!(res.sessions || []).length) { list.appendChild(alertBox('info', t('trn.self_none'))); }
+            show([heading(null, t('trn.self_title'), t('trn.self_sub')), list,
+                el('div', { class: 'kx-actions' }, [el('a', { class: 'kx-btn kx-btn--ghost', href: '/kiosk/' }, [icon('fa-arrow-left'), el('span', { text: t('shell.back') })])])]);
+        }, function (err) { show([alertBox('bad', errText(err)), el('a', { class: 'kx-btn kx-btn--ghost', href: '/kiosk/' }, [el('span', { text: t('shell.back') })])]); });
+    }
+
+    function selfSession(s) {
+        var search = searchBox('checkin', t('trn.checkin_search'), function (p) {
+            checkinPerson(p, { session: s, action: 'checkin_self', extra: { tsession_id: s.tsession_id }, back: function () { selfSession(s); }, after: viewSelf });
+        }, null);
+        show([heading(s.trainer, t('trn.checkin_title', { course: s.course }), t('trn.checkin_search_hint')), search.el,
+            el('div', { class: 'kx-actions' }, [btn(t('shell.back'), 'kx-btn--ghost', 'fa-arrow-left', viewSelf)])]);
+        setTimeout(function () { search.input.focus(); }, 50);
     }
 
     // ================================================================== EVALUATE (trainer)
@@ -740,6 +774,7 @@
         case 'checkin': loadCheckin(); break;
         case 'evaluate': viewEvaluate(); break;
         case 'handoff': viewHandoff(); break;
+        case 'selfcheckin': viewSelf(); break;
         default: show(alertBox('bad', t('err.server')));
     }
 }());
