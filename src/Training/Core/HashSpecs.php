@@ -18,6 +18,36 @@ namespace ITFlow\Training\Core;
 final class HashSpecs
 {
     public const SPECS = [
+        // ---- Phase 3+4 kiosk evidence (P3 spec §2.5): insert-only, written only through Kiosk\Core\Hashed ----
+        'training_lesson_completions' => [
+            1 => ['lcomp_run_id', 'lcomp_contact_id', 'lcomp_course_id', 'lcomp_revision_id', 'lcomp_lesson_uid', 'lcomp_lesson_type',
+                  'lcomp_language', 'lcomp_opened_at_utc', 'lcomp_completed_at_utc', 'lcomp_server_seconds', 'lcomp_required_seconds',
+                  'lcomp_max_position', 'lcomp_coverage_json', 'lcomp_attempt_id', 'lcomp_tsig_id', 'lcomp_ksess_id', 'lcomp_kiosk_id',
+                  'lcomp_hash_v'],
+        ],
+        'training_attempts' => [
+            1 => ['tattempt_run_id', 'tattempt_contact_id', 'tattempt_course_id', 'tattempt_revision_id', 'tattempt_lesson_uid',
+                  'tattempt_quiz_uid', 'tattempt_kind', 'tattempt_number', 'tattempt_language', 'tattempt_draw_json',
+                  'tattempt_pass_mark_pct', 'tattempt_time_limit_s', 'tattempt_started_at_utc', 'tattempt_deadline_utc',
+                  'tattempt_ksess_id', 'tattempt_kiosk_id', 'tattempt_hash_v'],
+        ],
+        'training_attempt_results' => [
+            1 => ['tresult_attempt_id', 'tresult_submitted_at_utc', 'tresult_points_earned', 'tresult_points_possible', 'tresult_score_pct',
+                  'tresult_pass_mark_pct', 'tresult_critical_missed', 'tresult_passed', 'tresult_timed_out', 'tresult_duration_seconds',
+                  'tresult_rapid_flag', 'tresult_finalized_by', 'tresult_answers_sha256', 'tresult_log_sha256', 'tresult_log_max_id',
+                  'tresult_hash_v'],
+        ],
+        'training_signatures' => [
+            // tsig_png_base64 is covered by tsig_png_sha256 (the verifier re-derives it from the decoded PNG).
+            1 => ['tsig_purpose', 'tsig_contact_id', 'tsig_signer_name', 'tsig_png_sha256', 'tsig_width', 'tsig_height', 'tsig_ink_px',
+                  'tsig_statement_sha256', 'tsig_kiosk_id', 'tsig_ksess_id', 'tsig_run_id', 'tsig_tsession_id', 'tsig_captured_at_utc',
+                  'tsig_hash_v'],
+        ],
+        'training_achievement_awards' => [
+            1 => ['taward_achievement_id', 'taward_achievement_uid', 'taward_contact_id', 'taward_rule_type', 'taward_scope_key',
+                  'taward_source', 'taward_evidence_json', 'taward_reason', 'taward_awarded_by_user_id', 'taward_awarded_by_contact_id',
+                  'taward_snap_name', 'taward_snap_icon', 'taward_snap_color', 'taward_awarded_at_utc', 'taward_kiosk_id', 'taward_hash_v'],
+        ],
         'training_media' => [
             1 => ['media_sha256', 'media_kind', 'media_mime', 'media_ext', 'media_bytes', 'media_path', 'media_original_name',
                   'media_width', 'media_height', 'media_page_count', 'media_duration_ms', 'media_video_codec', 'media_audio_codec',
@@ -78,6 +108,11 @@ final class HashSpecs
      * and (events only) the column whose value prefixes the canonical row in the hash input.
      */
     public const META = [
+        'training_lesson_completions' => ['id' => ['lcomp_id'], 'hash' => 'lcomp_row_sha256', 'version' => 'lcomp_hash_v', 'chain' => null],
+        'training_attempts'           => ['id' => ['tattempt_id'], 'hash' => 'tattempt_row_sha256', 'version' => 'tattempt_hash_v', 'chain' => null],
+        'training_attempt_results'    => ['id' => ['tresult_attempt_id'], 'hash' => 'tresult_row_sha256', 'version' => 'tresult_hash_v', 'chain' => null],
+        'training_signatures'         => ['id' => ['tsig_id'], 'hash' => 'tsig_row_sha256', 'version' => 'tsig_hash_v', 'chain' => null],
+        'training_achievement_awards' => ['id' => ['taward_id'], 'hash' => 'taward_row_sha256', 'version' => 'taward_hash_v', 'chain' => null],
         'training_media'       => ['id' => ['media_id'], 'hash' => 'media_row_sha256', 'version' => 'media_hash_v', 'chain' => null],
         'training_media_pages' => ['id' => ['mpage_pdf_media_id', 'mpage_number'], 'hash' => 'mpage_row_sha256', 'version' => 'mpage_hash_v', 'chain' => null],
         'training_revisions'   => ['id' => ['revision_id'], 'hash' => 'revision_row_sha256', 'version' => 'revision_hash_v', 'chain' => null],
@@ -94,6 +129,11 @@ final class HashSpecs
      * entity_sha256, and every row of the table must be named by such an event.
      */
     public const EVENT_ROWS = [
+        'run.lesson_complete' => ['training_lesson_completions', 'lcomp_id'],
+        'attempt.start'       => ['training_attempts', 'tattempt_id'],
+        'attempt.submit'      => ['training_attempt_results', 'tresult_attempt_id'],
+        'signature.captured'  => ['training_signatures', 'tsig_id'],
+        'achievement.awarded' => ['training_achievement_awards', 'taward_id'],
         'completion.recorded' => ['training_completions', 'completion_id'],
         'completion.voided'   => ['training_completion_voids', 'cvoid_id'],
         'evaluation.recorded' => ['training_evaluations', 'evaluation_id'],

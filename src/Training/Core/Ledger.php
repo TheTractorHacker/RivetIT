@@ -45,6 +45,16 @@ final class Ledger
 
     private const ACTOR_TYPES = ['user', 'contact', 'kiosk', 'system'];
 
+    /** Phase 3+4 kiosk (P3 spec §3.8 / §7.1). Payloads never carry PINs, codes, tokens or connector messages. */
+    public const TYPES_PHASE3 = [
+        'kiosk.enroll_code_issued', 'kiosk.enrolled', 'kiosk.enroll_failed', 'kiosk.token_reissued', 'kiosk.revoked', 'kiosk.cooldown', 'kiosk.cooldown_cleared',
+        'pin.attempt', 'pin.ok', 'pin.fail', 'pin.unavailable', 'pin.locked', 'pin.unlocked', 'pin.pause', 'pin.pause_cleared',
+        'pin.setup_code_issued', 'pin.set', 'pin.source_changed', 'pin.odoo_blocked', 'pin.odoo_unblocked',
+        'ksession.start', 'ksession.end',
+        'run.start', 'run.superseded', 'run.failed', 'run.unlocked', 'run.blocked', 'run.abandoned', 'run.lesson_complete',
+        'attempt.start', 'attempt.submit', 'signature.captured', 'online.attested', 'lesson.video_error', 'achievement.awarded',
+    ];
+
     /** @var array<string, true>|null memoised allowedTypes() as a set */
     private static ?array $allowed = null;
 

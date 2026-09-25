@@ -109,6 +109,42 @@ final class Access
         return $level !== false && (int) $level >= 1;
     }
 
+    /** The session user's module_training_kiosk level (Devices & PINs), 0 when not granted; admins resolve to 3 via lookupUserPermission. */
+    public static function kioskLevel(): int
+    {
+        static $l = null;
+        if ($l === null) {
+            if (!function_exists('lookupUserPermission')) {
+                return 0;
+            }
+            $raw = lookupUserPermission('module_training_kiosk');
+            $l = $raw === false ? 0 : max(0, min(3, (int) $raw));
+        }
+        return $l;
+    }
+
+    /** JSON endpoints for training devices and PINs: 403 forbidden below $min (the Router already required module_training >= 1). */
+    public static function apiKiosk(int $min): void
+    {
+        if (self::kioskLevel() < $min) {
+            throw new ApiException(403, 'forbidden', "You don't have access to training devices and PINs.");
+        }
+    }
+
+    /** Like pageGuard(1) plus module_training_kiosk >= $min. */
+    public static function pageGuardKiosk(int $min): ?string
+    {
+        $g = self::pageGuard(1);
+        if ($g !== null) {
+            return $g;
+        }
+        if (self::kioskLevel() < $min) {
+            self::renderGuard('fas fa-lock', "You don't have access to training devices and PINs.", 'Ask an administrator for the Training kiosk permission.', '');
+            return 'forbidden';
+        }
+        return null;
+    }
+
     /**
      * KB article visibility for $c's user, as a WHERE fragment over kb_articles columns:
      * [sql, types, params]. Mirrors kbMediaClientAccessOk() (agent/includes/kb_media_auth.php)
