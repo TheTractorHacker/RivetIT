@@ -76,34 +76,25 @@ function tro_has_route(string $action): bool
 
 /**
  * The caller's people scope, fail-closed (spec §0 #3): 'all' | 'some' | 'none', plus the
- * department ids for 'some'. Uses People\Scope when installed, else the same rule directly.
+ * department ids for 'some'. Lane B's People\Scope is the one implementation; any failure is 'none'.
  *
  * @return array{state:string, client_ids:list<int>}
  */
 function tro_scope(\mysqli $db, Ctx $ctx): array
 {
-    if (class_exists(\ITFlow\Training\People\Scope::class)) {
-        try {
-            $s = \ITFlow\Training\People\Scope::forCtx($ctx);
-            if ($s->isAll()) {
-                return ['state' => 'all', 'client_ids' => []];
-            }
-            if ($s->isNone()) {
-                return ['state' => 'none', 'client_ids' => []];
-            }
-            return ['state' => 'some', 'client_ids' => array_values(array_map('intval', $s->clientIds()))];
-        } catch (\Throwable $e) {
-            error_log('Training ops page scope: ' . $e->getMessage());
+    try {
+        $s = \ITFlow\Training\People\Scope::forCtx($ctx);
+        if ($s->isAll()) {
+            return ['state' => 'all', 'client_ids' => []];
         }
+        if ($s->isNone()) {
+            return ['state' => 'none', 'client_ids' => []];
+        }
+        return ['state' => 'some', 'client_ids' => array_values(array_map('intval', $s->clientIds()))];
+    } catch (\Throwable $e) {
+        error_log('Training ops page scope: ' . $e->getMessage());
+        return ['state' => 'none', 'client_ids' => []];
     }
-    if ($ctx->isAdmin || $ctx->level >= 3) {
-        return ['state' => 'all', 'client_ids' => []];
-    }
-    $ids = [];
-    foreach (Db::all($db, 'SELECT client_id FROM user_client_permissions WHERE user_id = ? ORDER BY client_id', 'i', [$ctx->userId]) as $r) {
-        $ids[] = (int) $r['client_id'];
-    }
-    return $ids === [] ? ['state' => 'none', 'client_ids' => []] : ['state' => 'some', 'client_ids' => $ids];
 }
 
 /**
@@ -207,24 +198,22 @@ function tro_course_cards(\mysqli $db): array
 
 /**
  * The Phase 2 records settings the UI shows (due-soon days, reissue days, evidence cap, link
- * check time). Column defaults until the 2.6.92 schema and Core\RecordsSettings are present.
+ * check time). RecordsSettings returns the column defaults (schema_ready false) before 2.6.92.
  */
 function tro_records_settings(\mysqli $db): array
 {
     $out = ['due_soon_days' => 30, 'reissue_days' => 14, 'evidence_max_bytes' => 20 * 1048576, 'link_checked_at' => null,
             'reconciled_at' => null, 'schema_ready' => false];
-    if (class_exists(\ITFlow\Training\Core\RecordsSettings::class)) {
-        try {
-            $s = \ITFlow\Training\Core\RecordsSettings::fromDb($db);
-            $out['due_soon_days'] = (int) $s->dueSoonDays;
-            $out['reissue_days'] = (int) $s->reissueDays;
-            $out['evidence_max_bytes'] = (int) $s->evidenceMaxBytes;
-            $out['schema_ready'] = (bool) $s->schemaReady;
-            $out['link_checked_at'] = \ITFlow\Training\Core\Clock::toIso($s->linkCheckedAtUtc, true);
-            $out['reconciled_at'] = \ITFlow\Training\Core\Clock::toIso($s->reconciledAtUtc, true);
-        } catch (\Throwable $e) {
-            error_log('Training ops page settings: ' . $e->getMessage());
-        }
+    try {
+        $s = \ITFlow\Training\Core\RecordsSettings::fromDb($db);
+        $out['due_soon_days'] = (int) $s->dueSoonDays;
+        $out['reissue_days'] = (int) $s->reissueDays;
+        $out['evidence_max_bytes'] = (int) $s->evidenceMaxBytes;
+        $out['schema_ready'] = (bool) $s->schemaReady;
+        $out['link_checked_at'] = \ITFlow\Training\Core\Clock::toIso($s->linkCheckedAtUtc, true);
+        $out['reconciled_at'] = \ITFlow\Training\Core\Clock::toIso($s->reconciledAtUtc, true);
+    } catch (\Throwable $e) {
+        error_log('Training ops page settings: ' . $e->getMessage());
     }
     return $out;
 }
@@ -232,10 +221,7 @@ function tro_records_settings(\mysqli $db): array
 /** Local business date (spec §0 #5). */
 function tro_today(): string
 {
-    if (method_exists(\ITFlow\Training\Core\Clock::class, 'todayLocal')) {
-        return \ITFlow\Training\Core\Clock::todayLocal();
-    }
-    return (new \DateTimeImmutable('now', new \DateTimeZone(date_default_timezone_get())))->format('Y-m-d');
+    return \ITFlow\Training\Core\Clock::todayLocal();
 }
 
 /** A whitelisted GET string (trimmed, valid UTF-8, clipped), or null. */
