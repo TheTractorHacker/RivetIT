@@ -13,6 +13,7 @@ use ITFlow\Training\Kiosk\Core\KioskKeys;
 use ITFlow\Training\Kiosk\Core\KioskSettings;
 use ITFlow\Training\Kiosk\Core\KTime;
 use ITFlow\Training\Kiosk\Device\DeviceEnrollment;
+use ITFlow\Training\Kiosk\Device\DeviceLifecycle;
 use ITFlow\Training\Kiosk\Pin\PinAdmin;
 use ITFlow\Training\Kiosk\Pin\Seam;
 
@@ -26,6 +27,11 @@ use ITFlow\Training\Kiosk\Pin\Seam;
  * module_training level 3 or admin (403) and raises the 'trainer_slip' alert (v0 §12).
  * Every mutation is audited (AuditService) and logged (logAction) after commit; neither ever
  * carries a code, a PIN or a token.
+ *
+ * Devices (2.6.94): enrollment may be UNLISTED (`unlisted: true`, no asset_id - the label is the
+ * device's only name) and/or TEMPORARY (`expires`: keep | today | 4h | 8h | 24h | until, with
+ * `expires_until` 'YYYY-MM-DDTHH:MM' local for 'until'; DeviceLifecycle::expiryFor). kiosk_set_expiry
+ * extends a temporary device with the same presets, or ends it now (`expires: 'now'`).
  */
 final class KioskAdminActions
 {
@@ -42,7 +48,7 @@ final class KioskAdminActions
         $rows = Db::all($db, "SELECT k.kiosk_id, k.kiosk_asset_id, k.kiosk_asset_type, k.kiosk_asset_serial, k.kiosk_personal_contact_id, k.kiosk_label,
                 k.kiosk_default_client_id, k.kiosk_status, k.kiosk_enroll_method, k.kiosk_token_hash, k.kiosk_enroll_expires_at_utc, k.kiosk_enrolled_at_utc,
                 k.kiosk_enrolled_by, k.kiosk_last_seen_at_utc, k.kiosk_last_user_agent, k.kiosk_cooldown_until_utc, k.kiosk_cooldown_reason,
-                k.kiosk_revoked_at_utc, k.kiosk_revoke_reason,
+                k.kiosk_revoked_at_utc, k.kiosk_revoke_reason, k.kiosk_expires_at_utc,
                 a.asset_id AS asset_row_id, a.asset_name, a.asset_type, a.asset_serial, a.asset_archived_at, a.asset_contact_id, a.asset_client_id,
                 pc.contact_name AS personal_name, u.user_name AS enrolled_by_name, cl.client_name AS default_client_name
             FROM training_kiosks k
@@ -61,18 +67,23 @@ final class KioskAdminActions
             $id = (int) $r['kiosk_id'];
             $why = $r['kiosk_status'] === 'active' ? KioskAuth::invalidReason($db, $r) : null;
             $pending = $r['kiosk_status'] === 'pending';
+            $unlisted = $r['kiosk_asset_id'] === null;
             $out[] = [
                 'id' => $id,
                 'label' => (string) $r['kiosk_label'],
                 'status' => (string) $r['kiosk_status'],
                 'problem' => $why,
-                'asset' => [
+                'unlisted' => $unlisted,
+                'asset' => $unlisted ? null : [
                     'id' => (int) $r['kiosk_asset_id'],
                     'name' => (string) ($r['asset_name'] ?? ''),
                     'serial' => (string) ($r['asset_serial'] ?? $r['kiosk_asset_serial'] ?? ''),
                     'type' => (string) ($r['asset_type'] ?? $r['kiosk_asset_type']),
                     'archived' => $r['asset_archived_at'] !== null || $r['asset_row_id'] === null,
                 ],
+                'temporary' => $r['kiosk_expires_at_utc'] !== null,
+                'expires_at' => self::iso($r['kiosk_expires_at_utc']),
+                'expired' => DeviceLifecycle::isExpired($r['kiosk_expires_at_utc']),
                 'personal' => $r['kiosk_personal_contact_id'] !== null ? ['id' => (int) $r['kiosk_personal_contact_id'], 'name' => (string) ($r['personal_name'] ?? '')] : null,
                 'assignment_ok' => $why !== 'assignment_changed' && $why !== 'owner_ineligible',
                 'default_department' => (string) ($r['default_client_name'] ?? ''),
@@ -107,22 +118,48 @@ final class KioskAdminActions
         return ['assets' => (new DeviceEnrollment($c, self::keys()))->assetOptions((string) ($a->str('q', 80, false, true) ?? ''))];
     }
 
-    /** POST kiosk_enroll_here {asset_id, label, default_client_id, replace?} (kiosk 3). */
+    /**
+     * POST kiosk_enroll_here {asset_id | unlisted:true, label, default_client_id, replace?, expires?, expires_until?} (kiosk 3).
+     * Response adds `unlisted` and `device_expires_at` (UTC ISO, null = kept until removed).
+     */
     public static function kioskEnrollHere(Ctx $c, ApiContext $a): array
     {
         Access::apiKiosk(3);
-        $r = (new DeviceEnrollment($c, self::keys()))->enrollHere((int) $a->int('asset_id', true, 1), (string) $a->str('label', 100),
-            (int) ($a->int('default_client_id', false, 0) ?? 0), (bool) $a->bool('replace', false));
-        return ['kiosk_id' => $r['kiosk_id'], 'label' => $r['label'], 'start_url' => $r['start_url'], 'open_url' => $r['open_url'], 'personal' => $r['personal']];
+        [$assetId, $expiresAt] = self::enrollTarget($a);
+        $r = (new DeviceEnrollment($c, self::keys()))->enrollHere($assetId, (string) $a->str('label', 100),
+            (int) ($a->int('default_client_id', false, 0) ?? 0), $assetId !== null && (bool) $a->bool('replace', false), $expiresAt);
+        return ['kiosk_id' => $r['kiosk_id'], 'label' => $r['label'], 'start_url' => $r['start_url'], 'open_url' => $r['open_url'], 'personal' => $r['personal'],
+                'unlisted' => $r['unlisted'], 'device_expires_at' => self::iso($r['expires_at_utc'])];
     }
 
-    /** POST kiosk_enroll_code {asset_id, label, default_client_id, replace?} (kiosk 3) [S]. */
+    /** POST kiosk_enroll_code {asset_id | unlisted:true, label, default_client_id, replace?, expires?, expires_until?} (kiosk 3) [S]. */
     public static function kioskEnrollCode(Ctx $c, ApiContext $a): array
     {
         Access::apiKiosk(3);
-        $r = (new DeviceEnrollment($c, self::keys()))->issueCode((int) $a->int('asset_id', true, 1), (string) $a->str('label', 100),
-            (int) ($a->int('default_client_id', false, 0) ?? 0), (bool) $a->bool('replace', false));
-        return ['kiosk_id' => $r['kiosk_id'], 'label' => $r['label'], 'code' => $r['code'], 'expires_at' => $r['expires_at'], 'personal' => $r['personal']];
+        [$assetId, $expiresAt] = self::enrollTarget($a);
+        $r = (new DeviceEnrollment($c, self::keys()))->issueCode($assetId, (string) $a->str('label', 100),
+            (int) ($a->int('default_client_id', false, 0) ?? 0), $assetId !== null && (bool) $a->bool('replace', false), $expiresAt);
+        return ['kiosk_id' => $r['kiosk_id'], 'label' => $r['label'], 'code' => $r['code'], 'expires_at' => $r['expires_at'], 'personal' => $r['personal'],
+                'unlisted' => $r['unlisted'], 'device_expires_at' => self::iso($r['expires_at_utc'])];
+    }
+
+    /**
+     * POST kiosk_set_expiry {kiosk_id, expires: keep|today|4h|8h|24h|until|now, expires_until?} (kiosk 3).
+     * 'now' ends a temporary device at once (a revoke with the reason "Temporary device ended early");
+     * the presets set a new expiry counted from now ('keep' = kept until removed).
+     */
+    public static function kioskSetExpiry(Ctx $c, ApiContext $a): array
+    {
+        Access::apiKiosk(3);
+        $id = (int) $a->int('kiosk_id', true, 1);
+        $preset = (string) $a->enum('expires', array_merge(DeviceLifecycle::PRESETS, ['now']));
+        $dev = new DeviceEnrollment($c, self::keys());
+        if ($preset === 'now') {
+            $dev->endNow($id);
+            return ['ended' => true, 'device_expires_at' => null];
+        }
+        $r = $dev->setExpiry($id, DeviceLifecycle::expiryFor($preset, $a->str('expires_until', 20, false)));
+        return ['ended' => false, 'label' => $r['label'], 'device_expires_at' => self::iso($r['expires_at_utc'])];
     }
 
     /** POST kiosk_revoke {kiosk_id, reason} (kiosk 3). */
@@ -138,7 +175,8 @@ final class KioskAdminActions
     {
         Access::apiKiosk(3);
         $r = (new DeviceEnrollment($c, self::keys()))->reissue((int) $a->int('kiosk_id', true, 1));
-        return ['start_url' => $r['start_url'], 'open_url' => $r['open_url'], 'label' => $r['label'], 'personal' => $r['personal']];
+        return ['start_url' => $r['start_url'], 'open_url' => $r['open_url'], 'label' => $r['label'], 'personal' => $r['personal'],
+                'unlisted' => $r['unlisted'], 'device_expires_at' => self::iso($r['expires_at_utc'])];
     }
 
     /** POST kiosk_clear_cooldown {kiosk_id, reason} (kiosk >= 2). */
@@ -352,6 +390,21 @@ final class KioskAdminActions
         } catch (KioskConfigException) {
             throw new ApiException(503, 'server', 'Training devices are not configured on this server (settings key missing).');
         }
+    }
+
+    /**
+     * [asset id or null for an unlisted device, UTC expiry or null] from an enrollment request.
+     * `unlisted: true` must not come with an asset_id (a device is either one or the other).
+     */
+    private static function enrollTarget(ApiContext $a): array
+    {
+        $unlisted = (bool) $a->bool('unlisted', false);
+        if ($unlisted && $a->has('asset_id') && $a->input['asset_id'] !== '' && $a->input['asset_id'] !== 0) {
+            throw ApiException::validation(['asset_id' => 'A device that is not in Assets has no asset.']);
+        }
+        $assetId = $unlisted ? null : (int) $a->int('asset_id', true, 1);
+        $preset = (string) ($a->enum('expires', DeviceLifecycle::PRESETS, false) ?? 'keep');
+        return [$assetId, DeviceLifecycle::expiryFor($preset, $a->str('expires_until', 20, false))];
     }
 
     /** An active trainer target needs module_training level 3 or admin (403); true when the target is a trainer. */

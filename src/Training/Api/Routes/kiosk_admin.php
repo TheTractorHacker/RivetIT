@@ -15,6 +15,7 @@ return [
     'kiosk_enroll_code'     => ['handler' => KioskAdminActions::class . '::kioskEnrollCode',    'method' => 'POST', 'level' => 1],
     'kiosk_revoke'          => ['handler' => KioskAdminActions::class . '::kioskRevoke',        'method' => 'POST', 'level' => 1],
     'kiosk_reissue'         => ['handler' => KioskAdminActions::class . '::kioskReissue',       'method' => 'POST', 'level' => 1],
+    'kiosk_set_expiry'      => ['handler' => KioskAdminActions::class . '::kioskSetExpiry',     'method' => 'POST', 'level' => 1],
     'kiosk_clear_cooldown'  => ['handler' => KioskAdminActions::class . '::kioskClearCooldown', 'method' => 'POST', 'level' => 1],
     'pin_clear_pause'       => ['handler' => KioskAdminActions::class . '::pinClearPause',      'method' => 'POST', 'level' => 1],
     'pin_people'            => ['handler' => KioskAdminActions::class . '::pinPeople',          'method' => 'GET',  'level' => 1],

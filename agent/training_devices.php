@@ -3,10 +3,12 @@
 /*
  * Training › Devices & PINs (P3 spec §5.8, lane K2; module_training_kiosk >= 1).
  *
- *   Devices tab       every training device: label, type, asset, personal owner (or "Assignment
- *                     changed - re-enroll"), status, last seen, browser, cooldown. Revoke and New
- *                     start URL (kiosk 3), Clear cooldown (kiosk >= 2), [S] setup code. A banner
- *                     for the system-wide sign-in pause with Clear pause (kiosk >= 2).
+ *   Devices tab       every training device: label, type, asset (or "Not in Assets" for an unlisted
+ *                     device), personal owner (or "Assignment changed - re-enroll"), status, last
+ *                     seen, browser, cooldown, "Temporary · expires <time>" / "Expired". Revoke, New
+ *                     start URL, Extend and End now for temporary devices (kiosk 3), Clear cooldown
+ *                     (kiosk >= 2), [S] setup code. A banner for the system-wide sign-in pause with
+ *                     Clear pause (kiosk >= 2).
  *   People & PINs     (scoped) PIN source, local PIN, failures, locks, Odoo block, last sign-in,
  *                     trainer. Unlock, [S★] Unblock Odoo link, Issue setup slips (-> print page),
  *                     [S★] Refresh PIN sources. The Odoo-PIN switch state is shown.
@@ -38,6 +40,7 @@ $tr_data = [
     'odoo_pin_enabled' => $tr_ks->odooPinEnabled,
     'schema_ready' => $tr_ks->schemaReady,
     'tab' => $tr_tab,
+    'timezone' => date_default_timezone_get(),
 ];
 
 render_page_header(
@@ -142,6 +145,17 @@ render_page_header(
                             <li>Touch screens work like the iPad; with a mouse and keyboard people can type their PIN on the number keys.</li>
                         </ol>
                         <div class="alert alert-warning mb-0">Treat the start URL like a key: anyone with it can set up a copy of the device (people still need their own PIN). If it leaks, use <strong>New start URL</strong>.</div>
+                    </div></div>
+                </div>
+                <div class="col-12" id="tr-guide-temporary">
+                    <div class="card"><div class="card-header"><h2 class="card-title"><i class="fas fa-hourglass-half me-2" aria-hidden="true"></i>Temporary or unlisted devices</h2></div>
+                    <div class="card-body">
+                        <ul class="ps-3 mb-0">
+                            <li class="mb-2"><strong>Not in Assets?</strong> On <em>Set up this device</em>, choose <strong>This device isn't in Assets</strong> and give it a name, like "Trainer's laptop" or "Borrowed iPad". It works like a shared device: people find their name, then enter their PIN. It never opens straight to one person, and asset changes never switch it off.</li>
+                            <li class="mb-2"><strong>Only needed for a while?</strong> Under <em>How long?</em> choose <strong>Temporary</strong>: until the end of today, 4, 8 or 24 hours, or a date and time up to 30 days away (<?= nullable_htmlentities(date_default_timezone_get()) ?> time). Asset devices default to <em>Keep until I remove it</em>; devices that aren't in Assets default to <em>until the end of today</em>.</li>
+                            <li class="mb-2">When the time is up the device stops working, just as if it were revoked: anyone signed in is signed out, the screen says "This device is not set up for training", and its start URL stops working. It is revoked ("Temporary device expired") on its next tap, or by the 10-minute housekeeping job if nobody uses it.</li>
+                            <li>On the Devices tab a temporary device shows <strong>Temporary · expires</strong> and the time. Use <strong>Extend</strong> to give it more time (counted from now, or <em>Keep until I remove it</em>) or <strong>End now</strong> to switch it off at once.</li>
+                        </ul>
                     </div></div>
                 </div>
             </div>

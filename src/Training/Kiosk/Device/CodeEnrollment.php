@@ -44,8 +44,10 @@ final class CodeEnrollment
         $base = ['actor_type' => 'kiosk', 'user_agent' => $k->core->userAgent];
         $token = KioskAuth::newToken();
         $hit = $hash === null ? null : Db::tx($db, static function () use ($db, $hash, $now, $token, $base): ?array {
-            $row = Db::one($db, "SELECT kiosk_id, kiosk_asset_id, kiosk_asset_type, kiosk_label, kiosk_personal_contact_id FROM training_kiosks
-                WHERE kiosk_enroll_code_hash = ? AND kiosk_status = 'pending' AND kiosk_enroll_expires_at_utc > ? FOR UPDATE", 'ss', [$hash, $now]);
+            // A temporary device whose time is already up can't be redeemed (the cron revokes it).
+            $row = Db::one($db, "SELECT kiosk_id, kiosk_asset_id, kiosk_asset_type, kiosk_label, kiosk_personal_contact_id, kiosk_expires_at_utc FROM training_kiosks
+                WHERE kiosk_enroll_code_hash = ? AND kiosk_status = 'pending' AND kiosk_enroll_expires_at_utc > ?
+                  AND (kiosk_expires_at_utc IS NULL OR kiosk_expires_at_utc > ?) FOR UPDATE", 'sss', [$hash, $now, $now]);
             if ($row === null) {
                 return null;
             }
@@ -55,8 +57,10 @@ final class CodeEnrollment
                 'sssi', [KioskAuth::tokenHash($token), $now, $now, $id]);
             Ledger::append($db, array_merge($base, [
                 'type' => 'kiosk.enrolled', 'kiosk_id' => $id, 'entity_type' => 'kiosk', 'entity_id' => $id,
-                'payload' => ['asset_id' => (int) $row['kiosk_asset_id'], 'asset_type' => (string) $row['kiosk_asset_type'], 'label' => (string) $row['kiosk_label'],
-                              'method' => 'setup_code', 'personal' => $row['kiosk_personal_contact_id'] !== null],
+                'payload' => ['asset_id' => $row['kiosk_asset_id'] === null ? null : (int) $row['kiosk_asset_id'],
+                              'asset_type' => $row['kiosk_asset_type'] === null ? null : (string) $row['kiosk_asset_type'], 'label' => (string) $row['kiosk_label'],
+                              'method' => 'setup_code', 'personal' => $row['kiosk_personal_contact_id'] !== null,
+                              'unlisted' => $row['kiosk_asset_id'] === null, 'expires_at_utc' => $row['kiosk_expires_at_utc']],
             ]));
             return ['label' => (string) $row['kiosk_label']];
         });

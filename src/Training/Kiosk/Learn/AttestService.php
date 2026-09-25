@@ -206,7 +206,7 @@ final class AttestService
             'pin_source' => $pinSource,
             'odoo_employee_id' => $emp,
             'kiosk_id' => $k->kioskId() > 0 ? $k->kioskId() : null,
-            'asset_id' => isset($k->device['kiosk_asset_id']) ? (int) $k->device['kiosk_asset_id'] : null,
+            'asset_id' => isset($k->device['kiosk_asset_id']) ? (int) $k->device['kiosk_asset_id'] : null,   // NULL on an unlisted device
             'ksess_id' => $k->ksessId(),
             'attestation_text' => mb_substr(trim(strip_tags($statement)), 0, 5000, 'UTF-8'),
             'completed_on' => Clock::todayLocal(),

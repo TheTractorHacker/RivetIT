@@ -9111,3 +9111,15 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.93'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.93') {
+        // Training kiosk devices (owner request 2026-09-25): UNLISTED devices that are not in Assets
+        // (kiosk_asset_id / kiosk_asset_type NULL) and TEMPORARY devices (kiosk_expires_at_utc, UTC; past it
+        // the device is revoked on its next request or by cron/training_kiosk_cron.php).
+        // Idempotent: MODIFY re-applies the same definition; ADD COLUMN / ADD INDEX IF NOT EXISTS.
+        mysqli_query($mysqli, "ALTER TABLE `training_kiosks` MODIFY `kiosk_asset_id` int(11) DEFAULT NULL, MODIFY `kiosk_asset_type` varchar(200) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `training_kiosks` ADD COLUMN IF NOT EXISTS `kiosk_expires_at_utc` datetime(3) DEFAULT NULL AFTER `kiosk_enrolled_by`");
+        mysqli_query($mysqli, "ALTER TABLE `training_kiosks` ADD INDEX IF NOT EXISTS `idx_training_kiosk_expires` (`kiosk_status`,`kiosk_expires_at_utc`)");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.94'");
+    }

@@ -4,7 +4,7 @@ This guide covers how to turn an iPad or a Windows PC into a **training device**
 
 ## How a training device works
 
-- A device is an **asset** of type Tablet, Phone, Mobile Phone, Laptop or Desktop. It is enrolled once by an admin who has the *Training kiosk* permission at level 3.
+- A device is usually an **asset** of type Tablet, Phone, Mobile Phone, Laptop or Desktop. It is enrolled once by an admin who has the *Training kiosk* permission at level 3. A device that isn't in Assets can be enrolled too, and any device can be temporary (see [Temporary or unlisted devices](#temporary-or-unlisted-devices)).
 - Enrolling gives the device a **start URL**, `https://<site>/kiosk/#d=<token>`:
   - It is shown only once. Re-issuing it (**New start URL**) rotates it.
   - The token is a URL *fragment*, so it never reaches a server or an access log.
@@ -15,10 +15,22 @@ This guide covers how to turn an iPad or a Windows PC into a **training device**
 - **Shared device**: the asset is not assigned to anyone. People type their name, tap it, then enter their PIN.
 - **Personal device**: the asset is assigned to one eligible person at enrollment. The device opens straight to "Hi {first}" and the PIN, and "Not {first}?" goes to the name search.
   - If the asset is later unassigned or re-assigned, the device stops working until it gets a **New start URL**. That new URL takes a fresh snapshot of the owner (plan A19).
-- A device stops working at once when it is **revoked**, its asset is archived or retyped, or its personal assignment changes. It then shows "This device is not set up for training".
+- A device stops working at once when it is **revoked**, its temporary time is up, its asset is archived or retyped, or its personal assignment changes. It then shows "This device is not set up for training".
 - No ITFlow agent session is ever kept on a training device:
   - Enrollment ends with a mandatory sign-out.
   - The kiosk expires any stray agent cookies it sees.
+
+## Temporary or unlisted devices
+
+- **Not in Assets.** On **Set up this device**, choose **This device isn't in Assets** and give the device a name (for example "Trainer's laptop" or "Borrowed iPad"). Nothing else is needed.
+  - It is always a shared device: people find their name, then enter their PIN. Personal-device mode needs an asset assigned to someone, so an unlisted device never opens straight to one person.
+  - It isn't tied to an asset, so archiving or retyping assets never affects it, and the "one device per asset" replacement rule doesn't apply: each unlisted device stands on its own.
+  - The Devices tab and the kiosk evidence on a training record show its name and "Not in Assets".
+- **Temporary.** Under **How long?** choose **Temporary** and one of: until the end of today (11:59 PM), 4 hours, 8 hours, 24 hours, or a date and time up to 30 days away. Times are in the app's time zone (America/Chicago here). Asset devices start on **Keep until I remove it**; unlisted devices start on **Temporary · until the end of today**.
+  - The success panel shows when the device stops working.
+  - When the time is up, the device's next request is treated exactly like a revoke: the device is revoked with the reason "Temporary device expired", anyone signed in is signed out, the screen shows "This device is not set up for training", and the start URL stops working. Devices nobody touches are revoked the same way by `cron/training_kiosk_cron.php` within 10 minutes. The ledger and audit log record it like a manual revoke, with the system as the actor.
+  - The Devices tab shows **Temporary · expires …** (or **Expired**). **Extend** sets a new end time counted from now with the same choices, or **Keep until I remove it**; **End now** switches the device off at once.
+  - A listed temporary device still gets personal-device mode when its asset is assigned to someone.
 
 ## PINs
 

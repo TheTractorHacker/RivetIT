@@ -6,6 +6,8 @@ namespace ITFlow\Training\Kiosk\Core;
  * Kiosk thresholds from the settings row (P3 spec §2.3 / §3.1), read with an explicit column
  * list. Before 2.6.93 has run (unknown column 1054) every value is its column default and
  * schemaReady is false - the bootstrap then answers 404, exactly like the module being off.
+ * The same holds until 2.6.94 has added training_kiosks.kiosk_expires_at_utc (temporary and
+ * unlisted devices), so a code deploy that runs ahead of Update Database never half-works.
  *
  * Values are clamped to RANGES on read (and by admin/post/settings_training_kiosk.php on write),
  * so a hand-edited row can never produce a zero idle limit or a lock of 0 minutes.
@@ -115,10 +117,15 @@ final class KioskSettings
             $row = $res->fetch_assoc();
             $res->free();
             if (is_array($row)) {
-                return new self($row, true, $moduleEnabled, $company);
+                // 2.6.94: the device columns the kiosk code reads (a zero-row probe; 1054 before the migration).
+                $probe = $db->query('SELECT kiosk_expires_at_utc FROM training_kiosks LIMIT 0');
+                if ($probe instanceof \mysqli_result) {
+                    $probe->free();
+                    return new self($row, true, $moduleEnabled, $company);
+                }
             }
         } catch (\mysqli_sql_exception) {
-            // 1054 unknown column: 2.6.93 has not run yet.
+            // 1054 unknown column / 1146 missing table: 2.6.93 or 2.6.94 has not run yet.
         }
         return new self([], false, $moduleEnabled, $company);
     }

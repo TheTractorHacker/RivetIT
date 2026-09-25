@@ -1,6 +1,8 @@
 /*
  * Training › Devices & PINs (P3 spec §5.8, lane K2) and the setup-slips print page.
- * Devices: kiosk_list / kiosk_revoke / kiosk_reissue / kiosk_clear_cooldown / pin_clear_pause / kiosk_enroll_code.
+ * Devices: kiosk_list / kiosk_revoke / kiosk_reissue / kiosk_clear_cooldown / pin_clear_pause / kiosk_enroll_code /
+ * kiosk_set_expiry (temporary devices: Extend with the setup presets, or End now; 2.6.94). Unlisted devices (not in
+ * Assets) show "Not in Assets"; expiry times are shown in the app's time zone (page data `timezone`).
  * People & PINs: pin_people / pin_unlock / pin_odoo_unblock / pin_slips_issue / pin_sources_refresh.
  * Slips page: pin_slips_clear. Every string reaches the DOM through TrainingUi.el / textContent.
  */
@@ -74,7 +76,19 @@
 
         var data = ui.readJson('tr-page-data');
         var level = data.kiosk_level || 0;
+        var tz = data.timezone || undefined;
         if (!$('tr-devices-root')) { return; }
+        /** A device expiry in the app's time zone, with its zone ("Thu, Sep 25, 11:59 PM CDT"). */
+        function whenTz(iso) {
+            if (!iso) { return ''; }
+            var d = new Date(iso);
+            if (isNaN(d.getTime())) { return ''; }
+            try {
+                return d.toLocaleString([], { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+            } catch (e) {
+                return when(iso);
+            }
+        }
 
         // keep ?tab= in the URL so a reload stays on the tab
         Array.prototype.forEach.call(document.querySelectorAll('[data-tab]'), function (b) {
@@ -88,12 +102,25 @@
         var TYPE_ICON = { 'Tablet': 'fa-tablet-alt', 'Phone': 'fa-mobile-alt', 'Mobile Phone': 'fa-mobile-alt', 'Laptop': 'fa-laptop', 'Desktop': 'fa-desktop' };
         var PROBLEM = {
             asset_missing: 'The asset was deleted', asset_archived: 'The asset is archived', asset_type: 'The asset is no longer a device type',
-            assignment_changed: 'Assignment changed — re-enroll', owner_ineligible: 'Owner can no longer train — re-enroll'
+            assignment_changed: 'Assignment changed — re-enroll', owner_ineligible: 'Owner can no longer train — re-enroll',
+            expired: 'Expired'
         };
+        /** An unlisted device has no asset type: guess an icon from the browser it last used. */
+        function deviceIcon(k) {
+            if (k.asset) { return TYPE_ICON[k.asset.type] || 'fa-tablet-alt'; }
+            var ua = k.ua || '';
+            if (/^(iPad|Android)/.test(ua)) { return 'fa-tablet-alt'; }
+            if (/^iPhone/.test(ua)) { return 'fa-mobile-alt'; }
+            if (/^(Windows|Mac|Linux|Chromebook)/.test(ua)) { return 'fa-laptop'; }
+            return 'fa-tablet-alt';
+        }
+        var EXPIRY_PRESETS = [['today', 'Until the end of today'], ['4h', '4 hours from now'], ['8h', '8 hours from now'], ['24h', '24 hours from now'],
+                              ['until', 'Until a date and time…'], ['keep', 'Keep until I remove it']];
 
         function statusChip(k) {
             if (k.status === 'revoked') { return el('span', { class: 'badge bg-secondary-lt' }, [icon('fa-ban', 'me-1'), 'Revoked']); }
             if (k.status === 'pending') { return el('span', { class: 'badge bg-info-lt' }, [icon('fa-hourglass-half', 'me-1'), 'Waiting for setup code']); }
+            if (k.expired || k.problem === 'expired') { return el('span', { class: 'badge bg-danger-lt' }, [icon('fa-hourglass-end', 'me-1'), 'Expired']); }
             if (k.problem) { return el('span', { class: 'badge bg-danger-lt' }, [icon('fa-exclamation-triangle', 'me-1'), PROBLEM[k.problem] || 'Not working']); }
             return el('span', { class: 'badge bg-success-lt' }, [icon('fa-check-circle', 'me-1'), 'Active']);
         }
@@ -112,17 +139,52 @@
             ]));
         }
 
+        /** Inline "Extend" form inside `host`: resolves {expires, expires_until?} or null. */
+        function askExpiry(host, k) {
+            return new Promise(function (resolve) {
+                var old = host.querySelector(':scope > .tr-expiry');
+                if (old) { old.parentNode.removeChild(old); }
+                var sel = el('select', { class: 'form-select form-select-sm', 'aria-label': 'New end time', style: { flex: '1 1 11rem', width: 'auto' } },
+                    EXPIRY_PRESETS.map(function (p) { return el('option', { value: p[0], text: p[1] }); }));
+                var until = el('input', { type: 'datetime-local', class: 'form-control form-control-sm', step: '60', 'aria-label': 'Date and time', hidden: true, style: { flex: '1 1 11rem', width: 'auto' } });
+                var ok = el('button', { type: 'button', class: 'btn btn-sm btn-primary', text: 'Save' });
+                var cancel = el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', text: 'Cancel' });
+                var box = el('div', { class: 'tr-expiry alert alert-info mt-2 mb-0 p-2', role: 'group' }, [
+                    el('div', { class: 'small mb-1', text: 'Keep ' + k.label + ' working until… (counted from now)' }),
+                    el('div', { class: 'd-flex flex-wrap gap-2' }, [sel, until, cancel, ok])
+                ]);
+                function done(v) { if (box.parentNode) { box.parentNode.removeChild(box); } resolve(v); }
+                sel.addEventListener('change', function () { until.hidden = sel.value !== 'until'; if (!until.hidden) { until.focus(); } });
+                ok.addEventListener('click', function () {
+                    if (sel.value === 'until' && !until.value) { until.classList.add('is-invalid'); until.focus(); return; }
+                    done(sel.value === 'until' ? { expires: 'until', expires_until: until.value } : { expires: sel.value });
+                });
+                cancel.addEventListener('click', function () { done(null); });
+                host.appendChild(box);
+                sel.focus();
+            });
+        }
+
         function deviceCard(k) {
             var body = el('div', { class: 'card-body' });
+            var sub = k.asset
+                ? [k.asset.type, k.asset.name, k.asset.serial ? 'SN ' + k.asset.serial : ''].filter(Boolean).join(' · ') + (k.asset.archived ? ' (archived)' : '')
+                : 'Not in Assets';
             var head = el('div', { class: 'd-flex align-items-start gap-3' }, [
-                el('span', { class: 'avatar avatar-md bg-primary-lt' }, [icon(TYPE_ICON[k.asset.type] || 'fa-tablet-alt', 'fa-lg')]),
+                el('span', { class: 'avatar avatar-md bg-primary-lt' }, [icon(deviceIcon(k), 'fa-lg')]),
                 el('div', { class: 'flex-grow-1 min-w-0' }, [
                     el('h3', { class: 'card-title mb-1 text-truncate', text: k.label }),
-                    el('div', { class: 'text-secondary small', text: [k.asset.type, k.asset.name, k.asset.serial ? 'SN ' + k.asset.serial : ''].filter(Boolean).join(' · ') + (k.asset.archived ? ' (archived)' : '') })
+                    el('div', { class: 'text-secondary small', text: sub })
                 ]),
                 statusChip(k)
             ]);
             body.appendChild(head);
+            if (k.temporary && k.status !== 'revoked') {
+                body.appendChild(el('div', { class: 'small mt-2 d-flex align-items-center gap-1 ' + (k.expired ? 'text-danger' : 'text-secondary'), dataset: { kioskExpiry: '1' } }, [
+                    icon(k.expired ? 'fa-hourglass-end' : 'fa-hourglass-half', k.expired ? '' : 'text-warning'),
+                    el('span', { text: k.expired ? 'Temporary · expired ' + whenTz(k.expires_at) : 'Temporary · expires ' + whenTz(k.expires_at) })
+                ]));
+            }
             var facts = el('dl', { class: 'row small mt-3 mb-0' });
             function fact(label, value, extra) {
                 facts.appendChild(el('dt', { class: 'col-5 text-secondary fw-normal', text: label }));
@@ -155,7 +217,28 @@
                 });
                 actions.appendChild(cc);
             }
-            if (k.status === 'active' && level >= 3) {
+            if (k.status === 'active' && k.temporary && !k.expired && level >= 3) {
+                var ex = el('button', { type: 'button', class: 'btn btn-sm btn-outline-primary' }, [icon('fa-clock', 'me-1'), 'Extend']);
+                ex.addEventListener('click', function () {
+                    askExpiry(body, k).then(function (v) {
+                        if (!v) { return; }
+                        api.post('kiosk_set_expiry', { kiosk_id: k.id, expires: v.expires, expires_until: v.expires_until }).then(function (res) {
+                            ui.toast(res.device_expires_at ? k.label + ' now stops working ' + whenTz(res.device_expires_at) + '.' : k.label + ' is kept until you remove it.');
+                            loadDevices();
+                        }, function (err) { fail({ message: (err && err.fields && (err.fields.expires_until || err.fields.expires)) || (err && err.message) }); });
+                    });
+                });
+                actions.appendChild(ex);
+                var en = el('button', { type: 'button', class: 'btn btn-sm btn-outline-warning' }, [icon('fa-stop-circle', 'me-1'), 'End now']);
+                en.addEventListener('click', function () {
+                    ui.confirmBar(body, { message: 'End ' + k.label + ' now? It stops working at once and anyone signed in is signed out.', confirmLabel: 'End now', danger: true }).then(function (yes) {
+                        if (!yes) { return; }
+                        api.post('kiosk_set_expiry', { kiosk_id: k.id, expires: 'now' }).then(function () { ui.toast(k.label + ' ended.'); loadDevices(); }, fail);
+                    });
+                });
+                actions.appendChild(en);
+            }
+            if (k.status === 'active' && !k.expired && level >= 3) {
                 var re = el('button', { type: 'button', class: 'btn btn-sm btn-outline-primary' }, [icon('fa-link', 'me-1'), 'New start URL']);
                 re.addEventListener('click', function () {
                     ui.confirmBar(body, { message: 'Make a new start URL for ' + k.label + '? The old one stops working and anyone signed in on it is signed out.', confirmLabel: 'Make a new URL' }).then(function (yes) {
@@ -163,7 +246,7 @@
                         api.post('kiosk_reissue', { kiosk_id: k.id }).then(function (res) {
                             loadDevices(function () {
                                 var card = listHost.querySelector('[data-kiosk="' + k.id + '"] .card-body');
-                                if (card) { showUrl(card, res, 'New start URL for ' + res.label + (res.personal ? ' (opens to ' + res.personal.name + ')' : ' (shared)')); }
+                                if (card) { showUrl(card, res, 'New start URL for ' + res.label + (res.personal ? ' (opens to ' + res.personal.name + ')' : ' (shared)') + (res.device_expires_at ? ' · stops working ' + whenTz(res.device_expires_at) : '')); }
                             });
                         }, fail);
                     });

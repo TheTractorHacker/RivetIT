@@ -48,6 +48,7 @@ final class Ledger
     /** Phase 3+4 kiosk (P3 spec §3.8 / §7.1). Payloads never carry PINs, codes, tokens or connector messages. */
     public const TYPES_PHASE3 = [
         'kiosk.enroll_code_issued', 'kiosk.enrolled', 'kiosk.enroll_failed', 'kiosk.token_reissued', 'kiosk.revoked', 'kiosk.cooldown', 'kiosk.cooldown_cleared',
+        'kiosk.expiry_changed',
         'pin.attempt', 'pin.ok', 'pin.fail', 'pin.unavailable', 'pin.locked', 'pin.unlocked', 'pin.pause', 'pin.pause_cleared',
         'pin.setup_code_issued', 'pin.set', 'pin.source_changed', 'pin.odoo_blocked', 'pin.odoo_unblocked',
         'ksession.start', 'ksession.end',

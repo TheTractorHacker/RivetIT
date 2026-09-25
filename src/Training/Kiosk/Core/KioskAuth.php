@@ -6,6 +6,7 @@ use ITFlow\Training\Api\ApiException;
 use ITFlow\Training\Core\Db;
 use ITFlow\Training\Core\Ledger;
 use ITFlow\Training\Core\Text;
+use ITFlow\Training\Kiosk\Device\DeviceLifecycle;
 
 /**
  * Device and kiosk-session authentication (P3 spec §3.1, §8 "Device-only surface", "Learner
@@ -21,6 +22,10 @@ use ITFlow\Training\Core\Text;
  * A19: a device is valid only while it is active, its asset exists, is not archived and is of an
  * allowed type, and the asset's assignment still equals the personal-owner snapshot taken at
  * enrollment (unassigned or reassigned => locked out until re-issued), with an eligible owner.
+ * An UNLISTED device (kiosk_asset_id NULL, 2.6.94) has no asset checks and is never personal.
+ * A TEMPORARY device (kiosk_expires_at_utc, 2.6.94) past its time is 'expired': device() revokes
+ * it there and then (DeviceLifecycle::expire - its open session ends, its token and start URL stop
+ * working), exactly as if an admin had revoked it.
  */
 final class KioskAuth
 {
@@ -42,7 +47,7 @@ final class KioskAuth
 
     private const DEVICE_SELECT = 'SELECT k.kiosk_id, k.kiosk_asset_id, k.kiosk_asset_type, k.kiosk_asset_serial, k.kiosk_personal_contact_id,
             k.kiosk_label, k.kiosk_default_client_id, k.kiosk_status, k.kiosk_enroll_method, k.kiosk_token_hash, k.kiosk_enrolled_at_utc,
-            k.kiosk_last_seen_at_utc, k.kiosk_cooldown_until_utc, k.kiosk_cooldown_reason,
+            k.kiosk_last_seen_at_utc, k.kiosk_cooldown_until_utc, k.kiosk_cooldown_reason, k.kiosk_expires_at_utc,
             a.asset_id AS asset_row_id, a.asset_name, a.asset_type, a.asset_serial, a.asset_archived_at, a.asset_contact_id, a.asset_client_id
         FROM training_kiosks k LEFT JOIN assets a ON a.asset_id = k.kiosk_asset_id';
 
@@ -60,8 +65,9 @@ final class KioskAuth
 
     /**
      * The device from the cookie, or null. $reason explains a null: missing | unknown | revoked |
-     * pending | asset_missing | asset_archived | asset_type | assignment_changed | owner_ineligible.
-     * Touches last_seen/UA at most once per 60 s unless $touch is false.
+     * pending | expired | asset_missing | asset_archived | asset_type | assignment_changed | owner_ineligible.
+     * Touches last_seen/UA at most once per 60 s unless $touch is false. An 'expired' temporary
+     * device is revoked here (own transaction; never call this inside Db::tx).
      */
     public static function device(\mysqli $db, KioskSettings $ks, ?string &$reason = null, bool $touch = true): ?array
     {
@@ -84,12 +90,16 @@ final class KioskAuth
             return null;
         }
         $reason = self::invalidReason($db, $row);
+        if ($reason === 'expired' && Db::depth() === 0) {
+            // A temporary device's time is up: treated exactly like a revoked one from this request on.
+            DeviceLifecycle::expire($db, (int) $row['kiosk_id']);
+        }
         if ($reason !== null) {
             return null;
         }
         $personal = null;
         $pid = (int) ($row['kiosk_personal_contact_id'] ?? 0);
-        if ($pid > 0) {
+        if ($pid > 0 && $row['kiosk_asset_id'] !== null) {
             $c = Db::one($db, 'SELECT contact_name FROM contacts WHERE contact_id = ?', 'i', [$pid]);
             $name = trim((string) ($c['contact_name'] ?? ''));
             $personal = ['contact_id' => $pid, 'first' => self::firstName($name), 'name' => $name];
@@ -118,6 +128,13 @@ final class KioskAuth
         $status = (string) ($row['kiosk_status'] ?? '');
         if ($status !== 'active') {
             return $status === 'pending' ? 'pending' : 'revoked';
+        }
+        if (DeviceLifecycle::isExpired($row['kiosk_expires_at_utc'] ?? null)) {
+            return 'expired';
+        }
+        if (($row['kiosk_asset_id'] ?? null) === null) {
+            // Unlisted device (not in Assets): no asset to check, and it is never a personal device.
+            return (int) ($row['kiosk_personal_contact_id'] ?? 0) > 0 ? 'assignment_changed' : null;
         }
         if ($row['asset_row_id'] === null) {
             return 'asset_missing';
@@ -294,8 +311,8 @@ final class KioskAuth
             throw new \InvalidArgumentException('KioskAuth::startSession: bad source');
         }
         $kioskId = (int) $device['kiosk_id'];
-        $k = Db::one($db, "SELECT kiosk_id FROM training_kiosks WHERE kiosk_id = ? AND kiosk_status = 'active' FOR UPDATE", 'i', [$kioskId]);
-        if ($k === null) {
+        $k = Db::one($db, "SELECT kiosk_id, kiosk_expires_at_utc FROM training_kiosks WHERE kiosk_id = ? AND kiosk_status = 'active' FOR UPDATE", 'i', [$kioskId]);
+        if ($k === null || DeviceLifecycle::isExpired($k['kiosk_expires_at_utc'])) {
             throw new ApiException(403, 'device_not_enrolled', 'This device is not set up for training.');
         }
         $now = KTime::now();

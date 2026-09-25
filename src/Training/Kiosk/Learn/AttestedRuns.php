@@ -50,7 +50,7 @@ final class AttestedRuns
             $asset = null;
             if ($kioskId !== null) {
                 $k = Db::one($db, 'SELECT kiosk_asset_id FROM training_kiosks WHERE kiosk_id = ?', 'i', [$kioskId]);
-                $asset = $k === null ? null : (int) $k['kiosk_asset_id'];
+                $asset = ($k === null || $k['kiosk_asset_id'] === null) ? null : (int) $k['kiosk_asset_id'];   // NULL: an unlisted device (not in Assets)
             }
             return [
                 'run_id' => $runId,
