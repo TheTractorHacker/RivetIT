@@ -9,6 +9,7 @@ use ITFlow\Training\Core\Db;
 use ITFlow\Training\Core\RecordsSettings;
 use ITFlow\Training\People\Directory;
 use ITFlow\Training\People\Scope;
+use ITFlow\Training\Records\EvidenceStrength;
 
 /**
  * The CSV exports behind `report_csv` (S8). Each builder returns [filename, header, rows]; the
@@ -76,6 +77,12 @@ final class CsvReports
             $types .= 's';
             $params[] = (string) $f['method'];
         }
+        if (in_array($f['strength'] ?? null, array_keys(EvidenceStrength::LABELS), true)) {
+            // The same grade the records log filters on (CompletionView::list).
+            $sql .= ' AND ' . EvidenceStrength::sqlCase('tc.completion_method', 'tc.completion_proof') . ' = ?';
+            $types .= 's';
+            $params[] = (string) $f['strength'];
+        }
         if (isset($f['voided']) && $f['voided'] !== null) {
             $sql .= $f['voided'] ? ' AND v.cvoid_id IS NOT NULL' : ' AND v.cvoid_id IS NULL';
         }
@@ -87,10 +94,12 @@ final class CsvReports
             }
         }
         if (!empty($f['q'])) {
-            $sql .= ' AND (tc.completion_snap_contact_name LIKE ? OR tc.completion_snap_course_name LIKE ? OR tc.completion_cert_number LIKE ?)';
+            // The same columns the records log searches (CompletionView::list).
+            $sql .= ' AND (tc.completion_snap_contact_name LIKE ? OR c.contact_name LIKE ? OR tc.completion_cert_number LIKE ?'
+                . ' OR tc.completion_snap_course_name LIKE ? OR tc.completion_external_ref LIKE ?)';
             $like = '%' . addcslashes((string) $f['q'], '%_\\') . '%';
-            $types .= 'sss';
-            array_push($params, $like, $like, $like);
+            $types .= 'sssss';
+            array_push($params, $like, $like, $like, $like, $like);
         }
         $sql .= ' ORDER BY tc.completion_completed_on DESC, tc.completion_id DESC';
         $rows = [];

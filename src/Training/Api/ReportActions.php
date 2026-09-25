@@ -7,6 +7,8 @@ use ITFlow\Training\Core\Csv;
 use ITFlow\Training\Core\Ctx;
 use ITFlow\Training\Core\RecordsSettings;
 use ITFlow\Training\People\Scope;
+use ITFlow\Training\Records\CompletionView;
+use ITFlow\Training\Records\EvidenceStrength;
 use ITFlow\Training\Reports\CourseAnalytics;
 use ITFlow\Training\Reports\CsvReports;
 use ITFlow\Training\Reports\DashboardService;
@@ -88,7 +90,14 @@ final class ReportActions
         $f = self::deptCourse($a, $scope) + self::jobLocation($a);
         $f['days'] = (int) ($a->enum('days', ['30', '60', '90'], false) ?? 30);
         $f['method'] = $a->enum('method', ['online', 'session', 'blended', 'evaluation', 'external', 'legacy_paper'], false);
-        $f['voided'] = $a->bool('voided', null);
+        // The records log's own filter values (include | exclude | only; 1/0 kept for API callers), so its CSV link
+        // exports exactly the rows on screen.
+        $f['voided'] = match (CompletionView::voidedFilter($a->enum('voided', ['include', 'exclude', 'only', '0', '1', 'true', 'false'], false))) {
+            'only' => true,
+            'exclude' => false,
+            default => null,
+        };
+        $f['strength'] = $a->enum('strength', array_keys(EvidenceStrength::LABELS), false);
         $f['q'] = $a->str('q', 100, false);
         $f['contact_id'] = $a->int('contact_id', false, 1);
         $f['status'] = $a->enum('status', ['open', 'overdue', 'due_soon', 'completed', 'waived', 'cancelled', 'all'], false);

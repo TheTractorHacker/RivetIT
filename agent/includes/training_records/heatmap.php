@@ -17,7 +17,8 @@ foreach (['job' => $trr_hm_job ?? null, 'location' => $trr_hm_location ?? null] 
     }
 }
 // The dashboard leaves out departments with nothing required in the courses shown (all "—" rows push the ones that
-// matter down the page) and says how many it left out; Reports › Matrix keeps every department.
+// matter down the page) and says how many it left out; Reports › Matrix keeps every department that has people
+// (MatrixService::build has no row for a department with nobody on the roster, such as an empty Quality).
 $trr_hm_rows = $trr_m['rows'];
 $trr_hm_skipped = 0;
 if (!empty($trr_hm_skip_empty) && $trr_m['courses'] !== []) {
@@ -89,7 +90,7 @@ if ($trr_hm_rows === [] || $trr_m['courses'] === []) {
 </table>
 </div>
 <?php if ($trr_hm_skipped > 0) { ?>
-<p class="trr-muted small mt-2 mb-0"><?= (int) $trr_hm_skipped ?> <?= $trr_hm_skipped === 1 ? 'department has' : 'departments have' ?> no required training in these courses and <?= $trr_hm_skipped === 1 ? 'is' : 'are' ?> not shown. Reports › Matrix lists every department.</p>
+<p class="trr-muted small mt-2 mb-0"><?= (int) $trr_hm_skipped ?> <?= $trr_hm_skipped === 1 ? 'department has' : 'departments have' ?> no required training in these courses and <?= $trr_hm_skipped === 1 ? 'is' : 'are' ?> not shown. Reports › Matrix lists every department with people on the roster.</p>
 <?php } ?>
 <div class="trr-legend" aria-hidden="true">
     <span class="trr-legend__title">Current</span>
