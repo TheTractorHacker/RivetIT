@@ -18,7 +18,7 @@ final class Roster
 {
     public const JOIN = 'LEFT JOIN training_roster tr_r ON tr_r.roster_contact_id = c.contact_id';
     public const ELIGIBLE = "c.contact_archived_at IS NULL AND ((c.contact_client_id > 0 AND COALESCE(tr_r.roster_state,'auto') <> 'exclude')"
-                          . " OR (c.contact_client_id = 0 AND tr_r.roster_state = 'include'))";
+                          . " OR (c.contact_client_id = 0 AND COALESCE(tr_r.roster_state,'auto') = 'include'))";
 
     public const STATES = ['auto', 'include', 'exclude'];
     public const PAGE = 50;
