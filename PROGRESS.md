@@ -320,3 +320,20 @@ realistically, months of further work, not a few more sessions.
   Save round-tripped `intune_sync_enabled`, Sync Now against the fake tenant produced a genuine
   Microsoft AADSTS error that landed as `status='failed'` (not a stuck `running` row) - confirming the
   cron fix's logic for real, then all test rows deleted and the forged test session removed.
+- 2026-09-25: **Training (LMS) Phase 2** integrated on branch `lms-phase2` (spec `lms-phase2-spec.md`; lanes A1 schema +
+  core, B people/assignment/compliance/Odoo engine, C records/evidence, D dashboard/reports/transcript/certificate, E
+  operations UI, A2 hooks + admin page + crons). DB 2.6.91 -> 2.6.92 (17 new tables, 13 settings columns, records-mutex
+  seed, Odoo link baseline + accepted target). **Migration note: apply only through Admin > Update > Update Database**,
+  then check 2.6.92, 45 `training_%` tables + `contact_odoo_attributes`, 26 `config_training_*` columns, the records-mutex
+  row and one coattr baseline row per Odoo link. Verified on a schema-only scratch DB with generated fixtures (no live
+  rows) and a fake Odoo JSON-RPC endpoint (the real Odoo was never called): every lane's CLI suite, the A2 HTTP/cron
+  suites, a browser smoke of every page for three roles, fresh-install `db.sql` = migrated schema (only the pre-existing
+  `config_module_enable_accounting` default drift differs), migration re-run idempotent, route gate 126.
+  **Ops still to do after the merge (spec §6.3):** create `/var/log/itflow_mw_training.log` and
+  `/var/log/itflow_mw_odoo_sync.log` (www-data), install `/etc/cron.d/mw-itflow-training` (04:30 odoo_sync_cron,
+  05:15 training_cron), run Admin > Training compliance > **Check now** once (Phase 3 Odoo-PIN sign-in needs checked
+  links). Leave the nightly Odoo sync switch OFF and the hire-fill date EMPTY until the owner decides.
+  **Owner decisions pending:** hire-fill date (R2); whether external cards get LMS numbers (R9, a one-line change in
+  `CompletionService` before the first external record); whether a later passing practical evaluation after a blended
+  session record should issue a second blended record (currently it does, read as a re-evaluation).
+  Runbook (R7): a supervisor's `user_client_permissions` rows narrow their WHOLE ITFlow access, not only Training.

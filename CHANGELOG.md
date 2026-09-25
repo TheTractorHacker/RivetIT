@@ -2,6 +2,29 @@
 
 This file documents all notable changes made to ITFlow.
 
+## [Unreleased] ITFlow Internal IT - Training (LMS) Phase 2: assignments, compliance, records and reports
+Database 2.6.91 -> 2.6.92. Apply it only through **Admin > Update > Update Database** (the migration block in
+`admin/database_updates.php`; fresh installs get the same schema from `db.sql`). Nothing changes for users until the
+Training module is on.
+
+### New Features & Updates
+- Training: requirement rules (department, Odoo job, Odoo work location, job group, specific people, or everyone on the
+  roster; new hires only; due-date policy; live preview) and an assignment engine that opens, renews, reopens, reissues
+  and closes assignments from the records (nightly, and after every rule, roster, record or directory change).
+- Training: completion records with LMS certificate numbers and verify tokens, office entry of external cards and paper
+  records with an evidence scan, practical evaluations, attended sessions with an attested, digest-frozen finalize, void
+  with reissue, and hard-delete protection for people and departments with records.
+- Training: overview dashboard (KPIs, department x course heatmap, overdue ageing, expiring 30/60/90, trend), reports
+  with CSV (matrix, overdue, expiring, course analytics, document acknowledgments), transcript, printable certificate
+  with QR, and a Training panel on the contact page.
+- Training: Assignments, People (roster, job groups, trainers, hire dates), Records & sessions pages; side-nav overdue
+  badge and dashboard chips; training-only roles land on the Training overview.
+- Admin > Training compliance: compliance defaults, the opt-in hire-date fill from Odoo, Odoo employee link check and
+  resolution (a changed Odoo database blocks the directory sync until the links are checked), Recalculate now,
+  Capture today's snapshot, and the nightly Odoo directory sync switch (off by default).
+- Cron: `cron/training_cron.php` also reconciles assignments and captures the daily compliance snapshot;
+  new `cron/odoo_sync_cron.php` (inert until switched on).
+
 ## [26.05] Stable Release
 ### Bug Fixes
 - Stripe Payment: Fix adding saved cards on client portal.
