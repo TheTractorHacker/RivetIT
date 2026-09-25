@@ -6,6 +6,10 @@
  * include/exclude (TrainingOps 'roster'), hire date (TrainingOps 'hire_date'), the job-group
  * and trainer editors (offcanvas, jobgroup_save / jobgroup_archive / trainer_save with the
  * row version; a 409 offers a reload). DOM nodes only.
+ *
+ * Department groups (auto:true, one per department, made and kept in step by the server) come
+ * first with a "Department" badge; they are view-only (no Edit / Archive) and their viewer lists
+ * the department's people.
  */
 (function () {
     'use strict';
@@ -208,14 +212,24 @@
                 }
                 function fail(err) { clear(grid); clear(empty); empty.appendChild(u.failState(err, refetch)); }
                 function render(list) {
-                    groups = list;
                     clear(grid); clear(empty);
+                    // Department groups first (the server sorts them first; keep that if it ever does not).
+                    list = list.filter(function (g) { return !!g.auto; }).concat(list.filter(function (g) { return !g.auto; }));
+                    groups = list;
                     var active = list.filter(function (g) { return !g.archived; });
                     var archived = list.filter(function (g) { return !!g.archived; });
+                    var ownActive = active.filter(function (g) { return !g.auto; });
+                    var canCreate = level >= 3 && routes.jobgroup_save !== false;
                     (showArchived ? list : active).forEach(function (g) { grid.appendChild(tile(g)); });
                     if (!active.length && !showArchived) {
                         empty.appendChild(u.emptyState({ icon: 'fas fa-users-cog', title: 'No job groups yet', text: 'Group people by job title, for example every "Welder" and "Lead Welder", so a rule can require training for all of them.',
-                            actions: level >= 3 && routes.jobgroup_save !== false ? [el('button', { type: 'button', class: 'btn btn-primary', on: { click: function () { edit(null); } } }, [u.icon('fas fa-plus me-2'), 'New job group'])] : [] }));
+                            actions: canCreate ? [el('button', { type: 'button', class: 'btn btn-primary', on: { click: function () { edit(null); } } }, [u.icon('fas fa-plus me-2'), 'New job group'])] : [] }));
+                    } else if (!ownActive.length && !showArchived) {
+                        // Only department groups so far: say where hand-made groups fit, without a full empty state.
+                        empty.appendChild(el('div', { class: 'tro-pg-own px-4 pb-3' }, [
+                            el('span', { text: 'Department groups are made for you. For people across departments, like every welder, make your own group by job title or by name.' }),
+                            canCreate ? el('button', { type: 'button', class: 'btn btn-sm btn-outline-primary', on: { click: function () { edit(null); } } }, [u.icon('fas fa-plus me-1'), 'New job group']) : null
+                        ]));
                     }
                     if (archived.length) {
                         empty.appendChild(el('div', { class: 'px-4 pb-3' }, [el('button', { type: 'button', class: 'btn btn-link btn-sm p-0', text: showArchived ? 'Hide archived groups' : 'Show archived groups (' + archived.length + ')',
@@ -223,7 +237,25 @@
                     }
                 }
                 function titleText(t) { return t && typeof t === 'object' ? String(t.title || '') : String(t || ''); }
+                function deptBadge() { return u.chip('Department', 'info', 'fas fa-sitemap', { class: 'tro-chip tro-chip--info tro-chip--sm' }); }
+                function groupDeptName(g) { return (g.department && g.department.name) || g.name; }
+                function matchedText(g) {
+                    return u.plural(Number(g.matched || 0), 'person', 'people') + (D.scope === 'all' ? '' : ' in your departments');
+                }
+                /** A department group: badge, "kept in sync", View only. */
+                function deptTile(g) {
+                    return el('div', { class: 'tro-tile tro-tile--dept' + (g.archived ? ' is-archived' : ''), dataset: { id: g.id } }, [
+                        el('div', { class: 'd-flex align-items-start gap-2' }, [el('div', { class: 'tro-tile__title flex-grow-1', text: g.name }), deptBadge(),
+                            g.archived ? u.chip('Archived', 'outline', null, { class: 'tro-chip tro-chip--outline tro-chip--sm' }) : null]),
+                        // The stored description ("Everyone in the X department, kept in sync automatically.") would repeat the line below.
+                        el('div', { class: 'tro-tile__meta', text: g.archived ? 'The department is archived, so this group matches no one.' : matchedText(g) }),
+                        el('div', { class: 'tro-tile__auto' }, [u.icon('fas fa-sync-alt'), el('span', { text: 'Kept in sync automatically' })]),
+                        el('div', { class: 'tro-tile__foot' }, [el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', 'aria-label': 'View the ' + g.name + ' department group',
+                            on: { click: function () { edit(g); } } }, [u.icon('far fa-eye me-1'), 'View'])])
+                    ]);
+                }
                 function tile(g) {
+                    if (g.auto) { return deptTile(g); }
                     var titles = (Array.isArray(g.titles) ? g.titles : []).map(titleText);
                     var titleCount = g.title_count !== undefined && g.title_count !== null ? Number(g.title_count) : titles.length;
                     var named = Array.isArray(g.members) ? g.members.length : (g.member_count !== undefined && g.member_count !== null ? Number(g.member_count) : null);
@@ -280,13 +312,13 @@
                     return u.fetchAction('jobgroup_titles', {}).then(function (d) { titleCache = (d && d.titles) || []; return titleCache; }, function () { return []; });
                 }
                 function edit(g) {
-                    var canEdit = level >= 3 && routes.jobgroup_save !== false && !(g && g.archived);
+                    var canEdit = level >= 3 && routes.jobgroup_save !== false && !(g && (g.archived || g.auto));
                     var holder = el('div', {}, [el('div', { class: 'tr-skeleton' }, [el('div', { class: 'tro-skel tro-skel--w60 mb-3' }), el('div', { class: 'tro-skel tro-skel--w80 mb-3' }), el('div', { class: 'tro-skel tro-skel--w40' })])]);
-                    var h = Ops.sheet({ title: g ? (canEdit ? 'Edit job group' : g.name) : 'New job group', subtitle: g && canEdit ? g.name : '', body: holder, foot: [], wide: true });
+                    var h = Ops.sheet({ title: g ? (canEdit ? 'Edit job group' : g.name) : 'New job group', subtitle: g && canEdit ? g.name : (g && g.auto ? 'Department group' : ''), body: holder, foot: [], wide: true });
                     var detail = g ? u.fetchAction('jobgroup_get', { jobgroup_id: g.id }).then(function (d) { return (d && (d.group || d)) || g; }) : Promise.resolve(null);
                     Promise.all([detail, canEdit ? loadTitles() : Promise.resolve([])]).then(function (res) {
                         var full = res[0];
-                        if (canEdit) { editor(h, full, res[1]); } else { viewer(h, full || g); }
+                        if (canEdit) { editor(h, full, res[1]); } else if ((full || g).auto) { deptViewer(h, full || g); } else { viewer(h, full || g); }
                     }, function (err) { h.setBody(u.failState(err)); });
                 }
                 function viewer(h, g) {
@@ -299,6 +331,25 @@
                         el('h3', { class: 'h5 mt-2', text: 'Named people' }),
                         members.length ? el('ul', { class: 'tro-outcomes' }, members.map(function (p) { return el('li', {}, [u.personCell(p)]); })) : el('p', { class: 'text-muted small', text: 'No one is named by hand.' }),
                         g.members_hidden ? el('p', { class: 'text-muted small mt-2', text: u.plural(Number(g.members_hidden), 'more person', 'more people') + ' outside your departments.' }) : null
+                    ]);
+                    h.setBody(wrap);
+                    h.setFoot([el('button', { type: 'button', class: 'btn btn-primary ms-auto', text: 'Close', dataset: { bsDismiss: 'offcanvas' } })]);
+                }
+                /** A department group, read-only: what it follows and who is in it now. */
+                function deptViewer(h, g) {
+                    var people = Array.isArray(g.people) ? g.people : [];
+                    var SHOW = 100;
+                    var dept = groupDeptName(g);
+                    var wrap = el('div', {}, [
+                        el('div', { class: 'tro-consequence mb-3' }, [u.icon('fas fa-sync-alt'), el('div', {}, [
+                            el('div', { class: 'fw-semibold', text: 'Kept in sync automatically' }),
+                            el('div', { text: 'People join and leave this group when they join or leave the ' + dept + ' department. It is renamed and archived along with the department, so change the department itself; the group cannot be edited here.' })
+                        ])]),
+                        g.archived ? el('p', { class: 'text-muted', text: 'The ' + dept + ' department is archived, so this group matches no one until the department is restored.' }) : null,
+                        el('h3', { class: 'h5 mt-2', text: 'People in this group' + (g.matched ? ' (' + Number(g.matched) + ')' : '') }),
+                        people.length ? el('ul', { class: 'tro-outcomes' }, people.slice(0, SHOW).map(function (p) { return el('li', {}, [u.personCell(p)]); }))
+                            : el('p', { class: 'text-muted small', text: g.archived ? 'No one while the department is archived.' : (D.scope === 'all' ? 'No one in this department is on the training roster yet.' : 'No one you can see: this department may be outside your departments.') }),
+                        people.length > SHOW ? el('p', { class: 'text-muted small mt-2', text: 'And ' + u.plural(people.length - SHOW, 'more person', 'more people') + '. The Roster tab lists everyone by department.' }) : null
                     ]);
                     h.setBody(wrap);
                     h.setFoot([el('button', { type: 'button', class: 'btn btn-primary ms-auto', text: 'Close', dataset: { bsDismiss: 'offcanvas' } })]);

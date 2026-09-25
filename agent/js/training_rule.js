@@ -31,7 +31,7 @@
             department: { label: 'Department', icon: 'fas fa-sitemap', add: 'People in one or more departments', noun: 'departments' },
             odoo_job: { label: 'Job position', icon: 'fas fa-hard-hat', add: 'Job positions from Odoo, like Welder', noun: 'job positions' },
             odoo_location: { label: 'Work location', icon: 'fas fa-map-marker-alt', add: 'Work locations from Odoo, like Main Shop', noun: 'work locations' },
-            jobgroup: { label: 'Job group', icon: 'fas fa-users-cog', add: 'Your own groups of titles or people', noun: 'job groups' },
+            jobgroup: { label: 'Job group', icon: 'fas fa-users-cog', add: 'Department groups, or your own groups of titles or people', noun: 'job groups' },
             contact: { label: 'Specific people', icon: 'fas fa-user', add: 'Pick people by name', noun: 'people' }
         };
 
@@ -51,8 +51,10 @@
         }
         function setGroups(data) {
             var g = (data && (data.groups || data.rows || data.job_groups)) || (Array.isArray(data) ? data : []);
-            OPTS.jobgroup = g.filter(function (x) { return !x.archived; }).map(function (x) {
-                return { id: Number(x.id), name: x.name, count: x.member_count !== undefined ? x.member_count : x.members_count };
+            // Department groups (auto) first, as jobgroup_list sends them.
+            g = g.filter(function (x) { return !x.archived; });
+            OPTS.jobgroup = g.filter(function (x) { return !!x.auto; }).concat(g.filter(function (x) { return !x.auto; })).map(function (x) {
+                return { id: Number(x.id), name: x.name, count: x.member_count !== undefined ? x.member_count : x.members_count, auto: !!x.auto };
             });
         }
         if (listFrom(D.attr_options, 'jobs') !== null) { setAttrOptions(D.attr_options.data); }
@@ -287,9 +289,13 @@
                 closeAfterSelect: false,
                 placeholder: 'Choose ' + KINDS[kind].noun + '…',
                 render: {
-                    option: function (d, escape) {
-                        return '<div class="d-flex align-items-center gap-2"><span class="flex-grow-1">' + escape(d.text) + '</span>'
-                            + (d.count !== undefined && d.count !== null && d.count !== '' ? '<span class="text-muted small">' + escape(String(d.count)) + '</span>' : '') + '</div>';
+                    option: function (d) {
+                        // DOM nodes (TomSelect accepts an element): name, a "Department" badge for department groups, count.
+                        return el('div', { class: 'd-flex align-items-center gap-2' }, [
+                            el('span', { class: 'flex-grow-1', text: String(d.text) }),
+                            d.auto ? el('span', { class: 'tro-chip tro-chip--info tro-chip--sm', text: 'Department' }) : null,
+                            d.count !== undefined && d.count !== null && d.count !== '' ? el('span', { class: 'text-muted small', text: String(d.count) }) : null
+                        ]);
                     },
                     item: function (d, escape) {
                         return '<div' + (d.unknown ? ' class="text-warning" title="Not found in Odoo any more"' : '') + '>' + escape(d.text) + '</div>';
@@ -357,6 +363,7 @@
                     var opt = row.ts.options[key];
                     var src = list.filter(function (o) { return String(o.id) === key; })[0];
                     opt.count = src ? src.count : '';
+                    opt.auto = !!(src && src.auto);
                     opt.unknown = !src || !isKnown(kind, Number(key));
                 });
                 if (st.readOnly) { row.ts.lock(); }

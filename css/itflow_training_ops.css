@@ -564,6 +564,12 @@ td.tro-inline-cell { background: var(--tro-surface-2); }
 }
 .tro-tile.is-archived { background: var(--tro-surface-2); }
 .tro-tile.is-archived .tro-tile__title { color: var(--if-muted, #5d6f76); }
+/* Department job groups: made and kept in step by the server, view-only */
+.tro-tile--dept { box-shadow: inset 3px 0 0 var(--tro-info-fg); }
+.tro-tile--dept .tro-tile__title { overflow-wrap: anywhere; }
+.tro-tile__auto { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--tro-info-fg); }
+.tro-tile__auto .fas { font-size: 11px; }
+.tro-pg-own { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--if-muted, #5d6f76); }
 .tro-links-head { border-bottom: 1px solid var(--if-border, #e3e9ea); }
 .tro-links-count { flex: none; }
 .tro-check-list + .form-hint { margin-top: 6px; }

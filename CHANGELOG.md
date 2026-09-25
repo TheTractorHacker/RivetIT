@@ -26,6 +26,11 @@ Training module is on.
   Capture today's snapshot, and the nightly Odoo directory sync switch (off by default).
 - Cron: `cron/training_cron.php` also reconciles assignments and captures the daily compliance snapshot;
   new `cron/odoo_sync_cron.php` (inert until switched on).
+- Training: department job groups. Every active department gets its own job group, created and kept in step for you
+  (renamed, archived and restored with the department). Its people are the department's contacts right now, so a new
+  hire or a department move takes effect at once. People › Job groups lists them first with a "Department" badge
+  (view-only); rules can target them like any job group. No database change: the link is a reserved row in the
+  job-group titles table that no real job title can match.
 
 ## [26.05] Stable Release
 ### Bug Fixes

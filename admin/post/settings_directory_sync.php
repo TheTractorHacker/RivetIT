@@ -147,6 +147,11 @@ if (isset($_POST['sync_microsoft_directory'])) {
 
         $mapper->finishSyncLog($log_id, $deptStats, $empStats);
 
+        // Training: departments this sync created, renamed or archived get their department job group in step.
+        // Guarded like every Training hook here: module on, schema ready, never fails the sync.
+        try { if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\People\DepartmentGroups::class)) { \ITFlow\Training\People\DepartmentGroups::safeSync($mysqli, 'directory_sync'); } }
+        catch (\Throwable $e) { error_log('Training: department job group sync failed: ' . $e->getMessage()); }
+
         logAction("Settings", "Edit", "$session_name synced Microsoft directory: departments {$deptStats['created']} created/{$deptStats['updated']} updated/{$deptStats['matched']} matched, employees {$empStats['created']} created/{$empStats['updated']} updated/{$empStats['matched']} matched");
         flash_alert("Microsoft directory sync complete: departments {$deptStats['created']} created, {$deptStats['updated']} updated; employees {$empStats['created']} created, {$empStats['updated']} updated");
     } catch (\RuntimeException $e) {
@@ -446,6 +451,11 @@ if (isset($_POST['sync_odoo_directory'])) {
 
         $mapper->finishSyncLog($log_id, $deptStats, $empStats);
 
+        // Training: departments this sync created, renamed or archived get their department job group in step.
+        // Guarded like every Training hook here: module on, schema ready, never fails the sync.
+        try { if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\People\DepartmentGroups::class)) { \ITFlow\Training\People\DepartmentGroups::safeSync($mysqli, 'directory_sync'); } }
+        catch (\Throwable $e) { error_log('Training: department job group sync failed: ' . $e->getMessage()); }
+
         // Training (Phase 2, M4): link-state bookkeeping always; attributes only after a clean sync with the module on.
         $tr_note = '';
         if (class_exists(\ITFlow\Training\Directory\OdooTrainingSync::class)) {
@@ -594,6 +604,11 @@ if (isset($_POST['sync_google_directory'])) {
         $empStats = $mapper->syncEmployees($users, $deptStats['idMap']);
 
         $mapper->finishSyncLog($log_id, $deptStats, $empStats);
+
+        // Training: departments this sync created, renamed or archived get their department job group in step.
+        // Guarded like every Training hook here: module on, schema ready, never fails the sync.
+        try { if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\People\DepartmentGroups::class)) { \ITFlow\Training\People\DepartmentGroups::safeSync($mysqli, 'directory_sync'); } }
+        catch (\Throwable $e) { error_log('Training: department job group sync failed: ' . $e->getMessage()); }
 
         logAction("Settings", "Edit", "$session_name synced Google Workspace directory: departments {$deptStats['created']} created/{$deptStats['updated']} updated/{$deptStats['matched']} matched, employees {$empStats['created']} created/{$empStats['updated']} updated/{$empStats['matched']} matched");
         flash_alert("Google Workspace sync complete: departments {$deptStats['created']} created, {$deptStats['updated']} updated; employees {$empStats['created']} created, {$empStats['updated']} updated");

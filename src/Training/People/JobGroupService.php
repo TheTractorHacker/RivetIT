@@ -13,17 +13,34 @@ use ITFlow\Training\Core\Ledger;
  * title (LOWER(TRIM(contact_title))) is in the group's title list, so "welder", "Welder " and a
  * misspelt "machinest" can be ticked together and new hires with those titles join automatically.
  * Rules can target a job group (criteria kind `jobgroup`).
+ *
+ * Department groups (DepartmentGroups): one per active department, linked by a reserved marker row
+ * in training_job_group_titles. Their members are the department's contacts, live (membership()
+ * joins them); they are read-only here (save/archive refuse them) and never show the marker.
  */
 final class JobGroupService
 {
     public const MAX_MEMBERS = 1000;
     public const MAX_TITLES = 200;
 
+    /**
+     * (cid, gid) for department groups: the marker " #dept:<client_id>" joined to that department's
+     * contacts while the department is active. Callers append the group filter (AND g.… ).
+     */
+    private const DEPT_MEMBERS_SQL = "SELECT c.contact_id AS cid, t.jgtitle_jobgroup_id AS gid FROM training_job_group_titles t
+            JOIN training_job_groups g ON g.jobgroup_id = t.jgtitle_jobgroup_id
+            JOIN contacts c ON c.contact_client_id > 0 AND t.jgtitle_normalized = CONCAT('" . DepartmentGroups::MARKER_PREFIX . "', c.contact_client_id)
+            JOIN clients cl ON cl.client_id = c.contact_client_id AND cl.client_archived_at IS NULL AND cl.client_lead = 0
+            WHERE " . DepartmentGroups::SQL_MARKER_ROW;
+
     public function __construct(private readonly Ctx $c)
     {
     }
 
-    /** contact_id => list<jobgroup_id> over active groups (members ∪ title matches). */
+    /**
+     * contact_id => list<jobgroup_id> over active groups (members ∪ title matches ∪ department groups:
+     * everyone whose contact_client_id is the group's department, while that department is active).
+     */
     public static function membership(\mysqli $db): array
     {
         $out = [];
@@ -32,7 +49,10 @@ final class JobGroupService
             UNION
             SELECT c.contact_id AS cid, t.jgtitle_jobgroup_id AS gid FROM training_job_group_titles t
             JOIN training_job_groups g ON g.jobgroup_id = t.jgtitle_jobgroup_id AND g.jobgroup_archived_at IS NULL
-            JOIN contacts c ON LOWER(TRIM(c.contact_title)) = t.jgtitle_normalized');
+            JOIN contacts c ON LOWER(TRIM(c.contact_title)) = t.jgtitle_normalized
+            WHERE ' . DepartmentGroups::SQL_TITLE_ROW . '
+            UNION
+            ' . self::DEPT_MEMBERS_SQL . ' AND g.jobgroup_archived_at IS NULL');
         foreach ($rows as $r) {
             $out[(int) $r['cid']][] = (int) $r['gid'];
         }
@@ -50,13 +70,19 @@ final class JobGroupService
         return mb_strtolower(trim($t, ' '), 'UTF-8');
     }
 
-    /** @return list<array{id,name,description,version,archived,member_count,title_count,matched}> matched = eligible people in $s */
+    /**
+     * Department groups first, then hand-made ones, each by name.
+     * member_count = named people (hand-made) or the department's live head count (department groups).
+     *
+     * @return list<array{id,name,description,version,archived,member_count,title_count,matched,auto:bool,department:?array{id:int,name:string}}>
+     *         matched = eligible people in $s
+     */
     public function list(?Scope $s = null, bool $includeArchived = false): array
     {
         $db = $this->c->db;
         $rows = Db::all($db, 'SELECT g.jobgroup_id, g.jobgroup_name, g.jobgroup_description, g.jobgroup_version, g.jobgroup_archived_at,
                 (SELECT COUNT(*) FROM training_job_group_members m WHERE m.jgmember_jobgroup_id = g.jobgroup_id) AS member_count,
-                (SELECT COUNT(*) FROM training_job_group_titles t WHERE t.jgtitle_jobgroup_id = g.jobgroup_id) AS title_count
+                (SELECT COUNT(*) FROM training_job_group_titles t WHERE t.jgtitle_jobgroup_id = g.jobgroup_id AND ' . DepartmentGroups::SQL_TITLE_ROW . ') AS title_count
             FROM training_job_groups g' . ($includeArchived ? '' : ' WHERE g.jobgroup_archived_at IS NULL') . ' ORDER BY g.jobgroup_name');
         $matched = [];
         foreach (Directory::load($db, $s ?? Scope::forCtx($this->c)) as $p) {
@@ -64,16 +90,26 @@ final class JobGroupService
                 $matched[$gid] = ($matched[$gid] ?? 0) + 1;
             }
         }
-        return array_map(static fn($r) => [
-            'id' => (int) $r['jobgroup_id'],
-            'name' => (string) $r['jobgroup_name'],
-            'description' => $r['jobgroup_description'],
-            'version' => (int) $r['jobgroup_version'],
-            'archived' => $r['jobgroup_archived_at'] !== null,
-            'member_count' => (int) $r['member_count'],
-            'title_count' => (int) $r['title_count'],
-            'matched' => $matched[(int) $r['jobgroup_id']] ?? 0,
-        ], $rows);
+        $links = DepartmentGroups::links($db);
+        $depts = DepartmentGroups::departments($db, array_values($links));
+        $out = array_map(static function ($r) use ($matched, $links, $depts) {
+            $id = (int) $r['jobgroup_id'];
+            $cid = $links[$id] ?? null;
+            return [
+                'id' => $id,
+                'name' => (string) $r['jobgroup_name'],
+                'description' => $r['jobgroup_description'],
+                'version' => (int) $r['jobgroup_version'],
+                'archived' => $r['jobgroup_archived_at'] !== null,
+                'member_count' => $cid !== null ? (int) ($depts[$cid]['people'] ?? 0) : (int) $r['member_count'],
+                'title_count' => (int) $r['title_count'],
+                'matched' => $matched[$id] ?? 0,
+                'auto' => $cid !== null,
+                'department' => $cid !== null ? ['id' => $cid, 'name' => $depts[$cid]['name'] ?? (string) $r['jobgroup_name']] : null,
+            ];
+        }, $rows);
+        usort($out, static fn($a, $b) => (int) $b['auto'] <=> (int) $a['auto']);   // stable: name order kept within each kind
+        return $out;
     }
 
     /** The group with its in-scope members (PersonRef) and titles (with in-scope counts). */
@@ -89,7 +125,8 @@ final class JobGroupService
         $memberIds = array_map(static fn($r) => (int) $r['jgmember_contact_id'],
             Db::all($db, 'SELECT jgmember_contact_id FROM training_job_group_members WHERE jgmember_jobgroup_id = ? ORDER BY jgmember_contact_id', 'i', [$id]));
         $titles = array_map(static fn($r) => (string) $r['jgtitle_normalized'],
-            Db::all($db, 'SELECT jgtitle_normalized FROM training_job_group_titles WHERE jgtitle_jobgroup_id = ? ORDER BY jgtitle_normalized', 'i', [$id]));
+            Db::all($db, 'SELECT t.jgtitle_normalized FROM training_job_group_titles t WHERE t.jgtitle_jobgroup_id = ? AND ' . DepartmentGroups::SQL_TITLE_ROW
+                . ' ORDER BY t.jgtitle_normalized', 'i', [$id]));
         $members = [];
         foreach (Directory::load($db, $s, $memberIds, true) as $p) {
             $members[] = Directory::ref($p);
@@ -98,13 +135,18 @@ final class JobGroupService
         foreach ($this->titles($s) as $t) {
             $counts[$t['title']] = $t['count'];
         }
+        $cid = DepartmentGroups::departmentOf($db, $id);
         $matched = 0;
+        $people = [];
         foreach (Directory::load($db, $s) as $p) {
             if (in_array($id, $p['jobgroup_ids'], true)) {
                 $matched++;
+                if ($cid !== null && count($people) < self::MAX_MEMBERS) {
+                    $people[] = Directory::ref($p);
+                }
             }
         }
-        return [
+        $out = [
             'id' => (int) $g['jobgroup_id'],
             'name' => (string) $g['jobgroup_name'],
             'description' => $g['jobgroup_description'],
@@ -114,7 +156,17 @@ final class JobGroupService
             'members_hidden' => count($memberIds) - count($members),
             'titles' => array_map(static fn($t) => ['title' => $t, 'count' => $counts[$t] ?? 0], $titles),
             'matched' => $matched,
+            'auto' => $cid !== null,
+            'department' => null,
         ];
+        if ($cid !== null) {
+            // A department group: its people are the department's, live (in scope, on the roster).
+            $dept = DepartmentGroups::departments($db, [$cid])[$cid] ?? null;
+            $out['department'] = ['id' => $cid, 'name' => $dept['name'] ?? (string) $g['jobgroup_name']];
+            $out['member_count'] = (int) ($dept['people'] ?? 0);
+            $out['people'] = $people;
+        }
+        return $out;
     }
 
     /**
@@ -124,6 +176,9 @@ final class JobGroupService
     public function save(?int $id, ?int $version, array $data): array
     {
         $db = $this->c->db;
+        if ($id !== null) {
+            $this->refuseDepartmentGroup($id);   // before field validation, so the reason is the one that matters (checked again under the row lock)
+        }
         $name = trim((string) ($data['name'] ?? ''));
         if ($name === '' || mb_strlen($name, 'UTF-8') > 100 || !mb_check_encoding($name, 'UTF-8')) {
             throw ApiException::validation(['name' => 'Give the group a name (at most 100 characters).']);
@@ -145,6 +200,9 @@ final class JobGroupService
             $n = self::normalizeTitle($t);
             if ($n === '') {
                 continue;
+            }
+            if (DepartmentGroups::isReservedTitle($n)) {
+                throw ApiException::validation(['titles' => 'A title cannot start with "#dept:". That is reserved for department groups.']);
             }
             if (mb_strlen($n, 'UTF-8') > 200) {
                 throw ApiException::validation(['titles' => 'A title is too long (at most 200 characters).']);
@@ -177,6 +235,7 @@ final class JobGroupService
                 if ($cur === null) {
                     throw ApiException::notFound('That job group was not found.');
                 }
+                $this->refuseDepartmentGroup($id);
                 if ($cur['jobgroup_archived_at'] !== null) {
                     throw new ApiException(409, 'archived', 'This job group is archived.');
                 }
@@ -186,7 +245,7 @@ final class JobGroupService
                 Db::exec($db, 'UPDATE training_job_groups SET jobgroup_name = ?, jobgroup_description = ?, jobgroup_version = jobgroup_version + 1 WHERE jobgroup_id = ?',
                     'ssi', [$name, $desc === '' ? null : $desc, $id]);
                 Db::exec($db, 'DELETE FROM training_job_group_members WHERE jgmember_jobgroup_id = ?', 'i', [$id]);
-                Db::exec($db, 'DELETE FROM training_job_group_titles WHERE jgtitle_jobgroup_id = ?', 'i', [$id]);
+                Db::exec($db, 'DELETE t FROM training_job_group_titles t WHERE t.jgtitle_jobgroup_id = ? AND ' . DepartmentGroups::SQL_TITLE_ROW, 'i', [$id]);
                 $gid = $id;
             }
             foreach ($members as $m) {
@@ -222,12 +281,14 @@ final class JobGroupService
             if ($cur === null) {
                 throw ApiException::notFound('That job group was not found.');
             }
+            $this->refuseDepartmentGroup($id);
             if ($cur['jobgroup_archived_at'] !== null) {
                 throw new ApiException(409, 'archived', 'This job group is already archived.');
             }
             Db::exec($db, 'UPDATE training_job_groups SET jobgroup_archived_at = NOW(), jobgroup_version = jobgroup_version + 1 WHERE jobgroup_id = ?', 'i', [$id]);
             $titles = array_map(static fn($r) => (string) $r['jgtitle_normalized'],
-                Db::all($db, 'SELECT jgtitle_normalized FROM training_job_group_titles WHERE jgtitle_jobgroup_id = ? ORDER BY jgtitle_normalized', 'i', [$id]));
+                Db::all($db, 'SELECT t.jgtitle_normalized FROM training_job_group_titles t WHERE t.jgtitle_jobgroup_id = ? AND ' . DepartmentGroups::SQL_TITLE_ROW
+                    . ' ORDER BY t.jgtitle_normalized', 'i', [$id]));
             $count = (int) (Db::one($db, 'SELECT COUNT(*) AS n FROM training_job_group_members WHERE jgmember_jobgroup_id = ?', 'i', [$id])['n'] ?? 0);
             Ledger::append($db, [
                 'type' => 'jobgroup.archived',
@@ -260,13 +321,26 @@ final class JobGroupService
         return array_values($out);
     }
 
-    /** Every contact currently in group $id (members ∪ title matches, whether or not the group is archived). */
+    /** Every contact currently in group $id (members ∪ title matches ∪ department, whether or not the group is archived). */
     private function membersOf(int $id): array
     {
         $rows = Db::all($this->c->db, 'SELECT jgmember_contact_id AS cid FROM training_job_group_members WHERE jgmember_jobgroup_id = ?
             UNION SELECT c.contact_id FROM training_job_group_titles t JOIN contacts c ON LOWER(TRIM(c.contact_title)) = t.jgtitle_normalized
-            WHERE t.jgtitle_jobgroup_id = ?', 'ii', [$id, $id]);
+            WHERE t.jgtitle_jobgroup_id = ? AND ' . DepartmentGroups::SQL_TITLE_ROW . '
+            UNION SELECT x.cid FROM (' . self::DEPT_MEMBERS_SQL . ' AND g.jobgroup_id = ?) x', 'iii', [$id, $id, $id]);
         return array_map(static fn($r) => (int) $r['cid'], $rows);
+    }
+
+    /** Department groups follow their department; they are never edited or archived by hand (409). */
+    private function refuseDepartmentGroup(int $id): void
+    {
+        $cid = DepartmentGroups::departmentOf($this->c->db, $id);
+        if ($cid === null) {
+            return;
+        }
+        $dept = DepartmentGroups::departments($this->c->db, [$cid])[$cid]['name'] ?? ('#' . $cid);
+        throw new ApiException(409, 'department_group', 'This group follows the ' . $dept . ' department automatically. '
+            . 'Its people, name and archive state change with the department, so it cannot be edited or archived here.');
     }
 
     /** Reconciles the affected people only when an active rule targets this group. */

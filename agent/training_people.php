@@ -142,7 +142,7 @@ $tr_state_labels = [
         <div class="tro-pager" id="tro-pr-pager" hidden></div>
         <?php } elseif ($tr_tab === 'groups') { ?>
         <div class="tro-card__body pb-0">
-            <p class="text-muted small mb-0">A job group names people by their job title or by hand, for example "Welders" or "Forklift drivers". Rules can then target the group, and new people with a matching title join it automatically.</p>
+            <p class="text-muted small mb-0">Every department has its own group, made and kept in sync for you: people join or leave it as they join or leave the department. Make your own groups by job title or by hand, for example "Welders" or "Forklift drivers". Rules can then target any group, and new people who match join it automatically.</p>
         </div>
         <div class="tro-grid" id="tro-pg-grid"></div>
         <div id="tro-pg-empty"></div>
