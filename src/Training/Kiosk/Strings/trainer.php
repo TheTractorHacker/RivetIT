@@ -4,12 +4,12 @@
  * Trainer-mode strings (lane K5): kiosk/trainer.php, session.php (trainer and check-in roles),
  * evaluate.php (trainer and hand-off roles). Keys trn.* plus the trainer-only error codes.
  * PIN error texts used here live under trn.pin_* so they never collide with lane K2's err.pin_*.
+ * err.not_trainer is lane K2's (signin.php); trainer screens fall back to trn.not_trainer.
  * Plain text only ({name} placeholders). Spanish is plain shop-floor Spanish.
  */
 
 return [
     'en' => [
-        'err.not_trainer' => 'You are not set up as a trainer for this.',
         'err.session_closed' => 'This session is already finished.',
         'err.checklist_mismatch' => 'The checklist changed. Start the evaluation again.',
 
@@ -153,7 +153,6 @@ return [
         'trn.saved' => 'Saved',
     ],
     'es' => [
-        'err.not_trainer' => 'No está configurado como instructor para esto.',
         'err.session_closed' => 'Esta sesión ya terminó.',
         'err.checklist_mismatch' => 'La lista cambió. Empiece la evaluación otra vez.',
 

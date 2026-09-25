@@ -38,12 +38,13 @@
         return null;
     }
     var PIN_CODES = { pin_wrong: 'trn.pin_wrong', pin_locked: 'trn.pin_locked', pin_locked_hard: 'trn.pin_locked_hard', setup_needed: 'trn.pin_setup_needed',
-        signin_unavailable: 'trn.pin_unavailable', pin_format: 'trn.pin_format', signature_empty: 'trn.sign_first', signature_invalid: 'trn.signature_bad' };
+        signin_unavailable: 'trn.pin_unavailable', pin_format: 'trn.pin_format', signature_empty: 'trn.sign_first', signature_invalid: 'trn.signature_bad', not_trainer: 'trn.not_trainer' };
     function errText(err) {
         if (!err) { return t('err.server'); }
         var d = err.data || {};
         if (err.code === 'pin_wrong' && typeof d.tries_left === 'number') { return t('trn.pin_wrong_n', { n: d.tries_left }); }
         if (err.code === 'pin_locked') { return t('trn.pin_locked', { minutes: d.minutes || 1 }); }
+        if (err.code === 'not_trainer') { return t('trn.not_trainer'); }   // err.not_trainer (lane K2) is worded for sign-in
         if (err.code && K.has('err.' + err.code)) { return t('err.' + err.code); }
         if (PIN_CODES[err.code]) { return t(PIN_CODES[err.code]); }
         return err.message || t('err.server');
