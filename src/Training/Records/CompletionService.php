@@ -353,7 +353,9 @@ final class CompletionService
             return null;
         }
         try {
-            return (new AssignmentService($c))->reconcile($ids, $trigger, 1);
+            $r = (new AssignmentService($c))->reconcile($ids, $trigger, 1);
+            // Another reconcile held the lock: the record stands; assignments catch up on the next run.
+            return !empty($r['skipped_busy']) ? ['error' => 'busy'] + $r : $r;
         } catch (\mysqli_sql_exception $e) {
             $busy = in_array((int) $e->getCode(), [1205, 1213], true);
             error_log("Training: reconcile after $trigger failed: " . $e->getMessage());
