@@ -456,6 +456,7 @@
         function refreshStaffRow() {
             var row = $('tro-rule-staff-row');
             var hint = $('tro-rule-staff-hint');
+            if (!st.isNew && st.effectiveOn) { $('tro-rule-hire-hint').textContent = 'People whose hire date is on or after ' + u.fmtDate(st.effectiveOn) + ', when the rule was saved'; }
             row.classList.toggle('tro-when__row--muted', st.newHiresOnly);
             // Current-staff dates do nothing for a new-hires-only rule: show that by disabling them (values are kept).
             dueDays.disabled = st.newHiresOnly || st.readOnly;

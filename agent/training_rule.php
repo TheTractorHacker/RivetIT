@@ -135,7 +135,7 @@ if ($tr_id === null) {
                     <div class="tro-when__row">
                         <div class="tro-when__label">
                             <div class="tro-when__title">New hires</div>
-                            <div class="tro-when__hint">People whose hire date is on or after the day you save</div>
+                            <div class="tro-when__hint" id="tro-rule-hire-hint">People whose hire date is on or after the day you save</div>
                         </div>
                         <div class="tro-when__ctl">
                             <label for="tro-rule-hire-days">Due</label>
