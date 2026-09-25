@@ -624,3 +624,20 @@
 :where(.tr-skeleton__line) { height: 14px; width: 60%; }
 @keyframes trp-sheen { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { :where(.tr-skeleton) { animation: none; } }
+
+/* ---- fixes from the design review --------------------------------------------- */
+/* The page hint fades after the first page turn (or 3 s), so it never sits on the page. */
+.trp-doc__hint { transition: opacity .4s ease; }
+.trp-doc__hint.is-faded { opacity: 0; pointer-events: none; }
+/* Sign-off: the PIN card sits in the right column; its keypad fits the 320 px column. */
+.trp-laside .trp-pin { padding: 16px 14px; }
+.trp-laside .trp-pin__keys { grid-template-columns: repeat(3, minmax(0, 80px)); gap: 8px; }
+.trp-laside .trp-pin__key { height: 58px; }
+.trp-ack { max-width: none; }
+.trp-ack__sign:disabled { opacity: .55; }
+/* The result has one column when nothing was unlocked. */
+.trp-result__grid.is-single { grid-template-columns: minmax(0, 1fr); }
+/* The page starts below the hint and zoom buttons, so nothing ever sits on top of it. */
+.trp-doc__stage { height: 480px; }
+.trp-doc__viewport { top: 58px; }
+@media (max-width: 700px) { .trp-doc__viewport { top: 56px; } }

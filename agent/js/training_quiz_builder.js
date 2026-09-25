@@ -170,11 +170,23 @@
         this.focusedId = null;
         this.externalRules = {};
         this.onChannel = this.onChannel.bind(this);
+        // A text box that gets narrower (an image added beside it, a resized window) must grow
+        // again, or its last line is cut off: re-measure on width changes only.
+        this.ro = typeof window.ResizeObserver === 'function' ? new window.ResizeObserver(function (entries) {
+            entries.forEach(function (en) {
+                var t = en.target;
+                var w = Math.round(en.contentRect.width);
+                if (!w || t._trqW === w) { return; }
+                t._trqW = w;
+                if (t.classList.contains('trq-opt__text')) { growOption(t); } else { autoGrow(t); }
+            });
+        }) : null;
         this.channel = U().channel();
         this.channel.on('quiz_changed', this.onChannel);
         this.build();
     }
 
+    Builder.prototype.watchSize = function (ta) { if (this.ro && ta) { this.ro.observe(ta); } };
     Builder.prototype.isDefaultLang = function () { return this.lang === this.defaultLang; };
     Builder.prototype.canStructure = function () { return this.isDefaultLang() && !this.translate && !this.readOnly; };
     Builder.prototype.ownBankId = function () { return this.mode === 'quiz' ? (this.quiz ? this.quiz.own_bank_id : null) : this.bankId; };
@@ -205,8 +217,8 @@
             if (this.page) {
                 this.left = el('aside', { class: 'trq-left' }, [this.settingsEl, this.poolEl = el('section', { class: 'trq-card trq-pool' })]);
                 this.right = el('aside', { class: 'trq-right' }, [
-                    this.previewEl = el('section', { class: 'trq-card trq-preview' }),
-                    this.readyEl = el('section', { class: 'trq-card trq-ready' })
+                    this.readyEl = el('section', { class: 'trq-card trq-ready' }),
+                    this.previewEl = el('section', { class: 'trq-card trq-preview' })
                 ]);
                 this.main.appendChild(this.toolbar);
                 this.main.appendChild(this.banner);
@@ -380,7 +392,7 @@
         ]);
         actions.appendChild(importMenu);
         if (this.page) {
-            actions.appendChild(el('button', { type: 'button', class: 'btn btn-outline-secondary', disabled: this.readOnly, on: { click: function () { self.openBankPicker(); } } }, [icon('fa-layer-group', 'me-1'), 'Add from bank']));
+            actions.appendChild(el('button', { type: 'button', class: 'btn btn-outline-secondary', disabled: this.readOnly, on: { click: function () { self.openBankPicker(); } } }, [icon('fa-layer-group', 'me-1'), 'Draw from a bank']));
         }
         if (this.mode === 'bank') {
             var search = el('input', { type: 'search', class: 'form-control form-control-sm trq-search', placeholder: 'Search questions', 'aria-label': 'Search questions', value: this.search });
@@ -828,6 +840,10 @@
         var text = { conflict: 'Changed elsewhere', error: "Couldn't save", offline: 'Offline, retrying', saving: 'Saving…', saved: 'Saved', idle: '' }[pick];
         this.saveState.dataset.state = pick;
         this.saveState.textContent = text;
+        if (typeof this.opts.onSaveState === 'function' && pick !== this.lastPick) {
+            this.lastPick = pick;
+            try { this.opts.onSaveState(pick); } catch (e) { /* ignore */ }
+        }
         if (pick === 'saved') {
             clearTimeout(this.savedFade);
             this.savedFade = setTimeout(function () { if (self.saveState.dataset.state === 'saved') { self.saveState.textContent = 'All changes saved'; } }, 1500);
@@ -935,9 +951,13 @@
     Builder.prototype.summaryText = function () {
         var q = this.quiz;
         var n = this.poolStats ? this.poolStats.total_draw : this.questions.length;
-        var parts = [plural(n, '1 question', '{n} questions'), 'pass ' + q.pass_pct + '%', q.max_attempts === 0 ? 'unlimited tries' : plural(q.max_attempts, '1 try', '{n} tries')];
+        var blocks = !(q.role === 'check' && !q.must_pass);
+        // A check that never blocks finishing has no pass mark worth showing.
+        var parts = [plural(n, '1 question', '{n} questions')];
+        if (blocks) { parts.push('pass ' + q.pass_pct + '%'); }
+        parts.push(q.max_attempts === 0 ? 'unlimited tries' : plural(q.max_attempts, '1 try', '{n} tries'));
         if (q.time_limit_s) { parts.push(Math.round(q.time_limit_s / 60) + ' min'); }
-        if (q.role === 'check' && !q.must_pass) { parts.push("doesn't block finishing"); }
+        if (!blocks) { parts.push("doesn't block finishing"); }
         return parts.join(' · ');
     };
     Builder.prototype.renderSummary = function () {
@@ -964,33 +984,51 @@
         }
         var id = function (k) { return self.instance + '-' + k; };
 
-        // pass mark
-        var passOut = el('output', { class: 'trq-pass__value', for: id('pass'), text: q.pass_pct + '%' });
-        var pass = el('input', { type: 'range', class: 'form-range', id: id('pass'), min: '50', max: '100', step: '5', value: String(q.pass_pct), disabled: ro });
-        pass.addEventListener('input', function () { passOut.textContent = pass.value + '%'; });
-        pass.addEventListener('change', function () { self.setQuizField('pass_pct', Number(pass.value), 0); });
-        body.appendChild(row('Pass mark', 'Critical questions must be right too.', el('div', { class: 'trq-pass' }, [pass, passOut]), id('pass')));
+        // pass mark: a typed number box, as in the approved mockup ("80 %")
+        var pass = el('input', { type: 'number', class: 'form-control form-control-sm trq-pass__input', id: id('pass'), min: '50', max: '100', step: '5', inputmode: 'numeric', value: String(q.pass_pct), disabled: ro });
+        pass.addEventListener('change', function () {
+            var v = Math.round(Number(pass.value));
+            if (!isFinite(v) || pass.value.trim() === '') { v = q.pass_pct; }
+            v = Math.max(50, Math.min(100, v));
+            pass.value = String(v);
+            if (v !== q.pass_pct) { self.setQuizField('pass_pct', v, 0); }
+        });
+        pass.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); pass.blur(); } });
+        body.appendChild(row('Pass mark', 'Critical questions must be right too.', el('div', { class: 'input-group input-group-sm trq-pass' }, [pass, el('span', { class: 'input-group-text', text: '%' })]), id('pass')));
 
         // attempts
         var att = el('select', { class: 'form-select form-select-sm', id: id('att'), disabled: ro });
         att.appendChild(el('option', { value: '0', text: 'Unlimited' }));
         for (var i = 1; i <= 10; i++) { att.appendChild(el('option', { value: String(i), text: String(i) })); }
         att.value = String(q.max_attempts);
-        att.addEventListener('change', function () { self.setQuizField('max_attempts', Number(att.value), 0); });
-        body.appendChild(row('Attempts', q.max_attempts === 0 ? 'People can keep trying.' : 'After that, a supervisor resets it.', att, id('att')));
+        var attRow = row('Attempts', q.max_attempts === 0 ? 'People can keep trying.' : 'After that, a supervisor resets it.', att, id('att'));
+        att.addEventListener('change', function () {
+            attRow.querySelector('.trq-set__hint').textContent = att.value === '0' ? 'People can keep trying.' : 'After that, a supervisor resets it.';
+            self.setQuizField('max_attempts', Number(att.value), 0);
+        });
+        body.appendChild(attRow);
 
-        // time limit
+        // time limit (the hint follows the setting)
         var mins = el('input', { type: 'number', class: 'form-control form-control-sm trq-mins', id: id('mins'), min: '1', max: '240', step: '1', value: q.time_limit_s ? String(Math.round(q.time_limit_s / 60)) : '15', disabled: ro || !q.time_limit_s, 'aria-label': 'Minutes' });
+        var tlRow;
+        function tlHint(on) {
+            var h = tlRow && tlRow.querySelector('.trq-set__hint');
+            if (h) { h.textContent = on ? 'Ends after ' + (Number(mins.value) || 15) + ' min; the answers are sent then.' : 'No limit. Recommended for safety exams.'; }
+        }
         var tl = toggle(id('tl'), !!q.time_limit_s, false, function (on) {
             mins.disabled = !on;
+            tlHint(on);
             self.setQuizField('time_limit_s', on ? Math.max(60, Math.min(14400, (Number(mins.value) || 15) * 60)) : null, 0);
         });
         mins.addEventListener('change', function () {
             var m = Math.max(1, Math.min(240, Math.round(Number(mins.value) || 15)));
             mins.value = String(m);
+            tlHint(true);
             self.setQuizField('time_limit_s', m * 60, 0);
         });
-        body.appendChild(row('Time limit', q.time_limit_s ? 'The quiz submits itself when time runs out.' : 'No limit. Recommended for safety exams.', el('div', { class: 'trq-inline' }, [tl, mins, el('span', { class: 'small text-muted', text: 'min' })]), id('tl')));
+        tlRow = row('Time limit', 'x', el('div', { class: 'trq-inline' }, [tl, mins, el('span', { class: 'small text-muted', text: 'min' })]), id('tl'));
+        body.appendChild(tlRow);
+        tlHint(!!q.time_limit_s);
 
         body.appendChild(row('Shuffle questions', 'New order on every attempt.', toggle(id('sq'), q.shuffle_questions, false, function (on) { self.setQuizField('shuffle_questions', on, 0); }), id('sq')));
         body.appendChild(row('Shuffle answers', 'True / False and pinned answers keep their place.', toggle(id('so'), q.shuffle_options, false, function (on) { self.setQuizField('shuffle_options', on, 0); }), id('so')));
@@ -1127,7 +1165,7 @@
             }
         });
         body.appendChild(el('div', { class: 'trq-pool__actions' }, [
-            el('button', { type: 'button', class: 'btn btn-outline-secondary btn-sm', disabled: this.readOnly, on: { click: function () { self.openBankPicker(); } } }, [icon('fa-plus', 'me-1'), 'Add source']),
+            el('button', { type: 'button', class: 'btn btn-outline-secondary btn-sm', disabled: this.readOnly, on: { click: function () { self.openBankPicker(); } } }, [icon('fa-plus', 'me-1'), 'Draw from a bank']),
             el('a', { class: 'small', href: '/agent/training_banks.php', target: '_blank', rel: 'noopener' }, ['Open Question Library ', icon('fa-external-link-alt')])
         ]));
         if (window.Sortable && !this.readOnly && rules.length > 1) {
@@ -1158,9 +1196,24 @@
         var st = this.statFor(r.id);
         var available = st ? st.available : (r.implicit ? this.questions.length : 0);
         var title = r.implicit ? 'Written for this quiz' : prettyPath(r.bank_path || 'Bank');
-        var count = el('input', { type: 'number', class: 'form-control form-control-sm trq-rule__count', min: '0', max: '500', value: String(r.count), disabled: this.readOnly, 'aria-label': 'How many to draw (0 = all)' });
+        var mode = el('select', { class: 'form-select form-select-sm trq-rule__mode', disabled: this.readOnly, 'aria-label': 'How many questions to ask from ' + (r.implicit ? 'this quiz' : 'this bank') }, [
+            el('option', { value: 'all', text: 'Ask all ' + available }),
+            el('option', { value: 'some', text: 'Ask only' })
+        ]);
+        mode.value = r.count ? 'some' : 'all';
+        var count = el('input', { type: 'number', class: 'form-control form-control-sm trq-rule__count', min: '1', max: '500', value: String(r.count || Math.min(Math.max(1, available), 5)), disabled: this.readOnly, hidden: !r.count, 'aria-label': 'How many to ask' });
+        var ofText = el('span', { text: 'of ' + available, hidden: !r.count });
+        mode.addEventListener('change', function () {
+            var some = mode.value === 'some';
+            count.hidden = !some;
+            ofText.hidden = !some;
+            var n = some ? Math.max(1, Math.min(500, Math.round(Number(count.value) || 1))) : 0;
+            count.value = String(n || count.value);
+            self.updateRule(r, { count: n });
+            if (some) { count.focus(); count.select(); }
+        });
         count.addEventListener('change', function () {
-            var n = Math.max(0, Math.min(500, Math.round(Number(count.value) || 0)));
+            var n = Math.max(1, Math.min(500, Math.round(Number(count.value) || 1)));
             count.value = String(n);
             self.updateRule(r, { count: n });
         });
@@ -1168,9 +1221,7 @@
             el('span', { class: 'trq-rule__handle', 'aria-hidden': 'true', title: 'Drag to reorder' }, icon('fa-grip-vertical')),
             el('div', { class: 'trq-rule__main' }, [
                 el('div', { class: 'trq-rule__title' }, [r.implicit ? icon('fa-pen', 'me-1') : icon('fa-layer-group', 'me-1'), el('span', { text: title })]),
-                el('div', { class: 'trq-rule__draw' }, [
-                    el('span', { text: 'Draw' }), count, el('span', { text: 'of ' + available + (r.count === 0 ? ' (0 = all)' : '') })
-                ]),
+                el('div', { class: 'trq-rule__draw' }, [mode, count, ofText]),
                 !r.implicit ? el('label', { class: 'form-check mb-0 small' }, [
                     el('input', { class: 'form-check-input', type: 'checkbox', checked: r.include_descendants, disabled: this.readOnly, on: { change: function (e) { self.updateRule(r, { include_descendants: e.target.checked }); } } }),
                     el('span', { class: 'form-check-label', text: 'Include sub-banks' })
@@ -1395,28 +1446,53 @@
         host.appendChild(tree);
         var params = {};
         if (opts.courseId) { params.course_id = opts.courseId; }
+        // Quiz banks are fetched (never listed) so counts include the questions written inside
+        // quizzes, and the banks above this quiz's own questions can be marked as already in it.
+        if (opts.hideQuiz) { params.include_quiz_banks = true; }
         var banks = [];
         var self = this;
+        function total(b) {
+            if (b._trqTotal === undefined) {
+                b._trqTotal = (b.counts ? b.counts.questions || 0 : 0) + (b.children || []).reduce(function (a, c) { return a + total(c); }, 0);
+            }
+            return b._trqTotal;
+        }
+        function ancestorsOf(id) {
+            var path = [];
+            (function find(nodes, trail) {
+                return nodes.some(function (b) {
+                    if (b.id === id) { path = trail.slice(); return true; }
+                    return find(b.children || [], trail.concat([b.id]));
+                });
+            })(banks, []);
+            return path;
+        }
         function draw() {
             clear(tree);
             var needle = search.value.trim().toLowerCase();
             var any = false;
+            var inQuiz = {};
+            if (opts.ownBankId) { ancestorsOf(opts.ownBankId).forEach(function (id) { inQuiz[id] = true; }); }
             function walk(nodes, depth) {
                 nodes.forEach(function (b) {
                     if (opts.exclude && opts.exclude[b.id]) { return; }
+                    if (opts.hideQuiz && b.kind === 'quiz') { return; }
                     var show = !needle || (b.path || b.name || '').toLowerCase().indexOf(needle) !== -1;
                     if (show) {
                         any = true;
-                        var reason = opts.disabled && opts.disabled[b.id];
+                        var reason = (opts.disabled && opts.disabled[b.id]) || (inQuiz[b.id] ? 'Already in this quiz' : '');
                         var tr = b.counts && b.counts.translated ? b.counts.translated : {};
                         var langs = Object.keys(tr).filter(function (l) { return l !== self.defaultLang; }).map(function (l) { return l.toUpperCase() + ' ' + tr[l]; });
+                        var own = b.counts ? b.counts.questions || 0 : 0;
+                        var all = total(b);
                         tree.appendChild(el('button', {
                             type: 'button', class: 'trq-tree__node', role: 'treeitem', disabled: !!reason, style: { paddingLeft: (10 + depth * 18) + 'px' },
+                            title: all !== own ? plural(all, '1 question', '{n} questions') + ', counting its sub-banks and quizzes' : null,
                             on: { click: function () { opts.onPick(b); } }
                         }, [
                             icon(b.kind === 'course' ? 'fa-book' : (b.kind === 'quiz' ? 'fa-pen' : 'fa-layer-group'), 'trq-tree__icon'),
                             el('span', { class: 'trq-tree__name', text: b.label || b.name }),
-                            el('span', { class: 'trq-tree__count', text: (b.counts ? b.counts.questions : 0) + (langs.length ? ' · ' + langs.join(' · ') : '') }),
+                            el('span', { class: 'trq-tree__count', text: all + (langs.length ? ' · ' + langs.join(' · ') : '') }),
                             reason ? el('span', { class: 'trq-tree__reason', text: reason }) : null
                         ]));
                     }
@@ -1436,16 +1512,16 @@
     Builder.prototype.openBankPicker = function () {
         var self = this;
         if (!this.quiz) { return; }
-        var p = this.openPanel('Add a source', 'Questions are drawn at random from the bank you choose.');
+        var p = this.openPanel('Draw from a bank', 'Each attempt asks questions picked at random from the bank you choose.');
         var used = {};
-        (this.quiz.rules || []).forEach(function (r) { used[r.bank_id] = 'Already a source'; });
+        (this.quiz.rules || []).forEach(function (r) { if (!r.implicit) { used[r.bank_id] = 'Already a source'; } });
         var err = el('div', { class: 'alert alert-danger py-2 small', hidden: true, role: 'alert' });
         var holder = el('div');
         p.body.appendChild(err);
         p.body.appendChild(holder);
         p.foot.appendChild(el('a', { class: 'btn btn-link btn-sm', href: '/agent/training_banks.php', target: '_blank', rel: 'noopener' }, ['Open Question Library ', icon('fa-external-link-alt')]));
         this.renderTreePicker(holder, {
-            courseId: this.quiz.course_id || this.opts.courseId, disabled: used,
+            courseId: this.quiz.course_id || this.opts.courseId, disabled: used, hideQuiz: true, ownBankId: this.quiz.own_bank_id,
             onPick: function (b) {
                 err.hidden = true;
                 retryBusy(function () { return TrainingApi.post('quiz_rule_add', { quiz_id: self.quiz.id, bank_id: b.id, include_descendants: true, count: 0 }); }).then(function (rule) {
@@ -1456,7 +1532,13 @@
                     self.loadExternalRules();
                     self.afterChange();
                     U().toast('Now drawing from ' + prettyPath(rule.bank_path || b.name) + '.');
-                }, function (e) { err.hidden = false; err.textContent = fieldMessage(e); });
+                }, function (e) {
+                    err.hidden = false;
+                    var m = fieldMessage(e);
+                    // Say what to do, not only what is wrong.
+                    if (/already draws|overlap|another source/i.test(m)) { m = 'Those questions are already in this quiz, through another source or its own questions. Pick a different bank.'; }
+                    err.textContent = m;
+                });
             }
         });
     };
@@ -1484,7 +1566,11 @@
         var dz = window.TrainingUploader.dropzone(drop, {
             purpose: 'csv_import', bankId: bankId, lang: this.defaultLang, accept: '.csv,text/csv',
             onStart: function () { clear(result); result.appendChild(el('div', { class: 'tr-skeleton tr-skeleton__line' })); },
-            onDone: function (file, data) { self.renderImportPreview(result, data, bankId); },
+            onDone: function (file, data) {
+                var pr = drop.querySelector('.tr-drop__progress');
+                if (pr) { pr.textContent = file && file.name ? file.name + ' checked.' : ''; }
+                self.renderImportPreview(result, data, bankId);
+            },
             onError: function (file, err) {
                 clear(result);
                 result.appendChild(el('div', { class: 'alert alert-danger py-2', role: 'alert', text: err && err.code === 'too_large' ? (err.message || 'That file is too large (at most 2 MB).') : fieldMessage(err) }));
@@ -1517,8 +1603,14 @@
             check.disabled = true;
             clear(result);
             result.appendChild(el('div', { class: 'tr-skeleton tr-skeleton__line' }));
-            TrainingApi.post('question_paste_preview', { bank_id: bankId, lang: langSel ? langSel.value : self.defaultLang, text: ta.value }).then(function (d) {
+            var cleaned = cleanPaste(ta.value);
+            TrainingApi.post('question_paste_preview', { bank_id: bankId, lang: langSel ? langSel.value : self.defaultLang, text: cleaned.text }).then(function (d) {
                 check.disabled = false;
+                d = Object.assign({}, d, { summary: Object.assign({}, d.summary || {}) });
+                var notes = (d.summary.notes || []).slice();
+                if (cleaned.numbers) { notes.push('Question numbers like "4." were removed from ' + plural(cleaned.numbers, '1 question', '{n} questions') + '.'); }
+                if (cleaned.explanations) { notes.push(plural(cleaned.explanations, 'One "Explanation:" line was', '{n} "Explanation:" lines were') + " left out: paste doesn't carry explanations. Add each one in its question card after the import."); }
+                d.summary.notes = notes;
                 self.renderImportPreview(result, d, bankId);
             }, function (err) {
                 check.disabled = false;
@@ -1527,6 +1619,31 @@
             });
         });
     };
+
+    /**
+     * Paste from Word keeps its numbering ("4. What do you do…") and often an "Explanation:" line.
+     * Both are tidied before the preview: the number is dropped from the question line, and the
+     * explanation lines are left out (and counted, so the preview can say so).
+     */
+    function cleanPaste(text) {
+        var out = { text: '', numbers: 0, explanations: 0 };
+        var blocks = String(text || '').replace(/\r\n?/g, '\n').split(/\n[ \t]*\n/);
+        out.text = blocks.map(function (b) {
+            var first = true;
+            return b.split('\n').filter(function (line) {
+                if (/^\s*(explanation|rationale|why)\s*[:\-\u2013]/i.test(line)) { out.explanations++; return false; }
+                return true;
+            }).map(function (line) {
+                if (first && line.trim() !== '') {
+                    first = false;
+                    var m = line.match(/^\s*(?:q(?:uestion)?\s*)?\d{1,3}\s*[.):\-\u2013]\s+(?=\S)/i);
+                    if (m) { out.numbers++; return line.slice(m[0].length); }
+                }
+                return line;
+            }).join('\n');
+        }).join('\n\n');
+        return out;
+    }
 
     Builder.prototype.renderImportPreview = function (host, d, bankId) {
         var self = this;
@@ -1546,7 +1663,7 @@
         }
         if ((d.rows || []).length) {
             var tbl = el('table', { class: 'table table-sm trq-import__table' }, [
-                el('thead', null, el('tr', null, ['#', 'Question', 'Type', 'Correct', ''].map(function (hd) { return el('th', { scope: 'col', text: hd }); }))),
+                el('thead', null, el('tr', null, ['#', 'Question', 'Type', 'Correct', 'Notes'].map(function (hd) { return el('th', { scope: 'col', text: hd }); }))),
                 el('tbody', null, d.rows.slice(0, 200).map(function (r) {
                     return el('tr', null, [
                         el('td', { class: 'text-muted', text: String(r.row) }),
@@ -1686,6 +1803,7 @@
         this.root.removeEventListener('keydown', this.keydown);
         if (this.sortable) { try { this.sortable.destroy(); } catch (e) { /* ignore */ } }
         if (this.ruleSortable) { try { this.ruleSortable.destroy(); } catch (e) { /* ignore */ } }
+        if (this.ro) { this.ro.disconnect(); }
         clearTimeout(this.statsTimer);
         clearTimeout(this.changeTimer);
         this.questions.forEach(function (q) { TrainingStore.forget('question', q.id); });
@@ -1712,6 +1830,7 @@
         var b = this.b;
         var q = this.q;
         clear(this.el);
+        this.imgDropWired = false;
         this.el.classList.toggle('is-collapsed', this.collapsed);
         this.el.classList.toggle('is-translate', b.translate);
         this.el.appendChild(el('span', { class: 'trq-card__rail trq-card__rail--' + q.type, 'aria-hidden': 'true' }));
@@ -1743,6 +1862,18 @@
         this.langChips = el('span', { class: 'trq-langs' });
         this.head.appendChild(this.langChips);
         this.head.appendChild(el('span', { class: 'trq-grow' }));
+        this.imgBtn = null;
+        if (canStruct && window.TrainingUploader) {
+            this.imgInput = el('input', { type: 'file', accept: window.TrainingUploader.accepts('question_image'), hidden: true, tabindex: '-1', 'aria-hidden': 'true' });
+            this.imgInput.addEventListener('change', function () {
+                var f = self.imgInput.files && self.imgInput.files[0];
+                self.imgInput.value = '';
+                if (f) { self.uploadImage(f); }
+            });
+            this.imgBtn = el('button', { type: 'button', class: 'trq-iconbtn trq-img-btn', title: 'Add an image', 'aria-label': 'Add an image to this question', on: { click: function () { self.imgInput.click(); } } }, icon('fa-image'));
+            this.head.appendChild(this.imgBtn);
+            this.head.appendChild(this.imgInput);
+        }
         if (b.mode === 'bank') {
             this.head.appendChild(el('button', { type: 'button', class: 'btn btn-sm btn-ghost-secondary trq-collapse', 'aria-label': 'Collapse', title: 'Collapse', on: { click: function () { self.b.expanded[q.id] = false; self.collapsed = true; self.render(); } } }, icon('fa-chevron-up')));
         }
@@ -1770,6 +1901,12 @@
             self.setText('text', self.textEl.value);
             autoGrow(self.textEl);
         });
+        this.textEl.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.metaKey || e.isComposing) { return; }
+            var next = self.optsEl && (self.optsEl.querySelector('.trq-opt__text') || self.optsEl.querySelector('.trq-mark:not(:disabled)'));
+            if (next) { e.preventDefault(); next.focus(); }
+        });
+        b.watchSize(this.textEl);
         textCol.appendChild(this.textEl);
         if (showRef && !b.translate && ref.text) { textCol.appendChild(el('div', { class: 'trq-ref', text: ref.text })); }
         this.topicEl = el('input', { type: 'text', class: 'trq-topic', maxlength: String(TOPIC_MAX), placeholder: 'Topic (optional), e.g. LOTO › Procedures', 'aria-label': 'Topic', list: b.instance + '-topics', disabled: b.readOnly });
@@ -1780,6 +1917,8 @@
         qrow.appendChild(textCol);
         body.appendChild(qrow);
 
+        this.markHint = el('div', { class: 'trq-markhint', hidden: true });
+        body.appendChild(this.markHint);
         this.optsEl = el('ol', { class: 'trq-opts' });
         body.appendChild(this.optsEl);
         this.addOptBtn = el('button', { type: 'button', class: 'trq-addopt' }, [icon('fa-plus'), 'Add answer']);
@@ -1805,6 +1944,7 @@
             placeholder: "Shown to people who miss this. Don't state the answer." });
         this.explEl.value = t.explanation || '';
         this.explEl.addEventListener('input', function () { self.setText('explanation', self.explEl.value); autoGrow(self.explEl); });
+        b.watchSize(this.explEl);
         if (showRef && ref.explanation) { this.explBody.appendChild(el('div', { class: 'trq-ref trq-ref--sm', text: ref.explanation })); }
         this.explBody.appendChild(this.explEl);
         this.explBody.appendChild(el('div', { class: 'trq-hint-sm', text: "Shown to people who miss this. Don't state the answer." }));
@@ -1913,15 +2053,13 @@
             this.critBtn.classList.toggle('is-on', !!q.critical);
         }
         if (this.pointsEl) {
+            // A compact "1 pt" box (as in the mockup), so the type and Critical stay on one row.
             clear(this.pointsEl);
-            var minus = el('button', { type: 'button', class: 'trq-points__btn', 'aria-label': 'Fewer points', disabled: !can || q.points <= 1 }, icon('fa-minus'));
-            var plus = el('button', { type: 'button', class: 'trq-points__btn', 'aria-label': 'More points', disabled: !can || q.points >= 10 }, icon('fa-plus'));
-            var val = el('span', { class: 'trq-points__val', 'aria-live': 'polite', text: q.points + ' pt' + (q.points === 1 ? '' : 's') });
-            minus.addEventListener('click', function () { q.points = Math.max(1, q.points - 1); self.syncHead(); self.store.set('points', q.points, 400); });
-            plus.addEventListener('click', function () { q.points = Math.min(10, q.points + 1); self.syncHead(); self.store.set('points', q.points, 400); });
-            this.pointsEl.appendChild(minus);
-            this.pointsEl.appendChild(val);
-            this.pointsEl.appendChild(plus);
+            var pts = el('select', { class: 'form-select form-select-sm trq-points__sel', 'aria-label': 'Points', disabled: !can });
+            for (var p = 1; p <= 10; p++) { pts.appendChild(el('option', { value: String(p), text: p + ' pt' + (p === 1 ? '' : 's') })); }
+            pts.value = String(q.points);
+            pts.addEventListener('change', function () { q.points = Math.max(1, Math.min(10, Number(pts.value) || 1)); self.store.set('points', q.points, 0); });
+            this.pointsEl.appendChild(pts);
         }
         if (this.addOptBtn) { this.addOptBtn.hidden = !can || q.type === 'truefalse' || q.options.length >= MAX_OPTIONS; }
         this.el.querySelectorAll('.trq-card__rail').forEach(function (r) { r.className = 'trq-card__rail trq-card__rail--' + q.type; });
@@ -1989,6 +2127,7 @@
                     self.store.set('options', true, SAVE_DELAY);
                 });
                 textNode.addEventListener('focus', function () { growOption(textNode); });
+                b.watchSize(textNode);
                 textNode.addEventListener('keydown', function (e) {
                     if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
                         e.preventDefault();
@@ -2035,6 +2174,12 @@
             ]);
             self.optsEl.appendChild(li);
         });
+        if (this.markHint) {
+            var none = can && !q.options.some(function (o) { return o.correct; });
+            this.markHint.hidden = !none;
+            clear(this.markHint);
+            if (none) { this.markHint.appendChild(icon('fa-hand-point-down', 'me-1')); this.markHint.appendChild(document.createTextNode(multi ? 'Tick the box next to every right answer.' : 'Tap the circle next to the right answer.')); }
+        }
         // Measured once the card is in the page (a card is built before it is attached).
         var optsEl = this.optsEl;
         setTimeout(function () { optsEl.querySelectorAll('textarea.trq-opt__text').forEach(growOption); }, 0);
@@ -2093,7 +2238,9 @@
         if (!this.imgSlot) { return; }
         clear(this.imgSlot);
         var can = b.canStructure();
+        if (this.imgBtn) { this.imgBtn.hidden = !!(q.media && q.media.url); }
         if (q.media && q.media.url) {
+            this.imgSlot.hidden = false;
             this.imgSlot.appendChild(el('img', { src: q.media.url, alt: '', class: 'trq-img__thumb' }));
             if (can) {
                 this.imgSlot.appendChild(el('button', { type: 'button', class: 'trq-img__remove', 'aria-label': 'Remove image', title: 'Remove image', on: { click: function () {
@@ -2104,23 +2251,18 @@
             }
             return;
         }
-        if (!can || !window.TrainingUploader) { this.imgSlot.hidden = true; return; }
-        this.imgSlot.hidden = false;
-        var input = el('input', { type: 'file', accept: window.TrainingUploader.accepts('question_image'), hidden: true, tabindex: '-1', 'aria-hidden': 'true' });
-        var btn = el('button', { type: 'button', class: 'trq-img__add', title: 'Add an image', 'aria-label': 'Add an image to this question' }, [icon('fa-image'), el('span', { text: 'Image' })]);
-        btn.addEventListener('click', function () { input.click(); });
-        input.addEventListener('change', function () {
-            var f = input.files && input.files[0];
-            input.value = '';
-            if (f) { self.uploadImage(f); }
-        });
-        this.imgSlot.appendChild(btn);
-        this.imgSlot.appendChild(input);
-        // Dropping an image on the slot works too.
-        this.imgSlot.addEventListener('dragover', function (e) { if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') !== -1) { e.preventDefault(); self.imgSlot.classList.add('is-over'); } });
-        this.imgSlot.addEventListener('dragleave', function () { self.imgSlot.classList.remove('is-over'); });
-        this.imgSlot.addEventListener('drop', function (e) {
-            self.imgSlot.classList.remove('is-over');
+        // No image: no empty box. The header's image button (or dropping a picture on the
+        // question) adds one.
+        this.imgSlot.hidden = true;
+        if (!can || !window.TrainingUploader || this.imgDropWired) { return; }
+        this.imgDropWired = true;
+        var row = this.imgSlot.parentNode;
+        if (!row) { return; }
+        var isFiles = function (e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') !== -1; };
+        row.addEventListener('dragover', function (e) { if (isFiles(e)) { e.preventDefault(); row.classList.add('is-over'); } });
+        row.addEventListener('dragleave', function () { row.classList.remove('is-over'); });
+        row.addEventListener('drop', function (e) {
+            row.classList.remove('is-over');
             var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
             if (f) { e.preventDefault(); self.uploadImage(f); }
         });
@@ -2129,6 +2271,7 @@
         var self = this;
         var q = this.q;
         clear(this.imgSlot);
+        this.imgSlot.hidden = false;
         this.imgSlot.appendChild(el('div', { class: 'trq-img__busy', role: 'status' }, [icon('fa-circle-notch', 'fa-spin'), el('span', { class: 'visually-hidden', text: 'Uploading' })]));
         this.b.setGlobalState('saving');
         window.TrainingUploader.upload(file, { purpose: 'question_image', bankId: q.bank_id }).then(function (d) {

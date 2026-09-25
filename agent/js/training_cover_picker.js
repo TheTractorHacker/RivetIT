@@ -3,10 +3,13 @@
  * "Upload your own" tab, agent/js/training_uploader.js.
  *
  *   TrainingCoverPicker.open({name, color, cover:{id,url}|null, coverKey?, purpose:'course_cover'|'path_cover',
- *                             uploadOpts:{courseId?|pathId?}, allowUpload = true, title?})
+ *                             uploadOpts:{courseId?|pathId?}, allowUpload = true, ingest = true, title?})
  *       -> Promise({cover:{id,url,key?}|null, color:string|null})   or null when cancelled
- *   coverKey preselects a gallery cover (the New course window, before the course exists);
- *   allowUpload:false hides the upload tab (an upload needs the course to exist first).
+ *   coverKey preselects a gallery cover (the New course window, before the course exists; the
+ *   builder, for a course whose cover is a gallery cover);
+ *   allowUpload:false hides the upload tab (an upload needs the course to exist first);
+ *   ingest:false hands back only the gallery key ({cover:{key}}) and stores nothing - for the
+ *   New course window, whose course_create stores the chosen cover itself.
  *
  * Gallery covers come from cover_presets. Choosing one only previews it; "Use this cover" runs
  * cover_preset_ingest (the server stores the PNG once, deduplicated) and hands back the media id.
@@ -57,6 +60,7 @@
         n.grid = el('div', { class: 'tr-cover-grid', role: 'listbox', 'aria-label': 'Covers' });
         n.empty = el('div', { class: 'tr-cover-empty text-muted', hidden: true, text: 'No cover matches that search.' });
         n.loading = el('div', { class: 'tr-cover-empty text-muted' }, [el('span', { class: 'spinner-border spinner-border-sm me-2', 'aria-hidden': 'true' }), 'Loading covers…']);
+        n.loadError = el('div', { class: 'tr-cover-empty text-danger', hidden: true, role: 'alert' });
 
         n.fileInput = el('input', { type: 'file', class: 'd-none', accept: 'image/jpeg,image/png,image/webp,image/gif' });
         n.uploadBtn = el('button', { type: 'button', class: 'btn btn-outline-primary', on: { click: function () { n.fileInput.click(); } } }, [icon('upload'), ' Choose an image…']);
@@ -70,7 +74,7 @@
 
         n.tabGallery = el('button', { type: 'button', class: 'nav-link active', role: 'tab', 'aria-selected': 'true', text: 'Gallery', on: { click: function () { showTab('gallery'); } } });
         n.tabUpload = el('button', { type: 'button', class: 'nav-link', role: 'tab', 'aria-selected': 'false', text: 'Upload your own', on: { click: function () { showTab('upload'); } } });
-        n.paneGallery = el('div', { class: 'tr-cover-pane' }, [el('div', { class: 'mb-2' }, [n.search]), n.cats, n.loading, n.grid, n.empty]);
+        n.paneGallery = el('div', { class: 'tr-cover-pane' }, [el('div', { class: 'mb-2' }, [n.search]), n.cats, n.loading, n.loadError, n.grid, n.empty]);
         n.paneUpload = el('div', { class: 'tr-cover-pane', hidden: true }, [n.drop]);
 
         n.previewArt = el('div', { class: 'tr-cover-art tr-cover-preview__art' });
@@ -82,6 +86,8 @@
         n.previewLabel = el('div', { class: 'tr-cover-preview__meta' });
         n.swatches = el('div', { class: 'tr-cover-swatches', role: 'radiogroup', 'aria-label': 'Tint' });
         n.custom = el('input', { type: 'color', class: 'tr-cover-custom', title: 'Custom tint', 'aria-label': 'Custom tint' });
+        // The colour well is labelled "Custom" with a palette mark, so it never reads as one more swatch.
+        n.customWrap = el('label', { class: 'tr-cover-customwrap', title: 'Pick any colour' }, [n.custom, el('span', { class: 'tr-cover-customwrap__text' }, [icon('palette'), ' Custom'])]);
 
         n.remove = el('button', { type: 'button', class: 'btn btn-link text-danger me-auto', text: 'Remove cover' });
         n.cancel = el('button', { type: 'button', class: 'btn btn-outline-secondary', dataset: { bsDismiss: 'modal' }, text: 'Cancel' });
@@ -96,7 +102,7 @@
                     el('div', { class: 'modal-body' }, [
                         el('div', { class: 'tr-cover-layout' }, [
                             el('div', { class: 'tr-cover-main' }, [
-                                el('nav', { class: 'nav nav-tabs mb-3', role: 'tablist' }, [n.tabGallery, n.tabUpload]),
+                                n.tabs = el('nav', { class: 'nav nav-tabs mb-3', role: 'tablist' }, [n.tabGallery, n.tabUpload]),
                                 n.paneGallery, n.paneUpload
                             ]),
                             el('aside', { class: 'tr-cover-side' }, [
@@ -259,8 +265,8 @@
             modal.swatches.appendChild(b);
         });
         modal.custom.value = state.color || '#475569';
-        modal.custom.classList.toggle('is-selected', !!state.color && !found);
-        modal.swatches.appendChild(modal.custom);
+        modal.customWrap.classList.toggle('is-selected', !!state.color && !found);
+        modal.swatches.appendChild(modal.customWrap);
     }
 
     function renderPreview() {
@@ -329,6 +335,7 @@
         };
         if (s.choice.kind === 'none') { done(null); return; }
         if (s.choice.kind === 'media') { done({ id: s.choice.id, url: s.choice.url }); return; }
+        if (s.opts.ingest === false) { done({ key: s.choice.key }); return; }   // the caller stores it
         busy(true);
         api.post('cover_preset_ingest', { key: s.choice.key }).then(function (d) {
             if (state !== s) { return; }
@@ -358,6 +365,8 @@
         busy(false);
         showTab('gallery');
         modal.tabUpload.hidden = opts.allowUpload === false;
+        modal.tabs.hidden = opts.allowUpload === false;   // a lone "Gallery" tab has nothing to switch to
+        modal.loadError.hidden = true;
         renderPreview();
 
         var p = new Promise(function (resolve) { state.resolve = resolve; });
@@ -379,7 +388,10 @@
             if (sel && modal.root.classList.contains('show') && sel.scrollIntoView) { sel.scrollIntoView({ block: 'nearest' }); }
         }, function (err) {
             if (state !== token) { return; }
-            modal.loading.textContent = (err && err.message) || 'The gallery could not be loaded.';
+            // Its own element: the spinner stays intact for the next attempt.
+            modal.loading.hidden = true;
+            modal.loadError.textContent = ((err && err.message) || 'The gallery could not be loaded.') + ' Close this and try again.';
+            modal.loadError.hidden = false;
         });
         window.bootstrap.Modal.getOrCreateInstance(modal.root).show();
         modal.root.addEventListener('shown.bs.modal', function focusSearch() {
@@ -391,5 +403,14 @@
         return p;
     }
 
-    window.TrainingCoverPicker = { open: open, tint: tint, presets: loadPresets };
+    /** Resolves once the dialog has finished hiding (focus can only move back to the page after that). */
+    function whenClosed() {
+        return new Promise(function (resolve) {
+            var m = modal && modal.root;
+            if (!m || (!m.classList.contains('show') && m.style.display !== 'block')) { resolve(); return; }
+            m.addEventListener('hidden.bs.modal', function done() { m.removeEventListener('hidden.bs.modal', done); resolve(); });
+        });
+    }
+
+    window.TrainingCoverPicker = { open: open, tint: tint, presets: loadPresets, whenClosed: whenClosed };
 })();

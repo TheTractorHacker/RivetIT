@@ -187,14 +187,15 @@ $tr_ro = $tr_archived ? ' disabled' : '';
                     <div class="tr-switch-row pt-0">
                         <div>
                             <label class="tr-switch-row__label" for="tr-set-signature">Sign to finish the course</label>
-                            <div class="tr-switch-row__hint">People sign the statement below on the tablet when they complete it.</div>
+                            <div class="tr-switch-row__hint">One signature at the very end, on the completion statement below. It is separate from an Acknowledgment lesson (a statement signed during the course): most courses need only one of the two.</div>
                         </div>
                         <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="tr-set-signature" data-tr-field="requires_signature" data-tr-type="bool"<?= $tr_ro ?>></div>
                     </div>
                 </div>
                 <div class="col-12">
                     <label class="form-label" for="tr-set-attestation">Completion statement</label>
-                    <textarea class="form-control" id="tr-set-attestation" rows="2" maxlength="5000" data-tr-field="attestation_text" data-tr-type="text" data-tr-i18n="1"<?= $tr_ro ?>></textarea>
+                    <textarea class="form-control" id="tr-set-attestation" rows="2" maxlength="5000" data-tr-field="attestation_text" data-tr-type="text" data-tr-i18n="1" placeholder="<?= nullable_htmlentities($tr_ctx->settings->attestationDefault ?: 'I completed this training and I understand it.') ?>"<?= $tr_ro ?>></textarea>
+                    <div class="form-hint">Left empty, people sign the default statement shown in grey.</div>
                     <div class="tr-lang-ref" data-tr-ref="attestation_text"></div>
                     <div class="tr-field-error" data-tr-error="attestation_text"></div>
                 </div>
