@@ -24,7 +24,7 @@
 /* The art is drawn with dark ink outlines, so dark mode keeps a light (dimmed) panel behind it
    rather than a dark wash the outlines would disappear into. */
 :root[data-bs-theme="dark"] .tr-cover-art {
-  background: color-mix(in srgb, var(--tr-cover-color) 24%, #c9d1d9);
+  background: color-mix(in srgb, var(--tr-cover-color) 30%, #8c96a0);
 }
 
 /* ----------------------------------------------------------------------------- picker */
@@ -200,3 +200,26 @@
 @media (prefers-reduced-motion: no-preference) {
   .tr-cover-tile, .tr-cover-cat, .tr-cover-swatch { transition: border-color .12s ease, box-shadow .12s ease, background-color .12s ease; }
 }
+
+/* "Custom" tint: a labelled pill (colour well + palette mark), not one more round swatch. */
+.tr-cover-customwrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  margin: 0;
+  padding: 0 10px 0 3px;
+  border: 1px solid var(--if-border-strong);
+  border-radius: 999px;
+  background: var(--if-surface);
+  color: var(--if-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tr-cover-customwrap:hover { border-color: var(--if-muted); }
+.tr-cover-customwrap.is-selected { box-shadow: 0 0 0 2px var(--if-ink); border-color: transparent; }
+.tr-cover-customwrap .tr-cover-custom { width: 22px; height: 22px; padding: 2px; }
+.tr-cover-customwrap:focus-within { outline: 2px solid var(--if-primary); outline-offset: 2px; }
+.tr-cover-customwrap__text { white-space: nowrap; }
+.tr-cover-customwrap__text .fas { color: var(--if-muted); }

@@ -447,14 +447,32 @@
                     color: editor.color, cover: editor.cover, purpose: 'path_cover', uploadOpts: editor.path ? { pathId: editor.path.id } : {}
                 };
                 window.TrainingCoverPicker.open(opts).then(function (res) {
-                    if (!res || !editor) { return; }
-                    editor.cover = res.cover ? { id: res.cover.id, url: res.cover.url } : null;
-                    editor.color = res.color || null;
-                    markDirty();
-                    renderSwatches();
-                    renderCover();
+                    if (res && editor) {
+                        editor.cover = res.cover ? { id: res.cover.id, url: res.cover.url } : null;
+                        editor.color = res.color || null;
+                        markDirty();
+                        renderSwatches();
+                        renderCover();
+                    }
+                    return pickerClosed();
+                }).then(function () {
+                    // The gallery (a modal) took over Bootstrap's focus trap; give it back to the path
+                    // editor and return focus to the button, so Tab stays inside the editor.
+                    var oc = window.bootstrap.Offcanvas.getInstance(editorEl);
+                    if (oc && oc._focustrap && editorEl.classList.contains('show')) {
+                        try { oc._focustrap.deactivate(); oc._focustrap.activate(); } catch (e) { /* ignore */ }
+                    }
+                    if (editorEl.classList.contains('show')) { galleryBtn.focus(); }
                 });
             });
+            /** Resolves once the cover dialog has finished hiding. */
+            function pickerClosed() {
+                return new Promise(function (resolve) {
+                    var m = document.querySelector('.tr-cover-picker');
+                    if (!m || (!m.classList.contains('show') && m.style.display !== 'block')) { resolve(); return; }
+                    m.addEventListener('hidden.bs.modal', function done() { m.removeEventListener('hidden.bs.modal', done); resolve(); });
+                });
+            }
 
             var fileInput = field('tr-path-cover-file');
             field('tr-path-cover-upload').addEventListener('click', function () { fileInput.click(); });

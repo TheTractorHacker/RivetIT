@@ -38,6 +38,18 @@
   line-height: 1.6;
 }
 .mce-content-body { margin: 16px 20px; background: var(--tra-surface); }
+/* The editor frame has no app tokens, so dark mode (body_class "tra-dark", set by the builder
+   and the Create Content window) gets the app's dark values here - not a white slab. */
+.mce-content-body.tra-dark {
+  --tra-ink: #e7eeef;
+  --tra-muted: #93a6ab;
+  --tra-border: #31433e;
+  --tra-surface: #14201f;
+  --tra-soft: #0d1417;
+  --tra-accent: #5eead4;
+  color-scheme: dark;
+}
+html:has(> .mce-content-body.tra-dark) { background: #14201f; }
 
 :is(.trp-article, .mce-content-body) > :first-child { margin-top: 0; }
 :is(.trp-article, .mce-content-body) > :last-child { margin-bottom: 0; }

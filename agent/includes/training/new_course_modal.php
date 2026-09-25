@@ -58,6 +58,7 @@ $tr_nc_lang_label = ['es' => 'Spanish'];
                                 <?php } ?>
                             </div>
                             <div class="tr-nc__note" id="tr-nc-note" aria-live="polite"></div>
+                            <div class="tr-nc__suggest" id="tr-nc-suggest" aria-live="polite" hidden></div>
                         </form>
                     </div>
                 </div>

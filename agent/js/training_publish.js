@@ -119,11 +119,14 @@
         function renderSummary(s) {
             summaryEl.textContent = '';
             if (!s) { return; }
+            // Files: what the author uploaded (the builder counts them); the server's media count
+            // also includes PDF page images and thumbnails, which authors never handled.
+            var files = typeof opts.fileCount === 'number' ? opts.fileCount : null;
             var chips = [
                 plural(s.lessons || 0, 'lesson', 'lessons'),
-                plural(s.questions || 0, 'question', 'questions'),
-                plural(s.media_count || 0, 'file', 'files')
+                plural(s.questions || 0, 'question', 'questions')
             ];
+            if (files) { chips.push(plural(files, 'uploaded file', 'uploaded files')); }
             chips.forEach(function (t) { summaryEl.appendChild(el('span', { class: 'tr-chip', text: t })); });
             if (Array.isArray(s.languages) && s.languages.length) {
                 summaryEl.appendChild(el('span', { class: 'tr-chip tr-chip--ok' }, [icon('language'), s.languages.join(' · ').toUpperCase()]));
@@ -255,7 +258,7 @@
             success.hidden = false;
             $('tr-pub-success-title').textContent = 'Version ' + r.number + ' published';
             var langs = Array.isArray(r.languages) ? r.languages.join(' · ').toUpperCase() : '';
-            $('tr-pub-success-sub').textContent = (langs ? 'Published in ' + langs + '. ' : '') + 'Employees will see it once Training goes live.';
+            $('tr-pub-success-sub').textContent = (langs ? 'Published in ' + langs + '. ' : '') + 'Employees get this version as soon as Training is switched on for them and the course is assigned.';
             var prev = $('tr-pub-success-preview');
             prev.hidden = false;
             prev.href = '/agent/training_preview.php?course_id=' + encodeURIComponent(opts.courseId) + '&revision_id=' + encodeURIComponent(r.revision_id);

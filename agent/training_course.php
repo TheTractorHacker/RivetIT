@@ -76,6 +76,45 @@ try {
     error_log('Training builder lookups: ' . $e->getMessage());
 }
 
+// An author (level 2) cannot publish: name who can, so the builder can say whom to ask.
+$tr_publishers = [];
+if (!$tr_can_full) {
+    try {
+        $tr_stmt = $mysqli->prepare(
+            "SELECT u.user_name FROM users u
+             JOIN user_roles r ON r.role_id = u.user_role_id
+             LEFT JOIN modules m ON m.module_name = 'module_training'
+             LEFT JOIN user_role_permissions p ON p.user_role_id = r.role_id AND p.module_id = m.module_id
+             WHERE u.user_type = 1 AND u.user_status = 1 AND u.user_archived_at IS NULL AND r.role_archived_at IS NULL
+               AND (r.role_is_admin = 1 OR p.user_role_permission_level >= 3)
+             ORDER BY r.role_is_admin DESC, u.user_name LIMIT 3"
+        );
+        $tr_stmt->execute();
+        foreach ($tr_stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $tr_row) {
+            $tr_publishers[] = (string) $tr_row['user_name'];
+        }
+        $tr_stmt->close();
+    } catch (\Throwable $e) {
+        error_log('Training builder publishers: ' . $e->getMessage());
+    }
+}
+
+// The course's current cover, when it is a gallery cover (same file as the static art): the
+// gallery then opens with that tile selected.
+$tr_cover_key = null;
+if (!empty($tr_course['cover_media_id'])) {
+    try {
+        $tr_media = (new \ITFlow\Training\Media\MediaStore($tr_ctx))->get((int) $tr_course['cover_media_id']);
+        $tr_key = $tr_media !== null && preg_match('/^([a-z0-9-]{1,40})\.png$/', (string) ($tr_media['media_original_name'] ?? ''), $tr_m) ? $tr_m[1] : null;
+        if ($tr_key !== null && \ITFlow\Training\Media\CoverLibrary::get($tr_key) !== null
+            && hash_equals((string) $tr_media['media_sha256'], (string) hash_file('sha256', \ITFlow\Training\Media\CoverLibrary::filePath($tr_key)))) {
+            $tr_cover_key = $tr_key;
+        }
+    } catch (\Throwable $e) {
+        error_log('Training builder cover key: ' . $e->getMessage());
+    }
+}
+
 $tr_flags = [
     // TinyMCE content_css: the player's article sheet, so the editor looks like the iPad.
     'article_css' => '/css/itflow_training_article.css?v=' . filemtime(dirname(__DIR__) . '/css/itflow_training_article.css'),
@@ -96,6 +135,8 @@ $tr_data = [
     'tags' => $tr_tags,
     'courses' => $tr_courses,
     'flags' => $tr_flags,
+    'publishers' => $tr_publishers,
+    'cover_key' => $tr_cover_key,
 ];
 
 $tr_name = (string) $tr_course['name'];
@@ -133,14 +174,25 @@ $tr_name = (string) $tr_course['name'];
             </div>
         </div>
         <div class="tr-b-head__actions">
+            <?php if (empty($tr_course['current_revision'])) { ?>
+            <a class="btn btn-outline-secondary" id="tr-preview-btn" href="/agent/training_preview.php?course_id=<?= $tr_course_id ?>" target="_blank" rel="noopener"><i class="fas fa-eye me-2" aria-hidden="true"></i>Preview</a>
+            <?php } else { ?>
             <div class="dropdown">
                 <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" id="tr-preview-btn"><i class="fas fa-eye me-2" aria-hidden="true"></i>Preview</button>
                 <ul class="dropdown-menu dropdown-menu-end" id="tr-preview-menu"></ul>
             </div>
+            <?php } ?>
             <?php if ($tr_can_full && !$tr_archived) { ?>
             <span class="tr-b-publish-wrap" id="tr-publish-wrap" tabindex="-1">
                 <button type="button" class="btn btn-primary" id="tr-publish-btn" disabled><i class="fas fa-rocket me-2" aria-hidden="true"></i>Publish</button>
             </span>
+            <?php } elseif (!$tr_archived) {
+                $tr_ask = $tr_publishers ? 'Only Training admins can publish. Ask ' . implode(' or ', $tr_publishers) . '.' : 'Only Training admins can publish. Ask your Training admin.';
+                ?>
+            <span class="tr-b-publish-wrap" id="tr-publish-wrap-author" tabindex="0" data-bs-toggle="tooltip" data-bs-placement="bottom" title="<?= nullable_htmlentities($tr_ask) ?>" aria-describedby="tr-publish-ask">
+                <button type="button" class="btn btn-primary" id="tr-publish-btn-author" disabled><i class="fas fa-rocket me-2" aria-hidden="true"></i>Publish</button>
+            </span>
+            <span class="visually-hidden" id="tr-publish-ask"><?= nullable_htmlentities($tr_ask) ?></span>
             <?php } ?>
             <div class="dropdown">
                 <button type="button" class="btn btn-outline-secondary px-2" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More course actions" id="tr-course-kebab"><i class="fas fa-ellipsis-h" aria-hidden="true"></i></button>

@@ -64,7 +64,10 @@
             locked_chip: 'Locked', start_chip: 'Start', review_chip: 'Review', correct_answers: 'Correct answer', answer_label: 'Answer {l}',
             course_name_label: 'Course', minutes_total: '{n} min', video_error_detail: 'Details: {code}', play_first: 'Press play inside the video first.',
             review_hint: 'Tap a question to change your answer.', graded_hidden: 'Grading is available to course authors', in_order: 'Lessons in order', attest_default: 'I completed this training and I understand it.',
-            question_of: 'Question {n} of {total}', next: 'Next', select_all: 'Select all that apply'
+            question_of: 'Question {n} of {total}', next: 'Next', select_all: 'Select all that apply',
+            section_1: '1 section', sections_n: '{n} sections', under_minute: 'under a minute', tries_left: 'Tries left', unlimited_short: 'Unlimited',
+            attempt_label: 'Attempt', good_for: 'Good for', months_n: '{n} months', month_1: '1 month', attempt_of: '{n} of {m}',
+            ack_todo_all: 'Tick the box, sign and enter your PIN', ack_todo_sign: 'Tick the box and sign', ack_todo_pin: 'Tick the box and enter your PIN', ack_todo_tick: 'Tick the box'
         },
         es: {
             lessons_n: '{n} lecciones', lesson_1: '1 lección', course_content: 'Contenido del curso', sections_meta: '{s} secciones · {n} lecciones',
@@ -102,7 +105,10 @@
             locked_chip: 'Bloqueada', start_chip: 'Comenzar', review_chip: 'Repasar', correct_answers: 'Respuesta correcta', answer_label: 'Respuesta {l}',
             course_name_label: 'Curso', minutes_total: '{n} min', video_error_detail: 'Detalle: {code}', play_first: 'Primero presione reproducir dentro del video.',
             review_hint: 'Toque una pregunta para cambiar su respuesta.', graded_hidden: 'La calificación está disponible para los autores del curso', in_order: 'Lecciones en orden', attest_default: 'Completé esta capacitación y la entiendo.',
-            question_of: 'Pregunta {n} de {total}', next: 'Siguiente', select_all: 'Seleccione todas las que correspondan'
+            question_of: 'Pregunta {n} de {total}', next: 'Siguiente', select_all: 'Seleccione todas las que correspondan',
+            section_1: '1 sección', sections_n: '{n} secciones', under_minute: 'menos de un minuto', tries_left: 'Intentos restantes', unlimited_short: 'Ilimitados',
+            attempt_label: 'Intento', good_for: 'Válido por', months_n: '{n} meses', month_1: '1 mes', attempt_of: '{n} de {m}',
+            ack_todo_all: 'Marque la casilla, firme e ingrese su PIN', ack_todo_sign: 'Marque la casilla y firme', ack_todo_pin: 'Marque la casilla e ingrese su PIN', ack_todo_tick: 'Marque la casilla'
         }
     };
     var LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -289,7 +295,7 @@
 
         function normaliseProgress(p) {
             p = (p && typeof p === 'object') ? p : {};
-            return { done: Object.assign({}, p.done || {}), pages: Object.assign({}, p.pages || {}), watch: Object.assign({}, p.watch || {}), current: p.current || null };
+            return { done: Object.assign({}, p.done || {}), pages: Object.assign({}, p.pages || {}), watch: Object.assign({}, p.watch || {}), tries: Object.assign({}, p.tries || {}), current: p.current || null };
         }
         function saveProgress() {
             if (typeof adapter.onProgress === 'function') {
@@ -445,7 +451,7 @@
             var total = order.length;
             card.appendChild(h('header', { class: 'trp-curr__head' }, [
                 h('h2', { class: 'trp-card__title', text: t('course_content') }),
-                h('span', { class: 'trp-muted', text: sections.length ? t('sections_meta', { s: sections.length, n: total }) : (total === 1 ? t('lesson_1') : t('lessons_n', { n: total })) })
+                h('span', { class: 'trp-muted', text: (sections.length ? (sections.length === 1 ? t('section_1') : t('sections_n', { n: sections.length })) + ' · ' : '') + (total === 1 ? t('lesson_1') : t('lessons_n', { n: total })) })
             ]));
             var loose = order.filter(function (u) { return !sectionOf[u]; });
             if (loose.length) { card.appendChild(sectionBlock(null, loose, 0)); }
@@ -553,11 +559,11 @@
 
             var gate = {
                 met: true, text: '', pct: null,
-                set: function (met, text, pct) {
+                set: function (met, text, pct, plain) {
                     gate.met = met; gate.text = text; gate.pct = pct;
                     clear(footStatus);
-                    footStatus.appendChild(h('span', { class: 'trp-round trp-round--sm' + (met ? ' trp-round--ok' : ' trp-round--muted'), 'aria-hidden': 'true' }, icon(met ? 'fa-check' : 'fa-lock')));
-                    var col = h('div', { class: 'trp-foot__text' }, [h('span', { text: met ? t('ready_to_finish') : (isKiosk ? t('available_after', { req: text }) : t('preview_gate', { req: text })) })]);
+                    footStatus.appendChild(h('span', { class: 'trp-round trp-round--sm' + (met ? ' trp-round--ok' : ' trp-round--muted'), 'aria-hidden': 'true' }, icon(met ? 'fa-check' : (plain ? 'fa-pen-nib' : 'fa-lock'))));
+                    var col = h('div', { class: 'trp-foot__text' }, [h('span', { text: met ? t('ready_to_finish') : (plain ? text : (isKiosk ? t('available_after', { req: text }) : t('preview_gate', { req: text }))) })]);
                     if (typeof pct === 'number') {
                         col.appendChild(h('span', { class: 'trp-bar trp-bar--sm' + (met ? ' is-ok' : '') }, h('span', { class: 'trp-bar__fill', style: { width: Math.max(0, Math.min(100, pct)) + '%' } })));
                     }
@@ -591,7 +597,7 @@
             (renderers[l.type] || renderArticle)(ctx);
             var res = resourcesCard(l);
             if (res) { aside.appendChild(res); }
-            var upNext = upNextCard(idx);
+            var upNext = ctx.noUpNext ? null : upNextCard(idx);
             if (upNext) { aside.appendChild(upNext); }
             if (aside.childNodes.length) { body.appendChild(aside); body.classList.add('has-aside'); }
             onKeys(function (e) {
@@ -656,8 +662,11 @@
             var next = h('button', { type: 'button', class: 'trp-doc__nav trp-doc__nav--next', 'aria-label': t('next'), on: { click: function () { go(cur + 1); } } }, icon('fa-chevron-right'));
             var zoomOut = h('button', { type: 'button', class: 'trp-round trp-round--btn', 'aria-label': t('zoom_out'), on: { click: function () { setZoom(zoom - 0.5); } } }, icon('fa-search-minus'));
             var zoomIn = h('button', { type: 'button', class: 'trp-round trp-round--btn', 'aria-label': t('zoom_in'), on: { click: function () { setZoom(zoom + 0.5); } } }, icon('fa-search-plus'));
+            var hint = h('span', { class: 'trp-doc__hint' }, [icon('fa-search-plus'), t('swipe_hint')]);
+            var hintTimer = setTimeout(function () { hint.classList.add('is-faded'); }, 3000);
+            cleanup.push(function () { clearTimeout(hintTimer); });
             var stage = h('div', { class: 'trp-doc__stage' }, [
-                h('span', { class: 'trp-doc__hint' }, [icon('fa-search-plus'), t('swipe_hint')]),
+                hint,
                 h('div', { class: 'trp-doc__zoom' }, [zoomOut, zoomIn]),
                 pageBox, prev, next
             ]);
@@ -682,6 +691,7 @@
             }
             function go(i) {
                 if (i < 0 || i >= pages.length) { return; }
+                if (i !== cur) { hint.classList.add('is-faded'); }
                 cur = i;
                 var p = pages[i];
                 img.src = p.url;
@@ -961,7 +971,9 @@
             var check = h('button', { type: 'button', class: 'trp-check', role: 'checkbox', 'aria-checked': 'false' }, [
                 h('span', { class: 'trp-check__box', 'aria-hidden': 'true' }, icon('fa-check')), h('span', { text: t('ack_confirm') })
             ]);
-            var signBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--xl' }, [icon('fa-pen-nib'), t('sign_continue')]);
+            // Kiosk sign-off layout (approved mockup): statement, box and signature on the left, the
+            // PIN card on the right, and one strong Sign button in the footer, always on screen.
+            var signBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--lg trp-ack__sign' }, [icon('fa-pen-nib'), t('sign_continue')]);
             var parts = [
                 h('section', { class: 'trp-card trp-ack__statement' }, [
                     h('div', { class: 'trp-kicker', text: t('ack_title') }),
@@ -984,13 +996,15 @@
                         on: { click: function () { press(k); } }
                     }, k === 'back' ? icon('fa-backspace') : (k === 'clear' ? t('clear') : k)));
                 });
-                parts.push(h('section', { class: 'trp-card trp-pin' }, [
+                ctx.aside.appendChild(h('section', { class: 'trp-card trp-pin' }, [
                     h('div', { class: 'trp-pin__head' }, [h('strong', { text: t('enter_pin') }), h('span', { class: 'trp-muted', text: t('pin_hint') })]),
                     dots, keys
                 ]));
+                ctx.noUpNext = true;
             }
-            parts.push(h('div', { class: 'trp-ack__actions' }, signBtn));
             ctx.main.appendChild(h('div', { class: 'trp-ack' }, parts));
+            var actions = ctx.foot.querySelector('.trp-foot__actions');
+            actions.appendChild(signBtn);
             function press(k) {
                 if (k === 'clear') { pin = ''; } else if (k === 'back') { pin = pin.slice(0, -1); } else if (pin.length < 6) { pin += k; }
                 sync();
@@ -1005,7 +1019,8 @@
                 }
                 var ok = checked && inked && (!a.require_pin || pin.length >= 4);
                 signBtn.disabled = !ok;
-                ctx.gate.set(ok, t('req_sign'), null);
+                var todo = a.require_signature && a.require_pin ? 'ack_todo_all' : (a.require_signature ? 'ack_todo_sign' : (a.require_pin ? 'ack_todo_pin' : 'ack_todo_tick'));
+                ctx.gate.set(ok, t(todo), null, true);
             }
             check.addEventListener('click', function () { checked = !checked; sync(); });
             signBtn.addEventListener('click', function () {
@@ -1314,27 +1329,36 @@
             (data.questions || []).forEach(function (q) { qText[q.uid] = q.text; (q.options || []).forEach(function (o, i) { optText[o.uid] = { text: o.text, letter: LETTERS[i] }; }); });
             var correctN = fb.mode === 'score_only' ? null : total - missed.length;
             var mustPass = !(l.quiz && l.quiz.must_pass === false);
-            if (passed || !mustPass) { progress.done[l.uid] = true; saveProgress(); }
+            progress.tries[l.uid] = (Number(progress.tries[l.uid]) || 0) + 1;
+            if (passed || !mustPass) { progress.done[l.uid] = true; }
+            saveProgress();
+            var maxTries = l.quiz && typeof l.quiz.max_attempts === 'number' ? l.quiz.max_attempts : 0;
+            var triesUsed = progress.tries[l.uid];
+            var validity = Number(view.course && view.course.validity_months) || 0;
 
             var ringEl = h('div', { class: 'trp-result__ring' }, [
                 ring(score, passed ? 'trp-ring--ok' : 'trp-ring--bad', score + '%'),
                 h('div', { class: 'trp-result__score' }, [h('span', { class: 'trp-result__num', text: String(score) }), h('span', { class: 'trp-result__pct', text: '%' }), h('span', { class: 'trp-result__cap', text: t('your_score') })])
             ]);
             if (passed && !reducedMotion()) { ringEl.appendChild(confetti()); }
+            // The pass mark is in the line under the headline; the third stat says what comes next.
+            var third = passed
+                ? (validity ? stat(t('good_for'), validity === 1 ? t('month_1') : t('months_n', { n: validity })) : stat(t('attempt_label'), maxTries ? t('attempt_of', { n: triesUsed, m: maxTries }) : String(triesUsed)))
+                : stat(t('tries_left'), maxTries ? String(Math.max(0, maxTries - triesUsed)) : t('unlimited_short'));
             var stats = h('div', { class: 'trp-stats' }, [
                 correctN !== null ? stat(t('correct_label'), t('of', { n: correctN, m: total })) : stat(t('correct_label'), t('points_of', { n: res.points_earned, m: res.points_possible })),
                 stat(t('time_label'), fmtTook(tookMs)),
-                stat(t('passmark_label'), res.pass_pct + '%')
+                third
             ]);
             var headline = passed ? t('you_passed') : t('not_passed');
-            var msg = passed ? t('pass_msg') : (res.critical_missed > 0 ? t('fail_critical_msg') : t('fail_msg'));
+            // A missed must-know question is said once, in the red banner below.
+            var msg = passed ? t('pass_msg') : t('fail_msg');
             var hero = h('section', { class: 'trp-card trp-result' + (passed ? ' is-pass' : ' is-fail') }, [
                 ringEl,
                 h('div', { class: 'trp-result__body' }, [
                     h('span', { class: 'trp-pill ' + (passed ? 'trp-pill--ok' : 'trp-pill--bad') }, [icon(passed ? 'fa-check-circle' : 'fa-times-circle'), passed ? t('passed_chip') : t('failed_chip')]),
                     h('h1', { class: 'trp-result__title', text: headline }),
                     h('p', { class: 'trp-result__line' }, [t('pass_mark', { pct: res.pass_pct }) + ' · ' + t('points_of', { n: res.points_earned, m: res.points_possible })]),
-                    !passed ? h('p', { class: 'trp-result__need', text: t('you_needed', { pct: res.pass_pct }) }) : null,
                     h('p', { class: 'trp-result__msg', text: timeUp ? t('time_up') + ' ' + msg : msg }),
                     stats
                 ])
@@ -1374,12 +1398,14 @@
                     return h('li', null, items);
                 })));
             }
-            var ach = h('section', { class: 'trp-card trp-ach' }, [
+            // "Achievements unlocked" shows only when something was unlocked (none are awarded yet).
+            var unlocked = Array.isArray(res.achievements) ? res.achievements : [];
+            var ach = unlocked.length ? h('section', { class: 'trp-card trp-ach' }, [
                 h('span', { class: 'trp-ach__medal', 'aria-hidden': 'true' }, icon('fa-medal')),
-                h('div', null, [h('div', { class: 'trp-kicker', text: t('achievements') }), h('p', { class: 'trp-muted', text: t('no_achievements') })])
-            ]);
-            parts.push(h('div', { class: 'trp-result__grid' }, [reviewCard, ach]));
-            var retry = h('button', { type: 'button', class: 'trp-btn trp-btn--ghost trp-btn--lg' }, [icon('fa-redo'), t('retry')]);
+                h('div', null, [h('div', { class: 'trp-kicker', text: t('achievements') })].concat(unlocked.map(function (a) { return h('p', { class: 'mb-0', text: String((a && a.name) || '') }); })))
+            ]) : null;
+            parts.push(h('div', { class: 'trp-result__grid' + (ach ? '' : ' is-single') }, [reviewCard, ach]));
+            var retry = h('button', { type: 'button', class: 'trp-btn trp-btn--ghost trp-btn--lg', hidden: passed || (maxTries > 0 && triesUsed >= maxTries && isKiosk) }, [icon('fa-redo'), t('retry')]);
             var cont = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--lg' }, [t('continue'), icon('fa-arrow-right')]);
             retry.addEventListener('click', function () { openLesson(l.uid); });
             cont.addEventListener('click', function () {
@@ -1399,7 +1425,7 @@
         }
 
         function stat(label, value) { return h('div', { class: 'trp-stat' }, [h('span', { class: 'trp-stat__label', text: label }), h('strong', { class: 'trp-stat__value', text: value })]); }
-        function fmtTook(ms) { var s = Math.round(ms / 1000); return s < 60 ? s + ' s' : t('minutes', { n: Math.round(s / 60) }); }
+        function fmtTook(ms) { var s = Math.round(ms / 1000); return s < 60 ? t('under_minute') : t('minutes', { n: Math.round(s / 60) }); }
         function confetti() {
             var box = h('div', { class: 'trp-confetti', 'aria-hidden': 'true' });
             var colors = ['var(--trp-accent)', '#16a34a', '#2563eb', '#d97706', '#7c3aed', '#0891b2'];
