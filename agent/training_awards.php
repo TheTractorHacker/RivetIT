@@ -149,7 +149,7 @@ render_page_header(
             <div class="mb-1">
                 <label class="form-label required" for="tr-aw-reason">Reason</label>
                 <textarea class="form-control" id="tr-aw-reason" rows="3" maxlength="<?= (int) \ITFlow\Training\Achievements\AwardEngine::REASON_MAX ?>" required placeholder="Spotted a frayed sling before the lift and stopped the job"></textarea>
-                <div class="d-flex"><div class="invalid-feedback d-block me-auto" data-field="reason"></div><small class="text-muted ms-2" id="tr-aw-reason-count" aria-live="polite"></small></div>
+                <div class="d-flex"><div class="invalid-feedback d-block me-auto w-auto flex-grow-1" data-field="reason"></div><small class="text-muted text-nowrap ms-2" id="tr-aw-reason-count" aria-live="polite"></small></div>
                 <div class="form-hint">Saved with the award and shown on the person's transcript. It cannot be edited later.</div>
             </div>
         </form>
