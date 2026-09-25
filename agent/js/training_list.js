@@ -86,7 +86,7 @@
             return (c.category && c.category.icon) || KIND_ICON[c.kind] || 'graduation-cap';
         }
 
-        function statusBits(c) {
+        function statusBits(c, compact) {
             var bits = [];
             if (c.status === 'archived') {
                 bits.push(el('span', { class: 'tr-badge-status--archived' }, [icon('archive'), 'Archived']));
@@ -97,7 +97,7 @@
             }
             if (c.current_revision_number) {
                 bits.push(el('span', { text: 'Version ' + c.current_revision_number }));
-            } else if (c.status !== 'archived') {
+            } else if (c.status !== 'archived' && !compact) {
                 bits.push(el('span', { text: 'Not published yet' }));
             }
             if (c.has_changes && c.status === 'published') {
@@ -122,6 +122,7 @@
             }
             var t = fmtMinutes(c.est_minutes);
             if (t) { parts.push(t); }
+            if (c.validity_months) { parts.push('Valid ' + plural(c.validity_months, 'month', 'months')); }
             if (c.has_exam) { parts.push('Exam'); }
             return parts.join(' · ');
         }
@@ -246,7 +247,7 @@
             return el('tr', { dataset: { courseId: c.id } }, [
                 el('td', {}, [name]),
                 el('td', {}, [cat]),
-                el('td', {}, [el('div', { class: 'd-flex flex-wrap align-items-center gap-1' }, statusBits(c))]),
+                el('td', {}, [el('div', { class: 'd-flex flex-wrap align-items-center gap-1' }, statusBits(c, true))]),
                 el('td', { class: 'text-end tr-mono', text: c.kind === 'document' ? '—' : String(c.lessons_count || 0) }),
                 el('td', { class: 'text-nowrap', text: fmtMinutes(c.est_minutes) || '—' }),
                 el('td', {}, [langDots(c) || el('span', { class: 'tr-lang', text: (c.languages && c.languages[0]) || 'en' })]),
@@ -293,8 +294,10 @@
                 return;
             }
 
+            var firstRun = courses.length === 0 && !hasFilters() && (stats.total || 0) === 0 && (stats.archived || 0) === 0;
+            document.getElementById('tr-list').classList.toggle('is-first-run', firstRun);
             if (courses.length === 0) {
-                if (!hasFilters() && (stats.total || 0) === 0 && (stats.archived || 0) === 0) {
+                if (firstRun) {
                     results.appendChild(emptyFirst());
                 } else {
                     results.appendChild(el('div', { class: 'tr-empty card' }, [
@@ -337,26 +340,27 @@
                     el('p', { class: 'tr-empty__text', text: 'Courses appear here once an author publishes them.' })
                 ]);
             }
-            var tiles = templates.filter(function (t) { return t.group === 'template'; }).slice(0, 6).map(function (t) {
-                var ic = el('span', { class: 'tr-tpl-card__icon', 'aria-hidden': 'true' }, [icon(t.icon || 'graduation-cap')]);
-                ic.style.setProperty('--tr-tpl', safeColor(t.color, '#0D9488'));
-                return el('button', { type: 'button', class: 'tr-tpl-card tr-lift', on: { click: function () { NewCourse.open(t.key); } } }, [
+            function tile(key, name, desc, ic0, color) {
+                var ic = el('span', { class: 'tr-tpl-card__icon', 'aria-hidden': 'true' }, [icon(ic0 || 'graduation-cap')]);
+                ic.style.setProperty('--tr-tpl', safeColor(color, '#0D9488'));
+                return el('button', { type: 'button', class: 'tr-tpl-card tr-lift', dataset: { trFirst: key }, on: { click: function () { NewCourse.open(key); } } }, [
                     ic,
-                    el('span', { class: 'tr-tpl-card__text' }, [
-                        el('span', { class: 'tr-tpl-card__name', text: t.name.en }),
-                        el('span', { class: 'tr-tpl-card__desc', text: t.description.en })
-                    ])
+                    el('span', { class: 'tr-tpl-card__text' }, [el('span', { class: 'tr-tpl-card__name', text: name }), el('span', { class: 'tr-tpl-card__desc', text: desc })])
                 ]);
-            });
-            return el('div', { class: 'tr-empty card p-4' }, [
+            }
+            // Six tiles in a 3 x 2 grid: a blank course and the five templates; then the safety starters.
+            var tiles = [tile('training', 'Blank training course', 'Sections and lessons you add yourself.', 'plus', '#475569')].concat(
+                templates.filter(function (t) { return t.group === 'template'; }).slice(0, 5).map(function (t) { return tile(t.key, t.name.en, t.description.en, t.icon, t.color); }));
+            var starters = templates.filter(function (t) { return t.group === 'safety'; }).slice(0, 6).map(function (t) { return tile(t.key, t.name.en, t.description.en, t.icon, t.color); });
+            return el('div', { class: 'tr-empty tr-first card p-4' }, [
                 el('div', { class: 'tr-empty__icon', 'aria-hidden': 'true' }, [icon('graduation-cap')]),
                 el('p', { class: 'tr-empty__title', text: 'Create your first course' }),
                 el('p', { class: 'tr-empty__text', text: 'Start from a template that already has the right steps, or from a blank course. Nothing is visible to employees until you publish.' }),
-                el('div', { class: 'tr-tpl-grid text-start mb-3' }, tiles),
-                el('div', { class: 'tr-empty__actions' }, [
-                    el('button', { type: 'button', class: 'btn btn-primary', on: { click: function () { NewCourse.open('training'); } } }, [icon('plus', 'me-2'), 'Blank training course']),
-                    el('button', { type: 'button', class: 'btn btn-outline-secondary', on: { click: function () { NewCourse.open('document'); } } }, [icon('file-signature', 'me-2'), 'Required document'])
-                ])
+                el('h2', { class: 'tr-first__label', text: 'Templates' }),
+                el('div', { class: 'tr-tpl-grid tr-tpl-grid--3 text-start' }, tiles),
+                starters.length ? el('h2', { class: 'tr-first__label', text: 'Safety starters' }) : null,
+                starters.length ? el('p', { class: 'tr-first__hint', text: 'Ready outlines for OSHA training topics, with suggested settings to confirm for your site.' }) : null,
+                starters.length ? el('div', { class: 'tr-tpl-grid tr-tpl-grid--3 text-start' }, starters) : null
             ]);
         }
 
@@ -712,7 +716,7 @@
                     if (d.regulation_ref) { bits.push('Suggested reference: ' + d.regulation_ref); }
                     if (d.validity_months) { bits.push('suggested validity ' + d.validity_months + ' months'); }
                     if (d.needs_practical) { bits.push('practical evaluation on'); }
-                    var n = bits.length ? bits.join(' · ') + '. All editable in Settings; confirm with your Safety Manager.' : '';
+                    var n = bits.length ? bits.join(' · ') + '. All editable in Settings; confirm they apply to your site.' : '';
                     if (t.notes && t.notes.en) { n = (n ? n + ' ' : '') + t.notes.en; }
                     note.textContent = n;
                 }
@@ -722,6 +726,7 @@
                     b.tabIndex = on ? 0 : -1;
                 });
                 syncDefaultCover();
+                if (typeof suggestStarter === 'function') { suggestStarter(); }
             }
 
             // ---- cover
@@ -771,7 +776,8 @@
             function changeCover() {
                 if (!window.TrainingCoverPicker || coverPicking || busy) { return; }
                 coverPicking = true;
-                var opts = { title: 'Course cover', name: nameInput.value.trim() || 'New course', purpose: 'course_cover', allowUpload: false };
+                // ingest:false - nothing is stored until Create course (course_create stores the cover).
+                var opts = { title: 'Course cover', name: nameInput.value.trim() || 'New course', purpose: 'course_cover', allowUpload: false, ingest: false };
                 if (cover.key) { opts.coverKey = cover.key; }
                 if (cover.colorTouched && cover.color) { opts.color = cover.color; }
                 // Bootstrap modals do not stack: step aside while the gallery is open, then come back.
@@ -878,7 +884,34 @@
             createBtn.addEventListener('click', create);
             document.getElementById('tr-nc-form').addEventListener('submit', function (e) { e.preventDefault(); create(); });
             nameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); create(); } });
-            nameInput.addEventListener('input', function () { nameInput.classList.remove('is-invalid'); });
+            nameInput.addEventListener('input', function () { nameInput.classList.remove('is-invalid'); suggestStarter(); });
+
+            // Typing "Lockout" (or HazCom, forklift, …) points at the matching safety starter.
+            var suggestEl = document.getElementById('tr-nc-suggest');
+            var STARTER_WORDS = {
+                loto: /lock\s*-?\s*out|tag\s*-?\s*out|\bloto\b/i, hazcom: /hazcom|hazard\s+communication|\bsds\b|safety\s+data\s+sheet/i,
+                ppe: /\bppe\b|protective\s+equipment/i, fire_extinguisher: /extinguisher/i, forklift: /forklift|lift\s+truck|powered\s+industrial/i,
+                overhead_crane: /overhead\s+crane|\bcrane\b|\bhoist|rigging/i
+            };
+            function suggestStarter() {
+                if (!suggestEl) { return; }
+                var v = nameInput.value;
+                var key = Object.keys(STARTER_WORDS).find(function (k) { return STARTER_WORDS[k].test(v); });
+                var t = key ? templates.find(function (x) { return x.key === key; }) : null;
+                suggestEl.textContent = '';
+                suggestEl.hidden = !t || choice.template === key;
+                if (suggestEl.hidden) { return; }
+                suggestEl.appendChild(icon('lightbulb', 'me-1'));
+                suggestEl.appendChild(document.createTextNode('There is a "' + t.name.en + '" safety starter with the steps already laid out. '));
+                suggestEl.appendChild(el('button', { type: 'button', class: 'btn btn-link btn-sm p-0 align-baseline', text: 'Use it', on: { click: function () {
+                    var keep = nameInput.value;
+                    setGroup('safety');
+                    select(t, false);
+                    nameInput.value = keep;
+                    autoName = '';
+                    suggestStarter();
+                } } }));
+            }
             modalEl.addEventListener('shown.bs.modal', function () {
                 if (focusCoverOnShow) { focusCoverOnShow = false; coverChange.focus(); return; }
                 nameInput.focus();

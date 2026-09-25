@@ -34,7 +34,7 @@
     };
     var LANG_NAMES = { en: 'English', es: 'Spanish' };
     var DURATION_NOTE = {
-        video: 'from the video length', pages: 'about 30 s per page', words: 'from the word count', image: 'default for an image',
+        video: 'from the video length', pages: '30 sec a page', words: 'from the word count', image: 'the usual for an image',
         ack: 'reading and signing', quiz: 'from the question count', override: 'set by you', none: ''
     };
     var PROBE_CODEC = { avc1: 'H.264', avc3: 'H.264', hvc1: 'HEVC', hev1: 'HEVC', mp4a: 'AAC' };
@@ -108,6 +108,22 @@
             return sec;
         }
         function tagNames(d) { return ((d && d.tags) || []).map(function (t) { return typeof t === 'string' ? t : t.name; }); }
+        /** Title from a file name. " - " between words is the author's own separator, so it stays ("LOTO Procedure - Press Brake 4"). */
+        function fileTitle(name) {
+            var s = String(name || '');
+            var parts = s.split(/\s+[-\u2013\u2014]\s+/);
+            if (!up) { return s; }
+            if (parts.length < 2) { return up.titleFromName(s); }
+            var last = up.titleFromName(parts.pop());
+            return parts.map(function (x) { return x.replace(/_+/g, ' ').replace(/\s+/g, ' ').trim(); }).filter(Boolean).concat([last]).join(' - ');
+        }
+        /** Stopwatch time for video; "about 30 sec" / "about 4 min" for everything else (it is an estimate). */
+        function fmtLength(sec, type) {
+            if (!sec) { return ''; }
+            if (type === 'video') { return ui.fmtDuration(sec); }
+            if (sec < 60) { return 'about ' + Math.max(5, Math.round(sec / 5) * 5) + ' sec'; }
+            return 'about ' + Math.round(sec / 60) + ' min';
+        }
 
         /** The store's snapshot of a LessonDetail for one language (what the autosave compares). */
         function snapshot(d, l) {
@@ -235,6 +251,7 @@
 
         function onCreated() {
             E.title.textContent = 'Edit content';
+            updateContext();
             collapseTypePicker();
             refreshTabs();
             refreshFooter();
@@ -402,6 +419,7 @@
                 autoresize_bottom_margin: 16,
                 skin: darkMode() ? 'oxide-dark' : 'oxide',
                 content_css: contentCss,
+                body_class: darkMode() ? 'tra-dark' : '',
                 link_default_target: '_blank',
                 link_assume_external_targets: 'https',
                 images_upload_handler: function (blobInfo, progress) {
@@ -826,6 +844,7 @@
         function renderArticle() {
             var v = variant(st.lesson) || {};
             show($('tr-cm-kb-btn'), !!flags.kb && !st.readOnly);
+            show($('tr-cm-kb-help'), !!flags.kb);
             var chip = $('tr-cm-kbchip');
             chip.textContent = '';
             var kb = v.kb_source;
@@ -1210,7 +1229,8 @@
                     lessonType: st.type, embedded: true,
                     // The builder's quiz_changed broadcast never reaches this window (a
                     // BroadcastChannel does not deliver to itself), so it reports here.
-                    onChange: function (qz) { onQuizChange(t, qz); }
+                    onChange: function (qz) { onQuizChange(t, qz); },
+                    onSaveState: function (state) { onQuizSaveState(t, state); }
                 });
             } catch (e) {
                 st.mounts[slot] = null;
@@ -1221,10 +1241,29 @@
         function onQuizChange(t, qz) {
             if (t !== st || !qz || !st.lesson) { return; }
             var before = st.lesson.quiz;
-            if (!before || before.id !== qz.id || before.question_count !== qz.question_count || before.role !== qz.role) { st.changed = true; }
+            var moved = !before || before.id !== qz.id || before.question_count !== qz.question_count || before.role !== qz.role;
+            if (moved) { st.changed = true; }
             st.lesson.quiz = Object.assign({}, before || {}, { id: qz.id, role: qz.role, question_count: qz.question_count });
             E.quizCount.textContent = String(qz.question_count || 0);
             if (!st.examBusy && st.type === 'quiz') { $('tr-cm-exam').checked = qz.role === 'exam'; }
+            // "Add at least one question" and the like come from the server: ask again once the
+            // questions settle, so the footer's "things to finish" never goes stale.
+            if (moved || (st.lesson.issues || []).some(function (i) { return i.code === 'quiz_empty'; })) {
+                if (!st.issuesSoon) { st.issuesSoon = ui.debounce(function () { if (t === st) { refreshDetailQuietly(); } }, 900); }
+                st.issuesSoon();
+            }
+        }
+
+        /** The embedded quiz builder saves on its own; its state shows in the footer while the lesson itself is idle. */
+        function onQuizSaveState(t, state) {
+            if (t !== st) { return; }
+            var own = st.store ? st.store.state : 'idle';
+            if (own !== 'idle' && own !== 'saved') { return; }
+            if (state === 'saving' || state === 'saved') { renderSave(state); return; }
+            if (state === 'error' || state === 'conflict' || state === 'offline') {
+                E.save.setAttribute('data-state', state === 'offline' ? 'offline' : 'error');
+                E.save.textContent = state === 'offline' ? 'Offline. Questions will be retried.' : (state === 'conflict' ? 'A question changed in another tab.' : 'A question was not saved. See the question card.');
+            }
         }
 
         function unmountBuilder(slot) {
@@ -1446,9 +1485,10 @@
             if (document.activeElement !== durInput && !fieldDirty('duration_s')) { durInput.value = override ? ui.fmtDuration(override) : ''; }
             durInput.placeholder = autoS ? ui.fmtDuration(autoS) : 'mm:ss';
             var note = DURATION_NOTE[autoSource(d)] || '';
-            $('tr-cm-dur-auto').textContent = autoS ? 'Auto ' + ui.fmtDuration(autoS) + (note ? ' (' + note + ')' : '') : 'Auto: not known yet';
+            var ltype = d.type || st.type;
+            $('tr-cm-dur-auto').textContent = autoS ? 'Auto: ' + fmtLength(autoS, ltype) + (note ? ' (' + note + ')' : '') : 'Auto: not known yet';
             $('tr-cm-dur-reset').hidden = !override;
-            $('tr-cm-aside-dur').textContent = (override || autoS) ? ui.fmtDuration(override || autoS) : '—';
+            $('tr-cm-aside-dur').textContent = (override || autoS) ? fmtLength(override || autoS, ltype) : '—';
             $('tr-cm-aside-dur-note').textContent = override ? '(set by you)' : (DURATION_NOTE[autoSource(d)] ? '(' + DURATION_NOTE[autoSource(d)] + ')' : '');
             // responsible
             $('tr-cm-aside-resp').textContent = d.responsible_name || 'Nobody yet';
@@ -1513,7 +1553,14 @@
 
         // =============================================================================== panels (in-window)
         var panelOnClose = null;
+        var panelReturn = null;
+        function focusables(root) {
+            return Array.prototype.filter.call(root.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'), function (n) {
+                return !n.closest('[hidden]') && n.getClientRects().length > 0;
+            });
+        }
         function openPanel(title, sub, bodyNodes, footerNodes, onClose) {
+            if (E.panel.hidden) { panelReturn = document.activeElement; }
             E.panelTitle.textContent = title;
             E.panelSub.textContent = sub || '';
             E.panelBody.textContent = '';
@@ -1525,7 +1572,7 @@
             E.scrim.hidden = false;
             panelOnClose = onClose || null;
             var first = E.panelBody.querySelector('input, button, select, textarea');
-            if (first) { first.focus(); }
+            (first || E.panelClose).focus();
         }
         function closePanel() {
             if (E.panel.hidden) { return; }
@@ -1533,10 +1580,30 @@
             E.scrim.hidden = true;
             var fn = panelOnClose;
             panelOnClose = null;
+            var back = panelReturn;
+            panelReturn = null;
             if (fn) { fn(); }
+            // Focus goes back to what opened the panel (Import from KB, Re-import), never to <body>.
+            if (st && back && document.body.contains(back) && focusables(content).indexOf(back) !== -1) { back.focus(); }
+            else if (st && modalEl.classList.contains('show')) { E.close.focus(); }
         }
         E.panelClose.addEventListener('click', closePanel);
         E.scrim.addEventListener('click', closePanel);
+        // The panel is a modal dialog inside the window: Tab and Shift+Tab wrap inside it.
+        E.panel.addEventListener('keydown', function (e) {
+            if (e.key !== 'Tab') { return; }
+            var f = focusables(E.panel);
+            if (!f.length) { return; }
+            var i = f.indexOf(document.activeElement);
+            if (e.shiftKey && (i <= 0)) { e.preventDefault(); f[f.length - 1].focus(); }
+            else if (!e.shiftKey && (i === -1 || i === f.length - 1)) { e.preventDefault(); f[0].focus(); }
+        });
+        content.addEventListener('focusin', function (e) {
+            if (!E.panel.hidden && !E.panel.contains(e.target)) {
+                var f = focusables(E.panel);
+                (f[0] || E.panelClose).focus();
+            }
+        });
 
         // ---- KB import panel
         function openKbPanel() {
@@ -1679,7 +1746,7 @@
                         setEditorContent('body', d.html || '');
                         st.editorDirty.body = true;
                         if (!E.name.value.trim()) {
-                            E.name.value = up.titleFromName(file.name);
+                            E.name.value = fileTitle(file.name);
                             setFields({ title: E.name.value, body_html: d.html || null }, 0);
                         } else {
                             setField('body_html', d.html || null, 0);
@@ -1746,7 +1813,7 @@
                 if (type === 'video') { st.videoSource = 'upload'; }
                 var patch = { media_id: m.id };
                 if (!E.name.value.trim()) {
-                    E.name.value = up.titleFromName(file.name);
+                    E.name.value = fileTitle(file.name);
                     patch.title = E.name.value;
                 }
                 setFields(patch, 0);
@@ -2022,7 +2089,7 @@
                 t.uploads--;
                 refreshFooter();
                 if (t !== st) { return; }
-                return addResource({ kind: 'file', title: up.titleFromName(f.name), media_id: d.media.id }).then(function () { prog.textContent = ''; });
+                return addResource({ kind: 'file', title: fileTitle(f.name), media_id: d.media.id }).then(function () { prog.textContent = ''; });
             }).catch(function (err) {
                 if (t.uploads > 0 && prog.textContent.indexOf('Uploading') === 0) { t.uploads--; refreshFooter(); }
                 prog.textContent = (err && err.message) || 'The file could not be added.';
@@ -2096,8 +2163,9 @@
 
         content.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
-                if (!E.zoom.hidden) { e.preventDefault(); E.zoom.hidden = true; return; }
-                if (!E.panel.hidden) { e.preventDefault(); closePanel(); return; }
+                // Handled here: Bootstrap's static-backdrop "bounce" would otherwise move focus to the window.
+                if (!E.zoom.hidden) { e.preventDefault(); e.stopPropagation(); E.zoom.hidden = true; $('tr-cm-img-zoom').focus(); return; }
+                if (!E.panel.hidden) { e.preventDefault(); e.stopPropagation(); closePanel(); return; }
                 if (e.target.closest('.tox, .ts-wrapper, .dropdown-menu, .tr-confirm-bar')) { return; }
                 e.preventDefault();
                 finish(false);
@@ -2138,6 +2206,19 @@
                 if (e.data.type === 'tr-video-verified' || e.data.type === 'tr-video-error') { onVideoMessage(e.data.type, e.data); }
             });
         }
+
+        // Editor text waits up to 1.5 s before it reaches the autosave queue (TrainingStore's own
+        // leave-page check cannot see it yet), and a new lesson has no browser copy: warn meanwhile.
+        window.addEventListener('beforeunload', function (e) {
+            if (!st || st.readOnly) { return undefined; }
+            var pending = st.htmlBusy > 0 || st.uploads > 0 || Object.keys(EDITORS).some(function (k) {
+                return st.editorDirty[k] || (st.editorTimers[k] && st.editorTimers[k].pending());
+            });
+            if (!pending) { return undefined; }
+            e.preventDefault();
+            e.returnValue = '';
+            return '';
+        });
 
         // =============================================================================== finish / close
         function flushAll() {

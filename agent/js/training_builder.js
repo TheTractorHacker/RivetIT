@@ -93,6 +93,17 @@
             try { return (new DOMParser().parseFromString(String(html), 'text/html').body.textContent || '').replace(/\s+/g, ' ').trim(); } catch (e) { return ''; }
         }
         function sameList(a, b) { return JSON.stringify(a || []) === JSON.stringify(b || []); }
+        /** Title from a file name; " - " between words is the author's own separator and stays. */
+        function fileTitle(name) {
+            var s = String(name || '');
+            var parts = s.split(/\s+[-\u2013\u2014]\s+/);
+            if (parts.length < 2) { return up.titleFromName(s); }
+            var last = up.titleFromName(parts.pop());
+            return parts.map(function (x) { return x.replace(/_+/g, ' ').replace(/\s+/g, ' ').trim(); }).filter(Boolean).concat([last]).join(' - ');
+        }
+        var canPublish = canFull;
+        var publishers = Array.isArray(data.publishers) ? data.publishers : [];
+        function askPublisher() { return publishers.length ? 'Ask ' + publishers.join(' or ') + ' to publish it.' : 'Ask a Training admin to publish it.'; }
 
         // ================================================================ course store
         function courseSnap(c) {
@@ -310,7 +321,7 @@
 
         function renderPreviewMenu() {
             var menu = $('tr-preview-menu');
-            if (!menu) { return; }
+            if (!menu) { return; }   // never published: a plain "Preview" button
             menu.textContent = '';
             menu.appendChild(el('li', {}, [el('a', { class: 'dropdown-item', href: '/agent/training_preview.php?course_id=' + courseId, target: '_blank', rel: 'noopener' }, [icon('pen', 'fa-fw me-2 text-muted'), 'Preview the draft'])]));
             if (course.current_revision) {
@@ -370,7 +381,10 @@
                 if (res.changed) { after = reloadDetail(); }
                 after.then(function () {
                     if (res.deleted && res.lessonId) { undoDeleteToast(res.lessonId); }
-                    if (res.again) { openContent({ sectionId: res.again.sectionId, type: res.again.type }); }
+                    if (o && typeof o.onClosed === 'function') { return o.onClosed(res); }
+                    return null;
+                }).then(function () {
+                    if (res.again) { openContent({ sectionId: res.again.sectionId, type: res.again.type, onClosed: o && o.onClosed }); }
                 });
             });
         }
@@ -417,10 +431,25 @@
         function saveCollapsed() { prefSet(collapsedKey, JSON.stringify(Object.keys(collapsed).map(Number))); }
         var sortables = [];
 
+        /** Seconds of the lesson itself (the estimate adds 45 s per quick-check question). */
+        function ownSeconds(l) {
+            var check = l.quiz && l.type !== 'quiz' ? (l.quiz.question_count || 0) * 45 : 0;
+            return Math.max(0, (l.duration_auto_s || 0) - check);
+        }
         function lessonSub(l) {
             var parts = [TYPES[l.type] ? TYPES[l.type].label : l.type];
-            if (l.type === 'video' && l.video_provider) { parts.push({ youtube: 'YouTube', vimeo: 'Vimeo', upload: 'Uploaded' }[l.video_provider] || l.video_provider); }
-            if (l.duration_s) { parts.push(ui.fmtDuration(l.duration_s)); }
+            var own = ownSeconds(l);
+            if (l.type === 'video') {
+                if (l.video_provider) { parts.push({ youtube: 'YouTube', vimeo: 'Vimeo', upload: 'Uploaded' }[l.video_provider] || l.video_provider); }
+                if (l.duration_source === 'video' && own) { parts.push(ui.fmtDuration(own)); }
+            } else if (l.type === 'article' && l.duration_source === 'words' && own) {
+                parts.push(Math.max(1, Math.round(own / 60)) + ' min read');
+            } else if (l.type === 'document' && l.duration_source === 'pages' && own) {
+                var pages = Math.max(1, Math.round(own / 30));
+                parts.push('PDF · ' + plural(pages, 'page', 'pages'));
+            } else if (l.type === 'acknowledgment') {
+                parts.push('read and sign');
+            }
             var qs = (detail.quiz_summaries || {})[l.id];
             if (l.type === 'quiz' && l.quiz) {
                 parts.push(plural(l.quiz.question_count || 0, 'question', 'questions'));
@@ -435,9 +464,7 @@
 
         function issueMenu(l) {
             var issues = l.issues || [];
-            if (!issues.length) {
-                return el('span', { class: 'tr-lesson__ready', title: 'Ready', 'aria-label': 'Ready' }, [icon('check-circle')]);
-            }
+            if (!issues.length) { return null; }   // ready rows carry no mark (the mockup shows only what is left to do)
             var menu = el('div', { class: 'dropdown-menu dropdown-menu-end tr-issue-menu' }, [el('h6', { class: 'dropdown-header', text: 'To finish' })].concat(issues.map(function (i) {
                 var resumable = i.code === 'pdf_pages_pending';
                 return el('button', { type: 'button', class: 'dropdown-item tr-issue--todo', on: { click: function () {
@@ -450,7 +477,7 @@
             })));
             return el('div', { class: 'dropdown tr-lesson__issues' }, [
                 el('button', { type: 'button', class: 'tr-issue-btn', 'data-bs-toggle': 'dropdown', 'aria-expanded': 'false', 'aria-label': plural(issues.length, 'thing', 'things') + ' to finish in ' + (l.title || 'this lesson') },
-                    [icon('list-ul'), String(issues.length)]),
+                    [issues.length + ' to do']),
                 menu
             ]);
         }
@@ -496,7 +523,7 @@
             menuItems.push(el('li', {}, [el('hr', { class: 'dropdown-divider' })]));
             menuItems.push(el('li', {}, [el('button', { type: 'button', class: 'dropdown-item text-danger', on: { click: function () { deleteLesson(l); } } }, [icon('trash-alt', 'fa-fw me-2'), 'Delete'])]));
 
-            var titleBtn = el('button', { type: 'button', class: 'tr-lesson__title btn btn-link p-0 text-start text-decoration-none d-block w-100' + (title ? '' : ' is-untitled'), text: title || 'Untitled ' + (TYPES[l.type] ? TYPES[l.type].label.toLowerCase() : 'content'),
+            var titleBtn = el('button', { type: 'button', class: 'tr-lesson__title' + (title ? '' : ' is-untitled'), text: title || 'Untitled ' + (TYPES[l.type] ? TYPES[l.type].label.toLowerCase() : 'content'),
                 on: { click: function (e) { e.stopPropagation(); openContent({ lessonId: l.id }); } } });
             var row = el('li', { class: 'tr-lesson', dataset: { lessonId: l.id } }, [
                 readOnly ? null : el('button', { type: 'button', class: 'tr-handle tr-lesson-handle', 'aria-label': 'Drag to reorder ' + (title || 'lesson'), title: 'Drag to reorder' }, [icon('grip-vertical')]),
@@ -827,8 +854,18 @@
             var i = detail.sections.indexOf(s);
             var target = i > 0 ? detail.sections[i - 1] : (detail.sections[i + 1] || null);
             var keepLabel = target ? 'Keep lessons (move to "' + (target.title || 'Untitled section') + '")' : 'Keep lessons (no section)';
+            // Say which lessons already hold work (files, text, questions): they go too.
+            var withContent = (s.lesson_ids || []).map(lessonById).filter(function (l) {
+                if (!l) { return false; }
+                var codes = (l.issues || []).map(function (x) { return x.code; });
+                return !codes.some(function (c) { return CONTENT_MISSING.indexOf(c) !== -1 || c === 'quiz_empty'; }) || l.resources_count > 0;
+            });
+            var msg = 'Delete "' + (s.title || 'this section') + '"?';
+            if (withContent.length) {
+                msg += ' Its lessons with content go too: ' + withContent.slice(0, 4).map(function (l) { return '"' + (l.title || 'Untitled') + '"'; }).join(', ') + (withContent.length > 4 ? ' and ' + (withContent.length - 4) + ' more' : '') + '.';
+            }
             var bar = el('div', { class: 'tr-confirm-bar alert alert-danger', role: 'alertdialog', 'aria-label': 'Delete section' }, [
-                el('span', { class: 'me-auto', text: 'Delete "' + (s.title || 'this section') + '"?' }),
+                el('span', { class: 'me-auto', text: msg }),
                 el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', text: 'Cancel', on: { click: function () { host.textContent = ''; } } }),
                 el('button', { type: 'button', class: 'btn btn-sm btn-outline-dark', text: keepLabel, on: { click: function () { go('move'); } } }),
                 el('button', { type: 'button', class: 'btn btn-sm btn-danger', text: 'Delete section and its ' + plural(n, 'lesson', 'lessons'), on: { click: function () { go('delete_lessons'); } } })
@@ -837,8 +874,13 @@
                 var body = { section_id: s.id, mode: mode };
                 if (mode === 'move' && target) { body.target_section_id = target.id; }
                 bar.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+                var before = outlineSnapshot();
+                var snap = { title: s.title, index: detail.sections.indexOf(s), lessonIds: (s.lesson_ids || []).slice() };
                 api.post('section_delete', body).then(function () {
-                    ui.toast(mode === 'move' ? 'Section deleted; its lessons were kept.' : 'Section and its lessons deleted.');
+                    ui.toast(mode === 'move' ? 'Section deleted; its lessons were kept.' : 'Section and its ' + plural(snap.lessonIds.length, 'lesson', 'lessons') + ' deleted.', {
+                        type: 'success', delay: 10000,
+                        action: { label: 'Undo', onClick: function () { undoSectionDelete(snap, before, mode); } }
+                    });
                     reloadDetail();
                 }, function (err) {
                     host.textContent = '';
@@ -847,6 +889,26 @@
             }
             host.appendChild(bar);
             bar.querySelector('.btn-outline-dark').focus();
+        }
+
+        /** Undo for a section delete: the section comes back in its place with its lessons (restored when they were deleted with it). */
+        function undoSectionDelete(snap, before, mode) {
+            var prev = snap.index > 0 ? before.sections[snap.index - 1] : null;
+            var body = { course_id: courseId, title: snap.title || 'Section' };
+            if (prev) { body.after_section_id = prev.section_id; }
+            var restored = mode === 'delete_lessons'
+                ? snap.lessonIds.reduce(function (p, id) { return p.then(function () { return api.post('lesson_restore', { lesson_id: id }).catch(function () { return null; }); }); }, Promise.resolve())
+                : Promise.resolve();
+            restored.then(function () { return api.post('section_create', body); }).then(function (ns) {
+                var sections = before.sections.map(function (x, i) { return i === snap.index ? { section_id: ns.id, lesson_ids: snap.lessonIds } : x; });
+                return api.post('outline_reorder', { course_id: courseId, sections: sections, unsectioned: before.unsectioned });
+            }).then(function () {
+                ui.toast('Section restored.');
+                reloadDetail();
+            }, function (err) {
+                ui.toast((err && err.message) || 'The section could not be restored.', { type: 'error' });
+                reloadDetail();
+            });
         }
 
         function addSection() {
@@ -929,7 +991,7 @@
             var ids = [];
             files.reduce(function (p, f, i) {
                 return p.then(function () {
-                    return api.post('section_create', { course_id: courseId, title: up.titleFromName(f.name) || ('Section ' + (i + 1)) }).then(function (s) { ids.push(s.id); });
+                    return api.post('section_create', { course_id: courseId, title: fileTitle(f.name) || ('Section ' + (i + 1)) }).then(function (s) { ids.push(s.id); });
                 });
             }, Promise.resolve()).then(function () { enqueue(files, ids); }, function (err) {
                 ui.toast((err && err.message) || 'Could not add the sections.', { type: 'error' });
@@ -989,10 +1051,20 @@
             document.body.classList.toggle('tr-has-tray', h > 0);
             document.body.style.setProperty('--tr-tray-offset', h + 'px');
         }
+        var trayHideTimer = null;
         function updateTrayTitle() {
             setTimeout(positionToasts, 0);
             var active = trayItems.filter(function (i) { return i.state === 'queued' || i.state === 'uploading'; }).length;
             var done = trayItems.filter(function (i) { return i.state === 'done'; }).length;
+            // All finished without a problem: the tray clears itself after a few seconds.
+            if (trayHideTimer) { clearTimeout(trayHideTimer); trayHideTimer = null; }
+            if (!active && trayItems.length && trayItems.every(function (i) { return i.state === 'done' || i.state === 'cancelled'; })) {
+                trayHideTimer = setTimeout(function () {
+                    trayHideTimer = null;
+                    if (tray.matches(':hover, :focus-within')) { return; }
+                    trayItems.slice().forEach(function (i) { if (i.state === 'done' || i.state === 'cancelled') { removeItem(i); } });
+                }, 6000);
+            }
             $('tr-tray-title').textContent = active ? 'Adding ' + plural(active, 'file', 'files') + '…' : (done ? plural(done, 'file', 'files') + ' added' : 'Uploads');
             $('tr-tray-close').disabled = active > 0;
         }
@@ -1047,7 +1119,7 @@
 
         function processItem(item) {
             var type = { lesson_document: 'document', lesson_video: 'video', lesson_image: 'image', docx_import: 'article' }[item.purpose];
-            var title = up.titleFromName(item.file.name);
+            var title = fileTitle(item.file.name);
             var lang = course.default_language;
             return up.upload(item.file, {
                 purpose: item.purpose, courseId: courseId, lang: lang, waitForPages: false, signal: item.ctrl.signal,
@@ -1138,8 +1210,9 @@
             $('tr-cover-glyph').appendChild(icon(coverIcon()));
             if (course.cover_url) { if (img.getAttribute('src') !== course.cover_url) { img.src = course.cover_url; } img.hidden = false; } else { img.hidden = true; img.removeAttribute('src'); }
             $('tr-cover-gallery').hidden = !picker;
-            $('tr-cover-upload-label').textContent = picker ? 'Upload…' : (course.cover_url ? 'Change cover' : 'Add cover');
+            $('tr-cover-menu-label').textContent = course.cover_url ? 'Change cover' : 'Add a cover';
             $('tr-cover-remove').hidden = !course.cover_url;
+            $('tr-cover-remove-li').hidden = !course.cover_url;
             var vthumb = videoThumbMediaId();
             $('tr-cover-video').hidden = !(vthumb && vthumb !== course.cover_media_id);
 
@@ -1188,22 +1261,118 @@
                 host.appendChild(el('span', { class: 'tr-skeleton__line' }));
                 return;
             }
+            var empties = emptyLessons();
+            if (empties.length) {
+                host.appendChild(el('div', { class: 'tr-todo__cleanup' }, [
+                    el('span', { class: 'small text-muted', text: plural(empties.length, 'lesson has', 'lessons have') + ' nothing in ' + (empties.length === 1 ? 'it' : 'them') + ' yet.' }),
+                    el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', id: 'tr-remove-empty', on: { click: function () { removeEmptyLessons(host); } } }, [icon('broom', 'me-1'), 'Remove empty lessons (' + empties.length + ')'])
+                ]));
+            }
             var items = (check.todo || []);
             if (!items.length) {
-                host.appendChild(el('div', { class: 'tr-todo__all-good' }, [icon('check-circle'), hasChanges() ? 'Everything is ready to publish.' : 'Nothing to do.']));
+                var ready = hasChanges() ? (canPublish ? 'Everything is ready to publish.' : 'Ready. ' + askPublisher()) : 'Nothing to do.';
+                host.appendChild(el('div', { class: 'tr-todo__all-good' }, [icon('check-circle'), ready]));
                 return;
             }
             var list = el('ul', { class: 'tr-issues tr-todo__list' });
             items.slice(0, 8).forEach(function (i) {
                 var l = i.lesson_id ? lessonById(i.lesson_id) : null;
                 var where = l ? (l.title || 'Untitled') + (i.lang ? ' · ' + langName(i.lang) : '') : (i.lang ? langName(i.lang) : '');
+                // One click fixes the order; opening the exam's window could not.
+                var fix = i.code === 'exam_not_last' ? el('button', { type: 'button', class: 'btn btn-sm btn-link px-0 tr-todo__fix', on: { click: function () { moveExamLast(true); } } }, [icon('level-down-alt', 'me-1'), 'Move the final exam to the end']) : null;
                 list.appendChild(el('li', { class: 'tr-issue--todo' }, [el('span', { class: 'tr-issue__text' }, [
-                    el('button', { type: 'button', class: 'tr-issue__link', text: i.message || i.code, on: { click: function () { gotoIssue(i); } } }),
-                    where ? el('span', { class: 'tr-issue__where', text: where }) : null
+                    el('button', { type: 'button', class: 'tr-issue__link', text: i.message || i.code, on: { click: function () { if (i.code === 'exam_not_last') { moveExamLast(true); } else { gotoIssue(i); } } } }),
+                    where ? el('span', { class: 'tr-issue__where', text: where }) : null,
+                    fix
                 ])]));
             });
             host.appendChild(list);
-            if (items.length > 8) { host.appendChild(el('div', { class: 'small text-muted mt-1', text: '+ ' + (items.length - 8) + ' more. Open Publish to see all.' })); }
+            if (items.length > 8) { host.appendChild(el('div', { class: 'small text-muted mt-1', text: '+ ' + (items.length - 8) + ' more. ' + (canPublish ? 'Open Publish to see all.' : '') })); }
+        }
+
+        // ---- "Remove empty lessons": starters create placeholder lessons; drop the unused ones at once
+        var CONTENT_MISSING = ['body_missing', 'media_missing', 'video_missing', 'image_missing', 'ack_statement_missing'];
+        function emptyLessons() {
+            if (readOnly || isDoc) { return []; }
+            return (detail.lessons || []).filter(function (l) {
+                if (l.quiz && l.quiz.role === 'exam') { return false; }
+                if (l.resources_count || (l.quiz && l.quiz.question_count)) { return false; }
+                var codes = (l.issues || []).map(function (i) { return i.code; });
+                if (l.type === 'quiz') { return codes.indexOf('quiz_empty') !== -1; }
+                return codes.some(function (c) { return CONTENT_MISSING.indexOf(c) !== -1; }) && !codes.some(function (c) { return c === 'pdf_pages_pending'; });
+            });
+        }
+        function removeEmptyLessons(host) {
+            var list = emptyLessons();
+            if (!list.length) { return; }
+            var names = list.slice(0, 6).map(function (l) { return '"' + (l.title || 'Untitled') + '"'; }).join(', ') + (list.length > 6 ? ' and ' + (list.length - 6) + ' more' : '');
+            ui.confirmBar(host, { message: 'Delete ' + plural(list.length, 'empty lesson', 'empty lessons') + ': ' + names + '? You can undo it.', confirmLabel: 'Delete ' + list.length, danger: true, prepend: true }).then(function (ok) {
+                if (!ok) { return; }
+                var before = outlineSnapshot();
+                var done = [];
+                list.reduce(function (p, l) {
+                    return p.then(function () { return api.post('lesson_delete', { lesson_id: l.id }).then(function () { done.push(l.id); }, function () { /* counted below */ }); });
+                }, Promise.resolve()).then(function () {
+                    reloadDetail();
+                    ui.toast(plural(done.length, 'empty lesson', 'empty lessons') + ' deleted' + (done.length < list.length ? '; ' + (list.length - done.length) + ' could not be.' : '.'), {
+                        type: done.length < list.length ? 'warning' : 'success', delay: 10000,
+                        action: done.length ? { label: 'Undo', onClick: function () {
+                            done.reduce(function (p, id) { return p.then(function () { return api.post('lesson_restore', { lesson_id: id }).catch(function () { return null; }); }); }, Promise.resolve()).then(function () {
+                                // restored lessons land at the end of their group; put the old outline back
+                                return api.post('outline_reorder', { course_id: courseId, sections: before.sections, unsectioned: before.unsectioned }).catch(function () { return null; });
+                            }).then(function () { reloadDetail(); ui.toast('Lessons restored.'); });
+                        } } : null
+                    });
+                });
+            });
+        }
+        function outlineSnapshot() {
+            return {
+                sections: (detail.sections || []).map(function (x) { return { section_id: x.id, lesson_ids: (x.lesson_ids || []).slice() }; }),
+                unsectioned: (detail.unsectioned_lesson_ids || []).slice()
+            };
+        }
+
+        // ---- the final exam stays last (Quick add, the to-do's one-click fix)
+        function examLesson() { return (detail.lessons || []).find(function (l) { return l.quiz && l.quiz.role === 'exam'; }) || null; }
+        function flatOrder() {
+            var ids = (detail.unsectioned_lesson_ids || []).slice();
+            (detail.sections || []).forEach(function (x) { ids = ids.concat(x.lesson_ids || []); });
+            return ids;
+        }
+        function examIsLast() {
+            var ex = examLesson();
+            var ids = flatOrder();
+            return !ex || ids[ids.length - 1] === ex.id;
+        }
+        /** Puts a lesson just before the final exam, in the exam's section (Quick add). */
+        function placeBeforeExam(lessonId) {
+            var ex = examLesson();
+            if (!ex || lessonId === ex.id) { return Promise.resolve(); }
+            var o = outlineSnapshot();
+            var strip = function (ids) { return ids.filter(function (id) { return id !== lessonId; }); };
+            o.unsectioned = strip(o.unsectioned);
+            o.sections.forEach(function (x) { x.lesson_ids = strip(x.lesson_ids); });
+            var group = o.unsectioned.indexOf(ex.id) !== -1 ? o.unsectioned : null;
+            o.sections.forEach(function (x) { if (x.lesson_ids.indexOf(ex.id) !== -1) { group = x.lesson_ids; } });
+            if (!group) { return Promise.resolve(); }
+            group.splice(group.indexOf(ex.id), 0, lessonId);
+            return api.post('outline_reorder', { course_id: courseId, sections: o.sections, unsectioned: o.unsectioned }).then(function () {
+                return reloadDetail();
+            }, function (err) { ui.toast((err && err.message) || 'The order could not be saved.', { type: 'error' }); });
+        }
+        /** Moves the final exam to the very end (end of the last section). */
+        function moveExamLast(announce) {
+            var ex = examLesson();
+            if (!ex || examIsLast()) { return Promise.resolve(); }
+            var o = outlineSnapshot();
+            o.unsectioned = o.unsectioned.filter(function (id) { return id !== ex.id; });
+            o.sections.forEach(function (x) { x.lesson_ids = x.lesson_ids.filter(function (id) { return id !== ex.id; }); });
+            if (o.sections.length) { o.sections[o.sections.length - 1].lesson_ids.push(ex.id); } else { o.unsectioned.push(ex.id); }
+            return api.post('outline_reorder', { course_id: courseId, sections: o.sections, unsectioned: o.unsectioned }).then(function () {
+                if (announce) { ui.toast('The final exam is the last lesson again.'); }
+                return reloadDetail();
+            }, function (err) { ui.toast((err && err.message) || 'The order could not be saved.', { type: 'error' }); });
         }
         function gotoIssue(i) {
             if (i.code === 'pdf_pages_pending' && i.lesson_id) { var l = lessonById(i.lesson_id); if (l) { resumeLessonPages(l); return; } }
@@ -1260,7 +1429,7 @@
             if (!rev || hasChanges()) {
                 host.appendChild(el('li', {}, [
                     el('div', { class: 'tr-versions-mini__title' }, [rev ? 'Draft' : 'Draft', el('span', { class: 'tr-badge-status--draft', text: rev ? 'Changes' : 'Not published' })]),
-                    el('div', { text: rev ? 'Changed since Version ' + rev.number : 'Publish to create Version 1.' }),
+                    el('div', { text: rev ? 'Changed since Version ' + rev.number : (canPublish ? 'Publish to create Version 1.' : 'A Training admin publishes Version 1.') }),
                     rev ? el('button', { type: 'button', class: 'tr-aside-link tr-aside-link--accent px-0', text: 'Compare with Version ' + rev.number, on: { click: function () { showTab('versions'); } } }) : null
                 ]));
             }
@@ -1292,15 +1461,27 @@
             renderAside();
             renderSettingsCover();
         }
+        // Which gallery cover the current cover is (the page works it out once; picks keep it current).
+        var galleryKeyOf = {};
+        if (data.cover_key && course.cover_media_id) { galleryKeyOf[course.cover_media_id] = data.cover_key; }
         function openGallery(returnFocus) {
             if (!picker) { return; }
-            picker.open({
+            var opts = {
                 title: 'Course cover', name: course.name || 'Untitled course', color: safeColor(course.color, null),
                 cover: course.cover_media_id ? { id: course.cover_media_id, url: course.cover_url } : null,
                 purpose: 'course_cover', uploadOpts: { courseId: courseId }
-            }).then(function (res) {
-                if (res) { applyCover(res.cover ? res.cover.id : null, res.cover ? res.cover.url : null, res.color || null); }
-                if (returnFocus && returnFocus.focus) { returnFocus.focus(); }
+            };
+            if (course.cover_media_id && galleryKeyOf[course.cover_media_id]) { opts.coverKey = galleryKeyOf[course.cover_media_id]; }
+            picker.open(opts).then(function (res) {
+                if (res) {
+                    if (res.cover && res.cover.key) { galleryKeyOf[res.cover.id] = res.cover.key; }
+                    applyCover(res.cover ? res.cover.id : null, res.cover ? res.cover.url : null, res.color || null);
+                }
+                return picker.whenClosed ? picker.whenClosed() : null;
+            }).then(function () {
+                // After the dialog has gone (its focus trap would pull focus back while it fades).
+                var back = returnFocus && returnFocus.closest && returnFocus.closest('.dropdown-menu') ? $('tr-cover-menu-btn') : returnFocus;
+                if (back && back.focus) { back.focus(); }
             });
         }
         function wireCover(dropEl, button, progressEl) {
@@ -1310,6 +1491,7 @@
                 onFiles: function (files) {
                     var f = files[0];
                     progressEl.textContent = 'Uploading…';
+                    progressEl.hidden = false;
                     up.upload(f, { purpose: 'course_cover', courseId: courseId, onProgress: function (p) { progressEl.textContent = 'Uploading ' + Math.round(p.fraction * 100) + '%'; } }).then(function (d) {
                         progressEl.textContent = '';
                         applyCover(d.media.id, d.media.url);
@@ -1329,10 +1511,16 @@
                 if (id) { applyCover(id, '/agent/training_media.php?m=' + id); }
             });
         }
+        // Quick add goes to the last section, and never after the final exam: when the exam was
+        // last, it stays last (the new lesson lands just before it).
         document.querySelectorAll('[data-tr-quick]').forEach(function (b) {
             b.addEventListener('click', function () {
                 var last = detail.sections.length ? detail.sections[detail.sections.length - 1].id : null;
-                openContent({ type: b.getAttribute('data-tr-quick'), sectionId: last });
+                var keepExamLast = !!examLesson() && examIsLast();
+                openContent({ type: b.getAttribute('data-tr-quick'), sectionId: last, onClosed: function (res) {
+                    if (keepExamLast && res && res.lessonId && !res.deleted && !res.discardedEmpty && !examIsLast()) { return placeBeforeExam(res.lessonId); }
+                    return null;
+                } });
             });
         });
 
@@ -1662,6 +1850,7 @@
                 min_height: 180, max_height: 480, autoresize_bottom_margin: 12, readonly: readOnly,
                 skin: document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'oxide-dark' : 'oxide',
                 content_css: [document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'default', flags.article_css],
+                body_class: document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'tra-dark' : '',
                 setup: function (ed) {
                     ed.on('init', function () { setSettingsEditor(courseValue('description_html', settingsLang) || ''); });
                     ed.on('input change undo redo', function () { if (!settingEditor) { descDirty = true; saveDescSoon(); } });
@@ -1691,6 +1880,12 @@
             });
         }
         var saveDescSoon = ui.debounce(saveSettingsEditor, 1500);
+        window.addEventListener('beforeunload', function (e) {
+            if (readOnly || !(descDirty || saveDescSoon.pending())) { return undefined; }
+            e.preventDefault();
+            e.returnValue = '';
+            return '';
+        });
 
         settingsInputs().forEach(function (inp) {
             var type = inp.getAttribute('data-tr-type');
@@ -2148,12 +2343,23 @@
             sel.focus();
         }
 
+        /** PDFs, uploaded videos, images and attached files: what the author uploaded (not page images or thumbnails). */
+        function authorFileCount() {
+            return (detail.lessons || []).reduce(function (n, l) {
+                var codes = (l.issues || []).map(function (i) { return i.code; });
+                var hasFile = (l.type === 'document' && codes.indexOf('media_missing') === -1)
+                    || (l.type === 'image' && codes.indexOf('image_missing') === -1)
+                    || (l.type === 'video' && l.video_provider === 'upload' && codes.indexOf('media_missing') === -1 && codes.indexOf('video_missing') === -1);
+                return n + (hasFile ? 1 : 0) + (l.resources_count || 0);
+            }, 0);
+        }
+
         // publish
         function openPublish() {
             if (!window.TrainingPublish || !$('tr-pub')) { return; }
             store.flush().then(function () {
                 return window.TrainingPublish.open({
-                    courseId: courseId, courseName: course.name, kind: course.kind,
+                    courseId: courseId, courseName: course.name, kind: course.kind, fileCount: authorFileCount(),
                     lessonTitle: function (id) { var l = lessonById(id); return l ? (l.title || 'Untitled') : null; },
                     onOpenIssue: function (i) { gotoIssue(i); }
                 });
@@ -2180,6 +2386,10 @@
             if (isDoc) { loadDocDetails(); } else { renderOutline(); renderAside(); }
             renderSettingsLangBar();
             fillSettings(false);
+        }
+
+        if ($('tr-publish-wrap-author') && window.bootstrap && window.bootstrap.Tooltip) {
+            new window.bootstrap.Tooltip($('tr-publish-wrap-author'));
         }
 
         renderAll();

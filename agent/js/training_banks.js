@@ -60,10 +60,35 @@ document.addEventListener('DOMContentLoaded', function () {
     function setTreeState(s, text) { treeState.dataset.state = s; treeState.textContent = text || ''; }
 
     // ---------------- loading ----------------
+    /**
+     * Quiz banks are always fetched. With "Show quiz banks" off they are folded into their parent:
+     * the parent's count includes their questions and its "Used by" lists their quizzes, so a
+     * course bank never looks empty and unused while its quizzes hold the questions.
+     */
+    function shapeTree(list) {
+        var show = !!quizToggle.checked;
+        return (function fold(nodes) {
+            return nodes.map(function (b) {
+                var kids = b.children || [];
+                var hidden = show ? [] : kids.filter(function (c) { return c.kind === 'quiz'; });
+                var out = Object.assign({}, b, { children: fold(show ? kids : kids.filter(function (c) { return c.kind !== 'quiz'; })) });
+                out.quizQuestions = 0;
+                out.quizUsedBy = [];
+                (function sum(xs) {
+                    xs.forEach(function (c) {
+                        out.quizQuestions += (c.counts && c.counts.questions) || 0;
+                        out.quizUsedBy = out.quizUsedBy.concat(c.used_by || []);
+                        sum(c.children || []);
+                    });
+                })(hidden);
+                return out;
+            });
+        })(list);
+    }
     function loadTree() {
         treeEl.setAttribute('aria-busy', 'true');
-        return TrainingApi.get('bank_tree', { include_quiz_banks: !!quizToggle.checked }).then(function (d) {
-            banks = d.banks || [];
+        return TrainingApi.get('bank_tree', { include_quiz_banks: true }).then(function (d) {
+            banks = shapeTree(d.banks || []);
             byId = {};
             (function index(list) { list.forEach(function (b) { byId[b.id] = b; index(b.children || []); }); })(banks);
             if (selectedId && !byId[selectedId]) {
@@ -135,7 +160,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function countsText(b) {
         var c = b.counts || {};
-        var parts = [String(c.questions || 0)];
+        var parts = [String((c.questions || 0) + (b.quizQuestions || 0))];
         var tr = c.translated || {};
         Object.keys(tr).forEach(function (l) { if (l !== defaultLang) { parts.push(l.toUpperCase() + ' ' + tr[l]); } });
         return parts.join(' · ');
@@ -173,7 +198,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }, [
                 icon(b.kind === 'quiz' ? 'fa-pen' : (b.kind === 'course' && b.parent_id === null ? 'fa-book' : 'fa-layer-group'), 'trb-node__icon'),
                 el('span', { class: 'trb-node__name', text: b.label || b.name }),
-                el('span', { class: 'trb-node__counts', title: 'Questions (and translated per language)', text: countsText(b) })
+                el('span', { class: 'trb-node__counts', title: b.quizQuestions ? ((b.counts && b.counts.questions) || 0) + ' in this bank and ' + b.quizQuestions + ' written inside its quizzes' : 'Questions (and translated per language)', text: countsText(b) })
             ]);
         }
         var row = el('div', { class: 'trb-node__row' + (b.id === selectedId ? ' is-selected' : ''), style: { paddingLeft: (depth * 16) + 'px' } }, [caret, nameEl, menu(b)]);
@@ -277,13 +302,17 @@ document.addEventListener('DOMContentLoaded', function () {
             el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', on: { click: function () { renaming = b.id; renderTree(); } } }, [icon('fa-i-cursor', 'me-1'), 'Rename']),
             data.can_export ? el('a', { class: 'btn btn-sm btn-outline-secondary', href: '/agent/training_ajax.php?action=bank_export_csv&bank_id=' + b.id, download: '', title: 'Includes the correct answers' }, [icon('fa-file-export', 'me-1'), 'Export CSV']) : null
         ]);
-        var used = b.used_by || [];
+        var used = (b.used_by || []).concat(b.quizUsedBy || []);
         headEl.appendChild(el('div', { class: 'trb-head__path', text: path.slice(0, -1).join(' › ') || (b.kind === 'shared' ? 'Shared banks' : 'Course banks') }));
         headEl.appendChild(el('div', { class: 'trb-head__row' }, [el('h2', { class: 'trb-head__title', text: b.label || b.name }), actions]));
         headEl.appendChild(el('div', { class: 'd-flex align-items-end gap-2' }, [desc, descState]));
         headEl.appendChild(el('div', { class: 'trb-used' }, [el('span', { class: 'text-muted', text: used.length ? 'Used by' : 'Not used by any quiz yet.' })].concat(used.map(function (u) {
             return el('a', { class: 'tr-chip', href: '/agent/training_quiz.php?lesson_id=' + u.lesson_id }, [icon('fa-question-circle', 'me-1'), u.course_name + ' › ' + (u.lesson_title || 'Quiz')]);
         }))));
+        if (b.quizQuestions) {
+            headEl.appendChild(el('div', { class: 'small text-muted mt-1' }, [icon('fa-info-circle', 'me-1'),
+                b.quizQuestions + (b.quizQuestions === 1 ? ' more question is' : ' more questions are') + ' written inside quizzes of this course. Turn on "Include sub-banks" below, or "Show quiz banks", to see them.']));
+        }
     }
 
     function mountQuestions() {
@@ -302,8 +331,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function refreshCounts() {
-        TrainingApi.get('bank_tree', { include_quiz_banks: !!quizToggle.checked }).then(function (d) {
-            banks = d.banks || [];
+        TrainingApi.get('bank_tree', { include_quiz_banks: true }).then(function (d) {
+            banks = shapeTree(d.banks || []);
             byId = {};
             (function index(list) { list.forEach(function (x) { byId[x.id] = x; index(x.children || []); }); })(banks);
             renderTree();

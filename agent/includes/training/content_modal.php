@@ -18,7 +18,7 @@ $tr_cm_types = [
     'video' => ['Video', 'play-circle', 'Upload MP4, YouTube or Vimeo'],
     'image' => ['Image', 'image', 'Photo or diagram'],
     'quiz' => ['Quiz', 'question-circle', 'Graded questions'],
-    'acknowledgment' => ['Acknowledgment', 'file-signature', 'Read and sign'],
+    'acknowledgment' => ['Acknowledgment', 'file-signature', 'A statement signed during the course'],
 ];
 $tr_cm_limits = $tr_ctx->settings->clientLimits();
 $tr_cm_mb = static fn(int $b): string => (string) max(1, intdiv($b, 1048576));
@@ -78,7 +78,7 @@ $tr_cm_mb = static fn(int $b): string => (string) max(1, intdiv($b, 1048576));
                 <li class="nav-item" role="presentation"><button type="button" class="nav-link active" id="tr-cm-tab-content" data-bs-toggle="tab" data-bs-target="#tr-cm-pane-content" role="tab" aria-controls="tr-cm-pane-content" aria-selected="true" data-tab="content">Content</button></li>
                 <li class="nav-item" role="presentation"><button type="button" class="nav-link" id="tr-cm-tab-description" data-bs-toggle="tab" data-bs-target="#tr-cm-pane-description" role="tab" aria-controls="tr-cm-pane-description" aria-selected="false" tabindex="-1" data-tab="description">Description</button></li>
                 <li class="nav-item" role="presentation"><button type="button" class="nav-link" id="tr-cm-tab-resources" data-bs-toggle="tab" data-bs-target="#tr-cm-pane-resources" role="tab" aria-controls="tr-cm-pane-resources" aria-selected="false" tabindex="-1" data-tab="resources">Resources <span class="tr-count" id="tr-cm-res-count">0</span></button></li>
-                <li class="nav-item" role="presentation" id="tr-cm-tab-quiz-li"><button type="button" class="nav-link" id="tr-cm-tab-quiz" data-bs-toggle="tab" data-bs-target="#tr-cm-pane-quiz" role="tab" aria-controls="tr-cm-pane-quiz" aria-selected="false" tabindex="-1" data-tab="quiz">Quiz <span class="tr-count" id="tr-cm-quiz-count">0</span></button></li>
+                <li class="nav-item" role="presentation" id="tr-cm-tab-quiz-li"><button type="button" class="nav-link" id="tr-cm-tab-quiz" data-bs-toggle="tab" data-bs-target="#tr-cm-pane-quiz" role="tab" aria-controls="tr-cm-pane-quiz" aria-selected="false" tabindex="-1" data-tab="quiz">Quick check <span class="tr-count" id="tr-cm-quiz-count">0</span></button></li>
                 <li class="nav-item" role="presentation"><button type="button" class="nav-link" id="tr-cm-tab-settings" data-bs-toggle="tab" data-bs-target="#tr-cm-pane-settings" role="tab" aria-controls="tr-cm-pane-settings" aria-selected="false" tabindex="-1" data-tab="settings">Settings</button></li>
             </ul>
 
@@ -137,7 +137,7 @@ $tr_cm_mb = static fn(int $b): string => (string) max(1, intdiv($b, 1048576));
                                     <details class="tr-cm__refblock" id="tr-cm-body-ref" hidden><summary class="small text-muted">Show the English text</summary><div class="tr-article-box mt-2" id="tr-cm-body-ref-box"></div></details>
                                     <div class="tr-cm__editor"><textarea class="tr-tinymce" id="tr-cm-body-editor" aria-label="Article text"></textarea></div>
                                     <div class="tr-field-error" id="tr-cm-body-error" role="alert"></div>
-                                    <p class="small text-muted mb-0">Imports keep headings, lists and pictures. A KB import is a copy: later KB edits show "KB changed" here until you re-import.</p>
+                                    <p class="small text-muted mb-0">Imports keep headings, lists and pictures.<span id="tr-cm-kb-help" hidden> A KB import is a copy: later KB edits show "KB changed" here until you re-import.</span></p>
                                 </div>
 
                                 <!-- DOCUMENT -->
@@ -165,13 +165,6 @@ $tr_cm_mb = static fn(int $b): string => (string) max(1, intdiv($b, 1048576));
                                     </div>
                                     <div class="tr-note" id="tr-cm-doc-restricted" hidden><i class="fas fa-lock" aria-hidden="true"></i><span>This PDF has copy/print restrictions; it's shown as page images.</span></div>
                                     <div class="tr-note"><i class="fas fa-info-circle" aria-hidden="true"></i><span>PowerPoint or Excel? Use File › Save As › PDF first. Word files work best as an Article: choose Article, then Import Word.</span></div>
-                                    <div class="tr-switch-row border rounded-3 px-3">
-                                        <div>
-                                            <label class="tr-switch-row__label" for="tr-cm-doc-dl">Allow download</label>
-                                            <div class="tr-switch-row__hint">People can save the PDF from the tablet.</div>
-                                        </div>
-                                        <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="tr-cm-doc-dl" data-tr-lfield="allow_download"></div>
-                                    </div>
                                 </div>
 
                                 <!-- VIDEO -->
@@ -316,7 +309,7 @@ $tr_cm_mb = static fn(int $b): string => (string) max(1, intdiv($b, 1048576));
                                     <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="tr-cm-aside-req" data-tr-lfield="required"></div>
                                 </div>
                                 <div class="tr-switch-row" data-tr-show-types="document,video,image">
-                                    <div><label class="tr-switch-row__label" for="tr-cm-aside-dl">Allow download</label><div class="tr-switch-row__hint">Let people save a copy</div></div>
+                                    <div><label class="tr-switch-row__label" for="tr-cm-aside-dl">Allow download</label><div class="tr-switch-row__hint">People can save a copy from the tablet</div></div>
                                     <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="tr-cm-aside-dl" data-tr-lfield="allow_download"></div>
                                 </div>
                                 <div class="tr-switch-row">

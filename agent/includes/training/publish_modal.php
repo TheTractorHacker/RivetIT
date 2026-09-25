@@ -61,7 +61,7 @@ defined('TRAINING_PAGE') || exit;
                         </div>
                         <div class="tr-field-error" id="tr-pub-days-error" role="alert"></div>
                     </section>
-                    <p class="tr-pub__explainer mt-3 mb-0"><i class="fas fa-user-shield mt-1" aria-hidden="true"></i><span>Employees see the published version once Training goes live. Your draft stays private.</span></p>
+                    <p class="tr-pub__explainer mt-3 mb-0"><i class="fas fa-user-shield mt-1" aria-hidden="true"></i><span>Publishing makes this the version employees take. They see it on the tablet once Training is switched on for them and the course is assigned to them. Later edits stay in your draft until you publish again.</span></p>
                 </div>
 
                 <div class="tr-pub__success" id="tr-pub-success" hidden>
