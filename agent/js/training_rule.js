@@ -600,7 +600,7 @@
                 el('span', { class: 'tro-preview__label', text: matched === 1 ? 'person matches' : 'people match' })
             ]));
             var segs = [
-                ['assign', Number(p.will_assign || 0), 'tro-meter__assign', 'will be assigned', st.newHiresOnly ? (Number(p.will_assign || 0) ? 'due ' + u.plural(st.hireDays, 'day') + ' after their hire date' : '') : (p.due_on_current_staff ? 'due ' + u.fmtDate(p.due_on_current_staff) : '')],
+                ['assign', Number(p.will_assign || 0), 'tro-meter__assign', 'will be assigned', !Number(p.will_assign || 0) ? '' : (st.newHiresOnly ? 'due ' + u.plural(st.hireDays, 'day') + ' after their hire date' : (p.due_on_current_staff ? 'due ' + u.fmtDate(p.due_on_current_staff) : ''))],
                 ['current', Number(p.already_current || 0), 'tro-meter__current', 'already current', 'renew on their own dates'],
                 ['assigned', Number(p.already_assigned || 0), 'tro-meter__assigned', 'already assigned', 'keep the due date they have'],
                 ['waived', Number(p.waived || 0), 'tro-meter__waived', 'waived', 'not asked while the waiver lasts']
