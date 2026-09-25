@@ -8,7 +8,9 @@
  *       onReady(ctrl), onPlaying(durationS), onError(code, message), onTime({current, duration}),
  *       onState('playing'|'paused'|'ended'|'buffering')
  *   }) -> ctrl {play(), pause(), toggle(), seekBy(s), seekTo(s), getCurrentTime(), getDuration(),
- *               isPlaying(), destroy(), iframe}
+ *               isPlaying(), getVideoId(), destroy(), iframe}
+ *       getVideoId() (P3 §7.7): the id the provider says is loaded - YouTube getVideoData().video_id,
+ *       Vimeo getVideoId() (read once through a cached promise) - or null; the kiosk sends it with ticks.
  *
  * Rules (plan A2):
  *   - The iframe URL is built server-side (VideoLink::embedUrl); this file only accepts the two
@@ -120,6 +122,8 @@
         var pollTimer = null;
         var lastTime = 0;
         var lastDuration = 0;
+        var vimeoId = null;
+        var vimeoIdAsked = false;
 
         function call(name, a, b) {
             if (destroyed || typeof opts[name] !== 'function') { return; }
@@ -151,6 +155,20 @@
             getCurrentTime: function () { return lastTime; },
             getDuration: function () { return lastDuration; },
             isPlaying: function () { return playing; },
+            getVideoId: function () {
+                if (!player) { return null; }
+                if (provider === 'youtube') {
+                    try {
+                        var d = player.getVideoData ? player.getVideoData() : null;
+                        return d && typeof d.video_id === 'string' && /^[A-Za-z0-9_-]{6,20}$/.test(d.video_id) ? d.video_id : null;
+                    } catch (e) { return null; }
+                }
+                if (!vimeoIdAsked && player.getVideoId) {
+                    vimeoIdAsked = true;
+                    player.getVideoId().then(function (id) { if (/^[0-9]{1,12}$/.test(String(id))) { vimeoId = String(id); } }, function () { /* ignore */ });
+                }
+                return vimeoId;
+            },
             destroy: function () {
                 destroyed = true;
                 stopPoll();
