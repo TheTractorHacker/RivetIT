@@ -357,6 +357,9 @@ final class TranscriptService
             'status' => $status,
             'display_status' => $display,
             'days_overdue' => $daysOverdue,
+            // open renewal whose certificate already expired: not qualified now, due or not
+            'lapsed' => $status === 'open' && !empty($detail['renew_expires_on']) && (string) $detail['renew_expires_on'] < $today,
+            'expires_on' => $detail['renew_expires_on'] ?? null,
             'waived_until' => $r['tassign_waived_until'] ?: null,
             'completion_id' => $r['tassign_completion_id'] !== null ? (int) $r['tassign_completion_id'] : null,
             'created_at' => Clock::toIso((string) $r['tassign_created_at_utc'], true),

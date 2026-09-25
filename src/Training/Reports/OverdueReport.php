@@ -28,7 +28,7 @@ final class OverdueReport
 
     /**
      * @param array{client_id?:?int, course_id?:?int, job_id?:?int, location_id?:?int} $f
-     * @return array{groups:list<array>, total:int, people:int, ageing:list<array>}
+     * @return array{groups:list<array>, total:int, people:int, ageing:list<array>, lapsed:list<array>, lapsed_total:int, lapsed_people:int}
      */
     public function rows(array $f = []): array
     {
@@ -95,7 +95,44 @@ final class OverdueReport
             }
             $ageing[] = ['bucket' => $label, 'count' => $n];
         }
-        return ['groups' => $groups, 'total' => count($overdue), 'people' => count($who), 'ageing' => $ageing];
+
+        // Expired — not qualified, renewal open but not due yet: the certificate already lapsed (for example a card that
+        // had expired before it was entered), so the renewal's due date is today + lead and it is not overdue. Listed on
+        // its own so these people are found where overdue people are looked for; not part of the overdue counts.
+        $lapsedPairs = array_values(array_filter($pairs, static fn($p) => $p['required'] && !empty($p['lapsed']) && $p['status'] !== 'overdue'));
+        $lapsedDetails = self::assignmentDetails($db, array_values(array_filter(array_map(static fn($p) => $p['assignment_id'], $lapsedPairs))));
+        $lapsed = [];
+        $lapsedWho = [];
+        foreach ($lapsedPairs as $p) {
+            $person = $people[$p['contact_id']] ?? ['name' => 'Contact #' . $p['contact_id'], 'title' => null, 'client_name' => null];
+            $a = $p['assignment_id'] !== null ? ($lapsedDetails[$p['assignment_id']] ?? null) : null;
+            $lapsedWho[$p['contact_id']] = true;
+            $lapsed[] = [
+                'person' => ['contact_id' => $p['contact_id'], 'name' => (string) $person['name'], 'title' => $person['title'] ?? null,
+                    'initials' => Labels::initials((string) $person['name'])],
+                'client_id' => $p['client_id'],
+                'department' => $p['client_id'] > 0 ? ($names[$p['client_id']] ?? ($person['client_name'] ?? null)) : null,
+                'course' => $p['course'],
+                'expires_on' => $p['expires_on'],
+                'due_on' => $p['due_on'],
+                'reason_label' => $a !== null ? $a['anchor_label'] : Labels::anchor($p['anchor'], null),
+                'assignment_id' => $p['assignment_id'],
+            ];
+        }
+        if ($lapsed !== []) {
+            $missing = array_values(array_unique(array_filter(array_map(static fn($r) => $r['department'] === null && $r['client_id'] > 0 ? $r['client_id'] : 0, $lapsed))));
+            $more = $missing !== [] ? Lookup::departmentNames($db, $missing) : [];
+            foreach ($lapsed as &$r) {
+                if ($r['department'] === null && $r['client_id'] > 0) {
+                    $r['department'] = $more[$r['client_id']] ?? ('Department #' . $r['client_id']);
+                }
+            }
+            unset($r);
+            usort($lapsed, static fn($a, $b) => [$a['department'] === null ? 1 : 0, (string) $a['department'], (string) $a['expires_on'], $a['person']['name']]
+                <=> [$b['department'] === null ? 1 : 0, (string) $b['department'], (string) $b['expires_on'], $b['person']['name']]);
+        }
+        return ['groups' => $groups, 'total' => count($overdue), 'people' => count($who), 'ageing' => $ageing,
+                'lapsed' => $lapsed, 'lapsed_total' => count($lapsed), 'lapsed_people' => count($lapsedWho)];
     }
 
     /**
@@ -131,6 +168,7 @@ final class OverdueReport
                     'requirement_name' => $r['requirement_name'],
                     'is_manual' => (bool) $r['requirement_is_manual'],
                     'original_due_on' => $r['tassign_original_due_on'],
+                    'renew_expires_on' => $r['renew_expires_on'],
                 ];
             }
         }

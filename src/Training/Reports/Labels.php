@@ -120,13 +120,13 @@ final class Labels
 
     /**
      * Assignment anchor label (§4.1): initial "Required by {rule}", renew "Renewal · expires
-     * {date}", retrain "Retrain · Version {n}", reissue "Record voided · redo".
+     * {date}" ("expired" once the date has passed), retrain "Retrain · Version {n}", reissue "Record voided · redo".
      */
     public static function anchor(?string $anchor, ?string $ruleName, ?string $expiresOn = null, ?int $revisionNumber = null, bool $manual = false): string
     {
         $anchor = (string) $anchor;
         if (str_starts_with($anchor, 'renew:')) {
-            return 'Renewal' . ($expiresOn !== null ? ' · expires ' . self::shortDate($expiresOn) : '');
+            return 'Renewal' . ($expiresOn !== null ? ($expiresOn < Clock::todayLocal() ? ' · expired ' : ' · expires ') . self::shortDate($expiresOn) : '');
         }
         if (str_starts_with($anchor, 'retrain:')) {
             return 'Retrain' . ($revisionNumber !== null ? ' · Version ' . $revisionNumber : '');

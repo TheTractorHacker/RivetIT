@@ -143,7 +143,9 @@ final class PairRules
 
     /**
      * Pair status (labels frozen, spec §3.3):
-     * {status, label, counts_current:bool, in_denominator:bool, due_on:?string, expires_on:?string, days_overdue:int, anchor:?string}
+     * {status, label, counts_current:bool, in_denominator:bool, due_on:?string, expires_on:?string, days_overdue:int, anchor:?string, lapsed:bool}
+     * An open renewal whose certificate already expired keeps its status key (due_soon / due) but is labelled
+     * "Expired — not qualified" with lapsed:true, the same label an overdue lapsed renewal has.
      */
     public static function pairStatus(?array $d, ?array $o, array $f, string $today, RecordsSettings $s): array
     {
@@ -151,7 +153,7 @@ final class PairRules
         $RR = $f['rr'] ?? null;
         $valid = $L !== null && self::isValid($L, $RR, $today);
         $exp = $L['expires_on'] ?? null;
-        $out = static function (string $status, string $label, ?string $due, ?string $anchor) use ($exp, $today): array {
+        $out = static function (string $status, string $label, ?string $due, ?string $anchor, bool $lapsed = false) use ($exp, $today): array {
             $daysOver = ($due !== null && $due < $today) ? self::daysBetween($due, $today) : 0;
             return [
                 'status' => $status,
@@ -162,6 +164,10 @@ final class PairRules
                 'expires_on' => $exp,
                 'days_overdue' => $status === 'overdue' ? $daysOver : 0,
                 'anchor' => $anchor,
+                // The certificate behind an open renewal has already expired: not qualified now, even while the renewal
+                // is not yet due (its due date is max(expiry, today + lead), so a card that lapsed before it was entered
+                // is never overdue on day one). Display only: the status key and the counts are unchanged.
+                'lapsed' => $lapsed,
             ];
         };
 
@@ -177,14 +183,14 @@ final class PairRules
             if (str_starts_with($anchor, 'retrain:') && $valid) {
                 return $out('retrain_due', 'Retrain due ' . $due, $due, $anchor);
             }
+            $lapsed = str_starts_with($anchor, 'renew:') && $exp !== null && $exp < $today;
             if ($due < $today) {
-                $label = (str_starts_with($anchor, 'renew:') && $exp !== null && $exp < $today) ? 'Expired — not qualified' : 'Overdue';
-                return $out('overdue', $label, $due, $anchor);
+                return $out('overdue', $lapsed ? 'Expired — not qualified' : 'Overdue', $due, $anchor, $lapsed);
             }
             if ($due <= Clock::addDays($today, $s->dueSoonDays)) {
-                return $out('due_soon', 'Due soon', $due, $anchor);
+                return $out('due_soon', $lapsed ? 'Expired — not qualified' : 'Due soon', $due, $anchor, $lapsed);
             }
-            return $out('due', 'Assigned', $due, $anchor);
+            return $out('due', $lapsed ? 'Expired — not qualified' : 'Assigned', $due, $anchor, $lapsed);
         }
         if ($valid) {
             if ($exp !== null && $exp <= Clock::addDays($today, self::EXPIRING_LOOKAHEAD_DAYS)) {

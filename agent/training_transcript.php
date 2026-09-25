@@ -192,6 +192,9 @@ $trr_strength_bars = static function (string $grade): string {
 };
 
 $trr_assign_chip = static function (array $a): string {
+    if (!empty($a['lapsed'])) {
+        return '<span class="trr-chip trr-chip--err" title="Renewal due ' . trr_h(trr_date($a['due_on'])) . '"><i class="fas fa-times-circle" aria-hidden="true"></i>Expired — not qualified</span>';
+    }
     return match ($a['display_status']) {
         'overdue' => '<span class="trr-chip trr-chip--err"><i class="fas fa-exclamation-circle" aria-hidden="true"></i>Overdue since ' . trr_h(trr_date($a['due_on'], true)) . '</span>',
         'due_soon' => '<span class="trr-chip trr-chip--warn"><i class="far fa-clock" aria-hidden="true"></i>Due ' . trr_h(trr_date($a['due_on'], true)) . '</span>',

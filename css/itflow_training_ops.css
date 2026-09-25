@@ -95,6 +95,7 @@
 .tro-seg__btn:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 2px; }
 .tro-seg__n { font-variant-numeric: tabular-nums; font-weight: 600; opacity: .8; }
 .tro-seg__btn--overdue .tro-seg__dot { background: #dc2626; }
+.tro-seg__btn--lapsed .tro-seg__dot { background: #dc2626; }
 .tro-seg__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--if-muted, #5d6f76); flex: none; }
 .tro-seg__btn--due_soon .tro-seg__dot { background: #d97706; }
 .tro-seg__btn--open .tro-seg__dot { background: #0ea5e9; }

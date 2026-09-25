@@ -54,8 +54,9 @@ defined('TRAINING_PAGE') || exit;
         $rank = ['overdue' => 0, 'expired' => 1, 'due_soon' => 2, 'retrain_due' => 3, 'expiring' => 4, 'due' => 5, 'not_started' => 6, 'current' => 7, 'waived' => 8];
         $pairs = array_values(array_filter($pairs, static fn($p) => is_array($p) && !empty($p['required'] ?? true)));
         usort($pairs, static function ($a, $b) use ($rank) {
-            $ka = [$rank[$a['status'] ?? ''] ?? 9, $a['due_on'] ?? $a['expires_on'] ?? '9999', (string) ($a['course']['name'] ?? '')];
-            $kb = [$rank[$b['status'] ?? ''] ?? 9, $b['due_on'] ?? $b['expires_on'] ?? '9999', (string) ($b['course']['name'] ?? '')];
+            // a lapsed renewal (certificate already expired) ranks with overdue even before the renewal is due
+            $ka = [!empty($a['lapsed']) ? 0 : ($rank[$a['status'] ?? ''] ?? 9), $a['due_on'] ?? $a['expires_on'] ?? '9999', (string) ($a['course']['name'] ?? '')];
+            $kb = [!empty($b['lapsed']) ? 0 : ($rank[$b['status'] ?? ''] ?? 9), $b['due_on'] ?? $b['expires_on'] ?? '9999', (string) ($b['course']['name'] ?? '')];
             return $ka <=> $kb;
         });
         $shown = array_slice($pairs, 0, 5);
@@ -101,11 +102,16 @@ defined('TRAINING_PAGE') || exit;
                     <ul class="list-unstyled mb-2">
                         <?php foreach ($shown as $p) {
                             [$cls, $text] = $badge((string) ($p['status'] ?? ''));
-                            if (($p['status'] ?? '') === 'overdue' && str_starts_with((string) ($p['label'] ?? ''), 'Expired')) {
-                                $text = (string) $p['label'];   // a lapsed renewal: "Expired — not qualified", not just "Overdue" (§3.3 frozen label)
+                            $lapsed = !empty($p['lapsed']) || (($p['status'] ?? '') === 'overdue' && str_starts_with((string) ($p['label'] ?? ''), 'Expired'));
+                            if ($lapsed) {
+                                // a lapsed renewal, due or not: "Expired — not qualified", not "Overdue" / "Due soon" (§3.3 frozen label)
+                                $cls = 'text-bg-danger';
+                                $text = 'Expired — not qualified';
                             }
                             $when = '';
-                            if (in_array($p['status'] ?? '', ['overdue', 'due_soon', 'due', 'retrain_due'], true) && !empty($p['due_on'])) {
+                            if ($lapsed && !empty($p['expires_on'])) {
+                                $when = 'Expired ' . $date($p['expires_on']) . (!empty($p['due_on']) ? ' · renewal due ' . $date($p['due_on']) : '');
+                            } elseif (in_array($p['status'] ?? '', ['overdue', 'due_soon', 'due', 'retrain_due'], true) && !empty($p['due_on'])) {
                                 $when = 'Due ' . $date($p['due_on']);
                             } elseif (!empty($p['expires_on'])) {
                                 $when = (($p['status'] ?? '') === 'expired' ? 'Expired ' : 'Expires ') . $date($p['expires_on']);

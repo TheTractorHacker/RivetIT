@@ -173,13 +173,19 @@
         var label = s[2];
         if (status === 'overdue' && row && row.days_overdue > 0 && !(opts && opts.days === false)) { label = 'Overdue ' + plural(row.days_overdue, 'day'); }
         if (status === 'waived' && row && row.waived_until) { label = 'Waived to ' + fmtDate(row.waived_until, true); }
+        // An open renewal whose certificate already expired is not qualified now, whether or not the renewal is due yet.
+        if (row && row.lapsed && (status === 'overdue' || status === 'due_soon' || status === 'due')) {
+            var lapsedChip = chip('Expired — not qualified', 'err', 'fas fa-times-circle');
+            if (row.expires_on) { lapsedChip.title = 'Expired ' + fmtDate(row.expires_on) + (row.due_on ? ' · renewal due ' + fmtDate(row.due_on) : ''); }
+            return lapsedChip;
+        }
         return chip(label, s[0], s[1]);
     }
     /** Certificate status chip (PairRules::certStatus). */
     function certChip(status, label) {
         var map = { valid: ['ok', 'fas fa-check'], expiring: ['warn', 'far fa-clock'], expired: ['err', 'fas fa-times-circle'], revoked: ['outline', 'fas fa-ban'] };
         var m = map[status] || ['outline', null];
-        return chip(label || (status ? status.charAt(0).toUpperCase() + status.slice(1) : '—'), m[0], m[1]);
+        return chip(label ? readableDates(label) : (status ? status.charAt(0).toUpperCase() + status.slice(1) : '—'), m[0], m[1]);
     }
     var STRENGTH_LABELS = { A: 'PIN + signature', B: 'Trainer session', C: 'Trainer attests', D: 'Scan on file', E: 'Recorded by office' };
     var STRENGTH_BARS = { A: 5, B: 4, C: 3, D: 2, E: 1 };

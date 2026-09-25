@@ -260,8 +260,10 @@ $trr_delta = static function (?int $d, string $unit, string $versus, bool $lower
                     <?php } ?>
                 </ul>
             </div>
-            <?php if ($trr_data['groups'] === []) { ?>
+            <?php if ($trr_data['groups'] === [] && empty($trr_data['lapsed'])) { ?>
             <div class="tr-empty"><?php render_empty_state('fas fa-check-circle', 'Nothing is overdue', 'Everyone in view is on time with their required training.', ''); ?></div>
+            <?php } elseif ($trr_data['groups'] === []) { ?>
+            <p class="trr-muted mb-0">Nothing is overdue. Some people below are not qualified because their certificate already expired.</p>
             <?php } ?>
         </div>
         <?php foreach ($trr_data['groups'] as $trr_gi => $trr_g) { ?>
@@ -297,6 +299,44 @@ $trr_delta = static function (?int $d, string $unit, string $versus, bool $lower
                             <td class="text-nowrap"<?= $trr_r['original_due_on'] !== null && $trr_r['original_due_on'] !== $trr_r['due_on'] ? ' title="Originally due ' . trr_h(trr_date($trr_r['original_due_on'])) . '"' : '' ?>><?= trr_h(trr_date($trr_r['due_on'])) ?></td>
                             <td><span class="trr-chip trr-chip--err"><?= (int) $trr_r['days_overdue'] ?> <?= $trr_r['days_overdue'] === 1 ? 'day' : 'days' ?></span></td>
                             <td class="d-none d-print-table-cell trr-blank"></td>
+                        </tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php } ?>
+        <?php if (!empty($trr_data['lapsed'])) { ?>
+        <div class="trr-print-group">
+            <h3 class="trr-group-title px-3">Expired — not qualified <span class="trr-muted">renewal open, not due yet · <?= (int) $trr_data['lapsed_total'] ?> for <?= (int) $trr_data['lapsed_people'] ?> <?= $trr_data['lapsed_people'] === 1 ? 'person' : 'people' ?></span></h3>
+            <p class="trr-card__sub px-3">Their certificate has already run out, so they are not qualified now. The renewal is not overdue yet because it was opened after the expiry date.</p>
+            <div class="trr-table-wrap">
+                <table class="table table-vcenter card-table trr-table trr-table--overdue">
+                    <thead>
+                        <tr>
+                            <th scope="col">Person</th>
+                            <th scope="col">Department</th>
+                            <th scope="col">Course</th>
+                            <th scope="col">Expired</th>
+                            <th scope="col">Renewal due</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($trr_data['lapsed'] as $trr_r) { ?>
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <?= trr_avatar($trr_r['person']['initials']) ?>
+                                    <div class="min-w-0">
+                                        <a class="fw-semibold trr-link-ink" href="/agent/training_transcript.php?contact_id=<?= (int) $trr_r['person']['contact_id'] ?>"><?= trr_h($trr_r['person']['name']) ?></a>
+                                        <?php if ($trr_r['person']['title'] !== null) { ?><span class="trr-sub"><?= trr_h($trr_r['person']['title']) ?></span><?php } ?>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><?= $trr_r['department'] !== null ? trr_h($trr_r['department']) : '<span class="trr-muted">No department</span>' ?></td>
+                            <td><?= trr_h($trr_r['course']['name']) ?><span class="trr-sub"><?= trr_h($trr_r['reason_label']) ?></span></td>
+                            <td class="text-nowrap"><span class="trr-chip trr-chip--err"><?= trr_h(trr_date($trr_r['expires_on'])) ?></span></td>
+                            <td class="text-nowrap"><?= trr_h(trr_date($trr_r['due_on'])) ?></td>
                         </tr>
                         <?php } ?>
                     </tbody>

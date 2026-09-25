@@ -23,7 +23,7 @@ $tr_level = (int) lookupUserPermission('module_training');
 $tr_tab = tro_get_enum('tab', ['assignments', 'rules'], 'assignments');
 $tr_scope = tro_scope($mysqli, $tr_ctx);
 
-$tr_statuses = ['open', 'overdue', 'due_soon', 'waived', 'completed', 'cancelled', 'cancelled_overdue', 'all'];
+$tr_statuses = ['open', 'overdue', 'due_soon', 'lapsed', 'waived', 'completed', 'cancelled', 'cancelled_overdue', 'all'];
 
 $tr_filters = [
     'status' => tro_get_enum('status', $tr_statuses, 'open'),

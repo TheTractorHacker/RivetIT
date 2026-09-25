@@ -70,6 +70,10 @@
         var s = STATUS[pair.status] || ['neutral', 'far fa-circle', String(pair.status || '').replace(/_/g, ' ')];
         var text = s[2];
         if (pair.status === 'expired' && /^Revoked/.test(pair.label || '')) { s = ['err', 'fas fa-ban', 'Revoked']; text = 'Revoked'; }
+        if (pair.lapsed && pair.expires_on) {
+            // An open renewal whose certificate already expired: not qualified now, even before the renewal is due.
+            return el('span', { class: 'trr-chip trr-chip--err', title: pair.label || null }, [icon('fas fa-times-circle'), 'Expired · ' + fmtDate(pair.expires_on)]);
+        }
         var date = pair.status === 'expiring' ? pair.expires_on : pair.due_on;
         if (date && ['expiring', 'due_soon', 'due', 'overdue', 'retrain_due'].indexOf(pair.status) !== -1) { text += ' · ' + fmtDate(date); }
         return el('span', { class: 'trr-chip trr-chip--' + s[0], title: pair.label || null }, [icon(s[1]), text]);
@@ -160,6 +164,7 @@
             if (p.title) { meta.push(p.title); }
             if (pair.status === 'overdue' && pair.days_overdue > 0) { meta.push(plural(pair.days_overdue, 'day') + ' late'); }
             if (pair.label && STATUS[pair.status] && pair.label !== STATUS[pair.status][2]) { meta.push(pair.label); }
+            if (pair.lapsed && pair.due_on) { meta.push('renewal due ' + fmtDate(pair.due_on)); }
             list.appendChild(el('li', null, [
                 el('span', { class: 'trr-avatar', 'aria-hidden': 'true', text: p.initials || initials(p.name) }),
                 el('div', { class: 'trr-people__main' }, [

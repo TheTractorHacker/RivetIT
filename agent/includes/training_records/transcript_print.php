@@ -115,7 +115,7 @@ trr_print_begin('Training transcript · ' . $trr_p['name'], 'portrait');
                 <td><strong><?= $trr_h($trr_a['course']['name']) ?></strong></td>
                 <td><?= $trr_h($trr_a['anchor_label']) ?></td>
                 <td><?= $trr_h($trr_d($trr_a['due_on'])) ?></td>
-                <td><?= $trr_a['display_status'] === 'overdue' ? 'Overdue ' . (int) $trr_a['days_overdue'] . ' ' . ((int) $trr_a['days_overdue'] === 1 ? 'day' : 'days') : ($trr_a['display_status'] === 'due_soon' ? 'Due soon' : 'Assigned') ?></td>
+                <td><?= !empty($trr_a['lapsed']) ? 'Expired — not qualified' : ($trr_a['display_status'] === 'overdue' ? 'Overdue ' . (int) $trr_a['days_overdue'] . ' ' . ((int) $trr_a['days_overdue'] === 1 ? 'day' : 'days') : ($trr_a['display_status'] === 'due_soon' ? 'Due soon' : 'Assigned')) ?></td>
             </tr>
             <?php } ?>
         </tbody>

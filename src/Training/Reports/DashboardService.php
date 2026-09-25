@@ -136,6 +136,7 @@ final class DashboardService
                 'current' => $tally['current'],
                 'overdue' => $overdue['total'],
                 'overdue_people' => $overdue['people'],
+                'lapsed_open' => $overdue['lapsed_total'],
                 'expiring_30' => $expiring['counts']['d30'],
                 'renewals_assigned' => $expiring['renewals_assigned']['d30'],
                 'completions_month' => $counts['month'],

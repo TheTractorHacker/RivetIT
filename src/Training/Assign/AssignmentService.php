@@ -34,8 +34,11 @@ final class AssignmentService
     public const CHUNK = 50;
     public const PAGE = 50;
     public const USER_TRIGGERS = ['rule_save', 'rule_archive', 'assign_manual', 'roster', 'hire_date', 'jobgroup', 'reconcile_now'];
-    public const STATUS_FILTERS = ['open', 'overdue', 'due_soon', 'waived', 'completed', 'cancelled', 'cancelled_overdue', 'all'];
+    public const STATUS_FILTERS = ['open', 'overdue', 'due_soon', 'lapsed', 'waived', 'completed', 'cancelled', 'cancelled_overdue', 'all'];
     public const SORT_KEYS = ['due', 'due_desc', 'name', 'course', 'created', 'closed'];
+    /** Open renewal whose certificate already expired ("Not qualified"); one ? = today. Anchor 'renew:c<id>'. */
+    private const LAPSED_SQL = "a.tassign_anchor LIKE 'renew:c%' AND EXISTS (SELECT 1 FROM training_completions lc
+        WHERE lc.completion_id = CAST(SUBSTRING(a.tassign_anchor, 8) AS UNSIGNED) AND lc.completion_expires_on < ?)";
     private const SORTS = [
         'due' => 'a.tassign_due_on ASC, a.tassign_id ASC',
         'due_desc' => 'a.tassign_due_on DESC, a.tassign_id DESC',
@@ -346,12 +349,12 @@ final class AssignmentService
     /**
      * f: status (STATUS_FILTERS, default open), course_id, client_id, contact_id, requirement_id, q, page, sort (SORTS keys).
      *
-     * @return array{rows:list<array>, total:int, page:int, per_page:int, counts:array{overdue:int, due_soon:int, open:int, waived:int}}
+     * @return array{rows:list<array>, total:int, page:int, per_page:int, counts:array{overdue:int, due_soon:int, open:int, waived:int, lapsed:int}}
      */
     public function list(array $f, Scope $s): array
     {
         $db = $this->c->db;
-        $empty = ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => self::PAGE, 'counts' => ['overdue' => 0, 'due_soon' => 0, 'open' => 0, 'waived' => 0]];
+        $empty = ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => self::PAGE, 'counts' => ['overdue' => 0, 'due_soon' => 0, 'open' => 0, 'waived' => 0, 'lapsed' => 0]];
         if ($s->isNone()) {
             return $empty;
         }
@@ -382,9 +385,10 @@ final class AssignmentService
                 SUM(a.tassign_status = 'open' AND a.tassign_due_on < ?) AS overdue,
                 SUM(a.tassign_status = 'open' AND a.tassign_due_on >= ? AND a.tassign_due_on <= ?) AS due_soon,
                 SUM(a.tassign_status = 'open') AS open_n,
-                SUM(a.tassign_status = 'waived') AS waived" . $from . $where, 'sss' . $types, array_merge([$today, $today, $soon], $params));
+                SUM(a.tassign_status = 'waived') AS waived,
+                SUM(a.tassign_status = 'open' AND " . self::LAPSED_SQL . ") AS lapsed" . $from . $where, 'ssss' . $types, array_merge([$today, $today, $soon, $today], $params));
         $counts = ['overdue' => (int) ($cnt['overdue'] ?? 0), 'due_soon' => (int) ($cnt['due_soon'] ?? 0),
-                   'open' => (int) ($cnt['open_n'] ?? 0), 'waived' => (int) ($cnt['waived'] ?? 0)];
+                   'open' => (int) ($cnt['open_n'] ?? 0), 'waived' => (int) ($cnt['waived'] ?? 0), 'lapsed' => (int) ($cnt['lapsed'] ?? 0)];
 
         $status = in_array($f['status'] ?? null, self::STATUS_FILTERS, true) ? $f['status'] : 'open';
         switch ($status) {
@@ -405,6 +409,11 @@ final class AssignmentService
                 $where .= " AND a.tassign_status = 'open' AND a.tassign_due_on >= ? AND a.tassign_due_on <= ?";
                 $types .= 'ss';
                 array_push($params, $today, $soon);
+                break;
+            case 'lapsed':
+                $where .= " AND a.tassign_status = 'open' AND " . self::LAPSED_SQL;
+                $types .= 's';
+                $params[] = $today;
                 break;
             case 'cancelled_overdue':
                 // Cancelled while overdue (S17, the A6 audit exception): due before the local close date.
@@ -525,8 +534,11 @@ final class AssignmentService
             $k = $courses[$a['course_id']] ?? null;
             $req = $a['requirement_id'] !== null ? ($reqs[$a['requirement_id']] ?? null) : null;
             $anchor = PairRules::parseAnchor($a['anchor']);
+            $renewExp = $anchor['kind'] === 'renew' ? ($comps[$anchor['id']] ?? null) : null;
+            // An open renewal whose certificate already expired: not qualified now, even before the renewal is due.
+            $lapsed = $a['status'] === 'open' && $renewExp !== null && (string) $renewExp < $today;
             $label = match ($anchor['kind']) {
-                'renew' => 'Renewal · expires ' . ($comps[$anchor['id']] ?? '?'),
+                'renew' => 'Renewal · ' . ($renewExp !== null && (string) $renewExp < $today ? 'expired ' : 'expires ') . ($renewExp ?? '?'),
                 'retrain' => 'Retrain · Version ' . ($revs[$anchor['id']] ?? '?'),
                 'reissue' => 'Record voided · redo',
                 // A hand-made (Assign training) rule is named "Assigned by {user} on {date}": show it as is, not "Required by Assigned by …".
@@ -551,6 +563,8 @@ final class AssignmentService
                 'status' => $a['status'],
                 'display_status' => $display,
                 'days_overdue' => $display === 'overdue' ? PairRules::daysBetween($a['due_on'], $today) : 0,
+                'lapsed' => $lapsed,
+                'expires_on' => $renewExp,
                 'waived_until' => $a['waived_until'],
                 'completion_id' => $a['completion_id'],
                 'created_at' => Clock::toIso($a['created_at_utc'], true),

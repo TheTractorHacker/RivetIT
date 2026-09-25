@@ -96,7 +96,7 @@
                 var seq = 0;
                 var flashId = null;
                 var STATUSES = [
-                    ['overdue', 'Overdue'], ['due_soon', 'Due soon'], ['open', 'Open'], ['waived', 'Waived'],
+                    ['overdue', 'Overdue'], ['lapsed', 'Not qualified'], ['due_soon', 'Due soon'], ['open', 'Open'], ['waived', 'Waived'],
                     ['completed', 'Completed'], ['cancelled', 'Cancelled'], ['cancelled_overdue', 'Cancelled while overdue'], ['all', 'All']
                 ];
 
@@ -104,11 +104,14 @@
                     clear(seg);
                     STATUSES.forEach(function (s) {
                         var n = counts[s[0]];
+                        // "Not qualified" (open renewals whose certificate already expired) shows only when there are some.
+                        if (s[0] === 'lapsed' && !n && f.status !== 'lapsed') { return; }
                         seg.appendChild(el('button', {
                             type: 'button', class: 'tro-seg__btn tro-seg__btn--' + s[0], 'aria-pressed': f.status === s[0] ? 'true' : 'false',
-                            title: s[0] === 'cancelled_overdue' ? 'Assignments that were cancelled after their due date had passed' : null,
+                            title: s[0] === 'cancelled_overdue' ? 'Assignments that were cancelled after their due date had passed'
+                                : (s[0] === 'lapsed' ? 'Renewals whose certificate has already expired: not qualified until renewed, even when the renewal is not due yet' : null),
                             on: { click: function () { if (f.status !== s[0]) { f.status = s[0]; f.page = 1; refetch(); } } }
-                        }, [['overdue', 'due_soon', 'open', 'completed'].indexOf(s[0]) !== -1 ? el('span', { class: 'tro-seg__dot', 'aria-hidden': 'true' }) : null,
+                        }, [['overdue', 'lapsed', 'due_soon', 'open', 'completed'].indexOf(s[0]) !== -1 ? el('span', { class: 'tro-seg__dot', 'aria-hidden': 'true' }) : null,
                             el('span', { text: s[1] }), n !== undefined && n !== null ? el('span', { class: 'tro-seg__n', text: String(n) }) : null]));
                     });
                 }

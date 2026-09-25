@@ -123,11 +123,12 @@ $trr_actions = '<a class="btn btn-outline-secondary" href="' . trr_h($trr_csv) .
                 <?php } ?>
             </div>
         </div>
-        <a class="trr-kpi trr-kpi--link<?= $trr_k['overdue'] > 0 ? ' trr-kpi--alert' : '' ?>" href="<?= trr_h(trr_url('training_reports.php', ['tab' => 'overdue', 'client_id' => $trr_client, 'course_id' => $trr_course])) ?>">
+        <a class="trr-kpi trr-kpi--link<?= $trr_k['overdue'] > 0 || (int) ($trr_k['lapsed_open'] ?? 0) > 0 ? ' trr-kpi--alert' : '' ?>" href="<?= trr_h(trr_url('training_reports.php', ['tab' => 'overdue', 'client_id' => $trr_client, 'course_id' => $trr_course])) ?>">
             <div class="trr-kpi__label">Overdue <span class="trr-kpi__icon trr-kpi__icon--err"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i></span></div>
             <div class="trr-kpi__value<?= $trr_k['overdue'] > 0 ? ' trr-kpi__value--err' : '' ?>"><?= (int) $trr_k['overdue'] ?></div>
             <div class="trr-kpi__sub">
                 <?php if ($trr_k['overdue'] > 0) { ?><span class="trr-chip trr-chip--err">Needs action</span> <?= (int) $trr_k['overdue_people'] ?> <?= $trr_k['overdue_people'] === 1 ? 'person' : 'people' ?><?php } else { ?>Nothing overdue<?php } ?>
+                <?php if ((int) ($trr_k['lapsed_open'] ?? 0) > 0) { ?><div class="trr-bad" title="Renewals whose certificate has already expired, not due yet">+<?= (int) $trr_k['lapsed_open'] ?> expired, not qualified</div><?php } ?>
             </div>
         </a>
         <a class="trr-kpi trr-kpi--link" href="<?= trr_h(trr_url('training_reports.php', ['tab' => 'expiring', 'days' => 30, 'client_id' => $trr_client, 'course_id' => $trr_course])) ?>">
