@@ -33,6 +33,9 @@ final class SignatureService
      */
     public static function prepare(mixed $dataUrl): array
     {
+        if ($dataUrl === null || $dataUrl === '') {
+            throw new SignatureException('signature_empty');   // nothing drawn / not sent
+        }
         if (!is_string($dataUrl) || strlen($dataUrl) > self::MAX_B64 + strlen(self::PREFIX)
             || preg_match('#^data:image/png;base64,[A-Za-z0-9+/=]+$#D', $dataUrl) !== 1) {
             throw new SignatureException('signature_invalid');

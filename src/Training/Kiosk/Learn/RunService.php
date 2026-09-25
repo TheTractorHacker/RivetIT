@@ -233,7 +233,7 @@ final class RunService
                 trun_lesson_max_position = ?, trun_lesson_pages_hex = ?, trun_lesson_rejected_ticks = ?, trun_last_activity_at_utc = ?
             WHERE trun_id = ? AND trun_status = \'in_progress\' AND trun_current_lesson_uid = ? AND trun_lesson_last_tick_at_utc <=> ?
               AND trun_lesson_credit_s = ? AND trun_lesson_pages_hex <=> ? AND trun_lesson_rejected_ticks = ?',
-            'siiisisississi', [$new['last_tick'], $new['last_active'] ? 1 : 0, $new['credit'], $new['max_position'], $new['pages_hex'], $new['rejected'],
+            'siiisis' . 'issisi', [$new['last_tick'], $new['last_active'] ? 1 : 0, $new['credit'], $new['max_position'], $new['pages_hex'], $new['rejected'],
                 $new['applied'] ? KTime::now() : (string) $run['trun_last_activity_at_utc'],
                 $runId, $uid, $old['last_tick'], $old['credit'], $old['pages_hex'], $old['rejected']]);
         $fresh = $n > 0 ? null : RunRepo::load($db, $runId);
