@@ -15,8 +15,9 @@ use ITFlow\Training\People\Scope;
  * Every count is restricted to in-scope people (spec §8). Before Phase 3 there are no quiz
  * attempts, so (spec §3.6):
  *   funnel      Assigned (people with an assignment created in the period) -> Started ("—")
- *               -> Completed (those people with a completion on/after their assignment, in the
- *               period) -> Passed (score at least the pass mark, or no score);
+ *               -> Completed (those people with a completion in the period dated on/after their
+ *               assignment, or one that closed it, e.g. a backfilled card) -> Passed (score at
+ *               least the pass mark, or no score);
  *   pass rate   completions with a score >= pass mark / completions with a score;
  *   avg score   completion_score_pct; first-try pass: completion_attempts_used = 1;
  *   median time completion_duration_minutes;
@@ -223,8 +224,16 @@ final class CourseAnalytics
                 GROUP BY a.tassign_contact_id', 'iss' . $scopeTypes, array_merge([$courseId, $fromUtc, $toUtc], $scopeParams)) as $r) {
             $out['assigned'][(int) $r['tassign_contact_id']] = Clock::localDate((string) $r['first_at']);
         }
+        // Records that closed one of those assignments count as its completion even when dated before it: the office
+        // backfilling an existing card or paper record after a rule is saved must show as Completed, not as a drop-off.
+        $closedBy = [];
+        foreach (Db::all($db, "SELECT a.tassign_completion_id FROM training_assignments a JOIN contacts c ON c.contact_id = a.tassign_contact_id
+                WHERE a.tassign_course_id = ? AND a.tassign_created_at_utc BETWEEN ? AND ? AND a.tassign_status = 'completed'
+                  AND a.tassign_completion_id IS NOT NULL" . $scopeSql, 'iss' . $scopeTypes, array_merge([$courseId, $fromUtc, $toUtc], $scopeParams)) as $r) {
+            $closedBy[(int) $r['tassign_completion_id']] = true;
+        }
 
-        $rows = Db::all($db, "SELECT tc.completion_contact_id, tc.completion_completed_on, tc.completion_score_pct,
+        $rows = Db::all($db, "SELECT tc.completion_id, tc.completion_contact_id, tc.completion_completed_on, tc.completion_score_pct,
                 tc.completion_pass_mark_pct, tc.completion_attempts_used, tc.completion_duration_minutes, c.contact_client_id
             FROM training_completions tc JOIN contacts c ON c.contact_id = tc.completion_contact_id
             WHERE tc.completion_course_id = ? AND tc.completion_completed_on BETWEEN ? AND ?
@@ -263,7 +272,7 @@ final class CourseAnalytics
             if ($r['completion_duration_minutes'] !== null) {
                 $minutes[] = (int) $r['completion_duration_minutes'];
             }
-            if (isset($out['assigned'][$cid]) && (string) $r['completion_completed_on'] >= $out['assigned'][$cid]) {
+            if (isset($out['assigned'][$cid]) && ((string) $r['completion_completed_on'] >= $out['assigned'][$cid] || isset($closedBy[(int) $r['completion_id']]))) {
                 $funnelDone[$cid] = true;
                 if ($passed) {
                     $funnelPassed[$cid] = true;
