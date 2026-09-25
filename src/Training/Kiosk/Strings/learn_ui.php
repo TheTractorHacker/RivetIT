@@ -230,6 +230,7 @@ return [
         'sign.ach_added' => 'Added to your profile',
         'sign.back' => 'Back to my training',
         'sign.auto_return' => 'Going back to your training in {s} s',
+        'sign.attest_default' => 'I completed this training and I understand it.',
         'sign.receipt_gone' => 'This receipt is no longer shown here. Your record is saved.',
     ],
     'es' => [
@@ -451,6 +452,7 @@ return [
         'sign.ach_added' => 'Agregado a su perfil',
         'sign.back' => 'Volver a mi capacitación',
         'sign.auto_return' => 'Volviendo a su capacitación en {s} s',
+        'sign.attest_default' => 'Completé esta capacitación y la entiendo.',
         'sign.receipt_gone' => 'Este comprobante ya no se muestra aquí. Su registro está guardado.',
     ],
 ];
