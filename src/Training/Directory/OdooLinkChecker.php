@@ -22,7 +22,11 @@ final class OdooLinkChecker
 {
     private array $row;
 
-    /** @param array|null $integrationRow the odoo_integrations row; null = the latest one (same selection as the sync) */
+    /**
+     * @param array|null $integrationRow the odoo_integrations row; null = the latest one (same selection as the sync)
+     * @throws ApiException 404 not_found when no Odoo integration is configured (the admin page catches it and shows the
+     *         "not configured" state). Callers: run() for "Check now", status() for the page, relink/unlink/confirm for S6.
+     */
     public function __construct(private readonly \mysqli $db, ?array $integrationRow = null)
     {
         $row = $integrationRow ?? self::latestIntegration($db);
