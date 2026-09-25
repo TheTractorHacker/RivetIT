@@ -556,9 +556,12 @@
             new_hire: ['warn', 'fas fa-user-clock', 'New hire']
         };
         function outcomeChip(s) {
+            // Already assigned but not fine: an expired certificate on an open renewal, or an overdue assignment.
+            if (s.outcome === 'assigned' && s.lapsed) { return u.chip('Expired — not qualified', 'err', 'fas fa-times-circle'); }
+            if (s.outcome === 'assigned' && Number(s.days_overdue || 0) > 0 && s.due_on) { return u.chip('Overdue · ' + u.fmtDate(s.due_on, true), 'err', 'fas fa-exclamation-circle'); }
             var m = OUTCOME[s.outcome] || ['outline', null, String(s.outcome || '')];
             var label = m[2];
-            if ((s.outcome === 'assign' || s.outcome === 'new_hire') && s.due_on) { label += ' · ' + u.fmtDate(s.due_on, true); }
+            if ((s.outcome === 'assign' || s.outcome === 'new_hire' || s.outcome === 'assigned') && s.due_on) { label += ' · ' + u.fmtDate(s.due_on, true); }
             return u.chip(label, m[0], m[1]);
         }
         var WARN_TEXT = {
@@ -566,9 +569,36 @@
             everyone: 'This rule applies to everyone on the training roster.',
             unknown_odoo_id: 'Some job positions or work locations are no longer in Odoo. People cannot match them until they are fixed.',
             course_unpublished: 'This course is not published, so the rule would assign nothing.',
-            baseline_past: 'The current-staff due date has passed. Anyone matched from today gets the "due within" days instead.'
+            baseline_past: 'The current-staff due date has passed. Anyone matched from today gets the "due within" days instead.',
+            no_hire_date: function (w) {
+                return Number(w.count) + ' of ' + u.plural(Number(w.total), 'person', 'people') + ' ' + (Number(w.count) === 1 ? 'has' : 'have') + ' no hire date. Anyone added without one gets the current-staff due date, not '
+                    + u.plural(st.hireDays, 'day') + ' after hire.';
+            }
         };
+        function warnText(w) {
+            var t = WARN_TEXT[w.code];
+            return typeof t === 'function' ? t(w) : (t || w.message || w.code);
+        }
+        /** Under "New hires": how many matched people have no hire date, and where hire dates are set. */
+        function renderHireGap() {
+            var box = $('tro-rule-hire-gap');
+            if (!box) { return; }
+            u.clear(box);
+            var w = st.preview && !st.newHiresOnly ? (st.preview.warnings || []).filter(function (x) { return x && x.code === 'no_hire_date'; })[0] : null;
+            box.hidden = !w;
+            if (!w) { return; }
+            box.appendChild(u.icon('fas fa-exclamation-triangle'));
+            var txt = el('span', { text: Number(w.count) + ' of ' + Number(w.total) + ' matched ' + (Number(w.total) === 1 ? 'person ' : 'people ') + (Number(w.count) === 1 ? 'has' : 'have') + ' no hire date: the new-hire due date only works once one is set. Set hire dates on ' });
+            txt.appendChild(el('a', { href: '/agent/training_people.php?tab=roster', text: 'People › Roster' }));
+            if (D.is_admin) {
+                txt.appendChild(document.createTextNode(', or fill them from Odoo in '));
+                txt.appendChild(el('a', { href: '/admin/settings_training_compliance.php', text: 'Admin › Training compliance' }));
+            }
+            txt.appendChild(document.createTextNode('.'));
+            box.appendChild(txt);
+        }
         function renderPreview() {
+            renderHireGap();
             while (previewEl.firstChild) { previewEl.removeChild(previewEl.firstChild); }
             var head = el('div', { class: 'tro-preview__head' }, [el('h2', { class: 'tro-preview__title', text: st.readOnly ? 'Who this rule covers' : 'Preview' })]);
             if (!st.readOnly) { head.appendChild(el('span', { class: 'tro-live', 'aria-hidden': 'true' }, [el('span', { text: 'Updates as you edit' })])); }
@@ -642,7 +672,7 @@
             var warnings = (p.warnings || []).filter(function (w) { return w && w.code; });
             if (warnings.length) {
                 previewEl.appendChild(el('ul', { class: 'tro-warnings' }, warnings.map(function (w) {
-                    var text = WARN_TEXT[w.code] || w.message || w.code;
+                    var text = warnText(w);
                     if (w.code === 'everyone') { text = 'This rule applies to everyone on the training roster (' + u.plural(matched, 'person', 'people') + ').'; }
                     return el('li', { class: w.code === 'everyone' ? 'is-info' : null }, [u.icon(w.code === 'everyone' ? 'fas fa-globe' : 'fas fa-exclamation-triangle'), el('span', { text: text })]);
                 })));
@@ -657,7 +687,10 @@
         function sampleWhy(s) {
             if (s.kind === 'renewal' && s.expires_on) {
                 var lapsed = s.expires_on < today;
-                return el('div', { class: 'tro-sample__why' + (lapsed ? ' is-bad' : ''), text: 'Renewal · ' + (lapsed ? 'expired ' : 'expires ') + u.fmtDate(s.expires_on) });
+                // Renewal due = max(expiry, today + lead): a rule made inside the renewal window can set it after the expiry date.
+                var late = !lapsed && s.due_on && s.due_on > s.expires_on;
+                return el('div', { class: 'tro-sample__why' + (lapsed ? ' is-bad' : (late ? ' is-warn' : '')), text: 'Renewal · ' + (lapsed ? 'expired ' : 'expires ') + u.fmtDate(s.expires_on) + (late ? ' (due after expiry)' : ''),
+                    title: late ? 'The renewal is due ' + u.fmtDate(s.due_on) + ', after the certificate expires: not qualified in between.' : null });
             }
             if (s.kind === 'retrain') { return el('div', { class: 'tro-sample__why', text: 'Retrain on the new version' }); }
             if (s.kind === 'reissue') { return el('div', { class: 'tro-sample__why', text: 'Record voided · redo' }); }

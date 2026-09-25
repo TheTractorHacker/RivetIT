@@ -205,6 +205,9 @@ $trr_assign_chip = static function (array $a): string {
         default => '<span class="trr-chip trr-chip--neutral">' . trr_h(ucfirst($a['display_status'])) . '</span>',
     };
 };
+// Level 2+: Extend / Waive / History on each assignment row, the same TrainingOps forms as the Assignments list
+// (training_transcript.js fills the cell; the server re-checks level and scope on every action).
+$trr_row_menu = $trr_ops_js && $trr_level >= 2;
 $trr_close_reason = static fn(?string $r): string => match ($r) {
     'completed' => 'Completed',
     'no_longer_required' => 'No longer required',
@@ -385,6 +388,7 @@ $trr_close_reason = static fn(?string $r): string => match ($r) {
                                 <th scope="col">Status</th>
                                 <th scope="col">Assigned</th>
                                 <th scope="col">Closed</th>
+                                <?php if ($trr_row_menu) { ?><th scope="col" class="trr-row-actions"><span class="visually-hidden">Actions</span></th><?php } ?>
                             </tr>
                         </thead>
                         <tbody>
@@ -398,6 +402,7 @@ $trr_close_reason = static fn(?string $r): string => match ($r) {
                                 <td><?= $trr_assign_chip($trr_a) ?></td>
                                 <td class="text-nowrap"><?= trr_h(trr_date($trr_a['created_on'])) ?><?php if ($trr_a['created_by_name'] !== null) { ?><span class="trr-sub">by <?= trr_h($trr_a['created_by_name']) ?></span><?php } ?></td>
                                 <td class="text-nowrap"><?php if ($trr_a['closed_at'] !== null) { ?><?= trr_h(trr_clock($trr_a['closed_at'])) ?><span class="trr-sub"><?= trr_h($trr_close_reason($trr_a['close_reason'])) ?></span><?php } else { ?><span class="trr-muted">—</span><?php } ?></td>
+                                <?php if ($trr_row_menu) { ?><td class="trr-row-actions" data-trr-assign-menu="<?= (int) $trr_a['id'] ?>"></td><?php } ?>
                             </tr>
                             <?php } ?>
                         </tbody>
@@ -526,10 +531,16 @@ trr_json_block('tr-page-data', [
     'level' => $trr_level,
     'today' => $trr['as_of'],
     'person' => ['contact_id' => $trr_p['id'], 'name' => $trr_p['name'], 'hire_date' => $trr_p['hire_date']],
+    // What the Extend / Waive / History forms show about each assignment (row menu, level 2+).
+    'assignments' => $trr_row_menu ? array_map(static fn(array $a): array => [
+        'id' => $a['id'], 'status' => $a['status'], 'course' => ['id' => $a['course']['id'], 'name' => $a['course']['name']],
+        'person' => ['contact_id' => $trr_p['id'], 'name' => $trr_p['name']], 'due_on' => $a['due_on'], 'original_due_on' => $a['original_due_on'],
+        'anchor_label' => $a['anchor_label'], 'archived' => (bool) $trr_p['archived'],
+    ], $trr['assignments']) : [],
 ]);
 ?>
 <script src="/js/training_common.js?v=<?= filemtime(__DIR__ . '/../js/training_common.js') ?>" defer></script>
-<?php if ($trr_ops_js && $trr_level >= 3) { ?>
+<?php if ($trr_ops_js && $trr_level >= 2) { ?>
 <script src="/agent/js/training_ops_forms.js?v=<?= filemtime(__DIR__ . '/js/training_ops_forms.js') ?>" defer></script>
 <?php } ?>
 <script src="/agent/js/training_transcript.js?v=<?= filemtime(__DIR__ . '/js/training_transcript.js') ?>" defer></script>

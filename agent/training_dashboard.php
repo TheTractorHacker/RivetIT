@@ -197,7 +197,7 @@ $trr_actions = '<a class="btn btn-outline-secondary" href="' . trr_h($trr_csv) .
                     <?php foreach ($trr['longest'] as $trr_l) { ?>
                     <li>
                         <a href="/agent/training_transcript.php?contact_id=<?= (int) $trr_l['person']['contact_id'] ?>"><strong><?= trr_h($trr_l['person']['name']) ?></strong></a>
-                        <span class="trr-muted">· <?= trr_h($trr_l['course']['code'] ?? $trr_l['course']['name']) ?></span>
+                        <span class="trr-muted trr-longest__course" title="<?= trr_h((($trr_l['course']['code'] ?? '') !== '' ? $trr_l['course']['code'] . ' · ' : '') . $trr_l['course']['name']) ?>">· <?= trr_h(trr_course_short_name((string) $trr_l['course']['name'])) ?></span>
                         <span class="trr-chip trr-chip--err ms-auto"><?= (int) $trr_l['days'] ?> days late</span>
                     </li>
                     <?php } ?>
@@ -293,7 +293,7 @@ $trr_actions = '<a class="btn btn-outline-secondary" href="' . trr_h($trr_csv) .
                 <?php } ?>
                 <div class="trr-card__foot mt-auto">
                     <span class="trr-muted"><?= (int) $trr_k['completions_month'] ?> <?= $trr_k['completions_month'] === 1 ? 'completion' : 'completions' ?> this month</span>
-                    <a class="trr-card__link" href="/agent/training_records.php">Open records log</a>
+                    <a class="trr-card__link" href="<?= trr_h(trr_url('/agent/training_records.php', ['client_id' => $trr_client, 'course_id' => $trr_course])) ?>">Open records log</a>
                 </div>
             </div>
         </section>

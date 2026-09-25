@@ -43,7 +43,8 @@ if ($trr_hm_rows === [] || $trr_m['courses'] === []) {
         <tr>
             <th scope="col" class="trr-heat__dept">Department</th>
             <?php foreach ($trr_m['courses'] as $trr_c) { ?>
-            <th scope="col" class="trr-heat__course" title="<?= trr_h($trr_c['name']) ?>"><span><?= trr_h($trr_c['short']) ?></span></th>
+            <?php $trr_hm_code = trim((string) ($trr_c['code'] ?? '')); ?>
+            <th scope="col" class="trr-heat__course" title="<?= trr_h(($trr_hm_code !== '' ? $trr_hm_code . ' · ' : '') . $trr_c['name']) ?>"><?php if ($trr_hm_code !== '' && $trr_hm_code !== $trr_c['name']) { ?><span class="trr-heat__code"><?= trr_h($trr_hm_code) ?></span><span class="trr-heat__name"><?= trr_h(trr_course_short_name($trr_c['name'])) ?></span><?php } else { ?><span><?= trr_h($trr_c['name']) ?></span><?php } ?></th>
             <?php } ?>
             <th scope="col" class="trr-heat__overall">Dept. overall</th>
         </tr>

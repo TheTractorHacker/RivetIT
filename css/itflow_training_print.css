@@ -19,6 +19,9 @@
 @font-face { font-family: 'Plex Sans'; src: url('/fonts/plex-sans-700.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
 @font-face { font-family: 'Plex Mono'; src: url('/fonts/plex-mono-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: 'Plex Mono'; src: url('/fonts/plex-mono-500.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+/* Certificate title and name (mockup: IBM Plex Serif 600 / 500). Latin subset, SIL OFL 1.1 (fonts/plex-serif-OFL.txt), from @fontsource/ibm-plex-serif 5.3.0. */
+@font-face { font-family: 'Plex Serif'; src: url('/fonts/plex-serif-500.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Plex Serif'; src: url('/fonts/plex-serif-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
 
 :root {
   --trr-accent: #3f4d5a;
@@ -35,7 +38,7 @@
   --trr-warn: #92400e;
   --trr-warn-bg: #fef3c7;
   --trr-sans: 'Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --trr-serif: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+  --trr-serif: 'Plex Serif', 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
   --trr-mono: 'Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   color-scheme: light;
 }
@@ -273,6 +276,7 @@ body.trr-print {
 }
 .trr-cert__watermark--void { color: var(--trr-void); }
 .trr-cert__watermark--superseded { color: var(--trr-warn); font-size: 6.5em; }
+.trr-cert__watermark--expired { color: var(--trr-warn); font-size: 8em; }   /* a lapsed card must not pass for a current one on paper */
 .trr-cert__status {
   position: absolute;
   left: 50%;

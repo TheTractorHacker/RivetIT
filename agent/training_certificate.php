@@ -98,7 +98,7 @@ if ($trr_cert['voided'] !== null) {
 } elseif ($trr_status['code'] === 'revoked' && $trr_status['reason'] === 'retrain_required') {
     $trr_overlay = ['class' => 'superseded', 'mark' => 'SUPERSEDED', 'text' => 'Superseded: retrain required'];
 } elseif ($trr_status['code'] === 'expired') {
-    $trr_overlay = ['class' => 'expired', 'mark' => null, 'text' => 'Expired ' . Labels::longDate($trr_cert['expires_on'])];
+    $trr_overlay = ['class' => 'expired', 'mark' => 'EXPIRED', 'text' => 'Expired ' . Labels::longDate($trr_cert['expires_on'])];
 }
 $trr_company = (string) ($session_company_name ?? '');
 $trr_logo = (string) ($session_company_logo ?? '');

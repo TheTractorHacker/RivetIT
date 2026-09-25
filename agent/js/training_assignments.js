@@ -223,7 +223,9 @@
                         { label: 'History', icon: 'fas fa-history', onClick: function () { Ops.open('history', { assignmentId: a.id, assignment: a }); } }
                     ] : [{ label: 'History', icon: 'fas fa-history', onClick: function () { Ops.open('history', { assignmentId: a.id, assignment: a }); } }];
                     if (actions[0] === null && actions[1] === null) { actions = actions.filter(function (x) { return x !== '-'; }); }
-                    var reason = el('td', {}, [el('span', { text: u.readableDates(a.anchor_label || '') })]);
+                    // One line: the column header already says Why, so "Required by " is dropped; the full reason is the tooltip.
+                    var why = u.readableDates(a.anchor_label || '');
+                    var reason = el('td', { class: 'tro-why' }, [el('span', { class: 'tro-why__text', text: why.replace(/^Required by /, ''), title: why || null })]);
                     if (a.requirement && a.requirement.is_manual && a.anchor === 'initial') { reason.appendChild(el('span', { class: 'tro-sub', text: 'Assigned by hand' })); }
                     return el('tr', { dataset: { id: a.id } }, [
                         el('td', {}, [u.personCell(a.person, { sub: a.person ? (a.person.title || '') : '' })]),
@@ -340,6 +342,7 @@
                         lines.push('New hires: ' + u.plural(Number(r.due_days_from_hire || 0), 'day') + ' after hire');
                     }
                     if (r.one_time) { lines.push('Once only, no renewals'); }
+                    else if (r.course && Number(r.course.validity_months || 0) > 0) { lines.push('Renews every ' + u.plural(Number(r.course.validity_months), 'month')); }
                     return el('div', { class: 'tro-policy' }, lines.map(function (t) { return el('div', { text: t }); }));
                 }
                 function row(r) {
@@ -353,7 +356,9 @@
                         el('td', {}, [el('span', { class: 'tro-stat-trio' }, [
                             el('span', { title: 'People this rule matches' + (D.scope !== 'all' ? ' in your departments' : '') }, [el('b', { text: String(Number(s.matched || 0)) }), ' matched']),
                             el('a', { href: '/agent/training_assignments.php?requirement_id=' + encodeURIComponent(r.id), title: 'Open assignments' }, [el('b', { text: String(Number(s.open || 0)) }), ' open']),
-                            el('span', { class: Number(s.overdue || 0) > 0 ? 'is-bad' : null }, [el('b', { text: String(Number(s.overdue || 0)) }), ' overdue'])
+                            Number(s.overdue || 0) > 0
+                                ? el('a', { class: 'is-bad', href: '/agent/training_assignments.php?requirement_id=' + encodeURIComponent(r.id) + '&status=overdue', title: 'Overdue assignments from this rule' }, [el('b', { text: String(Number(s.overdue)) }), ' overdue'])
+                                : el('span', {}, [el('b', { text: '0' }), ' overdue'])
                         ])]),
                         el('td', {}, [policy(r)]),
                         el('td', { class: 'tro-nowrap' }, [el('span', { text: r.created_by_name || '' }), el('span', { class: 'tro-sub', text: r.created_at ? u.fmtDate(String(r.created_at).slice(0, 10)) : '' })]),

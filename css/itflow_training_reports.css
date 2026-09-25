@@ -274,6 +274,7 @@ a.trr-kpi:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 
 .trr-longest { margin: 0 0 12px; padding: 0; list-style: none; display: grid; gap: 8px; font-size: .875rem; }
 .trr-longest li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
 .trr-longest a { color: var(--if-ink); text-decoration: none; }
+.trr-longest__course { min-width: 0; max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trr-longest a:hover { text-decoration: underline; }
 
 /* ---- Heatmap ---------------------------------------------------------------------------- */
@@ -285,6 +286,8 @@ a.trr-kpi:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 
 .trr-heat thead th.trr-heat__dept { text-align: left; color: var(--if-muted); font-weight: 500; }
 .trr-heat thead th.trr-heat__overall { text-align: right; color: var(--if-muted); font-weight: 500; white-space: nowrap; }
 .trr-heat__course span { display: inline-block; max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.trr-heat__course .trr-heat__code, .trr-heat__course .trr-heat__name { display: block; margin: 0 auto; }
+.trr-heat__course .trr-heat__name { max-width: 8rem; font-size: .75rem; font-weight: 400; color: var(--if-muted); }
 .trr-heat tbody th.trr-heat__dept { padding: 0 12px 0 8px; text-align: left; white-space: nowrap; font-weight: 600; }
 .trr-heat tbody th.trr-heat__dept .trr-muted { font-weight: 400; }
 .trr-heat__cell { padding: 0; min-width: 4.5rem; }
@@ -408,6 +411,7 @@ a.trr-seg__btn { display: inline-flex; align-items: center; text-decoration: non
 .trr-table { margin: 0; }
 .trr-table th { font-size: .6875rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--if-muted); white-space: nowrap; }
 .trr-table td { vertical-align: middle; }
+.trr-table .trr-row-actions { width: 1%; white-space: nowrap; text-align: right; }
 .trr-table .trr-sub { display: block; font-size: .8125rem; color: var(--if-muted); }
 .trr-table tr.is-flag > td { background: color-mix(in srgb, var(--trr-warn-bg) 55%, transparent); }
 .trr-table tr.is-voided > td { color: var(--if-muted); }

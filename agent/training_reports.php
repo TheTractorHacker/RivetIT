@@ -395,9 +395,13 @@ $trr_delta = static function (?int $d, string $unit, string $versus, bool $lower
                         <td><a class="trr-mono" href="/agent/training_certificate.php?id=<?= (int) $trr_r['completion_id'] ?>" target="_blank" rel="noopener"><?= trr_h($trr_r['cert_number'] ?? ('#' . $trr_r['completion_id'])) ?></a></td>
                         <td class="text-nowrap trr-mono"><?= trr_h(trr_date($trr_r['expires_on'], true)) ?></td>
                         <td><?= $trr_days_chip((int) $trr_r['days_left']) ?></td>
-                        <td><?= $trr_r['renewal'] !== null
-                            ? '<span class="trr-chip trr-chip--ok"><i class="fas fa-check" aria-hidden="true"></i>Assigned · due ' . trr_h(trr_date($trr_r['renewal']['due_on'], true)) . '</span>'
-                            : '<span class="trr-chip trr-chip--neutral">Not yet assigned</span>' ?></td>
+                        <td><?php if ($trr_r['renewal'] === null) { ?><span class="trr-chip trr-chip--neutral">Not yet assigned</span><?php
+                            } elseif ((string) $trr_r['renewal']['due_on'] > (string) $trr_r['expires_on']) {
+                                // Renewal due = max(expiry, today + lead): a rule made inside the renewal window can put it after
+                                // the expiry date, leaving the person unqualified in between. Say so instead of a green tick.
+                                $trr_gap = \ITFlow\Training\Compliance\PairRules::daysBetween((string) $trr_r['expires_on'], (string) $trr_r['renewal']['due_on']); ?>
+                            <span class="trr-chip trr-chip--warn" title="Not qualified from <?= trr_h(trr_date($trr_r['expires_on'])) ?> until the renewal is done"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i>Due <?= trr_h(trr_date($trr_r['renewal']['due_on'], true)) ?> — <?= $trr_gap ?> <?= $trr_gap === 1 ? 'day' : 'days' ?> after expiry</span>
+                            <?php } else { ?><span class="trr-chip trr-chip--ok"><i class="fas fa-check" aria-hidden="true"></i>Assigned · due <?= trr_h(trr_date($trr_r['renewal']['due_on'], true)) ?></span><?php } ?></td>
                     </tr>
                     <?php } ?>
                 </tbody>

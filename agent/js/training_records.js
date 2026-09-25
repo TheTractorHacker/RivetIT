@@ -101,7 +101,7 @@
                 var csv = $('tro-rec-csv');
                 function refetch() {
                     var mySeq = ++seq;
-                    u.skeletonRows(body, 8, 8);
+                    u.skeletonRows(body, 7, 8);
                     clear(empty);
                     var p = params();
                     setUrl(p);
@@ -138,11 +138,18 @@
                         el('td', {}, [who]),
                         el('td', {}, [el('span', { class: voided ? 'tro-strike' : null, text: c.course ? c.course.name : '' }), c.revision && c.revision.number ? el('span', { class: 'tro-sub', text: 'Version ' + c.revision.number }) : null]),
                         el('td', {}, [methodCell(c)]),
-                        el('td', { class: 'tro-nowrap' }, [el('span', { class: voided ? 'tro-strike' : null, text: u.fmtDate(c.completed_on) }), c.score_pct ? el('span', { class: 'tro-sub', text: 'Score ' + Math.round(Number(c.score_pct)) + '%' }) : null]),
+                        el('td', { class: 'tro-nowrap' }, [el('span', { class: voided ? 'tro-strike' : null, text: u.fmtDate(c.completed_on) }), c.score_pct ? el('span', { class: 'tro-sub', text: 'Score ' + Math.round(Number(c.score_pct)) + '%' }) : null,
+                            // Who recorded it, as a sub-line (a column of its own pushed the table past its card).
+                            recordedBy(c)]),
                         el('td', { class: 'tro-nowrap', text: c.expires_on ? u.fmtDate(c.expires_on) : 'Does not expire' }),
-                        el('td', {}, [u.certChip(c.cert_status, voided ? 'Voided' : c.cert_status_label)]),
-                        el('td', {}, [el('span', { text: c.recorded_by_name || (c.method === 'online' ? 'Kiosk' : '') }), el('span', { class: 'tro-sub', text: u.relTime(c.recorded_at), title: u.fmtDateTime(c.recorded_at) })])
+                        el('td', {}, [u.certChip(c.cert_status, voided ? 'Voided' : c.cert_status_label)])
                     ]);
+                }
+                function recordedBy(c) {
+                    var who = c.recorded_by_name || (c.method === 'online' ? 'Kiosk' : '');
+                    var when = u.relTime(c.recorded_at);
+                    var text = [who ? 'by ' + who : '', when].filter(Boolean).join(' · ');
+                    return text ? el('span', { class: 'tro-sub tro-rec-by', text: text, title: 'Recorded ' + (who ? 'by ' + who + ', ' : '') + u.fmtDateTime(c.recorded_at) }) : null;
                 }
                 function clearFilters() {
                     f = { voided: 'include', page: 1 };
@@ -161,7 +168,7 @@
                 });
                 $('tro-rec-filters').addEventListener('submit', function (e) { e.preventDefault(); onSearch.flush(); });
                 if (csv) { csv.href = csvHref(); }
-                u.skeletonRows(body, 8, 8);
+                u.skeletonRows(body, 7, 8);
                 u.load(D.list).then(render, function (err) { clear(body); empty.appendChild(u.failState(err, refetch)); });
                 return { refetch: refetch };
             })();

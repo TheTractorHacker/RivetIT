@@ -29,6 +29,7 @@ $tr_data = [
     'user_id' => $tr_ctx->userId,
     'today' => tro_today(),
     'can_edit' => $tr_can_edit,
+    'is_admin' => $tr_ctx->isAdmin,
     'rule_id' => $tr_id,
     'rule' => $tr_rule,
     'scope' => $tr_scope['state'],
@@ -147,6 +148,7 @@ if ($tr_id === null) {
                             <span>after hire date</span>
                         </div>
                         <div class="invalid-feedback d-block w-100" data-field="due_days_from_hire"></div>
+                        <div class="tro-when__gap w-100" id="tro-rule-hire-gap" role="note" hidden></div>
                     </div>
                     <div class="tro-when__row tro-when__row--muted">
                         <div class="tro-when__label">

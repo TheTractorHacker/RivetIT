@@ -179,6 +179,13 @@ if (!function_exists('trr_h')) {
         return $html . '</select></label>';
     }
 
+    /** A course name short enough for a column header or a list line: parentheses dropped ("Lockout/Tagout (LOTO) Awareness" -> "Lockout/Tagout Awareness"); CSS ellipsis does the rest. */
+    function trr_course_short_name(string $name): string
+    {
+        $short = trim((string) preg_replace('/\s+/u', ' ', (string) preg_replace('/\s*\([^)]*\)/u', '', $name)));
+        return $short !== '' ? $short : $name;
+    }
+
     /** Builds a same-page URL with the given query parameters (null values dropped). */
     function trr_url(string $path, array $params): string
     {

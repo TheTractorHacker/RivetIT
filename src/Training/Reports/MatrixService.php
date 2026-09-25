@@ -210,11 +210,14 @@ final class MatrixService
                 'person' => ['contact_id' => $p['contact_id'], 'name' => $person['name'], 'title' => $person['title'] ?? null,
                     'initials' => Labels::initials($person['name'])],
                 'pair' => PairSource::toStatus($p),
-                '_o' => $order[$p['status']] ?? 5,
+                // An open renewal whose certificate already ran out ("Expired — not qualified") keeps its due / due_soon
+                // status key but is as urgent as an expired pair: list it right after the overdue ones.
+                '_o' => ($p['status'] !== 'overdue' && !empty($p['lapsed'])) ? $order['expired'] : ($order[$p['status']] ?? 5),
             ];
         }
-        usort($people, static fn($a, $b) => [$a['_o'], -$a['pair']['days_overdue'], $a['person']['name']]
-            <=> [$b['_o'], -$b['pair']['days_overdue'], $b['person']['name']]);
+        // Most urgent first: status group, then longest overdue, then the soonest due date, then name.
+        usort($people, static fn($a, $b) => [$a['_o'], -$a['pair']['days_overdue'], $a['pair']['due_on'] ?? '9999-12-31', $a['person']['name']]
+            <=> [$b['_o'], -$b['pair']['days_overdue'], $b['pair']['due_on'] ?? '9999-12-31', $b['person']['name']]);
         foreach ($people as &$row) {
             unset($row['_o']);
         }

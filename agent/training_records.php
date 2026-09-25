@@ -158,7 +158,6 @@ $tr_actions = $tr_actions === '' ? '' : '<div class="d-flex flex-wrap gap-2">' .
                         <th scope="col">Completed</th>
                         <th scope="col">Expires</th>
                         <th scope="col">Certificate</th>
-                        <th scope="col">Recorded by</th>
                     </tr>
                 </thead>
                 <tbody id="tro-rec-body"></tbody>

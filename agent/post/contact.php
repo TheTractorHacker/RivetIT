@@ -39,6 +39,19 @@ if (isset($_POST['add_contact'])) {
 
     $contact_id = mysqli_insert_id($mysqli);
 
+    // Hire / start date (same supplementary pattern as the edit branch; $start_date is YYYY-MM-DD or '').
+    $start_date_ok = $start_date !== '' && ($start_date_dt = DateTime::createFromFormat('!Y-m-d', $start_date)) && $start_date_dt->format('Y-m-d') === $start_date;
+    if ($start_date_ok) {
+        mysqli_query($mysqli, "UPDATE contacts SET contact_start_date = '$start_date' WHERE contact_id = $contact_id");
+    }
+
+    // Training (Phase 2, S20): a new person can match assignment rules at once (with their hire date, a new-hire
+    // rule gives them hire + N days) instead of waiting for the nightly reconcile.
+    if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\Assign\AssignmentService::class)) {
+        try { (new \ITFlow\Training\Assign\AssignmentService(\ITFlow\Training\Core\Access::ctx($mysqli)))->reconcile([intval($contact_id)], 'contact_edit'); }
+        catch (\Throwable $e) { error_log('Training: reconcile after contact add failed: ' . $e->getMessage()); }
+    }
+
     // Add Tags
     if (isset($_POST['tags'])) {
         foreach($_POST['tags'] as $tag) {

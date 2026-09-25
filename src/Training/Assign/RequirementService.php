@@ -143,11 +143,22 @@ final class RequirementService
             $newHire = $p['hire_date'] !== null && $p['hire_date'] >= $rule['effective_on'] && !$rule['is_manual'];
             $kind = null;
             $expiresOn = null;
+            $lapsedNow = false;
+            $daysOver = 0;
             if (!empty($f['waiver'])) {
                 $outcome = 'waived';
             } elseif (isset($open[$cid])) {
                 $outcome = 'assigned';
                 $due = $open[$cid]['due_on'];
+                // Already assigned is not always fine: say when that assignment is overdue, or is a renewal whose
+                // certificate has already run out (the same PairStatus the Assignments list shows).
+                $st = PairRules::pairStatus(null, $open[$cid], $f, $today, $s);
+                $lapsedNow = $st['lapsed'];
+                $daysOver = $st['days_overdue'];
+                if (str_starts_with((string) $open[$cid]['anchor'], 'renew:')) {
+                    $kind = 'renewal';
+                    $expiresOn = $st['expires_on'];
+                }
             } else {
                 $since = $rule['new_hires_only'] ? $p['hire_date'] : null;
                 $ff = $since === null ? $f : (RecordFacts::load($db, [$cid], [$courseId], false, [$cid => [$courseId => $since]], $s, $today)[$cid][$courseId]);
@@ -184,11 +195,24 @@ final class RequirementService
                 $recentHire = $outcome === 'assign' && !$rule['new_hires_only'] && $p['hire_date'] !== null && !$newHire
                     && (string) $p['hire_date'] >= Clock::addDays($today, -max(1, $rule['due_days_from_hire'])) && (string) $p['hire_date'] <= $today;
                 $sample[] = ['person' => Directory::ref($p), 'outcome' => $outcome, 'due_on' => $due, 'kind' => $kind, 'expires_on' => $expiresOn,
-                             'recent_hire' => $recentHire];
+                             'recent_hire' => $recentHire, 'lapsed' => $lapsedNow, 'days_overdue' => $daysOver];
             }
         }
         usort($sample, static fn($a, $b) => strcmp($a['person']['name'], $b['person']['name']));
         ksort($overlapRules);
+        // The "due N days after hire" date needs a hire date: anyone without one who joins the rule later gets the
+        // current-staff date instead (RuleMatcher::ruleDue). Say how many matched people have none (all of them on a
+        // new install: the Add Contact form, the Odoo fill and the transcript are the only ways one gets set).
+        // A named-people-only rule has no new-hire clause, and a new-hires-only rule matches nobody without one.
+        $onlyNamed = !$allPeople && (($criteria['contact'] ?? []) !== [] && self::criteriaCount($criteria) === count($criteria['contact']));
+        if (!$rule['new_hires_only'] && !$rule['is_manual'] && !$onlyNamed && $matched !== []) {
+            $noHire = count(array_filter($matched, static fn($p) => $p['hire_date'] === null));
+            if ($noHire > 0) {
+                $warnings[] = ['code' => 'no_hire_date', 'count' => $noHire, 'total' => count($matched),
+                    'message' => $noHire . ' of ' . count($matched) . ' people have no hire date. Anyone added without one gets the current-staff due date, not '
+                        . $rule['due_days_from_hire'] . ' days after hire.'];
+            }
+        }
         $currentStaffDue = max($baseline, Clock::addDays($today, $rule['due_days']));
         return [
             'course' => CourseCards::card($course),
