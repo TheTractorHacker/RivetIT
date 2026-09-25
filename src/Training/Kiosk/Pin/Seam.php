@@ -107,7 +107,7 @@ final class Seam
         return class_exists(self::TRAINERS);
     }
 
-    /** P2's coattr_link_state for the contact ('ok','unchecked','repointed','mismatch','missing') or null when unknown. */
+    /** P2's Odoo link state for the contact ('ok','unchecked','repointed','mismatch','missing') or null when unknown. */
     public static function odooLinkState(Ctx $c, int $contactId): ?string
     {
         $cls = self::RECORDS;

@@ -1,7 +1,7 @@
 /*
  * Kiosk Home / sign-in (P3 spec §5.2, lane K2; mockups Kiosk-SignIn and Kiosk-PIN).
  *
- * Screens (all rendered with Kiosk.ui.el / textContent - never innerHTML):
+ * Screens (all rendered with Kiosk.ui.el / textContent - never HTML strings):
  *   adopt     /kiosk/#d=<token>: replaceState('/kiosk/') at once, POST adopt_device, confirm before
  *             replacing a valid device (409 device_replace_confirm), then location.replace('/kiosk/')
  *   notsetup  server-rendered; [S] "Enter a setup code" (POST enroll_code)

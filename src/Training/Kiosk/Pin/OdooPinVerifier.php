@@ -21,7 +21,7 @@ use ITFlow\Training\Kiosk\Core\KTime;
  * answers ('x', [], 2) are 'unavailable'. The caller refunds the charge for every non-answer.
  *
  * Hygiene (§0.12): every connector call sits in catch (\Throwable); only get_class(), getCode()
- * (the HTTP status where the connector sets it) are logged - never getMessage(), which can carry
+ * (the HTTP status where the connector sets it) are logged - never the exception message, which can carry
  * Odoo's own text. The PIN is a PHP string matching ^[0-9]{4,12}$ (asserted here again) and goes
  * only into the domain. base_url must be https://. The integration row is the app's current one
  * (newest enabled) and its stored api_protocol is honoured (OdooConnectorFactory::fromRow).
