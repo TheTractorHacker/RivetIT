@@ -137,7 +137,8 @@
             });
             var att = el('div', { class: 'tro-card' }, [
                 el('div', { class: 'tro-card__head' }, [el('h2', { class: 'tro-card__title', text: 'Attendance' }),
-                    el('span', { class: 'tro-card__sub', text: attendees.filter(function (a) { return a.attendance === 'present'; }).length + ' present of ' + attendees.length })]),
+                    el('span', { class: 'tro-card__sub', text: attendees.filter(function (a) { return a.attendance === 'present'; }).length + ' present of ' + attendees.length
+                        + (Number(s.hidden_attendees || 0) > 0 ? ' · ' + u.plural(Number(s.hidden_attendees), 'more person', 'more people') + ' in departments you cannot see' : '') })]),
                 attendees.length ? list : el('div', { class: 'tro-card__body text-muted', text: 'No one is on this session.' })
             ]);
             var aside = el('div', {});
