@@ -24,6 +24,7 @@ $section_pages = [
     'endpoint'      => ['intune_devices.php', 'rmm_dashboard.php', 'rmm_assets.php', 'rmm_asset.php', 'rmm_alerts.php', 'rmm_scripts.php', 'rmm_checks.php', 'network.php', 'firewalls.php'],
     'backups'       => ['backups.php'],
 ];
+$section_pages['training'] = array_merge($section_pages['training'], ['training_devices.php', 'training_device_setup.php', 'training_pin_slips.php', 'training_locked.php', 'training_awards.php']);
 $section_open = [];
 foreach ($section_pages as $key => $pages) {
     $section_open[$key] = in_array($current_page, $pages, true);
@@ -302,6 +303,22 @@ foreach ($section_pages as $key => $pages) {
                             <span class="dropdown-item-icon"><i class="fas fa-users"></i></span>
                             <span class="text-truncate">People</span>
                         </a>
+                        <?php if (lookupUserPermission("module_training_kiosk") >= 1) { ?>
+                        <a href="/agent/training_devices.php" class="dropdown-item<?php if (in_array($current_page, ['training_devices.php', 'training_device_setup.php', 'training_pin_slips.php'], true)) { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-tablet-alt"></i></span>
+                            <span class="text-truncate">Devices &amp; PINs</span>
+                        </a>
+                        <?php } ?>
+                        <?php if (lookupUserPermission("module_training") >= 2) { ?>
+                        <a href="/agent/training_locked.php" class="dropdown-item<?php if ($current_page == "training_locked.php") { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-lock"></i></span>
+                            <span class="text-truncate">Locked courses</span>
+                        </a>
+                        <a href="/agent/training_awards.php" class="dropdown-item<?php if ($current_page == "training_awards.php") { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-award"></i></span>
+                            <span class="text-truncate">Awarded badges</span>
+                        </a>
+                        <?php } ?>
                     </div>
                 </li>
                 <?php } ?>

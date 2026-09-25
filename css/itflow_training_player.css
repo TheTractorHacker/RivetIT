@@ -572,6 +572,8 @@
   .trp-lhead__titles { order: 3; flex-basis: 100%; }
   .trp-doc__thumbs { justify-content: flex-start; }
   .trp-foot { flex-wrap: wrap; }
+  .trp-qfoot { flex-wrap: wrap; row-gap: 10px; }
+  .trp-qfoot__note { order: -1; flex-basis: 100%; justify-content: flex-end; }
 }
 @container trp (max-width: 640px) {
   .trp { --trp-pad-x: 16px; font-size: 16px; }
@@ -641,3 +643,12 @@
 .trp-doc__stage { height: 480px; }
 .trp-doc__viewport { top: 58px; }
 @media (max-width: 700px) { .trp-doc__viewport { top: 56px; } }
+
+/* Uploaded video: a big centre Play while paused (the mockup's play button; never over a YouTube/Vimeo player). */
+.trp-video__bigplay {
+  position: absolute; left: 50%; top: 50%; z-index: 2; width: 96px; height: 96px; margin: -48px 0 0 -48px; border-radius: 50%;
+  display: grid; place-items: center; border: 0; background: rgba(255,255,255,.92); color: #16232a; font-size: 34px; cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+}
+.trp-video__bigplay .fas { margin-left: 6px; }
+.trp-video__bigplay[hidden] { display: none; }

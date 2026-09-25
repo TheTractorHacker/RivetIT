@@ -337,3 +337,50 @@ realistically, months of further work, not a few more sessions.
   `CompletionService` before the first external record); whether a later passing practical evaluation after a blended
   session record should issue a second blended record (currently it does, read as a re-evaluation).
   Runbook (R7): a supervisor's `user_client_permissions` rows narrow their WHOLE ITFlow access, not only Training.
+- 2026-09-25: **Training (LMS) Phases 3+4** integrated on branch `lms-phase34` (spec `lms-phase34-spec.md`; lanes K1
+  platform + schema, K2 identity/devices/PINs, K3 learner engine + records bridge, K4 learner UI, K5 trainer mode, K6
+  achievement awards). DB 2.6.92 -> 2.6.93 (13 new tables, 21 settings columns). **Migration note: apply only through
+  Admin > Update > Update Database**, then check 2.6.93, 58 `training_%` tables and 47 `config_training_*` columns.
+  Verified on a schema-only scratch DB with generated fixtures (no live rows, no Odoo call; Odoo-PIN paths only against a
+  fake connector): every lane's suite on the merged tree, a real-stack browser end-to-end at iPad 1024x768/768x1024 and
+  Windows 1366x768 (start URL -> name -> PIN -> Learning Center -> course -> exam -> ack -> sign -> LMS certificate +
+  badges; document acknowledgment; trainer badge; YouTube lesson page) with zero console/CSP errors, deep ledger verify
+  ok, fresh-install `db.sql` = migrated schema (only the pre-existing `config_module_enable_accounting` default drift),
+  migration re-run idempotent.
+  **Ops still to do after the merge (spec §7.11, §6):** the live vhost `location ^~ /kiosk/includes/ { deny all; }`
+  (curl -> 403), `/var/log/itflow_mw_training_kiosk.log` (www-data) and `/etc/cron.d/mw-itflow-training-kiosk` (every
+  10 min, line in the cron file header), `$config_settings_enc_key` present in the live `config.php`.
+  **Before the pilot:** issue setup slips for the pilot crew and trainers; add trainer rows (People > Trainers); enroll
+  1-2 iPads (iPadOS >= 16.4, inside the Home Screen app) and the Windows PC (Edge `--kiosk <start URL>
+  --edge-kiosk-type=public-browsing`). Leave Odoo-PIN sign-in OFF until the A22 production switch, a clean "Check
+  employee links" and Refresh PIN sources (spec §9.3 step 7).
+- 2026-09-25: **Phases 3+4 end-to-end QA** (branch `lms-phase34`, scratch p34e2e, generated fixtures: 29 people in
+  Crane / CNC Machining / Fabrication / Safety, local PINs from printed slips, one Odoo-PIN person answered by a fake
+  connector; no live rows, no Odoo call). Real browser at iPad 1024x768 + 768x1024 (touch, Safari UA) and Windows
+  1366x768 (Edge UA): LOTO authored and published through the agent API (article, PDF, MP4, 3-question exam with 1
+  critical, acknowledgment), the P2 rule "Crane, due in 14 days" built in the rule editor, slips issued/reprinted/
+  cleared; device enrollment signed in on the device and Edge kiosk `?d=`; learner flow with a wrong PIN, exam fail then
+  pass, finger signature + PIN, `LMS-YYYY-NNNNNN` receipt, badge, auto-return, assignment closed, transcript/record/
+  dashboard/awards; Spanish end to end; PIN lockout + unlock, search/PIN rate limits, device cooldown + clear, revoke,
+  idle "Still there?" and the 2-minute absolute cap; trainer session with pass-the-iPad check-in and finalize, a
+  practical evaluation hand-off, a trainer badge; isolation (Back/bfcache, other people's runs/attempts/receipts,
+  evidence media); module OFF -> `/kiosk/` 404. 330 checks, zero console/CSP errors (deliberate 4xx probes aside),
+  deep ledger verify ok, no PIN or setup code in the ledger, logs, notifications or PHP log, no `Login` log rows.
+  Fixed on the way: portrait-iPad course layout (player container queries never applied on the kiosk), Spanish course
+  names in the Learning Center, blended-course sign-off wording and receipt preview, trainer session date, the rule
+  editor's dead "Change on the course" link. Re-run: scratchpad `p34e2e/run_all.sh`.
+- 2026-09-25: **Phases 3+4 security + employee-UX review fixes** (branch `lms-phase34`, scratch p34fix). Security: a
+  valid start-URL token is never rate-limited (only unknown tokens fill the adopt bucket); check-in and hand-off are left
+  only with the trainer PIN or a server-confirmed idle timeout (`?switch=1` redirects home, `end {done}` is 403, `end`
+  no longer refreshes last_seen); session practical marks need can_evaluate + course + the person's department, and
+  finalize re-checks and drops a stale mark; the YouTube/Vimeo page loads no provider script (the players are driven
+  over postMessage, CSP script-src = strict), so no third-party code runs in the kiosk origin; `/kiosk/?d=<token>` gets
+  a bare 302 to `/kiosk/#d=<token>` (PHP, plus an nginx `location = /kiosk/` rule with `access_log off` in the repo
+  mirrors) and the setup page issues the `?d=` form for kiosk-mode browsers. Employee UX: no "Next lesson" before a
+  lesson is done, acknowledgment Sign button in the footer, English/Español choice at the first Start and fresh runs
+  follow a language change, "My training" back button, fit-width PDF with the page counter visible, sign-page keypad
+  and sticky Sign & finish, long-form statement dates, Spanish wording (Salir, instructor, examen), mouse wording on
+  PCs, neutral info colour, logo, distinct covers, bigger labels, live idle countdown, Enter/keystroke buffering on
+  PCs, check-in header and heading. Verified: the full E2E (330 checks) plus 77 probe checks (security S1-S5, real
+  YouTube and Vimeo embeds over postMessage, UX), zero console/CSP errors, no PIN/token in the ledger, logs or PHP log.
+  Re-run: scratchpad `p34fix/final.sh`.

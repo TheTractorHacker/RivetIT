@@ -307,7 +307,7 @@
             }
             // The renewal period belongs to the course (validity + renewal lead on its Settings tab): give authors a way there.
             if (c.id && Ops.can && Ops.can(2)) {
-                host.appendChild(el('a', { class: 'tro-renew__change', href: '/agent/training_course.php?id=' + encodeURIComponent(String(c.id)) + '#settings',
+                host.appendChild(el('a', { class: 'tro-renew__change', href: '/agent/training_course.php?course_id=' + encodeURIComponent(String(c.id)) + '#settings',
                     text: 'Change on the course ›', title: 'Opens the course Settings tab, where the certificate validity and renewal lead are set' }));
             }
         }
