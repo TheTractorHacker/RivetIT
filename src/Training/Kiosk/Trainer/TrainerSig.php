@@ -50,7 +50,7 @@ final class TrainerSig
             throw $e;
         } catch (\Throwable $e) {
             if (str_ends_with(get_class($e), 'SignatureException')) {
-                $reason = property_exists($e, 'reason') && is_string($e->reason) ? $e->reason : $e->getMessage();
+                $reason = property_exists($e, 'reason') && is_string($e->reason) ? $e->reason : 'signature_invalid';
                 $code = $reason === 'signature_empty' ? 'signature_empty' : 'signature_invalid';
                 throw new ApiException(422, $code, $code === 'signature_empty' ? 'Please sign in the box.' : 'That signature could not be read. Clear it and sign again.',
                     ['signature_png' => $code === 'signature_empty' ? 'Required.' : 'Invalid.']);

@@ -40,6 +40,16 @@ final class TrainerService
         return $t;
     }
 
+    /** me() plus can_train: every session action re-checks it (a trainer whose session rights were removed mid-session stops at the next tap). */
+    private function sessionTrainer(): array
+    {
+        $t = $this->me();
+        if (!$t['can_train']) {
+            throw new ApiException(403, 'not_trainer', 'You are not set up to run sessions.');
+        }
+        return $t;
+    }
+
     /** What the trainer home shows: which tiles, from flags and bridge availability. */
     public function home(): array
     {
@@ -183,7 +193,7 @@ final class TrainerService
     /** GET session_get (trainer). Roster + suggested people. */
     public function session(int $tsessionId): array
     {
-        $t = $this->me();
+        $t = $this->sessionTrainer();
         $db = $this->k->db();
         $sb = new SessionBridge($this->k->core);
         $s = $this->ownOpen($sb, $tsessionId);
@@ -234,7 +244,7 @@ final class TrainerService
     /** [S] POST attendee_attest: "Mark present (no PIN)" - course must allow it; reason + trainer PIN. */
     public function attest(int $tsessionId, int $contactId, string $reasonCode, ?string $reasonText, mixed $trainerPin): array
     {
-        $t = $this->me();
+        $t = $this->sessionTrainer();
         $db = $this->k->db();
         $sb = new SessionBridge($this->k->core, $this->k->eventBase());
         $s = $this->ownOpen($sb, $tsessionId);
@@ -276,7 +286,7 @@ final class TrainerService
     /** [S] POST attendee_mark: attendance / practical / notes with the trainer PIN. */
     public function mark(int $attendeeId, ?string $attendance, ?string $practical, ?string $notes, mixed $trainerPin): array
     {
-        $this->me();
+        $this->sessionTrainer();
         $db = $this->k->db();
         $sb = new SessionBridge($this->k->core, $this->k->eventBase());
         $s = $sb->sessionOfAttendee($attendeeId);
@@ -300,7 +310,7 @@ final class TrainerService
     /** [S] POST attendee_remove: soft remove with a reason and the trainer PIN. */
     public function remove(int $attendeeId, string $reason, mixed $trainerPin): array
     {
-        $this->me();
+        $this->sessionTrainer();
         $sb = new SessionBridge($this->k->core, $this->k->eventBase());
         $s = $sb->sessionOfAttendee($attendeeId);
         if ($s === null) {
@@ -322,7 +332,7 @@ final class TrainerService
      */
     public function finalize(int $tsessionId, mixed $trainerPin, mixed $sigDataUrl, bool $confirm): array
     {
-        $t = $this->me();
+        $t = $this->sessionTrainer();
         if (!$confirm) {
             throw ApiException::validation(['confirm' => 'Tick the box to confirm.']);
         }
@@ -332,6 +342,9 @@ final class TrainerService
         }
         $sb = new SessionBridge($this->k->core, $this->k->eventBase());
         $s = $this->ownOpen($sb, $tsessionId);
+        if (!(new TrainerBridge($db))->canCourse($t, $s['tsession_course_id'])) {
+            throw new ApiException(403, 'not_trainer', 'You are no longer set up to train this course.');
+        }
         if ($sb->presentCount($tsessionId) < 1) {
             throw new ApiException(422, 'validation', 'Check in at least one person, or mark someone present, before finishing.', ['attendees' => 'Nobody is present.']);
         }
@@ -370,7 +383,7 @@ final class TrainerService
     /** [S] POST session_cancel with a reason and the trainer PIN. */
     public function cancel(int $tsessionId, string $reason, mixed $trainerPin): void
     {
-        $this->me();
+        $this->sessionTrainer();
         $sb = new SessionBridge($this->k->core, $this->k->eventBase());
         $this->ownOpen($sb, $tsessionId);
         if (mb_strlen(trim($reason), 'UTF-8') < 5) {
