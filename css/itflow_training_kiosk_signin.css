@@ -1,0 +1,109 @@
+/* =============================================================================
+   Training kiosk sign-in (lane K2): Home, name search, PIN, setup code, new PIN.
+   Mockups Kiosk-SignIn and Kiosk-PIN. Builds on the .kx-* shell tokens in
+   itflow_training_kiosk.css (accent = the company theme colour, dark mode via
+   :root[data-bs-theme=dark]); no hard-coded accent.
+   ============================================================================= */
+
+.kx-signin { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.kx-signin-page .kx-main { padding-bottom: calc(0px + var(--kx-safe-b)); }
+.kx-signin__main { flex: 1; display: flex; flex-direction: column; align-items: center; padding-top: 12px; }
+.kx-signin__wrap { width: 100%; max-width: 940px; display: flex; flex-direction: column; }
+.kx-signin__title { font-size: 40px !important; }
+.kx-signin__wrap .kx-lead { margin-top: 10px; }
+.kx-signin__narrow { width: 100%; max-width: 640px; }
+.kx-signin__msg { min-height: 0; margin-top: 18px; }
+.kx-signin__msg:empty { display: none; }
+.kx-actions--center { justify-content: center; }
+.kx-label { font-size: 18px; font-weight: 600; color: var(--kx-ink); }
+
+/* ---- search field ----------------------------------------------------------- */
+.kx-search__label { margin-top: 32px; }
+.kx-search { position: relative; margin-top: 10px; }
+.kx-search__icon { position: absolute; left: 22px; top: 50%; transform: translateY(-50%); font-size: 26px; color: var(--kx-muted); pointer-events: none; }
+.kx-input {
+  display: block; width: 100%; height: 72px; padding: 0 22px;
+  font: inherit; font-size: 24px; font-weight: 500; color: var(--kx-ink);
+  background: var(--kx-surface); border: 2px solid var(--kx-border-strong); border-radius: var(--kx-radius-sm);
+  outline: none; -webkit-appearance: none; appearance: none;
+}
+.kx-input::placeholder { color: var(--kx-muted); opacity: .8; font-weight: 400; }
+.kx-input:focus { border-color: var(--kx-accent); box-shadow: 0 0 0 4px var(--kx-accent-soft); }
+.kx-search__input { padding: 0 76px 0 66px; }
+.kx-search__clear {
+  position: absolute; right: 4px; top: 4px; width: 64px; height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 0; border-radius: 8px; cursor: pointer; color: var(--kx-muted);
+}
+.kx-search__clear > span { width: 36px; height: 36px; border-radius: 999px; background: var(--kx-bg); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.kx-search__results { margin-top: 28px; }
+.kx-search__results[aria-busy="true"] { opacity: .6; }
+.kx-search__hint {
+  display: flex; align-items: center; gap: 18px; padding: 24px 26px;
+  background: var(--kx-surface); border: 1px dashed var(--kx-border-strong); border-radius: var(--kx-radius);
+}
+.kx-search__hint--empty { border-style: solid; border-color: var(--kx-border); box-shadow: var(--kx-shadow); }
+.kx-search__hint-icon {
+  width: 52px; height: 52px; flex-shrink: 0; border-radius: 12px;
+  background: var(--kx-surface-2); display: flex; align-items: center; justify-content: center;
+  font-size: 24px; color: var(--kx-muted);
+}
+.kx-search__hint-text { display: flex; flex-direction: column; gap: 4px; }
+.kx-search__hint-text strong { font-size: 20px; font-weight: 600; }
+.kx-search__hint-text span { font-size: 17px; color: var(--kx-muted); }
+.kx-search__meta { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; font-size: 17px; }
+.kx-search__count { font-weight: 600; }
+.kx-search__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.kx-search__more { margin-top: 16px; }
+.kx-person { min-height: 80px; padding: 0 18px 0 16px; gap: 16px; }
+.kx-person .kx-row__title { white-space: nowrap; }
+.kx-person .kx-row__sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kx-avatar--soft { width: 48px; height: 48px; font-size: 17px; background: var(--kx-bg); color: var(--kx-ink); border: 1px solid var(--kx-border); }
+.kx-mark { background: var(--kx-accent-soft); color: inherit; font-weight: 700; border-radius: 4px; padding: 0 1px; }
+
+.kx-signin__foot {
+  margin: 28px calc(-1 * var(--kx-pad-x)) 0; padding: 0 32px; min-height: 64px;
+  border-top: 1px solid var(--kx-border); background: var(--kx-canvas);
+}
+.kx-signin__foot .kx-note { font-size: 16px; }
+.kx-signin__mode { min-height: 64px; padding: 0 8px; font-size: 17px; }
+
+/* ---- PIN card ----------------------------------------------------------------- */
+.kx-pin__page { gap: 22px; }
+.kx-pin { width: 100%; max-width: 940px; }
+.kx-pin.kx-card--split > .kx-pin__left { display: flex; flex-direction: column; padding: 48px 52px 28px; }
+.kx-pin__side { padding: 44px 52px; min-width: 380px; }
+.kx-pin__side .kx-pad { gap: 0; }
+.kx-pin__hello { margin-top: 22px !important; font-size: 36px !important; }
+.kx-pin__who { margin-top: 6px; font-size: 18px; color: var(--kx-muted); }
+.kx-pin__prompt { margin-top: 30px !important; font-size: 22px; line-height: 1.3; font-weight: 600; }
+.kx-pin__prompt + .kx-note { margin-top: 8px; }
+.kx-pin__hint { margin-top: 8px; font-size: 18px; }
+.kx-pin__dots { margin-top: 26px; }
+.kx-pin__dots:empty { display: none; }
+.kx-pin__spacer { flex: 1; min-height: 20px; }
+.kx-pin__links { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; }
+.kx-pin__links .kx-btn--link { min-height: 64px; font-size: 19px; }
+.kx-pin__foot { font-size: 16px; }
+.kx-code { width: 100%; max-width: 560px; margin-top: 8px; }
+.kx-code__form { display: flex; flex-direction: column; gap: 12px; text-align: left; }
+.kx-input--code { font-family: var(--if-mono, 'Plex Mono', ui-monospace, monospace); letter-spacing: .12em; text-transform: uppercase; text-align: center; }
+
+/* ---- responsive -------------------------------------------------------------- */
+@media (max-width: 1000px) {
+  .kx-signin__title { font-size: 34px !important; }
+  .kx-pin__side { min-width: 0; }
+  .kx-pin.kx-card--split > .kx-pin__left { padding: 36px 36px 20px; }
+  .kx-signin__foot { padding: 0 20px; }
+}
+@media (max-width: 700px) {
+  .kx-search__grid { grid-template-columns: minmax(0, 1fr); }
+  .kx-signin__title { font-size: 28px !important; }
+}
+@media (max-height: 800px) and (min-width: 1001px) {
+  .kx-pin.kx-card--split > .kx-pin__left { padding: 32px 44px 16px; }
+  .kx-pin__side { padding: 28px 44px; }
+  .kx-pin__prompt { margin-top: 20px !important; }
+  .kx-signin__title { font-size: 36px !important; }
+  .kx-search__label { margin-top: 22px; }
+}
