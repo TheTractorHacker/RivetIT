@@ -479,15 +479,20 @@
     }
 
     // ------------------------------------------------------------------ boot
-    var hash = TOKEN_RE.exec(location.hash || '');
-    if (hash) {
+    /** Adopts a #d=<token> start URL: the fragment leaves the address bar before anything else happens. */
+    function adoptFromHash() {
+        var hash = TOKEN_RE.exec(location.hash || '');
+        if (!hash) { return false; }
         try { history.replaceState(null, '', '/kiosk/'); } catch (e) { /* ignore */ }
         var ns = document.getElementById('kx-ns');
         if (ns) { ns.hidden = true; }
         adopt(hash[1], false);
         hash = null;
-        return;
+        return true;
     }
+    // The start URL typed or opened while /kiosk/ is already showing is a same-document fragment change.
+    window.addEventListener('hashchange', function () { adoptFromHash(); });
+    if (adoptFromHash()) { return; }
     if (location.hash) { try { history.replaceState(null, '', '/kiosk/' + location.search); } catch (e) { /* ignore */ } }
     if (page.state === 'not_setup') { screen = 'notsetup'; wireNotSetup(); return; }
     if (page.state === 'switch') { showSwitch(); return; }
