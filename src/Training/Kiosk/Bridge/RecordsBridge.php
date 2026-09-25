@@ -399,6 +399,25 @@ final class RecordsBridge
         return $n;
     }
 
+    /** A finalized session of the course where the person was present (the session part of a blended course is on file). */
+    public function attendedSession(int $cid, int $courseId): bool
+    {
+        if (!self::available($this->c->db)) {
+            return false;
+        }
+        try {
+            return Db::one($this->c->db, "SELECT 1 AS ok FROM training_session_attendees ta
+                JOIN training_sessions s ON s.tsession_id = ta.tattendee_tsession_id
+                WHERE ta.tattendee_contact_id = ? AND s.tsession_course_id = ? AND s.tsession_status = 'finalized'
+                  AND ta.tattendee_attendance = 'present' AND ta.tattendee_removed_at_utc IS NULL LIMIT 1", 'ii', [$cid, $courseId]) !== null;
+        } catch (\mysqli_sql_exception $e) {
+            if ((int) $e->getCode() === 1146 || (int) $e->getCode() === 1054) {
+                return false;
+            }
+            throw $e;
+        }
+    }
+
     /** P2's link state for the contact's Odoo link (C-P2-10), or null (no link, or P2 absent). */
     public function odooLinkState(int $cid): ?string
     {
