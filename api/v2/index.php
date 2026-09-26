@@ -79,6 +79,12 @@ if (!$api_user_id) {
     api_v2_error(401, 'Unauthorized');
 }
 
+// Roles audit P0: a module-only (limited) login has nothing in v2 (workflow runs are Departments data).
+$api_v2_profile = itflow_user_access_profile(intval($api_user_id));
+if (itflow_profile_is_limited($api_v2_profile)) {
+    api_v2_error(403, 'Insufficient permissions');
+}
+
 switch ($resource) {
     case 'workflow-runs':
         if ($method !== 'GET') api_v2_error(405, 'Method not allowed');

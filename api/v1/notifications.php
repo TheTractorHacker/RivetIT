@@ -6,6 +6,10 @@ defined('FROM_API') || die();
 
 $uid = $api_user_id;
 
+// Roles audit P0/F7: a module-only (limited) login sees only its own modules' notification types
+// ('' for everyone else - unchanged).
+$notif_types_sql = itflow_notification_type_sql(intval($uid));
+
 if ($method === 'GET') {
     $page   = max(1, intval($_GET['page'] ?? 1));
     $limit  = min(50, max(1, intval($_GET['limit'] ?? 20)));
@@ -14,13 +18,13 @@ if ($method === 'GET') {
     $total = intval(mysqli_fetch_assoc(mysqli_query($mysqli,
         "SELECT COUNT(*) AS c FROM notifications
          WHERE (notification_user_id = $uid OR notification_user_id = 0)
-         AND notification_dismissed_at IS NULL"))['c']);
+         AND notification_dismissed_at IS NULL $notif_types_sql"))['c']);
 
     $notifs = [];
     $sql    = mysqli_query($mysqli,
         "SELECT * FROM notifications
          WHERE (notification_user_id = $uid OR notification_user_id = 0)
-         AND notification_dismissed_at IS NULL
+         AND notification_dismissed_at IS NULL $notif_types_sql
          ORDER BY notification_timestamp DESC LIMIT $limit OFFSET $offset"
     );
     while ($row = mysqli_fetch_assoc($sql)) {

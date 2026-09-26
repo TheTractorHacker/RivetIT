@@ -4,6 +4,7 @@
 defined('FROM_API') || die();
 
 if ($method === 'GET') {
+    $me_profile = itflow_user_access_profile(intval($api_user_id));
     $row = mysqli_fetch_assoc(mysqli_query($mysqli,
         "SELECT user_id, user_name, user_email, user_type, user_color, user_avatar
          FROM users WHERE user_id = $api_user_id LIMIT 1"));
@@ -18,6 +19,13 @@ if ($method === 'GET') {
             'accounting_enabled'     => (bool) $config_module_enable_accounting,
             'ticket_charges_enabled' => (bool) $config_module_enable_ticket_charges,
         ],
+        // Roles audit P4: what this login may use, so the app can hide screens it cannot open.
+        // permissions: every module => 0 (none), 1 (view), 2 (edit), 3 (full); admins are 3 everywhere.
+        // limited: a module-only login (no Departments, Tickets/assets/docs or Assets) - the API allows it
+        // only me, notifications and its own modules' kb/reports/alerts.
+        'is_admin'    => !empty($me_profile['admin']),
+        'limited'     => itflow_profile_is_limited($me_profile),
+        'permissions' => itflow_profile_permission_map($me_profile),
     ]);
 }
 
