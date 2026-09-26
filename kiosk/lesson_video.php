@@ -110,6 +110,8 @@ if ($kiosk_video_unsupported) {
                     && str_starts_with((string) $r['url'], '/kiosk/media.php?')))),
                 'up_next' => $next === null ? null : ['n' => $idx + 2, 'title' => (string) ($next['title'] ?? ''), 'type' => (string) ($next['type'] ?? '')],
                 'return_url' => $courseUrl . ($next !== null ? '&l=' . rawurlencode((string) $next['uid']) : ''),
+                // A lesson with a quick check goes back to the course page on its check once the video is credited.
+                'check_url' => (($lesson['quiz']['role'] ?? null) === 'check') ? $courseUrl . '&l=' . rawurlencode($uid) . '&check=1' : null,
                 'course_url' => $courseUrl,
             ],
         ];

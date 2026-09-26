@@ -30,6 +30,12 @@ use ITFlow\Training\Quiz\QuizDraw;
  *  - One GRACE_S for save, submit and grading. A late submit is graded from the log (timed_out=1).
  *  - The result row's primary key (the attempt id) makes submit idempotent.
  *  - AttemptFinalizer grades abandoned timed attempts through the same path (gradeInTx).
+ *  - Quick checks (quiz role 'check' on a content lesson; kind 'check') use the same engine: draw,
+ *    answer log, server grading, hashes, tries and the attempts-exhausted lock. A check starts only
+ *    once the lesson's content is credited (409 check_before_content), may also be taken while the
+ *    run waits for its sign-off (its result never changes the record), and writes no lesson
+ *    completion of its own: the content's completion is the lesson's. A MUST-PASS check's pass is
+ *    what makes the lesson done (RunRepo::done) - progress, order and sign-off move on then.
  */
 final class AttemptService
 {
@@ -62,18 +68,23 @@ final class AttemptService
             $rev = RunRepo::revision($db, $run);
             $doc = $rev['doc'];
             $lesson = RunService::lessonOr404($doc, $lessonUid);
-            if ($lesson['type'] !== 'quiz' || !is_array($lesson['quiz'] ?? null)) {
+            $isCheck = RunRepo::check($lesson) !== null;
+            if (($lesson['type'] !== 'quiz' && !$isCheck) || !is_array($lesson['quiz'] ?? null)) {
                 throw ApiException::validation(['lesson_uid' => 'This lesson is not a quiz.']);
             }
             $quiz = $lesson['quiz'];
-            $done = RunRepo::done($db, $runId);
+            $credited = RunRepo::credited($db, $runId);
+            $done = RunRepo::done($db, $runId, $doc, $credited);
             if ($run['trun_blocked_reason'] !== null) {
                 RunService::assertRunUsable($run);
             }
             if (self::passedOn($db, $runId, $lessonUid)) {
                 throw new ApiException(409, 'already_passed', 'You already passed this quiz.');
             }
-            if ($run['trun_status'] !== 'in_progress') {
+            // A quick check may also be taken while the run waits for the sign-off (a check that is not
+            // must-pass, offered right after the last lesson's content): its result never changes the record.
+            $checkWhileSigning = $isCheck && $run['trun_status'] === 'awaiting_signature' && (int) ($run['trun_open_guard'] ?? 0) === 1;
+            if ($run['trun_status'] !== 'in_progress' && !$checkWhileSigning) {
                 throw new ApiException(409, 'run_locked', 'This course run is closed. Open the course again.');
             }
             if ($run['trun_locked_at_utc'] !== null) {
@@ -82,7 +93,14 @@ final class AttemptService
                 }
                 RunService::assertRunUsable($run);
             }
-            RunRepo::assertUnlocked($doc, $done, $lessonUid);
+            if ($isCheck) {
+                // The check follows the lesson: its content must be credited first (the order rules were met then).
+                if (!isset($credited[$lessonUid])) {
+                    throw new ApiException(409, 'check_before_content', 'Finish the lesson first, then take its quick check.', [], ['lesson_uid' => $lessonUid]);
+                }
+            } else {
+                RunRepo::assertUnlocked($doc, $done, $lessonUid);
+            }
             $kind = (string) ($quiz['role'] ?? 'standalone');
             if ($kind === 'exam' && ($u = RunRepo::examBlocker($doc, $done, $lessonUid)) !== null) {
                 throw new ApiException(409, 'exam_locked', 'Finish every other lesson before the final exam.', [], ['lesson_uid' => $u]);
@@ -116,7 +134,7 @@ final class AttemptService
                 'is', [$runId, $lessonUid])['n'] ?? 0);
             $max = (int) ($quiz['max_attempts'] ?? 0);
             if ($max > 0 && $used >= $max + (int) $run['trun_extra_attempts']) {
-                if ($run['trun_locked_at_utc'] === null && !empty($quiz['must_pass'])) {
+                if ($run['trun_locked_at_utc'] === null && !empty($quiz['must_pass']) && $run['trun_status'] === 'in_progress') {
                     Db::exec($db, 'UPDATE training_runs SET trun_locked_at_utc = ?, trun_locked_lesson_uid = ? WHERE trun_id = ? AND trun_locked_at_utc IS NULL',
                         'ssi', [$now, $lessonUid, $runId]);
                     if ($finalized === null || !self::hasEvent($events, 'run.failed')) {
@@ -283,6 +301,8 @@ final class AttemptService
             throw new \RuntimeException('Kiosk attempt #' . $attemptId . ' lesson is not a quiz of its revision');
         }
         $quiz = $lesson['quiz'];
+        $isCheck = RunRepo::check($lesson) !== null;
+        $doneBefore = RunRepo::done($db, $runId, $doc);   // before this attempt's result exists
         $draw = self::draw($att);
         $lang = (string) $att['tattempt_language'];
         $pres = QuizPresenter::present($doc, $lesson, $draw, $lang, KioskLearnerView::mediaUrl((int) $run['trun_revision_id']));
@@ -393,8 +413,18 @@ final class AttemptService
         $mustPass = !empty($quiz['must_pass']);
         $kind = (string) $att['tattempt_kind'];
         $open = $run['trun_status'] === 'in_progress' && (int) ($run['trun_open_guard'] ?? 0) === 1;
-        $done = RunRepo::done($db, $runId);
-        if ($open && !isset($done[$lessonUid]) && ($passed || !$mustPass)) {
+        if ($isCheck) {
+            // The lesson's completion row was written when its content was credited. Passing a MUST-PASS
+            // check is what makes the lesson done: progress, the order and the sign-off move on here. A
+            // check that is not must-pass changes nothing on the run (its result is the record of it).
+            if ($open && $passed && $mustPass && !isset($doneBefore[$lessonUid])) {
+                $done = RunRepo::done($db, $runId, $doc);   // now sees this attempt's result
+                if (isset($done[$lessonUid])) {
+                    $run = RunService::afterLessonDone($db, $run, $doc, $done, $now);
+                }
+            }
+        } elseif ($open && !isset($doneBefore[$lessonUid]) && ($passed || !$mustPass)) {
+            $done = $doneBefore;
             $ins = RunService::insertLcomp($db, $run, $doc, $lesson, [
                 'opened_at' => (string) $att['tattempt_started_at_utc'],
                 'completed_at' => $now,

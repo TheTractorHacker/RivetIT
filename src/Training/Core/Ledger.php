@@ -53,6 +53,7 @@ final class Ledger
         'pin.setup_code_issued', 'pin.set', 'pin.source_changed', 'pin.odoo_blocked', 'pin.odoo_unblocked',
         'ksession.start', 'ksession.end',
         'run.start', 'run.superseded', 'run.failed', 'run.unlocked', 'run.blocked', 'run.abandoned', 'run.lesson_complete',
+        'run.reopened',   // kiosk quick checks: a run from before them, awaiting sign-off with a must-pass check never passed
         'attempt.start', 'attempt.submit', 'signature.captured', 'online.attested', 'lesson.video_error', 'achievement.awarded',
     ];
 

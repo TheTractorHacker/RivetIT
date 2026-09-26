@@ -138,12 +138,72 @@ final class RunRepo
         return null;
     }
 
-    /** @return array<string, true> lesson uids with a lesson completion in the run */
-    public static function done(\mysqli $db, int $runId): array
+    /**
+     * The quick check ("knowledge check", quiz role 'check') attached to a CONTENT lesson - article,
+     * document, video or image - or null. A Quiz-type lesson's own quiz is never a quick check.
+     */
+    public static function check(array $lesson): ?array
+    {
+        $q = $lesson['quiz'] ?? null;
+        return is_array($q) && ($q['role'] ?? null) === 'check' && in_array((string) ($lesson['type'] ?? ''), self::CHECK_TYPES, true) ? $q : null;
+    }
+
+    public const CHECK_TYPES = ['article', 'document', 'video', 'image'];
+
+    /** A content lesson whose quick check must be passed before the lesson counts as done. */
+    public static function mustPassCheck(array $lesson): bool
+    {
+        return !empty(self::check($lesson)['must_pass']);
+    }
+
+    /**
+     * @return array<string, true> lesson uids with a lesson completion in the run: the lesson's own
+     * work is CREDITED (content watched/read, quiz passed, acknowledgment signed)
+     */
+    public static function credited(\mysqli $db, int $runId): array
     {
         $out = [];
         foreach (Db::all($db, 'SELECT lcomp_lesson_uid FROM training_lesson_completions WHERE lcomp_run_id = ?', 'i', [$runId]) as $r) {
             $out[(string) $r['lcomp_lesson_uid']] = true;
+        }
+        return $out;
+    }
+
+    /**
+     * @return array<string, true> lesson uids DONE in the run: credited, and - for a content lesson
+     * with a MUST-PASS quick check - that check passed too. Every gate (sequential order, the final
+     * exam, progress, awaiting_signature, the next lesson) uses this map; a quick check that is not
+     * must-pass never changes it (the lesson is done when its content is credited).
+     */
+    public static function done(\mysqli $db, int $runId, array $doc, ?array $credited = null): array
+    {
+        $done = $credited ?? self::credited($db, $runId);
+        $pending = [];
+        foreach ($doc['lessons'] ?? [] as $l) {
+            $uid = (string) ($l['uid'] ?? '');
+            if (isset($done[$uid]) && self::mustPassCheck($l)) {
+                $pending[$uid] = true;
+            }
+        }
+        if ($pending !== []) {
+            foreach (self::passedLessons($db, $runId) as $uid => $_) {
+                unset($pending[$uid]);
+            }
+            foreach ($pending as $uid => $_) {
+                unset($done[$uid]);
+            }
+        }
+        return $done;
+    }
+
+    /** @return array<string, true> lesson uids of the run with a passed attempt (quiz, exam or quick check) */
+    public static function passedLessons(\mysqli $db, int $runId): array
+    {
+        $out = [];
+        foreach (Db::all($db, 'SELECT DISTINCT a.tattempt_lesson_uid FROM training_attempts a
+                JOIN training_attempt_results r ON r.tresult_attempt_id = a.tattempt_id
+                WHERE a.tattempt_run_id = ? AND r.tresult_passed = 1', 'i', [$runId]) as $r) {
+            $out[(string) $r['tattempt_lesson_uid']] = true;
         }
         return $out;
     }

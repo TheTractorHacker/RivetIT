@@ -25,7 +25,7 @@
 
         function why(r) {
             if (r.state === 'locked') {
-                var t = 'Out of tries' + (r.lesson && r.lesson.title ? ' on "' + r.lesson.title + '"' : '');
+                var t = 'Out of tries' + (r.lesson && r.lesson.title ? (r.lesson.quick_check ? ' on the quick check of "' : ' on "') + r.lesson.title + '"' : '');
                 return t + ' (' + r.attempts_used + ' used)';
             }
             if (r.blocked_reason === 'video_changed') { return 'A lesson video changed since it was published'; }

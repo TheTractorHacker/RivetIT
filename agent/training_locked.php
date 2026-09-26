@@ -17,7 +17,7 @@ $tr_data = ['level' => $tr_ctx->level];
 
 render_page_header(
     'Locked courses',
-    'Kiosk courses someone cannot continue: out of tries on a must-pass quiz, or a lesson video that changed. Give another try or restart them on the current version.',
+    'Kiosk courses someone cannot continue: out of tries on a must-pass quiz or quick check, or a lesson video that changed. Give another try or restart them on the current version.',
     '',
     [['label' => 'Training', 'url' => '/agent/training.php'], ['label' => 'Locked courses']]
 );

@@ -412,6 +412,13 @@
 .trp-qintro__text { margin: 0; font-size: 18px; color: var(--trp-muted); max-width: 600px; }
 .trp-qintro .trp-btn--xl { margin-top: 12px; }
 .trp-qintro .trp-vstatus { align-self: stretch; }
+/* quick check after a content lesson: same intro card, its own tint, must-pass note, "Back to the lesson" */
+.trp-qintro--check .trp-qintro__icon { background: var(--trp-info-soft); color: var(--trp-info); }
+.trp-qintro--check .trp-note { margin: 0; }
+.trp-note--must { background: var(--trp-soft); border-color: transparent; font-weight: 600; }
+.trp-note--must .fas { color: var(--trp-accent); }
+.trp-qintro__back { margin-top: 2px; min-height: 48px; color: var(--trp-muted); }
+.trp-qintro__back:hover { color: var(--trp-ink); }
 
 /* ---- quiz: runner (Kiosk-Quiz) ----------------------------------------------- */
 .trp-quiz { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 24px var(--trp-pad-x) 0; overflow: auto; }

@@ -2,6 +2,32 @@
 
 This file documents all notable changes made to ITFlow.
 
+## [Unreleased] ITFlow Internal IT - Training kiosk: quick checks after lessons
+No database change (2.6.94 stays). Quick checks on video, article, document and image lessons now run on the kiosk;
+before this, the kiosk skipped them and a lesson went straight to "Done" (and a one-lesson course to "Sign to finish").
+
+### New Features & Updates
+- Once a lesson's video, article, document or image is credited, the kiosk shows its **Quick check**: the lesson's
+  settings (questions drawn by the server, shuffle, pass mark, unlimited or N tries), one question per screen with big
+  answer tiles, the review screen when the author turned it on, then the result - score, pass/fail, missed questions with
+  their explanations (correct answers only when the check's feedback setting allows) and **Try again** while tries remain.
+  Grading, the answer log and the hashed attempt rows are the same engine as kiosk quizzes and exams (attempt kind
+  `check`); the answer key never reaches the kiosk before grading.
+- **Not must-pass** (the default): the lesson is done when its content is credited, as before; the check is offered
+  right after and can be skipped (**Skip for now** / **Continue**), taken later from the lesson, and its result is recorded.
+- **Must pass**: the lesson counts as done only after a pass - progress, lessons in order, the final exam and the
+  sign-off wait for it ("Quick check to pass" on the lesson). Out of tries locks the course like an exam (agent **Locked
+  courses** says "Out of tries on the quick check of ..."; **Give 1 more try** / **Restart on current version** as usual). A try left mid-way
+  resumes with the same questions and the saved answers ("Continue quick check").
+- YouTube/Vimeo lessons: **Mark lesson complete** on the video page goes back to the course straight into the check.
+- A course run that the old kiosk had already moved to "Sign to finish" while a must-pass quick check was never taken is
+  moved back to in progress the next time the person opens the Learning Center, a course or the sign page (ledger
+  `run.reopened`), so the check is taken before signing; signing such a run is refused (`check_pending`) until then.
+- Quick-check results never change the training record (its score stays the final exam's); the kiosk evidence on the
+  record lists every try labelled **Quick check** (and "must pass"), in timeline order.
+- Publishing no longer warns "This lesson's quick check is skipped on the kiosk for now" and no longer refuses a
+  must-pass quick check. The preview player shows the check after the lesson too (never blocking the author).
+
 ## [Unreleased] ITFlow Internal IT - Training kiosk: temporary and unlisted devices
 Database 2.6.93 -> 2.6.94 (`training_kiosks`: `kiosk_asset_id` and `kiosk_asset_type` become NULL-able, new
 `kiosk_expires_at_utc` and index `idx_training_kiosk_expires`). Apply it through **Admin > Update > Update Database**;

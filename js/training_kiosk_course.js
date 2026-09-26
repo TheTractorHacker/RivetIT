@@ -61,6 +61,7 @@
         if (typeof res.progress_pct === 'number') { run.progress_pct = res.progress_pct; }
         if (typeof res.run_status === 'string') { run.status = res.run_status; }
         if (res.done && typeof res.done === 'object') { run.done = res.done; }
+        if (res.credited && typeof res.credited === 'object') { run.credited = res.credited; }
     }
 
     // ---- page facts for the overview hero ---------------------------------------------------
@@ -175,18 +176,24 @@
 
     // ---- the player --------------------------------------------------------------------------
     var done = run && run.done && typeof run.done === 'object' ? run.done : {};
+    var credited = run && run.credited && typeof run.credited === 'object' ? run.credited : {};
+    // Back from the YouTube/Vimeo page (&check=1): the lesson's quick check opens first, also while the run
+    // waits for the sign-off (an optional check after the last lesson); never on a locked or blocked run.
+    var checkOk = !!(P.check && P.lesson && run && !run.locked && !run.blocked && (status() === 'in_progress' || status() === 'awaiting_signature'));
     var adapter = {
         mode: 'kiosk', canGrade: true, chrome: false,
         brand: K.data().brand || '', learnerName: S.name || '', learnerFirst: S.first || '',
         validityMonths: P.validity_months,
-        initialProgress: { done: done, current: run ? run.current_uid : null, pages: {}, watch: {} },
+        initialProgress: { done: done, credited: credited, current: run ? run.current_uid : null, pages: {}, watch: {} },
         initialLesson: P.lesson && !frozen() ? P.lesson : null,
+        initialCheck: checkOk ? P.lesson : null,
         signaturePad: function (container, o) { return K.ui.signaturePad(container, o); },
         ensureRun: function () {
             var screen = K.lang();
             // A run with nothing done yet, in the other language, switches to the screen's language (when the course has it).
             var switchFresh = run && status() === 'in_progress' && run.fresh && runLang() !== screen && LANGS.indexOf(screen) !== -1;
             if (run && status() === 'in_progress' && !switchFresh) { return Promise.resolve(run); }
+            if (run && status() === 'awaiting_signature' && checkOk) { return Promise.resolve(run); }   // the quick check after the last lesson
             var pick = switchFresh ? Promise.resolve(screen) : (!run && LANGS.length > 1 ? chooseLanguage() : Promise.resolve(undefined));
             return pick.then(function (lg) {
                 if (lg === null) { var e = new Error(''); e.silent = true; throw e; }   // closed the language choice: stay on the overview
@@ -232,6 +239,9 @@
             });
         },
         quizInfo: function (uid) { return run && run.quizzes && run.quizzes[uid] ? run.quizzes[uid] : null; },
+        onCheckState: function (uid, info) {
+            if (run && info && typeof info === 'object') { run.quizzes = run.quizzes || {}; run.quizzes[uid] = info; }
+        },
         onQuizResult: function (uid, res) {
             if (run && res && run.quizzes) {
                 var q = run.quizzes[uid] || {};
@@ -240,6 +250,7 @@
                 q.left = typeof res.attempts_left === 'number' ? res.attempts_left : q.left;
                 q.locked = !!res.locked;
                 q.passed = !!res.passed || !!q.passed;
+                q.open = false;   // that attempt is graded
                 run.quizzes[uid] = q;
             }
             return res && res.next === 'sign' ? { signLabel: t('course.sign_to_finish') } : null;

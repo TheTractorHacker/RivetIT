@@ -123,7 +123,9 @@
     var gateIcon = el('span', { class: 'kl-gate__icon', 'aria-hidden': 'true' }, icon('fa-lock'));
     var gateText = el('span', { class: 'kl-gate__text', text: t('video.checking') });
     var nextBtn = el('a', { class: 'kx-btn kx-btn--ghost kx-btn--xl', href: P.return_url || P.course_url }, [el('span', { text: t('video.next_lesson') }), icon('fa-arrow-right')]);
-    var doneBtn = el('button', { type: 'button', class: 'kx-btn kx-btn--primary kx-btn--xl', disabled: true }, [icon('fa-check'), el('span', { text: t('video.mark_complete') })]);
+    var doneIcon = el('span', { class: 'kl-btnicon', 'aria-hidden': 'true' }, icon('fa-check'));
+    var doneLabel = el('span', { text: t('video.mark_complete') });
+    var doneBtn = el('button', { type: 'button', class: 'kx-btn kx-btn--primary kx-btn--xl', disabled: true }, [doneIcon, doneLabel]);
     root.appendChild(el('footer', { class: 'kl-vfoot' }, [el('div', { class: 'kl-gate', role: 'status', 'aria-live': 'polite' }, [gateIcon, gateText]), el('div', { class: 'kl-vfoot__act' }, [nextBtn, doneBtn])]));
 
     // ---------------------------------------------------------------- state -> UI
@@ -141,8 +143,13 @@
         timeEl.textContent = fmt(lastTime) + ' / ' + (d ? fmt(d) : '–:––');
         var isDone = server && server.done;
         var can = !changed && server && (server.done || server.can_complete);
+        // Watched already, with a must-pass quick check still to pass: the button goes on to the check.
+        var toCheck = !!(P.check_url && server && server.credited && !isDone);
         doneBtn.disabled = !can || completing;
         doneBtn.hidden = !!isDone;
+        doneLabel.textContent = toCheck ? t('video.to_check') : t('video.mark_complete');
+        while (doneIcon.firstChild) { doneIcon.removeChild(doneIcon.firstChild); }
+        doneIcon.appendChild(icon(toCheck ? 'fa-clipboard-check' : 'fa-check'));
         nextBtn.classList.toggle('kx-btn--primary', !!isDone);
         nextBtn.classList.toggle('kx-btn--ghost', !isDone);
         // Before this lesson is done the next one is still locked (it would only bounce back to the course page),
@@ -162,6 +169,9 @@
         } else if (isDone) {
             gateIcon.appendChild(icon('fa-check'));
             gateText.textContent = t('video.gate_done');
+        } else if (toCheck) {
+            gateIcon.appendChild(icon('fa-check'));
+            gateText.textContent = t('video.gate_check');
         } else if (server.can_complete) {
             gateIcon.appendChild(icon('fa-check'));
             gateText.textContent = t('video.gate_ready');
@@ -278,7 +288,7 @@
         paint();
         var vid = controller && typeof controller.getVideoId === 'function' ? controller.getVideoId() : null;
         K.api.post('lesson_complete', body({ evidence: { position_s: Math.floor(Math.max(lastTime, 0)), video_id: vid || P.video_id || undefined } })).then(function () {
-            location.replace(P.return_url || P.course_url || '/kiosk/me.php');
+            location.replace(P.check_url || P.return_url || P.course_url || '/kiosk/me.php');   // a quick check comes right after the video
         }, function (e) {
             completing = false;
             K.ui.busy(doneBtn, false);

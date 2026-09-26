@@ -30,7 +30,7 @@ use ITFlow\Training\Quiz\QuizService;
  */
 final class PublishValidator
 {
-    public const WARNING_CODES = ['exam_not_last', 'section_empty', 'lang_excluded', 'video_recheck_failed', 'revision_too_large', 'check_kiosk_later'];
+    public const WARNING_CODES = ['exam_not_last', 'section_empty', 'lang_excluded', 'video_recheck_failed', 'revision_too_large'];
     public const MAX_JSON_BYTES = 2097152;
     public const VIDEO_FRESH_DAYS = 30;
     public const VIDEO_MIN_S = 10;
@@ -86,14 +86,8 @@ final class PublishValidator
         } elseif (count($exams) === 1 && end($doc['lesson_order']) !== $exams[0]) {
             $add(self::issue('exam_not_last', 'The final exam is not the last lesson.', $this->lessonRef($build, $exams[0])));
         }
-        // Phase 3 kiosk (P3 spec §7.9, L-11): knowledge checks on content lessons are not on the kiosk yet (L-16).
-        foreach ($lessons as $l) {
-            if ($l['type'] !== 'quiz' && ($l['quiz']['role'] ?? null) === 'check') {
-                $add(!empty($l['quiz']['must_pass'])
-                    ? self::issue('check_unsupported', "Quick checks on lessons aren't on the kiosk yet. Turn off 'must pass' or use a Quiz lesson after it.", $this->lessonRef($build, $l['uid']))
-                    : self::issue('check_kiosk_later', "This lesson's quick check is skipped on the kiosk for now.", $this->lessonRef($build, $l['uid'])));
-            }
-        }
+        // Quick checks on content lessons (must-pass or not) run on the kiosk like any quiz; their
+        // questions and settings are checked with every other quiz below.
         $used = [];
         foreach ($lessons as $l) {
             if ($l['section_uid'] !== null) {
