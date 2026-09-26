@@ -69,12 +69,14 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                     </a>
                 </li>
 
+                <?php if (!itflow_is_limited_user()) { // Outlook calendar sync is for ticket appointments (roles audit P0) ?>
                 <li class="nav-item<?php if ($current_page == "user_integrations.php") { echo " active"; } ?>">
                     <a href="/agent/user/user_integrations.php" class="nav-link<?php if ($current_page == "user_integrations.php") { echo " active"; } ?>">
                         <span class="nav-link-icon"><i class="fab fa-microsoft"></i></span>
                         <span class="nav-link-title">Integrations</span>
                     </a>
                 </li>
+                <?php } ?>
 
             </ul>
             <div class="mb-3"></div>
