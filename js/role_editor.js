@@ -28,7 +28,8 @@
   // ---------------------------------------------------------------- sidebar preview model
   // Mirrors agent/includes/side_nav.php. P.scoped = the module-access layer is installed
   // (includes/module_access.php): logins without Departments / Tickets / Assets then get no
-  // Dashboard, Work, custom links or search bar, and Calendar needs Tickets, assets & docs.
+  // Dashboard, Work, CRM, Billing, Products, Finance, custom links or search bar, and Calendar
+  // needs Tickets, assets & docs.
   function sidebarFor(L, admin, P) {
     var on = P.on || {};
     var scoped = !!P.scoped;
@@ -52,8 +53,10 @@
     if (!limited) { add('Dashboard'); }
     if (alerts >= 1) { add('Alerts'); }
     if (client >= 1) { add('Organization', ['Departments', 'Org Chart']); }
-    if (on.crm && sales >= 1) { add('CRM', ['Pipeline', 'Opportunities', 'Campaigns', 'Segments']); }
-    if (support >= 1 && on.ticketing) { add('Service Desk', ['Tickets', 'Recurring Tickets', 'Request Something', 'Requests', 'Problems', 'Changes']); }
+    if (!limited && on.crm && sales >= 1) { add('CRM', ['Pipeline', 'Opportunities', 'Campaigns', 'Segments']); }
+    if (support >= 1 && on.ticketing) {
+      add('Service Desk', ['Tickets', 'Recurring Tickets', 'Request Something'].concat(on.csat ? ['CSAT Ratings'] : [], ['Requests', 'Problems', 'Changes']));
+    }
 
     var work = [];
     if (support >= 1 && on.ticketing) { work.push('Projects'); }
@@ -84,13 +87,13 @@
       add('Infrastructure', ['Assets']);
     }
 
-    if (on.accounting && sales >= 1) {
+    if (!limited && on.accounting && sales >= 1) {
       add('Billing', ['Quotes', 'Invoices', 'Recurring Invoices', 'Revenues', 'Products']);
-    } else if (on.ticket_charges && sales >= 1) {
+    } else if (!limited && on.ticket_charges && sales >= 1) {
       add('Products');
     }
 
-    if (on.accounting) {
+    if (on.accounting && (scoped ? (!limited && fin >= 1) : true)) {
       var f = [];
       if (fin >= 1) { f.push('Payments', 'Expenses', 'Recurring Expenses', 'Accounts', 'Transfers'); }
       if (!scoped || fin >= 1) { f.push('Trips'); }
@@ -107,7 +110,16 @@
     if (rep >= 1) { add('Reports'); }
     if (!limited && P.custom_links && P.custom_links.length) { add('Custom links', P.custom_links); }
 
-    return { sections: out, limited: limited, training: (on.training && tr >= 1) ? tr : 0 };
+    // Where a limited login lands: includes/module_access.php itflow_limited_home_for(), same order.
+    var home = 'their account page';
+    if (on.training && tr >= 1) { home = 'Training › Overview'; }
+    else if (on.training && kiosk >= 1) { home = 'Training › Devices & PINs'; }
+    else if (on.kb && kb >= 1) { home = 'Knowledge Base'; }
+    else if (rep >= 1) { home = 'Reports'; }
+    else if (on.rmm && rmm >= 1) { home = 'RMM Dashboard'; }
+    else if (alerts >= 1) { home = 'Alerts'; }
+
+    return { sections: out, limited: limited, home: home, training: (on.training && tr >= 1) ? tr : 0 };
   }
 
   // ---------------------------------------------------------------- role form
@@ -209,7 +221,7 @@
       var facts = el('div', 'small border-top pt-2');
       var opens;
       if (model.limited) {
-        opens = model.training ? 'Training › Overview' : 'the first menu above';
+        opens = model.home;
       } else if (!P.scoped && P.start_page === 'dashboard.php' && model.training && !(L.module_client >= 1) && !(L.module_support >= 1)) {
         // agent/dashboard.php sends Training-only roles on to the Training overview
         opens = 'Training › Overview';

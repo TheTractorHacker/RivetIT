@@ -19,6 +19,6 @@ if ($itflow_limited_decision === 'home') {
     exit;
 }
 if ($itflow_limited_decision === 'deny') {
-    itflow_render_denied();
+    itflow_render_denied(itflow_training_settings_hint(), "You don't have access to this page", itflow_training_settings_go());   // '' / null = the defaults
 }
 unset($itflow_limited_decision);

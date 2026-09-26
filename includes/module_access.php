@@ -305,9 +305,10 @@ function itflow_request_wants_json(): bool {
  * "Go to <home>" button: if the shell is already on the page (the check ran after inc_all.php), only
  * the message and the footer are added.
  *
- * $detail is plain text (it is escaped here).
+ * $detail is plain text (it is escaped here). $go = ['url' => ..., 'label' => ...] replaces the "Go to <home>"
+ * button (itflow_training_settings_go()).
  */
-function itflow_render_denied(string $detail = '', string $title = "You don't have access to this page"): void {
+function itflow_render_denied(string $detail = '', string $title = "You don't have access to this page", ?array $go = null): void {
     // A denial that an earlier code path already queued as a flash must not show up on the next page.
     if (isset($_SESSION['alert_message']) && $_SESSION['alert_message'] === WORDING_ROLECHECK_FAILED) {
         unset($_SESSION['alert_message'], $_SESSION['alert_type']);
@@ -335,10 +336,10 @@ function itflow_render_denied(string $detail = '', string $title = "You don't ha
     $__itflow_denied = [
         'title'  => $title,
         'detail' => $detail !== '' ? $detail : "It isn't part of your role. Ask an administrator if you need it.",
-        'home'   => itflow_home_url(),
-        'label'  => itflow_home_label(),
+        'home'   => (string) ($go['url'] ?? itflow_home_url()),
+        'label'  => (string) ($go['label'] ?? itflow_home_label()),
     ];
-    unset($title, $detail);
+    unset($title, $detail, $go);
 
     // The shell files read globals; make every global visible to them from inside this function.
     foreach (array_keys($GLOBALS) as $__k) {
@@ -369,6 +370,25 @@ function itflow_render_denied(string $detail = '', string $title = "You don't ha
     require_once $__itflow_docroot . '/includes/app_version.php';   // footer.php prints it under /admin/
     require_once $__itflow_docroot . '/includes/footer.php';
     exit;
+}
+
+/**
+ * The denial text for a non-admin Training level 3 login that opens one of the admin Training settings pages
+ * (admin/settings_training*.php): its own page is Training > Training settings (agent/training_settings.php,
+ * roles audit P2). '' for everyone and everything else.
+ */
+function itflow_training_settings_hint(): string {
+    global $session_is_admin, $config_module_enable_training;
+    if (!empty($session_is_admin) || intval($config_module_enable_training ?? 0) !== 1
+        || strpos(itflow_request_script(), '/admin/settings_training') === false || itflow_level('module_training') < 3) {
+        return '';
+    }
+    return 'Administration is for administrators only. Your Training settings are under Training > Training settings.';
+}
+
+/** The denial's button for that case: "Go to Training settings" instead of the home page. null otherwise. */
+function itflow_training_settings_go(): ?array {
+    return itflow_training_settings_hint() !== '' ? ['url' => '/agent/training_settings.php', 'label' => 'Training settings'] : null;
 }
 
 /** Deny unless the role holds Assets or Tickets/assets/docs at $level (P4). */

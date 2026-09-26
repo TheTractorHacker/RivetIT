@@ -2,7 +2,7 @@
 
 This file documents all notable changes made to ITFlow.
 
-## [Unreleased] ITFlow Internal IT - Roles: module-only logins contained, checked surfaces, Assets module
+## [Unreleased] ITFlow Internal IT - Roles: module-only logins contained, checked pop-ups and pages, Assets module, Training settings for Training level 3, clearer role editor
 Database 2.6.94 -> 2.6.95 (new module `module_assets`; every existing role is granted it at its current Tickets/assets/docs
 level, so nobody's access changes). Apply it through **Admin > Update > Update Database**; until it has run, asset pages
 keep working through Tickets/assets/docs. Phase 5's planned migration moves to 2.6.96.
@@ -22,12 +22,30 @@ keep working through Tickets/assets/docs. Phase 5's planned migration moves to 2
 - Denials are HTTP 403 with a proper page in the app shell and no leftover "not permitted" message on the next page;
   the admin area's denial too. Opening the Credentials page no longer logs a view before the permission check.
 - Sidebar: Trips sits inside the Finance check, Intune Devices needs Departments.
+- Every agent pop-up checks its module first (`includes/modal_permissions.php`, a folder/file map); a refused pop-up
+  answers 403 and the loader shows the reason. Pages hide the buttons of pop-ups the role can't open (contact and asset
+  "New" menus, New Contract, the departments bulk "Open Tickets", the asset list's contact card for a role without
+  Departments).
+- The Files page and document details need Tickets/assets/docs, like their pop-ups and save handlers (they were the only
+  department pages with no module check).
+- The asset forms' Login tab (which creates a Credentials record) shows only with Credentials edit access, and the save
+  handler ignores it without that access.
+- Admin > Roles: the "can't edit / can't archive" protection follows the last administrator role that still has an
+  active user (was the literal role id 3), and the server refuses to demote or archive it.
 
 ### New Features & Updates
 - **Assets** module (levels 1-3): asset pages without tickets. Asset lists, details, edits, imports/exports, inline
   edit, search and the dashboard accept Assets or Tickets/assets/docs. With Assets alone, an asset's linked tickets,
   documents, files, licenses and services are not shown.
-- Training > **Training settings** in the sidebar for Training level 3.
+- **Training settings for Training level 3** (`agent/training_settings.php`, Training > Training settings in the sidebar
+  for non-admin Training level 3; admins keep Admin > Training, which is unchanged). Training level 3 edits course
+  defaults, compliance defaults, Recalculate, Snapshot and ledger Verify; kiosk sessions and setup slips also need
+  Training kiosk level 3. Media limits, the YouTube key, media purge, Odoo links and sync, PIN lockouts and device caps
+  stay admin-only and show read-only with "Ask an administrator". Both pages validate through one shared service
+  (`src/Training/Settings/`); admin saves behave exactly as before.
+- **Role editor**: permissions in plain words, grouped IT / Business / Training, with per-level help; "Start from..."
+  presets (Training Manager, Training Supervisor (department), Learner, Technician, Nothing); a "This role will see"
+  sidebar preview; the Assets permission. The user form's Access tab explains how department ticks work in Training.
 - App API `GET /api/v1/me` adds `is_admin`, `limited` and `permissions` (every module with its level 0-3).
 
 ## [Unreleased] ITFlow Internal IT - Training kiosk: temporary and unlisted devices

@@ -2,10 +2,7 @@
 
 require_once '../../../includes/modal_header.php';
 
-// Assets (module_assets, DB 2.6.95+) or Tickets, assets & docs at edit level (roles audit P4).
-if (intval(lookupUserPermission('module_assets')) < 2) {
-    enforceUserPermission('module_support', 2);
-}
+enforceAssetPermission(2);   // Assets (module_assets, DB 2.6.95+) or Tickets, assets & docs, edit level (roles audit P4)
 
 $asset_id = intval($_GET['id']);
 
@@ -77,9 +74,11 @@ ob_start();
             <li class="nav-item">
                 <a class="nav-link" data-bs-toggle="pill" href="#pillsPurchaseCopy<?php echo $asset_id; ?>">Purchase</a>
             </li>
+            <?php if (lookupUserPermission('module_credential') >= 2) { // the Login tab creates a Credentials record (agent/post/asset.php) ?>
             <li class="nav-item">
                 <a class="nav-link" data-bs-toggle="pill" href="#pillsLoginCopy<?php echo $asset_id; ?>">Login</a>
             </li>
+            <?php } ?>
             <li class="nav-item">
                 <a class="nav-link" data-bs-toggle="pill" href="#pillsNotesCopy<?php echo $asset_id; ?>">Notes</a>
             </li>
@@ -425,6 +424,7 @@ ob_start();
 
             </div>
 
+            <?php if (lookupUserPermission('module_credential') >= 2) { ?>
             <div class="tab-pane fade" id="pillsLoginCopy<?php echo $asset_id; ?>">
 
                 <div class="form-group">
@@ -448,6 +448,7 @@ ob_start();
                 </div>
 
             </div>
+            <?php } ?>
 
             <div class="tab-pane fade" id="pillsNotesCopy<?php echo $asset_id; ?>">
 

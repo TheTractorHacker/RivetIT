@@ -329,7 +329,7 @@ foreach ($section_pages as $key => $pages) {
                             <span class="text-truncate">Awarded badges</span>
                         </a>
                         <?php } ?>
-                        <?php if (lookupUserPermission("module_training") >= 3) { ?>
+                        <?php if (lookupUserPermission("module_training") >= 3 && empty($session_is_admin)) { // Training level 3 without admin (admins keep Admin > Training; their sidebar is unchanged) ?>
                         <a href="/agent/training_settings.php" class="dropdown-item<?php if ($current_page == "training_settings.php") { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-sliders-h"></i></span>
                             <span class="text-truncate">Training settings</span>

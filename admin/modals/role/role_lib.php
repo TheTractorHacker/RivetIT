@@ -391,6 +391,7 @@ if (!function_exists('itflow_role_catalog')) {
             'scoped' => is_file(dirname(__DIR__, 3) . '/includes/module_access.php'),
             'on' => [
                 'ticketing' => $g('config_module_enable_ticketing') === 1,
+                'csat' => !empty($GLOBALS['config_ticket_csat_enable']),
                 'itdoc' => $g('config_module_enable_itdoc') === 1,
                 'kb' => $g('config_module_enable_kb') === 1,
                 'training' => $g('config_module_enable_training') === 1,

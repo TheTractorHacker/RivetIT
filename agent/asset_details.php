@@ -665,10 +665,12 @@ if (isset($_GET['asset_id'])) {
                                 <i class="fa fa-fw fa-recycle me-2"></i>New Recurring Ticket
                             </a>
                             <div class="dropdown-divider"></div>
+                            <?php if (itflow_modal_allowed('credential/credential_add.php')) { // needs Credentials (includes/modal_permissions.php) ?>
                             <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/credential/credential_add.php?<?= $client_url ?>asset_id=<?= $asset_id ?>">
                                 <i class="fa fa-fw fa-key me-2"></i>New Credential
                             </a>
                             <div class="dropdown-divider"></div>
+                            <?php } ?>
                             <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/document/document_add.php?<?= $client_url ?>&asset_id=<?= $asset_id ?>" data-modal-size="lg">
                                 <i class="fa fa-fw fa-file-alt me-2"></i>New Document
                             </a>
@@ -687,11 +689,13 @@ if (isset($_GET['asset_id'])) {
                                 <i class="fa fa-fw fa-cube me-2"></i>License
                             </a>
                             <div class="dropdown-divider"></div>
+                            <?php if (itflow_modal_allowed('asset/asset_link_credential.php')) { // needs Credentials ?>
                             <a class="dropdown-item text-dark ajax-modal" href="#"
                                 data-modal-url="modals/asset/asset_link_credential.php?id=<?= $asset_id ?>">
                                 <i class="fa fa-fw fa-key me-2"></i>Credential
                             </a>
                             <div class="dropdown-divider"></div>
+                            <?php } ?>
                             <a class="dropdown-item text-dark ajax-modal" href="#"
                                 data-modal-url="modals/asset/asset_link_service.php?id=<?= $asset_id ?>">
                                 <i class="fa fa-fw fa-stream me-2"></i>Service

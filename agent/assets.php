@@ -60,6 +60,7 @@ enforceAssetPermission(1);
 // $client_id per row, so by then it no longer means "this page's department".
 $page_client_id = $client_url ? intval($client_id) : 0;
 $can_inline_edit = itflow_can_assets(2);
+$assets_can_open_contacts = itflow_modal_allowed('contact/contact_details.php');   // the contact card needs Departments
 $inline_edit_data = null;
 if ($can_inline_edit) {
     $inline_edit_data = [
@@ -727,7 +728,9 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                             $contact_archive_display = '';
                         }
                         $contact_name = nullable_htmlentities($row['contact_name']);
-                        if ($contact_name) {
+                        if ($contact_name && !$assets_can_open_contacts) {
+                            $contact_name_display = "$contact_name $contact_archive_display";   // no Departments: the name, no contact card (roles audit P4)
+                        } elseif ($contact_name) {
                             $contact_name_display = "<a class='ajax-modal' href='#' data-modal-url='modals/contact/contact_details.php?id=$asset_contact_id' data-modal-size='lg'>$contact_name $contact_archive_display</a>";
                         } else {
                             $contact_name_display = "-";
@@ -862,7 +865,9 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                                         <span class="asset-inline-text<?= $contact_name ? '' : ' text-secondary' ?>"><?= $contact_name ?: '-' ?></span><?php if ($contact_name && $contact_archived_at) { ?><span class="asset-inline-note text-danger ms-1">(Archived)</span><?php } ?><i class="fas fa-caret-down asset-inline-caret"></i>
                                     </button>
                                     <?php /* The name itself is now the dropdown - this keeps the contact card one click away. */ ?>
+                                    <?php if ($assets_can_open_contacts) { ?>
                                     <a href="#" class="asset-inline-link ajax-modal<?= $contact_name ? '' : ' d-none' ?>" data-modal-url="modals/contact/contact_details.php?id=<?= $asset_contact_id ?>" data-modal-size="lg" title="Open contact card"><i class="far fa-id-card"></i></a>
+                                    <?php } ?>
                                 </td>
                                 <?php } ?>
                                 <td class="asset-inline-cell" data-field="location" data-value="<?= $asset_location_id ?>" data-label="<?= $location_name === '-' ? '' : $location_name ?>" data-archived="<?= $location_archived_at ? 1 : 0 ?>">

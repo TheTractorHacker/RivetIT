@@ -101,7 +101,7 @@ function itflow_modal_permission_map(): array {
         'files' => [
             // Asset pop-ups that are really about tickets or docs keep Tickets, assets & docs.
             'asset/asset_bulk_add_ticket.php'   => ['module_support' => 1],
-            'asset/asset_link_credential.php'   => ['module_support' => 1],
+            'asset/asset_link_credential.php'   => ['module_support' => 1, 'module_credential' => 1],   // lists credentials
             'asset/asset_link_document.php'     => ['module_support' => 1],
             'asset/asset_link_file.php'         => ['module_support' => 1],
             'asset/asset_link_service.php'      => ['module_support' => 1],
@@ -110,6 +110,14 @@ function itflow_modal_permission_map(): array {
 
             // Creates tickets for the selected departments.
             'client/client_bulk_add_ticket.php' => ['module_client' => 1, 'module_support' => 1],
+
+            // Linking a person to IT records lists those records: the person (Departments) and the records' module.
+            'contact/contact_link_asset.php'      => ['module_client' => 1, 'module_assets|module_support' => 1],
+            'contact/contact_link_credential.php' => ['module_client' => 1, 'module_credential' => 1],
+            'contact/contact_link_document.php'   => ['module_client' => 1, 'module_support' => 1],
+            'contact/contact_link_file.php'       => ['module_client' => 1, 'module_support' => 1],
+            'contact/contact_link_service.php'    => ['module_client' => 1, 'module_support' => 1],
+            'contact/contact_link_software.php'   => ['module_client' => 1, 'module_support' => 1],
 
             // Write-only forms whose buttons are already hidden from view-only roles.
             'client/client_add.php'             => ['module_client' => 2],
@@ -235,53 +243,40 @@ function itflow_modal_requirement_met(array $requirement): bool {
 
 /** Plain-language "view access to Assets or Tickets, assets & docs" for a denial message ('it_agent' is not named). */
 function itflow_modal_requirement_text(array $requirement): string {
-    $labels = [
-        'module_client' => 'Departments', 'module_support' => 'Tickets, assets & docs', 'module_assets' => 'Assets',
-        'module_credential' => 'Credentials', 'module_sales' => 'Sales', 'module_financial' => 'Finance',
-        'module_reporting' => 'Reports', 'module_kb' => 'Knowledge base',
-    ];
     $parts = [];
     foreach ($requirement as $modules => $level) {
         $names = [];
         foreach (explode('|', $modules) as $module) {
             if ($module !== 'it_agent') {
-                $names[] = function_exists('itflow_module_label') ? itflow_module_label($module) : ($labels[$module] ?? $module);
+                $names[] = itflow_module_label($module);   // includes/module_access.php
             }
         }
-        $parts[] = (intval($level) >= 2 ? 'edit' : 'view') . ' access to ' . implode(' or ', $names);
+        $parts[] = itflow_level_label(intval($level) >= 2 ? 2 : 1) . ' access to ' . implode(' or ', $names);
     }
     return implode(' and ', $parts);
 }
 
 /**
- * modal_header.php calls this for every pop-up. Denied: HTTP 403 with {"ok":false,"error":...} (the same
- * shape and status as the core lane's itflow_render_denied(), which is used when it is loaded), no flash
- * message left behind for the next page, and nothing else is sent.
+ * For pages: true when the signed-in role may open the pop-up agent/modals/$rel ("ticket/ticket_add.php"), so a
+ * page can hide a button this map would answer with 403. Same rule as itflow_modal_check().
+ */
+function itflow_modal_allowed(string $rel): bool {
+    $requirement = itflow_modal_requirement('/agent/modals/' . ltrim($rel, '/'));
+    return $requirement === null || itflow_modal_requirement_met($requirement);
+}
+
+/**
+ * modal_header.php calls this for every pop-up. Denied: HTTP 403 with {"ok":false,"error":...} through the core
+ * denial helper itflow_render_denied() (includes/module_access.php): same shape and status as every other
+ * agent-side denial, no flash message left behind for the next page, nothing else sent.
  */
 function itflow_modal_check(string $script_name): void {
     $requirement = itflow_modal_requirement($script_name);
     if ($requirement === null || itflow_modal_requirement_met($requirement)) {
         return;
     }
-
-    $title = "You don't have access to this";
-    $detail = 'Your role needs ' . itflow_modal_requirement_text($requirement) . '. Ask an administrator if you need it.';
-
-    if (function_exists('itflow_render_denied')) {
-        itflow_render_denied($detail, $title);   // exits (JSON 403 for every /modals/ path)
-    }
-
-    if (isset($_SESSION['alert_message']) && $_SESSION['alert_message'] === WORDING_ROLECHECK_FAILED) {
-        unset($_SESSION['alert_message'], $_SESSION['alert_type']);
-    }
-    while (ob_get_level() > 0) {
-        ob_end_clean();
-    }
-    if (!headers_sent()) {
-        http_response_code(403);
-        header('Content-Type: application/json');
-        header('Cache-Control: no-store');
-    }
-    echo json_encode(['ok' => false, 'error' => $title . '. ' . $detail]);
-    exit;
+    itflow_render_denied(
+        'Your role needs ' . itflow_modal_requirement_text($requirement) . '. Ask an administrator if you need it.',
+        "You don't have access to this"
+    );   // exits (JSON 403 for every /modals/ path)
 }

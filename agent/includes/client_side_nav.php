@@ -301,6 +301,7 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                         </a>
                     </li>
 
+                    <?php if (lookupUserPermission("module_support") >= 1) { // files.php needs Tickets, assets & docs (roles audit P1b) ?>
                     <li class="nav-item<?php if ($current_page == "files.php") { echo " active"; } ?>">
                         <a href="/agent/files.php?client_id=<?php echo $client_id; ?>" class="nav-link<?php if ($current_page == "files.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="fas fa-folder"></i></span>
@@ -311,6 +312,7 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                             <?php } ?>
                         </a>
                     </li>
+                    <?php } ?>
 
                 <?php } ?>
 
