@@ -1,6 +1,7 @@
 <?php
 
 require_once '../../../includes/modal_header.php';
+require_once __DIR__ . '/../role/role_lib.php';
 
 $user_id = intval($_GET['id']);
 
@@ -234,9 +235,7 @@ ob_start();
 
             <div class="tab-pane fade" id="pills-user-access<?php echo $user_id; ?>">
 
-                <div class="alert alert-info py-2 px-3 small">
-                    Check boxes to authorize user department access. No boxes grant full department access. Admin users are unaffected.
-                </div>
+                <?php itflow_role_access_help_render($mysqli, 'user_edit_role' . $user_id); ?>
 
                 <?php
                 $sql_client_select = mysqli_query($mysqli, "SELECT * FROM clients WHERE client_archived_at IS NULL ORDER BY client_name ASC");

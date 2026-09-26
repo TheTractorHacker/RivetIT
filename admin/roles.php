@@ -5,6 +5,7 @@ $sort = "role_is_admin";
 $order = "DESC";
 
 require_once "includes/inc_all_admin.php";
+require_once "modals/role/role_lib.php";
 
 $sql = mysqli_query(
     $mysqli,
@@ -23,7 +24,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
             <h3 class="card-title mt-2"><i class="fas fa-fw fa-user-shield me-2"></i>Roles</h3>
             <div class="card-tools">
                 <div class="btn-group">
-                    <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/role/role_add.php">
+                    <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/role/role_add.php" data-modal-size="lg">
                         <i class="fas fa-fw fa-user-plus me-2"></i>New Role
                     </button>
                 </div>
@@ -80,9 +81,14 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         $user_names = [];
 
                         // Fetch each row and store the user_name in the array
-                        while($row = mysqli_fetch_assoc($sql_users)) {
-                            $user_names[] = nullable_htmlentities($row['user_name']);
+                        while($row_user = mysqli_fetch_assoc($sql_users)) {
+                            $user_names[] = nullable_htmlentities($row_user['user_name']);
                         }
+
+                        // The last administrator role that still has an active user can't be edited
+                        // or archived from here (admin/post/roles.php refuses it too). Keyed on the
+                        // admin flag, not on a role id: ids differ between installs.
+                        $role_locked = $role_admin && itflow_role_other_admin_roles($mysqli, $role_id) === 0;
 
                         // Convert the array of user names to a comma-separated string
                         $user_names_string = implode(",", $user_names);
@@ -94,7 +100,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         ?>
                         <tr>
                             <td>
-                                <a class="<?php if ($role_id !== 3) { ?> ajax-modal" data-modal-url="modals/role/role_edit.php?id=<?= $role_id ?>" <?php } ?> href="#">
+                                <?php if (!$role_locked) { ?>
+                                <a class="ajax-modal" data-modal-url="modals/role/role_edit.php?id=<?= $role_id ?>" data-modal-size="lg" href="#">
+                                <?php } ?>
                                     <div class="media">
                                         <i class="fas fa-fw fa-2x fa-user-shield text-dark me-2"></i>
                                         <div class="media-body">
@@ -102,12 +110,18 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                             <div><small class="text-secondary"><?= $role_description ?></small></div>
                                         </div>
                                     </div>
+                                <?php if (!$role_locked) { ?>
                                 </a>
+                                <?php } ?>
                             </td>
                             <td><?php echo $user_names_string; ?></td>
                             <td><?php echo $role_admin ? 'Yes' : 'No' ; ?></td>
                             <td>
-                                <?php if ($role_id !== 3) { ?>
+                                <?php if ($role_locked) { ?>
+                                    <div class="text-center text-secondary" data-bs-toggle="tooltip" title="The only administrator role with an active user. It always has full access and can't be edited or archived until another role has admin access.">
+                                        <i class="fas fa-lock" aria-hidden="true"></i><span class="visually-hidden">Protected: the only administrator role with an active user</span>
+                                    </div>
+                                <?php } else { ?>
                                     <div class="dropdown dropleft text-center">
                                         <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown">
                                             <i class="fas fa-ellipsis-h"></i>
@@ -115,7 +129,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                         <div class="dropdown-menu">
 
                                             <a class="dropdown-item ajax-modal" href="#"
-                                                data-modal-url="modals/role/role_edit.php?id=<?= $role_id ?>">
+                                                data-modal-url="modals/role/role_edit.php?id=<?= $role_id ?>" data-modal-size="lg">
                                                 <i class="fas fa-fw fa-user-edit me-2"></i>Edit
                                             </a>
 
