@@ -405,7 +405,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
             LEFT JOIN ticket_schedules ts ON ts.schedule_ticket_id = t.ticket_id
             LEFT JOIN ticket_statuses st ON t.ticket_status = st.ticket_status_id
             LEFT JOIN users u ON u.user_id = ts.schedule_tech_id
-            $client_query $access_permission_query AND ts.schedule_archived_at IS NULL");
+            " . str_replace('clients.client_id', 'c.client_id', "$client_query $access_permission_query") . " AND ts.schedule_archived_at IS NULL");   // clients is aliased c here: the department filter used to fatal for department-restricted users
             while ($sql_ts && $row = mysqli_fetch_assoc($sql_ts)) {
                 $event_id  = intval($row['ticket_id']) * 100000 + intval($row['schedule_id']);
                 $tech_name = $row['user_name'] ? substr($row['user_name'], 0, 9) . '...' : '';
