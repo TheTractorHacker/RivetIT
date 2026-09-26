@@ -13,9 +13,15 @@
  * settings shouldn't be surfaced as a search result either.
  *
  * An entry for a page with in-page sections may carry 'sections' (anchor,
- * label, keywords): their words match the entry too, and a query that hits
- * a section's label or words opens the page at '#anchor', titled
- * "Page › Section". Still one result per page.
+ * label, keywords), and a section may carry 'parts': cards inside it with
+ * their own anchor, label and keywords. Their words match the entry too, and
+ * the result opens the most specific place the query names:
+ *   - the entry's own label or keywords -> the page itself;
+ *   - else the first section whose label or keywords hold it -> '#anchor',
+ *     titled "Page › Section";
+ *   - else the first part whose label or keywords hold it -> that card's
+ *     '#anchor', titled "Page › Card".
+ * Still one result per page.
  */
 
 function getSettingsSearchIndex(): array {
@@ -39,14 +45,26 @@ function getSettingsSearchIndex(): array {
         ['label' => 'Outlook Calendar Sync',   'keywords' => ['outlook', 'calendar', 'azure', 'sync', 'appointment'],                   'url' => '/admin/settings_calendar_sync.php',      'visible' => true],
         ['label' => 'Telemetry',               'keywords' => ['telemetry', 'analytics', 'usage data'],                                 'url' => '/admin/settings_telemetry.php',          'visible' => true],
         ['label' => 'Modules',                 'keywords' => ['module', 'documentation', 'knowledge base', 'live chat', 'department portal', 'enable'], 'url' => '/admin/settings_module.php', 'visible' => true],
-        // One page, five sections: a query that matches a section's words opens that section.
-        ['label' => 'Training',                'keywords' => ['training', 'lms', 'training settings'], 'url' => '/admin/settings_training.php', 'visible' => true,
+        // One page, five sections (formerly three pages: 'Training (LMS)', 'Training compliance' and
+        // 'Training kiosk'; those names still find it). A query opens the section or card it names.
+        ['label' => 'Training',                'keywords' => ['training', 'lms', 'training settings', 'training (lms)'], 'url' => '/admin/settings_training.php', 'visible' => true,
          'sections' => [
-            ['anchor' => 'general',    'label' => 'General & media',          'keywords' => ['course', 'quiz', 'safety', 'language', 'spanish', 'pass mark', 'attempts', 'attestation', 'media', 'upload', 'video', 'pdf', 'youtube', 'api key', 'storage', 'budget', 'purge', 'backup size']],
-            ['anchor' => 'compliance', 'label' => 'Compliance & assignments', 'keywords' => ['compliance', 'assignment', 'due soon', 'reissue', 'reopen', 'target', 'evidence', 'hire date', 'certificate', 'recalculate', 'reconcile', 'snapshot']],
-            ['anchor' => 'odoo',       'label' => 'Employee links (Odoo)',    'keywords' => ['odoo', 'employee link', 'links', 'relink', 'unlink', 'accept target', 'directory sync', 'nightly sync', 'sync']],
-            ['anchor' => 'kiosk',      'label' => 'Kiosk & sign-in',          'keywords' => ['kiosk', 'ipad', 'pin', 'odoo pin', 'lockout', 'idle', 'sign-in', 'sign in', 'setup slip', 'setup code']],
-            ['anchor' => 'ledger',     'label' => 'Records ledger',           'keywords' => ['ledger', 'integrity', 'verify', 'tamper', 'hash']],
+            ['anchor' => 'general',    'label' => 'General & media',          'keywords' => ['course', 'quiz', 'safety', 'language', 'spanish', 'pass mark', 'attempts', 'attestation'],
+             'parts' => [
+                ['anchor' => 'media-limits',  'label' => 'Media limits',         'keywords' => ['upload', 'video', 'pdf', 'image', 'file size', 'media budget']],
+                ['anchor' => 'youtube',       'label' => 'YouTube Data API key', 'keywords' => ['youtube', 'api key']],
+                ['anchor' => 'media-storage', 'label' => 'Media storage',        'keywords' => ['purge', 'unreferenced', 'backup size', 'disk']],
+             ]],
+            ['anchor' => 'compliance', 'label' => 'Compliance & assignments', 'keywords' => ['training compliance', 'assignment', 'due soon', 'reissue', 'reopen', 'target', 'evidence', 'hire date', 'certificate'],
+             'parts' => [
+                ['anchor' => 'maintenance',   'label' => 'Maintenance',          'keywords' => ['recalculate', 'reconcile', 'snapshot']],
+             ]],
+            ['anchor' => 'odoo',       'label' => 'Employee links (Odoo)',    'keywords' => ['employee link', 'links', 'relink', 'unlink', 'accept target'],
+             'parts' => [
+                ['anchor' => 'odoo-sync',     'label' => 'Nightly Odoo directory sync', 'keywords' => ['nightly sync', 'directory sync']],
+             ]],
+            ['anchor' => 'kiosk',      'label' => 'Kiosk & sign-in',          'keywords' => ['training kiosk', 'ipad', 'pin', 'odoo pin', 'lockout', 'idle', 'sign-in', 'sign in', 'setup slip', 'setup code']],
+            ['anchor' => 'ledger',     'label' => 'Records ledger',           'keywords' => ['integrity', 'verify', 'tamper', 'hash']],
          ]],
         ['label' => 'Webhooks',                'keywords' => ['webhook', 'api', 'delivery log'],                                       'url' => '/admin/settings_webhooks.php',           'visible' => true],
         ['label' => 'RMM Integration',         'keywords' => ['rmm', 'remote monitoring', 'tactical', 'level.io', 'sophos', 'action1', 'connectwise'], 'url' => '/admin/settings_integrations.php?tab=rmm', 'visible' => true],
@@ -88,21 +106,26 @@ function searchSettingsIndex(string $query, int $limit = 5): array {
         }
         $title = $entry['label'];
         $url = $entry['url'];
-        $haystack = mb_strtolower($entry['label'] . ' ' . implode(' ', $entry['keywords']));
-        $section_hit = null;
-        foreach ($entry['sections'] ?? [] as $section) {
-            $section_text = mb_strtolower($section['label'] . ' ' . implode(' ', $section['keywords']));
-            $haystack .= ' ' . $section_text;
-            if ($section_hit === null && mb_strpos($section_text, $needle) !== false) {
-                $section_hit = $section;
+        if (mb_strpos(mb_strtolower($entry['label'] . ' ' . implode(' ', $entry['keywords'])), $needle) === false) {
+            // Not the page's own name: the first section, then the first card, that the query names.
+            $spots = $entry['sections'] ?? [];
+            foreach ($entry['sections'] ?? [] as $section) {
+                foreach ($section['parts'] ?? [] as $part) {
+                    $spots[] = $part;
+                }
             }
-        }
-        if (mb_strpos($haystack, $needle) === false) {
-            continue;
-        }
-        if ($section_hit !== null) {
-            $title .= ' › ' . $section_hit['label'];
-            $url .= '#' . $section_hit['anchor'];
+            $hit = null;
+            foreach ($spots as $spot) {
+                if (mb_strpos(mb_strtolower($spot['label'] . ' ' . implode(' ', $spot['keywords'])), $needle) !== false) {
+                    $hit = $spot;
+                    break;
+                }
+            }
+            if ($hit === null) {
+                continue;
+            }
+            $title .= ' › ' . $hit['label'];
+            $url .= '#' . $hit['anchor'];
         }
         $matches[] = [
             'title' => $title,

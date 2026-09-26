@@ -7,8 +7,9 @@ require_once "includes/inc_all_admin.php";
  *
  * Sections, in page order, each with an anchor that the section nav, deep links, notifications
  * and the post handler's redirects use:
- *   #general     General & media (spec §5.11): module status, defaults, media limits, the YouTube
- *                key (#youtube) and media storage with the unreferenced-media purge (#media-storage).
+ *   #general     General & media (spec §5.11): module status, defaults, media limits (#media-limits),
+ *                the YouTube key (#youtube) and media storage with the unreferenced-media purge
+ *                (#media-storage).
  *   #compliance  Compliance & assignments (Phase 2 spec §5.3, M15 card 1): due-soon / reissue /
  *                reopen-window days, target %, evidence cap, the opt-in hire-date fill; and
  *                maintenance (#maintenance): Recalculate assignments now, Capture today's snapshot.
@@ -28,8 +29,11 @@ require_once "includes/inc_all_admin.php";
  * itself and requires admin/post/settings_training_compliance.php and settings_training_kiosk.php
  * for the rest; it returns each action to its section's anchor.
  *
- * The section nav is plain anchor links; the small script below only marks the section in view.
- * Nothing is stored in the browser.
+ * The section nav is plain anchor links; the first script below only marks the section in view.
+ * Each form saves on its own, so the second script guards unsaved changes: saving one form while
+ * another has edits asks first (confirm), leaving the page with edits asks too (beforeunload), and
+ * the nav marks sections with edits. Both scripts keep their state in memory; nothing is stored in
+ * the browser. Forms that hold settings name themselves for that prompt with data-ts-label.
  */
 
 use ITFlow\Training\Core\Clock;
@@ -368,6 +372,8 @@ $ts_module_on = !empty($config_module_enable_training);
     .ts-nav a:hover { color: var(--if-ink, #16232a); background: rgba(var(--if-primary-rgb, 13, 148, 136), .06); }
     .ts-nav a:focus-visible { outline: 2px solid var(--if-primary, #0d9488); outline-offset: 1px; }
     .ts-nav a[aria-current="true"] { color: var(--if-primary, #0d9488); background: rgba(var(--if-primary-rgb, 13, 148, 136), .12); }
+    /* A section with unsaved edits (set by the unsaved-changes script; the link also gets a hidden " (unsaved changes)"). */
+    .ts-nav a.ts-dirty::after { content: ""; flex: 0 0 auto; width: .5rem; height: .5rem; border-radius: 50%; background: var(--tblr-warning, #f59f00); }
     .ts-section + .ts-section { margin-top: 2.25rem; }
     .ts-section-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: .5rem 1rem;
         margin-bottom: .9rem; padding-bottom: .6rem; border-bottom: 1px solid var(--if-border-strong, #d3dbdc); }
@@ -382,6 +388,7 @@ $ts_module_on = !empty($config_module_enable_training);
     <div>
         <h1 class="h2"><i class="fas fa-fw fa-hard-hat me-2" aria-hidden="true"></i>Training</h1>
         <p class="small">Every setting for the Training module on one page. Pick a section, or scroll.</p>
+        <p class="small"><i class="fas fa-fw fa-info-circle me-1" aria-hidden="true"></i>Each section saves on its own.</p>
     </div>
     <?php if ($ts_module_on && $tr_pages_ready) { ?>
         <div class="d-flex flex-wrap gap-2">
@@ -453,7 +460,7 @@ $ts_module_on = !empty($config_module_enable_training);
     </div>
 </div>
 
-<form action="post.php" method="post" autocomplete="off" id="trSettingsForm">
+<form action="post.php" method="post" autocomplete="off" id="trSettingsForm" data-ts-label="General &amp; media">
     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
 
     <!-- Defaults -------------------------------------------------------------------------- -->
@@ -496,7 +503,7 @@ $ts_module_on = !empty($config_module_enable_training);
     </div>
 
     <!-- Media limits ---------------------------------------------------------------------- -->
-    <div class="card mb-3">
+    <div class="card mb-3" id="media-limits">
         <div class="card-header py-3">
             <h3 class="card-title"><i class="fas fa-fw fa-photo-video me-2"></i>Media limits</h3>
         </div>
@@ -579,7 +586,7 @@ $ts_module_on = !empty($config_module_enable_training);
     </div>
 
     <div class="mb-4">
-        <button type="submit" name="edit_training_settings" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
+        <button type="submit" name="edit_training_settings" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save general &amp; media</button>
     </div>
 </form>
 
@@ -651,7 +658,7 @@ $ts_module_on = !empty($config_module_enable_training);
             <?php if ($tr_unreferenced) { ?>
                 <details>
                     <summary class="btn btn-outline-danger btn-sm mb-2">Review &amp; purge&hellip;</summary>
-                    <form action="post.php" method="post" autocomplete="off">
+                    <form action="post.php" method="post" autocomplete="off" data-ts-label="Media purge">
                         <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
                         <div class="table-responsive" style="max-height: 320px;">
                             <table class="table table-sm table-striped mb-2">
@@ -726,7 +733,7 @@ $ts_module_on = !empty($config_module_enable_training);
 <?php } ?>
 
 <!-- Compliance defaults ------------------------------------------------------------------------- -->
-<form action="post.php" method="post" autocomplete="off">
+<form action="post.php" method="post" autocomplete="off" data-ts-label="Compliance defaults">
     <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tc_csrf); ?>">
     <input type="hidden" name="tc_section" value="defaults">
     <div class="card mb-3">
@@ -772,7 +779,7 @@ $ts_module_on = !empty($config_module_enable_training);
                     <div class="form-text">Leave empty so long-serving staff are not marked as new hires. Only empty hire dates are filled, on the next directory sync.</div>
                 </div>
             </div>
-            <button type="submit" name="edit_training_compliance_settings" class="btn btn-primary"><i class="fas fa-check me-2"></i>Save defaults</button>
+            <button type="submit" name="edit_training_compliance_settings" class="btn btn-primary"><i class="fas fa-check me-2"></i>Save compliance defaults</button>
         </div>
     </div>
 </form>
@@ -892,7 +899,7 @@ $ts_module_on = !empty($config_module_enable_training);
                 </div>
                 <details class="mb-3">
                     <summary class="btn btn-outline-danger btn-sm">Accept new Odoo target&hellip;</summary>
-                    <form action="post.php" method="post" autocomplete="off" class="mt-2">
+                    <form action="post.php" method="post" autocomplete="off" class="mt-2" data-ts-label="Accept new Odoo target">
                         <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tc_csrf); ?>">
                         <p class="small text-muted mb-2">Only when the new Odoo database holds the same employees under the same ids (for example a refreshed copy).
                             The next directory sync then updates names and departments from it, and Odoo PIN sign-in is allowed again for links that check out.</p>
@@ -1026,7 +1033,7 @@ $ts_module_on = !empty($config_module_enable_training);
 </div>
 
 <!-- Nightly Odoo directory sync ------------------------------------------------------------------ -->
-<form action="post.php" method="post" autocomplete="off" id="odoo-sync">
+<form action="post.php" method="post" autocomplete="off" id="odoo-sync" data-ts-label="Nightly Odoo directory sync">
     <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tc_csrf); ?>">
     <input type="hidden" name="tc_section" value="odoo_sync">
     <div class="card mb-3">
@@ -1056,7 +1063,7 @@ $ts_module_on = !empty($config_module_enable_training);
                     <?php } ?>
                 </dd>
             </dl>
-            <button type="submit" name="edit_training_compliance_settings" class="btn btn-primary"><i class="fas fa-check me-2"></i>Save</button>
+            <button type="submit" name="edit_training_compliance_settings" class="btn btn-primary"><i class="fas fa-check me-2"></i>Save nightly sync</button>
         </div>
     </div>
 </form>
@@ -1116,7 +1123,7 @@ $ts_module_on = !empty($config_module_enable_training);
     </div>
 </div>
 
-<form action="post.php" method="post" autocomplete="off" id="tkSettingsForm">
+<form action="post.php" method="post" autocomplete="off" id="tkSettingsForm" data-ts-label="Kiosk &amp; sign-in">
     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
 
     <?php foreach ($tk_groups as $tk_g) { ?>
@@ -1284,6 +1291,97 @@ $ts_module_on = !empty($config_module_enable_training);
     window.addEventListener('resize', onScroll);
     window.addEventListener('hashchange', onScroll);
     mark();
+})();
+</script>
+
+<script nonce="<?php echo nullable_htmlentities($csp_nonce ?? ''); ?>">
+// Unsaved changes. Every form on this page saves on its own, so a Save in one section would drop
+// edits made in another without a word. A form counts as changed while its fields differ from how
+// the page loaded them (typing a value back undoes it). Submitting one form while another has
+// changes asks first; leaving the page with changes asks too; the section nav marks sections with
+// changes. Everything is kept in memory; nothing is stored in the browser.
+(function () {
+    var page = document.querySelector('.ts-page');
+    if (!page) { return; }
+    var nav = document.getElementById('tsNav');
+
+    // The fields a person can change: hidden inputs (CSRF, section markers) and buttons never count.
+    function state(form) {
+        var out = [];
+        Array.prototype.forEach.call(form.elements, function (el) {
+            var t = (el.type || '').toLowerCase();
+            if (!el.name || el.disabled || t === 'hidden' || t === 'submit' || t === 'button' || t === 'reset' || t === 'file') { return; }
+            out.push(el.name + '=' + ((t === 'checkbox' || t === 'radio') ? (el.checked ? 'on:' + el.value : 'off') : el.value));
+        });
+        return out.length ? out.join('\n') : null;
+    }
+    function label(form) {
+        var named = form.getAttribute('data-ts-label');
+        if (named) { return named; }
+        var h = form.closest('section') && form.closest('section').querySelector('h2');
+        return h ? h.textContent.trim() : 'another part of this page';
+    }
+
+    var initial = new Map();
+    Array.prototype.forEach.call(page.querySelectorAll('form'), function (f) {
+        var s = state(f);
+        if (s !== null) { initial.set(f, s); }
+    });
+    var dirty = new Set();
+
+    function paint() {
+        if (!nav) { return; }
+        Array.prototype.forEach.call(nav.querySelectorAll('a[href^="#"]'), function (a) {
+            var section = document.getElementById(a.getAttribute('href').slice(1));
+            var has = false;
+            dirty.forEach(function (f) { if (section && section.contains(f)) { has = true; } });
+            var note = a.querySelector('.ts-dirty-note');
+            a.classList.toggle('ts-dirty', has);
+            if (has && !note) {
+                note = document.createElement('span');
+                note.className = 'visually-hidden ts-dirty-note';
+                note.textContent = ' (unsaved changes)';
+                a.appendChild(note);
+            } else if (!has && note) {
+                note.remove();
+            }
+        });
+    }
+    function refresh(e) {
+        var form = e.target && e.target.form;   // .form follows a form="" attribute too
+        if (!form || !initial.has(form)) { return; }
+        if (state(form) === initial.get(form)) { dirty.delete(form); } else { dirty.add(form); }
+        paint();
+    }
+    document.addEventListener('input', refresh);
+    document.addEventListener('change', refresh);
+
+    var leaving = false;
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (e.defaultPrevented || !page.contains(form)) { return; }   // other forms (e.g. search) leave the page: beforeunload asks
+        var others = [];
+        dirty.forEach(function (f) {
+            var l = label(f);
+            if (f !== form && others.indexOf(l) === -1) { others.push(l); }
+        });
+        if (others.length) {
+            var names = others.length === 1 ? others[0] : others.slice(0, -1).join(', ') + ' and ' + others[others.length - 1];
+            if (!window.confirm('Unsaved changes in ' + names + ' will be lost.\n\nPress OK to continue anyway, or Cancel to go back and save them first.')) {
+                e.preventDefault();
+                return;
+            }
+        }
+        leaving = true;   // this submit may drop the changes it asked about: no second prompt on unload
+        window.setTimeout(function () { if (e.defaultPrevented) { leaving = false; } }, 0);
+    });
+    window.addEventListener('beforeunload', function (e) {
+        if (leaving || dirty.size === 0) { return undefined; }
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+    });
+    window.addEventListener('pageshow', function (e) { if (e.persisted) { leaving = false; } });
 })();
 </script>
 
