@@ -17,6 +17,8 @@
  *       button they can see today.
  *   ['module_assets|module_support' => 1]
  *       "|" means any one of them. Several keys mean all of them.
+ *   'it_agent' (only inside a "|" list): Departments or Tickets, assets & docs at that level - a full IT
+ *       agent. Used only as the legacy fallback below and never named in denial messages.
  *   []  Any signed-in agent (the file filters its own rows, e.g. your own notifications).
  *
  * WHY SOME FOLDERS LIST MORE THAN ONE MODULE
@@ -24,9 +26,9 @@
  *     Until that migration runs, lookupUserPermission('module_assets') is false and only module_support
  *     counts.
  *   - Finance and knowledge-base pop-ups were open to every agent before this map. Their own module comes
- *     first; "module_client|module_support" keeps them for full IT agents (the Technician role holds
- *     neither Finance nor Knowledge base, and must see exactly what it saw before). The pages and the save
- *     handlers still require Finance / Knowledge base. Module-only logins (Training, Sales, ...) are denied.
+ *     first; "it_agent" keeps them for full IT agents (the Technician role holds neither Finance nor
+ *     Knowledge base, and must see exactly what it saw before). The pages and the save handlers still
+ *     require Finance / Knowledge base. Module-only logins (Training, Sales, ...) are denied.
  *
  * A FILE WITH NO ENTRY needs Departments or Tickets, assets & docs or Assets (not a module-only login),
  * and is logged to the PHP error log so the gap gets noticed.
@@ -37,8 +39,8 @@
 
 function itflow_modal_permission_map(): array {
     // Finance / knowledge base: own module first, then the "full IT agent" fallback (see above).
-    $finance = ['module_financial|module_client|module_support' => 1];
-    $kb      = ['module_kb|module_client|module_support' => 1];
+    $finance = ['module_financial|it_agent' => 1];
+    $kb      = ['module_kb|it_agent' => 1];
     $assets  = ['module_assets|module_support' => 1];
 
     return [
@@ -195,8 +197,11 @@ function itflow_modal_requirement(string $script_name): ?array {
     return ITFLOW_MODAL_DEFAULT_REQUIREMENT;
 }
 
-/** The signed-in role's level for $module as an int (admin = 3, none = 0). */
+/** The signed-in role's level for $module as an int (admin = 3, none = 0); 'it_agent' = Departments or Tickets. */
 function itflow_modal_level(string $module): int {
+    if ($module === 'it_agent') {
+        return max(intval(lookupUserPermission('module_client')), intval(lookupUserPermission('module_support')));
+    }
     return intval(lookupUserPermission($module));
 }
 
@@ -221,7 +226,7 @@ function itflow_modal_requirement_met(array $requirement): bool {
     return true;
 }
 
-/** Plain-language "view access to Tickets, assets & docs" for a denial message (names each key's first module). */
+/** Plain-language "view access to Assets or Tickets, assets & docs" for a denial message ('it_agent' is not named). */
 function itflow_modal_requirement_text(array $requirement): string {
     $labels = [
         'module_client' => 'Departments', 'module_support' => 'Tickets, assets & docs', 'module_assets' => 'Assets',
@@ -230,9 +235,13 @@ function itflow_modal_requirement_text(array $requirement): string {
     ];
     $parts = [];
     foreach ($requirement as $modules => $level) {
-        $first = explode('|', $modules)[0];
-        $name = function_exists('itflow_module_label') ? itflow_module_label($first) : ($labels[$first] ?? $first);
-        $parts[] = (intval($level) >= 2 ? 'edit' : 'view') . ' access to ' . $name;
+        $names = [];
+        foreach (explode('|', $modules) as $module) {
+            if ($module !== 'it_agent') {
+                $names[] = function_exists('itflow_module_label') ? itflow_module_label($module) : ($labels[$module] ?? $module);
+            }
+        }
+        $parts[] = (intval($level) >= 2 ? 'edit' : 'view') . ' access to ' . implode(' or ', $names);
     }
     return implode(' and ', $parts);
 }
