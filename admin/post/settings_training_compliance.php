@@ -1,11 +1,13 @@
 <?php
 
 /*
- * Handler for admin/settings_training_compliance.php (Phase 2 spec §5.3).
+ * Compliance & assignments and Employee links (Odoo) actions of admin/settings_training.php
+ * (Phase 2 spec §5.3; a page of its own, settings_training_compliance.php, until 2026-09-26).
  *
- * The filename is load-bearing: admin/post.php derives the module from the basename of the
- * HTTP referer, so this file must stay named after the page that posts to it. admin/post.php
- * only includes it for admins.
+ * Required by admin/post/settings_training.php, which admin/post.php includes (admins only) for
+ * every form on the merged page and which points redirect() at the right section first.
+ * admin/post.php also includes this file directly for a POST whose Referer is the old page URL
+ * (it now 302s to settings_training.php#compliance), so keep the filename.
  *
  * Actions: edit_training_compliance_settings, training_odoo_link_check, training_odoo_accept_target,
  * training_odoo_link_relink, training_odoo_link_unlink, training_odoo_link_confirm,

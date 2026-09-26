@@ -11,6 +11,17 @@
  * admin/includes/side_nav.php already uses to hide a settings page/section
  * when the feature it configures is turned off - a disabled module's
  * settings shouldn't be surfaced as a search result either.
+ *
+ * An entry for a page with in-page sections may carry 'sections' (anchor,
+ * label, keywords), and a section may carry 'parts': cards inside it with
+ * their own anchor, label and keywords. Their words match the entry too, and
+ * the result opens the most specific place the query names:
+ *   - the entry's own label or keywords -> the page itself;
+ *   - else the first section whose label or keywords hold it -> '#anchor',
+ *     titled "Page › Section";
+ *   - else the first part whose label or keywords hold it -> that card's
+ *     '#anchor', titled "Page › Card".
+ * Still one result per page.
  */
 
 function getSettingsSearchIndex(): array {
@@ -34,9 +45,27 @@ function getSettingsSearchIndex(): array {
         ['label' => 'Outlook Calendar Sync',   'keywords' => ['outlook', 'calendar', 'azure', 'sync', 'appointment'],                   'url' => '/admin/settings_calendar_sync.php',      'visible' => true],
         ['label' => 'Telemetry',               'keywords' => ['telemetry', 'analytics', 'usage data'],                                 'url' => '/admin/settings_telemetry.php',          'visible' => true],
         ['label' => 'Modules',                 'keywords' => ['module', 'documentation', 'knowledge base', 'live chat', 'department portal', 'enable'], 'url' => '/admin/settings_module.php', 'visible' => true],
-        ['label' => 'Training (LMS)',          'keywords' => ['training', 'lms', 'course', 'quiz', 'safety', 'ledger', 'youtube', 'media'], 'url' => '/admin/settings_training.php', 'visible' => true],
-        ['label' => 'Training compliance', 'keywords' => ['training','compliance','assignment','odoo','sync','links','hire date','snapshot','certificate'], 'url' => '/admin/settings_training_compliance.php', 'visible' => true],
-        ['label' => 'Training kiosk',          'keywords' => ['kiosk', 'ipad', 'pin', 'lockout', 'idle', 'odoo pin'], 'url' => '/admin/settings_training_kiosk.php', 'visible' => true],
+        // One page, five sections (formerly three pages: 'Training (LMS)', 'Training compliance' and
+        // 'Training kiosk'; those names still find it). A query opens the section or card it names.
+        ['label' => 'Training',                'keywords' => ['training', 'lms', 'training settings', 'training (lms)'], 'url' => '/admin/settings_training.php', 'visible' => true,
+         'sections' => [
+            ['anchor' => 'general',    'label' => 'General & media',          'keywords' => ['course', 'quiz', 'safety', 'language', 'spanish', 'pass mark', 'attempts', 'attestation'],
+             'parts' => [
+                ['anchor' => 'media-limits',  'label' => 'Media limits',         'keywords' => ['upload', 'video', 'pdf', 'image', 'file size', 'media budget']],
+                ['anchor' => 'youtube',       'label' => 'YouTube Data API key', 'keywords' => ['youtube', 'api key']],
+                ['anchor' => 'media-storage', 'label' => 'Media storage',        'keywords' => ['purge', 'unreferenced', 'backup size', 'disk']],
+             ]],
+            ['anchor' => 'compliance', 'label' => 'Compliance & assignments', 'keywords' => ['training compliance', 'assignment', 'due soon', 'reissue', 'reopen', 'target', 'evidence', 'hire date', 'certificate'],
+             'parts' => [
+                ['anchor' => 'maintenance',   'label' => 'Maintenance',          'keywords' => ['recalculate', 'reconcile', 'snapshot']],
+             ]],
+            ['anchor' => 'odoo',       'label' => 'Employee links (Odoo)',    'keywords' => ['employee link', 'links', 'relink', 'unlink', 'accept target'],
+             'parts' => [
+                ['anchor' => 'odoo-sync',     'label' => 'Nightly Odoo directory sync', 'keywords' => ['nightly sync', 'directory sync']],
+             ]],
+            ['anchor' => 'kiosk',      'label' => 'Kiosk & sign-in',          'keywords' => ['training kiosk', 'ipad', 'pin', 'odoo pin', 'lockout', 'idle', 'sign-in', 'sign in', 'setup slip', 'setup code']],
+            ['anchor' => 'ledger',     'label' => 'Records ledger',           'keywords' => ['integrity', 'verify', 'tamper', 'hash']],
+         ]],
         ['label' => 'Webhooks',                'keywords' => ['webhook', 'api', 'delivery log'],                                       'url' => '/admin/settings_webhooks.php',           'visible' => true],
         ['label' => 'RMM Integration',         'keywords' => ['rmm', 'remote monitoring', 'tactical', 'level.io', 'sophos', 'action1', 'connectwise'], 'url' => '/admin/settings_integrations.php?tab=rmm', 'visible' => true],
         ['label' => 'Backups Integration',     'keywords' => ['backup', 'comet'],                                                      'url' => '/admin/settings_integrations.php?tab=backups', 'visible' => true],
@@ -75,14 +104,33 @@ function searchSettingsIndex(string $query, int $limit = 5): array {
         if (!$entry['visible']) {
             continue;
         }
-        $haystack = mb_strtolower($entry['label'] . ' ' . implode(' ', $entry['keywords']));
-        if (mb_strpos($haystack, $needle) === false) {
-            continue;
+        $title = $entry['label'];
+        $url = $entry['url'];
+        if (mb_strpos(mb_strtolower($entry['label'] . ' ' . implode(' ', $entry['keywords'])), $needle) === false) {
+            // Not the page's own name: the first section, then the first card, that the query names.
+            $spots = $entry['sections'] ?? [];
+            foreach ($entry['sections'] ?? [] as $section) {
+                foreach ($section['parts'] ?? [] as $part) {
+                    $spots[] = $part;
+                }
+            }
+            $hit = null;
+            foreach ($spots as $spot) {
+                if (mb_strpos(mb_strtolower($spot['label'] . ' ' . implode(' ', $spot['keywords'])), $needle) !== false) {
+                    $hit = $spot;
+                    break;
+                }
+            }
+            if ($hit === null) {
+                continue;
+            }
+            $title .= ' › ' . $hit['label'];
+            $url .= '#' . $hit['anchor'];
         }
         $matches[] = [
-            'title' => $entry['label'],
+            'title' => $title,
             'subtitle' => 'Settings',
-            'url' => $entry['url'],
+            'url' => $url,
         ];
         if (count($matches) >= $limit) {
             break;

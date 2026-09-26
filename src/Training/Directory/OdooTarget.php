@@ -14,7 +14,7 @@ use ITFlow\Training\Core\Db;
  */
 final class OdooTarget
 {
-    public const CHANGED_MESSAGE = 'The Odoo connection now points at a different database. Open Admin > Training compliance and run Check now first.';
+    public const CHANGED_MESSAGE = 'The Odoo connection now points at a different database. Open Admin > Training > Employee links (Odoo) and run Check now first.';
 
     /** Frozen: identical to the 2.6.92 migration's $tr_sha expression. */
     public static function sha(?string $baseUrl, ?string $database): string

@@ -229,29 +229,18 @@
 
                 <?php
                 /*
-                 * Admin > Training (LMS) settings. Not gated on $config_module_enable_training:
-                 * the module is switched on from Settings > Modules or this page, so hiding the
-                 * link while the module is off would make it unreachable exactly when it is needed
-                 * (same reasoning as the Knowledge Base link above).
+                 * Admin > Training: every Training setting on one page (general & media, compliance,
+                 * Odoo employee links, kiosk, records ledger). The old settings_training_compliance.php
+                 * and settings_training_kiosk.php URLs redirect into its sections. Not gated on
+                 * $config_module_enable_training: the module is switched on from Settings > Modules or
+                 * this page, so hiding the link while the module is off would make it unreachable
+                 * exactly when it is needed (same reasoning as the Knowledge Base link above).
                  */
                 ?>
                 <li class="nav-item<?php echo (basename($_SERVER['PHP_SELF']) == 'settings_training.php' ? ' active' : ''); ?>">
                     <a href="/admin/settings_training.php" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_training.php' ? 'active' : ''); ?>">
                         <span class="nav-link-icon"><i class="fas fa-hard-hat"></i></span>
                         <span class="nav-link-title">Training</span>
-                    </a>
-                </li>
-                <li class="nav-item<?php echo (basename($_SERVER['PHP_SELF']) == 'settings_training_compliance.php' ? ' active' : ''); ?>">
-                    <a href="/admin/settings_training_compliance.php" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_training_compliance.php' ? 'active' : ''); ?>">
-                        <span class="nav-link-icon"><i class="fas fa-clipboard-check"></i></span>
-                        <span class="nav-link-title">Training compliance</span>
-                    </a>
-                </li>
-                <?php // Training kiosk thresholds and the Odoo-PIN switch (P3 spec §7.8); same reasoning as the Training link above. ?>
-                <li class="nav-item<?php echo (basename($_SERVER['PHP_SELF']) == 'settings_training_kiosk.php' ? ' active' : ''); ?>">
-                    <a href="/admin/settings_training_kiosk.php" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_training_kiosk.php' ? 'active' : ''); ?>">
-                        <span class="nav-link-icon"><i class="fas fa-tablet-alt"></i></span>
-                        <span class="nav-link-title">Training kiosk</span>
                     </a>
                 </li>
 
