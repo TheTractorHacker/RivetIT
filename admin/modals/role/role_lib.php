@@ -11,6 +11,8 @@
  *                                    be archived (replaces the old literal "role id 3" protection).
  *  - itflow_role_form_render():      the Details + Permissions tabs, the "Start from…" presets and
  *                                    the "this role will see" sidebar preview (js/role_editor.js).
+ *  - itflow_role_posted_levels():    the form's levels, checked against the modules table, 0-3.
+ *  - itflow_role_access_help_render(): the user form's Access-tab note on department ticks (F13).
  *
  * Read-only: nothing here writes to the database.
  */
@@ -254,6 +256,33 @@ if (!function_exists('itflow_role_catalog')) {
                 AND u.user_type = 1"
         ));
         return intval($row[0] ?? 0);
+    }
+
+    /**
+     * The module levels posted by the role form ("<module_id>##<module_name>" => level), checked
+     * against the modules table and clamped to 0-3. One level per module.
+     *
+     * @return array<int, int> module_id => level (levels above 0 only)
+     */
+    function itflow_role_posted_levels(mysqli $db, array $post): array
+    {
+        $valid = [];
+        $sql = mysqli_query($db, "SELECT module_id FROM modules");
+        while ($row = mysqli_fetch_assoc($sql)) {
+            $valid[intval($row['module_id'])] = true;
+        }
+        $levels = [];
+        foreach ($post as $key => $value) {
+            if (!is_string($key) || !str_contains($key, '##module_') || is_array($value)) {
+                continue;
+            }
+            $module_id = intval(explode('##', $key)[0]);
+            $level = max(0, min(3, intval($value)));
+            if (isset($valid[$module_id]) && $level > 0) {
+                $levels[$module_id] = $level;
+            }
+        }
+        return $levels;
     }
 
     /** module_name => level for one role (only rows above 0). */

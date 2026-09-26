@@ -8,36 +8,9 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
 require_once __DIR__ . '/../modals/role/role_lib.php';
 
-/**
- * The module levels posted by the role form ("<module_id>##<module_name>" => level), checked
- * against the modules table and clamped to 0-3. One level per module.
- *
- * @return array<int, int> module_id => level (levels above 0 only)
- */
-function itflow_role_posted_levels(mysqli $db, array $post): array
-{
-    $valid = [];
-    $sql = mysqli_query($db, "SELECT module_id FROM modules");
-    while ($row = mysqli_fetch_assoc($sql)) {
-        $valid[intval($row['module_id'])] = true;
-    }
-    $levels = [];
-    foreach ($post as $key => $value) {
-        if (!is_string($key) || !str_contains($key, '##module_') || is_array($value)) {
-            continue;
-        }
-        $module_id = intval(explode('##', $key)[0]);
-        $level = max(0, min(3, intval($value)));
-        if (isset($valid[$module_id]) && $level > 0) {
-            $levels[$module_id] = $level;
-        }
-    }
-    return $levels;
-}
-
 if (isset($_POST['add_role'])) {
 
-    validateCSRFToken($_POST['csrf_token']);
+    validateCSRFToken($_POST['csrf_token'] ?? null);
 
     $name = sanitizeInput($_POST['role_name']);
     $description = sanitizeInput($_POST['role_description']);
@@ -64,7 +37,7 @@ if (isset($_POST['add_role'])) {
 
 if (isset($_POST['edit_role'])) {
 
-    validateCSRFToken($_POST['csrf_token']);
+    validateCSRFToken($_POST['csrf_token'] ?? null);
 
     $role_id = intval($_POST['role_id']);
     $name = sanitizeInput($_POST['role_name']);
@@ -97,7 +70,7 @@ if (isset($_POST['edit_role'])) {
 
 if (isset($_GET['archive_role'])) {
 
-    validateCSRFToken($_GET['csrf_token']);
+    validateCSRFToken($_GET['csrf_token'] ?? null);
 
     $role_id = intval($_GET['archive_role']);
 
