@@ -67,7 +67,17 @@ window.openAjaxModal = function (modalUrl, modalSize, options) {
 
   fetch(modalUrl, { method: 'GET', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
     .then(function (response) {
-      if (!response.ok) { throw new Error('HTTP ' + response.status); }
+      if (!response.ok) {
+        // A pop-up the role may not open answers 403 with {"ok":false,"error":"..."} (the module map in
+        // includes/modal_permissions.php, the admin-only gate in includes/modal_header.php). Show that
+        // message like any other data.error below instead of a generic "try again".
+        return response.json().then(function (data) {
+          if (data && typeof data.error === 'string' && data.error) { return { error: data.error }; }
+          throw new Error('HTTP ' + response.status);
+        }, function () {
+          throw new Error('HTTP ' + response.status);
+        });
+      }
       return response.json();
     })
     .then(function (data) {
