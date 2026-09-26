@@ -119,7 +119,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             <td>
                                 <?php if ($role_locked) { ?>
                                     <div class="text-center text-secondary" data-bs-toggle="tooltip" title="The only administrator role with an active user. It always has full access and can't be edited or archived until another role has admin access.">
-                                        <i class="fas fa-lock" aria-hidden="true"></i><span class="visually-hidden">Protected: the only administrator role with an active user</span>
+                                        <i class="fas fa-lock" role="img" aria-label="Protected: the only administrator role with an active user"></i>
                                     </div>
                                 <?php } else { ?>
                                     <div class="dropdown dropleft text-center">

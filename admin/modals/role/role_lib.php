@@ -506,7 +506,7 @@ if (!function_exists('itflow_role_catalog')) {
                             <div class="border rounded p-2 mb-3 role-preset-box">
                                 <label class="form-label mb-1" for="role-preset-<?= $h($uid) ?>"><i class="fas fa-fw fa-magic me-1"></i>Start from…</label>
                                 <select class="form-select form-select-sm js-role-preset" id="role-preset-<?= $h($uid) ?>" aria-describedby="role-preset-status-<?= $h($uid) ?>">
-                                    <option value="">Choose a preset to fill in the permissions below</option>
+                                    <option value="">Choose a preset…</option>
                                     <?php foreach ($config['presets'] as $key => $preset) { ?>
                                         <option value="<?= $h($key) ?>"><?= $h($preset['label']) ?></option>
                                     <?php } ?>
@@ -572,6 +572,10 @@ if (!function_exists('itflow_role_catalog')) {
             .role-perm-row .role-perm-help { min-height: 1.25rem; }
             .role-perm-more > summary { cursor: pointer; }
             .role-perms-disabled { opacity: .5; }
+            /* css/itflow_design.css's dark-mode label colour for .btn-outline-warning outranks its own
+               .active rule, so a chosen "Modify" would be orange text on an orange fill. */
+            :root[data-bs-theme="dark"] .role-perm-row .btn-outline-warning.active,
+            body.dark-mode .role-perm-row .btn-outline-warning.active { color: #fff; }
             .role-preview { position: sticky; top: .5rem; }
             .role-preview ul { padding-left: 1.1rem; margin-bottom: .35rem; }
             .role-preview .role-preview-section { font-weight: 600; }
