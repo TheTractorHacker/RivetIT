@@ -63,6 +63,19 @@ final class KioskAuth
 
     // ---- Device ------------------------------------------------------------------------------
 
+    /** The end time (UTC) of a temporary device that device() found expired - and revoked - in THIS request, else null. */
+    private static ?string $expiredAtUtc = null;
+
+    /**
+     * When this request's device turned out to be a temporary device whose time is up: its end time
+     * (UTC). The kiosk then says "This device's training time ended at …" instead of the generic
+     * "not set up" (index.php, and the ?ended= redirects of guard.php and the API router).
+     */
+    public static function expiredAt(): ?string
+    {
+        return self::$expiredAtUtc;
+    }
+
     /**
      * The device from the cookie, or null. $reason explains a null: missing | unknown | revoked |
      * pending | expired | asset_missing | asset_archived | asset_type | assignment_changed | owner_ineligible.
@@ -90,9 +103,12 @@ final class KioskAuth
             return null;
         }
         $reason = self::invalidReason($db, $row);
-        if ($reason === 'expired' && Db::depth() === 0) {
-            // A temporary device's time is up: treated exactly like a revoked one from this request on.
-            DeviceLifecycle::expire($db, (int) $row['kiosk_id']);
+        if ($reason === 'expired') {
+            self::$expiredAtUtc = (string) $row['kiosk_expires_at_utc'];
+            if (Db::depth() === 0) {
+                // A temporary device's time is up: treated exactly like a revoked one from this request on.
+                DeviceLifecycle::expire($db, (int) $row['kiosk_id']);
+            }
         }
         if ($reason !== null) {
             return null;

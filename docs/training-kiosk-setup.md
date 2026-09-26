@@ -25,12 +25,16 @@ This guide covers how to turn an iPad or a Windows PC into a **training device**
 - **Not in Assets.** On **Set up this device**, choose **This device isn't in Assets** and give the device a name (for example "Trainer's laptop" or "Borrowed iPad"). Nothing else is needed.
   - It is always a shared device: people find their name, then enter their PIN. Personal-device mode needs an asset assigned to someone, so an unlisted device never opens straight to one person.
   - It isn't tied to an asset, so archiving or retyping assets never affects it, and the "one device per asset" replacement rule doesn't apply: each unlisted device stands on its own.
-  - The Devices tab and the kiosk evidence on a training record show its name and "Not in Assets".
+  - The Devices tab and the kiosk evidence on a training record show its name and "Not in Assets" with its device number.
 - **Temporary.** Under **How long?** choose **Temporary** and one of: until the end of today (11:59 PM), 4 hours, 8 hours, 24 hours, or a date and time up to 30 days away. Times are in the app's time zone (America/Chicago here). Asset devices start on **Keep until I remove it**; unlisted devices start on **Temporary · until the end of today**.
-  - The success panel shows when the device stops working.
-  - When the time is up, the device's next request is treated exactly like a revoke: the device is revoked with the reason "Temporary device expired", anyone signed in is signed out, the screen shows "This device is not set up for training", and the start URL stops working. Devices nobody touches are revoked the same way by `cron/training_kiosk_cron.php` within 10 minutes. The ledger and audit log record it like a manual revoke, with the system as the actor.
-  - The Devices tab shows **Temporary · expires …** (or **Expired**). **Extend** sets a new end time counted from now with the same choices, or **Keep until I remove it**; **End now** switches the device off at once.
+  - "Until the end of today" needs at least 5 minutes left today; late at night pick 4 hours or a date and time. A device set up with a **setup code** must stay set up for at least 15 minutes (the code lasts that long).
+  - The success panel shows when the device stops working, with the time zone in force at that time.
+  - On the device, the sign-in screen and trainer mode show *This device: … · until 3:13 PM*. From 15 minutes before the end the top bar shows *Ends 3:13 PM*, with a reminder at 15 and at 5 minutes.
+  - When the time is up, the device's next request is treated exactly like a revoke: the device is revoked with the reason "Temporary device expired", anyone signed in is signed out, the screen shows "This device's training time is over" and when it ended, and the start URL stops working. Devices nobody touches are revoked the same way by `cron/training_kiosk_cron.php` within 10 minutes. The ledger and audit log record it like a manual revoke, with the system as the actor. To use the device again, set it up again on the device.
+  - The Devices tab shows a **Temporary** badge and **Temporary · expires …** (amber with the minutes left in the last hour), or **Expired**. **Change end time** shows the current end and a preview of the new one (counted from now with the same choices, or **Keep until I remove it**); a new time earlier than the current one is flagged and the button reads **Shorten it**. **End now** switches the device off at once. An expired device nobody has touched yet offers **Remove now** (no reason needed).
+  - A permanent device can be made temporary later with **Set end time** (the same choices without *Keep*).
   - A listed temporary device still gets personal-device mode when its asset is assigned to someone.
+  - Training records show "temporary device" when the device was temporary **at the moment the person signed** (read from the ledger), so changing a device's end time later never changes older records. An unlisted device is shown as "Not in Assets (device #<id>)", because two unlisted devices may share a name.
 
 ## PINs
 

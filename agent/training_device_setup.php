@@ -147,5 +147,6 @@ render_page_header(
 </div>
 <script type="application/json" id="tr-page-data"><?= json_encode($tr_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?></script>
 <script src="/js/training_common.js?v=<?= filemtime(__DIR__ . '/../js/training_common.js') ?>" defer></script>
+<script src="/agent/js/training_device_time.js?v=<?= filemtime(__DIR__ . '/js/training_device_time.js') ?>" defer></script>
 <script src="/agent/js/training_device_setup.js?v=<?= filemtime(__DIR__ . '/js/training_device_setup.js') ?>" defer></script>
 <?php require_once "../includes/footer.php";

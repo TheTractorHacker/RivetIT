@@ -217,6 +217,11 @@
         if (h.award) { tiles.appendChild(tile('fa-award', t('trn.tile_award'), t('trn.tile_award_sub'), viewAward, true)); }
         var parts = [heading(null, t('trn.hello', { first: SESSION.first || '' }), t('trn.hello_sub')), tiles];
         if (!h.sessions && !h.evaluate && !h.award) { parts.push(alertBox('info', t('trn.nothing_to_do'))); }
+        // A temporary device: say until when it works, so a session isn't planned past its end.
+        var dv = K.data().device;
+        if (dv && dv.ends_at) {
+            parts.push(el('p', { class: 'kx-note kt-device-note', id: 'kt-device-note' }, [icon('fa-hourglass-half'), el('span', { text: t('signin.device_until', { label: dv.label || '', time: dv.ends_at }) })]));
+        }
         if (h.sessions) {
             var list = el('div', { class: 'kx-stack' });
             (h.open_sessions || []).forEach(function (s) {

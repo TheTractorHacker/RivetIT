@@ -15,7 +15,15 @@ until it has run the kiosk answers 404 and the cron skips, as before 2.6.93. Pha
   away (app time zone). Past that time the device is revoked on its next request (open kiosk session ended, start URL
   dead, "This device is not set up for training"), and `cron/training_kiosk_cron.php` revokes untouched ones every 10
   minutes with the reason "Temporary device expired" (ledger and audit like a manual revoke, system actor). The Devices tab
-  shows "Temporary · expires ..." / "Expired" with **Extend** and **End now**; the setup success panel shows the end time.
+  shows a **Temporary** badge and "Temporary · expires ..." (amber in its last hour) / "Expired", with **Change end time**
+  (current end, a live preview of the new one, an earlier time flagged as **Shorten it**), **End now**, and **Remove now**
+  for an expired device nobody touched yet. A permanent device can get an end time later (**Set end time**). The setup
+  success panel shows the end time; every time shows the zone in force at that time. "Until the end of today" needs 5
+  minutes left today, and a setup code's device must last at least as long as the code (15 minutes).
+- On the kiosk, a temporary device shows "This device: ... · until 3:13 PM" on the sign-in screen and in trainer mode, an
+  "Ends 3:13 PM" chip in its last 15 minutes, and afterwards "This device's training time is over" with the time it ended.
+- Training records say "temporary device" only when the device was temporary when the person signed (from the ledger),
+  and show an unlisted device's number ("Not in Assets (device #12)").
 - Same permission as enrollment (Training kiosk level 3). New agent action `kiosk_set_expiry`; new ledger event type
   `kiosk.expiry_changed`. The in-app Setup guide and `docs/training-kiosk-setup.md` have a "Temporary or unlisted devices"
   section.

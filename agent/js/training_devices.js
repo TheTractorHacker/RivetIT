@@ -1,8 +1,11 @@
 /*
  * Training › Devices & PINs (P3 spec §5.8, lane K2) and the setup-slips print page.
  * Devices: kiosk_list / kiosk_revoke / kiosk_reissue / kiosk_clear_cooldown / pin_clear_pause / kiosk_enroll_code /
- * kiosk_set_expiry (temporary devices: Extend with the setup presets, or End now; 2.6.94). Unlisted devices (not in
- * Assets) show "Not in Assets"; expiry times are shown in the app's time zone (page data `timezone`).
+ * kiosk_set_expiry (2.6.94: "Change end time" on a temporary device - showing the current end and a live preview of
+ * the new one, flagged when it is EARLIER - and "Set end time" on a permanent one, both with the setup presets; "End
+ * now"; "Remove now" for one whose time is up but that nobody has touched since). Unlisted devices (not in Assets) show
+ * "Not in Assets · device #<id>". Every time on the page is in the app's time zone with its zone name (page data
+ * `timezone`; training_device_time.js), not the browser's.
  * People & PINs: pin_people / pin_unlock / pin_odoo_unblock / pin_slips_issue / pin_sources_refresh.
  * Slips page: pin_slips_clear. Every string reaches the DOM through TrainingUi.el / textContent.
  */
@@ -17,10 +20,16 @@
         function $(id) { return document.getElementById(id); }
         function clear(n) { while (n && n.firstChild) { n.removeChild(n.firstChild); } }
         function icon(name, extra) { return el('i', { class: 'fas ' + name + (extra ? ' ' + extra : ''), 'aria-hidden': 'true' }); }
+        var tz;   // the app's time zone (page data), set below; the slips page never formats a time
         function when(iso) {
             if (!iso) { return ''; }
             var d = new Date(iso);
-            return isNaN(d.getTime()) ? '' : d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+            if (isNaN(d.getTime())) { return ''; }
+            try {
+                return d.toLocaleString([], { timeZone: tz, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+            } catch (e) {
+                return d.toLocaleString();
+            }
         }
         function ago(iso) {
             if (!iso) { return 'Never'; }
@@ -76,8 +85,9 @@
 
         var data = ui.readJson('tr-page-data');
         var level = data.kiosk_level || 0;
-        var tz = data.timezone || undefined;
+        tz = data.timezone || undefined;
         if (!$('tr-devices-root')) { return; }
+        var T = window.TrainingDeviceTime.create(tz, data.max_days || 30);
         /** A device expiry in the app's time zone, with its zone ("Thu, Sep 25, 11:59 PM CDT"). */
         function whenTz(iso) {
             if (!iso) { return ''; }
@@ -114,15 +124,21 @@
             if (/^(Windows|Mac|Linux|Chromebook)/.test(ua)) { return 'fa-laptop'; }
             return 'fa-tablet-alt';
         }
-        var EXPIRY_PRESETS = [['today', 'Until the end of today'], ['4h', '4 hours from now'], ['8h', '8 hours from now'], ['24h', '24 hours from now'],
+        var EXPIRY_PRESETS = [['4h', '4 hours from now'], ['8h', '8 hours from now'], ['24h', '24 hours from now'], ['today', 'Until the end of today'],
                               ['until', 'Until a date and time…'], ['keep', 'Keep until I remove it']];
 
         function statusChip(k) {
             if (k.status === 'revoked') { return el('span', { class: 'badge bg-secondary-lt' }, [icon('fa-ban', 'me-1'), 'Revoked']); }
-            if (k.status === 'pending') { return el('span', { class: 'badge bg-info-lt' }, [icon('fa-hourglass-half', 'me-1'), 'Waiting for setup code']); }
             if (k.expired || k.problem === 'expired') { return el('span', { class: 'badge bg-danger-lt' }, [icon('fa-hourglass-end', 'me-1'), 'Expired']); }
+            if (k.status === 'pending') { return el('span', { class: 'badge bg-info-lt' }, [icon('fa-hourglass-half', 'me-1'), 'Waiting for setup code']); }
             if (k.problem) { return el('span', { class: 'badge bg-danger-lt' }, [icon('fa-exclamation-triangle', 'me-1'), PROBLEM[k.problem] || 'Not working']); }
             return el('span', { class: 'badge bg-success-lt' }, [icon('fa-check-circle', 'me-1'), 'Active']);
+        }
+
+        /** "40 min" / "2 h 5 min" until an ISO time. */
+        function leftText(ms) {
+            var m = Math.max(1, Math.round(ms / 60000));
+            return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : '');
         }
 
         function showUrl(host, res, title) {
@@ -139,51 +155,107 @@
             ]));
         }
 
-        /** Inline "Extend" form inside `host`: resolves {expires, expires_until?} or null. */
+        /**
+         * Inline "Change end time" / "Set end time" form inside `host`: resolves {expires, expires_until?} or null.
+         * It shows the device's current end ("Now") and a live preview of the new one ("New"), in the app's time zone;
+         * an earlier new end is flagged and Save becomes "Shorten it". A permanent device gets no "Keep" choice.
+         */
         function askExpiry(host, k) {
             return new Promise(function (resolve) {
                 var old = host.querySelector(':scope > .tr-expiry');
                 if (old) { old.parentNode.removeChild(old); }
+                var cur = k.temporary && k.expires_at ? new Date(k.expires_at) : null;
+                var presets = EXPIRY_PRESETS.filter(function (p) { return k.temporary || p[0] !== 'keep'; });
                 var sel = el('select', { class: 'form-select form-select-sm', 'aria-label': 'New end time', style: { flex: '1 1 11rem', width: 'auto' } },
-                    EXPIRY_PRESETS.map(function (p) { return el('option', { value: p[0], text: p[1] }); }));
-                var until = el('input', { type: 'datetime-local', class: 'form-control form-control-sm', step: '60', 'aria-label': 'Date and time', hidden: true, style: { flex: '1 1 11rem', width: 'auto' } });
+                    presets.map(function (p) { return el('option', { value: p[0], text: p[1] }); }));
+                var until = el('input', { type: 'datetime-local', class: 'form-control form-control-sm', step: '60', 'aria-label': 'Date and time (' + (tz || 'local') + ')', hidden: true, style: { flex: '1 1 11rem', width: 'auto' } });
                 var ok = el('button', { type: 'button', class: 'btn btn-sm btn-primary', text: 'Save' });
                 var cancel = el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', text: 'Cancel' });
-                var box = el('div', { class: 'tr-expiry alert alert-info mt-2 mb-0 p-2', role: 'group' }, [
-                    el('div', { class: 'small mb-1', text: 'Keep ' + k.label + ' working until… (counted from now)' }),
-                    el('div', { class: 'd-flex flex-wrap gap-2' }, [sel, until, cancel, ok])
+                var nowLine = el('div', { class: 'small', dataset: { expiryNow: '1' }, text: 'Now: ' + (cur ? 'stops working ' + T.fmt(cur, true) : 'kept until you remove it') });
+                var newLine = el('div', { class: 'small fw-semibold', dataset: { expiryNew: '1' }, 'aria-live': 'polite' });
+                var box = el('div', { class: 'tr-expiry alert alert-info mt-2 mb-0 p-2', role: 'group', 'aria-label': (cur ? 'Change when ' : 'Set when ') + k.label + ' stops working' }, [
+                    el('div', { class: 'small mb-1 fw-semibold', text: (cur ? 'Change when ' : 'Set when ') + k.label + ' stops working (counted from now)' }),
+                    nowLine,
+                    el('div', { class: 'd-flex flex-wrap gap-2 my-2' }, [sel, until, cancel, ok]),
+                    newLine
                 ]);
-                function done(v) { if (box.parentNode) { box.parentNode.removeChild(box); } resolve(v); }
-                sel.addEventListener('change', function () { until.hidden = sel.value !== 'until'; if (!until.hidden) { until.focus(); } });
+                // Start on the shortest choice that does not cut the current time short.
+                var start = 'today';
+                if (cur) {
+                    start = null;
+                    ['4h', '8h', '24h'].forEach(function (p) { if (!start && T.endFor(p).date > cur) { start = p; } });
+                    if (!start) {
+                        start = 'until';
+                        until.value = T.wall(new Date(Math.min(cur.getTime() + 86400000, Date.now() + T.maxDays * 86400000 - 3600000)));
+                    }
+                } else if (T.endFor('today').error) {
+                    start = '4h';
+                }
+                sel.value = start;
+                function refresh() {
+                    until.hidden = sel.value !== 'until';
+                    if (!until.hidden) {
+                        T.untilBounds(until);
+                        if (!until.value) { until.value = T.wall(new Date(Date.now() + 2 * 3600000)); }
+                    }
+                    var r = T.endFor(sel.value, until.value);
+                    var earlier = !r.error && cur && (r.date === null ? false : r.date < cur);
+                    newLine.className = 'small fw-semibold ' + (r.error ? 'text-danger' : (earlier ? 'text-warning' : ''));
+                    newLine.textContent = r.error ? r.error
+                        : 'New: ' + (r.date ? 'stops working ' + T.fmt(r.date, true) : 'kept until you remove it') + (earlier ? ' — earlier than now' : '');
+                    ok.disabled = !!r.error;
+                    ok.textContent = earlier ? 'Shorten it' : 'Save';
+                    ok.className = 'btn btn-sm ' + (earlier ? 'btn-warning' : 'btn-primary');
+                    until.classList.toggle('is-invalid', sel.value === 'until' && !!r.error);
+                }
+                function done(v) { if (box.parentNode) { box.parentNode.removeChild(box); } clearInterval(tick); resolve(v); }
+                var tick = setInterval(function () { if (!box.parentNode) { clearInterval(tick); return; } refresh(); }, 30000);
+                sel.addEventListener('change', function () { refresh(); if (!until.hidden) { until.focus(); } });
+                until.addEventListener('input', refresh);
                 ok.addEventListener('click', function () {
-                    if (sel.value === 'until' && !until.value) { until.classList.add('is-invalid'); until.focus(); return; }
+                    refresh();
+                    if (ok.disabled) { return; }
                     done(sel.value === 'until' ? { expires: 'until', expires_until: until.value } : { expires: sel.value });
                 });
                 cancel.addEventListener('click', function () { done(null); });
                 host.appendChild(box);
+                refresh();
                 sel.focus();
             });
         }
 
         function deviceCard(k) {
             var body = el('div', { class: 'card-body' });
+            var same = function (a, b) { return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase(); };
             var sub = k.asset
-                ? [k.asset.type, k.asset.name, k.asset.serial ? 'SN ' + k.asset.serial : ''].filter(Boolean).join(' · ') + (k.asset.archived ? ' (archived)' : '')
-                : 'Not in Assets';
+                ? [k.asset.type, same(k.asset.name, k.label) ? '' : k.asset.name, k.asset.serial ? 'SN ' + k.asset.serial : ''].filter(Boolean).join(' · ') + (k.asset.archived ? ' (archived)' : '')
+                : 'Not in Assets · device #' + k.id;   // two unlisted devices may share a name
+            var live = k.status !== 'revoked';
+            var chips = el('div', { class: 'd-flex flex-column align-items-end gap-1 flex-shrink-0' }, [
+                statusChip(k),
+                k.temporary && live && !k.expired ? el('span', { class: 'badge bg-warning-lt', dataset: { kioskTemp: '1' } }, [icon('fa-hourglass-half', 'me-1'), 'Temporary']) : null
+            ]);
             var head = el('div', { class: 'd-flex align-items-start gap-3' }, [
-                el('span', { class: 'avatar avatar-md bg-primary-lt' }, [icon(deviceIcon(k), 'fa-lg')]),
+                el('span', { class: 'avatar avatar-md bg-primary-lt flex-shrink-0' }, [icon(deviceIcon(k), 'fa-lg')]),
                 el('div', { class: 'flex-grow-1 min-w-0' }, [
-                    el('h3', { class: 'card-title mb-1 text-truncate', text: k.label }),
-                    el('div', { class: 'text-secondary small', text: sub })
+                    el('h3', { class: 'card-title mb-1 text-break', title: k.label, text: k.label }),
+                    el('div', { class: 'text-secondary small text-break', text: sub })
                 ]),
-                statusChip(k)
+                chips
             ]);
             body.appendChild(head);
-            if (k.temporary && k.status !== 'revoked') {
-                body.appendChild(el('div', { class: 'small mt-2 d-flex align-items-center gap-1 ' + (k.expired ? 'text-danger' : 'text-secondary'), dataset: { kioskExpiry: '1' } }, [
-                    icon(k.expired ? 'fa-hourglass-end' : 'fa-hourglass-half', k.expired ? '' : 'text-warning'),
-                    el('span', { text: k.expired ? 'Temporary · expired ' + whenTz(k.expires_at) : 'Temporary · expires ' + whenTz(k.expires_at) })
+            if (k.temporary && live) {
+                var leftMs = k.expires_at ? new Date(k.expires_at).getTime() - Date.now() : 0;
+                var soon = !k.expired && leftMs < 3600000;
+                body.appendChild(el('div', { class: 'small mt-2 d-flex align-items-center gap-1 ' + (k.expired ? 'text-danger' : (soon ? 'text-warning fw-semibold' : 'text-secondary')), dataset: { kioskExpiry: '1' } }, [
+                    icon(k.expired ? 'fa-hourglass-end' : 'fa-hourglass-half', k.expired || soon ? '' : 'text-warning'),
+                    el('span', { text: k.expired ? 'Temporary · expired ' + whenTz(k.expires_at)
+                        : 'Temporary · expires ' + whenTz(k.expires_at) + (soon ? ' (in ' + leftText(leftMs) + ')' : '') })
                 ]));
+            }
+            if (k.expired && live) {
+                body.appendChild(el('div', { class: 'small mt-1 text-secondary', dataset: { kioskExpiredHint: '1' },
+                    text: 'Its time is up: it stops at its next tap or within 10 minutes. To use it again, set it up again on the device.' }));
             }
             var facts = el('dl', { class: 'row small mt-3 mb-0' });
             function fact(label, value, extra) {
@@ -196,7 +268,7 @@
                 if (k.ua) { fact('Browser', k.ua); }
                 fact('Signed in now', k.active_session ? 'Yes (' + (k.session_role || 'learner') + ')' : 'No');
             }
-            if (k.status === 'pending' && k.code_expires_at) { fact('Code expires', when(k.code_expires_at)); }
+            if (k.status === 'pending' && k.code_expires_at && !k.expired) { fact('Code expires', when(k.code_expires_at)); }
             if (k.enrolled_at) { fact('Enrolled', when(k.enrolled_at) + (k.enrolled_by ? ' by ' + k.enrolled_by : '')); }
             if (k.default_department) { fact('Department', k.default_department); }
             if (k.status === 'revoked') { fact('Revoked', when(k.revoked_at) + (k.revoke_reason ? ' — ' + k.revoke_reason : '')); }
@@ -217,8 +289,9 @@
                 });
                 actions.appendChild(cc);
             }
-            if (k.status === 'active' && k.temporary && !k.expired && level >= 3) {
-                var ex = el('button', { type: 'button', class: 'btn btn-sm btn-outline-primary' }, [icon('fa-clock', 'me-1'), 'Extend']);
+            if (k.status === 'active' && !k.expired && level >= 3) {
+                // Temporary: change its end time; permanent: give it one (a borrowed device kept by mistake).
+                var ex = el('button', { type: 'button', class: 'btn btn-sm btn-outline-primary' }, [icon('fa-clock', 'me-1'), k.temporary ? 'Change end time' : 'Set end time']);
                 ex.addEventListener('click', function () {
                     askExpiry(body, k).then(function (v) {
                         if (!v) { return; }
@@ -229,6 +302,8 @@
                     });
                 });
                 actions.appendChild(ex);
+            }
+            if (k.status === 'active' && k.temporary && !k.expired && level >= 3) {
                 var en = el('button', { type: 'button', class: 'btn btn-sm btn-outline-warning' }, [icon('fa-stop-circle', 'me-1'), 'End now']);
                 en.addEventListener('click', function () {
                     ui.confirmBar(body, { message: 'End ' + k.label + ' now? It stops working at once and anyone signed in is signed out.', confirmLabel: 'End now', danger: true }).then(function (yes) {
@@ -253,7 +328,16 @@
                 });
                 actions.appendChild(re);
             }
-            if (k.status !== 'revoked' && level >= 3) {
+            if (k.expired && live && level >= 3) {
+                // Already dead (nobody has touched it since its time ran out): just clean it up, no reason needed.
+                var rm = el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary ms-auto' }, [icon('fa-trash-alt', 'me-1'), 'Remove now']);
+                rm.addEventListener('click', function () {
+                    rm.disabled = true;
+                    api.post('kiosk_set_expiry', { kiosk_id: k.id, expires: 'now' }).then(function () { ui.toast(k.label + ' removed.'); loadDevices(); },
+                        function (err) { rm.disabled = false; fail(err); loadDevices(); });
+                });
+                actions.appendChild(rm);
+            } else if (live && level >= 3) {
                 var rv = el('button', { type: 'button', class: 'btn btn-sm btn-outline-danger ms-auto' }, [icon('fa-ban', 'me-1'), 'Revoke']);
                 rv.addEventListener('click', function () {
                     askReason(body, 'Revoke ' + k.label + '? It stops working at once and anyone signed in is signed out.', 'Revoke', true).then(function (r) {

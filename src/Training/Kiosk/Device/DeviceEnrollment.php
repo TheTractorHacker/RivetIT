@@ -33,7 +33,9 @@ use ITFlow\Training\Kiosk\Core\KTime;
  *
  * TEMPORARY devices (2.6.94): $expiresAt (UTC, from DeviceLifecycle::expiryFor) is stored in
  * kiosk_expires_at_utc; past it the device is revoked on its next request or by the cron
- * (DeviceLifecycle). setExpiry() extends or shortens it (or makes it permanent); endNow() revokes it.
+ * (DeviceLifecycle). setExpiry() gives any active device a new end time (a permanent one becomes
+ * temporary; null makes it permanent); endNow() revokes a temporary one. A setup code never
+ * outlives its device: issueCode() refuses an end time earlier than the code's own (CODE_TTL_S).
  *
  * Personal-device mode (A19, D-4): the asset's assigned contact at enrollment (when eligible) is
  * snapshotted into kiosk_personal_contact_id; KioskAuth::device() locks the device out as soon as
@@ -127,6 +129,11 @@ final class DeviceEnrollment
             $code .= self::CODE_ALPHABET[random_int(0, $n - 1)];
         }
         $expires = KTime::plus(self::CODE_TTL_S);
+        if ($expiresAt !== null && (KTime::epoch($expiresAt) ?? 0) < (KTime::epoch($expires) ?? 0)) {
+            // Otherwise the right code could reach a device whose time is already up (and count as a wrong guess).
+            throw ApiException::validation(['expires' => 'A device set up with a code must stay set up for at least ' . intdiv(self::CODE_TTL_S, 60)
+                . ' minutes (the code lasts that long). Pick a later end time.']);
+        }
         $r = $this->insertKiosk($assetId, $label, $defaultClientId, $replace, 'setup_code', null, ['hash' => hash('sha256', $code), 'expires' => $expires], $expiresAt);
         $this->audit('training.kiosk_enrolled', $r['kiosk_id'], 'enroll_code', 'Issued a setup code for training device "' . $r['label'] . '"' . ($assetId === null ? ' (not in Assets)' : ''),
             ['asset_id' => $assetId, 'expires_at_utc' => $expiresAt]);
@@ -156,12 +163,17 @@ final class DeviceEnrollment
     }
 
     /**
-     * Temporary devices: a new expiry (UTC, from DeviceLifecycle::expiryFor; null = keep until
-     * removed) for an ACTIVE device whose time is not up yet. kiosk.expiry_changed {from, to}.
+     * A new end time (UTC, from DeviceLifecycle::expiryFor; null = keep until removed) for an ACTIVE
+     * device whose time is not up yet - temporary or permanent (a permanent device becomes
+     * temporary). kiosk.expiry_changed {from, to}. Records never show the current expiry
+     * (DeviceLifecycle::expiryAsOf), so changing it later rewrites nothing.
      * Returns ['kiosk_id', 'label', 'expires_at_utc'].
      */
     public function setExpiry(int $kioskId, ?string $expiresAt): array
     {
+        if ($expiresAt !== null && !KTime::isFuture($expiresAt)) {
+            throw ApiException::validation(['expires' => 'That time has already passed.']);
+        }
         $db = $this->c->db;
         $base = $this->eventBase();
         $r = Db::tx($db, function () use ($db, $kioskId, $expiresAt, $base): array {
@@ -170,7 +182,7 @@ final class DeviceEnrollment
                 throw ApiException::notFound('That device was not found.');
             }
             if ($k['kiosk_status'] !== 'active') {
-                throw new ApiException(409, 'validation', 'Only an active device can be extended.');
+                throw new ApiException(409, 'validation', 'Only an active device can get a new end time.');
             }
             if (DeviceLifecycle::isExpired($k['kiosk_expires_at_utc'])) {
                 throw new ApiException(409, 'validation', 'This device has already expired. Set it up again.');
@@ -188,7 +200,11 @@ final class DeviceEnrollment
         return $r;
     }
 
-    /** Temporary devices: "End it now" - a revoke with DeviceLifecycle::ENDED_REASON (only for a temporary device). */
+    /**
+     * Temporary devices: "End now" - a revoke with DeviceLifecycle::ENDED_REASON (only for a
+     * temporary device). One whose time is already up (not cleaned up yet) is removed with
+     * DeviceLifecycle::EXPIRED_REASON instead ("Remove now" on the Devices list).
+     */
     public function endNow(int $kioskId): void
     {
         $k = Db::one($this->c->db, 'SELECT kiosk_expires_at_utc FROM training_kiosks WHERE kiosk_id = ?', 'i', [$kioskId]);
@@ -198,7 +214,7 @@ final class DeviceEnrollment
         if ($k['kiosk_expires_at_utc'] === null) {
             throw new ApiException(409, 'validation', 'This device is kept until you remove it. Use Revoke instead.');
         }
-        $this->revoke($kioskId, DeviceLifecycle::ENDED_REASON);
+        $this->revoke($kioskId, DeviceLifecycle::isExpired($k['kiosk_expires_at_utc']) ? DeviceLifecycle::EXPIRED_REASON : DeviceLifecycle::ENDED_REASON);
     }
 
     /** New start URL (the old token stops working); re-snapshots the personal owner (A19). */

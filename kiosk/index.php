@@ -6,6 +6,10 @@
  *
  *   - no device (none, revoked, or its asset's assignment changed - A19): the bilingual "not set up"
  *     screen with "Set up this device (admin)" and [S] "Enter a setup code". No names, no data.
+ *     A temporary device whose time ran out on THIS request (KioskAuth::expiredAt()), or a redirect
+ *     here with ?ended=<epoch> (guard.php / the runtime, within the last 24 h), says instead "This
+ *     device's training time is over - it stopped working at 3:13 PM" (a local clock time; display
+ *     only, the device is gone either way).
  *   - /kiosk/#d=<token> (the permanent start URL): js/training_kiosk_signin.js replaces the URL at
  *     once, adopts the token by POST (asking before replacing a valid device) and reloads /kiosk/.
  *     The fragment never reaches a server.
@@ -39,6 +43,18 @@ if (array_key_exists('d', $_GET)) {
 }
 
 $k_dev = kiosk_require_device();
+// A temporary device whose time is up: when it ended (this request found it, or ?ended= from a redirect).
+$k_ended = null;
+if ($k_dev === null) {
+    $k_end_utc = KioskAuth::expiredAt();
+    if ($k_end_utc === null && is_string($_GET['ended'] ?? null) && preg_match('/^\d{9,11}$/D', $_GET['ended']) === 1) {
+        $k_e = (int) $_GET['ended'];
+        $k_end_utc = ($k_e <= time() + 120 && $k_e >= time() - 86400) ? \ITFlow\Training\Kiosk\Core\KTime::fromEpoch((float) $k_e) : null;
+    }
+    if ($k_end_utc !== null) {
+        $k_ended = ['en' => \ITFlow\Training\Kiosk\Core\KTime::localClock($k_end_utc, 'en')];
+    }
+}
 $k_switch = null;
 if ($k_dev !== null) {
     $k_live = kiosk_peek_session();
@@ -83,6 +99,7 @@ $k_page = [
     'body_class' => 'kx-home kx-signin-page',
     'data' => [
         'state' => $k_state,
+        'ended' => $k_ended !== null,
         'personal' => $k_personal,
         'switch' => $k_switch,
         'lock_note' => ['n' => $kctx->ks->pinSoft, 'minutes' => $kctx->ks->pinLockMin],
@@ -101,10 +118,16 @@ require __DIR__ . '/includes/layout_top.php';
 <?php if ($k_dev === null) { ?>
   <div class="kx-center" id="kx-ns">
     <section class="kx-hero" aria-labelledby="kx-ns-title">
-      <span class="kx-hero__icon" aria-hidden="true"><i class="fas fa-tablet-alt"></i></span>
+      <span class="kx-hero__icon" aria-hidden="true"><i class="fas <?= $k_ended !== null ? 'fa-hourglass-end' : 'fa-tablet-alt' ?>"></i></span>
+<?php if ($k_ended !== null) { ?>
+      <h1 id="kx-ns-title"><?= $k_h($k_en('shell.ended_title')) ?></h1>
+      <p class="kx-hero__alt" lang="es"><?= $k_h($k_es('shell.ended_title')) ?></p>
+      <p class="kx-lead" id="kx-ns-ended"><?= $k_h($k_en('shell.ended_body', ['time' => $k_ended['en']])) ?></p>
+<?php } else { ?>
       <h1 id="kx-ns-title"><?= $k_h($k_en('shell.not_setup_title')) ?></h1>
       <p class="kx-hero__alt" lang="es"><?= $k_h($k_es('shell.not_setup_title')) ?></p>
       <p class="kx-lead"><?= $k_h($k_en('shell.not_setup_body')) ?></p>
+<?php } ?>
       <div class="kx-actions kx-actions--center">
         <a class="kx-btn kx-btn--primary kx-btn--xl" href="/agent/training_device_setup.php"><i class="fas fa-cog" aria-hidden="true"></i><span><?= $k_h($k_en('shell.not_setup_action')) ?></span></a>
         <button type="button" class="kx-btn kx-btn--ghost kx-btn--xl" id="kx-code-open" hidden><i class="fas fa-keyboard" aria-hidden="true"></i><span><?= $k_h($k_en('signin.setup_code_link')) ?></span></button>

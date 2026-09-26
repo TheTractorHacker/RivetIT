@@ -31,7 +31,8 @@ use ITFlow\Training\Kiosk\Pin\Seam;
  * Devices (2.6.94): enrollment may be UNLISTED (`unlisted: true`, no asset_id - the label is the
  * device's only name) and/or TEMPORARY (`expires`: keep | today | 4h | 8h | 24h | until, with
  * `expires_until` 'YYYY-MM-DDTHH:MM' local for 'until'; DeviceLifecycle::expiryFor). kiosk_set_expiry
- * extends a temporary device with the same presets, or ends it now (`expires: 'now'`).
+ * gives any active device a new end time with the same presets (a permanent one becomes temporary),
+ * or ends a temporary one now (`expires: 'now'`; one whose time is already up is removed as expired).
  */
 final class KioskAdminActions
 {
@@ -145,8 +146,9 @@ final class KioskAdminActions
 
     /**
      * POST kiosk_set_expiry {kiosk_id, expires: keep|today|4h|8h|24h|until|now, expires_until?} (kiosk 3).
-     * 'now' ends a temporary device at once (a revoke with the reason "Temporary device ended early");
-     * the presets set a new expiry counted from now ('keep' = kept until removed).
+     * 'now' ends a temporary device at once (a revoke with the reason "Temporary device ended early", or
+     * "Temporary device expired" when its time is already up); the presets set a new end time counted
+     * from now on any active device ('keep' = kept until removed).
      */
     public static function kioskSetExpiry(Ctx $c, ApiContext $a): array
     {

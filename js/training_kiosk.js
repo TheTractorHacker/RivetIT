@@ -7,7 +7,9 @@
  *   Kiosk.data()                                   the parsed k-page-data block
  *   Kiosk.api.post(action, body, {timeoutMs})      JSON POST  } X-Kiosk-Token on BOTH; errors reject with
  *   Kiosk.api.get(action, params, {timeoutMs})     JSON GET   } KioskError{status, code, message, data, fields};
- *                                                  401 session_ended => location.replace('/kiosk/')
+ *                                                  401 session_ended => location.replace('/kiosk/'); with data.ended
+ *                                                  (the device's temporary time ran out) - also on 403
+ *                                                  device_not_enrolled - '/kiosk/?ended=<epoch>'
  *   Kiosk.t(key, vars), Kiosk.lang(), Kiosk.setLang(lang)
  *   Kiosk.idle.start({idleS, warnS, onWarn, onIdle}) / touch() / pause() / resume()
  *        touched ONLY by real input (pointerdown, keydown, wheel, scroll, touchstart) or while a
@@ -20,6 +22,10 @@
  * are wired, the bfcache guard is armed, and on a signed-in page the idle timer (default
  * "Still there?" dialog, then Done) and the heartbeat loop start. A page script may call
  * Kiosk.idle.start() again to replace the defaults; page.kiosk_idle === false opts out.
+ * A TEMPORARY device (data.device.ends_in_s, counted by the server so a wrong device clock can't
+ * loop): from 15 minutes before its end the header shows "Ends 3:13 PM" (plus a toast at 15 and at
+ * 5 minutes), and once the time is up the page goes to /kiosk/?ended=<end>, which says the training
+ * time ended (a device still working ignores ?ended=).
  */
 (function () {
     'use strict';
@@ -134,9 +140,13 @@
                 var e = (json && json.error) ? json.error : {};
                 var code = e.code || (res.status === 503 ? 'server' : 'server');
                 var err = KioskError(res.status, code, errorMessage(code, e.message), json ? (json.data || null) : null, e.fields);
+                var ended = json && json.data && typeof json.data.ended === 'number' ? '/kiosk/?ended=' + Math.floor(json.data.ended) : null;
                 if (res.status === 401 && code === 'session_ended') {
                     stopTimers();
-                    location.replace('/kiosk/');
+                    location.replace(ended || '/kiosk/');
+                } else if (ended && res.status === 403 && code === 'device_not_enrolled') {
+                    stopTimers();
+                    location.replace(ended);
                 }
                 throw err;
             });
@@ -741,12 +751,49 @@
         document.addEventListener('visibilitychange', function () { if (!document.hidden) { idleCheck(); } });
     }
 
+    // ---------------------------------------------------------------- temporary device: its end time
+    var DEVICE_WARN_MS = 15 * 60000;
+    function deviceEnd() {
+        var dv = data().device;
+        if (!dv || typeof dv.ends_in_s !== 'number' || !dv.ends_at) { return; }
+        var deadline = Date.now() + Math.max(0, dv.ends_in_s) * 1000;
+        var chip = null;
+        var toasted = { 15: dv.ends_in_s * 1000 <= DEVICE_WARN_MS, 5: false };   // the chip already says it on a page opened late
+        var timer = null;
+        function check() {
+            var left = deadline - Date.now();
+            if (left <= -2000) {   // a little after the server's end: Home says the training time ended (even if the cron got there first)
+                if (timer) { clearInterval(timer); timer = null; }
+                stopTimers();
+                location.replace(typeof dv.ends_epoch === 'number' ? '/kiosk/?ended=' + Math.floor(dv.ends_epoch) : '/kiosk/');
+                return;
+            }
+            if (left > DEVICE_WARN_MS) { return; }
+            if (!chip) {
+                chip = el('span', { class: 'kx-endchip', title: t('shell.device_ends', { time: dv.ends_at }) }, [icon('fa-hourglass-end'),
+                    el('span', { text: t('shell.device_ends_chip', { time: dv.ends_at }) })]);
+                var host = document.querySelector('.kx-top__right');
+                if (host) { host.insertBefore(chip, host.firstChild); }
+            }
+            // A toast when the 15-minute mark passes on this page, and once in the last 5 minutes.
+            var mark = left <= 5 * 60000 ? 5 : 15;
+            if (!toasted[mark]) {
+                toasted[mark] = true;
+                toasted[15] = true;
+                toast(t('shell.device_ends', { time: dv.ends_at }), 'warn');
+            }
+        }
+        check();
+        timer = setInterval(check, 5000);
+    }
+
     function init() {
         var d = data();
         document.documentElement.setAttribute('lang', currentLang);
         syncLangToggle();
         wireShell();
         guardBfcache();
+        deviceEnd();
         if (d.session) {
             if (d.idle && typeof d.idle.absolute_left_s === 'number') { absDeadline = Date.now() + d.idle.absolute_left_s * 1000; }
             if (d.page.kiosk_idle !== false) { idle.start({}); }

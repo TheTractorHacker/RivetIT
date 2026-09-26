@@ -10,6 +10,8 @@
  *   $s   = kiosk_peek_session();                   // the live session of this device or null, never redirects
  *
  * A successful session check replaces the global $kctx with $kctx->withKsess($s).
+ * When this request found the device's temporary time up (KioskAuth::expiredAt()), a redirect home
+ * goes to /kiosk/?ended=<epoch> so Home can say when its training time ended (display only).
  */
 
 defined('KIOSK_BOOTSTRAP') || exit;
@@ -23,6 +25,10 @@ function kiosk_redirect(string $path): never
     // Relative to this origin only: callers pass fixed /kiosk/… paths.
     if (preg_match('#^/kiosk/[A-Za-z0-9_./?=&-]*$#D', $path) !== 1) {
         $path = '/kiosk/';
+    }
+    $ended = KioskAuth::expiredAt();
+    if ($path === '/kiosk/' && $ended !== null) {
+        $path = '/kiosk/?ended=' . (int) floor(\ITFlow\Training\Kiosk\Core\KTime::epoch($ended) ?? 0);
     }
     header('Location: ' . $path, true, 302);
     exit;

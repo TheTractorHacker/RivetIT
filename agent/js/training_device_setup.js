@@ -5,7 +5,10 @@
  * a date and time), kiosk_enroll_here, then the one-time start URL. "Open training on this device"
  * always signs the agent out first: fetch('/agent/post.php?logout') with redirect:'manual', then
  * location.replace(open_url) (the #d= form; the ?d= start_url is only shown, for kiosk-mode
- * browsers). Expiry times are shown in the app's time zone. Everything renders with textContent.
+ * browsers). Expiry times are shown and entered in the app's time zone, each with the zone name in
+ * force at that time (training_device_time.js). Switching between "It's in Assets" and "This device
+ * isn't in Assets" keeps a name the admin typed and a "How long?" the admin chose. Everything
+ * renders with textContent.
  */
 (function () {
     'use strict';
@@ -16,8 +19,8 @@
         if (!ui || !api) { return; }
         var el = ui.el;
         var data = ui.readJson('tr-page-data');
-        var tz = data.timezone || undefined;
         var maxDays = data.max_days || 30;
+        var T = window.TrainingDeviceTime.create(data.timezone || undefined, maxDays);
         function $(id) { return document.getElementById(id); }
         var q = $('tr-setup-q');
         var list = $('tr-setup-assets');
@@ -26,6 +29,8 @@
         var label = $('tr-setup-label');
         var chosen = null;     // the picked asset, or null
         var unlisted = false;  // "This device isn't in Assets"
+        var autoLabel = null;  // the name filled in from the picked asset (a name the admin typed is kept)
+        var lifeTouched = false;   // the admin chose "How long?" themselves: switching kinds keeps it
         var startUrl = null;   // /kiosk/?d=<token>: shown once, for a kiosk-mode browser's start page
         var openUrl = null;    // /kiosk/#d=<token>: "Open training" here (a fragment never reaches a server)
         var seq = 0;
@@ -34,55 +39,25 @@
             $('tr-setup-dept').appendChild(el('option', { value: String(d.id), text: d.name }));
         });
 
-        // ---- time helpers (the app's time zone) ---------------------------------------------------
-        function fmt(date, withZone) {
-            try {
-                return date.toLocaleString([], { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: withZone ? 'short' : undefined });
-            } catch (e) {
-                return date.toLocaleString();
-            }
-        }
-        /** 'YYYY-MM-DDTHH:MM' wall clock in the app's time zone (datetime-local min/max). */
-        function wall(date) {
-            var p = {};
-            try {
-                new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-                    .formatToParts(date).forEach(function (x) { p[x.type] = x.value; });
-            } catch (e) {
-                return '';
-            }
-            return p.year + '-' + p.month + '-' + p.day + 'T' + (p.hour === '24' ? '00' : p.hour) + ':' + p.minute;
-        }
-        /** The app zone's short name right now ("CDT"), or its IANA name. */
-        function zoneName() {
-            try {
-                var z = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' }).formatToParts(new Date()).filter(function (x) { return x.type === 'timeZoneName'; });
-                return z.length ? z[0].value : (tz || '');
-            } catch (e) {
-                return tz || '';
-            }
-        }
-        /** A datetime-local value (app zone) as text, without converting it through the browser's zone. */
-        function wallText(v) {
-            var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(v || '');
-            if (!m) { return ''; }
-            var d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
-            return d.toLocaleString([], { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-        }
+        // ---- how long (times in the app's time zone, training_device_time.js) --------------------
         function preview() {
             var out = $('tr-setup-expiry-preview');
             var preset = $('tr-setup-expires').value;
-            var now = new Date();
+            var r = T.endFor(preset, $('tr-setup-until').value);
             var t = '';
-            if (preset === '4h' || preset === '8h' || preset === '24h') {
-                t = 'Stops working about ' + fmt(new Date(now.getTime() + parseInt(preset, 10) * 3600000), true) + '.';
-            } else if (preset === 'today') {
-                t = 'Stops working tonight at 11:59 PM ' + zoneName() + '.';
-            } else if (preset === 'until') {
-                var v = $('tr-setup-until').value;
-                t = v ? 'Stops working ' + wallText(v) + ' ' + zoneName() + '.' : 'Pick when it stops working (up to ' + maxDays + ' days from now).';
+            out.classList.toggle('text-danger', !!r.error);
+            if (r.error) {
+                out.textContent = preset === 'until' && !$('tr-setup-until').value ? 'Pick when it stops working (up to ' + maxDays + ' days from now).' : r.error;
+                return;
             }
-            out.textContent = t + ' You can extend it or end it early on Devices & PINs.';
+            if (preset === '4h' || preset === '8h' || preset === '24h') {
+                t = 'Stops working about ' + T.fmt(r.date, true) + '.';
+            } else if (preset === 'today') {
+                t = 'Stops working tonight at ' + T.time(r.date) + '.';
+            } else if (preset === 'until') {
+                t = 'Stops working ' + T.fmt(r.date, true) + '.';
+            }
+            out.textContent = t + ' You can change it or end it early on Devices & PINs.';
         }
         function syncLife() {
             var temp = $('tr-setup-life-temp').checked;
@@ -91,15 +66,15 @@
             $('tr-setup-until-wrap').hidden = !(temp && until);
             if (temp && until) {
                 var u = $('tr-setup-until');
-                u.min = wall(new Date(Date.now() + 5 * 60000));
-                u.max = wall(new Date(Date.now() + maxDays * 86400000));
-                if (!u.value) { u.value = wall(new Date(Date.now() + 2 * 3600000)); }
+                T.untilBounds(u);
+                if (!u.value) { u.value = T.wall(new Date(Date.now() + 2 * 3600000)); }
             }
             if (temp) { preview(); }
         }
-        $('tr-setup-life-keep').addEventListener('change', syncLife);
-        $('tr-setup-life-temp').addEventListener('change', syncLife);
-        $('tr-setup-expires').addEventListener('change', syncLife);
+        function lifeChanged() { lifeTouched = true; syncLife(); }
+        $('tr-setup-life-keep').addEventListener('change', lifeChanged);
+        $('tr-setup-life-temp').addEventListener('change', lifeChanged);
+        $('tr-setup-expires').addEventListener('change', lifeChanged);
         $('tr-setup-until').addEventListener('input', function () { this.classList.remove('is-invalid'); preview(); });
 
         function typeIcon(t) {
@@ -171,7 +146,7 @@
                 rep.textContent = '';
                 rep.classList.add('d-none');
             }
-            if (!label.value) { label.value = a.name; }
+            if (!label.value || label.value === autoLabel) { label.value = a.name; autoLabel = a.name; }
             if (a.client_id) { $('tr-setup-dept').value = String(a.client_id); }
             label.focus();
         }
@@ -183,23 +158,27 @@
             $('tr-setup-unlisted-pane').hidden = !isUnlisted;
             label.classList.remove('is-invalid');
             $('tr-setup-replace').classList.add('d-none');
+            // A name the admin typed stays; one filled in from a picked asset goes with the asset.
+            if (label.value === autoLabel) { label.value = ''; }
+            autoLabel = null;
             if (isUnlisted) {
                 chosen = null;
                 Array.prototype.forEach.call(list.children, function (c) { c.classList.remove('active'); c.setAttribute('aria-selected', 'false'); });
                 details.hidden = false;
                 setMode('fa-users', 'Not in Assets: a shared device. People find their name, then enter their PIN.');
                 label.placeholder = 'Trainer’s laptop, Borrowed iPad';
-                label.value = '';
-                // A device you don't track is usually a one-off: start on Temporary (until tonight).
-                $('tr-setup-life-temp').checked = true;
-                $('tr-setup-expires').value = 'today';
+                if (!lifeTouched) {
+                    // A device you don't track is usually a one-off: start on Temporary (until tonight,
+                    // or 4 hours when today is almost over).
+                    $('tr-setup-life-temp').checked = true;
+                    $('tr-setup-expires').value = T.endFor('today').error ? '4h' : 'today';
+                }
                 syncLife();
                 label.focus();
             } else {
                 details.hidden = chosen === null;
                 label.placeholder = 'Fab Shop iPad 2';
-                label.value = '';
-                $('tr-setup-life-keep').checked = true;
+                if (!lifeTouched) { $('tr-setup-life-keep').checked = true; }
                 syncLife();
                 q.focus();
             }
@@ -209,7 +188,7 @@
 
         var debounced = ui.debounce(load, 250);
         q.addEventListener('input', debounced);
-        label.addEventListener('input', function () { label.classList.remove('is-invalid'); });
+        label.addEventListener('input', function () { label.classList.remove('is-invalid'); autoLabel = null; });
 
         function showFieldError(field, msg) {
             var input = field === 'label' ? label : (field === 'expires_until' ? $('tr-setup-until') : null);
@@ -228,6 +207,10 @@
             $('tr-setup-until').classList.remove('is-invalid');
             if (unlisted && !label.value.trim()) {
                 showFieldError('label', 'Give the device a name, like “Trainer’s laptop”.');
+                return;
+            }
+            if ($('tr-setup-life-temp').checked && $('tr-setup-expires').value === 'today' && T.endFor('today').error) {
+                ui.toast(T.endFor('today').error, { type: 'error' });   // the server says the same; no round trip
                 return;
             }
             var body = {
@@ -256,7 +239,7 @@
                 while (exp.firstChild) { exp.removeChild(exp.firstChild); }
                 if (res.device_expires_at) {
                     exp.appendChild(el('i', { class: 'fas fa-hourglass-half text-warning mt-1', 'aria-hidden': 'true' }));
-                    exp.appendChild(el('span', {}, [el('strong', { text: 'Temporary: ' }), 'stops working ' + fmt(new Date(res.device_expires_at), true) + '. The start URL stops working then too.']));
+                    exp.appendChild(el('span', {}, [el('strong', { text: 'Temporary: ' }), 'stops working ' + T.fmt(new Date(res.device_expires_at), true) + '. The start URL stops working then too.']));
                 } else {
                     exp.appendChild(el('i', { class: 'fas fa-infinity text-secondary mt-1', 'aria-hidden': 'true' }));
                     exp.appendChild(el('span', { text: 'Kept until you remove it.' }));

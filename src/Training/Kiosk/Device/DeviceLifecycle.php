@@ -22,10 +22,15 @@ use ITFlow\Training\Kiosk\Core\KTime;
  * Both write exactly what a manual revoke writes (kiosk.revoked + ksession.end ledger events, a
  * training.kiosk_revoked audit row), with the system as the actor.
  *
- * PRESETS (expiryFor()): 'keep' (no expiry), 'today' (23:59:59 local), '4h', '8h', '24h', and 'until'
- * with a local 'YYYY-MM-DDTHH:MM' at least MIN_LEAD_S ahead and at most MAX_DAYS ahead. "Local" is
- * the app's time zone (settings.config_timezone, America/Chicago here). The same presets extend a
- * temporary device; 'keep' makes it permanent.
+ * PRESETS (expiryFor()): 'keep' (no expiry), 'today' (23:59:59 local, refused when less than
+ * MIN_LEAD_S is left today), '4h', '8h', '24h', and 'until' with a local 'YYYY-MM-DDTHH:MM' at least
+ * MIN_LEAD_S ahead and at most MAX_DAYS ahead. "Local" is the app's time zone
+ * (settings.config_timezone, America/Chicago here). The same presets change the end time of any
+ * active device (a permanent one becomes temporary); 'keep' makes it permanent.
+ *
+ * HISTORY. Records never read the device's CURRENT expiry (it can change both ways): expiryAsOf()
+ * answers "was this device temporary at that moment?" from the hash-chained ledger
+ * (kiosk.enroll_code_issued / kiosk.enrolled {expires_at_utc}, kiosk.expiry_changed {to}).
  *
  * Every comparison binds a UTC literal computed here in PHP (§0.11).
  */
@@ -62,6 +67,10 @@ final class DeviceLifecycle
         $tz = new \DateTimeZone(date_default_timezone_get());
         if ($preset === 'today') {
             $end = (new \DateTimeImmutable('@' . (int) floor($now)))->setTimezone($tz)->setTime(23, 59, 59);
+            if ($end->getTimestamp() - $now < self::MIN_LEAD_S) {
+                // Late at night "today" would last seconds (and a code or an Extend could already be past it).
+                throw ApiException::validation(['expires' => 'Less than 5 minutes are left today. Pick 4 hours, or a date and time.']);
+            }
             return KTime::fromEpoch((float) $end->getTimestamp());
         }
         if ($preset !== 'until') {
@@ -87,6 +96,24 @@ final class DeviceLifecycle
             throw ApiException::validation(['expires_until' => 'A temporary device can stay set up for at most ' . self::MAX_DAYS . ' days.']);
         }
         return KTime::fromEpoch($t);
+    }
+
+    /**
+     * The device's expiry (UTC) as it stood at $atUtc, from the ledger: the payload of the last
+     * kiosk.enroll_code_issued / kiosk.enrolled / kiosk.expiry_changed event at or before that time.
+     * Null = kept until removed then (or enrolled before 2.6.94, when no device was temporary).
+     */
+    public static function expiryAsOf(\mysqli $db, int $kioskId, string $atUtc): ?string
+    {
+        $e = Db::one($db, "SELECT tevent_type, tevent_payload_json FROM training_events
+            WHERE tevent_kiosk_id = ? AND tevent_type IN ('kiosk.enroll_code_issued', 'kiosk.enrolled', 'kiosk.expiry_changed') AND tevent_at_utc <= ?
+            ORDER BY tevent_at_utc DESC, tevent_seq DESC LIMIT 1", 'is', [$kioskId, $atUtc]);
+        if ($e === null) {
+            return null;
+        }
+        $p = json_decode((string) $e['tevent_payload_json'], true);
+        $v = is_array($p) ? ($e['tevent_type'] === 'kiosk.expiry_changed' ? ($p['to'] ?? null) : ($p['expires_at_utc'] ?? null)) : null;
+        return is_string($v) && $v !== '' ? $v : null;
     }
 
     /**
