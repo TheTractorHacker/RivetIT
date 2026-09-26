@@ -9123,3 +9123,25 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.94'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.94') {
+        // Roles audit P4 (owner-approved 2026-09-26): an Assets module (module_assets, levels 1-3), so a
+        // role can have the asset pages without tickets. Asset pages accept module_assets OR module_support.
+        // Every existing role is granted module_assets at its CURRENT module_support level, so nobody's
+        // access changes (the Technician role keeps exactly what it has). Idempotent: the module row and
+        // each grant are only added when missing.
+        mysqli_query($mysqli, "INSERT INTO `modules` (`module_name`, `module_description`)
+            SELECT 'module_assets', 'Access to assets, without ticketing or documentation' FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM `modules` WHERE `module_name` = 'module_assets')");
+        mysqli_query($mysqli, "INSERT INTO `user_role_permissions` (`user_role_id`, `module_id`, `user_role_permission_level`)
+            SELECT urp.`user_role_id`, ma.`module_id`, MAX(urp.`user_role_permission_level`)
+            FROM `user_role_permissions` urp
+            JOIN `modules` ms ON ms.`module_id` = urp.`module_id` AND ms.`module_name` = 'module_support'
+            JOIN `modules` ma ON ma.`module_name` = 'module_assets'
+            WHERE urp.`user_role_permission_level` > 0
+              AND NOT EXISTS (SELECT 1 FROM `user_role_permissions` x
+                              WHERE x.`user_role_id` = urp.`user_role_id` AND x.`module_id` = ma.`module_id`)
+            GROUP BY urp.`user_role_id`, ma.`module_id`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.95'");
+    }

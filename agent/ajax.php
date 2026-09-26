@@ -426,7 +426,7 @@ if (isset($_POST['asset_set_notes'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $asset_id = intval($_POST['asset_id']);
     $notes = sanitizeInput($_POST['notes']);
@@ -813,7 +813,8 @@ if (isset($_GET['asset_inline_update'])) {
         $inline_fail(403, 'Your session token expired - reload the page and try again.');
     }
 
-    $inline_permission = lookupUserPermission('module_support');
+    // Assets or Tickets/assets/docs, edit level (roles audit P4).
+    $inline_permission = max(intval(lookupUserPermission('module_support')), intval(lookupUserPermission('module_assets')));
     if (!$inline_permission || $inline_permission < 2) {
         $inline_fail(403, 'Your role does not have write access to assets.');
     }

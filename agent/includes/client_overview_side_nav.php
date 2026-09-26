@@ -254,6 +254,26 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                         </a>
                     </li>
 
+                <?php } else { // No Tickets/assets/docs: only what the role holds (roles audit P4) ?>
+
+                    <?php if (lookupUserPermission("module_client") >= 1) { ?>
+                    <li class="nav-item<?php if ($current_page == "contacts.php" || $current_page == "contact_details.php") { echo " active"; } ?>">
+                        <a href="/agent/contacts.php" class="nav-link<?php if ($current_page == "contacts.php" || $current_page == "contact_details.php") { echo " active"; } ?>">
+                            <span class="nav-link-icon"><i class="fas fa-address-book"></i></span>
+                            <span class="nav-link-title">Contacts</span>
+                        </a>
+                    </li>
+                    <?php } ?>
+
+                    <?php if (itflow_can_assets(1)) { ?>
+                    <li class="nav-item<?php if ($current_page == "assets.php" || $current_page == "asset_details.php") { echo " active"; } ?>">
+                        <a href="/agent/assets.php?scope=company" class="nav-link<?php if ($current_page == "assets.php" || $current_page == "asset_details.php") { echo " active"; } ?>">
+                            <span class="nav-link-icon"><i class="fas fa-desktop"></i></span>
+                            <span class="nav-link-title">Assets</span>
+                        </a>
+                    </li>
+                    <?php } ?>
+
                 <?php } ?>
 
             </ul>

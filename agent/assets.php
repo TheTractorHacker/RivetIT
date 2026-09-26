@@ -51,15 +51,15 @@ if (isset($_GET['client_id']) && intval($_GET['client_id']) > 0) {
     }
 }
 
-// Perms
-enforceUserPermission('module_support');
+// Perms: the Assets module or Tickets/assets/docs (roles audit P4)
+enforceAssetPermission(1);
 
 // Inline edit (agent/js/asset_inline_edit.js): Assigned To / Location /
 // Status / Department become click-to-change dropdowns for anyone with
 // write access. Captured here, not later - the row loop below reassigns
 // $client_id per row, so by then it no longer means "this page's department".
 $page_client_id = $client_url ? intval($client_id) : 0;
-$can_inline_edit = lookupUserPermission('module_support') >= 2;
+$can_inline_edit = itflow_can_assets(2);
 $inline_edit_data = null;
 if ($can_inline_edit) {
     $inline_edit_data = [
@@ -315,7 +315,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-desktop me-2"></i>Assets</h3>
         <div class="card-tools">
-            <?php if (lookupUserPermission("module_support") >= 2) { ?>
+            <?php if (itflow_can_assets(2)) { ?>
             <div class="btn-group">
                 <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/asset/asset_add.php?<?= $client_url ?>&type=<?= $type_filter ?>">
                     <i class="fas fa-plus me-2"></i>New <?php if ($type_filter) { echo ucwords($type_filter); } else { echo "Asset"; } ?>
@@ -516,6 +516,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                                     <i class="fas fa-fw fa-layer-group me-2"></i>Set Type
                                 </a>
                                 <div class="dropdown-divider"></div>
+                                <?php if (lookupUserPermission('module_support') >= 2) { // tickets: Tickets/assets/docs only ?>
                                 <a class="dropdown-item ajax-modal" href="#"
                                     data-modal-url="modals/asset/asset_bulk_add_ticket.php"
                                     data-modal-size="lg"
@@ -523,6 +524,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                                     <i class="fas fa-fw fa-life-ring me-2"></i>Create Tickets
                                 </a>
                                 <div class="dropdown-divider"></div>
+                                <?php } ?>
                                 <a class="dropdown-item ajax-modal" href="#"
                                     data-modal-url="modals/asset/asset_bulk_transfer_client.php?<?= $client_url ?>"
                                     data-bulk="true">

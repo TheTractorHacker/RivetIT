@@ -1,5 +1,14 @@
 <?php
 
+// Roles audit P4: an Assets role without Departments opens assets in the company-wide shell (the
+// department shell needs Departments). Everyone who holds Departments keeps the department shell.
+require_once $_SERVER['DOCUMENT_ROOT'] . '/config.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/functions.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/check_login.php';
+if (isset($_GET['client_id']) && intval($_GET['client_id']) > 0 && lookupUserPermission('module_client') < 1 && itflow_can_assets(1)) {
+    unset($_GET['client_id']);
+}
+
 // If client_id is in URI then show client Side Bar and client header.
 // client_id=0 means "no department" (a real, valid value on assets - see
 // enforceClientAccess()'s own client_id===0 special case) rather than an
@@ -110,13 +119,18 @@ if (isset($_GET['asset_id'])) {
         // Override Tab Title // No Sanitizing needed as this var will opnly be used in the tab title
         $page_title = $row['asset_name'];
 
+        // Roles audit P4: with the Assets module alone (no Tickets/assets/docs) the linked tickets, recurring
+        // tickets, documents, files, licenses and services are not shown - those queries match nothing.
+        // Anyone holding Tickets/assets/docs (Technician, admins) sees them exactly as before.
+        $asset_support_sql = lookupUserPermission('module_support') >= 1 ? '' : ' AND 1 = 0';
+
         $sql_related_tickets = mysqli_query($mysqli, "
             SELECT tickets.*, users.*, ticket_statuses.*
             FROM tickets
             LEFT JOIN users ON ticket_assigned_to = user_id
             LEFT JOIN ticket_statuses ON ticket_status_id = ticket_status
             LEFT JOIN ticket_assets ON tickets.ticket_id = ticket_assets.ticket_id
-            WHERE ticket_asset_id = $asset_id OR ticket_assets.asset_id = $asset_id
+            WHERE (ticket_asset_id = $asset_id OR ticket_assets.asset_id = $asset_id) $asset_support_sql
             GROUP BY tickets.ticket_id
             ORDER BY ticket_number DESC
         ");
@@ -125,7 +139,7 @@ if (isset($_GET['asset_id'])) {
         // Related Recurring Tickets Query
         $sql_related_recurring_tickets = mysqli_query($mysqli, "SELECT recurring_tickets.* FROM recurring_tickets
             LEFT JOIN recurring_ticket_assets ON recurring_tickets.recurring_ticket_id = recurring_ticket_assets.recurring_ticket_id
-            WHERE recurring_ticket_asset_id = $asset_id OR recurring_ticket_assets.asset_id = $asset_id
+            WHERE (recurring_ticket_asset_id = $asset_id OR recurring_ticket_assets.asset_id = $asset_id) $asset_support_sql
             GROUP BY recurring_tickets.recurring_ticket_id
             ORDER BY recurring_ticket_next_run DESC"
         );
@@ -134,7 +148,7 @@ if (isset($_GET['asset_id'])) {
         // Related Documents
         $sql_related_documents = mysqli_query($mysqli, "SELECT * FROM asset_documents
             LEFT JOIN documents ON asset_documents.document_id = documents.document_id
-            WHERE asset_documents.asset_id = $asset_id
+            WHERE asset_documents.asset_id = $asset_id $asset_support_sql
             AND document_archived_at IS NULL
             ORDER BY document_name DESC"
         );
@@ -206,7 +220,7 @@ if (isset($_GET['asset_id'])) {
         // Related Files
         $sql_related_files = mysqli_query($mysqli, "SELECT * FROM asset_files
             LEFT JOIN files ON asset_files.file_id = files.file_id
-            WHERE asset_files.asset_id = $asset_id
+            WHERE asset_files.asset_id = $asset_id $asset_support_sql
             AND file_archived_at IS NULL
             ORDER BY file_name DESC"
         );
@@ -226,7 +240,7 @@ if (isset($_GET['asset_id'])) {
         // Related Documents
         $sql_related_documents = mysqli_query($mysqli, "SELECT * FROM asset_documents, documents
             LEFT JOIN users ON document_created_by = user_id
-            WHERE asset_documents.asset_id = $asset_id
+            WHERE asset_documents.asset_id = $asset_id $asset_support_sql
             AND asset_documents.document_id = documents.document_id
             AND document_archived_at IS NULL
             ORDER BY document_name ASC"
@@ -263,7 +277,7 @@ if (isset($_GET['asset_id'])) {
             $mysqli,
             "SELECT * FROM software_assets
             LEFT JOIN software ON software_assets.software_id = software.software_id
-            WHERE software_assets.asset_id = $asset_id
+            WHERE software_assets.asset_id = $asset_id $asset_support_sql
             AND software_archived_at IS NULL
             ORDER BY software_name DESC"
         );
@@ -272,7 +286,7 @@ if (isset($_GET['asset_id'])) {
 
         // Linked Services
         $sql_linked_services = mysqli_query($mysqli, "SELECT * FROM service_assets, services
-            WHERE service_assets.asset_id = $asset_id
+            WHERE service_assets.asset_id = $asset_id $asset_support_sql
             AND service_assets.service_id = services.service_id
             ORDER BY service_name ASC"
         );
@@ -632,6 +646,7 @@ if (isset($_GET['asset_id'])) {
                     <li class="breadcrumb-item active"><?= $asset_name; ?></li>
                 </ol>
 
+                <?php if (lookupUserPermission('module_support') >= 1) { // New ticket/credential/document/file and Link: Tickets/assets/docs (P4) ?>
                 <div class="btn-group mb-3">
                     <div class="dropdown dropleft me-2">
                         <button type="button" class="btn btn-primary" data-bs-toggle="dropdown" data-boundary="window"><i class="fas fa-plus me-2"></i>New</button>
@@ -688,6 +703,7 @@ if (isset($_GET['asset_id'])) {
                         </div>
                     </div>
                 </div>
+                <?php } ?>
 
                 <?php if ($rmm_link): ?>
                 <div class="card card-dark mb-3">
@@ -1165,7 +1181,7 @@ if (isset($_GET['asset_id'])) {
                                         <button class="dropdown-item text-dark" type="submit" form="bulkActions" name="bulk_edit_asset_interface_ip_dhcp">
                                             <i class="fas fa-fw fa-list-ul me-2"></i>Set to DHCP
                                         </button>
-                                        <?php if (lookupUserPermission("module_support") === 3) { ?>
+                                        <?php if (itflow_can_assets(3)) { ?>
                                         <div class="dropdown-divider"></div>
                                         <button class="dropdown-item text-danger text-bold confirm-link" type="submit" form="bulkActions" name="bulk_delete_asset_interfaces">
                                             <i class="fas fa-fw fa-trash me-2"></i>Delete
