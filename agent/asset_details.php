@@ -634,6 +634,7 @@ if (isset($_GET['asset_id'])) {
             <div class="col-md-9">
 
                 <ol class="breadcrumb">
+                    <?php if (lookupUserPermission('module_client') >= 1) { ?>
                     <li class="breadcrumb-item">
                         <a href="clients.php">Departments</a>
                     </li>
@@ -643,6 +644,11 @@ if (isset($_GET['asset_id'])) {
                     <li class="breadcrumb-item">
                         <a href="assets.php?client_id=<?= $client_id; ?>">Assets</a>
                     </li>
+                    <?php } else { // no Departments: the company-wide Assets list (roles audit P4) ?>
+                    <li class="breadcrumb-item">
+                        <a href="assets.php?scope=company">Assets</a>
+                    </li>
+                    <?php } ?>
                     <li class="breadcrumb-item active"><?= $asset_name; ?></li>
                 </ol>
 

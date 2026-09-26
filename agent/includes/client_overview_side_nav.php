@@ -130,9 +130,15 @@ $current_page = basename($_SERVER["PHP_SELF"]);
              destination. There is no per-department page to send it to. -->
         <div class="navbar-brand p-0 w-100 flex-column align-items-stretch">
 
+            <?php if (lookupUserPermission("module_client") >= 1) { ?>
             <a class="client-nav-back" href="/agent/clients.php">
                 <i class="fas fa-arrow-left"></i> All Departments
             </a>
+            <?php } else { // no Departments (e.g. an Assets role - roles audit P4): back to its home ?>
+            <a class="client-nav-back" href="<?php echo nullable_htmlentities(itflow_home_url()); ?>">
+                <i class="fas fa-arrow-left"></i> <?php echo nullable_htmlentities(itflow_home_label()); ?>
+            </a>
+            <?php } ?>
 
             <div class="client-nav-header" title="These lists span every department you can see">
                 <span class="client-nav-avatar"><i class="fas fa-sitemap"></i></span>
