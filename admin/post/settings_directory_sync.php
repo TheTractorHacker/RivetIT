@@ -424,7 +424,7 @@ if (isset($_POST['sync_odoo_directory'])) {
         try {
             $tr_guard = \ITFlow\Training\Directory\OdooTarget::guard($mysqli, $row);
             if (!$tr_guard['ok']) {
-                flash_alert(nullable_htmlentities($tr_guard['message']), 'error');   // "The Odoo connection now points at a different database. Open Admin > Training compliance and run Check now first."
+                flash_alert(nullable_htmlentities($tr_guard['message']), 'error');   // "The Odoo connection now points at a different database. Open Admin > Training > Employee links (Odoo) and run Check now first."
                 redirect();
             }
             if (!\ITFlow\Training\Core\Db::lock($mysqli, 'trodoo', 0)) {

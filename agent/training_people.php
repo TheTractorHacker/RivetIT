@@ -5,7 +5,7 @@
  *
  * Level 1 reads; level 3 includes/excludes people from the training roster, sets hire dates,
  * edits job groups and trainers. Links is read-only here (the actions live on the admin page
- * Admin › Training compliance). First data comes from the same route handler the JSON
+ * Admin › Training › Employee links). First data comes from the same route handler the JSON
  * endpoint runs (tro_action); agent/js/training_people.js renders it with DOM nodes and
  * refetches through people_roster / jobgroup_list / trainer_list. People scope is
  * fail-closed: with no department access the page shows the banner and empty tables.
@@ -73,7 +73,7 @@ $tr_actions = '';
 if ($tr_tab === 'trainers' && $tr_level >= 3) {
     $tr_actions = '<button type="button" class="btn btn-primary" id="tro-pt-new"><i class="fas fa-user-plus me-2" aria-hidden="true"></i>Add trainer</button>';
 } elseif ($tr_tab === 'links' && $tr_ctx->isAdmin) {
-    $tr_actions = '<a class="btn btn-outline-secondary" href="/admin/settings_training_compliance.php"><i class="fas fa-cog me-2" aria-hidden="true"></i>Manage links</a>';
+    $tr_actions = '<a class="btn btn-outline-secondary" href="/admin/settings_training.php#odoo"><i class="fas fa-cog me-2" aria-hidden="true"></i>Manage links</a>';
 }
 
 $tr_state_labels = [

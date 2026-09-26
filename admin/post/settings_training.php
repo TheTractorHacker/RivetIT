@@ -1,18 +1,56 @@
 <?php
 
 /*
- * Handler for admin/settings_training.php (spec §5.11).
+ * Handler for admin/settings_training.php, the one Admin > Training page (spec §5.11; since
+ * 2026-09-26 also the former Training compliance and Training kiosk pages).
  *
  * The filename is load-bearing: admin/post.php derives the module from the basename of the
  * HTTP referer, so this file must stay named after the page that posts to it. admin/post.php
  * only includes it for admins.
  *
- * Actions: edit_training_settings, training_ledger_verify, training_youtube_key_test,
- * training_media_purge. Each validates the CSRF token, runs, then logs (logAction + an audit
- * event where the spec names one), flashes and redirects back.
+ * Every form on the page posts here. This file runs the General & media and Records ledger
+ * actions itself (edit_training_settings, training_ledger_verify, training_youtube_key_test,
+ * training_media_purge) and, at the end, requires the two section handlers that keep their own
+ * files, unchanged in what they check and write:
+ *   settings_training_compliance.php  edit_training_compliance_settings (defaults and the nightly
+ *                                     Odoo sync switch), training_odoo_link_check,
+ *                                     training_odoo_accept_target, training_odoo_link_relink /
+ *                                     _unlink / _confirm, training_reconcile_now, training_snapshot_now
+ *   settings_training_kiosk.php       edit_training_kiosk_settings (thresholds and the Odoo-PIN switch)
+ * Each action validates the CSRF token, runs, then logs (logAction + an audit event where the
+ * spec names one), flashes and redirects back.
+ *
+ * Back to the right section: every redirect() in these handlers is argument-less, so it returns
+ * to HTTP_REFERER - and browsers never send the #fragment. Before any handler runs, the Referer
+ * is pointed at the section the posted action belongs to (a fixed map below; nothing from the
+ * request is echoed into the URL). A CSRF failure still goes to index.php as before.
  */
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
+
+// Action => section anchor on admin/settings_training.php, in the order the handlers test them.
+$tr_return_to = [
+    'edit_training_settings'            => 'general',
+    'training_ledger_verify'            => 'ledger',
+    'training_youtube_key_test'         => 'youtube',
+    'training_media_purge'              => 'media-storage',
+    'edit_training_compliance_settings' => (($_POST['tc_section'] ?? '') === 'odoo_sync') ? 'odoo-sync' : 'compliance',
+    'training_odoo_link_check'          => 'odoo',
+    'training_odoo_accept_target'       => 'odoo',
+    'training_odoo_link_relink'         => 'odoo',
+    'training_odoo_link_unlink'         => 'odoo',
+    'training_odoo_link_confirm'        => 'odoo',
+    'training_reconcile_now'            => 'maintenance',
+    'training_snapshot_now'             => 'maintenance',
+    'edit_training_kiosk_settings'      => 'kiosk',
+];
+foreach ($tr_return_to as $tr_action => $tr_anchor) {
+    if (isset($_POST[$tr_action])) {
+        $_SERVER['HTTP_REFERER'] = '/admin/settings_training.php#' . $tr_anchor;
+        break;
+    }
+}
+unset($tr_return_to, $tr_action, $tr_anchor);
 
 if (isset($_POST['edit_training_settings']) || isset($_POST['training_ledger_verify'])
     || isset($_POST['training_youtube_key_test']) || isset($_POST['training_media_purge'])) {
@@ -141,7 +179,7 @@ if (isset($_POST['training_ledger_verify'])) {
             JOIN user_roles ON users.user_role_id = user_roles.role_id
             WHERE user_roles.role_is_admin = 1 AND users.user_type = 1 AND users.user_status = 1 AND users.user_archived_at IS NULL");
         while ($tr_admin = mysqli_fetch_assoc($tr_admins)) {
-            notifyUser(intval($tr_admin['user_id']), 'Training', 'Training records integrity check found a problem: ' . $tr_record['line'] . '. Open Admin > Training for details.', '/admin/settings_training.php');
+            notifyUser(intval($tr_admin['user_id']), 'Training', 'Training records integrity check found a problem: ' . $tr_record['line'] . '. Open Admin > Training for details.', '/admin/settings_training.php#ledger');
         }
         try {
             \ITFlow\Audit\AuditService::record('training.ledger_break', $session_user_id, 'training_ledger', $tr_first['seq'], 'verify', $tr_record['line'], [
@@ -264,3 +302,9 @@ if (isset($_POST['training_media_purge'])) {
     flash_alert("Purged $tr_count unreferenced media file(s).$tr_skip_note", $tr_skipped ? 'warning' : 'success');
     redirect();
 }
+
+// Compliance & assignments, Employee links (Odoo) and Kiosk & sign-in. Each file acts only on its
+// own action names (and admin/post.php still includes it directly for a POST from the old page
+// URL, e.g. a tab opened before the merge).
+require_once __DIR__ . '/settings_training_compliance.php';
+require_once __DIR__ . '/settings_training_kiosk.php';

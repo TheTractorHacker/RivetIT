@@ -681,7 +681,7 @@
                 head.appendChild(el('div', { class: 'd-flex flex-wrap align-items-center gap-3' }, [
                     el('div', { class: 'flex-grow-1' }, [
                         el('div', { class: 'fw-semibold', text: checked ? 'Last checked ' + u.relTime(checked) : 'Not checked yet' }),
-                        el('div', { class: 'tro-sub', text: checked ? u.fmtDateTime(checked) : 'Links are checked by every directory sync, or with Check now in Admin › Training compliance.' }),
+                        el('div', { class: 'tro-sub', text: checked ? u.fmtDateTime(checked) : 'Links are checked by every directory sync, or with Check now in Admin › Training › Employee links (Odoo).' }),
                         el('div', { class: 'tro-sub', id: 'tro-pl-extra' })
                     ]),
                     el('div', { class: 'tro-links-count', id: 'tro-pl-count' })

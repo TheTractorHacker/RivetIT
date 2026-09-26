@@ -26,7 +26,7 @@ use ITFlow\Training\People\Scope;
  *
  * capture() is idempotent per date (DELETE + INSERT in one transaction) and never overlaps
  * itself (named lock `trsnap`, 0 s wait). It runs from cron/training_cron.php step 4 and from
- * Admin › Training compliance "Capture today's snapshot".
+ * Admin › Training › Compliance & assignments "Capture today's snapshot".
  */
 final class SnapshotService
 {

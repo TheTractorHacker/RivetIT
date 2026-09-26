@@ -61,7 +61,7 @@ final class OdooTrainingSync
         if ($links['newly_flagged'] !== []) {
             $n = count($links['newly_flagged']);
             try {
-                ($this->notify)("Training: $n Odoo employee link" . ($n === 1 ? ' needs' : 's need') . ' review (re-pointed or name changed). Admin > Training compliance.');
+                ($this->notify)("Training: $n Odoo employee link" . ($n === 1 ? ' needs' : 's need') . ' review (re-pointed or name changed). Admin > Training > Employee links (Odoo).');
                 $notified = 1;
             } catch (\Throwable $e) {
                 error_log('Training Odoo sync: notify failed: ' . $e->getMessage());
@@ -270,7 +270,7 @@ final class OdooTrainingSync
                 return;
             }
             foreach (self::adminUserIds($db) as $uid) {
-                notifyUser($uid, 'Training', $text, '/admin/settings_training_compliance.php');
+                notifyUser($uid, 'Training', $text, '/admin/settings_training.php#odoo');
             }
         };
     }

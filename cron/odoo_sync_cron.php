@@ -13,7 +13,7 @@
  * reconcile when the Training module is on.
  *
  * INERT BY DEFAULT: it does nothing until an admin turns on "Nightly Odoo directory sync" under
- * Admin > Training compliance (settings.config_training_odoo_sync_enabled, default 0).
+ * Admin > Training > Employee links (Odoo) (settings.config_training_odoo_sync_enabled, default 0).
  *
  * Schedule (ops, Phase 2 spec §6.3): /etc/cron.d/mw-itflow-training
  *   30 4 * * * www-data /usr/bin/php /var/www/mw-itflow.foleyit.com/cron/odoo_sync_cron.php >> /var/log/itflow_mw_odoo_sync.log 2>&1
@@ -50,7 +50,7 @@ try {
     exit(0);
 }
 if (!$os_row || intval($os_row['config_training_odoo_sync_enabled']) !== 1) {
-    echo $os_now() . " odoo_sync_cron: disabled (Admin > Training compliance)\n";
+    echo $os_now() . " odoo_sync_cron: disabled (Admin > Training > Employee links (Odoo))\n";
     exit(0);
 }
 
@@ -100,7 +100,7 @@ if (empty($os_result['ok'])) {
         $os_text = nullable_htmlentities('Nightly Odoo directory sync failed: ' . $os_line);
         try {
             foreach (\ITFlow\Training\Directory\OdooTrainingSync::adminUserIds($mysqli) as $os_uid) {
-                notifyUser($os_uid, 'Directory Sync', $os_text, '/admin/settings_training_compliance.php');
+                notifyUser($os_uid, 'Directory Sync', $os_text, '/admin/settings_training.php#odoo-sync');
             }
         } catch (\Throwable $e) {
             logApp('Cron', 'error', 'Odoo sync cron could not notify admins: ' . $e->getMessage());

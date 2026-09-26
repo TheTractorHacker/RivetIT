@@ -123,7 +123,7 @@ if (!$tr_verify_failed && $tr_record['new_break']) {
         JOIN user_roles ON users.user_role_id = user_roles.role_id
         WHERE user_roles.role_is_admin = 1 AND users.user_type = 1 AND users.user_status = 1 AND users.user_archived_at IS NULL");
     while ($tr_admin = mysqli_fetch_assoc($tr_admins)) {
-        notifyUser(intval($tr_admin['user_id']), 'Training', 'Training records integrity check found a problem: ' . $tr_record['line'] . '. Open Admin > Training for details.', '/admin/settings_training.php');
+        notifyUser(intval($tr_admin['user_id']), 'Training', 'Training records integrity check found a problem: ' . $tr_record['line'] . '. Open Admin > Training for details.', '/admin/settings_training.php#ledger');
     }
     try {
         \ITFlow\Audit\AuditService::record('training.ledger_break', null, 'training_ledger', $tr_first['seq'], 'verify', $tr_record['line'], [

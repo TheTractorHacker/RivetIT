@@ -654,7 +654,7 @@
             txt.appendChild(el('a', { href: '/agent/training_people.php?tab=roster', text: 'People › Roster' }));
             if (D.is_admin) {
                 txt.appendChild(document.createTextNode(', or fill them from Odoo in '));
-                txt.appendChild(el('a', { href: '/admin/settings_training_compliance.php', text: 'Admin › Training compliance' }));
+                txt.appendChild(el('a', { href: '/admin/settings_training.php#compliance', text: 'Admin › Training › Compliance' }));
             }
             txt.appendChild(document.createTextNode('.'));
             box.appendChild(txt);

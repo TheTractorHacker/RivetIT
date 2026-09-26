@@ -1,8 +1,10 @@
 <?php
 
 /*
- * Handler for admin/settings_training_kiosk.php (P3 spec §5.8). admin/post.php includes this
- * file by the referer's basename, for admins only.
+ * Kiosk & sign-in action of admin/settings_training.php (P3 spec §5.8; a page of its own,
+ * settings_training_kiosk.php, until 2026-09-26). Required by admin/post/settings_training.php,
+ * which admin/post.php includes for admins only; admin/post.php also includes this file directly
+ * for a POST whose Referer is the old page URL (now a 302 to settings_training.php#kiosk).
  *
  * edit_training_kiosk_settings: CSRF -> every threshold clamped by KioskSettings::clamp (the same
  * ranges the reader applies) -> one UPDATE -> logAction + audit 'training.kiosk_settings_changed'

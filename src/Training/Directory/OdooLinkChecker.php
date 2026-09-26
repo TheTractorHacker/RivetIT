@@ -10,7 +10,7 @@ use ITFlow\Training\Core\Db;
 
 /**
  * "Check now" and the per-link resolution actions (M15, S6; Phase 2 spec §3.4). Admin-only at the
- * edge (admin/post/settings_training_compliance.php); every change is audited
+ * edge (admin/post/settings_training_compliance.php, via admin/post/settings_training.php); every change is audited
  * (training.odoo_link_changed / training.odoo_target_accepted).
  *
  * Frozen transitions: repointed -> ok only by confirm or relink; relink only to the checked

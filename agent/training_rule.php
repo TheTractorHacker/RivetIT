@@ -99,7 +99,7 @@ if ($tr_id === null) {
                     <div class="tro-switch-row" id="tro-rule-newhires-row">
                         <div class="tro-switch-row__text">
                             <label class="tro-switch-row__title" for="tro-rule-newhires">New hires only</label>
-                            <div class="tro-switch-row__hint" id="tro-rule-newhires-hint">Uses the employee's hire date; set it on the transcript, or turn on hire-date fill in Admin › Training compliance.</div>
+                            <div class="tro-switch-row__hint" id="tro-rule-newhires-hint">Uses the employee's hire date; set it on the transcript, or turn on hire-date fill in Admin › Training › Compliance.</div>
                         </div>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" role="switch" id="tro-rule-newhires" aria-describedby="tro-rule-newhires-hint">

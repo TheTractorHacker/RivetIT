@@ -11,6 +11,11 @@
  * admin/includes/side_nav.php already uses to hide a settings page/section
  * when the feature it configures is turned off - a disabled module's
  * settings shouldn't be surfaced as a search result either.
+ *
+ * An entry for a page with in-page sections may carry 'sections' (anchor,
+ * label, keywords): their words match the entry too, and a query that hits
+ * a section's label or words opens the page at '#anchor', titled
+ * "Page › Section". Still one result per page.
  */
 
 function getSettingsSearchIndex(): array {
@@ -34,9 +39,15 @@ function getSettingsSearchIndex(): array {
         ['label' => 'Outlook Calendar Sync',   'keywords' => ['outlook', 'calendar', 'azure', 'sync', 'appointment'],                   'url' => '/admin/settings_calendar_sync.php',      'visible' => true],
         ['label' => 'Telemetry',               'keywords' => ['telemetry', 'analytics', 'usage data'],                                 'url' => '/admin/settings_telemetry.php',          'visible' => true],
         ['label' => 'Modules',                 'keywords' => ['module', 'documentation', 'knowledge base', 'live chat', 'department portal', 'enable'], 'url' => '/admin/settings_module.php', 'visible' => true],
-        ['label' => 'Training (LMS)',          'keywords' => ['training', 'lms', 'course', 'quiz', 'safety', 'ledger', 'youtube', 'media'], 'url' => '/admin/settings_training.php', 'visible' => true],
-        ['label' => 'Training compliance', 'keywords' => ['training','compliance','assignment','odoo','sync','links','hire date','snapshot','certificate'], 'url' => '/admin/settings_training_compliance.php', 'visible' => true],
-        ['label' => 'Training kiosk',          'keywords' => ['kiosk', 'ipad', 'pin', 'lockout', 'idle', 'odoo pin'], 'url' => '/admin/settings_training_kiosk.php', 'visible' => true],
+        // One page, five sections: a query that matches a section's words opens that section.
+        ['label' => 'Training',                'keywords' => ['training', 'lms', 'training settings'], 'url' => '/admin/settings_training.php', 'visible' => true,
+         'sections' => [
+            ['anchor' => 'general',    'label' => 'General & media',          'keywords' => ['course', 'quiz', 'safety', 'language', 'spanish', 'pass mark', 'attempts', 'attestation', 'media', 'upload', 'video', 'pdf', 'youtube', 'api key', 'storage', 'budget', 'purge', 'backup size']],
+            ['anchor' => 'compliance', 'label' => 'Compliance & assignments', 'keywords' => ['compliance', 'assignment', 'due soon', 'reissue', 'reopen', 'target', 'evidence', 'hire date', 'certificate', 'recalculate', 'reconcile', 'snapshot']],
+            ['anchor' => 'odoo',       'label' => 'Employee links (Odoo)',    'keywords' => ['odoo', 'employee link', 'links', 'relink', 'unlink', 'accept target', 'directory sync', 'nightly sync', 'sync']],
+            ['anchor' => 'kiosk',      'label' => 'Kiosk & sign-in',          'keywords' => ['kiosk', 'ipad', 'pin', 'odoo pin', 'lockout', 'idle', 'sign-in', 'sign in', 'setup slip', 'setup code']],
+            ['anchor' => 'ledger',     'label' => 'Records ledger',           'keywords' => ['ledger', 'integrity', 'verify', 'tamper', 'hash']],
+         ]],
         ['label' => 'Webhooks',                'keywords' => ['webhook', 'api', 'delivery log'],                                       'url' => '/admin/settings_webhooks.php',           'visible' => true],
         ['label' => 'RMM Integration',         'keywords' => ['rmm', 'remote monitoring', 'tactical', 'level.io', 'sophos', 'action1', 'connectwise'], 'url' => '/admin/settings_integrations.php?tab=rmm', 'visible' => true],
         ['label' => 'Backups Integration',     'keywords' => ['backup', 'comet'],                                                      'url' => '/admin/settings_integrations.php?tab=backups', 'visible' => true],
@@ -75,14 +86,28 @@ function searchSettingsIndex(string $query, int $limit = 5): array {
         if (!$entry['visible']) {
             continue;
         }
+        $title = $entry['label'];
+        $url = $entry['url'];
         $haystack = mb_strtolower($entry['label'] . ' ' . implode(' ', $entry['keywords']));
+        $section_hit = null;
+        foreach ($entry['sections'] ?? [] as $section) {
+            $section_text = mb_strtolower($section['label'] . ' ' . implode(' ', $section['keywords']));
+            $haystack .= ' ' . $section_text;
+            if ($section_hit === null && mb_strpos($section_text, $needle) !== false) {
+                $section_hit = $section;
+            }
+        }
         if (mb_strpos($haystack, $needle) === false) {
             continue;
         }
+        if ($section_hit !== null) {
+            $title .= ' › ' . $section_hit['label'];
+            $url .= '#' . $section_hit['anchor'];
+        }
         $matches[] = [
-            'title' => $entry['label'],
+            'title' => $title,
             'subtitle' => 'Settings',
-            'url' => $entry['url'],
+            'url' => $url,
         ];
         if (count($matches) >= $limit) {
             break;
