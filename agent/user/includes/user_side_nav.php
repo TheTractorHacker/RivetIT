@@ -33,7 +33,7 @@ $current_page = basename($_SERVER["PHP_SELF"]);
              css/itflow_bs5_bridge.css, so the brand box contributes no padding of its
              own (p-0) and lets the link fill it (w-100). -->
         <div class="navbar-brand p-0 w-100">
-            <a class="section-nav-back" href="/agent/<?php echo $config_start_page ?>">
+            <a class="section-nav-back" href="<?php echo nullable_htmlentities(itflow_home_url()); // start page; a module-only login's own home (roles audit P0) ?>">
                 <i class="fas fa-arrow-left"></i> Account
             </a>
         </div>
@@ -69,12 +69,14 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                     </a>
                 </li>
 
+                <?php if (!itflow_is_limited_user()) { // Outlook calendar sync is for ticket appointments (roles audit P0) ?>
                 <li class="nav-item<?php if ($current_page == "user_integrations.php") { echo " active"; } ?>">
                     <a href="/agent/user/user_integrations.php" class="nav-link<?php if ($current_page == "user_integrations.php") { echo " active"; } ?>">
                         <span class="nav-link-icon"><i class="fab fa-microsoft"></i></span>
                         <span class="nav-link-title">Integrations</span>
                     </a>
                 </li>
+                <?php } ?>
 
             </ul>
             <div class="mb-3"></div>

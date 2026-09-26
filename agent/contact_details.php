@@ -11,6 +11,9 @@ if (isset($_GET['client_id'])) {
     $client_url = '';
 }
 
+// People are Departments data (roles audit P1b/F2): the company-wide branch used to check no module at all.
+enforceUserPermission('module_client');
+
 if (isset($_GET['contact_id'])) {
     $contact_id = intval($_GET['contact_id']);
 

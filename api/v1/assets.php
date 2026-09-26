@@ -6,7 +6,10 @@ require_once __DIR__ . '/includes/api_permissions.php';
 if ($method !== 'GET') api_error(405, 'Method not allowed');
 
 $uid = $api_user_id;
-api_require_module_permission($mysqli, $uid, 'module_support');
+// Assets module OR Tickets/assets/docs (roles audit P4 - "Training + Assets" without tickets).
+if (!api_has_module_permission($mysqli, $uid, 'module_assets')) {
+    api_require_module_permission($mysqli, $uid, 'module_support');
+}
 
 // Client-scope restriction, mirroring tickets.php/client_tabs.php.
 $asset_client_scope_clause = api_client_scope_sql('a.asset_client_id');

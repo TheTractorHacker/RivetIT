@@ -39,6 +39,8 @@
    The flushed markup is internally balanced, so this file still opens exactly
    three levels and closes none.
    --------------------------------------------------------------------------- */
+// The app shell is open from here on: a later denial (itflow_render_denied) adds only its message + footer.
+$GLOBALS['itflow_shell_open'] = true;
 ?>
 <div class="page-wrapper">
 <?php

@@ -2306,6 +2306,20 @@ components:
           properties:
             accounting_enabled: {type: boolean}
             ticket_charges_enabled: {type: boolean}
+        is_admin: {type: boolean, description: The login's role is an administrator role (every permission is 3).}
+        limited:
+          type: boolean
+          description: >
+            A module-only login (no Departments, Tickets/assets/docs or Assets, e.g. Training only). The API
+            then allows only /me, /notifications and /kb, /reports, /alerts for modules the role holds;
+            everything else answers 403.
+        permissions:
+          type: object
+          description: >
+            Every module (module_client, module_support, module_assets, module_training, ...) with this
+            login's level - 0 none, 1 view, 2 edit, 3 full - so the app can hide screens it cannot open.
+            Asset screens accept module_assets or module_support.
+          additionalProperties: {type: integer, minimum: 0, maximum: 3}
     UpdateProfileRequest:
       type: object
       description: >

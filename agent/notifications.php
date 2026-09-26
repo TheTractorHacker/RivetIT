@@ -22,6 +22,7 @@ $sql = mysqli_query(
     WHERE (notification_type LIKE '%$q%' OR notification LIKE '%$q%')
     AND DATE(notification_timestamp) BETWEEN '$dtf' AND '$dtt'
     AND notification_user_id = $session_user_id
+    " . itflow_notification_type_sql(intval($session_user_id)) . "
     $dismissed_query
     ORDER BY $sort $order
     LIMIT $record_from, $record_to

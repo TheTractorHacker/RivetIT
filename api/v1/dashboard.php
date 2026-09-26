@@ -6,35 +6,41 @@ if ($method !== 'GET') api_error(405, 'Method not allowed');
 
 $uid = $api_user_id;
 
+// Roles audit P1g/F8: ticket numbers need Tickets/assets/docs. Without it every ticket count is 0 and the
+// queue is empty (the response keeps its shape so the app's home screen still renders).
+$dash_tickets_sql = api_has_module_permission($mysqli, $uid, 'module_support') ? '' : ' AND 1 = 0';
+// The unread count follows the same notification rules as the bell (limited logins: their modules only).
+$dash_notif_sql = itflow_notification_type_sql(intval($uid));
+
 $my_open = mysqli_fetch_assoc(mysqli_query($mysqli,
     "SELECT COUNT(*) AS c FROM tickets
-     WHERE ticket_assigned_to = $uid AND ticket_resolved_at IS NULL AND ticket_archived_at IS NULL"))['c'];
+     WHERE ticket_assigned_to = $uid AND ticket_resolved_at IS NULL AND ticket_archived_at IS NULL $dash_tickets_sql"))['c'];
 
 $all_open = mysqli_fetch_assoc(mysqli_query($mysqli,
     "SELECT COUNT(*) AS c FROM tickets
      WHERE ticket_resolved_at IS NULL AND ticket_archived_at IS NULL
-     AND " . api_client_scope_sql('ticket_client_id')))['c'];
+     AND " . api_client_scope_sql('ticket_client_id') . $dash_tickets_sql))['c'];
 
 $unread = mysqli_fetch_assoc(mysqli_query($mysqli,
     "SELECT COUNT(*) AS c FROM notifications
      WHERE (notification_user_id = $uid OR notification_user_id = 0)
-     AND notification_dismissed_at IS NULL"))['c'];
+     AND notification_dismissed_at IS NULL $dash_notif_sql"))['c'];
 
 $overdue = mysqli_fetch_assoc(mysqli_query($mysqli,
     "SELECT COUNT(*) AS c FROM tickets
      WHERE ticket_due_at < NOW() AND ticket_resolved_at IS NULL AND ticket_archived_at IS NULL
-     AND " . api_client_scope_sql('ticket_client_id')))['c'];
+     AND " . api_client_scope_sql('ticket_client_id') . $dash_tickets_sql))['c'];
 
 $due_today = mysqli_fetch_assoc(mysqli_query($mysqli,
     "SELECT COUNT(*) AS c FROM tickets
      WHERE ticket_due_at IS NOT NULL AND DATE(ticket_due_at) = CURDATE()
      AND ticket_resolved_at IS NULL AND ticket_archived_at IS NULL
-     AND " . api_client_scope_sql('ticket_client_id')))['c'];
+     AND " . api_client_scope_sql('ticket_client_id') . $dash_tickets_sql))['c'];
 
 $onsite_open = mysqli_fetch_assoc(mysqli_query($mysqli,
     "SELECT COUNT(*) AS c FROM tickets
      WHERE ticket_onsite = 1 AND ticket_resolved_at IS NULL AND ticket_archived_at IS NULL
-     AND " . api_client_scope_sql('ticket_client_id')))['c'];
+     AND " . api_client_scope_sql('ticket_client_id') . $dash_tickets_sql))['c'];
 
 // My queue - recent open tickets assigned to me
 $queue = [];
@@ -45,7 +51,7 @@ $sql = mysqli_query($mysqli,
      FROM tickets t
      LEFT JOIN clients c ON t.ticket_client_id = c.client_id
      LEFT JOIN ticket_statuses ts ON t.ticket_status = ts.ticket_status_id
-     WHERE t.ticket_assigned_to = $uid AND t.ticket_resolved_at IS NULL AND t.ticket_archived_at IS NULL
+     WHERE t.ticket_assigned_to = $uid AND t.ticket_resolved_at IS NULL AND t.ticket_archived_at IS NULL $dash_tickets_sql
      ORDER BY t.ticket_due_at ASC, t.ticket_created_at DESC
      LIMIT 10"
 );

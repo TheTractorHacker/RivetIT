@@ -5,6 +5,8 @@ if (isset($_GET['client_id'])) {
     $client_url = "client_id=$client_id&";
 } else {
     require_once "includes/inc_all.php";
+    // Company-wide contracts: Departments, like the department contracts list (roles audit P1b/F9).
+    enforceUserPermission('module_client');
     $client_url = '';
     $client_id = 0;
 }

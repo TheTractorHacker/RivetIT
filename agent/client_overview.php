@@ -23,6 +23,13 @@ $page_title = 'Department Overview';
 
 // ── Queries ───────────────────────────────────────────────────────────────────
 
+// Roles audit P1: this is a Departments page, but some cards show other modules' records. Each of those
+// queries matches nothing when the role lacks the owning module (Technician and admins hold them all, so
+// nothing changes for them): tickets, domains, certificates, licenses and shared links need
+// Tickets/assets/docs; assets need Assets or Tickets/assets/docs.
+$co_support_sql = lookupUserPermission('module_support') >= 1 ? '' : ' AND 1 = 0';
+$co_assets_sql  = itflow_can_assets(1) ? '' : ' AND 1 = 0';
+
 $sql_important_contacts = mysqli_query($mysqli,
     "SELECT * FROM contacts
      WHERE contact_client_id = $client_id
@@ -39,7 +46,7 @@ $sql_client_locations = mysqli_query($mysqli,
 
 $sql_favorite_assets = mysqli_query($mysqli,
     "SELECT * FROM assets
-     WHERE asset_client_id = $client_id AND asset_favorite = 1 AND asset_archived_at IS NULL
+     WHERE asset_client_id = $client_id AND asset_favorite = 1 AND asset_archived_at IS NULL $co_assets_sql
      ORDER BY asset_type ASC, asset_name ASC");
 
 $sql_favorite_credentials = mysqli_query($mysqli,
@@ -52,7 +59,7 @@ $sql_open_tickets = mysqli_query($mysqli,
             ticket_updated_at, ticket_status_name, ticket_status_color
      FROM tickets
      LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id
-     WHERE ticket_client_id = $client_id AND ticket_archived_at IS NULL AND ticket_closed_at IS NULL AND ticket_status != 4
+     WHERE ticket_client_id = $client_id AND ticket_archived_at IS NULL AND ticket_closed_at IS NULL AND ticket_status != 4 $co_support_sql
      ORDER BY ticket_updated_at DESC LIMIT 6");
 
 /*
@@ -85,28 +92,28 @@ $last_real_event = mysqli_fetch_assoc(mysqli_query($mysqli,
      ORDER BY log_created_at DESC LIMIT 1"));
 
 $sql_shared_items = mysqli_query($mysqli,
-    "SELECT * FROM shared_items WHERE item_client_id = $client_id AND item_active = 1 ORDER BY item_created_at ASC LIMIT 5");
+    "SELECT * FROM shared_items WHERE item_client_id = $client_id AND item_active = 1 $co_support_sql ORDER BY item_created_at ASC LIMIT 5");
 
 // Stale Tickets (no activity in 7+ days)
 $sql_stale_tickets = mysqli_query($mysqli,
     "SELECT ticket_id, ticket_prefix, ticket_number, ticket_subject, ticket_updated_at FROM tickets
-     WHERE ticket_client_id = $client_id AND ticket_updated_at < CURRENT_DATE - INTERVAL 7 DAY
+     WHERE ticket_client_id = $client_id AND ticket_updated_at < CURRENT_DATE - INTERVAL 7 DAY $co_support_sql
        AND ticket_resolved_at IS NULL AND ticket_closed_at IS NULL AND ticket_archived_at IS NULL
      ORDER BY ticket_updated_at ASC");
 
 // Expiring (45 day window)
-$sql_domains_expiring            = mysqli_query($mysqli, "SELECT * FROM domains WHERE domain_client_id=$client_id AND domain_expire IS NOT NULL AND domain_archived_at IS NULL AND domain_expire > CURRENT_DATE AND domain_expire < CURRENT_DATE + INTERVAL 45 DAY ORDER BY domain_expire ASC");
-$sql_certificates_expiring       = mysqli_query($mysqli, "SELECT * FROM certificates WHERE certificate_client_id=$client_id AND certificate_expire IS NOT NULL AND certificate_archived_at IS NULL AND certificate_expire > CURRENT_DATE AND certificate_expire < CURRENT_DATE + INTERVAL 45 DAY ORDER BY certificate_expire ASC");
-$sql_licenses_expiring           = mysqli_query($mysqli, "SELECT * FROM software WHERE software_client_id=$client_id AND software_expire IS NOT NULL AND software_archived_at IS NULL AND software_expire > CURRENT_DATE AND software_expire < CURRENT_DATE + INTERVAL 45 DAY ORDER BY software_expire ASC");
-$sql_asset_warranties_expiring   = mysqli_query($mysqli, "SELECT * FROM assets WHERE asset_client_id=$client_id AND asset_warranty_expire IS NOT NULL AND asset_archived_at IS NULL AND asset_warranty_expire > CURRENT_DATE AND asset_warranty_expire < CURRENT_DATE + INTERVAL 45 DAY ORDER BY asset_warranty_expire ASC");
-$sql_asset_retire                = mysqli_query($mysqli, "SELECT * FROM assets WHERE asset_client_id=$client_id AND asset_install_date IS NOT NULL AND asset_archived_at IS NULL AND asset_install_date + INTERVAL 7 YEAR > CURRENT_DATE AND asset_install_date + INTERVAL 7 YEAR <= CURRENT_DATE + INTERVAL 45 DAY ORDER BY asset_install_date ASC");
+$sql_domains_expiring            = mysqli_query($mysqli, "SELECT * FROM domains WHERE domain_client_id=$client_id $co_support_sql AND domain_expire IS NOT NULL AND domain_archived_at IS NULL AND domain_expire > CURRENT_DATE AND domain_expire < CURRENT_DATE + INTERVAL 45 DAY ORDER BY domain_expire ASC");
+$sql_certificates_expiring       = mysqli_query($mysqli, "SELECT * FROM certificates WHERE certificate_client_id=$client_id $co_support_sql AND certificate_expire IS NOT NULL AND certificate_archived_at IS NULL AND certificate_expire > CURRENT_DATE AND certificate_expire < CURRENT_DATE + INTERVAL 45 DAY ORDER BY certificate_expire ASC");
+$sql_licenses_expiring           = mysqli_query($mysqli, "SELECT * FROM software WHERE software_client_id=$client_id $co_support_sql AND software_expire IS NOT NULL AND software_archived_at IS NULL AND software_expire > CURRENT_DATE AND software_expire < CURRENT_DATE + INTERVAL 45 DAY ORDER BY software_expire ASC");
+$sql_asset_warranties_expiring   = mysqli_query($mysqli, "SELECT * FROM assets WHERE asset_client_id=$client_id $co_assets_sql AND asset_warranty_expire IS NOT NULL AND asset_archived_at IS NULL AND asset_warranty_expire > CURRENT_DATE AND asset_warranty_expire < CURRENT_DATE + INTERVAL 45 DAY ORDER BY asset_warranty_expire ASC");
+$sql_asset_retire                = mysqli_query($mysqli, "SELECT * FROM assets WHERE asset_client_id=$client_id $co_assets_sql AND asset_install_date IS NOT NULL AND asset_archived_at IS NULL AND asset_install_date + INTERVAL 7 YEAR > CURRENT_DATE AND asset_install_date + INTERVAL 7 YEAR <= CURRENT_DATE + INTERVAL 45 DAY ORDER BY asset_install_date ASC");
 
 // Expired
-$sql_domains_expired             = mysqli_query($mysqli, "SELECT * FROM domains WHERE domain_client_id=$client_id AND domain_expire IS NOT NULL AND domain_archived_at IS NULL AND domain_expire < CURRENT_DATE ORDER BY domain_expire ASC");
-$sql_certificates_expired        = mysqli_query($mysqli, "SELECT * FROM certificates WHERE certificate_client_id=$client_id AND certificate_expire IS NOT NULL AND certificate_archived_at IS NULL AND certificate_expire < CURRENT_DATE ORDER BY certificate_expire ASC");
-$sql_licenses_expired            = mysqli_query($mysqli, "SELECT * FROM software WHERE software_client_id=$client_id AND software_expire IS NOT NULL AND software_archived_at IS NULL AND software_expire < CURRENT_DATE ORDER BY software_expire ASC");
-$sql_asset_warranties_expired    = mysqli_query($mysqli, "SELECT * FROM assets WHERE asset_client_id=$client_id AND asset_warranty_expire IS NOT NULL AND asset_archived_at IS NULL AND asset_warranty_expire < CURRENT_DATE ORDER BY asset_warranty_expire ASC");
-$sql_asset_retired               = mysqli_query($mysqli, "SELECT * FROM assets WHERE asset_client_id=$client_id AND asset_install_date IS NOT NULL AND asset_archived_at IS NULL AND asset_install_date + INTERVAL 7 YEAR < CURRENT_DATE ORDER BY asset_install_date ASC");
+$sql_domains_expired             = mysqli_query($mysqli, "SELECT * FROM domains WHERE domain_client_id=$client_id $co_support_sql AND domain_expire IS NOT NULL AND domain_archived_at IS NULL AND domain_expire < CURRENT_DATE ORDER BY domain_expire ASC");
+$sql_certificates_expired        = mysqli_query($mysqli, "SELECT * FROM certificates WHERE certificate_client_id=$client_id $co_support_sql AND certificate_expire IS NOT NULL AND certificate_archived_at IS NULL AND certificate_expire < CURRENT_DATE ORDER BY certificate_expire ASC");
+$sql_licenses_expired            = mysqli_query($mysqli, "SELECT * FROM software WHERE software_client_id=$client_id $co_support_sql AND software_expire IS NOT NULL AND software_archived_at IS NULL AND software_expire < CURRENT_DATE ORDER BY software_expire ASC");
+$sql_asset_warranties_expired    = mysqli_query($mysqli, "SELECT * FROM assets WHERE asset_client_id=$client_id $co_assets_sql AND asset_warranty_expire IS NOT NULL AND asset_archived_at IS NULL AND asset_warranty_expire < CURRENT_DATE ORDER BY asset_warranty_expire ASC");
+$sql_asset_retired               = mysqli_query($mysqli, "SELECT * FROM assets WHERE asset_client_id=$client_id $co_assets_sql AND asset_install_date IS NOT NULL AND asset_archived_at IS NULL AND asset_install_date + INTERVAL 7 YEAR < CURRENT_DATE ORDER BY asset_install_date ASC");
 
 /*
  * Counts behind the at-a-glance strip and the attention row further down.
@@ -220,7 +227,7 @@ $stat_tiles[] = [
     'href'  => "contacts.php?client_id=$client_id",
 ];
 
-if ($config_module_enable_itdoc == 1 && lookupUserPermission('module_support') >= 1) {
+if ($config_module_enable_itdoc == 1 && itflow_can_assets(1)) {   // Assets or Tickets/assets/docs (P4)
     $stat_tiles[] = [
         'label' => 'Assets',
         'icon'  => 'fa-laptop',

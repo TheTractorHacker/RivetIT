@@ -57,6 +57,10 @@
    $session_is_admin gate.
    ============================================================================ */
 
+// Roles audit P0: a module-only (limited) login gets no search box (search spans IT modules it does not
+// hold), no custom links, and only its own modules' notification types in the bell count.
+$top_nav_limited = itflow_is_limited_user();
+
 // Everything printed from here until ob_get_clean() below is captured, not sent.
 ob_start();
 ?>
@@ -82,6 +86,7 @@ ob_start();
                 <i class="fas fa-bars"></i>
             </button>
         </li>
+        <?php if (!$top_nav_limited) { ?>
         <li class="nav-item d-none d-md-block">
             <!-- SEARCH FORM -->
             <form class="app-header-search" action="/agent/global_search.php" role="search">
@@ -96,25 +101,28 @@ ob_start();
                 <div class="app-header-search-results d-none" id="globalSearchResults" role="listbox" aria-label="Search results"></div>
             </form>
         </li>
+        <?php } ?>
     </ul>
 
     <!-- Right navbar links -->
     <ul class="navbar-nav ms-auto align-items-center">
 
         <!-- Mobile search shortcut (inline form is hidden below md) -->
+        <?php if (!$top_nav_limited) { ?>
         <li class="nav-item d-md-none">
             <a class="nav-link" href="/agent/global_search.php" aria-label="Search everywhere">
                 <i class="fas fa-search"></i>
             </a>
         </li>
+        <?php } ?>
 
         <!--Custom Nav Link -->
         <?php
-        $sql_custom_links = mysqli_query($mysqli, "SELECT * FROM custom_links WHERE custom_link_location = 2 AND custom_link_archived_at IS NULL
+        $sql_custom_links = $top_nav_limited ? false : mysqli_query($mysqli, "SELECT * FROM custom_links WHERE custom_link_location = 2 AND custom_link_archived_at IS NULL
             ORDER BY custom_link_order ASC, custom_link_name ASC"
         );
 
-        while ($row = mysqli_fetch_assoc($sql_custom_links)) {
+        while ($sql_custom_links && $row = mysqli_fetch_assoc($sql_custom_links)) {
             $custom_link_name = nullable_htmlentities($row['custom_link_name']);
             $custom_link_uri = sanitize_url($row['custom_link_uri']);
             $custom_link_icon_class = itflow_nav_icon_class($row['custom_link_icon']);
@@ -138,7 +146,8 @@ ob_start();
 
         <!-- New Notifications Dropdown -->
         <?php
-        $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('notification_id') AS num FROM notifications WHERE notification_user_id = $session_user_id AND notification_dismissed_at IS NULL"));
+        $top_nav_notif_types = itflow_notification_type_sql(intval($session_user_id));   // '' for full agents
+        $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('notification_id') AS num FROM notifications WHERE notification_user_id = $session_user_id AND notification_dismissed_at IS NULL $top_nav_notif_types"));
         $num_notifications = $row['num'];
 
         ?>

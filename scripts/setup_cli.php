@@ -388,6 +388,7 @@ mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_rmm_sync', 
 mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_rmm_remote_connect', module_description = 'Launch remote sessions to managed endpoints'");
 mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_training', module_description = 'Training: courses, content, quizzes, records and reports'");
 mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_training_kiosk', module_description = 'Training kiosks and learner PINs (grants impersonation ability)'");
+mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_assets', module_description = 'Access to assets, without ticketing or documentation'"); // DB 2.6.95 (roles audit P4)
 
 // Roles
 mysqli_query($mysqli, "INSERT INTO user_roles SET role_id = 1, role_name = 'Accountant', role_description = 'Built-in - Limited access to financial-focused modules'");
@@ -402,6 +403,10 @@ mysqli_query($mysqli, "INSERT INTO user_role_permissions SET user_role_id = 2, m
 mysqli_query($mysqli, "INSERT INTO user_role_permissions SET user_role_id = 2, module_id = 2, user_role_permission_level = 2");
 mysqli_query($mysqli, "INSERT INTO user_role_permissions SET user_role_id = 2, module_id = 3, user_role_permission_level = 2");
 mysqli_query($mysqli, "INSERT INTO user_role_permissions SET user_role_id = 2, module_id = 4, user_role_permission_level = 2");
+
+// Assets (module_assets, DB 2.6.95) at each built-in role's Tickets/assets/docs level, as the 2.6.95 migration grants.
+mysqli_query($mysqli, "INSERT INTO user_role_permissions (user_role_id, module_id, user_role_permission_level) SELECT 1, module_id, 1 FROM modules WHERE module_name = 'module_assets'"); // Read assets
+mysqli_query($mysqli, "INSERT INTO user_role_permissions (user_role_id, module_id, user_role_permission_level) SELECT 2, module_id, 2 FROM modules WHERE module_name = 'module_assets'"); // Modify assets
 
 mysqli_query($mysqli, "INSERT INTO user_roles SET role_id = 3, role_name = 'Administrator', role_description = 'Built-in - Full administrative access', role_is_admin = 1");
 

@@ -52,8 +52,15 @@ if (isset($_GET['global_search_live'])) {
 
     $groups = [];
 
+    // Roles audit P1a: same per-section module rule as agent/global_search.php. A section the role lacks
+    // is never queried (an empty result set stands in for it).
+    $gs_clients = lookupUserPermission('module_client') >= 1;
+    $gs_support = lookupUserPermission('module_support') >= 1;
+    $gs_assets  = itflow_can_assets(1);
+    $gs_sales   = lookupUserPermission('module_sales') >= 1;
+
     // Clients
-    $sql = mysqli_query($mysqli, "SELECT clients.client_id, client_name, client_abbreviation
+    $sql = !$gs_clients ? false : mysqli_query($mysqli, "SELECT clients.client_id, client_name, client_abbreviation
         FROM clients
         WHERE client_archived_at IS NULL
             AND (client_name LIKE '%$query%' OR client_abbreviation LIKE '%$query%')
@@ -61,7 +68,7 @@ if (isset($_GET['global_search_live'])) {
         ORDER BY client_id DESC LIMIT 5"
     );
     $rows = [];
-    while ($row = mysqli_fetch_assoc($sql)) {
+    while ($sql && $row = mysqli_fetch_assoc($sql)) {
         $rows[] = [
             'title' => $row['client_name'],
             'subtitle' => $row['client_abbreviation'],
@@ -71,7 +78,7 @@ if (isset($_GET['global_search_live'])) {
     if ($rows) { $groups['clients'] = $rows; }
 
     // Contacts
-    $sql = mysqli_query($mysqli, "SELECT contacts.contact_id, contact_name, contact_title, contact_email, contact_phone, clients.client_id, client_name
+    $sql = !$gs_clients ? false : mysqli_query($mysqli, "SELECT contacts.contact_id, contact_name, contact_title, contact_email, contact_phone, clients.client_id, client_name
         FROM contacts
         LEFT JOIN clients ON client_id = contact_client_id
         WHERE contact_archived_at IS NULL
@@ -84,7 +91,7 @@ if (isset($_GET['global_search_live'])) {
         ORDER BY contact_id DESC LIMIT 5"
     );
     $rows = [];
-    while ($row = mysqli_fetch_assoc($sql)) {
+    while ($sql && $row = mysqli_fetch_assoc($sql)) {
         $subtitle = (string) $row['client_name'];
         if (!empty($row['contact_email'])) {
             $subtitle .= ' · ' . $row['contact_email'];
@@ -100,7 +107,7 @@ if (isset($_GET['global_search_live'])) {
     if ($rows) { $groups['contacts'] = $rows; }
 
     // Tickets
-    $sql = mysqli_query($mysqli, "SELECT tickets.ticket_id, tickets.ticket_client_id, ticket_prefix, ticket_number, ticket_subject, ticket_status_name, client_name
+    $sql = !$gs_support ? false : mysqli_query($mysqli, "SELECT tickets.ticket_id, tickets.ticket_client_id, ticket_prefix, ticket_number, ticket_subject, ticket_status_name, client_name
         FROM tickets
         LEFT JOIN clients on tickets.ticket_client_id = clients.client_id
         LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id
@@ -113,7 +120,7 @@ if (isset($_GET['global_search_live'])) {
         ORDER BY ticket_id DESC LIMIT 5"
     );
     $rows = [];
-    while ($row = mysqli_fetch_assoc($sql)) {
+    while ($sql && $row = mysqli_fetch_assoc($sql)) {
         $subtitle = (string) $row['client_name'];
         if (!empty($row['ticket_status_name'])) {
             $subtitle .= ' · ' . $row['ticket_status_name'];
@@ -127,7 +134,7 @@ if (isset($_GET['global_search_live'])) {
     if ($rows) { $groups['tickets'] = $rows; }
 
     // Quotes
-    $sql = mysqli_query($mysqli, "SELECT quotes.quote_id, quote_prefix, quote_number, quote_status, clients.client_id, client_name
+    $sql = !$gs_sales ? false : mysqli_query($mysqli, "SELECT quotes.quote_id, quote_prefix, quote_number, quote_status, clients.client_id, client_name
         FROM quotes
         LEFT JOIN clients ON quote_client_id = client_id
         WHERE quote_archived_at IS NULL
@@ -136,7 +143,7 @@ if (isset($_GET['global_search_live'])) {
         ORDER BY quote_number DESC LIMIT 5"
     );
     $rows = [];
-    while ($row = mysqli_fetch_assoc($sql)) {
+    while ($sql && $row = mysqli_fetch_assoc($sql)) {
         $subtitle = (string) $row['client_name'];
         if (!empty($row['quote_status'])) {
             $subtitle .= ' · ' . $row['quote_status'];
@@ -150,7 +157,7 @@ if (isset($_GET['global_search_live'])) {
     if ($rows) { $groups['quotes'] = $rows; }
 
     // Invoices
-    $sql = mysqli_query($mysqli, "SELECT invoices.invoice_id, invoice_prefix, invoice_number, invoice_status, clients.client_id, client_name
+    $sql = !$gs_sales ? false : mysqli_query($mysqli, "SELECT invoices.invoice_id, invoice_prefix, invoice_number, invoice_status, clients.client_id, client_name
         FROM invoices
         LEFT JOIN clients ON invoice_client_id = client_id
         WHERE invoice_archived_at IS NULL
@@ -159,7 +166,7 @@ if (isset($_GET['global_search_live'])) {
         ORDER BY invoice_number DESC LIMIT 5"
     );
     $rows = [];
-    while ($row = mysqli_fetch_assoc($sql)) {
+    while ($sql && $row = mysqli_fetch_assoc($sql)) {
         $subtitle = (string) $row['client_name'];
         if (!empty($row['invoice_status'])) {
             $subtitle .= ' · ' . $row['invoice_status'];
@@ -173,7 +180,7 @@ if (isset($_GET['global_search_live'])) {
     if ($rows) { $groups['invoices'] = $rows; }
 
     // Assets
-    $sql = mysqli_query($mysqli, "SELECT assets.asset_id, asset_name, asset_type, clients.client_id, client_name
+    $sql = !$gs_assets ? false : mysqli_query($mysqli, "SELECT assets.asset_id, asset_name, asset_type, clients.client_id, client_name
         FROM assets
         LEFT JOIN clients ON asset_client_id = client_id
         LEFT JOIN asset_interfaces ON interface_asset_id = asset_id AND interface_primary = 1
@@ -183,7 +190,7 @@ if (isset($_GET['global_search_live'])) {
         ORDER BY asset_name DESC LIMIT 5"
     );
     $rows = [];
-    while ($row = mysqli_fetch_assoc($sql)) {
+    while ($sql && $row = mysqli_fetch_assoc($sql)) {
         $subtitle = (string) $row['client_name'];
         if (!empty($row['asset_type'])) {
             $subtitle .= ' · ' . $row['asset_type'];
@@ -197,7 +204,7 @@ if (isset($_GET['global_search_live'])) {
     if ($rows) { $groups['assets'] = $rows; }
 
     // Vendors
-    $sql = mysqli_query($mysqli, "SELECT vendors.vendor_id, vendor_name, clients.client_id, client_name
+    $sql = !$gs_support ? false : mysqli_query($mysqli, "SELECT vendors.vendor_id, vendor_name, clients.client_id, client_name
         FROM vendors
         LEFT JOIN clients ON vendor_client_id = client_id
         WHERE vendor_archived_at IS NULL
@@ -206,7 +213,7 @@ if (isset($_GET['global_search_live'])) {
         ORDER BY vendor_id DESC LIMIT 5"
     );
     $rows = [];
-    while ($row = mysqli_fetch_assoc($sql)) {
+    while ($sql && $row = mysqli_fetch_assoc($sql)) {
         $rows[] = [
             'title' => $row['vendor_name'],
             'subtitle' => (string) $row['client_name'],
@@ -216,7 +223,7 @@ if (isset($_GET['global_search_live'])) {
     if ($rows) { $groups['vendors'] = $rows; }
 
     // Domains
-    $sql = mysqli_query($mysqli, "SELECT domains.domain_id, domain_name, domain_expire, clients.client_id, client_name
+    $sql = !$gs_support ? false : mysqli_query($mysqli, "SELECT domains.domain_id, domain_name, domain_expire, clients.client_id, client_name
         FROM domains
         LEFT JOIN clients ON domain_client_id = client_id
         WHERE domain_archived_at IS NULL
@@ -225,7 +232,7 @@ if (isset($_GET['global_search_live'])) {
         ORDER BY domain_id DESC LIMIT 5"
     );
     $rows = [];
-    while ($row = mysqli_fetch_assoc($sql)) {
+    while ($sql && $row = mysqli_fetch_assoc($sql)) {
         $subtitle = (string) $row['client_name'];
         if (!empty($row['domain_expire'])) {
             $subtitle .= ' · expires ' . $row['domain_expire'];
@@ -239,13 +246,13 @@ if (isset($_GET['global_search_live'])) {
     if ($rows) { $groups['domains'] = $rows; }
 
     // Products (shared catalog, not client-scoped - matches global_search.php)
-    $sql = mysqli_query($mysqli, "SELECT product_id, product_name, product_description FROM products
+    $sql = !$gs_sales ? false : mysqli_query($mysqli, "SELECT product_id, product_name, product_description FROM products
         WHERE product_archived_at IS NULL
             AND product_name LIKE '%$query%'
         ORDER BY product_id DESC LIMIT 5"
     );
     $rows = [];
-    while ($row = mysqli_fetch_assoc($sql)) {
+    while ($sql && $row = mysqli_fetch_assoc($sql)) {
         $rows[] = [
             'title' => $row['product_name'],
             'subtitle' => mb_substr((string) $row['product_description'], 0, 80),
@@ -255,7 +262,7 @@ if (isset($_GET['global_search_live'])) {
     if ($rows) { $groups['products'] = $rows; }
 
     // Documents (fulltext, same index/mode as global_search.php)
-    $sql = mysqli_query($mysqli, "SELECT documents.document_id, document_name, clients.client_id, client_name
+    $sql = !$gs_support ? false : mysqli_query($mysqli, "SELECT documents.document_id, document_name, clients.client_id, client_name
         FROM documents
         LEFT JOIN clients ON document_client_id = clients.client_id
         WHERE document_archived_at IS NULL
@@ -264,7 +271,7 @@ if (isset($_GET['global_search_live'])) {
         ORDER BY document_id DESC LIMIT 5"
     );
     $rows = [];
-    while ($row = mysqli_fetch_assoc($sql)) {
+    while ($sql && $row = mysqli_fetch_assoc($sql)) {
         $rows[] = [
             'title' => $row['document_name'],
             'subtitle' => (string) $row['client_name'],
@@ -274,7 +281,7 @@ if (isset($_GET['global_search_live'])) {
     if ($rows) { $groups['documents'] = $rows; }
 
     // Recurring tickets
-    $sql = mysqli_query($mysqli, "SELECT recurring_tickets.recurring_ticket_id, recurring_ticket_subject, clients.client_id, client_name
+    $sql = !$gs_support ? false : mysqli_query($mysqli, "SELECT recurring_tickets.recurring_ticket_id, recurring_ticket_subject, clients.client_id, client_name
         FROM recurring_tickets
         LEFT JOIN clients ON recurring_ticket_client_id = client_id
         WHERE (recurring_ticket_subject LIKE '%$query%' OR recurring_ticket_details LIKE '%$query%')
@@ -282,7 +289,7 @@ if (isset($_GET['global_search_live'])) {
         ORDER BY recurring_ticket_id DESC LIMIT 5"
     );
     $rows = [];
-    while ($row = mysqli_fetch_assoc($sql)) {
+    while ($sql && $row = mysqli_fetch_assoc($sql)) {
         $rows[] = [
             'title' => $row['recurring_ticket_subject'],
             'subtitle' => (string) $row['client_name'],
@@ -419,7 +426,7 @@ if (isset($_POST['asset_set_notes'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $asset_id = intval($_POST['asset_id']);
     $notes = sanitizeInput($_POST['notes']);
@@ -446,6 +453,7 @@ if (isset($_POST['asset_set_notes'])) {
  * Is used in conjunction with ticket_query_views to show who is currently viewing a ticket
  */
 if (isset($_GET['ticket_add_view'])) {
+    enforceUserPermission('module_support');   // roles audit P1e: writes a view row
     $ticket_id = intval($_GET['ticket_id']);
 
     $client_query = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_client_id FROM tickets WHERE ticket_id = $ticket_id"));
@@ -461,6 +469,7 @@ if (isset($_GET['ticket_add_view'])) {
  * Called upon loading a ticket, and every 2 mins thereafter
  */
 if (isset($_GET['ticket_query_views'])) {
+    enforceUserPermission('module_support');   // roles audit P1e: says who is viewing a ticket
     $ticket_id = intval($_GET['ticket_id']);
 
     $client_query = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_client_id FROM tickets WHERE ticket_id = $ticket_id"));
@@ -804,7 +813,8 @@ if (isset($_GET['asset_inline_update'])) {
         $inline_fail(403, 'Your session token expired - reload the page and try again.');
     }
 
-    $inline_permission = lookupUserPermission('module_support');
+    // Assets or Tickets/assets/docs, edit level (roles audit P4).
+    $inline_permission = max(intval(lookupUserPermission('module_support')), intval(lookupUserPermission('module_assets')));
     if (!$inline_permission || $inline_permission < 2) {
         $inline_fail(403, 'Your role does not have write access to assets.');
     }

@@ -160,6 +160,18 @@ $current_page = basename($_SERVER["PHP_SELF"]);
 
                     <li class="nav-item nav-section-title">DOCUMENTATION</li>
 
+                    <?php if (lookupUserPermission("module_support") < 1 && itflow_can_assets(1)) { // P4: the Assets module alone ?>
+                        <li class="nav-item<?php if ($current_page == "assets.php" || $current_page == "asset_details.php") { echo " active"; } ?>">
+                            <a href="/agent/assets.php?client_id=<?php echo $client_id; ?>" class="nav-link<?php if ($current_page == "assets.php" || $current_page == "asset_details.php") { echo " active"; } ?>">
+                                <span class="nav-link-icon"><i class="fas fa-desktop"></i></span>
+                                <span class="nav-link-title">Assets</span>
+                                <?php if ($num_assets > 0) { ?>
+                                    <span class="ms-auto badge text-light"><?php echo $num_assets; ?></span>
+                                <?php } ?>
+                            </a>
+                        </li>
+                    <?php } ?>
+
                     <?php if (lookupUserPermission("module_support") >= 1) { ?>
                         <li class="nav-item<?php if ($current_page == "assets.php" || $current_page == "client_asset_details.php") { echo " active"; } ?>">
                             <a href="/agent/assets.php?client_id=<?php echo $client_id; ?>" class="nav-link<?php if ($current_page == "assets.php" || $current_page == "client_asset_details.php") { echo " active"; } ?>">
