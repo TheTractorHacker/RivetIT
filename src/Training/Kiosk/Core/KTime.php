@@ -64,6 +64,26 @@ final class KTime
         return $s !== null && $s > 0;
     }
 
+    /**
+     * A stored UTC time as a kiosk clock time in the app's time zone: "3:13 PM" (en) / "15:13" (es)
+     * when it is today there, else with the date ("Sat, Sep 27, 3:13 PM" / "27/9 15:13"). Plain text.
+     */
+    public static function localClock(?string $utc, string $lang): string
+    {
+        $e = self::epoch($utc);
+        if ($e === null) {
+            return '';
+        }
+        $tz = new \DateTimeZone(date_default_timezone_get());
+        $at = (new \DateTimeImmutable('@' . (int) floor($e)))->setTimezone($tz);
+        $es = $lang === 'es';
+        $time = $at->format($es ? 'G:i' : 'g:i A');
+        if ($at->format('Y-m-d') === (new \DateTimeImmutable('now', $tz))->format('Y-m-d')) {
+            return $time;
+        }
+        return $es ? $at->format('j/n') . ' ' . $time : $at->format('D, M j') . ', ' . $time;
+    }
+
     /** Whole minutes (rounded up, >= 1) until $utc, 0 when not in the future. */
     public static function minutesUntil(?string $utc): int
     {

@@ -22,7 +22,9 @@ use ITFlow\Training\Kiosk\Core\KioskRoleException;
  *   5  auth: a ksess cookie on a route that lists a session role => KioskAuth::session()
  *      (KioskAuthException => 401 session_ended {reason} + cookie cleared; KioskRoleException =>
  *      403 wrong_role unless the route also lists `device`); `device` needs a valid device
- *      (403 device_not_enrolled + device cookie cleared); `anon` needs nothing
+ *      (403 device_not_enrolled + device cookie cleared); `anon` needs nothing. When this request
+ *      found the device's temporary time up, both errors carry data.ended (epoch seconds) so the
+ *      runtime opens /kiosk/?ended=… ("This device's training time ended at …")
  *   6  CSRF on EVERY non-anon request, GET included: X-Kiosk-Token must equal one of
  *      KioskCsrf::accepted(); routes listing `video` also accept KioskCsrf::checkVideo()
  *   7  handler(KioskCtx, ApiContext) => {"ok":true,"data":…}
@@ -41,6 +43,14 @@ final class KioskRouter
     /** Actions whose exceptions are logged by class only (§0.12). Any action whose input carries a PIN-like key is added at runtime. */
     public const PIN_ACTIONS = ['pick', 'pin_login', 'setup_code_verify', 'pin_create', 'enroll_code', 'adopt_device'];
     private const SECRET_KEYS = ['pin', 'pin2', 'code', 'setup_token', 'token'];
+
+    /** ['ended' => epoch] when this request found the device's temporary time up, else []. */
+    private static function endedData(): array
+    {
+        $at = KioskAuth::expiredAt();
+        $e = $at === null ? null : \ITFlow\Training\Kiosk\Core\KTime::epoch($at);
+        return $e === null ? [] : ['ended' => (int) floor($e)];
+    }
 
     public static function handle(KioskCtx $k): never
     {
@@ -98,7 +108,7 @@ final class KioskRouter
                     $principal = 'session';
                 } catch (KioskAuthException $e) {
                     KioskAuth::clearSessionCookie();
-                    throw new ApiException(401, 'session_ended', 'Your session ended.', [], ['reason' => $e->reason]);
+                    throw new ApiException(401, 'session_ended', 'Your session ended.', [], ['reason' => $e->reason] + self::endedData());
                 } catch (KioskRoleException) {
                     if (!in_array('device', $auth, true)) {
                         throw new ApiException(403, 'wrong_role', 'That is not available in this mode.');
@@ -109,7 +119,7 @@ final class KioskRouter
                 if (in_array('device', $auth, true)) {
                     if ($k->device === null) {
                         KioskAuth::clearDeviceCookie();
-                        throw new ApiException(403, 'device_not_enrolled', 'This device is not set up for training.');
+                        throw new ApiException(403, 'device_not_enrolled', 'This device is not set up for training.', [], self::endedData());
                     }
                     $principal = 'device';
                 } elseif (in_array('anon', $auth, true)) {

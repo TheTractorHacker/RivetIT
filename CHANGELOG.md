@@ -2,6 +2,32 @@
 
 This file documents all notable changes made to ITFlow.
 
+## [Unreleased] ITFlow Internal IT - Training kiosk: temporary and unlisted devices
+Database 2.6.93 -> 2.6.94 (`training_kiosks`: `kiosk_asset_id` and `kiosk_asset_type` become NULL-able, new
+`kiosk_expires_at_utc` and index `idx_training_kiosk_expires`). Apply it through **Admin > Update > Update Database**;
+until it has run the kiosk answers 404 and the cron skips, as before 2.6.93. Phase 5's planned migration moves to 2.6.95.
+
+### New Features & Updates
+- Set up this device: **This device isn't in Assets** enrolls a device by name only ("Trainer's laptop", "Borrowed
+  iPad"). It is always shared (no personal-device mode), no asset lockout checks apply, and each one is independent of the
+  one-device-per-asset rule. The Devices tab and the kiosk evidence on training records show its name and "Not in Assets".
+- **Temporary** devices (listed or unlisted): until the end of today, 4 / 8 / 24 hours, or a date and time up to 30 days
+  away (app time zone). Past that time the device is revoked on its next request (open kiosk session ended, start URL
+  dead, "This device is not set up for training"), and `cron/training_kiosk_cron.php` revokes untouched ones every 10
+  minutes with the reason "Temporary device expired" (ledger and audit like a manual revoke, system actor). The Devices tab
+  shows a **Temporary** badge and "Temporary · expires ..." (amber in its last hour) / "Expired", with **Change end time**
+  (current end, a live preview of the new one, an earlier time flagged as **Shorten it**), **End now**, and **Remove now**
+  for an expired device nobody touched yet. A permanent device can get an end time later (**Set end time**). The setup
+  success panel shows the end time; every time shows the zone in force at that time. "Until the end of today" needs 5
+  minutes left today, and a setup code's device must last at least as long as the code (15 minutes).
+- On the kiosk, a temporary device shows "This device: ... · until 3:13 PM" on the sign-in screen and in trainer mode, an
+  "Ends 3:13 PM" chip in its last 15 minutes, and afterwards "This device's training time is over" with the time it ended.
+- Training records say "temporary device" only when the device was temporary when the person signed (from the ledger),
+  and show an unlisted device's number ("Not in Assets (device #12)").
+- Same permission as enrollment (Training kiosk level 3). New agent action `kiosk_set_expiry`; new ledger event type
+  `kiosk.expiry_changed`. The in-app Setup guide and `docs/training-kiosk-setup.md` have a "Temporary or unlisted devices"
+  section.
+
 ## [Unreleased] ITFlow Internal IT - Training (LMS) Phases 3+4: kiosk, learner flow, achievement awards, trainer mode
 Database 2.6.92 -> 2.6.93 (13 new tables, 21 settings columns). Apply it only through **Admin > Update > Update
 Database**; fresh installs get the same schema from `db.sql`. The kiosk answers only while the Training module is on,

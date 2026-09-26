@@ -190,6 +190,7 @@
     // ------------------------------------------------------------------ search
     function footer() {
         var dev = d.device && d.device.label ? d.device.label : '';
+        var until = d.device && d.device.ends_at ? d.device.ends_at : '';   // a temporary device: "· until 3:13 PM"
         var toggle = el('button', { type: 'button', class: 'kx-btn kx-btn--ghost kx-signin__mode' }, [
             icon(mode === 'trainer' ? 'fa-user' : 'fa-user-shield'),
             el('span', { text: mode === 'trainer' ? t('signin.learner_link') : t('signin.trainer_link') })
@@ -204,7 +205,8 @@
             icon('fa-users'), el('span', { text: t('signin.checkin_link') })
         ]) : null;
         return el('footer', { class: 'kx-foot kx-signin__foot' }, [
-            el('span', { class: 'kx-note' }, [icon('fa-tablet-alt'), el('span', { text: t('signin.device', { label: dev }) })]),
+            el('span', { class: 'kx-note', id: 'kx-device-note' }, [icon(until ? 'fa-hourglass-half' : 'fa-tablet-alt'),
+                el('span', { text: until ? t('signin.device_until', { label: dev, time: until }) : t('signin.device', { label: dev }) })]),
             checkin,
             toggle
         ]);

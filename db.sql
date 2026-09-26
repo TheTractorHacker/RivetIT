@@ -4385,8 +4385,8 @@ DROP TABLE IF EXISTS `training_kiosks`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `training_kiosks` (
   `kiosk_id` int(11) NOT NULL AUTO_INCREMENT,
-  `kiosk_asset_id` int(11) NOT NULL,
-  `kiosk_asset_type` varchar(200) NOT NULL,
+  `kiosk_asset_id` int(11) DEFAULT NULL,
+  `kiosk_asset_type` varchar(200) DEFAULT NULL,
   `kiosk_asset_serial` varchar(200) DEFAULT NULL,
   `kiosk_personal_contact_id` int(11) DEFAULT NULL,
   `kiosk_label` varchar(100) NOT NULL,
@@ -4400,6 +4400,7 @@ CREATE TABLE `training_kiosks` (
   `kiosk_token_issued_at_utc` datetime(3) DEFAULT NULL,
   `kiosk_enrolled_at_utc` datetime(3) DEFAULT NULL,
   `kiosk_enrolled_by` int(11) DEFAULT NULL,
+  `kiosk_expires_at_utc` datetime(3) DEFAULT NULL,
   `kiosk_created_by` int(11) NOT NULL,
   `kiosk_created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `kiosk_last_seen_at_utc` datetime(3) DEFAULT NULL,
@@ -4413,7 +4414,8 @@ CREATE TABLE `training_kiosks` (
   PRIMARY KEY (`kiosk_id`),
   UNIQUE KEY `uq_training_kiosk_token` (`kiosk_token_hash`),
   UNIQUE KEY `uq_training_kiosk_code` (`kiosk_enroll_code_hash`),
-  KEY `idx_training_kiosk_asset` (`kiosk_asset_id`,`kiosk_status`)
+  KEY `idx_training_kiosk_asset` (`kiosk_asset_id`,`kiosk_status`),
+  KEY `idx_training_kiosk_expires` (`kiosk_status`,`kiosk_expires_at_utc`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

@@ -4,8 +4,12 @@
  * Kiosk page shell, bottom half (P3 spec §5.1): the k-page-data JSON block (JSON_HEX_* - it can
  * never close its own <script>), the nonce, the runtime and the page scripts (defer).
  *
- * k-page-data = {csrf, lang, strings:{en,es}, idle:{idle_s, warn_s, absolute_left_s}, device:{label}|null,
- *                session:{role, first, name, dept, initials}|null, brand, api, video?, page:{…}}
+ * k-page-data = {csrf, lang, strings:{en,es}, idle:{idle_s, warn_s, absolute_left_s},
+ *                device:{label, ends_in_s, ends_at, ends_epoch}|null, session:{role, first, name, dept, initials}|null,
+ *                brand, api, video?, page:{…}}
+ * device.ends_in_s / ends_at / ends_epoch: a TEMPORARY device's seconds left (counted here, so the
+ * device's own clock doesn't matter), its end as a local clock time ("3:13 PM") and as server epoch
+ * seconds (for /kiosk/?ended=, in case the cron revoked it first); all null for a permanent one.
  */
 
 defined('KIOSK_BOOTSTRAP') || exit;
@@ -24,7 +28,13 @@ $k_data = [
         'warn_s' => 30,
         'absolute_left_s' => $k_sess === null ? null : max(0, (int) floor(KTime::secondsUntil($k_sess['ksess_absolute_until_utc'] ?? null) ?? 0)),
     ],
-    'device' => $kctx->device === null ? null : ['label' => (string) $kctx->device['kiosk_label']],
+    'device' => $kctx->device === null ? null : [
+        'label' => (string) $kctx->device['kiosk_label'],
+        'ends_in_s' => ($kctx->device['kiosk_expires_at_utc'] ?? null) === null ? null
+            : max(0, (int) floor(KTime::secondsUntil($kctx->device['kiosk_expires_at_utc']) ?? 0)),
+        'ends_at' => ($kctx->device['kiosk_expires_at_utc'] ?? null) === null ? null : KTime::localClock($kctx->device['kiosk_expires_at_utc'], $kctx->lang),
+        'ends_epoch' => ($kctx->device['kiosk_expires_at_utc'] ?? null) === null ? null : (int) floor(KTime::epoch($kctx->device['kiosk_expires_at_utc']) ?? 0),
+    ],
     'session' => $k_sess === null ? null : [
         'role' => (string) $k_sess['ksess_role'],
         'first' => (string) $k_sess['first'],

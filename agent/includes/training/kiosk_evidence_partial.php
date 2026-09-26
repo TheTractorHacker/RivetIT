@@ -12,6 +12,13 @@
  * Read-only. It re-checks the agent's department scope for the run's person (fail-closed: renders
  * nothing). Every value is escaped; signatures are the stored GD re-encoded PNGs as data: URLs
  * (base64 characters only).
+ *
+ * The device line names the training device the run was signed off on (else started on): its
+ * label and its asset, or "Not in Assets (device #<kiosk_id>)" for an unlisted device (2.6.94; two
+ * unlisted devices may share a name, the id tells them apart), plus "temporary device" when it WAS
+ * temporary at that moment - read from the ledger as of the sign-off (else start) time
+ * (DeviceLifecycle::expiryAsOf), never from the device's current end time, which can change later.
+ * The kiosk row is kept after a revoke, so the name survives the device.
  */
 
 if (!isset($tr_kiosk_run_id, $tr_kiosk_ctx) || !($tr_kiosk_ctx instanceof \ITFlow\Training\Core\Ctx) || (int) $tr_kiosk_run_id < 1) {
@@ -42,14 +49,31 @@ $tr_k_attempts = \ITFlow\Training\Core\Db::all($tr_k_db, 'SELECT a.tattempt_id, 
         r.tresult_timed_out, r.tresult_finalized_by, r.tresult_duration_seconds, r.tresult_rapid_flag
     FROM training_attempts a LEFT JOIN training_attempt_results r ON r.tresult_attempt_id = a.tattempt_id
     WHERE a.tattempt_run_id = ? ORDER BY a.tattempt_lesson_uid, a.tattempt_number', 'i', [(int) $tr_k_run['trun_id']]);
-$tr_k_sigs = \ITFlow\Training\Core\Db::all($tr_k_db, 'SELECT tsig_id, tsig_purpose, tsig_signer_name, tsig_png_base64, tsig_captured_at_utc
+$tr_k_sigs = \ITFlow\Training\Core\Db::all($tr_k_db, 'SELECT tsig_id, tsig_purpose, tsig_signer_name, tsig_png_base64, tsig_captured_at_utc, tsig_kiosk_id
     FROM training_signatures WHERE tsig_run_id = ? ORDER BY tsig_id', 'i', [(int) $tr_k_run['trun_id']]);
+$tr_k_kiosk_id = null;
+foreach ($tr_k_sigs as $tr_k_s) {
+    if ($tr_k_run['trun_attest_tsig_id'] !== null && (int) $tr_k_s['tsig_id'] === (int) $tr_k_run['trun_attest_tsig_id'] && $tr_k_s['tsig_kiosk_id'] !== null) {
+        $tr_k_kiosk_id = (int) $tr_k_s['tsig_kiosk_id'];
+    }
+}
+$tr_k_kiosk_id ??= $tr_k_run['trun_started_kiosk_id'] !== null ? (int) $tr_k_run['trun_started_kiosk_id'] : null;
+$tr_k_device = $tr_k_kiosk_id === null ? null : \ITFlow\Training\Core\Db::one($tr_k_db, 'SELECT k.kiosk_label, k.kiosk_asset_id, a.asset_name
+    FROM training_kiosks k LEFT JOIN assets a ON a.asset_id = k.kiosk_asset_id WHERE k.kiosk_id = ?', 'i', [$tr_k_kiosk_id]);
+$tr_k_dev_at = (string) ($tr_k_run['trun_attested_at_utc'] ?? $tr_k_run['trun_started_at_utc'] ?? '');
+$tr_k_dev_temp = $tr_k_device !== null && $tr_k_dev_at !== ''
+    && \ITFlow\Training\Kiosk\Device\DeviceLifecycle::expiryAsOf($tr_k_db, (int) $tr_k_kiosk_id, $tr_k_dev_at) !== null;
 ?>
 <div class="card mb-3" id="tr-kiosk-evidence">
     <div class="card-header"><h3 class="card-title h6 mb-0"><i class="fas fa-tablet-alt me-2" aria-hidden="true"></i>Kiosk evidence (run #<?= (int) $tr_k_run['trun_id'] ?>)</h3></div>
     <div class="card-body">
         <p class="small text-secondary mb-2">Started <?= $tr_k_h($tr_k_when($tr_k_run['trun_started_at_utc'])) ?> · language <?= $tr_k_h($tr_k_lang) ?>
             <?php if ($tr_k_run['trun_attested_at_utc'] !== null) { ?> · signed off <?= $tr_k_h($tr_k_when($tr_k_run['trun_attested_at_utc'])) ?> (<?= $tr_k_h(str_replace('_', ' ', (string) $tr_k_run['trun_attest_proof'])) ?>, <?= $tr_k_h((string) $tr_k_run['trun_attest_pin_source']) ?> PIN)<?php } ?></p>
+        <?php if ($tr_k_device !== null) { ?>
+        <p class="small text-secondary mb-2" id="tr-kiosk-evidence-device"><i class="fas fa-tablet-alt me-1" aria-hidden="true"></i><?= $tr_k_run['trun_attested_at_utc'] !== null ? 'Device' : 'Started on' ?>:
+            <strong class="text-body"><?= $tr_k_h($tr_k_device['kiosk_label']) ?></strong> ·
+            <?= $tr_k_device['kiosk_asset_id'] === null ? 'Not in Assets (device #' . (int) $tr_k_kiosk_id . ')' : 'Asset ' . $tr_k_h(($tr_k_device['asset_name'] ?? '') !== '' ? $tr_k_device['asset_name'] : '#' . (int) $tr_k_device['kiosk_asset_id']) ?><?= $tr_k_dev_temp ? ' · temporary device' : '' ?></p>
+        <?php } ?>
         <div class="table-responsive">
             <table class="table table-sm align-middle">
                 <thead><tr><th scope="col">Lesson</th><th scope="col">Type</th><th scope="col">Time credited</th><th scope="col">Completed</th></tr></thead>

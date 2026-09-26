@@ -7,6 +7,9 @@
  * is not scheduled on this vhost (it shares its SMTP relay and client data with the MSP install).
  *
  * Every run:
+ *   0. Revoke temporary devices whose time is up (DeviceLifecycle::sweep, 2.6.94): reason "Temporary
+ *      device expired", kiosk.revoked + ksession.end and an audit row, exactly like a manual revoke
+ *      but with the system as the actor. (A device that is used first is revoked on that request.)
  *   1. End open kiosk sessions past idle + 30 s or past their absolute cap (ksession.end, actor system).
  *   2. AttemptFinalizer::finalizeExpired($mysqli, null, 200)                 [lane K3, when present]
  *   3. RunService::settleAwaiting for every contact with an awaiting_* run or an open run
@@ -22,7 +25,7 @@
  *   /etc/cron.d/mw-itflow-training-kiosk:
  *   0-59/10 * * * * www-data /usr/bin/php /var/www/mw-itflow.foleyit.com/cron/training_kiosk_cron.php >> /var/log/itflow_mw_training_kiosk.log 2>&1
  *
- * Exits silently when the Training module is off or the 2.6.93 schema is not there. All UTC
+ * Exits silently when the Training module is off or the 2.6.94 schema is not there. All UTC
  * comparisons bind literals computed in PHP (§0.11). Errors are logged by class only for the
  * PIN/Odoo step (§0.12). Prints one summary line per run.
  */
@@ -44,6 +47,7 @@ use ITFlow\Training\Kiosk\Core\KioskAuth;
 use ITFlow\Training\Kiosk\Core\KioskCtx;
 use ITFlow\Training\Kiosk\Core\KioskSettings;
 use ITFlow\Training\Kiosk\Core\KTime;
+use ITFlow\Training\Kiosk\Device\DeviceLifecycle;
 use ITFlow\Training\Kiosk\Learn\AttemptFinalizer;
 use ITFlow\Training\Kiosk\Learn\RunService;
 use ITFlow\Training\Kiosk\Pin\OdooPinVerifier;
@@ -83,6 +87,9 @@ function tk_step(string $name, callable $fn, bool $quiet = false): mixed
         return null;
     }
 }
+
+// ---- 0. temporary devices whose time is up ------------------------------------------------------
+$tk_summary[] = 'devices_expired=' . (int) tk_step('devices', static fn() => DeviceLifecycle::sweep($mysqli, 200));
 
 // ---- 1. expired kiosk sessions ---------------------------------------------------------------
 $tk_summary[] = 'ended=' . (int) tk_step('sessions', static function () use ($mysqli, $tk_system): int {
