@@ -17,6 +17,9 @@ if (isset($_GET['client_id']) && intval($_GET['client_id']) > 0) {
     $client_url = '';
 }
 
+// Assets or Tickets/assets/docs (roles audit P1b/F2 + P4). The company-wide branch checked no module.
+enforceAssetPermission(1);
+
 if (isset($_GET['asset_id'])) {
     $asset_id = intval($_GET['asset_id']);
 

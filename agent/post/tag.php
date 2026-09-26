@@ -10,6 +10,12 @@ if (isset($_POST['add_tag'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
+    // Tags label departments, contacts, locations, credentials and assets: edit access to Departments or to
+    // Tickets/assets/docs (roles audit P1e - this used to need no permission at all).
+    if (lookupUserPermission('module_client') < 2 && lookupUserPermission('module_support') < 2) {
+        enforceUserPermission('module_client', 2);
+    }
+
     require_once 'tag_model.php';
 
     mysqli_query($mysqli,"INSERT INTO tags SET tag_name = '$name', tag_type = $type, tag_color = '$color', tag_icon = '$icon'");

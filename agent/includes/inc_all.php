@@ -3,6 +3,9 @@
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/functions.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/check_login.php';
+// Buffer the page (roles audit P1h) so a permission check that runs after the shell is printed can still
+// answer HTTP 403 (itflow_render_denied); PHP flushes this buffer when the page ends.
+ob_start();
 
 // Page setup
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/page_title.php';

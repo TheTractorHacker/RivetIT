@@ -13,6 +13,13 @@ if (isset($_GET['client_id'])) {
     $client_url = '';
 }
 
+// The calendar is a Tickets/assets/docs page (roles audit P1c): its events, tickets and schedules are IT
+// work. Each built-in feed below also checks the module that owns it.
+enforceUserPermission('module_support');
+$cal_feed_support = lookupUserPermission('module_support') >= 1;
+$cal_feed_sales   = lookupUserPermission('module_sales') >= 1;
+$cal_feed_clients = lookupUserPermission('module_client') >= 1;
+
 if (isset($_GET['calendar_id'])) {
     $calendar_selected_id = intval($_GET['calendar_id']);
 }
@@ -273,8 +280,8 @@ while ($row = mysqli_fetch_assoc($sql)) {
             }
 
             // Invoices Created
-            $sql = mysqli_query($mysqli, "SELECT * FROM clients LEFT JOIN invoices ON client_id = invoice_client_id $client_query $access_permission_query");
-            while ($row = mysqli_fetch_assoc($sql)) {
+            $sql = $cal_feed_sales ? mysqli_query($mysqli, "SELECT * FROM clients LEFT JOIN invoices ON client_id = invoice_client_id $client_query $access_permission_query") : false;
+            while ($sql && $row = mysqli_fetch_assoc($sql)) {
                 $event_id = intval($row['invoice_id']);
                 $scope = strval($row['invoice_scope']);
                 if (empty($scope)) {
@@ -288,8 +295,8 @@ while ($row = mysqli_fetch_assoc($sql)) {
             }
 
             // Quotes Created
-            $sql = mysqli_query($mysqli, "SELECT * FROM clients LEFT JOIN quotes ON client_id = quote_client_id $client_query $access_permission_query");
-            while ($row = mysqli_fetch_assoc($sql)) {
+            $sql = $cal_feed_sales ? mysqli_query($mysqli, "SELECT * FROM clients LEFT JOIN quotes ON client_id = quote_client_id $client_query $access_permission_query") : false;
+            while ($sql && $row = mysqli_fetch_assoc($sql)) {
                 $event_id = intval($row['quote_id']);
                 $event_title = json_encode($row['quote_prefix'] . $row['quote_number'] . " " . $row['quote_scope']);
                 $event_start = json_encode($row['quote_date']);
@@ -298,13 +305,13 @@ while ($row = mysqli_fetch_assoc($sql)) {
             }
 
             // Tickets Created
-            $sql = mysqli_query($mysqli, "SELECT * FROM clients
+            $sql = !$cal_feed_support ? false : mysqli_query($mysqli, "SELECT * FROM clients
                 LEFT JOIN tickets ON client_id = ticket_client_id
                 LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id
                 LEFT JOIN users ON ticket_assigned_to = user_id
                 $client_query $access_permission_query"
             );
-            while ($row = mysqli_fetch_assoc($sql)) {
+            while ($sql && $row = mysqli_fetch_assoc($sql)) {
                 $event_id = intval($row['ticket_id']);
                 $ticket_status = intval($row['ticket_status']);
                 $ticket_status_name = strval($row['ticket_status_name']);
@@ -333,12 +340,12 @@ while ($row = mysqli_fetch_assoc($sql)) {
             }
 
             // Recurring Tickets
-            $sql = mysqli_query($mysqli, "SELECT * FROM clients
+            $sql = !$cal_feed_support ? false : mysqli_query($mysqli, "SELECT * FROM clients
                 LEFT JOIN recurring_tickets ON client_id = recurring_ticket_client_id
                 LEFT JOIN users ON recurring_ticket_assigned_to = user_id
                 $client_query $access_permission_query"
             );
-            while ($row = mysqli_fetch_assoc($sql)) {
+            while ($sql && $row = mysqli_fetch_assoc($sql)) {
                 $event_id = intval($row['recurring_ticket_id']);
                 $client_id = intval($row['client_id']);
                 $username = $row['user_name'];
@@ -357,13 +364,13 @@ while ($row = mysqli_fetch_assoc($sql)) {
             }
 
             // Tickets Scheduled
-            $sql = mysqli_query($mysqli, "SELECT * FROM clients
+            $sql = !$cal_feed_support ? false : mysqli_query($mysqli, "SELECT * FROM clients
                 LEFT JOIN tickets ON client_id = ticket_client_id
                 LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id
                 LEFT JOIN users ON ticket_assigned_to = user_id
                 $client_query $access_permission_query AND ticket_schedule IS NOT NULL"
             );
-            while ($row = mysqli_fetch_assoc($sql)) {
+            while ($sql && $row = mysqli_fetch_assoc($sql)) {
                 $event_id = intval($row['ticket_id']);
                 $username = $row['user_name'];
                 if (empty($username)) {
@@ -390,7 +397,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
             }
 
             // ticket_schedules table entries (new-style multi-schedule per ticket)
-            $sql_ts = mysqli_query($mysqli, "SELECT ts.schedule_id, ts.schedule_start, ts.schedule_end,
+            $sql_ts = !$cal_feed_support ? false : mysqli_query($mysqli, "SELECT ts.schedule_id, ts.schedule_start, ts.schedule_end,
                 t.ticket_id, t.ticket_prefix, t.ticket_number, t.ticket_subject,
                 st.ticket_status_name, u.user_name, u.user_color
             FROM clients c
@@ -399,7 +406,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
             LEFT JOIN ticket_statuses st ON t.ticket_status = st.ticket_status_id
             LEFT JOIN users u ON u.user_id = ts.schedule_tech_id
             $client_query $access_permission_query AND ts.schedule_archived_at IS NULL");
-            while ($row = mysqli_fetch_assoc($sql_ts)) {
+            while ($sql_ts && $row = mysqli_fetch_assoc($sql_ts)) {
                 $event_id  = intval($row['ticket_id']) * 100000 + intval($row['schedule_id']);
                 $tech_name = $row['user_name'] ? substr($row['user_name'], 0, 9) . '...' : '';
                 if (!empty($row['user_color'])) {
@@ -418,8 +425,8 @@ while ($row = mysqli_fetch_assoc($sql)) {
             }
 
             // Vendors Added Created
-            $sql = mysqli_query($mysqli, "SELECT * FROM clients LEFT JOIN vendors ON client_id = vendor_client_id $client_query $access_permission_query");
-            while ($row = mysqli_fetch_assoc($sql)) {
+            $sql = $cal_feed_support ? mysqli_query($mysqli, "SELECT * FROM clients LEFT JOIN vendors ON client_id = vendor_client_id $client_query $access_permission_query") : false;
+            while ($sql && $row = mysqli_fetch_assoc($sql)) {
                 $event_id = intval($row['vendor_id']);
                 $client_id = intval($row['client_id']);
                 $event_title = json_encode("Vendor : '" . $row['vendor_name'] . "' created");
@@ -428,7 +435,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
                 echo "{ id: $event_id, title: $event_title, start: $event_start, color: 'brown', url: 'vendors.php?$client_url' },";
             }
 
-            if (!isset($_GET['client_id'])) {
+            if (!isset($_GET['client_id']) && $cal_feed_clients) {
                 //Clients Added
                 $sql = mysqli_query($mysqli, "SELECT * FROM clients");
                 while ($row = mysqli_fetch_assoc($sql)) {

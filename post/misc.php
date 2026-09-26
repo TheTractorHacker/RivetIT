@@ -107,6 +107,9 @@ if (isset($_GET['deactivate_shared_item'])) {
 
     validateCSRFToken($_GET['csrf_token']);
 
+    // Shared links are made from Tickets/assets/docs records (ajax.php share_generate_link needs level 2).
+    enforceUserPermission('module_support', 2);
+
     $item_id = intval($_GET['deactivate_shared_item']);
 
     // Get details of the shared link

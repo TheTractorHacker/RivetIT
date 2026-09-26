@@ -37,8 +37,6 @@ if (isset($_GET['client_id'])) {
         $archive_query = "credential_archived_at IS NULL";
     }
 
-    // Log when users load the Credentials page
-    logAction("Credential", "View", "$session_name viewed the Credentials page for client", $client_id);
 
 } else {
     if (isset($_GET['scope']) && $_GET['scope'] === 'company') {
@@ -57,12 +55,18 @@ if (isset($_GET['client_id'])) {
         $archived = 0;
         $archive_query = "(client_archived_at IS NULL AND credential_archived_at IS NULL)";
     }
-    // Log when users load the Credentials page
-    logAction("Credential", "View", "$session_name viewed the All Credentials page");
 }
 
 // Perms
 enforceUserPermission('module_credential');
+
+// Log when users load the Credentials page - after the permission check, so a denied visit is not logged
+// as a view (roles audit P1h/F11).
+if (isset($_GET['client_id'])) {
+    logAction("Credential", "View", "$session_name viewed the Credentials page for client", $client_id);
+} else {
+    logAction("Credential", "View", "$session_name viewed the All Credentials page");
+}
 
 // Folder navigation (client view only) - credential folders use folder_location = 2
 $folder_id = 0;

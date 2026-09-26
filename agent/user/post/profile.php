@@ -256,7 +256,7 @@ if (isset($_POST['enable_mfa'])) {
             $previousPage = basename(parse_url($_SERVER['HTTP_REFERER'], PHP_URL_PATH));
             if ($previousPage === 'mfa_enforcement.php') {
                 // Redirect back to mfa_enforcement.php
-                redirect("../$config_start_page");
+                redirect(itflow_home_url());   // start page (a module-only login: its own home)
 
             }
         }
