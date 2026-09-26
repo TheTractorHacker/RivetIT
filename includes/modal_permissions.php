@@ -172,7 +172,28 @@ function itflow_modal_requirement(string $script_name): ?array {
     $s = preg_replace('#/+#', '/', '/' . ltrim(str_replace('\\', '/', $script_name), '/'));
     $map = itflow_modal_permission_map();
 
-    if (preg_match('#^/modals/([A-Za-z0-9_]+\.php)$#', $s, $m)) {
+    // Found anywhere in the path (not only at the start), like the admin/modals gate in modal_header.php,
+    // so an install under a sub-path is checked too.
+    $pos = strpos($s, '/agent/modals/');
+    if ($pos !== false) {
+        $rel = substr($s, $pos + strlen('/agent/modals/'));
+        if (preg_match('#^([a-z0-9_]+)/[a-z0-9_]+\.php$#', $rel, $m)) {
+            if (array_key_exists($rel, $map['files'])) {
+                return $map['files'][$rel];
+            }
+            if (array_key_exists($m[1], $map['folders'])) {
+                return $map['folders'][$m[1]];
+            }
+        }
+        error_log("modal_permissions: no entry for $s - using the default requirement");
+        return ITFLOW_MODAL_DEFAULT_REQUIREMENT;
+    }
+
+    if (strpos($s, '/admin/modals/') !== false) {
+        return null;   // admin-only gate in modal_header.php
+    }
+
+    if (preg_match('#/modals/([A-Za-z0-9_]+\.php)$#', $s, $m)) {
         if (array_key_exists($m[1], $map['root'])) {
             return $map['root'][$m[1]];
         }
@@ -180,21 +201,7 @@ function itflow_modal_requirement(string $script_name): ?array {
         return ITFLOW_MODAL_DEFAULT_REQUIREMENT;
     }
 
-    if (strpos($s, '/agent/modals/') !== 0) {
-        return null;
-    }
-
-    $rel = substr($s, strlen('/agent/modals/'));
-    if (preg_match('#^([a-z0-9_]+)/[a-z0-9_]+\.php$#', $rel, $m)) {
-        if (array_key_exists($rel, $map['files'])) {
-            return $map['files'][$rel];
-        }
-        if (array_key_exists($m[1], $map['folders'])) {
-            return $map['folders'][$m[1]];
-        }
-    }
-    error_log("modal_permissions: no entry for $s - using the default requirement");
-    return ITFLOW_MODAL_DEFAULT_REQUIREMENT;
+    return null;
 }
 
 /** The signed-in role's level for $module as an int (admin = 3, none = 0); 'it_agent' = Departments or Tickets. */
