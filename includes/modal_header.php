@@ -24,6 +24,13 @@ if (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/admin/modals/') !== false && (!isset
     exit;
 }
 
+// Every agent pop-up (agent/modals/*, /modals/*) also needs its module: see the map in
+// includes/modal_permissions.php (roles audit 2026-09-26, P1d). Same SCRIPT_NAME rule as above - the
+// requested pop-up, not this include. Denied: HTTP 403 + {"ok":false,"error":...}. The pop-up's own checks
+// still run after this one.
+require_once __DIR__ . '/modal_permissions.php';
+itflow_modal_check($_SERVER['SCRIPT_NAME'] ?? '');
+
 header('Content-Type: application/json');
 
 // Check for the 'id' parameter
