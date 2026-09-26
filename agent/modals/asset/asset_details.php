@@ -2,7 +2,10 @@
 
 require_once '../../../includes/modal_header.php';
 
-enforceUserPermission('module_support');
+// Assets (module_assets, DB 2.6.95+) or Tickets, assets & docs (roles audit P4).
+if (intval(lookupUserPermission('module_assets')) < 1) {
+    enforceUserPermission('module_support');
+}
 
 $asset_id = intval($_GET['id']);
 
@@ -213,6 +216,12 @@ $sql_related_software = mysqli_query(
 );
 
 $software_count = mysqli_num_rows($sql_related_software);
+
+// A role with Assets but not Tickets, assets & docs sees the asset itself (details, interfaces, and
+// credentials when it holds Credentials) - not its tickets, recurring tickets, licenses, documents or files.
+if (intval(lookupUserPermission('module_support')) < 1) {
+    $ticket_count = $recurring_ticket_count = $software_count = $document_count = $file_count = 0;
+}
 
 if (isset($_GET['client_id'])) {
     $client_url = "client_id=$client_id&";

@@ -2,7 +2,10 @@
 
 require_once '../../../includes/modal_header.php';
 
-enforceUserPermission('module_support', 2);
+// Assets (module_assets, DB 2.6.95+) or Tickets, assets & docs at edit level (roles audit P4).
+if (intval(lookupUserPermission('module_assets')) < 2) {
+    enforceUserPermission('module_support', 2);
+}
 
 $asset_id = intval($_GET['id']);
 
@@ -104,7 +107,7 @@ ob_start();
 
         <hr>
 
-        <div class="tab-content" <?php if (lookupUserPermission('module_support') <= 1) { echo 'inert'; } ?>>
+        <div class="tab-content" <?php if (max(intval(lookupUserPermission('module_support')), intval(lookupUserPermission('module_assets'))) <= 1) { echo 'inert'; } ?>>
 
             <div class="tab-pane fade show active" id="pills-details">
 
