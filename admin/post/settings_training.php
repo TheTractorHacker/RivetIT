@@ -17,6 +17,8 @@
  *                                     training_odoo_accept_target, training_odoo_link_relink /
  *                                     _unlink / _confirm, training_reconcile_now, training_snapshot_now
  *   settings_training_kiosk.php       edit_training_kiosk_settings (thresholds and the Odoo-PIN switch)
+ *   settings_training_automation.php  every ta_* action of the Phase 5 cards (certificates, reminders,
+ *                                     video checks, Odoo write-back), via Settings\AutomationActions
  * Each action validates the CSRF token, runs, then logs (logAction + an audit event where the
  * spec names one), flashes and redirects back.
  *
@@ -187,3 +189,5 @@ if (isset($_POST['training_media_purge'])) {
 // URL, e.g. a tab opened before the merge).
 require_once __DIR__ . '/settings_training_compliance.php';
 require_once __DIR__ . '/settings_training_kiosk.php';
+// Training automation (Phase 5, DB 2.6.96): certificates, reminders, video checks, Odoo write-back (ta_* actions).
+require_once __DIR__ . '/settings_training_automation.php';

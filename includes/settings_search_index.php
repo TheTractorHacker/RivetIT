@@ -45,7 +45,7 @@ function getSettingsSearchIndex(): array {
         ['label' => 'Outlook Calendar Sync',   'keywords' => ['outlook', 'calendar', 'azure', 'sync', 'appointment'],                   'url' => '/admin/settings_calendar_sync.php',      'visible' => true],
         ['label' => 'Telemetry',               'keywords' => ['telemetry', 'analytics', 'usage data'],                                 'url' => '/admin/settings_telemetry.php',          'visible' => true],
         ['label' => 'Modules',                 'keywords' => ['module', 'documentation', 'knowledge base', 'live chat', 'department portal', 'enable'], 'url' => '/admin/settings_module.php', 'visible' => true],
-        // One page, five sections (formerly three pages: 'Training (LMS)', 'Training compliance' and
+        // One page, seven sections (formerly three pages: 'Training (LMS)', 'Training compliance' and
         // 'Training kiosk'; those names still find it). A query opens the section or card it names.
         ['label' => 'Training',                'keywords' => ['training', 'lms', 'training settings', 'training (lms)'], 'url' => '/admin/settings_training.php', 'visible' => true,
          'sections' => [
@@ -55,7 +55,7 @@ function getSettingsSearchIndex(): array {
                 ['anchor' => 'youtube',       'label' => 'YouTube Data API key', 'keywords' => ['youtube', 'api key']],
                 ['anchor' => 'media-storage', 'label' => 'Media storage',        'keywords' => ['purge', 'unreferenced', 'backup size', 'disk']],
              ]],
-            ['anchor' => 'compliance', 'label' => 'Compliance & assignments', 'keywords' => ['training compliance', 'assignment', 'due soon', 'reissue', 'reopen', 'target', 'evidence', 'hire date', 'certificate'],
+            ['anchor' => 'compliance', 'label' => 'Compliance & assignments', 'keywords' => ['training compliance', 'assignment', 'due soon', 'reissue', 'reopen', 'target', 'evidence', 'hire date'],
              'parts' => [
                 ['anchor' => 'maintenance',   'label' => 'Maintenance',          'keywords' => ['recalculate', 'reconcile', 'snapshot']],
              ]],
@@ -65,6 +65,16 @@ function getSettingsSearchIndex(): array {
              ]],
             ['anchor' => 'kiosk',      'label' => 'Kiosk & sign-in',          'keywords' => ['training kiosk', 'ipad', 'pin', 'odoo pin', 'lockout', 'idle', 'sign-in', 'sign in', 'setup slip', 'setup code']],
             ['anchor' => 'ledger',     'label' => 'Records ledger',           'keywords' => ['integrity', 'verify', 'tamper', 'hash']],
+            // LMS Phase 5 (DB 2.6.96; formerly planned as a separate "Training automation" page). Listed after the ledger
+            // so a bare "verify" still opens Records ledger; "verify page" / "certificate check" open Certificates.
+            ['anchor' => 'certificates', 'label' => 'Certificates',           'keywords' => ['certificate', 'signatory', 'signature', 'signer', 'certificate pdf', 'qr', 'certificate check', 'verify page', 'sample certificate']],
+            ['anchor' => 'automation', 'label' => 'Automation',               'keywords' => ['training automation', 'automation', 'worker', 'cron', 'schedule'],
+             'parts' => [
+                ['anchor' => 'reminders',      'label' => 'Reminder digests',       'keywords' => ['reminder', 'digest', 'escalation', 'overdue alert', 'weekdays']],
+                ['anchor' => 'video-watch',    'label' => 'External video checks',  'keywords' => ['video check', 'video watch', 'youtube check', 'vimeo', 'broken video', 'private video']],
+                ['anchor' => 'odoo-writeback', 'label' => 'Odoo write-back',        'keywords' => ['write-back', 'writeback', 'resume', 'résumé', 'outbox', 'send to odoo', 'odoo key', 'key expiry']],
+                ['anchor' => 'automation-worker', 'label' => 'Automation worker',   'keywords' => ['training worker', 'last run']],
+             ]],
          ]],
         ['label' => 'Webhooks',                'keywords' => ['webhook', 'api', 'delivery log'],                                       'url' => '/admin/settings_webhooks.php',           'visible' => true],
         ['label' => 'RMM Integration',         'keywords' => ['rmm', 'remote monitoring', 'tactical', 'level.io', 'sophos', 'action1', 'connectwise'], 'url' => '/admin/settings_integrations.php?tab=rmm', 'visible' => true],
