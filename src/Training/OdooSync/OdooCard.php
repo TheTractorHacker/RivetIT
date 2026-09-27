@@ -38,8 +38,12 @@ final class OdooCard
         $enabled = (int) ($ta['tauto_odoo_push_enabled'] ?? 0) === 1;
         $key = $t?->key ?? (string) ($ta['tauto_odoo_target_key'] ?? '');
 
+        $discHere = $disc !== null && $t !== null && ($disc['target']['key'] ?? null) === $t->key ? $disc : null;
+        $targetsReady = !empty($ta['targets_ready']);
         $out = [
             'ready' => true,
+            'targets_ready' => $targetsReady,
+            'targets' => Targets::enabled($ta),
             'enabled' => $enabled,
             'version' => (int) ($ta['tauto_version'] ?? 0),
             'target' => $t === null ? null : [
@@ -57,7 +61,14 @@ final class OdooCard
                 'push_awards' => (int) ($ta['tauto_odoo_push_awards'] ?? 0) === 1,
                 'push_since' => $ta['tauto_odoo_push_since'] ?? null,
                 'key_expires_on' => $ta['tauto_odoo_key_expires_on'] ?? null,
+                'skill_type_id' => $ta['tauto_odoo_skill_type_id'] ?? null,
+                'skill_level_id' => $ta['tauto_odoo_skill_level_id'] ?? null,
             ],
+            // The certification settings when they match this Odoo's last check (null: not chosen, or re-check needed).
+            'skill_cfg' => $discHere === null ? null : PushService::skillConfig($ta, $discHere),
+            'skill_options' => $discHere === null ? [] : self::skillOptions($discHere),
+            'counts_by_target' => null,
+            'unmapped' => [],
             'would_pause' => $enabled ? PushService::pauseReason($t, $ta, $disc, $rs) : null,
             'paused_reason' => $ta['tauto_odoo_paused_reason'] ?? null,
             'last_run' => self::local($ta['tauto_odoo_last_run_at_utc'] ?? null),
@@ -79,34 +90,92 @@ final class OdooCard
         }
 
         $repo = new OutboxRepo($db);
-        $rows = $repo->recent($key, ['failed', 'dead', 'held'], 20);
+        $out['counts_by_target'] = $repo->countsByMode($key);
+        $rows = $repo->recent($key, ['failed', 'dead', 'held', 'skipped_mapping'], 20);
         $out['problems'] = self::describeRows($db, $records, $rows, $t);
         if ($preview && $t !== null) {
             $out['preview'] = self::preview($db, $records, $repo, $t, $ta);
         }
-        $out['courses'] = Db::all($db, "SELECT c.course_id AS id, c.course_name AS name, c.course_code AS code, COALESCE(m.tomap_push, 1) AS push
+        $since = OutboxScanner::sinceUtc($ta['tauto_odoo_push_since'] ?? null);
+        if (in_array('skill', $out['targets'], true) && $since !== null && $t !== null) {
+            $out['unmapped'] = $records->unmappedSkillCourses($since, $t->key, 20);
+        }
+        $out['courses'] = Db::all($db, "SELECT c.course_id AS id, c.course_name AS name, c.course_code AS code, COALESCE(m.tomap_push, 1) AS push,
+                m.tomap_odoo_skill_id AS skill_id, m.tomap_target_key AS skill_target
             FROM training_courses c LEFT JOIN training_odoo_map m ON m.tomap_entity = 'course' AND m.tomap_entity_id = c.course_id
             WHERE c.course_kind = 'training' AND c.course_archived_at IS NULL ORDER BY c.course_name LIMIT 500");
-        $out['achievements'] = Db::all($db, "SELECT a.achievement_id AS id, a.achievement_name AS name, COALESCE(m.tomap_push, 0) AS push
+        $out['achievements'] = Db::all($db, "SELECT a.achievement_id AS id, a.achievement_name AS name, COALESCE(m.tomap_push, 0) AS push,
+                m.tomap_odoo_skill_id AS skill_id, m.tomap_target_key AS skill_target
             FROM training_achievements a LEFT JOIN training_odoo_map m ON m.tomap_entity = 'achievement' AND m.tomap_entity_id = a.achievement_id
             WHERE a.achievement_archived_at IS NULL ORDER BY a.achievement_name LIMIT 500");
+        foreach (['courses', 'achievements'] as $list) {
+            foreach ($out[$list] as &$e) {
+                $e['skill'] = self::mapping($e, $t, $out['skill_cfg']);
+            }
+            unset($e);
+        }
         return $out;
+    }
+
+    /**
+     * The certification choices from a discovery: one per (certification type, level), the type's default level first.
+     *
+     * @return list<array{value:string, type_id:int, level_id:int, label:string, default:bool, skills:int}>
+     */
+    public static function skillOptions(array $disc): array
+    {
+        $out = [];
+        foreach ((array) ($disc['skill']['cert_types'] ?? []) as $ty) {
+            $tid = (int) ($ty['id'] ?? 0);
+            $levels = array_values(array_filter((array) ($disc['skill']['levels'] ?? []), static fn($l) => (int) ($l['type_id'] ?? 0) === $tid));
+            usort($levels, static fn($a, $b) => [(int) empty($a['default']), (int) $a['id']] <=> [(int) empty($b['default']), (int) $b['id']]);
+            $skills = count(array_filter((array) ($disc['skill']['skills'] ?? []), static fn($k) => (int) ($k['type_id'] ?? 0) === $tid));
+            foreach ($levels as $l) {
+                $out[] = ['value' => $tid . ':' . (int) $l['id'], 'type_id' => $tid, 'level_id' => (int) $l['id'],
+                          'label' => (string) ($ty['name'] ?? '') . ' › ' . (string) ($l['name'] ?? ''), 'default' => !empty($l['default']), 'skills' => $skills];
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * A course's (achievement's) certification mapping as the card shows it.
+     * @return array{skill_id:?int, name:?string, state:string} state: none | ok | other_odoo | not_in_type
+     */
+    private static function mapping(array $e, ?Target $t, ?array $cfg): array
+    {
+        $id = $e['skill_id'] === null ? null : (int) $e['skill_id'];
+        if ($id === null || $id < 1) {
+            return ['skill_id' => null, 'name' => null, 'state' => 'none'];
+        }
+        if ($t === null || !is_string($e['skill_target']) || !hash_equals($e['skill_target'], $t->key)) {
+            return ['skill_id' => $id, 'name' => null, 'state' => 'other_odoo'];
+        }
+        if ($cfg === null || !isset($cfg['skills'][$id])) {
+            return ['skill_id' => $id, 'name' => null, 'state' => 'not_in_type'];
+        }
+        return ['skill_id' => $id, 'name' => $cfg['skills'][$id], 'state' => 'ok'];
     }
 
     /** The dry run: the next 10 rows the worker would send, with no Odoo call and no write. */
     private static function preview(\mysqli $db, RecordsGateway $records, OutboxRepo $repo, Target $t, array $ta): array
     {
         $rows = [];
-        foreach ($repo->upcoming($t->key, 10) as $r) {
-            $rows[] = ['queued' => true, 'source_type' => $r['todoo_source_type'], 'source_id' => (int) $r['todoo_source_id'], 'action' => $r['todoo_action'],
+        foreach ($repo->upcoming($t->key, 10, Targets::enabled($ta)) as $r) {
+            $rows[] = ['queued' => true, 'source_type' => $r['todoo_source_type'], 'source_id' => (int) $r['todoo_source_id'], 'action' => $r['todoo_action'], 'mode' => $r['todoo_mode'],
                        'contact_id' => (int) $r['todoo_contact_id'], 'marker' => $r['todoo_marker'], 'error_class' => $r['todoo_error_class'], 'error' => $r['todoo_last_error']];
         }
         $since = OutboxScanner::sinceUtc($ta['tauto_odoo_push_since'] ?? null);
         if (count($rows) < 10 && $since !== null) {
             $inst8 = Marker::inst8For($db);
-            foreach ($records->pushCandidates($since, $t->key, 10 - count($rows)) as $c) {
-                $rows[] = ['queued' => false, 'source_type' => 'completion', 'source_id' => (int) $c['completion_id'], 'action' => 'create',
-                           'contact_id' => (int) $c['contact_id'], 'marker' => Marker::for($inst8, 'completion', (int) $c['completion_id']), 'error_class' => null, 'error' => null];
+            foreach (Targets::enabled($ta) as $mode) {
+                if (count($rows) >= 10) {
+                    break;
+                }
+                foreach ($records->pushCandidates($since, $t->key, 10 - count($rows), $mode) as $c) {
+                    $rows[] = ['queued' => false, 'source_type' => 'completion', 'source_id' => (int) $c['completion_id'], 'action' => 'create', 'mode' => $mode,
+                               'contact_id' => (int) $c['contact_id'], 'marker' => Marker::for($inst8, 'completion', (int) $c['completion_id']), 'error_class' => null, 'error' => null];
+                }
             }
         }
         return self::describeRows($db, $records, $rows, $t, true);
@@ -121,6 +190,7 @@ final class OdooCard
             $type = (string) ($r['todoo_source_type'] ?? $r['source_type']);
             $sid = (int) ($r['todoo_source_id'] ?? $r['source_id']);
             $cid = (int) ($r['todoo_contact_id'] ?? $r['contact_id']);
+            $mode = (string) ($r['todoo_mode'] ?? $r['mode'] ?? 'resume');
             $dto = null;
             if ($type === 'completion') {
                 try {
@@ -135,6 +205,8 @@ final class OdooCard
                 'status' => $r['todoo_status'] ?? null,
                 'held' => ($r['todoo_error_class'] ?? $r['error_class'] ?? null) === 'hold',
                 'action' => (string) ($r['todoo_action'] ?? $r['action']),
+                'mode' => $mode,
+                'mode_label' => Targets::label($mode),
                 'source' => ($type === 'award' ? 'Achievement #' : 'Record #') . $sid,
                 'record_link' => $type === 'completion' ? Links::record($sid) : null,
                 'contact_id' => $cid,

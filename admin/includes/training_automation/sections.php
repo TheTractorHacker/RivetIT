@@ -180,10 +180,14 @@ $ta_update_card = static function () use ($ta_admin_page, $ta_is_admin): void {
                 <?php echo ta_read_only_badge(); ?>
             </div>
             <div class="card-body">
-                <p class="text-muted small">Copies training records to each employee's résumé in Odoo. ITFlow stays the record of truth.</p>
+                <p class="text-muted small">Copies training records to each employee in Odoo (résumé line, certification skill and/or internal HR note). ITFlow stays the record of truth.</p>
                 <dl class="row small mb-3">
                     <dt class="col-sm-3">Write-back</dt>
                     <dd class="col-sm-9"><?php echo $ta_odoo_on ? '<span class="badge text-bg-success">On</span>' : '<span class="badge text-bg-secondary">Off</span>'; ?></dd>
+                    <?php if (class_exists('ITFlow\\Training\\OdooSync\\Targets')) { ?>
+                        <dt class="col-sm-3">Sent as</dt>
+                        <dd class="col-sm-9"><?php echo nullable_htmlentities(implode(', ', array_map([\ITFlow\Training\OdooSync\Targets::class, 'label'], \ITFlow\Training\OdooSync\Targets::enabled($ta))) ?: 'nothing'); ?></dd>
+                    <?php } ?>
                     <dt class="col-sm-3">Last run</dt>
                     <dd class="col-sm-9"><?php echo $ta_odoo_run !== null ? nullable_htmlentities($ta_odoo_run) : '<span class="text-muted">Never</span>'; ?></dd>
                     <dt class="col-sm-3">Result</dt>

@@ -127,8 +127,17 @@ final class OdooAdmin
         // Targets (2.6.97): any combination. Before that update only the résumé line exists (Phase 5).
         $targetsReady = Targets::schemaReady($db);
         $send = [];
-        foreach (Targets::MODES as $m) {
-            $send[$m] = !empty($post['send_' . $m]) ? 1 : 0;
+        if (array_key_exists('targets_form', $post)) {
+            foreach (Targets::MODES as $m) {
+                $send[$m] = !empty($post['send_' . $m]) ? 1 : 0;
+            }
+        } else {
+            // A page rendered before the targets existed (its "Mode" select only offered the résumé line): it keeps
+            // meaning "résumé line"; the other targets keep their stored switches.
+            if ((string) ($post['mode'] ?? 'resume') !== 'resume') {
+                return ['error', 'Reload the page and choose how records are sent with the checkboxes.'];
+            }
+            $send = ['resume' => 1, 'skill' => (int) ($ta['tauto_odoo_send_skill'] ?? 0), 'note' => (int) ($ta['tauto_odoo_send_note'] ?? 0)];
         }
         if (!$targetsReady) {
             if ($send['skill'] || $send['note']) {

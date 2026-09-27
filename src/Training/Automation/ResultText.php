@@ -64,6 +64,7 @@ final class ResultText
             if (preg_match('/^pushed (\d+), failed (\d+), dead (\d+), held (\d+)/D', (string) ($m[2] ?? ''), $c) === 1
                 && (int) $c[1] + (int) $c[2] + (int) $c[3] + (int) $c[4] > 0) {
                 $text .= ' Before the pause: ' . lcfirst(self::odooCounts((int) $c[1], (int) $c[2], (int) $c[3], (int) $c[4]));
+                $text .= self::odooTargets((string) $m[2]);
             }
             return ['ok' => false, 'text' => $text];
         }
@@ -71,9 +72,30 @@ final class ResultText
             $stored = substr($stored, 3);
         }
         if (preg_match('/^pushed (\d+), failed (\d+), dead (\d+), held (\d+)/D', $stored, $m) === 1) {
-            return ['ok' => true, 'text' => self::odooCounts((int) $m[1], (int) $m[2], (int) $m[3], (int) $m[4])];
+            return ['ok' => true, 'text' => self::odooCounts((int) $m[1], (int) $m[2], (int) $m[3], (int) $m[4]) . self::odooTargets($stored)];
         }
         return ['ok' => true, 'text' => $stored];
+    }
+
+    /**
+     * The per-target part PushService appends when more than the résumé line is sent ("; resume 1/0/0/0; skill 2/1/0/0;
+     * note 1/0/0/0" = sent/retry/dead/held): " Résumé lines: 1 sent. Certification skills: 2 sent, 1 will be tried
+     * again. HR notes: 1 sent." Targets with nothing to report are left out; '' when there is no such part.
+     */
+    public static function odooTargets(string $stored): string
+    {
+        if (preg_match_all('/; (resume|skill|note) (\d+)\/(\d+)\/(\d+)\/(\d+)/', $stored, $mm, PREG_SET_ORDER) < 1) {
+            return '';
+        }
+        $names = ['resume' => 'Résumé lines', 'skill' => 'Certification skills', 'note' => 'HR notes'];
+        $out = '';
+        foreach ($mm as $m) {
+            if ((int) $m[2] + (int) $m[3] + (int) $m[4] + (int) $m[5] === 0) {
+                continue;
+            }
+            $out .= ' ' . $names[$m[1]] . ': ' . lcfirst(self::odooCounts((int) $m[2], (int) $m[3], (int) $m[4], (int) $m[5]));
+        }
+        return $out;
     }
 
     /** "3 sent, 1 will be tried again, 12 waiting for an employee link" or "Nothing was due to send." */
