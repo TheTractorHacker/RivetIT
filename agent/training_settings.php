@@ -858,6 +858,7 @@ $ts_update_card = static function (string $title, string $icon, bool $error, str
 <?php
 // Certificates + Reminders & automation (LMS Phase 5, DB 2.6.96): the same sections as Admin > Training. Training 3 may
 // change the signatory, reminders and video checks; Odoo write-back and the public check switch are read-only here.
+define('TRAINING_AUTOMATION_PAGE', true);
 $ta_admin_page = false;
 $ta_is_admin = $ts_admin;
 $ta_module_on = Access::enabled();

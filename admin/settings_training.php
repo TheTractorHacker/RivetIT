@@ -1196,6 +1196,7 @@ $ts_module_on = !empty($config_module_enable_training);
 
 <?php
 // Certificates + Reminders & automation (LMS Phase 5, DB 2.6.96): the shared sections and their card partials.
+define('TRAINING_AUTOMATION_PAGE', true);
 $ta_admin_page = true;
 $ta_is_admin = true;
 $ta_module_on = $ts_module_on;

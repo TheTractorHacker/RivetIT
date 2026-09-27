@@ -8,11 +8,11 @@
  * Both hand the POST to ITFlow\Training\Settings\AutomationActions, which refuses admin-only actions and
  * fields from the agent page.
  *
- * The including page sets, before including this file:
+ * The including page defines TRAINING_AUTOMATION_PAGE and sets, before including this file:
  *   $ta_admin_page  bool    true on Admin > Training
  *   $ta_is_admin    bool    the session user is an administrator
  *   $ta_module_on   bool    Training is switched on
- * This file defines TRAINING_AUTOMATION_PAGE and gives every card partial:
+ * This file gives every card partial:
  *   $ta             AutomationSettings::load() (every tauto_ column, typed, plus 'ready')
  *   $ta_version     int     tauto_version - post it as `version` (optimistic lock)
  *   $ta_target      ?OdooSync\Target  Target::current() (null when none is enabled or Lane B is not installed)
@@ -39,7 +39,7 @@
 
 use ITFlow\Training\Automation\AutomationSettings;
 
-defined('TRAINING_AUTOMATION_PAGE') || define('TRAINING_AUTOMATION_PAGE', true);
+defined('TRAINING_AUTOMATION_PAGE') || exit;   // the including page defines it (a direct request stops here)
 
 if (!function_exists('ta_admin_only_note')) {
     /** "Admin only" line under a read-only control; an admin gets a link to Admin > Training instead. */
