@@ -226,8 +226,8 @@ final class ItemAnalysis
         foreach ($attempts as $a) {
             $people[(int) $a['contact_id']] = true;
             $cents += self::cents($a['score_pct']);
-            $durations[] = (int) $a['duration_s'];
-            if ((int) $a['number'] === 1) {
+            $durations[] = (int) ($a['duration_s'] ?? 0);
+            if ((int) ($a['number'] ?? 0) === 1) {
                 $first++;
                 if (!empty($a['passed'])) {
                     $firstPassed++;
@@ -407,7 +407,9 @@ final class ItemAnalysis
                     $s['lo_n']++;
                     $s['lo_c'] += $ok ? 1 : 0;
                 }
-                foreach (array_unique(array_map('strval', (array) ($ans['selected'] ?? []))) as $o) {
+                $sel = $ans['selected'] ?? [];
+                $sel = is_string($sel) ? ($sel === '' ? [] : explode(',', $sel)) : (array) $sel;   // a list per §3.1; a stored "o1,o2" string also works
+                foreach (array_unique(array_map('strval', $sel)) as $o) {
                     if ($o !== '') {
                         $s['chosen'][$o] = ($s['chosen'][$o] ?? 0) + 1;
                     }
