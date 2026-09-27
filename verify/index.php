@@ -194,13 +194,20 @@ if ($tv_state === 'integrity') {
         if (class_exists(\ITFlow\Training\Automation\Notify::class) && class_exists(\ITFlow\Training\Automation\Recipients::class)
             && \ITFlow\Training\Upstream\Schema::has($mysqli, \ITFlow\Training\Upstream\Schema::P5)) {
             $tv_notify = new \ITFlow\Training\Automation\Notify($mysqli);
-            foreach (\ITFlow\Training\Automation\Recipients::withLevel($mysqli, 3) as $tv_u) {
+            // An unmapped type, so the alert is always pushed and never muted with the digests: 'Training' (the records
+            // integrity type) when Notify accepts it, else 'Training Odoo' (the other always-pushed Training type).
+            $tv_types = defined(\ITFlow\Training\Automation\Notify::class . '::TYPES') ? (array) \ITFlow\Training\Automation\Notify::TYPES : ['Training'];
+            $tv_type = in_array('Training', $tv_types, true) ? 'Training' : 'Training Odoo';
+            $tv_admins = method_exists(\ITFlow\Training\Automation\Recipients::class, 'admins')
+                ? \ITFlow\Training\Automation\Recipients::admins($mysqli)
+                : \ITFlow\Training\Automation\Recipients::withLevel($mysqli, 3);
+            foreach ($tv_admins as $tv_u) {
                 if (empty($tv_u['is_admin'])) {
                     continue;
                 }
                 try {
-                    // One alert per admin per day (Notify's dedupe log). Type 'Training' = the ledger integrity type: unmapped, never muted.
-                    $tv_notify->once((int) $tv_u['user_id'], date('Y-m-d'), 'verify_integrity', 'Training',
+                    // One alert per admin per day (Notify's dedupe log).
+                    $tv_notify->once((int) $tv_u['user_id'], date('Y-m-d'), 'verify_integrity', $tv_type,
                         'Certificate check: a training record no longer matches its fingerprint, so the public check shows "Not available" for it. Run Verify now under Training settings › Records ledger.',
                         '/admin/settings_training.php#ledger', ['integrity' => 1]);
                 } catch (\Throwable $e) {

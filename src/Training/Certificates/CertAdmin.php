@@ -27,8 +27,9 @@ use ITFlow\Training\Core\Db;
  * caller did not say): then the user's role decides whether verify_enabled may be sent.
  *
  * Saves go through AutomationSettings::save('cert', ..., $expectVersion) (optimistic lock: a stale form is
- * "changed by someone else; reload"). After a save: logAction + AuditService 'training.automation_saved'.
- * The signature image itself is never logged.
+ * "changed by someone else; reload"); ta_cert_save writes only the fields the form carries (the signatory card
+ * and the public-check card post separately). After a save: AuditService 'training.automation_saved' with the
+ * changed columns (the shell writes the activity log line). The signature image itself is never logged.
  */
 final class CertAdmin
 {
@@ -72,9 +73,13 @@ final class CertAdmin
         try {
             switch ($action) {
                 case 'ta_cert_save':
+                    // Only the fields this form carries: the signatory card and the public-check card post separately.
                     $values = [];
                     foreach (['signer_name' => 'tauto_cert_signer_name', 'signer_title' => 'tauto_cert_signer_title'] as $in => $col) {
-                        $v = self::text($post[$in] ?? '', 200);
+                        if (!array_key_exists($in, $post)) {
+                            continue;
+                        }
+                        $v = self::text($post[$in], 200);
                         if ($v === false) {
                             return ['error', 'Nothing was saved: the signer ' . ($in === 'signer_name' ? 'name' : 'title') . ' must be text of at most 200 characters.'];
                         }
@@ -89,6 +94,9 @@ final class CertAdmin
                         }
                         $values['tauto_verify_enabled'] = ((string) $post['verify_enabled'] === '1') ? 1 : 0;
                     }
+                    if ($values === []) {
+                        return ['error', 'Nothing was saved: the request did not say what to change.'];
+                    }
                     AutomationSettings::save($db, 'cert', $values, $version, $userId);
                     $changed = [];
                     foreach ($values as $col => $v) {
@@ -97,12 +105,12 @@ final class CertAdmin
                         }
                     }
                     self::log($who['name'], $userId, 'edited the certificate settings', ['changed' => $changed]);
-                    if (in_array('tauto_verify_enabled', $changed, true)) {
-                        return ['success', ($values['tauto_verify_enabled'] ?? 1) === 1
-                            ? 'Certificate settings saved. The public certificate check is on.'
-                            : 'Certificate settings saved. The public certificate check is off: printed QR codes now show "Not available".'];
+                    if (array_key_exists('tauto_verify_enabled', $values)) {
+                        return ['success', $values['tauto_verify_enabled'] === 1
+                            ? 'The public certificate check is on.'
+                            : 'The public certificate check is off: printed QR codes now show "Not available".'];
                     }
-                    return ['success', 'Certificate settings saved.'];
+                    return ['success', 'Certificate signatory saved.'];
 
                 case 'ta_cert_signature':
                     $png = self::signatureFromUpload($files['cert_signature'] ?? null);
@@ -241,12 +249,14 @@ final class CertAdmin
         return (is_string($v) || is_int($v)) && preg_match('/^[0-9]{1,10}$/D', (string) $v) === 1 ? (int) $v : null;
     }
 
+    /**
+     * The audit event of a save (with what changed; never the image). The activity log line is written by the
+     * settings shell (Lane A's AutomationActions) for every action, which also skips its own audit event when
+     * this one was written.
+     */
     private static function log(string $name, int $userId, string $what, array $meta): void
     {
         try {
-            if (function_exists('logAction')) {
-                \logAction('Training', 'Edit', $name . ' ' . $what);
-            }
             if (class_exists(\ITFlow\Audit\AuditService::class)) {
                 \ITFlow\Audit\AuditService::record('training.automation_saved', $userId, 'training_automation', 1, 'cert', $name . ' ' . $what, $meta);
             }

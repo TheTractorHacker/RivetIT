@@ -1,35 +1,34 @@
 <?php
 
 /*
- * Training settings > Certificates card (Phase 5 spec §5.4, Lane C). Included by the one Training
- * settings page (admin/settings_training.php) and its Training-level-3 twin (agent/training_settings.php)
- * when this file exists.
+ * Training settings > Certificates (Phase 5 spec §5.4, Lane C): two cards inside the #certificates section
+ * that Lane A's admin/includes/training_automation/sections.php draws on BOTH one-page Training settings
+ * pages (admin/settings_training.php and its Training-level-3 twin agent/training_settings.php). The
+ * section wrapper carries the #certificates anchor, so the cards here repeat no id of it.
  *
- * Expects from the including page:
- *   $ta              AutomationSettings::load() row (tauto_* columns + 'ready')
- *   CSRF             $_SESSION['csrf_token'] (hidden input on every form)
- *   $ta_admin_page   optional bool: true on Admin > Training (default: derived from the script path)
- *   $ta_form_action  optional string: where the forms post (default 'post.php' on the admin page,
- *                    '/agent/training_settings.php' on the agent page)
+ *   Certificate signatory     name, title, signature image, sample PDF       admins and Training 3, both pages
+ *   Public certificate check  the verify page switch (the QR code target)    admins on Admin > Training only;
+ *                                                                            read-only on the agent page
  *
- * Signatory name, title and signature: administrators and Training level 3, on either page.
- * The public certificate check switch: administrators on Admin > Training only; the agent page shows it
- * read-only ("Ask an administrator"), and CertAdmin refuses it there even if it is forged into a post.
+ * From the shell (sections.php): $ta (AutomationSettings::load(): tauto_* + 'ready'), $ta_version,
+ * $ta_csrf, $ta_post_url ('post.php' on the admin page, '/agent/training_settings.php' on the agent page),
+ * $ta_admin_page, $ta_is_admin, ta_admin_only_note(). Each has a fallback so the card also renders on its own.
+ * Forms post ta_cert_save / ta_cert_signature / ta_cert_signature_clear (Certificates\CertAdmin, through Lane A's
+ * AutomationActions, which also refuses verify_enabled from the agent page before CertAdmin does).
  * Every DB-sourced string is echoed through nullable_htmlentities(); the signature preview is a data: PNG
- * (the app CSP allows data: images) built from the stored, GD re-encoded bytes.
+ * (the app CSP allows data: images) rebuilt from the stored, GD re-encoded bytes.
  */
 
 defined('TRAINING_AUTOMATION_PAGE') || exit;
 
-$tac_script = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
-$tac_admin = isset($ta_admin_page) ? (bool) $ta_admin_page : strpos($tac_script, '/admin/') === 0;
-$tac_action = isset($ta_form_action) && is_string($ta_form_action) && $ta_form_action !== '' ? $ta_form_action : ($tac_admin ? 'post.php' : '/agent/training_settings.php');
-$tac_csrf = (string) ($_SESSION['csrf_token'] ?? '');
+$tac_admin = isset($ta_admin_page) ? (bool) $ta_admin_page : strpos(str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '')), '/admin/') === 0;
+$tac_action = isset($ta_post_url) && is_string($ta_post_url) && $ta_post_url !== '' ? $ta_post_url : ($tac_admin ? 'post.php' : '/agent/training_settings.php');
+$tac_csrf = isset($ta_csrf) && is_string($ta_csrf) ? $ta_csrf : (string) ($_SESSION['csrf_token'] ?? '');
 $tac = is_array($ta ?? null) ? $ta : [];
 $tac_ready = !empty($tac['ready']);
-$tac_version = intval($tac['tauto_version'] ?? 0);
+$tac_version = intval($ta_version ?? ($tac['tauto_version'] ?? 0));
 $tac_verify_on = intval($tac['tauto_verify_enabled'] ?? 1) === 1;
-$tac_is_admin = ($session_is_admin ?? false) === true;
+$tac_is_admin = isset($ta_is_admin) ? (bool) $ta_is_admin : (($session_is_admin ?? false) === true);
 $tac_png = null;
 if (is_string($tac['tauto_cert_signer_png'] ?? null) && $tac['tauto_cert_signer_png'] !== '') {
     $tac_raw = base64_decode($tac['tauto_cert_signer_png'], true);
@@ -37,16 +36,19 @@ if (is_string($tac['tauto_cert_signer_png'] ?? null) && $tac['tauto_cert_signer_
         $tac_png = 'data:image/png;base64,' . base64_encode($tac_raw);   // re-encoded: only base64 characters reach the attribute
     }
 }
-?>
-<div class="card mb-3" id="certificates">
+
+if (!$tac_ready) { ?>
+<div class="card mb-3">
+    <div class="card-body"><p class="text-muted mb-0">Run the database update to set up the certificate signatory and the public certificate check.</p></div>
+</div>
+<?php } else { ?>
+<!-- Certificate signatory -------------------------------------------------------------------- -->
+<div class="card mb-3">
     <div class="card-header py-3">
-        <h3 class="card-title"><i class="fas fa-fw fa-certificate me-2" aria-hidden="true"></i>Certificates</h3>
+        <h3 class="card-title"><i class="fas fa-fw fa-signature me-2" aria-hidden="true"></i>Certificate signatory</h3>
     </div>
     <div class="card-body">
-        <?php if (!$tac_ready) { ?>
-            <p class="text-muted mb-0">Run the database update to set up certificate signatures and the public certificate check.</p>
-        <?php } else { ?>
-        <form action="<?php echo nullable_htmlentities($tac_action); ?>" method="post" autocomplete="off" data-ts-label="Certificates">
+        <form action="<?php echo nullable_htmlentities($tac_action); ?>" method="post" autocomplete="off" data-ts-label="Certificate signatory">
             <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tac_csrf); ?>">
             <input type="hidden" name="version" value="<?php echo intval($tac_version); ?>">
             <div class="row">
@@ -62,27 +64,7 @@ if (is_string($tac['tauto_cert_signer_png'] ?? null) && $tac['tauto_cert_signer_
                 </div>
             </div>
             <div class="form-text mb-3">Printed under the signature line of certificate PDFs. Leave both empty for a blank "Authorized signature" line.</div>
-
-            <div class="mb-3">
-                <?php if ($tac_admin) { ?>
-                    <input type="hidden" name="verify_enabled" value="0">
-                    <div class="form-check form-switch mb-1">
-                        <input type="checkbox" class="form-check-input" name="verify_enabled" value="1" id="taCertVerify" <?php if ($tac_verify_on) { echo 'checked'; } ?>>
-                        <label class="form-check-label" for="taCertVerify">Public certificate check (the QR code on certificates)</label>
-                    </div>
-                <?php } else { ?>
-                    <div class="d-flex align-items-center gap-2 mb-1">
-                        <span class="fw-semibold">Public certificate check:</span>
-                        <span class="badge <?php echo $tac_verify_on ? 'text-bg-success' : 'text-bg-secondary'; ?>"><?php echo $tac_verify_on ? 'On' : 'Off'; ?></span>
-                    </div>
-                    <p class="small text-muted mb-1"><i class="fas fa-fw fa-lock me-1" aria-hidden="true"></i><?php if ($tac_is_admin) { ?>Admin only. <a href="/admin/settings_training.php#certificates">Change in Admin &rsaquo; Training</a>.<?php } else { ?>Admin only. Ask an administrator to change this.<?php } ?></p>
-                <?php } ?>
-                <div class="form-text">
-                    Anyone who scans a certificate's QR code sees the name, course, dates, number and whether it is current. When the check is off,
-                    every printed QR code shows "Not available". Checks are limited to 240 a minute overall and 20 a minute per visitor.
-                </div>
-            </div>
-            <button type="submit" name="ta_cert_save" value="1" class="btn btn-primary"><i class="fas fa-check me-2" aria-hidden="true"></i>Save certificate settings</button>
+            <button type="submit" name="ta_cert_save" value="1" class="btn btn-primary"><i class="fas fa-check me-2" aria-hidden="true"></i>Save signatory</button>
         </form>
 
         <hr class="my-4">
@@ -122,8 +104,45 @@ if (is_string($tac['tauto_cert_signer_png'] ?? null) && $tac['tauto_cert_signer_
                 <a class="btn btn-outline-secondary btn-sm" href="/agent/training_pdf.php?doc=sample&amp;lang=es" target="_blank" rel="noopener" lang="es">Muestra en español</a>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Public certificate check ------------------------------------------------------------------ -->
+<div class="card mb-3">
+    <div class="card-header py-3 d-flex align-items-center">
+        <h3 class="card-title"><i class="fas fa-fw fa-qrcode me-2" aria-hidden="true"></i>Public certificate check</h3>
+        <?php if (!$tac_admin) { echo function_exists('ta_read_only_badge') ? ta_read_only_badge() : ''; } ?>
+    </div>
+    <div class="card-body">
+        <p class="text-muted small">
+            The QR code on every certificate opens <span class="font-monospace">/verify/</span>. Anyone who scans it sees the name, course, dates,
+            number and whether the certificate is current, nothing else. When the check is off, every printed QR code shows "Not available".
+            Checks are limited to 240 a minute overall and 20 a minute per visitor.
+        </p>
+        <?php if ($tac_admin) { ?>
+        <form action="<?php echo nullable_htmlentities($tac_action); ?>" method="post" autocomplete="off" data-ts-label="Public certificate check">
+            <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tac_csrf); ?>">
+            <input type="hidden" name="version" value="<?php echo intval($tac_version); ?>">
+            <input type="hidden" name="verify_enabled" value="0">
+            <div class="form-check form-switch mb-3">
+                <input type="checkbox" class="form-check-input" name="verify_enabled" value="1" id="taCertVerify" <?php if ($tac_verify_on) { echo 'checked'; } ?>>
+                <label class="form-check-label" for="taCertVerify">Answer certificate checks (the QR code on certificates)</label>
+            </div>
+            <button type="submit" name="ta_cert_save" value="1" class="btn btn-primary"><i class="fas fa-check me-2" aria-hidden="true"></i>Save public check</button>
+        </form>
+        <?php } else { ?>
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="fw-semibold">Certificate checks:</span>
+            <span class="badge <?php echo $tac_verify_on ? 'text-bg-success' : 'text-bg-secondary'; ?>"><?php echo $tac_verify_on ? 'On' : 'Off'; ?></span>
+        </div>
+        <?php
+        if (function_exists('ta_admin_only_note')) {
+            echo ta_admin_only_note('certificates');
+        } else { ?>
+            <p class="small mb-0"><i class="fas fa-fw fa-lock me-1" aria-hidden="true"></i><?php if ($tac_is_admin) { ?>Admin only. <a href="/admin/settings_training.php#certificates">Change in Admin &rsaquo; Training</a>.<?php } else { ?>Admin only. Ask an administrator to change this.<?php } ?></p>
+        <?php } ?>
         <?php } ?>
     </div>
 </div>
-<?php
-unset($tac_script, $tac_admin, $tac_action, $tac_csrf, $tac, $tac_ready, $tac_version, $tac_verify_on, $tac_is_admin, $tac_png, $tac_raw);
+<?php }
+unset($tac_admin, $tac_action, $tac_csrf, $tac, $tac_ready, $tac_version, $tac_verify_on, $tac_is_admin, $tac_png, $tac_raw);
