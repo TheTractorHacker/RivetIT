@@ -1,7 +1,8 @@
 /* =============================================================================
-   Training item analysis - Phase 5 spec §5.5 (Lane E, S7).
+   Training item analysis and compare versions - Phase 5 spec §5.5 / §5.6 (Lane E, S7 + L1).
 
-   Loaded only by agent/training_item_analysis.php, after itflow_training.css and
+   Loaded only by agent/training_item_analysis.php and
+   agent/training_revision_compare.php, after itflow_training.css and
    itflow_training_reports.css (whose trr- filter pills, KPI cards, chips and card
    heads it reuses so the page reads like Course analytics). Everything here is
    tri- prefixed. Colours are --if-* / --trr-* tokens, so dark mode and the company
@@ -149,6 +150,41 @@
 /* ---- Notes slot (scope) -------------------------------------------------------------- */
 .tri-note { display: flex; align-items: center; gap: 8px; }
 .tri-note[hidden] { display: none; }
+
+/* ---- Compare versions (L1) ---------------------------------------------------------- */
+.trc-vs { color: var(--if-muted); font-size: .8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.trc-kpi-table th[scope="row"] { font-size: .875rem; text-transform: none; letter-spacing: 0; color: var(--if-ink); white-space: normal; }
+.trc-kpi-table td, .trc-kpi-table th { padding-top: 10px; padding-bottom: 10px; }
+.trc-diff { max-height: 22rem; overflow-y: auto; }
+.trc-table td { vertical-align: top; padding-top: 14px; padding-bottom: 14px; }
+.trc-col-q { min-width: 16rem; }
+.trc-col-q .tri-q__chips { margin-left: 0; }
+.trc-col-v { white-space: nowrap; }
+.trc-col-d { white-space: nowrap; }
+.trc-delta--few { opacity: .75; }
+.trc-kpi-table .trr-delta, .trc-table .trr-delta { white-space: nowrap; }
+.trc-row--few .trc-col-v strong { color: var(--if-muted); }
+
+@media (max-width: 767.98px) {
+  .trc-vs { display: none; }
+  .trc-kpi-table td, .trc-kpi-table th { padding-left: 10px; padding-right: 10px; }
+  .trc-kpi-table th[scope="row"] { min-width: 7rem; }
+  .trc-table, .trc-table tbody { display: block; width: 100%; }
+  .trc-table thead { display: none; }
+  .trc-table tr.trc-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; padding: 14px 16px; border-top: 1px solid var(--if-border); }
+  .trc-table tr.trc-row > td { display: block; padding: 0; border: 0; min-width: 0; white-space: normal; text-align: left; }
+  .trc-table tr.trc-row > td.trc-col-q { grid-column: 1 / -1; }
+  .trc-table tr.trc-row > td:not(.trc-col-q)::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    font-size: .6875rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--if-muted);
+  }
+}
 
 /* ---- Print ------------------------------------------------------------------------------ */
 @media print {

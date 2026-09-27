@@ -27,6 +27,17 @@ final class InsightActions
         return (new ItemAnalysis($c))->forCourse($courseId, $revisionId, $lang, $kind, $since);
     }
 
+    /** GET insight_revisions (L2, L1 "Compare versions"): course_id, a, b (two versions of the course), kind? => RevisionCompare. */
+    public static function revisions(Ctx $c, ApiContext $a): array
+    {
+        return (new RevisionCompare($c))->compare(
+            (int) $a->int('course_id', true, 1),
+            (int) $a->int('a', true, 1),
+            (int) $a->int('b', true, 1),
+            $a->enum('kind', ItemAnalysis::KINDS, false) ?? 'exam',
+        );
+    }
+
     /** GET raw insight_items_csv (L2): the same report as a CSV (Core\Csv guards every cell) and exits. */
     public static function itemsCsv(Ctx $c, ApiContext $a): never
     {

@@ -17,7 +17,7 @@ $section_pages = [
     'service_desk'  => ['tickets.php', 'ticket.php', 'recurring_tickets.php', 'service_catalog.php', 'csat.php', 'mail_requests.php', 'problems.php', 'problem_details.php', 'changes.php', 'change_details.php'],
     'work'          => ['projects.php', 'project_details.php', 'calendar.php'],
     'knowledge'     => ['kb_articles.php', 'kb_article.php', 'kb_article_versions.php', 'credentials.php', 'printers.php', 'network_drives.php'],
-    'training'      => ['training.php', 'training_courses.php', 'training_course.php', 'training_quiz.php', 'training_banks.php', 'training_paths.php', 'training_achievements.php', 'training_preview.php', 'training_dashboard.php', 'training_reports.php', 'training_transcript.php', 'training_assignments.php', 'training_rule.php', 'training_records.php', 'training_record.php', 'training_session.php', 'training_people.php', 'training_item_analysis.php'],
+    'training'      => ['training.php', 'training_courses.php', 'training_course.php', 'training_quiz.php', 'training_banks.php', 'training_paths.php', 'training_achievements.php', 'training_preview.php', 'training_dashboard.php', 'training_reports.php', 'training_transcript.php', 'training_assignments.php', 'training_rule.php', 'training_records.php', 'training_record.php', 'training_session.php', 'training_people.php', 'training_item_analysis.php', 'training_revision_compare.php'],
     'infrastructure'=> ['assets.php', 'asset_details.php', 'locations.php', 'vendors.php', 'software.php', 'domains.php', 'certificates.php'],
     'billing'       => ['quotes.php', 'quote.php', 'invoices.php', 'invoice.php', 'recurring_invoices.php', 'recurring_invoice.php', 'revenues.php', 'products.php'],
     'finance'       => ['payments.php', 'expenses.php', 'recurring_expenses.php', 'accounts.php', 'transfers.php', 'trips.php'],
@@ -299,7 +299,7 @@ foreach ($section_pages as $key => $pages) {
                             <span class="dropdown-item-icon"><i class="fas fa-id-card"></i></span>
                             <span class="text-truncate">Records &amp; sessions</span>
                         </a>
-                        <a href="/agent/training_reports.php" class="dropdown-item<?php if (in_array($current_page, ['training_reports.php', 'training_item_analysis.php'], true)) { echo " active"; } ?>">
+                        <a href="/agent/training_reports.php" class="dropdown-item<?php if (in_array($current_page, ['training_reports.php', 'training_item_analysis.php', 'training_revision_compare.php'], true)) { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-chart-bar"></i></span>
                             <span class="text-truncate">Reports</span>
                         </a>

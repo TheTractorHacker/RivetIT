@@ -117,7 +117,9 @@ $tia_csv_url = '/agent/training_ajax.php?' . http_build_query(array_filter([
     'kind' => $tia_kind, 'since' => $tia_since,
 ], static fn($v) => $v !== null));
 $tia_analytics_url = '/agent/training_reports.php?' . http_build_query(['tab' => 'course', 'course_id' => $tia_course['id']]);
-$tia_actions = '<a class="btn btn-outline-secondary" id="tri-csv" href="' . $tia_h($tia_csv_url) . '" download><i class="fas fa-download me-2" aria-hidden="true"></i>Export CSV</a>'
+$tia_actions = (count($tia_revisions) >= 2
+        ? '<a class="btn btn-outline-secondary" id="tri-compare" href="/agent/training_revision_compare.php?course_id=' . (int) $tia_course['id'] . '"><i class="fas fa-code-branch me-2" aria-hidden="true"></i>Compare versions</a>' : '')
+    . '<a class="btn btn-outline-secondary" id="tri-csv" href="' . $tia_h($tia_csv_url) . '" download><i class="fas fa-download me-2" aria-hidden="true"></i>Export CSV</a>'
     . '<button type="button" class="btn btn-outline-secondary js-print-page"><i class="fas fa-print me-2" aria-hidden="true"></i>Print</button>';
 
 /** One filter pill (the Course analytics toolbar style). */
