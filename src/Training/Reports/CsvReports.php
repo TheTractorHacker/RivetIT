@@ -175,7 +175,7 @@ final class CsvReports
                 $a['course']['name'], $a['anchor_label'], $r['requirement_name'], $a['required'] ? 'Yes' : 'No',
                 $a['due_on'], $a['original_due_on'], $a['display_status'], $a['days_overdue'] ?: null, $a['waived_until'],
                 $a['created_on'], $r['tassign_closed_at_utc'] !== null ? Clock::localDate((string) $r['tassign_closed_at_utc']) : null,
-                $a['close_reason'], $a['close_note'],
+                $a['close_reason_label'] !== '' ? $a['close_reason_label'] : null, $a['close_note'],
             ];
         }
         return [$header, $rows];

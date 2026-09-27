@@ -140,6 +140,21 @@ final class Labels
         return $ruleName !== null && $ruleName !== '' ? 'Required by ' . $ruleName : 'Required';
     }
 
+    /** Why an assignment closed, in plain words ('' when open). Unknown codes read as words. */
+    public static function closeReason(?string $code): string
+    {
+        return match ($code) {
+            null, '' => '',
+            'completed' => 'Completed',
+            'no_longer_required' => 'No longer required',
+            'contact_ineligible' => 'Not on the roster',
+            'superseded' => 'Replaced by a newer assignment',
+            'waived' => 'Waived',
+            'unwaived' => 'Waiver ended',
+            default => ucfirst(str_replace('_', ' ', $code)),
+        };
+    }
+
     /** "Sep 8, 2026" for a Y-m-d, or the input unchanged when it is not one. */
     public static function shortDate(?string $ymd): string
     {

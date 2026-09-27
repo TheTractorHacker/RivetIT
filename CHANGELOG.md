@@ -2,6 +2,31 @@
 
 This file documents all notable changes made to ITFlow.
 
+## [Unreleased] ITFlow Internal IT - Training assignments: Reset and Un-waive
+No database change (2.6.94 stays). New agent actions `assignment_reset_preview`, `assignment_reset`,
+`assignment_retake`, `assignment_unwaive`; new ledger event types `assignment.progress_reset`, `assignment.retake`,
+`assignment.unwaived` and `run.reset`.
+
+### New Features & Updates
+- Assignments, the assignment history and the transcript have **Reset…** on open assignments (Training 2): it clears
+  the person's kiosk progress on that course (the dialog lists what goes: started date, progress, current lesson, failed
+  tries, a lock or block, waiting to sign or for a trainer), optionally with a new due date. Their next kiosk sign-in
+  starts at lesson 1 with fresh tries and no lock; the old tries stay in the history. Someone who hasn't started gets
+  "Nothing to reset". A kiosk that has the course open says "Your progress on this course was reset by your
+  supervisor. Start again when you're ready." (or in Spanish) and goes back to the course list.
+- **Reset (take again)…** on a completed assignment (Training 3, like voiding a record): voids its record (kept as
+  Voided, certificate Revoked) and gives the person a new assignment with the due date you pick. Only offered while that
+  record is the one that counts and voiding it would assign the course again; otherwise the dialog says why.
+- **Un-waive…** on a waiver that is still running (Training 2): "They'll need to take this course again. The waiver
+  stays in the history." The assignment reopens with the due date you pick (default: its due date or two weeks from
+  today, whichever is later). When the rules now ask for something else (a renewal, say) that opens instead; when
+  nothing is required any more the waiver just ends and says why. Expired waivers are not offered.
+- History reads "Progress reset by ...: ...", "Waiver ended by ...: ...", "Record voided and reassigned by ...: ...".
+  An ended waiver shows as "Waiver ended", a record voided later as "Record voided". The assignments CSV writes close
+  reasons in words, and "Cancelled while overdue" leaves out ended waivers.
+- Department scope applies as everywhere (someone outside your departments is "not found"); a second click or a stale
+  page gets a friendly message, never a second change. Recalculate now and the nightly check leave all of it as it is.
+
 ## [Unreleased] ITFlow Internal IT - Training kiosk: quick checks after lessons
 No database change (2.6.94 stays). Quick checks on video, article, document and image lessons now run on the kiosk;
 before this, the kiosk skipped them and a lesson went straight to "Done" (and a one-lesson course to "Sign to finish").

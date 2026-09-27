@@ -205,18 +205,10 @@ $trr_assign_chip = static function (array $a): string {
         default => '<span class="trr-chip trr-chip--neutral">' . trr_h(ucfirst($a['display_status'])) . '</span>',
     };
 };
-// Level 2+: Extend / Waive / History on each assignment row, the same TrainingOps forms as the Assignments list
-// (training_transcript.js fills the cell; the server re-checks level and scope on every action).
+// Level 2+: Extend / Waive / Reset / Un-waive / History on each assignment row, the same TrainingOps forms as the
+// Assignments list (training_transcript.js fills the cell; the server re-checks level and scope on every action).
 $trr_row_menu = $trr_ops_js && $trr_level >= 2;
-$trr_close_reason = static fn(?string $r): string => match ($r) {
-    'completed' => 'Completed',
-    'no_longer_required' => 'No longer required',
-    'contact_ineligible' => 'Not on the roster',
-    'superseded' => 'Replaced by a newer assignment',
-    'waived' => 'Waived',
-    null, '' => '',
-    default => ucfirst(str_replace('_', ' ', $r)),
-};
+$trr_close_reason = static fn(?string $r): string => Labels::closeReason($r);
 ?>
 
 <div class="trr-page trr-transcript" id="trr-transcript">
@@ -399,7 +391,7 @@ $trr_close_reason = static fn(?string $r): string => match ($r) {
                                 <td class="text-nowrap"<?= $trr_a['original_due_on'] !== $trr_a['due_on'] ? ' title="Originally due ' . trr_h(trr_date($trr_a['original_due_on'])) . '"' : '' ?>>
                                     <?= trr_h(trr_date($trr_a['due_on'])) ?><?= $trr_a['original_due_on'] !== $trr_a['due_on'] ? '<span class="trr-sub">Extended</span>' : '' ?>
                                 </td>
-                                <td><?= $trr_assign_chip($trr_a) ?></td>
+                                <td><?= $trr_assign_chip($trr_a) ?><?php if ($trr_a['status'] === 'completed' && $trr_a['completion_voided']) { ?><span class="trr-sub">Record voided</span><?php } ?></td>
                                 <td class="text-nowrap"><?= trr_h(trr_date($trr_a['created_on'])) ?><?php if ($trr_a['created_by_name'] !== null) { ?><span class="trr-sub">by <?= trr_h($trr_a['created_by_name']) ?></span><?php } ?></td>
                                 <td class="text-nowrap"><?php if ($trr_a['closed_at'] !== null) { ?><?= trr_h(trr_clock($trr_a['closed_at'])) ?><span class="trr-sub"><?= trr_h($trr_close_reason($trr_a['close_reason'])) ?></span><?php } else { ?><span class="trr-muted">—</span><?php } ?></td>
                                 <?php if ($trr_row_menu) { ?><td class="trr-row-actions" data-trr-assign-menu="<?= (int) $trr_a['id'] ?>"></td><?php } ?>
@@ -520,17 +512,33 @@ $trr_close_reason = static fn(?string $r): string => match ($r) {
 </div>
 
 <?php
+$trr_routes = [];
+if ($trr_row_menu) {
+    try {
+        $trr_all_routes = \ITFlow\Training\Api\Router::routes();
+    } catch (\Throwable $e) {
+        $trr_all_routes = [];
+    }
+    foreach (['assignment_extend', 'assignment_waive', 'assignment_reset', 'assignment_retake', 'assignment_unwaive'] as $trr_r) {
+        $trr_routes[$trr_r] = isset($trr_all_routes[$trr_r]);
+    }
+}
 trr_json_block('tr-page-data', [
     'user_id' => $trr_ctx->userId,
     'level' => $trr_level,
     'today' => $trr['as_of'],
     'person' => ['contact_id' => $trr_p['id'], 'name' => $trr_p['name'], 'hire_date' => $trr_p['hire_date']],
-    // What the Extend / Waive / History forms show about each assignment (row menu, level 2+).
+    // What the Extend / Waive / Reset / Un-waive / History forms show about each assignment (row menu, level 2+).
     'assignments' => $trr_row_menu ? array_map(static fn(array $a): array => [
-        'id' => $a['id'], 'status' => $a['status'], 'course' => ['id' => $a['course']['id'], 'name' => $a['course']['name']],
+        'id' => $a['id'], 'status' => $a['status'], 'display_status' => $a['display_status'],
+        'course' => ['id' => $a['course']['id'], 'name' => $a['course']['name']],
         'person' => ['contact_id' => $trr_p['id'], 'name' => $trr_p['name']], 'due_on' => $a['due_on'], 'original_due_on' => $a['original_due_on'],
-        'anchor_label' => $a['anchor_label'], 'archived' => (bool) $trr_p['archived'],
+        'anchor_label' => $a['anchor_label'], 'archived' => (bool) $trr_p['archived'], 'waived_until' => $a['waived_until'],
+        'completion_id' => $a['completion_id'], 'completion_voided' => $a['completion_voided'],
     ], $trr['assignments']) : [],
+    // Row actions appear only for routes that exist (same gate as the Assignments list).
+    'routes' => $trr_routes === [] ? new \stdClass() : $trr_routes,
+    'settings' => ['reissue_days' => \ITFlow\Training\Core\RecordsSettings::fromDb($mysqli)->reissueDays],
 ]);
 ?>
 <script src="/js/training_common.js?v=<?= filemtime(__DIR__ . '/../js/training_common.js') ?>" defer></script>

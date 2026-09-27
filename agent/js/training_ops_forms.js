@@ -3,7 +3,8 @@
  *
  *   TrainingOps.init(pageData)            call first from each page (today, level, courses, …)
  *   TrainingOps.open(kind, opts) -> Promise(result|null)
- *       kind: assign | extend | waive | void | hire_date | roster | history | external | evaluation
+ *       kind: assign | extend | waive | reset | retake | unwaive | void | hire_date | roster | history | external | evaluation
+ *       (history opts.onChanged(res) fires after a Reset / Un-waive started from its footer)
  *   TrainingOps.sheet(opts)               the single page-level Bootstrap offcanvas (.offcanvas-end)
  *   TrainingOps.PeoplePicker(opts)        people_search combobox with chips
  *   TrainingOps.ScanField(opts)           evidence scan upload (attach token + preview)
@@ -173,6 +174,7 @@
         var label = s[2];
         if (status === 'overdue' && row && row.days_overdue > 0 && !(opts && opts.days === false)) { label = 'Overdue ' + plural(row.days_overdue, 'day'); }
         if (status === 'waived' && row && row.waived_until) { label = 'Waived to ' + fmtDate(row.waived_until, true); }
+        if (status === 'cancelled' && row && row.close_reason === 'unwaived') { label = 'Waiver ended'; }
         // An open renewal whose certificate already expired is not qualified now, whether or not the renewal is due yet.
         if (row && row.lapsed && (status === 'overdue' || status === 'due_soon' || status === 'due')) {
             var lapsedChip = chip('Expired — not qualified', 'err', 'fas fa-times-circle');
@@ -935,6 +937,245 @@
         });
     }
 
+    // ------------------------------------------------------------------------------------
+    // Reset / Un-waive (assignment_reset_preview, then assignment_reset | assignment_retake | assignment_unwaive)
+    // ------------------------------------------------------------------------------------
+
+    /**
+     * Which of Reset / Reset (take again) / Un-waive fit this assignment row for the signed-in user, gated like
+     * Extend / Waive: the route exists (page data routes, false = missing), the level allows it, and the state fits.
+     */
+    function resetActions(a) {
+        a = a || {};
+        var r = S.routes || {};
+        var st = a.status;
+        return {
+            reset: S.level >= 2 && r.assignment_reset !== false && st === 'open',
+            retake: S.level >= 3 && r.assignment_retake !== false && st === 'completed' && !!a.completion_id && !a.completion_voided,
+            unwaive: S.level >= 2 && r.assignment_unwaive !== false && st === 'waived' && (!a.waived_until || a.waived_until >= today())
+        };
+    }
+    /** Row-menu items for resetActions(a); run(kind, a) opens the form. Null items are skipped by the menus. */
+    function resetMenuItems(a, run) {
+        var x = resetActions(a);
+        return [
+            x.reset ? { label: 'Reset…', icon: 'fas fa-undo-alt', onClick: function () { run('reset', a); } } : null,
+            x.retake ? { label: 'Reset (take again)…', icon: 'fas fa-redo-alt', onClick: function () { run('retake', a); } } : null,
+            x.unwaive ? { label: 'Un-waive…', icon: 'fas fa-play-circle', onClick: function () { run('unwaive', a); } } : null
+        ];
+    }
+    var RUN_WAITING = {
+        awaiting_signature: 'Finished the lessons, waiting to sign',
+        awaiting_session: 'Signed, waiting for a trainer session',
+        awaiting_evaluation: 'Signed, waiting for a practical evaluation'
+    };
+    function reasonField(reason, label) {
+        var rf = field({ label: label || 'Reason', control: reason.input, name: 'reason', required: true });
+        rf.insertBefore(reason.counter, rf.querySelector('.invalid-feedback'));
+        return rf;
+    }
+    /** "What will be cleared": the open kiosk run's facts, one plain line each. */
+    function clearedList(run) {
+        var items = [];
+        var started = fmtDateTime(run.started_at);
+        items.push(['fas fa-play', 'Started ' + started + (run.last_activity_at ? ' · last active ' + relTime(run.last_activity_at) : '')]);
+        var lessons = run.lessons_required ? ' (' + run.lessons_done + ' of ' + plural(run.lessons_required, 'lesson') + ' done)' : '';
+        items.push(['fas fa-tasks', 'Progress ' + (run.progress_pct || 0) + '%' + lessons]);
+        if (run.current_lesson) { items.push(['far fa-bookmark', 'Current lesson: ' + run.current_lesson]); }
+        if (run.tries && run.tries.failed > 0) { items.push(['fas fa-times-circle', plural(run.tries.failed, 'failed try', 'failed tries') + ' on quizzes']); }
+        if (run.tries && run.tries.open > 0) { items.push(['far fa-clock', 'A quiz try that was never finished']); }
+        if (run.locked) { items.push(['fas fa-lock', 'Locked after too many failed tries' + (run.locked.lesson ? ' on ' + run.locked.lesson : '')]); }
+        if (run.blocked) {
+            items.push(['fas fa-exclamation-circle', (run.blocked.reason === 'video_unavailable' ? 'Blocked: a video is no longer available' : 'Blocked: a video changed since publishing')
+                + (run.blocked.lesson ? ' (' + run.blocked.lesson + ')' : '')]);
+        }
+        if (RUN_WAITING[run.status]) { items.push(['fas fa-pen-nib', RUN_WAITING[run.status] + (run.signed_at ? ' · signed ' + fmtDateTime(run.signed_at) : '')]); }
+        return el('ul', { class: 'tro-cleared' }, items.map(function (it) { return el('li', {}, [icon(it[0] + ' fa-fw'), el('span', { text: it[1] })]); }));
+    }
+    function infoBox(text, warn) {
+        return el('div', { class: 'tro-consequence mb-3' + (warn ? ' tro-consequence--warn' : '') }, [icon(warn ? 'fas fa-exclamation-triangle' : 'fas fa-info-circle'), el('div', { text: text })]);
+    }
+
+    /**
+     * Reset / Reset (take again) / Un-waive. The preview decides which one fits the assignment now (open -> reset
+     * progress, completed -> take again, waived -> end the waiver) and shows exactly what will happen.
+     * opts: {assignment}. Resolves the action's response (or {stale:true} after a 409), else null.
+     */
+    function openResetForm(opts) {
+        return new Promise(function (resolve) {
+            var a = opts.assignment || {};
+            var result = null;
+            var who = a.person && a.person.name ? a.person.name : 'this person';
+            var guess = a.status === 'completed' ? 'Reset (take again)' : (a.status === 'waived' ? 'Un-waive' : 'Reset progress');
+            var h = sheet({ title: guess, subtitle: a.course ? a.course.name : '', foot: [cancelBtn('Close')], onHidden: function () { resolve(result); },
+                body: el('div', { class: 'tr-skeleton' }, [el('div', { class: 'tro-skel tro-skel--w80 mb-3' }), el('div', { class: 'tro-skel tro-skel--w60 mb-3' }), el('div', { class: 'tro-skel tro-skel--w40' })]) });
+            fetchAction('assignment_reset_preview', { assignment_id: a.id }).then(function (pv) {
+                pv = pv || {};
+                var fresh = pv.assignment || a;
+                who = fresh.person && fresh.person.name ? fresh.person.name : who;
+                if (pv.kind === 'progress') { progress(pv, fresh); }
+                else if (pv.kind === 'retake') { retake(pv, fresh); }
+                else if (pv.kind === 'unwaive') { unwaive(pv, fresh); }
+                else { h.setBody(el('div', {}, [assignmentSummary(fresh), infoBox(pv.why || 'There is nothing to reset on this assignment.')])); }
+            }, function (err) { h.setBody(failState(err)); });
+
+            /** Posts, then closes with the response; a 409 (done already, changed meanwhile) stays open with the message. */
+            function send(body, submit, action, payload, busyLabel, done) {
+                if (submit.disabled) { return; }
+                busy(submit, true, busyLabel);
+                alertBox(body, null);
+                clearFieldErrors(body);
+                post(action, payload).then(function (d) {
+                    result = d || {};
+                    UI.toast(done(result));
+                    h.close();
+                }, function (err) {
+                    busy(submit, false);
+                    if (err && err.status === 409 && err.code !== 'busy') {
+                        result = result || { stale: true };   // the page refreshes when this closes
+                        submit.disabled = true;
+                        alertBox(body, errorText(err), 'warning');
+                        return;
+                    }
+                    if (!showFieldErrors(body, err)) { alertBox(body, errorText(err)); }
+                });
+            }
+            function dueField(input, label, hint, required) { return field({ label: label, control: input, name: 'due_on', hint: hint, required: !!required }); }
+
+            // ---- open: reset the kiosk progress ------------------------------------------------
+            function progress(pv, x) {
+                h.setTitle('Reset progress', x.course ? x.course.name : '');
+                var run = pv.progress && pv.progress.run;
+                var body = el('form', { novalidate: true });
+                body.appendChild(assignmentSummary(x));
+                if (!run) {
+                    body.appendChild(infoBox('Nothing to reset — ' + who + " hasn't started this course."));
+                    h.setBody(body);
+                    return;
+                }
+                body.appendChild(el('h3', { class: 'h5 mb-2', text: 'What will be cleared' }));
+                body.appendChild(clearedList(run));
+                if (run.status === 'awaiting_session' || run.status === 'awaiting_evaluation') {
+                    body.appendChild(infoBox('They are waiting for a trainer to sign them off. After the reset their online part no longer counts, '
+                        + 'so trainers stop seeing them as ready' + (run.open_sessions && run.open_sessions.length
+                            ? ', and the open session on ' + run.open_sessions.map(function (d) { return fmtDate(d); }).join(', ') + ' will not give them a record until they finish the course again.'
+                            : ' until they finish the course again.'), true));
+                }
+                body.appendChild(infoBox('Their next kiosk sign-in starts this course at lesson 1 with fresh tries and no lock'
+                    + (run.newer_version ? ', on the current version' : '') + '. Past tries stay in the history but no longer count. The assignment stays open.'));
+                var due = dateInput({ min: addDays(today(), 1) });
+                body.appendChild(dueField(due, 'New due date (optional)', 'Leave empty to keep ' + fmtDate(x.due_on) + '. The original due date stays on record.'));
+                var reason = reasonInput(5, 500, 'For example: "Failed the quiz twice, retrained on the floor" or "Wrong person used the kiosk"');
+                body.appendChild(reasonField(reason));
+                var submit = el('button', { type: 'button', class: 'btn btn-danger', text: 'Reset progress' });
+                h.setBody(body);
+                h.setFoot([cancelBtn(), submit]);
+                function sync() { submit.disabled = !(reason.ok() && (!due.value || (isYmd(due.value) && due.value > today()))); }
+                due.addEventListener('input', sync);
+                reason.input.addEventListener('input', sync);
+                sync();
+                submit.addEventListener('click', function () {
+                    send(body, submit, 'assignment_reset', { assignment_id: x.id, run_id: run.run_id, reason: reason.input.value.trim(), due_on: due.value || null },
+                        'Resetting…', function (d) { return 'Progress reset for ' + who + '.' + (d.due_changed && d.assignment ? ' Due ' + fmtDate(d.assignment.due_on) + '.' : ''); });
+                });
+                reason.input.focus();
+            }
+
+            // ---- completed: void the record, assign it again -----------------------------------
+            function retake(pv, x) {
+                h.setTitle('Reset (take again)', x.course ? x.course.name : '');
+                var r = pv.retake || {};
+                var c = r.completion || {};
+                var body = el('form', { novalidate: true });
+                body.appendChild(summaryBox([
+                    ['Person', who], ['Course', x.course ? x.course.name : ''],
+                    ['Record', c.cert_number || (c.completed_on ? 'Completed ' + fmtDate(c.completed_on) : '')],
+                    ['Completed', fmtDate(c.completed_on)], c.expires_on ? ['Valid until', fmtDate(c.expires_on)] : null
+                ]));
+                if (!r.level_ok) {
+                    body.appendChild(infoBox('Only Training managers (level 3) can void a record and assign the course again.'));
+                    h.setBody(body);
+                    return;
+                }
+                if (!r.allowed) {
+                    body.appendChild(infoBox(r.why || 'This record cannot be reset.'));
+                    h.setBody(body);
+                    return;
+                }
+                body.appendChild(infoBox('The record ' + (c.cert_number ? c.cert_number + ' ' : '') + 'is voided: it stays in ' + who + "'s history marked Voided, and its certificate shows Revoked. "
+                    + who + ' gets a new assignment to take the course again from the start.', true));
+                if (r.open_run) { body.appendChild(infoBox('Their unfinished kiosk progress on this course (' + (r.open_run.progress_pct || 0) + '%) is cleared too.')); }
+                var due = dateInput({ value: r.default_due_on, min: addDays(today(), 1), required: true });
+                body.appendChild(dueField(due, 'Due date for the new assignment', 'Suggested: ' + plural(Number(r.reissue_days || S.settings.reissue_days || 14), 'day') + ' from today.', true));
+                var reason = reasonInput(5, 500, 'For example: "Signed for someone else" or "Needs to retake after the incident on Sep 20"');
+                body.appendChild(reasonField(reason));
+                var submit = el('button', { type: 'button', class: 'btn btn-danger', text: 'Void record and reassign' });
+                h.setBody(body);
+                h.setFoot([cancelBtn(), submit]);
+                function sync() { submit.disabled = !(reason.ok() && isYmd(due.value) && due.value > today()); }
+                due.addEventListener('input', sync);
+                reason.input.addEventListener('input', sync);
+                sync();
+                submit.addEventListener('click', function () {
+                    send(body, submit, 'assignment_retake', { assignment_id: x.id, reason: reason.input.value.trim(), due_on: due.value }, 'Voiding…', function (d) {
+                        return (d.cert_number ? 'Record ' + d.cert_number + ' voided. ' : 'Record voided. ')
+                            + (d.assignment ? 'New assignment due ' + fmtDate(d.assignment.due_on) + '.' : 'The new assignment appears after the next recalculation.');
+                    });
+                });
+                reason.input.focus();
+            }
+
+            // ---- waived: end the waiver ---------------------------------------------------------
+            function unwaive(pv, x) {
+                h.setTitle('Un-waive', x.course ? x.course.name : '');
+                var w = pv.unwaive || {};
+                var body = el('form', { novalidate: true });
+                body.appendChild(summaryBox([
+                    ['Person', who], ['Course', x.course ? x.course.name : ''],
+                    ['Waived', w.prior_until ? 'Until ' + fmtDate(w.prior_until) : 'With no end date'], ['Waiver reason', w.prior_reason || '']
+                ]));
+                if (!w.allowed) {
+                    body.appendChild(infoBox(w.why || 'This waiver has already ended.'));
+                    h.setBody(body);
+                    return;
+                }
+                body.appendChild(infoBox(w.outcome === 'end' || w.outcome === 'open_exists'
+                    ? 'The waiver ends and stays in the history.'
+                    : "They'll need to take this course again. The waiver stays in the history."));
+                var withDue = w.outcome === 'reopen' || w.outcome === 'replace';
+                if (w.outcome === 'replace') {
+                    body.appendChild(infoBox('The rules now ask for ' + (w.new_anchor_label || 'the course') + ', so a new assignment opens with this due date; this one closes as "Waiver ended".'));
+                } else if (w.outcome === 'end') {
+                    body.appendChild(infoBox('Nothing to take right now (' + (w.end_why || 'nothing is due') + ').', true));
+                } else if (w.outcome === 'open_exists') {
+                    body.appendChild(infoBox('An open assignment already covers this course; it keeps its due date.'));
+                }
+                var due = dateInput({ value: w.default_due_on, min: addDays(today(), 1), required: true });
+                if (withDue) {
+                    body.appendChild(dueField(due, 'Due date', 'Suggested: the later of its due date (' + fmtDate(w.due_on) + ') and two weeks from today.', true));
+                }
+                var reason = reasonInput(5, 500, 'For example: "Transferred to the shop floor" or "Card from the previous employer was not accepted"');
+                body.appendChild(reasonField(reason));
+                var submit = el('button', { type: 'button', class: 'btn btn-primary', text: 'End waiver' });
+                h.setBody(body);
+                h.setFoot([cancelBtn(), submit]);
+                function sync() { submit.disabled = !(reason.ok() && (!withDue || (isYmd(due.value) && due.value > today()))); }
+                due.addEventListener('input', sync);
+                reason.input.addEventListener('input', sync);
+                sync();
+                submit.addEventListener('click', function () {
+                    send(body, submit, 'assignment_unwaive', { assignment_id: x.id, reason: reason.input.value.trim(), due_on: withDue ? due.value : null }, 'Saving…', function (d) {
+                        if (d.outcome === 'reopened') { return 'Waiver ended. ' + who + ' is due ' + fmtDate(d.assignment.due_on) + '.'; }
+                        if (d.outcome === 'replaced') { return 'Waiver ended. New assignment due ' + fmtDate(d.assignment.due_on) + '.'; }
+                        if (d.outcome === 'open_exists') { return 'Waiver ended. The open assignment stays as it is.'; }
+                        return 'Waiver ended — nothing to take right now (' + (d.why || 'nothing is due') + ').';
+                    });
+                });
+                reason.input.focus();
+            }
+        });
+    }
+
     /**
      * Void a record: an inline confirm strip (the Phase 1 .tr-confirm-bar contract) with a
      * reason of at least 10 characters. opts: {container, completion, prepend}.
@@ -1065,10 +1306,30 @@
         'assignment.created': 'Assigned', 'assignment.reopened': 'Reopened', 'assignment.completed': 'Completed',
         'assignment.cancelled': 'Cancelled', 'assignment.waived': 'Waived', 'assignment.due_changed': 'Due date changed',
         'completion.recorded': 'Record added', 'completion.voided': 'Record voided', 'cert.token_issued': 'Certificate issued',
-        'evaluation.recorded': 'Evaluation recorded', 'session.finalized': 'Session finalized'
+        'evaluation.recorded': 'Evaluation recorded', 'session.finalized': 'Session finalized',
+        'assignment.progress_reset': 'Progress reset', 'assignment.unwaived': 'Waiver ended', 'assignment.retake': 'Record voided and reassigned'
     };
-    var CLOSE_REASONS = { superseded: 'replaced by a newer assignment', no_longer_required: 'no longer required by any rule', contact_ineligible: 'person left the roster', completed: 'completed' };
-    var TRIGGERS = { rule_save: 'rule saved', rule_archive: 'rule archived', assign_manual: 'assigned by hand', cron: 'nightly check', dashboard: 'automatic check', directory_sync: 'directory sync', completion: 'record added', void: 'record voided', session: 'session finalized', roster: 'roster change', hire_date: 'hire date change', jobgroup: 'job group change', reconcile_now: 'recalculated', publish_retrain: 'new version needs retraining', contact_edit: 'contact edited', kiosk: 'kiosk sign-in', course_archived: 'course archived', course_restored: 'course restored' };
+    var CLOSE_REASONS = { superseded: 'replaced by a newer assignment', no_longer_required: 'no longer required by any rule', contact_ineligible: 'person left the roster', completed: 'completed', unwaived: 'waiver ended' };
+    var TRIGGERS = { rule_save: 'rule saved', rule_archive: 'rule archived', assign_manual: 'assigned by hand', cron: 'nightly check', dashboard: 'automatic check', directory_sync: 'directory sync', completion: 'record added', void: 'record voided', session: 'session finalized', roster: 'roster change', hire_date: 'hire date change', jobgroup: 'job group change', reconcile_now: 'recalculated', publish_retrain: 'new version needs retraining', contact_edit: 'contact edited', kiosk: 'kiosk sign-in', course_archived: 'course archived', course_restored: 'course restored', unwaive: 'waiver ended', reset: 'progress reset', retake: 'reset to take again' };
+    /** Agent resets: the headline names who did it and why ("Progress reset by Sam: “…”"). */
+    var RESET_EVENTS = { 'assignment.progress_reset': true, 'assignment.unwaived': true, 'assignment.retake': true };
+    var UNWAIVE_OUTCOMES = { reopened: 'reopened', replaced: 'a new assignment opened', ended: 'nothing to take right now', open_exists: 'already assigned' };
+    function resetDetail(ev) {
+        var p = ev.payload || {};
+        var bits = [];
+        if (ev.type === 'assignment.progress_reset') {
+            bits.push(RUN_WAITING[p.run_status] ? 'was ' + RUN_WAITING[p.run_status].charAt(0).toLowerCase() + RUN_WAITING[p.run_status].slice(1) : 'was at ' + Number(p.progress_pct || 0) + '%');
+            if (p.locked) { bits.push('locked after failed tries'); } else if (p.failed_tries) { bits.push(plural(Number(p.failed_tries), 'failed try', 'failed tries')); }
+            if (p.blocked) { bits.push('blocked by a video problem'); }
+        } else if (ev.type === 'assignment.unwaived') {
+            bits.push(p.prior_until ? 'was waived until ' + fmtDate(p.prior_until) : 'was waived with no end date');
+            if (UNWAIVE_OUTCOMES[p.outcome]) { bits.push(UNWAIVE_OUTCOMES[p.outcome] + (p.due_on ? ', due ' + fmtDate(p.due_on) : '')); }
+        } else if (ev.type === 'assignment.retake') {
+            bits.push((p.cert_number ? p.cert_number + ' voided' : 'record voided') + ', certificate revoked');
+            bits.push(p.new_assignment_id ? 'new assignment due ' + fmtDate(p.due_on) : 'new assignment on the next recalculation');
+        }
+        return bits.join(' · ');
+    }
     function eventDetail(ev) {
         var p = ev.payload || {};
         var bits = [];
@@ -1085,9 +1346,16 @@
         return el('ol', { class: 'tro-timeline' }, events.map(function (ev) {
             var a = ev.actor;
             var who = ev.actor_name || (a && typeof a === 'object' ? (a.name || (a.type === 'system' ? 'System' : '')) : a) || (ev.actor_type === 'system' ? 'System' : '');
+            var what = EVENT_LABELS[ev.type] || ev.type;
+            var detail = eventDetail(ev);
+            if (RESET_EVENTS[ev.type]) {
+                var why = ev.payload && typeof ev.payload.reason === 'string' ? ev.payload.reason : '';
+                what = what + (who ? ' by ' + who : '') + (why ? ': “' + why + '”' : '');
+                detail = resetDetail(ev);
+            }
             return el('li', {}, [
-                el('div', { class: 'tro-timeline__what', text: EVENT_LABELS[ev.type] || ev.type }),
-                eventDetail(ev) ? el('div', { class: 'small', text: eventDetail(ev) }) : null,
+                el('div', { class: 'tro-timeline__what', text: what }),
+                detail ? el('div', { class: 'small', text: detail }) : null,
                 el('div', { class: 'tro-timeline__when', text: [fmtDateTime(ev.at || ev.at_utc), who].filter(Boolean).join(' · ') + (ev.seq ? ' · #' + ev.seq : '') })
             ]);
         }));
@@ -1112,6 +1380,15 @@
                     timeline((d && d.history) || [])
                 ]);
                 h.setBody(wrap);
+                // Reset / Un-waive from here too (same gate as the row menu); the page refreshes through opts.onChanged.
+                var acts = resetMenuItems(a, function (kind, row) {
+                    Ops().open(kind, { assignment: row }).then(function (res) { if (res && typeof opts.onChanged === 'function') { opts.onChanged(res, kind, row); } });
+                }).filter(Boolean);
+                if (acts.length) {
+                    h.setFoot(acts.map(function (it) {
+                        return el('button', { type: 'button', class: 'btn btn-outline-secondary', on: { click: it.onClick } }, [icon(it.icon + ' me-2'), it.label]);
+                    }).concat([el('button', { type: 'button', class: 'btn btn-primary ms-auto', text: 'Close', dataset: { bsDismiss: 'offcanvas' } })]));
+                }
             }, function (err) {
                 h.setBody(failState(err));
             });
@@ -1420,8 +1697,10 @@
 
     var FORMS = {
         assign: openAssign, extend: openExtend, waive: openWaive, 'void': openVoid, hire_date: openHireDate,
-        roster: openRoster, history: openHistory, external: openExternal, evaluation: openEvaluation
+        roster: openRoster, history: openHistory, external: openExternal, evaluation: openEvaluation,
+        reset: openResetForm, retake: openResetForm, unwaive: openResetForm
     };
+    function Ops() { return window.TrainingOps; }
 
     window.TrainingOps = {
         init: function (d) {
@@ -1458,7 +1737,8 @@
             kebab: kebab, pager: pager, setUrl: setUrl, clear: clearNode, switchRow: switchRow,
             field: field, dateInput: dateInput, textArea: textArea, reasonInput: reasonInput, cancelBtn: cancelBtn,
             showFieldErrors: showFieldErrors, clearFieldErrors: clearFieldErrors, alertBox: alertBox, timeline: timeline,
-            transcriptUrl: transcriptUrl, recordUrl: recordUrl, certificateUrl: certificateUrl, uploadEvidence: uploadEvidence
+            transcriptUrl: transcriptUrl, recordUrl: recordUrl, certificateUrl: certificateUrl, uploadEvidence: uploadEvidence,
+            resetActions: resetActions, resetMenuItems: resetMenuItems
         }
     };
 })();

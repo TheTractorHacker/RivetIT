@@ -418,7 +418,9 @@ final class AssignmentService
             case 'cancelled_overdue':
                 // Cancelled while overdue (S17, the A6 audit exception): due before the local close date.
                 $offset = (new \DateTimeImmutable('now', new \DateTimeZone(date_default_timezone_get())))->getOffset();
-                $where .= " AND a.tassign_status = 'cancelled' AND a.tassign_due_on < DATE(DATE_ADD(a.tassign_closed_at_utc, INTERVAL ? SECOND))";
+                // A waiver an agent ended ('unwaived') was not dodging a due date: it is not an exception.
+                $where .= " AND a.tassign_status = 'cancelled' AND COALESCE(a.tassign_close_reason, '') <> 'unwaived'
+                    AND a.tassign_due_on < DATE(DATE_ADD(a.tassign_closed_at_utc, INTERVAL ? SECOND))";
                 $types .= 'i';
                 $params[] = $offset;
                 break;
@@ -516,6 +518,14 @@ final class AssignmentService
                 $comps[(int) $r['completion_id']] = $r['completion_expires_on'];
             }
         }
+        $voided = [];
+        $doneIds = array_values(array_unique(array_filter(array_map(static fn($a) => $a['completion_id'], $byId))));
+        if ($doneIds !== []) {
+            foreach (Db::all($db, 'SELECT cvoid_completion_id FROM training_completion_voids WHERE cvoid_completion_id IN ('
+                . implode(',', array_fill(0, count($doneIds), '?')) . ')', str_repeat('i', count($doneIds)), $doneIds) as $r) {
+                $voided[(int) $r['cvoid_completion_id']] = true;
+            }
+        }
         $revs = [];
         if ($revIds !== []) {
             $revIds = array_values(array_unique($revIds));
@@ -567,6 +577,8 @@ final class AssignmentService
                 'expires_on' => $renewExp,
                 'waived_until' => $a['waived_until'],
                 'completion_id' => $a['completion_id'],
+                // the record that completed it was voided later (Records, or Reset > take again)
+                'completion_voided' => $a['completion_id'] !== null && isset($voided[$a['completion_id']]),
                 'created_at' => Clock::toIso($a['created_at_utc'], true),
                 'closed_at' => Clock::toIso($a['closed_at_utc'], true),
                 'close_reason' => $a['close_reason'],

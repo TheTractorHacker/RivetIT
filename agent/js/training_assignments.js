@@ -3,7 +3,8 @@
  *
  * Renders the server's first page (#tr-page-data list/rules) and refetches through
  * assignment_list / rule_list as filters change, keeping the URL in step (replaceState).
- * Row actions (level 2): Extend…, Waive…, History; header: Assign training, Recalculate now.
+ * Row actions (level 2): Extend…, Waive…, Reset… (open: progress; completed, level 3: take again), Un-waive…,
+ * History; header: Assign training, Recalculate now.
  * Rules (level 3): Archive… with a reason in an inline .tr-confirm-bar row.
  */
 (function () {
@@ -216,13 +217,12 @@
                     }
                     var open = a.status === 'open';
                     var who = (a.person && a.person.name) || 'this person';
-                    var actions = level >= 2 ? [
+                    var history = { label: 'History', icon: 'fas fa-history', onClick: function () { Ops.open('history', { assignmentId: a.id, assignment: a, onChanged: after }); } };
+                    var edits = level >= 2 ? [
                         open && routes.assignment_extend !== false ? { label: 'Extend…', icon: 'far fa-calendar-plus', onClick: function () { act('extend', a); } } : null,
-                        open && routes.assignment_waive !== false ? { label: 'Waive…', icon: 'fas fa-pause-circle', onClick: function () { act('waive', a); } } : null,
-                        open ? '-' : null,
-                        { label: 'History', icon: 'fas fa-history', onClick: function () { Ops.open('history', { assignmentId: a.id, assignment: a }); } }
-                    ] : [{ label: 'History', icon: 'fas fa-history', onClick: function () { Ops.open('history', { assignmentId: a.id, assignment: a }); } }];
-                    if (actions[0] === null && actions[1] === null) { actions = actions.filter(function (x) { return x !== '-'; }); }
+                        open && routes.assignment_waive !== false ? { label: 'Waive…', icon: 'fas fa-pause-circle', onClick: function () { act('waive', a); } } : null
+                    ].concat(u.resetMenuItems(a, act)).filter(Boolean) : [];
+                    var actions = edits.length ? edits.concat(['-', history]) : [history];
                     // One line: the column header already says Why, so "Required by " is dropped; the full reason is the tooltip.
                     var why = u.readableDates(a.anchor_label || '');
                     var reason = el('td', { class: 'tro-why' }, [el('span', { class: 'tro-why__text', text: why.replace(/^Required by /, ''), title: why || null })]);
@@ -234,15 +234,22 @@
                             a.required === false ? el('span', { class: 'tro-sub' }, [u.chip('Optional', 'outline', null, { class: 'tro-chip tro-chip--outline tro-chip--sm' })]) : null]),
                         reason,
                         dueCell,
-                        el('td', {}, [u.statusChip(a.display_status || a.status, a, { days: false })]),
+                        el('td', {}, [u.statusChip(a.display_status || a.status, a, { days: false }),
+                            a.status === 'completed' && a.completion_voided ? el('span', { class: 'tro-sub', text: 'Record voided' }) : null]),
                         el('td', { class: 'tro-num', text: a.days_overdue > 0 ? String(a.days_overdue) : '—' }),
                         el('td', { class: 'tro-actions' }, [kebab('Actions for ' + who + ', ' + (a.course ? a.course.name : ''), actions)])
                     ]);
                 }
                 function act(kind, a) {
-                    Ops.open(kind, { assignment: a }).then(function (res) {
-                        if (res) { flashId = a.id; refetch(); }
-                    });
+                    Ops.open(kind, { assignment: a }).then(function (res) { after(res, kind, a); });
+                }
+                /** After a form saved: refetch and flash the row that is open now (a Reset / Un-waive may open another row). */
+                function after(res, kind, a) {
+                    if (!res) { return; }
+                    var opened = res.assignment && res.assignment.status === 'open' && (kind === 'retake' || kind === 'unwaive' || kind === 'reset');
+                    flashId = opened ? res.assignment.id : a.id;
+                    if (opened && ['waived', 'completed', 'cancelled', 'cancelled_overdue'].indexOf(f.status) !== -1) { f.status = 'open'; f.page = 1; }
+                    refetch();
                 }
                 function clearFilters() {
                     f.q = null; f.course_id = null; f.client_id = null; f.requirement_id = null; f.contact_id = null; f.page = 1;
