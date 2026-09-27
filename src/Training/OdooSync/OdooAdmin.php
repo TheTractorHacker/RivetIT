@@ -53,6 +53,12 @@ final class OdooAdmin
                 'ta_odoo_retry_failed' => self::retryFailed($db, $userId),
                 'ta_odoo_map' => self::map($db, $post, $userId),
             };
+        } catch (\RuntimeException $e) {
+            if (in_array($e->getMessage(), ['conflict', 'not_ready'], true)) {
+                throw $e;   // AutomationSettings::save(): the caller (AutomationActions) words these
+            }
+            error_log('Training Odoo write-back admin (' . $key . '): ' . get_class($e) . ': ' . $e->getMessage());
+            return ['error', 'That did not work. The details were written to the server error log.'];
         } catch (\Throwable $e) {
             error_log('Training Odoo write-back admin (' . $key . '): ' . get_class($e) . ': ' . $e->getMessage());
             return ['error', 'That did not work. The details were written to the server error log.'];
@@ -159,24 +165,17 @@ final class OdooAdmin
             }
         }
         $version = (int) ($post['version'] ?? -1);
-        try {
-            AutomationSettings::save($db, 'odoo', [
-                'tauto_odoo_push_enabled' => $enabled,
-                'tauto_odoo_mode' => 'resume',
-                'tauto_odoo_resume_type_id' => $resumeType,
-                'tauto_odoo_award_type_id' => $awardType,
-                'tauto_odoo_push_awards' => $pushAwards,
-                'tauto_odoo_push_since' => $since,
-                'tauto_odoo_target_key' => $t->key,
-                'tauto_odoo_target_confirmed_at_utc' => Clock::nowUtc(),
-                'tauto_odoo_key_expires_on' => $expires === '' ? null : $expires,
-            ], $version, $userId);
-        } catch (\RuntimeException $e) {
-            if ($e->getMessage() === 'conflict') {
-                return ['error', 'Changed by someone else; reload the page and try again.'];
-            }
-            throw $e;
-        }
+        AutomationSettings::save($db, 'odoo', [
+            'tauto_odoo_push_enabled' => $enabled,
+            'tauto_odoo_mode' => 'resume',
+            'tauto_odoo_resume_type_id' => $resumeType,
+            'tauto_odoo_award_type_id' => $awardType,
+            'tauto_odoo_push_awards' => $pushAwards,
+            'tauto_odoo_push_since' => $since,
+            'tauto_odoo_target_key' => $t->key,
+            'tauto_odoo_target_confirmed_at_utc' => Clock::nowUtc(),
+            'tauto_odoo_key_expires_on' => $expires === '' ? null : $expires,
+        ], $version, $userId);   // a stale version throws RuntimeException('conflict')
         $summary = 'Odoo write-back settings saved for ' . $t->host() . ' / ' . $t->database . ': write-back ' . ($enabled ? 'ON' : 'OFF')
             . ', type #' . ($resumeType ?? 0) . ', achievements ' . ($pushAwards ? 'on' : 'off') . ', since ' . $since;
         self::log($db, $userId, 'training.odoo_writeback_saved', 'odoo', $summary, [
