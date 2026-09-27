@@ -9,6 +9,9 @@
  *   Training 3            course defaults (#general); compliance defaults, Recalculate assignments,
  *                         Capture today's snapshot (#compliance, #maintenance); Verify now (#ledger)
  *   Training 3 + Kiosk 3  kiosk session timeouts and setup-slip validity (#kiosk)
+ *   Training 3 (Phase 5)  the certificate signatory (#certificates), reminder digests (#reminders) and external
+ *                         video checks (#video-watch); Odoo write-back and the public certificate check switch
+ *                         are admin only (read-only here). Shared sections: admin/includes/training_automation/.
  *   Admin only            media limits and budget, the YouTube key, media purge, Odoo employee links,
  *                         the nightly Odoo sync, the Odoo hire-date fill, the Odoo PIN switch, PIN
  *                         lockouts, device and system caps. Shown read-only with "Ask an
@@ -54,7 +57,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         'kiosk_level' => Access::kioskLevel(),
         'module_on' => Access::enabled(),
         'schema_ready' => !empty($config_training_schema_ready),
-    ]);
+    ], $_FILES);
     flash_alert($ts_out['message'], $ts_out['type']);
     redirect($ts_out['url']);
 }
@@ -304,6 +307,8 @@ $ts_sections = [
     'compliance' => ['Compliance & assignments', 'fa-clipboard-check'],
     'odoo'       => ['Employee links (Odoo)', 'fa-address-card'],
     'kiosk'      => ['Kiosk & sign-in', 'fa-tablet-alt'],
+    'certificates' => ['Certificates', 'fa-certificate'],
+    'automation' => ['Reminders & automation', 'fa-robot'],
     'ledger'     => ['Records ledger', 'fa-link'],
 ];
 
@@ -849,6 +854,15 @@ $ts_update_card = static function (string $title, string $icon, bool $error, str
 
 <?php } ?>
 </section>
+
+<?php
+// Certificates + Reminders & automation (LMS Phase 5, DB 2.6.96): the same sections as Admin > Training. Training 3 may
+// change the signatory, reminders and video checks; Odoo write-back and the public check switch are read-only here.
+$ta_admin_page = false;
+$ta_is_admin = $ts_admin;
+$ta_module_on = Access::enabled();
+require __DIR__ . '/../admin/includes/training_automation/sections.php';
+?>
 
 <!-- =========================================================================================== -->
 <!-- Records ledger                                                                              -->

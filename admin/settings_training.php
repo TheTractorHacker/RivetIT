@@ -17,6 +17,12 @@ require_once "includes/inc_all_admin.php";
  *                accepted-target state, Check now, Accept new target, per-link Relink / Unlink /
  *                Confirm; and the nightly Odoo directory sync switch (#odoo-sync).
  *   #kiosk       Kiosk & sign-in (P3 spec §5.8 [S], P-10): kiosk thresholds and the Odoo-PIN switch.
+ *   #certificates  Certificates (LMS Phase 5, DB 2.6.96): the certificate signatory, sample PDF and the public
+ *                certificate check switch (Lane C's card).
+ *   #automation  Reminders & automation (Phase 5): reminder digests (#reminders), external video checks
+ *                (#video-watch), Odoo write-back (#odoo-writeback) and the worker (#automation-worker). Both
+ *                sections come from admin/includes/training_automation/sections.php, shared with
+ *                agent/training_settings.php; their ta_* forms post to admin/post/settings_training_automation.php.
  *   #ledger      Records ledger: head, last verification, Verify now.
  *
  * Each section renders on its own readiness guard, exactly as its former page did, so an install
@@ -338,6 +344,8 @@ $ts_sections = [
     'compliance' => ['Compliance & assignments', 'fa-clipboard-check'],
     'odoo'       => ['Employee links (Odoo)', 'fa-address-card'],
     'kiosk'      => ['Kiosk & sign-in', 'fa-tablet-alt'],
+    'certificates' => ['Certificates', 'fa-certificate'],
+    'automation' => ['Reminders & automation', 'fa-robot'],
     'ledger'     => ['Records ledger', 'fa-link'],
 ];
 $ts_module_on = !empty($config_module_enable_training);
@@ -1185,6 +1193,14 @@ $ts_module_on = !empty($config_module_enable_training);
 
 <?php } ?>
 </section>
+
+<?php
+// Certificates + Reminders & automation (LMS Phase 5, DB 2.6.96): the shared sections and their card partials.
+$ta_admin_page = true;
+$ta_is_admin = true;
+$ta_module_on = $ts_module_on;
+require __DIR__ . '/includes/training_automation/sections.php';
+?>
 
 <!-- =========================================================================================== -->
 <!-- Records ledger                                                                              -->
