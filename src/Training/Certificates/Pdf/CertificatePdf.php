@@ -34,6 +34,7 @@ final class CertificatePdf extends TrainingPdf
             'card_no' => 'Card no.', 'trainer' => 'Trainer', 'evaluator' => 'Evaluator', 'reg_ref' => 'Regulation reference',
             'revoked_mark' => 'REVOKED', 'superseded_mark' => 'SUPERSEDED', 'sample_mark' => 'SAMPLE',
             'revoked_on' => 'Revoked on {date}: {reason}', 'revoked' => 'Revoked: {reason}', 'retrain' => 'Retrain required', 'expired_on' => 'Expired {date}',
+            'qr_here' => 'QR code',
         ],
         'es' => [
             'title' => 'Certificado de finalización', 'certifies' => 'Se certifica que', 'completed' => 'ha completado satisfactoriamente',
@@ -44,6 +45,7 @@ final class CertificatePdf extends TrainingPdf
             'card_no' => 'Tarjeta n.º', 'trainer' => 'Instructor', 'evaluator' => 'Evaluador', 'reg_ref' => 'Referencia normativa',
             'revoked_mark' => 'REVOCADO', 'superseded_mark' => 'REEMPLAZADO', 'sample_mark' => 'MUESTRA',
             'revoked_on' => 'Revocado el {date}: {reason}', 'revoked' => 'Revocado: {reason}', 'retrain' => 'Requiere volver a capacitarse', 'expired_on' => 'Venció el {date}',
+            'qr_here' => 'Código QR',
         ],
     ];
 
@@ -108,7 +110,7 @@ final class CertificatePdf extends TrainingPdf
         } else {
             $pdf->trainingBody($cert, $s, $statusLine);
         }
-        $pdf->bottom($cert, $brand, $s, $number, $sample ? null : $qrUrl);
+        $pdf->bottom($cert, $brand, $s, $number, $sample ? null : $qrUrl, $sample);
 
         if ($sample) {
             $pdf->watermark($s['sample_mark'], [93, 111, 118]);
@@ -288,7 +290,7 @@ final class CertificatePdf extends TrainingPdf
         }
     }
 
-    private function bottom(array $cert, array $brand, array $s, string $number, ?string $qrUrl): void
+    private function bottom(array $cert, array $brand, array $s, string $number, ?string $qrUrl, bool $sample = false): void
     {
         $lang = $this->lang;
         $this->field(22, 50, self::longDate($cert['completed_on'] ?? null, $lang), $s['issued']);
@@ -342,6 +344,13 @@ final class CertificatePdf extends TrainingPdf
                 $this->SetXY($qx - 6, 180.5);
                 $this->Cell($size + 16, 3.5, $number, 0, 0, 'C');
             }
+        } elseif ($sample) {
+            // Where the QR code goes: a dashed box, so the preview shows the layout without a working code.
+            $this->Rect($qx + 2, 149, $size, $size, 'D', ['all' => ['width' => 0.25, 'color' => self::RULE, 'dash' => '1.5,1.2']]);
+            $this->SetFont('dejavusans', '', 6.5);
+            $this->SetTextColor(...self::MUTED);
+            $this->SetXY($qx + 2, 149 + $size / 2 - 2);
+            $this->Cell($size, 4, $s['qr_here'], 0, 0, 'C', false, '', 1);
         } else {
             $sha = self::plain($cert['row_sha12'] ?? null);
             $this->SetFont('dejavusansmono', '', 7);
