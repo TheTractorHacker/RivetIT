@@ -288,6 +288,11 @@
         });
 
         syncLife();
-        load();
+        if (data.can_assets === false) {
+            // No Assets permission: only "This device isn't in Assets" (the page already shows it that way).
+            setKind(true);
+        } else {
+            load();
+        }
     });
 }());

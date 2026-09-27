@@ -157,7 +157,10 @@ try {
         "SELECT config_start_page FROM settings WHERE company_id = 1 LIMIT 1"
     ))['config_start_page'] ?? 'dashboard.php';
 
-    echo json_encode(['ok' => true, 'redirect' => "/agent/$start"]);
+    // Roles audit P0: a module-only login lands on its own module; everyone else on the start page.
+    $limited_home = itflow_limited_home_url_for_user(intval($userId));
+
+    echo json_encode(['ok' => true, 'redirect' => $limited_home ?? "/agent/$start"]);
 
 } catch (Throwable $e) {
     $session_user_id = $userId;

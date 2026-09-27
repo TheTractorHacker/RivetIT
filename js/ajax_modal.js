@@ -67,6 +67,11 @@ window.openAjaxModal = function (modalUrl, modalSize, options) {
 
   fetch(modalUrl, { method: 'GET', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
     .then(function (response) {
+      // A denied pop-up answers 403 with {"error": "..."} (includes/module_access.php): show that message
+      // through the data.error path below instead of the generic "Error loading modal content".
+      if (response.status === 403) {
+        return response.json().catch(function () { return { error: 'You do not have access to this.' }; });
+      }
       if (!response.ok) { throw new Error('HTTP ' + response.status); }
       return response.json();
     })

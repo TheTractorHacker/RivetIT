@@ -17,6 +17,18 @@ $order = "ASC";
  * behaves, rather than dropping straight into the company-wide rail.
  */
 $scope_url = '';
+
+// Roles audit P4: the department shell needs Departments. An Assets role without it gets the same department's
+// assets in the app-level list instead (its Department filter), so "Show this department's assets" and old
+// links don't end on a 403. Everyone who holds Departments keeps the department shell (same rule as asset_details.php).
+require_once $_SERVER['DOCUMENT_ROOT'] . '/config.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/functions.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/check_login.php';
+if (isset($_GET['client_id']) && intval($_GET['client_id']) > 0 && lookupUserPermission('module_client') < 1 && itflow_can_assets(1)) {
+    $_GET['client'] = intval($_GET['client_id']);
+    unset($_GET['client_id']);
+}
+
 // If client_id is in URI then show client Side Bar and client header.
 // client_id=0 ("no department", a real value assets can have) is treated the
 // same as client_id being absent - see asset_details.php for why.
@@ -51,15 +63,16 @@ if (isset($_GET['client_id']) && intval($_GET['client_id']) > 0) {
     }
 }
 
-// Perms
-enforceUserPermission('module_support');
+// Perms: the Assets module or Tickets/assets/docs (roles audit P4)
+enforceAssetPermission(1);
 
 // Inline edit (agent/js/asset_inline_edit.js): Assigned To / Location /
 // Status / Department become click-to-change dropdowns for anyone with
 // write access. Captured here, not later - the row loop below reassigns
 // $client_id per row, so by then it no longer means "this page's department".
 $page_client_id = $client_url ? intval($client_id) : 0;
-$can_inline_edit = lookupUserPermission('module_support') >= 2;
+$can_inline_edit = itflow_can_assets(2);
+$assets_can_open_contacts = itflow_modal_allowed('contact/contact_details.php');   // the contact card needs Departments
 $inline_edit_data = null;
 if ($can_inline_edit) {
     $inline_edit_data = [
@@ -315,7 +328,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-desktop me-2"></i>Assets</h3>
         <div class="card-tools">
-            <?php if (lookupUserPermission("module_support") >= 2) { ?>
+            <?php if (itflow_can_assets(2)) { ?>
             <div class="btn-group">
                 <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/asset/asset_add.php?<?= $client_url ?>&type=<?= $type_filter ?>">
                     <i class="fas fa-plus me-2"></i>New <?php if ($type_filter) { echo ucwords($type_filter); } else { echo "Asset"; } ?>
@@ -516,6 +529,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                                     <i class="fas fa-fw fa-layer-group me-2"></i>Set Type
                                 </a>
                                 <div class="dropdown-divider"></div>
+                                <?php if (lookupUserPermission('module_support') >= 2) { // tickets: Tickets/assets/docs only ?>
                                 <a class="dropdown-item ajax-modal" href="#"
                                     data-modal-url="modals/asset/asset_bulk_add_ticket.php"
                                     data-modal-size="lg"
@@ -523,6 +537,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                                     <i class="fas fa-fw fa-life-ring me-2"></i>Create Tickets
                                 </a>
                                 <div class="dropdown-divider"></div>
+                                <?php } ?>
                                 <a class="dropdown-item ajax-modal" href="#"
                                     data-modal-url="modals/asset/asset_bulk_transfer_client.php?<?= $client_url ?>"
                                     data-bulk="true">
@@ -725,7 +740,9 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                             $contact_archive_display = '';
                         }
                         $contact_name = nullable_htmlentities($row['contact_name']);
-                        if ($contact_name) {
+                        if ($contact_name && !$assets_can_open_contacts) {
+                            $contact_name_display = "$contact_name $contact_archive_display";   // no Departments: the name, no contact card (roles audit P4)
+                        } elseif ($contact_name) {
                             $contact_name_display = "<a class='ajax-modal' href='#' data-modal-url='modals/contact/contact_details.php?id=$asset_contact_id' data-modal-size='lg'>$contact_name $contact_archive_display</a>";
                         } else {
                             $contact_name_display = "-";
@@ -860,7 +877,9 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                                         <span class="asset-inline-text<?= $contact_name ? '' : ' text-secondary' ?>"><?= $contact_name ?: '-' ?></span><?php if ($contact_name && $contact_archived_at) { ?><span class="asset-inline-note text-danger ms-1">(Archived)</span><?php } ?><i class="fas fa-caret-down asset-inline-caret"></i>
                                     </button>
                                     <?php /* The name itself is now the dropdown - this keeps the contact card one click away. */ ?>
+                                    <?php if ($assets_can_open_contacts) { ?>
                                     <a href="#" class="asset-inline-link ajax-modal<?= $contact_name ? '' : ' d-none' ?>" data-modal-url="modals/contact/contact_details.php?id=<?= $asset_contact_id ?>" data-modal-size="lg" title="Open contact card"><i class="far fa-id-card"></i></a>
+                                    <?php } ?>
                                 </td>
                                 <?php } ?>
                                 <td class="asset-inline-cell" data-field="location" data-value="<?= $asset_location_id ?>" data-label="<?= $location_name === '-' ? '' : $location_name ?>" data-archived="<?= $location_archived_at ? 1 : 0 ?>">

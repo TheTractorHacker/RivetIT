@@ -10,6 +10,8 @@ if (!isset($_GET['client_id']) || !intval($_GET['client_id'])) {
 
 require_once "includes/inc_all_client.php";
 
+// Documents belong to Tickets, assets & docs, like their pop-ups and save handlers (roles audit P1b/P1d).
+enforceUserPermission('module_support');
 
 //Initialize the HTML Purifier to prevent XSS
 require "../plugins/htmlpurifier/HTMLPurifier.standalone.php";

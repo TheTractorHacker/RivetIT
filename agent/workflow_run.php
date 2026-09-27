@@ -1,6 +1,9 @@
 <?php
 require_once "includes/inc_all.php";
 
+// Onboarding/offboarding runs are Departments data (agent/post/workflow_run.php needs it too) - roles audit P1b/F9.
+enforceUserPermission('module_client');
+
 $run_id = intval($_GET['run_id'] ?? 0);
 
 $run = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT wr.*, c.contact_name, c.contact_client_id

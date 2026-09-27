@@ -19,6 +19,8 @@ if (isset($_GET['client_id'])) {
     }
 } else {
     require_once "includes/inc_client_overview_all.php";
+    // Company-wide People list: Departments (roles audit P1b/F2 - no module was checked here).
+    enforceUserPermission('module_client');
     $client_query = '';
     $client_url = '';
     // Overide Filter Header Archived

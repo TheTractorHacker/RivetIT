@@ -3,6 +3,8 @@
 require_once __DIR__ . '/includes/redis_functions.php';
 require_once __DIR__ . '/includes/firebase.php';
 require_once __DIR__ . '/includes/notification_categories.php';
+require_once __DIR__ . '/includes/module_access.php';
+require_once __DIR__ . '/includes/modal_permissions.php';   // pop-up map; pages use itflow_modal_allowed() to hide triggers it would refuse
 require_once __DIR__ . '/includes/ui/components.php';
 
 // Role check failed wording
@@ -3752,9 +3754,17 @@ function getDomainExpirationDate($domain) {
 // When provided a module name (e.g. module_support), returns the associated permission level (false=none, 1=read, 2=write, 3=full)
 function lookupUserPermission($module) {
     global $mysqli, $session_is_admin, $session_user_role;
+    // Per-request memo: the sidebar, top bar and page checks ask the same few questions dozens of times.
+    // Keyed by role too, so a request that switches roles can never read another role's answer.
+    static $memo = [];
 
     if (isset($session_is_admin) && $session_is_admin === true) {
         return 3;
+    }
+
+    $memo_key = intval($session_user_role ?? 0) . '|' . $module;
+    if (array_key_exists($memo_key, $memo)) {
+        return $memo[$memo_key];
     }
 
     $module = sanitizeInput($module);
@@ -3773,14 +3783,14 @@ function lookupUserPermission($module) {
 			module_name = '$module' AND user_role_permissions.user_role_id = $session_user_role"
     );
 
-    $row = mysqli_fetch_assoc($sql);
+    $row = $sql ? mysqli_fetch_assoc($sql) : null;
 
     if (isset($row['user_role_permission_level'])) {
-        return intval($row['user_role_permission_level']);
+        return $memo[$memo_key] = intval($row['user_role_permission_level']);
     }
 
     // Default return for no module permission
-    return false;
+    return $memo[$memo_key] = false;
 }
 
 // Single source of truth for "what does resolving a ticket actually mean" - a
@@ -3794,18 +3804,16 @@ function resolveTicketStatusId(int $status_id): int {
 }
 
 // Ensures a user has access to a module (e.g. module_support) with at least the required permission level provided (defaults to read)
+// Denial (roles audit P1h): HTTP 403 with a proper page in the app shell (or JSON for pop-ups/ajax), a
+// "Go to <home>" button, and NO flash message - the old one lingered and showed up on the next page.
 function enforceUserPermission($module, $check_access_level = 1) {
     $permitted_access_level = lookupUserPermission($module);
 
     if (!$permitted_access_level || $permitted_access_level < $check_access_level) {
-        $_SESSION['alert_type'] = "danger";
-        $_SESSION['alert_message'] = WORDING_ROLECHECK_FAILED;
-        $map = [
-            "1" => "read",
-            "2" => "write",
-            "3" => "full"
-        ];
-        exit(WORDING_ROLECHECK_FAILED . "<br>Tell your admin: $map[$check_access_level] access to $module is not permitted for your role.");
+        itflow_render_denied(
+            'Your role needs ' . itflow_level_label(intval($check_access_level)) . ' access to '
+            . itflow_module_label((string) $module) . '. Ask an administrator if you need it.'
+        );
     }
 }
 
@@ -3881,7 +3889,7 @@ function enforceClientAccess($client_id = null) {
 function enforceAdminPermission() {
     global $session_is_admin;
     if (!isset($session_is_admin) || !$session_is_admin) {
-        exit(WORDING_ROLECHECK_FAILED . "<br>Tell your admin: Your role does not have admin access.");
+        itflow_render_denied('This is for administrators only. Ask an administrator if you need it.');
     }
     return true;
 }
@@ -3920,6 +3928,13 @@ function appNotify($type, $details, $action = null, $client_id = 0, $entity_id =
     while ($row = mysqli_fetch_assoc($sql)) {
         $user_id = intval($row['user_id']);
 
+        // Roles audit P0/F7: a module-only (limited) login only gets the notification types of modules its
+        // role holds; any other role skips the categories whose module it lacks, e.g. an Assets role gets no
+        // ticket subjects (includes/module_access.php). Admins and the Technician: every broadcast, as before.
+        if (!itflow_notification_allowed_for_user($user_id, $type)) {
+            continue;
+        }
+
         mysqli_query($mysqli, "INSERT INTO notifications SET notification_type = '$type_esc', notification = '$details_esc', notification_action = $action_sql, notification_client_id = $client_id, notification_entity_id = $entity_id, notification_user_id = $user_id");
 
         publishUserNotification($user_id, [
@@ -3946,6 +3961,11 @@ function notifyUser($user_id, $type, $details, $action = null, $client_id = 0, $
 
     $user_id = intval($user_id);
     if (!$user_id) {
+        return;
+    }
+
+    // Same rule as appNotify() (includes/module_access.php): no type the role's modules don't cover (web, push, SSE).
+    if (!itflow_notification_allowed_for_user($user_id, (string) $type)) {
         return;
     }
 

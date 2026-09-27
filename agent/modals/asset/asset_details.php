@@ -2,7 +2,7 @@
 
 require_once '../../../includes/modal_header.php';
 
-enforceUserPermission('module_support');
+enforceAssetPermission(1);   // Assets (module_assets, DB 2.6.95+) or Tickets, assets & docs (roles audit P4)
 
 $asset_id = intval($_GET['id']);
 
@@ -214,6 +214,12 @@ $sql_related_software = mysqli_query(
 
 $software_count = mysqli_num_rows($sql_related_software);
 
+// A role with Assets but not Tickets, assets & docs sees the asset itself (details, interfaces, and
+// credentials when it holds Credentials) - not its tickets, recurring tickets, licenses, documents or files.
+if (intval(lookupUserPermission('module_support')) < 1) {
+    $ticket_count = $recurring_ticket_count = $software_count = $document_count = $file_count = 0;
+}
+
 if (isset($_GET['client_id'])) {
     $client_url = "client_id=$client_id&";
 } else {
@@ -378,6 +384,10 @@ ob_start();
                     if ($contact_name) { ?>
                         <div class="mt-2"><i class="fa fa-fw fa-user text-secondary me-2"></i><?php echo $contact_name_display; ?></div>
                     <?php }
+                    // Email, phone, extension and mobile are People data: Departments only (security review 2026-09-26).
+                    if (lookupUserPermission('module_client') < 1) {
+                        $contact_email = $contact_phone = $contact_extension = $contact_mobile = '';
+                    }
                     if ($contact_email) { ?>
                         <div class="mt-2"><i class="fa fa-fw fa-envelope text-secondary me-2"></i><a href='mailto:<?php echo $contact_email; ?>'><?php echo $contact_email; ?></a><button class='btn btn-sm clipboardjs' data-clipboard-text='<?php echo $contact_email; ?>'><i class='far fa-copy text-secondary'></i></button></div>
                     <?php }

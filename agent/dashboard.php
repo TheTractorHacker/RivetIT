@@ -1,16 +1,27 @@
 <?php
-// Training (Phase 2, S19): training-only roles land on the Training overview instead of this dashboard.
-// Same paths as inc_all.php, so its require_once calls de-duplicate these.
+// Module-only (limited) logins - no Departments, Tickets/assets/docs or Assets, e.g. Training only - never
+// see this dashboard: includes/check_login.php sends them to their own home (itflow_home_url()) before any
+// markup, and there is no ?home=1 way around that any more (roles audit P0/F6).
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/functions.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/check_login.php';
-if (($config_module_enable_training ?? 0) == 1 && empty($session_is_admin) && !isset($_GET['home'])
-    && intval(lookupUserPermission('module_training')) >= 1
-    && intval(lookupUserPermission('module_support')) < 1 && intval(lookupUserPermission('module_client')) < 1) {
-    header('Location: training_dashboard.php');
+if (itflow_is_limited_user()) {   // belt and braces; check_login.php already redirected
+    header('Location: ' . itflow_home_url());
     exit;
 }
 require_once "includes/inc_all.php";
+
+// Roles audit P1f: every widget checks the module it shows, and ticket widgets are scoped to the user's
+// departments. Admins and full-access roles (Technician) see exactly what they saw before: they hold every
+// module these widgets need and have no department restriction rows (or are admins).
+$dash_can_tickets = lookupUserPermission('module_support') >= 1;
+$dash_can_clients = lookupUserPermission('module_client') >= 1;
+$dash_can_assets  = itflow_can_assets(1);
+$dash_can_sales   = lookupUserPermission('module_sales') >= 1;
+$dash_can_finance = $dash_can_sales || lookupUserPermission('module_financial') >= 1;
+$dash_scoped = ($client_access_string && !$session_is_admin);
+$dash_scope_tickets   = !$dash_can_tickets ? 'AND 1 = 0' : ($dash_scoped ? "AND ticket_client_id IN ($client_access_string)" : '');
+$dash_scope_tickets_t = !$dash_can_tickets ? 'AND 1 = 0' : ($dash_scoped ? "AND t.ticket_client_id IN ($client_access_string)" : '');
 
 // Get current year or the selected year
 $year = isset($_GET['year']) ? intval($_GET['year']) : date('Y');
@@ -172,10 +183,10 @@ $user_config_dashboard_technical_chart_type = in_array($row['user_config_dashboa
 
 <?php
 // Dashboard stat cards
-$dash_open_tickets = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE ticket_closed_at IS NULL AND ticket_resolved_at IS NULL"))[0]);
-$dash_active_clients = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM clients WHERE client_archived_at IS NULL"))[0]);
-$dash_my_tickets = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE ticket_assigned_to = $session_user_id AND ticket_closed_at IS NULL"))[0]);
-$dash_pending_invoices = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM invoices WHERE invoice_status IN ('Sent', 'Viewed', 'Partial')"))[0]);
+$dash_open_tickets = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NULL AND ticket_resolved_at IS NULL"))[0]);
+$dash_active_clients = $dash_can_clients ? intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM clients WHERE client_archived_at IS NULL"))[0]) : 0;
+$dash_my_tickets = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE 1 = 1 $dash_scope_tickets AND ticket_assigned_to = $session_user_id AND ticket_closed_at IS NULL"))[0]);
+$dash_pending_invoices = $dash_can_sales ? intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM invoices WHERE invoice_status IN ('Sent', 'Viewed', 'Partial')"))[0]) : 0;
 $dash_hour = intval(date('G'));
 $dash_greeting = $dash_hour < 12 ? 'Good morning' : ($dash_hour < 17 ? 'Good afternoon' : 'Good evening');
 
@@ -183,25 +194,28 @@ $dash_greeting = $dash_hour < 12 ? 'Good morning' : ($dash_hour < 17 ? 'Good aft
 // Financial/Technical toggles below) so the top-of-page status strip always
 // reflects reality. Cheap single-table counts, reused (not re-queried) by the
 // Technical section further down if it's enabled.
-$dash_unassigned_tickets = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE ticket_closed_at IS NULL AND (ticket_assigned_to IS NULL OR ticket_assigned_to = 0)"))[0]);
-$dash_expiring_domains = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM domains WHERE domain_expire IS NOT NULL AND domain_expire > CURRENT_DATE AND domain_expire < CURRENT_DATE + INTERVAL 30 DAY AND domain_archived_at IS NULL"))[0]);
-$dash_expiring_certificates = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM certificates WHERE certificate_expire IS NOT NULL AND certificate_expire > CURRENT_DATE AND certificate_expire < CURRENT_DATE + INTERVAL 30 DAY AND certificate_archived_at IS NULL"))[0]);
+$dash_unassigned_tickets = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NULL AND (ticket_assigned_to IS NULL OR ticket_assigned_to = 0)"))[0]);
+$dash_expiring_domains = !$dash_can_tickets ? 0 : intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM domains WHERE domain_expire IS NOT NULL AND domain_expire > CURRENT_DATE AND domain_expire < CURRENT_DATE + INTERVAL 30 DAY AND domain_archived_at IS NULL"))[0]);
+$dash_expiring_certificates = !$dash_can_tickets ? 0 : intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM certificates WHERE certificate_expire IS NOT NULL AND certificate_expire > CURRENT_DATE AND certificate_expire < CURRENT_DATE + INTERVAL 30 DAY AND certificate_archived_at IS NULL"))[0]);
 
-$dash_attention_items = [
-    ['count' => $dash_unassigned_tickets,      'label' => 'Unassigned tickets',        'href' => 'tickets.php?assigned=0',                              'icon' => 'fa-user-slash'],
-    ['count' => $dash_expiring_domains,         'label' => 'Domains expiring (30d)',    'href' => 'domains.php?sort=domain_expire&order=ASC',            'icon' => 'fa-globe'],
-    ['count' => $dash_expiring_certificates,    'label' => 'Certificates expiring (30d)','href' => 'certificates.php?sort=certificate_expire&order=ASC',  'icon' => 'fa-lock'],
-];
-if ($config_module_enable_accounting) {
+$dash_attention_items = [];
+if ($dash_can_tickets) {
+    $dash_attention_items = [
+        ['count' => $dash_unassigned_tickets,      'label' => 'Unassigned tickets',        'href' => 'tickets.php?assigned=0',                              'icon' => 'fa-user-slash'],
+        ['count' => $dash_expiring_domains,         'label' => 'Domains expiring (30d)',    'href' => 'domains.php?sort=domain_expire&order=ASC',            'icon' => 'fa-globe'],
+        ['count' => $dash_expiring_certificates,    'label' => 'Certificates expiring (30d)','href' => 'certificates.php?sort=certificate_expire&order=ASC',  'icon' => 'fa-lock'],
+    ];
+}
+if ($config_module_enable_accounting && $dash_can_sales) {
     $dash_attention_items[] = ['count' => $dash_pending_invoices, 'label' => 'Unpaid invoices', 'href' => 'invoices.php', 'icon' => 'fa-file-invoice-dollar'];
 }
 
 $dash_csat_avg = null;
-if ($config_module_enable_ticketing == 1 && !empty($config_ticket_csat_enable)) {
-    $dash_csat_needs_followup = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE ticket_csat_rating IS NOT NULL AND ticket_csat_rating <= $config_ticket_csat_low_rating_threshold AND ticket_status != 5"))[0]);
+if ($config_module_enable_ticketing == 1 && !empty($config_ticket_csat_enable) && $dash_can_tickets) {
+    $dash_csat_needs_followup = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE 1 = 1 $dash_scope_tickets AND ticket_csat_rating IS NOT NULL AND ticket_csat_rating <= $config_ticket_csat_low_rating_threshold AND ticket_status != 5"))[0]);
     $dash_attention_items[] = ['count' => $dash_csat_needs_followup, 'label' => 'Needs CSAT follow-up', 'href' => 'reports/csat.php', 'icon' => 'fa-star-half-alt'];
 
-    $dash_csat_avg_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT AVG(ticket_csat_rating) AS v FROM tickets WHERE ticket_csat_rated_at >= NOW() - INTERVAL 30 DAY"));
+    $dash_csat_avg_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT AVG(ticket_csat_rating) AS v FROM tickets WHERE 1 = 1 $dash_scope_tickets AND ticket_csat_rated_at >= NOW() - INTERVAL 30 DAY"));
     $dash_csat_avg = $dash_csat_avg_row['v'] !== null ? round(floatval($dash_csat_avg_row['v']), 2) : null;
 }
 
@@ -221,9 +235,9 @@ $dash_attention_total = array_sum(array_column($dash_attention_items, 'count'));
 // dashboard, not two). $access_permission_query assumes a `clients` table
 // join that none of these queries have, so scope by client_access_string
 // directly instead, same as the page it replaces did.
-$dash_scoped = ($client_access_string && !$session_is_admin);
-$dash_scope_wf_contact = $dash_scoped ? "AND c.contact_client_id IN ($client_access_string)" : '';
-$dash_scope_assets = $dash_scoped ? "AND asset_client_id IN ($client_access_string)" : '';
+// Workflow runs are Departments data (agent/workflow_run.php needs it); assets need Assets or Tickets/assets/docs.
+$dash_scope_wf_contact = !$dash_can_clients ? 'AND 1 = 0' : ($dash_scoped ? "AND c.contact_client_id IN ($client_access_string)" : '');
+$dash_scope_assets = !$dash_can_assets ? 'AND 1 = 0' : ($dash_scoped ? "AND asset_client_id IN ($client_access_string)" : '');
 
 $dash_onboarding_in_progress = intval(mysqli_fetch_row(mysqli_query($mysqli,
     "SELECT COUNT(*) FROM workflow_runs wr INNER JOIN contacts c ON c.contact_id = wr.contact_id
@@ -283,6 +297,7 @@ $dash_total_assets = intval(mysqli_fetch_row(mysqli_query($mysqli,
 // height from every other tile row on the page.
 ?>
 <div class="dash-tiles mb-4">
+    <?php if ($dash_can_tickets) { ?>
     <a href="tickets.php" class="small-box text-bg-primary">
         <div class="inner">
             <h3><?= $dash_open_tickets ?></h3>
@@ -297,6 +312,8 @@ $dash_total_assets = intval(mysqli_fetch_row(mysqli_query($mysqli,
         </div>
         <div class="icon"><i class="fas fa-user-check"></i></div>
     </a>
+    <?php } ?>
+    <?php if ($dash_can_clients) { ?>
     <a href="clients.php" class="small-box text-bg-success">
         <div class="inner">
             <h3><?= $dash_active_clients ?></h3>
@@ -304,7 +321,8 @@ $dash_total_assets = intval(mysqli_fetch_row(mysqli_query($mysqli,
         </div>
         <div class="icon"><i class="fas fa-building"></i></div>
     </a>
-    <?php if ($config_module_enable_accounting) { ?>
+    <?php } ?>
+    <?php if ($config_module_enable_accounting && $dash_can_sales) { ?>
     <a href="invoices.php" class="small-box text-bg-warning">
         <div class="inner">
             <h3><?= $dash_pending_invoices ?></h3>
@@ -339,6 +357,7 @@ $dash_total_assets = intval(mysqli_fetch_row(mysqli_query($mysqli,
 // common bottom edge, so neither needs h-100 and neither trails the other.
 ?>
 <div class="dash-charts mb-3">
+    <?php if ($dash_can_assets) { ?>
     <div class="card card-dark">
         <div class="card-header py-2">
             <h5 class="card-title"><i class="fas fa-fw fa-desktop me-2"></i>Assets by Status</h5>
@@ -370,6 +389,9 @@ $dash_total_assets = intval(mysqli_fetch_row(mysqli_query($mysqli,
         </div>
     </div>
 
+    <?php } ?>
+
+    <?php if ($dash_can_clients) { ?>
     <div class="card card-dark">
         <div class="card-header py-2">
             <h5 class="card-title"><i class="fas fa-fw fa-tasks me-2"></i>Onboarding / Offboarding In Progress</h5>
@@ -400,6 +422,7 @@ $dash_total_assets = intval(mysqli_fetch_row(mysqli_query($mysqli,
             </table>
         </div>
     </div>
+    <?php } ?>
 </div>
 <?php } ?>
 
@@ -424,7 +447,7 @@ $dash_total_assets = intval(mysqli_fetch_row(mysqli_query($mysqli,
 // calls el.form.submit()) regardless of whether Financial's own controls
 // render, so an invisible form is always emitted as the else-branch.
 ?>
-<?php if ($config_module_enable_accounting == 1 && ($session_user_role == 1 || $session_user_role == 3)) { ?>
+<?php if ($config_module_enable_accounting == 1 && $dash_can_finance && ($session_user_role == 1 || $session_user_role == 3)) { ?>
 <div class="card card-body mb-4">
     <?php
     // The form is a flex row with `gap`, so the per-control me-*/mb-* margins it
@@ -465,7 +488,7 @@ $dash_total_assets = intval(mysqli_fetch_row(mysqli_query($mysqli,
 // and make them re-enable it by hand later for no reason. Suppress the
 // render, leave the stored value alone - identical to how the switch itself
 // just disappears above rather than uncheck-and-save.
-if ($user_config_dashboard_financial_enable == 1 && $config_module_enable_accounting == 1) {
+if ($user_config_dashboard_financial_enable == 1 && $config_module_enable_accounting == 1 && $dash_can_finance) {
 
     // Fetch financial data for the dashboard
     // Define variables to avoid errors in logs
@@ -541,7 +564,7 @@ if ($user_config_dashboard_financial_enable == 1 && $config_module_enable_accoun
     $total_miles = floatval($row['total_miles']);
 
     if ($config_module_enable_ticketing && $config_module_enable_accounting) {
-        $sql_unbilled_tickets = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS unbilled_tickets FROM tickets WHERE ticket_closed_at IS NOT NULL AND ticket_billable = 1 AND ticket_invoice_id = 0 AND YEAR(ticket_created_at) = $year");
+        $sql_unbilled_tickets = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS unbilled_tickets FROM tickets WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NOT NULL AND ticket_billable = 1 AND ticket_invoice_id = 0 AND YEAR(ticket_created_at) = $year");
         $row = mysqli_fetch_assoc($sql_unbilled_tickets);
         $unbilled_tickets = intval($row['unbilled_tickets']);
     } else {
@@ -819,19 +842,19 @@ if ($user_config_dashboard_financial_enable == 1 && $config_module_enable_accoun
 if (true) {  // Technical dashboard is always shown now - no more enable toggle.
 
     // Fetch technical data for the dashboard
-    $sql_clients = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(client_id) AS clients_added FROM clients WHERE YEAR(client_created_at) = $year"));
+    $sql_clients = $dash_can_clients ? mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(client_id) AS clients_added FROM clients WHERE YEAR(client_created_at) = $year")) : ['clients_added' => 0];
     $clients_added = $sql_clients['clients_added'];
 
-    $sql_contacts = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(contact_id) AS contacts_added FROM contacts WHERE YEAR(contact_created_at) = $year"));
+    $sql_contacts = $dash_can_clients ? mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(contact_id) AS contacts_added FROM contacts WHERE YEAR(contact_created_at) = $year")) : ['contacts_added' => 0];
     $contacts_added = $sql_contacts['contacts_added'];
 
-    $sql_assets = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(asset_id) AS assets_added FROM assets WHERE YEAR(asset_created_at) = $year"));
+    $sql_assets = $dash_can_assets ? mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(asset_id) AS assets_added FROM assets WHERE YEAR(asset_created_at) = $year")) : ['assets_added' => 0];
     $assets_added = $sql_assets['assets_added'];
 
-    $sql_tickets = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS active_tickets FROM tickets WHERE ticket_closed_at IS NULL"));
+    $sql_tickets = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS active_tickets FROM tickets WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NULL"));
     $active_tickets = $sql_tickets['active_tickets'];
 
-    $sql_your_tickets = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS your_tickets FROM tickets WHERE ticket_closed_at IS NULL AND ticket_assigned_to = $session_user_id"));
+    $sql_your_tickets = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS your_tickets FROM tickets WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NULL AND ticket_assigned_to = $session_user_id"));
     $your_tickets = $sql_your_tickets['your_tickets'];
 
     $sql_your_tickets = mysqli_query($mysqli, "
@@ -839,7 +862,7 @@ if (true) {  // Technical dashboard is always shown now - no more enable toggle.
         LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id
         LEFT JOIN clients ON ticket_client_id = client_id
         LEFT JOIN contacts ON ticket_contact_id = contact_id
-        WHERE ticket_assigned_to = $session_user_id
+        WHERE ticket_assigned_to = $session_user_id $dash_scope_tickets
         AND ticket_closed_at IS NULL
         ORDER BY ticket_number DESC
     ");
@@ -849,47 +872,47 @@ if (true) {  // Technical dashboard is always shown now - no more enable toggle.
         FROM ticket_automation_runs r
         INNER JOIN tickets t ON t.ticket_id = r.ticket_id
         LEFT JOIN clients c ON c.client_id = t.ticket_client_id
-        WHERE t.ticket_assigned_to = $session_user_id
+        WHERE t.ticket_assigned_to = $session_user_id $dash_scope_tickets_t
         ORDER BY r.id DESC
         LIMIT 10
     ");
 
     // Ticket metrics
-    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE DATE(ticket_created_at) = CURDATE()"));
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE 1 = 1 $dash_scope_tickets AND DATE(ticket_created_at) = CURDATE()"));
     $tickets_opened_today = intval($row['c']);
 
-    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE ticket_closed_at IS NOT NULL AND ticket_closed_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)"));
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NOT NULL AND ticket_closed_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)"));
     $tickets_resolved_week = intval($row['c']);
 
-    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id WHERE ticket_closed_at IS NULL AND ticket_status_name = 'Waiting on Customer'"));
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NULL AND ticket_status_name = 'Waiting on Customer'"));
     $tickets_waiting_customer = intval($row['c']);
 
     // Priority breakdown (open tickets)
-    $sql_by_priority = mysqli_query($mysqli, "SELECT ticket_priority, COUNT(ticket_id) AS c FROM tickets WHERE ticket_closed_at IS NULL GROUP BY ticket_priority ORDER BY FIELD(ticket_priority,'High','Medium','Low')");
+    $sql_by_priority = mysqli_query($mysqli, "SELECT ticket_priority, COUNT(ticket_id) AS c FROM tickets WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NULL GROUP BY ticket_priority ORDER BY FIELD(ticket_priority,'High','Medium','Low')");
     $priority_labels = $priority_counts = [];
     while ($r = mysqli_fetch_assoc($sql_by_priority)) { $priority_labels[] = $r['ticket_priority']; $priority_counts[] = intval($r['c']); }
 
     // Status breakdown (open tickets)
-    $sql_by_status = mysqli_query($mysqli, "SELECT ticket_status_name, ticket_status_color, COUNT(ticket_id) AS c FROM tickets LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id WHERE ticket_closed_at IS NULL GROUP BY ticket_status_name, ticket_status_color ORDER BY c DESC LIMIT 8");
+    $sql_by_status = mysqli_query($mysqli, "SELECT ticket_status_name, ticket_status_color, COUNT(ticket_id) AS c FROM tickets LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NULL GROUP BY ticket_status_name, ticket_status_color ORDER BY c DESC LIMIT 8");
     $status_labels = $status_counts = $status_colors = [];
     while ($r = mysqli_fetch_assoc($sql_by_status)) { $status_labels[] = $r['ticket_status_name']; $status_counts[] = intval($r['c']); $status_colors[] = $r['ticket_status_color'] ?: '#6c757d'; }
 
     // Category breakdown (open tickets)
-    $sql_by_cat = mysqli_query($mysqli, "SELECT COALESCE(category_name,'Uncategorized') AS cat, category_color, COUNT(ticket_id) AS c FROM tickets LEFT JOIN categories ON ticket_category = category_id WHERE ticket_closed_at IS NULL GROUP BY cat, category_color ORDER BY c DESC LIMIT 8");
+    $sql_by_cat = mysqli_query($mysqli, "SELECT COALESCE(category_name,'Uncategorized') AS cat, category_color, COUNT(ticket_id) AS c FROM tickets LEFT JOIN categories ON ticket_category = category_id WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NULL GROUP BY cat, category_color ORDER BY c DESC LIMIT 8");
     $cat_labels = $cat_counts = $cat_colors = [];
     while ($r = mysqli_fetch_assoc($sql_by_cat)) { $cat_labels[] = $r['cat']; $cat_counts[] = intval($r['c']); $cat_colors[] = $r['category_color'] ?: '#6c757d'; }
 
     // Monthly opened vs resolved for selected year
     $monthly_opened = $monthly_resolved = [];
     for ($m = 1; $m <= 12; $m++) {
-        $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE YEAR(ticket_created_at)=$year AND MONTH(ticket_created_at)=$m"));
+        $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE 1 = 1 $dash_scope_tickets AND YEAR(ticket_created_at)=$year AND MONTH(ticket_created_at)=$m"));
         $monthly_opened[] = intval($r['c']);
-        $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE ticket_closed_at IS NOT NULL AND YEAR(ticket_closed_at)=$year AND MONTH(ticket_closed_at)=$m"));
+        $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NOT NULL AND YEAR(ticket_closed_at)=$year AND MONTH(ticket_closed_at)=$m"));
         $monthly_resolved[] = intval($r['c']);
     }
 
     // Top techs by open ticket count
-    $sql_top_techs = mysqli_query($mysqli, "SELECT user_name, COUNT(ticket_id) AS c FROM tickets LEFT JOIN users ON ticket_assigned_to = user_id WHERE ticket_closed_at IS NULL AND ticket_assigned_to > 0 GROUP BY user_name ORDER BY c DESC LIMIT 8");
+    $sql_top_techs = mysqli_query($mysqli, "SELECT user_name, COUNT(ticket_id) AS c FROM tickets LEFT JOIN users ON ticket_assigned_to = user_id WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NULL AND ticket_assigned_to > 0 GROUP BY user_name ORDER BY c DESC LIMIT 8");
     $tech_rows = [];
     while ($r = mysqli_fetch_assoc($sql_top_techs)) $tech_rows[] = $r;
 
@@ -909,25 +932,26 @@ if (true) {  // Technical dashboard is always shown now - no more enable toggle.
     if (!empty($cat_labels))      { $dash_ticket_breakdowns[] = ['id' => 'ticketCategoryChart', 'icon' => 'fa-chart-pie',  'title' => 'By Category']; }
 
     // Historical ticket metrics for selected year
-    $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE YEAR(ticket_created_at) = $year"));
+    $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE 1 = 1 $dash_scope_tickets AND YEAR(ticket_created_at) = $year"));
     $tickets_created_year = intval($r['c']);
 
-    $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE ticket_closed_at IS NOT NULL AND YEAR(ticket_closed_at) = $year"));
+    $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NOT NULL AND YEAR(ticket_closed_at) = $year"));
     $tickets_resolved_year = intval($r['c']);
 
-    $avg_resolution_hours = getAvgResolutionTimeHours($mysqli, $year);
+    $avg_resolution_hours = $dash_can_tickets ? getAvgResolutionTimeHours($mysqli, $year) : 0;
 
     // Resolved by technician for selected year
-    $sql_resolved_by_tech = mysqli_query($mysqli, "SELECT user_name, COUNT(ticket_id) AS c FROM tickets LEFT JOIN users ON ticket_assigned_to = user_id WHERE ticket_closed_at IS NOT NULL AND YEAR(ticket_closed_at) = $year AND ticket_assigned_to > 0 GROUP BY user_name ORDER BY c DESC LIMIT 8");
+    $sql_resolved_by_tech = mysqli_query($mysqli, "SELECT user_name, COUNT(ticket_id) AS c FROM tickets LEFT JOIN users ON ticket_assigned_to = user_id WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NOT NULL AND YEAR(ticket_closed_at) = $year AND ticket_assigned_to > 0 GROUP BY user_name ORDER BY c DESC LIMIT 8");
     $resolved_tech_rows = [];
     while ($r = mysqli_fetch_assoc($sql_resolved_by_tech)) $resolved_tech_rows[] = $r;
 
     // Recently resolved tickets
-    $sql_recent_resolved = mysqli_query($mysqli, "SELECT tickets.ticket_id, ticket_subject, ticket_prefix, ticket_number, ticket_closed_at, ticket_priority, client_name, ticket_client_id, ticket_status_name, ticket_status_color FROM tickets LEFT JOIN clients ON ticket_client_id = client_id LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id WHERE ticket_closed_at IS NOT NULL ORDER BY ticket_closed_at DESC LIMIT 10");
+    $sql_recent_resolved = mysqli_query($mysqli, "SELECT tickets.ticket_id, ticket_subject, ticket_prefix, ticket_number, ticket_closed_at, ticket_priority, client_name, ticket_client_id, ticket_status_name, ticket_status_color FROM tickets LEFT JOIN clients ON ticket_client_id = client_id LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NOT NULL ORDER BY ticket_closed_at DESC LIMIT 10");
 ?>
 
 <div class="dash-section">
     <div class="dash-tiles mb-4">
+        <?php if ($dash_can_clients) { ?>
         <a class="small-box bg-secondary" href="clients.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
             <div class="inner">
                 <h3><?php echo $clients_added; ?></h3>
@@ -943,7 +967,9 @@ if (true) {  // Technical dashboard is always shown now - no more enable toggle.
             </div>
             <div class="icon"><i class="fa fa-user"></i></div>
         </a>
+        <?php } ?>
 
+        <?php if ($dash_can_assets) { ?>
         <a class="small-box bg-info" href="assets.php">
             <div class="inner">
                 <h3><?php echo $assets_added; ?></h3>
@@ -951,7 +977,9 @@ if (true) {  // Technical dashboard is always shown now - no more enable toggle.
             </div>
             <div class="icon"><i class="fa fa-desktop"></i></div>
         </a>
+        <?php } ?>
 
+        <?php if ($dash_can_tickets) { ?>
         <a class="small-box bg-danger" href="tickets.php">
             <div class="inner">
                 <h3><?php echo $active_tickets; ?></h3>
@@ -983,8 +1011,10 @@ if (true) {  // Technical dashboard is always shown now - no more enable toggle.
             </div>
             <div class="icon"><i class="fa fa-clock"></i></div>
         </a>
+        <?php } ?>
     </div>
 
+    <?php if ($dash_can_tickets) { // ticket charts, history and recently resolved: Tickets/assets/docs only ?>
     <!-- Ticket Charts -->
     <?php if ($dash_has_ticket_flow) { ?>
     <div class="card card-dark mb-3">
@@ -1165,6 +1195,7 @@ if (true) {  // Technical dashboard is always shown now - no more enable toggle.
                 </div>
         </div>
     </div>
+    <?php } // $dash_can_tickets ?>
 
     <?php if ($your_tickets) { ?>
         <div class="card card-dark mb-3">
@@ -1314,7 +1345,7 @@ if (true) {  // Technical dashboard is always shown now - no more enable toggle.
 <?php // Same combined gate as the render block above - these <script> blocks read
       // PHP variables ($largest_income_month etc.) that only exist when that
       // block actually ran, so the two conditions must stay identical. ?>
-<?php if ($user_config_dashboard_financial_enable == 1 && $config_module_enable_accounting == 1) { ?>
+<?php if ($user_config_dashboard_financial_enable == 1 && $config_module_enable_accounting == 1 && $dash_can_finance) { ?>
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 document.addEventListener('DOMContentLoaded', function () {

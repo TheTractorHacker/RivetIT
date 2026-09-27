@@ -268,6 +268,22 @@ if (!$is_sse_stream) {
     }
 }
 
+// Roles audit P0: a module-only (limited) login's user token - no Departments, Tickets/assets/docs or
+// Assets - may use only its profile, its notifications and the resources of modules it holds (same
+// families as the web allow-list). Legacy X-Api-Key auth is unchanged (it acts as the first admin).
+if (!$legacy_api_key_auth) {
+    $api_access_profile = itflow_user_access_profile(intval($api_user_id));
+    if (itflow_profile_is_limited($api_access_profile)) {
+        $api_limited_ok = in_array($resource, ['me', 'notifications'], true)
+            || ($resource === 'kb' && itflow_profile_level($api_access_profile, 'module_kb') >= 1)
+            || ($resource === 'reports' && itflow_profile_level($api_access_profile, 'module_reporting') >= 1)
+            || ($resource === 'alerts' && itflow_profile_level($api_access_profile, 'module_rmm_alerts') >= 1);
+        if (!$api_limited_ok) {
+            api_error(403, 'Insufficient permissions');
+        }
+    }
+}
+
 // Route
 switch ($resource) {
     case 'dashboard':     require __DIR__ . '/dashboard.php';     break;

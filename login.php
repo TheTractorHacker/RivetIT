@@ -460,6 +460,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
 
                         if ($force_mfa == 1 && $token == NULL) {
                             $config_start_page = "user/mfa_enforcement.php";
+                        } elseif (($login_limited_home = itflow_limited_home_url_for_user(intval($user_id))) !== null) {
+                            // Roles audit P0: a module-only login (e.g. Training only) lands on its own module,
+                            // not the IT start page. Everyone else: the start-page setting, as before.
+                            $config_start_page = substr($login_limited_home, strlen('/agent/'));
                         }
 
                         // Setup encryption session key WITHOUT PASSWORD IN SESSION

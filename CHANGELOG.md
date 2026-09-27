@@ -2,6 +2,51 @@
 
 This file documents all notable changes made to ITFlow.
 
+## [Unreleased] ITFlow Internal IT - Roles: module-only logins contained, checked pop-ups and pages, Assets module, Training settings for Training level 3, clearer role editor
+Database 2.6.94 -> 2.6.95 (new module `module_assets`; every existing role is granted it at its current Tickets/assets/docs
+level, so nobody's access changes). Apply it through **Admin > Update > Update Database**; until it has run, asset pages
+keep working through Tickets/assets/docs. Phase 5's planned migration moves to 2.6.96.
+
+### Security
+- A module-only login (a role with none of Departments, Tickets/assets/docs and Assets - e.g. Training only) now gets
+  only its own modules' pages, its account and its notifications. Everything else answers 403 with a "Go to Training"
+  page (JSON for pop-ups and ajax). Its sidebar shows only its modules (no Dashboard, Work or custom links), the logo,
+  sign-in and `/` go to its own home, `dashboard.php?home=1` no longer shows the dashboard, the search box is hidden,
+  and notifications (bell, page, phone push, app API) carry only its modules' types. Its app API token may use only
+  `me`, `notifications` and `kb`/`reports`/`alerts` for modules it holds.
+- Checked for everyone: search (page and live) section by section; contact and asset details, company-wide People,
+  contracts and onboarding/offboarding runs; the calendar (Tickets/assets/docs, each built-in feed by its module; the
+  Work group only with Tickets/assets/docs); adding/editing/deleting calendar events, adding tags and categories,
+  turning off shared links and ticket-viewer tracking; dashboard widgets by module with ticket widgets scoped to the
+  user's departments; department overview cards; app API search, dashboard and v2 workflow runs.
+- Denials are HTTP 403 with a proper page in the app shell and no leftover "not permitted" message on the next page;
+  the admin area's denial too. Opening the Credentials page no longer logs a view before the permission check.
+- Sidebar: Trips sits inside the Finance check, Intune Devices needs Departments.
+- Every agent pop-up checks its module first (`includes/modal_permissions.php`, a folder/file map); a refused pop-up
+  answers 403 and the loader shows the reason. Pages hide the buttons of pop-ups the role can't open (contact and asset
+  "New" menus, New Contract, the departments bulk "Open Tickets", the asset list's contact card for a role without
+  Departments).
+- The Files page and document details need Tickets/assets/docs, like their pop-ups and save handlers (they were the only
+  department pages with no module check).
+- The asset forms' Login tab (which creates a Credentials record) shows only with Credentials edit access, and the save
+  handler ignores it without that access.
+- Admin > Roles: the "can't edit / can't archive" protection follows the last administrator role that still has an
+  active user (was the literal role id 3), and the server refuses to demote or archive it.
+
+### New Features & Updates
+- **Assets** module (levels 1-3): asset pages without tickets. Asset lists, details, edits, imports/exports, inline
+  edit, search and the dashboard accept Assets or Tickets/assets/docs. With Assets alone, an asset's linked tickets,
+  documents, files, licenses and services are not shown.
+- **Training settings for Training level 3** (`agent/training_settings.php`, Training > Training settings in the sidebar
+  for non-admin Training level 3; admins keep Admin > Training, which is unchanged). Training level 3 edits course
+  defaults, compliance defaults, Recalculate, Snapshot and ledger Verify; kiosk sessions and setup slips also need
+  Training kiosk level 3. Media limits, the YouTube key, media purge, Odoo links and sync, PIN lockouts and device caps
+  stay admin-only and show read-only with "Ask an administrator". Both pages validate through one shared service
+  (`src/Training/Settings/`); admin saves behave exactly as before.
+- **Role editor**: permissions in plain words, grouped IT / Business / Training, with per-level help; "Start from..."
+  presets (Training Manager, Training Supervisor (department), Learner, Technician, Nothing); a "This role will see"
+  sidebar preview; the Assets permission. The user form's Access tab explains how department ticks work in Training.
+- App API `GET /api/v1/me` adds `is_admin`, `limited` and `permissions` (every module with its level 0-3).
 ## [Unreleased] ITFlow Internal IT - Training kiosk: quick checks after lessons
 No database change (2.6.94 stays). Quick checks on video, article, document and image lessons now run on the kiosk;
 before this, the kiosk skipped them and a lesson went straight to "Done" (and a one-lesson course to "Sign to finish").

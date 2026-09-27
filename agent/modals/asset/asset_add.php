@@ -57,9 +57,11 @@ ob_start();
             <li class="nav-item">
                 <a class="nav-link" data-bs-toggle="pill" href="#pills-asset-purchase">Purchase</a>
             </li>
+            <?php if (lookupUserPermission('module_credential') >= 2) { // the Login tab creates a Credentials record (agent/post/asset.php) ?>
             <li class="nav-item">
                 <a class="nav-link" data-bs-toggle="pill" href="#pills-asset-login">Login</a>
             </li>
+            <?php } ?>
             <li class="nav-item">
                 <a class="nav-link" data-bs-toggle="pill" href="#pills-asset-notes">Notes</a>
             </li>
@@ -486,6 +488,7 @@ ob_start();
 
             </div>
 
+            <?php if (lookupUserPermission('module_credential') >= 2) { ?>
             <div class="tab-pane fade" id="pills-asset-login">
 
                 <div class="form-group">
@@ -509,6 +512,7 @@ ob_start();
                 </div>
 
             </div>
+            <?php } ?>
 
             <div class="tab-pane fade" id="pills-asset-notes">
 

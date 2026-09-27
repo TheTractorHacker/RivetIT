@@ -11,6 +11,9 @@ if (isset($_GET['client_id'])) {
     $client_url = '';
 }
 
+// People are Departments data (roles audit P1b/F2): the company-wide branch used to check no module at all.
+enforceUserPermission('module_client');
+
 if (isset($_GET['contact_id'])) {
     $contact_id = intval($_GET['contact_id']);
 
@@ -111,12 +114,18 @@ if (isset($_GET['contact_id'])) {
         exit();
     }
 
+    // A role with Departments but not Tickets, assets & docs sees the person, not their tickets, licenses,
+    // services, documents or files; assets need Assets or Tickets, assets & docs (roles audit P1a/P4, the same
+    // split agent/asset_details.php makes). Every current role that has these today keeps them.
+    $contact_support_sql = lookupUserPermission('module_support') >= 1 ? '' : ' AND 1 = 0';
+    $contact_assets_sql = itflow_can_assets(1) ? '' : ' AND 1 = 0';
+
     // Related Assets Query - 1 to 1 relationship
     $sql_related_assets = mysqli_query($mysqli, "SELECT * FROM assets
         LEFT JOIN asset_interfaces ON interface_asset_id = asset_id AND interface_primary = 1
         LEFT JOIN asset_tags ON asset_tag_asset_id = asset_id
         LEFT JOIN tags ON tag_id = asset_tag_tag_id
-        WHERE asset_contact_id = $contact_id
+        WHERE asset_contact_id = $contact_id $contact_assets_sql
         GROUP BY asset_id
         ORDER BY asset_name ASC"
     );
@@ -126,7 +135,7 @@ if (isset($_GET['contact_id'])) {
     $sql_linked_software = mysqli_query($mysqli, "SELECT * FROM software_contacts, software
         WHERE software_contacts.contact_id = $contact_id
         AND software_contacts.software_id = software.software_id
-        AND software_archived_at IS NULL
+        AND software_archived_at IS NULL $contact_support_sql
         ORDER BY software_name ASC"
     );
     $software_count = mysqli_num_rows($sql_linked_software);
@@ -153,12 +162,12 @@ if (isset($_GET['contact_id'])) {
     $sql_related_tickets = mysqli_query($mysqli, "SELECT * FROM tickets
         LEFT JOIN users ON ticket_assigned_to = user_id
         LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id
-        WHERE ticket_contact_id = $contact_id ORDER BY ticket_id DESC");
+        WHERE ticket_contact_id = $contact_id $contact_support_sql ORDER BY ticket_id DESC");
     $ticket_count = mysqli_num_rows($sql_related_tickets);
 
     // Related Recurring Tickets Query
     $sql_related_recurring_tickets = mysqli_query($mysqli, "SELECT * FROM recurring_tickets
-        WHERE recurring_ticket_contact_id = $contact_id
+        WHERE recurring_ticket_contact_id = $contact_id $contact_support_sql
         ORDER BY recurring_ticket_next_run DESC"
     );
     $recurring_ticket_count = mysqli_num_rows($sql_related_recurring_tickets);
@@ -193,7 +202,7 @@ if (isset($_GET['contact_id'])) {
      // Linked Services
     $sql_linked_services = mysqli_query($mysqli, "SELECT * FROM service_contacts, services
         WHERE service_contacts.contact_id = $contact_id
-        AND service_contacts.service_id = services.service_id
+        AND service_contacts.service_id = services.service_id $contact_support_sql
         ORDER BY service_name ASC"
     );
     $service_count = mysqli_num_rows($sql_linked_services);
@@ -205,7 +214,7 @@ if (isset($_GET['contact_id'])) {
         LEFT JOIN users ON document_created_by = user_id
         WHERE contact_documents.contact_id = $contact_id
         AND contact_documents.document_id = documents.document_id
-        AND document_archived_at IS NULL
+        AND document_archived_at IS NULL $contact_support_sql
         ORDER BY document_name ASC"
     );
     $document_count = mysqli_num_rows($sql_linked_documents);
@@ -216,7 +225,7 @@ if (isset($_GET['contact_id'])) {
     $sql_linked_files = mysqli_query($mysqli, "SELECT * FROM contact_files, files
         WHERE contact_files.contact_id = $contact_id
         AND contact_files.file_id = files.file_id
-        AND file_archived_at IS NULL
+        AND file_archived_at IS NULL $contact_support_sql
         ORDER BY file_name ASC"
     );
     $file_count = mysqli_num_rows($sql_linked_files);
@@ -421,30 +430,43 @@ if (isset($_GET['contact_id'])) {
                 <div class="dropdown dropleft me-2">
                     <button type="button" class="btn btn-primary" data-bs-toggle="dropdown" data-boundary="window"><i class="fas fa-plus me-2"></i>New</button>
                     <div class="dropdown-menu">
+                        <?php // Each item only when the role may open its pop-up (includes/modal_permissions.php) - roles audit P1d ?>
+                        <?php if (itflow_modal_allowed('ticket/ticket_add.php')) { ?>
                         <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/ticket/ticket_add.php?<?= $client_url ?>&contact_id=<?= $contact_id ?>" data-modal-size="lg">
                             <i class="fa fa-fw fa-life-ring me-2"></i>New Ticket
                         </a>
                         <div class="dropdown-divider"></div>
+                        <?php } ?>
+                        <?php if (itflow_modal_allowed('recurring_ticket/recurring_ticket_add.php')) { ?>
                         <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/recurring_ticket/recurring_ticket_add.php?<?= $client_url ?>&contact_id=<?= $contact_id ?>" data-modal-size="lg">
                             <i class="fa fa-fw fa-recycle me-2"></i>New Recurring Ticket
                         </a>
                         <div class="dropdown-divider"></div>
+                        <?php } ?>
+                        <?php if (itflow_modal_allowed('asset/asset_add.php')) { ?>
                         <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/asset/asset_add.php?<?= $client_url ?>&contact_id=<?= $contact_id ?>">
                             <i class="fa fa-fw fa-desktop me-2"></i>New Asset
                         </a>
                         <div class="dropdown-divider"></div>
+                        <?php } ?>
+                        <?php if (itflow_modal_allowed('credential/credential_add.php')) { ?>
                         <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/credential/credential_add.php?<?= $client_url ?>&contact_id=<?= $contact_id ?>">
                             <i class="fa fa-fw fa-key me-2"></i>New Credential
                         </a>
                         <div class="dropdown-divider"></div>
+                        <?php } ?>
+                        <?php if (itflow_modal_allowed('document/document_add.php')) { ?>
                         <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/document/document_add.php?<?= $client_url ?>&contact_id=<?= $contact_id ?>" data-modal-size="lg">
                             <i class="fa fa-fw fa-file-alt me-2"></i>New Document
                         </a>
                         <div class="dropdown-divider"></div>
+                        <?php } ?>
+                        <?php if (itflow_modal_allowed('file/file_upload.php')) { ?>
                         <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/file/file_upload.php?<?= $client_url ?>&contact_id=<?= $contact_id ?>">
                             <i class="fa fa-fw fa-upload me-2"></i>Upload file(s)
                         </a>
                         <div class="dropdown-divider"></div>
+                        <?php } ?>
                         <a class="dropdown-item text-dark ajax-modal" href="#"
                             data-modal-url="modals/contact/contact_note_add.php?id=<?= $contact_id ?>">
                             <i class="fas fa-fw fa-sticky-note me-2"></i>New Note
@@ -452,40 +474,32 @@ if (isset($_GET['contact_id'])) {
                     </div>
                 </div>
 
+                <?php
+                // Link menu: only the items whose pop-up this role may open (includes/modal_permissions.php, roles audit P1d).
+                $contact_link_items = array_values(array_filter([
+                    ['asset', 'fa-desktop', 'Asset'],
+                    ['software', 'fa-cube', 'License'],
+                    ['credential', 'fa-key', 'Credential'],
+                    ['service', 'fa-stream', 'Service'],
+                    ['document', 'fa-folder', 'Document'],
+                    ['file', 'fa-paperclip', 'File'],
+                ], fn($item) => itflow_modal_allowed("contact/contact_link_{$item[0]}.php")));
+                if ($contact_link_items) { ?>
                 <div class="dropdown dropleft">
                     <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-boundary="window"><i class="fas fa-link me-2"></i>Link</button>
                     <div class="dropdown-menu">
-                        <a class="dropdown-item text-dark ajax-modal" href="#"
-                            data-modal-url="modals/contact/contact_link_asset.php?id=<?= $contact_id ?>">
-                            <i class="fa fa-fw fa-desktop me-2"></i>Asset
-                        </a>
+                        <?php foreach ($contact_link_items as $link_pos => [$link_key, $link_icon, $link_label]) { ?>
+                        <?php if ($link_pos > 0) { ?>
                         <div class="dropdown-divider"></div>
+                        <?php } ?>
                         <a class="dropdown-item text-dark ajax-modal" href="#"
-                            data-modal-url="modals/contact/contact_link_software.php?id=<?= $contact_id ?>">
-                            <i class="fa fa-fw fa-cube me-2"></i>License
+                            data-modal-url="modals/contact/contact_link_<?= $link_key ?>.php?id=<?= $contact_id ?>">
+                            <i class="fa fa-fw <?= $link_icon ?> me-2"></i><?= $link_label ?>
                         </a>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item text-dark ajax-modal" href="#"
-                            data-modal-url="modals/contact/contact_link_credential.php?id=<?= $contact_id ?>">
-                            <i class="fa fa-fw fa-key me-2"></i>Credential
-                        </a>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item text-dark ajax-modal" href="#"
-                            data-modal-url="modals/contact/contact_link_service.php?id=<?= $contact_id ?>">
-                            <i class="fa fa-fw fa-stream me-2"></i>Service
-                        </a>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item text-dark ajax-modal" href="#"
-                            data-modal-url="modals/contact/contact_link_document.php?id=<?= $contact_id ?>">
-                            <i class="fa fa-fw fa-folder me-2"></i>Document
-                        </a>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item text-dark ajax-modal" href="#"
-                            data-modal-url="modals/contact/contact_link_file.php?id=<?= $contact_id ?>">
-                            <i class="fa fa-fw fa-paperclip me-2"></i>File
-                        </a>
+                        <?php } ?>
                     </div>
                 </div>
+                <?php } ?>
             </div>
 
             <div class="card card-dark">

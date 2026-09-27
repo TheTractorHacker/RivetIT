@@ -24,7 +24,13 @@ $section_pages = [
     'endpoint'      => ['intune_devices.php', 'rmm_dashboard.php', 'rmm_assets.php', 'rmm_asset.php', 'rmm_alerts.php', 'rmm_scripts.php', 'rmm_checks.php', 'network.php', 'firewalls.php'],
     'backups'       => ['backups.php'],
 ];
-$section_pages['training'] = array_merge($section_pages['training'], ['training_devices.php', 'training_device_setup.php', 'training_pin_slips.php', 'training_locked.php', 'training_awards.php']);
+$section_pages['training'] = array_merge($section_pages['training'], ['training_devices.php', 'training_device_setup.php', 'training_pin_slips.php', 'training_locked.php', 'training_awards.php', 'training_settings.php']);
+
+// Roles audit P0: a module-only (limited) login - no Departments, Tickets/assets/docs or Assets - sees only
+// the modules its role holds: no Dashboard, no Work group, no custom links, and the logo goes to its own
+// home. Everyone else keeps the sidebar exactly as it was.
+$nav_limited = itflow_is_limited_user();
+$nav_home_url = $nav_limited ? itflow_home_url() : '/agent/dashboard.php';
 $section_open = [];
 foreach ($section_pages as $key => $pages) {
     $section_open[$key] = in_array($current_page, $pages, true);
@@ -48,7 +54,7 @@ foreach ($section_pages as $key => $pages) {
         </button>
 
         <div class="navbar-brand w-100">
-            <a href="/agent/dashboard.php" class="d-flex align-items-center gap-2 w-100 text-reset text-decoration-none" style="min-width:0;">
+            <a href="<?php echo nullable_htmlentities($nav_home_url); ?>" class="d-flex align-items-center gap-2 w-100 text-reset text-decoration-none" style="min-width:0;">
                 <?php if (!empty($session_company_logo)) { ?>
                     <img src="/uploads/settings/<?php echo nullable_htmlentities($session_company_logo); ?>" style="max-height:33px;width:auto;object-fit:contain;" alt="">
                 <?php } else { ?>
@@ -61,12 +67,14 @@ foreach ($section_pages as $key => $pages) {
         <div class="collapse navbar-collapse" id="sidebar-menu">
             <ul class="navbar-nav pt-lg-2">
 
+                <?php if (!$nav_limited) { ?>
                 <li class="nav-item<?php if ($current_page == "dashboard.php") { echo " active"; } ?>">
                     <a href="/agent/dashboard.php" class="nav-link<?php if ($current_page == "dashboard.php") { echo " active"; } ?>">
                         <span class="nav-link-icon"><i class="fas fa-tachometer-alt"></i></span>
                         <span class="nav-link-title">Dashboard</span>
                     </a>
                 </li>
+                <?php } ?>
 
                 <?php if (lookupUserPermission("module_rmm_alerts") >= 1) { ?>
                 <li class="nav-item<?php if ($current_page == "alerts.php") { echo " active"; } ?>">
@@ -106,7 +114,7 @@ foreach ($section_pages as $key => $pages) {
                 </li>
                 <?php } ?>
 
-                <?php if ($config_module_enable_crm == 1 && lookupUserPermission("module_sales") >= 1) { ?>
+                <?php if (!$nav_limited && $config_module_enable_crm == 1 && lookupUserPermission("module_sales") >= 1) { ?>
                 <li class="nav-item dropdown mt-2<?php echo $section_open['crm'] ? ' active' : ''; ?>">
                     <a href="#nav-group-crm" class="nav-link dropdown-toggle<?php echo $section_open['crm'] ? ' show' : ''; ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-crm" aria-expanded="<?php echo $section_open['crm'] ? 'true' : 'false'; ?>">
                         <span class="nav-link-icon"><i class="fas fa-funnel-dollar"></i></span>
@@ -186,6 +194,7 @@ foreach ($section_pages as $key => $pages) {
                 </li>
                 <?php } ?>
 
+                <?php if (lookupUserPermission("module_support") >= 1) { // Work = Projects + Calendar, both Tickets/assets/docs (roles audit P1c) ?>
                 <li class="nav-item dropdown mt-2<?php echo $section_open['work'] ? ' active' : ''; ?>">
                     <a href="#nav-group-work" class="nav-link dropdown-toggle<?php echo $section_open['work'] ? ' show' : ''; ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-work" aria-expanded="<?php echo $section_open['work'] ? 'true' : 'false'; ?>">
                         <span class="nav-link-icon"><i class="fas fa-calendar-alt"></i></span>
@@ -207,6 +216,7 @@ foreach ($section_pages as $key => $pages) {
                         </a>
                     </div>
                 </li>
+                <?php } ?>
 
                 <?php if (($config_module_enable_itdoc == 1 && lookupUserPermission("module_support") >= 1 && lookupUserPermission("module_credential") >= 1) || ($config_module_enable_kb == 1 && lookupUserPermission("module_kb") >= 1) || ($config_module_enable_itdoc == 1 && lookupUserPermission("module_support") >= 1)) { ?>
                 <li class="nav-item dropdown mt-2<?php echo $section_open['knowledge'] ? ' active' : ''; ?>">
@@ -319,6 +329,27 @@ foreach ($section_pages as $key => $pages) {
                             <span class="text-truncate">Awarded badges</span>
                         </a>
                         <?php } ?>
+                        <?php if (lookupUserPermission("module_training") >= 3 && empty($session_is_admin)) { // Training level 3 without admin (admins keep Admin > Training; their sidebar is unchanged) ?>
+                        <a href="/agent/training_settings.php" class="dropdown-item<?php if ($current_page == "training_settings.php") { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-sliders-h"></i></span>
+                            <span class="text-truncate">Training settings</span>
+                        </a>
+                        <?php } ?>
+                    </div>
+                </li>
+                <?php } ?>
+
+                <?php if ($config_module_enable_itdoc == 1 && lookupUserPermission("module_support") < 1 && itflow_can_assets(1)) { // P4: the Assets module alone ?>
+                <li class="nav-item dropdown mt-2<?php echo $section_open['infrastructure'] ? ' active' : ''; ?>">
+                    <a href="#nav-group-infrastructure" class="nav-link dropdown-toggle<?php echo $section_open['infrastructure'] ? ' show' : ''; ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-infrastructure" aria-expanded="<?php echo $section_open['infrastructure'] ? 'true' : 'false'; ?>">
+                        <span class="nav-link-icon"><i class="fas fa-server"></i></span>
+                        <span class="nav-link-title">Infrastructure</span>
+                    </a>
+                    <div class="dropdown-menu<?php echo $section_open['infrastructure'] ? ' show' : ''; ?>" id="nav-group-infrastructure">
+                        <a href="/agent/assets.php" class="dropdown-item<?php if ($current_page == "assets.php" || $current_page == "asset_details.php") { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-desktop"></i></span>
+                            <span class="text-truncate">Assets</span>
+                        </a>
                     </div>
                 </li>
                 <?php } ?>
@@ -370,7 +401,7 @@ foreach ($section_pages as $key => $pages) {
                 </li>
                 <?php } ?>
 
-                <?php if ($config_module_enable_accounting == 1 && lookupUserPermission("module_sales") >= 1) { ?>
+                <?php if (!$nav_limited && $config_module_enable_accounting == 1 && lookupUserPermission("module_sales") >= 1) { ?>
                 <li class="nav-item dropdown mt-2<?php echo $section_open['billing'] ? ' active' : ''; ?>">
                     <a href="#nav-group-billing" class="nav-link dropdown-toggle<?php echo $section_open['billing'] ? ' show' : ''; ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-billing" aria-expanded="<?php echo $section_open['billing'] ? 'true' : 'false'; ?>">
                         <span class="nav-link-icon"><i class="fas fa-file-invoice-dollar"></i></span>
@@ -408,7 +439,7 @@ foreach ($section_pages as $key => $pages) {
                         </a>
                     </div>
                 </li>
-                <?php } elseif ($config_module_enable_ticket_charges == 1 && lookupUserPermission("module_sales") >= 1) { ?>
+                <?php } elseif (!$nav_limited && $config_module_enable_ticket_charges == 1 && lookupUserPermission("module_sales") >= 1) { ?>
                 <li class="nav-item<?php if ($current_page == "products.php") { echo " active"; } ?>">
                     <a href="/agent/products.php" class="nav-link<?php if ($current_page == "products.php") { echo " active"; } ?>">
                         <span class="nav-link-icon"><i class="fas fa-box-open"></i></span>
@@ -417,7 +448,7 @@ foreach ($section_pages as $key => $pages) {
                 </li>
                 <?php } ?>
 
-                <?php if ($config_module_enable_accounting == 1) { ?>
+                <?php if (!$nav_limited && $config_module_enable_accounting == 1 && lookupUserPermission("module_financial") >= 1) { ?>
                 <li class="nav-item dropdown mt-2<?php echo $section_open['finance'] ? ' active' : ''; ?>">
                     <a href="#nav-group-finance" class="nav-link dropdown-toggle<?php echo $section_open['finance'] ? ' show' : ''; ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-finance" aria-expanded="<?php echo $section_open['finance'] ? 'true' : 'false'; ?>">
                         <span class="nav-link-icon"><i class="fas fa-piggy-bank"></i></span>
@@ -454,23 +485,24 @@ foreach ($section_pages as $key => $pages) {
                             <span class="text-truncate">Payroll</span>
                         </a>
                         <?php } ?>
-                        <?php } ?>
                         <a href="/agent/trips.php" class="dropdown-item<?php if ($current_page == "trips.php") { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-route"></i></span>
                             <span class="text-truncate">Trips</span>
                         </a>
+                        <?php } // Trips (agent/trips.php needs Finance) moved inside the Finance check - roles audit P1i ?>
                     </div>
                 </li>
                 <?php } ?>
 
-                <?php if (($config_module_enable_rmm && lookupUserPermission("module_rmm") >= 1) || $config_module_enable_intune) { ?>
+                <?php $nav_intune = $config_module_enable_intune && lookupUserPermission("module_client") >= 1; // roles audit P1i ?>
+                <?php if (($config_module_enable_rmm && lookupUserPermission("module_rmm") >= 1) || $nav_intune) { ?>
                 <li class="nav-item dropdown mt-2<?php echo $section_open['endpoint'] ? ' active' : ''; ?>">
                     <a href="#nav-group-endpoints" class="nav-link dropdown-toggle<?php echo $section_open['endpoint'] ? ' show' : ''; ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-endpoints" aria-expanded="<?php echo $section_open['endpoint'] ? 'true' : 'false'; ?>">
                         <span class="nav-link-icon"><i class="fas fa-desktop"></i></span>
                         <span class="nav-link-title">Endpoints</span>
                     </a>
                     <div class="dropdown-menu<?php echo $section_open['endpoint'] ? ' show' : ''; ?>" id="nav-group-endpoints">
-                        <?php if ($config_module_enable_intune) { ?>
+                        <?php if ($nav_intune) { ?>
                         <a href="/agent/intune_devices.php" class="dropdown-item<?php if ($current_page == "intune_devices.php") { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-laptop"></i></span>
                             <span class="text-truncate">Intune Devices</span>
@@ -536,11 +568,13 @@ foreach ($section_pages as $key => $pages) {
                 <?php } ?>
 
                 <?php
-                $sql_custom_links = mysqli_query($mysqli, "SELECT * FROM custom_links WHERE custom_link_location = 1 AND custom_link_archived_at IS NULL
+                // Custom links are IT links (docs sites, Odoo, ...): hidden from module-only (limited) logins,
+                // shown to everyone else as before (roles audit P1i; per-link visibility would need a column).
+                $sql_custom_links = $nav_limited ? false : mysqli_query($mysqli, "SELECT * FROM custom_links WHERE custom_link_location = 1 AND custom_link_archived_at IS NULL
                     ORDER BY custom_link_order ASC, custom_link_name ASC"
                 );
 
-                while ($row = mysqli_fetch_assoc($sql_custom_links)) {
+                while ($sql_custom_links && $row = mysqli_fetch_assoc($sql_custom_links)) {
                     $custom_link_name = nullable_htmlentities($row['custom_link_name']);
                     $custom_link_uri = sanitize_url($row['custom_link_uri']);
                     $custom_link_icon_class = itflow_nav_icon_class($row['custom_link_icon']);

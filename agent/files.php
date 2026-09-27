@@ -15,6 +15,9 @@ if (!isset($_GET['client_id']) || !intval($_GET['client_id'])) {
 
 require_once "includes/inc_all_client.php";
 
+// Files and documents belong to Tickets, assets & docs, like their pop-ups and save handlers (roles audit P1b/P1d).
+enforceUserPermission('module_support');
+
 // Folder
 if (!empty($_GET['folder_id'])) {
     $folder_id = intval($_GET['folder_id']);

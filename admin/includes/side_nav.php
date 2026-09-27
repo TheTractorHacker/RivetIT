@@ -23,7 +23,7 @@
              from css/itflow_bs5_bridge.css, so the brand box contributes no padding
              of its own (p-0) and lets the link fill it (w-100). -->
         <div class="navbar-brand p-0 w-100">
-            <a class="section-nav-back" href="/agent/<?php echo $config_start_page ?>">
+            <a class="section-nav-back" href="<?php echo nullable_htmlentities(itflow_home_url()); // start page; a module-only login's own home (roles audit P0) ?>">
                 <i class="fas fa-arrow-left"></i> Administration
             </a>
         </div>

@@ -16,9 +16,14 @@ $like = '%' . $q_raw . '%';
 // Client-scope restriction, mirroring tickets.php/appointments.php, applied per-table below.
 $scope_clause_for = fn(string $client_id_col) => api_client_scope_sql($client_id_col);
 
+// Roles audit P1g/F8: every section checks the module that owns it, like the web search.
+$search_support = api_has_module_permission($mysqli, $uid, 'module_support');
+$search_clients = api_has_module_permission($mysqli, $uid, 'module_client');
+$search_assets  = $search_support || api_has_module_permission($mysqli, $uid, 'module_assets');
+
 // Tickets
 $tickets = [];
-$rows = api_q(
+$rows = !$search_support ? [] : api_q(
     "SELECT t.ticket_id, t.ticket_number, t.ticket_subject, t.ticket_priority,
             ts.ticket_status_name, c.client_name
      FROM tickets t
@@ -44,7 +49,7 @@ foreach ($rows as $row) {
 
 // Clients
 $clients = [];
-$rows = api_q(
+$rows = !$search_clients ? [] : api_q(
     // Departments link to locations via department_sites (many-to-many, added for
     // multi-location support) - locations.location_client_id is no longer written by the
     // department create/edit flows, so joining on it directly always missed.
@@ -149,9 +154,9 @@ if (api_has_module_permission($mysqli, $uid, 'module_kb')) {
     }
 }
 
-// Assets
+// Assets (Assets module or Tickets/assets/docs - P4)
 $assets = [];
-$rows = api_q(
+$rows = !$search_assets ? [] : api_q(
     "SELECT a.asset_id, a.asset_name, a.asset_tag, a.asset_serial, a.asset_make, a.asset_model, c.client_name
      FROM assets a LEFT JOIN clients c ON a.asset_client_id = c.client_id
      WHERE a.asset_archived_at IS NULL

@@ -17,7 +17,9 @@ if (file_exists("config.php")) {
     // If user is an agent
     if (isset($_SESSION['logged'])) {
         require_once "includes/load_global_settings.php";
-        header("Location: /agent/$config_start_page");
+        // Roles audit P0: a module-only login goes to its own module; everyone else to the start page.
+        $limited_home = itflow_limited_home_url_for_user(intval($_SESSION['user_id'] ?? 0));
+        header("Location: " . ($limited_home ?? "/agent/$config_start_page"));
         exit();
 
     // If user is a client

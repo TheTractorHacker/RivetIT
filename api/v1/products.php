@@ -1,7 +1,14 @@
 <?php
 // GET /api/v1/products   - list products/services for charge selection
 defined('FROM_API') || die();
+require_once __DIR__ . '/includes/api_permissions.php';
 if ($method !== 'GET') api_error(405, 'Method not allowed');
+
+// Products belong to Sales on the web; the app lists them to pick ticket charges, so Tickets/assets/docs
+// also reads them (the Technician holds both). Roles audit P1g / security review 2026-09-26.
+if (!api_has_module_permission($mysqli, intval($api_user_id), 'module_sales')) {
+    api_require_module_permission($mysqli, intval($api_user_id), 'module_support');
+}
 
 $type   = mysqli_real_escape_string($mysqli, $_GET['type'] ?? '');
 $search = mysqli_real_escape_string($mysqli, $_GET['search'] ?? '');

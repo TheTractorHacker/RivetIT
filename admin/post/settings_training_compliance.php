@@ -14,6 +14,10 @@
  * training_reconcile_now, training_snapshot_now. Each validates the CSRF token, runs the service,
  * then logs (logAction + an audit event), flashes and redirects back.
  *
+ * The settings save, Recalculate and Snapshot (and the schema check) run in the shared
+ * ITFlow\Training\Settings\SettingsService, which agent/training_settings.php (Training level 3)
+ * uses too. The Odoo actions stay here: they are admin-only (roles audit 2026-09-26, P2).
+ *
  * toastr renders flash text as HTML, so every flash that can carry Odoo- or DB-derived text goes
  * through nullable_htmlentities(). Odoo calls (Check now) run outside any transaction; the checker
  * takes the `trodoo` named lock itself, so it never overlaps a directory sync.
@@ -22,9 +26,7 @@
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
 use ITFlow\Training\Api\ApiException;
-use ITFlow\Training\Core\Clock;
 use ITFlow\Training\Core\Db;
-use ITFlow\Training\Core\RecordsSettings;
 use ITFlow\Training\Directory\OdooLinkChecker;
 use ITFlow\Training\Directory\OdooTarget;
 
@@ -42,14 +44,8 @@ if ($tc_action !== null) {
 
     validateCSRFToken($_POST['csrf_token'] ?? '');
 
-    $tc_schema_ok = false;
-    if (!empty($config_training_schema_ready) && class_exists(RecordsSettings::class)) {
-        try {
-            $tc_schema_ok = RecordsSettings::fromDb($mysqli)->schemaReady;
-        } catch (\Throwable $e) {
-            $tc_schema_ok = false;
-        }
-    }
+    $tc_schema_ok = (new \ITFlow\Training\Settings\SettingsService($mysqli, intval($session_user_id), $session_name))
+        ->complianceSchemaReady(!empty($config_training_schema_ready));
     if (!$tc_schema_ok) {
         flash_alert('Run the database update first: the Training compliance tables are not installed yet.', 'error');
         redirect();
@@ -86,83 +82,13 @@ if ($tc_action !== null) {
 }
 
 // 1 + 4: defaults and the nightly-sync switch -------------------------------------------------------
+// Validation and the write live in the shared Training settings service (also used by
+// agent/training_settings.php for Training level 3, without the hire-date fill and the sync switch).
 if ($tc_action === 'edit_training_compliance_settings') {
 
-    $tc_section = ($_POST['tc_section'] ?? '') === 'odoo_sync' ? 'odoo_sync' : 'defaults';
-    $tc_old = Db::one($mysqli, 'SELECT config_training_due_soon_days, config_training_reissue_days, config_training_reopen_window_days,
-            config_training_evidence_max_mb, config_training_compliance_target_pct, config_training_hire_fill_since, config_training_odoo_sync_enabled
-        FROM settings WHERE company_id = 1') ?? [];
-
-    if ($tc_section === 'odoo_sync') {
-        $tc_new = ['config_training_odoo_sync_enabled' => !empty($_POST['config_training_odoo_sync_enabled']) ? 1 : 0];
-        Db::exec($mysqli, 'UPDATE settings SET config_training_odoo_sync_enabled = ? WHERE company_id = 1', 'i', [$tc_new['config_training_odoo_sync_enabled']]);
-    } else {
-        $tc_int = static function (string $k, int $min, int $max): ?int {
-            $v = trim((string) ($_POST[$k] ?? ''));
-            if (preg_match('/^\d{1,6}$/', $v) !== 1 || (int) $v < $min || (int) $v > $max) {
-                return null;
-            }
-            return (int) $v;
-        };
-        $tc_new = [
-            'config_training_due_soon_days' => $tc_int('config_training_due_soon_days', 0, 365),
-            'config_training_reissue_days' => $tc_int('config_training_reissue_days', 1, 365),
-            'config_training_reopen_window_days' => $tc_int('config_training_reopen_window_days', 0, 365),
-            'config_training_evidence_max_mb' => $tc_int('config_training_evidence_max_mb', 1, 95),
-            'config_training_compliance_target_pct' => $tc_int('config_training_compliance_target_pct', 1, 100),
-        ];
-        $tc_labels = [
-            'config_training_due_soon_days' => '"Due soon" window (0 to 365 days)',
-            'config_training_reissue_days' => 'Redo after a voided record (1 to 365 days)',
-            'config_training_reopen_window_days' => 'Reopen window (0 to 365 days)',
-            'config_training_evidence_max_mb' => 'Evidence scan upload (1 to 95 MB)',
-            'config_training_compliance_target_pct' => 'Compliance target (1 to 100%)',
-        ];
-        $tc_bad = array_keys(array_filter($tc_new, static fn($v) => $v === null));
-        if ($tc_bad) {
-            flash_alert('Nothing was saved. Check: ' . nullable_htmlentities(implode(', ', array_map(static fn($k) => $tc_labels[$k], $tc_bad))) . '.', 'error');
-            redirect();
-        }
-        $tc_hire = trim((string) ($_POST['config_training_hire_fill_since'] ?? ''));
-        if ($tc_hire !== '') {
-            $tc_max = Clock::addDays(Clock::todayLocal(), 366);
-            if (!Clock::isYmd($tc_hire) || $tc_hire < '2000-01-01' || $tc_hire > $tc_max) {
-                flash_alert('Nothing was saved. The hire-date fill date must be a real date (or empty to leave hire dates alone).', 'error');
-                redirect();
-            }
-        }
-        $tc_new['config_training_hire_fill_since'] = $tc_hire === '' ? null : $tc_hire;
-        Db::exec($mysqli, 'UPDATE settings SET config_training_due_soon_days = ?, config_training_reissue_days = ?, config_training_reopen_window_days = ?,
-                config_training_evidence_max_mb = ?, config_training_compliance_target_pct = ?, config_training_hire_fill_since = ?
-            WHERE company_id = 1', 'iiiiis', array_values($tc_new));
-    }
-
-    $tc_changed = [];
-    foreach ($tc_new as $tc_col => $tc_val) {
-        $tc_before = $tc_old[$tc_col] ?? null;
-        if ((string) $tc_before !== (string) $tc_val) {
-            $tc_changed[$tc_col] = ['from' => $tc_before, 'to' => $tc_val];
-        }
-    }
-
-    logAction('Training', 'Edit', "$session_name edited Training compliance settings");
-    if ($tc_changed) {
-        try {
-            \ITFlow\Audit\AuditService::record('training.settings_changed', $session_user_id, 'settings', 1, 'update',
-                "$session_name changed Training compliance settings", ['changed' => $tc_changed]);
-        } catch (\Throwable $e) {
-            error_log('Training compliance: audit failed: ' . $e->getMessage());
-        }
-    }
-
-    if ($tc_section === 'odoo_sync') {
-        flash_alert($tc_new['config_training_odoo_sync_enabled'] ? 'Nightly Odoo directory sync turned on.' : 'Nightly Odoo directory sync turned off.');
-    } elseif (array_key_exists('config_training_hire_fill_since', $tc_changed) && $tc_new['config_training_hire_fill_since'] !== null) {
-        flash_alert(nullable_htmlentities('Training compliance settings saved. Empty hire dates of Odoo employees created on or after '
-            . $tc_new['config_training_hire_fill_since'] . ' are filled on the next directory sync.'));
-    } else {
-        flash_alert('Training compliance settings saved.');
-    }
+    $tc_service = new \ITFlow\Training\Settings\SettingsService($mysqli, intval($session_user_id), $session_name);
+    $tc_out = (($_POST['tc_section'] ?? '') === 'odoo_sync') ? $tc_service->saveOdooSync($_POST) : $tc_service->saveComplianceDefaults($_POST, true);
+    flash_alert($tc_out['message'], $tc_out['type']);
     redirect();
 }
 
@@ -287,44 +213,11 @@ if (in_array($tc_action, ['training_odoo_link_relink', 'training_odoo_link_unlin
     redirect();
 }
 
-// 3: Recalculate now -----------------------------------------------------------------------------
-if ($tc_action === 'training_reconcile_now') {
+// 3: Recalculate now / Snapshot now (shared Training settings service) -------------------------------
+if ($tc_action === 'training_reconcile_now' || $tc_action === 'training_snapshot_now') {
 
-    @set_time_limit(95);
-    try {
-        $tc_rec = (new \ITFlow\Training\Assign\AssignmentService(\ITFlow\Training\Core\Access::ctx($mysqli)))->reconcile(null, 'reconcile_now');
-    } catch (\Throwable $e) {
-        error_log('Training reconcile (admin): ' . get_class($e) . ': ' . $e->getMessage());
-        flash_alert('Recalculating assignments failed. The details were written to the server error log.', 'error');
-        redirect();
-    }
-    if (!empty($tc_rec['skipped_busy'])) {
-        flash_alert('Another recalculation is running. Try again in a minute.', 'warning');
-        redirect();
-    }
-    $tc_line = "{$tc_rec['created']} created, {$tc_rec['reopened']} reopened, {$tc_rec['completed']} completed, {$tc_rec['cancelled']} cancelled"
-        . " for {$tc_rec['contacts']} people in {$tc_rec['ms']} ms" . ($tc_rec['failed_chunks'] ? "; {$tc_rec['failed_chunks']} batch(es) failed" : '');
-    logAction('Training', 'Edit', "$session_name recalculated training assignments ($tc_line)");
-    flash_alert(nullable_htmlentities('Assignments recalculated: ' . $tc_line . '.'), $tc_rec['failed_chunks'] ? 'warning' : 'success');
-    redirect();
-}
-
-// 3: Snapshot now ---------------------------------------------------------------------------------
-if ($tc_action === 'training_snapshot_now') {
-
-    @set_time_limit(95);
-    try {
-        $tc_snap = \ITFlow\Training\Reports\SnapshotService::capture($mysqli, Clock::todayLocal());
-    } catch (\Throwable $e) {
-        error_log('Training snapshot (admin): ' . get_class($e) . ': ' . $e->getMessage());
-        flash_alert('The snapshot could not be captured. The details were written to the server error log.', 'error');
-        redirect();
-    }
-    if (!empty($tc_snap['skipped'])) {
-        flash_alert('A snapshot is being captured right now. Try again in a minute.', 'warning');
-        redirect();
-    }
-    logAction('Training', 'Edit', "$session_name captured the training compliance snapshot for {$tc_snap['date']} ({$tc_snap['rows']} rows)");
-    flash_alert(nullable_htmlentities("Snapshot for {$tc_snap['date']} captured ({$tc_snap['rows']} rows)."));
+    $tc_service = new \ITFlow\Training\Settings\SettingsService($mysqli, intval($session_user_id), $session_name);
+    $tc_out = $tc_action === 'training_reconcile_now' ? $tc_service->reconcileNow() : $tc_service->snapshotNow();
+    flash_alert($tc_out['message'], $tc_out['type']);
     redirect();
 }

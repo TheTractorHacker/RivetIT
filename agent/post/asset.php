@@ -10,7 +10,7 @@ if (isset($_POST['add_asset'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     require_once 'asset_model.php';
 
@@ -55,7 +55,9 @@ if (isset($_POST['add_asset'])) {
     // Add Primary Interface
     mysqli_query($mysqli,"INSERT INTO asset_interfaces SET interface_name = '01', interface_mac = '$mac', interface_ip = '$ip', interface_nat_ip = '$nat_ip', interface_ipv6 = '$ipv6', interface_primary = 1, interface_network_id = $network, interface_asset_id = $asset_id");
 
-    if (!empty($_POST['username'])) {
+    // The optional login becomes a Credentials record: only with Credentials edit access (an Assets-only
+    // role cannot create one this way - roles audit P4).
+    if (!empty($_POST['username']) && lookupUserPermission('module_credential') >= 2) {
         $username = trim(mysqli_real_escape_string($mysqli, encryptCredentialEntry($_POST['username'])));
         $password = trim(mysqli_real_escape_string($mysqli, encryptCredentialEntry($_POST['password'])));
 
@@ -84,7 +86,7 @@ if (isset($_POST['edit_asset'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     require_once 'asset_model.php';
 
@@ -176,7 +178,7 @@ if (isset($_GET['archive_asset'])) {
 
     validateCSRFToken($_GET['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $asset_id = intval($_GET['archive_asset']);
 
@@ -205,7 +207,7 @@ if (isset($_GET['restore_asset'])) {
 
     validateCSRFToken($_GET['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $asset_id = intval($_GET['restore_asset']);
 
@@ -234,7 +236,7 @@ if (isset($_GET['delete_asset'])) {
 
     validateCSRFToken($_GET['csrf_token']);
 
-    enforceUserPermission('module_support', 3);
+    enforceAssetPermission(3);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $asset_id = intval($_GET['delete_asset']);
 
@@ -308,7 +310,7 @@ if (isset($_POST['bulk_assign_asset_location'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $location_id = intval($_POST['bulk_location_id']);
 
@@ -356,7 +358,7 @@ if (isset($_POST['bulk_assign_asset_physical_location'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $physical_location = sanitizeInput($_POST['physical_location']);
 
@@ -396,7 +398,7 @@ if (isset($_POST['bulk_transfer_client_asset'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $new_client_id = intval($_POST['bulk_client_id']);
 
@@ -486,7 +488,7 @@ if (isset($_POST['bulk_assign_asset_contact'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $contact_id = intval($_POST['bulk_contact_id']);
 
@@ -536,7 +538,7 @@ if (isset($_POST['bulk_edit_asset_status'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $status = sanitizeInput($_POST['bulk_status']);
 
@@ -577,7 +579,7 @@ if (isset($_POST['bulk_edit_asset_type'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $type = sanitizeInput($_POST['bulk_type']);
 
@@ -615,7 +617,7 @@ if (isset($_POST['bulk_favorite_assets'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     if (isset($_POST['asset_ids'])) {
 
@@ -653,7 +655,7 @@ if (isset($_POST['bulk_unfavorite_assets'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     if (isset($_POST['asset_ids'])) {
 
@@ -691,7 +693,7 @@ if (isset($_POST['bulk_archive_assets'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     if (isset($_POST['asset_ids'])) {
 
@@ -732,7 +734,7 @@ if (isset($_POST['bulk_restore_assets'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     if (isset($_POST['asset_ids'])) {
 
@@ -774,7 +776,7 @@ if (isset($_POST['bulk_delete_assets'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 3);
+    enforceAssetPermission(3);   // Assets or Tickets/assets/docs (roles audit P4)
 
     if (isset($_POST['asset_ids'])) {
 
@@ -1081,7 +1083,7 @@ if (isset($_POST["import_assets_csv"])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $client_id = intval($_POST['client_id']);
 
@@ -1326,7 +1328,7 @@ if (isset($_POST['export_assets_csv'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support');
+    enforceAssetPermission(1);   // Assets or Tickets/assets/docs (roles audit P4)
 
     if ($_POST['client_id']) {
         $client_id = intval($_POST['client_id']);
@@ -1387,7 +1389,7 @@ if (isset($_POST['add_asset_interface'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     // 2) Gather posted values
     $interface_id = intval($_POST['interface_id']);
@@ -1462,7 +1464,7 @@ if (isset($_POST['add_asset_multiple_interfaces'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $asset_id = intval($_POST['asset_id']);
     $interface_start = intval($_POST['interface_start']);
@@ -1509,7 +1511,7 @@ if (isset($_POST['edit_asset_interface'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     // Interface info
     $interface_id = intval($_POST['interface_id']);
@@ -1590,7 +1592,7 @@ if (isset($_GET['delete_asset_interface'])) {
 
     validateCSRFToken($_GET['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $interface_id = intval($_GET['delete_asset_interface']);
 
@@ -1635,7 +1637,7 @@ if (isset($_POST['bulk_edit_asset_interface_type'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $type = sanitizeInput($_POST['bulk_type']);
 
@@ -1681,7 +1683,7 @@ if (isset($_POST['bulk_edit_asset_interface_network'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $network_id = intval($_POST['bulk_network']);
 
@@ -1729,7 +1731,7 @@ if (isset($_POST['bulk_edit_asset_interface_ip_dhcp'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     if (isset($_POST['interface_ids'])) {
 
@@ -1773,7 +1775,7 @@ if (isset($_POST['bulk_delete_asset_interfaces'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     if (isset($_POST['interface_ids'])) {
 
@@ -1816,7 +1818,7 @@ if (isset($_POST["import_client_asset_interfaces_csv"])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support', 2);
+    enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $asset_id = intval($_POST['asset_id']);
     $file_name = $_FILES["file"]["tmp_name"];
@@ -1971,7 +1973,7 @@ if (isset($_POST['export_client_asset_interfaces_csv'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_support');
+    enforceAssetPermission(1);   // Assets or Tickets/assets/docs (roles audit P4)
 
     $asset_id = intval($_POST['asset_id']);
 

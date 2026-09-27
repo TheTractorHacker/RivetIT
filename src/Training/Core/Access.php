@@ -123,6 +123,22 @@ final class Access
         return $l;
     }
 
+    /**
+     * Whether the session user may see the Assets list (Assets or Tickets/assets/docs view; admins always).
+     * Device setup's "It's in Assets" path lists asset names, serials, tags and who has each asset, so it
+     * needs this on top of Training kiosk Full (security review 2026-09-26). "This device isn't in Assets"
+     * doesn't.
+     */
+    public static function canAssets(): bool
+    {
+        if (function_exists('itflow_can_assets')) {
+            return itflow_can_assets(1);
+        }
+        return false;
+    }
+
+    public const ASSETS_NEEDED = 'Setting up a device from Assets needs view access to Assets. Choose "This device isn\'t in Assets" instead, or ask an administrator.';
+
     /** JSON endpoints for training devices and PINs: 403 forbidden below $min (the Router already required module_training >= 1). */
     public static function apiKiosk(int $min): void
     {

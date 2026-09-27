@@ -5,6 +5,8 @@ if (isset($_GET['client_id'])) {
     $client_url = "client_id=$client_id&";
 } else {
     require_once "includes/inc_all.php";
+    // Company-wide contracts: Departments, like the department contracts list (roles audit P1b/F9).
+    enforceUserPermission('module_client');
     $client_url = '';
     $client_id = 0;
 }
@@ -34,10 +36,12 @@ $warn_date = date('Y-m-d', strtotime('+45 days'));
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-file-contract me-2"></i>Contracts</h3>
         <div class="card-tools">
+            <?php if (itflow_modal_allowed('contract/contract_add.php')) { // contract pop-ups and saves need Tickets, assets & docs ?>
             <button type="button" class="btn btn-primary ajax-modal"
                 data-modal-url="modals/contract/contract_add.php?<?= $client_url ?>">
                 <i class="fas fa-plus"></i><span class="d-none d-lg-inline ms-2">New Contract</span>
             </button>
+            <?php } ?>
         </div>
     </div>
     <div class="card-body">

@@ -2,7 +2,7 @@
 
 require_once '../../../includes/modal_header.php';
 
-enforceUserPermission('module_support', 2);
+enforceAssetPermission(2);   // Assets (module_assets, DB 2.6.95+) or Tickets, assets & docs, edit level (roles audit P4)
 
 $interface_id = intval($_GET['id']);
 
@@ -61,7 +61,7 @@ ob_start();
     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
     <input type="hidden" name="interface_id" value="<?php echo $interface_id; ?>">
 
-    <div class="modal-body" <?php if (lookupUserPermission('module_support') <= 1) { echo 'inert'; } ?>>
+    <div class="modal-body" <?php if (!itflow_can_assets(2)) { echo 'inert'; } ?>>
 
         <ul class="nav nav-pills nav-justified mb-3">
             <li class="nav-item">

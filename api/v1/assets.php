@@ -6,7 +6,10 @@ require_once __DIR__ . '/includes/api_permissions.php';
 if ($method !== 'GET') api_error(405, 'Method not allowed');
 
 $uid = $api_user_id;
-api_require_module_permission($mysqli, $uid, 'module_support');
+// Assets module OR Tickets/assets/docs (roles audit P4 - "Training + Assets" without tickets).
+if (!api_has_module_permission($mysqli, $uid, 'module_assets')) {
+    api_require_module_permission($mysqli, $uid, 'module_support');
+}
 
 // Client-scope restriction, mirroring tickets.php/client_tabs.php.
 $asset_client_scope_clause = api_client_scope_sql('a.asset_client_id');
@@ -93,7 +96,8 @@ api_response(200, [
     'location_city'  => $row['location_city'] ?? '',
     'location_state' => $row['location_state'] ?? '',
     'contact_name'   => $row['contact_name'] ?? '',
-    'contact_phone'  => $row['contact_phone'] ?? '',
+    // People data needs Departments: an Assets role gets the name only (security review 2026-09-26).
+    'contact_phone'  => api_has_module_permission($mysqli, $uid, 'module_client') ? ($row['contact_phone'] ?? '') : '',
     'client'         => $row['client_name'],
     'created_at'     => $row['asset_created_at'],
     'purchase_date'  => $row['asset_purchase_date'] ?? '',

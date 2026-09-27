@@ -30,7 +30,9 @@ $module = str_ireplace('_details', '', $module);
 //  Eventually, it would be nice to only specifically load what we need like we do for admins
 
 foreach (glob("post/*.php") as $user_module) {
-    if (!preg_match('/_model\.php$/', basename($user_module))) {
+    // itflow_post_handler_allowed(): every handler for full agents (as before); for a module-only (limited)
+    // login only its own modules' handlers - logout and the misc actions below are always loaded.
+    if (!preg_match('/_model\.php$/', basename($user_module)) && itflow_post_handler_allowed($user_module)) {
         require_once $user_module;
     }
 }

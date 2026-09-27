@@ -6,13 +6,15 @@
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
+require_once __DIR__ . '/../modals/role/role_lib.php';
+
 if (isset($_POST['add_role'])) {
 
-    validateCSRFToken($_POST['csrf_token']);
+    validateCSRFToken($_POST['csrf_token'] ?? null);
 
     $name = sanitizeInput($_POST['role_name']);
     $description = sanitizeInput($_POST['role_description']);
-    $admin = intval($_POST['role_is_admin']);
+    $admin = intval($_POST['role_is_admin'] ?? 0) === 1 ? 1 : 0;
 
     mysqli_query($mysqli, "INSERT INTO user_roles SET role_name = '$name', role_description = '$description', role_is_admin = $admin");
 
@@ -20,15 +22,8 @@ if (isset($_POST['add_role'])) {
 
     // Insert role permissions (only if not admin)
     if ($admin == 0) {
-        foreach ($_POST as $key => $value) {
-            if (str_contains($key, '##module_')) {
-                $module_id = intval(explode('##', $key)[0]);
-                $access_level = intval($value);
-
-                if ($access_level > 0) {
-                    mysqli_query($mysqli, "INSERT INTO user_role_permissions SET user_role_id = $role_id, module_id = $module_id, user_role_permission_level = $access_level");
-                }
-            }
+        foreach (itflow_role_posted_levels($mysqli, $_POST) as $module_id => $access_level) {
+            mysqli_query($mysqli, "INSERT INTO user_role_permissions SET user_role_id = $role_id, module_id = $module_id, user_role_permission_level = $access_level");
         }
     }
 
@@ -42,27 +37,27 @@ if (isset($_POST['add_role'])) {
 
 if (isset($_POST['edit_role'])) {
 
-    validateCSRFToken($_POST['csrf_token']);
+    validateCSRFToken($_POST['csrf_token'] ?? null);
 
     $role_id = intval($_POST['role_id']);
     $name = sanitizeInput($_POST['role_name']);
     $description = sanitizeInput($_POST['role_description']);
-    $admin = intval($_POST['role_is_admin']);
+    $admin = intval($_POST['role_is_admin'] ?? 0) === 1 ? 1 : 0;
+
+    // The last administrator role that still has an active user keeps admin access, whatever
+    // the form sent: otherwise nobody could reach Admin (or this page) again.
+    $was_admin = intval(getFieldById('user_roles', $role_id, 'role_is_admin')) === 1;
+    if ($was_admin && $admin === 0 && itflow_role_other_admin_roles($mysqli, $role_id) === 0) {
+        flash_alert("Admin access was not removed: this is the only administrator role with an active user. Give another role admin access (and a user) first.", 'error');
+        redirect();
+    }
 
     mysqli_query($mysqli, "UPDATE user_roles SET role_name = '$name', role_description = '$description', role_is_admin = $admin WHERE role_id = $role_id");
 
     // Update role access levels
     mysqli_query($mysqli, "DELETE FROM user_role_permissions WHERE user_role_id = $role_id");
-    foreach ($_POST as $key => $value) {
-        if (str_contains($key, '##module_')){
-            $module_id = intval(explode('##', $key)[0]);
-            $access_level = intval($value);
-
-            if ($access_level > 0) {
-                mysqli_query($mysqli, "INSERT INTO user_role_permissions SET user_role_id = $role_id, module_id = $module_id, user_role_permission_level = $access_level");
-            }
-        }
-
+    foreach (itflow_role_posted_levels($mysqli, $_POST) as $module_id => $access_level) {
+        mysqli_query($mysqli, "INSERT INTO user_role_permissions SET user_role_id = $role_id, module_id = $module_id, user_role_permission_level = $access_level");
     }
 
     logAction("User Role", "Edit", "$session_name edited user role $name", 0, $role_id);
@@ -75,7 +70,7 @@ if (isset($_POST['edit_role'])) {
 
 if (isset($_GET['archive_role'])) {
 
-    validateCSRFToken($_GET['csrf_token']);
+    validateCSRFToken($_GET['csrf_token'] ?? null);
 
     $role_id = intval($_GET['archive_role']);
 
@@ -84,6 +79,13 @@ if (isset($_GET['archive_role'])) {
     $role_user_count = mysqli_fetch_row($sql_role_user_count)[0];
     if ($role_user_count != 0) {
         flash_alert("Role must not in use to archive it", 'error');
+
+        redirect();
+    }
+
+    // Never archive the last administrator role (the one other admins would have to be moved to)
+    if (intval(getFieldById('user_roles', $role_id, 'role_is_admin')) === 1 && itflow_role_other_admin_roles($mysqli, $role_id) === 0) {
+        flash_alert("This is the last administrator role, so it can't be archived.", 'error');
 
         redirect();
     }

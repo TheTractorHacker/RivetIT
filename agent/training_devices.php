@@ -71,7 +71,7 @@ render_page_header(
                 <span class="me-auto"><?= $tr_ks->odooPinEnabled
                     ? 'Odoo-PIN sign-in is ON: people with a usable Odoo PIN sign in with it; everyone else uses a training PIN.'
                     : 'Odoo-PIN sign-in is OFF — everyone uses training PINs.' ?></span>
-                <?php if ($tr_ctx->isAdmin) { ?><a class="btn btn-sm btn-outline-dark" href="/admin/settings_training_kiosk.php">Kiosk settings</a><?php } ?>
+                <?php if ($tr_ctx->isAdmin) { ?><a class="btn btn-sm btn-outline-dark" href="/admin/settings_training_kiosk.php">Kiosk settings</a><?php } elseif ($tr_ctx->level >= 3) { ?><a class="btn btn-sm btn-outline-dark" href="/agent/training_settings.php#kiosk">Kiosk settings</a><?php } ?>
             </div>
             <div class="card">
                 <div class="card-body border-bottom py-3">

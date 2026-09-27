@@ -9,6 +9,7 @@ $sql = mysqli_query(
     "SELECT * FROM notifications
     WHERE notification_user_id = $session_user_id
     AND notification_dismissed_at IS NULL
+    " . itflow_notification_type_sql(intval($session_user_id)) . "
     ORDER BY notification_id DESC"
 );
 

@@ -116,6 +116,9 @@ final class KioskAdminActions
     public static function kioskAssetOptions(Ctx $c, ApiContext $a): array
     {
         Access::apiKiosk(3);
+        if (!Access::canAssets()) {
+            throw ApiException::forbidden(Access::ASSETS_NEEDED);
+        }
         return ['assets' => (new DeviceEnrollment($c, self::keys()))->assetOptions((string) ($a->str('q', 80, false, true) ?? ''))];
     }
 
@@ -405,6 +408,9 @@ final class KioskAdminActions
             throw ApiException::validation(['asset_id' => 'A device that is not in Assets has no asset.']);
         }
         $assetId = $unlisted ? null : (int) $a->int('asset_id', true, 1);
+        if ($assetId !== null && !Access::canAssets()) {
+            throw ApiException::forbidden(Access::ASSETS_NEEDED);   // enrolling by asset id reveals who has the asset
+        }
         $preset = (string) ($a->enum('expires', DeviceLifecycle::PRESETS, false) ?? 'keep');
         return [$assetId, DeviceLifecycle::expiryFor($preset, $a->str('expires_until', 20, false))];
     }

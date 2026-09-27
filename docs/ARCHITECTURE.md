@@ -108,6 +108,10 @@ Two functions in `functions.php` drive everything:
 
 Roles are managed at `admin/roles.php` (admin-only).
 
+**Pop-ups** (`agent/modals/*`, `/modals/*`, loaded by `js/ajax_modal.js`) all start with `includes/modal_header.php`, which checks the requested file against the folder/file → module map in `includes/modal_permissions.php` before the pop-up's own code runs (`admin/modals/*` keep their separate admin-only gate there). A folder entry covers every file in it; a file entry overrides it. Entries use view level, except pure write forms whose buttons the pages already hide from view-only roles. Asset pop-ups accept `module_assets` or `module_support`; Finance and knowledge-base pop-ups keep an `it_agent` fallback (Departments or Tickets) because they were open to every IT agent before the map. A denial is HTTP 403 with `{"ok":false,"error":"..."}`, which the pop-up loader shows as a message. **A new pop-up folder needs a map entry**; without one it falls back to "not a module-only login" and is logged to the PHP error log. Pages hide a button whose pop-up the map would refuse with `itflow_modal_allowed('folder/file.php')` (loaded by `functions.php`).
+
+**Module-only logins** (`includes/module_access.php`): a non-admin role with none of Departments, Tickets/assets/docs and Assets (`module_assets`, DB 2.6.95) is "limited" (`itflow_is_limited_user()`). `includes/check_login.php` keeps it to an allow-list (its modules' pages, its account, notifications) and answers everything else with `itflow_render_denied()`: a 403 page in the app shell, or `{"ok":false,"error":...}` JSON for pop-ups and ajax. Asset pages accept `module_assets` or `module_support` (`itflow_can_assets()`, `enforceAssetPermission()`).
+
 ### 3.2 Module *enable* toggles — a separate axis
 
 Whether a module *exists at all* for this install is a different question from who can use it. That's controlled by boolean columns on the singleton `settings` row (§4). Nav and page code typically checks **both** axes together, e.g. a knowledge-base link only renders if the KB module is enabled *and* the current user's role has at least read permission on `module_kb`.
