@@ -21,6 +21,7 @@
         var csv = document.getElementById('tri-csv');
         var sortSel = document.getElementById('tri-sort');
         var sortWrap = sortSel ? sortSel.closest('.tri-sort') : null;
+        var note = document.getElementById('tri-note');
         var f = {
             course: document.getElementById('tri-f-course'),
             revision: document.getElementById('tri-f-revision'),
@@ -256,15 +257,14 @@
 
         function render() {
             ui.banner(null);
+            if (note) { note.hidden = true; }
             if (!report.available) {
                 renderKpis(null);
                 empty('fas fa-tablet-alt', 'No quiz results yet', 'Results appear after employees take this course on a kiosk.');
                 sub.textContent = 'How often each question was answered correctly.';
                 return;
             }
-            if (report.scope_none) {
-                ui.banner('Ask an administrator to grant department access to see results.', { type: 'info' });
-            }
+            if (note) { note.hidden = !report.scope_none; }
             renderKpis(report.summary);
             if (!report.questions.length) {
                 empty('far fa-question-circle', 'No quiz attempts match these filters.', report.scope_none ? 'Your account has no departments yet.' : 'Try all versions, all languages or a longer period.');

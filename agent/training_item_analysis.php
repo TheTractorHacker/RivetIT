@@ -161,6 +161,8 @@ render_page_header('Item analysis · ' . $tia_course['name'], null, $tia_actions
         <noscript><button type="submit" class="btn btn-sm btn-primary">Apply</button></noscript>
     </form>
 
+    <div class="tr-banner alert alert-info tri-note" id="tri-note" role="status" hidden><i class="fas fa-user-lock" aria-hidden="true"></i><span>Ask an administrator to grant department access to see results.</span></div>
+
     <div class="trr-kpis tri-kpis" id="tri-kpis" aria-live="polite" aria-busy="true">
         <?php foreach (['Attempts', 'People', 'First-try pass', 'Mean score', 'Median time'] as $tia_k) { ?>
         <div class="trr-kpi tr-skeleton"><div class="trr-kpi__label"><?= $tia_h($tia_k) ?></div><div class="tr-skeleton__line tr-skeleton__line--title"></div><div class="tr-skeleton__line tr-skeleton__line--short"></div></div>

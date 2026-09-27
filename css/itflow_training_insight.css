@@ -113,9 +113,13 @@
   }
   .tri-table tr.tri-row > td { display: block; padding: 0; border: 0; max-width: none; min-width: 0; }
   .tri-table tr.tri-row > td.tri-col-num { display: none; }
-  .tri-table tr.tri-row > td.tri-col-q { grid-column: 1 / -1; }
-  .tri-table tr.tri-row > td.tri-col-wrong, .tri-table tr.tri-row > td.tri-col-pct { grid-column: 1 / -1; }
-  .tri-table tr.tri-row > td.tri-col-n { text-align: left; }
+  /* Card order: question; answered | discrimination; % correct; wrong answer; versions */
+  .tri-table tr.tri-row > td.tri-col-q { grid-column: 1 / -1; order: 0; }
+  .tri-table tr.tri-row > td.tri-col-n { order: 1; text-align: left; }
+  .tri-table tr.tri-row > td.tri-col-d { order: 2; }
+  .tri-table tr.tri-row > td.tri-col-pct { grid-column: 1 / -1; order: 3; }
+  .tri-table tr.tri-row > td.tri-col-wrong { grid-column: 1 / -1; order: 4; }
+  .tri-table tr.tri-row > td.tri-col-rev { grid-column: 1 / -1; order: 5; white-space: normal; }
   .tri-table tr.tri-row > td:not(.tri-col-q)::before {
     content: attr(data-label);
     display: block;
@@ -133,6 +137,18 @@
   .tri-option__label { grid-column: 1 / -1; }
   .tri-pct { grid-template-columns: 3.5rem minmax(0, 1fr); }
 }
+
+@media (max-width: 479.98px) {
+  .tri-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .tri-kpis .trr-kpi { padding: 12px 14px; }
+  .tri-kpis .trr-kpi:last-child { grid-column: 1 / -1; }
+  .tri-kpis .trr-kpi__value { font-size: 1.5rem; }
+  .tri-kpis .trr-kpi__icon { display: none; }
+}
+
+/* ---- Notes slot (scope) -------------------------------------------------------------- */
+.tri-note { display: flex; align-items: center; gap: 8px; }
+.tri-note[hidden] { display: none; }
 
 /* ---- Print ------------------------------------------------------------------------------ */
 @media print {
