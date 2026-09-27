@@ -6,6 +6,7 @@ use ITFlow\Integrations\Odoo\OdooConnectorFactory;
 use ITFlow\Training\Automation\AutomationSettings;
 use ITFlow\Training\Core\Clock;
 use ITFlow\Training\Core\Db;
+use ITFlow\Training\Upstream\Links;
 use ITFlow\Training\Upstream\RecordsGateway;
 use ITFlow\Training\Upstream\Schema;
 
@@ -135,7 +136,7 @@ final class OdooCard
                 'held' => ($r['todoo_error_class'] ?? $r['error_class'] ?? null) === 'hold',
                 'action' => (string) ($r['todoo_action'] ?? $r['action']),
                 'source' => ($type === 'award' ? 'Achievement #' : 'Record #') . $sid,
-                'record_link' => $type === 'completion' ? '/agent/training_record.php?id=' . $sid : null,
+                'record_link' => $type === 'completion' ? Links::record($sid) : null,
                 'contact_id' => $cid,
                 'contact' => $names[$cid] ?? ('Contact #' . $cid),
                 'course' => $dto['course_name'] ?? null,

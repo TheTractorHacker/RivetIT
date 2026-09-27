@@ -156,9 +156,16 @@ final class PushService
             return 'not_configured';
         }
         if (!$t->looksStaging) {
+            // A production target must have been confirmed with its employee links checked after the Odoo check
+            // it was confirmed on (spec §1.4 #6). A later "Check Odoo" (a discovery newer than the confirmation)
+            // does not pause sending; the next save asks for a new link check.
             $checked = $records['link_checked_at_utc'] ?? null;
-            if (!is_string($checked) || $checked === '' || $checked < (string) ($disc['checked_at_utc'] ?? '9999')) {
-                return 'links_unchecked';
+            $discAt = (string) ($disc['checked_at_utc'] ?? '9999');
+            $confirmedAt = (string) ($s['tauto_odoo_target_confirmed_at_utc'] ?? '');
+            if ($confirmedAt === '' || $discAt <= $confirmedAt) {
+                if (!is_string($checked) || $checked === '' || $checked < $discAt) {
+                    return 'links_unchecked';
+                }
             }
         }
         return null;
