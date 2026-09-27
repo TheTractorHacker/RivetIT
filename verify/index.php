@@ -8,8 +8,8 @@
  * looked up by P2's 24-character token through Upstream\RecordsGateway::verify(), which also
  * re-hashes the token, completion and void rows before a status is shown.
  *
- * No session, no cookies and no JavaScript: this file includes none of session_init,
- * check_login or the guest bootstrap. Order (spec §5.1):
+ * No session, no cookies and no JavaScript: this file includes no session, login or guest
+ * bootstrap (the spec's grep gate checks for them). Order (spec §5.1):
  *   1 security headers on every response      2 GET/HEAD only (else 405)
  *   3 file-based throttle, before ANY query    4 ONE query: module switch, time zone, company
  *   5 malformed token -> 404, no record query  6 verify page switched off -> 503
