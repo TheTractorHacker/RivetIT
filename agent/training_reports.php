@@ -582,6 +582,9 @@ $trr_delta = static function (?int $d, string $unit, string $versus, bool $lower
         <div class="card-body">
             <h2 class="trr-card__title" id="trr-hq-title">Hardest questions</h2>
             <p class="trr-card__sub">Lowest share answered correctly across all attempts. A low score often means the wording or the lesson needs work.</p>
+            <?php if ($trr_ctx->level >= 2) { // Phase 5 S7: the per-question page needs Training 2 (it shows the answer key) ?>
+            <p class="mb-0 mt-2"><a class="trr-card__link" href="<?= trr_h(trr_url('training_item_analysis.php', ['course_id' => $trr_course])) ?>">Full item analysis<i class="fas fa-arrow-right" aria-hidden="true"></i></a></p>
+            <?php } ?>
             <?php if ($trr_data['hardest'] === []) { ?>
             <div class="trr-placeholder trr-placeholder--sm mt-3"><i class="far fa-question-circle" aria-hidden="true"></i><p>Question statistics appear once employees take quizzes on the kiosk.</p></div>
             <?php } ?>

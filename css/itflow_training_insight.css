@@ -1,0 +1,146 @@
+/* =============================================================================
+   Training item analysis - Phase 5 spec §5.5 (Lane E, S7).
+
+   Loaded only by agent/training_item_analysis.php, after itflow_training.css and
+   itflow_training_reports.css (whose trr- filter pills, KPI cards, chips and card
+   heads it reuses so the page reads like Course analytics). Everything here is
+   tri- prefixed. Colours are --if-* / --trr-* tokens, so dark mode and the company
+   accent follow the app theme. Below 768 px the question table becomes a list of
+   cards (no page-level horizontal scroll at 390 px).
+   ============================================================================= */
+
+.tri-page { min-width: 0; }
+.tri-filters .trr-filter__select { max-width: 18rem; }
+
+/* ---- Course picker ------------------------------------------------------------------ */
+.tri-picker { margin: 0; padding: 0 0 8px; list-style: none; }
+.tri-picker li + li { border-top: 1px solid var(--if-border); }
+.tri-picker__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-height: 52px;
+  padding: 10px 20px;
+  color: var(--if-ink);
+  text-decoration: none;
+}
+.tri-picker__item:hover { background: var(--trr-surface-2); color: var(--if-ink); }
+.tri-picker__item:focus-visible { outline: 2px solid var(--if-primary); outline-offset: -2px; }
+.tri-picker__name { flex: 1 1 14rem; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.tri-picker__meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--if-muted); font-size: .8125rem; }
+.tri-picker__go { color: var(--if-muted); font-size: .75rem; }
+
+/* ---- Loading ------------------------------------------------------------------------ */
+.tri-loading { opacity: .55; transition: opacity .15s ease; pointer-events: none; }
+.tri-kpis .tr-skeleton .tr-skeleton__line--title { width: 40%; height: 26px; }
+
+/* ---- Question table ----------------------------------------------------------------- */
+.tri-card__head { padding-bottom: 12px; }
+.tri-sort { min-height: 36px; }
+.tri-table { table-layout: auto; }
+.tri-table th.tri-col-num, .tri-table td.tri-col-num { width: 3rem; text-align: right; color: var(--if-muted); }
+.tri-table td.tri-col-n, .tri-table th.tri-col-n { text-align: right; }
+.tri-table td { vertical-align: top; padding-top: 14px; padding-bottom: 14px; }
+.tri-col-q { min-width: 16rem; max-width: 34rem; }
+.tri-col-pct { min-width: 9rem; }
+.tri-col-wrong { min-width: 10rem; max-width: 18rem; overflow-wrap: anywhere; }
+.tri-col-rev { white-space: nowrap; }
+.tri-col-rev .trr-chip + .trr-chip { margin-left: 4px; }
+.tri-row--few .tri-pct strong, .tri-row--few .tri-col-n { color: var(--if-muted); }
+.tri-row.is-open > td { border-bottom-color: transparent; }
+
+.tri-q__toggle {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--if-ink);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.tri-q__toggle:hover .tri-q__text { text-decoration: underline; text-underline-offset: 2px; }
+.tri-q__toggle:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 3px; border-radius: 4px; }
+.tri-q__chev { flex: none; margin-top: .3em; font-size: .7rem; color: var(--if-muted); transition: transform .15s ease; }
+.tri-q__toggle[aria-expanded="true"] .tri-q__chev { transform: rotate(90deg); }
+.tri-q__text { min-width: 0; overflow-wrap: anywhere; }
+.tri-q__meta { margin: 2px 0 0 18px; font-size: .8125rem; color: var(--if-muted); overflow-wrap: anywhere; }
+.tri-q__chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 0 18px; }
+
+.tri-pct { display: grid; grid-template-columns: 3.5rem minmax(3rem, 1fr); align-items: center; gap: 8px; }
+.tri-pct .tr-progress { height: 8px; }
+.tri-progress--low .tr-progress__bar { background: var(--trr-danger); }
+.tri-progress--wrong .tr-progress__bar { background: color-mix(in srgb, var(--if-muted) 55%, var(--if-surface)); }
+.tri-d { font-weight: 700; margin-right: 2px; }
+.tri-wrong__label { overflow-wrap: anywhere; }
+
+/* ---- Expanded row: option spread ------------------------------------------------------ */
+.tri-detail > td { padding: 0 20px 18px 3.75rem; background: transparent; }
+.tri-detail__inner { padding: 14px 16px; border: 1px solid var(--if-border); border-radius: var(--trr-radius-sm); background: var(--trr-surface-2); }
+.tri-detail__title { margin: 0 0 10px; font-size: .8125rem; font-weight: 600; color: var(--if-muted); }
+.tri-options { margin: 0 0 8px; padding: 0; list-style: none; display: grid; gap: 10px; }
+.tri-option { display: grid; grid-template-columns: minmax(0, 2fr) minmax(6rem, 1fr) 8.5rem; align-items: center; gap: 12px; font-size: .875rem; }
+.tri-option__label { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.tri-option__text { min-width: 0; overflow-wrap: anywhere; }
+.tri-option__mark { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border-radius: 999px; background: var(--trr-ok-bg); color: var(--trr-ok-fg); font-size: .75rem; font-weight: 600; }
+.tri-option--correct .tri-option__text { font-weight: 600; }
+.tri-option__bar .tr-progress { height: 10px; }
+.tri-option__num { text-align: right; white-space: nowrap; }
+
+.tri-empty { padding: 32px 16px; }
+.tri-notes p { max-width: 62rem; }
+
+/* ---- Phones and small tablets: the table becomes cards -------------------------------- */
+@media (max-width: 767.98px) {
+  .tri-filters .trr-filter { flex: 1 1 100%; }
+  .tri-filters .trr-filter__select { max-width: none; flex: 1; }
+  .tri-sort { flex: 1 1 100%; }
+  .tri-table-wrap { overflow-x: visible; }
+  .tri-table, .tri-table tbody { display: block; width: 100%; }
+  .tri-table thead { display: none; }
+  .tri-table tr.tri-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 12px;
+    padding: 14px 16px;
+    border-top: 1px solid var(--if-border);
+  }
+  .tri-table tr.tri-row > td { display: block; padding: 0; border: 0; max-width: none; min-width: 0; }
+  .tri-table tr.tri-row > td.tri-col-num { display: none; }
+  .tri-table tr.tri-row > td.tri-col-q { grid-column: 1 / -1; }
+  .tri-table tr.tri-row > td.tri-col-wrong, .tri-table tr.tri-row > td.tri-col-pct { grid-column: 1 / -1; }
+  .tri-table tr.tri-row > td.tri-col-n { text-align: left; }
+  .tri-table tr.tri-row > td:not(.tri-col-q)::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    font-size: .6875rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--if-muted);
+  }
+  .tri-table tr.tri-detail { display: block; }
+  .tri-table tr.tri-detail[hidden] { display: none; }
+  .tri-table tr.tri-detail > td { display: block; padding: 0 16px 16px; border: 0; }
+  .tri-option { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
+  .tri-option__label { grid-column: 1 / -1; }
+  .tri-pct { grid-template-columns: 3.5rem minmax(0, 1fr); }
+}
+
+/* ---- Print ------------------------------------------------------------------------------ */
+@media print {
+  .tri-sort, .tri-q__chev { display: none !important; }
+  .tri-q__toggle { font-weight: 600; }
+  .tri-table tr.tri-row, .tri-detail { break-inside: avoid; }
+  .tr-progress, .tri-option__mark, .trr-chip { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tri-q__chev, .tri-loading { transition: none; }
+}
