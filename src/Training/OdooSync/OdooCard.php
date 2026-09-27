@@ -6,6 +6,7 @@ use ITFlow\Integrations\Odoo\OdooConnectorFactory;
 use ITFlow\Training\Automation\AutomationSettings;
 use ITFlow\Training\Core\Clock;
 use ITFlow\Training\Core\Db;
+use ITFlow\Training\Upstream\LearnerGateway;
 use ITFlow\Training\Upstream\Links;
 use ITFlow\Training\Upstream\RecordsGateway;
 use ITFlow\Training\Upstream\Schema;
@@ -99,6 +100,11 @@ final class OdooCard
         $since = OutboxScanner::sinceUtc($ta['tauto_odoo_push_since'] ?? null);
         if (in_array('skill', $out['targets'], true) && $since !== null && $t !== null) {
             $out['unmapped'] = $records->unmappedSkillCourses($since, $t->key, 20);
+            if (!empty($ta['tauto_odoo_push_awards']) && Schema::has($db, Schema::P3_AWARDS)) {
+                foreach ((new LearnerGateway($db))->unmappedSkillAchievements($since, $t->key, OutboxScanner::sendAchievements($db), 20) as $a) {
+                    $out['unmapped'][] = ['course_id' => null, 'achievement_id' => $a['achievement_id'], 'course_name' => 'Achievement: ' . $a['name'], 'n' => $a['n']];
+                }
+            }
         }
         $out['courses'] = Db::all($db, "SELECT c.course_id AS id, c.course_name AS name, c.course_code AS code, COALESCE(m.tomap_push, 1) AS push,
                 m.tomap_odoo_skill_id AS skill_id, m.tomap_target_key AS skill_target

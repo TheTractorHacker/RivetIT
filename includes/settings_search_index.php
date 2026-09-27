@@ -72,7 +72,7 @@ function getSettingsSearchIndex(): array {
              'parts' => [
                 ['anchor' => 'reminders',      'label' => 'Reminder digests',       'keywords' => ['reminder', 'digest', 'escalation', 'overdue alert', 'weekdays']],
                 ['anchor' => 'video-watch',    'label' => 'External video checks',  'keywords' => ['video check', 'video watch', 'youtube check', 'vimeo', 'broken video', 'private video']],
-                ['anchor' => 'odoo-writeback', 'label' => 'Odoo write-back',        'keywords' => ['write-back', 'writeback', 'resume', 'résumé', 'outbox', 'send to odoo', 'odoo key', 'key expiry']],
+                ['anchor' => 'odoo-writeback', 'label' => 'Odoo write-back',        'keywords' => ['write-back', 'writeback', 'resume', 'résumé', 'outbox', 'send to odoo', 'odoo key', 'key expiry', 'certification skill', 'skills', 'hr note', 'chatter']],
                 ['anchor' => 'automation-worker', 'label' => 'Automation worker',   'keywords' => ['training worker', 'last run']],
              ]],
          ]],

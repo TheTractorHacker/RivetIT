@@ -162,6 +162,35 @@ final class LearnerGateway
         return $out;
     }
 
+    /**
+     * Awards the certification target leaves out because their achievement (one of $achievementIds, the ones switched to
+     * "Send to Odoo") has no Odoo skill mapped on this target: per achievement, the awards that would otherwise be sent.
+     *
+     * @param list<int> $achievementIds
+     * @return list<array{achievement_id:int, name:string, n:int}>
+     */
+    public function unmappedSkillAchievements(string $sinceUtc, string $targetKey, array $achievementIds, int $limit = 20): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $achievementIds), static fn($i) => $i > 0)));
+        if ($ids === [] || !Schema::has($this->db, Schema::P3_AWARDS) || !Schema::has($this->db, Schema::P5)) {
+            return [];
+        }
+        $out = [];
+        foreach (Db::all($this->db, "SELECT w.taward_achievement_id AS id, MAX(w.taward_snap_name) AS name, COUNT(*) AS n
+            FROM training_achievement_awards w
+            LEFT JOIN training_odoo_map m ON m.tomap_entity = 'achievement' AND m.tomap_entity_id = w.taward_achievement_id
+            WHERE w.taward_achievement_id IN (" . implode(',', array_fill(0, count($ids), '?')) . ")
+              AND w.taward_awarded_at_utc >= ?
+              AND (m.tomap_odoo_skill_id IS NULL OR m.tomap_target_key IS NULL OR m.tomap_target_key <> ?)
+              AND NOT EXISTS (SELECT 1 FROM training_odoo_outbox o WHERE o.todoo_target_key = ? AND o.todoo_source_type = 'award'
+                              AND o.todoo_source_id = w.taward_id AND o.todoo_action = 'create' AND o.todoo_mode = 'skill')
+            GROUP BY w.taward_achievement_id ORDER BY n DESC, w.taward_achievement_id LIMIT ?", str_repeat('i', count($ids)) . 'sssi',
+            array_merge($ids, [$sinceUtc, $targetKey, $targetKey, max(1, min(200, $limit))])) as $r) {
+            $out[] = ['achievement_id' => (int) $r['id'], 'name' => (string) $r['name'], 'n' => (int) $r['n']];
+        }
+        return $out;
+    }
+
     /** @return array{award_id:int, contact_id:int, achievement_id:int, achievement_name:string, awarded_on:string}|null */
     public function awardForPush(int $awardId): ?array
     {

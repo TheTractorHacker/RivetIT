@@ -373,7 +373,7 @@ $tao_pause = $tao['would_pause'] ?? null;
         <?php } ?>
         <?php if (!empty($tao['unmapped'])) { ?>
             <div class="alert alert-info py-2 small">
-                <div><i class="fas fa-fw fa-info-circle me-1" aria-hidden="true"></i><strong>Not sent as certification skills</strong> (no Odoo skill mapped to the course on this Odoo):
+                <div><i class="fas fa-fw fa-info-circle me-1" aria-hidden="true"></i><strong>Not sent as certification skills</strong> (no Odoo skill mapped to the course or achievement on this Odoo):
                 <?php $tao_um = []; foreach ((array) $tao['unmapped'] as $tao_u) { $tao_um[] = nullable_htmlentities((string) $tao_u['course_name']) . ' (' . intval($tao_u['n']) . ')'; } echo implode(', ', $tao_um); ?>.
                 Map a skill under <a href="#odoo-send">Send to Odoo</a>; those records are queued on the next run. Their résumé lines and notes are not affected.</div>
             </div>
