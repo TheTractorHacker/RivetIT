@@ -30,6 +30,27 @@
  *       would run past the visible area, the picture (stage) is made shorter (the video letterboxes inside
  *       it) - never below `min` px. -> {refit(), destroy()}
  *   TrainingMediaControls.fmt(seconds) -> "3:42" / "1:02:03"
+ *
+ * Honest watch progress (owner report 2026-09-27: the ring said "Watched 100%" from the furthest point while only
+ * 2:18 had counted, because the video had kept playing with the kiosk page in the background):
+ *   TrainingMediaControls.watchCredit({credit, required, met, max, duration, minPct, cur, started, ended})
+ *       -> {counted, required, left, pct, met, short, needPos, atEnd}
+ *       What the learner is told: COUNTED watch time (the gate's credit_s; Preview: its own count) against what is
+ *       required (required_s), never the furthest point. pct 0..99 until the gate is met (met), 100 only then.
+ *       short: 'time' (counted < required), 'position' (time is enough but the furthest point is short of needPos =
+ *       floor(duration * minPct / 100) - 5, the server's rule) or null. left = required - counted. atEnd: time is
+ *       short and the furthest point is in the last few seconds, and the player is at the end or not started on
+ *       this screen - the hosts then say "You reached the end, but only 2:18 of watching counted…" and offer
+ *       "Watch from the start" (any part of the video counts).
+ *   TrainingMediaControls.nearEnd(sec, duration) -> bool   in the last few seconds (2 % of the length, 5-10 s): a
+ *       resume point there is not offered (the video starts at 0 instead).
+ *   TrainingMediaControls.backgroundPause({isPlaying(), pause(), onHide?(wasPlaying), onReturn()}) -> {playing(), destroy()}
+ *       Pauses the video when the page is hidden (visibilitychange -> hidden, pagehide): time never counts there,
+ *       so the furthest point must not run ahead of it. onReturn() when the page shows again after such a pause (the
+ *       host shows noticeBar); nothing resumes by itself. playing(): the host's player just started - paused at once
+ *       if the page is hidden (a play that raced the hide).
+ *   TrainingMediaControls.noticeBar({text, icon?}) -> {el, show(), hide(), shown()}   "Paused while this screen was
+ *       in the background…" - the look and places of the resume bar (class tmc-resume), no button.
  */
 (function () {
     'use strict';
@@ -337,6 +358,85 @@
         };
     }
 
+    // ---------------------------------------------------------------- honest watch progress
+    function nearEnd(sec, duration) {
+        var d = Number(duration) || 0;
+        if (!(d > 0)) { return false; }
+        var w = Math.min(10, Math.max(5, Math.round(d * 0.02)));
+        return (Number(sec) || 0) >= d - w;
+    }
+    function watchCredit(o) {
+        o = o || {};
+        var required = Math.max(0, Math.floor(Number(o.required) || 0));
+        var credit = Math.max(0, Math.floor(Number(o.credit) || 0));
+        var d = Math.max(0, Number(o.duration) || 0);
+        var minPct = Number(o.minPct);
+        if (!isFinite(minPct)) { minPct = 90; }
+        var max = Math.max(0, Number(o.max) || 0);
+        var met = !!o.met;
+        var needPos = d > 0 ? Math.max(0, Math.floor(d * minPct / 100) - 5) : 0;
+        var short = met ? null : (credit < required ? 'time' : (d > 0 && max < needPos ? 'position' : null));
+        var atEnd = short === 'time' && nearEnd(max, d) && (!o.started || !!o.ended || nearEnd(o.cur, d));
+        return {
+            counted: met ? Math.max(credit, required) : Math.min(credit, required),
+            required: required,
+            left: met ? 0 : Math.max(0, required - credit),
+            pct: met ? 100 : (required > 0 ? Math.min(99, Math.floor(credit * 100 / required)) : 0),
+            met: met,
+            short: short,
+            needPos: needPos,
+            atEnd: atEnd
+        };
+    }
+    function backgroundPause(o) {
+        var off = false;
+        var pausedByUs = false;
+        function hidden() { return document.visibilityState === 'hidden'; }
+        function stop() {
+            var was = false;
+            try { was = !!o.isPlaying(); } catch (e) { was = false; }
+            if (was) {
+                pausedByUs = true;
+                try { o.pause(); } catch (e) { /* ignore */ }
+            }
+            return was;
+        }
+        function onHide() {
+            if (off) { return; }
+            var was = stop();
+            if (typeof o.onHide === 'function') { try { o.onHide(was); } catch (e) { /* ignore */ } }
+        }
+        function onVis() {
+            if (off) { return; }
+            if (hidden()) { onHide(); return; }
+            if (pausedByUs) {
+                pausedByUs = false;
+                if (typeof o.onReturn === 'function') { try { o.onReturn(); } catch (e) { /* ignore */ } }
+            }
+        }
+        document.addEventListener('visibilitychange', onVis);
+        window.addEventListener('pagehide', onHide);
+        return {
+            playing: function () { if (!off && hidden()) { stop(); } },
+            destroy: function () {
+                off = true;
+                document.removeEventListener('visibilitychange', onVis);
+                window.removeEventListener('pagehide', onHide);
+            }
+        };
+    }
+    function noticeBar(o) {
+        o = o || {};
+        var text = el('span', { class: 'tmc-resume__text', text: o.text || '' });
+        var bar = el('div', { class: 'tmc-resume tmc-notice', role: 'status', hidden: true }, [el('span', { class: 'tmc-resume__icon', 'aria-hidden': 'true' }, icon(o.icon || 'fa-pause-circle')), text]);
+        return {
+            el: bar,
+            show: function (msg) { if (msg) { text.textContent = String(msg); } bar.hidden = false; },
+            hide: function () { bar.hidden = true; },
+            shown: function () { return !bar.hidden; }
+        };
+    }
+
     // ---------------------------------------------------------------- keep the controls above the bottom bar
     function fitStage(stage, card, o) {
         o = o || {};
@@ -398,7 +498,11 @@
         cueBox: cueBox,
         textTracks: textTracks,
         resumeBar: resumeBar,
+        noticeBar: noticeBar,
         fitStage: fitStage,
+        watchCredit: watchCredit,
+        nearEnd: nearEnd,
+        backgroundPause: backgroundPause,
         fmt: fmt
     };
 })();

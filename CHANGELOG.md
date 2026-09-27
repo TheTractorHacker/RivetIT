@@ -2,6 +2,27 @@
 
 This file documents all notable changes made to ITFlow.
 
+## [Unreleased] ITFlow Internal IT - Training videos: honest watch progress
+No database change and no server change: the credit rules (time counts only while the video plays with the kiosk page
+showing, 90 % / the lesson's minimum, the furthest point bounded per tick) and the quick-check gating are exactly as they
+were. Owner report 2026-09-27: a YouTube lesson's ring said "Watched 100% — the quick check is next" while the bottom
+bar said "Keep watching: about 3:41 more" - the ring showed the furthest point reached, and the video had kept playing
+with the kiosk page in the background, where no time counts.
+
+### Fixes
+- **The ring shows counted time.** On the YouTube / Vimeo page, the kiosk course page (uploaded videos and the
+  YouTube / Vimeo card) and Preview as learner, the watch ring and its words show the time that counted against what is
+  required ("2:18 of 5:59 watched", "About 3:41 more to watch") and reach 100 % only when the lesson can be finished.
+  The progress bar's lighter shading is still how far one may move, now captioned "Furthest point reached".
+- **Paused in the background.** The video pauses when the page is hidden (another app, a minimized window, a locked
+  screen); back on the page: "Paused while this screen was in the background. Time only counts while you watch here."
+  It never resumes by itself.
+- **A clear way on at the end.** When the furthest point is at the end but not enough time counted, the bottom bar says
+  "You reached the end, but only 2:18 of watching counted. Watch about 3:41 more — any part of the video counts." with a
+  big **Watch from the start** button (also on the finished-video box, which no longer shows a green tick then).
+  "Resuming at…" is no longer offered in the last few seconds of a video; it starts at 0 with that message instead.
+- Preview as learner shows the same, from its own count of seconds played on the showing page (kept with its progress).
+
 ## [Unreleased] ITFlow Internal IT - Training videos: volume, closed captions (CC), pick up where you left off
 Database 2.6.97 -> 2.6.98 (runs **after** the 2.6.96 -> 2.6.97 step of the Odoo skill/note branch): `training_media`
 gets the kind `caption`, `training_lesson_variants` gets `lvar_caption_media_id` (+ index). Nothing is backfilled and

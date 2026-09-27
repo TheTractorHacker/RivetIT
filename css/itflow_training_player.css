@@ -794,3 +794,6 @@
 .trp-video__top { flex-wrap: wrap; }
 .trp-video__top > .tmc-resume { flex: 0 1 auto; margin-left: auto; padding: 0; border: 0; background: transparent; font-size: 17px; }
 @media (max-width: 600px) { .tmc-range { width: 96px; } .tmc-resume { flex-wrap: wrap; } }
+/* "Paused while this screen was in the background…" (video paused when the page was hidden): the resume bar's look and
+   places (on the uploaded picture, in the bar above YouTube / Vimeo), with an amber pause icon. */
+.tmc-notice .tmc-resume__icon { color: #b45309; }
