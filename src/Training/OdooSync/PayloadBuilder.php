@@ -159,7 +159,10 @@ final class PayloadBuilder
         return '<p>' . implode('</p><p>', $lines) . '</p>';
     }
 
-    /** The follow-up note on a void: "Training record LMS-… was voided in ITFlow on {date}." plus its own marker. */
+    /**
+     * The follow-up note on a void: "Training record LMS-… (Forklift Safety, completed 2026-09-27) was voided in ITFlow on
+     * {date}." plus its own marker. The course and completion date (both already in the first note) let HR find that note.
+     */
     public static function noteVoidHtml(array $p, string $voidMarker): string
     {
         $e = static fn(string $s): string => htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -168,8 +171,8 @@ final class PayloadBuilder
             throw new \InvalidArgumentException('noteVoidHtml: the record is not voided');
         }
         $what = !empty($p['cert_number'])
-            ? 'Training record ' . $e((string) $p['cert_number'])
-            : 'Training record "' . $e((string) $p['title']) . '" of ' . $e((string) $p['date_start']);
+            ? 'Training record ' . $e((string) $p['cert_number']) . ' (' . $e((string) $p['title']) . ', completed ' . $e((string) $p['date_start']) . ')'
+            : 'Training record "' . $e((string) $p['title']) . '" (completed ' . $e((string) $p['date_start']) . ')';
         return '<p>' . $what . ' was voided in ITFlow on ' . $e($voided) . '.</p><p>ITFlow ref: ' . $e($voidMarker) . '</p>';
     }
 

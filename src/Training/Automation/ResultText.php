@@ -79,21 +79,27 @@ final class ResultText
 
     /**
      * The per-target part PushService appends when more than the résumé line is sent ("; resume 1/0/0/0; skill 2/1/0/0;
-     * note 1/0/0/0" = sent/retry/dead/held): " Résumé lines: 1 sent. Certification skills: 2 sent, 1 will be tried
-     * again. HR notes: 1 sent." Targets with nothing to report are left out; '' when there is no such part.
+     * note 1/0/0/0" = sent/retry/dead/held outbox rows, " paused" after a target paused on its own): " Résumé lines: 1
+     * sent. Certification skills: 2 sent, 1 will be tried again. HR notes: 1 sent." Targets with nothing to report are
+     * left out; '' when there is no such part. (The headline's held figure counts records, these count rows.)
      */
     public static function odooTargets(string $stored): string
     {
-        if (preg_match_all('/; (resume|skill|note) (\d+)\/(\d+)\/(\d+)\/(\d+)/', $stored, $mm, PREG_SET_ORDER) < 1) {
+        if (preg_match_all('/; (resume|skill|note) (\d+)\/(\d+)\/(\d+)\/(\d+)( paused)?/', $stored, $mm, PREG_SET_ORDER) < 1) {
             return '';
         }
         $names = ['resume' => 'Résumé lines', 'skill' => 'Certification skills', 'note' => 'HR notes'];
         $out = '';
         foreach ($mm as $m) {
+            $paused = ($m[6] ?? '') !== '';
             if ((int) $m[2] + (int) $m[3] + (int) $m[4] + (int) $m[5] === 0) {
+                if ($paused) {
+                    $out .= ' ' . $names[$m[1]] . ': paused, new ones wait.';
+                }
                 continue;
             }
-            $out .= ' ' . $names[$m[1]] . ': ' . lcfirst(self::odooCounts((int) $m[2], (int) $m[3], (int) $m[4], (int) $m[5]));
+            $counts = lcfirst(self::odooCounts((int) $m[2], (int) $m[3], (int) $m[4], (int) $m[5]));
+            $out .= ' ' . $names[$m[1]] . ': ' . ($paused ? rtrim($counts, '.') . '; paused, new ones wait.' : $counts);
         }
         return $out;
     }

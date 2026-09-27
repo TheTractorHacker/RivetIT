@@ -101,6 +101,57 @@ final class OutboxRepo
     }
 
     /**
+     * Certification target: saves the values of the create about to be sent on its (running) row, BEFORE the call, in
+     * todoo_payload_json {"odoo_skill_sent": {...}} (the column holds the full payload only once the row is done). A
+     * lost answer is then looked for with exactly these values on every later attempt and on a void, even if the course's
+     * mapping or the level changed in between (sentSkill). An admin Retry keeps them.
+     */
+    public function rememberSkill(int $id, array $vals): void
+    {
+        $sent = self::skillVals($vals);
+        if ($sent === null) {
+            throw new \InvalidArgumentException('OutboxRepo::rememberSkill: bad certification values');
+        }
+        Db::exec($this->db, "UPDATE training_odoo_outbox SET todoo_payload_json = ? WHERE todoo_id = ? AND todoo_status <> 'done'", 'si',
+            [json_encode(['odoo_skill_sent' => $sent], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $id]);
+    }
+
+    /**
+     * The certification values an earlier attempt of this create row saved before its create call, or null (never sent).
+     *
+     * @return array{employee_id:int, skill_id:int, skill_level_id:int, skill_type_id:int, valid_from:string, valid_to:string|false}|null
+     */
+    public static function sentSkill(array $row): ?array
+    {
+        if (($row['todoo_mode'] ?? '') !== 'skill' || ($row['todoo_action'] ?? '') !== 'create' || !is_string($row['todoo_payload_json'] ?? null)) {
+            return null;
+        }
+        $p = json_decode($row['todoo_payload_json'], true);
+        return is_array($p) && is_array($p['odoo_skill_sent'] ?? null) ? self::skillVals($p['odoo_skill_sent']) : null;
+    }
+
+    /** hr.employee.skill create values, typed, or null when any is missing or malformed. */
+    private static function skillVals(array $v): ?array
+    {
+        $out = [];
+        foreach (['employee_id', 'skill_id', 'skill_level_id', 'skill_type_id'] as $k) {
+            if (!is_int($v[$k] ?? null) || $v[$k] < 1) {
+                return null;
+            }
+            $out[$k] = $v[$k];
+        }
+        $date = static fn(mixed $d): bool => is_string($d) && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $d) === 1;
+        if (!$date($v['valid_from'] ?? null)) {
+            return null;
+        }
+        $to = $v['valid_to'] ?? false;
+        if ($to !== false && !$date($to)) {
+            return null;
+        }
+        return $out + ['valid_from' => $v['valid_from'], 'valid_to' => $to];
+    }
+
+    /**
      * transient: failed, retried after BACKOFF_S[attempts-1]; dead at MAX_ATTEMPTS
      * permanent: dead   |  hold: pending, attempt given back, retried in 24 h   |  policy: skipped
      *

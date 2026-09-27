@@ -20,9 +20,10 @@ use ITFlow\Training\Upstream\Schema;
  *   reminders  Training 3
  *   video      Training 3
  *
- * 2.6.97 added the Odoo write-back targets (tauto_odoo_send_resume / _skill / _note). Until that update runs
- * the loaders leave those three columns out of the SELECT, answer their defaults (résumé only, the Phase 5
- * behaviour) and set 'targets_ready' => false, so nothing else stops working in between.
+ * 2.6.97 added the Odoo write-back targets (tauto_odoo_send_resume / _skill / _note) and the saved name of the
+ * chosen certification type and level (tauto_odoo_skill_label). Until that update runs the loaders leave those
+ * columns out of the SELECT, answer their defaults (résumé only, the Phase 5 behaviour) and set
+ * 'targets_ready' => false, so nothing else stops working in between.
  */
 final class AutomationSettings
 {
@@ -37,6 +38,7 @@ final class AutomationSettings
         'tauto_odoo_award_type_id' => null,
         'tauto_odoo_skill_type_id' => null,
         'tauto_odoo_skill_level_id' => null,
+        'tauto_odoo_skill_label' => null,
         'tauto_odoo_push_awards' => 0,
         'tauto_odoo_push_since' => null,
         'tauto_odoo_target_key' => null,
@@ -66,7 +68,7 @@ final class AutomationSettings
     public const GROUPS = [
         'odoo'      => ['tauto_odoo_push_enabled', 'tauto_odoo_mode', 'tauto_odoo_send_resume', 'tauto_odoo_send_skill', 'tauto_odoo_send_note',
                         'tauto_odoo_resume_type_id', 'tauto_odoo_award_type_id',
-                        'tauto_odoo_skill_type_id', 'tauto_odoo_skill_level_id', 'tauto_odoo_push_awards', 'tauto_odoo_push_since',
+                        'tauto_odoo_skill_type_id', 'tauto_odoo_skill_level_id', 'tauto_odoo_skill_label', 'tauto_odoo_push_awards', 'tauto_odoo_push_since',
                         'tauto_odoo_target_key', 'tauto_odoo_target_confirmed_at_utc', 'tauto_odoo_key_expires_on'],
         'cert'      => ['tauto_cert_signer_name', 'tauto_cert_signer_title', 'tauto_cert_signer_png', 'tauto_verify_enabled'],
         'reminders' => ['tauto_reminders_enabled', 'tauto_reminder_weekdays', 'tauto_escalate_after_days'],
@@ -78,8 +80,8 @@ final class AutomationSettings
                            'tauto_odoo_paused_reason', 'tauto_odoo_last_run_at_utc', 'tauto_odoo_last_result',
                            'tauto_daily_last_run_on', 'tauto_daily_last_result'];
 
-    /** The 2.6.97 target switches (absent before that update). */
-    public const TARGET_COLS = ['tauto_odoo_send_resume', 'tauto_odoo_send_skill', 'tauto_odoo_send_note'];
+    /** The 2.6.97 target columns: the switches and the certification label (absent before that update). */
+    public const TARGET_COLS = ['tauto_odoo_send_resume', 'tauto_odoo_send_skill', 'tauto_odoo_send_note', 'tauto_odoo_skill_label'];
 
     private const INT_COLS = ['tauto_id', 'tauto_odoo_push_enabled', 'tauto_odoo_send_resume', 'tauto_odoo_send_skill', 'tauto_odoo_send_note',
         'tauto_odoo_resume_type_id', 'tauto_odoo_award_type_id',
@@ -89,7 +91,7 @@ final class AutomationSettings
     /** Every column but the signature PNG (the worker never needs it). */
     private const WORKER_COLS = ['tauto_id', 'tauto_odoo_push_enabled', 'tauto_odoo_mode', 'tauto_odoo_send_resume', 'tauto_odoo_send_skill',
         'tauto_odoo_send_note', 'tauto_odoo_resume_type_id', 'tauto_odoo_award_type_id',
-        'tauto_odoo_skill_type_id', 'tauto_odoo_skill_level_id', 'tauto_odoo_push_awards', 'tauto_odoo_push_since', 'tauto_odoo_target_key',
+        'tauto_odoo_skill_type_id', 'tauto_odoo_skill_level_id', 'tauto_odoo_skill_label', 'tauto_odoo_push_awards', 'tauto_odoo_push_since', 'tauto_odoo_target_key',
         'tauto_odoo_target_confirmed_at_utc', 'tauto_odoo_discovery_json', 'tauto_odoo_discovered_at_utc', 'tauto_odoo_key_expires_on',
         'tauto_odoo_paused_reason', 'tauto_odoo_last_run_at_utc', 'tauto_odoo_last_result', 'tauto_reminders_enabled', 'tauto_reminder_weekdays',
         'tauto_escalate_after_days', 'tauto_video_recheck_enabled', 'tauto_verify_enabled', 'tauto_cert_signer_name', 'tauto_cert_signer_title',
@@ -233,9 +235,9 @@ final class AutomationSettings
         $wantsTargets = array_intersect($cols, self::TARGET_COLS) !== [];
         if ($wantsTargets) {
             $out['targets_ready'] = Schema::hasColumn($db, 'training_automation', 'tauto_odoo_send_skill');
-            if (!$out['targets_ready']) {
-                $cols = array_values(array_diff($cols, self::TARGET_COLS));   // before 2.6.97: defaults (résumé only)
-            }
+            // before 2.6.97: defaults (résumé only); each column on its own, so a half-applied update still loads
+            $cols = array_values(array_filter($cols, static fn($c) => !in_array($c, self::TARGET_COLS, true)
+                || ($out['targets_ready'] && Schema::hasColumn($db, 'training_automation', $c))));
         }
         try {
             $res = $db->query('SELECT ' . implode(', ', array_map(static fn($c) => "`$c`", $cols)) . ' FROM training_automation WHERE tauto_id = 1');

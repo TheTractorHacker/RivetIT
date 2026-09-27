@@ -25,11 +25,14 @@ use ITFlow\Training\Core\Text;
  *   skill   hr.employee.skill of the chosen certification type; no free-text field exists, so idempotency is
  *           the exact natural key (employee, skill, level, valid_from, valid_to) among records this integration
  *           created (create_uid; any creator when Odoo does not say who we are), and a record another ITFlow
- *           record already holds is never adopted. Odoo refuses an identical certification (same skill, level
- *           and period): that is a permanent, explained error, never a retry loop. A void ends it (valid_to).
- *   note    an INTERNAL note in the employee's chatter: message_post with message_type 'comment' and subtype
- *           mail.mt_note, no partner_ids, mail_post_autofollow off - nobody is e-mailed and followers are not
- *           notified. Idempotency = the marker, searched in mail.message. A void posts a follow-up note with its
+ *           record already holds is never adopted. The values are saved on the outbox row BEFORE the create call
+ *           and every later attempt searches with those saved values first, so a lost response is adopted even
+ *           when the course's mapping or the level changed in between. Odoo refuses an identical certification
+ *           (same skill, level and period): that is a permanent, explained error, never a retry loop. A void ends
+ *           it (valid_to).
+ *   note    an INTERNAL note in the employee's chatter that reaches nobody (see noteArgs): no recipient, followers
+ *           not even looked up (notify_skip_followers), the integration user never subscribed, no out-of-office
+ *           auto-reply. Idempotency = the marker, searched in mail.message. A void posts a follow-up note with its
  *           own marker; the first note is never edited (and nothing is ever deleted).
  */
 final class Pusher
@@ -176,10 +179,12 @@ final class Pusher
 
     /**
      * For a create whose record was voided before it reached Odoo: the Odoo record this integration may
-     * already have made for it (a lost response), or null. Same idempotency rules as push().
+     * already have made for it (a lost response), or null. Same idempotency rules as push(); for a certification
+     * the values an earlier attempt saved come first (they name the employee too), the current mapping only when
+     * no attempt was ever made.
      *
-     * @param array $opts skill: skill_id, level_id, type_id, holder (see createSkill)
-     * @return array{id:int, employee_id:int}|null
+     * @param array $opts skill: sent, skill_id, level_id, type_id, holder (see createSkill)
+     * @return array{id:int, employee_id:int, vals?:array}|null
      */
     public function existing(array $row, array $payload, int $employeeId, array $opts = []): ?array
     {
@@ -192,13 +197,23 @@ final class Pusher
                 $hits = $this->ownNotes($marker, $employeeId);
                 return $hits ? ['id' => $hits[0]['id'], 'employee_id' => $hits[0]['employee_id']] : null;
             case 'skill':
+                $sent = $opts['sent'] ?? null;
+                if (is_array($sent)) {
+                    // Every attempt saved its values before its create call: only those can have made a record.
+                    foreach ($this->skillsLike($sent, $this->ownUid()) as $h) {
+                        if (!self::heldByOther($h['id'], $opts)) {
+                            return ['id' => $h['id'], 'employee_id' => (int) $sent['employee_id'], 'vals' => $sent];
+                        }
+                    }
+                    return null;
+                }
                 if ($employeeId < 1 || empty($opts['skill_id']) || empty($opts['level_id']) || empty($opts['type_id'])) {
                     return null;
                 }
                 $vals = PayloadBuilder::skillVals($payload, $employeeId, (int) $opts['skill_id'], (int) $opts['level_id'], (int) $opts['type_id']);
                 foreach ($this->skillsLike($vals, $this->ownUid()) as $h) {
-                    if (!isset($opts['holder']) || ($opts['holder'])($h['id']) === null) {
-                        return ['id' => $h['id'], 'employee_id' => $employeeId];
+                    if (!self::heldByOther($h['id'], $opts)) {
+                        return ['id' => $h['id'], 'employee_id' => $employeeId, 'vals' => $vals];
                     }
                 }
                 return null;
@@ -315,27 +330,47 @@ final class Pusher
     // ---- certification skill (hr.employee.skill) ---------------------------------------------------------------
 
     /**
-     * @param array $opts skill_id, level_id, type_id (the course's mapped skill and the configured level/type) and
-     *   holder: fn(int $odooId): ?array{source_type:string, source_id:int, close_status:?string} - the other ITFlow
-     *   record whose done create already holds that Odoo record (PushService reads the outbox; this class has no DB)
+     * @param array $opts
+     *   sent      the values an earlier attempt of THIS row saved before its create call (OutboxRepo::sentSkill), or null
+     *   skill_id, level_id, type_id  the course's mapped skill and the configured level/type now (absent: not mapped)
+     *   unmapped  why they are absent (the policy message when nothing was sent before either)
+     *   holder    fn(int $odooId): ?array{source_type:string, source_id:int, close_status:?string} - the other ITFlow
+     *             record whose done create already holds that Odoo record (PushService reads the outbox; this class has no DB)
+     *   remember  fn(array $vals): void - saves the values on the row; called right BEFORE the create call
+     * @return array{model:string, res_id:int, vals:array} vals = the values of the Odoo certification
      */
     private function createSkill(array $payload, int $employeeId, array $opts): array
     {
+        $uid = $this->ownUid();
+        $sent = $opts['sent'] ?? null;
+        if (is_array($sent)) {
+            // An earlier attempt sent these values and its answer was lost: the certification it made is this record's,
+            // whatever the mapping or the level say now (they may have changed since). Found on another employee: the
+            // contact was re-linked in between - never adopted, never duplicated.
+            foreach ($this->skillsLike($sent, $uid) as $h) {
+                if (self::heldByOther($h['id'], $opts)) {
+                    continue;
+                }
+                if ((int) $sent['employee_id'] !== $employeeId) {
+                    throw new \DomainException('employee_changed');
+                }
+                return ['model' => 'hr.employee.skill', 'res_id' => $h['id'], 'vals' => $sent];
+            }
+        }
         $skillId = (int) ($opts['skill_id'] ?? 0);
         $levelId = (int) ($opts['level_id'] ?? 0);
         $typeId = (int) ($opts['type_id'] ?? 0);
         if ($skillId < 1 || $levelId < 1 || $typeId < 1) {
-            throw new PushException('policy', 'not_mapped: no Odoo certification skill is mapped for this record');
+            throw new PushException('policy', (string) ($opts['unmapped'] ?? 'not_mapped: no Odoo certification skill is mapped for this record'));
         }
         $vals = PayloadBuilder::skillVals($payload, $employeeId, $skillId, $levelId, $typeId);
-        $uid = $this->ownUid();
 
         // At-least-once without duplicates: an identical certification WE created earlier (a lost create response)
         // is adopted - unless another ITFlow record already holds it (then Odoo cannot take a second identical one).
         foreach ($this->skillsLike($vals, $uid) as $h) {
             $holder = isset($opts['holder']) ? ($opts['holder'])($h['id']) : null;
             if ($holder === null) {
-                return ['model' => 'hr.employee.skill', 'res_id' => $h['id']];
+                return ['model' => 'hr.employee.skill', 'res_id' => $h['id'], 'vals' => $vals];
             }
             $other = ($holder['source_type'] === 'award' ? 'achievement award #' : 'ITFlow record #') . (int) $holder['source_id'];
             if (in_array($holder['close_status'] ?? null, ['pending', 'running', 'failed'], true)) {
@@ -353,6 +388,9 @@ final class Pusher
                     . $others[0]['id'] . ', not created by ITFlow); Odoo refuses a second identical one, so nothing was created');
             }
         }
+        if (isset($opts['remember'])) {
+            ($opts['remember'])($vals);   // before the call: a lost answer is found by exactly these values next time
+        }
         try {
             $id = $this->createOne('hr.employee.skill', $vals);
         } catch (PushException $e) {
@@ -360,7 +398,13 @@ final class Pusher
         } catch (\RuntimeException $e) {
             throw self::explainSkillRefusal($e);
         }
-        return ['model' => 'hr.employee.skill', 'res_id' => $id];
+        return ['model' => 'hr.employee.skill', 'res_id' => $id, 'vals' => $vals];
+    }
+
+    /** Does another ITFlow record's done create already hold Odoo certification $odooId? */
+    private static function heldByOther(int $odooId, array $opts): bool
+    {
+        return isset($opts['holder']) && ($opts['holder'])($odooId) !== null;
     }
 
     /** A void ends the certification: valid_to = the day before the void (Odoo's archive convention) or the void date. */
@@ -535,10 +579,8 @@ final class Pusher
     }
 
     /**
-     * message_post on the employee as an INTERNAL NOTE: subtype mail.mt_note (internal: followers are not notified),
-     * message_type 'comment' (what "Log note" posts), partner_ids empty (no recipient, so no e-mail), and
-     * mail_post_autofollow off (nobody is subscribed). body_is_html because the body is our own escaped html
-     * (Odoo documents it for RPC callers; a plain str would be escaped as text).
+     * message_post on the employee as an INTERNAL NOTE that reaches nobody (see noteArgs). body_is_html because the
+     * body is our own escaped html (Odoo documents it for RPC callers; a plain str would be escaped as text).
      */
     private function postNote(int $employeeId, string $html, string $marker): int
     {
@@ -562,17 +604,36 @@ final class Pusher
         throw new PushException('permanent', 'bad_post_response: Odoo did not return the new note id and it could not be found by its reference');
     }
 
-    /** The exact message_post arguments (public so the tests can assert them). */
+    /**
+     * The exact message_post arguments (public so the tests can assert them), checked against Odoo 19's
+     * mail.thread.message_post / _notify_thread / _notify_get_recipients / mail.followers._get_recipient_data:
+     *   subtype_xmlid mail.mt_note, is_internal  an internal note: never shown to portal users.
+     *   partner_ids [] + notify_skip_followers   no recipient at all: the followers are not even looked up, so nobody
+     *                                            is notified or e-mailed - also not an internal user who follows the
+     *                                            employee with the "Note" subtype ticked (an internal subtype alone
+     *                                            still reaches such followers). Odoo 19 and later only; older versions
+     *                                            refuse the parameter, so Discovery offers notes only from 19 on.
+     *   message_type 'notification'              what Odoo's own server-side notes use (_message_log). A 'comment'
+     *                                            would trigger the out-of-office auto-reply (the employee's user or
+     *                                            the last chatter author on vacation would e-mail the integration
+     *                                            user), and the chatter offers only comments for editing.
+     *   context mail_create_nosubscribe, mail_post_autofollow_author_skip, mail_post_autofollow false
+     *                                            the integration user is never made a follower (Odoo 16-18 subscribe
+     *                                            the author unless mail_create_nosubscribe; 19 unless _author_skip),
+     *                                            so later chatter on the employee never e-mails it.
+     */
     public static function noteArgs(int $employeeId, string $html): array
     {
         return [
             'ids' => [$employeeId],
             'body' => $html,
             'body_is_html' => true,
-            'message_type' => 'comment',
+            'message_type' => 'notification',
             'subtype_xmlid' => 'mail.mt_note',
+            'is_internal' => true,
             'partner_ids' => [],
-            'context' => ['mail_post_autofollow' => false],
+            'notify_skip_followers' => true,
+            'context' => ['mail_create_nosubscribe' => true, 'mail_post_autofollow' => false, 'mail_post_autofollow_author_skip' => true],
         ];
     }
 

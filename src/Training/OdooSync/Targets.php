@@ -13,8 +13,9 @@ use ITFlow\Training\Upstream\Schema;
  *   resume  an hr.resume.line on the employee's résumé (Phase 5, the default; marker in the description)
  *   skill   an hr.employee.skill of a CERTIFICATION skill type (valid_from = completed, valid_to = expiry);
  *           only for courses/achievements mapped to an Odoo skill (training_odoo_map.tomap_odoo_skill_id)
- *   note    an INTERNAL NOTE (message_post, subtype mail.mt_note) in the employee's chatter: nobody is
- *           e-mailed and followers are not notified; a void posts a short follow-up note, never an edit
+ *   note    an INTERNAL NOTE (message_post, subtype mail.mt_note, no recipients, followers skipped) in the
+ *           employee's chatter: nobody is e-mailed or notified, followers included (Pusher::noteArgs; Odoo 19+);
+ *           a void posts a short follow-up note, never an edit
  *
  * Settings: tauto_odoo_send_resume / _skill / _note (2.6.97). Before that update only the résumé line
  * exists (the Phase 5 behaviour) and the other two cannot be switched on.

@@ -18,6 +18,12 @@ final class Discovery
 {
     private const CALL = ['connect_timeout' => 5, 'timeout' => 8];
 
+    /**
+     * HR notes need Odoo 19 or later: only there does message_post take notify_skip_followers, which keeps a note from
+     * reaching followers who ticked the "Note" subtype (Pusher::noteArgs). Older versions refuse the parameter.
+     */
+    public const NOTE_MIN_MAJOR = 19;
+
     private float $deadline = 0.0;
 
     public function __construct(private readonly Target $target, private readonly OdooConnectorInterface $odoo)
@@ -30,7 +36,7 @@ final class Discovery
      *   resume:array{available:bool, fields:list<string>, course_type_values:list<string>, types:list<array{id:int,name:string,is_course:?bool}>, suggested_type_id:?int},
      *   skill:array{available:bool, cert_types:list<array{id:int,name:string}>, levels:list<array{id:int,name:string,type_id:int,default:bool}>,
      *     skills:list<array{id:int,name:string,type_id:int}>},
-     *   note:array{available:bool}, gamification:array{employees_with_users:?int}, can_read_resume:bool}
+     *   note:array{available:bool, why:?string}, gamification:array{employees_with_users:?int}, can_read_resume:bool}
      */
     public function run(int $budgetS = 25): array
     {
@@ -44,7 +50,7 @@ final class Discovery
             'errors' => [],
             'resume' => ['available' => false, 'fields' => [], 'course_type_values' => [], 'types' => [], 'suggested_type_id' => null],
             'skill' => ['available' => false, 'cert_types' => [], 'levels' => [], 'skills' => []],
-            'note' => ['available' => false],
+            'note' => ['available' => false, 'why' => 'chatter'],
             'gamification' => ['employees_with_users' => null],
             'can_read_resume' => false,
         ];
@@ -122,9 +128,13 @@ final class Discovery
             }
         }
 
-        // Chatter (the HR-note target posts internal notes; hr.employee.message_ids is only readable by HR officers).
+        // Chatter (the HR-note target posts internal notes; hr.employee.message_ids is only readable by HR officers), on an
+        // Odoo that can post a note to nobody (NOTE_MIN_MAJOR). note.why says what is missing: chatter | version | version_unknown.
         $ef = $this->try('hr.employee', 'fields_get', ['attributes' => ['type']], $errors);
-        $out['note']['available'] = is_array($ef) && isset($ef['message_ids']);
+        $chatter = is_array($ef) && isset($ef['message_ids']);
+        $major = self::major($out['server_version']);
+        $out['note']['available'] = $chatter && $major !== null && $major >= self::NOTE_MIN_MAJOR;
+        $out['note']['why'] = !$chatter ? 'chatter' : ($major === null ? 'version_unknown' : ($major < self::NOTE_MIN_MAJOR ? 'version' : null));
 
         $n = $this->try('hr.resume.line', 'search_count', ['domain' => []], $errors);
         $out['can_read_resume'] = is_int($n);
@@ -133,6 +143,15 @@ final class Discovery
 
         $out['errors'] = $errors;
         return $out;
+    }
+
+    /** The major version in an Odoo server_version ("19.0+e" -> 19, "saas~18.3" -> 18), or null. */
+    public static function major(mixed $serverVersion): ?int
+    {
+        if (!is_string($serverVersion) || preg_match('/(\d{1,3})\.\d+/', $serverVersion, $m) !== 1) {
+            return null;
+        }
+        return (int) $m[1];
     }
 
     /** "Training" by name, else the first course type, else nothing. */

@@ -15,9 +15,11 @@
 
 defined('TRAINING_AUTOMATION_PAGE') || exit;
 
+use ITFlow\Training\OdooSync\OdooAdmin;
 use ITFlow\Training\OdooSync\OdooCard;
 use ITFlow\Training\OdooSync\PushService;
 use ITFlow\Training\OdooSync\Target;
+use ITFlow\Training\OdooSync\Targets;
 
 if (isset($ta_admin_page) && !$ta_admin_page) {
     return;   // never render the admin forms outside Admin > Training
@@ -38,6 +40,7 @@ try {
 $tao_disc = $tao['discovery'] ?? null;
 $tao_t = $tao['target'] ?? null;
 $tao_pause = $tao['would_pause'] ?? null;
+$tao_tpause = (array) ($tao['target_pauses'] ?? []);   // mode => reason: paused on its own, the other targets keep sending
 ?>
 
 <div class="card mb-3">
@@ -88,6 +91,23 @@ $tao_pause = $tao['would_pause'] ?? null;
                 <?php } else { ?>
                     <span class="badge text-bg-success">Sending</span>
                     <span class="small text-muted">Every 10 minutes (worker).</span>
+                <?php } ?>
+                <?php if (($tao['enabled'] ?? false) && $tao_tpause) { ?>
+                    <?php foreach ($tao_tpause as $tao_pm => $tao_pr) {
+                        if (count($tao_tpause) === 1 && (string) $tao_pr === (string) $tao_pause) { continue; }   // already said above ?>
+                        <div class="small mt-1"><span class="badge text-bg-warning me-1"><?php echo nullable_htmlentities(Targets::label((string) $tao_pm)); ?> paused</span><?php echo nullable_htmlentities(PushService::describePause((string) $tao_pr)); ?>
+                            <?php if (count($tao_tpause) < count((array) ($tao['targets'] ?? []))) { ?><span class="text-muted">The other targets keep sending, and voids still reach Odoo.</span><?php } ?></div>
+                    <?php } ?>
+                <?php } ?>
+            </dd>
+            <dt class="col-sm-3">Sent as</dt>
+            <dd class="col-sm-9">
+                <?php if (!($tao['targets'] ?? [])) { ?>
+                    <span class="text-muted">Nothing chosen</span>
+                <?php } else { ?>
+                    <?php foreach ((array) $tao['targets'] as $tao_sm) { ?>
+                        <span class="badge <?php echo nullable_htmlentities(isset($tao_tpause[$tao_sm]) && ($tao['enabled'] ?? false) ? 'text-bg-warning' : 'text-bg-light'); ?> me-1"><?php echo nullable_htmlentities(Targets::label((string) $tao_sm)); ?><?php if (isset($tao_tpause[$tao_sm]) && ($tao['enabled'] ?? false)) { ?> (paused)<?php } ?></span>
+                    <?php } ?>
                 <?php } ?>
             </dd>
             <dt class="col-sm-3">Last run</dt>
@@ -156,14 +176,14 @@ $tao_pause = $tao['would_pause'] ?? null;
                     <?php } else { ?>
                         <span class="text-warning fw-bold">no certification type in Odoo yet</span>
                         <div class="text-muted">To send certifications, create one in Odoo: <strong>Employees &rsaquo; Configuration &rsaquo; Skill Types</strong> &rarr; New,
-                            tick <strong>Certification</strong>, add one level such as <strong>Certified</strong> and at least one skill (Odoo requires one; a course name will do), save, then click <strong>Check Odoo</strong> again.</div>
+                            tick <strong>Certification</strong>, add one level such as <strong>Certified</strong> and at least one skill (Odoo requires one; a course name will do), save, then click <strong>Check Odoo</strong> again<?php if ($tao_t !== null && !$tao_t['staging']) { ?> and, on this production Odoo, <strong>Check now</strong> under Employee links (Odoo) before you save<?php } ?>.</div>
                     <?php } ?>
                 </div>
                 <div>HR notes:
-                    <?php if (!empty($tao_disc['note']['available'])) { ?>
+                    <?php if (PushService::noteReady($tao_disc)) { ?>
                         <span class="text-success fw-bold">available</span> <span class="text-muted">(internal notes in the employee's chatter)</span>
                     <?php } else { ?>
-                        <span class="text-danger fw-bold">not available</span> <span class="text-muted">(the integration user cannot read employee chatter; it needs Employees: Officer)</span>
+                        <span class="text-danger fw-bold">not available</span> <span class="text-muted"><?php echo nullable_htmlentities(OdooAdmin::noteWhy($tao_disc, '(', ')')); ?></span>
                     <?php } ?>
                 </div>
                 <div>Employees with Odoo users:
@@ -205,14 +225,19 @@ $tao_pause = $tao['would_pause'] ?? null;
             $tao_asel = $tao['settings']['award_type_id'] ?? null;
             $tao_on = array_fill_keys((array) ($tao['targets'] ?? ['resume']), true);
             $tao_tready = (bool) ($tao['targets_ready'] ?? false);
-            $tao_skill_ok = !empty($tao_disc['skill']['available']) && !empty($tao_tready);
-            $tao_note_ok = !empty($tao_disc['note']['available']) && !empty($tao_tready);
+            // A target can be ticked when this Odoo offers it; one that is on stays changeable (so it can be switched off).
+            $tao_skill_ok = !empty($tao_tready) && (isset($tao_on['skill']) || (!empty($tao_disc['skill']['available']) && !empty($tao_disc['skill']['cert_types'])));
+            $tao_note_ok = !empty($tao_tready) && (isset($tao_on['note']) || !empty($tao['note_ready']));
             $tao_opts = (array) ($tao['skill_options'] ?? []);
-            $tao_pair = ($tao['settings']['skill_type_id'] ?? null) !== null && ($tao['settings']['skill_level_id'] ?? null) !== null
+            $tao_saved_pair = ($tao['settings']['skill_type_id'] ?? null) !== null && ($tao['settings']['skill_level_id'] ?? null) !== null
                 ? intval($tao['settings']['skill_type_id']) . ':' . intval($tao['settings']['skill_level_id']) : '';
-            if ($tao_pair === '' && $tao_opts) {
-                $tao_pair = (string) $tao_opts[0]['value'];   // the first certification type's default level
-            } ?>
+            // The saved type/level no longer offered by Odoo: show "Choose…" and say so - never quietly preselect another type.
+            $tao_pair_lost = $tao_saved_pair !== '' && !in_array($tao_saved_pair, array_map('strval', array_column($tao_opts, 'value')), true);
+            $tao_pair = $tao_pair_lost ? '' : $tao_saved_pair;
+            if ($tao_saved_pair === '' && $tao_opts) {
+                $tao_pair = (string) $tao_opts[0]['value'];   // never chosen yet: the first certification type's default level
+            }
+            $tao_lost_label = trim((string) ($tao['settings']['skill_label'] ?? '')); ?>
         <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" autocomplete="off" data-ts-label="Odoo write-back">
             <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
             <input type="hidden" name="version" value="<?php echo intval($ta_version ?? ($tao['version'] ?? 0)); ?>">
@@ -226,11 +251,11 @@ $tao_pause = $tao['would_pause'] ?? null;
                     </div>
                     <div class="form-check">
                         <input type="checkbox" class="form-check-input" id="taoSendSkill" name="send_skill" value="1"<?php if (isset($tao_on['skill'])) { echo ' checked'; } ?><?php if (!$tao_skill_ok) { echo ' disabled'; } ?>>
-                        <label class="form-check-label" for="taoSendSkill">Certification skill</label>
+                        <label class="form-check-label" for="taoSendSkill">Certification skill</label><?php if ($tao_tready && !$tao_skill_ok && !empty($tao_disc['skill']['available'])) { ?> <span class="small text-muted">(no certification type in Odoo yet)</span><?php } ?>
                     </div>
                     <div class="form-check">
                         <input type="checkbox" class="form-check-input" id="taoSendNote" name="send_note" value="1"<?php if (isset($tao_on['note'])) { echo ' checked'; } ?><?php if (!$tao_note_ok) { echo ' disabled'; } ?>>
-                        <label class="form-check-label" for="taoSendNote">HR note (internal)</label>
+                        <label class="form-check-label" for="taoSendNote">HR note (internal)</label><?php if ($tao_tready && !$tao_note_ok) { ?> <span class="small text-muted">(not available on this Odoo)</span><?php } ?>
                     </div>
                 </div>
                 <?php if (!$tao_tready) { ?>
@@ -241,7 +266,7 @@ $tao_pause = $tao['would_pause'] ?? null;
             </fieldset>
             <div class="row">
                 <div class="col-md-4 mb-3">
-                    <label class="form-label" for="taoType">Line type for training records</label>
+                    <label class="form-label" for="taoType">Résumé line type for training records</label>
                     <select class="form-select" id="taoType" name="resume_type_id">
                         <option value="">Choose&hellip;</option>
                         <?php foreach ($tao_types as $tao_ty) { ?>
@@ -250,7 +275,7 @@ $tao_pause = $tao['would_pause'] ?? null;
                     </select>
                 </div>
                 <div class="col-md-4 mb-3">
-                    <label class="form-label" for="taoAwardType">Line type for achievements</label>
+                    <label class="form-label" for="taoAwardType">Résumé line type for achievements</label>
                     <select class="form-select" id="taoAwardType" name="award_type_id">
                         <option value="">Same as training records</option>
                         <?php foreach ($tao_types as $tao_ty) { ?>
@@ -279,23 +304,34 @@ $tao_pause = $tao['would_pause'] ?? null;
                 <?php if (empty($tao_disc['skill']['available'])) { ?>
                     <p class="small text-muted mb-0">This Odoo does not offer employee skills (the Skills app), so certifications cannot be sent.</p>
                 <?php } elseif (!$tao_opts) { ?>
-                    <p class="small mb-0">Odoo has no certification skill type yet. In Odoo, open <strong>Employees &rsaquo; Configuration &rsaquo; Skill Types</strong>, click New,
+                    <?php if ($tao_pair_lost) { ?>
+                        <div class="alert alert-warning py-2 small mb-2">The certification type and level saved here<?php if ($tao_lost_label !== '') { ?> (<strong><?php echo nullable_htmlentities($tao_lost_label); ?></strong>)<?php } ?> are not offered by this Odoo any more (archived or deleted in Odoo, or no longer marked Certification). New certifications wait; résumé lines and notes keep sending.</div>
+                    <?php } ?>
+                    <p class="small mb-0">Odoo has no certification skill type<?php echo $tao_pair_lost ? ' now' : ' yet'; ?>. In Odoo, open <strong>Employees &rsaquo; Configuration &rsaquo; Skill Types</strong>, click New,
                         tick <strong>Certification</strong>, add one level such as <strong>Certified</strong> and at least one skill (Odoo requires one), save,
-                        then click <strong>Check Odoo</strong> above.</p>
+                        then click <strong>Check Odoo</strong> above<?php if (!$tao_t['staging']) { ?> and, on this production Odoo, <strong>Check now</strong> under Employee links (Odoo) before you save<?php } ?>.</p>
                 <?php } else { ?>
                     <label class="form-label small mb-1" for="taoSkillType">Certification type and level</label>
-                    <select class="form-select" id="taoSkillType" name="skill_type_level">
+                    <select class="form-select<?php if ($tao_pair_lost) { echo ' is-invalid'; } ?>" id="taoSkillType" name="skill_type_level"<?php if ($tao_pair_lost) { echo ' aria-describedby="taoSkillLost"'; } ?>>
+                        <option value=""<?php if ($tao_pair === '') { echo ' selected'; } ?>>Choose&hellip;</option>
                         <?php foreach ($tao_opts as $tao_o) { ?>
                             <option value="<?php echo nullable_htmlentities((string) $tao_o['value']); ?>"<?php if ((string) $tao_o['value'] === $tao_pair) { echo ' selected'; } ?>><?php echo nullable_htmlentities((string) $tao_o['label'] . ($tao_o['default'] ? ' (default level)' : '')); ?></option>
                         <?php } ?>
                     </select>
-                    <div class="form-text">Valid from = the completion date; valid to = the expiry (none when it does not expire). Only courses and achievements mapped to an Odoo skill under <a href="#odoo-send">Send to Odoo</a> are sent. A void ends the certification (the day before the void, as Odoo archives skills).</div>
+                    <?php if ($tao_pair_lost) { ?>
+                        <div class="invalid-feedback d-block" id="taoSkillLost">The type and level saved here<?php if ($tao_lost_label !== '') { ?> (<strong><?php echo nullable_htmlentities($tao_lost_label); ?></strong>)<?php } ?> are not offered by this Odoo any more (archived or deleted in Odoo, or no longer marked Certification). New certifications wait until you choose one and save, or restore it in Odoo and click Check Odoo; résumé lines and notes keep sending. Courses stay mapped to their skills: pick a type that has them.</div>
+                    <?php } ?>
+                    <div class="form-text">Valid from = the completion date; valid to = the expiry (none when it does not expire). Only courses and achievements mapped to an Odoo skill under <a href="#odoo-send">Send to Odoo</a> are sent.</div>
+                    <div class="form-text"><strong>A void</strong> ends the certification: its end date becomes the day before the void (as Odoo ends skills), or the void date when the record is voided on the day it started. Nothing is deleted.
+                        Odoo has no "revoked" mark for a certification, so a voided one looks just like an expired one, and Odoo counts it as valid through its end date (one voided on the day it started still shows as valid until midnight).
+                        Turn on <strong>HR note</strong> too, so the employee's chatter says it was voided.</div>
                 <?php } ?>
             </div>
             <div class="border rounded p-2 mb-3 small">
                 <div class="fw-semibold mb-1"><i class="fas fa-fw fa-sticky-note me-1" aria-hidden="true"></i>HR note</div>
-                Posted in the employee's chatter as an <strong>internal note</strong>: nobody is e-mailed and followers are not notified. It says the course, completion date, certificate number, expiry and how it was recorded (no score, no link, no PDF).
-                A void adds a short follow-up note; the first note is never changed.
+                Posted in the employee's chatter as an <strong>internal note that goes to nobody</strong>: no one is e-mailed or notified (followers of the employee included), ITFlow's Odoo user does not start following the employee, and no out-of-office reply is triggered. Needs Odoo 19 or later.
+                It says the course, completion date, certificate number, expiry and how it was recorded (no score, no link, no PDF).
+                A void adds a short follow-up note naming the course; the first note is never changed.
             </div>
             <div class="border rounded p-2 mb-3">
                 <div class="form-check form-switch mb-1">
@@ -319,7 +355,7 @@ $tao_pause = $tao['would_pause'] ?? null;
                     <li>In Odoo, create the ITFlow Integration user (Employees: Officer) and give its API key to the integration.</li>
                     <li>Point the Odoo integration at production (Integrations &rsaquo; Directory Sync).</li>
                     <li>Click <strong>Check Odoo</strong> above.</li>
-                    <li>Run <strong>Check now</strong> under Employee links (Odoo) on this page.</li>
+                    <li>Run <strong>Check now</strong> under Employee links (Odoo) on this page (again after every <strong>Check Odoo</strong>, before you save).</li>
                     <li>Turn on <strong>Enable write-back</strong>, then <strong>Save Odoo write-back</strong>.</li>
                 </ol>
             </div>
@@ -441,21 +477,28 @@ $tao_pause = $tao['would_pause'] ?? null;
                         </td>
                         <td class="small"><?php echo nullable_htmlentities((string) ($tao_r['mode_label'] ?? '')); ?></td>
                         <td class="small">
-                            <?php if ($tao_r['held']) { ?>
-                                <span class="badge text-bg-warning">held</span>
+                            <?php // the same words as the counts table: Held, Retrying, Could not send, Skipped
+                            if ($tao_r['held']) { ?>
+                                <span class="badge text-bg-warning">Held</span>
                             <?php } else { ?>
-                                <span class="badge <?php echo nullable_htmlentities($tao_r['status'] === 'dead' ? 'text-bg-danger' : ($tao_r['status'] === 'skipped' ? 'text-bg-secondary' : 'text-bg-warning')); ?>"><?php echo nullable_htmlentities((string) $tao_r['status']); ?></span>
+                                <span class="badge <?php echo nullable_htmlentities($tao_r['status'] === 'dead' ? 'text-bg-danger' : ($tao_r['status'] === 'skipped' ? 'text-bg-secondary' : 'text-bg-warning')); ?>"><?php echo nullable_htmlentities(match ((string) $tao_r['status']) { 'dead' => 'Could not send', 'failed' => 'Retrying', 'skipped' => 'Skipped', default => ucfirst((string) $tao_r['status']) }); ?></span>
                             <?php } ?>
                             <div class="text-muted"><?php echo intval($tao_r['attempts']); ?> attempt(s)</div>
                         </td>
-                        <td class="small text-break"><?php echo nullable_htmlentities((string) ($tao_r['error'] ?? '')); ?></td>
+                        <td class="small text-break"><?php echo nullable_htmlentities((string) ($tao_r['error'] ?? '')); ?>
+                            <?php if (!empty($tao_r['overlap'])) { ?>
+                                <div class="text-success mt-1"><i class="fas fa-fw fa-check me-1" aria-hidden="true"></i>Odoo already shows this certification for this employee, so nothing needs fixing. Use <strong>Skip&hellip;</strong> to clear this row.</div>
+                            <?php } ?>
+                        </td>
                         <td class="text-end">
                             <div class="d-flex flex-wrap justify-content-end gap-1">
+                                <?php if (empty($tao_r['overlap'])) { // Odoo refuses an identical certification: a retry cannot succeed ?>
                                 <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="d-inline">
                                     <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
                                     <input type="hidden" name="todoo_id" value="<?php echo intval($tao_r['id']); ?>">
                                     <button type="submit" name="ta_odoo_retry" class="btn btn-outline-primary btn-sm">Retry</button>
                                 </form>
+                                <?php } ?>
                                 <?php if ($tao_r['status'] !== 'skipped') { ?>
                                 <details class="text-start">
                                     <summary class="btn btn-outline-secondary btn-sm">Skip&hellip;</summary>

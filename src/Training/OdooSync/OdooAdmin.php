@@ -106,7 +106,7 @@ final class OdooAdmin
         $msg = 'Checked Odoo (read-only): resume lines are available'
             . ($suggested !== null ? '; suggested line type: ' . $suggested : '')
             . '; certification types: ' . (count($d['skill']['cert_types']) ?: 'none')
-            . '; HR notes: ' . ($d['note']['available'] ? 'available' : 'not available') . '.';
+            . '; HR notes: ' . ($d['note']['available'] ? 'available' : 'not available' . self::noteWhy($d, ' (', ')')) . '.';
         if ($d['errors']) {
             return ['warning', $msg . ' Some checks failed: ' . Text::clip(implode(' · ', $d['errors']), 400)];
         }
@@ -146,9 +146,11 @@ final class OdooAdmin
             $send['resume'] = 1;
         }
         // Certification type + level: one "type:level" choice, both from the last Odoo check; the level belongs to the type.
+        // Its name ("Certifications › Certified") is kept too, so a later pause can say which one Odoo no longer offers.
         // (An old form has no such field: the stored choice stays.)
-        [$skillType, $skillLevel] = array_key_exists('targets_form', $post) ? [null, null]
-            : [self::intOrNull($ta['tauto_odoo_skill_type_id'] ?? null), self::intOrNull($ta['tauto_odoo_skill_level_id'] ?? null)];
+        [$skillType, $skillLevel, $skillLabel] = array_key_exists('targets_form', $post) ? [null, null, null]
+            : [self::intOrNull($ta['tauto_odoo_skill_type_id'] ?? null), self::intOrNull($ta['tauto_odoo_skill_level_id'] ?? null),
+               isset($ta['tauto_odoo_skill_label']) ? (string) $ta['tauto_odoo_skill_label'] : null];
         $pair = trim((string) ($post['skill_type_level'] ?? ''));
         if ($pair !== '') {
             if (preg_match('/^(\d{1,9}):(\d{1,9})$/D', $pair, $pm) !== 1) {
@@ -159,6 +161,25 @@ final class OdooAdmin
             if (PushService::skillConfig(['tauto_odoo_skill_type_id' => $skillType, 'tauto_odoo_skill_level_id' => $skillLevel], $disc) === null) {
                 return ['error', 'Choose a certification type and level that the last Odoo check found (the level must belong to the type).'];
             }
+            $skillLabel = null;
+            foreach (OdooCard::skillOptions($disc) as $o) {
+                if ($o['value'] === $skillType . ':' . $skillLevel) {
+                    $skillLabel = (string) Text::clip($o['label'], 255);
+                }
+            }
+        }
+        // A target can only be ticked when this Odoo offers it (also with write-back off, so nothing is saved that cannot work).
+        if ($send['skill']) {
+            if (empty($disc['skill']['available'])) {
+                return ['error', 'This Odoo does not offer employee skills (the Skills app). Untick "Certification skill".'];
+            }
+            if (empty($disc['skill']['cert_types'])) {
+                return ['error', 'This Odoo has no certification skill type. Untick "Certification skill", or create one in Odoo (Employees › Configuration › Skill Types: tick "Certification", add a level such as "Certified" and at least one skill) and click Check Odoo again'
+                    . ($t->looksStaging ? '.' : ', then Check now under Employee links (Odoo).')];
+            }
+        }
+        if ($send['note'] && !PushService::noteReady($disc)) {
+            return ['error', 'HR notes cannot be sent to this Odoo' . self::noteWhy($disc, ': ', '') . '. Untick "HR note".'];
         }
         $types = [];
         foreach ((array) ($disc['resume']['types'] ?? []) as $ty) {
@@ -201,19 +222,8 @@ final class OdooAdmin
             if ($send['resume'] && $resumeType === null) {
                 return ['error', 'Choose the resume line type before switching write-back on.'];
             }
-            if ($send['skill']) {
-                if (empty($disc['skill']['available'])) {
-                    return ['error', 'This Odoo does not offer employee skills (the Skills app). Untick "Certification skill".'];
-                }
-                if (empty($disc['skill']['cert_types'])) {
-                    return ['error', 'This Odoo has no certification skill type yet. Create one in Odoo (Employees › Configuration › Skill Types: tick "Certification", add a level such as "Certified" and at least one skill), then Check Odoo again.'];
-                }
-                if ($skillType === null) {
-                    return ['error', 'Choose the certification type and level before sending certification skills.'];
-                }
-            }
-            if ($send['note'] && empty($disc['note']['available'])) {
-                return ['error', 'This Odoo does not let the integration read employee chatter, so HR notes cannot be sent. Untick "HR note" or give the integration user the Employees: Officer role and check Odoo again.'];
+            if ($send['skill'] && $skillType === null) {
+                return ['error', 'Choose the certification type and level before sending certification skills.'];
             }
             if ($t->looksStaging && empty($post['staging_ack'])) {
                 return ['error', 'This Odoo looks like a STAGING copy. Tick "I understand this writes to the STAGING Odoo" to switch write-back on.'];
@@ -243,6 +253,9 @@ final class OdooAdmin
         if ($targetsReady) {
             foreach (Targets::COLUMNS as $m => $col) {
                 $values[$col] = $send[$m];
+            }
+            if (Schema::hasColumn($db, 'training_automation', 'tauto_odoo_skill_label')) {
+                $values['tauto_odoo_skill_label'] = $skillType === null ? null : $skillLabel;
             }
         }
         AutomationSettings::save($db, 'odoo', $values, $version, $userId);   // a stale version throws RuntimeException('conflict')
@@ -440,6 +453,18 @@ final class OdooAdmin
             VALUES (?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE tomap_odoo_skill_id = VALUES(tomap_odoo_skill_id), tomap_target_key = VALUES(tomap_target_key), tomap_updated_by = VALUES(tomap_updated_by)',
             'siisii', [$entity, $id, $entity === 'course' ? 1 : 0, $targetKey, $skillId, $userId]);
+    }
+
+    /** Why a check found HR notes unavailable, in words, between $pre and $post ('' when it does not say). */
+    public static function noteWhy(array $disc, string $pre, string $post): string
+    {
+        $why = match ($disc['note']['why'] ?? (empty($disc['note']['available']) ? 'chatter' : null)) {
+            'chatter' => 'the integration user cannot read employee chatter; it needs Employees: Officer',
+            'version' => 'this Odoo is older than 19 and cannot post a note without notifying the employee\'s followers',
+            'version_unknown' => 'Odoo did not report its version, and notes need Odoo 19 or later',
+            default => PushService::noteReady($disc) ? '' : 'Odoo 19 or later is needed',
+        };
+        return $why === '' ? '' : $pre . $why . $post;
     }
 
     /** The stored discovery when it belongs to $t, else null. */

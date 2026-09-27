@@ -3944,6 +3944,7 @@ CREATE TABLE `training_automation` (
   `tauto_odoo_award_type_id` int(11) DEFAULT NULL,
   `tauto_odoo_skill_type_id` int(11) DEFAULT NULL,
   `tauto_odoo_skill_level_id` int(11) DEFAULT NULL,
+  `tauto_odoo_skill_label` varchar(255) DEFAULT NULL,
   `tauto_odoo_push_awards` tinyint(1) NOT NULL DEFAULT 0,
   `tauto_odoo_push_since` date DEFAULT NULL,
   `tauto_odoo_target_key` char(16) DEFAULT NULL,

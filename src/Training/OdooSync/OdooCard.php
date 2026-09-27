@@ -64,6 +64,7 @@ final class OdooCard
                 'key_expires_on' => $ta['tauto_odoo_key_expires_on'] ?? null,
                 'skill_type_id' => $ta['tauto_odoo_skill_type_id'] ?? null,
                 'skill_level_id' => $ta['tauto_odoo_skill_level_id'] ?? null,
+                'skill_label' => $ta['tauto_odoo_skill_label'] ?? null,
             ],
             // The certification settings when they match this Odoo's last check (null: not chosen, or re-check needed).
             'skill_cfg' => $discHere === null ? null : PushService::skillConfig($ta, $discHere),
@@ -71,6 +72,9 @@ final class OdooCard
             'counts_by_target' => null,
             'unmapped' => [],
             'would_pause' => $enabled ? PushService::pauseReason($t, $ta, $disc, $rs) : null,
+            // targets paused on their own (mode => reason): their new records wait, the other targets keep sending
+            'target_pauses' => $discHere === null ? [] : PushService::targetPauses($ta, $discHere),
+            'note_ready' => PushService::noteReady($discHere),
             'paused_reason' => $ta['tauto_odoo_paused_reason'] ?? null,
             'last_run' => self::local($ta['tauto_odoo_last_run_at_utc'] ?? null),
             'last_result' => $ta['tauto_odoo_last_result'] ?? null,
@@ -95,7 +99,7 @@ final class OdooCard
         $rows = $repo->recent($key, ['failed', 'dead', 'held', 'skipped_mapping'], 20);
         $out['problems'] = self::describeRows($db, $records, $rows, $t);
         if ($preview && $t !== null) {
-            $out['preview'] = self::preview($db, $records, $repo, $t, $ta);
+            $out['preview'] = self::preview($db, $records, $repo, $t, $ta, array_keys($out['target_pauses']));
         }
         $since = OutboxScanner::sinceUtc($ta['tauto_odoo_push_since'] ?? null);
         if (in_array('skill', $out['targets'], true) && $since !== null && $t !== null) {
@@ -164,17 +168,18 @@ final class OdooCard
     }
 
     /** The dry run: the next 10 rows the worker would send, with no Odoo call and no write. */
-    private static function preview(\mysqli $db, RecordsGateway $records, OutboxRepo $repo, Target $t, array $ta): array
+    private static function preview(\mysqli $db, RecordsGateway $records, OutboxRepo $repo, Target $t, array $ta, array $paused = []): array
     {
         $rows = [];
-        foreach ($repo->upcoming($t->key, 10, Targets::enabled($ta)) as $r) {
+        $sending = array_values(array_diff(Targets::enabled($ta), $paused));
+        foreach ($repo->upcoming($t->key, 10, $sending) as $r) {
             $rows[] = ['queued' => true, 'source_type' => $r['todoo_source_type'], 'source_id' => (int) $r['todoo_source_id'], 'action' => $r['todoo_action'], 'mode' => $r['todoo_mode'],
                        'contact_id' => (int) $r['todoo_contact_id'], 'marker' => $r['todoo_marker'], 'error_class' => $r['todoo_error_class'], 'error' => $r['todoo_last_error']];
         }
         $since = OutboxScanner::sinceUtc($ta['tauto_odoo_push_since'] ?? null);
         if (count($rows) < 10 && $since !== null) {
             $inst8 = Marker::inst8For($db);
-            foreach (Targets::enabled($ta) as $mode) {
+            foreach ($sending as $mode) {
                 if (count($rows) >= 10) {
                     break;
                 }
@@ -225,6 +230,8 @@ final class OdooCard
                 'marker' => (string) ($r['todoo_marker'] ?? $r['marker'] ?? ''),
                 'attempts' => (int) ($r['todoo_attempts'] ?? 0),
                 'error' => $r['todoo_last_error'] ?? $r['error'] ?? null,
+                // Odoo already has this very certification (same skill, level and dates): nothing to fix, Retry cannot help
+                'overlap' => str_starts_with((string) ($r['todoo_last_error'] ?? ''), 'skill_overlap:'),
                 'employee' => null,
             ];
             if ($withLink && $t !== null) {
