@@ -132,6 +132,7 @@ final class VerifyThrottle
             $old = umask(0077);
             $ok = @mkdir($d, 0700);
             umask($old);
+            clearstatcache(true, $d);   // another worker may have created it between the check and mkdir()
             if (!$ok && !is_dir($d)) {
                 return $this->failOpen('cannot create the store');
             }
