@@ -100,7 +100,7 @@ final class PushService
         // 4. Queue what the listener missed (dry run: count only, no writes, no network).
         if ($dry) {
             $q = $scanner->scan($t, $s, $now, 200, true);
-            $due = count($repo->upcoming($t->key, 200));
+            $due = count($repo->upcoming($t->key, 200, Targets::enabled($s)));
             $out['queued'] = $q;
             $out['line'] = sprintf('odoo: dry run, would queue %d new, %d close, %d achievement; %d already waiting', $q['creates'], $q['closes'], $q['awards'], $due);
             return $out;

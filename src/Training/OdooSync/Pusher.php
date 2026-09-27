@@ -475,7 +475,7 @@ final class Pusher
         if ($own !== []) {
             throw new \DomainException('employee_changed');
         }
-        $id = $this->postNote($employeeId, PayloadBuilder::noteHtml($payload, ($row['todoo_source_type'] ?? '') === 'award'));
+        $id = $this->postNote($employeeId, PayloadBuilder::noteHtml($payload, ($row['todoo_source_type'] ?? '') === 'award'), $marker);
         return ['model' => 'mail.message', 'res_id' => $id];
     }
 
@@ -492,7 +492,7 @@ final class Pusher
                 return ['model' => 'mail.message', 'res_id' => $h['id']];
             }
         }
-        $id = $this->postNote($emp, PayloadBuilder::noteVoidHtml($payload, $voidMarker));
+        $id = $this->postNote($emp, PayloadBuilder::noteVoidHtml($payload, $voidMarker), $voidMarker);
         return ['model' => 'mail.message', 'res_id' => $id];
     }
 
@@ -540,7 +540,7 @@ final class Pusher
      * mail_post_autofollow off (nobody is subscribed). body_is_html because the body is our own escaped html
      * (Odoo documents it for RPC callers; a plain str would be escaped as text).
      */
-    private function postNote(int $employeeId, string $html): int
+    private function postNote(int $employeeId, string $html, string $marker): int
     {
         $res = $this->call('hr.employee', 'message_post', self::noteArgs($employeeId, $html));
         if (is_int($res) && $res > 0) {
@@ -549,7 +549,17 @@ final class Pusher
         if (is_array($res) && count($res) === 1 && is_int($res[0] ?? null) && $res[0] > 0) {
             return $res[0];
         }
-        throw new PushException('permanent', 'bad_post_response: Odoo did not return the new note id');
+        if (is_string($res) && preg_match('/^mail\.message\((\d+),?\)$/D', $res, $m) === 1 && (int) $m[1] > 0) {
+            return (int) $m[1];   // a recordset the RPC layer rendered as text
+        }
+        // Posted, but the answer carries no plain id (the legacy RPC layer's rendering of a recordset differs between
+        // Odoo versions): the note is found by its marker - it is never posted twice.
+        foreach ($this->ownNotes($marker, $employeeId) as $h) {
+            if ($h['employee_id'] === $employeeId) {
+                return $h['id'];
+            }
+        }
+        throw new PushException('permanent', 'bad_post_response: Odoo did not return the new note id and it could not be found by its reference');
     }
 
     /** The exact message_post arguments (public so the tests can assert them). */
