@@ -25,7 +25,7 @@ final class PayloadGuard
         'course', 'uid', 'kind', 'name', 'summary', 'description_html', 'cover_url', 'color', 'est_minutes', 'sequential',
         'requires_signature', 'attestation_text', 'sections', 'title', 'lesson_uids', 'lesson_order', 'lessons', 'id', 'required',
         'duration_s', 'preview_enabled', 'article', 'body_html', 'document', 'page_count', 'pages', 'n', 'url', 'w', 'h', 'download_url',
-        'video', 'provider', 'src_url', 'min_watch_pct', 'embed_url', 'video_id', 'verified', 'image', 'caption', 'ack', 'statement_html',
+        'video', 'provider', 'src_url', 'min_watch_pct', 'embed_url', 'video_id', 'verified', 'captions', 'image', 'caption', 'ack', 'statement_html',
         'require_signature', 'require_pin', 'quiz', 'role', 'question_count', 'pass_pct', 'max_attempts', 'time_limit_s', 'show_review',
         'must_pass', 'intro', 'resources', 'endpoints', 'quiz_start', 'quiz_submit', 'video_verify', 'strings',
     ];

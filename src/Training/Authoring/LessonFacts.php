@@ -3,6 +3,7 @@
 namespace ITFlow\Training\Authoring;
 
 use ITFlow\Training\Core\Db;
+use ITFlow\Training\Media\Captions;
 
 /**
  * One batched read of everything the lesson views, issue checks and time estimates need for a
@@ -18,6 +19,15 @@ final class LessonFacts
     public const VARIANT_COLS = 'lvar_lesson_id, lvar_lang, lvar_title, lvar_word_count, lvar_media_id, lvar_caption, lvar_video_provider,
         lvar_video_ext_id, lvar_video_ext_hash, lvar_kb_source_article_id, lvar_kb_source_sha256, lvar_kb_import_body_sha256,
         lvar_kb_imported_at_utc, lvar_updated_by, lvar_updated_at';
+
+    /**
+     * VARIANT_COLS plus lvar_caption_media_id (DB 2.6.98) - as NULL before that update, so every
+     * reader sees the same shape either way.
+     */
+    public static function variantCols(\mysqli $db): string
+    {
+        return self::VARIANT_COLS . (Captions::schemaReady($db) ? ', lvar_caption_media_id' : ', NULL AS lvar_caption_media_id');
+    }
 
     /**
      * @param list<int>    $lessonIds
@@ -45,11 +55,14 @@ final class LessonFacts
                     $mediaIds[] = (int) $l['lesson_thumb_media_id'];
                 }
             }
-            $cols = self::VARIANT_COLS . ($withHtml ? ', lvar_description_html, lvar_body_html' : ', NULL AS lvar_description_html, NULL AS lvar_body_html');
+            $cols = self::variantCols($db) . ($withHtml ? ', lvar_description_html, lvar_body_html' : ', NULL AS lvar_description_html, NULL AS lvar_body_html');
             foreach (Db::all($db, "SELECT $cols FROM training_lesson_variants WHERE lvar_lesson_id IN ($in) ORDER BY lvar_lesson_id, lvar_lang", $types, $chunk) as $v) {
                 $facts['variants'][(int) $v['lvar_lesson_id']][(string) $v['lvar_lang']] = $v;
                 if ($v['lvar_media_id'] !== null) {
                     $mediaIds[] = (int) $v['lvar_media_id'];
+                }
+                if ($v['lvar_caption_media_id'] !== null) {
+                    $mediaIds[] = (int) $v['lvar_caption_media_id'];
                 }
             }
             foreach (Db::all($db, "SELECT lres_lesson_id, COUNT(*) AS n FROM training_lesson_resources WHERE lres_lesson_id IN ($in) AND lres_archived_at IS NULL GROUP BY lres_lesson_id", $types, $chunk) as $r) {

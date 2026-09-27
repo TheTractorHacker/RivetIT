@@ -7,6 +7,7 @@ use ITFlow\Training\Authoring\DurationEstimator;
 use ITFlow\Training\Core\Canonical;
 use ITFlow\Training\Core\Ctx;
 use ITFlow\Training\Core\Db;
+use ITFlow\Training\Media\Captions;
 use ITFlow\Training\Quiz\BankService;
 use ITFlow\Training\Quiz\BankTree;
 use ITFlow\Training\Quiz\Guard;
@@ -130,7 +131,8 @@ final class RevisionBuilder
 
         // --- per-lesson data ------------------------------------------------------------------
         $variants = [];
-        foreach (Db::all($db, 'SELECT ' . self::VARIANT_COLS . " FROM training_lesson_variants WHERE lvar_lesson_id IN ($lph)", $lt, $lp) as $v) {
+        $variantCols = self::VARIANT_COLS . (Captions::schemaReady($db) ? ', lvar_caption_media_id' : ', NULL AS lvar_caption_media_id');
+        foreach (Db::all($db, 'SELECT ' . $variantCols . " FROM training_lesson_variants WHERE lvar_lesson_id IN ($lph)", $lt, $lp) as $v) {
             $variants[(int) $v['lvar_lesson_id']][(string) $v['lvar_lang']] = $v;
         }
         $resources = [];
@@ -558,6 +560,14 @@ final class RevisionBuilder
             if ($provider === 'upload' && $mid !== null) {
                 $ms = $mediaInfo[$mid]['media_duration_ms'] ?? null;
                 $video = ['provider' => 'upload', 'media_id' => $mid, 'duration_s' => $ms === null ? 0 : intdiv((int) $ms + 999, 1000)];
+                // Closed captions (DB 2.6.98): the key exists only when this language has a caption file, so a
+                // draft without captions builds the very same bytes as before (no phantom "unpublished changes").
+                // The file joins the manifest, so the published revision pins it and kiosk/media.php serves it.
+                $cap = ($v['lvar_caption_media_id'] ?? null) === null ? null : (int) $v['lvar_caption_media_id'];
+                if ($cap !== null) {
+                    $video['caption_media_id'] = $cap;
+                    $refs->add($cap, false, "caption:$luid:$lang");
+                }
             } elseif (in_array($provider, ['youtube', 'vimeo'], true) && (string) $v['lvar_video_ext_id'] !== '') {
                 $extId = (string) $v['lvar_video_ext_id'];
                 $hash = (string) ($v['lvar_video_ext_hash'] ?? '');

@@ -61,7 +61,7 @@ final class Rows
     {
         $allowed = ['lvar_title', 'lvar_description_html', 'lvar_body_html', 'lvar_word_count', 'lvar_media_id', 'lvar_caption',
             'lvar_video_provider', 'lvar_video_ext_id', 'lvar_video_ext_hash', 'lvar_kb_source_article_id', 'lvar_kb_source_sha256',
-            'lvar_kb_import_body_sha256', 'lvar_kb_imported_at_utc'];
+            'lvar_kb_import_body_sha256', 'lvar_kb_imported_at_utc', 'lvar_caption_media_id'];
         foreach (array_keys($cols) as $k) {
             if (!in_array($k, $allowed, true)) {
                 throw new \InvalidArgumentException("Rows: unknown variant column '$k'");

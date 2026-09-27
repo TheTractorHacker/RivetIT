@@ -4614,6 +4614,7 @@ CREATE TABLE `training_lesson_variants` (
   `lvar_body_html` mediumtext DEFAULT NULL,
   `lvar_word_count` int(10) unsigned NOT NULL DEFAULT 0,
   `lvar_media_id` int(11) DEFAULT NULL,
+  `lvar_caption_media_id` int(11) DEFAULT NULL,
   `lvar_caption` varchar(500) DEFAULT NULL,
   `lvar_video_provider` enum('upload','youtube','vimeo') DEFAULT NULL,
   `lvar_video_ext_id` varchar(20) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
@@ -4627,7 +4628,8 @@ CREATE TABLE `training_lesson_variants` (
   PRIMARY KEY (`lvar_lesson_id`,`lvar_lang`),
   KEY `idx_training_lvar_media` (`lvar_media_id`),
   KEY `idx_training_lvar_kb` (`lvar_kb_source_article_id`),
-  KEY `idx_training_lvar_video` (`lvar_video_provider`,`lvar_video_ext_id`)
+  KEY `idx_training_lvar_video` (`lvar_video_provider`,`lvar_video_ext_id`),
+  KEY `idx_training_lvar_capmedia` (`lvar_caption_media_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -4675,7 +4677,7 @@ DROP TABLE IF EXISTS `training_media`;
 CREATE TABLE `training_media` (
   `media_id` int(11) NOT NULL AUTO_INCREMENT,
   `media_sha256` char(64) NOT NULL,
-  `media_kind` enum('pdf','page','video','image','file','evidence') NOT NULL,
+  `media_kind` enum('pdf','page','video','image','file','evidence','caption') NOT NULL,
   `media_mime` varchar(100) NOT NULL,
   `media_ext` varchar(10) NOT NULL,
   `media_bytes` bigint(20) unsigned NOT NULL,

@@ -168,8 +168,8 @@ function tr_admin_fmt_bytes(int $b): string {
 // pages ship after this foundation update); until then there is nothing to open.
 $tr_pages_ready = is_file(dirname(__DIR__) . '/agent/training_courses.php');
 
-$tr_kind_labels = ['pdf' => 'PDF documents', 'page' => 'PDF page images', 'video' => 'Videos', 'image' => 'Images', 'file' => 'Resource files', 'evidence' => 'Evidence'];
-$tr_kind_colors = ['pdf' => 'bg-red', 'page' => 'bg-orange', 'video' => 'bg-purple', 'image' => 'bg-cyan', 'file' => 'bg-blue', 'evidence' => 'bg-secondary'];
+$tr_kind_labels = ['pdf' => 'PDF documents', 'page' => 'PDF page images', 'video' => 'Videos', 'image' => 'Images', 'file' => 'Resource files', 'caption' => 'Caption files', 'evidence' => 'Evidence'];
+$tr_kind_colors = ['pdf' => 'bg-red', 'page' => 'bg-orange', 'video' => 'bg-purple', 'image' => 'bg-cyan', 'file' => 'bg-blue', 'caption' => 'bg-teal', 'evidence' => 'bg-secondary'];
 
 $tr_result_line = (string) ($tr_row['config_training_ledger_verify_result'] ?? '');
 $tr_result_badge = 'text-bg-secondary';

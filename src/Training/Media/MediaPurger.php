@@ -14,7 +14,7 @@ use ITFlow\Training\Core\Ledger;
  *
  * A media id is REFERENCED - and never offered or purged - when any of these name it:
  *   - a published revision's manifest (training_revision_media; kept forever)
- *   - a lesson variant (lvar_media_id) or the HTML of a lesson variant (body/description),
+ *   - a lesson variant (lvar_media_id, lvar_caption_media_id) or the HTML of a lesson variant (body/description),
  *     a course description, or any translated course/section/… text (training_i18n)
  *   - a lesson thumbnail, a course cover, a learning-path cover
  *   - a question image (neutral or per-language), a lesson resource, a video-check thumbnail
@@ -175,6 +175,9 @@ final class MediaPurger
             ['training_lesson_resources', 'lres_media_id'],
             ['training_video_checks', 'vcheck_thumb_media_id'],
         ];
+        if (Captions::schemaReady($db)) {
+            $sources[] = ['training_lesson_variants', 'lvar_caption_media_id'];   // a video's caption file (DB 2.6.98)
+        }
         $ref = [];
         foreach ($sources as [$table, $col]) {
             [$where, $types, $params] = $in($col);

@@ -25,6 +25,7 @@ final class UploadPurpose
     public const RULES = [
         'lesson_document' => ['kinds' => ['pdf'], 'max' => 'pdf', 'scope' => 'course'],
         'lesson_video'    => ['kinds' => ['video'], 'max' => 'video', 'scope' => 'course'],
+        'lesson_caption'  => ['kinds' => ['caption'], 'max' => Captions::MAX_BYTES, 'scope' => 'course'],
         'lesson_image'    => ['kinds' => ['image'], 'max' => 'image', 'scope' => 'course'],
         'lesson_thumb'    => ['kinds' => ['image'], 'max' => 'image', 'scope' => 'course'],
         'course_cover'    => ['kinds' => ['image'], 'max' => 'image', 'scope' => 'course'],
@@ -69,6 +70,9 @@ final class UploadPurpose
         $mb = max(1, (int) floor($maxBytes / 1048576));
         if ($purpose === 'lesson_video') {
             return "This video is larger than $mb MB. For longer videos, upload to the company YouTube channel as Unlisted and paste the link.";
+        }
+        if ($purpose === 'lesson_caption') {
+            return Captions::tooLargeMessage();
         }
         return "This file is larger than the $mb MB limit for this kind of upload.";
     }

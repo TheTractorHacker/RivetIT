@@ -137,6 +137,7 @@ final class TrainingSettings
             'file_max_bytes'    => $this->fileMaxBytes,
             'docx_max_bytes'    => self::DOCX_MAX_BYTES,
             'csv_max_bytes'     => self::CSV_MAX_BYTES,
+            'caption_max_bytes' => \ITFlow\Training\Media\Captions::MAX_BYTES,
             'request_max_bytes' => self::requestMaxBytes(),
             'languages'         => $this->languages,
         ];

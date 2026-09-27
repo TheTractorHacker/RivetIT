@@ -88,7 +88,8 @@ final class LearnerView
                 $vd = $v['video'];
                 if ($vd['provider'] === 'upload') {
                     $video = ['provider' => 'upload', 'src_url' => MediaStore::url((int) $vd['media_id']),
-                        'duration_s' => (int) $vd['duration_s'], 'min_watch_pct' => (int) $l['min_watch_pct']];
+                        'duration_s' => (int) $vd['duration_s'], 'min_watch_pct' => (int) $l['min_watch_pct'],
+                        'captions' => self::captions($l, $vLang, (int) $vd['media_id'])];
                 } else {
                     $hash = $vd['provider'] === 'vimeo' ? ($vd['h'] ?? null) : null;
                     $key = RevisionBuilder::videoKey((string) $vd['provider'], (string) $vd['id'], (string) ($hash ?? ''));
@@ -316,6 +317,28 @@ final class LearnerView
             $out[RevisionBuilder::videoKey((string) $r['vcheck_provider'], (string) $r['vcheck_ext_id'], (string) $r['vcheck_ext_hash'])] = [
                 'verified' => $vt !== null && $now - $vt <= 30 * 86400 && ($et === null || $et <= $vt),
             ];
+        }
+        return $out;
+    }
+
+    /**
+     * Closed captions for an uploaded video: this language's caption file first (the player's
+     * default), then every other language's whose variant plays the SAME video file (timings
+     * only match the video they were written for). [{lang, src_url}] - possibly empty.
+     */
+    private static function captions(array $lesson, string $lang, int $videoMediaId): array
+    {
+        $out = [];
+        $variants = is_array($lesson['variants'] ?? null) ? $lesson['variants'] : [];
+        $langs = array_keys($variants);
+        usort($langs, static fn($a, $b) => ((string) $a === $lang ? 0 : 1) <=> ((string) $b === $lang ? 0 : 1) ?: strcmp((string) $a, (string) $b));
+        foreach ($langs as $L) {
+            $vd = $variants[$L]['video'] ?? null;
+            if (!is_array($vd) || ($vd['provider'] ?? '') !== 'upload' || !isset($vd['caption_media_id'])
+                || (int) ($vd['media_id'] ?? 0) !== $videoMediaId) {
+                continue;
+            }
+            $out[] = ['lang' => (string) $L, 'src_url' => MediaStore::url((int) $vd['caption_media_id'])];
         }
         return $out;
     }

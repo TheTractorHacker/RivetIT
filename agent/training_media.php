@@ -86,7 +86,7 @@ $tr_type = MediaStore::MIME_BY_EXT[$tr_ext] ?? null;
 if ($tr_type === null) {
     tr_media_not_found();
 }
-if ($tr_ext === 'txt' || $tr_ext === 'csv') {
+if ($tr_ext === 'txt' || $tr_ext === 'csv' || $tr_ext === 'vtt') {   // vtt: a video's caption file (Captions)
     $tr_type .= '; charset=utf-8';
 }
 $tr_kind = (string) $tr_row['media_kind'];

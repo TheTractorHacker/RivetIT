@@ -8,6 +8,7 @@ use ITFlow\Training\Core\Ctx;
 use ITFlow\Training\Core\Db;
 use ITFlow\Training\Core\Text;
 use ITFlow\Training\Media\ArticleSanitizer;
+use ITFlow\Training\Media\Captions;
 use ITFlow\Training\Media\MediaException;
 use ITFlow\Training\Media\VideoCheckService;
 use ITFlow\Training\Quiz\QuizCloner;
@@ -32,10 +33,11 @@ final class LessonService
 {
     /**
      * lesson_update allowlist. Per language (variant): title, description_html, body_html, media_id,
-     * caption, video_check_token, video_provider, kb_source (null = unlink the KB article).
+     * caption, caption_media_id (a video's closed-caption file, DB 2.6.98), video_check_token,
+     * video_provider, kb_source (null = unlink the KB article).
      * Language-neutral (lesson row): everything else.
      */
-    public const UPDATE_FIELDS = ['title', 'description_html', 'body_html', 'media_id', 'caption', 'video_check_token', 'video_provider',
+    public const UPDATE_FIELDS = ['title', 'description_html', 'body_html', 'media_id', 'caption', 'caption_media_id', 'video_check_token', 'video_provider',
         'required', 'duration_s', 'allow_download', 'preview_enabled', 'responsible_user_id', 'thumb_media_id', 'min_watch_pct',
         'ack_require_signature', 'ack_require_pin', 'section_id', 'tags', 'kb_source'];
     /** Fields that are neither version-guarded nor bump the version. */
@@ -157,6 +159,21 @@ final class LessonService
         if (array_key_exists('caption', $fields)) {
             $v['lvar_caption'] = Patch::text($fields, 'caption', 500);
         }
+        if (array_key_exists('caption_media_id', $fields)) {
+            // Closed captions for an uploaded video, per language: a 'caption' media row (training_upload.php
+            // purpose lesson_caption made it plain WebVTT). null removes them.
+            if ($type !== 'video') {
+                throw ApiException::validation(['caption_media_id' => 'Only video content has captions.']);
+            }
+            if (!Captions::schemaReady($db)) {
+                throw new ApiException(409, 'update_required', 'Captions need the latest database update. Ask an administrator to run it (Admin › Update).');
+            }
+            $capId = Patch::id($fields, 'caption_media_id');
+            if ($capId !== null) {
+                MediaRefs::require($db, $capId, 'caption', 'caption_media_id');
+            }
+            $v['lvar_caption_media_id'] = $capId;
+        }
         if (array_key_exists('kb_source', $fields)) {
             if ($fields['kb_source'] !== null) {
                 throw ApiException::validation(['kb_source' => 'Use Import from KB to link an article.']);
@@ -251,7 +268,7 @@ final class LessonService
             if ($guarded && (int) $current['lesson_version'] !== $version) {
                 throw ApiException::conflict(LessonView::detail($db, $lessonId), 'This content was changed in another tab.');
             }
-            $variant = Db::one($db, 'SELECT ' . LessonFacts::VARIANT_COLS . ', lvar_description_html, lvar_body_html FROM training_lesson_variants WHERE lvar_lesson_id = ? AND lvar_lang = ? FOR UPDATE', 'is', [$lessonId, $lang]);
+            $variant = Db::one($db, 'SELECT ' . LessonFacts::variantCols($db) . ', lvar_description_html, lvar_body_html FROM training_lesson_variants WHERE lvar_lesson_id = ? AND lvar_lang = ? FOR UPDATE', 'is', [$lessonId, $lang]);
 
             $vChanges = [];
             foreach ($v as $col => $val) {
@@ -338,7 +355,8 @@ final class LessonService
                 return;
             }
             $keepBody = in_array($type, ['article', 'acknowledgment'], true);
-            $sets = 'lvar_media_id = NULL, lvar_caption = NULL, lvar_video_provider = NULL, lvar_video_ext_id = NULL, lvar_video_ext_hash = NULL';
+            $sets = 'lvar_media_id = NULL, lvar_caption = NULL, lvar_video_provider = NULL, lvar_video_ext_id = NULL, lvar_video_ext_hash = NULL'
+                . (Captions::schemaReady($db) ? ', lvar_caption_media_id = NULL' : '');
             if (!$keepBody) {
                 $sets .= ', lvar_body_html = NULL, lvar_word_count = 0';
             }
@@ -555,9 +573,12 @@ final class LessonService
     /** Copies every variant of a lesson (duplicates). $suffix is appended to non-empty titles. */
     public static function copyVariants(\mysqli $db, int $fromId, int $toId, int $userId, string $suffix = ''): void
     {
+        // Duplicates keep each language's caption file (DB 2.6.98); "Copy from English" (copyVariant) does not,
+        // because captions are in the language they were written in.
+        $caps = Captions::schemaReady($db);
         $rows = Db::all($db, 'SELECT lvar_lang, lvar_title, lvar_description_html, lvar_body_html, lvar_word_count, lvar_media_id, lvar_caption,
                 lvar_video_provider, lvar_video_ext_id, lvar_video_ext_hash, lvar_kb_source_article_id, lvar_kb_source_sha256,
-                lvar_kb_import_body_sha256, lvar_kb_imported_at_utc
+                lvar_kb_import_body_sha256, lvar_kb_imported_at_utc' . ($caps ? ', lvar_caption_media_id' : '') . '
             FROM training_lesson_variants WHERE lvar_lesson_id = ?', 'i', [$fromId]);
         foreach ($rows as $r) {
             $lang = (string) $r['lvar_lang'];
@@ -568,8 +589,10 @@ final class LessonService
             }
             $r['lvar_title'] = $title;
             $r['lvar_word_count'] = (int) $r['lvar_word_count'];
-            foreach (['lvar_media_id', 'lvar_kb_source_article_id'] as $k) {
-                $r[$k] = $r[$k] === null ? null : (int) $r[$k];
+            foreach (['lvar_media_id', 'lvar_kb_source_article_id', 'lvar_caption_media_id'] as $k) {
+                if (array_key_exists($k, $r)) {
+                    $r[$k] = $r[$k] === null ? null : (int) $r[$k];
+                }
             }
             Rows::putVariant($db, $toId, $lang, $r, $userId);
         }

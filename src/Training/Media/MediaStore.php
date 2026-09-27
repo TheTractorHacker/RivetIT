@@ -43,10 +43,13 @@ use ITFlow\Training\Core\Text;
  */
 final class MediaStore
 {
-    public const PATH_RE = '#^(content|evidence)/[0-9a-f]{2}/[0-9a-f]{64}\.(pdf|jpg|png|webp|gif|mp4|docx|xlsx|pptx|txt|csv)$#D';
+    public const PATH_RE = '#^(content|evidence)/[0-9a-f]{2}/[0-9a-f]{64}\.(pdf|jpg|png|webp|gif|mp4|docx|xlsx|pptx|txt|csv|vtt)$#D';
 
-    /** Kinds Phase 1 stores. 'evidence' belongs to the Phase 2 evidence pipeline and is never served. */
-    public const KINDS = ['pdf', 'page', 'video', 'image', 'file'];
+    /**
+     * Kinds Phase 1 stores, plus 'caption' (DB 2.6.98: a video lesson's WebVTT file, Captions). 'evidence'
+     * belongs to the Phase 2 evidence pipeline and is never served.
+     */
+    public const KINDS = ['pdf', 'page', 'video', 'image', 'file', 'caption'];
 
     /**
      * Every kind ingest() accepts (validateType only): KINDS plus Phase 2 'evidence' scans
@@ -62,6 +65,7 @@ final class MediaStore
         'video' => ['mp4'],
         'image' => ['jpg', 'png', 'webp', 'gif'],
         'file' => ['docx', 'xlsx', 'pptx', 'txt', 'csv'],
+        'caption' => ['vtt'],
         'evidence' => ['pdf', 'jpg', 'png'],
     ];
 
@@ -78,6 +82,7 @@ final class MediaStore
         'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         'txt' => 'text/plain',
         'csv' => 'text/csv',
+        'vtt' => 'text/vtt',
     ];
 
     public const LOCK = 'trmedia';
