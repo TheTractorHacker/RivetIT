@@ -60,6 +60,42 @@ final class Schema
         return self::$memo[$key] = $ok;
     }
 
+    /**
+     * Does $table have $column (one information_schema query, memoised like has())? Used where a later
+     * migration added a column to an existing Phase 5 table (2.6.97: the Odoo write-back targets), so the
+     * code keeps working on the older schema until the update runs. Any error answers false.
+     */
+    public static function hasColumn(\mysqli $db, string $table, string $column): bool
+    {
+        if (preg_match('/^[a-z0-9_]{1,64}$/D', $table) !== 1 || preg_match('/^[a-z0-9_]{1,64}$/D', $column) !== 1) {
+            return false;
+        }
+        $key = spl_object_id($db) . ':col:' . $table . '.' . $column;
+        if (array_key_exists($key, self::$memo)) {
+            return self::$memo[$key];
+        }
+        $ok = false;
+        try {
+            $stmt = $db->prepare('SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
+            if ($stmt !== false) {
+                $stmt->bind_param('ss', $table, $column);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                $row = $res ? $res->fetch_assoc() : null;
+                if ($res) {
+                    $res->free();
+                }
+                $stmt->close();
+                $ok = (int) ($row['n'] ?? 0) === 1;
+            }
+        } catch (\Throwable $e) {
+            error_log('Training Upstream\Schema: column probe failed: ' . get_class($e) . ': ' . $e->getMessage());
+            $ok = false;
+        }
+        return self::$memo[$key] = $ok;
+    }
+
     /** Tests and the migration harness: forget the memoised answers (a migration just ran). */
     public static function forget(): void
     {

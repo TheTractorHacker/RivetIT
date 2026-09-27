@@ -372,27 +372,56 @@ final class RecordsGateway
      * Every row returned is enqueued by the caller, so the window never fills with rows that will not
      * be sent: every filter is SQL. completion_course_kind = 'training'; no void; COALESCE(course
      * tomap_push, 1) = 1; completion_recorded_at_utc >= $sinceUtc; no outbox 'create' row for
-     * ($targetKey, completion, id). ORDER BY completion_id. [] before the P2 or P5 migrations.
+     * ($targetKey, completion, id, $mode). For the certification target ($mode 'skill') only courses mapped
+     * to an Odoo skill on THIS target (tomap_odoo_skill_id set, tomap_target_key = $targetKey).
+     * ORDER BY completion_id. [] before the P2 or P5 migrations.
      *
      * @return list<array{completion_id:int, contact_id:int, course_id:int}>
      */
-    public function pushCandidates(string $sinceUtc, string $targetKey, int $limit): array
+    public function pushCandidates(string $sinceUtc, string $targetKey, int $limit, string $mode = 'resume'): array
     {
-        return $this->candidates($sinceUtc, $targetKey, max(1, min(5000, $limit)), null);
+        return $this->candidates($sinceUtc, $targetKey, max(1, min(5000, $limit)), null, $mode);
     }
 
     /** The same filters for one completion (the P2 listener path). */
-    public function pushCandidate(int $completionId, string $sinceUtc, string $targetKey): ?array
+    public function pushCandidate(int $completionId, string $sinceUtc, string $targetKey, string $mode = 'resume'): ?array
     {
         if ($completionId < 1) {
             return null;
         }
-        return $this->candidates($sinceUtc, $targetKey, 1, $completionId)[0] ?? null;
+        return $this->candidates($sinceUtc, $targetKey, 1, $completionId, $mode)[0] ?? null;
     }
 
-    private function candidates(string $sinceUtc, string $targetKey, int $limit, ?int $only): array
+    /**
+     * Training records the certification target leaves out because their course has no Odoo skill mapped on
+     * this target (the queue view says so): per course, the records that would otherwise be sent.
+     *
+     * @return list<array{course_id:int, course_name:string, n:int}>
+     */
+    public function unmappedSkillCourses(string $sinceUtc, string $targetKey, int $limit = 20): array
     {
         if (!Schema::has($this->db, Schema::P2) || !Schema::has($this->db, Schema::P5)) {
+            return [];
+        }
+        $out = [];
+        foreach (Db::all($this->db, "SELECT c.completion_course_id AS id, MAX(c.completion_snap_course_name) AS name, COUNT(*) AS n
+            FROM training_completions c
+            LEFT JOIN training_completion_voids v ON v.cvoid_completion_id = c.completion_id
+            LEFT JOIN training_odoo_map m ON m.tomap_entity = 'course' AND m.tomap_entity_id = c.completion_course_id
+            WHERE c.completion_course_kind = 'training' AND v.cvoid_id IS NULL AND COALESCE(m.tomap_push, 1) = 1
+              AND c.completion_recorded_at_utc >= ?
+              AND (m.tomap_odoo_skill_id IS NULL OR m.tomap_target_key IS NULL OR m.tomap_target_key <> ?)
+              AND NOT EXISTS (SELECT 1 FROM training_odoo_outbox o WHERE o.todoo_target_key = ? AND o.todoo_source_type = 'completion'
+                              AND o.todoo_source_id = c.completion_id AND o.todoo_action = 'create' AND o.todoo_mode = 'skill')
+            GROUP BY c.completion_course_id ORDER BY n DESC, c.completion_course_id LIMIT ?", 'sssi', [$sinceUtc, $targetKey, $targetKey, max(1, min(200, $limit))]) as $r) {
+            $out[] = ['course_id' => (int) $r['id'], 'course_name' => (string) $r['name'], 'n' => (int) $r['n']];
+        }
+        return $out;
+    }
+
+    private function candidates(string $sinceUtc, string $targetKey, int $limit, ?int $only, string $mode = 'resume'): array
+    {
+        if (!Schema::has($this->db, Schema::P2) || !Schema::has($this->db, Schema::P5) || !in_array($mode, ['resume', 'skill', 'note'], true)) {
             return [];
         }
         $sql = "SELECT c.completion_id, c.completion_contact_id, c.completion_course_id
@@ -400,11 +429,12 @@ final class RecordsGateway
             LEFT JOIN training_completion_voids v ON v.cvoid_completion_id = c.completion_id
             LEFT JOIN training_odoo_map m ON m.tomap_entity = 'course' AND m.tomap_entity_id = c.completion_course_id
             WHERE c.completion_course_kind = 'training' AND v.cvoid_id IS NULL AND COALESCE(m.tomap_push, 1) = 1
-              AND c.completion_recorded_at_utc >= ?
+              AND c.completion_recorded_at_utc >= ?"
+            . ($mode === 'skill' ? ' AND m.tomap_odoo_skill_id IS NOT NULL AND m.tomap_target_key = ?' : '') . "
               AND NOT EXISTS (SELECT 1 FROM training_odoo_outbox o WHERE o.todoo_target_key = ? AND o.todoo_source_type = 'completion'
-                              AND o.todoo_source_id = c.completion_id AND o.todoo_action = 'create')";
-        $types = 'ss';
-        $params = [$sinceUtc, $targetKey];
+                              AND o.todoo_source_id = c.completion_id AND o.todoo_action = 'create' AND o.todoo_mode = ?)";
+        $types = $mode === 'skill' ? 'ssss' : 'sss';
+        $params = $mode === 'skill' ? [$sinceUtc, $targetKey, $targetKey, $mode] : [$sinceUtc, $targetKey, $mode];
         if ($only !== null) {
             $sql .= ' AND c.completion_id = ?';
             $types .= 'i';
@@ -422,26 +452,27 @@ final class RecordsGateway
 
     /**
      * Voided completions that have a create row for $targetKey (status NOT IN dead, skipped) and no
-     * close row yet.
+     * close row yet FOR THAT TARGET (mode): one row per (completion, mode), so every target that got
+     * the record gets its own close - whether or not that target is still switched on.
      *
-     * @return list<array{completion_id:int, contact_id:int}>
+     * @return list<array{completion_id:int, contact_id:int, mode:string}>
      */
     public function voidCandidates(string $targetKey, int $limit): array
     {
         if (!Schema::has($this->db, Schema::P2) || !Schema::has($this->db, Schema::P5)) {
             return [];
         }
-        $rows = Db::all($this->db, "SELECT c.completion_id, c.completion_contact_id
+        $rows = Db::all($this->db, "SELECT c.completion_id, c.completion_contact_id, o.todoo_mode
             FROM training_completion_voids v
             JOIN training_completions c ON c.completion_id = v.cvoid_completion_id
             JOIN training_odoo_outbox o ON o.todoo_target_key = ? AND o.todoo_source_type = 'completion' AND o.todoo_source_id = c.completion_id
                 AND o.todoo_action = 'create' AND o.todoo_status NOT IN ('dead', 'skipped')
             WHERE NOT EXISTS (SELECT 1 FROM training_odoo_outbox x WHERE x.todoo_target_key = ? AND x.todoo_source_type = 'completion'
-                              AND x.todoo_source_id = c.completion_id AND x.todoo_action = 'close')
-            ORDER BY c.completion_id LIMIT ?", 'ssi', [$targetKey, $targetKey, max(1, min(5000, $limit))]);
+                              AND x.todoo_source_id = c.completion_id AND x.todoo_action = 'close' AND x.todoo_mode = o.todoo_mode)
+            ORDER BY c.completion_id, o.todoo_id LIMIT ?", 'ssi', [$targetKey, $targetKey, max(1, min(5000, $limit))]);
         $out = [];
         foreach ($rows as $r) {
-            $out[] = ['completion_id' => (int) $r['completion_id'], 'contact_id' => (int) $r['completion_contact_id']];
+            $out[] = ['completion_id' => (int) $r['completion_id'], 'contact_id' => (int) $r['completion_contact_id'], 'mode' => (string) $r['todoo_mode']];
         }
         return $out;
     }

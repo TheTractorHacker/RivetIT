@@ -7,7 +7,9 @@ use ITFlow\Training\Core\Db;
 use ITFlow\Training\Core\Text;
 
 /**
- * training_odoo_outbox (spec §2.1, §3.4, §3.7): one row per (target, source, action). An operational
+ * training_odoo_outbox (spec §2.1, §3.4, §3.7): one row per (target, source, action, mode) - since 2.6.97 the
+ * mode (Targets: resume | skill | note) is part of the unique key, so one record has one row per Odoo target
+ * and action, each with its own attempts, backoff, status and close. An operational
  * copy - never hashed, never ledgered; done, dead and skipped rows are kept forever for audit.
  *
  * Statuses: pending -> running (claimed, 5-minute lease) -> done | failed (retry later) | dead |
@@ -31,7 +33,7 @@ final class OutboxRepo
     {
     }
 
-    /** INSERT IGNORE on the (target, source, action) unique key: true when a new row was queued. */
+    /** INSERT IGNORE on the (target, source, action, mode) unique key: true when a new row was queued. */
     public function enqueue(Target $t, string $sourceType, int $sourceId, string $action, int $contactId, string $mode, string $marker, string $nowUtc): bool
     {
         if (!in_array($sourceType, ['completion', 'award'], true) || !in_array($action, ['create', 'close'], true)
@@ -50,15 +52,16 @@ final class OutboxRepo
      *
      * @return list<array> the claimed rows as they are now (status running, attempts already counted)
      */
-    public function claim(string $targetKey, int $limit, string $nowUtc): array
+    public function claim(string $targetKey, int $limit, string $nowUtc, ?array $createModes = null): array
     {
         $limit = max(1, min(500, $limit));
         $lease = self::plus($nowUtc, self::LEASE_S);
-        $ids = Db::tx($this->db, function () use ($targetKey, $limit, $nowUtc, $lease): array {
+        $modeSql = self::createModesSql($createModes);
+        $ids = Db::tx($this->db, function () use ($targetKey, $limit, $nowUtc, $lease, $modeSql): array {
             $rows = Db::all($this->db, "SELECT todoo_id FROM training_odoo_outbox
                 WHERE todoo_target_key = ?
                   AND ((todoo_status IN ('pending', 'failed') AND todoo_next_attempt_at_utc <= ?)
-                       OR (todoo_status = 'running' AND todoo_lease_until_utc < ?))
+                       OR (todoo_status = 'running' AND todoo_lease_until_utc < ?))$modeSql
                 ORDER BY (todoo_action = 'close'), todoo_id
                 LIMIT ? FOR UPDATE SKIP LOCKED", 'sssi', [$targetKey, $nowUtc, $nowUtc, $limit]);
             $ids = array_map(static fn($r) => (int) $r['todoo_id'], $rows);
@@ -157,11 +160,62 @@ final class OutboxRepo
         return Db::one($this->db, 'SELECT ' . self::COLS . ' FROM training_odoo_outbox WHERE todoo_id = ?', 'i', [$id]);
     }
 
-    public function findCreate(string $targetKey, string $sourceType, int $sourceId): ?array
+    /** The create row of one record for one target (mode). */
+    public function findCreate(string $targetKey, string $sourceType, int $sourceId, string $mode = 'resume'): ?array
     {
         return Db::one($this->db, 'SELECT ' . self::COLS . " FROM training_odoo_outbox
-            WHERE todoo_target_key = ? AND todoo_source_type = ? AND todoo_source_id = ? AND todoo_action = 'create'", 'ssi',
-            [$targetKey, $sourceType, $sourceId]);
+            WHERE todoo_target_key = ? AND todoo_source_type = ? AND todoo_source_id = ? AND todoo_action = 'create' AND todoo_mode = ?", 'ssis',
+            [$targetKey, $sourceType, $sourceId, $mode]);
+    }
+
+    /** Every create row of one record (one per target it was queued for), mode order resume, skill, note. */
+    public function findCreates(string $targetKey, string $sourceType, int $sourceId): array
+    {
+        return Db::all($this->db, 'SELECT ' . self::COLS . " FROM training_odoo_outbox
+            WHERE todoo_target_key = ? AND todoo_source_type = ? AND todoo_source_id = ? AND todoo_action = 'create'
+            ORDER BY FIELD(todoo_mode, 'resume', 'skill', 'note')", 'ssi', [$targetKey, $sourceType, $sourceId]);
+    }
+
+    /**
+     * The OTHER record whose done create (same target and mode) already holds Odoo record $resId, with the status
+     * of its close for that mode (null when none is queued), or null. The certification target uses it: two ITFlow
+     * records never share one Odoo certification.
+     *
+     * @return array{source_type:string, source_id:int, close_status:?string}|null
+     */
+    public function holderOf(string $targetKey, string $mode, int $resId, string $exceptType, int $exceptId): ?array
+    {
+        $r = Db::one($this->db, "SELECT c.todoo_source_type, c.todoo_source_id, x.todoo_status AS close_status
+            FROM training_odoo_outbox c
+            LEFT JOIN training_odoo_outbox x ON x.todoo_target_key = c.todoo_target_key AND x.todoo_source_type = c.todoo_source_type
+                 AND x.todoo_source_id = c.todoo_source_id AND x.todoo_action = 'close' AND x.todoo_mode = c.todoo_mode
+            WHERE c.todoo_target_key = ? AND c.todoo_mode = ? AND c.todoo_action = 'create' AND c.todoo_status = 'done' AND c.todoo_odoo_res_id = ?
+              AND NOT (c.todoo_source_type = ? AND c.todoo_source_id = ?)
+            ORDER BY c.todoo_id LIMIT 1", 'ssisi', [$targetKey, $mode, $resId, $exceptType, $exceptId]);
+        return $r === null ? null : ['source_type' => (string) $r['todoo_source_type'], 'source_id' => (int) $r['todoo_source_id'],
+            'close_status' => $r['close_status'] === null ? null : (string) $r['close_status']];
+    }
+
+    /**
+     * counts() per target: mode => {pending, held, running, done, failed, dead, skipped}, every mode present.
+     *
+     * @return array<string, array<string,int>>
+     */
+    public function countsByMode(string $targetKey): array
+    {
+        $zero = ['pending' => 0, 'held' => 0, 'running' => 0, 'done' => 0, 'failed' => 0, 'dead' => 0, 'skipped' => 0];
+        $out = array_fill_keys(Targets::MODES, $zero);
+        $rows = Db::all($this->db, "SELECT todoo_mode AS m, todoo_status AS s, (todoo_status = 'pending' AND todoo_error_class = 'hold') AS h, COUNT(*) AS n
+            FROM training_odoo_outbox WHERE todoo_target_key = ? GROUP BY m, s, h", 's', [$targetKey]);
+        foreach ($rows as $r) {
+            $m = (string) $r['m'];
+            if (!isset($out[$m])) {
+                continue;
+            }
+            $key = (int) $r['h'] === 1 ? 'held' : (string) $r['s'];
+            $out[$m][$key] = ($out[$m][$key] ?? 0) + (int) $r['n'];
+        }
+        return $out;
     }
 
     /** @return array{pending:int, held:int, running:int, done:int, failed:int, dead:int, skipped:int} pending excludes held */
@@ -189,6 +243,11 @@ final class OutboxRepo
         if (in_array('held', $statuses, true)) {
             $conds[] = "(todoo_status = 'pending' AND todoo_error_class = 'hold')";
         }
+        if (in_array('skipped_mapping', $statuses, true)) {
+            // certification rows skipped because the course/achievement has no (valid) Odoo skill mapping: Retry after mapping
+            $conds[] = "(todoo_status = 'skipped' AND todoo_mode = 'skill' AND todoo_error_class = 'policy'
+                         AND (todoo_last_error LIKE 'not\\_mapped:%' OR todoo_last_error LIKE 'skill\\_not\\_in\\_type:%'))";
+        }
         if (!$conds) {
             return [];
         }
@@ -196,11 +255,26 @@ final class OutboxRepo
             ORDER BY COALESCE(todoo_updated_at, todoo_created_at_utc) DESC, todoo_id DESC LIMIT ?', 'si', [$targetKey, max(1, min(200, $limit))]);
     }
 
-    /** Pending rows next in line (for the dry-run preview). */
-    public function upcoming(string $targetKey, int $limit): array
+    /** Pending rows next in line (for the dry-run preview); creates only for the targets switched on. */
+    public function upcoming(string $targetKey, int $limit, ?array $createModes = null): array
     {
-        return Db::all($this->db, 'SELECT ' . self::COLS . " FROM training_odoo_outbox WHERE todoo_target_key = ? AND todoo_status IN ('pending', 'failed')
+        return Db::all($this->db, 'SELECT ' . self::COLS . " FROM training_odoo_outbox WHERE todoo_target_key = ? AND todoo_status IN ('pending', 'failed')"
+            . self::createModesSql($createModes) . "
             ORDER BY todoo_next_attempt_at_utc, (todoo_action = 'close'), todoo_id LIMIT ?", 'si', [$targetKey, max(1, min(200, $limit))]);
+    }
+
+    /**
+     * " AND (close OR mode IN (…))": closes of every target are always sent (a void must reach every target that got the
+     * record); creates only for the targets switched on - a create queued while a target was on waits, untouched, until
+     * it is switched on again. null = no filter. The modes come from Targets::MODES only, never from input.
+     */
+    private static function createModesSql(?array $createModes): string
+    {
+        if ($createModes === null) {
+            return '';
+        }
+        $modes = array_values(array_intersect(Targets::MODES, $createModes));
+        return $modes === [] ? " AND todoo_action = 'close'" : " AND (todoo_action = 'close' OR todoo_mode IN ('" . implode("','", $modes) . "'))";
     }
 
     /** Admin Retry: a dead, failed, skipped or held row goes back to pending now with a fresh attempt count. */

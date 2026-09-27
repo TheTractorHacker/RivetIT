@@ -20,11 +20,14 @@ use ITFlow\Training\Upstream\Schema;
  * event). This class adds one detailed audit event per change (training.odoo_writeback_saved,
  * training.odoo_discovered, training.odoo_outbox_changed, training.odoo_map_saved).
  *
- * Network: only ta_odoo_discover calls Odoo (read-only, 25 s budget), outside any transaction.
+ * Network: ta_odoo_discover calls Odoo (read-only, 25 s budget), and ta_odoo_skill_create - the admin's explicit
+ * "Create skill in Odoo" button - creates one hr.skill in the chosen certification type (or reuses one with exactly
+ * that name). Both outside any transaction; nothing else here talks to Odoo, and nothing is ever deleted there.
  */
 final class OdooAdmin
 {
-    public const KEYS = ['ta_odoo_discover', 'ta_odoo_save', 'ta_odoo_retry', 'ta_odoo_skip', 'ta_odoo_retry_failed', 'ta_odoo_map'];
+    public const KEYS = ['ta_odoo_discover', 'ta_odoo_save', 'ta_odoo_retry', 'ta_odoo_skip', 'ta_odoo_retry_failed', 'ta_odoo_map',
+                         'ta_odoo_skill_map', 'ta_odoo_skill_create'];
 
     /** The page section the actions return to. */
     public const ANCHOR = 'odoo-writeback';
@@ -52,6 +55,8 @@ final class OdooAdmin
                 'ta_odoo_skip' => self::skip($db, $post, $userId),
                 'ta_odoo_retry_failed' => self::retryFailed($db, $userId),
                 'ta_odoo_map' => self::map($db, $post, $userId),
+                'ta_odoo_skill_map' => self::skillMap($db, $post, $userId),
+                'ta_odoo_skill_create' => self::skillCreate($db, $post, $userId),
             };
         } catch (\RuntimeException $e) {
             if (in_array($e->getMessage(), ['conflict', 'not_ready'], true)) {
@@ -83,7 +88,9 @@ final class OdooAdmin
             'tauto_odoo_discovered_at_utc' => $d['checked_at_utc'],
         ]);
         $summary = 'Checked Odoo ' . $t->host() . ' / ' . $t->database . ': resume lines ' . ($d['resume']['available'] ? 'available' : 'not available')
-            . ', ' . count($d['resume']['types']) . ' line types, ' . count($d['errors']) . ' errors';
+            . ', ' . count($d['resume']['types']) . ' line types, ' . count($d['skill']['cert_types']) . ' certification types, '
+            . count($d['skill']['skills']) . ' certification skills, notes ' . ($d['note']['available'] ? 'available' : 'not available')
+            . ', ' . count($d['errors']) . ' errors';
         self::log($db, $userId, 'training.odoo_discovered', 'discover', $summary, ['target' => $t->key, 'errors' => count($d['errors'])]);
 
         if (!$d['resume']['available']) {
@@ -97,7 +104,9 @@ final class OdooAdmin
             }
         }
         $msg = 'Checked Odoo (read-only): resume lines are available'
-            . ($suggested !== null ? '; suggested line type: ' . $suggested : '') . '.';
+            . ($suggested !== null ? '; suggested line type: ' . $suggested : '')
+            . '; certification types: ' . (count($d['skill']['cert_types']) ?: 'none')
+            . '; HR notes: ' . ($d['note']['available'] ? 'available' : 'not available') . '.';
         if ($d['errors']) {
             return ['warning', $msg . ' Some checks failed: ' . Text::clip(implode(' · ', $d['errors']), 400)];
         }
@@ -115,9 +124,30 @@ final class OdooAdmin
         if (!is_array($disc) || ($disc['target']['key'] ?? null) !== $t->key) {
             return ['error', 'Check Odoo first: the last check was not made against the Odoo this integration points at now.'];
         }
-        $mode = (string) ($post['mode'] ?? 'resume');
-        if ($mode !== 'resume') {
-            return ['error', 'Only the resume-line mode is available.'];
+        // Targets (2.6.97): any combination. Before that update only the résumé line exists (Phase 5).
+        $targetsReady = Targets::schemaReady($db);
+        $send = [];
+        foreach (Targets::MODES as $m) {
+            $send[$m] = !empty($post['send_' . $m]) ? 1 : 0;
+        }
+        if (!$targetsReady) {
+            if ($send['skill'] || $send['note']) {
+                return ['error', 'Run the database update first (Admin › Update): certification skills and HR notes need it.'];
+            }
+            $send['resume'] = 1;
+        }
+        // Certification type + level: one "type:level" choice, both from the last Odoo check; the level belongs to the type.
+        [$skillType, $skillLevel] = [null, null];
+        $pair = trim((string) ($post['skill_type_level'] ?? ''));
+        if ($pair !== '') {
+            if (preg_match('/^(\d{1,9}):(\d{1,9})$/D', $pair, $pm) !== 1) {
+                return ['error', 'Choose a certification type and level that the last Odoo check found.'];
+            }
+            $skillType = (int) $pm[1];
+            $skillLevel = (int) $pm[2];
+            if (PushService::skillConfig(['tauto_odoo_skill_type_id' => $skillType, 'tauto_odoo_skill_level_id' => $skillLevel], $disc) === null) {
+                return ['error', 'Choose a certification type and level that the last Odoo check found (the level must belong to the type).'];
+            }
         }
         $types = [];
         foreach ((array) ($disc['resume']['types'] ?? []) as $ty) {
@@ -151,11 +181,28 @@ final class OdooAdmin
             if (!$t->https) {
                 return ['error', 'Write-back needs an https:// Odoo address.'];
             }
-            if (empty($disc['resume']['available'])) {
-                return ['error', 'This Odoo does not offer resume lines, so write-back cannot be switched on.'];
+            if (!in_array(1, $send, true)) {
+                return ['error', 'Choose at least one way to send records to Odoo (résumé line, certification skill or HR note) before switching write-back on.'];
             }
-            if ($resumeType === null) {
+            if ($send['resume'] && empty($disc['resume']['available'])) {
+                return ['error', 'This Odoo does not offer resume lines. Untick "Résumé line" or check Odoo again.'];
+            }
+            if ($send['resume'] && $resumeType === null) {
                 return ['error', 'Choose the resume line type before switching write-back on.'];
+            }
+            if ($send['skill']) {
+                if (empty($disc['skill']['available'])) {
+                    return ['error', 'This Odoo does not offer employee skills (the Skills app). Untick "Certification skill".'];
+                }
+                if (empty($disc['skill']['cert_types'])) {
+                    return ['error', 'This Odoo has no certification skill type yet. Create one in Odoo (Employees › Configuration › Skill Types: tick "Certification", add a level such as "Certified" and at least one skill), then Check Odoo again.'];
+                }
+                if ($skillType === null) {
+                    return ['error', 'Choose the certification type and level before sending certification skills.'];
+                }
+            }
+            if ($send['note'] && empty($disc['note']['available'])) {
+                return ['error', 'This Odoo does not let the integration read employee chatter, so HR notes cannot be sent. Untick "HR note" or give the integration user the Employees: Officer role and check Odoo again.'];
             }
             if ($t->looksStaging && empty($post['staging_ack'])) {
                 return ['error', 'This Odoo looks like a STAGING copy. Tick "I understand this writes to the STAGING Odoo" to switch write-back on.'];
@@ -169,24 +216,36 @@ final class OdooAdmin
             }
         }
         $version = (int) ($post['version'] ?? -1);
-        AutomationSettings::save($db, 'odoo', [
+        $values = [
             'tauto_odoo_push_enabled' => $enabled,
-            'tauto_odoo_mode' => 'resume',
+            'tauto_odoo_mode' => 'resume',   // kept for the pre-2.6.97 reader; the targets below decide what is sent
             'tauto_odoo_resume_type_id' => $resumeType,
             'tauto_odoo_award_type_id' => $awardType,
+            'tauto_odoo_skill_type_id' => $skillType,
+            'tauto_odoo_skill_level_id' => $skillLevel,
             'tauto_odoo_push_awards' => $pushAwards,
             'tauto_odoo_push_since' => $since,
             'tauto_odoo_target_key' => $t->key,
             'tauto_odoo_target_confirmed_at_utc' => Clock::nowUtc(),
             'tauto_odoo_key_expires_on' => $expires === '' ? null : $expires,
-        ], $version, $userId);   // a stale version throws RuntimeException('conflict')
+        ];
+        if ($targetsReady) {
+            foreach (Targets::COLUMNS as $m => $col) {
+                $values[$col] = $send[$m];
+            }
+        }
+        AutomationSettings::save($db, 'odoo', $values, $version, $userId);   // a stale version throws RuntimeException('conflict')
+        $on = array_keys(array_filter($send));
+        $labels = implode(', ', array_map([Targets::class, 'label'], $on)) ?: 'nothing';
         $summary = 'Odoo write-back settings saved for ' . $t->host() . ' / ' . $t->database . ': write-back ' . ($enabled ? 'ON' : 'OFF')
-            . ', type #' . ($resumeType ?? 0) . ', achievements ' . ($pushAwards ? 'on' : 'off') . ', since ' . $since;
+            . ', sends ' . $labels . ', type #' . ($resumeType ?? 0) . ', certification #' . ($skillType ?? 0) . '/' . ($skillLevel ?? 0)
+            . ', achievements ' . ($pushAwards ? 'on' : 'off') . ', since ' . $since;
         self::log($db, $userId, 'training.odoo_writeback_saved', 'odoo', $summary, [
-            'enabled' => $enabled, 'target' => $t->key, 'resume_type_id' => $resumeType, 'award_type_id' => $awardType,
+            'enabled' => $enabled, 'target' => $t->key, 'targets' => $on, 'resume_type_id' => $resumeType, 'award_type_id' => $awardType,
+            'skill_type_id' => $skillType, 'skill_level_id' => $skillLevel,
             'push_awards' => $pushAwards, 'push_since' => $since, 'staging' => $t->looksStaging, 'key_expires_on' => $expires ?: null,
         ]);
-        return ['success', 'Odoo write-back settings saved. Write-back is ' . ($enabled ? 'on' : 'off') . '.'];
+        return ['success', 'Odoo write-back settings saved. Write-back is ' . ($enabled ? 'on' : 'off') . '; records are sent as: ' . $labels . '.'];
     }
 
     private static function retry(\mysqli $db, array $post, int $userId): array
@@ -244,6 +303,139 @@ final class OdooAdmin
         self::log($db, $userId, 'training.odoo_map_saved', 'edit', $label . ($push === '1' ? ' is sent to Odoo' : ' is not sent to Odoo'),
             ['entity' => $entity, 'entity_id' => $id, 'push' => (int) $push]);
         return ['success', $label . ($push === '1' ? ' is now sent to Odoo.' : ' is no longer sent to Odoo.')];
+    }
+
+    /**
+     * ta_odoo_skill_map: the Odoo certification skill of a course or an achievement (skill_id; empty = none). Only a
+     * skill of the SAVED certification type from the last Check Odoo of THIS Odoo; stored with the target key, so a
+     * mapping never applies to another Odoo. A course without a row keeps "sent" (tomap_push 1), an achievement
+     * "not sent" (0) - mapping a skill does not change whether it is sent.
+     */
+    private static function skillMap(\mysqli $db, array $post, int $userId): array
+    {
+        [$entity, $id, $name, $err] = self::entity($db, $post);
+        if ($err !== null) {
+            return $err;
+        }
+        $raw = trim((string) ($post['skill_id'] ?? ''));
+        $skillId = ($raw === '' || $raw === '0') ? null : self::intOrNull($raw);
+        if ($raw !== '' && $raw !== '0' && $skillId === null) {
+            return ['error', 'Invalid request.'];
+        }
+        $t = Target::current($db);
+        if ($t === null) {
+            return ['error', 'No enabled Odoo integration is configured.'];
+        }
+        $label = ucfirst($entity) . ' "' . $name . '"';
+        if ($skillId === null) {
+            Db::exec($db, 'UPDATE training_odoo_map SET tomap_odoo_skill_id = NULL, tomap_target_key = NULL, tomap_updated_by = ?
+                WHERE tomap_entity = ? AND tomap_entity_id = ?', 'isi', [$userId, $entity, $id]);
+            self::log($db, $userId, 'training.odoo_map_saved', 'skill', $label . ': no Odoo certification skill', ['entity' => $entity, 'entity_id' => $id, 'skill_id' => null]);
+            return ['success', $label . ' has no Odoo certification skill now; it is not sent as a certification.'];
+        }
+        $ta = AutomationSettings::load($db);
+        $disc = self::discoveryFor($ta, $t);
+        $cfg = $disc === null ? null : PushService::skillConfig($ta, $disc);
+        if ($cfg === null) {
+            return ['error', 'Save the certification type and level first (after Check Odoo), then map skills.'];
+        }
+        if (!isset($cfg['skills'][$skillId])) {
+            return ['error', 'Choose a skill of the saved certification type (from the last Check Odoo).'];
+        }
+        self::upsertSkill($db, $entity, $id, $skillId, $t->key, $userId);
+        self::log($db, $userId, 'training.odoo_map_saved', 'skill', $label . ' is sent as the Odoo certification skill "' . $cfg['skills'][$skillId] . '" (#' . $skillId . ')',
+            ['entity' => $entity, 'entity_id' => $id, 'skill_id' => $skillId, 'target' => $t->key]);
+        return ['success', $label . ' is sent as the Odoo certification "' . $cfg['skills'][$skillId] . '".'];
+    }
+
+    /**
+     * ta_odoo_skill_create: the admin's "Create skill in Odoo" - one hr.skill named after the course (achievement) in the
+     * saved certification type; an existing skill with exactly that name in that type is reused instead. Then mapped.
+     * An Odoo write the owner triggers, never automatic; nothing else is created and nothing is deleted.
+     */
+    private static function skillCreate(\mysqli $db, array $post, int $userId): array
+    {
+        [$entity, $id, $name, $err] = self::entity($db, $post);
+        if ($err !== null) {
+            return $err;
+        }
+        $t = Target::current($db);
+        if ($t === null) {
+            return ['error', 'No enabled Odoo integration is configured.'];
+        }
+        if (!$t->https) {
+            return ['error', 'Creating a skill in Odoo needs an https:// Odoo address.'];
+        }
+        $ta = AutomationSettings::load($db);
+        $disc = self::discoveryFor($ta, $t);
+        $cfg = $disc === null ? null : PushService::skillConfig($ta, $disc);
+        if ($cfg === null) {
+            return ['error', 'Save the certification type and level first (after Check Odoo), then create skills.'];
+        }
+        $skillName = trim((string) Text::clip(preg_replace('/\s+/u', ' ', $name) ?? $name, 200));
+        if ($skillName === '') {
+            return ['error', 'This ' . $entity . ' has no name to give the skill.'];
+        }
+        $pusher = new Pusher($t->connector(), $disc, $ta);
+        try {
+            $found = $pusher->findSkillByName($cfg['type_id'], $skillName);
+            $created = $found === null;
+            $skillId = $found['id'] ?? $pusher->createSkillInType($cfg['type_id'], $skillName);
+        } catch (\ITFlow\Integrations\Odoo\OdooAuthException $e) {
+            error_log('Training Odoo skill create: ' . $e->getMessage());
+            return ['error', 'Odoo refused the request (the key, or the integration user may not create skills: it needs Employees: Officer). Nothing was created.'];
+        } catch (\Throwable $e) {
+            error_log('Training Odoo skill create: ' . get_class($e) . ': ' . $e->getMessage());
+            return ['error', 'Odoo did not create the skill: ' . Text::clip($e->getMessage(), 240)];
+        }
+        // Keep the stored check in step, so the new skill can be chosen at once (the next Check Odoo reads it anyway).
+        $known = false;
+        foreach ((array) ($disc['skill']['skills'] ?? []) as $k) {
+            $known = $known || (int) ($k['id'] ?? 0) === $skillId;
+        }
+        if (!$known) {
+            $disc['skill']['skills'][] = ['id' => $skillId, 'name' => $skillName, 'type_id' => $cfg['type_id']];
+            AutomationSettings::stamp($db, ['tauto_odoo_discovery_json' => json_encode($disc, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR)]);
+        }
+        self::upsertSkill($db, $entity, $id, $skillId, $t->key, $userId);
+        $label = ucfirst($entity) . ' "' . $name . '"';
+        self::log($db, $userId, $created ? 'training.odoo_skill_created' : 'training.odoo_map_saved', 'skill',
+            ($created ? 'Created the Odoo certification skill "' : 'Reused the Odoo certification skill "') . $skillName . '" (#' . $skillId . ') in ' . $t->host() . ' / ' . $t->database . ' for ' . $label,
+            ['entity' => $entity, 'entity_id' => $id, 'skill_id' => $skillId, 'type_id' => $cfg['type_id'], 'created' => $created, 'target' => $t->key]);
+        return ['success', ($created ? 'Created the skill "' : 'Odoo already had the skill "') . $skillName . '" in Odoo' . ($created ? '' : '; it is used')
+            . '. ' . $label . ' is sent as that certification.'];
+    }
+
+    /** @return array{0:string, 1:int, 2:string, 3:?array} [entity, id, name, error] */
+    private static function entity(\mysqli $db, array $post): array
+    {
+        $entity = (string) ($post['entity'] ?? '');
+        $id = (int) ($post['entity_id'] ?? 0);
+        if (!in_array($entity, ['course', 'achievement'], true) || $id < 1) {
+            return ['', 0, '', ['error', 'Invalid request.']];
+        }
+        $row = $entity === 'course'
+            ? Db::one($db, "SELECT course_name AS n FROM training_courses WHERE course_id = ? AND course_kind = 'training'", 'i', [$id])
+            : Db::one($db, 'SELECT achievement_name AS n FROM training_achievements WHERE achievement_id = ?', 'i', [$id]);
+        if ($row === null) {
+            return ['', 0, '', ['error', 'That ' . $entity . ' was not found.']];
+        }
+        return [$entity, $id, (string) $row['n'], null];
+    }
+
+    private static function upsertSkill(\mysqli $db, string $entity, int $id, int $skillId, string $targetKey, int $userId): void
+    {
+        Db::exec($db, 'INSERT INTO training_odoo_map (tomap_entity, tomap_entity_id, tomap_push, tomap_target_key, tomap_odoo_skill_id, tomap_updated_by)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE tomap_odoo_skill_id = VALUES(tomap_odoo_skill_id), tomap_target_key = VALUES(tomap_target_key), tomap_updated_by = VALUES(tomap_updated_by)',
+            'siisii', [$entity, $id, $entity === 'course' ? 1 : 0, $targetKey, $skillId, $userId]);
+    }
+
+    /** The stored discovery when it belongs to $t, else null. */
+    private static function discoveryFor(array $ta, Target $t): ?array
+    {
+        $disc = is_string($ta['tauto_odoo_discovery_json'] ?? null) ? json_decode($ta['tauto_odoo_discovery_json'], true) : null;
+        return is_array($disc) && ($disc['target']['key'] ?? null) === $t->key ? $disc : null;
     }
 
     // -----------------------------------------------------------------------------------------

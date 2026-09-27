@@ -5,6 +5,7 @@ namespace ITFlow\Training\OdooSync;
 use ITFlow\Integrations\Odoo\OdooAuthException;
 use ITFlow\Integrations\Odoo\OdooConnectorFactory;
 use ITFlow\Integrations\Odoo\OdooConnectorInterface;
+use ITFlow\Training\Core\Text;
 
 /**
  * The network half of the write-back (spec §3.4): no database access. Every call goes through
@@ -15,7 +16,21 @@ use ITFlow\Integrations\Odoo\OdooConnectorInterface;
  *   - JSON-2 create:  kwargs vals_list => [vals]  -> [id]
  *   - legacy create:  positional [vals]           -> id   (vals_list in kwargs would reach Odoo 19's
  *     create with args=[] and fail with IndexError after the insert, so it is never sent that way)
+ *   - message_post:   kwargs ids => [employee] (the legacy connector moves ids to the first positional
+ *     argument) -> [id] on JSON-2, id on legacy
  *   - everything else is named kwargs, valid on both connectors.
+ *
+ * Three targets (Targets):
+ *   resume  hr.resume.line; idempotency = the marker in the description, lines this integration created
+ *   skill   hr.employee.skill of the chosen certification type; no free-text field exists, so idempotency is
+ *           the exact natural key (employee, skill, level, valid_from, valid_to) among records this integration
+ *           created (create_uid; any creator when Odoo does not say who we are), and a record another ITFlow
+ *           record already holds is never adopted. Odoo refuses an identical certification (same skill, level
+ *           and period): that is a permanent, explained error, never a retry loop. A void ends it (valid_to).
+ *   note    an INTERNAL note in the employee's chatter: message_post with message_type 'comment' and subtype
+ *           mail.mt_note, no partner_ids, mail_post_autofollow off - nobody is e-mailed and followers are not
+ *           notified. Idempotency = the marker, searched in mail.message. A void posts a follow-up note with its
+ *           own marker; the first note is never edited (and nothing is ever deleted).
  */
 final class Pusher
 {
@@ -148,14 +163,70 @@ final class Pusher
      * @throws \DomainException('employee_changed') a line this integration created with this marker is on another employee
      * @throws PushException    permanent outcomes (odoo_record_missing, odoo_record_moved, bad_create_response, write_refused)
      */
-    public function push(array $row, array $payload, int $employeeId, ?array $createRow): array
+    public function push(array $row, array $payload, int $employeeId, ?array $createRow, array $opts = []): array
     {
-        if (($row['todoo_mode'] ?? '') !== 'resume') {
-            throw new \LogicException('Odoo skill and note modes are not built yet (Phase 5 L2)');
+        $close = ($row['todoo_action'] ?? '') === 'close';
+        return match ((string) ($row['todoo_mode'] ?? '')) {
+            'resume' => $close ? $this->closeResume($payload, $createRow) : $this->createResume($row, $payload, $employeeId),
+            'skill' => $close ? $this->closeSkill($payload, $createRow) : $this->createSkill($payload, $employeeId, $opts),
+            'note' => $close ? $this->closeNote($row, $payload, $createRow) : $this->createNote($row, $payload, $employeeId),
+            default => throw new \LogicException('Unknown Odoo write-back target: ' . (string) ($row['todoo_mode'] ?? '')),
+        };
+    }
+
+    /**
+     * For a create whose record was voided before it reached Odoo: the Odoo record this integration may
+     * already have made for it (a lost response), or null. Same idempotency rules as push().
+     *
+     * @param array $opts skill: skill_id, level_id, type_id, holder (see createSkill)
+     * @return array{id:int, employee_id:int}|null
+     */
+    public function existing(array $row, array $payload, int $employeeId, array $opts = []): ?array
+    {
+        $marker = (string) $row['todoo_marker'];
+        switch ((string) ($row['todoo_mode'] ?? '')) {
+            case 'resume':
+                $hits = $this->ownLines($marker, $employeeId);
+                return $hits ? ['id' => $hits[0]['id'], 'employee_id' => $hits[0]['employee_id']] : null;
+            case 'note':
+                $hits = $this->ownNotes($marker, $employeeId);
+                return $hits ? ['id' => $hits[0]['id'], 'employee_id' => $hits[0]['employee_id']] : null;
+            case 'skill':
+                if ($employeeId < 1 || empty($opts['skill_id']) || empty($opts['level_id']) || empty($opts['type_id'])) {
+                    return null;
+                }
+                $vals = PayloadBuilder::skillVals($payload, $employeeId, (int) $opts['skill_id'], (int) $opts['level_id'], (int) $opts['type_id']);
+                foreach ($this->skillsLike($vals, $this->ownUid()) as $h) {
+                    if (!isset($opts['holder']) || ($opts['holder'])($h['id']) === null) {
+                        return ['id' => $h['id'], 'employee_id' => $employeeId];
+                    }
+                }
+                return null;
         }
-        return ($row['todoo_action'] ?? '') === 'close'
-            ? $this->closeResume($payload, $createRow)
-            : $this->createResume($row, $payload, $employeeId);
+        return null;
+    }
+
+    /** An hr.skill of $typeId named exactly $name (the admin's "Create skill in Odoo" reuses it), or null. */
+    public function findSkillByName(int $typeId, string $name): ?array
+    {
+        $rows = $this->call('hr.skill', 'search_read', [
+            'domain' => [['skill_type_id', '=', $typeId], ['name', '=', $name]],
+            'fields' => ['id', 'name', 'skill_type_id'],
+            'limit' => 1,
+            'order' => 'id asc',
+        ]);
+        foreach (is_array($rows) ? $rows : [] as $r) {
+            if (is_array($r) && is_int($r['id'] ?? null) && $r['id'] > 0) {
+                return ['id' => $r['id'], 'name' => is_string($r['name'] ?? null) ? $r['name'] : $name];
+            }
+        }
+        return null;
+    }
+
+    /** Creates hr.skill {name, skill_type_id} (an admin action, never automatic). @return int the new skill id */
+    public function createSkillInType(int $typeId, string $name): int
+    {
+        return $this->createOne('hr.skill', ['name' => $name, 'skill_type_id' => $typeId]);
     }
 
     /** true when the key works; rethrows OdooAuthException; any other failure => false. */
@@ -239,6 +310,279 @@ final class Pusher
             throw new PushException('permanent', 'write_refused: Odoo did not confirm the update of line #' . $resId);
         }
         return ['model' => 'hr.resume.line', 'res_id' => $resId];
+    }
+
+    // ---- certification skill (hr.employee.skill) ---------------------------------------------------------------
+
+    /**
+     * @param array $opts skill_id, level_id, type_id (the course's mapped skill and the configured level/type) and
+     *   holder: fn(int $odooId): ?array{source_type:string, source_id:int, close_status:?string} - the other ITFlow
+     *   record whose done create already holds that Odoo record (PushService reads the outbox; this class has no DB)
+     */
+    private function createSkill(array $payload, int $employeeId, array $opts): array
+    {
+        $skillId = (int) ($opts['skill_id'] ?? 0);
+        $levelId = (int) ($opts['level_id'] ?? 0);
+        $typeId = (int) ($opts['type_id'] ?? 0);
+        if ($skillId < 1 || $levelId < 1 || $typeId < 1) {
+            throw new PushException('policy', 'not_mapped: no Odoo certification skill is mapped for this record');
+        }
+        $vals = PayloadBuilder::skillVals($payload, $employeeId, $skillId, $levelId, $typeId);
+        $uid = $this->ownUid();
+
+        // At-least-once without duplicates: an identical certification WE created earlier (a lost create response)
+        // is adopted - unless another ITFlow record already holds it (then Odoo cannot take a second identical one).
+        foreach ($this->skillsLike($vals, $uid) as $h) {
+            $holder = isset($opts['holder']) ? ($opts['holder'])($h['id']) : null;
+            if ($holder === null) {
+                return ['model' => 'hr.employee.skill', 'res_id' => $h['id']];
+            }
+            $other = ($holder['source_type'] === 'award' ? 'achievement award #' : 'ITFlow record #') . (int) $holder['source_id'];
+            if (in_array($holder['close_status'] ?? null, ['pending', 'running', 'failed'], true)) {
+                throw new PushException('wait', 'waiting: ' . $other . ' holds the same certification in Odoo (#' . $h['id'] . ') and its void is still being sent there');
+            }
+            throw new PushException('permanent', 'skill_overlap: Odoo already has this certification (same skill, level and dates) for this employee from '
+                . $other . ' (Odoo #' . $h['id'] . '); Odoo refuses a second identical one, so nothing was created');
+        }
+        if ($uid !== null) {
+            // The same certification entered in Odoo by someone else: Odoo would refuse the create (identical skill,
+            // level and period). Say so plainly instead of sending a create that must fail.
+            $others = $this->skillsLike($vals, null);
+            if ($others) {
+                throw new PushException('permanent', 'skill_overlap: this employee already has the same certification in Odoo (same skill, level and dates, Odoo #'
+                    . $others[0]['id'] . ', not created by ITFlow); Odoo refuses a second identical one, so nothing was created');
+            }
+        }
+        try {
+            $id = $this->createOne('hr.employee.skill', $vals);
+        } catch (PushException $e) {
+            throw $e;
+        } catch (\RuntimeException $e) {
+            throw self::explainSkillRefusal($e);
+        }
+        return ['model' => 'hr.employee.skill', 'res_id' => $id];
+    }
+
+    /** A void ends the certification: valid_to = the day before the void (Odoo's archive convention) or the void date. */
+    private function closeSkill(array $payload, ?array $createRow): array
+    {
+        $resId = (int) ($createRow['todoo_odoo_res_id'] ?? 0);
+        $emp = (int) ($createRow['todoo_odoo_employee_id'] ?? 0);
+        if ($resId < 1) {
+            throw new PushException('policy', 'create_not_sent');
+        }
+        $rows = $this->call('hr.employee.skill', 'search_read', [
+            'domain' => [['id', '=', $resId]],
+            'fields' => ['id', 'employee_id', 'skill_id', 'skill_level_id', 'valid_from', 'valid_to'],
+        ]);
+        $rec = is_array($rows) && isset($rows[0]) && is_array($rows[0]) ? $rows[0] : null;
+        if ($rec === null) {
+            throw new PushException('permanent', 'odoo_record_missing: the Odoo certification #' . $resId . ' no longer exists (it is never re-created)');
+        }
+        if (self::m2oId($rec['employee_id'] ?? null) !== $emp) {
+            throw new PushException('permanent', 'odoo_record_moved: the Odoo certification #' . $resId . ' now belongs to another employee');
+        }
+        $to = PayloadBuilder::skillCloseTo($payload, ['valid_from' => $rec['valid_from'] ?? null, 'valid_to' => $rec['valid_to'] ?? false]);
+        if ($to === null) {
+            return ['model' => 'hr.employee.skill', 'res_id' => $resId];   // already ended on (or before) that date
+        }
+        try {
+            $ok = $this->call('hr.employee.skill', 'write', ['ids' => [$resId], 'vals' => ['valid_to' => $to]]);
+        } catch (\RuntimeException $e) {
+            throw self::explainSkillRefusal($e, true);
+        }
+        if ($ok !== true) {
+            throw new PushException('permanent', 'write_refused: Odoo did not confirm the end date of certification #' . $resId);
+        }
+        return ['model' => 'hr.employee.skill', 'res_id' => $resId];
+    }
+
+    /**
+     * Certifications with exactly these values (employee, skill, level, valid_from, valid_to), optionally only
+     * those $createUid created. @return list<array{id:int}> lowest id first
+     */
+    private function skillsLike(array $vals, ?int $createUid): array
+    {
+        $domain = [
+            ['employee_id', '=', (int) $vals['employee_id']],
+            ['skill_id', '=', (int) $vals['skill_id']],
+            ['skill_level_id', '=', (int) $vals['skill_level_id']],
+            ['valid_from', '=', (string) $vals['valid_from']],
+            ['valid_to', '=', $vals['valid_to'] === false ? false : (string) $vals['valid_to']],
+        ];
+        if ($createUid !== null) {
+            $domain[] = ['create_uid', '=', $createUid];
+        }
+        $rows = $this->call('hr.employee.skill', 'search_read', [
+            'domain' => $domain,
+            'fields' => ['id', 'employee_id', 'skill_id', 'skill_level_id', 'valid_from', 'valid_to', 'create_uid'],
+            'limit' => 5,
+            'order' => 'id asc',
+        ]);
+        $hits = [];
+        foreach (is_array($rows) ? $rows : [] as $r) {
+            if (!is_array($r) || !is_int($r['id'] ?? null)) {
+                continue;
+            }
+            // belt and braces: Odoo already filtered
+            $to = is_string($r['valid_to'] ?? null) ? $r['valid_to'] : false;
+            if (self::m2oId($r['employee_id'] ?? null) !== (int) $vals['employee_id'] || self::m2oId($r['skill_id'] ?? null) !== (int) $vals['skill_id']
+                || self::m2oId($r['skill_level_id'] ?? null) !== (int) $vals['skill_level_id'] || ($r['valid_from'] ?? null) !== $vals['valid_from']
+                || $to !== $vals['valid_to'] || ($createUid !== null && self::m2oId($r['create_uid'] ?? null) !== $createUid)) {
+                continue;
+            }
+            $hits[] = ['id' => $r['id']];
+        }
+        usort($hits, static fn($a, $b) => $a['id'] <=> $b['id']);
+        return $hits;
+    }
+
+    /** Odoo's hr.employee.skill ValidationErrors in plain words (all permanent: a retry cannot change them). */
+    private static function explainSkillRefusal(\RuntimeException $e, bool $onClose = false): \Throwable
+    {
+        if (ErrorClass::of($e) !== 'permanent') {
+            return $e;   // auth, config, transient: the caller's usual handling
+        }
+        $msg = $e->getMessage();
+        $said = ' Odoo said: ' . Text::clip(preg_replace('/\s+/', ' ', $msg) ?? $msg, 220);
+        if (stripos($msg, 'overlap or exactly match existing skills') !== false) {
+            return new PushException('permanent', ($onClose ? 'skill_overlap_on_close: ending this certification would make it identical to another one on this employee (same skill, level and dates), which Odoo refuses; end or remove one of them in Odoo by hand.'
+                : 'skill_overlap: this employee already has the same certification in Odoo (same skill, level and dates); Odoo refuses a second identical one, so nothing was created.') . $said);
+        }
+        if (stripos($msg, "don't match") !== false) {
+            return new PushException('permanent', 'skill_type_mismatch: the mapped Odoo skill is not in the chosen certification type; map a skill of that type.' . $said);
+        }
+        if (stripos($msg, 'is not valid for skill type') !== false) {
+            return new PushException('permanent', 'level_type_mismatch: the chosen level does not belong to the chosen certification type; choose the level again and save.' . $said);
+        }
+        if (stripos($msg, 'valid stop date prior') !== false) {
+            return new PushException('permanent', 'skill_dates: Odoo refused the dates (the end is before the start).' . $said);
+        }
+        return $e;
+    }
+
+    // ---- HR note (hr.employee chatter) --------------------------------------------------------------------------
+
+    private function createNote(array $row, array $payload, int $employeeId): array
+    {
+        $marker = (string) $row['todoo_marker'];
+        $own = $this->ownNotes($marker, $employeeId);
+        foreach ($own as $h) {
+            if ($h['employee_id'] === $employeeId) {
+                return ['model' => 'mail.message', 'res_id' => $h['id']];
+            }
+        }
+        if ($own !== []) {
+            throw new \DomainException('employee_changed');
+        }
+        $id = $this->postNote($employeeId, PayloadBuilder::noteHtml($payload, ($row['todoo_source_type'] ?? '') === 'award'));
+        return ['model' => 'mail.message', 'res_id' => $id];
+    }
+
+    /** A void: a short follow-up internal note with its own marker on the same employee. The first note stays as it is. */
+    private function closeNote(array $row, array $payload, ?array $createRow): array
+    {
+        $emp = (int) ($createRow['todoo_odoo_employee_id'] ?? 0);
+        if ((int) ($createRow['todoo_odoo_res_id'] ?? 0) < 1 || $emp < 1) {
+            throw new PushException('policy', 'create_not_sent');
+        }
+        $voidMarker = Marker::voidOf((string) $row['todoo_marker']);
+        foreach ($this->ownNotes($voidMarker, $emp) as $h) {
+            if ($h['employee_id'] === $emp) {
+                return ['model' => 'mail.message', 'res_id' => $h['id']];
+            }
+        }
+        $id = $this->postNote($emp, PayloadBuilder::noteVoidHtml($payload, $voidMarker));
+        return ['model' => 'mail.message', 'res_id' => $id];
+    }
+
+    /**
+     * Notes carrying $marker that this integration may treat as its own (the ownLines rule: only messages its own
+     * Odoo user created; when Odoo does not say, only on $employeeId). @return list<array{id:int, employee_id:int}>
+     */
+    public function ownNotes(string $marker, int $employeeId): array
+    {
+        $uid = $this->ownUid();
+        $domain = [['model', '=', 'hr.employee'], ['body', 'ilike', $marker]];
+        if ($uid !== null) {
+            $domain[] = ['create_uid', '=', $uid];
+        } elseif ($employeeId > 0) {
+            $domain[] = ['res_id', '=', $employeeId];
+        } else {
+            return [];
+        }
+        $rows = $this->call('mail.message', 'search_read', [
+            'domain' => $domain,
+            'fields' => ['id', 'model', 'res_id', 'body', 'create_uid'],
+            'limit' => 5,
+            'order' => 'id asc',
+        ]);
+        $hits = [];
+        foreach (is_array($rows) ? $rows : [] as $r) {
+            if (!is_array($r) || !is_int($r['id'] ?? null) || ($r['model'] ?? null) !== 'hr.employee') {
+                continue;
+            }
+            if (!Marker::inHtml(is_string($r['body'] ?? null) ? $r['body'] : null, $marker)) {
+                continue;
+            }
+            if ($uid !== null && self::m2oId($r['create_uid'] ?? null) !== $uid) {
+                continue;
+            }
+            $hits[] = ['id' => $r['id'], 'employee_id' => (int) ($r['res_id'] ?? 0)];
+        }
+        usort($hits, static fn($a, $b) => $a['id'] <=> $b['id']);
+        return $hits;
+    }
+
+    /**
+     * message_post on the employee as an INTERNAL NOTE: subtype mail.mt_note (internal: followers are not notified),
+     * message_type 'comment' (what "Log note" posts), partner_ids empty (no recipient, so no e-mail), and
+     * mail_post_autofollow off (nobody is subscribed). body_is_html because the body is our own escaped html
+     * (Odoo documents it for RPC callers; a plain str would be escaped as text).
+     */
+    private function postNote(int $employeeId, string $html): int
+    {
+        $res = $this->call('hr.employee', 'message_post', self::noteArgs($employeeId, $html));
+        if (is_int($res) && $res > 0) {
+            return $res;
+        }
+        if (is_array($res) && count($res) === 1 && is_int($res[0] ?? null) && $res[0] > 0) {
+            return $res[0];
+        }
+        throw new PushException('permanent', 'bad_post_response: Odoo did not return the new note id');
+    }
+
+    /** The exact message_post arguments (public so the tests can assert them). */
+    public static function noteArgs(int $employeeId, string $html): array
+    {
+        return [
+            'ids' => [$employeeId],
+            'body' => $html,
+            'body_is_html' => true,
+            'message_type' => 'comment',
+            'subtype_xmlid' => 'mail.mt_note',
+            'partner_ids' => [],
+            'context' => ['mail_post_autofollow' => false],
+        ];
+    }
+
+    // -----------------------------------------------------------------------------------------------------------
+
+    /** create on both protocols; exactly one new id back. */
+    private function createOne(string $model, array $vals): int
+    {
+        if ($this->odoo->protocol() === OdooConnectorFactory::PROTOCOL_JSON2) {
+            $res = $this->call($model, 'create', ['vals_list' => [$vals]]);
+        } else {
+            $res = $this->call($model, 'create', [], [$vals]);
+        }
+        if (is_int($res) && $res > 0) {
+            return $res;
+        }
+        if (is_array($res) && count($res) === 1 && is_int($res[0] ?? null) && $res[0] > 0) {
+            return $res[0];
+        }
+        throw new PushException('permanent', 'bad_create_response: Odoo did not return one new id');
     }
 
     private function call(string $model, string $method, array $kwargs, array $args = []): mixed

@@ -43,6 +43,8 @@ final class AutomationActions
         'ta_odoo_skip'             => [SettingsPolicy::ODOO_WRITEBACK, 'odoo', 'odoo-writeback', true],
         'ta_odoo_retry_failed'     => [SettingsPolicy::ODOO_WRITEBACK, 'odoo', 'odoo-writeback', true],
         'ta_odoo_map'              => [SettingsPolicy::ODOO_WRITEBACK, 'odoo', 'odoo-writeback', true],
+        'ta_odoo_skill_map'        => [SettingsPolicy::ODOO_WRITEBACK, 'odoo', 'odoo-send', true],
+        'ta_odoo_skill_create'     => [SettingsPolicy::ODOO_WRITEBACK, 'odoo', 'odoo-send', true],
         'ta_cert_save'             => [SettingsPolicy::CERT_SIGNATORY, 'cert', 'certificates', true],
         'ta_cert_signature'        => [SettingsPolicy::CERT_SIGNATORY, 'cert', 'certificates', true],
         'ta_cert_signature_clear'  => [SettingsPolicy::CERT_SIGNATORY, 'cert', 'certificates', true],
