@@ -6,8 +6,9 @@ defined('TRAINING_AUTOMATION_PAGE') || exit;
  * settings page (admin/settings_training.php) and its Training-3 twin (agent/training_settings.php)
  * when this file exists. Editable on both pages (Training-3 territory).
  *
- * Inputs: the same as reminders.php ($ta, $ta_form_action, $ta_csrf, $ta_can_edit, $mysqli,
- * $config_base_url). GET makes no network call: the list is VideoWatch::report(), read from the
+ * Inputs: the same as reminders.php ($ta, $ta_version, $ta_csrf, $ta_post_url, $ta_can_edit,
+ * $mysqli, $config_base_url); Lane A's sections.php wraps the card in <div id="video-watch">.
+ * GET makes no network call: the list is VideoWatch::report(), read from the
  * current revisions and training_video_watch. "Check now" posts ta_video_run (ReminderAdmin runs
  * VideoWatch::run(20, 20) synchronously). Course and lesson names come from the database and are
  * echoed through nullable_htmlentities(); ids and counts through intval().
@@ -19,7 +20,8 @@ use ITFlow\Training\Core\Clock;
 use ITFlow\Training\Reminders\VideoWatch;
 use ITFlow\Training\Upstream\Links;
 
-$ta_vid_action = isset($ta_form_action) && is_string($ta_form_action) && $ta_form_action !== '' ? $ta_form_action : 'post.php';
+$ta_vid_action = isset($ta_post_url) && is_string($ta_post_url) && $ta_post_url !== '' ? $ta_post_url : 'post.php';
+$ta_vid_version = isset($ta_version) ? intval($ta_version) : intval($ta['tauto_version'] ?? 0);
 $ta_vid_csrf = isset($ta_csrf) && is_string($ta_csrf) ? $ta_csrf : (string) ($_SESSION['csrf_token'] ?? '');
 $ta_vid_edit = !isset($ta_can_edit) || $ta_can_edit === true;
 $ta_vid_ready = !empty($ta['ready']);
@@ -42,9 +44,9 @@ $ta_vid_time = static function (?string $utc): ?string {
     return $iso === null ? null : date('M j, Y g:i A', (int) strtotime($iso));
 };
 ?>
-<div class="card mb-3" id="video-watch">
+<div class="card mb-3">
     <div class="card-header py-3">
-        <h3 class="card-title"><i class="fas fa-fw fa-video me-2" aria-hidden="true"></i>Video watch</h3>
+        <h3 class="card-title"><i class="fas fa-fw fa-video me-2" aria-hidden="true"></i>External video checks</h3>
         <div class="card-actions">
             <?php if ($ta_vid_on) { ?>
                 <span class="badge text-bg-success">On</span>
@@ -63,17 +65,17 @@ $ta_vid_time = static function (?string $utc): ?string {
                 notification. The check never changes a course or blocks publishing.
             </p>
 
-            <form action="<?php echo nullable_htmlentities($ta_vid_action); ?>" method="post" autocomplete="off" data-ts-label="Video watch">
+            <form action="<?php echo nullable_htmlentities($ta_vid_action); ?>" method="post" autocomplete="off" data-ts-label="External video checks">
                 <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($ta_vid_csrf); ?>">
-                <input type="hidden" name="ta_video_version" value="<?php echo intval($ta['tauto_version'] ?? 0); ?>">
+                <input type="hidden" name="version" value="<?php echo intval($ta_vid_version); ?>">
                 <fieldset <?php if (!$ta_vid_edit) { echo 'disabled'; } ?>>
                     <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" role="switch" name="ta_video_enabled" value="1" id="taVideoEnabled" <?php if ($ta_vid_on) { echo 'checked'; } ?>>
+                        <input class="form-check-input" type="checkbox" role="switch" name="enabled" value="1" id="taVideoEnabled" <?php if ($ta_vid_on) { echo 'checked'; } ?>>
                         <label class="form-check-label" for="taVideoEnabled">Check published videos every day</label>
                     </div>
                 </fieldset>
                 <?php if ($ta_vid_edit) { ?>
-                    <button type="submit" name="ta_video_save" value="1" class="btn btn-primary"><i class="fas fa-check me-2" aria-hidden="true"></i>Save video watch</button>
+                    <button type="submit" name="ta_video_save" value="1" class="btn btn-primary"><i class="fas fa-check me-2" aria-hidden="true"></i>Save video checks</button>
                 <?php } else { ?>
                     <p class="small text-muted mb-0"><i class="fas fa-fw fa-lock me-1" aria-hidden="true"></i>Read only. Ask a Training manager or an administrator to change this.</p>
                 <?php } ?>

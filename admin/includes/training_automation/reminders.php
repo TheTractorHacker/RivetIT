@@ -7,16 +7,17 @@ defined('TRAINING_AUTOMATION_PAGE') || exit;
  * when this file exists; the including page has already checked who may see it. Reminders are
  * Training-3 territory, so the card is editable on both pages.
  *
- * Inputs (set by the including page before the include):
- *   $ta              AutomationSettings::load() row ('ready' => false before the 2.6.96 update)
- *   $ta_form_action  where the form posts: 'post.php' on the admin page (the default),
- *                    '/agent/training_settings.php' on the agent page
- *   $ta_csrf         the CSRF token (default: $_SESSION['csrf_token'])
- *   $ta_can_edit     false renders the card read-only (default true)
+ * Inputs, from admin/includes/training_automation/sections.php (Lane A), which also wraps this card
+ * in <div id="reminders"> (so the card itself carries no id):
+ *   $ta           AutomationSettings::load() row ('ready' => false before the 2.6.96 update)
+ *   $ta_version   tauto_version, posted as `version` (optimistic lock)
+ *   $ta_csrf      the CSRF token        $ta_post_url  where forms post        $ta_page_url  this page (GET links)
+ *   $ta_can_edit  optional; false renders the card read-only (default true: Training 3 may change it)
  *   $mysqli, $config_base_url   page globals
  * GET ?preview=reminders renders today's digests as a dry run (ReminderService, nothing is sent
- * or logged). POST keys (ta_rem_save …) are handled by ITFlow\Training\Reminders\ReminderAdmin.
- * Every DB-derived string is echoed through nullable_htmlentities(); numbers through intval().
+ * or logged). POST ta_rem_save goes through Settings\AutomationActions to
+ * ITFlow\Training\Reminders\ReminderAdmin. Every DB-derived string is echoed through
+ * nullable_htmlentities(); numbers through intval().
  */
 
 use ITFlow\Training\Automation\Notify;
@@ -25,8 +26,10 @@ use ITFlow\Training\Core\Clock;
 use ITFlow\Training\Core\Db;
 use ITFlow\Training\Reminders\ReminderService;
 
-$ta_rem_action = isset($ta_form_action) && is_string($ta_form_action) && $ta_form_action !== '' ? $ta_form_action : 'post.php';
+$ta_rem_action = isset($ta_post_url) && is_string($ta_post_url) && $ta_post_url !== '' ? $ta_post_url : 'post.php';
+$ta_rem_page = isset($ta_page_url) && is_string($ta_page_url) && $ta_page_url !== '' ? $ta_page_url : '';
 $ta_rem_csrf = isset($ta_csrf) && is_string($ta_csrf) ? $ta_csrf : (string) ($_SESSION['csrf_token'] ?? '');
+$ta_rem_version = isset($ta_version) ? intval($ta_version) : intval($ta['tauto_version'] ?? 0);
 $ta_rem_edit = !isset($ta_can_edit) || $ta_can_edit === true;
 $ta_rem_ready = !empty($ta['ready']);
 $ta_rem_on = $ta_rem_ready && intval($ta['tauto_reminders_enabled'] ?? 0) === 1;
@@ -57,9 +60,9 @@ if ($ta_rem_ready) {
 }
 $ta_rem_today_n = intval(date('N'));
 ?>
-<div class="card mb-3" id="reminders">
+<div class="card mb-3">
     <div class="card-header py-3">
-        <h3 class="card-title"><i class="fas fa-fw fa-bell me-2" aria-hidden="true"></i>Reminders</h3>
+        <h3 class="card-title"><i class="fas fa-fw fa-bell me-2" aria-hidden="true"></i>Reminder digests</h3>
         <div class="card-actions">
             <?php if ($ta_rem_on) { ?>
                 <span class="badge text-bg-success">On</span>
@@ -85,10 +88,10 @@ $ta_rem_today_n = intval(date('N'));
 
             <form action="<?php echo nullable_htmlentities($ta_rem_action); ?>" method="post" autocomplete="off" data-ts-label="Reminders">
                 <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($ta_rem_csrf); ?>">
-                <input type="hidden" name="ta_rem_version" value="<?php echo intval($ta['tauto_version'] ?? 0); ?>">
+                <input type="hidden" name="version" value="<?php echo intval($ta_rem_version); ?>">
                 <fieldset <?php if (!$ta_rem_edit) { echo 'disabled'; } ?>>
                     <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" role="switch" name="ta_rem_enabled" value="1" id="taRemEnabled" <?php if ($ta_rem_on) { echo 'checked'; } ?>>
+                        <input class="form-check-input" type="checkbox" role="switch" name="enabled" value="1" id="taRemEnabled" <?php if ($ta_rem_on) { echo 'checked'; } ?>>
                         <label class="form-check-label" for="taRemEnabled">Send daily Training digests</label>
                     </div>
                     <div class="row">
@@ -97,7 +100,7 @@ $ta_rem_today_n = intval(date('N'));
                             <div class="d-flex flex-wrap gap-3" role="group" aria-labelledby="taRemDaysLabel">
                                 <?php foreach ($ta_rem_names as $ta_rem_n => $ta_rem_label) { ?>
                                     <div class="form-check mb-0">
-                                        <input class="form-check-input" type="checkbox" name="ta_rem_weekdays[]" value="<?php echo intval($ta_rem_n); ?>" id="taRemDay<?php echo intval($ta_rem_n); ?>"
+                                        <input class="form-check-input" type="checkbox" name="weekdays[]" value="<?php echo intval($ta_rem_n); ?>" id="taRemDay<?php echo intval($ta_rem_n); ?>"
                                             <?php if (in_array($ta_rem_n, $ta_rem_days, true)) { echo 'checked'; } ?>>
                                         <label class="form-check-label" for="taRemDay<?php echo intval($ta_rem_n); ?>"><abbr title="<?php echo nullable_htmlentities($ta_rem_long[$ta_rem_n]); ?>"><?php echo nullable_htmlentities($ta_rem_label); ?></abbr></label>
                                     </div>
@@ -107,7 +110,7 @@ $ta_rem_today_n = intval(date('N'));
                         </div>
                         <div class="col-sm-6 col-lg-5 mb-3">
                             <label class="form-label" for="taRemEscalate">Tell Training managers about people overdue more than (days)</label>
-                            <input type="number" class="form-control" id="taRemEscalate" name="ta_rem_escalate_days" min="1" max="180" step="1" required
+                            <input type="number" class="form-control" id="taRemEscalate" name="escalate_after_days" min="1" max="180" step="1" required
                                    value="<?php echo intval($ta_rem_escalate); ?>">
                             <div class="form-text">1 to 180. Goes to Training 3 and admins only.</div>
                         </div>
@@ -117,7 +120,7 @@ $ta_rem_today_n = intval(date('N'));
                     <?php if ($ta_rem_edit) { ?>
                         <button type="submit" name="ta_rem_save" value="1" class="btn btn-primary"><i class="fas fa-check me-2" aria-hidden="true"></i>Save reminders</button>
                     <?php } ?>
-                    <a class="btn btn-outline-secondary" href="?preview=reminders#reminders"><i class="fas fa-fw fa-eye me-1" aria-hidden="true"></i>Preview today's digests</a>
+                    <a class="btn btn-outline-secondary" href="<?php echo nullable_htmlentities($ta_rem_page . '?preview=reminders#reminders'); ?>"><i class="fas fa-fw fa-eye me-1" aria-hidden="true"></i>Preview today's digests</a>
                     <span class="small text-muted ms-md-2">
                         Last digests sent:
                         <?php if ($ta_rem_last !== null) { ?>
@@ -140,7 +143,7 @@ $ta_rem_today_n = intval(date('N'));
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                         <h4 class="h5 mb-0">Today's digests</h4>
                         <span class="badge text-bg-info"><i class="fas fa-fw fa-eye-slash me-1" aria-hidden="true"></i>Preview: nothing is sent</span>
-                        <a class="small ms-auto" href="?#reminders">Close preview</a>
+                        <a class="small ms-auto" href="<?php echo nullable_htmlentities(($ta_rem_page !== '' ? $ta_rem_page : '?') . '#reminders'); ?>">Close preview</a>
                     </div>
                     <?php if (!$ta_rem_on) { ?>
                         <p class="small text-muted mb-2">Reminders are off, so none of these would go out today.</p>

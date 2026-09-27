@@ -12,17 +12,18 @@ use ITFlow\Training\Upstream\Schema;
  * (admin/settings_training.php and its Training-3 twin agent/training_settings.php). Both cards
  * are Training-3 territory: nothing here is admin-only.
  *
- * The caller has validated the CSRF token and the person's right to change Training settings
- * (admin dispatch, or Training 3 on the agent page); this class reacts only to its own keys:
+ * Called by Lane A's Settings\AutomationActions (both pages), which has validated the CSRF token,
+ * refused anything the person may not change, checked the schema, and after this returns writes
+ * logAction + the 'training.automation_saved' audit event and escapes the flash. This class reacts
+ * only to its own keys (spec §4.3), clamps and allowlists every value:
  *
- *   ta_rem_save    ta_rem_enabled (0|1), ta_rem_weekdays[] (1..7, at least one when enabled),
- *                  ta_rem_escalate_days (1..180), ta_rem_version
- *   ta_video_save  ta_video_enabled (0|1), ta_video_version
+ *   ta_rem_save    enabled (0|1), weekdays[] (1..7, at least one when enabled),
+ *                  escalate_after_days (1..180), version
+ *   ta_video_save  enabled (0|1), version
  *   ta_video_run   "Check now": VideoWatch::run(20, 20) synchronously (well under Cloudflare's 100 s)
  *
- * Saves go through AutomationSettings::save() (optimistic tauto_version; a conflict says so and
- * writes nothing), then logAction + AuditService 'training.automation_saved'. Flash messages carry
- * no user- or DB-derived text (toastr renders flashes as HTML).
+ * Saves go through AutomationSettings::save() with the posted version (optimistic tauto_version; a
+ * conflict says so and writes nothing). Messages are plain text with no user- or DB-derived parts.
  */
 final class ReminderAdmin
 {
@@ -57,16 +58,16 @@ final class ReminderAdmin
 
         return match ($action) {
             'ta_rem_save' => self::saveReminders($db, $post, $userId, $s),
-            'ta_video_save' => self::saveVideo($db, $post, $userId, $s),
+            'ta_video_save' => self::saveVideo($db, $post, $userId),
             default => self::runVideo($db),
         };
     }
 
     private static function saveReminders(\mysqli $db, array $post, int $userId, array $s): array
     {
-        $enabled = !empty($post['ta_rem_enabled']) ? 1 : 0;
+        $enabled = !empty($post['enabled']) ? 1 : 0;
         $days = [];
-        foreach ((array) ($post['ta_rem_weekdays'] ?? []) as $d) {
+        foreach ((array) ($post['weekdays'] ?? []) as $d) {
             if (is_scalar($d) && preg_match('/^[1-7]$/D', (string) $d) === 1) {
                 $days[(int) $d] = (int) $d;
             }
@@ -75,7 +76,7 @@ final class ReminderAdmin
         if ($days === [] && $enabled === 1) {
             return self::out('error', 'Nothing was saved. Choose at least one weekday for the digest.', 'reminders');
         }
-        $raw = $post['ta_rem_escalate_days'] ?? 14;
+        $raw = $post['escalate_after_days'] ?? 14;
         if (!is_scalar($raw) || preg_match('/^\d{1,4}$/D', trim((string) $raw)) !== 1) {
             return self::out('error', 'Nothing was saved. "Escalate after" must be a whole number of days from 1 to 180.', 'reminders');
         }
@@ -85,7 +86,7 @@ final class ReminderAdmin
             'tauto_reminder_weekdays' => $days === [] ? (string) ($s['tauto_reminder_weekdays'] ?? '1,2,3,4,5') : implode(',', $days),
             'tauto_escalate_after_days' => ReminderService::escalateDays($raw),
         ];
-        $saved = self::save($db, 'reminders', $values, $post['ta_rem_version'] ?? null, $userId, $s, 'reminders');
+        $saved = self::save($db, 'reminders', $values, $post['version'] ?? null, $userId, 'reminders');
         if (isset($saved['type'])) {
             return $saved;
         }
@@ -96,16 +97,16 @@ final class ReminderAdmin
         return self::out('success', $msg, 'reminders');
     }
 
-    private static function saveVideo(\mysqli $db, array $post, int $userId, array $s): array
+    private static function saveVideo(\mysqli $db, array $post, int $userId): array
     {
-        $values = ['tauto_video_recheck_enabled' => !empty($post['ta_video_enabled']) ? 1 : 0];
-        $saved = self::save($db, 'video', $values, $post['ta_video_version'] ?? null, $userId, $s, 'video-watch');
+        $values = ['tauto_video_recheck_enabled' => !empty($post['enabled']) ? 1 : 0];
+        $saved = self::save($db, 'video', $values, $post['version'] ?? null, $userId, 'video-watch');
         if (isset($saved['type'])) {
             return $saved;
         }
         return self::out('success', $values['tauto_video_recheck_enabled'] === 1
-            ? 'Video watch saved. Published videos are checked every day.'
-            : 'Video watch saved. The daily video check is off.', 'video-watch');
+            ? 'External video checks saved. Published videos are checked every day.'
+            : 'External video checks saved. The daily check is off.', 'video-watch');
     }
 
     private static function runVideo(\mysqli $db): array
@@ -146,16 +147,14 @@ final class ReminderAdmin
         return $msg;
     }
 
-    /**
-     * AutomationSettings::save + log + audit. Returns [] on success, or the flash array to return.
-     */
-    private static function save(\mysqli $db, string $group, array $values, mixed $version, int $userId, array $before, string $anchor): array
+    /** AutomationSettings::save(). Returns [] on success, or the flash array to return. */
+    private static function save(\mysqli $db, string $group, array $values, mixed $version, int $userId, string $anchor): array
     {
         if (!is_scalar($version) || preg_match('/^\d{1,10}$/D', (string) $version) !== 1) {
             return self::out('error', 'Nothing was saved: the form was out of date. Reload the page and try again.', $anchor);
         }
         try {
-            $after = AutomationSettings::save($db, $group, $values, (int) $version, $userId);
+            AutomationSettings::save($db, $group, $values, (int) $version, $userId);
         } catch (\RuntimeException $e) {
             if ($e->getMessage() === 'conflict') {
                 return self::out('error', 'Nothing was saved: these settings were changed by someone else. Reload the page and try again.', $anchor);
@@ -165,26 +164,6 @@ final class ReminderAdmin
         } catch (\Throwable $e) {
             error_log('Training automation save (' . $group . '): ' . get_class($e) . ': ' . $e->getMessage());
             return self::out('error', 'Nothing was saved. The details were written to the server error log.', $anchor);
-        }
-
-        $changed = [];
-        foreach ($values as $k => $v) {
-            if ((string) ($before[$k] ?? '') !== (string) $v) {
-                $changed[$k] = ['from' => $before[$k] ?? null, 'to' => $v];
-            }
-        }
-        $label = $group === 'reminders' ? 'Training reminders' : 'Training video watch';
-        try {
-            if (function_exists('logAction')) {
-                \logAction('Training', 'Edit', "Changed $label settings");
-            }
-            if ($changed && class_exists(\ITFlow\Audit\AuditService::class)) {
-                \ITFlow\Audit\AuditService::record('training.automation_saved', $userId, 'training_automation', 1, $group,
-                    "Changed $label settings", ['changed' => $changed, 'version' => $after['tauto_version'] ?? null]);
-            }
-        } catch (\Throwable $e) {
-            // The setting is saved; a failed audit line must not turn that into an error page.
-            error_log('Training automation audit (' . $group . '): ' . get_class($e) . ': ' . $e->getMessage());
         }
         return [];
     }
