@@ -44,7 +44,7 @@ $tao_pause = $tao['would_pause'] ?? null;
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-fw fa-cloud-upload-alt me-2" aria-hidden="true"></i>Odoo write-back</h3>
         <?php if ($tao['ready'] ?? false) { ?>
-            <span class="badge <?php echo nullable_htmlentities(($tao['enabled'] ?? false) ? 'text-bg-success' : 'text-bg-secondary'); ?> ms-auto"><?php echo nullable_htmlentities(($tao['enabled'] ?? false) ? 'ON' : 'OFF'); ?></span>
+            <span class="badge <?php echo nullable_htmlentities(($tao['enabled'] ?? false) ? 'text-bg-success' : 'text-bg-secondary'); ?> ms-auto"><?php echo nullable_htmlentities(($tao['enabled'] ?? false) ? 'On' : 'Off'); ?></span>
         <?php } ?>
     </div>
     <div class="card-body">
@@ -94,14 +94,16 @@ $tao_pause = $tao['would_pause'] ?? null;
                     <span class="text-muted">Never</span>
                 <?php } else { ?>
                     <?php echo nullable_htmlentities($tao['last_run']); ?>
-                    <span class="font-monospace small ms-1 text-break"><?php echo nullable_htmlentities((string) ($tao['last_result'] ?? '')); ?></span>
+                    <?php $tao_lr = \ITFlow\Training\Automation\ResultText::odoo($tao['last_result'] ?? null); ?>
+                    <span class="small ms-1 text-break"><?php echo nullable_htmlentities($tao_lr['text']); ?></span>
                 <?php } ?>
             </dd>
             <?php if (is_array($tao['counts'] ?? null)) { ?>
                 <dt class="col-sm-3">Outbox</dt>
                 <dd class="col-sm-9 d-flex flex-wrap gap-1">
-                    <?php foreach (['pending' => 'text-bg-secondary', 'held' => 'text-bg-warning', 'done' => 'text-bg-success', 'failed' => 'text-bg-warning', 'dead' => 'text-bg-danger', 'skipped' => 'text-bg-light'] as $tao_st => $tao_cls) { ?>
-                        <span class="badge <?php echo nullable_htmlentities($tao_cls); ?>"><?php echo intval($tao['counts'][$tao_st] ?? 0); ?> <?php echo nullable_htmlentities($tao_st); ?></span>
+                    <?php foreach (['pending' => 'text-bg-secondary', 'held' => 'text-bg-warning', 'done' => 'text-bg-success', 'failed' => 'text-bg-warning', 'dead' => 'text-bg-danger', 'skipped' => 'text-bg-light'] as $tao_st => $tao_cls) {
+                        $tao_n = intval($tao['counts'][$tao_st] ?? 0);   // a zero count is grey, never a warning colour ?>
+                        <span class="badge <?php echo nullable_htmlentities($tao_n === 0 ? 'text-bg-light text-muted' : $tao_cls); ?>"><?php echo intval($tao_n); ?> <?php echo nullable_htmlentities($tao_st); ?></span>
                     <?php } ?>
                 </dd>
             <?php } ?>
@@ -111,8 +113,12 @@ $tao_pause = $tao['would_pause'] ?? null;
         <?php if ($tao_t !== null) { ?>
         <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="mb-3">
             <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
-            <button type="submit" name="ta_odoo_discover" class="btn btn-outline-primary btn-sm"><i class="fas fa-fw fa-search me-1" aria-hidden="true"></i>Check Odoo (read-only)</button>
+            <button type="submit" name="ta_odoo_discover" class="btn btn-outline-primary btn-sm"<?php if (!$tao_t['https']) { echo ' disabled'; } ?>><i class="fas fa-fw fa-search me-1" aria-hidden="true"></i>Check Odoo (read-only)</button>
+            <?php if (!$tao_t['https']) { ?>
+            <span class="small text-danger ms-2">Needs an https:// Odoo address (the key would travel unencrypted). Change it under Integrations.</span>
+            <?php } else { ?>
             <span class="small text-muted ms-2">Reads what this Odoo offers for résumé lines. Writes nothing.</span>
+            <?php } ?>
         </form>
         <?php } ?>
 
@@ -231,15 +237,28 @@ $tao_pause = $tao['would_pause'] ?? null;
                     <input type="checkbox" class="form-check-input" id="taoEnabled" name="enabled" value="1" <?php if ($tao['enabled'] ?? false) { echo 'checked'; } ?>>
                     <label class="form-check-label fw-bold" for="taoEnabled">Enable write-back</label>
                 </div>
-                <?php if ($tao_t['staging']) { ?>
+                <?php if ($tao_t['staging']) {
+                    // Already acknowledged for this very Odoo (write-back on, same target): keep it ticked so an
+                    // unrelated save (a new key-expiry date) is not refused. Untick it to be asked again.
+                    $tao_acked = ($tao['enabled'] ?? false) && ($tao['confirmed_key'] ?? '') !== '' && hash_equals((string) $tao['confirmed_key'], (string) $tao_t['key']); ?>
                     <div class="form-check ms-4">
-                        <input type="checkbox" class="form-check-input" id="taoStagingAck" name="staging_ack" value="1">
+                        <input type="checkbox" class="form-check-input" id="taoStagingAck" name="staging_ack" value="1"<?php if ($tao_acked) { echo ' checked'; } ?>>
                         <label class="form-check-label" for="taoStagingAck">I understand this writes to the <strong>STAGING</strong> Odoo</label>
+                        <?php if ($tao_acked) { ?><div class="form-text">Ticked when write-back was switched on for this Odoo.</div><?php } ?>
                     </div>
                 <?php } ?>
             </div>
-            <p class="small text-muted mb-1"><i class="fas fa-fw fa-clipboard-list me-1" aria-hidden="true"></i>Before production: create the ITFlow Integration bot (Employees: Officer), point the integration at production, Check Odoo, run Check now under Employee links (Odoo), then confirm here (plan A22).</p>
-            <p class="small text-muted"><i class="fas fa-fw fa-eye me-1" aria-hidden="true"></i>Odoo is a copy. Every Odoo user can read these lines, and employees with Odoo logins can edit their own.</p>
+            <div class="small text-muted mb-2">
+                <div class="fw-semibold"><i class="fas fa-fw fa-clipboard-list me-1" aria-hidden="true"></i>Before switching on for production Odoo</div>
+                <ol class="mb-1 ps-4">
+                    <li>In Odoo, create the ITFlow Integration user (Employees: Officer) and give its API key to the integration.</li>
+                    <li>Point the Odoo integration at production (Integrations &rsaquo; Directory Sync).</li>
+                    <li>Click <strong>Check Odoo</strong> above.</li>
+                    <li>Run <strong>Check now</strong> under Employee links (Odoo) on this page.</li>
+                    <li>Turn on <strong>Enable write-back</strong>, then <strong>Save Odoo write-back</strong>.</li>
+                </ol>
+            </div>
+            <p class="small text-muted"><i class="fas fa-fw fa-eye me-1" aria-hidden="true"></i>Odoo is a copy, not evidence. Every Odoo user can read these lines, and employees with Odoo logins can edit or delete the line on their own résumé (for example remove "(revoked)" or change a date). Check a record in ITFlow or with the certificate QR code.</p>
             <button type="submit" name="ta_odoo_save" class="btn btn-primary"><i class="fas fa-check me-2" aria-hidden="true"></i>Save Odoo write-back</button>
         </form>
         <?php } elseif ($tao_t !== null) { ?>

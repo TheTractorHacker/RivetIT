@@ -413,3 +413,24 @@ realistically, months of further work, not a few more sessions.
   copy (every Odoo user can read the lines; employees with logins can edit their own). Note: the live Odoo integration
   now points at **production** (`midwest-production`, JSON-2) with the owner's personal key; create the Officer-only
   bot key before enabling write-back.
+- 2026-09-27: **Phase 5 review fixes** on `lms-p5-int` (security review 3 findings, UX review 9, E2E none). Security:
+  the public-check throttle counts a visitor before the shared budget (a visitor over its 20/min no longer spends the
+  240/min), keys IPv6 on its /64, writes nothing once the global cap is spent, and keeps a fixed set of at most 4,097
+  small files (no pruning inside a request; the daily worker prunes) - the reviewer's one-/64 probe went from 240
+  allowed / 5,001 files / ~20 MB to 20 allowed / 2 files / 12 KB. Odoo write-back only treats résumé lines created by
+  the integration's own Odoo user as ITFlow's (marker search filtered by `create_uid` in Odoo; the uid comes from the
+  legacy login or `context_get`, else the spec's employee-scoped search), so a line an employee plants with an upcoming
+  marker can no longer kill a colleague's record or trip the breaker; same filter on the voided-before-send path.
+  "Check Odoo" (admin POST and `--task=discover`) now refuses an http:// Odoo like enabling does. UX: the PDF words the
+  method like the on-screen certificate ("PIN attestation" unless signed); "PDF (English)" / "PDF en español" on the
+  record page and certificate toolbar; Spanish regulation line "Referencia normativa: OSHA 29 CFR ..."; the sample uses
+  P2's regulation rule; evidence legend B detail "... or the employee confirmed with a PIN" (P2 `Reports\Labels` and
+  the Upstream copy; the label itself is P2's frozen wording); `/verify/` hides the expiry on a revoked certificate and
+  says not to accept it, says "turned off" when switched off, shows whom to contact when there are no details, and
+  keeps dates on one line (no-break spaces); staging acknowledgement stays ticked for the same Odoo; numbered
+  "Before production" steps; worker/Odoo results as sentences (`Automation\ResultText`), zero outbox counts grey,
+  On/Off badges, corrected section intro. No schema change. Verified on scratch p5f (schema-only, mock Odoo on both
+  protocols + TLS front, no real Odoo): §10.1 gates clean (153 routes, 45 classes); lane A 145/146 CLI, 32/36 HTTP,
+  18/19 trial, 12+12 browser, pre 13+9+3, off 5 (the same 6 lane-A-only misses); B 310 Odoo (with the 22 s timeout),
+  62 admin, 15 worker, 7 pre-migration, 65 browser; C 28 throttle, 42 CLI, 31 verify HTTP, 135 verify browser, 99 PDF,
+  31 UI, 9 QR; D 92 + 46; E 42 + 159 + 49; full E2E 317/317.

@@ -12,7 +12,7 @@
  * bootstrap (the spec's grep gate checks for them). Order (spec §5.1):
  *   1 security headers on every response      2 GET/HEAD only (else 405)
  *   3 file-based throttle, before ANY query    4 ONE query: module switch, time zone, company
- *   5 malformed token -> 404, no record query  6 verify page switched off -> 503
+ *   5 malformed token -> 404, no record query  6 verify page switched off -> 503 ("turned off")
  *   7 RecordsGateway::verify()                 8 render (HEAD: headers only)
  * Every value is escaped with htmlspecialchars. DB errors are a generic 503 plus error_log.
  */
@@ -102,7 +102,9 @@ $tv_render = static function (string $state, int $status, array $r = []) use (&$
       <div class="tv-row"><dt><?= $tv_h($s['course']) ?></dt><dd class="tv-strong"><?= $tv_h($r['course'] ?? '') ?></dd></div>
       <div class="tv-row tv-row--pair">
         <dt><?= $tv_h($s['issued']) ?></dt><dd class="tv-strong"><?= $tv_h(VerifyStrings::date($r['issued_on'] ?? null, $tv_lang)) ?></dd>
+        <?php if ($state !== 'revoked') { // a revoked certificate shows no expiry: nothing on it is still in force ?>
         <dt><?= $tv_h($s['expires']) ?></dt><dd class="tv-strong"><?= $tv_h($expires) ?></dd>
+        <?php } ?>
       </div>
       <?php if (($r['cert_number'] ?? null) !== null) { ?>
       <div class="tv-row"><dt><?= $tv_h($external ? $s['record_no'] : $s['certificate']) ?></dt><dd class="tv-mono"><?= $tv_h($r['cert_number']) ?></dd></div>
@@ -112,7 +114,9 @@ $tv_render = static function (string $state, int $status, array $r = []) use (&$
     <?php } ?>
   </section>
   <p class="tv-note"><svg class="tv-note__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-    <span><?= $tv_h($tv_company !== null ? strtr($s['note'], ['{company}' => $tv_company]) : $s['note_plain']) ?></span></p>
+    <span><?= $tv_h($facts
+        ? ($tv_company !== null ? strtr($s['note'], ['{company}' => $tv_company]) : $s['note_plain'])
+        : ($tv_company !== null ? strtr($s['contact'], ['{company}' => $tv_company]) : $s['contact_plain'])) ?></span></p>
   <p class="tv-lang"><a href="<?= $tv_h($switch) ?>" hreflang="<?= $tv_h($s['switch_lang']) ?>" lang="<?= $tv_h($s['switch_lang']) ?>"><?= $tv_h($s['switch']) ?></a></p>
 </main>
 </body>
@@ -161,7 +165,7 @@ if (preg_match('/^[A-Za-z0-9._-]+\.(png|jpe?g|webp)$/D', $tv_logo_file) === 1 &&
     $tv_logo = $tv_logo_file;
 }
 if (intval($tv_row['config_module_enable_training'] ?? 0) !== 1) {
-    $tv_render('unavailable', 503);
+    $tv_render('off', 503);   // switched off on purpose: say so, not "right now"
 }
 // Phase 5 Upstream (Lane A) must be deployed; without it the page degrades to "not available".
 if (!class_exists(\ITFlow\Training\Upstream\CertTokens::class) || !class_exists(\ITFlow\Training\Upstream\RecordsGateway::class)) {
@@ -176,7 +180,7 @@ if (!\ITFlow\Training\Upstream\CertTokens::wellFormed($tv_token)) {
 
 // ---- 6 page switched off in Training settings -------------------------------------------------
 if (class_exists(\ITFlow\Training\Automation\AutomationSettings::class) && \ITFlow\Training\Automation\AutomationSettings::loadVerify($mysqli) === false) {
-    $tv_render('unavailable', 503);
+    $tv_render('off', 503);
 }
 
 // ---- 7 lookup + integrity ---------------------------------------------------------------------

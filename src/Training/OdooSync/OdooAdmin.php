@@ -73,6 +73,10 @@ final class OdooAdmin
         if ($t === null) {
             return ['error', 'No enabled Odoo integration is configured. Set one up under Integrations › Directory Sync first.'];
         }
+        if (!$t->https) {
+            // Spec §8 "Odoo transport": the legacy connector does not enforce https, so the key would travel in clear.
+            return ['error', 'Check Odoo needs an https:// Odoo address. Change the address under Integrations › Directory Sync first.'];
+        }
         $d = (new Discovery($t, $t->connector()))->run(25);
         AutomationSettings::stamp($db, [
             'tauto_odoo_discovery_json' => json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR),
@@ -182,7 +186,7 @@ final class OdooAdmin
             'enabled' => $enabled, 'target' => $t->key, 'resume_type_id' => $resumeType, 'award_type_id' => $awardType,
             'push_awards' => $pushAwards, 'push_since' => $since, 'staging' => $t->looksStaging, 'key_expires_on' => $expires ?: null,
         ]);
-        return ['success', 'Odoo write-back settings saved. Write-back is ' . ($enabled ? 'ON' : 'OFF') . '.'];
+        return ['success', 'Odoo write-back settings saved. Write-back is ' . ($enabled ? 'on' : 'off') . '.'];
     }
 
     private static function retry(\mysqli $db, array $post, int $userId): array

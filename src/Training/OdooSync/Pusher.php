@@ -22,6 +22,9 @@ final class Pusher
     public const ALLOWED = ['fields_get', 'search_read', 'search_count', 'read', 'create', 'write', 'message_post', 'context_get'];
     private const CALL = ['connect_timeout' => 5, 'timeout' => 20];
 
+    private ?int $ownUid = null;
+    private bool $ownUidRead = false;
+
     /**
      * @param array $discovery the stored Discovery::run() result for this target
      * @param array $settings  AutomationSettings::loadWorker() (tauto_odoo_resume_type_id / _award_type_id)
@@ -34,16 +37,25 @@ final class Pusher
     }
 
     /**
-     * Lines carrying $marker, on any employee. ilike is only a pre-filter: each hit is kept only when
-     * the marker is contained exactly in its description.
+     * Lines carrying $marker, optionally only those created by $createUid and/or on $employeeId
+     * (filtered by Odoo, so no number of other lines can push ours past the limit). ilike is only a
+     * pre-filter: each hit is kept only when the marker is contained exactly in its description.
+     * Callers decide with ownLines().
      *
-     * @return list<array{id:int, employee_id:int}> lowest id first
+     * @return list<array{id:int, employee_id:int, create_uid:int}> lowest id first (create_uid 0 = unknown)
      */
-    public function findByMarker(string $marker): array
+    public function findByMarker(string $marker, ?int $createUid = null, ?int $employeeId = null): array
     {
+        $domain = [['description', 'ilike', $marker]];
+        if ($createUid !== null) {
+            $domain[] = ['create_uid', '=', $createUid];
+        }
+        if ($employeeId !== null) {
+            $domain[] = ['employee_id', '=', $employeeId];
+        }
         $rows = $this->call('hr.resume.line', 'search_read', [
-            'domain' => [['description', 'ilike', $marker]],
-            'fields' => ['id', 'employee_id', 'description'],
+            'domain' => $domain,
+            'fields' => ['id', 'employee_id', 'description', 'create_uid'],
             'limit' => 5,
             'order' => 'id asc',
         ]);
@@ -55,10 +67,60 @@ final class Pusher
             if (!Marker::inHtml(is_string($r['description'] ?? null) ? $r['description'] : null, $marker)) {
                 continue;
             }
-            $hits[] = ['id' => $r['id'], 'employee_id' => self::m2oId($r['employee_id'] ?? null)];
+            $h = ['id' => $r['id'], 'employee_id' => self::m2oId($r['employee_id'] ?? null), 'create_uid' => self::m2oId($r['create_uid'] ?? null)];
+            if (($createUid !== null && $h['create_uid'] !== $createUid) || ($employeeId !== null && $h['employee_id'] !== $employeeId)) {
+                continue;   // belt and braces: Odoo already filtered
+            }
+            $hits[] = $h;
         }
         usort($hits, static fn($a, $b) => $a['id'] <=> $b['id']);
         return $hits;
+    }
+
+    /**
+     * The marker lines this integration may treat as its own. The marker is predictable (inst8 is on
+     * every line, completion ids are sequential) and Odoo's rule 182 lets every employee with an Odoo
+     * login create lines on their own résumé, so only lines the integration's own Odoo user created
+     * count; a line anyone else planted can neither block a record (employee_changed) nor be adopted.
+     * When Odoo does not report our uid, only lines on $employeeId count (the spec's employee-scoped
+     * search; none when $employeeId < 1).
+     *
+     * @return list<array{id:int, employee_id:int, create_uid:int}> lowest id first
+     */
+    public function ownLines(string $marker, int $employeeId): array
+    {
+        $uid = $this->ownUid();
+        if ($uid !== null) {
+            return $this->findByMarker($marker, $uid, null);
+        }
+        return $employeeId > 0 ? $this->findByMarker($marker, null, $employeeId) : [];
+    }
+
+    /**
+     * The Odoo user this integration writes as: the legacy login uid, else the uid in
+     * res.users.context_get(). Null when Odoo does not say. Read once per run; call errors propagate
+     * (the row then fails like any other call).
+     */
+    public function ownUid(): ?int
+    {
+        if ($this->ownUidRead) {
+            return $this->ownUid;
+        }
+        if (method_exists($this->odoo, 'uid')) {
+            $u = $this->odoo->uid();
+            if (is_int($u) && $u > 0) {
+                $this->ownUidRead = true;
+                return $this->ownUid = $u;
+            }
+        }
+        $ctx = $this->call('res.users', 'context_get', []);
+        $u = is_array($ctx) ? ($ctx['uid'] ?? null) : null;
+        if (!(is_int($u) && $u > 0) && method_exists($this->odoo, 'uid')) {
+            $u = $this->odoo->uid();   // legacy: the login made by that call
+        }
+        $this->ownUid = is_int($u) && $u > 0 ? $u : null;
+        $this->ownUidRead = true;
+        return $this->ownUid;
     }
 
     /** @return array{id:int, name:string, active:bool}|null (archived employees included) */
@@ -83,7 +145,7 @@ final class Pusher
      * @param int        $employeeId the Odoo employee (for a close: the create row's)
      * @param array|null $createRow for a close: the done create row (res_id, employee)
      * @return array{model:string, res_id:int}
-     * @throws \DomainException('employee_changed') a line with this marker exists on another employee
+     * @throws \DomainException('employee_changed') a line this integration created with this marker is on another employee
      * @throws PushException    permanent outcomes (odoo_record_missing, odoo_record_moved, bad_create_response, write_refused)
      */
     public function push(array $row, array $payload, int $employeeId, ?array $createRow): array
@@ -114,13 +176,15 @@ final class Pusher
     private function createResume(array $row, array $payload, int $employeeId): array
     {
         $marker = (string) $row['todoo_marker'];
-        $hits = $this->findByMarker($marker);
-        if ($hits !== []) {
-            foreach ($hits as $h) {
-                if ($h['employee_id'] === $employeeId) {
-                    return ['model' => 'hr.resume.line', 'res_id' => $h['id']];
-                }
+        // At-least-once without duplicates: a line WE created earlier (a lost create response) is adopted.
+        // Our line on another employee means the contact was re-linked since: never adopted, never duplicated.
+        $own = $this->ownLines($marker, $employeeId);
+        foreach ($own as $h) {
+            if ($h['employee_id'] === $employeeId) {
+                return ['model' => 'hr.resume.line', 'res_id' => $h['id']];
             }
+        }
+        if ($own !== []) {
             throw new \DomainException('employee_changed');
         }
 

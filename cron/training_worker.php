@@ -154,6 +154,11 @@ if ($tw_task === 'discover') {
             echo json_encode(['error' => 'no_enabled_odoo_integration'], JSON_PRETTY_PRINT) . "\n";
             exit(0);
         }
+        if (!$tw_target->https) {
+            // Spec §8: the legacy connector does not enforce https; never send the key in clear.
+            echo json_encode(['error' => 'Check Odoo needs an https:// Odoo address.'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+            exit(2);
+        }
         $tw_result = (new $tw_disc_class($tw_target, $tw_target->connector()))->run();
         echo json_encode($tw_result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) . "\n";
     } catch (\Throwable $e) {

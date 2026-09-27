@@ -261,9 +261,11 @@ final class PushService
                     continue;
                 }
 
-                // 2. Voided before it was pushed: a lost-response create may already exist.
+                // 2. Voided before it was pushed: a lost-response create may already exist. Only a line this
+                //    integration created counts (Pusher::ownLines); a line someone else planted with the marker is ignored.
                 if (!$isAward && ($payload['voided_on'] ?? null) !== null) {
-                    $hits = $pusher->findByMarker((string) $row['todoo_marker']);
+                    $linked = (int) ($records->linkState((int) $row['todoo_contact_id'], $t->integrationId)['odoo_employee_id'] ?? 0);
+                    $hits = $pusher->ownLines((string) $row['todoo_marker'], $linked);
                     if ($hits) {
                         $repo->done($id, 'hr.resume.line', $hits[0]['id'], $hits[0]['employee_id'], $payload, Clock::nowUtc());
                         $out['pushed']++;
@@ -309,8 +311,9 @@ final class PushService
                 $out['pushed']++;
                 $consecT = $consecP = 0;
             } catch (\DomainException $e) {
-                // A line with this marker exists on another employee: never adopted.
-                $this->fail($repo, $id, 'permanent', 'employee_changed: an ITFlow line with this reference is on another Odoo employee', $out);
+                // A line this integration created with this marker is on another employee (the contact was
+                // re-linked after a lost create response): never adopted, never duplicated.
+                $this->fail($repo, $id, 'permanent', 'employee_changed: the ITFlow line with this reference is on another Odoo employee', $out);
                 $changed++;
                 $consecP++;
             } catch (\Throwable $e) {

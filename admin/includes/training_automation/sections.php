@@ -149,7 +149,7 @@ $ta_update_card = static function () use ($ta_admin_page, $ta_is_admin): void {
 <div class="ts-section-head">
     <div>
         <h2 id="automation-title"><i class="fas fa-fw fa-robot me-2" aria-hidden="true"></i>Reminders &amp; automation</h2>
-        <p>Daily reminder digests, external video checks, Odoo write-back and the worker that runs them. Everything that acts is off until switched on.</p>
+        <p>Daily reminder digests, external video checks, Odoo write-back and the worker that runs them. Reminders and Odoo write-back are off until switched on; video checks are on from the start because they only send alerts.</p>
     </div>
 </div>
 
@@ -171,6 +171,7 @@ $ta_update_card = static function () use ($ta_admin_page, $ta_is_admin): void {
         $ta_odoo_on = intval($ta['tauto_odoo_push_enabled'] ?? 0) === 1;
         $ta_odoo_run = ta_local_time($ta['tauto_odoo_last_run_at_utc'] ?? null);
         $ta_odoo_paused = (string) ($ta['tauto_odoo_paused_reason'] ?? '');
+        $ta_odoo_result = \ITFlow\Training\Automation\ResultText::odoo($ta['tauto_odoo_last_result'] ?? null);
         $ta_key_exp = (string) ($ta['tauto_odoo_key_expires_on'] ?? '');
         ?>
         <div class="card mb-3">
@@ -186,10 +187,10 @@ $ta_update_card = static function () use ($ta_admin_page, $ta_is_admin): void {
                     <dt class="col-sm-3">Last run</dt>
                     <dd class="col-sm-9"><?php echo $ta_odoo_run !== null ? nullable_htmlentities($ta_odoo_run) : '<span class="text-muted">Never</span>'; ?></dd>
                     <dt class="col-sm-3">Result</dt>
-                    <dd class="col-sm-9 text-break"><?php echo (string) ($ta['tauto_odoo_last_result'] ?? '') !== '' ? '<span class="font-monospace">' . nullable_htmlentities((string) $ta['tauto_odoo_last_result']) . '</span>' : '<span class="text-muted">&mdash;</span>'; ?></dd>
-                    <?php if ($ta_odoo_paused !== '') { ?>
+                    <dd class="col-sm-9 text-break"><?php echo $ta_odoo_result['ok'] !== null ? nullable_htmlentities($ta_odoo_result['text']) : '<span class="text-muted">&mdash;</span>'; ?></dd>
+                    <?php if ($ta_odoo_paused !== '' && $ta_odoo_result['ok'] !== false) { // a paused last result already says why ?>
                         <dt class="col-sm-3">Paused</dt>
-                        <dd class="col-sm-9 text-break"><span class="badge text-bg-warning me-1">Paused</span><?php echo nullable_htmlentities($ta_odoo_paused); ?></dd>
+                        <dd class="col-sm-9 text-break"><span class="badge text-bg-warning me-1">Paused</span><?php echo nullable_htmlentities(class_exists('ITFlow\\Training\\OdooSync\\PushService') ? \ITFlow\Training\OdooSync\PushService::describePause($ta_odoo_paused) : $ta_odoo_paused); ?></dd>
                     <?php } ?>
                     <?php if ($ta_key_exp !== '') { ?>
                         <dt class="col-sm-3">Odoo key expires</dt>

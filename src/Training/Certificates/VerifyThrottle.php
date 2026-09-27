@@ -11,13 +11,23 @@ namespace ITFlow\Training\Certificates;
  *   global  GLOBAL_PER_MIN checks a minute, every visitor together
  *   client  CLIENT_PER_MIN checks a minute per visitor, counted only when the request came
  *           through the trusted proxy (REMOTE_ADDR in TRUSTED_PROXIES) and CF-Connecting-IP is a
- *           valid IP. A spoofed header without the proxy address is ignored; one sent through
- *           the proxy can only rotate client buckets, and the global cap still bounds it.
+ *           valid IP. An IPv6 visitor is keyed on its /64 (one subscriber's allocation), so a new
+ *           address per request does not give a new bucket. A spoofed header without the proxy
+ *           address is ignored.
  *
- * Store: <root>/itflow_training_verify_<md5(db)>_<euid>, 0700, one file per bucket per minute
- * ('g-<YmdHi>', 'c-<sha256(ip) first 16 hex>-<YmdHi>', 0600), each read-increment-written under
- * flock(LOCK_EX). The euid suffix means a CLI run as another user can never create a directory
- * that PHP-FPM cannot write. <root> is sys_get_temp_dir() unless a test passes its own.
+ * Order, so that one visitor cannot spend everyone's budget:
+ *   1 the global count for this minute is already at the cap -> wait, and nothing is written
+ *   2 the visitor's bucket is counted; over its cap -> wait (the global budget is NOT charged)
+ *   3 the global bucket is counted; over the cap -> wait
+ *
+ * Store: <root>/itflow_training_verify_<md5(db)>_<euid>, 0700, holding a FIXED set of files (0600):
+ * 'g' and 'c-<first 3 hex of sha256(visitor key)>', so at most 4,097 files ever exist. Each holds
+ * "<YmdHi> <count>" and is read-increment-written under flock(LOCK_EX); a count from an older minute
+ * starts again at 1. Visitors sharing a shard share its per-minute cap, which is rare with 4,096
+ * shards and harmless (it only makes the cap stricter). Nothing is pruned inside a request: the
+ * daily worker (www-data, the same uid as PHP-FPM) runs prune(). The euid suffix means a CLI run as
+ * another user can never create a directory that PHP-FPM cannot write. <root> is sys_get_temp_dir()
+ * unless a test passes its own.
  *
  * Fail-open by design: when the store is unusable (not creatable, not ours, not writable) hit()
  * returns 0 after one error_log line. The throttle protects against load; the token protects
@@ -29,8 +39,12 @@ final class VerifyThrottle
     public const CLIENT_PER_MIN = 20;
     public const TRUSTED_PROXIES = ['10.1.0.31'];
 
+    /** Hex characters of sha256(visitor key) that name a client shard: 16^3 = 4,096 files at most. */
+    public const SHARD_HEX = 3;
+
     private const PREFIX = 'itflow_training_verify_';
-    private const FILE_RE = '/^(g|c-[0-9a-f]{16})-[0-9]{12}$/D';
+    /** Current names, plus the per-minute names an earlier build wrote (prune() still clears those). */
+    private const FILE_RE = '/^(?:g|c-[0-9a-f]{3}|(?:g|c-[0-9a-f]{16})-[0-9]{12})$/D';
 
     private string $dir;
     private int $globalCap;
@@ -55,34 +69,34 @@ final class VerifyThrottle
             return 0;
         }
         $minute = gmdate('YmdHi', $nowTs);
-        $wait = 60 - ($nowTs % 60);
-        $over = false;
+        $wait = max(1, 60 - ($nowTs % 60));
 
-        $g = $this->bump('g-' . $minute);
-        if ($g === null) {
-            return 0;
-        }
-        if ($g > $this->globalCap) {
-            $over = true;
+        // 1. Everyone's budget is already spent this minute: refuse without writing anything.
+        if ($this->peek('g', $minute) >= $this->globalCap) {
+            return $wait;
         }
 
-        $ip = self::clientIp($server);
-        if ($ip !== null) {
-            $c = $this->bump('c-' . substr(hash('sha256', $ip), 0, 16) . '-' . $minute);
+        // 2. This visitor first, so a visitor over its own cap does not use up the shared budget.
+        $key = self::clientKey($server);
+        if ($key !== null) {
+            $c = $this->bump(self::shardName($key), $minute);
             if ($c !== null && $c > $this->clientCap) {
-                $over = true;
+                return $wait;
             }
         }
 
-        if (random_int(1, 100) === 1) {
-            self::pruneDir($this->dir, $nowTs, 3600);
+        // 3. The shared budget.
+        $g = $this->bump('g', $minute);
+        if ($g === null) {
+            return 0;
         }
-        return $over ? max(1, $wait) : 0;
+        return $g > $this->globalCap ? $wait : 0;
     }
 
     /**
-     * Deletes bucket files older than $olderThanS (the daily worker runs this as www-data, the
-     * same uid as PHP-FPM, so it prunes the FPM store). Returns how many were removed.
+     * Deletes bucket files not written for $olderThanS (the daily worker runs this as www-data, the
+     * same uid as PHP-FPM, so it prunes the FPM store). A deleted shard simply starts again at 1.
+     * Returns how many were removed.
      */
     public static function prune(string $dbName, ?string $root = null, int $olderThanS = 3600): int
     {
@@ -90,7 +104,19 @@ final class VerifyThrottle
         if (!is_dir($dir) || is_link($dir) || !self::ownedByMe($dir)) {
             return 0;
         }
-        return self::pruneDir($dir, time(), $olderThanS);
+        $n = 0;
+        $cut = time() - max(60, $olderThanS);
+        foreach ((array) @scandir($dir) as $f) {
+            if (!is_string($f) || preg_match(self::FILE_RE, $f) !== 1) {
+                continue;
+            }
+            $p = $dir . '/' . $f;
+            $m = @filemtime($p);
+            if ($m !== false && $m < $cut && @unlink($p)) {
+                $n++;
+            }
+        }
+        return $n;
     }
 
     /** The client address used for the per-visitor bucket, or null (global bucket only). */
@@ -106,6 +132,40 @@ final class VerifyThrottle
         }
         $cf = trim($cf);
         return filter_var($cf, FILTER_VALIDATE_IP) !== false ? $cf : null;
+    }
+
+    /**
+     * The per-visitor key: an IPv4 address as is; an IPv6 address as its /64 network (an IPv4-mapped
+     * IPv6 address counts as the IPv4 address). Null when there is no trusted client address.
+     */
+    public static function clientKey(array $server): ?string
+    {
+        $ip = self::clientIp($server);
+        if ($ip === null) {
+            return null;
+        }
+        $bin = @inet_pton($ip);
+        if (!is_string($bin)) {
+            return null;
+        }
+        if (strlen($bin) === 4) {
+            return $ip;
+        }
+        if (strlen($bin) !== 16) {
+            return null;
+        }
+        if (substr($bin, 0, 12) === str_repeat("\0", 10) . "\xff\xff") {
+            $v4 = inet_ntop(substr($bin, 12));
+            return is_string($v4) ? $v4 : null;
+        }
+        $net = inet_ntop(substr($bin, 0, 8) . str_repeat("\0", 8));
+        return is_string($net) ? $net . '/64' : null;
+    }
+
+    /** The client shard file for a visitor key. */
+    public static function shardName(string $key): string
+    {
+        return 'c-' . substr(hash('sha256', $key), 0, self::SHARD_HEX);
     }
 
     private static function dirFor(string $dbName, ?string $root): string
@@ -146,8 +206,40 @@ final class VerifyThrottle
         return true;
     }
 
-    /** Read-increment-write one bucket under an exclusive lock; the new count, or null on I/O failure. */
-    private function bump(string $name): ?int
+    /** "<YmdHi> <n>" -> n when it is $minute's count, else 0. */
+    private static function countFor(mixed $raw, string $minute): int
+    {
+        if (!is_string($raw) || preg_match('/^([0-9]{12}) ([0-9]{1,9})$/D', trim($raw), $m) !== 1) {
+            return 0;
+        }
+        return $m[1] === $minute ? (int) $m[2] : 0;
+    }
+
+    /** This minute's count in a bucket without changing it (0 when the file does not exist or cannot be read). */
+    private function peek(string $name, string $minute): int
+    {
+        $path = $this->dir . '/' . $name;
+        if (!is_file($path)) {
+            return 0;
+        }
+        $fh = @fopen($path, 'r');
+        if ($fh === false) {
+            return 0;
+        }
+        try {
+            if (!flock($fh, LOCK_SH)) {
+                return 0;
+            }
+            $n = self::countFor(stream_get_contents($fh), $minute);
+            flock($fh, LOCK_UN);
+            return $n;
+        } finally {
+            fclose($fh);
+        }
+    }
+
+    /** Read-increment-write one bucket for $minute under an exclusive lock; the new count, or null on I/O failure. */
+    private function bump(string $name, string $minute): ?int
     {
         $path = $this->dir . '/' . $name;
         $new = !is_file($path);
@@ -163,12 +255,10 @@ final class VerifyThrottle
                 $this->failOpen('cannot lock a bucket');
                 return null;
             }
-            $raw = stream_get_contents($fh);
-            $n = (is_string($raw) && preg_match('/^[0-9]{1,9}$/D', trim($raw)) === 1) ? (int) trim($raw) : 0;
-            $n++;
+            $n = self::countFor(stream_get_contents($fh), $minute) + 1;
             ftruncate($fh, 0);
             rewind($fh);
-            fwrite($fh, (string) $n);
+            fwrite($fh, $minute . ' ' . $n);
             fflush($fh);
             flock($fh, LOCK_UN);
             if ($new) {
@@ -178,23 +268,6 @@ final class VerifyThrottle
         } finally {
             fclose($fh);
         }
-    }
-
-    private static function pruneDir(string $dir, int $nowTs, int $olderThanS): int
-    {
-        $n = 0;
-        $cut = $nowTs - max(60, $olderThanS);
-        foreach ((array) @scandir($dir) as $f) {
-            if (!is_string($f) || preg_match(self::FILE_RE, $f) !== 1) {
-                continue;
-            }
-            $p = $dir . '/' . $f;
-            $m = @filemtime($p);
-            if ($m !== false && $m < $cut && @unlink($p)) {
-                $n++;
-            }
-        }
-        return $n;
     }
 
     private function failOpen(string $why): bool

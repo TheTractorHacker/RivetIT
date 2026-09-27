@@ -14,17 +14,23 @@ administrator or Training manager switches it on; external video checks are on (
 - **Public certificate check** at `/verify/?t=...`, the address the QR code on every certificate already points to.
   Anyone who scans it sees Valid, Expiring soon, Expired or Revoked with only the name, course, issued and expiry
   dates, certificate number and "External card recorded" (never the score, department, issuer or void reason), or
-  Not found / Try again shortly / Not available. English and Spanish (browser language or a link). No login, cookies
+  Not found / Try again shortly / Not available. A revoked certificate shows no expiry and says not to accept it; a
+  page with no record details says whom to contact. English and Spanish (browser language or a link). No login, cookies
   or scripts; strict security headers; nothing cached. Checks are limited to 240 a minute overall and 20 a minute per
-  visitor, counted before any database lookup. Each record's fingerprint is re-checked before a status is shown: a
-  record that no longer matches shows "Not available" and administrators get one alert a day. An administrator can
-  turn the public check off (Training settings > Certificates); while Training is off every code shows "Not available".
+  visitor (an IPv6 visitor counts as its /64), counted before any database lookup; a visitor over its own limit does
+  not use up everyone else's, and the counters are a fixed set of small files. Each record's fingerprint is re-checked
+  before a status is shown: a record that no longer matches shows "Not available" and administrators get one alert a
+  day. An administrator can turn the public check off (Training settings > Certificates); while it or Training is off
+  every code shows "Not available: online certificate checks are turned off".
 - **Certificate PDF** (Letter landscape, English/Spanish, QR code, signatory, REVOKED / SUPERSEDED watermarks,
   outside cards and paper records as a "Training record" sheet that never says "certifies"; acknowledgments have no
   certificate) and **transcript PDF** (Letter portrait, qualifications, open assignments, history with struck-through
   voids and "Revoked ... by ...: ..." lines, achievements, evidence legend, "Page X of Y" and the records-ledger
-  footer). **Download PDF** on the transcript, certificate and record pages; department scope applies as on screen,
-  and any refusal is a plain "not found". Exports are logged; PDFs are never stored on the server.
+  footer). **Download PDF** on the transcript; **PDF (English)** and **PDF en español** on the certificate and record
+  pages. The PDF words how the record was proven exactly like the on-screen certificate ("PIN attestation" unless the
+  employee drew a signature). Department scope applies as on screen, and any refusal is a plain "not found". Exports are
+  logged; PDFs are never stored on the server. The evidence legend's B line now reads "trainer and employee signed, or
+  the employee confirmed with a PIN" (it also covers online courses confirmed with a PIN).
 - **Training settings** (still one page, Admin > Training and Training > Training settings for Training level 3) gain
   two sections, also found by the settings search:
   - **Certificates**: signatory name, title and signature image (PNG/JPEG, re-encoded and size-capped), a sample
@@ -44,9 +50,12 @@ administrator or Training manager switches it on; external video checks are on (
   ITFlow"; a voided record's line is closed ("(revoked)" and an end date); achievements can be sent too (each one
   switched on), and courses can be opted out. Nothing is ever deleted in Odoo. It pauses by itself on a changed Odoo
   address, a non-https address, a refused key or configuration errors, and holds a record whose employee link is
-  flagged or whose Odoo name no longer matches. Enabling needs Check Odoo, a staging acknowledgement on staging, and
-  on production a fresh employee-link check. The card shows the outbox (retry / skip), a dry-run preview and the
-  "Send to Odoo" lists. Administrators are warned before the Odoo API key expires (from 14 days out).
+  flagged or whose Odoo name no longer matches. Only résumé lines the integration's own Odoo user created are ever
+  treated as ITFlow's (a line someone else adds with the same reference is ignored). Check Odoo and write-back need an
+  https:// Odoo address. Enabling needs Check Odoo, a staging acknowledgement on staging, and on production a fresh
+  employee-link check. The Odoo copy is not evidence: employees with Odoo logins can edit their own résumé lines.
+  The card shows the outbox (retry / skip), a dry-run preview and the "Send to Odoo" lists. Administrators are warned
+  before the Odoo API key expires (from 14 days out).
 - **Item analysis** (Training 2 and up, your departments only, no names): per question % correct, discrimination
   (Good / Fair / Weak / Check key), most-chosen wrong answer, answer spread and version changes, with filters for
   version, language, quiz type (final exams and quizzes, lesson quick checks, or all) and period, CSV export and print.

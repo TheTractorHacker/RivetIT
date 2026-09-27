@@ -14,13 +14,15 @@ use ITFlow\Training\Records\CertificateView;
 use ITFlow\Training\Records\CertSecret;
 use ITFlow\Training\Records\EvidenceStrength;
 use ITFlow\Training\Records\PublicVerify;
+use ITFlow\Training\Reports\CertificateModel;
 use ITFlow\Training\Reports\TranscriptService;
 
 /**
  * Phase 2 records for Phase 5 (spec §3.1; Lane A). Calls P2's services first and writes its own SQL
  * only where P2 has none (Odoo push candidates, link state). SQL on P2 tables lives ONLY here and in
  * the other Upstream classes. Bound to the P2 code on main (v1.14.0): PublicVerify::lookup,
- * CertificateView::build, TranscriptService::build, CompletionService::reprintToken, LinkStates::norm.
+ * CertificateView::build (+ CertificateModel::components for online records), TranscriptService::build,
+ * CompletionService::reprintToken, LinkStates::norm.
  *
  * Every consumer (Lanes B-E) codes against the DTO shapes in the spec (§3.1); the P2 shapes are
  * mapped here. A missing P2 class or table answers null / [] / 'unavailable', never an exception.
@@ -212,7 +214,7 @@ final class RecordsGateway
             'regulation_line' => $v['regulation_line'],
             'revision_number' => $v['revision_number'],
             'method' => $method,
-            'method_label' => $external ? (string) ($v['badge'] ?? Labels::method($method)) : ((string) ($v['components_line'] ?? '') !== '' ? (string) $v['components_line'] : Labels::method($method)),
+            'method_label' => $external ? (string) ($v['badge'] ?? Labels::method($method)) : self::componentsLine($method, (string) $x['completion_proof'], $v),
             'evidence_letter' => self::grade($method, (string) $x['completion_proof']),
             'completed_on' => (string) $v['issued_on'],
             'expires_on' => $v['expires_on'],
@@ -231,6 +233,21 @@ final class RecordsGateway
             'evaluated_on' => $v['evaluated_on'] ?? null,
             'ledger' => $v['ledger'] ?? null,
         ];
+    }
+
+    /**
+     * The "how it was done" line, worded like the on-screen certificate (P2 Reports\CertificateModel):
+     * an online record says "signed attestation" only when the employee drew a signature
+     * (self_pin_signature) and "PIN attestation" otherwise. P2's CertificateView says "signed" for
+     * every online record, so its line is used only for the other methods.
+     */
+    private static function componentsLine(string $method, string $proof, array $v): string
+    {
+        $line = (string) ($v['components_line'] ?? '');
+        if ($method === 'online' && class_exists(CertificateModel::class)) {
+            $line = (string) (CertificateModel::components($method, $proof, ($v['score_pct'] ?? null) !== null) ?? $line);
+        }
+        return $line !== '' ? $line : Labels::method($method);
     }
 
     /**

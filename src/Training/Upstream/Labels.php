@@ -23,7 +23,7 @@ final class Labels
     /** Admin-Transcript mockup fallback, identical to P2's Reports\Labels::STRENGTH today. */
     private const LEGEND = [
         'A' => ['PIN + signature', 'employee signed at the kiosk'],
-        'B' => ['Trainer session', 'trainer and employee signed'],
+        'B' => ['Trainer session', 'trainer and employee signed, or the employee confirmed with a PIN'],
         'C' => ['Trainer attests', 'employee did not sign'],
         'D' => ['Scan on file', 'scan of a card or certificate on file'],
         'E' => ['Recorded by office', 'nothing signed'],
@@ -40,6 +40,23 @@ final class Labels
             }
         }
         return self::METHOD[$method] ?? ucfirst(str_replace('_', ' ', $method));
+    }
+
+    /**
+     * The English regulation line for a course's regulation reference, exactly as P2 words it on the
+     * on-screen certificate (Reports\Labels::regulation): an OSHA 19xx section reads "Meets the training
+     * requirements of OSHA 29 CFR …", anything else "Reference: …". Null when there is no reference.
+     */
+    public static function regulation(?string $ref): ?string
+    {
+        if (class_exists(ReportLabels::class) && method_exists(ReportLabels::class, 'regulation')) {
+            return ReportLabels::regulation($ref);
+        }
+        $ref = trim((string) $ref);
+        if ($ref === '') {
+            return null;
+        }
+        return preg_match('/^19\d\d\./', $ref) === 1 ? 'Meets the training requirements of OSHA 29 CFR ' . $ref : 'Reference: ' . $ref;
     }
 
     /** @return array<string, array{0:string, 1:string}> letter => [label, detail] (P2's Reports\Labels::STRENGTH when present) */

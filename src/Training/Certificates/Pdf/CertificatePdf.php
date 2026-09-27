@@ -3,6 +3,7 @@
 namespace ITFlow\Training\Certificates\Pdf;
 
 use ITFlow\Training\Certificates\CertQr;
+use ITFlow\Training\Upstream\Labels;
 
 /**
  * Certificate PDF (Phase 5 spec §5.2, S1; Certificate mockup): one US Letter landscape page from
@@ -134,6 +135,28 @@ final class CertificatePdf extends TrainingPdf
             'external_ref' => null, 'trainer_or_evaluator' => null, 'language' => 'en',
             'status' => ['code' => 'valid', 'reason' => null, 'label' => 'Valid'], 'voided' => null, 'recorded_at_utc' => null, 'row_sha12' => null,
         ];
+    }
+
+    /**
+     * The regulation line. English: P2's line exactly, or - when the DTO has none (the sample) - the
+     * same rule P2 uses (Upstream\Labels::regulation). Spanish: the neutral reference (the certified
+     * claim is the owner's wording decision, spec §1.5), with "OSHA 29 CFR" in front of an OSHA section
+     * as in English. '' when the course has no reference.
+     */
+    public static function regulationLine(?string $p2Line, ?string $ref, string $lang): string
+    {
+        $ref = self::plain($ref);
+        if ($lang === 'es') {
+            if ($ref === '') {
+                return '';
+            }
+            return self::STR['es']['reg_ref'] . ': ' . (preg_match('/^19\d\d\./', $ref) === 1 ? 'OSHA 29 CFR ' : '') . $ref;
+        }
+        $line = self::plain($p2Line);
+        if ($line === '' && $ref !== '') {
+            $line = self::plain(Labels::regulation($ref));
+        }
+        return $line;
     }
 
     // ---- drawing ------------------------------------------------------------------------------
@@ -277,14 +300,9 @@ final class CertificatePdf extends TrainingPdf
         $this->regulation($cert, $s, $y + 1);
     }
 
-    /** P2's regulation line exactly (English); otherwise, and always in Spanish, the neutral reference. */
     private function regulation(array $cert, array $s, float $y): void
     {
-        $line = self::plain($cert['regulation_line'] ?? null);
-        $ref = self::plain($cert['regulation_ref'] ?? null);
-        if ($this->lang === 'es' || $line === '') {
-            $line = $ref !== '' ? $s['reg_ref'] . ': ' . $ref : '';
-        }
+        $line = self::regulationLine($cert['regulation_line'] ?? null, $cert['regulation_ref'] ?? null, $this->lang);
         if ($line !== '') {
             $this->centreText($line, $y, 8.5, '', self::MUTED, 220);
         }

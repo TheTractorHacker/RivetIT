@@ -25,12 +25,15 @@ $taw_switches = [
 ];
 $taw_script = realpath(dirname(__DIR__, 3) . '/cron/training_worker.php') ?: (dirname(__DIR__, 3) . '/cron/training_worker.php');
 $taw_log = '/var/log/itflow_mw_training_worker.log';
-$taw_badge = static function (string $result): string {
-    if ($result === '') {
+$taw_daily_text = \ITFlow\Training\Automation\ResultText::daily($taw_daily_result);
+$taw_odoo_text = \ITFlow\Training\Automation\ResultText::odoo($taw_odoo_result);
+/** The OK / Failed / Paused badge in front of a result sentence (plain words from ResultText). */
+$taw_badge = static function (?bool $ok, bool $paused = false): string {
+    if ($ok === null) {
         return '';
     }
-    $ok = str_starts_with($result, 'ok');
-    return '<span class="badge ' . ($ok ? 'text-bg-success' : 'text-bg-danger') . ' me-1">' . ($ok ? 'OK' : 'Failed') . '</span>';
+    [$cls, $word] = $ok ? ['text-bg-success', 'OK'] : ($paused ? ['text-bg-warning', 'Paused'] : ['text-bg-danger', 'Failed']);
+    return '<span class="badge ' . $cls . ' me-1">' . $word . '</span>';
 };
 ?>
 <div class="card mb-3">
@@ -56,7 +59,7 @@ $taw_badge = static function (string $result): string {
             <dd class="col-sm-9 text-break">
                 <?php if ($taw_daily_on !== '') { ?>
                     <?php echo nullable_htmlentities($taw_daily_on); ?>
-                    <?php if ($taw_daily_result !== '') { ?><br><?php echo $taw_badge($taw_daily_result); ?><span class="font-monospace"><?php echo nullable_htmlentities($taw_daily_result); ?></span><?php } ?>
+                    <?php if ($taw_daily_text['ok'] !== null) { ?><br><?php echo $taw_badge($taw_daily_text['ok']); ?><span><?php echo nullable_htmlentities($taw_daily_text['text']); ?></span><?php } ?>
                 <?php } else { ?>
                     <span class="text-muted">Never</span>
                 <?php } ?>
@@ -65,19 +68,19 @@ $taw_badge = static function (string $result): string {
             <dd class="col-sm-9 text-break">
                 <?php if ($taw_odoo_at !== null) { ?>
                     <?php echo nullable_htmlentities($taw_odoo_at); ?>
-                    <?php if ($taw_odoo_result !== '') { ?><br><span class="font-monospace"><?php echo nullable_htmlentities($taw_odoo_result); ?></span><?php } ?>
+                    <?php if ($taw_odoo_text['ok'] !== null) { ?><br><?php echo $taw_badge($taw_odoo_text['ok'], true); ?><span><?php echo nullable_htmlentities($taw_odoo_text['text']); ?></span><?php } ?>
                 <?php } else { ?>
                     <span class="text-muted">Never<?php echo intval($ta['tauto_odoo_push_enabled'] ?? 0) === 1 ? '' : ' (write-back is off)'; ?></span>
                 <?php } ?>
             </dd>
-            <?php if ($taw_paused !== '') { ?>
+            <?php if ($taw_paused !== '' && $taw_odoo_text['ok'] !== false) { // a paused last run already says why ?>
                 <dt class="col-sm-3">Odoo paused</dt>
-                <dd class="col-sm-9 text-break"><span class="badge text-bg-warning me-1">Paused</span><?php echo nullable_htmlentities($taw_paused); ?></dd>
+                <dd class="col-sm-9 text-break"><span class="badge text-bg-warning me-1">Paused</span><?php echo nullable_htmlentities(class_exists('ITFlow\\Training\\OdooSync\\PushService') ? \ITFlow\Training\OdooSync\PushService::describePause($taw_paused) : $taw_paused); ?></dd>
             <?php } ?>
             <dt class="col-sm-3">Switched on</dt>
             <dd class="col-sm-9 d-flex flex-wrap gap-1">
                 <?php foreach ($taw_switches as [$taw_label, $taw_on]) { ?>
-                    <span class="badge <?php echo $taw_on ? 'text-bg-success' : 'text-bg-secondary'; ?>"><?php echo nullable_htmlentities($taw_label) . ': ' . ($taw_on ? 'on' : 'off'); ?></span>
+                    <span class="badge <?php echo $taw_on ? 'text-bg-success' : 'text-bg-secondary'; ?>"><?php echo nullable_htmlentities($taw_label) . ': ' . ($taw_on ? 'On' : 'Off'); ?></span>
                 <?php } ?>
             </dd>
         </dl>
