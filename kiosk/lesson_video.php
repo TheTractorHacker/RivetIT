@@ -98,6 +98,8 @@ if ($kiosk_video_unsupported) {
                 'lesson_uid' => $uid,
                 'provider' => (string) $v['provider'],
                 'lang' => (string) ($view['lang'] ?? $run['trun_language']),   // the run's language: captions default to it
+                // captions start ON until chosen: a run in another language on the default language's video (LearnerView)
+                'cc_default' => ($v['cc_default'] ?? false) === true,
                 'embed_url' => (string) $v['embed_url'],
                 'video_id' => (string) ($v['video_id'] ?? ''),
                 'duration_s' => (int) ($v['duration_s'] ?? 0),

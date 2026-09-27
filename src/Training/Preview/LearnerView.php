@@ -87,9 +87,11 @@ final class LearnerView
             if ($type === 'video' && ($v['video'] ?? null) !== null) {
                 $vd = $v['video'];
                 if ($vd['provider'] === 'upload') {
+                    $captions = self::captions($l, $vLang, (int) $vd['media_id']);
                     $video = ['provider' => 'upload', 'src_url' => MediaStore::url((int) $vd['media_id']),
                         'duration_s' => (int) $vd['duration_s'], 'min_watch_pct' => (int) $l['min_watch_pct'],
-                        'captions' => self::captions($l, $vLang, (int) $vd['media_id'])];
+                        'captions' => $captions,
+                        'cc_default' => self::ccDefault($l, $lang, $default, $vd) && ($captions[0]['lang'] ?? null) === $lang];
                 } else {
                     $hash = $vd['provider'] === 'vimeo' ? ($vd['h'] ?? null) : null;
                     $key = RevisionBuilder::videoKey((string) $vd['provider'], (string) $vd['id'], (string) ($hash ?? ''));
@@ -105,6 +107,8 @@ final class LearnerView
                         'duration_s' => ((int) ($vd['duration_s'] ?? 0)) > 0 ? (int) $vd['duration_s'] : null,
                         'min_watch_pct' => (int) $l['min_watch_pct'],
                         'verified' => (bool) ($ctx['video_checks'][$key]['verified'] ?? false),
+                        // the player also needs a caption track in $lang (it asks the provider) before it keeps CC on
+                        'cc_default' => self::ccDefault($l, $lang, $default, $vd),
                     ];
                 }
             }
@@ -319,6 +323,37 @@ final class LearnerView
             ];
         }
         return $out;
+    }
+
+    /**
+     * Whether captions should start ON for a learner who has not chosen (UX review 2026-09-27): the course is
+     * taken in a language other than its default, and this lesson plays the SAME video as the default
+     * language's version (its audio is most likely in that language) - either because this language's variant
+     * points at the same upload / YouTube / Vimeo video or because it has no variant and falls back to the
+     * default one. Uploaded videos additionally need a caption file in $lang (the caller checks); YouTube /
+     * Vimeo lessons leave that to the player, which turns a default ON off again when the provider lists no
+     * track in $lang. The learner's own choice always wins (js/training_player.js, training_kiosk_video.js).
+     *
+     * @param array $vd this language's projected video ({provider, media_id | id, h?})
+     */
+    private static function ccDefault(array $lesson, string $lang, string $default, array $vd): bool
+    {
+        if ($lang === $default) {
+            return false;
+        }
+        $variants = is_array($lesson['variants'] ?? null) ? $lesson['variants'] : [];
+        if (!isset($variants[$lang])) {
+            return true;   // no own version: the learner gets the default language's video
+        }
+        $dv = $variants[$default]['video'] ?? null;
+        if (!is_array($dv) || ($dv['provider'] ?? '') !== ($vd['provider'] ?? '')) {
+            return false;
+        }
+        if ($vd['provider'] === 'upload') {
+            return (int) ($dv['media_id'] ?? 0) > 0 && (int) ($dv['media_id'] ?? 0) === (int) ($vd['media_id'] ?? 0);
+        }
+        return (string) ($dv['id'] ?? '') !== '' && (string) ($dv['id'] ?? '') === (string) ($vd['id'] ?? '')
+            && (string) ($dv['h'] ?? '') === (string) ($vd['h'] ?? '');
     }
 
     /**

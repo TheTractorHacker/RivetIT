@@ -34,14 +34,20 @@
  *                  learnerFirst, validityMonths
  *                  mediaPrefs: {getVolume() -> {level, muted}|null, setVolume(level, muted), getCc() -> bool|null, setCc(on)}
  *                               where the video options are remembered (kiosk: volume per device, captions for
- *                               the signed-in person; preview: both per device). Without it they last for the page.
+ *                               the signed-in session; preview: both per device). getCc() null = the learner has not
+ *                               chosen: the lesson's video.cc_default decides. Without it they last for the page.
  *
  *       Video options (owner ask 2026-09-27; widgets in js/training_media_controls.js): Mute / volume slider
  *       (Mute only on iPhone / iPad, where iOS ignores a page's volume; Up / Down arrows +-10 %), a CC button
  *       when the uploaded video has caption files (large white-on-black text over the video; EN | ES when both
  *       languages' captions fit this video; the course language first) or through the YouTube / Vimeo player
- *       (preview), and "Resuming at 3:42 · Start over" when a started video is opened again - kiosk: at the
- *       run's furthest point (lesson_open's max_position_s), preview: at the last position kept in progress.pos.
+ *       (preview). Captions start ON, until the learner chooses, when video.cc_default says so (the course is taken
+ *       in another language than its default on the default language's video, with captions in that language).
+ *       "Resuming at 3:42 · Start over" when a started video is opened again - kiosk: at the run's furthest point
+ *       (lesson_open's max_position_s), preview: at the last position kept in progress.pos - sits ON the picture
+ *       (uploaded video) or in the bar above the player (YouTube / Vimeo). The time sits under the scrub bar so
+ *       play, back 10 s, CC, Mute and full screen share one row, and MC.fitStage makes the picture shorter when
+ *       the card would otherwise run under the bottom bar (iPad landscape, a 768 px tall PC screen).
  *       A PDF opens at its first page not yet seen (kiosk: gate.pages_seen_list). Credit rules are unchanged:
  *       seeking past the furthest point watched stays blocked.
  *
@@ -141,7 +147,8 @@
             // video options
             vol_mute: 'Mute', vol_unmute: 'Unmute', volume: 'Volume', cc: 'Captions', cc_short: 'CC', cc_none: 'No captions for this video',
             cc_lang: 'Caption language', lang_en: 'English', lang_es: 'Spanish', resume_at: 'Resuming at {t}', start_over: 'Start over',
-            resume_page: 'Picked up at page {n}', back_to_first: 'Back to page 1'
+            resume_page: 'Picked up at page {n}', back_to_first: 'Back to page 1', back_10_short: '10 s',
+            louder_ios: "Louder: use the iPad's volume buttons"
         },
         es: {
             lessons_n: '{n} lecciones', lesson_1: '1 lección', course_content: 'Contenido del curso', sections_meta: '{s} secciones · {n} lecciones',
@@ -216,8 +223,9 @@
             qc_optional_chip: 'Prueba rápida (opcional)', qc_correct_n: '{n} de {m} correctas', qc_watched: 'Visto {pct}% — sigue la prueba rápida',
             // opciones del video
             vol_mute: 'Silenciar', vol_unmute: 'Activar sonido', volume: 'Volumen', cc: 'Subtítulos', cc_short: 'CC', cc_none: 'Este video no tiene subtítulos',
-            cc_lang: 'Idioma de los subtítulos', lang_en: 'Inglés', lang_es: 'Español', resume_at: 'Continúa en {t}', start_over: 'Empezar de nuevo',
-            resume_page: 'Sigue en la página {n}', back_to_first: 'Volver a la página 1'
+            cc_lang: 'Idioma de los subtítulos', lang_en: 'Inglés', lang_es: 'Español', resume_at: 'Sigue en {t}', start_over: 'Empezar de nuevo',
+            resume_page: 'Sigue en la página {n}', back_to_first: 'Volver a la página 1', back_10_short: '10 s',
+            louder_ios: 'Más volumen: use los botones del iPad'
         }
     };
     var LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -410,7 +418,7 @@
         // Video options for this page: remembered through adapter.mediaPrefs, else for the page only.
         var MC = window.TrainingMediaControls || null;
         var memVol = MC ? MC.prefs.volume() : { level: 0.8, muted: false };
-        var memCc = false;
+        var memCc = null;        // captions on/off chosen on this page (null: not chosen)
         var ccLangPick = null;   // a caption language the learner picked on this page (EN | ES)
         var prefs = (function () {
             var p = adapter.mediaPrefs && typeof adapter.mediaPrefs === 'object' ? adapter.mediaPrefs : null;
@@ -425,6 +433,7 @@
                     memVol = { level: level, muted: !!muted };
                     if (has('setVolume')) { try { p.setVolume(level, !!muted); } catch (e) { /* ignore */ } }
                 },
+                /** true / false as the learner chose it, null when they have not chosen (the lesson's default applies). */
                 cc: function () {
                     var c = null;
                     try { c = has('getCc') ? p.getCc() : null; } catch (e) { c = null; }
@@ -1313,6 +1322,26 @@
             ctx.aside.appendChild(watchCard);
             var status = h('div', { class: 'trp-vstatus', role: 'status', 'aria-live': 'polite' });
 
+            /** "Back 10 s" (the short "10 s" where the card is narrow; the full words stay its name). */
+            function backButton() {
+                return h('button', { type: 'button', class: 'trp-vbtn trp-vbtn--wide trp-vback', 'aria-label': t('back_10') }, [icon('fa-undo'),
+                    h('span', { class: 'trp-vback__full', 'aria-hidden': 'true', text: t('back_10') }), h('span', { class: 'trp-vback__short', 'aria-hidden': 'true', text: t('back_10_short') })]);
+            }
+            /** Keeps the card's controls above the bottom bar: a shorter picture instead of a scroll (MC.fitStage). */
+            function fitVideo(stageEl, card) {
+                if (!MC || typeof MC.fitStage !== 'function') { return; }
+                var fit = MC.fitStage(stageEl, card, {
+                    scroller: ctx.wrap ? ctx.wrap.querySelector('.trp-lscroll') : null, min: 200,
+                    apply: function (px) { stageEl.style.height = px ? px + 'px' : ''; stageEl.style.aspectRatio = px ? 'auto' : ''; }
+                });
+                cleanup.push(fit.destroy);
+            }
+            /** Whether a provider's caption list [{lang}] has this language (es matches es-419). */
+            function hasTrackLang(list, lg) {
+                var base = String(lg || '').toLowerCase().split(/[-_]/)[0];
+                return (list || []).some(function (x) { return x && String(x.lang || '').toLowerCase().split(/[-_]/)[0] === base; });
+            }
+
             function watchedPct() { return duration > 0 ? Math.min(100, Math.round(maxWatched * 100 / duration)) : 0; }
             function updateWatch() {
                 var p = watchedPct();
@@ -1335,7 +1364,7 @@
             if (v.provider === 'upload') {
                 var video = h('video', { class: 'trp-video__el', preload: 'metadata', playsinline: true, src: v.src_url });
                 var playBtn = h('button', { type: 'button', class: 'trp-vbtn trp-vbtn--play', 'aria-label': t('play') }, icon('fa-play'));
-                var backBtn = h('button', { type: 'button', class: 'trp-vbtn trp-vbtn--wide' }, [icon('fa-undo'), t('back_10')]);
+                var backBtn = backButton();
                 var fsBtn = h('button', { type: 'button', class: 'trp-vbtn', 'aria-label': t('fullscreen') }, icon('fa-expand'));
                 var fill = h('span', { class: 'trp-scrub__fill' });
                 var maxEl = h('span', { class: 'trp-scrub__max' });
@@ -1349,7 +1378,10 @@
                 var tt = MC && Array.isArray(v.captions) && v.captions.length
                     ? MC.textTracks(video, v.captions, { labelOf: langLabel, onCue: function (lines) { if (cues) { cues.show(lines); } } }) : null;
                 var hasCc = !!(tt && tt.langs.length);
-                var ccOn = hasCc && prefs.cc();
+                // Off by default; ON when the learner has not chosen and the lesson says so (cc_default: taken in
+                // another language than the course default, on that language's video, with captions in this one).
+                var ccChoice = prefs.cc();
+                var ccOn = hasCc && (ccChoice === null ? v.cc_default === true : ccChoice);
                 // The course language being taken comes first (LearnerView orders the list); a pick on this page wins.
                 var ccLang = hasCc ? (ccLangPick && tt.langs.indexOf(ccLangPick) !== -1 ? ccLangPick : tt.langs[0]) : null;
                 var ccSwitch = null;
@@ -1370,7 +1402,7 @@
                     try { video.volume = Math.max(0, Math.min(1, level)); } catch (e) { /* iOS: read-only */ }
                     video.muted = !!muted;
                 };
-                var vol = MC ? MC.volume({ labels: { mute: t('vol_mute'), unmute: t('vol_unmute'), volume: t('volume') }, level: vp.level, muted: vp.muted,
+                var vol = MC ? MC.volume({ labels: { mute: t('vol_mute'), unmute: t('vol_unmute'), volume: t('volume'), hint: t('louder_ios') }, level: vp.level, muted: vp.muted,
                     onChange: function (level, muted) { applyVol(level, muted); prefs.setVolume(level, muted); } }) : null;
                 applyVol(vp.level, vp.muted);
                 var resumeAt = null;
@@ -1382,15 +1414,21 @@
                     syncUi();
                 } }) : null;
 
-                // The resume bar sits above the picture: the first thing seen when the lesson opens.
+                // "Resuming at 3:42 · Start over" lies ON the picture (top), so it never pushes the controls down;
+                // the time sits under the scrub bar and the caption language joins the CC button, so play, back,
+                // CC, Mute and full screen share one row.
+                var stageEl = h('div', { class: 'trp-video__stage' }, [video, cues ? cues.el : null, resume ? resume.el : null, bigPlay,
+                    h('span', { class: 'trp-video__badge' }, [icon('fa-film'), t('video_note_upload')])]);
+                var ccGroup = ccBtn ? h('div', { class: 'tmc-ccgroup' }, [ccBtn.el, ccSwitch ? ccSwitch.el : null]) : null;
                 var box = h('div', { class: 'trp-video' }, [
-                    resume ? resume.el : null,
-                    h('div', { class: 'trp-video__stage' }, [video, cues ? cues.el : null, bigPlay, h('span', { class: 'trp-video__badge' }, [icon('fa-film'), t('video_note_upload')])]),
-                    h('div', { class: 'trp-vcontrols' }, [playBtn, backBtn, h('div', { class: 'trp-scrub__wrap' }, [scrub, h('span', { class: 'trp-scrub__cap', text: t('furthest') })]), timeEl,
-                        ccBtn || ccSwitch || vol ? h('div', { class: 'trp-vopts' }, [ccBtn ? ccBtn.el : null, ccSwitch ? ccSwitch.el : null, vol ? vol.el : null]) : null, fsBtn])
+                    stageEl,
+                    h('div', { class: 'trp-vcontrols' }, [playBtn, backBtn,
+                        h('div', { class: 'trp-scrub__wrap' }, [scrub, h('div', { class: 'trp-scrub__meta' }, [timeEl, h('span', { class: 'trp-scrub__cap', text: t('furthest') }), vol && vol.hintEl ? vol.hintEl : null])]),
+                        ccGroup || vol ? h('div', { class: 'trp-vopts' }, [ccGroup, vol ? vol.el : null]) : null, fsBtn])
                 ]);
                 ctx.main.appendChild(box);
                 ctx.main.appendChild(status);
+                fitVideo(stageEl, box);
                 var syncUi = function () {
                     var d = duration || video.duration || 0;
                     var cur = video.currentTime || 0;
@@ -1543,17 +1581,21 @@
             var verifiedChip = h('span', { class: 'trp-pill trp-pill--ok', hidden: !v.verified }, [icon('fa-check-circle'), t('verified')]);
             var tapNote = h('div', { class: 'trp-tapnote' }, [icon('fa-hand-pointer'), t('tap_to_start')]);
             var ePlay = h('button', { type: 'button', class: 'trp-vbtn trp-vbtn--play', 'aria-label': t('play') }, icon('fa-play'));
-            var eBack = h('button', { type: 'button', class: 'trp-vbtn trp-vbtn--wide' }, [icon('fa-undo'), t('back_10')]);
+            var eBack = backButton();
             var eFill = h('span', { class: 'trp-scrub__max' });
             var eTime = h('span', { class: 'trp-vtime trp-mono' });
             var controller = null;
             // ---- video options through the provider's player: captions (CC), volume, resume
-            var eCcOn = prefs.cc();
+            // Captions: the learner's choice, else the lesson's default (cc_default, see the upload case). A default
+            // ON is taken back once the player lists its captions without one in this language.
+            var eChoice = prefs.cc();
+            var eAuto = eChoice === null && v.cc_default === true;
+            var eCcOn = eChoice === null ? eAuto : eChoice;
             var eCcNote = h('div', { class: 'trp-ccnote', hidden: true }, [icon('fa-closed-captioning'), h('span', { text: t('cc_none') })]);
             var eCc = MC ? MC.ccButton({ labels: { cc: t('cc'), cc_short: t('cc_short'), none: t('cc_none') }, on: eCcOn,
-                onToggle: function (on) { eCcOn = on; prefs.setCc(on); if (controller) { controller.setCaptions(on, lang); } } }) : null;
+                onToggle: function (on) { eAuto = false; eCcOn = on; prefs.setCc(on); if (controller) { controller.setCaptions(on, lang); } } }) : null;
             var evp = prefs.volume();
-            var eVol = MC ? MC.volume({ labels: { mute: t('vol_mute'), unmute: t('vol_unmute'), volume: t('volume') }, level: evp.level, muted: evp.muted,
+            var eVol = MC ? MC.volume({ labels: { mute: t('vol_mute'), unmute: t('vol_unmute'), volume: t('volume'), hint: t('louder_ios') }, level: evp.level, muted: evp.muted,
                 onChange: function (level, muted) { prefs.setVolume(level, muted); if (controller) { controller.setVolume(level); controller.setMuted(muted); } } }) : null;
             var eResumeAt = null;
             var eResume = MC ? MC.resumeBar({ labels: { start_over: t('start_over') }, onStartOver: function () {
@@ -1563,15 +1605,19 @@
                 saveProgress();
                 if (was === -1 && controller) { controller.seekTo(0); }   // already jumped: back to the start
             } }) : null;
-            ctx.main.appendChild(h('div', { class: 'trp-video trp-video--embed' }, [
-                h('div', { class: 'trp-video__top' }, [h('span', { class: 'trp-chip' }, [h('i', { class: 'fab ' + (v.provider === 'vimeo' ? 'fa-vimeo-v' : 'fa-youtube'), 'aria-hidden': 'true' }), v.provider === 'vimeo' ? 'Vimeo' : 'YouTube']), tapNote, verifiedChip]),
-                eResume ? eResume.el : null,
+            // Nothing lies over the provider's player: "Resuming at 3:42 · Start over" goes in the bar above it.
+            var eCard = h('div', { class: 'trp-video trp-video--embed' }, [
+                h('div', { class: 'trp-video__top' }, [h('span', { class: 'trp-chip' }, [h('i', { class: 'fab ' + (v.provider === 'vimeo' ? 'fa-vimeo-v' : 'fa-youtube'), 'aria-hidden': 'true' }), v.provider === 'vimeo' ? 'Vimeo' : 'YouTube']), tapNote, verifiedChip,
+                    eResume ? eResume.el : null]),
                 holder,
-                h('div', { class: 'trp-vcontrols' }, [ePlay, eBack, h('div', { class: 'trp-scrub__wrap' }, [h('div', { class: 'trp-scrub trp-scrub--static' }, eFill), h('span', { class: 'trp-scrub__cap', text: t('furthest') })]), eTime,
-                    eCc || eVol ? h('div', { class: 'trp-vopts' }, [eCc ? eCc.el : null, eVol ? eVol.el : null]) : null]),
+                h('div', { class: 'trp-vcontrols' }, [ePlay, eBack,
+                    h('div', { class: 'trp-scrub__wrap' }, [h('div', { class: 'trp-scrub trp-scrub--static' }, eFill), h('div', { class: 'trp-scrub__meta' }, [eTime, h('span', { class: 'trp-scrub__cap', text: t('furthest') }), eVol && eVol.hintEl ? eVol.hintEl : null])]),
+                    eCc || eVol ? h('div', { class: 'trp-vopts' }, [eCc ? h('div', { class: 'tmc-ccgroup' }, eCc.el) : null, eVol ? eVol.el : null]) : null]),
                 eCcNote
-            ]));
+            ]);
+            ctx.main.appendChild(eCard);
             ctx.main.appendChild(status);
+            fitVideo(holder, eCard);
             // Pick up where you left off (preview keeps the last position per lesson): the jump happens on the first
             // play, because YouTube / Vimeo start only from a tap inside their player.
             var ePos = Math.min(Number(progress.pos[l.uid] || 0), Number(progress.watch[l.uid] || 0));
@@ -1657,6 +1703,13 @@
                     var none = !Array.isArray(list) || list.length === 0;
                     if (eCc) { eCc.available(none ? 'no' : 'yes'); }
                     eCcNote.hidden = !none;
+                    // A default ON (not the learner's choice) needs captions in this language: none -> off again.
+                    if (eAuto && eCcOn && !none && !hasTrackLang(list, lang)) {
+                        eAuto = false;
+                        eCcOn = false;
+                        if (eCc) { eCc.set(false); }
+                        if (controller) { controller.setCaptions(false, lang); }
+                    }
                 },
                 onError: showError
             });

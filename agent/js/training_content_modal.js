@@ -939,7 +939,9 @@
             if (st.videoSource) { return st.videoSource; }
             var v = variant(st.lesson) || {};
             if (v.video && v.video.provider) { return v.video.provider; }
-            return 'youtube';
+            // Another language with no video yet: start on the default language's source (below "Use the English video").
+            var dv = !isDefaultLang() && st.lesson ? defaultVideo() : null;
+            return dv ? dv.provider : 'youtube';
         }
         function renderVideo() {
             var src = currentVideoSource();
@@ -972,6 +974,7 @@
                 show($('tr-cm-vid-faststart'), (m.info || []).indexOf('not_faststart') !== -1);
             }
             renderCaptions(isUpload && !!m, v);
+            renderVideoShare(v);
             // link
             if (!isUpload) {
                 var vid = v.video && (v.video.provider === 'youtube' || v.video.provider === 'vimeo') ? v.video : null;
@@ -988,6 +991,58 @@
                 watch.value = String(currentValue('min_watch_pct'));
             }
             $('tr-cm-watch-val').textContent = watch.value + '%';
+        }
+
+        /**
+         * "Use the English video": on another language's tab with no video yet, one button points this language at
+         * the default language's video (upload or YouTube / Vimeo). Only the video changes (lesson_use_video): the
+         * translated title and text stay, and an uploaded video then shows this language's caption drop zone.
+         */
+        function defaultVideo() {
+            var dv = variant(st.lesson, st.course.default_language) || {};
+            var vid = dv.video && dv.video.provider ? dv.video : null;
+            if (!vid) { return null; }
+            if (vid.provider === 'upload') { return dv.media && dv.media.kind === 'video' ? vid : null; }
+            return vid.ext_id ? vid : null;
+        }
+        function renderVideoShare(v) {
+            var box = $('tr-cm-vshare');
+            if (!box) { return; }
+            var dvid = defaultVideo();
+            var own = !!(v.video && v.video.provider && (v.video.provider !== 'upload' || (v.media && v.media.kind === 'video')));
+            box.hidden = isDefaultLang() || !st.lessonId || st.readOnly || !dvid || own;
+            if (box.hidden) { return; }
+            var def = langName(st.course.default_language);
+            var here = langName(st.lang);
+            $('tr-cm-vshare-title').textContent = 'No ' + here + ' video yet';
+            $('tr-cm-vshare-sub').textContent = dvid.provider === 'upload'
+                ? 'Play the ' + def + ' video here' + (flags.captions ? ' and add ' + here + ' captions to it' : '') + '. Your ' + here + ' title and text stay as they are.'
+                : 'Play the same ' + (dvid.provider === 'vimeo' ? 'Vimeo' : 'YouTube') + ' video here; learners turn on its own captions with CC. Your ' + here + ' title and text stay as they are.';
+            $('tr-cm-vshare-btn').textContent = 'Use the ' + def + ' video';
+        }
+        function useDefaultVideo() {
+            if (!st || !st.lessonId || st.readOnly || isDefaultLang()) { return; }
+            var t = st;
+            var btn = $('tr-cm-vshare-btn');
+            btn.disabled = true;
+            flushAll().then(function () {
+                return api.post('lesson_use_video', { lesson_id: st.lessonId, from: st.course.default_language, to: st.lang });
+            }).then(function (d) {
+                btn.disabled = false;
+                if (t !== st || !d) { return; }
+                st.videoSource = null;   // show the source the variant now has
+                st.linkCheck = null;
+                st.changed = true;
+                adoptDetail(d);
+                var vid = (variant(d) || {}).video;
+                ui.toast(vid && vid.provider === 'upload' && flags.captions
+                    ? 'The ' + langName(st.lang) + ' version now plays the ' + langName(st.course.default_language) + ' video. Add ' + langName(st.lang) + ' captions below.'
+                    : 'The ' + langName(st.lang) + ' version now plays the ' + langName(st.course.default_language) + ' video.', { type: 'success' });
+            }, function (err) {
+                btn.disabled = false;
+                if (t !== st) { return; }
+                ui.toast((err && err.message) || 'Could not use that video.', { type: 'error' });
+            });
         }
 
         /** Closed captions of this language's uploaded video: a .vtt / .srt file (made plain WebVTT by the server). */
@@ -2134,6 +2189,7 @@
             st.linkCheck = null;
             renderVideo();
         });
+        $('tr-cm-vshare-btn').addEventListener('click', useDefaultVideo);
         $('tr-cm-vurl').addEventListener('input', function () { st.linkEditing = true; $('tr-cm-vurl-error').textContent = ''; });
         $('tr-cm-vurl').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); checkLink(); } });
         $('tr-cm-vurl').addEventListener('paste', function () { setTimeout(checkLink, 50); });

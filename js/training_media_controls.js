@@ -10,11 +10,13 @@
  *   TrainingMediaControls.prefs
  *       .volume() -> {level 0..1, muted}      per device (localStorage; 80 % unmuted when unset or
  *       .setVolume(level, muted)              when storage is unavailable - private mode, blocked)
- *       .cc(owner) -> bool                    captions on/off. owner = null: per device (preview);
- *       .setCc(on, owner)                     owner = the signed-in person (kiosk): only that
- *       .clearSession()                       session reads it back, and sign-out clears it
- *   TrainingMediaControls.volume({labels:{mute, unmute, volume}, level, muted, onChange(level, muted), controllable?})
- *       -> {el, set(level, muted), step(delta), controllable}
+ *       .cc(owner) -> true|false|null         captions on/off as the learner chose it; null = no choice yet (the
+ *       .setCc(on, owner)                     host then uses its default). owner = null: per device (preview);
+ *       .clearSession()                       owner = the kiosk session's opaque id (Kiosk.prefsOwner(), never a
+ *                                             name): only that session reads it back, and sign-out clears it
+ *   TrainingMediaControls.volume({labels:{mute, unmute, volume, hint?}, level, muted, onChange(level, muted), controllable?})
+ *       -> {el, hintEl|null, set(level, muted), step(delta), controllable}
+ *       hintEl: where only Mute works (iOS), a one-line "Louder: use the iPad's volume buttons" the host places
  *   TrainingMediaControls.ccButton({labels:{cc, none}, on, onToggle(on)}) -> {el, set(on), available('yes'|'no'|'unknown')}
  *   TrainingMediaControls.langSwitch({langs:[..], current, labelOf(lang), label, onPick(lang)}) -> {el, set(lang), show(bool)}
  *   TrainingMediaControls.cueBox() -> {el, show(lines), clear()}         big white-on-black caption text
@@ -23,6 +25,10 @@
  *       <track kind=subtitles> per caption file (served like the video: /agent/training_media.php or
  *       /kiosk/media.php); the chosen track is 'hidden' (loaded, cues fire) and rendered by cueBox, so
  *       caption text is the same size on an iPad, in full screen and on a PC.
+ *   TrainingMediaControls.fitStage(stage, card, {scroller?, bottomBar?, min?, apply(heightPx|null)})
+ *       keeps a video card's own controls above the lesson's bottom bar without scrolling: when the card
+ *       would run past the visible area, the picture (stage) is made shorter (the video letterboxes inside
+ *       it) - never below `min` px. -> {refit(), destroy()}
  *   TrainingMediaControls.fmt(seconds) -> "3:42" / "1:02:03"
  */
 (function () {
@@ -105,9 +111,9 @@
         setVolume: function (level, muted) { write('volume', { level: Math.round(clamp(level) * 100) / 100, muted: !!muted }); },
         cc: function (owner) {
             var c = read(owner ? 'cc-session' : 'cc');
-            if (!c || typeof c !== 'object') { return false; }
-            if (owner && c.owner !== owner) { return false; }
-            return !!c.on;
+            if (!c || typeof c !== 'object' || typeof c.on !== 'boolean') { return null; }
+            if (owner && c.owner !== owner) { return null; }
+            return c.on;
         },
         setCc: function (on, owner) {
             if (owner) { write('cc-session', { on: !!on, owner: String(owner) }); } else { write('cc', { on: !!on }); }
@@ -124,6 +130,8 @@
         var btn = el('button', { type: 'button', class: 'tmc-btn tmc-mute' });
         var range = controllable ? el('input', { type: 'range', class: 'tmc-range', min: '0', max: '100', step: '5', 'aria-label': labels.volume || 'Volume' }) : null;
         var wrap = el('div', { class: 'tmc-vol' + (controllable ? '' : ' tmc-vol--muteonly'), role: 'group', 'aria-label': labels.volume || 'Volume' }, [btn, range]);
+        // iOS: only Mute works from the page; say where "louder" is (a stand may hide the side buttons' labels).
+        var hintEl = !controllable && labels.hint ? el('span', { class: 'tmc-vol__hint' }, [icon('fa-volume-up'), el('span', { text: labels.hint })]) : null;
         function paint() {
             var silent = muted || level < 0.01;
             while (btn.firstChild) { btn.removeChild(btn.firstChild); }
@@ -157,6 +165,7 @@
         paint();
         return {
             el: wrap,
+            hintEl: hintEl,
             controllable: controllable,
             set: function (l, m) { level = clamp(l); muted = !!m; paint(); },
             /** Keyboard up/down (Windows): +-10 %; unmutes. No-op where the page cannot set a volume (iOS). */
@@ -328,6 +337,57 @@
         };
     }
 
+    // ---------------------------------------------------------------- keep the controls above the bottom bar
+    function fitStage(stage, card, o) {
+        o = o || {};
+        var min = o.min || 200;
+        var margin = o.margin === undefined ? 12 : o.margin;
+        var applied = null;
+        var raf = 0;
+        var off = false;
+        var ro = null;
+        function box() {
+            var cr = card.getBoundingClientRect();
+            if (o.scroller) {
+                var sr = o.scroller.getBoundingClientRect();
+                return { top: cr.top - sr.top + o.scroller.scrollTop, limit: o.scroller.clientHeight, card: cr.height };
+            }
+            var bar = o.bottomBar && o.bottomBar.isConnected ? o.bottomBar.getBoundingClientRect().height : 0;
+            return { top: cr.top + (window.pageYOffset || 0), limit: window.innerHeight - bar, card: cr.height };
+        }
+        function measure() {
+            raf = 0;
+            if (off || !stage.isConnected || !card.isConnected || document.fullscreenElement || document.webkitFullscreenElement) { return; }
+            var sb = stage.getBoundingClientRect();
+            if (!sb.width) { return; }
+            var natural = Math.round(sb.width * 9 / 16);   // the picture's own 16:9 height
+            var b = box();
+            var room = Math.floor(b.limit - b.top - (b.card - sb.height) - margin);
+            var want = room >= natural ? null : Math.max(min, room);
+            if (want === applied) { return; }
+            applied = want;
+            if (typeof o.apply === 'function') { try { o.apply(want); } catch (e) { /* ignore */ } }
+        }
+        function refit() { if (!raf && !off) { raf = window.requestAnimationFrame(measure); } }
+        // Deferred to the next frame: resizing the picture inside the observer callback would loop.
+        if (typeof window.ResizeObserver === 'function') {
+            ro = new window.ResizeObserver(refit);
+            ro.observe(card);
+            if (o.scroller) { ro.observe(o.scroller); }
+        }
+        window.addEventListener('resize', refit);
+        refit();
+        return {
+            refit: refit,
+            destroy: function () {
+                off = true;
+                if (raf) { window.cancelAnimationFrame(raf); }
+                if (ro) { ro.disconnect(); }
+                window.removeEventListener('resize', refit);
+            }
+        };
+    }
+
     window.TrainingMediaControls = {
         canSetVolume: canSetVolume,
         isIOS: isIOS,
@@ -338,6 +398,7 @@
         cueBox: cueBox,
         textTracks: textTracks,
         resumeBar: resumeBar,
+        fitStage: fitStage,
         fmt: fmt
     };
 })();

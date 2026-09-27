@@ -35,6 +35,7 @@ return [
     'lesson_delete'        => ['handler' => LessonActions::class . '::lessonDelete',       'method' => 'POST', 'level' => 2],
     'lesson_restore'       => ['handler' => LessonActions::class . '::lessonRestore',      'method' => 'POST', 'level' => 2],
     'lesson_copy_variant'  => ['handler' => LessonActions::class . '::lessonCopyVariant',  'method' => 'POST', 'level' => 2],
+    'lesson_use_video'     => ['handler' => LessonActions::class . '::lessonUseVideo',     'method' => 'POST', 'level' => 2],
 
     'resource_add'         => ['handler' => LessonActions::class . '::resourceAdd',        'method' => 'POST', 'level' => 2],
     'resource_update'      => ['handler' => LessonActions::class . '::resourceUpdate',     'method' => 'POST', 'level' => 2],

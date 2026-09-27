@@ -17,8 +17,9 @@
  *   Kiosk.session.heartbeatLoop() / end(reason)    heartbeat every 60 s, only if touched since the last one
  *   Kiosk.ui.el / keypad / signaturePad / toast / confirm / busy
  *   Kiosk.guardBfcache()                           pageshow persisted => reload; replaceState on load
- *   Kiosk.prefsOwner()                             whose session a remembered video option belongs to (captions on/off);
- *                                                  the choice is cleared at sign-out and on any page without a session
+ *   Kiosk.prefsOwner()                             which session a remembered video option belongs to (captions on/off):
+ *                                                  'kx:' + session.pref_key, an opaque per-session id (never a name);
+ *                                                  the choice is cleared, and Mute undone, at sign-out and on any page without a session
  *
  * Auto-start (this file runs before the page scripts): the header's EN|ES toggle and Done button
  * are wired, the bfcache guard is armed, and on a signed-in page the idle timer (default
@@ -703,17 +704,36 @@
         });
     }
 
-    // Video options (js/training_media_controls.js): captions on/off is kept for the signed-in person only.
-    // It is dropped at sign-out and whenever a page without a session loads (the sign-in screen after Done,
-    // idle, a device end or a 401), so the next person never inherits it. Volume stays with the device.
+    // Video options (js/training_media_controls.js): captions on/off is kept for the signed-in session only,
+    // tagged with the session's opaque pref_key (an HMAC of the session token: nothing personal is stored on
+    // the shared device). It is dropped at sign-out and whenever a page without a session loads (the sign-in
+    // screen after Done, idle, a device end or a 401), so the next person never inherits it. The volume level
+    // stays with the device, but Mute is undone then too: the next person always starts with sound.
     var SESSION_PREF_KEY = 'tr-media:cc-session';
+    var VOLUME_PREF_KEY = 'tr-media:volume';   // {level 0..1, muted} (TrainingMediaControls.prefs)
+    var pageOwner = null;
     function clearSessionPrefs() {
-        try { if (window.localStorage) { window.localStorage.removeItem(SESSION_PREF_KEY); } } catch (e) { /* storage blocked */ }
+        try {
+            var ls = window.localStorage;
+            if (!ls) { return; }
+            ls.removeItem(SESSION_PREF_KEY);
+            var raw = ls.getItem(VOLUME_PREF_KEY);
+            var v = raw ? JSON.parse(raw) : null;
+            if (v && typeof v === 'object' && (v.muted || !(Number(v.level) >= 0.05))) {
+                // A level of (almost) 0 is a mute too: the next person gets the default level back.
+                var level = Number(v.level) >= 0.05 && Number(v.level) <= 1 ? Math.round(Number(v.level) * 100) / 100 : 0.8;
+                ls.setItem(VOLUME_PREF_KEY, JSON.stringify({ level: level, muted: false }));
+            }
+        } catch (e) { /* storage blocked or unreadable: nothing is remembered anyway */ }
     }
-    /** Whose session a remembered choice belongs to (checked when it is read back). */
+    /** Which session a remembered choice belongs to (checked when it is read back): opaque, never a name. */
     function prefsOwner() {
         var s = data().session;
-        return s ? 'kx:' + String(s.role || '') + ':' + String(s.name || '') : null;
+        if (!s) { return null; }
+        if (typeof s.pref_key === 'string' && /^[0-9a-f]{16}$/.test(s.pref_key)) { return 'kx:' + s.pref_key; }
+        // No key from the server: an id for this page only, so nothing carries over to another session.
+        if (!pageOwner) { pageOwner = 'kx:page-' + Math.random().toString(36).slice(2, 12); }
+        return pageOwner;
     }
 
     function endSession(reason) {

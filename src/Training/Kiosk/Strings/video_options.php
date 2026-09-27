@@ -16,6 +16,8 @@ return [
         'vopt.cc_none' => 'No captions for this video',
         'vopt.resume_at' => 'Resuming at {t}',
         'vopt.start_over' => 'Start over',
+        'vopt.back_10_short' => '10 s',
+        'vopt.louder_ios' => "Louder: use the iPad's volume buttons",
     ],
     'es' => [
         'vopt.mute' => 'Silenciar',
@@ -24,7 +26,9 @@ return [
         'vopt.cc' => 'Subtítulos',
         'vopt.cc_short' => 'CC',
         'vopt.cc_none' => 'Este video no tiene subtítulos',
-        'vopt.resume_at' => 'Continúa en {t}',
+        'vopt.resume_at' => 'Sigue en {t}',
         'vopt.start_over' => 'Empezar de nuevo',
+        'vopt.back_10_short' => '10 s',
+        'vopt.louder_ios' => 'Más volumen: use los botones del iPad',
     ],
 ];

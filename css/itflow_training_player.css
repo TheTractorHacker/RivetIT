@@ -690,12 +690,23 @@
    --if-* tokens so both hosts (and dark mode) match. Every control is a 64 px touch target. */
 .trp-video, .trp-video__stage { container-type: inline-size; }
 .trp-video { container-name: trpv; }
-.trp-vcontrols { flex-wrap: wrap; row-gap: 12px; }
+/* The time sits under the scrub bar (with "Furthest watched"), so play, back 10 s, CC, Mute and full screen
+   keep ONE row on an iPad (UX review: a second row ran under the bottom bar at 1024x768). A card narrower
+   than 760 px puts the scrub bar on its own line above the buttons and shortens "Back 10 s" to "10 s". */
+.trp-vcontrols { flex-wrap: wrap; row-gap: 10px; gap: 8px; }
+.trp-vcontrols .trp-scrub__wrap { flex: 1 1 0; min-width: 180px; }   /* grows into the room the buttons leave */
+.trp-scrub__meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; }
+.trp-scrub__meta .trp-vtime { font-size: 16px; }
+.trp-scrub__meta .trp-scrub__cap { flex: 1 1 auto; text-align: right; }
+.trp-vback__short { display: none; }
 @container trpv (max-width: 760px) {
   .trp-vcontrols .trp-scrub__wrap { order: -1; flex-basis: 100%; }
-  .trp-vcontrols .trp-vtime { margin-right: auto; }
+  .trp-vcontrols .trp-vopts { margin-left: auto; }
+  .trp-vback { gap: 6px; padding: 0 10px; }
+  .trp-vback__full { display: none; }
+  .trp-vback__short { display: inline; }
 }
-.trp-vopts { flex: none; display: flex; align-items: center; gap: 10px; }
+.trp-vopts { flex: none; display: flex; align-items: center; gap: 8px; }
 .trp-ccnote { display: flex; align-items: center; gap: 10px; padding: 0 16px 14px; color: var(--trp-muted, #5d6f76); font-size: 16px; font-weight: 600; }
 .trp-ccnote[hidden] { display: none; }
 
@@ -731,9 +742,17 @@
 .tmc-cclang { display: inline-flex; border: 1px solid var(--if-border-strong, #d3dbdc); border-radius: 10px; overflow: hidden; }
 .tmc-cclang[hidden] { display: none; }
 .tmc-cclang__btn {
-  min-width: 58px; height: 62px; border: 0; background: var(--if-surface, #fff); color: var(--if-ink, #16232a);
+  min-width: 48px; height: 62px; border: 0; background: var(--if-surface, #fff); color: var(--if-ink, #16232a);
   font: inherit; font-size: 17px; font-weight: 700; cursor: pointer;
 }
+/* The caption language (EN | ES) is joined to the CC button - [CC | EN | ES] - so it never reads as the page's
+   own language switch. */
+.tmc-ccgroup { flex: none; display: inline-flex; align-items: stretch; }
+.tmc-ccgroup > .tmc-cclang { border-left: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.tmc-ccgroup:has(> .tmc-cclang:not([hidden])) > .tmc-cc { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+/* iPhone / iPad (Mute only): where "louder" is. */
+.tmc-vol__hint { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--if-muted, #5d6f76); }
+.tmc-vol__hint .fas { font-size: 13px; }
 .tmc-cclang__btn + .tmc-cclang__btn { border-left: 1px solid var(--if-border-strong, #d3dbdc); }
 .tmc-cclang__btn[aria-pressed="true"] { background: var(--if-primary, #0d9488); color: #fff; }
 
@@ -762,4 +781,16 @@
   font: inherit; font-size: 17px; font-weight: 700; cursor: pointer;
 }
 .trp-doc > .tmc-resume { border: 1px solid var(--if-border, #e3e9ea); border-radius: var(--trp-radius, 12px); }
+/* Uploaded video: the resume bar lies ON the picture (top), so it never pushes the controls down; the big Play
+   moves down a little and the "Video" badge steps aside while it shows. */
+.trp-video__stage > .tmc-resume {
+  position: absolute; top: 12px; left: 12px; right: 12px; z-index: 3; padding: 6px 6px 6px 16px; border: 0; border-radius: 12px;
+  background: rgba(255, 255, 255, .95); background: color-mix(in srgb, var(--if-surface, #fff) 95%, transparent);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .3);
+}
+.trp-video__stage > .tmc-resume:not([hidden]) ~ .trp-video__badge { display: none; }
+.trp-video__stage > .tmc-resume:not([hidden]) ~ .trp-video__bigplay { top: calc(50% + 40px); }
+/* YouTube / Vimeo: nothing lies over the provider's player; the resume bar joins the bar above it. */
+.trp-video__top { flex-wrap: wrap; }
+.trp-video__top > .tmc-resume { flex: 0 1 auto; margin-left: auto; padding: 0; border: 0; background: transparent; font-size: 17px; }
 @media (max-width: 600px) { .tmc-range { width: 96px; } .tmc-resume { flex-wrap: wrap; } }

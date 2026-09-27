@@ -161,7 +161,8 @@ final class LessonService
         }
         if (array_key_exists('caption_media_id', $fields)) {
             // Closed captions for an uploaded video, per language: a 'caption' media row (training_upload.php
-            // purpose lesson_caption made it plain WebVTT). null removes them.
+            // purpose lesson_caption made it plain WebVTT). null removes them. Only an uploaded video plays them
+            // (checked in the transaction, against the variant's resulting video).
             if ($type !== 'video') {
                 throw ApiException::validation(['caption_media_id' => 'Only video content has captions.']);
             }
@@ -269,6 +270,7 @@ final class LessonService
                 throw ApiException::conflict(LessonView::detail($db, $lessonId), 'This content was changed in another tab.');
             }
             $variant = Db::one($db, 'SELECT ' . LessonFacts::variantCols($db) . ', lvar_description_html, lvar_body_html FROM training_lesson_variants WHERE lvar_lesson_id = ? AND lvar_lang = ? FOR UPDATE', 'is', [$lessonId, $lang]);
+            $v = self::captionsFollowVideo($db, $variant, $v);
 
             $vChanges = [];
             foreach ($v as $col => $val) {
@@ -327,6 +329,37 @@ final class LessonService
         });
 
         return LessonView::detail($db, $lessonId) + ['warnings' => $warnings];
+    }
+
+    /**
+     * A caption file belongs to the uploaded video it was timed for (security review 2026-09-27): when a patch
+     * leaves this language without an uploaded video - "Remove video" (video_provider null or media_id null),
+     * a switch to YouTube / Vimeo - its caption file is dropped with it, so it can never attach itself to the
+     * next video, and a YouTube / Vimeo variant (which plays the provider's own captions) never keeps one in
+     * the purger's "referenced" list. A new caption_media_id is refused unless the resulting video is an
+     * upload. Replacing an uploaded video directly (media_id A -> B) keeps the file: the builder shows it
+     * right under the new video and warns when the captions run past its end. $v = variant column changes.
+     */
+    private static function captionsFollowVideo(\mysqli $db, ?array $variant, array $v): array
+    {
+        if (!Captions::schemaReady($db)) {
+            return $v;
+        }
+        $provider = array_key_exists('lvar_video_provider', $v) ? $v['lvar_video_provider'] : ($variant['lvar_video_provider'] ?? null);
+        $media = array_key_exists('lvar_media_id', $v) ? $v['lvar_media_id'] : ($variant['lvar_media_id'] ?? null);
+        $hasUpload = $provider === 'upload' && $media !== null;
+        if ($hasUpload) {
+            return $v;
+        }
+        if (array_key_exists('lvar_caption_media_id', $v) && $v['lvar_caption_media_id'] !== null) {
+            throw ApiException::validation(['caption_media_id' => in_array($provider, ['youtube', 'vimeo'], true)
+                ? 'YouTube and Vimeo videos use their own captions. Add them in YouTube Studio or Vimeo.'
+                : 'Upload the video first, then its caption file.']);
+        }
+        if (($variant['lvar_caption_media_id'] ?? null) !== null || array_key_exists('lvar_caption_media_id', $v)) {
+            $v['lvar_caption_media_id'] = null;
+        }
+        return $v;
     }
 
     public function setType(int $lessonId, int $version, string $type): array
@@ -481,7 +514,7 @@ final class LessonService
             if ($from === null) {
                 throw ApiException::validation(['from' => 'There is nothing to copy in that language yet.']);
             }
-            $to = Db::one($db, "SELECT $cols FROM training_lesson_variants WHERE lvar_lesson_id = ? AND lvar_lang = ? FOR UPDATE", 'is', [$lessonId, $toLang]);
+            $to = Db::one($db, "SELECT $cols" . (Captions::schemaReady($db) ? ', lvar_caption_media_id' : '') . " FROM training_lesson_variants WHERE lvar_lesson_id = ? AND lvar_lang = ? FOR UPDATE", 'is', [$lessonId, $toLang]);
             if ($to !== null && !$overwrite && (trim((string) $to['lvar_title']) !== '' || !MediaRefs::htmlEmpty($to['lvar_body_html'])
                     || !MediaRefs::htmlEmpty($to['lvar_description_html']) || $to['lvar_media_id'] !== null || $to['lvar_video_provider'] !== null)) {
                 throw ApiException::validation(['overwrite' => 'That language already has content. Confirm to replace it.']);
@@ -495,12 +528,74 @@ final class LessonService
             if ($changes === []) {
                 return;
             }
+            // The target keeps its own caption file only while it still plays the very same uploaded video.
+            if (($to['lvar_caption_media_id'] ?? null) !== null && !self::sameUpload($to, $from)) {
+                $changes['lvar_caption_media_id'] = null;
+            }
             $changes['lvar_title'] = (string) ($changes['lvar_title'] ?? ($to['lvar_title'] ?? ''));
             Rows::putVariant($db, $lessonId, $toLang, $changes, $this->c->userId);
             Db::exec($db, 'UPDATE training_lessons SET lesson_version = lesson_version + 1 WHERE lesson_id = ?', 'i', [$lessonId]);
             CourseTouch::touch($db, (int) $course['course_id']);
         });
         return LessonView::detail($db, $lessonId);
+    }
+
+    /**
+     * "Use the English video" (UX review 2026-09-27): points $toLang's variant at the SAME video as
+     * $fromLang's - an upload or a checked YouTube / Vimeo link - and changes nothing else, so a translated
+     * title and text stay as they are (unlike copyVariant). The target's caption file stays only when it
+     * already belonged to that same uploaded video; Spanish captions for the English video are then added
+     * on the Spanish tab like any caption file. Returns LessonDetail.
+     */
+    public function useVideoFrom(int $lessonId, string $fromLang, string $toLang): array
+    {
+        $db = $this->c->db;
+        [$lesson, $course] = Guard::writableLesson($db, $lessonId);
+        Guard::courseLang($course, $fromLang, 'from');
+        Guard::courseLang($course, $toLang, 'to');
+        if ($fromLang === $toLang) {
+            throw ApiException::validation(['to' => 'Choose a different language.']);
+        }
+        if ((string) $lesson['lesson_type'] !== 'video') {
+            throw ApiException::validation(['lesson_id' => 'Only video content has a video to share.']);
+        }
+        Db::tx($db, function () use ($db, $lessonId, $fromLang, $toLang, $course): void {
+            Guard::lesson($db, $lessonId, true);
+            $video = ['lvar_media_id', 'lvar_video_provider', 'lvar_video_ext_id', 'lvar_video_ext_hash'];
+            $cols = implode(', ', $video) . (Captions::schemaReady($db) ? ', lvar_caption_media_id' : '');
+            $from = Db::one($db, "SELECT $cols FROM training_lesson_variants WHERE lvar_lesson_id = ? AND lvar_lang = ?", 'is', [$lessonId, $fromLang]);
+            $provider = $from['lvar_video_provider'] ?? null;
+            $hasVideo = $from !== null && (($provider === 'upload' && $from['lvar_media_id'] !== null)
+                || (in_array($provider, ['youtube', 'vimeo'], true) && (string) $from['lvar_video_ext_id'] !== ''));
+            if (!$hasVideo) {
+                throw ApiException::validation(['from' => 'That language has no video yet.']);
+            }
+            $to = Db::one($db, "SELECT $cols FROM training_lesson_variants WHERE lvar_lesson_id = ? AND lvar_lang = ? FOR UPDATE", 'is', [$lessonId, $toLang]);
+            $changes = [];
+            foreach ($video as $col) {
+                $val = $col === 'lvar_media_id' && $from[$col] !== null ? (int) $from[$col] : $from[$col];
+                if ($to === null || !Patch::same($to[$col], $val)) {
+                    $changes[$col] = $val;
+                }
+            }
+            if ($changes === []) {
+                return;   // it already plays that video
+            }
+            if (($to['lvar_caption_media_id'] ?? null) !== null && !self::sameUpload($to, $from)) {
+                $changes['lvar_caption_media_id'] = null;
+            }
+            Rows::putVariant($db, $lessonId, $toLang, $changes, $this->c->userId);
+            Db::exec($db, 'UPDATE training_lessons SET lesson_version = lesson_version + 1 WHERE lesson_id = ?', 'i', [$lessonId]);
+            CourseTouch::touch($db, (int) $course['course_id']);
+        });
+        return LessonView::detail($db, $lessonId);
+    }
+
+    /** Both variant rows play the same uploaded video file. */
+    private static function sameUpload(?array $a, ?array $b): bool
+    {
+        return $a !== null && $b !== null && ($a['lvar_video_provider'] ?? null) === 'upload' && ($b['lvar_video_provider'] ?? null) === 'upload'
+            && ($a['lvar_media_id'] ?? null) !== null && (int) $a['lvar_media_id'] === (int) ($b['lvar_media_id'] ?? 0);
     }
 
     /**

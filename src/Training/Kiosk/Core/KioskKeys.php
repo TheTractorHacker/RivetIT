@@ -62,6 +62,16 @@ final class KioskKeys
         return substr(hash_hmac('sha256', $kioskId . ':' . $contactId, $this->derive('itflow-training-kiosk-pick|v1')), 0, 16);
     }
 
+    /**
+     * First 16 hex of HMAC(ksess_token_hash): an opaque id for ONE kiosk session. The page's video options
+     * (js/training_media_controls.js) tag the remembered captions choice with it in localStorage, so the
+     * shared device never stores who was signed in (no name, no role) and two sessions never match.
+     */
+    public function prefKey(string $ksessTokenHash): string
+    {
+        return substr(hash_hmac('sha256', $ksessTokenHash, $this->derive('itflow-training-kiosk-prefs|v1')), 0, 16);
+    }
+
     private function derive(string $label): string
     {
         return hash_hmac('sha256', $label, $this->k, true);

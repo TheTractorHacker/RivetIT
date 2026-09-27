@@ -169,6 +169,12 @@ $tr_cm_mb = static fn(int $b): string => (string) max(1, intdiv($b, 1048576));
 
                                 <!-- VIDEO -->
                                 <div class="tr-cm__pane" data-pane="video" hidden>
+                                    <!-- Another language's tab with no video yet: play the default language's video (the translated text stays). -->
+                                    <div class="tr-cm-vshare" id="tr-cm-vshare" hidden>
+                                        <span class="tr-cm-vshare__icon" aria-hidden="true"><i class="fas fa-film"></i></span>
+                                        <span class="tr-cm-vshare__body"><strong id="tr-cm-vshare-title"></strong><span class="small text-muted" id="tr-cm-vshare-sub"></span></span>
+                                        <button type="button" class="btn btn-primary tr-edit-only" id="tr-cm-vshare-btn"></button>
+                                    </div>
                                     <div>
                                         <div class="tr-cm__label mb-2" id="tr-cm-vsrc-label">Source</div>
                                         <div class="tr-segment" role="radiogroup" aria-labelledby="tr-cm-vsrc-label" id="tr-cm-vsrc">
