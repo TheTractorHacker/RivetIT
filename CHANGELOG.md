@@ -3,7 +3,7 @@
 This file documents all notable changes made to ITFlow.
 
 ## [Unreleased] ITFlow Internal IT - Training assignments: Reset and Un-waive
-No database change (2.6.94 stays). New agent actions `assignment_reset_preview`, `assignment_reset`,
+No database change. New agent actions `assignment_reset_preview`, `assignment_reset`,
 `assignment_retake`, `assignment_unwaive`; new ledger event types `assignment.progress_reset`, `assignment.retake`,
 `assignment.unwaived` and `run.reset`.
 
