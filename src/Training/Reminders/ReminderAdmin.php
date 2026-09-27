@@ -78,7 +78,7 @@ final class ReminderAdmin
         }
         $raw = $post['escalate_after_days'] ?? 14;
         if (!is_scalar($raw) || preg_match('/^\d{1,4}$/D', trim((string) $raw)) !== 1) {
-            return self::out('error', 'Nothing was saved. "Escalate after" must be a whole number of days from 1 to 180.', 'reminders');
+            return self::out('error', 'Nothing was saved. The number of overdue days for Training managers must be a whole number from 1 to 180.', 'reminders');
         }
         $values = [
             'tauto_reminders_enabled' => $enabled,
@@ -92,7 +92,7 @@ final class ReminderAdmin
         }
         $msg = $enabled === 1 ? 'Reminders saved. Digests go out on the chosen days after the daily Training worker runs.' : 'Reminders saved. Reminders are off.';
         if ((int) $values['tauto_escalate_after_days'] !== (int) $raw) {
-            $msg .= ' "Escalate after" was set to ' . intval($values['tauto_escalate_after_days']) . ' days (allowed: 1 to 180).';
+            $msg .= ' The overdue days for Training managers were set to ' . intval($values['tauto_escalate_after_days']) . ' (allowed: 1 to 180).';
         }
         return self::out('success', $msg, 'reminders');
     }
@@ -127,7 +127,7 @@ final class ReminderAdmin
         };
     }
 
-    /** "Checked 5 videos: 1 needs attention, 1 could not be reached (tried again tomorrow). 1 alert sent." */
+    /** "Checked 5 videos: 1 needs attention, 1 could not be reached (checked again next time). 1 alert sent." */
     private static function runMessage(array $r): string
     {
         $checked = intval($r['checked']);
