@@ -270,7 +270,7 @@
             if (note) { note.hidden = !report.scope_none; }
             renderKpis(report.summary);
             if (!report.questions.length) {
-                empty('far fa-question-circle', 'No quiz attempts match these filters.', report.scope_none ? 'Your account has no departments yet.' : 'Try all versions, all languages or a longer period.');
+                empty('far fa-question-circle', 'No quiz attempts match these filters.', report.scope_none ? 'Your account has no departments yet.' : 'Try Quiz: All, all versions and languages, or a longer period.');
                 sub.textContent = 'How often each question was answered correctly.';
                 return;
             }
@@ -303,9 +303,13 @@
                 body.classList.remove('tri-loading');
                 Array.prototype.forEach.call(kpis.children, function (k) { k.classList.remove('tri-loading'); });
                 if (err && (err.code === 'forbidden' || err.code === 'module_disabled')) { return; }   // TrainingApi showed its banner
-                var msg = err && err.code === 'validation' ? 'Those filters are not valid for this course. They were reset.' : ((err && err.message) || 'Item analysis could not be loaded.');
-                ui.banner(msg, { type: 'danger', actions: [{ label: 'Try again', onClick: function () { load(); } }] });
-                if (err && err.code === 'validation' && f.revision && f.revision.value !== '') { f.revision.value = ''; }
+                if (err && err.code === 'validation' && f.revision && f.revision.value !== '') {
+                    f.revision.value = '';
+                    ui.toast('That version is not part of this course. Showing all versions.', { type: 'warning' });
+                    load();
+                    return;
+                }
+                ui.banner((err && err.message) || 'Item analysis could not be loaded.', { type: 'danger', actions: [{ label: 'Try again', onClick: function () { load(); } }] });
                 if (!report) { empty('fas fa-exclamation-circle', 'Item analysis could not be loaded.', 'Try again in a moment.'); }
             });
         }
