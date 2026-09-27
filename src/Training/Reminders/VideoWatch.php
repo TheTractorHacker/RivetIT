@@ -34,7 +34,8 @@ use ITFlow\Training\Upstream\Schema;
  *                                      at least MIN_GAP_S (1 h) old, so two checks a minute apart
  *                                      count once
  * An alert needs a streak of 2 (two bad answers at least an hour apart) and goes out once per bad
- * spell: to the course's responsible person (when they are an active Training user) and to
+ * spell: to the course's responsible person (when they are an active user with Training 2 or more,
+ * so they can open the builder the message links to) and to
  * Training 3 / admins, one Notify 'video' message per person per day listing that person's videos.
  * A video whose alert reached nobody (everyone already had a video message today) stays pending
  * and is alerted on the next run.
@@ -410,10 +411,12 @@ final class VideoWatch
                 $per[$uid] = array_keys($due);
             }
         }
+        // A course's responsible person is told only when they can open the builder to fix it (Training 2+).
         foreach ($due as $key => $v) {
             foreach ($v['courses'] as $c) {
                 $uid = (int) $c['responsible'];
-                if ($uid > 0 && isset($active[$uid]) && !in_array($key, $per[$uid] ?? [], true)) {
+                if ($uid > 0 && isset($active[$uid]) && ($active[$uid]['is_admin'] || (int) $active[$uid]['level'] >= 2)
+                    && !in_array($key, $per[$uid] ?? [], true)) {
                     $per[$uid][] = $key;
                 }
             }
