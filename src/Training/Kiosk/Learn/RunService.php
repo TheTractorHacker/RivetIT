@@ -124,9 +124,9 @@ final class RunService
     }
 
     /**
-     * RunState (§4.2): {run_id, course_id, revision_id, language, status, locked, blocked:{reason,lesson_uid}|null,
-     * progress_pct, done:{uid:true}, credited:{uid:true}, current_uid, current_gate|null,
-     * quizzes:{uid:{used,max,left,locked,passed,check,must_pass}}, attested, completion_id, awaiting}.
+     * RunState (§4.2): {run_id, course_id, revision_id, language, status, locked, locked_lesson_uid|null,
+     * blocked:{reason,lesson_uid}|null, progress_pct, done:{uid:true}, credited:{uid:true}, current_uid, current_gate|null,
+     * quizzes:{uid:{used,max,left,locked,passed,open,check,must_pass}}, attested, completion_id, awaiting, reopened}.
      * `max`/`left` are null for unlimited attempts. `quizzes` also lists every content lesson's quick
      * check (check:true); `credited` names lessons whose own work is recorded, which for a lesson
      * with a must-pass quick check that is not passed yet is not the same as `done`.
@@ -149,6 +149,8 @@ final class RunService
             'language' => RunRepo::lang($run, $doc),
             'status' => $status,
             'locked' => $run['trun_locked_at_utc'] !== null,
+            // the quiz or quick check that ran out of tries (the course page names it)
+            'locked_lesson_uid' => $run['trun_locked_at_utc'] !== null && $run['trun_locked_lesson_uid'] !== null ? (string) $run['trun_locked_lesson_uid'] : null,
             'blocked' => $run['trun_blocked_reason'] === null ? null
                 : ['reason' => (string) $run['trun_blocked_reason'], 'lesson_uid' => $run['trun_blocked_lesson_uid'] === null ? null : (string) $run['trun_blocked_lesson_uid']],
             'progress_pct' => (int) $run['trun_progress_pct'],
@@ -163,6 +165,11 @@ final class RunService
                 && array_sum(array_map(static fn($q) => (int) ($q['used'] ?? 0), $quizzes)) === 0,
             'completion_id' => $run['trun_completion_id'] === null ? null : (int) $run['trun_completion_id'],
             'awaiting' => in_array($status, RunRepo::AWAITING, true) ? $status : null,
+            // A run from before kiosk quick checks that was moved back from "Sign to finish" (run.reopened) and
+            // still has a must-pass quick check to pass: the course page says why (once it is passed, the run
+            // waits for the sign-off again and this is false).
+            'reopened' => $status === 'in_progress' && RunRepo::pendingChecks($doc, $credited, $done) !== []
+                && RunRepo::reopened($db, (int) $run['trun_id']),
         ];
     }
 
@@ -674,7 +681,8 @@ final class RunService
     }
 
     /**
-     * Agent / trainer unlock (§3.4): 'extra' adds 1..5 attempts and clears the lock; 'restart'
+     * Agent / trainer unlock (§3.4): 'extra' adds 1..5 attempts to the quiz or quick check the run is
+     * locked on (a run that is not locked: to every quiz of the run) and clears the lock; 'restart'
      * abandons the run so the next run_start opens a fresh one on the CURRENT revision (also the
      * way out of a blocked run). $actor is the ledger actor (agent: user; trainer: contact).
      */
@@ -719,8 +727,12 @@ final class RunService
                 Db::exec($db, "UPDATE training_runs SET trun_status = 'abandoned', trun_open_guard = NULL, trun_ended_at_utc = ?, trun_current_lesson_uid = NULL
                     WHERE trun_id = ?", 'si', [$now, $runId]);
             }
+            // lesson_uid: the quiz or quick check that ran out of tries - the extra tries count for it only
+            // (RunRepo::extraTries); null when the run was not locked on a lesson (then they count run-wide).
             Ledger::append($db, RunRepo::event($actor, 'run.unlocked', $run, 'run', $runId, null,
-                ['mode' => $mode, 'extra' => $mode === 'extra' ? $extra : 0, 'reason' => $reason]));
+                ['mode' => $mode, 'extra' => $mode === 'extra' ? $extra : 0, 'reason' => $reason,
+                 'lesson_uid' => $mode === 'extra' && $run['trun_locked_at_utc'] !== null && $run['trun_locked_lesson_uid'] !== null
+                     ? (string) $run['trun_locked_lesson_uid'] : null]));
             return ['run_id' => $runId, 'contact_id' => (int) $run['trun_contact_id'], 'course_id' => (int) $run['trun_course_id'], 'mode' => $mode,
                 'extra' => $mode === 'extra' ? $extra : 0];
         });
@@ -856,6 +868,7 @@ final class RunService
             $stats[(string) $r['tattempt_lesson_uid']] = ['n' => (int) $r['n'], 'passed' => (int) $r['passed'] === 1, 'open' => (int) $r['open'] > 0];
         }
         $out = [];
+        $extras = RunRepo::extraTries($db, $run);
         foreach ($doc['lessons'] ?? [] as $l) {
             $isCheck = RunRepo::check($l) !== null;
             if (!$isCheck && (($l['type'] ?? '') !== 'quiz' || !is_array($l['quiz'] ?? null))) {
@@ -866,7 +879,7 @@ final class RunService
             $passed = $stats[$uid]['passed'] ?? false;
             $open = !$passed && ($stats[$uid]['open'] ?? false);
             $max = (int) ($l['quiz']['max_attempts'] ?? 0);
-            $eff = $max > 0 ? $max + (int) $run['trun_extra_attempts'] : null;
+            $eff = $max > 0 ? $max + RunRepo::extraFor($extras, $uid) : null;
             $exhausted = $eff !== null && $used >= $eff && !$open;
             $out[$uid] = [
                 'used' => $used,

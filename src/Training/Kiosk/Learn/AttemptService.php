@@ -133,7 +133,7 @@ final class AttemptService
             $used = (int) (Db::one($db, 'SELECT COUNT(*) AS n FROM training_attempts WHERE tattempt_run_id = ? AND tattempt_lesson_uid = ?',
                 'is', [$runId, $lessonUid])['n'] ?? 0);
             $max = (int) ($quiz['max_attempts'] ?? 0);
-            if ($max > 0 && $used >= $max + (int) $run['trun_extra_attempts']) {
+            if ($max > 0 && $used >= $max + RunRepo::extraFor(RunRepo::extraTries($db, $run), $lessonUid)) {
                 if ($run['trun_locked_at_utc'] === null && !empty($quiz['must_pass']) && $run['trun_status'] === 'in_progress') {
                     Db::exec($db, 'UPDATE training_runs SET trun_locked_at_utc = ?, trun_locked_lesson_uid = ? WHERE trun_id = ? AND trun_locked_at_utc IS NULL',
                         'ssi', [$now, $lessonUid, $runId]);
@@ -447,7 +447,7 @@ final class AttemptService
         }
         $used = (int) (Db::one($db, 'SELECT COUNT(*) AS n FROM training_attempts WHERE tattempt_run_id = ? AND tattempt_lesson_uid = ?', 'is', [$runId, $lessonUid])['n'] ?? 0);
         $max = (int) ($quiz['max_attempts'] ?? 0);
-        $eff = $max > 0 ? $max + (int) $run['trun_extra_attempts'] : 0;
+        $eff = $max > 0 ? $max + RunRepo::extraFor(RunRepo::extraTries($db, $run), $lessonUid) : 0;   // a trainer's extra tries for THIS quiz
         $exhausted = $eff > 0 && $used >= $eff;
         $locked = false;
         if ($open && $mustPass && !$passed && $exhausted) {
@@ -524,7 +524,7 @@ final class AttemptService
             'attempt_token' => 'a' . (int) $att['tattempt_id'],
             'attempt_id' => (int) $att['tattempt_id'],
             'attempt_number' => (int) $att['tattempt_number'],
-            'attempts_max' => $max > 0 ? $max + (int) $run['trun_extra_attempts'] : 0,
+            'attempts_max' => $max > 0 ? $max + RunRepo::extraFor(RunRepo::extraTries($db, $run), (string) $att['tattempt_lesson_uid']) : 0,
             'quiz' => [
                 'title' => (string) ($v['title'] ?? ''),
                 'intro' => ($quiz['intro'] ?? null) === null ? null : ($quiz['intro'][$lang] ?? $quiz['intro'][$default] ?? null),
@@ -566,7 +566,7 @@ final class AttemptService
         $used = (int) (Db::one($db, 'SELECT COUNT(*) AS n FROM training_attempts WHERE tattempt_run_id = ? AND tattempt_lesson_uid = ?', 'is',
             [$runId, (string) $att['tattempt_lesson_uid']])['n'] ?? 0);
         $max = (int) ($quiz['max_attempts'] ?? 0);
-        $eff = $max > 0 ? $max + (int) $run['trun_extra_attempts'] : 0;
+        $eff = $max > 0 ? $max + RunRepo::extraFor(RunRepo::extraTries($db, $run), (string) $att['tattempt_lesson_uid']) : 0;
         $locked = $run['trun_locked_at_utc'] !== null && (string) $run['trun_locked_lesson_uid'] === (string) $att['tattempt_lesson_uid'];
         $payload = self::resultPayload($graded, $pres['key'], $quiz, $lang, (int) $att['tattempt_number'], $eff, $used, $locked, $run,
             $graded['passed'], !empty($quiz['must_pass']));

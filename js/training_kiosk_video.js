@@ -3,7 +3,8 @@
  * lesson_open on load; the first PLAYING reports the live duration (video_duration; a 409 means
  * the video changed and completion stays off); a tick on every play/pause and every 10 s while
  * playing; a seek past the furthest point + 3 s snaps back (UX only - the server credits time);
- * "Mark lesson complete" follows the server gate -> lesson_complete -> back to the course.
+ * "Mark lesson complete" follows the server gate -> lesson_complete -> back to the course (a lesson with a
+ * quick check: "Continue to quick check" -> back to the course on that check).
  * Before "Still there?" the video pauses and the iframe hides. Every request carries the page's
  * restricted video token (Kiosk.api adds X-Kiosk-Video from k-page-data.video).
  */
@@ -136,20 +137,23 @@
         ringText.textContent = pctW + '%';
         ring.setAttribute('aria-label', pctW + '%');
         ring.classList.toggle('is-ok', pctW >= minPct);
-        watchTitle.textContent = pctW >= minPct ? t('video.watched_enough', { pct: pctW }) : t('video.watched_keep', { pct: pctW });
+        var isDone = server && server.done;
+        // A lesson with a quick check: every finish wording says the check comes next (must-pass: it has to be passed).
+        var hasCheck = !!(P.check_url && P.check);
+        watchTitle.textContent = pctW >= minPct ? (hasCheck && !isDone ? t('video.watched_check', { pct: pctW }) : t('video.watched_enough', { pct: pctW }))
+            : t('video.watched_keep', { pct: pctW });
         watchLeft.textContent = d > 0 && pctW < 100 ? t('video.about_left', { t: fmt(Math.max(0, d - maxWatched)) }) : '';
         barMax.style.width = (d > 0 ? Math.min(100, maxWatched * 100 / d) : 0) + '%';
         barCur.style.width = (d > 0 ? Math.min(100, lastTime * 100 / d) : 0) + '%';
         timeEl.textContent = fmt(lastTime) + ' / ' + (d ? fmt(d) : '–:––');
-        var isDone = server && server.done;
         var can = !changed && server && (server.done || server.can_complete);
         // Watched already, with a must-pass quick check still to pass: the button goes on to the check.
         var toCheck = !!(P.check_url && server && server.credited && !isDone);
         doneBtn.disabled = !can || completing;
         doneBtn.hidden = !!isDone;
-        doneLabel.textContent = toCheck ? t('video.to_check') : t('video.mark_complete');
+        doneLabel.textContent = toCheck ? t('video.to_check') : (hasCheck ? t('video.continue_check') : t('video.mark_complete'));
         while (doneIcon.firstChild) { doneIcon.removeChild(doneIcon.firstChild); }
-        doneIcon.appendChild(icon(toCheck ? 'fa-clipboard-check' : 'fa-check'));
+        doneIcon.appendChild(icon(toCheck || hasCheck ? 'fa-clipboard-check' : 'fa-check'));
         nextBtn.classList.toggle('kx-btn--primary', !!isDone);
         nextBtn.classList.toggle('kx-btn--ghost', !isDone);
         // Before this lesson is done the next one is still locked (it would only bounce back to the course page),
@@ -174,7 +178,9 @@
             gateText.textContent = t('video.gate_check');
         } else if (server.can_complete) {
             gateIcon.appendChild(icon('fa-check'));
-            gateText.textContent = t('video.gate_ready');
+            var qn = Number(P.check && P.check.question_count) || 0;
+            gateText.textContent = !hasCheck ? t('video.gate_ready')
+                : (P.check.must_pass ? (qn === 1 ? t('video.then_must_1') : t('video.then_must_n', { n: qn })) : (qn === 1 ? t('video.then_check_1') : t('video.then_check_n', { n: qn })));
         } else {
             gateIcon.appendChild(icon('fa-lock'));
             var left = Math.max(0, Number(server.required_s || 0) - Number(server.credit_s || 0));

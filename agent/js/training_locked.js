@@ -71,7 +71,10 @@
                 go.disabled = true;
                 cancel.disabled = true;
                 api.post('run_unlock', { run_id: r.run_id, mode: mode, extra: 1, reason: reason }).then(function () {
-                    ui.toast(mode === 'extra' ? 'One more try given to ' + r.contact.name + '.' : r.contact.name + ' can restart on the current version.');
+                    // The extra try is for the quiz or quick check that ran out (not every quiz of the course).
+                    ui.toast(mode === 'extra' ? 'One more try given to ' + r.contact.name
+                        + (r.lesson && r.lesson.title ? (r.lesson.quick_check ? ' on the quick check of "' : ' on "') + r.lesson.title + '"' : '') + '.'
+                        : r.contact.name + ' can restart on the current version.');
                     load();
                 }, function (e) {
                     go.disabled = false;

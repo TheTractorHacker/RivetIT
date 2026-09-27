@@ -28,6 +28,33 @@ before this, the kiosk skipped them and a lesson went straight to "Done" (and a 
 - Publishing no longer warns "This lesson's quick check is skipped on the kiosk for now" and no longer refuses a
   must-pass quick check. The preview player shows the check after the lesson too (never blocking the author).
 
+### Review fixes
+- **Give 1 more try** (agent Locked courses, trainer) now adds the try to the quiz or quick check the course is locked
+  on only (ledger `run.unlocked` names it: `lesson_uid`). Before, the extra try counted for every quiz of the run, so
+  unlocking a quick check also raised the final exam's limit. Unlocks from before this change still count run-wide.
+- An optional quick check can be taken "later" while the course waits for "Sign to finish": the done lesson's row
+  opens it (chip **Quick check (optional)**; the row also shows it while the course is in progress).
+- Saying the check is coming: lessons with a check finish with **Continue to quick check** (course player and the
+  YouTube/Vimeo page), and the status line says "Then a quick check · 4 questions" or "Then pass a 4-question quick
+  check" (the watch card: "Watched 100% — the quick check is next").
+- A lesson watched/read with its must-pass check still to pass: the Learning Center card says **Continue** with
+  "Quick check to pass: <lesson>" (not Start / 0%), the course button says **Take the quick check: <lesson>**, and a
+  run reopened from "Sign to finish" says "This course now has a quick check. Pass the quick check for <lesson>, then
+  sign to finish."
+- Locked course: the notice names it ("Out of tries on the quick check for <lesson>. Your trainer can give you another
+  try.") and every lesson row says **Locked · see your trainer** (was "Finish the previous lesson first").
+- Must pass with N tries: the check says "If you don't pass in N tries, your trainer has to unlock the course.", with a
+  warning on the last try (intro and failed result). The duplicate must-pass footer is gone (Start and **Back to the
+  lesson** stay in view at 1024x768).
+- The check's result is compact (smaller ring, no stats row, no topic chips, "3 of 4 correct" in the line) so the
+  explanations are in view at 1024x768, 768x1024 and 1366x768; a missed check offers **Watch again** / **Read again**;
+  an optional miss goes on with **Next lesson**. The footer says "Doesn't go on your training record." or "Quick check
+  passed. Sign to finish." (never "Signing adds it to your training record").
+- Leaving a check part-way shows **Continue quick check** and the tries note right away (no reload needed).
+- Runner: no course name in a check's title, no "Flag for review" on checks of 5 questions or fewer, and the question
+  keeps its 20px gap above the answer tiles on the kiosk (all kiosk quizzes).
+- Spanish: quick checks are **Prueba rápida** (like the other "Prueba"s), and scores are "puntuación" throughout.
+
 ## [Unreleased] ITFlow Internal IT - Training kiosk: temporary and unlisted devices
 Database 2.6.93 -> 2.6.94 (`training_kiosks`: `kiosk_asset_id` and `kiosk_asset_type` become NULL-able, new
 `kiosk_expires_at_utc` and index `idx_training_kiosk_expires`). Apply it through **Admin > Update > Update Database**;

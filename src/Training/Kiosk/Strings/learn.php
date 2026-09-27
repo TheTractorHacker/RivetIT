@@ -49,7 +49,7 @@ return [
         'err.gate_not_met' => 'Dedique un poco más de tiempo a esta lección.',
         'err.signature_invalid' => 'No se pudo leer la firma. Bórrela y firme otra vez.',
         'err.signature_empty' => 'Por favor firme en el cuadro.',
-        'err.check_before_content' => 'Primero termine la lección y luego haga su repaso rápido.',
-        'err.check_pending' => 'Primero apruebe el repaso rápido de la lección y luego firme.',
+        'err.check_before_content' => 'Primero termine la lección y luego haga su prueba rápida.',
+        'err.check_pending' => 'Primero apruebe la prueba rápida de la lección y luego firme.',
     ],
 ];

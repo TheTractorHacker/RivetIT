@@ -208,6 +208,64 @@ final class RunRepo
         return $out;
     }
 
+    /**
+     * Lesson uids whose content is credited while their MUST-PASS quick check is still to pass
+     * (credited, not done), in course order.
+     *
+     * @return list<string>
+     */
+    public static function pendingChecks(array $doc, array $credited, array $done): array
+    {
+        $out = [];
+        foreach (self::order($doc) as $uid) {
+            if (isset($credited[$uid]) && !isset($done[$uid]) && ($l = self::lesson($doc, $uid)) !== null && self::mustPassCheck($l)) {
+                $out[] = $uid;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Extra tries a trainer gave on the run, per lesson: the 'extra' run.unlocked events of the run.
+     * An unlock names the lesson that was locked (payload lesson_uid) and its tries count for that
+     * quiz or quick check only; an unlock without a lesson (from before quick checks, or of a run that
+     * was not locked on a lesson) counts for every quiz of the run, as it always did. Keys: lesson uid,
+     * and '*' for the run-wide ones. trun_extra_attempts = 0 (almost every run) needs no read.
+     *
+     * @return array<string, int>
+     */
+    public static function extraTries(\mysqli $db, array $run): array
+    {
+        if ((int) ($run['trun_extra_attempts'] ?? 0) <= 0) {
+            return [];
+        }
+        $out = [];
+        foreach (Db::all($db, "SELECT tevent_payload_json FROM training_events
+                WHERE tevent_entity_type = 'run' AND tevent_entity_id = ? AND tevent_type = 'run.unlocked' ORDER BY tevent_seq",
+                'i', [(int) $run['trun_id']]) as $e) {
+            $p = json_decode((string) $e['tevent_payload_json'], true);
+            if (!is_array($p) || ($p['mode'] ?? null) !== 'extra') {
+                continue;
+            }
+            $key = isset($p['lesson_uid']) && is_string($p['lesson_uid']) && $p['lesson_uid'] !== '' ? $p['lesson_uid'] : '*';
+            $out[$key] = min(255, ($out[$key] ?? 0) + max(0, (int) ($p['extra'] ?? 0)));
+        }
+        return $out;
+    }
+
+    /** The extra tries that count for one lesson's quiz or quick check (see extraTries). */
+    public static function extraFor(array $extras, string $lessonUid): int
+    {
+        return min(255, ($extras['*'] ?? 0) + ($extras[$lessonUid] ?? 0));
+    }
+
+    /** True when the run was moved back to in_progress for a must-pass quick check (ledger run.reopened). */
+    public static function reopened(\mysqli $db, int $runId): bool
+    {
+        return Db::one($db, "SELECT tevent_seq FROM training_events
+            WHERE tevent_entity_type = 'run' AND tevent_entity_id = ? AND tevent_type = 'run.reopened' LIMIT 1", 'i', [$runId]) !== null;
+    }
+
     /** floor(100 × done required / total required); 100 for a course with no required lesson. */
     public static function progress(array $doc, array $done): int
     {

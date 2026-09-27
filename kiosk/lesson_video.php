@@ -112,6 +112,9 @@ if ($kiosk_video_unsupported) {
                 'return_url' => $courseUrl . ($next !== null ? '&l=' . rawurlencode((string) $next['uid']) : ''),
                 // A lesson with a quick check goes back to the course page on its check once the video is credited.
                 'check_url' => (($lesson['quiz']['role'] ?? null) === 'check') ? $courseUrl . '&l=' . rawurlencode($uid) . '&check=1' : null,
+                // what the finish button and the status line say about that check (its summary only: count, must-pass)
+                'check' => (($lesson['quiz']['role'] ?? null) === 'check') ? ['must_pass' => !empty($lesson['quiz']['must_pass']),
+                    'question_count' => (int) ($lesson['quiz']['question_count'] ?? 0)] : null,
                 'course_url' => $courseUrl,
             ],
         ];

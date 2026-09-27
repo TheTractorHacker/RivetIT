@@ -145,12 +145,33 @@
         return new Promise(function () { /* navigating */ });
     }
 
+    function lessonOf(uid) {
+        var ls = Array.isArray(view.lessons) ? view.lessons : [];
+        for (var i = 0; i < ls.length; i++) { if (ls[i] && ls[i].uid === uid) { return ls[i]; } }
+        return null;
+    }
+    function isCheckLesson(l) { return !!(l && l.type !== 'quiz' && l.quiz && l.quiz.role === 'check'); }
+    /** The first lesson whose content is done while its must-pass quick check is still to pass, or null. */
+    function pendingCheckLesson() {
+        if (!run || !run.credited) { return null; }
+        var ord = Array.isArray(view.lesson_order) ? view.lesson_order : [];
+        for (var i = 0; i < ord.length; i++) {
+            var l = lessonOf(ord[i]);
+            if (isCheckLesson(l) && l.quiz.must_pass && run.credited[l.uid] && !(run.done && run.done[l.uid])) { return l; }
+        }
+        return null;
+    }
+    function lockedBody() {
+        var l = run.locked_lesson_uid ? lessonOf(run.locked_lesson_uid) : null;
+        if (!l || !l.title) { return t('course.locked_body'); }
+        return isCheckLesson(l) ? t('course.locked_body_check', { lesson: l.title }) : t('course.locked_body_quiz', { lesson: l.title });
+    }
     function notice() {
         if (P.needs_online === false) { return { tone: 'info', icon: 'fa-users', title: t('course.session_title'), text: t('course.e_no_online') }; }
         if (!run) {
             return P.completed ? { tone: 'ok', icon: 'fa-check-circle', title: t('course.completed_title'), text: t('course.completed_body') } : null;
         }
-        if (run.locked) { return { tone: 'bad', icon: 'fa-lock', title: t('course.locked_title'), text: t('course.locked_body') }; }
+        if (run.locked) { return { tone: 'bad', icon: 'fa-lock', title: t('course.locked_title'), text: lockedBody() }; }
         if (run.blocked) {
             var r = run.blocked.reason;
             return { tone: 'bad', icon: 'fa-exclamation-circle', title: t('course.blocked_title'),
@@ -159,6 +180,9 @@
         if (status() === 'awaiting_signature') { return { tone: 'info', icon: 'fa-pen-nib', title: t('course.sign_title'), text: t('course.sign_body') }; }
         if (status() === 'awaiting_session') { return { tone: 'info', icon: 'fa-users', title: t('course.session_title'), text: t('course.session_body') }; }
         if (status() === 'awaiting_evaluation') { return { tone: 'info', icon: 'fa-hard-hat', title: t('course.evaluation_title'), text: t('course.evaluation_body') }; }
+        // A run from before quick checks, moved back from "Sign to finish": say why the sign button went away.
+        var pc = run.reopened && status() === 'in_progress' ? pendingCheckLesson() : null;
+        if (pc) { return { tone: 'info', icon: 'fa-clipboard-check', title: t('course.reopened_title'), text: t('course.reopened_body', { lesson: pc.title || '' }) }; }
         return langNotice();
     }
     function cta() {
@@ -193,7 +217,9 @@
             // A run with nothing done yet, in the other language, switches to the screen's language (when the course has it).
             var switchFresh = run && status() === 'in_progress' && run.fresh && runLang() !== screen && LANGS.indexOf(screen) !== -1;
             if (run && status() === 'in_progress' && !switchFresh) { return Promise.resolve(run); }
-            if (run && status() === 'awaiting_signature' && checkOk) { return Promise.resolve(run); }   // the quick check after the last lesson
+            // Waiting for the sign-off: only a done lesson's optional quick check opens (the check after the last
+            // lesson, or one taken "later" from its row); the run is already there.
+            if (run && status() === 'awaiting_signature' && !run.locked && !run.blocked) { return Promise.resolve(run); }
             var pick = switchFresh ? Promise.resolve(screen) : (!run && LANGS.length > 1 ? chooseLanguage() : Promise.resolve(undefined));
             return pick.then(function (lg) {
                 if (lg === null) { var e = new Error(''); e.silent = true; throw e; }   // closed the language choice: stay on the overview
@@ -227,7 +253,20 @@
             return post('ack_sign', { run_id: runId(), lesson_uid: uid, signature_png: p.signature_png || null, pin: p.pin || null }).then(function (res) { absorb(res); return res; });
         },
         externalVideoUrl: function (uid) { return (P.video_page || '/kiosk/lesson_video.php') + '?run=' + runId() + '&l=' + encodeURIComponent(uid); },
-        startQuiz: function (uid) { return post('exam_start', { run_id: runId(), lesson_uid: uid }); },
+        startQuiz: function (uid) {
+            return post('exam_start', { run_id: runId(), lesson_uid: uid }).then(function (data) {
+                // The try is drawn now: leaving part-way shows "Continue quick check" (the server resumes it).
+                if (run && data && typeof data === 'object') {
+                    run.quizzes = run.quizzes || {};
+                    var q = run.quizzes[uid] || {};
+                    q.open = true;
+                    if (typeof data.attempt_number === 'number') { q.used = data.attempt_number; }
+                    if (Number(data.attempts_max) > 0) { q.max = data.attempts_max; q.left = Math.max(0, data.attempts_max - data.attempt_number); }
+                    run.quizzes[uid] = q;
+                }
+                return data;
+            });
+        },
         onAnswer: function (token, q, opts) { return post('answer_save', { attempt_id: +String(token).slice(1), question_uid: q, option_uids: opts }); },
         submitQuiz: function (token, answers) {
             return post('exam_submit', { attempt_id: +String(token).slice(1), answers: answers }).then(function (res) {
@@ -253,6 +292,7 @@
                 q.open = false;   // that attempt is graded
                 run.quizzes[uid] = q;
             }
+            if (run && res && res.locked) { run.locked = true; run.locked_lesson_uid = uid; }   // the course notice names it
             return res && res.next === 'sign' ? { signLabel: t('course.sign_to_finish') } : null;
         },
         onSign: function () { location.assign('/kiosk/sign.php?run=' + runId()); },
@@ -262,7 +302,10 @@
         courseChips: chips,
         homeNotice: notice,
         homeCta: cta,
-        runFrozen: frozen
+        runFrozen: frozen,
+        // waiting for the sign-off: a done lesson's optional quick check can still be taken
+        checkWhileFrozen: function () { return !!run && status() === 'awaiting_signature' && !run.locked && !run.blocked; },
+        frozenRowLabel: function () { return run && (run.locked || run.blocked) ? t('course.row_locked') : null; }
     };
 
     var player = window.TrainingPlayer.mount(root, view, adapter);

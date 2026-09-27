@@ -29,6 +29,8 @@
  *                  courseChips() -> [{icon, text, tone}] ; homeNotice() -> {tone, icon, title, text}|null ;
  *                  homeCta() -> {label, icon, onClick, disabled}|null ; homeSubline() -> string|null ;
  *                  runFrozen() -> truthy when the run takes no lesson work (locked, blocked, awaiting_*)
+ *                  frozenRowLabel() -> string|null   what a frozen run's lesson rows say (kiosk: "Locked · see your trainer")
+ *                  checkWhileFrozen() -> truthy while a done lesson's optional quick check may still be taken (awaiting the sign-off)
  *                  learnerFirst, validityMonths
  *
  *       Quick checks (a quiz with role 'check' on an article, document, video or image lesson): once the
@@ -114,7 +116,16 @@
             qc_foot_must: 'Pass the quick check to finish this lesson', qc_foot_optional: 'Optional · the lesson is already done',
             qc_pending: 'Quick check to pass', qc_leave: 'Leave quick check', qc_fail_msg: 'Look over what you missed. You can try again or continue.',
             qc_fail_must_msg: 'Look over what you missed, then try again.', qc_title: 'Quick check: {title}', qc_chip: 'Quick check',
-            qc_resume: 'Continue quick check', qc_open: 'You started this quick check. Your answers so far are saved.'
+            qc_resume: 'Continue quick check', qc_open: 'You started this quick check. Your answers so far are saved.',
+            qc_continue: 'Continue to quick check', qc_take_to: 'Take the quick check: {title}',
+            qc_then_n: 'Then a quick check · {n} questions', qc_then_1: 'Then a quick check · 1 question',
+            qc_then_must_n: 'Then pass a {n}-question quick check', qc_then_must_1: 'Then pass a 1-question quick check',
+            qc_must_tries: "If you don't pass in {n} tries, your trainer has to unlock the course.",
+            qc_must_last: "This is your last try. If you don't pass, your trainer has to unlock the course.",
+            qc_fail_last: "One try left. If you don't pass it, your trainer has to unlock the course.",
+            qc_passed_sign: 'Quick check passed. Sign to finish.', qc_not_record: "Doesn't go on your training record.",
+            qc_again_video: 'Watch again', qc_again_read: 'Read again', qc_again_image: 'Look again',
+            qc_optional_chip: 'Quick check (optional)', qc_correct_n: '{n} of {m} correct', qc_watched: 'Watched {pct}% — the quick check is next'
         },
         es: {
             lessons_n: '{n} lecciones', lesson_1: '1 lección', course_content: 'Contenido del curso', sections_meta: '{s} secciones · {n} lecciones',
@@ -122,7 +133,7 @@
             lessons_done: '{n} de {m} lecciones hechas', continue_to: 'Continuar: {title}', start_course: 'Comenzar el curso', review_course: 'Repasar el curso',
             up_next: 'Siguiente', lesson_n_of: 'Lección {n} de {total}', next_lesson: 'Siguiente lección', back_to_course: 'Volver al curso',
             t_article: 'Artículo', t_document: 'Documento (PDF)', t_video: 'Video', t_image: 'Imagen', t_quiz: 'Prueba', t_acknowledgment: 'Constancia',
-            t_exam: 'Examen final', t_check: 'Repaso rápido',
+            t_exam: 'Examen final', t_check: 'Prueba rápida',
             min_read: '{n} min de lectura', pages_n: '{n} páginas', page_1: '1 página', questions_n: '{n} preguntas', question_1: '1 pregunta',
             read_and_sign: 'leer y firmar', pass_pct: 'Aprobar con {pct}%', attempts_n: '{n} intentos', attempts_1: '1 intento', unlimited: 'Intentos ilimitados',
             time_limit_min: 'Límite de {n} min', pages_viewed: '{n} de {total} páginas vistas', go_through_pages: 'Revise las {n} páginas para terminar',
@@ -158,8 +169,8 @@
             ack_todo_all: 'Marque la casilla, firme e ingrese su PIN', ack_todo_sign: 'Marque la casilla y firme', ack_todo_pin: 'Marque la casilla e ingrese su PIN', ack_todo_tick: 'Marque la casilla',
             // kiosk (P3 §7.6)
             k_checking: 'Revisando su avance…', k_keep_going: 'Siga: faltan unos {t}', k_saving_note: 'Las respuestas se guardan solas',
-            k_save_failed: 'Todavía no se guardó esa respuesta. Se envía otra vez al terminar.', k_score_saved: 'Su calificación está guardada. Al firmar queda en su registro de capacitación.',
-            k_score_recorded: 'Su calificación está guardada.', k_attempt_of: 'Intento {n} de {max}', attempt_n: 'Intento {n}', attempts_left_n: 'Le quedan {n} intentos', attempts_left_1: 'Le queda 1 intento',
+            k_save_failed: 'Todavía no se guardó esa respuesta. Se envía otra vez al terminar.', k_score_saved: 'Su puntuación está guardada. Al firmar queda en su registro de capacitación.',
+            k_score_recorded: 'Su puntuación está guardada.', k_attempt_of: 'Intento {n} de {max}', attempt_n: 'Intento {n}', attempts_left_n: 'Le quedan {n} intentos', attempts_left_1: 'Le queda 1 intento',
             locked_trainer: 'Bloqueado — hable con su instructor', ach_unlocked: 'Logro desbloqueado', ach_unlocked_n: 'Logros desbloqueados', ach_added: 'Agregado a su perfil', sign_to_finish: 'Firmar para terminar', watch_video: 'Ver el video',
             ext_video_note: 'El video se abre en su propia pantalla. Vuelva aquí cuando termine.', k_pin_hint: 'El mismo PIN que usa para entrar.',
             k_pin_doc_hint: 'Su PIN confirma que leyó este documento.', exam_after: 'Primero termine las otras lecciones', k_saving: 'Guardando…',
@@ -170,14 +181,23 @@
             k_ack_tsp: 'Marque la casilla, firme y escriba su PIN', k_ack_ts: 'Marque la casilla y firme', k_ack_tp: 'Marque la casilla y escriba su PIN', k_ack_t: 'Marque la casilla',
             k_ack_sp: 'Firme y escriba su PIN', k_ack_s: 'Firme en el recuadro', k_ack_p: 'Escriba su PIN', k_ack_step: 'Paso 1 de 2 · después firme el curso',
             k_exam_start: 'Empezar el examen', k_exam_leave: 'Salir del examen', k_exam_after: 'Disponible después de aprobar el examen',
-            // repasos rápidos de las lecciones
-            qc_start: 'Empezar el repaso rápido', qc_take: 'Hacer el repaso rápido', qc_skip: 'Omitir por ahora', qc_back_lesson: 'Volver a la lección',
+            // pruebas rápidas de las lecciones (una "Prueba" como las demás pruebas del curso)
+            qc_start: 'Empezar la prueba rápida', qc_take: 'Hacer la prueba rápida', qc_skip: 'Omitir por ahora', qc_back_lesson: 'Volver a la lección',
             qc_intro: 'Unas preguntas sobre lo que acaba de aprender.', qc_optional: 'No cuenta para terminar. Las preguntas falladas explican por qué.',
-            qc_must: 'Apruebe este repaso rápido para terminar la lección.', qc_passed: 'Ya aprobó este repaso rápido.', qc_no_tries: 'Ya no le quedan intentos para este repaso.',
-            qc_foot_must: 'Apruebe el repaso rápido para terminar esta lección', qc_foot_optional: 'Opcional · la lección ya está terminada',
-            qc_pending: 'Falta aprobar el repaso', qc_leave: 'Salir del repaso', qc_fail_msg: 'Revise lo que falló. Puede intentarlo otra vez o continuar.',
-            qc_fail_must_msg: 'Revise lo que falló y vuelva a intentarlo.', qc_title: 'Repaso rápido: {title}', qc_chip: 'Repaso rápido',
-            qc_resume: 'Continuar el repaso rápido', qc_open: 'Ya empezó este repaso rápido. Sus respuestas están guardadas.'
+            qc_must: 'Apruebe esta prueba rápida para terminar la lección.', qc_passed: 'Ya aprobó esta prueba rápida.', qc_no_tries: 'Ya no le quedan intentos para esta prueba rápida.',
+            qc_foot_must: 'Apruebe la prueba rápida para terminar esta lección', qc_foot_optional: 'Opcional · la lección ya está terminada',
+            qc_pending: 'Falta aprobar la prueba rápida', qc_leave: 'Salir de la prueba rápida', qc_fail_msg: 'Revise lo que falló. Puede intentarlo otra vez o continuar.',
+            qc_fail_must_msg: 'Revise lo que falló y vuelva a intentarlo.', qc_title: 'Prueba rápida: {title}', qc_chip: 'Prueba rápida',
+            qc_resume: 'Continuar la prueba rápida', qc_open: 'Ya empezó esta prueba rápida. Sus respuestas están guardadas.',
+            qc_continue: 'Continuar a la prueba rápida', qc_take_to: 'Hacer la prueba rápida: {title}',
+            qc_then_n: 'Después, una prueba rápida · {n} preguntas', qc_then_1: 'Después, una prueba rápida · 1 pregunta',
+            qc_then_must_n: 'Después, apruebe una prueba rápida de {n} preguntas', qc_then_must_1: 'Después, apruebe una prueba rápida de 1 pregunta',
+            qc_must_tries: 'Si no aprueba en {n} intentos, su instructor tiene que desbloquear el curso.',
+            qc_must_last: 'Es su último intento. Si no aprueba, su instructor tiene que desbloquear el curso.',
+            qc_fail_last: 'Le queda un intento. Si no lo aprueba, su instructor tiene que desbloquear el curso.',
+            qc_passed_sign: 'Aprobó la prueba rápida. Firme para terminar.', qc_not_record: 'No queda en su registro de capacitación.',
+            qc_again_video: 'Ver otra vez', qc_again_read: 'Leer otra vez', qc_again_image: 'Ver la imagen otra vez',
+            qc_optional_chip: 'Prueba rápida (opcional)', qc_correct_n: '{n} de {m} correctas', qc_watched: 'Visto {pct}% — sigue la prueba rápida'
         }
     };
     var LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -394,6 +414,10 @@
             var i = checkInfo(uid);
             return !(i && (i.passed || i.locked || (typeof i.left === 'number' && i.left <= 0 && !i.open)));
         }
+        /** A done lesson whose quick check is optional and still open (skipped or not passed yet): "take it later". */
+        function optionalCheckOpen(uid) { var q = checkOf(byUid[uid]); return !!(q && !q.must_pass && progress.done[uid] && checkAvailable(uid)); }
+        /** Kiosk: the run waits for the sign-off, and a done lesson's optional quick check can still be taken. */
+        function checkWhileSigning(uid) { return isKiosk && fn('checkWhileFrozen') && !!adapter.checkWhileFrozen() && optionalCheckOpen(uid); }
         function mergeCredited(map) {
             if (!map || typeof map !== 'object') { return; }
             Object.keys(map).forEach(function (u) { if (map[u] && byUid[u]) { progress.credited[u] = true; } });
@@ -506,7 +530,8 @@
             if (l.type === 'quiz' && l.quiz) { return l.quiz.role === 'exam' ? t('t_exam') : t('t_quiz'); }
             return t('t_' + l.type);
         }
-        function lessonSub(l) {
+        /** noCheck: the row shows the quick check as its own chip instead. */
+        function lessonSub(l, noCheck) {
             var parts = [typeLabel(l)];
             if (l.type === 'video' && l.duration_s) { parts.push(fmt(l.duration_s)); }
             else if (l.type === 'article') { parts.push(t('min_read', { n: minutes(l.duration_s) })); }
@@ -516,7 +541,7 @@
                 if (l.quiz.role === 'exam') { parts.push(t('pass_pct', { pct: l.quiz.pass_pct })); }
             } else if (l.type === 'acknowledgment') { parts.push(t('read_and_sign')); }
             else if (l.type === 'image') { parts.push(t('minutes', { n: minutes(l.duration_s || 60) })); }
-            if (checkOf(l)) { parts.push(t('qc_chip')); }
+            if (checkOf(l) && !noCheck) { parts.push(t('qc_chip')); }
             return parts.join(' · ');
         }
 
@@ -591,8 +616,9 @@
                 cta = h('button', {
                     type: 'button', class: 'trp-btn trp-btn--primary trp-btn--xl', disabled: total === 0,
                     on: { click: function () { withRun(cta, function () { var u = firstOpen() || order[0]; if (u) { openLesson(u, checkPending(u) ? { check: true } : null); } }); } }
-                }, [next && (done > 0 || order.some(function (u) { return progress.credited[u]; })) ? t('continue_to', { title: byUid[next].title })
-                    : (next ? t('start_course') : t('review_course')), icon('fa-arrow-right')]);
+                }, [next && checkPending(next) ? t('qc_take_to', { title: byUid[next].title })   // watched/read: its must-pass quick check is next
+                    : (next && (done > 0 || order.some(function (u) { return progress.credited[u]; })) ? t('continue_to', { title: byUid[next].title })
+                    : (next ? t('start_course') : t('review_course'))), icon('fa-arrow-right')]);
             }
             var extraChips = isKiosk && fn('courseChips') ? (adapter.courseChips() || []) : [];
             var subline = isKiosk && fn('homeSubline') ? adapter.homeSubline() : null;
@@ -696,13 +722,18 @@
             var done = !!progress.done[l.uid];
             var next = !frozen && firstOpen() === l.uid;
             var pendingCheck = !frozen && !done && checkPending(l.uid);
+            // Waiting for the sign-off: a done lesson's optional quick check can still be taken ("later").
+            var signCheck = frozen && done && checkWhileSigning(l.uid);
+            // Kiosk, frozen (locked, blocked...): the adapter says why a lesson cannot open ("Locked · see your trainer").
+            var frozenLabel = frozen && isKiosk && fn('frozenRowLabel') ? adapter.frozenRowLabel() : null;
             var stateEl;
             if (done) {
                 stateEl = [h('span', { class: 'trp-row__state trp-row__state--ok', text: t('done') }), h('span', { class: 'trp-round trp-round--ok', 'aria-hidden': 'true' }, icon('fa-check'))];
             } else if (pendingCheck && !locked) {
                 stateEl = [h('span', { class: 'trp-pill trp-pill--info', text: t('qc_pending') }), h('span', { class: 'trp-round trp-round--primary', 'aria-hidden': 'true' }, icon('fa-clipboard-check'))];
             } else if (locked) {
-                stateEl = [h('span', { class: 'trp-row__state', text: !frozen && examWaits(l.uid) ? t('exam_after') : t('locked') }), h('span', { class: 'trp-round trp-round--muted', 'aria-hidden': 'true' }, icon('fa-lock'))];
+                stateEl = [h('span', { class: 'trp-row__state', text: typeof frozenLabel === 'string' && frozenLabel ? frozenLabel : (!frozen && examWaits(l.uid) ? t('exam_after') : t('locked')) }),
+                    h('span', { class: 'trp-round trp-round--muted', 'aria-hidden': 'true' }, icon('fa-lock'))];
             } else if (next) {
                 stateEl = [h('span', { class: 'trp-pill trp-pill--info', text: progress.current === l.uid || doneCount() > 0 ? t('in_progress') : t('start_chip') }),
                     h('span', { class: 'trp-round trp-round--primary', 'aria-hidden': 'true' }, icon('fa-play'))];
@@ -712,15 +743,18 @@
             var chips = [];
             if (!l.required) { chips.push(h('span', { class: 'trp-chip trp-chip--sm', text: t('optional_chip') })); }
             if (l.preview_enabled) { chips.push(h('span', { class: 'trp-chip trp-chip--sm', text: t('open_chip') })); }
-            var rowLocked = locked && !(done && !frozen);
+            // A done lesson whose optional quick check was skipped or not passed: it can still be taken.
+            var laterChip = optionalCheckOpen(l.uid) && (!frozen || signCheck);
+            if (laterChip) { chips.push(h('span', { class: 'trp-chip trp-chip--sm trp-chip--check' }, [icon('fa-clipboard-check'), t('qc_optional_chip')])); }
+            var rowLocked = locked && !(done && !frozen) && !signCheck;
             var btn = h('button', {
                 type: 'button', class: 'trp-row' + (next && !done ? ' is-current' : '') + (rowLocked ? ' is-locked' : ''), 'aria-disabled': rowLocked ? 'true' : null,
-                on: { click: function () { if (!rowLocked) { withRun(btn, function () { openLesson(l.uid, checkPending(l.uid) ? { check: true } : null); }); } } }
+                on: { click: function () { if (!rowLocked) { withRun(btn, function () { openLesson(l.uid, checkPending(l.uid) || signCheck ? { check: true } : null); }); } } }
             }, [
                 h('span', { class: 'trp-tile trp-tile--' + l.type, 'aria-hidden': 'true' }, icon(TYPE_ICON[l.type] || 'fa-file')),
                 h('span', { class: 'trp-row__main' }, [
                     h('span', { class: 'trp-row__title', text: l.title || typeLabel(l) }),
-                    h('span', { class: 'trp-row__sub' }, [lessonSub(l)].concat(chips))
+                    h('span', { class: 'trp-row__sub' }, [lessonSub(l, laterChip)].concat(chips))
                 ]),
                 h('span', { class: 'trp-row__end' }, stateEl)
             ]);
@@ -888,10 +922,12 @@
             }
             function syncCheckUi() {
                 if (!chk || checkMode) { return; }
+                // Content done, must-pass check to pass: "Take the quick check". Before that the finish button
+                // already says where it goes: "Continue to quick check" (the check opens right after the content).
                 var pendingNow = checkPending(uid);
                 clear(completeBtn);
-                completeBtn.appendChild(icon(pendingNow ? 'fa-clipboard-check' : 'fa-check'));
-                completeBtn.appendChild(document.createTextNode(pendingNow ? t('qc_take') : t('mark_complete') + (isKiosk ? '' : ' ' + t('preview_suffix'))));
+                completeBtn.appendChild(icon('fa-clipboard-check'));
+                completeBtn.appendChild(document.createTextNode(pendingNow ? t('qc_take') : t('qc_continue') + (isKiosk ? '' : ' ' + t('preview_suffix'))));
                 if (checkBtn) { checkBtn.hidden = !(progress.done[uid] && checkAvailable(uid)); }
             }
             syncCheckUi();
@@ -1012,7 +1048,13 @@
             ctx.sendTick = sendTick;
             ctx.pageSeen = function (n) { if (tickState.pages.indexOf(n) === -1) { tickState.pages.push(n); } };
             if (chk && !checkMode) {
-                ctx.footLabel = function (met) { return met && checkPending(uid) ? t('qc_foot_must') : null; };
+                // Ready to finish a lesson with a quick check: the status line says the check comes next.
+                ctx.footLabel = function (met) {
+                    if (!met || progress.done[uid]) { return null; }
+                    if (checkPending(uid)) { return t('qc_foot_must'); }
+                    var n = Number(chk.question_count) || 0;
+                    return chk.must_pass ? (n === 1 ? t('qc_then_must_1') : t('qc_then_must_n', { n: n })) : (n === 1 ? t('qc_then_1') : t('qc_then_n', { n: n }));
+                };
             }
             var renderers = { article: renderArticle, document: renderDocument, video: renderVideo, image: renderImage, acknowledgment: renderAck, quiz: renderQuizIntro };
             (checkMode ? renderCheckIntro : (renderers[l.type] || renderArticle))(ctx);
@@ -1197,7 +1239,7 @@
                 ringBox.appendChild(ring(p, p >= minPct ? 'trp-ring--ok' : '', p + '%'));
                 ringBox.appendChild(h('span', { class: 'trp-ring__label', text: p + '%' }));
                 clear(ringText);
-                ringText.appendChild(h('strong', { text: p >= minPct ? t('watched_enough', { pct: p }) : t('keep_watching', { pct: p }) }));
+                ringText.appendChild(h('strong', { text: p >= minPct ? t(checkOf(l) && !progress.done[l.uid] ? 'qc_watched' : 'watched_enough', { pct: p }) : t('keep_watching', { pct: p }) }));
                 if (duration > 0 && p < 100) { ringText.appendChild(h('div', { class: 'trp-muted', text: t('about_left', { t: fmt(Math.max(0, duration - maxWatched)) }) })); }
                 ctx.gate.set(p >= minPct, t('req_watch', { pct: minPct }), p);
             }
@@ -1305,7 +1347,7 @@
                     var p = d > 0 ? Math.min(100, Math.round(pos * 100 / d)) : 0;
                     progBar.style.width = p + '%';
                     progText.textContent = t('keep_watching', { pct: p });
-                    if (p >= minPct) { progText.textContent = t('watched_enough', { pct: p }); }
+                    if (p >= minPct) { progText.textContent = t(checkOf(l) && !progress.done[l.uid] ? 'qc_watched' : 'watched_enough', { pct: p }); }
                 };
                 ctx.onServerGate = function (g) {
                     if (g && Number(g.duration_s) > 0 && !duration) { duration = Number(g.duration_s); }
@@ -1748,7 +1790,8 @@
                     note = h('p', { class: 'trp-note trp-note--center trp-note--warn' }, [icon('fa-lock'), h('span', { text: t('locked_trainer') })]);
                     start.disabled = true;
                 } else if (Number(info.max) > 0 && typeof info.left === 'number') {
-                    note = h('p', { class: 'trp-note trp-note--center' }, [icon('fa-redo'), h('span', { text: info.left === 1 ? t('attempts_left_1') : t('attempts_left_n', { n: info.left }) })]);
+                    var lft = info.left + (info.open ? 1 : 0);   // a started try is resumed, not used up
+                    note = h('p', { class: 'trp-note trp-note--center' }, [icon('fa-redo'), h('span', { text: lft === 1 ? t('attempts_left_1') : t('attempts_left_n', { n: lft }) })]);
                 }
                 if (note) { card.insertBefore(note, start); }
             }
@@ -1803,21 +1846,29 @@
             ctx.main.appendChild(card);
             var closed = false;   // passed, locked or out of tries: nothing to start
             if (info) {
-                var note = null;
+                var notes = [];
+                // Tries left counts a try that was started and not sent yet (it is resumed, not used up).
+                var left = typeof info.left === 'number' && Number(info.max) > 0 ? info.left + (info.open ? 1 : 0) : null;
                 if (info.passed) {
-                    note = h('p', { class: 'trp-note trp-note--center' }, [icon('fa-check-circle'), h('span', { text: t('qc_passed') })]);
+                    notes.push(h('p', { class: 'trp-note trp-note--center' }, [icon('fa-check-circle'), h('span', { text: t('qc_passed') })]));
                     closed = true;
                 } else if (info.locked) {
-                    note = h('p', { class: 'trp-note trp-note--center trp-note--warn' }, [icon('fa-lock'), h('span', { text: t('locked_trainer') })]);
+                    notes.push(h('p', { class: 'trp-note trp-note--center trp-note--warn' }, [icon('fa-lock'), h('span', { text: t('locked_trainer') })]));
                     closed = true;
-                } else if (info.open) {
-                    note = h('p', { class: 'trp-note trp-note--center' }, [icon('fa-history'), h('span', { text: t('qc_open') })]);
-                } else if (typeof info.left === 'number' && Number(info.max) > 0) {
-                    note = info.left <= 0 ? h('p', { class: 'trp-note trp-note--center trp-note--warn' }, [icon('fa-redo'), h('span', { text: t('qc_no_tries') })])
-                        : h('p', { class: 'trp-note trp-note--center' }, [icon('fa-redo'), h('span', { text: info.left === 1 ? t('attempts_left_1') : t('attempts_left_n', { n: info.left }) })]);
-                    closed = info.left <= 0;
+                } else {
+                    if (info.open) { notes.push(h('p', { class: 'trp-note trp-note--center' }, [icon('fa-history'), h('span', { text: t('qc_open') })])); }
+                    if (left !== null && left <= 0) {
+                        notes.push(h('p', { class: 'trp-note trp-note--center trp-note--warn' }, [icon('fa-redo'), h('span', { text: t('qc_no_tries') })]));
+                        closed = true;
+                    } else if (left !== null && mustPass && isKiosk && !progress.done[l.uid]) {
+                        // Must pass with N tries: say what running out means, and warn on the last try.
+                        notes.push(left === 1 ? h('p', { class: 'trp-note trp-note--center trp-note--warn trp-qc__last' }, [icon('fa-exclamation-triangle'), h('span', { text: t('qc_must_last') })])
+                            : h('p', { class: 'trp-note trp-note--center trp-qc__tries' }, [icon('fa-redo'), h('span', { text: t('qc_must_tries', { n: left }) })]));
+                    } else if (left !== null) {
+                        notes.push(h('p', { class: 'trp-note trp-note--center' }, [icon('fa-redo'), h('span', { text: left === 1 ? t('attempts_left_1') : t('attempts_left_n', { n: left }) })]));
+                    }
                 }
-                if (note) { card.insertBefore(note, start); }
+                notes.forEach(function (n) { card.insertBefore(n, start); });
             }
             start.disabled = closed;
             start.hidden = closed;
@@ -1825,6 +1876,9 @@
             var needPass = mustPass && !progress.done[l.uid];
             ctx.footLabel = function () { return needPass ? t('qc_foot_must') : t('qc_foot_optional'); };
             ctx.gate.set(!needPass, '', null);
+            // Kiosk, must pass: the footer would only repeat the card's note and has no action (no skip), so it
+            // goes, and Start and "Back to the lesson" stay in view.
+            if (needPass && isKiosk) { ctx.foot.hidden = true; }
             if (!needPass || !isKiosk) {
                 var goOn = h('button', { type: 'button', class: 'trp-btn ' + (closed ? 'trp-btn--primary' : 'trp-btn--ghost') + ' trp-qc__skip' },
                     [closed ? t('continue') : t('qc_skip'), icon('fa-arrow-right')]);
@@ -1897,8 +1951,9 @@
             var isCheck = !!checkOf(l);
             var header = h('header', { class: 'trp-qhead' }, [
                 h('span', { class: 'trp-qhead__icon', 'aria-hidden': 'true' }, icon(exam ? 'fa-lock' : (isCheck ? 'fa-clipboard-check' : 'fa-question-circle'))),
+                // A quick check's title is its lesson's; the course name would only cut it off.
                 h('h1', { class: 'trp-qhead__title' }, [h('span', { text: isCheck ? t('qc_title', { title: l.title || quiz.title || '' }) : (quiz.title || l.title || '') }),
-                    view.course.name ? h('span', { class: 'trp-qhead__course', text: ' · ' + view.course.name }) : null]),
+                    view.course.name && !isCheck ? h('span', { class: 'trp-qhead__course', text: ' · ' + view.course.name }) : null]),
                 isKiosk && data.attempt_number ? h('span', { class: 'trp-pill trp-pill--info' }, [icon('fa-redo'),
                     Number(data.attempts_max) > 0 ? t('k_attempt_of', { n: data.attempt_number, max: data.attempts_max }) : t('attempt_n', { n: data.attempt_number })]) : null,
                 h('button', { type: 'button', class: 'trp-btn trp-btn--ghost trp-btn--sm', on: { click: function () { openLesson(l.uid, isCheck ? { check: true } : null); } } },
@@ -1912,6 +1967,9 @@
             var cardHost = h('div', { class: 'trp-qhost' });
             var prevBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--ghost trp-btn--lg' }, [icon('fa-chevron-left'), t('previous')]);
             var flagBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--text', 'aria-pressed': 'false' }, [icon('fa-flag'), t('flag')]);
+            // "Flag for review" is exam chrome: a short quick check goes without it.
+            var noFlag = isCheck && qs.length <= 5;
+            flagBtn.hidden = noFlag;
             var nextBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--lg' });
             var footNote = isKiosk ? h('span', { class: 'trp-muted trp-qfoot__note' }, [icon('fa-cloud-upload-alt'), t('k_saving_note')])
                 : h('span', { class: 'trp-muted trp-qfoot__note' }, [icon('fa-eye'), t('nothing_recorded')]);
@@ -1967,7 +2025,7 @@
                 if (i < 0 || i >= qs.length) { return; }
                 cur = i;
                 mode = 'question';
-                flagBtn.hidden = false;
+                flagBtn.hidden = noFlag;
                 nextBtn.hidden = false;
                 renderQuestion();
             }
@@ -2105,7 +2163,8 @@
             var third = passed
                 ? (validity && !isCheck ? stat(t('good_for'), validity === 1 ? t('month_1') : t('months_n', { n: validity })) : stat(t('attempt_label'), maxTries ? t('attempt_of', { n: triesUsed, m: maxTries }) : String(triesUsed)))
                 : stat(t('tries_left'), triesLeft !== null ? String(triesLeft) : t('unlimited_short'));
-            var stats = h('div', { class: 'trp-stats' }, [
+            // A quick check's result is compact (smaller ring, no stats row): what was missed and why stays in view.
+            var stats = isCheck ? null : h('div', { class: 'trp-stats' }, [
                 correctN !== null ? stat(t('correct_label'), t('of', { n: correctN, m: total })) : stat(t('correct_label'), t('points_of', { n: res.points_earned, m: res.points_possible })),
                 stat(t('time_label'), fmtTook(tookMs)),
                 third
@@ -2116,22 +2175,25 @@
             if (isKiosk && passed) { msg = kx && kx.signLabel ? t('k_pass_sign_msg', { first: adapter.learnerFirst || '', course: view.course.name || '' }) : t('k_pass_msg', { first: adapter.learnerFirst || '' }); }
             if (isCheck && !passed) { msg = mustPass ? t('qc_fail_must_msg') : t('qc_fail_msg'); }
             if (kLocked && !passed) { msg = t('k_locked_msg'); }
-            else if (isKiosk && !passed && typeof res.attempts_left === 'number' && Number(res.attempts_max) > 0) {
+            else if (isKiosk && !passed && typeof res.attempts_left === 'number' && Number(res.attempts_max) > 0
+                && !(isCheck && mustPass && res.attempts_left === 1)) {   // a must-pass check's last try: the warning below says it
                 msg = msg + ' ' + (res.attempts_left === 1 ? t('attempts_left_1') : t('attempts_left_n', { n: res.attempts_left }));
             }
-            var hero = h('section', { class: 'trp-card trp-result' + (passed ? ' is-pass' : ' is-fail') }, [
+            var line = t('pass_mark', { pct: res.pass_pct }) + ' · ' + (isCheck && correctN !== null ? t('qc_correct_n', { n: correctN, m: total })
+                : t('points_of', { n: res.points_earned, m: res.points_possible }));
+            var hero = h('section', { class: 'trp-card trp-result' + (passed ? ' is-pass' : ' is-fail') + (isCheck ? ' trp-result--compact' : '') }, [
                 ringEl,
                 h('div', { class: 'trp-result__body' }, [
                     h('span', { class: 'trp-pill ' + (passed ? 'trp-pill--ok' : 'trp-pill--bad') }, [icon(passed ? 'fa-check-circle' : 'fa-times-circle'), passed ? t('passed_chip') : t('failed_chip')]),
                     h('h1', { class: 'trp-result__title', text: headline }),
-                    h('p', { class: 'trp-result__line' }, [t('pass_mark', { pct: res.pass_pct }) + ' · ' + t('points_of', { n: res.points_earned, m: res.points_possible })]),
+                    h('p', { class: 'trp-result__line' }, [line]),
                     h('p', { class: 'trp-result__msg', text: timeUp ? t('time_up') + ' ' + msg : msg }),
                     stats
                 ])
             ]);
             var parts = [h('div', { class: 'trp-result__meta' }, [
                 h('span', null, [icon(l.quiz && l.quiz.role === 'exam' ? 'fa-lock' : (isCheck ? 'fa-clipboard-check' : 'fa-question-circle')),
-                    (isCheck ? t('t_check') + ' · ' : '') + (l.title || '') + (view.course.name ? ' · ' + view.course.name : '')]),
+                    (isCheck ? t('t_check') + ' · ' : '') + (l.title || '') + (view.course.name && !isCheck ? ' · ' + view.course.name : '')]),
                 isKiosk && res.attempt_number ? h('span', { class: 'trp-pill trp-pill--info' }, [icon('fa-redo'),
                     Number(res.attempts_max) > 0 ? t('k_attempt_of', { n: res.attempt_number, max: res.attempts_max }) : t('attempt_n', { n: res.attempt_number })]) : null,
                 h('span', { class: 'trp-muted', text: t('finished_at', { time: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }) + ' · ' + t('took', { t: fmtTook(tookMs) }) })
@@ -2139,11 +2201,23 @@
             if (res.critical_missed > 0) {
                 parts.push(h('div', { class: 'trp-banner trp-banner--bad', role: 'alert' }, [icon('fa-exclamation-triangle'), h('span', { text: t('critical_missed') })]));
             }
+            // Must pass, one try left: say what running out means before the last try.
+            if (isKiosk && isCheck && mustPass && !passed && !kLocked && triesLeft === 1) {
+                parts.push(h('div', { class: 'trp-banner trp-banner--warn', role: 'status' }, [icon('fa-exclamation-triangle'), h('span', { text: t('qc_fail_last') })]));
+            }
+            // A missed quick check: back to the lesson's content ("Watch again" / "Read again").
+            var againBtn = null;
+            if (isCheck && !passed && !kLocked) {
+                var againKey = l.type === 'video' ? 'qc_again_video' : (l.type === 'image' ? 'qc_again_image' : 'qc_again_read');
+                againBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--ghost trp-btn--sm trp-qc__again', on: { click: function () { openLesson(l.uid); } } },
+                    [icon(l.type === 'video' ? 'fa-play-circle' : 'fa-undo'), t(againKey)]);
+            }
             var reviewCard = h('section', { class: 'trp-card trp-missed' }, [
                 h('header', { class: 'trp-missed__head' }, [
                     h('span', { class: 'trp-tile trp-tile--muted', 'aria-hidden': 'true' }, icon('fa-book-open')),
                     h('h2', { class: 'trp-card__title', text: t('what_to_review') }),
-                    missed.length ? h('span', { class: 'trp-pill trp-pill--bad' }, [icon('fa-times'), t('n_missed', { n: missed.length })]) : null
+                    missed.length ? h('span', { class: 'trp-pill trp-pill--bad' }, [icon('fa-times'), t('n_missed', { n: missed.length })]) : null,
+                    againBtn
                 ])
             ]);
             if (fb.mode === 'score_only') {
@@ -2151,8 +2225,9 @@
             } else if (!missed.length) {
                 reviewCard.appendChild(h('p', { class: 'trp-muted', text: t('nothing_missed') }));
             } else {
-                reviewCard.appendChild(h('p', { class: 'trp-muted', text: t('quick_look') }));
-                if ((res.topics_missed || []).length) {
+                // A quick check goes straight to the missed questions (each names its topic).
+                if (!isCheck) { reviewCard.appendChild(h('p', { class: 'trp-muted', text: t('quick_look') })); }
+                if (!isCheck && (res.topics_missed || []).length) {
                     reviewCard.appendChild(h('div', { class: 'trp-topics' }, [h('strong', { text: t('topics_missed') })].concat(res.topics_missed.map(function (tp) { return h('span', { class: 'trp-chip', text: tp }); }))));
                 }
                 reviewCard.appendChild(h('ol', { class: 'trp-missed__list' }, missed.map(function (m) {
@@ -2202,10 +2277,14 @@
             var footText = t('nothing_recorded');
             if (isKiosk) {
                 footText = kx && kx.signLabel ? t('k_score_saved') : t('k_score_recorded');
+                // A quick check never goes on the training record (the record's score is the final exam's).
+                if (isCheck) { footText = passed && kx && kx.signLabel ? t('qc_passed_sign') : t('qc_not_record'); }
                 if (passed || kLocked) { retry.hidden = true; }
                 if (!passed && !kLocked && isCheck && !mustPass) {
-                    // An optional quick check: try again while tries remain, or carry on (the lesson is done).
+                    // An optional quick check: try again while tries remain, or go on (the lesson is done).
                     retry.hidden = triesLeft === 0;
+                    var nx = order[order.indexOf(l.uid) + 1];
+                    if (nx && !isLocked(nx)) { clear(cont); cont.appendChild(document.createTextNode(t('next_lesson'))); cont.appendChild(icon('fa-arrow-right')); }
                     actions = [retry, cont];
                 } else if (!passed && !kLocked) {
                     retry.className = 'trp-btn trp-btn--primary trp-btn--lg';

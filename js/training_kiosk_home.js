@@ -162,7 +162,10 @@
         }
         var due = dueLine(c);
         if (due) { body.push(due); }
-        if (c.resume && c.resume.title) {
+        if (c.resume && c.resume.title && c.resume.check) {
+            // The lesson is watched/read; its must-pass quick check is what is left (progress can still read 0%).
+            body.push(el('p', { class: 'kl-hint' }, [icon('fa-clipboard-check'), el('span', { text: t('home.pick_up_check', { title: c.resume.title }) })]));
+        } else if (c.resume && c.resume.title) {
             body.push(el('p', { class: 'kl-hint' }, [icon('fa-bookmark'), el('span', { text: t('home.pick_up', { n: c.resume.n, title: c.resume.title }) })]));
         } else if (c.needs_practical && c.state !== 'evaluation') {
             body.push(el('p', { class: 'kl-hint' }, [icon('fa-hard-hat'), el('span', { text: t('home.includes_practical') })]));
