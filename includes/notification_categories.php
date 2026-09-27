@@ -33,6 +33,15 @@ function push_notification_categories(): array {
             'icon'  => 'fas fa-database',
             'types' => ['Backup', 'Comet Backup'],
         ],
+        // Training reminders and alerts (LMS Phase 5, S9) so people can mute them. 'Training' (records
+        // integrity, kiosk and directory alerts) and 'Training Odoo' (write-back problems) stay unmapped:
+        // always pushed, never muted along with digests. Who receives any Training type at all is decided
+        // by includes/module_access.php (the role must hold Training).
+        'training' => [
+            'label' => 'Training',
+            'icon'  => 'fas fa-hard-hat',
+            'types' => ['Training Digest', 'Training Escalation', 'Training Video'],
+        ],
         'system' => [
             'label' => 'System & Admin',
             'icon'  => 'fas fa-cogs',
