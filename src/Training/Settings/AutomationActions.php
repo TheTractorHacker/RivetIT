@@ -14,17 +14,20 @@ use ITFlow\Training\Automation\AutomationSettings;
  *   1  one known ta_* action (fixed list below; the first one present wins)
  *   2  on the agent page an admin-only action is refused for everyone, admins included (they use Admin >
  *      Training): all of Odoo write-back. So is a post that carries an admin-only FIELD (the public
- *      certificate check switch riding on "Save certificate settings"); for ta_cert_save the stored
- *      switch value is put back into the post before the handler sees it, so an agent-page save can
- *      never change it.
+ *      certificate check switch riding on "Save certificate settings"), so the handler never sees one
+ *      from the agent page (an absent verify_enabled leaves the stored switch as it is).
  *   3  DB 2.6.96 installed (AutomationSettings::load()['ready'])
  *   4  the lane's handler class exists: OdooSync\OdooAdmin, Certificates\CertAdmin, Reminders\ReminderAdmin
  *      (each reacts only to its own keys, clamps/allowlists every value and saves through
  *      AutomationSettings::save() with the posted `version`)
  *   5  logAction + one audit event ('training.automation_saved', entity training_automation #1, action = the
- *      settings group) for every change; runs (discover, Check now) are logged only.
+ *      settings group) for every change - unless the handler wrote that event itself; runs (discover,
+ *      Check now) are logged only.
  *
- * Handler contract (lanes B, C, D): handle(...) returns null when none of its keys is present, or
+ * Handler contract (lanes B, C, D): OdooAdmin::handle($db, $post, $userId), CertAdmin::handle($db, $post, $files,
+ * $userId), ReminderAdmin::handle($db, $post, $userId); each is also passed one more trailing argument, bool
+ * $adminPage (true = Admin > Training), which a handler may declare as an optional last parameter
+ * (`?bool $adminPage = null`) or ignore. handle(...) returns null when none of its keys is present, or
  * [type, message] / ['type' => ..., 'message' => ...] with type success|error|warning|info. The message is
  * PLAIN TEXT: this class escapes it for the flash toast (an already-escaped message is decoded first, so
  * either convention renders the same). A \RuntimeException('conflict') from AutomationSettings::save()
@@ -81,7 +84,7 @@ final class AutomationActions
     /**
      * @param array{user_id:int, name:string, is_admin:bool} $who
      * @param bool $adminPage true = Admin > Training (admin/post.php already required an admin)
-     * @param \Closure|null $handler tests: fn(string $group, array $post, array $files, int $userId): ?array instead of the lane classes
+     * @param \Closure|null $handler tests: fn(string $group, array $post, array $files, int $userId, bool $adminPage): ?array instead of the lane classes
      * @return array{anchor:string, type:string, message:string}
      */
     public static function handle(\mysqli $db, array $post, array $files, array $who, bool $adminPage, ?\Closure $handler = null): array
@@ -112,23 +115,18 @@ final class AutomationActions
         if (!$ta['ready']) {
             return self::out($anchor, 'Run the database update first: the Training automation tables are not installed yet.', 'error');
         }
-        if (!$adminPage && $action === 'ta_cert_save') {
-            // The switch is not on this page's form; keep whatever an administrator set.
-            unset($post['verify_enabled']);
-            if ((int) $ta['tauto_verify_enabled'] === 1) {
-                $post['verify_enabled'] = '1';
-            }
-        }
 
         [$class, $withFiles] = self::HANDLERS[$group];
         if ($handler === null && !class_exists($class)) {
             return self::out($anchor, 'This part of Training automation is not installed yet. Nothing was saved.', 'warning');
         }
+        $auditMark = $changes ? self::lastAuditId($db) : null;
         try {
             if ($handler !== null) {
-                $res = $handler($group, $post, $files, $userId);
+                $res = $handler($group, $post, $files, $userId, $adminPage);
             } else {
-                $res = $withFiles ? $class::handle($db, $post, $files, $userId) : $class::handle($db, $post, $userId);
+                // The trailing $adminPage is extra for a handler that does not declare it (PHP ignores it).
+                $res = $withFiles ? $class::handle($db, $post, $files, $userId, $adminPage) : $class::handle($db, $post, $userId, $adminPage);
             }
         } catch (\RuntimeException $e) {
             if ($e->getMessage() === 'conflict') {
@@ -161,7 +159,7 @@ final class AutomationActions
                 error_log('Training automation: logAction failed: ' . $e->getMessage());
             }
         }
-        if ($changes && $type !== 'error' && class_exists(\ITFlow\Audit\AuditService::class)) {
+        if ($changes && $type !== 'error' && class_exists(\ITFlow\Audit\AuditService::class) && self::lastAuditId($db) === $auditMark) {
             try {
                 \ITFlow\Audit\AuditService::record('training.automation_saved', $userId > 0 ? $userId : null, 'training_automation', 1, $group,
                     "$name changed Training automation: $label", ['action' => $action, 'page' => $adminPage ? 'admin' : 'agent', 'result' => $type]);
@@ -170,6 +168,21 @@ final class AutomationActions
             }
         }
         return self::out($anchor, $message, $type);
+    }
+
+    /** The newest training.automation_saved audit id (0 when none, null when the audit table cannot be read). */
+    private static function lastAuditId(\mysqli $db): ?int
+    {
+        try {
+            $res = $db->query("SELECT COALESCE(MAX(audit_id), 0) AS m FROM audit_events WHERE event_type = 'training.automation_saved'");
+            $row = $res instanceof \mysqli_result ? $res->fetch_assoc() : null;
+            if ($res instanceof \mysqli_result) {
+                $res->free();
+            }
+            return is_array($row) ? (int) $row['m'] : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /** @return array{0:string, 1:string} [type, escaped message] */
