@@ -192,6 +192,25 @@ $tr_cm_mb = static fn(int $b): string => (string) max(1, intdiv($b, 1048576));
                                             <div class="tr-note" id="tr-cm-vid-hevc" hidden><i class="fas fa-exclamation-triangle" aria-hidden="true"></i><span>This video uses HEVC. Windows PCs may not play it. On iPhone: Settings › Camera › Formats › Most Compatible.</span></div>
                                             <div class="tr-note" id="tr-cm-vid-faststart" hidden><i class="fas fa-info-circle" aria-hidden="true"></i><span>Plays fine; the first play may take a moment longer to start.</span></div>
                                         </div>
+                                        <!-- Closed captions for this language's uploaded video (DB 2.6.98; shown only when flags.captions). -->
+                                        <div class="tr-cm-cap" id="tr-cm-cap" hidden>
+                                            <div class="tr-cm__label mb-2"><i class="fas fa-closed-captioning me-1" aria-hidden="true"></i>Captions (CC) <span class="tr-cm-cap__lang" id="tr-cm-cap-lang"></span></div>
+                                            <div class="tr-drop tr-drop--row tr-drop--compact tr-edit-only" id="tr-cm-cap-drop">
+                                                <span class="tr-drop__icon" aria-hidden="true"><i class="fas fa-closed-captioning"></i></span>
+                                                <span class="d-flex flex-column gap-1">
+                                                    <span class="tr-drop__title">Drop a caption file (.vtt or .srt) here or <button type="button" class="tr-drop__browse" data-tr-upload-button>browse</button></span>
+                                                    <span class="tr-drop__hint">One file for this language, up to 1 MB. Learners turn captions on with the CC button; formatting and links are removed.</span>
+                                                    <span class="tr-drop__progress"></span>
+                                                </span>
+                                            </div>
+                                            <div class="tr-cap-file" id="tr-cm-cap-state" hidden>
+                                                <span class="tr-cap-file__icon" aria-hidden="true"><i class="fas fa-closed-captioning"></i></span>
+                                                <span class="tr-cap-file__body"><span class="tr-cap-file__name" id="tr-cm-cap-name"></span><span class="small text-muted" id="tr-cm-cap-meta"></span></span>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary tr-edit-only" id="tr-cm-cap-replace"><i class="fas fa-sync-alt me-1" aria-hidden="true"></i>Replace…</button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger tr-edit-only" id="tr-cm-cap-remove"><i class="fas fa-times me-1" aria-hidden="true"></i>Remove</button>
+                                            </div>
+                                            <div class="tr-field-error" id="tr-cm-cap-error" role="alert"></div>
+                                        </div>
                                     </div>
                                     <div data-vsrc="link" class="d-flex flex-column gap-3">
                                         <div>
