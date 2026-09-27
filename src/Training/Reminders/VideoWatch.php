@@ -432,6 +432,7 @@ final class VideoWatch
                 continue;
             }
             try {
+                $mine = array_map(static fn($v) => self::ownCoursesFirst($v, $uid), $mine);
                 $first = reset($mine);
                 $firstCourse = reset($first['courses']);
                 $ok = $this->notify->once($uid, $today, 'video', 'Training Video', self::alertText($mine),
@@ -456,6 +457,14 @@ final class VideoWatch
             }
         }
         return $sent;
+    }
+
+    /** The courses $userId is responsible for come first, so their message names their course. */
+    private static function ownCoursesFirst(array $v, int $userId): array
+    {
+        $own = array_filter($v['courses'], static fn($c) => (int) $c['responsible'] === $userId);
+        $v['courses'] = $own + $v['courses'];
+        return $v;
     }
 
     /**
