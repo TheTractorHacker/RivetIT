@@ -15,7 +15,7 @@ final class Labels
     /** Evidence strength legend (§1.4 #5; details as in the Admin-Transcript mockup). */
     public const STRENGTH = [
         'A' => ['label' => 'PIN + signature', 'detail' => 'employee signed at the kiosk'],
-        'B' => ['label' => 'Trainer session', 'detail' => 'trainer and employee signed'],
+        'B' => ['label' => 'Trainer session', 'detail' => 'trainer and employee signed, or the employee confirmed with a PIN'],
         'C' => ['label' => 'Trainer attests', 'detail' => 'employee did not sign'],
         'D' => ['label' => 'Scan on file', 'detail' => 'scan of a card or certificate on file'],
         'E' => ['label' => 'Recorded by office', 'detail' => 'nothing signed'],

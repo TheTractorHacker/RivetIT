@@ -113,6 +113,10 @@ trr_print_begin($trr_title . ' · ' . $trr_cert['person_name'], 'landscape');
 <div class="trr-toolbar" role="toolbar" aria-label="Certificate actions">
     <a class="trr-toolbar__link" href="/agent/training_transcript.php?contact_id=<?= (int) $trr_cert['contact_id'] ?>">&larr; Transcript</a>
     <span class="trr-toolbar__hint">US Letter, landscape. Choose “Save as PDF” in the print dialog for a file.</span>
+    <?php if ($trr_cert['kind'] === 'training' && is_file(__DIR__ . '/training_pdf.php')) { ?>
+    <a class="trr-toolbar__link" href="/agent/training_pdf.php?doc=certificate&amp;completion_id=<?= (int) $trr_cert['completion_id'] ?>&amp;lang=en" target="_blank" rel="noopener" hreflang="en">PDF (English)</a>
+    <a class="trr-toolbar__link" href="/agent/training_pdf.php?doc=certificate&amp;completion_id=<?= (int) $trr_cert['completion_id'] ?>&amp;lang=es" target="_blank" rel="noopener" hreflang="es" lang="es">PDF en español</a>
+    <?php } ?>
     <button type="button" class="trr-toolbar__btn js-print">Print</button>
 </div>
 

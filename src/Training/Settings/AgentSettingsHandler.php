@@ -16,6 +16,9 @@ namespace ITFlow\Training\Settings;
  *   4  kiosk items also need module_training_kiosk >= 3
  *   5  the same schema checks as the admin handlers, then SettingsService with the admin-only
  *      fields off
+ * The Phase 5 automation cards (ta_* actions: certificates, reminders, video checks, Odoo write-back)
+ * go to AutomationActions after step 1, which applies the same admin-only rule (all of Odoo write-back
+ * and the public certificate check switch are refused here).
  * It returns where to go (this page, at the action's section) and the flash for it.
  */
 final class AgentSettingsHandler
@@ -43,7 +46,7 @@ final class AgentSettingsHandler
      * @param array{user_id:int, name:string, is_admin:bool, training_level:int, kiosk_level:int, module_on:bool, schema_ready:bool} $who
      * @return array{url:string, type:string, message:string}
      */
-    public static function handle(\mysqli $db, array $post, array $who): array
+    public static function handle(\mysqli $db, array $post, array $who, array $files = []): array
     {
         $isAdmin = $who['is_admin'] === true;
         $tLevel = (int) $who['training_level'];
@@ -54,6 +57,16 @@ final class AgentSettingsHandler
         }
         if ($tLevel < 3) {
             return self::go('', "Nothing was saved. Only people with full Training access can change Training settings.", 'error');
+        }
+
+        // Phase 5 automation cards (DB 2.6.96).
+        if (class_exists(AutomationActions::class) && AutomationActions::actionIn($post) !== null) {
+            $ta = AutomationActions::handle($db, $post, $files, [
+                'user_id' => (int) $who['user_id'],
+                'name' => (string) $who['name'],
+                'is_admin' => $isAdmin,
+            ], false);
+            return self::go($ta['anchor'], $ta['message'], $ta['type']);
         }
 
         $action = null;

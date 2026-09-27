@@ -9145,3 +9145,115 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.95'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.95') {
+        // Training / LMS Phase 5 - automation settings, Odoo write-back outbox and map, reminder log,
+        // video watch (plan A5/A7/A12/A16). Operational tables only: nothing is hashed or ledgered.
+        // Everything that acts is OFF by default (Odoo write-back, reminders). Idempotent: IF NOT EXISTS /
+        // INSERT IGNORE, so a half-applied run can be re-run.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_automation` (
+            `tauto_id` tinyint(3) unsigned NOT NULL,
+            `tauto_odoo_push_enabled` tinyint(1) NOT NULL DEFAULT 0,
+            `tauto_odoo_mode` enum('resume','skill','note') NOT NULL DEFAULT 'resume',
+            `tauto_odoo_resume_type_id` int(11) DEFAULT NULL,
+            `tauto_odoo_award_type_id` int(11) DEFAULT NULL,
+            `tauto_odoo_skill_type_id` int(11) DEFAULT NULL,
+            `tauto_odoo_skill_level_id` int(11) DEFAULT NULL,
+            `tauto_odoo_push_awards` tinyint(1) NOT NULL DEFAULT 0,
+            `tauto_odoo_push_since` date DEFAULT NULL,
+            `tauto_odoo_target_key` char(16) DEFAULT NULL,
+            `tauto_odoo_target_confirmed_at_utc` datetime(3) DEFAULT NULL,
+            `tauto_odoo_discovery_json` mediumtext DEFAULT NULL,
+            `tauto_odoo_discovered_at_utc` datetime(3) DEFAULT NULL,
+            `tauto_odoo_key_expires_on` date DEFAULT NULL,
+            `tauto_odoo_paused_reason` varchar(255) DEFAULT NULL,
+            `tauto_odoo_last_run_at_utc` datetime(3) DEFAULT NULL,
+            `tauto_odoo_last_result` varchar(255) DEFAULT NULL,
+            `tauto_reminders_enabled` tinyint(1) NOT NULL DEFAULT 0,
+            `tauto_reminder_weekdays` varchar(20) NOT NULL DEFAULT '1,2,3,4,5',
+            `tauto_escalate_after_days` smallint(5) unsigned NOT NULL DEFAULT 14,
+            `tauto_video_recheck_enabled` tinyint(1) NOT NULL DEFAULT 1,
+            `tauto_verify_enabled` tinyint(1) NOT NULL DEFAULT 1,
+            `tauto_cert_signer_name` varchar(200) DEFAULT NULL,
+            `tauto_cert_signer_title` varchar(200) DEFAULT NULL,
+            `tauto_cert_signer_png` mediumtext DEFAULT NULL,
+            `tauto_daily_last_run_on` date DEFAULT NULL,
+            `tauto_daily_last_result` varchar(255) DEFAULT NULL,
+            `tauto_version` int(10) unsigned NOT NULL DEFAULT 0,
+            `tauto_updated_by` int(11) DEFAULT NULL,
+            `tauto_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+            PRIMARY KEY (`tauto_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_odoo_map` (
+            `tomap_entity` enum('course','achievement') NOT NULL,
+            `tomap_entity_id` int(11) NOT NULL,
+            `tomap_push` tinyint(1) NOT NULL,
+            `tomap_target_key` char(16) DEFAULT NULL,
+            `tomap_odoo_skill_id` int(11) DEFAULT NULL,
+            `tomap_updated_by` int(11) NOT NULL,
+            `tomap_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+            PRIMARY KEY (`tomap_entity`,`tomap_entity_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_odoo_outbox` (
+            `todoo_id` int(11) NOT NULL AUTO_INCREMENT,
+            `todoo_target_key` char(16) NOT NULL,
+            `todoo_integration_id` int(11) NOT NULL,
+            `todoo_source_type` enum('completion','award') NOT NULL,
+            `todoo_source_id` int(11) NOT NULL,
+            `todoo_action` enum('create','close') NOT NULL,
+            `todoo_contact_id` int(11) NOT NULL,
+            `todoo_mode` enum('resume','skill','note') NOT NULL,
+            `todoo_marker` varchar(40) NOT NULL,
+            `todoo_status` enum('pending','running','done','failed','dead','skipped') NOT NULL DEFAULT 'pending',
+            `todoo_attempts` smallint(5) unsigned NOT NULL DEFAULT 0,
+            `todoo_next_attempt_at_utc` datetime(3) NOT NULL,
+            `todoo_lease_until_utc` datetime(3) DEFAULT NULL,
+            `todoo_odoo_employee_id` int(11) DEFAULT NULL,
+            `todoo_odoo_model` varchar(64) DEFAULT NULL,
+            `todoo_odoo_res_id` int(11) DEFAULT NULL,
+            `todoo_payload_json` text DEFAULT NULL,
+            `todoo_error_class` enum('auth','config','transient','permanent','hold','policy') DEFAULT NULL,
+            `todoo_last_error` varchar(500) DEFAULT NULL,
+            `todoo_created_at_utc` datetime(3) NOT NULL,
+            `todoo_done_at_utc` datetime(3) DEFAULT NULL,
+            `todoo_updated_by` int(11) DEFAULT NULL,
+            `todoo_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+            PRIMARY KEY (`todoo_id`),
+            UNIQUE KEY `uq_training_todoo_source` (`todoo_target_key`,`todoo_source_type`,`todoo_source_id`,`todoo_action`),
+            KEY `idx_training_todoo_due` (`todoo_target_key`,`todoo_status`,`todoo_next_attempt_at_utc`),
+            KEY `idx_training_todoo_contact` (`todoo_contact_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_reminder_log` (
+            `trem_id` int(11) NOT NULL AUTO_INCREMENT,
+            `trem_user_id` int(11) NOT NULL,
+            `trem_date` date NOT NULL,
+            `trem_kind` varchar(32) NOT NULL,
+            `trem_counts_json` text NOT NULL,
+            `trem_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`trem_id`),
+            UNIQUE KEY `uq_training_trem` (`trem_user_id`,`trem_date`,`trem_kind`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_video_watch` (
+            `tvwatch_provider` enum('youtube','vimeo') NOT NULL,
+            `tvwatch_ext_id` varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+            `tvwatch_ext_hash` varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',
+            `tvwatch_status` enum('ok','not_found','private','embed_disabled','live','duration_changed') DEFAULT NULL,
+            `tvwatch_http` smallint(5) unsigned DEFAULT NULL,
+            `tvwatch_oembed_duration_s` int(10) unsigned DEFAULT NULL,
+            `tvwatch_bad_streak` tinyint(3) unsigned NOT NULL DEFAULT 0,
+            `tvwatch_first_bad_at_utc` datetime(3) DEFAULT NULL,
+            `tvwatch_last_bad_at_utc` datetime(3) DEFAULT NULL,
+            `tvwatch_checked_at_utc` datetime(3) NOT NULL,
+            `tvwatch_alerted_at_utc` datetime(3) DEFAULT NULL,
+            PRIMARY KEY (`tvwatch_provider`,`tvwatch_ext_id`,`tvwatch_ext_hash`),
+            KEY `idx_training_tvwatch_checked` (`tvwatch_checked_at_utc`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "INSERT IGNORE INTO `training_automation` (`tauto_id`) VALUES (1)");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.96'");
+    }

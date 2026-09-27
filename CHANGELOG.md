@@ -2,6 +2,81 @@
 
 This file documents all notable changes made to ITFlow.
 
+## [Unreleased] ITFlow Internal IT - Training (LMS) Phase 5: public certificate check, certificate and transcript PDFs, reminder digests, video checks, Odoo write-back, item analysis
+Database 2.6.95 -> 2.6.96: five new operational tables (`training_automation` with its one settings row,
+`training_odoo_outbox`, `training_odoo_map`, `training_reminder_log`, `training_video_watch`); nothing hashed or
+ledgered. Apply it through **Admin > Update > Update Database** (one click), then check that the version reads 2.6.96
+and `training_automation` has one row. New agent actions `insight_items`, `insight_items_csv`, `insight_revisions`
+(Training 2). New cron script `cron/training_worker.php` (see Ops below). Everything that acts is **off** until an
+administrator or Training manager switches it on; external video checks are on (they only alert).
+
+### New Features & Updates
+- **Public certificate check** at `/verify/?t=...`, the address the QR code on every certificate already points to.
+  Anyone who scans it sees Valid, Expiring soon, Expired or Revoked with only the name, course, issued and expiry
+  dates, certificate number and "External card recorded" (never the score, department, issuer or void reason), or
+  Not found / Try again shortly / Not available. A revoked certificate shows no expiry and says not to accept it; a
+  page with no record details says whom to contact. English and Spanish (browser language or a link). No login, cookies
+  or scripts; strict security headers; nothing cached. Checks are limited to 240 a minute overall and 20 a minute per
+  visitor (an IPv6 visitor counts as its /64), counted before any database lookup; a visitor over its own limit does
+  not use up everyone else's, and the counters are a fixed set of small files. Each record's fingerprint is re-checked
+  before a status is shown: a record that no longer matches shows "Not available" and administrators get one alert a
+  day. An administrator can turn the public check off (Training settings > Certificates); while it or Training is off
+  every code shows "Not available: online certificate checks are turned off".
+- **Certificate PDF** (Letter landscape, English/Spanish, QR code, signatory, REVOKED / SUPERSEDED watermarks,
+  outside cards and paper records as a "Training record" sheet that never says "certifies"; acknowledgments have no
+  certificate) and **transcript PDF** (Letter portrait, qualifications, open assignments, history with struck-through
+  voids and "Revoked ... by ...: ..." lines, achievements, evidence legend, "Page X of Y" and the records-ledger
+  footer). **Download PDF** on the transcript; **PDF (English)** and **PDF en español** on the certificate and record
+  pages. The PDF words how the record was proven exactly like the on-screen certificate ("PIN attestation" unless the
+  employee drew a signature). Department scope applies as on screen, and any refusal is a plain "not found". Exports are
+  logged; PDFs are never stored on the server. The evidence legend's B line now reads "trainer and employee signed, or
+  the employee confirmed with a PIN" (it also covers online courses confirmed with a PIN).
+- **Training settings** (still one page, Admin > Training and Training > Training settings for Training level 3) gain
+  two sections, also found by the settings search:
+  - **Certificates**: signatory name, title and signature image (PNG/JPEG, re-encoded and size-capped), a sample
+    certificate, and the public check switch (administrators only; read-only for Training 3).
+  - **Reminders & automation**: reminder digests, external video checks, Odoo write-back (administrators only; a
+    read-only summary for Training 3) and the automation worker's last runs (the schedule lines for administrators).
+- **Reminder digests** (off by default; Training 3 or an administrator switches them on and picks the weekdays): one
+  in-app notification a day per person with Training access, listing overdue, due-soon and renewal-due training for the
+  departments they can see; Training 3 and administrators also get an escalation for people overdue longer than N days
+  (default 14). "Preview today's digests" shows what would be sent without sending. No email.
+- **External video checks** (on; they only alert): once a day the YouTube and Vimeo videos in published courses are
+  checked. A video that is private, removed, not embeddable, live or changed length on two checks at least an hour apart
+  alerts the course's responsible person (Training 2 or higher) and Training 3 / administrators once; "Check now" on
+  the card. The builder's own video checks are not touched.
+- **Odoo write-back** (off by default; administrators only): training records become résumé lines ("Training" type)
+  on the linked Odoo employee, with the certificate number, how it was recorded, the expiry and "Record of truth:
+  ITFlow"; a voided record's line is closed ("(revoked)" and an end date); achievements can be sent too (each one
+  switched on), and courses can be opted out. Nothing is ever deleted in Odoo. It pauses by itself on a changed Odoo
+  address, a non-https address, a refused key or configuration errors, and holds a record whose employee link is
+  flagged or whose Odoo name no longer matches. Only résumé lines the integration's own Odoo user created are ever
+  treated as ITFlow's (a line someone else adds with the same reference is ignored). Check Odoo and write-back need an
+  https:// Odoo address. Enabling needs Check Odoo, a staging acknowledgement on staging, and on production a fresh
+  employee-link check. The Odoo copy is not evidence: employees with Odoo logins can edit their own résumé lines.
+  The card shows the outbox (retry / skip), a dry-run preview and the "Send to Odoo" lists. Administrators are warned
+  before the Odoo API key expires (from 14 days out).
+- **Item analysis** (Training 2 and up, your departments only, no names): per question % correct, discrimination
+  (Good / Fair / Weak / Check key), most-chosen wrong answer, answer spread and version changes, with filters for
+  version, language, quiz type (final exams and quizzes, lesson quick checks, or all) and period, CSV export and print.
+  Discrimination and flags are hidden below 10 answers. **Compare versions** shows two published versions side by side
+  with what changed. Linked from Course analytics ("Full item analysis").
+- **Notifications**: a new **Training** push category (Training Digest, Training Escalation, Training Video) so people
+  can mute them on their phone. Odoo write-back problems ("Training Odoo") and records-integrity alerts ("Training")
+  are always pushed. Training notification types now reach only roles that hold Training (the Training kiosk permission
+  still receives "Training"); Administrator and Technician are unchanged.
+
+### Ops (after the database update; nothing is installed by the code)
+- Create the log first (a missing log file silently stops the job):
+  `sudo install -o www-data -g adm -m 0640 /dev/null /var/log/itflow_mw_training_worker.log`
+- Dry runs as www-data: `sudo -u www-data php /var/www/mw-itflow.foleyit.com/cron/training_worker.php --task=daily --dry-run --force`
+  and `... --task=odoo --dry-run` (prints nothing while write-back is off).
+- `/etc/cron.d/mw-itflow-training-worker` (root, 0644): `--task=odoo` every 10 minutes and `--task=daily` at 05:40,
+  both as www-data, appending to the log above (exact lines in the file header of `cron/training_worker.php`).
+- `/etc/logrotate.d/itflow-mw` for `/var/log/itflow_mw_*.log` (weekly, rotate 8, compress, delaycompress, missingok,
+  notifempty, create 0640 www-data adm, su www-data adm); check with `sudo logrotate -d /etc/logrotate.d/itflow-mw`.
+- No nginx change: `/verify/` is served by the existing `location /` and PHP handling.
+
 ## [Unreleased] ITFlow Internal IT - Training assignments: Reset and Un-waive
 No database change. New agent actions `assignment_reset_preview`, `assignment_reset`,
 `assignment_retake`, `assignment_unwaive`; new ledger event types `assignment.progress_reset`, `assignment.retake`,

@@ -384,3 +384,53 @@ realistically, months of further work, not a few more sessions.
   PCs, check-in header and heading. Verified: the full E2E (330 checks) plus 77 probe checks (security S1-S5, real
   YouTube and Vimeo embeds over postMessage, UX), zero console/CSP errors, no PIN/token in the ledger, logs or PHP log.
   Re-run: scratchpad `p34fix/final.sh`.
+- 2026-09-27: **Training (LMS) Phase 5** integrated on branch `lms-p5-int` (spec `lms-phase5-spec.md` with the
+  2026-09-26 deltas; lanes A platform/Upstream/settings shell/worker, B Odoo write-back, C public verify + PDFs, D
+  reminders/video/key expiry, E item analysis + Compare versions). All MUST and SHOULD items (M1-M3, S1-S9) plus L1.
+  DB 2.6.95 -> 2.6.96 (5 operational tables, one `training_automation` row). **Migration note: apply only through
+  Admin > Update > Update Database** (one click), then check 2.6.96 and one `training_automation` row. Settings stay on
+  the ONE Training settings page (new Certificates and Reminders & automation sections; Odoo write-back and the public
+  check switch are admin-only, read-only for Training 3). Integration fixes: `Automation\Notify` accepts the plain
+  `Training` type, so the public check's integrity alert goes out as the always-pushed records type instead of
+  "Training Odoo"; the worker's odoo line no longer repeats "odoo:" / "dry run". Verified on a schema-only scratch DB
+  with generated fixtures (no live rows) and the local mock Odoo on both protocols (no real Odoo call): migration twice
+  (identical information_schema, one seed row), fresh `db.sql` = migrated schema (only the pre-existing credentials
+  column order / `config_module_enable_accounting` default drift), static gates (route gate 153, category gate, mail /
+  unlink / notifyUser / SELECT * / P2-P3-names / video_checks / verify-bootstrap / escaping greps, 44 new classes
+  final), and every lane suite re-run on the merged tree: A 145/146 CLI, 32/36 HTTP, 12/12 + 12/12 browser, trial 18/19,
+  pre-migration 9 + 13, Training-off 5 (the 6 misses are lane-A-only expectations: "handler not installed yet" and
+  "Check Odoo" shown with no Odoo integration); B 283 + 59 + 13 + 7 + 55 browser; D 92 + 46; E 42 + 159 + 49 (first
+  run against the real Upstream classes); integration smoke 44/44 covering verify states/headers/integrity alert, PDFs
+  per role, page levels; worker
+  daily/odoo with everything OFF (silent, exit 0) and with reminders on (digests + escalation + key-expiry to the test
+  sink only). Live `notifications` count unchanged.
+  **Ops still to do after the merge (spec §6.2/§6.3):** `/var/log/itflow_mw_training_worker.log` (www-data, create
+  first), `/etc/cron.d/mw-itflow-training-worker` (odoo every 10 min, daily 05:40), `/etc/logrotate.d/itflow-mw`, the
+  two dry runs as www-data. No nginx change. Odoo write-back and reminders stay OFF until the owner enables them.
+  **Owner decisions pending (spec §1.5):** in-app digests now, email later with a Midwest-owned sender (L3); résumé
+  lines for achievements instead of gamification badges (L7 later); ledger anchor to Odoo deferred (L5); certificate
+  regulation wording (P2's "Meets the training requirements of ..." line prints when the course has one); Odoo is a
+  copy (every Odoo user can read the lines; employees with logins can edit their own). Note: the live Odoo integration
+  now points at **production** (`midwest-production`, JSON-2) with the owner's personal key; create the Officer-only
+  bot key before enabling write-back.
+- 2026-09-27: **Phase 5 review fixes** on `lms-p5-int` (security review 3 findings, UX review 9, E2E none). Security:
+  the public-check throttle counts a visitor before the shared budget (a visitor over its 20/min no longer spends the
+  240/min), keys IPv6 on its /64, writes nothing once the global cap is spent, and keeps a fixed set of at most 4,097
+  small files (no pruning inside a request; the daily worker prunes) - the reviewer's one-/64 probe went from 240
+  allowed / 5,001 files / ~20 MB to 20 allowed / 2 files / 12 KB. Odoo write-back only treats résumé lines created by
+  the integration's own Odoo user as ITFlow's (marker search filtered by `create_uid` in Odoo; the uid comes from the
+  legacy login or `context_get`, else the spec's employee-scoped search), so a line an employee plants with an upcoming
+  marker can no longer kill a colleague's record or trip the breaker; same filter on the voided-before-send path.
+  "Check Odoo" (admin POST and `--task=discover`) now refuses an http:// Odoo like enabling does. UX: the PDF words the
+  method like the on-screen certificate ("PIN attestation" unless signed); "PDF (English)" / "PDF en español" on the
+  record page and certificate toolbar; Spanish regulation line "Referencia normativa: OSHA 29 CFR ..."; the sample uses
+  P2's regulation rule; evidence legend B detail "... or the employee confirmed with a PIN" (P2 `Reports\Labels` and
+  the Upstream copy; the label itself is P2's frozen wording); `/verify/` hides the expiry on a revoked certificate and
+  says not to accept it, says "turned off" when switched off, shows whom to contact when there are no details, and
+  keeps dates on one line (no-break spaces); staging acknowledgement stays ticked for the same Odoo; numbered
+  "Before production" steps; worker/Odoo results as sentences (`Automation\ResultText`), zero outbox counts grey,
+  On/Off badges, corrected section intro. No schema change. Verified on scratch p5f (schema-only, mock Odoo on both
+  protocols + TLS front, no real Odoo): §10.1 gates clean (153 routes, 45 classes); lane A 145/146 CLI, 32/36 HTTP,
+  18/19 trial, 12+12 browser, pre 13+9+3, off 5 (the same 6 lane-A-only misses); B 310 Odoo (with the 22 s timeout),
+  62 admin, 15 worker, 7 pre-migration, 65 browser; C 28 throttle, 42 CLI, 31 verify HTTP, 135 verify browser, 99 PDF,
+  31 UI, 9 QR; D 92 + 46; E 42 + 159 + 49; full E2E 317/317.

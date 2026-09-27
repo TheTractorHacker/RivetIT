@@ -9,11 +9,17 @@ namespace ITFlow\Training\Settings;
  *                              compliance defaults (due soon, reissue, reopen window, target %,
  *                              evidence scan size); Recalculate assignments; Capture snapshot;
  *                              records ledger Verify now
+ *                              Phase 5 (DB 2.6.96): the certificate signatory and signature; reminder
+ *                              digests (switch, weekdays, escalation); external video checks (switch,
+ *                              Check now)
  *   Training 3 + Kiosk 3       kiosk session timeouts; setup-slip validity
  *   Admin only                 media limits and budget; the YouTube key (save, clear, test); media
  *                              purge; Odoo employee links (Check now, accept target, relink, unlink,
  *                              confirm); the nightly Odoo sync switch; the Odoo hire-date fill; the
- *                              Odoo PIN sign-in switch; PIN lockouts; device and system caps
+ *                              Odoo PIN sign-in switch; PIN lockouts; device and system caps;
+ *                              Phase 5: everything Odoo write-back (target, discovery, the switch, the
+ *                              outbox, per-course/achievement "Send to Odoo", key expiry) and the
+ *                              public certificate check switch
  *
  * Admins always resolve to Training 3 / Kiosk 3 (lookupUserPermission), so they may change
  * everything. The admin-only items are saved only through Admin > Training (admin/post.php,
@@ -37,6 +43,12 @@ final class SettingsPolicy
     public const PIN_LOCKOUTS = 'pin_lockouts';
     public const DEVICE_CAPS = 'device_caps';
     public const ODOO_PIN = 'odoo_pin';
+    // Phase 5 (Training automation cards; Settings\AutomationActions)
+    public const ODOO_WRITEBACK = 'odoo_writeback';
+    public const VERIFY_PAGE = 'verify_page';
+    public const CERT_SIGNATORY = 'cert_signatory';
+    public const REMINDERS = 'reminders';
+    public const VIDEO_WATCH = 'video_watch';
 
     public const NEEDS_TRAINING = 'training3';
     public const NEEDS_KIOSK = 'training3_kiosk3';
@@ -59,6 +71,11 @@ final class SettingsPolicy
         self::PIN_LOCKOUTS   => [self::NEEDS_ADMIN, 'PIN lockouts'],
         self::DEVICE_CAPS    => [self::NEEDS_ADMIN, 'Device and system caps'],
         self::ODOO_PIN       => [self::NEEDS_ADMIN, 'Odoo PIN sign-in'],
+        self::ODOO_WRITEBACK => [self::NEEDS_ADMIN, 'Odoo write-back'],
+        self::VERIFY_PAGE    => [self::NEEDS_ADMIN, 'The public certificate check'],
+        self::CERT_SIGNATORY => [self::NEEDS_TRAINING, 'The certificate signatory'],
+        self::REMINDERS      => [self::NEEDS_TRAINING, 'Training reminders'],
+        self::VIDEO_WATCH    => [self::NEEDS_TRAINING, 'External video checks'],
     ];
 
     /** The General & media form fields only an admin may send (media limits, budget, YouTube key). */

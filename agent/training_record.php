@@ -30,6 +30,7 @@ $tr_data = [
     'record' => $tr_record,
     'settings' => tro_records_settings($mysqli),
     'routes' => ['completion_void' => tro_has_route('completion_void')],
+    'certificate_pdf' => is_file(__DIR__ . '/training_pdf.php'),   // Phase 5 (spec §7.7): "Download PDF" on training records
 ];
 
 $tr_title = $tr_rec !== null ? (string) ($tr_rec['course']['name'] ?? 'Training record') : 'Training record';

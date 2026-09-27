@@ -28,6 +28,13 @@
 /** Modules that make a login a full IT agent (not limited). module_assets exists from DB 2.6.95. */
 const ITFLOW_FULL_AGENT_MODULES = ['module_client', 'module_support', 'module_assets'];
 
+/**
+ * Training notification types that have no push category (so they always push) but still belong to
+ * module_training: only a role holding Training receives them (LMS Phase 5). The digest, escalation and
+ * video types are the 'training' push category; 'Training' itself also goes to Training kiosk holders.
+ */
+const ITFLOW_TRAINING_UNMAPPED_TYPES = ['Training Odoo'];
+
 /** Plain-language names used in denial messages (never shown as raw keys). */
 function itflow_module_label(string $module): string {
     $labels = [
@@ -524,6 +531,7 @@ function itflow_notification_types_for_profile(array $profile): ?array {
         'quotes'      => $lvl('module_sales') >= 1,
         'expirations' => $lvl('module_support') >= 1,
         'backups'     => $lvl('module_rmm') >= 1,
+        'training'    => $lvl('module_training') >= 1,   // Training reminders and alerts (LMS Phase 5)
         'system'      => false,   // admin-only; admins are never limited
     ];
     $types = [];
@@ -534,6 +542,9 @@ function itflow_notification_types_for_profile(array $profile): ?array {
     }
     if ($lvl('module_training') >= 1 || $lvl('module_training_kiosk') >= 1) {
         $types[] = 'Training';
+    }
+    if ($lvl('module_training') >= 1) {
+        $types = array_merge($types, ITFLOW_TRAINING_UNMAPPED_TYPES);
     }
     if ($lvl('module_sales') >= 1) {
         $types[] = 'CRM Follow-up';
@@ -548,7 +559,9 @@ function itflow_notification_types_for_profile(array $profile): ?array {
  *   invoices             - Sales or Finance
  *   quotes               - Sales
  *   system               - Departments or Tickets/assets/docs
- * 'backups' and types with no category are never denied here. Admins, limited logins (they use the allow
+ *   training             - Training (Training Digest / Escalation / Video; also 'Training Odoo', and 'Training'
+ *                          unless the role has the Training kiosk permission)
+ * 'backups' and other types with no category are never denied here. Admins, limited logins (they use the allow
  * list above) and any role holding every one of those modules - the Technician, the Accountant - get [],
  * i.e. exactly the notifications they got before.
  */
@@ -563,6 +576,7 @@ function itflow_notification_denied_types_for_profile(array $profile): array {
         'invoices'    => $lvl('module_sales') < 1 && $lvl('module_financial') < 1,
         'quotes'      => $lvl('module_sales') < 1,
         'system'      => $lvl('module_client') < 1 && $lvl('module_support') < 1,
+        'training'    => $lvl('module_training') < 1,
     ];
     $types = [];
     foreach (push_notification_categories() as $key => $cat) {
@@ -572,6 +586,15 @@ function itflow_notification_denied_types_for_profile(array $profile): array {
     }
     if (itflow_profile_can_assets($profile, 1)) {
         $types = array_diff($types, ['Asset Warranty Expiring']);   // the asset's own name + department, which it can see
+    }
+    // Training types go only to roles that hold Training (LMS Phase 5 / v1.13.0 gap): the digest, escalation and
+    // video types via the 'training' category above, 'Training Odoo' here, and the plain 'Training' alert (kiosk,
+    // records integrity) unless the role has Training or the Training kiosk permission.
+    if ($lvl('module_training') < 1) {
+        $types = array_merge($types, ITFLOW_TRAINING_UNMAPPED_TYPES);
+        if ($lvl('module_training_kiosk') < 1) {
+            $types[] = 'Training';
+        }
     }
     return array_values(array_unique($types));
 }
