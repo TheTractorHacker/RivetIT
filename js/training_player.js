@@ -1382,9 +1382,10 @@
                     syncUi();
                 } }) : null;
 
+                // The resume bar sits above the picture: the first thing seen when the lesson opens.
                 var box = h('div', { class: 'trp-video' }, [
-                    h('div', { class: 'trp-video__stage' }, [video, cues ? cues.el : null, bigPlay, h('span', { class: 'trp-video__badge' }, [icon('fa-film'), t('video_note_upload')])]),
                     resume ? resume.el : null,
+                    h('div', { class: 'trp-video__stage' }, [video, cues ? cues.el : null, bigPlay, h('span', { class: 'trp-video__badge' }, [icon('fa-film'), t('video_note_upload')])]),
                     h('div', { class: 'trp-vcontrols' }, [playBtn, backBtn, h('div', { class: 'trp-scrub__wrap' }, [scrub, h('span', { class: 'trp-scrub__cap', text: t('furthest') })]), timeEl,
                         ccBtn || ccSwitch || vol ? h('div', { class: 'trp-vopts' }, [ccBtn ? ccBtn.el : null, ccSwitch ? ccSwitch.el : null, vol ? vol.el : null]) : null, fsBtn])
                 ]);
@@ -1564,8 +1565,8 @@
             } }) : null;
             ctx.main.appendChild(h('div', { class: 'trp-video trp-video--embed' }, [
                 h('div', { class: 'trp-video__top' }, [h('span', { class: 'trp-chip' }, [h('i', { class: 'fab ' + (v.provider === 'vimeo' ? 'fa-vimeo-v' : 'fa-youtube'), 'aria-hidden': 'true' }), v.provider === 'vimeo' ? 'Vimeo' : 'YouTube']), tapNote, verifiedChip]),
-                holder,
                 eResume ? eResume.el : null,
+                holder,
                 h('div', { class: 'trp-vcontrols' }, [ePlay, eBack, h('div', { class: 'trp-scrub__wrap' }, [h('div', { class: 'trp-scrub trp-scrub--static' }, eFill), h('span', { class: 'trp-scrub__cap', text: t('furthest') })]), eTime,
                     eCc || eVol ? h('div', { class: 'trp-vopts' }, [eCc ? eCc.el : null, eVol ? eVol.el : null]) : null]),
                 eCcNote

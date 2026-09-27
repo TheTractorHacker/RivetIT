@@ -227,6 +227,7 @@ $tr_cm_mb = static fn(int $b): string => (string) max(1, intdiv($b, 1048576));
                                             <div class="tr-frame-caption" id="tr-cm-vframe-caption"><i class="fas fa-play-circle" aria-hidden="true"></i><span>Press play once to confirm this video works.</span></div>
                                             <div id="tr-cm-vframe-host"></div>
                                         </div>
+                                        <div class="tr-note"><i class="fas fa-closed-captioning" aria-hidden="true"></i><span>Captions (CC) come from the video itself: add them in YouTube Studio or Vimeo. Learners turn them on with the CC button.</span></div>
                                     </div>
                                     <div class="tr-range">
                                         <div class="d-flex align-items-baseline justify-content-between">

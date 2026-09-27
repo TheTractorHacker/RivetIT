@@ -751,7 +751,7 @@
 .tmc-resume {
   display: flex; align-items: center; gap: 12px; padding: 10px 16px;
   background: #e6f4f2; background: color-mix(in srgb, var(--if-primary, #0d9488) 11%, var(--if-surface, #fff));
-  border-top: 1px solid var(--if-border, #e3e9ea); color: var(--if-ink, #16232a); font-size: 18px; font-weight: 600;
+  border-bottom: 1px solid var(--if-border, #e3e9ea); color: var(--if-ink, #16232a); font-size: 18px; font-weight: 600;
 }
 .tmc-resume[hidden] { display: none; }
 .tmc-resume__icon { flex: none; color: var(--if-primary, #0d9488); font-size: 20px; }

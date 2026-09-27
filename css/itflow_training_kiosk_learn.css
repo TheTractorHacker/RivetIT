@@ -434,4 +434,4 @@ body.kx-video-page .kx-main { padding-bottom: 0; }
 .kl-vopts { flex: none; display: flex; align-items: center; gap: 10px; }
 .kl-ccnote { display: flex; align-items: center; gap: 10px; padding: 0 16px 14px; background: var(--kx-surface); color: var(--kx-muted); font-size: 17px; font-weight: 600; }
 .kl-ccnote[hidden] { display: none; }
-.kl-vstage > .tmc-resume { border-top: 0; }
+.kl-vstage > .tmc-resume { border-bottom: 0; }

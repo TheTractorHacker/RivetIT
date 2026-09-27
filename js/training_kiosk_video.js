@@ -103,8 +103,8 @@
     } }) : null;
     var stage = el('section', { class: 'kl-vstage' }, [
         el('div', { class: 'kl-vstage__top' }, [providerChip, tapNote]),
-        holder, endedBox,
         resume ? resume.el : null,
+        holder, endedBox,
         el('div', { class: 'kl-vcontrols' }, [playBtn, backBtn, el('div', { class: 'kl-vbar__wrap' }, [bar, el('span', { class: 'kl-vbar__cap', text: t('video.furthest') })]), timeEl,
             ccBtn || vol ? el('div', { class: 'kl-vopts' }, [ccBtn ? ccBtn.el : null, vol ? vol.el : null]) : null]),
         ccNote

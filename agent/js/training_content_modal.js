@@ -1003,7 +1003,7 @@
             if (f) {
                 $('tr-cm-cap-name').textContent = f.original_name || ('captions-' + f.id + '.vtt');
                 var meta = [];
-                if (f.duration_ms) { meta.push('last caption at ' + ui.fmtDuration(Math.round(f.duration_ms / 1000))); }
+                if (f.duration_ms) { meta.push('captions run to ' + ui.fmtDuration(Math.round(f.duration_ms / 1000))); }
                 meta.push(bytes(f.bytes));
                 var vm = v.media && v.media.duration_ms ? v.media.duration_ms : 0;
                 if (f.duration_ms && vm && f.duration_ms > vm + 2000) { meta.push('runs past the end of the video - check it is the right file'); }
