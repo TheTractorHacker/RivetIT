@@ -22,6 +22,12 @@ with the kiosk page in the background, where no time counts.
   big **Watch from the start** button (also on the finished-video box, which no longer shows a green tick then).
   "Resuming at…" is no longer offered in the last few seconds of a video; it starts at 0 with that message instead.
 - Preview as learner shows the same, from its own count of seconds played on the showing page (kept with its progress).
+- Review fixes: the end-of-video message and **Watch from the start** no longer flash up in the last seconds of an
+  ordinary watch (a short or high-percentage video) or on the finished video before the server has counted its last
+  seconds; the finished video gets its green tick only once the lesson can be finished. On an iPad, where a YouTube /
+  Vimeo player starts only from a tap inside it, **Watch from the start** on a freshly opened page keeps the message
+  and highlights "Tap the video to start" instead of silently doing nothing. A pause that did not reach the player
+  is sent again while the page stays in the background. Spanish: "solo se contaron".
 
 ## [Unreleased] ITFlow Internal IT - Training videos: volume, closed captions (CC), pick up where you left off
 Database 2.6.97 -> 2.6.98 (runs **after** the 2.6.96 -> 2.6.97 step of the Odoo skill/note branch): `training_media`

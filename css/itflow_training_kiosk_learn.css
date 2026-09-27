@@ -475,3 +475,8 @@ video.kl-hidden ~ .tmc-cues { visibility: hidden !important; }
   .kl-vfoot.has-restart .kl-vfoot__act { flex: 1 1 100%; }
   .kl-vfoot.has-restart .kl-vfoot__act > .kx-btn:not([hidden]) { flex: 1 1 0; min-width: 0; white-space: normal; }
 }
+/* "Watch from the start" tapped on a page where the video has not played yet and the player did not start (an iPad starts
+   it only from a tap inside the player): "Tap the video to start" is highlighted - amber, larger, a short pulse. */
+.kl-vtap.is-nudge { background: #fbbf24; color: #111827; font-size: 18px; padding: 8px 16px; box-shadow: 0 0 0 4px rgba(251,191,36,.35); animation: kl-nudge 1s ease-in-out 3; }
+@keyframes kl-nudge { 50% { transform: scale(1.06); box-shadow: 0 0 0 8px rgba(251,191,36,.25); } }
+@media (prefers-reduced-motion: reduce) { .kl-vtap.is-nudge { animation: none; } }

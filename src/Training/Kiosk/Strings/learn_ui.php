@@ -457,7 +457,7 @@ return [
         'video.then_must_1' => 'Después, apruebe una prueba rápida de 1 pregunta',
         'video.gate_locked' => 'Disponible cuando termine de ver el video',
         'video.gate_more' => 'Siga viendo: faltan unos {t}',
-        'video.gate_end_short' => 'Llegó al final, pero solo contaron {done} de video visto. Vea unos {t} más; cualquier parte del video cuenta.',
+        'video.gate_end_short' => 'Llegó al final, pero solo se contaron {done} de video visto. Vea unos {t} más; cualquier parte del video cuenta.',
         'video.gate_position' => 'Siga viendo hasta el {t} del video para terminar',
         'video.gate_ready' => 'Listo para terminar',
         'video.gate_done' => 'Terminó esta lección',

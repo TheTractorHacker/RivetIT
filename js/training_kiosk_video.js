@@ -22,6 +22,11 @@
  * (time never counts there) with "Paused while this screen was in the background…" on return, no auto-resume.
  * When the furthest point is at the end but time is short, the bottom bar says so and offers "Watch from the
  * start"; a resume point in the last few seconds is not offered (the video starts at 0 with that message).
+ * Review fixes: that message never shows while an ordinary watch is still counting (its last seconds, or before the
+ * pause / end tick has answered); "Watch from the start" on a page where the video has not played yet cannot start an
+ * iPad's player (the first play must be a tap inside it) - the message stays and "Tap the video to start" is
+ * highlighted instead of the button just vanishing; a pause that did not reach the player is sent again by the 10 s tick
+ * timer while the page stays hidden.
  */
 (function () {
     'use strict';
@@ -72,6 +77,8 @@
     var resumeAt = null;       // seconds to jump to on the first play; -1 once done
     var started = false;       // the video played on this screen (the end-of-video message then waits for the end again)
     var ended = false;
+    var settling = 0;          // pause / end ticks on their way: their answer brings the last seconds (no end message meanwhile)
+    var nudgeTimer = null;
 
     // ---------------------------------------------------------------- layout
     var back = el('a', { class: 'kx-btn kx-btn--ghost kl-vback', href: P.course_url || '/kiosk/me.php' }, [icon('fa-arrow-left'), el('span', { text: t('video.back') })]);
@@ -191,7 +198,7 @@
     function watched() {
         var d = duration || (server && server.duration_s) || 0;
         var o = { credit: server ? server.credit_s : 0, required: server ? server.required_s : 0, met: !!(server && (server.done || server.can_complete)),
-            max: maxWatched, duration: d, minPct: minPct, cur: lastTime, started: started, ended: ended };
+            max: maxWatched, duration: d, minPct: minPct, cur: lastTime, started: started, ended: ended, playing: playing, settling: settling > 0 };
         if (MC && typeof MC.watchCredit === 'function') { return MC.watchCredit(o); }
         var req = Math.max(0, Number(o.required) || 0);
         var cr = Math.max(0, Number(o.credit) || 0);
@@ -268,10 +275,12 @@
         foot.classList.toggle('has-restart', !restartBtn.hidden);   // the longer message gets its own row on narrower screens
         replayLabel.textContent = offerRestart ? t('video.watch_from_start') : t('video.replay');
         replayBtn.className = 'kx-btn kx-btn--xl ' + (offerRestart ? 'kx-btn--primary' : 'kx-btn--ghost');
-        // A finished video with too little time counted is not "done": no green tick on it.
-        endedIcon.className = 'kl-vended__icon' + (offerRestart ? ' is-short' : '');
+        // A finished video is ticked green only once the gate is met (not while the end tick is on its way, never when
+        // too little time counted).
+        var tickOk = !changed && !!(server && (server.done || server.can_complete));
+        endedIcon.className = 'kl-vended__icon' + (tickOk ? '' : ' is-short');
         while (endedIcon.firstChild) { endedIcon.removeChild(endedIcon.firstChild); }
-        endedIcon.appendChild(icon(offerRestart ? 'fa-info-circle' : 'fa-check-circle'));
+        endedIcon.appendChild(icon(tickOk ? 'fa-check-circle' : 'fa-info-circle'));
         while (playBtn.firstChild) { playBtn.removeChild(playBtn.firstChild); }
         playBtn.appendChild(icon(playing ? 'fa-pause' : 'fa-play'));
         playBtn.setAttribute('aria-label', playing ? t('video.pause') : t('video.play'));
@@ -297,16 +306,26 @@
         return b;
     }
     function tick() {
-        if (changed || (server && server.done)) { return; }
+        if (changed || (server && server.done)) { return null; }
         var vid = controller && typeof controller.getVideoId === 'function' ? controller.getVideoId() : null;
-        K.api.post('lesson_tick', body({
+        return K.api.post('lesson_tick', body({
             position_s: Math.floor(lastTime), playing: playing, visible: document.visibilityState !== 'hidden', active: true,
             video_id: vid || P.video_id || undefined
         })).then(applyGate, function (e) {
             if (e && (e.code === 'video_changed' || e.code === 'run_blocked' || e.code === 'run_locked')) { changed = e.code === 'video_changed'; showError(e.message); paint(); }
         });
     }
-    function startTicks() { if (!tickTimer) { tickTimer = setInterval(function () { if (playing) { tick(); } }, 10000); } }
+    function startTicks() {
+        if (!tickTimer) {
+            tickTimer = setInterval(function () {
+                if (!playing) { return; }
+                // Still playing with the page hidden: the pause sent at the hide did not reach the player - send it again.
+                if (guard && document.visibilityState === 'hidden') { guard.playing(); }
+                tick();
+            }, 10000);
+        }
+    }
+    function settled() { settling = Math.max(0, settling - 1); paint(); }
 
     // The page went to the background (another app, a minimized window, the screen locked): pause - time never counts
     // there, so the furthest point must not run ahead of it. The tick goes at once (visible:false closes the interval
@@ -377,11 +396,17 @@
                     holder.classList.remove('kl-hidden');
                     started = true;
                     ended = false;
+                    clearTimeout(nudgeTimer);
+                    tapNote.classList.remove('is-nudge');
                     if (bgNote) { bgNote.hide(); }
                     if (guard) { guard.playing(); }   // a play that raced the page going to the background is paused again
                 }
                 if (s === 'ended') { ended = true; }
-                if (was !== playing && (s === 'playing' || s === 'paused' || s === 'ended')) { tick(); }
+                if (was !== playing && (s === 'playing' || s === 'paused' || s === 'ended')) {
+                    var sent = tick();
+                    // A pause / end: the server's answer brings the seconds since the last tick - judge "time short" after it.
+                    if (!playing && sent) { settling++; sent.then(settled, settled); }
+                }
                 if (s === 'ended') {
                     holder.classList.add('kl-hidden');
                     endedBox.hidden = false;
@@ -427,7 +452,11 @@
 
     playBtn.addEventListener('click', function () { if (controller) { controller.toggle(); } });
     backBtn.addEventListener('click', function () { if (controller) { controller.seekBy(-10); } });
-    /** Replay / "Watch from the start": back to 0 and play (iOS may still want the first tap inside the player). */
+    /**
+     * Replay / "Watch from the start": back to 0 and play. On an iPad the player starts only from a tap INSIDE it until it
+     * has played once on this screen: when nothing plays, the message and the button stay (started is set by the real
+     * play) and "Tap the video to start" is highlighted - the video starts at 0 on that tap (no resume point is offered).
+     */
     function fromStart() {
         endedBox.hidden = true;
         holder.classList.remove('kl-hidden');
@@ -435,8 +464,16 @@
         if (resumeAt !== -1) { resumeAt = null; }   // a pending "Resuming at…" jump is dropped: this starts at 0
         lastTime = 0;
         ended = false;
-        started = true;   // the end-of-video message waits for the end again
         if (controller) { controller.seekTo(0); controller.play(); }
+        if (!started) {
+            clearTimeout(nudgeTimer);
+            nudgeTimer = setTimeout(function () {
+                if (started || playing) { return; }
+                tapNote.hidden = false;
+                tapNote.classList.add('is-nudge');
+                try { stage.scrollIntoView({ block: 'nearest' }); } catch (e) { /* ignore */ }
+            }, 1500);
+        }
         paint();
     }
     replayBtn.addEventListener('click', fromStart);

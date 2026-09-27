@@ -180,7 +180,7 @@
             counted_ok_check: 'Ya vio lo suficiente — sigue la prueba rápida', more_to_watch: 'Faltan unos {t} por ver', watch_on_to: 'Siga viendo hasta el {t} del video',
             skip_not_counted: 'Adelantar no cuenta.', only_watched: 'El tiempo solo cuenta mientras el video se reproduce en esta pantalla.',
             only_watched_ext: 'El tiempo solo cuenta mientras el video se reproduce en su propia pantalla.',
-            end_short: 'Llegó al final, pero solo contaron {done} de video visto. Vea unos {t} más; cualquier parte del video cuenta.',
+            end_short: 'Llegó al final, pero solo se contaron {done} de video visto. Vea unos {t} más; cualquier parte del video cuenta.',
             gate_position: 'Siga viendo hasta el {t} del video para terminar', watch_from_start: 'Ver desde el principio',
             bg_paused: 'Se pausó porque esta pantalla quedó en segundo plano. El tiempo solo cuenta mientras ve el video aquí.', preview_anyway: 'En la vista previa puede continuar.',
             furthest: 'Hasta donde llegó', fullscreen: 'Pantalla completa', exit_fullscreen: 'Salir de pantalla completa',
@@ -1376,6 +1376,9 @@
             var started = false;                    // played on this screen: the end-of-video message then waits for the end again
             var ended = false;
             var curPos = 0;
+            var playingNow = function () { return false; };   // the player in use says (set below per player)
+            var settling = 0;                       // kiosk: pause / end ticks on their way (their answer brings the last seconds)
+            function settled() { settling = Math.max(0, settling - 1); updateWatch(); }
             var restartBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-restart', hidden: true }, [icon('fa-redo'), t('watch_from_start')]);
             var actions = ctx.foot ? ctx.foot.querySelector('.trp-foot__actions') : null;
             if (actions && !extCard) { actions.insertBefore(restartBtn, actions.firstChild); }
@@ -1387,6 +1390,7 @@
                     ? { credit: kGate ? kGate.credit_s : 0, required: kGate ? kGate.required_s : 0, met: !!(kGate && (kGate.done || kGate.credited || kGate.can_complete)) }
                     : { credit: sim, required: need, met: !!progress.done[l.uid] || (d > 0 && sim >= need && maxWatched >= Math.max(0, Math.floor(d * minPct / 100) - 5)) };
                 o.max = maxWatched; o.duration = d; o.minPct = minPct; o.cur = curPos; o.started = started; o.ended = ended;
+                o.playing = playingNow(); o.settling = settling > 0;
                 if (MC && typeof MC.watchCredit === 'function') { return MC.watchCredit(o); }
                 var req = Math.max(0, Number(o.required) || 0);
                 var cr = Math.max(0, Number(o.credit) || 0);
@@ -1595,6 +1599,7 @@
                     updateWatch(); syncUi(); if (resume) { resume.hide(); } savePos(true);
                 });
                 // The page went to the background: pause (time never counts there); back on the page, a short notice.
+                playingNow = function () { return !video.paused && !video.ended; };
                 var guard = MC && typeof MC.backgroundPause === 'function' ? MC.backgroundPause({
                     isPlaying: function () { return !video.paused && !video.ended; },
                     pause: function () { video.pause(); },
@@ -1607,8 +1612,7 @@
                     if (resume) { resume.hide(); }
                     try { video.currentTime = 0; } catch (e) { /* ignore */ }
                     curPos = 0;
-                    ended = false;
-                    started = true;
+                    ended = false;   // started: set by the real play (a play that did not start keeps the message and the button)
                     video.play().catch(function () { /* blocked or unsupported */ });
                     updateWatch();
                     syncUi();
@@ -1659,7 +1663,14 @@
                         }
                         updateWatch();   // the counted time moved (or the gate opened)
                     };
-                    ['play', 'pause', 'ended'].forEach(function (ev) { video.addEventListener(ev, function () { if (ctx.sendTick) { ctx.sendTick(); } }); });
+                    ['play', 'pause', 'ended'].forEach(function (ev) {
+                        video.addEventListener(ev, function () {
+                            if (!ctx.sendTick) { return; }
+                            var sent = ctx.sendTick();
+                            // A pause / end: the server's answer brings the seconds since the last tick - judge "time short" after it.
+                            if (ev !== 'play' && sent && typeof sent.then === 'function') { settling++; updateWatch(); sent.then(settled, settled); }
+                        });
+                    });
                 } else {
                     offerResume(Math.min(Number(progress.pos[l.uid] || 0), maxWatched || 0));
                 }
@@ -1867,6 +1878,7 @@
             eBack.addEventListener('click', function () { if (controller) { controller.seekBy(-10); } });
             // The page went to the background: pause (time never counts there); back on the page, a short notice.
             var eBgNote = bgNote;
+            playingNow = function () { return !!(controller && controller.isPlaying()); };
             var eGuard = MC && typeof MC.backgroundPause === 'function' ? MC.backgroundPause({
                 isPlaying: function () { return !!(controller && controller.isPlaying()); },
                 pause: function () { if (controller) { controller.pause(); } },
@@ -1878,8 +1890,7 @@
                 if (eResumeAt !== -1) { eResumeAt = null; }   // a pending "Resuming at…" jump is dropped: this starts at 0
                 if (eResume) { eResume.hide(); }
                 curPos = 0;
-                ended = false;
-                started = true;
+                ended = false;   // started: set by the real play
                 if (controller) { controller.seekTo(0); controller.play(); }
                 syncEmbed(0, duration);
                 updateWatch();

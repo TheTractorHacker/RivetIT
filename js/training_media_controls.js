@@ -33,15 +33,18 @@
  *
  * Honest watch progress (owner report 2026-09-27: the ring said "Watched 100%" from the furthest point while only
  * 2:18 had counted, because the video had kept playing with the kiosk page in the background):
- *   TrainingMediaControls.watchCredit({credit, required, met, max, duration, minPct, cur, started, ended})
+ *   TrainingMediaControls.watchCredit({credit, required, met, max, duration, minPct, cur, started, ended, playing, settling})
  *       -> {counted, required, left, pct, met, short, needPos, atEnd}
  *       What the learner is told: COUNTED watch time (the gate's credit_s; Preview: its own count) against what is
  *       required (required_s), never the furthest point. pct 0..99 until the gate is met (met), 100 only then.
  *       short: 'time' (counted < required), 'position' (time is enough but the furthest point is short of needPos =
  *       floor(duration * minPct / 100) - 5, the server's rule) or null. left = required - counted. atEnd: time is
- *       short and the furthest point is in the last few seconds, and the player is at the end or not started on
- *       this screen - the hosts then say "You reached the end, but only 2:18 of watching counted…" and offer
- *       "Watch from the start" (any part of the video counts).
+ *       short and the furthest point is in the last few seconds, and the player has not played on this screen yet,
+ *       or stopped at the end (ended / paused there) - the hosts then say "You reached the end, but only 2:18 of
+ *       watching counted…" and offer "Watch from the start" (any part of the video counts). Never while an ordinary
+ *       watch is still counting (review 2026-09-27: a 40 s lesson said it in its last 5 s): while it plays, only
+ *       when even the rest of the video cannot make up what is left (+ one 10 s kiosk tick), and not while the
+ *       kiosk's pause / end tick is still on its way (settling - the server's answer brings the last seconds).
  *   TrainingMediaControls.nearEnd(sec, duration) -> bool   in the last few seconds (2 % of the length, 5-10 s): a
  *       resume point there is not offered (the video starts at 0 instead).
  *   TrainingMediaControls.backgroundPause({isPlaying(), pause(), onHide?(wasPlaying), onReturn()}) -> {playing(), destroy()}
@@ -376,7 +379,18 @@
         var met = !!o.met;
         var needPos = d > 0 ? Math.max(0, Math.floor(d * minPct / 100) - 5) : 0;
         var short = met ? null : (credit < required ? 'time' : (d > 0 && max < needPos ? 'position' : null));
-        var atEnd = short === 'time' && nearEnd(max, d) && (!o.started || !!o.ended || nearEnd(o.cur, d));
+        var cur = Math.max(0, Number(o.cur) || 0);
+        var atEnd = false;
+        if (short === 'time' && nearEnd(max, d) && !o.settling) {
+            if (!o.started) {
+                atEnd = true;                                   // not played on this screen: the furthest point is at the end
+            } else if (o.playing) {
+                // still playing its last seconds: only when even the rest of the video cannot make up what is left
+                atEnd = nearEnd(cur, d) && required - credit > Math.max(0, d - cur) + 12;
+            } else {
+                atEnd = !!o.ended || nearEnd(cur, d);           // stopped at the end
+            }
+        }
         return {
             counted: met ? Math.max(credit, required) : Math.min(credit, required),
             required: required,
