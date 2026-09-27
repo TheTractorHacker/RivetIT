@@ -133,51 +133,75 @@ final class CompletionService
      */
     public function void(int $completionId, string $reason): array
     {
-        $reason = trim($reason);
-        $len = mb_strlen($reason, 'UTF-8');
-        if ($len < self::VOID_REASON_MIN) {
-            throw ApiException::validation(['reason' => 'Give a reason of at least ' . self::VOID_REASON_MIN . ' characters.']);
-        }
-        if ($len > 1000 || !mb_check_encoding($reason, 'UTF-8')) {
-            throw ApiException::validation(['reason' => 'Too long (at most 1000 characters).']);
-        }
+        $reason = self::voidReason($reason);
         if (Db::depth() !== 0) {
             throw new \LogicException('CompletionService::void opens its own transaction');
         }
         $db = $this->c->db;
-        $actor = $this->actor([]);
-        $r = Db::tx($db, function () use ($db, $completionId, $reason, $actor): array {
-            RecordsMutex::acquire($db);
-            $row = Db::one($db, 'SELECT completion_id, completion_contact_id, completion_course_id, completion_cert_number
-                FROM training_completions WHERE completion_id = ? FOR UPDATE', 'i', [$completionId]);
-            if ($row === null) {
-                throw ApiException::notFound('That record was not found.');
-            }
-            if (Db::one($db, 'SELECT cvoid_id FROM training_completion_voids WHERE cvoid_completion_id = ? FOR UPDATE', 'i', [$completionId]) !== null) {
-                throw new ApiException(422, 'already_voided', 'This record is already voided.');
-            }
-            $ins = HashedInsert::insert($db, 'training_completion_voids', [
-                'cvoid_completion_id' => (string) $completionId,
-                'cvoid_reason' => $reason,
-                'cvoid_by_user_id' => (string) max(0, $this->c->userId),
-                'cvoid_at_utc' => Clock::nowUtc(),
-                'cvoid_hash_v' => '1',
-            ]);
-            $contactId = (int) $row['completion_contact_id'];
-            $courseId = (int) $row['completion_course_id'];
-            Ledger::append($db, $actor + [
-                'type' => 'completion.voided',
-                'subject_contact_id' => $contactId,
-                'course_id' => $courseId,
-                'entity_type' => 'completion_void',
-                'entity_id' => $ins['id'],
-                'entity_sha256' => $ins['sha'],
-                'payload' => ['completion_id' => $completionId, 'cert_number' => $row['completion_cert_number']],
-            ]);
-            return ['void_id' => $ins['id'], 'completion_id' => $completionId, 'contact_id' => $contactId, 'course_id' => $courseId,
-                    'cert_number' => $row['completion_cert_number'] === null ? null : (string) $row['completion_cert_number']];
+        $r = Db::tx($db, function () use ($db, $completionId, $reason): array {
+            $r = $this->voidInTx($completionId, $reason);
+            Ledger::append($db, $r['event']);
+            unset($r['event']);
+            return $r;
         });
+        return $this->afterVoid($r);
+    }
 
+    /**
+     * INSIDE the caller's Db::tx: the void itself (records mutex, the completion row FOR UPDATE, the hashed void
+     * row). Returns the void facts plus its completion.voided ledger event under 'event', for the caller to append
+     * LAST; after commit the caller runs afterVoid(). A caller that must change something else in the same
+     * transaction (Assign\AssignmentReset::retake: the pair's open kiosk run, locked before this) uses it; the
+     * rest call void().
+     *
+     * @return array{void_id:int, completion_id:int, contact_id:int, course_id:int, cert_number:?string, event:array}
+     */
+    public function voidInTx(int $completionId, string $reason): array
+    {
+        if (Db::depth() < 1) {
+            throw new \LogicException('CompletionService::voidInTx must run inside Db::tx');
+        }
+        $reason = self::voidReason($reason);
+        $db = $this->c->db;
+        RecordsMutex::acquire($db);
+        $row = Db::one($db, 'SELECT completion_id, completion_contact_id, completion_course_id, completion_cert_number
+            FROM training_completions WHERE completion_id = ? FOR UPDATE', 'i', [$completionId]);
+        if ($row === null) {
+            throw ApiException::notFound('That record was not found.');
+        }
+        if (Db::one($db, 'SELECT cvoid_id FROM training_completion_voids WHERE cvoid_completion_id = ? FOR UPDATE', 'i', [$completionId]) !== null) {
+            throw new ApiException(422, 'already_voided', 'This record is already voided.');
+        }
+        $ins = HashedInsert::insert($db, 'training_completion_voids', [
+            'cvoid_completion_id' => (string) $completionId,
+            'cvoid_reason' => $reason,
+            'cvoid_by_user_id' => (string) max(0, $this->c->userId),
+            'cvoid_at_utc' => Clock::nowUtc(),
+            'cvoid_hash_v' => '1',
+        ]);
+        $contactId = (int) $row['completion_contact_id'];
+        $courseId = (int) $row['completion_course_id'];
+        return ['void_id' => $ins['id'], 'completion_id' => $completionId, 'contact_id' => $contactId, 'course_id' => $courseId,
+                'cert_number' => $row['completion_cert_number'] === null ? null : (string) $row['completion_cert_number'],
+                'event' => $this->actor([]) + [
+                    'type' => 'completion.voided',
+                    'subject_contact_id' => $contactId,
+                    'course_id' => $courseId,
+                    'entity_type' => 'completion_void',
+                    'entity_id' => $ins['id'],
+                    'entity_sha256' => $ins['sha'],
+                    'payload' => ['completion_id' => $completionId, 'cert_number' => $row['completion_cert_number']],
+                ]];
+    }
+
+    /**
+     * After a void's commit (void() / voidInTx()): log, audit, listeners and the one-contact reconcile that opens the
+     * reissue assignment. Every step is best-effort. @return array $r plus 'reconcile'
+     */
+    public function afterVoid(array $r): array
+    {
+        unset($r['event']);
+        $completionId = (int) $r['completion_id'];
         $label = $r['cert_number'] ?? ('#' . $completionId);
         $summary = "Voided training record $label for contact #{$r['contact_id']}";
         AfterCommit::log('Delete', $summary, $completionId);
@@ -186,6 +210,20 @@ final class CompletionService
         AfterCommit::completionVoided($this->c, $completionId);
         $r['reconcile'] = self::reconcile($this->c, [$r['contact_id']], 'void');
         return $r;
+    }
+
+    /** A void reason: 10 to 1000 characters of UTF-8 (trimmed). */
+    private static function voidReason(string $reason): string
+    {
+        $reason = trim($reason);
+        $len = mb_strlen($reason, 'UTF-8');
+        if ($len < self::VOID_REASON_MIN) {
+            throw ApiException::validation(['reason' => 'Give a reason of at least ' . self::VOID_REASON_MIN . ' characters.']);
+        }
+        if ($len > 1000 || !mb_check_encoding($reason, 'UTF-8')) {
+            throw ApiException::validation(['reason' => 'Too long (at most 1000 characters).']);
+        }
+        return $reason;
     }
 
     // =========================================================================================
@@ -202,8 +240,34 @@ final class CompletionService
      * weakest part's; source key 'blend:a<attendee>-e<evaluation>-r<run>' (0 = part not used), so
      * the same combination never issues twice. Returns null when not complete; the reason is
      * then in lastPendingReason().
+     *
+     * After a "Reset (take again)" void (RetakeVoids) the parts that voided record used, and any part dated
+     * before that void, no longer count: the person takes the course again from the start.
+     *
+     * Called outside any transaction (RecordsBridge for RunService::settleAwaiting), the reads and the issue run
+     * in ONE transaction under the records mutex (then afterCommit), so a part is still a part when the record
+     * is written - e.g. an online run an agent reset meanwhile (AttestedRuns re-reads it with a locking read).
      */
     public function tryIssueComponents(int $contactId, int $courseId, bool $deferEvents = false): ?array
+    {
+        if (Db::depth() === 0) {
+            if ($deferEvents) {
+                throw new \LogicException('CompletionService::tryIssueComponents: deferEvents needs the caller\'s open transaction');
+            }
+            $r = Db::tx($this->c->db, function () use ($contactId, $courseId): ?array {
+                RecordsMutex::acquire($this->c->db);
+                return $this->componentsInTx($contactId, $courseId, false);
+            });
+            if ($r !== null) {
+                $r['reconcile'] = $this->afterCommit($r);
+            }
+            return $r;
+        }
+        return $this->componentsInTx($contactId, $courseId, $deferEvents);
+    }
+
+    /** tryIssueComponents() inside a transaction (the caller's, or its own). */
+    private function componentsInTx(int $contactId, int $courseId, bool $deferEvents): ?array
     {
         $this->lastPending = null;
         $db = $this->c->db;
@@ -218,15 +282,26 @@ final class CompletionService
             return null;
         }
 
+        // "Reset (take again)": the parts from before it do not count (RetakeVoids).
+        $gone = RetakeVoids::excluded($db, $contactId, $courseId);
         $session = null;
         if ($needs['session']) {
+            $types = 'ii';
+            $params = [$contactId, $courseId];
+            $not = '';
+            if ($gone !== null) {
+                $not = ' AND s.tsession_held_on >= ?';
+                $types .= 's';
+                $params[] = $gone['since_on'];
+                $not .= RetakeVoids::notIn('ta.tattendee_id', $gone['attendee_ids'], $types, $params);
+            }
             $session = Db::one($db, "SELECT ta.tattendee_id, ta.tattendee_proof, s.tsession_id, s.tsession_held_on, s.tsession_trainer_contact_id,
                     s.tsession_trainer_user_id, s.tsession_trainer_name, s.tsession_duration_minutes, s.tsession_evidence_media_id
                 FROM training_session_attendees ta
                 JOIN training_sessions s ON s.tsession_id = ta.tattendee_tsession_id
                 WHERE ta.tattendee_contact_id = ? AND s.tsession_course_id = ? AND s.tsession_status = 'finalized'
-                  AND ta.tattendee_attendance = 'present' AND ta.tattendee_removed_at_utc IS NULL
-                ORDER BY s.tsession_held_on DESC, ta.tattendee_id DESC LIMIT 1", 'ii', [$contactId, $courseId]);
+                  AND ta.tattendee_attendance = 'present' AND ta.tattendee_removed_at_utc IS NULL$not
+                ORDER BY s.tsession_held_on DESC, ta.tattendee_id DESC LIMIT 1", $types, $params);
             if ($session === null) {
                 $this->lastPending = 'needs_session';
                 return null;
@@ -234,10 +309,19 @@ final class CompletionService
         }
         $eval = null;
         if ($needs['practical']) {
+            $types = 'ii';
+            $params = [$contactId, $courseId];
+            $not = '';
+            if ($gone !== null) {
+                $not = ' AND evaluation_evaluated_on >= ?';
+                $types .= 's';
+                $params[] = $gone['since_on'];
+                $not .= RetakeVoids::notIn('evaluation_id', $gone['evaluation_ids'], $types, $params);
+            }
             $eval = Db::one($db, "SELECT evaluation_id, evaluation_evaluated_on, evaluation_proof, evaluation_evaluator_name, evaluation_evidence_media_id
                 FROM training_evaluations
-                WHERE evaluation_contact_id = ? AND evaluation_course_id = ? AND evaluation_result = 'pass'
-                ORDER BY evaluation_evaluated_on DESC, evaluation_id DESC LIMIT 1", 'ii', [$contactId, $courseId]);
+                WHERE evaluation_contact_id = ? AND evaluation_course_id = ? AND evaluation_result = 'pass'$not
+                ORDER BY evaluation_evaluated_on DESC, evaluation_id DESC LIMIT 1", $types, $params);
             if ($eval === null) {
                 $this->lastPending = 'needs_practical';
                 return null;
@@ -248,7 +332,10 @@ final class CompletionService
             $src = Components::online($this->c);
             $anchorDates = array_filter([$session['tsession_held_on'] ?? null, $eval['evaluation_evaluated_on'] ?? null]);
             $since = Clock::addDays($anchorDates === [] ? Clock::todayLocal() : min($anchorDates), -max(0, $course['window_days']));
-            $online = $src?->latestAttested($contactId, $courseId, $since);
+            if ($gone !== null) {
+                $since = max($since, $gone['since_on']);
+            }
+            $online = $src?->latestAttested($contactId, $courseId, $since, $gone['run_ids'] ?? []);
             if ($online === null) {
                 $this->lastPending = 'needs_online';
                 return null;

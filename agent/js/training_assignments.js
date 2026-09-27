@@ -3,7 +3,7 @@
  *
  * Renders the server's first page (#tr-page-data list/rules) and refetches through
  * assignment_list / rule_list as filters change, keeping the URL in step (replaceState).
- * Row actions (level 2): Extend…, Waive…, Reset… (open: progress; completed, level 3: take again), Un-waive…,
+ * Row actions (level 2): Extend…, Waive…, Reset progress… (open), Reset (take again)… (completed, level 3), Un-waive…,
  * History; header: Assign training, Recalculate now.
  * Rules (level 3): Archive… with a reason in an inline .tr-confirm-bar row.
  */

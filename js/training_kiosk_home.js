@@ -49,6 +49,13 @@
 
     // ---------------------------------------------------------------- notices
     list(P.notices).forEach(function (n) {
+        if (n.kind === 'progress_reset' || n.kind === 'retake') {
+            // Assignments > Reset while they were away from the kiosk (RunReset::notices), until they start the course again.
+            var rt = n.kind === 'progress_reset' ? t('reset.notice_progress', { course: n.course || '', date: date(n.date) })
+                : t(n.record_on ? 'reset.notice_retake' : 'reset.notice_retake_nodate', { course: n.course || '', date: date(n.record_on), due: date(n.due_on) });
+            root.appendChild(el('div', { class: 'kx-alert kx-alert--info kl-notice', role: 'status' }, [icon(n.kind === 'retake' ? 'fa-redo' : 'fa-undo'), el('span', { text: rt })]));
+            return;
+        }
         var text = n.kind === 'pin_changed' ? t('home.notice_pin_changed', { date: date(n.date) })
             : (n.who ? t('home.notice_pin_reset', { date: date(n.date), who: n.who }) : t('home.notice_pin_reset_nowho', { date: date(n.date) }));
         root.appendChild(el('div', { class: 'kx-alert kx-alert--warn kl-notice', role: 'status' }, [icon('fa-key'), el('span', { text: text })]));

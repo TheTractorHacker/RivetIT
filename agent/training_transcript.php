@@ -389,7 +389,7 @@ $trr_close_reason = static fn(?string $r): string => Labels::closeReason($r);
                                 <td class="fw-semibold"><?= trr_h($trr_a['course']['name']) ?><?= !$trr_a['required'] ? ' <span class="trr-chip trr-chip--outline">Optional</span>' : '' ?></td>
                                 <td><?= trr_h($trr_a['anchor_label']) ?></td>
                                 <td class="text-nowrap"<?= $trr_a['original_due_on'] !== $trr_a['due_on'] ? ' title="Originally due ' . trr_h(trr_date($trr_a['original_due_on'])) . '"' : '' ?>>
-                                    <?= trr_h(trr_date($trr_a['due_on'])) ?><?= $trr_a['original_due_on'] !== $trr_a['due_on'] ? '<span class="trr-sub">Extended</span>' : '' ?>
+                                    <?= trr_h(trr_date($trr_a['due_on'])) ?><?= $trr_a['original_due_on'] !== $trr_a['due_on'] ? '<span class="trr-sub">' . ($trr_a['due_on'] > $trr_a['original_due_on'] ? 'Extended' : 'Due date moved') . '</span>' : '' ?>
                                 </td>
                                 <td><?= $trr_assign_chip($trr_a) ?><?php if ($trr_a['status'] === 'completed' && $trr_a['completion_voided']) { ?><span class="trr-sub">Record voided</span><?php } ?></td>
                                 <td class="text-nowrap"><?= trr_h(trr_date($trr_a['created_on'])) ?><?php if ($trr_a['created_by_name'] !== null) { ?><span class="trr-sub">by <?= trr_h($trr_a['created_by_name']) ?></span><?php } ?></td>

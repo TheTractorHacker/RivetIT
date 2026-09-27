@@ -169,6 +169,14 @@
     function notice() {
         if (P.needs_online === false) { return { tone: 'info', icon: 'fa-users', title: t('course.session_title'), text: t('course.e_no_online') }; }
         if (!run) {
+            var rn = P.reset_notice;   // an agent reset their progress / voided their record while they were away
+            if (rn && rn.kind === 'progress_reset') {
+                return { tone: 'info', icon: 'fa-undo', title: t('reset.title'), text: t('reset.course_progress', { date: ymdLabel(rn.on) }) };
+            }
+            if (rn && rn.kind === 'retake') {
+                return { tone: 'info', icon: 'fa-redo', title: t('reset.course_retake_title'),
+                    text: t(rn.record_on ? 'reset.course_retake' : 'reset.course_retake_nodate', { date: ymdLabel(rn.record_on), due: ymdLabel(rn.due_on) }) };
+            }
             return P.completed ? { tone: 'ok', icon: 'fa-check-circle', title: t('course.completed_title'), text: t('course.completed_body') } : null;
         }
         if (run.locked) { return { tone: 'bad', icon: 'fa-lock', title: t('course.locked_title'), text: lockedBody() }; }

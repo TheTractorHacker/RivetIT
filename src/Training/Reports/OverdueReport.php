@@ -6,6 +6,7 @@ use ITFlow\Training\Core\Ctx;
 use ITFlow\Training\Core\Db;
 use ITFlow\Training\Core\RecordsSettings;
 use ITFlow\Training\People\Scope;
+use ITFlow\Training\Records\RetakeVoids;
 
 /**
  * Overdue required training, grouped by department (department name, "No department" last),
@@ -155,16 +156,20 @@ final class OverdueReport
                     (SELECT tc.completion_expires_on FROM training_completions tc
                         WHERE a.tassign_anchor LIKE 'renew:c%' AND tc.completion_id = CAST(SUBSTRING(a.tassign_anchor, 8) AS UNSIGNED)) AS renew_expires_on,
                     (SELECT rv.revision_number FROM training_revisions rv
-                        WHERE a.tassign_anchor LIKE 'retrain:r%' AND rv.revision_id = CAST(SUBSTRING(a.tassign_anchor, 10) AS UNSIGNED)) AS retrain_number
+                        WHERE a.tassign_anchor LIKE 'retrain:r%' AND rv.revision_id = CAST(SUBSTRING(a.tassign_anchor, 10) AS UNSIGNED)) AS retrain_number,
+                    (SELECT IFNULL(tc.completion_cert_number, '') FROM training_completions tc
+                        JOIN training_completion_voids tv ON tv.cvoid_completion_id = tc.completion_id AND tv.cvoid_reason LIKE ?
+                        WHERE a.tassign_anchor LIKE 'reissue:c%' AND tc.completion_id = CAST(SUBSTRING(a.tassign_anchor, 10) AS UNSIGNED)) AS retake_cert
                 FROM training_assignments a
                 LEFT JOIN training_requirements r ON r.requirement_id = a.tassign_requirement_id
-                WHERE a.tassign_id IN ($in)", str_repeat('i', count($chunk)), $chunk);
+                WHERE a.tassign_id IN ($in)", 's' . str_repeat('i', count($chunk)), array_merge([RetakeVoids::PREFIX . '%'], $chunk));
             foreach ($rows as $r) {
                 $out[(int) $r['tassign_id']] = [
                     'reason' => (string) $r['tassign_reason'],
                     'anchor' => (string) $r['tassign_anchor'],
                     'anchor_label' => Labels::anchor((string) $r['tassign_anchor'], $r['requirement_name'],
-                        $r['renew_expires_on'], $r['retrain_number'] !== null ? (int) $r['retrain_number'] : null, (bool) $r['requirement_is_manual']),
+                        $r['renew_expires_on'], $r['retrain_number'] !== null ? (int) $r['retrain_number'] : null, (bool) $r['requirement_is_manual'],
+                        $r['retake_cert'] === null ? null : (string) $r['retake_cert']),
                     'requirement_name' => $r['requirement_name'],
                     'is_manual' => (bool) $r['requirement_is_manual'],
                     'original_due_on' => $r['tassign_original_due_on'],

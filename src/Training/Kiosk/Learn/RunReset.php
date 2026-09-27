@@ -30,6 +30,8 @@ final class RunReset
 {
     public const ERR = 'run_reset';
     public const EVENT = 'run.reset';
+    /** How long a reset / take-again notice waits for the person to start the course again. */
+    public const NOTICE_DAYS = 90;
 
     /** Learner actions whose run id (run_id, or attempt_id -> its run) the guard checks. */
     private const RUN_KEYS = ['run_id'];
@@ -37,7 +39,8 @@ final class RunReset
     /**
      * The facts the agent dialog lists for an open run: {run_id, status, started_at, last_activity_at, progress_pct,
      * lessons_done, lessons_required, current_lesson, locked:{lesson,at}|null, blocked:{reason,lesson}|null,
-     * tries:{total, failed, open}, signed_at, revision_number, newer_version:bool, open_sessions:[held_on]}.
+     * tries:{total, failed, open}, passed_exam:{lesson, score_pct}|null, signed_at, revision_number, newer_version:bool,
+     * open_sessions:[held_on]}.
      */
     public static function describe(\mysqli $db, array $run): array
     {
@@ -76,6 +79,14 @@ final class RunReset
                 $sessions[] = (string) $s['tsession_held_on'];
             }
         }
+        $passed = null;
+        if (($run['trun_passed_attempt_id'] ?? null) !== null) {
+            $p = Db::one($db, 'SELECT a.tattempt_lesson_uid, r.tresult_score_pct FROM training_attempts a
+                JOIN training_attempt_results r ON r.tresult_attempt_id = a.tattempt_id WHERE a.tattempt_id = ?', 'i', [(int) $run['trun_passed_attempt_id']]);
+            if ($p !== null) {
+                $passed = ['lesson' => $title((string) $p['tattempt_lesson_uid']), 'score_pct' => (int) round((float) $p['tresult_score_pct'])];
+            }
+        }
         $current = $run['trun_current_lesson_uid'] === null ? null : (string) $run['trun_current_lesson_uid'];
         return [
             'run_id' => $runId,
@@ -93,6 +104,7 @@ final class RunReset
                 : ['reason' => (string) $run['trun_blocked_reason'],
                    'lesson' => $title($run['trun_blocked_lesson_uid'] === null ? null : (string) $run['trun_blocked_lesson_uid'])],
             'tries' => ['total' => (int) ($tries['n'] ?? 0), 'failed' => (int) ($tries['failed'] ?? 0), 'open' => (int) ($tries['open_n'] ?? 0)],
+            'passed_exam' => $passed,
             'signed_at' => $run['trun_attested_at_utc'] === null ? null : Clock::toIso((string) $run['trun_attested_at_utc'], true),
             'revision_number' => isset($course['revision_number']) ? (int) $course['revision_number'] : null,
             'newer_version' => $course !== null && $course['course_current_revision_id'] !== null
@@ -127,6 +139,66 @@ final class RunReset
             'signed' => $run['trun_attested_at_utc'] !== null,
             'failed_tries' => (int) ($facts['tries']['failed'] ?? 0),
         ]);
+    }
+
+    /**
+     * The Learning Center's and course page's notices for a person an agent reset (they may not have been on the kiosk
+     * then): the latest assignment.progress_reset / assignment.retake of each course within NOTICE_DAYS, shown until they
+     * start the course again (a run started after it) and only while that assignment is still open.
+     *   {kind:'progress_reset', course_id, on}                       "Your supervisor reset your progress on {course} on {on}."
+     *   {kind:'retake', course_id, on, record_on, due_on}            "Your {course} record from {record_on} was voided ... by {due_on}."
+     * $courseId limits it to one course (course.php). Plain reads; never throws (a notice is never worth an error page).
+     *
+     * @return list<array{kind:string, course_id:int, on:string, record_on?:?string, due_on?:?string}>
+     */
+    public static function notices(\mysqli $db, int $contactId, ?int $courseId = null): array
+    {
+        if ($contactId < 1) {
+            return [];
+        }
+        try {
+            $since = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->modify('-' . self::NOTICE_DAYS . ' days')->format('Y-m-d H:i:s');
+            $rows = Db::all($db, "SELECT tevent_seq, tevent_type, tevent_at_utc, tevent_course_id, tevent_entity_id, tevent_payload_json
+                FROM training_events
+                WHERE tevent_subject_contact_id = ? AND tevent_at_utc >= ? AND tevent_type IN ('assignment.progress_reset', 'assignment.retake')"
+                . ($courseId !== null ? ' AND tevent_course_id = ?' : '') . ' ORDER BY tevent_seq DESC LIMIT 50',
+                $courseId !== null ? 'isi' : 'is', $courseId !== null ? [$contactId, $since, $courseId] : [$contactId, $since]);
+            $out = [];
+            $seen = [];
+            foreach ($rows as $r) {
+                $cid = (int) $r['tevent_course_id'];
+                if (isset($seen[$cid])) {
+                    continue;   // the latest one per course
+                }
+                $seen[$cid] = true;
+                $at = (string) $r['tevent_at_utc'];
+                if (Db::one($db, 'SELECT trun_id FROM training_runs WHERE trun_contact_id = ? AND trun_course_id = ? AND trun_started_at_utc > ? LIMIT 1',
+                        'iis', [$contactId, $cid, $at]) !== null) {
+                    continue;   // they started it again since
+                }
+                $p = json_decode((string) $r['tevent_payload_json'], true);
+                $p = is_array($p) ? $p : [];
+                if ($r['tevent_type'] === 'assignment.progress_reset') {
+                    $a = Db::one($db, "SELECT tassign_id FROM training_assignments WHERE tassign_id = ? AND tassign_status = 'open'", 'i', [(int) $r['tevent_entity_id']]);
+                    if ($a !== null) {
+                        $out[] = ['kind' => 'progress_reset', 'course_id' => $cid, 'on' => Clock::localDate($at)];
+                    }
+                    continue;
+                }
+                $open = Db::one($db, "SELECT tassign_due_on FROM training_assignments WHERE tassign_contact_id = ? AND tassign_course_id = ? AND tassign_open_guard = 1",
+                    'ii', [$contactId, $cid]);
+                if ($open === null) {
+                    continue;   // nothing to take (any more)
+                }
+                $rec = isset($p['completion_id']) ? Db::one($db, 'SELECT completion_completed_on FROM training_completions WHERE completion_id = ?', 'i', [(int) $p['completion_id']]) : null;
+                $out[] = ['kind' => 'retake', 'course_id' => $cid, 'on' => Clock::localDate($at),
+                          'record_on' => $rec === null ? null : (string) $rec['completion_completed_on'], 'due_on' => (string) $open['tassign_due_on']];
+            }
+            return $out;
+        } catch (\Throwable $e) {
+            error_log('Kiosk RunReset::notices: ' . get_class($e));
+            return [];
+        }
     }
 
     /** Was this (closed) run ended by an agent reset? */

@@ -3,7 +3,7 @@
  *   - hides / shows revoked qualification rows ("Show revoked", remembered per browser);
  *   - keeps the chosen tab in the URL hash (#history …) so a reload or a shared link lands there;
  *   - opens Lane E's "Set hire date / Rehired" form (TrainingOps, level 3) and reloads after a save;
- *   - level 2+: a row menu on each assignment (Extend… / Waive… / Reset… on open ones, Un-waive… on active
+ *   - level 2+: a row menu on each assignment (Extend… / Waive… / Reset progress… on open ones, Un-waive… on active
  *     waivers, Reset (take again)… on completed ones at level 3, History), the same TrainingOps forms and gates
  *     as the Assignments list; reloads on the Assignments tab after a change.
  * No inline handlers (CSP); nothing here writes HTML.

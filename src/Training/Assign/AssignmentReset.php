@@ -16,6 +16,8 @@ use ITFlow\Training\People\Directory;
 use ITFlow\Training\People\Scope;
 use ITFlow\Training\Records\CertSecret;
 use ITFlow\Training\Records\CompletionService;
+use ITFlow\Training\Records\RetakeVoids;
+use ITFlow\Training\Reports\Labels;
 
 /**
  * Agent actions that undo an assignment's state (owner asks 2026-09-26; no schema change):
@@ -25,15 +27,22 @@ use ITFlow\Training\Records\CompletionService;
  *     run's history and no longer count; the next kiosk sign-in starts at lesson 1 with a fresh try count and no
  *     lock. Optionally moves the due date (same rules as Extend; assignment.due_changed). The assignment itself
  *     stays open (assignment.progress_reset). The client names the run it saw (preview) so a second submit or a
- *     stale page is a friendly 409, never a second event.
+ *     stale page is a friendly 409, never a second event. Lock order: the run row, then the assignment row, the
+ *     ledger head last. No records mutex: a record writer (evaluation, session finalize, housekeeping) re-reads the
+ *     run it would credit with a shared lock (Kiosk\Learn\AttestedRuns) after taking the mutex, so it either waits
+ *     for this commit and skips the abandoned run, or commits first and this reset then finds the assignment
+ *     completed (409) - taking the mutex here as well would close a lock cycle with that shared read.
  *
  *   RESET, TAKE AGAIN (completed assignment, level 3 - voiding revokes the certificate): only while the row's
- *     record is still the pair's latest non-voided one and voiding it would assign the course again. Reuses
- *     CompletionService::void (completion.voided, audit, listeners, one-contact reconcile that opens
- *     'reissue:c<id>'), under the named reconcile lock so that reconcile is this request's; then the chosen due
- *     date goes on the new row (assignment.due_changed when it differs from reconcile's default - the created
- *     event keeps the default, the move is logged), any leftover open kiosk run is abandoned, and the old row
- *     gets assignment.retake.
+ *     record is still the pair's latest non-voided one, counts under the pair's onboarding floor, and voiding it
+ *     makes reconcile want a 'reissue:' assignment - predicted with RecordFacts::withVoided, the same rule reconcile
+ *     uses (a newer voided record of the pair becomes the anchor then). Under the named reconcile lock: ONE
+ *     transaction locks the pair's open kiosk run (the kiosk attest order: run, then the records mutex), voids the
+ *     record (CompletionService::voidInTx) and abandons that run, so nothing signed from before the void can close
+ *     the new assignment; after commit CompletionService::afterVoid (audit, listeners, the one-contact reconcile
+ *     that opens the reissue row - this request's, the lock is ours). Then the chosen due date goes on whichever
+ *     reissue row is open (assignment.due_changed when it differs from reconcile's default) and the old row gets
+ *     assignment.retake. The parts of a blended course done before the void no longer count (Records\RetakeVoids).
  *
  *   UN-WAIVE (waived assignment whose waiver is still active, level 2): under the records mutex, like a reconcile
  *     chunk: the row is locked and re-checked; PairRules::want for the pair with this waiver ignored decides -
@@ -43,8 +52,10 @@ use ITFlow\Training\Records\CompletionService;
  *                       and never reopened by reconcile), and the wanted anchor opens the way reconcile would (a
  *                       reopenable cancelled row of that anchor, else a new row) with the chosen due date;
  *       nothing      -> this row is ended and the answer says why ("nothing to take right now").
- *     Ledger assignment.unwaived {course_id, prior_until, prior_reason, reason, due_on, outcome, open_assignment_id}.
+ *     Ledger assignment.unwaived {course_id, prior_until, prior_reason, reason, due_on, outcome, open_assignment_id,
+ *     open_anchor, end_why}.
  *
+ * Archived (or deleted) people: nothing is reset or un-waived (409 archived; the menus hide it).
  * Reconcile afterwards finds an open row with the anchor it wants (unchanged) or nothing to do, so neither the
  * nightly cron nor Recalculate now flips any of this back or opens a second row. Authorization happens at the
  * edge (AssignResetActions): route level + People scope (404). Services never authorize.
@@ -55,7 +66,9 @@ final class AssignmentReset
     public const REASON_MAX = 500;
     /** Un-waive default: the later of the row's due date and today + this many days. */
     public const UNWAIVE_DEFAULT_DAYS = 14;
-    public const VOID_PREFIX = 'Reset to take again: ';
+    public const VOID_PREFIX = RetakeVoids::PREFIX;
+
+    private const ARCHIVED = 'They are archived, so their assignments can no longer be reset or un-waived. Restore them first.';
 
     private ?bool $runsReady = null;
 
@@ -69,11 +82,12 @@ final class AssignmentReset
 
     /**
      * What Reset / Un-waive would do to this assignment right now: {assignment, today, kind, progress?|retake?|unwaive?, why?}.
-     *   kind 'progress' (open):     progress {run: RunReset::describe()|null, nothing:?string}
-     *   kind 'retake' (completed):  retake {allowed, why, completion, default_due_on, open_run, level_ok}
+     *   kind 'progress' (open):     progress {run: RunReset::describe()|null, nothing:?string, last_reset:{on, by}|null, started:bool}
+     *   kind 'retake' (completed):  retake {allowed, why, completion, anchor, default_due_on, open_run, level_ok, parts}
      *   kind 'unwaive' (waived):    unwaive {allowed, why, outcome:'reopen'|'replace'|'end'|'open_exists', end_why, prior_until,
-     *                               prior_reason, default_due_on, due_on, original_due_on}
-     *   kind 'none' (cancelled):    why
+     *                               prior_reason, default_due_on, due_on, original_due_on, new_anchor_label, new_anchor_kind,
+     *                               had_record, lapsed_on}
+     *   kind 'none' (cancelled, or an archived person):  why
      */
     public function preview(int $id): array
     {
@@ -81,14 +95,17 @@ final class AssignmentReset
         $today = Clock::todayLocal();
         $s = RecordsSettings::fromDb($db);
         $a = $this->row($id);
-        $out = ['assignment' => (new AssignmentService($this->c))->shapeMany([$id])[0], 'today' => $today, 'kind' => 'none',
+        $shape = (new AssignmentService($this->c))->shapeMany([$id])[0];
+        $out = ['assignment' => $shape, 'today' => $today, 'kind' => 'none',
                 'reason_min' => self::REASON_MIN, 'reason_max' => self::REASON_MAX];
+        if (!empty($shape['person']['archived'])) {
+            $out['why'] = self::ARCHIVED;
+            return $out;
+        }
         switch ($a['status']) {
             case 'open':
-                $run = $this->runsReady() ? RunRepo::open($db, $a['contact_id'], $a['course_id']) : null;
                 $out['kind'] = 'progress';
-                $out['progress'] = ['run' => $run === null ? null : RunReset::describe($db, $run),
-                                    'nothing' => $run === null ? "They haven't started this course." : null];
+                $out['progress'] = $this->progressPreview($a);
                 break;
             case 'completed':
                 $out['kind'] = 'retake';
@@ -102,6 +119,26 @@ final class AssignmentReset
                 $out['why'] = 'A cancelled assignment has nothing to reset.';
         }
         return $out;
+    }
+
+    /** The open run to clear, or why there is nothing (never started / already reset, and by whom). */
+    private function progressPreview(array $a): array
+    {
+        $db = $this->c->db;
+        $run = $this->runsReady() ? RunRepo::open($db, $a['contact_id'], $a['course_id']) : null;
+        if ($run !== null) {
+            return ['run' => RunReset::describe($db, $run), 'nothing' => null, 'last_reset' => null, 'started' => true];
+        }
+        $e = Db::one($db, "SELECT e.tevent_at_utc, u.user_name FROM training_events e LEFT JOIN users u ON u.user_id = e.tevent_actor_user_id
+            WHERE e.tevent_entity_type = 'assignment' AND e.tevent_entity_id = ? AND e.tevent_type = 'assignment.progress_reset'
+            ORDER BY e.tevent_seq DESC LIMIT 1", 'i', [$a['id']]);
+        $last = $e === null ? null : ['on' => Clock::localDate((string) $e['tevent_at_utc']), 'by' => $e['user_name'] === null ? null : (string) $e['user_name']];
+        $started = $this->runsReady() && Db::one($db, 'SELECT trun_id FROM training_runs WHERE trun_contact_id = ? AND trun_course_id = ? LIMIT 1',
+            'ii', [$a['contact_id'], $a['course_id']]) !== null;
+        $nothing = $last !== null
+            ? 'No kiosk progress to clear right now (last reset ' . Labels::shortDate($last['on']) . ($last['by'] !== null ? ' by ' . $last['by'] : '') . ').'
+            : ($started ? 'No kiosk progress to clear right now.' : "They haven't started this course.");
+        return ['run' => null, 'nothing' => $nothing, 'last_reset' => $last, 'started' => $started];
     }
 
     // =========================================================================================
@@ -121,6 +158,7 @@ final class AssignmentReset
         }
         $db = $this->c->db;
         $pair = $this->row($id);
+        $this->assertActivePerson($pair['contact_id']);
         if (!$this->runsReady()) {
             throw new ApiException(409, 'already_done', "Nothing to reset: they haven't started this course.");
         }
@@ -174,8 +212,9 @@ final class AssignmentReset
     // =========================================================================================
 
     /**
-     * Voids the row's record through CompletionService::void and puts the chosen due date on the new 'reissue:c<id>'
-     * assignment. @return array{assignment:?array, previous:array, cert_number:?string, void_id:int, pending:bool}
+     * Voids the row's record and abandons the pair's open kiosk run in one transaction, then puts the chosen due date
+     * on the reissue assignment the void's reconcile opened.
+     * @return array{assignment:?array, previous:array, cert_number:?string, void_id:int, pending:bool, due_applied:bool}
      */
     public function retake(int $id, string $reason, string $dueOn): array
     {
@@ -186,8 +225,8 @@ final class AssignmentReset
         if (Db::depth() !== 0) {
             throw new \LogicException('AssignmentReset::retake opens its own transactions');
         }
-        // The reconcile that CompletionService::void runs afterwards is then this request's (GET_LOCK is re-entrant for
-        // the same connection), so the new assignment exists before the due date is set; a running recalculation is a 409.
+        // The reconcile that CompletionService::afterVoid runs is then this request's (GET_LOCK is re-entrant for the
+        // same connection), so the new assignment exists before the due date is set; a running recalculation is a 409.
         if (!Db::lock($db, 'trrec', 10)) {
             throw new ApiException(409, 'busy', 'Assignments are being recalculated right now. Try again in a minute.');
         }
@@ -197,39 +236,68 @@ final class AssignmentReset
             if ($a['status'] !== 'completed') {
                 throw new ApiException(409, 'conflict', 'This assignment is not completed any more. Reload to see where it stands.');
             }
+            $this->assertActivePerson($a['contact_id']);
             $plan = $this->retakePlan($a, $today, $s);
             if (!$plan['allowed']) {
                 throw new ApiException(409, $plan['done'] ? 'already_done' : 'not_allowed', (string) $plan['why']);
             }
             $completionId = (int) $a['completion_id'];
+            $voidReason = self::VOID_PREFIX . $reason;
+            $cs = $this->completions();
+            $actor = $this->actor();
             try {
-                $void = $this->completions()->void($completionId, self::VOID_PREFIX . $reason);
+                // One transaction, in the kiosk attest's lock order: the pair's open run first, then the records mutex
+                // (voidInTx), the ledger head last. A run waiting to sign is never signed between the void and its reset.
+                $void = Db::tx($db, function () use ($db, $a, $id, $cs, $completionId, $voidReason, $actor): array {
+                    $run = $this->runsReady() ? RunRepo::open($db, $a['contact_id'], $a['course_id'], true) : null;
+                    // Re-checked under the records mutex (the plan was read without locks): the record is still the
+                    // pair's newest non-voided one - a record signed meanwhile would make this void pointless.
+                    RecordsMutex::acquire($db);
+                    $newest = Db::one($db, 'SELECT c.completion_id FROM training_completions c
+                            LEFT JOIN training_completion_voids v ON v.cvoid_completion_id = c.completion_id
+                        WHERE c.completion_contact_id = ? AND c.completion_course_id = ? AND v.cvoid_id IS NULL
+                        ORDER BY c.completion_completed_on DESC, c.completion_id DESC LIMIT 1 LOCK IN SHARE MODE',
+                        'ii', [$a['contact_id'], $a['course_id']]);
+                    if ($newest !== null && (int) $newest['completion_id'] !== $completionId) {
+                        throw new ApiException(409, 'conflict', 'Their records for this course changed since you opened this. Reload to see where it stands.');
+                    }
+                    $v = $cs->voidInTx($completionId, $voidReason);
+                    $events = [$v['event']];
+                    if ($run !== null) {
+                        $events[] = RunReset::abandonInTx($db, $run, $actor, $voidReason, $id, RunReset::describe($db, $run));
+                    }
+                    foreach ($events as $e) {
+                        Ledger::append($db, $e);
+                    }
+                    unset($v['event']);
+                    return $v + ['run_id' => $run === null ? null : (int) $run['trun_id']];
+                });
             } catch (ApiException $e) {
                 if ($e->errCode === 'already_voided') {
                     throw new ApiException(409, 'already_done', 'This record was already voided. Reload to see the new assignment.');
                 }
                 throw $e;
             }
-            $anchor = 'reissue:c' . $completionId;
+            $void = $cs->afterVoid($void) + ['run_id' => $void['run_id']];
+            // The reissue row the void's reconcile opened: the plan's anchor, or whichever reissue the rules want now.
             $open = $this->openFor($a['contact_id'], $a['course_id']);
-            if ($open === null || $open['anchor'] !== $anchor) {
+            if ($open === null || !str_starts_with((string) $open['anchor'], 'reissue:')) {
                 AssignmentService::safeReconcile($this->c, [$a['contact_id']], 'void', 1);
                 $open = $this->openFor($a['contact_id'], $a['course_id']);
             }
-            $newId = ($open !== null && $open['anchor'] === $anchor) ? (int) $open['id'] : null;
-            $actor = $this->actor();
-            $work = function () use ($db, $a, $newId, $dueOn, $reason, $completionId, $void, $actor): void {
+            $newId = ($open !== null && str_starts_with((string) $open['anchor'], 'reissue:')) ? (int) $open['id'] : null;
+            $work = function () use ($db, $a, $newId, $dueOn, $reason, $completionId, $void): ?string {
                 $events = [];
-                $run = $this->runsReady() ? RunRepo::open($db, $a['contact_id'], $a['course_id'], true) : null;   // run row first
                 $new = $newId !== null ? $this->lockRow($newId) : null;
-                if ($run !== null) {
-                    $events[] = RunReset::abandonInTx($db, $run, $actor, self::VOID_PREFIX . $reason, $newId, RunReset::describe($db, $run));
-                }
-                if ($new !== null && $new['status'] === 'open' && $new['due_on'] !== $dueOn) {
-                    Db::exec($db, 'UPDATE training_assignments SET tassign_due_on = ? WHERE tassign_id = ?', 'si', [$dueOn, $newId]);
-                    $events[] = AssignmentStore::event('assignment.due_changed', $new,
-                        ['course_id' => $new['course_id'], 'from' => $new['due_on'], 'to' => $dueOn, 'reason' => $reason, 'trigger' => 'retake'],
-                        $this->c->userId, ['user_agent' => $this->c->userAgent]);
+                $due = null;
+                if ($new !== null && $new['status'] === 'open') {
+                    if ($new['due_on'] !== $dueOn) {
+                        Db::exec($db, 'UPDATE training_assignments SET tassign_due_on = ? WHERE tassign_id = ?', 'si', [$dueOn, $newId]);
+                        $events[] = AssignmentStore::event('assignment.due_changed', $new,
+                            ['course_id' => $new['course_id'], 'from' => $new['due_on'], 'to' => $dueOn, 'reason' => $reason, 'trigger' => 'retake'],
+                            $this->c->userId, ['user_agent' => $this->c->userAgent]);
+                    }
+                    $due = $dueOn;
                 }
                 $events[] = AssignmentStore::event('assignment.retake', $a, [
                     'course_id' => $a['course_id'],
@@ -238,26 +306,34 @@ final class AssignmentReset
                     'void_id' => (int) $void['void_id'],
                     'reason' => $reason,
                     'new_assignment_id' => $newId,
-                    'due_on' => $new !== null ? $dueOn : null,
+                    'new_anchor' => $new['anchor'] ?? null,
+                    'due_on' => $due,   // only when the new row is open with the chosen date
+                    'run_id' => $void['run_id'],
                 ], $this->c->userId, ['user_agent' => $this->c->userAgent]);
                 foreach ($events as $e) {
                     Ledger::append($db, $e);
                 }
+                return $due;
             };
-            try {
-                Db::tx($db, $work);
-            } catch (\mysqli_sql_exception $e) {
-                if (!in_array((int) $e->getCode(), [1205, 1213], true)) {
-                    throw $e;
+            $applied = null;
+            for ($try = 1; ; $try++) {
+                try {
+                    $applied = Db::tx($db, $work);
+                    break;
+                } catch (\mysqli_sql_exception $e) {
+                    if (!in_array((int) $e->getCode(), [1205, 1213], true) || $try >= 2) {
+                        // The void (and the run's reset) stand; say so rather than answering with an error.
+                        error_log('Training retake #' . $id . ': due date / assignment.retake not written: ' . $e->getMessage());
+                        break;
+                    }
                 }
-                Db::tx($db, $work);   // once more after a deadlock / lock wait (the void already stands)
             }
         } finally {
             Db::unlock($db, 'trrec');
         }
         return ['assignment' => $newId !== null ? $this->shape($newId) : null, 'previous' => $this->shape($id),
                 'cert_number' => $void['cert_number'], 'void_id' => (int) $void['void_id'], 'pending' => $newId === null,
-                'contact_id' => $a['contact_id'], 'course_id' => $a['course_id']];
+                'due_applied' => $applied !== null, 'contact_id' => $a['contact_id'], 'course_id' => $a['course_id']];
     }
 
     // =========================================================================================
@@ -279,6 +355,7 @@ final class AssignmentReset
         $db = $this->c->db;
         $s = RecordsSettings::fromDb($db);
         $pair = $this->row($id);
+        $this->assertActivePerson($pair['contact_id']);
         $ctx = $this->pairContext($pair['contact_id'], $pair['course_id'], $today);   // people / rules / course: read before the tx, like reconcile
         $now = Clock::nowUtc();
         $r = Db::tx($db, function () use ($db, $id, $reason, $dueOn, $today, $s, $ctx, $now): array {
@@ -298,6 +375,7 @@ final class AssignmentReset
             $meta = ['user_agent' => $this->c->userAgent];
             $events = [];
             $openId = null;
+            $openAnchor = null;
             $outcome = $open !== null ? 'open_exists' : $plan['outcome'];
             if ($outcome === 'reopen') {
                 $d = $ctx['d'];
@@ -317,9 +395,11 @@ final class AssignmentReset
                     WHERE tassign_id = ? AND tassign_status = 'waived'", 'sisi', [$now, $userId, $reason, $id]);
                 if ($outcome === 'replace') {
                     $openId = $this->openWanted($a, $ctx['d'], $plan, $due, $now, $events);
+                    $openAnchor = (string) $plan['want']['anchor'];
                     $outcome = 'replaced';
                 } elseif ($outcome === 'open_exists') {
                     $openId = (int) $open['tassign_id'];
+                    $openAnchor = (string) $open['tassign_anchor'];
                 } else {
                     $outcome = 'ended';
                 }
@@ -332,6 +412,8 @@ final class AssignmentReset
                 'due_on' => in_array($outcome, ['reopened', 'replaced'], true) ? $due : null,
                 'outcome' => $outcome,
                 'open_assignment_id' => $openId,
+                'open_anchor' => $openAnchor,   // replaced / open_exists: what is open now (renewal, retrain, ...)
+                'end_why' => $outcome === 'ended' ? $plan['why'] : null,   // why nothing opened
             ], $userId, $meta));
             foreach ($events as $e) {
                 Ledger::append($db, $e);
@@ -413,6 +495,9 @@ final class AssignmentReset
             'original_due_on' => $a['original_due_on'],
             'default_due_on' => self::unwaiveDefault($a, $today),
             'new_anchor_label' => null,
+            'new_anchor_kind' => null,
+            'had_record' => false,   // a record (valid, expired or voided) counts for them: "take this course again", else "take this course"
+            'lapsed_on' => null,     // a renewal opens while their last record already expired on this date: not qualified until they renew
         ];
         if (!$active) {
             return $out;
@@ -423,6 +508,14 @@ final class AssignmentReset
         $out['end_why'] = $plan['outcome'] === 'end' ? $plan['why'] : null;
         if ($plan['outcome'] === 'replace') {
             $out['new_anchor_label'] = self::anchorWords((string) $plan['want']['anchor']);
+            $out['new_anchor_kind'] = PairRules::parseAnchor((string) $plan['want']['anchor'])['kind'];
+        }
+        $f = $plan['facts'];
+        $out['had_record'] = ($f['latest'] ?? null) !== null || ($f['latestVoided'] ?? null) !== null;
+        $L = $f['latest'] ?? null;
+        if ($open === null && $plan['want'] !== null && str_starts_with((string) $plan['want']['anchor'], 'renew:')
+            && $L !== null && $L['expires_on'] !== null && $L['expires_on'] < $today) {
+            $out['lapsed_on'] = $L['expires_on'];
         }
         return $out;
     }
@@ -492,12 +585,13 @@ final class AssignmentReset
 
     /**
      * Can this completed assignment be reset to take again?
-     * {allowed, done (already voided), why, completion:{id, cert_number, completed_on, expires_on, kind}|null, default_due_on, open_run}
+     * {allowed, done (already voided), why, completion:{id, cert_number, completed_on, expires_on, kind}|null, anchor (the reissue
+     *  anchor reconcile will open), parts:{online, session, practical}|null, default_due_on, open_run}
      */
     private function retakePlan(array $a, string $today, RecordsSettings $s): array
     {
         $db = $this->c->db;
-        $out = ['allowed' => false, 'done' => false, 'why' => null, 'completion' => null,
+        $out = ['allowed' => false, 'done' => false, 'why' => null, 'completion' => null, 'anchor' => null, 'parts' => null,
                 'default_due_on' => Clock::addDays($today, max(1, $s->reissueDays)), 'open_run' => null, 'reissue_days' => $s->reissueDays];
         $x = $a['completion_id'];
         if ($x === null) {
@@ -530,47 +624,47 @@ final class AssignmentReset
         }
         $ctx = $this->pairContext($a['contact_id'], $a['course_id'], $today);
         $d = $ctx['d'];
-        $f = RecordFacts::forPair($db, $a['contact_id'], $a['course_id'], $d['onboarding_since'] ?? null, false, $s, $today);
+        $course = $ctx['course'];
+        if ($course !== null) {
+            $out['parts'] = ['online' => (bool) $course['needs']['online'], 'session' => (bool) $course['needs']['session'],
+                             'practical' => (bool) $course['needs']['practical']];
+        }
         if ($d === null) {
             $out['why'] = 'Nothing would be assigned: ' . $this->whyNothing($ctx, ['latest' => null, 'waiver' => null], $today)
                 . '. To have them take it again, give it to them with Assign training first.';
             return $out;
         }
+        // The same facts reconcile reads for the pair: records before their current start date (a rehire) do not count.
+        $floor = $d['onboarding_since'] ?? null;
+        if ($floor !== null && (string) $c['completion_completed_on'] < $floor) {
+            $out['why'] = 'This record is from before their current start date (' . Labels::shortDate($floor)
+                . '), so it no longer counts for them and voiding it would not assign the course again.';
+            return $out;
+        }
+        $f = RecordFacts::forPair($db, $a['contact_id'], $a['course_id'], $floor, false, $s, $today);
         if (!empty($f['waiver'])) {
             $out['why'] = 'The course is waived for them, so nothing would be assigned. End the waiver first.';
             return $out;
         }
-        // After the void: the pair's next latest record (same onboarding floor) must not be valid, or nothing reopens.
-        $floor = $d['onboarding_since'];
-        $next = null;
-        foreach ($f['anchorRefs']['c'] as $cid => $cc) {   // ascending (completed_on, completion_id)
-            if ((int) $cid === $x || $cc['voided_at_utc'] !== null || ($floor !== null && $cc['completed_on'] < $floor)) {
-                continue;
-            }
-            $next = $cc;
+        if (($f['latest']['completion_id'] ?? null) !== $x) {
+            $out['why'] = 'Its training record is not the one the rules count for this person.';
+            return $out;
         }
-        if ($next !== null && PairRules::isValid($next, $f['rr'] ?? null, $today)) {
+        // After the void, exactly as reconcile will read it (RecordFacts::withVoided: same floor; the newest voided record
+        // is the reissue anchor, which may be an older void of the pair rather than this record).
+        $sim = RecordFacts::withVoided($f, $x, Clock::nowUtc(), $floor);
+        $next = $sim['latest'];
+        if ($next !== null && PairRules::isValid($next, $sim['rr'] ?? null, $today)) {
             $out['why'] = 'They also have another valid record for this course (' . ($next['cert_number'] ?: 'completed ' . $next['completed_on'])
                 . '), so voiding this one would not assign it again.';
             return $out;
         }
-        // The same decision reconcile makes after the void: it must want 'reissue:c<x>'.
-        $sim = $f;
-        $voided = $f['anchorRefs']['c'][$x] ?? null;
-        if ($voided === null) {
-            $out['why'] = 'Its training record is not the one the rules count for this person.';
-            return $out;
-        }
-        $voided['voided_at_utc'] = Clock::nowUtc();
-        $sim['latest'] = $next;
-        $sim['latestVoided'] = $voided;
-        $sim['anchorRefs']['c'][$x] = $voided;
-        $course = $ctx['course'];
         $want = PairRules::want($d, $sim, ['validity_months' => $course['validity_months'] ?? null, 'renewal_lead_days' => $course['renewal_lead_days'] ?? 0], $today, $s);
-        if ($want === null || $want['anchor'] !== 'reissue:c' . $x) {
+        if ($want === null || !str_starts_with((string) $want['anchor'], 'reissue:')) {
             $out['why'] = 'Voiding this record would not assign the course again right now.';
             return $out;
         }
+        $out['anchor'] = (string) $want['anchor'];
         $out['allowed'] = true;
         $run = $this->runsReady() ? RunRepo::open($db, $a['contact_id'], $a['course_id']) : null;
         $out['open_run'] = $run === null ? null : RunReset::describe($db, $run);
@@ -588,6 +682,15 @@ final class AssignmentReset
             $d = $matcher->desiredFor($p, $today)[$courseId] ?? null;
         }
         return ['person' => $p, 'd' => $d, 'course' => CourseCards::load($db, [$courseId])[$courseId] ?? null];
+    }
+
+    /** Archived or deleted people: nothing is reset or un-waived (409; the menus hide it). */
+    private function assertActivePerson(int $contactId): void
+    {
+        $r = Db::one($this->c->db, 'SELECT contact_archived_at FROM contacts WHERE contact_id = ?', 'i', [$contactId]);
+        if ($r === null || $r['contact_archived_at'] !== null) {
+            throw new ApiException(409, 'archived', self::ARCHIVED);
+        }
     }
 
     private function openFor(int $contactId, int $courseId): ?array

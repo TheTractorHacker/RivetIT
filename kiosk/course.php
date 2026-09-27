@@ -113,6 +113,8 @@ $k_page = [
         'video_page' => '/kiosk/lesson_video.php',
         'lesson' => $lessonUid,
         'check' => $openCheck,
+        // An agent reset their progress / voided their record while they were away (until they start it again).
+        'reset_notice' => $run === null ? (\ITFlow\Training\Kiosk\Learn\RunReset::notices($db, $cid, $courseId)[0] ?? null) : null,
     ],
 ];
 require __DIR__ . '/includes/layout_top.php';

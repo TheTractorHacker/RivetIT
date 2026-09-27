@@ -11,7 +11,8 @@ use ITFlow\Training\Kiosk\Core\KTime;
  * more than GRACE_S ago and no result - through AttemptService's grading path, in one Db::tx per
  * attempt (run row, then attempt row, FOR UPDATE), with finalized_by 'finalizer' and
  * timed_out 1. Idempotent (a result that appeared meanwhile is skipped) and system-derived, so it
- * may run on GET (Learning Center, course, sign), at exam_start and from cron.
+ * may run on GET (Learning Center, course, sign), at exam_start and from cron. An attempt of a run an
+ * agent reset (RunReset) is graded as that run's history but earns no exam achievement.
  */
 final class AttemptFinalizer
 {
@@ -59,7 +60,9 @@ final class AttemptFinalizer
                     foreach ($g['events'] as $e) {
                         Ledger::append($db, $e);
                     }
-                    return ['facts' => $g['facts']];
+                    // A try left open on a run an agent reset (RunReset) is graded as that run's history only: it earns nothing.
+                    $reset = $run['trun_status'] === 'abandoned' && RunReset::wasReset($db, $rid);
+                    return ['facts' => $reset ? null : $g['facts']];
                 });
             } catch (\Throwable $e) {
                 error_log('Kiosk AttemptFinalizer attempt #' . $attemptId . ': ' . get_class($e));

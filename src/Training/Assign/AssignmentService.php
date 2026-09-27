@@ -12,6 +12,7 @@ use ITFlow\Training\Core\RecordsMutex;
 use ITFlow\Training\Core\RecordsSettings;
 use ITFlow\Training\People\Directory;
 use ITFlow\Training\People\Scope;
+use ITFlow\Training\Records\RetakeVoids;
 
 /**
  * Assignments: the reconcile engine (M6) plus extend / waive / list / get (Phase 2 spec §3.3).
@@ -459,7 +460,35 @@ final class AssignmentService
                 'payload' => is_array($payload) ? $payload : null,
             ];
         }
-        return ['assignment' => $a, 'history' => $history];
+        return ['assignment' => $a, 'history' => $history, 'retake_of' => $this->retakeOf($a)];
+    }
+
+    /**
+     * For a reissue row opened by "Reset (take again)": who voided which record and why (the assignment.retake event
+     * on the old row names this row), so its history can say "Reassigned after {by} voided {cert}: {reason}"
+     * instead of "Assigned by System". Null for any other row.
+     *
+     * @return array{at:string, by:?string, cert_number:?string, reason:?string, from_assignment_id:int}|null
+     */
+    private function retakeOf(array $a): ?array
+    {
+        if (!str_starts_with((string) $a['anchor'], 'reissue:') || empty($a['person']['contact_id']) || empty($a['course']['id'])) {
+            return null;
+        }
+        $rows = Db::all($this->c->db, "SELECT e.tevent_at_utc, e.tevent_entity_id, e.tevent_payload_json, u.user_name
+            FROM training_events e LEFT JOIN users u ON u.user_id = e.tevent_actor_user_id
+            WHERE e.tevent_subject_contact_id = ? AND e.tevent_type = 'assignment.retake' AND e.tevent_course_id = ?
+            ORDER BY e.tevent_seq DESC LIMIT 20", 'ii', [(int) $a['person']['contact_id'], (int) $a['course']['id']]);
+        foreach ($rows as $r) {
+            $p = json_decode((string) $r['tevent_payload_json'], true);
+            if (is_array($p) && (int) ($p['new_assignment_id'] ?? 0) === (int) $a['id']) {
+                return ['at' => Clock::toIso((string) $r['tevent_at_utc'], true), 'by' => $r['user_name'] === null ? null : (string) $r['user_name'],
+                        'cert_number' => isset($p['cert_number']) ? (string) $p['cert_number'] : null,
+                        'reason' => isset($p['reason']) && is_string($p['reason']) ? $p['reason'] : null,
+                        'from_assignment_id' => (int) $r['tevent_entity_id']];
+            }
+        }
+        return null;
     }
 
     /**
@@ -511,11 +540,16 @@ final class AssignmentService
             }
         }
         $comps = [];
+        $retakes = [];   // reissue anchors whose record was voided by "Reset (take again)": completion_id => cert number ('' = none)
         if ($compIds !== []) {
             $compIds = array_values(array_unique($compIds));
-            foreach (Db::all($db, 'SELECT completion_id, completion_expires_on FROM training_completions WHERE completion_id IN ('
+            foreach (Db::all($db, 'SELECT c.completion_id, c.completion_expires_on, c.completion_cert_number, v.cvoid_reason FROM training_completions c
+                    LEFT JOIN training_completion_voids v ON v.cvoid_completion_id = c.completion_id WHERE c.completion_id IN ('
                 . implode(',', array_fill(0, count($compIds), '?')) . ')', str_repeat('i', count($compIds)), $compIds) as $r) {
                 $comps[(int) $r['completion_id']] = $r['completion_expires_on'];
+                if (RetakeVoids::isRetake($r['cvoid_reason'] ?? null)) {
+                    $retakes[(int) $r['completion_id']] = (string) ($r['completion_cert_number'] ?? '');
+                }
             }
         }
         $voided = [];
@@ -550,7 +584,9 @@ final class AssignmentService
             $label = match ($anchor['kind']) {
                 'renew' => 'Renewal · ' . ($renewExp !== null && (string) $renewExp < $today ? 'expired ' : 'expires ') . ($renewExp ?? '?'),
                 'retrain' => 'Retrain · Version ' . ($revs[$anchor['id']] ?? '?'),
-                'reissue' => 'Record voided · redo',
+                'reissue' => isset($retakes[$anchor['id']])
+                    ? 'Take again (record ' . ($retakes[$anchor['id']] !== '' ? $retakes[$anchor['id']] . ' ' : '') . 'voided)'
+                    : 'Record voided · redo',
                 // A hand-made (Assign training) rule is named "Assigned by {user} on {date}": show it as is, not "Required by Assigned by …".
                 default => ($req !== null && $req['is_manual']) ? $req['name'] : 'Required by ' . ($req['name'] ?? 'a rule'),
             };
