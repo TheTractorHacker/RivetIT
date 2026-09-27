@@ -3937,10 +3937,14 @@ CREATE TABLE `training_automation` (
   `tauto_id` tinyint(3) unsigned NOT NULL,
   `tauto_odoo_push_enabled` tinyint(1) NOT NULL DEFAULT 0,
   `tauto_odoo_mode` enum('resume','skill','note') NOT NULL DEFAULT 'resume',
+  `tauto_odoo_send_resume` tinyint(1) NOT NULL DEFAULT 1,
+  `tauto_odoo_send_skill` tinyint(1) NOT NULL DEFAULT 0,
+  `tauto_odoo_send_note` tinyint(1) NOT NULL DEFAULT 0,
   `tauto_odoo_resume_type_id` int(11) DEFAULT NULL,
   `tauto_odoo_award_type_id` int(11) DEFAULT NULL,
   `tauto_odoo_skill_type_id` int(11) DEFAULT NULL,
   `tauto_odoo_skill_level_id` int(11) DEFAULT NULL,
+  `tauto_odoo_skill_label` varchar(255) DEFAULT NULL,
   `tauto_odoo_push_awards` tinyint(1) NOT NULL DEFAULT 0,
   `tauto_odoo_push_since` date DEFAULT NULL,
   `tauto_odoo_target_key` char(16) DEFAULT NULL,
@@ -4768,7 +4772,7 @@ CREATE TABLE `training_odoo_outbox` (
   `todoo_updated_by` int(11) DEFAULT NULL,
   `todoo_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   PRIMARY KEY (`todoo_id`),
-  UNIQUE KEY `uq_training_todoo_source` (`todoo_target_key`,`todoo_source_type`,`todoo_source_id`,`todoo_action`),
+  UNIQUE KEY `uq_training_todoo_source_mode` (`todoo_target_key`,`todoo_source_type`,`todoo_source_id`,`todoo_action`,`todoo_mode`),
   KEY `idx_training_todoo_due` (`todoo_target_key`,`todoo_status`,`todoo_next_attempt_at_utc`),
   KEY `idx_training_todoo_contact` (`todoo_contact_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

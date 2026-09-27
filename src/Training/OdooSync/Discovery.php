@@ -18,6 +18,12 @@ final class Discovery
 {
     private const CALL = ['connect_timeout' => 5, 'timeout' => 8];
 
+    /**
+     * HR notes need Odoo 19 or later: only there does message_post take notify_skip_followers, which keeps a note from
+     * reaching followers who ticked the "Note" subtype (Pusher::noteArgs). Older versions refuse the parameter.
+     */
+    public const NOTE_MIN_MAJOR = 19;
+
     private float $deadline = 0.0;
 
     public function __construct(private readonly Target $target, private readonly OdooConnectorInterface $odoo)
@@ -28,8 +34,9 @@ final class Discovery
      * @return array{target:array{key:string, integration_id:int, base_url:string, database:string}, server_version:?string,
      *   protocol:string, checked_at_utc:string, errors:list<string>,
      *   resume:array{available:bool, fields:list<string>, course_type_values:list<string>, types:list<array{id:int,name:string,is_course:?bool}>, suggested_type_id:?int},
-     *   skill:array{available:bool, cert_types:list<array{id:int,name:string}>, levels:list<array{id:int,name:string,type_id:int,default:bool}>},
-     *   note:array{available:bool}, gamification:array{employees_with_users:?int}, can_read_resume:bool}
+     *   skill:array{available:bool, cert_types:list<array{id:int,name:string}>, levels:list<array{id:int,name:string,type_id:int,default:bool}>,
+     *     skills:list<array{id:int,name:string,type_id:int}>},
+     *   note:array{available:bool, why:?string}, gamification:array{employees_with_users:?int}, can_read_resume:bool}
      */
     public function run(int $budgetS = 25): array
     {
@@ -42,8 +49,8 @@ final class Discovery
             'checked_at_utc' => Clock::nowUtc(),
             'errors' => [],
             'resume' => ['available' => false, 'fields' => [], 'course_type_values' => [], 'types' => [], 'suggested_type_id' => null],
-            'skill' => ['available' => false, 'cert_types' => [], 'levels' => []],
-            'note' => ['available' => false],
+            'skill' => ['available' => false, 'cert_types' => [], 'levels' => [], 'skills' => []],
+            'note' => ['available' => false, 'why' => 'chatter'],
             'gamification' => ['employees_with_users' => null],
             'can_read_resume' => false,
         ];
@@ -82,7 +89,8 @@ final class Discovery
             $out['resume']['available'] = false;
         }
 
-        // Skills (L2 needs certification skill types; shown so the owner knows what exists).
+        // Certification skills: the certification skill types, their levels and their skills (the admin maps a course
+        // or an achievement to one of these skills; read-only here - "Create skill in Odoo" is a separate admin action).
         $sk = $this->try('hr.employee.skill', 'fields_get', ['attributes' => ['type']], $errors);
         $out['skill']['available'] = is_array($sk) && $sk !== [];
         if ($out['skill']['available']) {
@@ -106,12 +114,27 @@ final class Discovery
                         ];
                     }
                 }
+                $sk = $this->try('hr.skill', 'search_read', ['domain' => [['skill_type_id', 'in', $ids]], 'fields' => ['id', 'name', 'skill_type_id'],
+                    'order' => 'name asc', 'limit' => 2000], $errors);
+                foreach (is_array($sk) ? $sk : [] as $k) {
+                    if (is_array($k) && is_int($k['id'] ?? null) && $k['id'] > 0) {
+                        $out['skill']['skills'][] = [
+                            'id' => $k['id'],
+                            'name' => (string) Text::clip(is_string($k['name'] ?? null) ? $k['name'] : ('#' . $k['id']), 200),
+                            'type_id' => is_array($k['skill_type_id'] ?? null) ? (int) ($k['skill_type_id'][0] ?? 0) : (int) ($k['skill_type_id'] ?? 0),
+                        ];
+                    }
+                }
             }
         }
 
-        // Chatter (note mode, L2).
+        // Chatter (the HR-note target posts internal notes; hr.employee.message_ids is only readable by HR officers), on an
+        // Odoo that can post a note to nobody (NOTE_MIN_MAJOR). note.why says what is missing: chatter | version | version_unknown.
         $ef = $this->try('hr.employee', 'fields_get', ['attributes' => ['type']], $errors);
-        $out['note']['available'] = is_array($ef) && isset($ef['message_ids']);
+        $chatter = is_array($ef) && isset($ef['message_ids']);
+        $major = self::major($out['server_version']);
+        $out['note']['available'] = $chatter && $major !== null && $major >= self::NOTE_MIN_MAJOR;
+        $out['note']['why'] = !$chatter ? 'chatter' : ($major === null ? 'version_unknown' : ($major < self::NOTE_MIN_MAJOR ? 'version' : null));
 
         $n = $this->try('hr.resume.line', 'search_count', ['domain' => []], $errors);
         $out['can_read_resume'] = is_int($n);
@@ -120,6 +143,15 @@ final class Discovery
 
         $out['errors'] = $errors;
         return $out;
+    }
+
+    /** The major version in an Odoo server_version ("19.0+e" -> 19, "saas~18.3" -> 18), or null. */
+    public static function major(mixed $serverVersion): ?int
+    {
+        if (!is_string($serverVersion) || preg_match('/(\d{1,3})\.\d+/', $serverVersion, $m) !== 1) {
+            return null;
+        }
+        return (int) $m[1];
     }
 
     /** "Training" by name, else the first course type, else nothing. */

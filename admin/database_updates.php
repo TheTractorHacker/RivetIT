@@ -9257,3 +9257,25 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.96'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.96') {
+        // Training / LMS Odoo write-back targets (owner ask 2026-09-27; Phase 5 LATER item L2): a record can be sent as a
+        // résumé line, a certification skill and/or an HR note - any combination, one outbox row per target and action.
+        //   training_automation: tauto_odoo_send_resume (default 1: the Phase 5 behaviour), _skill and _note (default 0).
+        //     tauto_odoo_mode stays (always 'resume'); the per-target switches decide what is sent. tauto_odoo_skill_label
+        //     keeps the name of the chosen certification type and level, for the pause message when Odoo stops offering it.
+        //   training_odoo_outbox: the unique key gains todoo_mode (uq_training_todoo_source_mode) so one record has one row
+        //     per target per action; the wider key is added before the old one is dropped, so the table is never without one.
+        // Write-back stays OFF; nothing is queued or sent by this update. Idempotent: ADD COLUMN / ADD UNIQUE KEY IF NOT
+        // EXISTS and DROP INDEX IF EXISTS, so a half-applied run can be re-run.
+        mysqli_query($mysqli, "ALTER TABLE `training_automation`
+            ADD COLUMN IF NOT EXISTS `tauto_odoo_send_resume` tinyint(1) NOT NULL DEFAULT 1 AFTER `tauto_odoo_mode`,
+            ADD COLUMN IF NOT EXISTS `tauto_odoo_send_skill` tinyint(1) NOT NULL DEFAULT 0 AFTER `tauto_odoo_send_resume`,
+            ADD COLUMN IF NOT EXISTS `tauto_odoo_send_note` tinyint(1) NOT NULL DEFAULT 0 AFTER `tauto_odoo_send_skill`,
+            ADD COLUMN IF NOT EXISTS `tauto_odoo_skill_label` varchar(255) DEFAULT NULL AFTER `tauto_odoo_skill_level_id`");
+        mysqli_query($mysqli, "ALTER TABLE `training_odoo_outbox` ADD UNIQUE KEY IF NOT EXISTS `uq_training_todoo_source_mode`
+            (`todoo_target_key`,`todoo_source_type`,`todoo_source_id`,`todoo_action`,`todoo_mode`)");
+        mysqli_query($mysqli, "ALTER TABLE `training_odoo_outbox` DROP INDEX IF EXISTS `uq_training_todoo_source`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.97'");
+    }

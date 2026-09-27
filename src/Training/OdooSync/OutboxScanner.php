@@ -11,6 +11,11 @@ use ITFlow\Training\Upstream\RecordsGateway;
  * whatever the listener missed. The gateways apply every filter in SQL (training kind, not voided,
  * course not opted out, recorded on/after "send since", not queued yet for this target), so each
  * row they return is queued and a page can never fill with rows that will not be sent.
+ *
+ * Per target (Targets): every target switched on gets its own create row per record; the certification
+ * target only for courses/achievements mapped to an Odoo skill on this target. A void queues one close per
+ * target the record has a create for - also for a target switched off since, because a void must reach
+ * every copy in Odoo.
  */
 final class OutboxScanner
 {
@@ -40,55 +45,79 @@ final class OutboxScanner
         if ($since === null) {
             return $out;
         }
+        $modes = Targets::enabled($settings);
+        $awardIds = (!empty($settings['tauto_odoo_push_awards']) && $this->learner !== null) ? self::sendAchievements($this->db) : [];
 
         if ($countOnly) {
-            $out['creates'] = count($this->records->pushCandidates($since, $t->key, self::MAX_ROWS));
-            $out['closes'] = count($this->records->voidCandidates($t->key, self::MAX_ROWS));
-            $ids = !empty($settings['tauto_odoo_push_awards']) ? self::sendAchievements($this->db) : [];
-            if ($ids && $this->learner !== null) {
-                $out['awards'] = count($this->learner->awardCandidates($since, $t->key, $ids, self::MAX_ROWS));
+            foreach ($modes as $mode) {
+                $out['creates'] += count($this->records->pushCandidates($since, $t->key, self::MAX_ROWS, $mode));
+                if ($awardIds) {
+                    $out['awards'] += count($this->learner->awardCandidates($since, $t->key, $awardIds, self::MAX_ROWS, $mode));
+                }
             }
+            $out['closes'] = count($this->records->voidCandidates($t->key, self::MAX_ROWS));
             return $out;
         }
 
-        do {
-            $rows = $this->records->pushCandidates($since, $t->key, $limit);
-            foreach ($rows as $r) {
-                if ($this->repo->enqueue($t, 'completion', (int) $r['completion_id'], 'create', (int) $r['contact_id'], 'resume',
-                    Marker::for($this->inst8, 'completion', (int) $r['completion_id']), $nowUtc)) {
-                    $out['creates']++;
+        foreach ($modes as $mode) {
+            $n = 0;
+            do {
+                $rows = $this->records->pushCandidates($since, $t->key, $limit, $mode);
+                foreach ($rows as $r) {
+                    if ($this->repo->enqueue($t, 'completion', (int) $r['completion_id'], 'create', (int) $r['contact_id'], $mode,
+                        Marker::for($this->inst8, 'completion', (int) $r['completion_id']), $nowUtc)) {
+                        $n++;
+                    }
                 }
-            }
-        } while (count($rows) === $limit && $out['creates'] < self::MAX_ROWS);
+            } while (count($rows) === $limit && $n < self::MAX_ROWS);
+            $out['creates'] += $n;
+        }
 
         $seen = 0;
         do {
             $rows = $this->records->voidCandidates($t->key, $limit);
             foreach ($rows as $r) {
-                $create = $this->repo->findCreate($t->key, 'completion', (int) $r['completion_id']);
+                $mode = Targets::valid((string) ($r['mode'] ?? '')) ? (string) $r['mode'] : 'resume';
+                $create = $this->repo->findCreate($t->key, 'completion', (int) $r['completion_id'], $mode);
                 $marker = $create !== null ? (string) $create['todoo_marker'] : Marker::for($this->inst8, 'completion', (int) $r['completion_id']);
-                if ($this->repo->enqueue($t, 'completion', (int) $r['completion_id'], 'close', (int) $r['contact_id'], 'resume', $marker, $nowUtc)) {
+                if ($this->repo->enqueue($t, 'completion', (int) $r['completion_id'], 'close', (int) $r['contact_id'], $mode, $marker, $nowUtc)) {
                     $out['closes']++;
                 }
             }
             $seen += count($rows);
         } while (count($rows) === $limit && $seen < self::MAX_ROWS);
 
-        if (!empty($settings['tauto_odoo_push_awards']) && $this->learner !== null) {
-            $ids = self::sendAchievements($this->db);
-            if ($ids) {
+        if ($awardIds) {
+            foreach ($modes as $mode) {
+                $n = 0;
                 do {
-                    $rows = $this->learner->awardCandidates($since, $t->key, $ids, $limit);
+                    $rows = $this->learner->awardCandidates($since, $t->key, $awardIds, $limit, $mode);
                     foreach ($rows as $r) {
-                        if ($this->repo->enqueue($t, 'award', (int) $r['award_id'], 'create', (int) $r['contact_id'], 'resume',
+                        if ($this->repo->enqueue($t, 'award', (int) $r['award_id'], 'create', (int) $r['contact_id'], $mode,
                             Marker::for($this->inst8, 'award', (int) $r['award_id']), $nowUtc)) {
-                            $out['awards']++;
+                            $n++;
                         }
                     }
-                } while (count($rows) === $limit && $out['awards'] < self::MAX_ROWS);
+                } while (count($rows) === $limit && $n < self::MAX_ROWS);
+                $out['awards'] += $n;
             }
         }
         return $out;
+    }
+
+    /**
+     * The Odoo skill mapped to a course or an achievement on this target (training_odoo_map.tomap_odoo_skill_id with
+     * tomap_target_key = the target), or null. A mapping made against another Odoo never applies: skill ids are per Odoo.
+     */
+    public static function skillFor(\mysqli $db, string $entity, int $entityId, string $targetKey): ?int
+    {
+        $r = Db::one($db, 'SELECT tomap_odoo_skill_id, tomap_target_key FROM training_odoo_map WHERE tomap_entity = ? AND tomap_entity_id = ?',
+            'si', [$entity, $entityId]);
+        if ($r === null || $r['tomap_odoo_skill_id'] === null || (int) $r['tomap_odoo_skill_id'] < 1
+            || !is_string($r['tomap_target_key']) || !hash_equals($r['tomap_target_key'], $targetKey)) {
+            return null;
+        }
+        return (int) $r['tomap_odoo_skill_id'];
     }
 
     /** Achievements switched to "Send to Odoo" (no row = not sent; spec §2.1). @return list<int> */

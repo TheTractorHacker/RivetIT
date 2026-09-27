@@ -131,27 +131,62 @@ final class LearnerGateway
 
     /**
      * Awards of the achievements in $achievementIds, awarded at/after $sinceUtc, with no outbox create
-     * row for $targetKey. ORDER BY award id. [] before the P3 awards or P5 migrations.
+     * row for ($targetKey, $mode). For the certification target ($mode 'skill') only achievements mapped
+     * to an Odoo skill on THIS target. ORDER BY award id. [] before the P3 awards or P5 migrations.
      *
      * @param list<int> $achievementIds
      * @return list<array{award_id:int, contact_id:int, achievement_id:int}>
      */
-    public function awardCandidates(string $sinceUtc, string $targetKey, array $achievementIds, int $limit): array
+    public function awardCandidates(string $sinceUtc, string $targetKey, array $achievementIds, int $limit, string $mode = 'resume'): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $achievementIds), static fn($i) => $i > 0)));
+        if ($ids === [] || !Schema::has($this->db, Schema::P3_AWARDS) || !Schema::has($this->db, Schema::P5) || !in_array($mode, ['resume', 'skill', 'note'], true)) {
+            return [];
+        }
+        $skill = $mode === 'skill'
+            ? " AND EXISTS (SELECT 1 FROM training_odoo_map m WHERE m.tomap_entity = 'achievement' AND m.tomap_entity_id = w.taward_achievement_id
+                            AND m.tomap_odoo_skill_id IS NOT NULL AND m.tomap_target_key = ?)"
+            : '';
+        $rows = Db::all($this->db, "SELECT w.taward_id, w.taward_contact_id, w.taward_achievement_id
+            FROM training_achievement_awards w
+            WHERE w.taward_achievement_id IN (" . implode(',', array_fill(0, count($ids), '?')) . ")
+              AND w.taward_awarded_at_utc >= ?$skill
+              AND NOT EXISTS (SELECT 1 FROM training_odoo_outbox o WHERE o.todoo_target_key = ? AND o.todoo_source_type = 'award'
+                              AND o.todoo_source_id = w.taward_id AND o.todoo_action = 'create' AND o.todoo_mode = ?)
+            ORDER BY w.taward_id LIMIT ?", str_repeat('i', count($ids)) . ($mode === 'skill' ? 'ssssi' : 'sssi'),
+            array_merge($ids, $mode === 'skill' ? [$sinceUtc, $targetKey, $targetKey, $mode] : [$sinceUtc, $targetKey, $mode], [max(1, min(5000, $limit))]));
+        $out = [];
+        foreach ($rows as $r) {
+            $out[] = ['award_id' => (int) $r['taward_id'], 'contact_id' => (int) $r['taward_contact_id'], 'achievement_id' => (int) $r['taward_achievement_id']];
+        }
+        return $out;
+    }
+
+    /**
+     * Awards the certification target leaves out because their achievement (one of $achievementIds, the ones switched to
+     * "Send to Odoo") has no Odoo skill mapped on this target: per achievement, the awards that would otherwise be sent.
+     *
+     * @param list<int> $achievementIds
+     * @return list<array{achievement_id:int, name:string, n:int}>
+     */
+    public function unmappedSkillAchievements(string $sinceUtc, string $targetKey, array $achievementIds, int $limit = 20): array
     {
         $ids = array_values(array_unique(array_filter(array_map('intval', $achievementIds), static fn($i) => $i > 0)));
         if ($ids === [] || !Schema::has($this->db, Schema::P3_AWARDS) || !Schema::has($this->db, Schema::P5)) {
             return [];
         }
-        $rows = Db::all($this->db, "SELECT w.taward_id, w.taward_contact_id, w.taward_achievement_id
+        $out = [];
+        foreach (Db::all($this->db, "SELECT w.taward_achievement_id AS id, MAX(w.taward_snap_name) AS name, COUNT(*) AS n
             FROM training_achievement_awards w
+            LEFT JOIN training_odoo_map m ON m.tomap_entity = 'achievement' AND m.tomap_entity_id = w.taward_achievement_id
             WHERE w.taward_achievement_id IN (" . implode(',', array_fill(0, count($ids), '?')) . ")
               AND w.taward_awarded_at_utc >= ?
+              AND (m.tomap_odoo_skill_id IS NULL OR m.tomap_target_key IS NULL OR m.tomap_target_key <> ?)
               AND NOT EXISTS (SELECT 1 FROM training_odoo_outbox o WHERE o.todoo_target_key = ? AND o.todoo_source_type = 'award'
-                              AND o.todoo_source_id = w.taward_id AND o.todoo_action = 'create')
-            ORDER BY w.taward_id LIMIT ?", str_repeat('i', count($ids)) . 'ssi', array_merge($ids, [$sinceUtc, $targetKey, max(1, min(5000, $limit))]));
-        $out = [];
-        foreach ($rows as $r) {
-            $out[] = ['award_id' => (int) $r['taward_id'], 'contact_id' => (int) $r['taward_contact_id'], 'achievement_id' => (int) $r['taward_achievement_id']];
+                              AND o.todoo_source_id = w.taward_id AND o.todoo_action = 'create' AND o.todoo_mode = 'skill')
+            GROUP BY w.taward_achievement_id ORDER BY n DESC, w.taward_achievement_id LIMIT ?", str_repeat('i', count($ids)) . 'sssi',
+            array_merge($ids, [$sinceUtc, $targetKey, $targetKey, max(1, min(200, $limit))])) as $r) {
+            $out[] = ['achievement_id' => (int) $r['id'], 'name' => (string) $r['name'], 'n' => (int) $r['n']];
         }
         return $out;
     }

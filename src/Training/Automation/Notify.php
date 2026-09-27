@@ -24,7 +24,7 @@ use ITFlow\Training\Core\Text;
  */
 final class Notify
 {
-    public const KINDS = ['digest', 'escalation', 'video', 'odoo_paused', 'odoo_auth', 'odoo_config', 'odoo_dead', 'odoo_link', 'key_expiry', 'verify_integrity'];
+    public const KINDS = ['digest', 'escalation', 'video', 'odoo_paused', 'odoo_target_paused', 'odoo_auth', 'odoo_config', 'odoo_dead', 'odoo_link', 'key_expiry', 'verify_integrity'];
     /**
      * 'Training Digest' / 'Training Escalation' / 'Training Video' are the mutable 'training' push category.
      * 'Training Odoo' (write-back problems) and 'Training' (records integrity, e.g. the public certificate check's

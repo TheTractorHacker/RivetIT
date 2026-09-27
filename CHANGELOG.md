@@ -2,6 +2,41 @@
 
 This file documents all notable changes made to ITFlow.
 
+## [Unreleased] ITFlow Internal IT - Training Odoo write-back: certification skills and HR notes
+Database 2.6.96 -> 2.6.97: `training_automation` gains three switches (`tauto_odoo_send_resume` on, `_skill` and `_note`
+off) and `tauto_odoo_skill_label` (the name of the chosen certification type and level), and the `training_odoo_outbox`
+unique key gains the target (`uq_training_todoo_source_mode`), so one training record has one outbox row per target and action. Apply it through **Admin > Update > Update Database** (one click); write-back
+stays off and nothing is queued or sent by the update. Until it runs, write-back keeps working as résumé lines only.
+
+### New Features & Updates
+- **Send training records to Odoo as a résumé line, a certification skill, an HR note, or any combination**
+  (Admin > Training > Odoo write-back; administrators only; résumé line stays the default). Each one has its own
+  retries, its own "Odoo keeps refusing" stop, its own duplicate check and its own undo on a void; the employee-link
+  check, the name check, the Odoo pinning, "Send to Odoo" per course and "training courses only" apply to all.
+- **Certification skill**: an Odoo employee skill of a certification type ("Certifications > Certified"), valid from the
+  completion date to the expiry. Choose the type and level (found by **Check Odoo**), then map each course or achievement
+  to an Odoo skill under **Send to Odoo**, or click **Create in Odoo** to add a skill named after the course (the only
+  button here that writes to Odoo; a skill with exactly that name is reused). Courses without a skill are not sent as
+  certifications, and the outbox card lists them. A void (or "Reset (take again)") ends the certification the day
+  before (Odoo's own convention), or on the void date when it started that day. Odoo has no "revoked" mark, so a voided
+  certification looks like an expired one (the card says so; turn on HR notes for the explanation). A renewal adds a new
+  certification; Odoo keeps the old one. Odoo refuses two identical certifications (same skill, level and dates): that
+  is shown once with the reason and a "nothing to fix, Skip it" hint, never retried in a loop. If Odoo has no
+  certification type yet, the card says exactly what to create. The values of each certification are saved before it is
+  sent, so a retry after a lost Odoo answer finds it even if the course's skill or the level was changed in between.
+- If the chosen certification type is archived or deleted in Odoo, only certifications pause (the card names the
+  missing type and level and asks to choose again; the list shows "Choose…" instead of another type); résumé lines,
+  HR notes and voids keep going.
+- **HR note** (Odoo 19 or later): an internal note in the employee's Odoo chatter (course, completion date, certificate
+  number, expiry, how it was recorded, "Record of truth: ITFlow"; never a score, link or PDF). It goes to nobody: no
+  recipients, the employee's followers are skipped (also those following notes), ITFlow's Odoo user never becomes a
+  follower, and no out-of-office auto-reply is triggered. A void adds a short follow-up note naming the course; the
+  first note is never edited or deleted.
+- Outbox card: counts per target, "Sent as" on the card and in Needs attention and the preview; the last run and
+  Training 3's read-only summary say per target what was sent, retried, could not be sent or waits for an employee link.
+  Held counts and admin notifications count training records, not one per target.
+- A void of a record that already reached Odoo is sent before waiting new records, so a backlog cannot hold it back.
+
 ## [Unreleased] ITFlow Internal IT - Training (LMS) Phase 5: public certificate check, certificate and transcript PDFs, reminder digests, video checks, Odoo write-back, item analysis
 Database 2.6.95 -> 2.6.96: five new operational tables (`training_automation` with its one settings row,
 `training_odoo_outbox`, `training_odoo_map`, `training_reminder_log`, `training_video_watch`); nothing hashed or

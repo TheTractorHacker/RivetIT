@@ -180,10 +180,14 @@ $ta_update_card = static function () use ($ta_admin_page, $ta_is_admin): void {
                 <?php echo ta_read_only_badge(); ?>
             </div>
             <div class="card-body">
-                <p class="text-muted small">Copies training records to each employee's résumé in Odoo. ITFlow stays the record of truth.</p>
+                <p class="text-muted small">Copies training records to each employee in Odoo (résumé line, certification skill and/or internal HR note). ITFlow stays the record of truth.</p>
                 <dl class="row small mb-3">
                     <dt class="col-sm-3">Write-back</dt>
                     <dd class="col-sm-9"><?php echo $ta_odoo_on ? '<span class="badge text-bg-success">On</span>' : '<span class="badge text-bg-secondary">Off</span>'; ?></dd>
+                    <?php if (class_exists('ITFlow\\Training\\OdooSync\\Targets')) { ?>
+                        <dt class="col-sm-3">Sent as</dt>
+                        <dd class="col-sm-9"><?php echo nullable_htmlentities(implode(', ', array_map([\ITFlow\Training\OdooSync\Targets::class, 'label'], \ITFlow\Training\OdooSync\Targets::enabled($ta))) ?: 'nothing'); ?></dd>
+                    <?php } ?>
                     <dt class="col-sm-3">Last run</dt>
                     <dd class="col-sm-9"><?php echo $ta_odoo_run !== null ? nullable_htmlentities($ta_odoo_run) : '<span class="text-muted">Never</span>'; ?></dd>
                     <dt class="col-sm-3">Result</dt>
@@ -191,6 +195,14 @@ $ta_update_card = static function () use ($ta_admin_page, $ta_is_admin): void {
                     <?php if ($ta_odoo_paused !== '' && $ta_odoo_result['ok'] !== false) { // a paused last result already says why ?>
                         <dt class="col-sm-3">Paused</dt>
                         <dd class="col-sm-9 text-break"><span class="badge text-bg-warning me-1">Paused</span><?php echo nullable_htmlentities(class_exists('ITFlow\\Training\\OdooSync\\PushService') ? \ITFlow\Training\OdooSync\PushService::describePause($ta_odoo_paused) : $ta_odoo_paused); ?></dd>
+                    <?php } ?>
+                    <?php // a target paused on its own (e.g. the certification type archived in Odoo): the others keep sending
+                    $ta_odoo_disc = is_string($ta['tauto_odoo_discovery_json'] ?? null) ? json_decode($ta['tauto_odoo_discovery_json'], true) : null;
+                    $ta_odoo_tp = ($ta_odoo_on && $ta_odoo_paused === '' && is_array($ta_odoo_disc) && method_exists('ITFlow\\Training\\OdooSync\\PushService', 'targetPauses'))
+                        ? \ITFlow\Training\OdooSync\PushService::targetPauses($ta, $ta_odoo_disc) : [];
+                    foreach ($ta_odoo_tp as $ta_odoo_pm => $ta_odoo_pr) { ?>
+                        <dt class="col-sm-3">Paused</dt>
+                        <dd class="col-sm-9 text-break"><span class="badge text-bg-warning me-1"><?php echo nullable_htmlentities(\ITFlow\Training\OdooSync\Targets::label((string) $ta_odoo_pm)); ?></span><?php echo nullable_htmlentities(\ITFlow\Training\OdooSync\PushService::describePause((string) $ta_odoo_pr)); ?> <span class="text-muted">An administrator can fix it; the other targets keep sending.</span></dd>
                     <?php } ?>
                     <?php if ($ta_key_exp !== '') { ?>
                         <dt class="col-sm-3">Odoo key expires</dt>

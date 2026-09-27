@@ -13,10 +13,17 @@ namespace ITFlow\Training\OdooSync;
  * inst8 names this ITFlow install without posting its installation id to Odoo: the first 8 hex
  * characters of a sha256 over the installation id (or the database name when there is none).
  * It is stable across a domain move.
+ *
+ * The HR-note target's follow-up note on a void carries its own marker, the create marker with V in place of
+ * C ([ITFLOW:<inst8>:V0000000012]): delimited and fixed width like the others, so it never matches the first
+ * note's marker and the first note's marker never matches it.
  */
 final class Marker
 {
     public const RE = '/^\[ITFLOW:[0-9a-f]{8}:[CA][0-9]{10}\]$/';
+
+    /** Any marker ITFlow writes, including the void follow-up note's V marker. */
+    public const RE_ANY = '/^\[ITFLOW:[0-9a-f]{8}:[CAV][0-9]{10}\]$/';
 
     public static function inst8(string $installationId, string $dbName): string
     {
@@ -66,10 +73,19 @@ final class Marker
         return '[ITFLOW:' . $inst8 . ':' . $letter . sprintf('%010d', $sourceId) . ']';
     }
 
+    /** The follow-up (void) note's marker for a completion's create marker: C -> V. */
+    public static function voidOf(string $marker): string
+    {
+        if (preg_match('/^(\[ITFLOW:[0-9a-f]{8}:)C([0-9]{10}\])$/', $marker, $m) !== 1) {
+            throw new \InvalidArgumentException('Marker::voidOf: not a completion marker');
+        }
+        return $m[1] . 'V' . $m[2];
+    }
+
     /** Exact containment of $marker in the text of an Odoo html field (tags stripped, entities decoded). */
     public static function inHtml(?string $html, string $marker): bool
     {
-        if ($html === null || $html === '' || preg_match(self::RE, $marker) !== 1) {
+        if ($html === null || $html === '' || preg_match(self::RE_ANY, $marker) !== 1) {
             return false;
         }
         $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
