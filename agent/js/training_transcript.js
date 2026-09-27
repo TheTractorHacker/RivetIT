@@ -3,8 +3,9 @@
  *   - hides / shows revoked qualification rows ("Show revoked", remembered per browser);
  *   - keeps the chosen tab in the URL hash (#history …) so a reload or a shared link lands there;
  *   - opens Lane E's "Set hire date / Rehired" form (TrainingOps, level 3) and reloads after a save;
- *   - level 2+: a row menu on each assignment (Extend… / Waive… on open ones, History), the same
- *     TrainingOps forms as the Assignments list; reloads on the Assignments tab after a change.
+ *   - level 2+: a row menu on each assignment (Extend… / Waive… / Reset progress… on open ones, Un-waive… on active
+ *     waivers, Reset (take again)… on completed ones at level 3, History), the same TrainingOps forms and gates
+ *     as the Assignments list; reloads on the Assignments tab after a change.
  * No inline handlers (CSP); nothing here writes HTML.
  */
 (function () {
@@ -72,16 +73,18 @@
         var cells = document.querySelectorAll('[data-trr-assign-menu]');
         var Ops = window.TrainingOps;
         if (!cells.length || !Ops || !Ops.u || !Ops.u.kebab) { return; }
-        Ops.init({ today: data.today, level: data.level, user_id: data.user_id });
+        Ops.init({ today: data.today, level: data.level, user_id: data.user_id, routes: data.routes || {}, settings: data.settings || null });
         var byId = {};
         (data.assignments || []).forEach(function (a) { byId[String(a.id)] = a; });
+        var routes = data.routes || {};
+        function reload() {
+            window.location.hash = '#assignments';
+            window.location.reload();
+        }
         function run(kind, a) {
-            var opts = kind === 'history' ? { assignmentId: a.id, assignment: a } : { assignment: a };
+            var opts = kind === 'history' ? { assignmentId: a.id, assignment: a, onChanged: reload } : { assignment: a };
             Ops.open(kind, opts).then(function (result) {
-                if (result && kind !== 'history') {
-                    window.location.hash = '#assignments';
-                    window.location.reload();
-                }
+                if (result && kind !== 'history') { reload(); }
             }, function (err) {
                 if (window.TrainingUi) { window.TrainingUi.toast((err && err.message) || 'That did not work. Try again.', { type: 'error' }); }
             });
@@ -90,12 +93,12 @@
             var a = byId[cell.getAttribute('data-trr-assign-menu')];
             if (!a) { return; }
             var open = a.status === 'open' && !a.archived && Number(data.level) >= 2;
-            var menu = Ops.u.kebab('Actions for ' + (a.course ? a.course.name : 'this assignment'), [
-                open ? { label: 'Extend…', icon: 'far fa-calendar-plus', onClick: function () { run('extend', a); } } : null,
-                open ? { label: 'Waive…', icon: 'fas fa-pause-circle', onClick: function () { run('waive', a); } } : null,
-                open ? '-' : null,
-                { label: 'History', icon: 'fas fa-history', onClick: function () { run('history', a); } }
-            ]);
+            var edits = [
+                open && routes.assignment_extend !== false ? { label: 'Extend…', icon: 'far fa-calendar-plus', onClick: function () { run('extend', a); } } : null,
+                open && routes.assignment_waive !== false ? { label: 'Waive…', icon: 'fas fa-pause-circle', onClick: function () { run('waive', a); } } : null
+            ].concat(!a.archived && Ops.u.resetMenuItems ? Ops.u.resetMenuItems(a, run) : []).filter(Boolean);
+            var menu = Ops.u.kebab('Actions for ' + (a.course ? a.course.name : 'this assignment'),
+                edits.concat([edits.length ? '-' : null, { label: 'History', icon: 'fas fa-history', onClick: function () { run('history', a); } }]));
             if (menu) { cell.appendChild(menu); }
         });
     }

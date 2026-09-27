@@ -3,7 +3,7 @@
 /*
  * Learning Center (P3 spec §5.3, mockup Kiosk-LearningCenter) - what every employee sees after the
  * PIN. Learner session only. The page is assembled from the frozen interfaces (§3.7 RecordsBridge
- * learnerSummary, K6 AwardRepository, K1 RevisionCache, K2 PinService::noticesForKsess) plus
+ * learnerSummary, K6 AwardRepository, K1 RevisionCache, K2 PinService::noticesForKsess, RunReset::notices) plus
  * read-only P1/P3 rows (courses, runs); no P2 table is named here. Housekeeping first (§0.4 exception): RunService::settleAwaiting and
  * AttemptFinalizer::finalizeExpired for this learner's open runs - both idempotent and
  * system-derived. Every value reaches the DOM through k-page-data and textContent.
@@ -272,6 +272,29 @@ try {
     }
 } catch (\Throwable $e) {
     error_log('Kiosk me.php notices: ' . get_class($e));
+}
+// Reset / take-again notices (Assignments > Reset while they were away from the kiosk), until they start the course again.
+try {
+    $k_reset = \ITFlow\Training\Kiosk\Learn\RunReset::notices($db, $cid);
+    if ($k_reset !== []) {
+        $k_ids = array_values(array_unique(array_map(static fn(array $n): int => (int) $n['course_id'], $k_reset)));
+        $k_rn = [];
+        foreach (Db::all($db, 'SELECT course_id, course_name, course_current_revision_id, course_archived_at FROM training_courses WHERE course_id IN ('
+                . implode(',', array_fill(0, count($k_ids), '?')) . ')', str_repeat('i', count($k_ids)), $k_ids) as $r) {
+            if ($r['course_archived_at'] === null) {
+                $f = $r['course_current_revision_id'] === null ? null : $revFacts((int) $r['course_current_revision_id']);
+                $k_rn[(int) $r['course_id']] = $f !== null && $f['name'] !== '' ? $f['name'] : (string) $r['course_name'];
+            }
+        }
+        foreach ($k_reset as $n) {
+            if (isset($k_rn[(int) $n['course_id']])) {
+                $notices[] = ['kind' => $n['kind'], 'date' => $n['on'], 'who' => '', 'course' => $k_rn[(int) $n['course_id']],
+                              'record_on' => $n['record_on'] ?? null, 'due_on' => $n['due_on'] ?? null];
+            }
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('Kiosk me.php reset notices: ' . get_class($e));
 }
 
 // Completed courses and certificates: the course's current name in the screen language (P2 gives the default one).

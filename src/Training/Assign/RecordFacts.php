@@ -154,13 +154,49 @@ final class RecordFacts
 
     // ------------------------------------------------------------------------------------------
 
+    /**
+     * The facts f as they will read once completion $completionId is voided at $voidedAtUtc: latest and latestVoided
+     * re-derived from anchorRefs by the same rule as load() (the same onboarding floor $floor; a voided record counts
+     * only when newer than the latest valid one), so a caller can predict the reconcile that follows a void
+     * (Assign\AssignmentReset "take again"). Waiver, rr and recentCancelled are unchanged.
+     */
+    public static function withVoided(array $f, int $completionId, string $voidedAtUtc, ?string $floor): array
+    {
+        $refs = $f['anchorRefs']['c'] ?? [];
+        if (isset($refs[$completionId]) && $refs[$completionId]['voided_at_utc'] === null) {
+            $refs[$completionId]['voided_at_utc'] = $voidedAtUtc;
+        }
+        [$f['latest'], $f['latestVoided']] = self::pick($refs, $floor);
+        $f['anchorRefs']['c'] = $refs;
+        return $f;
+    }
+
     private static function build(array $list, ?string $floor, ?array $rrInfo, ?array $waiver, array $cancelled): array
     {
-        $latest = null;
-        $latestVoided = null;
         $refs = [];
         foreach ($list as $c) {             // ascending (completed_on, completion_id)
             $refs[$c['completion_id']] = $c;
+        }
+        [$latest, $latestVoided] = self::pick($refs, $floor);
+        return [
+            'latest' => $latest,
+            'latestVoided' => $latestVoided,
+            'waiver' => $waiver,
+            'rr' => $rrInfo['latest'] ?? null,
+            'recentCancelled' => $cancelled,
+            'anchorRefs' => ['c' => $refs, 'r' => $rrInfo['all'] ?? []],
+        ];
+    }
+
+    /**
+     * [latest, latestVoided] of a pair's completions (ascending (completed_on, completion_id), keyed by id): pre-floor
+     * ones do not count; latestVoided only when newer than latest.
+     */
+    private static function pick(array $refs, ?string $floor): array
+    {
+        $latest = null;
+        $latestVoided = null;
+        foreach ($refs as $c) {
             if ($floor !== null && $c['completed_on'] < $floor) {
                 continue;
             }
@@ -173,14 +209,7 @@ final class RecordFacts
         if ($latestVoided !== null && $latest !== null && self::key($latestVoided) <= self::key($latest)) {
             $latestVoided = null;
         }
-        return [
-            'latest' => $latest,
-            'latestVoided' => $latestVoided,
-            'waiver' => $waiver,
-            'rr' => $rrInfo['latest'] ?? null,
-            'recentCancelled' => $cancelled,
-            'anchorRefs' => ['c' => $refs, 'r' => $rrInfo['all'] ?? []],
-        ];
+        return [$latest, $latestVoided];
     }
 
     private static function key(array $c): string

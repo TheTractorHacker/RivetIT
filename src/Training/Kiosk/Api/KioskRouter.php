@@ -149,6 +149,11 @@ final class KioskRouter
                 }
             }
 
+            // A run an agent reset (Assignments > Reset progress): 409 run_reset, and the kiosk goes back to the course list.
+            if ($principal === 'session') {
+                \ITFlow\Training\Kiosk\Learn\RunReset::guard($k, $input);
+            }
+
             // 7. handler
             $api = new ApiContext($method, $input, $k->core->settings);
             [$class, $fn] = explode('::', $spec['handler'], 2);

@@ -308,11 +308,13 @@ final class TranscriptService
                 a.tassign_required, a.tassign_due_on, a.tassign_original_due_on, a.tassign_status, a.tassign_waived_until,
                 a.tassign_completion_id, a.tassign_created_at_utc, a.tassign_created_by, a.tassign_closed_at_utc,
                 a.tassign_close_reason, a.tassign_close_note, a.tassign_reopened_count,
-                co.course_name, co.course_code, co.course_kind, r.requirement_name, r.requirement_is_manual, u.user_name AS created_by_name
+                co.course_name, co.course_code, co.course_kind, r.requirement_name, r.requirement_is_manual, u.user_name AS created_by_name,
+                (v.cvoid_id IS NOT NULL) AS completion_voided
             FROM training_assignments a
             LEFT JOIN training_courses co ON co.course_id = a.tassign_course_id
             LEFT JOIN training_requirements r ON r.requirement_id = a.tassign_requirement_id
             LEFT JOIN users u ON u.user_id = a.tassign_created_by
+            LEFT JOIN training_completion_voids v ON v.cvoid_completion_id = a.tassign_completion_id
             WHERE a.tassign_contact_id = ? AND (a.tassign_status = 'open' OR a.tassign_closed_at_utc >= ?)
             ORDER BY (a.tassign_status = 'open') DESC, a.tassign_due_on ASC, a.tassign_id DESC", 'is', [$contactId, $since]);
         $details = OverdueReport::assignmentDetails($db, array_map(static fn($r) => (int) $r['tassign_id'], $rows));
@@ -362,11 +364,13 @@ final class TranscriptService
             'expires_on' => $detail['renew_expires_on'] ?? null,
             'waived_until' => $r['tassign_waived_until'] ?: null,
             'completion_id' => $r['tassign_completion_id'] !== null ? (int) $r['tassign_completion_id'] : null,
+            'completion_voided' => !empty($r['completion_voided']),
             'created_at' => Clock::toIso((string) $r['tassign_created_at_utc'], true),
             'created_on' => Clock::localDate((string) $r['tassign_created_at_utc']),
             'created_by_name' => $r['created_by_name'] ?? null,
             'closed_at' => $r['tassign_closed_at_utc'] !== null ? Clock::toIso((string) $r['tassign_closed_at_utc'], true) : null,
             'close_reason' => $r['tassign_close_reason'] ?? null,
+            'close_reason_label' => Labels::closeReason($r['tassign_close_reason'] ?? null),
             'close_note' => $r['tassign_close_note'] ?? null,
             'reopened_count' => (int) $r['tassign_reopened_count'],
         ];

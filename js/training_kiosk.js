@@ -147,6 +147,8 @@
                 } else if (ended && res.status === 403 && code === 'device_not_enrolled') {
                     stopTimers();
                     location.replace(ended);
+                } else if (res.status === 409 && code === 'run_reset') {
+                    return runReset();
                 }
                 throw err;
             });
@@ -155,6 +157,24 @@
             var code = timedOut ? 'timeout' : 'network';
             throw KioskError(0, code, errorMessage(code, null), null, null);
         });
+    }
+
+    /**
+     * 409 run_reset: an agent reset this person's progress on the course (Assignments > Reset progress). Says so
+     * once ("Your progress on this course was reset by your supervisor...") and goes back to the course list; the
+     * call never settles, so the page shows no error of its own. Videos are paused under the dialog.
+     */
+    var resetShown = false;
+    function runReset() {
+        if (!resetShown) {
+            resetShown = true;
+            var vids = document.querySelectorAll('video');
+            for (var i = 0; i < vids.length; i++) { try { vids[i].pause(); } catch (e) { /* ignore */ } }
+            var go = function () { location.replace('/kiosk/me.php'); };
+            setTimeout(go, 30000);   // nobody tapped OK: the course list anyway (the session's idle timer still applies there)
+            confirmDialog(t('err.run_reset'), t('reset.back'), null, { title: t('reset.title') }).then(go, go);
+        }
+        return new Promise(function () { /* navigating to the course list */ });
     }
 
     var api = {

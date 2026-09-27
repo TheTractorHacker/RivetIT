@@ -39,7 +39,10 @@ final class Ledger
                                  'assignment.waived', 'assignment.due_changed',
                                  'completion.recorded', 'completion.voided', 'cert.token_issued', 'evaluation.recorded',
                                  'session.opened', 'session.updated', 'session.finalized', 'session.cancelled',
-                                 'roster.changed', 'jobgroup.saved', 'jobgroup.archived', 'trainer.changed', 'contact.hire_date_set'];
+                                 'roster.changed', 'jobgroup.saved', 'jobgroup.archived', 'trainer.changed', 'contact.hire_date_set',
+                                 // Assignment reset / un-waive (agent, no schema change): the assignment's own event, and the
+                                 // pair's kiosk run the reset abandoned (actor user + reason; the kiosk tells the learner).
+                                 'assignment.unwaived', 'assignment.progress_reset', 'assignment.retake', 'run.reset'];
 
     public const ZERO_HASH = '0000000000000000000000000000000000000000000000000000000000000000';
 

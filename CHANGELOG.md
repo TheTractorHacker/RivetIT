@@ -2,6 +2,47 @@
 
 This file documents all notable changes made to ITFlow.
 
+## [Unreleased] ITFlow Internal IT - Training assignments: Reset and Un-waive
+No database change (2.6.94 stays). New agent actions `assignment_reset_preview`, `assignment_reset`,
+`assignment_retake`, `assignment_unwaive`; new ledger event types `assignment.progress_reset`, `assignment.retake`,
+`assignment.unwaived` and `run.reset`.
+
+### New Features & Updates
+- Assignments, the assignment history and the transcript have **Reset progress…** on open assignments (Training 2): it
+  clears the person's kiosk progress on that course (the dialog lists what goes: started date, progress, current lesson,
+  a passed exam, failed tries, a lock or block, waiting to sign or for a trainer, and warns when they only had to sign
+  or are already overdue), optionally with a new due date. Their next kiosk sign-in starts at lesson 1 with fresh tries
+  and no lock; the old tries stay in the history. Someone who hasn't started gets "Nothing to reset"; right after a
+  reset it says "No kiosk progress to clear right now (last reset ... by ...)". A kiosk that has the course open says
+  "Your progress on this course was reset by your supervisor. Start again when you're ready." (or in Spanish) and goes
+  back to the course list; someone who was not on the kiosk sees the same on their Learning Center and on the course
+  until they start it again.
+- **Reset (take again)…** on a completed assignment (Training 3, like voiding a record): voids its record (kept as
+  Voided, certificate stamped VOID) and gives the person a new assignment with the due date you pick ("Take again
+  (record ... voided)"; its history says who voided which record and why). Sessions, practical evaluations and kiosk
+  work from before it no longer count toward the new record. Only offered while that record is the one that counts and
+  voiding it would assign the course again; otherwise the dialog says why. The person's Learning Center says "Your
+  ... record from ... was voided by your supervisor. Please take it again by ...".
+- **Un-waive…** on a waiver that is still running (Training 2): "They'll need to take this course again. The waiver
+  stays in the history." The assignment reopens with the due date you pick (default: its due date or two weeks from
+  today, whichever is later). When the rules now ask for something else (a renewal, say) that opens instead, and the
+  dialog warns when their last record already expired; when nothing is required any more the waiver just ends and says
+  why (the history keeps the reason). Expired waivers are not offered.
+- History reads "Progress reset by ...: ...", "Waiver ended by ...: ...", "Record voided and reassigned by ...: ...".
+  An ended waiver shows as "Waiver ended", a record voided later as "Record voided". The assignments CSV writes close
+  reasons in words, and "Cancelled while overdue" leaves out ended waivers. The transcript says "Due date moved" when a
+  due date was moved earlier.
+- Department scope applies as everywhere (someone outside your departments is "not found"); archived people cannot be
+  reset or un-waived; a second click or a stale page gets a friendly message, never a second change. Recalculate now
+  and the nightly check leave all of it as it is.
+
+### Fixes (review)
+- Take again predicts the reassignment exactly as the nightly check does (a newer voided record of the pair, a rehire
+  start date), applies your due date to whichever redo opens, and voids the record and clears leftover kiosk progress
+  in one step, so nothing signed from before the void can close the new assignment.
+- A record is never issued from kiosk progress an agent reset a moment earlier, and a timed exam left open on a reset
+  run earns no achievement.
+
 ## [Unreleased] ITFlow Internal IT - Roles: module-only logins contained, checked pop-ups and pages, Assets module, Training settings for Training level 3, clearer role editor
 Database 2.6.94 -> 2.6.95 (new module `module_assets`; every existing role is granted it at its current Tickets/assets/docs
 level, so nobody's access changes). Apply it through **Admin > Update > Update Database**; until it has run, asset pages

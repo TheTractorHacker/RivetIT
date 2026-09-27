@@ -3,7 +3,8 @@
 /*
  * Training › Assignments (Phase 2 spec §5.2): ?tab=assignments|rules.
  *
- * Level 1 reads; level 2 assigns by hand, extends, waives and recalculates; level 3 creates
+ * Level 1 reads; level 2 assigns by hand, extends, waives, resets progress, ends waivers and recalculates; level 3
+ * also resets a completed assignment to take again (voids its record) and creates
  * and archives rules. The first page of results comes from the same route handler the JSON
  * endpoint runs (tro_action), for the GET filters in the URL; agent/js/training_assignments.js
  * renders it with DOM nodes and refetches through assignment_list / rule_list as the filters
@@ -67,6 +68,9 @@ $tr_data = [
         'assign_manual' => tro_has_route('assign_manual'),
         'assignment_extend' => tro_has_route('assignment_extend'),
         'assignment_waive' => tro_has_route('assignment_waive'),
+        'assignment_reset' => tro_has_route('assignment_reset') && tro_has_route('assignment_reset_preview'),
+        'assignment_retake' => tro_has_route('assignment_retake') && tro_has_route('assignment_reset_preview'),
+        'assignment_unwaive' => tro_has_route('assignment_unwaive') && tro_has_route('assignment_reset_preview'),
         'reconcile_now' => tro_has_route('reconcile_now'),
         'rule_archive' => tro_has_route('rule_archive'),
     ],

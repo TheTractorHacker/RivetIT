@@ -391,17 +391,30 @@ final class RecordsBridge
         return $n;
     }
 
-    /** A finalized session of the course where the person was present (the session part of a blended course is on file). */
+    /**
+     * A finalized session of the course where the person was present (the session part of a blended course is on file).
+     * After a "Reset (take again)" only a session from then on counts (P2 RetakeVoids, as tryIssueComponents).
+     */
     public function attendedSession(int $cid, int $courseId): bool
     {
         if (!self::available($this->c->db)) {
             return false;
         }
         try {
+            $types = 'ii';
+            $params = [$cid, $courseId];
+            $not = '';
+            $gone = \ITFlow\Training\Records\RetakeVoids::excluded($this->c->db, $cid, $courseId);
+            if ($gone !== null) {
+                $not = ' AND s.tsession_held_on >= ?';
+                $types .= 's';
+                $params[] = $gone['since_on'];
+                $not .= \ITFlow\Training\Records\RetakeVoids::notIn('ta.tattendee_id', $gone['attendee_ids'], $types, $params);
+            }
             return Db::one($this->c->db, "SELECT 1 AS ok FROM training_session_attendees ta
                 JOIN training_sessions s ON s.tsession_id = ta.tattendee_tsession_id
                 WHERE ta.tattendee_contact_id = ? AND s.tsession_course_id = ? AND s.tsession_status = 'finalized'
-                  AND ta.tattendee_attendance = 'present' AND ta.tattendee_removed_at_utc IS NULL LIMIT 1", 'ii', [$cid, $courseId]) !== null;
+                  AND ta.tattendee_attendance = 'present' AND ta.tattendee_removed_at_utc IS NULL$not LIMIT 1", $types, $params) !== null;
         } catch (\mysqli_sql_exception $e) {
             if ((int) $e->getCode() === 1146 || (int) $e->getCode() === 1054) {
                 return false;
