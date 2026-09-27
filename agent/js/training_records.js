@@ -256,6 +256,9 @@
                 if (c.certificate_url || c.id) {
                     actions.appendChild(el('a', { class: 'btn btn-outline-secondary', href: c.certificate_url || u.certificateUrl(c.id), target: '_blank', rel: 'noopener' }, [u.icon('fas fa-certificate me-2'), isDoc ? 'Open acknowledgment' : 'Open certificate']));
                 }
+                if (!isDoc && c.id && D.certificate_pdf) {   // Phase 5 (spec §7.7, S1): the certificate as a PDF file
+                    actions.appendChild(el('a', { class: 'btn btn-outline-secondary', href: '/agent/training_pdf.php?doc=certificate&completion_id=' + encodeURIComponent(c.id), target: '_blank', rel: 'noopener' }, [u.icon('fas fa-file-pdf me-2'), 'Download PDF']));
+                }
                 if (level >= 3 && !voided && routes.completion_void !== false) {
                     actions.appendChild(el('button', { type: 'button', class: 'btn btn-outline-danger', on: { click: function () {
                         Ops.open('void', { container: voidHost, completion: c }).then(function (res) { if (res) { reload(); } });
