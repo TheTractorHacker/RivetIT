@@ -122,6 +122,11 @@ $trr_target = \ITFlow\Training\Core\RecordsSettings::fromDb($mysqli)->targetPct;
 $trr_sub = array_values(array_filter([$trr_p['title'], $trr_p['department']['name'] ?? ($trr_p['archived'] ? null : Lookup::NO_DEPARTMENT), $trr_p['location']]));
 $trr_actions = '<a class="btn btn-outline-secondary" href="' . trr_h(trr_url('training_transcript.php', ['contact_id' => $trr_p['id'], 'print' => 1])) . '" target="_blank" rel="noopener">'
     . '<i class="fas fa-print me-2" aria-hidden="true"></i>Print transcript</a>';
+// Phase 5 (spec §7.7, S2): the transcript as a PDF file, when the PDF endpoint is deployed.
+if (is_file(__DIR__ . '/training_pdf.php')) {
+    $trr_actions .= '<a class="btn btn-outline-secondary" href="' . trr_h(trr_url('training_pdf.php', ['doc' => 'transcript', 'contact_id' => $trr_p['id']])) . '" target="_blank" rel="noopener">'
+        . '<i class="fas fa-file-pdf me-2" aria-hidden="true"></i>Download PDF</a>';
+}
 if ($trr_level >= 2 && !$trr_p['archived']) {
     $trr_actions .= '<a class="btn btn-primary" href="' . trr_h(trr_url('training_assignments.php', ['assign' => $trr_p['id']])) . '"><i class="fas fa-plus me-2" aria-hidden="true"></i>Assign training</a>';
 }
