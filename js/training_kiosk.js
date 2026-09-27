@@ -305,7 +305,9 @@
         var value = '';
         var isBusy = false;
         var typedWhileBusy = '';   // o.bufferWhileBusy: digits typed on a hardware keyboard while "Checking…" are kept for the next try
-        var dotCount = maxLen <= 8 ? maxLen : Math.max(6, minLen);
+        // A fixed-length code (setup code, new PIN) shows all its dots; a PIN that may be longer shows minLen
+        // dots and grows one dot per extra digit, so a 4-digit PIN never looks unfinished.
+        var fixedLen = minLen === maxLen;
         var dots = el('div', { class: 'kx-dots', 'aria-hidden': 'true' });
         var status = el('span', { class: 'kx-sr', role: 'status', 'aria-live': 'polite' });
         var keys = [];
@@ -328,7 +330,7 @@
         container.appendChild(wrap);
 
         function render() {
-            var n = Math.max(dotCount, Math.min(maxLen, value.length + (value.length < maxLen ? 1 : 0)));
+            var n = fixedLen ? maxLen : Math.min(maxLen, Math.max(minLen, value.length));
             while (dots.firstChild) { dots.removeChild(dots.firstChild); }
             for (var i = 0; i < n; i++) {
                 dots.appendChild(el('span', { class: 'kx-dot' + (i < value.length ? ' is-filled' : (i === value.length ? ' is-next' : '')) }));
