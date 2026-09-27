@@ -435,3 +435,5 @@ body.kx-video-page .kx-main { padding-bottom: 0; }
 .kl-ccnote { display: flex; align-items: center; gap: 10px; padding: 0 16px 14px; background: var(--kx-surface); color: var(--kx-muted); font-size: 17px; font-weight: 600; }
 .kl-ccnote[hidden] { display: none; }
 .kl-vstage > .tmc-resume { border-bottom: 0; }
+/* "Still there?" hides the video: its caption text goes with it. */
+video.kl-hidden ~ .tmc-cues { visibility: hidden !important; }

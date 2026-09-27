@@ -2,6 +2,33 @@
 
 This file documents all notable changes made to ITFlow.
 
+## [Unreleased] ITFlow Internal IT - Training videos: volume, closed captions (CC), pick up where you left off
+Database 2.6.97 -> 2.6.98 (runs **after** the 2.6.96 -> 2.6.97 step of the Odoo skill/note branch): `training_media`
+gets the kind `caption`, `training_lesson_variants` gets `lvar_caption_media_id` (+ index). Nothing is backfilled and
+existing revisions are untouched. Apply it through **Admin > Update > Update Database**; until then the caption row in
+the course builder stays hidden and caption uploads answer "needs the latest database update". Volume and resume need
+no schema. No nginx change is needed (PHP sends `text/vtt` and nginx keeps it on the X-Accel redirect); the repo nginx
+templates list `vtt` anyway.
+
+### New Features & Updates
+- **Volume** on every lesson video (uploaded MP4 and YouTube / Vimeo): Mute plus a volume slider, Up / Down arrow keys
+  on a PC (+-10 %). On iPhone and iPad only Mute / Unmute is shown: iOS ignores a web page's volume, the side buttons
+  set it. The volume is remembered per device (80 % when nothing is stored or the browser blocks storage).
+- **Closed captions (CC).** In the course builder a video lesson's uploaded MP4 takes one caption file per language
+  (.vtt or .srt, up to 1 MB). The server rebuilds it as plain-text WebVTT: SRT converted, UTF-8 / UTF-16 / Windows-1252
+  read, every tag, script, style block, web link and control character removed, timings checked. Publishing pins the
+  file with the version, and the kiosk serves it only for that version, like the video. Learners get a **CC** button;
+  captions start in the language of the course they are taking, with **EN | ES** when both languages' captions fit
+  the same video, in large white-on-black text that also shows in full screen. YouTube / Vimeo lessons use the
+  video's own captions through the player (a short "No captions for this video" note when Vimeo reports none;
+  YouTube lists its captions only once they are switched on). On the kiosk the CC choice lasts for the signed-in
+  person and is cleared at sign-out; in Preview it is remembered per device.
+- **Pick up where you left off.** Reopening a started video (after going back to the course, a reload, or signing out
+  and back in) opens at the furthest point the run recorded, with **Resuming at 3:42 · Start over**; YouTube / Vimeo
+  jump there on the first play. A PDF reopens at its first page not yet seen (**Picked up at page 4 · Back to page 1**).
+  Preview as learner does the same from its own saved progress and records nothing. Credit rules are unchanged:
+  reopening credits nothing and skipping past the furthest point watched stays blocked.
+
 ## [Unreleased] ITFlow Internal IT - Training (LMS) Phase 5: public certificate check, certificate and transcript PDFs, reminder digests, video checks, Odoo write-back, item analysis
 Database 2.6.95 -> 2.6.96: five new operational tables (`training_automation` with its one settings row,
 `training_odoo_outbox`, `training_odoo_map`, `training_reminder_log`, `training_video_watch`); nothing hashed or
