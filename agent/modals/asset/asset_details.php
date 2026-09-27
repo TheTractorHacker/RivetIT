@@ -384,6 +384,10 @@ ob_start();
                     if ($contact_name) { ?>
                         <div class="mt-2"><i class="fa fa-fw fa-user text-secondary me-2"></i><?php echo $contact_name_display; ?></div>
                     <?php }
+                    // Email, phone, extension and mobile are People data: Departments only (security review 2026-09-26).
+                    if (lookupUserPermission('module_client') < 1) {
+                        $contact_email = $contact_phone = $contact_extension = $contact_mobile = '';
+                    }
                     if ($contact_email) { ?>
                         <div class="mt-2"><i class="fa fa-fw fa-envelope text-secondary me-2"></i><a href='mailto:<?php echo $contact_email; ?>'><?php echo $contact_email; ?></a><button class='btn btn-sm clipboardjs' data-clipboard-text='<?php echo $contact_email; ?>'><i class='far fa-copy text-secondary'></i></button></div>
                     <?php }

@@ -13,6 +13,7 @@
  *                                    the "this role will see" sidebar preview (js/role_editor.js).
  *  - itflow_role_posted_levels():    the form's levels, checked against the modules table, 0-3.
  *  - itflow_role_access_help_render(): the user form's Access-tab note on department ticks (F13).
+ *  - itflow_role_summary():          the one-line permission summary on admin/roles.php.
  *
  * Read-only: nothing here writes to the database.
  */
@@ -219,7 +220,7 @@ if (!function_exists('itflow_role_catalog')) {
                     0 => 'No Devices & PINs page.',
                     1 => 'See kiosk devices and people\'s PIN status.',
                     2 => 'Also unlock PINs, print PIN slips and clear kiosk cooldowns.',
-                    3 => 'Also set up, reissue and revoke kiosk devices.',
+                    3 => 'Also set up, reissue and revoke kiosk devices. Picking the device from Assets also needs Assets (Read); without it, devices are set up as "not in Assets".',
                 ],
             ],
         ];
@@ -306,6 +307,31 @@ if (!function_exists('itflow_role_catalog')) {
     }
 
     /**
+     * One line for the Roles list: "Training Full · Training kiosk Full · Assets Modify" (plain labels, the role
+     * editor's level names, catalog order; modules the catalog doesn't know go last). Plain text: escape it.
+     */
+    function itflow_role_summary(array $levels, bool $is_admin): string
+    {
+        if ($is_admin) {
+            return 'Administrator: everything';
+        }
+        $catalog = itflow_role_catalog();
+        $parts = [];
+        foreach ($catalog as $module => $meta) {
+            $level = intval($levels[$module] ?? 0);
+            if ($level > 0) {
+                $parts[] = $meta['label'] . (!empty($meta['flag']) ? '' : ' ' . ([1 => 'Read', 2 => 'Modify', 3 => 'Full'][min(3, $level)]));
+            }
+        }
+        foreach ($levels as $module => $level) {
+            if (!isset($catalog[$module]) && intval($level) > 0) {
+                $parts[] = ucfirst(str_replace('_', ' ', preg_replace('/^module_/', '', (string) $module))) . ' ' . ([1 => 'Read', 2 => 'Modify', 3 => 'Full'][min(3, intval($level))]);
+            }
+        }
+        return $parts ? implode(' · ', $parts) : 'No permissions';
+    }
+
+    /**
      * The "Start from…" presets (filled in the browser; nothing is stored). "Technician" copies
      * the current Technician role, so it follows whatever that role holds today.
      */
@@ -334,7 +360,7 @@ if (!function_exists('itflow_role_catalog')) {
                 'name' => 'Training Manager',
                 'description' => 'Runs Training for every department',
                 'levels' => ['module_training' => 3, 'module_training_kiosk' => 3],
-                'note' => 'Training Full and Training kiosk Full, nothing else. Sees every department in Training; Access-tab ticks don\'t narrow it.',
+                'note' => 'Training Full and Training kiosk Full, nothing else. Sees every department in Training; Access-tab ticks don\'t narrow it. Devices are set up as "not in Assets" unless you also give Assets Read.',
             ],
             'training_supervisor' => [
                 'label' => 'Training Supervisor (department)',
@@ -627,7 +653,8 @@ if (!function_exists('itflow_role_catalog')) {
         $sql = mysqli_query(
             $db,
             "SELECT r.role_id, r.role_name, r.role_is_admin,
-                    COALESCE(MAX(CASE WHEN m.module_name = 'module_training' THEN p.user_role_permission_level END), 0) AS training
+                    COALESCE(MAX(CASE WHEN m.module_name = 'module_training' THEN p.user_role_permission_level END), 0) AS training,
+                    COALESCE(MAX(CASE WHEN m.module_name IN ('module_client', 'module_support', 'module_assets') THEN p.user_role_permission_level END), 0) AS it
                FROM user_roles r
                LEFT JOIN user_role_permissions p ON p.user_role_id = r.role_id
                LEFT JOIN modules m ON m.module_id = p.module_id
@@ -639,6 +666,8 @@ if (!function_exists('itflow_role_catalog')) {
                 'name' => (string) $row['role_name'],
                 'admin' => intval($row['role_is_admin']) === 1,
                 'training' => max(0, min(3, intval($row['training']))),
+                // Departments, Tickets/assets/docs or Assets: 0 = the role has none of the pages ticks narrow.
+                'it' => max(0, min(3, intval($row['it']))),
             ];
         }
         $training_on = intval($GLOBALS['config_module_enable_training'] ?? 0) === 1;

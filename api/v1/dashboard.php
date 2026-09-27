@@ -9,7 +9,7 @@ $uid = $api_user_id;
 // Roles audit P1g/F8: ticket numbers need Tickets/assets/docs. Without it every ticket count is 0 and the
 // queue is empty (the response keeps its shape so the app's home screen still renders).
 $dash_tickets_sql = api_has_module_permission($mysqli, $uid, 'module_support') ? '' : ' AND 1 = 0';
-// The unread count follows the same notification rules as the bell (limited logins: their modules only).
+// The unread count follows the same notification rules as the bell (includes/module_access.php).
 $dash_notif_sql = itflow_notification_type_sql(intval($uid));
 
 $my_open = mysqli_fetch_assoc(mysqli_query($mysqli,

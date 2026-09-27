@@ -3929,7 +3929,8 @@ function appNotify($type, $details, $action = null, $client_id = 0, $entity_id =
         $user_id = intval($row['user_id']);
 
         // Roles audit P0/F7: a module-only (limited) login only gets the notification types of modules its
-        // role holds (includes/module_access.php). Full agents and admins: every broadcast, as before.
+        // role holds; any other role skips the categories whose module it lacks, e.g. an Assets role gets no
+        // ticket subjects (includes/module_access.php). Admins and the Technician: every broadcast, as before.
         if (!itflow_notification_allowed_for_user($user_id, $type)) {
             continue;
         }
@@ -3963,7 +3964,7 @@ function notifyUser($user_id, $type, $details, $action = null, $client_id = 0, $
         return;
     }
 
-    // Same rule as appNotify(): a module-only (limited) login gets only its own modules' types (web, push, SSE).
+    // Same rule as appNotify() (includes/module_access.php): no type the role's modules don't cover (web, push, SSE).
     if (!itflow_notification_allowed_for_user($user_id, (string) $type)) {
         return;
     }

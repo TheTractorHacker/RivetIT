@@ -344,7 +344,12 @@
       if (r.admin) {
         li('Administrator: every department everywhere. Ticks are ignored.');
       } else {
-        li(ticked ? 'Most pages: only the ' + ticked + ' ticked department' + (ticked === 1 ? '' : 's') + '.' : 'Most pages: every department (nothing is ticked).');
+        if (!r.it) {
+          // No Departments, Tickets/assets/docs or Assets: none of the pages ticks narrow.
+          li('Tickets, contacts, assets and documents: this role has none of those pages, so ticks don\u2019t apply there.');
+        } else {
+          li(ticked ? 'Most pages: only the ' + ticked + ' ticked department' + (ticked === 1 ? '' : 's') + '.' : 'Most pages: every department (nothing is ticked).');
+        }
         if (trainingOn && r.training >= 3) {
           li('Training: every department (Training Full ignores ticks).');
         } else if (trainingOn && r.training >= 1) {

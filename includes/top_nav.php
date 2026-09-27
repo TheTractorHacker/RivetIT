@@ -146,7 +146,7 @@ ob_start();
 
         <!-- New Notifications Dropdown -->
         <?php
-        $top_nav_notif_types = itflow_notification_type_sql(intval($session_user_id));   // '' for full agents
+        $top_nav_notif_types = itflow_notification_type_sql(intval($session_user_id));   // '' for admins and the Technician
         $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('notification_id') AS num FROM notifications WHERE notification_user_id = $session_user_id AND notification_dismissed_at IS NULL $top_nav_notif_types"));
         $num_notifications = $row['num'];
 

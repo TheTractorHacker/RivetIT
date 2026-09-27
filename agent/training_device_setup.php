@@ -22,7 +22,10 @@ $tr_res = mysqli_query($mysqli, 'SELECT client_id, client_name FROM clients WHER
 while ($tr_res && ($tr_row = mysqli_fetch_assoc($tr_res))) {
     $tr_departments[] = ['id' => (int) $tr_row['client_id'], 'name' => (string) $tr_row['client_name']];
 }
+// "It's in Assets" lists assets (names, serials, who has each one): only for roles that may see Assets.
+$tr_can_assets = \ITFlow\Training\Core\Access::canAssets();
 $tr_data = [
+    'can_assets' => $tr_can_assets,
     'departments' => $tr_departments,
     'asset_types' => \ITFlow\Training\Kiosk\Core\KioskSettings::ASSET_TYPES,
     // Temporary devices: expiry times are shown (and 'until' is entered) in the app's time zone.
@@ -43,12 +46,15 @@ render_page_header(
             <div class="card-header"><h2 class="card-title">1. Which device is this?</h2></div>
             <div class="card-body">
                 <div class="btn-group w-100 mb-3" role="radiogroup" aria-label="Is this device in Assets?">
-                    <input type="radio" class="btn-check" name="tr-setup-kind" id="tr-setup-kind-asset" value="asset" autocomplete="off" checked>
+                    <input type="radio" class="btn-check" name="tr-setup-kind" id="tr-setup-kind-asset" value="asset" autocomplete="off"<?= $tr_can_assets ? ' checked' : ' disabled aria-describedby="tr-setup-assets-needed"' ?>>
                     <label class="btn btn-outline-primary" for="tr-setup-kind-asset"><i class="fas fa-box me-2" aria-hidden="true"></i>It's in Assets</label>
-                    <input type="radio" class="btn-check" name="tr-setup-kind" id="tr-setup-kind-unlisted" value="unlisted" autocomplete="off">
+                    <input type="radio" class="btn-check" name="tr-setup-kind" id="tr-setup-kind-unlisted" value="unlisted" autocomplete="off"<?= $tr_can_assets ? '' : ' checked' ?>>
                     <label class="btn btn-outline-primary" for="tr-setup-kind-unlisted"><i class="fas fa-question-circle me-2" aria-hidden="true"></i>This device isn't in Assets</label>
                 </div>
-                <div id="tr-setup-asset-pane">
+                <?php if (!$tr_can_assets) { ?>
+                    <div class="form-hint mb-3" id="tr-setup-assets-needed"><i class="fas fa-lock me-1" aria-hidden="true"></i>Picking a device from Assets needs view access to Assets. Ask an administrator if you need it.</div>
+                <?php } ?>
+                <div id="tr-setup-asset-pane"<?= $tr_can_assets ? '' : ' hidden' ?>>
                     <label class="form-label" for="tr-setup-q">Find the asset</label>
                     <div class="input-icon mb-2">
                         <span class="input-icon-addon"><i class="fas fa-search" aria-hidden="true"></i></span>
@@ -57,7 +63,7 @@ render_page_header(
                     <div class="form-hint mb-2">Tablets, phones, laptops and desktops that are not archived.</div>
                     <div class="list-group list-group-flush border rounded tr-setup-assets" id="tr-setup-assets" role="listbox" aria-label="Assets"></div>
                 </div>
-                <div id="tr-setup-unlisted-pane" hidden>
+                <div id="tr-setup-unlisted-pane"<?= $tr_can_assets ? ' hidden' : '' ?>>
                     <p class="mb-2">For a device you don't keep in Assets, like a trainer's laptop or a borrowed iPad. You only give it a name.</p>
                     <ul class="text-secondary small mb-0 ps-3">
                         <li>People find their name, then enter their PIN (it never opens straight to one person).</li>

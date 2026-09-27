@@ -68,7 +68,9 @@ require_once __DIR__ . '/../includes/firebase.php';
 if (isset($_GET['push_notification'])) {
     validateCSRFToken($_GET['csrf_token']);
     $notification_id = intval($_GET['push_notification']);
-    $sql_notif = mysqli_query($mysqli, "SELECT notification, notification_type FROM notifications WHERE notification_id = $notification_id AND notification_user_id = $session_user_id");
+    // Same type filter as the bell and the notifications pages (includes/module_access.php): a row this role may no
+    // longer see (written directly, or from before a role change) can't be pushed to a phone either.
+    $sql_notif = mysqli_query($mysqli, "SELECT notification, notification_type FROM notifications WHERE notification_id = $notification_id AND notification_user_id = $session_user_id" . itflow_notification_type_sql(intval($session_user_id)));
     if ($row = mysqli_fetch_assoc($sql_notif)) {
         $msg   = $row['notification'];
         $type  = $row['notification_type'];

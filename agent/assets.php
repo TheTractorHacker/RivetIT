@@ -17,6 +17,18 @@ $order = "ASC";
  * behaves, rather than dropping straight into the company-wide rail.
  */
 $scope_url = '';
+
+// Roles audit P4: the department shell needs Departments. An Assets role without it gets the same department's
+// assets in the app-level list instead (its Department filter), so "Show this department's assets" and old
+// links don't end on a 403. Everyone who holds Departments keeps the department shell (same rule as asset_details.php).
+require_once $_SERVER['DOCUMENT_ROOT'] . '/config.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/functions.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/check_login.php';
+if (isset($_GET['client_id']) && intval($_GET['client_id']) > 0 && lookupUserPermission('module_client') < 1 && itflow_can_assets(1)) {
+    $_GET['client'] = intval($_GET['client_id']);
+    unset($_GET['client_id']);
+}
+
 // If client_id is in URI then show client Side Bar and client header.
 // client_id=0 ("no department", a real value assets can have) is treated the
 // same as client_id being absent - see asset_details.php for why.

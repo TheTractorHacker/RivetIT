@@ -90,6 +90,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         // admin flag, not on a role id: ids differ between installs.
                         $role_locked = $role_admin && itflow_role_other_admin_roles($mysqli, $role_id) === 0;
 
+                        // What the role holds, on one line, so roles with similar names can be told apart.
+                        $role_summary = itflow_role_summary(itflow_role_levels($mysqli, $role_id), $role_admin === 1);
+
                         // Convert the array of user names to a comma-separated string
                         $user_names_string = implode(",", $user_names);
 
@@ -108,6 +111,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                         <div class="media-body">
                                             <div><?= $role_name ?></div>
                                             <div><small class="text-secondary"><?= $role_description ?></small></div>
+                                            <div><small class="text-muted"><?= htmlspecialchars($role_summary, ENT_QUOTES, 'UTF-8') ?></small></div>
                                         </div>
                                     </div>
                                 <?php if (!$role_locked) { ?>

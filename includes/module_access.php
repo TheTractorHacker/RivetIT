@@ -13,7 +13,8 @@
  *   Admin roles are never limited (lookupUserPermission() resolves every module to 3 for them), and the
  *   Technician role (Departments 2, Tickets/assets/docs 2, ...) is never limited, so neither is affected by
  *   anything in the limited-user paths below. Every helper here that could change what a non-limited user
- *   sees returns the pre-audit answer for them.
+ *   sees returns the pre-audit answer for admins and for roles that hold the modules involved (the Technician,
+ *   the Accountant); the notification filter drops, for other roles, only categories whose module they lack.
  *
  * WHO USES THIS FILE
  *   functions.php requires it (so cron, API and portal code can call the per-user helpers without a
@@ -368,8 +369,49 @@ function itflow_render_denied(string $detail = '', string $title = "You don't ha
     </div>
     <?php
     require_once $__itflow_docroot . '/includes/app_version.php';   // footer.php prints it under /admin/
+    $page_title = 'Access denied';   // the browser tab: "<company> - Access denied"
     require_once $__itflow_docroot . '/includes/footer.php';
     exit;
+}
+
+/**
+ * The denial text for a limited login that the allow-list refused: which permission the page or pop-up needs,
+ * worded like enforceUserPermission()'s own message (a Safety Manager used to get only "It isn't part of your
+ * role", with nothing to ask for). Admin pages: administrators only. Pop-ups: their includes/modal_permissions.php
+ * entry. Pages: the first module check in the page's own source. Anything else: the IT modules any of which
+ * would open the rest of the app. Plain text (itflow_render_denied() escapes it).
+ */
+function itflow_limited_denial_detail(?string $script = null): string {
+    $s = $script ?? itflow_request_script();
+    $ask = ' Ask an administrator if you need it.';
+    if (preg_match('#^/admin(/|$)#', $s)) {
+        return 'This is for administrators only.' . $ask;
+    }
+    if (function_exists('itflow_modal_requirement') && ($req = itflow_modal_requirement($s)) !== null) {
+        return 'Your role needs ' . itflow_modal_requirement_text($req) . '.' . $ask;
+    }
+    if (strpos($s, '/agent/reports/') === 0) {
+        return 'Your role needs view access to ' . itflow_module_label('module_reporting') . '.' . $ask;   // inc_all_reports.php
+    }
+    $generic = 'Your role needs view access to ' . itflow_module_label('module_client') . ', '
+        . itflow_module_label('module_support') . ' or ' . itflow_module_label('module_assets') . '.' . $ask;
+    if (!preg_match('#^/agent/[a-z0-9_/]+\.php$#', $s) || strpos($s, '/includes/') !== false || strpos(basename($s), 'ajax') !== false) {
+        return $generic;   // many-action endpoints and includes: no single owning module
+    }
+    $root = realpath(rtrim((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''), '/') ?: dirname(__DIR__));
+    $file = $root ? realpath($root . $s) : false;
+    if (!$file || strpos($file, $root . '/agent/') !== 0 || !is_file($file)) {
+        return $generic;
+    }
+    $src = (string) @file_get_contents($file, false, null, 0, 65536);
+    if (preg_match('/enforceUserPermission\(\s*[\'"](module_[a-z_]+)[\'"]\s*(?:,\s*(\d))?\s*\)|enforceAssetPermission\(\s*(\d)?\s*\)/', $src, $m)) {
+        if (!empty($m[1])) {
+            return 'Your role needs ' . itflow_level_label(intval($m[2] ?? 1) ?: 1) . ' access to ' . itflow_module_label($m[1]) . '.' . $ask;
+        }
+        return 'Your role needs ' . itflow_level_label(intval($m[3] ?? 1) ?: 1) . ' access to ' . itflow_module_label('module_assets')
+            . ' (or ' . itflow_module_label('module_support') . ').' . $ask;
+    }
+    return $generic;
 }
 
 /**
@@ -463,12 +505,13 @@ function itflow_profile_permission_map(array $profile): array {
 }
 
 /* ------------------------------------------------------------------------------------------------
- * Notifications (P0): a limited login only gets notification types for modules it holds
+ * Notifications (P0): a limited login only gets notification types for modules it holds; any other
+ * non-admin role loses only the categories whose module it lacks (an Assets role gets no ticket subjects)
  * ---------------------------------------------------------------------------------------------- */
 
 /**
  * Notification types a LIMITED profile may receive, by includes/notification_categories.php category plus
- * the types that have no category. Full agents are never filtered (null = everything).
+ * the types that have no category. Non-limited profiles: null here (see the deny list below).
  */
 function itflow_notification_types_for_profile(array $profile): ?array {
     if (!itflow_profile_is_limited($profile)) {
@@ -498,24 +541,66 @@ function itflow_notification_types_for_profile(array $profile): ?array {
     return array_values(array_unique($types));
 }
 
+/**
+ * Notification types a NON-limited, non-admin profile must not receive: the categories whose module the role
+ * lacks (security review 2026-09-26: a role with Assets but no Tickets/assets/docs got every ticket subject).
+ *   tickets, expirations - Tickets/assets/docs (an Assets role keeps "Asset Warranty Expiring")
+ *   invoices             - Sales or Finance
+ *   quotes               - Sales
+ *   system               - Departments or Tickets/assets/docs
+ * 'backups' and types with no category are never denied here. Admins, limited logins (they use the allow
+ * list above) and any role holding every one of those modules - the Technician, the Accountant - get [],
+ * i.e. exactly the notifications they got before.
+ */
+function itflow_notification_denied_types_for_profile(array $profile): array {
+    if (!empty($profile['admin']) || itflow_profile_is_limited($profile)) {
+        return [];
+    }
+    $lvl = fn(string $m) => itflow_profile_level($profile, $m);
+    $category_denied = [
+        'tickets'     => $lvl('module_support') < 1,
+        'expirations' => $lvl('module_support') < 1,
+        'invoices'    => $lvl('module_sales') < 1 && $lvl('module_financial') < 1,
+        'quotes'      => $lvl('module_sales') < 1,
+        'system'      => $lvl('module_client') < 1 && $lvl('module_support') < 1,
+    ];
+    $types = [];
+    foreach (push_notification_categories() as $key => $cat) {
+        if (!empty($category_denied[$key])) {
+            $types = array_merge($types, $cat['types']);
+        }
+    }
+    if (itflow_profile_can_assets($profile, 1)) {
+        $types = array_diff($types, ['Asset Warranty Expiring']);   // the asset's own name + department, which it can see
+    }
+    return array_values(array_unique($types));
+}
+
 function itflow_notification_allowed_for_user(int $user_id, string $type): bool {
-    $types = itflow_notification_types_for_profile(itflow_user_access_profile($user_id));
-    return $types === null || in_array($type, $types, true);
+    $profile = itflow_user_access_profile($user_id);
+    $types = itflow_notification_types_for_profile($profile);
+    if ($types !== null) {
+        return in_array($type, $types, true);
+    }
+    return !in_array($type, itflow_notification_denied_types_for_profile($profile), true);
 }
 
 /**
- * SQL to AND onto a notifications query for $user_id: '' for full agents, an IN (...) type filter for a
- * limited login (a never-true filter when it may receive nothing).
+ * SQL to AND onto a notifications query for $user_id: '' for admins and every role that holds all the
+ * owning modules (Technician, Accountant), an IN (...) type filter for a limited login (a never-true filter
+ * when it may receive nothing), a NOT IN (...) filter for any other role that lacks a category's module.
  */
 function itflow_notification_type_sql(int $user_id, string $column = 'notification_type'): string {
     global $mysqli;
-    $types = itflow_notification_types_for_profile(itflow_user_access_profile($user_id));
-    if ($types === null) {
+    $profile = itflow_user_access_profile($user_id);
+    $esc_list = fn(array $types) => implode(',', array_map(fn($t) => "'" . mysqli_real_escape_string($mysqli, $t) . "'", $types));
+    $types = itflow_notification_types_for_profile($profile);
+    if ($types !== null) {
+        return $types ? " AND $column IN (" . $esc_list($types) . ')' : ' AND 1 = 0';
+    }
+    $denied = itflow_notification_denied_types_for_profile($profile);
+    if (!$denied) {
         return '';
     }
-    if (!$types) {
-        return ' AND 1 = 0';
-    }
-    $esc = array_map(fn($t) => "'" . mysqli_real_escape_string($mysqli, $t) . "'", $types);
-    return " AND $column IN (" . implode(',', $esc) . ')';
+    return " AND ($column IS NULL OR $column NOT IN (" . $esc_list($denied) . '))';
 }

@@ -19,6 +19,8 @@ if ($itflow_limited_decision === 'home') {
     exit;
 }
 if ($itflow_limited_decision === 'deny') {
-    itflow_render_denied(itflow_training_settings_hint(), "You don't have access to this page", itflow_training_settings_go());   // '' / null = the defaults
+    // The Training settings hint for a Training Full login on an admin Training page; otherwise which
+    // permission this page needs (the default "Go to <home>" button either way unless the hint names one).
+    itflow_render_denied(itflow_training_settings_hint() ?: itflow_limited_denial_detail(), "You don't have access to this page", itflow_training_settings_go());
 }
 unset($itflow_limited_decision);

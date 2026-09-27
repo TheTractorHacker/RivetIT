@@ -96,7 +96,8 @@ api_response(200, [
     'location_city'  => $row['location_city'] ?? '',
     'location_state' => $row['location_state'] ?? '',
     'contact_name'   => $row['contact_name'] ?? '',
-    'contact_phone'  => $row['contact_phone'] ?? '',
+    // People data needs Departments: an Assets role gets the name only (security review 2026-09-26).
+    'contact_phone'  => api_has_module_permission($mysqli, $uid, 'module_client') ? ($row['contact_phone'] ?? '') : '',
     'client'         => $row['client_name'],
     'created_at'     => $row['asset_created_at'],
     'purchase_date'  => $row['asset_purchase_date'] ?? '',

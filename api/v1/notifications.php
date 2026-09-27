@@ -6,8 +6,8 @@ defined('FROM_API') || die();
 
 $uid = $api_user_id;
 
-// Roles audit P0/F7: a module-only (limited) login sees only its own modules' notification types
-// ('' for everyone else - unchanged).
+// Roles audit P0/F7: a module-only (limited) login sees only its own modules' notification types, and any
+// other role loses the categories whose module it lacks ('' for admins and the Technician - unchanged).
 $notif_types_sql = itflow_notification_type_sql(intval($uid));
 
 if ($method === 'GET') {

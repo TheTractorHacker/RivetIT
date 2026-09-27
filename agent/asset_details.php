@@ -584,6 +584,11 @@ if (isset($_GET['asset_id'])) {
                         if ($contact_name) { ?>
                             <div class="mt-2"><i class="fa fa-fw fa-user text-secondary me-2"></i><?= $contact_name_display; ?></div>
                         <?php }
+                        // Email, phone, extension and mobile are People data: Departments only. An Assets role
+                        // without Departments sees who has the asset, nothing more (security review 2026-09-26).
+                        if (lookupUserPermission('module_client') < 1) {
+                            $contact_email = $contact_phone = $contact_extension = $contact_mobile = '';
+                        }
                         if ($contact_email) { ?>
                             <div class="mt-2"><i class="fa fa-fw fa-envelope text-secondary me-2"></i><a href='mailto:<?= $contact_email; ?>'><?= $contact_email; ?></a><button class='btn btn-sm clipboardjs' data-clipboard-text='<?= $contact_email; ?>'><i class='far fa-copy text-secondary'></i></button></div>
                         <?php }
@@ -1921,7 +1926,11 @@ if (isset($_GET['asset_id'])) {
 
         <?php
 
-        require_once "modals/share_modal.php";
+        // The share pop-up lists the department's contacts with their emails (People data) and only shares
+        // credentials (Tickets/assets/docs edit): not for an Assets role that holds neither (security review 2026-09-26).
+        if (lookupUserPermission('module_client') >= 1 || lookupUserPermission('module_support') >= 1) {
+            require_once "modals/share_modal.php";
+        }
 
         }
 
