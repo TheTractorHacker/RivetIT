@@ -3927,6 +3927,50 @@ CREATE TABLE `training_attempts` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `training_automation`
+--
+
+DROP TABLE IF EXISTS `training_automation`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_automation` (
+  `tauto_id` tinyint(3) unsigned NOT NULL,
+  `tauto_odoo_push_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `tauto_odoo_mode` enum('resume','skill','note') NOT NULL DEFAULT 'resume',
+  `tauto_odoo_resume_type_id` int(11) DEFAULT NULL,
+  `tauto_odoo_award_type_id` int(11) DEFAULT NULL,
+  `tauto_odoo_skill_type_id` int(11) DEFAULT NULL,
+  `tauto_odoo_skill_level_id` int(11) DEFAULT NULL,
+  `tauto_odoo_push_awards` tinyint(1) NOT NULL DEFAULT 0,
+  `tauto_odoo_push_since` date DEFAULT NULL,
+  `tauto_odoo_target_key` char(16) DEFAULT NULL,
+  `tauto_odoo_target_confirmed_at_utc` datetime(3) DEFAULT NULL,
+  `tauto_odoo_discovery_json` mediumtext DEFAULT NULL,
+  `tauto_odoo_discovered_at_utc` datetime(3) DEFAULT NULL,
+  `tauto_odoo_key_expires_on` date DEFAULT NULL,
+  `tauto_odoo_paused_reason` varchar(255) DEFAULT NULL,
+  `tauto_odoo_last_run_at_utc` datetime(3) DEFAULT NULL,
+  `tauto_odoo_last_result` varchar(255) DEFAULT NULL,
+  `tauto_reminders_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `tauto_reminder_weekdays` varchar(20) NOT NULL DEFAULT '1,2,3,4,5',
+  `tauto_escalate_after_days` smallint(5) unsigned NOT NULL DEFAULT 14,
+  `tauto_video_recheck_enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `tauto_verify_enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `tauto_cert_signer_name` varchar(200) DEFAULT NULL,
+  `tauto_cert_signer_title` varchar(200) DEFAULT NULL,
+  `tauto_cert_signer_png` mediumtext DEFAULT NULL,
+  `tauto_daily_last_run_on` date DEFAULT NULL,
+  `tauto_daily_last_result` varchar(255) DEFAULT NULL,
+  `tauto_version` int(10) unsigned NOT NULL DEFAULT 0,
+  `tauto_updated_by` int(11) DEFAULT NULL,
+  `tauto_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`tauto_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+INSERT IGNORE INTO `training_automation` (`tauto_id`) VALUES (1);
+
+--
 -- Table structure for table `training_categories`
 --
 
@@ -4674,6 +4718,63 @@ CREATE TABLE `training_media_pages` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `training_odoo_map`
+--
+
+DROP TABLE IF EXISTS `training_odoo_map`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_odoo_map` (
+  `tomap_entity` enum('course','achievement') NOT NULL,
+  `tomap_entity_id` int(11) NOT NULL,
+  `tomap_push` tinyint(1) NOT NULL,
+  `tomap_target_key` char(16) DEFAULT NULL,
+  `tomap_odoo_skill_id` int(11) DEFAULT NULL,
+  `tomap_updated_by` int(11) NOT NULL,
+  `tomap_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`tomap_entity`,`tomap_entity_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_odoo_outbox`
+--
+
+DROP TABLE IF EXISTS `training_odoo_outbox`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_odoo_outbox` (
+  `todoo_id` int(11) NOT NULL AUTO_INCREMENT,
+  `todoo_target_key` char(16) NOT NULL,
+  `todoo_integration_id` int(11) NOT NULL,
+  `todoo_source_type` enum('completion','award') NOT NULL,
+  `todoo_source_id` int(11) NOT NULL,
+  `todoo_action` enum('create','close') NOT NULL,
+  `todoo_contact_id` int(11) NOT NULL,
+  `todoo_mode` enum('resume','skill','note') NOT NULL,
+  `todoo_marker` varchar(40) NOT NULL,
+  `todoo_status` enum('pending','running','done','failed','dead','skipped') NOT NULL DEFAULT 'pending',
+  `todoo_attempts` smallint(5) unsigned NOT NULL DEFAULT 0,
+  `todoo_next_attempt_at_utc` datetime(3) NOT NULL,
+  `todoo_lease_until_utc` datetime(3) DEFAULT NULL,
+  `todoo_odoo_employee_id` int(11) DEFAULT NULL,
+  `todoo_odoo_model` varchar(64) DEFAULT NULL,
+  `todoo_odoo_res_id` int(11) DEFAULT NULL,
+  `todoo_payload_json` text DEFAULT NULL,
+  `todoo_error_class` enum('auth','config','transient','permanent','hold','policy') DEFAULT NULL,
+  `todoo_last_error` varchar(500) DEFAULT NULL,
+  `todoo_created_at_utc` datetime(3) NOT NULL,
+  `todoo_done_at_utc` datetime(3) DEFAULT NULL,
+  `todoo_updated_by` int(11) DEFAULT NULL,
+  `todoo_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`todoo_id`),
+  UNIQUE KEY `uq_training_todoo_source` (`todoo_target_key`,`todoo_source_type`,`todoo_source_id`,`todoo_action`),
+  KEY `idx_training_todoo_due` (`todoo_target_key`,`todoo_status`,`todoo_next_attempt_at_utc`),
+  KEY `idx_training_todoo_contact` (`todoo_contact_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `training_option_texts`
 --
 
@@ -4892,6 +4993,25 @@ CREATE TABLE `training_rate_buckets` (
   `trate_count` int(10) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`trate_key`,`trate_window_start_utc`),
   KEY `idx_training_trate_window` (`trate_window_start_utc`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_reminder_log`
+--
+
+DROP TABLE IF EXISTS `training_reminder_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_reminder_log` (
+  `trem_id` int(11) NOT NULL AUTO_INCREMENT,
+  `trem_user_id` int(11) NOT NULL,
+  `trem_date` date NOT NULL,
+  `trem_kind` varchar(32) NOT NULL,
+  `trem_counts_json` text NOT NULL,
+  `trem_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`trem_id`),
+  UNIQUE KEY `uq_training_trem` (`trem_user_id`,`trem_date`,`trem_kind`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -5290,6 +5410,30 @@ CREATE TABLE `training_video_checks` (
   `vcheck_created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`vcheck_id`),
   UNIQUE KEY `uq_training_vcheck` (`vcheck_provider`,`vcheck_ext_id`,`vcheck_ext_hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `training_video_watch`
+--
+
+DROP TABLE IF EXISTS `training_video_watch`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_video_watch` (
+  `tvwatch_provider` enum('youtube','vimeo') NOT NULL,
+  `tvwatch_ext_id` varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `tvwatch_ext_hash` varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',
+  `tvwatch_status` enum('ok','not_found','private','embed_disabled','live','duration_changed') DEFAULT NULL,
+  `tvwatch_http` smallint(5) unsigned DEFAULT NULL,
+  `tvwatch_oembed_duration_s` int(10) unsigned DEFAULT NULL,
+  `tvwatch_bad_streak` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `tvwatch_first_bad_at_utc` datetime(3) DEFAULT NULL,
+  `tvwatch_last_bad_at_utc` datetime(3) DEFAULT NULL,
+  `tvwatch_checked_at_utc` datetime(3) NOT NULL,
+  `tvwatch_alerted_at_utc` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`tvwatch_provider`,`tvwatch_ext_id`,`tvwatch_ext_hash`),
+  KEY `idx_training_tvwatch_checked` (`tvwatch_checked_at_utc`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
