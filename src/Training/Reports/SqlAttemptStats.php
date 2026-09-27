@@ -88,7 +88,7 @@ final class SqlAttemptStats implements AttemptStatsProvider
             JOIN training_attempts t ON t.tattempt_id = a.tanswer_attempt_id AND t.tattempt_kind = 'exam'
             JOIN training_attempt_results res ON res.tresult_attempt_id = t.tattempt_id AND res.tresult_submitted_at_utc BETWEEN ? AND ?
             JOIN training_revisions r ON r.revision_id = t.tattempt_revision_id AND r.revision_course_id = ?
-            GROUP BY a.tanswer_question_uid HAVING answered >= 5 ORDER BY correct / answered ASC, a.tanswer_question_uid LIMIT ?",
+            GROUP BY a.tanswer_question_uid HAVING answered >= 5 ORDER BY SUM(a.tanswer_is_correct) / COUNT(*) ASC, a.tanswer_question_uid LIMIT ?",
             'ssii', [$fromUtc, $toUtc, $courseId, $limit]);
         if ($rows === []) {
             return [];
