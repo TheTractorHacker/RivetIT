@@ -32,6 +32,18 @@
  *                  frozenRowLabel() -> string|null   what a frozen run's lesson rows say (kiosk: "Locked · see your trainer")
  *                  checkWhileFrozen() -> truthy while a done lesson's optional quick check may still be taken (awaiting the sign-off)
  *                  learnerFirst, validityMonths
+ *                  mediaPrefs: {getVolume() -> {level, muted}|null, setVolume(level, muted), getCc() -> bool|null, setCc(on)}
+ *                               where the video options are remembered (kiosk: volume per device, captions for
+ *                               the signed-in person; preview: both per device). Without it they last for the page.
+ *
+ *       Video options (owner ask 2026-09-27; widgets in js/training_media_controls.js): Mute / volume slider
+ *       (Mute only on iPhone / iPad, where iOS ignores a page's volume; Up / Down arrows +-10 %), a CC button
+ *       when the uploaded video has caption files (large white-on-black text over the video; EN | ES when both
+ *       languages' captions fit this video; the course language first) or through the YouTube / Vimeo player
+ *       (preview), and "Resuming at 3:42 · Start over" when a started video is opened again - kiosk: at the
+ *       run's furthest point (lesson_open's max_position_s), preview: at the last position kept in progress.pos.
+ *       A PDF opens at its first page not yet seen (kiosk: gate.pages_seen_list). Credit rules are unchanged:
+ *       seeking past the furthest point watched stays blocked.
  *
  *       Quick checks (a quiz with role 'check' on an article, document, video or image lesson): once the
  *       lesson's content is done the player offers the check - one question per screen, the same
@@ -125,7 +137,11 @@
             qc_fail_last: "One try left. If you don't pass it, your trainer has to unlock the course.",
             qc_passed_sign: 'Quick check passed. Sign to finish.', qc_not_record: "Doesn't go on your training record.",
             qc_again_video: 'Watch again', qc_again_read: 'Read again', qc_again_image: 'Look again',
-            qc_optional_chip: 'Quick check (optional)', qc_correct_n: '{n} of {m} correct', qc_watched: 'Watched {pct}% — the quick check is next'
+            qc_optional_chip: 'Quick check (optional)', qc_correct_n: '{n} of {m} correct', qc_watched: 'Watched {pct}% — the quick check is next',
+            // video options
+            vol_mute: 'Mute', vol_unmute: 'Unmute', volume: 'Volume', cc: 'Captions', cc_short: 'CC', cc_none: 'No captions for this video',
+            cc_lang: 'Caption language', lang_en: 'English', lang_es: 'Spanish', resume_at: 'Resuming at {t}', start_over: 'Start over',
+            resume_page: 'Picked up at page {n}', back_to_first: 'Back to page 1'
         },
         es: {
             lessons_n: '{n} lecciones', lesson_1: '1 lección', course_content: 'Contenido del curso', sections_meta: '{s} secciones · {n} lecciones',
@@ -197,7 +213,11 @@
             qc_fail_last: 'Le queda un intento. Si no lo aprueba, su instructor tiene que desbloquear el curso.',
             qc_passed_sign: 'Aprobó la prueba rápida. Firme para terminar.', qc_not_record: 'No queda en su registro de capacitación.',
             qc_again_video: 'Ver otra vez', qc_again_read: 'Leer otra vez', qc_again_image: 'Ver la imagen otra vez',
-            qc_optional_chip: 'Prueba rápida (opcional)', qc_correct_n: '{n} de {m} correctas', qc_watched: 'Visto {pct}% — sigue la prueba rápida'
+            qc_optional_chip: 'Prueba rápida (opcional)', qc_correct_n: '{n} de {m} correctas', qc_watched: 'Visto {pct}% — sigue la prueba rápida',
+            // opciones del video
+            vol_mute: 'Silenciar', vol_unmute: 'Activar sonido', volume: 'Volumen', cc: 'Subtítulos', cc_short: 'CC', cc_none: 'Este video no tiene subtítulos',
+            cc_lang: 'Idioma de los subtítulos', lang_en: 'Inglés', lang_es: 'Español', resume_at: 'Continúa en {t}', start_over: 'Empezar de nuevo',
+            resume_page: 'Sigue en la página {n}', back_to_first: 'Volver a la página 1'
         }
     };
     var LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -387,6 +407,36 @@
 
         var progress = normaliseProgress(adapter.initialProgress);
         var cleanup = [];
+        // Video options for this page: remembered through adapter.mediaPrefs, else for the page only.
+        var MC = window.TrainingMediaControls || null;
+        var memVol = MC ? MC.prefs.volume() : { level: 0.8, muted: false };
+        var memCc = false;
+        var ccLangPick = null;   // a caption language the learner picked on this page (EN | ES)
+        var prefs = (function () {
+            var p = adapter.mediaPrefs && typeof adapter.mediaPrefs === 'object' ? adapter.mediaPrefs : null;
+            function has(n) { return !!(p && typeof p[n] === 'function'); }
+            return {
+                volume: function () {
+                    var v = null;
+                    try { v = has('getVolume') ? p.getVolume() : null; } catch (e) { v = null; }
+                    return v && typeof v.level === 'number' && isFinite(v.level) ? { level: Math.max(0, Math.min(1, v.level)), muted: !!v.muted } : memVol;
+                },
+                setVolume: function (level, muted) {
+                    memVol = { level: level, muted: !!muted };
+                    if (has('setVolume')) { try { p.setVolume(level, !!muted); } catch (e) { /* ignore */ } }
+                },
+                cc: function () {
+                    var c = null;
+                    try { c = has('getCc') ? p.getCc() : null; } catch (e) { c = null; }
+                    return typeof c === 'boolean' ? c : memCc;
+                },
+                setCc: function (on) {
+                    memCc = !!on;
+                    if (has('setCc')) { try { p.setCc(!!on); } catch (e) { /* ignore */ } }
+                }
+            };
+        }());
+        function langLabel(lg) { var k = 'lang_' + lg; var s = t(k); return s === k ? String(lg).toUpperCase() : s; }
         var keyHandler = null;
         // Kiosk (P3 §7.6): the run must exist before any lesson opens; the adapter says when it does.
         var runReady = typeof adapter.ensureRun !== 'function';
@@ -470,7 +520,7 @@
         function normaliseProgress(p) {
             p = (p && typeof p === 'object') ? p : {};
             return { done: Object.assign({}, p.done || {}), credited: Object.assign({}, p.credited || {}), pages: Object.assign({}, p.pages || {}),
-                watch: Object.assign({}, p.watch || {}), tries: Object.assign({}, p.tries || {}), current: p.current || null };
+                watch: Object.assign({}, p.watch || {}), tries: Object.assign({}, p.tries || {}), pos: Object.assign({}, p.pos || {}), current: p.current || null };
         }
         function saveProgress() {
             if (typeof adapter.onProgress === 'function') {
@@ -1134,8 +1184,8 @@
             }
             var img = h('img', { class: 'trp-doc__page', alt: '' });
             var pageBox = h('div', { class: 'trp-doc__viewport' }, img);
-            var prev = h('button', { type: 'button', class: 'trp-doc__nav trp-doc__nav--prev', 'aria-label': t('previous'), on: { click: function () { go(cur - 1); } } }, icon('fa-chevron-left'));
-            var next = h('button', { type: 'button', class: 'trp-doc__nav trp-doc__nav--next', 'aria-label': t('next'), on: { click: function () { go(cur + 1); } } }, icon('fa-chevron-right'));
+            var prev = h('button', { type: 'button', class: 'trp-doc__nav trp-doc__nav--prev', 'aria-label': t('previous'), on: { click: function () { go(cur - 1, true); } } }, icon('fa-chevron-left'));
+            var next = h('button', { type: 'button', class: 'trp-doc__nav trp-doc__nav--next', 'aria-label': t('next'), on: { click: function () { go(cur + 1, true); } } }, icon('fa-chevron-right'));
             var zoomOut = h('button', { type: 'button', class: 'trp-round trp-round--btn', 'aria-label': t('zoom_out'), on: { click: function () { setZoom(zoom - 0.5); } } }, icon('fa-search-minus'));
             var zoomIn = h('button', { type: 'button', class: 'trp-round trp-round--btn', 'aria-label': t('zoom_in'), on: { click: function () { setZoom(zoom + 0.5); } } }, icon('fa-search-plus'));
             var hint = h('span', { class: 'trp-doc__hint' }, [icon(isKiosk && mouseOnly() ? 'fa-arrows-alt-h' : 'fa-search-plus'), isKiosk && mouseOnly() ? t('k_arrows_hint') : t('swipe_hint')]);
@@ -1150,13 +1200,28 @@
             var viewedLabel = h('span', { class: 'trp-muted' });
             var thumbs = h('div', { class: 'trp-doc__thumbs', role: 'list' });
             var thumbBtns = pages.map(function (p, i) {
-                var b = h('button', { type: 'button', class: 'trp-doc__thumb', role: 'listitem', 'aria-label': t('page_of', { n: p.n, total: pages.length }), on: { click: function () { go(i); } } }, [
+                var b = h('button', { type: 'button', class: 'trp-doc__thumb', role: 'listitem', 'aria-label': t('page_of', { n: p.n, total: pages.length }), on: { click: function () { go(i, true); } } }, [
                     h('img', { src: p.url, alt: '', loading: 'lazy' }), h('span', { class: 'trp-doc__thumbn', text: String(p.n) }), h('span', { class: 'trp-doc__thumbok', 'aria-hidden': 'true' }, icon('fa-check'))
                 ]);
                 thumbs.appendChild(b);
                 return b;
             });
-            ctx.main.appendChild(h('div', { class: 'trp-doc' }, [stage, h('div', { class: 'trp-doc__bar' }, [h('div', { class: 'trp-doc__labels' }, [label, viewedLabel]), thumbs])]));
+            // Pick up where you left off: the first page not seen yet (preview: progress.pages; kiosk: the run's
+            // credited pages in the first gate). "Back to page 1" undoes it.
+            var moved = false;
+            var docResume = MC ? MC.resumeBar({ labels: { start_over: t('back_to_first') }, onStartOver: function () { moved = true; go(0); } }) : null;
+            ctx.main.appendChild(h('div', { class: 'trp-doc' }, [docResume ? docResume.el : null, stage, h('div', { class: 'trp-doc__bar' }, [h('div', { class: 'trp-doc__labels' }, [label, viewedLabel]), thumbs])]));
+            function firstUnseen() {
+                for (var i = 0; i < pages.length; i++) { if (!viewed[pages[i].n]) { return i; } }
+                return -1;
+            }
+            function resumeDoc() {
+                var i = firstUnseen();
+                if (moved || i <= 0 || !docResume) { return false; }
+                go(i);
+                docResume.show(t('resume_page', { n: pages[i].n }));
+                return true;
+            }
 
             function setZoom(z) {
                 zoom = Math.max(1, Math.min(3, z));
@@ -1165,8 +1230,9 @@
                 zoomOut.disabled = zoom <= 1;
                 zoomIn.disabled = zoom >= 3;
             }
-            function go(i) {
+            function go(i, byLearner) {
                 if (i < 0 || i >= pages.length) { return; }
+                if (byLearner) { moved = true; if (docResume) { docResume.hide(); } }
                 if (i !== cur) { hint.classList.add('is-faded'); }
                 cur = i;
                 var p = pages[i];
@@ -1199,8 +1265,8 @@
                 setZoom(1);
             }
             ctx.onKey = function (e) {
-                if (e.key === 'ArrowLeft') { go(cur - 1); }
-                if (e.key === 'ArrowRight') { go(cur + 1); }
+                if (e.key === 'ArrowLeft') { go(cur - 1, true); }
+                if (e.key === 'ArrowRight') { go(cur + 1, true); }
             };
             // Swipe (pointer) to turn pages; ignored while zoomed (then the page pans).
             var sx = null;
@@ -1209,9 +1275,24 @@
                 if (sx === null) { return; }
                 var dx = e.clientX - sx;
                 sx = null;
-                if (Math.abs(dx) > 50) { go(cur + (dx < 0 ? 1 : -1)); }
+                if (Math.abs(dx) > 50) { go(cur + (dx < 0 ? 1 : -1), true); }
             });
+            if (isKiosk) {
+                // The run's credited pages arrive with the first gate (lesson_open): mark them, then pick up there.
+                var docFirstGate = true;
+                ctx.onServerGate = function (g) {
+                    if (!docFirstGate || !g) { return; }
+                    docFirstGate = false;
+                    if (g.done || g.credited || !Array.isArray(g.pages_seen_list) || !g.pages_seen_list.length) { return; }
+                    g.pages_seen_list.forEach(function (n) { n = Number(n); if (n >= 1 && n <= pages.length) { viewed[n] = true; } });
+                    progress.pages[l.uid] = Object.keys(viewed).map(Number);
+                    if (!resumeDoc()) { go(cur); }
+                };
+            }
+            // Preview: pages viewed in an earlier visit (progress.pages) - measured before page 1 is shown now.
+            var hadViewed = !isKiosk && firstUnseen() > 0;
             go(0);
+            if (hadViewed) { resumeDoc(); }
         }
 
         // ---------------- video ----------------
@@ -1262,9 +1343,50 @@
                 var scrub = h('div', { class: 'trp-scrub', role: 'slider', tabindex: '0', 'aria-label': t('furthest'), 'aria-valuemin': '0' }, [maxEl, fill, knob]);
                 var timeEl = h('span', { class: 'trp-vtime trp-mono' });
                 var bigPlay = h('button', { type: 'button', class: 'trp-video__bigplay', 'aria-label': t('play') }, icon('fa-play'));
+
+                // ---- video options: captions (the files the author attached), volume, resume
+                var cues = MC ? MC.cueBox() : null;
+                var tt = MC && Array.isArray(v.captions) && v.captions.length
+                    ? MC.textTracks(video, v.captions, { labelOf: langLabel, onCue: function (lines) { if (cues) { cues.show(lines); } } }) : null;
+                var hasCc = !!(tt && tt.langs.length);
+                var ccOn = hasCc && prefs.cc();
+                // The course language being taken comes first (LearnerView orders the list); a pick on this page wins.
+                var ccLang = hasCc ? (ccLangPick && tt.langs.indexOf(ccLangPick) !== -1 ? ccLangPick : tt.langs[0]) : null;
+                var ccSwitch = null;
+                var syncCc = function () {
+                    if (tt) { ccLang = tt.setMode(ccOn, ccLang) || ccLang; }
+                    if (ccSwitch) { ccSwitch.set(ccLang); ccSwitch.show(ccOn); }
+                    if (!ccOn && cues) { cues.clear(); }
+                };
+                var ccBtn = hasCc ? MC.ccButton({ labels: { cc: t('cc'), cc_short: t('cc_short'), none: t('cc_none') }, on: ccOn,
+                    onToggle: function (on) { ccOn = on; prefs.setCc(on); syncCc(); } }) : null;
+                if (ccBtn) { ccBtn.available('yes'); }
+                if (hasCc && tt.langs.length > 1) {
+                    ccSwitch = MC.langSwitch({ langs: tt.langs, current: ccLang, labelOf: langLabel, label: t('cc_lang'),
+                        onPick: function (lg) { ccLang = lg; ccLangPick = lg; syncCc(); } });
+                }
+                var vp = prefs.volume();
+                var applyVol = function (level, muted) {
+                    try { video.volume = Math.max(0, Math.min(1, level)); } catch (e) { /* iOS: read-only */ }
+                    video.muted = !!muted;
+                };
+                var vol = MC ? MC.volume({ labels: { mute: t('vol_mute'), unmute: t('vol_unmute'), volume: t('volume') }, level: vp.level, muted: vp.muted,
+                    onChange: function (level, muted) { applyVol(level, muted); prefs.setVolume(level, muted); } }) : null;
+                applyVol(vp.level, vp.muted);
+                var resumeAt = null;
+                var resumeOffered = false;
+                var resume = MC ? MC.resumeBar({ labels: { start_over: t('start_over') }, onStartOver: function () {
+                    resumeAt = null;
+                    try { video.currentTime = 0; } catch (e) { /* ignore */ }
+                    if (!isKiosk) { progress.pos[l.uid] = 0; saveProgress(); }
+                    syncUi();
+                } }) : null;
+
                 var box = h('div', { class: 'trp-video' }, [
-                    h('div', { class: 'trp-video__stage' }, [video, bigPlay, h('span', { class: 'trp-video__badge' }, [icon('fa-film'), t('video_note_upload')])]),
-                    h('div', { class: 'trp-vcontrols' }, [playBtn, backBtn, h('div', { class: 'trp-scrub__wrap' }, [scrub, h('span', { class: 'trp-scrub__cap', text: t('furthest') })]), timeEl, fsBtn])
+                    h('div', { class: 'trp-video__stage' }, [video, cues ? cues.el : null, bigPlay, h('span', { class: 'trp-video__badge' }, [icon('fa-film'), t('video_note_upload')])]),
+                    resume ? resume.el : null,
+                    h('div', { class: 'trp-vcontrols' }, [playBtn, backBtn, h('div', { class: 'trp-scrub__wrap' }, [scrub, h('span', { class: 'trp-scrub__cap', text: t('furthest') })]), timeEl,
+                        ccBtn || ccSwitch || vol ? h('div', { class: 'trp-vopts' }, [ccBtn ? ccBtn.el : null, ccSwitch ? ccSwitch.el : null, vol ? vol.el : null]) : null, fsBtn])
                 ]);
                 ctx.main.appendChild(box);
                 ctx.main.appendChild(status);
@@ -1285,6 +1407,34 @@
                     clear(playBtn);
                     playBtn.appendChild(icon(playing ? 'fa-pause' : 'fa-play'));
                 };
+                /**
+                 * Pick up where you left off: opens at $sec (never past the furthest point watched) with
+                 * "Resuming at 3:42 · Start over". Only before the learner has started this video here, and
+                 * not near either end.
+                 */
+                var offerResume = function (sec) {
+                    sec = Math.floor(Number(sec) || 0);
+                    var d = duration || video.duration || 0;
+                    if (!resume || resumeOffered || sec < 5 || (d > 0 && sec >= d - 3) || !video.paused || (video.currentTime || 0) > 1) { return; }
+                    resumeOffered = true;
+                    resumeAt = Math.min(sec, Math.floor(maxWatched) || sec);
+                    resume.show(t('resume_at', { t: fmt(resumeAt) }));
+                    var go = function () {
+                        if (resumeAt === null) { return; }
+                        try { video.currentTime = resumeAt; } catch (e) { /* ignore */ }
+                        syncUi();
+                    };
+                    if (video.readyState >= 1) { go(); } else { video.addEventListener('loadedmetadata', go, { once: true }); }
+                };
+                var lastPosSave = 0;
+                var savePos = function (force) {
+                    if (isKiosk) { return; }   // the kiosk resumes from the run (server), never from the device
+                    var now = Date.now();
+                    if (!force && now - lastPosSave < 4000) { return; }
+                    lastPosSave = now;
+                    progress.pos[l.uid] = video.ended ? 0 : Math.floor(video.currentTime || 0);
+                    saveProgress();
+                };
                 video.addEventListener('loadedmetadata', function () { if (!duration && video.duration && isFinite(video.duration)) { duration = video.duration; } updateWatch(); syncUi(); });
                 video.addEventListener('timeupdate', function () {
                     // No seeking past the furthest point watched (UX only; the kiosk server rules are the control).
@@ -1292,10 +1442,12 @@
                     record(video.currentTime);
                     updateWatch();
                     syncUi();
+                    if (resumeAt !== null && resume && resume.shown() && video.currentTime > resumeAt + 8) { resume.hide(); }
+                    if (!video.paused) { savePos(false); }
                 });
                 video.addEventListener('play', syncUi);
-                video.addEventListener('pause', syncUi);
-                video.addEventListener('ended', function () { record(duration || video.duration || 0); updateWatch(); syncUi(); });
+                video.addEventListener('pause', function () { syncUi(); savePos(true); });
+                video.addEventListener('ended', function () { record(duration || video.duration || 0); updateWatch(); syncUi(); if (resume) { resume.hide(); } savePos(true); });
                 video.addEventListener('ratechange', function () { if (video.playbackRate !== 1) { video.playbackRate = 1; video.pause(); } });
                 video.addEventListener('error', function () {
                     clear(status);
@@ -1319,19 +1471,32 @@
                     if (e.key === 'ArrowLeft') { video.currentTime = Math.max(0, video.currentTime - 5); e.preventDefault(); }
                     if (e.key === 'ArrowRight') { video.currentTime = Math.min(maxWatched, video.currentTime + 5); e.preventDefault(); }
                 });
-                ctx.onKey = function (e) { if (e.key === ' ' && e.target === document.body) { e.preventDefault(); playBtn.click(); } };
+                ctx.onKey = function (e) {
+                    if (e.key === ' ' && e.target === document.body) { e.preventDefault(); playBtn.click(); }
+                    // Windows keyboard: Up / Down = volume +-10 % (a no-op on iOS, where only Mute works).
+                    if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && vol && !e.altKey && !e.ctrlKey && !e.metaKey && vol.step(e.key === 'ArrowUp' ? 0.1 : -0.1)) { e.preventDefault(); }
+                };
+                syncCc();
                 if (isKiosk) {
                     // Kiosk (§7.6 #4): a tick on every play/pause, every 10 s while playing (the tick timer asks
-                    // tickSample), and the server's furthest point drives the seek limit.
+                    // tickSample), and the server's furthest point drives the seek limit. The first gate (lesson_open)
+                    // also says where this person stopped: the run's furthest point for this lesson.
                     ctx.tickSample = function () { return { position_s: Math.floor(video.currentTime || 0), playing: !video.paused && !video.ended }; };
                     ctx.evidence = function () { return { position_s: Math.floor(video.currentTime || 0) }; };
+                    var firstGate = true;
                     ctx.onServerGate = function (g) {
                         var mp = Number(g && g.max_position_s || 0);
                         if (mp > maxWatched) { maxWatched = mp; updateWatch(); syncUi(); }
+                        if (firstGate) {
+                            firstGate = false;
+                            if (g && !g.done && !g.credited) { offerResume(mp); }
+                        }
                     };
                     ['play', 'pause', 'ended'].forEach(function (ev) { video.addEventListener(ev, function () { if (ctx.sendTick) { ctx.sendTick(); } }); });
+                } else {
+                    offerResume(Math.min(Number(progress.pos[l.uid] || 0), maxWatched || 0));
                 }
-                cleanup.push(function () { try { video.pause(); video.removeAttribute('src'); video.load(); } catch (e) { /* ignore */ } });
+                cleanup.push(function () { if (tt) { tt.destroy(); } try { video.pause(); video.removeAttribute('src'); video.load(); } catch (e) { /* ignore */ } });
                 updateWatch();
                 syncUi();
                 return;
@@ -1381,12 +1546,46 @@
             var eFill = h('span', { class: 'trp-scrub__max' });
             var eTime = h('span', { class: 'trp-vtime trp-mono' });
             var controller = null;
+            // ---- video options through the provider's player: captions (CC), volume, resume
+            var eCcOn = prefs.cc();
+            var eCcNote = h('div', { class: 'trp-ccnote', hidden: true }, [icon('fa-closed-captioning'), h('span', { text: t('cc_none') })]);
+            var eCc = MC ? MC.ccButton({ labels: { cc: t('cc'), cc_short: t('cc_short'), none: t('cc_none') }, on: eCcOn,
+                onToggle: function (on) { eCcOn = on; prefs.setCc(on); if (controller) { controller.setCaptions(on, lang); } } }) : null;
+            var evp = prefs.volume();
+            var eVol = MC ? MC.volume({ labels: { mute: t('vol_mute'), unmute: t('vol_unmute'), volume: t('volume') }, level: evp.level, muted: evp.muted,
+                onChange: function (level, muted) { prefs.setVolume(level, muted); if (controller) { controller.setVolume(level); controller.setMuted(muted); } } }) : null;
+            var eResumeAt = null;
+            var eResume = MC ? MC.resumeBar({ labels: { start_over: t('start_over') }, onStartOver: function () {
+                var was = eResumeAt;
+                eResumeAt = null;
+                progress.pos[l.uid] = 0;
+                saveProgress();
+                if (was === -1 && controller) { controller.seekTo(0); }   // already jumped: back to the start
+            } }) : null;
             ctx.main.appendChild(h('div', { class: 'trp-video trp-video--embed' }, [
                 h('div', { class: 'trp-video__top' }, [h('span', { class: 'trp-chip' }, [h('i', { class: 'fab ' + (v.provider === 'vimeo' ? 'fa-vimeo-v' : 'fa-youtube'), 'aria-hidden': 'true' }), v.provider === 'vimeo' ? 'Vimeo' : 'YouTube']), tapNote, verifiedChip]),
                 holder,
-                h('div', { class: 'trp-vcontrols' }, [ePlay, eBack, h('div', { class: 'trp-scrub__wrap' }, [h('div', { class: 'trp-scrub trp-scrub--static' }, eFill), h('span', { class: 'trp-scrub__cap', text: t('furthest') })]), eTime])
+                eResume ? eResume.el : null,
+                h('div', { class: 'trp-vcontrols' }, [ePlay, eBack, h('div', { class: 'trp-scrub__wrap' }, [h('div', { class: 'trp-scrub trp-scrub--static' }, eFill), h('span', { class: 'trp-scrub__cap', text: t('furthest') })]), eTime,
+                    eCc || eVol ? h('div', { class: 'trp-vopts' }, [eCc ? eCc.el : null, eVol ? eVol.el : null]) : null]),
+                eCcNote
             ]));
             ctx.main.appendChild(status);
+            // Pick up where you left off (preview keeps the last position per lesson): the jump happens on the first
+            // play, because YouTube / Vimeo start only from a tap inside their player.
+            var ePos = Math.min(Number(progress.pos[l.uid] || 0), Number(progress.watch[l.uid] || 0));
+            if (eResume && ePos >= 5 && (!duration || ePos < duration - 3)) {
+                eResumeAt = Math.floor(ePos);
+                eResume.show(t('resume_at', { t: fmt(eResumeAt) }));
+            }
+            var eLastSave = 0;
+            function eSavePos(cur, force) {
+                var now = Date.now();
+                if (!force && now - eLastSave < 4000) { return; }
+                eLastSave = now;
+                progress.pos[l.uid] = Math.floor(cur || 0);
+                saveProgress();
+            }
             function syncEmbed(cur, d) {
                 if (d > 0 && !duration) { duration = d; }
                 var dd = duration || d || 0;
@@ -1408,6 +1607,11 @@
                 onPlaying: function (durationS) {
                     tapNote.hidden = true;
                     if (durationS > 0 && !duration) { duration = durationS; }
+                    if (eResumeAt !== null && eResumeAt > 0 && controller) {
+                        controller.seekTo(Math.min(eResumeAt, maxWatched || eResumeAt));
+                        eResumeAt = -1;   // done; "Start over" now seeks back to 0
+                        setTimeout(function () { if (eResume) { eResume.hide(); } }, 8000);
+                    }
                     if (view.can_verify_video && !v.verified && typeof adapter.onVideoReady === 'function') {
                         clear(status);
                         status.className = 'trp-vstatus';
@@ -1436,7 +1640,8 @@
                     clear(ePlay);
                     ePlay.appendChild(icon(playing ? 'fa-pause' : 'fa-play'));
                     ePlay.setAttribute('aria-label', playing ? t('pause') : t('play'));
-                    if (s === 'ended' && controller) { record(controller.getDuration() || duration); updateWatch(); }
+                    if (s === 'ended' && controller) { record(controller.getDuration() || duration); updateWatch(); progress.pos[l.uid] = 0; saveProgress(); }
+                    if (s === 'paused' && controller) { eSavePos(controller.getCurrentTime(), true); }
                 },
                 onTime: function (tm) {
                     // Seeking ahead is snapped back (UX only).
@@ -1444,9 +1649,21 @@
                     record(tm.current);
                     updateWatch();
                     syncEmbed(tm.current, tm.duration);
+                    if (controller && controller.isPlaying()) { eSavePos(tm.current, false); }
+                },
+                onCaptionTracks: function (list) {
+                    // The provider says which captions the video has: none -> the CC button is off with a short note.
+                    var none = !Array.isArray(list) || list.length === 0;
+                    if (eCc) { eCc.available(none ? 'no' : 'yes'); }
+                    eCcNote.hidden = !none;
                 },
                 onError: showError
             });
+            if (eVol) { controller.setVolume(evp.level); controller.setMuted(evp.muted); }
+            controller.setCaptions(eCcOn, lang);
+            ctx.onKey = function (e) {
+                if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && eVol && !e.altKey && !e.ctrlKey && !e.metaKey && eVol.step(e.key === 'ArrowUp' ? 0.1 : -0.1)) { e.preventDefault(); }
+            };
             ePlay.addEventListener('click', function () { if (controller) { controller.toggle(); } });
             eBack.addEventListener('click', function () { if (controller) { controller.seekBy(-10); } });
             cleanup.push(function () { if (controller) { controller.destroy(); } });

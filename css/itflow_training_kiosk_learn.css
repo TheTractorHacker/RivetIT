@@ -423,3 +423,15 @@ body.kx-video-page .kx-main { padding-bottom: 0; }
 
 /* The kiosk shell zeroes h2 margins (.kx h2): the question keeps its gap above the answer tiles (Kiosk-Quiz). */
 .kx .trp-qcard__text { margin: 0 0 20px; }
+
+/* ---- video options on the YouTube / Vimeo page (volume, CC, resume; widgets from js/training_media_controls.js) ---- */
+.kl-vstage { container-type: inline-size; container-name: klv; }
+.kl-vcontrols { flex-wrap: wrap; row-gap: 12px; }
+@container klv (max-width: 760px) {
+  .kl-vcontrols .kl-vbar__wrap { order: -1; flex-basis: 100%; }
+  .kl-vcontrols .kl-vtime { margin-right: auto; }
+}
+.kl-vopts { flex: none; display: flex; align-items: center; gap: 10px; }
+.kl-ccnote { display: flex; align-items: center; gap: 10px; padding: 0 16px 14px; background: var(--kx-surface); color: var(--kx-muted); font-size: 17px; font-weight: 600; }
+.kl-ccnote[hidden] { display: none; }
+.kl-vstage > .tmc-resume { border-top: 0; }

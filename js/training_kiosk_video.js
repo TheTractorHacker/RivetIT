@@ -7,6 +7,11 @@
  * quick check: "Continue to quick check" -> back to the course on that check).
  * Before "Still there?" the video pauses and the iframe hides. Every request carries the page's
  * restricted video token (Kiosk.api adds X-Kiosk-Video from k-page-data.video).
+ * Video options (js/training_media_controls.js): Mute / volume (Mute only on iPhone / iPad; Up / Down arrows
+ * on a PC), remembered per device; CC through the player's own captions (the run's language first; off with
+ * a note when the video has none), remembered for this signed-in person; and "Resuming at 3:42 · Start over"
+ * when lesson_open says this lesson was started before (the run's furthest point) - the jump happens on
+ * the first play, which is always a tap inside the player.
  */
 (function () {
     'use strict';
@@ -48,6 +53,11 @@
     var playing = false;
     var lastTime = 0;
     var tickTimer = null;
+    var MC = window.TrainingMediaControls || null;
+    var owner = K.prefsOwner ? K.prefsOwner() : null;
+    var ccOn = !!(MC && MC.prefs.cc(owner));
+    var vp = MC ? MC.prefs.volume() : { level: 0.8, muted: false };
+    var resumeAt = null;       // seconds to jump to on the first play; -1 once done
 
     // ---------------------------------------------------------------- layout
     var back = el('a', { class: 'kx-btn kx-btn--ghost kl-vback', href: P.course_url || '/kiosk/me.php' }, [icon('fa-arrow-left'), el('span', { text: t('video.back') })]);
@@ -81,10 +91,23 @@
     var bar = el('div', { class: 'kl-vbar', 'aria-hidden': 'true' }, [barMax, barCur]);
     var timeEl = el('span', { class: 'kl-vtime kl-mono', text: '0:00 / ' + (duration ? fmt(duration) : '–:––') });
     var vstatus = el('div', { class: 'kl-vstatus', role: 'status', 'aria-live': 'polite', hidden: true });
+    var ccNote = el('div', { class: 'kl-ccnote', hidden: true }, [icon('fa-closed-captioning'), el('span', { text: t('vopt.cc_none') })]);
+    var ccBtn = MC ? MC.ccButton({ labels: { cc: t('vopt.cc'), cc_short: t('vopt.cc_short'), none: t('vopt.cc_none') }, on: ccOn,
+        onToggle: function (on) { ccOn = on; MC.prefs.setCc(on, owner); if (controller) { controller.setCaptions(on, P.lang || K.lang()); } } }) : null;
+    var vol = MC ? MC.volume({ labels: { mute: t('vopt.mute'), unmute: t('vopt.unmute'), volume: t('vopt.volume') }, level: vp.level, muted: vp.muted,
+        onChange: function (level, muted) { MC.prefs.setVolume(level, muted); if (controller) { controller.setVolume(level); controller.setMuted(muted); } } }) : null;
+    var resume = MC ? MC.resumeBar({ labels: { start_over: t('vopt.start_over') }, onStartOver: function () {
+        var was = resumeAt;
+        resumeAt = null;
+        if (was === -1 && controller) { controller.seekTo(0); }   // it already jumped: back to the start
+    } }) : null;
     var stage = el('section', { class: 'kl-vstage' }, [
         el('div', { class: 'kl-vstage__top' }, [providerChip, tapNote]),
         holder, endedBox,
-        el('div', { class: 'kl-vcontrols' }, [playBtn, backBtn, el('div', { class: 'kl-vbar__wrap' }, [bar, el('span', { class: 'kl-vbar__cap', text: t('video.furthest') })]), timeEl])
+        resume ? resume.el : null,
+        el('div', { class: 'kl-vcontrols' }, [playBtn, backBtn, el('div', { class: 'kl-vbar__wrap' }, [bar, el('span', { class: 'kl-vbar__cap', text: t('video.furthest') })]), timeEl,
+            ccBtn || vol ? el('div', { class: 'kl-vopts' }, [ccBtn ? ccBtn.el : null, vol ? vol.el : null]) : null]),
+        ccNote
     ]);
 
     // right column: resources, watch progress ring, up next
@@ -225,6 +248,13 @@
 
     K.api.post('lesson_open', body({})).then(function (g) {
         applyGate(g);
+        // Pick up where you left off: this lesson was started before (the run's furthest point for it).
+        var mp = Math.floor(Number(g && g.max_position_s) || 0);
+        var d = duration || Number(g && g.duration_s) || 0;
+        if (resume && g && !g.done && !g.credited && mp >= 5 && (!d || mp < d - 3)) {
+            resumeAt = mp;
+            resume.show(t('vopt.resume_at', { t: fmt(mp) }));
+        }
         mount();
     }, function (e) {
         showError(e && e.message ? e.message : t('video.unavailable'));
@@ -240,6 +270,12 @@
             transport: 'postmessage',   // no YouTube/Vimeo script in the kiosk origin (security review: it could read other kiosk pages)
             onPlaying: function (durationS) {
                 tapNote.hidden = true;
+                if (resumeAt !== null && resumeAt > 0 && controller) {
+                    controller.seekTo(Math.min(resumeAt, maxWatched || resumeAt));
+                    lastTime = Math.min(resumeAt, maxWatched || resumeAt);
+                    resumeAt = -1;
+                    setTimeout(function () { if (resume) { resume.hide(); } }, 8000);
+                }
                 if (durationS > 0 && !reportedDuration) {
                     reportedDuration = true;
                     if (!duration) { duration = durationS; }
@@ -272,13 +308,27 @@
                 if (playing) { K.idle.playing(); }
                 paint();
             },
+            onCaptionTracks: function (list) {
+                // The player says which captions the video has: none -> CC is off, with a short note.
+                var none = !Array.isArray(list) || list.length === 0;
+                if (ccBtn) { ccBtn.available(none ? 'no' : 'yes'); }
+                ccNote.hidden = !none;
+            },
             onError: function (code, message) {
                 showError((message || t('video.error')) + ' ' + t('video.error_detail', { code: code }));
                 K.api.post('lesson_error', body({ provider: P.provider, code: String(code).slice(0, 40) })).then(null, function () { /* [S] best effort */ });
             }
         });
+        if (vol) { controller.setVolume(vp.level); controller.setMuted(vp.muted); }
+        controller.setCaptions(ccOn, P.lang || K.lang());
         startTicks();
     }
+    // Windows keyboard: Up / Down = volume +-10 % (nothing on iOS, where only Mute works).
+    document.addEventListener('keydown', function (e) {
+        var tag = (e.target && e.target.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.altKey || e.ctrlKey || e.metaKey) { return; }
+        if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && vol && vol.step(e.key === 'ArrowUp' ? 0.1 : -0.1)) { e.preventDefault(); }
+    });
 
     playBtn.addEventListener('click', function () { if (controller) { controller.toggle(); } });
     backBtn.addEventListener('click', function () { if (controller) { controller.seekBy(-10); } });

@@ -99,7 +99,7 @@ try {
 $k_page = [
     'title' => $view !== null ? (string) ($view['course']['name'] ?? '') : KioskStrings::t($kctx->lang, 'course.title'),
     'css' => ['/css/itflow_training_kiosk_learn.css'],
-    'js' => ['/js/training_video_embed.js', '/js/training_player.js', '/js/training_kiosk_course.js'],
+    'js' => ['/js/training_video_embed.js', '/js/training_media_controls.js', '/js/training_player.js', '/js/training_kiosk_course.js'],
     'body_class' => 'kx-learn kx-course',
     'data' => [
         'course_id' => $courseId,

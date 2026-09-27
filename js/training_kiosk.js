@@ -17,6 +17,8 @@
  *   Kiosk.session.heartbeatLoop() / end(reason)    heartbeat every 60 s, only if touched since the last one
  *   Kiosk.ui.el / keypad / signaturePad / toast / confirm / busy
  *   Kiosk.guardBfcache()                           pageshow persisted => reload; replaceState on load
+ *   Kiosk.prefsOwner()                             whose session a remembered video option belongs to (captions on/off);
+ *                                                  the choice is cleared at sign-out and on any page without a session
  *
  * Auto-start (this file runs before the page scripts): the header's EN|ES toggle and Done button
  * are wired, the bfcache guard is armed, and on a signed-in page the idle timer (default
@@ -701,9 +703,23 @@
         });
     }
 
+    // Video options (js/training_media_controls.js): captions on/off is kept for the signed-in person only.
+    // It is dropped at sign-out and whenever a page without a session loads (the sign-in screen after Done,
+    // idle, a device end or a 401), so the next person never inherits it. Volume stays with the device.
+    var SESSION_PREF_KEY = 'tr-media:cc-session';
+    function clearSessionPrefs() {
+        try { if (window.localStorage) { window.localStorage.removeItem(SESSION_PREF_KEY); } } catch (e) { /* storage blocked */ }
+    }
+    /** Whose session a remembered choice belongs to (checked when it is read back). */
+    function prefsOwner() {
+        var s = data().session;
+        return s ? 'kx:' + String(s.role || '') + ':' + String(s.name || '') : null;
+    }
+
     function endSession(reason) {
         if (ending) { return Promise.resolve(); }
         ending = true;
+        clearSessionPrefs();
         stopTimers();
         reason = (reason === 'idle') ? 'idle' : 'done';
         var go = function (next) { location.replace(typeof next === 'string' && /^\/kiosk\//.test(next) ? next : '/kiosk/'); };
@@ -816,6 +832,7 @@
         wireShell();
         guardBfcache();
         deviceEnd();
+        if (!d.session) { clearSessionPrefs(); }
         if (d.session) {
             if (d.idle && typeof d.idle.absolute_left_s === 'number') { absDeadline = Date.now() + d.idle.absolute_left_s * 1000; }
             if (d.page.kiosk_idle !== false) { idle.start({}); }
@@ -832,6 +849,7 @@
         setLang: setLang,
         idle: idle,
         session: session,
+        prefsOwner: prefsOwner,
         ui: { el: el, icon: icon, keypad: keypad, signaturePad: signaturePad, toast: toast, confirm: confirmDialog, busy: busy, idleDialog: idleDialog },
         mouseOnly: mouseOnly,
         guardBfcache: guardBfcache,

@@ -45,6 +45,13 @@ document.addEventListener('DOMContentLoaded', function () {
         initialProgress: TrainingUi.local.get(storeKey),
         initialLesson: data.lesson || null,
         onProgress: function (p) { TrainingUi.local.set(storeKey, p); },
+        // Video options (volume, captions on/off) are remembered per device here.
+        mediaPrefs: window.TrainingMediaControls ? {
+            getVolume: function () { return window.TrainingMediaControls.prefs.volume(); },
+            setVolume: function (level, muted) { window.TrainingMediaControls.prefs.setVolume(level, muted); },
+            getCc: function () { return window.TrainingMediaControls.prefs.cc(null); },
+            setCc: function (on) { window.TrainingMediaControls.prefs.setCc(on, null); }
+        } : null,
         onLanguage: function (lg) { switchLanguage(lg); },
         startQuiz: function (lessonUid, lang) {
             return TrainingApi.post('preview_quiz_start', {

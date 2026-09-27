@@ -7,8 +7,10 @@
  *       provider: 'youtube'|'vimeo', embedUrl, title?, nonce?,
  *       onReady(ctrl), onPlaying(durationS), onError(code, message), onTime({current, duration}),
  *       onState('playing'|'paused'|'ended'|'buffering')
+ *       onCaptionTracks(tracks)   the provider's caption tracks [{lang, label}] once known ([] = none)
  *   }) -> ctrl {play(), pause(), toggle(), seekBy(s), seekTo(s), getCurrentTime(), getDuration(),
- *               isPlaying(), getVideoId(), destroy(), iframe}
+ *               isPlaying(), getVideoId(), destroy(), iframe,
+ *               setVolume(0..1), setMuted(bool), setCaptions(on, lang), captionTracks() -> [..] | null (unknown)}
  *       getVideoId() (P3 §7.7): the id the provider says is loaded - YouTube getVideoData().video_id,
  *       Vimeo getVideoId() (read once through a cached promise) - or null; the kiosk sends it with ticks.
  *
@@ -23,6 +25,13 @@
  *   - Playback speed is pinned to 1x: a speed change is reset and the video paused.
  *   - The API <script> carries the page's CSP nonce (window.CSP_NONCE, opts.nonce, or the nonce of
  *     an existing script); the CSP also allowlists the exact API paths.
+ *   - Volume and captions (video options, 2026-09-27) go through the providers' own APIs: YouTube
+ *     setVolume / mute / unMute and the captions module (loadModule / setOption('captions','track',
+ *     {languageCode}) / unloadModule); Vimeo setVolume / setMuted and getTextTracks / enableTextTrack /
+ *     disableTextTrack. Wanted values are kept and applied once the player is ready (and again on the
+ *     first play: YouTube loads its captions module only once a video plays). YouTube reports its
+ *     caption list only after the module is loaded, so its CC state is "unknown" until then; Vimeo
+ *     answers getTextTracks at once. iOS ignores volume from a page (the hosts show only Mute there).
  *   - opts.transport === 'postmessage' (the kiosk video page): NO provider script is loaded at all. The
  *     page drives the player iframe with the providers' own postMessage protocols (YouTube's widget
  *     channel: "listening" / "command" out, "onReady" / "infoDelivery" / "onStateChange" / "onError" in;
@@ -124,7 +133,7 @@
     function ytBridge(iframe, h) {
         var ORIGIN = 'https://www.youtube-nocookie.com';
         var id = 1 + Math.floor(Math.random() * 100000);
-        var info = { currentTime: 0, duration: 0, playerState: -1, videoData: null, playbackRate: 1 };
+        var info = { currentTime: 0, duration: 0, playerState: -1, videoData: null, playbackRate: 1, tracks: null };
         var ready = false;
         var heard = false;
         var listenTimer = null;
@@ -138,6 +147,11 @@
             if (i.videoData && typeof i.videoData === 'object') { info.videoData = { video_id: String(i.videoData.video_id || '') }; }
             if (num(i.playbackRate) !== null && num(i.playbackRate) !== info.playbackRate) { info.playbackRate = num(i.playbackRate); h.rate(info.playbackRate); }
             if (num(i.playerState) !== null && num(i.playerState) !== info.playerState) { info.playerState = num(i.playerState); h.state(info.playerState); }
+            // Module options (the captions module, once loaded) arrive under their namespace.
+            if (i.captions && typeof i.captions === 'object' && Array.isArray(i.captions.tracklist)) {
+                info.tracks = i.captions.tracklist;
+                if (h.tracks) { h.tracks(info.tracks); }
+            }
         }
         function onMsg(e) {
             if (e.source !== iframe.contentWindow || e.origin !== ORIGIN) { return; }
@@ -153,7 +167,7 @@
                     ['onStateChange', 'onError', 'onPlaybackRateChange'].forEach(function (ev) { cmd('addEventListener', [ev]); });
                     h.ready();
                 }
-            } else if (d.event === 'infoDelivery') {
+            } else if (d.event === 'infoDelivery' || d.event === 'apiInfoDelivery') {
                 absorb(d.info);
             } else if (d.event === 'onStateChange') {
                 if (num(d.info) !== null && num(d.info) !== info.playerState) { info.playerState = num(d.info); h.state(info.playerState); }
@@ -169,6 +183,13 @@
         var giveUp = setTimeout(function () { if (!ready) { h.fail(); } }, API_TIMEOUT_MS);
         return {
             playVideo: function () { cmd('playVideo'); },
+            setVolume: function (n) { cmd('setVolume', [n]); },
+            mute: function () { cmd('mute'); },
+            unMute: function () { cmd('unMute'); },
+            loadModule: function (m) { cmd('loadModule', [m]); },
+            unloadModule: function (m) { cmd('unloadModule', [m]); },
+            setOption: function (m, k, v) { cmd('setOption', [m, k, v]); },
+            getOption: function (m, k) { return m === 'captions' && k === 'tracklist' ? info.tracks : undefined; },
             pauseVideo: function () { cmd('pauseVideo'); },
             seekTo: function (sec, ahead) { cmd('seekTo', [sec, !!ahead]); info.currentTime = sec; },
             setPlaybackRate: function (r) { cmd('setPlaybackRate', [r]); },
@@ -205,9 +226,11 @@
                 ['play', 'playing', 'pause', 'ended', 'timeupdate', 'playbackratechange', 'error'].forEach(function (ev) { send('addEventListener', ev); });
                 send('getDuration');
                 send('getVideoId');
+                send('getTextTracks');
             }
             if (d.method === 'getDuration' && Number(d.value) > 0) { duration = Number(d.value); if (!ready) { ready = true; h.ready(); } return; }
             if (d.method === 'getVideoId' && /^[0-9]{1,12}$/.test(String(d.value))) { videoId = String(d.value); return; }
+            if (d.method === 'getTextTracks') { if (Array.isArray(d.value) && h.tracks) { h.tracks(d.value); } return; }
             var data = d.data && typeof d.data === 'object' ? d.data : {};
             if (typeof data.seconds === 'number') { current = data.seconds; }
             if (typeof data.duration === 'number' && data.duration > 0) { duration = data.duration; }
@@ -236,6 +259,10 @@
             getDuration: function () { return resolved(duration); },
             getCurrentTime: function () { return resolved(current); },
             getVideoId: function () { return videoId ? resolved(videoId) : Promise.reject(new Error('unknown')); },
+            setVolume: function (v) { send('setVolume', v); return resolved(v); },
+            setMuted: function (m) { send('setMuted', !!m); return resolved(!!m); },
+            enableTextTrack: function (lang, kind) { var v = { language: lang }; if (kind) { v.kind = kind; } send('enableTextTrack', v); return resolved(v); },
+            disableTextTrack: function () { send('disableTextTrack'); return resolved(); },
             unload: function () { clearTimeout(giveUp); if (pingTimer) { clearInterval(pingTimer); } window.removeEventListener('message', onMsg); return resolved(); }
         };
     }
@@ -253,12 +280,107 @@
         var lastDuration = 0;
         var vimeoId = null;
         var vimeoIdAsked = false;
+        // Video options: what the host wants (applied once the player is ready, again on the first play).
+        var want = { level: null, muted: null, cc: null, ccLang: null };
+        var ready = false;
+        var tracks = null;          // the provider's caption tracks [{lang, label, kind}], null = not known yet
+        var ytTrackTimer = null;
 
         function call(name, a, b) {
             if (destroyed || typeof opts[name] !== 'function') { return; }
             try { opts[name](a, b); } catch (e) { /* host callback errors never break the player */ }
         }
         function fail(code) { call('onError', code, errorMessage(code)); }
+        function safe(fn) {
+            try {
+                var r = fn();
+                if (r && typeof r.catch === 'function') { r.catch(function () { /* the player refused (e.g. no such track) */ }); }
+            } catch (e) { /* the player refused */ }
+        }
+        function normTracks(list) {
+            var out = [];
+            (Array.isArray(list) ? list : []).forEach(function (t) {
+                if (!t || typeof t !== 'object') { return; }
+                var lang = String(t.languageCode || t.language || '');
+                if (!/^[A-Za-z]{2,3}([-_][A-Za-z0-9]{1,8}){0,3}$/.test(lang)) { return; }
+                out.push({ lang: lang, label: String(t.displayName || t.languageName || t.label || lang).slice(0, 60), kind: String(t.kind || '').slice(0, 20) });
+            });
+            return out;
+        }
+        function setTracks(list) {
+            tracks = normTracks(list);
+            call('onCaptionTracks', tracks.map(function (x) { return { lang: x.lang, label: x.label }; }));
+            if (want.cc) { applyCaptions(); }   // now the best track for the wanted language is known
+        }
+        /** The track for $lang: exact code, then the same base language (es -> es-419), then the first. */
+        function pickTrack(lang) {
+            if (!tracks || !tracks.length) { return null; }
+            var want1 = String(lang || '').toLowerCase();
+            var base = want1.split(/[-_]/)[0];
+            var exact = null;
+            var same = null;
+            tracks.forEach(function (x) {
+                var l = x.lang.toLowerCase();
+                if (!exact && l === want1) { exact = x; }
+                if (!same && l.split(/[-_]/)[0] === base) { same = x; }
+            });
+            return exact || same || tracks[0];
+        }
+        function applyAudio() {
+            if (!player || !ready) { return; }
+            var level = want.level === null ? null : Math.max(0, Math.min(1, Number(want.level) || 0));
+            if (provider === 'youtube') {
+                if (level !== null) { safe(function () { return player.setVolume(Math.round(level * 100)); }); }
+                if (want.muted !== null) { safe(function () { return want.muted ? player.mute() : player.unMute(); }); }
+                return;
+            }
+            // Vimeo: setMuted where the player has it, and volume 0 as the mute everywhere.
+            if (want.muted !== null && typeof player.setMuted === 'function') { safe(function () { return player.setMuted(!!want.muted); }); }
+            var vol = want.muted ? 0 : level;
+            if (vol !== null) { safe(function () { return player.setVolume(vol); }); }
+        }
+        function applyCaptions() {
+            if (!player || !ready || want.cc === null) { return; }
+            var t = pickTrack(want.ccLang);
+            if (provider === 'youtube') {
+                if (want.cc) {
+                    safe(function () { return player.loadModule('captions'); });
+                    var code = t ? t.lang : want.ccLang;
+                    if (code) { safe(function () { return player.setOption('captions', 'track', { languageCode: code }); }); }
+                    watchYtTracks();
+                } else {
+                    safe(function () { return player.unloadModule('captions'); });
+                }
+                return;
+            }
+            if (want.cc) {
+                if (t) { safe(function () { return player.enableTextTrack(t.lang, t.kind || undefined); }); }
+                else if (tracks === null && want.ccLang) { safe(function () { return player.enableTextTrack(want.ccLang); }); }
+            } else {
+                safe(function () { return player.disableTextTrack(); });
+            }
+        }
+        /** YouTube lists its caption tracks only once the captions module is loaded (after a play): poll briefly. */
+        function watchYtTracks() {
+            if (ytTrackTimer || provider !== 'youtube') { return; }
+            var n = 0;
+            ytTrackTimer = setInterval(function () {
+                n++;
+                var list;
+                try { list = player && player.getOption ? player.getOption('captions', 'tracklist') : undefined; } catch (e) { list = undefined; }
+                var known = Array.isArray(list) && (list.length > 0 || (firedPlaying && n >= 8));
+                if (known || n >= 30 || destroyed) {
+                    clearInterval(ytTrackTimer);
+                    ytTrackTimer = null;
+                    if (known) { setTracks(list); }
+                }
+            }, 500);
+        }
+        function onReadyOptions() {
+            ready = true;
+            applyAudio();
+            applyCaptions();
+        }
 
         var wrap = document.createElement('div');
         wrap.className = 'trv-embed';
@@ -298,9 +420,14 @@
                 }
                 return vimeoId;
             },
+            setVolume: function (level) { want.level = Number(level); applyAudio(); },
+            setMuted: function (m) { want.muted = !!m; applyAudio(); },
+            setCaptions: function (on, lang) { want.cc = !!on; if (lang) { want.ccLang = String(lang); } applyCaptions(); },
+            captionTracks: function () { return tracks === null ? null : tracks.map(function (x) { return { lang: x.lang, label: x.label }; }); },
             destroy: function () {
                 destroyed = true;
                 stopPoll();
+                if (ytTrackTimer) { clearInterval(ytTrackTimer); ytTrackTimer = null; }
                 try { if (player && provider === 'youtube' && player.destroy) { player.destroy(); } } catch (e) { /* ignore */ }
                 try { if (player && provider === 'vimeo' && player.unload) { player.unload(); } } catch (e) { /* ignore */ }
                 if (wrap.parentNode) { wrap.parentNode.removeChild(wrap); }
@@ -340,6 +467,9 @@
             }
             if (confirmed !== false && !firedPlaying) {
                 firedPlaying = true;
+                // YouTube loads its captions module only once a video plays; the volume is re-sent too.
+                applyAudio();
+                if (want.cc) { applyCaptions(); }
                 durationThen(readDuration, 20).then(function (d) {
                     lastDuration = d;
                     call('onPlaying', Math.round(d));
@@ -351,7 +481,7 @@
             var ytRead = function () { return Promise.resolve(player ? player.getCurrentTime() : 0); };
             var ytDur = function () { return Promise.resolve(player ? player.getDuration() : 0); };
             player = ytBridge(iframe, {
-                ready: function () { lastDuration = Number(player.getDuration()) || 0; call('onReady', ctrl); },
+                ready: function () { lastDuration = Number(player.getDuration()) || 0; onReadyOptions(); call('onReady', ctrl); },
                 state: function (st) {
                     if (st === 1) { onPlay(ytDur, ytRead); return; }
                     if (st === 2 || st === 0) {
@@ -372,7 +502,8 @@
         }
         if (opts.transport === 'postmessage' && provider === 'vimeo') {
             player = vimeoBridge(iframe, {
-                ready: function () { player.getDuration().then(function (d) { lastDuration = Number(d) || 0; call('onReady', ctrl); }); },
+                ready: function () { player.getDuration().then(function (d) { lastDuration = Number(d) || 0; onReadyOptions(); call('onReady', ctrl); }); },
+                tracks: function (list) { setTracks(list); },
                 play: function (confirmed) { onPlay(function () { return player.getDuration(); }, function () { return player.getCurrentTime(); }, confirmed); },
                 pause: function () { playing = false; stopPoll(); player.getCurrentTime().then(function (t) { lastTime = t; }); call('onState', 'paused'); },
                 ended: function () { playing = false; stopPoll(); call('onState', 'ended'); },
@@ -397,6 +528,7 @@
                     events: {
                         onReady: function () {
                             try { lastDuration = Number(player.getDuration()) || 0; } catch (e) { lastDuration = 0; }
+                            onReadyOptions();
                             call('onReady', ctrl);
                         },
                         onStateChange: function (e) {
@@ -425,6 +557,8 @@
                 var readDuration = function () { return player.getDuration(); };
                 var readTime = function () { return player.getCurrentTime(); };
                 player.ready().then(function () {
+                    onReadyOptions();
+                    if (player.getTextTracks) { player.getTextTracks().then(setTracks, function () { /* unknown */ }); }
                     player.getDuration().then(function (d) { lastDuration = Number(d) || 0; call('onReady', ctrl); }, function () { call('onReady', ctrl); });
                 }, function (err) { fail(safeCode('vimeo_', err && err.name)); });
                 player.on('playing', function () { onPlay(readDuration, readTime, true); });
