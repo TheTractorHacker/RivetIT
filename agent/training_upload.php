@@ -33,6 +33,7 @@ use ITFlow\Training\Core\Access;
 use ITFlow\Training\Core\Ctx;
 use ITFlow\Training\Core\Db;
 use ITFlow\Training\Core\TrainingSettings;
+use ITFlow\Training\Media\Captions;
 use ITFlow\Training\Media\DocxImporter;
 use ITFlow\Training\Media\FileValidator;
 use ITFlow\Training\Media\ImageProcessor;
@@ -133,6 +134,16 @@ function tr_upload_dispatch(Ctx $ctx, string $purpose, array $file, array $info,
                 'video_codec' => $p['video_codec'], 'audio_codec' => $p['audio_codec'], 'faststart' => $p['faststart'],
             ], $purpose);
             return ['media' => $mediaOut($m, $info['warnings'], $info['info'])];
+
+        case 'lesson_caption':
+            // Captions need DB 2.6.98 (media kind 'caption'); before the update the author is told so.
+            if (!Captions::schemaReady($ctx->db)) {
+                throw new ApiException(409, 'update_required', 'Captions need the latest database update. Ask an administrator to run it (Admin › Update).');
+            }
+            $cap = $info['meta']['caption'];
+            $m = $store->ingestBytes($cap['vtt'], 'caption', Captions::MIME, Captions::EXT, $name, ['duration_ms' => $cap['end_ms']], $purpose);
+            return ['media' => $mediaOut($m, $info['warnings'], $info['info']),
+                    'caption' => ['cues' => $cap['cues'], 'end_ms' => $cap['end_ms'], 'format' => $cap['format'], 'removed' => $cap['removed']]];
 
         case 'resource_file':
             if ($info['kind'] === 'image') {

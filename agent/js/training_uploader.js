@@ -34,6 +34,7 @@
     var ACCEPT = {
         lesson_document: 'application/pdf,.pdf',
         lesson_video: 'video/mp4,video/quicktime,.mp4,.m4v,.mov',
+        lesson_caption: '.vtt,.srt,text/vtt,application/x-subrip',
         lesson_image: IMAGE_ACCEPT,
         lesson_thumb: IMAGE_ACCEPT,
         course_cover: IMAGE_ACCEPT,
@@ -47,6 +48,7 @@
     var LIMIT_KEY = {
         lesson_document: 'pdf_max_bytes',
         lesson_video: 'video_max_bytes',
+        lesson_caption: 'caption_max_bytes',
         lesson_image: 'image_max_bytes',
         lesson_thumb: 'image_max_bytes',
         course_cover: 'image_max_bytes',

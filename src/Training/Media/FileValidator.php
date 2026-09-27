@@ -22,6 +22,7 @@ use ITFlow\Training\Core\TrainingSettings;
  *   Office   ZIP with the DocxConverter bomb caps; [Content_Types].xml + the main part;
  *            vbaProject.bin or any macroEnabled content type => 415
  *   Text     valid UTF-8, no NUL bytes (resources); CSV imports may be CP1252 (Core\Csv converts)
+ *   Caption  (lesson_caption) WebVTT or SRT text, rebuilt by Captions into plain-text WebVTT
  */
 final class FileValidator
 {
@@ -71,6 +72,11 @@ final class FileValidator
                 throw MediaException::unsupported('Choose a Word document (.docx).');
             }
             return self::result('docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'docx');
+        }
+        if ($purpose === 'lesson_caption') {
+            // Caption text is rebuilt, never stored as sent (Captions: .vtt / .srt, sanitized to plain cue text).
+            $cap = Captions::fromFile($tmpPath);
+            return self::result('caption', Captions::MIME, Captions::EXT, Captions::warnings($cap), [], ['caption' => $cap]);
         }
         if ($purpose === 'csv_import') {
             if ($type !== 'text' && $type !== 'text_legacy') {

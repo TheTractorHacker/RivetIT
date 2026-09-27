@@ -129,6 +129,13 @@ final class LessonView
             ];
         }
 
+        // The uploaded video's caption file for this language (DB 2.6.98; null before it or when none).
+        $captionFile = null;
+        $capId = ($v['lvar_caption_media_id'] ?? null) === null ? null : (int) $v['lvar_caption_media_id'];
+        if ($capId !== null && isset($facts['media'][$capId]) && $facts['media'][$capId]['media_kind'] === 'caption') {
+            $captionFile = MediaRefs::shape($facts['media'][$capId]);
+        }
+
         $kb = null;
         if ($v['lvar_kb_source_article_id'] !== null) {
             $articleId = (int) $v['lvar_kb_source_article_id'];
@@ -152,6 +159,7 @@ final class LessonView
             'media' => $media,
             'pages' => $pages,
             'caption' => $v['lvar_caption'],
+            'caption_file' => $captionFile,
             'video' => $video,
             'kb_source' => $kb,
             'updated_at' => Clock::toIso($v['lvar_updated_at'], false),

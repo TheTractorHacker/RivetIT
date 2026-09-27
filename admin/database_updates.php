@@ -9279,3 +9279,19 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.97'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.97') {
+        // Training video options (owner ask 2026-09-27: volume, "CC titles", pick up where you left off).
+        // Only the closed captions need schema: a caption file is a training_media row of the new kind
+        // 'caption' (plain WebVTT, .vtt, built by Media\Captions from the author's .vtt/.srt), attached per
+        // language variant of a video lesson. Volume and resume need nothing (resume reads the run's
+        // existing trun_lesson_max_position / trun_lesson_pages_hex).
+        // Runs AFTER 2.6.96 -> 2.6.97 (branch lms-odoo-skill-note owns that step).
+        // Idempotent: MODIFY re-applies the full enum ('caption' appended last: existing rows and their
+        // row hashes are untouched, an instant metadata change); ADD COLUMN / ADD INDEX IF NOT EXISTS.
+        mysqli_query($mysqli, "ALTER TABLE `training_media` MODIFY `media_kind` enum('pdf','page','video','image','file','evidence','caption') NOT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `training_lesson_variants` ADD COLUMN IF NOT EXISTS `lvar_caption_media_id` int(11) DEFAULT NULL AFTER `lvar_media_id`");
+        mysqli_query($mysqli, "ALTER TABLE `training_lesson_variants` ADD INDEX IF NOT EXISTS `idx_training_lvar_capmedia` (`lvar_caption_media_id`)");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.98'");
+    }

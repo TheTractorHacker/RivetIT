@@ -7,6 +7,15 @@
  * quick check: "Continue to quick check" -> back to the course on that check).
  * Before "Still there?" the video pauses and the iframe hides. Every request carries the page's
  * restricted video token (Kiosk.api adds X-Kiosk-Video from k-page-data.video).
+ * Video options (js/training_media_controls.js): Mute / volume (Mute only on iPhone / iPad, with a "Louder: use
+ * the iPad's volume buttons" hint; Up / Down arrows on a PC), remembered per device (sign-out undoes Mute); CC
+ * through the player's own captions (the run's language first; off with a note when the video has none),
+ * remembered for this signed-in session - until chosen, ON when the page says cc_default (a run in another
+ * language than the course default, on the default language's video) and the player lists a track in the run's
+ * language; and "Resuming at 3:42 · Start over" in the bar above the player when lesson_open says this lesson
+ * was started before (the run's furthest point) - the jump happens on the first play, which is always a tap
+ * inside the player. The time sits under the progress bar so the buttons share one row, and the player is
+ * made shorter when the card would otherwise run under the bottom bar (MC.fitStage).
  */
 (function () {
     'use strict';
@@ -48,6 +57,13 @@
     var playing = false;
     var lastTime = 0;
     var tickTimer = null;
+    var MC = window.TrainingMediaControls || null;
+    var owner = K.prefsOwner ? K.prefsOwner() : null;
+    var ccChoice = MC ? MC.prefs.cc(owner) : null;               // true / false as chosen this session, null = not chosen
+    var ccAuto = ccChoice === null && P.cc_default === true;      // a default ON, taken back if the video has no track in P.lang
+    var ccOn = ccChoice === null ? ccAuto : ccChoice;
+    var vp = MC ? MC.prefs.volume() : { level: 0.8, muted: false };
+    var resumeAt = null;       // seconds to jump to on the first play; -1 once done
 
     // ---------------------------------------------------------------- layout
     var back = el('a', { class: 'kx-btn kx-btn--ghost kl-vback', href: P.course_url || '/kiosk/me.php' }, [icon('fa-arrow-left'), el('span', { text: t('video.back') })]);
@@ -75,16 +91,31 @@
     var replayBtn = el('button', { type: 'button', class: 'kx-btn kx-btn--ghost kx-btn--xl' }, [icon('fa-redo'), el('span', { text: t('video.replay') })]);
     endedBox.appendChild(replayBtn);
     var playBtn = el('button', { type: 'button', class: 'kl-vbtn kl-vbtn--play', 'aria-label': t('video.play') }, icon('fa-play'));
-    var backBtn = el('button', { type: 'button', class: 'kl-vbtn kl-vbtn--wide' }, [icon('fa-undo'), el('span', { text: t('video.back_10') })]);
+    var backBtn = el('button', { type: 'button', class: 'kl-vbtn kl-vbtn--wide kl-vback10', 'aria-label': t('video.back_10') }, [icon('fa-undo'),
+        el('span', { class: 'kl-vback10__full', 'aria-hidden': 'true', text: t('video.back_10') }), el('span', { class: 'kl-vback10__short', 'aria-hidden': 'true', text: t('vopt.back_10_short') })]);
     var barMax = el('span', { class: 'kl-vbar__max' });
     var barCur = el('span', { class: 'kl-vbar__cur' });
     var bar = el('div', { class: 'kl-vbar', 'aria-hidden': 'true' }, [barMax, barCur]);
     var timeEl = el('span', { class: 'kl-vtime kl-mono', text: '0:00 / ' + (duration ? fmt(duration) : '–:––') });
     var vstatus = el('div', { class: 'kl-vstatus', role: 'status', 'aria-live': 'polite', hidden: true });
+    var ccNote = el('div', { class: 'kl-ccnote', hidden: true }, [icon('fa-closed-captioning'), el('span', { text: t('vopt.cc_none') })]);
+    var ccBtn = MC ? MC.ccButton({ labels: { cc: t('vopt.cc'), cc_short: t('vopt.cc_short'), none: t('vopt.cc_none') }, on: ccOn,
+        onToggle: function (on) { ccAuto = false; ccOn = on; MC.prefs.setCc(on, owner); if (controller) { controller.setCaptions(on, P.lang || K.lang()); } } }) : null;
+    var vol = MC ? MC.volume({ labels: { mute: t('vopt.mute'), unmute: t('vopt.unmute'), volume: t('vopt.volume'), hint: t('vopt.louder_ios') }, level: vp.level, muted: vp.muted,
+        onChange: function (level, muted) { MC.prefs.setVolume(level, muted); if (controller) { controller.setVolume(level); controller.setMuted(muted); } } }) : null;
+    var resume = MC ? MC.resumeBar({ labels: { start_over: t('vopt.start_over') }, onStartOver: function () {
+        var was = resumeAt;
+        resumeAt = null;
+        if (was === -1 && controller) { controller.seekTo(0); }   // it already jumped: back to the start
+    } }) : null;
+    // Nothing lies over the provider's player (plan A2): "Resuming at 3:42 · Start over" joins the dark bar above it.
     var stage = el('section', { class: 'kl-vstage' }, [
-        el('div', { class: 'kl-vstage__top' }, [providerChip, tapNote]),
+        el('div', { class: 'kl-vstage__top' }, [providerChip, tapNote, resume ? resume.el : null]),
         holder, endedBox,
-        el('div', { class: 'kl-vcontrols' }, [playBtn, backBtn, el('div', { class: 'kl-vbar__wrap' }, [bar, el('span', { class: 'kl-vbar__cap', text: t('video.furthest') })]), timeEl])
+        el('div', { class: 'kl-vcontrols' }, [playBtn, backBtn,
+            el('div', { class: 'kl-vbar__wrap' }, [bar, el('div', { class: 'kl-vbar__meta' }, [timeEl, el('span', { class: 'kl-vbar__cap', text: t('video.furthest') }), vol && vol.hintEl ? vol.hintEl : null])]),
+            ccBtn || vol ? el('div', { class: 'kl-vopts' }, [ccBtn ? el('div', { class: 'tmc-ccgroup' }, ccBtn.el) : null, vol ? vol.el : null]) : null]),
+        ccNote
     ]);
 
     // right column: resources, watch progress ring, up next
@@ -127,7 +158,22 @@
     var doneIcon = el('span', { class: 'kl-btnicon', 'aria-hidden': 'true' }, icon('fa-check'));
     var doneLabel = el('span', { text: t('video.mark_complete') });
     var doneBtn = el('button', { type: 'button', class: 'kx-btn kx-btn--primary kx-btn--xl', disabled: true }, [doneIcon, doneLabel]);
-    root.appendChild(el('footer', { class: 'kl-vfoot' }, [el('div', { class: 'kl-gate', role: 'status', 'aria-live': 'polite' }, [gateIcon, gateText]), el('div', { class: 'kl-vfoot__act' }, [nextBtn, doneBtn])]));
+    var foot = el('footer', { class: 'kl-vfoot' }, [el('div', { class: 'kl-gate', role: 'status', 'aria-live': 'polite' }, [gateIcon, gateText]), el('div', { class: 'kl-vfoot__act' }, [nextBtn, doneBtn])]);
+    root.appendChild(foot);
+    // The controls stay above the sticky bottom bar (iPad landscape, a 768 px tall PC screen): a shorter player
+    // instead of a scroll (the provider letterboxes the video inside it; nothing is laid over it).
+    if (MC && typeof MC.fitStage === 'function') {
+        MC.fitStage(holder, stage, { bottomBar: foot, min: 200, apply: function (px) {
+            stage.classList.toggle('is-fit', !!px);
+            if (px) { stage.style.setProperty('--kl-frame-h', px + 'px'); } else { stage.style.removeProperty('--kl-frame-h'); }
+        } });
+    }
+
+    /** Whether a provider's caption list [{lang}] has this language (es matches es-419). */
+    function hasTrackLang(list, lg) {
+        var base = String(lg || '').toLowerCase().split(/[-_]/)[0];
+        return (list || []).some(function (x) { return x && String(x.lang || '').toLowerCase().split(/[-_]/)[0] === base; });
+    }
 
     // ---------------------------------------------------------------- state -> UI
     function paint() {
@@ -225,6 +271,13 @@
 
     K.api.post('lesson_open', body({})).then(function (g) {
         applyGate(g);
+        // Pick up where you left off: this lesson was started before (the run's furthest point for it).
+        var mp = Math.floor(Number(g && g.max_position_s) || 0);
+        var d = duration || Number(g && g.duration_s) || 0;
+        if (resume && g && !g.done && !g.credited && mp >= 5 && (!d || mp < d - 3)) {
+            resumeAt = mp;
+            resume.show(t('vopt.resume_at', { t: fmt(mp) }));
+        }
         mount();
     }, function (e) {
         showError(e && e.message ? e.message : t('video.unavailable'));
@@ -240,6 +293,12 @@
             transport: 'postmessage',   // no YouTube/Vimeo script in the kiosk origin (security review: it could read other kiosk pages)
             onPlaying: function (durationS) {
                 tapNote.hidden = true;
+                if (resumeAt !== null && resumeAt > 0 && controller) {
+                    controller.seekTo(Math.min(resumeAt, maxWatched || resumeAt));
+                    lastTime = Math.min(resumeAt, maxWatched || resumeAt);
+                    resumeAt = -1;
+                    setTimeout(function () { if (resume) { resume.hide(); } }, 8000);
+                }
                 if (durationS > 0 && !reportedDuration) {
                     reportedDuration = true;
                     if (!duration) { duration = durationS; }
@@ -272,13 +331,34 @@
                 if (playing) { K.idle.playing(); }
                 paint();
             },
+            onCaptionTracks: function (list) {
+                // The player says which captions the video has: none -> CC is off, with a short note.
+                var none = !Array.isArray(list) || list.length === 0;
+                if (ccBtn) { ccBtn.available(none ? 'no' : 'yes'); }
+                ccNote.hidden = !none;
+                // A default ON (not this person's choice) needs captions in the run's language: none -> off again.
+                if (ccAuto && ccOn && !none && !hasTrackLang(list, P.lang || K.lang())) {
+                    ccAuto = false;
+                    ccOn = false;
+                    if (ccBtn) { ccBtn.set(false); }
+                    if (controller) { controller.setCaptions(false, P.lang || K.lang()); }
+                }
+            },
             onError: function (code, message) {
                 showError((message || t('video.error')) + ' ' + t('video.error_detail', { code: code }));
                 K.api.post('lesson_error', body({ provider: P.provider, code: String(code).slice(0, 40) })).then(null, function () { /* [S] best effort */ });
             }
         });
+        if (vol) { controller.setVolume(vp.level); controller.setMuted(vp.muted); }
+        controller.setCaptions(ccOn, P.lang || K.lang());
         startTicks();
     }
+    // Windows keyboard: Up / Down = volume +-10 % (nothing on iOS, where only Mute works).
+    document.addEventListener('keydown', function (e) {
+        var tag = (e.target && e.target.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.altKey || e.ctrlKey || e.metaKey) { return; }
+        if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && vol && vol.step(e.key === 'ArrowUp' ? 0.1 : -0.1)) { e.preventDefault(); }
+    });
 
     playBtn.addEventListener('click', function () { if (controller) { controller.toggle(); } });
     backBtn.addEventListener('click', function () { if (controller) { controller.seekBy(-10); } });

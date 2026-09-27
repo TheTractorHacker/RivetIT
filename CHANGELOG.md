@@ -2,6 +2,39 @@
 
 This file documents all notable changes made to ITFlow.
 
+## [Unreleased] ITFlow Internal IT - Training videos: volume, closed captions (CC), pick up where you left off
+Database 2.6.97 -> 2.6.98 (runs **after** the 2.6.96 -> 2.6.97 step of the Odoo skill/note branch): `training_media`
+gets the kind `caption`, `training_lesson_variants` gets `lvar_caption_media_id` (+ index). Nothing is backfilled and
+existing revisions are untouched. Apply it through **Admin > Update > Update Database**; until then the caption row in
+the course builder stays hidden and caption uploads answer "needs the latest database update". Volume and resume need
+no schema. No nginx change is needed (PHP sends `text/vtt` and nginx keeps it on the X-Accel redirect); the repo nginx
+templates list `vtt` anyway.
+
+### New Features & Updates
+- **Volume** on every lesson video (uploaded MP4 and YouTube / Vimeo): Mute plus a volume slider, Up / Down arrow keys
+  on a PC (+-10 %). On iPhone and iPad only Mute / Unmute is shown, with "Louder: use the iPad's volume buttons": iOS
+  ignores a web page's volume, the side buttons set it. The level is remembered per device (80 % when nothing is
+  stored or the browser blocks storage); signing out of the kiosk undoes Mute, so the next person starts with sound.
+- **Closed captions (CC).** In the course builder a video lesson's uploaded MP4 takes one caption file per language
+  (.vtt or .srt, up to 1 MB). The server rebuilds it as plain-text WebVTT: SRT converted, UTF-8 / UTF-16 / Windows-1252
+  read, every tag, script, style block, web link and control character removed, timings checked. Publishing pins the
+  file with the version, and the kiosk serves it only for that version, like the video. Learners get a **CC** button;
+  captions start in the language of the course they are taking, with **EN | ES** when both languages' captions fit
+  the same video (joined to the CC button), in large white-on-black text that also shows in full screen. Someone
+  taking a course in Spanish on the English video gets Spanish captions ON until they choose otherwise. YouTube /
+  Vimeo lessons use the video's own captions through the player (a short "No captions for this video" note when Vimeo
+  reports none; YouTube lists its captions only once they are switched on). On the kiosk the CC choice lasts for the
+  signed-in session (stored under an opaque per-session id, never a name) and is cleared at sign-out; in Preview it
+  is remembered per device. In the builder, a language without its own video gets **Use the English video** (only
+  the video is shared; the translated text stays), then that language's caption file. A caption file is dropped
+  when its video is removed or the lesson switches to YouTube / Vimeo, which use their own captions.
+- **Pick up where you left off.** Reopening a started video (after going back to the course, a reload, or signing out
+  and back in) opens at the furthest point the run recorded, with **Resuming at 3:42 · Start over** on the picture
+  (YouTube / Vimeo: in the bar above the player; they jump there on the first play). The video's buttons share one
+  row with the time under the progress bar, and the picture is made shorter when needed, so play, CC and Mute stay
+  above the bottom bar on an iPad in landscape and on a 768 px tall PC screen. A PDF reopens at its first page not yet seen (**Picked up at page 4 · Back to page 1**).
+  Preview as learner does the same from its own saved progress and records nothing. Credit rules are unchanged:
+  reopening credits nothing and skipping past the furthest point watched stays blocked.
 ## [Unreleased] ITFlow Internal IT - Training Odoo write-back: certification skills and HR notes
 Database 2.6.96 -> 2.6.97: `training_automation` gains three switches (`tauto_odoo_send_resume` on, `_skill` and `_note`
 off) and `tauto_odoo_skill_label` (the name of the chosen certification type and level), and the `training_odoo_outbox`

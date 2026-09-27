@@ -5,8 +5,10 @@
  * never close its own <script>), the nonce, the runtime and the page scripts (defer).
  *
  * k-page-data = {csrf, lang, strings:{en,es}, idle:{idle_s, warn_s, absolute_left_s},
- *                device:{label, ends_in_s, ends_at, ends_epoch}|null, session:{role, first, name, dept, initials}|null,
+ *                device:{label, ends_in_s, ends_at, ends_epoch}|null, session:{role, first, name, dept, initials, pref_key}|null,
  *                brand, api, video?, page:{…}}
+ * session.pref_key: an opaque id for this kiosk session (KioskKeys::prefKey, an HMAC of the session token
+ * hash); the video options tag the remembered captions choice with it instead of anything personal.
  * device.ends_in_s / ends_at / ends_epoch: a TEMPORARY device's seconds left (counted here, so the
  * device's own clock doesn't matter), its end as a local clock time ("3:13 PM") and as server epoch
  * seconds (for /kiosk/?ended=, in case the cron revoked it first); all null for a permanent one.
@@ -41,6 +43,7 @@ $k_data = [
         'name' => (string) $k_sess['contact_name'],
         'dept' => (string) $k_sess['dept'],
         'initials' => (string) $k_sess['initials'],
+        'pref_key' => (string) ($k_sess['ksess_token_hash'] ?? '') === '' ? null : $kctx->keys->prefKey((string) $k_sess['ksess_token_hash']),
     ],
     'brand' => $kctx->ks->brandWord(),
     'api' => '/kiosk/api.php',

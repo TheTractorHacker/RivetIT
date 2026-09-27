@@ -162,8 +162,8 @@ $tr_settings = TrainingSettings::fromRow($tr_row, $tr_ready);
 $tr_budget_bytes = $tr_settings->budgetBytes;
 $tr_budget_pct = $tr_budget_bytes > 0 ? min(100, round($tr_live_bytes * 100 / $tr_budget_bytes, 1)) : 0;
 
-$tr_kind_labels = ['pdf' => 'PDF documents', 'page' => 'PDF page images', 'video' => 'Videos', 'image' => 'Images', 'file' => 'Resource files', 'evidence' => 'Evidence'];
-$tr_kind_colors = ['pdf' => 'bg-red', 'page' => 'bg-orange', 'video' => 'bg-purple', 'image' => 'bg-cyan', 'file' => 'bg-blue', 'evidence' => 'bg-secondary'];
+$tr_kind_labels = ['pdf' => 'PDF documents', 'page' => 'PDF page images', 'video' => 'Videos', 'image' => 'Images', 'file' => 'Resource files', 'caption' => 'Caption files', 'evidence' => 'Evidence'];
+$tr_kind_colors = ['pdf' => 'bg-red', 'page' => 'bg-orange', 'video' => 'bg-purple', 'image' => 'bg-cyan', 'file' => 'bg-blue', 'caption' => 'bg-teal', 'evidence' => 'bg-secondary'];
 
 $tr_result_line = (string) ($tr_row['config_training_ledger_verify_result'] ?? '');
 $tr_result_badge = 'text-bg-secondary';

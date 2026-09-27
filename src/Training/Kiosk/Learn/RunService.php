@@ -768,7 +768,13 @@ final class RunService
             $st['last_active'] = false;
         }
         $g = LessonCredit::gate($st, $type, $required, $duration, $minPct, $pages);
-        return self::gateShape($g, $type, $duration, $minPct, $pages, $videoId, false, false);
+        $out = self::gateShape($g, $type, $duration, $minPct, $pages, $videoId, false, false);
+        if ($type === 'document' && $run['trun_current_lesson_uid'] === $uid) {
+            // "Pick up where you left off" for a PDF: the pages this lesson already credited (the run keeps a
+            // bitmap, not the last page), so the player marks them viewed and opens at the first page not seen.
+            $out['pages_seen_list'] = LessonCredit::pagesFromHex($st['pages_hex'] ?? null, $pages);
+        }
+        return $out;
     }
 
     /** @return array{0:string, 1:int, 2:?string, 3:int} type, duration_s, external video id (null for uploads), page count */

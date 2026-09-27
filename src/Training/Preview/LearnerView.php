@@ -87,8 +87,11 @@ final class LearnerView
             if ($type === 'video' && ($v['video'] ?? null) !== null) {
                 $vd = $v['video'];
                 if ($vd['provider'] === 'upload') {
+                    $captions = self::captions($l, $vLang, (int) $vd['media_id']);
                     $video = ['provider' => 'upload', 'src_url' => MediaStore::url((int) $vd['media_id']),
-                        'duration_s' => (int) $vd['duration_s'], 'min_watch_pct' => (int) $l['min_watch_pct']];
+                        'duration_s' => (int) $vd['duration_s'], 'min_watch_pct' => (int) $l['min_watch_pct'],
+                        'captions' => $captions,
+                        'cc_default' => self::ccDefault($l, $lang, $default, $vd) && ($captions[0]['lang'] ?? null) === $lang];
                 } else {
                     $hash = $vd['provider'] === 'vimeo' ? ($vd['h'] ?? null) : null;
                     $key = RevisionBuilder::videoKey((string) $vd['provider'], (string) $vd['id'], (string) ($hash ?? ''));
@@ -104,6 +107,8 @@ final class LearnerView
                         'duration_s' => ((int) ($vd['duration_s'] ?? 0)) > 0 ? (int) $vd['duration_s'] : null,
                         'min_watch_pct' => (int) $l['min_watch_pct'],
                         'verified' => (bool) ($ctx['video_checks'][$key]['verified'] ?? false),
+                        // the player also needs a caption track in $lang (it asks the provider) before it keeps CC on
+                        'cc_default' => self::ccDefault($l, $lang, $default, $vd),
                     ];
                 }
             }
@@ -316,6 +321,59 @@ final class LearnerView
             $out[RevisionBuilder::videoKey((string) $r['vcheck_provider'], (string) $r['vcheck_ext_id'], (string) $r['vcheck_ext_hash'])] = [
                 'verified' => $vt !== null && $now - $vt <= 30 * 86400 && ($et === null || $et <= $vt),
             ];
+        }
+        return $out;
+    }
+
+    /**
+     * Whether captions should start ON for a learner who has not chosen (UX review 2026-09-27): the course is
+     * taken in a language other than its default, and this lesson plays the SAME video as the default
+     * language's version (its audio is most likely in that language) - either because this language's variant
+     * points at the same upload / YouTube / Vimeo video or because it has no variant and falls back to the
+     * default one. Uploaded videos additionally need a caption file in $lang (the caller checks); YouTube /
+     * Vimeo lessons leave that to the player, which turns a default ON off again when the provider lists no
+     * track in $lang. The learner's own choice always wins (js/training_player.js, training_kiosk_video.js).
+     *
+     * @param array $vd this language's projected video ({provider, media_id | id, h?})
+     */
+    private static function ccDefault(array $lesson, string $lang, string $default, array $vd): bool
+    {
+        if ($lang === $default) {
+            return false;
+        }
+        $variants = is_array($lesson['variants'] ?? null) ? $lesson['variants'] : [];
+        if (!isset($variants[$lang])) {
+            return true;   // no own version: the learner gets the default language's video
+        }
+        $dv = $variants[$default]['video'] ?? null;
+        if (!is_array($dv) || ($dv['provider'] ?? '') !== ($vd['provider'] ?? '')) {
+            return false;
+        }
+        if ($vd['provider'] === 'upload') {
+            return (int) ($dv['media_id'] ?? 0) > 0 && (int) ($dv['media_id'] ?? 0) === (int) ($vd['media_id'] ?? 0);
+        }
+        return (string) ($dv['id'] ?? '') !== '' && (string) ($dv['id'] ?? '') === (string) ($vd['id'] ?? '')
+            && (string) ($dv['h'] ?? '') === (string) ($vd['h'] ?? '');
+    }
+
+    /**
+     * Closed captions for an uploaded video: this language's caption file first (the player's
+     * default), then every other language's whose variant plays the SAME video file (timings
+     * only match the video they were written for). [{lang, src_url}] - possibly empty.
+     */
+    private static function captions(array $lesson, string $lang, int $videoMediaId): array
+    {
+        $out = [];
+        $variants = is_array($lesson['variants'] ?? null) ? $lesson['variants'] : [];
+        $langs = array_keys($variants);
+        usort($langs, static fn($a, $b) => ((string) $a === $lang ? 0 : 1) <=> ((string) $b === $lang ? 0 : 1) ?: strcmp((string) $a, (string) $b));
+        foreach ($langs as $L) {
+            $vd = $variants[$L]['video'] ?? null;
+            if (!is_array($vd) || ($vd['provider'] ?? '') !== 'upload' || !isset($vd['caption_media_id'])
+                || (int) ($vd['media_id'] ?? 0) !== $videoMediaId) {
+                continue;
+            }
+            $out[] = ['lang' => (string) $L, 'src_url' => MediaStore::url((int) $vd['caption_media_id'])];
         }
         return $out;
     }

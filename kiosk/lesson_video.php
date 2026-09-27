@@ -87,7 +87,7 @@ if ($kiosk_video_unsupported) {
         $k_page = [
             'title' => (string) ($lesson['title'] ?? ''),
             'css' => ['/css/itflow_training_kiosk_learn.css'],
-            'js' => ['/js/training_video_embed.js', '/js/training_kiosk_video.js'],
+            'js' => ['/js/training_video_embed.js', '/js/training_media_controls.js', '/js/training_kiosk_video.js'],
             'lang_toggle' => false,
             'body_class' => 'kx-learn kx-video-page',
             'csrf' => $kctx->keys->videoCsrf((string) $k_session['ksess_token_hash'], $runId, $uid),
@@ -97,6 +97,9 @@ if ($kiosk_video_unsupported) {
                 'run_id' => $runId,
                 'lesson_uid' => $uid,
                 'provider' => (string) $v['provider'],
+                'lang' => (string) ($view['lang'] ?? $run['trun_language']),   // the run's language: captions default to it
+                // captions start ON until chosen: a run in another language on the default language's video (LearnerView)
+                'cc_default' => ($v['cc_default'] ?? false) === true,
                 'embed_url' => (string) $v['embed_url'],
                 'video_id' => (string) ($v['video_id'] ?? ''),
                 'duration_s' => (int) ($v['duration_s'] ?? 0),

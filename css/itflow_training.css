@@ -1886,3 +1886,22 @@ body.modal-open .tr-tray { visibility: hidden; }
 .tr-stats .it-stat-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tr-nc__suggest { font-size: 13px; padding: 8px 10px; border-radius: 8px; background: var(--tr-info-bg); color: var(--tr-info-fg); }
 .tr-nc__suggest .btn-link { font-size: 13px; font-weight: 600; min-height: 0; }
+
+/* Create Content › Video › Captions (CC): one caption file per language of an uploaded video. */
+.tr-cm-cap { display: flex; flex-direction: column; }
+.tr-cm-cap[hidden] { display: none; }
+.tr-cm-cap__lang { color: var(--if-muted); font-weight: 500; }
+.tr-drop--compact { padding: 12px 16px; }
+.tr-drop--compact .tr-drop__icon { width: 40px; height: 40px; }
+.tr-cap-file { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; padding: 10px 14px; border: 1px solid var(--if-border); border-radius: var(--tr-radius); background: var(--tr-surface-2); }
+.tr-cap-file[hidden] { display: none; }
+.tr-cap-file__icon { flex: none; font-size: 22px; color: var(--if-primary); }
+.tr-cap-file__body { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; }
+.tr-cap-file__name { font-weight: 600; overflow-wrap: anywhere; }
+
+/* Create Content › Video on another language's tab with no video yet: "Use the English video" (keeps the translated text). */
+.tr-cm-vshare { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; padding: 12px 16px; border-radius: var(--tr-radius); background: var(--tr-info-bg); color: var(--tr-info-fg); }
+.tr-cm-vshare[hidden] { display: none; }
+.tr-cm-vshare__icon { flex: none; font-size: 22px; }
+.tr-cm-vshare__body { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tr-cm-vshare__body .text-muted { color: inherit !important; opacity: .85; }

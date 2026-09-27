@@ -405,6 +405,12 @@ body.kx-video-page .kx-main { padding-bottom: 0; }
 @media (max-width: 900px) {
   .trp--kiosk .trp-doc__stage { height: max(300px, calc(100vh - var(--kx-top-h, 72px) - 450px)); height: max(300px, calc(100dvh - var(--kx-top-h, 72px) - 450px)); }
 }
+/* "Picked up at page 4 · Back to page 1" sits above the stage until the first page turn: the stage gives up the
+   bar's height meanwhile, so the page label and thumbnails stay above the bottom bar (video options, fix round). */
+.trp--kiosk .trp-doc:has(> .tmc-resume:not([hidden])) .trp-doc__stage { height: max(300px, calc(100vh - var(--kx-top-h, 72px) - 450px)); height: max(300px, calc(100dvh - var(--kx-top-h, 72px) - 450px)); }
+@media (max-width: 900px) {
+  .trp--kiosk .trp-doc:has(> .tmc-resume:not([hidden])) .trp-doc__stage { height: max(300px, calc(100vh - var(--kx-top-h, 72px) - 550px)); height: max(300px, calc(100dvh - var(--kx-top-h, 72px) - 550px)); }
+}
 
 /* ---- the quiz header drops the course name on narrow screens (portrait Spanish truncated it) ---- */
 @media (max-width: 900px) { .trp--kiosk .trp-qhead__course { display: none; } }
@@ -423,3 +429,33 @@ body.kx-video-page .kx-main { padding-bottom: 0; }
 
 /* The kiosk shell zeroes h2 margins (.kx h2): the question keeps its gap above the answer tiles (Kiosk-Quiz). */
 .kx .trp-qcard__text { margin: 0 0 20px; }
+
+/* ---- video options on the YouTube / Vimeo page (volume, CC, resume; widgets from js/training_media_controls.js) ----
+   The time sits under the progress bar so the buttons keep one row; a stage narrower than 760 px puts the bar on
+   its own line and shortens "Back 10s" to "10 s". MC.fitStage adds .is-fit + --kl-frame-h when the player has to
+   be shorter to keep the controls above the sticky bottom bar (the provider letterboxes the video). */
+.kl-vstage { container-type: inline-size; container-name: klv; }
+.kl-vcontrols { flex-wrap: wrap; row-gap: 10px; gap: 8px; }
+.kl-vcontrols .kl-vbar__wrap { flex: 1 1 0; min-width: 180px; }
+.kl-vbar__meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; }
+.kl-vbar__meta .kl-vtime { font-size: 17px; }
+.kl-vbar__meta .kl-vbar__cap { flex: 1 1 auto; text-align: right; }
+.kl-vback10__short { display: none; }
+@container klv (max-width: 760px) {
+  .kl-vcontrols .kl-vbar__wrap { order: -1; flex-basis: 100%; }
+  .kl-vcontrols .kl-vopts { margin-left: auto; }
+  .kl-vback10 { gap: 6px; padding: 0 10px; }
+  .kl-vback10__full { display: none; }
+  .kl-vback10__short { display: inline; }
+}
+.kl-vopts { flex: none; display: flex; align-items: center; gap: 8px; }
+.kl-ccnote { display: flex; align-items: center; gap: 10px; padding: 0 16px 14px; background: var(--kx-surface); color: var(--kx-muted); font-size: 17px; font-weight: 600; }
+.kl-ccnote[hidden] { display: none; }
+/* "Resuming at 3:42 · Start over" joins the dark bar above the player (nothing is laid over it, plan A2). */
+.kl-vstage__top { flex-wrap: wrap; row-gap: 8px; }
+.kl-vstage__top > .tmc-resume { flex: 0 1 auto; padding: 0; border: 0; background: transparent; color: #fff; font-size: 17px; }
+.kl-vstage__top > .tmc-resume .tmc-resume__icon { color: #7fd6cb; }
+.kl-vstage.is-fit .kl-vframe, .kl-vstage.is-fit .kl-vended { aspect-ratio: auto; min-height: 0; height: var(--kl-frame-h); }
+.kl-vstage.is-fit .kl-vframe.kl-hidden + .kl-vended:not([hidden]) { margin-top: calc(-1 * var(--kl-frame-h)); }
+/* "Still there?" hides the video: its caption text goes with it. */
+video.kl-hidden ~ .tmc-cues { visibility: hidden !important; }

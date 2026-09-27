@@ -41,7 +41,7 @@ final class LedgerVerifier
     public const PAGE = 2000;
 
     /** Mirrors Media\MediaStore::PATH_RE (spec §3.3); kept here so Core has no dependency on the media lane. */
-    public const MEDIA_PATH_RE = '#^(content|evidence)/[0-9a-f]{2}/[0-9a-f]{64}\.(pdf|jpg|png|webp|gif|mp4|docx|xlsx|pptx|txt|csv)$#';
+    public const MEDIA_PATH_RE = '#^(content|evidence)/[0-9a-f]{2}/[0-9a-f]{64}\.(pdf|jpg|png|webp|gif|mp4|docx|xlsx|pptx|txt|csv|vtt)$#';
 
     private const MEDIA_EVENTS = ['media.stored', 'media.file_purged', 'media.file_restored'];
 

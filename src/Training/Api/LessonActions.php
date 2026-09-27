@@ -85,6 +85,16 @@ final class LessonActions
         );
     }
 
+    /** "Use the English video": the target language plays the same video as `from`; its text is left alone. */
+    public static function lessonUseVideo(Ctx $c, ApiContext $a): array
+    {
+        return (new LessonService($c))->useVideoFrom(
+            (int) $a->int('lesson_id', true, 1),
+            (string) $a->lang('from'),
+            (string) $a->lang('to')
+        );
+    }
+
     // ---- resources ------------------------------------------------------------------------------
 
     public static function resourceAdd(Ctx $c, ApiContext $a): array

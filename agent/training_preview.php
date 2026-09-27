@@ -148,6 +148,7 @@ $tr_lang_names = ['en' => 'English', 'es' => 'Español'];
 <script type="application/json" id="tr-page-data"><?= json_encode($tr_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?></script>
 <script src="/js/training_common.js?v=<?= filemtime(__DIR__ . '/../js/training_common.js') ?>" defer></script>
 <script src="/js/training_video_embed.js?v=<?= filemtime(__DIR__ . '/../js/training_video_embed.js') ?>" defer></script>
+<script src="/js/training_media_controls.js?v=<?= filemtime(__DIR__ . '/../js/training_media_controls.js') ?>" defer></script>
 <script src="/js/training_player.js?v=<?= filemtime(__DIR__ . '/../js/training_player.js') ?>" defer></script>
 <script src="/agent/js/training_preview.js?v=<?= filemtime(__DIR__ . '/js/training_preview.js') ?>" defer></script>
 <?php require_once "../includes/footer.php";

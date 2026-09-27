@@ -28,10 +28,11 @@ final class MediaRefs
         'thumb' => ['image'],
         'cover' => ['image'],
         'resource' => ['file', 'image', 'pdf'],
+        'caption' => ['caption'],
     ];
 
     private const KIND_LABELS = [
-        'pdf' => 'a PDF', 'video' => 'an MP4 video', 'image' => 'an image', 'file' => 'a file',
+        'pdf' => 'a PDF', 'video' => 'an MP4 video', 'image' => 'an image', 'file' => 'a file', 'caption' => 'a caption file (.vtt or .srt)',
     ];
 
     /**

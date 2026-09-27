@@ -71,7 +71,7 @@ $km_type = MediaStore::MIME_BY_EXT[$km_ext] ?? null;
 if ($km_type === null) {
     kiosk_media_not_found();
 }
-if ($km_ext === 'txt' || $km_ext === 'csv') {
+if ($km_ext === 'txt' || $km_ext === 'csv' || $km_ext === 'vtt') {   // vtt: a video's caption file (Captions)
     $km_type .= '; charset=utf-8';
 }
 $km_attachment = $km_download || in_array((string) $km_row['media_kind'], ['pdf', 'file'], true);

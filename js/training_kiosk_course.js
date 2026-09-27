@@ -306,6 +306,13 @@
         onSign: function () { location.assign('/kiosk/sign.php?run=' + runId()); },
         onCourseComplete: function () { location.assign('/kiosk/sign.php?run=' + runId() + '&receipt=1'); },
         onLanguage: function (lg) { K.setLang(lg); },
+        // Video options: volume per device; captions on/off for this signed-in person only (cleared at sign-out).
+        mediaPrefs: window.TrainingMediaControls ? {
+            getVolume: function () { return window.TrainingMediaControls.prefs.volume(); },
+            setVolume: function (level, muted) { window.TrainingMediaControls.prefs.setVolume(level, muted); },
+            getCc: function () { return window.TrainingMediaControls.prefs.cc(K.prefsOwner()); },
+            setCc: function (on) { window.TrainingMediaControls.prefs.setCc(on, K.prefsOwner()); }
+        } : null,
         homeBack: function () { return { label: t('home.title'), onClick: function () { location.assign('/kiosk/me.php'); } }; },
         courseChips: chips,
         homeNotice: notice,

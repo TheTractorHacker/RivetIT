@@ -119,6 +119,8 @@ $tr_flags = [
     // TinyMCE content_css: the player's article sheet, so the editor looks like the iPad.
     'article_css' => '/css/itflow_training_article.css?v=' . filemtime(dirname(__DIR__) . '/css/itflow_training_article.css'),
     'kb' => Access::canUseKb(),
+    // Closed-caption files on uploaded videos (DB 2.6.98): the Create Content window hides the row before the update.
+    'captions' => \ITFlow\Training\Media\Captions::schemaReady($mysqli),
 ];
 
 $tr_data = [
