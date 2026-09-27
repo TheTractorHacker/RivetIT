@@ -127,7 +127,8 @@ if ($tw_task === 'odoo') {
         $tw_line = is_array($tw_r) ? trim((string) ($tw_r['line'] ?? '')) : '';
         // A disabled push is silent; anything it did or tried (including a pause) is one line.
         if ($tw_paused !== 'disabled' && $tw_line !== '') {
-            tw_say('odoo', ($tw_dry ? '[dry-run] ' : '') . $tw_line);
+            $tw_line = (string) preg_replace('/^odoo:\s*/', '', $tw_line);   // tw_say() already names the task
+            tw_say('odoo', ($tw_dry && stripos($tw_line, 'dry run') === false ? '[dry-run] ' : '') . $tw_line);
         }
     } catch (\Throwable $e) {
         tw_say('odoo', 'ERROR ' . get_class($e) . ': ' . $e->getMessage());

@@ -25,7 +25,13 @@ use ITFlow\Training\Core\Text;
 final class Notify
 {
     public const KINDS = ['digest', 'escalation', 'video', 'odoo_paused', 'odoo_auth', 'odoo_config', 'odoo_dead', 'odoo_link', 'key_expiry', 'verify_integrity'];
-    public const TYPES = ['Training Digest', 'Training Escalation', 'Training Video', 'Training Odoo'];
+    /**
+     * 'Training Digest' / 'Training Escalation' / 'Training Video' are the mutable 'training' push category.
+     * 'Training Odoo' (write-back problems) and 'Training' (records integrity, e.g. the public certificate check's
+     * alert) stay unmapped: always pushed, never muted with the digests (spec §5.8). includes/module_access.php
+     * sends every one of them only to roles that hold Training.
+     */
+    public const TYPES = ['Training Digest', 'Training Escalation', 'Training Video', 'Training Odoo', 'Training'];
 
     /** notification.notification is varchar(1000) under STRICT_TRANS_TABLES; notifyUser() cuts bytes at 1000. */
     public const MAX_BYTES = 990;
