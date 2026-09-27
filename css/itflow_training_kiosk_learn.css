@@ -459,3 +459,24 @@ body.kx-video-page .kx-main { padding-bottom: 0; }
 .kl-vstage.is-fit .kl-vframe.kl-hidden + .kl-vended:not([hidden]) { margin-top: calc(-1 * var(--kl-frame-h)); }
 /* "Still there?" hides the video: its caption text goes with it. */
 video.kl-hidden ~ .tmc-cues { visibility: hidden !important; }
+
+/* ---- honest watch progress (owner report 2026-09-27) ----
+   "Paused while this screen was in the background…" joins the dark bar above the player like the resume bar (amber
+   icon: it explains a stop); a finished video with too little time counted gets no green tick; the bottom bar's
+   "Watch from the start" is a full-size primary button next to the (still locked) finish button. */
+.kl-vstage__top > .tmc-notice .tmc-resume__icon { color: #fbbf24; }
+.kl-vended__icon.is-short { color: #fbbf24; }
+.kl-gate__text { line-height: 1.35; }
+/* With "Watch from the start" the message is long: from 641 to 1100 px (iPad landscape and portrait) it gets its own row
+   and the two buttons share the row under it, each half the width (640 px and less already stacks everything). */
+@media (min-width: 641px) and (max-width: 1100px) {
+  .kl-vfoot.has-restart { flex-wrap: wrap; row-gap: 12px; }
+  .kl-vfoot.has-restart .kl-gate { flex: 1 1 100%; }
+  .kl-vfoot.has-restart .kl-vfoot__act { flex: 1 1 100%; }
+  .kl-vfoot.has-restart .kl-vfoot__act > .kx-btn:not([hidden]) { flex: 1 1 0; min-width: 0; white-space: normal; }
+}
+/* "Watch from the start" tapped on a page where the video has not played yet and the player did not start (an iPad starts
+   it only from a tap inside the player): "Tap the video to start" is highlighted - amber, larger, a short pulse. */
+.kl-vtap.is-nudge { background: #fbbf24; color: #111827; font-size: 18px; padding: 8px 16px; box-shadow: 0 0 0 4px rgba(251,191,36,.35); animation: kl-nudge 1s ease-in-out 3; }
+@keyframes kl-nudge { 50% { transform: scale(1.06); box-shadow: 0 0 0 8px rgba(251,191,36,.25); } }
+@media (prefers-reduced-motion: reduce) { .kl-vtap.is-nudge { animation: none; } }

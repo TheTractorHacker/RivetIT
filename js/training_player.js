@@ -51,6 +51,15 @@
  *       A PDF opens at its first page not yet seen (kiosk: gate.pages_seen_list). Credit rules are unchanged:
  *       seeking past the furthest point watched stays blocked.
  *
+ *       Honest watch progress (owner report 2026-09-27; MC.watchCredit): the watch ring, its words and the bottom bar
+ *       show the time that COUNTED against what is required - kiosk: the server gate's credit_s / required_s; Preview:
+ *       its own count of seconds played while the screen showed (progress.credit), against the same rule - never the
+ *       furthest point (the scrub bar's lighter shading, "Furthest point reached", is only how far one may move).
+ *       100 % only once the gate is met. The video pauses whenever the page is hidden (MC.backgroundPause), with
+ *       "Paused while this screen was in the background…" on return and no auto-resume. At the end with too little
+ *       time counted the bottom bar says so and offers "Watch from the start"; a resume point in the last few seconds
+ *       is not offered. The kiosk's YouTube / Vimeo card shows the counted time too.
+ *
  *       Quick checks (a quiz with role 'check' on an article, document, video or image lesson): once the
  *       lesson's content is done the player offers the check - one question per screen, the same
  *       runner and result screen as a quiz, "Try again" while tries remain. Not must-pass: the lesson is
@@ -84,9 +93,15 @@
             read_and_sign: 'read and sign', pass_pct: 'Pass {pct}%', attempts_n: '{n} attempts', attempts_1: '1 attempt', unlimited: 'Unlimited tries',
             time_limit_min: '{n} min limit', pages_viewed: '{n} of {total} pages viewed', go_through_pages: 'Go through all {n} pages to finish',
             all_pages_viewed: 'All pages viewed', swipe_hint: 'Swipe to turn pages · pinch to zoom',
-            watch_progress: 'Watch progress', keep_watching: 'Watched {pct}% — keep watching to finish', watched_enough: 'Watched {pct}% — you can finish this lesson',
-            about_left: 'About {t} left', skip_not_counted: "Skipping ahead isn't counted.", only_watched: 'Only what you watch adds up.',
-            furthest: 'Furthest watched', fullscreen: 'Full screen', exit_fullscreen: 'Exit full screen',
+            // watch progress = the time that COUNTED against what is required (never the furthest point)
+            watch_progress: 'Watch progress', counted: '{done} of {need} watched', counted_ok: 'Watched enough — you can finish this lesson',
+            counted_ok_check: 'Watched enough — the quick check is next', more_to_watch: 'About {t} more to watch', watch_on_to: 'Watch on to {t} in the video',
+            skip_not_counted: "Skipping ahead isn't counted.", only_watched: 'Time counts only while the video plays on this screen.',
+            only_watched_ext: 'Time counts only while the video plays on its own screen.',
+            end_short: 'You reached the end, but only {done} of watching counted. Watch about {t} more — any part of the video counts.',
+            gate_position: 'Keep watching up to {t} in the video to finish', watch_from_start: 'Watch from the start',
+            bg_paused: 'Paused while this screen was in the background. Time only counts while you watch here.', preview_anyway: 'In preview you can continue anyway.',
+            furthest: 'Furthest point reached', fullscreen: 'Full screen', exit_fullscreen: 'Exit full screen',
             req_watch: 'watching {pct}% of the video', req_pages: 'viewing all {n} pages', req_quiz: 'passing the quiz', req_sign: 'ticking the box and signing',
             available_after: 'Available after {req}', ready_to_finish: 'Ready to finish', resources_1: '1 file',
             preview_gate: 'Learners finish this after {req}. In preview you can continue anyway.', verifying: 'Checking the video…', verified_at: 'Verified · {t}',
@@ -114,7 +129,7 @@
             attempt_label: 'Attempt', good_for: 'Good for', months_n: '{n} months', month_1: '1 month', attempt_of: '{n} of {m}',
             ack_todo_all: 'Tick the box, sign and enter your PIN', ack_todo_sign: 'Tick the box and sign', ack_todo_pin: 'Tick the box and enter your PIN', ack_todo_tick: 'Tick the box',
             // kiosk (P3 §7.6)
-            k_checking: 'Checking your progress…', k_keep_going: 'Keep going: about {t} more', k_saving_note: 'Answers save as you go',
+            k_checking: 'Checking your progress…', k_keep_going: 'Keep going: about {t} more', k_keep_watching: 'Keep watching: about {t} more', k_saving_note: 'Answers save as you go',
             k_save_failed: "Couldn't save that answer yet. It is sent again when you finish.", k_score_saved: 'Your score is saved. Signing adds it to your training record.',
             k_score_recorded: 'Your score is saved.', k_attempt_of: 'Attempt {n} of {max}', attempt_n: 'Attempt {n}', attempts_left_n: '{n} tries left', attempts_left_1: '1 try left',
             locked_trainer: 'Locked — see your trainer', ach_unlocked: 'Achievement unlocked', ach_unlocked_n: 'Achievements unlocked', ach_added: 'Added to your profile', sign_to_finish: 'Sign to finish', watch_video: 'Watch video',
@@ -143,7 +158,7 @@
             qc_fail_last: "One try left. If you don't pass it, your trainer has to unlock the course.",
             qc_passed_sign: 'Quick check passed. Sign to finish.', qc_not_record: "Doesn't go on your training record.",
             qc_again_video: 'Watch again', qc_again_read: 'Read again', qc_again_image: 'Look again',
-            qc_optional_chip: 'Quick check (optional)', qc_correct_n: '{n} of {m} correct', qc_watched: 'Watched {pct}% — the quick check is next',
+            qc_optional_chip: 'Quick check (optional)', qc_correct_n: '{n} of {m} correct',
             // video options
             vol_mute: 'Mute', vol_unmute: 'Unmute', volume: 'Volume', cc: 'Captions', cc_short: 'CC', cc_none: 'No captions for this video',
             cc_lang: 'Caption language', lang_en: 'English', lang_es: 'Spanish', resume_at: 'Resuming at {t}', start_over: 'Start over',
@@ -161,9 +176,14 @@
             read_and_sign: 'leer y firmar', pass_pct: 'Aprobar con {pct}%', attempts_n: '{n} intentos', attempts_1: '1 intento', unlimited: 'Intentos ilimitados',
             time_limit_min: 'Límite de {n} min', pages_viewed: '{n} de {total} páginas vistas', go_through_pages: 'Revise las {n} páginas para terminar',
             all_pages_viewed: 'Todas las páginas vistas', swipe_hint: 'Deslice para cambiar de página · pellizque para acercar',
-            watch_progress: 'Progreso del video', keep_watching: 'Visto {pct}% — siga viendo para terminar', watched_enough: 'Visto {pct}% — ya puede terminar esta lección',
-            about_left: 'Faltan unos {t}', skip_not_counted: 'Adelantar no cuenta.', only_watched: 'Solo cuenta lo que ve.',
-            furthest: 'Lo más lejos visto', fullscreen: 'Pantalla completa', exit_fullscreen: 'Salir de pantalla completa',
+            watch_progress: 'Progreso del video', counted: 'Ha visto {done} de {need}', counted_ok: 'Ya vio lo suficiente — puede terminar esta lección',
+            counted_ok_check: 'Ya vio lo suficiente — sigue la prueba rápida', more_to_watch: 'Faltan unos {t} por ver', watch_on_to: 'Siga viendo hasta el {t} del video',
+            skip_not_counted: 'Adelantar no cuenta.', only_watched: 'El tiempo solo cuenta mientras el video se reproduce en esta pantalla.',
+            only_watched_ext: 'El tiempo solo cuenta mientras el video se reproduce en su propia pantalla.',
+            end_short: 'Llegó al final, pero solo se contaron {done} de video visto. Vea unos {t} más; cualquier parte del video cuenta.',
+            gate_position: 'Siga viendo hasta el {t} del video para terminar', watch_from_start: 'Ver desde el principio',
+            bg_paused: 'Se pausó porque esta pantalla quedó en segundo plano. El tiempo solo cuenta mientras ve el video aquí.', preview_anyway: 'En la vista previa puede continuar.',
+            furthest: 'Hasta donde llegó', fullscreen: 'Pantalla completa', exit_fullscreen: 'Salir de pantalla completa',
             req_watch: 'ver el {pct}% del video', req_pages: 'ver las {n} páginas', req_quiz: 'aprobar la prueba', req_sign: 'marcar la casilla y firmar',
             available_after: 'Disponible después de {req}', ready_to_finish: 'Listo para terminar', resources_1: '1 archivo',
             preview_gate: 'Los participantes terminan esto después de {req}. En la vista previa puede continuar.', verifying: 'Verificando el video…', verified_at: 'Verificado · {t}',
@@ -191,7 +211,7 @@
             attempt_label: 'Intento', good_for: 'Válido por', months_n: '{n} meses', month_1: '1 mes', attempt_of: '{n} de {m}',
             ack_todo_all: 'Marque la casilla, firme e ingrese su PIN', ack_todo_sign: 'Marque la casilla y firme', ack_todo_pin: 'Marque la casilla e ingrese su PIN', ack_todo_tick: 'Marque la casilla',
             // kiosk (P3 §7.6)
-            k_checking: 'Revisando su avance…', k_keep_going: 'Siga: faltan unos {t}', k_saving_note: 'Las respuestas se guardan solas',
+            k_checking: 'Revisando su avance…', k_keep_going: 'Siga: faltan unos {t}', k_keep_watching: 'Siga viendo: faltan unos {t}', k_saving_note: 'Las respuestas se guardan solas',
             k_save_failed: 'Todavía no se guardó esa respuesta. Se envía otra vez al terminar.', k_score_saved: 'Su puntuación está guardada. Al firmar queda en su registro de capacitación.',
             k_score_recorded: 'Su puntuación está guardada.', k_attempt_of: 'Intento {n} de {max}', attempt_n: 'Intento {n}', attempts_left_n: 'Le quedan {n} intentos', attempts_left_1: 'Le queda 1 intento',
             locked_trainer: 'Bloqueado — hable con su instructor', ach_unlocked: 'Logro desbloqueado', ach_unlocked_n: 'Logros desbloqueados', ach_added: 'Agregado a su perfil', sign_to_finish: 'Firmar para terminar', watch_video: 'Ver el video',
@@ -220,7 +240,7 @@
             qc_fail_last: 'Le queda un intento. Si no lo aprueba, su instructor tiene que desbloquear el curso.',
             qc_passed_sign: 'Aprobó la prueba rápida. Firme para terminar.', qc_not_record: 'No queda en su registro de capacitación.',
             qc_again_video: 'Ver otra vez', qc_again_read: 'Leer otra vez', qc_again_image: 'Ver la imagen otra vez',
-            qc_optional_chip: 'Prueba rápida (opcional)', qc_correct_n: '{n} de {m} correctas', qc_watched: 'Visto {pct}% — sigue la prueba rápida',
+            qc_optional_chip: 'Prueba rápida (opcional)', qc_correct_n: '{n} de {m} correctas',
             // opciones del video
             vol_mute: 'Silenciar', vol_unmute: 'Activar sonido', volume: 'Volumen', cc: 'Subtítulos', cc_short: 'CC', cc_none: 'Este video no tiene subtítulos',
             cc_lang: 'Idioma de los subtítulos', lang_en: 'Inglés', lang_es: 'Español', resume_at: 'Sigue en {t}', start_over: 'Empezar de nuevo',
@@ -529,7 +549,8 @@
         function normaliseProgress(p) {
             p = (p && typeof p === 'object') ? p : {};
             return { done: Object.assign({}, p.done || {}), credited: Object.assign({}, p.credited || {}), pages: Object.assign({}, p.pages || {}),
-                watch: Object.assign({}, p.watch || {}), tries: Object.assign({}, p.tries || {}), pos: Object.assign({}, p.pos || {}), current: p.current || null };
+                watch: Object.assign({}, p.watch || {}), credit: Object.assign({}, p.credit || {}), tries: Object.assign({}, p.tries || {}), pos: Object.assign({}, p.pos || {}),
+                current: p.current || null };
         }
         function saveProgress() {
             if (typeof adapter.onProgress === 'function') {
@@ -904,7 +925,8 @@
                             pct = 100;
                         } else {
                             met = !!server.can_complete;
-                            var sp = serverPct(server);
+                            // A video's renderer shows the counted time itself (its ring): the bar says the same number.
+                            var sp = l.type === 'video' && typeof gate.cPct === 'number' ? gate.cPct : serverPct(server);
                             pct = gate.cPct === null && sp === null ? null : Math.max(0, Math.min(99, sp === null ? gate.cPct : sp));
                             if (met) { pct = 100; }
                             if (!met && gate.cMet) {
@@ -1312,12 +1334,13 @@
             var minPct = typeof v.min_watch_pct === 'number' ? v.min_watch_pct : 90;
             var duration = v.duration_s || 0;
             var maxWatched = Number(progress.watch[l.uid] || 0);
+            var extCard = isKiosk && v.provider !== 'upload' && !!fn('externalVideoUrl');   // the kiosk plays YouTube / Vimeo on their own page
             var ringBox = h('div', { class: 'trp-watch__ring' });
             var ringText = h('div', { class: 'trp-watch__text' });
             var watchCard = h('section', { class: 'trp-card trp-side trp-watch' }, [
                 h('header', { class: 'trp-side__head' }, [h('h2', { class: 'trp-card__title', text: t('watch_progress') })]),
                 h('div', { class: 'trp-watch__body' }, [ringBox, ringText]),
-                h('div', { class: 'trp-note' }, [icon('fa-info-circle'), h('div', null, [h('strong', { text: t('skip_not_counted') }), h('div', { text: t('only_watched') })])])
+                h('div', { class: 'trp-note' }, [icon('fa-info-circle'), h('div', null, [h('strong', { text: t('skip_not_counted') }), h('div', { text: t(extCard ? 'only_watched_ext' : 'only_watched') })])])
             ]);
             ctx.aside.appendChild(watchCard);
             var status = h('div', { class: 'trp-vstatus', role: 'status', 'aria-live': 'polite' });
@@ -1342,16 +1365,83 @@
                 return (list || []).some(function (x) { return x && String(x.lang || '').toLowerCase().split(/[-_]/)[0] === base; });
             }
 
-            function watchedPct() { return duration > 0 ? Math.min(100, Math.round(maxWatched * 100 / duration)) : 0; }
+            // ---- honest watch progress (owner report 2026-09-27): the ring, its words and the bottom bar show the time that
+            //      COUNTED against what is required, never the furthest point (the scrub bar's lighter shading is only how far
+            //      the learner may move). Kiosk: the server gate (credit_s / required_s); Preview: its own count of seconds
+            //      played while this screen showed (progress.credit), against the same rule. The video pauses whenever the
+            //      page is hidden; at the end with too little time counted the bottom bar offers "Watch from the start".
+            var kGate = null;                       // kiosk: the last server gate for this lesson
+            var sim = Math.max(0, Number(progress.credit[l.uid] || 0));   // preview: seconds counted so far
+            var simStamp = 0;
+            var started = false;                    // played on this screen: the end-of-video message then waits for the end again
+            var ended = false;
+            var curPos = 0;
+            var playingNow = function () { return false; };   // the player in use says (set below per player)
+            var settling = 0;                       // kiosk: pause / end ticks on their way (their answer brings the last seconds)
+            function settled() { settling = Math.max(0, settling - 1); updateWatch(); }
+            var restartBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-restart', hidden: true }, [icon('fa-redo'), t('watch_from_start')]);
+            var actions = ctx.foot ? ctx.foot.querySelector('.trp-foot__actions') : null;
+            if (actions && !extCard) { actions.insertBefore(restartBtn, actions.firstChild); }
+            var bgNote = MC && MC.noticeBar ? MC.noticeBar({ text: t('bg_paused'), icon: 'fa-pause-circle' }) : null;
+            function watched() {
+                var d = duration || 0;
+                var need = d > 0 ? Math.min(1800, Math.floor(d * minPct / 100)) : 0;   // LessonCredit::requiredSeconds for a video
+                var o = isKiosk
+                    ? { credit: kGate ? kGate.credit_s : 0, required: kGate ? kGate.required_s : 0, met: !!(kGate && (kGate.done || kGate.credited || kGate.can_complete)) }
+                    : { credit: sim, required: need, met: !!progress.done[l.uid] || (d > 0 && sim >= need && maxWatched >= Math.max(0, Math.floor(d * minPct / 100) - 5)) };
+                o.max = maxWatched; o.duration = d; o.minPct = minPct; o.cur = curPos; o.started = started; o.ended = ended;
+                o.playing = playingNow(); o.settling = settling > 0;
+                if (MC && typeof MC.watchCredit === 'function') { return MC.watchCredit(o); }
+                var req = Math.max(0, Number(o.required) || 0);
+                var cr = Math.max(0, Number(o.credit) || 0);
+                return { counted: o.met ? req : Math.min(cr, req), required: req, left: o.met ? 0 : Math.max(0, req - cr), pct: o.met ? 100 : (req > 0 ? Math.min(99, Math.floor(cr * 100 / req)) : 0),
+                    met: o.met, short: o.met ? null : (cr < req ? 'time' : null), needPos: 0, atEnd: false };
+            }
+            /** Preview: counts wall time while the video plays on a visible screen (at most 1 s per step: a stall never adds up). */
+            function simCount(playingNow) {
+                if (isKiosk) { return; }
+                var now = Date.now();
+                if (playingNow && document.visibilityState !== 'hidden') {
+                    if (simStamp) { sim += Math.max(0, Math.min(1, (now - simStamp) / 1000)); }
+                    simStamp = now;
+                } else {
+                    simStamp = 0;
+                }
+            }
+            var simSaved = 0;
+            function simSave(force) {
+                if (isKiosk || Math.floor(sim) === Math.floor(Number(progress.credit[l.uid] || 0))) { return; }
+                var now = Date.now();
+                if (!force && now - simSaved < 4000) { return; }
+                simSaved = now;
+                progress.credit[l.uid] = Math.floor(sim);
+                saveProgress();
+            }
+            cleanup.push(function () { simSave(true); });
             function updateWatch() {
-                var p = watchedPct();
+                var w = watched();
                 clear(ringBox);
-                ringBox.appendChild(ring(p, p >= minPct ? 'trp-ring--ok' : '', p + '%'));
-                ringBox.appendChild(h('span', { class: 'trp-ring__label', text: p + '%' }));
+                ringBox.appendChild(ring(w.pct, w.met ? 'trp-ring--ok' : '', w.pct + '%'));
+                ringBox.appendChild(h('span', { class: 'trp-ring__label', text: w.pct + '%' }));
                 clear(ringText);
-                ringText.appendChild(h('strong', { text: p >= minPct ? t(checkOf(l) && !progress.done[l.uid] ? 'qc_watched' : 'watched_enough', { pct: p }) : t('keep_watching', { pct: p }) }));
-                if (duration > 0 && p < 100) { ringText.appendChild(h('div', { class: 'trp-muted', text: t('about_left', { t: fmt(Math.max(0, duration - maxWatched)) }) })); }
-                ctx.gate.set(p >= minPct, t('req_watch', { pct: minPct }), p);
+                var pendingKiosk = isKiosk && !kGate;
+                ringText.appendChild(h('strong', { text: pendingKiosk ? t('k_checking') : (w.met ? t(checkOf(l) && !progress.done[l.uid] ? 'counted_ok_check' : 'counted_ok')
+                    : t('counted', { done: fmt(w.counted), need: fmt(w.required) })) }));
+                var sub = pendingKiosk || w.met ? '' : (w.short === 'position' ? t('watch_on_to', { t: fmt(w.needPos) }) : (w.left > 0 ? t('more_to_watch', { t: fmt(w.left) }) : ''));
+                if (sub) { ringText.appendChild(h('div', { class: 'trp-muted', text: sub })); }
+                // The bottom bar: kiosk - what is left, in the same words as the video page; Preview - the rule (it never blocks).
+                var endMsg = w.atEnd ? t('end_short', { done: fmt(w.counted), t: fmt(w.left) }) : null;
+                var text;
+                if (extCard) {
+                    text = t('req_watch', { pct: minPct });   // the video page has the whole story ("Watch video" goes there)
+                } else if (isKiosk) {
+                    text = '\u0000' + (endMsg || (w.short === 'position' ? t('gate_position', { t: fmt(w.needPos) })
+                        : (w.left > 0 && (maxWatched > 0 || w.counted > 0) ? t('k_keep_watching', { t: fmt(w.left) }) : t('available_after', { req: t('req_watch', { pct: minPct }) }))));
+                } else {
+                    text = endMsg ? '\u0000' + endMsg + ' ' + t('preview_anyway') : t('req_watch', { pct: minPct });
+                }
+                ctx.gate.set(w.met, text, w.pct);
+                restartBtn.hidden = !(w.atEnd && (!isKiosk || kGate) && !progress.done[l.uid]);
             }
             function record(cur) {
                 if (cur > maxWatched) {
@@ -1417,7 +1507,7 @@
                 // "Resuming at 3:42 · Start over" lies ON the picture (top), so it never pushes the controls down;
                 // the time sits under the scrub bar and the caption language joins the CC button, so play, back,
                 // CC, Mute and full screen share one row.
-                var stageEl = h('div', { class: 'trp-video__stage' }, [video, cues ? cues.el : null, resume ? resume.el : null, bigPlay,
+                var stageEl = h('div', { class: 'trp-video__stage' }, [video, cues ? cues.el : null, resume ? resume.el : null, bgNote ? bgNote.el : null, bigPlay,
                     h('span', { class: 'trp-video__badge' }, [icon('fa-film'), t('video_note_upload')])]);
                 var ccGroup = ccBtn ? h('div', { class: 'tmc-ccgroup' }, [ccBtn.el, ccSwitch ? ccSwitch.el : null]) : null;
                 var box = h('div', { class: 'trp-video' }, [
@@ -1454,7 +1544,10 @@
                 var offerResume = function (sec) {
                     sec = Math.floor(Number(sec) || 0);
                     var d = duration || video.duration || 0;
-                    if (!resume || resumeOffered || sec < 5 || (d > 0 && sec >= d - 3) || !video.paused || (video.currentTime || 0) > 1) { return; }
+                    // Not in the last few seconds (MC.nearEnd): someone whose counted time is short would be dropped at the very
+                    // end; the video starts at 0 and the bottom bar says why ("You reached the end, but only …").
+                    var atEndNow = MC && typeof MC.nearEnd === 'function' ? MC.nearEnd(sec, d) : (d > 0 && sec >= d - 3);
+                    if (!resume || resumeOffered || sec < 5 || atEndNow || !video.paused || (video.currentTime || 0) > 1) { return; }
                     resumeOffered = true;
                     resumeAt = Math.min(sec, Math.floor(maxWatched) || sec);
                     resume.show(t('resume_at', { t: fmt(resumeAt) }));
@@ -1479,14 +1572,51 @@
                     // No seeking past the furthest point watched (UX only; the kiosk server rules are the control).
                     if (video.currentTime > maxWatched + 2) { video.currentTime = maxWatched; return; }
                     record(video.currentTime);
+                    curPos = video.currentTime || 0;
+                    simCount(!video.paused && !video.ended);
+                    simSave(false);
                     updateWatch();
                     syncUi();
                     if (resumeAt !== null && resume && resume.shown() && video.currentTime > resumeAt + 8) { resume.hide(); }
                     if (!video.paused) { savePos(false); }
                 });
-                video.addEventListener('play', syncUi);
-                video.addEventListener('pause', function () { syncUi(); savePos(true); });
-                video.addEventListener('ended', function () { record(duration || video.duration || 0); updateWatch(); syncUi(); if (resume) { resume.hide(); } savePos(true); });
+                video.addEventListener('play', function () {
+                    started = true;
+                    ended = false;
+                    if (bgNote) { bgNote.hide(); }
+                    if (guard) { guard.playing(); }   // a play that raced the page going to the background is paused again
+                    simCount(!video.paused);
+                    syncUi();
+                    updateWatch();
+                });
+                video.addEventListener('pause', function () { simCount(false); simSave(true); syncUi(); savePos(true); updateWatch(); });
+                video.addEventListener('ended', function () {
+                    ended = true;
+                    simCount(false);
+                    simSave(true);
+                    record(duration || video.duration || 0);
+                    curPos = video.currentTime || 0;
+                    updateWatch(); syncUi(); if (resume) { resume.hide(); } savePos(true);
+                });
+                // The page went to the background: pause (time never counts there); back on the page, a short notice.
+                playingNow = function () { return !video.paused && !video.ended; };
+                var guard = MC && typeof MC.backgroundPause === 'function' ? MC.backgroundPause({
+                    isPlaying: function () { return !video.paused && !video.ended; },
+                    pause: function () { video.pause(); },
+                    onReturn: function () { if (resume) { resume.hide(); } if (bgNote) { bgNote.show(); } }
+                }) : null;
+                if (guard) { cleanup.push(guard.destroy); }
+                /** "Watch from the start" (the end reached with too little time counted): back to 0 and play. */
+                restartBtn.addEventListener('click', function () {
+                    resumeAt = null;
+                    if (resume) { resume.hide(); }
+                    try { video.currentTime = 0; } catch (e) { /* ignore */ }
+                    curPos = 0;
+                    ended = false;   // started: set by the real play (a play that did not start keeps the message and the button)
+                    video.play().catch(function () { /* blocked or unsupported */ });
+                    updateWatch();
+                    syncUi();
+                });
                 video.addEventListener('ratechange', function () { if (video.playbackRate !== 1) { video.playbackRate = 1; video.pause(); } });
                 video.addEventListener('error', function () {
                     clear(status);
@@ -1524,14 +1654,23 @@
                     ctx.evidence = function () { return { position_s: Math.floor(video.currentTime || 0) }; };
                     var firstGate = true;
                     ctx.onServerGate = function (g) {
+                        kGate = g && typeof g === 'object' ? g : null;
                         var mp = Number(g && g.max_position_s || 0);
-                        if (mp > maxWatched) { maxWatched = mp; updateWatch(); syncUi(); }
+                        if (mp > maxWatched) { maxWatched = mp; syncUi(); }
                         if (firstGate) {
                             firstGate = false;
                             if (g && !g.done && !g.credited) { offerResume(mp); }
                         }
+                        updateWatch();   // the counted time moved (or the gate opened)
                     };
-                    ['play', 'pause', 'ended'].forEach(function (ev) { video.addEventListener(ev, function () { if (ctx.sendTick) { ctx.sendTick(); } }); });
+                    ['play', 'pause', 'ended'].forEach(function (ev) {
+                        video.addEventListener(ev, function () {
+                            if (!ctx.sendTick) { return; }
+                            var sent = ctx.sendTick();
+                            // A pause / end: the server's answer brings the seconds since the last tick - judge "time short" after it.
+                            if (ev !== 'play' && sent && typeof sent.then === 'function') { settling++; updateWatch(); sent.then(settled, settled); }
+                        });
+                    });
                 } else {
                     offerResume(Math.min(Number(progress.pos[l.uid] || 0), maxWatched || 0));
                 }
@@ -1546,16 +1685,20 @@
                 var url = adapter.externalVideoUrl(l.uid);
                 var progText = h('span', { class: 'trp-muted' });
                 var progBar = h('span', { class: 'trp-bar__fill', style: { width: '0%' } });
-                var setProg = function (pos) {
-                    var d = duration || 0;
-                    var p = d > 0 ? Math.min(100, Math.round(pos * 100 / d)) : 0;
-                    progBar.style.width = p + '%';
-                    progText.textContent = t('keep_watching', { pct: p });
-                    if (p >= minPct) { progText.textContent = t(checkOf(l) && !progress.done[l.uid] ? 'qc_watched' : 'watched_enough', { pct: p }); }
+                // The counted time, as the video page shows it (not the furthest point); the end-of-video message when the
+                // furthest point is at the end but time is short (the video page then offers "Watch from the start").
+                var setProg = function () {
+                    var w = watched();
+                    progBar.style.width = w.pct + '%';
+                    progText.textContent = w.met ? t(checkOf(l) && !progress.done[l.uid] ? 'counted_ok_check' : 'counted_ok')
+                        : (w.atEnd ? t('end_short', { done: fmt(w.counted), t: fmt(w.left) }) : t('counted', { done: fmt(w.counted), need: fmt(w.required) }));
+                    updateWatch();   // the ring card and the bottom bar's bar: the same counted time
                 };
                 ctx.onServerGate = function (g) {
                     if (g && Number(g.duration_s) > 0 && !duration) { duration = Number(g.duration_s); }
-                    setProg(Number(g && g.max_position_s || 0));
+                    kGate = g && typeof g === 'object' ? g : null;
+                    maxWatched = Math.max(maxWatched, Number(g && g.max_position_s || 0));
+                    setProg();
                 };
                 var watchBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--xl' }, [icon('fa-play'), t('watch_video')]);
                 watchBtn.addEventListener('click', function () { setBusy(watchBtn, true); location.assign(url); });
@@ -1572,8 +1715,7 @@
                         watchBtn
                     ])
                 ]));
-                setProg(0);
-                ctx.gate.set(false, t('req_watch', { pct: minPct }), 0);
+                setProg();
                 return;
             }
             var ext = parseExt(v);
@@ -1608,7 +1750,7 @@
             // Nothing lies over the provider's player: "Resuming at 3:42 · Start over" goes in the bar above it.
             var eCard = h('div', { class: 'trp-video trp-video--embed' }, [
                 h('div', { class: 'trp-video__top' }, [h('span', { class: 'trp-chip' }, [h('i', { class: 'fab ' + (v.provider === 'vimeo' ? 'fa-vimeo-v' : 'fa-youtube'), 'aria-hidden': 'true' }), v.provider === 'vimeo' ? 'Vimeo' : 'YouTube']), tapNote, verifiedChip,
-                    eResume ? eResume.el : null]),
+                    eResume ? eResume.el : null, bgNote ? bgNote.el : null]),
                 holder,
                 h('div', { class: 'trp-vcontrols' }, [ePlay, eBack,
                     h('div', { class: 'trp-scrub__wrap' }, [h('div', { class: 'trp-scrub trp-scrub--static' }, eFill), h('div', { class: 'trp-scrub__meta' }, [eTime, h('span', { class: 'trp-scrub__cap', text: t('furthest') }), eVol && eVol.hintEl ? eVol.hintEl : null])]),
@@ -1620,8 +1762,10 @@
             fitVideo(holder, eCard);
             // Pick up where you left off (preview keeps the last position per lesson): the jump happens on the first
             // play, because YouTube / Vimeo start only from a tap inside their player.
+            // Not in the last few seconds (MC.nearEnd): the video then starts at 0 with the end-of-video message.
             var ePos = Math.min(Number(progress.pos[l.uid] || 0), Number(progress.watch[l.uid] || 0));
-            if (eResume && ePos >= 5 && (!duration || ePos < duration - 3)) {
+            var eAtEnd = MC && typeof MC.nearEnd === 'function' ? MC.nearEnd(ePos, duration) : (duration > 0 && ePos >= duration - 3);
+            if (eResume && ePos >= 5 && !eAtEnd) {
                 eResumeAt = Math.floor(ePos);
                 eResume.show(t('resume_at', { t: fmt(eResumeAt) }));
             }
@@ -1687,13 +1831,25 @@
                     clear(ePlay);
                     ePlay.appendChild(icon(playing ? 'fa-pause' : 'fa-play'));
                     ePlay.setAttribute('aria-label', playing ? t('pause') : t('play'));
-                    if (s === 'ended' && controller) { record(controller.getDuration() || duration); updateWatch(); progress.pos[l.uid] = 0; saveProgress(); }
+                    if (playing) {
+                        started = true;
+                        ended = false;
+                        if (eBgNote) { eBgNote.hide(); }
+                        if (eGuard) { eGuard.playing(); }   // a play that raced the page going to the background is paused again
+                    }
+                    simCount(playing);
+                    if (!playing) { simSave(true); }
+                    if (s === 'ended' && controller) { ended = true; record(controller.getDuration() || duration); progress.pos[l.uid] = 0; saveProgress(); }
                     if (s === 'paused' && controller) { eSavePos(controller.getCurrentTime(), true); }
+                    updateWatch();
                 },
                 onTime: function (tm) {
                     // Seeking ahead is snapped back (UX only).
                     if (tm.current > maxWatched + 3 && controller) { controller.seekTo(maxWatched); return; }
                     record(tm.current);
+                    curPos = tm.current || 0;
+                    simCount(!!(controller && controller.isPlaying()));
+                    simSave(false);
                     updateWatch();
                     syncEmbed(tm.current, tm.duration);
                     if (controller && controller.isPlaying()) { eSavePos(tm.current, false); }
@@ -1720,6 +1876,25 @@
             };
             ePlay.addEventListener('click', function () { if (controller) { controller.toggle(); } });
             eBack.addEventListener('click', function () { if (controller) { controller.seekBy(-10); } });
+            // The page went to the background: pause (time never counts there); back on the page, a short notice.
+            var eBgNote = bgNote;
+            playingNow = function () { return !!(controller && controller.isPlaying()); };
+            var eGuard = MC && typeof MC.backgroundPause === 'function' ? MC.backgroundPause({
+                isPlaying: function () { return !!(controller && controller.isPlaying()); },
+                pause: function () { if (controller) { controller.pause(); } },
+                onReturn: function () { if (eResume) { eResume.hide(); } if (eBgNote) { eBgNote.show(); } }
+            }) : null;
+            if (eGuard) { cleanup.push(eGuard.destroy); }
+            /** "Watch from the start" (the end reached with too little time counted): back to 0 and play. */
+            restartBtn.addEventListener('click', function () {
+                if (eResumeAt !== -1) { eResumeAt = null; }   // a pending "Resuming at…" jump is dropped: this starts at 0
+                if (eResume) { eResume.hide(); }
+                curPos = 0;
+                ended = false;   // started: set by the real play
+                if (controller) { controller.seekTo(0); controller.play(); }
+                syncEmbed(0, duration);
+                updateWatch();
+            });
             cleanup.push(function () { if (controller) { controller.destroy(); } });
             syncEmbed(0, duration);
             updateWatch();
