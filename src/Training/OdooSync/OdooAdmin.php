@@ -146,7 +146,9 @@ final class OdooAdmin
             $send['resume'] = 1;
         }
         // Certification type + level: one "type:level" choice, both from the last Odoo check; the level belongs to the type.
-        [$skillType, $skillLevel] = [null, null];
+        // (An old form has no such field: the stored choice stays.)
+        [$skillType, $skillLevel] = array_key_exists('targets_form', $post) ? [null, null]
+            : [self::intOrNull($ta['tauto_odoo_skill_type_id'] ?? null), self::intOrNull($ta['tauto_odoo_skill_level_id'] ?? null)];
         $pair = trim((string) ($post['skill_type_level'] ?? ''));
         if ($pair !== '') {
             if (preg_match('/^(\d{1,9}):(\d{1,9})$/D', $pair, $pm) !== 1) {
@@ -227,7 +229,7 @@ final class OdooAdmin
         $version = (int) ($post['version'] ?? -1);
         $values = [
             'tauto_odoo_push_enabled' => $enabled,
-            'tauto_odoo_mode' => 'resume',   // kept for the pre-2.6.97 reader; the targets below decide what is sent
+            'tauto_odoo_mode' => 'resume',   // unchanged meaning ('resume'); since 2.6.97 the target switches decide what is sent
             'tauto_odoo_resume_type_id' => $resumeType,
             'tauto_odoo_award_type_id' => $awardType,
             'tauto_odoo_skill_type_id' => $skillType,
