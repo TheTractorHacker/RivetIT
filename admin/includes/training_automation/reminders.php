@@ -155,36 +155,33 @@ $ta_rem_today_n = intval(date('N'));
                     <?php } elseif ($ta_rem_preview['users'] === []) { ?>
                         <p class="text-muted mb-0">Nobody has Training access yet.</p>
                     <?php } else { ?>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-vcenter mb-0">
-                                <thead>
-                                    <tr>
-                                        <th scope="col">Person</th>
-                                        <th scope="col">Digest</th>
-                                        <th scope="col">Escalation</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($ta_rem_preview['users'] as $ta_rem_u) { ?>
-                                        <tr>
-                                            <td class="text-nowrap">
-                                                <?php echo nullable_htmlentities($ta_rem_u['name']); ?>
-                                                <div class="small text-muted"><?php echo $ta_rem_u['is_admin'] ? 'Admin' : 'Training ' . intval($ta_rem_u['level']); ?></div>
-                                            </td>
-                                            <?php if ($ta_rem_u['digest'] === null && $ta_rem_u['escalation'] === null) { ?>
-                                                <td colspan="2" class="text-muted small"><?php echo nullable_htmlentities($ta_rem_u['note'] ?? 'Nothing to send'); ?></td>
-                                            <?php } else { ?>
-                                                <td class="small text-break"><?php echo $ta_rem_u['digest'] !== null ? nullable_htmlentities($ta_rem_u['digest']) : '<span class="text-muted">&mdash;</span>'; ?></td>
-                                                <td class="small text-break">
-                                                    <?php echo $ta_rem_u['escalation'] !== null ? nullable_htmlentities($ta_rem_u['escalation']) : '<span class="text-muted">&mdash;</span>'; ?>
-                                                    <?php if (($ta_rem_u['note'] ?? null) !== null) { ?><div class="text-muted"><?php echo nullable_htmlentities($ta_rem_u['note']); ?></div><?php } ?>
-                                                </td>
+                        <ul class="list-group list-group-flush border-top">
+                            <?php foreach ($ta_rem_preview['users'] as $ta_rem_u) { ?>
+                                <li class="list-group-item px-0">
+                                    <div class="d-flex flex-wrap align-items-baseline gap-2">
+                                        <span class="fw-bold"><?php echo nullable_htmlentities($ta_rem_u['name']); ?></span>
+                                        <span class="small text-muted"><?php echo $ta_rem_u['is_admin'] ? 'Admin' : 'Training ' . intval($ta_rem_u['level']); ?></span>
+                                        <?php if (($ta_rem_u['note'] ?? null) !== null) { ?>
+                                            <span class="badge text-bg-secondary"><?php echo nullable_htmlentities($ta_rem_u['note']); ?></span>
+                                        <?php } ?>
+                                    </div>
+                                    <?php if ($ta_rem_u['digest'] !== null || $ta_rem_u['escalation'] !== null) { ?>
+                                        <div class="row g-2 mt-1 small">
+                                            <div class="col-lg-8">
+                                                <div class="text-muted fw-semibold">Digest</div>
+                                                <div class="text-break"><?php echo $ta_rem_u['digest'] !== null ? nullable_htmlentities($ta_rem_u['digest']) : '<span class="text-muted">None</span>'; ?></div>
+                                            </div>
+                                            <?php if ($ta_rem_u['is_admin'] || intval($ta_rem_u['level']) >= 3) { ?>
+                                                <div class="col-lg-4">
+                                                    <div class="text-muted fw-semibold">Escalation</div>
+                                                    <div class="text-break"><?php echo $ta_rem_u['escalation'] !== null ? nullable_htmlentities($ta_rem_u['escalation']) : '<span class="text-muted">None</span>'; ?></div>
+                                                </div>
                                             <?php } ?>
-                                        </tr>
+                                        </div>
                                     <?php } ?>
-                                </tbody>
-                            </table>
-                        </div>
+                                </li>
+                            <?php } ?>
+                        </ul>
                     <?php } ?>
                 </div>
             <?php } ?>

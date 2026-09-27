@@ -115,46 +115,34 @@ $ta_vid_time = static function (?string $utc): ?string {
                         <p class="mb-0 text-success"><i class="fas fa-fw fa-check-circle me-1" aria-hidden="true"></i>No video problems found.</p>
                     <?php } ?>
                 <?php } else { ?>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-vcenter mb-0">
-                            <caption class="small">Videos with a problem. A problem is reported after two bad checks at least an hour apart.</caption>
-                            <thead>
-                                <tr>
-                                    <th scope="col">Video</th>
-                                    <th scope="col">Problem</th>
-                                    <th scope="col" class="text-end">Bad checks</th>
-                                    <th scope="col">First seen</th>
-                                    <th scope="col">Used in</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($ta_vid_report['bad'] as $ta_vid_b) { ?>
-                                    <tr>
-                                        <td class="text-nowrap">
-                                            <i class="fab fa-fw <?php echo $ta_vid_b['provider'] === 'vimeo' ? 'fa-vimeo-v' : 'fa-youtube'; ?> me-1" aria-hidden="true"></i><?php echo nullable_htmlentities(VideoWatch::providerLabel($ta_vid_b['provider'])); ?>
-                                            <div class="small text-muted font-monospace"><?php echo nullable_htmlentities($ta_vid_b['id']); ?></div>
-                                        </td>
-                                        <td>
-                                            <span class="badge <?php echo intval($ta_vid_b['streak']) >= 2 ? 'text-bg-danger' : 'text-bg-warning'; ?>"><?php echo nullable_htmlentities(ucfirst(VideoWatch::statusLabel($ta_vid_b['status']))); ?></span>
-                                            <div class="small text-muted"><?php echo intval($ta_vid_b['streak']) >= 2 ? ($ta_vid_b['alerted'] ? 'Reported' : 'Reporting on the next check') : 'Waiting for a second check'; ?></div>
-                                        </td>
-                                        <td class="text-end"><?php echo intval($ta_vid_b['streak']); ?></td>
-                                        <td class="text-nowrap small"><?php $ta_vid_first = $ta_vid_time($ta_vid_b['first_bad_at_utc']); echo $ta_vid_first !== null ? nullable_htmlentities($ta_vid_first) : '&mdash;'; ?></td>
-                                        <td class="small">
-                                            <?php foreach ($ta_vid_b['courses'] as $ta_vid_c) { ?>
-                                                <div>
-                                                    <a href="<?php echo nullable_htmlentities(Links::courseBuilder(intval($ta_vid_c['id']))); ?>"><?php echo nullable_htmlentities($ta_vid_c['name']); ?></a>
-                                                    <?php if ($ta_vid_c['lessons'] !== []) { ?>
-                                                        <span class="text-muted">&middot; <?php echo nullable_htmlentities(implode(', ', $ta_vid_c['lessons'])); ?></span>
-                                                    <?php } ?>
-                                                </div>
+                    <p class="small text-muted mb-1">Videos with a problem. A problem is reported after two bad checks at least an hour apart.</p>
+                    <ul class="list-group list-group-flush border-top">
+                        <?php foreach ($ta_vid_report['bad'] as $ta_vid_b) { ?>
+                            <?php $ta_vid_first = $ta_vid_time($ta_vid_b['first_bad_at_utc']); ?>
+                            <li class="list-group-item px-0">
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                    <span><i class="fab fa-fw <?php echo $ta_vid_b['provider'] === 'vimeo' ? 'fa-vimeo-v' : 'fa-youtube'; ?> me-1" aria-hidden="true"></i><?php echo nullable_htmlentities(VideoWatch::providerLabel($ta_vid_b['provider'])); ?></span>
+                                    <span class="small text-muted font-monospace"><?php echo nullable_htmlentities($ta_vid_b['id']); ?></span>
+                                    <span class="badge <?php echo intval($ta_vid_b['streak']) >= 2 ? 'text-bg-danger' : 'text-bg-warning'; ?>"><?php echo nullable_htmlentities(ucfirst(VideoWatch::statusLabel($ta_vid_b['status']))); ?></span>
+                                    <span class="small text-muted"><?php echo intval($ta_vid_b['streak']) >= 2 ? ($ta_vid_b['alerted'] ? 'Reported' : 'Reporting on the next check') : 'Waiting for a second check'; ?></span>
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    <?php echo intval($ta_vid_b['streak']); ?> bad <?php echo intval($ta_vid_b['streak']) === 1 ? 'check' : 'checks'; ?>
+                                    <?php if ($ta_vid_first !== null) { ?>&middot; first seen <?php echo nullable_htmlentities($ta_vid_first); ?><?php } ?>
+                                </div>
+                                <div class="small mt-1">
+                                    <?php foreach ($ta_vid_b['courses'] as $ta_vid_c) { ?>
+                                        <div class="text-break">
+                                            <a href="<?php echo nullable_htmlentities(Links::courseBuilder(intval($ta_vid_c['id']))); ?>"><?php echo nullable_htmlentities($ta_vid_c['name']); ?></a>
+                                            <?php if ($ta_vid_c['lessons'] !== []) { ?>
+                                                <span class="text-muted">&middot; <?php echo nullable_htmlentities(implode(', ', $ta_vid_c['lessons'])); ?></span>
                                             <?php } ?>
-                                        </td>
-                                    </tr>
-                                <?php } ?>
-                            </tbody>
-                        </table>
-                    </div>
+                                        </div>
+                                    <?php } ?>
+                                </div>
+                            </li>
+                        <?php } ?>
+                    </ul>
                     <p class="small text-muted mt-2 mb-0">Fix the video in YouTube or Vimeo, then play it once in the course builder before republishing.</p>
                 <?php } ?>
             <?php } ?>
