@@ -94,7 +94,7 @@ final class PushService
             $q = $scanner->scan($t, $s, $now, 200, true);
             $due = count($repo->upcoming($t->key, 200));
             $out['queued'] = $q;
-            $out['line'] = sprintf('odoo (dry run): would queue %d new, %d close, %d achievement; %d already waiting', $q['creates'], $q['closes'], $q['awards'], $due);
+            $out['line'] = sprintf('odoo: dry run, would queue %d new, %d close, %d achievement; %d already waiting', $q['creates'], $q['closes'], $q['awards'], $due);
             return $out;
         }
         $q = $scanner->scan($t, $s, $now, 200);
@@ -290,7 +290,7 @@ final class PushService
                     $linkHeld++;
                     continue;
                 }
-                if (self::norm($emp['name']) !== self::norm((string) ($link['contact_name'] ?? '')) && empty($link['confirmed'])) {
+                if (!self::sameName($emp['name'], $link) && empty($link['confirmed'])) {
                     $this->hold($repo, $id, 'Odoo employee name "' . Text::clip($emp['name'], 100) . '" differs from "' . Text::clip((string) $link['contact_name'], 100) . '"', $out);
                     $linkHeld++;
                     continue;
@@ -425,20 +425,23 @@ final class PushService
         }
     }
 
-    /** Lowercase, accents removed (NFD without combining marks), whitespace collapsed: the Phase 2 link-check rule. */
-    public static function norm(?string $s): string
+    /**
+     * Does the Odoo employee's name still match this person? Compared with the Phase 2 link rule
+     * (RecordsGateway::nameKey: lowercase, accents removed, spaces collapsed) against the ITFlow contact
+     * name, or against the Odoo name Phase 2 last confirmed for this link (the directory sync may have
+     * given the contact a different spelling since).
+     */
+    public static function sameName(string $odooName, array $link): bool
     {
-        $s = (string) $s;
-        if (!mb_check_encoding($s, 'UTF-8')) {
-            $s = mb_scrub($s, 'UTF-8');
+        $k = RecordsGateway::nameKey($odooName);
+        if ($k === '') {
+            return false;
         }
-        if (class_exists(\Normalizer::class)) {
-            $d = \Normalizer::normalize($s, \Normalizer::FORM_D);
-            if (is_string($d)) {
-                $s = (string) preg_replace('/\p{Mn}+/u', '', $d);
+        foreach ([$link['contact_name'] ?? null, $link['odoo_name'] ?? null] as $n) {
+            if (is_string($n) && $n !== '' && RecordsGateway::nameKey($n) === $k) {
+                return true;
             }
         }
-        $s = mb_strtolower($s, 'UTF-8');
-        return trim((string) preg_replace('/\s+/u', ' ', $s));
+        return false;
     }
 }

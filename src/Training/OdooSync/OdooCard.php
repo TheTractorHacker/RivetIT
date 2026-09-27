@@ -18,10 +18,9 @@ final class OdooCard
 {
     /**
      * @param array|null  $ta       AutomationSettings::load() (loaded here when null)
-     * @param bool        $readonly the Training-level-3 page: summary only, no per-person rows
      * @param bool        $preview  include the "Preview next 10" dry-run list
      */
-    public static function build(\mysqli $db, ?array $ta, ?Target $t, bool $readonly, bool $preview): array
+    public static function build(\mysqli $db, ?array $ta, ?Target $t, bool $preview): array
     {
         $out = ['ready' => false];
         if (!Schema::has($db, Schema::P5)) {
@@ -40,7 +39,6 @@ final class OdooCard
 
         $out = [
             'ready' => true,
-            'readonly' => $readonly,
             'enabled' => $enabled,
             'version' => (int) ($ta['tauto_version'] ?? 0),
             'target' => $t === null ? null : [
@@ -75,7 +73,7 @@ final class OdooCard
             'courses' => [],
             'achievements' => [],
         ];
-        if ($readonly || $key === '') {
+        if ($key === '') {
             return $out;
         }
 

@@ -11,15 +11,14 @@ use ITFlow\Training\Upstream\RecordsGateway;
 use ITFlow\Training\Upstream\Schema;
 
 /**
- * The Odoo write-back card's POST actions (spec §4.3, ta_odoo_* keys). ADMIN ONLY: the caller is
- * Admin > Training's handler (admin/post.php dispatch, administrators only) after it has checked
- * the CSRF token. The Training-level-3 twin page must refuse every key in KEYS for everyone.
+ * The Odoo write-back card's POST actions (spec §4.3, ta_odoo_* keys). ADMIN ONLY: called by
+ * Settings\AutomationActions for Admin > Training (admin/post.php, administrators only) after the
+ * CSRF check; the Training-level-3 page refuses every key in KEYS for everyone before this runs.
  *
- * Returns null when $post carries none of its keys, else [flash type, message]. Messages are HTML
- * (flash_alert renders them raw), so every value from Odoo or the database is escaped here.
- * Each successful change is written to the activity log (when available) and the audit trail
- * (training.automation_saved / training.odoo_discovered / training.odoo_outbox_changed /
- * training.odoo_map_saved) - the caller must not log these actions again.
+ * Returns null when $post carries none of its keys, else [flash type, message] with a PLAIN-TEXT
+ * message (AutomationActions escapes it and writes logAction + the training.automation_saved audit
+ * event). This class adds one detailed audit event per change (training.odoo_writeback_saved,
+ * training.odoo_discovered, training.odoo_outbox_changed, training.odoo_map_saved).
  *
  * Network: only ta_odoo_discover calls Odoo (read-only, 25 s budget), outside any transaction.
  */
@@ -66,7 +65,7 @@ final class OdooAdmin
     {
         $t = Target::current($db);
         if ($t === null) {
-            return ['error', 'No enabled Odoo integration is configured. Set one up under Integrations &rsaquo; Directory Sync first.'];
+            return ['error', 'No enabled Odoo integration is configured. Set one up under Integrations › Directory Sync first.'];
         }
         $d = (new Discovery($t, $t->connector()))->run(25);
         AutomationSettings::stamp($db, [
@@ -77,10 +76,9 @@ final class OdooAdmin
             . ', ' . count($d['resume']['types']) . ' line types, ' . count($d['errors']) . ' errors';
         self::log($db, $userId, 'training.odoo_discovered', 'discover', $summary, ['target' => $t->key, 'errors' => count($d['errors'])]);
 
-        $h = static fn(string $s): string => htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         if (!$d['resume']['available']) {
             $first = $d['errors'][0] ?? 'resume lines are not offered by this Odoo';
-            return ['warning', 'Checked Odoo (read-only): resume lines are not available. ' . $h((string) $first)];
+            return ['warning', 'Checked Odoo (read-only): resume lines are not available. ' . $first];
         }
         $suggested = null;
         foreach ($d['resume']['types'] as $ty) {
@@ -89,9 +87,9 @@ final class OdooAdmin
             }
         }
         $msg = 'Checked Odoo (read-only): resume lines are available'
-            . ($suggested !== null ? '; suggested line type: ' . $h($suggested) : '') . '.';
+            . ($suggested !== null ? '; suggested line type: ' . $suggested : '') . '.';
         if ($d['errors']) {
-            return ['warning', $msg . ' Some checks failed: ' . $h((string) Text::clip(implode(' · ', $d['errors']), 400))];
+            return ['warning', $msg . ' Some checks failed: ' . Text::clip(implode(' · ', $d['errors']), 400)];
         }
         return ['success', $msg . ' Review the settings below and save.'];
     }
@@ -156,7 +154,7 @@ final class OdooAdmin
                 $rs = (new RecordsGateway($db))->recordsSettings();
                 $checked = $rs['link_checked_at_utc'] ?? null;
                 if (empty($rs['ready']) || !is_string($checked) || $checked < (string) ($disc['checked_at_utc'] ?? '9999')) {
-                    return ['error', 'Run Admin &rsaquo; Training &rsaquo; Employee links (Odoo) &rsaquo; Check now first: the employee links must be checked against this Odoo after it was checked here.'];
+                    return ['error', 'Run Check now under Employee links (Odoo) on this page first: the employee links must be checked against this Odoo after it was checked here.'];
                 }
             }
         }
@@ -181,11 +179,11 @@ final class OdooAdmin
         }
         $summary = 'Odoo write-back settings saved for ' . $t->host() . ' / ' . $t->database . ': write-back ' . ($enabled ? 'ON' : 'OFF')
             . ', type #' . ($resumeType ?? 0) . ', achievements ' . ($pushAwards ? 'on' : 'off') . ', since ' . $since;
-        self::log($db, $userId, 'training.automation_saved', 'odoo', $summary, [
+        self::log($db, $userId, 'training.odoo_writeback_saved', 'odoo', $summary, [
             'enabled' => $enabled, 'target' => $t->key, 'resume_type_id' => $resumeType, 'award_type_id' => $awardType,
             'push_awards' => $pushAwards, 'push_since' => $since, 'staging' => $t->looksStaging, 'key_expires_on' => $expires ?: null,
         ]);
-        return ['success', 'Odoo write-back settings saved. Write-back is ' . ($enabled ? '<strong>ON</strong>' : 'OFF') . '.'];
+        return ['success', 'Odoo write-back settings saved. Write-back is ' . ($enabled ? 'ON' : 'OFF') . '.'];
     }
 
     private static function retry(\mysqli $db, array $post, int $userId): array
@@ -242,7 +240,7 @@ final class OdooAdmin
         $label = ucfirst($entity) . ' "' . $name['n'] . '"';
         self::log($db, $userId, 'training.odoo_map_saved', 'edit', $label . ($push === '1' ? ' is sent to Odoo' : ' is not sent to Odoo'),
             ['entity' => $entity, 'entity_id' => $id, 'push' => (int) $push]);
-        return ['success', htmlspecialchars($label, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ($push === '1' ? ' is now sent to Odoo.' : ' is no longer sent to Odoo.')];
+        return ['success', $label . ($push === '1' ? ' is now sent to Odoo.' : ' is no longer sent to Odoo.')];
     }
 
     // -----------------------------------------------------------------------------------------
@@ -254,13 +252,6 @@ final class OdooAdmin
             (new AuditService($db))->log($event, $userId > 0 ? $userId : null, 'training_automation', 1, $action, $summary, $meta);
         } catch (\Throwable $e) {
             error_log('Training: audit failed: ' . $e->getMessage());
-        }
-        if (function_exists('logAction') && (($GLOBALS['mysqli'] ?? null) instanceof \mysqli)) {
-            try {
-                logAction('Training', 'Edit', $summary);
-            } catch (\Throwable $e) {
-                error_log('Training: logAction failed: ' . $e->getMessage());
-            }
         }
     }
 

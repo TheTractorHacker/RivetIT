@@ -1,19 +1,16 @@
 <?php
 /*
- * Odoo write-back cards (Training LMS Phase 5 spec §5.4 "Odoo card", S5/S8), included by the one
- * Training settings page: admin/settings_training.php (editable, administrators) and
- * agent/training_settings.php (Training level 3: read-only summary, "Ask an administrator").
+ * Odoo write-back cards (Training LMS Phase 5 spec §5.4 "Odoo card", S5/S8). ADMIN PAGE ONLY: included
+ * by admin/includes/training_automation/sections.php inside its #odoo-writeback wrapper on
+ * admin/settings_training.php (agent/training_settings.php shows Lane A's read-only summary instead).
  *
- * The including page defines TRAINING_AUTOMATION_PAGE and may set:
- *   $ta           AutomationSettings::load($mysqli)          (loaded here when unset)
- *   $ta_target    OdooSync\Target::current($mysqli) or null  (loaded here when unset)
- *   $ta_csrf      the CSRF token for hidden inputs           (default $_SESSION['csrf_token'])
- *   $ta_readonly  true on the agent page                     (default: not admin/settings_training.php)
- * Forms post to admin/post.php (Referer admin/settings_training.php), whose handler passes the
- * ta_odoo_* keys to OdooSync\OdooAdmin::handle(). A page view never calls Odoo.
+ * From sections.php: $ta (AutomationSettings::load()), $ta_version, $ta_target (?OdooSync\Target),
+ * $ta_csrf, $ta_post_url ('post.php'), $ta_page_url, $ta_admin_page. Forms post ta_odoo_* keys to
+ * admin/post.php -> settings_training_automation.php -> Settings\AutomationActions -> OdooSync\OdooAdmin.
+ * A page view never calls Odoo (OdooCard reads the database only; "Preview next 10" is a dry run).
  *
  * Every value from Odoo or the database is echoed through nullable_htmlentities() or intval().
- * Card anchors: #odoo-writeback, #odoo-outbox, #odoo-send.
+ * Card anchors: #odoo-writeback (the wrapper), #odoo-outbox, #odoo-send.
  */
 
 defined('TRAINING_AUTOMATION_PAGE') || exit;
@@ -22,15 +19,18 @@ use ITFlow\Training\OdooSync\OdooCard;
 use ITFlow\Training\OdooSync\PushService;
 use ITFlow\Training\OdooSync\Target;
 
-$tao_readonly = isset($ta_readonly) ? (bool) $ta_readonly : (basename((string) ($_SERVER['PHP_SELF'] ?? '')) !== 'settings_training.php');
-$tao_is_admin = ($session_is_admin ?? false) === true;
+if (isset($ta_admin_page) && !$ta_admin_page) {
+    return;   // never render the admin forms outside Admin > Training
+}
 $tao_csrf = (string) ($ta_csrf ?? ($_SESSION['csrf_token'] ?? ''));
+$tao_post = (string) ($ta_post_url ?? 'post.php');
+$tao_page = (string) ($ta_page_url ?? '/admin/settings_training.php');
 $tao = ['ready' => false];
 $tao_error = false;
 try {
     $tao_target = isset($ta_target) ? $ta_target : Target::current($mysqli);
     $tao = OdooCard::build($mysqli, isset($ta) && is_array($ta) ? $ta : null, $tao_target instanceof Target ? $tao_target : null,
-        $tao_readonly, !$tao_readonly && (($_GET['ta_preview'] ?? '') === 'odoo'));
+        ($_GET['ta_preview'] ?? '') === 'odoo');
 } catch (\Throwable $e) {
     error_log('Training Odoo write-back card: ' . get_class($e) . ': ' . $e->getMessage());
     $tao_error = true;
@@ -40,12 +40,11 @@ $tao_t = $tao['target'] ?? null;
 $tao_pause = $tao['would_pause'] ?? null;
 ?>
 
-<div class="card mb-3" id="odoo-writeback">
+<div class="card mb-3">
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-fw fa-cloud-upload-alt me-2" aria-hidden="true"></i>Odoo write-back</h3>
         <?php if ($tao['ready'] ?? false) { ?>
             <span class="badge <?php echo ($tao['enabled'] ?? false) ? 'text-bg-success' : 'text-bg-secondary'; ?> ms-auto"><?php echo ($tao['enabled'] ?? false) ? 'ON' : 'OFF'; ?></span>
-            <?php if ($tao_readonly) { ?><span class="badge text-bg-secondary ms-2"><i class="fas fa-lock me-1" aria-hidden="true"></i>Read only</span><?php } ?>
         <?php } ?>
     </div>
     <div class="card-body">
@@ -64,7 +63,7 @@ $tao_pause = $tao['would_pause'] ?? null;
             <dd class="col-sm-9">
                 <?php if ($tao_t === null) { ?>
                     <span class="text-muted">No enabled Odoo integration.</span>
-                    <?php if (!$tao_readonly) { ?><a href="/admin/settings_integrations.php?tab=directorysync">Set one up under Integrations</a><?php } ?>
+                    <a href="/admin/settings_integrations.php?tab=directorysync">Set one up under Integrations</a>
                 <?php } else { ?>
                     <span class="text-break"><?php echo nullable_htmlentities($tao_t['host']); ?></span>
                     <span class="text-muted">/</span>
@@ -108,19 +107,9 @@ $tao_pause = $tao['would_pause'] ?? null;
             <?php } ?>
         </dl>
 
-    <?php if ($tao_readonly) { ?>
-        <p class="ts-locked small mb-0"><i class="fas fa-fw fa-lock me-1" aria-hidden="true"></i>
-            <?php if ($tao_is_admin) { ?>
-                Admin only. <a href="/admin/settings_training.php#odoo-writeback">Change in Admin &rsaquo; Training</a>.
-            <?php } else { ?>
-                Admin only. Ask an administrator to change Odoo write-back.
-            <?php } ?>
-        </p>
-    <?php } else { ?>
-
         <!-- Check Odoo (read-only) -->
         <?php if ($tao_t !== null) { ?>
-        <form action="post.php" method="post" class="mb-3">
+        <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="mb-3">
             <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
             <button type="submit" name="ta_odoo_discover" class="btn btn-outline-primary btn-sm"><i class="fas fa-fw fa-search me-1" aria-hidden="true"></i>Check Odoo (read-only)</button>
             <span class="small text-muted ms-2">Reads what this Odoo offers for résumé lines. Writes nothing.</span>
@@ -191,9 +180,9 @@ $tao_pause = $tao['would_pause'] ?? null;
             $tao_types = array_values(array_filter((array) ($tao_disc['resume']['types'] ?? []), static fn($x) => ($x['is_course'] ?? null) !== false));
             $tao_sel = $tao['settings']['resume_type_id'] ?? ($tao_disc['resume']['suggested_type_id'] ?? null);
             $tao_asel = $tao['settings']['award_type_id'] ?? null; ?>
-        <form action="post.php" method="post" autocomplete="off" data-ts-label="Odoo write-back">
+        <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" autocomplete="off" data-ts-label="Odoo write-back">
             <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
-            <input type="hidden" name="version" value="<?php echo intval($tao['version'] ?? 0); ?>">
+            <input type="hidden" name="version" value="<?php echo intval($ta_version ?? ($tao['version'] ?? 0)); ?>">
             <div class="row">
                 <div class="col-md-4 mb-3">
                     <label class="form-label" for="taoMode">Mode</label>
@@ -256,19 +245,18 @@ $tao_pause = $tao['would_pause'] ?? null;
         <?php } elseif ($tao_t !== null) { ?>
             <p class="small text-muted mb-0">Run <strong>Check Odoo</strong> first; the settings appear once this Odoo has been checked.</p>
         <?php } ?>
-    <?php } ?>
 <?php } ?>
     </div>
 </div>
 
-<?php if (($tao['ready'] ?? false) && !$tao_readonly && is_array($tao['counts'] ?? null)) { ?>
+<?php if (($tao['ready'] ?? false) && is_array($tao['counts'] ?? null)) { ?>
 <div class="card mb-3" id="odoo-outbox">
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-fw fa-inbox me-2" aria-hidden="true"></i>Odoo outbox</h3>
         <div class="card-actions d-flex gap-2">
-            <a class="btn btn-outline-secondary btn-sm" href="?ta_preview=odoo#odoo-outbox"><i class="fas fa-fw fa-eye me-1" aria-hidden="true"></i>Preview next 10</a>
+            <a class="btn btn-outline-secondary btn-sm" href="<?php echo nullable_htmlentities($tao_page); ?>?ta_preview=odoo#odoo-outbox"><i class="fas fa-fw fa-eye me-1" aria-hidden="true"></i>Preview next 10</a>
             <?php if (intval($tao['counts']['failed'] ?? 0) + intval($tao['counts']['dead'] ?? 0) > 0) { ?>
-                <form action="post.php" method="post" class="d-inline">
+                <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="d-inline">
                     <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
                     <button type="submit" name="ta_odoo_retry_failed" class="btn btn-outline-primary btn-sm">Retry all failed</button>
                 </form>
@@ -347,14 +335,14 @@ $tao_pause = $tao['would_pause'] ?? null;
                         <td class="small text-break"><?php echo nullable_htmlentities((string) ($tao_r['error'] ?? '')); ?></td>
                         <td class="text-end">
                             <div class="d-flex flex-wrap justify-content-end gap-1">
-                                <form action="post.php" method="post" class="d-inline">
+                                <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="d-inline">
                                     <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
                                     <input type="hidden" name="todoo_id" value="<?php echo intval($tao_r['id']); ?>">
                                     <button type="submit" name="ta_odoo_retry" class="btn btn-outline-primary btn-sm">Retry</button>
                                 </form>
                                 <details class="text-start">
                                     <summary class="btn btn-outline-secondary btn-sm">Skip&hellip;</summary>
-                                    <form action="post.php" method="post" class="mt-2 small">
+                                    <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="mt-2 small">
                                         <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
                                         <input type="hidden" name="todoo_id" value="<?php echo intval($tao_r['id']); ?>">
                                         <label class="form-label" for="taoSkip<?php echo intval($tao_r['id']); ?>">Reason</label>
@@ -393,7 +381,7 @@ $tao_pause = $tao['would_pause'] ?? null;
                             <td class="text-break"><?php echo nullable_htmlentities((string) $tao_c['name']); ?><?php if (!empty($tao_c['code'])) { ?> <span class="text-muted small font-monospace"><?php echo nullable_htmlentities((string) $tao_c['code']); ?></span><?php } ?></td>
                             <td><span class="badge <?php echo $tao_on ? 'text-bg-success' : 'text-bg-secondary'; ?>"><?php echo $tao_on ? 'Yes' : 'No'; ?></span></td>
                             <td class="text-end">
-                                <form action="post.php" method="post" class="d-inline">
+                                <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="d-inline">
                                     <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
                                     <input type="hidden" name="entity" value="course">
                                     <input type="hidden" name="entity_id" value="<?php echo intval($tao_c['id']); ?>">
@@ -422,7 +410,7 @@ $tao_pause = $tao['would_pause'] ?? null;
                             <td class="text-break"><?php echo nullable_htmlentities((string) $tao_a['name']); ?></td>
                             <td><span class="badge <?php echo $tao_on ? 'text-bg-success' : 'text-bg-secondary'; ?>"><?php echo $tao_on ? 'Yes' : 'No'; ?></span></td>
                             <td class="text-end">
-                                <form action="post.php" method="post" class="d-inline">
+                                <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="d-inline">
                                     <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
                                     <input type="hidden" name="entity" value="achievement">
                                     <input type="hidden" name="entity_id" value="<?php echo intval($tao_a['id']); ?>">
