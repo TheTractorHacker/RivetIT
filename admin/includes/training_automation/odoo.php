@@ -44,7 +44,7 @@ $tao_pause = $tao['would_pause'] ?? null;
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-fw fa-cloud-upload-alt me-2" aria-hidden="true"></i>Odoo write-back</h3>
         <?php if ($tao['ready'] ?? false) { ?>
-            <span class="badge <?php echo ($tao['enabled'] ?? false) ? 'text-bg-success' : 'text-bg-secondary'; ?> ms-auto"><?php echo ($tao['enabled'] ?? false) ? 'ON' : 'OFF'; ?></span>
+            <span class="badge <?php echo nullable_htmlentities(($tao['enabled'] ?? false) ? 'text-bg-success' : 'text-bg-secondary'); ?> ms-auto"><?php echo nullable_htmlentities(($tao['enabled'] ?? false) ? 'ON' : 'OFF'); ?></span>
         <?php } ?>
     </div>
     <div class="card-body">
@@ -144,7 +144,7 @@ $tao_pause = $tao['would_pause'] ?? null;
                     <?php } ?>
                 </div>
                 <div>Employees with Odoo users:
-                    <?php echo ($tao_disc['gamification']['employees_with_users'] ?? null) === null ? 'unknown' : intval($tao_disc['gamification']['employees_with_users']); ?>
+                    <?php if (($tao_disc['gamification']['employees_with_users'] ?? null) === null) { ?>unknown<?php } else { echo intval($tao_disc['gamification']['employees_with_users']); } ?>
                     (badges not used)</div>
                 <?php if (!empty($tao_disc['errors'])) { ?>
                     <details class="mt-1"><summary class="text-warning">Some checks failed (<?php echo intval(count($tao_disc['errors'])); ?>)</summary>
@@ -328,7 +328,7 @@ $tao_pause = $tao['would_pause'] ?? null;
                             <?php if ($tao_r['held']) { ?>
                                 <span class="badge text-bg-warning">held</span>
                             <?php } else { ?>
-                                <span class="badge <?php echo $tao_r['status'] === 'dead' ? 'text-bg-danger' : 'text-bg-warning'; ?>"><?php echo nullable_htmlentities((string) $tao_r['status']); ?></span>
+                                <span class="badge <?php echo nullable_htmlentities($tao_r['status'] === 'dead' ? 'text-bg-danger' : 'text-bg-warning'); ?>"><?php echo nullable_htmlentities((string) $tao_r['status']); ?></span>
                             <?php } ?>
                             <div class="text-muted"><?php echo intval($tao_r['attempts']); ?> attempt(s)</div>
                         </td>
@@ -379,14 +379,14 @@ $tao_pause = $tao['would_pause'] ?? null;
                     <?php foreach ($tao['courses'] as $tao_c) { $tao_on = (int) $tao_c['push'] === 1; ?>
                         <tr>
                             <td class="text-break"><?php echo nullable_htmlentities((string) $tao_c['name']); ?><?php if (!empty($tao_c['code'])) { ?> <span class="text-muted small font-monospace"><?php echo nullable_htmlentities((string) $tao_c['code']); ?></span><?php } ?></td>
-                            <td><span class="badge <?php echo $tao_on ? 'text-bg-success' : 'text-bg-secondary'; ?>"><?php echo $tao_on ? 'Yes' : 'No'; ?></span></td>
+                            <td><span class="badge <?php echo nullable_htmlentities($tao_on ? 'text-bg-success' : 'text-bg-secondary'); ?>"><?php echo nullable_htmlentities($tao_on ? 'Yes' : 'No'); ?></span></td>
                             <td class="text-end">
                                 <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="d-inline">
                                     <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
                                     <input type="hidden" name="entity" value="course">
                                     <input type="hidden" name="entity_id" value="<?php echo intval($tao_c['id']); ?>">
-                                    <input type="hidden" name="push" value="<?php echo $tao_on ? '0' : '1'; ?>">
-                                    <button type="submit" name="ta_odoo_map" class="btn btn-sm <?php echo $tao_on ? 'btn-outline-secondary' : 'btn-outline-primary'; ?>"><?php echo $tao_on ? 'Turn off' : 'Send to Odoo'; ?></button>
+                                    <input type="hidden" name="push" value="<?php echo nullable_htmlentities($tao_on ? '0' : '1'); ?>">
+                                    <button type="submit" name="ta_odoo_map" class="btn btn-sm <?php echo nullable_htmlentities($tao_on ? 'btn-outline-secondary' : 'btn-outline-primary'); ?>"><?php echo nullable_htmlentities($tao_on ? 'Turn off' : 'Send to Odoo'); ?></button>
                                 </form>
                             </td>
                         </tr>
@@ -408,14 +408,14 @@ $tao_pause = $tao['would_pause'] ?? null;
                     <?php foreach ($tao['achievements'] as $tao_a) { $tao_on = (int) $tao_a['push'] === 1; ?>
                         <tr>
                             <td class="text-break"><?php echo nullable_htmlentities((string) $tao_a['name']); ?></td>
-                            <td><span class="badge <?php echo $tao_on ? 'text-bg-success' : 'text-bg-secondary'; ?>"><?php echo $tao_on ? 'Yes' : 'No'; ?></span></td>
+                            <td><span class="badge <?php echo nullable_htmlentities($tao_on ? 'text-bg-success' : 'text-bg-secondary'); ?>"><?php echo nullable_htmlentities($tao_on ? 'Yes' : 'No'); ?></span></td>
                             <td class="text-end">
                                 <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="d-inline">
                                     <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
                                     <input type="hidden" name="entity" value="achievement">
                                     <input type="hidden" name="entity_id" value="<?php echo intval($tao_a['id']); ?>">
-                                    <input type="hidden" name="push" value="<?php echo $tao_on ? '0' : '1'; ?>">
-                                    <button type="submit" name="ta_odoo_map" class="btn btn-sm <?php echo $tao_on ? 'btn-outline-secondary' : 'btn-outline-primary'; ?>"><?php echo $tao_on ? 'Turn off' : 'Send to Odoo'; ?></button>
+                                    <input type="hidden" name="push" value="<?php echo nullable_htmlentities($tao_on ? '0' : '1'); ?>">
+                                    <button type="submit" name="ta_odoo_map" class="btn btn-sm <?php echo nullable_htmlentities($tao_on ? 'btn-outline-secondary' : 'btn-outline-primary'); ?>"><?php echo nullable_htmlentities($tao_on ? 'Turn off' : 'Send to Odoo'); ?></button>
                                 </form>
                             </td>
                         </tr>
