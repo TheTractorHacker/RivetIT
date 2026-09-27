@@ -47,8 +47,20 @@ final class OutboxRepo
     }
 
     /**
-     * Claims up to $limit due rows of this target (closes last, so a create claimed in the same batch
-     * goes first) and marks them running with a lease. Expired leases are reclaimed.
+     * Claim and processing order: closes whose create is already done first (a void is one cheap call, and with
+     * one row per target a backlog of creates - e.g. people waiting for an employee link - must not hold a revocation
+     * back for hours), then creates, then the other closes (their create may be claimed in the same batch and goes
+     * first, as in Phase 5).
+     */
+    private const ORDER = "CASE WHEN todoo_action = 'create' THEN 1
+            WHEN EXISTS (SELECT 1 FROM training_odoo_outbox c WHERE c.todoo_target_key = training_odoo_outbox.todoo_target_key
+                AND c.todoo_source_type = training_odoo_outbox.todoo_source_type AND c.todoo_source_id = training_odoo_outbox.todoo_source_id
+                AND c.todoo_action = 'create' AND c.todoo_mode = training_odoo_outbox.todoo_mode AND c.todoo_status = 'done') THEN 0
+            ELSE 2 END, todoo_id";
+
+    /**
+     * Claims up to $limit due rows of this target (in ORDER: closes of sent records first, closes waiting for
+     * their create last) and marks them running with a lease. Expired leases are reclaimed.
      *
      * @return list<array> the claimed rows as they are now (status running, attempts already counted)
      */
@@ -62,7 +74,7 @@ final class OutboxRepo
                 WHERE todoo_target_key = ?
                   AND ((todoo_status IN ('pending', 'failed') AND todoo_next_attempt_at_utc <= ?)
                        OR (todoo_status = 'running' AND todoo_lease_until_utc < ?))$modeSql
-                ORDER BY (todoo_action = 'close'), todoo_id
+                ORDER BY " . self::ORDER . "
                 LIMIT ? FOR UPDATE SKIP LOCKED", 'sssi', [$targetKey, $nowUtc, $nowUtc, $limit]);
             $ids = array_map(static fn($r) => (int) $r['todoo_id'], $rows);
             if ($ids) {
@@ -77,7 +89,7 @@ final class OutboxRepo
         }
         $in = implode(',', array_fill(0, count($ids), '?'));
         return Db::all($this->db, 'SELECT ' . self::COLS . " FROM training_odoo_outbox WHERE todoo_id IN ($in)
-            ORDER BY (todoo_action = 'close'), todoo_id", str_repeat('i', count($ids)), $ids);
+            ORDER BY " . self::ORDER, str_repeat('i', count($ids)), $ids);
     }
 
     public function done(int $id, string $model, int $resId, int $employeeId, array $payload, string $nowUtc): void
