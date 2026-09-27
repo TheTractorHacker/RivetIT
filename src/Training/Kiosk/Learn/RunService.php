@@ -124,16 +124,20 @@ final class RunService
     }
 
     /**
-     * RunState (§4.2): {run_id, course_id, revision_id, language, status, locked, blocked:{reason,lesson_uid}|null,
-     * progress_pct, done:{uid:true}, current_uid, current_gate|null, quizzes:{uid:{used,max,left,locked,passed}},
-     * attested, completion_id, awaiting}. `max`/`left` are null for unlimited attempts.
+     * RunState (§4.2): {run_id, course_id, revision_id, language, status, locked, locked_lesson_uid|null,
+     * blocked:{reason,lesson_uid}|null, progress_pct, done:{uid:true}, credited:{uid:true}, current_uid, current_gate|null,
+     * quizzes:{uid:{used,max,left,locked,passed,open,check,must_pass}}, attested, completion_id, awaiting, reopened}.
+     * `max`/`left` are null for unlimited attempts. `quizzes` also lists every content lesson's quick
+     * check (check:true); `credited` names lessons whose own work is recorded, which for a lesson
+     * with a must-pass quick check that is not passed yet is not the same as `done`.
      */
     public function state(array $run): array
     {
         $db = $this->k->db();
         $rev = RunRepo::revision($db, $run);
         $doc = $rev['doc'];
-        $done = RunRepo::done($db, (int) $run['trun_id']);
+        $credited = RunRepo::credited($db, (int) $run['trun_id']);
+        $done = RunRepo::done($db, (int) $run['trun_id'], $doc, $credited);
         $quizzes = self::quizzes($db, $run, $doc);
         $current = $run['trun_current_lesson_uid'] === null ? null : (string) $run['trun_current_lesson_uid'];
         $currentLesson = $current === null ? null : RunRepo::lesson($doc, $current);
@@ -145,19 +149,27 @@ final class RunService
             'language' => RunRepo::lang($run, $doc),
             'status' => $status,
             'locked' => $run['trun_locked_at_utc'] !== null,
+            // the quiz or quick check that ran out of tries (the course page names it)
+            'locked_lesson_uid' => $run['trun_locked_at_utc'] !== null && $run['trun_locked_lesson_uid'] !== null ? (string) $run['trun_locked_lesson_uid'] : null,
             'blocked' => $run['trun_blocked_reason'] === null ? null
                 : ['reason' => (string) $run['trun_blocked_reason'], 'lesson_uid' => $run['trun_blocked_lesson_uid'] === null ? null : (string) $run['trun_blocked_lesson_uid']],
             'progress_pct' => (int) $run['trun_progress_pct'],
             'done' => (object) $done,
+            'credited' => (object) $credited,
             'current_uid' => $currentLesson === null ? null : $current,
-            'current_gate' => $currentLesson === null ? null : self::gateFor($run, $doc, $currentLesson, $done),
+            'current_gate' => $currentLesson === null ? null : self::gateFor($run, $doc, $currentLesson, $done, $credited),
             'quizzes' => (object) $quizzes,
             'attested' => $run['trun_attested_at_utc'] !== null,
             // nothing recorded yet: the course page may still switch the run to the screen's language
-            'fresh' => $status === 'in_progress' && $done === [] && $run['trun_locked_at_utc'] === null && $run['trun_blocked_reason'] === null
+            'fresh' => $status === 'in_progress' && $credited === [] && $run['trun_locked_at_utc'] === null && $run['trun_blocked_reason'] === null
                 && array_sum(array_map(static fn($q) => (int) ($q['used'] ?? 0), $quizzes)) === 0,
             'completion_id' => $run['trun_completion_id'] === null ? null : (int) $run['trun_completion_id'],
             'awaiting' => in_array($status, RunRepo::AWAITING, true) ? $status : null,
+            // A run from before kiosk quick checks that was moved back from "Sign to finish" (run.reopened) and
+            // still has a must-pass quick check to pass: the course page says why (once it is passed, the run
+            // waits for the sign-off again and this is false).
+            'reopened' => $status === 'in_progress' && RunRepo::pendingChecks($doc, $credited, $done) !== []
+                && RunRepo::reopened($db, (int) $run['trun_id']),
         ];
     }
 
@@ -213,20 +225,22 @@ final class RunService
             $run = RunRepo::own($db, $runId, $cid, true);
             $doc = RunRepo::revision($db, $run)['doc'];
             $lesson = self::lessonOr404($doc, $uid);
-            $done = RunRepo::done($db, $runId);
+            $credited = RunRepo::credited($db, $runId);
+            $done = RunRepo::done($db, $runId, $doc, $credited);
             if ($run['trun_status'] !== 'in_progress') {
                 if ((int) ($run['trun_open_guard'] ?? 0) !== 1) {
                     throw new ApiException(409, 'run_locked', 'This course run is closed. Open the course again.');
                 }
-                return self::gateFor($run, $doc, $lesson, $done);   // review only: nothing is credited once every lesson is done
+                return self::gateFor($run, $doc, $lesson, $done, $credited);   // review only: nothing is credited once every lesson is done
             }
             self::assertRunUsable($run);
             if ($lesson['type'] === 'quiz') {
-                return self::gateFor($run, $doc, $lesson, $done);
+                return self::gateFor($run, $doc, $lesson, $done, $credited);
             }
             RunRepo::assertUnlocked($doc, $done, $uid);
-            if (isset($done[$uid])) {
-                return self::gateFor($run, $doc, $lesson, $done);
+            if (isset($credited[$uid])) {
+                // Done, or its content credited with a must-pass quick check still to pass: nothing is reset.
+                return self::gateFor($run, $doc, $lesson, $done, $credited);
             }
             $now = KTime::now();
             if ($run['trun_current_lesson_uid'] === $uid) {
@@ -240,7 +254,7 @@ final class RunService
                     WHERE trun_id = ?', 'sssisi', [$uid, $now, $now, $fresh['last_active'] ? 1 : 0, $now, $runId]);
                 $run = RunRepo::load($db, $runId) ?? $run;
             }
-            return self::gateFor($run, $doc, $lesson, $done);
+            return self::gateFor($run, $doc, $lesson, $done, $credited);
         });
     }
 
@@ -255,24 +269,25 @@ final class RunService
         $run = RunRepo::own($db, $runId, $this->contact());
         $doc = RunRepo::revision($db, $run)['doc'];
         $lesson = self::lessonOr404($doc, $uid);
-        $done = RunRepo::done($db, $runId);
-        if ($run['trun_status'] !== 'in_progress' || isset($done[$uid]) || $lesson['type'] === 'quiz') {
+        $credited = RunRepo::credited($db, $runId);
+        $done = RunRepo::done($db, $runId, $doc, $credited);
+        if ($run['trun_status'] !== 'in_progress' || isset($credited[$uid]) || $lesson['type'] === 'quiz') {
             if ((int) ($run['trun_open_guard'] ?? 0) !== 1) {
                 throw new ApiException(409, 'run_locked', 'This course run is closed. Open the course again.');
             }
-            return self::gateFor($run, $doc, $lesson, $done);
+            return self::gateFor($run, $doc, $lesson, $done, $credited);
         }
         self::assertRunUsable($run);
         if ($run['trun_current_lesson_uid'] !== $uid) {
             // A late tick from a lesson the learner already left: nothing is credited; the gate is returned as-is.
-            return self::gateFor($run, $doc, $lesson, $done);
+            return self::gateFor($run, $doc, $lesson, $done, $credited);
         }
         [$type, $duration, $videoId, $pages] = self::lessonFacts($run, $doc, $lesson);
         $old = LessonCredit::fromRun($run);
         $new = LessonCredit::applyTick($old, $sample, $type, $duration, $videoId, $pages, KTime::now());
         if ($new['last_tick'] === $old['last_tick'] && $new['credit'] === $old['credit'] && $new['pages_hex'] === $old['pages_hex']
             && $new['max_position'] === $old['max_position'] && $new['rejected'] === $old['rejected'] && $new['last_active'] === $old['last_active']) {
-            return self::gateFor($run, $doc, $lesson, $done);
+            return self::gateFor($run, $doc, $lesson, $done, $credited);
         }
         $n = Db::exec($db, 'UPDATE training_runs SET trun_lesson_last_tick_at_utc = ?, trun_lesson_last_active = ?, trun_lesson_credit_s = ?,
                 trun_lesson_max_position = ?, trun_lesson_pages_hex = ?, trun_lesson_rejected_ticks = ?, trun_last_activity_at_utc = ?
@@ -286,15 +301,20 @@ final class RunService
             foreach (LessonCredit::COLUMNS as $k => $col) {
                 $run[$col] = is_bool($new[$k]) ? ($new[$k] ? 1 : 0) : $new[$k];
             }
-            return self::gateFor($run, $doc, $lesson, $done);
+            return self::gateFor($run, $doc, $lesson, $done, $credited);
         }
-        return self::gateFor($fresh, $doc, $lesson, RunRepo::done($db, $runId));
+        $credited = RunRepo::credited($db, $runId);
+        return self::gateFor($fresh, $doc, $lesson, RunRepo::done($db, $runId, $doc, $credited), $credited);
     }
 
     /**
      * lesson_complete {run_id, lesson_uid, evidence:{position_s?, pages_seen?, video_id?}}
-     * => {progress_pct, run_status, next_uid, done}. The evidence is applied as a final tick;
-     * 422 gate_not_met when the server gate is not met. Idempotent: a done lesson returns the state.
+     * => {progress_pct, run_status, next_uid, done, credited, check|null}. The evidence is applied as
+     * a final tick; 422 gate_not_met when the server gate is not met. Idempotent: a credited lesson
+     * returns the state. A lesson with a quick check says so in `check` ({must_pass, used, max, left,
+     * locked, passed}): the player offers the check next. A MUST-PASS check keeps the lesson out of
+     * `done` (progress, order, sign-off) until it is passed; the completion row is written now either
+     * way, so the watched/read evidence is never lost.
      */
     public function lessonComplete(int $runId, string $uid, array $evidence): array
     {
@@ -305,9 +325,10 @@ final class RunService
             $run = RunRepo::own($db, $runId, $cid, true);
             $doc = RunRepo::revision($db, $run)['doc'];
             $lesson = self::lessonOr404($doc, $uid);
-            $done = RunRepo::done($db, $runId);
-            if (isset($done[$uid])) {
-                return self::completeResponse($run, $doc, $done, $uid);
+            $credited = RunRepo::credited($db, $runId);
+            $done = RunRepo::done($db, $runId, $doc, $credited);
+            if (isset($credited[$uid])) {
+                return self::completeResponse($db, $run, $doc, $done, $credited, $lesson);
             }
             if ($run['trun_status'] !== 'in_progress') {
                 throw new ApiException(409, 'run_locked', 'This course run is closed. Open the course again.');
@@ -336,7 +357,7 @@ final class RunService
             $gate = LessonCredit::gate($st, $type, $required, $duration, (int) ($lesson['min_watch_pct'] ?? 100), $pages);
             if (!$gate['can_complete']) {
                 throw new ApiException(422, 'gate_not_met', 'Spend a little more time on this lesson first.', [],
-                    self::gateShape($gate, $type, $duration, (int) ($lesson['min_watch_pct'] ?? 100), $pages, $videoId, false));
+                    self::gateShape($gate, $type, $duration, (int) ($lesson['min_watch_pct'] ?? 100), $pages, $videoId, false, false));
             }
             $coverage = match ($type) {
                 'video' => ['max_position_s' => $st['max_position'], 'duration_s' => $duration,
@@ -353,13 +374,15 @@ final class RunService
                 'coverage' => $coverage,
             ], $this->k);
             if ($ins === null) {
-                return self::completeResponse($run, $doc, RunRepo::done($db, $runId), $uid);
+                $credited = RunRepo::credited($db, $runId);
+                return self::completeResponse($db, $run, $doc, RunRepo::done($db, $runId, $doc, $credited), $credited, $lesson);
             }
-            $done[$uid] = true;
-            $run = self::afterLessonDone($db, $run, $doc, $done, $now);
+            $credited[$uid] = true;
+            $done = RunRepo::done($db, $runId, $doc, $credited);   // a must-pass quick check keeps it out until passed
+            $run = self::afterLessonDone($db, $run, $doc, $done, $now, false, $uid);
             Ledger::append($db, RunRepo::event($actor, 'run.lesson_complete', $run, 'lesson_completion', $ins['id'], $ins['sha'],
                 ['run_id' => $runId, 'lesson_uid' => $uid, 'type' => $type, 'server_seconds' => $st['credit']]));
-            return self::completeResponse($run, $doc, $done, $uid);
+            return self::completeResponse($db, $run, $doc, $done, $credited, $lesson);
         });
     }
 
@@ -383,7 +406,7 @@ final class RunService
         if ($frozen <= 0 || abs($liveS - $frozen) <= max(2, (int) ceil($frozen * 0.02))) {
             return;
         }
-        if (isset(RunRepo::done($db, $runId)[$uid]) || $run['trun_status'] !== 'in_progress') {
+        if (isset(RunRepo::credited($db, $runId)[$uid]) || $run['trun_status'] !== 'in_progress') {
             return;   // already watched: a later change does not take the lesson away
         }
         $provider = (string) ($variant['video']['provider'] ?? 'upload');
@@ -405,7 +428,7 @@ final class RunService
         $variant = RunRepo::variant($lesson, RunRepo::lang($run, $doc), (string) $doc['course']['default_language']);
         $permanent = in_array($code, self::PERMANENT_VIDEO_ERRORS[$provider] ?? [], true)
             && $lesson['type'] === 'video' && ($variant['video']['provider'] ?? null) === $provider;
-        $block = $permanent && $run['trun_status'] === 'in_progress' && !isset(RunRepo::done($db, $runId)[$uid]);
+        $block = $permanent && $run['trun_status'] === 'in_progress' && !isset(RunRepo::credited($db, $runId)[$uid]);
         $this->blockRun($runId, $uid, $block ? 'video_unavailable' : null, $provider, (string) ($variant['video']['id'] ?? ''), $code, $block);
     }
 
@@ -427,7 +450,7 @@ final class RunService
         if ($lesson['type'] !== 'acknowledgment') {
             throw ApiException::validation(['lesson_uid' => 'Not an acknowledgment lesson.']);
         }
-        $done = RunRepo::done($db, $runId);
+        $done = RunRepo::done($db, $runId, $doc);
         if (isset($done[$uid])) {
             unset($pin);
             return ['progress_pct' => (int) $run['trun_progress_pct'], 'run_status' => (string) $run['trun_status'], 'receipt' => null];
@@ -476,7 +499,7 @@ final class RunService
         $actor = $this->k->eventBase();
         $out = Db::tx($db, function () use ($db, $cid, $runId, $uid, $rev, $doc, $lesson, $prep, $pinInfo, $isDocument, $statement, $required, $bridge, $actor): array {
             $run = RunRepo::own($db, $runId, $cid, true);
-            $done = RunRepo::done($db, $runId);
+            $done = RunRepo::done($db, $runId, $doc);
             if (isset($done[$uid])) {
                 return ['run' => $run, 'r' => null, 'receipt' => null];
             }
@@ -545,6 +568,8 @@ final class RunService
      * Lazy, idempotent, system-derived housekeeping for one person's OPEN runs (§0.4), run on the
      * Learning Center, course and sign GETs and by cron:
      *   course archived                    -> abandoned (run.abandoned {reason:'course_archived'})
+     *   awaiting_signature with a required lesson whose MUST-PASS quick check was never passed
+     *                                      -> in_progress (run.reopened {reason:'quick_check'}; see reopenForChecks)
      *   awaiting_session/_evaluation with a record for the run (completion_run_id, or recorded after
      *   the attestation)                   -> completed
      *   otherwise                          -> RecordsBridge::tryIssueComponents OUTSIDE any tx; a record closes the run
@@ -575,6 +600,14 @@ final class RunService
                         WHERE trun_id = ?", 'si', [KTime::now(), $runId]);
                     Ledger::append($db, RunRepo::event($actor, 'run.abandoned', $run, 'run', $runId, null, ['reason' => 'course_archived']));
                 });
+                continue;
+            }
+            if ($r['trun_status'] === 'awaiting_signature' && $r['trun_attested_at_utc'] === null) {
+                try {
+                    self::reopenForChecks($db, $runId, $actor);
+                } catch (\Throwable $e) {
+                    error_log('Kiosk settleAwaiting reopen run #' . $runId . ': ' . get_class($e));
+                }
                 continue;
             }
             if (!in_array($r['trun_status'], ['awaiting_session', 'awaiting_evaluation'], true) || !RecordsBridge::available($db)) {
@@ -608,7 +641,48 @@ final class RunService
     }
 
     /**
-     * Agent / trainer unlock (§3.4): 'extra' adds 1..5 attempts and clears the lock; 'restart'
+     * A run waiting for its sign-off while a required lesson's MUST-PASS quick check was never passed
+     * goes back to in_progress, so the check is taken before the person signs. Only runs from before
+     * kiosk quick checks can be in that state (the kiosk used to skip the checks and credit the
+     * lesson with its content); RunRepo::done() now keeps such a lesson open until its check is
+     * passed, so nothing else reaches it. Idempotent; the run row is re-read under its lock; ledger
+     * run.reopened {reason:'quick_check', lesson_uids}. Returns true when the run was reopened.
+     */
+    public static function reopenForChecks(\mysqli $db, int $runId, array $actor): bool
+    {
+        $peek = RunRepo::load($db, $runId);
+        if ($peek === null || $peek['trun_status'] !== 'awaiting_signature' || $peek['trun_attested_at_utc'] !== null) {
+            return false;
+        }
+        $doc = RunRepo::revision($db, $peek)['doc'];
+        $any = false;
+        foreach ($doc['lessons'] ?? [] as $l) {
+            $any = $any || (!empty($l['required']) && RunRepo::mustPassCheck($l));
+        }
+        if (!$any || RunRepo::allRequiredDone($doc, RunRepo::done($db, $runId, $doc))) {
+            return false;
+        }
+        return Db::tx($db, static function () use ($db, $runId, $doc, $actor): bool {
+            $run = RunRepo::load($db, $runId, true);
+            if ($run === null || $run['trun_status'] !== 'awaiting_signature' || $run['trun_attested_at_utc'] !== null
+                || (int) ($run['trun_open_guard'] ?? 0) !== 1) {
+                return false;
+            }
+            $done = RunRepo::done($db, $runId, $doc);
+            $pending = array_values(array_filter(RunRepo::requiredUids($doc), static fn(string $u): bool => !isset($done[$u])));
+            if ($pending === []) {
+                return false;
+            }
+            Db::exec($db, "UPDATE training_runs SET trun_status = 'in_progress', trun_progress_pct = ?, trun_last_activity_at_utc = ? WHERE trun_id = ?",
+                'isi', [RunRepo::progress($doc, $done), KTime::now(), $runId]);
+            Ledger::append($db, RunRepo::event($actor, 'run.reopened', $run, 'run', $runId, null, ['reason' => 'quick_check', 'lesson_uids' => $pending]));
+            return true;
+        });
+    }
+
+    /**
+     * Agent / trainer unlock (§3.4): 'extra' adds 1..5 attempts to the quiz or quick check the run is
+     * locked on (a run that is not locked: to every quiz of the run) and clears the lock; 'restart'
      * abandons the run so the next run_start opens a fresh one on the CURRENT revision (also the
      * way out of a blocked run). $actor is the ledger actor (agent: user; trainer: contact).
      */
@@ -653,8 +727,12 @@ final class RunService
                 Db::exec($db, "UPDATE training_runs SET trun_status = 'abandoned', trun_open_guard = NULL, trun_ended_at_utc = ?, trun_current_lesson_uid = NULL
                     WHERE trun_id = ?", 'si', [$now, $runId]);
             }
+            // lesson_uid: the quiz or quick check that ran out of tries - the extra tries count for it only
+            // (RunRepo::extraTries); null when the run was not locked on a lesson (then they count run-wide).
             Ledger::append($db, RunRepo::event($actor, 'run.unlocked', $run, 'run', $runId, null,
-                ['mode' => $mode, 'extra' => $mode === 'extra' ? $extra : 0, 'reason' => $reason]));
+                ['mode' => $mode, 'extra' => $mode === 'extra' ? $extra : 0, 'reason' => $reason,
+                 'lesson_uid' => $mode === 'extra' && $run['trun_locked_at_utc'] !== null && $run['trun_locked_lesson_uid'] !== null
+                     ? (string) $run['trun_locked_lesson_uid'] : null]));
             return ['run_id' => $runId, 'contact_id' => (int) $run['trun_contact_id'], 'course_id' => (int) $run['trun_course_id'], 'mode' => $mode,
                 'extra' => $mode === 'extra' ? $extra : 0];
         });
@@ -665,31 +743,32 @@ final class RunService
     // =========================================================================================
 
     /**
-     * Gate for one lesson of a run: {done, quiz?, credit_s, required_s, max_position_s, pages_seen, page_count,
-     * duration_s, min_watch_pct, can_complete, reason, video_id?}.
+     * Gate for one lesson of a run: {done, credited, quiz?, credit_s, required_s, max_position_s, pages_seen, page_count,
+     * duration_s, min_watch_pct, can_complete, reason, video_id?}. `credited` without `done`: the lesson's content
+     * is recorded and its must-pass quick check is still to pass ($credited defaults to $done).
      */
-    public static function gateFor(array $run, array $doc, array $lesson, array $done): array
+    public static function gateFor(array $run, array $doc, array $lesson, array $done, ?array $credited = null): array
     {
         $uid = (string) $lesson['uid'];
         [$type, $duration, $videoId, $pages] = self::lessonFacts($run, $doc, $lesson);
         $minPct = (int) ($lesson['min_watch_pct'] ?? 100);
         if ($type === 'quiz') {
-            return ['done' => isset($done[$uid]), 'quiz' => true, 'credit_s' => 0, 'required_s' => 0, 'max_position_s' => 0, 'pages_seen' => 0,
-                'page_count' => 0, 'duration_s' => $duration, 'min_watch_pct' => $minPct, 'can_complete' => false, 'reason' => null];
+            return ['done' => isset($done[$uid]), 'credited' => isset($done[$uid]), 'quiz' => true, 'credit_s' => 0, 'required_s' => 0, 'max_position_s' => 0,
+                'pages_seen' => 0, 'page_count' => 0, 'duration_s' => $duration, 'min_watch_pct' => $minPct, 'can_complete' => false, 'reason' => null];
         }
         $variant = RunRepo::variant($lesson, RunRepo::lang($run, $doc), (string) $doc['course']['default_language']);
         $required = LessonCredit::requiredSeconds($lesson, $variant);
-        if (isset($done[$uid])) {
+        if (isset($done[$uid]) || isset($credited[$uid])) {
             $g = ['credit_s' => $required, 'required_s' => $required, 'max_position_s' => $type === 'video' ? $duration : 0,
                   'pages_seen' => $pages, 'can_complete' => true, 'reason' => null];
-            return self::gateShape($g, $type, $duration, $minPct, $pages, $videoId, true);
+            return self::gateShape($g, $type, $duration, $minPct, $pages, $videoId, isset($done[$uid]), true);
         }
         $st = $run['trun_current_lesson_uid'] === $uid ? LessonCredit::fromRun($run) : LessonCredit::fresh($type, KTime::now());
         if ($run['trun_current_lesson_uid'] !== $uid) {
             $st['last_active'] = false;
         }
         $g = LessonCredit::gate($st, $type, $required, $duration, $minPct, $pages);
-        return self::gateShape($g, $type, $duration, $minPct, $pages, $videoId, false);
+        return self::gateShape($g, $type, $duration, $minPct, $pages, $videoId, false, false);
     }
 
     /** @return array{0:string, 1:int, 2:?string, 3:int} type, duration_s, external video id (null for uploads), page count */
@@ -750,9 +829,12 @@ final class RunService
     /**
      * INSIDE Db::tx, after a lesson completion: progress, current lesson cleared, and
      * awaiting_signature once every required lesson is done (a document's final acknowledgment
-     * attests right away instead: $attestsNow). Returns the updated run row.
+     * attests right away instead: $attestsNow). $done is RunRepo::done() (must-pass quick checks
+     * applied). $creditedUid is the lesson just credited: it stops being the current lesson even
+     * when a must-pass quick check keeps it out of $done. Returns the updated run row.
      */
-    public static function afterLessonDone(\mysqli $db, array $run, array $doc, array $done, string $now, bool $attestsNow = false): array
+    public static function afterLessonDone(\mysqli $db, array $run, array $doc, array $done, string $now, bool $attestsNow = false,
+        ?string $creditedUid = null): array
     {
         $runId = (int) $run['trun_id'];
         $pct = RunRepo::progress($doc, $done);
@@ -760,33 +842,45 @@ final class RunService
         if ($status === 'in_progress' && RunRepo::allRequiredDone($doc, $done) && !$attestsNow) {
             $status = 'awaiting_signature';
         }
-        $clearCurrent = $run['trun_current_lesson_uid'] !== null && isset($done[(string) $run['trun_current_lesson_uid']]);
+        $cur = $run['trun_current_lesson_uid'] === null ? null : (string) $run['trun_current_lesson_uid'];
+        $clearCurrent = $cur !== null && (isset($done[$cur]) || $cur === $creditedUid);
         Db::exec($db, 'UPDATE training_runs SET trun_progress_pct = ?, trun_status = ?, trun_last_activity_at_utc = ?'
             . ($clearCurrent ? ', trun_current_lesson_uid = NULL, trun_lesson_credit_s = 0, trun_lesson_max_position = 0, trun_lesson_pages_hex = NULL,
                   trun_lesson_rejected_ticks = 0, trun_lesson_last_active = 0' : '') . ' WHERE trun_id = ?', 'issi', [$pct, $status, $now, $runId]);
         return RunRepo::load($db, $runId) ?? $run;
     }
 
-    /** @return array<string, array{used:int, max:?int, left:?int, locked:bool, passed:bool}> */
+    /**
+     * Every quiz of the run's revision: Quiz lessons (quiz, exam) and content lessons' quick checks
+     * (check:true), keyed by lesson uid. `used` counts drawn attempts (an attempt counts from its
+     * draw); `open` = an unfinished attempt that exam_start resumes (same draw, saved answers), so the
+     * last try that was left mid-way is not shown as locked or out of tries.
+     *
+     * @return array<string, array{used:int, max:?int, left:?int, locked:bool, passed:bool, open:bool, check:bool, must_pass:bool}>
+     */
     public static function quizzes(\mysqli $db, array $run, array $doc): array
     {
         $stats = [];
-        foreach (Db::all($db, 'SELECT a.tattempt_lesson_uid, COUNT(*) AS n, MAX(COALESCE(r.tresult_passed, 0)) AS passed
+        foreach (Db::all($db, 'SELECT a.tattempt_lesson_uid, COUNT(*) AS n, MAX(COALESCE(r.tresult_passed, 0)) AS passed,
+                    SUM(r.tresult_attempt_id IS NULL AND (a.tattempt_deadline_utc IS NULL OR a.tattempt_deadline_utc > ?)) AS open
                 FROM training_attempts a LEFT JOIN training_attempt_results r ON r.tresult_attempt_id = a.tattempt_id
-                WHERE a.tattempt_run_id = ? GROUP BY a.tattempt_lesson_uid', 'i', [(int) $run['trun_id']]) as $r) {
-            $stats[(string) $r['tattempt_lesson_uid']] = ['n' => (int) $r['n'], 'passed' => (int) $r['passed'] === 1];
+                WHERE a.tattempt_run_id = ? GROUP BY a.tattempt_lesson_uid', 'si', [KTime::now(), (int) $run['trun_id']]) as $r) {
+            $stats[(string) $r['tattempt_lesson_uid']] = ['n' => (int) $r['n'], 'passed' => (int) $r['passed'] === 1, 'open' => (int) $r['open'] > 0];
         }
         $out = [];
+        $extras = RunRepo::extraTries($db, $run);
         foreach ($doc['lessons'] ?? [] as $l) {
-            if (($l['type'] ?? '') !== 'quiz' || !is_array($l['quiz'] ?? null)) {
+            $isCheck = RunRepo::check($l) !== null;
+            if (!$isCheck && (($l['type'] ?? '') !== 'quiz' || !is_array($l['quiz'] ?? null))) {
                 continue;
             }
             $uid = (string) $l['uid'];
             $used = $stats[$uid]['n'] ?? 0;
             $passed = $stats[$uid]['passed'] ?? false;
+            $open = !$passed && ($stats[$uid]['open'] ?? false);
             $max = (int) ($l['quiz']['max_attempts'] ?? 0);
-            $eff = $max > 0 ? $max + (int) $run['trun_extra_attempts'] : null;
-            $exhausted = $eff !== null && $used >= $eff;
+            $eff = $max > 0 ? $max + RunRepo::extraFor($extras, $uid) : null;
+            $exhausted = $eff !== null && $used >= $eff && !$open;
             $out[$uid] = [
                 'used' => $used,
                 'max' => $eff,
@@ -794,6 +888,9 @@ final class RunService
                 'locked' => !$passed && (($run['trun_locked_at_utc'] !== null && (string) $run['trun_locked_lesson_uid'] === $uid)
                     || ($exhausted && !empty($l['quiz']['must_pass']))),
                 'passed' => $passed,
+                'open' => $open,
+                'check' => $isCheck,
+                'must_pass' => !empty($l['quiz']['must_pass']),
             ];
         }
         return $out;
@@ -888,20 +985,24 @@ final class RunService
         });
     }
 
-    private static function completeResponse(array $run, array $doc, array $done, string $uid): array
+    private static function completeResponse(\mysqli $db, array $run, array $doc, array $done, array $credited, array $lesson): array
     {
+        $uid = (string) $lesson['uid'];
         return [
             'progress_pct' => (int) $run['trun_progress_pct'],
             'run_status' => (string) $run['trun_status'],
             'next_uid' => RunRepo::nextUid($doc, $done, $uid),
             'done' => (object) $done,
+            'credited' => (object) $credited,
+            'check' => RunRepo::check($lesson) === null ? null : (self::quizzes($db, $run, $doc)[$uid] ?? null),
         ];
     }
 
-    private static function gateShape(array $g, string $type, int $duration, int $minPct, int $pages, ?string $videoId, bool $done): array
+    private static function gateShape(array $g, string $type, int $duration, int $minPct, int $pages, ?string $videoId, bool $done, bool $credited): array
     {
         $out = [
             'done' => $done,
+            'credited' => $credited,
             'credit_s' => (int) $g['credit_s'],
             'required_s' => (int) $g['required_s'],
             'max_position_s' => (int) $g['max_position_s'],

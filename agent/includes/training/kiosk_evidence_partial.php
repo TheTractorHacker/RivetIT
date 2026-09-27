@@ -2,7 +2,8 @@
 
 /*
  * [S] Kiosk evidence for one course run (P3 spec §7.9): the run timeline, server-credited lesson
- * seconds, quiz attempts with the answers as presented and as chosen, and the finger signatures.
+ * seconds, quiz attempts with the answers as presented and as chosen (a content lesson's quick
+ * check is labelled "Quick check", and "must pass" when it gated the lesson), and the finger signatures.
  * Included by Phase 2's record evidence page when a completion has completion_run_id:
  *
  *     $tr_kiosk_run_id = (int) $completion['completion_run_id'];
@@ -45,10 +46,10 @@ $tr_k_title = static function (string $uid) use ($tr_k_doc, $tr_k_lang, $tr_k_de
 };
 $tr_k_lcomps = \ITFlow\Training\Core\Db::all($tr_k_db, 'SELECT lcomp_lesson_uid, lcomp_lesson_type, lcomp_completed_at_utc, lcomp_server_seconds, lcomp_required_seconds, lcomp_coverage_json
     FROM training_lesson_completions WHERE lcomp_run_id = ? ORDER BY lcomp_completed_at_utc, lcomp_id', 'i', [(int) $tr_k_run['trun_id']]);
-$tr_k_attempts = \ITFlow\Training\Core\Db::all($tr_k_db, 'SELECT a.tattempt_id, a.tattempt_lesson_uid, a.tattempt_number, a.tattempt_started_at_utc, r.tresult_score_pct, r.tresult_passed,
+$tr_k_attempts = \ITFlow\Training\Core\Db::all($tr_k_db, 'SELECT a.tattempt_id, a.tattempt_lesson_uid, a.tattempt_kind, a.tattempt_number, a.tattempt_started_at_utc, r.tresult_score_pct, r.tresult_passed,
         r.tresult_timed_out, r.tresult_finalized_by, r.tresult_duration_seconds, r.tresult_rapid_flag
     FROM training_attempts a LEFT JOIN training_attempt_results r ON r.tresult_attempt_id = a.tattempt_id
-    WHERE a.tattempt_run_id = ? ORDER BY a.tattempt_lesson_uid, a.tattempt_number', 'i', [(int) $tr_k_run['trun_id']]);
+    WHERE a.tattempt_run_id = ? ORDER BY a.tattempt_started_at_utc, a.tattempt_id', 'i', [(int) $tr_k_run['trun_id']]);   // the run's timeline order
 $tr_k_sigs = \ITFlow\Training\Core\Db::all($tr_k_db, 'SELECT tsig_id, tsig_purpose, tsig_signer_name, tsig_png_base64, tsig_captured_at_utc, tsig_kiosk_id
     FROM training_signatures WHERE tsig_run_id = ? ORDER BY tsig_id', 'i', [(int) $tr_k_run['trun_id']]);
 $tr_k_kiosk_id = null;
@@ -93,7 +94,8 @@ $tr_k_dev_temp = $tr_k_device !== null && $tr_k_dev_at !== ''
             $tr_k_ans = \ITFlow\Training\Core\Db::all($tr_k_db, 'SELECT tanswer_question_uid, tanswer_presented, tanswer_selected, tanswer_is_correct, tanswer_critical
                 FROM training_attempt_answers WHERE tanswer_attempt_id = ? ORDER BY tanswer_position', 'i', [(int) $tr_k_a['tattempt_id']]); ?>
             <details class="mb-2">
-                <summary><?= $tr_k_h($tr_k_title((string) $tr_k_a['tattempt_lesson_uid'])) ?> · attempt <?= (int) $tr_k_a['tattempt_number'] ?> ·
+                <summary><?php if ($tr_k_a['tattempt_kind'] === 'check') {
+                    $tr_k_cl = \ITFlow\Training\Kiosk\Learn\RunRepo::lesson($tr_k_doc, (string) $tr_k_a['tattempt_lesson_uid']); ?><span class="badge text-bg-info me-1">Quick check<?= $tr_k_cl !== null && \ITFlow\Training\Kiosk\Learn\RunRepo::mustPassCheck($tr_k_cl) ? ' · must pass' : '' ?></span><?php } ?><?= $tr_k_h($tr_k_title((string) $tr_k_a['tattempt_lesson_uid'])) ?> · attempt <?= (int) $tr_k_a['tattempt_number'] ?> ·
                     <?= $tr_k_a['tresult_score_pct'] === null ? 'not finished' : $tr_k_h($tr_k_a['tresult_score_pct']) . '% ' . ((int) $tr_k_a['tresult_passed'] === 1 ? 'passed' : 'not passed') ?>
                     <?= (int) ($tr_k_a['tresult_timed_out'] ?? 0) === 1 ? ' · timed out' : '' ?><?= (int) ($tr_k_a['tresult_rapid_flag'] ?? 0) === 1 ? ' · answered very fast' : '' ?></summary>
                 <table class="table table-sm mt-2">

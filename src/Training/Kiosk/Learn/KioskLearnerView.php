@@ -16,7 +16,9 @@ use ITFlow\Training\Kiosk\Core\KioskCtx;
  *   - resources of kind 'link' removed;
  *   - every preview_enabled = false (L-17 is later: the player must not show a lesson as open
  *     that the server refuses);
- *   - content lessons with a knowledge check ('check' role) => quiz null (L-16 later);
+ *   - content lessons keep their quick check ('check' role): the LearnerView quiz summary only
+ *     (question count, pass mark, tries, time limit, review, must-pass, intro) - questions, options
+ *     and the key come from exam_start / exam_submit like any kiosk quiz;
  *   - mode 'kiosk'; endpoints point at the kiosk API (the kiosk adapter calls them itself).
  * The result passes PayloadGuard's learner_view allowlist again.
  */
@@ -55,9 +57,6 @@ final class KioskLearnerView
         $view['endpoints'] = self::ENDPOINTS;
         foreach ($view['lessons'] as $i => $l) {
             $view['lessons'][$i]['preview_enabled'] = false;
-            if ($l['type'] !== 'quiz' && is_array($l['quiz'] ?? null) && ($l['quiz']['role'] ?? '') === 'check') {
-                $view['lessons'][$i]['quiz'] = null;
-            }
             $res = [];
             foreach ($l['resources'] ?? [] as $r) {
                 if (($r['kind'] ?? '') !== 'link') {

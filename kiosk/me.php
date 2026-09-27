@@ -20,6 +20,7 @@ use ITFlow\Training\Kiosk\Bridge\RecordsBridge;
 use ITFlow\Training\Kiosk\Core\KioskStrings;
 use ITFlow\Training\Kiosk\Core\RevisionCache;
 use ITFlow\Training\Kiosk\Learn\AttemptFinalizer;
+use ITFlow\Training\Kiosk\Learn\RunRepo;
 use ITFlow\Training\Kiosk\Learn\RunService;
 use ITFlow\Training\Kiosk\Pin\PinService;
 
@@ -124,7 +125,22 @@ $revFacts = static function (?int $revId, ?string $runLang = null) use ($db, $k_
 };
 
 $today = new \DateTimeImmutable('today');
-$card = static function (int $courseId, ?array $item) use ($courses, $runs, $revFacts, $today): ?array {
+/**
+ * The first lesson of an in-progress run whose content is done while its MUST-PASS quick check is still to
+ * pass (the lesson is not done yet, so progress may still read 0%), or null.
+ */
+$k_pending_check = static function (array $run) use ($db): ?string {
+    try {
+        $doc = RevisionCache::get($db, (int) $run['trun_revision_id'])['doc'];
+        $credited = RunRepo::credited($db, (int) $run['trun_id']);
+        return RunRepo::pendingChecks($doc, $credited, RunRepo::done($db, (int) $run['trun_id'], $doc, $credited))[0] ?? null;
+    } catch (\Throwable $e) {
+        error_log('Kiosk me.php pending check: ' . get_class($e));
+        return null;
+    }
+};
+
+$card = static function (int $courseId, ?array $item) use ($courses, $runs, $revFacts, $today, $k_pending_check): ?array {
     $c = $courses[$courseId] ?? null;
     if ($c === null || $c['course_archived_at'] !== null) {
         return null;
@@ -146,7 +162,16 @@ $card = static function (int $courseId, ?array $item) use ($courses, $runs, $rev
         };
     }
     $resume = null;
-    if ($state === 'continue' && $run['trun_current_lesson_uid'] !== null) {
+    $pendingCheck = null;
+    if ($run !== null && in_array($state, ['start', 'continue'], true)) {
+        $pendingCheck = $k_pending_check($run);
+    }
+    if ($pendingCheck !== null) {
+        // The lesson is watched/read; its quick check is what is left: "Continue" and say so.
+        $state = 'continue';
+        $n = array_search($pendingCheck, $f['order'], true);
+        $resume = ['n' => $n === false ? null : $n + 1, 'title' => $f['titles'][$pendingCheck] ?? '', 'check' => true];
+    } elseif ($state === 'continue' && $run['trun_current_lesson_uid'] !== null) {
         $u = (string) $run['trun_current_lesson_uid'];
         $n = array_search($u, $f['order'], true);
         if ($n !== false) {

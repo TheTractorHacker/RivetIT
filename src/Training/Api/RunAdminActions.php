@@ -60,12 +60,14 @@ final class RunAdminActions
         foreach ($rows as $r) {
             $lessonUid = $r['trun_locked_at_utc'] !== null ? $r['trun_locked_lesson_uid'] : $r['trun_blocked_lesson_uid'];
             $lessonTitle = null;
+            $quickCheck = false;
             $attempts = 0;
             try {
                 $doc = RevisionCache::get($db, (int) $r['trun_revision_id'])['doc'];
                 if ($lessonUid !== null) {
                     $l = RunRepo::lesson($doc, (string) $lessonUid);
                     $lessonTitle = $l === null ? null : (string) (RunRepo::variant($l, (string) $r['trun_language'], (string) $doc['course']['default_language'])['title'] ?? '');
+                    $quickCheck = $l !== null && RunRepo::check($l) !== null;
                 }
             } catch (\Throwable $e) {
                 error_log('Training run_locked_list revision: ' . get_class($e));
@@ -83,7 +85,7 @@ final class RunAdminActions
                 'attempts_used' => $attempts,
                 'locked_at' => $r['trun_locked_at_utc'] === null ? null : \ITFlow\Training\Core\Clock::toIso((string) $r['trun_locked_at_utc'], true),
                 'last_activity' => \ITFlow\Training\Core\Clock::toIso((string) $r['trun_last_activity_at_utc'], true),
-                'lesson' => $lessonUid === null ? null : ['uid' => (string) $lessonUid, 'title' => $lessonTitle],
+                'lesson' => $lessonUid === null ? null : ['uid' => (string) $lessonUid, 'title' => $lessonTitle, 'quick_check' => $quickCheck],
                 'blocked_reason' => $r['trun_blocked_reason'] === null ? null : (string) $r['trun_blocked_reason'],
             ];
         }

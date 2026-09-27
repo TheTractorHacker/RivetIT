@@ -5,8 +5,9 @@
  * Kiosk-Quiz, Kiosk-QuizResult). Learner session only. The revision is the open run's revision,
  * else the course's current one; an unpublished or archived course goes back to me.php.
  * Housekeeping (§0.4): finalizeExpired for the run, then settleAwaiting. The learner view comes
- * from K3's KioskLearnerView::build (media re-pointed at /kiosk/media.php, checks and link
- * resources stripped, preview flags off) and the run state from RunService::state.
+ * from K3's KioskLearnerView::build (media re-pointed at /kiosk/media.php, link resources
+ * stripped, preview flags off; quick checks as their quiz summary) and the run state from
+ * RunService::state. &l=<uid>&check=1 opens that lesson's quick check (back from the video page).
  */
 
 $KIOSK_CSP_PROFILE = 'strict';
@@ -27,6 +28,7 @@ $cid = $kctx->contactId();
 
 $courseId = isset($_GET['c']) && is_string($_GET['c']) && preg_match('/^[1-9][0-9]{0,9}$/D', $_GET['c']) === 1 ? (int) $_GET['c'] : 0;
 $lessonUid = isset($_GET['l']) && is_string($_GET['l']) && preg_match('/^[A-Za-z0-9_-]{1,40}$/D', $_GET['l']) === 1 ? $_GET['l'] : null;
+$openCheck = $lessonUid !== null && ($_GET['check'] ?? null) === '1';   // back from the video page: the lesson's quick check first
 if ($courseId <= 0) {
     kiosk_redirect('/kiosk/me.php');
 }
@@ -110,6 +112,7 @@ $k_page = [
         'needs_online' => (int) $course['course_needs_online'] === 1,
         'video_page' => '/kiosk/lesson_video.php',
         'lesson' => $lessonUid,
+        'check' => $openCheck,
     ],
 ];
 require __DIR__ . '/includes/layout_top.php';

@@ -138,14 +138,132 @@ final class RunRepo
         return null;
     }
 
-    /** @return array<string, true> lesson uids with a lesson completion in the run */
-    public static function done(\mysqli $db, int $runId): array
+    /**
+     * The quick check ("knowledge check", quiz role 'check') attached to a CONTENT lesson - article,
+     * document, video or image - or null. A Quiz-type lesson's own quiz is never a quick check.
+     */
+    public static function check(array $lesson): ?array
+    {
+        $q = $lesson['quiz'] ?? null;
+        return is_array($q) && ($q['role'] ?? null) === 'check' && in_array((string) ($lesson['type'] ?? ''), self::CHECK_TYPES, true) ? $q : null;
+    }
+
+    public const CHECK_TYPES = ['article', 'document', 'video', 'image'];
+
+    /** A content lesson whose quick check must be passed before the lesson counts as done. */
+    public static function mustPassCheck(array $lesson): bool
+    {
+        return !empty(self::check($lesson)['must_pass']);
+    }
+
+    /**
+     * @return array<string, true> lesson uids with a lesson completion in the run: the lesson's own
+     * work is CREDITED (content watched/read, quiz passed, acknowledgment signed)
+     */
+    public static function credited(\mysqli $db, int $runId): array
     {
         $out = [];
         foreach (Db::all($db, 'SELECT lcomp_lesson_uid FROM training_lesson_completions WHERE lcomp_run_id = ?', 'i', [$runId]) as $r) {
             $out[(string) $r['lcomp_lesson_uid']] = true;
         }
         return $out;
+    }
+
+    /**
+     * @return array<string, true> lesson uids DONE in the run: credited, and - for a content lesson
+     * with a MUST-PASS quick check - that check passed too. Every gate (sequential order, the final
+     * exam, progress, awaiting_signature, the next lesson) uses this map; a quick check that is not
+     * must-pass never changes it (the lesson is done when its content is credited).
+     */
+    public static function done(\mysqli $db, int $runId, array $doc, ?array $credited = null): array
+    {
+        $done = $credited ?? self::credited($db, $runId);
+        $pending = [];
+        foreach ($doc['lessons'] ?? [] as $l) {
+            $uid = (string) ($l['uid'] ?? '');
+            if (isset($done[$uid]) && self::mustPassCheck($l)) {
+                $pending[$uid] = true;
+            }
+        }
+        if ($pending !== []) {
+            foreach (self::passedLessons($db, $runId) as $uid => $_) {
+                unset($pending[$uid]);
+            }
+            foreach ($pending as $uid => $_) {
+                unset($done[$uid]);
+            }
+        }
+        return $done;
+    }
+
+    /** @return array<string, true> lesson uids of the run with a passed attempt (quiz, exam or quick check) */
+    public static function passedLessons(\mysqli $db, int $runId): array
+    {
+        $out = [];
+        foreach (Db::all($db, 'SELECT DISTINCT a.tattempt_lesson_uid FROM training_attempts a
+                JOIN training_attempt_results r ON r.tresult_attempt_id = a.tattempt_id
+                WHERE a.tattempt_run_id = ? AND r.tresult_passed = 1', 'i', [$runId]) as $r) {
+            $out[(string) $r['tattempt_lesson_uid']] = true;
+        }
+        return $out;
+    }
+
+    /**
+     * Lesson uids whose content is credited while their MUST-PASS quick check is still to pass
+     * (credited, not done), in course order.
+     *
+     * @return list<string>
+     */
+    public static function pendingChecks(array $doc, array $credited, array $done): array
+    {
+        $out = [];
+        foreach (self::order($doc) as $uid) {
+            if (isset($credited[$uid]) && !isset($done[$uid]) && ($l = self::lesson($doc, $uid)) !== null && self::mustPassCheck($l)) {
+                $out[] = $uid;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Extra tries a trainer gave on the run, per lesson: the 'extra' run.unlocked events of the run.
+     * An unlock names the lesson that was locked (payload lesson_uid) and its tries count for that
+     * quiz or quick check only; an unlock without a lesson (from before quick checks, or of a run that
+     * was not locked on a lesson) counts for every quiz of the run, as it always did. Keys: lesson uid,
+     * and '*' for the run-wide ones. trun_extra_attempts = 0 (almost every run) needs no read.
+     *
+     * @return array<string, int>
+     */
+    public static function extraTries(\mysqli $db, array $run): array
+    {
+        if ((int) ($run['trun_extra_attempts'] ?? 0) <= 0) {
+            return [];
+        }
+        $out = [];
+        foreach (Db::all($db, "SELECT tevent_payload_json FROM training_events
+                WHERE tevent_entity_type = 'run' AND tevent_entity_id = ? AND tevent_type = 'run.unlocked' ORDER BY tevent_seq",
+                'i', [(int) $run['trun_id']]) as $e) {
+            $p = json_decode((string) $e['tevent_payload_json'], true);
+            if (!is_array($p) || ($p['mode'] ?? null) !== 'extra') {
+                continue;
+            }
+            $key = isset($p['lesson_uid']) && is_string($p['lesson_uid']) && $p['lesson_uid'] !== '' ? $p['lesson_uid'] : '*';
+            $out[$key] = min(255, ($out[$key] ?? 0) + max(0, (int) ($p['extra'] ?? 0)));
+        }
+        return $out;
+    }
+
+    /** The extra tries that count for one lesson's quiz or quick check (see extraTries). */
+    public static function extraFor(array $extras, string $lessonUid): int
+    {
+        return min(255, ($extras['*'] ?? 0) + ($extras[$lessonUid] ?? 0));
+    }
+
+    /** True when the run was moved back to in_progress for a must-pass quick check (ledger run.reopened). */
+    public static function reopened(\mysqli $db, int $runId): bool
+    {
+        return Db::one($db, "SELECT tevent_seq FROM training_events
+            WHERE tevent_entity_type = 'run' AND tevent_entity_id = ? AND tevent_type = 'run.reopened' LIMIT 1", 'i', [$runId]) !== null;
     }
 
     /** floor(100 × done required / total required); 100 for a course with no required lesson. */

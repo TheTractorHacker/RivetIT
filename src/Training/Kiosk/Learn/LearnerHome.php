@@ -150,7 +150,7 @@ final class LearnerHome
         $c = $doc['course'];
         $default = (string) ($c['default_language'] ?? 'en');
         $l = in_array($lang, $c['languages'] ?? [], true) ? $lang : $default;
-        $done = $run === null ? [] : RunRepo::done($db, (int) $run['trun_id']);
+        $done = $run === null ? [] : RunRepo::done($db, (int) $run['trun_id'], $doc);
         $secondsLeft = 0;
         foreach ($doc['lessons'] ?? [] as $lesson) {
             if (!empty($lesson['required']) && !isset($done[(string) $lesson['uid']])) {

@@ -417,3 +417,9 @@ body.kx-video-page .kx-main { padding-bottom: 0; }
 @media (max-width: 600px) { .kl-langpick__row { grid-template-columns: minmax(0, 1fr); } }
 /* A long "Continue: <lesson title>" wraps instead of being cut off at both ends. */
 .trp--kiosk .trp-hero__progress .trp-btn--xl { white-space: normal; text-align: center; line-height: 1.25; padding-top: 10px; padding-bottom: 10px; overflow: visible; }
+
+/* video page: the finish button swaps its icon (tick / quick check) */
+.kl-btnicon { display: inline-flex; align-items: center; }
+
+/* The kiosk shell zeroes h2 margins (.kx h2): the question keeps its gap above the answer tiles (Kiosk-Quiz). */
+.kx .trp-qcard__text { margin: 0 0 20px; }

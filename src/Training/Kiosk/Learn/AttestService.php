@@ -99,6 +99,10 @@ final class AttestService
             unset($pin);
             throw new ApiException(409, 'run_locked', 'This course is not ready to sign yet.');
         }
+        if (!RunRepo::allRequiredDone($doc, RunRepo::done($db, $runId, $doc))) {
+            unset($pin);   // a must-pass quick check not passed yet (a run from before kiosk quick checks): before any PIN charge
+            throw new ApiException(409, 'check_pending', 'Pass the lesson\'s quick check first, then sign.');
+        }
         if (!RecordsBridge::available($db)) {
             unset($pin);
             throw new ApiException(503, 'records_unavailable', 'Training records are not available yet. Your work is saved - try again later.');
