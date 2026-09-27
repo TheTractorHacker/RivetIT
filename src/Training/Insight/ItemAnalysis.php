@@ -30,11 +30,13 @@ use ITFlow\Training\Upstream\ScopeView;
  *   discrimination  D = p(upper group) - p(lower group), two decimals. The groups are the top and
  *                   bottom 27 % of ALL attempts in the filter by score_pct (ties broken by attempt
  *                   id, so a run is repeatable): k = round(0.27 * N), at least 1, at most N/2.
+ * Percentages and D are rounded half up in exact integer arithmetic (a mean of 55.55 is 55.6, never
+ * the float 55.549999… rounded down).
  *                   p(group) counts only the group's attempts that were asked this question. Null
  *                   when either group has fewer than 3 answers to it, or when n < 10.
  *   options         chosen_n / chosen_pct over n; a multiple-choice answer counts every option it
  *                   selected. Options come from the newest revision's question; an option only an
- *                   older revision had is listed after them.
+ *                   older revision had is listed after them with retired:true.
  *   wrong_top       the incorrect option chosen most (ties: option order), or null.
  *   flags           'few' when n < 10 - then D and every other flag are suppressed; else
  *                   'hard' (correct_pct < 40), 'easy' (> 95), 'check_key' (D < 0, or the top wrong
@@ -48,7 +50,7 @@ final class ItemAnalysis
 {
     public const KINDS = ['exam', 'check', 'all'];
     public const FEW_N = 10;
-    public const GROUP_FRACTION = 0.27;
+    public const GROUP_PERCENT = 27;
     public const MIN_GROUP_ANSWERS = 3;
     public const HARD_PCT = 40.0;
     public const EASY_PCT = 95.0;
@@ -126,7 +128,8 @@ final class ItemAnalysis
     }
 
     /**
-     * The ItemReport (spec §4.1) plus: course.uid/code/archived, scope_none, few_n, quiz per question.
+     * The ItemReport (spec §4.1) plus: course.uid/code/archived, scope_none, few_n, quiz per question,
+     * options[].retired.
      *
      * @throws ApiException 404 unknown course / document; 422 revision not in the course, bad kind, lang or since
      */
@@ -216,13 +219,13 @@ final class ItemAnalysis
     public static function summary(array $attempts): array
     {
         $people = [];
-        $scores = [];
+        $cents = 0;
         $durations = [];
         $first = 0;
         $firstPassed = 0;
         foreach ($attempts as $a) {
             $people[(int) $a['contact_id']] = true;
-            $scores[] = (float) $a['score_pct'];
+            $cents += self::cents($a['score_pct']);
             $durations[] = (int) $a['duration_s'];
             if ((int) $a['number'] === 1) {
                 $first++;
@@ -235,8 +238,8 @@ final class ItemAnalysis
         return [
             'attempts' => $n,
             'people' => count($people),
-            'first_try_pass_pct' => $first > 0 ? round(100 * $firstPassed / $first, 1) : null,
-            'mean_score_pct' => $n > 0 ? round(array_sum($scores) / $n, 1) : null,
+            'first_try_pass_pct' => $first > 0 ? self::pct($firstPassed, $first) : null,
+            'mean_score_pct' => $n > 0 ? intdiv(2 * $cents + 10 * $n, 20 * $n) / 10.0 : null,
             'median_duration_s' => self::median($durations),
         ];
     }
@@ -249,10 +252,10 @@ final class ItemAnalysis
      */
     public static function groups(array $attempts): array
     {
-        $rows = array_map(static fn($a) => [(float) $a['score_pct'], (int) $a['attempt_id']], $attempts);
+        $rows = array_map(static fn($a) => [self::cents($a['score_pct']), (int) $a['attempt_id']], $attempts);
         usort($rows, static fn($x, $y) => [$y[0], $x[1]] <=> [$x[0], $y[1]]);
         $n = count($rows);
-        $k = $n < 2 ? 0 : min(intdiv($n, 2), max(1, (int) round($n * self::GROUP_FRACTION)));
+        $k = $n < 2 ? 0 : min(intdiv($n, 2), max(1, intdiv(self::GROUP_PERCENT * $n + 50, 100)));
         $upper = [];
         $lower = [];
         for ($i = 0; $i < $k; $i++) {
@@ -268,10 +271,35 @@ final class ItemAnalysis
         if ($n === 0) {
             return null;
         }
+        $values = array_map('intval', $values);
         sort($values, SORT_NUMERIC);
         $mid = intdiv($n, 2);
-        $m = $n % 2 === 1 ? (float) $values[$mid] : ((float) $values[$mid - 1] + (float) $values[$mid]) / 2;
-        return (int) round($m);
+        return $n % 2 === 1 ? $values[$mid] : intdiv($values[$mid - 1] + $values[$mid] + 1, 2);
+    }
+
+    /** 100 * part / whole to one decimal, half up, in integers. */
+    public static function pct(int $part, int $whole): float
+    {
+        return intdiv(2000 * $part + $whole, 2 * $whole) / 10.0;
+    }
+
+    /** a/b - c/d to two decimals, half away from zero, in integers (the discrimination index). */
+    public static function diff2(int $a, int $b, int $c, int $d): float
+    {
+        $num = $a * $d - $c * $b;
+        $den = $b * $d;
+        $h = intdiv(200 * abs($num) + $den, 2 * $den);
+        return $h === 0 ? 0.0 : ($num < 0 ? -$h : $h) / 100.0;
+    }
+
+    /** A score_pct ('92.50') as integer hundredths. */
+    public static function cents(mixed $score): int
+    {
+        $s = trim((string) $score);
+        if (preg_match('/^(\d{1,3})(?:\.(\d{1,2}))?$/D', $s, $m) === 1) {
+            return (int) $m[1] * 100 + (int) str_pad($m[2] ?? '', 2, '0');
+        }
+        return (int) round((float) $s * 100);
     }
 
     /** Local midnight of a 'Y-m-d' as UTC 'Y-m-d H:i:s.v'. */
@@ -428,12 +456,12 @@ final class ItemAnalysis
                 $versions[self::canon($d)] = true;
             }
             $n = (int) $s['n'];
-            $pct = round(100 * $s['correct'] / $n, 1);
+            $pct = self::pct((int) $s['correct'], $n);
 
             // Options: the newest wording first, then any option only an older revision had.
             $options = [];
             $known = [];
-            foreach ($qdocs as $d) {
+            foreach ($qdocs as $di => $d) {
                 foreach ((array) ($d['options'] ?? []) as $o) {
                     $ou = (string) ($o['uid'] ?? '');
                     if ($ou === '' || isset($known[$ou])) {
@@ -446,7 +474,8 @@ final class ItemAnalysis
                         'label' => (string) (self::text($o['text'] ?? null, 'label', $qdocLangs) ?? ''),
                         'correct' => !empty($o['correct']),
                         'chosen_n' => $cn,
-                        'chosen_pct' => round(100 * $cn / $n, 1),
+                        'chosen_pct' => self::pct($cn, $n),
+                        'retired' => $di > 0,   // only an older version had it
                     ];
                 }
             }
@@ -455,7 +484,7 @@ final class ItemAnalysis
                 if (!isset($known[$ou])) {
                     $known[$ou] = true;
                     $options[] = ['uid' => $ou, 'label' => 'Option no longer in the course', 'correct' => false,
-                        'chosen_n' => (int) $cn, 'chosen_pct' => round(100 * $cn / $n, 1)];
+                        'chosen_n' => (int) $cn, 'chosen_pct' => self::pct((int) $cn, $n), 'retired' => true];
                 }
             }
 
@@ -478,10 +507,7 @@ final class ItemAnalysis
                 $flags[] = 'few';
             } else {
                 if ($s['up_n'] >= self::MIN_GROUP_ANSWERS && $s['lo_n'] >= self::MIN_GROUP_ANSWERS) {
-                    $d = round($s['up_c'] / $s['up_n'] - $s['lo_c'] / $s['lo_n'], 2);
-                    if ($d == 0.0) {
-                        $d = 0.0;   // never "-0"
-                    }
+                    $d = self::diff2((int) $s['up_c'], (int) $s['up_n'], (int) $s['lo_c'], (int) $s['lo_n']);
                 }
                 if ($pct < self::HARD_PCT) {
                     $flags[] = 'hard';

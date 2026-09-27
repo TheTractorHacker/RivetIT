@@ -145,7 +145,8 @@
                 list.appendChild(el('li', { class: 'tri-option' + (o.correct ? ' tri-option--correct' : '') }, [
                     el('div', { class: 'tri-option__label' }, [
                         o.correct ? el('span', { class: 'tri-option__mark' }, [el('i', { class: 'fas fa-check', 'aria-hidden': 'true' }), el('span', { class: 'tri-option__word', text: 'correct' })]) : null,
-                        el('span', { class: 'tri-option__text', text: o.label === '' ? '(no text)' : o.label })
+                        el('span', { class: 'tri-option__text', text: o.label === '' ? '(no text)' : o.label }),
+                        o.retired ? el('span', { class: 'trr-chip trr-chip--outline', title: 'This answer is not in the newest version of the question.', text: 'Earlier version' }) : null
                     ]),
                     el('div', { class: 'tri-option__bar' }, [bar(o.chosen_pct, o.correct ? 'tr-progress--ok' : 'tri-progress--wrong')]),
                     el('div', { class: 'tri-option__num trr-num' }, [el('strong', { text: pct(o.chosen_pct) }), el('span', { class: 'trr-muted', text: ' · ' + plural(o.chosen_n, 'pick', 'picks') })])
