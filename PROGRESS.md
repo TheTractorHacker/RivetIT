@@ -1,5 +1,7 @@
 # ITFlow Internal IT — Master Plan Progress
 
+> **Historical document.** Written before the product was renamed **RivetIT** (September 2026); "ITFlow Internal IT" here is the same product. Names, paths and plans are kept as written. See [REBRANDING.md](REBRANDING.md).
+
 Tracking implementation of `ITFlow-Internal-IT-Master-Plan.md` (56 sections, 15 phases).
 This is a multi-month plan; this file tracks what's actually done vs. planned so work
 can resume across sessions. Updated as work lands, not retroactively.

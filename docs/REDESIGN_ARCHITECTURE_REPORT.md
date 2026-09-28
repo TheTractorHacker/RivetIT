@@ -1,5 +1,7 @@
 # ITFlow Internal IT — Redesign & RMM Telemetry Architecture Report
 
+> **Historical document.** Written before the product was renamed **RivetIT** (September 2026); "ITFlow Internal IT" here is the same product. Names, paths and plans are kept as written. See [REBRANDING.md](../REBRANDING.md).
+
 **Status:** Phase 0 deliverable. Audit and architecture only — no implementation has been performed.
 **Scope:** The two programmes described in `ITFlow_Internal_IT_Complete_Redesign_RMM_Telemetry_Master_Plan.md`: replacing AdminLTE 4 with Tabler as the application shell, and building a provider-neutral endpoint telemetry subsystem.
 **Method:** 17 parallel read-only investigations across the codebase, a completeness critic pass over their findings, targeted vendor/library feasibility research, and adversarial review of the riskiest proposals. Every factual claim below is cited to a file, a line, a live log, or a vendor document.

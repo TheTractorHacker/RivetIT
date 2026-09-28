@@ -1,10 +1,12 @@
 # Architecture
 
-This document explains how the ITFlow Internal IT codebase is structured, for a developer who has just cloned the repository. It covers the portal/role structure, authentication and session handling, the permission model, the core data model, the module toggle system, database migrations, the REST API, and third-party integrations — followed by a summary of how this edition differs from upstream ITFlow (the MSP product it is forked from).
+This document explains how the RivetIT codebase is structured, for a developer who has just cloned the repository. It covers the portal/role structure, authentication and session handling, the permission model, the core data model, the module toggle system, database migrations, the REST API, and third-party integrations — followed by a summary of how RivetIT differs from upstream ITFlow (the MSP product it started from).
 
 The codebase is plain PHP (no framework) using `mysqli` and hand-written SQL throughout, backed by a single MySQL database. There is no build step for the PHP application itself.
 
-**A note on naming**: this fork renames "Client" to "Department" everywhere a human sees it (navigation, page titles, labels, emails, PDFs), but the underlying PHP variables, function names, database tables/columns, and the entire REST API were deliberately left using `client` (`clients` table, `client_id`, `module_client`, etc.) to avoid breaking the API contract and to minimize code churn. This document describes the code as it actually reads — in terms of `client`/`clients` — and internal-department semantics apply wherever you see that word. See "How this edition differs from ITFlow MSP" at the end for the full list of edition-specific changes.
+**A note on naming**: RivetIT says "Department" instead of "Client" everywhere a human sees it (navigation, page titles, labels, emails, PDFs), but the underlying PHP variables, function names, database tables/columns, and the entire REST API were deliberately left using `client` (`clients` table, `client_id`, `module_client`, etc.) to avoid breaking the API contract and to minimize code churn. This document describes the code as it actually reads — in terms of `client`/`clients` — and internal-department semantics apply wherever you see that word. See "How RivetIT differs from upstream ITFlow" at the end for the full list of changes.
+
+**Product name vs. internal names**: the product is RivetIT, and PHP code shows it through the constants in `includes/branding.php` (`APP_NAME`, `APP_REPO_URL`, …), never a literal; shell scripts and static files that cannot load PHP say RivetIT literally. Internal identifiers from the ITFlow days are kept on purpose because installs, integrations and the Android app depend on them: the PHP namespace `ITFlow\` (composer PSR-4 → `src/`), `itflow_*` functions, `css/itflow*.css` files, database/table/column and config names, storage keys, webhook headers, Odoo markers and backup file names. [`REBRANDING.md`](../REBRANDING.md) lists them with the reason for each. New code keeps using the existing namespace and names.
 
 ## 1. Overview: four portals, one codebase
 
@@ -22,6 +24,8 @@ The application is a single PHP tree split into four URL-path-based "portals," s
 **Naming trap to be aware of**: `agent/includes/inc_all_client.php` is *not* the client-portal bootstrap. It's the include used by agent-side pages that view a single client/department record (e.g. `agent/client_overview.php`), and it enforces agent-side permissions (`enforceUserPermission('module_client')`, `enforceClientAccess()`). The actual client/department-portal login gate lives in `client/includes/check_login.php`.
 
 Root `index.php` routes a request based on which session flag is set: `$_SESSION['logged']` → `agent/`, `$_SESSION['client_logged_in']` → `client/`, otherwise → `login.php`. Agent and admin share the `logged` flag; the client portal uses a distinct flag, and the two are mutually exclusive within one login.
+
+The Training module (LMS, `src/Training/`) adds two more public entry points outside these portals: `kiosk/`, the learner app for shared iPads and PCs (a device enrolled by an admin gets a start URL; employees sign in with their name and a training PIN, and no agent session is ever kept on the device, see [`training-kiosk-setup.md`](training-kiosk-setup.md)), and `verify/`, the public certificate check the QR code on every certificate points to (no login, no cookies, rate-limited).
 
 ## 2. Authentication and sessions
 
@@ -163,16 +167,19 @@ All install-wide feature flags are boolean columns on the singleton `settings` t
 |---|---|
 | `config_module_enable_itdoc` | IT documentation (assets/credentials/etc.) navigation |
 | `config_module_enable_ticketing` | Ticketing throughout the app |
-| `config_module_enable_accounting` | Full invoicing/quotes/recurring-invoices/expenses UI |
-| `config_module_enable_ticket_charges` | Billable time/charges on tickets, independently of full accounting |
+| `config_module_enable_accounting` | Full invoicing/quotes/recurring-invoices/expenses UI (not offered in RivetIT; see §9) |
+| `config_module_enable_ticket_charges` | Billable time/charges on tickets, independently of full accounting (not offered; see §9) |
 | `config_module_enable_kb` | Knowledge Base, agent and client sides |
 | `config_module_enable_live_chat` | Real-time chat panel on ticket view |
-| `config_module_enable_payroll` | Payroll (gross-pay only, no tax withholding), admin-gated |
+| `config_module_enable_payroll` | Payroll (gross-pay only, no tax withholding), admin-gated (not offered; see §9) |
+| `config_module_enable_crm` | CRM: pipeline, opportunities, campaigns, segments (not offered; see §9) |
+| `config_module_enable_training` | Training (LMS): courses, assignments, records, kiosk, certificates (Settings > Modules, shown once the Training schema is installed) |
+| `config_module_enable_intune` | Intune device sync and the Endpoints > Intune page (toggled from Settings > Integrations) |
 | `config_module_enable_rmm` | RMM integration UI (toggled from Settings > Integrations rather than the general Modules page) |
 | `config_module_enable_unifi` | UniFi network integration |
 | `config_client_portal_enable` | Whether the client/department portal is reachable at all |
 
-Nav and page code generally ANDs this axis with the role-permission axis from §3.1 — a feature must be turned on for the install **and** the current user's role must have at least read access to the corresponding permission module. There is no toggle for CRM or Projects in the shared codebase; they are always-on core features gated only by role permission.
+Nav and page code generally ANDs this axis with the role-permission axis from §3.1 — a feature must be turned on for the install **and** the current user's role must have at least read access to the corresponding permission module. There is no toggle for Projects; it is an always-on core feature gated only by role permission.
 
 ## 6. Database migrations
 
@@ -191,21 +198,21 @@ Because `CURRENT_DATABASE_VERSION` is a PHP constant fixed once per request and 
 
 ## 7. REST API
 
-`api/v1/index.php` is a flat, single-router dispatcher, entirely separate from the cookie-session auth used by the four portals above. It supports Bearer-token auth (per-user tokens in `api_tokens`, minted via `POST /api/v1/auth`) and a legacy company-wide `X-Api-Key` mechanism with its own read/write permission and optional client scoping. The endpoints, request/response shapes, and authentication details are otherwise identical between this edition and upstream ITFlow — see `docs/API.md` for the full reference rather than duplicating it here.
+`api/v1/index.php` is a flat, single-router dispatcher, entirely separate from the cookie-session auth used by the four portals above. It supports Bearer-token auth (per-user tokens in `api_tokens`, minted via `POST /api/v1/auth`) and a legacy company-wide `X-Api-Key` mechanism with its own read/write permission and optional client scoping. The API was deliberately left out of the Department rename (paths and fields still say `client`), and the RivetIT rename does not change it either — see `docs/API.md` for the full reference rather than duplicating it here.
 
 ## 8. Integrations and background jobs
 
 ### RMM (Remote Monitoring & Management)
 
-A factory (`includes/rmm_client_factory.php`) instantiates the right vendor client based on `rmm_integrations.type`. Four providers are implemented: Tactical RMM, Level.io, Action1 (OAuth2 patch management), and Sophos Central (OAuth2, firewall inventory + alerts only). An asset mapper (`includes/class_rmm_asset_mapper.php`) matches RMM agents to ITFlow assets and syncs alerts. Sync runs on every cron cycle (`cron/cron.php`) for each enabled integration row; RMM alerts can auto-create tickets and feed the ticket-automation rule engine.
+A factory (`includes/rmm_client_factory.php`) instantiates the right vendor client based on `rmm_integrations.type`. Four providers are implemented: Tactical RMM, Level.io, Action1 (OAuth2 patch management), and Sophos Central (OAuth2, firewall inventory + alerts only). An asset mapper (`includes/class_rmm_asset_mapper.php`) matches RMM agents to RivetIT assets and syncs alerts. Sync runs on every cron cycle (`cron/cron.php`) for each enabled integration row; RMM alerts can auto-create tickets and feed the ticket-automation rule engine.
 
 ### UniFi networking
 
-`includes/class_unifi.php` (local controller) and a cloud-controller client talk to UniFi; a mapper turns UniFi devices, WLANs (with PSK), and network configs into ITFlow assets, credentials, and networks respectively. Unlike RMM, this sync is **not** wired into the main cron dispatcher — it's a standalone CLI script (`scripts/unifi_sync_cli.php`) that needs its own separately-added cron entry.
+`includes/class_unifi.php` (local controller) and a cloud-controller client talk to UniFi; a mapper turns UniFi devices, WLANs (with PSK), and network configs into RivetIT assets, credentials, and networks respectively. Unlike RMM, this sync is **not** wired into the main cron dispatcher — it's a standalone CLI script (`scripts/unifi_sync_cli.php`) that needs its own separately-added cron entry.
 
 ### Accounting — QuickBooks Online
 
-One-way push (ITFlow → QBO) via OAuth2, resolving dependencies (customer before invoice, invoice before payment) through a queue drained by `cron/accounting_sync.php`, with exponential backoff and idempotency guaranteed by an entity-mapping table. Entities never sync back from QBO.
+Part of the accounting module (not offered in RivetIT, see §9). One-way push (RivetIT → QBO) via OAuth2, resolving dependencies (customer before invoice, invoice before payment) through a queue drained by `cron/accounting_sync.php`, with exponential backoff and idempotency guaranteed by an entity-mapping table. Entities never sync back from QBO.
 
 ### Payments — Stripe
 
@@ -227,17 +234,18 @@ Server-Sent Events backed by Redis pub/sub deliver live ticket updates, live tic
 
 All are PHP CLI scripts under `cron/`, runnable standalone or included from the umbrella `cron/cron.php` dispatcher on an admin-configurable schedule (Settings > Cron Manager): recurring ticket/invoice/expense generation, backups, ticket automation, RMM sync, mail queue processing, inbound mail parsing, QuickBooks sync, CRM reminders, certificate/domain monitoring refresh, daily metrics rollup, and scheduled report emails. `scripts/unifi_sync_cli.php` is the one integration sync that lives outside this dispatcher pattern.
 
-## 9. How this edition differs from ITFlow MSP
+## 9. How RivetIT differs from upstream ITFlow
 
-This repository is a fork of ITFlow MSP, repurposed for an internal IT department serving one organization's many internal departments rather than an MSP serving external billing clients. Everything described above is shared with the upstream MSP codebase. The differences:
+RivetIT started as a fork of an MSP-focused ITFlow fork (TheTractorHacker/itflow, itself a fork of itflow-org/itflow; see [`NOTICE`](../NOTICE)) and was known as "ITFlow Internal IT" before the RivetIT name. It is built for an internal IT department serving one organization's many internal departments rather than an MSP serving external billing clients. The structure described above is shared with the upstream codebase. The main differences:
 
 - **Terminology, not code**: every human-facing "Client"/"Clients" string was renamed to "Department"/"Departments" (navigation, page titles, labels, emails, PDFs). PHP variable/function/table/column names and the entire REST API (`api/v1/*`) were deliberately left as `client` to avoid breaking the API contract and to minimize code churn — so the codebase and database still say `client_id` everywhere internally, as described throughout this document.
-- **Billing modules default off**: `config_module_enable_accounting` and `config_module_enable_ticket_charges` are off on fresh installs, since department chargebacks aren't the primary use case. Nothing was removed — both can be enabled at any time under Settings > Modules.
+- **Billing modules are off**: `config_module_enable_accounting`, `config_module_enable_ticket_charges` and `config_module_enable_payroll` are off on fresh installs, and Settings > Modules no longer offers them: saving that page writes them as 0 (`admin/post/settings_module.php`). The code and tables are still there from upstream; nothing was deleted.
 - **Contracts remain fully enabled**, reframed as SLA/service-terms documentation between IT and departments rather than a billing artifact.
-- **CRM defaults off** — the MSP sales-pipeline/opportunities/leads terminology doesn't fit an internal-IT use case, though the underlying feature is unchanged and can be re-enabled.
+- **CRM is off** — the MSP sales-pipeline/opportunities/leads feature doesn't fit an internal-IT use case; like billing, it is not offered in Settings > Modules and saving that page keeps `config_module_enable_crm` at 0. The code is unchanged.
 - **AnyDesk remote-support integration** — a new `asset_anydesk_id` field and a "Connect via AnyDesk" quick-launch button on the asset detail page, in addition to the pre-existing generic asset URI fields.
 - **Security Classification on departments** — a General/Confidential/Restricted field on departments, paired with per-user department access restrictions, as groundwork for information-classification controls.
-- **Directory sync** — one-way sync of departments and employees from an external directory, with two implementations: Microsoft/Entra and Odoo. Neither exists in the MSP edition.
-- **Intune device management** — a new integration with its own module toggle, not present in the MSP edition.
+- **Directory sync** — one-way sync of departments and employees from an external directory, with three implementations: Microsoft/Entra, Google Workspace and Odoo. None exists upstream.
+- **Intune device management** — a new integration with its own module toggle, not present upstream.
+- **Training (LMS)** — courses, quizzes, assignments and requirement rules, compliance records with a tamper-evident ledger, certificates with public verification, the shop-floor kiosk, and Odoo write-back (`src/Training/`, `kiosk/`, `verify/`). Not present upstream.
 - **Compliance and deployment tooling** — an ISO 27001 Annex A compliance mapping document (`docs/ISO27001-COMPLIANCE.md`) and secure deployment scripts (`deploy/install.sh`, `deploy/harden.sh`, `deploy/backup.sh`, `deploy/update.sh`) ship with this edition; see those files directly for details.
-- **The REST API itself is unchanged** — same endpoints, auth mechanisms, and request/response shapes as upstream ITFlow (still addressed as `client_id` per the naming note above). See `docs/API.md` for the full reference.
+- **The REST API was left out of the rename** — endpoints, auth mechanisms and field names still say `client` / `client_id`, per the naming note above, so existing integrations and the Android companion app keep working. See `docs/API.md` for the full reference.

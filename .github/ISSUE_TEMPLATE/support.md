@@ -1,25 +1,24 @@
 ---
 name: Support
-about: Please request support on the Forum @ https://forum.itflow.org/t/support
-title: 'Please visit the Forum for support'
-labels: Support
+about: Ask a question about installing, configuring or using RivetIT
+title: ''
+labels: question
 assignees: ''
 
 ---
 
-We're now using GitHub Issues exclusively for development.
--
+**Your question**
 
-Going forward, GitHub Issues will be used to track confirmed bugs & planned features via Github Projects. This allows us to keep GitHub clean & tidy, whilst maintaining an active and relaxed community experience on the Forum.
+**What you have tried**
+Include the relevant part of the docs (README.md, docs/DEPLOYMENT.md, deploy/README.md) if one applies.
 
-Please use the forum for support queries/issues: https://forum.itflow.org/t/support
+**Version and install type**
+- RivetIT version (page footer, or Admin > Update) and database version:
+- Installed with: Docker Compose / deploy/install.sh / manual
 
-All new support requests raised here will be closed.
-
-Thanks,
-
-The ITFlow team :)
+Remove passwords, API keys, tokens and personal data before posting.
 
 --
 
-To privately discuss a security issue, please see https://github.com/itflow-org/itflow/security
+Security issues: please do not open a public issue. Report them privately through
+**Security > Report a vulnerability** on this repository (see SECURITY.md).
