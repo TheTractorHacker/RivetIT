@@ -10,7 +10,7 @@ use ITFlow\Training\Core\Db;
  * S9: warn admins before the Odoo API key that Training uses expires (spec §3.5). Odoo keys are
  * created with an expiry date; when it passes, the directory sync, Odoo PIN sign-in and the
  * write-back all start failing with 401s. The date is typed in by an admin on the Odoo write-back
- * card (tauto_odoo_key_expires_on); ITFlow cannot read it from Odoo.
+ * card (tauto_odoo_key_expires_on); RivetIT cannot read it from Odoo.
  *
  * Within 14 days of the date, every admin gets a 'key_expiry' notification (type 'Training
  * Odoo', which is never muted with the digests): about once a week while more than 3 days are

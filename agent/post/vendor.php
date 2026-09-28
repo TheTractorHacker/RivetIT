@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - GET/POST request handler for vendors
+ * RivetIT - GET/POST request handler for vendors
  */
 
  // Todo: 2026-03-02 JQ - Need Permssions reworked as we have client vendors and Global Vendors basically check the referral url if it has client_id then Perm check client else perm check financial.

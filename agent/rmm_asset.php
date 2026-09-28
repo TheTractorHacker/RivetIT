@@ -186,10 +186,10 @@ $sql_creds = mysqli_query($mysqli,
         </div>
         <?php endif; ?>
 
-        <!-- ITFlow asset link -->
+        <!-- Local asset link -->
         <div class="card card-dark mb-3">
             <div class="card-header py-2 d-flex align-items-center">
-                <h6 class="mb-0 mr-auto"><i class="fas fa-link me-2"></i>ITFlow Internal IT Asset</h6>
+                <h6 class="mb-0 mr-auto"><i class="fas fa-link me-2"></i><?= nullable_htmlentities(APP_NAME) ?> Asset</h6>
                 <a href="/agent/asset_details.php?asset_id=<?= $asset_id ?>" class="btn btn-xs btn-secondary">View</a>
             </div>
             <div class="card-body p-2 small">

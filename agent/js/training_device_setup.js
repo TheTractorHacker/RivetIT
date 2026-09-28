@@ -283,7 +283,7 @@
                 $('tr-setup-url').value = '';
                 window.location.replace(u);
             };
-            // The sign-out is not optional (A21): the device must not keep an ITFlow session.
+            // The sign-out is not optional (A21): the device must not keep a RivetIT session.
             fetch('/agent/post.php?logout', { credentials: 'same-origin', redirect: 'manual', cache: 'no-store' }).then(go, go);
         });
 

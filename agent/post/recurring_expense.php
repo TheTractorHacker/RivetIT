@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - GET/POST request handler for recurring expenses
+ * RivetIT - GET/POST request handler for recurring expenses
  */
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");

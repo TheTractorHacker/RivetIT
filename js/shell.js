@@ -52,7 +52,7 @@
        folds it to Tabler's 4rem icon rail (.navbar-folded, which also retargets
        --tblr-sidebar-width for the following .page-wrapper, so content reflows). */
     var MOBILE_QUERY = '(max-width: 991.98px)';
-    var FOLD_KEY = 'itflow.sidebar.folded';
+    var FOLD_KEY = 'itflow.sidebar.folded';   // legacy key kept through the RivetIT rename: users keep their saved choice
     var SCROLL_SLACK = 4;       // px of overflow too small to be worth marking
     var REVEAL_PAD = 24;        // breathing room kept around an entry scrolled into view
 

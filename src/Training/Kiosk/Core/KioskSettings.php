@@ -131,7 +131,7 @@ final class KioskSettings
     }
 
     /** From a (possibly partial) settings row - tests and the admin page preview. */
-    public static function fromRow(array $row, bool $schemaReady = true, bool $moduleEnabled = true, string $companyName = 'Midwest'): self
+    public static function fromRow(array $row, bool $schemaReady = true, bool $moduleEnabled = true, string $companyName = ''): self
     {
         return new self($row, $schemaReady, $moduleEnabled, $companyName);
     }

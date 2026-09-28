@@ -2000,7 +2000,7 @@ function rmmConnect(linkId, type) {
     });
 }
 function rmmUnlink(linkId) {
-    if (!confirm('Remove this asset from RMM monitoring? The asset will remain in ITFlow Internal IT, but RMM data, alerts, and remote connect options will be removed.')) return;
+    if (!confirm(<?= json_encode('Remove this asset from RMM monitoring? The asset will remain in ' . APP_NAME . ', but RMM data, alerts, and remote connect options will be removed.', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>)) return;
     fetch('/agent/post/rmm_unlink.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},

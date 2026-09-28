@@ -9,7 +9,7 @@ defined('TRAINING_PAGE') || exit;
  * Tabler/Bootstrap classes only, so the contact page needs no extra CSS. The whole body runs in
  * a static closure: no variable of contact_details.php is read or overwritten, and any failure
  * is logged and renders nothing. A contact outside the caller's fail-closed training scope
- * renders nothing either (the page itself is governed by ITFlow's own client access).
+ * renders nothing either (the page itself is governed by RivetIT's own client access).
  */
 
 (static function (\mysqli $db, int $cid): void {

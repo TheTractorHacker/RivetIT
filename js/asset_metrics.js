@@ -30,7 +30,7 @@
  *
  * TIME. Every timestamp in the payload is UTC with an explicit `Z` -
  * device_metric_samples.sampled_at is stored in UTC, a deliberate divergence from
- * the rest of ITFlow, which stores local time. Date parsing therefore happens on the
+ * the rest of RivetIT, which stores local time. Date parsing therefore happens on the
  * `Z` string and all display is in the viewer's own zone.
  *
  * CONFIG comes from data-* attributes on [data-asset-metrics], because this file is

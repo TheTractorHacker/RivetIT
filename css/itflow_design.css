@@ -1,5 +1,5 @@
 /* =============================================================================
-   ITFlow design layer — "MSP ops tool" identity.
+   RivetIT design layer — the internal IT operations identity.
    Loaded LAST (after adminlte4 + bridge + itflow_custom) so it sets the tone.
    Boldness lives in ONE place: the teal accent + IBM Plex type. Everything
    else is kept quiet and precise. Works in light + dark.

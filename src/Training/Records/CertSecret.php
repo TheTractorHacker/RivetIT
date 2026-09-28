@@ -14,6 +14,9 @@ namespace ITFlow\Training\Records;
  *
  * Rotating $config_settings_enc_key breaks REPRINTS of existing certificates (the stored
  * sha256 still verifies printed QR codes); key rotation must never be routine (R6).
+ *
+ * LABEL keeps its "itflow" spelling through the RivetIT rename on purpose: it is part of the key,
+ * so a new label would break every issued certificate QR/verify code (see REBRANDING.md).
  */
 final class CertSecret
 {

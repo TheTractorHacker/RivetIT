@@ -695,7 +695,8 @@
         return node;
     }
 
-    /** BroadcastChannel('itflow-training') wrapper; a no-op where unsupported. */
+    /** BroadcastChannel('itflow-training') wrapper; a no-op where unsupported. The channel name is kept
+     *  through the RivetIT rename: tabs still running cached older JS must keep hearing each other. */
     var channelInstance = null;
     function channel() {
         if (channelInstance) { return channelInstance; }

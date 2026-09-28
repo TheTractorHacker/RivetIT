@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - GET/POST request handler for vendor contacts
+ * RivetIT - GET/POST request handler for vendor contacts
  */
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");

@@ -11,7 +11,7 @@
             <div class="modal-body">
 
                 <div class="alert alert-danger" role="alert">
-                    This "Open Tickets" tracker will be removed in a future version of ITFlow Internal IT. Time tracking will still be a feature.
+                    This "Open Tickets" tracker will be removed in a future version of <?= nullable_htmlentities(APP_NAME) ?>. Time tracking will still be a feature.
                 </div>
 
                 <div id="openTicketsContainer">

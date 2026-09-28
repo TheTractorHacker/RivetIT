@@ -10,6 +10,7 @@ use ITFlow\Training\Automation\Recipients;
 use ITFlow\Training\Core\Clock;
 use ITFlow\Training\Core\Ctx;
 use ITFlow\Training\Core\Db;
+use ITFlow\Training\Core\Product;
 use ITFlow\Training\Core\Text;
 use ITFlow\Training\Upstream\LearnerGateway;
 use ITFlow\Training\Upstream\RecordsGateway;
@@ -383,7 +384,7 @@ final class PushService
                 // 1. Source.
                 $dto = $isAward ? $learner?->awardForPush($sourceId) : $records->completionForPush($sourceId);
                 if ($dto === null) {
-                    $this->fail($repo, $id, 'permanent', 'source_missing: the ITFlow record no longer exists', $out, $mode, $rec);
+                    $this->fail($repo, $id, 'permanent', 'source_missing: the ' . Product::name() . ' record no longer exists', $out, $mode, $rec);
                     continue;
                 }
                 $payload = $isAward ? PayloadBuilder::award($dto, (string) $row['todoo_marker'], $company)
@@ -513,7 +514,7 @@ final class PushService
                 $consecT[$mode] = $consecP[$mode] = 0;
             } catch (PushException $e) {
                 if ($e->errorClass === 'wait') {
-                    // Another ITFlow record holds the identical certification and its void is on its way: try again later.
+                    // Another RivetIT record holds the identical certification and its void is on its way: try again later.
                     $repo->release([$id], self::WAIT_FOR_CREATE_S, Clock::nowUtc(), 'transient', $e->getMessage());
                     continue;
                 }
@@ -523,7 +524,7 @@ final class PushService
             } catch (\DomainException $e) {
                 // A record this integration created with this marker (or, for a certification, these saved values) is on
                 // another employee (the contact was re-linked after a lost create response): never adopted, never duplicated.
-                $this->fail($repo, $id, 'permanent', 'employee_changed: the ITFlow ' . Targets::label($mode) . ' with this reference is on another Odoo employee', $out, $mode, $rec);
+                $this->fail($repo, $id, 'permanent', 'employee_changed: the ' . Product::name() . ' ' . Targets::label($mode) . ' with this reference is on another Odoo employee', $out, $mode, $rec);
                 $changed[$rec] = true;
                 $consecP[$mode]++;
             } catch (\Throwable $e) {
@@ -672,7 +673,7 @@ final class PushService
 
     /**
      * Does the Odoo employee's name still match this person? Compared with the Phase 2 link rule
-     * (RecordsGateway::nameKey: lowercase, accents removed, spaces collapsed) against the ITFlow contact
+     * (RecordsGateway::nameKey: lowercase, accents removed, spaces collapsed) against the RivetIT contact
      * name, or against the Odoo name Phase 2 last confirmed for this link (the directory sync may have
      * given the contact a different spelling since).
      */

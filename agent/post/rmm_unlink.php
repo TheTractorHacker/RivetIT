@@ -2,8 +2,8 @@
 if (defined('FROM_POST_HANDLER')) return;
 /*
  * RMM Unlink handler
- * Removes the link between an ITFlow asset and an RMM agent without
- * touching the ITFlow asset itself.
+ * Removes the link between a RivetIT asset and an RMM agent without
+ * touching the RivetIT asset itself.
  */
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config.php';
@@ -49,7 +49,7 @@ enforceClientAccess($client_id);
 mysqli_query($mysqli, "DELETE FROM asset_rmm_links WHERE id=$link_id");
 
 logAction('RMM', 'Asset Unlinked',
-    "$session_name removed RMM link for asset \"{$link['asset_name']}\" (asset kept in ITFlow Internal IT)",
+    "$session_name removed RMM link for asset \"{$link['asset_name']}\" (asset kept in " . APP_NAME . ")",
     $client_id, $asset_id
 );
 

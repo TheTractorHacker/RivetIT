@@ -77,7 +77,7 @@ $push_device_count = intval(mysqli_fetch_assoc($sql_push_devices)['cnt']);
         <?php } else { ?>
         <div class="text-muted">
             <i class="fas fa-exclamation-circle me-1 text-warning"></i>
-            No mobile devices registered. Log in to the <strong>ITFlow Internal IT mobile app</strong> to register your device for push notifications.
+            No mobile devices registered. Log in to the <strong><?= nullable_htmlentities(APP_NAME) ?> mobile app</strong> to register your device for push notifications.
         </div>
         <?php } ?>
     </div>

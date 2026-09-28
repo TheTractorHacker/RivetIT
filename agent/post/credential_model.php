@@ -1,5 +1,5 @@
 <?php
-// Model of reusable variables for client credentials - not to be confused with the ITFLow login process
+// Model of reusable variables for client credentials - not to be confused with the RivetIT login process
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
 $type = in_array($_POST['type'] ?? '', ['Login', 'API Key'], true) ? $_POST['type'] : 'Login';

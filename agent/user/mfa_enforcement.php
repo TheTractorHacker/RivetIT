@@ -18,7 +18,8 @@ if (empty($_SESSION['mfa_token'])) {
 $token = $_SESSION['mfa_token'];
 
 // Generate QR Code
-$data = "otpauth://totp/ITFlow:$session_email?secret=$token";
+// The label is display-only (the authenticator app shows it); the secret alone drives the codes.
+$data = "otpauth://totp/" . rawurlencode(APP_NAME) . ":$session_email?secret=$token";
 
 ?>
 
@@ -67,6 +68,8 @@ $data = "otpauth://totp/ITFlow:$session_email?secret=$token";
     -->
     <?php if(file_exists('../../uploads/favicon.ico')) { ?>
         <link rel="icon" type="image/x-icon" href="../../uploads/favicon.ico">
+    <?php } else { ?>
+        <link rel="icon" type="image/svg+xml" href="<?= nullable_htmlentities(APP_FAVICON_URL) ?>">
     <?php } ?>
 
     <!-- Font Awesome Icons -->
@@ -113,7 +116,7 @@ $data = "otpauth://totp/ITFlow:$session_email?secret=$token";
                 <?php if (!empty($company_logo)) { ?>
                     <img alt="<?= nullable_htmlentities($company_name ?? $session_company_name) ?> logo" height="110" width="380" class="img-fluid" src="<?php echo "../../uploads/settings/$company_logo"; ?>">
                 <?php } else { ?>
-                    <span class="text-primary fw-bold"><i class="fas fa-paper-plane me-2"></i>IT</span>Flow Internal IT
+                    <img src="<?= nullable_htmlentities(APP_LOGO_MARK_URL) ?>" alt="" width="40" height="40" class="me-2 align-middle"><span class="fw-bold align-middle"><?= nullable_htmlentities(APP_NAME) ?></span>
                 <?php } ?>
             </div>
 
