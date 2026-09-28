@@ -47,7 +47,8 @@ final class MediaToken
     /* Domain separation. If this app ever grows a second HMAC over a similar
        tuple, a token minted for one must not verify for the other. Bump the
        suffix if the payload's SHAPE ever changes - that invalidates every
-       outstanding URL, which is the correct behaviour for a format change. */
+       outstanding URL, which is the correct behaviour for a format change. The "itflow" prefix
+       predates the RivetIT name and stays: renaming it would also invalidate every issued URL. */
     private const CONTEXT = 'itflow.kb_media.v1';
 
     /* The three things that can be addressed. These strings are literals in the

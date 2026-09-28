@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow Internal IT - nightly Odoo directory sync (Training Phase 2, S5).
+ * RivetIT - nightly Odoo directory sync (Training Phase 2, S5).
  *
  * Deliberately NOT part of cron/cron.php, for the same reason cron/backup_cron.php and
  * cron/training_cron.php are not: this vhost shares its SMTP relay and client data with the live

@@ -1,7 +1,7 @@
 <?php
 /*
- * ITFlow beta - standalone entry point for the accounting (QuickBooks) sync
- * worker, scheduled independently via /etc/cron.d/itflow-beta.
+ * RivetIT - standalone entry point for the accounting (QuickBooks) sync
+ * worker, used on the beta install and scheduled there via /etc/cron.d/itflow-beta.
  *
  * Unlike production, beta has no cron schedule wired to the full cron/cron.php
  * bundle (RMM sync, backups, automation rules, etc.) - only this narrower,

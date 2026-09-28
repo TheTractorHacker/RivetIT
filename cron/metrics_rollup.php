@@ -14,7 +14,7 @@
  *  Included daily from cron/cron.php. Also runnable stand-alone from the CLI for backfill/testing:
  *      php cron/metrics_rollup.php
  *
- *  ITFlow is single-company per install, so company_id is fixed at 1 (tickets carry no company_id column).
+ *  RivetIT is single-company per install, so company_id is fixed at 1 (tickets carry no company_id column).
  */
 
 // Stand-alone bootstrap (skipped when included from cron.php, which already has $mysqli + helpers).

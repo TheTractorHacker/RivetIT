@@ -18,7 +18,7 @@ if (php_sapi_name() !== 'cli') {
 // Autoload (Webklex & any composer deps)
 require_once "../plugins/vendor/autoload.php";
 
-// Get ITFlow config & helper functions
+// Get RivetIT config & helper functions
 require_once "../config.php";
 
 // Set Timezone
@@ -39,7 +39,7 @@ $config_ticket_from_name = sanitizeInput($config_ticket_from_name);
 // Check setting enabled
 if ($config_ticket_email_parse == 0) {
     logApp("Cron-Email-Parser", "error", "Cron Email Parser unable to run - not enabled in admin settings.");
-    exit("Email Parser: Feature is not enabled - check Settings > Ticketing > Email-to-ticket parsing. See https://docs.itflow.org/ticket_email_parse  -- Quitting..");
+    exit("Email Parser: Feature is not enabled - check Settings > Ticketing > Email-to-ticket parsing -- Quitting..");
 }
 
 // System temp directory & lock
@@ -574,6 +574,8 @@ function pollMailboxImap(array $mailbox): array {
 
     $inbox = $client->getFolderByPath('INBOX');
 
+    // Processed mail goes to a folder still named "ITFlow" (the pre-RivetIT name) on purpose: every
+    // monitored mailbox already has it, and a new name would silently start a second folder.
     $targetFolderPath = 'ITFlow';
     try {
         $targetFolder = $client->getFolderByPath($targetFolderPath);
@@ -792,6 +794,7 @@ function pollMailboxMicrosoftGraph(array $mailbox): array {
 
 // Finds (or creates) the top-level "ITFlow" mail folder, matching the sibling-of-Inbox
 // folder Webklex creates for Standard IMAP / Google mailboxes. Returns the folder's Graph id.
+// The folder keeps its pre-RivetIT name on purpose (see $targetFolderPath in the IMAP path).
 function graphFindOrCreateItflowFolder(string $graph_base, string $access_token): string {
     $list_url = $graph_base . "/mailFolders?" . http_build_query([
         '$filter' => "displayName eq 'ITFlow'",

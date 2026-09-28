@@ -283,7 +283,7 @@ $run_started  = microtime(true);
 $exit_code    = 0;
 $dry_suffix   = $flag_dry_run ? ' [dry-run]' : '';
 
-metricsCronOut("ITFlow device metrics run starting{$dry_suffix}");
+metricsCronOut(APP_NAME . " device metrics run starting{$dry_suffix}");
 
 $ingest = new MetricIngestService($mysqli);
 $rollup = new MetricRollupService($mysqli);
@@ -547,7 +547,7 @@ if ($do_prune) {
  *  Unlock (the shutdown handler covers abnormal exits)
  * ======================================================================= */
 
-metricsCronOut('ITFlow device metrics run complete in ' . number_format(microtime(true) - $run_started, 1) . 's' . $dry_suffix);
+metricsCronOut(APP_NAME . ' device metrics run complete in ' . number_format(microtime(true) - $run_started, 1) . 's' . $dry_suffix);
 
 if (is_file($metrics_lock_path)) {
     unlink($metrics_lock_path);

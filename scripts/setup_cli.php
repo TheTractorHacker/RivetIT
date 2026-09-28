@@ -1,9 +1,10 @@
 #!/usr/bin/env php
 <?php
 
+// RivetIT command-line installer (the web installer is setup/index.php).
 // Example
 //php setup_cli.php --help
-//php setup_cli.php --host=localhost --username=itflow --password=secret --database=itflow --base-url=example.com/itflow --locale=en_US --timezone=UTC --currency=USD --company-name="My Company" --country="United States" --user-name="John Doe" --user-email="john@example.com" --user-password="admin123" --non-interactive
+//php setup_cli.php --host=localhost --username=rivetit --password=secret --database=rivetit --base-url=rivetit.example.com --locale=en_US --timezone=UTC --currency=USD --company-name="My Company" --country="United States" --user-name="John Doe" --user-email="john@example.com" --user-password="admin123" --non-interactive
 
 // Change to the directory of this script so that all shell commands run here
 chdir(__DIR__);
@@ -13,13 +14,16 @@ if (php_sapi_name() !== 'cli') {
     die("This script must be run from the command line.\n");
 }
 
+// Product name and links (APP_NAME etc.); --help prints before functions.php is loaded.
+require_once __DIR__ . '/../includes/branding.php';
+
 // Define required arguments
 $required_args = [
     'host'         => 'Database host',
     'username'     => 'Database username',
     'password'     => 'Database password',
     'database'     => 'Database name',
-    'base-url'     => 'Base URL (without protocol, e.g. example.com/itflow)',
+    'base-url'     => 'Base URL (without protocol, e.g. rivetit.example.com)',
     'locale'       => 'Locale (e.g. en_US)',
     'timezone'     => 'Timezone (e.g. UTC)',
     'currency'     => 'Currency code (e.g. USD)',
@@ -76,7 +80,7 @@ $options = getopt($shortopts, $longopts);
 
 // If --help is set, print usage and exit
 if (isset($options['help'])) {
-    echo "ITFlow Internal IT CLI Setup Script\n\n";
+    echo APP_NAME . " CLI Setup Script\n\n";
     echo "Usage:\n";
     echo "  php setup_cli.php [options]\n\n";
     echo "Options:\n";
@@ -101,6 +105,9 @@ if (isset($options['help'])) {
     echo "  --help\t\tShow this help message\n\n";
     echo "If running interactively (without --non-interactive), any missing required arguments will be prompted.\n";
     echo "If running non-interactively, all required arguments must be provided.\n\n";
+    echo "Secrets can come from the environment instead of argv: RIVETIT_DB_PASSWORD (--password) and\n";
+    echo "RIVETIT_ADMIN_PASSWORD (--user-password). The older ITFLOW_DB_PASSWORD / ITFLOW_ADMIN_PASSWORD\n";
+    echo "names still work (deprecated) when the RIVETIT_* one is not set.\n\n";
     exit(0);
 }
 
@@ -136,9 +143,11 @@ $non_interactive = isset($options['non-interactive']);
 // Secrets accepted via environment variable in preference to --password/--user-password
 // on argv, which is visible to any other local user via `ps` for the life of the process
 // and often ends up in shell history. A deploy script can export these instead.
+// Names are tried in order: RIVETIT_* first, then the pre-rebrand ITFLOW_* names, which
+// existing deploy scripts and Docker setups export and which keep working (deprecated).
 $secret_env_vars = [
-    'password'      => 'ITFLOW_DB_PASSWORD',
-    'user-password' => 'ITFLOW_ADMIN_PASSWORD',
+    'password'      => ['RIVETIT_DB_PASSWORD', 'ITFLOW_DB_PASSWORD'],
+    'user-password' => ['RIVETIT_ADMIN_PASSWORD', 'ITFLOW_ADMIN_PASSWORD'],
 ];
 
 function getSecretFromEnv($key) {
@@ -146,8 +155,13 @@ function getSecretFromEnv($key) {
     if (!isset($secret_env_vars[$key])) {
         return false;
     }
-    $val = getenv($secret_env_vars[$key]);
-    return ($val === false || $val === '') ? false : $val;
+    foreach ($secret_env_vars[$key] as $env_name) {
+        $val = getenv($env_name);
+        if ($val !== false && $val !== '') {
+            return $val;
+        }
+    }
+    return false;
 }
 
 function getOptionOrPrompt($key, $promptMessage, $required = false, $default = '', $optionsGlobal = []) {
@@ -173,7 +187,7 @@ function getOptionOrPrompt($key, $promptMessage, $required = false, $default = '
 }
 
 // Start setup
-echo "Welcome to the ITFlow Internal IT CLI Setup.\n";
+echo "Welcome to the " . APP_NAME . " CLI Setup.\n";
 
 // If config exists, abort
 if (file_exists('../config.php')) {
@@ -183,7 +197,8 @@ if (file_exists('../config.php')) {
 }
 
 // If non-interactive is set, ensure all required arguments are present
-// (a secret supplied via ITFLOW_DB_PASSWORD/ITFLOW_ADMIN_PASSWORD counts too).
+// (a secret supplied via RIVETIT_DB_PASSWORD/RIVETIT_ADMIN_PASSWORD, or the older
+// ITFLOW_DB_PASSWORD/ITFLOW_ADMIN_PASSWORD, counts too).
 // --config-only only ever needs the DB/base-url args below, not the
 // company/admin-user ones - it never prompts for or inserts any of that.
 if ($non_interactive) {
@@ -206,7 +221,7 @@ $username = getOptionOrPrompt('username', "Enter the database username", true);
 $password = getOptionOrPrompt('password', "Enter the database password", true);
 
 // Base URL
-$base_url = getOptionOrPrompt('base-url', "Enter the base URL (e.g. example.com/itflow)", true);
+$base_url = getOptionOrPrompt('base-url', "Enter the base URL (e.g. rivetit.example.com)", true);
 $base_url = rtrim($base_url, '/');
 
 if (!$config_only) {
@@ -279,7 +294,7 @@ $new_config .= "\$dbusername = " . var_export($username, true) . ";\n";
 $new_config .= "\$dbpassword = " . var_export($password, true) . ";\n";
 $new_config .= "\$database = " . var_export($database, true) . ";\n";
 $new_config .= "\$mysqli = mysqli_connect(\$dbhost, \$dbusername, \$dbpassword, \$database) or die('Database Connection Failed');\n";
-$new_config .= "\$config_app_name = 'ITFlow Internal IT';\n";
+$new_config .= "\$config_app_name = " . var_export(APP_NAME, true) . ";\n";
 $new_config .= "\$config_base_url = '" . addslashes($base_url) . "';\n";
 $new_config .= "\$config_https_only = TRUE;\n";
 $new_config .= "\$repo_branch = 'main';\n";
@@ -411,7 +426,7 @@ mysqli_query($mysqli, "INSERT INTO user_role_permissions (user_role_id, module_i
 mysqli_query($mysqli, "INSERT INTO user_roles SET role_id = 3, role_name = 'Administrator', role_description = 'Built-in - Full administrative access', role_is_admin = 1");
 
 // Custom Links
-mysqli_query($mysqli,"INSERT INTO custom_links SET custom_link_name = 'Docs', custom_link_uri = 'https://docs.itflow.org', custom_link_new_tab = 1, custom_link_icon = 'question-circle'");
+mysqli_query($mysqli,"INSERT INTO custom_links SET custom_link_name = 'Docs', custom_link_uri = '" . mysqli_real_escape_string($mysqli, APP_DOCS_URL) . "', custom_link_new_tab = 1, custom_link_icon = 'question-circle'");
 
 // network_interfaces
 mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Ethernet', category_type = 'network_interface', category_order = 1"); // 1
@@ -465,7 +480,7 @@ mysqli_query($mysqli,"INSERT INTO accounts SET account_name = 'Cash', account_cu
 // Telemetry (optional if interactive)
 if (!$non_interactive) {
     echo "\n=== Telemetry ===\n";
-    echo "Would you like to share anonymous usage data with the project maintainers? [y/N]: ";
+    echo "Would you like to share anonymous usage data with the upstream ITFlow project (telemetry.itflow.org)? [y/N]: ";
     $share = strtolower(trim(fgets(STDIN)));
     if ($share === 'y') {
         mysqli_query($mysqli,"UPDATE settings SET config_telemetry = 2");

@@ -11,6 +11,35 @@ require_once __DIR__ . '/includes/ui/components.php';
 // Role check failed wording
 DEFINE("WORDING_ROLECHECK_FAILED", "You are not permitted to do that!");
 
+/**
+ * The name e-mails and notices call the software: $config_app_name from config.php, where setup used to
+ * write the old product name ('ITFlow' upstream, 'ITFlow Internal IT' in this fork). Those legacy
+ * defaults, or no value at all, mean APP_NAME, so existing installs send RivetIT mail without anyone
+ * editing config.php; a name an admin chose on purpose is kept. The config key itself is unchanged.
+ */
+function appDisplayName($configured = null): string {
+    $configured = is_string($configured) ? trim($configured) : '';
+    if ($configured === '' || in_array($configured, ['ITFlow', 'ITFlow Internal IT'], true)) {
+        return APP_NAME;
+    }
+    return $configured;
+}
+
+// config.php is loaded before this file on every entry point that sends mail, so this runs after it.
+$config_app_name = appDisplayName($config_app_name ?? null);
+
+/**
+ * User-Agent for outgoing HTTP calls to public services (geocoding etc.): product/version plus the
+ * project URL, as their usage policies ask. Printable ASCII only, so an override cannot inject headers.
+ */
+function appUserAgent(): string {
+    if (!defined('APP_VERSION')) {
+        require_once __DIR__ . '/includes/app_version.php';
+    }
+    $ua = APP_NAME . '/' . APP_VERSION . ' (+' . APP_REPO_URL . '; ' . rtrim(APP_SHORT_DESCRIPTION, '.') . ')';
+    return preg_replace('/[^\x20-\x7E]/', '', $ua);
+}
+
 // Function to generate both crypto & URL safe random strings
 function randomString(int $length = 16): string {
     $bytes = random_bytes((int) ceil($length * 3 / 4));
@@ -136,7 +165,7 @@ function getIP() {
     // Default way to get IP
     $ip = $_SERVER['REMOTE_ADDR'];
 
-    // Allow overrides via config.php in-case we use a proxy - https://docs.itflow.org/config_php
+    // Allow overrides via config.php in-case we use a proxy - upstream ITFlow docs: https://docs.itflow.org/config_php
     if (defined("CONST_GET_IP_METHOD") && CONST_GET_IP_METHOD == "HTTP_X_FORWARDED_FOR") {
         $ip = explode(',', getenv('HTTP_X_FORWARDED_FOR'))[0] ?? $_SERVER['REMOTE_ADDR'];
     } elseif (defined("CONST_GET_IP_METHOD") && CONST_GET_IP_METHOD == "HTTP_CF_CONNECTING_IP") {
@@ -145,8 +174,8 @@ function getIP() {
 
     // Abort if something isn't right
     if (!filter_var($ip, FILTER_VALIDATE_IP)) {
-        error_log("ITFlow - Could not validate remote IP address");
-        error_log("ITFlow - IP was [$ip] using method " . CONST_GET_IP_METHOD);
+        error_log(APP_NAME . " - Could not validate remote IP address");
+        error_log(APP_NAME . " - IP was [$ip] using method " . CONST_GET_IP_METHOD);
         exit("Potential Security Violation");
     }
 
@@ -965,7 +994,7 @@ function getDomainCreationDate($whois)
 }
 
 // Extracts the WHOIS record's own registrar name (distinct from the domain_registrar
-// vendor_id ITFlow already has - this is what the WHOIS response itself reports).
+// vendor_id RivetIT already has - this is what the WHOIS response itself reports).
 // Verified against the same 7 real domains as getDomainCreationDate() above - most
 // registries print "Registrar: <name>" on one line, but Nominet (.uk) instead prints the
 // "Registrar:" label alone with the actual name on the following line, so that shape is
@@ -1296,7 +1325,7 @@ function report_render_email_html(mysqli $mysqli, $report_key)
         return null;
     }
     $label = $reports[$report_key];
-    $brand = $company_name ?? ($session_company_name ?? 'ITFlow Internal IT');
+    $brand = $company_name ?? ($session_company_name ?? APP_NAME);
     $ccy   = $session_company_currency ?? $company_currency ?? 'USD';
 
     $money = static function ($v) use ($currency_format, $ccy) {
@@ -3306,7 +3335,7 @@ function getOutlookAccessToken($user_id) {
                 user_outlook_refresh_token = NULL,
                 user_outlook_token_expires = NULL
                 WHERE user_id = $user_id");
-            error_log("ITFlow: Outlook token for user $user_id revoked ({$data['error']}). User must reconnect at /agent/user/user_integrations.php");
+            error_log(APP_NAME . ": Outlook token for user $user_id revoked ({$data['error']}). User must reconnect at /agent/user/user_integrations.php");
 
             // The refresh token is cleared above, so this only fires once per
             // revocation (the next call short-circuits before reaching Microsoft)
@@ -3478,7 +3507,7 @@ function syncScheduleEntryToOutlook($schedule_id) {
         return 'synced';
     }
 
-    error_log("ITFlow: Outlook event sync failed for schedule $schedule_id: " . json_encode($response['error'] ?? 'no response'));
+    error_log(APP_NAME . ": Outlook event sync failed for schedule $schedule_id: " . json_encode($response['error'] ?? 'no response'));
     return 'failed';
 }
 
@@ -3513,7 +3542,7 @@ function deleteOutlookCalendarEvent($ticket_id) {
 // on ticket_schedules.schedule_outlook_event_id (one row per appointment) rather than the
 // legacy tickets.ticket_outlook_event_id (one event per ticket). Mirrors it exactly
 // otherwise: same Graph DELETE call shape, same silent-failure convention (a failed
-// Outlook-side delete should never block the ITFlow-side archive of the appointment).
+// Outlook-side delete should never block the RivetIT-side archive of the appointment).
 function deleteOutlookScheduleEvent($schedule_id) {
     global $mysqli;
 
@@ -3613,13 +3642,19 @@ function fetchUpdates() {
     // pool, and enough of them over time exhausts pm.max_children and takes
     // the whole site down. Bounding the child process here means the worst
     // case is a slow request, never a leaked one.
-    exec("timeout 15 git fetch fork 2>&1", $output, $result);
-    $latest_version  = exec("git rev-parse fork/$repo_branch");
+    //
+    // Update source: the git remote named by APP_UPDATE_REMOTE (includes/branding.php), which is the
+    // "fork" remote of the repository this install was cloned from unless an install changes it.
+    // Nothing here points at a RivetIT repository that does not exist yet.
+    $update_remote = defined('APP_UPDATE_REMOTE') ? (string) APP_UPDATE_REMOTE : 'fork';
+    $update_ref    = escapeshellarg("$update_remote/$repo_branch");
+    exec("timeout 15 git fetch " . escapeshellarg($update_remote) . " 2>&1", $output, $result);
+    $latest_version  = exec("git rev-parse $update_ref");
     $current_version = exec("git rev-parse HEAD");
 
     // Human-readable tag-based versions (e.g. v2.6.0)
     $current_version_tag = exec("git describe --tags --abbrev=0 HEAD 2>/dev/null") ?: $current_version;
-    $latest_version_tag  = exec("git describe --tags --abbrev=0 fork/$repo_branch 2>/dev/null") ?: $latest_version;
+    $latest_version_tag  = exec("git describe --tags --abbrev=0 $update_ref 2>/dev/null") ?: $latest_version;
 
     if ($current_version == $latest_version) {
         $update_message = "No Updates available";
@@ -4430,7 +4465,7 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
             $client_uri = "&client_id=$client_id";
         }
         $email_subject = "$config_app_name - New Ticket - $client_name: $subject";
-        $email_body = "Hello, <br><br>This is a notification that a new ticket has been raised in ITFlow Internal IT. <br>Department: $client_name<br>Priority: Low (email parsed)<br>Link: https://$config_base_url/agent/ticket.php?ticket_id=$id$client_uri <br><br>--------------------------------<br><br><b>$subject</b><br>$message";
+        $email_body = "Hello, <br><br>This is a notification that a new ticket has been raised in " . nullable_htmlentities($config_app_name) . ". <br>Department: $client_name<br>Priority: Low (email parsed)<br>Link: https://$config_base_url/agent/ticket.php?ticket_id=$id$client_uri <br><br>--------------------------------<br><br><b>$subject</b><br>$message";
 
         $data[] = [
             'from' => $from_email,
@@ -5781,7 +5816,7 @@ function geocodeAddressCensusUS(string $address, string $city, string $state, st
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 5,
         CURLOPT_CONNECTTIMEOUT => 3,
-        CURLOPT_HTTPHEADER => ['User-Agent: ITFlow-Internal-IT/1.0 (self-hosted IT documentation tool)'],
+        CURLOPT_HTTPHEADER => ['User-Agent: ' . appUserAgent()],
     ]);
     $response = curl_exec($ch);
     $curl_error = curl_error($ch);
@@ -5835,7 +5870,7 @@ function geocodeAddressQuery(string $query): ?array {
         CURLOPT_CONNECTTIMEOUT => 3,
         // Required by Nominatim's usage policy - requests with a generic/blank
         // User-Agent are liable to be blocked outright.
-        CURLOPT_HTTPHEADER => ['User-Agent: ITFlow-Internal-IT/1.0 (self-hosted IT documentation tool)'],
+        CURLOPT_HTTPHEADER => ['User-Agent: ' . appUserAgent()],
     ]);
     $response = curl_exec($ch);
     $curl_error = curl_error($ch);

@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow Internal IT - Training kiosk housekeeping (P3 spec §6, P-9). Every 10 minutes.
+ * RivetIT - Training kiosk housekeeping (P3 spec §6, P-9). Every 10 minutes.
  *
  * Standalone for the same reason as cron/training_cron.php and backup_cron.php: cron/cron.php
  * is not scheduled on this vhost (it shares its SMTP relay and client data with the MSP install).

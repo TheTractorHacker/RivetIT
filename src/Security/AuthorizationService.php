@@ -5,7 +5,7 @@ namespace ITFlow\Security;
 /**
  * Thin wrapper over the existing permission model - NOT a replacement.
  *
- * ITFlow Internal IT keeps two existing, working layers as-is:
+ * RivetIT keeps two existing, working layers as-is:
  *   1. Role/module permissions: lookupUserPermission($module) in functions.php,
  *      backed by user_roles / user_role_permissions / modules.
  *   2. Per-department access scoping: enforceClientAccess($client_id) in
