@@ -480,51 +480,9 @@ mysqli_query($mysqli,"UPDATE companies SET company_locale = '$locale', company_c
 mysqli_query($mysqli,"UPDATE settings SET config_timezone = '$timezone' WHERE company_id = 1");
 mysqli_query($mysqli,"INSERT INTO accounts SET account_name = 'Cash', account_currency_code = '$currency_code'");
 
-// Telemetry (optional if interactive)
-if (!$non_interactive) {
-    echo "\n=== Telemetry ===\n";
-    echo "Would you like to share anonymous usage data with the upstream ITFlow project (telemetry.itflow.org)? [y/N]: ";
-    $share = strtolower(trim(fgets(STDIN)));
-    if ($share === 'y') {
-        mysqli_query($mysqli,"UPDATE settings SET config_telemetry = 2");
-
-        echo "Any comments to include? Press Enter if none: ";
-        $comments = trim(fgets(STDIN));
-
-        $sql = mysqli_query($mysqli,"SELECT * FROM companies WHERE company_id = 1");
-        $row = mysqli_fetch_assoc($sql);
-        $company_name_db = $row['company_name'];
-        $website_db = $row['company_website'];
-        $city_db = $row['company_city'];
-        $state_db = $row['company_state'];
-        $country_db = $row['company_country'];
-        $currency_db = $row['company_currency'];
-
-        $postdata = http_build_query([
-            'installation_id' => "$installation_id",
-            'company_name' => "$company_name_db",
-            'website' => "$website_db",
-            'city' => "$city_db",
-            'state' => "$state_db",
-            'country' => "$country_db",
-            'currency' => "$currency_db",
-            'comments' => "$comments",
-            'collection_method' => 1
-        ]);
-
-        $opts = ['http' =>
-            [
-                'method' => 'POST',
-                'header' => 'Content-type: application/x-www-form-urlencoded',
-                'content' => $postdata
-            ]
-        ];
-
-        $context = stream_context_create($opts);
-        $result = @file_get_contents('https://telemetry.itflow.org', false, $context);
-        echo "Telemetry response: $result\n";
-    }
-}
+// Telemetry was removed: this used to optionally POST installation/company details to the upstream
+// ITFlow project's telemetry.itflow.org. RivetIT sends nothing anywhere; config_telemetry keeps its
+// schema default (0).
 
 // finalize config
 $myfile = fopen("../config.php", "a");
