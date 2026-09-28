@@ -1,4 +1,4 @@
-# ITFlow-Internal-IT — Docker Compose runtime image.
+# RivetIT — Docker Compose runtime image.
 #
 # This image is deliberately NOT a self-contained distributable — it ships
 # nginx + PHP-FPM 8.4 + supervisord only. The application code always comes
@@ -54,6 +54,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # for the same reason deploy/update.sh reloads php-fpm after a git pull: a
 # `git pull` here is not accompanied by any reload, so opcache must notice
 # changed files on its own.
+#
+# The in-container file names below still say "itflow"; they are internal to
+# the image and renaming them would change nothing a user sees.
 COPY docker/php-overrides.ini /usr/local/etc/php/conf.d/zz-itflow-overrides.ini
 COPY docker/nginx.conf /etc/nginx/sites-available/itflow.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/itflow.conf

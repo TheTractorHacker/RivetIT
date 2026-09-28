@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ITFlow-Internal-IT box hardening.
+# RivetIT box hardening.
 #
 # Applies deploy/templates/{php-hardening.ini,mariadb-hardening.cnf,
 # jail-itflow.local,nginx-vhost.conf.template} to the running system, plus a
@@ -10,12 +10,12 @@ set -euo pipefail
 #
 # STANDALONE BY DESIGN: deploy/install.sh calls this after provisioning a
 # new instance, but it is also meant to be run BY ITSELF, directly, by a
-# company that already has ITFlow-Internal-IT running from a manual/older
+# company that already has RivetIT running from a manual/older
 # setup and just wants to retrofit this hardening onto it:
 #   sudo deploy/harden.sh                 # box-wide hardening only
-#   sudo deploy/harden.sh --domain itflow.example.com --app-root /var/www/itflow.example.com \
-#       --ssl-cert /etc/ssl/certs/itflow.example.com.crt \
-#       --ssl-cert-key /etc/ssl/private/itflow.example.com.key
+#   sudo deploy/harden.sh --domain rivetit.example.com --app-root /var/www/rivetit.example.com \
+#       --ssl-cert /etc/ssl/certs/rivetit.example.com.crt \
+#       --ssl-cert-key /etc/ssl/private/rivetit.example.com.key
 #                                          # also (re)render that vhost hardened
 #   sudo deploy/harden.sh --dry-run       # preview every action, change nothing
 #
@@ -28,7 +28,7 @@ set -euo pipefail
 #
 # Every package/file/service action below checks-before-acting so this is
 # safe to run repeatedly, including against a box that already has one or
-# more OTHER ITFlow instances hardened by an earlier run of this script.
+# more OTHER RivetIT instances hardened by an earlier run of this script.
 
 # ---------------------------------------------------------------------------
 # Bring in shared helpers if deploy/lib/common.sh exists (log/success/warn/die/
@@ -195,7 +195,7 @@ run_or_log() {
 }
 
 # Install an apt package only if it isn't already present - never reinstall
-# something another ITFlow instance's setup (or the admin) already put there.
+# something another RivetIT instance's setup (or the admin) already put there.
 ensure_pkg() {
     local pkg="$1"
     if package_installed "$pkg"; then
@@ -397,6 +397,12 @@ if ! $SKIP_FAIL2BAN; then
     FILTER_DEST="/etc/fail2ban/filter.d/itflow-auth.conf"
     FILTER_TMP="$(mktemp)"
     register_tmpfile "$FILTER_TMP"
+    # The deployed text below (and in the UU and rate-limit heredocs further
+    # down, and in deploy/templates/{php-hardening.ini,mariadb-hardening.cnf,
+    # jail-itflow.local}) still says ITFlow-Internal-IT on purpose: every run
+    # compares it byte for byte with what earlier runs installed, and a
+    # changed comment would restart fail2ban here (and make step 7 refuse the
+    # existing rate-limit file). See REBRANDING.md.
     cat > "$FILTER_TMP" <<'EOF'
 # ITFlow-Internal-IT auth-endpoint filter for fail2ban.
 # Written by deploy/harden.sh, sourced from deploy/templates/jail-itflow.local's
@@ -466,14 +472,14 @@ if ! $SKIP_UFW; then
     # `ufw --force enable` on a box with no prior rules locks out the very
     # session running this script.
     for p in "${SSH_PORTS[@]}"; do
-        run_or_log "Allowing SSH on ${p}/tcp" ufw allow "${p}/tcp" comment "ITFlow hardening: SSH"
+        run_or_log "Allowing SSH on ${p}/tcp" ufw allow "${p}/tcp" comment "RivetIT hardening: SSH"
     done
 
-    run_or_log "Allowing HTTP (80/tcp)" ufw allow 80/tcp comment "ITFlow hardening: HTTP"
-    run_or_log "Allowing HTTPS (443/tcp)" ufw allow 443/tcp comment "ITFlow hardening: HTTPS"
+    run_or_log "Allowing HTTP (80/tcp)" ufw allow 80/tcp comment "RivetIT hardening: HTTP"
+    run_or_log "Allowing HTTPS (443/tcp)" ufw allow 443/tcp comment "RivetIT hardening: HTTPS"
 
     if $PROXY_MODE; then
-        run_or_log "Allowing reverse-proxy backend port (8443/tcp)" ufw allow 8443/tcp comment "ITFlow hardening: proxy-mode backend"
+        run_or_log "Allowing reverse-proxy backend port (8443/tcp)" ufw allow 8443/tcp comment "RivetIT hardening: proxy-mode backend"
     fi
     for p in "${EXTRA_PORTS[@]}"; do
         run_or_log "Allowing extra port ${p}" ufw allow "$p"
@@ -546,7 +552,7 @@ fi
 if ! $SKIP_NGINX; then
     log "--- nginx ---"
 
-    # http{}-context rate limit zone shared by every ITFlow vhost on this
+    # http{}-context rate limit zone shared by every RivetIT vhost on this
     # box - lives once per box regardless of how many instances/domains it
     # hosts, since nginx errors on defining the same zone name twice.
     RATE_LIMIT_DEST="/etc/nginx/conf.d/itflow-rate-limit.conf"

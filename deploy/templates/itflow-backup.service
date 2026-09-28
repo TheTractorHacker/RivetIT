@@ -1,4 +1,7 @@
-# ITFlow-Internal-IT — daily backup oneshot service.
+# RivetIT — daily backup oneshot service.
+#
+# The unit, timer and passphrase names keep the "itflow" prefix on purpose:
+# boxes already have them enabled under these names (see REBRANDING.md).
 #
 # Consumed by: deploy/install.sh (not yet wired up there — install.sh's own
 # "YOUR FILES" boundary in this project belongs to a different track; for
@@ -7,9 +10,9 @@
 # /etc/systemd/system/ with the ${APP_DIR} placeholder below substituted for
 # the real instance webroot, e.g.:
 #
-#   sed 's|${APP_DIR}|/var/www/itflow.example.com|g' \
+#   sed 's|${APP_DIR}|/var/www/rivetit.example.com|g' \
 #       deploy/templates/itflow-backup.service > /etc/systemd/system/itflow-backup.service
-#   sed 's|${APP_DIR}|/var/www/itflow.example.com|g' \
+#   sed 's|${APP_DIR}|/var/www/rivetit.example.com|g' \
 #       deploy/templates/itflow-backup.timer > /etc/systemd/system/itflow-backup.timer
 #   systemctl daemon-reload
 #   systemctl enable --now itflow-backup.timer
@@ -21,7 +24,7 @@
 # a distinct unit filename (e.g. itflow-backup@companyA.service, or simply
 # itflow-backup-companyA.service) — copying this file's rendered output
 # under a second name per instance is enough; nothing here assumes it's the
-# only ITFlow instance on the box, but two instances CANNOT share one
+# only RivetIT instance on the box, but two instances CANNOT share one
 # literal "itflow-backup.service" name since each needs a different
 # --app-dir baked into its ExecStart.
 #
@@ -38,7 +41,7 @@
 #   chmod 600 /etc/itflow/backup-passphrase
 
 [Unit]
-Description=ITFlow-Internal-IT encrypted backup (${APP_DIR})
+Description=RivetIT encrypted backup (${APP_DIR})
 Documentation=https://github.com/TheTractorHacker/ITFlow-Internal-IT
 After=network.target mariadb.service
 Wants=mariadb.service

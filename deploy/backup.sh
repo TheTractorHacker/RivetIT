@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ITFlow-Internal-IT — single-instance encrypted backup.
+# RivetIT — single-instance encrypted backup.
 #
 # Dumps one instance's database (mysqldump), its uploads/ directory
 # (user-uploaded contracts/documents/tickets/etc — the content that isn't
@@ -22,7 +22,7 @@ set -euo pipefail
 #   backup.sh --help
 #
 # Required:
-#   --app-dir=<path>            Webroot of the ITFlow-Internal-IT instance to
+#   --app-dir=<path>            Webroot of the RivetIT instance to
 #                               back up (the directory containing config.php).
 #   --passphrase-file=<path>    Path to a 600-permission file holding the
 #                               encryption passphrase. REQUIRED — this script
@@ -64,7 +64,7 @@ PASSPHRASE_FILE=""
 
 print_help() {
     cat <<'EOF'
-ITFlow-Internal-IT — single-instance encrypted backup
+RivetIT — single-instance encrypted backup
 
 Usage:
   sudo deploy/backup.sh --app-dir=<path> --passphrase-file=<path> [options]
@@ -112,7 +112,7 @@ validate_args() {
     [[ -n "${APP_DIR}" ]] || { print_help; die "--app-dir is required."; }
     [[ "${APP_DIR}" == /* ]] || die "--app-dir must be an absolute path (got: ${APP_DIR})"
     [[ -d "${APP_DIR}" ]] || die "--app-dir '${APP_DIR}' does not exist or is not a directory."
-    [[ -f "${APP_DIR}/config.php" ]] || die "No config.php found under ${APP_DIR} — is this an installed ITFlow-Internal-IT instance? (delete a partial install and re-run deploy/install.sh, or point --app-dir at the correct instance)."
+    [[ -f "${APP_DIR}/config.php" ]] || die "No config.php found under ${APP_DIR} — is this an installed RivetIT instance? (delete a partial install and re-run deploy/install.sh, or point --app-dir at the correct instance)."
 
     [[ -n "${PASSPHRASE_FILE}" ]] || { print_help; die "--passphrase-file is required — refusing to run without an encryption passphrase rather than silently writing an unencrypted database dump to disk."; }
     [[ -f "${PASSPHRASE_FILE}" ]] || die "--passphrase-file '${PASSPHRASE_FILE}' does not exist."
@@ -243,7 +243,7 @@ EOF
     if [[ -d "${APP_DIR}/uploads" ]]; then
         tar_members+=(-C "${APP_DIR}" uploads)
     else
-        warn "${APP_DIR}/uploads does not exist; backing up the database only. (Every ITFlow-Internal-IT install creates this directory — check --app-dir is correct.)"
+        warn "${APP_DIR}/uploads does not exist; backing up the database only. (Every RivetIT install creates this directory — check --app-dir is correct.)"
     fi
     if ! tar -czf "${combined}" "${tar_members[@]}"; then
         die "tar failed while bundling the backup archive. No encrypted backup was produced this run."
@@ -282,7 +282,7 @@ main() {
     validate_args
     setup_logging
 
-    info "=== ITFlow-Internal-IT backup starting for ${APP_DIR} ==="
+    info "=== RivetIT backup starting for ${APP_DIR} ==="
     read_app_config "${APP_DIR}"
     # Called as a plain statement, deliberately NOT as `if ! do_backup;
     # then ...` — bash suspends `set -e` for the ENTIRE body of a function

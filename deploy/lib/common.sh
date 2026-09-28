@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ITFlow-Internal-IT deployment tooling — shared helper library.
+# RivetIT deployment tooling — shared helper library.
 #
 # Sourced (never executed directly) by deploy/install.sh and by the other
 # deploy/*.sh scripts in this directory (e.g. deploy/harden.sh,
