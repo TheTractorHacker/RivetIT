@@ -286,7 +286,20 @@
         };
     }
 
-    /** Plain lines of a cue: the parsed cue fragment's text (entities decoded, any markup dropped), split on line breaks. */
+    /** Strips every <tag>, repeatedly: a single pass over /<[^>]*>/g can leave a fresh "<...>" behind when two
+     *  non-overlapping matches' surviving neighbours line back up (the classic incomplete-sanitization bypass),
+     *  so this loops until a pass changes nothing. */
+    function stripTags(s) {
+        var prev;
+        do { prev = s; s = s.replace(/<[^>]*>/g, ''); } while (s !== prev);
+        return s;
+    }
+
+    /** Plain lines of a cue: the parsed cue fragment's text (entities decoded, any markup dropped), split on line breaks.
+     *  Entities are decoded BEFORE tags are stripped - decoding first would let an entity-encoded tag (e.g. a cue
+     *  authored as "&lt;script&gt;") survive the strip and reappear as literal "<script>" in the "plain" text with
+     *  nothing left to run the strip again. Decode first, then strip once (looped for good measure by stripTags),
+     *  so the strip is always the last thing that touches real "<"/">" characters. */
     function cueLines(cue) {
         var text = '';
         try {
@@ -294,7 +307,7 @@
                 var frag = cue.getCueAsHTML();
                 text = frag ? String(frag.textContent || '') : '';
             } else if (cue && typeof cue.text === 'string') {
-                text = cue.text.replace(/<[^>]*>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
+                text = stripTags(cue.text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&'));
             }
         } catch (e) { text = ''; }
         return text.split(/\r?\n/);
