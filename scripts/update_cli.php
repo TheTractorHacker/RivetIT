@@ -29,7 +29,7 @@ function printHelp() {
     echo "Options:\n";
     echo "  --help          Show this help message.\n";
     echo "  --update        Perform a git pull to update the application.\n";
-    echo "  --force_update  Perform a git fetch and hard reset to origin/master.\n";
+    echo "  --force_update  Perform a git fetch and hard reset to origin/main.\n";
     echo "  --update_db     Update the database structure to the latest version.\n";
     echo "\nIf no options are provided, a standard update (git pull) is performed.\n";
 }
@@ -84,7 +84,7 @@ if (isset($options['update']) || isset($options['force_update'])) {
     if (isset($options['force_update'])) {
         // Perform a hard reset
         exec("git fetch --all 2>&1", $output, $return_var);
-        exec("git reset --hard origin/master 2>&1", $output2, $return_var2);
+        exec("git reset --hard origin/main 2>&1", $output2, $return_var2);
         echo implode("\n", $output) . "\n" . implode("\n", $output2) . "\n";
     } else {
         // Perform a standard update (git pull)

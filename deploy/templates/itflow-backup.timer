@@ -5,7 +5,7 @@
 
 [Unit]
 Description=Run RivetIT encrypted backup daily (${APP_DIR})
-Documentation=https://github.com/TheTractorHacker/ITFlow-Internal-IT
+Documentation=https://github.com/TheTractorHacker/RivetIT
 
 [Timer]
 # Off-peak; DB dump + uploads tar is unlikely to collide with real usage at
