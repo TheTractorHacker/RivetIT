@@ -6,7 +6,7 @@ two more detailed references rather than replacing them:
 
 - [`deploy/README.md`](../deploy/README.md) — the full flag-by-flag reference for every script under
   `deploy/` (`full-restore-deploy.sh`, `install.sh`, `harden.sh`, `backup.sh`, `restore.sh`,
-  `restore_zip.sh`, `update.sh`).
+  `restore_admin_zip.sh`, `update.sh`).
 - [`.env.example`](../.env.example) — every Docker Compose environment variable, with inline comments.
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) for how the codebase itself is organized, and
@@ -136,10 +136,12 @@ containing `db.sql` + `uploads.zip` + `version.txt`. It runs two ways:
 
 **Restore it from the browser or the command line**: the `/setup` wizard has a "Restore from Backup" step
 (reachable from the Welcome screen, or the `?restore` Utilities link) that accepts exactly this zip format;
-`deploy/restore_zip.sh` restores the same zip from an SSH session instead, with its own progress printed
-live as it runs (see [`deploy/README.md`](../deploy/README.md#restore_zipsh)). Useful for "undo my last
-change" or moving a quick snapshot between instances — not encrypted, so it's not the tool for genuine
-disaster recovery.
+`deploy/restore_admin_zip.sh` restores the same zip from an SSH session instead, with a master-key
+fallback (`--admin-user`) for when the backup passphrase is lost — something the browser wizard has no
+equivalent for at all (see [`deploy/README.md`](../deploy/README.md#restore_admin_zipsh)). Useful for
+"undo my last change" or moving a quick snapshot between instances — the zip bytes themselves aren't
+encrypted, so it's not on its own the tool for genuine disaster recovery; pair it with a backup passphrase
+(Settings → Backup) if that matters for your threat model.
 
 ### 4.2 `deploy/backup.sh` (the actual DR mechanism)
 

@@ -36,6 +36,17 @@ $config_backup_frequency    = $settings_row['config_backup_frequency'] ?? 'daily
 $config_backup_retain_count = max(1, intval($settings_row['config_backup_retain_count'] ?? 7));
 
 if (!$config_backup_auto_enabled) {
+    // A one-line heartbeat on every exit path (same convention as
+    // cron/training_kiosk_cron.php), not just when a backup is actually
+    // built below - without this, /var/log/itflow_mw_backup.log stays
+    // byte-for-byte empty forever even on a perfectly healthy install,
+    // since every prior exit path here was silent. An empty, unchanging
+    // logfile and a genuinely-stuck cron job used to look identical from
+    // the outside (see project history: a missing logfile silently
+    // stopped a different cron job for days before anyone noticed); this
+    // makes "the job is alive and just has nothing to do" distinguishable
+    // from "the job stopped running" by tailing the log's timestamps.
+    echo gmdate('Y-m-d\TH:i:s\Z') . " backup_cron: auto-backup disabled (Admin > Backup > Scheduled Backups), skipping\n";
     exit(0);
 }
 
@@ -64,6 +75,7 @@ if ($config_backup_frequency === 'daily') {
 }
 
 if (!$should_run) {
+    echo gmdate('Y-m-d\TH:i:s\Z') . " backup_cron: an auto-backup already exists for this {$config_backup_frequency} period, skipping\n";
     exit(0);
 }
 
@@ -81,6 +93,11 @@ logApp('Backup', 'info', "Auto-backup completed: {$result['name']}");
 appNotify('Backup', "Auto-backup saved: {$result['name']}", '/admin/backup.php');
 
 // Remote (S3-compatible) upload, if configured - see Admin > Backup > Remote Storage.
+$s3_uploaded = null;
 if (function_exists('backup_upload_to_s3')) {
-    backup_upload_to_s3($result['path'], $result['name']);
+    $s3_uploaded = backup_upload_to_s3($result['path'], $result['name']);
 }
+
+echo gmdate('Y-m-d\TH:i:s\Z') . " backup_cron: built {$result['name']}"
+    . ($s3_uploaded === null ? '' : ($s3_uploaded ? ', uploaded to S3' : ', S3 upload FAILED'))
+    . "\n";

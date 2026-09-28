@@ -43,10 +43,10 @@ following decisions wasn't already given on the command line:
                           (--restore-from / --restore-passphrase-file) instead
                           of setting up a brand-new company. Either the app's
                           own itflow_<timestamp>_*.zip (Settings > Backup —
-                          not encrypted, no passphrase needed, see
-                          deploy/restore_zip.sh) or an encrypted
-                          backup-*.tar.gz.enc from deploy/backup.sh (asks for
-                          its passphrase file too, see deploy/restore.sh) —
+                          asks whether it had a passphrase set, see
+                          deploy/restore_admin_zip.sh) or an encrypted
+                          backup-*.tar.gz.enc from deploy/backup.sh (always
+                          asks for its passphrase file, see deploy/restore.sh) —
                           install.sh picks the right one by the file
                           extension you give. Either way, install.sh runs
                           that restore path instead of the fresh-company
@@ -190,9 +190,23 @@ if [[ "${NON_INTERACTIVE}" -eq 0 ]]; then
                     RESTORE_FROM=""
                 fi
             done
-            # The in-app .zip format isn't encrypted (see deploy/restore_zip.sh) —
-            # only the backup-*.tar.gz.enc archive needs a passphrase to decrypt.
-            if [[ "${RESTORE_FROM}" != *.zip ]]; then
+            # The in-app .zip's own bytes are never encrypted, but its
+            # backup-manifest.json MAY still be (whenever an admin had a
+            # backup passphrase set - Settings > Backup - when that specific
+            # backup was taken) - deploy/restore_admin_zip.sh is what
+            # actually knows, so this only asks, it never assumes either way.
+            # A backup-*.tar.gz.enc (deploy/backup.sh) always needs one.
+            if [[ "${RESTORE_FROM}" == *.zip ]]; then
+                if [[ "$(ask_yes_no "Did this backup have a passphrase set (Settings > Backup) when it was taken?" n)" == "y" ]]; then
+                    while [[ -z "${RESTORE_PASSPHRASE_FILE}" ]]; do
+                        read_required RESTORE_PASSPHRASE_FILE "Path to that passphrase file (chmod 600): "
+                        if [[ -n "${RESTORE_PASSPHRASE_FILE}" && ! -f "${RESTORE_PASSPHRASE_FILE}" ]]; then
+                            warn "File not found: ${RESTORE_PASSPHRASE_FILE}"
+                            RESTORE_PASSPHRASE_FILE=""
+                        fi
+                    done
+                fi
+            else
                 while [[ -z "${RESTORE_PASSPHRASE_FILE}" ]]; do
                     read_required RESTORE_PASSPHRASE_FILE "Path to the passphrase file that backup was encrypted with (chmod 600): "
                     if [[ -n "${RESTORE_PASSPHRASE_FILE}" && ! -f "${RESTORE_PASSPHRASE_FILE}" ]]; then

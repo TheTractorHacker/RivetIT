@@ -535,3 +535,95 @@ if (!function_exists('extractUploadsZipWithValidationReport')) {
         return ['ok' => true];
     }
 }
+
+// ------------------------------
+// applyManifestSettingsEncKey
+// ------------------------------
+if (!function_exists('applyManifestSettingsEncKey')) {
+    /**
+     * Reads backup-manifest.json (or backup-manifest.json.enc, decrypted with $passphrase)
+     * out of an extracted admin-zip backup, and rewrites $configPath's
+     * $config_settings_enc_key line to match - the same reconciliation deploy/restore.sh
+     * performs (see apply_settings_enc_key() in deploy/lib/common.sh) after a CLI restore.
+     *
+     * Without this, restoring this .zip onto config.php with a DIFFERENT
+     * $config_settings_enc_key (any config.php that wasn't this exact backup's own source
+     * instance - e.g. a fresh box provisioned by deploy/install.sh / scripts/setup_cli.php)
+     * leaves every SMTP/IMAP password, RMM/webhook secret and the wrapped credential-vault
+     * master key permanently undecryptable after the restore completes, with no warning -
+     * db.sql's rows import fine (they're just ciphertext bytes to MySQL), but nothing that
+     * decrypts them afterward will work. Restoring back onto this backup's OWN unchanged
+     * config.php (the common case: same box, same install, disaster was "the database got
+     * wiped") is unaffected either way, since the key would already match.
+     *
+     * @return array{status: string, message: string} status is one of:
+     *   'applied'         - manifest found, key recovered and written to config.php
+     *   'not_found'       - no backup-manifest.json[.enc] in this backup (pre-manifest backup)
+     *   'decrypt_failed'  - backup-manifest.json.enc present but $passphrase didn't decrypt it
+     *   'passphrase_needed' - .enc present, no $passphrase was submitted
+     *   'no_key'          - manifest read fine but had no usable settings_enc_key
+     *   'no_config_line'  - config.php has no $config_settings_enc_key line to replace
+     */
+    function applyManifestSettingsEncKey(string $tempDir, ?string $passphrase, string $configPath): array {
+        $plain = $tempDir . '/backup-manifest.json';
+        $enc   = $tempDir . '/backup-manifest.json.enc';
+        $manifestFile = null;
+        $decryptedTmp = null;
+
+        if (is_file($plain)) {
+            $manifestFile = $plain;
+        } elseif (is_file($enc)) {
+            if ($passphrase === null || $passphrase === '') {
+                return ['status' => 'passphrase_needed', 'message' => "This backup's manifest is encrypted (a backup passphrase was set in Admin > Backup when it was taken) - enter that passphrase to recover its settings-encryption key, or SMTP/IMAP passwords, RMM/webhook secrets and the credential vault will not decrypt after this restore."];
+            }
+            $passFile = tempnam(sys_get_temp_dir(), 'restman_pass_');
+            @chmod($passFile, 0600);
+            file_put_contents($passFile, $passphrase);
+            $decryptedTmp = tempnam(sys_get_temp_dir(), 'restman_dec_');
+            @chmod($decryptedTmp, 0600);
+            $cmd = sprintf(
+                'openssl enc -d -aes-256-cbc -pbkdf2 -salt -in %s -out %s -pass file:%s 2>&1',
+                escapeshellarg($enc),
+                escapeshellarg($decryptedTmp),
+                escapeshellarg($passFile)
+            );
+            exec($cmd, $out, $exitCode);
+            @unlink($passFile);
+            if ($exitCode !== 0 || !is_file($decryptedTmp) || filesize($decryptedTmp) === 0) {
+                @unlink($decryptedTmp);
+                return ['status' => 'decrypt_failed', 'message' => "This backup's manifest (backup-manifest.json.enc) could not be decrypted with the passphrase entered - it's either wrong, or the file is corrupt. Settings-encryption-key recovery was skipped; SMTP/IMAP passwords, RMM/webhook secrets and the credential vault may not decrypt correctly."];
+            }
+            $manifestFile = $decryptedTmp;
+        } else {
+            return ['status' => 'not_found', 'message' => "This backup has no backup-manifest.json (it predates settings-encryption-key capture). config_settings_enc_key was left as-is; if this isn't a restore onto its own original config.php, SMTP/IMAP passwords, RMM/webhook secrets and the credential vault will need to be re-entered by hand."];
+        }
+
+        $data = json_decode((string) file_get_contents($manifestFile), true);
+        if ($decryptedTmp !== null) { @unlink($decryptedTmp); }
+
+        $key = is_array($data) ? (string) ($data['settings_enc_key'] ?? '') : '';
+        if ($key === '') {
+            return ['status' => 'no_key', 'message' => "This backup's manifest has no usable settings-encryption key. config_settings_enc_key was left as-is."];
+        }
+
+        $configContents = @file_get_contents($configPath);
+        if ($configContents === false || !preg_match('/^\$config_settings_enc_key = \'.*\';$/m', $configContents)) {
+            return ['status' => 'no_config_line', 'message' => "config.php has no \$config_settings_enc_key line to update - this instance's config.php may predate that setting. Investigate before trusting restored SMTP/IMAP/RMM/webhook secrets."];
+        }
+
+        // setup_cli.php / deploy/restore.sh's own equivalent both rely on this same
+        // guarantee: $config_settings_enc_key is always bin2hex() output through a
+        // single-quoted var_export-style literal, so no escaping is needed here.
+        $newContents = preg_replace(
+            '/^\$config_settings_enc_key = \'.*\';$/m',
+            "\$config_settings_enc_key = '" . $key . "';",
+            $configContents,
+            1
+        );
+        if ($newContents === null || @file_put_contents($configPath, $newContents, LOCK_EX) === false) {
+            return ['status' => 'no_config_line', 'message' => "Found this backup's settings-encryption key but failed to write it to config.php (check file permissions). SMTP/IMAP passwords, RMM/webhook secrets and the credential vault may not decrypt correctly until this is applied by hand."];
+        }
+
+        return ['status' => 'applied', 'message' => "Settings-encryption key recovered from this backup's manifest and applied to config.php - SMTP/IMAP passwords, RMM/webhook secrets and the credential vault should decrypt normally."];
+    }
+}

@@ -104,6 +104,44 @@ function dump_database_streaming(mysqli $mysqli, string $sqlFile, ?array &$ledge
         $tr->close();
     }
 
+    // Stored procedures/functions - parity with deploy/backup.sh's mysqldump, which is run with
+    // --routines. This install currently defines none (verified via information_schema.ROUTINES),
+    // but the two backup tools must stay equivalent regardless of what any given install has, or a
+    // routine added later would silently vanish from every admin-panel backup while still showing
+    // up fine in a deploy/backup.sh one. DEFINER is intentionally kept as-is (SHOW CREATE
+    // PROCEDURE/FUNCTION always includes it) - same as mysqldump's own default behavior, and this
+    // app's DB user already has CREATE ROUTINE-equivalent rights from its own schema.
+    $dbNameRow = $mysqli->query('SELECT DATABASE() AS db')?->fetch_assoc();
+    $dbName = $dbNameRow['db'] ?? '';
+    if ($dbName !== '') {
+        foreach (['PROCEDURE', 'FUNCTION'] as $routineType) {
+            $rr = $mysqli->query("SHOW {$routineType} STATUS WHERE Db = '" . $mysqli->real_escape_string($dbName) . "'");
+            if (!$rr) continue;
+            while ($routine = $rr->fetch_assoc()) {
+                $rName = $routine['Name'];
+                $cr3 = $mysqli->query("SHOW CREATE {$routineType} `{$mysqli->real_escape_string($rName)}`");
+                if (!$cr3) continue;
+                $row = $cr3->fetch_assoc();
+                // MySQL/MariaDB names this column "Create Function"/"Create Procedure" (title case),
+                // NOT "Create FUNCTION"/"Create PROCEDURE" (matching $routineType's own all-caps
+                // casing) - array keys are case-sensitive, so looking it up with $routineType's raw
+                // casing silently missed on every row, always falling through to '' and skipping
+                // every routine without ever raising an error. Confirmed empirically (this was NOT
+                // caught by testing, since the install this was written against had zero routines to
+                // exercise it against - see the comment above this loop).
+                $sql = $row['Create ' . ucfirst(strtolower($routineType))] ?? '';
+                $cr3->close();
+                if ($sql === '') continue;
+                fwrite_ln($fh, "DROP {$routineType} IF EXISTS `{$rName}`;");
+                fwrite_ln($fh, "DELIMITER $$");
+                fwrite_ln($fh, $sql . "$$");
+                fwrite_ln($fh, "DELIMITER ;");
+                fwrite_ln($fh, "");
+            }
+            $rr->close();
+        }
+    }
+
     // Training ledger head, from the same snapshot as the rows dumped above.
     $ledgerHead = null;
     if (in_array('training_ledger_head', $tables, true)) {
@@ -356,56 +394,26 @@ function backup_upload_to_s3(string $filePath, string $fileName): bool {
 }
 
 // ── Download fresh backup (stream to browser) ─────────────────────────────────
+// Builds via the exact same build_backup() the "Save to Server" and cron
+// auto-backup paths use (into a scratch temp directory instead of $BACKUP_DIR,
+// so nothing is left on the server afterward), then streams that file and
+// deletes it. Previously this duplicated build_backup()'s whole zip-assembly
+// (db.sql + uploads.zip + version.txt + manifest) inline with its own,
+// slightly different version.txt content - one source of truth now, so a
+// future fix to what a backup contains can't be applied to one path and
+// forgotten on the other.
 if (isset($_GET['backup_download_fresh'])) {
     validateCSRFToken($_GET['csrf_token']);
 
-    $timestamp  = date('YmdHis');
-    $baseName   = "itflow_{$timestamp}_manual";
-    $sqlFile    = tempnam(sys_get_temp_dir(), $baseName . '_sql_');
-    $uploadsZip = tempnam(sys_get_temp_dir(), $baseName . '_upl_');
-    $versionFile= tempnam(sys_get_temp_dir(), $baseName . '_ver_');
-    $finalZip   = tempnam(sys_get_temp_dir(), $baseName . '_zip_');
+    $result = build_backup($mysqli, 'manual', sys_get_temp_dir());
+    register_shutdown_function(function() use ($result) { @unlink($result['path']); });
 
-    $passphrase   = ($GLOBALS['config_backup_passphrase'] ?? '') !== '' ? $GLOBALS['config_backup_passphrase'] : null;
-    $manifest     = build_backup_manifest($mysqli, $baseName, $passphrase);
-    $manifestPath = $manifest['path'];
-
-    register_shutdown_function(function() use ($sqlFile, $uploadsZip, $versionFile, $finalZip, $manifestPath) {
-        foreach ([$sqlFile, $uploadsZip, $versionFile, $finalZip, $manifestPath] as $f) @unlink($f);
-    });
-
-    $ledgerHead = null;
-    dump_database_streaming($mysqli, $sqlFile, $ledgerHead);
-    zip_uploads(dirname(__DIR__, 2) . '/uploads', $uploadsZip);
-
-    $meta  = APP_NAME . " Backup Metadata\n";
-    $meta .= "Generated: " . date('Y-m-d H:i:s') . "\n";
-    $meta .= "Type: manual (browser download)\n";
-    $meta .= "SHA256 db.sql: " . (hash_file('sha256', $sqlFile) ?: 'N/A') . "\n";
-    $meta .= "SHA256 uploads.zip: " . (hash_file('sha256', $uploadsZip) ?: 'N/A') . "\n";
-    if ($ledgerHead !== null) {
-        $meta .= "Training ledger head: #{$ledgerHead['seq']} {$ledgerHead['hash']}\n";
-    }
-    $meta .= $passphrase !== null
-        ? "Manifest: {$manifest['name']} (encrypted with the saved backup passphrase)\n"
-        : "Manifest: {$manifest['name']} (plain text - set a backup passphrase in Admin > Backup to encrypt it)\n";
-    file_put_contents($versionFile, $meta);
-
-    $final = new ZipArchive();
-    $final->open($finalZip, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-    $final->addFile($sqlFile, 'db.sql');
-    $final->addFile($uploadsZip, 'uploads.zip');
-    $final->addFile($versionFile, 'version.txt');
-    $final->addFile($manifestPath, $manifest['name']);
-    $final->close();
-
-    $dlName = $baseName . '.zip';
     header('Content-Type: application/zip');
-    header('Content-Disposition: attachment; filename="' . $dlName . '"');
-    header('Content-Length: ' . filesize($finalZip));
+    header('Content-Disposition: attachment; filename="' . $result['name'] . '"');
+    header('Content-Length: ' . filesize($result['path']));
     header('Pragma: public');
     header('Cache-Control: must-revalidate');
-    readfile($finalZip);
+    readfile($result['path']);
 
     logAction('System', 'Backup Download', "$session_name downloaded a manual backup");
     exit;

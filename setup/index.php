@@ -265,12 +265,38 @@ if (isset($_POST['restore'])) {
     // ---------- 4) Restore SQL (via PHP, no CLI) ----------
     $sqlPath = "$tempDir/db.sql";
     if (file_exists($sqlPath)) {
-        // Drop-all first (foreign key safe)
+        // Drop-all first (foreign key safe). SHOW TABLES lists views too, but
+        // `DROP TABLE IF EXISTS` on a VIEW's name is a silent no-op in
+        // MySQL/MariaDB - a leftover view on the TARGET that isn't in the
+        // backup being restored would otherwise silently survive this
+        // "restore" (not a true 1:1 result). db.sql now also carries stored
+        // routines (see dump_database_streaming()'s routine-capture block in
+        // admin/post/backup.php), which SHOW TABLES never lists at all, so
+        // those need their own drop too. Matches
+        // deploy/restore_admin_zip.sh's import_database() - the CLI
+        // counterpart to this exact same admin-zip restore format - so both
+        // restore paths for this backup format give the same true 1:1
+        // result instead of this older browser path silently falling short.
         mysqli_query($mysqli, "SET FOREIGN_KEY_CHECKS = 0");
-        $tables = mysqli_query($mysqli, "SHOW TABLES");
-        if ($tables) {
-            while ($row = mysqli_fetch_row($tables)) {
-                mysqli_query($mysqli, "DROP TABLE IF EXISTS `" . $row[0] . "`");
+        $dbNameRow = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT DATABASE() AS db"));
+        $dbName = $dbNameRow['db'] ?? '';
+        if ($dbName !== '') {
+            $dropStmt = mysqli_prepare(
+                $mysqli,
+                "SELECT CONCAT('DROP ', IF(table_type='VIEW','VIEW','TABLE'), ' IF EXISTS `', table_name, '`;') FROM information_schema.tables WHERE table_schema = ?
+                 UNION ALL
+                 SELECT CONCAT('DROP ', routine_type, ' IF EXISTS `', routine_name, '`;') FROM information_schema.routines WHERE routine_schema = ?"
+            );
+            if ($dropStmt) {
+                mysqli_stmt_bind_param($dropStmt, 'ss', $dbName, $dbName);
+                mysqli_stmt_execute($dropStmt);
+                $dropResult = mysqli_stmt_get_result($dropStmt);
+                if ($dropResult) {
+                    while ($dropRow = mysqli_fetch_row($dropResult)) {
+                        mysqli_query($mysqli, $dropRow[0]);
+                    }
+                }
+                mysqli_stmt_close($dropStmt);
             }
         }
         mysqli_query($mysqli, "SET FOREIGN_KEY_CHECKS = 1");
@@ -350,6 +376,18 @@ if (isset($_POST['restore'])) {
         die("Uploads restore appears empty after extraction.");
     }
 
+    // ---------- 5b) Recover settings_enc_key from the backup's manifest ----------
+    // See applyManifestSettingsEncKey()'s own doc comment (setup_functions.php) for why this
+    // matters: without it, a restore onto any config.php other than this backup's own original
+    // one leaves every encrypted settings column (SMTP/IMAP passwords, RMM/webhook secrets, the
+    // wrapped credential-vault master key) permanently undecryptable, silently.
+    $configPath = __DIR__ . '/../config.php';
+    $manifestResult = applyManifestSettingsEncKey(
+        $tempDir,
+        trim($_POST['backup_passphrase'] ?? '') !== '' ? trim($_POST['backup_passphrase']) : null,
+        $configPath
+    );
+
     // ---------- 6) Optional: version info ----------
     $versionTxt = "$tempDir/version.txt";
     if (file_exists($versionTxt)) {
@@ -363,13 +401,16 @@ if (isset($_POST['restore'])) {
     deleteDir($tempDir);
 
     // ---------- 8) Finalize setup flag (append safely) ----------
-    $configPath = __DIR__ . "/../config.php";
     $append = "\n\$config_enable_setup = 0;\n\n";
     if (!@file_put_contents($configPath, $append, FILE_APPEND | LOCK_EX)) {
         $_SESSION['alert_message'] = "Backup restored ($fileCount files, $dirCount folders), but couldn't update setup flag — please set \$config_enable_setup = 0 in config.php.";
     } else {
         $_SESSION['alert_message'] = "Full backup restored successfully ($fileCount files, $dirCount folders).";
     }
+    // Manifest outcome is appended as its own sentence regardless of which branch above ran,
+    // so a browser restore that recovers (or fails to recover) settings_enc_key is exactly as
+    // visible as one that succeeds/fails the setup-flag write.
+    $_SESSION['alert_message'] .= ' ' . $manifestResult['message'];
 
     // ---------- 9) Done ----------
     header("Location: ../login.php");
@@ -1281,6 +1322,16 @@ if (isset($_POST['add_telemetry'])) {
                                 <form method="post" enctype="multipart/form-data" autocomplete="off">
                                     <label>Restore <?= htmlspecialchars(APP_NAME) ?> Backup (.zip)</label>
                                     <input type="file" name="backup_zip" accept=".zip" required>
+                                    <div class="form-group mt-3">
+                                        <label>Backup passphrase <span class="text-muted">(only if one was set)</span></label>
+                                        <input type="password" class="form-control" name="backup_passphrase"
+                                               autocomplete="new-password"
+                                               placeholder="Leave blank if this backup has no passphrase">
+                                        <p class="text-muted mt-1 mb-0"><small>If a backup passphrase was set in Admin &rarr; Backup when this .zip was taken,
+                                        its manifest (<code>backup-manifest.json.enc</code>) is encrypted with it — enter it here so this restore can
+                                        recover <code>settings_enc_key</code> and keep SMTP/IMAP passwords, RMM/webhook secrets and the credential vault
+                                        decrypting correctly. Not needed when restoring straight back onto this backup's own original config.php.</small></p>
+                                    </div>
                                     <p class="text-muted mt-2 mb-0"><small>Large restores may take several minutes. Do not close this page.</small></p>
                                     <hr>
                                     <button type="submit" name="restore" class="btn btn-primary text-bold">
