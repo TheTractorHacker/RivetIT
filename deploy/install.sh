@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ITFlow-Internal-IT — fresh company installer.
+# RivetIT — fresh company installer.
 #
 # Stands up a brand-new, standalone instance of this app on a fresh Ubuntu/
 # Debian box, or adds ANOTHER company's independent instance (own vhost, own
@@ -8,7 +8,7 @@
 # company gets its own separate database and its own separate config.php.
 #
 # Usage:
-#   sudo deploy/install.sh --domain=itflow.example.com [options]
+#   sudo deploy/install.sh --domain=rivetit.example.com [options]
 #   sudo deploy/install.sh --help
 #
 # See print_help() below for the full flag reference.
@@ -21,6 +21,8 @@ source "${SCRIPT_DIR}/lib/common.sh"
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
+# The repository the project is published from today (the same one as
+# APP_REPO_URL in includes/branding.php); change both when the project moves.
 REPO_URL="https://github.com/TheTractorHacker/ITFlow-Internal-IT.git"
 REPO_BRANCH="main"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -96,14 +98,14 @@ DB_PASSWORD=""
 # ---------------------------------------------------------------------------
 print_help() {
     cat <<'EOF'
-ITFlow-Internal-IT — fresh company installer
+RivetIT — fresh company installer
 
 Usage:
   sudo deploy/install.sh --domain=<fqdn> [options]
 
 Required:
   --domain=<fqdn>          Public hostname for this instance, e.g.
-                            itflow.example.com. Only [a-zA-Z0-9.-] allowed —
+                            rivetit.example.com. Only [a-zA-Z0-9.-] allowed —
                             this value is interpolated into a generated
                             nginx config and shell commands.
 
@@ -165,7 +167,7 @@ not prompted for — the restored backup already has all of that):
 
   --help                           Show this help and exit.
 
-Adding another company to a box that already runs an ITFlow-Internal-IT
+Adding another company to a box that already runs a RivetIT
 instance: re-run this exact script with a different --domain (and, if
 sharing the box, a different --db-name). Already-installed packages and an
 already-active firewall/fail2ban are detected and left alone.
@@ -364,7 +366,7 @@ provision_app_code() {
     fi
 
     if [[ -e "${APP_DIR}" ]] && [[ -n "$(ls -A "${APP_DIR}" 2>/dev/null)" ]]; then
-        die "${APP_DIR} already exists, is non-empty, and does not look like an ITFlow-Internal-IT checkout (missing functions.php/db.sql). Refusing to overwrite it — remove it first or choose a different --app-dir."
+        die "${APP_DIR} already exists, is non-empty, and does not look like a RivetIT checkout (missing functions.php/db.sql). Refusing to overwrite it — remove it first or choose a different --app-dir."
     fi
 
     mkdir -p "$(dirname "${APP_DIR}")"
@@ -547,10 +549,12 @@ render_nginx_vhost() {
 
     # limit_req_zone must live in nginx's http{} context, not inside a
     # server{} block, so it's a separate top-level file shared by every
-    # ITFlow vhost on this box — write it once, never twice (nginx refuses
+    # RivetIT vhost on this box — write it once, never twice (nginx refuses
     # to start if the same zone name is defined in two included files).
     if [[ ! -f "${rate_limit_conf}" ]]; then
         info "Writing shared rate-limit zone: ${rate_limit_conf}"
+        # Deployed text: kept as it was before the RivetIT rename so boxes
+        # built before and after it get the same file (see REBRANDING.md).
         cat > "${rate_limit_conf}" <<'EOF'
 # Shared across every ITFlow-Internal-IT vhost on this box, written once by
 # deploy/install.sh. Do not duplicate this zone name in another file under
@@ -640,7 +644,7 @@ apply_php_hardening() {
         return 0
     fi
 
-    # On a box that already runs another ITFlow instance, this template is
+    # On a box that already runs another RivetIT instance, this template is
     # identical every time — skip the restart entirely rather than bouncing
     # php8.4-fpm (and every other company's in-flight requests on it) for a
     # no-op file write.
@@ -799,7 +803,7 @@ install_cron_entry() {
 
     backup_if_exists "${cron_file}"
     cat > "${cron_file}" <<EOF
-# Managed by deploy/install.sh for the ITFlow-Internal-IT instance at
+# Managed by deploy/install.sh for the RivetIT instance at
 # ${DOMAIN} (${APP_DIR}). This fires every 5 minutes unconditionally —
 # whether cron/cron.php actually does anything is gated by the app's own
 # "config_enable_cron" setting (a DB row, defaulting to OFF). An admin must
@@ -845,14 +849,14 @@ run_app_setup() {
     add_opt_arg setup_args user-email "${ADMIN_EMAIL}"
 
     if [[ -n "${ADMIN_PASSWORD}" ]]; then
-        warn "--admin-password was supplied: it is passed to setup_cli.php via the ITFLOW_ADMIN_PASSWORD environment variable (not argv), so it never appears in 'ps' output — but it did appear on THIS script's own command line/shell history. Omit --admin-password (and --non-interactive) whenever you have an interactive terminal, and answer setup_cli.php's prompt instead, which never touches argv, env, or history."
+        warn "--admin-password was supplied: it is passed to setup_cli.php via the RIVETIT_ADMIN_PASSWORD environment variable (not argv), so it never appears in 'ps' output — but it did appear on THIS script's own command line/shell history. Omit --admin-password (and --non-interactive) whenever you have an interactive terminal, and answer setup_cli.php's prompt instead, which never touches argv, env, or history."
     fi
     if [[ "${NON_INTERACTIVE}" -eq 1 ]]; then
         setup_args+=(--non-interactive)
     fi
 
     # setup_cli.php (patched alongside this installer) reads the DB and admin
-    # passwords from ITFLOW_DB_PASSWORD / ITFLOW_ADMIN_PASSWORD in preference
+    # passwords from RIVETIT_DB_PASSWORD / RIVETIT_ADMIN_PASSWORD in preference
     # to --password/--user-password on argv, so neither secret is ever passed
     # as a command-line argument here — env vars are invisible to `ps` and to
     # any other local user without root/ptrace access to this process's
@@ -860,12 +864,15 @@ run_app_setup() {
     # everything anyway). Deliberately NOT setting --password/--user-password
     # as a fallback: doing so would silently reintroduce the exact argv
     # exposure this exists to avoid the moment either env var were ever unset.
+    # ITFLOW_DB_PASSWORD / ITFLOW_ADMIN_PASSWORD are the deprecated names of the
+    # same variables (setup_cli.php still honours them); they are set too, so
+    # an older setup_cli.php in an already-installed app directory still works.
 
     # Never let `set -x` echo DB_PASSWORD/ADMIN_PASSWORD into the install
     # log — disable tracing for exactly this one invocation, nothing else.
     set +x
     local setup_status=0
-    if ( cd "${APP_DIR}/scripts" && sudo -u www-data env ITFLOW_DB_PASSWORD="${DB_PASSWORD}" ITFLOW_ADMIN_PASSWORD="${ADMIN_PASSWORD}" php setup_cli.php "${setup_args[@]}" ); then
+    if ( cd "${APP_DIR}/scripts" && sudo -u www-data env RIVETIT_DB_PASSWORD="${DB_PASSWORD}" RIVETIT_ADMIN_PASSWORD="${ADMIN_PASSWORD}" ITFLOW_DB_PASSWORD="${DB_PASSWORD}" ITFLOW_ADMIN_PASSWORD="${ADMIN_PASSWORD}" php setup_cli.php "${setup_args[@]}" ); then
         setup_status=0
     else
         setup_status=$?
@@ -903,7 +910,7 @@ run_app_restore() {
     # below) is always already known here, so there is no legitimate prompt
     # to wait on — only a risk of silently hanging on STDIN if that were
     # ever untrue in an unattended run.
-    if ! ( cd "${APP_DIR}/scripts" && sudo -u www-data env ITFLOW_DB_PASSWORD="${DB_PASSWORD}" php setup_cli.php \
+    if ! ( cd "${APP_DIR}/scripts" && sudo -u www-data env RIVETIT_DB_PASSWORD="${DB_PASSWORD}" ITFLOW_DB_PASSWORD="${DB_PASSWORD}" php setup_cli.php \
         --config-only --non-interactive --host=localhost --username="${DB_NAME}" --database="${DB_NAME}" --base-url="${DOMAIN}" ); then
         set -x
         die "scripts/setup_cli.php --config-only failed. See its output above."
@@ -947,7 +954,7 @@ print_summary() {
     cat <<EOF
 
 =============================================================================
-  ITFlow-Internal-IT installed for ${DOMAIN}
+  RivetIT installed for ${DOMAIN}
 =============================================================================
 
   URL:              https://${DOMAIN}/
@@ -1024,7 +1031,7 @@ main() {
 
     setup_logging
 
-    info "=== ITFlow-Internal-IT installer starting for ${DOMAIN} ==="
+    info "=== RivetIT installer starting for ${DOMAIN} ==="
     info "App directory: ${APP_DIR}"
     info "Database name / user: ${DB_NAME}"
     info "Mode: $([[ "${PROXY_MODE}" -eq 1 ]] && echo 'reverse-proxy backend (self-signed cert)' || echo 'direct TLS')"

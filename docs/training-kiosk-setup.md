@@ -16,7 +16,7 @@ This guide covers how to turn an iPad or a Windows PC into a **training device**
 - **Personal device**: the asset is assigned to one eligible person at enrollment. The device opens straight to "Hi {first}" and the PIN, and "Not {first}?" goes to the name search.
   - If the asset is later unassigned or re-assigned, the device stops working until it gets a **New start URL**. That new URL takes a fresh snapshot of the owner (plan A19).
 - A device stops working at once when it is **revoked**, its temporary time is up, its asset is archived or retyped, or its personal assignment changes. It then shows "This device is not set up for training".
-- No ITFlow agent session is ever kept on a training device:
+- No RivetIT agent session is ever kept on a training device:
   - Enrollment ends with a mandatory sign-out.
   - The kiosk expires any stray agent cookies it sees.
 
@@ -52,9 +52,9 @@ This guide covers how to turn an iPad or a Windows PC into a **training device**
 
 1. Update to **iPadOS 16.4 or later**. Older iPads run everything except YouTube and Vimeo lessons, which ask for an update.
 2. In Safari, open `https://<site>/kiosk/`. Tap **Share › Add to Home Screen**, then open the new **Training** icon.
-3. Inside that app, tap **Set up this device (admin)** and sign in to ITFlow. Search for the iPad's asset, name it (for example "Fab Shop iPad 2"), pick a default department, and tap **Use this device for training**.
+3. Inside that app, tap **Set up this device (admin)** and sign in to RivetIT. Search for the iPad's asset, name it (for example "Fab Shop iPad 2"), pick a default department, and tap **Use this device for training**.
    - Enroll **inside the Home Screen app**. Safari and the Home Screen app keep separate cookies.
-4. On the success panel, tap **Open training on this device**. You are signed out of ITFlow, and the iPad shows the name search (or the owner's PIN on a personal iPad).
+4. On the success panel, tap **Open training on this device**. You are signed out of RivetIT, and the iPad shows the name search (or the owner's PIN on a personal iPad).
 5. Go to Settings › Display & Brightness and set **Auto-Lock** to **Never** while the iPad stays on its charger.
 6. Optional: go to Settings › Accessibility › **Guided Access** and turn it on. Then triple-click the top button inside the Training app to lock the iPad to it.
 7. If the cookies get cleared or the iPad was enrolled in Safari by mistake, open the start URL again. If nobody has it, use **New start URL** on the Devices tab.

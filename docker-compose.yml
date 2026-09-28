@@ -1,4 +1,4 @@
-# ITFlow-Internal-IT — Docker Compose quick start.
+# RivetIT — Docker Compose quick start.
 #
 # For local evaluation or a lightweight self-hosted deployment. This is NOT
 # the same tooling as deploy/install.sh (see deploy/README.md) — that's the
@@ -14,12 +14,24 @@
 # so config.php/uploads/backups/vendor all persist on the host across
 # `docker compose down` and image rebuilds, and `git pull` is the update
 # path — same model as deploy/update.sh, just without the wrapper script.
+#
+# Names: the containers are called rivetit-web and rivetit-db (set
+# RIVETIT_CONTAINER_PREFIX in .env to run a second stack on the same host),
+# and the locally built app image is tagged rivetit-web:local. The service
+# keys (app, db), the DB_NAME/DB_USER defaults and the itflow_db_data volume
+# keep their original names on purpose: an existing stack's database lives
+# in that volume, created under those defaults (renaming the volume starts
+# the stack on an empty database), and DB_HOST: db names the service (see
+# REBRANDING.md). Do not add a top-level `name:` either; it would
+# change the project prefix of that volume.
 
 services:
   app:
     build:
       context: .
       dockerfile: docker/Dockerfile
+    image: rivetit-web:local
+    container_name: "${RIVETIT_CONTAINER_PREFIX:-rivetit}-web"
     depends_on:
       - db
     ports:
@@ -42,6 +54,14 @@ services:
       # (see the ./restore mount below and .env.example).
       RESTORE_FROM: "${RESTORE_FROM:-}"
       RESTORE_PASSPHRASE_FILE: "${RESTORE_PASSPHRASE_FILE:-}"
+      # Optional product-identity overrides read by includes/branding.php
+      # (RIVETIT_<CONSTANT>); empty means the built-in default. Any other
+      # constant in that file can be passed through the same way.
+      RIVETIT_APP_NAME: "${RIVETIT_APP_NAME:-}"
+      RIVETIT_APP_REPO_URL: "${RIVETIT_APP_REPO_URL:-}"
+      RIVETIT_APP_WEBSITE_URL: "${RIVETIT_APP_WEBSITE_URL:-}"
+      RIVETIT_APP_DOCS_URL: "${RIVETIT_APP_DOCS_URL:-}"
+      RIVETIT_APP_SUPPORT_URL: "${RIVETIT_APP_SUPPORT_URL:-}"
     volumes:
       - .:/var/www/html
       # Always mounted (harmless if empty) so RESTORE_FROM/
@@ -53,6 +73,7 @@ services:
 
   db:
     image: mariadb:11
+    container_name: "${RIVETIT_CONTAINER_PREFIX:-rivetit}-db"
     environment:
       MARIADB_DATABASE: "${DB_NAME:-itflow}"
       MARIADB_USER: "${DB_USER:-itflow}"

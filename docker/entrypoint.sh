@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ITFlow-Internal-IT — Docker Compose entrypoint. Runs as root (the
+# RivetIT — Docker Compose entrypoint. Runs as root (the
 # container's default user); its job is everything that needs root before
 # handing off to supervisord, which then runs php-fpm/nginx as www-data.
 #
@@ -101,7 +101,10 @@ restore_from_backup() {
     # this image doesn't install sudo, and this entrypoint already runs as
     # root — config.php is chown'd to www-data explicitly right below
     # instead, same end state.
-    if ! ( cd "${APP_DIR}/scripts" && env ITFLOW_DB_PASSWORD="${DB_PASSWORD}" php setup_cli.php \
+    # The password goes in the environment, never on argv. RIVETIT_DB_PASSWORD
+    # is the current name; ITFLOW_DB_PASSWORD is the deprecated alias that
+    # setup_cli.php still honours, set too so an older setup_cli.php works.
+    if ! ( cd "${APP_DIR}/scripts" && env RIVETIT_DB_PASSWORD="${DB_PASSWORD}" ITFLOW_DB_PASSWORD="${DB_PASSWORD}" php setup_cli.php \
         --config-only --non-interactive \
         --host="${DB_HOST}" --username="${DB_USER}" --database="${DB_NAME}" \
         --base-url="${APP_BASE_URL:-localhost}" ); then

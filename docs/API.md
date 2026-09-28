@@ -1,11 +1,11 @@
-# ITFlow Internal IT — REST API Reference
+# RivetIT — REST API Reference
 
-This document describes the REST API served by ITFlow Internal IT — the same
+This document describes the REST API served by RivetIT — the same
 companion API used by the mobile app, ITPanel Pro, and RMM/scripted
 integrations. It's a plain JSON-over-HTTP API: no SDK is required, just an
 HTTP client and one of the two auth methods below.
 
-- **Base path:** `/api/v1` (relative to your ITFlow install host, e.g.
+- **Base path:** `/api/v1` (relative to your RivetIT install host, e.g.
   `https://your-instance.example.com/api/v1`)
 - **Format:** JSON request and response bodies, except where a specific
   endpoint documents multipart form uploads or Server-Sent Events (SSE).
@@ -27,10 +27,11 @@ rather than treating the tables below as exhaustive schemas.
 
 ## A note on "clients" vs. "departments"
 
-ITFlow Internal IT is a fork of ITFlow MSP built for internal IT departments
-running one organization with many internal departments, rather than an MSP
-billing external clients. The admin UI was renamed throughout — "Client" /
-"Clients" became "Department" / "Departments" everywhere a person sees it.
+RivetIT is built for internal IT departments running one organization with
+many internal departments. It started from ITFlow, whose data model was made
+for an MSP billing external clients, and the admin UI was renamed throughout —
+"Client" / "Clients" became "Department" / "Departments" everywhere a person
+sees it.
 
 The API was **deliberately excluded** from that rename, to keep it a stable,
 documented contract for existing integrations. Every endpoint path, query

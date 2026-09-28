@@ -1,0 +1,53 @@
+RivetIT
+Open-source internal IT operations platform.
+
+Copyright (C) the RivetIT contributors.
+
+RivetIT is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License, version 3, as published by
+the Free Software Foundation. It is distributed in the hope that it will
+be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the full license
+text in the LICENSE file.
+
+
+Where RivetIT comes from
+------------------------
+
+RivetIT is based on ITFlow, and all original credit for the code it
+started from goes to the ITFlow project and its contributors:
+
+  ITFlow
+  https://github.com/itflow-org/itflow
+  Copyright (C) the ITFlow contributors (itflow-org).
+  Licensed under the GNU General Public License v3.0.
+
+It was developed from an MSP-focused fork of ITFlow, whose MSP workflow
+additions (ticket automation, cron manager, worksheets, calendar sync, SLA
+tracking, REST API extensions and more) are credited to TractorHacker /
+Foley IT:
+
+  TheTractorHacker/itflow
+  https://github.com/TheTractorHacker/itflow
+  Licensed under the GNU General Public License v3.0.
+
+It was published as "ITFlow Internal IT" before it was renamed RivetIT in
+2026:
+
+  https://github.com/TheTractorHacker/ITFlow-Internal-IT
+
+RivetIT is an independent project. It is not the ITFlow project and is
+not maintained or endorsed by the ITFlow maintainers; "ITFlow" is the
+name of that upstream project and is used here only to credit it. Source
+files, identifiers (such as the ITFlow\ PHP namespace) and the change
+history keep their ITFlow origins; see REBRANDING.md for the names that
+were kept and why.
+
+
+Third-party components
+----------------------
+
+The libraries under vendor/ (installed by Composer) and plugins/ are
+third-party software. Each keeps its own copyright and license, found in
+its own directory (LICENSE, COPYING or the file headers). They are not
+covered by the copyright statement above.

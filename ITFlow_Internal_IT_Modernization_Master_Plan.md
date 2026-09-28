@@ -1,5 +1,7 @@
 # ITFlow Internal IT — Master Modernization Plan
 
+> **Historical document.** Written before the product was renamed **RivetIT** (September 2026); "ITFlow Internal IT" here is the same product. Names, paths and plans are kept as written. See [REBRANDING.md](REBRANDING.md).
+
 ## 1. Project Goal
 
 Transform the existing ITFlow fork into a modern, purpose-built **Internal IT Operations Platform** for a single organization with multiple departments and locations.
