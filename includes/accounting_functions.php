@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - Accounting sync helpers (QuickBooks Online one-way push)
+ * RivetIT - Accounting sync helpers (QuickBooks Online one-way push)
  *
  * Small, self-contained helper layer used by:
  *   - agent/post/invoice.php  and  agent/post/payment.php   (enqueue hooks)
@@ -11,6 +11,8 @@
  * Mirrors the webhook_queue retry pattern already used in cron/cron.php.
  * Deliberately does NOT touch functions.php - all new logic lives here.
  */
+
+require_once __DIR__ . '/branding.php'; // APP_NAME for the generic QuickBooks services item
 
 // Exponential backoff (minutes) between delivery attempts, matching the
 // webhook delivery worker: 5m, 30m, 2h, 6h -> then failed on the 5th attempt.
@@ -210,7 +212,7 @@ function deleteClientMapping(mysqli $mysqli, int $accounting_id, int $client_id)
 
 /* ── Product / Service -> QBO Item mapping ───────────────────────────────────
  *
- * ITFlow's billable catalogue lives in the `products` table, where each row is
+ * RivetIT's billable catalogue lives in the `products` table, where each row is
  * a product OR a service (products.product_type in {'product','service'}); both
  * become QBO "Items". These helpers mirror the client-mapping helpers above but
  * key on product_id under map_local_type='item', storing the product_type in
@@ -305,7 +307,7 @@ function deleteItemMapping(mysqli $mysqli, int $accounting_id, int $product_id):
  * Build a remote (QBO) id -> local id reverse index for one local type.
  * Used by the "pull from QuickBooks" import screens (invoices/estimates/
  * payments, mirroring the existing item pull) to determine (a) which QBO
- * records already have a matching ITFlow record - pushed OR pulled, the map
+ * records already have a matching RivetIT record - pushed OR pulled, the map
  * doesn't care which direction created it - and (b) to resolve a QBO
  * CustomerRef/LinkedTxn id back to the local client/invoice id it belongs to.
  */
@@ -416,7 +418,7 @@ function accountingMakeEnsureItem(mysqli $mysqli, QboClient $qbo, int $acc_id, s
 
         $item_name = trim($name);
         if ($item_name === '') {
-            $item_name = $product_id > 0 ? "Product $product_id" : 'ITFlow Internal IT Services';
+            $item_name = $product_id > 0 ? "Product $product_id" : APP_NAME . ' Services'; // existing installs keep the item already mapped above
         }
 
         $found = $qbo->findItem($item_name);

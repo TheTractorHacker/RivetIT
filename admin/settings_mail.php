@@ -542,7 +542,7 @@ require_once "includes/inc_all_admin.php";
             </div>
             <div class="modal-body">
 
-                <p class="text-muted mb-3">Follow these steps to connect ITFlow Internal IT to Microsoft 365. For mailbox monitoring (ticket creation/replies), use <a href="mailbox.php">Admin &gt; Mailboxes</a> going forward &mdash; it reads mail via Microsoft Graph. The legacy IMAP settings below only need step 2's "Legacy" instructions and remain for existing setups.</p>
+                <p class="text-muted mb-3">Follow these steps to connect <?= htmlspecialchars(APP_NAME) ?> to Microsoft 365. For mailbox monitoring (ticket creation/replies), use <a href="mailbox.php">Admin &gt; Mailboxes</a> going forward &mdash; it reads mail via Microsoft Graph. The legacy IMAP settings below only need step 2's "Legacy" instructions and remain for existing setups.</p>
 
                 <div id="ms365GuideAccordion">
 
@@ -561,7 +561,7 @@ require_once "includes/inc_all_admin.php";
                             <div style="padding:1rem 1.25rem;">
                                 <ol class="mb-0 ps-3">
                                     <li>Go to <strong>portal.azure.com</strong> &rarr; <strong>Microsoft Entra ID</strong> &rarr; <strong>App registrations</strong> &rarr; <strong>New registration</strong></li>
-                                    <li class="mt-2">Give it a name (e.g. <code>ITFlow Internal IT Mail</code>)</li>
+                                    <li class="mt-2">Give it a name (e.g. <code><?= htmlspecialchars(APP_NAME) ?> Mail</code>)</li>
                                     <li class="mt-2">Supported account types: <strong>Accounts in this organizational directory only (Single tenant)</strong></li>
                                     <li class="mt-2">
                                         Redirect URI &mdash; set type to <strong>Web</strong> and paste this URI:
@@ -605,7 +605,7 @@ require_once "includes/inc_all_admin.php";
                                         <ol class="mb-0 ps-3">
                                             <li>In your new app, go to <strong>API permissions</strong> &rarr; <strong>Add a permission</strong></li>
                                             <li class="mt-2">Click the <strong>"Microsoft APIs"</strong> tab &rarr; <strong>Microsoft Graph</strong> &rarr; <strong>Delegated permissions</strong></li>
-                                            <li class="mt-2">In the filter box, type <code>Mail.ReadWrite</code> and tick it (covers reading, marking read, and moving messages into ITFlow Internal IT's processed folder)</li>
+                                            <li class="mt-2">In the filter box, type <code>Mail.ReadWrite</code> and tick it (covers reading, marking read, and moving messages into <?= htmlspecialchars(APP_NAME) ?>'s processed folder)</li>
                                             <li class="mt-2">Click <strong>Add permissions</strong>, then back on the permissions list click <strong>Grant admin consent for [your org]</strong> and confirm</li>
                                         </ol>
                                     </div>
@@ -678,7 +678,7 @@ require_once "includes/inc_all_admin.php";
                             <h6 class="mb-0">
                                 <a href="#" data-bs-toggle="collapse" data-bs-target="#ms365Step4" aria-expanded="false" aria-controls="ms365Step4" class="collapsed d-flex align-items-center" style="text-decoration:none;">
                                     <span class="badge text-bg-primary me-2 px-2 py-1">4</span>
-                                    <span>Fill In ITFlow Internal IT Settings &amp; Connect</span>
+                                    <span>Fill In <?= htmlspecialchars(APP_NAME) ?> Settings &amp; Connect</span>
                                     <i class="fas fa-chevron-down ms-auto"></i>
                                 </a>
                             </h6>
@@ -693,7 +693,7 @@ require_once "includes/inc_all_admin.php";
                                 <table class="table table-sm table-striped mb-3">
                                     <thead>
                                         <tr>
-                                            <th>ITFlow Internal IT Field</th>
+                                            <th><?= htmlspecialchars(APP_NAME) ?> Field</th>
                                             <th>Where to find it in Azure</th>
                                         </tr>
                                     </thead>
@@ -739,14 +739,14 @@ require_once "includes/inc_all_admin.php";
                         </div>
                         <div id="ms365StepRefreshToken" class="collapse" data-bs-parent="#ms365GuideAccordion">
                             <div style="padding:1rem 1.25rem;">
-                                <p class="text-muted">A refresh token is what lets ITFlow Internal IT keep polling a mailbox without you signing in again every hour. Clicking <strong>Connect Microsoft 365</strong> in Step 4 gets you one automatically &mdash; here's what that button actually does, and how to get one by hand if it can't run.</p>
+                                <p class="text-muted">A refresh token is what lets <?= htmlspecialchars(APP_NAME) ?> keep polling a mailbox without you signing in again every hour. Clicking <strong>Connect Microsoft 365</strong> in Step 4 gets you one automatically &mdash; here's what that button actually does, and how to get one by hand if it can't run.</p>
 
                                 <p class="text-muted mb-1"><strong>The automatic way (normal path):</strong></p>
                                 <ol class="ps-3 mb-3">
-                                    <li>ITFlow Internal IT opens Microsoft's consent screen at <code>login.microsoftonline.com/&lt;tenant&gt;/oauth2/v2.0/authorize</code>, requesting the <code>Mail.ReadWrite</code> and <code>offline_access</code> scopes.</li>
+                                    <li><?= htmlspecialchars(APP_NAME) ?> opens Microsoft's consent screen at <code>login.microsoftonline.com/&lt;tenant&gt;/oauth2/v2.0/authorize</code>, requesting the <code>Mail.ReadWrite</code> and <code>offline_access</code> scopes.</li>
                                     <li class="mt-2">You sign in and approve access. Microsoft redirects your browser back to <code>/admin/oauth_microsoft_mail_callback.php</code> with a short-lived <strong>authorization code</strong> in the URL.</li>
-                                    <li class="mt-2">ITFlow Internal IT's server immediately exchanges that code for tokens by POSTing to Microsoft's token endpoint &mdash; this happens behind the scenes, you don't see it.</li>
-                                    <li class="mt-2">The response contains an <strong>access token</strong> (expires in ~1 hour) and a <strong>refresh token</strong> (long-lived). ITFlow Internal IT encrypts both and stores them on the mailbox's row.</li>
+                                    <li class="mt-2"><?= htmlspecialchars(APP_NAME) ?>'s server immediately exchanges that code for tokens by POSTing to Microsoft's token endpoint &mdash; this happens behind the scenes, you don't see it.</li>
+                                    <li class="mt-2">The response contains an <strong>access token</strong> (expires in ~1 hour) and a <strong>refresh token</strong> (long-lived). <?= htmlspecialchars(APP_NAME) ?> encrypts both and stores them on the mailbox's row.</li>
                                     <li class="mt-2">From then on, every poll silently trades the stored refresh token for a new access token whenever the old one's within 60 seconds of expiring.</li>
                                 </ol>
                                 <div class="alert alert-success py-2 mb-3">
@@ -754,7 +754,7 @@ require_once "includes/inc_all_admin.php";
                                     This is the only path most people need &mdash; the manual steps below exist purely as a diagnostic fallback.
                                 </div>
 
-                                <p class="text-muted mb-1"><strong>Manual / fallback (advanced):</strong> useful if the Connect button can't complete &mdash; e.g. ITFlow Internal IT isn't reachable at its configured base URL yet, or you want to verify the app registration works before wiring it into ITFlow Internal IT. This is the same exchange ITFlow Internal IT does automatically, run by hand with <code>curl</code>.</p>
+                                <p class="text-muted mb-1"><strong>Manual / fallback (advanced):</strong> useful if the Connect button can't complete &mdash; e.g. <?= htmlspecialchars(APP_NAME) ?> isn't reachable at its configured base URL yet, or you want to verify the app registration works before wiring it into <?= htmlspecialchars(APP_NAME) ?>. This is the same exchange <?= htmlspecialchars(APP_NAME) ?> does automatically, run by hand with <code>curl</code>.</p>
                                 <ol class="ps-3 mb-3">
                                     <li>
                                         Build this URL with your own Client ID, Tenant ID, and redirect URI, then open it in a browser:
@@ -782,7 +782,7 @@ require_once "includes/inc_all_admin.php";
                                 </ol>
                                 <div class="alert alert-warning py-2 mb-0">
                                     <i class="fas fa-exclamation-triangle me-1"></i>
-                                    <strong>Treat it like a password.</strong> A refresh token grants ongoing mailbox access until it's revoked or expires from inactivity. Don't paste it anywhere outside ITFlow Internal IT's own encrypted storage, and don't leave it in shell history.
+                                    <strong>Treat it like a password.</strong> A refresh token grants ongoing mailbox access until it's revoked or expires from inactivity. Don't paste it anywhere outside <?= htmlspecialchars(APP_NAME) ?>'s own encrypted storage, and don't leave it in shell history.
                                 </div>
                             </div>
                         </div>
@@ -806,7 +806,7 @@ require_once "includes/inc_all_admin.php";
                                     <li>In <strong>Exchange Admin Center</strong>, grant the licensed user <strong>Full Access</strong> to the shared mailbox</li>
                                     <li class="mt-2">Set <strong>IMAP Username</strong> to the <em>shared mailbox</em> address (e.g. <code>support@company.com</code>)</li>
                                     <li class="mt-2">When clicking <strong>Connect Microsoft 365</strong>, sign in with the <em>licensed user account</em>, not the shared mailbox itself</li>
-                                    <li class="mt-2">ITFlow Internal IT will access the shared mailbox using that user's token</li>
+                                    <li class="mt-2"><?= htmlspecialchars(APP_NAME) ?> will access the shared mailbox using that user's token</li>
                                 </ol>
                                 <div class="alert alert-info py-2 mb-0">
                                     <i class="fas fa-info-circle me-1"></i>
@@ -830,7 +830,7 @@ require_once "includes/inc_all_admin.php";
                         <div id="ms365Step6" class="collapse" data-bs-parent="#ms365GuideAccordion">
                             <div style="padding:1rem 1.25rem;">
                                 <ul class="ps-3 mb-0">
-                                    <li>The refresh token stays valid as long as ITFlow Internal IT polls regularly. If idle for <strong>90 days</strong>, Microsoft invalidates it and you must click <strong>Connect Microsoft 365</strong> again.</li>
+                                    <li>The refresh token stays valid as long as <?= htmlspecialchars(APP_NAME) ?> polls regularly. If idle for <strong>90 days</strong>, Microsoft invalidates it and you must click <strong>Connect Microsoft 365</strong> again.</li>
                                     <li class="mt-2">Your <strong>Client Secret</strong> has its own expiry date (set in Step 3). Rotate it in Azure before it expires and update the value here, then click <strong>Connect Microsoft 365</strong> again.</li>
                                     <li class="mt-2">Use <strong>Test OAuth Token Refresh</strong> (shown on this page when credentials are configured) to verify your tokens are working at any time.</li>
                                 </ul>

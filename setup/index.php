@@ -79,7 +79,7 @@ if (isset($_POST['add_database'])) {
     $new_config .= "\$dbpassword = " . var_export($password, true) . ";\n";
     $new_config .= "\$database = " . var_export($database, true) . ";\n";
     $new_config .= "\$mysqli = mysqli_connect(\$dbhost, \$dbusername, \$dbpassword, \$database) or die('Database Connection Failed');\n";
-    $new_config .= "\$config_app_name = 'ITFlow Internal IT';\n";
+    $new_config .= "\$config_app_name = " . var_export(APP_NAME, true) . ";\n"; // product name (includes/branding.php) for new installs
     $new_config .= sprintf("\$config_base_url = '%s';\n", addslashes($config_base_url));
     $new_config .= "\$config_https_only = TRUE;\n";
     $new_config .= "\$repo_branch = 'master';\n";
@@ -630,7 +630,7 @@ if (isset($_POST['add_company_settings'])) {
     mysqli_query($mysqli, "INSERT INTO user_roles SET role_id = 3, role_name = 'Administrator', role_description = 'Built-in - Full administrative access to all modules (including user management)', role_is_admin = 1");
 
     // Custom Links
-    mysqli_query($mysqli,"INSERT INTO custom_links SET custom_link_name = 'Docs', custom_link_uri = 'https://docs.itflow.org', custom_link_new_tab = 1, custom_link_icon = 'question-circle'");
+    mysqli_query($mysqli,"INSERT INTO custom_links SET custom_link_name = 'Docs', custom_link_uri = '" . mysqli_real_escape_string($mysqli, APP_DOCS_URL) . "', custom_link_new_tab = 1, custom_link_icon = 'question-circle'");
 
     // network_interfaces
     mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Ethernet', category_type = 'network_interface', category_order = 1"); // 1
@@ -774,7 +774,9 @@ if (isset($_POST['add_telemetry'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
 
-    <title>ITFlow Internal IT Setup</title>
+    <title><?= htmlspecialchars(APP_NAME) ?> Setup</title>
+    <link rel="icon" href="/favicon.ico" sizes="32x32">
+    <link rel="icon" href="<?= htmlspecialchars(APP_FAVICON_URL) ?>" type="image/svg+xml">
 
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="/plugins/fontawesome-free/css/all.min.css">
@@ -810,8 +812,8 @@ if (isset($_POST['add_telemetry'])) {
     <aside class="main-sidebar sidebar-dark-primary elevation-4">
 
         <!-- Brand Logo -->
-        <a href="https://itflow.org" class="brand-link">
-            <h3 class="brand-text font-weight-light"><i class="fas fa-paper-plane text-primary mr-2"></i><span class="text-primary text-bold">IT</span>Flow Internal IT</h3>
+        <a href="<?= htmlspecialchars(APP_WEBSITE_URL) ?>" class="brand-link">
+            <h3 class="brand-text font-weight-light"><img src="<?= htmlspecialchars(APP_LOGO_MARK_URL) ?>" alt="" width="28" height="28" class="mr-2" style="vertical-align:-6px"><span class="text-bold"><?= htmlspecialchars(APP_NAME) ?></span></h3>
         </a>
 
         <!-- Sidebar -->
@@ -1312,7 +1314,7 @@ if (isset($_POST['add_telemetry'])) {
                                 scheduled timer) is a separate, command-line operation — see
                                 <code>deploy/restore.sh</code> in <code>deploy/README.md</code>, not this form.</small></p>
                                 <form method="post" enctype="multipart/form-data" autocomplete="off">
-                                    <label>Restore ITFlow Internal IT Backup (.zip)</label>
+                                    <label>Restore <?= htmlspecialchars(APP_NAME) ?> Backup (.zip)</label>
                                     <input type="file" name="backup_zip" accept=".zip" required>
                                     <p class="text-muted mt-2 mb-0"><small>Large restores may take several minutes. Do not close this page.</small></p>
                                     <hr>
@@ -1580,13 +1582,14 @@ if (isset($_POST['add_telemetry'])) {
                         </div>
                         <div class="card-body">
                             <form method="post" autocomplete="off">
-                                <h5>Would you like to share some data with us?</h5>
+                                <h5>Would you like to share some data with the <?= htmlspecialchars(APP_UPSTREAM_NAME) ?> project?</h5>
+                                <p class="text-muted mb-0"><small><?= htmlspecialchars(APP_NAME) ?> is built on <?= htmlspecialchars(APP_UPSTREAM_NAME) ?>. Telemetry is sent to the upstream <?= htmlspecialchars(APP_UPSTREAM_NAME) ?> project's service (telemetry.itflow.org), not to <?= htmlspecialchars(APP_NAME) ?>.</small></p>
 
                                 <hr>
 
                                 <div class="form-check">
                                     <input type="checkbox" class="form-check-input" name="share_data" value="1">
-                                    <label class="form-check-label ml-2">Share <small class="form-text"><a href="https://docs.itflow.org/telemetry" target="_blank">Click Here for additional details regarding the information we gather <i class="fas fa-external-link-alt"></i></a></small></label>
+                                    <label class="form-check-label ml-2">Share <small class="form-text"><a href="https://docs.itflow.org/telemetry" target="_blank" rel="noopener">Click Here for the upstream <?= htmlspecialchars(APP_UPSTREAM_NAME) ?> documentation on the information it gathers <i class="fas fa-external-link-alt"></i></a></small></label>
                                 </div>
 
                                 <br>
@@ -1599,11 +1602,11 @@ if (isset($_POST['add_telemetry'])) {
                                 <hr>
 
                                 <h5>Post installation steps: </h5>
-                                <p>A few <a href="https://docs.itflow.org/installation#post-installation_essential_housekeeping">housekeeping steps</a> are required to ensure everything runs smoothly, namely:</p>
+                                <p>A few <a href="<?= htmlspecialchars(APP_DOCS_URL) ?>" target="_blank" rel="noopener">housekeeping steps</a> are required to ensure everything runs smoothly, namely:</p>
                                 <ul>
-                                    <li><a href="https://docs.itflow.org/backups">Setup backups</a></li>
-                                    <li><a href="https://docs.itflow.org/cron">Setup cron</a> *If Installing via script cron jobs will be automatically setup for you.</li>
-                                    <li>Star ITFlow on <a href="https://github.com/itflow-org/itflow">Github</a> :)</li>
+                                    <li><a href="<?= htmlspecialchars(APP_DOCS_URL) ?>" target="_blank" rel="noopener">Setup backups</a></li>
+                                    <li><a href="<?= htmlspecialchars(APP_DOCS_URL) ?>" target="_blank" rel="noopener">Setup cron</a> *If Installing via script cron jobs will be automatically setup for you.</li>
+                                    <li>Star <?= htmlspecialchars(APP_NAME) ?> on <a href="<?= htmlspecialchars(APP_REPO_URL) ?>" target="_blank" rel="noopener">GitHub</a> :)</li>
                                 </ul>
 
                                 <hr>
@@ -1621,24 +1624,24 @@ if (isset($_POST['add_telemetry'])) {
 
                     <div class="card card-dark">
                         <div class="card-header">
-                            <h3 class="card-title"><i class="fas fa-fw fa-cube mr-2"></i>ITFlow Internal IT Setup</h3>
+                            <h3 class="card-title"><i class="fas fa-fw fa-cube mr-2"></i><?= htmlspecialchars(APP_NAME) ?> Setup</h3>
                         </div>
                         <div class="card-body">
-                            <h2><b>Thank you</b> for choosing to try ITFlow Internal IT!</h2>
-                            <p>This is the start of your journey towards amazing department management </p>
+                            <h2><b>Welcome to <?= htmlspecialchars(APP_NAME) ?></b></h2>
+                            <p><?= htmlspecialchars(APP_DESCRIPTION) ?></p>
                             <p>A few tips:</p>
                             <ul>
-                                <li>Please take a look over the install <a href="https://docs.itflow.org/installation">docs</a>, if you haven't already</li>
-                                <li>Don't hesitate to reach out on the <a href="https://forum.itflow.org/t/support" target="_blank">forums</a> if you need any assistance</li>
+                                <li>Please take a look over the install <a href="<?= htmlspecialchars(APP_DOCS_URL) ?>" target="_blank" rel="noopener">docs</a>, if you haven't already</li>
+                                <li>Don't hesitate to open an issue on the <a href="<?= htmlspecialchars(APP_SUPPORT_URL) ?>" target="_blank" rel="noopener">issue tracker</a> if you need any assistance</li>
                                 <li><i>Apache/PHP Error log: <?php echo $errorLog ?></i></li>
                             </ul>
                             <br><p>A database must be created before proceeding - click on the button below to get started.</p>
                             <br><hr>
-                            <p class="text-muted">ITFlow Internal IT is <b>free software</b>: you can redistribute and/or modify it under the terms of the <a href="https://www.gnu.org/licenses/gpl-3.0.en.html" target="_blank">GNU General Public License</a>. <br> It is distributed in the hope that it will be useful, but <b>without any warranty</b>; without even the implied warranty of merchantability or fitness for a particular purpose.</p>
+                            <p class="text-muted"><?= htmlspecialchars(APP_NAME) ?> is <b>free software</b>: you can redistribute and/or modify it under the terms of the <a href="https://www.gnu.org/licenses/gpl-3.0.en.html" target="_blank">GNU General Public License</a>. <br> It is distributed in the hope that it will be useful, but <b>without any warranty</b>; without even the implied warranty of merchantability or fitness for a particular purpose.</p>
                             <?php
                             // Check that there is access to write to the current directory
                             if (!is_writable('.')) {
-                                echo "<div class='alert alert-danger'>Warning: The current directory is not writable. Ensure the webserver process has write access (chmod/chown). Check the <a href='https://docs.itflow.org/installation'>docs</a> for info.</div>";
+                                echo "<div class='alert alert-danger'>Warning: The current directory is not writable. Ensure the webserver process has write access (chmod/chown). Check the <a href='" . htmlspecialchars(APP_DOCS_URL, ENT_QUOTES) . "'>docs</a> for info.</div>";
                             }
                             ?>
                             <hr>

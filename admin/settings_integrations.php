@@ -193,7 +193,7 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
     <div class="it-page-header-row">
         <div>
             <h1 class="it-page-title">Integrations</h1>
-            <p class="it-page-subtitle">Connect ITFlow Internal IT to the RMM, backup, firewall, network and directory systems it reads from.</p>
+            <p class="it-page-subtitle">Connect <?= htmlspecialchars(APP_NAME) ?> to the RMM, backup, firewall, network and directory systems it reads from.</p>
         </div>
     </div>
 </div>
@@ -734,7 +734,7 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                 <table class="table table-sm table-borderless table-hover mb-0">
                     <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
                         <tr>
-                            <th class="ps-3">ITFlow Internal IT Department</th>
+                            <th class="ps-3"><?= htmlspecialchars(APP_NAME) ?> Department</th>
                             <th>Comet Username</th>
                         </tr>
                     </thead>
@@ -1063,7 +1063,7 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
         <div class="card-body">
             <p class="text-muted small">
                 Syncs UniFi access points/switches to Assets, Wi-Fi SSIDs to Credentials, and networks (VLANs/subnets)
-                to Networks. UniFi sites are matched to ITFlow Internal IT departments by name (case-insensitive).
+                to Networks. UniFi sites are matched to <?= htmlspecialchars(APP_NAME) ?> departments by name (case-insensitive).
             </p>
             <form action="post.php" method="post">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
@@ -1389,7 +1389,7 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                             <div class="alert alert-info py-2 mb-3">
                                 <i class="fas fa-cloud me-1"></i>
                                 <strong>UniFi Site Manager</strong> — connects to <code>api.ui.com</code> and syncs devices from
-                                <em>all</em> sites in your account. Each UniFi site is matched to an ITFlow Internal IT department by name.<br>
+                                <em>all</em> sites in your account. Each UniFi site is matched to a <?= htmlspecialchars(APP_NAME) ?> department by name.<br>
                                 <small class="text-muted mt-1 d-block">Devices sync from the cloud API for all sites. Wi-Fi SSIDs/passwords and networks sync via each host's <code>*.id.ui.direct</code> local proxy — works for controllers on the same network as this server or with remote access enabled.</small>
                             </div>
                         </div>
@@ -1449,7 +1449,7 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                 </div>
                 <div class="modal-body">
                     <p class="text-muted small">
-                        By default, each UniFi site is matched to an ITFlow Internal IT department by name (case-insensitive).
+                        By default, each UniFi site is matched to a <?= htmlspecialchars(APP_NAME) ?> department by name (case-insensitive).
                         Use this to override that match, or skip syncing a site entirely.
                     </p>
                     <div id="unifi_siteMappingBody">
@@ -1487,7 +1487,7 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                 <div class="alert alert-danger"><?= $ms_last_test_error ?></div>
             <?php } ?>
             <p class="text-muted small">
-                This is the one Microsoft 365 connection ITFlow Internal IT uses - both "Sync users from Entra ID"
+                This is the one Microsoft 365 connection <?= htmlspecialchars(APP_NAME) ?> uses - both "Sync users from Entra ID"
                 below and Intune device sync (<a href="?tab=devicesync">Device Sync tab</a>) authenticate against
                 this same tenant/client/secret. Configure it here; the Device Sync tab only has its own on/off switch.
             </p>

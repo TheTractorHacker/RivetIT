@@ -45,7 +45,7 @@ function firebase_get_access_token(): ?string {
     curl_close($ch);
 
     if (empty($resp['access_token'])) {
-        error_log("ITFlow - Firebase OAuth token fetch failed: " . $raw);
+        error_log(APP_NAME . " - Firebase OAuth token fetch failed: " . $raw);
     }
 
     return $resp['access_token'] ?? null;
@@ -79,7 +79,7 @@ function firebase_send_push(string $fcm_token, string $title, string $body, arra
     curl_close($ch);
 
     if ($code !== 200) {
-        error_log("ITFlow - FCM push failed (HTTP $code) for token " . substr($fcm_token, 0, 12) . "...: " . ($curl_err ?: $resp));
+        error_log(APP_NAME . " - FCM push failed (HTTP $code) for token " . substr($fcm_token, 0, 12) . "...: " . ($curl_err ?: $resp));
     }
 
     return $code === 200;

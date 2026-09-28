@@ -14,7 +14,7 @@
  * handler, autopay, and this webhook to all fire for the same PaymentIntent.
  *
  * Configure in Stripe: Developers > Webhooks > add endpoint
- *   https://<your-itflow>/guest/payment_webhook.php
+ *   https://<your-rivetit-host>/guest/payment_webhook.php
  * listening for payment_intent.succeeded, and store the signing secret in
  * payment_providers.payment_provider_webhook_secret (via encryptSetting()).
  */
@@ -206,7 +206,7 @@ if (!empty($config_smtp_host)) {
 
     if (!empty($config_invoice_paid_notification_email)) {
         $subject_internal = "Payment Received - $client_name - Invoice $invoice_prefix$invoice_number";
-        $body_internal = "This is a notification that an invoice has been paid in ITFlow Internal IT. Below is a copy of the receipt sent to the department:-<br><br>--------<br><br>$body";
+        $body_internal = "This is a notification that an invoice has been paid in " . htmlspecialchars(APP_NAME) . ". Below is a copy of the receipt sent to the department:-<br><br>--------<br><br>$body";
         $data[] = [
             'from'           => $config_invoice_from_email,
             'from_name'      => $config_invoice_from_name,

@@ -186,7 +186,7 @@ $slug = fn($tag) => 'tag-' . preg_replace('/[^a-z0-9]+/', '-', strtolower($tag))
     <div class="card-body">
         <p class="text-muted mb-0">
             <?= nullable_htmlentities($api_title) ?><?= $api_version !== '' ? ' &middot; v' . nullable_htmlentities($api_version) : '' ?>
-            &mdash; every live endpoint of the REST API used by the ITFlow Internal IT mobile app, ITPanel Pro, and other integrations.
+            &mdash; every live endpoint of the REST API used by the <?= htmlspecialchars(APP_NAME) ?> mobile app, ITPanel Pro, and other integrations.
             Base path: <code>/api/v1</code>. Import <a href="/api/v1/openapi.yaml" target="_blank"><code>openapi.yaml</code></a>
             into Swagger UI, Postman, or Insomnia to explore/test interactively.
         </p>

@@ -1,6 +1,6 @@
 <?php
 /*
- * ITFlow
+ * RivetIT
  * This file defines the SQL queries required to update the database to the "latest" database version
  * It is used in conjunction with database_version.php
  */

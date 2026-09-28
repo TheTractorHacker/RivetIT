@@ -19,7 +19,7 @@ $pay_frequency_array = array(
             <i class="fas fa-info-circle me-1"></i>
             Payroll here computes <strong>gross pay only</strong> (hours &times; rate, overtime, deductions) - no
             federal/state/FICA tax withholding is calculated anywhere in this feature. Handle withholding with your
-            accountant or payroll service, outside ITFlow Internal IT.
+            accountant or payroll service, outside <?= htmlspecialchars(APP_NAME) ?>.
         </div>
         <form action="post.php" method="post" autocomplete="off">
             <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">

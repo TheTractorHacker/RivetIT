@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - SSE wrapper for live ticket updates (client portal)
+ * RivetIT - SSE wrapper for live ticket updates (client portal)
  */
 
 require_once '../config.php';

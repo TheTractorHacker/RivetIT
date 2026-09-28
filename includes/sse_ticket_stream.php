@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - SSE core for live ticket updates (replies, status changes, chat)
+ * RivetIT - SSE core for live ticket updates (replies, status changes, chat)
  *
  * Included by agent/sse_ticket_stream.php and client/sse_ticket_stream.php
  * after they've validated $ticket_id and the caller's access to it.

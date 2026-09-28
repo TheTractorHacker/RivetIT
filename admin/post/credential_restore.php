@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - POST request handler for the Credential Restore tool
+ * RivetIT - POST request handler for the Credential Restore tool
  */
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");

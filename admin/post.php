@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - Admin GET/POST request handler
+ * RivetIT - Admin GET/POST request handler
  */
 
 require_once "../config.php";

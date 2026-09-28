@@ -10,7 +10,7 @@
  *   Scripts  : GET /v2/scripts
  *
  * Device status is a boolean field "online" (true/false), not a string.
- * Client mapping uses device field "group_name" → ITFlow client name.
+ * Client mapping uses device field "group_name" → RivetIT client name.
  */
 
 class LevelRmmClient {
@@ -194,7 +194,7 @@ class LevelRmmClient {
      * Level.io's public v2 API is read-only for alerts — there is no documented
      * endpoint to acknowledge or resolve an alert. These throw a clear message
      * (mirroring reboot()/runCommand()) so the caller logs it and the local
-     * ITFlow action still succeeds.
+     * RivetIT action still succeeds.
      */
     public function ackAlert(string $alert_id): array {
         throw new RuntimeException('Level.io does not support acknowledging alerts via the API. Acknowledge the alert from the Level web app.');

@@ -26,7 +26,7 @@ $mailbox_type_labels = [
     </div>
 
     <div class="card-body">
-        <p class="text-muted">Manage the mailboxes ITFlow Internal IT monitors for email-to-ticket parsing. Each mailbox can use standard IMAP credentials or connect to Google Workspace / Microsoft 365 via OAuth.</p>
+        <p class="text-muted">Manage the mailboxes <?= htmlspecialchars(APP_NAME) ?> monitors for email-to-ticket parsing. Each mailbox can use standard IMAP credentials or connect to Google Workspace / Microsoft 365 via OAuth.</p>
         <hr>
         <div class="table-responsive-sm">
             <table class="table table-striped table-borderless table-hover">

@@ -2,9 +2,9 @@
 /*
  * PaymentProviderInterface — the contract every billing gateway implements.
  *
- * ITFlow talks to payment gateways (Stripe today, others later) only through
+ * RivetIT talks to payment gateways (Stripe today, others later) only through
  * this interface, obtained via getPaymentProvider() in payment_provider_factory.php.
- * Call sites keep all of their ITFlow business logic (recording payments,
+ * Call sites keep all of their RivetIT business logic (recording payments,
  * emailing receipts, creating expenses, logging) and delegate ONLY the gateway
  * API interaction to the provider object. Implementations return the raw gateway
  * SDK objects so callers can read the same fields they read today (zero behaviour

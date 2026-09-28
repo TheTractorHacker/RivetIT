@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - Mobile push notification categories
+ * RivetIT - Mobile push notification categories
  * Maps the freeform notification "type" strings used by appNotify()/notifyUser()
  * into a small set of user-selectable categories for push targeting.
  */

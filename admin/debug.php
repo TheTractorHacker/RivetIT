@@ -514,16 +514,16 @@ $mysqli->close();
 
         <h2>Debugging</h2>
         <ul>
-            <li>If you are experiencing a problem with ITFlow Internal IT, this page should help you identify any configuration issues.</li>
-            <li>Note: You might also need to gather <a href="https://docs.itflow.org/gathering_logs#error_logs">error logs</a></li>
+            <li>If you are experiencing a problem with <?= htmlspecialchars(APP_NAME) ?>, this page should help you identify any configuration issues.</li>
+            <li>Note: You might also need to gather <a href="https://docs.itflow.org/gathering_logs#error_logs" target="_blank" rel="noopener">error logs</a> (upstream <?= htmlspecialchars(APP_UPSTREAM_NAME) ?> guide)</li>
         </ul>
         <hr>
 
         <div class="table-responsive">
             <table class="table table-bordered mb-3">
                 <tr>
-                    <th>ITFlow Internal IT release version</th>
-                    <th><?php echo APP_VERSION; ?></th>
+                    <th><?= htmlspecialchars(APP_NAME) ?></th>
+                    <th>Version <?php echo htmlspecialchars(APP_VERSION); ?></th>
                 </tr>
                 <tr>
                     <td>Current DB Version</td>
@@ -536,6 +536,22 @@ $mysqli->close();
                 <tr>
                     <td>Current Branch</td>
                     <td><?php echo $gitBranch; ?></td>
+                </tr>
+                <tr>
+                    <td>Source</td>
+                    <td><a href="<?= htmlspecialchars(APP_REPO_URL) ?>" target="_blank" rel="noopener"><?= htmlspecialchars(APP_REPO_URL) ?></a></td>
+                </tr>
+                <tr>
+                    <td>License</td>
+                    <td><?= htmlspecialchars(APP_LICENSE) ?></td>
+                </tr>
+                <tr>
+                    <td>Based on</td>
+                    <td>
+                        <a href="<?= htmlspecialchars(APP_UPSTREAM_URL) ?>" target="_blank" rel="noopener"><?= htmlspecialchars(APP_UPSTREAM_NAME) ?></a>
+                        by itflow-org and the <?= htmlspecialchars(APP_UPSTREAM_NAME) ?> contributors, by way of the <?= htmlspecialchars(APP_UPSTREAM_NAME) ?> MSP fork by TractorHacker (Foley IT).
+                        <?= htmlspecialchars(APP_NAME) ?> is free software under the <a href="https://www.gnu.org/licenses/gpl-3.0.en.html" target="_blank" rel="noopener">GNU General Public License v3</a>.
+                    </td>
                 </tr>
             </table>
         </div>

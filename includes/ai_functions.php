@@ -1,6 +1,6 @@
 <?php
 /*
- * ITFlow - AI helper functions
+ * RivetIT - AI helper functions
  *
  * Centralised wrapper around the OpenAI-compatible chat/completions endpoint.
  * Reuses the existing provider/model config: a provider lives in `ai_providers`

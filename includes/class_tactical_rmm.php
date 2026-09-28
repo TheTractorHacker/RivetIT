@@ -376,7 +376,7 @@ class TacticalRmmClient {
      * "acknowledged" state, so the closest vendor-side equivalent is to snooze
      * the alert — mark it seen and quiet re-alerting for a day. PATCH
      * /alerts/{id}/. Throws RuntimeException on failure so the caller can log
-     * it (the local ITFlow ack still stands).
+     * it (the local RivetIT ack still stands).
      */
     public function ackAlert(string $alert_id): array {
         return $this->patch('/alerts/' . urlencode($alert_id) . '/', [
@@ -388,7 +388,7 @@ class TacticalRmmClient {
     /**
      * Resolve an alert at Tactical RMM. PATCH /alerts/{id}/ with resolved=true.
      * Throws RuntimeException on failure so the caller can log it (the local
-     * ITFlow resolve still stands).
+     * RivetIT resolve still stands).
      */
     public function resolveAlert(string $alert_id): array {
         return $this->patch('/alerts/' . urlencode($alert_id) . '/', [

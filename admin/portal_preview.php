@@ -59,7 +59,7 @@ $sql_departments = mysqli_query($mysqli,
         <p class="text-muted small mb-3">
             Open a <strong>read-only</strong> preview of a department's portal to see exactly what that
             department sees. You stay signed in as yourself the whole time &mdash; the preview uses a
-            separate session, so your ITFlow session is untouched and you can leave it at any point
+            separate session, so your <?= htmlspecialchars(APP_NAME) ?> session is untouched and you can leave it at any point
             from the banner at the top of the portal.
         </p>
 
