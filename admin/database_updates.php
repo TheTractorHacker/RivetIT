@@ -9329,3 +9329,21 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.100'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.100') {
+        // Training device setup codes at scale (owner ask 2026-09-28: "like how we add non asset
+        // devices via pin do the same for iPad"). DeviceEnrollment::issueCodes() bulk-issues setup
+        // codes for a fleet of iPads (asset-linked and/or unlisted in one batch), printed from
+        // agent/training_device_slips.php exactly like PinAdmin's PIN setup slips.
+        // config_training_device_code_days is a device-side sibling of config_training_setup_code_days
+        // (2.6.93): how many days an ISSUED-BUT-NOT-YET-REDEEMED device setup code stays valid before
+        // its own TTL expiry retires it (DeviceEnrollment::issueCode()/issueCodes()). Default 3, not 7:
+        // an unused code left on a kiosk card is sitting on hardware that is often unattended/semi-public
+        // between shifts, a narrower window than a person's own printed PIN slip; still admin-adjustable
+        // 1-30 days (same range as the person setting) from Training settings. Same clamp pattern as
+        // config_training_setup_code_days (KioskSettings::RANGES / SettingsService::saveKiosk).
+        // Idempotent: ADD COLUMN IF NOT EXISTS.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_training_device_code_days` tinyint(3) unsigned NOT NULL DEFAULT 3 AFTER `config_training_setup_code_days`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.101'");
+    }

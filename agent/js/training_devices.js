@@ -382,7 +382,7 @@
                     listHost.appendChild(el('div', { class: 'col-12' }, [el('div', { class: 'card' }, [el('div', { class: 'card-body text-center py-5' }, [
                         el('i', { class: 'fas fa-tablet-alt fa-2x text-secondary mb-3', 'aria-hidden': 'true' }),
                         el('h2', { class: 'h3', text: 'No training devices yet' }),
-                        el('p', { class: 'text-secondary', text: 'Open /kiosk/ on the iPad or PC and tap "Set up this device (admin)", or use "Set up a device" here on that device.' })
+                        el('p', { class: 'text-secondary', text: 'Open /kiosk/ on the iPad or PC and tap "Set up this device (admin)", or use "Set up a device" here on that device - or "Get setup codes" above to issue several at once without touching each device.' })
                     ])])]));
                 } else {
                     ks.forEach(function (k) { listHost.appendChild(deviceCard(k)); });

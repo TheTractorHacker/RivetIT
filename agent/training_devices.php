@@ -47,7 +47,8 @@ $tr_data = [
 render_page_header(
     'Devices & PINs',
     'Training iPads and PCs, and the PINs people use on them.',
-    $tr_klevel >= 3 ? '<a class="btn btn-primary" href="/agent/training_device_setup.php"><i class="fas fa-plus me-2"></i>Set up a device</a>' : '',
+    $tr_klevel >= 3 ? '<a class="btn btn-outline-primary me-2" href="/agent/training_device_bulk.php"><i class="fas fa-print me-2"></i>Get setup codes</a>'
+        . '<a class="btn btn-primary" href="/agent/training_device_setup.php"><i class="fas fa-plus me-2"></i>Set up a device</a>' : '',
     [['label' => 'Training', 'url' => '/agent/training_courses.php'], ['label' => 'Devices & PINs']]
 );
 ?>

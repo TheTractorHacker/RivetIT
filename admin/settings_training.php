@@ -322,8 +322,9 @@ $tk_groups = [
         ['config_training_kiosk_distinct_cap_24h', 'Different people with wrong PINs per device in 24 hours', 'people', 'People who later sign in correctly do not count.'],
         ['config_training_kiosk_search_per_min', 'Name searches per device per minute', 'searches', ''],
     ]],
-    ['icon' => 'fa-receipt', 'title' => 'Setup slips', 'intro' => 'Printed PIN setup slips for people who use a training PIN.', 'fields' => [
-        ['config_training_setup_code_days', 'A setup code works for', 'days', ''],
+    ['icon' => 'fa-receipt', 'title' => 'Setup slips & codes', 'intro' => 'Printed PIN setup slips for people, and setup codes for iPads and PCs set up remotely (Devices & PINs > Get setup codes).', 'fields' => [
+        ['config_training_setup_code_days', 'A PIN setup code works for', 'days', ''],
+        ['config_training_device_code_days', 'A device setup code works for', 'days', 'Typed into a device\'s "Enter a setup code" screen; shorter by default since an unused code sits on the hardware.'],
     ]],
 ];
 

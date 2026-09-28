@@ -33,6 +33,7 @@ final class KioskSettings
         'config_training_kiosk_distinct_cap_24h' => ['kioskDistinctCap24h', 20, 5, 1000],
         'config_training_kiosk_search_per_min'   => ['searchPerMin', 60, 10, 600],
         'config_training_setup_code_days'        => ['setupCodeDays', 7, 1, 30],
+        'config_training_device_code_days'       => ['deviceCodeDays', 3, 1, 30],
         'config_training_odoo_breaker_errors'    => ['breakerErrors', 0, 0, 255],
     ];
 
@@ -64,6 +65,7 @@ final class KioskSettings
     public readonly int $kioskDistinctCap24h;
     public readonly int $searchPerMin;
     public readonly int $setupCodeDays;
+    public readonly int $deviceCodeDays;
     public readonly int $breakerErrors;
     public readonly ?string $pinPauseUntilUtc;
     public readonly ?string $enrollPauseUntilUtc;

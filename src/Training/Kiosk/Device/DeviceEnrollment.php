@@ -7,6 +7,7 @@ use ITFlow\Training\Api\ApiException;
 use ITFlow\Training\Core\Ctx;
 use ITFlow\Training\Core\Db;
 use ITFlow\Training\Core\Ledger;
+use ITFlow\Training\Core\Scratch;
 use ITFlow\Training\Kiosk\Core\Eligibility;
 use ITFlow\Training\Kiosk\Core\KioskAuth;
 use ITFlow\Training\Kiosk\Core\KioskKeys;
@@ -35,17 +36,25 @@ use ITFlow\Training\Kiosk\Core\KTime;
  * kiosk_expires_at_utc; past it the device is revoked on its next request or by the cron
  * (DeviceLifecycle). setExpiry() gives any active device a new end time (a permanent one becomes
  * temporary; null makes it permanent); endNow() revokes a temporary one. A setup code never
- * outlives its device: issueCode() refuses an end time earlier than the code's own (CODE_TTL_S).
+ * outlives its device: issueCode() refuses an end time earlier than the code's own TTL
+ * (KioskSettings::deviceCodeDays days, config_training_device_code_days).
  *
  * Personal-device mode (A19, D-4): the asset's assigned contact at enrollment (when eligible) is
  * snapshotted into kiosk_personal_contact_id; KioskAuth::device() locks the device out as soon as
  * the asset's assignment no longer matches that snapshot, until a re-issue re-snapshots it.
+ *
+ * BULK setup codes (2.6.101, owner ask "like how we add non asset devices via pin do the same for
+ * iPad"): issueCodes() is the fleet-rollout sibling of issueSlips() (Pin\PinAdmin) - one issueCode()
+ * per item (asset-linked and/or unlisted, one shared department/duration), sealed into Core\Scratch
+ * the same way and printed from agent/training_device_slips.php.
  */
 final class DeviceEnrollment
 {
     public const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-    public const CODE_TTL_S = 900;
     public const LABEL_MAX = 100;
+    public const MAX_DEVICES = 40;
+    public const CODE_SLIP_TTL_S = 600;
+    public const SCRATCH_KIND = 'device_codes';
 
     public function __construct(private readonly Ctx $c, private readonly KioskKeys $keys)
     {
@@ -118,21 +127,23 @@ final class DeviceEnrollment
     }
 
     /**
-     * [S] A pending row redeemable once on the device with a 10-character code (15 minutes).
+     * [S] A pending row redeemable once on the device with a 10-character code
+     * (KioskSettings::deviceCodeDays days; config_training_device_code_days, default 3).
      * Returns ['kiosk_id', 'code' => 'XXXXX-XXXXX', 'expires_at' (UTC ISO), 'label', 'personal', 'unlisted', 'expires_at_utc'].
      */
     public function issueCode(?int $assetId, string $label, int $defaultClientId, bool $replace, ?string $expiresAt = null): array
     {
+        $ttlS = KioskSettings::fromDb($this->c->db)->deviceCodeDays * 86400;
         $code = '';
         $n = strlen(self::CODE_ALPHABET);
         for ($i = 0; $i < 10; $i++) {
             $code .= self::CODE_ALPHABET[random_int(0, $n - 1)];
         }
-        $expires = KTime::plus(self::CODE_TTL_S);
+        $expires = KTime::plus($ttlS);
         if ($expiresAt !== null && (KTime::epoch($expiresAt) ?? 0) < (KTime::epoch($expires) ?? 0)) {
             // Otherwise the right code could reach a device whose time is already up (and count as a wrong guess).
-            throw ApiException::validation(['expires' => 'A device set up with a code must stay set up for at least ' . intdiv(self::CODE_TTL_S, 60)
-                . ' minutes (the code lasts that long). Pick a later end time.']);
+            throw ApiException::validation(['expires' => 'A device set up with a code must stay set up for at least ' . intdiv($ttlS, 86400)
+                . ' day' . (intdiv($ttlS, 86400) === 1 ? '' : 's') . ' (the code lasts that long). Pick a later end time.']);
         }
         $r = $this->insertKiosk($assetId, $label, $defaultClientId, $replace, 'setup_code', null, ['hash' => hash('sha256', $code), 'expires' => $expires], $expiresAt);
         $this->audit('training.kiosk_enrolled', $r['kiosk_id'], 'enroll_code', 'Issued a setup code for training device "' . $r['label'] . '"' . ($assetId === null ? ' (not in Assets)' : ''),
@@ -141,6 +152,148 @@ final class DeviceEnrollment
         $r['expires_at'] = str_replace(' ', 'T', substr($expires, 0, 19)) . 'Z';
         unset($code);
         return $r;
+    }
+
+    /**
+     * [S] Bulk setup codes for a fleet rollout (owner ask 2026-09-28: "like how we add non asset
+     * devices via pin do the same for iPad") - the device-side sibling of Pin\PinAdmin::issueSlips.
+     * One issueCode() per item (so every item gets the same TTL, replace and one-active-per-asset
+     * handling issueCode() already gives a single device), one shared department and duration.
+     *
+     * $items: an item with a positive asset_id enrolls that asset; any other item is unlisted
+     * (label only). Every referenced asset is prechecked for the WHOLE batch before anything is
+     * written - exists, not archived, an allowed type, and (unless $replace) not already actively
+     * enrolled - same shape as issueSlips' Odoo-source precheck - so a batch fails clean listing the
+     * problem rather than half-applying over it (a genuinely reachable case: an asset archived by
+     * another admin between page load and submit, not just a tampered request). Beyond that
+     * precheck, a later item's failure (e.g. a duplicate asset_id inside one submission, which the
+     * precheck does not deduplicate) does not roll back earlier items already committed - the same
+     * tolerance issueSlips already accepts; each item's row is its own transaction, exactly like
+     * each person's credential update is.
+     *
+     * @param list<array{label:string, asset_id?:?int}> $items
+     * @return string the Scratch token for agent/training_device_slips.php?t=
+     */
+    public function issueCodes(array $items, int $defaultClientId, ?string $expiresAt, bool $replace): string
+    {
+        if ($items === []) {
+            throw ApiException::validation(['items' => 'Add at least one device.']);
+        }
+        if (count($items) > self::MAX_DEVICES) {
+            throw ApiException::validation(['items' => 'At most ' . self::MAX_DEVICES . ' devices at a time.']);
+        }
+        $db = $this->c->db;
+        $clean = [];
+        $assetIds = [];
+        foreach ($items as $it) {
+            $label = trim(preg_replace('/\s+/u', ' ', (string) ($it['label'] ?? '')) ?? '');
+            if ($label === '' || mb_strlen($label, 'UTF-8') > self::LABEL_MAX) {
+                throw ApiException::validation(['items' => 'Every device needs a name (up to ' . self::LABEL_MAX . ' characters).']);
+            }
+            $assetId = isset($it['asset_id']) && (int) $it['asset_id'] > 0 ? (int) $it['asset_id'] : null;
+            if ($assetId !== null) {
+                $assetIds[] = $assetId;
+            }
+            $clean[] = ['label' => $label, 'asset_id' => $assetId];
+        }
+        if ($assetIds !== []) {
+            $ids = array_values(array_unique($assetIds));
+            // Whole-batch existence/archived/type precheck (matches insertKiosk()'s own per-item
+            // checks, run here up front so a batch fails clean instead of half-writing - the gap a
+            // regression review found: without this, an asset archived between page load and submit
+            // would throw mid-loop, leaving earlier items in this same batch committed as 'pending'
+            // with a live code that was never returned to the caller and so never printed.
+            $found = [];
+            foreach (Db::all($db, 'SELECT asset_id, asset_type, asset_archived_at FROM assets WHERE asset_id IN ('
+                . implode(',', array_fill(0, count($ids), '?')) . ')', str_repeat('i', count($ids)), $ids) as $r) {
+                $found[(int) $r['asset_id']] = $r;
+            }
+            $missing = [];
+            $badType = [];
+            foreach ($ids as $aid) {
+                $r = $found[$aid] ?? null;
+                if ($r === null || $r['asset_archived_at'] !== null) {
+                    $missing[] = $aid;
+                } elseif (!in_array((string) $r['asset_type'], KioskSettings::ASSET_TYPES, true)) {
+                    $badType[] = $aid;
+                }
+            }
+            if ($missing !== []) {
+                throw ApiException::validation(['items' => count($missing) === 1
+                    ? 'One of these assets no longer exists or is archived. Remove it and try again.'
+                    : count($missing) . ' of these assets no longer exist or are archived. Remove them and try again.']);
+            }
+            if ($badType !== []) {
+                throw ApiException::validation(['items' => count($badType) === 1
+                    ? "One of these assets isn't a tablet, phone, laptop or desktop, so it can't be a training device."
+                    : count($badType) . " of these assets aren't tablets, phones, laptops or desktops, so they can't be training devices."]);
+            }
+        }
+        if ($assetIds !== [] && !$replace) {
+            $ids = array_values(array_unique($assetIds));
+            $existing = Db::all($db, "SELECT kiosk_asset_id, kiosk_label FROM training_kiosks WHERE kiosk_status = 'active' AND kiosk_asset_id IN ("
+                . implode(',', array_fill(0, count($ids), '?')) . ')', str_repeat('i', count($ids)), $ids);
+            if ($existing !== []) {
+                throw new ApiException(409, 'assets_enrolled', count($existing) === 1
+                    ? 'One of these assets is already a training device ("' . $existing[0]['kiosk_label'] . '"). Tick "Replace already-enrolled assets" to move it here.'
+                    : count($existing) . ' of these assets are already training devices. Tick "Replace already-enrolled assets" to move them here.',
+                    [], ['conflicts' => array_map(static fn($r) => ['asset_id' => (int) $r['kiosk_asset_id'], 'label' => (string) $r['kiosk_label']], $existing)]);
+            }
+        }
+        $batch = [];
+        foreach ($clean as $it) {
+            $r = $this->issueCode($it['asset_id'], $it['label'], $defaultClientId, $replace, $expiresAt);
+            $batch[] = ['kiosk_id' => $r['kiosk_id'], 'label' => $r['label'], 'code' => $r['code'],
+                        'expires_on' => substr($r['expires_at'], 0, 10), 'unlisted' => $r['unlisted']];
+            unset($r);
+        }
+
+        $json = json_encode($batch, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        foreach ($batch as $i => $b) {
+            $batch[$i]['code'] = '';
+        }
+        unset($batch);
+        $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+        $key = $this->keys->slipKey();
+        $box = sodium_crypto_secretbox($json, $nonce, $key);
+        sodium_memzero($json);
+        sodium_memzero($key);
+        return Scratch::put(self::SCRATCH_KIND, $this->c->userId, ['n' => base64_encode($nonce), 'c' => base64_encode($box)], self::CODE_SLIP_TTL_S);
+    }
+
+    /**
+     * The decrypted device-code batch for the issuing user (Scratch::get, NOT take: a reload within
+     * the TTL reprints the same slips), or null when missing, expired, another user's or
+     * undecryptable. Mirrors Pin\PinAdmin::openSlips exactly (same Scratch pattern, same slip key).
+     *
+     * @return list<array{kiosk_id:int,label:string,code:string,expires_on:string,unlisted:bool}>|null
+     */
+    public static function openCodes(Ctx $c, KioskKeys $keys, string $token): ?array
+    {
+        $rec = Scratch::get(self::SCRATCH_KIND, $token, $c->userId);
+        if ($rec === null || !is_string($rec['n'] ?? null) || !is_string($rec['c'] ?? null)) {
+            return null;
+        }
+        $nonce = base64_decode($rec['n'], true);
+        $box = base64_decode($rec['c'], true);
+        if ($nonce === false || $box === false || strlen($nonce) !== SODIUM_CRYPTO_SECRETBOX_NONCEBYTES) {
+            return null;
+        }
+        $key = $keys->slipKey();
+        $plain = sodium_crypto_secretbox_open($box, $nonce, $key);
+        sodium_memzero($key);
+        if ($plain === false) {
+            return null;
+        }
+        $list = json_decode($plain, true);
+        sodium_memzero($plain);
+        return is_array($list) && array_is_list($list) ? $list : null;
+    }
+
+    /** "Done - clear these slips": the single take(). */
+    public static function clearCodes(Ctx $c, string $token): bool
+    {
+        return Scratch::take(self::SCRATCH_KIND, $token, $c->userId) !== null;
     }
 
     /** Revoke: status revoked, token (and any code) NULL, open kiosk session ended 'revoked'. */

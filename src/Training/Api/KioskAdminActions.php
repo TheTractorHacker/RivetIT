@@ -148,6 +148,48 @@ final class KioskAdminActions
     }
 
     /**
+     * POST kiosk_enroll_codes {items:[{label, asset_id?}], default_client_id, replace?, expires?, expires_until?} (kiosk 3) [S].
+     * Bulk sibling of kiosk_enroll_code (owner ask 2026-09-28, fleet rollout): one setup code per
+     * item, one shared department/duration, printed together from the token in `print_url`.
+     */
+    public static function kioskEnrollCodes(Ctx $c, ApiContext $a): array
+    {
+        Access::apiKiosk(3);
+        $items = [];
+        $hasAsset = false;
+        foreach ($a->arr('items') as $it) {
+            if (!is_array($it)) {
+                throw ApiException::validation(['items' => 'Bad device list.']);
+            }
+            $assetId = isset($it['asset_id']) && is_numeric($it['asset_id']) ? (int) $it['asset_id'] : null;
+            if ($assetId !== null && $assetId > 0) {
+                $hasAsset = true;
+            } else {
+                $assetId = null;
+            }
+            $items[] = ['label' => (string) ($it['label'] ?? ''), 'asset_id' => $assetId];
+        }
+        if ($hasAsset && !Access::canAssets()) {
+            throw ApiException::forbidden(Access::ASSETS_NEEDED);   // enrolling by asset id reveals who has the asset
+        }
+        $preset = (string) ($a->enum('expires', DeviceLifecycle::PRESETS, false) ?? 'keep');
+        $expiresAt = DeviceLifecycle::expiryFor($preset, $a->str('expires_until', 20, false));
+        $token = (new DeviceEnrollment($c, self::keys()))->issueCodes($items, (int) ($a->int('default_client_id', false, 0) ?? 0),
+            $expiresAt, (bool) $a->bool('replace', false));
+        self::audit($c, 'training.kiosk_enroll_codes_issued', 'settings', 1, 'enroll_codes',
+            'Issued ' . count($items) . ' training device setup code' . (count($items) === 1 ? '' : 's'), ['count' => count($items)]);
+        return ['print_url' => '/agent/training_device_slips.php?t=' . rawurlencode($token), 'count' => count($items)];
+    }
+
+    /** POST kiosk_device_codes_clear {t} (kiosk 3). */
+    public static function kioskDeviceCodesClear(Ctx $c, ApiContext $a): array
+    {
+        Access::apiKiosk(3);
+        DeviceEnrollment::clearCodes($c, (string) $a->str('t', 100));
+        return [];
+    }
+
+    /**
      * POST kiosk_set_expiry {kiosk_id, expires: keep|today|4h|8h|24h|until|now, expires_until?} (kiosk 3).
      * 'now' ends a temporary device at once (a revoke with the reason "Temporary device ended early", or
      * "Temporary device expired" when its time is already up); the presets set a new end time counted
