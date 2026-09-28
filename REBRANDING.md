@@ -225,10 +225,16 @@ integrations, stored data or the Android companion app, for no visible benefit.
   stacks could share a host without any setting. Now the second stack's `docker compose up` stops with "container
   name /rivetit-db is already in use" unless each extra stack sets its own `RIVETIT_CONTAINER_PREFIX` in `.env`
   first. The CHANGELOG upgrade notes and `docs/DEPLOYMENT.md` say so.
-- **Kept**: the volume key **`itflow_db_data`** (the data), the `DB_NAME` / `DB_USER` defaults **`itflow`**
-  (the existing database and user), the service keys **`app`** and **`db`** (`DB_HOST: db`), and **no top-level
-  `name:`** (it would change the project prefix of the volume and orphan the data). `.dockerignore` has no
-  brand strings.
+- **Kept**: the volume key **`itflow_db_data`** (the data), `docker-compose.yml`'s own `DB_NAME` / `DB_USER`
+  **fallback** **`itflow`** (fires only when `.env` sets neither — an existing stack that never set them
+  really does have a database named `itflow` inside that volume), the service keys **`app`** and **`db`**
+  (`DB_HOST: db`), and **no top-level `name:`** (it would change the project prefix of the volume and orphan
+  the data). `.dockerignore` has no brand strings.
+- **Changed for new installs only**: `.env.example`'s suggested `DB_NAME`/`DB_USER` are now `rivetit` — this
+  file is a template copied to `.env` once, never re-applied over an existing stack's real `.env`, so it
+  carries no compatibility risk. `deploy/install.sh`'s `default_db_name()` (its empty-domain edge-case
+  fallback) is `rivetit` for the same reason: it is evaluated fresh per `--domain` on every run, never reused
+  from a prior install.
 
 ## Legal and attribution
 
