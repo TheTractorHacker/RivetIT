@@ -175,10 +175,10 @@ Integrations): people and departments come from Odoo, and training records can g
 
 ## Self-Hosting
 
-One install per organization, on your own server. RivetIT is PHP 8.4 with MariaDB (MySQL-compatible), served by nginx; Redis is used for live updates when it
-is available. Composer dependencies are committed in `vendor/`. Two supported ways to run it are described
-in full in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), with the flag-by-flag reference in
-[deploy/README.md](deploy/README.md).
+One install per organization, on your own server. RivetIT is PHP 8.4 with MariaDB (MySQL-compatible),
+served by nginx; Redis is used for live updates when it is available. Composer dependencies are committed
+in `vendor/`. Two supported ways to run it are described in full in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md),
+with the flag-by-flag reference in [deploy/README.md](deploy/README.md).
 
 The repository is still named `ITFlow-Internal-IT`, so that is the directory `git clone` creates.
 
