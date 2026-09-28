@@ -189,13 +189,20 @@ Company / localization details (optional — same prompt-if-omitted rule):
   --company-email=<address>
   --website=<url>
 
-Restore onto this new box instead of a fresh company setup (both required
-together; every company/localization/admin-user option above is ignored and
+Restore onto this new box instead of a fresh company setup (--restore-from
+required; every company/localization/admin-user option above is ignored and
 not prompted for — the restored backup already has all of that):
-  --restore-from=<path>            Path to a backup-*.tar.gz.enc produced by
-                            deploy/backup.sh.
+  --restore-from=<path>            Path to EITHER a backup-*.tar.gz.enc
+                            produced by deploy/backup.sh, OR an in-app
+                            itflow_<timestamp>_*.zip from this app's own
+                            Settings > Backup feature (detected by the
+                            .zip extension) — handed off to restore.sh or
+                            restore_zip.sh respectively.
   --restore-passphrase-file=<path>  600-permission file holding the
                             passphrase that backup was encrypted with.
+                            Required with a backup-*.tar.gz.enc; not used
+                            (the in-app .zip format isn't encrypted) and
+                            not required with a .zip --restore-from.
 
   --help                           Show this help and exit.
 
@@ -299,9 +306,17 @@ default_db_name() {
 validate_restore_args() {
     if [[ -n "${RESTORE_FROM}" || -n "${RESTORE_PASSPHRASE_FILE}" ]]; then
         [[ -n "${RESTORE_FROM}" ]] || die "--restore-passphrase-file was given without --restore-from — both are required together."
-        [[ -n "${RESTORE_PASSPHRASE_FILE}" ]] || die "--restore-from was given without --restore-passphrase-file — both are required together."
         [[ -f "${RESTORE_FROM}" ]] || die "--restore-from '${RESTORE_FROM}' does not exist."
-        [[ -f "${RESTORE_PASSPHRASE_FILE}" ]] || die "--restore-passphrase-file '${RESTORE_PASSPHRASE_FILE}' does not exist."
+
+        # The in-app backup .zip format (deploy/restore_zip.sh) is never
+        # encrypted, unlike deploy/backup.sh's own backup-*.tar.gz.enc
+        # (restore.sh) - only the latter needs a passphrase to decrypt it.
+        if [[ "${RESTORE_FROM}" != *.zip && -z "${RESTORE_PASSPHRASE_FILE}" ]]; then
+            die "--restore-from was given without --restore-passphrase-file — both are required together (unless --restore-from ends in .zip, which isn't encrypted)."
+        fi
+        if [[ -n "${RESTORE_PASSPHRASE_FILE}" ]]; then
+            [[ -f "${RESTORE_PASSPHRASE_FILE}" ]] || die "--restore-passphrase-file '${RESTORE_PASSPHRASE_FILE}' does not exist."
+        fi
     fi
 }
 
@@ -478,6 +493,9 @@ set_file_permissions() {
     fi
     if [[ -f "${APP_DIR}/scripts/update_cli.php" ]]; then
         chmod u+x,g+x "${APP_DIR}/scripts/update_cli.php"
+    fi
+    if [[ -f "${APP_DIR}/scripts/restore_zip_cli.php" ]]; then
+        chmod u+x,g+x "${APP_DIR}/scripts/restore_zip_cli.php"
     fi
     if [[ -d "${APP_DIR}/deploy" ]]; then
         find "${APP_DIR}/deploy" -maxdepth 1 -name '*.sh' -exec chmod u+x,g+x {} +
@@ -929,8 +947,10 @@ run_app_setup() {
 # run_app_restore(): the --restore-from counterpart to run_app_setup() —
 # writes config.php via setup_cli.php --config-only (no schema import, no
 # admin user/company created, since the backup already has all of that),
-# then hands off to deploy/restore.sh to import it. Only config_enable_setup
-# is left for THIS function to set afterward: setup_cli.php --config-only
+# then hands off to deploy/restore.sh (backup-*.tar.gz.enc) or
+# deploy/restore_zip.sh (an in-app *.zip, detected by extension) to import
+# it. Only config_enable_setup is left for THIS function to set afterward:
+# setup_cli.php --config-only
 # deliberately does not set it, so a restore that fails partway still leaves
 # the box bouncing to /setup for a retry instead of claiming to be ready.
 run_app_restore() {
@@ -957,18 +977,30 @@ run_app_restore() {
         chown www-data:www-data "${APP_DIR}/config.php"
     fi
 
-    announce "Restoring ${RESTORE_FROM} into ${APP_DIR} (deploy/restore.sh)..."
-    # --no-pre-restore-backup-confirmed: config.php was just written above
-    # against a database provision_database() created moments ago in this
-    # same run — there is nothing yet in it worth a safety backup of.
-    if ! "${SCRIPT_DIR}/restore.sh" --app-dir="${APP_DIR}" --backup="${RESTORE_FROM}" \
-        --passphrase-file="${RESTORE_PASSPHRASE_FILE}" --confirm-restore \
-        --no-pre-restore-backup-confirmed; then
-        die "deploy/restore.sh failed. See its output above; ${APP_DIR}/config.php exists but config_enable_setup was NOT disabled, so it still bounces to /setup — fix the failure and re-run restore.sh directly (this installer refuses to re-run app-level setup once config.php exists)."
+    # --no-pre-restore-backup-confirmed on both branches below: config.php
+    # was just written above against a database provision_database() created
+    # moments ago in this same run — there is nothing yet in it worth a
+    # safety backup of.
+    if [[ "${RESTORE_FROM}" == *.zip ]]; then
+        announce "Restoring ${RESTORE_FROM} into ${APP_DIR} (deploy/restore_zip.sh)..."
+        if ! "${SCRIPT_DIR}/restore_zip.sh" --app-dir="${APP_DIR}" --zip="${RESTORE_FROM}" \
+            --confirm-restore --no-pre-restore-backup-confirmed; then
+            die "deploy/restore_zip.sh failed. See its output above; ${APP_DIR}/config.php exists but config_enable_setup was NOT disabled, so it still bounces to /setup — fix the failure and re-run restore_zip.sh directly (this installer refuses to re-run app-level setup once config.php exists)."
+        fi
+    else
+        announce "Restoring ${RESTORE_FROM} into ${APP_DIR} (deploy/restore.sh)..."
+        if ! "${SCRIPT_DIR}/restore.sh" --app-dir="${APP_DIR}" --backup="${RESTORE_FROM}" \
+            --passphrase-file="${RESTORE_PASSPHRASE_FILE}" --confirm-restore \
+            --no-pre-restore-backup-confirmed; then
+            die "deploy/restore.sh failed. See its output above; ${APP_DIR}/config.php exists but config_enable_setup was NOT disabled, so it still bounces to /setup — fix the failure and re-run restore.sh directly (this installer refuses to re-run app-level setup once config.php exists)."
+        fi
     fi
 
     # Mirrors setup_cli.php's own finalize step, and only reached once the
-    # restore above actually succeeded.
+    # restore above actually succeeded. A no-op for the .zip branch above —
+    # scripts/restore_zip_cli.php already sets this line itself — kept
+    # unconditional for both branches so this function has exactly one "did
+    # the restore finish" contract regardless of which one ran.
     local config_file="${APP_DIR}/config.php"
     if ! grep -q '^\$config_enable_setup = 0;' "${config_file}"; then
         printf '$config_enable_setup = 0;\n\n' | sudo -u www-data tee -a "${config_file}" >/dev/null
