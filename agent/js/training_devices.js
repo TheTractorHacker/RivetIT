@@ -110,6 +110,37 @@
         // ============================================================== devices
         var listHost = $('tr-device-list');
         var TYPE_ICON = { 'Tablet': 'fa-tablet-alt', 'Phone': 'fa-mobile-alt', 'Mobile Phone': 'fa-mobile-alt', 'Laptop': 'fa-laptop', 'Desktop': 'fa-desktop' };
+
+        // Revoked devices only: select and remove them from the list (kiosk_hide - not a delete).
+        var removePicked = {};
+        var bulkBar = $('tr-device-bulk-bar');
+        var bulkCount = $('tr-device-bulk-count');
+        var bulkRemoveBtn = $('tr-device-bulk-remove');
+        function updateBulkBar() {
+            var ids = Object.keys(removePicked);
+            if (bulkBar) { bulkBar.hidden = ids.length === 0; }
+            if (bulkCount) { bulkCount.textContent = ids.length === 1 ? '1 revoked device selected' : ids.length + ' revoked devices selected'; }
+        }
+        if (bulkRemoveBtn) {
+            bulkRemoveBtn.addEventListener('click', function () {
+                var ids = Object.keys(removePicked).map(Number);
+                if (!ids.length) { return; }
+                var label = ids.length === 1 ? 'this device' : ids.length + ' devices';
+                ui.confirmBar(bulkBar, { message: 'Remove ' + label + ' from the list? This only removes them here - it does not affect any training records.', confirmLabel: 'Remove', danger: true }).then(function (yes) {
+                    if (!yes) { return; }
+                    bulkRemoveBtn.disabled = true;
+                    api.post('kiosk_hide', { kiosk_ids: ids }).then(function (res) {
+                        bulkRemoveBtn.disabled = false;
+                        removePicked = {};
+                        updateBulkBar();
+                        ui.toast(res.hidden === 1 ? '1 device removed.' : res.hidden + ' devices removed.');
+                        loadDevices();
+                    }, function (err) { bulkRemoveBtn.disabled = false; fail(err); });
+                });
+            });
+        }
+        var bulkClearBtn = $('tr-device-bulk-clear');
+        if (bulkClearBtn) { bulkClearBtn.addEventListener('click', function () { removePicked = {}; updateBulkBar(); loadDevices(); }); }
         var PROBLEM = {
             asset_missing: 'The asset was deleted', asset_archived: 'The asset is archived', asset_type: 'The asset is no longer a device type',
             assignment_changed: 'Assignment changed — re-enroll', owner_ineligible: 'Owner can no longer train — re-enroll',
@@ -235,7 +266,15 @@
                 statusChip(k),
                 k.temporary && live && !k.expired ? el('span', { class: 'badge bg-warning-lt', dataset: { kioskTemp: '1' } }, [icon('fa-hourglass-half', 'me-1'), 'Temporary']) : null
             ]);
+            var pick = null;
+            if (k.status === 'revoked' && level >= 3) {
+                var pickCb = el('input', { type: 'checkbox', class: 'form-check-input mt-1', 'aria-label': 'Select ' + k.label });
+                pickCb.checked = !!removePicked[k.id];
+                pickCb.addEventListener('change', function () { if (pickCb.checked) { removePicked[k.id] = true; } else { delete removePicked[k.id]; } updateBulkBar(); });
+                pick = el('div', { class: 'form-check flex-shrink-0' }, [pickCb]);
+            }
             var head = el('div', { class: 'd-flex align-items-start gap-3' }, [
+                pick,
                 el('span', { class: 'avatar avatar-md bg-primary-lt flex-shrink-0' }, [icon(deviceIcon(k), 'fa-lg')]),
                 el('div', { class: 'flex-grow-1 min-w-0' }, [
                     el('h3', { class: 'card-title mb-1 text-break', title: k.label, text: k.label }),
@@ -262,7 +301,8 @@
                 facts.appendChild(el('dt', { class: 'col-5 text-secondary fw-normal', text: label }));
                 facts.appendChild(el('dd', { class: 'col-7 mb-1' + (extra ? ' ' + extra : '') }, value));
             }
-            if (k.personal) { fact('Personal', [icon('fa-user', 'me-1'), k.personal.name]); } else if (k.status !== 'revoked') { fact('Mode', 'Shared (name search)'); }
+            if (k.personal) { fact('Personal', [icon('fa-user', 'me-1'), k.personal.name]); }
+            else if (k.status !== 'revoked') { fact('Mode', k.forced_shared ? 'Shared (set to ignore the asset\'s assignment)' : 'Shared (name search)'); }
             if (k.status === 'active') {
                 fact('Last seen', ago(k.last_seen));
                 if (k.ua) { fact('Browser', k.ua); }
@@ -327,6 +367,25 @@
                     });
                 });
                 actions.appendChild(re);
+            }
+            if (k.status === 'active' && !k.expired && !k.unlisted && level >= 3) {
+                var modeBtn = k.forced_shared
+                    ? el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary' }, [icon('fa-user-check', 'me-1'), 'Follow the asset instead'])
+                    : el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary' }, [icon('fa-users', 'me-1'), 'Make shared']);
+                modeBtn.addEventListener('click', function () {
+                    var toForced = !k.forced_shared;
+                    var msg = toForced
+                        ? 'Make ' + k.label + ' shared? It will use name search for everyone, no matter who this asset is assigned to.'
+                        : 'Set ' + k.label + ' back to following its asset\'s assignment? It may become personal again, or stay shared, depending on who the asset is assigned to right now.';
+                    ui.confirmBar(body, { message: msg, confirmLabel: toForced ? 'Make shared' : 'Follow the asset' }).then(function (yes) {
+                        if (!yes) { return; }
+                        api.post('kiosk_set_mode', { kiosk_id: k.id, forced_shared: toForced }).then(function () {
+                            ui.toast(toForced ? k.label + ' is now shared.' : k.label + ' now follows its asset\'s assignment.');
+                            loadDevices();
+                        }, fail);
+                    });
+                });
+                actions.appendChild(modeBtn);
             }
             if (k.expired && live && level >= 3) {
                 // Already dead (nobody has touched it since its time ran out): just clean it up, no reason needed.

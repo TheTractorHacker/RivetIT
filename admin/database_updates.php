@@ -9347,3 +9347,34 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.101'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.101') {
+        // Owner ask 2026-09-28: "on Devices and the Revoke ones we can select remove." A revoked
+        // device card had no action at all - kiosk_list() already stops showing a revoked device
+        // once kiosk_revoked_at_utc is more than 30 days old, but there was no way to clear one out
+        // sooner. kiosk_hidden_at_utc is a soft-hide, NOT a delete: training_kiosks.kiosk_id is
+        // referenced (no FK, this app's usual style) from training_awards, training_attempts,
+        // lesson_completions, evaluations, the ledger, training_runs, attendees, sessions and
+        // signatures - hard-deleting a device row would leave every one of those historical records
+        // pointing at nothing. Hiding just excludes it from kiosk_list()'s default result; the row
+        // and every real record referencing it are untouched. Only ever settable on an
+        // already-revoked device (DeviceLifecycle guards this - never an active/pending one).
+        // Idempotent: ADD COLUMN IF NOT EXISTS.
+        mysqli_query($mysqli, "ALTER TABLE `training_kiosks` ADD COLUMN IF NOT EXISTS `kiosk_hidden_at_utc` datetime(3) DEFAULT NULL AFTER `kiosk_revoke_reason`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.102'");
+    }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.102') {
+        // Owner ask 2026-09-28: "should be able to change the Modes like share personal ect."
+        // Personal vs shared on an asset-linked device was previously ONLY ever derived from the
+        // asset's current assignment (kiosk_personal_contact_id snapshotted at enroll/reissue) -
+        // there was no way to say "yes this asset is assigned to someone, but I still want this
+        // device shared." kiosk_force_shared is that explicit override (DeviceEnrollment::
+        // setForcedShared()); KioskAuth::invalidReason() skips its usual assignment-mismatch
+        // lockout for a device with this set, since the mismatch is now intentional, not a sign the
+        // device moved to someone else without being re-issued (A19). Idempotent: ADD COLUMN IF NOT EXISTS.
+        mysqli_query($mysqli, "ALTER TABLE `training_kiosks` ADD COLUMN IF NOT EXISTS `kiosk_force_shared` tinyint(1) NOT NULL DEFAULT 0 AFTER `kiosk_personal_contact_id`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.103'");
+    }

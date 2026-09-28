@@ -64,6 +64,11 @@ render_page_header(
     </ul>
     <div class="tab-content">
         <div class="tab-pane fade<?= $tr_tab === 'devices' ? ' show active' : '' ?>" id="tr-tab-devices" role="tabpanel">
+            <div id="tr-device-bulk-bar" class="alert alert-secondary d-flex align-items-center gap-2 mb-3" role="toolbar" hidden>
+                <span id="tr-device-bulk-count"></span>
+                <button type="button" class="btn btn-sm btn-outline-danger ms-auto" id="tr-device-bulk-remove"><i class="fas fa-trash-alt me-1" aria-hidden="true"></i>Remove selected</button>
+                <button type="button" class="btn btn-sm btn-link" id="tr-device-bulk-clear">Clear</button>
+            </div>
             <div class="row row-cards" id="tr-device-list" aria-busy="true"></div>
         </div>
         <div class="tab-pane fade<?= $tr_tab === 'people' ? ' show active' : '' ?>" id="tr-tab-people" role="tabpanel">
