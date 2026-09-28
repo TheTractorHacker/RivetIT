@@ -131,6 +131,42 @@ final class DeviceLifecycle
         ]));
     }
 
+    /**
+     * Bulk soft-hide already-revoked devices out of kiosk_list()'s default result (owner ask
+     * 2026-09-28: "on Devices and the Revoke ones we can select remove"). NOT a delete - see the
+     * 2.6.102 migration comment: kiosk_id is referenced with no FK from training_awards,
+     * training_attempts, lesson_completions, evaluations, the ledger, training_runs, attendees,
+     * sessions and signatures, so hard-deleting a device row would strand every one of those
+     * historical records. The row and everything real that references it are untouched; only
+     * kiosk_hidden_at_utc changes. Silently skips any id that isn't actually revoked or is already
+     * hidden (a stale checkbox from a list that changed under the admin's feet should not fail the
+     * whole batch) - one kiosk.hidden ledger event per device actually hidden. Returns how many.
+     *
+     * @param list<int> $kioskIds
+     */
+    public static function hide(\mysqli $db, array $kioskIds, array $base): int
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $kioskIds), static fn(int $i) => $i > 0)));
+        if ($ids === []) {
+            return 0;
+        }
+        $now = KTime::now();
+        return Db::tx($db, static function () use ($db, $ids, $now, $base): int {
+            $rows = Db::all($db, "SELECT kiosk_id, kiosk_label FROM training_kiosks WHERE kiosk_id IN ("
+                . implode(',', array_fill(0, count($ids), '?')) . ") AND kiosk_status = 'revoked' AND kiosk_hidden_at_utc IS NULL FOR UPDATE",
+                str_repeat('i', count($ids)), $ids);
+            foreach ($rows as $r) {
+                $id = (int) $r['kiosk_id'];
+                Db::exec($db, 'UPDATE training_kiosks SET kiosk_hidden_at_utc = ? WHERE kiosk_id = ?', 'si', [$now, $id]);
+                Ledger::append($db, array_merge($base, [
+                    'type' => 'kiosk.hidden', 'kiosk_id' => $id, 'entity_type' => 'kiosk', 'entity_id' => $id,
+                    'payload' => ['label' => (string) $r['kiosk_label']],
+                ]));
+            }
+            return count($rows);
+        });
+    }
+
     /** Ends the kiosk's open session (if any) inside the caller's tx (kiosk row already locked); ksession.end. */
     public static function endOpenSessions(\mysqli $db, int $kioskId, string $reason, array $base): void
     {

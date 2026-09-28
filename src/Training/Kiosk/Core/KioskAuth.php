@@ -45,7 +45,7 @@ final class KioskAuth
     public const LANG_COOKIE_MAX_AGE = 31536000;
     public const AGENT_COOKIES = ['PHPSESSID', 'rememberme', 'user_encryption_session_key', 'user_extension_key'];
 
-    private const DEVICE_SELECT = 'SELECT k.kiosk_id, k.kiosk_asset_id, k.kiosk_asset_type, k.kiosk_asset_serial, k.kiosk_personal_contact_id,
+    private const DEVICE_SELECT = 'SELECT k.kiosk_id, k.kiosk_asset_id, k.kiosk_asset_type, k.kiosk_asset_serial, k.kiosk_personal_contact_id, k.kiosk_force_shared,
             k.kiosk_label, k.kiosk_default_client_id, k.kiosk_status, k.kiosk_enroll_method, k.kiosk_token_hash, k.kiosk_enrolled_at_utc,
             k.kiosk_last_seen_at_utc, k.kiosk_cooldown_until_utc, k.kiosk_cooldown_reason, k.kiosk_expires_at_utc,
             a.asset_id AS asset_row_id, a.asset_name, a.asset_type, a.asset_serial, a.asset_archived_at, a.asset_contact_id, a.asset_client_id
@@ -160,6 +160,12 @@ final class KioskAuth
         }
         if (!in_array((string) $row['asset_type'], KioskSettings::ASSET_TYPES, true)) {
             return 'asset_type';
+        }
+        if ((int) ($row['kiosk_force_shared'] ?? 0) === 1) {
+            // Explicitly forced shared (owner override, 2026-09-28): the asset's own assignment is
+            // deliberately ignored, so a mismatch here is expected, not a sign the device moved to
+            // someone else without being re-issued - skip the usual A19 lockout for it.
+            return null;
         }
         $assigned = (int) ($row['asset_contact_id'] ?? 0);
         $snap = (int) ($row['kiosk_personal_contact_id'] ?? 0);

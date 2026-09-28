@@ -46,7 +46,7 @@ final class KioskAdminActions
     {
         Access::apiKiosk(1);
         $db = $c->db;
-        $rows = Db::all($db, "SELECT k.kiosk_id, k.kiosk_asset_id, k.kiosk_asset_type, k.kiosk_asset_serial, k.kiosk_personal_contact_id, k.kiosk_label,
+        $rows = Db::all($db, "SELECT k.kiosk_id, k.kiosk_asset_id, k.kiosk_asset_type, k.kiosk_asset_serial, k.kiosk_personal_contact_id, k.kiosk_force_shared, k.kiosk_label,
                 k.kiosk_default_client_id, k.kiosk_status, k.kiosk_enroll_method, k.kiosk_token_hash, k.kiosk_enroll_expires_at_utc, k.kiosk_enrolled_at_utc,
                 k.kiosk_enrolled_by, k.kiosk_last_seen_at_utc, k.kiosk_last_user_agent, k.kiosk_cooldown_until_utc, k.kiosk_cooldown_reason,
                 k.kiosk_revoked_at_utc, k.kiosk_revoke_reason, k.kiosk_expires_at_utc,
@@ -57,7 +57,7 @@ final class KioskAdminActions
             LEFT JOIN contacts pc ON pc.contact_id = k.kiosk_personal_contact_id
             LEFT JOIN users u ON u.user_id = k.kiosk_enrolled_by
             LEFT JOIN clients cl ON cl.client_id = k.kiosk_default_client_id
-            WHERE k.kiosk_status IN ('active','pending') OR k.kiosk_revoked_at_utc >= ?
+            WHERE k.kiosk_hidden_at_utc IS NULL AND (k.kiosk_status IN ('active','pending') OR k.kiosk_revoked_at_utc >= ?)
             ORDER BY FIELD(k.kiosk_status, 'active', 'pending', 'revoked'), k.kiosk_label, k.kiosk_id", 's', [KTime::plus(-30 * 86400)]);
         $open = [];
         foreach (Db::all($db, 'SELECT ksess_kiosk_id, ksess_role FROM training_kiosk_sessions WHERE ksess_open_guard = 1') as $s) {
@@ -86,6 +86,7 @@ final class KioskAdminActions
                 'expires_at' => self::iso($r['kiosk_expires_at_utc']),
                 'expired' => DeviceLifecycle::isExpired($r['kiosk_expires_at_utc']),
                 'personal' => $r['kiosk_personal_contact_id'] !== null ? ['id' => (int) $r['kiosk_personal_contact_id'], 'name' => (string) ($r['personal_name'] ?? '')] : null,
+                'forced_shared' => (int) ($r['kiosk_force_shared'] ?? 0) === 1,
                 'assignment_ok' => $why !== 'assignment_changed' && $why !== 'owner_ineligible',
                 'default_department' => (string) ($r['default_client_name'] ?? ''),
                 'method' => (string) ($r['kiosk_enroll_method'] ?? ''),
@@ -209,12 +210,34 @@ final class KioskAdminActions
         return ['ended' => false, 'label' => $r['label'], 'device_expires_at' => self::iso($r['expires_at_utc'])];
     }
 
+    /** POST kiosk_set_mode {kiosk_id, forced_shared} (kiosk 3) - asset-linked devices only. */
+    public static function kioskSetMode(Ctx $c, ApiContext $a): array
+    {
+        Access::apiKiosk(3);
+        $r = (new DeviceEnrollment($c, self::keys()))->setForcedShared((int) $a->int('kiosk_id', true, 1), (bool) $a->bool('forced_shared', true));
+        return ['label' => $r['label'], 'forced_shared' => $r['forced_shared'], 'personal' => $r['personal']];
+    }
+
     /** POST kiosk_revoke {kiosk_id, reason} (kiosk 3). */
     public static function kioskRevoke(Ctx $c, ApiContext $a): array
     {
         Access::apiKiosk(3);
         (new DeviceEnrollment($c, self::keys()))->revoke((int) $a->int('kiosk_id', true, 1), self::reason($a));
         return [];
+    }
+
+    /** POST kiosk_hide {kiosk_ids} (kiosk 3) - bulk-remove already-revoked devices from the default list. Not a delete. */
+    public static function kioskHide(Ctx $c, ApiContext $a): array
+    {
+        Access::apiKiosk(3);
+        $ids = array_values(array_unique(array_filter(array_map('intval', $a->ints('kiosk_ids')), static fn($i) => $i > 0)));
+        if ($ids === []) {
+            throw ApiException::validation(['kiosk_ids' => 'Pick at least one device.']);
+        }
+        $n = (new DeviceEnrollment($c, self::keys()))->hide($ids);
+        self::audit($c, 'training.kiosk_hidden', 'settings', 1, 'hide',
+            'Removed ' . $n . ' revoked training device' . ($n === 1 ? '' : 's') . ' from the list', ['count' => $n]);
+        return ['hidden' => $n];
     }
 
     /** POST kiosk_reissue {kiosk_id} (kiosk 3). */

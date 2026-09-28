@@ -316,6 +316,18 @@ final class DeviceEnrollment
     }
 
     /**
+     * Bulk-remove revoked devices from the default list (DeviceLifecycle::hide() - a soft-hide, not
+     * a delete). Returns how many were actually hidden (a stale id in the list that isn't revoked,
+     * or is already hidden, is silently skipped rather than failing the whole batch).
+     *
+     * @param list<int> $kioskIds
+     */
+    public function hide(array $kioskIds): int
+    {
+        return DeviceLifecycle::hide($this->c->db, $kioskIds, $this->eventBase());
+    }
+
+    /**
      * A new end time (UTC, from DeviceLifecycle::expiryFor; null = keep until removed) for an ACTIVE
      * device whose time is not up yet - temporary or permanent (a permanent device becomes
      * temporary). kiosk.expiry_changed {from, to}. Records never show the current expiry
@@ -350,6 +362,61 @@ final class DeviceEnrollment
         $this->audit('training.kiosk_expiry_changed', $kioskId, 'expiry', ($expiresAt === null ? 'Kept training device "' . $r['label'] . '" until removed'
             : 'Changed when training device "' . $r['label'] . '" expires'), ['from' => $r['from'], 'to' => $expiresAt]);
         unset($r['from']);
+        return $r;
+    }
+
+    /**
+     * Owner ask 2026-09-28: "should be able to change the Modes like share personal ect" - an
+     * ASSET-linked device only (unlisted devices are always shared, by design, with no asset to
+     * derive a personal owner from). $forced true: kiosk_force_shared = 1 and
+     * kiosk_personal_contact_id is cleared, so it opens to name search no matter who the asset is
+     * assigned to - KioskAuth::invalidReason() skips its usual assignment-mismatch lockout for a
+     * forced-shared device, since a mismatch is now expected, not a sign the device moved to
+     * someone else (A19 §4). $forced false: clears kiosk_force_shared and re-derives
+     * kiosk_personal_contact_id from the asset's CURRENT assignment (personalFor(), the same
+     * snapshot reissue() takes) - it may come back shared anyway if the asset has no eligible
+     * owner right now.
+     *
+     * @return array{kiosk_id:int, label:string, personal:?array{id:int,name:string}, forced_shared:bool}
+     */
+    public function setForcedShared(int $kioskId, bool $forced): array
+    {
+        $db = $this->c->db;
+        $base = $this->eventBase();
+        $r = Db::tx($db, function () use ($db, $kioskId, $forced, $base): array {
+            $k = Db::one($db, 'SELECT kiosk_id, kiosk_asset_id, kiosk_label, kiosk_status, kiosk_force_shared FROM training_kiosks WHERE kiosk_id = ? FOR UPDATE', 'i', [$kioskId]);
+            if ($k === null) {
+                throw ApiException::notFound('That device was not found.');
+            }
+            if ($k['kiosk_status'] !== 'active') {
+                throw new ApiException(409, 'validation', 'Only an active device has a mode to change.');
+            }
+            if ($k['kiosk_asset_id'] === null) {
+                throw new ApiException(409, 'validation', 'This device isn\'t in Assets, so it\'s always shared - there\'s no mode to change.');
+            }
+            $from = (int) $k['kiosk_force_shared'] === 1;
+            if ($from === $forced) {
+                return ['kiosk_id' => $kioskId, 'label' => (string) $k['kiosk_label'], 'personal' => null, 'forced_shared' => $forced, 'changed' => false];
+            }
+            $personal = null;
+            if ($forced) {
+                Db::exec($db, 'UPDATE training_kiosks SET kiosk_force_shared = 1, kiosk_personal_contact_id = NULL WHERE kiosk_id = ?', 'i', [$kioskId]);
+            } else {
+                $asset = Db::one($db, 'SELECT asset_id, asset_contact_id FROM assets WHERE asset_id = ? FOR UPDATE', 'i', [(int) $k['kiosk_asset_id']]);
+                $personal = $asset === null ? null : $this->personalFor($asset);
+                Db::exec($db, 'UPDATE training_kiosks SET kiosk_force_shared = 0, kiosk_personal_contact_id = ? WHERE kiosk_id = ?', 'ii', [$personal['id'] ?? null, $kioskId]);
+            }
+            Ledger::append($db, array_merge($base, [
+                'type' => 'kiosk.mode_changed', 'kiosk_id' => $kioskId, 'entity_type' => 'kiosk', 'entity_id' => $kioskId,
+                'payload' => ['forced_shared' => $forced, 'personal' => $personal !== null],
+            ]));
+            return ['kiosk_id' => $kioskId, 'label' => (string) $k['kiosk_label'], 'personal' => $personal, 'forced_shared' => $forced, 'changed' => true];
+        });
+        if ($r['changed']) {
+            $this->audit('training.kiosk_mode_changed', $kioskId, 'mode', ($forced ? 'Made training device "' . $r['label'] . '" shared'
+                : 'Set training device "' . $r['label'] . '" back to following its asset\'s assignment'), ['forced_shared' => $forced]);
+        }
+        unset($r['changed']);
         return $r;
     }
 
