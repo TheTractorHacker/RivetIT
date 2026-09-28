@@ -17,7 +17,7 @@ deployment tooling covers from a security standpoint.
 | | Docker Compose | Bare-metal (`deploy/install.sh`) |
 |---|---|---|
 | Best for | Trying it out, a lightweight self-hosted deployment, a homelab | A production instance you're running long-term |
-| What it sets up | nginx + PHP-FPM + MariaDB + Redis in containers | nginx, PHP 8.4, MariaDB, TLS, and OS-level hardening directly on the box |
+| What it sets up | nginx + PHP-FPM + MariaDB + Redis in containers | nginx, PHP 8.5, MariaDB, Redis, TLS, and OS-level hardening directly on the box |
 | TLS | None — put a reverse proxy in front | Built in (Let's Encrypt via certbot, or your own reverse proxy with `--proxy-mode`) |
 | Hardening | None (a container has no fail2ban/ufw/unattended-upgrades equivalent) | `fail2ban`, `ufw`, PHP-FPM/MariaDB hardening drop-ins, unattended security upgrades |
 | Update path | `git pull` + `docker compose up -d --build` | `deploy/update.sh` (pulls code, runs pending DB migrations) |
@@ -30,14 +30,11 @@ anything you intend to keep running and trust with real data.
 
 ```bash
 git clone https://github.com/TheTractorHacker/RivetIT.git
-cd ITFlow-Internal-IT
+cd RivetIT
 cp .env.example .env
 # edit DB_PASSWORD / DB_ROOT_PASSWORD, and DOCKER_UID / DOCKER_GID (run `id -u` / `id -g`)
 docker compose up -d --build
 ```
-
-(The clone directory is still called `ITFlow-Internal-IT` because that is the repository's name today; see
-[`REBRANDING.md`](../REBRANDING.md#repository-and-links).)
 
 Visit `http://localhost:8080/` (or whatever `APP_PORT` you set) — it redirects to the browser-based
 `/setup/` wizard, the same one a manual/bare-metal install would use. Enter database host `db` and the
@@ -95,7 +92,7 @@ passphrase shouldn't outlive the one restore it was needed for.
 
 ```bash
 git clone https://github.com/TheTractorHacker/RivetIT.git
-cd ITFlow-Internal-IT
+cd RivetIT
 sudo deploy/install.sh --domain=rivetit.example.com
 ```
 

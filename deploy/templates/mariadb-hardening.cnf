@@ -35,9 +35,9 @@ bind-address = 127.0.0.1
 local-infile = 0
 
 # Sized with headroom over a busy PHP-FPM pool's pm.max_children (100 was
-# observed on one real instance's pool at /etc/php/8.4/fpm/pool.d/www.conf,
+# observed on one real instance's pool at /etc/php/<ver>/fpm/pool.d/www.conf,
 # though neither install.sh nor harden.sh sets pm.max_children itself, and a
-# stock php8.4-fpm package ships a lower default) so normal web traffic
+# stock php-fpm package ships a lower default) so normal web traffic
 # can't itself exhaust connections, while still leaving room for cron/CLI
 # scripts (cron/cron.php, scripts/update_cli.php, etc.) to connect
 # concurrently. Safe as a baseline either way; raise it if pm.max_children

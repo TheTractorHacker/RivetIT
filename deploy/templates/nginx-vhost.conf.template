@@ -6,7 +6,7 @@
 # Variables install.sh must export before substitution:
 #   DOMAIN            e.g. rivetit.example.com  (used verbatim, no scheme/port)
 #   APP_ROOT          absolute path to the app's webroot, e.g. /var/www/rivetit.example.com
-#   PHP_SOCK           bare socket path, e.g. /run/php/php8.4-fpm.sock (NOT prefixed with "unix:" -
+#   PHP_SOCK           bare socket path, e.g. /run/php/php8.5-fpm.sock (NOT prefixed with "unix:" -
 #                      this template adds that prefix itself)
 #   SSL_CERT_PATH      e.g. /etc/ssl/certs/rivetit.example.com.crt (or a certbot fullchain.pem path)
 #   SSL_CERT_KEY_PATH  e.g. /etc/ssl/private/rivetit.example.com.key (or a certbot privkey.pem path)

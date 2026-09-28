@@ -85,7 +85,7 @@ Options:
 Steps performed, in order: pre-update backup (or confirmed skip) -> git
 pull via scripts/update_cli.php --update (run as that file's owner) ->
 database migrations via scripts/update_cli.php --update_db -> composer
-install (if composer.json exists) -> php8.4-fpm reload.
+install (if composer.json exists) -> php-fpm reload (auto-detected).
 EOF
 }
 
@@ -226,13 +226,26 @@ reload_php_fpm() {
     # files get picked up without this step — but reloading here means
     # updated code is guaranteed live immediately after this script exits,
     # rather than after opcache's next timestamp-revalidation window.
-    if ! service_is_active php8.4-fpm; then
-        warn "php8.4-fpm is not active; skipping reload (nothing to reload)."
+    #
+    # The PHP version is NOT assumed (deploy/install.sh provisions whatever
+    # PHP_VERSION says at install time, which changes over time — an install
+    # from before 2026-09-28 is on 8.4, a fresh one now is on 8.5): detect
+    # the box's own running php-fpm service the same way deploy/harden.sh
+    # already does, via `php -v`'s own major.minor, rather than hardcode one.
+    local php_ver php_fpm_svc
+    php_ver="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || true)"
+    if [[ -z "${php_ver}" ]]; then
+        warn "Could not detect the running PHP version (php -v failed); skipping the php-fpm reload. Reload it yourself: systemctl reload php<version>-fpm."
         return 0
     fi
-    announce "Reloading php8.4-fpm to drop any opcache-cached pre-update bytecode."
-    systemctl reload php8.4-fpm
-    success "php8.4-fpm reloaded."
+    php_fpm_svc="php${php_ver}-fpm"
+    if ! service_is_active "${php_fpm_svc}"; then
+        warn "${php_fpm_svc} is not active; skipping reload (nothing to reload)."
+        return 0
+    fi
+    announce "Reloading ${php_fpm_svc} to drop any opcache-cached pre-update bytecode."
+    systemctl reload "${php_fpm_svc}"
+    success "${php_fpm_svc} reloaded."
 }
 
 main() {
