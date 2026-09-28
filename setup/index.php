@@ -711,51 +711,9 @@ if (isset($_POST['add_localization_settings'])) {
 
 if (isset($_POST['add_telemetry'])) {
 
-    if (isset($_POST['share_data']) && $_POST['share_data'] == 1) {
-
-        mysqli_query($mysqli,"UPDATE settings SET config_telemetry = 2");
-
-        $comments = sanitizeInput($_POST['comments']);
-
-        $sql = mysqli_query($mysqli,"SELECT * FROM companies WHERE company_id = 1");
-        $row = mysqli_fetch_assoc($sql);
-
-        $company_name = $row['company_name'];
-        $website = $row['company_website'];
-        $city = $row['company_city'];
-        $state = $row['company_state'];
-        $country = $row['company_country'];
-        $currency = $row['company_currency'];
-
-        $postdata = http_build_query(
-            array(
-                'installation_id' => "$installation_id",
-                'company_name' => "$company_name",
-                'website' => "$website",
-                'city' => "$city",
-                'state' => "$state",
-                'country' => "$country",
-                'currency' => "$currency",
-                'comments' => "$comments",
-                'collection_method' => 1
-            )
-        );
-
-        $opts = array('http' =>
-            array(
-                'method' => 'POST',
-                'header' => 'Content-type: application/x-www-form-urlencoded',
-                'content' => $postdata
-            )
-        );
-
-        $context = stream_context_create($opts);
-
-        $result = file_get_contents('https://telemetry.itflow.org', false, $context);
-
-        echo $result;
-
-    }
+    // Telemetry was removed: this step used to POST installation/company details to the upstream
+    // ITFlow project's telemetry.itflow.org, opt-in, if 'share_data' was checked. RivetIT sends
+    // nothing anywhere. config_telemetry keeps its schema default (0); no migration needed.
 
     //final setup stages
     $myfile = fopen("../config.php", "a");
@@ -871,7 +829,7 @@ if (isset($_POST['add_telemetry'])) {
                     <li class="nav-item">
                         <a href="?telemetry" class="nav-link <?php if (isset($_GET['telemetry'])) { echo "active"; } ?>">
                             <i class="nav-icon fas fa-share-alt"></i>
-                            <p>6 - Telemetry</p>
+                            <p>6 - Privacy</p>
                         </a>
                     </li>
 
@@ -1573,7 +1531,7 @@ if (isset($_POST['add_telemetry'])) {
                                 <hr>
 
                                 <button type="submit" name="add_localization_settings" class="btn btn-primary text-bold">
-                                    Next (Telemetry Settings)<i class="fas fa-fw fa-arrow-circle-right ml-2"></i>
+                                    Next (Privacy)<i class="fas fa-fw fa-arrow-circle-right ml-2"></i>
                                 </button>
 
                             </form>
@@ -1585,26 +1543,11 @@ if (isset($_POST['add_telemetry'])) {
 
                     <div class="card card-dark">
                         <div class="card-header">
-                            <h3 class="card-title"><i class="fas fa-fw fa-broadcast-tower mr-2"></i>Step 6 - Telemetry</h3>
+                            <h3 class="card-title"><i class="fas fa-fw fa-shield-alt mr-2"></i>Step 6 - Privacy</h3>
                         </div>
                         <div class="card-body">
                             <form method="post" autocomplete="off">
-                                <h5>Would you like to share some data with the <?= htmlspecialchars(APP_UPSTREAM_NAME) ?> project?</h5>
-                                <p class="text-muted mb-0"><small><?= htmlspecialchars(APP_NAME) ?> is built on <?= htmlspecialchars(APP_UPSTREAM_NAME) ?>. Telemetry is sent to the upstream <?= htmlspecialchars(APP_UPSTREAM_NAME) ?> project's service (telemetry.itflow.org), not to <?= htmlspecialchars(APP_NAME) ?>.</small></p>
-
-                                <hr>
-
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" name="share_data" value="1">
-                                    <label class="form-check-label ml-2">Share <small class="form-text"><a href="https://docs.itflow.org/telemetry" target="_blank" rel="noopener">Click Here for the upstream <?= htmlspecialchars(APP_UPSTREAM_NAME) ?> documentation on the information it gathers <i class="fas fa-external-link-alt"></i></a></small></label>
-                                </div>
-
-                                <br>
-
-                                <div class="form-group">
-                                    <label>Comments</label>
-                                    <textarea class="form-control" rows="4" name="comments" placeholder="Any Comments?"></textarea>
-                                </div>
+                                <p class="text-muted mb-0"><small><?= htmlspecialchars(APP_NAME) ?> does not collect or send telemetry. Nothing about this installation is ever sent anywhere.</small></p>
 
                                 <hr>
 
