@@ -285,6 +285,10 @@
     // ------------------------------------------------------------------------------------------
     // DOM helpers (no HTML sinks; the three allowlisted fields use setTrustedHtml()).
     // ------------------------------------------------------------------------------------------
+    /** Shared by h()'s href/src attrs AND every direct .src assignment made after an element is
+     *  built (e.g. the document-page viewer's img.src = p.url on navigation): one guard, one place,
+     *  so a later .src write can never silently skip the check the h() attrs path enforces. */
+    function isUnsafeUrl(v) { return /^\s*(javascript|vbscript|data):/i.test(String(v)); }
     function h(tag, attrs, children) {
         var n = document.createElement(tag);
         attrs = attrs || {};
@@ -297,7 +301,7 @@
             else if (k === 'style') { Object.keys(v).forEach(function (s) { n.style.setProperty(s, v[s]); }); }
             else if (k === 'dataset') { Object.keys(v).forEach(function (d) { n.dataset[d] = String(v[d]); }); }
             else if (/^on/i.test(k) || k === 'html' || k === 'innerHTML') { throw new Error('TrainingPlayer: no inline handlers or HTML sinks'); }
-            else if ((k === 'href' || k === 'src') && /^\s*(javascript|vbscript|data):/i.test(String(v))) { throw new Error('TrainingPlayer: unsafe URL'); }
+            else if ((k === 'href' || k === 'src') && isUnsafeUrl(v)) { throw new Error('TrainingPlayer: unsafe URL'); }
             else if (v === true) { n.setAttribute(k, ''); }
             else { n.setAttribute(k, String(v)); }
         });
@@ -1339,6 +1343,12 @@
                 if (i !== cur) { hint.classList.add('is-faded'); }
                 cur = i;
                 var p = pages[i];
+                // Direct property write, not the h() attrs path (img already exists) - so it needs the same
+                // scheme guard h() enforces on every href/src it sets, or this is the one place in the file
+                // that would hand a raw URL straight to the DOM. (In practice the thumbnails above are built
+                // from this same pages[] through h({src: p.url}) first and would already have thrown - this
+                // is belt-and-suspenders for the one path that bypasses that.)
+                if (isUnsafeUrl(p.url)) { throw new Error('TrainingPlayer: unsafe URL'); }
                 img.src = p.url;
                 img.alt = t('page_of', { n: p.n, total: pages.length });
                 if (p.w && p.h) { img.width = p.w; img.height = p.h; }
