@@ -255,7 +255,7 @@ default_db_name() {
     local raw="$1" s
     s="$(printf '%s' "${raw}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/_+/_/g; s/^_+//; s/_+$//')"
     if [[ -z "${s}" ]]; then
-        s="itflow"
+        s="rivetit"
     fi
     if [[ "${s}" =~ ^[0-9] ]]; then
         s="db_${s}"

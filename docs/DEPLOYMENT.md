@@ -54,10 +54,13 @@ it can actually write into that bind-mounted checkout.
 **Names.** The containers are `rivetit-web` and `rivetit-db` and the built image is tagged
 `rivetit-web:local`. To run a second stack on the same host, set `RIVETIT_CONTAINER_PREFIX` in that stack's
 `.env`; it prefixes both container names and the image tag, so the stacks neither collide nor overwrite each
-other's image. The compose service keys (`app`, `db`), the `DB_NAME`/`DB_USER` defaults (`itflow`) and the
-`itflow_db_data` volume keep the names they had before the RivetIT rename, so an existing stack comes back
-up on its existing database. Upgrading such a stack: `git pull` then `docker compose up -d --build`; Compose
-recreates both containers under the new names and reattaches the same volume. **A host that already runs
+other's image. The compose service keys (`app`, `db`) and the `itflow_db_data` volume keep the names they
+had before the RivetIT rename, so an existing stack comes back up on its existing database. Upgrading such
+a stack: `git pull` then `docker compose up -d --build`; Compose recreates both containers under the new
+names and reattaches the same volume. `docker-compose.yml`'s own `DB_NAME`/`DB_USER` fallback (used only
+when `.env` sets neither) stays `itflow` for the same reason — a stack that never set them explicitly really
+does have a database named `itflow` inside that volume. `.env.example`'s suggested values for a **new**
+install are `rivetit`; copy it to `.env` and set your own before the first `docker compose up`. **A host that already runs
 two or more stacks** must give every stack but one its own `RIVETIT_CONTAINER_PREFIX` before that
 `docker compose up`: before the rename Compose named containers per project, and now the second stack
 would stop with "container name /rivetit-db is already in use". Use `docker compose exec app …` /

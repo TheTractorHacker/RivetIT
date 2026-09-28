@@ -18,13 +18,19 @@
 # Names: the containers are called rivetit-web and rivetit-db, and the
 # locally built app image is tagged rivetit-web:local. To run a second stack
 # on the same host, set RIVETIT_CONTAINER_PREFIX in that stack's .env: it
-# prefixes both container names and the image tag. The service
-# keys (app, db), the DB_NAME/DB_USER defaults and the itflow_db_data volume
-# keep their original names on purpose: an existing stack's database lives
-# in that volume, created under those defaults (renaming the volume starts
-# the stack on an empty database), and DB_HOST: db names the service (see
-# REBRANDING.md). Do not add a top-level `name:` either; it would
-# change the project prefix of that volume.
+# prefixes both container names and the image tag. The service keys (app,
+# db) and the itflow_db_data volume keep their original names on purpose:
+# an existing stack's database lives in that volume (renaming it starts the
+# stack on an empty database), and DB_HOST: db names the service (see
+# REBRANDING.md). Do not add a top-level `name:` either; it would change
+# the project prefix of that volume.
+#
+# DB_NAME/DB_USER: the `:-itflow` fallback below is NOT the suggested value
+# for a new install (.env.example now suggests "rivetit") — it only fires
+# when .env has no DB_NAME/DB_USER set at all, which on an existing stack
+# means its database really is named "itflow" inside that volume. Changing
+# this fallback would point such a stack at a different, empty database on
+# its next `docker compose up`. Leave it as `itflow`.
 
 services:
   app:
