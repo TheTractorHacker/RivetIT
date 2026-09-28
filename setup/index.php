@@ -350,6 +350,18 @@ if (isset($_POST['restore'])) {
         die("Uploads restore appears empty after extraction.");
     }
 
+    // ---------- 5b) Recover settings_enc_key from the backup's manifest ----------
+    // See applyManifestSettingsEncKey()'s own doc comment (setup_functions.php) for why this
+    // matters: without it, a restore onto any config.php other than this backup's own original
+    // one leaves every encrypted settings column (SMTP/IMAP passwords, RMM/webhook secrets, the
+    // wrapped credential-vault master key) permanently undecryptable, silently.
+    $configPath = __DIR__ . '/../config.php';
+    $manifestResult = applyManifestSettingsEncKey(
+        $tempDir,
+        trim($_POST['backup_passphrase'] ?? '') !== '' ? trim($_POST['backup_passphrase']) : null,
+        $configPath
+    );
+
     // ---------- 6) Optional: version info ----------
     $versionTxt = "$tempDir/version.txt";
     if (file_exists($versionTxt)) {
@@ -363,13 +375,16 @@ if (isset($_POST['restore'])) {
     deleteDir($tempDir);
 
     // ---------- 8) Finalize setup flag (append safely) ----------
-    $configPath = __DIR__ . "/../config.php";
     $append = "\n\$config_enable_setup = 0;\n\n";
     if (!@file_put_contents($configPath, $append, FILE_APPEND | LOCK_EX)) {
         $_SESSION['alert_message'] = "Backup restored ($fileCount files, $dirCount folders), but couldn't update setup flag — please set \$config_enable_setup = 0 in config.php.";
     } else {
         $_SESSION['alert_message'] = "Full backup restored successfully ($fileCount files, $dirCount folders).";
     }
+    // Manifest outcome is appended as its own sentence regardless of which branch above ran,
+    // so a browser restore that recovers (or fails to recover) settings_enc_key is exactly as
+    // visible as one that succeeds/fails the setup-flag write.
+    $_SESSION['alert_message'] .= ' ' . $manifestResult['message'];
 
     // ---------- 9) Done ----------
     header("Location: ../login.php");
@@ -1281,6 +1296,16 @@ if (isset($_POST['add_telemetry'])) {
                                 <form method="post" enctype="multipart/form-data" autocomplete="off">
                                     <label>Restore <?= htmlspecialchars(APP_NAME) ?> Backup (.zip)</label>
                                     <input type="file" name="backup_zip" accept=".zip" required>
+                                    <div class="form-group mt-3">
+                                        <label>Backup passphrase <span class="text-muted">(only if one was set)</span></label>
+                                        <input type="password" class="form-control" name="backup_passphrase"
+                                               autocomplete="new-password"
+                                               placeholder="Leave blank if this backup has no passphrase">
+                                        <p class="text-muted mt-1 mb-0"><small>If a backup passphrase was set in Admin &rarr; Backup when this .zip was taken,
+                                        its manifest (<code>backup-manifest.json.enc</code>) is encrypted with it — enter it here so this restore can
+                                        recover <code>settings_enc_key</code> and keep SMTP/IMAP passwords, RMM/webhook secrets and the credential vault
+                                        decrypting correctly. Not needed when restoring straight back onto this backup's own original config.php.</small></p>
+                                    </div>
                                     <p class="text-muted mt-2 mb-0"><small>Large restores may take several minutes. Do not close this page.</small></p>
                                     <hr>
                                     <button type="submit" name="restore" class="btn btn-primary text-bold">

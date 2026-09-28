@@ -1149,6 +1149,10 @@ if ($config_backup_auto_enabled) {
         prune_backups($backup_dir, $config_backup_retain_count);
         logApp('Backup', 'info', "Auto-backup completed: {$result['name']}");
         appNotify('Backup', "Auto-backup saved: {$result['name']}", '/admin/backup.php');
+        // Mirrors cron/backup_cron.php's own heartbeat line - see its comment for why an
+        // otherwise-silent cron block is worth a one-liner in the log on the run(s) that
+        // actually do something, even on this straight-line, mostly-silent script.
+        echo gmdate('Y-m-d\TH:i:s\Z') . " cron: auto-backup built {$result['name']}\n";
     }
 }
 

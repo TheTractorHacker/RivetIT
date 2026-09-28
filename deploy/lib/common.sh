@@ -203,6 +203,124 @@ read_app_config() {
 }
 
 # ---------------------------------------------------------------------------
+# Backup manifest (backup-manifest.json[.enc])
+# ---------------------------------------------------------------------------
+# Shared by restore.sh (deploy/backup.sh archives — manifest always plaintext,
+# since the whole archive around it is already openssl-encrypted) and
+# restore_admin_zip.sh (admin/post/backup.php zips — the manifest ITSELF may
+# be openssl-encrypted with an admin-set config_backup_passphrase, same
+# aes-256-cbc/-pbkdf2/-salt scheme, see build_backup_manifest() in
+# admin/post/backup.php). One reader handles both shapes so both restore
+# tools recover settings_enc_key the same way instead of drifting apart.
+
+MANIFEST_SETTINGS_ENC_KEY=""
+MANIFEST_INSTALLATION_ID=""
+MANIFEST_DB_NAME=""
+MANIFEST_BACKUP_TIMESTAMP=""
+
+# read_manifest_dir(dir, [passphrase_file]): looks for backup-manifest.json
+# (plaintext) then backup-manifest.json.enc (openssl-encrypted) directly
+# inside `dir`, and populates MANIFEST_SETTINGS_ENC_KEY/MANIFEST_INSTALLATION_ID/
+# MANIFEST_DB_NAME/MANIFEST_BACKUP_TIMESTAMP from whichever it finds (always
+# reset to empty first, so a caller can tell "found nothing" from a stale
+# previous call).
+#
+# Three cases:
+#   - No manifest file at all (a backup taken before this feature existed):
+#     WARN and return 0 — the restore itself (data, uploads) is still fully
+#     valid without it, only encrypted-setting columns are affected.
+#   - Plaintext backup-manifest.json: read and parse it, no passphrase needed.
+#   - Encrypted backup-manifest.json.enc: `passphrase_file` is REQUIRED to
+#     decrypt it. Unlike the "no manifest" case above, this is "a manifest
+#     exists but can't be read" — die() rather than silently degrading, the
+#     same "never silently treat explicit encryption as if it weren't there"
+#     rule build_backup_manifest() itself follows when writing one. A caller
+#     that genuinely has no passphrase for this backup must supply the
+#     correct one before a restore can recover its settings_enc_key.
+read_manifest_dir() {
+    local dir="$1" passphrase_file="${2:-}"
+    MANIFEST_SETTINGS_ENC_KEY=""
+    MANIFEST_INSTALLATION_ID=""
+    MANIFEST_DB_NAME=""
+    MANIFEST_BACKUP_TIMESTAMP=""
+
+    local plain="${dir}/backup-manifest.json"
+    local enc="${dir}/backup-manifest.json.enc"
+    local manifest_file=""
+
+    if [[ -f "${plain}" ]]; then
+        manifest_file="${plain}"
+    elif [[ -f "${enc}" ]]; then
+        [[ -n "${passphrase_file}" ]] || die "This backup's manifest (${enc}) is encrypted, but no --passphrase-file was given. Supply the passphrase that was set in Admin > Backup when this backup was taken."
+        [[ -f "${passphrase_file}" ]] || die "--passphrase-file '${passphrase_file}' does not exist."
+        local tmp_decrypted
+        tmp_decrypted="$(mktemp)"
+        chmod 600 "${tmp_decrypted}"
+        register_tmpfile "${tmp_decrypted}"
+        if ! openssl enc -d -aes-256-cbc -pbkdf2 -salt -in "${enc}" -out "${tmp_decrypted}" -pass file:"${passphrase_file}" 2>/dev/null; then
+            die "Failed to decrypt ${enc} with --passphrase-file. Wrong passphrase, or the file is corrupt."
+        fi
+        manifest_file="${tmp_decrypted}"
+    else
+        warn "No backup-manifest.json or backup-manifest.json.enc found in ${dir} — this backup predates manifest capture. The target's config_settings_enc_key will be left as-is, which will NOT match what encrypted this backup's SMTP/IMAP passwords, RMM/webhook secrets, and wrapped vault master key — those will need to be re-entered manually after this restore completes."
+        return 0
+    fi
+
+    local raw
+    if ! raw="$(php -r '
+        $data = json_decode(file_get_contents($argv[1]), true);
+        if (!is_array($data)) { fwrite(STDERR, "not a JSON object\n"); exit(1); }
+        echo ($data["settings_enc_key"] ?? "") . "\n";
+        echo ($data["installation_id"] ?? "") . "\n";
+        echo ($data["db_name"] ?? "") . "\n";
+        echo ($data["backup_timestamp"] ?? "") . "\n";
+    ' -- "${manifest_file}")"; then
+        warn "Found ${manifest_file##*/} but failed to parse it as JSON; proceeding as if it were absent (secrets will need to be re-entered manually — see the warning above)."
+        return 0
+    fi
+
+    local -a m_lines
+    mapfile -t m_lines <<< "${raw}"
+    MANIFEST_SETTINGS_ENC_KEY="${m_lines[0]:-}"
+    MANIFEST_INSTALLATION_ID="${m_lines[1]:-}"
+    MANIFEST_DB_NAME="${m_lines[2]:-}"
+    MANIFEST_BACKUP_TIMESTAMP="${m_lines[3]:-}"
+
+    if [[ -z "${MANIFEST_SETTINGS_ENC_KEY}" ]]; then
+        warn "${manifest_file##*/} is present but has no usable settings_enc_key; proceeding as if it were absent."
+        return 0
+    fi
+    success "Found this backup's settings-encryption key in its manifest (installation_id=${MANIFEST_INSTALLATION_ID:-N/A}, taken ${MANIFEST_BACKUP_TIMESTAMP:-N/A}) — will apply it to config.php after import."
+}
+
+# apply_settings_enc_key(config_file, key): rewrites config.php's
+# $config_settings_enc_key line in place to `key` (typically
+# MANIFEST_SETTINGS_ENC_KEY from read_manifest_dir above), so every secret
+# column the just-imported dump contains keeps decrypting correctly under
+# the instance's new config.php. A no-op when `key` is empty (the caller's
+# manifest read found nothing — the warning was already printed there).
+# setup_cli.php always emits this exact `$config_settings_enc_key = '...';`
+# line (single-quoted hex string, no embedded quotes/backslashes possible —
+# it's bin2hex output) whether config.php was just generated fresh by
+# --config-only or is this instance's original one, so a plain sed
+# substitution is safe here without needing config.php's own PHP parser.
+apply_settings_enc_key() {
+    local config_file="$1" key="$2"
+    if [[ -z "${key}" ]]; then
+        return 0
+    fi
+
+    if ! grep -q '^\$config_settings_enc_key = ' "${config_file}"; then
+        warn "${config_file} has no \$config_settings_enc_key line to replace; leaving it untouched. This instance's config.php may predate that setting — investigate before trusting restored SMTP/IMAP/RMM/webhook secrets."
+        return 0
+    fi
+
+    info "Applying the backup's settings-encryption key to ${config_file}..."
+    sed -i "s/^\\\$config_settings_enc_key = '.*';\$/\\\$config_settings_enc_key = '${key}';/" "${config_file}"
+    success "config_settings_enc_key restored from the backup's manifest — SMTP/IMAP passwords, RMM/webhook secrets, and the wrapped vault master key should now decrypt normally."
+}
+
+# ---------------------------------------------------------------------------
 # Misc
 # ---------------------------------------------------------------------------
 
