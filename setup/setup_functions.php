@@ -371,6 +371,66 @@ if (!function_exists('contentLooksExecutable')) {
 }
 
 // ------------------------------
+// isKnownSafeUploadsPlaceholder
+// ------------------------------
+if (!function_exists('isKnownSafeUploadsPlaceholder')) {
+    /**
+     * True if $name/$content is one of this app's own uploads/ placeholders
+     * that hasDangerousExtension() would otherwise reject purely by name:
+     * the empty `index.php` directory-listing-denial file every uploads/*
+     * subdirectory gets (deploy/install.sh's setup_upload_dirs()), or the
+     * `.htaccess` that disables script execution in uploads/. Both are
+     * legitimate parts of every real backup's uploads.zip - only a real
+     * restore ever hits this, not a fresh install (which creates its own
+     * copies directly, never through this validator).
+     *
+     * Checked by content, not just name, so this can never be used to
+     * smuggle in an actual malicious index.php or .htaccess disguised under
+     * a familiar filename: an index.php must be empty, and a .htaccess must
+     * consist ENTIRELY of recognized execution-DISABLING directives - one
+     * unrecognized line (e.g. a real AddHandler/SetHandler that turns
+     * something ON) fails the whole file, same as any other upload.
+     */
+    function isKnownSafeUploadsPlaceholder(string $name, string $content): bool {
+        $base = basename($name);
+        $trimmed = trim($content);
+
+        if ($base === 'index.php') {
+            return $trimmed === '';
+        }
+
+        if ($base === '.htaccess') {
+            if ($trimmed === '') {
+                return false;
+            }
+            // 'x' modifier: whitespace/newlines here are formatting only,
+            // ignored by PCRE - no manual stripping needed before matching.
+            $safe_line = '/^(
+                Options\s+-ExecCGI
+                |php_flag\s+engine\s+off
+                |Remove(?:Handler|Type)(?:\s+\.\w+)+
+                |<FilesMatch\b[^>]*>
+                |<\/FilesMatch>
+                |<Files\b[^>]*>
+                |<\/Files>
+                |Require\s+all\s+denied
+                |Deny\s+from\s+all
+            )$/ix';
+            foreach (preg_split('/\r\n|\r|\n/', $trimmed) as $line) {
+                $line = trim($line);
+                if ($line === '') continue;
+                if (!preg_match($safe_line, $line)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        return false;
+    }
+}
+
+// ------------------------------
 // extractUploadsZipWithValidationReport
 // ------------------------------
 if (!function_exists('extractUploadsZipWithValidationReport')) {
@@ -423,6 +483,34 @@ if (!function_exists('extractUploadsZipWithValidationReport')) {
 
             // Directories: defer creation to commit phase
             if (str_ends_with($name, '/')) continue;
+
+            // The app's own uploads/ placeholders (every subdirectory's empty
+            // index.php, and .htaccess disabling script execution there) are
+            // a normal part of every real backup, but would otherwise be
+            // rejected below purely by name - checked by content too, so
+            // this can't be used to smuggle in anything actually dangerous
+            // under a familiar filename (see isKnownSafeUploadsPlaceholder).
+            $base_name = basename($name);
+            if ($base_name === 'index.php' || $base_name === '.htaccess') {
+                $placeholder_content = $zip->getFromName($name);
+                if ($placeholder_content !== false && isKnownSafeUploadsPlaceholder($name, $placeholder_content)) {
+                    $tmp = tempnam(sys_get_temp_dir(), 'uplscan_');
+                    if ($tmp === false) { $issues[] = ['path' => $name, 'reason' => 'Failed to create temp file']; continue; }
+                    if (file_put_contents($tmp, $placeholder_content) === false) {
+                        @unlink($tmp);
+                        $issues[] = ['path' => $name, 'reason' => 'Failed to write temp file'];
+                        continue;
+                    }
+                    $totalBytes += strlen($placeholder_content);
+                    if ($totalBytes > $maxTotalBytes) {
+                        @unlink($tmp);
+                        $issues[] = ['path' => $name, 'reason' => 'Archive exceeds total size limit'];
+                        continue;
+                    }
+                    $pending[] = ['tmp' => $tmp, 'target' => $rootReal . DIRECTORY_SEPARATOR . $name, 'name' => $name];
+                    continue;
+                }
+            }
 
             $stream = $zip->getStream($name);
             if ($stream === false) {
