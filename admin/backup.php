@@ -132,6 +132,24 @@ function fmt_age(?int $ts): string {
                         </div>
                     </div>
 
+                    <hr>
+
+                    <div class="form-group mb-3">
+                        <label class="text-muted small mb-1">Backup encryption passphrase</label>
+                        <input type="password" class="form-control form-control-sm" name="config_backup_passphrase"
+                               autocomplete="off"
+                               placeholder="<?= $config_backup_passphrase ? '(saved — leave blank to keep)' : 'optional' ?>">
+                        <small class="text-muted">
+                            Every backup now includes a <code>backup-manifest.json</code> with what a restore onto a
+                            different server needs to read this database's encrypted secrets (SMTP/IMAP passwords,
+                            RMM/webhook secrets, the credentials vault) — without it, a restore comes back with those
+                            unreadable. Set a passphrase here to have it encrypted inside the zip
+                            (<code>openssl enc -aes-256-cbc -pbkdf2 -salt</code>, the same scheme
+                            <code>deploy/backup.sh</code> uses — the same passphrase decrypts either tool's manifest).
+                            Leave blank and it's included in plain text, same as the rest of the zip's contents.
+                        </small>
+                    </div>
+
                     <button type="submit" name="save_backup_settings" class="btn btn-primary btn-sm">
                         <i class="fas fa-check me-1"></i>Save Schedule
                     </button>

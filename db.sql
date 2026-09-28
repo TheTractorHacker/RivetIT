@@ -2825,6 +2825,7 @@ CREATE TABLE `settings` (
   `config_backup_s3_secret_key` text DEFAULT NULL,
   `config_backup_s3_path_style` tinyint(1) NOT NULL DEFAULT 1,
   `config_backup_s3_prefix` varchar(255) DEFAULT NULL,
+  `config_backup_passphrase` text DEFAULT NULL,
   `config_module_enable_ticketing` tinyint(1) NOT NULL DEFAULT 1,
   `config_theme` varchar(200) DEFAULT 'blue',
   `config_telemetry` tinyint(1) DEFAULT 0,

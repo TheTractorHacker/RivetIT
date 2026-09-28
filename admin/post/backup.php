@@ -155,6 +155,63 @@ function zip_uploads(string $uploadsPath, string $zipFilePath): void {
 }
 
 /**
+ * The one thing db.sql + uploads.zip never carried: config.php's $config_settings_enc_key. Without
+ * it, restoring this backup onto a different config.php (a fresh install's own freshly generated
+ * key) leaves every SMTP/IMAP password, RMM/webhook secret and the wrapped credentials-vault master
+ * key in db.sql undecryptable - the backup has the bytes but isn't actually restorable. Same shape
+ * as deploy/backup.sh's own manifest (schema_version, db_name, installation_id, settings_enc_key,
+ * backup_timestamp), so deploy/restore.sh's existing key-recovery step can read either tool's file,
+ * and the same admin-set passphrase decrypts either.
+ *
+ * @return array{name: string, path: string} the temp file to add to the zip, and its entry name
+ *         (backup-manifest.json, or backup-manifest.json.enc when $passphrase is set)
+ */
+function build_backup_manifest(mysqli $mysqli, string $baseName, ?string $passphrase): array {
+    $manifestFile = tempnam(sys_get_temp_dir(), $baseName . '_man_');
+    @chmod($manifestFile, 0600);
+
+    $dbNameRow = $mysqli->query('SELECT DATABASE() AS db')?->fetch_assoc();
+    $data = [
+        'schema_version'   => 1,
+        'db_name'          => $dbNameRow['db'] ?? 'N/A',
+        'installation_id'  => $GLOBALS['installation_id'] ?? 'N/A',
+        'settings_enc_key' => $GLOBALS['config_settings_enc_key'] ?? '',
+        'backup_timestamp' => date('YmdHis'),
+    ];
+    file_put_contents($manifestFile, json_encode($data, JSON_PRETTY_PRINT));
+
+    if ($passphrase === null || $passphrase === '') {
+        return ['name' => 'backup-manifest.json', 'path' => $manifestFile];
+    }
+
+    // Same scheme as deploy/backup.sh: openssl enc -aes-256-cbc -pbkdf2 -salt -pass file:<tmp>.
+    // Shelling out to the real openssl binary (rather than reimplementing its salted-header +
+    // PBKDF2 framing in PHP) is what guarantees deploy/restore.sh's `openssl enc -d` can decrypt
+    // this exact file with the exact same command it already uses.
+    $passFile = tempnam(sys_get_temp_dir(), $baseName . '_pass_');
+    @chmod($passFile, 0600);
+    file_put_contents($passFile, $passphrase);
+    $encFile = $manifestFile . '.enc';
+    $cmd = sprintf(
+        'openssl enc -aes-256-cbc -pbkdf2 -salt -in %s -out %s -pass file:%s 2>&1',
+        escapeshellarg($manifestFile),
+        escapeshellarg($encFile),
+        escapeshellarg($passFile)
+    );
+    exec($cmd, $out, $exitCode);
+    @unlink($passFile);
+    @unlink($manifestFile);
+    if ($exitCode !== 0 || !is_file($encFile)) {
+        // Never silently fall back to plaintext when the admin explicitly opted into encryption -
+        // fail the whole backup instead, the same way a failed mysqli/zip open does above.
+        error_log('Backup: openssl manifest encryption failed: ' . implode(' ', $out));
+        http_response_code(500); exit('Cannot encrypt backup manifest');
+    }
+    @chmod($encFile, 0600);
+    return ['name' => 'backup-manifest.json.enc', 'path' => $encFile];
+}
+
+/**
  * Build a complete backup zip. Returns path to the zip (caller must delete temp files).
  * $type: 'manual' or 'auto'
  */
@@ -187,19 +244,26 @@ function build_backup(mysqli $mysqli, string $type, string $backupDir): array {
     if ($ledgerHead !== null) {
         $meta .= "Training ledger head: #{$ledgerHead['seq']} {$ledgerHead['hash']}\n";
     }
+
+    $passphrase = ($GLOBALS['config_backup_passphrase'] ?? '') !== '' ? $GLOBALS['config_backup_passphrase'] : null;
+    $manifest   = build_backup_manifest($mysqli, $baseName, $passphrase);
+    $meta      .= $passphrase !== null
+        ? "Manifest: {$manifest['name']} (encrypted with the saved backup passphrase)\n"
+        : "Manifest: {$manifest['name']} (plain text - set a backup passphrase in Admin > Backup to encrypt it)\n";
     file_put_contents($versionFile, $meta);
 
     $final = new ZipArchive();
     if ($final->open($finalZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
         http_response_code(500); exit("Cannot create backup zip");
     }
-    $final->addFile($sqlFile,     'db.sql');
-    $final->addFile($uploadsZip,  'uploads.zip');
-    $final->addFile($versionFile, 'version.txt');
+    $final->addFile($sqlFile,         'db.sql');
+    $final->addFile($uploadsZip,      'uploads.zip');
+    $final->addFile($versionFile,     'version.txt');
+    $final->addFile($manifest['path'], $manifest['name']);
     $final->close();
     @chmod($finalZip, 0640);
 
-    @unlink($sqlFile); @unlink($uploadsZip); @unlink($versionFile);
+    @unlink($sqlFile); @unlink($uploadsZip); @unlink($versionFile); @unlink($manifest['path']);
 
     return ['path' => $finalZip, 'name' => basename($finalZip)];
 }
@@ -302,8 +366,12 @@ if (isset($_GET['backup_download_fresh'])) {
     $versionFile= tempnam(sys_get_temp_dir(), $baseName . '_ver_');
     $finalZip   = tempnam(sys_get_temp_dir(), $baseName . '_zip_');
 
-    register_shutdown_function(function() use ($sqlFile, $uploadsZip, $versionFile, $finalZip) {
-        foreach ([$sqlFile, $uploadsZip, $versionFile, $finalZip] as $f) @unlink($f);
+    $passphrase   = ($GLOBALS['config_backup_passphrase'] ?? '') !== '' ? $GLOBALS['config_backup_passphrase'] : null;
+    $manifest     = build_backup_manifest($mysqli, $baseName, $passphrase);
+    $manifestPath = $manifest['path'];
+
+    register_shutdown_function(function() use ($sqlFile, $uploadsZip, $versionFile, $finalZip, $manifestPath) {
+        foreach ([$sqlFile, $uploadsZip, $versionFile, $finalZip, $manifestPath] as $f) @unlink($f);
     });
 
     $ledgerHead = null;
@@ -318,6 +386,9 @@ if (isset($_GET['backup_download_fresh'])) {
     if ($ledgerHead !== null) {
         $meta .= "Training ledger head: #{$ledgerHead['seq']} {$ledgerHead['hash']}\n";
     }
+    $meta .= $passphrase !== null
+        ? "Manifest: {$manifest['name']} (encrypted with the saved backup passphrase)\n"
+        : "Manifest: {$manifest['name']} (plain text - set a backup passphrase in Admin > Backup to encrypt it)\n";
     file_put_contents($versionFile, $meta);
 
     $final = new ZipArchive();
@@ -325,6 +396,7 @@ if (isset($_GET['backup_download_fresh'])) {
     $final->addFile($sqlFile, 'db.sql');
     $final->addFile($uploadsZip, 'uploads.zip');
     $final->addFile($versionFile, 'version.txt');
+    $final->addFile($manifestPath, $manifest['name']);
     $final->close();
 
     $dlName = $baseName . '.zip';
@@ -388,7 +460,13 @@ if (isset($_POST['save_backup_settings'])) {
     $auto    = isset($_POST['config_backup_auto_enabled']) ? 1 : 0;
     $freq    = in_array($_POST['config_backup_frequency'] ?? '', ['daily','weekly']) ? $_POST['config_backup_frequency'] : 'daily';
     $retain  = max(1, min(90, intval($_POST['config_backup_retain_count'] ?? 7)));
-    mysqli_query($mysqli, "UPDATE settings SET config_backup_auto_enabled = $auto, config_backup_frequency = '$freq', config_backup_retain_count = $retain WHERE company_id = 1");
+    $set = "config_backup_auto_enabled = $auto, config_backup_frequency = '$freq', config_backup_retain_count = $retain";
+    // Blank = keep whatever's already saved (same convention as the S3 secret key below it on this form).
+    if (trim($_POST['config_backup_passphrase'] ?? '') !== '') {
+        $passphrase = mysqli_real_escape_string($mysqli, encryptSetting(trim($_POST['config_backup_passphrase'])));
+        $set .= ", config_backup_passphrase = '$passphrase'";
+    }
+    mysqli_query($mysqli, "UPDATE settings SET $set WHERE company_id = 1");
     logAction('Settings', 'Edit', "$session_name updated backup settings");
     flash_alert('Backup settings saved');
     redirect();
