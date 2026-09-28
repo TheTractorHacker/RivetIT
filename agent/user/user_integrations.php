@@ -32,7 +32,7 @@ $admin_configured = !empty($config_outlook_cal_client_id) && !empty($config_outl
         <h3 class="card-title"><i class="fas fa-palette me-2"></i>My Calendar Color</h3>
     </div>
     <div class="card-body">
-        <p class="text-muted">Your color is used on the ITFlow Internal IT calendar so dispatchers can tell tickets apart by technician at a glance.</p>
+        <p class="text-muted">Your color is used on the <?= nullable_htmlentities(APP_NAME) ?> calendar so dispatchers can tell tickets apart by technician at a glance.</p>
         <form action="post.php" method="post" class="form-inline">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <input type="color" name="user_color" value="<?= htmlspecialchars($user_color, ENT_QUOTES) ?>"

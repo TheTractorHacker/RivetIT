@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - GET/POST request handler for CRM Sales Opportunities
+ * RivetIT - GET/POST request handler for CRM Sales Opportunities
  */
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");

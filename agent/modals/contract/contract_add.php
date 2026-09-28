@@ -28,7 +28,7 @@ ob_start();
             <label>Contract Name <strong class="text-danger">*</strong></label>
             <div class="input-group">
                 <div class="input-group-prepend"><span class="input-group-text"><i class="fa fa-fw fa-file-contract"></i></span></div>
-                <input type="text" class="form-control" name="contract_name" placeholder="e.g. Monthly MSP Agreement" required maxlength="200">
+                <input type="text" class="form-control" name="contract_name" placeholder="e.g. Annual Support Agreement" required maxlength="200">
             </div>
         </div>
         <div class="form-row">

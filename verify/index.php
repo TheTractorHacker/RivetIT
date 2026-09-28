@@ -115,7 +115,7 @@ $tv_render = static function (string $state, int $status, array $r = []) use (&$
   </section>
   <p class="tv-note"><svg class="tv-note__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
     <span><?= $tv_h($facts
-        ? ($tv_company !== null ? strtr($s['note'], ['{company}' => $tv_company]) : $s['note_plain'])
+        ? ($tv_company !== null ? strtr($s['note'], ['{company}' => $tv_company, '{app}' => APP_NAME]) : $s['note_plain'])
         : ($tv_company !== null ? strtr($s['contact'], ['{company}' => $tv_company]) : $s['contact_plain'])) ?></span></p>
   <p class="tv-lang"><a href="<?= $tv_h($switch) ?>" hreflang="<?= $tv_h($s['switch_lang']) ?>" lang="<?= $tv_h($s['switch_lang']) ?>"><?= $tv_h($s['switch']) ?></a></p>
 </main>

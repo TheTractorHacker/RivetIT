@@ -127,7 +127,7 @@ render_page_header(
                         <ol class="ps-3">
                             <li class="mb-2">Update to <strong>iPadOS 16.4 or later</strong> (older iPads can't play YouTube/Vimeo lessons safely).</li>
                             <li class="mb-2">In Safari open <code><?= nullable_htmlentities('https://' . preg_replace('#^https?://#', '', (string) $config_base_url)) ?>/kiosk/</code>, tap <strong>Share › Add to Home Screen</strong>, then open the new <strong>Training</strong> icon.</li>
-                            <li class="mb-2">Inside that app tap <strong>Set up this device (admin)</strong>, sign in to ITFlow, pick the iPad's asset and tap <strong>Use this device for training</strong>. Enrollment must happen inside the Home Screen app — Safari and the app keep separate cookies.</li>
+                            <li class="mb-2">Inside that app tap <strong>Set up this device (admin)</strong>, sign in to <?= nullable_htmlentities(APP_NAME) ?>, pick the iPad's asset and tap <strong>Use this device for training</strong>. Enrollment must happen inside the Home Screen app — Safari and the app keep separate cookies.</li>
                             <li class="mb-2">Tap <strong>Open training on this device</strong>. You are signed out and the iPad shows the name search (or the owner's PIN on a personal iPad).</li>
                             <li class="mb-2">Settings › Display &amp; Brightness › <strong>Auto-Lock: Never</strong> while it sits on its charger.</li>
                             <li class="mb-2">Optional: Settings › Accessibility › <strong>Guided Access</strong> on, then triple-click the top button in the Training app to lock the iPad to it.</li>

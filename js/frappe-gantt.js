@@ -1,11 +1,11 @@
 /*
- * frappe-gantt.js (ITFlow self-hosted, vanilla JS build)
+ * frappe-gantt.js (RivetIT self-hosted, vanilla JS build)
  * -------------------------------------------------------
  * A compact, dependency-free SVG Gantt chart. No jQuery, no CDN.
  * Reads the same task array shape as frappe-gantt:
  *   { id, name, start:'YYYY-MM-DD', end:'YYYY-MM-DD', progress, dependencies, custom_class }
  *
- * Public API (subset compatible with frappe-gantt usage in ITFlow):
+ * Public API (subset compatible with frappe-gantt usage in RivetIT):
  *   const g = new Gantt(wrapper, tasks, {
  *       view_mode: 'Day' | 'Week' | 'Month',
  *       on_date_change: (task, start, end) => {},

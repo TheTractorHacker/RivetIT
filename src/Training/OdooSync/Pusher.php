@@ -5,6 +5,7 @@ namespace ITFlow\Training\OdooSync;
 use ITFlow\Integrations\Odoo\OdooAuthException;
 use ITFlow\Integrations\Odoo\OdooConnectorFactory;
 use ITFlow\Integrations\Odoo\OdooConnectorInterface;
+use ITFlow\Training\Core\Product;
 use ITFlow\Training\Core\Text;
 
 /**
@@ -24,7 +25,7 @@ use ITFlow\Training\Core\Text;
  *   resume  hr.resume.line; idempotency = the marker in the description, lines this integration created
  *   skill   hr.employee.skill of the chosen certification type; no free-text field exists, so idempotency is
  *           the exact natural key (employee, skill, level, valid_from, valid_to) among records this integration
- *           created (create_uid; any creator when Odoo does not say who we are), and a record another ITFlow
+ *           created (create_uid; any creator when Odoo does not say who we are), and a record another RivetIT
  *           record already holds is never adopted. The values are saved on the outbox row BEFORE the create call
  *           and every later attempt searches with those saved values first, so a lost response is adopted even
  *           when the course's mapping or the level changed in between. Odoo refuses an identical certification
@@ -334,7 +335,7 @@ final class Pusher
      *   sent      the values an earlier attempt of THIS row saved before its create call (OutboxRepo::sentSkill), or null
      *   skill_id, level_id, type_id  the course's mapped skill and the configured level/type now (absent: not mapped)
      *   unmapped  why they are absent (the policy message when nothing was sent before either)
-     *   holder    fn(int $odooId): ?array{source_type:string, source_id:int, close_status:?string} - the other ITFlow
+     *   holder    fn(int $odooId): ?array{source_type:string, source_id:int, close_status:?string} - the other RivetIT
      *             record whose done create already holds that Odoo record (PushService reads the outbox; this class has no DB)
      *   remember  fn(array $vals): void - saves the values on the row; called right BEFORE the create call
      * @return array{model:string, res_id:int, vals:array} vals = the values of the Odoo certification
@@ -366,13 +367,13 @@ final class Pusher
         $vals = PayloadBuilder::skillVals($payload, $employeeId, $skillId, $levelId, $typeId);
 
         // At-least-once without duplicates: an identical certification WE created earlier (a lost create response)
-        // is adopted - unless another ITFlow record already holds it (then Odoo cannot take a second identical one).
+        // is adopted - unless another RivetIT record already holds it (then Odoo cannot take a second identical one).
         foreach ($this->skillsLike($vals, $uid) as $h) {
             $holder = isset($opts['holder']) ? ($opts['holder'])($h['id']) : null;
             if ($holder === null) {
                 return ['model' => 'hr.employee.skill', 'res_id' => $h['id'], 'vals' => $vals];
             }
-            $other = ($holder['source_type'] === 'award' ? 'achievement award #' : 'ITFlow record #') . (int) $holder['source_id'];
+            $other = ($holder['source_type'] === 'award' ? 'achievement award #' : Product::name() . ' record #') . (int) $holder['source_id'];
             if (in_array($holder['close_status'] ?? null, ['pending', 'running', 'failed'], true)) {
                 throw new PushException('wait', 'waiting: ' . $other . ' holds the same certification in Odoo (#' . $h['id'] . ') and its void is still being sent there');
             }
@@ -385,7 +386,7 @@ final class Pusher
             $others = $this->skillsLike($vals, null);
             if ($others) {
                 throw new PushException('permanent', 'skill_overlap: this employee already has the same certification in Odoo (same skill, level and dates, Odoo #'
-                    . $others[0]['id'] . ', not created by ITFlow); Odoo refuses a second identical one, so nothing was created');
+                    . $others[0]['id'] . ', not created by ' . Product::name() . '); Odoo refuses a second identical one, so nothing was created');
             }
         }
         if (isset($opts['remember'])) {
@@ -401,7 +402,7 @@ final class Pusher
         return ['model' => 'hr.employee.skill', 'res_id' => $id, 'vals' => $vals];
     }
 
-    /** Does another ITFlow record's done create already hold Odoo certification $odooId? */
+    /** Does another RivetIT record's done create already hold Odoo certification $odooId? */
     private static function heldByOther(int $odooId, array $opts): bool
     {
         return isset($opts['holder']) && ($opts['holder'])($odooId) !== null;

@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - GET/POST request handler for client tickets
+ * RivetIT - GET/POST request handler for client tickets
  */
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");

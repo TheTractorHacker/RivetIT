@@ -3,13 +3,17 @@
 namespace ITFlow\Training\OdooSync;
 
 use ITFlow\Training\Core\Clock;
+use ITFlow\Training\Core\Product;
 use ITFlow\Training\Core\Text;
 
 /**
  * What an Odoo resume line says (spec §1.4 #7, plan A7): course, date, certificate number, how it
- * was recorded, expiry, the marker and "Record of truth: ITFlow". Never a score, a verify URL, a
- * PDF or a PIN. Built at push time from the current record; the outbox stores exactly what was
+ * was recorded, expiry, the marker and "Record of truth: RivetIT" (APP_NAME). Never a score, a verify
+ * URL, a PDF or a PIN. Built at push time from the current record; the outbox stores exactly what was
  * sent (todoo_payload_json) for audit.
+ *
+ * Only the marker ([ITFLOW:<inst8>:C…], see Marker) is ever matched. The words around it are free text:
+ * lines written before the RivetIT rename still say "ITFlow" in Odoo, and nothing depends on that.
  *
  * Payload = {title, date_start, date_end|null, cert_number|null, type_label, voided_on|null, marker, company}
  *
@@ -154,13 +158,13 @@ final class PayloadBuilder
             $lines[] = 'Recorded as: ' . $e((string) $p['type_label']);
         }
         $company = trim((string) ($p['company'] ?? ''));
-        $lines[] = 'Record of truth: ITFlow' . ($company !== '' ? ' (' . $e($company) . ')' : '');
-        $lines[] = 'ITFlow ref: ' . $e((string) $p['marker']);
+        $lines[] = 'Record of truth: ' . $e(Product::name()) . ($company !== '' ? ' (' . $e($company) . ')' : '');
+        $lines[] = $e(Product::name()) . ' ref: ' . $e((string) $p['marker']);
         return '<p>' . implode('</p><p>', $lines) . '</p>';
     }
 
     /**
-     * The follow-up note on a void: "Training record LMS-… (Forklift Safety, completed 2026-09-27) was voided in ITFlow on
+     * The follow-up note on a void: "Training record LMS-… (Forklift Safety, completed 2026-09-27) was voided in RivetIT on
      * {date}." plus its own marker. The course and completion date (both already in the first note) let HR find that note.
      */
     public static function noteVoidHtml(array $p, string $voidMarker): string
@@ -173,7 +177,7 @@ final class PayloadBuilder
         $what = !empty($p['cert_number'])
             ? 'Training record ' . $e((string) $p['cert_number']) . ' (' . $e((string) $p['title']) . ', completed ' . $e((string) $p['date_start']) . ')'
             : 'Training record "' . $e((string) $p['title']) . '" (completed ' . $e((string) $p['date_start']) . ')';
-        return '<p>' . $what . ' was voided in ITFlow on ' . $e($voided) . '.</p><p>ITFlow ref: ' . $e($voidMarker) . '</p>';
+        return '<p>' . $what . ' was voided in ' . $e(Product::name()) . ' on ' . $e($voided) . '.</p><p>' . $e(Product::name()) . ' ref: ' . $e($voidMarker) . '</p>';
     }
 
     /** One <p> per fact; every value escaped (Odoo sanitises html too). */
@@ -191,8 +195,8 @@ final class PayloadBuilder
             $lines[] = 'Expires ' . $e((string) $p['date_end']);
         }
         $company = trim((string) ($p['company'] ?? ''));
-        $lines[] = 'Record of truth: ITFlow' . ($company !== '' ? ' (' . $e($company) . ')' : '');
-        $lines[] = 'ITFlow ref: ' . $e((string) $p['marker']);
+        $lines[] = 'Record of truth: ' . $e(Product::name()) . ($company !== '' ? ' (' . $e($company) . ')' : '');
+        $lines[] = $e(Product::name()) . ' ref: ' . $e((string) $p['marker']);
         return '<p>' . implode('</p><p>', $lines) . '</p>';
     }
 

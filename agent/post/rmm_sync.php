@@ -100,7 +100,7 @@ if ($action === 'sync') {
     exit;
 }
 
-// ---- Assign an RMM-synced asset to an ITFlow client ----
+// ---- Assign an RMM-synced asset to a RivetIT department (client) ----
 if ($action === 'assign_client') {
     if (!lookupUserPermission('module_rmm_sync')) {
         echo json_encode(['success' => false, 'error' => 'No sync permission']);

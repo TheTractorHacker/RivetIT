@@ -5,7 +5,7 @@
                 <div class="mb-4" style="text-align: center;">
                     <i class="far fa-10x fa-times-circle text-danger mb-3 mt-3"></i>
                     <h2>Are you really, really, really sure?</h2>
-                    <h6 class="mb-4 text-secondary">Do you really want to <b>delete <i><?php echo $client_name; ?></i> and ALL associated data</b>? This includes <i><?php echo $client_name; ?></i>'s documents, tickets, files, payments, invoices, logs, etc.<br>See <a href="https://forum.itflow.org/d/1147-deleting-a-client-deletes-payments" target="_blank">this</a> forum post.<br><br>This process cannot be undone.</h6>
+                    <h6 class="mb-4 text-secondary">Do you really want to <b>delete <i><?php echo $client_name; ?></i> and ALL associated data</b>? This includes <i><?php echo $client_name; ?></i>'s documents, tickets, files, payments, invoices, logs, etc.<br><br>This process cannot be undone.</h6>
                     <div class="form-group">
                         <input type="hidden" id="clientName<?php echo $client_id ?>" value="<?php echo $client_name; ?>">
                         <input class="form-control js-validate-client-delete" type="text" id="clientNameProvided<?php echo $client_id ?>" data-client-id="<?php echo $client_id ?>" placeholder="Type '<?php echo $client_name; ?>' to confirm data deletion">

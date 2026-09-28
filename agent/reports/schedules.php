@@ -109,7 +109,7 @@ $sql_schedules = mysqli_query($mysqli, "SELECT * FROM report_schedules ORDER BY 
         <div class="px-3 pt-3 pb-1">
             <small class="text-muted">
                 Each active schedule emails a headline summary of the chosen report to its recipients at the selected cadence.
-                Delivery runs from the ITFlow Internal IT cron (the same scheduler that sends other queued mail); a schedule is sent again once its frequency has elapsed since the last send.
+                Delivery runs from the <?= nullable_htmlentities(APP_NAME) ?> cron (the same scheduler that sends other queued mail); a schedule is sent again once its frequency has elapsed since the last send.
             </small>
         </div>
 

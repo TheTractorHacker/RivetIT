@@ -17,6 +17,8 @@ use ITFlow\Training\Core\TrainingSettings;
  */
 final class WorkerCtx
 {
+    // Actor label in the hash-chained training ledger (tevent_user_agent); kept through the RivetIT
+    // rename so the worker's history reads the same before and after it (see REBRANDING.md).
     public const USER_AGENT = 'itflow-training-worker';
 
     public static function build(\mysqli $db, string $configBaseUrl): Ctx

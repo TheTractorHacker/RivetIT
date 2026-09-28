@@ -11,7 +11,7 @@
 (function () {
     'use strict';
 
-    var PREF = 'itflow.training.transcript.showRevoked';
+    var PREF = 'itflow.training.transcript.showRevoked';   // legacy key kept through the RivetIT rename (saved preference)
 
     function readPref() {
         try { return window.localStorage.getItem(PREF); } catch (e) { return null; }

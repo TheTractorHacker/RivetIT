@@ -3,7 +3,7 @@
  * Shared core for interactive-KB (IKB) per-reader progress.
  *
  * WHY THIS FILE EXISTS - two endpoints record and return the same rows for two
- * completely different principals: agent/kb_progress.php for an ITFlow agent
+ * completely different principals: agent/kb_progress.php for a RivetIT agent
  * session, client/kb_progress.php for a department contact's portal session.
  * They answer DIFFERENT authorization questions (module_kb + department scope
  * on one side, the portal's article-visibility clause on the other), but the

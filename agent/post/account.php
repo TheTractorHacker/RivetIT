@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - GET/POST request handler for account(s) (accounting related)
+ * RivetIT - GET/POST request handler for account(s) (accounting related)
  */
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");

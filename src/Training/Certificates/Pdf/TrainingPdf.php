@@ -2,6 +2,8 @@
 
 namespace ITFlow\Training\Certificates\Pdf;
 
+use ITFlow\Training\Core\Product;
+
 // TCPDF is not a Composer package here (plugins/TCPDF, 6.11.3). Loaded once, in exception mode:
 // its autoconfig would otherwise define K_TCPDF_THROW_EXCEPTION_ERROR false, and Error() would die().
 if (!class_exists('TCPDF', false)) {
@@ -91,7 +93,7 @@ abstract class TrainingPdf extends \TCPDF
     {
         $this->setPrintHeader(false);
         $this->tcpdflink = false;   // no "Powered by TCPDF" line on the last page
-        $this->SetCreator('ITFlow Training');
+        $this->SetCreator(Product::name() . ' Training');
         $this->SetAuthor(self::plain($author));
         $this->SetTitle(self::plain($title));
         $this->setFontSubsetting(true);

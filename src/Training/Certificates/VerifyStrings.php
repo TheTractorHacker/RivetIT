@@ -5,7 +5,8 @@ namespace ITFlow\Training\Certificates;
 /**
  * Every word on the public certificate check (/verify/), in English and Spanish (Phase 5 spec
  * §5.1). The page maps P2's certificate status to these strings; P2's status_label is never shown.
- * Sentences with a date carry a '{date}' placeholder, filled with date() output (escaped by the page).
+ * Sentences with a date carry a '{date}' placeholder, filled with date() output (escaped by the page);
+ * '{company}' is the company name and '{app}' the product name (APP_NAME), both filled by the page.
  */
 final class VerifyStrings
 {
@@ -33,7 +34,7 @@ final class VerifyStrings
         'certificate' => 'Certificate',
         'record_no' => 'Record no.',
         'external' => 'External card recorded',
-        'note' => 'Only these details are shown. Records are kept in ITFlow by {company}.',
+        'note' => 'Only these details are shown. Records are kept in {app} by {company}.',
         'note_plain' => 'Only these details are shown.',
         'contact' => 'To confirm this certificate, contact {company}.',
         'contact_plain' => 'To confirm this certificate, contact the company that issued it.',
@@ -64,7 +65,7 @@ final class VerifyStrings
         'certificate' => 'Certificado',
         'record_no' => 'Registro n.º',
         'external' => 'Tarjeta externa registrada',
-        'note' => 'Solo se muestran estos datos. {company} guarda los registros en ITFlow.',
+        'note' => 'Solo se muestran estos datos. {company} guarda los registros en {app}.',
         'note_plain' => 'Solo se muestran estos datos.',
         'contact' => 'Para confirmar este certificado, comuníquese con {company}.',
         'contact_plain' => 'Para confirmar este certificado, comuníquese con la empresa que lo emitió.',

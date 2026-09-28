@@ -229,7 +229,7 @@ function buildTacticalCheckPayload(array $policy, array $params): array {
             $disk = strtoupper(rtrim($params['disk'] ?? 'C', ':'));
             $base['disk'] = $disk . ':'; // model field max_length=2, e.g. "C:"
             // Tactical's diskspace thresholds are "% free space remaining" (check fails
-            // when free% < threshold), but ITFlow policies store "% used" -- invert.
+            // when free% < threshold), but RivetIT policies store "% used" -- invert.
             $base['error_threshold']   = 100 - intval($policy['critical_threshold'] ?? 90);
             $base['warning_threshold'] = 100 - intval($policy['warning_threshold']  ?? 80);
             break;

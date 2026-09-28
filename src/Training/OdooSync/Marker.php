@@ -10,19 +10,23 @@ namespace ITFlow\Training\OdooSync;
  * no '%' and no '_', so Odoo's ilike (SQL LIKE wildcards) cannot widen the search either; the
  * search is only a pre-filter and every hit is re-checked with inHtml().
  *
- * inst8 names this ITFlow install without posting its installation id to Odoo: the first 8 hex
+ * inst8 names this RivetIT install without posting its installation id to Odoo: the first 8 hex
  * characters of a sha256 over the installation id (or the database name when there is none).
  * It is stable across a domain move.
  *
  * The HR-note target's follow-up note on a void carries its own marker, the create marker with V in place of
  * C ([ITFLOW:<inst8>:V0000000012]): delimited and fixed width like the others, so it never matches the first
  * note's marker and the first note's marker never matches it.
+ *
+ * "ITFLOW" in the marker and the "itflow-training-odoo|" inst8 label are frozen through the RivetIT
+ * rename: lines already in Odoo carry them, and a different spelling would make every write-back
+ * look new and create duplicates (see REBRANDING.md). Only the words around the marker changed.
  */
 final class Marker
 {
     public const RE = '/^\[ITFLOW:[0-9a-f]{8}:[CA][0-9]{10}\]$/';
 
-    /** Any marker ITFlow writes, including the void follow-up note's V marker. */
+    /** Any marker this app writes, including the void follow-up note's V marker. */
     public const RE_ANY = '/^\[ITFLOW:[0-9a-f]{8}:[CAV][0-9]{10}\]$/';
 
     public static function inst8(string $installationId, string $dbName): string

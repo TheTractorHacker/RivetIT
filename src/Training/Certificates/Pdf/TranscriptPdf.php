@@ -2,6 +2,8 @@
 
 namespace ITFlow\Training\Certificates\Pdf;
 
+use ITFlow\Training\Core\Product;
+
 /**
  * Transcript PDF (Phase 5 spec §5.3, S2): the "Download PDF" of P2's transcript page, from Upstream's
  * TranscriptDTO (P2's TranscriptService; statuses and labels are P2's, never recomputed here).
@@ -9,8 +11,8 @@ namespace ITFlow\Training\Certificates\Pdf;
  * US Letter portrait, 15 mm margins. Page 1: logo, company, "Training transcript", the person, "As of",
  * and the summary line. Sections (writeHTML tables whose <thead> repeats on every page): Qualifications,
  * Open assignments, History (voided rows struck through, followed by "Revoked {date} by {who}: {reason}"),
- * Achievements, Evidence strength legend. Footer on every page: "Generated {when} by {user} · Ledger
- * #{seq}/{hash16}" and "Page X of Y".
+ * Achievements, Evidence strength legend. Footer on every page: "Generated {when} by {user} with {APP_NAME}
+ * · Ledger #{seq}/{hash16}" and "Page X of Y".
  *
  * Every data value reaches writeHTML() only through esc(); the markup around it is fixed here.
  */
@@ -33,7 +35,8 @@ final class TranscriptPdf extends TrainingPdf
         $pdf->setup('Training transcript · ' . $name, (string) ($brand['company_name'] ?? ''));
         $ledger = ($footer['ledger_seq'] ?? null) !== null
             ? ' · Ledger #' . (int) $footer['ledger_seq'] . '/' . self::plain((string) ($footer['ledger_hash16'] ?? '')) : '';
-        $pdf->footerLeft = 'Generated ' . self::plain((string) ($footer['generated_at_local'] ?? '')) . ' by ' . self::plain((string) ($footer['generated_by'] ?? '')) . $ledger;
+        $pdf->footerLeft = 'Generated ' . self::plain((string) ($footer['generated_at_local'] ?? '')) . ' by ' . self::plain((string) ($footer['generated_by'] ?? ''))
+            . ' with ' . self::plain(Product::name()) . $ledger;
         $pdf->setPrintFooter(true);
         $pdf->SetMargins(15, 15, 15);
         $pdf->SetFooterMargin(12);

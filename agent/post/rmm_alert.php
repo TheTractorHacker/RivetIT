@@ -35,7 +35,7 @@ if ($client_id) { enforceClientAccess($client_id); }
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_client_factory.php';
 
 /*
- * Best-effort vendor write-back. After ITFlow records a local ack/resolve we
+ * Best-effort vendor write-back. After RivetIT records a local ack/resolve we
  * try to reflect it at the RMM vendor so the two stay in sync. A vendor failure
  * — no live integration, unsupported by the vendor (e.g. Level is view-only for
  * alerts), or a network/API error — is logged but MUST NOT break the local
