@@ -236,7 +236,7 @@ function fmt_age(?int $ts): string {
                     <div class="form-group">
                         <label class="text-muted small mb-1">Key Prefix <span class="text-muted">(optional)</span></label>
                         <input type="text" class="form-control form-control-sm" name="config_backup_s3_prefix"
-                               placeholder="e.g. itflow-backups/" value="<?= nullable_htmlentities($config_backup_s3_prefix) ?>">
+                               placeholder="e.g. <?= htmlspecialchars(strtolower(APP_NAME)) ?>-backups/" value="<?= nullable_htmlentities($config_backup_s3_prefix) ?>">
                     </div>
                 </div>
             </div>

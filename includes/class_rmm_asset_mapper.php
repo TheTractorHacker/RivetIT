@@ -270,7 +270,7 @@ class RmmAssetMapper {
         $raw_json  = mysqli_real_escape_string($m, json_encode($agent));
 
         // Map the RMM-side client/group name (Tactical: client_name, Level/Action1: group_name)
-        // to an RivetIT client by exact (case-insensitive) name match.
+        // to a RivetIT client by exact (case-insensitive) name match.
         $resolved_client_id = $this->resolveClientId($agent);
 
         if (empty($agent_id) || empty($hostname)) {

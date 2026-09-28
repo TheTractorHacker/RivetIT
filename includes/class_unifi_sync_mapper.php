@@ -3,7 +3,7 @@
  * UnifiSyncMapper — syncs a UniFi controller's sites to RivetIT.
  *
  * For each UniFi site, the site's display name (`desc`) is matched
- * case-insensitively to an RivetIT client name. Sites with no matching
+ * case-insensitively to a RivetIT client name. Sites with no matching
  * client are skipped entirely.
  *
  * For matched sites:

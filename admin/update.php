@@ -122,7 +122,7 @@ if (!empty($git_log_raw)) {
 
             <p class="text-muted small mt-3 mb-0">
                 Updates come from the <code><?= htmlspecialchars(APP_UPDATE_REMOTE) ?></code> git remote of this checkout
-                (branch <code><?= htmlspecialchars((string) $repo_branch) ?></code>) &middot;
+                (branch <code><?= htmlspecialchars((string) $repo_branch) ?></code>)&nbsp;&middot;
                 <a href="<?= htmlspecialchars(APP_REPO_URL) ?>" target="_blank" rel="noopener">Project repository</a>
             </p>
 
