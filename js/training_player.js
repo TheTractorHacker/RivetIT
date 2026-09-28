@@ -645,8 +645,8 @@
             if (l.type === 'quiz' && l.quiz) { return l.quiz.role === 'exam' ? t('t_exam') : t('t_quiz'); }
             return t('t_' + l.type);
         }
-        /** noCheck: the row shows the quick check as its own chip instead. */
-        function lessonSub(l, noCheck) {
+        /** The attached quick check (if any) gets its own row in lessonRow() instead of trailing text here. */
+        function lessonSub(l) {
             var parts = [typeLabel(l)];
             if (l.type === 'video' && l.duration_s) { parts.push(fmt(l.duration_s)); }
             else if (l.type === 'article') { parts.push(t('min_read', { n: minutes(l.duration_s) })); }
@@ -656,7 +656,6 @@
                 if (l.quiz.role === 'exam') { parts.push(t('pass_pct', { pct: l.quiz.pass_pct })); }
             } else if (l.type === 'acknowledgment') { parts.push(t('read_and_sign')); }
             else if (l.type === 'image') { parts.push(t('minutes', { n: minutes(l.duration_s || 60) })); }
-            if (checkOf(l) && !noCheck) { parts.push(t('qc_chip')); }
             return parts.join(' · ');
         }
 
@@ -884,6 +883,12 @@
             var laterChip = optionalCheckOpen(l.uid) && (!frozen || signCheck);
             if (laterChip) { chips.push(h('span', { class: 'trp-chip trp-chip--sm trp-chip--check' }, [icon('fa-clipboard-check'), t('qc_optional_chip')])); }
             var rowLocked = locked && !(done && !frozen) && !signCheck;
+            // A quick check attached to this lesson gets its own row (below the main sub line) so it
+            // reads as "this is coming" rather than trailing text easy to miss at the end of a long
+            // meta line - unless it's already called out via laterChip above (avoid saying it twice).
+            var qc = checkOf(l);
+            var qcRow = qc && !laterChip ? h('span', { class: 'trp-row__check' }, [icon('fa-clipboard-check'),
+                t('qc_chip') + ' · ' + (qc.question_count === 1 ? t('question_1') : t('questions_n', { n: qc.question_count }))]) : null;
             var btn = h('button', {
                 type: 'button', class: 'trp-row' + (next && !done ? ' is-current' : '') + (rowLocked ? ' is-locked' : ''), 'aria-disabled': rowLocked ? 'true' : null,
                 on: { click: function () { if (!rowLocked) { withRun(btn, function () { openLesson(l.uid, checkPending(l.uid) || signCheck ? { check: true } : null); }); } } }
@@ -891,7 +896,8 @@
                 h('span', { class: 'trp-tile trp-tile--' + l.type, 'aria-hidden': 'true' }, icon(TYPE_ICON[l.type] || 'fa-file')),
                 h('span', { class: 'trp-row__main' }, [
                     h('span', { class: 'trp-row__title', text: l.title || typeLabel(l) }),
-                    h('span', { class: 'trp-row__sub' }, [lessonSub(l, laterChip)].concat(chips))
+                    h('span', { class: 'trp-row__sub' }, [lessonSub(l)].concat(chips)),
+                    qcRow
                 ]),
                 h('span', { class: 'trp-row__end' }, stateEl)
             ]);
