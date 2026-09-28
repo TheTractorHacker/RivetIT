@@ -12,9 +12,12 @@ use ITFlow\Training\Kiosk\Core\KTime;
  * training_learner_credentials: one row per person, never deleted (P3 spec §2.1, §3.2).
  *
  * forPick() loads the row, or lazily creates it, and decides the EFFECTIVE PIN source:
- *   1. an active trainer or evaluator is always LOCAL (plan A1: trainers keep working when Odoo
- *      is down, and Odoo HR can't impersonate a trainer); a stored odoo row switches to local and
- *      its (null) local hash means "setup needed";
+ *   1. (2.6.104) a person's OWN learner/Odoo credential is decided purely by their own Odoo
+ *      employee link/usable-PIN status - completely independent of whether they are also an
+ *      active trainer. Trainer sign-in no longer shares this row at all: it uses its own,
+ *      always-local credential on training_trainers (Pin\TrainerPinService), which has no Odoo
+ *      counterpart to sync from by its own construction, so "trainers are always local" is a
+ *      property of THAT system now, not a special case forced onto this one;
  *   2. the Odoo-PIN switch OFF, or tcred_source_pinned => LOCAL (the stored row is kept; while the
  *      switch is off an odoo-source row is simply treated as local, so nobody is ever sent to a
  *      disabled Odoo check - "with the switch off, pick is always local/setup_needed");
@@ -59,7 +62,7 @@ final class CredentialRepo
             $source = 'local';
             $empId = null;
             $integrationId = null;
-            if (!$isTrainer && $this->k->ks->odooPinEnabled) {
+            if ($this->k->ks->odooPinEnabled) {
                 $cur = OdooIntegration::current($db);
                 $emp = $cur === null ? null : OdooIntegration::linkedEmployee($db, $contactId, (int) $cur['odoo_integration_id']);
                 if ($emp !== null) {
@@ -75,17 +78,19 @@ final class CredentialRepo
                 }
             }
             $row = $this->create($contactId, $source, $integrationId, $empId);
-        } elseif ($isTrainer && $row['tcred_source'] === 'odoo') {
-            $row = $this->switchToLocal($contactId, 'trainer');
         }
         return self::decorate($row, $this->k->ks->odooPinEnabled, $isTrainer);
     }
 
-    /** Adds effective_source / is_trainer / has_pin to a raw row. */
+    /**
+     * Adds effective_source / is_trainer / has_pin to a raw row. is_trainer is informational only
+     * (2.6.104): whether someone is also an active trainer no longer affects their OWN learner
+     * credential's source - trainer sign-in uses a completely separate PIN (Pin\TrainerPinService).
+     */
     public static function decorate(array $row, bool $odooOn, bool $isTrainer): array
     {
         $stored = (string) $row['tcred_source'];
-        $row['effective_source'] = ($stored === 'odoo' && $odooOn && !$isTrainer && (int) $row['tcred_source_pinned'] === 0) ? 'odoo' : 'local';
+        $row['effective_source'] = ($stored === 'odoo' && $odooOn && (int) $row['tcred_source_pinned'] === 0) ? 'odoo' : 'local';
         $row['is_trainer'] = $isTrainer;
         $row['has_pin'] = $row['tcred_pin_hash'] !== null && $row['tcred_pin_hash'] !== '';
         return $row;
@@ -165,26 +170,5 @@ final class CredentialRepo
             throw new \RuntimeException('CredentialRepo: credential row missing after create');
         }
         return $row;
-    }
-
-    /** A stored odoo row of a (new) trainer becomes local; its local hash stays as it is (null => setup needed). */
-    private function switchToLocal(int $contactId, string $why): array
-    {
-        $db = $this->k->db();
-        $base = $this->k->eventBase();
-        Db::tx($db, static function () use ($db, $contactId, $base): void {
-            $row = self::load($db, $contactId, true);
-            if ($row === null || $row['tcred_source'] !== 'odoo') {
-                return;
-            }
-            Db::exec($db, "UPDATE training_learner_credentials SET tcred_source = 'local' WHERE tcred_contact_id = ?", 'i', [$contactId]);
-            Ledger::append($db, array_merge($base, [
-                'type' => 'pin.source_changed',
-                'subject_contact_id' => $contactId,
-                'payload' => ['from' => 'odoo', 'to' => 'local', 'odoo_employee_id' => $row['tcred_odoo_employee_id'] === null ? null : (int) $row['tcred_odoo_employee_id'],
-                              'cleared_local' => false, 'pinned' => false],
-            ]));
-        });
-        return self::load($db, $contactId) ?? throw new \RuntimeException('CredentialRepo: credential row vanished');
     }
 }

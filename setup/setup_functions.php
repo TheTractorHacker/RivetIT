@@ -211,6 +211,13 @@ if (!function_exists('setConfigFlag')) {
      * Idempotently set/append a PHP config flag like $config_enable_setup = 0;
      */
     function setConfigFlag(string $file, string $key, $value): void {
+        // $key becomes a literal PHP variable name written straight into config.php, which
+        // executes on every request - an unvalidated $key (e.g. containing a semicolon and more
+        // PHP) would be a config injection primitive. Both callers today pass a fixed literal, but
+        // this guard makes that a documented invariant instead of an unenforced assumption.
+        if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $key) !== 1) {
+            throw new InvalidArgumentException("setConfigFlag: '$key' is not a valid PHP variable name");
+        }
         $cfg = @file_get_contents($file);
         if ($cfg === false) throw new RuntimeException("Cannot read $file");
         $cfg = str_replace("\r\n", "\n", $cfg);
@@ -246,6 +253,11 @@ if (!function_exists('setConfigFlagAtomic')) {
      * Atomic variant of setConfigFlag to avoid partial writes.
      */
     function setConfigFlagAtomic(string $file, string $key, $value): void {
+        // Same config-injection guard as setConfigFlag() above - $key is written verbatim as a PHP
+        // variable name into config.php.
+        if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $key) !== 1) {
+            throw new InvalidArgumentException("setConfigFlagAtomic: '$key' is not a valid PHP variable name");
+        }
         clearstatcache(true, $file);
         if (!file_exists($file))  throw new RuntimeException("config.php not found: $file");
         if (!is_readable($file))  throw new RuntimeException("config.php not readable: $file");

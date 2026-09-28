@@ -9378,3 +9378,45 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.103'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.103') {
+        // Owner ask 2026-09-28: "Big issue is that the Trainer Sign in needs to be saprate from
+        // the trainers trainee Odoo pin so that needs fixed." A person who is BOTH a learner and
+        // a trainer used to share ONE credential row (training_learner_credentials) for both
+        // purposes, and PinSourceSync/CredentialRepo forced that row to a local PIN the moment
+        // someone became an active trainer - breaking their personal Odoo-PIN sign-in and forcing
+        // an immediate trainer-PIN setup flow they had no way to defer. This migration gives
+        // trainers their OWN credential, stored directly on training_trainers (one row already
+        // exists per trainer; trainer_contact_id is its PK), so a trainer's kiosk sign-in PIN is
+        // now a genuinely separate secret from their personal learner/Odoo PIN. Only the columns
+        // Kiosk\Pin\TrainerPinService's reserve/verify/settle/lockout state machine actually needs
+        // (mirroring training_learner_credentials' shape, P3 spec §3.2) - no tcred_source /
+        // tcred_odoo_* equivalent, because a trainer PIN has no Odoo counterpart to sync from and
+        // is always local by design; no setup-code columns, because a trainer sets/changes this
+        // PIN directly while already authenticated (self-service in the agent app, or an admin
+        // reset) rather than redeeming a printed code at the kiosk:
+        //   trainer_pin_hash / trainer_pin_prev_hash  bcrypt (PinHasher, same pepper/material
+        //     scheme as a local training PIN - a different secret and a different column, so the
+        //     two credentials never collide); prev_hash blocks re-using the immediately-previous PIN
+        //     on a reset (PinPolicy's "previous" rule), exactly like tcred_prev_pin_hash.
+        //   trainer_pin_failed_count / trainer_pin_locked_until_utc / trainer_pin_hard_locked
+        //     the same soft-lock/hard-lock state machine as tcred_failed_count/tcred_locked_until_utc/
+        //     tcred_hard_locked, driven by the SAME KioskSettings thresholds.
+        //   trainer_pin_last_success_at_utc  parity with tcred_last_success_at_utc.
+        //   trainer_pin_set_at_utc / trainer_pin_set_method / trainer_pin_set_by_user_id  who set
+        //     this PIN and how ('self' | 'admin'), shown on the trainer edit panel and the
+        //     self-service page; trainer_pin_set_by_user_id is only ever set for an admin reset.
+        // Idempotent: ADD COLUMN IF NOT EXISTS.
+        mysqli_query($mysqli, "ALTER TABLE `training_trainers`
+            ADD COLUMN IF NOT EXISTS `trainer_pin_hash` varchar(255) DEFAULT NULL AFTER `trainer_active`,
+            ADD COLUMN IF NOT EXISTS `trainer_pin_prev_hash` varchar(255) DEFAULT NULL AFTER `trainer_pin_hash`,
+            ADD COLUMN IF NOT EXISTS `trainer_pin_failed_count` smallint(5) unsigned NOT NULL DEFAULT 0 AFTER `trainer_pin_prev_hash`,
+            ADD COLUMN IF NOT EXISTS `trainer_pin_locked_until_utc` datetime(3) DEFAULT NULL AFTER `trainer_pin_failed_count`,
+            ADD COLUMN IF NOT EXISTS `trainer_pin_hard_locked` tinyint(1) NOT NULL DEFAULT 0 AFTER `trainer_pin_locked_until_utc`,
+            ADD COLUMN IF NOT EXISTS `trainer_pin_last_success_at_utc` datetime(3) DEFAULT NULL AFTER `trainer_pin_hard_locked`,
+            ADD COLUMN IF NOT EXISTS `trainer_pin_set_at_utc` datetime(3) DEFAULT NULL AFTER `trainer_pin_last_success_at_utc`,
+            ADD COLUMN IF NOT EXISTS `trainer_pin_set_method` enum('self','admin') DEFAULT NULL AFTER `trainer_pin_set_at_utc`,
+            ADD COLUMN IF NOT EXISTS `trainer_pin_set_by_user_id` int(11) DEFAULT NULL AFTER `trainer_pin_set_method`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.104'");
+    }

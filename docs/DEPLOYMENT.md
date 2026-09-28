@@ -5,7 +5,8 @@ choose between the two supported paths, and how backup/restore actually works en
 two more detailed references rather than replacing them:
 
 - [`deploy/README.md`](../deploy/README.md) — the full flag-by-flag reference for every script under
-  `deploy/` (`install.sh`, `harden.sh`, `backup.sh`, `restore.sh`, `update.sh`).
+  `deploy/` (`full-restore-deploy.sh`, `install.sh`, `harden.sh`, `backup.sh`, `restore.sh`,
+  `restore_admin_zip.sh`, `update.sh`).
 - [`.env.example`](../.env.example) — every Docker Compose environment variable, with inline comments.
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) for how the codebase itself is organized, and
@@ -102,6 +103,10 @@ This provisions the whole box — packages, database, TLS/vhost, PHP-FPM/MariaDB
 a second company's instance to a box that already runs one), and the hardening/backup/update tooling that
 ships alongside it.
 
+Don't already know which flags you want? Run `sudo deploy/full-restore-deploy.sh --domain=rivetit.example.com`
+instead — it asks about restoring from a backup, the database name, an SSL certificate, and the extra
+`harden.sh` pass below, then calls `install.sh` with the answers.
+
 **Restoring onto a brand-new box** instead of a fresh company setup is a single extra pair of flags:
 
 ```bash
@@ -112,7 +117,8 @@ sudo deploy/install.sh --domain=rivetit.example.com \
 
 This is the disaster-recovery path: box died, stand up a new one, get your data back. It skips every
 company/localization/admin-user prompt — the restored data already has all of that — and provisions the
-box exactly as a fresh install would otherwise.
+box exactly as a fresh install would otherwise. `--restore-from` also accepts an in-app
+`itflow_<timestamp>_*.zip` here (no `--restore-passphrase-file` needed for that format) — see §4.1 below.
 
 ## 4. Backup & disaster recovery
 
@@ -128,10 +134,14 @@ containing `db.sql` + `uploads.zip` + `version.txt`. It runs two ways:
 - Automatically, once an hour, if enabled — and optionally pushed to S3-compatible remote storage (also
   configured under Settings → Backup).
 
-**Restore it from the browser**: the `/setup` wizard has a "Restore from Backup" step (reachable from the
-Welcome screen, or the `?restore` Utilities link) that accepts exactly this zip format. Useful for
-"undo my last change" or moving a quick snapshot between instances — not encrypted, so it's not the tool
-for genuine disaster recovery.
+**Restore it from the browser or the command line**: the `/setup` wizard has a "Restore from Backup" step
+(reachable from the Welcome screen, or the `?restore` Utilities link) that accepts exactly this zip format;
+`deploy/restore_admin_zip.sh` restores the same zip from an SSH session instead, with a master-key
+fallback (`--admin-user`) for when the backup passphrase is lost — something the browser wizard has no
+equivalent for at all (see [`deploy/README.md`](../deploy/README.md#restore_admin_zipsh)). Useful for
+"undo my last change" or moving a quick snapshot between instances — the zip bytes themselves aren't
+encrypted, so it's not on its own the tool for genuine disaster recovery; pair it with a backup passphrase
+(Settings → Backup) if that matters for your threat model.
 
 ### 4.2 `deploy/backup.sh` (the actual DR mechanism)
 
@@ -166,8 +176,9 @@ backup taken before this existed has no manifest, and `restore.sh` warns you to 
 hand instead of guessing.
 
 **Standing up a brand-new server from a backup** in one step: see [§3](#3-bare-metal-deployinstallsh)
-above (`install.sh --restore-from`) or [§2](#restoring-a-backup-instead-of-a-fresh-install) (Docker's
-`RESTORE_FROM`) — both call `restore.sh` internally after provisioning.
+above (`install.sh --restore-from`, which also accepts an in-app `.zip` — see §4.1) or
+[§2](#restoring-a-backup-instead-of-a-fresh-install) (Docker's `RESTORE_FROM`, which for now only accepts
+this encrypted format and calls `restore.sh` internally after provisioning).
 
 **Testing a restore without touching a real instance**: point `--app-dir` at a disposable one — either a
 throwaway `install.sh` run with `--skip-tls --skip-firewall --skip-fail2ban`, or just

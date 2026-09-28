@@ -8,10 +8,11 @@ instance alongside the first, on the same box.
 
 | Script | What it's for |
 |---|---|
+| `full-restore-deploy.sh` | Interactive front-end for `install.sh` (and optionally `harden.sh`) — asks restore-vs-fresh, database name, and SSL certificate questions, then hands off with the answers as flags. The easiest way to run either script without already knowing their flags. |
 | `install.sh` | Stand up a brand-new instance end to end: packages, code, database, TLS/vhost, hardening, firewall, cron, and the app's own first-run setup. |
 | `harden.sh` | A standalone, idempotent, re-runnable hardening pass — the fuller superset of what `install.sh` applies inline during a fresh install. |
 | `backup.sh` (+ systemd timer) | Encrypted, scheduled backups of the database and `uploads/`. |
-| `restore.sh` | Restore a `backup.sh` archive into an instance — standalone, or via `install.sh --restore-from` to stand up a brand-new box straight from a backup. |
+| `restore.sh` | Restore a `backup.sh` archive (`backup-*.tar.gz.enc`) into an instance — standalone, or via `install.sh --restore-from` to stand up a brand-new box straight from a backup. |
 | `restore_admin_zip.sh` | Restore the *other* backup format — the admin-panel zip from Settings → Backup / the cron auto-backup — with a master-key fallback (`--admin-user`) for when the backup passphrase is lost. |
 | `update.sh` | Pull application updates and run any pending database migrations. |
 | `lib/common.sh` | Shared helpers (logging, `gen_secret`, OS detection, service checks, manifest reading) — sourced by every script above, never run directly. |
@@ -29,10 +30,51 @@ earlier runs installed: the log files (`/var/log/itflow-*.log`), the cron file (
 the systemd units (`itflow-backup.service` / `.timer`), the passphrase file (`/etc/itflow/backup-passphrase`),
 the fail2ban jail and filter (`itflow-auth`), the nginx rate-limit zone (`itflow_login`,
 `/etc/nginx/conf.d/itflow-rate-limit.conf`) and the PHP-FPM / MariaDB / unattended-upgrades drop-ins
-(`99-itflow-hardening.*`, `51-itflow-unattended-upgrades`). The text of the files `harden.sh` and
+(`99-itflow-hardening.*`, `51-itflow-unattended-upgrades`) — and, following the same convention,
+`restore_admin_zip.sh`'s own log file (`/var/log/itflow-restore-admin-zip.log`). The text of the files `harden.sh` and
 `install.sh` compare byte for byte before writing (the hardening templates and the inline fail2ban
 filter, rate-limit and unattended-upgrades files) is unchanged too, so a re-run does not restart
 PHP-FPM, MariaDB or fail2ban just for a renamed comment. See [`../REBRANDING.md`](../REBRANDING.md).
+
+---
+
+## full-restore-deploy.sh
+
+```
+sudo deploy/full-restore-deploy.sh [any install.sh flag]
+sudo deploy/full-restore-deploy.sh --help
+```
+
+The interactive way to run `install.sh` (below) without already knowing which flags you need. It
+asks about whichever of the following wasn't already given on the command line, then hands off to
+`install.sh` with the resolved flags — every other `install.sh` flag or prompt (`--domain`,
+`--app-dir`, `--admin-*`, `--company-*`, `--skip-*`, ...) is passed straight through and behaves
+exactly as it does when you call `install.sh` directly:
+
+1. **Restore vs. fresh** — restore an existing backup onto this box instead of setting up a
+   brand-new company: either the app's own `itflow_<timestamp>_*.zip` (Settings > Backup — see
+   `restore_admin_zip.sh` below) or an encrypted `backup.sh` archive (see `restore.sh`
+   below), auto-detected by the file extension you give. Answering yes prompts for the backup file;
+   a `.tar.gz.enc` always then asks for its passphrase file, a `.zip` only asks whether one was set
+   for that specific backup — fills in `--restore-from`/`--restore-passphrase-file`.
+2. **Database name** — pick one, or leave it blank to auto-generate one from the domain
+   (`--db-name`).
+3. **SSL certificate** — a real Let's Encrypt certificate now (prompts for `--email`), a self-signed
+   one behind your own reverse proxy (`--proxy-mode`), or a self-signed placeholder to replace with
+   real TLS later (`--skip-tls`).
+4. **Extra hardening** — also run `harden.sh` (below) once `install.sh` finishes. This is this
+   script's own `--harden`/`--skip-harden` flag, not an `install.sh` flag.
+
+```bash
+sudo deploy/full-restore-deploy.sh --domain=rivetit.example.com
+# Prompts for restore-vs-fresh, database name, SSL certificate, and extra hardening;
+# everything else (admin user, company details, ...) is prompted for by install.sh itself,
+# exactly as it would be if you ran install.sh directly.
+```
+
+`--non-interactive` skips every question here too and passes your flags straight to `install.sh`,
+exactly as if you'd run `install.sh` directly — `harden.sh` then only runs if you also pass
+`--harden` explicitly (the safer default for scripted/automated runs).
 
 ---
 
@@ -100,9 +142,12 @@ Full reference: `sudo deploy/install.sh --help`. The ones worth knowing up front
   argv, so it's not visible to other users on the box via `ps`. It IS visible on *this* script's own
   command line and shell history, though — leave it out and answer `setup_cli.php`'s interactive prompt
   instead whenever you have a terminal in front of you, which touches neither.
-- `--restore-from=<path>` + `--restore-passphrase-file=<path>` — restore a `backup.sh` archive onto this
-  new box instead of a fresh company setup; see `restore.sh` below. Every company/localization/admin-user
-  flag above is ignored when these are given.
+- `--restore-from=<path>` — restore onto this new box instead of a fresh company setup; every
+  company/localization/admin-user flag above is ignored when this is given. Accepts either an
+  in-app `itflow_<timestamp>_*.zip` (see `restore_admin_zip.sh` below — `--restore-passphrase-file`
+  only needed if that specific backup had one set) or an encrypted `backup.sh` archive (see
+  `restore.sh` below, which always needs `--restore-passphrase-file=<path>`) — picked by the file
+  extension you give.
 
 ### Worked example 1 — fresh dedicated box
 
@@ -305,7 +350,9 @@ The counterpart to `restore.sh` above, for the *other* backup format this app pr
 `<app-dir>/backups/`. `restore.sh` cannot open this format — it only understands its own
 `backup-*.tar.gz.enc`; this script is that zip's restore counterpart, following the same safety
 conventions (`--confirm-restore` required with no y/n prompt to click through, a pre-restore safety
-backup of the target's current state by default, root-required).
+backup of the target's current state by default, root-required). It replaces the app's own browser-based
+`/setup` wizard restore for command-line/scripted use, sharing the same hardened extraction (`setup/
+setup_functions.php`'s `safeExtractZip()`) rather than reimplementing it.
 
 ```bash
 sudo deploy/restore_admin_zip.sh --app-dir=/var/www/rivetit.example.com \
@@ -332,9 +379,23 @@ equivalent for at all:
   guaranteed across two independently-set-up boxes. It never recovers `config_settings_enc_key` itself
   (SMTP/IMAP passwords, RMM/webhook secrets) — use `--passphrase-file` for that.
 
+Neither flag needed at all if that specific backup's manifest was never encrypted (no backup passphrase
+was set when it was taken) — the script reads it plain and recovers what it can from `config_settings_enc_key`
+alone. Pass `--no-pre-restore-backup-confirmed` to skip the automatic pre-restore safety backup, same as
+`restore.sh`.
+
 Full flag reference, exact steps performed and in what order, and what each master-key-recovery mode can
 and cannot guarantee: `sudo deploy/restore_admin_zip.sh --help`, and the doc comments at the top of
 `restore_admin_zip.sh` and `deploy/lib/admin_auth_check.php` themselves.
+
+**Standing up a brand-new server straight from an in-app backup:** `install.sh --restore-from` accepts a
+`.zip` here too — only add `--restore-passphrase-file` if that specific backup had one set (a fresh box has
+no admin account of its own yet, so `--admin-user` mode never applies here):
+
+```bash
+sudo deploy/install.sh --domain=rivetit.example.com \
+    --restore-from=/path/to/itflow_20260101120000_manual.zip
+```
 
 **Testing a restore without touching a real instance:** same approach as `restore.sh` above — point
 `--app-dir` at a disposable instance (`scripts/setup_cli.php --config-only` against a scratch database is

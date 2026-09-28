@@ -93,25 +93,48 @@ final class PinCaps
         return (int) ($r['n'] ?? 0);
     }
 
-    /** d24: distinct contacts with a failure on this kiosk not followed by a success. */
+    /**
+     * d24: distinct contacts with a failure on this kiosk not followed by a success - checked
+     * against THAT event's own credential, not always the learner one. Since 2.6.104 a pin.fail
+     * event's payload carries 'scope':'trainer' for a trainer-PIN failure (Pin\TrainerPinService,
+     * training_trainers.trainer_pin_last_success_at_utc); every other pin.fail is the learner/Odoo
+     * PIN (training_learner_credentials.tcred_last_success_at_utc). Joining a trainer failure to
+     * training_learner_credentials would resolve it off a completely unrelated credential - a
+     * trainer who also happens to have signed in as a learner afterward would silently stop
+     * counting toward this cap, even though their trainer PIN is still failing.
+     */
     public static function distinctUnresolved(\mysqli $db, int $kioskId, string $since): int
     {
         $r = Db::one($db, "SELECT COUNT(DISTINCT e.tevent_subject_contact_id) AS n
             FROM training_events e
             LEFT JOIN training_learner_credentials c ON c.tcred_contact_id = e.tevent_subject_contact_id
+            LEFT JOIN training_trainers tt ON tt.trainer_contact_id = e.tevent_subject_contact_id
             WHERE e.tevent_kiosk_id = ? AND e.tevent_type = 'pin.fail' AND e.tevent_at_utc >= ?
-              AND (c.tcred_last_success_at_utc IS NULL OR c.tcred_last_success_at_utc < e.tevent_at_utc)", 'is', [$kioskId, $since]);
+              AND (
+                (JSON_UNQUOTE(JSON_EXTRACT(e.tevent_payload_json, '$.scope')) = 'trainer'
+                    AND (tt.trainer_pin_last_success_at_utc IS NULL OR tt.trainer_pin_last_success_at_utc < e.tevent_at_utc))
+                OR
+                (JSON_UNQUOTE(JSON_EXTRACT(e.tevent_payload_json, '$.scope')) IS NULL
+                    AND (c.tcred_last_success_at_utc IS NULL OR c.tcred_last_success_at_utc < e.tevent_at_utc))
+              )", 'is', [$kioskId, $since]);
         return (int) ($r['n'] ?? 0);
     }
 
-    /** Did $contactId already have an unresolved failure here before its latest one? */
+    /** Did $contactId already have an unresolved failure here before its latest one? Same per-scope credential as distinctUnresolved(). */
     private static function hadEarlierUnresolved(\mysqli $db, int $kioskId, int $contactId, string $since): bool
     {
         $r = Db::one($db, "SELECT COUNT(*) AS n
             FROM training_events e
             LEFT JOIN training_learner_credentials c ON c.tcred_contact_id = e.tevent_subject_contact_id
+            LEFT JOIN training_trainers tt ON tt.trainer_contact_id = e.tevent_subject_contact_id
             WHERE e.tevent_kiosk_id = ? AND e.tevent_type = 'pin.fail' AND e.tevent_subject_contact_id = ? AND e.tevent_at_utc >= ?
-              AND (c.tcred_last_success_at_utc IS NULL OR c.tcred_last_success_at_utc < e.tevent_at_utc)", 'iis', [$kioskId, $contactId, $since]);
+              AND (
+                (JSON_UNQUOTE(JSON_EXTRACT(e.tevent_payload_json, '$.scope')) = 'trainer'
+                    AND (tt.trainer_pin_last_success_at_utc IS NULL OR tt.trainer_pin_last_success_at_utc < e.tevent_at_utc))
+                OR
+                (JSON_UNQUOTE(JSON_EXTRACT(e.tevent_payload_json, '$.scope')) IS NULL
+                    AND (c.tcred_last_success_at_utc IS NULL OR c.tcred_last_success_at_utc < e.tevent_at_utc))
+              )", 'iis', [$kioskId, $contactId, $since]);
         return (int) ($r['n'] ?? 0) > 1;
     }
 
