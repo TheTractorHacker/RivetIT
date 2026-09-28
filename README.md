@@ -230,8 +230,9 @@ sudo deploy/install.sh --domain=rivetit.example.com
 `deploy/install.sh` provisions nginx, PHP 8.5, MariaDB and Redis (asking first — answer "n", or pass
 `--skip-dependencies`, if you already have them set up the way you want), sets up TLS (Let's Encrypt, or
 `--proxy-mode` behind your own reverse proxy), applies security hardening, installs the cron entry and runs
-the first-run setup; with `--restore-from` it stands a new box up from an encrypted backup instead. Run it
-again with a different `--domain` to host another organization's independent instance on the same box.
+the first-run setup; with `--restore-from` it stands a new box up from an existing backup instead (an
+encrypted `deploy/backup.sh` archive, or the app's own in-app `.zip`). Run it again with a different
+`--domain` to host another organization's independent instance on the same box.
 `deploy/harden.sh` adds the remaining hardening steps (see [deploy/README.md](deploy/README.md#hardensh)).
 
 ### Backups and updates
