@@ -2,7 +2,9 @@
 
 In September 2026 the application formerly called **ITFlow Internal IT** (repository
 `TheTractorHacker/ITFlow-Internal-IT`, itself a fork of the MSP-focused `TheTractorHacker/itflow`, a fork of
-`itflow-org/itflow`) was renamed **RivetIT**. This was a rename and a product identity, **not a rewrite**: no
+`itflow-org/itflow`) was renamed **RivetIT**. The GitHub repository itself was renamed to
+`TheTractorHacker/RivetIT` a few days later, on 2026-09-28; every place below that used to say "when the
+project moves" now says "moved". This was a rename and a product identity, **not a rewrite**: no
 feature, route, API endpoint or field, integration, database table or column, or stored record changed. This
 file records what was renamed, what deliberately was not, and why, so later work does not "finish the job"
 by renaming something that installs depend on.
@@ -26,8 +28,9 @@ the updater's remote name (`APP_UPDATE_REMOTE`) and the brand asset paths (`APP_
 
 ### Project links while the repository is private
 
-`APP_REPO_URL` (`https://github.com/TheTractorHacker/ITFlow-Internal-IT`) is a **private** repository: the updater
-fetches it with a read-only deploy key, and an anonymous request gets a GitHub 404 (checked 2026-09-28). A link into
+`APP_REPO_URL` (`https://github.com/TheTractorHacker/RivetIT`, renamed from `.../ITFlow-Internal-IT` on
+2026-09-28 — see "Repository and links" below) is a **private** repository: the updater fetches it with a
+read-only deploy key, and an anonymous request gets a GitHub 404 (checked 2026-09-28). A link into
 it would be a 404 for every member of staff, where the ITFlow-era links it replaced went to public pages. So
 `APP_REPO_PUBLIC` (default `0`) gates the links built from it: while it is `0`, `APP_SOURCE_URL`, `APP_WEBSITE_URL`,
 `APP_DOCS_URL`, `APP_SUPPORT_URL`, `APP_CHANGELOG_URL` and `APP_RELEASES_URL` are empty, and every page leaves an
@@ -127,7 +130,7 @@ Checking for updates and applying them use **different git sources**, and the re
 
 - **The check** (Admin > Update) runs `git fetch fork` and compares `HEAD` with `fork/<$repo_branch>`
   (`fetchUpdates()` in `functions.php`, `admin/update.php`). The `fork` remote is this repository,
-  `TheTractorHacker/ITFlow-Internal-IT`, branch `main` (`$repo_branch` in `config.php`). Its name is now a constant,
+  `TheTractorHacker/RivetIT`, branch `main` (`$repo_branch` in `config.php`). Its name is now a constant,
   `APP_UPDATE_REMOTE` (default `fork`, in `includes/branding.php`; `fetchUpdates()` falls back to `'fork'` if it is
   not defined). The git log on Admin > Update also uses it. Both pass the remote and ref through `escapeshellarg()`.
 - **Applying** runs a plain `git pull`: the **Update App** button (`admin/post/update.php`), `scripts/update_cli.php`
@@ -135,27 +138,31 @@ Checking for updates and applying them use **different git sources**, and the re
   installs, which is the same repository. `APP_UPDATE_REMOTE` does not affect it.
 - The Update page says both: "Checked against `fork/main` …; **Update App** runs `git pull`, which pulls from the
   branch's upstream remote."
-- **Moving the project** (e.g. to a RivetIT repository) is therefore a remote change on each install, not a new
-  remote name: `git remote set-url origin <new url>` and `git remote set-url fork <new url>` (keep `fork`
-  fetch-only, as it is on the live box). Adding a remote under another name and setting `APP_UPDATE_REMOTE` to it
-  would make the page list that repository's commits while **Update App** keeps pulling from the old `origin`, so
-  the page would keep saying updates are available. No RivetIT repository exists yet, so nothing points at one.
-- `deploy/install.sh` clones `REPO_URL` (`https://github.com/TheTractorHacker/ITFlow-Internal-IT.git`).
+- **The repository was renamed** `TheTractorHacker/ITFlow-Internal-IT` → `TheTractorHacker/RivetIT` on
+  2026-09-28 (`gh repo rename`, run from this checkout). GitHub redirects old clone/fetch URLs indefinitely, but
+  each existing install's remotes were updated anyway rather than relying on that: `git remote set-url origin
+  <new url>` and `git remote set-url fork <new url>` (keeping `fork`'s push URL disabled, as before). Confirmed on
+  this box: both `git fetch origin` and, as `www-data`, `git fetch fork` succeed against the new URL. A repository
+  rename alone does not need `APP_UPDATE_REMOTE` touched — it is a remote *name*, not a URL, and still `fork`.
+- `deploy/install.sh` clones `REPO_URL` (`https://github.com/TheTractorHacker/RivetIT.git`).
 - The "Latest Release" link on Admin > Update used to point at the old MSP fork (`TheTractorHacker/itflow`); it
   now uses `APP_RELEASES_URL` (`APP_REPO_URL . '/tags'`: the updater compares git tags), and the page's docs,
   changelog and support links use `APP_DOCS_URL`, `APP_CHANGELOG_URL` and `APP_SUPPORT_URL`. While the repository
   is private these are empty and the page shows the tag and the text without links.
 - The page shows the product version first ("RivetIT Version: 26.09", `APP_VERSION`, as in the footer and on the
   debug page) and the git tag the updater compares below it as "Release tag" (e.g. `v1.18.0`).
-- Not changed, and unrelated to the rename: the force-update paths (`admin/post/update.php`,
-  `scripts/update_cli.php --force_update`) still run `git reset --hard origin/master`, an upstream leftover. This
-  repository's branch is `main`.
+- **Fixed alongside the rename** (found while touching these files, not caused by it): both force-update paths —
+  `admin/post/update.php` (fixed 2026-09-28 while removing telemetry, see the CHANGELOG) and
+  `scripts/update_cli.php --force_update` (fixed here) — ran `git reset --hard origin/master`, an upstream
+  leftover; this repository's branch has been `main` throughout. Neither ever ran on this live box (its Update
+  App / FORCE Update App buttons use the admin path, already `main`).
 
 ## Repository and links
 
-The repository is still `https://github.com/TheTractorHacker/ITFlow-Internal-IT`, so `git clone` still
-creates an `ITFlow-Internal-IT` directory, and the docs say so. When the project moves (for example to a
-RivetIT organization), change it in these places:
+The repository moved on 2026-09-28: `https://github.com/TheTractorHacker/ITFlow-Internal-IT` →
+`https://github.com/TheTractorHacker/RivetIT`. `git clone` now creates a `RivetIT` directory, and the docs say
+so. GitHub's redirect from the old URL keeps working, but everything below was updated to the new one directly.
+If the project moves again later, change it in these places:
 
 | Where | What |
 |---|---|
@@ -390,8 +397,8 @@ Specific identifier classes. The count is the lines that contain at least one ma
 | Database names (`midwest_itflow`, `midwest_itflow_scratch` / `_verify`, `itflow_beta`) | server facts | 4 | 3 |
 | Example second-install DB name `itflow2` | database names are never renamed | 1 | 1 |
 | Android repository path in `scripts/check_openapi_drift.sh` | separate repository | 1 | 1 |
-| Repository URL `TheTractorHacker/ITFlow-Internal-IT` | the real repository until the project moves | 24 | 8 |
-| Clone directory `ITFlow-Internal-IT` | what `git clone` creates today | 6 | 2 |
+| Repository URL `TheTractorHacker/RivetIT` (renamed 2026-09-28; the counts below are from the search that ran right after) | the real, current repository | 24 | 8 |
+| Clone directory `RivetIT` (was `ITFlow-Internal-IT` before the 2026-09-28 rename) | what `git clone` creates today | 6 | 2 |
 | Upstream links `itflow-org/itflow` | attribution | 9 | 5 |
 | MSP fork `TheTractorHacker/itflow` | attribution | 2 | 2 |
 | Telemetry endpoint `telemetry.itflow.org` | opt-in, upstream, labelled as such | 8 | 6 |
@@ -422,7 +429,7 @@ These still show "itflow" to someone, on purpose:
 - **Training settings > Worker:** the log path `/var/log/itflow_mw_training_worker.log` and the cron file `/etc/cron.d/mw-itflow-training-worker`.
 - **Mail:** processed mail still goes into the `ITFlow` folder of every monitored mailbox. The Microsoft 365 steps on Admin > Mail name it and say why, and the parser's NDR log line names it.
 - **Backups:** Admin > Backup and the setup restore list files named `itflow_<timestamp>_<manual|auto>.zip`.
-- **The repository URL:** the debug page's Source row and the README name `…/TheTractorHacker/ITFlow-Internal-IT` until the project moves. The footer "Source" link and the Admin > Update links to it appear only once the repository is public (`APP_REPO_PUBLIC`, see above).
+- **The repository URL:** the debug page's Source row and the README name `…/TheTractorHacker/RivetIT`. The footer "Source" link and the Admin > Update links to it appear only once the repository is public (`APP_REPO_PUBLIC`, see above).
 - **Outside the app:**
   - Odoo lines carry the `[ITFLOW:…]` marker, and lines written before the rename say "Record of truth: ITFlow".
   - Stripe shows the `itflow_*` metadata keys.

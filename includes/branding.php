@@ -38,7 +38,7 @@ rivetit_brand_define('APP_TAGLINE', 'Everything your IT department needs. One pl
 
 // Project links. The repository below is the one this install is built from today; change it here
 // (or with RIVETIT_APP_REPO_URL) when the project moves, e.g. to a RivetIT organization.
-rivetit_brand_define('APP_REPO_URL', 'https://github.com/TheTractorHacker/ITFlow-Internal-IT');
+rivetit_brand_define('APP_REPO_URL', 'https://github.com/TheTractorHacker/RivetIT');
 rivetit_brand_define('APP_LICENSE', 'GPL-3.0');
 
 // Can people without a GitHub login open APP_REPO_URL? Not today: the repository is private (the updater

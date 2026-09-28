@@ -4,6 +4,40 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [Unreleased] RivetIT - Telemetry removed, the repository moved, clean defaults for new installs
+No database change (still 2.6.99). Finishes the rename below: the last things that actively pointed at
+`itflow.org`, or still said the repository "has not moved", are addressed.
+
+### New Features & Updates
+- **The repository moved**: `github.com/TheTractorHacker/ITFlow-Internal-IT` → `github.com/TheTractorHacker/RivetIT`
+  (still private). `includes/branding.php`'s `APP_REPO_URL` default, `composer.json`, `deploy/install.sh`,
+  the systemd unit templates, `README.md`, `SECURITY.md` and `docs/DEPLOYMENT.md` all point at the new URL.
+  GitHub redirects the old one indefinitely, but every install should still run
+  `git remote set-url origin <new-url>` and, if it has one, `git remote set-url fork <new-url>` (keep `fork`
+  fetch-only) rather than rely on that. Done on this box; both remotes fetch cleanly against the new name.
+- **New installs get `rivetit`-named database defaults** instead of `itflow`: `.env.example`'s suggested
+  `DB_NAME`/`DB_USER`, and `deploy/install.sh`'s empty-domain fallback name. Safe for existing installs —
+  `.env.example` is only ever copied once to a real `.env`, and `docker-compose.yml`'s own fallback (used only
+  when `.env` sets neither) is unchanged, since a stack that relied on it really does have a database named
+  `itflow` inside the `itflow_db_data` volume.
+- Confirmed no seeded install data (`db.sql`, the setup wizard, `setup_cli.php`) mentions ITFlow — the company
+  name is always entered by the installer, never defaulted, and `installation_id` is an unprefixed random string.
+
+### Fixes
+- **The telemetry feature is removed**, not just left disabled: it was the last thing in the app that actively
+  contacted `itflow.org`. It used to POST installation and company details to the upstream ITFlow project's
+  `telemetry.itflow.org`, opt-in, from Admin > Settings > Telemetry, the setup wizard's last step, and
+  `scripts/setup_cli.php`; `cron/cron.php` sent the same payload on a schedule when enabled. RivetIT now sends
+  nothing anywhere; `config_telemetry` keeps its column, always read and written as `0`.
+- **`admin/post/update.php` always sent telemetry**, regardless of the setting: its condition was
+  `$config_telemetry > 0 OR $config_telemetry = 2`, a stray `=` instead of `==`, so it was unconditionally true
+  on every "Update App" click. Found while removing the feature above. Harmless on installs that left telemetry
+  at its default (Disabled) — nothing was actually sent — but fixed regardless.
+- **Both force-update paths had a stale `origin/master`**, an upstream leftover from before this project's
+  default branch was `main`: `admin/post/update.php` (fixed alongside the telemetry bug) and
+  `scripts/update_cli.php --force_update` (fixed here). Neither path had run on this live install, whose Update
+  App / FORCE Update App buttons already used `main`.
+
 ## [Unreleased] RivetIT - ITFlow Internal IT is now RivetIT
 No database change (still 2.6.99) and no version reset (still 26.09). Nothing to run: pull the code as usual. RivetIT
 is a free and open-source internal IT operations platform for managing service requests, users, devices,
@@ -88,7 +122,8 @@ exactly as before.
 - **Updates** still come from `TheTractorHacker/ITFlow-Internal-IT` (branch `main`): the check compares with the
   `fork` remote and **Update App** / `deploy/update.sh` pull from `origin`, both that repository; it has not moved.
   When it does, re-point both remotes (`git remote set-url`). The optional telemetry still reports to the upstream
-  ITFlow endpoint.
+  ITFlow endpoint. *(Both since changed — see the entry above: the repository moved to `TheTractorHacker/RivetIT`
+  and telemetry was removed entirely, not left pointed upstream.)*
 - The Android companion app keeps working unchanged (same `/api/v1`, same package id); renaming the app itself is a
   separate follow-up in its own repository.
 

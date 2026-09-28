@@ -18,9 +18,9 @@ We operate a rolling release model on the `main` branch. Any bug fixes will be r
 
 ## Reporting a Vulnerability via GitHub Security Advisories
 
-**Security contact: [GitHub Security Advisories](https://github.com/TheTractorHacker/ITFlow-Internal-IT/security/advisories/new)** (on the repository page: **Security > Report a vulnerability**)
+**Security contact: [GitHub Security Advisories](https://github.com/TheTractorHacker/RivetIT/security/advisories/new)** (on the repository page: **Security > Report a vulnerability**)
 
-If you have discovered a security issue, please **[report it](https://github.com/TheTractorHacker/ITFlow-Internal-IT/security/advisories/new)** to us in as much detail as possible, so we can fix it. Include the RivetIT version (page footer, or Admin > Update) and the database version.
+If you have discovered a security issue, please **[report it](https://github.com/TheTractorHacker/RivetIT/security/advisories/new)** to us in as much detail as possible, so we can fix it. Include the RivetIT version (page footer, or Admin > Update) and the database version.
 
 If the issue is in code RivetIT shares with ITFlow and you can reproduce it on an unmodified ITFlow install, please also report it to the ITFlow maintainers through [their advisories](https://github.com/itflow-org/itflow/security/advisories/new), or tell us and we will pass it on.
 

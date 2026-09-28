@@ -21,9 +21,9 @@
   ·
   <a href="CHANGELOG.md">Changelog</a>
   ·
-  <a href="https://github.com/TheTractorHacker/ITFlow-Internal-IT/tags">Releases</a>
+  <a href="https://github.com/TheTractorHacker/RivetIT/tags">Releases</a>
   ·
-  <a href="https://github.com/TheTractorHacker/ITFlow-Internal-IT/issues">Report a bug</a>
+  <a href="https://github.com/TheTractorHacker/RivetIT/issues">Report a bug</a>
 </p>
 
 <p align="center">
@@ -191,7 +191,7 @@ The repository is still named `ITFlow-Internal-IT`, so that is the directory `gi
 ### Docker Compose (fastest way to try it)
 
 ```bash
-git clone https://github.com/TheTractorHacker/ITFlow-Internal-IT.git
+git clone https://github.com/TheTractorHacker/RivetIT.git
 cd ITFlow-Internal-IT
 cp .env.example .env    # edit DB_PASSWORD/DB_ROOT_PASSWORD, and DOCKER_UID/DOCKER_GID (run `id -u`/`id -g`)
 docker compose up -d --build
@@ -209,7 +209,7 @@ harden the host: put a reverse proxy in front of it for anything beyond local ev
 ### Bare-metal install (recommended for production)
 
 ```bash
-git clone https://github.com/TheTractorHacker/ITFlow-Internal-IT.git
+git clone https://github.com/TheTractorHacker/RivetIT.git
 cd ITFlow-Internal-IT
 sudo deploy/install.sh --domain=rivetit.example.com
 ```
@@ -268,11 +268,11 @@ project and is not maintained or endorsed by the ITFlow maintainers; security is
 itself go to [its security policy](https://github.com/itflow-org/itflow/security/policy).
 
 <!-- MARKDOWN LINKS & IMAGES -->
-[contributors-shield]: https://img.shields.io/github/contributors/TheTractorHacker/ITFlow-Internal-IT.svg?style=for-the-badge
-[contributors-url]: https://github.com/TheTractorHacker/ITFlow-Internal-IT/graphs/contributors
-[stars-shield]: https://img.shields.io/github/stars/TheTractorHacker/ITFlow-Internal-IT.svg?style=for-the-badge
-[stars-url]: https://github.com/TheTractorHacker/ITFlow-Internal-IT/stargazers
-[license-shield]: https://img.shields.io/github/license/TheTractorHacker/ITFlow-Internal-IT.svg?style=for-the-badge
+[contributors-shield]: https://img.shields.io/github/contributors/TheTractorHacker/RivetIT.svg?style=for-the-badge
+[contributors-url]: https://github.com/TheTractorHacker/RivetIT/graphs/contributors
+[stars-shield]: https://img.shields.io/github/stars/TheTractorHacker/RivetIT.svg?style=for-the-badge
+[stars-url]: https://github.com/TheTractorHacker/RivetIT/stargazers
+[license-shield]: https://img.shields.io/github/license/TheTractorHacker/RivetIT.svg?style=for-the-badge
 [license-url]: LICENSE
-[commit-shield]: https://img.shields.io/github/last-commit/TheTractorHacker/ITFlow-Internal-IT?style=for-the-badge
-[commit-url]: https://github.com/TheTractorHacker/ITFlow-Internal-IT/commits/main
+[commit-shield]: https://img.shields.io/github/last-commit/TheTractorHacker/RivetIT?style=for-the-badge
+[commit-url]: https://github.com/TheTractorHacker/RivetIT/commits/main

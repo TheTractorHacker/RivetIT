@@ -42,7 +42,7 @@
 
 [Unit]
 Description=RivetIT encrypted backup (${APP_DIR})
-Documentation=https://github.com/TheTractorHacker/ITFlow-Internal-IT
+Documentation=https://github.com/TheTractorHacker/RivetIT
 After=network.target mariadb.service
 Wants=mariadb.service
 

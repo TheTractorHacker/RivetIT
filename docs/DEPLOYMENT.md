@@ -29,7 +29,7 @@ anything you intend to keep running and trust with real data.
 ## 2. Docker Compose
 
 ```bash
-git clone https://github.com/TheTractorHacker/ITFlow-Internal-IT.git
+git clone https://github.com/TheTractorHacker/RivetIT.git
 cd ITFlow-Internal-IT
 cp .env.example .env
 # edit DB_PASSWORD / DB_ROOT_PASSWORD, and DOCKER_UID / DOCKER_GID (run `id -u` / `id -g`)
@@ -94,7 +94,7 @@ passphrase shouldn't outlive the one restore it was needed for.
 ## 3. Bare-metal (`deploy/install.sh`)
 
 ```bash
-git clone https://github.com/TheTractorHacker/ITFlow-Internal-IT.git
+git clone https://github.com/TheTractorHacker/RivetIT.git
 cd ITFlow-Internal-IT
 sudo deploy/install.sh --domain=rivetit.example.com
 ```
