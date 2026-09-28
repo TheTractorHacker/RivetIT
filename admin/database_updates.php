@@ -9308,3 +9308,24 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.99'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.99') {
+        // Backup completeness (owner ask 2026-09-28): the in-app Backup (Admin > Backup, "Backup Now" /
+        // the auto-backup cron) dumps every database table and the uploads/ directory, but never captured
+        // config.php's $config_settings_enc_key. Without it a restore onto a different config.php (a fresh
+        // install's own freshly generated key) leaves every SMTP/IMAP password, RMM/webhook secret and the
+        // wrapped credentials-vault master key undecryptable - the backup has the bytes but isn't actually
+        // restorable. admin/post/backup.php now bundles a backup-manifest.json (installation_id, db name,
+        // settings_enc_key - same shape as deploy/backup.sh's own manifest, so deploy/restore.sh's existing
+        // key-recovery step reads either) into every backup zip.
+        // config_backup_passphrase (this column): optional, admin-set, encrypted at rest with
+        // encryptSetting() exactly like config_backup_s3_secret_key. When set, the manifest is encrypted
+        // with it (openssl enc -aes-256-cbc -pbkdf2 -salt, matching deploy/backup.sh's own scheme exactly,
+        // so the SAME passphrase decrypts either tool's manifest) before it goes in the zip. When unset
+        // (every install's default, including this one today), the manifest is added in plain text - no
+        // worse than the rest of the zip's contents, and a real improvement over not being there at all.
+        // Idempotent: ADD COLUMN IF NOT EXISTS.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_backup_passphrase` text DEFAULT NULL AFTER `config_backup_s3_prefix`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.100'");
+    }

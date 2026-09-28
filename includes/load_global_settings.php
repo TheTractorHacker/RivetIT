@@ -183,6 +183,7 @@ $config_backup_s3_access_key  = $row['config_backup_s3_access_key'] ?? '';
 $config_backup_s3_secret_key  = decryptSetting($row['config_backup_s3_secret_key'] ?? '');
 $config_backup_s3_path_style  = intval($row['config_backup_s3_path_style'] ?? 1);
 $config_backup_s3_prefix      = $row['config_backup_s3_prefix'] ?? '';
+$config_backup_passphrase     = decryptSetting($row['config_backup_passphrase'] ?? '');
 // Comet Backup
 $config_comet_enabled      = intval($row['config_comet_enabled'] ?? 0);
 $config_comet_server_url   = $row['config_comet_server_url'] ?? 'http://10.1.0.35:8060';
