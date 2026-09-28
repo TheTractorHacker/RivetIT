@@ -106,10 +106,15 @@ document.addEventListener('DOMContentLoaded', function () {
             params.append(cb.name, cb.value);
         });
 
-        // Safety: only allow same-origin relative paths to prevent open redirect / XSS
+        // Safety: only allow same-origin relative paths to prevent open redirect / XSS.
+        // The origin check alone is not enough: a same-origin URL whose PATH starts with
+        // "//" (e.g. https://this-site//evil.example.com/x, origin passes) yields a
+        // pathname of "//evil.example.com/x" - still starts with "/", but re-assigned to
+        // href/data-modal-url that becomes a protocol-relative reference to a different
+        // host (CodeQL js/xss-through-dom, GH alert #6). Reject any leading "//" too.
         if (url.origin !== window.location.origin) return;
         const finalUrl = url.pathname + url.search; // url.search is already encoded by the URL object
-        if (!finalUrl.startsWith('/')) return;
+        if (!finalUrl.startsWith('/') || finalUrl.startsWith('//')) return;
 
         if (trigger.hasAttribute('data-modal-url')) {
             trigger.setAttribute('data-modal-url', finalUrl);
