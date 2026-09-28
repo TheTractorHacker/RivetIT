@@ -308,7 +308,7 @@ body.kx-video-page .kx-main { padding-bottom: 0; }
 }
 .kl-vbtn--play { background: var(--kx-ink); border-color: var(--kx-ink); color: var(--kx-surface); font-size: 22px; }
 .kl-vbar__wrap { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; min-width: 80px; }
-.kl-vbar { position: relative; height: 8px; border-radius: 999px; background: var(--kx-bg); overflow: hidden; }
+.kl-vbar { position: relative; height: 8px; border-radius: 999px; background: var(--kx-bg); overflow: hidden; cursor: pointer; touch-action: none; }
 .kl-vbar__max { position: absolute; left: 0; top: 0; bottom: 0; background: var(--kx-accent-soft); }
 .kl-vbar__cur { position: absolute; left: 0; top: 0; bottom: 0; background: var(--kx-accent); }
 .kl-vbar__cap { color: var(--kx-muted); font-size: 16px; font-weight: 600; text-align: center; }

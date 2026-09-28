@@ -117,7 +117,7 @@
         el('span', { class: 'kl-vback10__full', 'aria-hidden': 'true', text: t('video.back_10') }), el('span', { class: 'kl-vback10__short', 'aria-hidden': 'true', text: t('vopt.back_10_short') })]);
     var barMax = el('span', { class: 'kl-vbar__max' });
     var barCur = el('span', { class: 'kl-vbar__cur' });
-    var bar = el('div', { class: 'kl-vbar', 'aria-hidden': 'true' }, [barMax, barCur]);
+    var bar = el('div', { class: 'kl-vbar', role: 'slider', tabindex: '0', 'aria-label': t('video.furthest'), 'aria-valuemin': '0' }, [barMax, barCur]);
     var timeEl = el('span', { class: 'kl-vtime kl-mono', text: '0:00 / ' + (duration ? fmt(duration) : '–:––') });
     var vstatus = el('div', { class: 'kl-vstatus', role: 'status', 'aria-live': 'polite', hidden: true });
     var ccNote = el('div', { class: 'kl-ccnote', hidden: true }, [icon('fa-closed-captioning'), el('span', { text: t('vopt.cc_none') })]);
@@ -231,6 +231,8 @@
         barMax.style.width = (d > 0 ? Math.min(100, maxWatched * 100 / d) : 0) + '%';
         barCur.style.width = (d > 0 ? Math.min(100, lastTime * 100 / d) : 0) + '%';
         timeEl.textContent = fmt(lastTime) + ' / ' + (d ? fmt(d) : '–:––');
+        bar.setAttribute('aria-valuemax', String(Math.round(d)));
+        bar.setAttribute('aria-valuenow', String(Math.round(lastTime)));
         var can = !changed && server && (server.done || server.can_complete);
         // Watched already, with a must-pass quick check still to pass: the button goes on to the check.
         var toCheck = !!(P.check_url && server && server.credited && !isDone);
@@ -474,6 +476,69 @@
 
     playBtn.addEventListener('click', function () { if (controller) { controller.toggle(); } });
     backBtn.addEventListener('click', function () { if (controller) { controller.seekBy(-10); } });
+    /**
+     * Click / drag / arrow-key seek on the progress bar (owner report 2026-09-28, "no skipping and going to
+     * a particular point on a video"). Backward/within already-watched territory (0..maxWatched) is always
+     * allowed; a target past the furthest point reached is capped at maxWatched client-side - the same UX-only
+     * rule onTime already enforces on a stale forward report, and the server-side gate (unchanged) is the real
+     * backstop. A drag updates the bar continuously for feedback but commits the real provider seek only on a
+     * short throttle (avoids flooding YouTube's/Vimeo's postMessage API on every pointermove) and always once
+     * more on release.
+     */
+    var barDragging = false;
+    var barDragTarget = null;
+    var barSeekThrottle = null;
+    function barRatio(clientX) {
+        var r = bar.getBoundingClientRect();
+        if (!r.width) { return null; }
+        return Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+    }
+    function barTargetFromRatio(ratio) {
+        var d = duration || (server && server.duration_s) || 0;
+        if (!d) { return null; }
+        return Math.min(ratio * d, maxWatched);
+    }
+    function barShow(target) { lastTime = target; paint(); }
+    function barCommit(target) { if (controller) { controller.seekTo(target); } }
+    bar.addEventListener('pointerdown', function (e) {
+        if (!controller || (e.button !== undefined && e.button !== 0)) { return; }
+        var ratio = barRatio(e.clientX);
+        var target = ratio === null ? null : barTargetFromRatio(ratio);
+        if (target === null) { return; }
+        barDragging = true;
+        try { bar.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ }
+        barShow(target);
+        barCommit(target);
+        e.preventDefault();
+    });
+    bar.addEventListener('pointermove', function (e) {
+        if (!barDragging) { return; }
+        var ratio = barRatio(e.clientX);
+        var target = ratio === null ? null : barTargetFromRatio(ratio);
+        if (target === null) { return; }
+        barDragTarget = target;
+        barShow(target);
+        if (!barSeekThrottle) {
+            barSeekThrottle = setTimeout(function () {
+                barSeekThrottle = null;
+                if (barDragging && barDragTarget !== null) { barCommit(barDragTarget); }
+            }, 150);
+        }
+    });
+    function barEndDrag(e) {
+        if (!barDragging) { return; }
+        barDragging = false;
+        try { bar.releasePointerCapture(e.pointerId); } catch (x) { /* ignore */ }
+        if (barSeekThrottle) { clearTimeout(barSeekThrottle); barSeekThrottle = null; }
+        if (barDragTarget !== null) { barCommit(barDragTarget); barDragTarget = null; }
+    }
+    bar.addEventListener('pointerup', barEndDrag);
+    bar.addEventListener('pointercancel', barEndDrag);
+    bar.addEventListener('keydown', function (e) {
+        if (!controller) { return; }
+        if (e.key === 'ArrowLeft') { var t1 = Math.max(0, lastTime - 5); barShow(t1); barCommit(t1); e.preventDefault(); }
+        if (e.key === 'ArrowRight') { var t2 = Math.min(maxWatched, lastTime + 5); barShow(t2); barCommit(t2); e.preventDefault(); }
+    });
     /**
      * Replay / "Watch from the start": back to 0 and play. On an iPad the player starts only from a tap INSIDE it until it
      * has played once on this screen: when nothing plays, the message and the button stay (started is set by the real

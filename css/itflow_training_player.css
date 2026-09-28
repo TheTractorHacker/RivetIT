@@ -343,10 +343,9 @@
 .trp-vbtn--wide { padding: 0 18px; }
 .trp-scrub__wrap { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; min-width: 80px; }
 .trp-scrub { position: relative; height: 10px; border-radius: 999px; background: repeating-linear-gradient(-45deg, var(--trp-border) 0 4px, color-mix(in srgb, var(--trp-border) 55%, var(--trp-surface)) 4px 8px); cursor: pointer; }
-.trp-scrub--static { cursor: default; }
+.trp-scrub--seek { touch-action: none; }
 .trp-scrub__max { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: color-mix(in srgb, var(--trp-accent) 30%, var(--trp-surface)); }
 .trp-scrub__fill { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--trp-accent); }
-.trp-scrub--static .trp-scrub__max { background: var(--trp-accent); }
 .trp-scrub__knob { position: absolute; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--trp-surface); border: 3px solid var(--trp-accent); }
 .trp-scrub__cap { font-size: 13px; font-weight: 600; color: var(--trp-muted); text-align: center; }
 .trp-vtime { flex: none; font-size: 18px; font-weight: 500; white-space: nowrap; }

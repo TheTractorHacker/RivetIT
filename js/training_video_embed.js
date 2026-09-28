@@ -282,6 +282,17 @@
         var pollTimer = null;
         var lastTime = 0;
         var lastDuration = 0;
+        // Resume-seek race (owner report 2026-09-28, "the youtube player doesn't resume where the user
+        // left off"): seekTo() jumps lastTime to the target optimistically, but the real seek is a
+        // postMessage round trip (YouTube/Vimeo take real time to buffer and land it). Until then, every
+        // raw provider time report - the 500 ms poll, a pause/ended report, Vimeo's own timeupdate - is
+        // gated here so a STALE pre-seek value can never overwrite the optimistic lastTime and leak out
+        // through onTime to the host's tick and the server's stored resume position. Cleared as soon as a
+        // report lands within tolerance of the target, or after a safety timeout (a provider quirk must
+        // never wedge lastTime frozen forever).
+        var pendingSeek = null;             // { target, since } | null
+        var SEEK_TOLERANCE_S = 3;           // matches this file's existing "past maxWatched + 3" convention
+        var SEEK_CONFIRM_TIMEOUT_MS = 4000;  // give up guarding and trust reports again
         var vimeoId = null;
         var vimeoIdAsked = false;
         // Video options: what the host wants (applied once the player is ready, again on the first play).
@@ -385,6 +396,23 @@
             applyAudio();
             applyCaptions();
         }
+        /**
+         * The single place a raw provider time report is allowed to reach lastTime (poll ticks, pause/ended
+         * reports, Vimeo's timeupdate). While a seek is pending, a report outside SEEK_TOLERANCE_S of its
+         * target is a stale pre-seek value and is discarded - UNLESS SEEK_CONFIRM_TIMEOUT_MS has passed
+         * without ever confirming (a provider quirk that never visibly lands the seek), in which case reports
+         * are trusted again rather than freezing lastTime forever. NaN/undefined reports are always ignored.
+         */
+        function acceptTime(t) {
+            if (typeof t !== 'number' || isNaN(t)) { return; }
+            if (pendingSeek) {
+                var withinTolerance = Math.abs(t - pendingSeek.target) <= SEEK_TOLERANCE_S;
+                var timedOut = (Date.now() - pendingSeek.since) >= SEEK_CONFIRM_TIMEOUT_MS;
+                if (!withinTolerance && !timedOut) { return; }
+                pendingSeek = null;
+            }
+            lastTime = t;
+        }
 
         var wrap = document.createElement('div');
         wrap.className = 'trv-embed';
@@ -403,6 +431,7 @@
             seekTo: function (s) {
                 if (!player) { return; }
                 s = Math.max(0, Number(s) || 0);
+                pendingSeek = { target: s, since: Date.now() };
                 if (provider === 'youtube') { player.seekTo(s, true); } else { player.setCurrentTime(s).catch(function () { /* ignore */ }); }
                 lastTime = s;
             },
@@ -431,6 +460,7 @@
             destroy: function () {
                 destroyed = true;
                 stopPoll();
+                pendingSeek = null;
                 if (ytTrackTimer) { clearInterval(ytTrackTimer); ytTrackTimer = null; }
                 try { if (player && provider === 'youtube' && player.destroy) { player.destroy(); } } catch (e) { /* ignore */ }
                 try { if (player && provider === 'vimeo' && player.unload) { player.unload(); } } catch (e) { /* ignore */ }
@@ -451,7 +481,7 @@
             stopPoll();
             pollTimer = setInterval(function () {
                 read().then(function (t) {
-                    if (typeof t === 'number' && !isNaN(t)) { lastTime = t; }
+                    acceptTime(t);
                     call('onTime', { current: lastTime, duration: lastDuration });
                 }, function () { /* ignore */ });
             }, 500);
@@ -494,7 +524,7 @@
                         playing = false;
                         buffering = false;
                         stopPoll();
-                        lastTime = Number(player.getCurrentTime()) || lastTime;
+                        acceptTime(Number(player.getCurrentTime()));
                         call('onTime', { current: lastTime, duration: lastDuration });
                         call('onState', st === 0 ? 'ended' : 'paused');
                         return;
@@ -512,10 +542,10 @@
                 ready: function () { player.getDuration().then(function (d) { lastDuration = Number(d) || 0; onReadyOptions(); call('onReady', ctrl); }); },
                 tracks: function (list) { setTracks(list); },
                 play: function (confirmed) { onPlay(function () { return player.getDuration(); }, function () { return player.getCurrentTime(); }, confirmed); },
-                pause: function () { playing = false; stopPoll(); player.getCurrentTime().then(function (t) { lastTime = t; }); call('onState', 'paused'); },
+                pause: function () { playing = false; stopPoll(); player.getCurrentTime().then(function (t) { acceptTime(t); }); call('onState', 'paused'); },
                 ended: function () { playing = false; stopPoll(); call('onState', 'ended'); },
                 time: function () {
-                    player.getCurrentTime().then(function (t) { lastTime = t; });
+                    player.getCurrentTime().then(function (t) { acceptTime(t); });
                     player.getDuration().then(function (d) { if (d > 0) { lastDuration = d; } });
                     // no 'playing' event from an older embed: time moving while playing is the proof of play
                     if (playing && !firedPlaying && lastTime > 0.5) { onPlay(function () { return player.getDuration(); }, function () { return player.getCurrentTime(); }, true); }
@@ -545,7 +575,7 @@
                                 playing = false;
                                 buffering = false;
                                 stopPoll();
-                                readTime().then(function (t) { lastTime = Number(t) || lastTime; call('onTime', { current: lastTime, duration: lastDuration }); });
+                                readTime().then(function (t) { acceptTime(Number(t)); call('onTime', { current: lastTime, duration: lastDuration }); });
                                 call('onState', s === 0 ? 'ended' : 'paused');
                                 return;
                             }
@@ -571,10 +601,10 @@
                 }, function (err) { fail(safeCode('vimeo_', err && err.name)); });
                 player.on('playing', function () { onPlay(readDuration, readTime, true); });
                 player.on('play', function () { onPlay(readDuration, readTime, false); });
-                player.on('pause', function (d) { playing = false; stopPoll(); if (d && typeof d.seconds === 'number') { lastTime = d.seconds; } call('onState', 'paused'); });
+                player.on('pause', function (d) { playing = false; stopPoll(); if (d && typeof d.seconds === 'number') { acceptTime(d.seconds); } call('onState', 'paused'); });
                 player.on('ended', function () { playing = false; stopPoll(); call('onState', 'ended'); });
                 player.on('timeupdate', function (d) {
-                    if (d && typeof d.seconds === 'number') { lastTime = d.seconds; }
+                    if (d && typeof d.seconds === 'number') { acceptTime(d.seconds); }
                     if (d && typeof d.duration === 'number' && d.duration > 0) { lastDuration = d.duration; }
                     // Older player.js builds have no 'playing' event: time moving forward while
                     // playing is the proof of play.
