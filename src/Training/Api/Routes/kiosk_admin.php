@@ -13,6 +13,8 @@ return [
     'kiosk_asset_options'   => ['handler' => KioskAdminActions::class . '::kioskAssetOptions',  'method' => 'GET',  'level' => 1],
     'kiosk_enroll_here'     => ['handler' => KioskAdminActions::class . '::kioskEnrollHere',    'method' => 'POST', 'level' => 1],
     'kiosk_enroll_code'     => ['handler' => KioskAdminActions::class . '::kioskEnrollCode',    'method' => 'POST', 'level' => 1],
+    'kiosk_enroll_codes'    => ['handler' => KioskAdminActions::class . '::kioskEnrollCodes',   'method' => 'POST', 'level' => 1],
+    'kiosk_device_codes_clear' => ['handler' => KioskAdminActions::class . '::kioskDeviceCodesClear', 'method' => 'POST', 'level' => 1],
     'kiosk_revoke'          => ['handler' => KioskAdminActions::class . '::kioskRevoke',        'method' => 'POST', 'level' => 1],
     'kiosk_reissue'         => ['handler' => KioskAdminActions::class . '::kioskReissue',       'method' => 'POST', 'level' => 1],
     'kiosk_set_expiry'      => ['handler' => KioskAdminActions::class . '::kioskSetExpiry',     'method' => 'POST', 'level' => 1],

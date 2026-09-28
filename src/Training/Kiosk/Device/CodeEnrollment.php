@@ -12,20 +12,39 @@ use ITFlow\Training\Kiosk\Core\RateLimiter;
 
 /**
  * [S] D-5: the setup-code fallback on the device itself (pre-auth, POST enroll_code). A pending
- * kiosk row made by DeviceEnrollment::issueCode() holds sha256 of a 10-character code
- * (ABCDEFGHJKMNPQRSTUVWXYZ23456789, shown XXXXX-XXXXX) that expires in 15 minutes.
+ * kiosk row made by DeviceEnrollment::issueCode() / issueCodes() holds sha256 of a 10-character
+ * code (ABCDEFGHJKMNPQRSTUVWXYZ23456789, shown XXXXX-XXXXX) that expires after
+ * KioskSettings::deviceCodeDays days (config_training_device_code_days).
  *
  *   - a global enroll pause (config_training_enroll_pause_until_utc) refuses everything: 429 enroll_paused
  *   - the input is normalised (upper case, '-' and spaces removed) and must be 10 alphabet characters
- *   - a miss adds a failure to every pending, unexpired row (burned after 5: its code is nulled) and
- *     counts in the bucket 'enroll:all' (600 s); more than 10 misses there => enroll pause 30 minutes
+ *   - a miss counts once in the bucket 'enroll:all' (600 s); more than 10 misses there => enroll pause
+ *     30 minutes. Nothing per-row is touched on a miss (2.6.101; see below).
  *   - a hit makes the row active, issues the device token and sets the device cookie
  * Events: kiosk.enrolled (actor 'kiosk', method setup_code) / kiosk.enroll_failed.
+ *
+ * WHY A MISS NO LONGER TOUCHES ANY ROW (2.6.101, owner-flagged security judgment call). Before
+ * this, a miss added a failure to EVERY row with kiosk_status='pending' and a live
+ * kiosk_enroll_code_hash - the lookup is by hash, so on a miss there is no way to know which
+ * pending code was actually meant - and burned (nulled) a row's code once ITS count reached 5.
+ * That is fine at the scale this shipped for (one code in flight, a single 15-minute enrollment),
+ * but it becomes real collateral damage at fleet scale: DeviceEnrollment::issueCodes() can put a
+ * dozen-plus codes into 'pending' at once, live for days, and unrelated typos on ONE iPad's
+ * on-screen keyboard would silently burn a DIFFERENT iPad's still-good code long before anyone
+ * gets to it - a self-inflicted denial of service with no attacker required. Removing the
+ * per-row penalty fixes that without weakening real brute-force protection: the *global*
+ * 'enroll:all' bucket already counts every miss system-wide regardless of which (if any) row it
+ * was aimed at, and pauses ALL enrollment for 30 minutes past 10 misses in 10 minutes - a
+ * guesser gets nowhere near enumerating a 10-character code space (32^10) before that trips, with
+ * or without a per-row counter, because the bucket is keyed globally, not per-code. The per-row
+ * counter was never load-bearing for that: it only ever put a much tighter (5-try) leash on ONE
+ * arbitrarily-chosen row per miss, which is the exact behavior causing the collateral burns. Each
+ * code's own TTL (now days, via deviceCodeDays) remains the primary "how long is this valid"
+ * control and is untouched by any of this.
  */
 final class CodeEnrollment
 {
     public const CODE_RE = '/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{10}$/D';
-    public const MAX_FAILURES = 5;
     public const BUCKET_CAP = 10;
     public const PAUSE_S = 1800;
 
@@ -71,15 +90,9 @@ final class CodeEnrollment
             return ['next' => '/kiosk/', 'label' => $hit['label']];
         }
         unset($token);
-        // A miss: every live pending code takes a failure (the code is unknown, so all are at risk equally).
-        Db::tx($db, static function () use ($db, $now, $base): void {
-            $rows = Db::all($db, "SELECT kiosk_id, kiosk_enroll_failures FROM training_kiosks WHERE kiosk_status = 'pending' AND kiosk_enroll_code_hash IS NOT NULL
-                AND kiosk_enroll_expires_at_utc > ? FOR UPDATE", 's', [$now]);
-            foreach ($rows as $r) {
-                $n = (int) $r['kiosk_enroll_failures'] + 1;
-                Db::exec($db, 'UPDATE training_kiosks SET kiosk_enroll_failures = ?' . ($n >= self::MAX_FAILURES ? ', kiosk_enroll_code_hash = NULL, kiosk_enroll_expires_at_utc = NULL' : '')
-                    . ' WHERE kiosk_id = ?', 'ii', [min(255, $n), (int) $r['kiosk_id']]);
-            }
+        // A miss: no pending row is touched (see the class doc for why) - only the ledger event and
+        // the global bucket below, which is what actually rate-limits guessing.
+        Db::tx($db, static function () use ($db, $base): void {
             Ledger::append($db, array_merge($base, ['type' => 'kiosk.enroll_failed', 'payload' => ['reason' => 'code_invalid']]));
         });
         if (!RateLimiter::hit($db, 'enroll:all', 600, self::BUCKET_CAP)) {

@@ -98,7 +98,7 @@ final class SettingsPolicy
             'config_training_kiosk_fail_cap', 'config_training_global_fail_cap', 'config_training_kiosk_fail_cap_24h',
             'config_training_global_fail_cap_24h', 'config_training_kiosk_distinct_cap_24h', 'config_training_kiosk_search_per_min',
         ],
-        self::SETUP_SLIPS => ['config_training_setup_code_days'],
+        self::SETUP_SLIPS => ['config_training_setup_code_days', 'config_training_device_code_days'],
     ];
 
     public static function needs(string $item): string
