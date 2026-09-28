@@ -22,6 +22,9 @@
  *   - referrerpolicy="strict-origin-when-cross-origin" on the iframe (YouTube error 153 otherwise).
  *   - The first play must be a tap inside the player (iOS); nothing is ever laid over the player.
  *   - onPlaying fires once, on the first PLAYING, with the player's own duration (whole seconds).
+ *   - onState('buffering') (YouTube: a seek or a stall while playing) is always followed by onState('playing') when the
+ *     picture moves again - YouTube's own PLAYING after BUFFERING is passed on (resume, 2026-09-27: the kiosk's
+ *     "Resuming at…" seek on the first play buffers, and the page had kept thinking the video was stopped).
  *   - Playback speed is pinned to 1x: a speed change is reset and the video paused.
  *   - The API <script> carries the page's CSP nonce (window.CSP_NONCE, opts.nonce, or the nonce of
  *     an existing script); the CSP also allowlists the exact API paths.
@@ -274,6 +277,7 @@
         var destroyed = false;
         var player = null;
         var playing = false;
+        var buffering = false;   // onState('buffering') was sent: the next PLAYING is passed on again
         var firedPlaying = false;
         var pollTimer = null;
         var lastTime = 0;
@@ -460,10 +464,12 @@
             });
         }
         function onPlay(readDuration, readTime, confirmed) {
-            if (!playing) {
+            if (!playing || buffering) {
+                var was = playing;
                 playing = true;
+                buffering = false;
                 call('onState', 'playing');
-                startPoll(readTime);
+                if (!was) { startPoll(readTime); }
             }
             if (confirmed !== false && !firedPlaying) {
                 firedPlaying = true;
@@ -486,13 +492,14 @@
                     if (st === 1) { onPlay(ytDur, ytRead); return; }
                     if (st === 2 || st === 0) {
                         playing = false;
+                        buffering = false;
                         stopPoll();
                         lastTime = Number(player.getCurrentTime()) || lastTime;
                         call('onTime', { current: lastTime, duration: lastDuration });
                         call('onState', st === 0 ? 'ended' : 'paused');
                         return;
                     }
-                    if (st === 3) { call('onState', 'buffering'); }
+                    if (st === 3) { buffering = true; call('onState', 'buffering'); }
                 },
                 rate: function (r) { if (r !== 1) { player.setPlaybackRate(1); player.pauseVideo(); } },
                 error: function (code) { playing = false; stopPoll(); fail(safeCode('yt_', code)); },
@@ -536,12 +543,13 @@
                             if (s === 1) { onPlay(readDuration, readTime); return; }
                             if (s === 2 || s === 0) {
                                 playing = false;
+                                buffering = false;
                                 stopPoll();
                                 readTime().then(function (t) { lastTime = Number(t) || lastTime; call('onTime', { current: lastTime, duration: lastDuration }); });
                                 call('onState', s === 0 ? 'ended' : 'paused');
                                 return;
                             }
-                            if (s === 3) { call('onState', 'buffering'); }
+                            if (s === 3) { buffering = true; call('onState', 'buffering'); }
                         },
                         onPlaybackRateChange: function (e) {
                             if (e && e.data !== 1) { try { player.setPlaybackRate(1); player.pauseVideo(); } catch (x) { /* ignore */ } }

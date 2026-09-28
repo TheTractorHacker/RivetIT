@@ -1,7 +1,8 @@
 /*
  * Learning Center (kiosk/me.php, P3 spec §5.3, mockup Kiosk-LearningCenter). Renders the page data
  * with DOM nodes and textContent only. Cards link to course.php?c=<id> (or sign.php for a run that
- * is waiting for the signature).
+ * is waiting for the signature). A course whose video lesson is in progress says where it continues on
+ * its button: "Continue at 2:13" / "Sigue en 2:13" (resume.at_s - the point the video page resumes at).
  */
 (function () {
     'use strict';
@@ -32,6 +33,13 @@
         return ymd.slice(0, 10) === ys ? t('home.yesterday') : date(ymd);
     }
     function list(a) { return Array.isArray(a) ? a : []; }
+    function clock(s) {
+        s = Math.max(0, Math.floor(Number(s) || 0));
+        var h = Math.floor(s / 3600);
+        var m = Math.floor((s % 3600) / 60);
+        var r = s % 60;
+        return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (r < 10 ? '0' : '') + r;
+    }
     function courseUrl(c) { return '/kiosk/course.php?c=' + encodeURIComponent(String(c.course_id)); }
 
     // ---------------------------------------------------------------- greeting
@@ -127,7 +135,11 @@
         if (st === 'evaluation') { return { note: t('home.state_evaluation'), icon: 'fa-hard-hat', tone: 'info', href: courseUrl(c), label: t('home.btn_view') }; }
         if (st === 'sign') { return { href: courseUrl(c), label: t('home.btn_sign'), icon: 'fa-pen-nib', primary: true }; }
         if (c.kind === 'document') { return { href: courseUrl(c), label: t('home.btn_read_sign'), icon: 'fa-pen', primary: false, iconFirst: true }; }
-        if (st === 'continue') { return { href: courseUrl(c), label: t('home.btn_continue'), icon: 'fa-arrow-right', primary: true }; }
+        if (st === 'continue') {
+            // A video lesson in progress: "Continue at 2:13" (where the video page picks up).
+            var at = c.resume && !c.resume.check && typeof c.resume.at_s === 'number' && c.resume.at_s > 0 ? c.resume.at_s : null;
+            return { href: courseUrl(c), label: at !== null ? t('vopt.continue_at', { t: clock(at) }) : t('home.btn_continue'), icon: 'fa-arrow-right', primary: true };
+        }
         return { href: courseUrl(c), label: t('home.btn_start'), icon: 'fa-arrow-right', primary: false };
     }
     // Courses without a chosen cover or colour still look different from each other: a tint picked

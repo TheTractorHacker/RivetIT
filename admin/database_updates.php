@@ -9295,3 +9295,16 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.98'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.98') {
+        // Training kiosk: continue from the last point (owner report 2026-09-27 "There is no continue from last point").
+        // training_runs gains trun_lesson_resume_at - where the learner last was in the CURRENT lesson: seconds for a
+        // video, the 1-based page for a document (PDF); NULL = no point recorded (every run from before this update, and
+        // whenever the current-lesson state is reset). It is navigation only: the credit columns and their rules
+        // (LessonCredit) are unchanged, the server keeps it at or below the furthest point reached, and training_runs has
+        // no row hash (HashSpecs) and no ledger payload that reads it, so hashes and the ledger verify are unaffected.
+        // Idempotent: ADD COLUMN IF NOT EXISTS (nullable, no default rewrite of existing rows).
+        mysqli_query($mysqli, "ALTER TABLE `training_runs` ADD COLUMN IF NOT EXISTS `trun_lesson_resume_at` int(10) unsigned DEFAULT NULL AFTER `trun_lesson_rejected_ticks`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.99'");
+    }

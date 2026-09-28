@@ -3,6 +3,9 @@
  * mode with the §5.4 adapter: every learner action is a POST to /kiosk/api.php (K3 routes), the
  * server's gate decides when a lesson can be completed, and quiz answers are saved as they go.
  * The run state (RunState) is kept here and refreshed from each response.
+ * Continue from the last point: ticks carry the video position / the PDF page on screen (current_page), a tick sent
+ * as the page goes away is a keepalive request, Done waits for the open lesson's last tick (Kiosk.session.beforeEnd ->
+ * player.flush()), and the run's current lesson gate (resume_at) feeds the course list's "Continue at 2:13".
  */
 (function () {
     'use strict';
@@ -51,8 +54,8 @@
         if (!K.has('err.' + e.code) && E[e.code]) { e.message = t(E[e.code], { minutes: v('minutes') || '', names: '' }); }
         return e;
     }
-    function post(action, body) {
-        return K.api.post(action, body).then(null, function (e) { throw friendly(e); });
+    function post(action, body, opts) {
+        return K.api.post(action, body, opts || undefined).then(null, function (e) { throw friendly(e); });
     }
     function runId() { return run ? run.run_id : 0; }
     function absorb(res) {
@@ -217,6 +220,8 @@
         brand: K.data().brand || '', learnerName: S.name || '', learnerFirst: S.first || '',
         validityMonths: P.validity_months,
         initialProgress: { done: done, credited: credited, current: run ? run.current_uid : null, pages: {}, watch: {} },
+        // the run's current lesson and its gate (resume_at: the last point) - the course list's "Continue at 2:13"
+        initialGates: (function () { var o = {}; if (run && run.current_uid && run.current_gate) { o[run.current_uid] = run.current_gate; } return o; }()),
         initialLesson: P.lesson && !frozen() ? P.lesson : null,
         initialCheck: checkOk ? P.lesson : null,
         signaturePad: function (container, o) { return K.ui.signaturePad(container, o); },
@@ -244,12 +249,13 @@
             });
         },
         onLessonOpen: function (uid) { return post('lesson_open', { run_id: runId(), lesson_uid: uid }); },
-        onTick: function (uid, s) {
+        onTick: function (uid, s, opts) {
             var body = { run_id: runId(), lesson_uid: uid, playing: !!s.playing, visible: !!s.visible, active: !!s.active };
             if (typeof s.position_s === 'number') { body.position_s = Math.max(0, Math.floor(s.position_s)); }
             if (Array.isArray(s.pages_seen) && s.pages_seen.length) { body.pages_seen = s.pages_seen; }
+            if (typeof s.current_page === 'number' && s.current_page >= 1) { body.current_page = Math.floor(s.current_page); }   // the PDF page on screen
             if (s.video_id) { body.video_id = s.video_id; }
-            return post('lesson_tick', body);
+            return post('lesson_tick', body, opts && opts.keepalive ? { keepalive: true } : null);
         },
         onLessonComplete: function (uid, ev) {
             var evidence = {};
@@ -324,6 +330,8 @@
     };
 
     var player = window.TrainingPlayer.mount(root, view, adapter);
+    // Done (and the idle sign-out): the open lesson's last tick - where the learner stopped - goes before the session ends.
+    if (K.session && typeof K.session.beforeEnd === 'function') { K.session.beforeEnd(function () { return player.flush ? player.flush() : null; }); }
 
     // ---- "Still there?": pause and hide any video first (§5.4 Behaviour) --------------------
     function mediaHidden(on) {

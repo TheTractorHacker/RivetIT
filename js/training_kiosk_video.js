@@ -27,6 +27,13 @@
  * iPad's player (the first play must be a tap inside it) - the message stays and "Tap the video to start" is
  * highlighted instead of the button just vanishing; a pause that did not reach the player is sent again by the 10 s tick
  * timer while the page stays hidden.
+ * Continue from the last point (owner report 2026-09-27 "There is no continue from last point"): every tick carries the
+ * position once the video has played here (never before the "Resuming at…" jump, so a reopen cannot wipe the stored
+ * point), and the server keeps it as the run's last point (lesson_open resume_at; at most the furthest point). A tick
+ * goes on play / pause, every 10 s while playing, as the page is hidden or left (keepalive), and before Done signs out or
+ * "← Course" / "Next lesson" leave (the video is paused first). A reopen resumes at that point (MC.resumePoint: past 5 s
+ * and not in the last few seconds); with none recorded (an older run) at the furthest point as before; a last point in
+ * the last few seconds with too little time counted starts at 0 with the end-of-video message ("Watch from the start").
  */
 (function () {
     'use strict';
@@ -75,6 +82,7 @@
     var ccOn = ccChoice === null ? ccAuto : ccChoice;
     var vp = MC ? MC.prefs.volume() : { level: 0.8, muted: false };
     var resumeAt = null;       // seconds to jump to on the first play; -1 once done
+    var stopAt = null;         // where the learner stopped last time (the run's last point, else its furthest point)
     var started = false;       // the video played on this screen (the end-of-video message then waits for the end again)
     var ended = false;
     var settling = 0;          // pause / end ticks on their way: their answer brings the last seconds (no end message meanwhile)
@@ -199,6 +207,7 @@
         var d = duration || (server && server.duration_s) || 0;
         var o = { credit: server ? server.credit_s : 0, required: server ? server.required_s : 0, met: !!(server && (server.done || server.can_complete)),
             max: maxWatched, duration: d, minPct: minPct, cur: lastTime, started: started, ended: ended, playing: playing, settling: settling > 0 };
+        if (stopAt !== null) { o.at = stopAt; }
         if (MC && typeof MC.watchCredit === 'function') { return MC.watchCredit(o); }
         var req = Math.max(0, Number(o.required) || 0);
         var cr = Math.max(0, Number(o.credit) || 0);
@@ -305,13 +314,18 @@
         Object.keys(extra || {}).forEach(function (k) { b[k] = extra[k]; });
         return b;
     }
-    function tick() {
+    /**
+     * A lesson tick. The position goes only once the video has played on this screen and no "Resuming at…" jump is still
+     * to come (the server stores it as the run's last point: before that it would be 0 and wipe the stored point).
+     * over: fields that replace the live ones (a flush says playing:false); opts: Kiosk.api options (keepalive).
+     */
+    function tick(over, opts) {
         if (changed || (server && server.done)) { return null; }
         var vid = controller && typeof controller.getVideoId === 'function' ? controller.getVideoId() : null;
-        return K.api.post('lesson_tick', body({
-            position_s: Math.floor(lastTime), playing: playing, visible: document.visibilityState !== 'hidden', active: true,
-            video_id: vid || P.video_id || undefined
-        })).then(applyGate, function (e) {
+        var b = { playing: playing, visible: document.visibilityState !== 'hidden', active: true, video_id: vid || P.video_id || undefined };
+        if (started && (resumeAt === null || resumeAt === -1)) { b.position_s = Math.floor(Math.max(0, lastTime)); }
+        Object.keys(over || {}).forEach(function (k) { b[k] = over[k]; });
+        return K.api.post('lesson_tick', body(b), opts).then(applyGate, function (e) {
             if (e && (e.code === 'video_changed' || e.code === 'run_blocked' || e.code === 'run_locked')) { changed = e.code === 'video_changed'; showError(e.message); paint(); }
         });
     }
@@ -333,7 +347,8 @@
     var guard = MC && typeof MC.backgroundPause === 'function' ? MC.backgroundPause({
         isPlaying: function () { return playing; },
         pause: function () { if (controller) { controller.pause(); } },
-        onHide: function (wasPlaying) { if (wasPlaying) { tick(); } },
+        // keepalive: the tick outlives the page when it is going away (pagehide), so where they stopped is saved
+        onHide: function (wasPlaying) { if (wasPlaying) { tick({ playing: false }, { keepalive: true }); } },
         onReturn: function () {
             if (resume) { resume.hide(); }
             if (bgNote) { bgNote.show(); }
@@ -342,16 +357,23 @@
     }) : null;
 
     K.api.post('lesson_open', body({})).then(function (g) {
-        applyGate(g);
-        // Pick up where you left off: this lesson was started before (the run's furthest point for it).
-        // Not in the last few seconds: someone whose counted time is short would be dropped at the very end (the video
-        // starts at 0 instead, and the bottom bar says why - "You reached the end, but only …").
+        // Pick up where you left off: the run's last point in this lesson (resume_at), else - an older run - its furthest
+        // point. Not in the last few seconds: someone whose counted time is short would be dropped at the very end (the
+        // video starts at 0 instead, and the bottom bar says why - "You reached the end, but only …").
         var mp = Math.floor(Number(g && g.max_position_s) || 0);
         var d = duration || Number(g && g.duration_s) || 0;
-        var atEndNow = MC && typeof MC.nearEnd === 'function' ? MC.nearEnd(mp, d) : (d > 0 && mp >= d - 3);
-        if (resume && g && !g.done && !g.credited && mp >= 5 && !atEndNow) {
-            resumeAt = mp;
-            resume.show(t('vopt.resume_at', { t: fmt(mp) }));
+        var ra = g && typeof g.resume_at === 'number' ? g.resume_at : null;
+        var pt = null;
+        if (MC && typeof MC.resumePoint === 'function') {
+            stopAt = MC.stopPoint({ resumeAt: ra, max: mp });
+            pt = MC.resumePoint({ resumeAt: ra, max: mp, duration: d });
+        } else {
+            pt = mp >= 5 && !(d > 0 && mp >= d - 3) ? mp : null;
+        }
+        applyGate(g);
+        if (resume && g && !g.done && !g.credited && pt !== null) {
+            resumeAt = pt;
+            resume.show(t('vopt.resume_at', { t: fmt(pt) }));
         }
         mount();
     }, function (e) {
@@ -478,6 +500,35 @@
     }
     replayBtn.addEventListener('click', fromStart);
     restartBtn.addEventListener('click', fromStart);
+
+    /**
+     * Saves where the learner stopped before they leave: the video pauses and a tick (playing:false - it closes the
+     * interval the server was counting) carries the position. Resolves once the server answered (or it failed).
+     */
+    var flushing = null;
+    function flush() {
+        if (flushing) { return flushing; }
+        if (!started || !server || server.done || changed) { return Promise.resolve(); }
+        if (controller && playing) { try { controller.pause(); } catch (e) { /* ignore */ } }
+        var sent = tick({ playing: false }, { keepalive: true });
+        flushing = sent ? sent.then(function () { flushing = null; }, function () { flushing = null; }) : Promise.resolve();
+        return flushing;
+    }
+    if (K.session && typeof K.session.beforeEnd === 'function') { K.session.beforeEnd(flush); }   // Done / idle sign-out
+    /** "← Course", "Next lesson" and the up-next card: save the point first (at most 1.5 s), then go. */
+    function leaveVia(a) {
+        a.addEventListener('click', function (e) {
+            var href = a.getAttribute('href') || '';
+            if (!/^\/kiosk\//.test(href) || e.ctrlKey || e.metaKey || e.shiftKey || e.button > 0) { return; }
+            e.preventDefault();
+            K.ui.busy(a, true);
+            var go = function () { location.assign(href); };
+            Promise.race([flush(), new Promise(function (r) { setTimeout(r, 1500); })]).then(go, go);
+        });
+    }
+    leaveVia(back);
+    leaveVia(nextBtn);
+    Array.prototype.forEach.call(root.querySelectorAll('.kl-upnext'), leaveVia);
     doneBtn.addEventListener('click', function () {
         if (doneBtn.disabled || completing) { return; }
         completing = true;

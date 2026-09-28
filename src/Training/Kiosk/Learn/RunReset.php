@@ -124,8 +124,8 @@ final class RunReset
             throw new \LogicException('RunReset::abandonInTx must run inside Db::tx');
         }
         $runId = (int) $run['trun_id'];
-        $n = Db::exec($db, "UPDATE training_runs SET trun_status = 'abandoned', trun_open_guard = NULL, trun_ended_at_utc = ?, trun_current_lesson_uid = NULL
-            WHERE trun_id = ? AND trun_open_guard = 1", 'si', [KTime::now(), $runId]);
+        $n = Db::exec($db, "UPDATE training_runs SET trun_status = 'abandoned', trun_open_guard = NULL, trun_ended_at_utc = ?, trun_current_lesson_uid = NULL,
+            trun_lesson_resume_at = NULL WHERE trun_id = ? AND trun_open_guard = 1", 'si', [KTime::now(), $runId]);
         if ($n !== 1) {
             throw new \LogicException("RunReset: run #$runId is not open (lock it first)");
         }

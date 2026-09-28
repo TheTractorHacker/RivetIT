@@ -177,7 +177,7 @@ final class AttestService
         $pinSource = $pinInfo['source'] ?? null;
         $emp = $pinInfo['odoo_employee_id'] ?? null;
         Db::exec($db, 'UPDATE training_runs SET trun_attested_at_utc = ?, trun_attest_tsig_id = ?, trun_attest_proof = ?, trun_attest_pin_source = ?,
-                trun_attest_odoo_employee_id = ?, trun_status = ?, trun_last_activity_at_utc = ?, trun_current_lesson_uid = NULL WHERE trun_id = ?',
+                trun_attest_odoo_employee_id = ?, trun_status = ?, trun_last_activity_at_utc = ?, trun_current_lesson_uid = NULL, trun_lesson_resume_at = NULL WHERE trun_id = ?',
             'sississi', [$now, $sig['id'] ?? null, $proof, $pinSource, $emp, $blended ? $next : 'awaiting_signature', $now, $runId]);
         $run = RunRepo::load($db, $runId) ?? $run;
 
