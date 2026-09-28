@@ -193,7 +193,7 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
     <div class="it-page-header-row">
         <div>
             <h1 class="it-page-title">Integrations</h1>
-            <p class="it-page-subtitle">Connect <?= htmlspecialchars(APP_NAME) ?> to the RMM, backup, firewall, network and directory systems it reads from.</p>
+            <p class="it-page-subtitle">Connect <?= htmlspecialchars(APP_NAME) ?> to the RMM, backup, firewall, network and directory systems it reads from, including Odoo (Directory Sync tab).</p>
         </div>
     </div>
 </div>

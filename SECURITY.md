@@ -5,7 +5,7 @@
 **We take security seriously**
 
 - Whilst we are confident in the safety of the code, no system is risk-free. Nearly all software has bugs. Use your best judgement before storing highly confidential information in RivetIT.
-- RivetIT is built on [ITFlow](https://github.com/itflow-org/itflow). Code it shares with ITFlow is also covered by the upstream project's own [security policy](https://github.com/itflow-org/itflow/security/policy) and code scanning.
+- RivetIT is built on [ITFlow](https://github.com/itflow-org/itflow), but its code has diverged, and ITFlow's [security policy](https://github.com/itflow-org/itflow/security/policy) and code scanning cover ITFlow's own repository, not RivetIT. Report RivetIT issues here; a bug you can also reproduce on an unmodified ITFlow install can additionally be reported upstream (see below).
 - For what the deployment tooling in `deploy/` does and does not cover, see [`docs/ISO27001-COMPLIANCE.md`](docs/ISO27001-COMPLIANCE.md).
 
 ## Supported Versions

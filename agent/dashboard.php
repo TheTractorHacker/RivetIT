@@ -884,7 +884,9 @@ if (true) {  // Technical dashboard is always shown now - no more enable toggle.
     $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NOT NULL AND ticket_closed_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)"));
     $tickets_resolved_week = intval($row['c']);
 
-    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NULL AND ticket_status_name = 'Waiting on Customer'"));
+    // "Waiting on Employee": the internal-IT name of upstream's "Waiting on Customer" status. Statuses are per
+    // install and matched by name (either name counts), since setup does not seed this status at all.
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id WHERE 1 = 1 $dash_scope_tickets AND ticket_closed_at IS NULL AND ticket_status_name IN ('Waiting on Employee', 'Waiting on Customer')"));
     $tickets_waiting_customer = intval($row['c']);
 
     // Priority breakdown (open tickets)
@@ -1007,7 +1009,7 @@ if (true) {  // Technical dashboard is always shown now - no more enable toggle.
         <a class="small-box bg-warning" href="tickets.php">
             <div class="inner">
                 <h3><?php echo $tickets_waiting_customer; ?></h3>
-                <p>Waiting on Customer</p>
+                <p>Waiting on Employee</p>
             </div>
             <div class="icon"><i class="fa fa-clock"></i></div>
         </a>

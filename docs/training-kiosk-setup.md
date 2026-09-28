@@ -14,7 +14,7 @@ This guide covers how to turn an iPad or a Windows PC into a **training device**
   - If the device is already set up as another device, it asks before switching.
 - **Shared device**: the asset is not assigned to anyone. People type their name, tap it, then enter their PIN.
 - **Personal device**: the asset is assigned to one eligible person at enrollment. The device opens straight to "Hi {first}" and the PIN, and "Not {first}?" goes to the name search.
-  - If the asset is later unassigned or re-assigned, the device stops working until it gets a **New start URL**. That new URL takes a fresh snapshot of the owner (plan A19).
+  - If the asset is later unassigned or re-assigned, the device stops working until it gets a **New start URL**. That new URL takes a fresh snapshot of the owner.
 - A device stops working at once when it is **revoked**, its temporary time is up, its asset is archived or retyped, or its personal assignment changes. It then shows "This device is not set up for training".
 - No RivetIT agent session is ever kept on a training device:
   - Enrollment ends with a mandatory sign-out.

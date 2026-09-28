@@ -21,7 +21,7 @@
   ·
   <a href="CHANGELOG.md">Changelog</a>
   ·
-  <a href="https://github.com/TheTractorHacker/ITFlow-Internal-IT/releases">Releases</a>
+  <a href="https://github.com/TheTractorHacker/ITFlow-Internal-IT/tags">Releases</a>
   ·
   <a href="https://github.com/TheTractorHacker/ITFlow-Internal-IT/issues">Report a bug</a>
 </p>
@@ -48,6 +48,12 @@ RivetIT started from [ITFlow](https://github.com/itflow-org/itflow) and was know
 before it was renamed; see [Credits](#license-and-credits).
 
 ## Features
+
+Where each area lives in the menu: Service Desk is **Service Desk** (and **Work** for projects and the
+calendar); devices and assets are **Infrastructure**, **Endpoints** (RMM, Intune, network) and **Backups**;
+people are **People** and **Organization** (departments, org chart); documentation is **Knowledge**, plus the
+documents inside each department; learning is **Training**; integrations, API keys and webhooks are under
+**Admin**.
 
 ### Service Desk
 - **Tickets** with categories (parent/child groups), custom statuses, priorities, assignment, watchers,
@@ -130,7 +136,7 @@ before it was renamed; see [Credits](#license-and-credits).
 
 ### Odoo
 RivetIT integrates with [Odoo](https://www.odoo.com) (the Odoo Integration, under Admin > Settings >
-Integrations): people and departments come from Odoo, and training records can go back to it.
+Integrations > Directory Sync): people and departments come from Odoo, and training records can go back to it.
 - **Directory sync** of departments and employees, with an employee-link check and an optional hire-date
   fill; Odoo's JSON-2 API (Odoo 19 and later) with automatic fallback to JSON-RPC.
 - **Training rules** by Odoo job and work location.

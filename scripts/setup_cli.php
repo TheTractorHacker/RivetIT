@@ -294,7 +294,8 @@ $new_config .= "\$dbusername = " . var_export($username, true) . ";\n";
 $new_config .= "\$dbpassword = " . var_export($password, true) . ";\n";
 $new_config .= "\$database = " . var_export($database, true) . ";\n";
 $new_config .= "\$mysqli = mysqli_connect(\$dbhost, \$dbusername, \$dbpassword, \$database) or die('Database Connection Failed');\n";
-$new_config .= "\$config_app_name = " . var_export(APP_NAME, true) . ";\n";
+// Empty = the product name (APP_NAME) at runtime, via appDisplayName(); writing the name would pin it.
+$new_config .= "\$config_app_name = ''; // empty: use the product name (APP_NAME)\n";
 $new_config .= "\$config_base_url = '" . addslashes($base_url) . "';\n";
 $new_config .= "\$config_https_only = TRUE;\n";
 $new_config .= "\$repo_branch = 'main';\n";
@@ -356,7 +357,7 @@ mysqli_query($mysqli,"INSERT INTO companies SET company_name = '$company_name', 
 
 // Insert default settings and categories
 $latest_database_version = LATEST_DATABASE_VERSION;
-mysqli_query($mysqli,"INSERT INTO settings SET company_id = 1, config_current_database_version = '$latest_database_version', config_invoice_prefix = 'INV-', config_invoice_next_number = 1, config_recurring_invoice_prefix = 'REC-', config_invoice_overdue_reminders = '1,3,7', config_quote_prefix = 'QUO-', config_quote_next_number = 1, config_default_net_terms = 30, config_ticket_next_number = 1, config_ticket_prefix = 'TCK-'");
+mysqli_query($mysqli,"INSERT INTO settings SET company_id = 1, config_current_database_version = '$latest_database_version', config_invoice_prefix = 'INV-', config_invoice_next_number = 1, config_recurring_invoice_prefix = 'REC-', config_invoice_overdue_reminders = '1,3,7', config_quote_prefix = 'QUO-', config_quote_next_number = 1, config_default_net_terms = 30, config_ticket_next_number = 1, config_ticket_prefix = 'TCK-', config_module_enable_ticket_charges = 0"); // ticket charges are billing: off, as Settings > Modules saves them
 
 // Seed the canonical copy of the site encryption master key. This is the only
 // place (besides setup/index.php) a brand-new master key is ever minted - every
@@ -425,8 +426,10 @@ mysqli_query($mysqli, "INSERT INTO user_role_permissions (user_role_id, module_i
 
 mysqli_query($mysqli, "INSERT INTO user_roles SET role_id = 3, role_name = 'Administrator', role_description = 'Built-in - Full administrative access', role_is_admin = 1");
 
-// Custom Links
-mysqli_query($mysqli,"INSERT INTO custom_links SET custom_link_name = 'Docs', custom_link_uri = '" . mysqli_real_escape_string($mysqli, APP_DOCS_URL) . "', custom_link_new_tab = 1, custom_link_icon = 'question-circle'");
+// Custom Links: a "Docs" link only when there are published docs (APP_DOCS_URL is empty while the repository is private)
+if (APP_DOCS_URL !== '') {
+    mysqli_query($mysqli,"INSERT INTO custom_links SET custom_link_name = 'Docs', custom_link_uri = '" . mysqli_real_escape_string($mysqli, APP_DOCS_URL) . "', custom_link_new_tab = 1, custom_link_icon = 'question-circle'");
+}
 
 // network_interfaces
 mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Ethernet', category_type = 'network_interface', category_order = 1"); // 1

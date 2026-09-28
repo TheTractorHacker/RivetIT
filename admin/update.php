@@ -48,7 +48,9 @@ if (!empty($git_log_raw)) {
                     <i>Error details:- <?php echo htmlspecialchars(implode("\n", $git_fetch_output ?: [])); ?></i>
                     <br>
                     <br>Things to check: Is Git installed? Is the Git origin/remote correct? Are web server file permissions too strict?
+                    <?php if (APP_SUPPORT_URL !== '') { ?>
                     <br>Seek support on the <a href="<?= htmlspecialchars(APP_SUPPORT_URL) ?>" target="_blank" rel="noopener">issue tracker</a> if required - include relevant PHP error logs & <?= htmlspecialchars(APP_NAME) ?> debug output
+                    <?php } ?>
                 </div>
             <?php } ?>
 
@@ -56,7 +58,7 @@ if (!empty($git_log_raw)) {
                 <div class="alert alert-danger">
                     <h1 class="fw-bold text-center">⚠️ DANGER ⚠️</h1>
                     <h2 class="fw-bold text-center">Do NOT run updates without first taking a backup</h2>
-                    <p>VM Snapshots are highly recommended over other methods - see the <a href="<?= htmlspecialchars(APP_DOCS_URL) ?>" class="alert-link" target="_blank" rel="noopener">docs</a>. Review the <a href="<?= htmlspecialchars(APP_REPO_URL) ?>/blob/main/CHANGELOG.md" class="alert-link" target="_blank" rel="noopener">changelog</a> for breaking changes that may require manual remediation.</p>
+                    <p>VM Snapshots are highly recommended over other methods<?php if (APP_DOCS_URL !== '') { ?> - see the <a href="<?= htmlspecialchars(APP_DOCS_URL) ?>" class="alert-link" target="_blank" rel="noopener">docs</a><?php } ?>. Review the <?php if (APP_CHANGELOG_URL !== '') { ?><a href="<?= htmlspecialchars(APP_CHANGELOG_URL) ?>" class="alert-link" target="_blank" rel="noopener">changelog</a><?php } else { ?>changelog (CHANGELOG.md in the install folder)<?php } ?> for breaking changes that may require manual remediation.</p>
                     <p class="text-center fw-bold">Ignore this warning at your own risk.</p>
                 </div>
                 <br>
@@ -73,7 +75,7 @@ if (!empty($git_log_raw)) {
                     <div class="alert alert-danger">
                         <h1 class="fw-bold text-center">⚠️ DANGER ⚠️</h1>
                         <h2 class="fw-bold text-center">Do NOT run updates without first taking a backup</h2>
-                        <p>VM Snapshots are highly recommended over other methods - see the <a href="<?= htmlspecialchars(APP_DOCS_URL) ?>" class="alert-link" target="_blank" rel="noopener">docs</a>. Review the <a href="<?= htmlspecialchars(APP_REPO_URL) ?>/blob/main/CHANGELOG.md" class="alert-link" target="_blank" rel="noopener">changelog</a> for breaking changes that may require manual remediation.</p>
+                        <p>VM Snapshots are highly recommended over other methods<?php if (APP_DOCS_URL !== '') { ?> - see the <a href="<?= htmlspecialchars(APP_DOCS_URL) ?>" class="alert-link" target="_blank" rel="noopener">docs</a><?php } ?>. Review the <?php if (APP_CHANGELOG_URL !== '') { ?><a href="<?= htmlspecialchars(APP_CHANGELOG_URL) ?>" class="alert-link" target="_blank" rel="noopener">changelog</a><?php } else { ?>changelog (CHANGELOG.md in the install folder)<?php } ?> for breaking changes that may require manual remediation.</p>
                         <p class="text-center fw-bold">Ignore this warning at your own risk.</p>
                     </div>
 
@@ -81,8 +83,10 @@ if (!empty($git_log_raw)) {
                     <a class="btn btn-danger btn-lg confirm-link" href="post.php?update&force_update=1&csrf_token=<?php echo urlencode($_SESSION['csrf_token']); ?>"><i class="fas fa-fw fa-4x fa-hammer mb-1"></i><h5>FORCE Update App</h5></a>
 
                 <?php } else { ?>
-                    <p><strong><?= htmlspecialchars(APP_NAME) ?> Version:<br><strong class="text-dark"><?php echo htmlspecialchars($current_version_tag); ?></strong></p>
-                    <p class="text-secondary">Latest Release:<br><strong class="text-dark"><a href="<?= htmlspecialchars(APP_RELEASES_URL) ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($latest_version_tag); ?></a></strong></p>
+                    <?php /* The product version (APP_VERSION, as in the footer and on the debug page), then the git tags the updater compares. */ ?>
+                    <p><strong><?= htmlspecialchars(APP_NAME) ?> Version:<br><strong class="text-dark"><?= htmlspecialchars(APP_VERSION) ?></strong></p>
+                    <p class="text-secondary">Release tag:<br><strong class="text-dark"><?php echo htmlspecialchars($current_version_tag); ?></strong></p>
+                    <p class="text-secondary">Latest Release:<br><strong class="text-dark"><?php if (APP_RELEASES_URL !== '') { ?><a href="<?= htmlspecialchars(APP_RELEASES_URL) ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($latest_version_tag); ?></a><?php } else { echo htmlspecialchars($latest_version_tag); } ?></strong></p>
                     <p class="text-secondary">Database Version:<br><strong class="text-dark"><?php echo CURRENT_DATABASE_VERSION; ?></strong></p>
                     <p class="text-muted">You are up to date!<br>Everything is going to be alright</p>
                     <i class="far fa-3x text-dark fa-smile-wink"></i><br>
@@ -120,10 +124,12 @@ if (!empty($git_log_raw)) {
 
             ?>
 
+            <?php /* The check and the Update App button use different git sources: see APP_UPDATE_REMOTE in includes/branding.php. */ ?>
             <p class="text-muted small mt-3 mb-0">
-                Updates come from the <code><?= htmlspecialchars(APP_UPDATE_REMOTE) ?></code> git remote of this checkout
-                (branch <code><?= htmlspecialchars((string) $repo_branch) ?></code>)&nbsp;&middot;
-                <a href="<?= htmlspecialchars(APP_REPO_URL) ?>" target="_blank" rel="noopener">Project repository</a>
+                Checked against <code><?= htmlspecialchars(APP_UPDATE_REMOTE . '/' . $repo_branch) ?></code>
+                (the <code><?= htmlspecialchars(APP_UPDATE_REMOTE) ?></code> git remote of this checkout); <strong>Update App</strong> runs
+                <code>git pull</code>, which pulls from the branch's upstream remote. Both should point at the same repository.<?php if (APP_SOURCE_URL !== '') { ?>&nbsp;&middot;
+                <a href="<?= htmlspecialchars(APP_SOURCE_URL) ?>" target="_blank" rel="noopener">Project repository</a><?php } ?>
             </p>
 
         </div>

@@ -15,9 +15,10 @@
 # `docker compose down` and image rebuilds, and `git pull` is the update
 # path — same model as deploy/update.sh, just without the wrapper script.
 #
-# Names: the containers are called rivetit-web and rivetit-db (set
-# RIVETIT_CONTAINER_PREFIX in .env to run a second stack on the same host),
-# and the locally built app image is tagged rivetit-web:local. The service
+# Names: the containers are called rivetit-web and rivetit-db, and the
+# locally built app image is tagged rivetit-web:local. To run a second stack
+# on the same host, set RIVETIT_CONTAINER_PREFIX in that stack's .env: it
+# prefixes both container names and the image tag. The service
 # keys (app, db), the DB_NAME/DB_USER defaults and the itflow_db_data volume
 # keep their original names on purpose: an existing stack's database lives
 # in that volume, created under those defaults (renaming the volume starts
@@ -30,7 +31,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    image: rivetit-web:local
+    image: "${RIVETIT_CONTAINER_PREFIX:-rivetit}-web:local"
     container_name: "${RIVETIT_CONTAINER_PREFIX:-rivetit}-web"
     depends_on:
       - db
@@ -59,6 +60,7 @@ services:
       # constant in that file can be passed through the same way.
       RIVETIT_APP_NAME: "${RIVETIT_APP_NAME:-}"
       RIVETIT_APP_REPO_URL: "${RIVETIT_APP_REPO_URL:-}"
+      RIVETIT_APP_REPO_PUBLIC: "${RIVETIT_APP_REPO_PUBLIC:-}"
       RIVETIT_APP_WEBSITE_URL: "${RIVETIT_APP_WEBSITE_URL:-}"
       RIVETIT_APP_DOCS_URL: "${RIVETIT_APP_DOCS_URL:-}"
       RIVETIT_APP_SUPPORT_URL: "${RIVETIT_APP_SUPPORT_URL:-}"

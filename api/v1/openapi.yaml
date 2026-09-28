@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: >
     Companion REST API for RivetIT, consumed by the RivetIT mobile app and
-    integrations (ITPanel Pro, RMM scripts). This spec documents the *live*
+    other integrations (RMM scripts and the like). This spec documents the *live*
     endpoints served by /api/v1/index.php and its per-resource handlers.
 
 

@@ -539,7 +539,8 @@ $mysqli->close();
                 </tr>
                 <tr>
                     <td>Source</td>
-                    <td><a href="<?= htmlspecialchars(APP_REPO_URL) ?>" target="_blank" rel="noopener"><?= htmlspecialchars(APP_REPO_URL) ?></a></td>
+                    <?php /* A link only while the repository is public (APP_SOURCE_URL); otherwise the URL as plain text. */ ?>
+                    <td><?php if (APP_SOURCE_URL !== '') { ?><a href="<?= htmlspecialchars(APP_SOURCE_URL) ?>" target="_blank" rel="noopener"><?= htmlspecialchars(APP_SOURCE_URL) ?></a><?php } else { echo htmlspecialchars(APP_REPO_URL); } ?></td>
                 </tr>
                 <tr>
                     <td>License</td>

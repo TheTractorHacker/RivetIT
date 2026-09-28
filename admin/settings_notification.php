@@ -86,7 +86,7 @@ require_once "includes/inc_all_admin.php";
                     <div class="notif-row">
                         <div class="notif-row-meta">
                             <div class="notif-label">Enable Cron Job</div>
-                            <div class="notif-desc">Required for email reminders, expiration alerts, and other scheduled tasks. Several cron entries must also be configured on your server — <a href="<?= htmlspecialchars(APP_DOCS_URL) ?>" target="_blank" rel="noopener">see docs</a>.</div>
+                            <div class="notif-desc">Required for email reminders, expiration alerts, and other scheduled tasks. Several cron entries must also be configured on your server<?php if (APP_DOCS_URL !== '') { ?> — <a href="<?= htmlspecialchars(APP_DOCS_URL) ?>" target="_blank" rel="noopener">see docs</a><?php } else { ?> (see deploy/README.md in the install folder)<?php } ?>.</div>
                         </div>
                         <div class="notif-row-control">
                             <div class="form-check form-check form-switch">

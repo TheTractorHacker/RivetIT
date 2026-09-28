@@ -51,12 +51,16 @@ makes `git pull` the update path (matching `deploy/update.sh`'s model on bare me
 wrapper script). `DOCKER_UID`/`DOCKER_GID` in `.env` remap the container's `www-data` to your host user so
 it can actually write into that bind-mounted checkout.
 
-**Names.** The containers are `rivetit-web` and `rivetit-db` (set `RIVETIT_CONTAINER_PREFIX` in `.env` to
-run a second stack on the same host) and the built image is tagged `rivetit-web:local`. The compose
-service keys (`app`, `db`), the `DB_NAME`/`DB_USER` defaults (`itflow`) and the `itflow_db_data` volume keep
-the names they had before the RivetIT rename, so an existing stack comes back up on its existing
-database. Upgrading such a stack: `git pull` then `docker compose up -d --build`; Compose recreates both
-containers under the new names and reattaches the same volume. Use `docker compose exec app …` /
+**Names.** The containers are `rivetit-web` and `rivetit-db` and the built image is tagged
+`rivetit-web:local`. To run a second stack on the same host, set `RIVETIT_CONTAINER_PREFIX` in that stack's
+`.env`; it prefixes both container names and the image tag, so the stacks neither collide nor overwrite each
+other's image. The compose service keys (`app`, `db`), the `DB_NAME`/`DB_USER` defaults (`itflow`) and the
+`itflow_db_data` volume keep the names they had before the RivetIT rename, so an existing stack comes back
+up on its existing database. Upgrading such a stack: `git pull` then `docker compose up -d --build`; Compose
+recreates both containers under the new names and reattaches the same volume. **A host that already runs
+two or more stacks** must give every stack but one its own `RIVETIT_CONTAINER_PREFIX` before that
+`docker compose up`: before the rename Compose named containers per project, and now the second stack
+would stop with "container name /rivetit-db is already in use". Use `docker compose exec app …` /
 `docker compose exec db …` (service names) in your own scripts rather than container names.
 
 **No TLS termination and no hardening** are built into the container — this is intentional, to keep the

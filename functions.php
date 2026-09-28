@@ -16,6 +16,7 @@ DEFINE("WORDING_ROLECHECK_FAILED", "You are not permitted to do that!");
  * write the old product name ('ITFlow' upstream, 'ITFlow Internal IT' in this fork). Those legacy
  * defaults, or no value at all, mean APP_NAME, so existing installs send RivetIT mail without anyone
  * editing config.php; a name an admin chose on purpose is kept. The config key itself is unchanged.
+ * Setup now writes an empty value, so a new install follows APP_NAME too (a rename or RIVETIT_APP_NAME).
  */
 function appDisplayName($configured = null): string {
     $configured = is_string($configured) ? trim($configured) : '';

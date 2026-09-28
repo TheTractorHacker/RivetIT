@@ -1,7 +1,7 @@
 # RivetIT — REST API Reference
 
 This document describes the REST API served by RivetIT — the same
-companion API used by the mobile app, ITPanel Pro, and RMM/scripted
+companion API used by the mobile app, RMM scripts and other
 integrations. It's a plain JSON-over-HTTP API: no SDK is required, just an
 HTTP client and one of the two auth methods below.
 
@@ -17,7 +17,7 @@ HTTP client and one of the two auth methods below.
   try requests.
 - **Human-readable in-app reference:** `GET /api/v1/docs` is a
   self-contained, searchable HTML reference generated from the same spec
-  (also linked from **Settings > API Docs** in the admin panel). Use it to
+  (also linked from **Admin > API Docs**). Use it to
   browse the exact request/response schema of any endpoint.
 
 This document is a narrative companion to those two — it explains what each
@@ -98,7 +98,7 @@ endpoints that a legacy API key is explicitly denied on — see below.
 ### Legacy API keys
 
 `X-Api-Key: <key>` is the older, instance-level mechanism, managed at
-**Settings > API Keys** in the admin panel. It doesn't identify a specific
+**Admin > API Keys**. It doesn't identify a specific
 user — it resolves to the instance's first active admin — so it's best
 suited to scripts and server-to-server integrations (RMM scripts, backup
 tooling, etc.) rather than anything that needs to act as a particular
@@ -597,6 +597,6 @@ Include `time_worked` (`HH:MM:SS`) to log time in the same call, or use
 
 - Live OpenAPI spec: `GET /api/v1/openapi.yaml`
 - Interactive human-readable reference: `GET /api/v1/docs` (also linked from
-  **Settings > API Docs**)
-- Legacy API key management: **Settings > API Keys**
+  **Admin > API Docs**)
+- Legacy API key management: **Admin > API Keys**
 - Module toggles (including billing): **Settings > Modules**

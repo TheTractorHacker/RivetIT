@@ -78,7 +78,7 @@ Full reference: `sudo deploy/install.sh --help`. The ones worth knowing up front
 
 - `--domain=<fqdn>` — **required.** Public hostname for this instance.
 - `--proxy-mode` — this box sits behind an *external* reverse proxy that already terminates public TLS
-  (matches the real `mw-itflow.foleyit.com` pattern in production). Skips certbot, serves a self-signed
+  (a common production pattern). Skips certbot, serves a self-signed
   backend cert on `:8443`, and keeps nginx's own redirects relative so the internal hostname/port never
   leaks to an end user.
 - `--skip-tls` — no public DNS yet / TLS will be configured later by hand. Serves self-signed directly.
