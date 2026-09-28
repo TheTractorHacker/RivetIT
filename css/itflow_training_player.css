@@ -211,6 +211,7 @@
 .trp-row__main { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
 .trp-row__title { font-size: 20px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trp-row__sub { font-size: 16px; color: var(--trp-muted); }
+.trp-row__check { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--trp-info); margin-top: 2px; }
 .trp-row__end { display: flex; align-items: center; gap: 12px; flex: none; }
 .trp-row__state { font-size: 16px; font-weight: 600; color: var(--trp-muted); }
 .trp-row__state--ok { color: var(--trp-ok-ink); }
