@@ -261,7 +261,7 @@ class Response
             }
 
             // Fix Content-Type
-            $charset = $this->charset ?: 'UTF-8';
+            $charset = $this->charset ?: 'utf-8';
             if (!$headers->has('Content-Type')) {
                 $headers->set('Content-Type', 'text/html; charset='.$charset);
             } elseif (0 === stripos($headers->get('Content-Type') ?? '', 'text/') && false === stripos($headers->get('Content-Type') ?? '', 'charset')) {
@@ -317,6 +317,12 @@ class Response
     {
         // headers have already been sent by the developer
         if (headers_sent()) {
+            if (!\in_array(\PHP_SAPI, ['cli', 'phpdbg', 'embed'], true)) {
+                $statusCode ??= $this->statusCode;
+                trigger_deprecation('symfony/http-foundation', '7.4', 'Trying to use "%s::sendHeaders()" after headers have already been sent is deprecated and will throw a PHP warning in 8.0. Use a "StreamedResponse" instead.', static::class);
+                // header(\sprintf('HTTP/%s %s %s', $this->version, $statusCode, $this->statusText), true, $statusCode);
+            }
+
             return $this;
         }
 
@@ -539,7 +545,7 @@ class Response
      */
     public function isCacheable(): bool
     {
-        if (!\in_array($this->statusCode, [200, 203, 300, 301, 302, 404, 410])) {
+        if (!\in_array($this->statusCode, [200, 203, 300, 301, 302, 404, 410], true)) {
             return false;
         }
 
@@ -955,7 +961,7 @@ class Response
                 $etag = '"'.$etag.'"';
             }
 
-            $this->headers->set('ETag', (true === $weak ? 'W/' : '').$etag);
+            $this->headers->set('ETag', ($weak ? 'W/' : '').$etag);
         }
 
         return $this;
@@ -1248,7 +1254,7 @@ class Response
      */
     public function isRedirect(?string $location = null): bool
     {
-        return \in_array($this->statusCode, [201, 301, 302, 303, 307, 308]) && (null === $location ?: $location == $this->headers->get('Location'));
+        return \in_array($this->statusCode, [201, 301, 302, 303, 307, 308], true) && (null === $location ?: $location == $this->headers->get('Location'));
     }
 
     /**
@@ -1258,7 +1264,7 @@ class Response
      */
     public function isEmpty(): bool
     {
-        return \in_array($this->statusCode, [204, 304]);
+        return \in_array($this->statusCode, [204, 304], true);
     }
 
     /**
@@ -1308,7 +1314,7 @@ class Response
      */
     protected function ensureIEOverSSLCompatibility(Request $request): void
     {
-        if (false !== stripos($this->headers->get('Content-Disposition') ?? '', 'attachment') && 1 == preg_match('/MSIE (.*?);/i', $request->server->get('HTTP_USER_AGENT') ?? '', $match) && true === $request->isSecure()) {
+        if (false !== stripos($this->headers->get('Content-Disposition') ?? '', 'attachment') && 1 == preg_match('/MSIE (.*?);/i', $request->server->get('HTTP_USER_AGENT') ?? '', $match) && $request->isSecure()) {
             if ((int) preg_replace('/(MSIE )(.*?);/', '$2', $match[0]) < 9) {
                 $this->headers->remove('Cache-Control');
             }
