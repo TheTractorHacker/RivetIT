@@ -178,6 +178,60 @@ if (isset($_POST['edit_your_user_password'])) {
     redirect('post.php?logout');
 }
 
+/*
+ * Trainer PIN self-service (2.6.104): set/change the SAME contact's trainer sign-in PIN, kept
+ * entirely separate from their own learner/Odoo training PIN (training_learner_credentials).
+ * Authenticated-as-self only - gated on the logged-in user's OWN user_id matching this trainer
+ * row's trainer_user_id (Kiosk\Pin\TrainerCredentialRepo::loadByUserId), never any other trainer's.
+ * Deliberately NOT routed through agent/training_ajax.php: that router requires module_training
+ * >= 1 for every action, which a trainer with no Training module access at all would not have -
+ * this is an account-security action, reachable the same way the password/passkey ones above are.
+ */
+if (isset($_POST['set_trainer_pin'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    $trainer = \ITFlow\Training\Kiosk\Pin\TrainerCredentialRepo::loadByUserId($mysqli, $session_user_id);
+    if ($trainer === null) {
+        flash_alert('You are not set up as an active trainer.', 'error');
+        redirect('user_security.php');
+    }
+
+    $new_trainer_pin = (string) ($_POST['new_trainer_pin'] ?? '');
+    $new_trainer_pin2 = (string) ($_POST['new_trainer_pin2'] ?? '');
+    if (!preg_match('/^[0-9]{6}$/', $new_trainer_pin) || $new_trainer_pin !== $new_trainer_pin2) {
+        flash_alert('Enter the same 6-digit PIN twice.', 'error');
+        redirect('user_security.php');
+    }
+
+    try {
+        $trainer_pin_keys = \ITFlow\Training\Kiosk\Core\KioskKeys::fromSecret((string) ($config_settings_enc_key ?? ''));
+    } catch (\ITFlow\Training\Kiosk\Core\KioskConfigException $e) {
+        flash_alert('Training devices are not configured on this server yet.', 'error');
+        redirect('user_security.php');
+    }
+    $trainer_pin_hasher = new \ITFlow\Training\Kiosk\Pin\PinHasher($trainer_pin_keys);
+    $trainer_contact_id = (int) $trainer['trainer_contact_id'];
+    $trainer_pin_rule = \ITFlow\Training\Kiosk\Pin\PinPolicy::check($trainer_contact_id, $new_trainer_pin, $trainer_pin_hasher, $trainer['trainer_pin_prev_hash']);
+    if ($trainer_pin_rule !== null) {
+        flash_alert('Pick a different PIN — that one is too easy to guess, or repeats your last one.', 'error');
+        redirect('user_security.php');
+    }
+
+    $trainer_pin_hash = $trainer_pin_hasher->hashPin($trainer_contact_id, $new_trainer_pin);
+    $new_trainer_pin = $new_trainer_pin2 = null;
+
+    \ITFlow\Training\Kiosk\Pin\TrainerCredentialRepo::setPin($mysqli, $trainer_contact_id, $trainer_pin_hash, 'self', null, [
+        'actor_type' => 'user', 'actor_user_id' => $session_user_id, 'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+    ]);
+
+    logAction("User Account", "Edit", "$session_name set their own trainer PIN");
+
+    flash_alert('Your trainer PIN was updated.');
+
+    redirect('user_security.php');
+}
+
 if (isset($_POST['edit_your_user_preferences'])) {
 
     validateCSRFToken($_POST['csrf_token']);

@@ -98,6 +98,7 @@
             case 'signin_unavailable':
                 return { kind: 'warn', text: data.reason === 'link_check' ? t('pin.unavailable_link') : t('pin.unavailable'), stop: true, ic: 'fa-plug' };
             case 'setup_needed': return { kind: 'info', text: '', go: 'setup' };
+            case 'trainer_pin_not_set': return { kind: 'warn', text: t('pin.trainer_pin_not_set'), stop: true, ic: 'fa-key' };
             case 'not_found': return { kind: 'bad', text: err.message, go: 'search' };
             case 'pin_policy':
                 return { kind: 'bad', text: K.has('newpin.rule_' + (data.rule || '')) ? t('newpin.rule_' + data.rule) : t('err.pin_policy') };
@@ -419,14 +420,20 @@
             if (info.prompt === 'odoo') {
                 c.left.insertBefore(el('p', { class: 'kx-note kx-pin__hint' }, [icon('fa-clock'), el('span', { text: t('pin.odoo_hint') })]), c.dotsHost);
             }
-            if (info.prompt === 'setup_needed') { showSetup(p, mode === 'trainer' ? t('pin.trainer_setup_needed') : t('pin.setup_needed')); return; }
+            if (info.prompt === 'setup_needed') { showSetup(p, t('pin.setup_needed')); return; }
+            // A trainer PIN is set up from the app (Account › Security), never redeemed from a
+            // slip here (2.6.104) - no keypad, just the calm "not set up yet" note, same tone as
+            // the sign-in footer already uses when there are zero trainers at all.
+            if (info.prompt === 'trainer_pin_not_set') { setMsg(c.msg, 'warn', t('pin.trainer_pin_not_set'), 'fa-key'); promptNode.hidden = true; return; }
             if (info.prompt === 'unavailable') { setMsg(c.msg, 'warn', t('pin.unavailable'), 'fa-plug'); promptNode.hidden = true; return; }
             if (info.hard_locked) { setMsg(c.msg, 'bad', t('pin.locked_hard'), 'fa-lock'); return; }
             if (info.locked) { setMsg(c.msg, 'warn', t('pin.locked', { minutes: info.locked.minutes }), 'fa-lock'); return; }
             var odoo = info.prompt === 'odoo';
             var have = el('button', { type: 'button', class: 'kx-btn kx-btn--link' }, [icon('fa-ticket-alt'), el('span', { text: t('pin.have_code') })]);
             have.addEventListener('click', function () { showSetup(p, ''); });
-            if (!odoo) { c.links.appendChild(have); }
+            // A trainer PIN has no setup-code slip (2.6.104: set from the app instead), so this
+            // escape hatch is learner-only.
+            if (!odoo && mode !== 'trainer') { c.links.appendChild(have); }
             mountKeypad(c, {
                 minLen: 4, maxLen: odoo ? 12 : 6,
                 onSubmit: function (pin) {
@@ -441,7 +448,12 @@
                         if (kp !== keypadObj) { return; }
                         kp.clear();
                         var e = pinError(err, 'pin');
-                        if (e.go === 'setup') { showSetup(p, mode === 'trainer' ? t('pin.trainer_setup_needed') : t('pin.setup_needed')); return; }
+                        // A trainer PIN is never set up on the kiosk (2.6.104): pick() already
+                        // keeps trainer mode off the keypad while unset, so a 'setup_needed' here
+                        // is only a rare race (cleared between pick and submit) - send them back
+                        // to the same calm note rather than the learner 8-digit setup screen.
+                        if (mode === 'trainer' && e.go === 'setup') { setMsg(c.msg, 'warn', t('pin.trainer_pin_not_set'), 'fa-key'); kp.setBusy(true); return; }
+                        if (e.go === 'setup') { showSetup(p, t('pin.setup_needed')); return; }
                         if (e.go === 'search') { showSearch(''); K.ui.toast(e.text, 'bad'); return; }
                         setMsg(c.msg, e.kind, e.text, e.ic);
                         kp.setBusy(!!e.stop);

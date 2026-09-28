@@ -15,6 +15,7 @@ final class KioskAlerts
 {
     public const TEXTS = [
         'pin_hard_lock' => 'A training PIN was locked after repeated wrong entries.',
+        'trainer_pin_hard_lock' => 'A trainer PIN was locked after repeated wrong entries.',
         'kiosk_cooldown' => 'A training device paused sign-in after repeated wrong PINs.',
         'pin_pause' => 'Training sign-in was paused system-wide after repeated wrong PINs.',
         'odoo_auth' => 'Odoo rejected the training sign-in check (key or rights problem, HTTP 401/403).',

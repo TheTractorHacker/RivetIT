@@ -16,6 +16,8 @@ use ITFlow\Training\Kiosk\Device\DeviceEnrollment;
 use ITFlow\Training\Kiosk\Device\DeviceLifecycle;
 use ITFlow\Training\Kiosk\Pin\PinAdmin;
 use ITFlow\Training\Kiosk\Pin\Seam;
+use ITFlow\Training\Kiosk\Pin\TrainerPinAdmin;
+use ITFlow\Training\Records\TrainerService;
 
 /**
  * Agent actions for training devices and PINs (P3 spec §4.3 kiosk_/pin_ rows, lane K2), behind
@@ -332,9 +334,12 @@ final class KioskAdminActions
         $out = [];
         foreach ($rows as $r) {
             $cid = (int) $r['contact_id'];
+            // 2.6.104: whether this person is ALSO an active trainer no longer affects their own
+            // learner PIN's source (that special case moved entirely to the separate trainer PIN
+            // system) - $trainer is informational only, for the "Trainer" column.
             $trainer = Seam::isActiveTrainer($db, $cid);
             $stored = $r['tcred_source'] === null ? 'local' : (string) $r['tcred_source'];
-            $effective = ($stored === 'odoo' && $ks->odooPinEnabled && !$trainer && (int) $r['tcred_source_pinned'] !== 1) ? 'odoo' : 'local';
+            $effective = ($stored === 'odoo' && $ks->odooPinEnabled && (int) $r['tcred_source_pinned'] !== 1) ? 'odoo' : 'local';
             $out[] = [
                 'contact_id' => $cid,
                 'name' => (string) $r['contact_name'],
@@ -372,6 +377,28 @@ final class KioskAdminActions
         }
         self::audit($c, 'training.pin_unlocked', 'contact', $cid, 'pin_unlock', 'Unlocked the training PIN of ' . $p['contact_name'], ['reason' => $reason]);
         return [];
+    }
+
+    /**
+     * POST trainer_pin_admin_set {contact_id, pin, pin2} (2.6.104). Sets or resets a trainer's OWN
+     * kiosk sign-in PIN - a real edit/reset, not a redeemable slip. Gated on a full Administrator
+     * (Ctx::isAdmin / user_roles.role_is_admin) specifically, the owner's "super admins" ask -
+     * NOT module_training_kiosk level, which a non-admin role could hold up to Full (3).
+     */
+    public static function trainerPinAdminSet(Ctx $c, ApiContext $a): array
+    {
+        if (!$c->isAdmin) {
+            throw ApiException::forbidden("Only Administrators can set a trainer's PIN.");
+        }
+        $cid = (int) $a->int('contact_id', true, 1);
+        $p = Seam::assertContactInScope($c, $cid);
+        try {
+            (new TrainerPinAdmin($c, self::keys()))->setPin($cid, $a->input['pin'] ?? null, $a->input['pin2'] ?? null);
+        } finally {
+            unset($a->input['pin'], $a->input['pin2']);
+        }
+        self::audit($c, 'training.trainer_pin_set', 'contact', $cid, 'trainer_pin_set', "Set the trainer PIN of " . $p['contact_name'], []);
+        return (new TrainerService($c))->get($cid) ?? [];
     }
 
     /** POST pin_slips_issue {contact_ids:[], switch_to_local?} (kiosk >= 2 + trainer rule). */

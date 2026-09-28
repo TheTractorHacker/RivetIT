@@ -13,6 +13,8 @@ use ITFlow\Training\Kiosk\Device\CodeEnrollment;
 use ITFlow\Training\Kiosk\Pin\CredentialRepo;
 use ITFlow\Training\Kiosk\Pin\PinService;
 use ITFlow\Training\Kiosk\Pin\Seam;
+use ITFlow\Training\Kiosk\Pin\TrainerCredentialRepo;
+use ITFlow\Training\Kiosk\Pin\TrainerPinService;
 
 /**
  * Pre-auth kiosk actions (P3 spec §4.2 K2 rows): device adoption, name search, pick, PIN sign-in,
@@ -147,8 +149,24 @@ final class PreauthActions
         $cid = self::pickedContact($k, $a);
         $person = self::person($k, $cid);
         $role = $a->enum('role', ['learner', 'trainer'], false) ?? 'learner';
-        if ($role === 'trainer' && !Seam::isActiveTrainer($k->db(), $cid)) {
-            throw new ApiException(403, 'not_trainer', 'Only active trainers can sign in here.');
+        if ($role === 'trainer') {
+            if (!Seam::isActiveTrainer($k->db(), $cid)) {
+                throw new ApiException(403, 'not_trainer', 'Only active trainers can sign in here.');
+            }
+            // A trainer PIN has no Odoo source and no on-kiosk setup flow (2.6.104): it is set
+            // from the agent app (self-service or an admin reset), never redeemed from a slip
+            // here, so an unset trainer PIN gets its own calm prompt instead of 'setup_needed'
+            // (which would send the client to the 8-digit setup-code screen).
+            $cred = TrainerCredentialRepo::load($k->db(), $cid);
+            if ($cred === null) {
+                return $person + ['prompt' => 'trainer_pin_not_set', 'locked' => null, 'hard_locked' => false];
+            }
+            $mins = KTime::minutesUntil($cred['trainer_pin_locked_until_utc']);
+            return $person + [
+                'prompt' => $cred['has_pin'] ? 'local' : 'trainer_pin_not_set',
+                'locked' => $mins > 0 ? ['minutes' => $mins] : null,
+                'hard_locked' => (int) $cred['trainer_pin_hard_locked'] === 1,
+            ];
         }
         $cred = (new CredentialRepo($k))->forPick($cid);
         if (!empty($cred['unavailable'])) {
@@ -173,7 +191,11 @@ final class PreauthActions
             if ($role === 'trainer' && !Seam::isActiveTrainer($k->db(), $cid)) {
                 throw new ApiException(403, 'not_trainer', 'Only active trainers can sign in here.');
             }
-            $r = (new PinService($k))->login($cid, $a->input['pin'] ?? null, $role);
+            // A trainer redeems their OWN trainer PIN (TrainerPinService, training_trainers) -
+            // never the learner PinService/CredentialRepo, so this never touches, consumes or
+            // otherwise affects that same contact's learner/Odoo credential row.
+            $r = $role === 'trainer' ? (new TrainerPinService($k))->login($cid, $a->input['pin'] ?? null)
+                : (new PinService($k))->login($cid, $a->input['pin'] ?? null, $role);
             unset($a->input['pin']);
             $err = $r['result']->toApi('pin');
             if ($err !== null) {
@@ -212,8 +234,12 @@ final class PreauthActions
             self::pinRate($k);
             $cid = self::pickedContact($k, $a);
             $role = $a->enum('role', ['learner', 'trainer'], false) ?? 'learner';
-            if ($role === 'trainer' && !Seam::isActiveTrainer($k->db(), $cid)) {
-                throw new ApiException(403, 'not_trainer', 'Only active trainers can sign in here.');
+            if ($role === 'trainer') {
+                // A trainer PIN is never created from a redeemed setup code at the kiosk (2.6.104):
+                // it is set from the agent app, self-service or an admin reset. pick() never sends
+                // a client here for trainer mode (prompt is 'trainer_pin_not_set', not
+                // 'setup_needed'), so this only fires on a stale/hand-crafted request.
+                throw new ApiException(409, 'trainer_pin_not_set', 'Set your trainer PIN from your account in the app, then come back and sign in.');
             }
             $tok = is_string($a->input['setup_token'] ?? null) ? (string) $a->input['setup_token'] : '';
             $r = (new PinService($k))->createFromSetup($cid, $tok, $a->input['pin'] ?? null, $a->input['pin2'] ?? null, $role);
