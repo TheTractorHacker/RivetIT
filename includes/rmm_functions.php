@@ -1,6 +1,6 @@
 <?php
 /*
- * ITFlow
+ * RivetIT
  * Shared helpers for RMM <-> Ticketing integration (Syncro-Beta)
  */
 

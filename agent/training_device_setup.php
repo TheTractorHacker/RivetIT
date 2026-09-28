@@ -132,7 +132,7 @@ render_page_header(
                 </div>
                 <div class="form-hint mb-3">For Windows kiosk mode, set this as the start page. It is shown only once — keep it somewhere safe (anyone with it can set up a copy of this device, though people still need their PIN).</div>
                 <button type="button" class="btn btn-primary btn-lg" id="tr-setup-open"><i class="fas fa-sign-out-alt me-2"></i>Open training on this device</button>
-                <div class="form-hint mt-2">This signs you out of ITFlow on this device first.</div>
+                <div class="form-hint mt-2">This signs you out of <?= nullable_htmlentities(APP_NAME) ?> on this device first.</div>
             </div>
         </div>
     </div>
@@ -141,7 +141,7 @@ render_page_header(
             <div class="card-header"><h2 class="card-title">Before you start</h2></div>
             <div class="card-body">
                 <ul class="mb-0 ps-3">
-                    <li class="mb-2"><strong>iPad:</strong> open the training site from the <em>Home Screen app</em> (Share › Add to Home Screen), then sign in to ITFlow <em>inside that app</em> and come here. iPadOS 16.4 or later.</li>
+                    <li class="mb-2"><strong>iPad:</strong> open the training site from the <em>Home Screen app</em> (Share › Add to Home Screen), then sign in to <?= nullable_htmlentities(APP_NAME) ?> <em>inside that app</em> and come here. iPadOS 16.4 or later.</li>
                     <li class="mb-2"><strong>Windows:</strong> do this in Edge. Afterwards copy the start URL into the Edge kiosk settings.</li>
                     <li class="mb-2">A device assigned to one person opens straight to that person's PIN. Unassigned devices are shared and show the name search.</li>
                     <li class="mb-2"><strong>Borrowed or one-off device?</strong> Choose <em>This device isn't in Assets</em> and/or <em>Temporary</em>. A temporary device stops working by itself at the time you pick, and so does its start URL.</li>

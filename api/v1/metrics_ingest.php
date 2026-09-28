@@ -121,7 +121,8 @@ const MI_MAX_ENROLL_BODY_BYTES = 4096; // 4 KiB
 /** Max samples in one batch. The whole fleet is ~1,000 active series total. */
 const MI_MAX_SAMPLES = 2000;
 
-/** Envelope schema tag the collector must send. Bump on a breaking change. */
+/** Envelope schema tag the collector must send. Bump on a breaking change. Keeps its pre-RivetIT
+ *  name: deployed collectors send exactly this string. */
 const MI_SCHEMA = 'itflow.metrics.v1';
 
 /** Wire prefix for a device/enrollment token: itfm1.<selector>.<verifier> */

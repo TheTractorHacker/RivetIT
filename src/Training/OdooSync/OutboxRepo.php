@@ -241,7 +241,7 @@ final class OutboxRepo
 
     /**
      * The OTHER record whose done create (same target and mode) already holds Odoo record $resId, with the status
-     * of its close for that mode (null when none is queued), or null. The certification target uses it: two ITFlow
+     * of its close for that mode (null when none is queued), or null. The certification target uses it: two RivetIT
      * records never share one Odoo certification.
      *
      * @return array{source_type:string, source_id:int, close_status:?string}|null

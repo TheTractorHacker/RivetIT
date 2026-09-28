@@ -50,7 +50,7 @@ if (isset($_POST['accept_quote'], $_POST['url_key'])) {
 
         if (!empty($config_smtp_host) && !empty($config_quote_notification_email)) {
             $subject = "Quote Accepted - $client_name - Quote $quote_prefix$quote_number";
-            $body = "Hello, <br><br>This is a notification that a quote has been accepted in ITFlow Internal IT. <br><br>Department: $client_name<br>Quote: <a href=\'https://$config_base_url/quote.php?quote_id=$quote_id\'>$quote_prefix$quote_number</a><br><br>~<br>$company_name - Billing<br>$config_quote_from_email";
+            $body = "Hello, <br><br>This is a notification that a quote has been accepted in " . htmlspecialchars(APP_NAME) . ". <br><br>Department: $client_name<br>Quote: <a href=\'https://$config_base_url/quote.php?quote_id=$quote_id\'>$quote_prefix$quote_number</a><br><br>~<br>$company_name - Billing<br>$config_quote_from_email";
 
             $data[] = [
                 'from' => $config_quote_from_email,
@@ -115,7 +115,7 @@ if (isset($_POST['decline_quote'], $_POST['url_key'])) {
 
         if (!empty($config_smtp_host) && !empty($config_quote_notification_email)) {
             $subject = "Quote Declined - $client_name - Quote $quote_prefix$quote_number";
-            $body = "Hello, <br><br>This is a notification that a quote has been declined in ITFlow Internal IT. <br><br>Department: $client_name<br>Quote: <a href=\'https://$config_base_url/quote.php?quote_id=$quote_id\'>$quote_prefix$quote_number</a><br><br>~<br>$company_name - Billing<br>$config_quote_from_email";
+            $body = "Hello, <br><br>This is a notification that a quote has been declined in " . htmlspecialchars(APP_NAME) . ". <br><br>Department: $client_name<br>Quote: <a href=\'https://$config_base_url/quote.php?quote_id=$quote_id\'>$quote_prefix$quote_number</a><br><br>~<br>$company_name - Billing<br>$config_quote_from_email";
 
             $data[] = [
                 'from' => $config_quote_from_email,

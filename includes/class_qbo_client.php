@@ -1,11 +1,11 @@
 <?php
 
 /*
- * ITFlow - QuickBooks Online API client (one-way push).
+ * RivetIT - QuickBooks Online API client (one-way push).
  *
  * Thin wrapper over the QBO REST API. Handles OAuth2 access-token refresh
  * (persisting the rotated refresh token back to accounting_integrations) and
- * exposes find/create helpers for the four entity types ITFlow pushes:
+ * exposes find/create helpers for the four entity types RivetIT pushes:
  * Customer, Item, Invoice and Payment.
  *
  * Tokens are stored encrypted via encryptSetting()/decryptSetting() (defined in
@@ -383,7 +383,7 @@ class QboClient {
         return $qr['Invoice'] ?? [];
     }
 
-    // ── Estimate (ITFlow "Quote") ────────────────────────────────────────────
+    // ── Estimate (RivetIT "Quote") ────────────────────────────────────────────
 
     public function createEstimate(array $payload): array {
         $res = $this->request('POST', 'estimate', $payload);

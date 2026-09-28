@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ITFlow-Internal-IT — restore an encrypted deploy/backup.sh archive.
+# RivetIT — restore an encrypted deploy/backup.sh archive.
 #
 # The counterpart backup.sh never had: decrypts a backup-*.tar.gz.enc
 # produced by deploy/backup.sh, then overwrites the target instance's
@@ -83,7 +83,7 @@ MANIFEST_SETTINGS_ENC_KEY=""
 
 print_help() {
     cat <<'EOF'
-ITFlow-Internal-IT — restore an encrypted deploy/backup.sh archive
+RivetIT — restore an encrypted deploy/backup.sh archive
 
 Usage:
   sudo deploy/restore.sh --app-dir=<path> --backup=<path> \
@@ -350,7 +350,7 @@ main() {
     validate_args
     setup_logging
 
-    info "=== ITFlow-Internal-IT restore starting: ${BACKUP_FILE} -> ${APP_DIR} ==="
+    info "=== RivetIT restore starting: ${BACKUP_FILE} -> ${APP_DIR} ==="
 
     read_app_config "${APP_DIR}"
     run_pre_restore_backup

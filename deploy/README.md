@@ -1,6 +1,6 @@
-# deploy/ — ITFlow-Internal-IT deployment tooling
+# deploy/ — RivetIT deployment tooling
 
-Scripts to stand up, harden, back up, and update a **standalone** ITFlow-Internal-IT instance on a
+Scripts to stand up, harden, back up, and update a **standalone** RivetIT instance on a
 fresh (or already-running) Ubuntu/Debian box. This is **not** a multi-tenant installer — every company
 gets its own app directory, its own database, its own database user, and its own nginx vhost. Running
 these scripts a second time with a different `--domain` adds a second, fully independent company's
@@ -19,6 +19,17 @@ instance alongside the first, on the same box.
 All scripts must be run as **root** (`sudo`) — they touch `/etc`, install packages, and manage
 services. All of them log what they're about to do before doing anything invasive (a service restart,
 `ufw enable`, a destructive file write), and none of them will disable SSH access as a side effect.
+
+**Names that still say `itflow`.** RivetIT was called ITFlow Internal IT before, and the names these
+scripts give to things on the server were kept so that existing boxes keep working and re-runs find what
+earlier runs installed: the log files (`/var/log/itflow-*.log`), the cron file (`/etc/cron.d/itflow-<domain>`),
+the systemd units (`itflow-backup.service` / `.timer`), the passphrase file (`/etc/itflow/backup-passphrase`),
+the fail2ban jail and filter (`itflow-auth`), the nginx rate-limit zone (`itflow_login`,
+`/etc/nginx/conf.d/itflow-rate-limit.conf`) and the PHP-FPM / MariaDB / unattended-upgrades drop-ins
+(`99-itflow-hardening.*`, `51-itflow-unattended-upgrades`). The text of the files `harden.sh` and
+`install.sh` compare byte for byte before writing (the hardening templates and the inline fail2ban
+filter, rate-limit and unattended-upgrades files) is unchanged too, so a re-run does not restart
+PHP-FPM, MariaDB or fail2ban just for a renamed comment. See [`../REBRANDING.md`](../REBRANDING.md).
 
 ---
 
@@ -67,14 +78,15 @@ Full reference: `sudo deploy/install.sh --help`. The ones worth knowing up front
 
 - `--domain=<fqdn>` — **required.** Public hostname for this instance.
 - `--proxy-mode` — this box sits behind an *external* reverse proxy that already terminates public TLS
-  (matches the real `mw-itflow.foleyit.com` pattern in production). Skips certbot, serves a self-signed
+  (a common production pattern). Skips certbot, serves a self-signed
   backend cert on `:8443`, and keeps nginx's own redirects relative so the internal hostname/port never
   leaks to an end user.
 - `--skip-tls` — no public DNS yet / TLS will be configured later by hand. Serves self-signed directly.
 - `--non-interactive` — fail instead of prompting for anything missing (see `--help` for the full list of
   flags it then requires).
 - `--admin-password=...` — **avoid this flag on an interactive terminal.** `install.sh` forwards it to
-  `setup_cli.php` via the `ITFLOW_ADMIN_PASSWORD` environment variable, never on `setup_cli.php`'s own
+  `setup_cli.php` via the `RIVETIT_ADMIN_PASSWORD` environment variable (it also sets the deprecated
+  `ITFLOW_ADMIN_PASSWORD`, which `setup_cli.php` still honours), never on `setup_cli.php`'s own
   argv, so it's not visible to other users on the box via `ps`. It IS visible on *this* script's own
   command line and shell history, though — leave it out and answer `setup_cli.php`'s interactive prompt
   instead whenever you have a terminal in front of you, which touches neither.
@@ -86,7 +98,7 @@ Full reference: `sudo deploy/install.sh --help`. The ones worth knowing up front
 
 ```bash
 sudo deploy/install.sh \
-  --domain=itflow.example.com \
+  --domain=rivetit.example.com \
   --email=admin@example.com \
   --company-name="Example Co" --country="United States" \
   --locale=en_US --timezone=America/New_York --currency=USD
@@ -94,13 +106,13 @@ sudo deploy/install.sh \
 ```
 
 This installs everything from scratch, gets a real Let's Encrypt certificate for
-`itflow.example.com`, and finishes with a working instance at `https://itflow.example.com/`.
+`rivetit.example.com`, and finishes with a working instance at `https://rivetit.example.com/`.
 
 ### Worked example 2 — adding a second company to a box that already runs one instance
 
 ```bash
 sudo deploy/install.sh \
-  --domain=itflow2.example.com \
+  --domain=rivetit2.example.com \
   --db-name=itflow2 \
   --email=admin@example.com \
   --company-name="Second Co" --country="United States" \
@@ -109,7 +121,7 @@ sudo deploy/install.sh \
 
 Nginx, PHP-FPM, and MariaDB are already installed and running from the first instance — `install.sh`
 detects that and skips reinstalling them. It provisions a brand-new app directory
-(`/var/www/itflow2.example.com` by default), a brand-new database/user, and a second nginx vhost,
+(`/var/www/rivetit2.example.com` by default), a brand-new database/user, and a second nginx vhost,
 side by side with the first. The shared `ufw`/`fail2ban` state and the shared nginx rate-limit zone
 (`/etc/nginx/conf.d/itflow-rate-limit.conf`) are reused, not duplicated.
 
@@ -120,9 +132,9 @@ side by side with the first. The shared `ufw`/`fail2ban` state and the shared ng
 ```
 sudo deploy/harden.sh                    # box-wide hardening only
 sudo deploy/harden.sh --dry-run          # preview every action, change nothing
-sudo deploy/harden.sh --domain itflow.example.com --app-root /var/www/itflow.example.com \
-    --ssl-cert /etc/ssl/certs/itflow.example.com.crt \
-    --ssl-cert-key /etc/ssl/private/itflow.example.com.key
+sudo deploy/harden.sh --domain rivetit.example.com --app-root /var/www/rivetit.example.com \
+    --ssl-cert /etc/ssl/certs/rivetit.example.com.crt \
+    --ssl-cert-key /etc/ssl/private/rivetit.example.com.key
                                           # also (re)render that vhost hardened
 ```
 
@@ -145,7 +157,7 @@ sudo deploy/harden.sh --domain itflow.example.com --app-root /var/www/itflow.exa
    `--ssl-cert-key` are given) a re-rendered vhost for that domain.
 
 Every step is check-before-act and skips (not re-does) anything already in place, so this is safe to run
-repeatedly — including against a box that already has one or more *other* ITFlow instances hardened by
+repeatedly — including against a box that already has one or more *other* RivetIT instances hardened by
 an earlier run.
 
 ### Standalone vs. letting install.sh call it
@@ -161,13 +173,13 @@ find the PHP-FPM/MariaDB/fail2ban config `install.sh` already applied unchanged 
 you'll only actually pick up the two extra steps `install.sh` doesn't do itself:
 
 ```bash
-sudo deploy/install.sh --domain=itflow.example.com ...
+sudo deploy/install.sh --domain=rivetit.example.com ...
 sudo deploy/harden.sh
 ```
 
 `harden.sh` is also the right tool, entirely on its own, for a company that already has
-ITFlow-Internal-IT running from a manual or older setup and just wants to retrofit this hardening onto
-it — it installs the hardening tools themselves (fail2ban, ufw, unattended-upgrades) if they're missing,
+RivetIT (or its predecessor, ITFlow Internal IT) running from a manual or older setup and just wants
+to retrofit this hardening onto it — it installs the hardening tools themselves (fail2ban, ufw, unattended-upgrades) if they're missing,
 since a retrofit target may well not have them yet. Always preview first with `--dry-run` on a box you
 didn't just build with `install.sh`, so you know exactly what's about to change before it does.
 
@@ -233,7 +245,7 @@ it into an already-installed instance (run `install.sh` first on a fresh box —
 `--restore-from`/`--restore-passphrase-file` to do both in one step, see below).
 
 ```bash
-sudo deploy/restore.sh --app-dir=/var/www/itflow.example.com \
+sudo deploy/restore.sh --app-dir=/var/www/rivetit.example.com \
     --backup=/path/to/backup-itflow-20260101T000000Z.tar.gz.enc \
     --passphrase-file=/etc/itflow/backup-passphrase \
     --confirm-restore
@@ -256,7 +268,7 @@ hand instead of silently producing an instance with broken integrations.
 for): `install.sh` accepts the same restore in one step instead of its normal fresh-company setup:
 
 ```bash
-sudo deploy/install.sh --domain=itflow.example.com \
+sudo deploy/install.sh --domain=rivetit.example.com \
     --restore-from=/path/to/backup-itflow-20260101T000000Z.tar.gz.enc \
     --restore-passphrase-file=/etc/itflow/backup-passphrase
 ```
@@ -355,7 +367,7 @@ regardless of anything else in that document:
 3. **Set up the backup passphrase file and store a copy of the passphrase somewhere other than the
    server itself**, per the `backup.sh` section above — this is the single most common way an encrypted
    backup ends up providing zero real protection.
-4. **Review and enable MFA for the admin account.** ITFlow-Internal-IT genuinely supports this — TOTP
+4. **Review and enable MFA for the admin account.** RivetIT genuinely supports this — TOTP
    (via `plugins/totp`) and WebAuthn/passkeys are both real, working authentication methods, and MFA can
    be force-required per user from the user administration screens (`user_config_force_mfa`). None of
    this is turned on by default for the account `scripts/setup_cli.php` creates; do it as one of the

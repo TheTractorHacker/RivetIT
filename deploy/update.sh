@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ITFlow-Internal-IT — safe update wrapper around scripts/update_cli.php.
+# RivetIT — safe update wrapper around scripts/update_cli.php.
 #
 # This script does NOT reimplement update_cli.php's git-pull / migration
 # logic — it orchestrates it safely: take a backup first (or make the
@@ -59,7 +59,7 @@ OWNER=""
 
 print_help() {
     cat <<'EOF'
-ITFlow-Internal-IT — safe update wrapper
+RivetIT — safe update wrapper
 
 Usage:
   sudo deploy/update.sh --app-dir=<path> [options]
@@ -113,7 +113,7 @@ validate_args() {
     [[ -n "${APP_DIR}" ]] || { print_help; die "--app-dir is required."; }
     [[ "${APP_DIR}" == /* ]] || die "--app-dir must be an absolute path (got: ${APP_DIR})"
     [[ -d "${APP_DIR}" ]] || die "--app-dir '${APP_DIR}' does not exist or is not a directory."
-    [[ -f "${APP_DIR}/scripts/update_cli.php" ]] || die "No scripts/update_cli.php found under ${APP_DIR} — is this an installed ITFlow-Internal-IT instance?"
+    [[ -f "${APP_DIR}/scripts/update_cli.php" ]] || die "No scripts/update_cli.php found under ${APP_DIR} — is this an installed RivetIT instance?"
     [[ -f "${APP_DIR}/config.php" ]] || die "No config.php found under ${APP_DIR} — update_cli.php requires it (it require_once's ../config.php) and this instance doesn't look set up yet."
 
     if [[ -n "${PASSPHRASE_FILE}" && "${NO_BACKUP_CONFIRMED}" -eq 1 ]]; then
@@ -241,7 +241,7 @@ main() {
     validate_args
     setup_logging
 
-    info "=== ITFlow-Internal-IT update starting for ${APP_DIR} ==="
+    info "=== RivetIT update starting for ${APP_DIR} ==="
 
     run_pre_update_backup
 

@@ -1,6 +1,96 @@
 # Changelog
 
-This file documents all notable changes made to ITFlow.
+This file documents all notable changes made to RivetIT. RivetIT was called ITFlow Internal IT until September 2026
+and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
+continues unchanged.
+
+## [Unreleased] RivetIT - ITFlow Internal IT is now RivetIT
+No database change (still 2.6.99) and no version reset (still 26.09). Nothing to run: pull the code as usual. RivetIT
+is a free and open-source internal IT operations platform for managing service requests, users, devices,
+documentation, automation, integrations, and employee training from one centralized system. This is a rename and a
+product identity, not a rewrite: every feature, route, API endpoint and field, integration and stored record works
+exactly as before.
+
+### New Features & Updates
+- **The product is called RivetIT** wherever the software names itself: the application chrome, login and setup,
+  the About / debug page, e-mails and notifications about the system, PDFs and the training kiosk, the REST API
+  docs, the installer and deployment scripts, the Docker files and the documentation. The company name and logo
+  from Settings > Company still brand the install itself and keep precedence over the RivetIT mark.
+- **One place for the name and links:** `includes/branding.php` defines `APP_NAME`, the descriptions, the project
+  links (`APP_REPO_URL`, `APP_DOCS_URL`, `APP_SUPPORT_URL`, ...) and the logo paths. Each can be overridden with a
+  constant defined earlier (e.g. in `config.php`) or a `RIVETIT_<NAME>` environment variable; Docker Compose passes
+  the common ones through from `.env`. The repository is private, so the links built from it (docs, source, issue
+  tracker, changelog, tags) stay hidden until `APP_REPO_PUBLIC` is set to `1`; pages show plain text or nothing
+  instead of a link that would be a GitHub 404 for staff, and new installs no longer get a "Docs" custom link.
+- New `README.md`, `NOTICE` (GPL-3.0; credits ITFlow by itflow-org and the MSP fork by TractorHacker / Foley IT),
+  `REBRANDING.md` (every name that was kept and why), `CONTRIBUTING.md`, and a `SECURITY.md` that points at this
+  repository's private security advisories. `composer.json` gains the project metadata (`rivetit/rivetit`,
+  `GPL-3.0-only`); its `ITFlow\` autoload namespace is unchanged.
+- **RivetIT mark and favicon:** `img/branding/` holds the logo, dark logo, mark and favicon (SVG, plus
+  `favicon.ico`), and the root `/favicon.ico` is the RivetIT icon instead of the upstream paper plane. The login
+  page shows the mark and "Welcome to RivetIT" when no company logo is set; an uploaded company logo or favicon
+  still wins. The footer reads "RivetIT 26.09" (the upstream docs, forum and services links are gone; "Docs ·
+  Source" are added once the repository is public), and the About / debug page shows "RivetIT | Version 26.09",
+  the source repository, the license and a "Based on ITFlow" credit. The wordmark in `logo.svg` /
+  `logo-dark.svg` is drawn as outlines, so it no longer depends on the fonts installed on the viewing system.
+- **E-mails from existing installs say RivetIT:** `config.php` still holds `$config_app_name` (setup wrote
+  `ITFlow Internal IT`); the old defaults `ITFlow` and `ITFlow Internal IT`, or an empty value, now mean RivetIT at
+  runtime. A name an administrator chose is kept, and `config.php` is never rewritten. New installs write an empty
+  value, which means the product name, so a later rename or `RIVETIT_APP_NAME` reaches their e-mails too.
+- **Webhooks** also send `X-RivetIT-Signature` and `X-RivetIT-Event`, with the same values as `X-ITFlow-Signature`
+  and `X-ITFlow-Event`, which stay: existing receivers keep verifying the old names.
+- **Display-only identity strings** now say RivetIT: the authenticator-app label and passkey name for new
+  enrolments (existing authenticators and passkeys keep working), the calendar feed's PRODID and file name, the
+  test push title, the Stripe payment description (the `itflow_*` metadata keys stay), the API token label for
+  passkey logins, the outgoing User-Agent for address lookups (`RivetIT/26.09 (+<repository>; ...)`) and training
+  video lookups (`RivetIT-Training/1.0`), the training PDF creator and transcript footer, the backup
+  `version.txt` and SQL dump header (the backup file names stay), the kiosk web-app name ("RivetIT Training";
+  kiosks already added to a home screen keep their name) and the wording around new Odoo write-back lines
+  ("Record of truth: RivetIT", "RivetIT ref:"; the `[ITFLOW:…]` marker is unchanged, and lines written before keep
+  their wording).
+
+### Fixes
+- **Admin > Update: "Latest Release"** linked to the releases of the old MSP fork (`TheTractorHacker/itflow`); it
+  now shows the latest tag of this repository (a link to its tag list once the repository is public). The page
+  shows the RivetIT version (26.09, as in the footer) with the git release tag below it, and says where updates
+  come from: the check compares with the `fork` remote, now named by a constant, `APP_UPDATE_REMOTE` (default
+  `fork`, still pointing where it did), while **Update App** runs `git pull` from the branch's upstream (`origin`).
+- **Fresh installs start with ticket charges off**, like the other billing modules: the column default turned them
+  on, showing Products, the Ticket Charges report and charge fields until Settings > Modules was first saved.
+- **Internal-IT wording**: browser tab titles say Departments, Tickets by Department and the other department
+  report names instead of the file names (Clients, Ticket By Client, ...), and KB, RMM, SLA, CSAT, API and IT in
+  capitals; the dashboard tile is "Waiting on Employee" and counts tickets in a status of that name (or the
+  upstream "Waiting on Customer"), where it always showed 0 on installs that had renamed the status; the Training
+  switch on Settings > Modules no longer calls the kiosk and records "later phases"; the API docs no longer name
+  a product they never explain.
+- **Setup wizard:** the sidebar step numbers match the step cards (Welcome is not numbered, and step 5 is "Region
+  and Language" in both).
+
+### Upgrade notes
+- **Docker Compose:** the containers are now named `rivetit-web` and `rivetit-db` and the built image
+  `rivetit-web:local`. Run `git pull` then `docker compose up -d --build`: both containers are recreated under the
+  new names on the same `itflow_db_data` volume, so the data is untouched. The service keys (`app`, `db`), the
+  `DB_NAME` / `DB_USER` defaults (`itflow`) and the volume name are unchanged on purpose. To run two stacks on one
+  host, set `RIVETIT_CONTAINER_PREFIX` in `.env`; it prefixes both containers and the image tag. **A host that
+  already runs two or more stacks** must set a different prefix in every stack's `.env` but one **before** its
+  `docker compose up`, otherwise the second stack stops with "container name /rivetit-db is already in use".
+  Scripts should use `docker compose exec app|db ...`.
+- **Installer secrets:** `scripts/setup_cli.php` reads `RIVETIT_DB_PASSWORD` / `RIVETIT_ADMIN_PASSWORD`. The old
+  names `ITFLOW_DB_PASSWORD` / `ITFLOW_ADMIN_PASSWORD` still work and are deprecated; `deploy/install.sh` and the
+  Docker entrypoint set both.
+- **Unchanged on purpose** (see `REBRANDING.md`): the `ITFlow\` PHP namespace, `itflow_*` functions and
+  `itflow*.css` files, database, table, column and config names, session / cookie / browser-storage keys, webhook
+  signature headers, Odoo write-back markers, key-derivation labels, backup file names, the mail folder the ticket
+  parser files messages into, and the server-level names the deploy scripts use (`/var/log/itflow-*.log`,
+  `/etc/cron.d/itflow*`, `itflow-backup.service` / `.timer`, `/etc/itflow/backup-passphrase`, the `itflow-auth`
+  fail2ban jail, the `itflow_login` nginx zone and the `99-itflow-hardening` drop-ins). Re-running
+  `deploy/harden.sh` or `deploy/install.sh` on an existing box finds everything where it was.
+- **Updates** still come from `TheTractorHacker/ITFlow-Internal-IT` (branch `main`): the check compares with the
+  `fork` remote and **Update App** / `deploy/update.sh` pull from `origin`, both that repository; it has not moved.
+  When it does, re-point both remotes (`git remote set-url`). The optional telemetry still reports to the upstream
+  ITFlow endpoint.
+- The Android companion app keeps working unchanged (same `/api/v1`, same package id); renaming the app itself is a
+  separate follow-up in its own repository.
 
 ## [Unreleased] ITFlow Internal IT - Training: continue from the last point
 Database 2.6.98 -> 2.6.99: `training_runs` gets `trun_lesson_resume_at` (nullable). Nothing is backfilled: runs from

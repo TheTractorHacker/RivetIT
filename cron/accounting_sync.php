@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - Accounting sync worker (QuickBooks Online one-way push).
+ * RivetIT - Accounting sync worker (QuickBooks Online one-way push).
  *
  * require_once'd from cron/cron.php alongside the other split workers. Expects
  * $mysqli to be in scope. Processes pending accounting_sync_queue jobs with the

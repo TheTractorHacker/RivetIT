@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - GET/POST request handler for client SSL certificates
+ * RivetIT - GET/POST request handler for client SSL certificates
  */
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");

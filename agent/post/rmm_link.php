@@ -36,7 +36,7 @@ if ($action === 'unlink') {
     exit;
 }
 
-// Manually link an existing ITFlow asset to a Tactical agent ID
+// Manually link an existing RivetIT asset to a Tactical agent ID
 if ($action === 'link') {
     $asset_id        = intval($_POST['asset_id'] ?? 0);
     $integration_id  = intval($_POST['integration_id'] ?? $config_rmm_default_integration_id);

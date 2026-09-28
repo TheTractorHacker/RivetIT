@@ -47,7 +47,7 @@ require_once "includes/inc_all_admin.php";
                     <input type="checkbox" class="form-check-input" name="config_module_enable_training" <?php if ($config_module_enable_training == 1) { echo "checked"; } ?> value="1" id="customSwitchTraining">
                     <label class="form-check-label" for="customSwitchTraining">Show Training (LMS)</label>
                 </div>
-                <small class="form-text text-muted">Course builder and quizzes now; compliance records and the iPad kiosk in later phases. Visible only to roles granted the Training permission.</small>
+                <small class="form-text text-muted">Courses, quizzes, assignments, training records and certificates, and the training kiosk for shared iPads and PCs. Visible only to roles granted the Training permission.</small>
             </div>
             <?php } ?>
 

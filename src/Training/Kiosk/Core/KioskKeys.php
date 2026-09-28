@@ -7,6 +7,9 @@ namespace ITFlow\Training\Kiosk\Core;
  * HMAC-SHA256 per fixed label, so rotating that key invalidates PIN hashes, setup codes, slips
  * and CSRF tokens together (risk R8). The raw key never leaves this object, and __debugInfo()
  * hides it from var_dump/print_r. An empty key is a KioskConfigException (bootstrap: 503).
+ *
+ * The "itflow-training-*|v1" labels are frozen identifiers, kept through the RivetIT rename: a new
+ * label would invalidate every enrolled PIN, setup code, slip and kiosk token (see REBRANDING.md).
  */
 final class KioskKeys
 {

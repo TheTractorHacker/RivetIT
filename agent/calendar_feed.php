@@ -6,8 +6,9 @@
  */
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/branding.php';   // APP_NAME (this feed does not load functions.php)
 
-// Load the configured timezone from ITFlow settings
+// Load the configured timezone from the app settings
 $tz_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_timezone FROM settings WHERE company_id = 1 LIMIT 1"));
 $tz_id  = ($tz_row && $tz_row['config_timezone']) ? $tz_row['config_timezone'] : 'America/Chicago';
 date_default_timezone_set($tz_id);
@@ -87,7 +88,7 @@ $cal_name  = ical_escape($user_name . "'s Schedule");
 
 $ical  = "BEGIN:VCALENDAR\r\n";
 $ical .= "VERSION:2.0\r\n";
-$ical .= "PRODID:-//ITFlow//Ticket Schedule//EN\r\n";
+$ical .= "PRODID:-//" . preg_replace('~[^A-Za-z0-9 ._-]~', '', APP_NAME) . "//Ticket Schedule//EN\r\n";
 $ical .= "METHOD:PUBLISH\r\n";
 $ical .= "CALSCALE:GREGORIAN\r\n";
 $ical .= "X-WR-CALNAME:" . $cal_name . "\r\n";
@@ -170,7 +171,7 @@ while ($row = mysqli_fetch_assoc($result_ts)) {
 $ical .= "END:VCALENDAR\r\n";
 
 header('Content-Type: text/calendar; charset=utf-8');
-header('Content-Disposition: inline; filename="itflow-schedule.ics"');
+header('Content-Disposition: inline; filename="' . (trim(preg_replace('~[^a-z0-9]+~', '-', strtolower(APP_NAME)), '-') ?: 'calendar') . '-schedule.ics"');
 header('Cache-Control: no-store, no-cache');
 header('Pragma: no-cache');
 echo $ical;

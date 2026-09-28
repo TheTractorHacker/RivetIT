@@ -1,13 +1,19 @@
-# ITFlow Windows metrics collector
+# RivetIT Windows metrics collector
 
 `itflow_metrics_collector.ps1` gathers one batch of device metrics from a Windows
-endpoint and POSTs it to ITFlow's device-metrics ingest endpoint. It is designed
+endpoint and POSTs it to RivetIT's device-metrics ingest endpoint. It is designed
 to run as a **Tactical RMM Script Check** on a 300 second interval.
 
-> **Naming.** This subsystem is **Metrics**, never "telemetry". ITFlow already has
+> **Naming.** This subsystem is **Metrics**, never "telemetry". RivetIT already has
 > a `config_telemetry` setting, and it means something completely different —
 > anonymous phone-home usage reporting (`admin/settings_telemetry.php`). Do not
 > reuse the word in filenames, settings, tables or URLs.
+
+> **Pre-RivetIT names that stay.** The script file name `itflow_metrics_collector.ps1`,
+> the payload tag `itflow.metrics.v1`, the token cache `%ProgramData%\ITFlow\metrics\`
+> and the Tactical custom field `itflow_metrics_token` keep their old names on purpose:
+> RMM script libraries, deployed endpoints and the ingest endpoint already depend on
+> them, and renaming any of them would force every device to re-enroll.
 
 ---
 
@@ -27,7 +33,7 @@ and `rmmagent` sources:
   HTTP call per check per agent, a `timeFilter` denominated in **days** with no
   sub-day option, and server-side pruning at 30 days.
 
-So ITFlow's *vendor* tier (`cpu.utilization`, `memory.utilization`,
+So RivetIT's *vendor* tier (`cpu.utilization`, `memory.utilization`,
 `disk.utilization`, `system.uptime_seconds`, `system.pending_reboot`) is all that
 can be had from the API. Everything in the *collector* tier — per-core CPU, real
 memory byte counts, disk IOPS/queue/latency, per-NIC throughput, battery — needs
@@ -39,7 +45,7 @@ an agent-side script. That is this file.
 
 | Parameter | Required | Default | Meaning |
 |---|---|---|---|
-| `-ApiUrl` | yes | — | Base ITFlow URL, e.g. `https://itflow.example.com`. A full `/api/v1/metrics-ingest` URL is also accepted. |
+| `-ApiUrl` | yes | — | Base RivetIT URL, e.g. `https://rivetit.example.com`. A full `/api/v1/metrics-ingest` URL is also accepted. |
 | `-DeviceToken` | see below | `''` | The per-asset device token, `itfm1.<selector>.<verifier>`. |
 | `-EnrollmentToken` | see below | `''` | Shared, revocable enrollment secret. Used to self-enroll and cache a device token when `-DeviceToken` is absent or has been revoked. |
 | `-SampleIntervalSeconds` | no | `5` | Gap between the two performance-counter snapshots used to compute rates. Range 1–60. |
@@ -82,9 +88,9 @@ the push itself can fail the check.
 
 | Field | Value |
 |---|---|
-| Name | `ITFlow — Device Metrics Collector` |
+| Name | `RivetIT — Device Metrics Collector` |
 | Shell | **PowerShell** |
-| Category | `ITFlow` |
+| Category | `RivetIT` |
 | Script | contents of `itflow_metrics_collector.ps1` |
 | Default timeout | `90` seconds |
 
@@ -98,8 +104,8 @@ Script Check*
 
 | Field | Value |
 |---|---|
-| Script | `ITFlow — Device Metrics Collector` |
-| Script arguments | `-ApiUrl "https://itflow.example.com"` and `-EnrollmentToken "itfm1.…"` |
+| Script | `RivetIT — Device Metrics Collector` |
+| Script arguments | `-ApiUrl "https://rivetit.example.com"` and `-EnrollmentToken "itfm1.…"` |
 | Run every | `300` seconds |
 | Failure threshold | `3` consecutive failures |
 | Timeout | `90` seconds |
@@ -120,7 +126,7 @@ token per asset and pass it with a Tactical custom-field substitution:
    field `itflow_metrics_token`.
 2. Fill it per agent with that asset's device token.
 3. Script arguments become:
-   `-ApiUrl "https://itflow.example.com" -DeviceToken "{{agent.itflow_metrics_token}}"`
+   `-ApiUrl "https://rivetit.example.com" -DeviceToken "{{agent.itflow_metrics_token}}"`
 
 This is more secure and much more tedious. With 21 agents, enrollment is the
 sensible default; per-agent tokens are the right answer if the fleet grows or if
@@ -129,7 +135,7 @@ the enrollment secret would sit somewhere it should not.
 ### 3e. Validate on one machine first
 
 ```powershell
-.\itflow_metrics_collector.ps1 -ApiUrl "https://itflow.example.com" -DryRun
+.\itflow_metrics_collector.ps1 -ApiUrl "https://rivetit.example.com" -DryRun
 ```
 
 Prints the summary line and the exact JSON that would be posted, contacting
@@ -147,7 +153,7 @@ nothing you do not have (GPU on a VM, battery on a desktop) is being invented.
         │
         └── -EnrollmentToken supplied? ──► POST /api/v1/metrics-ingest/enroll
                                              ├─ resolves the asset by Tactical agent id,
-                                             │  then RMM hostname, then ITFlow asset name
+                                             │  then RMM hostname, then RivetIT asset name
                                              ├─ revokes this asset's previous device tokens
                                              └─ returns a new device token → cached
 ```
@@ -179,7 +185,7 @@ host-level samples must not.
 | Metric | dim | Instance key | Notes |
 |---|---|---|---|
 | `cpu.core.utilization` | core | `0`, `1`, `2`… | `% Processor Time` is counter type `PERF_100NSEC_TIMER_INV`: the raw value is accumulated **idle** time, so busy% = `100 * (1 - dPercentProcessorTime / dTimestamp_Sys100NS)`. |
-| `cpu.utilization` | — | — | The **mean of the per-core values**, not the `_Total` instance. `_Total`'s raw aggregation semantics vary; the mean of the cores is unambiguous and matches what "CPU utilisation" means everywhere else in ITFlow. |
+| `cpu.utilization` | — | — | The **mean of the per-core values**, not the `_Total` instance. `_Total`'s raw aggregation semantics vary; the mean of the cores is unambiguous and matches what "CPU utilisation" means everywhere else in RivetIT. |
 
 *Fallback:* if the perf counters are unusable, `cpu.utilization` falls back to
 `Win32_Processor.LoadPercentage` and per-core is omitted.
@@ -368,7 +374,7 @@ Rules the server enforces:
   token and from nowhere else — a device credential must not be able to write
   another device's series.
 * **`at` is UTC**, ISO-8601 with a trailing `Z`. `device_metric_samples.sampled_at`
-  is stored in UTC — a deliberate divergence from ITFlow's local-time convention.
+  is stored in UTC — a deliberate divergence from RivetIT's local-time convention.
   A bare timestamp with no zone is read *as* UTC.
 * One timestamp for the whole batch, truncated to the **second**. That matters:
   `(asset_id, metric_id, instance_id, sampled_at)` is the primary key, so a
@@ -421,20 +427,20 @@ itself on the next run. Otherwise delete
 `%ProgramData%\ITFlow\metrics\device_token.txt` and re-enroll.
 
 **`ERROR: push failed with HTTP 409` during enrollment**
-The hostname matches more than one live ITFlow asset. Archive the duplicate or
+The hostname matches more than one live RivetIT asset. Archive the duplicate or
 mint a device token for the right asset by hand and pass it with `-DeviceToken`.
 
 **`ERROR: push failed with HTTP 404` during enrollment**
 No asset matched. Confirm the machine has an `asset_rmm_links` row (i.e. the RMM
-sync has seen it) or that an ITFlow asset's name equals the Windows hostname.
+sync has seen it) or that a RivetIT asset's name equals the Windows hostname.
 
-**`SKIPPED: … device metrics are disabled in ITFlow`**
+**`SKIPPED: … device metrics are disabled in RivetIT`**
 `config_enable_device_metrics` is 0. The check passes on purpose.
 
 **`WARN: server rejected N sample(s)`**
 The response's `reject_reasons` names each one — `invalid_value` (out of registry
 range), `unknown_metric`, `missing_instance_key`, `unexpected_instance_key`. This
-is a collector or registry mismatch, and it is logged server-side to the ITFlow
+is a collector or registry mismatch, and it is logged server-side to the RivetIT
 audit trail as well. It should always be zero.
 
 **Nothing at all is collected (`exit 1`, "no metrics could be collected")**

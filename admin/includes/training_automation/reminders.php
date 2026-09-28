@@ -83,7 +83,7 @@ $ta_rem_today_n = intval(date('N'));
             </p>
             <p class="small text-muted mb-3">
                 <i class="fas fa-fw fa-info-circle me-1" aria-hidden="true"></i>Due-soon and renewal windows follow Training compliance settings.
-                Only people with ITFlow accounts and department access receive digests: someone with no department rows gets none.
+                Only people with <?= htmlspecialchars(APP_NAME) ?> accounts and department access receive digests: someone with no department rows gets none.
             </p>
 
             <form action="<?php echo nullable_htmlentities($ta_rem_action); ?>" method="post" autocomplete="off" data-ts-label="Reminders">

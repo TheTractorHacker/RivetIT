@@ -86,7 +86,7 @@ require_once "includes/inc_all_admin.php";
                     <div class="notif-row">
                         <div class="notif-row-meta">
                             <div class="notif-label">Enable Cron Job</div>
-                            <div class="notif-desc">Required for email reminders, expiration alerts, and other scheduled tasks. Several cron entries must also be configured on your server — <a href="https://docs.itflow.org/cron" target="_blank">see docs</a>.</div>
+                            <div class="notif-desc">Required for email reminders, expiration alerts, and other scheduled tasks. Several cron entries must also be configured on your server<?php if (APP_DOCS_URL !== '') { ?> — <a href="<?= htmlspecialchars(APP_DOCS_URL) ?>" target="_blank" rel="noopener">see docs</a><?php } else { ?> (see deploy/README.md in the install folder)<?php } ?>.</div>
                         </div>
                         <div class="notif-row-control">
                             <div class="form-check form-check form-switch">
@@ -423,7 +423,7 @@ require_once "includes/inc_all_admin.php";
                     <?php } else { ?>
                     <div class="p-3 text-muted text-center small" style="border:1px solid var(--color-border,#eee);border-radius:.4rem;">
                         <i class="fas fa-mobile-alt fa-2x mb-2 d-block text-secondary"></i>
-                        No devices have logged into the ITFlow Internal IT mobile app yet.
+                        No devices have logged into the <?= htmlspecialchars(APP_NAME) ?> mobile app yet.
                     </div>
                     <?php } ?>
                 </div>
@@ -503,7 +503,7 @@ require_once "includes/inc_all_admin.php";
                         <div class="font-weight-semibold mb-1">Push notifications are not configured</div>
                         <div class="small text-muted">
                             Connect a Firebase project to send real-time push notifications to staff
-                            on the ITFlow Internal IT mobile app. Firebase Cloud Messaging (FCM) is free with no per-message cost.
+                            on the <?= htmlspecialchars(APP_NAME) ?> mobile app. Firebase Cloud Messaging (FCM) is free with no per-message cost.
                         </div>
                     </div>
                 </div>
@@ -524,7 +524,7 @@ require_once "includes/inc_all_admin.php";
                         <div class="push-step">
                             <div class="push-step-num">2</div>
                             <div class="push-step-body">
-                                Click <strong>Add project</strong>, give it a name (e.g. <em>ITFlow Internal IT</em>), and complete the wizard.
+                                Click <strong>Add project</strong>, give it a name (e.g. <em><?= htmlspecialchars(APP_NAME) ?></em>), and complete the wizard.
                                 Google Analytics is not required — you can disable it.
                             </div>
                         </div>
@@ -553,7 +553,7 @@ require_once "includes/inc_all_admin.php";
                         <div class="push-step" style="border-bottom:none;">
                             <div class="push-step-num">6</div>
                             <div class="push-step-body">
-                                Staff log into the <strong>ITFlow Internal IT mobile app</strong> and their devices register automatically.
+                                Staff log into the <strong><?= htmlspecialchars(APP_NAME) ?> mobile app</strong> and their devices register automatically.
                             </div>
                         </div>
                     </div>

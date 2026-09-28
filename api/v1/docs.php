@@ -1,5 +1,5 @@
 <?php
-// Human-readable HTML reference for the ITFlow API v1.
+// Human-readable HTML reference for the RivetIT API v1.
 // Served (public) by index.php's `case openapi/docs` block at GET /api/v1/docs.
 //
 // Fully self-contained: inline CSS only, NO JavaScript and NO external assets,
@@ -116,7 +116,7 @@ header('Content-Type: text/html; charset=utf-8');
   </header>
 
   <p class="lead">
-    Companion REST API for the ITFlow MSP mobile app and integrations. This page is
+    Companion REST API for the <?= $e(APP_NAME) ?> mobile app and integrations. This page is
     generated from <a href="openapi">the OpenAPI spec</a> and lists every live endpoint.
     Base path: <code>/api/v1</code>.
   </p>

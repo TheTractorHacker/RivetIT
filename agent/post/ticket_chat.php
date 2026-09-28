@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - Live chat messages on tickets
+ * RivetIT - Live chat messages on tickets
  */
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");

@@ -1,10 +1,10 @@
-# ITFlow-Internal-IT — daily backup timer, pairs with itflow-backup.service
+# RivetIT — daily backup timer, pairs with itflow-backup.service
 # in this same directory. See that file's header comment for deployment
 # instructions (substituting ${APP_DIR}) and the multi-company-on-one-box
 # naming note.
 
 [Unit]
-Description=Run ITFlow-Internal-IT encrypted backup daily (${APP_DIR})
+Description=Run RivetIT encrypted backup daily (${APP_DIR})
 Documentation=https://github.com/TheTractorHacker/ITFlow-Internal-IT
 
 [Timer]

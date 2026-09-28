@@ -28,7 +28,7 @@ if (isset($_GET['stripe_remove_pm'])) {
         logApp("Stripe", "error", "Exception removing payment method for $payment_method: $error");
     }
 
-    // Remove payment method from ITFlow
+    // Remove payment method from RivetIT
     mysqli_query($mysqli, "UPDATE client_stripe SET stripe_pm = NULL WHERE client_id = $client_id LIMIT 1");
 
     // Remove Auto Pay on recurring invoices that are stripe
@@ -53,7 +53,7 @@ if (isset($_GET['stripe_reset_customer'])) {
 
     $client_id = intval($_GET['client_id']);
 
-    // Delete the customer id and payment method id stored in ITFlow, allowing the client to set these up again
+    // Delete the customer id and payment method id stored in RivetIT, allowing the client to set these up again
     mysqli_query($mysqli, "DELETE FROM client_stripe WHERE client_id = $client_id");
 
     // Remove Auto Pay on recurring invoices that are stripe

@@ -1,25 +1,24 @@
 ---
 name: Feature request
-about: Please discuss new features on the Forum @ https://forum.itflow.org/t/features
-title: 'Please discuss new features on the Forum'
-labels: Support
+about: Suggest an improvement or a new feature for RivetIT
+title: ''
+labels: enhancement
 assignees: ''
 
 ---
 
-We're now using GitHub Issues exclusively for development.
--
+**The problem you want to solve**
+What are you trying to do, and what gets in the way today?
 
-Going forward, GitHub Issues will be used to track confirmed bugs & planned features via Github Projects. This allows us to keep GitHub clean & tidy, whilst maintaining an active and relaxed community experience on the Forum.
+**The change you would like**
+Describe the feature or improvement.
 
-Please discuss new feature requests on the forum @ https://forum.itflow.org/t/features. When creating discussions, try to imagine how your proposed feature would also benefit other users.
+**Who it helps**
+For example: the service desk, device and asset management, onboarding, training, or an integration.
 
-All new feature requests raised here will be closed, unless agreed otherwise.
-
-Thanks,
-
-The ITFlow team :)
+**Alternatives you have considered**
 
 --
 
-To privately discuss a security issue, please see https://github.com/itflow-org/itflow/security
+Security issues: please do not open a public issue. Report them privately through
+**Security > Report a vulnerability** on this repository (see SECURITY.md).

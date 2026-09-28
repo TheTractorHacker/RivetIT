@@ -113,7 +113,7 @@ try {
             'from_name'      => $config_mail_from_name,
             'recipient'      => $user_email,
             'recipient_name' => $user_name,
-            'subject'        => 'New login to your ITFlow Internal IT account',
+            'subject'        => 'New login to your ' . APP_NAME . ' account',
             'body'           => "Hi $user_name,<br><br>A passkey sign-in was detected from a new device or location.<br><br>IP: $session_ip<br>Browser: $session_user_agent<br><br>If this was not you, please contact your administrator immediately.",
         ]];
         addToMailQueue($data);

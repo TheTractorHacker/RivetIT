@@ -1,5 +1,7 @@
 # Porting the redesign to the MSP fork
 
+> **Historical document.** Written before the product was renamed **RivetIT** (September 2026); "ITFlow Internal IT" here is the same product. Names, paths and plans are kept as written. See [REBRANDING.md](../REBRANDING.md).
+
 Moving the Tabler shell, the compatibility CSS layer, the polish pass and the motion
 system from **ITFlow Internal IT** into **itflow.foleyit.com** — a live production
 helpdesk with real clients, active cron and no shared git history.

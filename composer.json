@@ -1,4 +1,15 @@
 {
+    "name": "rivetit/rivetit",
+    "description": "RivetIT is a free and open-source internal IT operations platform for managing service requests, users, devices, documentation, automation, integrations, and employee training from one centralized system.",
+    "type": "project",
+    "license": "GPL-3.0-only",
+    "homepage": "https://github.com/TheTractorHacker/ITFlow-Internal-IT",
+    "support": {
+        "issues": "https://github.com/TheTractorHacker/ITFlow-Internal-IT/issues",
+        "source": "https://github.com/TheTractorHacker/ITFlow-Internal-IT",
+        "docs": "https://github.com/TheTractorHacker/ITFlow-Internal-IT/tree/main/docs",
+        "security": "https://github.com/TheTractorHacker/ITFlow-Internal-IT/security/advisories/new"
+    },
     "require": {
         "predis/predis": "^3.5",
         "aws/aws-sdk-php": "^3.395"

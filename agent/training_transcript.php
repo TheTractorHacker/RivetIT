@@ -513,7 +513,7 @@ $trr_close_reason = static fn(?string $r): string => Labels::closeReason($r);
         </section>
     </div>
 
-    <p class="trr-footnote">As of <?= trr_h(trr_date($trr['as_of'])) ?> · Generated <?= trr_h(trr_clock($trr['generated_at'])) ?> by <?= trr_h($trr_generated_by) ?><?= $trr['ledger'] !== null ? ' · ledger ' . trr_h($trr['ledger']) : '' ?></p>
+    <p class="trr-footnote">As of <?= trr_h(trr_date($trr['as_of'])) ?> · Generated <?= trr_h(trr_clock($trr['generated_at'])) ?> by <?= trr_h($trr_generated_by) ?> with <?= trr_h(APP_NAME) ?><?= $trr['ledger'] !== null ? ' · ledger ' . trr_h($trr['ledger']) : '' ?></p>
 </div>
 
 <?php

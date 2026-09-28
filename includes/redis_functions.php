@@ -1,6 +1,6 @@
 <?php
 /*
- * ITFlow
+ * RivetIT
  * Redis pub/sub helpers for live ticket updates and chat (Syncro-Beta)
  *
  * Redis runs locally on a non-default port (6380) because the standard

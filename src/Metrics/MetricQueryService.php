@@ -12,7 +12,7 @@ namespace ITFlow\Metrics;
  * TIMEZONE CONTRACT - READ THIS BEFORE TOUCHING ANY TIMESTAMP HERE
  * ---------------------------------------------------------------
  * `device_metric_samples.sampled_at` and `device_metric_rollups.period_start` are
- * stored in UTC. That is a deliberate divergence from the rest of ITFlow, which
+ * stored in UTC. That is a deliberate divergence from the rest of RivetIT, which
  * stores local time (see MetricIngestService for why: vendor APIs speak UTC, and a
  * DST fold would collide two distinct samples onto the same composite primary key
  * and silently destroy one). Consequently:

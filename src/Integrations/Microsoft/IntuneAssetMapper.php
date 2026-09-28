@@ -4,7 +4,7 @@ namespace ITFlow\Integrations\Microsoft;
 
 /**
  * IntuneAssetMapper — matches Microsoft Intune managed devices (pulled via
- * GraphClient::listAllManagedDevices()) to ITFlow assets. Mirrors
+ * GraphClient::listAllManagedDevices()) to RivetIT assets. Mirrors
  * includes/class_rmm_asset_mapper.php's structure/conventions closely, just
  * for the Microsoft Graph device source instead of Tactical/Level/Action1.
  *
@@ -112,7 +112,7 @@ class IntuneAssetMapper {
             return 'updated';
         }
 
-        // ----- Step 2: Try to match an existing ITFlow asset -----
+        // ----- Step 2: Try to match an existing RivetIT asset -----
         $asset_id = 0;
 
         // 2a: serial number
@@ -136,7 +136,7 @@ class IntuneAssetMapper {
             }
         }
 
-        // ----- Step 3: Create new ITFlow asset if no match -----
+        // ----- Step 3: Create new RivetIT asset if no match -----
         if (!$asset_id) {
             $asset_type = $this->guessAssetType($os_name);
             $os_combined_esc = mysqli_real_escape_string($m, trim("$os_name $os_version"));

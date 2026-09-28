@@ -350,7 +350,7 @@ function portalPreviewBlockWrites(string $attempted_action = ''): void
             if (!headers_sent()) {
                 header('Content-Type: text/plain; charset=UTF-8');
             }
-            echo "That portal preview has ended, so nothing was changed. Return to ITFlow and start a new preview if you still need one.\n";
+            echo "That portal preview has ended, so nothing was changed. Return to " . APP_NAME . " and start a new preview if you still need one.\n";
             exit;
         }
         return; // Not previewing - a real portal contact, or nobody. Carry on.
@@ -454,7 +454,7 @@ HTML;
  *                            (/client/post.php?logout). That handler calls
  *                            session_unset() + session_destroy(), which in a
  *                            preview would destroy the ADMIN'S OWN AGENT
- *                            SESSION - the admin would be signed out of ITFlow
+ *                            SESSION - the admin would be signed out of RivetIT
  *                            entirely by clicking a button in a preview. While
  *                            previewing, that link ends the preview instead.
  *                            When no valid preview is running this returns

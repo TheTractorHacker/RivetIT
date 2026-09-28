@@ -1,102 +1,194 @@
-<div id="top"></div>
+<h1 align="center">
+  <img src="img/branding/logo-mark.svg" alt="" width="72"><br>
+  RivetIT
+</h1>
 
-<!-- PROJECT SHIELDS -->
+<p align="center"><strong>Everything your IT department needs. One platform.</strong></p>
+
+<p align="center">
+  RivetIT is a free and open-source internal IT operations platform for managing service requests, users,
+  devices, documentation, automation, integrations, and employee training from one centralized system.
+</p>
+
+<p align="center">
+  <a href="#self-hosting">Self-hosting</a>
+  ·
+  <a href="docs/DEPLOYMENT.md">Deployment</a>
+  ·
+  <a href="docs/ARCHITECTURE.md">Architecture</a>
+  ·
+  <a href="docs/API.md">API</a>
+  ·
+  <a href="CHANGELOG.md">Changelog</a>
+  ·
+  <a href="https://github.com/TheTractorHacker/ITFlow-Internal-IT/tags">Releases</a>
+  ·
+  <a href="https://github.com/TheTractorHacker/ITFlow-Internal-IT/issues">Report a bug</a>
+</p>
+
+<p align="center">
+
 [![Contributors][contributors-shield]][contributors-url]
 [![Stargazers][stars-shield]][stars-url]
 [![Commits][commit-shield]][commit-url]
 [![GPL License][license-shield]][license-url]
 
-<div align="center">
-
-  <h3 align="center">ITFlow — Internal IT Edition</h3>
-
-  <p align="center">
-    A fork of <a href="https://github.com/TheTractorHacker/itflow">ITFlow MSP Edition</a> (itself a fork of <a href="https://github.com/itflow-org/itflow">ITFlow</a>), repurposed for internal IT teams instead of MSPs — one organization, many departments, no client billing.
-    <br />
-    <br />
-    <a href="https://github.com/itflow-org/itflow">Upstream Project</a>
-    ·
-    <a href="https://docs.itflow.org">Docs</a>
-    ·
-    <a href="docs/ARCHITECTURE.md">Architecture</a>
-    ·
-    <a href="docs/API.md">API Reference</a>
-    ·
-    <a href="docs/DEPLOYMENT.md">Deployment</a>
-    ·
-    <a href="https://github.com/TheTractorHacker/ITFlow-Internal-IT/releases">Releases</a>
-    ·
-    <a href="https://github.com/TheTractorHacker/ITFlow-Internal-IT/issues">Report Bug</a>
-  </p>
-</div>
+</p>
 
 ---
 
-> **This is a fork.** It started from a snapshot of [TheTractorHacker/itflow](https://github.com/TheTractorHacker/itflow) (an MSP-focused fork of upstream [itflow-org/itflow](https://github.com/itflow-org/itflow)) and now tracks its own independent history. All original credit goes to the ITFlow contributors; MSP workflow additions credit to Foley IT / TractorHacker. Internal-IT-specific changes are maintained here.
+## Who it is for
+
+RivetIT is built for the IT team inside an organization: corporate IT, manufacturing and plant IT, schools,
+nonprofits, and small and midsize organizations. It runs one organization with many **departments**,
+locations and employees, from one self-hosted install. It is not an MSP tool: there is no client billing,
+and the invoicing, quoting, payroll and CRM code it inherited is switched off.
+
+RivetIT started from [ITFlow](https://github.com/itflow-org/itflow) and was known as *ITFlow Internal IT*
+before it was renamed; see [Credits](#license-and-credits).
+
+## Features
+
+Where each area lives in the menu: Service Desk is **Service Desk** (and **Work** for projects and the
+calendar); devices and assets are **Infrastructure**, **Endpoints** (RMM, Intune, network) and **Backups**;
+people are **People** and **Organization** (departments, org chart); documentation is **Knowledge**, plus the
+documents inside each department; learning is **Training**; integrations, API keys and webhooks are under
+**Admin**.
+
+### Service Desk
+- **Tickets** with categories (parent/child groups), custom statuses, priorities, assignment, watchers,
+  time tracking, internal notes, canned responses and ticket templates; list and Kanban views, with inline
+  changes to category, technician, priority and status from the list.
+- **E-mail to ticket** from IMAP or Microsoft 365 / Google Workspace (OAuth) mailboxes, with a review queue
+  for mail from unknown senders.
+- **Service catalog** that employees request from in the self-service portal.
+- **SLA policies** with business-hours calendars and holidays, SLA terms per department contract, and live
+  SLA hints while a ticket is being logged.
+- **Problems and changes** alongside incidents, **recurring tickets**, **appointments** (on-site or remote)
+  and a shared calendar.
+- **Worksheets and sign-off forms** with signatures, drag-and-drop field ordering and templates.
+- **Satisfaction ratings (CSAT)** on resolved tickets, live ticket updates and ticket chat, and a warning
+  when a colleague is viewing the same ticket.
+- **Projects** with milestones, tasks, Kanban and Gantt views, and project templates.
+- A **self-service portal** where employees raise and follow tickets, rate them, and see their assets,
+  documents and knowledge-base articles; optional sign-in with Microsoft Entra ID.
+- Optional **AI assistance** (ticket summaries, rewording replies, drafting documents) through an AI
+  provider you configure.
+
+### Asset Management
+- **Assets**: computers, servers, network devices, mobile devices and more, with locations, vendors,
+  warranty and purchase details, and per-department access.
+- **Assignment history**: every hand-over of a device to a person is recorded, not overwritten.
+- **Software and licenses**, **domains and SSL certificates** (with expiry checks), **networks**, **racks**,
+  **printers** and **network drives**.
+- A **secure share link** (expiring, view-limited) for a credential, document or file.
+
+### RMM & Remote Management
+- **RMM integrations**: Tactical RMM, Level.io and Action1 (patch management); Sophos Central for firewall
+  inventory and alerts. Agents are matched to assets automatically.
+- **RMM dashboard, alerts, script library and check policies**; alerts can open tickets automatically.
+- **Remote access**: a Connect button through the RMM, and one-click AnyDesk connect from the asset page.
+- **Device metrics**: CPU, memory, disk, network, uptime, pending reboot and battery charts, collected from
+  Tactical RMM or by a small Windows PowerShell collector (`scripts/collector/`).
+- **Microsoft Intune** device sync, **UniFi** controllers (devices, Wi-Fi networks and networks), and
+  **Comet Backup** status per department.
+
+### Documentation
+- **Knowledge base** with version history and restore, rich formatting, import from Word (DOCX), PDF and
+  HTML, per-department and portal visibility, and **interactive blocks**: step-by-step sequences with
+  per-reader progress, decision trees, copy-to-clipboard commands and sandboxed embeds.
+- **Credential vault** encrypted with per-user keys, TOTP codes, reveal logging, rotation reports and secure
+  references to a credential from a KB article.
+- **Documents** with templates, **files**, **contacts**, **locations**, **vendors** and **contracts**, all
+  linked to each other and to assets.
+
+### User Lifecycle
+- **Employees and departments**: employee ID, job title, manager, start date, employment status and type,
+  and work arrangement, with an **org chart** built from manager links.
+- **Onboarding and offboarding checklists** from templates, started from a person's page, with an audit trail.
+- **People import** from CSV with a preview to approve before anything is written.
+- **Directory sync** of departments and employees from Microsoft Entra ID, Google Workspace or Odoo.
+- **Security classification** on departments and per-user department access restrictions.
+
+### Learning Management
+- **Course builder**: uploaded video (with closed captions), YouTube and Vimeo, PDF and article lessons,
+  documents to acknowledge, quick checks, final exams from question banks with time and attempt limits,
+  English and Spanish versions, publishing with revision compare, and *Preview as learner*.
+- **Learning paths**, **achievements and badges**, and requirement **rules** that assign training by
+  department, Odoo job or work location, job group, person or new hire, with due dates and renewals.
+- **Training kiosk** for shared iPads and Windows PCs: employees sign in with their name and a PIN, take
+  courses, sign with a finger signature, and pick up where they left off; a **trainer mode** runs classroom
+  sessions and hands-on evaluations.
+- **Records** with certificate numbers and QR codes that anyone can check at `/verify/`, external cards and
+  paper records with evidence scans, voids and reissues, on a tamper-evident ledger
+  (`scripts/training_ledger_verify.php`).
+- **Compliance dashboard and reports** (department x course matrix, overdue, expiring, course analytics,
+  item analysis) with CSV export, transcripts and certificates as PDF, and reminder digests.
+
+### Integrations
+- **Microsoft 365 / Entra ID**: directory sync, Intune devices, mailboxes, Outlook calendar sync and portal
+  sign-in.
+- **Google Workspace**: directory sync and mailboxes.
+- **RMM and network**: Tactical RMM, Level.io, Action1, Sophos Central, UniFi, Comet Backup.
+- **Calendar feed** (iCal) for Outlook, Apple Calendar or Google Calendar.
+- **Signed webhooks** for ticket events, **SMTP / IMAP** mail, push notifications to the Android companion
+  app, and **S3-compatible storage** for in-app backups.
+
+### Odoo
+RivetIT integrates with [Odoo](https://www.odoo.com) (the Odoo Integration, under Admin > Settings >
+Integrations > Directory Sync): people and departments come from Odoo, and training records can go back to it.
+- **Directory sync** of departments and employees, with an employee-link check and an optional hire-date
+  fill; Odoo's JSON-2 API (Odoo 19 and later) with automatic fallback to JSON-RPC.
+- **Training rules** by Odoo job and work location.
+- **Training write-back** (off by default): completed training becomes résumé lines, certification skills
+  or HR notes on the Odoo employee, with retries, duplicate checks and undo on a void.
+- Optional **Odoo PIN sign-in** on the training kiosk.
+
+### Automation
+- **Ticket automation rules**: conditions (age, idle time, priority, status, assignee, category) and actions
+  (set fields, assign, add a note, notify, close, attach a worksheet template), with a run log.
+- **Scheduled report e-mails**, recurring tickets, RMM alert-to-ticket, domain and certificate expiry
+  checks, training assignment and reminders.
+- **Cron Manager**: change the schedule from the web UI and run jobs on demand.
+
+### Reporting
+- Service desk and SLA, ticket volume (by month, day and department), time by technician, technician
+  performance, satisfaction, RMM health and credential rotation; the service desk, ticket, technician and
+  satisfaction summaries can also be e-mailed on a schedule.
+- Training dashboards and reports with CSV export, plus the audit log and application log.
+
+### Security
+- **Two-factor sign-in** with TOTP or **passkeys (WebAuthn)**, per-user MFA enforcement, and e-mail alerts
+  for unusual sign-ins.
+- **Roles** with read / write / full access per module, admin roles, and module-only logins that stay inside
+  their modules.
+- **Per-department access** restrictions, secrets encrypted at rest, authenticated knowledge-base media,
+  and an audit trail of security events.
+- **Hardened deployment**: fail2ban, ufw, login rate limiting, PHP-FPM and MariaDB hardening, unattended
+  security updates and encrypted backups, with an [ISO 27001 Annex A mapping](docs/ISO27001-COMPLIANCE.md)
+  of what is and is not covered.
+
+### API
+- **REST API** at `/api/v1` for tickets, departments, contacts, assets, contracts, credentials, the
+  knowledge base, worksheets, appointments, projects (milestones and tasks), search, reports, alerts and
+  notifications, with live (Server-Sent Events) notifications and ticket chat.
+- **Bearer tokens** per user, or API keys scoped to departments, with read or read/write access.
+- **OpenAPI 3.0** spec at `/api/v1/openapi.yaml` and a searchable reference at `/api/v1/docs`
+  (Admin > API Docs). The narrative guide is [docs/API.md](docs/API.md). The API still says `client`
+  where the screens say Department, on purpose: see the note in that guide.
 
 ---
 
-<!-- ABOUT -->
-## About
+## Self-Hosting
 
-**ITFlow Internal IT Edition** takes ITFlow — the free and open-source IT documentation, ticketing, and asset management platform — and repurposes its MSP data model (one provider, many billed clients) for an internal IT team supporting a single organization's own departments instead.
+One install per organization, on your own server. RivetIT is PHP 8.4 with MariaDB (MySQL-compatible),
+served by nginx; Redis is used for live updates when it is available. Composer dependencies are committed
+in `vendor/`. Two supported ways to run it are described in full in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md),
+with the flag-by-flag reference in [deploy/README.md](deploy/README.md).
 
-Compared to ITFlow MSP Edition, this fork:
+The repository is still named `ITFlow-Internal-IT`, so that is the directory `git clone` creates.
 
-- **Disables billing/accounting by default** — invoicing, quotes, payments, recurring invoices, expenses, and the QuickBooks integration are all off out of the box (re-enable anytime in *Settings > Modules*, nothing is removed from the codebase).
-- **Uses "Client" records as departments** — each "client" in the data model represents an internal department, site, or business unit rather than an external customer.
-- **Keeps Contracts** for documenting SLA/service terms per department, since that's still useful without external billing.
-- **Adds AnyDesk quick-connect** — a dedicated AnyDesk ID field on assets with a one-click Connect button on the asset details page.
-
-Ticketing, assets/IT documentation, knowledge base, contracts, credentials, projects, and the RMM integrations all work the same as upstream ITFlow.
-
-New to this codebase? [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) covers the admin/agent/client/guest portal structure, auth & permission model, data model, module toggles, integrations, and how this edition differs from ITFlow MSP. [docs/API.md](docs/API.md) is the narrative companion to the REST API — including a note on why the API still says "client" while the UI says "department".
-
----
-
-## What's Inherited From ITFlow MSP Edition
-
-This fork's base (before the internal-IT changes above) already included:
-
-### Ticket Automation
-- **Rule-based automation engine** — create rules that run automatically on every cron cycle
-- **Conditions**: ticket age, idle time since last reply, priority, status, assigned user, or **ticket category** (On-Site, Remote, Project, etc.)
-- **Actions**: set priority, assign to user, set status, add internal note, notify assignee, close ticket, or **automatically attach a worksheet template**
-
-### Cron Manager
-- **Web UI cron scheduler** — change the main cron schedule without touching the server, plus a **Run Now** button
-
-### Ticketing
-- **Ticket categories** with parent/group hierarchy and collapsible grouped list view
-- **Inline pill-style dropdowns** — change Category, Assigned Tech, Priority, and Status directly from the ticket list
-- **Appointments** — end time, duration picker, Remote/Onsite toggle, appointment notes, live preview
-- **Ticket reply draft autosave**
-
-### Worksheets
-- **Unfinalize button**, drag-and-drop field reordering, percent-complete counter, automation-attached templates
-
-### Calendar & Scheduling
-- **Outlook Calendar push sync** per technician via Microsoft Graph API
-- **iCal subscription feed** for Outlook Classic, Apple Calendar, or Google Calendar
-- **Per-tech calendar colors**
-
-### Contracts & SLA
-- **SLA tracking on contracts** — response/resolution hours per priority tier
-- **Live SLA hint on ticket add**
-
-### REST API
-- Full REST API layer under `/api/v1/` — tickets, clients (departments), assets, contacts, locations, credentials, worksheets, charges, appointments, search, reports
-- Full reference: [docs/API.md](docs/API.md) (narrative guide) · in-app searchable reference at Settings → API Docs (`/api/v1/docs` on your own instance)
-
----
-
-## Getting Started
-
-Two supported ways to get a running instance, depending on what you're doing (see
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full guide — how to choose between them, and the
-backup/disaster-recovery story for each):
-
-### Option 1 — Docker Compose (fastest way to try it)
+### Docker Compose (fastest way to try it)
 
 ```bash
 git clone https://github.com/TheTractorHacker/ITFlow-Internal-IT.git
@@ -105,54 +197,75 @@ cp .env.example .env    # edit DB_PASSWORD/DB_ROOT_PASSWORD, and DOCKER_UID/DOCK
 docker compose up -d --build
 ```
 
-Then visit `http://localhost:8080/` (or whatever `APP_PORT` you set in `.env`) — it redirects straight
-to the same browser-based `/setup/` wizard a manual install would use. When it asks for a database host,
-enter `db` and the credentials from your `.env`.
+Then visit `http://localhost:8080/` (or the `APP_PORT` you set in `.env`); it redirects to the `/setup/`
+wizard. When it asks for a database host, enter `db` and the credentials from your `.env`.
 
-This runs nginx + PHP-FPM + MariaDB in containers, with the app code bind-mounted from this checkout so
-`config.php`/`uploads/`/`backups/` all persist on the host and `git pull` + `docker compose up -d --build`
-is the update path. It's deliberately not hardened the way `deploy/install.sh` is (no fail2ban/ufw
-equivalent, no TLS termination) — put a real reverse proxy in front of it for anything beyond local
-evaluation. It's a companion to, not a replacement for, the tooling below.
+The stack runs nginx, PHP-FPM, Redis and the cron loop in `rivetit-web` and MariaDB in `rivetit-db`. The
+app code is bind-mounted from the checkout, so `config.php`, `uploads/` and `backups/` persist on the host
+and `git pull` + `docker compose up -d --build` is the update path. The container does not terminate TLS or
+harden the host: put a reverse proxy in front of it for anything beyond local evaluation. To start from a
+`deploy/backup.sh` backup instead of a fresh install, see `RESTORE_FROM` in `.env.example`.
 
-Standing this container up from an existing `deploy/backup.sh` backup instead of a fresh install: drop
-the backup file and its passphrase file under `./restore/` (bind-mounted read-only into the container),
-set `RESTORE_FROM`/`RESTORE_PASSPHRASE_FILE` in `.env` to point at them, then `docker compose up -d
---build` — see the comments in `.env.example` and [`deploy/README.md`](deploy/README.md#restoresh).
-
-### Option 2 — bare-metal install (recommended for a production instance)
-
-The deployment tooling in [`deploy/`](deploy/README.md) provisions a whole box from scratch:
+### Bare-metal install (recommended for production)
 
 ```bash
 git clone https://github.com/TheTractorHacker/ITFlow-Internal-IT.git
 cd ITFlow-Internal-IT
-sudo deploy/install.sh --domain=itflow.example.com
+sudo deploy/install.sh --domain=rivetit.example.com
 ```
 
-It provisions nginx, PHP 8.4, and MariaDB; sets up TLS; applies security hardening; and runs the app's
-own first-run setup (or, with `--restore-from`/`--restore-passphrase-file`, restores an existing
-`deploy/backup.sh` backup onto the new box instead) — see [`deploy/README.md`](deploy/README.md) for the
-full flag reference, worked examples (including adding a second company's instance to a box that already
-runs one), backups, and updates. If you'd rather install manually or use the browser-based `/setup/`
-wizard, see the [official upstream docs](https://docs.itflow.org/installation) for general server
-requirements.
+`deploy/install.sh` provisions nginx, PHP 8.4 and MariaDB, sets up TLS (Let's Encrypt, or `--proxy-mode`
+behind your own reverse proxy), applies security hardening, installs the cron entry and runs the first-run
+setup; with `--restore-from` it stands a new box up from an encrypted backup instead. Run it again with a
+different `--domain` to host another organization's independent instance on the same box.
+`deploy/harden.sh` adds the remaining hardening steps (see [deploy/README.md](deploy/README.md#hardensh)).
 
-Either way, `deploy/backup.sh` (encrypted, scheduled) is the disaster-recovery path, with
-`deploy/restore.sh` as its counterpart for standing a fresh box back up from one of those backups — see
-[`deploy/README.md`](deploy/README.md#restoresh).
+### Backups and updates
 
-For a control-by-control look at what this deployment tooling does (and doesn't) cover from a security
-standpoint, see [`docs/ISO27001-COMPLIANCE.md`](docs/ISO27001-COMPLIANCE.md).
+- `deploy/backup.sh` (encrypted, with a systemd timer) is the disaster-recovery backup and
+  `deploy/restore.sh` its restore; the in-app backup (Admin > Backup) makes quick unencrypted snapshots,
+  optionally to S3-compatible storage. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#4-backup--disaster-recovery)
+  explains which is which.
+- `deploy/update.sh` takes a backup, pulls the code and runs pending database migrations. Admin > Update
+  shows what is new and applies the code and database updates from the browser; take a backup first.
 
-## License
+## Documentation
 
-ITFlow is distributed under the GPL License. This fork inherits the same license. See [`LICENSE`](LICENSE) for details.
+| Document | What it covers |
+|---|---|
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Docker vs. bare metal, backups and disaster recovery, updating |
+| [deploy/README.md](deploy/README.md) | Every deployment script and flag |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Code layout, sign-in and permissions, data model, modules, migrations, integrations |
+| [docs/API.md](docs/API.md) | The REST API |
+| [docs/training-kiosk-setup.md](docs/training-kiosk-setup.md) | Setting up training kiosks on iPads and PCs |
+| [docs/ISO27001-COMPLIANCE.md](docs/ISO27001-COMPLIANCE.md) | ISO/IEC 27001:2022 Annex A control mapping |
+| [REBRANDING.md](REBRANDING.md) | The rename from ITFlow Internal IT, and the internal names that were kept |
+| [CHANGELOG.md](CHANGELOG.md) | Release notes and upgrade steps |
 
-## Security
+## Versioning
 
-If you find a security issue in the upstream project, report it [here](https://github.com/itflow-org/itflow/security/policy).
-For issues specific to this fork, open an [issue](https://github.com/TheTractorHacker/ITFlow-Internal-IT/issues).
+RivetIT uses calendar versions (`26.09` is September 2026) on a rolling `main` branch, with a separate
+database schema version that the updater migrates one step at a time. The running version is shown in the
+page footer and on Admin > Update.
+
+## Contributing and security
+
+Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Please report security issues
+privately as described in [SECURITY.md](SECURITY.md), never in a public issue.
+
+## License and credits
+
+RivetIT is free software under the [GNU General Public License v3.0](LICENSE).
+
+RivetIT is built on **[ITFlow](https://github.com/itflow-org/itflow)**, the free and open-source IT
+documentation, ticketing and asset management platform; all original credit goes to the ITFlow
+contributors. It was developed from **[TheTractorHacker/itflow](https://github.com/TheTractorHacker/itflow)**,
+an MSP-focused fork whose workflow additions (ticket automation, the Cron Manager, worksheets, calendar
+sync, SLA tracking and REST API work) are credited to TractorHacker / Foley IT, and was published as
+*ITFlow Internal IT* before it became RivetIT. See [NOTICE](NOTICE) for the full attribution and
+[REBRANDING.md](REBRANDING.md) for why some internal names still say `itflow`. RivetIT is an independent
+project and is not maintained or endorsed by the ITFlow maintainers; security issues in upstream ITFlow
+itself go to [its security policy](https://github.com/itflow-org/itflow/security/policy).
 
 <!-- MARKDOWN LINKS & IMAGES -->
 [contributors-shield]: https://img.shields.io/github/contributors/TheTractorHacker/ITFlow-Internal-IT.svg?style=for-the-badge
@@ -160,6 +273,6 @@ For issues specific to this fork, open an [issue](https://github.com/TheTractorH
 [stars-shield]: https://img.shields.io/github/stars/TheTractorHacker/ITFlow-Internal-IT.svg?style=for-the-badge
 [stars-url]: https://github.com/TheTractorHacker/ITFlow-Internal-IT/stargazers
 [license-shield]: https://img.shields.io/github/license/TheTractorHacker/ITFlow-Internal-IT.svg?style=for-the-badge
-[license-url]: https://github.com/itflow-org/itflow/blob/master/LICENSE
+[license-url]: LICENSE
 [commit-shield]: https://img.shields.io/github/last-commit/TheTractorHacker/ITFlow-Internal-IT?style=for-the-badge
 [commit-url]: https://github.com/TheTractorHacker/ITFlow-Internal-IT/commits/main

@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - GET/POST request handler for the Service Catalog (admin/service_catalog.php)
+ * RivetIT - GET/POST request handler for the Service Catalog (admin/service_catalog.php)
  */
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");

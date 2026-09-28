@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - Logout
+ * RivetIT - Logout
  */
 
 if (isset($_GET['logout'])) {

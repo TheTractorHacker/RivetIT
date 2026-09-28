@@ -68,10 +68,14 @@ class WebhookDispatcher
     private function sendOne(int $webhookId, string $eventType, string $url, string $secret, string $body): array
     {
         $signature = 'sha256=' . hash_hmac('sha256', $body, $secret);
+        // X-ITFlow-* are the header names existing receivers verify: keep them. X-RivetIT-* carry the
+        // same values so new receivers can use the product's name (cron/cron.php sends the same four).
         $headers = [
             'Content-Type: application/json',
             'X-ITFlow-Signature: ' . $signature,
             'X-ITFlow-Event: ' . $eventType,
+            'X-RivetIT-Signature: ' . $signature,
+            'X-RivetIT-Event: ' . $eventType,
         ];
 
         $httpStatus = null;

@@ -1,6 +1,6 @@
 <?php
 /*
- * ITFlow
+ * RivetIT
  * This file defines the current "latest" database version
  * It is used in conjunction with database_updates.php
  */

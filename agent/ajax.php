@@ -1112,7 +1112,7 @@ if (isset($_GET['get_readable_pass'])) {
 }
 
 /*
- * ITFlow - POST request handler for client tickets
+ * RivetIT - POST request handler for client tickets
  */
 if (isset($_POST['update_kanban_status_position'])) {
     // Update multiple ticket status kanban orders
@@ -1134,7 +1134,7 @@ if (isset($_POST['update_kanban_status_position'])) {
 }
 
 /*
- * ITFlow - CRM pipeline: persist an opportunity's stage after a kanban drag
+ * RivetIT - CRM pipeline: persist an opportunity's stage after a kanban drag
  */
 if (isset($_POST['update_opportunity_stage'])) {
     validateCSRFToken($_POST['csrf_token']);

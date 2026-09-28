@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - Backup POST/GET handler
+ * RivetIT - Backup POST/GET handler
  * Actions: backup_download_fresh, backup_save, backup_serve, backup_delete,
  *          save_backup_settings, backup_master_key
  */
@@ -32,7 +32,7 @@ function dump_database_streaming(mysqli $mysqli, string $sqlFile, ?array &$ledge
     $fh = fopen($sqlFile, 'wb');
     if (!$fh) { http_response_code(500); exit("Cannot open dump file"); }
 
-    fwrite_ln($fh, "-- ITFlow Internal IT DB Dump | Generated: " . date('Y-m-d H:i:s'));
+    fwrite_ln($fh, "-- " . APP_NAME . " DB Dump | Generated: " . date('Y-m-d H:i:s'));
     fwrite_ln($fh, "SET NAMES 'utf8mb4';");
     fwrite_ln($fh, "SET FOREIGN_KEY_CHECKS = 0;");
     fwrite_ln($fh, "SET UNIQUE_CHECKS = 0;");
@@ -176,11 +176,11 @@ function build_backup(mysqli $mysqli, string $type, string $backupDir): array {
     $dbSha      = hash_file('sha256', $sqlFile) ?: 'N/A';
     $upSha      = hash_file('sha256', $uploadsZip) ?: 'N/A';
 
-    $meta  = "ITFlow Internal IT Backup Metadata\n";
+    $meta  = APP_NAME . " Backup Metadata\n";
     $meta .= "Generated: " . date('Y-m-d H:i:s') . "\n";
     $meta .= "Type: $type\n";
     $meta .= "Git Commit: $commitHash\n";
-    $meta .= "ITFlow Internal IT Version: " . (defined('APP_VERSION') ? APP_VERSION : 'N/A') . "\n";
+    $meta .= APP_NAME . " Version: " . (defined('APP_VERSION') ? APP_VERSION : 'N/A') . "\n";
     $meta .= "DB Version: " . (defined('CURRENT_DATABASE_VERSION') ? CURRENT_DATABASE_VERSION : 'N/A') . "\n";
     $meta .= "SHA256 db.sql: $dbSha\n";
     $meta .= "SHA256 uploads.zip: $upSha\n";
@@ -310,7 +310,7 @@ if (isset($_GET['backup_download_fresh'])) {
     dump_database_streaming($mysqli, $sqlFile, $ledgerHead);
     zip_uploads(dirname(__DIR__, 2) . '/uploads', $uploadsZip);
 
-    $meta  = "ITFlow Internal IT Backup Metadata\n";
+    $meta  = APP_NAME . " Backup Metadata\n";
     $meta .= "Generated: " . date('Y-m-d H:i:s') . "\n";
     $meta .= "Type: manual (browser download)\n";
     $meta .= "SHA256 db.sql: " . (hash_file('sha256', $sqlFile) ?: 'N/A') . "\n";

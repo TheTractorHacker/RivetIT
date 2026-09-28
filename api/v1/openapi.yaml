@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
-  title: ITFlow API v1
+  title: RivetIT API v1
   version: 1.0.0
   description: >
-    Companion REST API for ITFlow, consumed by the ITFlow MSP mobile app and
-    integrations (ITPanel Pro, RMM scripts). This spec documents the *live*
+    Companion REST API for RivetIT, consumed by the RivetIT mobile app and
+    other integrations (RMM scripts and the like). This spec documents the *live*
     endpoints served by /api/v1/index.php and its per-resource handlers.
 
 
@@ -24,7 +24,7 @@ info:
       * Errors return `{ "error": "<message>" }` with the matching HTTP status.
 servers:
   - url: /api/v1
-    description: Relative to the ITFlow install host
+    description: Relative to the RivetIT install host
 tags:
   - name: Auth
   - name: Dashboard
@@ -2301,7 +2301,7 @@ components:
           type: object
           description: >
             Feature-module flags relevant to client UIs, e.g. gating billing UI
-            (Add Charge, Invoices/Quotes/Expenses) in the Internal IT edition's
+            (Add Charge, Invoices/Quotes/Expenses) in RivetIT's
             Android app.
           properties:
             accounting_enabled: {type: boolean}

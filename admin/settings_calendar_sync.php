@@ -103,7 +103,7 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
     </div>
     <div class="card-body">
 
-        <p class="text-muted mb-4">Follow these steps once to register ITFlow Internal IT as an app in Microsoft Azure. You need a Microsoft 365 or Azure account with admin rights.</p>
+        <p class="text-muted mb-4">Follow these steps once to register <?= htmlspecialchars(APP_NAME) ?> as an app in Microsoft Azure. You need a Microsoft 365 or Azure account with admin rights.</p>
 
         <!-- Step 1 -->
         <div class="d-flex mb-4">
@@ -114,7 +114,7 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
                 <strong>Go to Azure Portal → App Registrations</strong>
                 <p class="text-muted mb-1 mt-1">Open <a href="https://portal.azure.com" target="_blank">portal.azure.com</a>, search for <strong>App registrations</strong>, and click <strong>New registration</strong>.</p>
                 <ul class="text-muted ps-4">
-                    <li><strong>Name:</strong> ITFlow Internal IT Calendar Sync (or anything you like)</li>
+                    <li><strong>Name:</strong> <?= htmlspecialchars(APP_NAME) ?> Calendar Sync (or anything you like)</li>
                     <li><strong>Supported account types:</strong> Accounts in this organizational directory only (single tenant)</li>
                     <li><strong>Redirect URI:</strong> Web — paste the URL shown in the Redirect URI field above</li>
                 </ul>
@@ -159,7 +159,7 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
                 <strong>Create a Client Secret</strong>
                 <p class="text-muted mb-1 mt-1">In the left menu click <strong>Certificates &amp; secrets</strong> → <strong>New client secret</strong>.</p>
                 <ul class="text-muted ps-4">
-                    <li>Set a description (e.g. "ITFlow Internal IT") and an expiry (24 months recommended)</li>
+                    <li>Set a description (e.g. "<?= htmlspecialchars(APP_NAME) ?>") and an expiry (24 months recommended)</li>
                     <li>Click <strong>Add</strong></li>
                     <li>Immediately copy the <strong>Value</strong> column — it is only shown once</li>
                 </ul>
@@ -181,7 +181,7 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
 
         <div class="alert alert-info py-2 mb-0">
             <i class="fas fa-info-circle me-2"></i>
-            <strong>One Azure app, all users:</strong> The same app registration covers every technician. Each user does their own one-time OAuth login — ITFlow Internal IT stores a refresh token per user so events stay in sync automatically.
+            <strong>One Azure app, all users:</strong> The same app registration covers every technician. Each user does their own one-time OAuth login — <?= htmlspecialchars(APP_NAME) ?> stores a refresh token per user so events stay in sync automatically.
         </div>
 
     </div>

@@ -6,7 +6,7 @@ use ITFlow\Directory\FieldMapping;
 
 /**
  * OdooDirectoryMapper — matches Odoo hr.department/hr.employee records
- * (pulled via OdooClient::listDepartments()/listEmployees()) to ITFlow
+ * (pulled via OdooClient::listDepartments()/listEmployees()) to RivetIT
  * clients (departments) and contacts (employees). Mirrors
  * IntuneAssetMapper's structure/conventions closely: per-record try/catch,
  * a dedicated link table per entity, and a defensive "upsert the link row"

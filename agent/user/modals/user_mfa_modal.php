@@ -9,7 +9,8 @@ if (empty($_SESSION['mfa_token'])) {
 $token = $_SESSION['mfa_token'];
 
 // Generate QR Code
-$data = "otpauth://totp/ITFlow:$session_email?secret=$token";
+// The label is display-only (the authenticator app shows it); the secret alone drives the codes.
+$data = "otpauth://totp/" . rawurlencode(APP_NAME) . ":$session_email?secret=$token";
 
 ?>
 

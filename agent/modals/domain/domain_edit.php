@@ -268,7 +268,7 @@ ob_start();
                 <div class="form-group">
                     <!-- The WHOIS record's own reported registrar name - distinct from
                          the "Domain Registrar" vendor picked on the Overview tab, which is
-                         which vendors.* row ITFlow considers the registrar. -->
+                         which vendors.* row the app considers the registrar. -->
                     <label>WHOIS Registrar</label>
                     <div class="input-group">
                         <div class="input-group-prepend">

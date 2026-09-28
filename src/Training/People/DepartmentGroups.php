@@ -14,7 +14,7 @@ use ITFlow\Training\Core\SystemCtx;
  * Department job groups (owner request 2026-09-25): one job group per active department, made and
  * kept in step automatically, so a rule can target "Fabrication" like any hand-made group.
  *
- * DEPARTMENT. An ITFlow department is a `clients` row. It is active when it is not archived and not a
+ * DEPARTMENT. A RivetIT department is a `clients` row. It is active when it is not archived and not a
  * CRM lead (client_lead = 0). A deleted, archived or lead row has no active group.
  *
  * MEMBERSHIP IS LIVE. A department group stores no members. JobGroupService::membership() (which

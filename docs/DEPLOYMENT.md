@@ -1,6 +1,6 @@
 # Deployment
 
-This document is the narrative overview of how to get an ITFlow Internal IT instance running, how to
+This document is the narrative overview of how to get a RivetIT instance running, how to
 choose between the two supported paths, and how backup/restore actually works end to end. It complements
 two more detailed references rather than replacing them:
 
@@ -36,6 +36,9 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
+(The clone directory is still called `ITFlow-Internal-IT` because that is the repository's name today; see
+[`REBRANDING.md`](../REBRANDING.md#repository-and-links).)
+
 Visit `http://localhost:8080/` (or whatever `APP_PORT` you set) — it redirects to the browser-based
 `/setup/` wizard, the same one a manual/bare-metal install would use. Enter database host `db` and the
 credentials from your `.env`.
@@ -47,6 +50,18 @@ from your checkout (`.:/var/www/html`), not baked into the image — this keeps 
 makes `git pull` the update path (matching `deploy/update.sh`'s model on bare metal, just without the
 wrapper script). `DOCKER_UID`/`DOCKER_GID` in `.env` remap the container's `www-data` to your host user so
 it can actually write into that bind-mounted checkout.
+
+**Names.** The containers are `rivetit-web` and `rivetit-db` and the built image is tagged
+`rivetit-web:local`. To run a second stack on the same host, set `RIVETIT_CONTAINER_PREFIX` in that stack's
+`.env`; it prefixes both container names and the image tag, so the stacks neither collide nor overwrite each
+other's image. The compose service keys (`app`, `db`), the `DB_NAME`/`DB_USER` defaults (`itflow`) and the
+`itflow_db_data` volume keep the names they had before the RivetIT rename, so an existing stack comes back
+up on its existing database. Upgrading such a stack: `git pull` then `docker compose up -d --build`; Compose
+recreates both containers under the new names and reattaches the same volume. **A host that already runs
+two or more stacks** must give every stack but one its own `RIVETIT_CONTAINER_PREFIX` before that
+`docker compose up`: before the rename Compose named containers per project, and now the second stack
+would stop with "container name /rivetit-db is already in use". Use `docker compose exec app …` /
+`docker compose exec db …` (service names) in your own scripts rather than container names.
 
 **No TLS termination and no hardening** are built into the container — this is intentional, to keep the
 image simple and portable. Put a real reverse proxy (Traefik, Caddy, nginx-proxy, a cloud load balancer)
@@ -78,7 +93,7 @@ passphrase shouldn't outlive the one restore it was needed for.
 ```bash
 git clone https://github.com/TheTractorHacker/ITFlow-Internal-IT.git
 cd ITFlow-Internal-IT
-sudo deploy/install.sh --domain=itflow.example.com
+sudo deploy/install.sh --domain=rivetit.example.com
 ```
 
 This provisions the whole box — packages, database, TLS/vhost, PHP-FPM/MariaDB hardening, `ufw`,
@@ -90,7 +105,7 @@ ships alongside it.
 **Restoring onto a brand-new box** instead of a fresh company setup is a single extra pair of flags:
 
 ```bash
-sudo deploy/install.sh --domain=itflow.example.com \
+sudo deploy/install.sh --domain=rivetit.example.com \
     --restore-from=/path/to/backup-itflow-<timestamp>.tar.gz.enc \
     --restore-passphrase-file=/etc/itflow/backup-passphrase
 ```
@@ -131,7 +146,7 @@ the scheduled timer.
 `?restore` form does not accept this format):
 
 ```bash
-sudo deploy/restore.sh --app-dir=/var/www/itflow.example.com \
+sudo deploy/restore.sh --app-dir=/var/www/rivetit.example.com \
     --backup=/path/to/backup-itflow-<timestamp>.tar.gz.enc \
     --passphrase-file=/etc/itflow/backup-passphrase \
     --confirm-restore

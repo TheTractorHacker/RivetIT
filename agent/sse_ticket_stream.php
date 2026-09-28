@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - SSE wrapper for live ticket updates (agent portal)
+ * RivetIT - SSE wrapper for live ticket updates (agent portal)
  */
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config.php';

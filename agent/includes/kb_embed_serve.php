@@ -78,7 +78,7 @@
  *                   that do not close.
  *   allow-modals    A phishing-prompt affordance with no containment value.
  *                   alert()/prompt() drawn by a caged document look like they
- *                   came from ITFlow.
+ *                   came from RivetIT.
  *   allow-popups / allow-popups-to-escape-sandbox
  *                   A live exfiltration channel that `connect-src 'none'` does
  *                   NOT close: window.open() to an external collector delivers

@@ -368,7 +368,7 @@ document.addEventListener('click', function (e) {
         <?php else: ?>
         <div class="p-3 text-muted text-center">
             <i class="fas fa-mobile-alt fa-2x mb-2 d-block text-secondary"></i>
-            No mobile tokens. Log in from the ITFlow MSP app to create one.
+            No mobile tokens. Log in from the <?= nullable_htmlentities(APP_NAME) ?> mobile app to create one.
         </div>
         <?php endif; ?>
     </div>

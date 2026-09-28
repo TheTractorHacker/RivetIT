@@ -46,7 +46,7 @@ while ($exc = mysqli_fetch_assoc($sql_exc)) {
 }
 
 echo json_encode([
-    'rp'    => ['id' => $rpId, 'name' => 'ITFlow Internal IT'],
+    'rp'    => ['id' => $rpId, 'name' => APP_NAME],   // name is display-only; never change rp.id (existing passkeys are bound to it)
     'user'  => [
         'id'          => wa_b64u_encode(pack('N', $session_user_id)),
         'name'        => $session_email,

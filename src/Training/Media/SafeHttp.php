@@ -2,6 +2,8 @@
 
 namespace ITFlow\Training\Media;
 
+use ITFlow\Training\Core\Product;
+
 /**
  * The only outbound HTTP client in the training code (spec §3.3, §8 "SSRF"). It exists so that
  * an author pasting a video link can never make this server fetch anything but a handful of
@@ -29,7 +31,6 @@ final class SafeHttp
 
     public const CONNECT_TIMEOUT_MS = 3000;
     public const TOTAL_TIMEOUT_MS = 6000;
-    private const USER_AGENT = 'ITFlow-Training/1.0';
     private const MAX_HEADER_BYTES = 16384;
 
     private static ?\Closure $resolver = null;
@@ -232,11 +233,17 @@ final class SafeHttp
             CURLOPT_TIMEOUT_MS => min(self::TOTAL_TIMEOUT_MS, max(200, $timeoutMs)),
             CURLOPT_NOSIGNAL => true,
             CURLOPT_HTTPGET => true,
-            CURLOPT_USERAGENT => self::USER_AGENT,
+            CURLOPT_USERAGENT => self::userAgent(),
             CURLOPT_HTTPHEADER => $hdr,
             CURLOPT_ENCODING => '',
             CURLOPT_RETURNTRANSFER => false,
         ];
+    }
+
+    /** "RivetIT-Training/1.0": the product name (APP_NAME) as a User-Agent token. */
+    private static function userAgent(): string
+    {
+        return (trim((string) preg_replace('/[^A-Za-z0-9.-]+/', '-', Product::name()), '-') ?: 'App') . '-Training/1.0';
     }
 
     // ---------------------------------------------------------------------------------------

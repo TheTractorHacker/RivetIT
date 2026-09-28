@@ -59,7 +59,7 @@ $tao_tpause = (array) ($tao['target_pauses'] ?? []);   // mode => reason: paused
         <p class="small text-muted">
             Copies each training record to the employee in Odoo: course, date, certificate number, how it was recorded and expiry.
             Send it as a résumé line, a certification skill, an internal HR note, or any combination; each is sent, retried and revoked on its own.
-            ITFlow stays the record of truth. Nothing is ever deleted in Odoo: a voided record's résumé line gets an end date and "(revoked)",
+            <?= htmlspecialchars(APP_NAME) ?> stays the record of truth. Nothing is ever deleted in Odoo: a voided record's résumé line gets an end date and "(revoked)",
             its certification an end date, and its HR note a short follow-up note.
         </p>
 
@@ -329,7 +329,7 @@ $tao_tpause = (array) ($tao['target_pauses'] ?? []);   // mode => reason: paused
             </div>
             <div class="border rounded p-2 mb-3 small">
                 <div class="fw-semibold mb-1"><i class="fas fa-fw fa-sticky-note me-1" aria-hidden="true"></i>HR note</div>
-                Posted in the employee's chatter as an <strong>internal note that goes to nobody</strong>: no one is e-mailed or notified (followers of the employee included), ITFlow's Odoo user does not start following the employee, and no out-of-office reply is triggered. Needs Odoo 19 or later.
+                Posted in the employee's chatter as an <strong>internal note that goes to nobody</strong>: no one is e-mailed or notified (followers of the employee included), <?= htmlspecialchars(APP_NAME) ?>'s Odoo user does not start following the employee, and no out-of-office reply is triggered. Needs Odoo 19 or later.
                 It says the course, completion date, certificate number, expiry and how it was recorded (no score, no link, no PDF).
                 A void adds a short follow-up note naming the course; the first note is never changed.
             </div>
@@ -352,14 +352,14 @@ $tao_tpause = (array) ($tao['target_pauses'] ?? []);   // mode => reason: paused
             <div class="small text-muted mb-2">
                 <div class="fw-semibold"><i class="fas fa-fw fa-clipboard-list me-1" aria-hidden="true"></i>Before switching on for production Odoo</div>
                 <ol class="mb-1 ps-4">
-                    <li>In Odoo, create the ITFlow Integration user (Employees: Officer) and give its API key to the integration.</li>
+                    <li>In Odoo, create the <?= htmlspecialchars(APP_NAME) ?> Integration user (Employees: Officer) and give its API key to the integration.</li>
                     <li>Point the Odoo integration at production (Integrations &rsaquo; Directory Sync).</li>
                     <li>Click <strong>Check Odoo</strong> above.</li>
                     <li>Run <strong>Check now</strong> under Employee links (Odoo) on this page (again after every <strong>Check Odoo</strong>, before you save).</li>
                     <li>Turn on <strong>Enable write-back</strong>, then <strong>Save Odoo write-back</strong>.</li>
                 </ol>
             </div>
-            <p class="small text-muted"><i class="fas fa-fw fa-eye me-1" aria-hidden="true"></i>Odoo is a copy, not evidence. Every Odoo user can read résumé lines, and employees with Odoo logins can edit or delete the line on their own résumé (for example remove "(revoked)" or change a date); HR officers can change certifications and notes. Check a record in ITFlow or with the certificate QR code.</p>
+            <p class="small text-muted"><i class="fas fa-fw fa-eye me-1" aria-hidden="true"></i>Odoo is a copy, not evidence. Every Odoo user can read résumé lines, and employees with Odoo logins can edit or delete the line on their own résumé (for example remove "(revoked)" or change a date); HR officers can change certifications and notes. Check a record in <?= htmlspecialchars(APP_NAME) ?> or with the certificate QR code.</p>
             <button type="submit" name="ta_odoo_save" class="btn btn-primary"><i class="fas fa-check me-2" aria-hidden="true"></i>Save Odoo write-back</button>
         </form>
         <?php } elseif ($tao_t !== null) { ?>

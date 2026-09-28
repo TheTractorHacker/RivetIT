@@ -38,7 +38,7 @@
  * Requested directly over HTTP  -> answers JSON, for js/asset_metrics.js.
  *
  * The read API at /api/v1/metrics/... is Bearer-token authenticated and there is no
- * session-cookie path into api/v1/index.php, so a browser page inside an ITFlow
+ * session-cookie path into api/v1/index.php, so a browser page inside a RivetIT
  * session cannot call it. Rather than mint an API token for a logged-in web session
  * (a real credential, for a read a session is already entitled to), this file serves
  * its own JSON off the existing session: check_login.php, module_rmm >= read, the
@@ -53,7 +53,7 @@
  *
  * TIME: every timestamp in the JSON is UTC with an explicit `Z`, because
  * device_metric_samples.sampled_at is stored in UTC - a deliberate divergence from
- * the rest of ITFlow, which stores local time. The browser converts for display.
+ * the rest of RivetIT, which stores local time. The browser converts for display.
  * Nothing in this file converts.
  *
  * Integration variables (all optional, set before the require):
