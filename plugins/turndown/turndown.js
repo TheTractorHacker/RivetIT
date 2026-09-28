@@ -244,11 +244,17 @@ var TurndownService = (function () {
     return attribute ? attribute.replace(/(\n+\s*)+/g, '\n') : '';
   }
   function escapeLinkDestination(destination) {
-    var escaped = destination.replace(/([<>()])/g, '\\$1');
+    // Escape backslashes FIRST, matching markdownEscapes above: otherwise a
+    // destination that itself ends in a backslash "eats" the backslash this
+    // function inserts before <>() (CommonMark reads \\) as an escaped
+    // backslash followed by an unescaped, link-terminating ')'), corrupting
+    // the link/image boundary. No upstream turndown release fixes this
+    // (confirmed against 7.2.4, the latest, and its commit history since).
+    var escaped = destination.replace(/\\/g, '\\\\').replace(/([<>()])/g, '\\$1');
     return escaped.indexOf(' ') >= 0 ? '<' + escaped + '>' : escaped;
   }
   function escapeLinkTitle(title) {
-    return title.replace(/"/g, '\\"');
+    return title.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   }
 
   /**
