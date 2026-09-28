@@ -161,12 +161,15 @@ final class DeviceEnrollment
      * handling issueCode() already gives a single device), one shared department and duration.
      *
      * $items: an item with a positive asset_id enrolls that asset; any other item is unlisted
-     * (label only). Asset conflicts (an item's asset already actively enrolled) are checked for the
-     * WHOLE batch before anything is written - same shape as issueSlips' Odoo-source precheck - so a
-     * batch either needs $replace or fails clean listing the conflicts, never half-applies over
-     * that. Beyond that precheck, a later item's failure (e.g. a race with another admin) does not
-     * roll back earlier items already committed - the same tolerance issueSlips already accepts;
-     * each item's row is its own transaction, exactly like each person's credential update is.
+     * (label only). Every referenced asset is prechecked for the WHOLE batch before anything is
+     * written - exists, not archived, an allowed type, and (unless $replace) not already actively
+     * enrolled - same shape as issueSlips' Odoo-source precheck - so a batch fails clean listing the
+     * problem rather than half-applying over it (a genuinely reachable case: an asset archived by
+     * another admin between page load and submit, not just a tampered request). Beyond that
+     * precheck, a later item's failure (e.g. a duplicate asset_id inside one submission, which the
+     * precheck does not deduplicate) does not roll back earlier items already committed - the same
+     * tolerance issueSlips already accepts; each item's row is its own transaction, exactly like
+     * each person's credential update is.
      *
      * @param list<array{label:string, asset_id?:?int}> $items
      * @return string the Scratch token for agent/training_device_slips.php?t=
@@ -192,6 +195,39 @@ final class DeviceEnrollment
                 $assetIds[] = $assetId;
             }
             $clean[] = ['label' => $label, 'asset_id' => $assetId];
+        }
+        if ($assetIds !== []) {
+            $ids = array_values(array_unique($assetIds));
+            // Whole-batch existence/archived/type precheck (matches insertKiosk()'s own per-item
+            // checks, run here up front so a batch fails clean instead of half-writing - the gap a
+            // regression review found: without this, an asset archived between page load and submit
+            // would throw mid-loop, leaving earlier items in this same batch committed as 'pending'
+            // with a live code that was never returned to the caller and so never printed.
+            $found = [];
+            foreach (Db::all($db, 'SELECT asset_id, asset_type, asset_archived_at FROM assets WHERE asset_id IN ('
+                . implode(',', array_fill(0, count($ids), '?')) . ')', str_repeat('i', count($ids)), $ids) as $r) {
+                $found[(int) $r['asset_id']] = $r;
+            }
+            $missing = [];
+            $badType = [];
+            foreach ($ids as $aid) {
+                $r = $found[$aid] ?? null;
+                if ($r === null || $r['asset_archived_at'] !== null) {
+                    $missing[] = $aid;
+                } elseif (!in_array((string) $r['asset_type'], KioskSettings::ASSET_TYPES, true)) {
+                    $badType[] = $aid;
+                }
+            }
+            if ($missing !== []) {
+                throw ApiException::validation(['items' => count($missing) === 1
+                    ? 'One of these assets no longer exists or is archived. Remove it and try again.'
+                    : count($missing) . ' of these assets no longer exist or are archived. Remove them and try again.']);
+            }
+            if ($badType !== []) {
+                throw ApiException::validation(['items' => count($badType) === 1
+                    ? "One of these assets isn't a tablet, phone, laptop or desktop, so it can't be a training device."
+                    : count($badType) . " of these assets aren't tablets, phones, laptops or desktops, so they can't be training devices."]);
+            }
         }
         if ($assetIds !== [] && !$replace) {
             $ids = array_values(array_unique($assetIds));
