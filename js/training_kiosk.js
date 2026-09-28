@@ -5,16 +5,20 @@
  * runs every page except YouTube/Vimeo lessons.
  *
  *   Kiosk.data()                                   the parsed k-page-data block
- *   Kiosk.api.post(action, body, {timeoutMs})      JSON POST  } X-Kiosk-Token on BOTH; errors reject with
+ *   Kiosk.api.post(action, body, {timeoutMs, keepalive})  JSON POST  } X-Kiosk-Token on BOTH; errors reject with
  *   Kiosk.api.get(action, params, {timeoutMs})     JSON GET   } KioskError{status, code, message, data, fields};
  *                                                  401 session_ended => location.replace('/kiosk/'); with data.ended
  *                                                  (the device's temporary time ran out) - also on 403
- *                                                  device_not_enrolled - '/kiosk/?ended=<epoch>'
+ *                                                  device_not_enrolled - '/kiosk/?ended=<epoch>'; keepalive: the request
+ *                                                  outlives the page (a lesson tick sent as the page goes away)
  *   Kiosk.t(key, vars), Kiosk.lang(), Kiosk.setLang(lang)
  *   Kiosk.idle.start({idleS, warnS, onWarn, onIdle}) / touch() / pause() / resume()
  *        touched ONLY by real input (pointerdown, keydown, wheel, scroll, touchstart) or while a
  *        <video>/embed reports playing (Kiosk.idle.playing()); lesson ticks never touch
  *   Kiosk.session.heartbeatLoop() / end(reason)    heartbeat every 60 s, only if touched since the last one
+ *   Kiosk.session.beforeEnd(fn)                    fn() -> Promise|void runs when the session ends (Done, idle) BEFORE the
+ *                                                  end request, awaited at most 2.5 s: a lesson page saves where the
+ *                                                  learner stopped (its last lesson tick) while the session still exists
  *   Kiosk.ui.el / keypad / signaturePad / toast / confirm / busy
  *   Kiosk.guardBfcache()                           pageshow persisted => reload; replaceState on load
  *   Kiosk.prefsOwner()                             which session a remembered video option belongs to (captions on/off):
@@ -133,6 +137,7 @@
         var timer = setTimeout(function () { timedOut = true; if (ctrl) { ctrl.abort(); } }, opts.timeoutMs || DEFAULT_TIMEOUT_MS);
         var init = { method: method, headers: headers, credentials: 'same-origin', cache: 'no-store', redirect: 'error' };
         if (ctrl) { init.signal = ctrl.signal; }
+        if (opts.keepalive) { init.keepalive = true; }
         if (method === 'POST') { init.body = JSON.stringify(body || {}); }
         return fetch(url, init).then(function (res) {
             clearTimeout(timer);
@@ -743,7 +748,14 @@
         stopTimers();
         reason = (reason === 'idle') ? 'idle' : 'done';
         var go = function (next) { location.replace(typeof next === 'string' && /^\/kiosk\//.test(next) ? next : '/kiosk/'); };
-        return api.post('end', { reason: reason }, { timeoutMs: 8000 }).then(function (res) { go(res && res.next); }, function () { go('/kiosk/'); });
+        // A lesson page's last tick (where the learner stopped) goes first, while the session still exists.
+        var pending = beforeEndFns.splice(0).map(function (fn) {
+            try { return Promise.resolve(fn()).then(null, function () { /* best effort */ }); } catch (e) { return Promise.resolve(); }
+        });
+        var flushed = pending.length ? Promise.race([Promise.all(pending), new Promise(function (r) { setTimeout(r, 2500); })]) : Promise.resolve();
+        return flushed.then(function () {
+            return api.post('end', { reason: reason }, { timeoutMs: 8000 }).then(function (res) { go(res && res.next); }, function () { go('/kiosk/'); });
+        });
     }
 
     function stopTimers() {
@@ -751,7 +763,9 @@
         if (beatTimer) { clearInterval(beatTimer); beatTimer = null; }
     }
 
+    var beforeEndFns = [];
     var session = {
+        beforeEnd: function (fn) { if (typeof fn === 'function') { beforeEndFns.push(fn); } },
         heartbeatLoop: function () {
             if (beatTimer || !data().session) { return; }
             beatTimer = setInterval(function () { beat(false); }, HEARTBEAT_MS);

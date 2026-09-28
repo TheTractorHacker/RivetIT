@@ -88,8 +88,8 @@ final class RunService
             $this->assertPrereqs($db, $bridge, $cid, $courseId);
             $now = KTime::now();
             if ($old !== null) {
-                Db::exec($db, "UPDATE training_runs SET trun_status = 'superseded', trun_open_guard = NULL, trun_ended_at_utc = ?, trun_current_lesson_uid = NULL
-                    WHERE trun_id = ?", 'si', [$now, (int) $old['trun_id']]);
+                Db::exec($db, "UPDATE training_runs SET trun_status = 'superseded', trun_open_guard = NULL, trun_ended_at_utc = ?, trun_current_lesson_uid = NULL,
+                    trun_lesson_resume_at = NULL WHERE trun_id = ?", 'si', [$now, (int) $old['trun_id']]);
             }
             try {
                 $id = Db::insert($db, "INSERT INTO training_runs (trun_contact_id, trun_course_id, trun_revision_id, trun_revision_sha256, trun_assignment_id,
@@ -250,7 +250,7 @@ final class RunService
                 $fresh = LessonCredit::fresh((string) $lesson['type'], $now);
                 Db::exec($db, 'UPDATE training_runs SET trun_current_lesson_uid = ?, trun_lesson_opened_at_utc = ?, trun_lesson_last_tick_at_utc = ?,
                         trun_lesson_last_active = ?, trun_lesson_credit_s = 0, trun_lesson_max_position = 0, trun_lesson_pages_hex = NULL,
-                        trun_lesson_rejected_ticks = 0, trun_last_activity_at_utc = ?
+                        trun_lesson_rejected_ticks = 0, trun_lesson_resume_at = NULL, trun_last_activity_at_utc = ?
                     WHERE trun_id = ?', 'sssisi', [$uid, $now, $now, $fresh['last_active'] ? 1 : 0, $now, $runId]);
                 $run = RunRepo::load($db, $runId) ?? $run;
             }
@@ -259,9 +259,11 @@ final class RunService
     }
 
     /**
-     * lesson_tick {run_id, lesson_uid, position_s?, pages_seen?, playing, visible, active, video_id?} => Gate.
+     * lesson_tick {run_id, lesson_uid, position_s?, pages_seen?, current_page?, playing, visible, active, video_id?} => Gate.
      * One compare-and-set UPDATE (no transaction, no ledger): a concurrent tick that moved the
-     * state first wins and this one is dropped (its interval is credited by the next tick).
+     * state first wins and this one is dropped (its interval is credited by the next tick). The
+     * sample's position (video) or current_page (document) is stored as the lesson's last point
+     * (ResumePoint, navigation only) - also by a tick that changes no credit, and after a lost race.
      */
     public function tick(int $runId, string $uid, array $sample): array
     {
@@ -285,23 +287,38 @@ final class RunService
         [$type, $duration, $videoId, $pages] = self::lessonFacts($run, $doc, $lesson);
         $old = LessonCredit::fromRun($run);
         $new = LessonCredit::applyTick($old, $sample, $type, $duration, $videoId, $pages, KTime::now());
+        // The last point (navigation only, never credit): the sample's position / page, kept at or below the furthest
+        // point after this tick; a sample without one keeps the stored point. A tick that changes no credit column (a
+        // pause right after a play, same-state chatter) still stores it.
+        $oldResume = ($run[ResumePoint::COLUMN] ?? null) === null ? null : (int) $run[ResumePoint::COLUMN];
+        $newResume = ResumePoint::fromSample($sample, $type, $new['max_position'], $pages, $videoId) ?? $oldResume;
         if ($new['last_tick'] === $old['last_tick'] && $new['credit'] === $old['credit'] && $new['pages_hex'] === $old['pages_hex']
-            && $new['max_position'] === $old['max_position'] && $new['rejected'] === $old['rejected'] && $new['last_active'] === $old['last_active']) {
+            && $new['max_position'] === $old['max_position'] && $new['rejected'] === $old['rejected'] && $new['last_active'] === $old['last_active']
+            && $newResume === $oldResume) {
             return self::gateFor($run, $doc, $lesson, $done, $credited);
         }
         $n = Db::exec($db, 'UPDATE training_runs SET trun_lesson_last_tick_at_utc = ?, trun_lesson_last_active = ?, trun_lesson_credit_s = ?,
-                trun_lesson_max_position = ?, trun_lesson_pages_hex = ?, trun_lesson_rejected_ticks = ?, trun_last_activity_at_utc = ?
+                trun_lesson_max_position = ?, trun_lesson_pages_hex = ?, trun_lesson_rejected_ticks = ?, trun_lesson_resume_at = ?, trun_last_activity_at_utc = ?
             WHERE trun_id = ? AND trun_status = \'in_progress\' AND trun_current_lesson_uid = ? AND trun_lesson_last_tick_at_utc <=> ?
               AND trun_lesson_credit_s = ? AND trun_lesson_pages_hex <=> ? AND trun_lesson_rejected_ticks = ?',
-            'siiisis' . 'issisi', [$new['last_tick'], $new['last_active'] ? 1 : 0, $new['credit'], $new['max_position'], $new['pages_hex'], $new['rejected'],
-                $new['applied'] ? KTime::now() : (string) $run['trun_last_activity_at_utc'],
+            'siiisiis' . 'issisi', [$new['last_tick'], $new['last_active'] ? 1 : 0, $new['credit'], $new['max_position'], $new['pages_hex'], $new['rejected'],
+                $newResume, $new['applied'] ? KTime::now() : (string) $run['trun_last_activity_at_utc'],
                 $runId, $uid, $old['last_tick'], $old['credit'], $old['pages_hex'], $old['rejected']]);
         $fresh = $n > 0 ? null : RunRepo::load($db, $runId);
         if ($fresh === null) {
             foreach (LessonCredit::COLUMNS as $k => $col) {
                 $run[$col] = is_bool($new[$k]) ? ($new[$k] ? 1 : 0) : $new[$k];
             }
+            $run[ResumePoint::COLUMN] = $newResume;
             return self::gateFor($run, $doc, $lesson, $done, $credited);
+        }
+        if ($newResume !== $oldResume && $newResume !== null && $fresh['trun_status'] === 'in_progress' && $fresh['trun_current_lesson_uid'] === $uid) {
+            // A concurrent tick moved the credit state first (this tick's interval is credited by the next one), but the
+            // point this sample reports - often the pause, the newest - is still stored: a video point no further than
+            // the furthest point now on the row.
+            Db::exec($db, 'UPDATE training_runs SET trun_lesson_resume_at = ' . ($type === 'video' ? 'LEAST(?, trun_lesson_max_position)' : '?')
+                . ' WHERE trun_id = ? AND trun_status = \'in_progress\' AND trun_current_lesson_uid = ?', 'iis', [$newResume, $runId, $uid]);
+            $fresh = RunRepo::load($db, $runId) ?? $fresh;
         }
         $credited = RunRepo::credited($db, $runId);
         return self::gateFor($fresh, $doc, $lesson, RunRepo::done($db, $runId, $doc, $credited), $credited);
@@ -596,8 +613,8 @@ final class RunService
                     if ($run === null || (int) ($run['trun_open_guard'] ?? 0) !== 1) {
                         return;
                     }
-                    Db::exec($db, "UPDATE training_runs SET trun_status = 'abandoned', trun_open_guard = NULL, trun_ended_at_utc = ?, trun_current_lesson_uid = NULL
-                        WHERE trun_id = ?", 'si', [KTime::now(), $runId]);
+                    Db::exec($db, "UPDATE training_runs SET trun_status = 'abandoned', trun_open_guard = NULL, trun_ended_at_utc = ?, trun_current_lesson_uid = NULL,
+                        trun_lesson_resume_at = NULL WHERE trun_id = ?", 'si', [KTime::now(), $runId]);
                     Ledger::append($db, RunRepo::event($actor, 'run.abandoned', $run, 'run', $runId, null, ['reason' => 'course_archived']));
                 });
                 continue;
@@ -724,8 +741,8 @@ final class RunService
                 Db::exec($db, 'UPDATE training_runs SET trun_extra_attempts = LEAST(trun_extra_attempts + ?, 255), trun_locked_at_utc = NULL,
                     trun_locked_lesson_uid = NULL, trun_last_activity_at_utc = ? WHERE trun_id = ?', 'isi', [$extra, $now, $runId]);
             } else {
-                Db::exec($db, "UPDATE training_runs SET trun_status = 'abandoned', trun_open_guard = NULL, trun_ended_at_utc = ?, trun_current_lesson_uid = NULL
-                    WHERE trun_id = ?", 'si', [$now, $runId]);
+                Db::exec($db, "UPDATE training_runs SET trun_status = 'abandoned', trun_open_guard = NULL, trun_ended_at_utc = ?, trun_current_lesson_uid = NULL,
+                    trun_lesson_resume_at = NULL WHERE trun_id = ?", 'si', [$now, $runId]);
             }
             // lesson_uid: the quiz or quick check that ran out of tries - the extra tries count for it only
             // (RunRepo::extraTries); null when the run was not locked on a lesson (then they count run-wide).
@@ -744,7 +761,9 @@ final class RunService
 
     /**
      * Gate for one lesson of a run: {done, credited, quiz?, credit_s, required_s, max_position_s, pages_seen, page_count,
-     * duration_s, min_watch_pct, can_complete, reason, video_id?}. `credited` without `done`: the lesson's content
+     * duration_s, min_watch_pct, can_complete, reason, video_id?, resume_at?, pages_seen_list?}. resume_at (video and
+     * document lessons not credited yet): the run's last point in the lesson when it is the current one (ResumePoint),
+     * else null. `credited` without `done`: the lesson's content
      * is recorded and its must-pass quick check is still to pass ($credited defaults to $done).
      */
     public static function gateFor(array $run, array $doc, array $lesson, array $done, ?array $credited = null): array
@@ -769,6 +788,12 @@ final class RunService
         }
         $g = LessonCredit::gate($st, $type, $required, $duration, $minPct, $pages);
         $out = self::gateShape($g, $type, $duration, $minPct, $pages, $videoId, false, false);
+        if ($type === 'video' || $type === 'document') {
+            // Where the learner last was in this lesson (navigation only): seconds (never past the furthest point) or the
+            // page; null when none is recorded (an older run: the players fall back to the furthest point / first unseen page).
+            $out['resume_at'] = $run['trun_current_lesson_uid'] === $uid
+                ? ResumePoint::forGate($run[ResumePoint::COLUMN] ?? null, $type, (int) $g['max_position_s'], $pages) : null;
+        }
         if ($type === 'document' && $run['trun_current_lesson_uid'] === $uid) {
             // "Pick up where you left off" for a PDF: the pages this lesson already credited (the run keeps a
             // bitmap, not the last page), so the player marks them viewed and opens at the first page not seen.
@@ -852,7 +877,7 @@ final class RunService
         $clearCurrent = $cur !== null && (isset($done[$cur]) || $cur === $creditedUid);
         Db::exec($db, 'UPDATE training_runs SET trun_progress_pct = ?, trun_status = ?, trun_last_activity_at_utc = ?'
             . ($clearCurrent ? ', trun_current_lesson_uid = NULL, trun_lesson_credit_s = 0, trun_lesson_max_position = 0, trun_lesson_pages_hex = NULL,
-                  trun_lesson_rejected_ticks = 0, trun_lesson_last_active = 0' : '') . ' WHERE trun_id = ?', 'issi', [$pct, $status, $now, $runId]);
+                  trun_lesson_rejected_ticks = 0, trun_lesson_last_active = 0, trun_lesson_resume_at = NULL' : '') . ' WHERE trun_id = ?', 'issi', [$pct, $status, $now, $runId]);
         return RunRepo::load($db, $runId) ?? $run;
     }
 

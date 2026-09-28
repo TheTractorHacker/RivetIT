@@ -2,7 +2,10 @@
  * Training learner player - spec §5.9 (preview as learner; the Phase 3 kiosk reuses it), A9/A17 look.
  * Vanilla JS, no dependencies beyond an optional TrainingVideoEmbed (js/training_video_embed.js).
  *
- *   TrainingPlayer.mount(root, view, adapter) -> {destroy(), open(uid), home(), reset(), progress()}
+ *   TrainingPlayer.mount(root, view, adapter) -> {destroy(), open(uid), home(), reset(), progress(), flush()}
+ *       flush() -> Promise   kiosk: sends the open lesson's last tick now (where the learner stopped) - the host calls
+ *                            it before the session ends (Done); leaving a lesson (Course, another lesson, pagehide /
+ *                            destroy) sends it by itself (keepalive)
  *       view     LearnerView v1 (§3.7) - never contains an answer key
  *       adapter  { mode:'preview'|'kiosk', canGrade, brand?, learnerName?,
  *                  startQuiz(lessonUid, lang) -> Promise<preview_quiz_start data>,
@@ -16,7 +19,9 @@
  *                  chrome:false                 no .trp-top (the kiosk shell owns brand / EN|ES / Done)
  *                  ensureRun() -> Promise<RunState>   awaited once before the first lesson opens; its done map is merged
  *                  onLessonOpen(uid) -> Promise<Gate> kiosk: the server gate drives Mark complete (skipped when gate.quiz)
- *                  onTick(uid, sample) -> Promise<Gate>   sample {position_s, pages_seen:[new], playing, visible, active}
+ *                  onTick(uid, sample, opts) -> Promise<Gate>   sample {position_s?, pages_seen:[new], current_page?, playing, visible,
+ *                                               active}; opts {keepalive} (a tick sent as the page goes away)
+ *                  initialGates {uid: Gate}     the run's current lesson gate (course list: "Continue at 2:13")
  *                  onLessonComplete(uid, evidence) -> Promise<{done, run_status, ...}>  kiosk: done only after it resolves
  *                  signAck(uid, {signature_png, pin}) -> Promise<{run_status, receipt}>   kiosk acknowledgment
  *                  signaturePad(container, {onChange, name, date}) -> {toPng, clear, isInked, destroy}
@@ -50,6 +55,17 @@
  *       the card would otherwise run under the bottom bar (iPad landscape, a 768 px tall PC screen).
  *       A PDF opens at its first page not yet seen (kiosk: gate.pages_seen_list). Credit rules are unchanged:
  *       seeking past the furthest point watched stays blocked.
+ *
+ *       Continue from the last point (owner report 2026-09-27 "There is no continue from last point"): the kiosk run
+ *       keeps where the learner last was (gate.resume_at: video seconds - never past the furthest point - or the PDF
+ *       page; null for an older run). Ticks carry it: an uploaded video's position once it has played on this screen
+ *       (never before, so opening a lesson cannot wipe the stored point), a PDF's page on screen (current_page); a last
+ *       tick goes when the lesson is left (Course, another lesson, the page going away: keepalive) and before Done
+ *       (flush()). The tick cadence itself is unchanged. Reopen: a video resumes at the last point (MC.resumePoint: past 5 s, not
+ *       in the last few seconds; none recorded -> the furthest point as before; a last point at the end with too little
+ *       time counted -> 0 with the end-of-video message); a PDF opens on its last page ("Picked up at page 4 · Back
+ *       to page 1"; none recorded -> the first page not seen). Preview keeps its own last point (progress.pos) the
+ *       same way. The course list says "Continue at 2:13" on a video lesson that continues there.
  *
  *       Honest watch progress (owner report 2026-09-27; MC.watchCredit): the watch ring, its words and the bottom bar
  *       show the time that COUNTED against what is required - kiosk: the server gate's credit_s / required_s; Preview:
@@ -161,7 +177,7 @@
             qc_optional_chip: 'Quick check (optional)', qc_correct_n: '{n} of {m} correct',
             // video options
             vol_mute: 'Mute', vol_unmute: 'Unmute', volume: 'Volume', cc: 'Captions', cc_short: 'CC', cc_none: 'No captions for this video',
-            cc_lang: 'Caption language', lang_en: 'English', lang_es: 'Spanish', resume_at: 'Resuming at {t}', start_over: 'Start over',
+            cc_lang: 'Caption language', lang_en: 'English', lang_es: 'Spanish', resume_at: 'Resuming at {t}', start_over: 'Start over', continue_at: 'Continue at {t}',
             resume_page: 'Picked up at page {n}', back_to_first: 'Back to page 1', back_10_short: '10 s',
             louder_ios: "Louder: use the iPad's volume buttons"
         },
@@ -243,7 +259,7 @@
             qc_optional_chip: 'Prueba rápida (opcional)', qc_correct_n: '{n} de {m} correctas',
             // opciones del video
             vol_mute: 'Silenciar', vol_unmute: 'Activar sonido', volume: 'Volumen', cc: 'Subtítulos', cc_short: 'CC', cc_none: 'Este video no tiene subtítulos',
-            cc_lang: 'Idioma de los subtítulos', lang_en: 'Inglés', lang_es: 'Español', resume_at: 'Sigue en {t}', start_over: 'Empezar de nuevo',
+            cc_lang: 'Idioma de los subtítulos', lang_en: 'Inglés', lang_es: 'Español', resume_at: 'Sigue en {t}', start_over: 'Empezar de nuevo', continue_at: 'Sigue en {t}',
             resume_page: 'Sigue en la página {n}', back_to_first: 'Volver a la página 1', back_10_short: '10 s',
             louder_ios: 'Más volumen: use los botones del iPad'
         }
@@ -435,6 +451,19 @@
 
         var progress = normaliseProgress(adapter.initialProgress);
         var cleanup = [];
+        // Kiosk: the last server gate seen per lesson (the course list's "Continue at 2:13"); the run's current lesson's first.
+        var gates = {};
+        if (adapter.initialGates && typeof adapter.initialGates === 'object') {
+            Object.keys(adapter.initialGates).forEach(function (u) { var g = adapter.initialGates[u]; if (byUid[u] && g && typeof g === 'object') { gates[u] = Object.assign({}, g); } });
+        }
+        // Kiosk: the open lesson's last tick (where the learner stopped), sent once when the lesson is left or the host flushes.
+        var leaveHook = null;
+        function leaveLesson() {
+            var f = leaveHook;
+            leaveHook = null;
+            if (!f) { return Promise.resolve(); }
+            try { return Promise.resolve(f()).then(null, function () { /* best effort */ }); } catch (e) { return Promise.resolve(); }
+        }
         // Video options for this page: remembered through adapter.mediaPrefs, else for the page only.
         var MC = window.TrainingMediaControls || null;
         var memVol = MC ? MC.prefs.volume() : { level: 0.8, muted: false };
@@ -558,6 +587,7 @@
             }
         }
         function runCleanup() {
+            leaveLesson();   // before the cleanup: the lesson is still live, its last tick can go
             cleanup.splice(0).forEach(function (fn) { try { fn(); } catch (e) { /* ignore */ } });
             if (keyHandler) { document.removeEventListener('keydown', keyHandler); keyHandler = null; }
         }
@@ -697,7 +727,8 @@
                     type: 'button', class: 'trp-btn trp-btn--primary trp-btn--xl', disabled: total === 0,
                     on: { click: function () { withRun(cta, function () { var u = firstOpen() || order[0]; if (u) { openLesson(u, checkPending(u) ? { check: true } : null); } }); } }
                 }, [next && checkPending(next) ? t('qc_take_to', { title: byUid[next].title })   // watched/read: its must-pass quick check is next
-                    : (next && (done > 0 || order.some(function (u) { return progress.credited[u]; })) ? t('continue_to', { title: byUid[next].title })
+                    // started before (a lesson done, or the next video continues part-way): "Continue: <title>", never "Start course"
+                    : (next && (done > 0 || order.some(function (u) { return progress.credited[u]; }) || rowResume(byUid[next]) !== null) ? t('continue_to', { title: byUid[next].title })
                     : (next ? t('start_course') : t('review_course'))), icon('fa-arrow-right')]);
             }
             var extraChips = isKiosk && fn('courseChips') ? (adapter.courseChips() || []) : [];
@@ -796,6 +827,23 @@
             return block;
         }
 
+        /**
+         * A video lesson that continues part-way: the point it opens at ("Continue at 2:13") - kiosk: the run's last point
+         * (the last gate seen for it), Preview: its own progress.pos - by the reopen rule (MC.resumePoint); null otherwise.
+         */
+        function rowResume(l) {
+            if (!MC || typeof MC.resumePoint !== 'function' || !l || l.type !== 'video' || isCredited(l.uid)) { return null; }
+            if (isKiosk) {
+                var g = gates[l.uid];
+                if (!g || g.done || g.credited) { return null; }
+                return MC.resumePoint({ resumeAt: typeof g.resume_at === 'number' ? g.resume_at : null, max: Number(g.max_position_s) || 0,
+                    duration: Number(g.duration_s) || Number(l.duration_s) || 0 });
+            }
+            var pp = progress.pos[l.uid];
+            if (typeof pp !== 'number' && !progress.watch[l.uid]) { return null; }
+            return MC.resumePoint({ resumeAt: typeof pp === 'number' ? pp : null, max: Number(progress.watch[l.uid]) || 0, duration: Number(l.duration_s) || 0 });
+        }
+
         function lessonRow(l) {
             var frozen = isFrozen();
             var locked = frozen || isLocked(l.uid);
@@ -806,6 +854,7 @@
             var signCheck = frozen && done && checkWhileSigning(l.uid);
             // Kiosk, frozen (locked, blocked...): the adapter says why a lesson cannot open ("Locked · see your trainer").
             var frozenLabel = frozen && isKiosk && fn('frozenRowLabel') ? adapter.frozenRowLabel() : null;
+            var at = !done && !locked && !pendingCheck ? rowResume(l) : null;   // "Continue at 2:13"
             var stateEl;
             if (done) {
                 stateEl = [h('span', { class: 'trp-row__state trp-row__state--ok', text: t('done') }), h('span', { class: 'trp-round trp-round--ok', 'aria-hidden': 'true' }, icon('fa-check'))];
@@ -815,8 +864,11 @@
                 stateEl = [h('span', { class: 'trp-row__state', text: typeof frozenLabel === 'string' && frozenLabel ? frozenLabel : (!frozen && examWaits(l.uid) ? t('exam_after') : t('locked')) }),
                     h('span', { class: 'trp-round trp-round--muted', 'aria-hidden': 'true' }, icon('fa-lock'))];
             } else if (next) {
-                stateEl = [h('span', { class: 'trp-pill trp-pill--info', text: progress.current === l.uid || doneCount() > 0 ? t('in_progress') : t('start_chip') }),
+                stateEl = [h('span', { class: 'trp-pill trp-pill--info', text: at !== null ? t('continue_at', { t: fmt(at) })
+                    : (progress.current === l.uid || doneCount() > 0 ? t('in_progress') : t('start_chip')) }),
                     h('span', { class: 'trp-round trp-round--primary', 'aria-hidden': 'true' }, icon('fa-play'))];
+            } else if (at !== null) {
+                stateEl = [h('span', { class: 'trp-pill trp-pill--info', text: t('continue_at', { t: fmt(at) }) }), h('span', { class: 'trp-round', 'aria-hidden': 'true' }, icon('fa-play'))];
             } else {
                 stateEl = [h('span', { class: 'trp-row__state', text: t('start_chip') }), h('span', { class: 'trp-round', 'aria-hidden': 'true' }, icon('fa-play'))];
             }
@@ -905,6 +957,11 @@
                     if (!g || typeof g !== 'object') { return; }
                     if (g.quiz) { serverOff = true; gate.render(); return; }
                     server = g;
+                    if (!g.done && !g.credited) {
+                        // this lesson is the run's current one now: another lesson's last point was reset on the server
+                        Object.keys(gates).forEach(function (u) { if (u !== uid) { delete gates[u]; } });
+                    }
+                    gates[uid] = Object.assign({}, g);
                     if (g.done) { progress.done[uid] = true; }
                     if (g.credited) { progress.credited[uid] = true; }
                     if (typeof syncCheckUi === 'function') { syncCheckUi(); }
@@ -1032,12 +1089,12 @@
                 if (!s.pages_seen.length) { delete s.pages_seen; }
                 return s;
             }
-            function sendTick(extra) {
+            function sendTick(extra, opts) {
                 if (!live || !isKiosk || !fn('onTick') || serverOff || isCredited(uid)) { return Promise.resolve(null); }
                 var mySeq = ++tickState.seq;
                 var s = sampleNow(extra);
                 tickState.sent = Date.now();
-                return Promise.resolve().then(function () { return adapter.onTick(uid, s); }).then(function (g) {
+                return Promise.resolve().then(function () { return adapter.onTick(uid, s, opts || null); }).then(function (g) {
                     if (live && mySeq === tickState.seq && g) { gate.server(g); }
                     return g;
                 }, function (e) {
@@ -1048,6 +1105,8 @@
             }
             function startTicks() {
                 if (!isKiosk || !fn('onTick') || serverOff || isCredited(uid)) { return; }
+                // Where the learner stopped (video position, PDF page) goes with a last tick when the lesson is left.
+                if (typeof ctx.leave === 'function') { leaveHook = function () { return ctx.leave(); }; }
                 var evs = ['pointerdown', 'keydown', 'wheel', 'touchstart'];
                 evs.forEach(function (ev) { root.addEventListener(ev, interacted, { passive: true }); });
                 var scroller = wrap.querySelector('.trp-lscroll');
@@ -1237,9 +1296,11 @@
                 thumbs.appendChild(b);
                 return b;
             });
-            // Pick up where you left off: the first page not seen yet (preview: progress.pages; kiosk: the run's
-            // credited pages in the first gate). "Back to page 1" undoes it.
+            // Pick up where you left off: the last page viewed (kiosk: the run's last point, gate.resume_at; preview: its own
+            // progress.pos), else - nothing recorded, an older run - the first page not seen yet (preview: progress.pages;
+            // kiosk: the run's credited pages in the first gate). "Back to page 1" undoes it.
             var moved = false;
+            var lastPage = !isKiosk && typeof progress.pos[l.uid] === 'number' ? progress.pos[l.uid] : null;   // read before page 1 shows
             var docResume = MC ? MC.resumeBar({ labels: { start_over: t('back_to_first') }, onStartOver: function () { moved = true; go(0); } }) : null;
             ctx.main.appendChild(h('div', { class: 'trp-doc' }, [docResume ? docResume.el : null, stage, h('div', { class: 'trp-doc__bar' }, [h('div', { class: 'trp-doc__labels' }, [label, viewedLabel]), thumbs])]));
             function firstUnseen() {
@@ -1249,6 +1310,16 @@
             function resumeDoc() {
                 var i = firstUnseen();
                 if (moved || i <= 0 || !docResume) { return false; }
+                go(i);
+                docResume.show(t('resume_page', { n: pages[i].n }));
+                return true;
+            }
+            /** Opens on page number n (the last page viewed): true when it moved there (page 1: stays, no bar). */
+            function resumeAtPage(n) {
+                var i = -1;
+                for (var k = 0; k < pages.length; k++) { if (Number(pages[k].n) === Number(n)) { i = k; break; } }
+                if (moved || i < 0 || !docResume) { return false; }
+                if (i === 0) { return true; }
                 go(i);
                 docResume.show(t('resume_page', { n: pages[i].n }));
                 return true;
@@ -1273,6 +1344,7 @@
                 viewed[p.n] = true;
                 if (typeof ctx.pageSeen === 'function') { ctx.pageSeen(p.n); }
                 progress.pages[l.uid] = Object.keys(viewed).map(Number);
+                if (!isKiosk) { progress.pos[l.uid] = p.n; }   // preview: its own last page
                 saveProgress();
                 prev.disabled = i === 0;
                 next.disabled = i === pages.length - 1;
@@ -1309,21 +1381,28 @@
                 if (Math.abs(dx) > 50) { go(cur + (dx < 0 ? 1 : -1), true); }
             });
             if (isKiosk) {
-                // The run's credited pages arrive with the first gate (lesson_open): mark them, then pick up there.
+                // The run's credited pages and its last page arrive with the first gate (lesson_open): mark the pages, then
+                // open on the last page viewed (resume_at), else - an older run - on the first page not seen.
                 var docFirstGate = true;
                 ctx.onServerGate = function (g) {
                     if (!docFirstGate || !g) { return; }
                     docFirstGate = false;
-                    if (g.done || g.credited || !Array.isArray(g.pages_seen_list) || !g.pages_seen_list.length) { return; }
-                    g.pages_seen_list.forEach(function (n) { n = Number(n); if (n >= 1 && n <= pages.length) { viewed[n] = true; } });
-                    progress.pages[l.uid] = Object.keys(viewed).map(Number);
+                    if (g.done || g.credited) { return; }
+                    var seen = Array.isArray(g.pages_seen_list) ? g.pages_seen_list : [];
+                    seen.forEach(function (n) { n = Number(n); if (n >= 1 && n <= pages.length) { viewed[n] = true; } });
+                    if (seen.length) { progress.pages[l.uid] = Object.keys(viewed).map(Number); }
+                    if (typeof g.resume_at === 'number' && resumeAtPage(g.resume_at)) { go(cur); return; }
+                    if (!seen.length) { return; }
                     if (!resumeDoc()) { go(cur); }
                 };
+                // Every tick says which page is on screen (the run's last point); leaving the lesson sends a last one.
+                ctx.tickSample = function () { return pages[cur] ? { current_page: Number(pages[cur].n) } : {}; };
+                ctx.leave = function () { return ctx.sendTick ? ctx.sendTick({}, { keepalive: true }) : null; };
             }
             // Preview: pages viewed in an earlier visit (progress.pages) - measured before page 1 is shown now.
             var hadViewed = !isKiosk && firstUnseen() > 0;
             go(0);
-            if (hadViewed) { resumeDoc(); }
+            if (!isKiosk && !(lastPage !== null && resumeAtPage(lastPage)) && hadViewed) { resumeDoc(); }
         }
 
         // ---------------- video ----------------
@@ -1378,7 +1457,15 @@
             var curPos = 0;
             var playingNow = function () { return false; };   // the player in use says (set below per player)
             var settling = 0;                       // kiosk: pause / end ticks on their way (their answer brings the last seconds)
+            var stopAt = null;                      // where the learner stopped last time (last point, else furthest): the end message
             function settled() { settling = Math.max(0, settling - 1); updateWatch(); }
+            /** The reopen point by the shared rule (MC.resumePoint), with the old furthest-point rule when MC is missing. */
+            function reopenPoint(ra, max) {
+                if (MC && typeof MC.resumePoint === 'function') { return MC.resumePoint({ resumeAt: ra, max: max, duration: duration || 0 }); }
+                var p = Math.floor(Number(ra === null || ra === undefined ? max : Math.min(ra, max)) || 0);
+                return p >= 5 && !(duration > 0 && p >= duration - 3) ? p : null;
+            }
+            function setStop(ra, max) { stopAt = MC && typeof MC.stopPoint === 'function' ? MC.stopPoint({ resumeAt: ra, max: max }) : null; }
             var restartBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-restart', hidden: true }, [icon('fa-redo'), t('watch_from_start')]);
             var actions = ctx.foot ? ctx.foot.querySelector('.trp-foot__actions') : null;
             if (actions && !extCard) { actions.insertBefore(restartBtn, actions.firstChild); }
@@ -1391,6 +1478,7 @@
                     : { credit: sim, required: need, met: !!progress.done[l.uid] || (d > 0 && sim >= need && maxWatched >= Math.max(0, Math.floor(d * minPct / 100) - 5)) };
                 o.max = maxWatched; o.duration = d; o.minPct = minPct; o.cur = curPos; o.started = started; o.ended = ended;
                 o.playing = playingNow(); o.settling = settling > 0;
+                if (stopAt !== null) { o.at = stopAt; }
                 if (MC && typeof MC.watchCredit === 'function') { return MC.watchCredit(o); }
                 var req = Math.max(0, Number(o.required) || 0);
                 var cr = Math.max(0, Number(o.credit) || 0);
@@ -1537,17 +1625,15 @@
                     playBtn.appendChild(icon(playing ? 'fa-pause' : 'fa-play'));
                 };
                 /**
-                 * Pick up where you left off: opens at $sec (never past the furthest point watched) with
-                 * "Resuming at 3:42 · Start over". Only before the learner has started this video here, and
-                 * not near either end.
+                 * Pick up where you left off: opens at $sec - the point reopenPoint() chose (the last point, else the furthest;
+                 * past 5 s and not in the last few seconds: someone whose counted time is short would otherwise be dropped at
+                 * the very end - the video then starts at 0 and the bottom bar says why) - never past the furthest point
+                 * watched, with "Resuming at 3:42 · Start over". Only before the learner has started this video here.
                  */
                 var offerResume = function (sec) {
+                    if (sec === null || sec === undefined) { return; }
                     sec = Math.floor(Number(sec) || 0);
-                    var d = duration || video.duration || 0;
-                    // Not in the last few seconds (MC.nearEnd): someone whose counted time is short would be dropped at the very
-                    // end; the video starts at 0 and the bottom bar says why ("You reached the end, but only …").
-                    var atEndNow = MC && typeof MC.nearEnd === 'function' ? MC.nearEnd(sec, d) : (d > 0 && sec >= d - 3);
-                    if (!resume || resumeOffered || sec < 5 || atEndNow || !video.paused || (video.currentTime || 0) > 1) { return; }
+                    if (!resume || resumeOffered || sec <= 0 || !video.paused || (video.currentTime || 0) > 1) { return; }
                     resumeOffered = true;
                     resumeAt = Math.min(sec, Math.floor(maxWatched) || sec);
                     resume.show(t('resume_at', { t: fmt(resumeAt) }));
@@ -1564,7 +1650,8 @@
                     var now = Date.now();
                     if (!force && now - lastPosSave < 4000) { return; }
                     lastPosSave = now;
-                    progress.pos[l.uid] = video.ended ? 0 : Math.floor(video.currentTime || 0);
+                    // the stop point, the end included (a reopen there starts at 0, with the end message when time is short)
+                    progress.pos[l.uid] = Math.floor(video.ended ? (duration || video.duration || video.currentTime || 0) : (video.currentTime || 0));
                     saveProgress();
                 };
                 video.addEventListener('loadedmetadata', function () { if (!duration && video.duration && isFinite(video.duration)) { duration = video.duration; } updateWatch(); syncUi(); });
@@ -1648,10 +1735,29 @@
                 syncCc();
                 if (isKiosk) {
                     // Kiosk (§7.6 #4): a tick on every play/pause, every 10 s while playing (the tick timer asks
-                    // tickSample), and the server's furthest point drives the seek limit. The first gate (lesson_open)
-                    // also says where this person stopped: the run's furthest point for this lesson.
-                    ctx.tickSample = function () { return { position_s: Math.floor(video.currentTime || 0), playing: !video.paused && !video.ended }; };
+                    // tickSample), and the server's furthest point drives the seek limit. The position goes only once the
+                    // video has played here (the server keeps it as the run's last point; before that it would be the
+                    // start and wipe it). The first gate (lesson_open) says where this person stopped: resume_at (the last
+                    // point), or - an older run - the furthest point.
+                    ctx.tickSample = function () {
+                        var s = { playing: !video.paused && !video.ended };
+                        if (started) { s.position_s = Math.floor(video.currentTime || 0); }
+                        return s;
+                    };
                     ctx.evidence = function () { return { position_s: Math.floor(video.currentTime || 0) }; };
+                    var quietPause = false;   // the pause leave() makes: its own tick is the one leave() sends
+                    ctx.leave = function () {
+                        if (!started || !ctx.sendTick) { return null; }   // not played here: the stored point stays as it is
+                        if (!video.paused && !video.ended) { quietPause = true; try { video.pause(); } catch (e) { quietPause = false; } }
+                        if (gates[l.uid]) {
+                            // the course list shows it at once (the answer comes after the list is drawn); this tick moves the
+                            // server's furthest point up to it too
+                            var at = Math.max(0, Math.min(Math.floor(video.currentTime || 0), Math.floor(maxWatched)));
+                            gates[l.uid].resume_at = at;
+                            gates[l.uid].max_position_s = Math.max(Number(gates[l.uid].max_position_s) || 0, at);
+                        }
+                        return ctx.sendTick({ playing: false }, { keepalive: true });
+                    };
                     var firstGate = true;
                     ctx.onServerGate = function (g) {
                         kGate = g && typeof g === 'object' ? g : null;
@@ -1659,20 +1765,28 @@
                         if (mp > maxWatched) { maxWatched = mp; syncUi(); }
                         if (firstGate) {
                             firstGate = false;
-                            if (g && !g.done && !g.credited) { offerResume(mp); }
+                            if (g && !g.done && !g.credited) {
+                                var ra = typeof g.resume_at === 'number' ? g.resume_at : null;
+                                setStop(ra, mp);
+                                offerResume(reopenPoint(ra, mp));
+                            }
                         }
                         updateWatch();   // the counted time moved (or the gate opened)
                     };
                     ['play', 'pause', 'ended'].forEach(function (ev) {
                         video.addEventListener(ev, function () {
                             if (!ctx.sendTick) { return; }
+                            if (ev === 'pause' && quietPause) { quietPause = false; return; }
                             var sent = ctx.sendTick();
                             // A pause / end: the server's answer brings the seconds since the last tick - judge "time short" after it.
                             if (ev !== 'play' && sent && typeof sent.then === 'function') { settling++; updateWatch(); sent.then(settled, settled); }
                         });
                     });
                 } else {
-                    offerResume(Math.min(Number(progress.pos[l.uid] || 0), maxWatched || 0));
+                    // Preview: its own last point (progress.pos), else the furthest point it kept.
+                    var pp = typeof progress.pos[l.uid] === 'number' ? Math.min(progress.pos[l.uid], maxWatched || 0) : null;
+                    setStop(pp, maxWatched);
+                    offerResume(reopenPoint(pp, maxWatched));
                 }
                 cleanup.push(function () { if (tt) { tt.destroy(); } try { video.pause(); video.removeAttribute('src'); video.load(); } catch (e) { /* ignore */ } });
                 updateWatch();
@@ -1687,8 +1801,12 @@
                 var progBar = h('span', { class: 'trp-bar__fill', style: { width: '0%' } });
                 // The counted time, as the video page shows it (not the furthest point); the end-of-video message when the
                 // furthest point is at the end but time is short (the video page then offers "Watch from the start").
+                var watchLabel = h('span', { text: t('watch_video') });
                 var setProg = function () {
                     var w = watched();
+                    // Started before: the video page picks up at the last point - "Continue at 2:13".
+                    var at = kGate && !kGate.done && !kGate.credited ? reopenPoint(typeof kGate.resume_at === 'number' ? kGate.resume_at : null, maxWatched) : null;
+                    watchLabel.textContent = at !== null && !w.atEnd ? t('continue_at', { t: fmt(at) }) : t('watch_video');
                     progBar.style.width = w.pct + '%';
                     progText.textContent = w.met ? t(checkOf(l) && !progress.done[l.uid] ? 'counted_ok_check' : 'counted_ok')
                         : (w.atEnd ? t('end_short', { done: fmt(w.counted), t: fmt(w.left) }) : t('counted', { done: fmt(w.counted), need: fmt(w.required) }));
@@ -1698,9 +1816,10 @@
                     if (g && Number(g.duration_s) > 0 && !duration) { duration = Number(g.duration_s); }
                     kGate = g && typeof g === 'object' ? g : null;
                     maxWatched = Math.max(maxWatched, Number(g && g.max_position_s || 0));
+                    if (kGate && !kGate.done && !kGate.credited) { setStop(typeof kGate.resume_at === 'number' ? kGate.resume_at : null, maxWatched); }
                     setProg();
                 };
-                var watchBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--xl' }, [icon('fa-play'), t('watch_video')]);
+                var watchBtn = h('button', { type: 'button', class: 'trp-btn trp-btn--primary trp-btn--xl' }, [icon('fa-play'), watchLabel]);
                 watchBtn.addEventListener('click', function () { setBusy(watchBtn, true); location.assign(url); });
                 ctx.main.appendChild(h('section', { class: 'trp-card trp-extvideo' }, [
                     h('div', { class: 'trp-extvideo__art', 'aria-hidden': 'true' }, h('i', { class: 'fab ' + (v.provider === 'vimeo' ? 'fa-vimeo-v' : 'fa-youtube') })),
@@ -1763,10 +1882,13 @@
             // Pick up where you left off (preview keeps the last position per lesson): the jump happens on the first
             // play, because YouTube / Vimeo start only from a tap inside their player.
             // Not in the last few seconds (MC.nearEnd): the video then starts at 0 with the end-of-video message.
-            var ePos = Math.min(Number(progress.pos[l.uid] || 0), Number(progress.watch[l.uid] || 0));
-            var eAtEnd = MC && typeof MC.nearEnd === 'function' ? MC.nearEnd(ePos, duration) : (duration > 0 && ePos >= duration - 3);
-            if (eResume && ePos >= 5 && !eAtEnd) {
-                eResumeAt = Math.floor(ePos);
+            // Its own last point (progress.pos), else the furthest point it kept (MC.resumePoint).
+            var eMax = Number(progress.watch[l.uid] || 0);
+            var ePra = typeof progress.pos[l.uid] === 'number' ? Math.min(progress.pos[l.uid], eMax) : null;
+            setStop(ePra, eMax);
+            var ePt = reopenPoint(ePra, eMax);
+            if (eResume && ePt !== null) {
+                eResumeAt = Math.floor(ePt);
                 eResume.show(t('resume_at', { t: fmt(eResumeAt) }));
             }
             var eLastSave = 0;
@@ -1839,7 +1961,8 @@
                     }
                     simCount(playing);
                     if (!playing) { simSave(true); }
-                    if (s === 'ended' && controller) { ended = true; record(controller.getDuration() || duration); progress.pos[l.uid] = 0; saveProgress(); }
+                    // the stop point, the end included (a reopen there starts at 0, with the end message when time is short)
+                    if (s === 'ended' && controller) { ended = true; record(controller.getDuration() || duration); progress.pos[l.uid] = Math.floor(controller.getDuration() || duration || 0); saveProgress(); }
                     if (s === 'paused' && controller) { eSavePos(controller.getCurrentTime(), true); }
                     updateWatch();
                 },
@@ -2809,7 +2932,8 @@
             open: openLesson,
             home: renderHome,
             reset: function () { progress = normaliseProgress(null); saveProgress(); renderHome(); },
-            progress: function () { return JSON.parse(JSON.stringify(progress)); }
+            progress: function () { return JSON.parse(JSON.stringify(progress)); },
+            flush: leaveLesson
         };
     }
 

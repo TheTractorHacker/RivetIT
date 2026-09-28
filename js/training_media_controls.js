@@ -33,7 +33,7 @@
  *
  * Honest watch progress (owner report 2026-09-27: the ring said "Watched 100%" from the furthest point while only
  * 2:18 had counted, because the video had kept playing with the kiosk page in the background):
- *   TrainingMediaControls.watchCredit({credit, required, met, max, duration, minPct, cur, started, ended, playing, settling})
+ *   TrainingMediaControls.watchCredit({credit, required, met, max, duration, minPct, cur, started, ended, playing, settling, at?})
  *       -> {counted, required, left, pct, met, short, needPos, atEnd}
  *       What the learner is told: COUNTED watch time (the gate's credit_s; Preview: its own count) against what is
  *       required (required_s), never the furthest point. pct 0..99 until the gate is met (met), 100 only then.
@@ -45,8 +45,20 @@
  *       watch is still counting (review 2026-09-27: a 40 s lesson said it in its last 5 s): while it plays, only
  *       when even the rest of the video cannot make up what is left (+ one 10 s kiosk tick), and not while the
  *       kiosk's pause / end tick is still on its way (settling - the server's answer brings the last seconds).
+ *       at: where the learner stopped last time (MC.stopPoint) - before the video plays on this screen, the end-of-video
+ *       message goes by it instead of the furthest point (a last point at 2:13 is "Resuming at 2:13", not "You reached
+ *       the end"); leave it out for the furthest point (the rule before the last point was kept).
  *   TrainingMediaControls.nearEnd(sec, duration) -> bool   in the last few seconds (2 % of the length, 5-10 s): a
  *       resume point there is not offered (the video starts at 0 instead).
+ *
+ * Continue from the last point (owner report 2026-09-27 "There is no continue from last point"): the kiosk run keeps where
+ * the learner last was in the lesson (gate resume_at: seconds, never past the furthest point; null for an older run), and
+ * Preview keeps its own (progress.pos):
+ *   TrainingMediaControls.resumePoint({resumeAt, max, duration}) -> seconds | null   where a reopen starts ("Resuming at
+ *       2:13 · Start over", "Continue at 2:13"): the last point when it is past 5 s and not in the last few seconds; with
+ *       no last point (resumeAt null / undefined) the furthest point by the same rule (>= 5 s); null = start at 0.
+ *   TrainingMediaControls.stopPoint({resumeAt, max}) -> seconds   where the learner stopped: the last point (at most the
+ *       furthest point), else the furthest point - watchCredit's `at`.
  *   TrainingMediaControls.backgroundPause({isPlaying(), pause(), onHide?(wasPlaying), onReturn()}) -> {playing(), destroy()}
  *       Pauses the video when the page is hidden (visibilitychange -> hidden, pagehide): time never counts there,
  *       so the furthest point must not run ahead of it. onReturn() when the page shows again after such a pause (the
@@ -380,11 +392,12 @@
         var needPos = d > 0 ? Math.max(0, Math.floor(d * minPct / 100) - 5) : 0;
         var short = met ? null : (credit < required ? 'time' : (d > 0 && max < needPos ? 'position' : null));
         var cur = Math.max(0, Number(o.cur) || 0);
+        var at = typeof o.at === 'number' && isFinite(o.at) ? Math.max(0, o.at) : max;
         var atEnd = false;
-        if (short === 'time' && nearEnd(max, d) && !o.settling) {
-            if (!o.started) {
-                atEnd = true;                                   // not played on this screen: the furthest point is at the end
-            } else if (o.playing) {
+        if (short === 'time' && !o.settling && !o.started) {
+            atEnd = nearEnd(at, d);                             // not played on this screen: they stopped at the end last time
+        } else if (short === 'time' && nearEnd(max, d) && !o.settling) {
+            if (o.playing) {
                 // still playing its last seconds: only when even the rest of the video cannot make up what is left
                 atEnd = nearEnd(cur, d) && required - credit > Math.max(0, d - cur) + 12;
             } else {
@@ -401,6 +414,20 @@
             needPos: needPos,
             atEnd: atEnd
         };
+    }
+    function num(v) { return typeof v === 'number' && isFinite(v) ? v : null; }
+    function stopPoint(o) {
+        o = o || {};
+        var max = Math.max(0, Math.floor(num(o.max) || 0));
+        var ra = num(o.resumeAt);
+        return ra === null ? max : Math.max(0, Math.min(Math.floor(ra), max));
+    }
+    function resumePoint(o) {
+        o = o || {};
+        var d = num(o.duration) || 0;
+        var p = stopPoint(o);
+        if (num(o.resumeAt) !== null) { return p > 5 && !nearEnd(p, d) ? p : null; }
+        return p >= 5 && !nearEnd(p, d) ? p : null;   // no last point (an older run): the furthest point, as before
     }
     function backgroundPause(o) {
         var off = false;
@@ -516,6 +543,8 @@
         fitStage: fitStage,
         watchCredit: watchCredit,
         nearEnd: nearEnd,
+        resumePoint: resumePoint,
+        stopPoint: stopPoint,
         backgroundPause: backgroundPause,
         fmt: fmt
     };

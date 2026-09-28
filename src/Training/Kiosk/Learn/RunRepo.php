@@ -16,7 +16,7 @@ final class RunRepo
     public const COLUMNS = 'trun_id, trun_contact_id, trun_course_id, trun_revision_id, trun_revision_sha256, trun_assignment_id, trun_language,
         trun_status, trun_open_guard, trun_channel, trun_started_at_utc, trun_started_kiosk_id, trun_current_lesson_uid, trun_lesson_opened_at_utc,
         trun_lesson_last_tick_at_utc, trun_lesson_last_active, trun_lesson_credit_s, trun_lesson_max_position, trun_lesson_pages_hex,
-        trun_lesson_rejected_ticks, trun_progress_pct, trun_extra_attempts, trun_locked_at_utc, trun_locked_lesson_uid, trun_blocked_reason,
+        trun_lesson_rejected_ticks, trun_lesson_resume_at, trun_progress_pct, trun_extra_attempts, trun_locked_at_utc, trun_locked_lesson_uid, trun_blocked_reason,
         trun_blocked_lesson_uid, trun_passed_attempt_id, trun_attested_at_utc, trun_attest_tsig_id, trun_attest_proof, trun_attest_pin_source,
         trun_attest_odoo_employee_id, trun_last_activity_at_utc, trun_ended_at_utc, trun_completion_id, trun_superseded_by_run_id';
 

@@ -5164,6 +5164,7 @@ CREATE TABLE `training_runs` (
   `trun_lesson_max_position` int(10) unsigned NOT NULL DEFAULT 0,
   `trun_lesson_pages_hex` varchar(64) DEFAULT NULL,
   `trun_lesson_rejected_ticks` smallint(5) unsigned NOT NULL DEFAULT 0,
+  `trun_lesson_resume_at` int(10) unsigned DEFAULT NULL,
   `trun_progress_pct` tinyint(3) unsigned NOT NULL DEFAULT 0,
   `trun_extra_attempts` tinyint(3) unsigned NOT NULL DEFAULT 0,
   `trun_locked_at_utc` datetime(3) DEFAULT NULL,

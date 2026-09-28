@@ -2,6 +2,35 @@
 
 This file documents all notable changes made to ITFlow.
 
+## [Unreleased] ITFlow Internal IT - Training: continue from the last point
+Database 2.6.98 -> 2.6.99: `training_runs` gets `trun_lesson_resume_at` (nullable). Nothing is backfilled: runs from
+before the update have no last point and behave exactly as before until the learner next plays or turns a page. Apply
+it through **Admin > Update > Update Database**. `training_runs` has no row hash and no ledger event reads the column,
+so the ledger verify is unaffected. Owner report 2026-09-27: "There is no continue from last point" - reopening a video
+went to the furthest point reached (or, since the honest-progress change, to 0:00 when that was the end), so where the
+learner actually stopped was lost.
+
+### Fixes
+- **The kiosk remembers where you stopped.** The run keeps the learner's last point in the lesson they are on: the
+  video position (YouTube / Vimeo and uploaded videos) or the PDF page on screen. It is saved on pause, every 10 s while
+  a video plays, when the screen goes to the background or the page is left, when **Course** is pressed and before
+  **Done** signs out - so it is never more than a few seconds old, on this kiosk or any other one.
+- **Reopening resumes there.** A video opens with **Resuming at 2:13 · Start over** and plays from 2:13 (YouTube /
+  Vimeo jump there on the first play). A PDF opens on the last page viewed: **Picked up at page 4 · Back to page 1**.
+  A last point in the last few seconds of a video with too little time counted starts at 0 with the end-of-video
+  message and **Watch from the start**, as before. Runs from before the update keep the old rule (the furthest point;
+  the first unseen page) until a new point is saved.
+- **"Continue at 2:13"** ("Sigue en 2:13") on the Learning Center card's button, on the lesson in the course list and
+  on the YouTube / Vimeo lesson card; the course page's main button says **Continue: <lesson>** instead of **Start
+  course** once a video is under way.
+- Navigation only: the last point never counts as watched time, is never past the furthest point reached, and the
+  credit, gate and quick-check rules are unchanged. **Start over** / **Back to page 1** work as before; Preview as
+  learner keeps its own last point the same way.
+- The kiosk YouTube page no longer loses track of a playing video after YouTube buffers (the jump to the last point
+  buffers): watch time keeps counting and the play button shows Pause.
+- Reset progress, a restart, a new run in another language and completing the lesson clear the last point with the
+  rest of the lesson's progress.
+
 ## [Unreleased] ITFlow Internal IT - Training videos: honest watch progress
 No database change and no server change: the credit rules (time counts only while the video plays with the kiosk page
 showing, 90 % / the lesson's minimum, the furthest point bounded per tick) and the quick-check gating are exactly as they

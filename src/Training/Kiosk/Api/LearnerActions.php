@@ -33,7 +33,7 @@ final class LearnerActions
         return (new RunService($k))->lessonOpen(self::runId($a), self::uid($a));
     }
 
-    /** POST lesson_tick {run_id, lesson_uid, position_s?, pages_seen?, playing, visible, active, video_id?} => Gate */
+    /** POST lesson_tick {run_id, lesson_uid, position_s?, pages_seen?, current_page?, playing, visible, active, video_id?} => Gate */
     public static function lessonTick(KioskCtx $k, ApiContext $a): array
     {
         return (new RunService($k))->tick(self::runId($a), self::uid($a), self::sample($a->input));
@@ -141,7 +141,8 @@ final class LearnerActions
 
     /**
      * A tick sample with only well-typed fields: position_s (number 0..86400), pages_seen (list of
-     * ints, at most 150), playing/visible/active (bool), video_id (string <= 64, [A-Za-z0-9_-]).
+     * ints, at most 150), current_page (int 1..150: the document page on screen, the lesson's last point),
+     * playing/visible/active (bool), video_id (string <= 64, [A-Za-z0-9_-]).
      */
     public static function sample(array $in): array
     {
@@ -153,6 +154,10 @@ final class LearnerActions
         $pages = $in['pages_seen'] ?? null;
         if (is_array($pages) && array_is_list($pages)) {
             $out['pages_seen'] = array_slice(array_values(array_filter($pages, static fn($x) => is_int($x) && $x >= 1 && $x <= 150)), 0, 150);
+        }
+        $cp = $in['current_page'] ?? null;
+        if (is_int($cp) && $cp >= 1 && $cp <= 150) {
+            $out['current_page'] = $cp;
         }
         foreach (['playing', 'visible', 'active'] as $b) {
             $out[$b] = ($in[$b] ?? false) === true;

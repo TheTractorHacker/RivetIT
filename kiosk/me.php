@@ -20,6 +20,8 @@ use ITFlow\Training\Kiosk\Bridge\RecordsBridge;
 use ITFlow\Training\Kiosk\Core\KioskStrings;
 use ITFlow\Training\Kiosk\Core\RevisionCache;
 use ITFlow\Training\Kiosk\Learn\AttemptFinalizer;
+use ITFlow\Training\Kiosk\Learn\LessonCredit;
+use ITFlow\Training\Kiosk\Learn\ResumePoint;
 use ITFlow\Training\Kiosk\Learn\RunRepo;
 use ITFlow\Training\Kiosk\Learn\RunService;
 use ITFlow\Training\Kiosk\Pin\PinService;
@@ -30,7 +32,8 @@ $cid = $kctx->contactId();
 
 // ---- housekeeping (idempotent; a failure never blocks the page) ------------------------------
 $k_open_runs = static fn(): array => Db::all($db, 'SELECT trun_id, trun_course_id, trun_revision_id, trun_status, trun_progress_pct,
-        trun_language, trun_current_lesson_uid, trun_locked_at_utc, trun_blocked_reason, trun_last_activity_at_utc
+        trun_language, trun_current_lesson_uid, trun_lesson_max_position, trun_lesson_resume_at, trun_locked_at_utc, trun_blocked_reason,
+        trun_last_activity_at_utc
     FROM training_runs WHERE trun_contact_id = ? AND trun_open_guard = 1 ORDER BY trun_last_activity_at_utc DESC', 'i', [$cid]);
 try {
     foreach ($k_open_runs() as $r) {
@@ -96,32 +99,37 @@ $k_doc_name = static function (array $doc, string $lang): string {
     return trim((string) ($text[$lang]['name'] ?? $text[$default]['name'] ?? ''));
 };
 
-/** Lesson count, page count (documents), version number, the course name and the lesson list of a revision. */
+/** Lesson count, page count (documents), version number, the course name, the lesson list and the video lessons' lengths of a revision. */
 $revFacts = static function (?int $revId, ?string $runLang = null) use ($db, $k_lang_for, $k_doc_name): array {
     if ($revId === null || $revId <= 0) {
-        return ['lessons' => 0, 'pages' => null, 'number' => null, 'name' => '', 'titles' => [], 'order' => []];
+        return ['lessons' => 0, 'pages' => null, 'number' => null, 'name' => '', 'titles' => [], 'order' => [], 'videos' => []];
     }
     try {
         $rev = RevisionCache::get($db, $revId);
     } catch (\Throwable) {
-        return ['lessons' => 0, 'pages' => null, 'number' => null, 'name' => '', 'titles' => [], 'order' => []];
+        return ['lessons' => 0, 'pages' => null, 'number' => null, 'name' => '', 'titles' => [], 'order' => [], 'videos' => []];
     }
     $doc = is_array($rev['doc'] ?? null) ? $rev['doc'] : [];
     $lessons = is_array($doc['lessons'] ?? null) ? $doc['lessons'] : [];
     $titles = [];
+    $videos = [];
     $pages = null;
     $lang = $k_lang_for($doc, $runLang);
     foreach ($lessons as $uid => $l) {
         $u = is_string($uid) ? $uid : (string) ($l['uid'] ?? '');
         $v = $l['variants'][$lang] ?? (is_array($l['variants'] ?? null) ? reset($l['variants']) : []);
         $titles[$u] = (string) ($v['title'] ?? $l['title'] ?? '');
+        if (($l['type'] ?? '') === 'video' && is_array($l)) {
+            // the length the run's gate uses (RunService::lessonFacts): the variant in this language, else the default
+            $videos[$u] = LessonCredit::videoDuration(RunRepo::variant($l, $lang, (string) ($doc['course']['default_language'] ?? 'en')));
+        }
         if (($l['type'] ?? '') === 'document' && isset($v['page_count'])) {
             $pages = (int) $v['page_count'];
         }
     }
     $order = is_array($doc['lesson_order'] ?? null) ? array_values(array_map('strval', $doc['lesson_order'])) : array_keys($titles);
     return ['lessons' => count($lessons), 'pages' => $pages, 'number' => isset($rev['number']) ? (int) $rev['number'] : null,
-        'name' => $k_doc_name($doc, $lang), 'titles' => $titles, 'order' => $order];
+        'name' => $k_doc_name($doc, $lang), 'titles' => $titles, 'order' => $order, 'videos' => $videos];
 };
 
 $today = new \DateTimeImmutable('today');
@@ -176,6 +184,12 @@ $card = static function (int $courseId, ?array $item) use ($courses, $runs, $rev
         $n = array_search($u, $f['order'], true);
         if ($n !== false) {
             $resume = ['n' => $n + 1, 'title' => $f['titles'][$u] ?? ''];
+            if (isset($f['videos'][$u])) {
+                // A video lesson in progress: where it continues ("Continue at 2:13" / "Sigue en 2:13") - the point the
+                // video page resumes at (the last point; an older run's furthest point), null when it starts at 0.
+                $resume['at_s'] = ResumePoint::videoOffer($run['trun_lesson_resume_at'] === null ? null : (int) $run['trun_lesson_resume_at'],
+                    (int) $run['trun_lesson_max_position'], (int) $f['videos'][$u]);
+            }
         }
     }
     $est = $c['course_est_minutes'] === null ? null : (int) $c['course_est_minutes'];
