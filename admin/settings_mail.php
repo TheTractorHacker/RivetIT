@@ -605,7 +605,7 @@ require_once "includes/inc_all_admin.php";
                                         <ol class="mb-0 ps-3">
                                             <li>In your new app, go to <strong>API permissions</strong> &rarr; <strong>Add a permission</strong></li>
                                             <li class="mt-2">Click the <strong>"Microsoft APIs"</strong> tab &rarr; <strong>Microsoft Graph</strong> &rarr; <strong>Delegated permissions</strong></li>
-                                            <li class="mt-2">In the filter box, type <code>Mail.ReadWrite</code> and tick it (covers reading, marking read, and moving messages into <?= htmlspecialchars(APP_NAME) ?>'s processed folder)</li>
+                                            <li class="mt-2">In the filter box, type <code>Mail.ReadWrite</code> and tick it (covers reading, marking read, and moving processed messages into the mailbox's <code>ITFlow</code> folder, a name kept from before <?= htmlspecialchars(APP_NAME) ?> so existing mailboxes keep one folder)</li>
                                             <li class="mt-2">Click <strong>Add permissions</strong>, then back on the permissions list click <strong>Grant admin consent for [your org]</strong> and confirm</li>
                                         </ol>
                                     </div>

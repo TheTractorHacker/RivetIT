@@ -92,7 +92,7 @@ if (isset($_POST['test_push_notification'])) {
     $sent = false;
     $sql_tokens = mysqli_query($mysqli, "SELECT token_fcm_token FROM api_tokens WHERE token_user_id = $session_user_id AND token_fcm_token IS NOT NULL AND token_fcm_token != ''");
     while ($tok = mysqli_fetch_assoc($sql_tokens)) {
-        if (firebase_send_push($tok['token_fcm_token'], APP_NAME . ' Test', 'Push notifications are working!', ['type' => 'test'])) {
+        if (firebase_send_push($tok['token_fcm_token'], APP_NAME . ' Test Notification', 'Push notifications are working!', ['type' => 'test'])) {
             $sent = true;
         }
     }

@@ -1,10 +1,5 @@
 # Rebranding: ITFlow Internal IT → RivetIT
 
-<!-- INTEGRATOR: first draft written by lane D. Complete the sections marked INTEGRATOR once lanes A-D are
-     merged: confirm the lane A/C details (updater constant name, $config_app_name handling, webhook header
-     duplicates, env-var aliases in scripts/setup_cli.php) and paste the final classified search into
-     "Remaining itflow matches". -->
-
 In September 2026 the application formerly called **ITFlow Internal IT** (repository
 `TheTractorHacker/ITFlow-Internal-IT`, itself a fork of the MSP-focused `TheTractorHacker/itflow`, a fork of
 `itflow-org/itflow`) was renamed **RivetIT**. This was a rename and a product identity, **not a rewrite**: no
@@ -41,6 +36,47 @@ Rules that follow from it:
   terminology. MSP-only modules (invoicing, quotes, payments, payroll, CRM) stay in the code, switched off
   (Settings > Modules does not offer them and saves them as 0); they are not advertised as features.
 
+## What says RivetIT now
+
+Every place where the software names itself says RivetIT through `APP_NAME`: the app chrome and footer
+("RivetIT 26.09 · Docs · Source"), login ("Welcome to RivetIT", with the RivetIT mark when no company logo is set),
+setup ("Welcome to RivetIT"), the About / debug page ("RivetIT | Version 26.09", Source, License, "Based on
+ITFlow"), Admin > Update, settings help text, notifications, e-mails about the system, the API reference, PDFs, the
+kiosk and the certificate check page. The root `/favicon.ico` and `img/branding/` (`logo.svg`, `logo-dark.svg`,
+`logo-mark.svg`, `favicon.svg`, `favicon.ico`) are the RivetIT mark; pages with no uploaded favicon link
+`/favicon.ico` and `APP_FAVICON_URL`.
+
+These strings changed as well. They are display-only: nothing reads them back, matches them or hashes them.
+
+| String | Now | What stays |
+|---|---|---|
+| Authenticator label (the `otpauth://totp/` label prefix) | `RivetIT:<email>` for new enrolments | The secret; existing authenticator entries keep their old label and keep working |
+| Passkey `rp.name` | `RivetIT` | `rp.id` (existing passkeys are bound to it) |
+| Calendar feed | `PRODID:-//RivetIT//Ticket Schedule//EN`, file `rivetit-schedule.ics` | The subscription URL and token |
+| Test push titles | "RivetIT Test Notification" | |
+| Stripe PaymentIntent description | Starts with `RivetIT:` | Metadata keys `itflow_*` |
+| API token label for passkey logins | "RivetIT Android (passkey)" (new tokens) | Existing tokens and their labels |
+| Outgoing User-Agent (US Census / Nominatim geocoding) | `RivetIT/26.09 (+<APP_REPO_URL>; Open-source internal IT operations platform)` | |
+| Outgoing User-Agent (YouTube / Vimeo lookups for training videos) | `RivetIT-Training/1.0` | |
+| Training PDFs | Creator "RivetIT Training"; the transcript footer adds "with RivetIT" | The company is the certificate issuer |
+| Public certificate check note (EN / ES) | "Records are kept in RivetIT by <company>" | Verify codes (`itflow-training-cert-key\|v1`) |
+| Odoo write-back wording | "Record of truth: RivetIT", "RivetIT ref: <marker>", "voided in RivetIT" | The `[ITFLOW:…]` marker; lines written before the rename keep their old wording |
+| Kiosk web-app manifest name | "RivetIT Training" (was the company name "Midwest Training") | Kiosks already added to a home screen keep their installed name |
+| In-app backup `version.txt` and SQL dump header | "RivetIT Backup Metadata", "RivetIT Version", "-- RivetIT DB Dump" | File names `itflow_<ts>_<type>.zip`; restore only logs `version.txt` |
+| QuickBooks generic service item | "RivetIT Services", created only on a first-ever sync | An item already mapped keeps its name |
+| New installs (`setup/index.php`, `scripts/setup_cli.php`) | `$config_app_name = 'RivetIT'`; seeded "Docs" custom link = `APP_DOCS_URL` | Existing installs' config and custom links |
+| Webhooks | `X-RivetIT-Signature` / `X-RivetIT-Event` added | `X-ITFlow-Signature` / `X-ITFlow-Event` |
+
+### `$config_app_name` on existing installs
+
+Each install's `config.php` holds `$config_app_name`. Setup wrote `ITFlow` upstream and `ITFlow Internal IT` in
+this fork, and about 25 e-mail subjects and bodies use it. `functions.php` now normalises it once, right after it
+loads: `appDisplayName()` returns `APP_NAME` for an empty value or **exactly** `ITFlow` or `ITFlow Internal IT`
+(after trimming), and returns any other name unchanged. So existing installs send "RivetIT …" e-mails and nobody
+has to edit `config.php`, while a name an administrator chose on purpose is kept. The config key is unchanged, and
+`config.php` is never rewritten. Places that show the product itself, such as the footer, setup and the About page,
+use `APP_NAME` directly.
+
 ## Environment variables
 
 | Variable | Status | Read by |
@@ -51,8 +87,9 @@ Rules that follow from it:
 | `ITFLOW_DB_PASSWORD`, `ITFLOW_ADMIN_PASSWORD` | **Deprecated, still honoured.** Existing automation keeps working. `deploy/install.sh` and `docker/entrypoint.sh` set both names. No removal date; remove only in a release that announces it. | `scripts/setup_cli.php` |
 | `RIVETIT_CONTAINER_PREFIX` | New. Container-name prefix (default `rivetit`), only needed to run two stacks on one Docker host. | `docker-compose.yml` |
 
-<!-- INTEGRATOR: confirm lane C's setup_cli.php reads RIVETIT_* first, then ITFLOW_*, treats an empty value as
-     unset, and does not refuse when both are set (install.sh / entrypoint.sh set both to the same value). -->
+`scripts/setup_cli.php` tries `RIVETIT_*` first and then `ITFLOW_*`, and treats an empty value as unset. When both
+are set it uses the `RIVETIT_*` value and does not complain; `install.sh` and the entrypoint set both to the same value.
+An empty `RIVETIT_ADMIN_PASSWORD` still means "prompt". `--help` documents both names.
 
 ## Updater source
 
@@ -60,16 +97,20 @@ Rules that follow from it:
   in `functions.php`, `admin/update.php`). The `fork` remote is this repository,
   `TheTractorHacker/ITFlow-Internal-IT`, branch `main` (`$repo_branch` in `config.php`). **The rename did not
   change where updates come from**, and no RivetIT repository exists yet, so nothing points at one.
-- The remote name is now a constant, `APP_UPDATE_REMOTE` (default `fork`), so a future move is a
-  configuration change: add the new repository as a git remote on each install (or re-point `fork`), then set
-  the constant (or `RIVETIT_APP_UPDATE_REMOTE`).
-  <!-- INTEGRATOR: confirm the constant name and default from lane A (includes/branding.php) and that lane C's
-       fetchUpdates() falls back to 'fork' when it is undefined. -->
+- The remote name is now a constant, `APP_UPDATE_REMOTE` (default `fork`, in `includes/branding.php`), so a
+  future move is a configuration change: add the new repository as a git remote on each install (or re-point
+  `fork`), then set the constant (or `RIVETIT_APP_UPDATE_REMOTE`). `fetchUpdates()` uses it and falls back to
+  `'fork'` if it is not defined. The git log on Admin > Update also uses it. Both pass the remote and ref through
+  `escapeshellarg()`. The page names the remote and branch it compares against.
 - `deploy/update.sh` wraps `scripts/update_cli.php` and uses a plain `git pull` of the checkout's own
   upstream (usually `origin`, the same repository). `deploy/install.sh` clones `REPO_URL`
   (`https://github.com/TheTractorHacker/ITFlow-Internal-IT.git`).
-- The "Latest Release" link on Admin > Update used to point at the old MSP fork (`TheTractorHacker/itflow`);
-  it now follows `APP_REPO_URL`. <!-- INTEGRATOR: lane A. -->
+- The "Latest Release" link on Admin > Update used to point at the old MSP fork (`TheTractorHacker/itflow`); it
+  now opens `APP_RELEASES_URL` (`APP_REPO_URL . '/tags'`: the updater compares git tags). The page's docs,
+  changelog and support links follow `APP_DOCS_URL`, `APP_REPO_URL` and `APP_SUPPORT_URL`.
+- Not changed, and unrelated to the rename: the force-update paths (`admin/post/update.php`,
+  `scripts/update_cli.php --force_update`) still run `git reset --hard origin/master`, an upstream leftover. This
+  repository's branch is `main`.
 
 ## Repository and links
 
@@ -109,7 +150,7 @@ integrations, stored data or the Android companion app, for no visible benefit.
 | API key-derivation salt `'itflow_enc'` | `api/v1/auth.php`, `api/v1/credentials.php` | Wraps the vault key inside every issued API/mobile token; changing it locks the Android app out of credentials. |
 | KDF/HMAC labels `itflow-training-*\|v1`, `itflow-training-cert-key\|v1`, `itflow-training-odoo\|` | `src/Training/Kiosk/Core/KioskKeys.php`, `Records/CertSecret.php`, `OdooSync/Marker.php` | Learner PINs, kiosk tokens, certificate verify codes and the Odoo install id are derived from them. |
 | Odoo write-back markers `[ITFLOW:<inst8>:C…]` and `Marker::RE` / `RE_ANY` | `src/Training/OdooSync/` | Idempotency: existing Odoo lines are found by this exact marker. (The human wording around it, e.g. "Record of truth", may say RivetIT.) |
-| Webhook headers `X-ITFlow-Signature`, `X-ITFlow-Event` | `cron/cron.php`, `src/Webhooks/WebhookDispatcher.php` | Receivers verify them. RivetIT-named duplicates may be added alongside, never instead. <!-- INTEGRATOR: record whether lane C added X-RivetIT-* duplicates. --> |
+| Webhook headers `X-ITFlow-Signature`, `X-ITFlow-Event` | `cron/cron.php`, `src/Webhooks/WebhookDispatcher.php` | Receivers verify them. Both senders now also send `X-RivetIT-Signature` and `X-RivetIT-Event` with the same values (same HMAC-SHA256 of the body); receivers can switch whenever they like. The old names are never dropped silently. |
 | Stripe metadata `itflow_invoice_id`, `itflow_client_id`, `itflow_client_name`, `itflow_invoice_number` | payment code in `agent/`, `client/`, `guest/`, `cron/` | Read back by the payment webhook, including for payments created before the rename. |
 | KB media HMAC context `itflow.kb_media.v1` | `src/KB/MediaToken.php` | Every signed KB media URL already issued (web, portal, Android). |
 | Metrics wire tag `itflow.metrics.v1`, collector `itflow_metrics_collector.ps1`, token cache `%ProgramData%\ITFlow\metrics\`, Tactical field `{{agent.itflow_metrics_token}}` | `api/v1/metrics_ingest.php`, `scripts/collector/` | Deployed collectors send the tag and keep their token there; renaming forces every endpoint to re-enrol. |
@@ -118,7 +159,8 @@ integrations, stored data or the Android companion app, for no visible benefit.
 | Android package `com.foleyit.itflow(.beta)` | `.well-known/assetlinks.json`, notification settings | The companion app's application id (separate repository). |
 | Ledger actor `itflow-training-worker` | `src/Training/Automation/WorkerCtx.php` | Written into the hash-chained training ledger; kept for uniform history. |
 | Temp and lock names `itflow_*_cron_*`, `itflow_mail_queue_*`, `itflow_training_*`, `itflow-*-media-*` | `cron/`, `src/Training/`, `src/KB/` | A rename mid-rollout lets an old and a new run overlap and orphans scratch directories. |
-| Parser placeholder `itflow-guest@example.com` | `cron/ticket_email_parser.php` | Internal placeholder address. |
+| Parser placeholder `itflow-guest@example.com` | `cron/ticket_email_parser.php` | Placeholder sender stored on parsed rows; existing rows may match it. |
+| Signed collector token prefix `itfm1.` | `api/v1/metrics_ingest.php`, collector | Part of issued device and enrolment tokens (it does not contain "itflow", listed for completeness). |
 
 ### Files, folders and server names
 
@@ -126,7 +168,7 @@ integrations, stored data or the Android companion app, for no visible benefit.
 |---|---|---|
 | In-app backup files `itflow_<14 digits>_(manual\|auto).zip` | `admin/post/backup.php`, `admin/backup.php`, `cron/` | Globbed for the list and pruning, regex-checked for download; renamed files would vanish from the list and never be pruned. (The text inside `version.txt` / the dump header may say RivetIT.) |
 | `deploy/backup.sh` archives `backup-<DB_NAME>-<ts>.tar.gz.enc` and `backup-manifest.json` | `deploy/` | Named after the database; `restore.sh` parses the manifest. Docs examples say `backup-itflow-…` because `itflow` is the Docker default database name. |
-| Mail folder `ITFlow` | `cron/ticket_email_parser.php` | Processed mail is moved there in every monitored mailbox; a rename would silently create a second folder. |
+| Mail folder `ITFlow` | `cron/ticket_email_parser.php` | Processed mail is moved there in every monitored mailbox; a rename would silently create a second folder. The NDR log line and the Microsoft 365 setup steps (Admin > Mail) name the folder, and the setup steps say why it keeps the old name. Making it a setting is a follow-up. |
 | `/etc/cron.d/itflow` | `admin/cron.php`, `admin/post/cron.php` | The Cron Manager rewrites exactly this file through a sudoers rule. |
 | Deploy tooling names: `/var/log/itflow-{install,backup,restore,update,cron}.log`, `/etc/cron.d/itflow-<domain>`, `itflow-backup.service` / `.timer` (and the template file names), `/etc/itflow/backup-passphrase`, fail2ban `jail.d/itflow.local` + `filter.d/itflow-auth.conf` (jail `[itflow-auth]`), nginx `conf.d/itflow-rate-limit.conf` and zone `itflow_login`, `99-itflow-hardening.ini/.cnf`, `51-itflow-unattended-upgrades`, `deploy/templates/jail-itflow.local` | `deploy/` | Existing boxes have them installed and enabled; re-runs must find the same files, and the vhosts reference the zone. |
 | **Text** of files the deploy scripts compare byte for byte: `deploy/templates/php-hardening.ini`, `mariadb-hardening.cnf`, `jail-itflow.local`, and the inline fail2ban filter, rate-limit and unattended-upgrades heredocs in `harden.sh` / `install.sh` | `deploy/` | A changed comment would make the next `install.sh` on a shared box or `harden.sh` run restart PHP-FPM / MariaDB / fail2ban (dropping every other instance's connections and in-memory bans), and `harden.sh` refuses a rate-limit file that differs. Their header comments keep saying ITFlow-Internal-IT. |
@@ -171,42 +213,260 @@ integrations, stored data or the Android companion app, for no visible benefit.
 
 The optional telemetry (off by default, Settings > Telemetry) still reports to the upstream endpoint
 `https://telemetry.itflow.org` (`cron/cron.php`, `admin/post/update.php`, `scripts/setup_cli.php`); it was
-not redirected. <!-- INTEGRATOR: confirm the Settings > Telemetry wording (lane A) says the data goes to the
-upstream ITFlow project. -->
+not redirected. Every place that offers it says so: Settings > Telemetry ("RivetIT is built on ITFlow, and
+telemetry is sent to the upstream ITFlow project (telemetry.itflow.org), not to RivetIT"), the setup wizard's
+telemetry step and the `setup_cli.php` prompt. The "details" links point at the upstream ITFlow telemetry docs and are
+labelled as upstream.
 
 ## Follow-ups (not part of the rename)
 
 - **Android companion app** (separate repository): rename the app and its strings; keep the package id and
   every API contract listed above.
-- **`$config_app_name`** lives in each install's `config.php` (setup wrote `ITFlow Internal IT`) and is used in
-  e-mail subjects and bodies. <!-- INTEGRATOR: record how lane C maps the legacy default to APP_NAME at runtime. -->
-- Live data that only changes through the app: a setup-seeded custom link "Docs → docs.itflow.org" may still
-  exist in `custom_links` on older installs.
-- The mail folder name could become a setting (then it can say RivetIT on new installs).
-- Hard-coded company-specific values that are not product branding: the kiosk PWA name ("Midwest Training"
-  in `kiosk/manifest.json`), `https://foleyit.com/ticket-terms` on the signature pages.
-- Enable GitHub private vulnerability reporting on the repository, which `SECURITY.md` and the issue
-  templates rely on.
+- **Live data that only changes through the app:** older installs have a setup-seeded custom link "Docs →
+  https://docs.itflow.org" in `custom_links`, and the live install has one (checked read-only on 2026-09-28). It
+  shows in the navigation. Point it at `APP_DOCS_URL` or remove it in Admin > Custom Links; the rename does not
+  touch stored data.
+- **Mail folder name:** the parser's `ITFlow` folder could become a setting; then new installs could use a RivetIT
+  name while existing mailboxes keep theirs.
+- **Company-specific values that are not product branding:** `https://foleyit.com/ticket-terms` is hard-coded on
+  the signature pages (`guest/outtake_sign.php`, `guest/worksheet_sign.php`, `agent/modals/ticket/outtake_sign.php`)
+  and should become a setting. The kiosk manifest no longer carries the company name, and `KioskSettings::fromRow()`
+  no longer defaults to it.
+- **Cron Manager:** `admin/cron.php` / `admin/post/cron.php` build job lines from
+  `/var/www/itflow.foleyit.com/cron/`, the sibling install's path, not this checkout's. This is pre-existing and not
+  branding, but it is worth checking.
+- **Repository hygiene:** enable GitHub private vulnerability reporting on the repository (`SECURITY.md` and the issue
+  templates rely on it). `SECURITY.md` keeps upstream's 72-hour acknowledgement promise; adjust it if needed.
 - Pre-existing, unrelated to the rename: `deploy/install.sh` writes `/etc/nginx/conf.d/itflow-rate-limit.conf`
   with different comment lines than `deploy/harden.sh` expects, so `harden.sh` (step 7, nginx) refuses that
   file on a box built by `install.sh` unless run with `--skip-nginx`.
 
 ## Remaining `itflow` matches
 
-<!-- INTEGRATOR: after merging A-D, run
-       git grep -n -i -I -E "itflow|it flow" -- ':!vendor' ':!plugins'
-     and classify every match below as KEEP (with one of: compatibility identifier, attribution, license,
-     historical, upstream reference, server-level name, repository URL) or fix it. The audit
-     (scratchpad rivetit/audit.md, sections 3, 4 and 6) is the starting point. Lane D's residue is below. -->
+The final search ran on the merged tree:
 
-Lane D files (docs, deploy, Docker, repository), after the rename:
+```
+git grep -n -i -I -E 'itflow|it flow' -- . ':!vendor' ':!plugins'      # contents
+git ls-files | grep -i itflow | grep -v -E '^(vendor|plugins)/'         # file names
+```
 
-| File | Matches kept | Reason |
+It found **3530 matching lines in 656 files, plus 29 file names**. **Every match is KEEP** with one of the reasons below; **none is CHANGE**. No product-name "ITFlow" is left in the interface by accident. A sweep of the rendered pages confirmed this: every admin, agent, user and report page, the logged-out, portal, kiosk, verify and API-doc pages, and the update page (with `git fetch` stubbed), 269 pages in all. It found "itflow" in the visible text only where the "User-visible KEEPs" list below says it should be.
+
+### Count per reason
+
+A line is counted once, under its strongest reason (compatibility, then server, repository, upstream, attribution, migration, historical).
+
+| Reason | Lines |
+|---|---:|
+| compatibility identifier, grouped (lines that contain only the namespace, CSS file, function, JS global and constant names below) | 2830 |
+| compatibility identifier | 154 |
+| internal identifier: server / deploy name | 129 |
+| repository URL (the real, current repository) | 30 |
+| attribution / licensing | 28 |
+| upstream reference | 20 |
+| migration note (explains the rename, a kept name or a legacy value) | 194 |
+| historical | 142 |
+| false positive ("create/edit flows") | 3 |
+| **total** | **3530** |
+
+File names: 29. That is 24 `css/itflow*.css` files (compatibility), `scripts/collector/itflow_metrics_collector.ps1` (compatibility), the three `deploy/templates/` files `itflow-backup.service`, `itflow-backup.timer` and `jail-itflow.local` (server / deploy names, installed under the same names), and `ITFlow_Internal_IT_Modernization_Master_Plan.md` (historical).
+
+### Identifier classes (summarised, not listed line by line)
+
+Grouped identifiers, counted per occurrence. Renaming any of them is a refactor with no visible benefit, and it risks breaking the autoloader, the CSS cascade, or cross-file contracts:
+
+| Class | Occurrences | Files |
+|---|---:|---:|
+| PHP namespace `ITFlow\` (composer PSR-4 `"ITFlow\\": "src/"`) | 2294 | 497 |
+| `css/itflow*.css` file names (page heads, comments, docs) | 416 | 99 |
+| `itflow_*` PHP functions and globals (module access, roles, nav, pop-up map) | 275 | 58 |
+| JS globals and DOM ids (`itflowChartTheme`, `ITFlowKB`, `itflowRoleEditor`, `#itflowSidebarToggle`, …) | 52 | 14 |
+| PHP constants (`ITFLOW_MODAL_DEFAULT_REQUIREMENT`, `ITFLOW_FULL_AGENT_MODULES`, `ITFLOW_TRAINING_TEST_*`) and `_ITFLOW_TMPFILES` | 42 | 6 |
+| CSS class `itflow-access-denied` | 3 | 2 |
+
+Specific identifier classes. The count is the lines that contain at least one match of the class (lines in the whole-file KEEPs further down are not counted):
+
+| Identifier | Why it stays | Lines | Files |
+|---|---|---:|---:|
+| API token → vault-key salt `'itflow_enc'` | wraps the vault key in every issued API/mobile token | 4 | 2 |
+| KDF/HMAC labels `itflow-training-*\|v1`, `itflow-training-cert-key\|v1`, `itflow-training-odoo\|` | learner PINs, kiosk tokens, certificate codes, Odoo install id | 12 | 3 |
+| Odoo marker `[ITFLOW:<inst8>:…]`, `Marker::RE` / `RE_ANY` | write-back idempotency | 7 | 2 |
+| Webhook headers `X-ITFlow-Signature` / `X-ITFlow-Event` | receivers verify them; `X-RivetIT-*` sent alongside | 6 | 2 |
+| Stripe metadata `itflow_client_id`, `itflow_client_name`, `itflow_invoice_number`, `itflow_invoice_id` | the payment webhook reads them back | 24 | 6 |
+| KB media HMAC context `itflow.kb_media.v1` | every issued signed media URL | 1 | 1 |
+| Metrics wire tag `itflow.metrics.v1` | deployed collectors send it | 4 | 3 |
+| Collector script `itflow_metrics_collector.ps1` | imported into RMM script libraries | 7 | 2 |
+| Collector token cache `%ProgramData%\ITFlow\metrics` | deployed endpoints keep their token there | 5 | 2 |
+| Tactical field `{{agent.itflow_metrics_token}}` | created by admins in their RMM | 4 | 2 |
+| In-app backup names `itflow_<14 digits>_(manual\|auto).zip` | globbed, pruned and regex-checked | 11 | 6 |
+| localStorage `itflow.sidebar.folded`, `itflow.training.transcript.showRevoked` | saved per-user preferences | 3 | 3 |
+| BroadcastChannel `'itflow-training'` | cross-tab sync while old and new cached JS mix | 5 | 3 |
+| Lock / temp / scratch prefixes `itflow_*` (cron, training) | old and new runs must not overlap | 14 | 11 |
+| Temp placeholders `itflow-(docx\|html\|pdf)-media-`, `itflow-pdf-`, `itflow-trpdf` | internal, never shown | 5 | 4 |
+| Ledger actor `itflow-training-worker` | written into the hash-chained ledger | 1 | 1 |
+| Android application id `com.foleyit.itflow(.beta)` | the companion app (separate repository) | 3 | 2 |
+| Parser placeholder `itflow-guest@example.com` | stored on parsed rows | 2 | 1 |
+| Env aliases `ITFLOW_DB_PASSWORD`, `ITFLOW_ADMIN_PASSWORD` | deprecated, still honoured | 11 | 4 |
+| Docker volume key `itflow_db_data` | the database lives in it | 6 | 3 |
+| Docker / installer DB name and user default `itflow` (and backups named `backup-itflow-…` after it) | existing stacks | 13 | 5 |
+| cron.d names `/etc/cron.d/itflow` (Cron Manager), `itflow-<domain>`, `mw-itflow-*`, `itflow-beta` | installed on existing boxes | 5 | 5 |
+| Log files `/var/log/itflow-*.log`, `/var/log/itflow_mw_*.log`, `itflow_rmm_sync.log` | cron/logrotate on existing boxes | 21 | 14 |
+| systemd `itflow-backup.service` / `.timer` | enabled on existing boxes | 14 | 4 |
+| Passphrase `/etc/itflow/backup-passphrase` | existing boxes | 15 | 3 |
+| fail2ban `jail-itflow.local`, `jail.d/itflow.local`, `[itflow-auth]` | existing boxes | 23 | 4 |
+| Drop-ins and snippets `99-itflow-hardening.*`, `51-itflow-unattended-upgrades`, `itflow-rate-limit.conf` / zone `itflow_login`, `itflow-locations.conf`, in-image `itflow.conf` / `zz-itflow-overrides.ini` | existing boxes; vhosts reference the zone | 23 | 7 |
+| Live-box hosts and paths (`mw-itflow.foleyit.com`, `itflow.foleyit.com`, `beta-itflow.foleyit.com`, `/var/www/…`) | server facts | 21 | 13 |
+| Database names (`midwest_itflow`, `midwest_itflow_scratch` / `_verify`, `itflow_beta`) | server facts | 4 | 3 |
+| Example second-install DB name `itflow2` | database names are never renamed | 1 | 1 |
+| Android repository path in `scripts/check_openapi_drift.sh` | separate repository | 1 | 1 |
+| Repository URL `TheTractorHacker/ITFlow-Internal-IT` | the real repository until the project moves | 24 | 8 |
+| Clone directory `ITFlow-Internal-IT` | what `git clone` creates today | 6 | 2 |
+| Upstream links `itflow-org/itflow` | attribution | 9 | 5 |
+| MSP fork `TheTractorHacker/itflow` | attribution | 2 | 2 |
+| Telemetry endpoint `telemetry.itflow.org` | opt-in, upstream, labelled as such | 8 | 6 |
+| `docs.itflow.org` links | upstream docs, labelled as such | 4 | 4 |
+| `db.sql` dump header `itflow_dev` | historical | 1 | 1 |
+
+### Whole-file KEEPs
+
+| File | Lines | Reason |
+|---|---:|---|
+| `REBRANDING.md` | 153 | migration note (this file) |
+| `docs/REDESIGN_ARCHITECTURE_REPORT.md` | 42 | historical (banner on top) |
+| `docs/MSP_DESIGN_PORT_PLAN.md` | 32 | historical (banner on top) |
+| `CHANGELOG.md` (entries before the rename) | 26 | historical: never rewritten |
+| `CHANGELOG.md` (the RivetIT entry) | 22 | migration note: describes the rename and the names that were kept |
+| `PROGRESS.md` | 19 | historical (banner on top) |
+| `ITFlow_Internal_IT_Modernization_Master_Plan.md` | 16 | historical (banner on top) |
+| `NOTICE` | 14 | attribution / licensing |
+
+### User-visible KEEPs
+
+These still show "itflow" to someone, on purpose:
+
+- **Admin > Cron Manager:** the heading names `/etc/cron.d/itflow`, the file it writes through sudo. The job lines use the sibling install path `/var/www/itflow.foleyit.com` (see Follow-ups).
+- **Admin > Debug / About:** the "Based on ITFlow" credit row, the "upstream ITFlow guide" link for error logs, the Source row (the repository URL `…/ITFlow-Internal-IT`), and the server facts it reports: host name, web root and database name.
+- **Settings > Telemetry, the setup wizard and `setup_cli.php`:** they say telemetry goes to the upstream ITFlow project (`telemetry.itflow.org`) and link its docs, labelled as upstream.
+- **Settings > Notifications:** the Android package name `com.foleyit.itflow`, which must match the real app.
+- **Training settings > Worker:** the log path `/var/log/itflow_mw_training_worker.log` and the cron file `/etc/cron.d/mw-itflow-training-worker`.
+- **Mail:** processed mail still goes into the `ITFlow` folder of every monitored mailbox. The Microsoft 365 steps on Admin > Mail name it and say why, and the parser's NDR log line names it.
+- **Backups:** Admin > Backup and the setup restore list files named `itflow_<timestamp>_<manual|auto>.zip`.
+- **Links to the repository:** the footer "Source" link, Admin > Update and the README point at `…/TheTractorHacker/ITFlow-Internal-IT` until the project moves.
+- **Outside the app:**
+  - Odoo lines carry the `[ITFLOW:…]` marker, and lines written before the rename say "Record of truth: ITFlow".
+  - Stripe shows the `itflow_*` metadata keys.
+  - Webhook receivers get `X-ITFlow-*` next to `X-RivetIT-*`.
+  - RMM admins see `itflow_metrics_collector.ps1`, `{{agent.itflow_metrics_token}}` and `%ProgramData%\ITFlow\metrics`.
+  - Authenticator entries and home-screen kiosk apps created before the rename keep their old names.
+- **Live data, not code:** the "Docs → https://docs.itflow.org" custom link on older installs, including the live one (see Follow-ups).
+
+### Listed individually
+
+Every other line that names the old product or the upstream project in prose, as opposed to an identifier, is listed here with its reason. Lines holding both prose and an identifier are listed too.
+
+| File:line | Reason | Why |
 |---|---|---|
-| `README.md`, `SECURITY.md`, `composer.json`, `docs/DEPLOYMENT.md` | repository URL `TheTractorHacker/ITFlow-Internal-IT` and the clone directory | repository URL (see Repository and links) |
-| `README.md`, `NOTICE`, `CONTRIBUTING.md`, `CHANGELOG.md` (new entry), `docs/API.md`, `docs/ARCHITECTURE.md`, `docs/ISO27001-COMPLIANCE.md`, `SECURITY.md` | ITFlow, itflow-org, TheTractorHacker/itflow, "ITFlow Internal IT" | attribution / upstream reference / former name |
-| `composer.json`, `docs/ARCHITECTURE.md`, `CONTRIBUTING.md` | `ITFlow\` namespace, `itflow_*` names | compatibility identifier |
-| `CHANGELOG.md` (entries before the rename), `PROGRESS.md`, `ITFlow_Internal_IT_Modernization_Master_Plan.md`, `docs/MSP_DESIGN_PORT_PLAN.md`, `docs/REDESIGN_ARCHITECTURE_REPORT.md` | all | historical |
-| `db.sql` | dump header `itflow_dev` | historical |
-| `docker-compose.yml`, `.env.example`, `docker/Dockerfile`, `docker/entrypoint.sh` | `itflow_db_data`, `DB_NAME`/`DB_USER` default `itflow`, backup example, in-image file names, `ITFLOW_DB_PASSWORD` alias, `/var/log/itflow-restore.log` | compatibility identifier / server-level name |
-| `deploy/*.sh`, `deploy/lib/common.sh`, `deploy/templates/*`, `deploy/README.md` | log, cron, unit, passphrase, fail2ban, nginx zone and drop-in names; byte-compared deployed text; `ITFLOW_*` aliases; `_ITFLOW_TMPFILES`; live-box host names; repository URL | server-level name / compatibility identifier |
+| `.env.example:10` | migration note | explains the kept DB defaults |
+| `.env.example:12` | compatibility | volume key |
+| `CONTRIBUTING.md:21` | migration note | contributor rule: keep the legacy identifiers |
+| `CONTRIBUTING.md:43` | attribution | license and credit |
+| `README.md:47` | attribution | lineage / former name |
+| `README.md:183` | repository | clone directory note |
+| `README.md:236` | migration note | link to REBRANDING.md |
+| `README.md:254` | attribution | Credits |
+| `README.md:255` | attribution | Credits |
+| `README.md:256` | attribution | MSP fork credit TheTractorHacker/itflow |
+| `README.md:259` | attribution | Credits (former name) |
+| `README.md:260` | migration note | Credits -> REBRANDING.md |
+| `README.md:261` | attribution | Credits (independence statement) |
+| `README.md:262` | attribution | upstream credit itflow-org/itflow |
+| `SECURITY.md:8` | upstream reference | upstream security policy for shared code |
+| `SECURITY.md:25` | upstream reference | report upstream issues upstream |
+| `admin/database_updates.php:1998` | historical | upstream forum bug reference in a migration comment |
+| `admin/database_updates.php:3949` | historical | upstream migration comment |
+| `admin/database_updates.php:5751` | historical | upstream migration comment |
+| `admin/database_updates.php:7428` | historical | migration comment (written before the rename; migrations are history) |
+| `admin/debug.php:518` | upstream reference | upstream ITFlow log-gathering guide, labelled "upstream ITFlow guide" |
+| `admin/debug.php:552` | attribution | About/debug "Based on ITFlow" credit row |
+| `admin/post.php:29` | historical | upstream example URL in a comment |
+| `admin/post/update.php:273` | upstream reference | upstream telemetry endpoint (opt-in, labelled as upstream) |
+| `admin/settings_mail.php:608` | compatibility | Microsoft 365 setup step names the kept "ITFlow" processed-mail folder and says why |
+| `admin/settings_telemetry.php:18` | upstream reference | says telemetry goes to the upstream ITFlow project |
+| `admin/settings_telemetry.php:29` | upstream reference | docs of the upstream telemetry service the data goes to, labelled |
+| `agent/js/training_video_frame.js:7` | compatibility | BroadcastChannel name |
+| `agent/js/training_video_frame.js:35` | compatibility | BroadcastChannel name |
+| `agent/training_video_frame.php:18` | compatibility | BroadcastChannel name |
+| `api/v1/auth.php:260` | compatibility | comment on the kept salt |
+| `api/v1/client_tabs.php:57` | false positive | "edit flows" |
+| `api/v1/clients.php:29` | false positive | "edit flows" |
+| `api/v1/search.php:55` | false positive | "edit flows" |
+| `cron/backup_cron.php:7` | server / deploy name | live-box topology comment |
+| `cron/backup_cron.php:44` | migration note | explains a kept name / the former name |
+| `cron/cron.php:1331` | upstream reference | upstream telemetry endpoint (opt-in, labelled as upstream) |
+| `cron/cron.php:1334` | historical | commented-out upstream log line |
+| `cron/cron.php:1364` | migration note | explains a kept name / the former name |
+| `cron/cron.php:1469` | compatibility | comment on the kept webhook headers |
+| `cron/ticket_email_parser.php:452` | compatibility | NDR log text naming the mail folder, which is still called "ITFlow" |
+| `cron/ticket_email_parser.php:577` | migration note | explains why the mail folder keeps its name |
+| `cron/ticket_email_parser.php:579` | compatibility | mailbox folder name "ITFlow" (renaming creates a second folder in every mailbox) |
+| `cron/ticket_email_parser.php:691` | compatibility | comment naming the kept "ITFlow" mail folder |
+| `cron/ticket_email_parser.php:693` | compatibility | commented-out log line naming the kept "ITFlow" mail folder |
+| `cron/ticket_email_parser.php:795` | compatibility | comment naming the kept "ITFlow" mail folder |
+| `cron/ticket_email_parser.php:800` | compatibility | mailbox folder name "ITFlow" (renaming creates a second folder in every mailbox) |
+| `cron/ticket_email_parser.php:809` | compatibility | mailbox folder name "ITFlow" (renaming creates a second folder in every mailbox) |
+| `cron/ticket_email_parser.php:814` | compatibility | exception text naming the kept "ITFlow" mail folder |
+| `css/itflow_motion.css:308` | compatibility | comment naming the kept localStorage key |
+| `db.sql:4` | historical | fresh-install schema dump header |
+| `deploy/README.md:23` | migration note | explains the kept server-level names |
+| `deploy/README.md:181` | migration note | upgrade path for installs made under the old name |
+| `deploy/harden.sh:402` | migration note | explains the byte-compared deployed text |
+| `deploy/harden.sh:407` | server / deploy name | byte-compared deployed text (fail2ban filter heredoc) |
+| `deploy/harden.sh:517` | server / deploy name | byte-compared deployed text (unattended-upgrades heredoc) |
+| `deploy/harden.sh:522` | server / deploy name | byte-compared deployed text (unattended-upgrades heredoc) |
+| `deploy/harden.sh:562` | server / deploy name | byte-compared deployed text (rate-limit heredoc; harden.sh refuses a differing file) |
+| `deploy/harden.sh:563` | server / deploy name | byte-compared deployed text (rate-limit heredoc) |
+| `deploy/install.sh:559` | server / deploy name | byte-compared deployed text (rate-limit heredoc) |
+| `deploy/install.sh:867` | compatibility | env alias |
+| `deploy/templates/itflow-backup.service:3` | migration note | explains the kept unit names |
+| `deploy/templates/jail-itflow.local:1` | server / deploy name | byte-compared deployed text |
+| `deploy/templates/jail-itflow.local:25` | server / deploy name | byte-compared deployed text |
+| `deploy/templates/mariadb-hardening.cnf:1` | server / deploy name | byte-compared deployed text |
+| `deploy/templates/nginx-vhost.conf.template:78` | server / deploy name | live vhost family |
+| `deploy/templates/php-hardening.ini:1` | server / deploy name | byte-compared deployed text |
+| `docker/Dockerfile:58` | migration note | explains the kept in-image names |
+| `docker/entrypoint.sh:105` | compatibility | env alias |
+| `docs/API.md:31` | attribution | lineage sentence (why the API says client) |
+| `docs/API.md:546` | upstream reference | upstream behaviour |
+| `docs/ARCHITECTURE.md:3` | upstream reference | intro: points to the upstream-differences section |
+| `docs/ARCHITECTURE.md:7` | upstream reference | cross-reference to the upstream-differences section |
+| `docs/ARCHITECTURE.md:9` | migration note | explains kept identifiers |
+| `docs/ARCHITECTURE.md:197` | upstream reference | upstream behaviour |
+| `docs/ARCHITECTURE.md:237` | upstream reference | section on upstream differences |
+| `docs/ARCHITECTURE.md:239` | attribution | lineage paragraph |
+| `docs/ISO27001-COMPLIANCE.md:138` | upstream reference | upstream reference |
+| `functions.php:16` | migration note | docblock of appDisplayName() |
+| `functions.php:22` | migration note | legacy $config_app_name values mapped to APP_NAME at runtime |
+| `functions.php:168` | upstream reference | upstream config.php docs, labelled |
+| `includes/branding.php:16` | attribution | brand config credits upstream ITFlow |
+| `includes/branding.php:17` | migration note | brand config explains the kept identifiers |
+| `includes/branding.php:41` | repository | the configured repository |
+| `includes/branding.php:58` | attribution | upstream attribution constant |
+| `includes/branding.php:59` | attribution | upstream attribution constant |
+| `includes/sla_functions.php:16` | server / deploy name | sibling install DB name in a comment |
+| `js/training_common.js:698` | compatibility | BroadcastChannel name |
+| `js/training_common.js:705` | compatibility | BroadcastChannel name |
+| `scripts/collector/README.md:12` | migration note | explains the kept collector names |
+| `scripts/setup_cli.php:109` | compatibility | env alias in --help |
+| `scripts/setup_cli.php:146` | compatibility | env alias |
+| `scripts/setup_cli.php:483` | upstream reference | CLI telemetry prompt names the upstream receiver |
+| `scripts/setup_cli.php:521` | upstream reference | upstream telemetry endpoint (opt-in, labelled as upstream) |
+| `setup/index.php:747` | upstream reference | upstream telemetry endpoint (opt-in, labelled as upstream) |
+| `setup/index.php:1586` | upstream reference | says telemetry goes to the upstream ITFlow project |
+| `setup/index.php:1592` | upstream reference | docs of the upstream telemetry service, labelled |
+| `src/KB/MediaToken.php:41` | upstream reference | security rationale: the telemetry key goes to upstream |
+| `src/KB/MediaToken.php:50` | migration note | explains why the HMAC context keeps its name |
+| `src/Training/Kiosk/Core/KioskKeys.php:11` | compatibility | comment on the kept KDF labels |
+| `src/Training/OdooSync/Marker.php:21` | compatibility | comment on the kept marker |
+| `src/Training/OdooSync/PayloadBuilder.php:16` | migration note | Odoo lines written before the rename keep their wording |
+| `src/Training/Records/CertSecret.php:18` | compatibility | comment on the kept cert-key label |
+| `src/Webhooks/WebhookDispatcher.php:71` | compatibility | comment on the kept webhook headers |

@@ -24,6 +24,32 @@ exactly as before.
   `REBRANDING.md` (every name that was kept and why), `CONTRIBUTING.md`, and a `SECURITY.md` that points at this
   repository's private security advisories. `composer.json` gains the project metadata (`rivetit/rivetit`,
   `GPL-3.0-only`); its `ITFlow\` autoload namespace is unchanged.
+- **RivetIT mark and favicon:** `img/branding/` holds the logo, dark logo, mark and favicon (SVG, plus
+  `favicon.ico`), and the root `/favicon.ico` is the RivetIT icon instead of the upstream paper plane. The login
+  page shows the mark and "Welcome to RivetIT" when no company logo is set; an uploaded company logo or favicon
+  still wins. The footer reads "RivetIT 26.09 · Docs · Source" (the upstream forum and services links are gone),
+  and the About / debug page shows "RivetIT | Version 26.09", the source repository, the license and a "Based on
+  ITFlow" credit.
+- **E-mails from existing installs say RivetIT:** `config.php` still holds `$config_app_name` (setup wrote
+  `ITFlow Internal IT`); the old defaults `ITFlow` and `ITFlow Internal IT`, or an empty value, now mean RivetIT at
+  runtime. A name an administrator chose is kept, and `config.php` is never rewritten. New installs write
+  `RivetIT`.
+- **Webhooks** also send `X-RivetIT-Signature` and `X-RivetIT-Event`, with the same values as `X-ITFlow-Signature`
+  and `X-ITFlow-Event`, which stay: existing receivers keep verifying the old names.
+- **Display-only identity strings** now say RivetIT: the authenticator-app label and passkey name for new
+  enrolments (existing authenticators and passkeys keep working), the calendar feed's PRODID and file name, the
+  test push title, the Stripe payment description (the `itflow_*` metadata keys stay), the API token label for
+  passkey logins, the outgoing User-Agent for address lookups (`RivetIT/26.09 (+<repository>; ...)`) and training
+  video lookups (`RivetIT-Training/1.0`), the training PDF creator and transcript footer, the backup
+  `version.txt` and SQL dump header (the backup file names stay), the kiosk web-app name ("RivetIT Training";
+  kiosks already added to a home screen keep their name) and the wording around new Odoo write-back lines
+  ("Record of truth: RivetIT", "RivetIT ref:"; the `[ITFLOW:…]` marker is unchanged, and lines written before keep
+  their wording).
+
+### Fixes
+- **Admin > Update: "Latest Release"** linked to the releases of the old MSP fork (`TheTractorHacker/itflow`); it
+  now opens this repository's tags. The page names the git remote updates come from, and that remote is now a
+  constant, `APP_UPDATE_REMOTE` (default `fork`, still pointing where it did).
 
 ### Upgrade notes
 - **Docker Compose:** the containers are now named `rivetit-web` and `rivetit-db` and the built image
