@@ -44,6 +44,42 @@ $tr_k_title = static function (string $uid) use ($tr_k_doc, $tr_k_lang, $tr_k_de
     $l = \ITFlow\Training\Kiosk\Learn\RunRepo::lesson($tr_k_doc, $uid);
     return $l === null ? $uid : (string) (\ITFlow\Training\Kiosk\Learn\RunRepo::variant($l, $tr_k_lang, $tr_k_default)['title'] ?? $uid);
 };
+/** A question's wording in $lang, else the course default, else any - same fallback shape as
+ *  RunRepo::variant(), since training_attempt_answers only ever stores uids (RevisionCache::get's
+ *  $doc['questions'] map is the one place their text still exists, keyed by question uid). */
+$tr_k_qtext = static function (string $uid) use ($tr_k_doc, $tr_k_lang, $tr_k_default): string {
+    $q = $tr_k_doc['questions'][$uid] ?? null;
+    if (!is_array($q) || !is_array($q['text'] ?? null)) {
+        return $uid;
+    }
+    $t = $q['text'][$tr_k_lang] ?? $q['text'][$tr_k_default] ?? (reset($q['text']) ?: null);
+    return is_array($t) && (string) ($t['q'] ?? '') !== '' ? (string) $t['q'] : $uid;
+};
+/** A comma-separated list of choice uids (tanswer_presented / tanswer_selected) -> their option
+ *  labels in $lang, joined the same way the raw uids were. An empty string (nothing selected)
+ *  passes straight through untouched. */
+$tr_k_choices = static function (string $questionUid, string $csv) use ($tr_k_doc, $tr_k_lang, $tr_k_default): string {
+    if ($csv === '') {
+        return $csv;
+    }
+    $q = $tr_k_doc['questions'][$questionUid] ?? null;
+    $opts = is_array($q) && is_array($q['options'] ?? null) ? $q['options'] : [];
+    $byUid = [];
+    foreach ($opts as $o) {
+        if (is_array($o) && isset($o['uid'])) {
+            $byUid[(string) $o['uid']] = $o;
+        }
+    }
+    $labels = array_map(static function (string $uid) use ($byUid, $tr_k_lang, $tr_k_default): string {
+        $o = $byUid[$uid] ?? null;
+        if (!is_array($o) || !is_array($o['text'] ?? null)) {
+            return $uid;
+        }
+        $t = $o['text'][$tr_k_lang] ?? $o['text'][$tr_k_default] ?? (reset($o['text']) ?: null);
+        return is_array($t) && (string) ($t['label'] ?? '') !== '' ? (string) $t['label'] : $uid;
+    }, explode(',', $csv));
+    return implode(', ', $labels);
+};
 $tr_k_lcomps = \ITFlow\Training\Core\Db::all($tr_k_db, 'SELECT lcomp_lesson_uid, lcomp_lesson_type, lcomp_completed_at_utc, lcomp_server_seconds, lcomp_required_seconds, lcomp_coverage_json
     FROM training_lesson_completions WHERE lcomp_run_id = ? ORDER BY lcomp_completed_at_utc, lcomp_id', 'i', [(int) $tr_k_run['trun_id']]);
 $tr_k_attempts = \ITFlow\Training\Core\Db::all($tr_k_db, 'SELECT a.tattempt_id, a.tattempt_lesson_uid, a.tattempt_kind, a.tattempt_number, a.tattempt_started_at_utc, r.tresult_score_pct, r.tresult_passed,
@@ -101,11 +137,12 @@ $tr_k_dev_temp = $tr_k_device !== null && $tr_k_dev_at !== ''
                 <table class="table table-sm mt-2">
                     <thead><tr><th scope="col">Question</th><th scope="col">Choices shown</th><th scope="col">Chosen</th><th scope="col">Result</th></tr></thead>
                     <tbody>
-                    <?php foreach ($tr_k_ans as $tr_k_x) { ?>
+                    <?php foreach ($tr_k_ans as $tr_k_x) {
+                        $tr_k_qid = (string) $tr_k_x['tanswer_question_uid']; ?>
                         <tr>
-                            <td><code><?= $tr_k_h($tr_k_x['tanswer_question_uid']) ?></code><?= (int) $tr_k_x['tanswer_critical'] === 1 ? ' <span class="badge text-bg-warning">critical</span>' : '' ?></td>
-                            <td><code><?= $tr_k_h(str_replace(',', ', ', (string) $tr_k_x['tanswer_presented'])) ?></code></td>
-                            <td><code><?= $tr_k_h($tr_k_x['tanswer_selected'] === '' ? '—' : str_replace(',', ', ', (string) $tr_k_x['tanswer_selected'])) ?></code></td>
+                            <td title="<?= $tr_k_h($tr_k_qid) ?>"><?= $tr_k_h($tr_k_qtext($tr_k_qid)) ?><?= (int) $tr_k_x['tanswer_critical'] === 1 ? ' <span class="badge text-bg-warning">critical</span>' : '' ?></td>
+                            <td><?= $tr_k_h($tr_k_choices($tr_k_qid, (string) $tr_k_x['tanswer_presented'])) ?></td>
+                            <td><?= $tr_k_x['tanswer_selected'] === '' ? '—' : $tr_k_h($tr_k_choices($tr_k_qid, (string) $tr_k_x['tanswer_selected'])) ?></td>
                             <td><?= (int) $tr_k_x['tanswer_is_correct'] === 1 ? 'Correct' : 'Wrong' ?></td>
                         </tr>
                     <?php } ?>
