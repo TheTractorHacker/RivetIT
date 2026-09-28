@@ -6,7 +6,7 @@ use ITFlow\Directory\FieldMapping;
 
 /**
  * GoogleDirectoryMapper — matches Google Workspace org units/users (pulled
- * via GoogleDirectoryClient::listOrgUnits()/listUsers()) to ITFlow clients
+ * via GoogleDirectoryClient::listOrgUnits()/listUsers()) to RivetIT clients
  * (departments) and contacts (employees). Mirrors
  * OdooDirectoryMapper's structure/conventions closely: per-record
  * try/catch, a department-then-employee two-pass sync so a child org unit

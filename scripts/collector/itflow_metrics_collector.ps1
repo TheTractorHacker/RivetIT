@@ -1,13 +1,13 @@
 <#
 .SYNOPSIS
-    ITFlow device metrics collector for Windows endpoints.
+    RivetIT device metrics collector for Windows endpoints.
 
 .DESCRIPTION
-    Gathers one batch of device metrics and POSTs it to ITFlow's device-metrics
+    Gathers one batch of device metrics and POSTs it to RivetIT's device-metrics
     ingest endpoint. Designed to run as a Tactical RMM *Script Check* on a 300
     second interval.
 
-    Naming note: this subsystem is "Metrics", never "telemetry". ITFlow already
+    Naming note: this subsystem is "Metrics", never "telemetry". RivetIT already
     has a `config_telemetry` setting that means anonymous phone-home usage
     reporting, and the two must never be confused.
 
@@ -22,7 +22,7 @@
     MSAcpi_ThermalZoneTemperature returns "Not Supported" on most physical
     hardware and always inside a VM, and real die temperature requires a
     WinRing0-class kernel driver that Microsoft Defender flags as
-    HackTool:Win32/Winring0. There is no `cpu.temperature` key in the ITFlow
+    HackTool:Win32/Winring0. There is no `cpu.temperature` key in the RivetIT
     metric registry and one must never be added.
 
     RATES ARE COMPUTED HERE, NOT ON THE SERVER.
@@ -33,13 +33,13 @@
     break on non-English Windows.
 
 .PARAMETER ApiUrl
-    Base URL of the ITFlow instance, e.g. https://itflow.example.com
+    Base URL of the RivetIT instance, e.g. https://rivetit.example.com
     A full endpoint URL (.../api/v1/metrics-ingest) is also accepted.
 
 .PARAMETER DeviceToken
     The per-device token issued for this asset (itfm1.<selector>.<verifier>).
     In Tactical, supply it per agent with a custom-field substitution, e.g.
-        -ApiUrl "https://itflow.example.com" -DeviceToken "{{agent.itflow_metrics_token}}"
+        -ApiUrl "https://rivetit.example.com" -DeviceToken "{{agent.itflow_metrics_token}}"
     Never pass a user API token here - a device token can only write its own
     asset's series and can read nothing.
 
@@ -49,7 +49,8 @@
     for a per-device token and caches it under
     %ProgramData%\ITFlow\metrics\device_token.txt with an ACL restricted to
     SYSTEM and Administrators. This lets one check definition with one shared
-    secret be deployed to the whole fleet.
+    secret be deployed to the whole fleet. (The folder keeps its pre-RivetIT
+    name so devices enrolled before the rename keep using their cached token.)
 
 .PARAMETER SampleIntervalSeconds
     Seconds between the two performance-counter snapshots used to compute rates.
@@ -67,13 +68,13 @@
     is required. Use this to validate a new deployment on one machine first.
 
 .EXAMPLE
-    .\itflow_metrics_collector.ps1 -ApiUrl "https://itflow.example.com" -DeviceToken "itfm1.a1b2c3d4e5f60718.Zm9vYmFy..."
+    .\itflow_metrics_collector.ps1 -ApiUrl "https://rivetit.example.com" -DeviceToken "itfm1.a1b2c3d4e5f60718.Zm9vYmFy..."
 
 .EXAMPLE
-    .\itflow_metrics_collector.ps1 -ApiUrl "https://itflow.example.com" -EnrollmentToken "itfm1.0011223344556677.c2hhcmVk..."
+    .\itflow_metrics_collector.ps1 -ApiUrl "https://rivetit.example.com" -EnrollmentToken "itfm1.0011223344556677.c2hhcmVk..."
 
 .EXAMPLE
-    .\itflow_metrics_collector.ps1 -ApiUrl "https://itflow.example.com" -DryRun
+    .\itflow_metrics_collector.ps1 -ApiUrl "https://rivetit.example.com" -DryRun
 
 .NOTES
     Requires Windows PowerShell 5.1 (the shell Tactical RMM uses by default).
@@ -114,7 +115,7 @@ $script:TokenCacheDir    = Join-Path $env:ProgramData 'ITFlow\metrics'
 $script:TokenCacheFile   = Join-Path $script:TokenCacheDir 'device_token.txt'
 
 # TLS 1.2 minimum. PowerShell 5.1 still defaults to SSL3/TLS1.0 on older builds,
-# which every reasonable ITFlow deployment refuses.
+# which every reasonable RivetIT deployment refuses.
 try {
     $proto = [Net.SecurityProtocolType]::Tls12
     if ([Enum]::IsDefined([Net.SecurityProtocolType], 'Tls13')) {
@@ -142,7 +143,7 @@ function Add-Skip {
 <#
     Queue one reading. $Instance is the dimension member (volume "C:", core "0",
     NIC name, physical disk "0 C:", GPU index) and MUST be supplied for exactly
-    the metrics the ITFlow registry declares a dimension for - the server rejects
+    the metrics the RivetIT registry declares a dimension for - the server rejects
     a dimensioned sample with no instance, and a host-level sample that carries
     one, rather than guessing.
 #>
@@ -276,7 +277,7 @@ function Get-DeviceIdentity {
 
     # The Tactical RMM agent stores its own agent id here. Sending it lets the
     # server bind an enrollment to the right asset via asset_rmm_links even when
-    # the ITFlow asset name and the Windows hostname disagree.
+    # the RivetIT asset name and the Windows hostname disagree.
     foreach ($key in @('HKLM:\SOFTWARE\TacticalRMM', 'HKLM:\SOFTWARE\WOW6432Node\TacticalRMM')) {
         try {
             $agentId = (Get-ItemProperty -Path $key -Name 'AgentID').AgentID
@@ -340,7 +341,7 @@ function Get-PerfSnapshot {
     Total CPU is the MEAN of the per-core values rather than the "_Total"
     instance. The raw _Total row's semantics vary with how Windows aggregates a
     multi-counter instance, whereas the mean of the cores is unambiguous and is
-    exactly what "CPU utilisation" is taken to mean everywhere else in ITFlow.
+    exactly what "CPU utilisation" is taken to mean everywhere else in RivetIT.
 
     LIMITATION: the legacy `Processor` counter set this class exposes covers only
     processor group 0, i.e. the first 64 logical processors. Nothing in this
@@ -746,7 +747,7 @@ function Collect-Battery {
 
     There is no free, driver-less CLI that reports utilisation, VRAM and
     temperature for Intel integrated or AMD GPUs, so those machines emit no gpu.*
-    samples at all. The ITFlow registry marks every gpu.* key TIER_OPTIONAL for
+    samples at all. The RivetIT registry marks every gpu.* key TIER_OPTIONAL for
     exactly this reason: the UI renders "not supported" rather than a misleading
     flat zero.
 
@@ -1105,7 +1106,7 @@ if ($result.Ok) {
 # That is a deliberate administrative setting, not a device fault, so the check
 # passes and says so rather than paging somebody about a toggle.
 if ($result.Status -eq 503) {
-    Write-Note ('SKIPPED: ' + $result.Message + ' (device metrics are disabled in ITFlow)')
+    Write-Note ('SKIPPED: ' + $result.Message + ' (device metrics are disabled in RivetIT)')
     exit 0
 }
 

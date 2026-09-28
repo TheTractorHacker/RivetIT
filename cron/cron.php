@@ -395,8 +395,8 @@ if (mysqli_num_rows($sql_recurring_tickets) > 0) {
         // Notify agent's via the DL address of the new ticket, if it's populated with a valid email
         if (filter_var($config_ticket_new_ticket_notification_email, FILTER_VALIDATE_EMAIL)) {
 
-            $email_subject = "ITFlow Internal IT - New Recurring Ticket - $client_name: $ticket_subject";
-            $email_body = "Hello, <br><br>This is a notification that a recurring (scheduled) ticket has been raised in ITFlow Internal IT. <br>Ticket: $ticket_prefix$ticket_number<br>Department: $client_name<br>Priority: $priority<br>Link: https://$config_base_url/agent/ticket.php?ticket_id=$id$client_uri <br><br>--------------------------------<br><br><b>$ticket_subject</b><br>$ticket_details";
+            $email_subject = "$config_app_name - New Recurring Ticket - $client_name: $ticket_subject";
+            $email_body = "Hello, <br><br>This is a notification that a recurring (scheduled) ticket has been raised in " . nullable_htmlentities($config_app_name) . ". <br>Ticket: $ticket_prefix$ticket_number<br>Department: $client_name<br>Priority: $priority<br>Link: https://$config_base_url/agent/ticket.php?ticket_id=$id$client_uri <br><br>--------------------------------<br><br><b>$ticket_subject</b><br>$ticket_details";
 
             $email = [
                     'from' => $ticket_from['email'],
@@ -924,7 +924,7 @@ while ($row = mysqli_fetch_assoc($sql_recurring_payments)) {
             if ($provider_private_key && $stripe_customer_id && $stripe_payment_method_id) {
 
                 $balance_to_pay = round($invoice_amount, 2);
-                $pi_description = "ITFlow: $client_name payment of $recurring_payment_currency_code $balance_to_pay for $invoice_prefix$invoice_number";
+                $pi_description = APP_NAME . ": $client_name payment of $recurring_payment_currency_code $balance_to_pay for $invoice_prefix$invoice_number";
 
                 // Stable for one minute so an overlapping/retried cron run collapses into a
                 // single Stripe charge instead of billing the card twice for the same invoice.
@@ -994,7 +994,7 @@ while ($row = mysqli_fetch_assoc($sql_recurring_payments)) {
                         // Internal notification
                         if (!empty($config_invoice_paid_notification_email)) {
                             $subject_int = "Payment Received - $client_name - Invoice $invoice_prefix$invoice_number";
-                            $body_int = "This is a notification that an invoice has been paid in ITFlow Internal IT. Below is a copy of the receipt sent to the department:-<br><br>--------<br><br>$body";
+                            $body_int = "This is a notification that an invoice has been paid in " . nullable_htmlentities($config_app_name) . ". Below is a copy of the receipt sent to the department:-<br><br>--------<br><br>$body";
                             $data[] = [
                                 'from' => $config_invoice_from_email,
                                 'from_name' => $config_invoice_from_name,
@@ -1361,6 +1361,8 @@ $config_backup_retain_count = max(1, intval($settings_row['config_backup_retain_
 if ($config_backup_auto_enabled) {
     $backup_dir   = dirname(__DIR__) . '/backups';
     $should_run   = false;
+    // Backup files keep the pre-RivetIT name itflow_<YmdHis>_<manual|auto>.zip on purpose: the Backup
+    // page lists, prunes and serves downloads by that exact pattern (admin/post/backup.php).
 
     if ($config_backup_frequency === 'daily') {
         // Run if no auto-backup exists from today
@@ -1464,11 +1466,15 @@ while ($wq = mysqli_fetch_assoc($sql_wq)) {
 
     $signature = 'sha256=' . hash_hmac('sha256', $wq_payload, $wq_secret);
 
+    // X-ITFlow-* are the header names existing receivers verify: keep them. X-RivetIT-* carry the same
+    // values so new receivers can use the product's name; either pair is enough (same as WebhookDispatcher).
     $ctx = stream_context_create(['http' => [
         'method'        => 'POST',
         'header'        => "Content-Type: application/json
 X-ITFlow-Signature: $signature
 X-ITFlow-Event: $wq_event
+X-RivetIT-Signature: $signature
+X-RivetIT-Event: $wq_event
 ",
         'content'       => $wq_payload,
         'timeout'       => 10,

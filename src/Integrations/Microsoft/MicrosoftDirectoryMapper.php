@@ -5,7 +5,7 @@ namespace ITFlow\Integrations\Microsoft;
 use ITFlow\Directory\FieldMapping;
 
 /**
- * MicrosoftDirectoryMapper — matches Microsoft Graph users to ITFlow
+ * MicrosoftDirectoryMapper — matches Microsoft Graph users to RivetIT
  * clients (departments) and contacts (employees), the Entra/Microsoft 365
  * counterpart to OdooDirectoryMapper. This is NET NEW: there is no
  * Microsoft user/contact sync anywhere in this codebase before this class -

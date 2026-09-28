@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow Internal IT - Training automation worker (LMS Phase 5, spec §6.1).
+ * RivetIT - Training automation worker (LMS Phase 5, spec §6.1).
  *
  *   php cron/training_worker.php --task=odoo|daily|discover [--dry-run] [--force] [--limit=N]
  *

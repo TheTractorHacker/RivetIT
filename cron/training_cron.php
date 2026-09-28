@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow Internal IT - Training (LMS) nightly runner.
+ * RivetIT - Training (LMS) nightly runner.
  *
  * Deliberately NOT part of cron/cron.php, for the same reason cron/backup_cron.php is not:
  * this vhost shares its SMTP relay and client data with the live MSP install, so the full

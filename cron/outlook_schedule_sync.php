@@ -2,9 +2,9 @@
 /*
  * CRON - Outlook Schedule Sync (pull direction)
  *
- * syncScheduleEntryToOutlook() (functions.php) already pushes ITFlow appointment
- * changes out to each tech's Outlook calendar (ITFlow -> Outlook). This script
- * is the other direction: it looks at every appointment ITFlow has already
+ * syncScheduleEntryToOutlook() (functions.php) already pushes RivetIT appointment
+ * changes out to each tech's Outlook calendar (RivetIT -> Outlook). This script
+ * is the other direction: it looks at every appointment RivetIT has already
  * pushed to Outlook (ticket_schedules rows with a schedule_outlook_event_id)
  * and checks whether the tech moved or deleted that event directly in Outlook,
  * pulling the change back into ticket_schedules. Together the two make
@@ -22,7 +22,7 @@ if (php_sapi_name() !== 'cli') {
     die("This script must be run from the command line.\n");
 }
 
-// Get ITFlow config & helper functions
+// Get RivetIT config & helper functions
 require_once "../config.php";
 
 // Set Timezone
@@ -56,7 +56,7 @@ register_shutdown_function(function() use ($lock_file_path) {
 $tz_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_timezone FROM settings WHERE company_id = 1 LIMIT 1"));
 $tz = ($tz_row && $tz_row['config_timezone']) ? $tz_row['config_timezone'] : 'America/Chicago';
 
-// Only appointments ITFlow has already pushed to Outlook, still active, not too far in the past.
+// Only appointments RivetIT has already pushed to Outlook, still active, not too far in the past.
 $sql = mysqli_query($mysqli,
     "SELECT ts.schedule_id, ts.schedule_start, ts.schedule_end, ts.schedule_tech_id, ts.schedule_outlook_event_id,
             t.ticket_id, t.ticket_prefix, t.ticket_number, t.ticket_subject
@@ -133,7 +133,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
     }
 
     if ($http_code !== 200 || empty($event['start']['dateTime']) || empty($event['end']['dateTime'])) {
-        error_log("ITFlow: Outlook schedule pull failed for schedule $schedule_id (HTTP $http_code): " . json_encode($event['error'] ?? $raw_response));
+        error_log(APP_NAME . ": Outlook schedule pull failed for schedule $schedule_id (HTTP $http_code): " . json_encode($event['error'] ?? $raw_response));
         $failed++;
         continue;
     }

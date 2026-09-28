@@ -12,7 +12,7 @@ namespace ITFlow\Metrics;
  * TIMEZONE CONTRACT — READ THIS BEFORE TOUCHING $sampledAt
  * -------------------------------------------------------
  * `device_metric_samples.sampled_at` is UTC. That is a deliberate divergence
- * from the rest of ITFlow, which stores local time. It exists because samples
+ * from the rest of RivetIT, which stores local time. It exists because samples
  * arrive from vendor APIs that speak UTC/ISO-8601 with offsets, and because a
  * DST fold would otherwise silently collide two distinct samples onto the same
  * composite primary key and destroy one of them. Every DateTimeImmutable that

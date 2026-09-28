@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow Internal IT - standalone auto-backup runner.
+ * RivetIT - standalone auto-backup runner.
  *
  * Deliberately NOT part of cron/cron.php. This vhost shares its SMTP relay
  * and client data with the live MSP install (see /etc/cron.d/mw-itflow-metrics's
@@ -41,6 +41,8 @@ if (!$config_backup_auto_enabled) {
 
 $backup_dir = dirname(__DIR__) . '/backups';
 $should_run = false;
+// Backup files keep the pre-RivetIT name itflow_<YmdHis>_<manual|auto>.zip on purpose: the Backup
+// page lists, prunes and serves downloads by that exact pattern (admin/post/backup.php).
 
 if ($config_backup_frequency === 'daily') {
     // Run if no auto-backup exists from today
