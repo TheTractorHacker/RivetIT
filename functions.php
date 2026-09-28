@@ -1,5 +1,6 @@
 <?php
 
+require_once __DIR__ . '/includes/branding.php';   // RivetIT product name and links (APP_NAME etc.)
 require_once __DIR__ . '/includes/redis_functions.php';
 require_once __DIR__ . '/includes/firebase.php';
 require_once __DIR__ . '/includes/notification_categories.php';
