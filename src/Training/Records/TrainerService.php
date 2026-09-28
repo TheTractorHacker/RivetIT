@@ -3,6 +3,7 @@
 namespace ITFlow\Training\Records;
 
 use ITFlow\Training\Api\ApiException;
+use ITFlow\Training\Core\Clock;
 use ITFlow\Training\Core\Ctx;
 use ITFlow\Training\Core\Db;
 use ITFlow\Training\Core\Ledger;
@@ -24,6 +25,13 @@ final class TrainerService
         trainer_can_unlock, trainer_can_view_team, trainer_all_courses, trainer_all_departments, trainer_qualifications, trainer_active,
         trainer_version';
 
+    /**
+     * The trainer PIN's status only (2.6.104) - never the hash. Read-only here: save() never
+     * writes these, and never includes them in its "what changed" ledger diff (Kiosk\Pin\
+     * TrainerCredentialRepo::setPin() is the only writer, with its own pin.set ledger event).
+     */
+    private const PIN_COLS = 'trainer_pin_hash, trainer_pin_locked_until_utc, trainer_pin_hard_locked, trainer_pin_set_at_utc, trainer_pin_set_method';
+
     public function __construct(private readonly Ctx $c)
     {
     }
@@ -40,7 +48,7 @@ final class TrainerService
         if ($s->isNone()) {
             return [];
         }
-        $rows = Db::all($this->c->db, 'SELECT ' . self::COLS . ', c.contact_client_id FROM training_trainers t
+        $rows = Db::all($this->c->db, 'SELECT ' . self::COLS . ', ' . self::PIN_COLS . ', c.contact_client_id FROM training_trainers t
             JOIN contacts c ON c.contact_id = t.trainer_contact_id ORDER BY c.contact_name, t.trainer_contact_id');
         $ids = array_map(static fn($r) => (int) $r['trainer_contact_id'], $rows);
         [$courses, $depts] = $this->links($ids);
@@ -64,7 +72,7 @@ final class TrainerService
 
     public function get(int $contactId): ?array
     {
-        $r = Db::one($this->c->db, 'SELECT ' . self::COLS . ' FROM training_trainers WHERE trainer_contact_id = ?', 'i', [$contactId]);
+        $r = Db::one($this->c->db, 'SELECT ' . self::COLS . ', ' . self::PIN_COLS . ' FROM training_trainers WHERE trainer_contact_id = ?', 'i', [$contactId]);
         if ($r === null) {
             return null;
         }
@@ -277,6 +285,14 @@ final class TrainerService
             'qualifications' => $r['trainer_qualifications'] === null ? null : (string) $r['trainer_qualifications'],
             'active' => (int) $r['trainer_active'] === 1,
             'version' => (int) $r['trainer_version'],
+            // 2.6.104: this trainer's OWN kiosk sign-in PIN, completely separate from their
+            // learner/Odoo PIN - status only, never the hash.
+            'pin_set' => array_key_exists('trainer_pin_hash', $r) ? ($r['trainer_pin_hash'] !== null && $r['trainer_pin_hash'] !== '') : null,
+            'pin_locked' => array_key_exists('trainer_pin_locked_until_utc', $r) && $r['trainer_pin_locked_until_utc'] !== null
+                && $r['trainer_pin_locked_until_utc'] > gmdate('Y-m-d H:i:s'),
+            'pin_hard_locked' => array_key_exists('trainer_pin_hard_locked', $r) && (int) $r['trainer_pin_hard_locked'] === 1,
+            'pin_set_at' => array_key_exists('trainer_pin_set_at_utc', $r) && $r['trainer_pin_set_at_utc'] !== null ? Clock::toIso((string) $r['trainer_pin_set_at_utc'], true) : null,
+            'pin_set_method' => $r['trainer_pin_set_method'] ?? null,
         ];
     }
 

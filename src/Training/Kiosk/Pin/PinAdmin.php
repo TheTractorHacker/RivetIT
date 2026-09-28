@@ -62,9 +62,12 @@ final class PinAdmin
             if ($p === null || $p['contact_archived_at'] !== null) {
                 throw ApiException::notFound('That person was not found.');
             }
+            // 2.6.104: a trainer's OWN learner PIN can genuinely be Odoo-sourced now (trainer
+            // status no longer forces it local), so issuing them a LEARNER setup slip needs the
+            // same "switch to a training PIN" confirmation as anyone else on Odoo-PIN sign-in.
             $cred = CredentialRepo::load($db, $cid);
             if ($cred !== null && $cred['tcred_source'] === 'odoo' && (int) $cred['tcred_source_pinned'] === 0 && !$switchToLocal
-                && $ks->odooPinEnabled && !Seam::isActiveTrainer($db, $cid)) {
+                && $ks->odooPinEnabled) {
                 $odooPeople[] = ['id' => $cid, 'name' => (string) $p['contact_name']];
             }
             $people[$cid] = ['name' => trim((string) $p['contact_name']), 'dept' => trim((string) ($p['client_name'] ?? ''))];

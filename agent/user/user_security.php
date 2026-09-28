@@ -4,6 +4,20 @@ require_once "includes/inc_all_user.php";
 $sql_api_tokens = mysqli_query($mysqli, "SELECT token_id, token_name, token_fcm_token, token_last_used_at, token_created_at FROM api_tokens WHERE token_user_id = $session_user_id ORDER BY token_created_at DESC");
 $sql_remember_tokens = mysqli_query($mysqli, "SELECT * FROM remember_tokens WHERE remember_token_user_id = $session_user_id ORDER BY remember_token_created_at DESC");
 $remember_token_count = mysqli_num_rows($sql_remember_tokens);
+
+// Trainer PIN (2.6.104): only shown when THIS user is themselves an active trainer
+// (training_trainers.trainer_user_id = their own user_id) - self only, never anyone else's.
+$trainer_pin_row = \ITFlow\Training\Kiosk\Pin\TrainerCredentialRepo::loadByUserId($mysqli, $session_user_id);
+
+/** The Training module stores trainer_pin_set_at_utc in UTC; timeAgo() expects a string in
+ *  the app's local (default) timezone, like every other timestamp on this page. */
+function tps_local(?string $utc): ?string
+{
+    if ($utc === null || $utc === '') {
+        return null;
+    }
+    return (new DateTimeImmutable($utc, new DateTimeZone('UTC')))->setTimezone(new DateTimeZone(date_default_timezone_get()))->format('Y-m-d H:i:s');
+}
 ?>
 
 <div class="security-cards">
@@ -373,6 +387,68 @@ document.addEventListener('click', function (e) {
         <?php endif; ?>
     </div>
 </div>
+
+<?php if ($trainer_pin_row !== null) { ?>
+<!-- Trainer PIN -->
+<div class="card card-dark">
+    <div class="card-header py-2">
+        <h3 class="card-title"><i class="fas fa-fw fa-chalkboard-teacher me-2"></i>Trainer PIN</h3>
+    </div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">
+            The PIN you use to sign in as a <strong>trainer</strong> on the training kiosk &mdash; kept completely
+            separate from your own training PIN as a learner. Only you can set it here.
+        </p>
+        <?php if ((int) $trainer_pin_row['trainer_pin_hard_locked'] === 1) { ?>
+        <div class="alert alert-danger py-2 small">
+            <i class="fas fa-lock me-1"></i>Your trainer PIN is locked after repeated wrong entries at the kiosk.
+            Setting a new one below clears the lock.
+        </div>
+        <?php } elseif (!empty($trainer_pin_row['trainer_pin_locked_until_utc']) && $trainer_pin_row['trainer_pin_locked_until_utc'] > gmdate('Y-m-d H:i:s')) { ?>
+        <div class="alert alert-warning py-2 small">
+            <i class="fas fa-lock me-1"></i>Your trainer PIN is temporarily locked after a few wrong entries.
+            Setting a new one below clears the lock.
+        </div>
+        <?php } ?>
+        <p class="mb-3">
+            <?php if ($trainer_pin_row['has_pin']) { ?>
+                <i class="fas fa-key text-success me-1"></i>Your trainer PIN is set<?php if (!empty($trainer_pin_row['trainer_pin_set_at_utc'])) { ?> (<?= nullable_htmlentities(timeAgo(tps_local($trainer_pin_row['trainer_pin_set_at_utc']))) ?>)<?php } ?>.
+            <?php } else { ?>
+                <i class="fas fa-key text-muted me-1"></i><span class="text-muted">No trainer PIN set yet.</span>
+            <?php } ?>
+        </p>
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <div class="form-group mb-3">
+                <label>New Trainer PIN</label>
+                <div class="input-group">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text"><i class="fa fa-fw fa-key"></i></span>
+                    </div>
+                    <input type="password" class="form-control" name="new_trainer_pin"
+                           inputmode="numeric" pattern="[0-9]*" minlength="6" maxlength="6"
+                           placeholder="6 digits" autocomplete="off" required>
+                </div>
+            </div>
+            <div class="form-group mb-3">
+                <label>Confirm Trainer PIN</label>
+                <div class="input-group">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text"><i class="fa fa-fw fa-key"></i></span>
+                    </div>
+                    <input type="password" class="form-control" name="new_trainer_pin2"
+                           inputmode="numeric" pattern="[0-9]*" minlength="6" maxlength="6"
+                           placeholder="6 digits" autocomplete="off" required>
+                </div>
+                <small class="text-muted">Six digits. Not a straight run, a repeated pattern, or your last trainer PIN.</small>
+            </div>
+            <button type="submit" name="set_trainer_pin" class="btn btn-primary btn-sm">
+                <i class="fas fa-check me-1"></i><?= $trainer_pin_row['has_pin'] ? 'Change Trainer PIN' : 'Set Trainer PIN' ?>
+            </button>
+        </form>
+    </div>
+</div>
+<?php } ?>
 
 </div>
 

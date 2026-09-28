@@ -581,6 +581,76 @@
                     if (!items.length) { box.appendChild(el('div', { class: 'text-muted small py-2', text: 'Nothing to choose from yet.' })); }
                     return { root: box, inputs: inputs, ids: function () { return inputs.filter(function (c) { return c.checked; }).map(function (c) { return Number(c.value); }); } };
                 }
+                /**
+                 * Administrator-only "Trainer PIN" panel (2.6.104): status (set / not set / locked)
+                 * plus a same-panel "set or reset it directly" form, posting trainer_pin_admin_set
+                 * on its own (not part of the trainer_save submit) so an admin can fix a trainer's
+                 * PIN without touching anything else on the row.
+                 */
+                function trainerPinSection(t) {
+                    var box = el('div', { class: 'tro-card tro-card__body mb-3' });
+                    box.appendChild(el('div', { class: 'fw-semibold mb-1' }, [u.icon('fas fa-shield-alt me-1'), 'Trainer PIN']));
+                    box.appendChild(el('p', { class: 'tro-sub mb-2' }, ['Separate from this person’s own sign-in PIN as a learner. Administrator only.']));
+                    var status = el('div', { class: 'mb-2' });
+                    function renderStatus() {
+                        clear(status);
+                        if (t.pin_set) {
+                            var when = t.pin_set_at ? ' · ' + u.relTime(t.pin_set_at) : '';
+                            var who = t.pin_set_method === 'self' ? ' (set by the trainer)' : t.pin_set_method === 'admin' ? ' (set by an admin)' : '';
+                            status.appendChild(el('div', { class: 'text-success-emphasis' }, [u.icon('fas fa-key me-1'), 'PIN is set' + when + who]));
+                        } else {
+                            status.appendChild(el('div', { class: 'text-muted' }, [u.icon('fas fa-key me-1'), 'No trainer PIN set yet.']));
+                        }
+                        if (t.pin_hard_locked) {
+                            status.appendChild(el('div', { class: 'text-danger small' }, [u.icon('fas fa-lock me-1'), 'Locked after repeated wrong entries. Setting a new PIN clears the lock.']));
+                        } else if (t.pin_locked) {
+                            status.appendChild(el('div', { class: 'text-warning-emphasis small' }, [u.icon('fas fa-lock me-1'), 'Temporarily locked. Setting a new PIN clears the lock.']));
+                        }
+                    }
+                    renderStatus();
+                    var toggle = el('button', { type: 'button', class: 'btn btn-outline-secondary btn-sm' }, [u.icon('fas fa-key me-1'), el('span', { text: t.pin_set ? 'Reset PIN…' : 'Set PIN…' })]);
+                    var pin1 = el('input', { type: 'text', inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'off', maxlength: '6', class: 'form-control form-control-sm mb-2', placeholder: 'New 6-digit PIN' });
+                    var pin2 = el('input', { type: 'text', inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'off', maxlength: '6', class: 'form-control form-control-sm mb-2', placeholder: 'Confirm PIN' });
+                    var msg = el('div', { class: 'small mb-2' });
+                    var pinSave = el('button', { type: 'button', class: 'btn btn-primary btn-sm' }, ['Save PIN']);
+                    var pinCancel = el('button', { type: 'button', class: 'btn btn-link btn-sm' }, ['Cancel']);
+                    var sub = el('div', { class: 'mt-2', hidden: true }, [
+                        el('p', { class: 'small text-muted' }, ['Six digits. This sets it directly - the trainer can sign in with it right away.']),
+                        pin1, pin2, msg,
+                        el('div', { class: 'd-flex gap-2' }, [pinSave, pinCancel])
+                    ]);
+                    toggle.addEventListener('click', function () { sub.hidden = !sub.hidden; if (!sub.hidden) { pin1.focus(); } });
+                    function resetSub() { sub.hidden = true; pin1.value = ''; pin2.value = ''; clear(msg); }
+                    pinCancel.addEventListener('click', resetSub);
+                    pinSave.addEventListener('click', function () {
+                        clear(msg);
+                        if (!/^[0-9]{6}$/.test(pin1.value) || pin1.value !== pin2.value) {
+                            msg.appendChild(el('span', { class: 'text-danger', text: 'Enter the same 6-digit PIN twice.' }));
+                            return;
+                        }
+                        u.busy(pinSave, true, 'Saving…');
+                        u.post('trainer_pin_admin_set', { contact_id: t.contact_id, pin: pin1.value, pin2: pin2.value }).then(function (updated) {
+                            u.busy(pinSave, false);
+                            if (updated) {
+                                t.pin_set = updated.pin_set; t.pin_set_at = updated.pin_set_at; t.pin_set_method = updated.pin_set_method;
+                                t.pin_locked = updated.pin_locked; t.pin_hard_locked = updated.pin_hard_locked;
+                            }
+                            resetSub();
+                            renderStatus();
+                            clear(toggle);
+                            toggle.appendChild(u.icon('fas fa-key me-1'));
+                            toggle.appendChild(el('span', { text: t.pin_set ? 'Reset PIN…' : 'Set PIN…' }));
+                            UI.toast('Trainer PIN set.');
+                        }, function (err) {
+                            u.busy(pinSave, false);
+                            msg.appendChild(el('span', { class: 'text-danger', text: u.errorText(err) }));
+                        });
+                    });
+                    box.appendChild(status);
+                    box.appendChild(toggle);
+                    box.appendChild(sub);
+                    return box;
+                }
                 function edit(t) {
                     var isNew = !t;
                     t = t || { flags: { can_train: true, can_evaluate: false, can_setup_pins: false, can_unlock: false, can_view_team: true }, all_courses: true, all_departments: true, active: true };
@@ -614,6 +684,11 @@
                     form.appendChild(df);
                     form.appendChild(u.field({ label: 'Qualifications', control: quals, name: 'qualifications' }));
                     form.appendChild(active.root);
+                    // Trainer PIN (2.6.104): separate from this person's own learner/Odoo PIN.
+                    // Administrator-only (not just kiosk-level access) - a super-admin capability,
+                    // per the owner's ask - and only for an existing trainer (the PIN lives on the
+                    // training_trainers row a save already created).
+                    if (D.is_admin && !isNew) { form.appendChild(trainerPinSection(t)); }
                     var save = el('button', { type: 'submit', class: 'btn btn-primary', text: isNew ? 'Add trainer' : 'Save trainer' });
                     save.setAttribute('form', 'tro-tr-form');
                     var hint = el('span', { class: 'tro-oc__note' });

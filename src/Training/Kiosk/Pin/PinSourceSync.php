@@ -12,7 +12,12 @@ use ITFlow\Training\Kiosk\Core\KTime;
  * agent's "Refresh PIN sources".
  *
  *   - a no-op while config_training_odoo_pin_enabled is off (and when there is no integration);
- *   - never touches a tcred_source_pinned row or an active trainer (trainers are always local);
+ *   - never touches a tcred_source_pinned row;
+ *   - (2.6.104) a person's LEARNER credential is decided purely by their own Odoo employee
+ *     link/usable-PIN status now, independent of whether they are also an active trainer - a
+ *     trainer's kiosk sign-in uses a completely separate credential (training_trainers'
+ *     trainer_pin_* columns, Pin\TrainerPinService), which has no Odoo counterpart to sync from
+ *     and is always local by its own construction, so it needs no special case here at all;
  *   - local -> odoo when the contact's current link has a usable Odoo PIN: the local hash is
  *     cleared (kept as prev_pin_hash, so a later slip can't reuse it) and any pending setup code dies;
  *   - odoo -> local when it doesn't: the local hash stays null, so the person needs a slip
@@ -55,7 +60,7 @@ final class PinSourceSync
                 $cid = (int) $r['tcred_contact_id'];
                 $after = $cid;
                 $source = (string) $r['tcred_source'];
-                if ((int) $r['tcred_source_pinned'] === 1 || Seam::isActiveTrainer($db, $cid)) {
+                if ((int) $r['tcred_source_pinned'] === 1) {
                     $out[$source === 'odoo' ? 'odoo' : 'local']++;
                     if ($source === 'local' && $r['tcred_pin_hash'] === null) {
                         $out['needs_slip'][] = $cid;

@@ -167,6 +167,33 @@ render_page_header(
                         </ul>
                     </div></div>
                 </div>
+                <div class="col-lg-6">
+                    <div class="card h-100"><div class="card-header"><h2 class="card-title"><i class="fas fa-chalkboard-teacher me-2" aria-hidden="true"></i>Run a session</h2></div>
+                    <div class="card-body">
+                        <p class="text-muted small">A trainer teaching a group course (S4, People › Trainers) on a training device.</p>
+                        <ol class="ps-3">
+                            <li class="mb-2"><strong>First time only — set your trainer PIN.</strong> Becoming a trainer never forces this right away; whenever you're ready, sign in to the app and go to <strong>Account › Security</strong> to set it yourself (or ask an administrator to set/reset it from People › Trainers). It's separate from your own training PIN as a learner — changing one never touches the other.</li>
+                            <li class="mb-2">On the device's <strong>Trainer sign-in</strong> (the link at the bottom of the regular sign-in screen), find your name and enter your <strong>trainer PIN</strong>. This opens the Trainer home, never the People &amp; PINs list of everyone's learner PINs.</li>
+                            <li class="mb-2">Tap <strong>Run a session</strong>, pick a course (only ones with a group-session part that you're set up to teach) and a department (defaults to the device's own department when you cover it), then <strong>Start</strong>.</li>
+                            <li class="mb-2">People check themselves in with their own name and PIN — either you hand the device around, or they use <strong>Check in to a class</strong> from the sign-in screen on another device while your session is open.</li>
+                            <li class="mb-2">Mark attendance, a hands-on pass/fail (courses with a practical part) and notes as you go. Anything that changes a record — a mark, a removal, marking someone present without their own PIN, or giving a badge — re-enters your <strong>trainer PIN</strong>, not theirs.</li>
+                            <li>When everyone is checked in, tap <strong>Finish</strong>, tick the confirmation, sign and enter your trainer PIN once more. The session closes and each present person's completion is issued right away.</li>
+                        </ol>
+                    </div></div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card h-100"><div class="card-header"><h2 class="card-title"><i class="fas fa-clipboard-check me-2" aria-hidden="true"></i>Evaluate</h2></div>
+                    <div class="card-body">
+                        <p class="text-muted small">A one-on-one hands-on evaluation with a checklist, for a course's practical part.</p>
+                        <ol class="ps-3">
+                            <li class="mb-2">Sign in to <strong>Trainer sign-in</strong> with your trainer PIN, then tap <strong>Evaluate</strong> and pick a course with a practical part that you're set up to evaluate.</li>
+                            <li class="mb-2">Pick the person from the list — people whose progress is waiting on this evaluation, in your departments — then work through the checklist, marking each item <strong>Pass</strong> or <strong>Fail</strong>. The device always rebuilds the checklist from the course's current revision, so an item can't be added, dropped or reworded; any failed item fails the whole evaluation.</li>
+                            <li class="mb-2">Tap <strong>Hand the iPad to {name}</strong>. The device switches into a restricted mode — only the evaluation screens work, nothing else. The employee reads the summary, signs, and enters <strong>their own</strong> PIN (their regular training PIN, not a trainer PIN).</li>
+                            <li class="mb-2">Take the iPad back, sign, and enter your <strong>trainer PIN</strong> under <strong>Hand back</strong> — this is what actually records the evaluation and returns the device to your normal Trainer home. <strong>Cancel</strong> at any point before hand-back also needs your trainer PIN, and records nothing.</li>
+                            <li>A failed evaluation still records — the person simply doesn't pass that attempt and can be evaluated again once they're ready.</li>
+                        </ol>
+                    </div></div>
+                </div>
             </div>
         </div>
     </div>

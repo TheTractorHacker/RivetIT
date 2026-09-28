@@ -24,6 +24,7 @@ return [
     'pin_clear_pause'       => ['handler' => KioskAdminActions::class . '::pinClearPause',      'method' => 'POST', 'level' => 1],
     'pin_people'            => ['handler' => KioskAdminActions::class . '::pinPeople',          'method' => 'GET',  'level' => 1],
     'pin_unlock'            => ['handler' => KioskAdminActions::class . '::pinUnlock',          'method' => 'POST', 'level' => 1],
+    'trainer_pin_admin_set' => ['handler' => KioskAdminActions::class . '::trainerPinAdminSet',  'method' => 'POST', 'level' => 1],
     'pin_slips_issue'       => ['handler' => KioskAdminActions::class . '::pinSlipsIssue',      'method' => 'POST', 'level' => 1],
     'pin_slips_clear'       => ['handler' => KioskAdminActions::class . '::pinSlipsClear',      'method' => 'POST', 'level' => 1],
     'pin_odoo_unblock'      => ['handler' => KioskAdminActions::class . '::pinOdooUnblock',     'method' => 'POST', 'level' => 1],
