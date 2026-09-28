@@ -118,15 +118,39 @@ if (!is_file($configFile)) {
 }
 
 // config.php itself performs the mysqli_connect() (see scripts/setup_cli.php's
-// generated template) and die()s with its own message on failure — that die()
-// is what we want here too: a config.php that can't reach its database is not
-// a usable --admin-user target, full stop.
+// generated template) and die()s with its own message on failure. That die()
+// is a bare `die('Database Connection Failed')` — PHP's exit code for a
+// string-argument die()/exit() is always 0, NOT the documented exit(3)
+// DB_UNREACHABLE_OR_NO_SCHEMA contract this shim promises. Left unguarded,
+// restore_admin_zip.sh's `case "${rc}" in 0) ADMIN_AUTH_VERIFIED=1 ...`
+// would then treat a target whose database is completely unreachable as a
+// SUCCESSFUL admin authorization. Register a shutdown handler BEFORE the
+// require() that forces the correct exit(3) unless normal flow below
+// confirms a real connection first (a shutdown function's own exit() call
+// does override an already-queued exit code — verified empirically). This
+// also catches any other fatal during the require (parse error, uncaught
+// Throwable elsewhere in config.php), not just this one specific die().
+$adminAuthShimDbConfirmed = false;
+register_shutdown_function(static function () use (&$adminAuthShimDbConfirmed, $appDir) {
+    if ($adminAuthShimDbConfirmed) {
+        return; // Normal flow below already ran and exited with its own real code.
+    }
+    fwrite(STDERR, "DB_UNREACHABLE_OR_NO_SCHEMA: config.php at '$appDir' did not establish a database connection (see any 'Database Connection Failed' output above) — not a usable --admin-user target.\n");
+    exit(3);
+});
+
 require $configFile;
 
 if (!isset($mysqli) || !($mysqli instanceof mysqli)) {
     fwrite(STDERR, "config.php did not establish a \$mysqli connection.\n");
     exit(3);
 }
+
+// Reached only if config.php's require() completed normally with a real
+// mysqli connection — from here on, every exit() below is this script's own
+// intentional, correctly-coded exit status, so the shutdown handler above
+// should no longer override anything.
+$adminAuthShimDbConfirmed = true;
 
 // mysqli throws mysqli_sql_exception on error by default since PHP 8.1 (this whole
 // codebase relies on that and deliberately never calls mysqli_report() to turn it

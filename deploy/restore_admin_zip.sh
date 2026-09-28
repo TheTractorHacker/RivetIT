@@ -169,6 +169,7 @@ ADMIN_PASSWORD_RESOLVED_FILE=""
 ADMIN_AUTH_VERIFIED=0
 
 PHP_ADMIN_AUTH_SHIM="${SCRIPT_DIR}/lib/admin_auth_check.php"
+PHP_SAFE_ZIP_EXTRACT="${SCRIPT_DIR}/lib/safe_zip_extract.php"
 
 print_help() {
     cat <<'EOF'
@@ -219,7 +220,7 @@ Other options:
 
 Steps performed, in order: verify --admin-user (if given) against --app-dir's
 CURRENT users table -> pre-restore safety backup (or confirmed skip) ->
-unzip --backup -> read its manifest (plaintext, encrypted, or absent — see
+safely extract --backup (boundary/symlink-checked) -> read its manifest (plaintext, encrypted, or absent — see
 lib/common.sh's read_manifest_dir()) -> drop every existing table in the
 target database and import db.sql -> replace --app-dir/uploads with the
 nested uploads.zip's contents -> restore ownership/permissions -> apply the
@@ -309,11 +310,12 @@ validate_args() {
         die "Refusing to run without --confirm-restore. This REPLACES every table in ${APP_DIR}'s database and everything under ${APP_DIR}/uploads with the contents of ${BACKUP_FILE}. Re-run with --confirm-restore once you're sure."
     fi
 
-    command_exists unzip || die "unzip is required to open --backup but is not on PATH."
     command_exists openssl || die "openssl is required (manifest decryption / the pre-restore safety backup) but is not on PATH."
     command_exists mysql || die "The mysql client is required to import the database dump but is not on PATH."
     command_exists rsync || die "rsync is required to restore uploads/ but is not on PATH. Install it: apt-get install rsync"
-    command_exists php || die "php is required (manifest parsing, and --admin-user's auth/key-recovery shim) but is not on PATH."
+    command_exists php || die "php is required (safe zip extraction, manifest parsing, and --admin-user's auth/key-recovery shim) but is not on PATH."
+    [[ -f "${PHP_SAFE_ZIP_EXTRACT}" ]] || die "Internal error: ${PHP_SAFE_ZIP_EXTRACT} is missing."
+    php -r 'exit(class_exists("ZipArchive") ? 0 : 1);' || die "PHP's ZipArchive class is not available (php-zip extension missing) — required to safely extract --backup. Install it: apt-get install php-zip"
 }
 
 setup_logging() {
@@ -476,12 +478,14 @@ run_pre_restore_backup() {
 }
 
 extract_zip() {
-    announce "Extracting ${BACKUP_FILE}..."
+    announce "Extracting ${BACKUP_FILE} (boundary/symlink-checked via setup_functions.php's safeExtractZip())..."
     EXTRACT_DIR="$(mktemp -d)"
     register_tmpfile "${EXTRACT_DIR}"
 
-    if ! unzip -q -o "${BACKUP_FILE}" -d "${EXTRACT_DIR}"; then
-        die "unzip failed on ${BACKUP_FILE}. It may be corrupt, or not actually an admin-panel backup zip."
+    local extract_err
+    extract_err="$(mktemp)"; register_tmpfile "${extract_err}"
+    if ! php "${PHP_SAFE_ZIP_EXTRACT}" "${APP_DIR}" "${BACKUP_FILE}" "${EXTRACT_DIR}" 2>"${extract_err}"; then
+        die "Safe extraction of ${BACKUP_FILE} failed or was rejected: $(cat "${extract_err}" 2>/dev/null). It may be corrupt, contain a path-traversal or symlink entry (rejected for safety), or not actually be an admin-panel backup zip."
     fi
 
     [[ -f "${EXTRACT_DIR}/db.sql" ]] || die "No db.sql found inside ${BACKUP_FILE} after extraction — this doesn't look like an admin/post/backup.php archive."
@@ -556,13 +560,23 @@ EOF
 }
 
 restore_uploads() {
-    announce "Extracting the backup's uploads.zip and replacing ${APP_DIR}/uploads with it (rsync --delete — anything added since the backup that isn't in it will be removed)."
+    announce "Extracting the backup's uploads.zip (boundary/symlink-checked via setup_functions.php's safeExtractZip()) and replacing ${APP_DIR}/uploads with it (rsync --delete — anything added since the backup that isn't in it will be removed)."
     local uploads_extract
     uploads_extract="$(mktemp -d)"
     register_tmpfile "${uploads_extract}"
 
-    if ! unzip -q -o "${EXTRACT_DIR}/uploads.zip" -d "${uploads_extract}"; then
-        die "unzip failed on the backup's nested uploads.zip. It may be corrupt. The database has already been imported at this point — investigate the uploads mismatch manually."
+    # Uses the SAME safeExtractZip()-based shim as the outer zip above, not
+    # raw `unzip` — this is the extraction whose output gets rsync'd straight
+    # into the live, web-served ${APP_DIR}/uploads tree, so a symlink entry
+    # left unblocked here is a real arbitrary-file-read/serve risk (rsync -a
+    # preserves symlinks as symlinks rather than dereferencing them). See
+    # deploy/lib/safe_zip_extract.php's own doc comment for the full story,
+    # including why extractUploadsZipWithValidationReport()'s extra
+    # extension/content/size checks are deliberately NOT used here.
+    local extract_err
+    extract_err="$(mktemp)"; register_tmpfile "${extract_err}"
+    if ! php "${PHP_SAFE_ZIP_EXTRACT}" "${APP_DIR}" "${EXTRACT_DIR}/uploads.zip" "${uploads_extract}" 2>"${extract_err}"; then
+        die "Safe extraction of the backup's nested uploads.zip failed or was rejected: $(cat "${extract_err}" 2>/dev/null). It may be corrupt or contain a path-traversal/symlink entry (rejected for safety). The database has already been imported at this point — investigate the uploads mismatch manually."
     fi
 
     mkdir -p "${APP_DIR}/uploads"

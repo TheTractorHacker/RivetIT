@@ -265,12 +265,38 @@ if (isset($_POST['restore'])) {
     // ---------- 4) Restore SQL (via PHP, no CLI) ----------
     $sqlPath = "$tempDir/db.sql";
     if (file_exists($sqlPath)) {
-        // Drop-all first (foreign key safe)
+        // Drop-all first (foreign key safe). SHOW TABLES lists views too, but
+        // `DROP TABLE IF EXISTS` on a VIEW's name is a silent no-op in
+        // MySQL/MariaDB - a leftover view on the TARGET that isn't in the
+        // backup being restored would otherwise silently survive this
+        // "restore" (not a true 1:1 result). db.sql now also carries stored
+        // routines (see dump_database_streaming()'s routine-capture block in
+        // admin/post/backup.php), which SHOW TABLES never lists at all, so
+        // those need their own drop too. Matches
+        // deploy/restore_admin_zip.sh's import_database() - the CLI
+        // counterpart to this exact same admin-zip restore format - so both
+        // restore paths for this backup format give the same true 1:1
+        // result instead of this older browser path silently falling short.
         mysqli_query($mysqli, "SET FOREIGN_KEY_CHECKS = 0");
-        $tables = mysqli_query($mysqli, "SHOW TABLES");
-        if ($tables) {
-            while ($row = mysqli_fetch_row($tables)) {
-                mysqli_query($mysqli, "DROP TABLE IF EXISTS `" . $row[0] . "`");
+        $dbNameRow = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT DATABASE() AS db"));
+        $dbName = $dbNameRow['db'] ?? '';
+        if ($dbName !== '') {
+            $dropStmt = mysqli_prepare(
+                $mysqli,
+                "SELECT CONCAT('DROP ', IF(table_type='VIEW','VIEW','TABLE'), ' IF EXISTS `', table_name, '`;') FROM information_schema.tables WHERE table_schema = ?
+                 UNION ALL
+                 SELECT CONCAT('DROP ', routine_type, ' IF EXISTS `', routine_name, '`;') FROM information_schema.routines WHERE routine_schema = ?"
+            );
+            if ($dropStmt) {
+                mysqli_stmt_bind_param($dropStmt, 'ss', $dbName, $dbName);
+                mysqli_stmt_execute($dropStmt);
+                $dropResult = mysqli_stmt_get_result($dropStmt);
+                if ($dropResult) {
+                    while ($dropRow = mysqli_fetch_row($dropResult)) {
+                        mysqli_query($mysqli, $dropRow[0]);
+                    }
+                }
+                mysqli_stmt_close($dropStmt);
             }
         }
         mysqli_query($mysqli, "SET FOREIGN_KEY_CHECKS = 1");

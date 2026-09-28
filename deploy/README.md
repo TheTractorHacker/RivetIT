@@ -12,8 +12,11 @@ instance alongside the first, on the same box.
 | `harden.sh` | A standalone, idempotent, re-runnable hardening pass — the fuller superset of what `install.sh` applies inline during a fresh install. |
 | `backup.sh` (+ systemd timer) | Encrypted, scheduled backups of the database and `uploads/`. |
 | `restore.sh` | Restore a `backup.sh` archive into an instance — standalone, or via `install.sh --restore-from` to stand up a brand-new box straight from a backup. |
+| `restore_admin_zip.sh` | Restore the *other* backup format — the admin-panel zip from Settings → Backup / the cron auto-backup — with a master-key fallback (`--admin-user`) for when the backup passphrase is lost. |
 | `update.sh` | Pull application updates and run any pending database migrations. |
-| `lib/common.sh` | Shared helpers (logging, `gen_secret`, OS detection, service checks) — sourced by every script above, never run directly. |
+| `lib/common.sh` | Shared helpers (logging, `gen_secret`, OS detection, service checks, manifest reading) — sourced by every script above, never run directly. |
+| `lib/admin_auth_check.php` | PHP shim `restore_admin_zip.sh` shells out to for `--admin-user` mode — real `password_verify()`/role checks against the target's own database, not reimplemented in bash. |
+| `lib/safe_zip_extract.php` | PHP shim `restore_admin_zip.sh` shells out to for extracting the admin-panel zip (boundary/symlink-checked via the app's own `safeExtractZip()`), not reimplemented in bash. |
 | `templates/` | The actual config content applied by `install.sh`/`harden.sh` — nginx vhost, PHP-FPM hardening ini, MariaDB hardening cnf, fail2ban jail. Read these if you want to see exactly what gets changed on your box before running anything. |
 
 All scripts must be run as **root** (`sudo`) — they touch `/etc`, install packages, and manage
@@ -240,9 +243,11 @@ The application also has its own independent, manual, on-demand backup feature r
 app (Settings → Backup → "Download Backup" / "Save to Server", `admin/backup.php`) that produces the same
 kind of database-dump-plus-uploads-zip on demand — useful before a risky change, but it is **not**
 encrypted and **not** scheduled, so it does not replace `deploy/backup.sh` + the systemd timer for actual
-disaster-recovery purposes. It has its own restore path too, from the browser: the `/setup` wizard's
+disaster-recovery purposes. It has its own restore paths too — from the browser, the `/setup` wizard's
 "Restore from Backup" option (reachable from the Welcome screen, or the `?restore` Utilities link) accepts
-a zip from that feature. It does **not** accept a `deploy/backup.sh` archive — those are handled by
+a zip from that feature; from the command line, `restore_admin_zip.sh` (below) does the same thing with a
+required safety backup, `--admin-user`/`--passphrase-file` master-key recovery, and unattended/cron
+support the browser wizard doesn't have. Neither accepts a `deploy/backup.sh` archive — that's handled by
 `restore.sh` below instead.
 
 ## restore.sh
@@ -289,6 +294,51 @@ either `install.sh --domain=restore-test.local --skip-tls --skip-firewall --skip
 or VM, or just `scripts/setup_cli.php --config-only` against a scratch database on this one — then inspect
 it and throw it away. `--app-dir`'s target must already have a `config.php` either way; `restore.sh` never
 creates an instance from nothing, only restores data into one that already exists.
+
+---
+
+## restore_admin_zip.sh
+
+The counterpart to `restore.sh` above, for the *other* backup format this app produces: the
+`itflow_<timestamp>_<manual|auto>.zip` an admin gets from Settings → Backup's "Save to Server" /
+"Download Backup" (`admin/post/backup.php`), and what the daily cron auto-backup writes to
+`<app-dir>/backups/`. `restore.sh` cannot open this format — it only understands its own
+`backup-*.tar.gz.enc`; this script is that zip's restore counterpart, following the same safety
+conventions (`--confirm-restore` required with no y/n prompt to click through, a pre-restore safety
+backup of the target's current state by default, root-required).
+
+```bash
+sudo deploy/restore_admin_zip.sh --app-dir=/var/www/rivetit.example.com \
+    --backup=/var/www/rivetit.example.com/backups/itflow_20260101000001_auto.zip \
+    --passphrase-file=/etc/itflow/backup-passphrase \
+    --confirm-restore
+```
+
+Master-key recovery needs exactly one of two flags — this is the fallback the browser wizard has no
+equivalent for at all:
+
+- **`--passphrase-file=<path>`** — required if the backup's manifest is encrypted (an admin had a backup
+  passphrase set in Admin → Backup when it was taken). Works even against a brand-new, never-set-up
+  `--app-dir` — true from-scratch disaster recovery.
+- **`--admin-user=<email>` + `--admin-password-file=<path>`** — the fallback when the passphrase is lost:
+  an existing, active **Administrator**-role (not Technician) account's login email and password, already
+  on `--app-dir` *right now*, verified with the same `password_verify()` + `role_is_admin=1` check the web
+  app's own admin session gate enforces. Proves real application-level authority over this specific box —
+  not just root/SSH access to it — before anything is touched. Requires `--app-dir` to already be a
+  reachable, already-set-up instance with its own live `users`/`user_roles` tables; refused with a clear
+  message otherwise (use `--passphrase-file` instead for a truly from-scratch target). After the restore,
+  this mode also recovers `site_encryption_master_key` by decrypting that same admin's *restored* account
+  with the same password — reliable for rolling a box back onto an earlier backup of itself, not
+  guaranteed across two independently-set-up boxes. It never recovers `config_settings_enc_key` itself
+  (SMTP/IMAP passwords, RMM/webhook secrets) — use `--passphrase-file` for that.
+
+Full flag reference, exact steps performed and in what order, and what each master-key-recovery mode can
+and cannot guarantee: `sudo deploy/restore_admin_zip.sh --help`, and the doc comments at the top of
+`restore_admin_zip.sh` and `deploy/lib/admin_auth_check.php` themselves.
+
+**Testing a restore without touching a real instance:** same approach as `restore.sh` above — point
+`--app-dir` at a disposable instance (`scripts/setup_cli.php --config-only` against a scratch database is
+the quickest) and inspect/throw it away afterward.
 
 ---
 
