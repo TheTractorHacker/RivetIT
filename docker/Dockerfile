@@ -1,7 +1,7 @@
 # RivetIT — Docker Compose runtime image.
 #
 # This image is deliberately NOT a self-contained distributable — it ships
-# nginx + PHP-FPM 8.4 + supervisord only. The application code always comes
+# nginx + PHP-FPM 8.5 + supervisord only. The application code always comes
 # from a bind mount (see ../docker-compose.yml), the same git checkout you
 # cloned from GitHub, so config.php/uploads/backups written at runtime live
 # on the host and survive image rebuilds, and `git pull` + a container
@@ -9,10 +9,12 @@
 # step to keep in sync with deploy/update.sh's git-pull model.
 #
 # Extension list mirrors deploy/install.sh's REQUIRED_PHP_PACKAGES exactly
-# (php8.4-mysql -> mysqli+pdo_mysql, php8.4-curl, php8.4-gd, php8.4-mbstring,
-# php8.4-intl, php8.4-xml, php8.4-zip, php8.4-bcmath, php8.4-opcache) so this
-# image and a bare-metal install.sh box behave the same way at the PHP
-# level. Keep the two lists in sync if either changes.
+# (php-mysql -> mysqli+pdo_mysql, php-curl, php-gd, php-mbstring, php-intl,
+# php-xml, php-zip, php-bcmath; opcache is compiled in below too, bundled by
+# default as of the PHP version install.sh now targets) so this image and a
+# bare-metal install.sh box behave the same way at the PHP level. Keep the
+# two lists — and the FROM tag's PHP version below, and install.sh's
+# PHP_VERSION constant — in sync if either changes.
 #
 # redis-server is also included (run by supervisord on 127.0.0.1:6380,
 # matching includes/redis_functions.php's hardcoded expectation) so live
@@ -22,7 +24,7 @@
 
 FROM composer:2 AS composer
 
-FROM php:8.4-fpm-bookworm
+FROM php:8.5-fpm-bookworm
 
 COPY --from=composer /usr/bin/composer /usr/bin/composer
 

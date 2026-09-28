@@ -42,9 +42,11 @@ sudo deploy/install.sh --help
 
 ### What it does, in order
 
-1. **Packages** — installs nginx, MariaDB, PHP 8.4 (added via the `ondrej/php` PPA if Ubuntu's default
-   repos don't carry it), certbot, ufw, fail2ban, git, composer, and friends. Anything already installed
-   (e.g. because another instance is already running on this box) is left alone.
+1. **Packages** — asks first ("Install dependencies? [Y/n]"; answer no, or pass `--skip-dependencies`,
+   to skip this step entirely if you already have them set up the way you want), then installs nginx,
+   MariaDB, Redis, PHP 8.5 (added via the `ondrej/php` PPA if Ubuntu's default repos don't carry it),
+   certbot, ufw, fail2ban, git, composer, and friends. Anything already installed (e.g. because another
+   instance is already running on this box) is left alone.
 2. **Application code** — if run from inside an existing checkout of this repo, that checkout is copied
    into the new instance's app directory (so a second company doesn't need its own GitHub network
    access); otherwise it's cloned fresh from GitHub. `composer install --no-dev` runs if `composer.json`
@@ -82,6 +84,11 @@ Full reference: `sudo deploy/install.sh --help`. The ones worth knowing up front
   backend cert on `:8443`, and keeps nginx's own redirects relative so the internal hostname/port never
   leaks to an end user.
 - `--skip-tls` — no public DNS yet / TLS will be configured later by hand. Serves self-signed directly.
+- `--skip-dependencies` — don't install/enable nginx, PHP, MariaDB or Redis, and don't ask about it
+  either. Use this when they're already provisioned the way you want (a different PHP build, a managed
+  database, etc.) and you only want install.sh's other steps (app code, vhost, TLS, hardening, cron,
+  first-run setup). Without this flag, an interactive run always asks first; `--non-interactive` installs
+  them by default unless this flag is also given.
 - `--non-interactive` — fail instead of prompting for anything missing (see `--help` for the full list of
   flags it then requires).
 - `--admin-password=...` — **avoid this flag on an interactive terminal.** `install.sh` forwards it to

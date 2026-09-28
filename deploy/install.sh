@@ -28,20 +28,40 @@ REPO_BRANCH="main"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 TEMPLATES_DIR="${SCRIPT_DIR}/templates"
 LOG_FILE="/var/log/itflow-install.log"
-PHP_SOCK="/run/php/php8.4-fpm.sock"
+
+# The PHP version fresh installs get. Bump this, not the individual
+# references below (they all read this constant) — checked working
+# (php -l on every app file, a representative page sweep with zero new
+# warnings) on 2026-09-28 before adopting it here; see REBRANDING.md.
+# An install that already exists keeps whatever PHP version it was
+# provisioned with — deploy/update.sh and deploy/harden.sh both detect the
+# box's actual running php-fpm version rather than assuming this constant,
+# so bumping it here never affects them.
+PHP_VERSION="8.5"
+PHP_SOCK="/run/php/php${PHP_VERSION}-fpm.sock"
 
 # Base packages needed regardless of PHP version. gettext-base provides
 # envsubst (used to render the nginx vhost template); rsync is used when
 # install.sh is run from inside an already-cloned checkout (see
-# provision_app_code). Both are near-universally preinstalled on Ubuntu, but
-# are listed explicitly so a minimal/container base image still works.
-REQUIRED_BASE_PACKAGES=(nginx mariadb-server certbot python3-certbot-nginx ufw fail2ban git composer openssl unattended-upgrades gettext-base rsync)
+# provision_app_code). redis-server backs live ticket/chat push
+# (includes/redis_functions.php's hardcoded 127.0.0.1:6380 expectation) —
+# the app degrades without it, but installing it here means a fresh install
+# gets full functionality by default instead of a silent degrade nobody
+# notices. All are near-universally preinstalled/packaged on Ubuntu, but are
+# listed explicitly so a minimal/container base image still works.
+REQUIRED_BASE_PACKAGES=(nginx mariadb-server certbot python3-certbot-nginx ufw fail2ban git composer openssl unattended-upgrades gettext-base rsync redis-server)
 
-# php8.4-mysqli is not a real ondrej/php package name — mysqli/pdo_mysql
-# ship together in php8.4-mysql. php8.4-sodium does not exist either: libsodium
-# has been a PHP core (bundled) extension since PHP 7.2, so it comes for free
-# with php8.4-common (a dependency of every package below) — nothing to list.
-REQUIRED_PHP_PACKAGES=(php8.4-fpm php8.4-cli php8.4-mysql php8.4-curl php8.4-gd php8.4-mbstring php8.4-intl php8.4-xml php8.4-zip php8.4-bcmath php8.4-opcache)
+# php-mysqli is not a real ondrej/php package name — mysqli/pdo_mysql ship
+# together in php-mysql. php-sodium does not exist either: libsodium has been
+# a PHP core (bundled) extension since PHP 7.2, so it comes for free with
+# php-common (a dependency of every package below) — nothing to list.
+# php-opcache is ALSO bundled by default as of the 8.5 ondrej/php build (it
+# was still its own package for 8.4 and earlier) — confirmed empirically
+# 2026-09-28 (`apt-cache policy php8.5-opcache` -> no such package, while
+# `php8.5 -v` already reports "with Zend OPcache"); deliberately not listed
+# for the same "comes bundled, would 404" reason as sodium above. If a
+# future PHP_VERSION reintroduces a separate opcache package, add it back.
+REQUIRED_PHP_PACKAGES=("php${PHP_VERSION}-fpm" "php${PHP_VERSION}-cli" "php${PHP_VERSION}-mysql" "php${PHP_VERSION}-curl" "php${PHP_VERSION}-gd" "php${PHP_VERSION}-mbstring" "php${PHP_VERSION}-intl" "php${PHP_VERSION}-xml" "php${PHP_VERSION}-zip" "php${PHP_VERSION}-bcmath")
 
 # Every uploads/* subdirectory the application writes to. All but `kb` also
 # appear in .gitignore, each normally holding a tracked `index.php` placeholder
@@ -67,6 +87,7 @@ PROXY_MODE=0
 SKIP_FIREWALL=0
 SKIP_FAIL2BAN=0
 SKIP_TLS=0
+SKIP_DEPENDENCIES=0
 NON_INTERACTIVE=0
 CERTBOT_EMAIL=""
 ADMIN_NAME=""
@@ -125,6 +146,17 @@ Deployment options:
                             DNS yet). Implies --email is not required.
   --skip-firewall            Do not touch ufw.
   --skip-fail2ban             Do not touch fail2ban.
+  --skip-dependencies         Do not install/enable nginx, PHP, MariaDB or
+                            Redis, and do not ask about it either — use this
+                            when they are already provisioned the way you
+                            want (a different PHP build, a managed database,
+                            etc.) and everything else here (the app code,
+                            vhost, TLS, hardening) should still be set up
+                            against them. Without this flag, an interactive
+                            run ASKS first ("Install dependencies? [Y/n]");
+                            --non-interactive installs them by default,
+                            exactly like today, unless this flag is also
+                            given.
   --non-interactive           Fail instead of prompting for anything missing.
                             Requires --admin-name, --admin-email,
                             --admin-password, --locale, --timezone,
@@ -184,6 +216,7 @@ parse_args() {
             --proxy-mode)        PROXY_MODE=1 ;;
             --skip-firewall)     SKIP_FIREWALL=1 ;;
             --skip-fail2ban)     SKIP_FAIL2BAN=1 ;;
+            --skip-dependencies) SKIP_DEPENDENCIES=1 ;;
             --skip-tls)          SKIP_TLS=1 ;;
             --non-interactive)   NON_INTERACTIVE=1 ;;
             --email=*)           CERTBOT_EMAIL="${arg#*=}" ;;
@@ -331,9 +364,9 @@ install_packages() {
     info "Updating APT package index..."
     apt-get update -qq
 
-    if ! apt-cache show php8.4-fpm >/dev/null 2>&1; then
-        warn "php8.4 packages are not available from the currently configured APT repositories (Ubuntu 24.04's default repos ship PHP 8.3, not 8.4)."
-        announce "Adding the ondrej/php PPA (ppa:ondrej/php) to provide PHP 8.4 packages."
+    if ! apt-cache show "php${PHP_VERSION}-fpm" >/dev/null 2>&1; then
+        warn "php${PHP_VERSION} packages are not available from the currently configured APT repositories (Ubuntu 24.04's default repos ship PHP 8.3)."
+        announce "Adding the ondrej/php PPA (ppa:ondrej/php) to provide PHP ${PHP_VERSION} packages."
         package_installed software-properties-common || apt-get install -y software-properties-common
         add-apt-repository -y ppa:ondrej/php
         apt-get update -qq
@@ -343,16 +376,19 @@ install_packages() {
 
     # Installing a package does not always start/enable it (and definitely
     # doesn't on a re-run where it was already installed) — make sure the
-    # three services this instance needs are actually up before we lean on
+    # four services this instance needs are actually up before we lean on
     # them below.
-    if ! service_is_active php8.4-fpm; then
-        systemctl enable --now php8.4-fpm
+    if ! service_is_active "php${PHP_VERSION}-fpm"; then
+        systemctl enable --now "php${PHP_VERSION}-fpm"
     fi
     if ! service_is_active mariadb; then
         systemctl enable --now mariadb
     fi
     if ! service_is_active nginx; then
         systemctl enable --now nginx
+    fi
+    if ! service_is_active redis-server; then
+        systemctl enable --now redis-server
     fi
 }
 
@@ -637,7 +673,7 @@ maybe_run_certbot() {
 # ---------------------------------------------------------------------------
 apply_php_hardening() {
     local src="${TEMPLATES_DIR}/php-hardening.ini"
-    local dst="/etc/php/8.4/fpm/conf.d/99-itflow-hardening.ini"
+    local dst="/etc/php/${PHP_VERSION}/fpm/conf.d/99-itflow-hardening.ini"
 
     if [[ ! -f "${src}" ]]; then
         warn "PHP hardening template not found at ${src}; skipping PHP-FPM hardening."
@@ -646,10 +682,10 @@ apply_php_hardening() {
 
     # On a box that already runs another RivetIT instance, this template is
     # identical every time — skip the restart entirely rather than bouncing
-    # php8.4-fpm (and every other company's in-flight requests on it) for a
+    # php${PHP_VERSION}-fpm (and every other company's in-flight requests on it) for a
     # no-op file write.
     if [[ -f "${dst}" ]] && cmp -s "${src}" "${dst}"; then
-        info "PHP-FPM hardening already up to date at ${dst}; not restarting php8.4-fpm."
+        info "PHP-FPM hardening already up to date at ${dst}; not restarting php${PHP_VERSION}-fpm."
         return 0
     fi
 
@@ -658,21 +694,21 @@ apply_php_hardening() {
     chmod 644 "${dst}"
     chown root:root "${dst}"
 
-    if ! php-fpm8.4 -t; then
-        die "php-fpm8.4 -t failed after installing ${dst}. Not restarting php8.4-fpm with a config that fails to validate — inspect the file and re-run."
+    if ! "php-fpm${PHP_VERSION}" -t; then
+        die "php-fpm${PHP_VERSION} -t failed after installing ${dst}. Not restarting php${PHP_VERSION}-fpm with a config that fails to validate — inspect the file and re-run."
     fi
 
-    announce "Restarting php8.4-fpm to apply hardening settings."
-    if ! systemctl restart php8.4-fpm; then
-        error "php8.4-fpm failed to restart after applying ${dst}; rolling back."
+    announce "Restarting php${PHP_VERSION}-fpm to apply hardening settings."
+    if ! systemctl restart "php${PHP_VERSION}-fpm"; then
+        error "php${PHP_VERSION}-fpm failed to restart after applying ${dst}; rolling back."
         rm -f "${dst}"
-        systemctl restart php8.4-fpm || die "php8.4-fpm did not come back up even after rollback — manual intervention required."
-        die "Rolled back ${dst}; php8.4-fpm is back on its previous config. Investigate before re-applying hardening."
+        systemctl restart "php${PHP_VERSION}-fpm" || die "php${PHP_VERSION}-fpm did not come back up even after rollback — manual intervention required."
+        die "Rolled back ${dst}; php${PHP_VERSION}-fpm is back on its previous config. Investigate before re-applying hardening."
     fi
-    if ! service_is_active php8.4-fpm; then
-        die "php8.4-fpm is not active after restart even though the restart command itself succeeded — investigate manually."
+    if ! service_is_active "php${PHP_VERSION}-fpm"; then
+        die "php${PHP_VERSION}-fpm is not active after restart even though the restart command itself succeeded — investigate manually."
     fi
-    success "PHP-FPM hardening applied and php8.4-fpm restarted."
+    success "PHP-FPM hardening applied and php${PHP_VERSION}-fpm restarted."
 }
 
 apply_mariadb_hardening() {
@@ -1036,7 +1072,27 @@ main() {
     info "Database name / user: ${DB_NAME}"
     info "Mode: $([[ "${PROXY_MODE}" -eq 1 ]] && echo 'reverse-proxy backend (self-signed cert)' || echo 'direct TLS')"
 
-    install_packages
+    if [[ "${SKIP_DEPENDENCIES}" -eq 1 ]]; then
+        info "Skipping dependency installation (--skip-dependencies): nginx, PHP ${PHP_VERSION}, MariaDB and Redis must already be installed, running, and reachable the way the rest of this script expects."
+    elif [[ "${NON_INTERACTIVE}" -eq 1 ]]; then
+        install_packages
+    else
+        # An interactive run always asks, even with other flags supplied — this is a genuine
+        # system-level change (adds a PPA, runs apt-get install, enables/starts services) that
+        # --skip-firewall/--skip-fail2ban's silent-flag convention doesn't fit as well: those
+        # only affect THIS instance, installing packages affects the whole box. Default answer
+        # is yes (a bare Enter installs) since that is what a genuinely fresh box needs.
+        install_deps_answer=""
+        read -r -p "Install dependencies (nginx, PHP ${PHP_VERSION}, MariaDB, Redis)? [Y/n] " install_deps_answer || true
+        case "${install_deps_answer}" in
+            [nN]*)
+                info "Skipping dependency installation (answered no): nginx, PHP ${PHP_VERSION}, MariaDB and Redis must already be installed, running, and reachable the way the rest of this script expects."
+                ;;
+            *)
+                install_packages
+                ;;
+        esac
+    fi
     provision_app_code
     setup_upload_dirs
     set_file_permissions

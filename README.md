@@ -181,18 +181,31 @@ Integrations > Directory Sync): people and departments come from Odoo, and train
 
 ## Self-Hosting
 
-One install per organization, on your own server. RivetIT is PHP 8.4 with MariaDB (MySQL-compatible),
-served by nginx; Redis is used for live updates when it is available. Composer dependencies are committed
-in `vendor/`. Two supported ways to run it are described in full in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md),
-with the flag-by-flag reference in [deploy/README.md](deploy/README.md).
+One install per organization, on your own server. RivetIT is PHP 8.5 with MariaDB (MySQL-compatible),
+served by nginx, with Redis for live updates. Composer dependencies are committed in `vendor/`. Two
+supported ways to run it are described in full in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), with the
+flag-by-flag reference in [deploy/README.md](deploy/README.md).
 
-The repository is still named `ITFlow-Internal-IT`, so that is the directory `git clone` creates.
+### Hardware
+
+| | Minimum | Recommended |
+|---|---|---|
+| CPU | 1 vCPU | 2+ vCPU |
+| RAM | 2 GB | 4 GB+ |
+| Disk | 20 GB | 40 GB+, more if the Learning module stores a lot of training video |
+
+The minimum runs nginx, PHP-FPM, MariaDB and Redis together for a small team's evaluation or light use.
+The recommended column gives PHP-FPM room for more concurrent workers and MariaDB more buffer pool, so
+report/PDF generation and the Learning module's video handling stay responsive under real, everyday use.
+Actual sizing depends on employee count, ticket/asset volume, how much training video you store, and how
+many backup generations you keep (`config_backup_retain_count`) — treat these as a starting point, not a
+guarantee.
 
 ### Docker Compose (fastest way to try it)
 
 ```bash
 git clone https://github.com/TheTractorHacker/RivetIT.git
-cd ITFlow-Internal-IT
+cd RivetIT
 cp .env.example .env    # edit DB_PASSWORD/DB_ROOT_PASSWORD, and DOCKER_UID/DOCKER_GID (run `id -u`/`id -g`)
 docker compose up -d --build
 ```
@@ -210,14 +223,15 @@ harden the host: put a reverse proxy in front of it for anything beyond local ev
 
 ```bash
 git clone https://github.com/TheTractorHacker/RivetIT.git
-cd ITFlow-Internal-IT
+cd RivetIT
 sudo deploy/install.sh --domain=rivetit.example.com
 ```
 
-`deploy/install.sh` provisions nginx, PHP 8.4 and MariaDB, sets up TLS (Let's Encrypt, or `--proxy-mode`
-behind your own reverse proxy), applies security hardening, installs the cron entry and runs the first-run
-setup; with `--restore-from` it stands a new box up from an encrypted backup instead. Run it again with a
-different `--domain` to host another organization's independent instance on the same box.
+`deploy/install.sh` provisions nginx, PHP 8.5, MariaDB and Redis (asking first — answer "n", or pass
+`--skip-dependencies`, if you already have them set up the way you want), sets up TLS (Let's Encrypt, or
+`--proxy-mode` behind your own reverse proxy), applies security hardening, installs the cron entry and runs
+the first-run setup; with `--restore-from` it stands a new box up from an encrypted backup instead. Run it
+again with a different `--domain` to host another organization's independent instance on the same box.
 `deploy/harden.sh` adds the remaining hardening steps (see [deploy/README.md](deploy/README.md#hardensh)).
 
 ### Backups and updates
