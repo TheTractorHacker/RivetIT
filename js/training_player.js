@@ -1854,7 +1854,10 @@
             var tapNote = h('div', { class: 'trp-tapnote' }, [icon('fa-hand-pointer'), t('tap_to_start')]);
             var ePlay = h('button', { type: 'button', class: 'trp-vbtn trp-vbtn--play', 'aria-label': t('play') }, icon('fa-play'));
             var eBack = backButton();
-            var eFill = h('span', { class: 'trp-scrub__max' });
+            var eMaxEl = h('span', { class: 'trp-scrub__max' });
+            var eFill = h('span', { class: 'trp-scrub__fill' });
+            var eKnob = h('span', { class: 'trp-scrub__knob' });
+            var eScrub = h('div', { class: 'trp-scrub trp-scrub--seek', role: 'slider', tabindex: '0', 'aria-label': t('furthest'), 'aria-valuemin': '0' }, [eMaxEl, eFill, eKnob]);
             var eTime = h('span', { class: 'trp-vtime trp-mono' });
             var controller = null;
             // ---- video options through the provider's player: captions (CC), volume, resume
@@ -1883,7 +1886,7 @@
                     eResume ? eResume.el : null, bgNote ? bgNote.el : null]),
                 holder,
                 h('div', { class: 'trp-vcontrols' }, [ePlay, eBack,
-                    h('div', { class: 'trp-scrub__wrap' }, [h('div', { class: 'trp-scrub trp-scrub--static' }, eFill), h('div', { class: 'trp-scrub__meta' }, [eTime, h('span', { class: 'trp-scrub__cap', text: t('furthest') }), eVol && eVol.hintEl ? eVol.hintEl : null])]),
+                    h('div', { class: 'trp-scrub__wrap' }, [eScrub, h('div', { class: 'trp-scrub__meta' }, [eTime, h('span', { class: 'trp-scrub__cap', text: t('furthest') }), eVol && eVol.hintEl ? eVol.hintEl : null])]),
                     eCc || eVol ? h('div', { class: 'trp-vopts' }, [eCc ? h('div', { class: 'tmc-ccgroup' }, eCc.el) : null, eVol ? eVol.el : null]) : null]),
                 eCcNote
             ]);
@@ -1913,8 +1916,13 @@
             function syncEmbed(cur, d) {
                 if (d > 0 && !duration) { duration = d; }
                 var dd = duration || d || 0;
-                eFill.style.width = (dd ? Math.min(100, maxWatched * 100 / dd) : 0) + '%';
+                var pctCur = dd ? Math.min(100, (cur || 0) * 100 / dd) : 0;
+                eMaxEl.style.width = (dd ? Math.min(100, maxWatched * 100 / dd) : 0) + '%';
+                eFill.style.width = pctCur + '%';
+                eKnob.style.left = pctCur + '%';
                 eTime.textContent = fmt(cur) + ' / ' + (dd ? fmt(dd) : '–:––');
+                eScrub.setAttribute('aria-valuemax', String(Math.round(dd)));
+                eScrub.setAttribute('aria-valuenow', String(Math.round(cur || 0)));
             }
             function showError(code, message) {
                 clear(status);
@@ -2010,6 +2018,68 @@
             };
             ePlay.addEventListener('click', function () { if (controller) { controller.toggle(); } });
             eBack.addEventListener('click', function () { if (controller) { controller.seekBy(-10); } });
+            /**
+             * Click / drag / arrow-key seek (owner report 2026-09-28, "no skipping and going to a particular
+             * point on a video"), the same safe pattern as the upload scrub bar's seekFromEvent: backward/within
+             * already-watched territory (0..maxWatched) is always allowed, a target past the furthest point is
+             * capped client-side - the server-side gate is the real backstop and is unchanged. A drag repaints
+             * continuously but throttles the real provider seek (avoids flooding YouTube's/Vimeo's postMessage
+             * API on every pointermove) and always commits once more on release.
+             */
+            var eDragging = false;
+            var eDragTarget = null;
+            var eSeekThrottle = null;
+            function eRatio(clientX) {
+                var r = eScrub.getBoundingClientRect();
+                if (!r.width) { return null; }
+                return Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+            }
+            function eTargetFromRatio(ratio) {
+                var dd = duration || 0;
+                if (!dd) { return null; }
+                return Math.min(ratio * dd, maxWatched);
+            }
+            function eShow(target) { curPos = target; syncEmbed(target, duration); }
+            function eCommit(target) { if (controller) { controller.seekTo(target); } }
+            eScrub.addEventListener('pointerdown', function (e) {
+                if (!controller || (e.button !== undefined && e.button !== 0)) { return; }
+                var ratio = eRatio(e.clientX);
+                var target = ratio === null ? null : eTargetFromRatio(ratio);
+                if (target === null) { return; }
+                eDragging = true;
+                try { eScrub.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ }
+                eShow(target);
+                eCommit(target);
+                e.preventDefault();
+            });
+            eScrub.addEventListener('pointermove', function (e) {
+                if (!eDragging) { return; }
+                var ratio = eRatio(e.clientX);
+                var target = ratio === null ? null : eTargetFromRatio(ratio);
+                if (target === null) { return; }
+                eDragTarget = target;
+                eShow(target);
+                if (!eSeekThrottle) {
+                    eSeekThrottle = setTimeout(function () {
+                        eSeekThrottle = null;
+                        if (eDragging && eDragTarget !== null) { eCommit(eDragTarget); }
+                    }, 150);
+                }
+            });
+            function eEndDrag(e) {
+                if (!eDragging) { return; }
+                eDragging = false;
+                try { eScrub.releasePointerCapture(e.pointerId); } catch (x) { /* ignore */ }
+                if (eSeekThrottle) { clearTimeout(eSeekThrottle); eSeekThrottle = null; }
+                if (eDragTarget !== null) { eCommit(eDragTarget); eDragTarget = null; }
+            }
+            eScrub.addEventListener('pointerup', eEndDrag);
+            eScrub.addEventListener('pointercancel', eEndDrag);
+            eScrub.addEventListener('keydown', function (e) {
+                if (!controller) { return; }
+                if (e.key === 'ArrowLeft') { var t1 = Math.max(0, curPos - 5); eShow(t1); eCommit(t1); e.preventDefault(); }
+                if (e.key === 'ArrowRight') { var t2 = Math.min(maxWatched, curPos + 5); eShow(t2); eCommit(t2); e.preventDefault(); }
+            });
             // The page went to the background: pause (time never counts there); back on the page, a short notice.
             var eBgNote = bgNote;
             playingNow = function () { return !!(controller && controller.isPlaying()); };
