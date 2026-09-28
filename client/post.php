@@ -37,7 +37,7 @@ require_once '../includes/sla_functions.php';
    ?logout AND ?exit_portal_preview ARE HANDLED UPSTREAM
    The portal's Sign out link calls session_unset() + session_destroy() on the
    SAME PHP session the admin's agent login lives in, so during a preview it
-   would sign the admin out of ITFlow itself. check_login.php (required above)
+   would sign the admin out of RivetIT itself. check_login.php (required above)
    calls portalPreviewHandleExitRequest() before any gate runs, which turns both
    ?logout and the banner's ?exit_portal_preview into "end the preview and go
    back to the agent side", and leaves a real contact's Sign out completely
@@ -168,8 +168,8 @@ if (isset($_POST['add_ticket'])) {
         $client_name = sanitizeInput($session_client_name);
         $details = removeEmoji($details);
 
-        $email_subject = "ITFlow Internal IT - New Ticket - $client_name: $subject";
-        $email_body = "Hello, <br><br>This is a notification that a new ticket has been raised in ITFlow Internal IT. <br>Department: $client_name<br>Priority: $priority<br>Link: https://$config_base_url/agent/ticket.php?ticket_id=$ticket_id&client_id=$session_client_id <br><br><b>$subject</b><br>$details";
+        $email_subject = APP_NAME . " - New Ticket - $client_name: $subject";
+        $email_body = "Hello, <br><br>This is a notification that a new ticket has been raised in " . htmlspecialchars(APP_NAME) . ". <br>Department: $client_name<br>Priority: $priority<br>Link: https://$config_base_url/agent/ticket.php?ticket_id=$ticket_id&client_id=$session_client_id <br><br><b>$subject</b><br>$details";
 
         // Queue Mail
         $data = [
@@ -243,7 +243,7 @@ if (isset($_POST['add_ticket_comment'])) {
             $tech_name = sanitizeInput($tech_details['user_name']);
 
             $subject = "$config_app_name Ticket updated - [$config_ticket_prefix$ticket_number] $ticket_subject";
-            $body    = "Hello $tech_name,<br><br>A new reply has been added to the below ticket, check ITFlow Internal IT for full details.<br><br>Department: $client_name<br>Ticket: $config_ticket_prefix$ticket_number<br>Subject: $ticket_subject<br><br>https://$config_base_url/agent/ticket.php?ticket_id=$ticket_id&client_id=$session_client_id";
+            $body    = "Hello $tech_name,<br><br>A new reply has been added to the below ticket, check " . htmlspecialchars(APP_NAME) . " for full details.<br><br>Department: $client_name<br>Ticket: $config_ticket_prefix$ticket_number<br>Subject: $ticket_subject<br><br>https://$config_base_url/agent/ticket.php?ticket_id=$ticket_id&client_id=$session_client_id";
 
             $data = [
                 [
@@ -755,7 +755,7 @@ if (isset($_GET['add_payment_by_provider'])) {
         redirect();
     }
 
-    // Get ITFlow company details
+    // Get RivetIT company details
     $sql = mysqli_query($mysqli,"SELECT * FROM companies WHERE company_id = 1");
     $row = mysqli_fetch_assoc($sql);
     $company_name = sanitizeInput($row['company_name']);
@@ -808,7 +808,7 @@ if (isset($_GET['add_payment_by_provider'])) {
     $stripe = new \Stripe\StripeClient($private_key);
 
     $balance_to_pay = round($invoice_amount, 2);
-    $pi_description = "ITFlow Internal IT: $client_name payment of $invoice_currency_code $balance_to_pay for $invoice_prefix$invoice_number";
+    $pi_description = APP_NAME . ": $client_name payment of $invoice_currency_code $balance_to_pay for $invoice_prefix$invoice_number";
 
     // Create a payment intent
     try {
@@ -870,7 +870,7 @@ if (isset($_GET['add_payment_by_provider'])) {
             // Email the internal notification address too
             if (!empty($config_invoice_paid_notification_email)) {
                 $subject = "Payment Received - $client_name - Invoice $invoice_prefix$invoice_number";
-                $body = "Hello, <br><br>This is a notification that an invoice has been paid in ITFlow Internal IT. Below is a copy of the receipt sent to the department:-<br><br>--------<br><br>Hello $contact_name,<br><br>We have received online payment for the amount of " . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . " for invoice <a href=\'https://$config_base_url/guest/guest_view_invoice.php?invoice_id=$invoice_id&url_key=$invoice_url_key\'>$invoice_prefix$invoice_number</a>. Please keep this email as a receipt for your records.<br><br>Amount Paid: " . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . "<br><br>Thank you for your business!<br><br><br>--<br>$company_name - Billing Department<br>$config_invoice_from_email<br>$company_phone";
+                $body = "Hello, <br><br>This is a notification that an invoice has been paid in " . htmlspecialchars(APP_NAME) . ". Below is a copy of the receipt sent to the department:-<br><br>--------<br><br>Hello $contact_name,<br><br>We have received online payment for the amount of " . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . " for invoice <a href=\'https://$config_base_url/guest/guest_view_invoice.php?invoice_id=$invoice_id&url_key=$invoice_url_key\'>$invoice_prefix$invoice_number</a>. Please keep this email as a receipt for your records.<br><br>Amount Paid: " . numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code) . "<br><br>Thank you for your business!<br><br><br>--<br>$company_name - Billing Department<br>$config_invoice_from_email<br>$company_phone";
 
                 $data[] = [
                     'from' => $config_invoice_from_email,

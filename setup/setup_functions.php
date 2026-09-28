@@ -1,6 +1,6 @@
 <?php
 /**
- * ITFlow Restore Helpers (hardened)
+ * RivetIT Restore Helpers (hardened)
  * - Safe recursive delete with optional root guard
  * - SQL import with DELIMITER and EOF handling
  * - Safe ZIP extraction (blocks traversal, symlinks, junk files)

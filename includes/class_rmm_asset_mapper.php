@@ -1,6 +1,6 @@
 <?php
 /*
- * RmmAssetMapper — matches RMM agents (Tactical or Level) to ITFlow assets.
+ * RmmAssetMapper — matches RMM agents (Tactical or Level) to RivetIT assets.
  *
  * Match priority:
  *   1. tactical_agent_id already in asset_rmm_links (already linked)
@@ -156,7 +156,7 @@ class RmmAssetMapper {
     }
 
     /**
-     * When an RMM alert clears at the vendor, close the ITFlow ticket that was
+     * When an RMM alert clears at the vendor, close the RivetIT ticket that was
      * auto-created from it — but conservatively:
      *   - honours the config_rmm_auto_close_on_clear toggle (default on);
      *   - only touches a ticket that is still open;
@@ -270,7 +270,7 @@ class RmmAssetMapper {
         $raw_json  = mysqli_real_escape_string($m, json_encode($agent));
 
         // Map the RMM-side client/group name (Tactical: client_name, Level/Action1: group_name)
-        // to an ITFlow client by exact (case-insensitive) name match.
+        // to a RivetIT client by exact (case-insensitive) name match.
         $resolved_client_id = $this->resolveClientId($agent);
 
         if (empty($agent_id) || empty($hostname)) {
@@ -306,7 +306,7 @@ class RmmAssetMapper {
             return 'updated';
         }
 
-        // ----- Step 2: Try to match an existing ITFlow asset -----
+        // ----- Step 2: Try to match an existing RivetIT asset -----
         $asset_id = 0;
 
         // 2a: serial number
@@ -345,7 +345,7 @@ class RmmAssetMapper {
             }
         }
 
-        // ----- Step 3: Create new ITFlow asset if no match -----
+        // ----- Step 3: Create new RivetIT asset if no match -----
         if (!$asset_id) {
             // Only skip when the agent carries a named client/group that we
             // couldn't match — it belongs to someone, we just don't know who.
@@ -693,7 +693,7 @@ class RmmAssetMapper {
         }
     }
 
-    // Maps the RMM-side client/group name to an existing ITFlow client by
+    // Maps the RMM-side client/group name to an existing RivetIT client by
     // exact (case-insensitive) name match. Returns 0 if no match is found.
     private function resolveClientId(array $agent): int {
         $m    = $this->mysqli;

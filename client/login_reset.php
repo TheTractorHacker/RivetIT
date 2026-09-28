@@ -229,6 +229,9 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
     -->
     <?php if(file_exists('../uploads/favicon.ico')) { ?>
         <link rel="icon" type="image/x-icon" href="../uploads/favicon.ico">
+    <?php } else { /* no uploaded favicon: the product icon (includes/branding.php) */ ?>
+        <link rel="icon" href="/favicon.ico" sizes="32x32">
+        <link rel="icon" href="<?= htmlspecialchars(APP_FAVICON_URL) ?>" type="image/svg+xml">
     <?php } ?>
 
     <!-- Core stack: Tabler 1.5 (vendored, self-contained - zero @font-face, and

@@ -4,7 +4,7 @@
 
 - Custom Pages -
 
-    If you wish to add custom pages to ITFlow, add them to this directory"
+    If you wish to add custom pages to RivetIT, add them to this directory"
     
 */
 

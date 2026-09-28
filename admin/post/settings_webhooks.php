@@ -12,7 +12,7 @@ $ALL_EVENTS = all_webhook_event_types();
 
 /**
  * Reject webhook endpoint URLs that would let a saved webhook be used to make the
- * ITFlow server itself request internal/cloud-metadata targets (SSRF) when the
+ * RivetIT server itself request internal/cloud-metadata targets (SSRF) when the
  * queued webhook is delivered server-side from cron/cron.php. Only http(s) URLs
  * whose host resolves exclusively to public IP addresses are allowed - loopback,
  * link-local (incl. 169.254.169.254 cloud metadata), and RFC1918 private ranges

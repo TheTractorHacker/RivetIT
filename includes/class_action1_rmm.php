@@ -6,7 +6,7 @@
  *
  * Action1's API has no concept of a single "agent" lookup — endpoints only
  * exist within an organization's endpoint groups. We therefore use a
- * composite agent_id of "{org_id}:{endpoint_id}" so the rest of ITFlow can
+ * composite agent_id of "{org_id}:{endpoint_id}" so the rest of RivetIT can
  * treat Action1 endpoints the same as Tactical/Level agents.
  */
 

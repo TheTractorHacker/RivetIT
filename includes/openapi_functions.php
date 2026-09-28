@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/branding.php'; // APP_NAME for the default API title
+
 // Shared parser for api/v1/openapi.yaml, used by both the public API reference
 // (api/v1/docs.php) and the admin-side API Docs page (admin/api_docs.php).
 // PHP here has no yaml extension, hence the small hand-rolled line scanner -
@@ -16,7 +18,7 @@
 function parseOpenApiSpec(string $spec_path): array {
     $raw = is_readable($spec_path) ? file($spec_path, FILE_IGNORE_NEW_LINES) : [];
 
-    $api_title   = 'ITFlow Internal IT API v1';
+    $api_title   = APP_NAME . ' API v1';
     $api_version = '';
     $endpoints   = [];          // [ ['path','method','summary','tag','params','no_auth','has_body'], ... ]
     $tag_order   = [];          // tag names in first-seen order

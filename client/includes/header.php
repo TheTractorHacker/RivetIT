@@ -220,6 +220,9 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
     <!-- Favicon: If Fav Icon exists, else use the default one -->
     <?php if(file_exists($_SERVER['DOCUMENT_ROOT'] . '/uploads/favicon.ico')) { ?>
         <link rel="icon" href="/uploads/favicon.ico">
+    <?php } else { /* no uploaded favicon: the product icon (includes/branding.php) */ ?>
+        <link rel="icon" href="/favicon.ico" sizes="32x32">
+        <link rel="icon" href="<?= htmlspecialchars(APP_FAVICON_URL) ?>" type="image/svg+xml">
     <?php } ?>
 
     <!-- Font Awesome -->

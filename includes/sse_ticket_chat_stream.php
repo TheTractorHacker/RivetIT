@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - SSE core for real-time ticket chat (ITPanel Pro / mobile)
+ * RivetIT - SSE core for real-time ticket chat (ITPanel Pro / mobile)
  *
  * Included by api/v1/tickets.php's GET .../chat handler when ?stream=1 is
  * set, after $id (ticket id) has been validated and

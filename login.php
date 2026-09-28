@@ -39,7 +39,7 @@ if (
     && (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on')
     && (!isset($_SERVER['HTTP_X_FORWARDED_PROTO']) || $_SERVER['HTTP_X_FORWARDED_PROTO'] !== 'https')
 ) {
-    echo "Login is restricted as ITFlow Internal IT defaults to HTTPS-only for enhanced security. To login using HTTP, modify the config.php file by setting config_https_only to false. However, this is strongly discouraged, especially when accessing from potentially unsafe networks like the internet.";
+    echo "Login is restricted as " . htmlspecialchars(APP_NAME) . " defaults to HTTPS-only for enhanced security. To login using HTTP, modify the config.php file by setting config_https_only to false. However, this is strongly discouraged, especially when accessing from potentially unsafe networks like the internet.";
     exit;
 }
 
@@ -435,7 +435,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
 
                         if ((!empty($config_smtp_host) || !empty($config_smtp_provider)) && $ip_previous_logins == 0 && $ua_prev_logins == 0) {
                             $subject = "$config_app_name new login for $user_name";
-                            $body    = "Hi $user_name, <br><br>A recent successful login to your $config_app_name account was considered a little unusual. If this was you, you can safely ignore this email!<br><br>IP Address: $session_ip<br> User Agent: $session_user_agent <br><br>If you did not perform this login, your credentials may be compromised. <br><br>Thanks, <br>ITFlow Internal IT";
+                            $body    = "Hi $user_name, <br><br>A recent successful login to your $config_app_name account was considered a little unusual. If this was you, you can safely ignore this email!<br><br>IP Address: $session_ip<br> User Agent: $session_user_agent <br><br>If you did not perform this login, your credentials may be compromised. <br><br>Thanks, <br>$config_app_name";
 
                             $data = [[
                                 'from'           => $config_mail_from_email,
@@ -612,7 +612,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
 
                             if ((!empty($config_smtp_host) || !empty($config_smtp_provider))) {
                                 $subject = "Important: $config_app_name failed 2FA login attempt for $user_name";
-                                $body    = "Hi $user_name, <br><br>A recent login to your $config_app_name account was unsuccessful due to an incorrect 2FA code. If you did not attempt this login, your credentials may be compromised. <br><br>Thanks, <br>ITFlow Internal IT";
+                                $body    = "Hi $user_name, <br><br>A recent login to your $config_app_name account was unsuccessful due to an incorrect 2FA code. If you did not attempt this login, your credentials may be compromised. <br><br>Thanks, <br>$config_app_name";
                                 $data    = [[
                                     'from'           => $config_mail_from_email,
                                     'from_name'      => $config_mail_from_name,
@@ -762,6 +762,9 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form);
 
     <?php if(file_exists('uploads/favicon.ico')) { ?>
         <link rel="icon" type="image/x-icon" href="/uploads/favicon.ico">
+    <?php } else { /* no uploaded favicon: the product icon (includes/branding.php) */ ?>
+        <link rel="icon" href="/favicon.ico" sizes="32x32">
+        <link rel="icon" href="<?= htmlspecialchars(APP_FAVICON_URL) ?>" type="image/svg+xml">
     <?php } ?>
 
     <!-- Core stack: Tabler 1.5 (vendored, self-contained - zero @font-face, all
@@ -866,18 +869,10 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form);
             align-items: center;
             gap: .5rem;
         }
-        .login-box-branding .brand-icon {
+        .login-box-branding .brand-mark img {
+            display: block;
             width: 52px;
             height: 52px;
-            border-radius: 13px;
-            background: var(--color-accent);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .login-box-branding .brand-icon i {
-            font-size: 1.5rem;
-            color: #fff;
         }
         .login-box-branding .brand-logo img {
             max-height: 52px;
@@ -911,10 +906,10 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form);
                     <img alt="<?= nullable_htmlentities($company_name) ?> logo" src="uploads/settings/<?= nullable_htmlentities($company_logo) ?>" height="52" style="max-height:52px;max-width:200px;width:auto;object-fit:contain;">
                 </div>
             <?php } else { ?>
-                <div class="brand-icon"><i class="fas fa-bolt"></i></div>
+                <div class="brand-mark"><img src="<?= htmlspecialchars(APP_LOGO_MARK_URL) ?>" alt="<?= htmlspecialchars(APP_NAME) ?>" width="52" height="52"></div>
             <?php } ?>
             <div class="brand-name"><?= nullable_htmlentities($company_name) ?></div>
-            <div class="brand-sub">ITFlow · Internal IT Edition</div>
+            <div class="brand-sub">Welcome to <?= htmlspecialchars(APP_NAME) ?></div>
         </div>
     </div>
 

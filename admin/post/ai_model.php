@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - GET/POST request handler for AI Models ('ai_model')
+ * RivetIT - GET/POST request handler for AI Models ('ai_model')
  */
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");

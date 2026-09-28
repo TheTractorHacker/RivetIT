@@ -4,7 +4,7 @@ require_once "inc_confirm_modal.php";
 
 <?php
 if (basename(dirname($_SERVER['REQUEST_URI'])) === 'admin') { ?>
-    <p class="text-end fw-light">ITFlow Internal IT <?php echo APP_VERSION ?> &nbsp; · &nbsp; <a target="_blank" href="https://docs.itflow.org">Docs</a> &nbsp; · &nbsp; <a target="_blank" href="https://forum.itflow.org">Forum</a> &nbsp; · &nbsp; <a target="_blank" href="https://services.itflow.org">Services</a></p>
+    <p class="text-end fw-light"><?= htmlspecialchars(APP_NAME) ?> <?= htmlspecialchars(APP_VERSION) ?> &nbsp; · &nbsp; <a target="_blank" rel="noopener" href="<?= htmlspecialchars(APP_DOCS_URL) ?>">Docs</a> &nbsp; · &nbsp; <a target="_blank" rel="noopener" href="<?= htmlspecialchars(APP_REPO_URL) ?>">Source</a></p>
     <br>
 <?php } ?>
 <?php

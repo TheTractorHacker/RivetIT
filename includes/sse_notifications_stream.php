@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - SSE core for real-time notifications (mobile app)
+ * RivetIT - SSE core for real-time notifications (mobile app)
  *
  * Included by api/v1/notifications_stream.php after it has authenticated the
  * caller and resolved $api_user_id. Streams JSON notification events as they

@@ -15,7 +15,8 @@
  *
  * History: RivetIT started from ITFlow (https://github.com/itflow-org/itflow, GPL-3.0). Internal
  * identifiers that still say "itflow" (the PHP namespace ITFlow\, itflow_* functions and CSS files,
- * database and config names, API routes) are kept on purpose for compatibility; see REBRANDING.md.
+ * database and config names, API routes, backup file names) are kept on purpose for compatibility;
+ * see REBRANDING.md.
  */
 
 if (!function_exists('rivetit_brand_define')) {
@@ -42,6 +43,16 @@ rivetit_brand_define('APP_WEBSITE_URL', APP_REPO_URL);
 rivetit_brand_define('APP_DOCS_URL', APP_REPO_URL . '/tree/main/docs');
 rivetit_brand_define('APP_SUPPORT_URL', APP_REPO_URL . '/issues');
 rivetit_brand_define('APP_LICENSE', 'GPL-3.0');
+// "Latest Release" on Admin > Update links here. The updater compares git tags, so this is the tag list.
+rivetit_brand_define('APP_RELEASES_URL', APP_REPO_URL . '/tags');
+
+// Updater source. The in-app updater (Admin > Update: fetchUpdates() and admin/update.php) fetches this
+// git remote of the install's checkout and compares <remote>/<$repo_branch> with HEAD. It is the "fork"
+// remote, which on existing installs points at the repository above (APP_REPO_URL); this constant only
+// names it and changes nothing about where it points. To follow another repository later, add a remote
+// to the checkout (git remote add <name> <url>) and set this, or RIVETIT_APP_UPDATE_REMOTE, to its name.
+// Callers pass it through escapeshellarg(); only plain remote names ([A-Za-z0-9._-]) are meaningful.
+rivetit_brand_define('APP_UPDATE_REMOTE', 'fork');
 
 // Upstream attribution (GPL): shown on the About/debug page, the README and NOTICE.
 rivetit_brand_define('APP_UPSTREAM_NAME', 'ITFlow');

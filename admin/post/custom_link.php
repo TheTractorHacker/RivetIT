@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - GET/POST request handler for showing custom links on navbars
+ * RivetIT - GET/POST request handler for showing custom links on navbars
  */
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");

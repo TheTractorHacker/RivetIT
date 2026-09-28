@@ -1,15 +1,15 @@
 <?php
 /*
- * UnifiSyncMapper — syncs a UniFi controller's sites to ITFlow.
+ * UnifiSyncMapper — syncs a UniFi controller's sites to RivetIT.
  *
  * For each UniFi site, the site's display name (`desc`) is matched
- * case-insensitively to an ITFlow client name. Sites with no matching
+ * case-insensitively to a RivetIT client name. Sites with no matching
  * client are skipped entirely.
  *
  * For matched sites:
  *   - UAP/USW devices  -> assets (+ primary asset_interfaces entry)
  *   - WLANs with a PSK -> credentials named "Wi-Fi: {ssid}"
- *   - networkconf      -> networks (one UniFi network -> one ITFlow network row)
+ *   - networkconf      -> networks (one UniFi network -> one RivetIT network row)
  */
 
 class UnifiSyncMapper {
@@ -18,7 +18,7 @@ class UnifiSyncMapper {
     private int $integration_id;
     private int $triggered_by;
 
-    // UniFi device type prefix -> ITFlow asset_type. Must be 'Firewall/Router'
+    // UniFi device type prefix -> RivetIT asset_type. Must be 'Firewall/Router'
     // (not 'Firewall') to match the string agent/network.php and every other
     // Firewalls-list consumer actually filters assets.asset_type on.
     private const TYPE_MAP = [
@@ -302,7 +302,7 @@ class UnifiSyncMapper {
         );
     }
 
-    // Resolves the ITFlow client for a UniFi site: an explicit mapping
+    // Resolves the RivetIT client for a UniFi site: an explicit mapping
     // (including an explicit "skip" of client_id=0) takes priority, falling
     // back to a case-insensitive name match if no mapping has been set.
     private function resolveSiteClientId(string $site_id, string $site_display): int {

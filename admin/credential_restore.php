@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - Credential Restore
+ * RivetIT - Credential Restore
  * One-off recovery tool: upload a manual backup zip, browse credentials from it
  * (loaded into staging tables in the live database), decrypt them with a
  * manually-supplied master key, and restore the username/password into the

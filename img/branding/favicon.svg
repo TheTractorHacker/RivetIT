@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- RivetIT favicon: the product mark, simplified to read at 16 px. -->
+  <rect width="64" height="64" rx="14" fill="#1D4ED8"/>
+  <rect x="5" y="30" width="54" height="17" rx="2" fill="#93C5FD"/>
+  <rect x="5" y="37.5" width="54" height="2.5" fill="#1D4ED8" fill-opacity=".45"/>
+  <path d="M9 31C9 20 19 12 32 12S55 20 55 31Z" fill="#FFFFFF"/>
+  <rect x="24" y="30" width="16" height="17" fill="#FFFFFF"/>
+  <path d="M17 47H47C47 52.5 40.5 56 32 56S17 52.5 17 47Z" fill="#FFFFFF"/>
+</svg>

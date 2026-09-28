@@ -1,7 +1,7 @@
 <?php
 
 /*
- * ITFlow - Payroll calculation engine (gross pay only, no tax withholding).
+ * RivetIT - Payroll calculation engine (gross pay only, no tax withholding).
  *
  * Shared by admin/payroll_period.php (hours entry), admin/post/payroll_period.php
  * (Run Payroll) and admin/post/payroll_run.php (Recalculate/Finalize) so there is
