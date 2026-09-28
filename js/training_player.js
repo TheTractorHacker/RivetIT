@@ -59,7 +59,8 @@
  *       Continue from the last point (owner report 2026-09-27 "There is no continue from last point"): the kiosk run
  *       keeps where the learner last was (gate.resume_at: video seconds - never past the furthest point - or the PDF
  *       page; null for an older run). Ticks carry it: an uploaded video's position once it has played on this screen
- *       (never before, so opening a lesson cannot wipe the stored point), a PDF's page on screen (current_page); a last
+ *       (never before, nor before its "Resuming at…" jump - an iPad may load nothing until the tap - so opening a lesson
+ *       cannot wipe the stored point), a PDF's page on screen (current_page); a last
  *       tick goes when the lesson is left (Course, another lesson, the page going away: keepalive) and before Done
  *       (flush()). The tick cadence itself is unchanged. Reopen: a video resumes at the last point (MC.resumePoint: past 5 s, not
  *       in the last few seconds; none recorded -> the furthest point as before; a last point at the end with too little
@@ -1585,6 +1586,10 @@
                 applyVol(vp.level, vp.muted);
                 var resumeAt = null;
                 var resumeOffered = false;
+                // The "Resuming at…" jump has been made (currentTime set). Until then the kiosk sends no position: a play
+                // tapped before the video's metadata loaded (an iPad often loads nothing before the tap) would report 0:00
+                // and wipe the run's last point.
+                var resumeJumped = false;
                 var resume = MC ? MC.resumeBar({ labels: { start_over: t('start_over') }, onStartOver: function () {
                     resumeAt = null;
                     try { video.currentTime = 0; } catch (e) { /* ignore */ }
@@ -1640,6 +1645,7 @@
                     var go = function () {
                         if (resumeAt === null) { return; }
                         try { video.currentTime = resumeAt; } catch (e) { /* ignore */ }
+                        resumeJumped = true;   // (a failed set plays from where it is: that position is then the real one)
                         syncUi();
                     };
                     if (video.readyState >= 1) { go(); } else { video.addEventListener('loadedmetadata', go, { once: true }); }
@@ -1739,9 +1745,13 @@
                     // video has played here (the server keeps it as the run's last point; before that it would be the
                     // start and wipe it). The first gate (lesson_open) says where this person stopped: resume_at (the last
                     // point), or - an older run - the furthest point.
+                    // The position a tick may carry: only once the video played here and no "Resuming at…" jump is still
+                    // to come (Start over clears it); null = none (the server keeps the stored point).
+                    var tickPos = function () { return started && (resumeAt === null || resumeJumped) ? Math.floor(video.currentTime || 0) : null; };
                     ctx.tickSample = function () {
                         var s = { playing: !video.paused && !video.ended };
-                        if (started) { s.position_s = Math.floor(video.currentTime || 0); }
+                        var p = tickPos();
+                        if (p !== null) { s.position_s = p; }
                         return s;
                     };
                     ctx.evidence = function () { return { position_s: Math.floor(video.currentTime || 0) }; };
@@ -1749,10 +1759,11 @@
                     ctx.leave = function () {
                         if (!started || !ctx.sendTick) { return null; }   // not played here: the stored point stays as it is
                         if (!video.paused && !video.ended) { quietPause = true; try { video.pause(); } catch (e) { quietPause = false; } }
-                        if (gates[l.uid]) {
+                        var pos = tickPos();
+                        if (gates[l.uid] && pos !== null) {
                             // the course list shows it at once (the answer comes after the list is drawn); this tick moves the
                             // server's furthest point up to it too
-                            var at = Math.max(0, Math.min(Math.floor(video.currentTime || 0), Math.floor(maxWatched)));
+                            var at = Math.max(0, Math.min(pos, Math.floor(maxWatched)));
                             gates[l.uid].resume_at = at;
                             gates[l.uid].max_position_s = Math.max(Number(gates[l.uid].max_position_s) || 0, at);
                         }

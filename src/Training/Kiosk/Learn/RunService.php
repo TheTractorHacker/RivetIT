@@ -373,8 +373,13 @@ final class RunService
             $st = LessonCredit::applyTick($st, array_filter($sample, static fn($v) => $v !== null), $type, $duration, $videoId, $pages, $now);
             $gate = LessonCredit::gate($st, $type, $required, $duration, (int) ($lesson['min_watch_pct'] ?? 100), $pages);
             if (!$gate['can_complete']) {
-                throw new ApiException(422, 'gate_not_met', 'Spend a little more time on this lesson first.', [],
-                    self::gateShape($gate, $type, $duration, (int) ($lesson['min_watch_pct'] ?? 100), $pages, $videoId, false, false));
+                $refused = self::gateShape($gate, $type, $duration, (int) ($lesson['min_watch_pct'] ?? 100), $pages, $videoId, false, false);
+                if ($type === 'video' || $type === 'document') {
+                    // the stored last point, as every other gate reports it (nothing is written here): without it the
+                    // course list would fall back to the furthest point ("Continue at …")
+                    $refused['resume_at'] = ResumePoint::forGate($run[ResumePoint::COLUMN] ?? null, $type, (int) $run['trun_lesson_max_position'], $pages);
+                }
+                throw new ApiException(422, 'gate_not_met', 'Spend a little more time on this lesson first.', [], $refused);
             }
             $coverage = match ($type) {
                 'video' => ['max_position_s' => $st['max_position'], 'duration_s' => $duration,
