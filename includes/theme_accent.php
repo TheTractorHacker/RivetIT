@@ -15,6 +15,16 @@ function itflow_theme_accent_presets(): array
 }
 
 /** '#RRGGBB' or '' when the company has no known accent. */
+// Backing behind the company logo: '' = none, else #RRGGBB (NULL/invalid = white).
+function itflow_logo_bg($raw): string
+{
+    $raw = (string) $raw;
+    if ($raw === 'none') {
+        return '';
+    }
+    return preg_match('/^#[0-9A-Fa-f]{6}$/', $raw) ? strtoupper($raw) : '#FFFFFF';
+}
+
 function itflow_theme_accent_hex($theme, $custom): string
 {
     if (!empty($custom) && preg_match('/^#[0-9A-Fa-f]{6}$/D', (string) $custom) === 1) {

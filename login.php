@@ -138,14 +138,7 @@ $_login_btn_rgb = $_login_mix($_login_accent_rgb, .72);
 $_login_btn_hover_rgb = $_login_mix($_login_accent_rgb, .6);
 // Backing behind the company logo so a dark logo stays visible on the dark backdrop: white by default,
 // 'none' = no backing, otherwise a validated #RRGGBB from Admin > Appearance.
-$_login_logo_bg_raw = (string) ($row['config_login_logo_bg'] ?? '');
-if ($_login_logo_bg_raw === 'none') {
-    $_login_logo_bg = '';
-} elseif (preg_match('/^#[0-9A-Fa-f]{6}$/', $_login_logo_bg_raw)) {
-    $_login_logo_bg = strtoupper($_login_logo_bg_raw);
-} else {
-    $_login_logo_bg = '#FFFFFF';
-}
+$_login_logo_bg = itflow_logo_bg($row['config_login_logo_bg'] ?? null);
 $_login_theme_css = itflow_theme_accent_css($_login_accent_hex, (string) ($row['config_theme_card_radius'] ?? ''));
 
 $response         = null;

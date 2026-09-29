@@ -117,8 +117,8 @@ $logo_bg_value = preg_match('/^#[0-9A-Fa-f]{6}$/', $logo_bg_raw) ? strtoupper($l
             <hr>
 
             <div class="form-group">
-                <label>Login Page Logo Background</label>
-                <small class="text-secondary d-block mb-2">A dark company logo disappears on the sign-in page's dark backdrop, so the logo sits on a light backing. White by default; pick any colour that makes your logo readable.</small>
+                <label>Logo Background</label>
+                <small class="text-secondary d-block mb-2">The sign-in page and the agent sidebar are dark, so a dark company logo can disappear. The logo sits on a backing there: white by default, or pick any colour that makes your logo readable.</small>
                 <div class="input-group" style="max-width: 320px;">
                     <div class="input-group-prepend">
                         <span class="input-group-text p-1">

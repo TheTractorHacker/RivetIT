@@ -56,7 +56,12 @@ foreach ($section_pages as $key => $pages) {
         <div class="navbar-brand w-100">
             <a href="<?php echo nullable_htmlentities($nav_home_url); ?>" class="d-flex align-items-center gap-2 w-100 text-reset text-decoration-none" style="min-width:0;">
                 <?php if (!empty($session_company_logo)) { ?>
-                    <img src="/uploads/settings/<?php echo nullable_htmlentities($session_company_logo); ?>" style="max-height:33px;width:auto;object-fit:contain;" alt="">
+                    <?php
+                    require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/theme_accent.php';
+                    $nav_logo_bg = itflow_logo_bg($config_login_logo_bg ?? null);
+                    $nav_logo_style = 'max-height:33px;width:auto;object-fit:contain;' . ($nav_logo_bg !== '' ? 'background:' . $nav_logo_bg . ';padding:3px 6px;border-radius:6px;box-sizing:content-box;' : '');
+                    ?>
+                    <img src="/uploads/settings/<?php echo nullable_htmlentities($session_company_logo); ?>" style="<?php echo $nav_logo_style; ?>" alt="">
                 <?php } else { ?>
                     <i class="fas fa-building fa-lg"></i>
                 <?php } ?>
