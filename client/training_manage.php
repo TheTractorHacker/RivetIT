@@ -55,6 +55,10 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 }
 ?>
 
+<div class="alert alert-info d-print-none">
+    <i class="fas fa-info-circle me-2"></i>This is the summary view. For the full training module (courses, assignments, records, reports and the rest), ask an administrator to give your login a training role in Admin &gt; Users &gt; Department logins.
+</div>
+
 <div class="row mb-4">
     <div class="col">
         <h3><i class="fas fa-fw fa-chart-bar me-2"></i>Manage training</h3>

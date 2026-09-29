@@ -334,5 +334,8 @@ $client = mysqli_fetch_assoc($client_sql);
 $session_client_name = $client['client_name'];
 
 // Does this department login hold an agent role with Training (Admin > Users > Department logins)? Then the
-// portal's Manage training opens the full agent LMS. Never in a preview (no real user id).
-$portal_lms_ok = !$portal_preview_active && itflow_portal_user_has_lms(intval($session_user_id));
+// portal's Manage training opens the full agent LMS. In an admin preview there is no real user id, so the previewing
+// agent's own Training permission decides (their agent session opens the LMS).
+$portal_lms_ok = $portal_preview_active
+    ? itflow_profile_level(itflow_user_access_profile(intval($portal_preview_agent_user_id)), 'module_training') >= 1
+    : itflow_portal_user_has_lms(intval($session_user_id));
