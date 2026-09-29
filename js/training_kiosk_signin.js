@@ -425,6 +425,10 @@
             // slip here (2.6.104) - no keypad, just the calm "not set up yet" note, same tone as
             // the sign-in footer already uses when there are zero trainers at all.
             if (info.prompt === 'trainer_pin_not_set') { setMsg(c.msg, 'warn', t('pin.trainer_pin_not_set'), 'fa-key'); promptNode.hidden = true; return; }
+            // Odoo PIN sign-in is on but this person doesn't have a usable Odoo PIN right now, and no
+            // admin has issued them a setup-code slip for it - no self-service code entry, just the
+            // calm "ask your supervisor" note (same shape as trainer_pin_not_set above).
+            if (info.prompt === 'odoo_pin_not_set') { setMsg(c.msg, 'warn', t('pin.odoo_pin_not_set'), 'fa-user-clock'); promptNode.hidden = true; return; }
             if (info.prompt === 'unavailable') { setMsg(c.msg, 'warn', t('pin.unavailable'), 'fa-plug'); promptNode.hidden = true; return; }
             if (info.hard_locked) { setMsg(c.msg, 'bad', t('pin.locked_hard'), 'fa-lock'); return; }
             if (info.locked) { setMsg(c.msg, 'warn', t('pin.locked', { minutes: info.locked.minutes }), 'fa-lock'); return; }

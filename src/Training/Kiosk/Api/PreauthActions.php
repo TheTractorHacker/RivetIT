@@ -142,7 +142,7 @@ final class PreauthActions
 
     /**
      * POST pick {contact_id, sig, role?} (device): who is signing in and how.
-     * {first, name, dept, prompt:'odoo'|'local'|'setup_needed'|'unavailable', locked:{minutes}|null, hard_locked, trainer_ok}
+     * {first, name, dept, prompt:'odoo'|'local'|'setup_needed'|'odoo_pin_not_set'|'unavailable', locked:{minutes}|null, hard_locked, trainer_ok}
      */
     public static function pick(KioskCtx $k, ApiContext $a): array
     {
@@ -172,7 +172,21 @@ final class PreauthActions
         if (!empty($cred['unavailable'])) {
             return $person + ['prompt' => 'unavailable', 'locked' => null, 'hard_locked' => false];
         }
-        $prompt = $cred['effective_source'] === 'odoo' ? 'odoo' : ($cred['has_pin'] ? 'local' : 'setup_needed');
+        // The 8-digit setup-code screen is for when there is no Odoo PIN to defer to at all - never a
+        // silent per-person fallback just because this one person's Odoo PIN isn't usable right now
+        // while Odoo PIN sign-in is otherwise configured. It still opens when an admin has explicitly
+        // issued this person a slip (PinAdmin::issueSlips - e.g. their Odoo record has no usable PIN
+        // and never will), which is the deliberate exception, not a default.
+        $slipIssued = $cred['tcred_setup_code_hash'] !== null && KTime::isFuture($cred['tcred_setup_code_expires_at_utc']);
+        if ($cred['effective_source'] === 'odoo') {
+            $prompt = 'odoo';
+        } elseif ($cred['has_pin']) {
+            $prompt = 'local';
+        } elseif (!$k->ks->odooPinEnabled || $slipIssued) {
+            $prompt = 'setup_needed';
+        } else {
+            $prompt = 'odoo_pin_not_set';
+        }
         $mins = KTime::minutesUntil($cred['tcred_locked_until_utc']);
         return $person + [
             'prompt' => $prompt,
