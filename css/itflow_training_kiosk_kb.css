@@ -41,8 +41,9 @@
 .kb-search .kx-btn { border-radius: 999px; padding-inline: 28px; }
 
 .kb-page .kl-sec { margin-top: 44px; }
-.kb-cat { gap: 16px; margin: 0 0 24px; }
-.kb-cat .kl-count { margin-left: 4px; }
+/* .kb-page prefix: the base '.kx h2 { margin: 0 }' rule is more specific than a bare class and was erasing the gap under the folder name. */
+.kb-page .kb-cat { gap: 16px; margin: 0 0 28px; }
+.kb-page .kb-cat .kl-count { margin-left: 4px; }
 .kb-cat__icon {
   flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 11px;
   background: var(--kx-accent-soft); color: var(--kx-accent); font-size: 18px;
@@ -75,8 +76,8 @@
   display: flex; flex-direction: column; align-items: flex-start; gap: 16px; padding: 40px 48px 34px;
   background: linear-gradient(135deg, var(--kx-accent-soft), var(--kx-surface) 80%); border-bottom: 1px solid var(--kx-border);
 }
-.kb-article__cat { text-decoration: none; padding: 7px 16px; }
-.kb-article__title { margin: 0; font-size: 38px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.kb-page .kb-article__cat { text-decoration: none; padding: 7px 18px; gap: 10px; }
+.kb-page .kb-article__title { margin: 0; font-size: 38px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; overflow-wrap: anywhere; }
 .kb-article__meta { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--kx-muted); font-size: 17px; }
 
 .kb-article__body {
@@ -101,7 +102,7 @@
 .kb-article__body iframe { display: block; width: 100%; max-width: 100%; border: 1px solid var(--kx-border); border-radius: 12px; background: var(--kx-surface); }
 
 .kb-article__files { margin: 0 44px 36px; padding-top: 22px; border-top: 1px solid var(--kx-border); }
-.kb-article__files-title { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 22px; font-weight: 700; }
+.kb-page .kb-article__files-title { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; font-size: 22px; font-weight: 700; }
 .kb-article__files-title .fas { color: var(--kx-accent); }
 .kb-files { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
 .kb-file {
@@ -126,7 +127,7 @@
   .kb-list { gap: 16px; }
   .kb-page .kl-sec { margin-top: 34px; }
   .kb-article__head { padding: 26px 20px 22px; gap: 14px; }
-  .kb-article__title { font-size: 30px; }
+  .kb-page .kb-article__title { font-size: 30px; }
   .kb-article__body { padding: 18px 18px 26px; font-size: 20px; }
   .kb-article__files { margin: 0 18px 22px; }
   .kb-files { grid-template-columns: minmax(0, 1fr); }
