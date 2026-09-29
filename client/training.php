@@ -113,6 +113,7 @@ $tp_when = static fn(array $p): string => (string) ($p['due_on'] ?? $p['expires_
         <h3><i class="fas fa-fw fa-graduation-cap me-2"></i>Training</h3>
     </div>
     <div class="col-auto">
+        <a href="/kiosk/" class="btn btn-primary"><i class="fas fa-play me-2"></i>Start training</a>
         <a href="ticket_add.php" class="btn btn-outline-primary"><i class="fas fa-life-ring me-2"></i>Report a training problem</a>
         <a href="service_catalog.php" class="btn btn-outline-secondary"><i class="fas fa-concierge-bell me-2"></i>Request something</a>
     </div>
@@ -120,7 +121,7 @@ $tp_when = static fn(array $p): string => (string) ($p['due_on'] ?? $p['expires_
 
 <?php if ($tp_me > 0) { ?>
 <div class="card card-outline card-primary mb-4">
-    <div class="card-header"><h5 class="mb-0">My training</h5></div>
+    <div class="card-header"><h5 class="mb-0">My training</h5><div class="text-muted small ms-auto">Select a course to open it in the training module. Sign in there with your name and training PIN.</div></div>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover mb-0">
@@ -133,7 +134,7 @@ $tp_when = static fn(array $p): string => (string) ($p['due_on'] ?? $p['expires_
                 foreach ($tp_mine as $p) {
                     [$cls, $txt] = $tp_badge($p); ?>
                     <tr>
-                        <td><?= nullable_htmlentities($p['course']['name']) ?></td>
+                        <td><?php if (intval($p['course']['id']) > 0) { ?><a href="/kiosk/course.php?c=<?= intval($p['course']['id']) ?>"><?= nullable_htmlentities($p['course']['name']) ?><i class="fas fa-external-link-alt fa-xs ms-2 text-muted"></i></a><?php } else { echo nullable_htmlentities($p['course']['name']); } ?></td>
                         <td><span class="badge bg-<?= $cls ?>"><?= nullable_htmlentities($txt) ?></span></td>
                         <td><?= nullable_htmlentities($tp_when($p)) ?></td>
                     </tr>

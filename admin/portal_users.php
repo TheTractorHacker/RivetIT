@@ -11,7 +11,8 @@ $role_filter = $show_all ? '' : "AND contact_portal_role <> 'none'";
 
 $sql = mysqli_query(
     $mysqli,
-    "SELECT SQL_CALC_FOUND_ROWS users.user_id, users.user_name, users.user_email, users.user_status, users.user_auth_method,
+    "SELECT SQL_CALC_FOUND_ROWS users.user_id, users.user_name, users.user_email, users.user_status, users.user_auth_method, (users.user_token IS NOT NULL AND users.user_token <> '') AS has_2fa,
+            (SELECT user_config_force_mfa FROM user_settings WHERE user_settings.user_id = users.user_id) AS force_mfa,
             contacts.contact_id, contacts.contact_title, contacts.contact_portal_role,
             clients.client_id, clients.client_name,
             (SELECT COUNT(*) FROM contacts r WHERE r.contact_manager_id = contacts.contact_id AND r.contact_archived_at IS NULL) AS team_size,
@@ -123,7 +124,7 @@ require "includes/users_toggle.php";
                         </td>
                         <td><a href="mailto:<?= $pu_email ?>"><?= $pu_email ?></a></td>
                         <td><?= $pu_dept ?></td>
-                        <td><?= $pu_role_display ?><?php if (!$pu_local) { ?> <span class="badge bg-secondary" title="This login does not use a local password">SSO</span><?php } ?></td>
+                        <td><?= $pu_role_display ?><?php if (!$pu_local) { ?> <span class="badge bg-secondary" title="This login does not use a local password">SSO</span><?php } ?><?php if (intval($row['has_2fa']) === 1) { ?> <span class="badge bg-success" title="Two-factor authentication is on"><i class="fas fa-lock"></i> 2FA</span><?php } elseif (intval($row['force_mfa']) === 1) { ?> <span class="badge bg-warning text-dark" title="2FA is required but not set up yet"><i class="fas fa-lock-open"></i> 2FA pending</span><?php } ?></td>
                         <td class="text-end"><?= $pu_role === 'supervisor' && $pu_team == 0 ? "<span class='text-warning' title='Nobody has this person set as their Manager yet'>0</span>" : $pu_team ?></td>
                         <td><?= $pu_status_display ?></td>
                         <td><?= $pu_last ?: "<span class='text-bold'>Never logged in</span>" ?></td>

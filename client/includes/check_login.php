@@ -175,6 +175,23 @@ if (!$portal_preview_active) {
         redirect("/login.php");
     }
 
+    // 2FA: does this login have it, and did an admin require it (Admin > Users > Department logins)?
+    $session_user_has_mfa = !empty($row['user_token']);
+    $fm_row = mysqli_fetch_row(mysqli_query($mysqli, "SELECT user_config_force_mfa FROM user_settings WHERE user_id = $session_user_id"));
+    $session_user_force_mfa = intval($fm_row[0] ?? 0) === 1;
+
+    // Required but not enrolled yet: only the profile page, the enrollment POST and sign-out are reachable.
+    // SCRIPT_NAME, not PHP_SELF: PHP_SELF carries PATH_INFO, so /client/x.php/profile.php would pass.
+    if ($session_user_force_mfa && !$session_user_has_mfa) {
+        $mfa_gate_script = basename($_SERVER['SCRIPT_NAME'] ?? '');
+        $mfa_gate_ok = $mfa_gate_script === 'profile.php'
+            || ($mfa_gate_script === 'post.php' && (isset($_POST['enable_portal_mfa']) || isset($_GET['logout'])));
+        if (!$mfa_gate_ok) {
+            flash_alert("Your administrator requires two-factor authentication. Set it up below to continue.", 'warning');
+            redirect("/client/profile.php");
+        }
+    }
+
 } else {
 
     /*
@@ -226,6 +243,8 @@ if (!$portal_preview_active) {
     $session_user_type        = 2;    // the portal's own notion of "this is a portal request"
     $session_user_status      = 1;
     $session_user_archived_at = null;
+    $session_user_has_mfa     = false;
+    $session_user_force_mfa   = false;
 
 }
 

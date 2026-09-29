@@ -127,6 +127,7 @@ $_login_accent_rgb = $_theme_rgb_map[$config_theme] ?? '13, 148, 136';
 $response         = null;
 $token_field      = null;
 $show_role_choice = false;
+$show_portal_mfa_form = false;
 
 $email    = '';
 $password = ''; // only ever used in the initial POST request
@@ -134,6 +135,120 @@ $password = ''; // only ever used in the initial POST request
 // Helpers
 function pendingExpired($sess, $ttl_seconds = 120) {
     return !$sess || empty($sess['created']) || (time() - intval($sess['created']) > $ttl_seconds);
+}
+
+// Finishes a department (portal) login once the password - and the authenticator code, when the
+// account has 2FA - have been verified. Sets the portal session, logs it and redirects.
+function portalCompleteLogin(int $user_id, int $client_id, int $contact_id, string $user_email, string $portal_role, bool $needs_mfa_enrollment, string $extended_log = ''): void {
+    global $session_user_id, $login_training_enabled;
+
+    $_SESSION['client_logged_in'] = true;
+    $_SESSION['client_id']        = $client_id;
+    $_SESSION['user_id']          = $user_id;
+    $_SESSION['user_type']        = 2;
+    $_SESSION['contact_id']       = $contact_id;
+    $_SESSION['login_method']     = "local";
+
+    // Keep consistent with agent flow (helps any shared session checks)
+    $_SESSION['logged']     = true;
+    session_regenerate_id(true);
+    $_SESSION['csrf_token'] = randomString(32);
+
+    // Option B: set session_user_id BEFORE logAction()
+    $session_user_id = $user_id;
+    logAction("Department Login", "Success", "Department contact $user_email successfully logged in locally$extended_log", $client_id, $user_id);
+
+    // Clear any pending sessions (avoid stale dual-role/MFA state)
+    unset($_SESSION['pending_dual_login']);
+    unset($_SESSION['pending_mfa_login']);
+    unset($_SESSION['pending_portal_mfa']);
+
+    if ($needs_mfa_enrollment) {
+        // Admin required 2FA for this login: it must enroll before anything else (client/includes/check_login.php).
+        $portal_landing = "client/profile.php";
+    } elseif ($portal_role !== 'none' && $login_training_enabled) {
+        // Supervisors and managers (set in Admin > Users > Department logins) land on their team's training.
+        $portal_landing = "client/training.php";
+    } else {
+        $portal_landing = "client/index.php";
+    }
+    header("Location: $portal_landing");
+    exit();
+}
+
+// -----------------------------------
+// DEPARTMENT LOGIN: 2FA CODE SUBMIT
+// -----------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['portal_mfa_login'])) {
+
+    $posted_token = $_POST['pending_portal_mfa_token'] ?? '';
+    $sess = $_SESSION['pending_portal_mfa'] ?? null;
+
+    if (pendingExpired($sess, 300) || empty($posted_token) || empty($sess['token']) || !hash_equals($sess['token'], (string) $posted_token)) {
+        unset($_SESSION['pending_portal_mfa']);
+        header("HTTP/1.1 401 Unauthorized");
+        $response = "
+          <div class='alert alert-danger'>
+            Your 2FA session expired. Please sign in again.
+          </div>";
+    } else {
+        $pm_user_id = intval($sess['user_id']);
+        $pm_row = mysqli_fetch_assoc(mysqli_query($mysqli, "
+            SELECT users.user_id, users.user_email, users.user_token, user_settings.user_config_force_mfa,
+                   contacts.contact_id, contacts.contact_client_id, contacts.contact_portal_role
+            FROM users
+            LEFT JOIN user_settings ON users.user_id = user_settings.user_id
+            INNER JOIN contacts     ON users.user_id = contacts.contact_user_id
+            INNER JOIN clients      ON contacts.contact_client_id = clients.client_id
+            WHERE users.user_id = $pm_user_id
+              AND users.user_type = 2
+              AND users.user_status = 1
+              AND users.user_archived_at IS NULL
+              AND users.user_auth_method = 'local'
+              AND clients.client_archived_at IS NULL
+            LIMIT 1
+        "));
+
+        $pm_code = trim((string) ($_POST['current_code'] ?? ''));
+
+        if (!$pm_row || $config_client_portal_enable != 1 || empty($pm_row['user_token'])) {
+            unset($_SESSION['pending_portal_mfa']);
+            header("HTTP/1.1 401 Unauthorized");
+            $response = "
+              <div class='alert alert-danger'>
+                Incorrect username or password.
+              </div>";
+        } elseif (strlen($pm_code) === 6 && ctype_digit($pm_code) && TokenAuth6238::verify($pm_row['user_token'], $pm_code)) {
+            portalCompleteLogin(
+                $pm_user_id,
+                intval($pm_row['contact_client_id']),
+                intval($pm_row['contact_id']),
+                sanitizeInput($pm_row['user_email']),
+                (string) ($pm_row['contact_portal_role'] ?? 'none'),
+                false,
+                ' with MFA'
+            );
+        } else {
+            $session_user_id = $pm_user_id;
+            logAction("Login", "MFA Failed", sanitizeInput($pm_row['user_email']) . " failed department 2FA", intval($pm_row['contact_client_id']), $pm_user_id);
+            $_SESSION['pending_portal_mfa']['attempts'] = intval($sess['attempts'] ?? 0) + 1;
+            header("HTTP/1.1 401 Unauthorized");
+            if ($_SESSION['pending_portal_mfa']['attempts'] >= 5) {
+                unset($_SESSION['pending_portal_mfa']);
+                $response = "
+                  <div class='alert alert-danger'>
+                    Too many incorrect codes. Please sign in again.
+                  </div>";
+            } else {
+                $_SESSION['pending_portal_mfa']['created'] = time();
+                $show_portal_mfa_form = true;
+                $response = "
+                  <div class='alert alert-danger'>
+                    Please enter a valid 2FA code.
+                  </div>";
+            }
+        }
+    }
 }
 
 // POST handling
@@ -661,34 +776,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
 
                         if ($client_id && $contact_id && $user_auth_method === 'local') {
 
-                            $_SESSION['client_logged_in'] = true;
-                            $_SESSION['client_id']        = $client_id;
-                            $_SESSION['user_id']          = $user_id;
-                            $_SESSION['user_type']        = 2;
-                            $_SESSION['contact_id']       = $contact_id;
-                            $_SESSION['login_method']     = "local";
+                            $portal_role      = (string) ($selectedRow['contact_portal_role'] ?? 'none');
+                            $portal_token     = (string) ($selectedRow['user_token'] ?? '');
+                            $portal_force_mfa = intval($selectedRow['user_config_force_mfa'] ?? 0) === 1;
 
-                            // Keep consistent with agent flow (helps any shared session checks)
-                            $_SESSION['logged']     = true;
-                            session_regenerate_id(true);
-                            $_SESSION['csrf_token'] = randomString(32);
-
-                            // Option B: set session_user_id BEFORE logAction()
-                            $session_user_id = $user_id;
-                            logAction("Department Login", "Success", "Department contact $user_email successfully logged in locally", $client_id, $user_id);
-
-                            // Clear any pending sessions (avoid stale dual-role/MFA state)
-                            unset($_SESSION['pending_dual_login']);
-                            unset($_SESSION['pending_mfa_login']);
-
-                            // Supervisors and managers (set in Admin > Users > Department logins) land on their team's training.
-                            $portal_landing = "client/index.php";
-                            if (($selectedRow['contact_portal_role'] ?? 'none') !== 'none'
-                                && $login_training_enabled) {
-                                $portal_landing = "client/training.php";
+                            if ($portal_token !== '') {
+                                // 2FA is on for this login: hold the session back until the code checks out.
+                                unset($_SESSION['pending_dual_login']);
+                                $_SESSION['pending_portal_mfa'] = [
+                                    'user_id'  => $user_id,
+                                    'token'    => bin2hex(random_bytes(32)),
+                                    'created'  => time(),
+                                    'attempts' => 0
+                                ];
+                                $show_portal_mfa_form = true;
+                            } else {
+                                portalCompleteLogin($user_id, $client_id, $contact_id, $user_email, $portal_role, $portal_force_mfa);
                             }
-                            header("Location: $portal_landing");
-                            exit();
 
                         } else {
 
@@ -717,7 +821,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
 
 // Form state
 $show_mfa_form   = (isset($token_field) && !empty($token_field));
-$show_login_form = (!$show_role_choice && !$show_mfa_form);
+$show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_form);
 
 ?>
 <!DOCTYPE html>
@@ -992,6 +1096,25 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form);
                             Log in as Department
                         </button>
                     </div>
+                <?php endif; ?>
+
+                <?php if ($show_portal_mfa_form): ?>
+                    <!-- Department login: 2FA code -->
+                    <div class='input-group mb-3'>
+                        <input type='text' inputmode='numeric' pattern='[0-9]*' maxlength='6' autocomplete='one-time-code'
+                               class='form-control' placeholder='Verify your 2FA code'
+                               name='current_code' required autofocus>
+                        <div class='input-group-append'>
+                            <div class='input-group-text'>
+                                <span class='fas fa-key'></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <input type="hidden" name="pending_portal_mfa_token"
+                           value="<?php echo htmlspecialchars($_SESSION['pending_portal_mfa']['token'] ?? '', ENT_QUOTES); ?>">
+
+                    <button type="submit" class="btn btn-dark btn-block mb-3" name="portal_mfa_login">Verify & Sign In</button>
                 <?php endif; ?>
 
                 <?php if ($show_mfa_form): ?>

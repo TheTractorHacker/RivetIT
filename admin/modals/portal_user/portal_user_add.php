@@ -82,6 +82,11 @@ $people = mysqli_query($mysqli, "SELECT contact_id, contact_name, contact_email,
             <small class="form-text text-muted">Minimum 8 characters. Hand it over separately; nothing is e-mailed.</small>
         </div>
 
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="pu_add_force_mfa" name="force_mfa" value="1">
+            <label for="pu_add_force_mfa" class="form-check-label">Require 2FA <span class="text-muted">(they must set it up on first sign-in)</span></label>
+        </div>
+
     </div>
     <div class="modal-footer">
         <button type="submit" name="add_portal_user" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Create</button>

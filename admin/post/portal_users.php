@@ -21,6 +21,11 @@ function portalEmailTaken(mysqli $mysqli, string $email_esc, int $except_user_id
     return $r && mysqli_num_rows($r) > 0;
 }
 
+function portalSetForceMfa(mysqli $mysqli, int $user_id, int $force): void
+{
+    mysqli_query($mysqli, "INSERT INTO user_settings SET user_id = $user_id, user_config_force_mfa = $force ON DUPLICATE KEY UPDATE user_config_force_mfa = $force");
+}
+
 if (isset($_POST['add_portal_user'])) {
 
     validateCSRFToken($_POST['csrf_token']);
@@ -61,6 +66,7 @@ if (isset($_POST['add_portal_user'])) {
     $password_hash = password_hash($password, PASSWORD_DEFAULT);
     mysqli_query($mysqli, "INSERT INTO users SET user_name = '$name', user_email = '$email', user_password = '$password_hash', user_auth_method = 'local', user_type = 2");
     $user_id = mysqli_insert_id($mysqli);
+    portalSetForceMfa($mysqli, $user_id, isset($_POST['force_mfa']) ? 1 : 0);
 
     if ($contact_id > 0) {
         $email_sql = $c['contact_email'] === null || $c['contact_email'] === '' ? ", contact_email = '$email'" : '';
@@ -112,6 +118,11 @@ if (isset($_POST['edit_portal_user'])) {
     mysqli_query($mysqli, "UPDATE users SET user_name = '$name', user_email = '$email' WHERE user_id = $user_id AND user_type = 2");
     mysqli_query($mysqli, "UPDATE contacts SET contact_name = '$name', contact_email = '$email', contact_title = '$title', contact_portal_role = '$role' WHERE contact_id = $contact_id");
 
+    // 2FA requirement only applies to local logins (the form only offers it for those).
+    if ($t['user_auth_method'] === 'local') {
+        portalSetForceMfa($mysqli, $user_id, isset($_POST['force_mfa']) ? 1 : 0);
+    }
+
     // Local password only; an SSO login has no password to set (the form does not offer the field either).
     if ($new_password !== '' && $t['user_auth_method'] === 'local') {
         $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
@@ -150,6 +161,31 @@ if (isset($_GET['disable_portal_user']) || isset($_GET['activate_portal_user']))
     logAction("Department Login", $enable ? "Activate" : "Disable", "$session_name " . ($enable ? "activated" : "disabled") . " department login $name", intval($t['contact_client_id']), $user_id);
 
     flash_alert("Department login for <strong>$name</strong> " . ($enable ? "activated" : "disabled"), $enable ? 'success' : 'error');
+
+    redirect();
+}
+
+if (isset($_GET['disable_portal_2fa'])) {
+
+    validateCSRFToken($_GET['csrf_token']);
+
+    $user_id = intval($_GET['disable_portal_2fa']);
+
+    $t = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT users.user_name, contacts.contact_client_id
+        FROM users INNER JOIN contacts ON contacts.contact_user_id = users.user_id
+        WHERE users.user_id = $user_id AND users.user_type = 2 LIMIT 1"));
+    if (!$t) {
+        flash_alert("Department login not found.", 'error');
+        redirect();
+    }
+    $name = sanitizeInput($t['user_name']);
+
+    mysqli_query($mysqli, "UPDATE users SET user_token = NULL WHERE user_id = $user_id AND user_type = 2");
+    mysqli_query($mysqli, "DELETE FROM remember_tokens WHERE remember_token_user_id = $user_id");
+
+    logAction("Department Login", "Edit", "$session_name disabled 2FA for department login $name", intval($t['contact_client_id']), $user_id);
+
+    flash_alert("2FA disabled for <strong>$name</strong>.", 'warning');
 
     redirect();
 }

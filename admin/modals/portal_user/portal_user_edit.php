@@ -6,11 +6,12 @@ ob_start();
 
 $user_id = intval($_GET['id'] ?? 0);
 
-$sql = mysqli_query($mysqli, "SELECT users.user_id, users.user_name, users.user_email, users.user_auth_method,
+$sql = mysqli_query($mysqli, "SELECT users.user_id, users.user_name, users.user_email, users.user_auth_method, users.user_token, COALESCE(user_settings.user_config_force_mfa, 0) AS force_mfa,
         contacts.contact_title, contacts.contact_portal_role, clients.client_name
     FROM users
     INNER JOIN contacts ON contacts.contact_user_id = users.user_id
     LEFT JOIN clients ON clients.client_id = contacts.contact_client_id
+    LEFT JOIN user_settings ON user_settings.user_id = users.user_id
     WHERE users.user_id = $user_id AND users.user_type = 2 LIMIT 1");
 $row = mysqli_fetch_assoc($sql);
 if (!$row) {
@@ -26,6 +27,8 @@ $title = nullable_htmlentities($row['contact_title']);
 $dept = nullable_htmlentities($row['client_name']);
 $role = $row['contact_portal_role'];
 $is_local = $row['user_auth_method'] === 'local';
+$has_2fa = !empty($row['user_token']);
+$force_mfa = intval($row['force_mfa']) === 1;
 
 ?>
 <div class="modal-header">
@@ -75,6 +78,23 @@ $is_local = $row['user_auth_method'] === 'local';
         </div>
         <?php } else { ?>
         <div class="alert alert-info py-2 px-3 small">This login does not use a local password (single sign-on), so there is no password to set here.</div>
+        <?php } ?>
+
+        <?php if ($is_local) { ?>
+        <hr class="my-3">
+        <h6 class="text-uppercase text-muted mb-2" style="font-size:.75rem;letter-spacing:.05em"><i class="fas fa-shield-alt me-1"></i>Two-Factor Authentication</h6>
+        <?php if ($has_2fa) { ?>
+            <div class="d-flex align-items-center justify-content-between p-2 mb-2 border rounded">
+                <span><i class="fas fa-lock text-success me-2"></i><strong>Enabled</strong> &mdash; TOTP authenticator app</span>
+                <a href="post.php?disable_portal_2fa=<?= $user_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-sm btn-outline-danger confirm-link"><i class="fas fa-unlock me-1"></i>Disable</a>
+            </div>
+        <?php } else { ?>
+            <div class="d-flex align-items-center p-2 mb-2 border rounded"><i class="fas fa-unlock text-danger me-2"></i><span class="text-muted">Not configured</span></div>
+        <?php } ?>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="pu_edit_force_mfa<?= $user_id ?>" name="force_mfa" value="1" <?= $force_mfa ? 'checked' : '' ?>>
+            <label for="pu_edit_force_mfa<?= $user_id ?>" class="form-check-label">Require 2FA <span class="text-muted">(they must set it up on their next sign-in)</span></label>
+        </div>
         <?php } ?>
 
     </div>

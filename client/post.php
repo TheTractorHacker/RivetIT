@@ -581,6 +581,60 @@ if (isset($_POST['edit_profile'])) {
 
 }
 
+if (isset($_POST['enable_portal_mfa'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    require_once "../plugins/totp/totp.php";
+
+    $verify_code = trim((string) ($_POST['verify_code'] ?? ''));
+    $secret = $_SESSION['portal_mfa_secret'] ?? '';
+
+    if ($secret !== '' && strlen($verify_code) === 6 && ctype_digit($verify_code) && TokenAuth6238::verify($secret, $verify_code)) {
+
+        $secret_sql = mysqli_real_escape_string($mysqli, $secret);
+        mysqli_query($mysqli, "UPDATE users SET user_token = '$secret_sql' WHERE user_id = $session_user_id AND user_type = 2");
+        mysqli_query($mysqli, "DELETE FROM remember_tokens WHERE remember_token_user_id = $session_user_id");
+        unset($_SESSION['portal_mfa_secret']);
+
+        logAction("Department Login", "Edit", "Department contact $session_contact_name enabled 2FA on their login", $session_client_id, $session_user_id);
+        flash_alert("Two-factor authentication enabled");
+
+        redirect(!empty($session_user_force_mfa) ? 'index.php' : 'profile.php');
+
+    }
+
+    flash_alert("Verification code invalid, please try again.", 'error');
+    redirect('profile.php');
+
+}
+
+if (isset($_POST['disable_portal_mfa'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    if (!empty($session_user_force_mfa)) {
+        flash_alert("Two-factor authentication is required for your login and cannot be turned off.", 'error');
+        redirect('profile.php');
+    }
+
+    // Turning it off needs the password again, so a walk-up on an open session can't strip it.
+    $pw_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT user_password FROM users WHERE user_id = $session_user_id AND user_type = 2"));
+    if (!$pw_row || !password_verify((string) ($_POST['current_password'] ?? ''), $pw_row['user_password'])) {
+        flash_alert("Password incorrect. Two-factor authentication was not changed.", 'error');
+        redirect('profile.php');
+    }
+
+    mysqli_query($mysqli, "UPDATE users SET user_token = NULL WHERE user_id = $session_user_id AND user_type = 2");
+    mysqli_query($mysqli, "DELETE FROM remember_tokens WHERE remember_token_user_id = $session_user_id");
+
+    logAction("Department Login", "Edit", "Department contact $session_contact_name disabled 2FA on their login", $session_client_id, $session_user_id);
+    flash_alert("Two-factor authentication disabled", 'warning');
+
+    redirect('profile.php');
+
+}
+
 if (isset($_POST['add_contact'])) {
 
     validateCSRFToken($_POST['csrf_token']);
