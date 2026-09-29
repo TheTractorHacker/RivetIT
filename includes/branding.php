@@ -41,14 +41,11 @@ rivetit_brand_define('APP_TAGLINE', 'Everything your IT department needs. One pl
 rivetit_brand_define('APP_REPO_URL', 'https://github.com/TheTractorHacker/RivetIT');
 rivetit_brand_define('APP_LICENSE', 'GPL-3.0');
 
-// Can people without a GitHub login open APP_REPO_URL? Not today: the repository is private (the updater
-// fetches it with a deploy key), so every link built from it would be a GitHub 404 for staff. While this
-// is '0' the links below are empty, and pages leave an empty link out (or show plain text): the footer
-// Docs / Source links, the docs, changelog, issue-tracker and release links on Admin > Update, Settings >
-// Notifications and setup, and the "Docs" custom link setup seeds. Set it to '1' (or
-// RIVETIT_APP_REPO_PUBLIC=1) once the repository is public, or define one link yourself (e.g. APP_DOCS_URL
-// to an intranet page, in config.php or with RIVETIT_APP_DOCS_URL) to show just that link.
-rivetit_brand_define('APP_REPO_PUBLIC', '0');
+// Can people without a GitHub login open APP_REPO_URL? Yes as of 2026-09-29: the repository is public,
+// so the footer Docs / Source links, the docs, changelog, issue-tracker and release links on Admin >
+// Update, Settings > Notifications and setup, and the "Docs" custom link setup seeds all resolve. Set
+// back to '0' (or RIVETIT_APP_REPO_PUBLIC=0) if the repository is ever made private again.
+rivetit_brand_define('APP_REPO_PUBLIC', '1');
 if (!function_exists('rivetit_repo_link')) {
     /** APP_REPO_URL . $path while the repository is public (APP_REPO_PUBLIC), otherwise '' (no link). */
     function rivetit_repo_link(string $path = ''): string
@@ -65,16 +62,16 @@ rivetit_brand_define('APP_CHANGELOG_URL', rivetit_repo_link('/blob/main/CHANGELO
 rivetit_brand_define('APP_RELEASES_URL', rivetit_repo_link('/tags'));
 
 // Updater source. The update CHECK on Admin > Update (fetchUpdates() and admin/update.php) fetches this git
-// remote of the install's checkout and compares <remote>/<$repo_branch> with HEAD. It is the "fork" remote,
-// which on existing installs points at the repository above (APP_REPO_URL); this constant only names it and
-// changes nothing about where it points. APPLYING an update is different: the Update App button
-// (admin/post/update.php), scripts/update_cli.php and deploy/update.sh run a plain `git pull`, which pulls
-// from the branch's upstream (origin/main on existing installs), not from this remote. So when the project
-// moves, re-point the existing remotes (git remote set-url origin <url>; git remote set-url fork <url>)
-// rather than adding a remote under a new name; renaming this constant alone would make the page list
-// commits that the Update button never applies. Callers pass it through escapeshellarg(); only plain remote
-// names ([A-Za-z0-9._-]) are meaningful.
-rivetit_brand_define('APP_UPDATE_REMOTE', 'fork');
+// remote of the install's checkout and compares <remote>/<$repo_branch> with HEAD. As of 2026-09-29 this is
+// "origin" (the repository is public, plain HTTPS, no deploy key needed) - the same remote the Update App
+// button (admin/post/update.php), scripts/update_cli.php and deploy/update.sh already pull from via a plain
+// `git pull` (which follows the branch's upstream, origin/main). Using the same remote for both the check and
+// the apply means a fresh install needs zero git-credential setup for updates to work out of the box.
+// A private fork of this project can still point this at a separate remote (e.g. "fork") if it wants the
+// check to compare against a different repository than origin - see reference_itflow_update_checker.md for
+// the deploy-key setup that requires. Callers pass it through escapeshellarg(); only plain remote names
+// ([A-Za-z0-9._-]) are meaningful.
+rivetit_brand_define('APP_UPDATE_REMOTE', 'origin');
 
 // Upstream attribution (GPL): shown on the About/debug page, the README and NOTICE.
 rivetit_brand_define('APP_UPSTREAM_NAME', 'ITFlow');

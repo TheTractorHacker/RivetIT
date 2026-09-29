@@ -3644,10 +3644,9 @@ function fetchUpdates() {
     // the whole site down. Bounding the child process here means the worst
     // case is a slow request, never a leaked one.
     //
-    // Update source: the git remote named by APP_UPDATE_REMOTE (includes/branding.php), which is the
-    // "fork" remote of the repository this install was cloned from unless an install changes it.
-    // Nothing here points at a RivetIT repository that does not exist yet.
-    $update_remote = defined('APP_UPDATE_REMOTE') ? (string) APP_UPDATE_REMOTE : 'fork';
+    // Update source: the git remote named by APP_UPDATE_REMOTE (includes/branding.php), which is
+    // "origin" (public HTTPS, no credentials needed) unless an install changes it.
+    $update_remote = defined('APP_UPDATE_REMOTE') ? (string) APP_UPDATE_REMOTE : 'origin';
     $update_ref    = escapeshellarg("$update_remote/$repo_branch");
     exec("timeout 15 git fetch " . escapeshellarg($update_remote) . " 2>&1", $output, $result);
     $latest_version  = exec("git rev-parse $update_ref");

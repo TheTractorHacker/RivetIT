@@ -12,7 +12,7 @@ $latest_version_tag  = $updates->latest_version_tag;
 $git_fetch_output    = $updates->output;
 $result = $updates->result;
 
-// The updater's git remote is named by APP_UPDATE_REMOTE (includes/branding.php): "fork", as before.
+// The updater's git remote is named by APP_UPDATE_REMOTE (includes/branding.php): "origin" by default.
 $update_ref  = escapeshellarg(APP_UPDATE_REMOTE . '/' . $repo_branch);
 $git_log_raw = shell_exec("git log $repo_branch..$update_ref --pretty=format:'%h|%ar|%s'");
 
