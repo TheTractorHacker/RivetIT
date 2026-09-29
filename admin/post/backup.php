@@ -341,6 +341,8 @@ function backup_s3_client(array $cfg): \Aws\S3\S3Client {
             'secret' => $cfg['secret_key'] ?? '',
         ],
         'use_path_style_endpoint' => !empty($cfg['path_style']),
+        // RustFS answers 503 "quota check unavailable" for a while after it starts; retry with backoff.
+        'retries'                 => ['mode' => 'standard', 'max_attempts' => 8],
     ];
     // Only AWS itself resolves without one - a self-hosted service (RustFS,
     // MinIO, etc.) always needs its own API URL here.
