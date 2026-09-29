@@ -124,6 +124,14 @@ $_theme_rgb_map = [
 ];
 $_login_accent_rgb = $_theme_rgb_map[$config_theme] ?? '13, 148, 136';
 
+// Custom accent hex / card radius from Admin > Appearance: same rule as the agent shell, portal and kiosk.
+require_once "includes/theme_accent.php";
+$_login_accent_hex = itflow_theme_accent_hex($config_theme, $row['config_theme_accent_custom'] ?? null);
+if ($_login_accent_hex !== '') {
+    $_login_accent_rgb = hexdec(substr($_login_accent_hex, 1, 2)) . ', ' . hexdec(substr($_login_accent_hex, 3, 2)) . ', ' . hexdec(substr($_login_accent_hex, 5, 2));
+}
+$_login_theme_css = itflow_theme_accent_css($_login_accent_hex, (string) ($row['config_theme_card_radius'] ?? ''));
+
 $response         = null;
 $token_field      = null;
 $show_role_choice = false;
@@ -952,7 +960,7 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
                                         carries plain .text-center utilities. */
     ?>
     <style>
-        body {
+<?= $_login_theme_css ?>        body {
             background-color: #343A40;
             background-image:
                 radial-gradient(circle at 30% 20%, rgba(<?= $_login_accent_rgb ?>, .35), transparent 55%),
