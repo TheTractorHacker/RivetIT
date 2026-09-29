@@ -59,7 +59,7 @@ final class KioskAdminActions
             LEFT JOIN contacts pc ON pc.contact_id = k.kiosk_personal_contact_id
             LEFT JOIN users u ON u.user_id = k.kiosk_enrolled_by
             LEFT JOIN clients cl ON cl.client_id = k.kiosk_default_client_id
-            WHERE k.kiosk_hidden_at_utc IS NULL AND (k.kiosk_status IN ('active','pending') OR k.kiosk_revoked_at_utc >= ?)
+            WHERE k.kiosk_hidden_at_utc IS NULL AND (k.kiosk_enroll_method IS NULL OR k.kiosk_enroll_method <> 'portal') AND (k.kiosk_status IN ('active','pending') OR k.kiosk_revoked_at_utc >= ?)
             ORDER BY FIELD(k.kiosk_status, 'active', 'pending', 'revoked'), k.kiosk_label, k.kiosk_id", 's', [KTime::plus(-30 * 86400)]);
         $open = [];
         foreach (Db::all($db, 'SELECT ksess_kiosk_id, ksess_role FROM training_kiosk_sessions WHERE ksess_open_guard = 1') as $s) {

@@ -309,7 +309,7 @@ final class KioskAuth
      * ['row' => ksess row, 'token' => plain token, 'ended' => ?int ended ksess id]. The caller appends
      * the ksession.end/start events LAST (see startEvents()) and calls setSessionCookie() after COMMIT.
      *
-     * $o: source ('local'|'odoo'), emp_id (?int), lang, idle_s, max_min, tsession_id (?int).
+     * $o: source ('local'|'odoo'|'portal'), emp_id (?int), lang, idle_s, max_min, tsession_id (?int).
      * idle_s / max_min default to KioskSettings::limitsFor($role) when $o['ks'] is a KioskSettings.
      */
     public static function startSession(\mysqli $db, array $device, int $contactId, string $role, array $o): array
@@ -329,7 +329,7 @@ final class KioskAuth
             throw new \InvalidArgumentException('KioskAuth::startSession: idle_s and max_min are required');
         }
         $source = (string) ($o['source'] ?? 'local');
-        if (!in_array($source, ['odoo', 'local'], true)) {
+        if (!in_array($source, ['odoo', 'local', 'portal'], true)) {
             throw new \InvalidArgumentException('KioskAuth::startSession: bad source');
         }
         $kioskId = (int) $device['kiosk_id'];

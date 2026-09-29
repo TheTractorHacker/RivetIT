@@ -129,6 +129,11 @@ final class KioskRouter
                 }
             }
 
+            // A portal device (minted for a signed-in portal login) never signs anyone in by name: without a session it may only end/set language.
+            if ($principal === 'device' && ($k->device['kiosk_enroll_method'] ?? '') === 'portal' && !in_array($action, ['end', 'set_language'], true)) {
+                throw new ApiException(403, 'forbidden', 'Start training from the portal.');
+            }
+
             // 6. CSRF (every non-anon request, GET included)
             if ($principal !== 'anon') {
                 $given = KioskCsrf::given();

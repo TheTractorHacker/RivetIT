@@ -87,6 +87,7 @@ final class RunService
             }
             $this->assertPrereqs($db, $bridge, $cid, $courseId);
             $now = KTime::now();
+            $channel = ($this->k->device['kiosk_enroll_method'] ?? '') === 'portal' ? 'portal' : 'kiosk';
             if ($old !== null) {
                 Db::exec($db, "UPDATE training_runs SET trun_status = 'superseded', trun_open_guard = NULL, trun_ended_at_utc = ?, trun_current_lesson_uid = NULL,
                     trun_lesson_resume_at = NULL WHERE trun_id = ?", 'si', [$now, (int) $old['trun_id']]);
@@ -94,8 +95,8 @@ final class RunService
             try {
                 $id = Db::insert($db, "INSERT INTO training_runs (trun_contact_id, trun_course_id, trun_revision_id, trun_revision_sha256, trun_assignment_id,
                         trun_language, trun_status, trun_open_guard, trun_channel, trun_started_at_utc, trun_started_kiosk_id, trun_last_activity_at_utc)
-                    VALUES (?, ?, ?, ?, ?, ?, 'in_progress', 1, 'kiosk', ?, ?, ?)", 'iiisissis',
-                    [$cid, $courseId, $rev['id'], $rev['sha256'], $assignmentId, $lang, $now, $this->k->kioskId() > 0 ? $this->k->kioskId() : null, $now]);
+                    VALUES (?, ?, ?, ?, ?, ?, 'in_progress', 1, ?, ?, ?, ?)", 'iiisisssis',
+                    [$cid, $courseId, $rev['id'], $rev['sha256'], $assignmentId, $lang, $channel, $now, $this->k->kioskId() > 0 ? $this->k->kioskId() : null, $now]);
             } catch (\mysqli_sql_exception $e) {
                 if ((int) $e->getCode() !== 1062) {
                     throw $e;

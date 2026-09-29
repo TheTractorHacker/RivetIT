@@ -145,7 +145,8 @@ $kiosk_lang = KioskStrings::lang(is_string($_COOKIE[KioskAuth::LANG_COOKIE] ?? n
 $kctx = new KioskCtx($kiosk_core, $kiosk_ks, $kiosk_keys, $kiosk_device, null, $kiosk_lang, $kiosk_started_ns);
 
 // ---- 6. [S] P-11 --------------------------------------------------------------------------------
-if ($kiosk_device !== null) {
+// A portal device is minted for someone signed in to the client portal: sweeping PHPSESSID would log them out of it.
+if ($kiosk_device !== null && ($kiosk_device['kiosk_enroll_method'] ?? '') !== 'portal') {
     KioskAuth::expireAgentCookies();
 }
 unset($kiosk_h, $kiosk_dest, $kiosk_mode, $kiosk_host);

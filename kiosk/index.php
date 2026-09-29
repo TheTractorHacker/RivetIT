@@ -43,6 +43,11 @@ if (array_key_exists('d', $_GET)) {
 }
 
 $k_dev = kiosk_require_device();
+// A portal device has no sign-in screen of its own: without a live session it goes back to the portal.
+if ($k_dev !== null && ($k_dev['kiosk_enroll_method'] ?? '') === 'portal' && kiosk_peek_session() === null) {
+    header('Location: /client/training.php', true, 302);
+    exit;
+}
 // A temporary device whose time is up: when it ended (this request found it, or ?ended= from a redirect).
 $k_ended = null;
 if ($k_dev === null) {

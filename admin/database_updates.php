@@ -9471,3 +9471,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.108'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.108') {
+        // Owner ask 2026-09-29: a signed-in department user starts training from the portal with no device
+        // setup and no name search. The portal mints a per-user 'portal' device and a learner session whose
+        // sign-in source is 'portal' (the PIN is still verified at signing/acknowledgement).
+        mysqli_query($mysqli, "ALTER TABLE `training_kiosks` MODIFY `kiosk_enroll_method` enum('agent_device','setup_code','portal') DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `training_kiosk_sessions` MODIFY `ksess_pin_source` enum('odoo','local','portal') NOT NULL");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.109'");
+    }
