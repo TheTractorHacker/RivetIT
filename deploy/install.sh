@@ -49,7 +49,10 @@ PHP_SOCK="/run/php/php${PHP_VERSION}-fpm.sock"
 # gets full functionality by default instead of a silent degrade nobody
 # notices. All are near-universally preinstalled/packaged on Ubuntu, but are
 # listed explicitly so a minimal/container base image still works.
-REQUIRED_BASE_PACKAGES=(nginx mariadb-server certbot python3-certbot-nginx ufw fail2ban git composer openssl unattended-upgrades gettext-base rsync redis-server)
+REQUIRED_BASE_PACKAGES=(nginx mariadb-server certbot python3-certbot-nginx ufw fail2ban git composer openssl unattended-upgrades gettext-base rsync redis-server poppler-utils util-linux)
+
+# poppler-utils (pdfinfo/pdftoppm/pdftotext/pdftohtml) and util-linux (prlimit) are run by the Training PDF
+# lessons and the KB PDF import; without them every PDF upload fails with "not a readable PDF".
 
 # php-mysqli is not a real ondrej/php package name — mysqli/pdo_mysql ship
 # together in php-mysql. php-sodium does not exist either: libsodium has been
@@ -75,7 +78,7 @@ REQUIRED_PHP_PACKAGES=("php${PHP_VERSION}-fpm" "php${PHP_VERSION}-cli" "php${PHP
 # whoever owns .gitignore: it still has no `uploads/kb/*` entry, so KB images
 # imported in a git working copy show up as untracked files; that entry should
 # land with the rest of this change.
-UPLOAD_SUBDIRS=(contracts clients custom documents document_templates expenses kb recurring_tickets settings users tmp tickets ticket_templates)
+UPLOAD_SUBDIRS=(contracts clients custom documents document_templates expenses kb recurring_tickets settings training users tmp tickets ticket_templates)
 
 # ---------------------------------------------------------------------------
 # Options (defaults — populated by parse_args)

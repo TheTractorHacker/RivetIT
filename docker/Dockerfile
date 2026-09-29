@@ -29,7 +29,7 @@ FROM php:8.5-fpm-bookworm
 COPY --from=composer /usr/bin/composer /usr/bin/composer
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        nginx supervisor rsync unzip git default-mysql-client openssl redis-server \
+        nginx supervisor rsync unzip git default-mysql-client openssl redis-server poppler-utils util-linux \
         libicu-dev libzip-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev \
         libonig-dev libcurl4-openssl-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \

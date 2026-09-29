@@ -124,6 +124,19 @@ $phpConfig[] = [
     'value' => $memoryLimit,
 ];
 
+// Poppler + prlimit: Training PDF lessons and the KB PDF import shell out to them
+$popplerMissing = [];
+foreach (['/usr/bin/pdfinfo', '/usr/bin/pdftoppm', '/usr/bin/pdftotext', '/usr/bin/prlimit'] as $bin) {
+    if (!is_executable($bin)) {
+        $popplerMissing[] = basename($bin);
+    }
+}
+$phpConfig[] = [
+    'name' => 'PDF tools installed (poppler-utils, util-linux)',
+    'passed' => empty($popplerMissing),
+    'value' => empty($popplerMissing) ? 'Installed' : 'Missing: ' . implode(', ', $popplerMissing) . ' (apt install poppler-utils)',
+];
+
 // Max Execution Time >= 300 seconds
 $maxExecutionTime = ini_get('max_execution_time');
 $maxExecutionTimePassed = $maxExecutionTime >= 300;
