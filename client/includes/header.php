@@ -284,6 +284,17 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
          rule, every class name in it being novel. -->
     <link rel="stylesheet" href="/css/itflow_kb.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_kb.css') ?>">
 
+    <!-- Company appearance (Admin > Appearance / Theme): the same accent + card radius the agent shell and the
+         kiosk use. A stylesheet, not an inline <style>, because portal pages send default-src 'self'. Sits after
+         the framework/token sheets so it wins, and before the portal layer that consumes --color-accent. -->
+    <?php
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/theme_accent.php';
+    $portal_accent_hex = itflow_theme_accent_hex($config_theme ?? '', $config_theme_accent_custom ?? null);
+    $portal_radius = itflow_theme_radius($config_theme_card_radius ?? '');
+    if ($portal_accent_hex !== '' || $portal_radius !== '') { ?>
+    <link rel="stylesheet" href="/client/portal_theme.css.php?a=<?= ltrim($portal_accent_hex, '#') ?>&amp;r=<?= rawurlencode($portal_radius) ?>">
+    <?php } ?>
+
     <!-- Portal UI layer (navbar, hero, stat cards, tiles, profile). Portal-only
          .portal-* selectors, so it goes last and needs no !important. -->
     <link rel="stylesheet" href="/css/itflow_portal.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_portal.css') ?>">

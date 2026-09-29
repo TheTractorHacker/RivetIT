@@ -1,7 +1,8 @@
 <?php
 /*
  * Client Portal
- * Request Something - a curated menu of tickets a department can raise in one click
+ * Request Something - a curated menu of tickets a department can raise in one click.
+ * Picking an item opens ticket_add.php?catalog_item_id=N, which reads the item back from the database.
  */
 
 header("Content-Security-Policy: default-src 'self'");
@@ -12,10 +13,27 @@ $sql = mysqli_query(
     $mysqli,
     "SELECT sci.*, c.category_name
      FROM service_catalog_items sci
-     LEFT JOIN categories c ON c.category_id = sci.ticket_category_id
+     LEFT JOIN categories c ON c.category_id = sci.ticket_category_id AND c.category_archived_at IS NULL
      WHERE sci.is_active = 1
      ORDER BY sci.sort_order ASC, sci.name ASC"
 );
+
+$catalog_items = [];
+$catalog_categories = [];
+while ($row = mysqli_fetch_assoc($sql)) {
+    // The admin form stores "fa-laptop" or a bare "laptop"; both must render as a Font Awesome class.
+    $icon = preg_replace('/[^a-z0-9-]/', '', strtolower(trim((string) $row['icon'])));
+    $icon = preg_replace('/^fa-/', '', $icon);
+    $row['icon_class'] = 'fa-' . ($icon !== '' ? $icon : 'ticket-alt');
+    $row['cat_label'] = trim((string) $row['category_name']) !== '' ? $row['category_name'] : 'General';
+    $catalog_categories[$row['cat_label']] = true;
+    $catalog_items[] = $row;
+}
+ksort($catalog_categories);
+if (isset($catalog_categories['General'])) { // "General" last
+    unset($catalog_categories['General']);
+    $catalog_categories['General'] = true;
+}
 
 ?>
 
@@ -26,49 +44,77 @@ $sql = mysqli_query(
         <li class="breadcrumb-item active">Request Something</li>
     </ol>
 
-    <h3><i class="fas fa-th-large me-2"></i>Request Something</h3>
-    <p class="text-muted">Pick what you need - it opens a new ticket with the subject, category and priority already filled in.</p>
+    <div class="portal-pagehead">
+        <div>
+            <h2 class="portal-pagehead-title">What do you need?</h2>
+            <p class="text-secondary mb-0">Pick a request and we open the ticket for you, with the subject, category and priority already filled in.</p>
+        </div>
+    </div>
 
-    <?php if (mysqli_num_rows($sql) == 0) { ?>
-        <p class="text-muted text-center py-4">Nothing is available to request right now.</p>
+    <?php if (count($catalog_items) === 0) { ?>
+        <div class="card portal-card">
+            <div class="portal-empty">
+                <i class="fas fa-concierge-bell" aria-hidden="true"></i>
+                Nothing is on the request menu yet.
+                <div class="mt-3"><a href="ticket_add.php" class="btn btn-primary"><i class="fas fa-plus me-2" aria-hidden="true"></i>Raise a ticket</a></div>
+            </div>
+        </div>
     <?php } else { ?>
-        <div class="row mt-3">
-            <?php while ($row = mysqli_fetch_assoc($sql)) {
-                $catalog_item_id = intval($row['catalog_item_id']);
-                $name = nullable_htmlentities($row['name']);
-                $description = nullable_htmlentities($row['description']);
-                $icon = nullable_htmlentities($row['icon']) ?: 'fa-ticket-alt';
-                $ticket_subject_template = $row['ticket_subject_template'] ?? '';
-                $ticket_category_id = intval($row['ticket_category_id']);
-                $category_name = nullable_htmlentities($row['category_name']);
-                $default_priority = $row['default_priority'] ?? '';
 
-                // See notes: client/ticket_add.php does not yet read these GET params -
-                // this link works today (opens a blank ticket form), the pre-fill wiring
-                // is documented as a follow-up, not applied here.
-                $prefill_url = "ticket_add.php?" . http_build_query([
-                    'catalog_item_id' => $catalog_item_id,
-                    'subject' => $ticket_subject_template,
-                    'priority' => $default_priority,
-                    'category' => $ticket_category_id,
-                ]);
-            ?>
-                <div class="col-md-4 mb-4">
-                    <a href="<?= nullable_htmlentities($prefill_url) ?>" class="card h-100 text-decoration-none text-dark">
-                        <div class="card-body">
-                            <h5 class="card-title"><i class="fas fa-fw <?= $icon ?> me-2 text-primary"></i><?= $name ?></h5>
-                            <?php if ($description) { ?><p class="card-text text-muted small"><?= $description ?></p><?php } ?>
-                        </div>
-                        <?php if ($category_name || $default_priority) { ?>
-                            <div class="card-footer bg-white">
-                                <?php if ($category_name) { ?><span class="badge text-bg-secondary"><?= $category_name ?></span><?php } ?>
-                                <?php if ($default_priority) { ?><span class="badge text-bg-light"><?= nullable_htmlentities($default_priority) ?> Priority</span><?php } ?>
-                            </div>
-                        <?php } ?>
-                    </a>
+        <div class="portal-filterbar" data-portal-filter>
+            <div class="portal-search">
+                <i class="fas fa-search" aria-hidden="true"></i>
+                <input type="search" class="form-control" placeholder="Search requests" aria-label="Search requests" data-portal-filter-input autocomplete="off">
+            </div>
+            <?php if (count($catalog_categories) > 1) { ?>
+                <div class="portal-chips" role="group" aria-label="Filter by category">
+                    <button type="button" class="portal-chip is-active" data-portal-filter-chip="" aria-pressed="true">All</button>
+                    <?php foreach (array_keys($catalog_categories) as $cat) { ?>
+                        <button type="button" class="portal-chip" data-portal-filter-chip="<?= nullable_htmlentities($cat) ?>" aria-pressed="false"><?= nullable_htmlentities($cat) ?></button>
+                    <?php } ?>
                 </div>
             <?php } ?>
         </div>
+
+        <div class="portal-requests portal-stagger" data-portal-filter-list>
+            <?php foreach ($catalog_items as $row) {
+                $catalog_item_id = intval($row['catalog_item_id']);
+                $name = nullable_htmlentities($row['name']);
+                $description = nullable_htmlentities($row['description']);
+                $default_priority = in_array($row['default_priority'], ['Low', 'Medium', 'High'], true) ? $row['default_priority'] : '';
+                $search = strtolower($row['name'] . ' ' . $row['description'] . ' ' . $row['cat_label']);
+            ?>
+                <a href="ticket_add.php?catalog_item_id=<?= $catalog_item_id ?>" class="portal-request"
+                   data-portal-filter-item data-cat="<?= nullable_htmlentities($row['cat_label']) ?>" data-search="<?= nullable_htmlentities($search) ?>">
+                    <span class="portal-request-icon"><i class="fas fa-fw <?= $row['icon_class'] ?>" aria-hidden="true"></i></span>
+                    <span class="portal-request-body">
+                        <span class="portal-request-name"><?= $name ?></span>
+                        <?php if ($description) { ?><span class="portal-request-desc"><?= $description ?></span><?php } ?>
+                        <span class="portal-request-meta">
+                            <span class="portal-badge portal-badge--muted"><?= nullable_htmlentities($row['cat_label']) ?></span>
+                            <?php if ($default_priority) { ?><span class="portal-badge portal-badge--prio-<?= strtolower($default_priority) ?>"><?= $default_priority ?> priority</span><?php } ?>
+                        </span>
+                    </span>
+                    <i class="fas fa-arrow-right portal-request-go" aria-hidden="true"></i>
+                </a>
+            <?php } ?>
+            <a href="ticket_add.php" class="portal-request portal-request--other" data-portal-filter-other>
+                <span class="portal-request-icon"><i class="fas fa-fw fa-pen" aria-hidden="true"></i></span>
+                <span class="portal-request-body">
+                    <span class="portal-request-name">Something else</span>
+                    <span class="portal-request-desc">Don't see it here? Describe the problem or request in your own words.</span>
+                </span>
+                <i class="fas fa-arrow-right portal-request-go" aria-hidden="true"></i>
+            </a>
+        </div>
+
+        <div class="card portal-card d-none" data-portal-filter-empty>
+            <div class="portal-empty">
+                <i class="fas fa-search" aria-hidden="true"></i>
+                No requests match. <a href="ticket_add.php">Raise a ticket</a> and tell us what you need.
+            </div>
+        </div>
+
     <?php } ?>
 
 <?php

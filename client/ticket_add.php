@@ -14,6 +14,26 @@ require_once 'includes/inc_all.php';
 // Allow clients to select a related asset when raising a ticket
 $sql_assets = mysqli_query($mysqli, "SELECT asset_id, asset_name, asset_type FROM assets WHERE asset_contact_id = $session_contact_id AND asset_client_id = $session_client_id AND asset_archived_at IS NULL ORDER BY asset_name ASC");
 
+
+// Arriving from Request Something: read the item back from the database (the query string only carries its id, so
+// nothing a visitor edits in the URL can set the subject, category or priority of the ticket).
+$catalog_item = null;
+$catalog_item_id = intval($_GET['catalog_item_id'] ?? 0);
+if ($catalog_item_id > 0) {
+    $catalog_item = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT name, description, icon, ticket_subject_template, ticket_category_id, default_priority FROM service_catalog_items WHERE catalog_item_id = $catalog_item_id AND is_active = 1 LIMIT 1"));
+}
+$prefill_subject = '';
+$prefill_priority = 'Low';
+$prefill_category = 0;
+$catalog_icon = 'fa-ticket-alt';
+if ($catalog_item) {
+    $prefill_subject = (string) $catalog_item['ticket_subject_template'];
+    $prefill_priority = in_array($catalog_item['default_priority'], ['Low', 'Medium', 'High'], true) ? $catalog_item['default_priority'] : 'Low';
+    $prefill_category = intval($catalog_item['ticket_category_id']);
+    $icon_clean = preg_replace('/^fa-/', '', preg_replace('/[^a-z0-9-]/', '', strtolower(trim((string) $catalog_item['icon']))));
+    $catalog_icon = 'fa-' . ($icon_clean !== '' ? $icon_clean : 'ticket-alt');
+}
+
 ?>
 
     <ol class="breadcrumb d-print-none">
@@ -26,9 +46,26 @@ $sql_assets = mysqli_query($mysqli, "SELECT asset_id, asset_name, asset_type FRO
         <li class="breadcrumb-item active">New Ticket</li>
     </ol>
 
-    <h3>Raise a new ticket</h3>
+    <div class="portal-pagehead">
+        <div>
+            <h2 class="portal-pagehead-title">Raise a new ticket</h2>
+            <p class="text-secondary mb-0">Tell us what is going on and the IT team will pick it up.</p>
+        </div>
+    </div>
 
-    <div class="col-md-8">
+    <?php if ($catalog_item) { ?>
+        <div class="portal-request-banner">
+            <span class="portal-request-icon"><i class="fas fa-fw <?= $catalog_icon ?>" aria-hidden="true"></i></span>
+            <div class="flex-grow-1">
+                <div class="portal-request-name"><?= nullable_htmlentities($catalog_item['name']) ?></div>
+                <?php if (!empty($catalog_item['description'])) { ?><div class="portal-request-desc"><?= nullable_htmlentities($catalog_item['description']) ?></div><?php } ?>
+            </div>
+            <a href="service_catalog.php" class="btn btn-sm btn-outline-secondary">Change</a>
+        </div>
+    <?php } ?>
+
+    <div class="card portal-card portal-form-card">
+      <div class="card-body">
         <form action="post.php" method="post">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
 
@@ -38,7 +75,7 @@ $sql_assets = mysqli_query($mysqli, "SELECT asset_id, asset_name, asset_type FRO
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
                     </div>
-                    <input type="text" class="form-control" name="subject" placeholder="Subject" required>
+                    <input type="text" class="form-control" name="subject" placeholder="Subject" value="<?= nullable_htmlentities($prefill_subject) ?>" required>
                 </div>
             </div>
 
@@ -51,9 +88,9 @@ $sql_assets = mysqli_query($mysqli, "SELECT asset_id, asset_name, asset_type FRO
                                 <span class="input-group-text"><i class="fa fa-fw fa-thermometer-half"></i></span>
                             </div>
                             <select class="form-control select2" name="priority" required>
-                                <option>Low</option>
-                                <option>Medium</option>
-                                <option>High</option>
+                                <?php foreach (['Low', 'Medium', 'High'] as $prio) { ?>
+                                <option<?php if ($prio === $prefill_priority) { echo ' selected'; } ?>><?= $prio ?></option>
+                                <?php } ?>
                             </select>
                         </div>
                     </div>
@@ -75,7 +112,7 @@ $sql_assets = mysqli_query($mysqli, "SELECT asset_id, asset_name, asset_type FRO
                                 $category_name = nullable_htmlentities($row['category_name']);
 
                                 ?>
-                                <option value="<?php echo $category_id; ?>"><?php echo $category_name; ?></option>
+                                <option value="<?php echo $category_id; ?>"<?php if ($category_id === $prefill_category) { echo ' selected'; } ?>><?php echo $category_name; ?></option>
                             <?php } ?>
 
                         </select>
@@ -115,9 +152,11 @@ $sql_assets = mysqli_query($mysqli, "SELECT asset_id, asset_name, asset_type FRO
                 <textarea class="form-control tinymce" name="details"></textarea>
             </div>
 
-            <button class="btn btn-primary" name="add_ticket">Raise ticket</button>
+            <button class="btn btn-primary" name="add_ticket"><i class="fas fa-paper-plane me-2" aria-hidden="true"></i>Raise ticket</button>
+            <a href="<?= $catalog_item ? 'service_catalog.php' : 'index.php' ?>" class="btn btn-link text-secondary">Cancel</a>
 
         </form>
+      </div>
     </div>
 
 <?php
