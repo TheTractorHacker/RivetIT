@@ -22,7 +22,7 @@ final class Rows
     }
 
     /**
-     * @param array{required?:bool, duration_s?:?int, allow_download?:bool, preview_enabled?:bool, responsible_user_id?:?int,
+     * @param array{required?:bool, requires_previous?:bool, duration_s?:?int, allow_download?:bool, preview_enabled?:bool, responsible_user_id?:?int,
      *              thumb_media_id?:?int, min_watch_pct?:int, ack_require_signature?:bool, ack_require_pin?:bool} $opts
      */
     public static function insertLesson(\mysqli $db, int $courseId, ?int $sectionId, string $type, int $sort, int $userId, array $opts = []): int
@@ -32,14 +32,15 @@ final class Rows
         }
         return Db::insert(
             $db,
-            'INSERT INTO training_lessons (lesson_uid, lesson_course_id, lesson_section_id, lesson_sort, lesson_type, lesson_required,
+            'INSERT INTO training_lessons (lesson_uid, lesson_course_id, lesson_section_id, lesson_sort, lesson_type, lesson_required, lesson_requires_previous,
                 lesson_duration_s, lesson_allow_download, lesson_preview_enabled, lesson_responsible_user_id, lesson_thumb_media_id,
                 lesson_min_watch_pct, lesson_ack_require_signature, lesson_ack_require_pin, lesson_created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            'siiisiiiiiiiiii',
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'siiisiiiiiiiiiii',
             [
                 Uid::new('l'), $courseId, $sectionId, max(0, min($sort, 65535)), $type,
                 ($opts['required'] ?? true) ? 1 : 0,
+                ($opts['requires_previous'] ?? true) ? 1 : 0,
                 $opts['duration_s'] ?? null,
                 ($opts['allow_download'] ?? false) ? 1 : 0,
                 ($opts['preview_enabled'] ?? false) ? 1 : 0,

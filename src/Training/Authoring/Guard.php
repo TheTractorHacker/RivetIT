@@ -24,7 +24,7 @@ final class Guard
         course_eval_checklist, course_template_key, course_current_revision_id, course_draft_updated_at_utc, course_version,
         course_created_by, course_created_at, course_updated_at, course_archived_at, course_archived_by';
 
-    public const LESSON_COLS = 'lesson_id, lesson_uid, lesson_course_id, lesson_section_id, lesson_sort, lesson_type, lesson_required,
+    public const LESSON_COLS = 'lesson_id, lesson_uid, lesson_course_id, lesson_section_id, lesson_sort, lesson_type, lesson_required, lesson_requires_previous,
         lesson_duration_s, lesson_allow_download, lesson_preview_enabled, lesson_responsible_user_id, lesson_thumb_media_id,
         lesson_min_watch_pct, lesson_ack_require_signature, lesson_ack_require_pin, lesson_version, lesson_created_by,
         lesson_created_at, lesson_updated_at, lesson_archived_at';

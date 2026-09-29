@@ -423,7 +423,7 @@
             if (window.TomSelect) {
                 addSelect = new window.TomSelect(field('tr-path-course-add'), {
                     plugins: ['remove_button'], maxOptions: 200, placeholder: 'Search courses',
-                    dropdownParent: editorEl.querySelector('.offcanvas-body')
+                    onDropdownOpen: function (dropdown) { dropdown.scrollIntoView({ block: 'nearest' }); }
                 });
             }
             field('tr-path-course-add-btn').addEventListener('click', addChosenCourses);

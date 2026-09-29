@@ -9489,3 +9489,11 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.110'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.110') {
+        // Owner ask 2026-09-29: in an in-order course a document lesson can be opened without finishing the
+        // lessons above it. Default 1 keeps every existing lesson gated exactly as before.
+        mysqli_query($mysqli, "ALTER TABLE `training_lessons` ADD COLUMN IF NOT EXISTS `lesson_requires_previous` tinyint(1) NOT NULL DEFAULT 1 AFTER `lesson_required`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.111'");
+    }

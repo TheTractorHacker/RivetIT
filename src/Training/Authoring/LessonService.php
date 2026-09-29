@@ -38,7 +38,7 @@ final class LessonService
      * Language-neutral (lesson row): everything else.
      */
     public const UPDATE_FIELDS = ['title', 'description_html', 'body_html', 'media_id', 'caption', 'caption_media_id', 'video_check_token', 'video_provider',
-        'required', 'duration_s', 'allow_download', 'preview_enabled', 'responsible_user_id', 'thumb_media_id', 'min_watch_pct',
+        'required', 'requires_previous', 'duration_s', 'allow_download', 'preview_enabled', 'responsible_user_id', 'thumb_media_id', 'min_watch_pct',
         'ack_require_signature', 'ack_require_pin', 'section_id', 'tags', 'kb_source'];
     /** Fields that are neither version-guarded nor bump the version. */
     private const UNVERSIONED = ['section_id', 'tags', 'responsible_user_id'];
@@ -217,7 +217,7 @@ final class LessonService
             }
         }
 
-        foreach (['required', 'allow_download', 'preview_enabled', 'ack_require_signature', 'ack_require_pin'] as $b) {
+        foreach (['required', 'requires_previous', 'allow_download', 'preview_enabled', 'ack_require_signature', 'ack_require_pin'] as $b) {
             if (array_key_exists($b, $fields)) {
                 $l['lesson_' . $b] = Patch::bool($fields, $b) ? 1 : 0;
             }
@@ -430,6 +430,7 @@ final class LessonService
             $pos = $idx === false ? count($order) : $idx + 1;
             $newId = Rows::insertLesson($db, $courseId, $sectionId, (string) $src['lesson_type'], $pos, $this->c->userId, [
                 'required' => (int) $src['lesson_required'] === 1,
+                'requires_previous' => (int) $src['lesson_requires_previous'] === 1,
                 'duration_s' => $src['lesson_duration_s'] === null ? null : (int) $src['lesson_duration_s'],
                 'allow_download' => (int) $src['lesson_allow_download'] === 1,
                 'preview_enabled' => (int) $src['lesson_preview_enabled'] === 1,

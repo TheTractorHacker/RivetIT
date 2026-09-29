@@ -1602,6 +1602,7 @@
                         ])
                     ])
                 ]));
+                body.appendChild(switchRow('tr-doc-seq', 'Needs the lessons above finished', 'Off: people can open this document without finishing earlier lessons.', d.requires_previous !== false, function (on) { lessonToggle(d, 'requires_previous', on); }));
                 body.appendChild(switchRow('tr-doc-dl', 'Allow download', 'People can save the PDF from the tablet.', d.allow_download, function (on) { lessonToggle(d, 'allow_download', on); }));
                 if (pending) { resumeLessonPages(d); }
             } else if (hasArticle) {

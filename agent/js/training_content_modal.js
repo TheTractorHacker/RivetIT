@@ -137,6 +137,7 @@
                 caption_media_id: v.caption_file ? v.caption_file.id : null,
                 video_provider: v.video ? v.video.provider : null,
                 required: !!d.required,
+                requires_previous: d.requires_previous === undefined ? true : !!d.requires_previous,
                 duration_s: d.duration_source === 'override' ? d.duration_s : null,
                 allow_download: !!d.allow_download,
                 preview_enabled: !!d.preview_enabled,
@@ -153,7 +154,7 @@
         /** Default values for a lesson that does not exist yet (display only). */
         function blankLesson() {
             return {
-                id: null, uid: null, type: st.type, required: true, duration_s: 0, duration_auto_s: 0, duration_source: 'none',
+                id: null, uid: null, type: st.type, required: true, requires_previous: true, duration_s: 0, duration_auto_s: 0, duration_source: 'none',
                 allow_download: false, preview_enabled: false, responsible_user_id: null, responsible_name: null,
                 thumb_media_id: null, thumb_url: null, thumb_auto: true, min_watch_pct: 90, ack_require_signature: true,
                 ack_require_pin: true, section_id: st.sectionId, tags: [], variants: {}, resources: [], quiz: null, issues: []
@@ -1609,7 +1610,7 @@
             });
         }
         function renderSettings() {
-            ['required', 'allow_download', 'preview_enabled', 'ack_require_signature', 'ack_require_pin', 'min_watch_pct'].forEach(setCheckbox);
+            ['required', 'requires_previous', 'allow_download', 'preview_enabled', 'ack_require_signature', 'ack_require_pin', 'min_watch_pct'].forEach(setCheckbox);
             var d = st.lesson || blankLesson();
             // duration
             var autoS = d.duration_auto_s || 0;

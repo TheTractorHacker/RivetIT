@@ -49,7 +49,7 @@ final class RevisionBuilder
         course_external_only, course_component_window_days, course_allow_trainer_attest, course_eval_checklist,
         course_current_revision_id, course_draft_updated_at_utc, course_archived_at';
 
-    private const LESSON_COLS = 'lesson_id, lesson_uid, lesson_course_id, lesson_section_id, lesson_sort, lesson_type, lesson_required,
+    private const LESSON_COLS = 'lesson_id, lesson_uid, lesson_course_id, lesson_section_id, lesson_sort, lesson_type, lesson_required, lesson_requires_previous,
         lesson_duration_s, lesson_allow_download, lesson_preview_enabled, lesson_thumb_media_id, lesson_min_watch_pct,
         lesson_ack_require_signature, lesson_ack_require_pin, lesson_version';
 
@@ -353,6 +353,7 @@ final class RevisionBuilder
                 'section_uid' => $l['lesson_section_id'] === null ? null : ($sectionUid[(int) $l['lesson_section_id']] ?? null),
                 'type' => $type,
                 'required' => (int) $l['lesson_required'] === 1,
+                'requires_previous' => (int) $l['lesson_requires_previous'] === 1,
                 'duration_s' => $duration,
                 'allow_download' => $allowDl,
                 'preview_enabled' => (int) $l['lesson_preview_enabled'] === 1,

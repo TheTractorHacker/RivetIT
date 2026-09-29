@@ -80,6 +80,7 @@ final class CourseDuplicator
                 $oldSection = $l['lesson_section_id'] === null ? null : (int) $l['lesson_section_id'];
                 $lid = Rows::insertLesson($db, $newId, $oldSection === null ? null : ($sectionMap[$oldSection] ?? null), (string) $l['lesson_type'], (int) $l['lesson_sort'], $this->c->userId, [
                     'required' => (int) $l['lesson_required'] === 1,
+                    'requires_previous' => (int) $l['lesson_requires_previous'] === 1,
                     'duration_s' => $l['lesson_duration_s'] === null ? null : (int) $l['lesson_duration_s'],
                     'allow_download' => (int) $l['lesson_allow_download'] === 1,
                     'preview_enabled' => (int) $l['lesson_preview_enabled'] === 1,

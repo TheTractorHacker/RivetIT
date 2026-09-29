@@ -294,7 +294,7 @@ final class RunRepo
 
     /**
      * Sequential gating: with course.sequential, every REQUIRED lesson before $uid (course order)
-     * must be done. Throws 409 lesson_locked.
+     * must be done, unless that lesson's requires_previous is off. Throws 409 lesson_locked.
      */
     public static function assertUnlocked(array $doc, array $done, string $uid): void
     {
@@ -302,6 +302,10 @@ final class RunRepo
             return;
         }
         $by = self::lessons($doc);
+        // A lesson set to "Needs the lessons above finished" = off (older revisions lack the key = on) opens any time.
+        if (array_key_exists('requires_previous', $by[$uid] ?? []) && empty($by[$uid]['requires_previous'])) {
+            return;
+        }
         foreach (self::order($doc) as $u) {
             if ($u === $uid) {
                 return;

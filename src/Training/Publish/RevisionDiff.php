@@ -99,7 +99,7 @@ final class RevisionDiff
             if ($o['type'] !== $l['type']) {
                 $changes[] = 'type';
             }
-            foreach (['required', 'duration_s', 'allow_download', 'preview_enabled', 'thumb_media_id', 'min_watch_pct', 'ack'] as $f) {
+            foreach (['required', 'requires_previous', 'duration_s', 'allow_download', 'preview_enabled', 'thumb_media_id', 'min_watch_pct', 'ack'] as $f) {
                 if (($o[$f] ?? null) !== ($l[$f] ?? null)) {
                     $changes[] = 'settings';
                     break;

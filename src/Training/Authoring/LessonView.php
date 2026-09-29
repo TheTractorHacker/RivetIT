@@ -89,6 +89,7 @@ final class LessonView
 
         return $summary + [
             'course_id' => (int) $course['course_id'],
+            'requires_previous' => (int) $l['lesson_requires_previous'] === 1,
             'allow_download' => (int) $l['lesson_allow_download'] === 1,
             'responsible_user_id' => $l['lesson_responsible_user_id'] === null ? null : (int) $l['lesson_responsible_user_id'],
             'responsible_name' => $responsibleName,

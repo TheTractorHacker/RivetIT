@@ -334,6 +334,10 @@ $tr_cm_mb = static fn(int $b): string => (string) max(1, intdiv($b, 1048576));
                                     <div><label class="tr-switch-row__label" for="tr-cm-aside-req">Required</label><div class="tr-switch-row__hint">Must finish to complete the course</div></div>
                                     <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="tr-cm-aside-req" data-tr-lfield="required"></div>
                                 </div>
+                                <div class="tr-switch-row" data-tr-show-types="document">
+                                    <div><label class="tr-switch-row__label" for="tr-cm-aside-seq">Needs lessons above</label><div class="tr-switch-row__hint">Off: opens without finishing earlier lessons</div></div>
+                                    <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="tr-cm-aside-seq" data-tr-lfield="requires_previous"></div>
+                                </div>
                                 <div class="tr-switch-row" data-tr-show-types="document,video,image">
                                     <div><label class="tr-switch-row__label" for="tr-cm-aside-dl">Allow download</label><div class="tr-switch-row__hint">People can save a copy from the tablet</div></div>
                                     <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="tr-cm-aside-dl" data-tr-lfield="allow_download"></div>
@@ -417,6 +421,10 @@ $tr_cm_mb = static fn(int $b): string => (string) max(1, intdiv($b, 1048576));
                                 <div class="tr-switch-row">
                                     <div><label class="tr-switch-row__label" for="tr-cm-set-req">Required</label><div class="tr-switch-row__hint">Off: optional. People can finish the course without it.</div></div>
                                     <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="tr-cm-set-req" data-tr-lfield="required"></div>
+                                </div>
+                                <div class="tr-switch-row" data-tr-show-types="document">
+                                    <div><label class="tr-switch-row__label" for="tr-cm-set-seq">Needs the lessons above finished</label><div class="tr-switch-row__hint">On (default): in an in-order course, earlier required lessons must be done first. Off: people can open this document any time.</div></div>
+                                    <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="tr-cm-set-seq" data-tr-lfield="requires_previous"></div>
                                 </div>
                                 <div class="tr-switch-row" data-tr-show-types="document,video,image">
                                     <div><label class="tr-switch-row__label" for="tr-cm-set-dl">Allow download</label><div class="tr-switch-row__hint">People can save a copy of the file.</div></div>
