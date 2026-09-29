@@ -23,6 +23,14 @@ use ITFlow\Training\Core\Text;
  * coattr_link_checked_at_utc and coattr_link_suggested_employee_id (the UNIQUE Odoo employee whose
  * normalised name equals the baseline name and who is not linked to another contact; flagged rows only).
  * coattr_odoo_name is written only on insert here (confirm/relink own it otherwise).
+ *
+ * Unlinked contacts (Unlink deletes the contact_odoo_links row - see OdooLinkChecker::unlink()) have no
+ * row in the loop above, so they get a second, separate pass: every contact_odoo_attributes row left in
+ * state 'missing' with no contact_odoo_links row for this integration gets its
+ * coattr_link_suggested_employee_id refreshed by the same name-match rule against its last confirmed
+ * Odoo name (coattr_odoo_name, untouched by Unlink). Without this an unlinked person can never get a
+ * fresh suggestion again - relink() already supports creating a brand new link row, it just had nothing
+ * to point at.
  */
 final class LinkStates
 {
@@ -139,6 +147,25 @@ final class LinkStates
                 if (in_array($state, self::FLAG_STATES, true) && $prev !== $state) {
                     $stats['newly_flagged'][] = $cid;
                 }
+            }
+
+            // Unlinked contacts (Unlink deletes the contact_odoo_links row, so the loop above never sees
+            // them again - they'd otherwise keep a stale/null suggestion forever, with no path back to
+            // Odoo even once a correct match exists). Same name-match rule as above, against each one's
+            // last confirmed Odoo name; never suggest an employee already linked to someone else.
+            // Same criteria OdooLinkChecker::status() uses to surface these rows as "needs a decision" -
+            // no coattr_odoo_integration_id filter, so a row from a past integration still gets picked up.
+            $orphans = Db::all($db, "SELECT coattr_contact_id, coattr_odoo_name FROM contact_odoo_attributes a
+                    WHERE a.coattr_link_state = 'missing'
+                    AND NOT EXISTS (SELECT 1 FROM contact_odoo_links l WHERE l.contact_id = a.coattr_contact_id AND l.odoo_integration_id = ?)
+                    FOR UPDATE", 'i', [$integrationId]);
+            foreach ($orphans as $o) {
+                $cid = (int) $o['coattr_contact_id'];
+                $cands = $byName[self::norm((string) $o['coattr_odoo_name'])] ?? [];
+                $cands = array_values(array_filter($cands, static fn($id) => array_diff($linkedTo[$id] ?? [], [$cid]) === []));
+                $suggest = count($cands) === 1 ? $cands[0] : null;
+                Db::exec($db, 'UPDATE contact_odoo_attributes SET coattr_link_suggested_employee_id = ?, coattr_link_checked_at_utc = ? WHERE coattr_contact_id = ?',
+                    'isi', [$suggest, $now, $cid]);
             }
         });
         return $stats;

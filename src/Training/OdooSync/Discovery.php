@@ -89,12 +89,14 @@ final class Discovery
             $out['resume']['available'] = false;
         }
 
-        // Certification skills: the certification skill types, their levels and their skills (the admin maps a course
-        // or an achievement to one of these skills; read-only here - "Create skill in Odoo" is a separate admin action).
+        // Certification skills: every skill type (not only ones Odoo itself flags is_certification - an
+        // install can perfectly well track certifications under a plain type such as "HR"), their levels
+        // and their skills (the admin maps a course or an achievement to one of these skills; read-only
+        // here - "Create skill in Odoo" is a separate admin action).
         $sk = $this->try('hr.employee.skill', 'fields_get', ['attributes' => ['type']], $errors);
         $out['skill']['available'] = is_array($sk) && $sk !== [];
         if ($out['skill']['available']) {
-            $ct = $this->try('hr.skill.type', 'search_read', ['domain' => [['is_certification', '=', true]], 'fields' => ['id', 'name']], $errors);
+            $ct = $this->try('hr.skill.type', 'search_read', ['domain' => [], 'fields' => ['id', 'name']], $errors);
             $ids = [];
             foreach (is_array($ct) ? $ct : [] as $t) {
                 if (is_array($t) && is_int($t['id'] ?? null)) {
