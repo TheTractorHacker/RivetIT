@@ -316,7 +316,7 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
                     --color-* tokens on a dark Tabler palette.
    --------------------------------------------------------------------------- */
 ?>
-<body class="accent-<?php echo nullable_htmlentities($config_theme ?? ''); ?><?php if (!empty($config_theme_dark_default)) echo ' dark-mode'; ?>">
+<body class="portal-ui accent-<?php echo nullable_htmlentities($config_theme ?? ''); ?><?php if (!empty($config_theme_dark_default)) echo ' dark-mode'; ?>">
 <div class="page">
 <?php
 /* ---------------------------------------------------------------------------

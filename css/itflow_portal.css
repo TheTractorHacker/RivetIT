@@ -290,3 +290,34 @@
     .portal-search { max-width: none; }
     .portal-request-go { opacity: 1; transform: none; }
 }
+
+/* ---- Calmer colours: primary button, ticket list rail, status/count chips ---- */
+.portal-ui .btn-primary {
+    background-color: color-mix(in srgb, var(--color-accent) 78%, #1b2a33);
+    border-color: color-mix(in srgb, var(--color-accent) 78%, #1b2a33);
+    box-shadow: none;
+}
+.portal-ui .btn-primary:hover,
+.portal-ui .btn-primary:focus,
+.portal-ui .btn-primary:not(:disabled):not(.disabled):active {
+    background-color: color-mix(in srgb, var(--color-accent) 66%, #1b2a33);
+    border-color: color-mix(in srgb, var(--color-accent) 66%, #1b2a33);
+}
+.portal-ui .list-group-item.active {
+    background-color: rgba(var(--color-accent-rgb), .12);
+    border-color: var(--if-border);
+    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--color-accent) 78%, #1b2a33);
+    color: inherit;
+    font-weight: 600;
+}
+.portal-ui .list-group-item .badge,
+.portal-ui td > .badge {
+    background-color: rgba(93, 111, 118, .16) !important;
+    color: var(--if-muted) !important;
+    font-weight: 600;
+}
+.portal-ui .list-group-item .badge.text-bg-danger { background-color: rgba(220, 38, 38, .13) !important; color: #b42323 !important; }
+.portal-ui .list-group-item .badge.text-bg-success { background-color: rgba(12, 163, 12, .13) !important; color: #0c7d0c !important; }
+:root[data-bs-theme="dark"] .portal-ui .list-group-item .badge.text-bg-danger { color: #f87171 !important; }
+:root[data-bs-theme="dark"] .portal-ui .list-group-item .badge.text-bg-success { color: #4ade80 !important; }
+.portal-status-dot { opacity: .8; filter: saturate(.8); }
