@@ -136,6 +136,16 @@ $_login_mix = static function (string $rgb, float $k): string {
 };
 $_login_btn_rgb = $_login_mix($_login_accent_rgb, .72);
 $_login_btn_hover_rgb = $_login_mix($_login_accent_rgb, .6);
+// Backing behind the company logo so a dark logo stays visible on the dark backdrop: white by default,
+// 'none' = no backing, otherwise a validated #RRGGBB from Admin > Appearance.
+$_login_logo_bg_raw = (string) ($row['config_login_logo_bg'] ?? '');
+if ($_login_logo_bg_raw === 'none') {
+    $_login_logo_bg = '';
+} elseif (preg_match('/^#[0-9A-Fa-f]{6}$/', $_login_logo_bg_raw)) {
+    $_login_logo_bg = strtoupper($_login_logo_bg_raw);
+} else {
+    $_login_logo_bg = '#FFFFFF';
+}
 $_login_theme_css = itflow_theme_accent_css($_login_accent_hex, (string) ($row['config_theme_card_radius'] ?? ''));
 
 $response         = null;
@@ -1000,6 +1010,14 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
             width: 52px;
             height: 52px;
         }
+<?php if ($_login_logo_bg !== '') { ?>
+        .login-box-branding .brand-logo {
+            background: <?= $_login_logo_bg ?>;
+            padding: .6rem .9rem;
+            border-radius: calc(var(--card-radius) * .7);
+            box-shadow: 0 4px 14px -4px rgba(0,0,0,.4);
+        }
+<?php } ?>
         .login-box-branding .brand-logo img {
             max-height: 52px;
             max-width: 200px;

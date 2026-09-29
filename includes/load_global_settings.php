@@ -208,6 +208,7 @@ $config_theme = $row['config_theme'];
 // Appearance customizer (per-company): optional custom accent hex + card radius override + default dark mode
 $config_theme_accent_custom = $row['config_theme_accent_custom'] ?? null;   // #RRGGBB, overrides the preset accent when set
 $config_theme_card_radius = $row['config_theme_card_radius'] ?? null;       // e.g. "14px", overrides --card-radius when set
+$config_login_logo_bg = $row['config_login_logo_bg'] ?? null;             // login-page logo backing: NULL = white, #RRGGBB, or "none"
 $config_theme_dark_default = intval($row['config_theme_dark_default'] ?? 0); // company-wide default dark mode (per-user pref can opt into dark)
 
 // Telemetry

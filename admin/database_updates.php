@@ -9481,3 +9481,11 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.109'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.109') {
+        // Owner ask 2026-09-29: a dark company logo needs a light backing on the login page. NULL = white,
+        // '#RRGGBB' = custom colour, 'none' = no backing.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_login_logo_bg` varchar(7) DEFAULT NULL");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.110'");
+    }

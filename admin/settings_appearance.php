@@ -29,6 +29,10 @@ $picker_default = (!empty($config_theme_accent_custom) && preg_match('/^#[0-9A-F
     ? strtoupper($config_theme_accent_custom)
     : (isset($theme_accent_presets[$config_theme]) ? $theme_accent_presets[$config_theme] : '#0D9488');
 
+$logo_bg_raw = (string) ($config_login_logo_bg ?? '');
+$logo_bg_none = ($logo_bg_raw === 'none');
+$logo_bg_value = preg_match('/^#[0-9A-Fa-f]{6}$/', $logo_bg_raw) ? strtoupper($logo_bg_raw) : '#FFFFFF';
+
 ?>
 
 <style nonce="<?php echo $csp_nonce; ?>">
@@ -113,6 +117,28 @@ $picker_default = (!empty($config_theme_accent_custom) && preg_match('/^#[0-9A-F
             <hr>
 
             <div class="form-group">
+                <label>Login Page Logo Background</label>
+                <small class="text-secondary d-block mb-2">A dark company logo disappears on the sign-in page's dark backdrop, so the logo sits on a light backing. White by default; pick any colour that makes your logo readable.</small>
+                <div class="input-group" style="max-width: 320px;">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text p-1">
+                            <input type="color" id="logo_bg_picker" value="<?php echo $logo_bg_value; ?>" style="width: 38px; height: 32px; border: none; background: none; padding: 0; cursor: pointer;">
+                        </span>
+                    </div>
+                    <input type="text" class="form-control" id="logo_bg_hex" name="config_login_logo_bg" placeholder="#FFFFFF" pattern="^#[0-9A-Fa-f]{6}$" title="Enter a 6-digit hex colour, e.g. #FFFFFF" value="<?php echo $logo_bg_value; ?>">
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-outline-secondary" id="logo_bg_reset" title="Back to white"><i class="fas fa-undo"></i></button>
+                    </div>
+                </div>
+                <div class="form-check form-switch mt-2">
+                    <input type="checkbox" class="form-check-input" name="config_login_logo_bg_none" value="1" id="logoBgNone" <?php if ($logo_bg_none) { echo "checked"; } ?>>
+                    <label class="form-check-label" for="logoBgNone">No backing <small class="text-secondary">(show the logo directly on the backdrop, for light or transparent logos)</small></label>
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="form-group">
                 <label>Dark Mode</label>
                 <div class="form-check form-check form-switch">
                     <input type="checkbox" class="form-check-input" name="config_theme_dark_default" <?php if ($config_theme_dark_default == 1) { echo "checked"; } ?> value="1" id="darkModeDefaultSwitch">
@@ -161,6 +187,12 @@ $picker_default = (!empty($config_theme_accent_custom) && preg_match('/^#[0-9A-F
         hex.value = '';
         hex.focus();
     });
+
+    var lp = document.getElementById('logo_bg_picker');
+    var lh = document.getElementById('logo_bg_hex');
+    lp.addEventListener('input', function () { lh.value = lp.value.toUpperCase(); });
+    lh.addEventListener('input', function () { if (/^#[0-9A-Fa-f]{6}$/.test(lh.value)) { lp.value = lh.value; } });
+    document.getElementById('logo_bg_reset').addEventListener('click', function () { lh.value = '#FFFFFF'; lp.value = '#FFFFFF'; });
 })();
 </script>
 

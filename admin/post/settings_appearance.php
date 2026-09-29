@@ -29,10 +29,20 @@ if (isset($_POST['edit_appearance_settings'])) {
         $card_radius_sql = "NULL";
     }
 
+    // Login-page logo backing: 'none', a valid #RRGGBB, or NULL (white). Lets a dark logo stay visible on the dark backdrop.
+    $logo_bg_input = trim($_POST['config_login_logo_bg'] ?? '');
+    if (!empty($_POST['config_login_logo_bg_none'])) {
+        $logo_bg_sql = "'none'";
+    } elseif (preg_match('/^#[0-9A-Fa-f]{6}$/', $logo_bg_input) && strtoupper($logo_bg_input) !== '#FFFFFF') {
+        $logo_bg_sql = "'" . strtoupper(mysqli_real_escape_string($mysqli, $logo_bg_input)) . "'";
+    } else {
+        $logo_bg_sql = "NULL";
+    }
+
     // Company-wide default dark mode
     $config_theme_dark_default = intval($_POST['config_theme_dark_default'] ?? 0);
 
-    mysqli_query($mysqli, "UPDATE settings SET config_theme = '$config_theme', config_theme_accent_custom = $accent_custom_sql, config_theme_card_radius = $card_radius_sql, config_theme_dark_default = $config_theme_dark_default WHERE company_id = 1");
+    mysqli_query($mysqli, "UPDATE settings SET config_theme = '$config_theme', config_theme_accent_custom = $accent_custom_sql, config_theme_card_radius = $card_radius_sql, config_login_logo_bg = $logo_bg_sql, config_theme_dark_default = $config_theme_dark_default WHERE company_id = 1");
 
     logAction("Settings", "Edit", "$session_name edited appearance settings");
 
