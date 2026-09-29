@@ -455,6 +455,12 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
                     </li>
                 <?php } ?>
 
+                <?php if (intval($config_module_enable_training ?? 0) === 1 && !empty($config_training_schema_ready)) { ?>
+                    <li class="nav-item">
+                        <a class="nav-link <?php if (basename($_SERVER['PHP_SELF']) == "training.php") {echo "active";} ?>" href="/client/training.php">Training</a>
+                    </li>
+                <?php } ?>
+
                 <?php if (($session_contact_primary == 1 || $session_contact_is_billing_contact) && $config_module_enable_accounting == 1) { ?>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle <?php echo in_array(basename($_SERVER['PHP_SELF']), ['invoices.php', 'quotes.php', 'autopay.php']) ? 'active' : ''; ?>" href="#" id="navbarDropdown1" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
