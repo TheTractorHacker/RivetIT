@@ -96,22 +96,22 @@ $vault_unsynced_users = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT 
             </div>
 
             <div class="form-group">
-                <label>2FA Remember Me Expire <small class="text-secondary">(The amount of days before a device 2FA remember me token will expire)</small></label>
+                <label>2FA Remember Me Expire <small class="text-secondary">(Days before a device 2FA remember-me token expires &mdash; 30 days minimum)</small></label>
                 <div class="input-group">
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-clock"></i></span>
                     </div>
-                    <input type="number" class="form-control" name="config_login_remember_me_expire" placeholder="Enter Days to Expire" value="<?php echo intval($config_login_remember_me_expire); ?>">
+                    <input type="number" class="form-control" name="config_login_remember_me_expire" min="30" placeholder="Days (30 minimum)" value="<?php echo intval($config_login_remember_me_expire); ?>">
                 </div>
             </div>
 
             <div class="form-group">
-                <label>Session Lifetime <small class="text-secondary">(Minutes of inactivity before re-login is required &mdash; 480 = 8 hrs, 43200 = 30 days)</small></label>
+                <label>Session Lifetime <small class="text-secondary">(Minutes before re-login is required &mdash; 30-day minimum: 43200 = 30 days, 129600 = 90 days)</small></label>
                 <div class="input-group">
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-hourglass-half"></i></span>
                     </div>
-                    <input type="number" class="form-control" name="config_login_session_lifetime" min="30" max="43200" placeholder="Minutes (e.g. 480)" value="<?php echo intval($config_login_session_lifetime); ?>">
+                    <input type="number" class="form-control" name="config_login_session_lifetime" min="43200" max="129600" placeholder="Minutes (43200 = 30 days)" value="<?php echo intval($config_login_session_lifetime); ?>">
                     <div class="input-group-append">
                         <span class="input-group-text">minutes</span>
                     </div>

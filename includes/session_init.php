@@ -9,14 +9,14 @@ if (!isset($_SESSION)) {
         ini_set("session.cookie_secure", true);
     }
 
-    // Configurable session lifetime (default 8 hours; must be set before session_start)
-    $session_lifetime_seconds = 28800;
+    // Session lifetime: 30-day minimum (owner ask 2026-09-29), 90-day cap; must be set before session_start
+    $session_lifetime_seconds = 2592000;
     if (isset($mysqli)) {
         $sl_result = mysqli_query($mysqli, "SELECT config_login_session_lifetime FROM settings WHERE company_id = 1 LIMIT 1");
         if ($sl_result) {
             $sl_row = mysqli_fetch_assoc($sl_result);
             if ($sl_row && intval($sl_row['config_login_session_lifetime']) > 0) {
-                $session_lifetime_seconds = max(1800, min(2592000, intval($sl_row['config_login_session_lifetime']) * 60));
+                $session_lifetime_seconds = max(2592000, min(7776000, intval($sl_row['config_login_session_lifetime']) * 60));
             }
         }
     }

@@ -79,7 +79,7 @@ $config_enable_alert_domain_expire = intval($row['config_enable_alert_domain_exp
 $config_send_invoice_reminders = intval($row['config_send_invoice_reminders']);
 
 // Remember-me Token Expiry
-$config_login_remember_me_expire = intval($row['config_login_remember_me_expire']);
+$config_login_remember_me_expire = max(30, intval($row['config_login_remember_me_expire']));
 
 // Log retention
 $config_log_retention = intval($row['config_log_retention']);

@@ -9,7 +9,7 @@ if (!isset($_SESSION['logged']) || !$_SESSION['logged']) {
         $escaped_hash   = mysqli_real_escape_string($mysqli, $cookie_hash);
 
         $rm_settings = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_login_remember_me_expire FROM settings WHERE company_id = 1 LIMIT 1"));
-        $rm_expire   = max(1, intval($rm_settings['config_login_remember_me_expire'] ?? 3));
+        $rm_expire   = max(30, intval($rm_settings['config_login_remember_me_expire'] ?? 30));
 
         $rm_result = mysqli_query($mysqli, "
             SELECT rt.remember_token_user_id

@@ -36,8 +36,8 @@ if (isset($_POST['edit_security_settings'])) {
     $config_login_message = sanitizeInput($_POST['config_login_message']);
     $config_login_key_required = intval($_POST['config_login_key_required'] ?? 0);
     $config_login_key_secret = sanitizeInput($_POST['config_login_key_secret']);
-    $config_login_remember_me_expire = intval($_POST['config_login_remember_me_expire']);
-    $config_login_session_lifetime = max(30, min(43200, intval($_POST['config_login_session_lifetime'] ?? 480)));
+    $config_login_remember_me_expire = max(30, intval($_POST['config_login_remember_me_expire']));
+    $config_login_session_lifetime = max(43200, min(129600, intval($_POST['config_login_session_lifetime'] ?? 43200)));
     $config_log_retention = intval($_POST['config_log_retention']);
 
     // Disallow turning on login key without a secret
