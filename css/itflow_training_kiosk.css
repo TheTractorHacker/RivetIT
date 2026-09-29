@@ -413,3 +413,12 @@ body.kx-has-dialog { overflow: hidden; }
 }
 
 @media (max-width: 700px) { .kx-brand__logo { display: none; } }
+
+/* Phones: the brand yields (ellipsis) and the avatar drops out so Done and the language toggle never push the header past the viewport. */
+@media (max-width: 520px) {
+  .kx-brand { flex-shrink: 1; overflow: hidden; }
+  .kx-brand__word { overflow: hidden; text-overflow: ellipsis; }
+  .kx-top__right { flex-shrink: 0; gap: 10px; }
+  .kx-who { display: none; }
+  .kx-done { padding: 0 14px; }
+}
