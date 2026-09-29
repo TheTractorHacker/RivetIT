@@ -107,6 +107,12 @@ COMPANY_EMAIL=""
 WEBSITE=""
 RESTORE_FROM=""
 RESTORE_PASSPHRASE_FILE=""
+# Network path in front of the app. Empty = not given on the command line (asked, or defaulted below).
+LOCAL_PROXIES=""
+BEHIND_CLOUDFLARE=""
+# 1 when the operator actually answered/passed the network path (as opposed to it being defaulted), so a
+# re-run against an existing install never overwrites saved values with defaults.
+NETWORK_EXPLICIT=0
 
 # Populated later in main(), after DOMAIN/PROXY_MODE/SKIP_TLS are known.
 NEED_CERTBOT=0
@@ -174,6 +180,17 @@ unless --non-interactive):
   --admin-password=<password>   WARNING: exposed via `ps` while setup runs.
                             Omit this flag and answer the prompt instead
                             whenever you have an interactive terminal.
+
+Network path (what sits in front of this app; used to record the real client
+address instead of a proxy's — also editable later in Admin > Security):
+  --local-proxies=<N>       Number of reverse proxies on YOUR side between the
+                            internet (or Cloudflare) and this server, 0-10.
+                            Do not count Cloudflare. 0 = users connect straight
+                            to this box. Default: 1 with --proxy-mode, else 0.
+  --cloudflare=<yes|no>     Whether public traffic arrives through Cloudflare.
+                            Default: no.
+                            Both are asked interactively when omitted, and
+                            defaulted (not asked) with --non-interactive.
 
 Company / localization details (optional — same prompt-if-omitted rule):
   --locale=<locale>              e.g. en_US
@@ -248,6 +265,8 @@ parse_args() {
             --phone=*)              PHONE="${arg#*=}" ;;
             --company-email=*)   COMPANY_EMAIL="${arg#*=}" ;;
             --website=*)          WEBSITE="${arg#*=}" ;;
+            --local-proxies=*)   LOCAL_PROXIES="${arg#*=}" ;;
+            --cloudflare=*)      BEHIND_CLOUDFLARE="${arg#*=}" ;;
             --restore-from=*)              RESTORE_FROM="${arg#*=}" ;;
             --restore-passphrase-file=*)   RESTORE_PASSPHRASE_FILE="${arg#*=}" ;;
             --help|-h)
@@ -356,6 +375,60 @@ validate_non_interactive_requirements() {
     if [[ "${#missing[@]}" -gt 0 ]]; then
         die "--non-interactive requires the following flag(s), missing: ${missing[*]}"
     fi
+}
+
+# normalize_yes_no VALUE — prints 1 for yes-ish, 0 for no-ish, nothing (and returns 1) otherwise.
+normalize_yes_no() {
+    case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
+        y|yes|1|true|on)  echo 1 ;;
+        n|no|0|false|off) echo 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+validate_network_args() {
+    if [[ -n "${LOCAL_PROXIES}" ]]; then
+        [[ "${LOCAL_PROXIES}" =~ ^[0-9]+$ && "${LOCAL_PROXIES}" -le 10 ]] || die "--local-proxies must be a whole number from 0 to 10 (got: ${LOCAL_PROXIES})."
+    fi
+    if [[ -n "${BEHIND_CLOUDFLARE}" ]]; then
+        BEHIND_CLOUDFLARE="$(normalize_yes_no "${BEHIND_CLOUDFLARE}")" || die "--cloudflare must be yes or no."
+    fi
+}
+
+# Fills in LOCAL_PROXIES / BEHIND_CLOUDFLARE: asks on an interactive terminal, otherwise takes defaults.
+collect_network_path() {
+    local default_proxies=0
+    [[ "${PROXY_MODE}" -eq 1 ]] && default_proxies=1
+    if [[ -n "${LOCAL_PROXIES}" || -n "${BEHIND_CLOUDFLARE}" || ( "${NON_INTERACTIVE}" -eq 0 && -t 0 ) ]]; then
+        NETWORK_EXPLICIT=1
+    fi
+
+    if [[ "${NON_INTERACTIVE}" -eq 0 && -t 0 ]]; then
+        local answer=""
+        if [[ -z "${LOCAL_PROXIES}" ]]; then
+            while true; do
+                read -r -p "How many reverse proxies on your side sit in front of this app (nginx, HAProxy, load balancer; not counting Cloudflare)? [${default_proxies}] " answer || true
+                answer="${answer:-${default_proxies}}"
+                if [[ "${answer}" =~ ^[0-9]+$ && "${answer}" -le 10 ]]; then
+                    LOCAL_PROXIES="${answer}"
+                    break
+                fi
+                echo "Please enter a whole number from 0 to 10."
+            done
+        fi
+        if [[ -z "${BEHIND_CLOUDFLARE}" ]]; then
+            while true; do
+                read -r -p "Is Cloudflare in front of this app? [y/N] " answer || true
+                if BEHIND_CLOUDFLARE="$(normalize_yes_no "${answer:-n}")"; then
+                    break
+                fi
+                echo "Please answer yes or no."
+            done
+        fi
+    fi
+
+    LOCAL_PROXIES="${LOCAL_PROXIES:-${default_proxies}}"
+    BEHIND_CLOUDFLARE="${BEHIND_CLOUDFLARE:-0}"
 }
 
 setup_logging() {
@@ -1024,6 +1097,36 @@ run_app_restore() {
     success "Restore complete; ${DOMAIN} is ready to log in with the restored data."
 }
 
+# run_db_migrations(): scripts/update_cli.php --update_db applies ONE version step per call, so repeat it
+# until the database reports the latest version (or stops advancing). Needed after a fresh install (db.sql is
+# an older schema snapshot) and after a restore (the backup may be older than this code).
+run_db_migrations() {
+    info "Bringing the database schema up to date (scripts/update_cli.php --update_db)..."
+    local i out
+    for (( i = 1; i <= 200; i++ )); do
+        if ! out="$( cd "${APP_DIR}/scripts" && sudo -u www-data php update_cli.php --update_db 2>&1 )"; then
+            warn "update_cli.php --update_db failed: ${out}"
+            return 1
+        fi
+        if grep -q "already at the latest version" <<<"${out}"; then
+            success "Database schema is current."
+            return 0
+        fi
+    done
+    warn "Database schema still not current after 200 update steps; run scripts/update_cli.php --update_db manually and check for errors."
+    return 1
+}
+
+# apply_network_settings(): writes the proxy count / Cloudflare answers into the app's settings.
+apply_network_settings() {
+    info "Recording network path: ${LOCAL_PROXIES} local reverse prox$([[ "${LOCAL_PROXIES}" -eq 1 ]] && echo y || echo ies), Cloudflare $([[ "${BEHIND_CLOUDFLARE}" -eq 1 ]] && echo yes || echo no)..."
+    if ! ( cd "${APP_DIR}/scripts" && sudo -u www-data php set_network_cli.php --proxies="${LOCAL_PROXIES}" --cloudflare="$([[ "${BEHIND_CLOUDFLARE}" -eq 1 ]] && echo yes || echo no)" ); then
+        warn "Could not save the network path. Set it later in Admin > Security > Network path."
+        return 0
+    fi
+    success "Network path saved (change it any time in Admin > Security)."
+}
+
 # ---------------------------------------------------------------------------
 # Final summary
 # ---------------------------------------------------------------------------
@@ -1045,6 +1148,9 @@ print_summary() {
   App directory:    ${APP_DIR}
   Database:         ${DB_NAME} (user: ${DB_NAME}@localhost)
   Mode:             ${mode_desc}
+  Network path:     ${LOCAL_PROXIES} local reverse prox$([[ "${LOCAL_PROXIES}" -eq 1 ]] && echo y || echo ies), Cloudflare $([[ "${BEHIND_CLOUDFLARE}" -eq 1 ]] && echo yes || echo no)
+                    (change in Admin > Security > Network path; its self-check shows
+                    the client address the app sees)
 
   The generated database password was written straight into
   ${APP_DIR}/config.php by scripts/setup_cli.php and was never printed to
@@ -1112,6 +1218,8 @@ main() {
 
     validate_restore_args
     validate_non_interactive_requirements
+    validate_network_args
+    collect_network_path
 
     setup_logging
 
@@ -1119,6 +1227,7 @@ main() {
     info "App directory: ${APP_DIR}"
     info "Database name / user: ${DB_NAME}"
     info "Mode: $([[ "${PROXY_MODE}" -eq 1 ]] && echo 'reverse-proxy backend (self-signed cert)' || echo 'direct TLS')"
+    info "Network path: ${LOCAL_PROXIES} local reverse prox$([[ "${LOCAL_PROXIES}" -eq 1 ]] && echo y || echo ies), Cloudflare $([[ "${BEHIND_CLOUDFLARE}" -eq 1 ]] && echo yes || echo no)"
 
     if [[ "${SKIP_DEPENDENCIES}" -eq 1 ]]; then
         info "Skipping dependency installation (--skip-dependencies): nginx, PHP ${PHP_VERSION}, MariaDB and Redis must already be installed, running, and reachable the way the rest of this script expects."
@@ -1164,10 +1273,18 @@ main() {
     configure_fail2ban
 
     install_cron_entry
+    local fresh_app=0
+    [[ -f "${APP_DIR}/config.php" ]] || fresh_app=1
     if [[ -n "${RESTORE_FROM}" ]]; then
         run_app_restore
     else
         run_app_setup
+    fi
+    run_db_migrations || true
+    if [[ "${fresh_app}" -eq 1 || "${NETWORK_EXPLICIT}" -eq 1 ]]; then
+        apply_network_settings
+    else
+        info "Existing install and no --local-proxies/--cloudflare given: leaving the saved network path unchanged."
     fi
 
     set +x

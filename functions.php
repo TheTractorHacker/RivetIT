@@ -161,9 +161,132 @@ function getUserAgent() {
     return $_SERVER['HTTP_USER_AGENT'];
 }
 
+/**
+ * Network path settings (Admin > Security, or the installer): how many reverse proxies sit in
+ * front of the app on the local side, and whether Cloudflare is in front of those. proxy_hops is
+ * null until someone sets it - null keeps the legacy CONST_GET_IP_METHOD behaviour so upgrades
+ * change nothing on their own. Cached per request; a missing column (pre-2.6.106) reads as unset.
+ */
+function getNetworkPathSettings() {
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+    $cached = ['proxy_hops' => null, 'cloudflare' => false];
+    global $mysqli;
+    if (isset($mysqli) && $mysqli instanceof mysqli) {
+        try {
+            $res = @mysqli_query($mysqli, "SELECT config_proxy_hops, config_behind_cloudflare FROM settings WHERE company_id = 1");
+            $row = $res ? mysqli_fetch_assoc($res) : null;
+            if ($row) {
+                $cached['proxy_hops'] = ($row['config_proxy_hops'] === null) ? null : max(0, min(10, intval($row['config_proxy_hops'])));
+                $cached['cloudflare'] = intval($row['config_behind_cloudflare']) === 1;
+            }
+        } catch (\Throwable $e) {
+            // column not there yet - leave defaults
+        }
+    }
+    return $cached;
+}
+
+// Cloudflare's published edge ranges (https://www.cloudflare.com/ips/). Only used to decide whether the
+// direct peer may be believed when it says "CF-Connecting-IP"; they change rarely.
+function isCloudflareIP($ip) {
+    static $ranges = [
+        '173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22', '141.101.64.0/18',
+        '108.162.192.0/18', '190.93.240.0/20', '188.114.96.0/20', '197.234.240.0/22', '198.41.128.0/17',
+        '162.158.0.0/15', '104.16.0.0/13', '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22',
+        '2400:cb00::/32', '2606:4700::/32', '2803:f800::/32', '2405:b500::/32', '2405:8100::/32',
+        '2a06:98c0::/29', '2c0f:f248::/32',
+    ];
+    $bin = @inet_pton($ip);
+    if ($bin === false) {
+        return false;
+    }
+    foreach ($ranges as $cidr) {
+        [$net, $bits] = explode('/', $cidr);
+        $netBin = inet_pton($net);
+        if (strlen($netBin) !== strlen($bin)) {
+            continue;
+        }
+        $bits = intval($bits);
+        $bytes = intdiv($bits, 8);
+        if ($bytes > 0 && substr($bin, 0, $bytes) !== substr($netBin, 0, $bytes)) {
+            continue;
+        }
+        $rem = $bits % 8;
+        if ($rem > 0) {
+            $mask = (0xFF << (8 - $rem)) & 0xFF;
+            if ((ord($bin[$bytes]) & $mask) !== (ord($netBin[$bytes]) & $mask)) {
+                continue;
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
+function isPrivateOrLoopbackIP($ip) {
+    return filter_var($ip, FILTER_VALIDATE_IP) !== false
+        && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+}
+
+/**
+ * Resolves the client address for the configured network path. Pure: takes the server vars and the
+ * settings so it can be tested. Returns [ip, method] where method names the rule that produced it.
+ * A forwarded header is only believed when the direct peer is a proxy we expect (a private/loopback
+ * address when there are local proxies, a Cloudflare edge when Cloudflare is directly in front);
+ * otherwise the header is ignored and the peer address is used.
+ */
+function resolveClientIP(array $server, $proxy_hops, $cloudflare) {
+    $peer = $server['REMOTE_ADDR'] ?? '';
+    $hops = max(0, intval($proxy_hops ?? 0));
+
+    if ($hops > 0) {
+        $peer_ok = isPrivateOrLoopbackIP($peer);
+    } else {
+        $peer_ok = $cloudflare && isCloudflareIP($peer);
+    }
+    if (!$peer_ok) {
+        return [$peer, 'REMOTE_ADDR'];
+    }
+
+    if ($cloudflare) {
+        $cf = trim($server['HTTP_CF_CONNECTING_IP'] ?? '');
+        if ($cf !== '' && filter_var($cf, FILTER_VALIDATE_IP)) {
+            return [$cf, 'CF-Connecting-IP'];
+        }
+        return [$peer, 'REMOTE_ADDR'];
+    }
+
+    $parts = array_values(array_filter(array_map('trim', explode(',', $server['HTTP_X_FORWARDED_FOR'] ?? '')), 'strlen'));
+    if (!$parts) {
+        return [$peer, 'REMOTE_ADDR'];
+    }
+    // With N proxies, REMOTE_ADDR is proxy N and the honest list is client, proxy 1 .. proxy N-1, so the
+    // client is the Nth entry from the right; anything a caller prepended sits to its left and is ignored.
+    $idx = max(0, count($parts) - $hops);
+    $candidate = $parts[$idx];
+    if (filter_var($candidate, FILTER_VALIDATE_IP)) {
+        return [$candidate, 'X-Forwarded-For'];
+    }
+    return [$peer, 'REMOTE_ADDR'];
+}
+
 function getIP() {
 
-    // Default way to get IP
+    $net = getNetworkPathSettings();
+
+    if ($net['proxy_hops'] !== null || $net['cloudflare']) {
+        [$ip] = resolveClientIP($_SERVER, $net['proxy_hops'], $net['cloudflare']);
+        if (filter_var($ip, FILTER_VALIDATE_IP)) {
+            return $ip;
+        }
+        error_log(APP_NAME . " - Could not validate remote IP address [" . ($_SERVER['REMOTE_ADDR'] ?? '') . "]");
+        exit("Potential Security Violation");
+    }
+
+    // Not configured: legacy behaviour. Default way to get IP
     $ip = $_SERVER['REMOTE_ADDR'];
 
     // Allow overrides via config.php in-case we use a proxy - upstream ITFlow docs: https://docs.itflow.org/config_php
@@ -176,7 +299,7 @@ function getIP() {
     // Abort if something isn't right
     if (!filter_var($ip, FILTER_VALIDATE_IP)) {
         error_log(APP_NAME . " - Could not validate remote IP address");
-        error_log(APP_NAME . " - IP was [$ip] using method " . CONST_GET_IP_METHOD);
+        error_log(APP_NAME . " - IP was [$ip] using method " . (defined("CONST_GET_IP_METHOD") ? CONST_GET_IP_METHOD : 'REMOTE_ADDR'));
         exit("Potential Security Violation");
     }
 

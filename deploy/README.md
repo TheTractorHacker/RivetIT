@@ -129,6 +129,13 @@ Full reference: `sudo deploy/install.sh --help`. The ones worth knowing up front
   backend cert on `:8443`, and keeps nginx's own redirects relative so the internal hostname/port never
   leaks to an end user.
 - `--skip-tls` — no public DNS yet / TLS will be configured later by hand. Serves self-signed directly.
+- `--local-proxies=<N>` / `--cloudflare=<yes|no>` — what sits in front of the app, so the real client
+  address is recorded instead of a proxy's. `N` is the number of reverse proxies on your side (0-10,
+  not counting Cloudflare); default 1 with `--proxy-mode`, else 0. Asked interactively when omitted,
+  defaulted with `--non-interactive`. Saved to the app's settings (`scripts/set_network_cli.php`) and
+  editable later under Admin > Security > Network path, which also shows a self-check of the address
+  the app sees. After the app is set up the installer also runs `scripts/update_cli.php --update_db`
+  until the schema is current (db.sql is an older snapshot).
 - `--skip-dependencies` — don't install/enable nginx, PHP, MariaDB or Redis, and don't ask about it
   either. Use this when they're already provisioned the way you want (a different PHP build, a managed
   database, etc.) and you only want install.sh's other steps (app code, vhost, TLS, hardening, cron,

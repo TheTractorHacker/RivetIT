@@ -9437,3 +9437,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.105'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.105') {
+        // Owner ask 2026-09-29: record the network path in front of the app - how many local reverse
+        // proxies and whether Cloudflare is used - so getIP() can pick the real client address safely.
+        // config_proxy_hops NULL = not configured (getIP keeps the legacy CONST_GET_IP_METHOD behaviour).
+        mysqli_query($mysqli, "ALTER TABLE `settings`
+            ADD COLUMN IF NOT EXISTS `config_proxy_hops` tinyint(3) unsigned DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `config_behind_cloudflare` tinyint(1) NOT NULL DEFAULT 0");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.106'");
+    }

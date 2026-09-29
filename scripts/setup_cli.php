@@ -356,7 +356,12 @@ echo "User $user_name created successfully.\n";
 mysqli_query($mysqli,"INSERT INTO companies SET company_name = '$company_name', company_address = '$address', company_city = '$city', company_state = '$state', company_zip = '$zip', company_country = '$country', company_phone = '$phone', company_email = '$company_email', company_website = '$website', company_locale = '$locale', company_currency = '$currency_code'");
 
 // Insert default settings and categories
+// db.sql is a schema snapshot older than LATEST_DATABASE_VERSION; record the version it really is so the
+// migrations that came after it still run (install.sh runs update_cli.php --update_db next).
 $latest_database_version = LATEST_DATABASE_VERSION;
+if (preg_match('/^-- RIVETIT_SCHEMA_VERSION: ([0-9.]+)$/m', (string) file_get_contents(__DIR__ . '/../db.sql', false, null, 0, 2048), $schema_marker)) {
+    $latest_database_version = $schema_marker[1];
+}
 mysqli_query($mysqli,"INSERT INTO settings SET company_id = 1, config_current_database_version = '$latest_database_version', config_invoice_prefix = 'INV-', config_invoice_next_number = 1, config_recurring_invoice_prefix = 'REC-', config_invoice_overdue_reminders = '1,3,7', config_quote_prefix = 'QUO-', config_quote_next_number = 1, config_default_net_terms = 30, config_ticket_next_number = 1, config_ticket_prefix = 'TCK-', config_module_enable_ticket_charges = 0"); // ticket charges are billing: off, as Settings > Modules saves them
 
 // Seed the canonical copy of the site encryption master key. This is the only

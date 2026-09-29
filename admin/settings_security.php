@@ -5,6 +5,22 @@ $vault_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_vault_canon
 $vault_canonical_key_set = !empty($vault_row['config_vault_canonical_key']);
 $vault_canonical_key_set_at = $vault_row['config_vault_canonical_key_set_at'] ?? null;
 
+$net_row = null;
+try {
+    $net_res = mysqli_query($mysqli, "SELECT config_proxy_hops, config_behind_cloudflare FROM settings WHERE company_id = 1");
+    $net_row = $net_res ? mysqli_fetch_assoc($net_res) : null;
+} catch (\Throwable $e) {
+    // database older than 2.6.106: the network path fields are hidden until it is updated
+}
+$net_ready = is_array($net_row);
+$net_hops = (!$net_ready || $net_row['config_proxy_hops'] === null) ? '' : (string) intval($net_row['config_proxy_hops']);
+$net_cf = $net_ready && intval($net_row['config_behind_cloudflare']) === 1;
+$net_peer = $_SERVER['REMOTE_ADDR'] ?? '';
+$net_xff = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';
+$net_cfip = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? '';
+$net_detected = getIP();
+$net_looks_proxied = ($net_xff !== '' || $net_cfip !== '');
+
 $vault_unsynced_users = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS c FROM users WHERE user_status = 1 AND (user_specific_encryption_ciphertext IS NULL OR user_specific_encryption_ciphertext = '')"))['c']);
 
 ?>
@@ -127,6 +143,47 @@ $vault_unsynced_users = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT 
                     <input type="number" class="form-control" name="config_log_retention" placeholder="Enter days to retain" value="<?php echo intval($config_log_retention); ?>">
                 </div>
             </div>
+
+            <?php if ($net_ready) { ?>
+            <hr>
+
+            <h5 class="mb-3"><i class="fas fa-fw fa-network-wired me-2"></i>Network path <small class="text-secondary">(what sits in front of this app)</small></h5>
+
+            <div class="form-group">
+                <label>Reverse proxies on your side <small class="text-secondary">(nginx, HAProxy, a load balancer, etc. between the internet or Cloudflare and this server &mdash; not counting Cloudflare)</small></label>
+                <select class="form-control" name="config_proxy_hops">
+                    <option value="" <?php if ($net_hops === '') { echo "selected"; } ?>>Not set (legacy detection, uses config.php)</option>
+                    <option value="0" <?php if ($net_hops === '0') { echo "selected"; } ?>>0 &mdash; none, users connect straight to this server</option>
+                    <?php for ($i = 1; $i <= 5; $i++) { ?>
+                    <option value="<?php echo $i; ?>" <?php if ($net_hops === (string) $i) { echo "selected"; } ?>><?php echo $i; ?> &mdash; <?php echo $i === 1 ? "one proxy" : "$i proxies in a row"; ?></option>
+                    <?php } ?>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <div class="form-check form-switch">
+                    <input type="checkbox" class="form-check-input" name="config_behind_cloudflare" id="netCloudflare" value="1" <?php if ($net_cf) { echo "checked"; } ?>>
+                    <label class="form-check-label" for="netCloudflare">Traffic comes through Cloudflare</label>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <div class="fw-bold mb-1"><i class="fas fa-fw fa-search me-1"></i>Self-check (this request)</div>
+                <table class="table table-sm table-borderless mb-2" style="max-width:640px;">
+                    <tr><td class="text-secondary">Direct connection (REMOTE_ADDR)</td><td><code><?php echo nullable_htmlentities($net_peer); ?></code></td></tr>
+                    <tr><td class="text-secondary">X-Forwarded-For</td><td><code><?php echo $net_xff !== '' ? nullable_htmlentities($net_xff) : '(none)'; ?></code></td></tr>
+                    <tr><td class="text-secondary">CF-Connecting-IP</td><td><code><?php echo $net_cfip !== '' ? nullable_htmlentities($net_cfip) : '(none)'; ?></code></td></tr>
+                    <tr><td class="text-secondary">Client address the app records</td><td><code class="fw-bold"><?php echo nullable_htmlentities($net_detected); ?></code></td></tr>
+                </table>
+                <?php if ($net_hops === '' && !$net_cf && $net_looks_proxied) { ?>
+                    <div>Forwarding headers are arriving but no proxy setup is saved, so the app is probably recording the proxy&rsquo;s address instead of yours. Set the values above and check that &ldquo;Client address the app records&rdquo; becomes your own public IP.</div>
+                <?php } elseif ($net_hops !== '' || $net_cf) { ?>
+                    <div>If the last row is not your own IP, the counts above do not match your setup (or the direct connection is not a proxy address this app trusts, so the forwarded headers were ignored on purpose).</div>
+                <?php } else { ?>
+                    <div>No forwarding headers seen; the app records the direct connection address.</div>
+                <?php } ?>
+            </div>
+            <?php } ?>
 
             <hr>
 
