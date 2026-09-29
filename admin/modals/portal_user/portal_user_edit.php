@@ -1,6 +1,7 @@
 <?php
 
 require_once '../../../includes/modal_header.php';
+require_once __DIR__ . '/../role/role_lib.php';
 
 ob_start();
 
@@ -69,14 +70,14 @@ $cur_role_id = intval($row['user_role_id']);
         </div>
 
                 <div class="form-group">
-            <label for="pu_edit_lms_role<?= $user_id ?>">Agent module access (LMS)</label>
+            <label for="pu_edit_lms_role<?= $user_id ?>">Agent module access</label>
             <select class="form-control" id="pu_edit_lms_role<?= $user_id ?>" name="user_role_id">
                 <option value="0">None - portal only</option>
                 <?php foreach ($lms_roles as $rid => $rname) { ?>
-                    <option value="<?= intval($rid) ?>" <?= $cur_role_id === intval($rid) ? 'selected' : '' ?>><?= nullable_htmlentities($rname) ?></option>
+                    <option value="<?= intval($rid) ?>" <?= $cur_role_id === intval($rid) ? 'selected' : '' ?>><?= nullable_htmlentities($rname) ?> - <?= nullable_htmlentities(itflow_role_summary(itflow_role_levels($mysqli, intval($rid)), false)) ?></option>
                 <?php } ?>
             </select>
-            <small class="form-text text-muted">Optional. A module-only role (for example Training Manager) opens the full agent training module from the portal's Manage training button. Company-wide, not limited to their department. Only roles without Departments, Tickets/assets/docs, Assets or admin are listed.</small>
+            <small class="form-text text-muted">Optional. What this login can open in the agent app comes from the role you pick (roles are made in Admin &gt; Roles); the list shows what each one allows. Training roles open the full training module from Manage training; other roles add an agent workspace link to the portal menu. Company-wide, not limited to their department. Only roles without Departments, Tickets/assets/docs, Assets or admin are listed.</small>
         </div>
 
         <?php if ($is_local) { ?>

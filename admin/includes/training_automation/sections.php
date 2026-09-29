@@ -29,7 +29,7 @@
  *                                                     is admin only: render it read-only (no enabled
  *                                                     `verify_enabled` input), the handler refuses it anyway
  *   reminders.php     Lane D  #reminders              both pages (Training 3 may change it)
- *   video.php         Lane D  #video-watch            both pages (Training 3 may change it)
+ *   video.php         Lane D  #video-watch            admin page only (read-only on the agent page)
  *   odoo.php          Lane B  #odoo-writeback         ADMIN PAGE ONLY; the agent page shows a read-only
  *                                                     summary rendered here instead
  *   worker.php        Lane A  #automation-worker      both pages (cron lines on the admin page only)
@@ -162,7 +162,7 @@ $ta_update_card = static function () use ($ta_admin_page, $ta_is_admin): void {
 
     <div id="reminders"><?php if (is_file($ta_dir . '/reminders.php')) { require $ta_dir . '/reminders.php'; } else { ta_missing_card('Reminder digests', 'fa-bell'); } ?></div>
 
-    <div id="video-watch"><?php if (is_file($ta_dir . '/video.php')) { require $ta_dir . '/video.php'; } else { ta_missing_card('External video checks', 'fa-video'); } ?></div>
+    <div id="video-watch"><?php $ta_can_edit = $ta_admin_page; if (is_file($ta_dir . '/video.php')) { require $ta_dir . '/video.php'; } else { ta_missing_card('External video checks', 'fa-video'); } unset($ta_can_edit); ?></div>
 
     <div id="odoo-writeback">
     <?php if ($ta_admin_page) {

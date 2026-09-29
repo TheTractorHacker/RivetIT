@@ -7,10 +7,9 @@
  *
  * What can be changed here (ITFlow\Training\Settings\SettingsPolicy):
  *   Training 3            course defaults (#general); compliance defaults, Recalculate assignments,
- *                         Capture today's snapshot (#compliance, #maintenance); Verify now (#ledger)
- *   Training 3 + Kiosk 3  kiosk session timeouts and setup-slip validity (#kiosk)
- *   Training 3 (Phase 5)  the certificate signatory (#certificates), reminder digests (#reminders) and external
- *                         video checks (#video-watch); Odoo write-back and the public certificate check switch
+ *                         Capture today's snapshot (#compliance, #maintenance)
+ *   Training 3 (Phase 5)  the certificate signatory (#certificates) and reminder digests (#reminders)
+ *   Admin only            kiosk session timeouts and setup slips, Verify now, external video checks; Odoo write-back and the public certificate check switch
  *                         are admin only (read-only here). Shared sections: admin/includes/training_automation/.
  *   Admin only            media limits and budget, the YouTube key, media purge, Odoo employee links,
  *                         the nightly Odoo sync, the Odoo hire-date fill, the Odoo PIN switch, PIN
@@ -897,7 +896,7 @@ require __DIR__ . '/../admin/includes/training_automation/sections.php';
                     <?php if ($tr_head_updated_iso) { ?><span class="text-muted small ms-2">updated <?php echo nullable_htmlentities(date('Y-m-d H:i', strtotime($tr_head_updated_iso))); ?></span><?php } ?>
                 <?php } elseif ($tr_head_missing) { ?>
                     <span class="badge text-bg-danger">Ledger head missing</span>
-                    <div class="small text-danger mt-1">The ledger head row is gone: the records were tampered with or a restore was incomplete. Run <strong>Verify now</strong> and tell an administrator.</div>
+                    <div class="small text-danger mt-1">The ledger head row is gone: the records were tampered with or a restore was incomplete. Tell an administrator.</div>
                 <?php } ?>
             </dd>
             <dt class="col-sm-3">Last verified</dt>
@@ -917,11 +916,8 @@ require __DIR__ . '/../admin/includes/training_automation/sections.php';
                 <?php } ?>
             </dd>
         </dl>
-        <form action="/agent/training_settings.php" method="post" class="d-inline">
-            <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($ts_csrf); ?>">
-            <button type="submit" name="training_ledger_verify" class="btn btn-outline-primary"><i class="fas fa-fw fa-check-double me-1" aria-hidden="true"></i>Verify now</button>
-        </form>
-        <span class="text-muted small ms-2">Shallow check (no file re-hash), stops after 60 seconds. A problem alerts every administrator.</span>
+        <?php echo ts_locked_note('admin', 'ledger', $ts_admin); ?>
+        <span class="text-muted small">Shallow check (no file re-hash), stops after 60 seconds. A problem alerts every administrator.</span>
     </div>
 </div>
 <?php } ?>

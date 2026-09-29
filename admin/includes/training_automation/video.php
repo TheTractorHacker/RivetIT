@@ -77,7 +77,7 @@ $ta_vid_time = static function (?string $utc): ?string {
                 <?php if ($ta_vid_edit) { ?>
                     <button type="submit" name="ta_video_save" value="1" class="btn btn-primary"><i class="fas fa-check me-2" aria-hidden="true"></i>Save video checks</button>
                 <?php } else { ?>
-                    <p class="small text-muted mb-0"><i class="fas fa-fw fa-lock me-1" aria-hidden="true"></i>Read only. Ask a Training manager or an administrator to change this.</p>
+                    <?php echo ta_admin_only_note('video-watch'); ?>
                 <?php } ?>
             </form>
 

@@ -339,3 +339,6 @@ $session_client_name = $client['client_name'];
 $portal_lms_ok = $portal_preview_active
     ? itflow_profile_level(itflow_user_access_profile(intval($portal_preview_agent_user_id)), 'module_training') >= 1
     : itflow_portal_user_has_lms(intval($session_user_id));
+
+// Any other module the role holds (Knowledge base, Reports, RMM...): the portal menu links to that agent page. Training keeps its own Manage training link.
+$portal_agent_home = (!$portal_preview_active && !$portal_lms_ok) ? itflow_portal_user_agent_home(intval($session_user_id)) : null;

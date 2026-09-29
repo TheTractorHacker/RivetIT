@@ -736,6 +736,30 @@ a:hover {
     color: #212529 !important;
 }
 
+/* Solid badges: the text colour has to be chosen for the badge's OWN fill. Plain `badge bg-*` (no text-bg-*) inherits
+   Tabler's grey badge ink, which vanishes on primary/dark fills, and Tabler's white on the light cyan info fill
+   (~2.9:1) is hard to read. White on the deep fills, dark ink on the light info fill (~7:1). */
+.badge.bg-primary,
+.badge.bg-secondary,
+.badge.bg-success,
+.badge.bg-danger,
+.badge.bg-dark,
+.badge.bg-indigo,
+.badge.bg-purple {
+    color: #fff !important;
+}
+.text-bg-info,
+.badge.bg-info {
+    color: #0b2530 !important;
+}
+/* A dark badge on a dark page disappears into the card; lift the fill and give it an edge. */
+:root[data-bs-theme="dark"] .badge.bg-dark,
+:root[data-bs-theme="dark"] .badge.text-bg-dark,
+body.dark-mode .badge.bg-dark {
+    background-color: #4b5563 !important;
+    color: #fff !important;
+}
+
 /* Bootstrap hardcodes .text-dark to a fixed dark gray, which goes low-contrast
    on dark backgrounds. Remap to the theme text color (black in light mode,
    near-white in dark mode) so table headers/links stay readable in both.

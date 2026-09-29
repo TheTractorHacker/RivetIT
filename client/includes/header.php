@@ -552,6 +552,8 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
                             <a class="dropdown-item" href="/client/profile.php"><i class="fas fa-fw fa-user me-2"></i>Profile</a>
                             <?php if (!empty($portal_lms_ok)) { ?>
                                 <a class="dropdown-item" href="/agent/training_dashboard.php"><i class="fas fa-fw fa-graduation-cap me-2"></i>Training management</a>
+                            <?php } elseif (!empty($portal_agent_home)) { ?>
+                                <a class="dropdown-item" href="<?= nullable_htmlentities($portal_agent_home['url']) ?>"><i class="fas fa-fw fa-briefcase me-2"></i><?= nullable_htmlentities($portal_agent_home['label']) ?> (agent workspace)</a>
                             <?php } ?>
                             <div class="dropdown-divider"></div>
                             <a class="dropdown-item" href="/client/post.php?logout"><i class="fas fa-fw fa-sign-out-alt me-2"></i>Sign out</a>

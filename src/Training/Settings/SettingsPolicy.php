@@ -5,15 +5,14 @@ namespace ITFlow\Training\Settings;
 /**
  * Who may change which Training setting (roles audit 2026-09-26, P2 table).
  *
- *   Training 3                 course defaults (languages, pass mark, attempts, attestation text);
+ *   Training 3 (trainers)      course defaults (languages, pass mark, attempts, attestation text);
  *                              compliance defaults (due soon, reissue, reopen window, target %,
  *                              evidence scan size); Recalculate assignments; Capture snapshot;
- *                              records ledger Verify now
- *                              Phase 5 (DB 2.6.96): the certificate signatory and signature; reminder
- *                              digests (switch, weekdays, escalation); external video checks (switch,
- *                              Check now)
- *   Training 3 + Kiosk 3       kiosk session timeouts; setup-slip validity
- *   Admin only                 media limits and budget; the YouTube key (save, clear, test); media
+ *                              the certificate signatory and signature; reminder digests (switch,
+ *                              weekdays, escalation)
+ *   Admin only (IT)            everything else, including (since 2026-09-29) kiosk session timeouts,
+ *                              setup-slip validity, records ledger Verify now and external video
+ *                              checks; media limits and budget; the YouTube key (save, clear, test); media
  *                              purge; Odoo employee links (Check now, accept target, relink, unlink,
  *                              confirm); the nightly Odoo sync switch; the Odoo hire-date fill; the
  *                              Odoo PIN sign-in switch; PIN lockouts; device and system caps;
@@ -63,11 +62,11 @@ final class SettingsPolicy
         self::COMPLIANCE     => [self::NEEDS_TRAINING, 'Compliance defaults'],
         self::HIRE_FILL      => [self::NEEDS_ADMIN, 'The Odoo hire-date fill'],
         self::MAINTENANCE    => [self::NEEDS_TRAINING, 'Recalculating assignments and capturing snapshots'],
-        self::LEDGER_VERIFY  => [self::NEEDS_TRAINING, 'Verifying the records ledger'],
+        self::LEDGER_VERIFY  => [self::NEEDS_ADMIN, 'Verifying the records ledger'],
         self::ODOO_LINKS     => [self::NEEDS_ADMIN, 'Odoo employee links'],
         self::ODOO_SYNC      => [self::NEEDS_ADMIN, 'The nightly Odoo directory sync'],
-        self::KIOSK_SESSIONS => [self::NEEDS_KIOSK, 'Kiosk session timeouts'],
-        self::SETUP_SLIPS    => [self::NEEDS_KIOSK, 'Setup-slip validity'],
+        self::KIOSK_SESSIONS => [self::NEEDS_ADMIN, 'Kiosk session timeouts'],
+        self::SETUP_SLIPS    => [self::NEEDS_ADMIN, 'Setup-slip validity'],
         self::PIN_LOCKOUTS   => [self::NEEDS_ADMIN, 'PIN lockouts'],
         self::DEVICE_CAPS    => [self::NEEDS_ADMIN, 'Device and system caps'],
         self::ODOO_PIN       => [self::NEEDS_ADMIN, 'Odoo PIN sign-in'],
@@ -75,7 +74,7 @@ final class SettingsPolicy
         self::VERIFY_PAGE    => [self::NEEDS_ADMIN, 'The public certificate check'],
         self::CERT_SIGNATORY => [self::NEEDS_TRAINING, 'The certificate signatory'],
         self::REMINDERS      => [self::NEEDS_TRAINING, 'Training reminders'],
-        self::VIDEO_WATCH    => [self::NEEDS_TRAINING, 'External video checks'],
+        self::VIDEO_WATCH    => [self::NEEDS_ADMIN, 'External video checks'],
     ];
 
     /** The General & media form fields only an admin may send (media limits, budget, YouTube key). */

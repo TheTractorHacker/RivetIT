@@ -539,6 +539,19 @@ function itflow_portal_user_has_lms(int $user_id): bool {
     return itflow_role_is_portal_assignable(intval($p['role_id'])) && itflow_profile_level($p, 'module_training') >= 1;
 }
 
+/** The agent-app page a department login's role opens (['url','label']), or null: no assignable role, or the role holds no module with a page. */
+function itflow_portal_user_agent_home(int $user_id): ?array {
+    if ($user_id < 1) {
+        return null;
+    }
+    $p = itflow_user_access_profile($user_id);
+    if (!itflow_role_is_portal_assignable(intval($p['role_id']))) {
+        return null;
+    }
+    $home = itflow_limited_home_for(fn(string $m) => itflow_profile_level($p, $m));
+    return $home['url'] === '/agent/user/user_details.php' ? null : $home;
+}
+
 function itflow_profile_can_assets(array $profile, int $level = 1): bool {
     return itflow_profile_level($profile, 'module_assets') >= $level || itflow_profile_level($profile, 'module_support') >= $level;
 }

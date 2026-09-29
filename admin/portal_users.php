@@ -103,9 +103,9 @@ require "includes/users_toggle.php";
                     $pu_last = nullable_htmlentities($row['last_login']);
                     $pu_local = $row['user_auth_method'] === 'local';
                     if ($pu_role === 'manager') {
-                        $pu_role_display = "<span class='badge bg-primary'>Manager</span>";
+                        $pu_role_display = "<span class='badge text-bg-primary'>Manager</span>";
                     } elseif ($pu_role === 'supervisor') {
-                        $pu_role_display = "<span class='badge bg-info'>Supervisor</span>";
+                        $pu_role_display = "<span class='badge text-bg-info'>Supervisor</span>";
                     } else {
                         $pu_role_display = "<span class='text-muted'>Standard</span>";
                     }
@@ -124,7 +124,7 @@ require "includes/users_toggle.php";
                         </td>
                         <td><a href="mailto:<?= $pu_email ?>"><?= $pu_email ?></a></td>
                         <td><?= $pu_dept ?></td>
-                        <td><?= $pu_role_display ?><?php if (!$pu_local) { ?> <span class="badge bg-secondary" title="This login does not use a local password">SSO</span><?php } ?><?php if (!empty($row['lms_role_name'])) { ?> <span class="badge bg-dark" title="Agent module role: opens the LMS from the portal"><i class="fas fa-graduation-cap"></i> <?= nullable_htmlentities($row['lms_role_name']) ?></span><?php } ?><?php if (intval($row['has_2fa']) === 1) { ?> <span class="badge bg-success" title="Two-factor authentication is on"><i class="fas fa-lock"></i> 2FA</span><?php } elseif (intval($row['force_mfa']) === 1) { ?> <span class="badge bg-warning text-dark" title="2FA is required but not set up yet"><i class="fas fa-lock-open"></i> 2FA pending</span><?php } ?></td>
+                        <td><?= $pu_role_display ?><?php if (!$pu_local) { ?> <span class="badge text-bg-secondary" title="This login does not use a local password">SSO</span><?php } ?><?php if (!empty($row['lms_role_name'])) { ?> <span class="badge text-bg-purple" title="Agent module role: opens the LMS from the portal"><i class="fas fa-graduation-cap"></i> <?= nullable_htmlentities($row['lms_role_name']) ?></span><?php } ?><?php if (intval($row['has_2fa']) === 1) { ?> <span class="badge text-bg-success" title="Two-factor authentication is on"><i class="fas fa-lock"></i> 2FA</span><?php } elseif (intval($row['force_mfa']) === 1) { ?> <span class="badge text-bg-warning" title="2FA is required but not set up yet"><i class="fas fa-lock-open"></i> 2FA pending</span><?php } ?></td>
                         <td class="text-end"><?= $pu_role === 'supervisor' && $pu_team == 0 ? "<span class='text-warning' title='Nobody has this person set as their Manager yet'>0</span>" : $pu_team ?></td>
                         <td><?= $pu_status_display ?></td>
                         <td><?= $pu_last ?: "<span class='text-bold'>Never logged in</span>" ?></td>

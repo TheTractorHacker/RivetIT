@@ -74,6 +74,16 @@ $profile_is_local = ($_SESSION['login_method'] ?? '') == 'local';
         </div>
     <?php } ?>
 
+    <?php if (!empty($portal_agent_home)) { ?>
+        <div class="card portal-card">
+            <div class="card-header"><h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-briefcase" aria-hidden="true"></i></span>Agent workspace</h3></div>
+            <div class="card-body">
+                <p class="text-secondary">Your login can open <?= nullable_htmlentities($portal_agent_home['label']) ?> in the agent app.</p>
+                <a href="<?= nullable_htmlentities($portal_agent_home['url']) ?>" class="btn btn-primary"><i class="fas fa-external-link-alt me-2" aria-hidden="true"></i>Open <?= nullable_htmlentities($portal_agent_home['label']) ?></a>
+            </div>
+        </div>
+    <?php } ?>
+
     <?php /* ?? '': the agent login flow never sets login_method, so an admin preview would otherwise warn on every view. */ ?>
     <?php if ($profile_is_local) { ?>
         <div class="card portal-card">
