@@ -9497,3 +9497,12 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.111'");
     }
+
+
+    if (CURRENT_DATABASE_VERSION == '2.6.111') {
+        // Owner ask 2026-09-29: a per-article "Show on Training Portal" switch, off by default. The training
+        // knowledge base used to follow the department-portal flag; it now needs its own opt-in.
+        mysqli_query($mysqli, "ALTER TABLE `kb_articles` ADD COLUMN IF NOT EXISTS `kb_article_training_visible` tinyint(1) NOT NULL DEFAULT 0 AFTER `kb_article_client_visible`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.112'");
+    }

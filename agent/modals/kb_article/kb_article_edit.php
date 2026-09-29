@@ -39,6 +39,7 @@ if ($kb_article_client_id) {
     enforceClientAccess($kb_article_client_id);
 }
 $kb_article_client_visible = intval($row['kb_article_client_visible']);
+$kb_article_training_visible = intval($row['kb_article_training_visible'] ?? 0);
 $kb_article_category_id = intval($row['kb_article_category_id'] ?? 0);
 
 $sql_client_select = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");
@@ -107,6 +108,19 @@ ob_start();
                     <small class="form-text text-muted">Internal-only articles are still visible to agents, but hidden from departments.</small>
                 </div>
             </div>
+            <?php if (($config_module_enable_training ?? 0) == 1) { ?>
+            <div class="col-md-4">
+                <div class="form-group">
+                    <input type="hidden" name="training_visible_present" value="1">
+                    <label>Show on Training Portal</label>
+                    <select class="form-control select2" name="training_visible">
+                        <option value="0" <?php if ($kb_article_training_visible == 0) { echo "selected"; } ?>>No</option>
+                        <option value="1" <?php if ($kb_article_training_visible == 1) { echo "selected"; } ?>>Yes</option>
+                    </select>
+                    <small class="form-text text-muted">Learners see it in the training knowledge base.</small>
+                </div>
+            </div>
+            <?php } ?>
         </div>
 
         <div class="form-group">

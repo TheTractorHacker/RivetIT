@@ -69,6 +69,18 @@ ob_start();
                     <small class="form-text text-muted">Internal-only articles are still visible to agents, but hidden from departments.</small>
                 </div>
             </div>
+            <?php if (($config_module_enable_training ?? 0) == 1) { ?>
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label>Show on Training Portal</label>
+                    <select class="form-control select2" name="training_visible">
+                        <option value="0" selected>No</option>
+                        <option value="1">Yes</option>
+                    </select>
+                    <small class="form-text text-muted">Learners see it in the training knowledge base.</small>
+                </div>
+            </div>
+            <?php } ?>
         </div>
 
         <div class="form-group">

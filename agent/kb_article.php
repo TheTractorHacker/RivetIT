@@ -102,6 +102,7 @@ $kb_article_content = (new \ITFlow\Knowledge\CredentialReferenceRenderer())->ren
 $kb_article_client_id = intval($row['kb_article_client_id']);
 $kb_article_client_name = nullable_htmlentities($row['client_name']);
 $kb_article_client_visible = intval($row['kb_article_client_visible']);
+$kb_article_training_visible = intval($row['kb_article_training_visible'] ?? 0);
 $kb_article_updated_at = $row['kb_article_updated_at'] ?? $row['kb_article_created_at'];
 $kb_article_archived_at = $row['kb_article_archived_at'];
 $kb_article_review_due_at = $row['kb_article_review_due_at'] ?? null;
@@ -286,6 +287,16 @@ $sql_attachments = mysqli_query(
                             <span class="badge text-bg-secondary">Hidden</span>
                         <?php } ?>
                     </p>
+                    <?php if (($config_module_enable_training ?? 0) == 1) { ?>
+                    <p class="mb-2">
+                        <strong>Training Portal</strong><br>
+                        <?php if ($kb_article_training_visible == 1) { ?>
+                            <span class="badge text-bg-success">Shown</span>
+                        <?php } else { ?>
+                            <span class="badge text-bg-secondary">Hidden</span>
+                        <?php } ?>
+                    </p>
+                    <?php } ?>
                     <p class="mb-2">
                         <strong>Last Updated</strong><br>
                         <?php echo nullable_htmlentities(date('M d, Y g:i A', strtotime($kb_article_updated_at))); ?>

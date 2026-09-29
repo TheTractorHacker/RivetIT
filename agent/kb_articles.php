@@ -194,6 +194,7 @@ if (isset($kb_groups['Uncategorized'])) {
                     $kb_article_client_id = intval($row['kb_article_client_id']);
                     $kb_article_client_name = nullable_htmlentities($row['client_name']);
                     $kb_article_client_visible = intval($row['kb_article_client_visible']);
+                    $kb_article_training_visible = intval($row['kb_article_training_visible'] ?? 0);
                     $kb_article_updated_at = $row['kb_article_updated_at'] ?? $row['kb_article_created_at'];
                     $kb_article_needs_review = !empty($row['kb_article_review_due_at']) && strtotime($row['kb_article_review_due_at']) < strtotime('today');
 
@@ -230,6 +231,9 @@ if (isset($kb_groups['Uncategorized'])) {
                                         <i class="fas fa-fw fa-check text-success" data-bs-toggle="tooltip" title="Visible in department portal"></i>
                                     <?php } else { ?>
                                         <i class="fas fa-fw fa-eye-slash text-muted" data-bs-toggle="tooltip" title="Hidden from department portal"></i>
+                                    <?php } ?>
+                                    <?php if ($kb_article_training_visible == 1 && ($config_module_enable_training ?? 0) == 1) { ?>
+                                        <i class="fas fa-fw fa-graduation-cap text-primary" data-bs-toggle="tooltip" title="Shown on the training portal"></i>
                                     <?php } ?>
                                     <small class="text-secondary ms-1"><?= nullable_htmlentities(date('M j, Y', strtotime($kb_article_updated_at))) ?></small>
                                 </div>

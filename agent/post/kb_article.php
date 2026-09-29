@@ -16,6 +16,7 @@ if (isset($_POST['add_kb_article'])) {
     $kb_article_client_id = intval($_POST['client_id'] ?? 0);
     $kb_article_category_id = intval($_POST['category_id'] ?? 0);
     $client_visible = intval($_POST['client_visible'] ?? 1);
+    $training_visible = empty($_POST['training_visible']) ? 0 : 1;
 
     if ($kb_article_client_id) {
         enforceClientAccess($kb_article_client_id);
@@ -49,6 +50,7 @@ if (isset($_POST['add_kb_article'])) {
             kb_article_client_id = $kb_article_client_id,
             kb_article_category_id = $kb_article_category_id,
             kb_article_client_visible = $client_visible,
+            kb_article_training_visible = $training_visible,
             kb_article_created_by = $session_user_id,
             kb_article_updated_by = $session_user_id"
     );
@@ -925,6 +927,8 @@ if (isset($_POST['edit_kb_article'])) {
     $kb_article_client_id = intval($_POST['client_id'] ?? 0);
     $kb_article_category_id = intval($_POST['category_id'] ?? 0);
     $client_visible = intval($_POST['client_visible'] ?? 1);
+    // Only present when the Training module is on; absent means leave the stored value alone.
+    $training_visible_sql = isset($_POST['training_visible_present']) ? ', kb_article_training_visible = ' . (empty($_POST['training_visible']) ? 0 : 1) : '';
 
     if ($kb_article_client_id) {
         enforceClientAccess($kb_article_client_id);
@@ -979,7 +983,7 @@ if (isset($_POST['edit_kb_article'])) {
             kb_article_content_raw = '$content_raw',
             kb_article_client_id = $kb_article_client_id,
             kb_article_category_id = $kb_article_category_id,
-            kb_article_client_visible = $client_visible,
+            kb_article_client_visible = $client_visible$training_visible_sql,
             kb_article_updated_by = $session_user_id
          WHERE kb_article_id = $kb_article_id"
     );

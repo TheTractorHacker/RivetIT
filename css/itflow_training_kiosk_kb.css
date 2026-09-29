@@ -40,14 +40,16 @@
 .kb-search__input:focus { outline: none; border-color: var(--kx-accent); box-shadow: 0 0 0 4px var(--kx-accent-soft); }
 .kb-search .kx-btn { border-radius: 999px; padding-inline: 28px; }
 
-.kb-cat { gap: 14px; }
+.kb-page .kl-sec { margin-top: 44px; }
+.kb-cat { gap: 16px; margin: 0 0 24px; }
+.kb-cat .kl-count { margin-left: 4px; }
 .kb-cat__icon {
   flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 11px;
   background: var(--kx-accent-soft); color: var(--kx-accent); font-size: 18px;
 }
-.kb-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.kb-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
 .kb-item {
-  position: relative; display: flex; align-items: flex-start; gap: 16px; min-height: 96px; padding: 18px 20px; text-decoration: none; color: var(--kx-ink);
+  position: relative; display: flex; align-items: flex-start; gap: 20px; min-height: 112px; padding: 24px 26px; text-decoration: none; color: var(--kx-ink);
   background: var(--kx-surface); border: 1px solid var(--kx-border); border-left: 5px solid var(--kx-accent); border-radius: var(--kx-radius); box-shadow: var(--kx-shadow);
   transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
 }
@@ -57,23 +59,23 @@
   flex: none; display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 12px;
   background: var(--kx-accent-soft); color: var(--kx-accent); font-size: 20px;
 }
-.kb-item__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.kb-item__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .kb-item__title { font-size: 21px; line-height: 1.3; font-weight: 700; overflow-wrap: anywhere; }
 .kb-item__prev {
   color: var(--kx-muted); font-size: 17px; line-height: 1.4;
   display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.kb-item__meta { display: inline-flex; align-items: center; gap: 7px; margin-top: 2px; color: var(--kx-muted); font-size: 15px; }
+.kb-item__meta { display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--kx-muted); font-size: 15px; }
 .kb-item__go { flex: none; align-self: center; color: var(--kx-muted); transition: transform .15s ease, color .15s ease; }
 .kb-item:hover .kb-item__go { color: var(--kx-accent); transform: translateX(3px); }
 
 /* ---- article page --------------------------------------------------------------------- */
 .kb-article { padding: 0; }
 .kb-article__head {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 32px 44px 26px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 16px; padding: 40px 48px 34px;
   background: linear-gradient(135deg, var(--kx-accent-soft), var(--kx-surface) 80%); border-bottom: 1px solid var(--kx-border);
 }
-.kb-article__cat { text-decoration: none; }
+.kb-article__cat { text-decoration: none; padding: 7px 16px; }
 .kb-article__title { margin: 0; font-size: 38px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; overflow-wrap: anywhere; }
 .kb-article__meta { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--kx-muted); font-size: 17px; }
 
@@ -113,14 +115,17 @@
 
 @media (max-width: 900px) {
   .kb-list { grid-template-columns: minmax(0, 1fr); }
-  .kb-article__head { padding: 26px 26px 22px; }
+  .kb-article__head { padding: 32px 30px 28px; }
   .kb-article__body { padding: 24px 26px 32px; }
   .kb-article__files { margin: 0 26px 28px; }
 }
 @media (max-width: 600px) {
   .kb-hero__icon { width: 54px; height: 54px; font-size: 24px; border-radius: 14px; }
   .kb-search .kx-btn { flex: 1 1 auto; }
-  .kb-article__head { padding: 20px 18px 18px; }
+  .kb-item { padding: 20px 18px; gap: 16px; }
+  .kb-list { gap: 16px; }
+  .kb-page .kl-sec { margin-top: 34px; }
+  .kb-article__head { padding: 26px 20px 22px; gap: 14px; }
   .kb-article__title { font-size: 30px; }
   .kb-article__body { padding: 18px 18px 26px; font-size: 20px; }
   .kb-article__files { margin: 0 18px 22px; }
