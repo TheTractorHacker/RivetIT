@@ -636,6 +636,7 @@ if (isset($_POST['add_company_settings'])) {
     mysqli_query($mysqli, "INSERT INTO ticket_statuses SET ticket_status_name = 'On Hold', ticket_status_color = '#28a745'"); // 3
     mysqli_query($mysqli, "INSERT INTO ticket_statuses SET ticket_status_name = 'Resolved', ticket_status_color = '#343a40'"); // 4 (was auto-close)
     mysqli_query($mysqli, "INSERT INTO ticket_statuses SET ticket_status_name = 'Closed', ticket_status_color = '#343a40'"); // 5
+    mysqli_query($mysqli, "INSERT INTO ticket_statuses SET ticket_status_name = 'Unresolved', ticket_status_color = '#fd7e14'"); // 6
 
     // Add default modules
     mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_client', module_description = 'General department & contact management'");

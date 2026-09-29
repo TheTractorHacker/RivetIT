@@ -392,6 +392,7 @@ mysqli_query($mysqli, "INSERT INTO ticket_statuses SET ticket_status_name = 'Ope
 mysqli_query($mysqli, "INSERT INTO ticket_statuses SET ticket_status_name = 'On Hold', ticket_status_color = '#28a745'");
 mysqli_query($mysqli, "INSERT INTO ticket_statuses SET ticket_status_name = 'Resolved', ticket_status_color = '#343a40'");
 mysqli_query($mysqli, "INSERT INTO ticket_statuses SET ticket_status_name = 'Closed', ticket_status_color = '#343a40'");
+mysqli_query($mysqli, "INSERT INTO ticket_statuses SET ticket_status_name = 'Unresolved', ticket_status_color = '#fd7e14'");
 
 // Modules
 mysqli_query($mysqli, "INSERT INTO modules SET module_name = 'module_client', module_description = 'General department & contact management'");

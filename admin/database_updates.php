@@ -9448,3 +9448,16 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.106'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.106') {
+        // Owner ask 2026-09-29: an "Unresolved" ticket status. Like any custom status it is an open-type
+        // status (the ticket stays open); it is added by name, never by id, and only if missing, so an
+        // existing install's own statuses and ids are untouched. Editable/deactivatable in Admin > Ticket Statuses.
+        $unresolved = mysqli_query($mysqli, "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_name = 'Unresolved' LIMIT 1");
+        if ($unresolved && mysqli_num_rows($unresolved) === 0) {
+            mysqli_query($mysqli, "INSERT INTO ticket_statuses SET ticket_status_name = 'Unresolved', ticket_status_color = '#fd7e14',
+                ticket_status_order = COALESCE((SELECT MAX(o) FROM (SELECT ticket_status_order AS o FROM ticket_statuses) t), 0) + 1");
+        }
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.107'");
+    }
