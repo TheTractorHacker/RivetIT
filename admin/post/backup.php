@@ -366,6 +366,7 @@ function backup_upload_to_s3(string $filePath, string $fileName, bool $manual = 
 
     // A manual upload is an explicit request, so it goes ahead even when the "upload every backup"
     // switch is off; it still needs a bucket saved.
+    $GLOBALS['backup_s3_last_error'] = '';
     if ((!$manual && empty($config_backup_s3_enabled)) || empty($config_backup_s3_bucket)) {
         return false;
     }
@@ -390,6 +391,9 @@ function backup_upload_to_s3(string $filePath, string $fileName, bool $manual = 
         logApp('Backup', 'info', "Uploaded backup $fileName to S3 bucket {$config_backup_s3_bucket} (key: $key)");
         return true;
     } catch (\Throwable $e) {
+        $GLOBALS['backup_s3_last_error'] = $e instanceof \Aws\Exception\AwsException && $e->getAwsErrorMessage()
+            ? ($e->getAwsErrorCode() . ': ' . $e->getAwsErrorMessage())
+            : strtok($e->getMessage(), "\n");
         logApp('Backup', 'error', "S3 upload failed for $fileName: " . $e->getMessage());
         return false;
     }
@@ -448,7 +452,7 @@ if (isset($_GET['backup_s3_now'])) {
         logAction('System', 'Backup S3', "$session_name backed up {$result['name']} to remote storage");
         flash_alert("Backup <strong>{$result['name']}</strong> uploaded to remote storage");
     } else {
-        flash_alert('Remote storage upload failed - use Test Connection and check the application log.', 'error');
+        flash_alert('Remote storage upload failed: ' . htmlspecialchars($GLOBALS['backup_s3_last_error'] ?: 'unknown error', ENT_QUOTES), 'error');
     }
     redirect();
 }
@@ -464,7 +468,7 @@ if (isset($_GET['backup_s3_upload'])) {
         logAction('System', 'Backup S3', "$session_name uploaded stored backup $safe to remote storage");
         flash_alert("Backup <strong>$safe</strong> uploaded to remote storage");
     } else {
-        flash_alert('Remote storage upload failed - check that a bucket is saved, use Test Connection, and check the application log.', 'error');
+        flash_alert('Remote storage upload failed: ' . htmlspecialchars($GLOBALS['backup_s3_last_error'] ?: 'no bucket saved', ENT_QUOTES), 'error');
     }
     redirect();
 }

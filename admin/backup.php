@@ -56,7 +56,7 @@ function fmt_age(?int $ts): string {
                 <a href="post.php?backup_s3_now=1&csrf_token=<?= $_SESSION['csrf_token'] ?>"
                    class="btn btn-sm btn-outline-secondary confirm-link"
                    title="Builds a fresh backup and uploads it to the remote storage bucket; nothing is kept on this server">
-                    <i class="fas fa-cloud-upload-alt me-1"></i>Back Up to S3
+                    <i class="fas fa-cloud-upload-alt me-1"></i>Backup to S3
                 </a>
                 <?php endif; ?>
             </div>
