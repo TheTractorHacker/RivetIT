@@ -359,12 +359,14 @@ function backup_s3_client(array $cfg): \Aws\S3\S3Client {
  * on success; failures are logged, never thrown - a broken remote-storage
  * config must not stop the local backup that already succeeded.
  */
-function backup_upload_to_s3(string $filePath, string $fileName): bool {
+function backup_upload_to_s3(string $filePath, string $fileName, bool $manual = false): bool {
     global $mysqli, $config_backup_s3_enabled, $config_backup_s3_endpoint, $config_backup_s3_region,
            $config_backup_s3_bucket, $config_backup_s3_access_key, $config_backup_s3_secret_key,
            $config_backup_s3_path_style, $config_backup_s3_prefix;
 
-    if (empty($config_backup_s3_enabled) || empty($config_backup_s3_bucket)) {
+    // A manual upload is an explicit request, so it goes ahead even when the "upload every backup"
+    // switch is off; it still needs a bucket saved.
+    if ((!$manual && empty($config_backup_s3_enabled)) || empty($config_backup_s3_bucket)) {
         return false;
     }
 
@@ -427,6 +429,43 @@ if (isset($_GET['backup_save'])) {
     $s3_ok = backup_upload_to_s3($result['path'], $result['name']);
     $s3_note = $config_backup_s3_enabled ? ($s3_ok ? ' and uploaded to remote storage' : ' (remote storage upload failed - check Admin > Backup)') : '';
     flash_alert("Backup <strong>{$result['name']}</strong> saved to server$s3_note");
+    redirect();
+}
+
+// ── Manual S3: fresh backup straight to remote storage ───────────────────────
+// Same build_backup() as every other path, built in a scratch directory, uploaded, then removed -
+// nothing is kept on this server (use Save to Server for a local copy as well).
+if (isset($_GET['backup_s3_now'])) {
+    validateCSRFToken($_GET['csrf_token']);
+    if (empty($config_backup_s3_bucket)) {
+        flash_alert('Remote storage is not configured - save a bucket under Remote Storage first.', 'error');
+        redirect();
+    }
+    $result = build_backup($mysqli, 'manual', sys_get_temp_dir());
+    $s3_ok = backup_upload_to_s3($result['path'], $result['name'], true);
+    @unlink($result['path']);
+    if ($s3_ok) {
+        logAction('System', 'Backup S3', "$session_name backed up {$result['name']} to remote storage");
+        flash_alert("Backup <strong>{$result['name']}</strong> uploaded to remote storage");
+    } else {
+        flash_alert('Remote storage upload failed - use Test Connection and check the application log.', 'error');
+    }
+    redirect();
+}
+
+// ── Manual S3: upload an existing stored backup ──────────────────────────────
+if (isset($_GET['backup_s3_upload'])) {
+    validateCSRFToken($_GET['csrf_token']);
+    $safe = safe_backup_filename($_GET['backup_s3_upload'] ?? '');
+    if (!$safe) { flash_alert('Invalid backup filename', 'error'); redirect(); }
+    $path = $BACKUP_DIR . '/' . $safe;
+    if (!is_file($path)) { flash_alert('Backup file not found', 'error'); redirect(); }
+    if (backup_upload_to_s3($path, $safe, true)) {
+        logAction('System', 'Backup S3', "$session_name uploaded stored backup $safe to remote storage");
+        flash_alert("Backup <strong>$safe</strong> uploaded to remote storage");
+    } else {
+        flash_alert('Remote storage upload failed - check that a bucket is saved, use Test Connection, and check the application log.', 'error');
+    }
     redirect();
 }
 

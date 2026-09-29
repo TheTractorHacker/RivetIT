@@ -52,6 +52,13 @@ function fmt_age(?int $ts): string {
                    class="btn btn-sm btn-outline-secondary">
                     <i class="fas fa-save me-1"></i>Save to Server
                 </a>
+                <?php if (!empty($config_backup_s3_bucket)): ?>
+                <a href="post.php?backup_s3_now=1&csrf_token=<?= $_SESSION['csrf_token'] ?>"
+                   class="btn btn-sm btn-outline-secondary confirm-link"
+                   title="Builds a fresh backup and uploads it to the remote storage bucket; nothing is kept on this server">
+                    <i class="fas fa-cloud-upload-alt me-1"></i>Back Up to S3
+                </a>
+                <?php endif; ?>
             </div>
             <div class="col-md-4"></div>
         </div>
@@ -305,7 +312,7 @@ function fmt_age(?int $ts): string {
                     <th style="width:80px;">Type</th>
                     <th style="width:80px;">Size</th>
                     <th style="width:160px;">Created</th>
-                    <th style="width:110px;"></th>
+                    <th style="width:140px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -339,6 +346,13 @@ function fmt_age(?int $ts): string {
                                title="Download">
                                 <i class="fas fa-download"></i>
                             </a>
+                            <?php if (!empty($config_backup_s3_bucket)): ?>
+                            <a href="post.php?backup_s3_upload=<?= urlencode($bbase) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
+                               class="btn btn-sm btn-outline-secondary confirm-link"
+                               title="Upload to remote storage (S3)">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </a>
+                            <?php endif; ?>
                             <a href="post.php?backup_delete=<?= urlencode($bbase) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
                                class="btn btn-sm btn-outline-danger confirm-link"
                                title="Delete">
