@@ -937,17 +937,39 @@ $ts_module_on = !empty($config_module_enable_training);
                     <div class="fw-bold mb-2">Links that need a decision (<?php echo count($tc_flagged); ?>)<?php if ($tc_dismissed > 0) { ?>
                         <span class="fw-normal small text-muted">&mdash; <?php echo $tc_dismissed; ?> dismissed as having no Odoo record</span>
                     <?php } ?></div>
+                    <form action="post.php" method="post" id="tcBulkForm" data-ts-label="Odoo link bulk actions">
+                        <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tc_csrf); ?>">
+                    </form>
+                    <div id="tcBulkBar" class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <span class="small text-muted"><span id="tcBulkCount">0</span> selected</span>
+                        <button type="submit" form="tcBulkForm" name="training_odoo_link_bulk" value="confirm" class="btn btn-outline-success btn-sm" data-bulk="confirm" disabled
+                                title="Keep the current Odoo link for each selected person whose name changed or whose link was re-pointed">Confirm</button>
+                        <button type="submit" form="tcBulkForm" name="training_odoo_link_bulk" value="relink" class="btn btn-outline-primary btn-sm" data-bulk="relink" disabled
+                                title="Link each selected person to their suggested Odoo employee">Relink to suggestion</button>
+                        <button type="submit" form="tcBulkForm" name="training_odoo_link_bulk" value="unlink" class="btn btn-outline-danger btn-sm" data-bulk="unlink" disabled
+                                title="Remove the Odoo link of each selected person (they keep their training records)">Unlink</button>
+                        <button type="submit" form="tcBulkForm" name="training_odoo_link_bulk" value="dismiss" class="btn btn-outline-secondary btn-sm" data-bulk="dismiss" disabled
+                                title="Confirm there is no Odoo record for each selected person with no link">No Odoo record</button>
+                        <span class="small text-muted">People an action does not apply to are skipped.</span>
+                    </div>
                     <div class="table-responsive mb-3">
-                        <table class="table table-sm table-vcenter mb-0">
+                        <table class="table table-sm table-vcenter mb-0" id="tcLinkTable">
                             <thead>
-                                <tr><th>Person</th><th>Odoo employee</th><th>State</th><th>Detail</th><th>Name in Odoo</th><th>Suggestion</th><th class="text-end">Actions</th></tr>
+                                <tr><th style="width:2rem"><input type="checkbox" class="form-check-input" id="tcBulkAll" aria-label="Select all people needing a decision"></th><th>Person</th><th>Odoo employee</th><th>State</th><th>Detail</th><th>Name in Odoo</th><th>Suggestion</th><th class="text-end">Actions</th></tr>
                             </thead>
                             <tbody>
                             <?php foreach ($tc_flagged as $tc_r) {
                                 [$tc_cls, $tc_label] = $tc_state_chips[$tc_r['state']] ?? ['text-bg-secondary', $tc_r['state']];
                                 $tc_cid = intval($tc_r['contact_id']);
-                                $tc_sugg = $tc_r['suggestion']; ?>
+                                $tc_sugg = $tc_r['suggestion'];
+                                $tc_can = [];
+                                if (in_array($tc_r['state'], ['mismatch', 'repointed'], true)) { $tc_can[] = 'confirm'; }
+                                if ($tc_sugg !== null) { $tc_can[] = 'relink'; }
+                                if (in_array($tc_r['state'], ['missing', 'mismatch'], true)) { $tc_can[] = 'unlink'; }
+                                if ($tc_r['state'] === 'missing' && !$tc_r['has_link'] && $tc_sugg === null) { $tc_can[] = 'dismiss'; } ?>
                                 <tr>
+                                    <td><input type="checkbox" class="form-check-input tc-bulk-row" value="<?php echo $tc_cid; ?>" data-can="<?php echo implode(' ', $tc_can); ?>"
+                                               aria-label="Select <?php echo nullable_htmlentities($tc_r['contact_name']); ?>"></td>
                                     <td class="text-break">
                                         <a href="/agent/contact_details.php?contact_id=<?php echo $tc_cid; ?>"><?php echo nullable_htmlentities($tc_r['contact_name']); ?></a>
                                         <?php if (!empty($tc_r['confirmed_name']) && $tc_r['confirmed_name'] !== $tc_r['contact_name']) { ?>
@@ -1282,6 +1304,51 @@ require __DIR__ . '/includes/training_automation/sections.php';
 </section>
 
 </div><!-- /.ts-page -->
+
+<script nonce="<?php echo nullable_htmlentities($csp_nonce ?? ''); ?>">
+// Odoo link bulk actions. Row boxes carry no name (the unsaved-changes guard below ignores them); the
+// chosen ids are added as hidden inputs on submit. The server re-checks each person's state.
+(function () {
+    var form = document.getElementById('tcBulkForm');
+    var all = document.getElementById('tcBulkAll');
+    if (!form || !all) { return; }
+    var rows = Array.prototype.slice.call(document.querySelectorAll('.tc-bulk-row'));
+    var buttons = Array.prototype.slice.call(document.querySelectorAll('#tcBulkBar [data-bulk]'));
+    var count = document.getElementById('tcBulkCount');
+    var labels = { confirm: 'Confirm', relink: 'Relink to suggestion', unlink: 'Unlink', dismiss: 'No Odoo record' };
+    function picked() { return rows.filter(function (r) { return r.checked; }); }
+    function eligible(action) { return picked().filter(function (r) { return (' ' + r.getAttribute('data-can') + ' ').indexOf(' ' + action + ' ') !== -1; }); }
+    function refresh() {
+        var n = picked().length;
+        count.textContent = n;
+        all.checked = n > 0 && n === rows.length;
+        all.indeterminate = n > 0 && n < rows.length;
+        buttons.forEach(function (b) {
+            var k = eligible(b.getAttribute('data-bulk')).length;
+            b.disabled = k === 0;
+            b.textContent = labels[b.getAttribute('data-bulk')] + (n > 0 ? ' (' + k + ')' : '');
+        });
+    }
+    all.addEventListener('change', function () { rows.forEach(function (r) { r.checked = all.checked; }); refresh(); });
+    rows.forEach(function (r) { r.addEventListener('change', refresh); });
+    form.addEventListener('submit', function (e) {
+        var action = e.submitter && e.submitter.getAttribute('data-bulk');
+        var ids = action ? eligible(action) : [];
+        if (!ids.length) { e.preventDefault(); return; }
+        if ((action === 'unlink' || action === 'dismiss') && !window.confirm(labels[action] + ' for ' + ids.length + ' ' + (ids.length === 1 ? 'person' : 'people') + '?')) {
+            e.preventDefault();
+            return;
+        }
+        Array.prototype.slice.call(form.querySelectorAll('input[name="contact_ids[]"]')).forEach(function (x) { x.remove(); });
+        ids.forEach(function (r) {
+            var h = document.createElement('input');
+            h.type = 'hidden'; h.name = 'contact_ids[]'; h.value = r.value;
+            form.appendChild(h);
+        });
+    });
+    refresh();
+})();
+</script>
 
 <script nonce="<?php echo nullable_htmlentities($csp_nonce ?? ''); ?>">
 // Section nav: marks the section in view (aria-current) and keeps its pill visible when the nav

@@ -10,7 +10,7 @@
  * (it now 302s to settings_training.php#compliance), so keep the filename.
  *
  * Actions: edit_training_compliance_settings, training_odoo_link_check, training_odoo_accept_target,
- * training_odoo_link_relink, training_odoo_link_unlink, training_odoo_link_confirm, training_odoo_link_dismiss,
+ * training_odoo_link_relink, training_odoo_link_unlink, training_odoo_link_confirm, training_odoo_link_dismiss, training_odoo_link_bulk,
  * training_reconcile_now, training_snapshot_now. Each validates the CSRF token, runs the service,
  * then logs (logAction + an audit event), flashes and redirects back.
  *
@@ -31,7 +31,7 @@ use ITFlow\Training\Directory\OdooLinkChecker;
 use ITFlow\Training\Directory\OdooTarget;
 
 $tc_actions = ['edit_training_compliance_settings', 'training_odoo_link_check', 'training_odoo_accept_target', 'training_odoo_link_relink',
-    'training_odoo_link_unlink', 'training_odoo_link_confirm', 'training_odoo_link_dismiss', 'training_reconcile_now', 'training_snapshot_now'];
+    'training_odoo_link_unlink', 'training_odoo_link_confirm', 'training_odoo_link_dismiss', 'training_odoo_link_bulk', 'training_reconcile_now', 'training_snapshot_now'];
 $tc_action = null;
 foreach ($tc_actions as $tc_a) {
     if (isset($_POST[$tc_a])) {
@@ -213,6 +213,69 @@ if (in_array($tc_action, ['training_odoo_link_relink', 'training_odoo_link_unlin
         $tc_msg .= ' Directory sync stays blocked until every flagged link is resolved.';
     }
     flash_alert(nullable_htmlentities($tc_msg));
+    redirect();
+}
+
+// 2b: bulk link action over the ticked people (confirm | relink | unlink | dismiss) -----------------------
+// Each person is re-checked against their current state and handled exactly like the single action
+// (the suggested employee comes from the checked status, never from the request); ones the action does
+// not apply to, or that fail, are skipped and counted.
+if ($tc_action === 'training_odoo_link_bulk') {
+
+    $tc_row = $tc_integration();
+    $tc_bulk = (string) ($_POST['training_odoo_link_bulk'] ?? '');
+    $tc_ids = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['contact_ids'] ?? [])), static fn($i) => $i > 0)));
+    if (!in_array($tc_bulk, ['confirm', 'relink', 'unlink', 'dismiss'], true) || $tc_ids === []) {
+        flash_alert('Tick at least one person and choose an action.', 'error');
+        redirect();
+    }
+    $tc_ids = array_slice($tc_ids, 0, 500);
+    $tc_done_n = 0;
+    $tc_skipped = 0;
+    try {
+        $tc_checker = new OdooLinkChecker($mysqli, $tc_row);
+        $tc_by_id = [];
+        foreach ($tc_checker->status()['rows'] as $tc_sr) {
+            $tc_by_id[$tc_sr['contact_id']] = $tc_sr;
+        }
+        foreach ($tc_ids as $tc_cid) {
+            $tc_sr = $tc_by_id[$tc_cid] ?? null;
+            $tc_ok = $tc_sr !== null && match ($tc_bulk) {
+                'confirm' => in_array($tc_sr['state'], ['mismatch', 'repointed'], true),
+                'relink' => $tc_sr['suggestion'] !== null,
+                'unlink' => in_array($tc_sr['state'], ['missing', 'mismatch'], true),
+                'dismiss' => $tc_sr['state'] === 'missing' && !$tc_sr['has_link'] && $tc_sr['suggestion'] === null,
+            };
+            if (!$tc_ok) {
+                $tc_skipped++;
+                continue;
+            }
+            try {
+                match ($tc_bulk) {
+                    'confirm' => $tc_checker->confirm($tc_cid, intval($session_user_id)),
+                    'relink' => $tc_checker->relink($tc_cid, intval($tc_sr['suggestion']['id']), intval($session_user_id)),
+                    'unlink' => $tc_checker->unlink($tc_cid, intval($session_user_id)),
+                    'dismiss' => $tc_checker->dismiss($tc_cid, intval($session_user_id)),
+                };
+                $tc_done_n++;
+                logAction('Training', 'Edit', "$session_name bulk-$tc_bulk on Odoo link of " . $tc_sr['contact_name'], 0, $tc_cid);
+            } catch (\Throwable $e) {
+                $tc_skipped++;
+                error_log('Training bulk link ' . $tc_bulk . ' #' . $tc_cid . ': ' . get_class($e) . ': ' . $e->getMessage());
+            }
+        }
+    } catch (\Throwable $e) {
+        error_log('Training bulk link action: ' . get_class($e) . ': ' . $e->getMessage());
+        flash_alert('The links could not be changed. The details were written to the server error log.', 'error');
+        redirect();
+    }
+    $tc_verbs = ['confirm' => 'Confirmed', 'relink' => 'Relinked', 'unlink' => 'Unlinked', 'dismiss' => 'Dismissed (no Odoo record)'];
+    $tc_msg = $tc_verbs[$tc_bulk] . ' ' . $tc_done_n . ' ' . ($tc_done_n === 1 ? 'person' : 'people') . '.'
+        . ($tc_skipped > 0 ? " $tc_skipped skipped (action did not apply or failed)." : '');
+    if ($tc_done_n > 0 && !OdooTarget::guard($mysqli, $tc_row)['ok']) {
+        $tc_msg .= ' Directory sync stays blocked until every flagged link is resolved.';
+    }
+    flash_alert($tc_msg, $tc_done_n > 0 ? 'success' : 'error');
     redirect();
 }
 
