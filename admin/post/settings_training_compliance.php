@@ -10,7 +10,7 @@
  * (it now 302s to settings_training.php#compliance), so keep the filename.
  *
  * Actions: edit_training_compliance_settings, training_odoo_link_check, training_odoo_accept_target,
- * training_odoo_link_relink, training_odoo_link_unlink, training_odoo_link_confirm,
+ * training_odoo_link_relink, training_odoo_link_unlink, training_odoo_link_confirm, training_odoo_link_dismiss,
  * training_reconcile_now, training_snapshot_now. Each validates the CSRF token, runs the service,
  * then logs (logAction + an audit event), flashes and redirects back.
  *
@@ -31,7 +31,7 @@ use ITFlow\Training\Directory\OdooLinkChecker;
 use ITFlow\Training\Directory\OdooTarget;
 
 $tc_actions = ['edit_training_compliance_settings', 'training_odoo_link_check', 'training_odoo_accept_target', 'training_odoo_link_relink',
-    'training_odoo_link_unlink', 'training_odoo_link_confirm', 'training_reconcile_now', 'training_snapshot_now'];
+    'training_odoo_link_unlink', 'training_odoo_link_confirm', 'training_odoo_link_dismiss', 'training_reconcile_now', 'training_snapshot_now'];
 $tc_action = null;
 foreach ($tc_actions as $tc_a) {
     if (isset($_POST[$tc_a])) {
@@ -173,7 +173,7 @@ if ($tc_action === 'training_odoo_accept_target') {
 }
 
 // 2: per-link actions (S6) ------------------------------------------------------------------------
-if (in_array($tc_action, ['training_odoo_link_relink', 'training_odoo_link_unlink', 'training_odoo_link_confirm'], true)) {
+if (in_array($tc_action, ['training_odoo_link_relink', 'training_odoo_link_unlink', 'training_odoo_link_confirm', 'training_odoo_link_dismiss'], true)) {
 
     $tc_row = $tc_integration();
     [$tc_cid, $tc_name] = $tc_contact();
@@ -190,6 +190,9 @@ if (in_array($tc_action, ['training_odoo_link_relink', 'training_odoo_link_unlin
         } elseif ($tc_action === 'training_odoo_link_unlink') {
             $tc_checker->unlink($tc_cid, intval($session_user_id));
             $tc_done = "unlinked $tc_name from Odoo";
+        } elseif ($tc_action === 'training_odoo_link_dismiss') {
+            $tc_checker->dismiss($tc_cid, intval($session_user_id));
+            $tc_done = "dismissed $tc_name's Odoo link as unresolvable (no Odoo record)";
         } else {
             $tc_checker->confirm($tc_cid, intval($session_user_id));
             $tc_done = "confirmed the Odoo link of $tc_name";

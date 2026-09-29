@@ -164,8 +164,16 @@ final class LinkStates
                 $cands = $byName[self::norm((string) $o['coattr_odoo_name'])] ?? [];
                 $cands = array_values(array_filter($cands, static fn($id) => array_diff($linkedTo[$id] ?? [], [$cid]) === []));
                 $suggest = count($cands) === 1 ? $cands[0] : null;
-                Db::exec($db, 'UPDATE contact_odoo_attributes SET coattr_link_suggested_employee_id = ?, coattr_link_checked_at_utc = ? WHERE coattr_contact_id = ?',
-                    'isi', [$suggest, $now, $cid]);
+                // A dismissed row (OdooLinkChecker::dismiss - "confirmed, no Odoo record") clears itself
+                // the moment a real suggestion appears again: that is new, actionable information, not
+                // what was checked and confirmed absent before.
+                $sets = 'coattr_link_suggested_employee_id = ?, coattr_link_checked_at_utc = ?';
+                $types = 'is';
+                $params = [$suggest, $now];
+                if ($suggest !== null) {
+                    $sets .= ', coattr_link_dismissed_by = NULL, coattr_link_dismissed_at_utc = NULL';
+                }
+                Db::exec($db, "UPDATE contact_odoo_attributes SET $sets WHERE coattr_contact_id = ?", $types . 'i', array_merge($params, [$cid]));
             }
         });
         return $stats;

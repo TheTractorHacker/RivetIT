@@ -97,9 +97,11 @@ final class OdooLinkChecker
 
     /**
      * The admin page's view without calling Odoo: target state, counts per state, last check, and one
-     * row per link (flagged first).
+     * row per link (flagged first). A dismissed orphan (dismiss(); no Odoo record exists for them, ever
+     * - not archived, deleted) is left out of rows/counts entirely; dismissed is just its count, so the
+     * page can say how many are quietly resolved this way without listing them again.
      *
-     * @return array{target:array{current:string, accepted:?string, pending:bool}, counts:array<string,int>, checked_at_utc:?string, rows:list<array>}
+     * @return array{target:array{current:string, accepted:?string, pending:bool}, counts:array<string,int>, dismissed:int, checked_at_utc:?string, rows:list<array>}
      */
     public function status(): array
     {
@@ -108,16 +110,21 @@ final class OdooLinkChecker
         $accepted = OdooTarget::accepted($this->db);
         $accepted = $accepted === false ? null : $accepted;
         $rows = Db::all($this->db, "SELECT l.contact_id, c.contact_name, l.odoo_employee_id, a.coattr_link_state, a.coattr_link_detail, a.coattr_link_seen_name,
-                a.coattr_link_suggested_employee_id, a.coattr_odoo_name, a.coattr_link_checked_at_utc
+                a.coattr_link_suggested_employee_id, a.coattr_odoo_name, a.coattr_link_checked_at_utc, 1 AS has_link
             FROM contact_odoo_links l JOIN contacts c ON c.contact_id = l.contact_id
             LEFT JOIN contact_odoo_attributes a ON a.coattr_contact_id = l.contact_id
             WHERE l.odoo_integration_id = ?
             UNION ALL
             SELECT a.coattr_contact_id, c.contact_name, a.coattr_odoo_employee_id, a.coattr_link_state, a.coattr_link_detail, a.coattr_link_seen_name,
-                a.coattr_link_suggested_employee_id, a.coattr_odoo_name, a.coattr_link_checked_at_utc
+                a.coattr_link_suggested_employee_id, a.coattr_odoo_name, a.coattr_link_checked_at_utc, 0 AS has_link
             FROM contact_odoo_attributes a JOIN contacts c ON c.contact_id = a.coattr_contact_id
-            WHERE a.coattr_link_state = 'missing' AND NOT EXISTS (SELECT 1 FROM contact_odoo_links l2 WHERE l2.contact_id = a.coattr_contact_id AND l2.odoo_integration_id = ?)",
+            WHERE a.coattr_link_state = 'missing' AND a.coattr_link_dismissed_at_utc IS NULL
+                AND NOT EXISTS (SELECT 1 FROM contact_odoo_links l2 WHERE l2.contact_id = a.coattr_contact_id AND l2.odoo_integration_id = ?)",
             'ii', [$iid, $iid]);
+        $dismissed = (int) (Db::one($this->db, "SELECT COUNT(*) AS n FROM contact_odoo_attributes a
+                WHERE a.coattr_link_state = 'missing' AND a.coattr_link_dismissed_at_utc IS NOT NULL
+                AND NOT EXISTS (SELECT 1 FROM contact_odoo_links l2 WHERE l2.contact_id = a.coattr_contact_id AND l2.odoo_integration_id = ?)",
+            'i', [$iid])['n'] ?? 0);
         $order = ['repointed' => 0, 'mismatch' => 1, 'missing' => 2, 'unchecked' => 3, 'ok' => 4];
         $counts = ['ok' => 0, 'mismatch' => 0, 'missing' => 0, 'repointed' => 0, 'unchecked' => 0];
         $out = [];
@@ -135,6 +142,7 @@ final class OdooLinkChecker
                 'confirmed_name' => $r['coattr_odoo_name'],
                 'suggestion' => $sid === null ? null : ['id' => $sid, 'name' => $r['coattr_odoo_name']],
                 'checked_at_utc' => $r['coattr_link_checked_at_utc'],
+                'has_link' => (int) $r['has_link'] === 1,
             ];
         }
         usort($out, static fn($a, $b) => [$order[$a['state']] ?? 9, $a['contact_name']] <=> [$order[$b['state']] ?? 9, $b['contact_name']]);
@@ -142,6 +150,7 @@ final class OdooLinkChecker
         return [
             'target' => ['current' => $current, 'accepted' => $accepted, 'pending' => $accepted !== null && $accepted !== $current],
             'counts' => $counts,
+            'dismissed' => $dismissed,
             'checked_at_utc' => $checked['t'] ?? null,
             'rows' => $out,
         ];
@@ -201,6 +210,29 @@ final class OdooLinkChecker
         });
         $this->audit($userId, $contactId, 'unlink', "Unlinked contact #$contactId from Odoo employee #" . ($from ?? 0), ['from' => $from]);
         $this->maybeAccept($userId);   // missing links now block the auto-accept, so resolving the last one by Unlink counts too
+    }
+
+    /**
+     * Marks an already-unlinked contact (Unlink already removed the contact_odoo_links row) as having
+     * no Odoo record at all - checked and confirmed gone, not just archived. Drops it out of the
+     * decision queue (status()) without creating a link. Only for a genuinely orphaned row: a link that
+     * still exists uses Relink/Unlink/Confirm instead. LinkStates::apply() clears this the moment a real
+     * suggestion appears again (a matching Odoo record showing up later is worth surfacing, not staying
+     * silently dismissed).
+     */
+    public function dismiss(int $contactId, int $userId): void
+    {
+        $iid = (int) $this->row['odoo_integration_id'];
+        Db::tx($this->db, function () use ($contactId, $userId, $iid): void {
+            $this->lockAttr($contactId, ['missing']);
+            $link = Db::one($this->db, 'SELECT id FROM contact_odoo_links WHERE contact_id = ? AND odoo_integration_id = ? FOR UPDATE', 'ii', [$contactId, $iid]);
+            if ($link !== null) {
+                throw new ApiException(409, 'link_state', 'This person is still linked to Odoo; Unlink first.');
+            }
+            Db::exec($this->db, 'UPDATE contact_odoo_attributes SET coattr_link_dismissed_by = ?, coattr_link_dismissed_at_utc = ? WHERE coattr_contact_id = ?',
+                'isi', [$userId, Clock::nowUtc(), $contactId]);
+        });
+        $this->audit($userId, $contactId, 'dismiss', "Dismissed contact #$contactId's Odoo link as unresolvable (confirmed: no Odoo record)", []);
     }
 
     /** Accepts the link as it is now: baseline := the linked employee and the name Odoo showed at the last check. */

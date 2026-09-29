@@ -9420,3 +9420,20 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.104'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.104') {
+        // Owner ask 2026-09-29: a contact whose Odoo employee record was Unlinked (OdooLinkChecker::unlink,
+        // e.g. because the linked Odoo employee id no longer exists) has no path back to "resolved" once
+        // that employee genuinely doesn't exist anywhere in Odoo any more (confirmed live for 32 real
+        // people after an Odoo migration - not archived, deleted). LinkStates::apply() can never find a
+        // name match for them, so they sat in "Links that need a decision" forever with zero available
+        // actions. This gives the admin an explicit way to say "I checked, there's no Odoo record for
+        // this person" - drops them out of the decision queue without creating a link. Mirrors
+        // coattr_link_confirmed_by/coattr_link_confirmed_at_utc's existing shape. Idempotent: ADD COLUMN
+        // IF NOT EXISTS.
+        mysqli_query($mysqli, "ALTER TABLE `contact_odoo_attributes`
+            ADD COLUMN IF NOT EXISTS `coattr_link_dismissed_by` int(11) DEFAULT NULL AFTER `coattr_link_confirmed_at_utc`,
+            ADD COLUMN IF NOT EXISTS `coattr_link_dismissed_at_utc` datetime(3) DEFAULT NULL AFTER `coattr_link_dismissed_by`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.105'");
+    }

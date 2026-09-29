@@ -272,6 +272,7 @@ foreach (($tc_status['rows'] ?? []) as $tc_r) {
     }
 }
 $tc_counts = $tc_status['counts'] ?? [];
+$tc_dismissed = intval($tc_status['dismissed'] ?? 0);
 $tc_csrf = $_SESSION['csrf_token'] ?? '';
 
 /* ============================================================================================
@@ -933,7 +934,9 @@ $ts_module_on = !empty($config_module_enable_training);
                 <div class="alert alert-danger mb-0">The link list could not be loaded. The details were written to the server error log.</div>
             <?php } elseif ($tc_status !== null) { ?>
                 <?php if ($tc_flagged) { ?>
-                    <div class="fw-bold mb-2">Links that need a decision (<?php echo count($tc_flagged); ?>)</div>
+                    <div class="fw-bold mb-2">Links that need a decision (<?php echo count($tc_flagged); ?>)<?php if ($tc_dismissed > 0) { ?>
+                        <span class="fw-normal small text-muted">&mdash; <?php echo $tc_dismissed; ?> dismissed as having no Odoo record</span>
+                    <?php } ?></div>
                     <div class="table-responsive mb-3">
                         <table class="table table-sm table-vcenter mb-0">
                             <thead>
@@ -997,6 +1000,17 @@ $ts_module_on = !empty($config_module_enable_training);
                                                     </form>
                                                 </details>
                                             <?php } ?>
+                                            <?php if ($tc_r['state'] === 'missing' && !$tc_r['has_link'] && $tc_sugg === null) { ?>
+                                                <details class="text-start">
+                                                    <summary class="btn btn-outline-secondary btn-sm">No Odoo record&hellip;</summary>
+                                                    <form action="post.php" method="post" class="mt-2 small" style="max-width: 22rem;">
+                                                        <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tc_csrf); ?>">
+                                                        <input type="hidden" name="contact_id" value="<?php echo $tc_cid; ?>">
+                                                        <p class="mb-2">Only if you've checked Odoo yourself (including archived employees) and confirmed there's no record for this person. Drops this off the list; it comes back automatically if a matching Odoo employee ever shows up on a future Check now.</p>
+                                                        <button type="submit" name="training_odoo_link_dismiss" class="btn btn-secondary btn-sm">Confirm: no Odoo record</button>
+                                                    </form>
+                                                </details>
+                                            <?php } ?>
                                         </div>
                                     </td>
                                 </tr>
@@ -1005,7 +1019,9 @@ $ts_module_on = !empty($config_module_enable_training);
                         </table>
                     </div>
                 <?php } elseif (($tc_counts['unchecked'] ?? 0) === 0 && $tc_other) { ?>
-                    <p class="text-success mb-3"><i class="fas fa-check-circle me-1"></i>No link needs a decision.</p>
+                    <p class="text-success mb-3"><i class="fas fa-check-circle me-1"></i>No link needs a decision.<?php if ($tc_dismissed > 0) { ?>
+                        <span class="text-muted">(<?php echo $tc_dismissed; ?> dismissed as having no Odoo record.)</span>
+                    <?php } ?></p>
                 <?php } ?>
 
                 <?php if (($tc_counts['unchecked'] ?? 0) > 0) { ?>
