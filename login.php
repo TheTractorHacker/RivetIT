@@ -130,6 +130,12 @@ $_login_accent_hex = itflow_theme_accent_hex($config_theme, $row['config_theme_a
 if ($_login_accent_hex !== '') {
     $_login_accent_rgb = hexdec(substr($_login_accent_hex, 1, 2)) . ', ' . hexdec(substr($_login_accent_hex, 3, 2)) . ', ' . hexdec(substr($_login_accent_hex, 5, 2));
 }
+$_login_mix = static function (string $rgb, float $k): string {
+    $c = array_map('intval', explode(',', $rgb));
+    return implode(', ', array_map(static fn($v) => (int) round($v * $k), $c));
+};
+$_login_btn_rgb = $_login_mix($_login_accent_rgb, .72);
+$_login_btn_hover_rgb = $_login_mix($_login_accent_rgb, .6);
 $_login_theme_css = itflow_theme_accent_css($_login_accent_hex, (string) ($row['config_theme_card_radius'] ?? ''));
 
 $response         = null;
@@ -1012,6 +1018,59 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
             color: rgba(255,255,255,.6);
             margin: 0;
         }
+        /* Sign in uses a deepened accent (the raw accent is glaring on a white card) and a soft focus ring. */
+        .page-center .card .btn-primary {
+            --tblr-btn-bg: rgb(<?= $_login_btn_rgb ?>);
+            --tblr-btn-border-color: rgb(<?= $_login_btn_rgb ?>);
+            --tblr-btn-hover-bg: rgb(<?= $_login_btn_hover_rgb ?>);
+            --tblr-btn-hover-border-color: rgb(<?= $_login_btn_hover_rgb ?>);
+            --tblr-btn-active-bg: rgb(<?= $_login_btn_hover_rgb ?>);
+            --tblr-btn-active-border-color: rgb(<?= $_login_btn_hover_rgb ?>);
+            background: rgb(<?= $_login_btn_rgb ?>);
+            border-color: rgb(<?= $_login_btn_rgb ?>);
+            color: #fff;
+            font-weight: 600;
+            letter-spacing: .01em;
+            padding-top: .6rem;
+            padding-bottom: .6rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,.18);
+            transition: background-color .15s ease, box-shadow .15s ease;
+        }
+        .page-center .card .btn-primary:hover,
+        .page-center .card .btn-primary:active {
+            background: rgb(<?= $_login_btn_hover_rgb ?>);
+            border-color: rgb(<?= $_login_btn_hover_rgb ?>);
+            box-shadow: 0 2px 6px rgba(<?= $_login_btn_rgb ?>, .35);
+        }
+        .page-center .card .btn-primary:focus-visible,
+        .page-center .card .btn-dark:focus-visible {
+            box-shadow: 0 0 0 .2rem rgba(<?= $_login_accent_rgb ?>, .28);
+        }
+        .page-center .card .btn-dark {
+            padding-top: .6rem;
+            padding-bottom: .6rem;
+            font-weight: 600;
+        }
+        .page-center .card .form-control:focus {
+            border-color: rgba(<?= $_login_accent_rgb ?>, .65);
+            box-shadow: none;
+        }
+        .page-center .card .input-group {
+            border-radius: var(--tblr-border-radius, .5rem);
+        }
+        .page-center .card .input-group:focus-within {
+            box-shadow: 0 0 0 .2rem rgba(<?= $_login_accent_rgb ?>, .16);
+        }
+        .page-center .card .input-group:focus-within .input-group-text {
+            border-color: rgba(<?= $_login_accent_rgb ?>, .65);
+        }
+        .page-center .card form > .d-flex.align-items-center.mb-3 { margin-bottom: 1.25rem !important; }
+        .page-center .card form > .d-flex.align-items-center hr { margin: 0; }
+        .page-center .card .form-check-input:checked {
+            background-color: rgb(<?= $_login_btn_rgb ?>);
+            border-color: rgb(<?= $_login_btn_rgb ?>);
+        }
+        .page-center .card a { color: rgb(<?= $_login_btn_rgb ?>); }
     </style>
 </head>
 <body class="d-flex flex-column accent-<?= nullable_htmlentities($config_theme) ?>">
@@ -1145,7 +1204,7 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
 
             </form>
 
-            <?php if($config_client_portal_enable == 1){ ?>
+            <?php if($config_client_portal_enable == 1 && ((!empty($config_smtp_host) || !empty($config_smtp_provider)) || !empty($azure_client_id))){ ?>
                 <hr>
                 <?php if ((!empty($config_smtp_host) || !empty($config_smtp_provider))) { ?>
                     <a href="client/login_reset.php">Forgot password?</a>
