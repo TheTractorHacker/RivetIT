@@ -333,16 +333,23 @@ if ($k_done_ids !== []) {
 $k_name = static fn(array $c): string => $k_names[(int) ($c['course_id'] ?? 0)] ?? (string) ($c['course_name'] ?? '');
 
 $counts = is_array($summary['counts'] ?? null) ? $summary['counts'] : [];
+$k_kb = false;
+try {
+    $k_kb = intval($config_module_enable_kb ?? 0) === 1 && \ITFlow\Training\Kiosk\Learn\KbAccess::clientId($db, $cid) !== null;
+} catch (\Throwable $e) {
+    error_log('Kiosk me.php kb: ' . get_class($e));
+}
 $hour = (int) date('G');
 $k_page = [
     'title' => KioskStrings::t($kctx->lang, 'home.title'),
-    'css' => ['/css/itflow_training_kiosk_learn.css'],
+    'css' => ['/css/itflow_training_kiosk_learn.css', '/css/itflow_training_kiosk_kb.css'],
     'js' => ['/js/training_kiosk_home.js'],
     'body_class' => 'kx-learn kx-home',
     'data' => [
         'greet' => $hour < 12 ? 'morning' : ($hour < 18 ? 'afternoon' : 'evening'),
         'today' => $today->format('Y-m-d'),
         'records' => $records,
+        'kb' => $k_kb,
         'counts' => [
             'completed' => (int) ($counts['completed'] ?? 0),
             'in_progress' => count($runs),

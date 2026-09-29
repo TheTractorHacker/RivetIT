@@ -111,6 +111,9 @@ final class MediaUrlRewriter
     /** The portal's own serve endpoint, which never accepts a signature. */
     public const PORTAL_PATH = '/client/kb_media.php';
 
+    /** The training kiosk's serve endpoint (kiosk session auth, same query shape and same visibility rule as the portal's). */
+    public const KIOSK_PATH = '/kiosk/kb_media.php';
+
     private string $base_host;
     private string $principal;
 
@@ -224,6 +227,15 @@ final class MediaUrlRewriter
         return self::rewriteMediaUrls(
             $html,
             static fn (array $media): string => self::canonicalUrl(self::PORTAL_PATH, $media)
+        );
+    }
+
+    /** Training kiosk: canonical (or legacy) -> /kiosk/kb_media.php, which re-derives access from the learner's department. */
+    public static function toKiosk(string $html): string
+    {
+        return self::rewriteMediaUrls(
+            $html,
+            static fn (array $media): string => self::canonicalUrl(self::KIOSK_PATH, $media)
         );
     }
 

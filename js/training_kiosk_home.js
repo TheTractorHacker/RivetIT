@@ -87,6 +87,14 @@
         stat(toSign, toSign === 1 ? t('home.stat_to_sign_1') : t('home.stat_to_sign_n'), 'fa-file-signature', 'muted')
     ]));
 
+    if (P.kb) {
+        root.appendChild(el('a', { class: 'kl-kblink', href: '/kiosk/kb.php' }, [
+            el('span', { class: 'kl-kblink__icon', 'aria-hidden': 'true' }, icon('fa-book-open')),
+            el('span', { class: 'kl-kblink__text' }, [el('strong', { text: t('kb.open') }), el('span', { class: 'kl-muted', text: t('kb.open_sub') })]),
+            icon('fa-chevron-right')
+        ]));
+    }
+
     // ---------------------------------------------------------------- course cards
     function kindLine(c) {
         if (c.kind === 'document') {

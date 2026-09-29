@@ -359,8 +359,8 @@ if (!function_exists('itflow_role_catalog')) {
                 'label' => 'Training Manager',
                 'name' => 'Training Manager',
                 'description' => 'Runs Training for every department',
-                'levels' => ['module_training' => 3, 'module_training_kiosk' => 3],
-                'note' => 'Training Full and Training kiosk Full, nothing else. Sees every department in Training; Access-tab ticks don\'t narrow it. Devices are set up as "not in Assets" unless you also give Assets Read.',
+                'levels' => ['module_training' => 3, 'module_training_kiosk' => 3, 'module_kb' => 2],
+                'note' => 'Training Full, Training kiosk Full and Knowledge Base Write (so they can edit the articles learners read in the Learning Center), nothing else. Sees every department in Training; Access-tab ticks don\'t narrow it. Devices are set up as "not in Assets" unless you also give Assets Read.',
             ],
             'training_supervisor' => [
                 'label' => 'Training Supervisor (department)',
