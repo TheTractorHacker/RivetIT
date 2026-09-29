@@ -63,32 +63,41 @@ require __DIR__ . '/includes/layout_top.php';
 ?>
 <div class="kl-page kb-page">
   <a class="kx-btn kb-back" href="/kiosk/me.php"><i class="fas fa-arrow-left" aria-hidden="true"></i><span><?= $h($t('kb.back_home')) ?></span></a>
-  <header>
-    <h1 class="kl-h1"><?= $h($t('kb.title')) ?></h1>
-    <p class="kl-sub"><?= $h($t('kb.sub')) ?></p>
+  <header class="kb-hero">
+    <span class="kb-hero__icon" aria-hidden="true"><i class="fas fa-book-open"></i></span>
+    <div class="kb-hero__text">
+      <h1 class="kl-h1"><?= $h($t('kb.title')) ?></h1>
+      <p class="kl-sub"><?= $h($t('kb.sub')) ?></p>
+    </div>
   </header>
   <form class="kb-search" method="get" action="/kiosk/kb.php" role="search" autocomplete="off">
-    <input class="kb-search__input" type="search" name="q" value="<?= $h($q) ?>" maxlength="100" placeholder="<?= $h($t('kb.search_ph')) ?>" aria-label="<?= $h($t('kb.search_ph')) ?>" enterkeyhint="search">
-    <button class="kx-btn kx-btn--primary kb-search__go" type="submit"><i class="fas fa-search" aria-hidden="true"></i><span><?= $h($t('kb.search')) ?></span></button>
-    <?php if ($q !== '') { ?><a class="kx-btn" href="/kiosk/kb.php"><span><?= $h($t('kb.clear')) ?></span></a><?php } ?>
+    <label class="kb-search__field">
+      <i class="fas fa-search kb-search__icon" aria-hidden="true"></i>
+      <input class="kb-search__input" type="search" name="q" value="<?= $h($q) ?>" maxlength="100" placeholder="<?= $h($t('kb.search_ph')) ?>" aria-label="<?= $h($t('kb.search_ph')) ?>" enterkeyhint="search">
+    </label>
+    <button class="kx-btn kx-btn--primary kb-search__go" type="submit"><span><?= $h($t('kb.search')) ?></span></button>
+    <?php if ($q !== '') { ?><a class="kx-btn" href="/kiosk/kb.php"><i class="fas fa-times" aria-hidden="true"></i><span><?= $h($t('kb.clear')) ?></span></a><?php } ?>
   </form>
 <?php if ($total === 0) { ?>
   <div class="kl-panel kl-panel--empty"><p class="kl-muted"><?= $h($q !== '' ? $t('kb.none_search', ['q' => $q]) : $t('kb.none')) ?></p></div>
 <?php } ?>
 <?php foreach ($groups as $cat => $articles) { ?>
   <section class="kl-sec">
-    <h2 class="kl-h2"><i class="fas fa-folder" aria-hidden="true"></i><span><?= $h($cat !== '' ? $cat : $t('kb.uncategorized')) ?></span><span class="kl-count"><?= count($articles) ?></span></h2>
+    <h2 class="kl-h2 kb-cat"><span class="kb-cat__icon" aria-hidden="true"><i class="fas fa-folder"></i></span><span><?= $h($cat !== '' ? $cat : $t('kb.uncategorized')) ?></span><span class="kl-count"><?= count($articles) ?></span></h2>
     <div class="kb-list">
 <?php foreach ($articles as $a) {
     $prev = trim((string) preg_replace('/\s+/u', ' ', strip_tags((string) $a['preview'])));
-    if (mb_strlen($prev) > 140) {
-        $prev = rtrim(mb_substr($prev, 0, 140)) . '…';
+    if (mb_strlen($prev) > 160) {
+        $prev = rtrim(mb_substr($prev, 0, 160)) . '…';
     } ?>
       <a class="kb-item" href="/kiosk/kb_article.php?id=<?= (int) $a['kb_article_id'] ?>">
         <span class="kb-item__icon" aria-hidden="true"><i class="fas fa-file-alt"></i></span>
         <span class="kb-item__body">
           <strong class="kb-item__title"><?= $h($a['kb_article_title']) ?></strong>
 <?php if ($prev !== '') { ?>          <span class="kb-item__prev"><?= $h($prev) ?></span>
+<?php } ?>
+<?php $when = (string) ($a['kb_article_updated_at'] ?? $a['kb_article_created_at']);
+      if ($when !== '' && strtotime($when) !== false) { ?>          <span class="kb-item__meta"><i class="far fa-clock" aria-hidden="true"></i><?= $h($t('kb.updated', ['date' => date('M j, Y', strtotime($when))])) ?></span>
 <?php } ?>
         </span>
         <i class="fas fa-chevron-right kb-item__go" aria-hidden="true"></i>

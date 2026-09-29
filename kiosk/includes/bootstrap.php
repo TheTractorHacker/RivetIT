@@ -2,7 +2,7 @@
 
 /*
  * Training kiosk bootstrap (P3 spec §3.1, §0.2, §0.5). Every kiosk entry point sets
- * $KIOSK_CSP_PROFILE ('strict' default | 'external_video' | 'media' | 'api') and requires this
+ * $KIOSK_CSP_PROFILE ('strict' default | 'external_video' | 'kb_article' | 'media' | 'api') and requires this
  * file first. In order:
  *
  *   1  §0.5 fetch-metadata guards, before auth and before any output:
@@ -39,7 +39,7 @@ use ITFlow\Training\Kiosk\Core\KioskSettings;
 use ITFlow\Training\Kiosk\Core\KioskStrings;
 
 $kiosk_started_ns = hrtime(true);
-$KIOSK_CSP_PROFILE = (isset($KIOSK_CSP_PROFILE) && in_array($KIOSK_CSP_PROFILE, ['strict', 'external_video', 'media', 'api'], true))
+$KIOSK_CSP_PROFILE = (isset($KIOSK_CSP_PROFILE) && in_array($KIOSK_CSP_PROFILE, ['strict', 'external_video', 'kb_article', 'media', 'api'], true))
     ? $KIOSK_CSP_PROFILE : 'strict';
 $kiosk_csp_nonce = rtrim(strtr(base64_encode(random_bytes(18)), '+/', '-_'), '=');
 $kiosk_video_unsupported = false;
@@ -68,7 +68,7 @@ foreach (['HTTP_SEC_PURPOSE', 'HTTP_PURPOSE', 'HTTP_X_MOZ', 'HTTP_X_PURPOSE'] as
         exit;
     }
 }
-if ($KIOSK_CSP_PROFILE === 'strict' || $KIOSK_CSP_PROFILE === 'external_video') {
+if ($KIOSK_CSP_PROFILE === 'strict' || $KIOSK_CSP_PROFILE === 'external_video' || $KIOSK_CSP_PROFILE === 'kb_article') {
     $kiosk_dest = $_SERVER['HTTP_SEC_FETCH_DEST'] ?? null;
     $kiosk_mode = $_SERVER['HTTP_SEC_FETCH_MODE'] ?? null;
     if (($kiosk_dest !== null && $kiosk_dest !== 'document') || ($kiosk_mode !== null && $kiosk_mode !== 'navigate')) {
@@ -92,6 +92,11 @@ $kiosk_csp_strict = "default-src 'self'; script-src 'self' 'nonce-$kiosk_csp_non
     . "form-action 'self'; frame-ancestors 'none'; manifest-src 'self'";
 if ($KIOSK_CSP_PROFILE === 'strict') {
     header('Content-Security-Policy: ' . $kiosk_csp_strict);
+    header('Referrer-Policy: no-referrer');
+} elseif ($KIOSK_CSP_PROFILE === 'kb_article') {
+    // A Knowledge Base article: strict, except its embedded-HTML blocks frame /kiosk/kb_embed.php (same origin). The
+    // embed answers with its own `sandbox allow-scripts` policy, so its script never runs in this origin.
+    header('Content-Security-Policy: ' . str_replace("frame-src 'none'", "frame-src 'self'", $kiosk_csp_strict));
     header('Referrer-Policy: no-referrer');
 } elseif ($KIOSK_CSP_PROFILE === 'external_video') {
     // The YouTube/Vimeo player runs ONLY inside its cross-origin iframe: the page drives it over
@@ -136,7 +141,7 @@ $kiosk_core = new Ctx($mysqli, 0, false, 0, 'https://' . rtrim($kiosk_host, '/')
     Text::clip($_SERVER['HTTP_USER_AGENT'] ?? null, 255));
 $kiosk_device_reason = null;
 $kiosk_device = KioskAuth::device($mysqli, $kiosk_ks, $kiosk_device_reason, $KIOSK_CSP_PROFILE !== 'media');
-if ($kiosk_device === null && $kiosk_device_reason !== 'missing' && ($KIOSK_CSP_PROFILE === 'strict' || $KIOSK_CSP_PROFILE === 'external_video')) {
+if ($kiosk_device === null && $kiosk_device_reason !== 'missing' && ($KIOSK_CSP_PROFILE === 'strict' || $KIOSK_CSP_PROFILE === 'external_video' || $KIOSK_CSP_PROFILE === 'kb_article')) {
     // Revoked, re-typed, archived or re-assigned (A19): the page shows "not set up" and the stale cookie goes.
     KioskAuth::clearDeviceCookie();
     KioskAuth::clearSessionCookie();
