@@ -16,8 +16,10 @@
  *      on an archived course                                                   [lane K3, when present]
  *   4. Null expired device enroll codes and PIN setup tokens.
  *   5. Delete training_rate_buckets rows older than 2 days.
- * Once per local day after 03:00 (stamp file next to the lock; --force runs them now):
+ * Every 10 minutes (this cron's own fire rate), gated on its own last-run timestamp
+ * (config_training_pin_sources_synced_at_utc, not a stamp file - --force ignores it too):
  *   - PinSourceSync::run (one Odoo read; skipped while config_training_odoo_pin_enabled is off) [K2]
+ * Once per local day after 03:00 (stamp file next to the lock; --force runs them now):
  *   - AwardEngine::backfill() and AwardEngine::nightlyStreaks()                                 [K6]
  *
  * Schedule (ops, after live verification):
@@ -153,18 +155,28 @@ $tk_summary[] = 'buckets=' . (int) tk_step('buckets', static function () use ($m
         [gmdate('Y-m-d H:i:s', time() - 2 * 86400)]);
 });
 
+// ---- 5b. PIN sources (every 10 min, own gate - owner ask 2026-09-29: the nightly-only cadence below
+// left an Odoo-side PIN fix invisible in the app for up to 24h; matches this cron's own fire rate, so
+// in practice every run checks) ----------------------------------------------------------------------
+if ($tk_ks->odooPinEnabled) {
+    $tk_pin_last = Db::one($mysqli, 'SELECT config_training_pin_sources_synced_at_utc AS t FROM settings WHERE company_id = 1')['t'] ?? null;
+    $tk_pin_due = $force || $tk_pin_last === null || (float) KTime::secondsUntil($tk_pin_last) <= -600.0;
+    if ($tk_pin_due) {
+        $tk_r = tk_step('pin_sources', static fn() => PinSourceSync::run($mysqli, new OdooPinVerifier($mysqli, $tk_ks), $tk_system), true);
+        $tk_summary[] = 'pin_sources=' . (is_array($tk_r) ? (int) ($tk_r['changed'] ?? 0) . ' changed' : 'skipped');
+    } else {
+        $tk_summary[] = 'pin_sources=not_due';
+    }
+} else {
+    $tk_summary[] = 'pin_sources=off';
+}
+
 // ---- nightly (once per local day after 03:00, or --force) ---------------------------------------
 $tk_today = date('Y-m-d');
 $tk_stamp_path = $tk_state_base . '.stamp';
 $tk_stamp = @file_get_contents($tk_stamp_path);
 $tk_nightly = $force || ((int) date('G') >= 3 && trim((string) $tk_stamp) !== $tk_today);
 if ($tk_nightly) {
-    if ($tk_ks->odooPinEnabled) {
-        $tk_r = tk_step('pin_sources', static fn() => PinSourceSync::run($mysqli, new OdooPinVerifier($mysqli, $tk_ks), $tk_system), true);
-        $tk_summary[] = 'pin_sources=' . (is_array($tk_r) ? (int) ($tk_r['changed'] ?? 0) . ' changed' : 'skipped');
-    } else {
-        $tk_summary[] = 'pin_sources=off';
-    }
     $tk_summary[] = 'backfill=' . (int) tk_step('backfill', static fn() => AwardEngine::backfill($mysqli));
     $tk_summary[] = 'streaks=' . (int) tk_step('streaks', static fn() => AwardEngine::nightlyStreaks($mysqli));
     if (!$force || (int) date('G') >= 3) {

@@ -11,7 +11,15 @@
 
 .kt-loading { min-height: 40vh; }
 .kt-head { display: flex; flex-direction: column; gap: 8px; }
-.kt-block { display: flex; flex-direction: column; gap: 14px; }
+/* Every .kt-block is a titled <section><h2>...</h2>...</section> (roster, expected, search, checklist,
+   ...) - give it the same card weight as the rest of the app (.kx-card, .kl-panel) instead of sitting
+   flat against the page background. .kt-pinbox used to duplicate this inline; it now just adds its own
+   centering on top. */
+.kt-block {
+  display: flex; flex-direction: column; gap: 14px;
+  background: var(--kx-surface); border: 1px solid var(--kx-border); border-radius: var(--kx-radius);
+  box-shadow: var(--kx-shadow); padding: 24px 28px;
+}
 .kt-foot { margin-top: 8px; }
 
 /* tiles */
@@ -107,7 +115,7 @@ select.kt-input { appearance: auto; }
 .kt-person { display: flex; align-items: center; gap: 22px; }
 .kt-split { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 32px; align-items: start; }
 .kt-single { display: flex; justify-content: center; }
-.kt-pinbox { align-items: center; padding: 24px 28px; background: var(--kx-surface); border: 1px solid var(--kx-border); border-radius: var(--kx-radius); box-shadow: var(--kx-shadow); }
+.kt-pinbox { align-items: center; }
 .kt-pin-msg { font-size: 18px; font-weight: 600; color: var(--kx-bad); text-align: center; max-width: 360px; }
 .kt-done { min-height: 50vh; text-align: center; }
 .kt-done__icon {

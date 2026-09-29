@@ -358,6 +358,7 @@ $k_page = [
         ], array_values((array) ($summary['completed'] ?? []))),
         'completed_total' => (int) ($counts['completed'] ?? count((array) ($summary['completed'] ?? []))),
         'certificates' => array_map(static fn(array $c): array => [
+            'completion_id' => (int) ($c['completion_id'] ?? 0),
             'course_name' => $k_name($c), 'cert_number' => (string) ($c['cert_number'] ?? ''),
             'completed_on' => (string) ($c['completed_on'] ?? ''), 'expires_on' => isset($c['expires_on']) ? (string) $c['expires_on'] : null,
             'status' => (string) ($c['status'] ?? 'current'),

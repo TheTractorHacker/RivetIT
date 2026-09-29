@@ -299,14 +299,21 @@
                     [icon(st === 'expired' ? 'fa-times' : (st === 'expiring' ? 'fa-clock' : 'fa-check')), el('span', { text: t('home.cert_' + st) })]);
                 var exp = c.expires_on ? (st === 'expired' ? t('home.cert_expired_on', { date: date(c.expires_on, { month: 'short', day: 'numeric', year: 'numeric' }) })
                     : t('home.cert_expires', { date: date(c.expires_on, { month: 'short', day: 'numeric', year: 'numeric' }) })) : t('home.cert_no_expiry');
-                return el('li', { class: 'kl-cert kl-cert--' + st }, [
+                var body = [
                     el('span', { class: 'kl-cert__icon', 'aria-hidden': 'true' }, icon('fa-award')),
                     el('div', { class: 'kl-item__main' }, [
                         el('strong', { class: 'kl-item__title', text: c.course_name }),
                         el('div', { class: 'kl-cert__no', text: c.cert_number || t('home.cert_pending') }),
                         el('div', { class: 'kl-item__sub' }, [chip, el('span', { class: 'kl-muted', text: exp })])
                     ])
-                ]);
+                ];
+                // Same tab, never target="_blank": this is a shared kiosk device, and a lingering
+                // background tab with someone's certificate (PII) is exactly what the next person
+                // walking up to the kiosk should never be able to stumble onto.
+                if (c.completion_id > 0) {
+                    body = [el('a', { class: 'kl-cert__link', href: '/kiosk/certificate.php?id=' + c.completion_id }, body)];
+                }
+                return el('li', { class: 'kl-cert kl-cert--' + st }, body);
             }, t('home.see_all_certs', { n: certs.length })));
         } else {
             cert.appendChild(el('div', { class: 'kl-panel kl-panel--empty' }, el('p', { class: 'kl-muted', text: t('home.empty_certs') })));
