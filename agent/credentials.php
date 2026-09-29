@@ -643,24 +643,20 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                         <input class="form-check-input bulk-select" type="checkbox" name="credential_ids[]" value="<?php echo $credential_id ?>">
                                     </div>
                                 </td>
-                                <td style="min-width:15rem;">
-                                    <a class="text-dark ajax-modal" href="#"
-                                        data-modal-url="modals/credential/credential_view.php?id=<?= $credential_id ?>">
-                                        <div class="media">
-                                            <i class="fa fa-fw fa-2x fa-key me-3"></i>
-                                            <div class="media-body">
-                                                <div><?php echo $credential_name; ?> <?php if ($credential_favorite) { echo "<i class='fas fa-fw fa-star text-warning ms-1' title='Favorite'></i>"; } ?> <?php if ($credential_type === 'API Key') { echo "<span class='badge bg-info text-dark ms-2'>API Key</span>"; } ?></div>
-                                                <div><small class="text-secondary"><?php echo $credential_description; ?></small></div>
-                                                <?php
-                                                if (!empty($credential_tags_display)) { ?>
-                                                    <div class="mt-1">
-                                                        <?php echo $credential_tags_display; ?>
-                                                    </div>
-                                                <?php } ?>
-                                            </div>
-                                        </div>
-                                    </a>
-                                </td>
+                                <td style="min-width:16rem;">
+                                <a class="cred-name-link ajax-modal" href="#" data-modal-url="modals/credential/credential_view.php?id=<?= $credential_id ?>">
+                                    <span class="cred-icon"><i class="fa fa-fw fa-lg fa-key"></i></span>
+                                    <span class="cred-name-body">
+                                        <span class="cred-title">
+                                            <span class="cred-name"><?php echo $credential_name; ?></span>
+                                            <?php if ($credential_favorite) { echo "<i class='fas fa-star text-warning' title='Favorite'></i>"; } ?>
+                                            <?php if ($credential_type === 'API Key') { echo "<span class='badge bg-info text-dark cred-type-badge'>API Key</span>"; } ?>
+                                        </span>
+                                        <?php if ($credential_description !== '') { ?><span class="cred-desc"><?php echo $credential_description; ?></span><?php } ?>
+                                    </span>
+                                </a>
+                                <?php if (!empty($credential_tags_display)) { ?><div class="cred-tags"><?php echo $credential_tags_display; ?></div><?php } ?>
+                            </td>
                                 <td class="text-nowrap"><?php echo $credential_username_display; ?></td>
                                 <td class="text-nowrap">
                                     <span class="cred-cell">
