@@ -6,7 +6,7 @@ ob_start();
 
 $user_id = intval($_GET['id'] ?? 0);
 
-$sql = mysqli_query($mysqli, "SELECT users.user_id, users.user_name, users.user_email, users.user_auth_method, users.user_token, COALESCE(user_settings.user_config_force_mfa, 0) AS force_mfa,
+$sql = mysqli_query($mysqli, "SELECT users.user_id, users.user_name, users.user_email, users.user_auth_method, users.user_role_id, users.user_token, COALESCE(user_settings.user_config_force_mfa, 0) AS force_mfa,
         contacts.contact_title, contacts.contact_portal_role, clients.client_name
     FROM users
     INNER JOIN contacts ON contacts.contact_user_id = users.user_id
@@ -29,6 +29,8 @@ $role = $row['contact_portal_role'];
 $is_local = $row['user_auth_method'] === 'local';
 $has_2fa = !empty($row['user_token']);
 $force_mfa = intval($row['force_mfa']) === 1;
+$lms_roles = itflow_portal_assignable_roles();
+$cur_role_id = intval($row['user_role_id']);
 
 ?>
 <div class="modal-header">
@@ -64,6 +66,17 @@ $force_mfa = intval($row['force_mfa']) === 1;
         <div class="form-group">
             <label for="pu_edit_title<?= $user_id ?>">Title</label>
             <input type="text" class="form-control" id="pu_edit_title<?= $user_id ?>" name="title" value="<?= $title ?>" maxlength="200">
+        </div>
+
+                <div class="form-group">
+            <label for="pu_edit_lms_role<?= $user_id ?>">Agent module access (LMS)</label>
+            <select class="form-control" id="pu_edit_lms_role<?= $user_id ?>" name="user_role_id">
+                <option value="0">None - portal only</option>
+                <?php foreach ($lms_roles as $rid => $rname) { ?>
+                    <option value="<?= intval($rid) ?>" <?= $cur_role_id === intval($rid) ? 'selected' : '' ?>><?= nullable_htmlentities($rname) ?></option>
+                <?php } ?>
+            </select>
+            <small class="form-text text-muted">Optional. A module-only role (for example Training Manager) opens the full agent training module from the portal's Manage training button. Company-wide, not limited to their department. Only roles without Departments, Tickets/assets/docs, Assets or admin are listed.</small>
         </div>
 
         <?php if ($is_local) { ?>

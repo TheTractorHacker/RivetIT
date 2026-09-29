@@ -572,6 +572,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
                         $_SESSION['user_id']    = $user_id;
                         $_SESSION['csrf_token'] = randomString(32);
                         $_SESSION['logged']     = true;
+                        $_SESSION['user_type']  = 1;   // clears a stale department-login marker (index.php routes on it)
                         session_regenerate_id(true);
 
                         if ($force_mfa == 1 && $token == NULL) {

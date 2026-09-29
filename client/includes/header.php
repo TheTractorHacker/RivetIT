@@ -284,6 +284,13 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
          rule, every class name in it being novel. -->
     <link rel="stylesheet" href="/css/itflow_kb.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_kb.css') ?>">
 
+    <!-- Portal UI layer (navbar, hero, stat cards, tiles, profile). Portal-only
+         .portal-* selectors, so it goes last and needs no !important. -->
+    <link rel="stylesheet" href="/css/itflow_portal.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_portal.css') ?>">
+
+    <!-- Saved light/dark choice, applied before first paint. Synchronous on purpose. -->
+    <script src="/js/portal_theme.js?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/portal_theme.js') ?>"></script>
+
 </head>
 <?php
 /* ---------------------------------------------------------------------------
@@ -375,7 +382,7 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
      It is a direct child of .page and is internally balanced, so it adds no
      structural depth for client/includes/footer.php to close. -->
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark client-portal-nav" data-bs-theme="dark">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark client-portal-nav<?php if ($portal_preview_banner === null) { echo ' portal-nav-sticky'; } ?>" data-bs-theme="dark">
     <div class="container">
         <?php
         /* NAVBAR BRAND - two stacked lines, department over company.
@@ -439,8 +446,8 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
 
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
             <ul class="navbar-nav me-auto">
-                <li class="nav-item <?php if (basename($_SERVER['PHP_SELF']) == "index.php") {echo "active";} ?>">
-                    <a class="nav-link" href="/client/index.php">Home</a>
+                <li class="nav-item">
+                    <a class="nav-link <?php if (basename($_SERVER['PHP_SELF']) == "index.php") {echo "active";} ?>" href="/client/index.php">Home</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php if (basename($_SERVER['PHP_SELF']) == "tickets.php" || basename($_SERVER['PHP_SELF']) == "ticket_add.php" || basename($_SERVER['PHP_SELF']) == "ticket.php") {echo "active";} ?>" href="/client/tickets.php">Tickets</a>
@@ -518,18 +525,29 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
 
             </ul><!-- End left nav -->
 
-            <ul class="nav navbar-nav pull-right">
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                        <?php echo stripslashes(nullable_htmlentities($session_contact_name)); ?>
-                    </a>
-                    <div class="dropdown-menu">
-                        <a class="dropdown-item" href="/client/profile.php"><i class="fas fa-fw fa-user me-2"></i>Account</a>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item" href="/client/post.php?logout"><i class="fas fa-fw fa-sign-out-alt me-2"></i>Sign out</a>
-                    </div>
-                </li>
-            </ul>
+            <div class="portal-nav-right">
+                <button type="button" class="portal-theme-toggle" data-portal-theme-toggle aria-label="Switch light or dark mode" title="Switch light or dark mode">
+                    <i class="fas fa-moon portal-icon-moon" aria-hidden="true"></i><i class="fas fa-sun portal-icon-sun" aria-hidden="true"></i>
+                </button>
+                <ul class="nav navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span class="portal-user-chip">
+                                <span class="portal-user-avatar" aria-hidden="true"><?php echo nullable_htmlentities($session_contact_initials); ?></span>
+                                <span class="portal-user-name"><?php echo stripslashes(nullable_htmlentities($session_contact_name)); ?></span>
+                            </span>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a class="dropdown-item" href="/client/profile.php"><i class="fas fa-fw fa-user me-2"></i>Profile</a>
+                            <?php if (!empty($portal_lms_ok)) { ?>
+                                <a class="dropdown-item" href="/agent/training_dashboard.php"><i class="fas fa-fw fa-graduation-cap me-2"></i>Training management</a>
+                            <?php } ?>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="/client/post.php?logout"><i class="fas fa-fw fa-sign-out-alt me-2"></i>Sign out</a>
+                        </div>
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
 </nav>
@@ -549,41 +567,41 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
     <div class="page-body">
         <div class="container">
 
-    <div class="card welcome-banner border-0 shadow-sm mb-4">
-        <div class="card-body d-flex align-items-center">
+    <?php
+    /* Full hero on Home, slim identity strip everywhere else. */
+    $portal_is_home = basename($_SERVER['PHP_SELF']) === 'index.php';
+    $portal_hour = intval(date('G'));
+    $portal_greeting = $portal_hour < 12 ? 'Good morning' : ($portal_hour < 18 ? 'Good afternoon' : 'Good evening');
+    $portal_first_name = trim((string) strtok((string) $session_contact_name, ' '));
+    ?>
+    <?php if (basename($_SERVER['PHP_SELF']) !== 'profile.php') { ?>
+    <div class="card portal-hero mb-4<?php if (!$portal_is_home) { echo ' portal-hero--compact'; } ?>">
+        <div class="portal-hero-body">
             <?php if (!empty($session_contact_photo)) { ?>
-                <img src="/uploads/clients/<?= $session_client_id ?>/<?= $session_contact_photo ?>" alt="" height="56" width="56" class="rounded-circle me-3">
+                <img src="/uploads/clients/<?= $session_client_id ?>/<?= $session_contact_photo ?>" alt="" class="portal-hero-avatar">
             <?php } else { ?>
-                <span class="fa-stack fa-3x me-3">
-                    <i class="fa fa-circle fa-stack-2x text-primary"></i>
-                    <span class="fa-stack-1x text-white fw-bold"><?php echo $session_contact_initials; ?></span>
-                </span>
+                <span class="portal-hero-avatar" aria-hidden="true"><?php echo nullable_htmlentities($session_contact_initials); ?></span>
             <?php } ?>
-            <div>
-                <h4 class="mb-0">Welcome back, <strong><?php echo stripslashes(nullable_htmlentities($session_contact_name)); ?></strong></h4>
-                <?php
-                /* The sub-line used to read "<company name> Department Portal",
-                   i.e. it printed the words "Department Portal" immediately
-                   after the COMPANY name and so asserted that the company was
-                   the department. It is the most explicit false note in the
-                   portal, and it is the line a contact reads first.
-
-                   Naming the department here is strictly more truthful and it
-                   does not duplicate the navbar: the navbar brand is a
-                   glanceable label, this is the sentence that tells you which
-                   portal you just landed in. The company is not repeated - it
-                   is two lines up in the brand and again in the footer.
-                   Fallback keeps the old string verbatim when the department
-                   name is unavailable. */
-                ?>
-                <small class="text-muted"><?php
+            <div class="portal-hero-text">
+                <div class="portal-hero-eyebrow"><?php echo $portal_greeting; ?></div>
+                <h1 class="portal-hero-title"><?php echo stripslashes(nullable_htmlentities($portal_is_home ? $portal_first_name : $session_contact_name)); ?></h1>
+                <span class="portal-hero-sub"><i class="fas fa-building" aria-hidden="true"></i><?php
                     echo $portal_dept_html !== ''
                         ? "$portal_dept_html Department Portal"
                         : "$portal_org_html Department Portal";
-                ?></small>
+                ?></span>
             </div>
+            <?php if ($portal_is_home) { ?>
+                <div class="portal-hero-actions">
+                    <a href="/client/ticket_add.php" class="btn btn-light"><i class="fas fa-plus me-2" aria-hidden="true"></i>New ticket</a>
+                    <?php if (intval($config_module_enable_training ?? 0) === 1 && !empty($config_training_schema_ready)) { ?>
+                        <a href="/client/training.php" class="btn btn-glass"><i class="fas fa-graduation-cap me-2" aria-hidden="true"></i>Training</a>
+                    <?php } ?>
+                </div>
+            <?php } ?>
         </div>
     </div>
+    <?php } ?>
 
     <?php
     //Alert Feedback
@@ -592,7 +610,7 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
             $_SESSION['alert_type'] = "info";
         }
         ?>
-        <div class="alert alert-<?php echo $_SESSION['alert_type']; ?>" id="alert">
+        <div class="alert alert-<?php echo $_SESSION['alert_type']; ?> portal-alert" id="alert">
             <?php echo nullable_htmlentities($_SESSION['alert_message']); ?>
             <button class='close' data-bs-dismiss='alert'>&times;</button>
         </div>

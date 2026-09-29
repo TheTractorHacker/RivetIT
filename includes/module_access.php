@@ -496,6 +496,49 @@ function itflow_profile_is_limited(array $profile): bool {
     return true;
 }
 
+/**
+ * Department (portal) logins may be given an agent role only if it is a module-only one: not archived, not
+ * admin, and holding none of Departments / Tickets, assets & docs / Assets. That is exactly a "limited" login
+ * (itflow_limited_access_decision() then fences it to its own modules), so a department login can never be
+ * granted the IT side of the app through this.
+ */
+function itflow_role_is_portal_assignable(int $role_id): bool {
+    global $mysqli;
+    if ($role_id < 1) {
+        return false;
+    }
+    $mods = "'" . implode("','", ITFLOW_FULL_AGENT_MODULES) . "'";
+    $r = mysqli_query($mysqli,
+        "SELECT r.role_id FROM user_roles r
+         WHERE r.role_id = $role_id AND r.role_archived_at IS NULL AND r.role_is_admin = 0
+         AND NOT EXISTS (SELECT 1 FROM user_role_permissions p JOIN modules m ON m.module_id = p.module_id
+                         WHERE p.user_role_id = r.role_id AND m.module_name IN ($mods) AND p.user_role_permission_level >= 1)
+         LIMIT 1");
+    return $r && mysqli_num_rows($r) === 1;
+}
+
+/** [role_id => role_name] for the department-login role dropdowns. */
+function itflow_portal_assignable_roles(): array {
+    global $mysqli;
+    $out = [];
+    $res = mysqli_query($mysqli, "SELECT role_id, role_name FROM user_roles WHERE role_archived_at IS NULL AND role_is_admin = 0 ORDER BY role_name ASC");
+    while ($res && ($r = mysqli_fetch_assoc($res))) {
+        if (itflow_role_is_portal_assignable(intval($r['role_id']))) {
+            $out[intval($r['role_id'])] = $r['role_name'];
+        }
+    }
+    return $out;
+}
+
+/** True when this department login holds an assignable role with Training (view or above): the portal then links to the LMS. */
+function itflow_portal_user_has_lms(int $user_id): bool {
+    if ($user_id < 1) {
+        return false;
+    }
+    $p = itflow_user_access_profile($user_id);
+    return itflow_role_is_portal_assignable(intval($p['role_id'])) && itflow_profile_level($p, 'module_training') >= 1;
+}
+
 function itflow_profile_can_assets(array $profile, int $level = 1): bool {
     return itflow_profile_level($profile, 'module_assets') >= $level || itflow_profile_level($profile, 'module_support') >= $level;
 }

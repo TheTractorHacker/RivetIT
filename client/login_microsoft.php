@@ -126,6 +126,7 @@ if (isset($_POST['code']) && $_POST['state'] == session_id()) {
                 $_SESSION['client_id'] = $client_id;
                 $_SESSION['user_id'] = $user_id;
                 $_SESSION['user_type'] = 2;
+                $_SESSION['logged'] = true;   // same as the local portal login: lets a department login with an LMS role open the agent training module
                 $_SESSION['contact_id'] = $contact_id;
                 $_SESSION['csrf_token'] = randomString(32);
                 $_SESSION['login_method'] = "azure";

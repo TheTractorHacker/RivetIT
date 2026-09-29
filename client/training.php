@@ -32,7 +32,9 @@ require_once __DIR__ . '/includes/training_common.php';
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <button type="submit" class="btn btn-primary"><i class="fas fa-play me-2"></i>Start training</button>
         </form>
-        <?php if ($tp_show_team) { ?>
+        <?php if ($portal_lms_ok) { ?>
+        <a href="/agent/training_dashboard.php" class="btn btn-outline-primary"><i class="fas fa-chart-bar me-2"></i>Manage training</a>
+        <?php } elseif ($tp_show_team) { ?>
         <a href="training_manage.php" class="btn btn-outline-primary"><i class="fas fa-chart-bar me-2"></i>Manage training</a>
         <?php } ?>
         <a href="ticket_add.php" class="btn btn-outline-primary"><i class="fas fa-life-ring me-2"></i>Report a training problem</a>

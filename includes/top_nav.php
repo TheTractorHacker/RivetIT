@@ -86,6 +86,11 @@ ob_start();
                 <i class="fas fa-bars"></i>
             </button>
         </li>
+        <?php if (intval($session_user_type ?? 1) === 2) { ?>
+        <li class="nav-item">
+            <a class="nav-link px-2" href="/client/index.php"><i class="fas fa-arrow-left me-1"></i><span class="d-none d-sm-inline">Back to portal</span></a>
+        </li>
+        <?php } ?>
         <?php if (!$top_nav_limited) { ?>
         <li class="nav-item d-none d-md-block">
             <!-- SEARCH FORM -->
@@ -198,7 +203,12 @@ ob_start();
                     <?php if ($session_is_admin) { ?>
                         <a href="/admin/" class="dropdown-item"><i class="fas fa-fw fa-user-shield me-2"></i>Administration</a>
                     <?php } ?>
+                    <?php if (intval($session_user_type ?? 1) === 2) { ?>
+                        <a href="/client/index.php" class="dropdown-item"><i class="fas fa-fw fa-arrow-left me-2"></i>Back to portal</a>
+                        <a href="/client/profile.php" class="dropdown-item"><i class="fas fa-fw fa-user-cog me-2"></i>Profile</a>
+                    <?php } else { ?>
                     <a href="/agent/user/user_details.php" class="dropdown-item"><i class="fas fa-fw fa-user-cog me-2"></i>Account</a>
+                    <?php } ?>
                     <div class="dropdown-divider"></div>
                     <a href="/agent/post.php?logout" class="dropdown-item"><i class="fas fa-fw fa-sign-out-alt me-2"></i>Logout</a>
                 </div>

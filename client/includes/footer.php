@@ -74,6 +74,8 @@
 
 <script src="/js/keepalive.js"></script>
 
+<script src="/js/portal.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/portal.js'); ?>"></script>
+
 <?php if (isset($portal_preview_banner) && $portal_preview_banner !== null) { ?>
     <!-- Read-only portal preview. Loaded ONLY while an agent is previewing, so a
          real portal contact never receives it. It is a usability layer, not the

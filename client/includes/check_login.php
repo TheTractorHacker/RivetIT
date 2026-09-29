@@ -332,3 +332,7 @@ $client_sql = mysqli_query($mysqli, "SELECT * FROM clients WHERE client_id = $se
 $client = mysqli_fetch_assoc($client_sql);
 
 $session_client_name = $client['client_name'];
+
+// Does this department login hold an agent role with Training (Admin > Users > Department logins)? Then the
+// portal's Manage training opens the full agent LMS. Never in a preview (no real user id).
+$portal_lms_ok = !$portal_preview_active && itflow_portal_user_has_lms(intval($session_user_id));

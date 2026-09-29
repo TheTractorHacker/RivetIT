@@ -28,8 +28,20 @@ $session_user_config_force_mfa = intval($row['user_config_force_mfa']);
 $user_config_records_per_page = intval($row['user_config_records_per_page']);
 $user_config_theme_dark = intval($row['user_config_theme_dark']);
 
-// Check user type is agent aka 1
-if ($session_user_type !== 1) {
+// Check user type is agent aka 1. The one exception: a department (portal) login (type 2) that an admin gave a
+// module-only role (Admin > Users > Department logins) may open the agent modules that role holds (the LMS).
+// It must be a real portal login, on a non-admin role with none of the full-agent modules, and a login that
+// still owes its required 2FA enrollment goes back to the portal profile first. Type 1 is unchanged.
+if ($session_user_type === 2 && !empty($_SESSION['client_logged_in']) && $session_user_role > 0
+    && empty($session_is_admin) && itflow_role_is_portal_assignable($session_user_role)) {
+    if ($session_user_config_force_mfa === 1 && empty($session_token)) {
+        redirect("/client/profile.php");
+    }
+    // The agent Account pages are for agents; a department login manages its account in the portal.
+    if (strpos(itflow_request_script(), '/agent/user/') === 0) {
+        redirect("/client/profile.php");
+    }
+} elseif ($session_user_type !== 1) {
     session_unset();
     session_destroy();
     redirect("/login.php");

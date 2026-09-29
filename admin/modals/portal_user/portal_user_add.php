@@ -72,6 +72,18 @@ $people = mysqli_query($mysqli, "SELECT contact_id, contact_name, contact_email,
             </select>
         </div>
 
+        <?php $lms_roles = itflow_portal_assignable_roles(); ?>
+        <div class="form-group">
+            <label for="pu_add_lms_role">Agent module access (LMS)</label>
+            <select class="form-control" id="pu_add_lms_role" name="user_role_id">
+                <option value="0">None - portal only</option>
+                <?php foreach ($lms_roles as $rid => $rname) { ?>
+                    <option value="<?= intval($rid) ?>"><?= nullable_htmlentities($rname) ?></option>
+                <?php } ?>
+            </select>
+            <small class="form-text text-muted">Optional. A module-only role (for example Training Manager) opens the full agent training module from the portal's Manage training button. Company-wide, not limited to their department. Only roles without Departments, Tickets/assets/docs, Assets or admin are listed.</small>
+        </div>
+
         <div class="form-group">
             <label for="pu_add_password">Password <strong class="text-danger">*</strong></label>
             <div class="input-group">

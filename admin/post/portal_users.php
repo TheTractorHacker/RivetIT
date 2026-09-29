@@ -14,6 +14,13 @@ function portalUserRole($value): string
     return in_array($value, ['none', 'supervisor', 'manager'], true) ? $value : 'none';
 }
 
+// The agent role a department login may hold (0 = none): validated against the module-only rule every time.
+function portalUserRoleId($value): int
+{
+    $id = intval($value);
+    return $id > 0 && itflow_role_is_portal_assignable($id) ? $id : 0;
+}
+
 // A portal login is unique by e-mail among portal accounts (agents may share the address; login.php offers a choice).
 function portalEmailTaken(mysqli $mysqli, string $email_esc, int $except_user_id = 0): bool
 {
@@ -36,6 +43,7 @@ if (isset($_POST['add_portal_user'])) {
     $email = sanitizeInput($_POST['email'] ?? '');
     $title = sanitizeInput($_POST['title'] ?? '');
     $role = portalUserRole($_POST['portal_role'] ?? 'none');
+    $agent_role_id = portalUserRoleId($_POST['user_role_id'] ?? 0);
     $password = trim((string) ($_POST['password'] ?? ''));
 
     $client_ok = $client_id > 0 && mysqli_num_rows(mysqli_query($mysqli, "SELECT client_id FROM clients WHERE client_id = $client_id AND client_archived_at IS NULL")) === 1;
@@ -64,7 +72,7 @@ if (isset($_POST['add_portal_user'])) {
     }
 
     $password_hash = password_hash($password, PASSWORD_DEFAULT);
-    mysqli_query($mysqli, "INSERT INTO users SET user_name = '$name', user_email = '$email', user_password = '$password_hash', user_auth_method = 'local', user_type = 2");
+    mysqli_query($mysqli, "INSERT INTO users SET user_name = '$name', user_email = '$email', user_password = '$password_hash', user_auth_method = 'local', user_type = 2, user_role_id = $agent_role_id");
     $user_id = mysqli_insert_id($mysqli);
     portalSetForceMfa($mysqli, $user_id, isset($_POST['force_mfa']) ? 1 : 0);
 
@@ -92,6 +100,7 @@ if (isset($_POST['edit_portal_user'])) {
     $email = sanitizeInput($_POST['email'] ?? '');
     $title = sanitizeInput($_POST['title'] ?? '');
     $role = portalUserRole($_POST['portal_role'] ?? 'none');
+    $agent_role_id = portalUserRoleId($_POST['user_role_id'] ?? 0);
     $new_password = trim((string) ($_POST['new_password'] ?? ''));
 
     $t = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT users.user_auth_method, contacts.contact_id, contacts.contact_client_id
@@ -115,7 +124,7 @@ if (isset($_POST['edit_portal_user'])) {
     }
 
     $contact_id = intval($t['contact_id']);
-    mysqli_query($mysqli, "UPDATE users SET user_name = '$name', user_email = '$email' WHERE user_id = $user_id AND user_type = 2");
+    mysqli_query($mysqli, "UPDATE users SET user_name = '$name', user_email = '$email', user_role_id = $agent_role_id WHERE user_id = $user_id AND user_type = 2");
     mysqli_query($mysqli, "UPDATE contacts SET contact_name = '$name', contact_email = '$email', contact_title = '$title', contact_portal_role = '$role' WHERE contact_id = $contact_id");
 
     // 2FA requirement only applies to local logins (the form only offers it for those).
@@ -130,7 +139,7 @@ if (isset($_POST['edit_portal_user'])) {
         mysqli_query($mysqli, "DELETE FROM remember_tokens WHERE remember_token_user_id = $user_id");
     }
 
-    logAction("Department Login", "Edit", "$session_name edited department login $name (role $role)", intval($t['contact_client_id']), $user_id);
+    logAction("Department Login", "Edit", "$session_name edited department login $name (role $role, agent role id $agent_role_id)", intval($t['contact_client_id']), $user_id);
 
     flash_alert("Department login for <strong>$name</strong> updated");
 

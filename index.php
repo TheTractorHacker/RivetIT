@@ -15,7 +15,8 @@ if (file_exists("config.php")) {
     require_once "includes/session_init.php";
 
     // If user is an agent
-    if (isset($_SESSION['logged'])) {
+    // (a department login also carries 'logged' so it can open its LMS role's agent pages; it still lands in the portal)
+    if (isset($_SESSION['logged']) && intval($_SESSION['user_type'] ?? 1) !== 2) {
         require_once "includes/load_global_settings.php";
         // Roles audit P0: a module-only login goes to its own module; everyone else to the start page.
         $limited_home = itflow_limited_home_url_for_user(intval($_SESSION['user_id'] ?? 0));
