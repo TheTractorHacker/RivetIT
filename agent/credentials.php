@@ -540,14 +540,14 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             if (empty($credential_uri)) {
                                 $credential_uri_display = "-";
                             } else {
-                                $credential_uri_display = "<a href='$credential_uri'>" . truncate($credential_uri,40) . "</a><button class='btn btn-sm clipboardjs' type='button' title='$credential_uri' data-clipboard-text='$credential_uri'><i class='far fa-copy text-secondary'></i></button>";
+                                $credential_uri_display = "<span class='cred-cell'><a href='$credential_uri' class='cred-text text-nowrap' title='$credential_uri'>" . truncate($credential_uri,40) . "</a><button class='btn btn-sm cred-btn clipboardjs' type='button' title='Copy URI' data-clipboard-text='$credential_uri'><i class='far fa-copy'></i></button></span>";
                             }
                             $credential_uri_2 = sanitize_url($row['credential_uri_2']);
                             $credential_username = nullable_htmlentities(decryptCredentialEntry($row['credential_username']));
                             if (empty($credential_username)) {
                                 $credential_username_display = "-";
                             } else {
-                                $credential_username_display = "$credential_username<button class='btn btn-sm clipboardjs' type='button' data-clipboard-text='$credential_username'><i class='far fa-copy text-secondary'></i></button>";
+                                $credential_username_display = "<span class='cred-cell'><span class='cred-text'>$credential_username</span><button class='btn btn-sm cred-btn clipboardjs' type='button' title='Copy username' data-clipboard-text='$credential_username'><i class='far fa-copy'></i></button></span>";
                             }
                             $credential_password = nullable_htmlentities(decryptCredentialEntry($row['credential_password']));
                             $credential_otp_secret = nullable_htmlentities($row['credential_otp_secret']);
@@ -643,7 +643,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                         <input class="form-check-input bulk-select" type="checkbox" name="credential_ids[]" value="<?php echo $credential_id ?>">
                                     </div>
                                 </td>
-                                <td>
+                                <td style="min-width:15rem;">
                                     <a class="text-dark ajax-modal" href="#"
                                         data-modal-url="modals/credential/credential_view.php?id=<?= $credential_id ?>">
                                         <div class="media">
@@ -663,9 +663,11 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 </td>
                                 <td class="text-nowrap"><?php echo $credential_username_display; ?></td>
                                 <td class="text-nowrap">
-                                    <div class="d-flex align-items-center">
-                                        <button class="btn p-0" type="button" data-bs-toggle="popover" data-trigger="focus" data-placement="top" data-content="<?php echo $credential_password; ?>"><i class="fas fa-2x fa-ellipsis-h text-secondary"></i><i class="fas fa-2x fa-ellipsis-h text-secondary"></i></button><button class="btn btn-sm clipboardjs" type="button" data-clipboard-text="<?php echo $credential_password; ?>"><i class="far fa-copy text-secondary"></i></button>
-                                    </div>
+                                    <span class="cred-cell">
+                                        <span class="cred-mask" aria-hidden="true">&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</span>
+                                        <button class="btn btn-sm cred-btn" type="button" aria-label="Show password" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-content="<?php echo $credential_password; ?>"><i class="far fa-eye"></i></button>
+                                        <button class="btn btn-sm cred-btn clipboardjs" type="button" title="Copy password" data-clipboard-text="<?php echo $credential_password; ?>"><i class="far fa-copy"></i></button>
+                                    </span>
                                 </td>
                                 <td class="text-nowrap"><?php echo $otp_display; ?></td>
                                 <td><?php echo $credential_uri_display; ?></td>

@@ -1051,17 +1051,39 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // ---- Clipboard copy with BS5 tooltip feedback ----
-    if (window.ClipboardJS) {
-        var clipboard = new ClipboardJS('.clipboardjs');
-        var flashTooltip = function (el, message) {
-            var tip = bootstrap.Tooltip.getOrCreateInstance(el, { trigger: 'manual', placement: 'bottom', title: message });
-            tip.setContent({ '.tooltip-inner': message });
-            tip.show();
-            setTimeout(function () { tip.hide(); }, 1000);
-        };
-        clipboard.on('success', function (e) { flashTooltip(e.trigger, 'Copied!'); e.clearSelection(); });
-        clipboard.on('error', function (e) { flashTooltip(e.trigger, 'Failed!'); });
-    }
+    // Own handler instead of ClipboardJS: its hidden textarea is appended to <body>, which a
+    // Bootstrap modal's focus trap rejects, so copy buttons inside modals silently did nothing.
+    var flashTooltip = function (el, message) {
+        var tip = bootstrap.Tooltip.getOrCreateInstance(el, { trigger: 'manual', placement: 'bottom', title: message });
+        tip.setContent({ '.tooltip-inner': message });
+        tip.show();
+        setTimeout(function () { tip.hide(); }, 1000);
+    };
+    var legacyCopy = function (text, trigger) {
+        var host = trigger.closest('.modal') || document.body;
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+        host.appendChild(ta);
+        ta.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+        host.removeChild(ta);
+        trigger.focus();
+        return ok;
+    };
+    document.addEventListener('click', function (e) {
+        var trigger = e.target.closest('.clipboardjs');
+        if (!trigger) { return; }
+        var text = trigger.getAttribute('data-clipboard-text') || '';
+        var done = function (ok) { flashTooltip(trigger, ok ? 'Copied!' : 'Failed!'); };
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(legacyCopy(text, trigger)); });
+        } else {
+            done(legacyCopy(text, trigger));
+        }
+    });
 
     // ---- Tables (simple-datatables) ----
     document.querySelectorAll('.dataTables').forEach(function (el) {

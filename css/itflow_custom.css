@@ -1227,3 +1227,12 @@ body.dark-mode .content-wrapper small.text-muted {
     transform: rotate(180deg);
 }
 
+
+
+/* Credentials vault: value + action buttons sit in one tidy row (list and detail modal). */
+.cred-cell { display: inline-flex; align-items: center; gap: .25rem; max-width: 100%; vertical-align: middle; }
+.cred-text { min-width: 0; overflow-wrap: anywhere; }
+.cred-mask { font-family: var(--tblr-font-monospace, monospace); letter-spacing: .12em; color: var(--tblr-secondary, #6c757d); user-select: none; }
+.cred-btn { --tblr-btn-bg: transparent; --tblr-btn-border-color: transparent; --tblr-btn-hover-bg: var(--tblr-bg-surface-secondary, rgba(0,0,0,.06)); --tblr-btn-hover-border-color: transparent; --tblr-btn-active-bg: var(--tblr-bg-surface-secondary, rgba(0,0,0,.06)); --tblr-btn-active-border-color: transparent; box-shadow: none; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem; padding: 0; border: 0; background: transparent; color: var(--tblr-secondary, #6c757d); border-radius: .375rem; }
+.cred-btn:hover, .cred-btn:focus-visible { background: var(--tblr-bg-surface-secondary, rgba(0,0,0,.06)); color: var(--tblr-body-color, inherit); }
+.modal-body .table td { vertical-align: middle; padding-block: .6rem; }
