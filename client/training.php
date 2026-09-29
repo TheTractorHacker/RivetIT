@@ -2,7 +2,7 @@
 /*
  * Client Portal
  * Training: every contact sees their own required training; a department's Primary/Technical contacts see the
- * whole department, and anyone with direct reports (contacts.contact_manager_id, any depth) sees those people.
+ * whole department (as do contacts an admin made a department Manager), and anyone with direct reports (contacts.contact_manager_id, any depth) sees those people.
  * Read-only. Numbers come from the same compliance engine as Admin > Training > Reports, limited to this
  * contact's own department (fail-closed: a contact is only ever shown people from contact_client_id).
  */
@@ -28,7 +28,16 @@ use ITFlow\Training\Reports\PairSource;
 
 $tp_client_id = intval($session_client_id);
 $tp_me = intval($session_contact_id ?? 0);
-$tp_dept_wide = ($session_contact_primary == 1 || $session_contact_is_technical_contact);
+$tp_portal_role = 'none';
+if ($tp_me > 0) {
+    try {
+        $r = mysqli_query($mysqli, "SELECT contact_portal_role FROM contacts WHERE contact_id = $tp_me AND contact_client_id = $tp_client_id");
+        $tp_portal_role = ($r ? (mysqli_fetch_assoc($r)['contact_portal_role'] ?? 'none') : 'none');
+    } catch (Throwable $e) {
+        $tp_portal_role = 'none';
+    }
+}
+$tp_dept_wide = ($session_contact_primary == 1 || $session_contact_is_technical_contact || $tp_portal_role === 'manager');
 
 // Everyone below this contact in the manager chain (same department, bounded depth).
 $tp_reports = [];

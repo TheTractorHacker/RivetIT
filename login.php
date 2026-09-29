@@ -94,6 +94,7 @@ $config_mail_from_email = sanitizeInput($row['config_mail_from_email']);
 $config_mail_from_name  = sanitizeInput($row['config_mail_from_name']);
 
 $config_client_portal_enable     = intval($row['config_client_portal_enable']);
+$login_training_enabled          = intval($row['config_module_enable_training'] ?? 0) === 1;
 $config_login_remember_me_expire = max(30, intval($row['config_login_remember_me_expire']));
 
 $config_login_key_required = $row['config_login_key_required'];
@@ -680,7 +681,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
                             unset($_SESSION['pending_dual_login']);
                             unset($_SESSION['pending_mfa_login']);
 
-                            header("Location: client/index.php");
+                            // Supervisors and managers (set in Admin > Users > Department logins) land on their team's training.
+                            $portal_landing = "client/index.php";
+                            if (($selectedRow['contact_portal_role'] ?? 'none') !== 'none'
+                                && $login_training_enabled) {
+                                $portal_landing = "client/training.php";
+                            }
+                            header("Location: $portal_landing");
                             exit();
 
                         } else {

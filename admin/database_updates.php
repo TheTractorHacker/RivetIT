@@ -9461,3 +9461,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.107'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.107') {
+        // Owner ask 2026-09-29: manage department (portal) logins for supervisors and managers from
+        // Admin > Users. A manager sees the whole department's training in the portal, a supervisor sees
+        // their own team (via contact_manager_id). 'none' keeps every existing contact exactly as before.
+        mysqli_query($mysqli, "ALTER TABLE `contacts`
+            ADD COLUMN IF NOT EXISTS `contact_portal_role` enum('none','supervisor','manager') NOT NULL DEFAULT 'none'");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.108'");
+    }

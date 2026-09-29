@@ -19,6 +19,9 @@ $sql = mysqli_query(
 
 $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
+$users_toggle_active = 'technicians';
+require "includes/users_toggle.php";
+
 ?>
 
 <div class="card">

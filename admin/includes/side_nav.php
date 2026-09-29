@@ -32,8 +32,8 @@
             <ul class="navbar-nav pt-lg-2">
 
                 <li class="nav-item nav-section-title">ACCESS</li>
-                <li class="nav-item<?php if (basename($_SERVER["PHP_SELF"]) == "users.php") {echo " active";} ?>">
-                    <a href="/admin/users.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "users.php") {echo "active";} ?>">
+                <li class="nav-item<?php if (in_array(basename($_SERVER["PHP_SELF"]), ["users.php", "portal_users.php"], true)) {echo " active";} ?>">
+                    <a href="/admin/users.php" class="nav-link <?php if (in_array(basename($_SERVER["PHP_SELF"]), ["users.php", "portal_users.php"], true)) {echo "active";} ?>">
                         <span class="nav-link-icon"><i class="fas fa-users"></i></span>
                         <span class="nav-link-title">Users</span>
                     </a>
