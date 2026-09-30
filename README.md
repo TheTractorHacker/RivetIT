@@ -17,6 +17,8 @@
   ·
   <a href="docs/ARCHITECTURE.md">Architecture</a>
   ·
+  <a href="docs/user-guide">User Guides</a>
+  ·
   <a href="docs/API.md">API</a>
   ·
   <a href="CHANGELOG.md">Changelog</a>
