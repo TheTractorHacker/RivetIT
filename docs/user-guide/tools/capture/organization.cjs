@@ -414,7 +414,7 @@ async function personHref(page, name) {
   const wfCard = page.locator('.card', { has: page.locator('h5.card-title', { hasText: 'Workflows' }) }).first();
   await callout(page, [
     { selector: await mark(wfCard.locator('a[href*="workflow_run.php"]'), 'run-link'), n: 1 },
-    { selector: await mark(wfCard.locator('.select2-container'), 'wf-select'), n: 2 },
+    { selector: await mark(wfCard.locator('form select[name=workflow_template_id], form .select2-container').first(), 'wf-select'), n: 2 },
     { selector: await mark(wfCard.locator('button[name=start_employee_workflow]'), 'wf-start'), n: 3, side: 'tr' },
   ]);
   await shot(page, `${G}/22-person-workflows-card`, { selector: await mark(wfCard, 'wf-card-shot') });

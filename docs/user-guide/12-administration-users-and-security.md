@@ -23,7 +23,7 @@ Only administrators see the **Administration** item in the name menu. It opens t
 
 ![The name menu open on the dashboard, with Administration marked 1](images/admin-accounts/01-administration-menu.png)
 
-*Figure 1 — (1) Administration opens the Administration area. (2) The name menu also holds Account and Logout.*
+*Figure 1 — (1) Administration opens the Administration area. (2) Select your name to open this menu. It also holds Account and Logout.*
 
 ![The Administration area on the Users page, with the sidebar marked 1 to 4](images/admin-accounts/02-administration-layout.png)
 
@@ -275,9 +275,22 @@ The sign-in page then shows **Login with Microsoft Entra**. Emptying the client 
 
 An API key lets a script or another system call the RivetIT API. Keys are not tied to a person or a role. A request with a key is handled as the oldest active user account, which is normally your first administrator, and appears under that name in the audit log. Treat a key like an administrator password.
 
+### The API Keys list
+
+**Administration → API Keys** lists every key with its department scope, permission, creation date and expiry.
+
+![The API Keys list with New API Key, Department, Permission, an expired key and the row menu marked 1 to 5](images/admin-accounts/11-api-keys.png)
+
+*Figure 11 — The API Keys list. (1) New API Key. (2) The department scope. (3) Read & Write or Read Only. (4) An expired key. (5) The row menu.*
+
+- Only a fingerprint of each key is stored. The **Secret** column shows the last four characters of that fingerprint, not of your copy, so identify keys by name and date.
+- **Revoke** (active keys, with confirmation) sets the expiry to now. **Delete** appears for expired keys.
+- Tick rows to open **Bulk Action**, then **Delete**. It removes the selected keys at once, active or expired, with no confirmation.
+- Disabling or archiving a user deletes that person's mobile app tokens. Each person sees their own under **Account → Security**.
+
 ### Create an API key
 
-1. Go to **Administration → API Keys** and select **New API Key**.
+1. Select **New API Key**.
 2. On **Details**, enter a **Name** that says what uses the key, and an **Expiration Date**. The key stops working at the start of that day.
 3. Set **Department Access** to **ALL DEPARTMENTS** or one department.
 4. Set **Permission** to **Read & Write** or **Read Only**. A read-only key can only make GET requests. Anything else is refused and logged.
@@ -286,20 +299,9 @@ An API key lets a script or another system call the RivetIT API. Keys are not ti
 
 ![The New Key pop-up with expiry, department access, permission and the Keys tab marked 1 to 4](images/admin-accounts/12-new-api-key.png)
 
-*Figure 11 — The New Key pop-up, filled in with example values. (1) Expiration Date. (2) Department Access. (3) Permission. (4) The Keys tab.*
+*Figure 12 — The New Key pop-up, filled in with example values. (1) Expiration Date. (2) Department Access. (3) Permission. (4) The Keys tab.*
 
-Callers send the key in an `X-Api-Key` header. A key cannot read stored credentials. Use a user token for that.
-
-### Manage keys
-
-![The API Keys list with New API Key, Department, Permission, an expired key and the row menu marked 1 to 5](images/admin-accounts/11-api-keys.png)
-
-*Figure 12 — The API Keys list. (1) New API Key. (2) The department scope. (3) Read & Write or Read Only. (4) An expired key. (5) The row menu.*
-
-- Only a fingerprint of each key is stored. The **Secret** column shows the last four characters of that fingerprint, not of your copy, so identify keys by name and date.
-- **Revoke** (active keys, with confirmation) sets the expiry to now. **Delete** appears for expired keys.
-- Tick rows to open **Bulk Action**, then **Delete**. It removes the selected keys at once, active or expired, with no confirmation.
-- When a person disables or archives an account, that person's mobile app tokens are deleted. They are listed under **Account → Security**.
+Callers send the key in an `X-Api-Key` header. A key cannot read stored credentials; the API refuses that, so use a user token instead.
 
 ### API Docs
 
@@ -309,7 +311,7 @@ Callers send the key in an `X-Api-Key` header. A key cannot read stored credenti
 
 *Figure 13 — API Docs. (1) Raw OpenAPI Spec and Public Reference Page. (2) The two ways to authenticate. (3) The search box.*
 
-Type in the search box to filter by path, summary or method. **Raw OpenAPI Spec** downloads the specification for Swagger UI, Postman or Insomnia. **Public Reference Page** opens the same reference without signing in. Callers may send `Authorization: Bearer <token>` or `X-Api-Key: <key>`, and each is limited to 300 requests per minute. The API still says **client** wherever the application says **Department**.
+Type in the search box to filter by path, summary or method. **Raw OpenAPI Spec** opens the specification for Swagger UI, Postman or Insomnia. **Public Reference Page** opens the same reference without signing in. Callers may send `Authorization: Bearer <token>` or `X-Api-Key: <key>`, and each is limited to 300 requests per minute. The API still says **client** wherever the application says **Department**.
 
 ## Logs
 
@@ -321,7 +323,7 @@ The audit log records who did what: sign-ins (successful, failed, blocked), and 
 
 ![Audit Logs searched for API, with the date range panel open](images/admin-accounts/14-audit-log.png)
 
-*Figure 14 — Audit Logs searched for "API". (1) The search box. (2) The Department, User, Type and Action filters. (3) The funnel opens the date range. (4) Date range. (5) Select a heading to sort.*
+*Figure 14 — Audit Logs searched for "API". (1) The search box. (2) The filters, starting with Department; User, Type and Action follow. (3) The funnel opens the date range. (4) Date range. (5) Select a heading to sort.*
 
 To find something:
 

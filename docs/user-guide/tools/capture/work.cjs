@@ -337,25 +337,11 @@ async function rowCount(page, selector = 'tbody tr') {
     await page.waitForSelector('#addCalendarEventModal.show', { state: 'detached', timeout: 8000 }).catch(() => {});
     await page.waitForTimeout(300);
 
-    // ================= Edit an existing event (opened from the list view) =================
-    await page.click('.fc-listMonth-button');
-    await page.waitForSelector('.fc-list-event', { timeout: 10000 });
-    const evRow = page.locator('.fc-list-event', { hasText: 'Quarterly Security Review' }).first();
-    if (!(await evRow.count())) fail('list view: "Quarterly Security Review" missing');
-    await evRow.click();
-    await page.waitForSelector('.modal.show form', { timeout: 10000 }).catch(() => fail('Edit event pop-up did not open'));
-    await page.waitForTimeout(500);
-    await page.locator('.modal.show .nav-pills a', { hasText: 'Details' }).click();
-    await page.waitForTimeout(400);
-    await page.evaluate(() => document.activeElement && document.activeElement.blur());
-    await shot(page, `${G}/15-edit-event`, { selector: '.modal.show .modal-content' });
-    await closeModal(page);
-
     // ================= Calendar Sync card =================
     await goto(page, '/agent/calendar.php');
     await checkPage(page, 'calendar (sync card)');
     const syncCard = await mark(page, 'sync', '.card', 'Calendar Sync', '.col-md-3');
-    await shot(page, `${G}/16-calendar-sync`, { selector: syncCard });
+    await shot(page, `${G}/15-calendar-sync`, { selector: syncCard });
   } finally {
     await browser.close();
   }

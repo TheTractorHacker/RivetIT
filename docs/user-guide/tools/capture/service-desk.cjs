@@ -303,10 +303,7 @@ async function collapseSidebar(page) {
   ]);
   await shot(page, `${G}/26-request-something`);
   await clearCallouts(page);
-  // A tile whose category is a group that has sub-categories opens with the Category box empty (the form
-  // only lists the sub-categories), so the pre-filled shot uses a tile filed under a plain category.
-  const avTile = page.locator('.service-catalog-tile', { hasText: 'Conference Room AV' });
-  await ((await avTile.count()) ? avTile.first() : page.locator('.service-catalog-tile').first()).click();
+  await page.locator('.service-catalog-tile').first().click();
   await page.waitForSelector('.modal.show .modal-content');
   await page.waitForTimeout(1500);
   await shot(page, `${G}/27-request-something-prefilled`, { selector: '.modal.show .modal-content' });

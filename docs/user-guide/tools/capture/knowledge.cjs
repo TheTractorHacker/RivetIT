@@ -373,7 +373,7 @@ function fsRenameRelation(rel) {
     await page.fill(`${MODAL} input[name=model]`, 'HP LaserJet Pro M404dn');
     await shot(page, next('printer-new'), { selector: MODAL });
     await closeModal(page);
-    await prow.locator('a.ajax-modal').click();
+    await prow.locator('a.ajax-modal').first().click();
     await waitModal(page);
     await shot(page, next('printer-details'), { selector: MODAL });
     await closeModal(page);
