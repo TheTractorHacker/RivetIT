@@ -27,7 +27,9 @@ async function check(page, { rows = 0, text = [] } = {}) {
     const n = await page.locator('table tbody tr').count();
     if (n < rows) fail(`expected at least ${rows} table rows on ${page.url()}, found ${n}`);
   }
-  for (const t of text) if (!body.includes(t)) fail(`"${t}" not found on ${page.url()}`);
+  // innerText follows CSS text-transform (table headers are upper-cased), so compare case-insensitively
+  const lower = body.toLowerCase();
+  for (const t of text) if (!lower.includes(t.toLowerCase())) fail(`"${t}" not found on ${page.url()}`);
 }
 
 async function mark(locator, id) {
@@ -158,7 +160,7 @@ async function rowLinkId(page, url, text, param) {
   // 03 - inline status change (open only)
   await goto(page, '/agent/assets.php?type=workstation');
   await page.locator('tr[data-asset-id] td[data-field=status] .asset-inline-trigger').first().click();
-  await page.waitForSelector('.ts-dropdown', { state: 'visible' });
+  await page.locator('.ts-dropdown:visible').first().waitFor();
   await settle(page, 500);
   const stRow = page.locator('tr[data-asset-id]').first();
   let bb = await stRow.boundingBox();
@@ -168,7 +170,7 @@ async function rowLinkId(page, url, text, param) {
   // 04 - inline "Assigned To" search (typed text only, never saved)
   await goto(page, '/agent/assets.php?type=workstation');
   await page.locator('tr[data-asset-id] td[data-field=contact] .asset-inline-trigger').first().click();
-  await page.waitForSelector('.ts-control input', { state: 'visible' });
+  await page.locator('.ts-control input:visible').first().waitFor();
   await page.keyboard.type('Ma', { delay: 80 });
   await page.waitForTimeout(1200);
   bb = await page.locator('tr[data-asset-id]').first().boundingBox();

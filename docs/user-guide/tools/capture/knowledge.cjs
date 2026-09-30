@@ -305,10 +305,10 @@ function fsRenameRelation(rel) {
       await clearCallouts(page);
 
       // 20 - Type = API Key relabels the fields and hides the one-time-code field
-      await page.evaluate(() => window.jQuery('.modal.show select.js-credential-type').val('API Key').trigger('change'));
+      await page.evaluate(() => document.querySelector('.modal.show select.js-credential-type').tomselect.setValue('API Key'));
       await page.waitForTimeout(500);
       await shot(page, next('cred-new-apikey'), { selector: MODAL });
-      await page.evaluate(() => window.jQuery('.modal.show select.js-credential-type').val('Login').trigger('change'));
+      await page.evaluate(() => document.querySelector('.modal.show select.js-credential-type').tomselect.setValue('Login'));
 
       // 22 (taken now, numbered later) - Relation tab
       await page.click(`${MODAL} a:has-text("Relation")`);
@@ -404,7 +404,7 @@ function fsRenameRelation(rel) {
       await page.click('button:has-text("New Network Drive")');
       await waitModal(page);
       await page.fill(`${MODAL} input[name=name]`, 'HR Share');
-      await page.evaluate(() => window.jQuery('.modal.show select[name=letter]').val('H:').trigger('change'));
+      await page.evaluate(() => document.querySelector('.modal.show select[name=letter]').tomselect.setValue('H:'));
       await page.fill(`${MODAL} input[name=path]`, '\\\\SRV-FILE-01\\HR');
       await page.fill(`${MODAL} input[name=purpose]`, 'Personnel forms and onboarding packs');
       await shot(page, next('drive-new'), { selector: MODAL });

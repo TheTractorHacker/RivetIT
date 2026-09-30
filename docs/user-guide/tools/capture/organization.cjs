@@ -60,6 +60,13 @@ async function hideCrmCards(page) {
   });
 }
 
+// Choose an option in a Tom Select control (the app's dropdown widget).
+async function pickTom(page, selectSel, label) {
+  await page.click(`${selectSel} + .ts-wrapper .ts-control`);
+  await page.locator('.ts-dropdown .option', { hasText: label }).first().click();
+  await page.waitForTimeout(300);
+}
+
 async function setHeight(page, h) { await page.setViewportSize({ width: W, height: h }); }
 
 async function openModal(page, opener) {
@@ -139,12 +146,13 @@ async function personHref(page, name) {
   await page.fill('.modal.show input[name=name]', 'Quality Assurance');
   await page.fill('.modal.show input[name=abbreviation]', 'QA');
   await page.fill('.modal.show input[name=cost_center]', 'CC-520');
-  await page.selectOption('.modal.show select[name="tags[]"]', [{ label: 'Regulated' }]);
+  await pickTom(page, '.modal.show select[name="tags[]"]', 'Regulated');
+  await page.click('.modal.show .modal-title');
   await page.mouse.move(2, 2);
   const contactTab = await mark(page.locator('.modal.show a.nav-link', { hasText: 'Contact' }), 'nd-contact-tab');
   await callout(page, [
-    { selector: '.modal.show input[name=name]', n: 1 },
-    { selector: '.modal.show input[name=cost_center]', n: 2 },
+    { selector: '.modal.show input[name=name]', n: 1, side: 'tr' },
+    { selector: '.modal.show input[name=cost_center]', n: 2, side: 'tr' },
     { selector: contactTab, n: 3, side: 'tr' },
   ]);
   await shot(page, `${G}/04-new-department-details`, { selector: '.modal.show .modal-content' });
@@ -157,7 +165,7 @@ async function personHref(page, name) {
   await page.fill('.modal.show input[name=contact_phone]', '6085550155');
   await page.fill('.modal.show input[name=contact_email]', 'rosa.chen@summitridge.example');
   await callout(page, [
-    { selector: '.modal.show input[name=contact]', n: 1 },
+    { selector: '.modal.show input[name=contact]', n: 1, side: 'tr' },
     { selector: '.modal.show button[name=add_client]', n: 2, side: 'tr' },
   ]);
   await shot(page, `${G}/05-new-department-contact`, { selector: '.modal.show .modal-content' });
@@ -186,8 +194,8 @@ async function personHref(page, name) {
   await check(page, { text: ['Key Contacts', 'Quick Notes'] });
   await hideCrmCards(page);
   await callout(page, [
-    { selector: 'a.client-nav-back', n: 1 },
-    { selector: 'a.client-nav-header', n: 2, side: 'tr' },
+    { selector: 'a.client-nav-back', n: 1, side: 'br' },
+    { selector: 'a.client-nav-header', n: 2, side: 'br' },
     { selector: 'aside a[href*="/agent/contacts.php?client_id="]', n: 3, side: 'tr' },
     { selector: 'button[aria-label="Department actions"]', n: 4, side: 'tl' },
     { selector: '.js-dept-stats', n: 5, side: 'tl' },
@@ -207,7 +215,7 @@ async function personHref(page, name) {
     { selector: portalItem, n: 2, side: 'tl' },
     { selector: archiveItem, n: 3, side: 'tl' },
   ]);
-  await shotClip(page, '08-department-actions-menu', { x: 704, y: 84, width: 736, height: 380 });
+  await shotClip(page, '08-department-actions-menu', { x: 560, y: 84, width: 880, height: 380 });
   await clearCallouts(page);
   await page.keyboard.press('Escape');
 
@@ -263,7 +271,7 @@ async function personHref(page, name) {
   await setHeight(page, 1300);
   await goto(page, '/agent/contacts.php');
   await openModal(page, page.locator('button.ajax-modal', { hasText: 'New Contact' }).first());
-  await page.selectOption('.modal.show select[name=client_id]', { label: 'Production' });
+  await pickTom(page, '.modal.show select[name=client_id]', 'Production');
   await page.fill('.modal.show input[name=name]', 'Lucas Ferreira');
   await page.fill('.modal.show input[name=title]', 'Line Lead');
   await page.fill('.modal.show input[name=department]', 'Assembly Line 2');
@@ -272,10 +280,10 @@ async function personHref(page, name) {
   await page.fill('.modal.show input[name=email]', 'lucas.ferreira@summitridge.example');
   await page.mouse.move(2, 2);
   await callout(page, [
-    { selector: '.modal.show select[name=client_id] + .ts-wrapper', n: 1 },
+    { selector: '.modal.show select[name=client_id] + .ts-wrapper', n: 1, side: 'tr' },
     { selector: '.modal.show input[name=contact_primary]', n: 2, side: 'tr' },
-    { selector: '.modal.show input[name=department]', n: 3 },
-    { selector: '.modal.show input[name=start_date]', n: 4 },
+    { selector: '.modal.show input[name=department]', n: 3, side: 'tr' },
+    { selector: '.modal.show input[name=start_date]', n: 4, side: 'tr' },
   ]);
   await shot(page, `${G}/13-new-person-details`, { selector: '.modal.show .modal-content' });
   await clearCallouts(page);
@@ -283,8 +291,8 @@ async function personHref(page, name) {
   await page.click('.modal.show a.nav-link:has-text("Access")');
   await page.waitForTimeout(500);
   await callout(page, [
-    { selector: '.modal.show input[name=pin]', n: 1 },
-    { selector: '.modal.show select[name=auth_method] + .ts-wrapper', n: 2 },
+    { selector: '.modal.show input[name=pin]', n: 1, side: 'tr' },
+    { selector: '.modal.show select[name=auth_method] + .ts-wrapper', n: 2, side: 'tr' },
     { selector: '.modal.show input[name=contact_important]', n: 3, side: 'tr' },
     { selector: '.modal.show input[name=contact_technical]', n: 4, side: 'tr' },
   ]);
@@ -300,11 +308,11 @@ async function personHref(page, name) {
   await openModal(page, page.locator('.dropdown-menu.show a', { hasText: 'Edit' }).first());
   await page.mouse.move(2, 2);
   await callout(page, [
-    { selector: '.modal.show input[name=employee_id]', n: 1 },
-    { selector: '.modal.show select[name=manager_id] + .ts-wrapper', n: 2 },
-    { selector: '.modal.show select[name=employee_type] + .ts-wrapper', n: 3 },
-    { selector: '.modal.show select[name=employment_status] + .ts-wrapper', n: 4 },
-    { selector: '.modal.show select[name=work_arrangement] + .ts-wrapper', n: 5 },
+    { selector: '.modal.show input[name=employee_id]', n: 1, side: 'tr' },
+    { selector: '.modal.show select[name=manager_id] + .ts-wrapper', n: 2, side: 'tr' },
+    { selector: '.modal.show select[name=employee_type] + .ts-wrapper', n: 3, side: 'tr' },
+    { selector: '.modal.show select[name=employment_status] + .ts-wrapper', n: 4, side: 'tr' },
+    { selector: '.modal.show select[name=work_arrangement] + .ts-wrapper', n: 5, side: 'tr' },
   ]);
   await shot(page, `${G}/15-edit-person`, { selector: '.modal.show .modal-content' });
   await clearCallouts(page);
@@ -320,7 +328,7 @@ async function personHref(page, name) {
     { selector: await mark(page.locator('.card', { has: page.locator('h5.card-title', { hasText: 'Employment' }) }), 'employment-card'), n: 2 },
     { selector: await mark(page.locator('.card', { has: page.locator('h5.card-title', { hasText: 'Workflows' }) }), 'workflows-card'), n: 3 },
     { selector: 'ol.breadcrumb + .btn-group', n: 4 },
-    { selector: await mark(page.locator('.card', { has: page.locator('h3.card-title', { hasText: 'History' }) }), 'history-card'), n: 5, side: 'tr' },
+    { selector: await mark(page.locator('.card', { has: page.locator('h3.card-title', { hasText: 'History' }) }), 'history-card'), n: 5, side: 'tl' },
   ]);
   await shot(page, `${G}/16-person-page`);
   await clearCallouts(page);
@@ -414,7 +422,7 @@ async function personHref(page, name) {
   const wfCard = page.locator('.card', { has: page.locator('h5.card-title', { hasText: 'Workflows' }) }).first();
   await callout(page, [
     { selector: await mark(wfCard.locator('a[href*="workflow_run.php"]'), 'run-link'), n: 1 },
-    { selector: await mark(wfCard.locator('form select[name=workflow_template_id], form .ts-wrapper').first(), 'wf-select'), n: 2 },
+    { selector: await mark(wfCard.locator('form .ts-wrapper').first(), 'wf-select'), n: 2 },
     { selector: await mark(wfCard.locator('button[name=start_employee_workflow]'), 'wf-start'), n: 3, side: 'tr' },
   ]);
   await shot(page, `${G}/22-person-workflows-card`, { selector: await mark(wfCard, 'wf-card-shot') });
