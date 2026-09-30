@@ -226,7 +226,6 @@ async function rowLinkId(page, url, text, param) {
   await clearCallouts(page);
 
   // 12 - linked items further down the same page
-  const linked = await boxOf(page, ['#asset-details-content .card:has(h3:has-text("Licenses"))', '#asset-details-content .card:has(h3:has-text("Linked Services"))'].map(() => null).filter(Boolean));
   const y1 = await page.evaluate(() => {
     const h = [...document.querySelectorAll('#asset-details-content h3.card-title')].find((e) => /Licenses/.test(e.textContent));
     return h ? h.closest('.card').getBoundingClientRect().top + scrollY : null;
