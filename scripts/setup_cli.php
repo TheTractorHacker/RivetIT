@@ -349,7 +349,10 @@ $site_encryption_master_key = randomString();
 $user_specific_encryption_ciphertext = setupFirstUserSpecificKey($user_password_plain, $site_encryption_master_key);
 
 mysqli_query($mysqli,"INSERT INTO users SET user_name = '$user_name', user_email = '$user_email', user_password = '$password_hash', user_specific_encryption_ciphertext = '$user_specific_encryption_ciphertext', user_role_id = 3");
-mysqli_query($mysqli,"INSERT INTO user_settings SET user_id = 1");
+// db.sql carries the AUTO_INCREMENT counter of the database it was dumped from, so the first user is not necessarily id 1.
+// A settings row for a user id that does not exist leaves the real admin without one, and every paginated list then divides by zero.
+$first_user_id = intval(mysqli_insert_id($mysqli));
+mysqli_query($mysqli,"INSERT INTO user_settings SET user_id = $first_user_id");
 echo "User $user_name created successfully.\n";
 
 // Company Details

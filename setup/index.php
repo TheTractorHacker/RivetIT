@@ -400,13 +400,16 @@ if (isset($_POST['add_user'])) {
     $user_specific_encryption_ciphertext = setupFirstUserSpecificKey(trim($_POST['password']), $site_encryption_master_key);
 
     mysqli_query($mysqli,"INSERT INTO users SET user_name = '$name', user_email = '$email', user_password = '$password', user_specific_encryption_ciphertext = '$user_specific_encryption_ciphertext', user_role_id = 3");
+    // db.sql carries the AUTO_INCREMENT counter of the database it was dumped from, so the first user is not necessarily id 1.
+    // Everything below that used a hard-coded 1 (avatar folder, avatar row, settings row) now uses the real id.
+    $first_user_id = intval(mysqli_insert_id($mysqli));
 
     // Persist the canonical copy now, while the freshly-minted master key is
     // still in scope - the ?company step (a separate request) has no way to
     // recover it otherwise. Must happen here, not later.
     setCanonicalVaultKey($mysqli, $site_encryption_master_key);
 
-    mkdirMissing("../uploads/users/1");
+    mkdirMissing("../uploads/users/$first_user_id");
 
     //Check to see if a file is attached
     if ($_FILES['file']['tmp_name'] != '') {
@@ -437,13 +440,13 @@ if (isset($_POST['add_user'])) {
 
         if ($file_error == 0) {
             // directory in which the uploaded file will be moved
-            $upload_file_dir = "../uploads/users/1/";
+            $upload_file_dir = "../uploads/users/$first_user_id/";
             $dest_path = $upload_file_dir . $new_file_name;
 
             move_uploaded_file($file_tmp_path, $dest_path);
 
             //Set Avatar
-            mysqli_query($mysqli,"UPDATE users SET user_avatar = '$new_file_name' WHERE user_id = 1");
+            mysqli_query($mysqli,"UPDATE users SET user_avatar = '$new_file_name' WHERE user_id = $first_user_id");
 
             $_SESSION['alert_message'] = 'File successfully uploaded.';
         } else {
@@ -453,7 +456,7 @@ if (isset($_POST['add_user'])) {
     }
 
     //Create Settings
-    mysqli_query($mysqli,"INSERT INTO user_settings SET user_id = 1");
+    mysqli_query($mysqli,"INSERT INTO user_settings SET user_id = $first_user_id");
 
     $_SESSION['alert_message'] = "User <strong>$name</strong> created";
 
