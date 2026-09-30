@@ -304,7 +304,7 @@ async function departmentId(page, name) {
       const techRail = await railPng(tech.page);
       await tech.context.close();
 
-      await composite(browser, `${G}/04-admin-vs-technician`, [
+      await composite(browser, `${G}/10-admin-vs-technician`, [
         { label: 'Administrator', note: 'Alex Morgan. Every module, plus the Administration area.', png: adminRail },
         { label: 'Technician', note: 'Priya Nair, standard Technician role. Same app, fewer entries.', png: techRail },
       ]);
@@ -326,7 +326,7 @@ async function departmentId(page, name) {
         { selector: '#globalSearchResults .app-header-search-seeall', n: 3, side: 'tr' },
       ]);
       const clip = await boxOf(page, ['form.app-header-search', '#globalSearchResults'], { l: 40, t: 24, r: 60, b: 30 });
-      await shotClip(page, `${G}/05-search-everywhere`, clip);
+      await shotClip(page, `${G}/09-search-everywhere`, clip);
       await clearCallouts(page);
       await page.keyboard.press('Escape');
       await page.evaluate(() => { const i = document.getElementById('globalSearchInput'); if (i) { i.value = ''; i.blur(); } });
@@ -345,7 +345,7 @@ async function departmentId(page, name) {
         { selector: '.modal.show .modal-footer a[href*="dismiss_all_notifications"]', n: 3, side: 'tr' },
         { selector: '.modal.show .modal-footer a[href="/agent/notifications.php"]', n: 4, side: 'tr' },
       ]);
-      await shot(page, `${G}/06-notifications`);
+      await shot(page, `${G}/08-notifications`);
       await clearCallouts(page);
       await page.click('.modal.show .modal-footer button:has-text("Close")');
       await page.waitForSelector('.modal.show', { state: 'detached' });
@@ -370,7 +370,7 @@ async function departmentId(page, name) {
         { selector: '#signature_template_btn', n: 4, side: 'tr' },
         { selector: 'button[name=edit_your_user_details]', n: 5, side: 'tr' },
       ]);
-      await shot(page, `${G}/07-account-details`);
+      await shot(page, `${G}/04-account-details`);
       await clearCallouts(page);
       await page.setViewportSize(VIEW);
     }
@@ -385,7 +385,7 @@ async function departmentId(page, name) {
         { selector: 'button[data-bs-target="#enableMFAModal"]', n: 2, side: 'tl' },
         { selector: '#addPasskeyBtn', n: 3, side: 'tl' },
       ]);
-      await shot(page, `${G}/08-account-security`);
+      await shot(page, `${G}/05-account-security`);
       await clearCallouts(page);
 
       // ==== 09  Turning on MFA: the QR pop-up (nothing is saved; Cancel closes it) ==================
@@ -413,7 +413,7 @@ async function departmentId(page, name) {
         { selector: '#enableMFAModal button[name=enable_mfa]', n: 3, side: 'tr' },
       ]);
       const clip = await boxOf(page, ['#enableMFAModal .modal-content'], { l: 30, r: 30, t: 20, b: 20 });
-      await shotClip(page, `${G}/09-mfa-setup`, clip);
+      await shotClip(page, `${G}/06-mfa-setup`, clip);
       await clearCallouts(page);
       await page.click('#enableMFAModal button:has-text("Cancel")');
       await page.waitForSelector('#enableMFAModal.show', { state: 'detached' }).catch(() => {});
@@ -431,7 +431,7 @@ async function departmentId(page, name) {
         { selector: 'button[name=edit_your_user_preferences]', n: 4, side: 'tr' },
       ]);
       const c = await boxOf(page, ['.card'], { l: 8, t: 8, r: 8, b: 8 });
-      await shotClip(page, `${G}/10-account-preferences`, { x: c.x, y: c.y, width: 640, height: c.height });
+      await shotClip(page, `${G}/07-account-preferences`, { x: c.x, y: c.y, width: 640, height: c.height });
       await clearCallouts(page);
     }
 
@@ -523,7 +523,7 @@ async function departmentId(page, name) {
         { selector: 'button[name=bulk_delete_contacts]', n: 3, side: 'tl' },
       ]);
       const c = await boxOf(page, ['.card-header', '#bulkActionButton .dropdown-menu', 'table'], { l: 10, t: 6, r: 10, b: 24 });
-      await shotClip(page, `${G}/14-archived-view`, c);
+      await shotClip(page, `${G}/16-archived-view`, c);
       await clearCallouts(page);
       await closeMenus(page);
     }
@@ -544,7 +544,7 @@ async function departmentId(page, name) {
       const foot = await boxOf(page, ['.card-footer'], { l: 8, t: 0, r: 8, b: 14 });
       const rows = await boxOf(page, ['table tbody tr:nth-last-child(2)'], {});
       const y = Math.max(0, rows.y - 4);
-      await shotClip(page, `${G}/15-paging`, { x: foot.x, y, width: foot.width, height: foot.y + foot.height - y });
+      await shotClip(page, `${G}/14-paging`, { x: foot.x, y, width: foot.width, height: foot.y + foot.height - y });
       await clearCallouts(page);
     }
 
@@ -566,7 +566,7 @@ async function departmentId(page, name) {
         { selector: '.modal.show .modal-footer button:not([type=submit])', n: 4, side: 'tr' },
       ]);
       const clip = await boxOf(page, ['.modal.show .modal-content'], { l: 30, r: 30, t: 20, b: 26 });
-      await shotClip(page, `${G}/16-popup-form`, clip);
+      await shotClip(page, `${G}/15-popup-form`, clip);
       await clearCallouts(page);
       await page.click('.modal.show .modal-footer button:has-text("Cancel")');
       await page.waitForSelector('.modal.show', { state: 'detached' });

@@ -303,7 +303,10 @@ async function collapseSidebar(page) {
   ]);
   await shot(page, `${G}/26-request-something`);
   await clearCallouts(page);
-  await page.locator('.service-catalog-tile').first().click();
+  // A tile whose category is a group that has sub-categories opens with the Category box empty (the form
+  // only lists the sub-categories), so the pre-filled shot uses a tile filed under a plain category.
+  const avTile = page.locator('.service-catalog-tile', { hasText: 'Conference Room AV' });
+  await ((await avTile.count()) ? avTile.first() : page.locator('.service-catalog-tile').first()).click();
   await page.waitForSelector('.modal.show .modal-content');
   await page.waitForTimeout(1500);
   await shot(page, `${G}/27-request-something-prefilled`, { selector: '.modal.show .modal-content' });
@@ -314,7 +317,7 @@ async function collapseSidebar(page) {
   await check(page, 'problems', { expectSelector: 'table tbody tr' });
   await callout(page, [
     { selector: 'button[data-modal-url*="problem_add"]', n: 1, side: 'tr' },
-    { selector: 'select[name=status]', n: 2 },
+    { selector: '.ts-wrapper', n: 2 },
     { selector: 'table thead th:nth-child(3)', n: 3 },
   ]);
   await shot(page, `${G}/28-problems-list`);

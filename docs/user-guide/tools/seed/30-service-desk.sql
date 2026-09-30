@@ -131,7 +131,7 @@ FROM (
          'Low', 'Quarterly',
          DATE_SUB(DATE_ADD(CURDATE(), INTERVAL 27 DAY), INTERVAL 6 MONTH),
          DATE_ADD(CURDATE(), INTERVAL 27 DAY),
-         'Network', 'marcus.lee@summitridge.example',
+         'Wi-Fi and Wired', 'marcus.lee@summitridge.example',
          'carlos.mendoza@summitridge.example', ''
 ) x
 JOIN contacts ct ON ct.contact_email = x.contact
@@ -189,7 +189,7 @@ INSERT INTO tmp_sd_tickets VALUES
 (5, 'Finance floor printer shows Offline for everyone', 'grace.okafor@summitridge.example', 'Printers and Peripherals', 'Medium', 'On Hold', 'priya.nair@summitridge.example', NULL, 'Portal', 'PRN-HQ-01',
    7000, NULL, NULL, 0, 240, 8500, 1, 0, 'Onsite', NULL, NULL, NULL, 0, NULL, NULL,
    '<p>The main printer on the Finance floor shows Offline for everyone. We need it for the check run on Friday.</p>'),
-(6, 'Slow file server access in the afternoons', 'tom.kessler@summitridge.example', 'Network', 'Medium', 'Closed', 'marcus.lee@summitridge.example', NULL, 'Portal', 'SRV-FILE-01',
+(6, 'Slow file server access in the afternoons', 'tom.kessler@summitridge.example', 'Wi-Fi and Wired', 'Medium', 'Closed', 'marcus.lee@summitridge.example', NULL, 'Portal', 'SRV-FILE-01',
    6500, 4000, NULL, 0, 240, 1440, 0, 0, 'Remote', 3, 'Better now, but it took a few tries.', 3900, 0, NULL, NULL,
    '<p>Opening files from the shared drive takes 30 seconds or more after about 2 pm. Mornings are fine.</p>'),
 (7, 'Desktop restarts randomly in the afternoon', 'miguel.alvarez@summitridge.example', 'Laptops and Desktops', 'Medium', 'Closed', 'priya.nair@summitridge.example', NULL, 'Email', 'DT-HR-01',

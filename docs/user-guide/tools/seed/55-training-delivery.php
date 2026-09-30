@@ -435,7 +435,7 @@ try {
         $saved = $sessions->save(null, null, [
             'request_uid' => uid32('session|forklift-dock3'),
             'course_id' => courseId('Forklift Safety Refresher'),
-            'held_on' => ymd(-6),
+            'held_on' => ymd(0),
             'start_time' => '13:00',
             'duration_minutes' => 90,
             'client_id' => deptId('Warehouse & Logistics'),
