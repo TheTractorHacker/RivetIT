@@ -21,11 +21,11 @@ The Administration area is where administrators decide who can sign in to RivetI
 
 Only administrators see the **Administration** item in the name menu. It opens the Administration area, which has its own sidebar.
 
-![The name menu open on the dashboard, with Administration marked 1](images/admin-accounts/01-administration-menu.png)
+![The name menu open on the dashboard, with Administration marked 1 and the name button marked 2](images/admin-accounts/01-administration-menu.png)
 
 *Figure 1 — (1) Administration opens the Administration area. (2) Select your name to open this menu. It also holds Account and Logout.*
 
-![The Administration area on the Users page, with the sidebar marked 1 to 4](images/admin-accounts/02-administration-layout.png)
+![The Administration area on the Users page, with the sidebar and name menu marked 1 to 5](images/admin-accounts/02-administration-layout.png)
 
 *Figure 2 — The Administration area. (1) The back arrow returns to the application. (2) ACCESS: Users, Roles, API Keys, API Docs. (3) Maintenance opens Cron, Mail Queue, Email Log, Audit Logs, App Logs, Backup, Credential Restore, Debug and Update. (4) Settings opens Security, Identity Provider and the other settings. (5) Your name menu.*
 

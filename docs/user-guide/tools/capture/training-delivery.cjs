@@ -77,14 +77,14 @@ async function kioskSignIn(context, name, pattern) {
   await expectNoError(page, 'assignments');
   await need(page, '#tro-a-table tbody tr', 'assignment rows');
   await callout(page, [{ selector: '#tro-a-status', n: 1 }, { selector: '#tro-a-q', n: 2 }, { selector: '#tro-a-dept', n: 3 },
-    { selector: '#tro-a-table tbody tr:first-child .dropdown-toggle', n: 4, side: 'tr' }, { selector: '#tro-assign', n: 5, side: 'tr' }]);
+    { selector: '#tro-a-table tbody tr:first-child .tro-actions button', n: 4, side: 'tr' }, { selector: '#tro-assign', n: 5, side: 'tr' }]);
   await shot(page, `${G}/02-assignments-list`);
   await clearCallouts(page);
 
   // 03 Overdue view with the row menu open
   await goto(page, '/agent/training_assignments.php?status=overdue');
   await need(page, '#tro-a-table tbody tr', 'overdue rows');
-  await page.locator('#tro-a-table tbody tr:nth-child(2) .dropdown-toggle').click();
+  await page.locator('#tro-a-table tbody tr:nth-child(2) .tro-actions button').click();
   await page.waitForTimeout(400);
   await shot(page, `${G}/03-row-menu`);
   await page.keyboard.press('Escape');
@@ -108,7 +108,7 @@ async function kioskSignIn(context, name, pattern) {
 
   // 05 Extend and 06 Waive
   await goto(page, '/agent/training_assignments.php?status=overdue');
-  await page.locator('#tro-a-table tbody tr:first-child .dropdown-toggle').click();
+  await page.locator('#tro-a-table tbody tr:first-child .tro-actions button').click();
   await page.locator('.dropdown-menu.show .dropdown-item', { hasText: 'Extend' }).click();
   await page.waitForSelector('.offcanvas.show');
   await page.waitForTimeout(500);
@@ -117,7 +117,7 @@ async function kioskSignIn(context, name, pattern) {
   await shot(page, `${G}/05-extend-due-date`, { selector: '.offcanvas.show' });
   await closeSheet(page);
 
-  await page.locator('#tro-a-table tbody tr:nth-child(3) .dropdown-toggle').click();
+  await page.locator('#tro-a-table tbody tr:nth-child(3) .tro-actions button').click();
   await page.locator('.dropdown-menu.show .dropdown-item', { hasText: 'Waive' }).click();
   await page.waitForSelector('.offcanvas.show');
   await page.waitForTimeout(500);
@@ -126,7 +126,7 @@ async function kioskSignIn(context, name, pattern) {
   await closeSheet(page);
 
   // 07 History
-  await page.locator('#tro-a-table tbody tr:first-child .dropdown-toggle').click();
+  await page.locator('#tro-a-table tbody tr:first-child .tro-actions button').click();
   await page.locator('.dropdown-menu.show .dropdown-item', { hasText: 'History' }).click();
   await page.waitForSelector('.offcanvas.show');
   await page.waitForTimeout(1200);
