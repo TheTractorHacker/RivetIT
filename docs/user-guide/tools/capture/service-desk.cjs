@@ -1,4 +1,4 @@
-// Screenshots for the Service Desk guide pages (03-tickets.md, 03b-..., 03c-...).
+// Screenshots for the Service Desk guide pages (03-service-desk.md, 03b-..., 03c-...).
 // Read-only: it opens pages and pop-ups, types illustrative text, and never presses a save button.
 //
 //   cd /home/user/RivetIT && NODE_PATH=$(npm root -g) node docs/user-guide/tools/capture/service-desk.cjs
@@ -138,12 +138,17 @@ async function collapseSidebar(page) {
   });
   await page.waitForTimeout(1500);
   // The Contact box is a search (it looks across departments): type a name and pick the first hit.
-  await page.click('.modal.show #contactSelect ~ .ts-wrapper .ts-control');
-  await page.keyboard.type('Grace', { delay: 60 });
-  await page.waitForSelector('.ts-dropdown .option', { timeout: 8000 });
-  await page.waitForTimeout(500);
-  await page.locator('.ts-dropdown .option').first().click();
-  await page.waitForTimeout(600);
+  // Cosmetic only - if the search box misbehaves the shot is still taken with the Contact box empty.
+  try {
+    await page.click('#contactSelect-ts-control', { timeout: 5000 });
+    await page.keyboard.type('Grace', { delay: 60 });
+    await page.waitForSelector('#contactSelect-ts-dropdown .option', { state: 'visible', timeout: 6000 });
+    await page.waitForTimeout(500);
+    await page.locator('#contactSelect-ts-dropdown .option').first().click({ timeout: 5000 });
+    await page.waitForTimeout(800);
+  } catch (e) {
+    console.warn('note: could not pick a contact in the New Ticket form (' + String(e.message).split('\n')[0] + ')');
+  }
   await shot(page, `${G}/08-new-ticket-contact`, { selector: '.modal.show .modal-content' });
   await page.click('.modal.show a[href="#pills-add-relationships"]');
   await page.waitForTimeout(500);
