@@ -17,7 +17,7 @@
   ·
   <a href="docs/ARCHITECTURE.md">Architecture</a>
   ·
-  <a href="docs/user-guide">User Guides</a>
+  <a href="https://github.com/TheTractorHacker/RivetIT/wiki">User Guides</a>
   ·
   <a href="docs/API.md">API</a>
   ·
