@@ -135,7 +135,7 @@ The person is active again under their original name. Do not use **Activate** on
 The arrow on **New User** opens two more actions. They appear only when there is more than one user.
 
 - **Export** → **Download CSV** saves a file with **Name**, **Email**, **Role**, **Status** and **Creation Date**. It lists every account, including archived people and Department Portal accounts.
-- **IR** (incident response) resets passwords in one step. Enter your own password and select **Reset passwords**. Every active account except yours gets a new random password, and the list of email addresses and passwords appears once on a plain page. Copy it before you leave, and pass the passwords on by phone, not email. The reset does not check the account type, so Department Portal accounts are reset too. There is no undo.
+- **IR** (incident response) resets passwords in one step. Enter your own password and select **Reset passwords**. Every account that is not archived, except yours, gets a new random password, and the list of email addresses and passwords appears once on a plain page. Copy it before you leave, and pass the passwords on by phone, not email. The reset does not check the account type, so Department Portal accounts are reset too. There is no undo.
 
 ## Roles and permissions
 
@@ -330,11 +330,11 @@ To find something:
 1. Type a word in the search box and press Enter. It matches the type, action, description, address, browser text, user name and department name.
 2. Narrow the list with **All Departments**, **All Users**, **All Types** and **All Actions**. The last two list only what exists.
 3. Select the funnel and pick a range under **Date range**. The default covers all time.
-4. Select a column heading to sort. Under 5 results show no page controls; otherwise choose how many rows per page.
+4. Select a column heading to sort. With more than 5 results, page controls and a rows-per-page box appear below the list.
 
 Useful searches: a person's name (their actions and sign-ins), an address such as a repeated failed sign-in, `Failed` or `Blocked`, `API` for integration problems, or `Credential` for who viewed or exported credentials.
 
-Entries are written when things happen. A few rules of thumb: **Failed login attempt using …** has no user because nobody was signed in, and API entries show the name of the key or address, not a person. Entries older than **Log retention** disappear.
+A **Failed login attempt using …** entry has no user, because nobody was signed in. Failed and blocked API calls also have no user. Entries older than **Log retention** disappear.
 
 ### App Logs
 
