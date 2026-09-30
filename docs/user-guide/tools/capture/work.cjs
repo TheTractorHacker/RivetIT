@@ -242,7 +242,7 @@ async function rowCount(page, selector = 'tbody tr') {
     if ((await rowCount(page, '#ticket_templates tbody tr')) < 4) fail('project template: expected four ticket templates');
     await callout(page, [
       { selector: await mark(page, 'pt-add', 'button', 'Add Ticket Template'), n: 1, side: 'tr' },
-      { selector: await mark(page, 'pt-tickets', '.card', 'Project Ticket Templates'), n: 2, side: 'tr' },
+      { selector: await mark(page, 'pt-tickets', '.card', 'Project Ticket Templates'), n: 2, side: 'bl' },
       { selector: await mark(page, 'pt-tasks', '.card', 'Project Task Templates'), n: 3 },
     ]);
     await shot(page, `${G}/09-project-template`, { selector: '.page-body .container-xl' });
@@ -284,7 +284,7 @@ async function rowCount(page, selector = 'tbody tr') {
       { selector: await mark(page, 'c-builtin', '.card', 'Built-in', '.col-md-3'), n: 2 },
       { selector: await mark(page, 'c-nav', '.fc-toolbar-chunk:first-child'), n: 3 },
       { selector: await mark(page, 'c-views', '.fc-toolbar-chunk:last-child .fc-button-group'), n: 4 },
-      { selector: await mark(page, 'c-new', '.fc-newEvent-button'), n: 5, side: 'tr' },
+      { selector: await mark(page, 'c-new', '.fc-newEvent-button'), n: 5 },
     ]);
     await shot(page, `${G}/12-calendar-month`);
     await clearCallouts(page);

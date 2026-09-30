@@ -137,12 +137,13 @@ async function collapseSidebar(page) {
     if (opt && sel.tomselect) sel.tomselect.setValue(opt.value);
   });
   await page.waitForTimeout(1500);
-  await page.evaluate(() => {
-    const sel = document.getElementById('contactSelect');
-    const opt = Array.from(sel.options).find((o) => /Grace/.test(o.text));
-    if (opt && sel.tomselect) sel.tomselect.setValue(opt.value);
-  });
+  // The Contact box is a search (it looks across departments): type a name and pick the first hit.
+  await page.click('.modal.show #contactSelect ~ .ts-wrapper .ts-control');
+  await page.keyboard.type('Grace', { delay: 60 });
+  await page.waitForSelector('.ts-dropdown .option', { timeout: 8000 });
   await page.waitForTimeout(500);
+  await page.locator('.ts-dropdown .option').first().click();
+  await page.waitForTimeout(600);
   await shot(page, `${G}/08-new-ticket-contact`, { selector: '.modal.show .modal-content' });
   await page.click('.modal.show a[href="#pills-add-relationships"]');
   await page.waitForTimeout(500);

@@ -305,10 +305,10 @@ function fsRenameRelation(rel) {
       await clearCallouts(page);
 
       // 20 - Type = API Key relabels the fields and hides the one-time-code field
-      await page.locator(`${MODAL} select.js-credential-type`).selectOption('API Key');
+      await page.evaluate(() => window.jQuery('.modal.show select.js-credential-type').val('API Key').trigger('change'));
       await page.waitForTimeout(500);
       await shot(page, next('cred-new-apikey'), { selector: MODAL });
-      await page.locator(`${MODAL} select.js-credential-type`).selectOption('Login');
+      await page.evaluate(() => window.jQuery('.modal.show select.js-credential-type').val('Login').trigger('change'));
 
       // 22 (taken now, numbered later) - Relation tab
       await page.click(`${MODAL} a:has-text("Relation")`);
@@ -349,7 +349,16 @@ function fsRenameRelation(rel) {
     await open(page, '/admin/settings_security.php', { expect: 'Vault Encryption' });
     await shot(page, next('vault-encryption'), { selector: '.card.card-dark >> nth=0' });
     await open(page, '/admin/backup.php', { expect: 'Encryption Key Backup' });
-    await shot(page, next('vault-key-backup'), { selector: '.card:has(h3:has-text("Encryption Key Backup"))' });
+    {
+      // the card stretches to the height of its neighbour; keep just the part with content
+      const kcard = page.locator('.card:has(h3:has-text("Encryption Key Backup"))').first();
+      const kb = await kcard.boundingBox();
+      const kname = next('vault-key-backup');
+      await page.mouse.move(2, 2);
+      await page.screenshot({ path: require('path').join(require('../lib.cjs').OUT, `${kname}.png`),
+        clip: { x: kb.x, y: kb.y, width: kb.width, height: Math.min(kb.height, 150) } });
+      console.log('saved', `docs/user-guide/images/${kname}.png`);
+    }
     await open(page, '/admin/credential_restore.php', { expect: 'Credential Restore' });
     await shot(page, next('credential-restore'), { selector: '.card.card-dark' });
 
@@ -365,14 +374,16 @@ function fsRenameRelation(rel) {
     ]);
     await shot(page, next('printers-list'));
     await clearCallouts(page);
-    await page.click('button:has-text("New Printer")');
-    await waitModal(page);
-    await page.fill(`${MODAL} input[name=name]`, 'HQ Reception - HP LaserJet Pro M404dn');
-    await page.fill(`${MODAL} input[name=ip_address]`, '10.10.20.42');
-    await page.fill(`${MODAL} input[name=physical_location]`, 'Front reception desk');
-    await page.fill(`${MODAL} input[name=model]`, 'HP LaserJet Pro M404dn');
-    await shot(page, next('printer-new'), { selector: MODAL });
-    await closeModal(page);
+    await tall(page, async () => {
+      await page.click('button:has-text("New Printer")');
+      await waitModal(page);
+      await page.fill(`${MODAL} input[name=name]`, 'HQ Reception - HP LaserJet Pro M404dn');
+      await page.fill(`${MODAL} input[name=ip_address]`, '10.10.20.42');
+      await page.fill(`${MODAL} input[name=physical_location]`, 'Front reception desk');
+      await page.fill(`${MODAL} input[name=model]`, 'HP LaserJet Pro M404dn');
+      await shot(page, next('printer-new'), { selector: MODAL });
+      await closeModal(page);
+    });
     await prow.locator('a.ajax-modal').first().click();
     await waitModal(page);
     await shot(page, next('printer-details'), { selector: MODAL });
@@ -389,14 +400,16 @@ function fsRenameRelation(rel) {
     ]);
     await shot(page, next('drives-list'));
     await clearCallouts(page);
-    await page.click('button:has-text("New Network Drive")');
-    await waitModal(page);
-    await page.fill(`${MODAL} input[name=name]`, 'HR Share');
-    await page.locator(`${MODAL} select[name=letter]`).selectOption('H:');
-    await page.fill(`${MODAL} input[name=path]`, '\\\\SRV-FILE-01\\HR');
-    await page.fill(`${MODAL} input[name=purpose]`, 'Personnel forms and onboarding packs');
-    await shot(page, next('drive-new'), { selector: MODAL });
-    await closeModal(page);
+    await tall(page, async () => {
+      await page.click('button:has-text("New Network Drive")');
+      await waitModal(page);
+      await page.fill(`${MODAL} input[name=name]`, 'HR Share');
+      await page.evaluate(() => window.jQuery('.modal.show select[name=letter]').val('H:').trigger('change'));
+      await page.fill(`${MODAL} input[name=path]`, '\\\\SRV-FILE-01\\HR');
+      await page.fill(`${MODAL} input[name=purpose]`, 'Personnel forms and onboarding packs');
+      await shot(page, next('drive-new'), { selector: MODAL });
+      await closeModal(page);
+    });
 
     console.log('done -', n, 'screenshots');
   } finally {
