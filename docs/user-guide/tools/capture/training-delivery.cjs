@@ -77,7 +77,7 @@ async function kioskSignIn(context, name, pattern) {
   await expectNoError(page, 'assignments');
   await need(page, '#tro-a-table tbody tr', 'assignment rows');
   await callout(page, [{ selector: '#tro-a-status', n: 1 }, { selector: '#tro-a-q', n: 2 }, { selector: '#tro-a-dept', n: 3 },
-    { selector: '#tro-a-table tbody tr:first-child .tro-actions button[data-bs-toggle=dropdown]', n: 4, side: 'tr' }, { selector: '#tro-assign', n: 5, side: 'tr' }]);
+    { selector: '#tro-a-table tbody tr:first-child .tro-actions button[data-bs-toggle=dropdown]', n: 4, side: 'tr' }, { selector: '#tro-assign', n: 5 }]);
   await shot(page, `${G}/02-assignments-list`);
   await clearCallouts(page);
 
@@ -101,7 +101,9 @@ async function kioskSignIn(context, name, pattern) {
   await pick.fill('Zoe');
   await page.waitForTimeout(900);
   await page.locator('.offcanvas.show [role=option], .offcanvas.show .tro-picker__item, .offcanvas.show li, .offcanvas.show button').filter({ hasText: /Zoe Hartman/ }).first().click();
-  await page.locator('.offcanvas.show select').first().selectOption({ label: 'Hazard Communication (HazCom)' }).catch(() => {});
+  const hazcom = await page.locator('.offcanvas.show select option').evaluateAll((os) => (os.find((o) => /^Hazard Communication/.test(o.textContent)) || {}).value);
+  if (!hazcom) fail('HazCom course option not found in Assign training');
+  await page.locator('.offcanvas.show select').first().selectOption(hazcom);
   await page.waitForTimeout(400);
   await shot(page, `${G}/04-assign-training`, { selector: '.offcanvas.show' });
   await closeSheet(page);
@@ -194,7 +196,7 @@ async function kioskSignIn(context, name, pattern) {
   // 15-17 Reports
   await goto(page, '/agent/training_reports.php');
   await expectNoError(page, 'matrix');
-  await callout(page, [{ selector: '.trr-filter__select >> nth=0', n: 1 }, { selector: '.trr-cell >> nth=8', n: 2 }]);
+  await callout(page, [{ selector: '.trr-filter__select', n: 1 }, { selector: '.trr-cell', n: 2 }]);
   await shot(page, `${G}/15-report-matrix`);
   await clearCallouts(page);
   await goto(page, '/agent/training_reports.php?tab=overdue');
@@ -240,7 +242,8 @@ async function kioskSignIn(context, name, pattern) {
   await settle(kp, 2500);
   await kp.fill('input[type=search], input[type=text]', 'sul');
   await settle(kp, 1200);
-  await callout(kp, [{ selector: 'input[type=search], input[type=text]', n: 1 }, { selector: 'button:has-text("Sullivan"), a:has-text("Sullivan")', n: 2, side: 'tr' }]);
+  await kp.evaluate(() => { const el = [...document.querySelectorAll('button, a')].find((e) => /Sullivan/.test(e.textContent)); if (el) el.setAttribute('data-ug', 'hit'); });
+  await callout(kp, [{ selector: 'input[type=search], input[type=text]', n: 1 }, { selector: '[data-ug=hit]', n: 2, side: 'tr' }]);
   await shot(kp, `${G}/24-kiosk-name-search`);
   await clearCallouts(kp);
   await kp.locator('button, a').filter({ hasText: /Sullivan/ }).first().click();
@@ -253,7 +256,7 @@ async function kioskSignIn(context, name, pattern) {
   const jctx = await browser.newContext({ viewport: { width: 1180, height: 820 }, colorScheme: 'light' });
   const jp = await kioskSignIn(jctx, 'jake', /Sullivan/);
   await need(jp, 'a[href*="course.php?c="]', 'course cards');
-  await callout(jp, [{ selector: 'a[href*="course.php?c="] >> nth=0', n: 1 }]);
+  await callout(jp, [{ selector: 'a[href*="course.php?c="]', n: 1 }]);
   await shot(jp, `${G}/26-kiosk-my-training-jake`, { fullPage: true });
   await clearCallouts(jp);
   await jctx.close();

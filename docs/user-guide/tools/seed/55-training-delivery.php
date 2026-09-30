@@ -86,6 +86,7 @@ use ITFlow\Training\Records\SessionService;
 use ITFlow\Training\Records\TrainerService;
 use ITFlow\Training\People\Scope;
 use ITFlow\Training\Records\CertSecret;
+use ITFlow\Training\Reports\SnapshotService;
 use ITFlow\Training\Records\CompletionService;
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
@@ -504,6 +505,21 @@ try {
             say("  run finished, skipped: $first $last - $course");
             continue;
         }
+        if ($existing) {
+            // Nothing left to do for this run: do not open (and close) another kiosk session on every re-run.
+            $runRow = one('SELECT trun_revision_id FROM training_runs WHERE trun_id = ' . (int) $existing['trun_id']);
+            $revNow = RevisionCache::get($mysqli, (int) $runRow['trun_revision_id']);
+            $byUidNow = RunRepo::lessons($revNow['doc']);
+            $doneNow = RunRepo::credited($mysqli, (int) $existing['trun_id']);
+            $todoNow = array_filter(array_slice(array_values(array_filter(RunRepo::order($revNow['doc']),
+                static fn(string $u) => in_array((string) ($byUidNow[$u]['type'] ?? ''), ['article', 'document', 'image'], true))), 0, $count),
+                static fn(string $u) => !isset($doneNow[$u]));
+            $attempt = one('SELECT tattempt_id FROM training_attempts WHERE tattempt_run_id = ' . (int) $existing['trun_id']);
+            if ($todoNow === [] && (!$exam || $attempt)) {
+                say("  run up to date, skipped: $first $last - $course");
+                continue;
+            }
+        }
         $started = Db::tx($mysqli, static function () use ($mysqli, $device, $cid, $ks): array {
             $st = KioskAuth::startSession($mysqli, $device, $cid, 'learner', ['ks' => $ks, 'source' => 'local', 'lang' => 'en']);
             foreach (KioskAuth::startEvents($st, 'user-guide demo seed') as $e) {
@@ -568,8 +584,10 @@ try {
         say('  run in progress: ' . $a['name']);
     }
 
-    // A last full reconcile so every list reads the final state.
+    // A last full reconcile so every list reads the final state, then today's compliance snapshot (what the nightly job
+    // and Admin > Training > Compliance "Capture today's snapshot" write), so the Overview trend has its first point.
     (new AssignmentService($ctx))->reconcile(null, 'reconcile_now');
+    SnapshotService::capture($mysqli, Clock::todayLocal());
 
     say('Done.');
 } catch (ApiException $e) {

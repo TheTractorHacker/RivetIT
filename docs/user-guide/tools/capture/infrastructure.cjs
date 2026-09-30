@@ -114,14 +114,14 @@ async function assetId(page, name) {
   }
   return id;
 }
-async function rowLinkId(page, url, text, param) {
+async function rowLinkHref(page, url, text) {
   await goto(page, url);
   const href = await page.evaluate((t) => {
-    const a = [...document.querySelectorAll('tbody tr a')].find((x) => x.textContent.includes(t) && /details\.php/.test(x.getAttribute('href') || ''));
+    const a = [...document.querySelectorAll('tbody tr a')].find((x) => x.textContent.trim().split('\n')[0].trim() === t && /details\.php/.test(x.getAttribute('href') || ''));
     return a ? a.getAttribute('href') : null;
   }, text);
   if (!href) fail(`row link for ${text} not found on ${url}`);
-  return new RegExp(param + '=(\\d+)').exec(href)[1];
+  return href.startsWith('/') ? href : `/agent/${href}`;
 }
 
 // ------------------------------------------------------------------- main ----
@@ -346,8 +346,7 @@ async function rowLinkId(page, url, text, param) {
   await clearCallouts(page);
 
   // 27 - domain details
-  const domId = await rowLinkId(page, '/agent/domains.php?q=summitridge.example', 'summitridge.example', 'id');
-  await goto(page, `/agent/domain_details.php?client_id=${exec}&id=${domId}`);
+  await goto(page, await rowLinkHref(page, '/agent/domains.php?q=summitridge.example', 'summitridge.example'));
   await check(page, { text: ['Who', 'WHOIS & DNS Records'] });
   await shot(page, `${G}/27-domain-details`, { fullPage: true });
 
@@ -365,8 +364,7 @@ async function rowLinkId(page, url, text, param) {
   await shot(page, `${G}/29-certificates-list`);
 
   // 30 - certificate details
-  const certId = await rowLinkId(page, '/agent/certificates.php?q=Employee', 'Employee portal', 'id');
-  await goto(page, `/agent/certificate_details.php?client_id=${exec}&id=${certId}`);
+  await goto(page, await rowLinkHref(page, '/agent/certificates.php?q=Employee', 'Employee portal'));
   await check(page, { text: ['Renew soon', 'Public Key'] });
   await shot(page, `${G}/30-certificate-details`);
 
