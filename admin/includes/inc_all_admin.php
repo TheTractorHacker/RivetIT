@@ -56,7 +56,7 @@ $admin_settings_labels = [
     'settings_unifi.php' => 'Integrations',
 ];
 if (isset($admin_settings_labels[$admin_settings_page])) { ?>
-    <nav aria-label="Breadcrumb" class="mb-3 small">
+    <nav aria-label="Breadcrumb" class="mb-3 admin-breadcrumb">
         <a href="/admin/settings.php"><i class="fas fa-fw fa-arrow-left me-1" aria-hidden="true"></i>All settings</a>
         <span class="text-muted mx-2" aria-hidden="true">/</span>
         <span aria-current="page"><?php echo nullable_htmlentities($admin_settings_labels[$admin_settings_page]); ?></span>
@@ -75,7 +75,7 @@ foreach (itflowAdminNavAreas() as $admin_area_key => $admin_area) {
         continue;
     }
     ?>
-    <nav aria-label="Breadcrumb" class="mb-3 small">
+    <nav aria-label="Breadcrumb" class="mb-3 admin-breadcrumb">
         <a href="/admin/<?php echo nullable_htmlentities($admin_area_key); ?>.php"><i class="fas fa-fw fa-arrow-left me-1" aria-hidden="true"></i><?php echo nullable_htmlentities($admin_area_back_labels[$admin_area_key]); ?></a>
         <span class="text-muted mx-2" aria-hidden="true">/</span>
         <span aria-current="page"><?php echo $page_title; ?></span>

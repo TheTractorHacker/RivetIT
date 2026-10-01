@@ -1151,7 +1151,7 @@ body.dark-mode .content-wrapper small.text-muted {
    body text, and BELOW the 16px of every sidebar .card-title on the same
    screen, so "Attachments" out-ranked "Google Maps API". (Tabler sizes h4 at
    1rem and the base font is already .875rem, so an h4 buys nothing here.)
-   18px against 16px/500 card titles and 13px/600 breadcrumbs gives the page one
+   18px against 16px/500 card titles and 16px breadcrumbs gives the page one
    unambiguous top of the hierarchy; the weight stays with .fw-bold's 700. */
 .ticket-alga-theme .ticket-header-compact h4 {
     font-size: 1.125rem;

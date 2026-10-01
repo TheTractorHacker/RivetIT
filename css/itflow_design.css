@@ -552,12 +552,10 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
 .modal-header { border-bottom: 1px solid var(--if-border); }
 .modal-footer { border-top: 1px solid var(--if-border); }
 
-/* ---- Breadcrumbs: unstyled Bootstrap defaults read as an afterthought (tiny,
-   cramped, plain "/" separators) sitting right above each detail page's title
-   card - quiet but legible wayfinding instead. ---- */
+/* ---- Breadcrumbs: readable wayfinding above detail pages. ---- */
 .breadcrumb {
   --bs-breadcrumb-divider: "\2039";
-  font-size: .82rem;
+  font-size: 1rem;
   padding: 0;
   margin-bottom: .6rem;
 }
@@ -568,6 +566,7 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
 .breadcrumb-item + .breadcrumb-item::before {
   color: var(--if-border-strong); font-weight: 700; padding-right: .6rem; padding-left: .1rem;
 }
+.admin-breadcrumb { font-size: 1rem; line-height: 1.5; }
 
 /* ---- Refined scrollbars (subtle, not loud) ---- */
 * { scrollbar-width: thin; scrollbar-color: var(--if-border-strong) transparent; }
