@@ -56,6 +56,10 @@ if (isset($_POST['run_cron_now'])) {
         flash_alert('Run Now is unavailable until exactly one main cron job is installed for this instance.', 'danger');
         redirect('/admin/cron.php');
     }
+    if (!$config_enable_cron) {
+        flash_alert('Enable Cron Job in Settings before running the main cron job.', 'danger');
+        redirect('/admin/cron.php');
+    }
 
     exec('/usr/bin/php ' . escapeshellarg($cron_script) . ' > /dev/null 2>&1 &');
     flash_alert('Cron started in the background. Check App Logs for results.');

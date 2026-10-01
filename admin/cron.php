@@ -25,7 +25,7 @@ $last_run = mysqli_fetch_assoc(mysqli_query($mysqli,
             <form action="/admin/post.php" method="POST" class="d-inline">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <input type="hidden" name="run_cron_now" value="1">
-                <button type="submit" class="btn btn-success btn-sm confirm-link" <?= $main_job ? '' : 'disabled title="No main cron job is installed for this instance"' ?>>
+                <button type="submit" class="btn btn-success btn-sm confirm-link" <?= $main_job && $config_enable_cron ? '' : 'disabled title="Install a main cron job and enable Cron in Settings first"' ?>>
                     <i class="fas fa-play me-1"></i>Run Now
                 </button>
             </form>
@@ -52,8 +52,16 @@ $last_run = mysqli_fetch_assoc(mysqli_query($mysqli,
                 before running the job again.
             </div>
         <?php else: ?>
-            <p class="mb-3">Main cron runs at <code><?= htmlspecialchars($main_job['schedule']) ?></code>
+            <p class="mb-3">Main cron is scheduled at <code><?= htmlspecialchars($main_job['schedule']) ?></code>
                 from <code><?= htmlspecialchars($main_job['file']) ?></code>.</p>
+            <?php if (!$config_enable_cron): ?>
+                <div class="alert alert-info mb-3">
+                    The system job is installed, but <strong>Enable Cron Job</strong> is off in
+                    <a href="/admin/settings_notification.php">Settings → Notifications</a>.
+                    The script exits without running tasks. This server shares client and mail data
+                    with another instance; review mail and invoice effects before enabling it.
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
 
         <?php if (!$can_edit_schedules && $jobs): ?>
