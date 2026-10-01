@@ -27,7 +27,7 @@ function fmt_age(?int $ts): string {
 ?>
 
 <!-- ── Hero card ─────────────────────────────────────────────────────────── -->
-<div class="card card-dark mb-3" style="border-top:3px solid #007bff;">
+<div class="card mb-3" style="border-top:3px solid #007bff;">
     <div class="card-body">
         <div class="row align-items-center">
             <div class="col-md-4">
@@ -98,7 +98,7 @@ function fmt_age(?int $ts): string {
 
     <!-- Schedule settings -->
     <div class="col-lg-7 mb-3 mb-lg-0">
-        <div class="card card-dark h-100">
+        <div class="card h-100">
             <div class="card-header py-2">
                 <h3 class="card-title"><i class="fas fa-fw fa-calendar-alt me-2"></i>Scheduled Backups</h3>
             </div>
@@ -167,7 +167,7 @@ function fmt_age(?int $ts): string {
 
     <!-- Master key -->
     <div class="col-lg-5">
-        <div class="card card-dark h-100">
+        <div class="card h-100">
             <div class="card-header py-2">
                 <h3 class="card-title"><i class="fas fa-fw fa-key me-2"></i>Encryption Key Backup</h3>
             </div>
@@ -194,7 +194,7 @@ function fmt_age(?int $ts): string {
 </div>
 
 <!-- ── Remote Storage (S3-compatible) ─────────────────────────────────────── -->
-<div class="card card-dark mb-3">
+<div class="card mb-3">
     <div class="card-header py-2">
         <h3 class="card-title"><i class="fas fa-fw fa-cloud-upload-alt me-2"></i>Remote Storage (S3-compatible)</h3>
     </div>
@@ -289,7 +289,7 @@ function fmt_age(?int $ts): string {
 </div>
 
 <!-- ── Backup history ─────────────────────────────────────────────────────── -->
-<div class="card card-dark">
+<div class="card">
     <div class="card-header py-2 d-flex align-items-center">
         <h3 class="card-title mr-auto"><i class="fas fa-fw fa-history me-2"></i>Backup History</h3>
         <?php if ($total > 0): ?>

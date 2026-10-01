@@ -15,7 +15,7 @@ $sql_tasks = mysqli_query($mysqli, "SELECT * FROM workflow_template_tasks WHERE 
 
 ?>
 
-<div class="card card-dark mb-3">
+<div class="card mb-3">
     <div class="card-header py-2 d-flex align-items-center">
         <h3 class="card-title me-auto"><i class="fas fa-fw fa-tasks me-2"></i><?= nullable_htmlentities($template['name']) ?>
             <span class="badge <?= $template['type'] === 'onboarding' ? 'text-bg-success' : 'text-bg-danger' ?> ms-2"><?= ucfirst($template['type']) ?></span>
@@ -42,7 +42,7 @@ $sql_tasks = mysqli_query($mysqli, "SELECT * FROM workflow_template_tasks WHERE 
     <?php } ?>
 </div>
 
-<div class="card card-dark mb-3">
+<div class="card mb-3">
     <div class="card-header py-2">
         <h5 class="card-title">Tasks</h5>
     </div>

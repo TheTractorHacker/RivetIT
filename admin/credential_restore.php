@@ -80,7 +80,7 @@ if ($decrypted && $backup_loaded) {
 
 ?>
 
-<div class="card card-dark">
+<div class="card">
     <div class="card-header">
         <h3 class="card-title"><i class="fas fa-fw fa-history me-2"></i>Credential Restore</h3>
     </div>

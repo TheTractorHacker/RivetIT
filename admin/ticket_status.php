@@ -17,9 +17,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
 ?>
 
-<div class="card card-dark">
+<div class="card">
     <div class="card-header py-2">
-        <h3 class="card-title mt-2"><i class="fas fa-fw fa-info-circle me-2"></i>Tickets Statuses</h3>
+        <h3 class="card-title mt-2"><i class="fas fa-fw fa-info-circle me-2"></i>Ticket statuses</h3>
         <div class="card-tools">
             <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/ticket_status/ticket_status_add.php"><i class="fas fa-plus me-2"></i>New Ticket Status</button>
         </div>

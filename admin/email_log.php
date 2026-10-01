@@ -48,7 +48,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
 ?>
 
-    <div class="card card-dark">
+    <div class="card">
         <div class="card-header py-3">
             <h3 class="card-title"><i class="fas fa-fw fa-inbox me-2"></i>Email Log</h3>
         </div>

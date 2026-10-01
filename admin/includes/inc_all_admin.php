@@ -62,3 +62,24 @@ if (isset($admin_settings_labels[$admin_settings_page])) { ?>
         <span aria-current="page"><?php echo nullable_htmlentities($admin_settings_labels[$admin_settings_page]); ?></span>
     </nav>
 <?php }
+
+require_once __DIR__ . '/admin_nav_areas.php';
+$admin_area_back_labels = [
+    'catalog_setup' => 'Tags & categories',
+    'ticketing_setup' => 'Ticketing setup',
+    'template_library' => 'All templates',
+    'maintenance' => 'Maintenance',
+];
+foreach (itflowAdminNavAreas() as $admin_area_key => $admin_area) {
+    if ($admin_settings_page === $admin_area_key . '.php' || !in_array($admin_settings_page, $admin_area['pages'], true)) {
+        continue;
+    }
+    ?>
+    <nav aria-label="Breadcrumb" class="mb-3 small">
+        <a href="/admin/<?php echo nullable_htmlentities($admin_area_key); ?>.php"><i class="fas fa-fw fa-arrow-left me-1" aria-hidden="true"></i><?php echo nullable_htmlentities($admin_area_back_labels[$admin_area_key]); ?></a>
+        <span class="text-muted mx-2" aria-hidden="true">/</span>
+        <span aria-current="page"><?php echo $page_title; ?></span>
+    </nav>
+    <?php
+    break;
+}

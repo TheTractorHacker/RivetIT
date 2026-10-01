@@ -11,7 +11,7 @@ $sql = mysqli_query($mysqli, "SELECT mr.*, m.mailbox_name, m.mailbox_email,
 
 ?>
 
-<div class="card card-dark">
+<div class="card">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-inbox me-2"></i>Requests</h3>
     </div>

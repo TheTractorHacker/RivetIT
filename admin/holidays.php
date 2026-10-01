@@ -46,7 +46,7 @@ while ($yr = mysqli_fetch_assoc($yres)) { $years_in_catalog[] = intval($yr['holi
 <!-- Filter querystring extras (country/year), so sort/page links don't drop them -->
 <?php $filter_extra_qs = ($filter_country !== '' ? '&country=' . urlencode($filter_country) : '') . ($filter_year > 0 ? '&year=' . $filter_year : ''); ?>
 
-<div class="card card-dark">
+<div class="card">
     <div class="card-header py-2">
         <h3 class="card-title mt-2">
             <i class="fas fa-fw fa-calendar-day me-2"></i>Holidays

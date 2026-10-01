@@ -53,61 +53,6 @@ $settings_groups = [
         ],
     ],
 ];
-?>
-<style nonce="<?php echo nullable_htmlentities($csp_nonce ?? ''); ?>">
-    .settings-directory [id] { scroll-margin-top: 5rem; }
-    .settings-directory__head { margin-bottom: 1rem; }
-    .settings-directory__head h1 { margin: 0; }
-    .settings-directory__head p { margin: .2rem 0 0; color: var(--if-muted, #5d6f76); }
-    .settings-directory__nav { position: sticky; top: 0; z-index: 20; margin-bottom: 1.25rem; padding: .5rem 0; background: var(--if-bg, #eef2f2); }
-    .settings-directory__nav ul { display: flex; gap: .25rem; overflow-x: auto; margin: 0; padding: .3rem; list-style: none; background: var(--if-surface, #fff); border: 1px solid var(--if-border, #e3e9ea); border-radius: var(--if-radius, 12px); }
-    .settings-directory__nav li { flex: 0 0 auto; }
-    .settings-directory__nav a { display: flex; align-items: center; gap: .45rem; padding: .45rem .8rem; border-radius: 8px; color: var(--if-muted, #5d6f76); font-weight: 500; white-space: nowrap; text-decoration: none; }
-    .settings-directory__nav a:hover, .settings-directory__nav a:focus-visible { color: var(--if-primary, #0d9488); background: rgba(var(--if-primary-rgb, 13, 148, 136), .1); }
-    .settings-directory__section + .settings-directory__section { margin-top: 1.5rem; }
-    .settings-directory__section-head { margin-bottom: .75rem; padding-bottom: .6rem; border-bottom: 1px solid var(--if-border-strong, #d3dbdc); }
-    .settings-directory__section-head h2 { margin: 0; font-size: 1.25rem; }
-    .settings-directory__section-head h2 i { color: var(--if-primary, #0d9488); }
-    .settings-directory__section-head p { margin: .2rem 0 0; color: var(--if-muted, #5d6f76); font-size: .875rem; }
-    .settings-directory__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: .65rem; }
-    .settings-directory__item { display: flex; align-items: flex-start; gap: .75rem; min-height: 4.5rem; padding: .85rem; background: var(--if-surface, #fff); border: 1px solid var(--if-border, #e3e9ea); border-radius: var(--if-radius, 12px); color: var(--if-ink, #16232a); text-decoration: none; }
-    .settings-directory__item:hover, .settings-directory__item:focus-visible { border-color: var(--if-primary, #0d9488); color: var(--if-ink, #16232a); box-shadow: var(--if-shadow, none); }
-    .settings-directory__item > i { margin-top: .15rem; color: var(--if-primary, #0d9488); }
-    .settings-directory__item strong, .settings-directory__item small { display: block; }
-    .settings-directory__item small { margin-top: .12rem; color: var(--if-muted, #5d6f76); line-height: 1.35; }
-</style>
-
-<div class="settings-directory">
-    <header class="settings-directory__head">
-        <h1 class="h2"><i class="fas fa-fw fa-cog me-2" aria-hidden="true"></i>Settings</h1>
-        <p>Choose what you want to configure.</p>
-    </header>
-    <nav class="settings-directory__nav" aria-label="Settings sections">
-        <ul>
-            <?php foreach ($settings_groups as $group_id => $group) { ?>
-                <li><a href="#<?php echo nullable_htmlentities($group_id); ?>"><i class="fas fa-fw <?php echo nullable_htmlentities($group['icon']); ?>" aria-hidden="true"></i><?php echo nullable_htmlentities($group['title']); ?></a></li>
-            <?php } ?>
-        </ul>
-    </nav>
-
-    <?php foreach ($settings_groups as $group_id => $group) { ?>
-        <section id="<?php echo nullable_htmlentities($group_id); ?>" class="settings-directory__section" aria-labelledby="settings-<?php echo nullable_htmlentities($group_id); ?>-title">
-            <div class="settings-directory__section-head">
-                <h2 id="settings-<?php echo nullable_htmlentities($group_id); ?>-title"><i class="fas fa-fw <?php echo nullable_htmlentities($group['icon']); ?> me-2" aria-hidden="true"></i><?php echo nullable_htmlentities($group['title']); ?></h2>
-                <p><?php echo nullable_htmlentities($group['description']); ?></p>
-            </div>
-            <div class="settings-directory__grid">
-                <?php foreach ($group['items'] as $item) {
-                    [$label, $description, $page, $icon] = $item;
-                    if (isset($item[4]) && !$item[4]) { continue; } ?>
-                    <a class="settings-directory__item" href="/admin/<?php echo nullable_htmlentities($page); ?>">
-                        <i class="fas fa-fw <?php echo nullable_htmlentities($icon); ?>" aria-hidden="true"></i>
-                        <span><strong><?php echo nullable_htmlentities($label); ?></strong><small><?php echo nullable_htmlentities($description); ?></small></span>
-                    </a>
-                <?php } ?>
-            </div>
-        </section>
-    <?php } ?>
-</div>
-
-<?php require_once "../includes/footer.php"; ?>
+require_once "includes/admin_directory.php";
+renderAdminDirectory('Settings', 'Choose what you want to configure.', 'fa-cog', $settings_groups);
+require_once "../includes/footer.php";

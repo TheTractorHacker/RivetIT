@@ -23,11 +23,16 @@
  */
 
 function getSettingsSearchIndex(): array {
-    global $config_module_enable_accounting, $config_module_enable_rmm, $config_module_enable_unifi,
+    global $config_module_enable_accounting, $config_module_enable_ticketing, $config_module_enable_itdoc,
+           $config_module_enable_rmm, $config_module_enable_unifi,
            $config_module_enable_intune, $config_client_portal_enable;
 
     return [
         ['label' => 'All settings',           'keywords' => ['admin settings', 'configure', 'preferences'],                         'url' => '/admin/settings.php',                    'visible' => true],
+        ['label' => 'Tags & categories',       'keywords' => ['tags', 'categories', 'custom links', 'people import', 'workflow templates'], 'url' => '/admin/catalog_setup.php',           'visible' => true],
+        ['label' => 'Ticketing setup',         'keywords' => ['ticket statuses', 'labor types', 'mailboxes', 'sla', 'holidays'],      'url' => '/admin/ticketing_setup.php',             'visible' => (bool) $config_module_enable_ticketing],
+        ['label' => 'Templates',               'keywords' => ['ticket template', 'project template', 'contract template', 'canned response'], 'url' => '/admin/template_library.php',     'visible' => (bool) $config_module_enable_itdoc],
+        ['label' => 'Maintenance',             'keywords' => ['cron', 'scheduled jobs', 'logs', 'backup', 'update'],                'url' => '/admin/maintenance.php',               'visible' => true],
         ['label' => 'Company Details',        'keywords' => ['company', 'address', 'logo', 'business info'],                          'url' => '/admin/settings_company.php',            'visible' => true],
         ['label' => 'Localization',            'keywords' => ['locale', 'timezone', 'currency', 'language', 'date format'],            'url' => '/admin/settings_localization.php',       'visible' => true],
         ['label' => 'Theme',                   'keywords' => ['theme', 'dark mode', 'color', 'accent', 'favicon'],                     'url' => '/admin/settings_theme.php',              'visible' => true],

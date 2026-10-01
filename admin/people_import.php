@@ -7,7 +7,7 @@ $preview = $_SESSION['people_import_preview'] ?? null;
 
 ?>
 
-<div class="card card-dark">
+<div class="card">
     <div class="card-header">
         <h3 class="card-title"><i class="fas fa-fw fa-file-import me-2"></i>People Import</h3>
     </div>

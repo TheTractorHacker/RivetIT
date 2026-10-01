@@ -1,3 +1,8 @@
+<?php
+require_once __DIR__ . '/admin_nav_areas.php';
+$admin_nav_areas = itflowAdminNavAreas();
+$admin_current_page = basename($_SERVER['PHP_SELF']);
+?>
 <!-- Admin Sidebar (Tabler vertical navbar).
      data-bs-theme="dark" keeps the sidebar dark in both app themes, exactly as the
      AdminLTE 4 shell did.
@@ -67,39 +72,12 @@
 
                 <li class="nav-item nav-section-title">CONFIGURATION</li>
 
-                <!-- TAGS & CATEGORIES Section -->
-                <?php $nav_open_tags = in_array(basename($_SERVER['PHP_SELF']), ['tag.php', 'category.php', 'custom_link.php', 'ai_provider.php', 'ai_model.php', 'people_import.php', 'employee_workflow_templates.php', 'employee_workflow_template_details.php']); ?>
-                <li class="nav-item dropdown mt-2<?php echo ($nav_open_tags ? ' active' : ''); ?>">
-                    <a href="#nav-group-tags" class="nav-link dropdown-toggle<?php echo ($nav_open_tags ? ' show' : ''); ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-tags" aria-expanded="<?php echo ($nav_open_tags ? 'true' : 'false'); ?>">
+                <?php $nav_open_tags = in_array($admin_current_page, $admin_nav_areas['catalog_setup']['pages'], true); ?>
+                <li class="nav-item<?php echo $nav_open_tags ? ' active' : ''; ?>">
+                    <a href="/admin/catalog_setup.php" class="nav-link<?php echo $nav_open_tags ? ' active' : ''; ?>"<?php echo $admin_current_page === 'catalog_setup.php' ? ' aria-current="page"' : ''; ?>>
                         <span class="nav-link-icon"><i class="fas fa-sliders-h"></i></span>
                         <span class="nav-link-title">Tags &amp; Categories</span>
                     </a>
-                    <div class="dropdown-menu<?php echo ($nav_open_tags ? ' show' : ''); ?>" id="nav-group-tags">
-                        <a href="/admin/tag.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'tag.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-tags"></i></span>
-                            <span class="text-truncate">Tags</span>
-                        </a>
-                        <a href="/admin/category.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'category.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-list-ul"></i></span>
-                            <span class="text-truncate">Categories</span>
-                        </a>
-                        <a href="/admin/custom_link.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'custom_link.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-external-link-alt"></i></span>
-                            <span class="text-truncate">Custom Links</span>
-                        </a>
-                        <a href="/admin/ai_provider.php" class="dropdown-item <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['ai_provider.php', 'ai_model.php']) ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-robot"></i></span>
-                            <span class="text-truncate">AI Providers</span>
-                        </a>
-                        <a href="/admin/people_import.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'people_import.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-file-import"></i></span>
-                            <span class="text-truncate">People Import</span>
-                        </a>
-                        <a href="/admin/employee_workflow_templates.php" class="dropdown-item <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['employee_workflow_templates.php', 'employee_workflow_template_details.php']) ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-tasks"></i></span>
-                            <span class="text-truncate">Employee Workflow Templates</span>
-                        </a>
-                    </div>
                 </li>
 
                 <?php if ($config_module_enable_accounting) { ?>
@@ -161,157 +139,31 @@
                 <?php } ?>
 
                 <?php if ($config_module_enable_ticketing) { ?>
-                <!-- TICKETING Section -->
-                <?php $nav_open_ticketing = in_array(basename($_SERVER['PHP_SELF']), ['ticket_status.php', 'labor_type.php', 'ticket_automation.php', 'mailbox.php', 'mail_requests.php', 'sla_calendars.php', 'sla_policies.php', 'holidays.php']); ?>
-                <li class="nav-item dropdown mt-2<?php echo ($nav_open_ticketing ? ' active' : ''); ?>">
-                    <a href="#nav-group-ticketing" class="nav-link dropdown-toggle<?php echo ($nav_open_ticketing ? ' show' : ''); ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-ticketing" aria-expanded="<?php echo ($nav_open_ticketing ? 'true' : 'false'); ?>">
+                <?php $nav_open_ticketing = in_array($admin_current_page, $admin_nav_areas['ticketing_setup']['pages'], true); ?>
+                <li class="nav-item<?php echo $nav_open_ticketing ? ' active' : ''; ?>">
+                    <a href="/admin/ticketing_setup.php" class="nav-link<?php echo $nav_open_ticketing ? ' active' : ''; ?>"<?php echo $admin_current_page === 'ticketing_setup.php' ? ' aria-current="page"' : ''; ?>>
                         <span class="nav-link-icon"><i class="fas fa-life-ring"></i></span>
                         <span class="nav-link-title">Ticketing</span>
                     </a>
-                    <div class="dropdown-menu<?php echo ($nav_open_ticketing ? ' show' : ''); ?>" id="nav-group-ticketing">
-                        <a href="/admin/ticket_status.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'ticket_status.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-info-circle"></i></span>
-                            <span class="text-truncate">Ticket Statuses</span>
-                        </a>
-                        <a href="/admin/labor_type.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'labor_type.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-clock"></i></span>
-                            <span class="text-truncate">Labor Types</span>
-                        </a>
-                        <a href="/admin/mailbox.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'mailbox.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-inbox"></i></span>
-                            <span class="text-truncate">Mailboxes</span>
-                        </a>
-                        <a href="/admin/mail_requests.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'mail_requests.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-envelope-open-text"></i></span>
-                            <span class="text-truncate">Requests</span>
-                        </a>
-                        <a href="/admin/ticket_automation.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'ticket_automation.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-robot"></i></span>
-                            <span class="text-truncate">Ticket Automation</span>
-                        </a>
-                        <a href="/admin/sla_policies.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'sla_policies.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-stopwatch"></i></span>
-                            <span class="text-truncate">SLA Policies</span>
-                        </a>
-                        <a href="/admin/sla_calendars.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'sla_calendars.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-business-time"></i></span>
-                            <span class="text-truncate">SLA Business Hours</span>
-                        </a>
-                        <a href="/admin/holidays.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'holidays.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-calendar-day"></i></span>
-                            <span class="text-truncate">Holidays</span>
-                        </a>
-                    </div>
                 </li>
                 <?php } ?>
 
                 <?php if ($config_module_enable_itdoc) { ?>
-                <!-- TEMPLATES Section -->
-                <?php $nav_open_templates = in_array(basename($_SERVER['PHP_SELF']), ['contract_template.php', 'contract_template_details.php', 'project_template.php', 'project_template_details.php', 'onboarding_templates.php', 'onboarding_template_details.php', 'ticket_template.php', 'ticket_template_details.php', 'canned_responses.php', 'worksheet_template.php', 'worksheet_template_details.php', 'vendor_template.php', 'software_template.php', 'document_template.php', 'document_template_details.php']); ?>
-                <li class="nav-item dropdown mt-2<?php echo ($nav_open_templates ? ' active' : ''); ?>">
-                    <a href="#nav-group-templates" class="nav-link dropdown-toggle<?php echo ($nav_open_templates ? ' show' : ''); ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-templates" aria-expanded="<?php echo ($nav_open_templates ? 'true' : 'false'); ?>">
+                <?php $nav_open_templates = in_array($admin_current_page, $admin_nav_areas['template_library']['pages'], true); ?>
+                <li class="nav-item<?php echo $nav_open_templates ? ' active' : ''; ?>">
+                    <a href="/admin/template_library.php" class="nav-link<?php echo $nav_open_templates ? ' active' : ''; ?>"<?php echo $admin_current_page === 'template_library.php' ? ' aria-current="page"' : ''; ?>>
                         <span class="nav-link-icon"><i class="fas fa-copy"></i></span>
                         <span class="nav-link-title">Templates</span>
                     </a>
-                    <div class="dropdown-menu<?php echo ($nav_open_templates ? ' show' : ''); ?>" id="nav-group-templates">
-                        <a href="/admin/contract_template.php" class="dropdown-item <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['contract_template.php', 'contract_template_details.php']) ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-file-contract"></i></span>
-                            <span class="text-truncate">Contract Templates</span>
-                            <span href="#" class="fas fa-plus-circle ms-auto ajax-modal" data-modal-url="/admin/modals/contract_template/contract_template_add.php" data-modal-size="lg"></span>
-                        </a>
-                        <a href="/admin/project_template.php" class="dropdown-item <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['project_template.php', 'project_template_details.php']) ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-project-diagram"></i></span>
-                            <span class="text-truncate">Project Templates</span>
-                            <span href="#" class="fas fa-plus-circle ms-auto ajax-modal" data-modal-url="/admin/modals/project_template/project_template_add.php"></span>
-                        </a>
-                        <a href="/admin/onboarding_templates.php" class="dropdown-item <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['onboarding_templates.php', 'onboarding_template_details.php']) ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-user-plus"></i></span>
-                            <span class="text-truncate">Onboarding Templates</span>
-                            <span href="#" class="fas fa-plus-circle ms-auto ajax-modal" data-modal-url="/admin/modals/onboarding_template/onboarding_template_add.php"></span>
-                        </a>
-                        <a href="/admin/ticket_template.php" class="dropdown-item <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['ticket_template.php', 'ticket_template_details.php']) ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-life-ring"></i></span>
-                            <span class="text-truncate">Ticket Templates</span>
-                            <span href="#" class="fas fa-plus-circle ms-auto ajax-modal" data-modal-url="/admin/modals/ticket_template/ticket_template_add.php" data-modal-size="lg"></span>
-                        </a>
-                        <a href="/admin/service_catalog.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'service_catalog.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-th-large"></i></span>
-                            <span class="text-truncate">Service Catalog</span>
-                        </a>
-                        <a href="/admin/canned_responses.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'canned_responses.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-comment-dots"></i></span>
-                            <span class="text-truncate">Canned Responses</span>
-                            <span href="#" class="fas fa-plus-circle ms-auto ajax-modal" data-modal-url="/admin/modals/canned_response/canned_response_add.php" data-modal-size="lg"></span>
-                        </a>
-                        <a href="/admin/worksheet_template.php" class="dropdown-item <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['worksheet_template.php', 'worksheet_template_details.php']) ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-clipboard-list"></i></span>
-                            <span class="text-truncate">Worksheet Templates</span>
-                            <span href="#" class="fas fa-plus-circle ms-auto ajax-modal" data-modal-url="/admin/modals/worksheet_template/worksheet_template_add.php" data-modal-size="lg"></span>
-                        </a>
-                        <a href="/admin/vendor_template.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'vendor_template.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-building"></i></span>
-                            <span class="text-truncate">Vendor Templates</span>
-                            <span href="#" class="fas fa-plus-circle ms-auto ajax-modal" data-modal-url="/admin/modals/vendor_template/vendor_template_add.php"></span>
-                        </a>
-                        <a href="/admin/software_template.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'software_template.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-rocket"></i></span>
-                            <span class="text-truncate">License Templates</span>
-                            <span href="#" class="fas fa-plus-circle ms-auto ajax-modal" data-modal-url="/admin/modals/software_template/software_template_add.php"></span>
-                        </a>
-                        <a href="/admin/document_template.php" class="dropdown-item <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['document_template.php', 'document_template_details.php']) ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-file-alt"></i></span>
-                            <span class="text-truncate">Document Templates</span>
-                            <span href="#" class="fas fa-plus-circle ms-auto ajax-modal" data-modal-url="/admin/modals/document_template/document_template_add.php" data-modal-size="xl"></span>
-                        </a>
-                    </div>
                 </li>
                 <?php } ?>
 
-                <!-- MAINTENANCE Section -->
-                <?php $nav_open_maintenance = in_array(basename($_SERVER['PHP_SELF']), ['cron.php', 'mail_queue.php', 'email_log.php', 'audit_log.php', 'app_log.php', 'backup.php', 'debug.php', 'update.php', 'credential_restore.php']); ?>
-                <li class="nav-item dropdown mt-2<?php echo ($nav_open_maintenance ? ' active' : ''); ?>">
-                    <a href="#nav-group-maintenance" class="nav-link dropdown-toggle<?php echo ($nav_open_maintenance ? ' show' : ''); ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-maintenance" aria-expanded="<?php echo ($nav_open_maintenance ? 'true' : 'false'); ?>">
+                <?php $nav_open_maintenance = in_array($admin_current_page, $admin_nav_areas['maintenance']['pages'], true); ?>
+                <li class="nav-item<?php echo $nav_open_maintenance ? ' active' : ''; ?>">
+                    <a href="/admin/maintenance.php" class="nav-link<?php echo $nav_open_maintenance ? ' active' : ''; ?>"<?php echo $admin_current_page === 'maintenance.php' ? ' aria-current="page"' : ''; ?>>
                         <span class="nav-link-icon"><i class="fas fa-tools"></i></span>
                         <span class="nav-link-title">Maintenance</span>
                     </a>
-                    <div class="dropdown-menu<?php echo ($nav_open_maintenance ? ' show' : ''); ?>" id="nav-group-maintenance">
-                        <a href="/admin/cron.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'cron.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-clock"></i></span>
-                            <span class="text-truncate">Scheduled Jobs</span>
-                        </a>
-                        <a href="/admin/mail_queue.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'mail_queue.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-mail-bulk"></i></span>
-                            <span class="text-truncate">Mail Queue</span>
-                        </a>
-                        <a href="/admin/email_log.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'email_log.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-envelope-open-text"></i></span>
-                            <span class="text-truncate">Email Log</span>
-                        </a>
-                        <a href="/admin/audit_log.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'audit_log.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-history"></i></span>
-                            <span class="text-truncate">Audit Logs</span>
-                        </a>
-                        <a href="/admin/app_log.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'app_log.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-history"></i></span>
-                            <span class="text-truncate">App Logs</span>
-                        </a>
-                        <a href="/admin/backup.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'backup.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-cloud-upload-alt"></i></span>
-                            <span class="text-truncate">Backup</span>
-                        </a>
-                        <a href="/admin/credential_restore.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'credential_restore.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-key"></i></span>
-                            <span class="text-truncate">Credential Restore</span>
-                        </a>
-                        <a href="/admin/debug.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'debug.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-bug"></i></span>
-                            <span class="text-truncate">Debug</span>
-                        </a>
-                        <a href="/admin/update.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'update.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-download"></i></span>
-                            <span class="text-truncate">Update</span>
-                        </a>
-                    </div>
                 </li>
 
                 <!-- Keep the global menu short; the settings directory groups all destinations. -->

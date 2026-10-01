@@ -82,7 +82,7 @@ $changelog_link = APP_CHANGELOG_URL !== ''
     </div>
 <?php } ?>
 
-<div class="card card-dark mb-3">
+<div class="card mb-3">
     <div class="card-body">
         <div class="upd-hero">
             <?php if ($db_pending) { ?>
@@ -137,7 +137,7 @@ $changelog_link = APP_CHANGELOG_URL !== ''
 </div>
 
 <?php if ($pending) { ?>
-<div class="card card-dark mb-3">
+<div class="card mb-3">
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-fw fa-shield-alt me-2"></i><?= $db_pending ? 'Update the database' : 'Install the update' ?></h3>
     </div>
@@ -186,7 +186,7 @@ $changelog_link = APP_CHANGELOG_URL !== ''
 <?php } ?>
 
 <?php if (!empty($git_log)) { ?>
-<div class="card card-dark mb-3">
+<div class="card mb-3">
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-fw fa-code-branch me-2"></i>Pending changes <span class="badge bg-secondary ms-1"><?= $pending_count ?></span></h3>
     </div>
