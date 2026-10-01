@@ -15,25 +15,24 @@ Location and employment-status filters retain authorized ancestors needed to
 show where each matching employee sits in the hierarchy. Those ancestors are
 labeled **Context**. The count above the chart separates matches from context
 contacts. The list view contains the same authorized, filtered set and has its
-own text search. Search in the chart opens matching branches; Trace to Root
-highlights one reporting chain. Each name opens the existing contact profile.
+own text search. Chart search counts matches; Enter or the next/previous
+buttons focus a person and open the reporting path. Each name opens the
+existing contact profile.
 
 The page opens in a compact, searchable list with its own bounded scroll area.
-Choose **Chart** to build the visual hierarchy on demand. The chart uses
-smaller cards, instant branch toggles, and a bounded scroll area. Zoom controls
-scale it without changing its data. **Fit** scales each department chart to its
-available width; **100%** restores natural size. Chart search opens the selected
-person's branch rather than expanding every match at once. No full employee
-profiles are loaded for either view. For very large organizations, use a
-department filter before expanding all branches.
+Choose **Chart** to load the locally hosted `d3-org-chart` library and build a
+compact, pannable hierarchy on demand. Its department groups open into people;
+the chart starts with groups collapsed when multiple departments are present.
+Scroll or use the controls to zoom, and use **Fit** to frame visible nodes.
+**100%** restores the natural zoom level. The chart is bounded to the viewport,
+and the list remains available for keyboard navigation or if the library fails.
+No full employee profiles are loaded for either view. For very large
+organizations, use a department filter before expanding all branches.
 
-In a synthetic browser fixture with 1,000 contacts (950 independent roots and
-one 50-person reporting chain), headless Chromium 153 on a development host
-with 12 Xeon Gold 6130 vCPUs and 15 GiB RAM initialized the list behavior in
-about 3 ms without building the chart. Opening Chart then built the hierarchy
-in about 200 ms, and chart search found one name match. These are synthetic
-browser measurements; they exclude database query time and real photos and
-styles.
+The D3, d3-flextree, and d3-org-chart browser builds are pinned locally under
+`agent/js/vendor/org-chart/`, with their license texts beside them. They load
+only when Chart is selected, matching the page's self-only Content Security
+Policy and avoiding any third-party browser request.
 
 Run `php tests/org_chart_filter.php` to check that location/status filters
 retain authorized ancestors, terminate on reporting cycles, and do not

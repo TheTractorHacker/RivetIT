@@ -26,17 +26,12 @@
  * page has to survive that without an infinite loop or a stack overflow at a
  * real company's headcount, not just in theory.
  *
- * INTERACTIVITY (list search, optional chart, trace-to-root, sticky breadcrumb)
- * is a client-side AUGMENTATION of the markup this file already renders,
- * wired by agent/js/org_chart.js - there is no second, client-rebuilt tree
- * anywhere. Every bit of data that JS needs (name, title,
- * team, department, status, manager name, direct-report count, and the ordered
- * list of ancestor ids) is emitted a second time as data-* attributes on the
- * same node this file already builds, sourced from strings already escaped by
- * nullable_htmlentities() below - no new query, no new escaping path. If the JS
- * file 404s, throws, or never runs, the server-rendered employee list remains
- * available - see the single try/catch wrapping all of
- * agent/js/org_chart.js's init().
+ * INTERACTIVITY is optional. The employee list is server-rendered and works
+ * without JavaScript. On Chart, agent/js/org_chart.js reads the authorized,
+ * cycle-safe hierarchy below and passes those nodes to a locally hosted D3
+ * chart. Text is escaped again when inserted into D3's HTML card templates.
+ * The chart library loads only after the user selects Chart; the list stays
+ * available if it cannot load.
  */
 
 require_once "includes/inc_all.php";
@@ -583,16 +578,20 @@ $total_departments = count($department_ids);
 <?php } ?>
 
 <p id="orgChartLoading" class="text-secondary" role="status" hidden>Building chart…</p>
-<nav id="orgChartBreadcrumb" hidden aria-label="Position in org chart">
-    <span id="orgChartBreadcrumbTrail"></span>
-    <span id="orgChartBreadcrumbTrace" class="org-breadcrumb-trace" hidden>Tracing &middot; <button type="button" id="orgChartTraceClear" class="btn btn-sm btn-link p-0">Clear</button></span>
-</nav>
-
 <div id="orgChartRoot"<?php if ($total_contacts > 0) { ?> hidden<?php } ?>>
     <?php if ($total_contacts === 0) { ?>
         <div class="card"><div class="card-body text-secondary text-center"><?php echo ($location_filter_id > 0 || $status_filter !== '') ? 'No contacts match these filters.' : 'No contacts to chart' . ($department_filter_id ? ' for this department.' : '.'); ?></div></div>
     <?php } else {
-        echo $tree_html;
+        // The accessible employee list above works without JavaScript. Keep
+        // the already access-filtered hierarchy as a hidden data source; the
+        // D3 view reads it only after the user selects Chart.
+        echo '<div id="orgChartSource" hidden>' . $tree_html;
+        if ($cycle_html !== '') {
+            echo '<ul class="org-tree">' . $cycle_html . '</ul>';
+        }
+        echo '</div>';
+        echo '<p class="small text-secondary mb-2">Drag to pan, scroll to zoom, and use + to expand a department.</p>';
+        echo '<div id="orgChartCanvas" class="org-d3-frame" role="region" aria-label="Interactive organizational chart"></div>';
     } ?>
 
     <?php if (!empty($cycle_leftover_ids)) { ?>
@@ -600,7 +599,7 @@ $total_departments = count($department_ids);
             <div class="card-header py-2 text-danger"><i class="fas fa-fw fa-exclamation-triangle me-2"></i>Reporting Cycle Detected</div>
             <div class="card-body">
                 <p class="text-secondary">These contacts' manager chains loop back on themselves (e.g. A reports to B who reports back to A) and never reach a contact with no manager, so they cannot be placed under a real root. Fix the "Manager" field on one contact in each loop to break it.</p>
-                <ul class="org-tree"><?php echo $cycle_html; ?></ul>
+                <p class="text-secondary mb-0">The chart shows each affected contact once, with one reporting link cut for display.</p>
             </div>
         </div>
     <?php } ?>

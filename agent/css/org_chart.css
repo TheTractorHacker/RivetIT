@@ -1,29 +1,14 @@
-/*
- * agent/org_chart.php only ("Rootline").
- *
- * The compact list is the initial view. The optional chart uses the same
- * server-rendered <details>/<summary> tree with native instant toggles.
- *
- * TOKENS: this file declares no new custom-property namespace of its own -
- * every rule below reads directly from css/itflow_design.css's --if-* tokens
- * (already declared for both light and dark, see that file) and
- * css/itflow_motion.css's --if-dur-*/--if-ease-* tokens, with a literal
- * fallback value in each var() for the (rare, dev-only) case this file is
- * previewed without those two loaded. The one exception is the department
- * color ring below, which is a small deliberately-hardcoded palette (a
- * design-system-provided validated 8-color categorical set, not invented
- * hues) with its own light/dark pairs, same two-trigger dark-mode pattern
- * css/itflow_kb.css's own token block uses
- * (":root[data-bs-theme='dark']" and "body.dark-mode" - NOT interchangeable
- * in this app, both are required).
- */
-
+/* Compact employee list and on-demand D3 organizational chart. */
 #orgChartRoot[hidden],
+#orgChartSource[hidden],
 #orgChartList[hidden],
 #orgChartShowMap[hidden],
 #orgChartControls[hidden],
 #orgChartMapSearchWrap[hidden],
-#orgChartLoading[hidden] { display: none !important; }
+#orgChartLoading[hidden],
+#orgChartSearchCounter[hidden],
+#orgChartListEmpty[hidden],
+.org-list-row[hidden] { display: none !important; }
 
 .org-chart-header {
     display: flex;
@@ -34,6 +19,7 @@
 }
 .org-chart-header .card-title { margin: 0 !important; }
 .org-chart-header .card-tools { float: none; display: flex; flex-wrap: wrap; gap: .4rem; }
+#orgChartControls .btn { min-width: 32px; padding: .3rem .5rem; }
 
 .org-list-scroll { max-height: min(68vh, 700px); overflow: auto; }
 .org-list-scroll thead th {
@@ -44,468 +30,92 @@
 }
 .org-list-scroll td, .org-list-scroll th { padding: .4rem .55rem; }
 
-.org-tree,
-.org-tree ul {
-    list-style: none;
-    margin: 0;
-    padding-left: 0;
-}
-
-.org-tree ul {
-    padding-left: 1.5rem;
-    margin-top: .25rem;
-    border-left: 1px dashed var(--tblr-border-color, #dde1e6);
-}
-
-.org-tree > li,
-.org-tree ul > li {
-    padding: .1rem 0;
-}
-
-/* ---------------------------------------------------------- disclosure ---- */
-
-.org-tree summary,
-.org-node-row {
-    display: flex;
-    align-items: center;
-    gap: .4rem;
-    padding: 0;
-    cursor: pointer;
-    list-style: none;
-}
-
-.org-node-row { cursor: default; }
-
-/* Belt-and-suspenders: list-style:none is enough in every current evergreen
-   browser, but older WebKit needs the marker pseudo-element hidden directly
-   too or a small triangle survives next to our own chevron. */
-.org-tree summary::-webkit-details-marker { display: none; }
-.org-tree summary::marker { content: ""; }
-
-.org-node-chevron,
-.org-node-chevron-spacer {
-    flex: 0 0 auto;
-    width: 1em;
-    text-align: center;
-}
-
-.org-node-chevron {
-    color: var(--if-muted, #5d6f76);
-    transition: transform var(--if-dur-panel, 200ms) var(--if-ease-out, ease-out);
-}
-
-details[open] > summary > .org-node-chevron {
-    transform: rotate(90deg);
-}
-
-/* --------------------------------------------------------------- rows ---- */
-
-.org-node {
-    display: flex;
-    align-items: center;
-    gap: .4rem;
-    flex: 1 1 auto;
-    min-width: 0;
-    padding: .35rem .45rem;
-    border: 1px solid transparent;
-    border-radius: var(--if-radius-sm, 8px);
-    transition: background-color var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out),
-                border-color var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out),
-                box-shadow var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out),
-                transform var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out),
-                opacity var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out);
-}
-
-/* Exact hover convention already established by .it-stat-card:hover
-   (css/itflow_design.css) - not a new "--if-lift" token, that token does not
-   exist anywhere in this codebase. */
-.org-node:hover,
-.org-node:focus-within {
-    background: var(--if-surface, #fff);
-    border-color: var(--if-border, #e3e9ea);
-    box-shadow: var(--if-shadow-md, 0 6px 16px rgba(20,35,42,.10), 0 2px 6px rgba(20,35,42,.08));
-    transform: translateY(-1px);
-}
-
-.org-node-text {
-    line-height: 1.25;
-    min-width: 0;
-}
-
-.org-node-name {
-    text-decoration: none;
-}
-.org-node-name:hover,
-.org-node-name:focus-visible {
-    text-decoration: underline;
-}
-
-.org-node-initials {
-    font-size: .6rem;
-    font-style: normal;
-}
-
-.org-report-count {
-    flex: 0 0 auto;
-    color: var(--if-muted, #5d6f76);
-    font-size: .75rem;
-    white-space: nowrap;
-}
-.org-report-count .fa { margin-left: .2rem; }
-.org-context-badge { margin-left: .25rem; }
-.org-list-row[hidden] { display: none; }
-
-/* Leaf rows (no <details>/<summary>, so no native disclosure triangle and no
-   chevron) get an inert same-width spacer (emitted by
-   org_chart_open_node_html() in agent/org_chart.php) instead of a guessed
-   padding value, so their card still lines up with an expandable sibling's. */
-.org-tree li.org-leaf {
-    padding-left: 0;
-}
-
-/* ------------------------------------------------------------- avatar ---- */
-
-.org-node-avatar {
-    flex: 0 0 auto;
-    display: inline-flex;
-    border-radius: 50%;
-    box-shadow: 0 0 0 2px var(--dept-ring, var(--if-border-strong, #d3dbdc));
-}
-.org-node-avatar .fa-stack {
-    width: 30px;
-    height: 30px;
-    font-size: .83rem;
-}
-.org-node-avatar-img {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    object-fit: cover;
-    display: block;
-}
-
-/* Department color ring - validated, colorblind-tested 8-color categorical
-   set. Assigned by department_id % 8 (agent/org_chart.php), so a department's
-   ring color is stable across reloads regardless of which other departments
-   happen to be rendered alongside it. Decorative only: the department name is
-   always also visible as plain text (card subtitle + section header), so
-   color is never the sole channel. Dept 9, 17, 25... reuse dept 1's hue - a
-   disclosed, accepted collision at real-world scale; text and section
-   grouping remain the actual disambiguator. */
-.org-dept-slot-0 { --dept-ring: #2a78d6; } /* blue    */
-.org-dept-slot-1 { --dept-ring: #eb6834; } /* orange  */
-.org-dept-slot-2 { --dept-ring: #1baf7a; } /* aqua    */
-.org-dept-slot-3 { --dept-ring: #eda100; } /* yellow  */
-.org-dept-slot-4 { --dept-ring: #e87ba4; } /* magenta */
-.org-dept-slot-5 { --dept-ring: #008300; } /* green   */
-.org-dept-slot-6 { --dept-ring: #4a3aa7; } /* violet  */
-.org-dept-slot-7 { --dept-ring: #e34948; } /* red     */
-
-:root[data-bs-theme="dark"] .org-dept-slot-0, body.dark-mode .org-dept-slot-0 { --dept-ring: #3987e5; }
-:root[data-bs-theme="dark"] .org-dept-slot-1, body.dark-mode .org-dept-slot-1 { --dept-ring: #d95926; }
-:root[data-bs-theme="dark"] .org-dept-slot-2, body.dark-mode .org-dept-slot-2 { --dept-ring: #199e70; }
-:root[data-bs-theme="dark"] .org-dept-slot-3, body.dark-mode .org-dept-slot-3 { --dept-ring: #c98500; }
-:root[data-bs-theme="dark"] .org-dept-slot-4, body.dark-mode .org-dept-slot-4 { --dept-ring: #d55181; }
-:root[data-bs-theme="dark"] .org-dept-slot-5, body.dark-mode .org-dept-slot-5 { --dept-ring: #008300; }
-:root[data-bs-theme="dark"] .org-dept-slot-6, body.dark-mode .org-dept-slot-6 { --dept-ring: #9085e9; }
-:root[data-bs-theme="dark"] .org-dept-slot-7, body.dark-mode .org-dept-slot-7 { --dept-ring: #e66767; }
-
-/* ------------------------------------------------------------ actions ---- */
-
-.org-node-actions {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: .25rem;
-    margin-left: auto;
-    padding-left: .2rem;
-}
-
-.org-node-action {
-    width: 1.75rem;
-    height: 1.75rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    background: transparent;
-    color: var(--if-muted, #5d6f76);
-    border-radius: var(--if-radius-sm, 8px);
-    opacity: .45;
-    transition: opacity var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out),
-                background-color var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out),
-                color var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out);
-}
-.org-node:hover .org-node-action,
-.org-node:focus-within .org-node-action,
-.org-node-action:focus-visible {
-    opacity: 1;
-}
-.org-node-action:hover,
-.org-node-action:focus-visible {
-    background: var(--if-bg, #eef2f2);
-    color: var(--if-primary, #0d9488);
-}
-/* Touch: no hover to reveal these on, so they stay discoverable at rest
-   instead of needing a hover state that can never happen. */
-@media (hover: none) {
-    .org-node-action { opacity: .6; }
-}
-
-.org-node-trace-btn.org-trace-active {
-    color: var(--if-primary, #0d9488);
-    opacity: 1;
-}
-
-/* ---------------------------------------------------------------- search --- */
-
-.org-node mark {
-    background: rgba(var(--if-primary-rgb, 13, 148, 136), .28);
-    color: inherit;
-    border-radius: 3px;
-    padding: 0 1px;
-}
-
-/* Same opacity value and same "dim what didn't match" mechanism Trace to
-   Root uses below (#orgChartRoot.org-tracing) - one shared visual vocabulary
-   for "this is the thing that matters right now," not two. Applied per-node
-   by agent/js/org_chart.js rather than via a hierarchical selector, since a
-   search match is a flat yes/no per node, not a subtree relationship. */
-.org-node.org-node-dim {
-    opacity: .35;
-}
-
-.org-node.org-node-current {
-    background: var(--if-surface, #fff);
-    border-color: var(--if-primary, #0d9488);
-    box-shadow: 0 0 0 2px rgba(var(--if-primary-rgb, 13, 148, 136), .18);
-    opacity: 1;
-}
-
-/* ----------------------------------------------------------- trace-to-root */
-
-/* Dim everything except the traced chain. .org-trace-chain is added to the
-   traced node's own <li> and every ancestor <li> on its path
-   (agent/js/org_chart.js); the child-combinator pair below un-dims ONLY that
-   li's own card, not the whole subtree hanging under it (a plain descendant
-   selector would also catch every node further down inside that li's <ul>,
-   which is not what "trace to root" means). */
-#orgChartRoot.org-tracing .org-node {
-    opacity: .35;
-}
-#orgChartRoot.org-tracing li.org-trace-chain > details > summary > .org-node,
-#orgChartRoot.org-tracing li.org-trace-chain > .org-node-row > .org-node {
-    opacity: 1;
-}
-#orgChartRoot.org-tracing li.org-trace-chain > details > summary > .org-node .org-node-avatar,
-#orgChartRoot.org-tracing li.org-trace-chain > .org-node-row > .org-node .org-node-avatar {
-    box-shadow: 0 0 0 2px var(--if-primary, #0d9488);
-}
-#orgChartRoot.org-tracing li.org-trace-chain > details > summary > .org-node .org-node-name,
-#orgChartRoot.org-tracing li.org-trace-chain > .org-node-row > .org-node .org-node-name {
-    font-weight: 700;
-}
-
-/* The spine segment hanging below each traced ancestor (its immediate child
-   <ul>) - solid, not dashed, so it reads as "live" versus the default
-   structural line. Named simplification: this tints that ancestor's WHOLE
-   sibling spine, not only the exact sub-branch toward the traced node, since
-   one <ul>'s left border is shared by all of that ancestor's children - the
-   node-level ring + bold name above already carry the unambiguous exact-path
-   signal, this is a supporting container cue only. */
-.org-trace-spine {
-    border-left: 2px solid var(--if-primary, #0d9488) !important;
-}
-
-/* ------------------------------------------------------------ breadcrumb --- */
-
-#orgChartBreadcrumb {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: .75rem;
-    padding: .5rem .9rem;
-    margin-bottom: .75rem;
-    background: var(--if-surface, #fff);
-    border-bottom: 1px solid var(--if-border, #e3e9ea);
-    font-size: .85rem;
-    color: var(--if-muted, #5d6f76);
-    backdrop-filter: blur(6px);
-}
-#orgChartBreadcrumb[hidden] { display: none; }
-
-#orgChartBreadcrumbTrail {
+.org-d3-frame {
+    height: min(68vh, 700px);
+    min-height: 420px;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
+    border: 1px solid var(--if-border, #e3e9ea);
+    border-radius: var(--if-radius, 12px);
+    background: var(--if-surface, #fff);
+    touch-action: none;
 }
+body.dark-mode .org-d3-frame {
+    --if-bg: #0d1417;
+    --if-surface: #14201f;
+    --if-border: #24332f;
+    --if-border-strong: #31433e;
+    --if-ink: #e7eeef;
+    --if-muted: #93a6ab;
+}
+.org-d3-frame svg { display: block; max-width: 100%; }
+.org-d3-frame .node-rect { fill: transparent; stroke: none; }
+.org-d3-frame .link { stroke: var(--if-border-strong, #cbd5d8); }
 
-.org-breadcrumb-seg {
-    border: none;
-    background: transparent;
-    padding: 0;
-    color: var(--if-ink, #16232a);
-    font-weight: 500;
-}
-.org-breadcrumb-seg:hover,
-.org-breadcrumb-seg:focus-visible {
-    color: var(--if-primary, #0d9488);
-    text-decoration: underline;
-}
-
-.org-breadcrumb-trace {
-    flex: 0 0 auto;
-    color: var(--if-primary, #0d9488);
-    font-weight: 600;
-    white-space: nowrap;
-}
-.org-breadcrumb-trace[hidden] { display: none; }
-.org-breadcrumb-trace .btn-link {
-    color: var(--if-primary, #0d9488);
-    text-decoration: underline;
-    font-weight: 600;
-}
-
-/* --------------------------------------------------------- chart canvas --- */
-
-/*
- * Box-and-line chart layout, built on top of the SAME <details>/<ul> markup
- * above by agent/js/org_chart.js's wireChartLayout() - no new elements
- * inside a node, no markup change in agent/org_chart.php. The existing
- * <ul class="org-tree"> for one department/section is moved (as a single
- * unit, not rebuilt) inside a new sized, position:relative canvas div, and
- * every node's own visible row (<summary> for an expandable node, or
- * .org-node-row for a leaf) becomes position:absolute, placed via inline
- * left/top the layout script computes.
- *
- * Everything BETWEEN a row and the canvas (<li>, <details>, nested
- * <ul class="org-tree">) is left at `position: static` on purpose - an
- * absolutely positioned element's "nearest positioned ancestor" search
- * walks straight past any static ancestor, so a row at ANY nesting depth
- * still positions directly against the one shared canvas coordinate space
- * regardless of how deep the tree nests in the DOM - no per-level offset
- * math, no per-depth CSS.
- *
- * `.org-chart-active` lands on a department's .card-body only once that
- * department's layout has actually succeeded (agent/js/org_chart.js). If it
- * never gets added - the chart script never ran, or that one department's
- * layout threw - none of the rules below apply and the ORIGINAL indented
- * list (the rules earlier in this file) renders exactly as it always has.
- */
-
-.org-chart-active .org-tree,
-.org-chart-active .org-tree ul {
-    border-left: none;
-    padding: 0;
-    margin: 0;
-    position: static;
-}
-.org-chart-active .org-tree > li,
-.org-chart-active .org-tree ul > li {
-    padding: 0;
-    position: static;
-}
-.org-chart-active details {
-    position: static;
-}
-
-/* BOX_W/BOX_H below are hardcoded twins of agent/js/org_chart.js's own
-   BOX_W/BOX_H layout constants - same "keep both in sync by hand" caveat
-   that file's own layout constants carry. */
-.org-chart-active summary,
-.org-chart-active .org-node-row {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 250px;
-    height: 68px;
-    margin: 0;
-    align-items: stretch;
-    transition: none;
-}
-@media (prefers-reduced-motion: reduce) {
-    .org-chart-active summary,
-    .org-chart-active .org-node-row {
-        transition: none;
-    }
-}
-
-.org-chart-active .org-node {
+.org-d3-person,
+.org-d3-group {
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
     width: 100%;
     height: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--if-border-strong, #cad5d8);
+    border-radius: 8px;
+    background: var(--if-surface, #fff);
+    color: var(--if-ink, #16232a);
+    box-shadow: var(--if-shadow, 0 2px 7px rgba(20, 35, 42, .08));
+    font: 12px/1.25 var(--if-sans, system-ui, sans-serif);
+}
+.org-d3-person.org-d3-selected,
+.org-d3-group.org-d3-selected {
+    border-color: var(--if-primary, #0d9488);
+    box-shadow: 0 0 0 2px var(--if-primary, #0d9488);
+}
+.org-d3-avatar {
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    margin-right: 8px;
     overflow: hidden;
+    border-radius: 50%;
+    background: var(--if-primary, #0d9488);
+    color: #fff;
+    text-align: center;
+    line-height: 36px;
+    font-weight: 700;
 }
-.org-chart-active .org-node-text {
-    overflow: hidden;
-    min-width: 0;
-}
-.org-chart-active .org-node-name {
-    display: inline-block;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    vertical-align: bottom;
-}
-
-.org-chart-scroll {
-    overflow-x: auto;
-    max-height: min(72vh, 740px);
-    /* Bound large departments to one viewport-sized scroll area. */
-    overflow-y: auto;
-    padding: .25rem 0 1rem;
-    -webkit-overflow-scrolling: touch;
-}
-.org-chart-canvas {
-    position: relative;
-}
-.org-chart-zoom-space {
-    position: relative;
-}
-
-.org-chart-lines {
-    position: absolute;
-    inset: 0;
-    overflow: visible;
-    pointer-events: none;
-}
-.org-chart-edge {
-    fill: none;
-    stroke: var(--if-border-strong, #d3dbdc);
-    stroke-width: 1.5;
-}
-.org-chart-edge.org-trace-edge-active {
-    stroke: var(--if-primary, #0d9488);
-    stroke-width: 2.5;
+.org-d3-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.org-d3-text { min-width: 0; flex: 1; }
+.org-d3-text a,
+.org-d3-text span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.org-d3-text a { color: var(--if-ink, #16232a); font-weight: 700; text-decoration: none; }
+.org-d3-text a:hover,
+.org-d3-text a:focus-visible { color: var(--if-primary, #0d9488); text-decoration: underline; }
+.org-d3-text span { margin-top: 3px; color: var(--if-muted, #5d6f76); }
+.org-d3-count { align-self: flex-start; margin-left: 4px; color: var(--if-muted, #5d6f76); }
+.org-d3-context { position: absolute; right: 8px; bottom: 5px; font-size: 9px; color: var(--if-muted, #5d6f76); font-style: normal; }
+.org-d3-group { display: flex; justify-content: space-between; gap: 8px; padding-inline: 12px; background: var(--if-bg, #eef2f2); }
+.org-d3-group strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.org-d3-group span { flex: 0 0 auto; color: var(--if-muted, #5d6f76); }
+.org-d3-toggle {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--if-border-strong, #cad5d8);
+    border-radius: 50%;
+    background: var(--if-surface, #fff);
+    color: var(--if-ink, #16232a);
+    font: 700 16px/1 var(--if-sans, system-ui, sans-serif);
 }
 
-/* The old vertical-list "spine" (a colored left border on the ancestor's
-   child <ul>) has no meaningful position once that <ul> is a
-   zero-footprint wrapper in chart mode - .org-trace-edge-active above
-   (set by wireTrace() via each SVG path's data-child-id) is its
-   replacement, so the old rule is explicitly neutralized here rather than
-   left to silently draw a stray line at whatever position the collapsed,
-   now-invisible <ul> happens to occupy. */
-.org-chart-active .org-trace-spine {
-    border-left: none !important;
+@media (max-width: 640px) {
+    .org-chart-header .card-tools { width: 100%; }
+    #orgChartControls { flex-wrap: wrap; }
+    .org-d3-frame { height: 62vh; min-height: 340px; }
 }
-
-/* --------------------------------------------------------------- print ---- */
-
 @media print {
-    #orgChartSearch, #orgChartSearchCounter, #orgChartBreadcrumb,
-    .org-node-actions { display: none !important; }
-    .org-tree ul { border-left-color: #999; }
-    .org-tree summary { cursor: default; }
-    /* The chart canvas is already sized to its full natural content extent
-       in px (agent/js/org_chart.js's performLayout(), re-forced
-       synchronously right before print by that file's wirePrint()) - this
-       only has to stop the SCROLL WRAPPER from clipping/scrolling that
-       extent away, so nothing prints cut off or hidden. */
-    .org-chart-scroll { overflow: visible !important; max-height: none !important; }
-    * { animation: none !important; transition: none !important; }
+    .org-d3-frame { height: auto; min-height: 0; overflow: visible; border: 0; }
+    #orgChartControls, #orgChartMapSearchWrap { display: none !important; }
 }
