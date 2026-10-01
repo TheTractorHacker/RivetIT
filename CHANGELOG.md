@@ -4,6 +4,16 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [26.10.2] RivetIT — Visual cron schedules
+
+No database migration is required.
+
+- Admin > Maintenance > Scheduled jobs now offers a visual editor for minute,
+  hourly, daily, weekly, and monthly schedules, with a custom cron expression
+  option. Each job shows a plain-language schedule and previews changes before
+  saving. The existing per-installation Cron Manager validates and writes them.
+- Breadcrumb text is larger throughout the app and on Admin detail pages.
+
 ## [26.10.1] RivetIT — Admin navigation and scheduled jobs
 
 No database migration is required.
