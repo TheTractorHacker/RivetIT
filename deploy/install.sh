@@ -938,7 +938,7 @@ EOF
 # Step 7: cron
 # ---------------------------------------------------------------------------
 install_cron_entry() {
-    local safe_name cron_file cron_log legacy_file
+    local safe_name cron_file cron_log legacy_file existing_file
     safe_name="$(printf '%s' "${DOMAIN}" | tr -c 'a-zA-Z0-9' '-')"
     cron_file="/etc/cron.d/rivetit-${safe_name}"
     legacy_file="/etc/cron.d/itflow-${safe_name}"
@@ -947,6 +947,20 @@ install_cron_entry() {
     command_exists cron || die "cron is not installed. Install the cron package and rerun the installer."
     if ! service_is_active cron; then
         systemctl enable --now cron || die "Could not start the cron service; no scheduled jobs will run."
+    fi
+
+    # An existing shared installation may deliberately use only selected
+    # jobs. Do not silently add the full dispatcher on a rerun; it can send
+    # duplicate mail when another instance shares client/SMTP data.
+    if [[ -f "${APP_DIR}/config.php" && ! -f "${cron_file}" ]] &&
+       ! { [[ -f "${legacy_file}" ]] && grep -Fq -- "${APP_DIR}/cron/cron.php" "${legacy_file}"; }; then
+        for existing_file in /etc/cron.d/*; do
+            [[ -f "${existing_file}" && "${existing_file##*/}" =~ ^[A-Za-z0-9_-]+$ ]] || continue
+            if grep -Fq -- "/usr/bin/php ${APP_DIR}/cron/" "${existing_file}"; then
+                warn "Existing jobs already target ${APP_DIR}; leaving the full cron/cron.php job absent. Review mail and integration effects before adding it manually."
+                return 0
+            fi
+        done
     fi
 
     # Cron runs this command as www-data, including the shell redirection.

@@ -118,6 +118,8 @@ sudo deploy/install.sh --help
    The job is inert until an admin turns on **Enable Cron** in Settings. The installer also registers
    a root-owned schedule helper so administrators can edit this installation's job schedules in
    **Maintenance → Cron** without granting the web process general write access to `/etc/cron.d`.
+   Re-running the installer preserves an existing schedule. For an existing installation with
+   other cron jobs but no main job, it leaves the main job absent to avoid duplicate work.
 9. **Application setup** — runs `scripts/setup_cli.php` as `www-data` to write `config.php`, import
    `db.sql`, and create the first admin user. Skipped automatically if `config.php` already exists
    (re-running `install.sh` against an already-set-up instance is safe).
