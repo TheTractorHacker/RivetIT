@@ -215,8 +215,8 @@ integrations, stored data or the Android companion app, for no visible benefit.
 | In-app backup files `itflow_<14 digits>_(manual\|auto).zip` | `admin/post/backup.php`, `admin/backup.php`, `cron/` | Globbed for the list and pruning, regex-checked for download; renamed files would vanish from the list and never be pruned. (The text inside `version.txt` / the dump header may say RivetIT.) |
 | `deploy/backup.sh` archives `backup-<DB_NAME>-<ts>.tar.gz.enc` and `backup-manifest.json` | `deploy/` | Named after the database; `restore.sh` parses the manifest. Docs examples say `backup-itflow-…` because `itflow` is the Docker default database name. |
 | Mail folder `ITFlow` | `cron/ticket_email_parser.php` | Processed mail is moved there in every monitored mailbox; a rename would silently create a second folder. The NDR log line and the Microsoft 365 setup steps (Admin > Mail) name the folder, and the setup steps say why it keeps the old name. Making it a setting is a follow-up. |
-| `/etc/cron.d/itflow` | `admin/cron.php`, `admin/post/cron.php` | The Cron Manager rewrites exactly this file through a sudoers rule. |
-| Deploy tooling names: `/var/log/itflow-{install,backup,restore,update,cron}.log`, `/etc/cron.d/itflow-<domain>`, `itflow-backup.service` / `.timer` (and the template file names), `/etc/itflow/backup-passphrase`, fail2ban `jail.d/itflow.local` + `filter.d/itflow-auth.conf` (jail `[itflow-auth]`), nginx `conf.d/itflow-rate-limit.conf` and zone `itflow_login`, `99-itflow-hardening.ini/.cnf`, `51-itflow-unattended-upgrades`, `deploy/templates/jail-itflow.local` | `deploy/` | Existing boxes have them installed and enabled; re-runs must find the same files, and the vhosts reference the zone. |
+| `/etc/cron.d/itflow` | Legacy sibling installation on this host | It belongs to a different app root; this install's Cron Manager no longer reads or writes it. |
+| Deploy tooling names: `/var/log/itflow-{install,backup,restore,update}.log`, legacy `/etc/cron.d/itflow-<domain>`, `itflow-backup.service` / `.timer` (and the template file names), `/etc/itflow/backup-passphrase`, fail2ban `jail.d/itflow.local` + `filter.d/itflow-auth.conf` (jail `[itflow-auth]`), nginx `conf.d/itflow-rate-limit.conf` and zone `itflow_login`, `99-itflow-hardening.ini/.cnf`, `51-itflow-unattended-upgrades`, `deploy/templates/jail-itflow.local` | `deploy/` | Existing boxes have them installed and enabled; re-runs must find the same files, and the vhosts reference the zone. New installer-managed cron files and logs use `rivetit-<domain>`. |
 | **Text** of files the deploy scripts compare byte for byte: `deploy/templates/php-hardening.ini`, `mariadb-hardening.cnf`, `jail-itflow.local`, and the inline fail2ban filter, rate-limit and unattended-upgrades heredocs in `harden.sh` / `install.sh` | `deploy/` | A changed comment would make the next `install.sh` on a shared box or `harden.sh` run restart PHP-FPM / MariaDB / fail2ban (dropping every other instance's connections and in-memory bans), and `harden.sh` refuses a rate-limit file that differs. Their header comments keep saying ITFlow-Internal-IT. |
 | Live-box names: `/var/www/mw-itflow.foleyit.com`, database `midwest_itflow`, `/var/log/itflow_mw_*.log`, `/etc/cron.d/mw-itflow-*`, `/etc/nginx/snippets/itflow-locations.conf`, sibling installs (`itflow.foleyit.com`, `beta-itflow.foleyit.com`) | comments, admin help, docs | Facts about the server this repository is deployed on, not product branding. |
 | In-image paths `zz-itflow-overrides.ini`, `sites-available/itflow.conf`, `supervisor/conf.d/itflow.conf` | `docker/Dockerfile` | Internal to the image; renaming changes nothing a user sees. |
@@ -300,11 +300,9 @@ labelled as upstream.
   work-completed acknowledgements) and making the terms URL a setting that hides the link when empty (a settings
   column, so a migration) is for the owner. The kiosk manifest no longer carries the company name, and
   `KioskSettings::fromRow()` no longer defaults to it.
-- **Cron Manager:** `admin/cron.php` / `admin/post/cron.php` build job lines from
-  `/var/www/itflow.foleyit.com/cron/`, the sibling install's path, not this checkout's, and write them through sudo
-  to `/etc/cron.d/itflow`, a file this host shares with that sibling install. Deriving the path from the document
-  root would make a save from this install rewrite the sibling's cron file, so it was left as it is; it needs a
-  per-install cron file name first. Pre-existing, not branding.
+- **Cron Manager:** jobs are now discovered by the actual app root across `/etc/cron.d/`. The web UI does
+  not rewrite root-owned cron files or run a sibling installation's script. The installer uses
+  `/etc/cron.d/rivetit-<domain>` for new installations and removes its own legacy per-domain entry on rerun.
 - **API "Waiting on Customer":** `api/v1/tickets.php` moves a ticket to the status named "Waiting on Customer" after
   an agent reply; installs that renamed it (the live one says "Waiting on Employee") skip the move. The API is
   unchanged by the rename; matching both names there is a separate change.
@@ -422,7 +420,6 @@ Specific identifier classes. The count is the lines that contain at least one ma
 
 These still show "itflow" to someone, on purpose:
 
-- **Admin > Cron Manager:** the heading names `/etc/cron.d/itflow`, the file it writes through sudo. The job lines use the sibling install path `/var/www/itflow.foleyit.com` (see Follow-ups).
 - **Admin > Debug / About:** the "Based on ITFlow" credit row, the "upstream ITFlow guide" link for error logs, the Source row (the repository URL `…/ITFlow-Internal-IT`, as plain text while the repository is private), and the server facts it reports: host name, web root and database name.
 - **Settings > Telemetry, the setup wizard and `setup_cli.php`:** they say telemetry goes to the upstream ITFlow project (`telemetry.itflow.org`) and link its docs, labelled as upstream.
 - **Settings > Notifications:** the Android package name `com.foleyit.itflow`, which must match the real app.

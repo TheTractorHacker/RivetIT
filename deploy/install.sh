@@ -49,7 +49,7 @@ PHP_SOCK="/run/php/php${PHP_VERSION}-fpm.sock"
 # gets full functionality by default instead of a silent degrade nobody
 # notices. All are near-universally preinstalled/packaged on Ubuntu, but are
 # listed explicitly so a minimal/container base image still works.
-REQUIRED_BASE_PACKAGES=(nginx mariadb-server certbot python3-certbot-nginx ufw fail2ban git composer openssl unattended-upgrades gettext-base rsync redis-server poppler-utils util-linux)
+REQUIRED_BASE_PACKAGES=(nginx mariadb-server certbot python3-certbot-nginx ufw fail2ban git composer openssl unattended-upgrades gettext-base rsync redis-server poppler-utils util-linux cron)
 
 # poppler-utils (pdfinfo/pdftoppm/pdftotext/pdftohtml) and util-linux (prlimit) are run by the Training PDF
 # lessons and the KB PDF import; without them every PDF upload fails with "not a readable PDF".
@@ -155,8 +155,8 @@ Deployment options:
                             DNS yet). Implies --email is not required.
   --skip-firewall            Do not touch ufw.
   --skip-fail2ban             Do not touch fail2ban.
-  --skip-dependencies         Do not install/enable nginx, PHP, MariaDB or
-                            Redis, and do not ask about it either — use this
+  --skip-dependencies         Do not install nginx, PHP, MariaDB, Redis, or
+                            cron, and do not ask about it either — use this
                             when they are already provisioned the way you
                             want (a different PHP build, a managed database,
                             etc.) and everything else here (the app code,
@@ -478,7 +478,7 @@ install_packages() {
 
     # Installing a package does not always start/enable it (and definitely
     # doesn't on a re-run where it was already installed) — make sure the
-    # four services this instance needs are actually up before we lean on
+    # five services this instance needs are actually up before we lean on
     # them below.
     if ! service_is_active "php${PHP_VERSION}-fpm"; then
         systemctl enable --now "php${PHP_VERSION}-fpm"
@@ -491,6 +491,9 @@ install_packages() {
     fi
     if ! service_is_active redis-server; then
         systemctl enable --now redis-server
+    fi
+    if ! service_is_active cron; then
+        systemctl enable --now cron
     fi
 }
 
@@ -935,9 +938,22 @@ EOF
 # Step 7: cron
 # ---------------------------------------------------------------------------
 install_cron_entry() {
-    local safe_name cron_file
+    local safe_name cron_file cron_log legacy_file
     safe_name="$(printf '%s' "${DOMAIN}" | tr -c 'a-zA-Z0-9' '-')"
-    cron_file="/etc/cron.d/itflow-${safe_name}"
+    cron_file="/etc/cron.d/rivetit-${safe_name}"
+    legacy_file="/etc/cron.d/itflow-${safe_name}"
+    cron_log="/var/log/rivetit-cron-${safe_name}.log"
+
+    command_exists cron || die "cron is not installed. Install the cron package and rerun the installer."
+    if ! service_is_active cron; then
+        systemctl enable --now cron || die "Could not start the cron service; no scheduled jobs will run."
+    fi
+
+    # Cron runs this command as www-data, including the shell redirection.
+    # Without a writable log the shell fails before PHP even starts.
+    touch "${cron_log}"
+    chown www-data:www-data "${cron_log}"
+    chmod 640 "${cron_log}"
 
     backup_if_exists "${cron_file}"
     cat > "${cron_file}" <<EOF
@@ -945,13 +961,24 @@ install_cron_entry() {
 # ${DOMAIN} (${APP_DIR}). This fires every 5 minutes unconditionally —
 # whether cron/cron.php actually does anything is gated by the app's own
 # "config_enable_cron" setting (a DB row, defaulting to OFF). An admin must
-# turn it on from within the app (Settings) before this has any effect, and
-# controls the effective frequency from there too.
-*/5 * * * * www-data /usr/bin/php ${APP_DIR}/cron/cron.php >> /var/log/itflow-cron.log 2>&1
+# turn it on from within the app (Settings) before this has any effect.
+# The OS schedule below controls frequency; the app setting only enables or
+# disables the job's work.
+*/5 * * * * www-data /usr/bin/php ${APP_DIR}/cron/cron.php >> ${cron_log} 2>&1
 EOF
     chmod 644 "${cron_file}"
     chown root:root "${cron_file}"
-    success "Installed system cron entry: ${cron_file}"
+    # An earlier installer used itflow-<domain>. Remove only the file whose
+    # job targets this exact app root, or a rerun would schedule it twice.
+    if [[ -f "${legacy_file}" ]]; then
+        if grep -Fq -- "${APP_DIR}/cron/cron.php" "${legacy_file}"; then
+            backup_if_exists "${legacy_file}"
+            rm -f "${legacy_file}"
+        else
+            warn "Leaving unrelated legacy cron file untouched: ${legacy_file}"
+        fi
+    fi
+    success "Installed system cron entry: ${cron_file} (log: ${cron_log})"
 }
 
 # ---------------------------------------------------------------------------
@@ -1163,15 +1190,12 @@ print_summary() {
   NEXT STEPS
   ----------
   1. $([[ -n "${RESTORE_FROM}" ]] && echo "Log in at the URL above with an account from the restored backup (${RESTORE_FROM})." || echo "Log in at the URL above with the admin account you just created (or were prompted to create).")
-  2. The system cron entry fires every 5 minutes already, but cron/cron.php
+  2. The system cron entry in /etc/cron.d/rivetit-${DOMAIN//./-} fires every 5 minutes, but cron/cron.php
      does nothing until you turn on "Enable Cron" in Settings inside the
-     app — it defaults to off, and the app controls its own effective
-     frequency from there.
-  3. scripts/update_cli.php --force_update hardcodes 'git reset --hard
-     origin/master', which does not match this repository's actual 'main'
-     branch and will misbehave. deploy/update.sh (a plain 'git pull', which
-     tracks whatever branch is actually checked out) is the recommended
-     update path and is unaffected by that.
+     app — it defaults to off. Edit the root-owned cron file to change
+     frequency. Cron Manager lists this instance's jobs but does not rewrite
+     system cron files from the web UI.
+  3. See deploy/README.md for updates and backups.
   4. See docs/ISO27001-COMPLIANCE.md for the full Annex A control mapping
      this deployment supports.
 
@@ -1233,7 +1257,7 @@ main() {
     info "Network path: ${LOCAL_PROXIES} local reverse prox$([[ "${LOCAL_PROXIES}" -eq 1 ]] && echo y || echo ies), Cloudflare $([[ "${BEHIND_CLOUDFLARE}" -eq 1 ]] && echo yes || echo no)"
 
     if [[ "${SKIP_DEPENDENCIES}" -eq 1 ]]; then
-        info "Skipping dependency installation (--skip-dependencies): nginx, PHP ${PHP_VERSION}, MariaDB and Redis must already be installed, running, and reachable the way the rest of this script expects."
+        info "Skipping dependency installation (--skip-dependencies): nginx, PHP ${PHP_VERSION}, MariaDB, Redis, and cron must already be installed and available."
     elif [[ "${NON_INTERACTIVE}" -eq 1 ]]; then
         install_packages
     else
@@ -1243,10 +1267,10 @@ main() {
         # only affect THIS instance, installing packages affects the whole box. Default answer
         # is yes (a bare Enter installs) since that is what a genuinely fresh box needs.
         install_deps_answer=""
-        read -r -p "Install dependencies (nginx, PHP ${PHP_VERSION}, MariaDB, Redis)? [Y/n] " install_deps_answer || true
+        read -r -p "Install dependencies (nginx, PHP ${PHP_VERSION}, MariaDB, Redis, cron)? [Y/n] " install_deps_answer || true
         case "${install_deps_answer}" in
             [nN]*)
-                info "Skipping dependency installation (answered no): nginx, PHP ${PHP_VERSION}, MariaDB and Redis must already be installed, running, and reachable the way the rest of this script expects."
+                info "Skipping dependency installation (answered no): nginx, PHP ${PHP_VERSION}, MariaDB, Redis, and cron must already be installed and available."
                 ;;
             *)
                 install_packages

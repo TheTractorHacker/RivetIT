@@ -1,27 +1,11 @@
 <?php
 require_once "includes/inc_all_admin.php";
+require_once __DIR__ . '/../includes/cron_jobs.php';
 
-$cron_file = '/etc/cron.d/itflow';
-
-// Parse current cron.d file
-$cron_lines = file_exists($cron_file) ? file($cron_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) : [];
-
-$jobs = [];
-foreach ($cron_lines as $line) {
-    if (str_starts_with(trim($line), '#')) continue;
-    if (preg_match('/^(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+(\S+)\s+(.+)$/', trim($line), $m)) {
-        $jobs[] = ['schedule' => $m[1], 'user' => $m[2], 'command' => $m[3]];
-    }
-}
-
-// Find the main cron.php schedule
-$main_schedule = '0 2 * * *';
-foreach ($jobs as $job) {
-    if (str_contains($job['command'], 'cron/cron.php')) {
-        $main_schedule = $job['schedule'];
-        break;
-    }
-}
+$app_root = realpath(__DIR__ . '/..');
+$jobs = rivetit_cron_jobs_for_app($app_root);
+$main_jobs = array_values(array_filter($jobs, fn($job) => $job['script'] === $app_root . '/cron/cron.php'));
+$main_job = count($main_jobs) === 1 ? $main_jobs[0] : null;
 
 // Last successful run
 $last_run = mysqli_fetch_assoc(mysqli_query($mysqli,
@@ -30,17 +14,6 @@ $last_run = mysqli_fetch_assoc(mysqli_query($mysqli,
      ORDER BY app_log_id DESC LIMIT 1"
 ));
 
-$schedule_presets = [
-    '*/5 * * * *'  => 'Every 5 minutes',
-    '*/15 * * * *' => 'Every 15 minutes',
-    '*/30 * * * *' => 'Every 30 minutes',
-    '0 * * * *'    => 'Every hour',
-    '0 */2 * * *'  => 'Every 2 hours',
-    '0 */6 * * *'  => 'Every 6 hours',
-    '0 2 * * *'    => 'Daily at 2 AM',
-];
-
-$script_base = '/usr/bin/php /var/www/itflow.foleyit.com/cron/';
 ?>
 
 <div class="card card-dark">
@@ -50,7 +23,7 @@ $script_base = '/usr/bin/php /var/www/itflow.foleyit.com/cron/';
             <form action="/admin/post.php" method="POST" class="d-inline">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <input type="hidden" name="run_cron_now" value="1">
-                <button type="submit" class="btn btn-success btn-sm confirm-link">
+                <button type="submit" class="btn btn-success btn-sm confirm-link" <?= $main_job ? '' : 'disabled title="No main cron job is installed for this instance"' ?>>
                     <i class="fas fa-play me-1"></i>Run Now
                 </button>
             </form>
@@ -65,75 +38,50 @@ $script_base = '/usr/bin/php /var/www/itflow.foleyit.com/cron/';
         </div>
         <?php endif; ?>
 
-        <!-- Main cron schedule editor -->
-        <form action="/admin/post.php" method="POST">
-            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-            <input type="hidden" name="save_cron_schedule" value="1">
-            <div class="form-group">
-                <label><strong>Main Cron Schedule</strong>
-                    <small class="text-muted ms-1">(cron/cron.php — runs ticket automation, invoices, reminders, backups, etc.)</small>
-                </label>
-                <div class="input-group">
-                    <select name="cron_preset" class="form-control" id="cronPreset">
-                        <?php foreach ($schedule_presets as $expr => $label): ?>
-                            <option value="<?= htmlspecialchars($expr) ?>"
-                                    <?= $expr === $main_schedule ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($label) ?> — <?= htmlspecialchars($expr) ?>
-                            </option>
-                        <?php endforeach; ?>
-                        <option value="custom" <?= !array_key_exists($main_schedule, $schedule_presets) ? 'selected' : '' ?>>
-                            Custom expression…
-                        </option>
-                    </select>
-                    <div class="input-group-append">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save me-1"></i>Save Schedule
-                        </button>
-                    </div>
-                </div>
+        <?php if (!$main_jobs): ?>
+            <div class="alert alert-warning mb-3">
+                No main <code>cron/cron.php</code> job is installed for this instance. The installer creates
+                <code>/etc/cron.d/rivetit-&lt;domain&gt;</code>. Review mail and integration effects
+                before adding the full job to a shared server.
             </div>
-            <div class="form-group" id="customScheduleGroup"
-                 style="display:<?= array_key_exists($main_schedule, $schedule_presets) ? 'none' : 'block' ?>">
-                <label>Custom Expression</label>
-                <input type="text" name="cron_custom" class="form-control"
-                       value="<?= htmlspecialchars($main_schedule) ?>"
-                       placeholder="*/15 * * * *">
-                <small class="text-muted">Standard 5-field cron expression: <code>minute hour day-of-month month day-of-week</code></small>
+        <?php elseif (count($main_jobs) > 1): ?>
+            <div class="alert alert-danger mb-3">
+                Multiple main cron jobs target this instance. Remove the duplicate entries on the server
+                before running the job again.
             </div>
-        </form>
+        <?php else: ?>
+            <p class="mb-3">Main cron runs at <code><?= htmlspecialchars($main_job['schedule']) ?></code>
+                from <code><?= htmlspecialchars($main_job['file']) ?></code>. The schedule is managed in this
+                root-owned file on the server.</p>
+        <?php endif; ?>
 
         <!-- All scheduled jobs table -->
         <h6 class="mt-4 mb-2 text-muted text-uppercase" style="font-size:.75rem;letter-spacing:.05em">
-            <i class="fas fa-list me-1"></i>All Scheduled Jobs (<?= htmlspecialchars($cron_file) ?>)
+            <i class="fas fa-list me-1"></i>Scheduled Jobs for This Installation
         </h6>
         <table class="table table-sm table-bordered mb-0">
             <thead class="thead-light">
                 <tr>
                     <th style="width:200px">Schedule</th>
                     <th>Script</th>
+                    <th>File</th>
                 </tr>
             </thead>
             <tbody>
             <?php foreach ($jobs as $job): ?>
-                <tr <?= str_contains($job['command'], 'cron/cron.php') ? 'class="table-primary"' : '' ?>>
+                <tr <?= $job['script'] === $app_root . '/cron/cron.php' ? 'class="table-primary"' : '' ?>>
                     <td><code><?= htmlspecialchars($job['schedule']) ?></code></td>
-                    <td><small class="text-monospace"><?= htmlspecialchars(str_replace($script_base, '', $job['command'])) ?></small></td>
+                    <td><small class="text-monospace"><?= htmlspecialchars(basename($job['script'])) ?></small></td>
+                    <td><small class="text-monospace"><?= htmlspecialchars($job['file']) ?></small></td>
                 </tr>
             <?php endforeach; ?>
             <?php if (empty($jobs)): ?>
-                <tr><td colspan="2" class="text-center text-muted py-3">No jobs found in <?= htmlspecialchars($cron_file) ?></td></tr>
+                <tr><td colspan="3" class="text-center text-muted py-3">No scheduled jobs found for this installation.</td></tr>
             <?php endif; ?>
             </tbody>
         </table>
 
     </div>
 </div>
-
-<script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
-document.getElementById('cronPreset').addEventListener('change', function () {
-    document.getElementById('customScheduleGroup').style.display =
-        this.value === 'custom' ? 'block' : 'none';
-});
-</script>
 
 <?php require_once "../includes/footer.php"; ?>

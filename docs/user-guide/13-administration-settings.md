@@ -196,7 +196,7 @@ Ticket automation, recurring tickets, reminders, expiry alerts and automatic bac
 2. Make sure the server runs `cron/cron.php` every few minutes. The bare-metal installer adds a five-minute entry for this script and the container image loops it every five minutes.
 3. Add your own entries for `cron/mail_queue.php` (sends queued email) and `cron/ticket_email_parser.php` (reads mailboxes), every few minutes. The installers schedule only `cron/cron.php`; without the other two, no email is sent and none is read.
 
-**Maintenance → Cron** shows the last successful run and lets you edit the schedule of `cron/cron.php` from a preset list (every 5 minutes up to daily) or a custom five-field expression, and start a run with **Run Now**. The page is written for one server layout: it reads and rewrites `/etc/cron.d/itflow` and runs the script from a fixed path. On an install made with the bundled installer (whose file is `/etc/cron.d/itflow-<domain>`), and on this demo, the job list reads "No jobs found" and the buttons may do nothing. Manage the schedule on the server in that case.
+**Maintenance → Cron** lists jobs that target this installation, including jobs in separate files under `/etc/cron.d/`. **Run Now** is available only when exactly one main `cron/cron.php` job is installed for this instance. The bare-metal installer writes `/etc/cron.d/rivetit-<domain>` and a per-instance log under `/var/log/`. Cron files are root-owned; edit the schedule on the server. On shared hosts, adding the full cron job can send duplicate mail, so review the enabled modules and mail setup first.
 
 ### Connect integrations, webhooks and AI
 

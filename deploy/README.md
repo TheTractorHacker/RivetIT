@@ -26,7 +26,7 @@ services. All of them log what they're about to do before doing anything invasiv
 
 **Names that still say `itflow`.** RivetIT was called ITFlow Internal IT before, and the names these
 scripts give to things on the server were kept so that existing boxes keep working and re-runs find what
-earlier runs installed: the log files (`/var/log/itflow-*.log`), the cron file (`/etc/cron.d/itflow-<domain>`),
+earlier runs installed: some log files (`/var/log/itflow-*.log`), legacy cron files,
 the systemd units (`itflow-backup.service` / `.timer`), the passphrase file (`/etc/itflow/backup-passphrase`),
 the fail2ban jail and filter (`itflow-auth`), the nginx rate-limit zone (`itflow_login`,
 `/etc/nginx/conf.d/itflow-rate-limit.conf`) and the PHP-FPM / MariaDB / unattended-upgrades drop-ins
@@ -89,7 +89,7 @@ sudo deploy/install.sh --help
 
 1. **Packages** — asks first ("Install dependencies? [Y/n]"; answer no, or pass `--skip-dependencies`,
    to skip this step entirely if you already have them set up the way you want), then installs nginx,
-   MariaDB, Redis, PHP 8.5 (added via the `ondrej/php` PPA if Ubuntu's default repos don't carry it),
+   MariaDB, Redis, cron, PHP 8.5 (added via the `ondrej/php` PPA if Ubuntu's default repos don't carry it),
    certbot, ufw, fail2ban, git, composer, and friends. Anything already installed (e.g. because another
    instance is already running on this box) is left alone.
 2. **Application code** — if run from inside an existing checkout of this repo, that checkout is copied
@@ -112,9 +112,11 @@ sudo deploy/install.sh --help
    config test before restarting the service, and rolling back automatically if the test fails.
 7. **Firewall + fail2ban** — allows SSH (auto-detected port) and HTTP/HTTPS through `ufw` *before*
    enabling it, then installs the `sshd` and `itflow-auth` fail2ban jails.
-8. **Cron** — installs a system cron entry that invokes `cron/cron.php` every 5 minutes. This is inert
-   until an admin turns on **Enable Cron** in the app's own Settings (see "Manual follow-ups" below) —
-   the app controls its own effective frequency from there.
+8. **Cron** — installs and starts the cron service, creates a writable per-instance log, and installs
+   `/etc/cron.d/rivetit-<domain>` to invoke `cron/cron.php` every 5 minutes. A prior
+   `/etc/cron.d/itflow-<domain>` for the same app is backed up and removed to avoid duplicate runs.
+   The job is inert until an admin turns on **Enable Cron** in Settings; change its frequency in the
+   root-owned cron file on the server.
 9. **Application setup** — runs `scripts/setup_cli.php` as `www-data` to write `config.php`, import
    `db.sql`, and create the first admin user. Skipped automatically if `config.php` already exists
    (re-running `install.sh` against an already-set-up instance is safe).
@@ -136,7 +138,7 @@ Full reference: `sudo deploy/install.sh --help`. The ones worth knowing up front
   editable later under Admin > Security > Network path, which also shows a self-check of the address
   the app sees. After the app is set up the installer also runs `scripts/update_cli.php --update_db`
   until the schema is current (db.sql is an older snapshot).
-- `--skip-dependencies` — don't install/enable nginx, PHP, MariaDB or Redis, and don't ask about it
+- `--skip-dependencies` — don't install nginx, PHP, MariaDB, Redis or cron, and don't ask about it
   either. Use this when they're already provisioned the way you want (a different PHP build, a managed
   database, etc.) and you only want install.sh's other steps (app code, vhost, TLS, hardening, cron,
   first-run setup). Without this flag, an interactive run always asks first; `--non-interactive` installs
