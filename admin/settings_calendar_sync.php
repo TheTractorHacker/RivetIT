@@ -6,9 +6,9 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
 ?>
 
 <!-- ── Credentials Card ─────────────────────────────────────── -->
-<div class="card card-dark">
+<div class="card">
     <div class="card-header py-3">
-        <h3 class="card-title"><i class="fab fa-microsoft me-2"></i>Outlook Calendar Sync — Azure App Credentials</h3>
+        <h3 class="card-title"><i class="fab fa-microsoft me-2"></i>Outlook connection</h3>
     </div>
     <div class="card-body">
 
@@ -72,9 +72,9 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
 
 <!-- ── Bulk Sync Card ───────────────────────────────────────── -->
 <?php if ($configured) { ?>
-<div class="card card-dark">
+<div class="card">
     <div class="card-header py-3">
-        <h3 class="card-title"><i class="fas fa-sync-alt me-2"></i>Sync All Appointments to Outlook</h3>
+        <h3 class="card-title"><i class="fas fa-sync-alt me-2"></i>Sync appointments to Outlook</h3>
     </div>
     <div class="card-body">
         <p class="text-muted mb-3">Push all existing ticket appointments to Outlook for every technician who has connected their calendar. Useful after reconnecting a revoked token or migrating from another system. Each appointment creates or updates the corresponding Outlook event.</p>
@@ -97,7 +97,7 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
 <?php } ?>
 
 <!-- ── Setup Guide Card ────────────────────────────────────── -->
-<div class="card card-dark">
+<div class="card">
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-book me-2"></i>Setup Guide</h3>
     </div>

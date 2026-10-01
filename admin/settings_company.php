@@ -29,7 +29,7 @@ $company_initials = nullable_htmlentities(initials($company_name));
 
 ?>
 
-    <div class="card card-dark">
+    <div class="card">
         <div class="card-header">
             <h3 class="card-title"><i class="fas fa-fw fa-briefcase me-2"></i>Company Details</h3>
         </div>

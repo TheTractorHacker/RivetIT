@@ -7,10 +7,8 @@
  * aren't database rows, so there's nothing to LIKE-match in SQL; this is a
  * plain PHP array instead, filtered in-process against the search query.
  *
- * Each entry's "visible" key mirrors the same $config_module_enable_* flags
- * admin/includes/side_nav.php already uses to hide a settings page/section
- * when the feature it configures is turned off - a disabled module's
- * settings shouldn't be surfaced as a search result either.
+ * Each entry's "visible" key controls whether that destination appears in
+ * search. The settings directory also applies feature flags to its links.
  *
  * An entry for a page with in-page sections may carry 'sections' (anchor,
  * label, keywords), and a section may carry 'parts': cards inside it with
@@ -29,6 +27,7 @@ function getSettingsSearchIndex(): array {
            $config_module_enable_intune, $config_client_portal_enable;
 
     return [
+        ['label' => 'All settings',           'keywords' => ['admin settings', 'configure', 'preferences'],                         'url' => '/admin/settings.php',                    'visible' => true],
         ['label' => 'Company Details',        'keywords' => ['company', 'address', 'logo', 'business info'],                          'url' => '/admin/settings_company.php',            'visible' => true],
         ['label' => 'Localization',            'keywords' => ['locale', 'timezone', 'currency', 'language', 'date format'],            'url' => '/admin/settings_localization.php',       'visible' => true],
         ['label' => 'Theme',                   'keywords' => ['theme', 'dark mode', 'color', 'accent', 'favicon'],                     'url' => '/admin/settings_theme.php',              'visible' => true],

@@ -2,7 +2,7 @@
 require_once "includes/inc_all_admin.php";
  ?>
 
-    <div class="card card-dark">
+    <div class="card">
         <div class="card-header py-3">
             <h3 class="card-title"><i class="fas fa-fw fa-robot me-2"></i>AI</h3>
         </div>

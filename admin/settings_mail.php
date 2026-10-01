@@ -4,7 +4,7 @@ require_once "includes/inc_all_admin.php";
 
     <div class="card">
         <div class="card-header py-3">
-            <h3 class="card-title"><i class="fas fa-fw fa-envelope me-2"></i>SMTP Mail Settings <small>(For Sending Email)</small></h3>
+            <h3 class="card-title"><i class="fas fa-fw fa-envelope me-2"></i>Send mail (SMTP)</h3>
         </div>
         <div class="card-body">
             <form action="post.php" method="post" autocomplete="off">
@@ -106,7 +106,7 @@ require_once "includes/inc_all_admin.php";
 
     <div class="card">
         <div class="card-header py-3">
-            <h3 class="card-title"><i class="fas fa-fw fa-envelope me-2"></i>IMAP Mail Settings <small>(For Monitoring Ticket Inbox)</small></h3>
+            <h3 class="card-title"><i class="fas fa-fw fa-envelope me-2"></i>Receive ticket mail (IMAP)</h3>
         </div>
         <div class="card-body">
             <div class="alert alert-info alert-dismissible fade show" role="alert">
@@ -288,7 +288,7 @@ require_once "includes/inc_all_admin.php";
 
     <div class="card">
         <div class="card-header py-3">
-            <h3 class="card-title"><i class="fas fa-fw fa-paper-plane me-2"></i>Mail From Configuration</h3>
+            <h3 class="card-title"><i class="fas fa-fw fa-paper-plane me-2"></i>Sender details</h3>
         </div>
         <div class="card-body">
             <form action="post.php" method="post" autocomplete="off">

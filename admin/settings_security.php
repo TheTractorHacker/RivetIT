@@ -25,7 +25,7 @@ $vault_unsynced_users = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT 
 
 ?>
 
-<div class="card card-dark">
+<div class="card">
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-fw fa-key me-2"></i>Vault Encryption</h3>
     </div>
@@ -81,7 +81,7 @@ $vault_unsynced_users = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT 
     </div>
 </div>
 
-<div class="card card-dark">
+<div class="card">
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-fw fa-shield-alt me-2"></i>Security</h3>
     </div>

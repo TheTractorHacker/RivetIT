@@ -3,7 +3,7 @@ require_once "includes/inc_all_admin.php";
 require_once "includes/webhook_events.php";
 ?>
 
-<div class="card card-dark">
+<div class="card">
     <div class="card-header py-3 d-flex align-items-center">
         <h3 class="card-title mr-auto"><i class="fas fa-fw fa-satellite-dish me-2"></i>Webhooks</h3>
         <button class="btn btn-primary btn-sm ajax-modal" data-modal-url="modals/webhook/webhook_add.php">
@@ -83,7 +83,7 @@ require_once "includes/webhook_events.php";
 </div>
 
 <?php if (isset($sql_wh) && mysqli_num_rows($sql_wh) > 0) { ?>
-<div class="card card-dark mt-3">
+<div class="card mt-3">
     <div class="card-header py-2">
         <h3 class="card-title"><i class="fas fa-fw fa-list me-2"></i>Async Delivery Log <small class="text-secondary ms-2">(ticket events, queued via cron — last 100 entries)</small></h3>
     </div>
@@ -119,7 +119,7 @@ require_once "includes/webhook_events.php";
     </div>
 </div>
 
-<div class="card card-dark mt-3">
+<div class="card mt-3">
     <div class="card-header py-2">
         <h3 class="card-title"><i class="fas fa-fw fa-bolt me-2"></i>Direct Delivery Log <small class="text-secondary ms-2">(platform events, sent immediately via WebhookDispatcher — last 100 entries)</small></h3>
     </div>

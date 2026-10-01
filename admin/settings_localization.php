@@ -38,7 +38,7 @@ $phone_country_codes_array = [
 
 ?>
 
-    <div class="card card-dark">
+    <div class="card">
         <div class="card-header py-3">
             <h3 class="card-title"><i class="fas fa-fw fa-globe me-2"></i>Localization</h3>
         </div>
@@ -99,7 +99,7 @@ $phone_country_codes_array = [
         </div>
     </div>
 
-    <div class="card card-dark">
+    <div class="card">
         <div class="card-header py-3">
             <h3 class="card-title"><i class="fas fa-fw fa-phone me-2"></i>Phone Numbers</h3>
         </div>

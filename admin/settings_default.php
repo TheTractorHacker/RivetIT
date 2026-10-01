@@ -21,7 +21,7 @@ $net_terms_array = array (
 
 ?>
 
-<div class="card card-dark">
+<div class="card">
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-fw fa-cogs me-2"></i>Defaults</h3>
     </div>

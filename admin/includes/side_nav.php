@@ -205,45 +205,6 @@
                 </li>
                 <?php } ?>
 
-                <?php
-                /*
-                 * Admin > Knowledge Base is the KB *settings* page, not a cross-area redirect
-                 * into the agent article browser. That browser is still one click away: from
-                 * the agent sidebar and from two buttons on admin/settings_kb.php.
-                 *
-                 * The $config_module_enable_kb guard is deliberately NOT applied here (the old
-                 * link had it). This page is where the module gets switched back on, so hiding
-                 * it while the module is off would make it unreachable exactly when it is needed.
-                 * The old active-state test on ['kb_articles.php','kb_article.php'] is gone too -
-                 * those basenames only exist under /agent, so it could never fire on an admin page.
-                 */
-                ?>
-                <?php if (lookupUserPermission("module_kb") >= 1) { ?>
-                    <li class="nav-item<?php echo (basename($_SERVER['PHP_SELF']) == 'settings_kb.php' ? ' active' : ''); ?>">
-                        <a href="/admin/settings_kb.php" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_kb.php' ? 'active' : ''); ?>">
-                            <span class="nav-link-icon"><i class="fas fa-book"></i></span>
-                            <span class="nav-link-title">Knowledge Base</span>
-                        </a>
-                    </li>
-                <?php } ?>
-
-                <?php
-                /*
-                 * Admin > Training: every Training setting on one page (general & media, compliance,
-                 * Odoo employee links, kiosk, records ledger). The old settings_training_compliance.php
-                 * and settings_training_kiosk.php URLs redirect into its sections. Not gated on
-                 * $config_module_enable_training: the module is switched on from Settings > Modules or
-                 * this page, so hiding the link while the module is off would make it unreachable
-                 * exactly when it is needed (same reasoning as the Knowledge Base link above).
-                 */
-                ?>
-                <li class="nav-item<?php echo (basename($_SERVER['PHP_SELF']) == 'settings_training.php' ? ' active' : ''); ?>">
-                    <a href="/admin/settings_training.php" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_training.php' ? 'active' : ''); ?>">
-                        <span class="nav-link-icon"><i class="fas fa-hard-hat"></i></span>
-                        <span class="nav-link-title">Training</span>
-                    </a>
-                </li>
-
                 <?php if ($config_module_enable_itdoc) { ?>
                 <!-- TEMPLATES Section -->
                 <?php $nav_open_templates = in_array(basename($_SERVER['PHP_SELF']), ['contract_template.php', 'contract_template_details.php', 'project_template.php', 'project_template_details.php', 'onboarding_templates.php', 'onboarding_template_details.php', 'ticket_template.php', 'ticket_template_details.php', 'canned_responses.php', 'worksheet_template.php', 'worksheet_template_details.php', 'vendor_template.php', 'software_template.php', 'document_template.php', 'document_template_details.php']); ?>
@@ -353,113 +314,13 @@
                     </div>
                 </li>
 
-                <!-- SETTINGS Section -->
-                <?php $nav_open_settings = in_array(basename($_SERVER['PHP_SELF']), ['settings_company.php', 'settings_localization.php', 'settings_theme.php', 'settings_appearance.php', 'settings_security.php', 'settings_mail.php', 'settings_notification.php', 'settings_default.php', 'settings_invoice.php', 'settings_quote.php', 'settings_online_payment.php', 'settings_online_payment_clients.php', 'settings_project.php', 'settings_ticket.php', 'settings_ai.php', 'identity_provider.php', 'settings_telemetry.php', 'settings_module.php', 'portal_preview.php', 'settings_calendar_sync.php', 'settings_webhooks.php', 'settings_integrations.php', 'settings_comet.php', 'comet_status.php', 'settings_rmm.php', 'settings_unifi.php']); ?>
-                <li class="nav-item dropdown mt-2<?php echo ($nav_open_settings ? ' active' : ''); ?>">
-                    <a href="#nav-group-settings" class="nav-link dropdown-toggle<?php echo ($nav_open_settings ? ' show' : ''); ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-settings" aria-expanded="<?php echo ($nav_open_settings ? 'true' : 'false'); ?>">
+                <!-- Keep the global menu short; the settings directory groups all destinations. -->
+                <?php $nav_open_settings = in_array(basename($_SERVER['PHP_SELF']), ['settings.php', 'settings_company.php', 'settings_localization.php', 'settings_theme.php', 'settings_appearance.php', 'settings_security.php', 'settings_mail.php', 'settings_notification.php', 'settings_default.php', 'settings_invoice.php', 'settings_quote.php', 'settings_project.php', 'settings_ticket.php', 'settings_ai.php', 'settings_custom_fields.php', 'identity_provider.php', 'settings_telemetry.php', 'settings_module.php', 'portal_preview.php', 'settings_calendar_sync.php', 'settings_webhooks.php', 'settings_integrations.php', 'settings_comet.php', 'comet_status.php', 'settings_rmm.php', 'settings_unifi.php', 'settings_kb.php', 'settings_training.php'], true); ?>
+                <li class="nav-item<?php echo ($nav_open_settings ? ' active' : ''); ?>">
+                    <a href="/admin/settings.php" class="nav-link<?php echo ($nav_open_settings ? ' active' : ''); ?>"<?php echo (basename($_SERVER['PHP_SELF']) === 'settings.php' ? ' aria-current="page"' : ''); ?>>
                         <span class="nav-link-icon"><i class="fas fa-cog"></i></span>
                         <span class="nav-link-title">Settings</span>
                     </a>
-                    <div class="dropdown-menu<?php echo ($nav_open_settings ? ' show' : ''); ?>" id="nav-group-settings">
-                        <a href="/admin/settings_company.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_company.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fa fa-briefcase"></i></span>
-                            <span class="text-truncate">Company Details</span>
-                        </a>
-                        <a href="/admin/settings_localization.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_localization.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fa fa-globe"></i></span>
-                            <span class="text-truncate">Localization</span>
-                        </a>
-                        <a href="/admin/settings_theme.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_theme.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fa fa-paint-brush"></i></span>
-                            <span class="text-truncate">Theme</span>
-                        </a>
-                        <a href="/admin/settings_appearance.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_appearance.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fa fa-palette"></i></span>
-                            <span class="text-truncate">Appearance</span>
-                        </a>
-                        <a href="/admin/settings_security.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_security.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-shield-alt"></i></span>
-                            <span class="text-truncate">Security</span>
-                        </a>
-                        <a href="/admin/settings_mail.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_mail.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="far fa-envelope"></i></span>
-                            <span class="text-truncate">Mail</span>
-                        </a>
-                        <a href="/admin/settings_notification.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_notification.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="far fa-bell"></i></span>
-                            <span class="text-truncate">Notifications</span>
-                        </a>
-                        <a href="/admin/settings_default.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_default.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-cogs"></i></span>
-                            <span class="text-truncate">Defaults</span>
-                        </a>
-                        <?php if ($config_module_enable_accounting) { ?>
-                            <a href="/admin/settings_invoice.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_invoice.php' ? 'active' : ''); ?>">
-                                <span class="dropdown-item-icon"><i class="fas fa-file-invoice"></i></span>
-                                <span class="text-truncate">Invoice</span>
-                            </a>
-                            <a href="/admin/settings_quote.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_quote.php' ? 'active' : ''); ?>">
-                                <span class="dropdown-item-icon"><i class="fas fa-comment-dollar"></i></span>
-                                <span class="text-truncate">Quote</span>
-                            </a>
-                        <?php } ?>
-                        <?php if ($config_module_enable_ticketing) { ?>
-                            <a href="/admin/settings_project.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_project.php' ? 'active' : ''); ?>">
-                                <span class="dropdown-item-icon"><i class="fas fa-project-diagram"></i></span>
-                                <span class="text-truncate">Project</span>
-                            </a>
-                            <a href="/admin/settings_ticket.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_ticket.php' ? 'active' : ''); ?>">
-                                <span class="dropdown-item-icon"><i class="fas fa-life-ring"></i></span>
-                                <span class="text-truncate">Ticket</span>
-                            </a>
-                        <?php } ?>
-                        <a href="/admin/settings_ai.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_ai.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-robot"></i></span>
-                            <span class="text-truncate">AI</span>
-                        </a>
-                        <!-- Currently the only integration is the client portal SSO -->
-                        <?php if ($config_client_portal_enable) { ?>
-                            <a href="/admin/identity_provider.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'identity_provider.php' ? 'active' : ''); ?>">
-                                <span class="dropdown-item-icon"><i class="fas fa-fingerprint"></i></span>
-                                <span class="text-truncate">Identity Provider</span>
-                            </a>
-                        <?php } ?>
-
-                        <?php
-                        /*
-                         * Gated on the portal flag for the same reason Identity Provider is: with the
-                         * portal switched off there is nothing to preview. The page itself still
-                         * handles the flag being off (bookmarks, or the module being turned off while
-                         * the page is open) - it just says so instead of offering dead buttons.
-                         */
-                        ?>
-                        <?php if ($config_client_portal_enable) { ?>
-                            <a href="/admin/portal_preview.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'portal_preview.php' ? 'active' : ''); ?>">
-                                <span class="dropdown-item-icon"><i class="fas fa-eye"></i></span>
-                                <span class="text-truncate">Portal Preview</span>
-                            </a>
-                        <?php } ?>
-                        <a href="/admin/settings_calendar_sync.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_calendar_sync.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-calendar-alt"></i></span>
-                            <span class="text-truncate">Calendar Sync</span>
-                        </a>
-                        <a href="/admin/settings_telemetry.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_telemetry.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-satellite-dish"></i></span>
-                            <span class="text-truncate">Telemetry</span>
-                        </a>
-                        <a href="/admin/settings_module.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_module.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-cube"></i></span>
-                            <span class="text-truncate">Modules</span>
-                        </a>
-                        <a href="/admin/settings_webhooks.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'settings_webhooks.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-satellite-dish"></i></span>
-                            <span class="text-truncate">Webhooks</span>
-                        </a>
-                        <a href="/admin/settings_integrations.php" class="dropdown-item <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['settings_integrations.php','settings_comet.php','comet_status.php','settings_rmm.php','settings_unifi.php']) ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-plug"></i></span>
-                            <span class="text-truncate">Integrations</span>
-                        </a>
-                    </div>
                 </li>
 
                 <?php

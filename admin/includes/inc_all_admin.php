@@ -21,3 +21,44 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/inc_wrapper.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/inc_alert_feedback.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/filter_header.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/app_version.php';
+
+// A short return path makes the settings directory useful from every detail page.
+// Keep it outside forms so it never changes how an existing settings form submits.
+$admin_settings_page = basename($_SERVER['PHP_SELF']);
+$admin_settings_labels = [
+    'settings_company.php' => 'Company details',
+    'settings_localization.php' => 'Language & region',
+    'settings_theme.php' => 'Theme',
+    'settings_appearance.php' => 'Appearance',
+    'settings_default.php' => 'Defaults',
+    'settings_module.php' => 'Modules',
+    'settings_ticket.php' => 'Ticketing',
+    'settings_project.php' => 'Projects',
+    'settings_invoice.php' => 'Invoices',
+    'settings_quote.php' => 'Quotes',
+    'payroll_settings.php' => 'Payroll',
+    'settings_training.php' => 'Training',
+    'settings_kb.php' => 'Knowledge Base',
+    'settings_custom_fields.php' => 'Custom fields',
+    'settings_security.php' => 'Security',
+    'settings_mail.php' => 'Mail',
+    'settings_notification.php' => 'Notifications',
+    'identity_provider.php' => 'Identity provider',
+    'portal_preview.php' => 'Portal preview',
+    'settings_integrations.php' => 'Integrations',
+    'settings_calendar_sync.php' => 'Calendar sync',
+    'settings_webhooks.php' => 'Webhooks',
+    'settings_ai.php' => 'AI',
+    'settings_telemetry.php' => 'Telemetry',
+    'settings_comet.php' => 'Integrations',
+    'comet_status.php' => 'Integrations',
+    'settings_rmm.php' => 'Integrations',
+    'settings_unifi.php' => 'Integrations',
+];
+if (isset($admin_settings_labels[$admin_settings_page])) { ?>
+    <nav aria-label="Breadcrumb" class="mb-3 small">
+        <a href="/admin/settings.php"><i class="fas fa-fw fa-arrow-left me-1" aria-hidden="true"></i>All settings</a>
+        <span class="text-muted mx-2" aria-hidden="true">/</span>
+        <span aria-current="page"><?php echo nullable_htmlentities($admin_settings_labels[$admin_settings_page]); ?></span>
+    </nav>
+<?php }
