@@ -72,25 +72,25 @@ $last_run = mysqli_fetch_assoc(mysqli_query($mysqli,
         <h6 class="mt-4 mb-2 text-muted text-uppercase" style="font-size:.75rem;letter-spacing:.05em">
             <i class="fas fa-list me-1"></i>Scheduled Jobs for This Installation
         </h6>
+        <?php if ($can_edit_schedules): ?>
+            <p class="text-muted mb-2">Choose <strong>Edit schedule</strong> to set a repeat time. Changes affect only the selected job.</p>
+        <?php endif; ?>
+        <div class="table-responsive">
         <table class="table table-sm table-bordered mb-0">
             <thead class="thead-light">
                 <tr>
-                    <th style="width:310px">Schedule</th>
+                    <th style="width:255px">Schedule</th>
                     <th>Script</th>
                     <th>File</th>
-                    <?php if ($can_edit_schedules): ?><th style="width:85px">Action</th><?php endif; ?>
+                    <?php if ($can_edit_schedules): ?><th style="width:140px">Action</th><?php endif; ?>
                 </tr>
             </thead>
             <tbody>
             <?php foreach ($jobs as $job): ?>
                 <tr <?= $job['script'] === $app_root . '/cron/cron.php' ? 'class="table-primary"' : '' ?>>
-                    <?php $form_id = 'cron-schedule-' . basename($job['file']) . '-' . $job['line'] . '-' . substr($job['command_hash'], 0, 8); ?>
                     <td>
-                        <?php if ($can_edit_schedules && $job['user'] === 'www-data'): ?>
-                            <input form="<?= htmlspecialchars($form_id) ?>" name="cron_schedule" class="form-control form-control-sm font-monospace"
-                                value="<?= htmlspecialchars($job['schedule']) ?>" aria-label="Schedule for <?= htmlspecialchars(basename($job['script'])) ?>"
-                                required maxlength="100" spellcheck="false">
-                        <?php else: ?><code><?= htmlspecialchars($job['schedule']) ?></code><?php endif; ?>
+                        <code data-cron-schedule="<?= htmlspecialchars($job['schedule']) ?>"><?= htmlspecialchars($job['schedule']) ?></code>
+                        <span class="d-block small text-muted" data-cron-description></span>
                     </td>
                     <td>
                         <small class="text-monospace"><?= htmlspecialchars(basename($job['script'])) ?></small>
@@ -100,14 +100,14 @@ $last_run = mysqli_fetch_assoc(mysqli_query($mysqli,
                     <?php if ($can_edit_schedules): ?>
                         <td>
                             <?php if ($job['user'] === 'www-data'): ?>
-                            <form id="<?= htmlspecialchars($form_id) ?>" action="/admin/post.php" method="POST">
-                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-                                <input type="hidden" name="save_cron_schedule" value="1">
-                                <input type="hidden" name="cron_file" value="<?= htmlspecialchars(basename($job['file'])) ?>">
-                                <input type="hidden" name="cron_line" value="<?= (int) $job['line'] ?>">
-                                <input type="hidden" name="cron_hash" value="<?= htmlspecialchars($job['command_hash']) ?>">
-                                <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                            </form>
+                                <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#cronScheduleModal"
+                                    data-cron-file="<?= htmlspecialchars(basename($job['file'])) ?>"
+                                    data-cron-line="<?= (int) $job['line'] ?>"
+                                    data-cron-hash="<?= htmlspecialchars($job['command_hash']) ?>"
+                                    data-cron-script="<?= htmlspecialchars(basename($job['script'])) ?>"
+                                    data-cron-current="<?= htmlspecialchars($job['schedule']) ?>">
+                                    <i class="fas fa-calendar-alt me-1" aria-hidden="true"></i>Edit schedule
+                                </button>
                             <?php endif; ?>
                         </td>
                     <?php endif; ?>
@@ -118,8 +118,88 @@ $last_run = mysqli_fetch_assoc(mysqli_query($mysqli,
             <?php endif; ?>
             </tbody>
         </table>
+        </div>
 
     </div>
 </div>
 
+<?php if ($can_edit_schedules): ?>
+<div class="modal fade" id="cronScheduleModal" tabindex="-1" aria-labelledby="cronScheduleTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form action="/admin/post.php" method="POST" id="cronScheduleForm">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                <input type="hidden" name="save_cron_schedule" value="1">
+                <input type="hidden" name="cron_file" id="cronScheduleFile">
+                <input type="hidden" name="cron_line" id="cronScheduleLine">
+                <input type="hidden" name="cron_hash" id="cronScheduleHash">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="cronScheduleTitle">Edit schedule</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Job: <code id="cronScheduleJob"></code><br>Current: <code id="cronScheduleCurrent"></code></p>
+
+                    <div class="mb-3">
+                        <label for="cronScheduleType" class="form-label">Repeat</label>
+                        <select id="cronScheduleType" class="form-select">
+                            <option value="minutes">Every few minutes</option>
+                            <option value="hourly">Hourly</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="custom">Custom cron expression</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3" data-cron-control="minutes">
+                        <label for="cronEveryMinutes" class="form-label">Run every</label>
+                        <div class="input-group" style="max-width:180px">
+                            <input type="number" id="cronEveryMinutes" class="form-control" min="1" max="59" step="1" value="5">
+                            <span class="input-group-text">minutes</span>
+                        </div>
+                        <div class="form-text">Intervals start again at the top of each hour.</div>
+                    </div>
+                    <div class="mb-3 d-none" data-cron-control="hourly">
+                        <label for="cronMinute" class="form-label">Minute of each hour</label>
+                        <input type="number" id="cronMinute" class="form-control" min="0" max="59" step="1" value="0" style="max-width:120px">
+                    </div>
+                    <div class="mb-3 d-none" data-cron-control="time">
+                        <label for="cronTime" class="form-label">Time of day</label>
+                        <input type="time" id="cronTime" class="form-control" value="09:00" style="max-width:180px">
+                        <div class="form-text">Uses the server's cron time zone.</div>
+                    </div>
+                    <fieldset class="mb-3 d-none" data-cron-control="weekly">
+                        <legend class="form-label fs-6 mb-2">Days of the week</legend>
+                        <div class="d-flex flex-wrap gap-2">
+                            <?php foreach ([1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat', 0 => 'Sun'] as $day_number => $day_name): ?>
+                                <label class="form-check form-check-inline mb-0 me-2"><input class="form-check-input" type="checkbox" name="cron_weekday" value="<?= $day_number ?>" <?= $day_number >= 1 && $day_number <= 5 ? 'checked' : '' ?>><span class="form-check-label"><?= $day_name ?></span></label>
+                            <?php endforeach; ?>
+                        </div>
+                    </fieldset>
+                    <div class="mb-3 d-none" data-cron-control="monthly">
+                        <label for="cronMonthDay" class="form-label">Day of the month</label>
+                        <input type="number" id="cronMonthDay" class="form-control" min="1" max="31" step="1" value="1" style="max-width:120px">
+                        <div class="form-text">Days 29–31 are skipped in shorter months.</div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label for="cronScheduleExpression" class="form-label">Cron expression</label>
+                        <input type="text" id="cronScheduleExpression" name="cron_schedule" class="form-control font-monospace" required maxlength="100" spellcheck="false" readonly>
+                        <div class="form-text">For custom schedules: minute, hour, day of month, month, day of week. Use <code>*</code> for every value.</div>
+                    </div>
+                    <div id="cronScheduleSummary" class="text-muted" aria-live="polite"></div>
+                    <div id="cronScheduleError" class="text-danger d-none" role="alert"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="cronScheduleSave" disabled>Save schedule</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<script src="/js/cron_schedule_builder.js?v=<?= filemtime(__DIR__ . '/../js/cron_schedule_builder.js') ?>" defer></script>
 <?php require_once "../includes/footer.php"; ?>
