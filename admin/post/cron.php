@@ -7,9 +7,40 @@ require_once __DIR__ . '/../../includes/cron_jobs.php';
 if (isset($_POST['save_cron_schedule'])) {
     validateCSRFToken($_POST['csrf_token']);
     enforceUserPermission('user_type', 1);
-    // Cron files are root-owned. Do not let a web request rewrite one (the
-    // previous handler could change another installation's cron file).
-    flash_alert('Edit this installation’s cron schedule in its root-owned file under /etc/cron.d/.', 'danger');
+
+    $app_root = realpath(__DIR__ . '/../..');
+    $instance = rivetit_cron_manager_instance($app_root);
+    $file = (string) ($_POST['cron_file'] ?? '');
+    $line = (string) ($_POST['cron_line'] ?? '');
+    $hash = (string) ($_POST['cron_hash'] ?? '');
+    $schedule = trim((string) ($_POST['cron_schedule'] ?? ''));
+    $jobs = rivetit_cron_jobs_for_app($app_root);
+    $matching = array_values(array_filter($jobs, static fn($job) =>
+        basename($job['file']) === $file &&
+        (string) $job['line'] === $line &&
+        $job['command_hash'] === $hash &&
+        $job['user'] === 'www-data'
+    ));
+    if (!$instance || count($matching) !== 1 || !is_executable('/usr/local/sbin/rivetit-cron-schedule')) {
+        flash_alert('This cron job is not available for editing. Reload the page or ask the server administrator to install the Cron Manager helper.', 'danger');
+        redirect('/admin/cron.php');
+    }
+
+    // The helper independently checks the root-owned registration, cron file,
+    // exact command hash, and timing fields before touching a schedule.
+    $args = ['--set', $instance, $file, $line, $hash, $schedule];
+    $command = '/usr/bin/sudo -n /usr/local/sbin/rivetit-cron-schedule';
+    foreach ($args as $arg) {
+        $command .= ' ' . escapeshellarg($arg);
+    }
+    exec($command . ' 2>&1', $output, $status);
+    if ($status === 0) {
+        logAction('Cron', 'Edit', "$session_name set the schedule for $file:$line to $schedule");
+        flash_alert('Cron schedule saved for ' . basename($matching[0]['script']) . '.');
+    } else {
+        error_log('Cron Manager schedule update failed: ' . implode(' ', $output));
+        flash_alert('Could not save the cron schedule. Check the five timing fields or ask the server administrator to check the Cron Manager helper.', 'danger');
+    }
     redirect('/admin/cron.php');
 }
 
