@@ -4,6 +4,8 @@ require_once __DIR__ . '/../includes/cron_jobs.php';
 
 $app_root = realpath(__DIR__ . '/..');
 $jobs = rivetit_cron_jobs_for_app($app_root);
+$cron_manager_instance = rivetit_cron_manager_instance($app_root);
+$can_edit_schedules = $cron_manager_instance !== null && is_executable('/usr/local/sbin/rivetit-cron-schedule');
 $main_jobs = array_values(array_filter($jobs, fn($job) => $job['script'] === $app_root . '/cron/cron.php'));
 $main_job = count($main_jobs) === 1 ? $main_jobs[0] : null;
 
@@ -51,8 +53,12 @@ $last_run = mysqli_fetch_assoc(mysqli_query($mysqli,
             </div>
         <?php else: ?>
             <p class="mb-3">Main cron runs at <code><?= htmlspecialchars($main_job['schedule']) ?></code>
-                from <code><?= htmlspecialchars($main_job['file']) ?></code>. The schedule is managed in this
-                root-owned file on the server.</p>
+                from <code><?= htmlspecialchars($main_job['file']) ?></code>.</p>
+        <?php endif; ?>
+
+        <?php if (!$can_edit_schedules && $jobs): ?>
+            <div class="alert alert-info mb-3">Schedules are visible here. A server administrator must install the
+                Cron Manager helper to enable editing.</div>
         <?php endif; ?>
 
         <!-- All scheduled jobs table -->
@@ -62,21 +68,46 @@ $last_run = mysqli_fetch_assoc(mysqli_query($mysqli,
         <table class="table table-sm table-bordered mb-0">
             <thead class="thead-light">
                 <tr>
-                    <th style="width:200px">Schedule</th>
+                    <th style="width:310px">Schedule</th>
                     <th>Script</th>
                     <th>File</th>
+                    <?php if ($can_edit_schedules): ?><th style="width:85px">Action</th><?php endif; ?>
                 </tr>
             </thead>
             <tbody>
             <?php foreach ($jobs as $job): ?>
                 <tr <?= $job['script'] === $app_root . '/cron/cron.php' ? 'class="table-primary"' : '' ?>>
-                    <td><code><?= htmlspecialchars($job['schedule']) ?></code></td>
-                    <td><small class="text-monospace"><?= htmlspecialchars(basename($job['script'])) ?></small></td>
-                    <td><small class="text-monospace"><?= htmlspecialchars($job['file']) ?></small></td>
+                    <?php $form_id = 'cron-schedule-' . basename($job['file']) . '-' . $job['line'] . '-' . substr($job['command_hash'], 0, 8); ?>
+                    <td>
+                        <?php if ($can_edit_schedules && $job['user'] === 'www-data'): ?>
+                            <input form="<?= htmlspecialchars($form_id) ?>" name="cron_schedule" class="form-control form-control-sm font-monospace"
+                                value="<?= htmlspecialchars($job['schedule']) ?>" aria-label="Schedule for <?= htmlspecialchars(basename($job['script'])) ?>"
+                                required maxlength="100" spellcheck="false">
+                        <?php else: ?><code><?= htmlspecialchars($job['schedule']) ?></code><?php endif; ?>
+                    </td>
+                    <td>
+                        <small class="text-monospace"><?= htmlspecialchars(basename($job['script'])) ?></small>
+                        <details><summary class="small text-muted">Command</summary><code class="small text-break"><?= htmlspecialchars($job['command']) ?></code></details>
+                    </td>
+                    <td><small class="text-monospace"><?= htmlspecialchars($job['file']) ?>:<?= (int) $job['line'] ?></small></td>
+                    <?php if ($can_edit_schedules): ?>
+                        <td>
+                            <?php if ($job['user'] === 'www-data'): ?>
+                            <form id="<?= htmlspecialchars($form_id) ?>" action="/admin/post.php" method="POST">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                                <input type="hidden" name="save_cron_schedule" value="1">
+                                <input type="hidden" name="cron_file" value="<?= htmlspecialchars(basename($job['file'])) ?>">
+                                <input type="hidden" name="cron_line" value="<?= (int) $job['line'] ?>">
+                                <input type="hidden" name="cron_hash" value="<?= htmlspecialchars($job['command_hash']) ?>">
+                                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                            </form>
+                            <?php endif; ?>
+                        </td>
+                    <?php endif; ?>
                 </tr>
             <?php endforeach; ?>
             <?php if (empty($jobs)): ?>
-                <tr><td colspan="3" class="text-center text-muted py-3">No scheduled jobs found for this installation.</td></tr>
+                <tr><td colspan="<?= $can_edit_schedules ? 4 : 3 ?>" class="text-center text-muted py-3">No scheduled jobs found for this installation.</td></tr>
             <?php endif; ?>
             </tbody>
         </table>

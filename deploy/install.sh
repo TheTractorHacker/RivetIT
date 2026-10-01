@@ -955,8 +955,12 @@ install_cron_entry() {
     chown www-data:www-data "${cron_log}"
     chmod 640 "${cron_log}"
 
-    backup_if_exists "${cron_file}"
-    cat > "${cron_file}" <<EOF
+    # Keep an administrator's existing schedule when the installer is rerun.
+    if [[ -f "${cron_file}" ]] && [[ "$(grep -Fc -- "${APP_DIR}/cron/cron.php" "${cron_file}" || true)" -eq 1 ]]; then
+        info "Preserving existing cron schedule in ${cron_file}."
+    else
+        backup_if_exists "${cron_file}"
+        cat > "${cron_file}" <<EOF
 # Managed by deploy/install.sh for the RivetIT instance at
 # ${DOMAIN} (${APP_DIR}). This fires every 5 minutes unconditionally —
 # whether cron/cron.php actually does anything is gated by the app's own
@@ -966,6 +970,7 @@ install_cron_entry() {
 # disables the job's work.
 */5 * * * * www-data /usr/bin/php ${APP_DIR}/cron/cron.php >> ${cron_log} 2>&1
 EOF
+    fi
     chmod 644 "${cron_file}"
     chown root:root "${cron_file}"
     # An earlier installer used itflow-<domain>. Remove only the file whose
@@ -979,6 +984,33 @@ EOF
         fi
     fi
     success "Installed system cron entry: ${cron_file} (log: ${cron_log})"
+}
+
+install_cron_manager_helper() {
+    local safe_name config_file config_temp sudoers_file sudoers_temp
+    safe_name="$(printf '%s' "${DOMAIN}" | tr -c 'a-zA-Z0-9' '-')"
+    config_file="/etc/rivetit/cron-manager-${safe_name}.json"
+    sudoers_file="/etc/sudoers.d/rivetit-cron-${safe_name}"
+
+    install -o root -g root -m 0755 "${APP_DIR}/deploy/cron_schedule.py" /usr/local/sbin/rivetit-cron-schedule
+    install -d -o root -g root -m 0755 /etc/rivetit
+    config_temp="$(mktemp)"
+    python3 - "${APP_DIR}" > "${config_temp}" <<'PY'
+import json
+import os
+import sys
+print(json.dumps({'app_root': os.path.realpath(sys.argv[1])}))
+PY
+    install -o root -g root -m 0644 "${config_temp}" "${config_file}"
+    rm -f "${config_temp}"
+
+    sudoers_temp="$(mktemp)"
+    printf 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/rivetit-cron-schedule --set %s *, /usr/local/sbin/rivetit-cron-schedule --check %s *\n' "${safe_name}" "${safe_name}" > "${sudoers_temp}"
+    chmod 0440 "${sudoers_temp}"
+    visudo -cf "${sudoers_temp}" || die "Invalid Cron Manager sudoers rule"
+    install -o root -g root -m 0440 "${sudoers_temp}" "${sudoers_file}"
+    rm -f "${sudoers_temp}"
+    success "Cron Manager can edit schedules for ${DOMAIN}."
 }
 
 # ---------------------------------------------------------------------------
@@ -1193,8 +1225,8 @@ print_summary() {
   2. The system cron entry in /etc/cron.d/rivetit-${DOMAIN//./-} fires every 5 minutes, but cron/cron.php
      does nothing until you turn on "Enable Cron" in Settings inside the
      app — it defaults to off. Edit the root-owned cron file to change
-     frequency. Cron Manager lists this instance's jobs but does not rewrite
-     system cron files from the web UI.
+     frequency. Cron Manager lists this instance's jobs and lets admins edit
+     their schedules from the web UI.
   3. See deploy/README.md for updates and backups.
   4. See docs/ISO27001-COMPLIANCE.md for the full Annex A control mapping
      this deployment supports.
@@ -1300,6 +1332,7 @@ main() {
     configure_fail2ban
 
     install_cron_entry
+    install_cron_manager_helper
     local fresh_app=0
     [[ -f "${APP_DIR}/config.php" ]] || fresh_app=1
     if [[ -n "${RESTORE_FROM}" ]]; then

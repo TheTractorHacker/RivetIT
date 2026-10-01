@@ -19,13 +19,27 @@ try {
     if (count($jobs) !== 3 ||
         $jobs[0]['script'] !== $root . '/cron/report_scheduler.php' ||
         $jobs[1]['script'] !== $root . '/cron/cron.php' ||
-        $jobs[2]['script'] !== $root . '/cron/mail_queue.php') {
+        $jobs[2]['script'] !== $root . '/cron/mail_queue.php' ||
+        $jobs[1]['line'] !== 2 ||
+        $jobs[1]['command_hash'] !== hash('sha256', "/usr/bin/php $root/cron/cron.php >> /var/log/rivetit.log 2>&1")) {
         throw new RuntimeException('Cron jobs were not isolated to this installation.');
+    }
+    $config_dir = $dir . '/config';
+    mkdir($config_dir);
+    file_put_contents($config_dir . '/cron-manager-example.json', json_encode(['app_root' => $root]));
+    file_put_contents($config_dir . '/cron-manager-other.json', json_encode(['app_root' => '/var/www/other']));
+    if (rivetit_cron_manager_instance($root, $config_dir) !== 'example') {
+        throw new RuntimeException('Cron Manager registration did not match the installation.');
     }
     echo "Cron job discovery checks passed\n";
 } finally {
     foreach (glob($dir . '/*') ?: [] as $file) {
-        unlink($file);
+        if (is_dir($file)) {
+            foreach (glob($file . '/*') ?: [] as $config) unlink($config);
+            rmdir($file);
+        } else {
+            unlink($file);
+        }
     }
     rmdir($dir);
 }

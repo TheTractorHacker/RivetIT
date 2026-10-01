@@ -115,8 +115,9 @@ sudo deploy/install.sh --help
 8. **Cron** — installs and starts the cron service, creates a writable per-instance log, and installs
    `/etc/cron.d/rivetit-<domain>` to invoke `cron/cron.php` every 5 minutes. A prior
    `/etc/cron.d/itflow-<domain>` for the same app is backed up and removed to avoid duplicate runs.
-   The job is inert until an admin turns on **Enable Cron** in Settings; change its frequency in the
-   root-owned cron file on the server.
+   The job is inert until an admin turns on **Enable Cron** in Settings. The installer also registers
+   a root-owned schedule helper so administrators can edit this installation's job schedules in
+   **Maintenance → Cron** without granting the web process general write access to `/etc/cron.d`.
 9. **Application setup** — runs `scripts/setup_cli.php` as `www-data` to write `config.php`, import
    `db.sql`, and create the first admin user. Skipped automatically if `config.php` already exists
    (re-running `install.sh` against an already-set-up instance is safe).
