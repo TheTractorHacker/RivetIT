@@ -4,6 +4,24 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [26.10] RivetIT — Interactive organizational chart
+
+No database migration is required. The organization chart remains read-only
+and uses the existing contact manager links and access rules.
+
+- A compact, searchable employee list opens first and remains available if
+  JavaScript or the chart library cannot load.
+- The interactive chart uses locally hosted, pinned D3 libraries. Open Chart
+  to load it on demand, then pan, zoom, fit, expand or collapse branches.
+- Search focuses an employee and highlights their authorized reporting path.
+  Department, location, and employment-status filters retain needed ancestors
+  as labeled context. Missing managers and reporting cycles remain visible as
+  data-quality warnings without exposing inaccessible contacts.
+- The chart uses smaller cards and a bounded canvas. The list is available for
+  keyboard navigation and smaller screens.
+- This release also includes the documentation, portal, setup, and training
+  fixes merged since the preceding GitHub release.
+
 ## [Unreleased] RivetIT - Telemetry removed, the repository moved, clean defaults for new installs
 No database change (still 2.6.99). Finishes the rename below: the last things that actively pointed at
 `itflow.org`, or still said the repository "has not moved", are addressed.
