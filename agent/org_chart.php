@@ -40,6 +40,7 @@
  */
 
 require_once "includes/inc_all.php";
+require_once __DIR__ . '/includes/org_chart_filter.php';
 
 enforceUserPermission('module_client');
 
@@ -48,6 +49,8 @@ enforceUserPermission('module_client');
 // same enforceClientAccess() gate every per-department page in this app uses, so
 // a technician can't fish another department's chart out just by editing the URL.
 $department_filter_id = isset($_GET['client_id']) ? intval($_GET['client_id']) : 0;
+$location_filter_id = isset($_GET['location_id']) ? max(0, intval($_GET['location_id'])) : 0;
+$status_filter = isset($_GET['status']) && is_string($_GET['status']) ? trim($_GET['status']) : '';
 if ($department_filter_id > 0) {
     enforceClientAccess($department_filter_id);
 }
@@ -90,15 +93,20 @@ $sql_contacts = mysqli_query($mysqli, "
     SELECT contacts.contact_id, contacts.contact_name, contacts.contact_title,
            contacts.contact_department, contacts.contact_manager_id,
            contacts.contact_employment_status, contacts.contact_client_id,
-           contacts.contact_photo, clients.client_name
+           contacts.contact_photo, contacts.contact_location_id,
+           locations.location_name, clients.client_name
     FROM contacts
     LEFT JOIN clients ON clients.client_id = contacts.contact_client_id
+    LEFT JOIN locations ON locations.location_id = contacts.contact_location_id
+        AND locations.location_client_id = contacts.contact_client_id
     WHERE contacts.contact_archived_at IS NULL
     $scope_where
     ORDER BY contacts.contact_name ASC
 ");
 
 $contacts_by_id = [];
+$locations_by_id = [];
+$statuses = [];
 while ($row = mysqli_fetch_assoc($sql_contacts)) {
     $id = intval($row['contact_id']);
     // initials() is called on the already-escaped name, matching contacts.php's
@@ -114,10 +122,27 @@ while ($row = mysqli_fetch_assoc($sql_contacts)) {
         'department_name'    => nullable_htmlentities($row['client_name']),
         'department_id'      => intval($row['contact_client_id']),
         'employment_status'  => nullable_htmlentities($row['contact_employment_status'] ?? 'active'),
+        'raw_status'         => $row['contact_employment_status'] ?? 'active',
+        'location_id'        => intval($row['contact_location_id']),
+        'location_name'      => nullable_htmlentities($row['location_name']),
         'manager_id'         => intval($row['contact_manager_id']),
         'photo'              => nullable_htmlentities($row['contact_photo']),
     ];
+    if ($row['location_name'] !== null && $row['location_name'] !== '') {
+        $locations_by_id[intval($row['contact_location_id'])] = nullable_htmlentities($row['location_name']);
+    }
+    $statuses[$row['contact_employment_status'] ?? 'active'] = true;
 }
+asort($locations_by_id, SORT_NATURAL | SORT_FLAG_CASE);
+ksort($statuses);
+if ($location_filter_id > 0 && !isset($locations_by_id[$location_filter_id])) {
+    $location_filter_id = 0;
+}
+if ($status_filter !== '' && !isset($statuses[$status_filter])) {
+    $status_filter = '';
+}
+
+[$contacts_by_id, $matching_contacts] = org_chart_filter_contacts($contacts_by_id, $location_filter_id, $status_filter);
 
 /*
  * Splits $contacts_by_id into a manager_id => [child contact_id, ...] map and a
@@ -178,7 +203,7 @@ function org_chart_status_badge(string $status): string
  * byproducts of the explicit-stack walk it already does, so no extra pass over
  * the tree is needed to hand this data to the browser.
  */
-function org_chart_node_card_html(array $node, array $contacts_by_id, int $report_count, string $ancestor_path): string
+function org_chart_node_card_html(array $node, array $contacts_by_id, int $report_count, string $ancestor_path, bool $show_department): string
 {
     $link = "contact_details.php?client_id={$node['department_id']}&contact_id={$node['id']}";
     $status_badge = org_chart_status_badge($node['employment_status']);
@@ -189,6 +214,14 @@ function org_chart_node_card_html(array $node, array $contacts_by_id, int $repor
     }
     if ($node['group'] !== '') {
         $subtitle_parts[] = $node['group'];
+    }
+    // A manager may belong to another department. In the company-wide view,
+    // the section heading then describes the root, not every person below it.
+    if ($show_department && $node['department_name'] !== '') {
+        $subtitle_parts[] = $node['department_name'];
+    }
+    if ($node['location_name'] !== '') {
+        $subtitle_parts[] = $node['location_name'];
     }
     $subtitle = implode(' &middot; ', $subtitle_parts);
 
@@ -214,7 +247,8 @@ function org_chart_node_card_html(array $node, array $contacts_by_id, int $repor
     // '' when manager_id is 0 (a real root) or points outside the current
     // scope (archived / different department under a filter) - same "missing
     // manager" case org_chart_build_tree_index() already treats as a root.
-    $manager_name = $contacts_by_id[$node['manager_id']]['name'] ?? '';
+    $manager_present = isset($contacts_by_id[$node['manager_id']]);
+    $manager_name = $manager_present ? $contacts_by_id[$node['manager_id']]['name'] : '';
 
     // Every value below is already HTML-escaped via nullable_htmlentities()
     // (ENT_QUOTES) back where $contacts_by_id was built, so it is as safe to
@@ -223,11 +257,21 @@ function org_chart_node_card_html(array $node, array $contacts_by_id, int $repor
     $html = "<span class='org-node' data-contact-id='{$node['id']}' data-name=\"{$node['name']}\" data-title=\"{$node['title']}\" data-group=\"{$node['group']}\" data-dept=\"{$node['department_name']}\" data-status=\"{$node['employment_status']}\" data-manager-name=\"$manager_name\" data-report-count='$report_count' data-ancestor-path=\"$ancestor_path\">";
     $html .= $avatar;
     $html .= "<span class='org-node-text'>";
-    $html .= "<a class='org-node-name text-dark fw-bold' href='" . nullable_htmlentities($link) . "'>{$node['name']}</a>{$status_badge}";
+    $html .= "<a class='org-node-name text-dark fw-bold' href='" . nullable_htmlentities($link) . "' title=\"{$node['name']}\">{$node['name']}</a>{$status_badge}";
     if ($subtitle !== '') {
-        $html .= "<div class='text-secondary small'>$subtitle</div>";
+        $html .= "<div class='text-secondary small' title=\"$subtitle\">$subtitle</div>";
+    }
+    if ($node['is_context']) {
+        $html .= "<span class='badge text-bg-secondary org-context-badge'>Context</span>";
+    }
+    if ($node['manager_id'] > 0 && !$manager_present) {
+        $html .= "<span class='badge text-bg-warning org-context-badge'>Manager unavailable</span>";
     }
     $html .= "</span>";
+    if ($report_count > 0) {
+        $report_label = $report_count === 1 ? 'visible direct report' : 'visible direct reports';
+        $html .= "<span class='org-report-count' title='$report_count $report_label'>$report_count <span class='visually-hidden'>$report_label</span><i class='fa fa-users' aria-hidden='true'></i></span>";
+    }
     $html .= "<span class='org-node-actions'>";
     $html .= "<button type='button' class='org-node-action org-node-trace-btn' data-action='trace' aria-label='Trace {$node['name']} to root' title='Trace to root'><i class='fa fa-route' aria-hidden='true'></i></button>";
     $html .= "<button type='button' class='org-node-action org-node-preview-btn' data-action='preview' aria-label='Preview {$node['name']}' title='Preview'><i class='fa fa-info-circle' aria-hidden='true'></i></button>";
@@ -237,9 +281,9 @@ function org_chart_node_card_html(array $node, array $contacts_by_id, int $repor
     return $html;
 }
 
-function org_chart_open_node_html(array $node, int $depth, bool $has_children, array $contacts_by_id, int $report_count, string $ancestor_path): string
+function org_chart_open_node_html(array $node, int $depth, bool $has_children, array $contacts_by_id, int $report_count, string $ancestor_path, bool $show_department): string
 {
-    $card = org_chart_node_card_html($node, $contacts_by_id, $report_count, $ancestor_path);
+    $card = org_chart_node_card_html($node, $contacts_by_id, $report_count, $ancestor_path, $show_department);
 
     if (!$has_children) {
         // A leaf has no <summary>/chevron. It gets an inert same-width
@@ -289,7 +333,7 @@ function org_chart_open_node_html(array $node, int $depth, bool $has_children, a
  * above. It should never bind on real data; a page that stops instead of one
  * that hangs is the right failure mode if it ever does.
  */
-function org_chart_render_subtree_html(int $start_id, array $contacts_by_id, array $children_by_manager, array &$rendered, int $max_iterations = 200000): string
+function org_chart_render_subtree_html(int $start_id, array $contacts_by_id, array $children_by_manager, array &$rendered, bool $show_department, int $max_iterations = 200000): string
 {
     if (isset($rendered[$start_id])) {
         return '';
@@ -298,7 +342,7 @@ function org_chart_render_subtree_html(int $start_id, array $contacts_by_id, arr
     $rendered[$start_id] = true;
     $has_children = !empty($children_by_manager[$start_id]);
     $report_count = count($children_by_manager[$start_id] ?? []);
-    $html = org_chart_open_node_html($contacts_by_id[$start_id], 0, $has_children, $contacts_by_id, $report_count, '');
+    $html = org_chart_open_node_html($contacts_by_id[$start_id], 0, $has_children, $contacts_by_id, $report_count, '', $show_department);
 
     if (!$has_children) {
         return $html;
@@ -339,7 +383,7 @@ function org_chart_render_subtree_html(int $start_id, array $contacts_by_id, arr
             // itself - exactly $top['ancestry_path'] as it stands before this
             // child is appended to it below.
             $child_ancestor_path = implode(' ', $top['ancestry_path']);
-            $html .= org_chart_open_node_html($contacts_by_id[$child_id], $child_depth, $child_has_children, $contacts_by_id, $child_report_count, $child_ancestor_path);
+            $html .= org_chart_open_node_html($contacts_by_id[$child_id], $child_depth, $child_has_children, $contacts_by_id, $child_report_count, $child_ancestor_path, $show_department);
 
             if ($child_has_children) {
                 $child_ancestry = $top['ancestry'];
@@ -386,7 +430,7 @@ $tree_html = '';
 foreach ($roots_by_department as $dept_id => $dept) {
     $dept_body = '';
     foreach ($dept['root_ids'] as $root_id) {
-        $dept_body .= org_chart_render_subtree_html($root_id, $contacts_by_id, $children_by_manager, $rendered);
+        $dept_body .= org_chart_render_subtree_html($root_id, $contacts_by_id, $children_by_manager, $rendered, $department_filter_id === 0);
     }
     // $dept['name'] is already HTML-escaped: it's built from department_name
     // (nullable_htmlentities($row['client_name']), line 96) or the literal
@@ -412,11 +456,20 @@ $cycle_leftover_ids = array_diff(array_keys($contacts_by_id), array_keys($render
 sort($cycle_leftover_ids);
 $cycle_html = '';
 foreach ($cycle_leftover_ids as $leftover_id) {
-    $cycle_html .= org_chart_render_subtree_html($leftover_id, $contacts_by_id, $children_by_manager, $rendered);
+    $cycle_html .= org_chart_render_subtree_html($leftover_id, $contacts_by_id, $children_by_manager, $rendered, $department_filter_id === 0);
 }
 
 $total_contacts = count($contacts_by_id);
-$total_departments = count($roots_by_department);
+$context_contacts = $total_contacts - $matching_contacts;
+$department_ids = [];
+$unavailable_manager_count = 0;
+foreach ($contacts_by_id as $contact) {
+    $department_ids[$contact['department_id']] = true;
+    if ($contact['manager_id'] > 0 && !isset($contacts_by_id[$contact['manager_id']])) {
+        $unavailable_manager_count++;
+    }
+}
+$total_departments = count($department_ids);
 
 ?>
 
@@ -430,14 +483,20 @@ $total_departments = count($roots_by_department);
                 <button type="button" class="btn btn-secondary" id="orgChartExpandAll"><i class="fas fa-angle-double-down me-2"></i>Expand All</button>
                 <button type="button" class="btn btn-secondary" id="orgChartCollapseAll"><i class="fas fa-angle-double-up me-2"></i>Collapse All</button>
             </div>
+            <div class="btn-group ms-2" role="group" aria-label="Chart zoom">
+                <button type="button" class="btn btn-secondary" id="orgChartZoomOut" aria-label="Zoom out" title="Zoom out">−</button>
+                <button type="button" class="btn btn-secondary" id="orgChartZoomReset" title="Reset zoom">100%</button>
+                <button type="button" class="btn btn-secondary" id="orgChartZoomIn" aria-label="Zoom in" title="Zoom in">+</button>
+                <button type="button" class="btn btn-secondary" id="orgChartZoomFit" title="Fit chart to available width">Fit</button>
+            </div>
         </div>
     </div>
     <div class="card-body">
         <form autocomplete="off" method="get">
             <div class="row g-2 align-items-end">
                 <div class="col-md-3">
-                    <label class="form-label">Department</label>
-                    <select class="form-control select2 auto-submit-select" name="client_id">
+                    <label class="form-label" for="orgChartDepartment">Department</label>
+                    <select class="form-control select2 auto-submit-select" id="orgChartDepartment" name="client_id">
                         <option value="" <?php if (!$department_filter_id) { echo "selected"; } ?>>- All Departments -</option>
                         <?php
                         while ($row = mysqli_fetch_assoc($sql_departments_filter)) {
@@ -445,6 +504,24 @@ $total_departments = count($roots_by_department);
                             $dept_option_name = nullable_htmlentities($row['client_name']);
                         ?>
                             <option value="<?php echo $dept_option_id; ?>" <?php if ($department_filter_id === $dept_option_id) { echo "selected"; } ?>><?php echo $dept_option_name; ?></option>
+                        <?php } ?>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="orgChartLocation">Location</label>
+                    <select class="form-control select2 auto-submit-select" id="orgChartLocation" name="location_id">
+                        <option value="">All Locations</option>
+                        <?php foreach ($locations_by_id as $location_id => $location_name) { ?>
+                            <option value="<?php echo $location_id; ?>" <?php if ($location_filter_id === $location_id) { echo 'selected'; } ?>><?php echo $location_name; ?></option>
+                        <?php } ?>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="orgChartStatus">Employment status</label>
+                    <select class="form-control select2 auto-submit-select" id="orgChartStatus" name="status">
+                        <option value="">All Statuses</option>
+                        <?php foreach (array_keys($statuses) as $status) { ?>
+                            <option value="<?php echo nullable_htmlentities($status); ?>" <?php if ($status_filter === $status) { echo 'selected'; } ?>><?php echo nullable_htmlentities(ucwords(str_replace('_', ' ', $status))); ?></option>
                         <?php } ?>
                     </select>
                 </div>
@@ -457,16 +534,53 @@ $total_departments = count($roots_by_department);
                         <button type="button" class="btn btn-sm btn-link p-0 ms-1" id="orgChartSearchNext" aria-label="Next match" title="Next match (Enter)"><i class="fa fa-fw fa-chevron-down"></i></button>
                     </div>
                 </div>
-                <div class="col-md-5 text-secondary">
-                    <?php echo $total_contacts; ?> contact<?php echo $total_contacts === 1 ? '' : 's'; ?> across <?php echo $total_departments; ?> department<?php echo $total_departments === 1 ? '' : 's'; ?> shown below.
+                <div class="col-12 text-secondary">
+                    <?php echo $matching_contacts; ?> <?php echo ($location_filter_id > 0 || $status_filter !== '') ? 'matching ' : ''; ?>contact<?php echo $matching_contacts === 1 ? '' : 's'; ?><?php if ($context_contacts > 0) { ?>, plus <?php echo $context_contacts; ?> reporting ancestor<?php echo $context_contacts === 1 ? '' : 's'; ?> for context<?php } ?> across <?php echo $total_departments; ?> department<?php echo $total_departments === 1 ? '' : 's'; ?> shown below.
+                    <?php if ($location_filter_id > 0 || $status_filter !== '') { ?>Ancestors outside the filters are marked Context. <a href="org_chart.php<?php echo $department_filter_id ? '?client_id=' . $department_filter_id : ''; ?>">Clear location and status filters</a>.<?php } ?>
                     <?php if (!empty($cycle_leftover_ids)) { ?>
                         <span class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i><?php echo count($cycle_leftover_ids); ?> contact<?php echo count($cycle_leftover_ids) === 1 ? '' : 's'; ?> could not be placed under a real root - see "Reporting Cycle Detected" below.</span>
+                    <?php } ?>
+                    <?php if ($unavailable_manager_count > 0) { ?>
+                        <span><?php echo $unavailable_manager_count; ?> contact<?php echo $unavailable_manager_count === 1 ? '' : 's'; ?> report to a manager unavailable in this view.</span>
                     <?php } ?>
                 </div>
             </div>
         </form>
     </div>
 </div>
+
+<?php if ($total_contacts > 0) { ?>
+<details class="card mb-3" id="orgChartList">
+    <summary class="card-header py-2">Searchable employee list <span class="text-secondary small">(chart alternative)</span></summary>
+    <div class="card-body">
+        <label class="form-label" for="orgChartListSearch">Find a person in the list</label>
+        <input class="form-control mb-3" type="search" id="orgChartListSearch" autocomplete="off" placeholder="Name, title, department, location, or manager">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle">
+                <caption class="visually-hidden">Authorized employees shown in the organizational chart</caption>
+                <thead><tr><th scope="col">Name</th><th scope="col">Title</th><th scope="col">Department</th><th scope="col">Location</th><th scope="col">Reports to</th><th scope="col">Direct reports</th></tr></thead>
+                <tbody>
+                <?php foreach ($contacts_by_id as $contact) {
+                    $manager = $contacts_by_id[$contact['manager_id']] ?? null;
+                    $manager_display = $manager ? $manager['name'] : ($contact['manager_id'] > 0 ? 'Manager unavailable' : 'Top level');
+                    $profile_url = 'contact_details.php?client_id=' . $contact['department_id'] . '&contact_id=' . $contact['id'];
+                ?>
+                    <tr class="org-list-row">
+                        <th scope="row"><a href="<?php echo nullable_htmlentities($profile_url); ?>"><?php echo $contact['name']; ?></a><?php if ($contact['is_context']) { ?> <span class="badge text-bg-secondary">Context</span><?php } ?></th>
+                        <td><?php echo $contact['title']; ?></td>
+                        <td><?php echo $contact['department_name']; ?></td>
+                        <td><?php echo $contact['location_name']; ?></td>
+                        <td><?php echo $manager_display; ?></td>
+                        <td><?php echo count($children_by_manager[$contact['id']] ?? []); ?></td>
+                    </tr>
+                <?php } ?>
+                </tbody>
+            </table>
+        </div>
+        <p id="orgChartListEmpty" class="text-secondary" hidden>No people match this search.</p>
+    </div>
+</details>
+<?php } ?>
 
 <nav id="orgChartBreadcrumb" hidden aria-label="Position in org chart">
     <span id="orgChartBreadcrumbTrail"></span>
@@ -475,7 +589,7 @@ $total_departments = count($roots_by_department);
 
 <div id="orgChartRoot">
     <?php if ($total_contacts === 0) { ?>
-        <div class="card"><div class="card-body text-secondary text-center">No contacts to chart<?php echo $department_filter_id ? ' for this department.' : '.'; ?></div></div>
+        <div class="card"><div class="card-body text-secondary text-center"><?php echo ($location_filter_id > 0 || $status_filter !== '') ? 'No contacts match these filters.' : 'No contacts to chart' . ($department_filter_id ? ' for this department.' : '.'); ?></div></div>
     <?php } else {
         echo $tree_html;
     } ?>

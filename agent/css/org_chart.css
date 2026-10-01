@@ -126,6 +126,16 @@ details[open] > summary > .org-node-chevron {
     font-style: normal;
 }
 
+.org-report-count {
+    flex: 0 0 auto;
+    color: var(--if-muted, #5d6f76);
+    font-size: .75rem;
+    white-space: nowrap;
+}
+.org-report-count .fa { margin-left: .2rem; }
+.org-context-badge { margin-left: .25rem; }
+.org-list-row[hidden] { display: none; }
+
 /* Leaf rows (no <details>/<summary>, so no native disclosure triangle and no
    chevron) get an inert same-width spacer (emitted by
    org_chart_open_node_html() in agent/org_chart.php) instead of a guessed
@@ -584,6 +594,9 @@ details[open] > summary > .org-node-chevron {
     -webkit-overflow-scrolling: touch;
 }
 .org-chart-canvas {
+    position: relative;
+}
+.org-chart-zoom-space {
     position: relative;
 }
 

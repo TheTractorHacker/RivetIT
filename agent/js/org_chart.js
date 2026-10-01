@@ -117,6 +117,8 @@
         var chartCtxs = wireChartLayout(root, animationsEnabled, traceApi);
 
         wireExpandCollapseAll(root, chartCtxs);
+        wireZoom(chartCtxs);
+        wireListSearch();
 
         if (animationsEnabled) {
             wireDetailsAnimation(root, prefersReducedMotion);
@@ -132,6 +134,57 @@
 
         wireGlobalKeys(searchApi, traceApi, previewApi);
         wirePrint(root, searchApi, traceApi, previewApi, chartCtxs);
+    }
+
+    function wireListSearch() {
+        var input = document.getElementById('orgChartListSearch');
+        var empty = document.getElementById('orgChartListEmpty');
+        if (!input) { return; }
+        var rows = Array.prototype.slice.call(document.querySelectorAll('#orgChartList .org-list-row'));
+        input.addEventListener('input', function () {
+            var query = input.value.trim().toLocaleLowerCase();
+            var shown = 0;
+            rows.forEach(function (row) {
+                row.hidden = query !== '' && row.textContent.toLocaleLowerCase().indexOf(query) === -1;
+                if (!row.hidden) { shown++; }
+            });
+            if (empty) { empty.hidden = shown !== 0; }
+        });
+    }
+
+    function applyZoom(ctx) {
+        var scale = ctx.zoomScale || 1;
+        ctx.canvas.style.transformOrigin = 'top left';
+        ctx.canvas.style.transform = scale === 1 ? '' : 'scale(' + scale + ')';
+        ctx.zoomSpace.style.width = (ctx.canvas.offsetWidth * scale) + 'px';
+        ctx.zoomSpace.style.height = (ctx.canvas.offsetHeight * scale) + 'px';
+    }
+
+    function wireZoom(contexts) {
+        var inBtn = document.getElementById('orgChartZoomIn');
+        var outBtn = document.getElementById('orgChartZoomOut');
+        var resetBtn = document.getElementById('orgChartZoomReset');
+        var fitBtn = document.getElementById('orgChartZoomFit');
+        if (!contexts.length) { return; }
+
+        function change(getScale) {
+            contexts.forEach(function (ctx) {
+                if (ctx.dead) { return; }
+                var oldScale = ctx.zoomScale || 1;
+                var viewCenter = ctx.scrollWrap.scrollLeft + ctx.scrollWrap.clientWidth / 2;
+                ctx.zoomScale = Math.min(2, Math.max(0.05, getScale(ctx)));
+                applyZoom(ctx);
+                ctx.scrollWrap.scrollLeft = viewCenter * ctx.zoomScale / oldScale - ctx.scrollWrap.clientWidth / 2;
+            });
+        }
+        if (inBtn) { inBtn.addEventListener('click', function () { change(function (ctx) { return ctx.zoomScale + 0.15; }); }); }
+        if (outBtn) { outBtn.addEventListener('click', function () { change(function (ctx) { return ctx.zoomScale - 0.15; }); }); }
+        if (resetBtn) { resetBtn.addEventListener('click', function () { change(function () { return 1; }); }); }
+        if (fitBtn) {
+            fitBtn.addEventListener('click', function () {
+                change(function (ctx) { return Math.min(1, ctx.scrollWrap.clientWidth / ctx.canvas.offsetWidth); });
+            });
+        }
     }
 
     // ------------------------------------------------------------------
@@ -592,6 +645,7 @@
         if (ctx.traceApi && typeof ctx.traceApi.reapplyEdgeHighlight === 'function') {
             ctx.traceApi.reapplyEdgeHighlight();
         }
+        applyZoom(ctx);
     }
 
     // rAF-coalesced relayout for interactive toggles - if several
@@ -629,6 +683,8 @@
         var cardBody = ul.parentElement;
         var scrollWrap = document.createElement('div');
         scrollWrap.className = 'org-chart-scroll';
+        var zoomSpace = document.createElement('div');
+        zoomSpace.className = 'org-chart-zoom-space';
         var canvas = document.createElement('div');
         canvas.className = 'org-chart-canvas';
         if (!animationsEnabled) {
@@ -642,12 +698,15 @@
         cardBody.insertBefore(scrollWrap, ul);
         canvas.appendChild(svg);
         canvas.appendChild(ul); // moves the WHOLE existing subtree as one unit - nothing rebuilt/duplicated
-        scrollWrap.appendChild(canvas);
+        zoomSpace.appendChild(canvas);
+        scrollWrap.appendChild(zoomSpace);
         cardBody.classList.add('org-chart-active');
 
         var ctx = {
             ul: ul,
             canvas: canvas,
+            zoomSpace: zoomSpace,
+            zoomScale: 1,
             svg: svg,
             scrollWrap: scrollWrap,
             cardBody: cardBody,
@@ -679,7 +738,7 @@
     // root simultaneously.
     function centerCanvas(ctx) {
         var wrapWidth = ctx.scrollWrap.clientWidth;
-        var canvasWidth = ctx.canvas.offsetWidth;
+        var canvasWidth = ctx.zoomSpace.offsetWidth;
         if (canvasWidth <= wrapWidth) {
             ctx.scrollWrap.scrollLeft = 0;
             return;
@@ -1497,7 +1556,7 @@
             var naturalW = ctx.canvas.offsetWidth;
             if (naturalW <= PRINT_SAFE_WIDTH_PX) {
                 ctx.canvas.style.transform = '';
-                ctx.scrollWrap.style.height = '';
+                ctx.scrollWrap.style.height = ctx.canvas.offsetHeight + 'px';
                 return;
             }
             var scale = PRINT_SAFE_WIDTH_PX / naturalW;
@@ -1507,8 +1566,8 @@
         }
 
         function clearPrintScale(ctx) {
-            ctx.canvas.style.transform = '';
             ctx.scrollWrap.style.height = '';
+            applyZoom(ctx);
         }
 
         window.addEventListener('beforeprint', function () {

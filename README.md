@@ -253,6 +253,7 @@ encrypted `deploy/backup.sh` archive, or the app's own in-app `.zip`). Run it ag
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Docker vs. bare metal, backups and disaster recovery, updating |
 | [deploy/README.md](deploy/README.md) | Every deployment script and flag |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Code layout, sign-in and permissions, data model, modules, migrations, integrations |
+| [docs/ORG_CHART.md](docs/ORG_CHART.md) | Org chart access, filters, hierarchy context, and navigation |
 | [docs/API.md](docs/API.md) | The REST API |
 | [docs/training-kiosk-setup.md](docs/training-kiosk-setup.md) | Setting up training kiosks on iPads and PCs |
 | [docs/ISO27001-COMPLIANCE.md](docs/ISO27001-COMPLIANCE.md) | ISO/IEC 27001:2022 Annex A control mapping |
