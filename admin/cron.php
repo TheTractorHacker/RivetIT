@@ -58,8 +58,7 @@ $last_run = mysqli_fetch_assoc(mysqli_query($mysqli,
                 <div class="alert alert-info mb-3">
                     The system job is installed, but <strong>Enable Cron Job</strong> is off in
                     <a href="/admin/settings_notification.php">Settings → Notifications</a>.
-                    The script exits without running tasks. This server shares client and mail data
-                    with another instance; review mail and invoice effects before enabling it.
+                    The script exits without running tasks. Review mail and invoice effects before enabling it.
                 </div>
             <?php endif; ?>
         <?php endif; ?>
