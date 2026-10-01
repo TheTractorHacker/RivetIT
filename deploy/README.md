@@ -112,10 +112,12 @@ sudo deploy/install.sh --help
    config test before restarting the service, and rolling back automatically if the test fails.
 7. **Firewall + fail2ban** — allows SSH (auto-detected port) and HTTP/HTTPS through `ufw` *before*
    enabling it, then installs the `sshd` and `itflow-auth` fail2ban jails.
-8. **Cron** — installs and starts the cron service, creates a writable per-instance log, and installs
-   `/etc/cron.d/rivetit-<domain>` to invoke `cron/cron.php` every 5 minutes. A prior
+8. **Cron** — installs and starts the cron service, creates writable per-instance logs, and installs
+   `/etc/cron.d/rivetit-<domain>` with the main dispatcher plus standalone mail, backup,
+   metrics, Outlook, domain/certificate, and training jobs. Each standalone script checks its
+   feature setting; the backup runner defers to the main dispatcher when it is enabled. A prior
    `/etc/cron.d/itflow-<domain>` for the same app is backed up and removed to avoid duplicate runs.
-   The job is inert until an admin turns on **Enable Cron** in Settings. The installer also registers
+   The main job is inert until an admin turns on **Enable Cron** in Settings. The installer also registers
    a root-owned schedule helper so administrators can edit this installation's job schedules in
    **Maintenance → Cron** without granting the web process general write access to `/etc/cron.d`.
    Re-running the installer preserves an existing schedule. For an existing installation with

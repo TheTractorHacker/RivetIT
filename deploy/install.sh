@@ -937,12 +937,39 @@ EOF
 # ---------------------------------------------------------------------------
 # Step 7: cron
 # ---------------------------------------------------------------------------
+cron_job_exists_for_app() {
+    local target="$1" entry
+    for entry in /etc/cron.d/*; do
+        [[ -f "${entry}" && "${entry##*/}" =~ ^[A-Za-z0-9_-]+$ ]] || continue
+        if awk -v target="${target}" '$0 !~ /^[[:space:]]*#/ && index($0, target) { found=1; exit } END { exit !found }' "${entry}"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+ensure_cron_job() {
+    local cron_file="$1" app_root="$2" script="$3" schedule="$4" log="$5" args="${6:-}"
+    local target="${app_root}/cron/${script}${args:+ ${args}}"
+    if ! cron_job_exists_for_app "${target}"; then
+        printf '%s www-data /usr/bin/php %s/cron/%s%s >> %s 2>&1\n' \
+            "${schedule}" "${app_root}" "${script}" "${args:+ ${args}}" "${log}" >> "${cron_file}"
+    fi
+}
+
 install_cron_entry() {
-    local safe_name cron_file cron_log legacy_file existing_file
+    local safe_name cron_file cron_log mail_log parser_log backup_log training_log metrics_log sync_log refresh_log legacy_file existing_file
     safe_name="$(printf '%s' "${DOMAIN}" | tr -c 'a-zA-Z0-9' '-')"
     cron_file="/etc/cron.d/rivetit-${safe_name}"
     legacy_file="/etc/cron.d/itflow-${safe_name}"
     cron_log="/var/log/rivetit-cron-${safe_name}.log"
+    mail_log="/var/log/rivetit-mail-${safe_name}.log"
+    parser_log="/var/log/rivetit-mail-parser-${safe_name}.log"
+    backup_log="/var/log/rivetit-backup-${safe_name}.log"
+    training_log="/var/log/rivetit-training-${safe_name}.log"
+    metrics_log="/var/log/rivetit-metrics-${safe_name}.log"
+    sync_log="/var/log/rivetit-sync-${safe_name}.log"
+    refresh_log="/var/log/rivetit-refresh-${safe_name}.log"
 
     command_exists cron || die "cron is not installed. Install the cron package and rerun the installer."
     if ! service_is_active cron; then
@@ -963,11 +990,13 @@ install_cron_entry() {
         done
     fi
 
-    # Cron runs this command as www-data, including the shell redirection.
-    # Without a writable log the shell fails before PHP even starts.
-    touch "${cron_log}"
-    chown www-data:www-data "${cron_log}"
-    chmod 640 "${cron_log}"
+    # Cron runs commands as www-data, including their shell redirections.
+    # Without writable logs the shell fails before PHP even starts.
+    for existing_file in "${cron_log}" "${mail_log}" "${parser_log}" "${backup_log}" "${training_log}" "${metrics_log}" "${sync_log}" "${refresh_log}"; do
+        touch "${existing_file}"
+        chown www-data:www-data "${existing_file}"
+        chmod 640 "${existing_file}"
+    done
 
     # Keep an administrator's existing schedule when the installer is rerun.
     if [[ -f "${cron_file}" ]] && [[ "$(grep -Fc -- "${APP_DIR}/cron/cron.php" "${cron_file}" || true)" -eq 1 ]]; then
@@ -985,10 +1014,9 @@ install_cron_entry() {
 */5 * * * * www-data /usr/bin/php ${APP_DIR}/cron/cron.php >> ${cron_log} 2>&1
 EOF
     fi
-    chmod 644 "${cron_file}"
-    chown root:root "${cron_file}"
-    # An earlier installer used itflow-<domain>. Remove only the file whose
-    # job targets this exact app root, or a rerun would schedule it twice.
+    # An earlier installer used itflow-<domain>. Retire that file before
+    # checking for companion jobs so entries in the old file are recreated
+    # under the RivetIT name instead of disappearing with the old file.
     if [[ -f "${legacy_file}" ]]; then
         if grep -Fq -- "${APP_DIR}/cron/cron.php" "${legacy_file}"; then
             backup_if_exists "${legacy_file}"
@@ -997,6 +1025,22 @@ EOF
             warn "Leaving unrelated legacy cron file untouched: ${legacy_file}"
         fi
     fi
+    # Add standalone jobs once. Each script checks its own feature setting;
+    # modules that are off remain idle until an admin enables them.
+    ensure_cron_job "${cron_file}" "${APP_DIR}" mail_queue.php '*/5 * * * *' "${mail_log}"
+    ensure_cron_job "${cron_file}" "${APP_DIR}" ticket_email_parser.php '*/5 * * * *' "${parser_log}"
+    ensure_cron_job "${cron_file}" "${APP_DIR}" backup_cron.php '7 * * * *' "${backup_log}"
+    ensure_cron_job "${cron_file}" "${APP_DIR}" metrics_collect.php '*/5 * * * *' "${metrics_log}"
+    ensure_cron_job "${cron_file}" "${APP_DIR}" outlook_schedule_sync.php '*/15 * * * *' "${sync_log}"
+    ensure_cron_job "${cron_file}" "${APP_DIR}" domain_refresher.php '0 3 * * *' "${refresh_log}"
+    ensure_cron_job "${cron_file}" "${APP_DIR}" certificate_refresher.php '0 4 * * *' "${refresh_log}"
+    ensure_cron_job "${cron_file}" "${APP_DIR}" odoo_sync_cron.php '30 4 * * *' "${training_log}"
+    ensure_cron_job "${cron_file}" "${APP_DIR}" training_cron.php '15 5 * * *' "${training_log}"
+    ensure_cron_job "${cron_file}" "${APP_DIR}" training_kiosk_cron.php '0-59/10 * * * *' "${training_log}"
+    ensure_cron_job "${cron_file}" "${APP_DIR}" training_worker.php '*/10 * * * *' "${training_log}" '--task=odoo'
+    ensure_cron_job "${cron_file}" "${APP_DIR}" training_worker.php '40 5 * * *' "${training_log}" '--task=daily'
+    chmod 644 "${cron_file}"
+    chown root:root "${cron_file}"
     success "Installed system cron entry: ${cron_file} (log: ${cron_log})"
 }
 
@@ -1236,7 +1280,7 @@ print_summary() {
   NEXT STEPS
   ----------
   1. $([[ -n "${RESTORE_FROM}" ]] && echo "Log in at the URL above with an account from the restored backup (${RESTORE_FROM})." || echo "Log in at the URL above with the admin account you just created (or were prompted to create).")
-  2. The system cron entry in /etc/cron.d/rivetit-${DOMAIN//./-} fires every 5 minutes, but cron/cron.php
+  2. The main job in /etc/cron.d/rivetit-${DOMAIN//./-} fires every 5 minutes, but cron/cron.php
      does nothing until you turn on "Enable Cron" in Settings inside the
      app — it defaults to off. Edit the root-owned cron file to change
      frequency. Cron Manager lists this instance's jobs and lets admins edit

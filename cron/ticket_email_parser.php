@@ -38,7 +38,6 @@ $config_ticket_from_name = sanitizeInput($config_ticket_from_name);
 
 // Check setting enabled
 if ($config_ticket_email_parse == 0) {
-    logApp("Cron-Email-Parser", "error", "Cron Email Parser unable to run - not enabled in admin settings.");
     exit("Email Parser: Feature is not enabled - check Settings > Ticketing > Email-to-ticket parsing -- Quitting..");
 }
 

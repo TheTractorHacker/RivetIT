@@ -194,7 +194,7 @@ Ticket automation, recurring tickets, reminders, expiry alerts and automatic bac
 
 1. Tick **Enable Cron Job** in **Settings → Notifications** and save.
 2. Make sure the server runs `cron/cron.php` every few minutes. The bare-metal installer adds a five-minute entry for this script and the container image loops it every five minutes.
-3. Add your own entries for `cron/mail_queue.php` (sends queued email) and `cron/ticket_email_parser.php` (reads mailboxes), every few minutes. The installers schedule only `cron/cron.php`; without the other two, no email is sent and none is read.
+3. On a bare-metal installation, the installer also schedules `cron/mail_queue.php` (sends queued email) and `cron/ticket_email_parser.php` (reads mailboxes), every five minutes. Each exits while its feature is disabled. Container installations schedule only `cron/cron.php`; add separate runners for mail and mailbox parsing if those features are used.
 
 **Maintenance → Cron** lists jobs that target this installation, including jobs in separate files under `/etc/cron.d/`. Administrators can change each job's five-field schedule and click **Save**; the job command stays fixed. The bare-metal installer installs the root-owned helper that enables this. **Run Now** is available only when exactly one main `cron/cron.php` job is installed for this instance. The installer writes `/etc/cron.d/rivetit-<domain>` and a per-instance log under `/var/log/`. On shared hosts, adding the full cron job can send duplicate mail, so review the enabled modules and mail setup first.
 

@@ -230,7 +230,6 @@ $config_metrics_interval      = intval($settings_row['config_metrics_collect_int
 $config_enable_cron           = intval($settings_row['config_enable_cron'] ?? 0);
 
 if ($config_enable_device_metrics !== 1) {
-    logApp("Cron-Metrics", "info", "Device metrics collector skipped - config_enable_device_metrics is off.");
     exit("Metrics: device metrics are not enabled in admin settings -- Quitting..\n");
 }
 

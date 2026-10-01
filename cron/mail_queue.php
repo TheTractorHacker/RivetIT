@@ -72,7 +72,6 @@ $config_mail_oauth_access_token            = decryptSetting($row['config_mail_oa
 $config_mail_oauth_access_token_expires_at = $row['config_mail_oauth_access_token_expires_at'] ?? '';
 
 if ($config_enable_cron == 0) {
-    logApp("Cron-Mail-Queue", "error", "Cron Mail Queue unable to run - cron not enabled in admin settings.");
     exit("Cron: is not enabled -- Quitting..");
 }
 

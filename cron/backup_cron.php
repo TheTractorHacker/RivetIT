@@ -35,6 +35,13 @@ $config_backup_auto_enabled = intval($settings_row['config_backup_auto_enabled']
 $config_backup_frequency    = $settings_row['config_backup_frequency'] ?? 'daily';
 $config_backup_retain_count = max(1, intval($settings_row['config_backup_retain_count'] ?? 7));
 
+// The main dispatcher already builds due auto-backups when it is enabled.
+// Avoid a second runner racing it to create the same daily/weekly backup.
+if (intval($settings_row['config_enable_cron'] ?? 0) !== 0) {
+    echo gmdate('Y-m-d\TH:i:s\Z') . " backup_cron: main cron handles auto-backups, skipping\n";
+    exit(0);
+}
+
 if (!$config_backup_auto_enabled) {
     // A one-line heartbeat on every exit path (same convention as
     // cron/training_kiosk_cron.php), not just when a backup is actually
