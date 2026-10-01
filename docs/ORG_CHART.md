@@ -18,20 +18,22 @@ contacts. The list view contains the same authorized, filtered set and has its
 own text search. Search in the chart opens matching branches; Trace to Root
 highlights one reporting chain. Each name opens the existing contact profile.
 
-Zoom controls scale the chart without changing its data. **Fit** scales each
-department chart to its available width; **100%** restores natural size.
-Horizontal scrolling remains available for large charts. The chart initially
-renders the authorized contacts in one database query, then lays out visible
-branches in the browser. No full employee profiles are loaded for the chart.
-For very large organizations, use a department filter to reduce the number of
-nodes before expanding all branches.
+The page opens in a compact, searchable list with its own bounded scroll area.
+Choose **Chart** to build the visual hierarchy on demand. The chart uses
+smaller cards, instant branch toggles, and a bounded scroll area. Zoom controls
+scale it without changing its data. **Fit** scales each department chart to its
+available width; **100%** restores natural size. Chart search opens the selected
+person's branch rather than expanding every match at once. No full employee
+profiles are loaded for either view. For very large organizations, use a
+department filter before expanding all branches.
 
 In a synthetic browser fixture with 1,000 contacts (950 independent roots and
 one 50-person reporting chain), headless Chromium 153 on a development host
-with 12 Xeon Gold 6130 vCPUs and 15 GiB RAM
-initialized the chart in 169 ms and found one name search match. This checks
-the browser layout and search path, not database query time or a production
-page with real photos and styles.
+with 12 Xeon Gold 6130 vCPUs and 15 GiB RAM initialized the list behavior in
+about 3 ms without building the chart. Opening Chart then built the hierarchy
+in about 200 ms, and chart search found one name match. These are synthetic
+browser measurements; they exclude database query time and real photos and
+styles.
 
 Run `php tests/org_chart_filter.php` to check that location/status filters
 retain authorized ancestors, terminate on reporting cycles, and do not

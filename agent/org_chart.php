@@ -26,10 +26,10 @@
  * page has to survive that without an infinite loop or a stack overflow at a
  * real company's headcount, not just in theory.
  *
- * INTERACTIVITY (search / trace-to-root / hover preview / sticky breadcrumb /
- * animated expand-collapse) is a client-side AUGMENTATION of the markup this
- * file already renders, wired by agent/js/org_chart.js - there is no second,
- * client-rebuilt tree anywhere. Every bit of data that JS needs (name, title,
+ * INTERACTIVITY (list search, optional chart, trace-to-root, sticky breadcrumb)
+ * is a client-side AUGMENTATION of the markup this file already renders,
+ * wired by agent/js/org_chart.js - there is no second, client-rebuilt tree
+ * anywhere. Every bit of data that JS needs (name, title,
  * team, department, status, manager name, direct-report count, and the ordered
  * list of ancestor ids) is emitted a second time as data-* attributes on the
  * same node this file already builds, sourced from strings already escaped by
@@ -274,7 +274,6 @@ function org_chart_node_card_html(array $node, array $contacts_by_id, int $repor
     }
     $html .= "<span class='org-node-actions'>";
     $html .= "<button type='button' class='org-node-action org-node-trace-btn' data-action='trace' aria-label='Trace {$node['name']} to root' title='Trace to root'><i class='fa fa-route' aria-hidden='true'></i></button>";
-    $html .= "<button type='button' class='org-node-action org-node-preview-btn' data-action='preview' aria-label='Preview {$node['name']}' title='Preview'><i class='fa fa-info-circle' aria-hidden='true'></i></button>";
     $html .= "</span>";
     $html .= "</span>";
 
@@ -476,14 +475,16 @@ $total_departments = count($department_ids);
 <link rel="stylesheet" href="css/org_chart.css?v=<?= file_exists(__DIR__ . '/css/org_chart.css') ? filemtime(__DIR__ . '/css/org_chart.css') : time() ?>">
 
 <div class="card card-dark mb-3">
-    <div class="card-header py-2">
+    <div class="card-header py-2 org-chart-header">
         <h3 class="card-title mt-2"><i class="fa fa-fw fa-sitemap me-2"></i>Organizational Chart</h3>
         <div class="card-tools">
-            <div class="btn-group">
-                <button type="button" class="btn btn-secondary" id="orgChartExpandAll"><i class="fas fa-angle-double-down me-2"></i>Expand All</button>
-                <button type="button" class="btn btn-secondary" id="orgChartCollapseAll"><i class="fas fa-angle-double-up me-2"></i>Collapse All</button>
+            <div class="btn-group" role="group" aria-label="Org chart view">
+                <button type="button" class="btn btn-primary" id="orgChartShowList" aria-pressed="true">List</button>
+                <button type="button" class="btn btn-secondary" id="orgChartShowMap" aria-pressed="false">Chart</button>
             </div>
-            <div class="btn-group ms-2" role="group" aria-label="Chart zoom">
+            <div class="btn-group ms-2" id="orgChartControls" role="group" aria-label="Chart controls">
+                <button type="button" class="btn btn-secondary" id="orgChartExpandAll" title="Expand all branches" aria-label="Expand all branches"><i class="fas fa-angle-double-down"></i></button>
+                <button type="button" class="btn btn-secondary" id="orgChartCollapseAll" title="Collapse all branches" aria-label="Collapse all branches"><i class="fas fa-angle-double-up"></i></button>
                 <button type="button" class="btn btn-secondary" id="orgChartZoomOut" aria-label="Zoom out" title="Zoom out">−</button>
                 <button type="button" class="btn btn-secondary" id="orgChartZoomReset" title="Reset zoom">100%</button>
                 <button type="button" class="btn btn-secondary" id="orgChartZoomIn" aria-label="Zoom in" title="Zoom in">+</button>
@@ -525,7 +526,7 @@ $total_departments = count($department_ids);
                         <?php } ?>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-4" id="orgChartMapSearchWrap">
                     <label class="form-label" for="orgChartSearch">Search</label>
                     <input type="search" class="form-control" id="orgChartSearch" placeholder="Search name, title, team&hellip;" autocomplete="off">
                     <div id="orgChartSearchCounter" class="small text-secondary mt-1" hidden>
@@ -550,12 +551,11 @@ $total_departments = count($department_ids);
 </div>
 
 <?php if ($total_contacts > 0) { ?>
-<details class="card mb-3" id="orgChartList">
-    <summary class="card-header py-2">Searchable employee list <span class="text-secondary small">(chart alternative)</span></summary>
+<section class="card mb-3" id="orgChartList" aria-label="Employee list">
     <div class="card-body">
         <label class="form-label" for="orgChartListSearch">Find a person in the list</label>
         <input class="form-control mb-3" type="search" id="orgChartListSearch" autocomplete="off" placeholder="Name, title, department, location, or manager">
-        <div class="table-responsive">
+        <div class="table-responsive org-list-scroll">
             <table class="table table-striped table-hover align-middle">
                 <caption class="visually-hidden">Authorized employees shown in the organizational chart</caption>
                 <thead><tr><th scope="col">Name</th><th scope="col">Title</th><th scope="col">Department</th><th scope="col">Location</th><th scope="col">Reports to</th><th scope="col">Direct reports</th></tr></thead>
@@ -579,9 +579,10 @@ $total_departments = count($department_ids);
         </div>
         <p id="orgChartListEmpty" class="text-secondary" hidden>No people match this search.</p>
     </div>
-</details>
+</section>
 <?php } ?>
 
+<p id="orgChartLoading" class="text-secondary" role="status" hidden>Building chart…</p>
 <nav id="orgChartBreadcrumb" hidden aria-label="Position in org chart">
     <span id="orgChartBreadcrumbTrail"></span>
     <span id="orgChartBreadcrumbTrace" class="org-breadcrumb-trace" hidden>Tracing &middot; <button type="button" id="orgChartTraceClear" class="btn btn-sm btn-link p-0">Clear</button></span>
@@ -621,7 +622,7 @@ $total_departments = count($department_ids);
 <script src="js/org_chart.js?v=<?= file_exists(__DIR__ . '/js/org_chart.js') ? filemtime(__DIR__ . '/js/org_chart.js') : time() ?>"></script>
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
     if (window.OrgChart) {
-        OrgChart.init({ maxAnimatedNodes: 800 });
+        OrgChart.init();
     }
 </script>
 

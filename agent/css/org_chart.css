@@ -1,15 +1,8 @@
 /*
  * agent/org_chart.php only ("Rootline").
  *
- * Still a plain indented tree with a left "spine" line per nesting level - no
- * charting library, no canvas/SVG. <details>/<summary> supplies the
- * expand/collapse behaviour natively; agent/js/org_chart.js layers WAAPI
- * (Web Animations API) height/opacity animation on TOP of that native
- * behaviour for pointer/keyboard-triggered toggles only - Expand All /
- * Collapse All stay the exact instant native .open flip they always were (see
- * that file's comments for why), and above 800 nodes the animation layer
- * isn't wired at all, so a huge chart degrades to plain-instant <details>
- * rather than a slow one.
+ * The compact list is the initial view. The optional chart uses the same
+ * server-rendered <details>/<summary> tree with native instant toggles.
  *
  * TOKENS: this file declares no new custom-property namespace of its own -
  * every rule below reads directly from css/itflow_design.css's --if-* tokens
@@ -24,6 +17,31 @@
  * (":root[data-bs-theme='dark']" and "body.dark-mode" - NOT interchangeable
  * in this app, both are required).
  */
+
+#orgChartRoot[hidden],
+#orgChartList[hidden],
+#orgChartControls[hidden],
+#orgChartMapSearchWrap[hidden],
+#orgChartLoading[hidden] { display: none !important; }
+
+.org-chart-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+}
+.org-chart-header .card-title { margin: 0 !important; }
+.org-chart-header .card-tools { float: none; display: flex; flex-wrap: wrap; gap: .4rem; }
+
+.org-list-scroll { max-height: min(68vh, 700px); overflow: auto; }
+.org-list-scroll thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--if-surface, #fff);
+}
+.org-list-scroll td, .org-list-scroll th { padding: .4rem .55rem; }
 
 .org-tree,
 .org-tree ul {
@@ -84,10 +102,10 @@ details[open] > summary > .org-node-chevron {
 .org-node {
     display: flex;
     align-items: center;
-    gap: .65rem;
+    gap: .4rem;
     flex: 1 1 auto;
     min-width: 0;
-    padding: .5rem .75rem;
+    padding: .35rem .45rem;
     border: 1px solid transparent;
     border-radius: var(--if-radius-sm, 8px);
     transition: background-color var(--if-dur-ui, 160ms) var(--if-ease-out, ease-out),
@@ -153,13 +171,13 @@ details[open] > summary > .org-node-chevron {
     box-shadow: 0 0 0 2px var(--dept-ring, var(--if-border-strong, #d3dbdc));
 }
 .org-node-avatar .fa-stack {
-    width: 36px;
-    height: 36px;
-    font-size: 1rem;
+    width: 30px;
+    height: 30px;
+    font-size: .83rem;
 }
 .org-node-avatar-img {
-    width: 36px;
-    height: 36px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     object-fit: cover;
     display: block;
@@ -199,12 +217,12 @@ details[open] > summary > .org-node-chevron {
     align-items: center;
     gap: .25rem;
     margin-left: auto;
-    padding-left: .5rem;
+    padding-left: .2rem;
 }
 
 .org-node-action {
-    width: 2rem;
-    height: 2rem;
+    width: 1.75rem;
+    height: 1.75rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -256,20 +274,11 @@ details[open] > summary > .org-node-chevron {
     opacity: .35;
 }
 
-@keyframes org-node-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(var(--if-primary-rgb, 13, 148, 136), .55); }
-    50%      { box-shadow: 0 0 0 6px rgba(var(--if-primary-rgb, 13, 148, 136), 0); }
-}
-.org-node-pulse {
-    animation: org-node-pulse 500ms ease-in-out 2;
-}
-
-/* Belt-and-suspenders alongside scrollAndPulse()'s own JS-level skip
-   (agent/js/org_chart.js never adds this class at all when the media query
-   below matches) - kept here too in case a future change adds the class
-   from a path that forgets to check prefersReducedMotion first. */
-@media (prefers-reduced-motion: reduce) {
-    .org-node-pulse { animation: none; }
+.org-node.org-node-current {
+    background: var(--if-surface, #fff);
+    border-color: var(--if-primary, #0d9488);
+    box-shadow: 0 0 0 2px rgba(var(--if-primary-rgb, 13, 148, 136), .18);
+    opacity: 1;
 }
 
 /* ----------------------------------------------------------- trace-to-root */
@@ -360,134 +369,6 @@ details[open] > summary > .org-node-chevron {
     font-weight: 600;
 }
 
-/* ------------------------------------------------------- preview panel --- */
-
-.org-preview-panel {
-    position: fixed;
-    width: 280px;
-    max-width: calc(100vw - 1.5rem);
-    max-height: calc(100vh - 1.5rem);
-    overflow-y: auto;
-    display: flex;
-    gap: .75rem;
-    background: var(--if-surface, #fff);
-    border: 1px solid var(--if-border, #e3e9ea);
-    border-radius: var(--if-radius, 12px);
-    box-shadow: var(--if-shadow-md, 0 6px 16px rgba(20,35,42,.10));
-    padding: 1rem;
-    z-index: 1055;
-}
-.org-preview-panel[hidden] { display: none; }
-
-.org-preview-avatar {
-    flex: 0 0 auto;
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    box-shadow: 0 0 0 3px var(--dept-ring, var(--if-border-strong, #d3dbdc));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    background: var(--tblr-secondary, #6c757d);
-    color: #fff;
-    font-weight: 600;
-    font-size: 1.1rem;
-}
-.org-preview-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.org-preview-body {
-    min-width: 0;
-    flex: 1 1 auto;
-}
-.org-preview-name {
-    font-weight: 700;
-    color: var(--if-ink, #16232a);
-}
-.org-preview-title {
-    color: var(--if-muted, #5d6f76);
-    font-size: .85rem;
-    margin-bottom: .35rem;
-}
-.org-preview-dept-row {
-    display: flex;
-    align-items: center;
-    gap: .35rem;
-    flex-wrap: wrap;
-    margin-bottom: .5rem;
-}
-.org-preview-dept-badge {
-    display: inline-block;
-    padding: .15rem .5rem;
-    border-radius: 999px;
-    font-size: .72rem;
-    font-weight: 600;
-    color: #fff;
-    background: var(--dept-ring, var(--if-muted, #5d6f76));
-}
-.org-preview-dept-badge:empty { display: none; }
-.org-preview-reports,
-.org-preview-manages {
-    font-size: .82rem;
-    color: var(--if-muted, #5d6f76);
-}
-.org-preview-link {
-    display: inline-block;
-    margin-top: .5rem;
-    font-size: .85rem;
-    font-weight: 600;
-}
-
-.org-preview-close {
-    display: none;
-    position: absolute;
-    top: .25rem;
-    right: .25rem;
-    width: 44px;
-    height: 44px;
-    border: none;
-    background: transparent;
-    color: var(--if-muted, #5d6f76);
-    font-size: 1.4rem;
-    line-height: 1;
-}
-
-/* Touch: a bottom sheet instead of a positioned popover - never relying on
-   tap-elsewhere alone on a touch device, so it always carries an explicit
-   close affordance. */
-@media (hover: none) {
-    .org-preview-panel {
-        position: fixed;
-        inset-inline: 0;
-        bottom: 0;
-        top: auto !important;
-        left: 0 !important;
-        width: auto;
-        max-width: none;
-        max-height: 70vh;
-        border-radius: var(--if-radius, 12px) var(--if-radius, 12px) 0 0;
-        border-bottom: none;
-        padding-top: 1.5rem;
-    }
-    .org-preview-close {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-}
-
-.org-preview-scrim {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, .35);
-    z-index: 1050;
-}
-.org-preview-scrim[hidden] { display: none; }
-
 /* --------------------------------------------------------- chart canvas --- */
 
 /*
@@ -533,24 +414,16 @@ details[open] > summary > .org-node-chevron {
 
 /* BOX_W/BOX_H below are hardcoded twins of agent/js/org_chart.js's own
    BOX_W/BOX_H layout constants - same "keep both in sync by hand" caveat
-   that file's own EASE_OUT/EASE_IN twins already carry. */
+   that file's own layout constants carry. */
 .org-chart-active summary,
 .org-chart-active .org-node-row {
     position: absolute;
     left: 0;
     top: 0;
-    width: 300px;
-    height: 86px;
+    width: 250px;
+    height: 68px;
     margin: 0;
     align-items: stretch;
-    transition: left var(--if-dur-panel, 200ms) var(--if-ease-out, ease-out),
-                top var(--if-dur-panel, 200ms) var(--if-ease-out, ease-out);
-}
-/* Huge charts (above OrgChart.init()'s maxAnimatedNodes) skip the position
-   transition entirely - the same "instant above a size threshold"
-   convention the old height-animation already used. */
-.org-chart-instant summary,
-.org-chart-instant .org-node-row {
     transition: none;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -580,16 +453,9 @@ details[open] > summary > .org-node-chevron {
 
 .org-chart-scroll {
     overflow-x: auto;
-    /* visible, NOT hidden: agent/js/org_chart.js's performLayout() can now
-       wrap independent root-trees onto many rows (a department with little
-       or no manager data set produces one row PER FEW PEOPLE, not one row
-       total - see packRootsIntoBands()'s own comment), so this container's
-       height is no longer reliably small. overflow-y:hidden would silently
-       CLIP every band past whatever height happened to be visible, rather
-       than letting the page's own normal vertical scroll reveal them - the
-       intent was always "clip horizontal overflow only, let vertical
-       overflow flow into the page", which only 'visible' actually does. */
-    overflow-y: visible;
+    max-height: min(72vh, 740px);
+    /* Bound large departments to one viewport-sized scroll area. */
+    overflow-y: auto;
     padding: .25rem 0 1rem;
     -webkit-overflow-scrolling: touch;
 }
@@ -631,7 +497,7 @@ details[open] > summary > .org-node-chevron {
 
 @media print {
     #orgChartSearch, #orgChartSearchCounter, #orgChartBreadcrumb,
-    .org-node-actions, .org-preview-panel, .org-preview-scrim { display: none !important; }
+    .org-node-actions { display: none !important; }
     .org-tree ul { border-left-color: #999; }
     .org-tree summary { cursor: default; }
     /* The chart canvas is already sized to its full natural content extent
@@ -639,6 +505,6 @@ details[open] > summary > .org-node-chevron {
        synchronously right before print by that file's wirePrint()) - this
        only has to stop the SCROLL WRAPPER from clipping/scrolling that
        extent away, so nothing prints cut off or hidden. */
-    .org-chart-scroll { overflow: visible !important; }
+    .org-chart-scroll { overflow: visible !important; max-height: none !important; }
     * { animation: none !important; transition: none !important; }
 }

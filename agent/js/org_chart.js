@@ -8,52 +8,97 @@
  * file) - nothing here re-derives the tree, fetches it again, or builds a
  * second copy of it.
  *
- * FALLBACK GUARANTEE: OrgChart.init() wraps its ENTIRE bootstrap in one
- * try/catch. If this file 404s, throws during init, or never runs at all
- * (scripting disabled), the page is not "a fallback tree" - it IS today's
- * plain server-rendered <details>/<summary> tree, because there is no second
- * tree anywhere in this design to fall back FROM. Do not weaken that by
- * splitting init() into several independently-bootstrapped pieces - one
- * try/catch, one point of failure, one guaranteed-good fallback.
+ * The fast employee list is shown first. The visual chart is built only after
+ * the user chooses Chart. If scripting fails, the server-rendered list and
+ * hierarchy remain available.
  *
- * Called from agent/org_chart.php as: OrgChart.init({ maxAnimatedNodes: 800 }).
+ * Called from agent/org_chart.php as: OrgChart.init().
  */
 (function () {
     'use strict';
-
-    // Hardcoded twins of css/itflow_motion.css's --if-ease-out / --if-ease-in.
-    // The Web Animations API's `easing` option cannot read a CSS custom
-    // property, so these two strings have to be kept in sync by hand if those
-    // tokens ever change.
-    var EASE_OUT = 'cubic-bezier(.22,.61,.36,1)'; // --if-ease-out: entrances
-    var EASE_IN = 'cubic-bezier(.4,0,1,1)';        // --if-ease-in: exits
-
-    // --if-dur-ui (hover tint / small swap) and --if-dur-overlay (modal /
-    // bottom-sheet reveal), same literal-value caveat as above.
-    var DUR_UI = 160;
-    var DUR_PANEL = 200;
-    var DUR_OVERLAY = 240;
 
     // ------------------------------------------------------------------
     // Box-chart layout constants ("Rootline" box-and-line pass).
     //
     // BOX_W/BOX_H are hardcoded twins of css/org_chart.css's own
     // .org-chart-active summary / .org-node-row box size - same caveat as
-    // EASE_OUT/EASE_IN above, keep both in sync by hand if either changes.
     // GUTTER_X/GUTTER_Y are pure layout spacing with no CSS counterpart.
     // ------------------------------------------------------------------
-    var BOX_W = 300;
-    var BOX_H = 86;
-    var GUTTER_X = 30;
-    var GUTTER_Y = 54;
+    var BOX_W = 250;
+    var BOX_H = 68;
+    var GUTTER_X = 18;
+    var GUTTER_Y = 28;
     var UNIT_W = BOX_W + GUTTER_X;   // one horizontal "slot" in the subtree-width layout
     var ROW_H = BOX_H + GUTTER_Y;    // one generation's vertical step
-    var ROOT_GAP_UNITS = 1;          // empty slot between separate root-trees in one department
+    var ROOT_GAP_UNITS = 0;          // compact independent roots use the normal slot gutter
     var CHART_MAX_DEPTH = 300;       // defensive-only: real org depth never approaches this
 
     function init(config) {
         try {
-            run(config || {});
+            var root = document.getElementById('orgChartRoot');
+            var list = document.getElementById('orgChartList');
+            var listBtn = document.getElementById('orgChartShowList');
+            var mapBtn = document.getElementById('orgChartShowMap');
+            var controls = document.getElementById('orgChartControls');
+            var searchWrap = document.getElementById('orgChartMapSearchWrap');
+            var loading = document.getElementById('orgChartLoading');
+            wireListSearch();
+            if (!root || !list || !listBtn || !mapBtn) {
+                run(config || {});
+                return;
+            }
+
+            var chartCtxs = null;
+            root.hidden = true;
+            if (controls) { controls.hidden = true; }
+            if (searchWrap) { searchWrap.hidden = true; }
+
+            function setView(isMap) {
+                root.hidden = !isMap;
+                list.hidden = isMap;
+                if (controls) { controls.hidden = !isMap; }
+                if (searchWrap) { searchWrap.hidden = !isMap; }
+                listBtn.classList.toggle('btn-primary', !isMap);
+                listBtn.classList.toggle('btn-secondary', isMap);
+                mapBtn.classList.toggle('btn-primary', isMap);
+                mapBtn.classList.toggle('btn-secondary', !isMap);
+                listBtn.setAttribute('aria-pressed', String(!isMap));
+                mapBtn.setAttribute('aria-pressed', String(isMap));
+            }
+
+            listBtn.addEventListener('click', function () {
+                setView(false);
+                root.style.visibility = '';
+                if (loading) { loading.hidden = true; }
+            });
+            mapBtn.addEventListener('click', function () {
+                setView(true);
+                if (chartCtxs) {
+                    chartCtxs.forEach(function (ctx) {
+                        if (!ctx.dead) { performLayout(ctx); }
+                    });
+                    return;
+                }
+                if (mapBtn.disabled) { return; }
+                mapBtn.disabled = true;
+                root.style.visibility = 'hidden';
+                if (loading) { loading.hidden = false; }
+                requestAnimationFrame(function () {
+                    setTimeout(function () {
+                        mapBtn.disabled = false;
+                        if (root.hidden) { return; }
+                        try {
+                            chartCtxs = run(config || {});
+                            root.style.visibility = '';
+                            if (loading) { loading.hidden = true; }
+                        } catch (err) {
+                            root.style.visibility = '';
+                            if (loading) { loading.textContent = 'Chart layout unavailable. Showing the hierarchy as a list.'; }
+                            if (window.console && console.error) { console.error('[OrgChart] chart setup failed.', err); }
+                        }
+                    }, 0);
+                });
+            });
         } catch (err) {
             // Whatever broke, the page underneath is still today's plain
             // server-rendered tree - see the file header. Log it so it's
@@ -71,23 +116,11 @@
             return;
         }
 
-        var maxAnimatedNodes = config.maxAnimatedNodes || 800;
-        var prefersReducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-        var isTouchInput = !!(window.matchMedia && window.matchMedia('(hover: none)').matches);
-
         var nodes = Array.prototype.slice.call(root.querySelectorAll('.org-node'));
-        var nodeCount = nodes.length;
-        // Above this, skip wiring the WAAPI expand/collapse animation and the
-        // hover/tap preview panel entirely - <summary> clicks fall back to
-        // plain native instant <details> toggling, and the info button simply
-        // isn't wired. Search, Trace to Root, and the breadcrumb stay active
-        // regardless of node count: all are O(n) or O(depth) with no
-        // animation loop, so there is nothing here that can run away.
-        var animationsEnabled = nodeCount <= maxAnimatedNodes;
 
         // id -> .org-node element, and .org-node -> containing <li>, built
         // once and reused by every feature below (search, trace, breadcrumb,
-        // preview) instead of re-querying the DOM per interaction.
+        // instead of re-querying the DOM per interaction.
         var idToNode = {};
         var nodeToLi = new WeakMap();
         nodes.forEach(function (n) {
@@ -105,50 +138,44 @@
         // highlight afterwards, see wireTrace()'s reapplyEdgeHighlight().
         var traceApi = wireTrace(root, nodes, idToNode, nodeToLi);
 
-        // Chart layout runs BEFORE wireDetailsAnimation so the latter can
-        // skip any <details> that now lives inside a successfully
-        // chart-ified department (marked '.org-chart-active') - that
-        // department's open/close visual transition is owned by the box
-        // layout's own position-based relayout instead of the old
-        // height-grow/shrink animation, which would otherwise be animating
-        // a <ul> that no longer has any visible footprint in chart mode.
-        // Also run BEFORE wireExpandCollapseAll, which needs chartCtxs to
-        // re-center each chart after a bulk toggle - see that function.
-        var chartCtxs = wireChartLayout(root, animationsEnabled, traceApi);
+        // Build the box layout only after the chart becomes visible, so width
+        // measurements are accurate and opening the page stays light.
+        var chartCtxs = wireChartLayout(root, traceApi);
 
         wireExpandCollapseAll(root, chartCtxs);
         wireZoom(chartCtxs);
-        wireListSearch();
 
-        if (animationsEnabled) {
-            wireDetailsAnimation(root, prefersReducedMotion);
+        var searchApi = wireSearch(root, nodes, idToNode, traceApi);
+        if (nodes.length <= 250) {
+            wireBreadcrumb(root, nodes, idToNode, traceApi);
         }
 
-        var searchApi = wireSearch(root, nodes, idToNode, prefersReducedMotion, traceApi);
-        wireBreadcrumb(root, nodes, idToNode, traceApi, prefersReducedMotion);
-
-        var previewApi = null;
-        if (animationsEnabled) {
-            previewApi = wirePreviewPanel(nodes, isTouchInput, prefersReducedMotion);
-        }
-
-        wireGlobalKeys(searchApi, traceApi, previewApi);
-        wirePrint(root, searchApi, traceApi, previewApi, chartCtxs);
+        wireGlobalKeys(searchApi, traceApi);
+        wirePrint(root, searchApi, traceApi, chartCtxs);
+        return chartCtxs;
     }
 
     function wireListSearch() {
         var input = document.getElementById('orgChartListSearch');
         var empty = document.getElementById('orgChartListEmpty');
         if (!input) { return; }
-        var rows = Array.prototype.slice.call(document.querySelectorAll('#orgChartList .org-list-row'));
+        var rows = Array.prototype.slice.call(document.querySelectorAll('#orgChartList .org-list-row')).map(function (row) {
+            return { element: row, searchText: row.textContent.toLocaleLowerCase() };
+        });
+        var pendingFrame = null;
         input.addEventListener('input', function () {
-            var query = input.value.trim().toLocaleLowerCase();
-            var shown = 0;
-            rows.forEach(function (row) {
-                row.hidden = query !== '' && row.textContent.toLocaleLowerCase().indexOf(query) === -1;
-                if (!row.hidden) { shown++; }
+            if (pendingFrame !== null) { cancelAnimationFrame(pendingFrame); }
+            pendingFrame = requestAnimationFrame(function () {
+                pendingFrame = null;
+                var query = input.value.trim().toLocaleLowerCase();
+                var shown = 0;
+                rows.forEach(function (item) {
+                    var hidden = query !== '' && item.searchText.indexOf(query) === -1;
+                    if (item.element.hidden !== hidden) { item.element.hidden = hidden; }
+                    if (!hidden) { shown++; }
+                });
+                if (empty) { empty.hidden = shown !== 0; }
             });
-            if (empty) { empty.hidden = shown !== 0; }
         });
     }
 
@@ -156,8 +183,8 @@
         var scale = ctx.zoomScale || 1;
         ctx.canvas.style.transformOrigin = 'top left';
         ctx.canvas.style.transform = scale === 1 ? '' : 'scale(' + scale + ')';
-        ctx.zoomSpace.style.width = (ctx.canvas.offsetWidth * scale) + 'px';
-        ctx.zoomSpace.style.height = (ctx.canvas.offsetHeight * scale) + 'px';
+        ctx.zoomSpace.style.width = (ctx.extentW * scale) + 'px';
+        ctx.zoomSpace.style.height = (ctx.extentH * scale) + 'px';
     }
 
     function wireZoom(contexts) {
@@ -182,7 +209,7 @@
         if (resetBtn) { resetBtn.addEventListener('click', function () { change(function () { return 1; }); }); }
         if (fitBtn) {
             fitBtn.addEventListener('click', function () {
-                change(function (ctx) { return Math.min(1, ctx.scrollWrap.clientWidth / ctx.canvas.offsetWidth); });
+                change(function (ctx) { return Math.min(1, ctx.scrollWrap.clientWidth / ctx.extentW); });
             });
         }
     }
@@ -233,131 +260,6 @@
                 recenterSoon();
             });
         }
-    }
-
-    // ------------------------------------------------------------------
-    // Expand/collapse animation for individual nodes.
-    //
-    // Opening: the click on <summary> is left alone (no preventDefault) so
-    // the browser's own toggle runs; a `toggle` listener on the <details>
-    // then measures the now-visible child <ul> and grows it from 0. That
-    // `toggle` handler only animates when THIS click armed it (the
-    // `pendingOpen` WeakSet below) - Expand All sets .open directly without
-    // going through a click, so it never arms the flag and the bulk toggle
-    // stays perfectly instant.
-    //
-    // Closing: <details> offers no "about to close" event to hook, so the
-    // click is prevented, the open <ul> is animated down to 0, and only in
-    // that animation's onfinish is details.open actually set to false.
-    //
-    // Rapid clicks (open then immediately close, or vice versa) are handled
-    // by ALWAYS branching on the live `details.open` boolean (never on
-    // "is an animation currently running") and by measuring the <ul>'s
-    // CURRENT rendered height - which reflects an in-flight animation's
-    // interpolated value, not just its start/end keyframe - before cancelling
-    // whatever was previously running, so a reversal continues smoothly
-    // instead of snapping. This is the concrete fix for the rapid-double-
-    // click desync both design-review judges flagged, not a nice-to-have.
-    // ------------------------------------------------------------------
-    function wireDetailsAnimation(root, prefersReducedMotion) {
-        var duration = prefersReducedMotion ? 1 : DUR_PANEL;
-        var animMap = new WeakMap();   // <details> -> in-flight Animation
-        var pendingOpen = new WeakSet(); // <details> armed by a user click, consumed by the next 'toggle'
-
-        function childList(details) {
-            return details.querySelector(':scope > ul.org-tree');
-        }
-
-        function animateClose(details, ul) {
-            var prev = animMap.get(details);
-            var startHeight = ul.getBoundingClientRect().height;
-            if (prev) {
-                prev.cancel();
-            }
-            ul.style.overflow = 'hidden';
-            var anim = ul.animate(
-                [{ height: startHeight + 'px', opacity: 1 }, { height: '0px', opacity: 0 }],
-                { duration: duration, easing: EASE_IN, fill: 'forwards' }
-            );
-            animMap.set(details, anim);
-            anim.onfinish = function () {
-                details.open = false;
-                ul.style.height = '';
-                ul.style.opacity = '';
-                ul.style.overflow = '';
-                animMap.delete(details);
-            };
-        }
-
-        function animateOpen(details, ul) {
-            var prev = animMap.get(details);
-            if (prev) {
-                prev.cancel();
-            }
-            var targetHeight = ul.scrollHeight;
-            ul.style.overflow = 'hidden';
-            var anim = ul.animate(
-                [{ height: '0px', opacity: 0 }, { height: targetHeight + 'px', opacity: 1 }],
-                { duration: duration, easing: EASE_OUT, fill: 'forwards' }
-            );
-            animMap.set(details, anim);
-            anim.onfinish = function () {
-                ul.style.height = '';
-                ul.style.opacity = '';
-                ul.style.overflow = '';
-                animMap.delete(details);
-            };
-        }
-
-        root.querySelectorAll('.org-tree summary').forEach(function (summary) {
-            var details = summary.closest('details');
-            if (!details) {
-                return;
-            }
-            if (details.closest('.org-chart-active')) {
-                // This department's <ul class="org-tree"> is now a
-                // zero-footprint wrapper inside a box-chart canvas (see
-                // wireChartLayout()) - animating its height is invisible
-                // and its own 'toggle' listener there owns the real
-                // (position-based) visual transition instead.
-                return;
-            }
-            var ul = childList(details);
-            if (!ul) {
-                return;
-            }
-
-            summary.addEventListener('click', function (e) {
-                if (details.open) {
-                    // This click is about to CLOSE it - the only direction
-                    // <details> gives us no native event to hook, so we take
-                    // over entirely.
-                    e.preventDefault();
-                    animateClose(details, ul);
-                } else {
-                    // About to OPEN - let the native toggle happen, arm the
-                    // 'toggle' handler below to animate it once it does.
-                    pendingOpen.add(details);
-                }
-            });
-
-            details.addEventListener('toggle', function () {
-                if (!details.open) {
-                    // Closes are fully handled by the click handler above
-                    // (it's the only thing allowed to set .open = false).
-                    return;
-                }
-                if (!pendingOpen.has(details)) {
-                    // Opened by something other than a user click on THIS
-                    // summary (Expand All, browser back/forward restoring
-                    // form state, etc.) - leave it exactly as instant as the
-                    // native default.
-                    return;
-                }
-                pendingOpen.delete(details);
-                animateOpen(details, ul);
-            });
-        });
     }
 
     // ------------------------------------------------------------------
@@ -597,6 +499,8 @@
 
         var extentW = Math.max(maxUnitsUsed, 1) * UNIT_W;
         var extentH = Math.max(bandYOffsetPx, ROW_H);
+        ctx.extentW = extentW;
+        ctx.extentH = extentH;
 
         ctx.canvas.style.width = extentW + 'px';
         ctx.canvas.style.height = extentH + 'px';
@@ -616,7 +520,7 @@
 
         // Rebuilt from scratch every pass via the DOM API only (never
         // innerHTML - same "no markup built from string concatenation of
-        // node data" discipline wirePreviewPanel() already follows below)
+        // node data" discipline used throughout this file)
         // so a contact name/title can never end up interpreted as markup.
         while (ctx.svg.firstChild) {
             ctx.svg.removeChild(ctx.svg.firstChild);
@@ -679,7 +583,7 @@
     // deliberately kept free of anything that does real computation and so
     // is extremely unlikely to throw; performLayout() (called right after,
     // by the caller) is where real failure risk lives.
-    function setupCanvas(ul, animationsEnabled, traceApi) {
+    function setupCanvas(ul, traceApi) {
         var cardBody = ul.parentElement;
         var scrollWrap = document.createElement('div');
         scrollWrap.className = 'org-chart-scroll';
@@ -687,9 +591,6 @@
         zoomSpace.className = 'org-chart-zoom-space';
         var canvas = document.createElement('div');
         canvas.className = 'org-chart-canvas';
-        if (!animationsEnabled) {
-            canvas.classList.add('org-chart-instant');
-        }
         var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('class', 'org-chart-lines');
         svg.setAttribute('aria-hidden', 'true');
@@ -738,7 +639,7 @@
     // root simultaneously.
     function centerCanvas(ctx) {
         var wrapWidth = ctx.scrollWrap.clientWidth;
-        var canvasWidth = ctx.zoomSpace.offsetWidth;
+        var canvasWidth = ctx.extentW * ctx.zoomScale;
         if (canvasWidth <= wrapWidth) {
             ctx.scrollWrap.scrollLeft = 0;
             return;
@@ -768,14 +669,14 @@
     // card share that exact shape, so one selector covers both uniformly.
     // Returns the list of successfully-built contexts (wirePrint() needs it
     // to force a synchronous relayout around printing).
-    function wireChartLayout(root, animationsEnabled, traceApi) {
+    function wireChartLayout(root, traceApi) {
         var sources = Array.prototype.slice.call(root.querySelectorAll(':scope > .card > .card-body > ul.org-tree'));
         var contexts = [];
 
         sources.forEach(function (ul) {
             var ctx = null;
             try {
-                ctx = setupCanvas(ul, animationsEnabled, traceApi);
+                ctx = setupCanvas(ul, traceApi);
                 performLayout(ctx);
                 centerCanvas(ctx);
                 contexts.push(ctx);
@@ -945,7 +846,7 @@
     // ------------------------------------------------------------------
     // Search.
     // ------------------------------------------------------------------
-    function wireSearch(root, nodes, idToNode, prefersReducedMotion, traceApi) {
+    function wireSearch(root, nodes, idToNode, traceApi) {
         var input = document.getElementById('orgChartSearch');
         var counterWrap = document.getElementById('orgChartSearchCounter');
         var countLabel = document.getElementById('orgChartSearchCount');
@@ -954,8 +855,21 @@
 
         var matches = [];      // ordered contact ids currently matching
         var matchIndex = -1;
+        var selectedId = null;
         var openSnapshot = null; // Set<HTMLDetailsElement> that were open before the first keystroke
         var debounceTimer = null;
+        var entries = nodes.map(function (node) {
+            var name = node.getAttribute('data-name') || '';
+            return {
+                node: node,
+                id: node.getAttribute('data-contact-id'),
+                name: name,
+                nameLower: name.toLocaleLowerCase(),
+                searchText: [name, node.getAttribute('data-title') || '', node.getAttribute('data-group') || '', node.getAttribute('data-dept') || ''].join(' ').toLocaleLowerCase()
+            };
+        });
+        var entryById = {};
+        entries.forEach(function (entry) { entryById[entry.id] = entry; });
 
         // Trace mode is mutually exclusive with search - starting one clears
         // the other, so the two dim states are never compounded.
@@ -994,6 +908,38 @@
             }
         }
 
+        function resetSelectedName() {
+            if (selectedId !== null && entryById[selectedId]) {
+                var previous = entryById[selectedId];
+                setNameHighlight(previous.node, previous.name, -1, 0);
+                previous.node.classList.remove('org-node-current');
+            }
+            selectedId = null;
+        }
+
+        function revealMatch(contactId, query) {
+            resetSelectedName();
+            var entry = entryById[contactId];
+            if (!entry) { return; }
+            selectedId = contactId;
+            entry.node.classList.add('org-node-current');
+            var nameIndex = entry.nameLower.indexOf(query);
+            if (nameIndex >= 0) {
+                setNameHighlight(entry.node, entry.name, nameIndex, query.length);
+            }
+            var path = entry.node.getAttribute('data-ancestor-path') || '';
+            if (path) {
+                path.split(' ').forEach(function (id) {
+                    var ancestor = idToNode[id];
+                    var details = ancestor && ancestor.closest('details');
+                    if (details) { details.open = true; }
+                });
+            }
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () { scrollToNode(contactId); });
+            });
+        }
+
         function updateCounter() {
             if (!counterWrap) {
                 return;
@@ -1011,12 +957,15 @@
             var query = (rawQuery || '').trim().toLowerCase();
 
             if (!query) {
-                nodes.forEach(function (n) {
-                    n.classList.remove('org-node-dim');
-                    setNameHighlight(n, n.getAttribute('data-name') || '', -1, 0);
+                resetSelectedName();
+                entries.forEach(function (entry) {
+                    entry.node.classList.remove('org-node-dim');
                 });
                 if (openSnapshot) {
-                    allDetails().forEach(function (d) { d.open = openSnapshot.has(d); });
+                    allDetails().forEach(function (d) {
+                        var shouldOpen = openSnapshot.has(d);
+                        if (d.open !== shouldOpen) { d.open = shouldOpen; }
+                    });
                     openSnapshot = null;
                 }
                 matches = [];
@@ -1035,53 +984,20 @@
             }
 
             matches = [];
-            nodes.forEach(function (n) {
-                var name = n.getAttribute('data-name') || '';
-                var title = n.getAttribute('data-title') || '';
-                var group = n.getAttribute('data-group') || '';
-                var dept = n.getAttribute('data-dept') || '';
-
-                var nameIdx = name.toLowerCase().indexOf(query);
-                var isMatch = nameIdx !== -1
-                    || title.toLowerCase().indexOf(query) !== -1
-                    || group.toLowerCase().indexOf(query) !== -1
-                    || dept.toLowerCase().indexOf(query) !== -1;
-
-                setNameHighlight(n, name, nameIdx, query.length);
-
+            entries.forEach(function (entry) {
+                var isMatch = entry.searchText.indexOf(query) !== -1;
+                entry.node.classList.toggle('org-node-dim', !isMatch);
                 if (isMatch) {
-                    n.classList.remove('org-node-dim');
-                    matches.push(n.getAttribute('data-contact-id'));
-
-                    // Force every ancestor on the path open INSTANTLY -
-                    // never through the WAAPI layer - so search never fires
-                    // a concurrent-animation storm across many matches.
-                    var path = n.getAttribute('data-ancestor-path') || '';
-                    if (path) {
-                        path.split(' ').forEach(function (aid) {
-                            var an = idToNode[aid];
-                            var details = an && an.closest('details');
-                            if (details) {
-                                details.open = true;
-                            }
-                        });
-                    }
-                } else {
-                    n.classList.add('org-node-dim');
+                    matches.push(entry.id);
                 }
             });
 
             matchIndex = matches.length ? 0 : -1;
             updateCounter();
             if (matchIndex >= 0) {
-                // One rAF after the instant ancestor-open above: several
-                // <details> may have just toggled open in this same tick,
-                // and scrollIntoView's target position should be computed
-                // against the settled post-open layout, not mid-reflow.
-                var toScroll = matches[matchIndex];
-                requestAnimationFrame(function () {
-                    scrollAndPulse(toScroll, prefersReducedMotion);
-                });
+                revealMatch(matches[matchIndex], query);
+            } else {
+                resetSelectedName();
             }
         }
 
@@ -1110,7 +1026,7 @@
                 return;
             }
             matchIndex = (matchIndex + delta + matches.length) % matches.length;
-            scrollAndPulse(matches[matchIndex], prefersReducedMotion);
+            revealMatch(matches[matchIndex], input.value.trim().toLocaleLowerCase());
         }
 
         function clearField() {
@@ -1147,10 +1063,10 @@
     // watches is unaffected by how its ANCESTORS are laid out) - so a
     // "topmost visible" reading stays meaningful in chart mode exactly as
     // it did in the plain-list layout, with zero changes needed here.
-    // scrollAndPulse() (used by both search and a breadcrumb-segment click)
+    // scrollToNode() (used by both search and a breadcrumb-segment click)
     // is what DID need a chart-mode-aware change - see that function.
     // ------------------------------------------------------------------
-    function wireBreadcrumb(root, nodes, idToNode, traceApi, prefersReducedMotion) {
+    function wireBreadcrumb(root, nodes, idToNode, traceApi) {
         var nav = document.getElementById('orgChartBreadcrumb');
         var trail = document.getElementById('orgChartBreadcrumbTrail');
         var traceAffix = document.getElementById('orgChartBreadcrumbTrace');
@@ -1181,7 +1097,7 @@
                 btn.className = 'org-breadcrumb-seg';
                 btn.textContent = n.getAttribute('data-name') || '';
                 btn.addEventListener('click', function () {
-                    scrollAndPulse(id, prefersReducedMotion);
+                    scrollToNode(id);
                 });
                 trail.appendChild(btn);
             });
@@ -1229,246 +1145,10 @@
     }
 
     // ------------------------------------------------------------------
-    // Hover / tap preview panel - one reused floating panel (desktop) or
-    // bottom sheet (touch, via the @media (hover:none) rules in
-    // agent/css/org_chart.css). Only wired when animationsEnabled (see run()).
-    // ------------------------------------------------------------------
-    function wirePreviewPanel(nodes, isTouchInput, prefersReducedMotion) {
-        var panel = null;
-        var scrim = null;
-        var openForNode = null;
-        var hoverInTimer = null;
-        var hoverOutTimer = null;
-
-        function ensurePanel() {
-            if (panel) {
-                return panel;
-            }
-            panel = document.createElement('div');
-            panel.className = 'org-preview-panel';
-            panel.hidden = true;
-            panel.setAttribute('role', 'dialog');
-            panel.setAttribute('aria-label', 'Contact preview');
-            // Static skeleton only - no user data is interpolated into this
-            // markup. Every field below is filled in afterwards via
-            // textContent/attribute assignment, never innerHTML, so nothing
-            // here can inject markup regardless of what a contact's name/
-            // title/department contains.
-            panel.innerHTML =
-                '<div class="org-preview-avatar"></div>' +
-                '<div class="org-preview-body">' +
-                '  <div class="org-preview-name"></div>' +
-                '  <div class="org-preview-title"></div>' +
-                '  <div class="org-preview-dept-row">' +
-                '    <span class="org-preview-dept-badge"></span>' +
-                '    <span class="org-preview-status"></span>' +
-                '  </div>' +
-                '  <div class="org-preview-reports"></div>' +
-                '  <div class="org-preview-manages"></div>' +
-                '  <a class="org-preview-link" href="#">View full profile &rarr;</a>' +
-                '</div>' +
-                '<button type="button" class="org-preview-close" aria-label="Close">&times;</button>';
-            document.body.appendChild(panel);
-            panel.querySelector('.org-preview-close').addEventListener('click', close);
-            return panel;
-        }
-
-        function ensureScrim() {
-            if (scrim) {
-                return scrim;
-            }
-            scrim = document.createElement('div');
-            scrim.className = 'org-preview-scrim';
-            scrim.hidden = true;
-            document.body.appendChild(scrim);
-            scrim.addEventListener('click', close);
-            return scrim;
-        }
-
-        function deptSlotClass(node) {
-            var avatar = node.querySelector('.org-node-avatar');
-            var match = avatar && avatar.className.match(/org-dept-slot-\d+/);
-            return match ? match[0] : '';
-        }
-
-        function fill(node) {
-            var p = ensurePanel();
-            var slotClass = deptSlotClass(node);
-
-            var avatarWrap = p.querySelector('.org-preview-avatar');
-            avatarWrap.className = 'org-preview-avatar' + (slotClass ? ' ' + slotClass : '');
-            while (avatarWrap.firstChild) {
-                avatarWrap.removeChild(avatarWrap.firstChild);
-            }
-            var srcImg = node.querySelector('.org-node-avatar-img');
-            if (srcImg) {
-                var img = document.createElement('img');
-                img.src = srcImg.getAttribute('src');
-                img.alt = '';
-                img.loading = 'lazy';
-                img.decoding = 'async';
-                avatarWrap.appendChild(img);
-            } else {
-                var initialsEl = node.querySelector('.org-node-initials');
-                avatarWrap.appendChild(document.createTextNode(initialsEl ? initialsEl.textContent : ''));
-            }
-
-            p.querySelector('.org-preview-name').textContent = node.getAttribute('data-name') || '';
-            p.querySelector('.org-preview-title').textContent = node.getAttribute('data-title') || '';
-
-            var deptBadge = p.querySelector('.org-preview-dept-badge');
-            deptBadge.className = 'org-preview-dept-badge' + (slotClass ? ' ' + slotClass : '');
-            deptBadge.textContent = node.getAttribute('data-dept') || '';
-
-            var statusHost = p.querySelector('.org-preview-status');
-            while (statusHost.firstChild) {
-                statusHost.removeChild(statusHost.firstChild);
-            }
-            var statusBadge = node.querySelector('.badge');
-            if (statusBadge) {
-                statusHost.appendChild(statusBadge.cloneNode(true));
-            }
-
-            var managerName = node.getAttribute('data-manager-name') || '';
-            p.querySelector('.org-preview-reports').textContent = 'Reports to: ' + (managerName || '—');
-
-            var reportCount = parseInt(node.getAttribute('data-report-count') || '0', 10) || 0;
-            p.querySelector('.org-preview-manages').textContent =
-                'Manages ' + reportCount + (reportCount === 1 ? ' person' : ' people');
-
-            var link = p.querySelector('.org-preview-link');
-            var nameLink = node.querySelector('.org-node-name');
-            link.setAttribute('href', nameLink ? nameLink.getAttribute('href') : '#');
-        }
-
-        function position(p, node) {
-            var margin = 8;
-            var rect = node.getBoundingClientRect();
-            var pw = p.offsetWidth || 280;
-            var ph = p.offsetHeight;
-            var vw = document.documentElement.clientWidth;
-            var vh = document.documentElement.clientHeight;
-
-            var top = rect.top;
-            var left;
-            if (rect.right + margin + pw <= vw) {
-                left = rect.right + margin;
-            } else if (rect.left - margin - pw >= 0) {
-                left = rect.left - margin - pw;
-            } else {
-                left = Math.max(margin, Math.min(vw - pw - margin, rect.left));
-                top = rect.bottom + margin;
-            }
-            top = Math.max(margin, Math.min(vh - ph - margin, top));
-
-            p.style.top = top + 'px';
-            p.style.left = left + 'px';
-        }
-
-        function open(node) {
-            if (openForNode === node) {
-                return;
-            }
-            var p = ensurePanel();
-            fill(node);
-            p.hidden = false;
-            openForNode = node;
-
-            var touch = !!(window.matchMedia && window.matchMedia('(hover: none)').matches);
-            if (touch) {
-                var scrimEl = ensureScrim();
-                scrimEl.hidden = false;
-                p.style.top = '';
-                p.style.left = '';
-                p.animate(
-                    [{ transform: 'translateY(100%)' }, { transform: 'translateY(0)' }],
-                    { duration: prefersReducedMotion ? 1 : DUR_OVERLAY, easing: EASE_OUT }
-                );
-            } else {
-                position(p, node);
-                p.animate(
-                    [{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'translateY(0)' }],
-                    { duration: prefersReducedMotion ? 1 : DUR_UI, easing: EASE_OUT }
-                );
-            }
-        }
-
-        function close() {
-            if (!panel || panel.hidden) {
-                return;
-            }
-            panel.hidden = true;
-            if (scrim) {
-                scrim.hidden = true;
-            }
-            openForNode = null;
-        }
-
-        nodes.forEach(function (n) {
-            var btn = n.querySelector('.org-node-preview-btn');
-            if (btn) {
-                btn.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (openForNode === n) {
-                        close();
-                    } else {
-                        open(n);
-                    }
-                });
-            }
-
-            if (!isTouchInput) {
-                n.addEventListener('mouseenter', function () {
-                    clearTimeout(hoverOutTimer);
-                    clearTimeout(hoverInTimer);
-                    hoverInTimer = setTimeout(function () { open(n); }, 150);
-                });
-                n.addEventListener('mouseleave', function () {
-                    clearTimeout(hoverInTimer);
-                    clearTimeout(hoverOutTimer);
-                    hoverOutTimer = setTimeout(function () {
-                        if (openForNode === n) {
-                            close();
-                        }
-                    }, 150);
-                });
-            }
-        });
-
-        document.addEventListener('click', function (e) {
-            if (!panel || panel.hidden) {
-                return;
-            }
-            if (panel.contains(e.target)) {
-                return;
-            }
-            if (openForNode && openForNode.contains(e.target)) {
-                return;
-            }
-            close();
-        });
-        document.addEventListener('focusin', function (e) {
-            if (!panel || panel.hidden) {
-                return;
-            }
-            if (panel.contains(e.target)) {
-                return;
-            }
-            if (openForNode && openForNode.contains(e.target)) {
-                return;
-            }
-            close();
-        });
-
-        return { close: close, isOpen: function () { return !!openForNode; } };
-    }
-
-    // ------------------------------------------------------------------
     // Global keyboard shortcuts: "/" focuses search, Escape clears whatever
-    // is currently active (search box, then trace, then preview panel).
+    // is currently active (search box, then trace).
     // ------------------------------------------------------------------
-    function wireGlobalKeys(searchApi, traceApi, previewApi) {
+    function wireGlobalKeys(searchApi, traceApi) {
         document.addEventListener('keydown', function (e) {
             if (e.key === '/' && !isEditableTarget(document.activeElement)) {
                 e.preventDefault();
@@ -1480,8 +1160,6 @@
                     searchApi.clear();
                 } else if (traceApi.isActive()) {
                     traceApi.clear();
-                } else if (previewApi && previewApi.isOpen()) {
-                    previewApi.close();
                 }
             }
         });
@@ -1500,7 +1178,7 @@
     // exactly what was open beforehand - a small, deliberate improvement over
     // js/kb_interactive.js's own one-way beforeprint-only precedent.
     // ------------------------------------------------------------------
-    function wirePrint(root, searchApi, traceApi, previewApi, chartCtxs) {
+    function wirePrint(root, searchApi, traceApi, chartCtxs) {
         var snapshot = null;
 
         // Every chart-mode department's own layout to its full, nothing-
@@ -1571,6 +1249,7 @@
         }
 
         window.addEventListener('beforeprint', function () {
+            if (root.hidden) { return; }
             snapshot = new Set();
             root.querySelectorAll('details').forEach(function (d) {
                 if (d.open) {
@@ -1583,9 +1262,6 @@
             }
             if (traceApi.isActive()) {
                 traceApi.clear();
-            }
-            if (previewApi && previewApi.isOpen()) {
-                previewApi.close();
             }
             forceLayoutAll();
             (chartCtxs || []).forEach(function (ctx) {
@@ -1613,10 +1289,9 @@
     }
 
     // ------------------------------------------------------------------
-    // Shared by search-next/prev and breadcrumb-segment clicks: scroll a
-    // node into view and pulse it so an off-screen match is findable.
+    // Shared by search-next/prev and breadcrumb-segment clicks.
     // ------------------------------------------------------------------
-    function scrollAndPulse(contactId, prefersReducedMotion) {
+    function scrollToNode(contactId) {
         var node = document.querySelector('.org-node[data-contact-id="' + cssEscape(contactId) + '"]');
         if (!node) {
             return;
@@ -1628,25 +1303,7 @@
         // the box actually renders. .org-node's rect is always correct
         // regardless of layout mode, and in the plain-list fallback the
         // two are visually equivalent anyway (the <li> tightly wraps it).
-        node.scrollIntoView({ block: 'center', inline: 'center', behavior: prefersReducedMotion ? 'auto' : 'smooth' });
-
-        // Reduced-motion: the scroll behavior above already switches to 'auto',
-        // but the pulse itself is a separate CSS @keyframes animation with no
-        // reduced-motion override of its own - skip it outright rather than
-        // relying on a CSS-only guard, which would leave 'animationend' never
-        // firing (no animation runs) and the class + its listener stuck on the
-        // node instead of being cleaned up.
-        if (prefersReducedMotion) {
-            return;
-        }
-
-        node.classList.remove('org-node-pulse');
-        void node.offsetWidth; // force reflow so re-adding the class restarts the animation
-        node.classList.add('org-node-pulse');
-        node.addEventListener('animationend', function handler() {
-            node.classList.remove('org-node-pulse');
-            node.removeEventListener('animationend', handler);
-        });
+        node.scrollIntoView({ block: 'center', inline: 'center', behavior: 'auto' });
     }
 
     function cssEscape(value) {
