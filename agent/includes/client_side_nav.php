@@ -22,13 +22,12 @@ $current_page = basename($_SERVER["PHP_SELF"]);
      The element is internally balanced - it opens and closes exactly one <aside> and
      adds ZERO structural depth, so includes/footer.php's four-level close is untouched.
 
-     There are no collapsible groups in this sidebar, so it carries no
-     data-if-toggle="submenu" hooks; the only JS it needs is Bootstrap's own collapse
-     data-api on the mobile toggler (bootstrap.bundle.min.js, already loaded).
+     The section headings become collapsible through js/shell.js when it loads;
+     all links remain visible without JavaScript. Bootstrap owns the mobile toggler.
 
      Every permission/module gate, every badge count and the .client-nav-* identity
      block below are byte-for-byte the same tests as before - this is markup only. -->
-<aside class="navbar navbar-vertical navbar-expand-lg d-print-none" data-bs-theme="dark">
+<aside class="navbar navbar-vertical navbar-expand-lg d-print-none" data-bs-theme="dark" aria-label="Department navigation" data-nav-sections>
     <div class="container-fluid">
 
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu" aria-controls="sidebar-menu" aria-expanded="false" aria-label="Toggle navigation">

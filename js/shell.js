@@ -16,7 +16,7 @@
            > button.navbar-toggler[data-bs-toggle=collapse][data-bs-target="#sidebar-menu"]
            > .navbar-brand
            > .collapse.navbar-collapse#sidebar-menu
-               > ul.navbar-nav
+       > ul.navbar-nav
                    > li.nav-item.dropdown[.active]
                        > a.nav-link.dropdown-toggle[data-if-toggle=submenu][.show]
                        > div.dropdown-menu#nav-group-<name>[.show]
@@ -112,6 +112,7 @@
         var toggles = document.querySelectorAll('[data-lte-toggle="sidebar"]');
         var mq = window.matchMedia(MOBILE_QUERY);
         var foldedGroups = [];                                      // groups closed by folding, to restore on unfold
+        var sectionGroups = [];
 
         function isMobile() { return mq.matches; }
 
@@ -150,6 +151,63 @@
                 markOpening(panel, open);
             }
             if (item) { item.classList.toggle('active', open); }
+        }
+
+        /* The long department and Reports rails have flat section headings. Turn
+           each heading into a real control and keep its links together without
+           changing their URLs, permission checks, or no-JS fallback. */
+        function initSections() {
+            if (!sidebar.hasAttribute('data-nav-sections') || !menu) { return; }
+            var headings = menu.querySelectorAll('.nav-section-title');
+            var hasActiveLink = !!menu.querySelector('.nav-link.active');
+            for (var i = 0; i < headings.length; i++) {
+                var heading = headings[i];
+                var items = [];
+                var next = heading.nextElementSibling;
+                while (next && !next.classList.contains('nav-section-title')) {
+                    items.push(next);
+                    next = next.nextElementSibling;
+                }
+                if (!items.length) { continue; }
+                var button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'nav-section-toggle';
+                button.textContent = heading.textContent.trim();
+                var controlledIds = [];
+                for (var j = 0; j < items.length; j++) {
+                    if (!items[j].id) { items[j].id = 'nav-section-' + i + '-item-' + j; }
+                    controlledIds.push(items[j].id);
+                }
+                button.setAttribute('aria-controls', controlledIds.join(' '));
+                heading.textContent = '';
+                heading.appendChild(button);
+                var group = { heading: heading, button: button, items: items };
+                sectionGroups.push(group);
+                var active = items.some(function (item) { return item.classList.contains('active'); });
+                setSection(group, active || (!hasActiveLink && i === 0));
+                button.addEventListener('click', function (selected) {
+                    return function () {
+                        setSection(selected, selected.button.getAttribute('aria-expanded') !== 'true');
+                        markScrollEdges();
+                    };
+                }(group));
+            }
+        }
+        function setSection(group, open) {
+            group.button.setAttribute('aria-expanded', open ? 'true' : 'false');
+            group.heading.classList.toggle('active', open);
+            for (var i = 0; i < group.items.length; i++) {
+                group.items[i].hidden = !open;
+            }
+        }
+        function foldSections(folded) {
+            for (var i = 0; i < sectionGroups.length; i++) {
+                var group = sectionGroups[i];
+                group.heading.hidden = folded;
+                for (var j = 0; j < group.items.length; j++) {
+                    group.items[j].hidden = folded ? false : group.button.getAttribute('aria-expanded') !== 'true';
+                }
+            }
         }
         /* --- behaviour 3: keep a long nav navigable --------------------------
            #sidebar-menu is the sidebar's own scroll container and the aside is
@@ -221,6 +279,14 @@
             if (open && !isMobile()) { reveal(toggle.closest('.nav-item') || toggle); }
             markScrollEdges();
         });
+        // These anchors act as buttons. Enter already clicks them; Space should too.
+        sidebar.addEventListener('keydown', function (e) {
+            if (e.key !== ' ' && e.key !== 'Spacebar') { return; }
+            var toggle = e.target.closest && e.target.closest('[data-if-toggle="submenu"]');
+            if (!toggle || !sidebar.contains(toggle)) { return; }
+            e.preventDefault();
+            toggle.click();
+        });
 
         /* .is-opening is transient and must clear itself. One delegated listener
            rather than one addEventListener per expand, so nothing accumulates
@@ -258,6 +324,7 @@
             if (folded === sidebar.classList.contains('navbar-folded')) { return; }
             sidebar.classList.toggle('navbar-folded', folded);
             if (folded) { closeGroupsForFold(); } else { restoreGroupsAfterUnfold(); }
+            foldSections(folded);
             sync();
         }
         function setMenu(show) {
@@ -334,6 +401,13 @@
         };
         if (mq.addEventListener) { mq.addEventListener('change', onMediaChange); }
         else if (mq.addListener) { mq.addListener(onMediaChange); }     // Safari < 14
+
+        // Mark the destination itself for assistive technology, across all six rails.
+        var activeLinks = menu ? menu.querySelectorAll('a.nav-link.active, a.dropdown-item.active') : [];
+        for (var a = 0; a < activeLinks.length; a++) {
+            activeLinks[a].setAttribute('aria-current', 'page');
+        }
+        initSections();
 
         /* Restore the persisted desktop fold preference. AdminLTE advertised this
            through data-enable-remember="TRUE" but AL4 beta3 shipped no persistence

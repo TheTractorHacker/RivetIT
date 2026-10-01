@@ -108,9 +108,9 @@ $current_page = basename($_SERVER["PHP_SELF"]);
      Internally balanced: exactly one <aside> opened and closed, ZERO structural
      depth added, so includes/footer.php's four-level close is unaffected.
 
-     No collapsible groups here, so no data-if-toggle="submenu" hooks; the only JS
-     needed is Bootstrap's own collapse data-api on the mobile toggler. -->
-<aside class="navbar navbar-vertical navbar-expand-lg d-print-none" data-bs-theme="dark">
+     Section headings become collapsible through js/shell.js; all links remain
+     visible without JavaScript. Bootstrap owns the mobile toggler. -->
+<aside class="navbar navbar-vertical navbar-expand-lg d-print-none" data-bs-theme="dark" aria-label="Company-wide navigation" data-nav-sections>
     <div class="container-fluid">
 
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu" aria-controls="sidebar-menu" aria-expanded="false" aria-label="Toggle navigation">

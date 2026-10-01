@@ -137,7 +137,7 @@
    same pixel row. */
 :root {
     --if-chrome-bg:     #2b3038;
-    --if-chrome-band:    70px;
+    --if-chrome-band:    60px;
     --if-chrome-border:  rgba(255, 255, 255, .08);
     --if-chrome-ink:     rgba(255, 255, 255, .85);
     --if-chrome-ink-dim: rgba(255, 255, 255, .55);

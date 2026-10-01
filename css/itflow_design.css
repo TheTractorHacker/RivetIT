@@ -372,6 +372,50 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
   justify-content: center;
 }
 
+/* All six sidebars share the same compact navigation rows.
+   Keep full-size touch targets on mobile while fitting more destinations on a
+   desktop rail. */
+.navbar-vertical .nav-section-title .nav-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.navbar-vertical .nav-section-title .nav-section-toggle { min-height: 2rem; }
+.navbar-vertical .nav-section-toggle::after {
+  content: "";
+  width: .4rem;
+  height: .4rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform .15s ease;
+}
+.navbar-vertical .nav-section-toggle[aria-expanded="true"]::after { transform: rotate(225deg); }
+.navbar-vertical .nav-section-toggle:focus-visible {
+  outline: 2px solid #73d5ca;
+  outline-offset: 2px;
+}
+.navbar-vertical .navbar-nav > .nav-item[hidden] { display: none !important; }
+@media (min-width: 992px) {
+  .navbar-vertical .navbar-nav > .nav-item > .nav-link { padding-block: .4rem; }
+  .navbar-vertical .dropdown-menu .dropdown-item { padding-block: .32rem; }
+  .navbar-vertical .navbar-nav > .nav-item.dropdown.mt-2 { margin-top: .25rem !important; }
+}
+@media (max-width: 991.98px) {
+  .navbar-vertical .navbar-nav > .nav-item > .nav-link,
+  .navbar-vertical .dropdown-menu .dropdown-item,
+  .navbar-vertical .nav-section-title .nav-section-toggle { min-height: 44px; }
+}
+
 /* Folded rail: the trailing chevron on People / Reports / Docs / custom links
    ended up ~6px from that row's own icon, so the bottom of the rail read as
    two crowded glyphs while every row above it had one. Take the chevron out of

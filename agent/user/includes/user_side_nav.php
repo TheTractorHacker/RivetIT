@@ -22,7 +22,7 @@ $current_page = basename($_SERVER["PHP_SELF"]);
 
      No collapsible groups here, so no data-if-toggle="submenu" hooks; the only JS
      needed is Bootstrap's own collapse data-api on the mobile toggler. -->
-<aside class="navbar navbar-vertical navbar-expand-lg d-print-none" data-bs-theme="dark">
+<aside class="navbar navbar-vertical navbar-expand-lg d-print-none" data-bs-theme="dark" aria-label="Account navigation">
     <div class="container-fluid">
 
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu" aria-controls="sidebar-menu" aria-expanded="false" aria-label="Toggle navigation">

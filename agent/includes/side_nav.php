@@ -46,7 +46,7 @@ foreach ($section_pages as $key => $pages) {
      is a.nav-link.dropdown-toggle[data-if-toggle="submenu"]; it flips .show on the
      toggle and on its #id-matched .dropdown-menu sibling, .active on the parent
      <li>, and aria-expanded on the toggle. -->
-<aside class="navbar navbar-vertical navbar-expand-lg d-print-none" data-bs-theme="dark">
+<aside class="navbar navbar-vertical navbar-expand-lg d-print-none" data-bs-theme="dark" aria-label="Main navigation">
     <div class="container-fluid">
 
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu" aria-controls="sidebar-menu" aria-expanded="false" aria-label="Toggle navigation">
@@ -172,7 +172,7 @@ foreach ($section_pages as $key => $pages) {
                         </a>
                         <a href="/agent/service_catalog.php" class="dropdown-item<?php if ($current_page == "service_catalog.php") { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-th-large"></i></span>
-                            <span class="text-truncate">Request Something</span>
+                            <span class="text-truncate">Request service</span>
                         </a>
                         <?php if (!empty($config_ticket_csat_enable)) { ?>
                         <a href="/agent/csat.php" class="dropdown-item<?php if ($current_page == "csat.php") { echo " active"; } ?>">

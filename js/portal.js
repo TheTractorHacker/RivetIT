@@ -4,6 +4,18 @@
 
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+    // Keep the current destination visible inside portal dropdowns as well as
+    // on the top-level link. The server still marks section parents active.
+    document.querySelectorAll('.client-portal-nav a.nav-link.active:not([data-bs-toggle="dropdown"])').forEach(function (link) {
+        link.setAttribute('aria-current', 'page');
+    });
+    document.querySelectorAll('.client-portal-nav a.dropdown-item[href]').forEach(function (link) {
+        if (new URL(link.href, window.location.href).pathname === window.location.pathname) {
+            link.classList.add('active');
+            link.setAttribute('aria-current', 'page');
+        }
+    });
+
     document.querySelectorAll('[data-portal-theme-toggle]').forEach(function (btn) {
         btn.addEventListener('click', function () {
             var next = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';

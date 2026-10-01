@@ -12,7 +12,7 @@
      Which group starts open is still decided SERVER-SIDE by the same in_array()
      page maps as before, so the group containing the current page is expanded on
      first paint, with or without JS. -->
-<aside class="navbar navbar-vertical navbar-expand-lg d-print-none" data-bs-theme="dark">
+<aside class="navbar navbar-vertical navbar-expand-lg d-print-none" data-bs-theme="dark" aria-label="Administration">
     <div class="container-fluid">
 
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu" aria-controls="sidebar-menu" aria-expanded="false" aria-label="Toggle navigation">
@@ -277,7 +277,7 @@
                     <div class="dropdown-menu<?php echo ($nav_open_maintenance ? ' show' : ''); ?>" id="nav-group-maintenance">
                         <a href="/admin/cron.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'cron.php' ? 'active' : ''); ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-clock"></i></span>
-                            <span class="text-truncate">Cron</span>
+                            <span class="text-truncate">Scheduled Jobs</span>
                         </a>
                         <a href="/admin/mail_queue.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'mail_queue.php' ? 'active' : ''); ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-mail-bulk"></i></span>

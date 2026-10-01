@@ -96,7 +96,7 @@ ob_start();
             <!-- SEARCH FORM -->
             <form class="app-header-search" action="/agent/global_search.php" role="search">
                 <div class="input-group input-group-sm">
-                    <input class="form-control form-control-navbar" type="search" placeholder="Search everywhere" name="query"
+                    <input class="form-control form-control-navbar" type="search" placeholder="Search everywhere" aria-label="Search everywhere" name="query"
                         id="globalSearchInput" autocomplete="off"
                         value="<?php if (isset($_GET['query'])) { echo nullable_htmlentities($_GET['query']); } ?>">
                     <button class="btn btn-navbar" type="submit" aria-label="Search">
@@ -160,7 +160,7 @@ ob_start();
         <li class="nav-item">
             <!-- position-relative added explicitly: AdminLTE supplied the positioning
                  context for .navbar-badge's position-absolute, Tabler does not. -->
-            <a class="nav-link position-relative ajax-modal" href="#" data-modal-url="/modals/notifications.php">
+            <a class="nav-link position-relative ajax-modal" href="#" data-modal-url="/modals/notifications.php" aria-label="Notifications<?php echo $num_notifications ? ' (' . intval($num_notifications) . ' unread)' : ''; ?>">
                 <i class="fas fa-bell"></i>
                 <?php if ($num_notifications) { ?>
                 <span class="badge text-bg-light rounded-pill navbar-badge position-absolute" style="top: 1px; right: 3px;">
@@ -176,7 +176,7 @@ ob_start();
              adminlte.min.css. The .user-menu class is kept only as a stable hook.
              Links, ordering and the $session_is_admin gate are unchanged. -->
         <li class="nav-item dropdown user-menu">
-            <a href="#" class="nav-link d-flex align-items-center" data-bs-toggle="dropdown" role="button" aria-expanded="false">
+            <a href="#" class="nav-link d-flex align-items-center" data-bs-toggle="dropdown" role="button" aria-expanded="false" aria-label="Account menu">
                 <?php if (empty($session_avatar)) { ?>
                 <i class="fas fa-user-circle me-1"></i>
                 <?php }else{ ?>
@@ -210,7 +210,7 @@ ob_start();
                     <a href="/agent/user/user_details.php" class="dropdown-item"><i class="fas fa-fw fa-user-cog me-2"></i>Account</a>
                     <?php } ?>
                     <div class="dropdown-divider"></div>
-                    <a href="/agent/post.php?logout" class="dropdown-item"><i class="fas fa-fw fa-sign-out-alt me-2"></i>Logout</a>
+                    <a href="/agent/post.php?logout" class="dropdown-item"><i class="fas fa-fw fa-sign-out-alt me-2"></i>Sign out</a>
                 </div>
             </div>
         </li>

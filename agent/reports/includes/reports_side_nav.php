@@ -20,9 +20,9 @@ $current_page = basename($_SERVER["PHP_SELF"]);
      Section headings are <li class="nav-item nav-section-title">, the same hook
      admin/includes/side_nav.php now uses (formerly AdminLTE's .nav-header).
 
-     No collapsible groups here, so no data-if-toggle="submenu" hooks; the only JS
-     needed is Bootstrap's own collapse data-api on the mobile toggler. -->
-<aside class="navbar navbar-vertical navbar-expand-lg d-print-none" data-bs-theme="dark">
+     Section headings become collapsible through js/shell.js; all links remain
+     visible without JavaScript. Bootstrap owns the mobile toggler. -->
+<aside class="navbar navbar-vertical navbar-expand-lg d-print-none" data-bs-theme="dark" aria-label="Reports navigation" data-nav-sections>
     <div class="container-fluid">
 
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu" aria-controls="sidebar-menu" aria-expanded="false" aria-label="Toggle navigation">
@@ -52,13 +52,13 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                     <li class="nav-item<?php if ($current_page == "income_by_client.php") { echo " active"; } ?>">
                         <a href="/agent/reports/income_by_client.php" class="nav-link<?php if ($current_page == "income_by_client.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="far fa-user"></i></span>
-                            <span class="nav-link-title">Income By Department</span>
+                            <span class="nav-link-title">Income by department</span>
                         </a>
                     </li>
                     <li class="nav-item<?php if ($current_page == "recurring_by_client.php") { echo " active"; } ?>">
                         <a href="/agent/reports/recurring_by_client.php" class="nav-link<?php if ($current_page == "recurring_by_client.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="fa fa-sync"></i></span>
-                            <span class="nav-link-title">Recurring Income By Department</span>
+                            <span class="nav-link-title">Recurring income by department</span>
                         </a>
                     </li>
                     <li class="nav-item<?php if ($current_page == "mrr.php") { echo " active"; } ?>">
@@ -70,19 +70,19 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                     <li class="nav-item<?php if ($current_page == "clients_with_balance.php") { echo " active"; } ?>">
                         <a href="/agent/reports/clients_with_balance.php" class="nav-link<?php if ($current_page == "clients_with_balance.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="fa fa-exclamation-triangle"></i></span>
-                            <span class="nav-link-title">Departments with a Balance</span>
+                            <span class="nav-link-title">Departments with balances</span>
                         </a>
                     </li>
                     <li class="nav-item<?php if ($current_page == "expense_summary.php") { echo " active"; } ?>">
                         <a href="/agent/reports/expense_summary.php" class="nav-link<?php if ($current_page == "expense_summary.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="far fa-credit-card"></i></span>
-                            <span class="nav-link-title">Expense</span>
+                            <span class="nav-link-title">Expenses</span>
                         </a>
                     </li>
                     <li class="nav-item<?php if ($current_page == "expense_by_vendor.php") { echo " active"; } ?>">
                         <a href="/agent/reports/expense_by_vendor.php" class="nav-link<?php if ($current_page == "expense_by_vendor.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="far fa-building"></i></span>
-                            <span class="nav-link-title">Expense By Vendor</span>
+                            <span class="nav-link-title">Expenses by vendor</span>
                         </a>
                     </li>
                     <li class="nav-item<?php if ($current_page == "tax_summary.php") { echo " active"; } ?>">
@@ -112,7 +112,7 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                     <li class="nav-item<?php if ($current_page == "client_ticket_time_detail.php") { echo " active"; } ?>">
                         <a href="/agent/reports/client_ticket_time_detail.php" class="nav-link<?php if ($current_page == "client_ticket_time_detail.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="fas fa-history"></i></span>
-                            <span class="nav-link-title">Department Time Detail Audit</span>
+                            <span class="nav-link-title">Department time audit</span>
                         </a>
                     </li>
                     <li class="nav-item<?php if ($current_page == "included_issues.php") { echo " active"; } ?>">
@@ -144,7 +144,7 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                     <li class="nav-item<?php if ($current_page == "ticket_day_breakdown.php") { echo " active"; } ?>">
                         <a href="/agent/reports/ticket_day_breakdown.php" class="nav-link<?php if ($current_page == "ticket_day_breakdown.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="fas fa-calendar-day"></i></span>
-                            <span class="nav-link-title">Tickets: Day by Day</span>
+                            <span class="nav-link-title">Tickets by day</span>
                         </a>
                     </li>
                     <?php if ($config_module_enable_ticket_charges) { ?>
@@ -198,7 +198,7 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                     <li class="nav-item<?php if ($current_page == "credential_rotation_v2.php") { echo " active"; } ?>">
                         <a href="/agent/reports/credential_rotation_v2.php" class="nav-link<?php if ($current_page == "credential_rotation_v2.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="fas fa-history"></i></span>
-                            <span class="nav-link-title">Credential rotation due</span>
+                            <span class="nav-link-title">Credentials due for rotation</span>
                         </a>
                     </li>
                 <?php } ?>

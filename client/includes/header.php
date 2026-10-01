@@ -393,14 +393,19 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
      It is a direct child of .page and is internally balanced, so it adds no
      structural depth for client/includes/footer.php to close. -->
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark client-portal-nav<?php if ($portal_preview_banner === null) { echo ' portal-nav-sticky'; } ?>" data-bs-theme="dark">
+<?php
+$portal_nav_page = basename($_SERVER['PHP_SELF']);
+$portal_finance_pages = ['invoices.php', 'recurring_invoices.php', 'quotes.php', 'saved_payment_methods.php'];
+$portal_resource_pages = ['contacts.php', 'contact_add.php', 'contact_edit.php', 'assets.php', 'contracts.php', 'allowance.php', 'documents.php', 'domains.php', 'certificates.php', 'ticket_view_all.php'];
+?>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark client-portal-nav<?php if ($portal_preview_banner === null) { echo ' portal-nav-sticky'; } ?>" data-bs-theme="dark" aria-label="Department portal navigation">
     <div class="container">
         <?php
         /* NAVBAR BRAND - two stacked lines, department over company.
 
            This is the most prominent identity string in the portal and it used
            to be the company name alone, which named a scope this page does not
-           have: the navbar's own Technical dropdown, ticket list, asset list and
+           have: the navbar's own IT resources dropdown, ticket list, asset list and
            document list are every one of them filtered to
            `WHERE *_client_id = $session_client_id`. The department is now the
            primary line; the company stays as the secondary line and keeps the
@@ -451,7 +456,7 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
                 </span>
             <?php } ?>
         </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle portal navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
 
@@ -464,7 +469,7 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
                     <a class="nav-link <?php if (basename($_SERVER['PHP_SELF']) == "tickets.php" || basename($_SERVER['PHP_SELF']) == "ticket_add.php" || basename($_SERVER['PHP_SELF']) == "ticket.php") {echo "active";} ?>" href="/client/tickets.php">Tickets</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?php if (basename($_SERVER['PHP_SELF']) == "service_catalog.php") {echo "active";} ?>" href="/client/service_catalog.php">Request Something</a>
+                    <a class="nav-link <?php if ($portal_nav_page == "service_catalog.php") {echo "active";} ?>" href="/client/service_catalog.php">Request service</a>
                 </li>
 
                 <?php if ($config_module_enable_kb == 1) { ?>
@@ -481,8 +486,8 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
 
                 <?php if (($session_contact_primary == 1 || $session_contact_is_billing_contact) && $config_module_enable_accounting == 1) { ?>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle <?php echo in_array(basename($_SERVER['PHP_SELF']), ['invoices.php', 'quotes.php', 'autopay.php']) ? 'active' : ''; ?>" href="#" id="navbarDropdown1" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            Finance
+                        <a class="nav-link dropdown-toggle <?php echo in_array($portal_nav_page, $portal_finance_pages, true) ? 'active' : ''; ?>" href="#" id="navbarDropdown1" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            Billing
                         </a>
                         <div class="dropdown-menu" aria-labelledby="navbarDropdown1">
                             <a class="dropdown-item" href="/client/invoices.php">Invoices</a>
@@ -495,8 +500,8 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
 
                 <?php if ($config_module_enable_itdoc && ($session_contact_primary == 1 || $session_contact_is_technical_contact)) { ?>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle <?php echo in_array(basename($_SERVER['PHP_SELF']), ['documents.php', 'contacts.php', 'domains.php', 'certificates.php', 'contracts.php', 'allowance.php']) ? 'active' : ''; ?>" href="#" id="navbarDropdown2" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            Technical
+                        <a class="nav-link dropdown-toggle <?php echo in_array($portal_nav_page, $portal_resource_pages, true) ? 'active' : ''; ?>" href="#" id="navbarDropdown2" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            IT resources
                         </a>
                         <div class="dropdown-menu" aria-labelledby="navbarDropdown2">
                             <a class="dropdown-item" href="/client/contacts.php">Contacts</a>
