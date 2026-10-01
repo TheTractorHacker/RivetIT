@@ -20,6 +20,7 @@
 
 #orgChartRoot[hidden],
 #orgChartList[hidden],
+#orgChartShowMap[hidden],
 #orgChartControls[hidden],
 #orgChartMapSearchWrap[hidden],
 #orgChartLoading[hidden] { display: none !important; }

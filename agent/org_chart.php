@@ -34,9 +34,9 @@
  * list of ancestor ids) is emitted a second time as data-* attributes on the
  * same node this file already builds, sourced from strings already escaped by
  * nullable_htmlentities() below - no new query, no new escaping path. If the JS
- * file 404s, throws, or never runs, this page IS today's plain server-rendered
- * tree, not a broken shell around a missing enhancement layer - see the single
- * try/catch wrapping all of agent/js/org_chart.js's init().
+ * file 404s, throws, or never runs, the server-rendered employee list remains
+ * available - see the single try/catch wrapping all of
+ * agent/js/org_chart.js's init().
  */
 
 require_once "includes/inc_all.php";
@@ -480,9 +480,9 @@ $total_departments = count($department_ids);
         <div class="card-tools">
             <div class="btn-group" role="group" aria-label="Org chart view">
                 <button type="button" class="btn btn-primary" id="orgChartShowList" aria-pressed="true">List</button>
-                <button type="button" class="btn btn-secondary" id="orgChartShowMap" aria-pressed="false">Chart</button>
+                <button type="button" class="btn btn-secondary" id="orgChartShowMap" aria-pressed="false" hidden>Chart</button>
             </div>
-            <div class="btn-group ms-2" id="orgChartControls" role="group" aria-label="Chart controls">
+            <div class="btn-group ms-2" id="orgChartControls" role="group" aria-label="Chart controls" hidden>
                 <button type="button" class="btn btn-secondary" id="orgChartExpandAll" title="Expand all branches" aria-label="Expand all branches"><i class="fas fa-angle-double-down"></i></button>
                 <button type="button" class="btn btn-secondary" id="orgChartCollapseAll" title="Collapse all branches" aria-label="Collapse all branches"><i class="fas fa-angle-double-up"></i></button>
                 <button type="button" class="btn btn-secondary" id="orgChartZoomOut" aria-label="Zoom out" title="Zoom out">−</button>
@@ -526,7 +526,7 @@ $total_departments = count($department_ids);
                         <?php } ?>
                     </select>
                 </div>
-                <div class="col-md-4" id="orgChartMapSearchWrap">
+                <div class="col-md-4" id="orgChartMapSearchWrap" hidden>
                     <label class="form-label" for="orgChartSearch">Search</label>
                     <input type="search" class="form-control" id="orgChartSearch" placeholder="Search name, title, team&hellip;" autocomplete="off">
                     <div id="orgChartSearchCounter" class="small text-secondary mt-1" hidden>
@@ -588,7 +588,7 @@ $total_departments = count($department_ids);
     <span id="orgChartBreadcrumbTrace" class="org-breadcrumb-trace" hidden>Tracing &middot; <button type="button" id="orgChartTraceClear" class="btn btn-sm btn-link p-0">Clear</button></span>
 </nav>
 
-<div id="orgChartRoot">
+<div id="orgChartRoot"<?php if ($total_contacts > 0) { ?> hidden<?php } ?>>
     <?php if ($total_contacts === 0) { ?>
         <div class="card"><div class="card-body text-secondary text-center"><?php echo ($location_filter_id > 0 || $status_filter !== '') ? 'No contacts match these filters.' : 'No contacts to chart' . ($department_filter_id ? ' for this department.' : '.'); ?></div></div>
     <?php } else {

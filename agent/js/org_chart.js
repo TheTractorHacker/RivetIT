@@ -9,8 +9,8 @@
  * second copy of it.
  *
  * The fast employee list is shown first. The visual chart is built only after
- * the user chooses Chart. If scripting fails, the server-rendered list and
- * hierarchy remain available.
+ * the user chooses Chart. If scripting fails, the server-rendered list remains
+ * available.
  *
  * Called from agent/org_chart.php as: OrgChart.init().
  */
@@ -99,13 +99,12 @@
                     }, 0);
                 });
             });
+            mapBtn.hidden = false;
         } catch (err) {
-            // Whatever broke, the page underneath is still today's plain
-            // server-rendered tree - see the file header. Log it so it's
-            // discoverable, don't let it become visible to the user as a
-            // broken page.
+            // Whatever broke, the server-rendered list remains available.
+            // Log it so it is discoverable without showing a broken page.
             if (window.console && console.error) {
-                console.error('[OrgChart] init failed - falling back to the plain server-rendered tree.', err);
+                console.error('[OrgChart] init failed - falling back to the server-rendered list.', err);
             }
         }
     }
