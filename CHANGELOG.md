@@ -4,6 +4,19 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [26.10.1] RivetIT — Admin navigation and scheduled jobs
+
+No database migration is required.
+
+- Admin navigation is shorter and easier to scan. Settings, Tags & categories,
+  Ticketing, Templates, and Maintenance have grouped directory pages with clear
+  descriptions and return links. The template quick-add actions remain available.
+- App, department, and portal navigation have tighter spacing and clearer labels.
+- The installer provisions a RivetIT-named cron file for each installation.
+  Admin > Maintenance > Scheduled jobs shows that installation's jobs and lets
+  administrators edit its schedule without changing another installation's file.
+- Scheduled backup jobs load their saved encryption and S3 settings.
+
 ## [26.10] RivetIT — Interactive organizational chart
 
 No database migration is required. The organization chart remains read-only
