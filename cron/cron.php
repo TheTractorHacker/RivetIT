@@ -13,6 +13,7 @@ require_once "../config.php";
 // Set Timezone
 require_once "../includes/inc_set_timezone.php";
 require_once "../functions.php";
+require_once "../includes/backup_cron_settings.php";
 
 $sql_companies = mysqli_query($mysqli, "SELECT * FROM companies, settings WHERE companies.company_id = settings.company_id AND companies.company_id = 1");
 
@@ -21,6 +22,7 @@ $row = mysqli_fetch_assoc($sql_companies);
 // $row gets reassigned by many query loops below -- keep a stable copy of the
 // companies+settings row for config values needed later (auto-backup, RMM).
 $settings_row = $row;
+rivetit_load_backup_cron_settings($settings_row);
 
 // Company Details
 $company_name = sanitizeInput($row['company_name']);

@@ -27,9 +27,11 @@ if (php_sapi_name() !== 'cli') {
 require_once "../config.php";
 require_once "../includes/inc_set_timezone.php";
 require_once "../functions.php";
+require_once "../includes/backup_cron_settings.php";
 
 $sql_companies = mysqli_query($mysqli, "SELECT * FROM companies, settings WHERE companies.company_id = settings.company_id AND companies.company_id = 1");
 $settings_row = mysqli_fetch_assoc($sql_companies);
+rivetit_load_backup_cron_settings($settings_row);
 
 $config_backup_auto_enabled = intval($settings_row['config_backup_auto_enabled'] ?? 0);
 $config_backup_frequency    = $settings_row['config_backup_frequency'] ?? 'daily';
