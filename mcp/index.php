@@ -6,17 +6,17 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
 
 require_once __DIR__ . '/../config.php';
+
+if (getenv('RIVETIT_MCP_ENABLED') !== '1') {
+    http_response_code(404);
+    exit;
+}
 require_once __DIR__ . '/../includes/app_version.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../includes/redis_functions.php';
 require_once __DIR__ . '/McpIdentityMiddleware.php';
 require_once __DIR__ . '/ReadTools.php';
 require_once __DIR__ . '/RedisMetadataCache.php';
-
-if (getenv('RIVETIT_MCP_ENABLED') !== '1') {
-    http_response_code(404);
-    exit;
-}
 $issuer = trim((string) getenv('RIVETIT_MCP_ISSUER'));
 $audience = trim((string) getenv('RIVETIT_MCP_AUDIENCE'));
 $host = parse_url('https://' . $config_base_url, PHP_URL_HOST);

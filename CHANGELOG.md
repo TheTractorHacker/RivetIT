@@ -4,6 +4,18 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [26.10.10] RivetIT — remote MCP preview
+
+No database migration is required. The remote MCP endpoint is disabled by default
+and requires a dedicated external OAuth issuer before use.
+
+- Add Streamable HTTP and OAuth protected-resource discovery with signed,
+  audience-bound, short-lived access-token checks.
+- Map an OAuth subject to one active RivetIT agent and recheck existing role and
+  department access in read-only profile and recent-ticket tools.
+- Add an Admin agent identity mapping, deployment routing, and setup guide.
+  No write tools or RivetIT API keys are exposed through MCP.
+
 ## [26.10.9] RivetIT — Odoo Department Portal SSO preview
 
 Database migration 2.6.117 is required. Odoo sign-in is disabled by default
