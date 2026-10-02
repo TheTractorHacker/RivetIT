@@ -8,7 +8,9 @@ continues unchanged.
 
 No database migration is required. Load the reference through the API's
 extensionless OpenAPI route, which returns the correct YAML content type on
-production servers. Keep downloads named `rivetit-openapi.yaml`.
+production servers. Keep downloads named `rivetit-openapi.yaml`. Allow the
+reference page to be embedded by the same-origin Admin page in the Nginx
+deployment template.
 
 ## [26.10.7] RivetIT — API reference layout and code examples
 
