@@ -69,6 +69,14 @@ if (is_string($sub)) {
     }
 }
 
+// Billing resources are no longer part of the RivetIT API. Reject both the
+// REST paths and removed legacy PHP paths before authentication.
+if (in_array($resource, ['quotes', 'invoices', 'invoice_items', 'expenses', 'products'], true)
+    || ($resource === 'reports' && in_array(str_replace('_', '-', (string) $sub),
+        ['mrr', 'clients-with-balance', 'income-summary', 'expense-summary', 'profit-loss'], true))) {
+    api_error(404, 'Not found');
+}
+
 // Public endpoint: auth
 if ($resource === 'auth') {
     // Tight per-IP limit on the unauthenticated login path (fails open if
@@ -159,6 +167,7 @@ if (preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $m)) {
 }
 
 // Legacy api_key auth: accept header (preferred — keeps key out of server logs) or ?api_key= query param
+require_once $DOCUMENT_ROOT . '/includes/api_key_security.php';
 $legacy_api_key_auth = false;
 $legacy_key_raw = null;
 if (!empty($_SERVER['HTTP_X_API_KEY'])) {
@@ -185,6 +194,9 @@ if (!$api_user_id && $legacy_key_raw !== null) {
     );
     $legacy_key_row = mysqli_fetch_assoc($legacy_sql);
     if ($legacy_key_row) {
+        if (!rivetitApiKeyIpAllowed((string) ($legacy_key_row['api_key_allowed_ips'] ?? ''), getIP())) {
+            api_error(403, 'This API key is not permitted from your IP address');
+        }
         $admin = mysqli_fetch_assoc(mysqli_query($mysqli,
             "SELECT user_id, user_name FROM users
              WHERE user_type = 1 AND user_status = 1 AND user_archived_at IS NULL
@@ -197,17 +209,13 @@ if (!$api_user_id && $legacy_key_raw !== null) {
             $session_company_id = 1;
             $legacy_api_key_auth = true;
             $api_key_client_id  = intval($legacy_key_row['api_key_client_id'] ?? 0) ?: null;
-            $legacy_key_permission = ($legacy_key_row['api_key_permission'] ?? 'write') === 'read' ? 'read' : 'write';
         }
     }
 }
 
-// A 'read' legacy key (admin/api_keys.php "Permission" setting) may only GET -
-// blocked here, once, before routing, rather than trusting every individual
-// resource handler to check it. Bearer-token (per-user) auth is unaffected;
-// this only restricts the instance-wide legacy X-Api-Key mechanism.
-if ($legacy_api_key_auth && ($legacy_key_permission ?? 'write') === 'read' && $method !== 'GET') {
-    api_error(403, 'This API key is read-only');
+// Enforce key scopes before routing, including separate delete permission.
+if ($legacy_api_key_auth && !rivetitApiKeyRequestAllowed($legacy_key_row, $method)) {
+    api_error(403, 'This API key does not permit this operation');
 }
 
 // Semi-public endpoint: crash-reports. Bearer/legacy-key parsing above already ran
@@ -319,13 +327,9 @@ switch ($resource) {
     case 'credentials':
         if ($legacy_api_key_auth) { api_error(403, 'Credentials endpoint requires a user API token'); }
         require __DIR__ . '/credentials.php'; break;
-    case 'quotes':        require __DIR__ . '/quotes.php';        break;
-    case 'invoices':      require __DIR__ . '/invoices.php';      break;
-    case 'expenses':      require __DIR__ . '/expenses.php';      break;
     case 'worksheets':        require __DIR__ . '/worksheets.php'; break;
     case 'outtakes':          require __DIR__ . '/outtakes.php';  break;
     case 'worksheet-templates': require __DIR__ . '/worksheets.php'; break;
-    case 'products':    require __DIR__ . '/products.php'; break;
     case 'search':      require __DIR__ . '/search.php';   break;
     case 'reports':     require __DIR__ . '/reports.php';  break;
     case 'kb':          require __DIR__ . '/kb.php';        break;

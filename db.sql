@@ -93,7 +93,9 @@ CREATE TABLE `api_keys` (
   `api_key_created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `api_key_expire` date NOT NULL,
   `api_key_client_id` int(11) NOT NULL DEFAULT 0,
-  `api_key_permission` enum('read','write') NOT NULL DEFAULT 'write',
+  `api_key_permission` enum('read','write') NOT NULL DEFAULT 'read',
+  `api_key_allow_delete` tinyint(1) NOT NULL DEFAULT 0,
+  `api_key_allowed_ips` text DEFAULT NULL,
   PRIMARY KEY (`api_key_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

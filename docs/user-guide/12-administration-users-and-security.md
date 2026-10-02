@@ -291,9 +291,9 @@ An API key lets a script or another system call the RivetIT API. Keys are not ti
 ### Create an API key
 
 1. Select **New API Key**.
-2. On **Details**, enter a **Name** that says what uses the key, and an **Expiration Date**. The key stops working at the start of that day.
-3. Set **Department Access** to **ALL DEPARTMENTS** or one department.
-4. Set **Permission** to **Read & Write** or **Read Only**. A read-only key can only make GET requests. Anything else is refused and logged.
+2. On **Details**, enter a **Name** that says what uses the key. Expiration defaults to **30 days**; choose 60 days, 90 days, or a custom date if needed. The key stops working at the start of that day.
+3. Select a department under **Department Access**.
+4. **Read only** is the default. Choose **Read & write** for create/update requests, and explicitly tick **Also allow deleting and archiving records** if needed. Under **Security restrictions**, optionally enter allowed IP addresses or CIDR networks, one per line.
 5. Open the **Keys** tab. Copy the **API Key** and the **Login credential decryption password** now. They exist only in this pop-up.
 6. Tick **I have made a copy of the key(s)** and select **Create**.
 

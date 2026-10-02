@@ -36,12 +36,8 @@ tags:
   - name: Projects
   - name: Contracts
   - name: Credentials
-  - name: Quotes
-  - name: Invoices
-  - name: Expenses
   - name: Worksheets
   - name: Outtakes
-  - name: Products
   - name: Search
   - name: Reports
   - name: Knowledge Base
@@ -886,118 +882,6 @@ paths:
               schema: {$ref: '#/components/schemas/CredentialDetail'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
-  /quotes:
-    get:
-      tags: [Quotes]
-      summary: List quotes (paged)
-      parameters:
-        - {$ref: '#/components/parameters/SearchParam'}
-        - {$ref: '#/components/parameters/PageParam'}
-        - {$ref: '#/components/parameters/LimitParam'}
-        - {name: client_id, in: query, schema: {type: integer}}
-      responses:
-        '200':
-          description: Paged quote list
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data: {type: array, items: {$ref: '#/components/schemas/QuoteListItem'}}
-                  total: {type: integer}
-        '403': {$ref: '#/components/responses/Forbidden'}
-  /quotes/{id}:
-    get:
-      tags: [Quotes]
-      summary: Quote detail with line items
-      parameters:
-        - {$ref: '#/components/parameters/IdPath'}
-      responses:
-        '200':
-          description: Quote detail
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/QuoteDetail'}
-        '404': {$ref: '#/components/responses/NotFound'}
-  /invoices:
-    get:
-      tags: [Invoices]
-      summary: List invoices (paged)
-      parameters:
-        - {$ref: '#/components/parameters/PageParam'}
-        - {$ref: '#/components/parameters/LimitParam'}
-        - {name: client_id, in: query, schema: {type: integer}}
-        - {name: status, in: query, schema: {type: string}}
-      responses:
-        '200':
-          description: Paged invoice list
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data: {type: array, items: {$ref: '#/components/schemas/InvoiceListItem'}}
-                  total: {type: integer}
-        '403': {$ref: '#/components/responses/Forbidden'}
-  /invoices/{id}:
-    get:
-      tags: [Invoices]
-      summary: Invoice detail with line items
-      parameters:
-        - {$ref: '#/components/parameters/IdPath'}
-      responses:
-        '200':
-          description: Invoice detail
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/InvoiceDetail'}
-        '404': {$ref: '#/components/responses/NotFound'}
-  /expenses:
-    get:
-      tags: [Expenses]
-      summary: List expenses (paged)
-      parameters:
-        - {$ref: '#/components/parameters/PageParam'}
-        - {$ref: '#/components/parameters/LimitParam'}
-      responses:
-        '200':
-          description: Paged expense list
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data: {type: array, items: {$ref: '#/components/schemas/Expense'}}
-                  total: {type: integer}
-    post:
-      tags: [Expenses]
-      summary: Create an expense (multipart, optional receipt upload)
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required: [description, amount]
-              properties:
-                description: {type: string}
-                amount: {type: number}
-                date: {type: string, format: date}
-                currency: {type: string, default: USD}
-                reference: {type: string}
-                payment_method: {type: string}
-                client_id: {type: integer}
-                receipt: {type: string, format: binary}
-      responses:
-        '201':
-          description: Expense created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties: {id: {type: integer}}
-        '400': {$ref: '#/components/responses/BadRequest'}
-        '403': {$ref: '#/components/responses/Forbidden'}
   /worksheets/{id}:
     get:
       tags: [Worksheets]
@@ -1117,19 +1001,6 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/Ok'}
         '400': {$ref: '#/components/responses/BadRequest'}
-  /products:
-    get:
-      tags: [Products]
-      summary: List products/services for charge selection (bare array)
-      parameters:
-        - {$ref: '#/components/parameters/SearchParam'}
-        - {name: type, in: query, schema: {type: string}}
-      responses:
-        '200':
-          description: Products
-          content:
-            application/json:
-              schema: {type: array, items: {$ref: '#/components/schemas/Product'}}
   /search:
     get:
       tags: [Search]
@@ -1209,12 +1080,6 @@ paths:
         - {$ref: '#/components/parameters/YearParam'}
       responses:
         '200': {$ref: '#/components/responses/ReportObject'}
-  /reports/mrr:
-    get:
-      tags: [Reports]
-      summary: Monthly recurring revenue report
-      responses:
-        '200': {$ref: '#/components/responses/ReportObject'}
   /reports/rmm-health:
     get:
       tags: [Reports]
@@ -1225,36 +1090,6 @@ paths:
     get:
       tags: [Reports]
       summary: Clients with unbilled billable closed tickets
-      parameters:
-        - {$ref: '#/components/parameters/YearParam'}
-      responses:
-        '200': {$ref: '#/components/responses/ReportObject'}
-  /reports/clients-with-balance:
-    get:
-      tags: [Reports]
-      summary: Clients carrying an outstanding balance
-      responses:
-        '200': {$ref: '#/components/responses/ReportObject'}
-  /reports/income-summary:
-    get:
-      tags: [Reports]
-      summary: Income summary for a year
-      parameters:
-        - {$ref: '#/components/parameters/YearParam'}
-      responses:
-        '200': {$ref: '#/components/responses/ReportObject'}
-  /reports/expense-summary:
-    get:
-      tags: [Reports]
-      summary: Expense summary for a year
-      parameters:
-        - {$ref: '#/components/parameters/YearParam'}
-      responses:
-        '200': {$ref: '#/components/responses/ReportObject'}
-  /reports/profit-loss:
-    get:
-      tags: [Reports]
-      summary: Monthly profit and loss for a year
       parameters:
         - {$ref: '#/components/parameters/YearParam'}
       responses:
@@ -1508,7 +1343,7 @@ components:
       type: apiKey
       in: header
       name: X-Api-Key
-      description: Legacy instance-wide API key (denied on /credentials and /me)
+      description: Department-scoped API key with read/write permission, separate delete permission, expiration, and optional IP allowlist. Denied on /credentials and /me.
   parameters:
     IdPath:
       name: id
@@ -1985,66 +1820,6 @@ components:
         otp_secret: {type: string}
         note: {type: string}
         client: {type: string, nullable: true}
-    LineItem:
-      type: object
-      properties:
-        description: {type: string}
-        quantity: {type: number}
-        unit_price: {type: number}
-        total: {type: number}
-        taxable: {type: boolean}
-    QuoteListItem:
-      type: object
-      properties:
-        id: {type: integer}
-        number: {type: string}
-        subject: {type: string}
-        status: {type: string}
-        date: {type: string}
-        total: {type: number}
-        client: {type: string, nullable: true}
-        guest_url: {type: string, nullable: true}
-    QuoteDetail:
-      allOf:
-        - $ref: '#/components/schemas/QuoteListItem'
-        - type: object
-          properties:
-            subtotal: {type: number}
-            tax: {type: number}
-            notes: {type: string}
-            items: {type: array, items: {$ref: '#/components/schemas/LineItem'}}
-    InvoiceListItem:
-      type: object
-      properties:
-        id: {type: integer}
-        number: {type: string}
-        date: {type: string}
-        due_date: {type: string, nullable: true}
-        status: {type: string}
-        total: {type: number}
-        client: {type: string, nullable: true}
-        guest_url: {type: string, nullable: true}
-    InvoiceDetail:
-      allOf:
-        - $ref: '#/components/schemas/InvoiceListItem'
-        - type: object
-          properties:
-            subtotal: {type: number}
-            tax: {type: number}
-            notes: {type: string}
-            items: {type: array, items: {$ref: '#/components/schemas/LineItem'}}
-    Expense:
-      type: object
-      properties:
-        id: {type: integer}
-        description: {type: string}
-        amount: {type: number}
-        currency: {type: string}
-        date: {type: string}
-        reference: {type: string, nullable: true}
-        payment_method: {type: string, nullable: true}
-        has_receipt: {type: boolean}
-        client: {type: string, nullable: true}
     Charge:
       type: object
       properties:
@@ -2120,16 +1895,6 @@ components:
       properties:
         signed_name: {type: string}
         signature: {type: string, description: "data:image/png;base64,... (optional)"}
-    Product:
-      type: object
-      properties:
-        id: {type: integer}
-        name: {type: string}
-        type: {type: string, nullable: true}
-        description: {type: string, nullable: true}
-        price: {type: number}
-        currency: {type: string, nullable: true}
-        code: {type: string, nullable: true}
     SearchResult:
       type: object
       properties:
@@ -2300,9 +2065,8 @@ components:
         modules:
           type: object
           description: >
-            Feature-module flags relevant to client UIs, e.g. gating billing UI
-            (Add Charge, Invoices/Quotes/Expenses) in RivetIT's
-            Android app.
+            Feature-module flags relevant to client UIs, such as gating
+            ticket charges in RivetIT's mobile app.
           properties:
             accounting_enabled: {type: boolean}
             ticket_charges_enabled: {type: boolean}

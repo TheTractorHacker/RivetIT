@@ -22,7 +22,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-key me-2"></i>API Keys</h3>
         <div class="card-tools">
-            <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/api/api_key_add.php"><i class="fas fa-plus me-2"></i>New API Key</button>
+            <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/api/api_key_add.php" data-modal-size="lg"><i class="fas fa-plus me-2"></i>New API Key</button>
         </div>
     </div>
 
@@ -130,6 +130,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         $api_key_permission_display = $api_key_permission === 'read'
                             ? '<span class="badge text-bg-secondary"><i class="fas fa-fw fa-eye me-1"></i>Read Only</span>'
                             : '<span class="badge text-bg-primary"><i class="fas fa-fw fa-pen me-1"></i>Read &amp; Write</span>';
+                        if ($api_key_permission === 'write' && !empty($row['api_key_allow_delete'] ?? 1)) {
+                            $api_key_permission_display .= ' <span class="badge text-bg-danger">Delete</span>';
+                        }
+                        if (!empty($row['api_key_allowed_ips'])) {
+                            $api_key_permission_display .= '<div class="small text-muted mt-1" title="' . nullable_htmlentities($row['api_key_allowed_ips']) . '"><i class="fas fa-network-wired me-1"></i>IP restricted</div>';
+                        }
 
                         ?>
                         <tr>

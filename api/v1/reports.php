@@ -42,26 +42,11 @@ switch ($sub) {
     case 'csat':
         require __DIR__ . '/reports/csat.php';
         break;
-    case 'mrr':
-        require __DIR__ . '/reports/mrr.php';
-        break;
     case 'rmm-health':
         require __DIR__ . '/reports/rmm_health.php';
         break;
     case 'unbilled-tickets':
         require __DIR__ . '/reports/unbilled_tickets.php';
-        break;
-    case 'clients-with-balance':
-        require __DIR__ . '/reports/clients_with_balance.php';
-        break;
-    case 'income-summary':
-        require __DIR__ . '/reports/income_summary.php';
-        break;
-    case 'expense-summary':
-        require __DIR__ . '/reports/expense_summary.php';
-        break;
-    case 'profit-loss':
-        require __DIR__ . '/reports/profit_loss.php';
         break;
     case 'expiring':
         require __DIR__ . '/reports/expiring.php';

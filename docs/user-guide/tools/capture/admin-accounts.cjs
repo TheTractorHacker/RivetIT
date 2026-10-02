@@ -274,6 +274,7 @@ async function resize(page, height) {
     await openModal(page, page.locator('button.ajax-modal:has-text("New API Key")'));
     const nextYear = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
     await page.fill('.modal.show input[name="name"]', 'Warehouse dashboard feed');
+    await page.selectOption('#apiKeyExpirationPreset', 'custom');
     await page.fill('.modal.show input[name="expire"]', nextYear);
     await page.selectOption('.modal.show select[name="permission"]', 'read');
     await page.locator('.modal.show .modal-title').click();   // take focus off the date field

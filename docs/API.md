@@ -45,12 +45,11 @@ request.
 
 ## Billing modules are off by default
 
-Accounting/billing (invoices, quotes, expenses, ticket charges) is an
-optional module, off by default in this edition, toggled at **Settings >
-Modules**. With it off, the Invoices, Quotes, and Expenses endpoints — and
-the charge sub-resource under Tickets — return empty lists or `404` rather
-than an error. Enable the module first if your integration depends on
-billing data.
+Ticket charges are an optional billing feature, off by default in this
+edition and enabled at **Settings > Modules**. Quotes, invoices, expenses,
+products, and their financial report endpoints are no longer exposed through
+the RivetIT API. Their REST paths return `404`, and their legacy PHP files
+have been removed.
 
 ---
 
@@ -103,17 +102,19 @@ suited to scripts and server-to-server integrations (RMM scripts, backup
 tooling, etc.) rather than anything that needs to act as a particular
 technician.
 
-Two scoping controls apply to a legacy key:
+The following restrictions apply to API keys:
 
-- **Client scope** — a key can optionally be pinned to one department
-  (`client_id`) at creation time, restricting it to that department's data.
-  Left unset, it can see all departments.
-- **Permission (read / read-write)** — new in this release. Each key has a
-  `Permission` of **Read Only** or **Read & Write** (the default). A
-  read-only key is accepted only for `GET` requests; any other HTTP method
-  is rejected with `403 {"error": "This API key is read-only"}` before the
-  request is routed to its handler. Bearer-token auth is unaffected by this
-  setting — it only constrains the legacy key mechanism.
+- **Department scope** — new keys require an explicitly selected department.
+  Existing keys retain their previous department scope.
+- **Permission** — new keys default to **Read Only**, which permits only
+  `GET`. **Read & Write** also permits `POST`, `PUT`, and `PATCH` for
+  creating and updating records. Deleting or archiving requires the separate
+  **Delete** opt-in, including legacy delete/archive endpoints that use POST.
+  Existing write keys retain their previous delete permission.
+- **Expiration** — the form recommends 30 days, with 60-day, 90-day, and
+  custom-date choices.
+- **Source IP** — optional IPv4/IPv6 addresses or CIDR networks restrict where
+  the key can be used. Requests outside the allowlist return `403`.
 
 A legacy key is **denied** on two resources regardless of its
 permission/scope settings, because they act on a specific person's identity
@@ -387,41 +388,6 @@ Internal documentation, organized into categories.
 | GET | `/kb/articles` | List KB articles — paged, filterable by `category_id`, `client_id`, plus `search` |
 | GET | `/kb/articles/{id}` | KB article detail — content and attachments |
 
-### Invoices
-
-**Billing module only** — see [above](#billing-modules-are-off-by-default).
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/invoices` | List invoices — paged; filterable by `client_id`, `status` |
-| GET | `/invoices/{id}` | Invoice detail with line items |
-
-### Quotes
-
-**Billing module only.**
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/quotes` | List quotes — paged, searchable, filterable by `client_id` |
-| GET | `/quotes/{id}` | Quote detail with line items |
-
-### Expenses
-
-**Billing module only.**
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/expenses` | List expenses (paged) |
-| POST | `/expenses` | Create an expense (multipart; `description` and `amount` required, `receipt` file optional) |
-
-### Products
-
-Catalog of products/services offered as selectable charge line items.
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/products` | List products/services for charge selection — searchable, filterable by `type` (bare array) |
-
 ### Search
 
 One endpoint, fanning out across several resource types.
@@ -432,7 +398,7 @@ One endpoint, fanning out across several resource types.
 
 ### Reports
 
-Operational and (where billing is enabled) financial reporting. Most accept
+Operational reporting. Most accept
 a `year` query parameter, some also `month`; each returns a report-specific
 JSON object — see the OpenAPI spec or `/docs` for each report's exact shape.
 
@@ -446,13 +412,8 @@ JSON object — see the OpenAPI spec or `/docs` for each report's exact shape.
 | GET | `/reports/technician-performance` | Detailed technician performance report |
 | GET | `/reports/service-desk` | Service-desk report |
 | GET | `/reports/csat` | CSAT report — rating distribution/trend, per-technician and per-department breakdowns, raw feedback |
-| GET | `/reports/mrr` | Monthly recurring revenue report (billing module) |
 | GET | `/reports/rmm-health` | RMM fleet health report |
 | GET | `/reports/unbilled-tickets` | Departments with unbilled, billable closed tickets (billing module) |
-| GET | `/reports/clients-with-balance` | Departments carrying an outstanding balance (billing module) |
-| GET | `/reports/income-summary` | Income summary for a year (billing module) |
-| GET | `/reports/expense-summary` | Expense summary for a year (billing module) |
-| GET | `/reports/profit-loss` | Monthly profit and loss for a year (billing module) |
 | GET | `/reports/expiring` | Domains or certificates expiring within N days (`type=domains\|certificates`, `days`, default 30) |
 | GET | `/reports/overview` | Open-ticket breakdown by priority/status/category, plus average resolution time |
 

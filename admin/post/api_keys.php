@@ -9,19 +9,43 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 if (isset($_POST['add_api_key'])) {
 
     validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('user_type', 1);
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/api_key_security.php';
 
-    $name = sanitizeInput($_POST['name']);
-    $expire = sanitizeInput($_POST['expire']);
-    $client_id = intval($_POST['client']);
-    $permission = ($_POST['permission'] ?? 'write') === 'read' ? 'read' : 'write';
-    $secret_raw = trim($_POST['key']); // API Key (plaintext - used transiently then hashed)
+    $name_raw = trim((string) ($_POST['name'] ?? ''));
+    $expire_raw = (string) ($_POST['expire'] ?? '');
+    $client_id = intval($_POST['client'] ?? 0);
+    $permission = (string) ($_POST['permission'] ?? 'read');
+    $allow_delete = $permission === 'write' && !empty($_POST['allow_delete']) ? 1 : 0;
+    $secret_raw = trim((string) ($_POST['key'] ?? ''));
+    $decrypt_password = trim((string) ($_POST['password'] ?? ''));
+    $expire_date = DateTimeImmutable::createFromFormat('!Y-m-d', $expire_raw);
+    $department = $client_id > 0 ? mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT client_id FROM clients WHERE client_id = $client_id AND client_archived_at IS NULL LIMIT 1")) : null;
+    try {
+        $networks = rivetitApiKeyNetworks((string) ($_POST['allowed_ips'] ?? ''));
+    } catch (InvalidArgumentException $e) {
+        flash_alert($e->getMessage(), 'danger');
+        redirect('/admin/api_keys.php');
+    }
+    if ($name_raw === '' || strlen($name_raw) > 255 || !$department
+        || !in_array($permission, ['read', 'write'], true)
+        || !$expire_date || $expire_date->format('Y-m-d') !== $expire_raw || $expire_date <= new DateTimeImmutable('today')
+        || !preg_match('/^[A-Za-z0-9_-]{32}$/D', $secret_raw)
+        || !preg_match('/^[A-Za-z0-9_-]{32}$/D', $decrypt_password)
+        || empty($_POST['ack'])) {
+        flash_alert('Enter a name, select a department, choose a future expiration date, and confirm you copied the keys.', 'danger');
+        redirect('/admin/api_keys.php');
+    }
+    $name = sanitizeInput($name_raw);
+    $expire = sanitizeInput($expire_raw);
+    $allowed_ips = mysqli_real_escape_string($mysqli, implode("\n", $networks));
     $secret = hash('sha256', $secret_raw); // Store only the hash
 
     // Credential decryption password
-    $password = password_hash(trim($_POST['password']), PASSWORD_DEFAULT);
-    $apikey_specific_encryption_ciphertext = encryptUserSpecificKey(trim($_POST['password']));
+    $apikey_specific_encryption_ciphertext = encryptUserSpecificKey($decrypt_password);
 
-    mysqli_query($mysqli,"INSERT INTO api_keys SET api_key_name = '$name', api_key_secret = '$secret', api_key_decrypt_hash = '$apikey_specific_encryption_ciphertext', api_key_expire = '$expire', api_key_client_id = $client_id, api_key_permission = '$permission'");
+    mysqli_query($mysqli,"INSERT INTO api_keys SET api_key_name = '$name', api_key_secret = '$secret', api_key_decrypt_hash = '$apikey_specific_encryption_ciphertext', api_key_expire = '$expire', api_key_client_id = $client_id, api_key_permission = '$permission', api_key_allow_delete = $allow_delete, api_key_allowed_ips = '$allowed_ips'");
 
     $api_key_id = mysqli_insert_id($mysqli);
 

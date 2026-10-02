@@ -46,11 +46,17 @@ ob_start();
 
                 <div class="form-group">
                     <label>Expiration Date <strong class="text-danger">*</strong></label>
+                    <select class="form-select mb-2" id="apiKeyExpirationPreset" aria-label="Expiration interval">
+                        <option value="30">30 days (recommended)</option>
+                        <option value="60">60 days</option>
+                        <option value="90">90 days</option>
+                        <option value="custom">Custom date</option>
+                    </select>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-calendar"></i></span>
                         </div>
-                        <input type="date" class="form-control" name="expire" min="<?php echo date('Y-m-d')?>" max="2999-12-31" required>
+                        <input type="date" class="form-control" id="apiKeyExpire" name="expire" value="<?= date('Y-m-d', strtotime('+30 days')) ?>" min="<?= date('Y-m-d', strtotime('+1 day')) ?>" max="2999-12-31" readonly required>
                     </div>
                 </div>
 
@@ -61,7 +67,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                         </div>
                         <select class="form-control select2" name="client" required>
-                            <option value="0"> ALL DEPARTMENTS </option>
+                            <option value="" selected disabled>Select a department</option>
                             <?php
                             $sql = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL ORDER BY client_name ASC");
                             while ($row = mysqli_fetch_assoc($sql)) {
@@ -79,12 +85,23 @@ ob_start();
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-shield-alt"></i></span>
                         </div>
-                        <select class="form-control" name="permission" required>
-                            <option value="write">Read &amp; Write &mdash; can create, update, and delete</option>
-                            <option value="read">Read Only &mdash; GET requests only, blocked from making any changes</option>
+                        <select class="form-control" id="apiKeyPermission" name="permission" required>
+                            <option value="read">Read only &mdash; GET requests</option>
+                            <option value="write">Read &amp; write &mdash; create and update</option>
                         </select>
                     </div>
+                    <div class="form-check mt-2">
+                        <input type="checkbox" class="form-check-input" id="apiKeyAllowDelete" name="allow_delete" value="1" disabled>
+                        <label class="form-check-label" for="apiKeyAllowDelete">Also allow deleting and archiving records</label>
+                    </div>
+                    <small class="text-muted">Delete access requires write permission and explicit opt-in.</small>
                 </div>
+                <details class="mb-3">
+                    <summary class="mb-2">Security restrictions</summary>
+                    <label for="apiKeyAllowedIps">Allowed IP addresses or networks</label>
+                    <textarea class="form-control" id="apiKeyAllowedIps" name="allowed_ips" rows="3" maxlength="8192" placeholder="203.0.113.10&#10;2001:db8::/32"></textarea>
+                    <small class="text-muted">Optional. Enter one IPv4 or IPv6 address or CIDR network per line. Leave blank to allow any source address.</small>
+                </details>
             </div>
 
             <div class="tab-pane fade" id="pills-api-keys">
@@ -132,6 +149,25 @@ ob_start();
         <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fas fa-times me-2"></i>Cancel</button>
     </div>
 </form>
+
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+(function () {
+    var preset = document.getElementById('apiKeyExpirationPreset');
+    var expiry = document.getElementById('apiKeyExpire');
+    var dates = <?= json_encode(['30' => date('Y-m-d', strtotime('+30 days')), '60' => date('Y-m-d', strtotime('+60 days')), '90' => date('Y-m-d', strtotime('+90 days'))]) ?>;
+    preset.addEventListener('change', function () {
+        expiry.readOnly = preset.value !== 'custom';
+        if (dates[preset.value]) expiry.value = dates[preset.value];
+        if (!expiry.readOnly) expiry.focus();
+    });
+    var permission = document.getElementById('apiKeyPermission');
+    var allowDelete = document.getElementById('apiKeyAllowDelete');
+    permission.addEventListener('change', function () {
+        allowDelete.disabled = permission.value !== 'write';
+        if (allowDelete.disabled) allowDelete.checked = false;
+    });
+})();
+</script>
 
 <?php
 require_once '../../../includes/modal_footer.php';

@@ -4,6 +4,24 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [26.10.4] RivetIT — API access and automation
+
+Database migrations 2.6.113–2.6.114 are required.
+
+- API documentation uses a locally hosted Redoc reference with endpoint search
+  and complete request/response schemas, also embedded in Administration.
+- New API keys default to read-only access, an explicitly selected department,
+  and 30-day expiration. Delete/archive permission requires separate opt-in.
+  Optional IPv4/IPv6 addresses and CIDR networks restrict key usage. Existing
+  keys retain their previous scopes and delete permissions.
+- Removed Quotes, Invoices, Expenses, Products, invoice line items, and related
+  financial reports from the API and OpenAPI specification. Integrations using
+  those endpoints must stop calling them.
+- Scheduled ticket rules can run once per ticket. Rule forms are wider,
+  adapt to mobile screens, and retain category/template/script selectors in
+  additional rows. Vacation handling in issue #22 remains open.
+- Removed underlines from Administration directory card hover states.
+
 ## [26.10.3] RivetIT — Admin settings and upload polish
 
 No database migration is required.

@@ -9515,3 +9515,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.113'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.113') {
+        // Existing write keys retain their previous delete access. New keys
+        // require explicit opt-in and can restrict their source networks.
+        mysqli_query($mysqli, "ALTER TABLE `api_keys`
+            ADD COLUMN IF NOT EXISTS `api_key_allow_delete` tinyint(1) NOT NULL DEFAULT 1,
+            ADD COLUMN IF NOT EXISTS `api_key_allowed_ips` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `api_keys` ALTER COLUMN `api_key_allow_delete` SET DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `api_keys` ALTER COLUMN `api_key_permission` SET DEFAULT 'read'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.114'");
+    }
