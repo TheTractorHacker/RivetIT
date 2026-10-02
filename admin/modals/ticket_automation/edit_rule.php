@@ -89,6 +89,14 @@ ob_start();
             <small class="text-muted" id="triggerHint"></small>
         </div>
 
+        <div class="form-group" id="runOnceWrap">
+            <div class="form-check">
+                <input type="checkbox" name="rule_run_once" value="1" class="form-check-input" id="ruleRunOnce" <?= !empty($rule['rule_run_once']) ? 'checked' : '' ?>>
+                <label class="form-check-label" for="ruleRunOnce">Run once per ticket</label>
+            </div>
+            <small class="text-muted">For scheduled checks, stop after the rule first performs an action on a ticket. Other tickets can still match.</small>
+        </div>
+
         <div class="form-group">
             <label>Conditions — ALL must match</label>
             <div id="conditionsWrap"></div>
@@ -220,6 +228,7 @@ ob_start();
             updateCondValue(row);
         });
         hint.textContent = TRIGGER_HINTS[trigger.value] || '';
+        document.getElementById('runOnceWrap').hidden = trigger.value !== 'schedule';
     }
 
     function updateCondValue(row) {
@@ -244,7 +253,7 @@ ob_start();
         var isScr  = action.value === 'run_script';
         var isNone = NO_VALUE_ACTIONS.indexOf(action.value) !== -1;
 
-        text.style.display = (isWS || isScr) ? 'none' : '';
+        text.style.display = (isWS || isScr || isNone) ? 'none' : '';
         text.placeholder   = isNone ? 'Not used for this action' : 'Value';
         text.disabled      = isWS || isScr || isNone;
 
@@ -260,11 +269,11 @@ ob_start();
 
     function addConditionRow(prefill) {
         var row = document.createElement('div');
-        row.className = 'row cond-row mb-2';
+        row.className = 'row cond-row g-2 mb-3';
         row.innerHTML =
-            '<div class="col-5"><select name="cond_field[]" class="form-control"></select></div>' +
-            '<div class="col-3"><select name="cond_op[]" class="form-control"></select></div>' +
-            '<div class="col-4">' +
+            '<div class="col-12 col-md-5"><select name="cond_field[]" class="form-control"></select></div>' +
+            '<div class="col-12 col-md-3"><select name="cond_op[]" class="form-control"></select></div>' +
+            '<div class="col-12 col-md-4">' +
                 '<input type="text" name="cond_value[]" class="form-control" placeholder="Value (use category ID for Ticket category)">' +
                 '<select name="cond_value[]" class="form-control cond-value-cat" style="display:none;" disabled></select>' +
             '</div>';
@@ -289,10 +298,10 @@ ob_start();
 
     function addActionRow(prefill) {
         var row = document.createElement('div');
-        row.className = 'row action-row mb-2';
+        row.className = 'row action-row g-2 mb-3';
         row.innerHTML =
-            '<div class="col-6"><select name="action_name[]" class="form-control"></select></div>' +
-            '<div class="col-6">' +
+            '<div class="col-12 col-md-6"><select name="action_name[]" class="form-control"></select></div>' +
+            '<div class="col-12 col-md-6">' +
                 '<input type="text" name="action_value[]" class="form-control" placeholder="Value (template/script ID where applicable)">' +
                 '<select name="action_value[]" class="form-control action-value-ws" style="display:none;" disabled></select>' +
                 '<select name="action_value[]" class="form-control action-value-script" style="display:none;" disabled></select>' +
@@ -333,6 +342,7 @@ ob_start();
 
     trigger.addEventListener('change', refreshFieldOptions);
     hint.textContent = TRIGGER_HINTS[trigger.value] || '';
+    document.getElementById('runOnceWrap').hidden = trigger.value !== 'schedule';
 })();
 </script>
 <?php require_once '../../../includes/modal_footer.php'; ?>

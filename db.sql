@@ -3307,6 +3307,7 @@ CREATE TABLE `ticket_automation_rules` (
   `rule_name` varchar(100) NOT NULL,
   `rule_enabled` tinyint(1) NOT NULL DEFAULT 1,
   `rule_trigger` varchar(30) NOT NULL DEFAULT 'schedule',
+  `rule_run_once` tinyint(1) NOT NULL DEFAULT 0,
   `rule_cond_field` varchar(40) NOT NULL DEFAULT 'age_hours',
   `rule_cond_op` varchar(20) NOT NULL DEFAULT 'greater_than',
   `rule_cond_value` varchar(255) NOT NULL DEFAULT '',

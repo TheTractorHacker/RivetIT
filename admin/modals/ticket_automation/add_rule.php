@@ -44,17 +44,25 @@ ob_start();
             <small class="text-muted" id="triggerHint"></small>
         </div>
 
+        <div class="form-group" id="runOnceWrap">
+            <div class="form-check">
+                <input type="checkbox" name="rule_run_once" value="1" class="form-check-input" id="ruleRunOnce">
+                <label class="form-check-label" for="ruleRunOnce">Run once per ticket</label>
+            </div>
+            <small class="text-muted">For scheduled checks, stop after the rule first performs an action on a ticket. Other tickets can still match.</small>
+        </div>
+
         <div class="form-group">
             <label>Conditions — ALL must match</label>
             <div id="conditionsWrap">
-                <div class="row cond-row mb-2">
-                    <div class="col-5">
+                <div class="row cond-row g-2 mb-3">
+                    <div class="col-12 col-md-5">
                         <select name="cond_field[]" class="form-control" id="ruleCondField0"></select>
                     </div>
-                    <div class="col-3">
+                    <div class="col-12 col-md-3">
                         <select name="cond_op[]" class="form-control"></select>
                     </div>
-                    <div class="col-4">
+                    <div class="col-12 col-md-4">
                         <input type="text" name="cond_value[]" id="condValueText0" class="form-control" placeholder="Value">
                         <select name="cond_value[]" id="condValueCat0" class="form-control" style="display:none;" disabled>
                             <?php while ($c = mysqli_fetch_assoc($sql_cats)): ?>
@@ -70,11 +78,11 @@ ob_start();
         <div class="form-group">
             <label>Actions — run in order</label>
             <div id="actionsWrap">
-                <div class="row action-row mb-2">
-                    <div class="col-6">
+                <div class="row action-row g-2 mb-3">
+                    <div class="col-12 col-md-6">
                         <select name="action_name[]" class="form-control" id="ruleAction0"></select>
                     </div>
-                    <div class="col-6">
+                    <div class="col-12 col-md-6">
                         <input type="text" name="action_value[]" id="actionValueText0" class="form-control"
                                placeholder="e.g. critical | 3 | Ticket is stale — please follow up">
                         <select name="action_value[]" id="actionValueWorksheet0" class="form-control" style="display:none;" disabled>
@@ -202,8 +210,10 @@ ob_start();
             if (fields.some(function (f) { return f[0] === current; })) {
                 sel.value = current;
             }
+            updateCondValue(sel.closest('.cond-row'));
         });
         hint.textContent = TRIGGER_HINTS[trigger.value] || '';
+        document.getElementById('runOnceWrap').hidden = trigger.value !== 'schedule';
     }
 
     function updateCondValue(row) {
@@ -230,10 +240,8 @@ ob_start();
                   || action.value === 'create_ticket_from_alert' || action.value === 'acknowledge_alert'
                   || action.value === 'ai_triage';
 
-        text.style.display = (isWS || isScr) ? 'none' : '';
-        text.disabled      = (isWS || isScr);
-        text.placeholder   = isNone ? 'Not used for this action' : 'Value';
-        text.disabled      = text.disabled || isNone;
+        text.style.display = (isWS || isScr || isNone) ? 'none' : '';
+        text.disabled      = isWS || isScr || isNone;
 
         if (wsSel) {
             wsSel.style.display = isWS ? '' : 'none';
@@ -246,32 +254,29 @@ ob_start();
     }
 
     // ----- Condition rows -----
-    var condIndex = 0;
     document.getElementById('addCondition').addEventListener('click', function () {
-        condIndex++;
-        var row = document.createElement('div');
-        row.className = 'row cond-row mb-2';
-        row.innerHTML =
-            '<div class="col-5"><select name="cond_field[]" class="form-control"></select></div>' +
-            '<div class="col-3"><select name="cond_op[]" class="form-control"></select></div>' +
-            '<div class="col-4"><input type="text" name="cond_value[]" class="form-control" placeholder="Value (use category ID for Ticket category)"></div>';
+        var row = firstCond.cloneNode(true);
+        row.querySelectorAll('[id]').forEach(function (el) { el.removeAttribute('id'); });
         condWrap.appendChild(row);
         fillSelect(row.querySelector('select[name="cond_field[]"]'), FIELD_OPTIONS[trigger.value] || FIELD_OPTIONS.schedule);
         fillSelect(row.querySelector('select[name="cond_op[]"]'), OP_OPTIONS);
+        row.querySelector('input[name="cond_value[]"]').value = '';
+        row.querySelector('select.cond-value-cat').selectedIndex = 0;
+        row.querySelector('select[name="cond_field[]"]').addEventListener('change', function () { updateCondValue(row); });
+        updateCondValue(row);
     });
 
     // ----- Action rows -----
-    var actIndex = 0;
     document.getElementById('addAction').addEventListener('click', function () {
-        actIndex++;
-        var row = document.createElement('div');
-        row.className = 'row action-row mb-2';
-        row.innerHTML =
-            '<div class="col-6"><select name="action_name[]" class="form-control"></select></div>' +
-            '<div class="col-6"><input type="text" name="action_value[]" class="form-control" placeholder="Value (template/script ID where applicable)"></div>';
+        var row = firstAction.cloneNode(true);
+        row.querySelectorAll('[id]').forEach(function (el) { el.removeAttribute('id'); });
         actWrap.appendChild(row);
         fillSelect(row.querySelector('select[name="action_name[]"]'), ACTION_OPTIONS);
+        row.querySelector('input[name="action_value[]"]').value = '';
+        row.querySelector('select.action-value-ws').selectedIndex = 0;
+        row.querySelector('select.action-value-script').selectedIndex = 0;
         row.querySelector('select[name="action_name[]"]').addEventListener('change', function () { updateActionValue(row); });
+        updateActionValue(row);
     });
 
     // ----- Init first rows -----

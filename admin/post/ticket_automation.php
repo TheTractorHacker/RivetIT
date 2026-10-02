@@ -10,6 +10,7 @@ if (isset($_POST['add_rule'])) {
     $name    = mysqli_real_escape_string($mysqli, trim($_POST['rule_name'] ?? ''));
     $trigger = mysqli_real_escape_string($mysqli, $_POST['rule_trigger'] ?? 'schedule');
     $order   = intval($_POST['rule_order'] ?? 0);
+    $run_once = !empty($_POST['rule_run_once']) && ($_POST['rule_trigger'] ?? '') === 'schedule' ? 1 : 0;
 
     $valid_triggers = ['schedule', 'rmm_alert', 'asset_offline', 'asset_online', 'ticket_created'];
     if (!in_array($_POST['rule_trigger'] ?? '', $valid_triggers, true)) {
@@ -64,9 +65,9 @@ if (isset($_POST['add_rule'])) {
 
         mysqli_query($mysqli,
             "INSERT INTO ticket_automation_rules
-             (rule_name, rule_trigger, rule_cond_field, rule_cond_op, rule_cond_value, rule_conditions_json,
+             (rule_name, rule_trigger, rule_run_once, rule_cond_field, rule_cond_op, rule_cond_value, rule_conditions_json,
               rule_action, rule_action_value, rule_actions_json, rule_order)
-             VALUES ('$name', '$trigger', '$legacy_field', '$legacy_op', '$legacy_val', '$conditions_json',
+             VALUES ('$name', '$trigger', $run_once, '$legacy_field', '$legacy_op', '$legacy_val', '$conditions_json',
                      '$legacy_action', '$legacy_aval', '$actions_json', $order)"
         );
         logAction("Automation", "Create", "Created ticket automation rule: $name");
@@ -86,6 +87,7 @@ if (isset($_POST['edit_rule'])) {
     $name    = mysqli_real_escape_string($mysqli, trim($_POST['rule_name'] ?? ''));
     $trigger = mysqli_real_escape_string($mysqli, $_POST['rule_trigger'] ?? 'schedule');
     $order   = intval($_POST['rule_order'] ?? 0);
+    $run_once = !empty($_POST['rule_run_once']) && ($_POST['rule_trigger'] ?? '') === 'schedule' ? 1 : 0;
 
     $valid_triggers = ['schedule', 'rmm_alert', 'asset_offline', 'asset_online', 'ticket_created'];
     if (!in_array($_POST['rule_trigger'] ?? '', $valid_triggers, true)) {
@@ -142,6 +144,7 @@ if (isset($_POST['edit_rule'])) {
             "UPDATE ticket_automation_rules SET
                 rule_name = '$name',
                 rule_trigger = '$trigger',
+                rule_run_once = $run_once,
                 rule_cond_field = '$legacy_field',
                 rule_cond_op = '$legacy_op',
                 rule_cond_value = '$legacy_val',

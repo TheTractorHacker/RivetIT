@@ -1397,6 +1397,10 @@ if (!empty($automation_rules)) {
                      WHERE rule_id = " . intval($rule['rule_id']) . "
                        AND ticket_id = $tid AND trigger_type = 'schedule' LIMIT 1")) > 0;
 
+                // Optional once-per-ticket mode. A run is recorded only after
+                // at least one action succeeds, so no-op rules can retry later.
+                if (!empty($rule['rule_run_once']) && $already_ran) continue;
+
                 $summaries = [];
                 foreach (automationGetActions($rule) as $action) {
                     if ($already_ran && in_array($action['action'] ?? '', ['add_note', 'ai_triage'], true)) {

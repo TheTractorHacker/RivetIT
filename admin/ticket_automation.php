@@ -108,7 +108,7 @@ function ticket_automation_actions(array $rule): array {
             <a href="ticket_automation_log.php" class="btn btn-secondary me-2">
                 <i class="fas fa-history me-2"></i>Run Log
             </a>
-            <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/ticket_automation/add_rule.php">
+            <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/ticket_automation/add_rule.php" data-modal-size="lg">
                 <i class="fas fa-plus me-2"></i>New Rule
             </button>
         </div>
@@ -116,8 +116,9 @@ function ticket_automation_actions(array $rule): array {
     <div class="card-body p-0">
         <div class="alert alert-info mx-3 mt-3">
             <i class="fas fa-info-circle me-2"></i>
-            Rules run automatically each time cron executes. Schedule cron at <code>cron/cron.php</code> every 15–60 minutes.
+            Scheduled checks run with the main cron job. Ticket-created rules run when a ticket opens; RMM and asset rules run when cron processes new events.
         </div>
+        <div class="table-responsive">
         <table class="table table-hover mb-0">
             <thead>
                 <tr>
@@ -152,6 +153,9 @@ function ticket_automation_actions(array $rule): array {
                     </td>
                     <td>
                         <span class="badge text-bg-info"><?php echo $trigger_labels[$trigger] ?? nullable_htmlentities($trigger); ?></span>
+                        <?php if ($trigger === 'schedule' && !empty($rule['rule_run_once'])): ?>
+                            <span class="badge text-bg-secondary">Once per ticket</span>
+                        <?php endif; ?>
                     </td>
                     <td>
                         <?php foreach (ticket_automation_conditions($rule) as $cond):
@@ -198,7 +202,7 @@ function ticket_automation_actions(array $rule): array {
                         <?php endif; ?>
                     </td>
                     <td class="text-end">
-                        <button type="button" class="btn btn-sm btn-secondary ajax-modal" data-modal-url="modals/ticket_automation/edit_rule.php?rule_id=<?php echo $rule_id; ?>">
+                        <button type="button" class="btn btn-sm btn-secondary ajax-modal" data-modal-url="modals/ticket_automation/edit_rule.php?rule_id=<?php echo $rule_id; ?>" data-modal-size="lg" aria-label="Edit <?php echo $name; ?>">
                             <i class="fas fa-edit"></i>
                         </button>
                         <a href="post.php?toggle=<?php echo $rule_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>"
@@ -214,6 +218,7 @@ function ticket_automation_actions(array $rule): array {
             <?php endwhile; ?>
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 

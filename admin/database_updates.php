@@ -9506,3 +9506,12 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.112'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.112') {
+        // Scheduled ticket rules can now stop after the first successful run
+        // for each ticket. Existing rules retain their repeat behavior.
+        mysqli_query($mysqli, "ALTER TABLE `ticket_automation_rules`
+            ADD COLUMN IF NOT EXISTS `rule_run_once` tinyint(1) NOT NULL DEFAULT 0 AFTER `rule_trigger`");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.113'");
+    }
