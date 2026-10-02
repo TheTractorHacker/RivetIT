@@ -9552,3 +9552,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             ADD UNIQUE INDEX IF NOT EXISTS `idx_users_oidc_identity` (`user_oidc_issuer`, `user_oidc_subject`)");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.116'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.116') {
+        // Separate, disabled-by-default handoff credential. The existing
+        // directory-sync API key is never used to redeem SSO codes.
+        mysqli_query($mysqli, "ALTER TABLE `odoo_integrations`
+            ADD COLUMN IF NOT EXISTS `sso_enabled` tinyint(1) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `sso_client_id` varchar(200) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `sso_secret_enc` text DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `sso_company_id` int(11) DEFAULT NULL");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.117'");
+    }

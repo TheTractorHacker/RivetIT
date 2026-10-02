@@ -84,6 +84,10 @@ $odoo_database = nullable_htmlentities($row_odoo['database_name'] ?? '');
 $odoo_username = nullable_htmlentities($row_odoo['username'] ?? '');
 $odoo_has_key = !empty($row_odoo['api_key_enc']);
 $odoo_enabled = intval($row_odoo['enabled'] ?? 0);
+$odoo_sso_enabled = intval($row_odoo['sso_enabled'] ?? 0);
+$odoo_sso_client_id = nullable_htmlentities($row_odoo['sso_client_id'] ?? '');
+$odoo_sso_company_id = intval($row_odoo['sso_company_id'] ?? 0);
+$odoo_sso_has_secret = !empty($row_odoo['sso_secret_enc']);
 $odoo_last_test_at = $row_odoo['last_test_at'] ?? null;
 $odoo_last_test_success = $row_odoo['last_test_success'] ?? null;
 $odoo_last_test_error = nullable_htmlentities($row_odoo['last_test_error'] ?? '');
@@ -1652,6 +1656,41 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                 <?php if ($odoo_enabled && $odoo_has_key): ?>
                 <button type="submit" name="sync_odoo_directory" class="btn btn-success"><i class="fas fa-sync me-2"></i>Sync Now</button>
                 <?php endif; ?>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header py-2">
+            <h3 class="card-title"><i class="fas fa-fw fa-sign-in-alt me-2"></i>Odoo Department Portal sign-in</h3>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">Install the <code>rivetit_sso</code> addon in Odoo first. This handoff uses a dedicated server-side secret; the directory-sync API key is never used for sign-in. Link each person through Odoo Directory Sync, then select Odoo as their Department Login method.</p>
+            <form action="post.php" method="post" autocomplete="off">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                <div class="form-group">
+                    <label for="odooSsoClientId">Integration ID</label>
+                    <input id="odooSsoClientId" class="form-control" name="sso_client_id" value="<?= $odoo_sso_client_id ?>" maxlength="200" placeholder="rivetit-department-portal">
+                </div>
+                <div class="form-group">
+                    <label for="odooSsoCompanyId">Odoo company ID</label>
+                    <input id="odooSsoCompanyId" class="form-control" type="number" min="1" name="sso_company_id" value="<?= $odoo_sso_company_id ?: '' ?>" placeholder="1">
+                    <small class="text-muted">Only active employees in this Odoo company can sign in.</small>
+                </div>
+                <div class="form-group">
+                    <label for="odooSsoSecret">Dedicated integration secret</label>
+                    <input id="odooSsoSecret" class="form-control" type="password" name="sso_secret" minlength="32" maxlength="256" placeholder="<?= $odoo_sso_has_secret ? 'Stored — leave blank to keep current' : 'Enter a 32+ character random secret' ?>" autocomplete="new-password">
+                    <small class="text-muted">Store the SHA-256 hash of this secret in the Odoo addon. Enter a new value here to rotate it.</small>
+                </div>
+                <p class="small text-muted mb-2">Callback: <code>https://<?= nullable_htmlentities($config_base_url) ?>/client/login_odoo.php</code></p>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" name="sso_enabled" value="1" id="odooSsoEnabled" <?= $odoo_sso_enabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="odooSsoEnabled">Enable Odoo sign-in</label>
+                </div>
+                <button type="submit" name="save_odoo_sso" class="btn btn-primary">Save Odoo sign-in</button>
+                <?php if ($odoo_sso_has_secret && $odoo_sso_client_id) { ?>
+                    <button type="submit" name="test_odoo_sso" class="btn btn-secondary">Test connection</button>
+                <?php } ?>
             </form>
         </div>
     </div>

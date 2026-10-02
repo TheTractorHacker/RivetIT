@@ -120,12 +120,25 @@ if (isset($_POST['edit_portal_user'])) {
         flash_alert("A new password must be at least 8 characters.", 'error');
         redirect();
     }
-    if (!in_array($auth_method, ['local', 'azure', 'oidc'], true)
+    $odoo_integration = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT odoo_integration_id, sso_enabled FROM odoo_integrations ORDER BY odoo_integration_id DESC LIMIT 1")) ?: [];
+    $odoo_link_exists = false;
+    if ($odoo_integration) {
+        $link = $mysqli->prepare("SELECT id FROM contact_odoo_links WHERE contact_id = ? AND odoo_integration_id = ? LIMIT 1");
+        $link_integration_id = (int) $odoo_integration['odoo_integration_id'];
+        $link_contact_id = (int) $t['contact_id'];
+        $link->bind_param('ii', $link_contact_id, $link_integration_id);
+        $link->execute();
+        $odoo_link_exists = $link->get_result()->num_rows === 1;
+    }
+    if (!in_array($auth_method, ['local', 'azure', 'oidc', 'odoo'], true)
         || ($auth_method === 'local' && $t['user_auth_method'] !== 'local' && strlen($new_password) < 8)
         || ($auth_method === 'azure' && $t['user_auth_method'] !== 'azure' && empty($config_azure_client_id))
         || ($auth_method === 'oidc' && ($oidc_subject === '' || strlen($oidc_subject) > 255
-            || ($t['user_auth_method'] !== 'oidc' && !$config_oidc_enabled)))) {
-        flash_alert('Choose an available sign-in method. OpenID Connect needs an immutable subject; switching to local needs a new password.', 'error');
+            || ($t['user_auth_method'] !== 'oidc' && !$config_oidc_enabled)))
+        || ($auth_method === 'odoo' && $t['user_auth_method'] !== 'odoo'
+            && (empty($odoo_integration['sso_enabled']) || !$odoo_link_exists))) {
+        flash_alert('Choose an available sign-in method. Odoo requires an active integration and an employee link; OpenID Connect needs an immutable subject; switching to local needs a new password.', 'error');
         redirect();
     }
     $oidc_issuer = $auth_method === 'oidc'

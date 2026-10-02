@@ -1,0 +1,12 @@
+<odoo>
+    <record id="cron_rivetit_sso_cleanup" model="ir.cron">
+        <field name="name">RivetIT SSO code cleanup</field>
+        <field name="model_id" ref="model_rivetit_sso_code"/>
+        <field name="user_id" ref="base.user_root"/>
+        <field name="state">code</field>
+        <field name="code">model._cleanup_codes()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+        <field name="active">True</field>
+    </record>
+</odoo>

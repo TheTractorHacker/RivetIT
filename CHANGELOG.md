@@ -4,6 +4,21 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [26.10.9] RivetIT — Odoo Department Portal SSO preview
+
+Database migration 2.6.117 is required. Odoo sign-in is disabled by default
+until the `rivetit_sso` Odoo 19 addon is installed and configured.
+
+- Add a browser-bound Odoo authorization-code handoff with PKCE and a dedicated
+  server-side exchange credential. Codes expire in 60 seconds and the addon
+  consumes each code atomically.
+- Use existing Odoo employee links to find one active Department Portal login;
+  email changes do not change the mapping and duplicate links fail closed.
+- Add masked Admin settings, a connection test that signs in no one, and an
+  Odoo sign-in choice for linked Department Logins.
+- Include the Odoo 19 addon, setup and rollback guide, and callback-log
+  suppression in the Nginx deployment template.
+
 ## [26.10.8] RivetIT — API reference production fix
 
 No database migration is required. Load the reference through the API's

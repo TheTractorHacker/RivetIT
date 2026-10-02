@@ -426,6 +426,15 @@ server {
         add_header X-Frame-Options "SAMEORIGIN" always;
     }
 
+    # The Odoo authorization callback carries a one-time code in its URL.
+    # Application audit logs record safe reason categories instead.
+    location = /client/login_odoo.php {
+        access_log off;
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:${PHP_SOCK};
+        fastcgi_read_timeout 300s;
+    }
+
     # The one agent page the app frames itself (in-window video check). The page sends
     # CSP frame-ancestors 'self' instead of X-Frame-Options (same pattern as kb_embed_serve.php).
     # An exact match, so it wins over the generic PHP location below regardless of order;

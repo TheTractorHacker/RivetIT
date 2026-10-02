@@ -104,6 +104,13 @@ $azure_client_id = $row['config_azure_client_id'] ?? null;
 $oidc_enabled = intval($row['config_oidc_enabled'] ?? 0) === 1
     && !empty($row['config_oidc_issuer']) && !empty($row['config_oidc_client_id'])
     && !empty($row['config_oidc_client_secret']);
+$odoo_sso_row = mysqli_fetch_assoc(mysqli_query($mysqli,
+    "SELECT enabled, sso_enabled, sso_client_id, sso_secret_enc, sso_company_id
+     FROM odoo_integrations ORDER BY odoo_integration_id DESC LIMIT 1")) ?: [];
+$odoo_sso_enabled = (int) ($odoo_sso_row['enabled'] ?? 0) === 1
+    && (int) ($odoo_sso_row['sso_enabled'] ?? 0) === 1
+    && !empty($odoo_sso_row['sso_client_id']) && !empty($odoo_sso_row['sso_secret_enc'])
+    && (int) ($odoo_sso_row['sso_company_id'] ?? 0) > 0;
 
 $config_theme = nullable_htmlentities($row['config_theme'] ?? 'teal');
 
@@ -1117,6 +1124,10 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
                 <div class="alert alert-danger" role="alert"><?= nullable_htmlentities($_SESSION['oidc_login_error']) ?></div>
                 <?php unset($_SESSION['oidc_login_error']); ?>
             <?php } ?>
+            <?php if (!empty($_SESSION['odoo_login_error'])) { ?>
+                <div class="alert alert-danger" role="alert"><?= nullable_htmlentities($_SESSION['odoo_login_error']) ?></div>
+                <?php unset($_SESSION['odoo_login_error']); ?>
+            <?php } ?>
 
             <?php if (isset($response)) { ?>
                 <p><?php echo $response; ?></p>
@@ -1223,7 +1234,7 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
 
             </form>
 
-            <?php if($config_client_portal_enable == 1 && ((!empty($config_smtp_host) || !empty($config_smtp_provider)) || !empty($azure_client_id) || $oidc_enabled)){ ?>
+            <?php if($config_client_portal_enable == 1 && ((!empty($config_smtp_host) || !empty($config_smtp_provider)) || !empty($azure_client_id) || $oidc_enabled || $odoo_sso_enabled)){ ?>
                 <hr>
                 <?php if ((!empty($config_smtp_host) || !empty($config_smtp_provider))) { ?>
                     <a href="client/login_reset.php">Forgot password?</a>
@@ -1238,6 +1249,11 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
                 <?php if ($oidc_enabled) { ?>
                     <div class="col text-center mt-2">
                         <a class="btn btn-secondary" href="client/login_oidc.php">Login with company SSO</a>
+                    </div>
+                <?php } ?>
+                <?php if ($odoo_sso_enabled) { ?>
+                    <div class="col text-center mt-2">
+                        <a class="btn btn-secondary" href="client/login_odoo.php">Login with Odoo</a>
                     </div>
                 <?php } ?>
             <?php } ?>

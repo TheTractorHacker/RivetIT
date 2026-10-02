@@ -1,0 +1,10 @@
+<odoo>
+    <record id="action_rivetit_portal" model="ir.actions.act_url">
+        <field name="name">Department Portal</field>
+        <field name="url">/rivetit/sso/launch</field>
+        <field name="target">self</field>
+    </record>
+    <menuitem id="menu_rivetit_portal" name="Department Portal"
+              action="action_rivetit_portal" groups="rivetit_sso.group_rivetit_portal"
+              sequence="95"/>
+</odoo>

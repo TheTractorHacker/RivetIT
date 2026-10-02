@@ -1,0 +1,5 @@
+<odoo>
+    <record id="group_rivetit_portal" model="res.groups">
+        <field name="name">RivetIT Department Portal</field>
+    </record>
+</odoo>

@@ -234,6 +234,10 @@ if (isset($_POST['save_odoo_integration'])) {
     $api_protocol_choice = ($_POST['api_protocol'] ?? 'auto') === 'jsonrpc_pinned' ? 'jsonrpc_pinned' : 'auto';
 
     $existing = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM odoo_integrations ORDER BY odoo_integration_id DESC LIMIT 1"));
+    $server_changed = $existing && (
+        rtrim(strtolower(trim((string) $existing['base_url'])), '/') !== rtrim(strtolower(trim((string) ($_POST['base_url'] ?? ''))), '/')
+        || trim((string) $existing['database_name']) !== trim((string) ($_POST['database_name'] ?? ''))
+    );
 
     $key_sql = '';
     if (!empty($_POST['api_key'])) {
@@ -280,13 +284,84 @@ if (isset($_POST['save_odoo_integration'])) {
 
     if ($existing) {
         $id = intval($existing['odoo_integration_id']);
-        mysqli_query($mysqli, "UPDATE odoo_integrations SET base_url = '$base_url', database_name = '$database_name', username = '$username', enabled = $enabled $key_sql $protocol_sql WHERE odoo_integration_id = $id");
+        $sso_sql = $server_changed ? ', sso_enabled = 0' : '';
+        mysqli_query($mysqli, "UPDATE odoo_integrations SET base_url = '$base_url', database_name = '$database_name', username = '$username', enabled = $enabled $key_sql $protocol_sql $sso_sql WHERE odoo_integration_id = $id");
     } else {
         mysqli_query($mysqli, "INSERT INTO odoo_integrations SET base_url = '$base_url', database_name = '$database_name', username = '$username', enabled = $enabled $key_sql $protocol_sql");
     }
 
     logAction("Settings", "Edit", "$session_name updated the Odoo integration settings");
     flash_alert("Odoo integration settings saved$protocol_note");
+    redirect();
+}
+
+if (isset($_POST['save_odoo_sso'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('module_client', 3);
+    require_once __DIR__ . '/../../includes/odoo_portal.php';
+
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT * FROM odoo_integrations ORDER BY odoo_integration_id DESC LIMIT 1"));
+    if (!$row) {
+        flash_alert('Configure the Odoo integration before enabling sign-in.', 'error');
+        redirect();
+    }
+    $client_id = trim((string) ($_POST['sso_client_id'] ?? ''));
+    $company_id = filter_var($_POST['sso_company_id'] ?? null, FILTER_VALIDATE_INT);
+    $secret = trim((string) ($_POST['sso_secret'] ?? ''));
+    $enabled = isset($_POST['sso_enabled']) ? 1 : 0;
+    if (!preg_match('/^[A-Za-z0-9._:-]{8,200}$/D', $client_id)
+        || ($company_id !== false && $company_id < 1)
+        || ($secret !== '' && (strlen($secret) < 32 || strlen($secret) > 256
+            || !preg_match('/^[\x21-\x7e]+$/D', $secret)))) {
+        flash_alert('Enter a valid integration ID, Odoo company ID, and a random 32–256 character secret.', 'error');
+        redirect();
+    }
+    $existing_secret = (string) ($row['sso_secret_enc'] ?? '');
+    $stored_secret = $secret !== '' ? encryptSetting($secret) : $existing_secret;
+    if ($enabled && ((int) $row['enabled'] !== 1
+        || portalOdooBaseUrl((string) $row['base_url']) === null
+        || empty($row['database_name']) || !$company_id || $stored_secret === '')) {
+        flash_alert('Enable and configure the HTTPS Odoo directory integration, company ID, and dedicated secret first.', 'error');
+        redirect();
+    }
+    $id = (int) $row['odoo_integration_id'];
+    $company_value = $company_id ?: null;
+    $stmt = $mysqli->prepare("UPDATE odoo_integrations SET sso_enabled = ?, sso_client_id = ?,
+        sso_secret_enc = ?, sso_company_id = ? WHERE odoo_integration_id = ?");
+    $stmt->bind_param('issii', $enabled, $client_id, $stored_secret, $company_value, $id);
+    $stmt->execute();
+    logAction('Settings', 'Edit', "$session_name updated Odoo Department Portal sign-in settings");
+    flash_alert('Odoo Department Portal sign-in settings saved.');
+    redirect();
+}
+
+if (isset($_POST['test_odoo_sso'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('module_client', 3);
+    require_once __DIR__ . '/../../includes/odoo_portal.php';
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT base_url, database_name, sso_client_id, sso_secret_enc, sso_company_id
+         FROM odoo_integrations ORDER BY odoo_integration_id DESC LIMIT 1")) ?: [];
+    try {
+        $issuer = portalOdooBaseUrl((string) ($row['base_url'] ?? ''));
+        $secret = decryptSetting((string) ($row['sso_secret_enc'] ?? ''));
+        if ($issuer === null || strlen($secret) < 32) {
+            throw new RuntimeException('invalid_config');
+        }
+        $result = portalOdooHealthCheck($issuer, (string) $row['database_name'],
+            (string) $row['sso_client_id'], $secret);
+        if (($result['issuer'] ?? null) !== $issuer
+            || ($result['database'] ?? null) !== (string) $row['database_name']
+            || ($result['company_id'] ?? null) !== (int) $row['sso_company_id']) {
+            throw new RuntimeException('identity_mismatch');
+        }
+        logAction('Settings', 'Test', "$session_name verified the Odoo SSO connection");
+        flash_alert('Odoo sign-in connection verified. No user was signed in.');
+    } catch (Throwable $error) {
+        logAction('Settings', 'Failed', 'Odoo SSO connection test failed');
+        flash_alert('Odoo sign-in test failed. Check the addon, integration ID, secret, issuer, database, and company ID.', 'error');
+    }
     redirect();
 }
 

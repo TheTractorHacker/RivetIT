@@ -8,7 +8,7 @@ ob_start();
 $user_id = intval($_GET['id'] ?? 0);
 
 $sql = mysqli_query($mysqli, "SELECT users.user_id, users.user_name, users.user_email, users.user_auth_method, users.user_oidc_issuer, users.user_oidc_subject, users.user_role_id, users.user_token, COALESCE(user_settings.user_config_force_mfa, 0) AS force_mfa,
-        contacts.contact_title, contacts.contact_portal_role, clients.client_name
+        contacts.contact_id, contacts.contact_title, contacts.contact_portal_role, clients.client_name
     FROM users
     INNER JOIN contacts ON contacts.contact_user_id = users.user_id
     LEFT JOIN clients ON clients.client_id = contacts.contact_client_id
@@ -28,6 +28,10 @@ $title = nullable_htmlentities($row['contact_title']);
 $dept = nullable_htmlentities($row['client_name']);
 $role = $row['contact_portal_role'];
 $is_local = $row['user_auth_method'] === 'local';
+$odoo_sso = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT odoo_integration_id, sso_enabled FROM odoo_integrations ORDER BY odoo_integration_id DESC LIMIT 1")) ?: [];
+$odoo_link = $odoo_sso ? mysqli_fetch_assoc(mysqli_query($mysqli,
+    "SELECT odoo_employee_id FROM contact_odoo_links WHERE contact_id = " . (int) $row['contact_id']
+    . " AND odoo_integration_id = " . (int) $odoo_sso['odoo_integration_id'] . " LIMIT 1")) : null;
 $has_2fa = !empty($row['user_token']);
 $force_mfa = intval($row['force_mfa']) === 1;
 $lms_roles = itflow_portal_assignable_roles();
@@ -74,7 +78,11 @@ $cur_role_id = intval($row['user_role_id']);
                 <?php if ($config_oidc_enabled || $row['user_auth_method'] === 'oidc') { ?>
                     <option value="oidc" <?= $row['user_auth_method'] === 'oidc' ? 'selected' : '' ?>>OpenID Connect</option>
                 <?php } ?>
+                <?php if (($odoo_sso['sso_enabled'] ?? 0) || $row['user_auth_method'] === 'odoo') { ?>
+                    <option value="odoo" <?= $row['user_auth_method'] === 'odoo' ? 'selected' : '' ?>>Odoo employee</option>
+                <?php } ?>
             </select>
+            <?php if ($odoo_link) { ?><small class="form-text text-muted">Linked Odoo employee #<?= (int) $odoo_link['odoo_employee_id'] ?>. Odoo sign-in uses this ID, even if the email changes.</small><?php } ?>
         </div>
         <div class="form-group">
             <label for="pu_edit_subject<?= $user_id ?>">OpenID Connect subject (sub)</label>

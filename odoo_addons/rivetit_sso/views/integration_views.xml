@@ -1,0 +1,42 @@
+<odoo>
+    <record id="view_rivetit_sso_integration_list" model="ir.ui.view">
+        <field name="name">rivetit.sso.integration.list</field>
+        <field name="model">rivetit.sso.integration</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="client_id"/>
+                <field name="company_id"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_rivetit_sso_integration_form" model="ir.ui.view">
+        <field name="name">rivetit.sso.integration.form</field>
+        <field name="model">rivetit.sso.integration</field>
+        <field name="arch" type="xml">
+            <form string="RivetIT SSO integration">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="active"/>
+                        <field name="client_id"/>
+                        <field name="issuer_url"/>
+                        <field name="company_id"/>
+                        <field name="portal_start_url"/>
+                        <field name="callback_url"/>
+                    </group>
+                    <p class="text-muted">Set the SHA-256 secret hash with the Odoo shell, then enable this integration. Raw secrets are never stored here.</p>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_rivetit_sso_integrations" model="ir.actions.act_window">
+        <field name="name">RivetIT SSO integrations</field>
+        <field name="res_model">rivetit.sso.integration</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <menuitem id="menu_rivetit_sso_integrations" name="RivetIT SSO"
+              parent="base.menu_administration" action="action_rivetit_sso_integrations"
+              groups="base.group_system" sequence="95"/>
+</odoo>
