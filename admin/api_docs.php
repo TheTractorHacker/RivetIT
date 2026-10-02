@@ -5,7 +5,7 @@ require_once 'includes/inc_all_admin.php';
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-code me-2"></i>API Documentation</h3>
         <div class="card-tools">
-            <a href="/api/v1/openapi.yaml" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
+            <a href="/api/v1/openapi" download="rivetit-openapi.yaml" class="btn btn-secondary btn-sm">
                 <i class="fas fa-file-code me-1"></i>OpenAPI spec
             </a>
             <a href="/api/v1/docs" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">

@@ -4,6 +4,12 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [26.10.8] RivetIT — API reference production fix
+
+No database migration is required. Load the reference through the API's
+extensionless OpenAPI route, which returns the correct YAML content type on
+production servers. Keep downloads named `rivetit-openapi.yaml`.
+
 ## [26.10.7] RivetIT — API reference layout and code examples
 
 No database migration is required.

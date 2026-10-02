@@ -29,7 +29,7 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$c
 <body>
 <header class="reference-top">
   <strong>RivetIT API Reference</strong>
-  <a href="/api/v1/openapi.yaml">Download OpenAPI spec</a>
+  <a href="/api/v1/openapi" download="rivetit-openapi.yaml">Download OpenAPI spec</a>
 </header>
 <div class="reference-help">
   Choose an endpoint, then select Python, PHP, or another client in its request example. C &gt; Libcurl also works in C++.
@@ -53,14 +53,14 @@ int main() {
 </div>
 <main id="scalar"></main>
 <div id="reference-error" class="reference-error" role="alert">
-  The reference could not load. <a href="/api/v1/openapi.yaml">Download the OpenAPI spec</a> instead.
+  The reference could not load. <a href="/api/v1/openapi" download="rivetit-openapi.yaml">Download the OpenAPI spec</a> instead.
 </div>
-<noscript><p class="reference-error" style="display:block">JavaScript is required to browse this reference. <a href="/api/v1/openapi.yaml">Download the OpenAPI spec</a> instead.</p></noscript>
+<noscript><p class="reference-error" style="display:block">JavaScript is required to browse this reference. <a href="/api/v1/openapi" download="rivetit-openapi.yaml">Download the OpenAPI spec</a> instead.</p></noscript>
 <script src="/plugins/scalar/scalar.standalone.1.72.4.js"></script>
 <script nonce="<?= htmlspecialchars($csp_nonce, ENT_QUOTES, 'UTF-8') ?>">
   try {
     Scalar.createApiReference('#scalar', {
-      url: '/api/v1/openapi.yaml',
+      url: '/api/v1/openapi',
       layout: 'modern',
       withDefaultFonts: false,
       telemetry: false,
