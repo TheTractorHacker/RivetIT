@@ -23,7 +23,7 @@ function renderAdminDirectory(string $title, string $description, string $icon, 
         .admin-directory__tile { display: flex; align-items: stretch; min-height: 4.5rem; background: var(--if-surface, #fff); border: 1px solid var(--if-border, #e3e9ea); border-radius: var(--if-radius, 12px); }
         .admin-directory__tile:hover, .admin-directory__tile:focus-within { border-color: var(--if-primary, #0d9488); box-shadow: var(--if-shadow, none); }
         .admin-directory__item { display: flex; flex: 1; align-items: flex-start; gap: .75rem; min-width: 0; padding: .85rem; color: var(--if-ink, #16232a); text-decoration: none; }
-        .admin-directory__item:hover, .admin-directory__item:focus-visible { color: var(--if-ink, #16232a); }
+        .admin-directory__item:hover, .admin-directory__item:focus-visible { color: var(--if-ink, #16232a); text-decoration: none; }
         .admin-directory__item > i { margin-top: .15rem; color: var(--if-primary, #0d9488); }
         .admin-directory__item strong, .admin-directory__item small { display: block; }
         .admin-directory__item small { margin-top: .12rem; color: var(--if-muted, #5d6f76); line-height: 1.35; }
