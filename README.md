@@ -21,6 +21,8 @@
   ·
   <a href="docs/API.md">API</a>
   ·
+  <a href="https://github.com/TheTractorHacker/RivetIT-Mobile">Android app</a>
+  ·
   <a href="CHANGELOG.md">Changelog</a>
   ·
   <a href="https://github.com/TheTractorHacker/RivetIT/tags">Releases</a>
@@ -180,6 +182,13 @@ Integrations > Directory Sync): people and departments come from Odoo, and train
   where the screens say Department, on purpose: see the note in that guide.
 
 ---
+
+## Android companion
+
+[RivetIT-Mobile](https://github.com/TheTractorHacker/RivetIT-Mobile) is the separate Android app for
+RivetIT technicians. Its [0.8.0 beta release](https://github.com/TheTractorHacker/RivetIT-Mobile/releases/tag/v0.8.0)
+is available for testing. The [RivetMSP-Mobile](https://github.com/TheTractorHacker/rivetmsp-mobile)
+app remains a separate project for MSP installations.
 
 ## Self-Hosting
 
