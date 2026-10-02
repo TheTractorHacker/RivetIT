@@ -3,5 +3,5 @@ RedirectMatch 404 ^/(\.git|\.github|config\.php)
 
 # Remote MCP entry and OAuth protected-resource discovery.
 RewriteEngine On
-RewriteRule ^mcp$ mcp/index.php [END]
-RewriteRule ^\.well-known/oauth-protected-resource$ mcp/index.php [END]
+RewriteRule ^mcp$ mcp_server/index.php [END]
+RewriteRule ^\.well-known/oauth-protected-resource$ mcp_server/index.php [END]

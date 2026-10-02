@@ -6,7 +6,7 @@ set -euo pipefail
 # This script does NOT reimplement update_cli.php's git-pull / migration
 # logic — it orchestrates it safely: take a backup first (or make the
 # operator explicitly opt out), run the update as the file-owning user
-# update_cli.php itself requires, run the DB migrations, refresh composer
+# update_cli.php itself requires, refresh Composer dependencies, run DB migrations,
 # deps, and reload php-fpm so opcache never keeps serving pre-update bytecode.
 #
 # Usage:
@@ -84,8 +84,8 @@ Options:
 
 Steps performed, in order: pre-update backup (or confirmed skip) -> git
 pull via scripts/update_cli.php --update (run as that file's owner) ->
-database migrations via scripts/update_cli.php --update_db -> composer
-install (if composer.json exists) -> php-fpm reload (auto-detected).
+composer install (if composer.json exists) -> database migrations via
+scripts/update_cli.php --update_db -> php-fpm reload (auto-detected).
 EOF
 }
 
@@ -209,13 +209,12 @@ run_composer_install() {
         return 0
     fi
     if ! command_exists composer; then
-        warn "composer.json exists at ${APP_DIR} but the 'composer' command is not on PATH; skipping dependency refresh. Install composer or run 'composer install --no-dev --optimize-autoloader' manually as ${OWNER}."
-        return 0
+        die "composer.json exists at ${APP_DIR} but the 'composer' command is not on PATH. Install Composer before updating this release."
     fi
 
     announce "Running composer install as ${OWNER}."
     if ! sudo -u "${OWNER}" bash -c "cd '${APP_DIR}' && composer install --no-dev --optimize-autoloader --no-interaction"; then
-        die "composer install failed (see its output above). Code and database are already updated — PHP dependencies may now be out of sync with the code. Investigate before running the app."
+        die "composer install failed (see its output above). Code was updated but database migrations have not run. Investigate before running the app."
     fi
     success "composer dependencies refreshed."
 }
@@ -265,8 +264,8 @@ main() {
     determine_owner
 
     run_git_pull
-    run_db_migrations
     run_composer_install
+    run_db_migrations
     reload_php_fpm
 
     success "=== Update complete for ${APP_DIR} ==="

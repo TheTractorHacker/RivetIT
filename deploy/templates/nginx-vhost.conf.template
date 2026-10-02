@@ -439,16 +439,16 @@ server {
     # endpoint returns 404 until a dedicated OAuth issuer is configured.
     location = /mcp {
         include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME $document_root/mcp/index.php;
-        fastcgi_param SCRIPT_NAME /mcp/index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root/mcp_server/index.php;
+        fastcgi_param SCRIPT_NAME /mcp_server/index.php;
         fastcgi_pass unix:${PHP_SOCK};
         fastcgi_buffering off;
     }
 
     location = /.well-known/oauth-protected-resource {
         include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME $document_root/mcp/index.php;
-        fastcgi_param SCRIPT_NAME /mcp/index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root/mcp_server/index.php;
+        fastcgi_param SCRIPT_NAME /mcp_server/index.php;
         fastcgi_pass unix:${PHP_SOCK};
     }
 

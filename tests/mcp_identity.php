@@ -3,7 +3,7 @@
 if (getenv('RIVETIT_TEST_DB') !== '1') exit(2);
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/../mcp/McpIdentityMiddleware.php';
+require_once __DIR__ . '/../mcp_server/McpIdentityMiddleware.php';
 
 $issuer = 'https://mcp-test.example/realm';
 $subject = 'immutable-test-subject';
