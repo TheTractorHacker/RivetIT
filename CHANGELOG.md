@@ -4,6 +4,17 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [26.10.5] RivetIT — Vacation-return ticket automation
+
+Database migration 2.6.115 is required.
+
+- Record a requester's vacation start and end dates on their contact profile.
+- Vacation-return automation rules reopen tickets closed during that window
+  after the end date, with an audit note and run log. Tickets closed before a
+  rule existed and tickets already reopened are skipped.
+- The rule form selects the Reopen ticket action when the vacation trigger is
+  chosen. Conditions are optional for this trigger.
+
 ## [26.10.4] RivetIT — API access and automation
 
 Database migrations 2.6.113–2.6.114 are required.
