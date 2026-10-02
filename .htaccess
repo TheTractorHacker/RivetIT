@@ -1,2 +1,7 @@
 # Prevent access to .git, .github, and config.php
 RedirectMatch 404 ^/(\.git|\.github|config\.php)
+
+# Remote MCP entry and OAuth protected-resource discovery.
+RewriteEngine On
+RewriteRule ^mcp$ mcp/index.php [END]
+RewriteRule ^\.well-known/oauth-protected-resource$ mcp/index.php [END]

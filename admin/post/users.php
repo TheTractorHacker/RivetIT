@@ -104,6 +104,27 @@ if (isset($_POST['edit_user'])) {
 
     $user_id = intval($_POST['user_id']);
     $new_password = trim($_POST['new_password']);
+    $mcp_issuer = trim((string) ($_POST['mcp_issuer'] ?? ''));
+    $mcp_subject = trim((string) ($_POST['mcp_subject'] ?? ''));
+    $issuer_parts = $mcp_issuer !== '' ? parse_url($mcp_issuer) : [];
+    if (($mcp_issuer === '') !== ($mcp_subject === '')
+        || strlen($mcp_issuer) > 255 || strlen($mcp_subject) > 255
+        || ($mcp_issuer !== '' && (!is_array($issuer_parts)
+            || ($issuer_parts['scheme'] ?? '') !== 'https' || empty($issuer_parts['host'])
+            || isset($issuer_parts['user']) || isset($issuer_parts['pass'])
+            || isset($issuer_parts['query']) || isset($issuer_parts['fragment'])))) {
+        flash_alert('Enter both an HTTPS OAuth issuer and immutable subject, or clear both.', 'error');
+        redirect();
+    }
+    if ($mcp_issuer !== '') {
+        $check = $mysqli->prepare('SELECT user_id FROM users WHERE user_oidc_issuer = ? AND user_oidc_subject = ? AND user_id <> ? LIMIT 1');
+        $check->bind_param('ssi', $mcp_issuer, $mcp_subject, $user_id);
+        $check->execute();
+        if ($check->get_result()->fetch_assoc()) {
+            flash_alert('This OAuth identity is already linked to another account.', 'error');
+            redirect();
+        }
+    }
 
     // Update Client Access
     mysqli_query($mysqli,"DELETE FROM user_client_permissions WHERE user_id = $user_id");
@@ -151,6 +172,11 @@ if (isset($_POST['edit_user'])) {
     }
 
     mysqli_query($mysqli, "UPDATE users SET user_name = '$name', user_email = '$email', user_role_id = $role WHERE user_id = $user_id");
+    $identity_issuer = $mcp_issuer !== '' ? $mcp_issuer : null;
+    $identity_subject = $mcp_subject !== '' ? $mcp_subject : null;
+    $identity = $mysqli->prepare('UPDATE users SET user_oidc_issuer = ?, user_oidc_subject = ? WHERE user_id = ? AND user_type = 1');
+    $identity->bind_param('ssi', $identity_issuer, $identity_subject, $user_id);
+    $identity->execute();
 
     if (!empty($new_password)) {
         $new_password = password_hash($new_password, PASSWORD_DEFAULT);

@@ -18,6 +18,8 @@ $user_token = nullable_htmlentities($row['user_token']);
 $user_config_force_mfa = intval($row['user_config_force_mfa']);
 $user_role_id = intval($row['user_role_id']);
 $user_initials = nullable_htmlentities(initials($user_name));
+$mcp_issuer = nullable_htmlentities($row['user_oidc_issuer'] ?? '');
+$mcp_subject = nullable_htmlentities($row['user_oidc_subject'] ?? '');
 
 // Get passkeys
 $sql_passkeys = mysqli_query($mysqli, "SELECT * FROM user_passkeys WHERE passkey_user_id = $user_id ORDER BY passkey_created_at DESC");
@@ -125,6 +127,18 @@ ob_start();
                         <input class="form-check-input" type="checkbox" id="forceMFASec<?php echo $user_id; ?>" name="force_mfa" value="1" <?php if($user_config_force_mfa == 1){ echo "checked"; } ?>>
                         <label for="forceMFASec<?php echo $user_id; ?>" class="form-check-label">Force MFA on next login</label>
                     </div>
+                </div>
+
+                <hr class="my-3">
+                <h6 class="text-uppercase text-muted mb-2" style="font-size:.75rem;letter-spacing:.05em">Remote MCP identity</h6>
+                <p class="text-muted small">Link this agent to the exact issuer and subject of a dedicated OAuth access token. Both fields must be set; clearing both revokes this mapping.</p>
+                <div class="form-group">
+                    <label for="user_edit_mcp_issuer<?= $user_id ?>">OAuth issuer</label>
+                    <input type="url" class="form-control" id="user_edit_mcp_issuer<?= $user_id ?>" name="mcp_issuer" value="<?= $mcp_issuer ?>" maxlength="255" placeholder="https://login.example.com/realm">
+                </div>
+                <div class="form-group">
+                    <label for="user_edit_mcp_subject<?= $user_id ?>">Immutable subject (sub)</label>
+                    <input type="text" class="form-control" id="user_edit_mcp_subject<?= $user_id ?>" name="mcp_subject" value="<?= $mcp_subject ?>" maxlength="255" autocomplete="off">
                 </div>
 
                 <hr class="my-3">

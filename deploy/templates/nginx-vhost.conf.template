@@ -435,6 +435,23 @@ server {
         fastcgi_read_timeout 300s;
     }
 
+    # MCP Streamable HTTP and OAuth protected-resource metadata. The PHP
+    # endpoint returns 404 until a dedicated OAuth issuer is configured.
+    location = /mcp {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/mcp/index.php;
+        fastcgi_param SCRIPT_NAME /mcp/index.php;
+        fastcgi_pass unix:${PHP_SOCK};
+        fastcgi_buffering off;
+    }
+
+    location = /.well-known/oauth-protected-resource {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/mcp/index.php;
+        fastcgi_param SCRIPT_NAME /mcp/index.php;
+        fastcgi_pass unix:${PHP_SOCK};
+    }
+
     # The one agent page the app frames itself (in-window video check). The page sends
     # CSP frame-ancestors 'self' instead of X-Frame-Options (same pattern as kb_embed_serve.php).
     # An exact match, so it wins over the generic PHP location below regardless of order;
