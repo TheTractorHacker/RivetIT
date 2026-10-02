@@ -4,6 +4,19 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [26.10.7] RivetIT — API reference layout and code examples
+
+No database migration is required.
+
+- Replace the API reference viewer with a locally hosted Scalar build. The
+  reference uses the available width on its overview and offers request examples
+  in Python, PHP, C/Libcurl, and other clients for every endpoint.
+- Add a C++ libcurl example and explain how to use the per-endpoint C examples
+  from C++. Remove the unused AI and MCP controls from the reference.
+- Give the embedded Admin reference more space and update its instructions.
+- Point the OpenAPI drift check at RivetIT-Mobile instead of the former internal
+  Android app.
+
 ## [26.10.6] RivetIT — Department Portal OpenID Connect preview
 
 Database migration 2.6.116 is required. The provider is disabled by default.

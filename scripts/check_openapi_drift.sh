@@ -28,7 +28,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 OPENAPI="$REPO_ROOT/api/v1/openapi.yaml"
 INDEX="$REPO_ROOT/api/v1/index.php"
-KT="${APISERVICE_KT:-/home/sysadmin/itflow_android/app/src/main/java/com/foleyit/itflow/data/api/ApiService.kt}"
+KT="${APISERVICE_KT:-/home/sysadmin/rivetit-mobile/app/src/main/java/com/foleyit/itflow/data/api/ApiService.kt}"
 
 # Router resources that intentionally have no dedicated openapi path:
 #   ticket_categories / ticket_views  — underscore aliases of the documented

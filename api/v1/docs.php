@@ -1,5 +1,5 @@
 <?php
-// Public, read-only API reference. Redoc renders the same OpenAPI file that
+// Public, read-only API reference. Scalar renders the same OpenAPI file that
 // integrations can download; its assets are hosted by this installation.
 defined('FROM_API') || die();
 
@@ -19,8 +19,11 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$c
   .reference-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .65rem 1.25rem; border-bottom: 1px solid #e5e9ee; }
   .reference-top strong { font-size: .95rem; }
   .reference-top a { color: #176b67; font-size: .85rem; }
+  .reference-help { padding: .55rem 1.25rem; border-bottom: 1px solid #e5e9ee; color: #495766; font-size: .85rem; }
+  .reference-help summary { color: #176b67; cursor: pointer; display: inline; }
+  .reference-help pre { overflow: auto; margin: .7rem 0 0; padding: .9rem; border-radius: .4rem; background: #18212b; color: #f4f6f8; font-size: .8rem; }
   .reference-error { display: none; margin: 2rem; padding: 1rem; border: 1px solid #e5e9ee; border-radius: .5rem; }
-  @media (max-width: 600px) { .reference-top { padding: .65rem .85rem; } }
+  @media (max-width: 600px) { .reference-top, .reference-help { padding-left: .85rem; padding-right: .85rem; } }
 </style>
 </head>
 <body>
@@ -28,20 +31,50 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$c
   <strong>RivetIT API Reference</strong>
   <a href="/api/v1/openapi.yaml">Download OpenAPI spec</a>
 </header>
-<main id="redoc"></main>
+<div class="reference-help">
+  Choose an endpoint, then select Python, PHP, or another client in its request example. C &gt; Libcurl also works in C++.
+  <details><summary>Show a C++ example</summary>
+    <pre><code>#include &lt;curl/curl.h&gt;
+
+int main() {
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+    CURL *curl = curl_easy_init();
+    if (!curl) return 1;
+    curl_slist *headers = curl_slist_append(nullptr, "Authorization: Bearer YOUR_TOKEN");
+    curl_easy_setopt(curl, CURLOPT_URL, "https://YOUR_RIVETIT_HOST/api/v1/dashboard");
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    CURLcode result = curl_easy_perform(curl);
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+    curl_global_cleanup();
+    return result == CURLE_OK ? 0 : 1;
+}</code></pre>
+  </details>
+</div>
+<main id="scalar"></main>
 <div id="reference-error" class="reference-error" role="alert">
   The reference could not load. <a href="/api/v1/openapi.yaml">Download the OpenAPI spec</a> instead.
 </div>
 <noscript><p class="reference-error" style="display:block">JavaScript is required to browse this reference. <a href="/api/v1/openapi.yaml">Download the OpenAPI spec</a> instead.</p></noscript>
-<script src="/plugins/redoc/redoc.standalone.2.5.4-rivetit.js"></script>
+<script src="/plugins/scalar/scalar.standalone.1.72.4.js"></script>
 <script nonce="<?= htmlspecialchars($csp_nonce, ENT_QUOTES, 'UTF-8') ?>">
-  Redoc.init('/api/v1/openapi.yaml', {
-    disableGoogleFont: true,
-    hideDownloadButton: true,
-    theme: { typography: { fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' } }
-  }, document.getElementById('redoc'), function (error) {
-    if (error) document.getElementById('reference-error').style.display = 'block';
-  });
+  try {
+    Scalar.createApiReference('#scalar', {
+      url: '/api/v1/openapi.yaml',
+      layout: 'modern',
+      withDefaultFonts: false,
+      telemetry: false,
+      agent: { disabled: true },
+      mcp: { name: 'RivetIT', url: '/api/v1', disabled: true },
+      hideTestRequestButton: true,
+      hideClientButton: true,
+      showDeveloperTools: 'never',
+      defaultHttpClient: { targetKey: 'python', clientKey: 'requests' }
+    });
+  } catch (error) {
+    document.getElementById('reference-error').style.display = 'block';
+    console.error('API reference failed to load', error);
+  }
 </script>
 </body>
 </html>
