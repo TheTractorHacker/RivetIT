@@ -307,11 +307,11 @@ Callers send the key in an `X-Api-Key` header. A key cannot read stored credenti
 
 **Administration → API Docs** is a live reference for every endpoint.
 
-![The API Documentation page filtered with the word asset](images/admin-accounts/13-api-docs.png)
+![The API reference filtered with the word asset](images/admin-accounts/13-api-docs.png)
 
-*Figure 13 — API Docs. (1) Raw OpenAPI Spec and Public Reference Page. (2) The two ways to authenticate. (3) The search box.*
+*Figure 13 — The public API reference with a search for asset endpoints.*
 
-Type in the search box to filter by path, summary or method. **Raw OpenAPI Spec** opens the specification for Swagger UI, Postman or Insomnia. **Public Reference Page** opens the same reference without signing in. Callers may send `Authorization: Bearer <token>` or `X-Api-Key: <key>`, and each is limited to 300 requests per minute. The API still says **client** wherever the application says **Department**.
+Use the search box and endpoint navigation to find operations. Expand an operation to see its parameters, request body and responses. **OpenAPI spec** downloads the specification for tools such as Postman or Insomnia; **Open full reference** opens the same reference without signing in. Callers may send `Authorization: Bearer <token>` or `X-Api-Key: <key>`, and each is limited to 300 requests per minute. The API still says **client** wherever the application says **Department**.
 
 ## Logs
 

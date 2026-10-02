@@ -290,18 +290,12 @@ async function resize(page, height) {
     await resize(page, VIEW_H);
 
     // -------------------------------------------------------------------------------------
-    // 13  API Docs: the built-in reference, filtered with its search box
+    // 13  API Docs: the public Redoc reference, filtered with its search box
     // -------------------------------------------------------------------------------------
-    await goto(page, '/admin/api_docs.php');
-    await check(page, 'api docs', { selector: '.api-row', min: 20, text: 'API Documentation' });
-    await page.evaluate(() => { const toc = document.querySelector('.api-toc-col'); if (toc) toc.style.display = 'none'; });
-    await page.fill('#apiDocsSearch', 'asset');
+    await goto(page, '/api/v1/docs');
+    await page.locator('input[aria-label="Search"]').waitFor();
+    await page.fill('input[aria-label="Search"]', 'asset');
     await page.waitForTimeout(600);
-    await callout(page, [
-      { selector: '.card-tools', n: 1, side: 'tl' },
-      { selector: '.api-docs-shell .card-body .row .col-md-6:first-child', n: 2, side: 'tl' },
-      { selector: '.api-prompt-bar', n: 3, side: 'tl' },
-    ]);
     await shot(page, `${G}/13-api-docs`);
     await clearCallouts(page);
 

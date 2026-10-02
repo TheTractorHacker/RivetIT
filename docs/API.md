@@ -15,10 +15,9 @@ HTTP client and one of the two auth methods below.
   `GET /api/v1/openapi.yaml` and mirrors exactly what the running instance
   supports — import it into Swagger UI, Postman, or Insomnia to explore and
   try requests.
-- **Human-readable in-app reference:** `GET /api/v1/docs` is a
-  self-contained, searchable HTML reference generated from the same spec
-  (also linked from **Admin > API Docs**). Use it to
-  browse the exact request/response schema of any endpoint.
+- **Human-readable in-app reference:** `GET /api/v1/docs` uses a locally
+  hosted Redoc viewer for the same spec (also embedded in **Admin > API Docs**).
+  Use its navigation and search to browse endpoint parameters and schemas.
 
 This document is a narrative companion to those two — it explains what each
 resource is for and how the pieces fit together. For the full request/response

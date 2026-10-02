@@ -87,9 +87,8 @@ if ($resource === 'auth') {
 // served without a token, the same way `auth` is. This keeps GET /api/v1/docs
 // browsable in a plain browser (which sends no Bearer token) and the spec
 // fetchable by tooling (Swagger/Postman/CI). Light per-IP rate limit that
-// fails open when Redis is down. The docs page is 100% self-contained (inline
-// CSS, no JS, no external assets), so it renders safely under a strict
-// `default-src 'self'` CSP.
+// fails open when Redis is down. The docs page loads only local assets and
+// fetches the same public OpenAPI spec used by integrations.
 if ($resource === 'openapi' || $resource === 'docs') {
     if (!api_rate_limit('docs_ip:' . getIP(), 60, 60)) {
         header('Retry-After: 60');
