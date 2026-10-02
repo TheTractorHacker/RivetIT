@@ -62,3 +62,6 @@ setup/custom/*
 api/v1/custom/*
 !api/v1/custom/readme.php
 .zed
+# Composer installs new packages from composer.lock during deployment.
+# Existing tracked vendor files remain tracked.
+/vendor/*
