@@ -1,24 +1,15 @@
 <?php return array(
     'root' => array(
-        'name' => '__root__',
+        'name' => 'rivetit/rivetit',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => 'fac9d98e7fdeee95a4ee605d4f2935d08b95050c',
-        'type' => 'library',
+        'reference' => 'bfad468d2d537caefcf3ce79bb9e9a32833f3ed0',
+        'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
         'dev' => true,
     ),
     'versions' => array(
-        '__root__' => array(
-            'pretty_version' => 'dev-main',
-            'version' => 'dev-main',
-            'reference' => 'fac9d98e7fdeee95a4ee605d4f2935d08b95050c',
-            'type' => 'library',
-            'install_path' => __DIR__ . '/../../',
-            'aliases' => array(),
-            'dev_requirement' => false,
-        ),
         'aws/aws-crt-php' => array(
             'pretty_version' => 'v1.2.7',
             'version' => '1.2.7.0',
@@ -34,6 +25,15 @@
             'reference' => '0756c511a913b57ab5415db6136d8c0c250ace15',
             'type' => 'library',
             'install_path' => __DIR__ . '/../aws/aws-sdk-php',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'firebase/php-jwt' => array(
+            'pretty_version' => 'v7.2.1',
+            'version' => '7.2.1.0',
+            'reference' => '0501f5729b9e2448516674aff07c7d1727869b8e',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../firebase/php-jwt',
             'aliases' => array(),
             'dev_requirement' => false,
         ),
@@ -126,6 +126,15 @@
             'provided' => array(
                 0 => '2.0',
             ),
+        ),
+        'rivetit/rivetit' => array(
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => 'bfad468d2d537caefcf3ce79bb9e9a32833f3ed0',
+            'type' => 'project',
+            'install_path' => __DIR__ . '/../../',
+            'aliases' => array(),
+            'dev_requirement' => false,
         ),
         'symfony/deprecation-contracts' => array(
             'pretty_version' => 'v3.7.1',

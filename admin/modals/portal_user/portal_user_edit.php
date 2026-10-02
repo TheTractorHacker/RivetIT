@@ -7,7 +7,7 @@ ob_start();
 
 $user_id = intval($_GET['id'] ?? 0);
 
-$sql = mysqli_query($mysqli, "SELECT users.user_id, users.user_name, users.user_email, users.user_auth_method, users.user_role_id, users.user_token, COALESCE(user_settings.user_config_force_mfa, 0) AS force_mfa,
+$sql = mysqli_query($mysqli, "SELECT users.user_id, users.user_name, users.user_email, users.user_auth_method, users.user_oidc_issuer, users.user_oidc_subject, users.user_role_id, users.user_token, COALESCE(user_settings.user_config_force_mfa, 0) AS force_mfa,
         contacts.contact_title, contacts.contact_portal_role, clients.client_name
     FROM users
     INNER JOIN contacts ON contacts.contact_user_id = users.user_id
@@ -65,6 +65,25 @@ $cur_role_id = intval($row['user_role_id']);
         </div>
 
         <div class="form-group">
+            <label for="pu_edit_auth<?= $user_id ?>">Sign-in method</label>
+            <select class="form-control" id="pu_edit_auth<?= $user_id ?>" name="auth_method">
+                <option value="local" <?= $row['user_auth_method'] === 'local' ? 'selected' : '' ?>>Local password</option>
+                <?php if (!empty($config_azure_client_id) || $row['user_auth_method'] === 'azure') { ?>
+                    <option value="azure" <?= $row['user_auth_method'] === 'azure' ? 'selected' : '' ?>>Microsoft Entra</option>
+                <?php } ?>
+                <?php if ($config_oidc_enabled || $row['user_auth_method'] === 'oidc') { ?>
+                    <option value="oidc" <?= $row['user_auth_method'] === 'oidc' ? 'selected' : '' ?>>OpenID Connect</option>
+                <?php } ?>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="pu_edit_subject<?= $user_id ?>">OpenID Connect subject (sub)</label>
+            <input class="form-control" id="pu_edit_subject<?= $user_id ?>" name="oidc_subject" value="<?= nullable_htmlentities($row['user_oidc_subject'] ?? '') ?>" maxlength="255" autocomplete="off">
+            <small class="form-text text-muted">Copy the user's immutable subject from the configured identity provider. Email is never used to link accounts. Required when OpenID Connect is selected.</small>
+            <?php if (!empty($row['user_oidc_issuer'])) { ?><small class="form-text text-muted">Currently linked issuer: <?= nullable_htmlentities($row['user_oidc_issuer']) ?></small><?php } ?>
+        </div>
+
+        <div class="form-group">
             <label for="pu_edit_title<?= $user_id ?>">Title</label>
             <input type="text" class="form-control" id="pu_edit_title<?= $user_id ?>" name="title" value="<?= $title ?>" maxlength="200">
         </div>
@@ -80,19 +99,15 @@ $cur_role_id = intval($row['user_role_id']);
             <small class="form-text text-muted">Optional. What this login can open in the agent app comes from the role you pick (roles are made in Admin &gt; Roles); the list shows what each one allows. Training roles open the full training module from Manage training; other roles add an agent workspace link to the portal menu. Company-wide, not limited to their department. Only roles without Departments, Tickets/assets/docs, Assets or admin are listed.</small>
         </div>
 
-        <?php if ($is_local) { ?>
         <div class="form-group">
-            <label for="pu_edit_password<?= $user_id ?>">New password</label>
+            <label for="pu_edit_password<?= $user_id ?>">New local password</label>
             <div class="input-group">
                 <input type="password" class="form-control" data-toggle="password" name="new_password" id="pu_edit_password<?= $user_id ?>" autocomplete="new-password" minlength="8" placeholder="Leave blank to keep the current password">
                 <span class="input-group-text" title="Show password"><i class="fa fa-fw fa-eye"></i></span>
                 <button type="button" class="btn btn-outline-secondary js-portal-generate" title="Generate a random password" aria-label="Generate a random password"><i class="fa fa-fw fa-dice"></i></button>
             </div>
-            <small class="form-text text-muted">Changing the password also clears any saved "remember me" sign-ins.</small>
+            <small class="form-text text-muted">Required when switching to local sign-in. Leave blank to keep the current password otherwise.</small>
         </div>
-        <?php } else { ?>
-        <div class="alert alert-info py-2 px-3 small">This login does not use a local password (single sign-on), so there is no password to set here.</div>
-        <?php } ?>
 
         <?php if ($is_local) { ?>
         <hr class="my-3">

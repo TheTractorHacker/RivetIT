@@ -10,6 +10,10 @@ DEFINE("CURRENT_DATABASE_VERSION", $row['config_current_database_version']);
 // Microsoft OAuth (SSO / Identity Provider)
 $config_azure_client_id = $row['config_azure_client_id'];
 $config_azure_client_secret = decryptSetting($row['config_azure_client_secret'] ?? '');
+$config_oidc_enabled = intval($row['config_oidc_enabled'] ?? 0);
+$config_oidc_issuer = (string) ($row['config_oidc_issuer'] ?? '');
+$config_oidc_client_id = (string) ($row['config_oidc_client_id'] ?? '');
+$config_oidc_secret_saved = !empty($row['config_oidc_client_secret']);
 
 // Outlook Calendar Sync
 $config_outlook_cal_client_id     = $row['config_outlook_cal_client_id'] ?? '';

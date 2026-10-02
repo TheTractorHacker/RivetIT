@@ -12,7 +12,8 @@
     },
     "require": {
         "predis/predis": "^3.5",
-        "aws/aws-sdk-php": "^3.395"
+        "aws/aws-sdk-php": "^3.395",
+        "firebase/php-jwt": "^7.2"
     },
     "autoload": {
         "psr-4": {

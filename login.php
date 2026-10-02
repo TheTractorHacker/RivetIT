@@ -101,6 +101,9 @@ $config_login_key_required = $row['config_login_key_required'];
 $config_login_key_secret   = $row['config_login_key_secret'];
 
 $azure_client_id = $row['config_azure_client_id'] ?? null;
+$oidc_enabled = intval($row['config_oidc_enabled'] ?? 0) === 1
+    && !empty($row['config_oidc_issuer']) && !empty($row['config_oidc_client_id'])
+    && !empty($row['config_oidc_client_secret']);
 
 $config_theme = nullable_htmlentities($row['config_theme'] ?? 'teal');
 
@@ -1110,6 +1113,11 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
                 <p class="text-center px-0"><?php echo nl2br($config_login_message); ?></p>
             <?php } ?>
 
+            <?php if (!empty($_SESSION['oidc_login_error'])) { ?>
+                <div class="alert alert-danger" role="alert"><?= nullable_htmlentities($_SESSION['oidc_login_error']) ?></div>
+                <?php unset($_SESSION['oidc_login_error']); ?>
+            <?php } ?>
+
             <?php if (isset($response)) { ?>
                 <p><?php echo $response; ?></p>
             <?php } ?>
@@ -1215,7 +1223,7 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
 
             </form>
 
-            <?php if($config_client_portal_enable == 1 && ((!empty($config_smtp_host) || !empty($config_smtp_provider)) || !empty($azure_client_id))){ ?>
+            <?php if($config_client_portal_enable == 1 && ((!empty($config_smtp_host) || !empty($config_smtp_provider)) || !empty($azure_client_id) || $oidc_enabled)){ ?>
                 <hr>
                 <?php if ((!empty($config_smtp_host) || !empty($config_smtp_provider))) { ?>
                     <a href="client/login_reset.php">Forgot password?</a>
@@ -1225,6 +1233,11 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
                         <a href="client/login_microsoft.php">
                             <button type="button" class="btn btn-secondary">Login with Microsoft Entra</button>
                         </a>
+                    </div>
+                <?php } ?>
+                <?php if ($oidc_enabled) { ?>
+                    <div class="col text-center mt-2">
+                        <a class="btn btn-secondary" href="client/login_oidc.php">Login with company SSO</a>
                     </div>
                 <?php } ?>
             <?php } ?>

@@ -2807,6 +2807,10 @@ CREATE TABLE `settings` (
   `config_invoice_overdue_reminders` varchar(200) DEFAULT NULL,
   `config_azure_client_id` varchar(200) DEFAULT NULL,
   `config_azure_client_secret` varchar(200) DEFAULT NULL,
+  `config_oidc_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `config_oidc_issuer` varchar(255) DEFAULT NULL,
+  `config_oidc_client_id` varchar(255) DEFAULT NULL,
+  `config_oidc_client_secret` text DEFAULT NULL,
   `config_outlook_cal_client_id` varchar(200) DEFAULT NULL,
   `config_outlook_cal_client_secret` varchar(500) DEFAULT NULL,
   `config_outlook_cal_tenant_id` varchar(200) DEFAULT NULL,
@@ -5657,6 +5661,8 @@ CREATE TABLE `users` (
   `user_email` varchar(200) NOT NULL,
   `user_password` varchar(200) NOT NULL,
   `user_auth_method` varchar(200) NOT NULL DEFAULT 'local',
+  `user_oidc_issuer` varchar(255) DEFAULT NULL,
+  `user_oidc_subject` varchar(255) DEFAULT NULL,
   `user_type` tinyint(1) NOT NULL DEFAULT 1,
   `user_status` tinyint(1) NOT NULL DEFAULT 1,
   `user_token` varchar(200) DEFAULT NULL,
@@ -5679,7 +5685,8 @@ CREATE TABLE `users` (
   `user_passkey_enc_ciphertext` varchar(300) DEFAULT NULL,
   `user_passkey_enc_iv` varchar(64) DEFAULT NULL,
   `user_passkey_bootstrap_key` varchar(64) DEFAULT NULL,
-  PRIMARY KEY (`user_id`)
+  PRIMARY KEY (`user_id`),
+  UNIQUE KEY `idx_users_oidc_identity` (`user_oidc_issuer`,`user_oidc_subject`)
 ) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

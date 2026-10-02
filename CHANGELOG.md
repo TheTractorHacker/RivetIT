@@ -4,6 +4,21 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [26.10.6] RivetIT — Department Portal OpenID Connect preview
+
+Database migration 2.6.116 is required. The provider is disabled by default.
+
+- Add OpenID Connect authorization-code sign-in with PKCE for Department Portal
+  accounts, using issuer discovery and signed ID tokens from a compatible
+  Authentik, Keycloak, or Ory Hydra provider.
+- Bind each portal account explicitly to the provider issuer and immutable
+  subject. A matching email alone never creates a login. Disabled, archived,
+  unmapped, and ambiguous accounts are rejected.
+- Add masked provider settings and account-mapping controls in Administration.
+  Existing local and Microsoft Entra sign-in remain available.
+- Document setup and recovery in `docs/OPENID_CONNECT_PORTAL.md`. Agent SSO and
+  single logout are outside this preview.
+
 ## [26.10.5] RivetIT — Vacation-return ticket automation
 
 Database migration 2.6.115 is required.

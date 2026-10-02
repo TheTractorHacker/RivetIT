@@ -9537,3 +9537,18 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             ADD INDEX IF NOT EXISTS `idx_tickets_vacation_return` (`ticket_closed_at`, `ticket_contact_id`)");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.115'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.115') {
+        // OIDC is disabled until an administrator configures a trusted issuer
+        // and explicitly maps a portal login to that issuer's immutable sub.
+        mysqli_query($mysqli, "ALTER TABLE `settings`
+            ADD COLUMN IF NOT EXISTS `config_oidc_enabled` tinyint(1) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `config_oidc_issuer` varchar(255) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `config_oidc_client_id` varchar(255) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `config_oidc_client_secret` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `users`
+            ADD COLUMN IF NOT EXISTS `user_oidc_subject` varchar(255) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `user_oidc_issuer` varchar(255) DEFAULT NULL,
+            ADD UNIQUE INDEX IF NOT EXISTS `idx_users_oidc_identity` (`user_oidc_issuer`, `user_oidc_subject`)");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.116'");
+    }

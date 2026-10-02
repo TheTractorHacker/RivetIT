@@ -13,21 +13,6 @@ require_once "includes/inc_all_admin.php";
             <h4>Department Portal SSO via Microsoft Entra</h4>
 
             <div class="form-group">
-                <label>Identity Provider <small class='text-secondary'>(Currently only works with Microsoft Entra ID/AAD)</small></label>
-                <div class="input-group">
-                    <div class="input-group-prepend">
-                        <span class="input-group-text"><i class="fa fa-fw fa-fingerprint"></i></span>
-                    </div>
-                    <select class="form-control select2" readonly>
-                        <option <?php if (empty($config_azure_client_id)) { echo "selected"; } ?>>Disabled</option>
-                        <option <?php if ($config_azure_client_id) { echo "selected"; } ?>>Microsoft Entra</option>
-                        <option>Google (WIP)</option>
-                        <option>Custom SSO (WIP)</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-group">
                 <label>MS Entra OAuth App (Client) ID</label>
                 <div class="input-group">
                     <div class="input-group-prepend">
@@ -43,7 +28,7 @@ require_once "includes/inc_all_admin.php";
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-key"></i></span>
                     </div>
-                    <input type="password" class="form-control" name="azure_client_secret" placeholder="Auto-generated from App Registration" value="<?php echo nullable_htmlentities($config_azure_client_secret); ?>" autocomplete="new-password">
+                    <input type="password" class="form-control" name="azure_client_secret" placeholder="<?= $config_azure_client_secret !== '' ? 'Saved — leave blank to keep' : 'Client secret' ?>" autocomplete="new-password">
                 </div>
             </div>
 
@@ -51,6 +36,31 @@ require_once "includes/inc_all_admin.php";
 
             <button type="submit" name="edit_identity_provider" class="btn btn-primary text-bold"><i class="fa fa-check me-2"></i>Save</button>
 
+        </form>
+
+        <hr class="my-4">
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <h4>OpenID Connect for Department Portal</h4>
+            <p class="text-muted">Connect Authentik, Keycloak, or Ory Hydra. Register <code>https://<?= nullable_htmlentities($config_base_url) ?>/client/login_oidc.php</code> as the exact redirect URI. Link each Department login to its provider subject in Administration &gt; Users &gt; Department logins.</p>
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="oidc_enabled" name="oidc_enabled" value="1" <?= $config_oidc_enabled ? 'checked' : '' ?>>
+                <label class="form-check-label" for="oidc_enabled">Enable company SSO sign-in</label>
+            </div>
+            <div class="form-group">
+                <label for="oidc_issuer">Issuer URL</label>
+                <input class="form-control" type="url" id="oidc_issuer" name="oidc_issuer" value="<?= nullable_htmlentities($config_oidc_issuer) ?>" placeholder="https://login.example.org/application/o/rivetit" maxlength="255">
+                <small class="form-text text-muted">Use the exact issuer from the provider's OpenID discovery document. HTTPS is required.</small>
+            </div>
+            <div class="form-group">
+                <label for="oidc_client_id">Client ID</label>
+                <input class="form-control" id="oidc_client_id" name="oidc_client_id" value="<?= nullable_htmlentities($config_oidc_client_id) ?>" maxlength="255">
+            </div>
+            <div class="form-group">
+                <label for="oidc_client_secret">Client secret</label>
+                <input class="form-control" type="password" id="oidc_client_secret" name="oidc_client_secret" autocomplete="new-password" placeholder="<?= $config_oidc_secret_saved ? 'Saved — leave blank to keep' : 'Client secret' ?>">
+            </div>
+            <button type="submit" name="edit_oidc_provider" class="btn btn-primary"><i class="fa fa-check me-2"></i>Save OpenID Connect</button>
         </form>
     </div>
 </div>
