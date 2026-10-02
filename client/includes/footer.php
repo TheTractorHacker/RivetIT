@@ -75,6 +75,9 @@
 <script src="/js/keepalive.js"></script>
 
 <script src="/js/portal.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/portal.js'); ?>"></script>
+<script src="/js/file_upload.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/file_upload.js'); ?>"
+        data-file-limit="<?= htmlspecialchars(ini_get('upload_max_filesize')) ?>"
+        data-request-limit="<?= htmlspecialchars(ini_get('post_max_size')) ?>"></script>
 
 <?php if (isset($portal_preview_banner) && $portal_preview_banner !== null) { ?>
     <!-- Read-only portal preview. Loaded ONLY while an agent is previewing, so a

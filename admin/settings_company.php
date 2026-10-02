@@ -38,15 +38,15 @@ $company_initials = nullable_htmlentities(initials($company_name));
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
 
                     <div class="row">
-                        <div class="col-md-3 text-center">
+                        <div class="col-md-3 text-center company-logo-settings">
                             <?php if ($company_logo) { ?>
-                                <img class="img-thumbnail" src="<?php echo "../uploads/settings/$company_logo"; ?>">
-                                <a href="post.php?remove_company_logo&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-outline-danger btn-block">Remove Logo</a>
-                                <hr>
+                                <img class="img-thumbnail company-logo-preview" src="<?php echo "../uploads/settings/$company_logo"; ?>" alt="Current company logo">
+                                <a href="post.php?remove_company_logo&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-outline-danger btn-block mt-3 mb-3 confirm-link">Remove Logo</a>
                             <?php } ?>
                             <div class="form-group">
-                                <label>Upload company logo</label>
-                                <input type="file" class="form-control-file" name="file" accept=".jpg, .jpeg, .png">
+                                <label for="company_logo_file">Upload company logo</label>
+                                <input type="file" class="form-control" id="company_logo_file" name="file" accept=".jpg, .jpeg, .png,image/jpeg,image/png">
+                                <small class="form-text text-muted">JPG or PNG. A wide, transparent logo works best. Choose a file, then save below.</small>
                             </div>
                         </div>
 
@@ -207,7 +207,7 @@ $company_initials = nullable_htmlentities(initials($company_name));
 
                             <hr>
 
-                            <button type="submit" name="edit_company" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
+                            <button type="submit" name="edit_company" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save company details</button>
                         </div>
                     </div>
                 </div>

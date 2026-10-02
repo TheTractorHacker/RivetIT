@@ -64,7 +64,7 @@ if (isset($_GET['remove_company_logo'])) {
 
     validateCSRFToken($_GET['csrf_token']);
 
-    $sql = mysqli_query($mysqli,"SELECT company_logo FROM companies");
+    $sql = mysqli_query($mysqli,"SELECT company_logo FROM companies WHERE company_id = 1");
     $row = mysqli_fetch_assoc($sql);
     $company_logo = $row['company_logo']; // FileSystem Operation Logo is already sanitized
 

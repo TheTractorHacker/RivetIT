@@ -95,6 +95,7 @@ window.openAjaxModal = function (modalUrl, modalSize, options) {
         '</div>';
       const modalEl = wrapper.firstElementChild;
       host.appendChild(modalEl);
+      if (window.enhanceFileUploads) { window.enhanceFileUploads(modalEl); }
       executeInjectedScripts(modalEl);
 
       // Bootstrap tooltips/popovers only auto-init on elements present at the page's

@@ -16,7 +16,7 @@ renderAdminDirectory('Tags & categories', 'Manage shared labels, links, and setu
         'description' => 'Manage navigation shortcuts and AI providers.',
         'items' => [
             ['Custom links', 'Add links to app menus.', 'custom_link.php', 'fa-external-link-alt'],
-            ['AI providers', 'Connect providers and manage models.', 'ai_provider.php', 'fa-robot'],
+            ['AI settings', 'Connect providers and manage models.', 'settings_ai.php#providers', 'fa-robot'],
         ],
     ],
     'people' => [

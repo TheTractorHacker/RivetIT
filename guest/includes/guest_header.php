@@ -108,6 +108,7 @@
     <link rel="stylesheet" href="/css/itflow_bs5_bridge.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_bs5_bridge.css') ?>">
     <link rel="stylesheet" href="/css/itflow_custom.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_custom.css') ?>">
     <link rel="stylesheet" href="/css/itflow_design.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_design.css') ?>">
+    <link rel="stylesheet" href="/css/file_upload.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/file_upload.css') ?>">
 
     <!-- Motion layer. Owns every animation in the app, including the single global
          prefers-reduced-motion guard, so no later rule can forget it. Must sit AFTER

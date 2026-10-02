@@ -96,6 +96,20 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
 </div>
 <?php } ?>
 
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+.calendar-step-number { flex: 0 0 32px; }
+.calendar-step-number .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    line-height: 1;
+    font-size: 1rem;
+}
+</style>
+
 <!-- ── Setup Guide Card ────────────────────────────────────── -->
 <div class="card">
     <div class="card-header py-3">
@@ -107,8 +121,8 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
 
         <!-- Step 1 -->
         <div class="d-flex mb-4">
-            <div class="me-3 text-center" style="min-width:32px;">
-                <span class="badge text-bg-dark rounded-pill" style="font-size:1rem;width:32px;height:32px;line-height:32px;display:inline-block;">1</span>
+            <div class="me-3 calendar-step-number">
+                <span class="badge text-bg-dark rounded-pill">1</span>
             </div>
             <div>
                 <strong>Go to Azure Portal → App Registrations</strong>
@@ -124,8 +138,8 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
 
         <!-- Step 2 -->
         <div class="d-flex mb-4">
-            <div class="me-3 text-center" style="min-width:32px;">
-                <span class="badge text-bg-dark rounded-pill" style="font-size:1rem;width:32px;height:32px;line-height:32px;display:inline-block;">2</span>
+            <div class="me-3 calendar-step-number">
+                <span class="badge text-bg-dark rounded-pill">2</span>
             </div>
             <div>
                 <strong>Copy the IDs from the Overview page</strong>
@@ -135,8 +149,8 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
 
         <!-- Step 3 -->
         <div class="d-flex mb-4">
-            <div class="me-3 text-center" style="min-width:32px;">
-                <span class="badge text-bg-dark rounded-pill" style="font-size:1rem;width:32px;height:32px;line-height:32px;display:inline-block;">3</span>
+            <div class="me-3 calendar-step-number">
+                <span class="badge text-bg-dark rounded-pill">3</span>
             </div>
             <div>
                 <strong>Add API Permissions</strong>
@@ -152,8 +166,8 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
 
         <!-- Step 4 -->
         <div class="d-flex mb-4">
-            <div class="me-3 text-center" style="min-width:32px;">
-                <span class="badge text-bg-dark rounded-pill" style="font-size:1rem;width:32px;height:32px;line-height:32px;display:inline-block;">4</span>
+            <div class="me-3 calendar-step-number">
+                <span class="badge text-bg-dark rounded-pill">4</span>
             </div>
             <div>
                 <strong>Create a Client Secret</strong>
@@ -169,8 +183,8 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
 
         <!-- Step 5 -->
         <div class="d-flex mb-4">
-            <div class="me-3 text-center" style="min-width:32px;">
-                <span class="badge text-bg-dark rounded-pill" style="font-size:1rem;width:32px;height:32px;line-height:32px;display:inline-block;">5</span>
+            <div class="me-3 calendar-step-number">
+                <span class="badge text-bg-dark rounded-pill">5</span>
             </div>
             <div>
                 <strong>Save Credentials &amp; Connect Users</strong>

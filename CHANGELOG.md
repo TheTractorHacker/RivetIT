@@ -4,6 +4,21 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [26.10.3] RivetIT — Admin settings and upload polish
+
+No database migration is required.
+
+- Removed invoice and quote sections from Notification Settings without clearing
+  their saved values when other notification settings are saved.
+- Joined icon and dropdown controls across Admin settings, centered the Calendar
+  Sync guide numbers, and removed white corners from dark modal headers.
+- Gave file uploads a consistent browse and drag-and-drop surface across the app,
+  client portal, and installer, with accepted-type and server-limit hints. Company
+  logo and favicon controls have clearer spacing and actions.
+- Moved AI provider management into AI Settings. The former provider URL now
+  redirects there. Improved the Webhooks page's layout, empty states, and delivery
+  summary query.
+
 ## [26.10.2] RivetIT — Visual cron schedules
 
 No database migration is required.

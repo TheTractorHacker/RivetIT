@@ -8,24 +8,14 @@ if (isset($_POST['edit_notification_settings'])) {
 
     $config_enable_cron                          = intval($_POST['config_enable_cron'] ?? 0);
     $config_enable_alert_domain_expire           = intval($_POST['config_enable_alert_domain_expire'] ?? 0);
-    $config_send_invoice_reminders               = intval($_POST['config_send_invoice_reminders'] ?? 0);
-    $config_invoice_overdue_reminders            = intval($_POST['config_invoice_overdue_reminders'] ?? 0);
-    $config_recurring_auto_send_invoice          = intval($_POST['config_recurring_auto_send_invoice'] ?? 0);
     $config_ticket_client_general_notifications  = intval($_POST['config_ticket_client_general_notifications'] ?? 0);
     $config_ticket_new_ticket_notification_email = sanitizeInput(filter_var($_POST['config_ticket_new_ticket_notification_email'] ?? '', FILTER_VALIDATE_EMAIL) ?: '');
-    $config_invoice_paid_notification_email      = sanitizeInput(filter_var($_POST['config_invoice_paid_notification_email'] ?? '', FILTER_VALIDATE_EMAIL) ?: '');
-    $config_quote_notification_email             = sanitizeInput(filter_var($_POST['config_quote_notification_email'] ?? '', FILTER_VALIDATE_EMAIL) ?: '');
 
     mysqli_query($mysqli, "UPDATE settings SET
         config_enable_cron = $config_enable_cron,
         config_enable_alert_domain_expire = $config_enable_alert_domain_expire,
-        config_send_invoice_reminders = $config_send_invoice_reminders,
-        config_invoice_overdue_reminders = $config_invoice_overdue_reminders,
-        config_recurring_auto_send_invoice = $config_recurring_auto_send_invoice,
         config_ticket_client_general_notifications = $config_ticket_client_general_notifications,
-        config_ticket_new_ticket_notification_email = '$config_ticket_new_ticket_notification_email',
-        config_invoice_paid_notification_email = '$config_invoice_paid_notification_email',
-        config_quote_notification_email = '$config_quote_notification_email'
+        config_ticket_new_ticket_notification_email = '$config_ticket_new_ticket_notification_email'
         WHERE company_id = 1");
 
     logAction("Settings", "Edit", "$session_name edited notification settings");

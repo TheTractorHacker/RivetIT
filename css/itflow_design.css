@@ -216,6 +216,9 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
   border-color: var(--if-border-strong); border-radius: var(--if-radius-sm);
   background-color: var(--if-surface); color: var(--if-ink); padding: .45rem .7rem;
 }
+.company-logo-preview { max-width: 100%; max-height: 10rem; object-fit: contain; }
+.company-logo-settings .form-group { text-align: left; }
+.company-logo-settings .form-text { line-height: 1.35; }
 .form-control:not(.form-control-sm):not(textarea),
 .form-select:not(.form-select-sm),
 .ts-wrapper:not(.form-control-sm) { min-height: var(--if-control-h); }
@@ -275,6 +278,27 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
   border-top-left-radius: var(--if-radius-sm) !important;
   border-bottom-left-radius: var(--if-radius-sm) !important;
   margin-left: 0 !important;
+}
+/* Bootstrap sees the hidden original select as a child and misses the visible
+   Tom Select wrapper after a legacy input-group-prepend icon. Keep only the
+   outside corners rounded and join the two borders without a gap. */
+.input-group > .input-group-prepend + .ts-hidden-accessible + .ts-wrapper,
+.input-group > .input-group-prepend + .ts-wrapper {
+  min-width: 0;
+  flex: 1 1 auto;
+  margin-left: -1px;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+.input-group > .input-group-prepend + .ts-hidden-accessible + .ts-wrapper > .ts-control,
+.input-group > .input-group-prepend + .ts-wrapper > .ts-control {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+.input-group > .input-group-prepend:has(+ .ts-hidden-accessible + .ts-wrapper) > .input-group-text,
+.input-group > .input-group-prepend:has(+ .ts-wrapper) > .input-group-text {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
 }
 /* Focus vs. invalid must not look alike. A soft coloured halo around a coloured
    border IS Bootstrap's :invalid look, and on an install whose accent happens to
@@ -548,8 +572,22 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
 .info-box-number { font-family: var(--if-mono); }
 
 /* ---- Modals: match the card language ---- */
-.modal-content { border: 1px solid var(--if-border); border-radius: var(--if-radius); box-shadow: 0 12px 40px rgba(20,35,42,.18); }
-.modal-header { border-bottom: 1px solid var(--if-border); }
+.modal-content {
+  border: 1px solid var(--if-border);
+  border-radius: var(--if-radius);
+  background: var(--if-surface);
+  box-shadow: 0 12px 40px rgba(20,35,42,.18);
+}
+.modal-header {
+  border-bottom: 1px solid var(--if-border);
+  border-radius: 0;
+}
+/* Dark headers cover the modal's inner top edge so its light body surface cannot
+   show as white crescents. Keep overflow visible for menus and select dropdowns. */
+.modal-header.bg-dark {
+  margin: -1px -1px 0;
+  border-radius: var(--if-radius) var(--if-radius) 0 0;
+}
 .modal-footer { border-top: 1px solid var(--if-border); }
 
 /* ---- Breadcrumbs: readable wayfinding above detail pages. ---- */

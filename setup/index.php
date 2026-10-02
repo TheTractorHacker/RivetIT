@@ -795,6 +795,7 @@ if (isset($_POST['add_telemetry'])) {
     <!-- Custom Style Sheet -->
     <link href="/plugins/select2/css/select2.min.css" rel="stylesheet" type="text/css">
     <link href="/plugins/select2-bootstrap4-theme/select2-bootstrap4.min.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="/css/file_upload.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/file_upload.css') ?>">
 
 </head>
 
@@ -1325,7 +1326,7 @@ if (isset($_POST['add_telemetry'])) {
                                 <code>deploy/restore.sh</code> in <code>deploy/README.md</code>, not this form.</small></p>
                                 <form method="post" enctype="multipart/form-data" autocomplete="off">
                                     <label>Restore <?= htmlspecialchars(APP_NAME) ?> Backup (.zip)</label>
-                                    <input type="file" name="backup_zip" accept=".zip" required>
+                                    <input type="file" class="form-control" name="backup_zip" accept=".zip" required>
                                     <div class="form-group mt-3">
                                         <label>Backup passphrase <span class="text-muted">(only if one was set)</span></label>
                                         <input type="password" class="form-control" name="backup_passphrase"
@@ -1390,7 +1391,7 @@ if (isset($_POST['add_telemetry'])) {
 
                                 <div class="form-group">
                                     <label>Avatar</label>
-                                    <input type="file" class="form-control-file" accept="image/*;capture=camera" name="file">
+                                    <input type="file" class="form-control" accept="image/*;capture=camera" name="file">
                                 </div>
 
                                 <hr>
@@ -1421,7 +1422,7 @@ if (isset($_POST['add_telemetry'])) {
 
                                 <div class="form-group">
                                     <label>Logo</label>
-                                    <input type="file" class="form-control-file" name="file" accept=".jpg, .jpeg, .png">
+                                    <input type="file" class="form-control" name="file" accept=".jpg, .jpeg, .png">
                                 </div>
 
                                 <div class="form-group">
@@ -1711,6 +1712,9 @@ if (isset($_POST['add_telemetry'])) {
 
 <!-- Custom js-->
 <script src="/js/app.js"></script>
+<script src="/js/file_upload.js?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/file_upload.js') ?>"
+        data-file-limit="<?= htmlspecialchars(ini_get('upload_max_filesize')) ?>"
+        data-request-limit="<?= htmlspecialchars(ini_get('post_max_size')) ?>"></script>
 
 </body>
 

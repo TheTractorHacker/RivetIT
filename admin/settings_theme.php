@@ -134,12 +134,12 @@ $theme_colors_array = array (
                 <small class="form-text text-muted">A square .ico file. Shown in the browser tab and in bookmarks.</small>
             </div>
 
-            <hr>
-
-            <button type="submit" name="edit_favicon_settings" class="btn btn-primary text-bold"><i class="fa fa-check me-2"></i>Upload Icon</button>
-            <?php if(file_exists("../uploads/favicon.ico")) { ?>
-            <a href="post.php?reset_favicon&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-outline-danger"><i class="fas fa-redo-alt me-2"></i>Reset Favicon</a>
-            <?php } ?>
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                <button type="submit" name="edit_favicon_settings" class="btn btn-primary text-bold"><i class="fa fa-check me-2"></i>Upload Icon</button>
+                <?php if(file_exists("../uploads/favicon.ico")) { ?>
+                    <a href="post.php?reset_favicon&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-outline-danger confirm-link"><i class="fas fa-redo-alt me-2"></i>Reset Favicon</a>
+                <?php } ?>
+            </div>
         </form>
     </div>
 </div>
