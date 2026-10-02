@@ -908,6 +908,8 @@ CREATE TABLE `contacts` (
   `contact_employment_status` varchar(30) NOT NULL DEFAULT 'active',
   `contact_work_arrangement` varchar(20) DEFAULT NULL,
   `contact_start_date` date DEFAULT NULL,
+  `contact_vacation_start` date DEFAULT NULL,
+  `contact_vacation_end` date DEFAULT NULL,
   `contact_expected_end_date` date DEFAULT NULL,
   `contact_title` varchar(200) DEFAULT NULL,
   `contact_email` varchar(200) DEFAULT NULL,
@@ -3725,7 +3727,8 @@ CREATE TABLE `tickets` (
   `ticket_delivery_method` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`ticket_id`),
   KEY `idx_tickets_client_archived_updated` (`ticket_client_id`,`ticket_archived_at`,`ticket_updated_at`),
-  KEY `idx_tickets_problem` (`ticket_problem_id`)
+  KEY `idx_tickets_problem` (`ticket_problem_id`),
+  KEY `idx_tickets_vacation_return` (`ticket_closed_at`,`ticket_contact_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=136 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

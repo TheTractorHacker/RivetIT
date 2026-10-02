@@ -62,6 +62,8 @@ if (isset($_GET['contact_id'])) {
     $contact_employment_status = nullable_htmlentities($row['contact_employment_status'] ?? 'active');
     $contact_work_arrangement = nullable_htmlentities($row['contact_work_arrangement']);
     $contact_start_date = nullable_htmlentities($row['contact_start_date']);
+    $contact_vacation_start = nullable_htmlentities($row['contact_vacation_start'] ?? '');
+    $contact_vacation_end = nullable_htmlentities($row['contact_vacation_end'] ?? '');
     $contact_manager_id = intval($row['contact_manager_id'] ?? 0);
     $contact_manager_name = null;
     if ($contact_manager_id > 0) {
@@ -333,6 +335,9 @@ if (isset($_GET['contact_id'])) {
                     <?php } ?>
                     <?php if ($contact_start_date) { ?>
                         <div class="mt-2"><i class="fa fa-fw fa-calendar-day text-secondary me-2"></i>Started <?php echo $contact_start_date; ?></div>
+                    <?php } ?>
+                    <?php if ($contact_vacation_start && $contact_vacation_end) { ?>
+                        <div class="mt-2"><i class="fa fa-fw fa-plane text-secondary me-2"></i>Vacation <?php echo $contact_vacation_start; ?> – <?php echo $contact_vacation_end; ?></div>
                     <?php } ?>
                     <?php if ($contact_manager_name) { ?>
                         <div class="mt-2"><i class="fa fa-fw fa-user-tie text-secondary me-2"></i>Reports to <?php echo $contact_manager_name; ?></div>

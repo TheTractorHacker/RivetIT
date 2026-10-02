@@ -157,9 +157,11 @@ Go to **Ticketing → Ticket Automation**. Each rule has a trigger, conditions t
 
 1. Click **New Rule** and enter a **Rule Name**.
 2. Pick a **Trigger** (table below). The condition choices change with it.
-3. Set conditions: a field, an operator (equals, not equals, greater than, less than, contains) and a value. Use **Add condition** for more. A rule needs at least one condition, except a **Ticket created** rule, where none means every new ticket.
+3. Set conditions: a field, an operator (equals, not equals, greater than, less than, contains) and a value. Use **Add condition** for more. A rule needs at least one condition, except **Ticket created** and **Requester returns from vacation**, where none means every eligible ticket.
 4. Set the actions; use **Add action** for more.
 5. Set **Order** (lower runs first) and click **Save Rule**. Rows with an empty value are dropped.
+
+For a **Scheduled check**, turn on **Run once per ticket** when you want the rule to stop after its first successful action on each matching ticket. Leave it off to keep checking on every cron pass. Notes and AI triage already avoid duplicate actions on the same ticket.
 
 ![The New Automation Rule pop-up](images/admin-config/28-automation-new-rule.png)
 
@@ -169,9 +171,12 @@ Go to **Ticketing → Ticket Automation**. Each rule has a trigger, conditions t
 |---|---|---|
 | **Scheduled check** | Every scheduler pass, against every open ticket | Ticket age (hours), Hours since last reply, Priority, Status ID, Assigned to (user ID), Ticket category, SLA response or resolution breached (1/0), SLA % consumed |
 | **Ticket created** | Immediately, once, as each ticket is created by an agent, email, portal, API or alert | Priority, Ticket category, Department ID, Ticket subject or body (contains) |
+| **Requester returns from vacation** | On a cron pass after the requester's recorded vacation ends, for tickets closed during that vacation and after the rule was created | Priority, Ticket category, Department ID, Assigned to, Ticket subject |
 | **New RMM alert**, **Asset goes offline**, **Asset comes back online** | When the RMM integration reports one | Severity, message, asset, department, hostname |
 
 The last group needs an RMM integration. The main actions are: set priority, assign to a user ID, escalate (reassign and raise priority as `userID:priority`), set status ID, add an automation note, notify the assigned technician, close the ticket and add a worksheet from a template. AI triage posts a suggested category, priority and assignee as a note, and needs an AI provider.
+
+To reopen tickets after vacation, enter both dates on the employee's contact record, then create a **Requester returns from vacation** rule with the **Reopen ticket** action. The dates include the first and last day away. The rule runs once per eligible closed ticket after the end date. Tickets already closed before the rule was created, archived or merged tickets, and tickets with a separate scheduled reopen are left alone.
 
 Things to know:
 

@@ -105,6 +105,18 @@ if (isset($_POST['edit_contact'])) {
 
     $contact_id = intval($_POST['contact_id']);
     $send_email = intval($_POST['send_email'] ?? 0);
+    $vacation_start = trim((string) ($_POST['vacation_start'] ?? ''));
+    $vacation_end = trim((string) ($_POST['vacation_end'] ?? ''));
+    $valid_vacation_date = static function (string $value): bool {
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+        return $date !== false && $date->format('Y-m-d') === $value;
+    };
+    if (($vacation_start === '') !== ($vacation_end === '')
+        || ($vacation_start !== '' && (!$valid_vacation_date($vacation_start)
+            || !$valid_vacation_date($vacation_end) || $vacation_end < $vacation_start))) {
+        flash_alert('Enter a valid vacation start and end date, or leave both blank.', 'danger');
+        redirect();
+    }
 
     // Get Contact Info
     $sql = mysqli_query($mysqli,"SELECT contact_photo, contact_user_id, contact_client_id FROM contacts WHERE contact_id = $contact_id");
@@ -152,6 +164,8 @@ if (isset($_POST['edit_contact'])) {
     // the core query above untouched). Manager can't be set to self.
     $manager_id_sql = ($manager_id > 0 && $manager_id != $contact_id) ? $manager_id : 'NULL';
     $start_date_sql = $start_date !== '' ? "'$start_date'" : 'NULL';
+    $vacation_start_sql = $vacation_start !== '' ? "'$vacation_start'" : 'NULL';
+    $vacation_end_sql = $vacation_end !== '' ? "'$vacation_end'" : 'NULL';
     $work_arrangement_sql = $work_arrangement !== '' ? "'$work_arrangement'" : 'NULL';
     mysqli_query($mysqli, "UPDATE contacts SET
         contact_employee_id = '$employee_id',
@@ -159,7 +173,9 @@ if (isset($_POST['edit_contact'])) {
         contact_employee_type = '$employee_type',
         contact_employment_status = '$employment_status',
         contact_work_arrangement = $work_arrangement_sql,
-        contact_start_date = $start_date_sql
+        contact_start_date = $start_date_sql,
+        contact_vacation_start = $vacation_start_sql,
+        contact_vacation_end = $vacation_end_sql
         WHERE contact_id = $contact_id");
 
     // Training (Phase 2, S20): a hire-date (or other employment) change can open or close assignments.

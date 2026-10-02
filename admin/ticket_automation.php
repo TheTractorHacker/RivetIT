@@ -32,6 +32,7 @@ $trigger_labels = [
     'rmm_alert'      => 'New RMM alert',
     'asset_offline'  => 'Asset offline',
     'asset_online'   => 'Asset online',
+    'vacation_return' => 'Requester returns from vacation',
 ];
 
 $field_labels = [
@@ -67,6 +68,7 @@ $action_labels = [
     'ai_triage'                => 'AI triage (suggest)',
     'notify_assignee'          => 'Notify assigned tech',
     'close_ticket'             => 'Close ticket',
+    'reopen_ticket'            => 'Reopen ticket',
     'add_worksheet'            => 'Add worksheet from template',
     'run_script'               => 'Run RMM script',
     'create_ticket_from_alert' => 'Create ticket from alert',
@@ -116,7 +118,7 @@ function ticket_automation_actions(array $rule): array {
     <div class="card-body p-0">
         <div class="alert alert-info mx-3 mt-3">
             <i class="fas fa-info-circle me-2"></i>
-            Scheduled checks run with the main cron job. Ticket-created rules run when a ticket opens; RMM and asset rules run when cron processes new events.
+            Scheduled checks and vacation-return rules run with the main cron job. Ticket-created rules run when a ticket opens; RMM and asset rules run when cron processes new events.
         </div>
         <div class="table-responsive">
         <table class="table table-hover mb-0">
@@ -155,6 +157,8 @@ function ticket_automation_actions(array $rule): array {
                         <span class="badge text-bg-info"><?php echo $trigger_labels[$trigger] ?? nullable_htmlentities($trigger); ?></span>
                         <?php if ($trigger === 'schedule' && !empty($rule['rule_run_once'])): ?>
                             <span class="badge text-bg-secondary">Once per ticket</span>
+                        <?php elseif ($trigger === 'vacation_return'): ?>
+                            <span class="badge text-bg-secondary">Once on return</span>
                         <?php endif; ?>
                     </td>
                     <td>

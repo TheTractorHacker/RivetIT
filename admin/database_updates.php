@@ -9526,3 +9526,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `api_keys` ALTER COLUMN `api_key_permission` SET DEFAULT 'read'");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.114'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.114') {
+        // Record an employee requester's current vacation window. Automation
+        // can reopen tickets closed during this window after they return.
+        mysqli_query($mysqli, "ALTER TABLE `contacts`
+            ADD COLUMN IF NOT EXISTS `contact_vacation_start` date DEFAULT NULL AFTER `contact_start_date`,
+            ADD COLUMN IF NOT EXISTS `contact_vacation_end` date DEFAULT NULL AFTER `contact_vacation_start`");
+        mysqli_query($mysqli, "ALTER TABLE `tickets`
+            ADD INDEX IF NOT EXISTS `idx_tickets_vacation_return` (`ticket_closed_at`, `ticket_contact_id`)");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.115'");
+    }

@@ -314,6 +314,27 @@ function automationExecuteAction($mysqli, array $action, array &$context, array 
             logAction("Automation", "Close", "Rule '$rule_name': auto-closed ticket $tid", $client_id, $tid);
             return "closed ticket #$tid";
 
+        case 'reopen_ticket':
+            if (!$tid) return null;
+            mysqli_query($mysqli,
+                "UPDATE tickets SET ticket_status = 2, ticket_resolved_at = NULL,
+                    ticket_closed_at = NULL, ticket_closed_by = 0, ticket_reopen_at = NULL
+                 WHERE ticket_id = $tid AND ticket_closed_at IS NOT NULL
+                   AND ticket_archived_at IS NULL AND ticket_reopen_at IS NULL
+                   AND (ticket_merged_into_id IS NULL OR ticket_merged_into_id = 0)"
+            );
+            if (mysqli_affected_rows($mysqli) < 1) return null;
+            $note = mysqli_real_escape_string($mysqli, "Automatically reopened after the requester's vacation (rule: $rule_name).");
+            mysqli_query($mysqli,
+                "INSERT INTO ticket_replies SET ticket_reply = '$note', ticket_reply_type = 'System',
+                    ticket_reply_time_worked = '00:00:00', ticket_reply_by = 0,
+                    ticket_reply_ticket_id = $tid"
+            );
+            logAction("Ticket", "Reopened", "Rule '$rule_name' reopened ticket $tid after requester vacation", $client_id, $tid);
+            customAction('ticket_update', $tid);
+            $context['reopened'] = true;
+            return "reopened ticket #$tid after requester vacation";
+
         case 'add_worksheet':
             if (!$tid) return null;
             $template_id = intval($aval);

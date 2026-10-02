@@ -40,6 +40,7 @@ ob_start();
                 <option value="rmm_alert">New RMM alert received</option>
                 <option value="asset_offline">Asset goes offline</option>
                 <option value="asset_online">Asset comes back online</option>
+                <option value="vacation_return">Requester returns from vacation (closed tickets)</option>
             </select>
             <small class="text-muted" id="triggerHint"></small>
         </div>
@@ -77,6 +78,7 @@ ob_start();
 
         <div class="form-group">
             <label>Actions — run in order</label>
+            <small class="text-muted d-block mb-2">For a vacation-return rule, include <strong>Reopen ticket</strong>. Additional actions can run before or after it.</small>
             <div id="actionsWrap">
                 <div class="row action-row g-2 mb-3">
                     <div class="col-12 col-md-6">
@@ -154,6 +156,13 @@ ob_start();
             ['integration_id', 'RMM integration ID'],
             ['hostname',       'Asset hostname'],
         ],
+        vacation_return: [
+            ['priority',    'Priority'],
+            ['category',    'Ticket category'],
+            ['client_id',   'Department ID'],
+            ['assigned_to', 'Assigned to (user ID)'],
+            ['subject',     'Ticket subject'],
+        ],
     };
 
     var TRIGGER_HINTS = {
@@ -162,6 +171,7 @@ ob_start();
         rmm_alert:     'Evaluated once for each new RMM alert. Use "Create ticket from alert" to open a ticket before running ticket-based actions.',
         asset_offline: 'Evaluated once when an asset\'s RMM status changes to offline.',
         asset_online:  'Evaluated once when an asset\'s RMM status changes to online.',
+        vacation_return: 'Checks tickets closed during the requester\'s recorded vacation. Runs after the end date; leave conditions empty to match all eligible tickets.',
     };
 
     var OP_OPTIONS = [
@@ -181,6 +191,7 @@ ob_start();
         ['ai_triage',                'AI triage — suggest category/priority/assignee (posts a note)'],
         ['notify_assignee',          'Notify assigned technician'],
         ['close_ticket',              'Close ticket'],
+        ['reopen_ticket',             'Reopen ticket'],
         ['add_worksheet',             'Add worksheet from template to ticket'],
         ['run_script',                'Run RMM script on asset'],
         ['create_ticket_from_alert',  'Create ticket from RMM alert'],
@@ -191,6 +202,7 @@ ob_start();
     var hint    = document.getElementById('triggerHint');
     var condWrap = document.getElementById('conditionsWrap');
     var actWrap  = document.getElementById('actionsWrap');
+    var autoReopenSelected = false;
 
     function fillSelect(sel, options) {
         sel.innerHTML = '';
@@ -214,6 +226,22 @@ ob_start();
         });
         hint.textContent = TRIGGER_HINTS[trigger.value] || '';
         document.getElementById('runOnceWrap').hidden = trigger.value !== 'schedule';
+        if (trigger.value === 'vacation_return' && actWrap.querySelectorAll('.action-row').length === 1) {
+            var firstActionSelect = firstAction.querySelector('select[name="action_name[]"]');
+            var firstActionValue = firstAction.querySelector('input[name="action_value[]"]');
+            if (firstActionSelect.value === 'set_priority' && firstActionValue.value === '') {
+                firstActionSelect.value = 'reopen_ticket';
+                autoReopenSelected = true;
+                updateActionValue(firstAction);
+            }
+        } else if (autoReopenSelected && trigger.value !== 'vacation_return') {
+            var firstActionSelect = firstAction.querySelector('select[name="action_name[]"]');
+            if (firstActionSelect.value === 'reopen_ticket') {
+                firstActionSelect.value = 'set_priority';
+                updateActionValue(firstAction);
+            }
+            autoReopenSelected = false;
+        }
     }
 
     function updateCondValue(row) {
@@ -236,7 +264,7 @@ ob_start();
 
         var isWS  = action.value === 'add_worksheet';
         var isScr = action.value === 'run_script';
-        var isNone = action.value === 'notify_assignee' || action.value === 'close_ticket'
+        var isNone = action.value === 'notify_assignee' || action.value === 'close_ticket' || action.value === 'reopen_ticket'
                   || action.value === 'create_ticket_from_alert' || action.value === 'acknowledge_alert'
                   || action.value === 'ai_triage';
 
@@ -290,7 +318,7 @@ ob_start();
     fillSelect(firstAction.querySelector('select[name="action_name[]"]'), ACTION_OPTIONS);
     firstAction.querySelector('#actionValueWorksheet0').className += ' action-value-ws';
     firstAction.querySelector('#actionValueScript0').className += ' action-value-script';
-    firstAction.querySelector('select[name="action_name[]"]').addEventListener('change', function () { updateActionValue(firstAction); });
+    firstAction.querySelector('select[name="action_name[]"]').addEventListener('change', function () { autoReopenSelected = false; updateActionValue(firstAction); });
     updateActionValue(firstAction);
 
     trigger.addEventListener('change', refreshFieldOptions);

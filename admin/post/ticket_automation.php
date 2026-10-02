@@ -12,7 +12,7 @@ if (isset($_POST['add_rule'])) {
     $order   = intval($_POST['rule_order'] ?? 0);
     $run_once = !empty($_POST['rule_run_once']) && ($_POST['rule_trigger'] ?? '') === 'schedule' ? 1 : 0;
 
-    $valid_triggers = ['schedule', 'rmm_alert', 'asset_offline', 'asset_online', 'ticket_created'];
+    $valid_triggers = ['schedule', 'rmm_alert', 'asset_offline', 'asset_online', 'ticket_created', 'vacation_return'];
     if (!in_array($_POST['rule_trigger'] ?? '', $valid_triggers, true)) {
         $trigger = 'schedule';
     }
@@ -37,7 +37,7 @@ if (isset($_POST['add_rule'])) {
     $actions = [];
     $action_names = $_POST['action_name'] ?? [];
     $action_vals  = $_POST['action_value'] ?? [];
-    $no_value_actions = ['notify_assignee', 'close_ticket', 'create_ticket_from_alert', 'acknowledge_alert', 'ai_triage'];
+    $no_value_actions = ['notify_assignee', 'close_ticket', 'reopen_ticket', 'create_ticket_from_alert', 'acknowledge_alert', 'ai_triage'];
     foreach ($action_names as $i => $an) {
         $an = trim((string) $an);
         if ($an === '') continue;
@@ -49,7 +49,8 @@ if (isset($_POST['add_rule'])) {
         ];
     }
 
-    if ($name && !empty($actions) && (!empty($conditions) || $trigger === 'ticket_created')) {
+    $vacation_action_ok = $trigger !== 'vacation_return' || in_array('reopen_ticket', array_column($actions, 'action'), true);
+    if ($name && !empty($actions) && $vacation_action_ok && (!empty($conditions) || in_array($trigger, ['ticket_created', 'vacation_return'], true))) {
         $conditions_json = mysqli_real_escape_string($mysqli, json_encode($conditions));
         $actions_json    = mysqli_real_escape_string($mysqli, json_encode($actions));
 
@@ -73,7 +74,9 @@ if (isset($_POST['add_rule'])) {
         logAction("Automation", "Create", "Created ticket automation rule: $name");
         flash_alert("Automation rule <strong>$name</strong> created.");
     } else {
-        flash_alert("Please provide a rule name, at least one condition, and at least one action.", "danger");
+        flash_alert($vacation_action_ok
+            ? "Please provide a rule name, at least one condition (unless this trigger supports none), and at least one action."
+            : "Vacation-return rules must include the Reopen ticket action.", "danger");
     }
     redirect("/admin/ticket_automation.php");
 }
@@ -89,7 +92,7 @@ if (isset($_POST['edit_rule'])) {
     $order   = intval($_POST['rule_order'] ?? 0);
     $run_once = !empty($_POST['rule_run_once']) && ($_POST['rule_trigger'] ?? '') === 'schedule' ? 1 : 0;
 
-    $valid_triggers = ['schedule', 'rmm_alert', 'asset_offline', 'asset_online', 'ticket_created'];
+    $valid_triggers = ['schedule', 'rmm_alert', 'asset_offline', 'asset_online', 'ticket_created', 'vacation_return'];
     if (!in_array($_POST['rule_trigger'] ?? '', $valid_triggers, true)) {
         $trigger = 'schedule';
     }
@@ -114,7 +117,7 @@ if (isset($_POST['edit_rule'])) {
     $actions = [];
     $action_names = $_POST['action_name'] ?? [];
     $action_vals  = $_POST['action_value'] ?? [];
-    $no_value_actions = ['notify_assignee', 'close_ticket', 'create_ticket_from_alert', 'acknowledge_alert', 'ai_triage'];
+    $no_value_actions = ['notify_assignee', 'close_ticket', 'reopen_ticket', 'create_ticket_from_alert', 'acknowledge_alert', 'ai_triage'];
     foreach ($action_names as $i => $an) {
         $an = trim((string) $an);
         if ($an === '') continue;
@@ -126,7 +129,8 @@ if (isset($_POST['edit_rule'])) {
         ];
     }
 
-    if ($rule_id && $name && !empty($actions) && (!empty($conditions) || $trigger === 'ticket_created')) {
+    $vacation_action_ok = $trigger !== 'vacation_return' || in_array('reopen_ticket', array_column($actions, 'action'), true);
+    if ($rule_id && $name && !empty($actions) && $vacation_action_ok && (!empty($conditions) || in_array($trigger, ['ticket_created', 'vacation_return'], true))) {
         $conditions_json = mysqli_real_escape_string($mysqli, json_encode($conditions));
         $actions_json    = mysqli_real_escape_string($mysqli, json_encode($actions));
 
@@ -158,7 +162,9 @@ if (isset($_POST['edit_rule'])) {
         logAction("Automation", "Edit", "Edited ticket automation rule: $name");
         flash_alert("Automation rule <strong>$name</strong> updated.");
     } else {
-        flash_alert("Please provide a rule name, at least one condition, and at least one action.", "danger");
+        flash_alert($vacation_action_ok
+            ? "Please provide a rule name, at least one condition (unless this trigger supports none), and at least one action."
+            : "Vacation-return rules must include the Reopen ticket action.", "danger");
     }
     redirect("/admin/ticket_automation.php");
 }

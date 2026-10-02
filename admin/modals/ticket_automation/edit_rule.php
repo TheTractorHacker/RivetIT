@@ -85,6 +85,7 @@ ob_start();
                 <option value="rmm_alert" <?= $cur_trigger === 'rmm_alert' ? 'selected' : '' ?>>New RMM alert received</option>
                 <option value="asset_offline" <?= $cur_trigger === 'asset_offline' ? 'selected' : '' ?>>Asset goes offline</option>
                 <option value="asset_online" <?= $cur_trigger === 'asset_online' ? 'selected' : '' ?>>Asset comes back online</option>
+                <option value="vacation_return" <?= $cur_trigger === 'vacation_return' ? 'selected' : '' ?>>Requester returns from vacation (closed tickets)</option>
             </select>
             <small class="text-muted" id="triggerHint"></small>
         </div>
@@ -105,6 +106,7 @@ ob_start();
 
         <div class="form-group">
             <label>Actions — run in order</label>
+            <small class="text-muted d-block mb-2">For a vacation-return rule, include <strong>Reopen ticket</strong>. Additional actions can run before or after it.</small>
             <div id="actionsWrap"></div>
             <button type="button" class="btn btn-sm btn-outline-secondary" id="addAction"><i class="fas fa-plus me-1"></i>Add action</button>
         </div>
@@ -168,6 +170,13 @@ ob_start();
             ['integration_id', 'RMM integration ID'],
             ['hostname',       'Asset hostname'],
         ],
+        vacation_return: [
+            ['priority',    'Priority'],
+            ['category',    'Ticket category'],
+            ['client_id',   'Department ID'],
+            ['assigned_to', 'Assigned to (user ID)'],
+            ['subject',     'Ticket subject'],
+        ],
     };
 
     var TRIGGER_HINTS = {
@@ -176,6 +185,7 @@ ob_start();
         rmm_alert:     'Evaluated once for each new RMM alert. Use "Create ticket from alert" to open a ticket before running ticket-based actions.',
         asset_offline: 'Evaluated once when an asset\'s RMM status changes to offline.',
         asset_online:  'Evaluated once when an asset\'s RMM status changes to online.',
+        vacation_return: 'Checks tickets closed during the requester\'s recorded vacation. Runs after the end date; leave conditions empty to match all eligible tickets.',
     };
 
     var OP_OPTIONS = [
@@ -195,13 +205,14 @@ ob_start();
         ['ai_triage',                'AI triage — suggest category/priority/assignee (posts a note)'],
         ['notify_assignee',          'Notify assigned technician'],
         ['close_ticket',              'Close ticket'],
+        ['reopen_ticket',             'Reopen ticket'],
         ['add_worksheet',             'Add worksheet from template to ticket'],
         ['run_script',                'Run RMM script on asset'],
         ['create_ticket_from_alert',  'Create ticket from RMM alert'],
         ['acknowledge_alert',         'Acknowledge RMM alert'],
     ];
 
-    var NO_VALUE_ACTIONS = ['notify_assignee', 'close_ticket', 'create_ticket_from_alert', 'acknowledge_alert', 'ai_triage'];
+    var NO_VALUE_ACTIONS = ['notify_assignee', 'close_ticket', 'reopen_ticket', 'create_ticket_from_alert', 'acknowledge_alert', 'ai_triage'];
 
     var trigger  = document.getElementById('ruleTrigger');
     var hint     = document.getElementById('triggerHint');

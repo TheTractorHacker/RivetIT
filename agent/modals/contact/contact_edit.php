@@ -41,6 +41,8 @@ $contact_employee_type = nullable_htmlentities($row['contact_employee_type'] ?? 
 $contact_employment_status = nullable_htmlentities($row['contact_employment_status'] ?? 'active');
 $contact_work_arrangement = nullable_htmlentities($row['contact_work_arrangement']);
 $contact_start_date = nullable_htmlentities($row['contact_start_date']);
+$contact_vacation_start = nullable_htmlentities($row['contact_vacation_start'] ?? '');
+$contact_vacation_end = nullable_htmlentities($row['contact_vacation_end'] ?? '');
 $contact_manager_id = intval($row['contact_manager_id'] ?? 0);
 
 // Other contacts at the same department, for the manager picker - excludes self
@@ -183,6 +185,19 @@ ob_start();
                         </div>
                         <input type="date" class="form-control" name="start_date" value="<?php echo $contact_start_date; ?>">
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Vacation dates <small class="text-muted">(used by ticket automation)</small></label>
+                    <div class="row g-2">
+                        <div class="col-sm-6">
+                            <input type="date" class="form-control" name="vacation_start" aria-label="Vacation start" value="<?php echo $contact_vacation_start; ?>">
+                        </div>
+                        <div class="col-sm-6">
+                            <input type="date" class="form-control" name="vacation_end" aria-label="Vacation end" value="<?php echo $contact_vacation_end; ?>">
+                        </div>
+                    </div>
+                    <small class="text-muted">Enter both dates, inclusive, or leave both blank. A matching ticket closed during this period can reopen after the end date.</small>
                 </div>
 
                 <label>Phone / <span class="text-secondary">Extension</span></label>

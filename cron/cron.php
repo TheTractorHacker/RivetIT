@@ -1327,6 +1327,62 @@ if (!empty($automation_rules)) {
     $rmm_alert_rules     = array_filter($automation_rules, function ($r) { return $r['rule_trigger'] === 'rmm_alert'; });
     $asset_offline_rules = array_filter($automation_rules, function ($r) { return $r['rule_trigger'] === 'asset_offline'; });
     $asset_online_rules  = array_filter($automation_rules, function ($r) { return $r['rule_trigger'] === 'asset_online'; });
+    $vacation_return_rules = array_filter($automation_rules, function ($r) { return $r['rule_trigger'] === 'vacation_return'; });
+
+    // ----- Trigger: requester returns from vacation -----
+    // Consider only tickets closed during dates explicitly recorded on the
+    // requester and after the rule was created. This avoids reopening an
+    // employee's entire historical closed-ticket archive when a rule is added.
+    if (!empty($vacation_return_rules)) {
+        $first_rule_at = mysqli_real_escape_string($mysqli, min(array_column($vacation_return_rules, 'rule_created_at')));
+        $sql_vacation_tickets = mysqli_query($mysqli,
+            "SELECT t.*, c.contact_vacation_start, c.contact_vacation_end
+             FROM tickets t
+             JOIN contacts c ON c.contact_id = t.ticket_contact_id
+             WHERE t.ticket_closed_at IS NOT NULL
+               AND t.ticket_closed_at >= '$first_rule_at'
+               AND t.ticket_archived_at IS NULL
+               AND (t.ticket_merged_into_id IS NULL OR t.ticket_merged_into_id = 0)
+               AND t.ticket_reopen_at IS NULL
+               AND c.contact_vacation_start IS NOT NULL
+               AND c.contact_vacation_end < CURDATE()
+               AND t.ticket_closed_at >= c.contact_vacation_start
+               AND t.ticket_closed_at < DATE_ADD(c.contact_vacation_end, INTERVAL 1 DAY)"
+        );
+        while ($ticket = mysqli_fetch_assoc($sql_vacation_tickets)) {
+            $tid = intval($ticket['ticket_id']);
+            $context = [
+                'tid'         => $tid,
+                'client_id'   => intval($ticket['ticket_client_id']),
+                'asset_id'    => intval($ticket['ticket_asset_id']),
+                'assigned_to' => intval($ticket['ticket_assigned_to']),
+                'priority'    => strtolower((string) $ticket['ticket_priority']),
+                'category'    => intval($ticket['ticket_category']),
+                'subject'     => (string) $ticket['ticket_subject'],
+            ];
+            foreach ($vacation_return_rules as $rule) {
+                if (strtotime($ticket['ticket_closed_at']) < strtotime($rule['rule_created_at'])) continue;
+                $already_ran = mysqli_num_rows(mysqli_query($mysqli,
+                    "SELECT 1 FROM ticket_automation_runs
+                     WHERE rule_id = " . intval($rule['rule_id']) . "
+                       AND ticket_id = $tid AND trigger_type = 'vacation_return' LIMIT 1"
+                )) > 0;
+                if ($already_ran) continue;
+                $conditions = automationGetConditions($rule);
+                if ($conditions && !automationConditionsMatch($conditions, $context)) continue;
+
+                $summaries = [];
+                foreach (automationGetActions($rule) as $action) {
+                    $summary = automationExecuteAction($mysqli, $action, $context, $rule);
+                    if ($summary !== null) $summaries[] = $summary;
+                }
+                if ($summaries) {
+                    automationLogRun($mysqli, $rule, 'vacation_return', $context, implode('; ', $summaries));
+                }
+                if (!empty($context['reopened'])) break;
+            }
+        }
+    }
 
     // ----- Trigger: schedule (open tickets evaluated on every run) -----
     if (!empty($schedule_rules)) {
