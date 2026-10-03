@@ -52,6 +52,8 @@ $sign = static fn (array $body): string => JWT::encode($body, $privatePem, 'RS25
 $token = $sign($claims);
 check(portalOidcValidateToken($token, $keys, $issuer, 'rivetit-client', 'browser-nonce', $access)
     === 'stable-user-42', 'Valid signed ID token should resolve the subject');
+check(portalOidcValidateToken($sign([...$claims, 'azp' => 'rivetit-client']), $keys, $issuer,
+    'rivetit-client', 'browser-nonce', $access) === 'stable-user-42', 'Matching authorized party should be accepted');
 rejects(fn () => portalOidcValidateToken($token, $keys, $issuer, 'other-client', 'browser-nonce', $access), 'Wrong audience accepted');
 rejects(fn () => portalOidcValidateToken($token, $keys, $issuer, 'rivetit-client', 'other-nonce', $access), 'Wrong nonce accepted');
 rejects(fn () => portalOidcValidateToken($token, $keys, $issuer, 'rivetit-client', 'browser-nonce', 'other-access'), 'Wrong access token accepted');
@@ -59,6 +61,20 @@ rejects(fn () => portalOidcValidateToken($sign([...$claims, 'iss' => 'https://ot
     'rivetit-client', 'browser-nonce', $access), 'Wrong issuer accepted');
 rejects(fn () => portalOidcValidateToken($sign([...$claims, 'exp' => time() - 300]), $keys, $issuer,
     'rivetit-client', 'browser-nonce', $access), 'Expired token accepted');
+rejects(fn () => portalOidcValidateToken($sign(array_diff_key($claims, ['exp' => true])), $keys, $issuer,
+    'rivetit-client', 'browser-nonce', $access), 'ID token without expiration accepted');
+rejects(fn () => portalOidcValidateToken($sign(array_diff_key($claims, ['iat' => true])), $keys, $issuer,
+    'rivetit-client', 'browser-nonce', $access), 'ID token without issued-at time accepted');
+rejects(fn () => portalOidcValidateToken($sign([...$claims, 'exp' => (string) (time() + 300)]), $keys, $issuer,
+    'rivetit-client', 'browser-nonce', $access), 'String expiration accepted');
+rejects(fn () => portalOidcValidateToken($sign([...$claims, 'iat' => time() + 300, 'nbf' => time() - 1]), $keys, $issuer,
+    'rivetit-client', 'browser-nonce', $access), 'Future issued-at time accepted when nbf is present');
+rejects(fn () => portalOidcValidateToken($sign([...$claims, 'iat' => time() + 3600, 'exp' => time() + 600]), $keys, $issuer,
+    'rivetit-client', 'browser-nonce', $access), 'Issued-at time after expiration accepted');
+rejects(fn () => portalOidcValidateToken($sign([...$claims, 'azp' => 'other-client']), $keys, $issuer,
+    'rivetit-client', 'browser-nonce', $access), 'Wrong authorized party accepted');
+rejects(fn () => portalOidcValidateToken($sign([...$claims, 'aud' => ['rivetit-client', 'other-client'], 'azp' => 'rivetit-client']), $keys, $issuer,
+    'rivetit-client', 'browser-nonce', $access), 'Untrusted extra audience accepted');
 rejects(fn () => portalOidcValidateToken(substr($token, 0, -8) . 'abcdefgh', $keys, $issuer,
     'rivetit-client', 'browser-nonce', $access), 'Tampered signature accepted');
 

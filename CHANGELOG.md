@@ -4,6 +4,13 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [26.10.12] RivetIT — stricter OpenID Connect token checks
+
+The disabled-by-default Department Portal SSO preview now requires numeric ID-token
+expiration and issued-at claims, rejects future-issued tokens, and rejects
+untrusted extra audiences or a mismatched authorized party. No database
+migration is required. Existing local and Microsoft sign-in paths are unchanged.
+
 ## [26.10.11] RivetIT — quieter cron notifications
 
 Database migration 2.6.118 removes existing cron-only notices. Successful

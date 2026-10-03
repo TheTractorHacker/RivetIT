@@ -121,9 +121,17 @@ function portalOidcValidateToken(string $idToken, array $keys, string $issuer, s
         || $claims->sub === '' || strlen($claims->sub) > 255) {
         throw new RuntimeException('Identity token issuer or subject mismatch.');
     }
+    $exp = $claims->exp ?? null;
+    $iat = $claims->iat ?? null;
+    if (!(is_int($exp) || (is_float($exp) && is_finite($exp)))
+        || !(is_int($iat) || (is_float($iat) && is_finite($iat)))
+        || $exp <= time() || $iat > time() + 60 || $iat >= $exp) {
+        throw new RuntimeException('Identity token lifetime is invalid.');
+    }
     $audiences = is_array($claims->aud ?? null) ? $claims->aud : [$claims->aud ?? null];
-    if (!in_array($clientId, $audiences, true)
-        || (count($audiences) > 1 && ($claims->azp ?? null) !== $clientId)
+    // No additional trusted ID-token audiences are configured for this client.
+    if (count($audiences) !== 1 || $audiences[0] !== $clientId
+        || (isset($claims->azp) && $claims->azp !== $clientId)
         || !is_string($claims->nonce ?? null)
         || !hash_equals($nonce, $claims->nonce)) {
         throw new RuntimeException('Identity token audience or browser binding mismatch.');
