@@ -178,11 +178,15 @@ function portalOidcEligibleAccount(mysqli $mysqli, string $issuer, string $subje
  * subject is claimed with a single conditional UPDATE so two racing sign-ins cannot both link.
  * Returns the account row like portalOidcEligibleAccount(), or null.
  */
-function portalOidcLinkByVerifiedEmail(mysqli $mysqli, string $issuer, string $subject, array $userinfo): ?array
+function portalOidcLinkByVerifiedEmail(mysqli $mysqli, string $issuer, string $subject, array $userinfo, ?string &$why = null): ?array
 {
     $email = $userinfo['email'] ?? null;
-    if (($userinfo['email_verified'] ?? null) !== true || !is_string($email) || $email === ''
-        || strlen($email) > 254 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    if (!is_string($email) || $email === '' || strlen($email) > 254 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $why = 'provider_sent_no_valid_email';
+        return null;
+    }
+    if (($userinfo['email_verified'] ?? null) !== true) {
+        $why = 'email_verified_is_' . (array_key_exists('email_verified', $userinfo) ? gettype($userinfo['email_verified']) : 'missing');
         return null;
     }
     $sql = "SELECT users.user_id, users.user_email, contacts.contact_id, contacts.contact_client_id
@@ -199,6 +203,7 @@ function portalOidcLinkByVerifiedEmail(mysqli $mysqli, string $issuer, string $s
     $stmt->execute();
     $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     if (count($rows) !== 1) {
+        $why = count($rows) === 0 ? 'no_blank_oidc_login_with_that_email' : 'more_than_one_login_with_that_email';
         return null;
     }
     $userId = (int) $rows[0]['user_id'];
@@ -208,7 +213,12 @@ function portalOidcLinkByVerifiedEmail(mysqli $mysqli, string $issuer, string $s
         $claim->bind_param('ssi', $issuer, $subject, $userId);
         $claim->execute();
     } catch (mysqli_sql_exception $e) {
+        $why = 'subject_already_linked_elsewhere';
         return null;
     }
-    return $claim->affected_rows === 1 ? $rows[0] : null;
+    if ($claim->affected_rows !== 1) {
+        $why = 'login_already_linked';
+        return null;
+    }
+    return $rows[0];
 }

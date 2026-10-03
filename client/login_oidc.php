@@ -109,8 +109,9 @@ try {
         throw new RuntimeException('userinfo_mismatch');
     }
     $account = portalOidcEligibleAccount($mysqli, $issuer, $subject);
+    $linkWhy = null;
     if ($account === null && $linkByEmail) {
-        $account = portalOidcLinkByVerifiedEmail($mysqli, $issuer, $subject, $userinfo);
+        $account = portalOidcLinkByVerifiedEmail($mysqli, $issuer, $subject, $userinfo, $linkWhy);
         if ($account !== null) {
             $session_user_id = (int) $account['user_id'];
             $session_ip = sanitizeInput(getIP());
@@ -120,7 +121,8 @@ try {
         }
     }
     if ($account === null) {
-        throw new RuntimeException('account_ineligible');
+        throw new RuntimeException($linkWhy !== null ? 'account_ineligible: ' . $linkWhy
+            : ($linkByEmail ? 'account_ineligible: no_login_linked_to_this_subject' : 'account_ineligible'));
     }
 
     // Remove an old agent, preview or portal identity before establishing the
@@ -156,7 +158,7 @@ try {
         || $error instanceof UnexpectedValueException || $error instanceof DomainException)
         ? substr(preg_replace('/[^A-Za-z0-9 .,:_()\/-]/', '', $error->getMessage()), 0, 200) : '';
     logAction('Client Login', 'Failed', 'OpenID Connect sign-in failed: '
-        . (in_array($reason, $safeReasons, true) ? $reason
+        . (in_array($reason, $safeReasons, true) || strpos($reason, 'account_ineligible: ') === 0 ? $reason
             : 'provider_or_validation_error' . ($detail !== '' ? " ($detail)" : '')));
     $_SESSION['oidc_login_error'] = 'Single sign-on could not complete. Please try again or contact your administrator.';
     header('Location: /login.php', true, 303);
