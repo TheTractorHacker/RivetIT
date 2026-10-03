@@ -1662,10 +1662,10 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
 
     <div class="card mb-3">
         <div class="card-header py-2">
-            <h3 class="card-title"><i class="fas fa-fw fa-sign-in-alt me-2"></i>Odoo Department Portal sign-in</h3>
+            <h3 class="card-title"><i class="fas fa-fw fa-sign-in-alt me-2"></i>Odoo Department Portal sign-in <span class="badge bg-warning text-dark ms-2">Experimental</span></h3>
         </div>
         <div class="card-body">
-            <p class="text-muted">Install the <code>rivetit_sso</code> addon in Odoo first. This handoff uses a dedicated server-side secret; the directory-sync API key is never used for sign-in. Link each person through Odoo Directory Sync, then select Odoo as their Department Login method.</p>
+            <p class="text-muted"><strong>Experimental, off by default.</strong> If you cannot install custom addons in Odoo, skip this card: connect Odoo and RivetIT to the same identity provider instead (see <code>docs/ODOO_PORTAL_SSO.md</code>). To use this card, install the <code>rivetit_sso</code> addon in Odoo first. This handoff uses a dedicated server-side secret; the directory-sync API key is never used for sign-in. Link each person through Odoo Directory Sync, then select Odoo as their Department Login method.</p>
             <form action="post.php" method="post" autocomplete="off">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <div class="form-group">

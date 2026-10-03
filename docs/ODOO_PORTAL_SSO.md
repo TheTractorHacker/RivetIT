@@ -1,4 +1,6 @@
-# Odoo Department Portal sign-in (preview)
+# Odoo Department Portal sign-in (experimental)
+
+> **Experimental.** Off by default and not yet validated against a live Odoo. The no-addon route below, which uses a shared identity provider and RivetIT's OpenID Connect sign-in, is the recommended path. The addon route (the rest of this page) is for deployments that can install custom Odoo addons and accept an experimental feature.
 
 This integration targets **Odoo 19 Enterprise** at `https://odoo.mwautomation.com` (the installed `/web/version` endpoint reports `19.0+e`). The `rivetit_sso` addon must be installed on that Odoo database before enabling sign-in in RivetIT. RivetIT's side is disabled by default. Directory sync, local passwords, Microsoft Entra and OpenID Connect keep their existing behavior.
 
