@@ -134,17 +134,18 @@ if (isset($_POST['edit_portal_user'])) {
     if (!in_array($auth_method, ['local', 'azure', 'oidc', 'odoo'], true)
         || ($auth_method === 'local' && $t['user_auth_method'] !== 'local' && strlen($new_password) < 8)
         || ($auth_method === 'azure' && $t['user_auth_method'] !== 'azure' && empty($config_azure_client_id))
-        || ($auth_method === 'oidc' && ($oidc_subject === '' || strlen($oidc_subject) > 255
+        || ($auth_method === 'oidc' && (($oidc_subject === '' && !($config_oidc_enabled && $config_oidc_link_by_email))
+            || strlen($oidc_subject) > 255
             || ($t['user_auth_method'] !== 'oidc' && !$config_oidc_enabled)))
         || ($auth_method === 'odoo' && $t['user_auth_method'] !== 'odoo'
             && (empty($odoo_integration['sso_enabled']) || !$odoo_link_exists))) {
-        flash_alert('Choose an available sign-in method. Odoo requires an active integration and an employee link; OpenID Connect needs an immutable subject; switching to local needs a new password.', 'error');
+        flash_alert('Choose an available sign-in method. Odoo requires an active integration and an employee link; OpenID Connect needs an immutable subject (or leave it blank when first sign-in linking is on); switching to local needs a new password.', 'error');
         redirect();
     }
     $oidc_issuer = $auth_method === 'oidc'
         ? ($config_oidc_enabled ? (string) $config_oidc_issuer : (string) ($t['user_oidc_issuer'] ?? ''))
         : null;
-    if ($auth_method === 'oidc') {
+    if ($auth_method === 'oidc' && $oidc_subject !== '') {
         $check = $mysqli->prepare("SELECT user_id FROM users WHERE user_oidc_issuer = ? AND user_oidc_subject = ? AND user_id <> ? LIMIT 1");
         $check->bind_param('ssi', $oidc_issuer, $oidc_subject, $user_id);
         $check->execute();
@@ -159,7 +160,10 @@ if (isset($_POST['edit_portal_user'])) {
     }
 
     $contact_id = intval($t['contact_id']);
-    $subject_value = $auth_method === 'oidc' ? $oidc_subject : null;
+    $subject_value = $auth_method === 'oidc' && $oidc_subject !== '' ? $oidc_subject : null;
+    if ($subject_value === null) {
+        $oidc_issuer = null;
+    }
     $update_user = $mysqli->prepare("UPDATE users SET user_name = ?, user_email = ?, user_role_id = ?,
         user_auth_method = ?, user_oidc_issuer = ?, user_oidc_subject = ? WHERE user_id = ? AND user_type = 2");
     $update_user->bind_param('ssisssi', $name, $email, $agent_role_id, $auth_method, $oidc_issuer, $subject_value, $user_id);

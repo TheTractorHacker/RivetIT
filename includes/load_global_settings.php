@@ -14,6 +14,7 @@ $config_oidc_enabled = intval($row['config_oidc_enabled'] ?? 0);
 $config_oidc_issuer = (string) ($row['config_oidc_issuer'] ?? '');
 $config_oidc_client_id = (string) ($row['config_oidc_client_id'] ?? '');
 $config_oidc_secret_saved = !empty($row['config_oidc_client_secret']);
+$config_oidc_link_by_email = intval($row['config_oidc_link_by_email'] ?? 0);
 
 // Outlook Calendar Sync
 $config_outlook_cal_client_id     = $row['config_outlook_cal_client_id'] ?? '';

@@ -28,13 +28,14 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 
 $settings = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_client_portal_enable,
-    config_oidc_enabled, config_oidc_issuer, config_oidc_client_id, config_oidc_client_secret
+    config_oidc_enabled, config_oidc_issuer, config_oidc_client_id, config_oidc_client_secret, config_oidc_link_by_email
     FROM settings WHERE company_id = 1 LIMIT 1")) ?: [];
 $issuer = trim((string) ($settings['config_oidc_issuer'] ?? ''));
 $clientId = trim((string) ($settings['config_oidc_client_id'] ?? ''));
 $enabled = (int) ($settings['config_client_portal_enable'] ?? 0) === 1
     && (int) ($settings['config_oidc_enabled'] ?? 0) === 1
     && $clientId !== '' && !empty($settings['config_oidc_client_secret']);
+$linkByEmail = (int) ($settings['config_oidc_link_by_email'] ?? 0) === 1;
 $callback = 'https://' . $config_base_url . '/client/login_oidc.php';
 
 try {
@@ -56,7 +57,7 @@ try {
         ];
         $query = http_build_query([
             'response_type' => 'code', 'client_id' => $clientId,
-            'redirect_uri' => $callback, 'scope' => 'openid profile',
+            'redirect_uri' => $callback, 'scope' => $linkByEmail ? 'openid profile email' : 'openid profile',
             'state' => $state, 'nonce' => $nonce,
             'code_challenge' => portalOidcBase64Url(hash('sha256', $verifier, true)),
             'code_challenge_method' => 'S256',
@@ -108,6 +109,16 @@ try {
         throw new RuntimeException('userinfo_mismatch');
     }
     $account = portalOidcEligibleAccount($mysqli, $issuer, $subject);
+    if ($account === null && $linkByEmail) {
+        $account = portalOidcLinkByVerifiedEmail($mysqli, $issuer, $subject, $userinfo);
+        if ($account !== null) {
+            $session_user_id = (int) $account['user_id'];
+            $session_ip = sanitizeInput(getIP());
+            $session_user_agent = sanitizeInput($_SERVER['HTTP_USER_AGENT'] ?? '');
+            logAction('Client Login', 'Edit', 'OpenID Connect subject linked on first sign-in by verified email',
+                (int) $account['contact_client_id'], (int) $account['user_id']);
+        }
+    }
     if ($account === null) {
         throw new RuntimeException('account_ineligible');
     }

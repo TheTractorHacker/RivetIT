@@ -2811,6 +2811,7 @@ CREATE TABLE `settings` (
   `config_oidc_issuer` varchar(255) DEFAULT NULL,
   `config_oidc_client_id` varchar(255) DEFAULT NULL,
   `config_oidc_client_secret` text DEFAULT NULL,
+  `config_oidc_link_by_email` tinyint(1) NOT NULL DEFAULT 0,
   `config_outlook_cal_client_id` varchar(200) DEFAULT NULL,
   `config_outlook_cal_client_secret` varchar(500) DEFAULT NULL,
   `config_outlook_cal_tenant_id` varchar(200) DEFAULT NULL,

@@ -161,3 +161,44 @@ function portalOidcEligibleAccount(mysqli $mysqli, string $issuer, string $subje
     $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     return count($rows) === 1 ? $rows[0] : null;
 }
+
+/*
+ * First sign-in linking (optional, admin-enabled). Only a login already set to OpenID Connect with no subject
+ * stored yet is eligible, only on a provider-verified email that matches exactly one such login, and the
+ * subject is claimed with a single conditional UPDATE so two racing sign-ins cannot both link.
+ * Returns the account row like portalOidcEligibleAccount(), or null.
+ */
+function portalOidcLinkByVerifiedEmail(mysqli $mysqli, string $issuer, string $subject, array $userinfo): ?array
+{
+    $email = $userinfo['email'] ?? null;
+    if (($userinfo['email_verified'] ?? null) !== true || !is_string($email) || $email === ''
+        || strlen($email) > 254 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return null;
+    }
+    $sql = "SELECT users.user_id, users.user_email, contacts.contact_id, contacts.contact_client_id
+        FROM users
+        INNER JOIN contacts ON contacts.contact_user_id = users.user_id
+        INNER JOIN clients ON clients.client_id = contacts.contact_client_id
+        WHERE users.user_auth_method = 'oidc' AND (users.user_oidc_subject IS NULL OR users.user_oidc_subject = '')
+          AND LOWER(users.user_email) = LOWER(?)
+          AND users.user_type = 2 AND users.user_status = 1 AND users.user_archived_at IS NULL
+          AND contacts.contact_archived_at IS NULL AND clients.client_archived_at IS NULL
+        LIMIT 2";
+    $stmt = $mysqli->prepare($sql);
+    $stmt->bind_param('s', $email);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    if (count($rows) !== 1) {
+        return null;
+    }
+    $userId = (int) $rows[0]['user_id'];
+    try {
+        $claim = $mysqli->prepare("UPDATE users SET user_oidc_issuer = ?, user_oidc_subject = ?
+            WHERE user_id = ? AND user_auth_method = 'oidc' AND (user_oidc_subject IS NULL OR user_oidc_subject = '')");
+        $claim->bind_param('ssi', $issuer, $subject, $userId);
+        $claim->execute();
+    } catch (mysqli_sql_exception $e) {
+        return null;
+    }
+    return $claim->affected_rows === 1 ? $rows[0] : null;
+}

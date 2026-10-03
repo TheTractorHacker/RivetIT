@@ -9576,3 +9576,10 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_module_enable_mcp` tinyint(1) NOT NULL DEFAULT 0");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.119'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.119') {
+        // Optional, off by default: link an OpenID Connect login to its immutable subject on the
+        // first sign-in, using the provider's verified email. Existing mappings are untouched.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_oidc_link_by_email` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.120'");
+    }
