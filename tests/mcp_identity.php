@@ -13,11 +13,12 @@ $handler = new class implements Psr\Http\Server\RequestHandlerInterface {
         return new Nyholm\Psr7\Response(is_int($id) && $id > 0 ? 200 : 500);
     }
 };
-$middleware = new McpIdentityMiddleware($mysqli, $issuer);
+$audience = 'rivetit-mcp';
+$middleware = new McpIdentityMiddleware($mysqli, $issuer, $audience);
 $request = (new Nyholm\Psr7\ServerRequest('POST', 'https://example.test/mcp'))
     ->withAttribute('oauth.subject', $subject)
     ->withAttribute('oauth.scopes', ['mcp:read'])
-    ->withAttribute('oauth.claims', ['iat' => time(), 'exp' => time() + 300]);
+    ->withAttribute('oauth.claims', ['aud' => $audience, 'iat' => time(), 'exp' => time() + 300]);
 mysqli_begin_transaction($mysqli);
 try {
     $stmt = $mysqli->prepare('INSERT INTO users (user_name, user_email, user_password,
@@ -34,7 +35,8 @@ try {
     };
     $check(200, $request);
     $check(403, $request->withAttribute('oauth.scopes', ['openid']));
-    $check(403, $request->withAttribute('oauth.claims', ['iat' => time(), 'exp' => time() + 7200]));
+    $check(403, $request->withAttribute('oauth.claims', ['aud' => $audience, 'iat' => time(), 'exp' => time() + 7200]));
+    $check(403, $request->withAttribute('oauth.claims', ['aud' => [$audience, 'other-service'], 'iat' => time(), 'exp' => time() + 300]));
     $check(403, $request->withAttribute('oauth.subject', 'unmapped'));
     mysqli_query($mysqli, "UPDATE users SET user_status=0 WHERE user_id=$id");
     $check(403, $request);

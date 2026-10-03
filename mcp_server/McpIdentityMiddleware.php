@@ -9,7 +9,14 @@ use Nyholm\Psr7\Response;
 /** Bind every validated MCP access token to one active RivetIT agent. */
 final class McpIdentityMiddleware implements MiddlewareInterface
 {
-    public function __construct(private mysqli $db, private string $issuer) {}
+    public function __construct(private mysqli $db, private string $issuer, private string $audience) {}
+
+    /** The MCP audience must be the token's only intended recipient. */
+    public static function hasDedicatedAudience(array $claims, string $audience): bool
+    {
+        $tokenAudience = $claims['aud'] ?? null;
+        return $tokenAudience === $audience || $tokenAudience === [$audience];
+    }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
@@ -18,7 +25,8 @@ final class McpIdentityMiddleware implements MiddlewareInterface
         $claims = $request->getAttribute('oauth.claims');
         if (!is_string($subject) || $subject === '' || strlen($subject) > 255
             || !is_array($scopes) || !in_array('mcp:read', $scopes, true)
-            || !is_array($claims) || !is_int($claims['exp'] ?? null)
+            || !is_array($claims) || !self::hasDedicatedAudience($claims, $this->audience)
+            || !is_int($claims['exp'] ?? null)
             || !is_int($claims['iat'] ?? null)
             || $claims['iat'] > time() + 60
             || $claims['exp'] <= $claims['iat']

@@ -4,7 +4,7 @@ RivetIT's MCP endpoint is `/mcp`. It is **disabled by default** and exposes only
 
 ## Identity provider
 
-Use a trusted OAuth authorization server that can issue signed RS256 JWT **access tokens** for a dedicated RivetIT MCP audience. It must publish standard OAuth/OIDC discovery metadata and JWKS, support authorization-code with PKCE for the MCP client, and issue the `mcp:read` scope. Tokens must contain an immutable `sub`, the exact configured issuer and audience, and expire within one hour. An OIDC ID token for a different audience cannot be used as an MCP access token.
+Use a trusted OAuth authorization server that can issue signed RS256 JWT **access tokens** for a dedicated RivetIT MCP audience. It must publish standard OAuth/OIDC discovery metadata and JWKS, support authorization-code with PKCE for the MCP client, and issue the `mcp:read` scope. Tokens must contain an immutable `sub`, the exact configured issuer and audience, and expire within one hour. The configured MCP audience must be the token's only audience, whether `aud` is a string or a one-element array. An OIDC ID token for a different audience cannot be used as an MCP access token.
 
 Configure the PHP-FPM pool with these environment variables, then reload PHP-FPM. Keep the endpoint off until the identity provider and one test agent are ready:
 
@@ -18,6 +18,6 @@ The issuer must match the token's `iss` claim exactly, including any trailing sl
 
 In **Administration → Users**, edit the test agent and enter the same issuer plus that agent's immutable `sub` under **Remote MCP identity**. This is a manual one-to-one mapping to an active RivetIT agent. Clearing both fields revokes the mapping; disabling or archiving the agent also denies requests. RivetIT checks the signature, issuer, audience, expiry, `mcp:read` scope, and agent mapping on every request. The existing agent role and department limits are checked again by the ticket tool.
 
-Test the OAuth flow in an MCP client with a dedicated low-privilege agent before wider use. Confirm anonymous requests receive a 401 challenge with a `resource_metadata` URL, valid tokens can discover and call the two tools, and invalid audience, expired token, missing scope, disabled user, and out-of-scope tickets fail. This preview has not yet completed a live identity-provider handshake; leave it disabled until that test passes.
+Test the OAuth flow in an MCP client with a dedicated low-privilege agent before wider use. Confirm anonymous requests receive a 401 challenge with a `resource_metadata` URL, valid tokens can discover and call the two tools, and invalid or additional audiences, expired token, missing scope, disabled user, and out-of-scope tickets fail. This preview has not yet completed a live identity-provider handshake; leave it disabled until that test passes.
 
 To stop all MCP access, set `RIVETIT_MCP_ENABLED=0` and reload PHP-FPM. To revoke one agent, clear its mapping in Administration → Users and revoke active tokens at the identity provider if immediate token invalidation is required.

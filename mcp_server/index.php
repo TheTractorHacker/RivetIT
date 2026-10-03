@@ -72,7 +72,7 @@ $middleware = [
     new Mcp\Server\Transport\Http\Middleware\DnsRebindingProtectionMiddleware([$host]),
     new Mcp\Server\Transport\Http\Middleware\ProtectedResourceMetadataMiddleware($metadata),
     new Mcp\Server\Transport\Http\Middleware\AuthorizationMiddleware($validator, $metadata),
-    new McpIdentityMiddleware($mysqli, $issuer),
+    new McpIdentityMiddleware($mysqli, $issuer, $audience),
     new Mcp\Server\Transport\Http\Middleware\OAuthRequestMetaMiddleware(),
 ];
 $transport = new Mcp\Server\Transport\StreamableHttpTransport($request, middleware: $middleware,

@@ -4,6 +4,13 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [26.10.13] RivetIT — dedicated MCP access-token audience
+
+The disabled-by-default remote MCP preview now rejects tokens with additional
+audiences, even when the configured MCP audience is also present. This enforces
+the dedicated-audience setup documented for the external OAuth provider. No
+database migration is required.
+
 ## [26.10.12] RivetIT — stricter OpenID Connect token checks
 
 The disabled-by-default Department Portal SSO preview now requires numeric ID-token

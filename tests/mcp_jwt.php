@@ -1,6 +1,7 @@
 <?php
 /* Offline validation of signed, audience-bound MCP access tokens. */
 require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../mcp_server/McpIdentityMiddleware.php';
 
 use Firebase\JWT\JWT;
 use Mcp\Server\Transport\Http\OAuth\JwksProviderInterface;
@@ -23,9 +24,24 @@ $claims = ['iss' => 'https://issuer.example.test', 'aud' => 'rivetit-mcp',
     'sub' => 'agent-subject', 'scope' => 'mcp:read', 'iat' => time(), 'exp' => time() + 300];
 $token = static fn(array $c): string => JWT::encode($c, $private, 'RS256', 'test');
 if (!$validator->validate($token($claims))->isAllowed()) throw new RuntimeException('Valid MCP token rejected');
+$sharedAudienceClaims = array_replace($claims, ['aud' => ['rivetit-mcp', 'different-app']]);
+if (!$validator->validate($token($sharedAudienceClaims))->isAllowed()
+    || McpIdentityMiddleware::hasDedicatedAudience($sharedAudienceClaims, 'rivetit-mcp')) {
+    throw new RuntimeException('Shared-audience token must be rejected by RivetIT after SDK validation');
+}
 foreach ([['aud' => 'different-app'], ['iss' => 'https://evil.example.test'], ['exp' => time() - 10]] as $change) {
     if ($validator->validate($token(array_replace($claims, $change)))->isAllowed()) {
         throw new RuntimeException('Invalid MCP token accepted');
+    }
+}
+foreach (['rivetit-mcp', ['rivetit-mcp']] as $audience) {
+    if (!McpIdentityMiddleware::hasDedicatedAudience(['aud' => $audience], 'rivetit-mcp')) {
+        throw new RuntimeException('Dedicated MCP audience rejected');
+    }
+}
+foreach ([null, 'different-app', ['rivetit-mcp', 'different-app'], []] as $audience) {
+    if (McpIdentityMiddleware::hasDedicatedAudience(['aud' => $audience], 'rivetit-mcp')) {
+        throw new RuntimeException('Non-dedicated MCP audience accepted');
     }
 }
 echo "MCP JWT signature, issuer, audience and expiry checks passed.\n";
