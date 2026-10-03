@@ -58,7 +58,17 @@ function portalOidcHttp(string $url, ?array $post = null, ?string $bearer = null
     $body = curl_exec($ch);
     $status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     if ($body === false || $status !== 200 || strlen($body) > 262144) {
-        throw new RuntimeException('The identity provider did not return a valid response.');
+        // Endpoint path, HTTP status and the standard OAuth error code only; never the body, URL query or credentials.
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        $code = '';
+        if (is_string($body)) {
+            $decoded = json_decode($body, true, 8);
+            if (is_array($decoded) && is_string($decoded['error'] ?? null) && preg_match('/^[a-z_]{1,40}$/', $decoded['error'])) {
+                $code = ' ' . $decoded['error'];
+            }
+        }
+        throw new RuntimeException('The identity provider did not return a valid response from ' . $path
+            . ' (' . ($body === false ? 'no response, ' . curl_errno($ch) : 'HTTP ' . $status) . $code . ').');
     }
     $json = json_decode($body, true, 16);
     if (!is_array($json)) {
