@@ -1,6 +1,6 @@
 {
     'name': 'RivetIT Department Portal SSO',
-    'version': '20.0.1.0.0',
+    'version': '1.0.0',
     'summary': 'Launch the RivetIT Department Portal from an Odoo employee session',
     'category': 'Human Resources',
     'license': 'LGPL-3',
