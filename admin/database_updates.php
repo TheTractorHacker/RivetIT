@@ -9563,3 +9563,10 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             ADD COLUMN IF NOT EXISTS `sso_company_id` int(11) DEFAULT NULL");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.117'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.117') {
+        // Cron execution and mail-queue failures are already recorded in app_logs.
+        // Remove old cron-only notices so they no longer clutter the notification feed.
+        mysqli_query($mysqli, "DELETE FROM `notifications` WHERE `notification_type` IN ('Cron', 'Cron-Mail-Queue')");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.118'");
+    }

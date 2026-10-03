@@ -4,6 +4,13 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [26.10.11] RivetIT — quieter cron notifications
+
+Database migration 2.6.118 removes existing cron-only notices. Successful
+cron runs and mail-queue failures remain visible in application logs without
+creating notifications. Alerts about tickets, mail delivery, and expiring
+assets still work as before.
+
 ## [26.10.10] RivetIT — remote MCP preview
 
 No database migration is required. The remote MCP endpoint is disabled by default

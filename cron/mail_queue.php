@@ -388,7 +388,6 @@ if (mysqli_num_rows($sql_queue) > 0) {
             $email_subject_logging   = sanitizeInput($rowq['email_subject']);
             $err = substr("Mailer Error: " . $e->getMessage(), 0, 100) . "...";
 
-            appNotify("Cron-Mail-Queue", "Failed to send email #$email_id to $email_recipient_logging", "/admin/logs.php");
             logApp("Cron-Mail-Queue", "Error", "Failed to send email: $email_id to $email_recipient_logging regarding $email_subject_logging. $err");
         }
     }

@@ -1749,8 +1749,5 @@ require_once dirname(__DIR__) . '/cron/report_scheduler.php';
 // Fire due CRM follow-up reminders (activity_reminder_at) to the activity owner.
 require_once dirname(__DIR__) . '/cron/crm_reminders.php';
 
-// Send Alert to inform Cron was run
-appNotify("Cron", "Cron successfully executed", "/admin/audit_log.php");
-
 // Logging
 logApp("Cron", "info", "Cron executed successfully");
