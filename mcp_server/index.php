@@ -11,6 +11,13 @@ if (getenv('RIVETIT_MCP_ENABLED') !== '1') {
     http_response_code(404);
     exit;
 }
+// Fail closed on older schemas or when the optional module is switched off.
+$module_settings = mysqli_query($mysqli, "SELECT * FROM settings WHERE company_id = 1");
+$module_row = $module_settings ? mysqli_fetch_assoc($module_settings) : null;
+if ((int) ($module_row['config_module_enable_mcp'] ?? 0) !== 1) {
+    http_response_code(404);
+    exit;
+}
 require_once __DIR__ . '/../includes/app_version.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../includes/redis_functions.php';

@@ -271,3 +271,7 @@ $asset_types_array = array (
     'Virtual Machine'=>'fa-cloud',
     'Other'=>'fa-tag'
 );
+
+// Remote MCP is experimental and requires both administrator and server opt-in.
+$config_module_enable_mcp = intval($row['config_module_enable_mcp'] ?? 0);
+$config_mcp_schema_ready = is_array($row) && array_key_exists('config_module_enable_mcp', $row);

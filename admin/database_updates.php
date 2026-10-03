@@ -9570,3 +9570,9 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "DELETE FROM `notifications` WHERE `notification_type` IN ('Cron', 'Cron-Mail-Queue')");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.118'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.118') {
+        // Experimental remote MCP must also be explicitly enabled in the UI.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_module_enable_mcp` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.119'");
+    }

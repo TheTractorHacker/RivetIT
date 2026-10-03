@@ -1,4 +1,6 @@
-# Remote MCP (preview)
+# Remote MCP (Experimental module)
+
+**Administration → Modules → Enable Remote MCP — Experimental** controls this optional module. It is off by default and must be enabled in addition to the server configuration below. Apply database update 2.6.119 to make the switch available. Turning the module off blocks both the endpoint and its OAuth metadata.
 
 RivetIT's MCP endpoint is `/mcp`. It is **disabled by default** and exposes only two read-only tools: the agent's profile and recent open tickets within that agent's existing ticket and department permissions. It never forwards an OAuth token to the RivetIT API or uses a long-lived RivetIT API key. Billing changes and other write operations are not exposed.
 

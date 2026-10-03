@@ -66,6 +66,15 @@ require_once "includes/inc_all_admin.php";
                 </div>
             </div>
 
+            <div class="form-group">
+                <div class="form-check form-switch">
+                    <input type="checkbox" class="form-check-input" name="config_module_enable_mcp" value="1" id="customSwitchMcp" <?php if ($config_module_enable_mcp === 1) echo 'checked'; ?> <?php if (!$config_mcp_schema_ready) echo 'disabled'; ?>>
+                    <label class="form-check-label" for="customSwitchMcp">Enable Remote MCP <span class="badge bg-warning text-dark ms-2">Experimental</span></label>
+                </div>
+                <small class="form-text text-muted">Optional read-only access for AI clients. Requires an OAuth provider and server configuration. Disabled by default; live OAuth testing is still pending.</small>
+                <?php if (!$config_mcp_schema_ready) { ?><small class="form-text text-warning">Apply the database update before enabling this module.</small><?php } ?>
+            </div>
+
             <hr>
 
             <button type="submit" name="edit_module_settings" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
