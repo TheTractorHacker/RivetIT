@@ -17,7 +17,7 @@ This keeps RivetIT's single, well-tested OpenID Connect sign-in path, needs noth
 
 ## Install and configure
 
-1. Add `odoo_addons` from this repository to the Odoo server's `addons_path`, update the Apps list, and install **RivetIT Department Portal SSO** in `midwest-production`. It requires the `hr` module and a deployment that permits custom addons. Check the addon in a staging Odoo database first.
+1. A ready-to-upload copy of the addon is in this repository as `odoo_addons/rivetit_sso-19.0.1.0.0.zip` (unzip it into an addons folder; it is built from `odoo_addons/rivetit_sso` and must be rebuilt if the source changes). Add `odoo_addons` from this repository to the Odoo server's `addons_path`, update the Apps list, and install **RivetIT Department Portal SSO** in `midwest-production`. It requires the `hr` module and a deployment that permits custom addons. Check the addon in a staging Odoo database first.
 2. In Odoo Settings, create one **RivetIT SSO integration** for the intended company. Set `Issuer URL` to the exact HTTPS Odoo base URL, `Integration ID` to a stable identifier such as `rivetit-department-portal`, and both RivetIT URLs to the exact callback `https://YOUR_RIVETIT_HOST/client/login_odoo.php`. Leave **Active** off until the secret is configured.
 3. Generate a random secret with at least 32 printable characters. In an interactive Odoo shell for the correct database, store only its SHA-256 hash on the integration record:
 
