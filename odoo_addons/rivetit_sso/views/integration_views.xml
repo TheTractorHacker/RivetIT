@@ -26,7 +26,31 @@
                         <field name="portal_start_url"/>
                         <field name="callback_url"/>
                     </group>
-                    <p class="text-muted">Set the SHA-256 secret hash with the Odoo shell, then enable this integration. Raw secrets are never stored here.</p>
+                    <group string="Integration secret">
+                        <field name="has_secret" invisible="1"/>
+                        <div colspan="2">
+                            <span class="badge text-bg-success" invisible="not has_secret">
+                                A secret is configured
+                            </span>
+                            <span class="badge text-bg-danger" invisible="has_secret">
+                                No secret set - sign-in will fail
+                            </span>
+                        </div>
+                        <field name="secret" password="True"
+                               placeholder="Paste the same secret you entered in RivetIT (32+ characters)"/>
+                        <div colspan="2">
+                            <button name="action_generate_secret" type="object"
+                                    string="Generate a secret"
+                                    class="btn btn-secondary btn-sm"
+                                    confirm="Generate a new secret? Any secret currently configured in RivetIT will stop working until you paste the new one there."/>
+                        </div>
+                    </group>
+                    <p class="text-muted">
+                        Only the SHA-256 hash of the secret is stored; the raw value is never
+                        written to the database and cannot be read back. Leave the field blank
+                        to keep the existing secret. Enable <b>Active</b> once the secret is set
+                        and RivetIT holds the same value.
+                    </p>
                 </sheet>
             </form>
         </field>

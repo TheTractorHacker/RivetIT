@@ -65,3 +65,5 @@ api/v1/custom/*
 # Composer installs new packages from composer.lock during deployment.
 # Existing tracked vendor files remain tracked.
 /vendor/*
+__pycache__/
+*.pyc
