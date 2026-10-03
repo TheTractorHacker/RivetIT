@@ -140,8 +140,13 @@ try {
     // Never log codes, tokens, credentials or raw provider responses.
     $safeReasons = ['disabled', 'invalid_request', 'browser_binding', 'provider_denied',
         'invalid_config', 'invalid_token_response', 'userinfo_mismatch', 'account_ineligible'];
+    // Only our own fixed messages and the JWT library's key/signature/expiry messages are logged, never provider data.
+    $detail = ($error instanceof RuntimeException || strpos(get_class($error), 'Firebase\\JWT\\') === 0
+        || $error instanceof UnexpectedValueException || $error instanceof DomainException)
+        ? substr(preg_replace('/[^A-Za-z0-9 .,:_-]/', '', $error->getMessage()), 0, 120) : '';
     logAction('Client Login', 'Failed', 'OpenID Connect sign-in failed: '
-        . (in_array($reason, $safeReasons, true) ? $reason : 'provider_or_validation_error'));
+        . (in_array($reason, $safeReasons, true) ? $reason
+            : 'provider_or_validation_error' . ($detail !== '' ? " ($detail)" : '')));
     $_SESSION['oidc_login_error'] = 'Single sign-on could not complete. Please try again or contact your administrator.';
     header('Location: /login.php', true, 303);
     exit;
