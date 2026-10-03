@@ -9583,3 +9583,9 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_oidc_link_by_email` tinyint(1) NOT NULL DEFAULT 0");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.120'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.120') {
+        // Default 1 keeps first-sign-in email linking strict (provider must report email_verified true).
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_oidc_require_verified_email` tinyint(1) NOT NULL DEFAULT 1");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.121'");
+    }

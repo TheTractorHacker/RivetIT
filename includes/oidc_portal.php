@@ -178,14 +178,14 @@ function portalOidcEligibleAccount(mysqli $mysqli, string $issuer, string $subje
  * subject is claimed with a single conditional UPDATE so two racing sign-ins cannot both link.
  * Returns the account row like portalOidcEligibleAccount(), or null.
  */
-function portalOidcLinkByVerifiedEmail(mysqli $mysqli, string $issuer, string $subject, array $userinfo, ?string &$why = null): ?array
+function portalOidcLinkByVerifiedEmail(mysqli $mysqli, string $issuer, string $subject, array $userinfo, ?string &$why = null, bool $requireVerified = true): ?array
 {
     $email = $userinfo['email'] ?? null;
     if (!is_string($email) || $email === '' || strlen($email) > 254 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $why = 'provider_sent_no_valid_email';
         return null;
     }
-    if (($userinfo['email_verified'] ?? null) !== true) {
+    if ($requireVerified && ($userinfo['email_verified'] ?? null) !== true) {
         $why = 'email_verified_is_' . (array_key_exists('email_verified', $userinfo) ? gettype($userinfo['email_verified']) : 'missing');
         return null;
     }

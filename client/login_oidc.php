@@ -28,7 +28,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 
 $settings = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_client_portal_enable,
-    config_oidc_enabled, config_oidc_issuer, config_oidc_client_id, config_oidc_client_secret, config_oidc_link_by_email
+    config_oidc_enabled, config_oidc_issuer, config_oidc_client_id, config_oidc_client_secret, config_oidc_link_by_email, config_oidc_require_verified_email
     FROM settings WHERE company_id = 1 LIMIT 1")) ?: [];
 $issuer = trim((string) ($settings['config_oidc_issuer'] ?? ''));
 $clientId = trim((string) ($settings['config_oidc_client_id'] ?? ''));
@@ -36,6 +36,7 @@ $enabled = (int) ($settings['config_client_portal_enable'] ?? 0) === 1
     && (int) ($settings['config_oidc_enabled'] ?? 0) === 1
     && $clientId !== '' && !empty($settings['config_oidc_client_secret']);
 $linkByEmail = (int) ($settings['config_oidc_link_by_email'] ?? 0) === 1;
+$requireVerified = (int) ($settings['config_oidc_require_verified_email'] ?? 1) === 1;
 $callback = 'https://' . $config_base_url . '/client/login_oidc.php';
 
 try {
@@ -111,7 +112,7 @@ try {
     $account = portalOidcEligibleAccount($mysqli, $issuer, $subject);
     $linkWhy = null;
     if ($account === null && $linkByEmail) {
-        $account = portalOidcLinkByVerifiedEmail($mysqli, $issuer, $subject, $userinfo, $linkWhy);
+        $account = portalOidcLinkByVerifiedEmail($mysqli, $issuer, $subject, $userinfo, $linkWhy, $requireVerified);
         if ($account !== null) {
             $session_user_id = (int) $account['user_id'];
             $session_ip = sanitizeInput(getIP());

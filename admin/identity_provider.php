@@ -52,6 +52,11 @@ require_once "includes/inc_all_admin.php";
                 <label class="form-check-label" for="oidc_link_by_email">Link logins on first sign-in by verified email</label>
                 <small class="form-text text-muted d-block">Optional. For a Department login set to OpenID Connect with the subject left blank, the first sign-in is linked when the provider reports <code>email_verified: true</code> and the email matches that login exactly. The subject is stored and used from then on, so later email changes never matter. Only turn this on if the provider verifies every email address and does not allow self-signup with arbitrary addresses.</small>
             </div>
+            <div class="form-check mb-3 ms-4">
+                <input class="form-check-input" type="checkbox" id="oidc_require_verified_email" name="oidc_require_verified_email" value="1" <?= $config_oidc_require_verified_email ? 'checked' : '' ?>>
+                <label class="form-check-label" for="oidc_require_verified_email">Require the provider to report the email as verified</label>
+                <small class="form-text text-muted d-block">Recommended. Turn this off only if your provider does not send <code>email_verified: true</code> (Authentik sends <code>false</code> unless the user attribute or scope mapping says otherwise) <em>and</em> only administrators can create users or change email addresses there. With it off, anyone who can set their provider email to a blank login's email can claim that login on first sign-in.</small>
+            </div>
             <div class="form-group">
                 <label for="oidc_issuer">Issuer URL</label>
                 <input class="form-control" type="url" id="oidc_issuer" name="oidc_issuer" value="<?= nullable_htmlentities($config_oidc_issuer) ?>" placeholder="https://login.example.org/application/o/rivetit" maxlength="255">
