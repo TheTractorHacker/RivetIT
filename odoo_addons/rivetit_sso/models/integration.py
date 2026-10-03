@@ -29,9 +29,7 @@ class RivetITSSOIntegration(models.Model):
     company_id = fields.Many2one('res.company', required=True)
     secret_hash = fields.Char(copy=False, groups='base.group_system')
 
-    _sql_constraints = [
-        ('client_id_unique', 'unique(client_id)', 'The SSO client ID must be unique.'),
-    ]
+    _client_id_unique = models.Constraint('unique(client_id)', 'The SSO client ID must be unique.')
 
     @api.constrains('issuer_url', 'portal_start_url', 'callback_url')
     def _check_urls(self):

@@ -4,16 +4,13 @@
 
 This integration targets **Odoo 19 Enterprise** at `https://odoo.mwautomation.com` (the installed `/web/version` endpoint reports `19.0+e`). The `rivetit_sso` addon must be installed on that Odoo database before enabling sign-in in RivetIT. RivetIT's side is disabled by default. Directory sync, local passwords, Microsoft Entra and OpenID Connect keep their existing behavior.
 
-## No custom Odoo addon allowed? Use your identity provider (recommended)
+## Odoo's built-in OAuth login is not a drop-in alternative
 
-If you cannot install custom modules in Odoo, you do not need the addon. Make Odoo and RivetIT trust the same identity provider (Authentik, Keycloak, and so on) and employees get one sign-in across both:
+Odoo's own **OAuth Authentication** (`auth_oauth`) signs people in to Odoo using the OAuth *implicit* flow (`response_type=token`, no client secret, no PKCE; checked against Odoo 20.0). Authentik does not accept a plain `token` response type (it supports `code`, `id_token`, `id_token token` and the hybrid types), so Odoo's built-in login generally cannot use Authentik. Providers that still allow the implicit flow may work, but that is a less safe flow than the one RivetIT's OpenID Connect sign-in uses, so this page does not recommend it. If you cannot install the addon, keep using RivetIT's OpenID Connect sign-in directly and give employees a plain link to `https://YOUR_RIVETIT_HOST/client/login_oidc.php` (for example a URL action menu item in Odoo developer mode, Settings > Technical > Actions > URL Actions).
 
-1. Set up **OpenID Connect for Department Portal** in RivetIT (see `OPENID_CONNECT_PORTAL.md`) and link each Department login to its provider account (subject, or the optional first sign-in email linking).
-2. In Odoo, use its built-in **OAuth authentication** (Settings > General Settings > Integrations > OAuth Authentication) to add the same provider as an Odoo sign-in option, then link each employee's Odoo user to their provider account (Odoo's user form has an OAuth tab for the provider user ID). Check your Odoo version's provider form for the flow it supports (authorization code with PKCE is preferred over the implicit flow) and the exact endpoint fields; Odoo's own documentation for custom OAuth providers is authoritative here.
-3. Give employees a **Department Portal** link inside Odoo that needs no code: in developer mode create a URL action (Settings > Technical > Actions > URL Actions) pointing at `https://YOUR_RIVETIT_HOST/client/login_oidc.php`, and attach a menu item to it. Starting at that address begins the RivetIT sign-in directly.
-4. When an employee who signed in to Odoo through the provider clicks the link, the provider already has their session, so RivetIT signs them in without another password prompt and applies their normal Department Portal permissions. Unlinked, disabled, or unknown people are refused exactly as for any OpenID Connect sign-in.
+The `rivetit_sso` addon below needs access to the Odoo server's addons path (Apps > Import Module cannot install it: that tool extracts data files only, never Python code). Versions: `rivetit_sso-20.0.1.0.0.zip` for Odoo 20 and `rivetit_sso-19.0.1.0.0.zip` for Odoo 19.
 
-This keeps RivetIT's single, well-tested OpenID Connect sign-in path, needs nothing installed in Odoo, and works for any provider that supports OpenID Connect. The `rivetit_sso` addon below remains an option only for deployments that can install custom addons and want Odoo itself to vouch for the employee.
+After installing, the settings live in Odoo under **Settings > RivetIT SSO** (visible to administrators; create one integration there).
 
 ## Install and configure
 
