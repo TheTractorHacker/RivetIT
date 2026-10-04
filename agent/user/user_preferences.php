@@ -21,8 +21,13 @@ $records_per_page    = intval($pref['user_config_records_per_page'] ?: 10);
                 <label class="d-block mb-2">Theme</label>
                 <div class="btn-group js-btn-group-toggle">
                     <label class="btn btn-outline-secondary <?= $user_config_theme_dark === 0 ? 'active' : '' ?>">
-                        <input type="radio" name="dark_mode" autocomplete="off"
+                        <input type="radio" name="dark_mode" value="0" autocomplete="off"
                                <?= $user_config_theme_dark === 0 ? 'checked' : '' ?>>
+                        <i class="fas fa-building me-1"></i> Company default
+                    </label>
+                    <label class="btn btn-outline-secondary <?= $user_config_theme_dark === 2 ? 'active' : '' ?>">
+                        <input type="radio" name="dark_mode" value="2" autocomplete="off"
+                               <?= $user_config_theme_dark === 2 ? 'checked' : '' ?>>
                         <i class="fas fa-sun me-1"></i> Light
                     </label>
                     <label class="btn btn-outline-secondary <?= $user_config_theme_dark === 1 ? 'active' : '' ?>">
@@ -57,7 +62,7 @@ $records_per_page    = intval($pref['user_config_records_per_page'] ?: 10);
                         <span class="input-group-text"><i class="fa fa-fw fa-list"></i></span>
                     </div>
                     <select class="form-control" name="records_per_page">
-                        <?php foreach ([10, 25, 50, 100] as $n) { ?>
+                        <?php foreach ([5, 10, 20, 50, 100, 500] as $n) { ?>
                         <option value="<?= $n ?>" <?= $records_per_page == $n ? 'selected' : '' ?>><?= $n ?></option>
                         <?php } ?>
                     </select>

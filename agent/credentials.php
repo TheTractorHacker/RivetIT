@@ -243,7 +243,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <div class="dropdown-divider"></div>
                     <?php } ?>
                     <?php } ?>
-                    <?php if ($num_rows[0] > 0) { ?>
+                    <?php if ($num_rows[0] > 0 && lookupUserPermission('module_credential') >= 3) { ?>
                         <a class="dropdown-item text-dark ajax-modal" href="#"
                             data-modal-url="modals/credential/credential_export.php?<?= $client_url ?>">
                             <i class="fa fa-fw fa-download me-2"></i>Export
@@ -403,7 +403,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     <i class="fas fa-fw fa-redo me-2"></i>Restore
                                 </button>
                                 <div class="dropdown-divider"></div>
-                                <button class="dropdown-item text-danger text-bold"
+                                <button class="dropdown-item text-danger text-bold confirm-link"
                                     type="submit" form="bulkActions" name="bulk_delete_credentials">
                                     <i class="fas fa-fw fa-trash me-2"></i>Delete
                                 </button>

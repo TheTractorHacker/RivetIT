@@ -88,6 +88,9 @@ $cat_counts = [];
 $cr = mysqli_query($mysqli, "SELECT category, COUNT(*) as c FROM rmm_scripts GROUP BY category");
 while ($r = mysqli_fetch_assoc($cr)) { $cat_counts[$r['category']] = $r['c']; }
 $total_count = array_sum($cat_counts);
+foreach (array_keys($cat_counts) as $existing_cat) {
+    if ($existing_cat !== '' && !in_array($existing_cat, $categories, true)) { $categories[] = $existing_cat; }
+}
 
 // Online assets for "Run on Asset" modal
 $sql_online_assets = mysqli_query($mysqli,
@@ -137,7 +140,7 @@ $sql_runs = mysqli_query($mysqli,
                 <?php foreach ($categories as $cat): ?>
                 <a href="?category=<?= urlencode($cat) ?><?= $filter_q ? '&q='.urlencode($filter_q) : '' ?>"
                    class="btn <?= $filter_cat === $cat ? 'btn-secondary' : 'btn-outline-secondary' ?>">
-                    <?= $cat ?>
+                    <?= nullable_htmlentities($cat) ?>
                     <?php if (isset($cat_counts[$cat])): ?>
                     <span class="badge text-bg-light ms-1"><?= $cat_counts[$cat] ?></span>
                     <?php endif; ?>
@@ -323,7 +326,7 @@ $sql_runs = mysqli_query($mysqli,
                                 <label class="text-muted small">Category</label>
                                 <select class="form-control form-control-sm" name="category" id="s_category">
                                     <?php foreach ($categories as $cat): ?>
-                                    <option><?= $cat ?></option>
+                                    <option><?= nullable_htmlentities($cat) ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>

@@ -12,12 +12,22 @@ if (!defined("LATEST_DATABASE_VERSION") || !defined("CURRENT_DATABASE_VERSION") 
     exit();
 }
 
+// A migration step ends by writing the next version into settings. CURRENT_DATABASE_VERSION is fixed when the
+// page loads, so testing it let a run apply exactly one step (and made a fresh install or a long upgrade need
+// the button pressed once per version). Each step below tests the version the database holds right now instead,
+// so a single run applies every pending step in order.
+$rivetit_db_version = static function () use ($mysqli): string {
+    $row = mysqli_fetch_row(mysqli_query($mysqli, "SELECT config_current_database_version FROM settings WHERE company_id = 1 LIMIT 1"));
+    return (string) ($row[0] ?? '');
+};
+@set_time_limit(0);
+
 // Check if we need an update
 if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
     // We need updates!
 
-    if (CURRENT_DATABASE_VERSION == '0.2.0') {
+    if ($rivetit_db_version() == '0.2.0') {
         //Insert queries here required to update to DB version 0.2.1
 
         mysqli_query($mysqli, "ALTER TABLE `vendors`
@@ -54,7 +64,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.2.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.2.1') {
+    if ($rivetit_db_version() == '0.2.1') {
         // Insert queries here required to update to DB version 0.2.2
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_ticket_email_parse` INT(1) NOT NULL DEFAULT '0' AFTER `config_ticket_from_email`");
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_imap_host` VARCHAR(200) NULL DEFAULT NULL AFTER `config_mail_from_name`, ADD `config_imap_port` INT(5) NULL DEFAULT NULL AFTER `config_imap_host`, ADD `config_imap_encryption` VARCHAR(200) NULL DEFAULT NULL AFTER `config_imap_port`;");
@@ -63,7 +73,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.2.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.2.2') {
+    if ($rivetit_db_version() == '0.2.2') {
         // Insert queries here required to update to DB version 0.2.3
 
         // Add contact_important field to those who don't have it (installed before March 2022)
@@ -77,7 +87,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.2.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.2.3') {
+    if ($rivetit_db_version() == '0.2.3') {
         //Create New interfaces Table
         mysqli_query($mysqli, "CREATE TABLE `interfaces` (`interface_id` int(11) AUTO_INCREMENT PRIMARY KEY,
         `interface_number` int(11) NULL DEFAULT NULL,
@@ -97,18 +107,18 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.2.4') {
+    if ($rivetit_db_version() == '0.2.4') {
         mysqli_query($mysqli, "CREATE TABLE `contact_assets` (`contact_id` int(11) NOT NULL,`asset_id` int(11) NOT NULL, PRIMARY KEY (`contact_id`,`asset_id`))");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.2.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.2.5') {
+    if ($rivetit_db_version() == '0.2.5') {
         mysqli_query($mysqli, "ALTER TABLE `users` ADD `user_status` TINYINT(1) DEFAULT 1 AFTER `user_password`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.2.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.2.6') {
+    if ($rivetit_db_version() == '0.2.6') {
         // Insert queries here required to update to DB version 0.2.7
         mysqli_query($mysqli, "ALTER TABLE `contacts` ADD `contact_token_expire` DATETIME NULL DEFAULT NULL AFTER `contact_password_reset_token`");
 
@@ -120,7 +130,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.2.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.2.7') {
+    if ($rivetit_db_version() == '0.2.7') {
 
         mysqli_query($mysqli, "ALTER TABLE `vendors` ADD `vendor_template` TINYINT(1) DEFAULT 0 AFTER `vendor_notes`");
         mysqli_query($mysqli, "ALTER TABLE `software` ADD `software_template` TINYINT(1) DEFAULT 0 AFTER `software_notes`");
@@ -130,27 +140,27 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.2.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.2.8') {
+    if ($rivetit_db_version() == '0.2.8') {
 
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_theme` VARCHAR(200) DEFAULT 'blue' AFTER `config_module_enable_ticketing`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.2.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.2.9') {
+    if ($rivetit_db_version() == '0.2.9') {
 
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_ticket_client_general_notifications` INT(1) NOT NULL DEFAULT '1' AFTER `config_ticket_email_parse`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.3.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.3.0') {
+    if ($rivetit_db_version() == '0.3.0') {
         mysqli_query($mysqli, "ALTER TABLE `notifications` ADD `notification_user_id` TINYINT(1) DEFAULT 0 AFTER `notification_client_id`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.3.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.3.1') {
+    if ($rivetit_db_version() == '0.3.1') {
 
         // Assets
 
@@ -444,20 +454,20 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.3.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.3.2') {
+    if ($rivetit_db_version() == '0.3.2') {
         mysqli_query($mysqli, "ALTER TABLE `contacts` ADD `contact_billing` TINYINT(1) DEFAULT 0 AFTER `contact_important`");
         mysqli_query($mysqli, "ALTER TABLE `contacts` ADD `contact_technical` TINYINT(1) DEFAULT 0 AFTER `contact_billing`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.3.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.3.3') {
+    if ($rivetit_db_version() == '0.3.3') {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_telemetry` TINYINT(1) DEFAULT 0 AFTER `config_theme`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.3.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.3.4') {
+    if ($rivetit_db_version() == '0.3.4') {
         // Insert queries here required to update to DB version 0.3.5
 
         //Get & upgrade user login encryption
@@ -473,7 +483,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.3.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.3.5') {
+    if ($rivetit_db_version() == '0.3.5') {
         $installation_id = randomString(32);
 
         // Update config.php var with new version var for use with docker
@@ -483,7 +493,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.3.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.3.6') {
+    if ($rivetit_db_version() == '0.3.6') {
         // Insert queries here required to update to DB version 0.3.7
         mysqli_query($mysqli, "ALTER TABLE `shared_items` ADD `item_encrypted_username` VARCHAR(255) NULL DEFAULT NULL AFTER `item_related_id`");
 
@@ -491,14 +501,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.3.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.3.7') {
+    if ($rivetit_db_version() == '0.3.7') {
 
         mysqli_query($mysqli, "ALTER TABLE `logins` ADD `login_important` TINYINT(1) NOT NULL DEFAULT 0 AFTER `login_note`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.3.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.3.8') {
+    if ($rivetit_db_version() == '0.3.8') {
         mysqli_query($mysqli, "ALTER TABLE `contacts` ADD `contact_accessed_at` DATETIME NULL DEFAULT NULL AFTER `contact_archived_at`");
         mysqli_query($mysqli, "ALTER TABLE `locations` ADD `location_accessed_at` DATETIME NULL DEFAULT NULL AFTER `location_archived_at`");
         mysqli_query($mysqli, "ALTER TABLE `assets` ADD `asset_accessed_at` DATETIME NULL DEFAULT NULL AFTER `asset_archived_at`");
@@ -515,7 +525,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.3.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.3.9') {
+    if ($rivetit_db_version() == '0.3.9') {
 
         mysqli_query($mysqli, "ALTER TABLE `vendors` ADD `vendor_template_id` INT(11) NOT NULL DEFAULT 0 AFTER `vendor_client_id`");
         mysqli_query($mysqli, "ALTER TABLE `software` ADD `software_template_id` INT(11) NOT NULL DEFAULT 0 AFTER `software_client_id`");
@@ -523,13 +533,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.4.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.4.0') {
+    if ($rivetit_db_version() == '0.4.0') {
         mysqli_query($mysqli, "ALTER TABLE `logs` ADD `log_entity_id` INT NOT NULL DEFAULT '0' AFTER `log_user_id`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.4.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.4.1') {
+    if ($rivetit_db_version() == '0.4.1') {
         mysqli_query($mysqli, "ALTER TABLE settings ADD `config_stripe_account` TINYINT(1) NOT NULL DEFAULT '0' AFTER config_stripe_secret");
         //Insert queries here required to update to DB version 0.4.2
 
@@ -537,13 +547,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.4.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.4.2') {
+    if ($rivetit_db_version() == '0.4.2') {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_timezone` VARCHAR(200) NOT NULL DEFAULT 'America/New_York' AFTER `config_telemetry`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.4.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.4.3') {
+    if ($rivetit_db_version() == '0.4.3') {
         // Insert queries here required to update to DB version 0.4.4
         mysqli_query($mysqli, "ALTER TABLE `client_tags` CHANGE `client_id` `client_tags_client_id` INT NOT NULL");
         mysqli_query($mysqli, "ALTER TABLE `client_tags` CHANGE `tag_id` `client_tags_tag_id` INT NOT NULL");
@@ -552,7 +562,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.4.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.4.4') {
+    if ($rivetit_db_version() == '0.4.4') {
         // Insert queries here required to update to DB version 0.4.5
         mysqli_query($mysqli, "ALTER TABLE `client_tags` CHANGE `client_tags_client_id` `client_tag_client_id` INT NOT NULL");
         mysqli_query($mysqli, "ALTER TABLE `client_tags` CHANGE `client_tags_tag_id` `client_tag_tag_id` INT NOT NULL");
@@ -560,7 +570,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.4.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.4.5') {
+    if ($rivetit_db_version() == '0.4.5') {
         // Insert queries here required to update to DB version 0.4.6
         mysqli_query($mysqli, "ALTER TABLE `contacts` DROP `company_id`");
         mysqli_query($mysqli, "ALTER TABLE `locations` DROP `company_id`");
@@ -610,33 +620,33 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.4.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.4.6') {
+    if ($rivetit_db_version() == '0.4.6') {
 
         mysqli_query($mysqli, "ALTER TABLE `notifications` ADD `notification_entity_id` INT(11) DEFAULT 0 AFTER `notification_user_id`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.4.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.4.7') {
+    if ($rivetit_db_version() == '0.4.7') {
 
         mysqli_query($mysqli, "ALTER TABLE `clients` ADD `client_rate` DECIMAL(15,2) NULL DEFAULT NULL AFTER `client_referral`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.4.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.4.8') {
+    if ($rivetit_db_version() == '0.4.8') {
         mysqli_query($mysqli, "ALTER TABLE `tickets` ADD `ticket_source` VARCHAR(255) NULL DEFAULT NULL AFTER `ticket_number`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.4.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.4.9') {
+    if ($rivetit_db_version() == '0.4.9') {
         // Insert queries here required to update to DB version 0.5.0
         mysqli_query($mysqli, "ALTER TABLE `clients` ADD `client_tax_id_number` VARCHAR(255) NULL DEFAULT NULL AFTER `client_net_terms`");
         // Then, update the database to the next sequential version
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.5.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.5.0') {
+    if ($rivetit_db_version() == '0.5.0') {
         // Insert queries here required to update to DB version 0.5.1
         mysqli_query($mysqli, "CREATE TABLE `ticket_attachments` (
 		  `ticket_attachment_id` int(11) NOT NULL AUTO_INCREMENT,
@@ -652,7 +662,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.5.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.5.1') {
+    if ($rivetit_db_version() == '0.5.1') {
         //Insert queries here required to update to DB version 0.5.2
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_ticket_autoclose` TINYINT(1) NOT NULL DEFAULT 0 AFTER `config_ticket_client_general_notifications`");
 
@@ -662,7 +672,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.5.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.5.2') {
+    if ($rivetit_db_version() == '0.5.2') {
         //Insert queries here required to update to DB version 0.5.3
         //Custom Fields and Values
 
@@ -695,7 +705,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.5.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.5.3') {
+    if ($rivetit_db_version() == '0.5.3') {
         //Insert queries here required to update to DB version 0.5.4
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_ticket_autoclose_hours` INT(5) NOT NULL DEFAULT 72 AFTER `config_ticket_autoclose`");
 
@@ -703,7 +713,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.5.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.5.4') {
+    if ($rivetit_db_version() == '0.5.4') {
         //Insert queries here required to update to DB version 0.5.5
         mysqli_query($mysqli, "CREATE TABLE `projects` (
 			`project_id` int(11) NOT NULL AUTO_INCREMENT,
@@ -737,13 +747,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.5.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.5.5') {
+    if ($rivetit_db_version() == '0.5.5') {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_login_key_required` TINYINT(1) NOT NULL DEFAULT '0' AFTER `config_module_enable_accounting`, ADD `config_login_key_secret` VARCHAR(255) NULL DEFAULT NULL AFTER `config_login_key_required`; ");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.5.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.5.6') {
+    if ($rivetit_db_version() == '0.5.6') {
 
         mysqli_query($mysqli, "CREATE TABLE `email_queue` (
 			`email_id` int(11) NOT NULL AUTO_INCREMENT,
@@ -771,7 +781,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.5.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.5.7') {
+    if ($rivetit_db_version() == '0.5.7') {
         mysqli_query($mysqli, "ALTER TABLE `email_queue` ADD `email_status` TINYINT(1) NOT NULL DEFAULT '0' AFTER `email_id`");
         mysqli_query($mysqli, "ALTER TABLE `email_queue` ADD `email_recipient_name` VARCHAR(255) NULL DEFAULT NULL AFTER `email_recipient`");
         mysqli_query($mysqli, "ALTER TABLE `email_queue` ADD `email_failed_at` DATETIME NULL DEFAULT NULL AFTER `email_queued_at`");
@@ -780,14 +790,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.5.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.5.8') {
+    if ($rivetit_db_version() == '0.5.8') {
         mysqli_query($mysqli, "ALTER TABLE `contacts` ADD `contact_primary` TINYINT(1) NOT NULL DEFAULT 0 AFTER `contact_token_expire`");
         mysqli_query($mysqli, "ALTER TABLE `locations` ADD `location_primary` TINYINT(1) NOT NULL DEFAULT 0 AFTER `location_photo`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.5.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.5.9') {
+    if ($rivetit_db_version() == '0.5.9') {
 
         // Copy primary_location and primary_contact to their new vars in their own respecting tables
         $sql = mysqli_query($mysqli, "SELECT * FROM clients");
@@ -806,21 +816,21 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.6.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.6.0') {
+    if ($rivetit_db_version() == '0.6.0') {
         mysqli_query($mysqli, "ALTER TABLE `clients` DROP `primary_contact`");
         mysqli_query($mysqli, "ALTER TABLE `clients` DROP `primary_location`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.6.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.6.1') {
+    if ($rivetit_db_version() == '0.6.1') {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN `config_imap_username` VARCHAR(200) NULL DEFAULT NULL AFTER `config_imap_encryption`");
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN `config_imap_password` VARCHAR(200) NULL DEFAULT NULL AFTER `config_imap_username`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.6.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.6.2') {
+    if ($rivetit_db_version() == '0.6.2') {
         //Insert queries here required to update to DB version 0.6.3
 
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_invoice_late_fee_enable` TINYINT(1) NOT NULL DEFAULT 0 AFTER `config_invoice_from_email`");
@@ -831,13 +841,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.6.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.6.3') {
+    if ($rivetit_db_version() == '0.6.3') {
         mysqli_query($mysqli, "ALTER TABLE `quotes` ADD COLUMN `quote_expire` DATE NULL DEFAULT NULL AFTER `quote_date`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.6.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.6.4') {
+    if ($rivetit_db_version() == '0.6.4') {
         //Insert queries here required to update to DB version 0.6.5
 
         mysqli_query($mysqli, "CREATE TABLE `ticket_watchers` (
@@ -853,7 +863,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.6.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.6.5') {
+    if ($rivetit_db_version() == '0.6.5') {
         //Insert queries here required to update to DB version 0.6.6
         mysqli_query($mysqli, "ALTER TABLE `ticket_watchers` DROP `watcher_created_at`");
 
@@ -861,14 +871,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.6.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.6.6') {
+    if ($rivetit_db_version() == '0.6.6') {
 
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_start_page` VARCHAR(200) DEFAULT 'clients.php' AFTER `config_current_database_version`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.6.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.6.7') {
+    if ($rivetit_db_version() == '0.6.7') {
 
         mysqli_query($mysqli, "CREATE TABLE `recurring_expenses` (
 			`recurring_expense_id` INT(11) NOT NULL AUTO_INCREMENT,
@@ -896,7 +906,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.6.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.6.8') {
+    if ($rivetit_db_version() == '0.6.8') {
         //Insert queries here required to update to DB version 0.6.9
         mysqli_query($mysqli, "ALTER TABLE `recurring_expenses` CHANGE `recurring_expense_payment_reference` `recurring_expense_reference` VARCHAR(255) DEFAULT NULL");
 
@@ -904,20 +914,20 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.6.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.6.9') {
+    if ($rivetit_db_version() == '0.6.9') {
 
         mysqli_query($mysqli, "ALTER TABLE `user_settings` ADD `user_config_records_per_page` INT(11) NOT NULL DEFAULT 10 AFTER `user_role`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.7.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.7.0') {
+    if ($rivetit_db_version() == '0.7.0') {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_login_message` TEXT DEFAULT NULL AFTER `config_client_portal_enable`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.7.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.7.1') {
+    if ($rivetit_db_version() == '0.7.1') {
         mysqli_query($mysqli, "CREATE TABLE `budget` (
 			`budget_id` INT(11) NOT NULL AUTO_INCREMENT,
 			`budget_month` TINYINT NOT NULL,
@@ -934,14 +944,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.7.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.7.2') {
+    if ($rivetit_db_version() == '0.7.2') {
         mysqli_query($mysqli, "ALTER TABLE `budget` CHANGE `budget_year` `budget_year` INT NOT NULL");
         mysqli_query($mysqli, "ALTER TABLE `budget` CHANGE `budget_amount` `budget_amount` DECIMAL(15,2) DEFAULT 0.00");
         // Then, update the database to the next sequential version
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.7.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.7.3') {
+    if ($rivetit_db_version() == '0.7.3') {
         //Insert queries here required to update to DB version 0.7.4
         mysqli_query($mysqli, "ALTER TABLE `files` ADD `file_folder_id` INT(11) NOT NULL DEFAULT 0 AFTER `file_accessed_at`");
 
@@ -949,7 +959,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.7.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.7.4') {
+    if ($rivetit_db_version() == '0.7.4') {
         //Insert queries here required to update to DB version 0.7.5
         mysqli_query($mysqli, "ALTER TABLE `files` ADD `file_hash` VARCHAR(200) DEFAULT NULL AFTER `file_ext`");
 
@@ -957,14 +967,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.7.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.7.5') {
+    if ($rivetit_db_version() == '0.7.5') {
         //Insert queries here required to update to DB version 0.7.6
         mysqli_query($mysqli, "ALTER TABLE `folders` ADD `folder_location` INT DEFAULT 0 AFTER `parent_folder`");
         // Then, update the database to the next sequential version
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.7.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.7.6') {
+    if ($rivetit_db_version() == '0.7.6') {
         //Insert queries here required to update to DB version 0.7.7
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_ticket_new_ticket_notification_email` VARCHAR(200) DEFAULT NULL AFTER `config_ticket_autoclose_hours`");
 
@@ -972,14 +982,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.7.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.7.7') {
+    if ($rivetit_db_version() == '0.7.7') {
         //Insert queries here required to update to DB version 0.7.8
         mysqli_query($mysqli, "ALTER TABLE `notifications` ADD `notification_action` VARCHAR(250) DEFAULT NULL AFTER `notification`");
         // Then, update the database to the next sequential version
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.7.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.7.8') {
+    if ($rivetit_db_version() == '0.7.8') {
         //Insert queries here required to update to DB version 0.7.9
         mysqli_query($mysqli, "ALTER TABLE `user_settings` ADD `user_config_force_mfa` TINYINT(1) NOT NULL DEFAULT 0 AFTER `user_role`");
 
@@ -987,7 +997,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.7.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.7.9') {
+    if ($rivetit_db_version() == '0.7.9') {
         //Insert queries here required to update to DB version 0.8.0
         mysqli_query($mysqli, "ALTER TABLE `assets` ADD `asset_uri` VARCHAR(250) DEFAULT NULL AFTER `asset_mac`");
 
@@ -995,7 +1005,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.8.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.8.0') {
+    if ($rivetit_db_version() == '0.8.0') {
         //Insert queries here required to update to DB version 0.8.1
         mysqli_query($mysqli, "ALTER TABLE `categories` ADD `category_icon` VARCHAR(200) DEFAULT NULL AFTER `category_color`");
         mysqli_query($mysqli, "ALTER TABLE `categories` ADD `category_parent` INT(11) DEFAULT 0 AFTER `category_icon`");
@@ -1004,7 +1014,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.8.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.8.1') {
+    if ($rivetit_db_version() == '0.8.1') {
         //Insert queries here required to update to DB version 0.8.2
         mysqli_query($mysqli, "CREATE TABLE `document_files` (`document_id` int(11) NOT NULL,`file_id` int(11) NOT NULL, PRIMARY KEY (`document_id`,`file_id`))");
 
@@ -1012,7 +1022,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.8.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.8.2') {
+    if ($rivetit_db_version() == '0.8.2') {
         //Insert queries here required to update to DB version 0.8.3
         mysqli_query($mysqli, "ALTER TABLE `documents` ADD `document_parent` INT(11) NOT NULL DEFAULT 0 AFTER `document_content_raw`");
 
@@ -1020,7 +1030,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.8.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.8.3') {
+    if ($rivetit_db_version() == '0.8.3') {
         //Insert queries here required to update to DB version 0.8.4
 
         mysqli_query($mysqli, "UPDATE `documents` SET `document_parent` = `document_id`");
@@ -1029,7 +1039,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.8.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.8.4') {
+    if ($rivetit_db_version() == '0.8.4') {
         //Insert queries here required to update to DB version 0.8.5
         mysqli_query($mysqli, "ALTER TABLE `documents` ADD `document_description` TEXT DEFAULT NULL AFTER `document_name`");
         mysqli_query($mysqli, "ALTER TABLE `documents` ADD `document_created_by` INT(11) NOT NULL DEFAULT 0 AFTER `document_folder_id`");
@@ -1039,7 +1049,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.8.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.8.5') {
+    if ($rivetit_db_version() == '0.8.5') {
         // Insert queries here required to update to DB version 0.8.6    (Adding login entry password change tracking)
         mysqli_query($mysqli, "ALTER TABLE `logins` ADD  `login_password_changed_at` datetime DEFAULT current_timestamp() AFTER `login_accessed_at`");
 
@@ -1055,7 +1065,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.8.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.8.6') {
+    if ($rivetit_db_version() == '0.8.6') {
         // Insert queries here required to update to DB version 0.8.7
         mysqli_query($mysqli, "ALTER TABLE `accounts` ADD `account_type` int(6) DEFAULT NULL AFTER `account_notes`");
         mysqli_query($mysqli, "CREATE TABLE `account_types` (`account_type_id` int(11) NOT NULL AUTO_INCREMENT,`account_type_name` varchar(255) NOT NULL,`account_type_description` text DEFAULT NULL,`account_type_created_at` datetime NOT NULL DEFAULT current_timestamp(),`account_type_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),`account_type_archived_at` datetime DEFAULT NULL,PRIMARY KEY (`account_type_id`))");
@@ -1064,7 +1074,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.8.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.8.7') {
+    if ($rivetit_db_version() == '0.8.7') {
         //Create Main Account Types
         mysqli_query($mysqli,"INSERT INTO account_types SET account_type_name = 'Asset', account_type_id= '10', account_type_description = 'Assets are economic resources which are expected to benefit the business in the future.'");
         mysqli_query($mysqli,"INSERT INTO account_types SET account_type_name = 'Liability', account_type_id= '20', account_type_description = 'Liabilities are obligations of the business entity. They are usually classified as current liabilities (due within one year or less) and long-term liabilities (due after one year).'");
@@ -1081,7 +1091,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     }
 
 
-    if (CURRENT_DATABASE_VERSION == '0.8.8') {
+    if ($rivetit_db_version() == '0.8.8') {
         // Insert queries here required to update to DB version 0.8.9
         mysqli_query($mysqli, "ALTER TABLE `invoice_items` ADD `item_order` INT(11) NOT NULL DEFAULT 0 AFTER `item_total`");
         // Update existing invoices so that item_order is set to item_id
@@ -1106,7 +1116,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     }
 
 
-    if (CURRENT_DATABASE_VERSION == '0.8.9') {
+    if ($rivetit_db_version() == '0.8.9') {
         // Insert queries here required to update to DB version 0.9.0
         // Update existing quotes and recurrings so that item_order is set to item_id
         $sql_quotes = mysqli_query($mysqli, "SELECT quote_id FROM quotes WHERE quote_id IS NOT NULL");
@@ -1145,7 +1155,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     }
 
 
-    if (CURRENT_DATABASE_VERSION == '0.9.0') {
+    if ($rivetit_db_version() == '0.9.0') {
         //add leads column to clients table
         mysqli_query($mysqli, "ALTER TABLE `clients` ADD `client_lead` TINYINT(1) NOT NULL DEFAULT 0 AFTER `client_id`");
 
@@ -1153,7 +1163,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.9.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.9.1') {
+    if ($rivetit_db_version() == '0.9.1') {
         // Insert queries here required to update to DB version 0.9.2
         mysqli_query($mysqli, "ALTER TABLE `invoices` ADD `invoice_discount_amount` DECIMAL(15,2) NOT NULL DEFAULT 0.00 AFTER `invoice_due`");
         mysqli_query($mysqli, "ALTER TABLE `recurring` ADD `recurring_discount_amount` DECIMAL(15,2) NOT NULL DEFAULT 0.00 AFTER `recurring_status`");
@@ -1164,34 +1174,34 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.9.2') {
+    if ($rivetit_db_version() == '0.9.2') {
         mysqli_query($mysqli, "ALTER TABLE `account_types` ADD `account_type_parent` INT(11) NOT NULL DEFAULT 1 AFTER `account_type_id`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.9.3'");
 
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.9.3') {
+    if ($rivetit_db_version() == '0.9.3') {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_default_hourly_rate` DECIMAL(15,2) NOT NULL DEFAULT 0.00 AFTER `config_default_net_terms`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.9.4'");
 
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.9.4') {
+    if ($rivetit_db_version() == '0.9.4') {
         // Insert queries here required to update to DB version 0.9.5
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_stripe_client_pays_fees` TINYINT(1) NOT NULL DEFAULT 0 AFTER `config_stripe_account`");
         // Then, update the database to the next sequential version
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.9.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.9.5') {
+    if ($rivetit_db_version() == '0.9.5') {
         mysqli_query($mysqli, "ALTER TABLE `user_settings` ADD `user_config_remember_me_token` VARCHAR(255) NULL DEFAULT NULL AFTER `user_role`");
         // Then, update the database to the next sequential version
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.9.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.9.6') {
+    if ($rivetit_db_version() == '0.9.6') {
         // Insert queries here required to update to DB version 0.9.7
         mysqli_query($mysqli, "ALTER TABLE `tickets` ADD `ticket_invoice_id` INT(11) NOT NULL DEFAULT 0 AFTER `ticket_asset_id`");
         mysqli_query($mysqli, "ALTER TABLE `tickets` ADD `ticket_billable` TINYINT(1) NOT NULL DEFAULT 0 AFTER `ticket_status`");
@@ -1200,7 +1210,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.9.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.9.7') {
+    if ($rivetit_db_version() == '0.9.7') {
         // Insert queries here required to update to DB version 0.9.8
         mysqli_query($mysqli, "ALTER TABLE `user_settings` ADD `user_config_dashboard_financial_enable` TINYINT(1) NOT NULL DEFAULT 0 AFTER `user_config_records_per_page`");
         mysqli_query($mysqli, "ALTER TABLE `user_settings` ADD `user_config_dashboard_technical_enable` TINYINT(1) NOT NULL DEFAULT 0 AFTER `user_config_dashboard_financial_enable`");
@@ -1209,7 +1219,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.9.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.9.8') {
+    if ($rivetit_db_version() == '0.9.8') {
         //Insert queries here required to update to DB version 0.9.9
         mysqli_query($mysqli, "ALTER TABLE `domains` ADD `domain_notes` TEXT NULL DEFAULT NULL AFTER `domain_raw_whois`");
 
@@ -1217,7 +1227,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '0.9.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '0.9.9') {
+    if ($rivetit_db_version() == '0.9.9') {
         //Insert queries here required to update to DB version 1.0.0
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_destructive_deletes_enable` TINYINT(1) NOT NULL DEFAULT 0 AFTER `config_timezone`");
 
@@ -1225,7 +1235,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.0.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.0.0') {
+    if ($rivetit_db_version() == '1.0.0') {
         //Insert queries here required to update to DB version 1.0.1
         mysqli_query($mysqli, "ALTER TABLE `assets` MODIFY `asset_uri` VARCHAR(500) DEFAULT NULL");
         mysqli_query($mysqli, "ALTER TABLE `assets` ADD `asset_uri_2` VARCHAR(500) DEFAULT NULL AFTER `asset_uri`");
@@ -1234,7 +1244,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.0.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.0.1') {
+    if ($rivetit_db_version() == '1.0.1') {
         //Insert queries here required to update to DB version 1.0.2
         mysqli_query($mysqli, "ALTER TABLE `logins` MODIFY `login_uri` VARCHAR(500) DEFAULT NULL");
         mysqli_query($mysqli, "ALTER TABLE `logins` ADD `login_uri_2` VARCHAR(500) DEFAULT NULL AFTER `login_uri`");
@@ -1246,7 +1256,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
 
 
-    if (CURRENT_DATABASE_VERSION == '1.0.2') {
+    if ($rivetit_db_version() == '1.0.2') {
         //Insert queries here required to update to DB version 1.0.3
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_stripe_expense_vendor` INT(11) NOT NULL DEFAULT 0 AFTER `config_stripe_account`");
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_stripe_expense_category` INT(11) NOT NULL DEFAULT 0 AFTER `config_stripe_expense_vendor`");
@@ -1258,7 +1268,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.0.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.0.3') {
+    if ($rivetit_db_version() == '1.0.3') {
         //Insert queries here required to update to DB version 1.0.4
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_ai_enable` TINYINT(1) DEFAULT 0 AFTER `config_stripe_percentage_fee`");
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_ai_provider` VARCHAR(250) DEFAULT NULL AFTER `config_ai_enable`");
@@ -1274,7 +1284,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     // Uncomment Below Lines, to add additional database updates
     //
 
-    if (CURRENT_DATABASE_VERSION == '1.0.4') {
+    if ($rivetit_db_version() == '1.0.4') {
         //Insert queries here required to update to DB version 1.0.5
         mysqli_query($mysqli, "ALTER TABLE `tickets` ADD `ticket_schedule` DATETIME DEFAULT NULL AFTER `ticket_billable`");
         mysqli_query($mysqli, "ALTER TABLE `tickets` ADD `ticket_onsite` TINYINT(1) NOT NULL DEFAULT 0 AFTER `ticket_schedule`");
@@ -1284,7 +1294,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.0.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.0.5') {
+    if ($rivetit_db_version() == '1.0.5') {
         //Insert queries here required to update to DB version 1.0.6
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_ai_model` VARCHAR(250) DEFAULT NULL AFTER `config_ai_provider`");
 
@@ -1292,7 +1302,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.0.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.0.6') {
+    if ($rivetit_db_version() == '1.0.6') {
         // Insert queries here required to update to DB version 1.0.7
         mysqli_query($mysqli, "CREATE TABLE `remember_tokens` (`remember_token_id` int(11) NOT NULL AUTO_INCREMENT,`remember_token_token` varchar(255) NOT NULL,`remember_token_user_id` int(11) NOT NULL,`remember_token_created_at` datetime NOT NULL DEFAULT current_timestamp(), PRIMARY KEY (`remember_token_id`))");
 
@@ -1300,13 +1310,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.0.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.0.7') {
+    if ($rivetit_db_version() == '1.0.7') {
         mysqli_query($mysqli, "ALTER TABLE `user_settings` DROP `user_config_remember_me_token`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.0.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.0.8') {
+    if ($rivetit_db_version() == '1.0.8') {
         // Removed this as login_asset_id is present in the logins table and allow 1 asset to have many logins.
         mysqli_query($mysqli, "ALTER TABLE `assets` DROP `asset_login_id`");
         // Dropped this unused Table as we don't need many to many relationship between assets and logins
@@ -1315,13 +1325,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.0.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.0.9') {
+    if ($rivetit_db_version() == '1.0.9') {
         mysqli_query($mysqli, "ALTER TABLE `transfers` ADD `transfer_method` VARCHAR(200) DEFAULT NULL AFTER `transfer_id`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.1.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.1.0') {
+    if ($rivetit_db_version() == '1.1.0') {
         mysqli_query($mysqli, "ALTER TABLE `files` ADD `file_description` TEXT DEFAULT NULL AFTER `file_name`");
         mysqli_query($mysqli, "ALTER TABLE `files` ADD `file_important` TINYINT(1) NOT NULL DEFAULT '0' AFTER `file_hash`");
 
@@ -1332,13 +1342,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.1.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.1.1') {
+    if ($rivetit_db_version() == '1.1.1') {
         mysqli_query($mysqli, "ALTER TABLE `scheduled_tickets` ADD `scheduled_ticket_assigned_to` INT(11) NOT NULL DEFAULT '0' AFTER `scheduled_ticket_created_by`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.1.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.1.2') {
+    if ($rivetit_db_version() == '1.1.2') {
         // Add DB support for multiple contacts under a vendor
         mysqli_query($mysqli, "ALTER TABLE `contacts` ADD `contact_vendor_id` INT(11) NOT NULL DEFAULT '0' AFTER `contact_location_id`");
 
@@ -1372,14 +1382,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.1.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.1.3') {
+    if ($rivetit_db_version() == '1.1.3') {
         mysqli_query($mysqli, "ALTER TABLE `networks` ADD `network_subnet` VARCHAR(200) DEFAULT NULL AFTER `network`");
         mysqli_query($mysqli, "ALTER TABLE `networks` ADD `network_primary_dns` VARCHAR(200) DEFAULT NULL AFTER `network_gateway`");
         mysqli_query($mysqli, "ALTER TABLE `networks` ADD `network_secondary_dns` VARCHAR(200) DEFAULT NULL AFTER `network_primary_dns`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.1.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.1.4') {
+    if ($rivetit_db_version() == '1.1.4') {
 
         // Add Project Templates
         mysqli_query($mysqli, "CREATE TABLE `project_templates` (
@@ -1431,7 +1441,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.1.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.1.5') {
+    if ($rivetit_db_version() == '1.1.5') {
 
         // Add new ticket_statuses table
         mysqli_query($mysqli,
@@ -1463,7 +1473,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.1.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.1.6') {
+    if ($rivetit_db_version() == '1.1.6') {
 
         // Update existing tickets that did not use the defined statuses to Open
         //mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 2 WHERE ticket_status NOT IN ('New', 'Open', 'On Hold', 'Auto Close') AND ticket_closed_at IS NULL");
@@ -1471,7 +1481,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.1.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.1.7') {
+    if ($rivetit_db_version() == '1.1.7') {
 
         mysqli_query($mysqli, "ALTER TABLE `projects` ADD `project_due` DATE DEFAULT NULL AFTER `project_description`");
         mysqli_query($mysqli, "ALTER TABLE `tasks` ADD `task_order` INT(11) NOT NULL DEFAULT 0 AFTER `task_status`");
@@ -1480,7 +1490,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.1.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.1.8') {
+    if ($rivetit_db_version() == '1.1.8') {
         // Update Ticket Status color to use colors to allow more predefined colors
         mysqli_query($mysqli, "UPDATE ticket_statuses SET ticket_status_color = '#dc3545' WHERE ticket_status_id = 1"); // New
         mysqli_query($mysqli, "UPDATE ticket_statuses SET ticket_status_color = '#007bff' WHERE ticket_status_id = 2"); // Open
@@ -1491,19 +1501,19 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.1.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.1.9') {
+    if ($rivetit_db_version() == '1.1.9') {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_login_remember_me_expire` INT(11) NOT NULL DEFAULT 3 AFTER `config_login_key_secret`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.2.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.2.0') {
+    if ($rivetit_db_version() == '1.2.0') {
         mysqli_query($mysqli, "ALTER TABLE `ticket_templates` ADD `ticket_template_order` INT(11) NOT NULL DEFAULT 0 AFTER `ticket_template_details`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.2.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.2.1') {
+    if ($rivetit_db_version() == '1.2.1') {
 
         // Ticket Templates can have many project templates and Project Template can have have many ticket template, so instead create a many to many table relationship
         mysqli_query($mysqli, "ALTER TABLE `ticket_templates` DROP `ticket_template_order`");
@@ -1520,7 +1530,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.2.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.2.2') {
+    if ($rivetit_db_version() == '1.2.2') {
 
         mysqli_query($mysqli, "ALTER TABLE `tasks` DROP `task_description`");
         mysqli_query($mysqli, "ALTER TABLE `task_templates` DROP `task_template_description`");
@@ -1528,14 +1538,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.2.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.2.3') {
+    if ($rivetit_db_version() == '1.2.3') {
 
         mysqli_query($mysqli, "ALTER TABLE `projects` ADD `project_manager` INT(11) NOT NULL DEFAULT 0 AFTER `project_due`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.2.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.2.4') {
+    if ($rivetit_db_version() == '1.2.4') {
 
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_project_prefix` VARCHAR(200) NOT NULL DEFAULT 'PRJ-' AFTER `config_default_hourly_rate`");
 
@@ -1544,7 +1554,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.2.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.2.5') {
+    if ($rivetit_db_version() == '1.2.5') {
 
         mysqli_query($mysqli, "ALTER TABLE `projects` ADD `project_prefix` VARCHAR(200) DEFAULT NULL AFTER `project_id`");
         mysqli_query($mysqli, "ALTER TABLE `projects` ADD `project_number` INT(11) NOT NULL DEFAULT 1 AFTER `project_prefix`");
@@ -1552,33 +1562,33 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.2.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.2.6') {
+    if ($rivetit_db_version() == '1.2.6') {
 
         mysqli_query($mysqli, "ALTER TABLE `domains` ADD `domain_dnshost` INT(11) NOT NULL DEFAULT 0 AFTER `domain_webhost`");
         mysqli_query($mysqli, "ALTER TABLE `domains` ADD `domain_mailhost` INT(11) NOT NULL DEFAULT 0 AFTER `domain_dnshost`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.2.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.2.7') {
+    if ($rivetit_db_version() == '1.2.7') {
 
         mysqli_query($mysqli, "ALTER TABLE `recurring` ADD `recurring_invoice_email_notify` TINYINT(1) NOT NULL DEFAULT 1 AFTER `recurring_note`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.2.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.2.8') {
+    if ($rivetit_db_version() == '1.2.8') {
 
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_phone_mask` TINYINT(1) NOT NULL DEFAULT 1 AFTER `config_destructive_deletes_enable`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.2.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.2.9') {
+    if ($rivetit_db_version() == '1.2.9') {
 
         mysqli_query($mysqli, "CREATE TABLE `user_permissions` (`user_id` int(11) NOT NULL,`client_id` int(11) NOT NULL, PRIMARY KEY (`user_id`,`client_id`))");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.3.0'");
     }
 
-     if (CURRENT_DATABASE_VERSION == '1.3.0') {
+     if ($rivetit_db_version() == '1.3.0') {
 
          mysqli_query($mysqli, "CREATE TABLE `user_roles` (
             `user_role_id` INT(11) NOT NULL AUTO_INCREMENT,
@@ -1597,48 +1607,48 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
          mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.3.1'");
      }
 
-     if (CURRENT_DATABASE_VERSION == '1.3.1') {
+     if ($rivetit_db_version() == '1.3.1') {
          mysqli_query($mysqli, "ALTER TABLE `user_settings` ADD `user_config_calendar_first_day` TINYINT(1) NOT NULL DEFAULT 0 AFTER `user_config_dashboard_technical_enable`");
 
          mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.3.2'");
      }
 
-    if (CURRENT_DATABASE_VERSION == '1.3.2') {
+    if ($rivetit_db_version() == '1.3.2') {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_ticket_default_billable` TINYINT(1) NOT NULL DEFAULT 0 AFTER `config_ticket_new_ticket_notification_email`");
         mysqli_query($mysqli, "ALTER TABLE `scheduled_tickets` ADD `scheduled_ticket_billable` TINYINT(1) NOT NULL DEFAULT 0 AFTER `scheduled_ticket_frequency`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.3.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.3.3') {
+    if ($rivetit_db_version() == '1.3.3') {
     //     // Insert queries here required to update to DB version 1.3.3
     //     // Then, update the database to the next sequential version
         mysqli_query($mysqli, "CREATE TABLE `location_tags` (`location_id` int(11) NOT NULL,`tag_id` int(11) NOT NULL, PRIMARY KEY (`location_id`,`tag_id`))");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.3.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.3.4') {
+    if ($rivetit_db_version() == '1.3.4') {
         mysqli_query($mysqli, "ALTER TABLE `client_tags` CHANGE `client_tag_client_id` `client_id` INT(11) NOT NULL");
         mysqli_query($mysqli, "ALTER TABLE `client_tags` CHANGE `client_tag_tag_id` `tag_id` INT(11) NOT NULL");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.3.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.3.5') {
+    if ($rivetit_db_version() == '1.3.5') {
         mysqli_query($mysqli, "CREATE TABLE `contact_tags` (`contact_id` int(11) NOT NULL,`tag_id` int(11) NOT NULL, PRIMARY KEY (`contact_id`,`tag_id`))");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.3.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.3.6') {
+    if ($rivetit_db_version() == '1.3.6') {
         mysqli_query($mysqli, "ALTER TABLE `clients` ADD `client_abbreviation` VARCHAR(10) DEFAULT NULL AFTER `client_tax_id_number`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.3.7'");
      }
 
-    if (CURRENT_DATABASE_VERSION == '1.3.7') {
+    if ($rivetit_db_version() == '1.3.7') {
         mysqli_query($mysqli, "ALTER TABLE `assets` ADD `asset_ipv6` VARCHAR(200) DEFAULT NULL AFTER `asset_ip`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.3.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.3.8') {
+    if ($rivetit_db_version() == '1.3.8') {
         mysqli_query($mysqli, "DROP TABLE `interfaces`");
 
         mysqli_query($mysqli, "CREATE TABLE `asset_interfaces` (
@@ -1663,7 +1673,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.3.9') {
+    if ($rivetit_db_version() == '1.3.9') {
         // Migrate all Network Info from Assets to Interface Table and make it primary interface
         $sql = mysqli_query($mysqli, "SELECT * FROM assets");
         while ($row = mysqli_fetch_assoc($sql)) {
@@ -1688,7 +1698,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.4.0') {
+    if ($rivetit_db_version() == '1.4.0') {
 
         mysqli_query($mysqli, "CREATE TABLE `racks` (
             `rack_id` INT(11) NOT NULL AUTO_INCREMENT,
@@ -1762,20 +1772,20 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.4.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.4.1') {
+    if ($rivetit_db_version() == '1.4.1') {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_log_retention` INT(11) NOT NULL DEFAULT '90' AFTER `config_login_remember_me_expire`;");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_log_retention` = '2555' WHERE company_id = 1;"); // Set to 7 years for existing installs
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.4.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.4.2') {
+    if ($rivetit_db_version() == '1.4.2') {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_ticket_email_parse_unknown_senders` INT(1) NOT NULL DEFAULT '0' AFTER `config_ticket_email_parse`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.4.3'");
     }
 
-     if (CURRENT_DATABASE_VERSION == '1.4.3') {
+     if ($rivetit_db_version() == '1.4.3') {
 
          // Add ticket URL key column
          mysqli_query($mysqli, "ALTER TABLE `tickets` ADD `ticket_url_key` VARCHAR(200) DEFAULT NULL AFTER `ticket_feedback`");
@@ -1810,20 +1820,20 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
      }
 
-     if (CURRENT_DATABASE_VERSION == '1.4.4') {
+     if ($rivetit_db_version() == '1.4.4') {
          mysqli_query($mysqli, "ALTER TABLE `api_keys` ADD `api_key_decrypt_hash` VARCHAR(200) NOT NULL AFTER `api_key_secret`");
 
          mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.4.5'");
      }
 
-     if (CURRENT_DATABASE_VERSION == '1.4.5') {
+     if ($rivetit_db_version() == '1.4.5') {
          mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_whitelabel_enabled` INT(11) NOT NULL DEFAULT '0' AFTER `config_phone_mask`");
          mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_whitelabel_key` TEXT NULL DEFAULT NULL AFTER `config_whitelabel_enabled`");
 
          mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.4.6'");
      }
 
-    if (CURRENT_DATABASE_VERSION == '1.4.6') {
+    if ($rivetit_db_version() == '1.4.6') {
         mysqli_query($mysqli, "CREATE TABLE `custom_links` (
             `custom_link_id` INT(11) NOT NULL AUTO_INCREMENT,
             `custom_link_name` VARCHAR(200) NOT NULL,
@@ -1838,19 +1848,19 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.4.7'");
     }
 
-     if (CURRENT_DATABASE_VERSION == '1.4.7') {
+     if ($rivetit_db_version() == '1.4.7') {
          mysqli_query($mysqli, "ALTER TABLE `documents` ADD `document_client_visible` INT(11) NOT NULL DEFAULT '1' AFTER `document_parent`");
 
          mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.4.8'");
      }
 
-     if (CURRENT_DATABASE_VERSION == '1.4.8') {
+     if ($rivetit_db_version() == '1.4.8') {
          mysqli_query($mysqli, "ALTER TABLE `settings` DROP `config_stripe_client_pays_fees`");
 
          mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.4.9'");
      }
 
-     if (CURRENT_DATABASE_VERSION == '1.4.9') {
+     if ($rivetit_db_version() == '1.4.9') {
 
          // Add new "is admin" identifier on user roles
          mysqli_query($mysqli, "ALTER TABLE `user_roles` ADD `user_role_is_admin` INT(11) NOT NULL DEFAULT '0' AFTER `user_role_description`");
@@ -1894,7 +1904,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
          mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.5.0'");
      }
 
-    if (CURRENT_DATABASE_VERSION == '1.5.0') {
+    if ($rivetit_db_version() == '1.5.0') {
 
         mysqli_query($mysqli, "DROP TABLE `account_types`");
 
@@ -1907,7 +1917,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.5.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.5.1') {
+    if ($rivetit_db_version() == '1.5.1') {
 
         mysqli_query($mysqli, "ALTER TABLE `custom_links` ADD `custom_link_location` INT(11) NOT NULL DEFAULT 1 AFTER `custom_link_icon`");
         mysqli_query($mysqli, "ALTER TABLE `custom_links` ADD `custom_link_new_tab` TINYINT(1) NOT NULL DEFAULT 0 AFTER `custom_link_uri`");
@@ -1916,33 +1926,33 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.5.2'");
     }
 
-     if (CURRENT_DATABASE_VERSION == '1.5.2') {
+     if ($rivetit_db_version() == '1.5.2') {
          mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_invoice_paid_notification_email` VARCHAR(200) DEFAULT NULL AFTER `config_invoice_late_fee_percent`");
 
          mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.5.3'");
      }
 
-    if (CURRENT_DATABASE_VERSION == '1.5.3') {
+    if ($rivetit_db_version() == '1.5.3') {
         mysqli_query($mysqli, "ALTER TABLE `users` ADD `user_type` TINYINT(1) NOT NULL DEFAULT 1 AFTER `user_password`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.5.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.5.4') {
+    if ($rivetit_db_version() == '1.5.4') {
         mysqli_query($mysqli, "ALTER TABLE `user_roles` ADD `user_role_type` TINYINT(1) NOT NULL DEFAULT 1 AFTER `user_role_description`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.5.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.5.5') {
+    if ($rivetit_db_version() == '1.5.5') {
         mysqli_query($mysqli, "ALTER TABLE `contacts` ADD `contact_user_id` INT(11) NOT NULL DEFAULT 0 AFTER `contact_vendor_id`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.5.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.5.6') {
+    if ($rivetit_db_version() == '1.5.6') {
         mysqli_query($mysqli, "ALTER TABLE `users` ADD `user_auth_method` VARCHAR(200) NOT NULL DEFAULT 'local' AFTER `user_password`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.5.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.5.7') {
+    if ($rivetit_db_version() == '1.5.7') {
         // Create Users for contacts that have logins enabled and that are not archived
         $contacts_sql = mysqli_query($mysqli, "SELECT * FROM `contacts` WHERE contact_archived_at IS NULL AND (contact_auth_method = 'local' OR contact_auth_method = 'azure')");
         while($row = mysqli_fetch_assoc($contacts_sql)) {
@@ -1969,7 +1979,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.5.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.5.8') {
+    if ($rivetit_db_version() == '1.5.8') {
         // Add task completetion estimate time to tasks and task templates
         mysqli_query($mysqli, "ALTER TABLE `tasks` ADD `task_completion_estimate` INT(11) NOT NULL DEFAULT 0 AFTER `task_order`");
         mysqli_query($mysqli, "ALTER TABLE `task_templates` ADD `task_template_completion_estimate` INT(11) NOT NULL DEFAULT 0 AFTER `task_template_order`");
@@ -1977,7 +1987,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.5.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.5.9') {
+    if ($rivetit_db_version() == '1.5.9') {
 
         // Check if the column already exists
         $result = mysqli_query($mysqli, "SHOW COLUMNS FROM `logins` LIKE 'login_folder_id'");
@@ -2017,7 +2027,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.6.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.6.0') {
+    if ($rivetit_db_version() == '1.6.0') {
 
         mysqli_query($mysqli, "CREATE TABLE `asset_history` (
             `asset_history_id` INT(11) NOT NULL AUTO_INCREMENT,
@@ -2031,14 +2041,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.6.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.6.1') {
+    if ($rivetit_db_version() == '1.6.1') {
 
         mysqli_query($mysqli, "CREATE TABLE `login_tags` (`login_id` int(11) NOT NULL,`tag_id` int(11) NOT NULL, PRIMARY KEY (`login_id`,`tag_id`))");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.6.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.6.2') {
+    if ($rivetit_db_version() == '1.6.2') {
 
         mysqli_query($mysqli, "ALTER TABLE `files` MODIFY `file_description` VARCHAR(250) DEFAULT NULL");
         mysqli_query($mysqli, "ALTER TABLE `files` MODIFY `file_ext` VARCHAR(10) DEFAULT NULL");
@@ -2049,7 +2059,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.6.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.6.3') {
+    if ($rivetit_db_version() == '1.6.3') {
 
         // Find Files and update the Mime Type and File Size
 
@@ -2107,7 +2117,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.6.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.6.4') {
+    if ($rivetit_db_version() == '1.6.4') {
 
         mysqli_query($mysqli, "CREATE TABLE `ticket_history` (
             `ticket_history_id` INT(11) NOT NULL AUTO_INCREMENT,
@@ -2121,13 +2131,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.6.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.6.5') {
+    if ($rivetit_db_version() == '1.6.5') {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_quote_notification_email` VARCHAR(200) DEFAULT NULL AFTER `config_quote_from_email`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.6.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.6.6') {
+    if ($rivetit_db_version() == '1.6.6') {
 
         mysqli_query($mysqli, "CREATE TABLE `contact_notes` (
             `contact_note_id` INT(11) NOT NULL AUTO_INCREMENT,
@@ -2168,7 +2178,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.6.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.6.7') {
+    if ($rivetit_db_version() == '1.6.7') {
 
         mysqli_query($mysqli, "CREATE TABLE `error_logs` (
             `error_log_id` INT(11) NOT NULL AUTO_INCREMENT,
@@ -2192,7 +2202,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.6.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.6.8') {
+    if ($rivetit_db_version() == '1.6.8') {
 
         // Create New Vendor Templates Table this eventual be used to seperate templates out of the vendors table
         mysqli_query($mysqli, "CREATE TABLE `vendor_templates` (`vendor_template_id` int(11) AUTO_INCREMENT PRIMARY KEY,
@@ -2210,7 +2220,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.6.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.6.9') {
+    if ($rivetit_db_version() == '1.6.9') {
 
         mysqli_query($mysqli, "ALTER TABLE `files` ADD `file_has_thumbnail` TINYINT(1) NOT NULL DEFAULT 0 AFTER `file_mime_type`");
         mysqli_query($mysqli, "ALTER TABLE `files` ADD `file_has_preview` TINYINT(1) NOT NULL DEFAULT 0 AFTER `file_has_thumbnail`");
@@ -2218,7 +2228,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.7.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.7.0') {
+    if ($rivetit_db_version() == '1.7.0') {
 
         mysqli_query($mysqli, "DROP TABLE `vendor_templates`");
 
@@ -2241,7 +2251,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.7.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.7.1') {
+    if ($rivetit_db_version() == '1.7.1') {
 
         mysqli_query($mysqli, "DROP TABLE `error_logs`");
 
@@ -2257,7 +2267,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.7.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.7.2') {
+    if ($rivetit_db_version() == '1.7.2') {
         mysqli_query($mysqli, "ALTER TABLE `locations` ADD `location_fax` VARCHAR(200) DEFAULT NULL AFTER `location_phone`");
 
         mysqli_query($mysqli, "DROP TABLE `vendor_contacts`");
@@ -2265,7 +2275,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.7.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.7.3') {
+    if ($rivetit_db_version() == '1.7.3') {
 
         // Add Recurring Payments
         mysqli_query($mysqli, "CREATE TABLE `recurring_payments` (
@@ -2285,7 +2295,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.7.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.7.4') {
+    if ($rivetit_db_version() == '1.7.4') {
 
         // Remove Recurring Payment Amount as it will use the Recurring Invoice Amount and is unessessary
         mysqli_query($mysqli, "ALTER TABLE `recurring_payments` DROP `recurring_payment_amount`");
@@ -2293,27 +2303,27 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.7.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.7.5') {
+    if ($rivetit_db_version() == '1.7.5') {
         mysqli_query($mysqli, "CREATE TABLE `client_stripe` (`client_id` INT(11) NOT NULL, `stripe_id` VARCHAR(255) NOT NULL, `stripe_pm` varchar(255) NULL) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci; ");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.7.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.7.6') {
+    if ($rivetit_db_version() == '1.7.6') {
         // Create a field to show connected interface of a foreign asset
         mysqli_query($mysqli, "ALTER TABLE `asset_interfaces` ADD `interface_connected_asset_interface` INT(11) NOT NULL DEFAULT 0 AFTER `interface_network_id`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.7.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.7.7') {
+    if ($rivetit_db_version() == '1.7.7') {
         // Domain history
         mysqli_query($mysqli, "CREATE TABLE `domain_history` (`domain_history_id` INT(11) NOT NULL AUTO_INCREMENT , `domain_history_column` VARCHAR(200) NOT NULL , `domain_history_old_value` TEXT NOT NULL , `domain_history_new_value` TEXT NOT NULL , `domain_history_domain_id` INT(11) NOT NULL , `domain_history_modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP , PRIMARY KEY (`domain_history_id`)) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.7.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.7.8') {
+    if ($rivetit_db_version() == '1.7.8') {
 
         // Use a seperate table for Interface connections / links. This will make it easier to manage.
         $createInterfaceLinksTable = "
@@ -2351,14 +2361,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.7.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.7.9') {
+    if ($rivetit_db_version() == '1.7.9') {
 
         mysqli_query($mysqli, "ALTER TABLE `settings` DROP `config_cron_key`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.8.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.8.0') {
+    if ($rivetit_db_version() == '1.8.0') {
 
         mysqli_query($mysqli, "ALTER TABLE `ticket_statuses` ADD `ticket_status_order` int(11) NOT NULL DEFAULT 0");
 
@@ -2371,7 +2381,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.8.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.8.1') {
+    if ($rivetit_db_version() == '1.8.1') {
         mysqli_query($mysqli, "ALTER TABLE `asset_interfaces` CHANGE `interface_port` `interface_description` VARCHAR(200) DEFAULT NULL AFTER `interface_name`");
 
         mysqli_query($mysqli, "ALTER TABLE `asset_interfaces` ADD `interface_type` VARCHAR(50) DEFAULT NULL AFTER `interface_description`");
@@ -2379,7 +2389,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.8.2'");
     }
 
-     if (CURRENT_DATABASE_VERSION == '1.8.2') {
+     if ($rivetit_db_version() == '1.8.2') {
         mysqli_query($mysqli, "CREATE TABLE `quote_files` (
             `quote_id` INT(11) NOT NULL,
             `file_id` INT(11) NOT NULL,
@@ -2389,12 +2399,12 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
          mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.8.3'");
      }
 
-    if (CURRENT_DATABASE_VERSION == '1.8.3') {
+    if ($rivetit_db_version() == '1.8.3') {
         mysqli_query($mysqli, "ALTER TABLE `assets` ADD `asset_purchase_reference` VARCHAR(200) DEFAULT NULL AFTER `asset_status`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.8.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.8.4') {
+    if ($rivetit_db_version() == '1.8.4') {
         mysqli_query($mysqli, "ALTER TABLE `logins` DROP `login_software_id`");
         mysqli_query($mysqli, "ALTER TABLE `logins` DROP `login_vendor_id`");
         mysqli_query($mysqli, "ALTER TABLE `software` DROP `software_login_id`");
@@ -2403,13 +2413,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.8.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.8.5') {
+    if ($rivetit_db_version() == '1.8.5') {
         mysqli_query($mysqli, "ALTER TABLE `software` ADD `software_purchase_reference` VARCHAR(200) DEFAULT NULL AFTER `software_seats`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.8.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.8.6') {
+    if ($rivetit_db_version() == '1.8.6') {
         mysqli_query($mysqli, "
             CREATE TABLE `certificate_history` (`certificate_history_id` INT(11) NOT NULL AUTO_INCREMENT,
             `certificate_history_column` VARCHAR(200) NOT NULL,
@@ -2423,19 +2433,19 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.8.7'");
     }
 
-     if (CURRENT_DATABASE_VERSION == '1.8.7') {
+     if ($rivetit_db_version() == '1.8.7') {
          mysqli_query($mysqli, "ALTER TABLE `tickets` ADD `ticket_first_response_at` DATETIME NULL DEFAULT NULL AFTER `ticket_archived_at`");
 
          mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.8.8'");
      }
 
-    if (CURRENT_DATABASE_VERSION == '1.8.8') {
+    if ($rivetit_db_version() == '1.8.8') {
         mysqli_query($mysqli, "ALTER TABLE `invoices` ADD `invoice_recurring_invoice_id` INT(11) NOT NULL DEFAULT 0 AFTER `invoice_category_id`");
         mysqli_query($mysqli, "ALTER TABLE `invoice_items` ADD `item_product_id` INT(11) NOT NULL DEFAULT 0 AFTER `item_tax_id`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.8.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.8.9') {
+    if ($rivetit_db_version() == '1.8.9') {
         mysqli_query($mysqli, "ALTER TABLE `users` ADD `user_role_id` INT(11) DEFAULT 0 AFTER `user_archived_at`");
 
         // Copy user role from user settings table to the users table
@@ -2448,13 +2458,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.9.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.9.0') {
+    if ($rivetit_db_version() == '1.9.0') {
         mysqli_query($mysqli, "ALTER TABLE `user_settings` DROP `user_role`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.9.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.9.1') {
+    if ($rivetit_db_version() == '1.9.1') {
 
         mysqli_query($mysqli,
             "ALTER TABLE `user_roles`
@@ -2471,14 +2481,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.9.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.9.2') {
+    if ($rivetit_db_version() == '1.9.2') {
 
         mysqli_query($mysqli, "RENAME TABLE `user_permissions` TO `user_client_permissions`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.9.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.9.3') {
+    if ($rivetit_db_version() == '1.9.3') {
 
         // Now create the table with foreign keys
         mysqli_query($mysqli, "
@@ -2494,7 +2504,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.9.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.9.4') {
+    if ($rivetit_db_version() == '1.9.4') {
         mysqli_query($mysqli, "RENAME TABLE `scheduled_tickets` TO `recurring_tickets`");
 
         mysqli_query($mysqli,
@@ -2521,7 +2531,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.9.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.9.5') {
+    if ($rivetit_db_version() == '1.9.5') {
 
         // create the table with foreign keys
         mysqli_query($mysqli, "
@@ -2537,7 +2547,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.9.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.9.6') {
+    if ($rivetit_db_version() == '1.9.6') {
         mysqli_query($mysqli, "RENAME TABLE `recurring` TO `recurring_invoices`");
 
         mysqli_query($mysqli, "
@@ -2563,7 +2573,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.9.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.9.7') {
+    if ($rivetit_db_version() == '1.9.7') {
 
         mysqli_query($mysqli, "
             ALTER TABLE `settings`
@@ -2584,14 +2594,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.9.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.9.8') {
+    if ($rivetit_db_version() == '1.9.8') {
         // Reference a Recurring Ticket that generated ticket
         mysqli_query($mysqli, "ALTER TABLE `tickets` ADD `ticket_recurring_ticket_id` INT(11) DEFAULT 0 AFTER `ticket_project_id`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '1.9.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '1.9.9') {
+    if ($rivetit_db_version() == '1.9.9') {
         mysqli_query($mysqli, "RENAME TABLE `logins` TO `credentials`");
         mysqli_query($mysqli, "
             ALTER TABLE `credentials`
@@ -2771,7 +2781,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.0.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.0.0') {
+    if ($rivetit_db_version() == '2.0.0') {
 
         //Dropping patch panel as a patch panel can be documented as an asset with interfaces.
         mysqli_query($mysqli, "DROP TABLE `patch_panel_ports`");
@@ -2783,7 +2793,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.0.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.0.1') {
+    if ($rivetit_db_version() == '2.0.1') {
 
         // Clean up orphaned data before adding foreign keys
 
@@ -2933,7 +2943,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.0.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.0.2') {
+    if ($rivetit_db_version() == '2.0.2') {
 
         // Clean up orphans
         mysqli_query($mysqli, "
@@ -2961,7 +2971,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.0.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.0.3') {
+    if ($rivetit_db_version() == '2.0.3') {
 
         // Clean up orphaned history
         mysqli_query($mysqli, "
@@ -2978,7 +2988,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.0.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.0.4') {
+    if ($rivetit_db_version() == '2.0.4') {
 
         // Clean up orphaned history
         mysqli_query($mysqli, "
@@ -3339,7 +3349,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.0.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.0.5') {
+    if ($rivetit_db_version() == '2.0.5') {
 
         // CONVERT All tables TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci
 
@@ -3373,21 +3383,21 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.0.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.0.6') {
+    if ($rivetit_db_version() == '2.0.6') {
         // Fix service_domains to yse InnoDB instead of MyISAM
         mysqli_query($mysqli, "ALTER TABLE service_domains ENGINE = InnoDB;");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.0.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.0.7') {
+    if ($rivetit_db_version() == '2.0.7') {
 
         mysqli_query($mysqli, "ALTER TABLE `files` DROP `file_hash`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.0.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.0.8') {
+    if ($rivetit_db_version() == '2.0.8') {
 
         mysqli_query($mysqli, "ALTER TABLE `files` DROP `file_has_thumbnail`");
         mysqli_query($mysqli, "ALTER TABLE `files` DROP `file_has_preview`");
@@ -3396,7 +3406,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.0.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.0.9') {
+    if ($rivetit_db_version() == '2.0.9') {
 
         mysqli_query($mysqli, "ALTER TABLE `contacts` ADD `contact_phone_country_code` VARCHAR(10) DEFAULT 1 AFTER `contact_email`");
         mysqli_query($mysqli, "ALTER TABLE `contacts` ADD `contact_mobile_country_code` VARCHAR(10) DEFAULT 1 AFTER `contact_extension`");
@@ -3413,18 +3423,18 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.1.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.1.0') {
+    if ($rivetit_db_version() == '2.1.0') {
         mysqli_query($mysqli, "ALTER TABLE `user_settings` ADD `user_config_signature` TEXT DEFAULT NULL AFTER `user_config_calendar_first_day`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.1.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.1.1') {
+    if ($rivetit_db_version() == '2.1.1') {
         mysqli_query($mysqli, "ALTER TABLE `settings` DROP `config_phone_mask`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.1.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.1.2') {
+    if ($rivetit_db_version() == '2.1.2') {
 
         // Update country_code to NULL for `contacts` table
         mysqli_query($mysqli, "ALTER TABLE `contacts` MODIFY `contact_phone_country_code` VARCHAR(10) DEFAULT NULL");
@@ -3457,14 +3467,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.1.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.1.3') {
+    if ($rivetit_db_version() == '2.1.3') {
         mysqli_query($mysqli, "ALTER TABLE `client_stripe` ADD `stripe_pm_details` VARCHAR(200) DEFAULT NULL AFTER `stripe_pm`");
         mysqli_query($mysqli, "ALTER TABLE `client_stripe` ADD `stripe_pm_created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER `stripe_pm_details`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.1.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.1.4') {
+    if ($rivetit_db_version() == '2.1.4') {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_ticket_timer_autostart` TINYINT(1) NOT NULL DEFAULT '0' AFTER `config_ticket_default_billable`");
         mysqli_query($mysqli, "ALTER TABLE `tickets` ADD `ticket_due_at` DATETIME DEFAULT NULL AFTER `ticket_updated_at`");
         mysqli_query($mysqli, "ALTER TABLE `companies` ADD `company_tax_id` VARCHAR(200) DEFAULT NULL AFTER `company_currency`");
@@ -3473,7 +3483,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.1.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.1.5') {
+    if ($rivetit_db_version() == '2.1.5') {
 
         mysqli_query($mysqli, "CREATE TABLE `document_versions` (
             `document_version_id` INT(11) NOT NULL AUTO_INCREMENT,
@@ -3497,7 +3507,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.1.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.1.6') {
+    if ($rivetit_db_version() == '2.1.6') {
         mysqli_query($mysqli, "CREATE TABLE `document_templates` (
             `document_template_id` INT(11) NOT NULL AUTO_INCREMENT,
             `document_template_name` VARCHAR(200) NOT NULL,
@@ -3545,7 +3555,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.1.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.1.7') {
+    if ($rivetit_db_version() == '2.1.7') {
         mysqli_query($mysqli, "CREATE TABLE `software_templates` (
             `software_template_id` INT(11) NOT NULL AUTO_INCREMENT,
             `software_template_name` VARCHAR(200) NOT NULL,
@@ -3598,7 +3608,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.1.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.1.8') {
+    if ($rivetit_db_version() == '2.1.8') {
         mysqli_query($mysqli, "CREATE TABLE `vendor_templates` (
             `vendor_template_id` INT(11) NOT NULL AUTO_INCREMENT,
             `vendor_template_name` VARCHAR(200) NOT NULL,
@@ -3670,17 +3680,17 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.1.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.1.9') {
+    if ($rivetit_db_version() == '2.1.9') {
         mysqli_query($mysqli, "ALTER TABLE `companies` MODIFY `company_currency` VARCHAR(200) DEFAULT 'USD'");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.2.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.2.0') {
+    if ($rivetit_db_version() == '2.2.0') {
         mysqli_query($mysqli, "ALTER TABLE `tickets` ADD `ticket_quote_id` INT(11) NOT NULL DEFAULT 0 AFTER `ticket_asset_id`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.2.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.2.1') {
+    if ($rivetit_db_version() == '2.2.1') {
         mysqli_query($mysqli, "CREATE TABLE `ai_providers` (
             `ai_provider_id` INT(11) NOT NULL AUTO_INCREMENT,
             `ai_provider_name` VARCHAR(200) NOT NULL,
@@ -3710,7 +3720,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.2.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.2.2') {
+    if ($rivetit_db_version() == '2.2.2') {
         mysqli_query($mysqli, "CREATE TABLE `payment_methods` (
             `payment_method_id` INT(11) NOT NULL AUTO_INCREMENT,
             `payment_method_name` VARCHAR(200) NOT NULL,
@@ -3768,7 +3778,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.2.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.2.3') {
+    if ($rivetit_db_version() == '2.2.3') {
 
         mysqli_query($mysqli, "CREATE TABLE `credits` (
             `credit_id` INT(11) NOT NULL AUTO_INCREMENT,
@@ -3799,17 +3809,17 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.2.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.2.4') {
+    if ($rivetit_db_version() == '2.2.4') {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_theme_dark` TINYINT(1) NOT NULL DEFAULT 0 AFTER `config_theme`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.2.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.2.5') {
+    if ($rivetit_db_version() == '2.2.5') {
         mysqli_query($mysqli, "ALTER TABLE `assets` ADD `asset_uri_client` VARCHAR(500) NULL DEFAULT NULL AFTER `asset_uri_2`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.2.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.2.6') {
+    if ($rivetit_db_version() == '2.2.6') {
         mysqli_query($mysqli, "ALTER TABLE `credits` DROP `credit_reference`");
         mysqli_query($mysqli, "ALTER TABLE `credits` ADD `credit_type` ENUM('prepaid', 'manual', 'refund', 'promotion', 'usage') NOT NULL DEFAULT 'manual' AFTER `credit_amount`");
         mysqli_query($mysqli, "ALTER TABLE `credits` ADD `credit_note` TEXT NULL DEFAULT NULL AFTER `credit_type`");
@@ -3821,14 +3831,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.2.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.2.7') {
+    if ($rivetit_db_version() == '2.2.7') {
         mysqli_query($mysqli, "ALTER TABLE `user_settings` ADD `user_config_theme_dark` TINYINT(1) NOT NULL DEFAULT 0 AFTER `user_config_signature`");
         mysqli_query($mysqli, "ALTER TABLE `settings` DROP `config_theme_dark`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.2.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.2.8') {
+    if ($rivetit_db_version() == '2.2.8') {
 
         mysqli_query($mysqli, "ALTER TABLE `products` ADD `product_type` ENUM('service', 'product') NOT NULL DEFAULT 'service' AFTER `product_name`");
         mysqli_query($mysqli, "ALTER TABLE `products` ADD `product_code` VARCHAR(200) DEFAULT NULL AFTER `product_description`");
@@ -3848,7 +3858,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.2.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.2.9') {
+    if ($rivetit_db_version() == '2.2.9') {
         // Migrate Stripe Settings over to new Tables
 
         // Get Current Stripe Settings
@@ -3928,7 +3938,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.3.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.3.0') {
+    if ($rivetit_db_version() == '2.3.0') {
         // Migrate Payment Methods from Categories Table to new payment_methods table
         $sql_categories = mysqli_query($mysqli, "SELECT * FROM categories WHERE category_type = 'Payment Method' AND category_name != 'Stripe' AND category_archived_at IS NULL");
 
@@ -3941,7 +3951,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.3.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.3.1') {
+    if ($rivetit_db_version() == '2.3.1') {
 
         // Delete all Recurring Payments that are Stripe
         mysqli_query($mysqli, "DELETE FROM recurring_payments WHERE recurring_payment_method = 'Stripe'");
@@ -3969,7 +3979,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.3.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.3.2') {
+    if ($rivetit_db_version() == '2.3.2') {
 
         mysqli_query($mysqli, "ALTER TABLE settings
             ADD `config_imap_provider` ENUM('standard_imap','google_oauth','microsoft_oauth') NULL DEFAULT NULL AFTER `config_mail_from_name`,
@@ -3984,7 +3994,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.3.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.3.3') {
+    if ($rivetit_db_version() == '2.3.3') {
 
         mysqli_query($mysqli, "ALTER TABLE settings
             ADD `config_smtp_provider` ENUM('standard_smtp','google_oauth','microsoft_oauth') NULL DEFAULT NULL AFTER `config_start_page`
@@ -3993,7 +4003,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.3.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.3.4') {
+    if ($rivetit_db_version() == '2.3.4') {
 
         // Add Software Keys
         mysqli_query($mysqli, "CREATE TABLE `software_keys` (
@@ -4027,13 +4037,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.3.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.3.5') {
+    if ($rivetit_db_version() == '2.3.5') {
         mysqli_query($mysqli, "ALTER TABLE `settings` CHANGE `config_smtp_provider` `config_smtp_provider` VARCHAR(200) DEFAULT NULL");
         mysqli_query($mysqli, "ALTER TABLE `settings` CHANGE `config_imap_provider` `config_imap_provider` VARCHAR(200) DEFAULT NULL");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.3.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.3.6') {
+    if ($rivetit_db_version() == '2.3.6') {
         // Create New Contract Templates Table
         mysqli_query($mysqli, "CREATE TABLE `contract_templates` (
           `contract_template_id` INT(11) AUTO_INCREMENT PRIMARY KEY,
@@ -4113,7 +4123,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.3.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.3.7') {
+    if ($rivetit_db_version() == '2.3.7') {
 
         mysqli_query($mysqli, "
             CREATE TABLE `asset_tags` (
@@ -4134,7 +4144,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.3.8'");
     }
 
-     if (CURRENT_DATABASE_VERSION == '2.3.8') {
+     if ($rivetit_db_version() == '2.3.8') {
 
          mysqli_query($mysqli, "
             CREATE TABLE `task_approvals` (
@@ -4154,7 +4164,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
          mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.3.9'");
      }
 
-    if (CURRENT_DATABASE_VERSION == '2.3.9') {
+    if ($rivetit_db_version() == '2.3.9') {
         mysqli_query($mysqli, "ALTER TABLE `clients` ADD `client_favorite` TINYINT(1) NOT NULL DEFAULT '0' AFTER `client_notes`");
 
         mysqli_query($mysqli, "ALTER TABLE `locations` ADD `location_favorite` TINYINT(1) NOT NULL DEFAULT '0' AFTER `location_notes`");
@@ -4193,7 +4203,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.4.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.4.0') {
+    if ($rivetit_db_version() == '2.4.0') {
 
         mysqli_query($mysqli, "
             CREATE TABLE `quote_items` (
@@ -4240,7 +4250,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.4.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.4.1') {
+    if ($rivetit_db_version() == '2.4.1') {
 
         // Migrate Items
         mysqli_query($mysqli, "
@@ -4335,7 +4345,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.4.2') {
+    if ($rivetit_db_version() == '2.4.2') {
 
         mysqli_query($mysqli, "ALTER TABLE `categories` ADD `category_description` VARCHAR(255) DEFAULT NULL AFTER `category_name`");
         mysqli_query($mysqli, "ALTER TABLE `categories` ADD `category_order` INT(11) NOT NULL DEFAULT 0 AFTER `category_icon`");
@@ -4355,7 +4365,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.4.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.4.3') {
+    if ($rivetit_db_version() == '2.4.3') {
         // Asset Status
         mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Ready to Deploy', category_description = 'Asset is configured and ready to be assigned', category_type = 'asset_status', category_order = 1"); // 1
         mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Deployed', category_description = 'Asset is actively in use and assigned to a client or location', category_type = 'asset_status', category_order = 2"); // 2
@@ -4394,7 +4404,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.4.4') {
+    if ($rivetit_db_version() == '2.4.4') {
         // Session lifetime setting
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_login_session_lifetime` INT(11) NOT NULL DEFAULT 480 AFTER `config_login_remember_me_expire`");
 
@@ -4415,7 +4425,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.4.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.4.5') {
+    if ($rivetit_db_version() == '2.4.5') {
         // Outbound Webhooks
         mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `webhooks` (
           `webhook_id` int(11) NOT NULL AUTO_INCREMENT,
@@ -4447,7 +4457,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.4.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.4.6') {
+    if ($rivetit_db_version() == '2.4.6') {
         // Passkeys (WebAuthn / FIDO2)
         mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `user_passkeys` (
           `passkey_id` int(11) NOT NULL AUTO_INCREMENT,
@@ -4467,7 +4477,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.4.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.4.7') {
+    if ($rivetit_db_version() == '2.4.7') {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_backup_auto_enabled` tinyint(1) NOT NULL DEFAULT 0 AFTER `config_log_retention`");
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_backup_frequency` varchar(20) NOT NULL DEFAULT 'daily' AFTER `config_backup_auto_enabled`");
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_backup_retain_count` int(11) NOT NULL DEFAULT 7 AFTER `config_backup_frequency`");
@@ -4475,7 +4485,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.4.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.4.8') {
+    if ($rivetit_db_version() == '2.4.8') {
         // Comet Backup integration
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_comet_enabled` tinyint(1) NOT NULL DEFAULT 0 AFTER `config_backup_retain_count`");
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD `config_comet_server_url` varchar(500) NOT NULL DEFAULT 'http://10.1.0.35:8060' AFTER `config_comet_enabled`");
@@ -4511,14 +4521,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     // Up-to-date
 }
 
-    if (CURRENT_DATABASE_VERSION == '2.4.9') {
+    if ($rivetit_db_version() == '2.4.9') {
         // 2.4.9/2.4.10 never had schema changes defined for them - this block only
         // exists to close the gap so an install parked at exactly 2.4.9 isn't stuck
         // forever (the next real migration block below starts at 2.4.11).
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.4.11'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.4.11') {
+    if ($rivetit_db_version() == '2.4.11') {
 
         mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `api_tokens` (
           `token_enc_master_key` varchar(300) DEFAULT NULL,
@@ -4538,7 +4548,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.4.12'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.4.12') {
+    if ($rivetit_db_version() == '2.4.12') {
 
         // RMM Integration tables (Syncro-Beta)
 
@@ -4668,14 +4678,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.5.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.5.0') {
+    if ($rivetit_db_version() == '2.5.0') {
 
         mysqli_query($mysqli, "ALTER TABLE `assets` ADD `asset_tag` VARCHAR(100) NULL DEFAULT NULL AFTER `asset_name`");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.5.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.5.1') {
+    if ($rivetit_db_version() == '2.5.1') {
 
         mysqli_query($mysqli, "ALTER TABLE `rmm_alerts` ADD `ticket_id` INT(11) NULL DEFAULT NULL, ADD KEY `ticket_id` (`ticket_id`)");
 
@@ -4684,7 +4694,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.5.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.5.2') {
+    if ($rivetit_db_version() == '2.5.2') {
 
         mysqli_query($mysqli, "ALTER TABLE `ticket_replies` MODIFY `ticket_reply_type` VARCHAR(20) NOT NULL");
 
@@ -4693,7 +4703,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.5.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.5.3') {
+    if ($rivetit_db_version() == '2.5.3') {
 
         mysqli_query($mysqli, "ALTER TABLE `ticket_automation_rules`
             ADD `rule_conditions_json` LONGTEXT NULL AFTER `rule_cond_value`,
@@ -4725,7 +4735,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.5.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.5.4') {
+    if ($rivetit_db_version() == '2.5.4') {
 
         mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `ticket_tags` (
             `ticket_tag_ticket_id` INT(11) NOT NULL,
@@ -4749,7 +4759,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.5.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.5.5') {
+    if ($rivetit_db_version() == '2.5.5') {
 
         mysqli_query($mysqli, "ALTER TABLE `project_templates`
             ADD COLUMN `project_template_default_contract_template_id` INT(11) DEFAULT NULL");
@@ -4757,7 +4767,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.5.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.5.6') {
+    if ($rivetit_db_version() == '2.5.6') {
 
         mysqli_query($mysqli, "ALTER TABLE `project_templates`
             ADD COLUMN `project_template_is_onboarding` TINYINT(1) NOT NULL DEFAULT 0");
@@ -4765,7 +4775,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.5.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.5.7') {
+    if ($rivetit_db_version() == '2.5.7') {
 
         mysqli_query($mysqli, "ALTER TABLE `settings`
             ADD COLUMN `config_module_enable_ticket_charges` TINYINT(1) NOT NULL DEFAULT 1");
@@ -4773,7 +4783,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.5.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.5.8') {
+    if ($rivetit_db_version() == '2.5.8') {
 
         mysqli_query($mysqli, "ALTER TABLE `settings`
             ADD COLUMN `config_module_enable_kb` TINYINT(1) NOT NULL DEFAULT 0");
@@ -4801,7 +4811,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.5.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.5.9') {
+    if ($rivetit_db_version() == '2.5.9') {
 
         mysqli_query($mysqli, "ALTER TABLE `settings`
             ADD COLUMN `config_module_enable_live_chat` TINYINT(1) NOT NULL DEFAULT 0");
@@ -4820,7 +4830,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.0'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.0') {
+    if ($rivetit_db_version() == '2.6.0') {
 
         mysqli_query($mysqli, "ALTER TABLE `tickets`
             ADD COLUMN `ticket_initial_issue_reply_id` INT(11) DEFAULT NULL");
@@ -4828,7 +4838,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.1'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.1') {
+    if ($rivetit_db_version() == '2.6.1') {
 
         mysqli_query($mysqli, "ALTER TABLE `settings`
             ADD COLUMN `config_vault_canonical_key` VARCHAR(255) DEFAULT NULL,
@@ -4837,7 +4847,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.2'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.2') {
+    if ($rivetit_db_version() == '2.6.2') {
 
         mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `ticket_saved_views` (
             `ticket_saved_view_id` INT(11) NOT NULL AUTO_INCREMENT,
@@ -4864,7 +4874,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.3'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.3') {
+    if ($rivetit_db_version() == '2.6.3') {
 
         mysqli_query($mysqli, "ALTER TABLE `ticket_chat_messages`
             ADD KEY `ticket_id_id` (`ticket_id`, `id`)");
@@ -4872,7 +4882,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.4'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.4') {
+    if ($rivetit_db_version() == '2.6.4') {
 
         mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `kb_categories` (
             `kb_category_id` INT(11) NOT NULL AUTO_INCREMENT,
@@ -4903,7 +4913,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.5'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.5') {
+    if ($rivetit_db_version() == '2.6.5') {
 
         // UniFi Integration tables
 
@@ -4950,7 +4960,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.6'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.6') {
+    if ($rivetit_db_version() == '2.6.6') {
 
         // "My Queue" was seeded as an exact duplicate of "Assigned to me"
         // (same query), which always highlighted both views together
@@ -4959,7 +4969,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.7'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.7') {
+    if ($rivetit_db_version() == '2.6.7') {
 
         // UniFi site -> client mapping (lets an admin override the
         // automatic site-name-to-client-name match)
@@ -4978,7 +4988,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.8'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.8') {
+    if ($rivetit_db_version() == '2.6.8') {
 
         // UnifiedPush endpoint registrations for mobile app push notifications
         mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `push_endpoints` (
@@ -4995,7 +5005,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.9'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.9') {
+    if ($rivetit_db_version() == '2.6.9') {
 
         // Replaced by the real-time notifications SSE stream
         // (api/v1/notifications/stream) - no per-device endpoint registration needed
@@ -5004,7 +5014,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.10'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.10') {
+    if ($rivetit_db_version() == '2.6.10') {
 
         // Per-category mobile push notification preferences (admin-level allow list + per-user override)
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN `config_push_enabled_types` TEXT DEFAULT NULL");
@@ -5013,7 +5023,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.11'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.11') {
+    if ($rivetit_db_version() == '2.6.11') {
 
         // Bring comet_backup_alerts to parity with rmm_alerts (type/severity/
         // message/client/status/acknowledge) so both can feed one unified
@@ -5034,7 +5044,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.12'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.12') {
+    if ($rivetit_db_version() == '2.6.12') {
 
         // Single-tenant integrations (e.g. Sophos Central without a Partner/
         // Organization credential) have no per-device "client name" field to
@@ -5047,7 +5057,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.13'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.13') {
+    if ($rivetit_db_version() == '2.6.13') {
 
         // Add type column to unifi_integrations so a single table can hold
         // both self-hosted local controllers and UniFi Site Manager (api.ui.com)
@@ -5058,7 +5068,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.14'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.14') {
+    if ($rivetit_db_version() == '2.6.14') {
 
         // Track which ticket a merged ticket was merged into, so they can be
         // displayed with a "Merged → TCK-X" badge in the ticket list.
@@ -5068,7 +5078,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.15'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.15') {
+    if ($rivetit_db_version() == '2.6.15') {
 
         // Store the Outlook calendar event ID per ticket_schedules row so that
         // editing an appointment updates the existing event rather than duplicating it.
@@ -5078,7 +5088,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.16'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.16') {
+    if ($rivetit_db_version() == '2.6.16') {
 
         // Track per-reply whether the work was remote or onsite, and which
         // labor type was selected, so the Time Entry Log can show this info.
@@ -5089,7 +5099,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.17'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.17') {
+    if ($rivetit_db_version() == '2.6.17') {
 
         // Add schedule_outlook_event_id to ticket_schedules so that editing an
         // appointment PATCHes the existing Outlook calendar event rather than
@@ -5101,7 +5111,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.18'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.18') {
+    if ($rivetit_db_version() == '2.6.18') {
 
         // Distinguishes a "Public" reply that was actually emailed to the
         // client (a real reply) from one that wasn't (a public-visible note).
@@ -5114,7 +5124,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.19'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.19') {
+    if ($rivetit_db_version() == '2.6.19') {
 
         // TEXT (64KB) is too small for a real-world signature pasted from Outlook —
         // those commonly include a table-based layout with embedded base64 images
@@ -5127,7 +5137,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.20'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.20') {
+    if ($rivetit_db_version() == '2.6.20') {
 
         // Multiple independent mailboxes (e.g. support@, sales@, billing@ — typically
         // Microsoft 365 shared mailboxes), each independently IMAP-polled to create
@@ -5193,7 +5203,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.21'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.21') {
+    if ($rivetit_db_version() == '2.6.21') {
 
         // Fixes installs that already ran the 2.6.20 migration above before this
         // exception existed: any auto-migrated "Tickets (migrated)" mailbox row of
@@ -5210,7 +5220,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.22'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.22') {
+    if ($rivetit_db_version() == '2.6.22') {
 
         // Unknown-sender emails (mailbox_parse_unknown_senders) no longer create a
         // ticket immediately - they land here for an admin to review, then either
@@ -5245,7 +5255,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.23'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.23') {
+    if ($rivetit_db_version() == '2.6.23') {
 
         // One row per inbound email the mailbox poller touches - reply matched, ticket
         // created, queued as a Request, NDR/bounce, or left alone (unmatched / queueing
@@ -5269,7 +5279,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.24'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.24') {
+    if ($rivetit_db_version() == '2.6.24') {
 
         // Job title and direct phone, used to build a proper email signature template
         // (Admin/Agent > My Settings > Email Signature > Use Template).
@@ -5280,7 +5290,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.25'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.25') {
+    if ($rivetit_db_version() == '2.6.25') {
 
         // One row per user's mobile-app device: an Ed25519/EC public key backing
         // the credential-viewing step-up biometric check (api/v1/credentials.php).
@@ -5298,7 +5308,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.26'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.26') {
+    if ($rivetit_db_version() == '2.6.26') {
 
         // Per-user Outlook/Microsoft Graph OAuth tokens for the Outlook Calendar
         // integration - stores the encrypted refresh/access token pair and their
@@ -5312,7 +5322,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.27'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.27') {
+    if ($rivetit_db_version() == '2.6.27') {
 
         // Shared Azure AD app-registration credentials backing the Outlook Calendar
         // integration (client ID/secret + tenant ID) - used alongside the per-user
@@ -5326,7 +5336,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.28'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.28') {
+    if ($rivetit_db_version() == '2.6.28') {
 
         // Tracks the Microsoft Graph calendar event created for a scheduled ticket,
         // so the legacy-path deleteOutlookCalendarEvent() (functions.php) can find
@@ -5338,7 +5348,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.29'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.29') {
+    if ($rivetit_db_version() == '2.6.29') {
 
         // AI feature config (re-introduced after v2.3.2 dropped the old config_ai_*
         // provider/url/key columns - those now live in ai_providers / ai_models).
@@ -5359,7 +5369,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.30'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.30') {
+    if ($rivetit_db_version() == '2.6.30') {
 
         // ------------------------------------------------------------------
         // Consolidated migration for schema that had been applied directly to
@@ -5728,7 +5738,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.31'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.31') {
+    if ($rivetit_db_version() == '2.6.31') {
 
         // --- RMM connect/status preference (asset_rmm_links) --------------
         // An asset can be linked to more than one RMM integration at once
@@ -5744,7 +5754,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.32'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.32') {
+    if ($rivetit_db_version() == '2.6.32') {
 
         // --- Payroll: gross-pay-only payroll runs from manually-entered hours ---
         // No tax withholding (federal/state/FICA) is calculated anywhere in this
@@ -5885,7 +5895,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.33'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.33') {
+    if ($rivetit_db_version() == '2.6.33') {
 
         // --- Payroll: per-job pay rate overrides ---------------------------
         // Sometimes an employee is paid a different one-off rate for a
@@ -5931,7 +5941,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.34'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.34') {
+    if ($rivetit_db_version() == '2.6.34') {
 
         // AI provider API keys are now stored encrypted (ENC:<base64 iv+ciphertext>) instead of
         // plaintext - widen the column so the encrypted value (larger than the original plaintext)
@@ -5944,7 +5954,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.35'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.35') {
+    if ($rivetit_db_version() == '2.6.35') {
 
         // Seed sensible default colors on the built-in asset_status categories so the
         // status pill on the assets list is color-coded out of the box - these rows were
@@ -5962,7 +5972,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.36'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.36') {
+    if ($rivetit_db_version() == '2.6.36') {
 
         // CSAT: upgrade the binary Good/Bad ticket_feedback rating to a proper 1-5
         // star scale + optional comment. ticket_feedback is left in place, untouched,
@@ -5996,7 +6006,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.37'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.37') {
+    if ($rivetit_db_version() == '2.6.37') {
         // Adds an atomic-claim state to the QBO sync queue: cron/cron.php (hourly),
         // cron/accounting_sync_standalone.php (every 15m), and the "sync now" button
         // in admin/settings_accounting.php can all pick up the same pending job
@@ -6007,7 +6017,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.38'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.38') {
+    if ($rivetit_db_version() == '2.6.38') {
         // rmm_scripts.tactical_script_id is a single int reused for BOTH Tactical
         // RMM and Level.io's numeric script IDs, with no per-integration scoping -
         // a Level script whose ID happens to collide with an existing Tactical
@@ -6022,7 +6032,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.39'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.39') {
+    if ($rivetit_db_version() == '2.6.39') {
         // Optional CTA shown to clients after a 4-5 star CSAT rating, prompting a
         // public Google review. Starts empty/unconfigured (CTA stays hidden until
         // an admin sets it in Settings > Ticketing).
@@ -6031,7 +6041,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.40'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.40') {
+    if ($rivetit_db_version() == '2.6.40') {
         // Mobile app crash reports (POST /api/v1/crash-reports) are logged via the
         // existing logApp() -> app_logs pipeline (category 'mobile_crash') so they
         // show up in the existing App Logs admin page instead of needing a bespoke
@@ -6042,7 +6052,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.41'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.41') {
+    if ($rivetit_db_version() == '2.6.41') {
         // Included remote-support hours for clients whose subscription covers a
         // certain amount of support time per month. NULL = feature inactive for
         // that client (default for everyone). Usage is always computed live from
@@ -6053,7 +6063,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.42'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.42') {
+    if ($rivetit_db_version() == '2.6.42') {
         // Replace the hours-based included-support allowance with a per-month
         // issue COUNT, split remote vs onsite - matches how residential
         // subscription plans are actually sold (e.g. "3 remote issues/mo"),
@@ -6073,7 +6083,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.43'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.43') {
+    if ($rivetit_db_version() == '2.6.43') {
         // Every one of these tables carried only a PRIMARY KEY - every
         // client-scoped lookup on agent/client_overview.php (and, for
         // ticket_replies, every ticket detail page load) was a full table
@@ -6095,7 +6105,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.44'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.44') {
+    if ($rivetit_db_version() == '2.6.44') {
         // Defense in depth for /opt/scripts/itflow_rmm_sync.php's alert-sync
         // loop (SELECT-then-INSERT, no transaction): a proper flock() mutex
         // was added there to stop overlapping cron runs, but a unique
@@ -6106,7 +6116,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.45'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.45') {
+    if ($rivetit_db_version() == '2.6.45') {
         // Admin > Settings > Tickets > Default Ticket Assignee. 0 = not set
         // (matches this codebase's 0-sentinel convention for other nullable
         // FK-style ticket settings, e.g. no separate "enabled" flag needed).
@@ -6119,7 +6129,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.46'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.46') {
+    if ($rivetit_db_version() == '2.6.46') {
         // Move the included-issues allowance from the client to the contract.
         // A client can have several active contracts (tickets already pick one
         // via ticket_contract_id for SLA purposes) - a single client-level
@@ -6158,7 +6168,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.47'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.47') {
+    if ($rivetit_db_version() == '2.6.47') {
         // Public CSAT API (GET /api/v1/csat) only publishes a rating's comment
         // when a staff member has explicitly opted it in - CSAT comments were
         // captured with "anything you'd like to add? (optional)", never with
@@ -6171,7 +6181,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.48'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.48') {
+    if ($rivetit_db_version() == '2.6.48') {
         // Dedicated AnyDesk ID field for assets, with a one-click "anydesk:"
         // launch link on the asset details page - separate from the generic
         // asset_uri/_2/_client fields so it's discoverable without needing to
@@ -6181,7 +6191,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.49'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.49') {
+    if ($rivetit_db_version() == '2.6.49') {
         // CRM (Pipeline/Opportunities/Leads/Campaigns/Segments) is MSP sales-
         // pipeline terminology that doesn't fit an internal-IT department -
         // off by default here, same reasoning as the accounting module.
@@ -6190,7 +6200,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.50'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.50') {
+    if ($rivetit_db_version() == '2.6.50') {
         // Master-plan Phase 0: central audit trail. Append-only from the app's
         // perspective - nothing in agent/admin code gets an UPDATE/DELETE path
         // for this table, only INSERT via src/Audit/AuditService.php.
@@ -6216,7 +6226,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.51'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.51') {
+    if ($rivetit_db_version() == '2.6.51') {
         // Master-plan Phase 0: DB-backed job queue (Section 33) - foundation
         // for async Microsoft/Odoo/RMM sync work in later phases. Nothing
         // enqueues jobs yet; this just makes the table/worker exist first.
@@ -6243,7 +6253,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.52'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.52') {
+    if ($rivetit_db_version() == '2.6.52') {
         // Master-plan Phase 1: organization-level fields (Section 6.1).
         // Added to the existing single companies row rather than a new
         // parallel `organizations` table - company_id=1 already IS the one
@@ -6257,7 +6267,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.53'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.53') {
+    if ($rivetit_db_version() == '2.6.53') {
         // Master-plan Phase 1: department fields (Section 6.2). client_status
         // is a free-text label (not a rigid enum) matching how asset_status
         // works elsewhere in this app - client_archived_at already covers
@@ -6292,7 +6302,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.54'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.54') {
+    if ($rivetit_db_version() == '2.6.54') {
         // Master-plan Phase 2: People directory fields on the existing
         // `contacts` table (Section 7.1/7.2) - not a new parallel `people`
         // table. contacts already carries name/email/phone/location/client
@@ -6327,7 +6337,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.55'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.55') {
+    if ($rivetit_db_version() == '2.6.55') {
         // Master-plan Phase 3 & 8: Microsoft Entra/Graph and Odoo
         // integration config tables, mirroring the existing
         // accounting_integrations/unifi_integrations shape. Scaffolding
@@ -6368,7 +6378,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.56'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.56') {
+    if ($rivetit_db_version() == '2.6.56') {
         // Master-plan Phase 6: asset assignment history (Section 11.5).
         // assets.asset_contact_id stays the current-assignment pointer
         // every existing query already uses - this is additive: a
@@ -6389,7 +6399,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.57'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.57') {
+    if ($rivetit_db_version() == '2.6.57') {
         // Master-plan Phase 9: employee lifecycle workflow engine, manual-
         // first version (Sections 16-18/22-23), matching Section 53's
         // recommended first-release scope ("manual-first onboarding and
@@ -6461,7 +6471,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.58'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.58') {
+    if ($rivetit_db_version() == '2.6.58') {
         // Master-plan Phase 4: Vault V2 - credential rotation due dates +
         // a version history snapshotted on every edit (Section 15).
         mysqli_query($mysqli, "ALTER TABLE `credentials` ADD COLUMN IF NOT EXISTS `credential_rotation_due_at` date DEFAULT NULL AFTER `credential_password_changed_at`");
@@ -6482,7 +6492,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.59'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.59') {
+    if ($rivetit_db_version() == '2.6.59') {
         // Master-plan Phase 5: Knowledge Base V2 - review-due tracking +
         // full version history on every edit (Section 14).
         mysqli_query($mysqli, "ALTER TABLE `kb_articles` ADD COLUMN IF NOT EXISTS `kb_article_review_due_at` date DEFAULT NULL AFTER `kb_article_category_id`");
@@ -6503,7 +6513,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.60'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.60') {
+    if ($rivetit_db_version() == '2.6.60') {
         // Master-plan Phase 10: Service Catalog (Section 27.1, scoped down -
         // a flat list of requestable items that pre-fill a new ticket, no
         // dynamic form builder yet).
@@ -6526,7 +6536,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.61'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.61') {
+    if ($rivetit_db_version() == '2.6.61') {
         // Master-plan Phase 11: Incident/Problem/Change management -
         // problems and changes as first-class records, tickets optionally
         // linked to a problem.
@@ -6566,7 +6576,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.62'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.62') {
+    if ($rivetit_db_version() == '2.6.62') {
         // Master-plan Phase 12: Automation, Webhooks V2, API v2 (Section 35) -
         // a synchronous direct-delivery log distinct from the existing
         // ticket-scoped async webhook_queue/cron.php path, plus a first
@@ -6602,7 +6612,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.63'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.63') {
+    if ($rivetit_db_version() == '2.6.63') {
         // Master-plan Phase 7: Microsoft Intune device sync into the CMDB -
         // reuses the Phase 3 Microsoft/Entra app registration (GraphClient),
         // just with the additional DeviceManagementManagedDevices.Read.All
@@ -6654,7 +6664,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.64'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.64') {
+    if ($rivetit_db_version() == '2.6.64') {
         // Locations become an independent entity (a department picks from
         // existing locations / links via department_sites instead of typing
         // a fresh address every time) - location_hours widened from
@@ -6664,7 +6674,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.65'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.65') {
+    if ($rivetit_db_version() == '2.6.65') {
         // Scheduled ticket reopen (Section: agent request) - resolve/close a
         // ticket now, but have it automatically pop back open on a future
         // date (e.g. "check back once the vendor's update ships").
@@ -6673,7 +6683,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.66'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.66') {
+    if ($rivetit_db_version() == '2.6.66') {
         // Restore client_support_issues_included_remote/_onsite, dropped by
         // an earlier migration that intended to move this allowance to a new
         // per-contract equivalent but never got the companion code (the
@@ -6690,7 +6700,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.67'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.67') {
+    if ($rivetit_db_version() == '2.6.67') {
         // credential_category has existed since the original "login_category"
         // rename (see the 2.x migration further up this file) but was never
         // read or written by any add/edit/list/view code - repurpose it as an
@@ -6712,7 +6722,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.68'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.68') {
+    if ($rivetit_db_version() == '2.6.68') {
         // Odoo directory sync (departments + employees), one-way pull from
         // Odoo hr.department/hr.employee into clients/contacts. Mirrors the
         // Intune device sync's link-table + sync-log pattern (asset_intune_links
@@ -6763,7 +6773,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.69'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.69') {
+    if ($rivetit_db_version() == '2.6.69') {
         // The "Intune Devices" nav link/page has never had an on/off switch -
         // it always shows even for a company with no Microsoft tenant
         // connected. Adds a company module toggle matching the existing
@@ -6775,7 +6785,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.70'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.70') {
+    if ($rivetit_db_version() == '2.6.70') {
         // The included-issues allowance is a count of hours, not tickets -
         // each remote ticket charges a flat 30 min against it, each onsite
         // ticket a flat hour (INCLUDED_HOURS_PER_TICKET_REMOTE/ONSITE in
@@ -6789,7 +6799,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.71'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.71') {
+    if ($rivetit_db_version() == '2.6.71') {
         // Legacy API keys (admin/api_keys.php, X-Api-Key auth) previously had no
         // permission concept at all - every key granted full read/write access
         // to everything the resolved admin user could do. 'write' is the default
@@ -6799,7 +6809,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.72'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.72') {
+    if ($rivetit_db_version() == '2.6.72') {
         // Geocoded once at save time (agent/post/location.php, via
         // geocodeAddress() in functions.php calling OpenStreetMap's Nominatim
         // API) and cached here rather than re-geocoded on every page view -
@@ -6812,7 +6822,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.73'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.73') {
+    if ($rivetit_db_version() == '2.6.73') {
         // The six module_rmm* permission modules gate 77 call sites across the RMM
         // feature set, and module_kb gates the knowledge base - but none of them was
         // ever seeded by setup/index.php or scripts/setup_cli.php. module_kb was only
@@ -6852,7 +6862,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.74'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.74') {
+    if ($rivetit_db_version() == '2.6.74') {
         // Device metrics subsystem. Design and rationale: docs/REDESIGN_ARCHITECTURE_REPORT.md
         // sections K (registry), N (schema) and O (rollups).
         //
@@ -6940,7 +6950,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.75'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.75') {
+    if ($rivetit_db_version() == '2.6.75') {
         // The Accounting/QuickBooks surface is removed from this edition - the owner's
         // standing rule is "no billable anything here". admin/settings_accounting.php,
         // admin/accounting_*_mapping.php, admin/accounting_sync_status.php and
@@ -6961,7 +6971,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.76'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.76') {
+    if ($rivetit_db_version() == '2.6.76') {
 
         // Re-wrap every settings/integration secret that was written while
         // $config_settings_enc_key did not exist.
@@ -7071,7 +7081,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.77'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.77') {
+    if ($rivetit_db_version() == '2.6.77') {
 
         /* DEPLOY ORDER IS ENFORCED HERE, NOT DOCUMENTED IN A RUNBOOK.
          *
@@ -7256,7 +7266,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.78'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.78') {
+    if ($rivetit_db_version() == '2.6.78') {
 
         /* Lets a project TASK spawn a real ticket, and remember that it did.
          *
@@ -7279,7 +7289,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.79'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.79') {
+    if ($rivetit_db_version() == '2.6.79') {
 
         // Directory Sync batch: configurable field mapping (Odoo already synced
         // employees with 4 fields hardcoded in OdooDirectoryMapper::syncEmployee -
@@ -7450,7 +7460,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.80'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.80') {
+    if ($rivetit_db_version() == '2.6.80') {
 
         /* INTERACTIVE KB (IKB) - the two tables the interactive block vocabulary
          * needs. Purely additive: no existing table, column, index or row is
@@ -7672,7 +7682,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.81'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.81') {
+    if ($rivetit_db_version() == '2.6.81') {
         // Catch-up: the 2.6.48 -> 2.6.49 block above (asset_anydesk_id) was
         // added to this file after this installation's database_version had
         // already advanced past '2.6.48', so that block's condition can never
@@ -7685,7 +7695,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.82'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.82') {
+    if ($rivetit_db_version() == '2.6.82') {
         // The KB sandboxed-embed cap (src/KB/HtmlImporter.php MAX_EMBED_BYTES,
         // agent/includes/kb_embed_serve.php KB_EMBED_MAX_BYTES - both must agree)
         // is being raised from 512 KB to 50 MB to match the HTML-import ceiling.
@@ -7698,7 +7708,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.83'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.83') {
+    if ($rivetit_db_version() == '2.6.83') {
         // Admin > Localization's new "Phone Numbers" section: a default calling
         // code to prefill new records' phone_country_code boxes with, and a
         // toggle for whether WhatsApp click-to-chat links are offered next to
@@ -7709,7 +7719,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.84'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.84') {
+    if ($rivetit_db_version() == '2.6.84') {
         // Printers and Network Drives: structured IT-documentation modules under
         // the Knowledge sidebar dropdown, modeled on the Networks/Assets shape
         // (fixed typed fields + list/detail views), not the KB free-text wiki.
@@ -7753,7 +7763,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.85'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.85') {
+    if ($rivetit_db_version() == '2.6.85') {
         // Printers' Location field splits in two, matching the Assets module's
         // own Location/Physical Location pair: a real Location record picked
         // from the `locations` table (printer_location_id, like asset_location_id)
@@ -7767,7 +7777,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.86'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.86') {
+    if ($rivetit_db_version() == '2.6.86') {
         // Ticket-creation defaults (Admin > Settings > Tickets): a configured
         // default category/status override the ad-hoc "Remote"/"New"-or-
         // "Assigned" by-name fallback that resolveTicketCategory()/
@@ -7787,7 +7797,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.87'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.87') {
+    if ($rivetit_db_version() == '2.6.87') {
         // Holiday catalog: a real, persisted table of country-holiday rows
         // (system-generated from includes/holiday_functions.php's rule
         // engine, or hand-added), managed on its own admin page
@@ -7810,7 +7820,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.88'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.88') {
+    if ($rivetit_db_version() == '2.6.88') {
         // Backup > Remote Storage: upload each backup zip to an S3-compatible
         // bucket (AWS S3 itself, or a self-hosted service like RustFS/MinIO)
         // in addition to keeping it in webroot/backups. config_backup_s3_secret_key
@@ -7828,7 +7838,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.89'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.89') {
+    if ($rivetit_db_version() == '2.6.89') {
         // Mobile device tracking (Assets > Mobile filter): PIN/passcode for
         // phones/tablets, alongside the existing asset_tag/asset_serial
         // fields already on this table.
@@ -7837,7 +7847,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.90'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.90') {
+    if ($rivetit_db_version() == '2.6.90') {
         // Training / LMS Phase 1 - foundation + course builder (plan rev 3 §B).
         // Idempotent: IF NOT EXISTS / INSERT IGNORE / NOT EXISTS throughout, so a half-applied
         // run can be re-run. No triggers (plan A8). No contact references.
@@ -8374,7 +8384,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.91'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.91') {
+    if ($rivetit_db_version() == '2.6.91') {
         // Training / LMS Phase 2 - assignments, compliance, records, reports (plan rev 3 §B; A5/A6/A8/A10/A16/A22).
         // Idempotent: IF NOT EXISTS / ADD COLUMN IF NOT EXISTS / INSERT IGNORE. No triggers, no FKs (plan A8).
         // One mysqli_query per CREATE TABLE, DDL exactly as Phase 2 spec §2.1 incl. table options (17 statements).
@@ -8779,7 +8789,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.92'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.92') {
+    if ($rivetit_db_version() == '2.6.92') {
         // Training / LMS Phase 3+4 - kiosk, learner evidence, achievement awards (plan A1/A2/A3/A4/A15/A19/A21).
         // Idempotent (IF NOT EXISTS / ADD COLUMN IF NOT EXISTS). No triggers, no FKs, no module rows (2.6.91 made them).
         // 13 CREATE TABLE statements exactly as P3 spec §2.2 incl. table options, one mysqli_query each.
@@ -9112,7 +9122,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.93'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.93') {
+    if ($rivetit_db_version() == '2.6.93') {
         // Training kiosk devices (owner request 2026-09-25): UNLISTED devices that are not in Assets
         // (kiosk_asset_id / kiosk_asset_type NULL) and TEMPORARY devices (kiosk_expires_at_utc, UTC; past it
         // the device is revoked on its next request or by cron/training_kiosk_cron.php).
@@ -9124,7 +9134,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.94'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.94') {
+    if ($rivetit_db_version() == '2.6.94') {
         // Roles audit P4 (owner-approved 2026-09-26): an Assets module (module_assets, levels 1-3), so a
         // role can have the asset pages without tickets. Asset pages accept module_assets OR module_support.
         // Every existing role is granted module_assets at its CURRENT module_support level, so nobody's
@@ -9146,7 +9156,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.95'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.95') {
+    if ($rivetit_db_version() == '2.6.95') {
         // Training / LMS Phase 5 - automation settings, Odoo write-back outbox and map, reminder log,
         // video watch (plan A5/A7/A12/A16). Operational tables only: nothing is hashed or ledgered.
         // Everything that acts is OFF by default (Odoo write-back, reminders). Idempotent: IF NOT EXISTS /
@@ -9258,7 +9268,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.96'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.96') {
+    if ($rivetit_db_version() == '2.6.96') {
         // Training / LMS Odoo write-back targets (owner ask 2026-09-27; Phase 5 LATER item L2): a record can be sent as a
         // résumé line, a certification skill and/or an HR note - any combination, one outbox row per target and action.
         //   training_automation: tauto_odoo_send_resume (default 1: the Phase 5 behaviour), _skill and _note (default 0).
@@ -9280,7 +9290,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.97'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.97') {
+    if ($rivetit_db_version() == '2.6.97') {
         // Training video options (owner ask 2026-09-27: volume, "CC titles", pick up where you left off).
         // Only the closed captions need schema: a caption file is a training_media row of the new kind
         // 'caption' (plain WebVTT, .vtt, built by Media\Captions from the author's .vtt/.srt), attached per
@@ -9296,7 +9306,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.98'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.98') {
+    if ($rivetit_db_version() == '2.6.98') {
         // Training kiosk: continue from the last point (owner report 2026-09-27 "There is no continue from last point").
         // training_runs gains trun_lesson_resume_at - where the learner last was in the CURRENT lesson: seconds for a
         // video, the 1-based page for a document (PDF); NULL = no point recorded (every run from before this update, and
@@ -9309,7 +9319,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.99'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.99') {
+    if ($rivetit_db_version() == '2.6.99') {
         // Backup completeness (owner ask 2026-09-28): the in-app Backup (Admin > Backup, "Backup Now" /
         // the auto-backup cron) dumps every database table and the uploads/ directory, but never captured
         // config.php's $config_settings_enc_key. Without it a restore onto a different config.php (a fresh
@@ -9330,7 +9340,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.100'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.100') {
+    if ($rivetit_db_version() == '2.6.100') {
         // Training device setup codes at scale (owner ask 2026-09-28: "like how we add non asset
         // devices via pin do the same for iPad"). DeviceEnrollment::issueCodes() bulk-issues setup
         // codes for a fleet of iPads (asset-linked and/or unlisted in one batch), printed from
@@ -9348,7 +9358,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.101'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.101') {
+    if ($rivetit_db_version() == '2.6.101') {
         // Owner ask 2026-09-28: "on Devices and the Revoke ones we can select remove." A revoked
         // device card had no action at all - kiosk_list() already stops showing a revoked device
         // once kiosk_revoked_at_utc is more than 30 days old, but there was no way to clear one out
@@ -9365,7 +9375,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.102'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.102') {
+    if ($rivetit_db_version() == '2.6.102') {
         // Owner ask 2026-09-28: "should be able to change the Modes like share personal ect."
         // Personal vs shared on an asset-linked device was previously ONLY ever derived from the
         // asset's current assignment (kiosk_personal_contact_id snapshotted at enroll/reissue) -
@@ -9379,7 +9389,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.103'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.103') {
+    if ($rivetit_db_version() == '2.6.103') {
         // Owner ask 2026-09-28: "Big issue is that the Trainer Sign in needs to be saprate from
         // the trainers trainee Odoo pin so that needs fixed." A person who is BOTH a learner and
         // a trainer used to share ONE credential row (training_learner_credentials) for both
@@ -9421,7 +9431,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.104'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.104') {
+    if ($rivetit_db_version() == '2.6.104') {
         // Owner ask 2026-09-29: a contact whose Odoo employee record was Unlinked (OdooLinkChecker::unlink,
         // e.g. because the linked Odoo employee id no longer exists) has no path back to "resolved" once
         // that employee genuinely doesn't exist anywhere in Odoo any more (confirmed live for 32 real
@@ -9438,7 +9448,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.105'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.105') {
+    if ($rivetit_db_version() == '2.6.105') {
         // Owner ask 2026-09-29: record the network path in front of the app - how many local reverse
         // proxies and whether Cloudflare is used - so getIP() can pick the real client address safely.
         // config_proxy_hops NULL = not configured (getIP keeps the legacy CONST_GET_IP_METHOD behaviour).
@@ -9449,7 +9459,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.106'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.106') {
+    if ($rivetit_db_version() == '2.6.106') {
         // Owner ask 2026-09-29: an "Unresolved" ticket status. Like any custom status it is an open-type
         // status (the ticket stays open); it is added by name, never by id, and only if missing, so an
         // existing install's own statuses and ids are untouched. Editable/deactivatable in Admin > Ticket Statuses.
@@ -9462,7 +9472,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.107'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.107') {
+    if ($rivetit_db_version() == '2.6.107') {
         // Owner ask 2026-09-29: manage department (portal) logins for supervisors and managers from
         // Admin > Users. A manager sees the whole department's training in the portal, a supervisor sees
         // their own team (via contact_manager_id). 'none' keeps every existing contact exactly as before.
@@ -9472,7 +9482,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.108'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.108') {
+    if ($rivetit_db_version() == '2.6.108') {
         // Owner ask 2026-09-29: a signed-in department user starts training from the portal with no device
         // setup and no name search. The portal mints a per-user 'portal' device and a learner session whose
         // sign-in source is 'portal' (the PIN is still verified at signing/acknowledgement).
@@ -9482,7 +9492,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.109'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.109') {
+    if ($rivetit_db_version() == '2.6.109') {
         // Owner ask 2026-09-29: a dark company logo needs a light backing on the login page. NULL = white,
         // '#RRGGBB' = custom colour, 'none' = no backing.
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_login_logo_bg` varchar(7) DEFAULT NULL");
@@ -9490,7 +9500,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.110'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.110') {
+    if ($rivetit_db_version() == '2.6.110') {
         // Owner ask 2026-09-29: in an in-order course a document lesson can be opened without finishing the
         // lessons above it. Default 1 keeps every existing lesson gated exactly as before.
         mysqli_query($mysqli, "ALTER TABLE `training_lessons` ADD COLUMN IF NOT EXISTS `lesson_requires_previous` tinyint(1) NOT NULL DEFAULT 1 AFTER `lesson_required`");
@@ -9499,7 +9509,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     }
 
 
-    if (CURRENT_DATABASE_VERSION == '2.6.111') {
+    if ($rivetit_db_version() == '2.6.111') {
         // Owner ask 2026-09-29: a per-article "Show on Training Portal" switch, off by default. The training
         // knowledge base used to follow the department-portal flag; it now needs its own opt-in.
         mysqli_query($mysqli, "ALTER TABLE `kb_articles` ADD COLUMN IF NOT EXISTS `kb_article_training_visible` tinyint(1) NOT NULL DEFAULT 0 AFTER `kb_article_client_visible`");
@@ -9507,7 +9517,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.112'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.112') {
+    if ($rivetit_db_version() == '2.6.112') {
         // Scheduled ticket rules can now stop after the first successful run
         // for each ticket. Existing rules retain their repeat behavior.
         mysqli_query($mysqli, "ALTER TABLE `ticket_automation_rules`
@@ -9516,7 +9526,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.113'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.113') {
+    if ($rivetit_db_version() == '2.6.113') {
         // Existing write keys retain their previous delete access. New keys
         // require explicit opt-in and can restrict their source networks.
         mysqli_query($mysqli, "ALTER TABLE `api_keys`
@@ -9527,7 +9537,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.114'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.114') {
+    if ($rivetit_db_version() == '2.6.114') {
         // Record an employee requester's current vacation window. Automation
         // can reopen tickets closed during this window after they return.
         mysqli_query($mysqli, "ALTER TABLE `contacts`
@@ -9538,7 +9548,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.115'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.115') {
+    if ($rivetit_db_version() == '2.6.115') {
         // OIDC is disabled until an administrator configures a trusted issuer
         // and explicitly maps a portal login to that issuer's immutable sub.
         mysqli_query($mysqli, "ALTER TABLE `settings`
@@ -9553,7 +9563,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.116'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.116') {
+    if ($rivetit_db_version() == '2.6.116') {
         // Separate, disabled-by-default handoff credential. The existing
         // directory-sync API key is never used to redeem SSO codes.
         mysqli_query($mysqli, "ALTER TABLE `odoo_integrations`
@@ -9564,33 +9574,51 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.117'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.117') {
+    if ($rivetit_db_version() == '2.6.117') {
         // Cron execution and mail-queue failures are already recorded in app_logs.
         // Remove old cron-only notices so they no longer clutter the notification feed.
         mysqli_query($mysqli, "DELETE FROM `notifications` WHERE `notification_type` IN ('Cron', 'Cron-Mail-Queue')");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.118'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.118') {
+    if ($rivetit_db_version() == '2.6.118') {
         // Experimental remote MCP must also be explicitly enabled in the UI.
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_module_enable_mcp` tinyint(1) NOT NULL DEFAULT 0");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.119'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.119') {
+    if ($rivetit_db_version() == '2.6.119') {
         // Optional, off by default: link an OpenID Connect login to its immutable subject on the
         // first sign-in, using the provider's verified email. Existing mappings are untouched.
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_oidc_link_by_email` tinyint(1) NOT NULL DEFAULT 0");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.120'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.120') {
+    if ($rivetit_db_version() == '2.6.120') {
         // Default 1 keeps first-sign-in email linking strict (provider must report email_verified true).
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_oidc_require_verified_email` tinyint(1) NOT NULL DEFAULT 1");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.121'");
     }
 
-    if (CURRENT_DATABASE_VERSION == '2.6.121') {
+    if ($rivetit_db_version() == '2.6.121') {
+        // Agent sign-in with company SSO: off by default, and an agent signs in only when an administrator has
+        // linked that agent to a provider subject. Separate columns from the Remote MCP identity (user_oidc_*).
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_oidc_agent_enabled` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `users`
+            ADD COLUMN IF NOT EXISTS `user_sso_issuer` varchar(255) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `user_sso_subject` varchar(255) DEFAULT NULL,
+            ADD UNIQUE INDEX IF NOT EXISTS `idx_users_sso_identity` (`user_sso_issuer`, `user_sso_subject`)");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.122'");
+    }
+
+    if ($rivetit_db_version() == '2.6.122') {
+        // Agent company SSO columns (also added by 2.6.122): repeated here, idempotently, for installs that were
+        // stamped 2.6.122 by a build where 2.6.122 meant only the MCP/Redis settings below.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_oidc_agent_enabled` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `users`
+            ADD COLUMN IF NOT EXISTS `user_sso_issuer` varchar(255) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `user_sso_subject` varchar(255) DEFAULT NULL,
+            ADD UNIQUE INDEX IF NOT EXISTS `idx_users_sso_identity` (`user_sso_issuer`, `user_sso_subject`)");
         // Remote MCP is configured from Administration > Remote MCP: issuer and audience live in settings
         // (the RIVETIT_MCP_* environment variables still override them), and valid sign-ins from people who
         // are not linked to an agent yet are listed so an administrator can link them in one click.
@@ -9615,5 +9643,5 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             PRIMARY KEY (`mcp_unlinked_id`),
             UNIQUE KEY `uniq_mcp_identity` (`issuer`, `subject`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.122'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.123'");
     }

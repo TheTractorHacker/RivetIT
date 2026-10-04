@@ -71,7 +71,7 @@ $ticket_details = $purifier->purify($task_row['ticket_details']);
 
     <div class="card mt-3">
         <div class="card-header bg-dark text-center">
-            <h4 class="mt-1">
+            <h4 class="mt-1 text-white">
                 Task Approval for Ticket <?php echo $ticket_prefix, $ticket_number ?>
             </h4>
         </div>

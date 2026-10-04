@@ -1104,6 +1104,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initPasswordToggles();
     initButtonGroupToggle();
     initPrintButtons();
+    initSortHeaderDirection();
 });
 
 /* ============================================================
@@ -1138,7 +1139,7 @@ function initDateRangeFilter() {
     setDisplay((dtfEl && dtfEl.value) || '1970-01-01', (dttEl && dttEl.value) || '2099-12-31');
 
     /* eslint-disable no-new */
-    new Litepicker({
+    var picker = new Litepicker({
         element: input,
         singleMode: false,
         numberOfMonths: 2,
@@ -1159,6 +1160,12 @@ function initDateRangeFilter() {
             });
         }
     });
+    // Litepicker writes the raw range into the field when constructed (and on hide); restore the label.
+    var refreshDisplay = function () {
+        setDisplay((dtfEl && dtfEl.value) || '1970-01-01', (dttEl && dttEl.value) || '2099-12-31');
+    };
+    refreshDisplay();
+    picker.on('hide', refreshDisplay);
 }
 
 // Dropdowns inside a .table-responsive scroll container get clipped. BS5's Popper
@@ -1297,6 +1304,25 @@ function initButtonGroupToggle() {
 }
 
 // Delegated listener for .js-print-page (CSP forbids inline onclick="window.print();").
+// Column-heading links (includes/filter_header.php) carry order=<opposite of the current
+// order>. That is right for re-clicking the sorted column, but a different column should
+// start ascending, so rewrite order=ASC when the link targets another sort column.
+function initSortHeaderDirection() {
+    var current = new URLSearchParams(window.location.search).get('sort');
+    if (!current) { return; }
+    document.addEventListener('click', function (e) {
+        var a = e.target.closest ? e.target.closest('a[href*="sort="][href*="order="]') : null;
+        if (!a) { return; }
+        var url;
+        try { url = new URL(a.getAttribute('href'), window.location.href); } catch (err) { return; }
+        var target = url.searchParams.get('sort');
+        if (target && target !== current && url.searchParams.get('order') === 'DESC') {
+            url.searchParams.set('order', 'ASC');
+            a.setAttribute('href', url.pathname + url.search + url.hash);
+        }
+    }, true);
+}
+
 function initPrintButtons() {
     document.addEventListener('click', function (e) {
         if (e.target.closest('.js-print-page')) { window.print(); }

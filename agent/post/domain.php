@@ -79,7 +79,7 @@ if (isset($_POST['edit_domain'])) {
     enforceClientAccess();
 
     // Set/check/lookup expiry date
-    if (strtotime($expire) && (new DateTime($expire)) > (new DateTime())) {
+    if (strtotime($expire)) {
         $expire = "'" . $expire . "'";
 
     } else {

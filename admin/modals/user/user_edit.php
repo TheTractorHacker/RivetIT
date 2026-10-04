@@ -20,6 +20,9 @@ $user_role_id = intval($row['user_role_id']);
 $user_initials = nullable_htmlentities(initials($user_name));
 $mcp_issuer = nullable_htmlentities($row['user_oidc_issuer'] ?? '');
 $mcp_subject = nullable_htmlentities($row['user_oidc_subject'] ?? '');
+$sso_subject = nullable_htmlentities($row['user_sso_subject'] ?? '');
+$sso_issuer = nullable_htmlentities($row['user_sso_issuer'] ?? '');
+$sso_section = !empty($config_oidc_enabled) && !empty($config_oidc_agent_enabled);
 
 // Get passkeys
 $sql_passkeys = mysqli_query($mysqli, "SELECT * FROM user_passkeys WHERE passkey_user_id = $user_id ORDER BY passkey_created_at DESC");
@@ -128,6 +131,18 @@ ob_start();
                         <label for="forceMFASec<?php echo $user_id; ?>" class="form-check-label">Force MFA on next login</label>
                     </div>
                 </div>
+
+                <?php if ($sso_section) { ?>
+                <hr class="my-3">
+                <h6 class="text-uppercase text-muted mb-2" style="font-size:.75rem;letter-spacing:.05em">Company SSO sign-in</h6>
+                <p class="text-muted small">Link this agent to their account at the configured identity provider so they can use the company SSO button on the sign-in page. Enter the provider's immutable subject (<code>sub</code>), not an email address. Leave blank to turn SSO sign-in off for this agent. Administrators cannot use SSO.</p>
+                <input type="hidden" name="sso_field_present" value="1">
+                <div class="form-group">
+                    <label for="user_edit_sso_subject<?= $user_id ?>">Provider subject (sub)</label>
+                    <input type="text" class="form-control" id="user_edit_sso_subject<?= $user_id ?>" name="sso_subject" value="<?= $sso_subject ?>" maxlength="255" autocomplete="off">
+                    <?php if ($sso_issuer !== '') { ?><small class="form-text text-muted">Linked at: <?= $sso_issuer ?></small><?php } ?>
+                </div>
+                <?php } ?>
 
                 <hr class="my-3">
                 <h6 class="text-uppercase text-muted mb-2" style="font-size:.75rem;letter-spacing:.05em">Remote MCP identity <span class="badge bg-warning text-dark">Experimental</span></h6>

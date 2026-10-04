@@ -4,9 +4,11 @@ require_once "includes/inc_all_admin.php";
 $start_page_select_array = array (
     'dashboard.php'=>'Dashboard',
     'clients.php'=> 'Department Management',
-    'tickets.php'=> 'Support Tickets',
-    'invoices.php' => 'Invoices'
+    'tickets.php'=> 'Support Tickets'
 );
+if ($config_module_enable_accounting) {
+    $start_page_select_array['invoices.php'] = 'Invoices';
+}
 
 $net_terms_array = array (
     '0'=>'On Receipt',

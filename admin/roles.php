@@ -94,7 +94,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         $role_summary = itflow_role_summary(itflow_role_levels($mysqli, $role_id), $role_admin === 1);
 
                         // Convert the array of user names to a comma-separated string
-                        $user_names_string = implode(",", $user_names);
+                        $user_names_string = implode(", ", $user_names);
 
                         if (empty($user_names_string)) {
                             $user_names_string = "-";

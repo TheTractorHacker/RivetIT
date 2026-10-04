@@ -198,7 +198,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                             $ticket_category_id = intval($row['ticket_category'] ?? 0);
                             $ticket_category_name = nullable_htmlentities($row['category_name'] ?? '');
                             $ticket_board_name = $_cat_board_name[$ticket_category_id] ?? '';
-                            $group_label = $ticket_category_name ?: 'Uncategorized';
+                            $group_label = ($row['category_name'] ?? '') ?: 'Uncategorized';
 
                             // Emit group header when category changes
                             if ($group_label !== $current_group_cat) {

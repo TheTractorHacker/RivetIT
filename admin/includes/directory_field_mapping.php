@@ -68,7 +68,7 @@
                 </div>
                 <?php endforeach; ?>
 
-                <div class="card-footer py-2">
+                <div class="card-footer py-3 px-3">
                     <button type="submit" name="save_field_mapping" class="btn btn-primary btn-sm">
                         <i class="fas fa-check me-1"></i>Save Field Mappings
                     </button>

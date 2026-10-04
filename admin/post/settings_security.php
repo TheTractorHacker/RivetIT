@@ -38,7 +38,7 @@ if (isset($_POST['edit_security_settings'])) {
     $config_login_key_secret = sanitizeInput($_POST['config_login_key_secret']);
     $config_login_remember_me_expire = max(30, intval($_POST['config_login_remember_me_expire']));
     $config_login_session_lifetime = max(43200, min(129600, intval($_POST['config_login_session_lifetime'] ?? 43200)));
-    $config_log_retention = intval($_POST['config_log_retention']);
+    $config_log_retention = max(0, intval($_POST['config_log_retention']));
 
     // Network path: blank = not configured (legacy IP detection); otherwise 0-10 local reverse proxies
     $net_posted = isset($_POST['config_proxy_hops']);

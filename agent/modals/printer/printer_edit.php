@@ -23,7 +23,7 @@ $printer_notes = nullable_htmlentities($row['printer_notes']);
 // location_client_id = 0 is a real, populated scope here (company-wide
 // sites), not just an empty "no department picked yet" case - so this is
 // NOT gated behind $client_id being set, unlike Assets' own Location select.
-$sql_location_select = mysqli_query($mysqli, "SELECT location_id, location_name FROM locations WHERE location_archived_at IS NULL AND location_client_id = $client_id ORDER BY location_name ASC");
+$sql_location_select = mysqli_query($mysqli, "SELECT location_id, location_name FROM locations WHERE location_archived_at IS NULL AND (location_client_id = $client_id OR EXISTS (SELECT 1 FROM department_sites ds WHERE ds.location_id = locations.location_id AND ds.client_id = $client_id)) ORDER BY location_name ASC");
 
 ob_start();
 

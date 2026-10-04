@@ -19,7 +19,7 @@ if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
     exit();
 }
 
-$assets_sql = mysqli_query($mysqli, "SELECT * FROM assets LEFT JOIN contacts ON asset_contact_id = contact_id WHERE asset_client_id = $session_client_id AND asset_archived_at IS NULL ORDER BY asset_type ASC, asset_name ASC");
+$assets_sql = mysqli_query($mysqli, "SELECT assets.*, contacts.contact_name, status_cat.category_color AS asset_status_color FROM assets LEFT JOIN contacts ON asset_contact_id = contact_id LEFT JOIN categories AS status_cat ON status_cat.category_name = assets.asset_status AND status_cat.category_type = 'asset_status' AND status_cat.category_archived_at IS NULL WHERE asset_client_id = $session_client_id AND asset_archived_at IS NULL ORDER BY asset_type ASC, asset_name ASC");
 ?>
 
     <div class="row mb-4">
@@ -69,6 +69,7 @@ $assets_sql = mysqli_query($mysqli, "SELECT * FROM assets LEFT JOIN contacts ON 
                     $asset_warranty_expire = nullable_htmlentities($row['asset_warranty_expire'] ?? "-");
                     $assigned_to = nullable_htmlentities($row['contact_name'] ?? "-");
                     $asset_status = nullable_htmlentities($row['asset_status']);
+                    $asset_status_color = preg_match('/^#[0-9a-fA-F]{3,8}$/', (string) $row['asset_status_color']) ? $row['asset_status_color'] : '';
                     $asset_uri_client = sanitize_url($row['asset_uri_client']);
 
                     ?>
@@ -85,7 +86,7 @@ $assets_sql = mysqli_query($mysqli, "SELECT * FROM assets LEFT JOIN contacts ON 
                         <td><?php echo $assigned_to; ?></td>
                         <td><?php echo $asset_purchase_date; ?></td>
                         <td><?php echo $asset_warranty_expire; ?></td>
-                        <td><span class="badge badge-<?php echo $asset_status == 'Active' ? 'success' : 'secondary'; ?>"><?php echo $asset_status; ?></span></td>
+                        <td><?php if ($asset_status_color) { ?><span class="badge <?php echo tagTextClass($asset_status_color); ?>" style="background-color: <?php echo $asset_status_color; ?>;"><?php echo $asset_status; ?></span><?php } else { ?><span class="badge badge-secondary"><?php echo $asset_status; ?></span><?php } ?></td>
                         <td>
                             <?php if ($asset_uri_client) { ?>
                             <i class="fa fa-fw fa-link text-secondary me-1"></i><a href="<?php echo $asset_uri_client; ?>" target="_blank" title="<?php echo $asset_uri_client; ?>"><?php echo truncate($asset_uri_client, 40); ?></a>

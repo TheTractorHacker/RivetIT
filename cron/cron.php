@@ -131,14 +131,13 @@ mysqli_query($mysqli, "DELETE FROM email_queue WHERE email_queued_at < CURDATE()
 // Clean-up old remember me tokens
 mysqli_query($mysqli, "DELETE FROM remember_tokens WHERE remember_token_created_at < CURDATE() - INTERVAL $config_login_remember_me_expire DAY");
 
-// Cleanup old audit logs
-mysqli_query($mysqli, "DELETE FROM logs WHERE log_created_at < CURDATE() - INTERVAL $config_log_retention DAY");
-
-// Cleanup old app/debug logs
-mysqli_query($mysqli, "DELETE FROM app_logs WHERE app_log_created_at < CURDATE() - INTERVAL $config_log_retention DAY");
-
-// Cleanup old auth logs
-mysqli_query($mysqli, "DELETE FROM auth_logs WHERE auth_log_created_at < CURDATE() - INTERVAL $config_log_retention DAY");
+// Cleanup old audit, app/debug and auth logs. A retention of 0 (or blank) keeps them: before, it deleted
+// every row older than today.
+if ($config_log_retention >= 1) {
+    mysqli_query($mysqli, "DELETE FROM logs WHERE log_created_at < CURDATE() - INTERVAL $config_log_retention DAY");
+    mysqli_query($mysqli, "DELETE FROM app_logs WHERE app_log_created_at < CURDATE() - INTERVAL $config_log_retention DAY");
+    mysqli_query($mysqli, "DELETE FROM auth_logs WHERE auth_log_created_at < CURDATE() - INTERVAL $config_log_retention DAY");
+}
 
 // CLeanup old domain history
 $sql = mysqli_query($mysqli, "SELECT domain_id FROM domains");

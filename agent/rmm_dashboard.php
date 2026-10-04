@@ -322,7 +322,7 @@ $has_alert_analytics = array_sum($alert_trend_data) > 0 || !empty($sev_counts);
                 <span class="info-box-text">New Alerts</span>
                 <span class="info-box-number"><?= intval($alert_counts['new_cnt']) ?></span>
                 <?php if ($alert_counts['critical_cnt'] > 0): ?>
-                <span class="info-box-text" style="font-size:10px"><?= intval($alert_counts['critical_cnt']) ?> critical</span>
+                <span class="info-box-text" style="font-size:10px"><?= intval($alert_counts['critical_cnt']) ?> critical/error</span>
                 <?php endif; ?>
             </div>
         </div></a>
@@ -824,6 +824,7 @@ function dashAlertAck(id, btn) {
         body: 'csrf_token=' + CSRF + '&action=acknowledge&alert_id=' + id
     }).then(r => r.json()).then(d => {
         if (d.success) {
+            if (d.vendor_warning) { alert('Updated here, but not synced to the RMM: ' + d.vendor_warning); }
             const row = document.getElementById('dash-alert-' + id);
             if (row) row.style.opacity = '0.35';
             btn.innerHTML = '<i class="fas fa-check"></i>';

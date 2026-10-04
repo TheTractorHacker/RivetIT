@@ -8,10 +8,6 @@ function findTicketIdForLinking($mysqli, string $input): int {
         return 0;
     }
     $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_id FROM tickets WHERE ticket_number = " . intval($digits) . " ORDER BY ticket_id DESC LIMIT 1"));
-    if ($row) {
-        return intval($row['ticket_id']);
-    }
-    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_id FROM tickets WHERE ticket_id = " . intval($digits)));
     return $row ? intval($row['ticket_id']) : 0;
 }
 

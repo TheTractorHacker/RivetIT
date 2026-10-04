@@ -1,4 +1,4 @@
-/* Passkey sign-in — discoverable flow with email fallback */
+/* Passkey sign-in — discoverable flow */
 (function () {
     'use strict';
 
@@ -53,9 +53,7 @@
                 credential = await navigator.credentials.get({ publicKey: options });
             } catch (pickErr) {
                 if (pickErr.name === 'NotAllowedError') {
-                    // No discoverable passkey found — offer email fallback
-                    showError('No passkey found on this device. Enter your email below and click "Sign in with a Passkey" again, or use your password.');
-                    showEmailFallback();
+                    showError('No passkey was chosen or found on this device. Try again, or sign in with your email and password below.');
                 } else if (pickErr.name !== 'AbortError') {
                     showError('Passkey error: ' + pickErr.message);
                 }
@@ -93,17 +91,6 @@
         } finally {
             btn.disabled  = false;
             btn.innerHTML = '<i class="fas fa-fingerprint mr-2"></i>Sign in with a Passkey';
-        }
-    }
-
-    // Show the hidden email fallback row so user can type their email
-    // and we can call the non-discoverable flow (allowCredentials list)
-    function showEmailFallback() {
-        var emailRow = document.getElementById('passkey-email-fallback');
-        if (emailRow) {
-            emailRow.style.display = '';
-            var emailInput = document.getElementById('passkey-email-input');
-            if (emailInput) emailInput.focus();
         }
     }
 })();

@@ -531,7 +531,10 @@ function ackAlert(alertId, btn) {
     })
     .then(r => r.json())
     .then(d => {
-        if (d.success) { btn.closest('.d-flex').remove(); }
+        if (d.success) {
+            if (d.vendor_warning) { alert('Updated here, but not synced to the RMM: ' + d.vendor_warning); }
+            btn.closest('.d-flex').remove();
+        }
         else { alert('Failed: ' + d.error); }
     });
 }

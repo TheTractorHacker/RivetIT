@@ -200,7 +200,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     <i class="fas fa-fw fa-calendar-day me-2"></i>Set Next Run Date
                                 </a>
                                 <div class="dropdown-divider"></div>
-                                <button class="dropdown-item text-danger text-bold" type="submit" form="bulkActions" name="bulk_delete_recurring_tickets">
+                                <button class="dropdown-item text-danger text-bold confirm-link" type="submit" form="bulkActions" name="bulk_delete_recurring_tickets">
                                     <i class="fas fa-fw fa-trash me-2"></i>Delete
                                 </button>
                             </div>

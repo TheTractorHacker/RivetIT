@@ -19,7 +19,7 @@ if (!empty($page_csp_external_video)) {
     $csp_script_src .= " https://www.youtube.com/iframe_api https://www.youtube.com/s/player/ https://player.vimeo.com/api/player.js";
     $csp_frame_src   = " frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com;";
 }
-header("Content-Security-Policy: default-src 'self'; script-src $csp_script_src; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.foleyit.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org; connect-src 'self' https://cloudflareinsights.com;$csp_frame_src");
+header("Content-Security-Policy: default-src 'self'; script-src $csp_script_src; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://*.foleyit.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org; connect-src 'self' https://cloudflareinsights.com;$csp_frame_src");
 header("X-Content-Type-Options: nosniff");
 header("Referrer-Policy: strict-origin-when-cross-origin");
 
@@ -52,8 +52,8 @@ if (!empty($config_theme_accent_custom) && preg_match('/^#[0-9A-Fa-f]{6}$/', $co
     $theme_accent_hex = $theme_accent_presets[$config_theme];
 }
 
-// Effective dark mode: per-user preference wins; otherwise the company default applies.
-$effective_theme_dark = $user_config_theme_dark ? 1 : $config_theme_dark_default;
+// Effective dark mode: per-user preference wins (1 dark, 2 light); 0 follows the company default.
+$effective_theme_dark = $user_config_theme_dark === 2 ? 0 : ($user_config_theme_dark ? 1 : $config_theme_dark_default);
 
 // ----- Shell helper: custom-link icons -----
 // Custom links (admin/custom_link.php) store a BARE Font Awesome 5 name - "handshake",

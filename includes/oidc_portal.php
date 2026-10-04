@@ -222,3 +222,99 @@ function portalOidcLinkByVerifiedEmail(mysqli $mysqli, string $issuer, string $s
     }
     return $rows[0];
 }
+
+/*
+ * Agent (staff) sign-in with company SSO. An agent can use it only when an administrator linked their account to this
+ * issuer + subject (users.user_sso_*), the account is active, and the role is not an administrator role: administrators
+ * always keep local sign-in so a provider outage or misconfiguration cannot lock everyone out.
+ */
+function agentOidcEligibleAccount(mysqli $mysqli, string $issuer, string $subject): ?array
+{
+    $sql = "SELECT users.user_id, users.user_name, users.user_email, users.user_token,
+            COALESCE(user_settings.user_config_force_mfa, 0) AS force_mfa
+        FROM users
+        LEFT JOIN user_settings ON user_settings.user_id = users.user_id
+        LEFT JOIN user_roles ON user_roles.role_id = users.user_role_id
+        WHERE users.user_sso_issuer = ? AND users.user_sso_subject = ? AND users.user_type = 1
+          AND users.user_status = 1 AND users.user_archived_at IS NULL
+          AND COALESCE(user_roles.role_is_admin, 0) = 0
+        LIMIT 2";
+    $stmt = $mysqli->prepare($sql);
+    $stmt->bind_param('ss', $issuer, $subject);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    return count($rows) === 1 ? $rows[0] : null;
+}
+
+/*
+ * Finishes an agent sign-in after the provider identity was verified. Never returns.
+ * - The provider is the first factor only. An agent who has local two-factor still enters their code: the existing
+ *   code step on login.php is reused, with no password-derived vault key in the pending state.
+ * - The credential vault stays locked after SSO (no key is derived from an external identity). agent/credentials.php
+ *   already tells the agent to sign in with their password or a passkey to unlock it.
+ */
+function agentOidcSignIn(array $account): void
+{
+    global $mysqli, $session_user_id, $session_ip, $session_user_agent, $config_base_url, $config_app_name,
+        $config_smtp_host, $config_smtp_provider, $config_mail_from_email, $config_mail_from_name;
+
+    $user_id = (int) $account['user_id'];
+    $user_name = sanitizeInput((string) $account['user_name']);
+    $user_email = sanitizeInput((string) $account['user_email']);
+    $session_user_id = $user_id;
+    $session_ip = sanitizeInput(getIP());
+    $session_user_agent = sanitizeInput($_SERVER['HTTP_USER_AGENT'] ?? '');
+
+    // Drop any department/pending state from this browser, and fix the session id, before anything is trusted.
+    foreach (['client_logged_in', 'client_id', 'contact_id', 'pending_dual_login', 'pending_mfa_login', 'pending_portal_mfa', 'portal_oidc_pending'] as $k) {
+        unset($_SESSION[$k]);
+    }
+
+    if (!empty($account['user_token'])) {
+        session_regenerate_id(true);
+        $_SESSION['pending_mfa_login'] = [
+            'email'            => $user_email,
+            'agent_user_id'    => $user_id,
+            'agent_master_key' => null,
+            'token'            => bin2hex(random_bytes(32)),
+            'created'          => time(),
+            'sso'              => true,
+        ];
+        logAction('Login', 'SSO Verified', "$user_name verified by company SSO; local two-factor code required", 0, $user_id);
+        header('Location: /login.php?sso_mfa=1', true, 303);
+        exit;
+    }
+
+    // New-device notice, same rule as a password or passkey sign-in.
+    $ip_prev = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(log_id) AS c FROM logs
+        WHERE log_type = 'Login' AND log_action = 'Success' AND log_ip = '$session_ip' AND log_user_id = $user_id"))['c'] ?? 0);
+    $ua_prev = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(log_id) AS c FROM logs
+        WHERE log_type = 'Login' AND log_action = 'Success' AND log_user_agent = '$session_user_agent' AND log_user_id = $user_id"))['c'] ?? 0);
+    if ((!empty($config_smtp_host) || !empty($config_smtp_provider)) && $ip_prev === 0 && $ua_prev === 0) {
+        addToMailQueue([[
+            'from' => $config_mail_from_email, 'from_name' => $config_mail_from_name,
+            'recipient' => $user_email, 'recipient_name' => $user_name,
+            'subject' => "$config_app_name new login for $user_name",
+            'body' => "Hi $user_name, <br><br>A recent successful company SSO login to your $config_app_name account was considered a little unusual. If this was you, you can safely ignore this email. If it was not, please change your password and contact your administrator.<br><br>IP Address: $session_ip<br>User Agent: $session_user_agent",
+        ]]);
+    }
+
+    logAction('Login', 'Success', "$user_name successfully logged in via company SSO", 0, $user_id);
+    \ITFlow\Audit\AuditService::record('auth.login_success', $user_id, 'user', $user_id, 'success', "$user_name logged in via company SSO", ['ip' => $session_ip]);
+
+    $_SESSION['user_id']      = $user_id;
+    $_SESSION['csrf_token']   = randomString(32);
+    $_SESSION['logged']       = true;
+    $_SESSION['user_type']    = 1;
+    $_SESSION['login_method'] = 'oidc';
+    session_regenerate_id(true);
+
+    $start = (string) (mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT config_start_page FROM settings WHERE company_id = 1 LIMIT 1'))['config_start_page'] ?? 'dashboard.php');
+    if ((int) $account['force_mfa'] === 1 && empty($account['user_token'])) {
+        $start = 'user/mfa_enforcement.php';
+    } elseif (function_exists('itflow_limited_home_url_for_user') && ($limited = itflow_limited_home_url_for_user($user_id)) !== null) {
+        $start = substr($limited, strlen('/agent/'));
+    }
+    header('Location: /agent/' . ltrim($start, '/'), true, 303);
+    exit;
+}

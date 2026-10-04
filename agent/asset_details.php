@@ -406,7 +406,7 @@ if (isset($_GET['asset_id'])) {
                         <?php endif; ?>
                         <?php if (lookupUserPermission('module_rmm_sync') >= 1): ?>
                         <div class="dropdown dropleft">
-                            <button type="button" class="btn btn-outline-light btn-sm" data-bs-toggle="dropdown" data-boundary="window" title="More RMM actions">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="dropdown" data-boundary="window" title="More RMM actions">
                                 <i class="fas fa-ellipsis-v"></i>
                             </button>
                             <div class="dropdown-menu dropdown-menu-right">
@@ -2130,6 +2130,7 @@ function assetAlertAction(alertId, action, btn) {
         body: 'csrf_token=<?= $_SESSION["csrf_token"] ?>&action=' + action + '&alert_id=' + alertId
     }).then(r => r.json()).then(d => {
         if (d.success) {
+            if (d.vendor_warning) { alert('Updated here, but not synced to the RMM: ' + d.vendor_warning); }
             if (d.redirect) { window.location.href = d.redirect; }
             else {
                 const row = document.getElementById('ral-row-' + alertId);

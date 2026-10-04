@@ -147,7 +147,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                             <i class="fas fa-fw fa-redo me-2"></i>Unarchive
                                         </button>
                                         <div class="dropdown-divider"></div>
-                                        <button class="dropdown-item text-danger text-bold"
+                                        <button class="dropdown-item text-danger text-bold confirm-link"
                                             type="submit" form="bulkActions" name="bulk_delete_products">
                                             <i class="fas fa-fw fa-trash me-2"></i>Delete
                                         </button>

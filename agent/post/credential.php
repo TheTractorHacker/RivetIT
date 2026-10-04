@@ -562,7 +562,8 @@ if (isset($_POST['export_credentials_csv'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_credential');
+    // The export writes every decrypted password and OTP secret in one file, so it needs Full access, not Read.
+    enforceUserPermission('module_credential', 3);
 
     if ($_POST['client_id']) {
         $client_id = intval($_POST['client_id']);
@@ -597,7 +598,7 @@ if (isset($_POST['export_credentials_csv'])) {
         while($row = mysqli_fetch_assoc($sql)){
             $credential_username = decryptCredentialEntry($row['credential_username']);
             $credential_password = decryptCredentialEntry($row['credential_password']);
-            $lineData = array($row['credential_name'], $row['credential_description'], $credential_username, $credential_password, $row['credential_otp_secret'], $row['credential_uri']);
+            $lineData = array($row['credential_name'], $row['credential_description'], $credential_username, $credential_password, decryptOtpSecret($row['credential_otp_secret'] ?? ''), $row['credential_uri']);
             fputcsv($f, $lineData, $delimiter, $enclosure, $escape);
         }
 

@@ -49,6 +49,10 @@ $pushAlertToVendor = function (string $vendor_action) use ($mysqli, $alert, $ale
     }
     try {
         $client = getRmmClient($integration_id);
+        $vendor_method = $vendor_action === 'acknowledge' ? 'ackAlert' : 'resolveAlert';
+        if (!method_exists($client, $vendor_method)) {
+            throw new RuntimeException('This RMM integration does not support ' . ($vendor_action === 'acknowledge' ? 'acknowledging' : 'resolving') . ' alerts via the API. Do it in the RMM console.');
+        }
         if ($vendor_action === 'acknowledge') {
             $client->ackAlert($vendor_alert_id);
         } else {

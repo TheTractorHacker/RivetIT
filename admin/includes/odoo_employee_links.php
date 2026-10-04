@@ -99,8 +99,8 @@ $tc_csrf = $_SESSION['csrf_token'] ?? '';
 <!-- =========================================================================================== -->
 <!-- Employee links (Odoo)                                                                       -->
 <!-- =========================================================================================== -->
-<div id="odoo-employee-links">
-<div class="mb-3">
+<div id="odoo-employee-links" class="mt-4">
+<div class="mb-3 px-1">
     <h4 class="mb-1"><i class="fas fa-fw fa-address-card me-2" aria-hidden="true"></i>Employee links</h4>
     <p class="text-muted mb-0">Which Odoo employee each person is, the checks that keep those links right, and the nightly directory sync.</p>
 </div>

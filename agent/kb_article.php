@@ -322,9 +322,11 @@ $sql_attachments = mysqli_query(
                     <a class="btn btn-secondary btn-block mb-2" href="kb_article_versions.php?kb_article_id=<?php echo $kb_article_id; ?><?php if (isset($client_id)) { echo "&client_id=$client_id"; } ?>">
                         <i class="fas fa-fw fa-history me-2"></i>Version History
                     </a>
+                    <?php if (lookupUserPermission('module_kb') >= 3) { ?>
                     <a class="btn btn-danger btn-block confirm-link" href="post.php?delete_kb_article=<?php echo $kb_article_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>">
                         <i class="fas fa-fw fa-trash-alt me-2"></i>Delete
                     </a>
+                    <?php } ?>
                 </div>
             </div>
 

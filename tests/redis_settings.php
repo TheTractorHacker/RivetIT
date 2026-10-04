@@ -1,7 +1,7 @@
 <?php
 /*
  * Redis settings, stats, clearing and memory limit. Needs two THROWAWAY Redis servers (never the real one) and a
- * schema-only scratch database with migration 2.6.122 applied:
+ * schema-only scratch database with migration 2.6.123 applied:
  *   redis-server --port 6391 --save "" --daemonize no   (open)
  *   redis-server --port 6392 --save "" --requirepass s3cret --daemonize no
  *   RIVETIT_TEST_DB=1 RIVETIT_TEST_DB_NAME=...scratch... RIVETIT_TEST_DB_USER=... RIVETIT_TEST_DB_PASS=... php tests/redis_settings.php

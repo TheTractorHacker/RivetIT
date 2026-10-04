@@ -1,7 +1,7 @@
 <?php
 /*
  * Remote MCP admin pieces (config, identity linking, unlinked capture, health checks).
- * Needs a DISPOSABLE schema-only database that already has migration 2.6.122 applied:
+ * Needs a DISPOSABLE schema-only database that already has migration 2.6.123 applied:
  *   RIVETIT_TEST_DB=1 RIVETIT_TEST_DB_NAME=... RIVETIT_TEST_DB_USER=... RIVETIT_TEST_DB_PASS=... php tests/mcp_admin.php
  */
 if (getenv('RIVETIT_TEST_DB') !== '1') exit(2);

@@ -151,7 +151,7 @@ $trend_avg    = array_map(function ($t) { return $t['avg_rating']; }, $report['t
         <div class="px-3 pb-2">
             <small class="text-muted">
                 Showing <strong><?php echo nullable_htmlentities($report['date_from']); ?></strong> to <strong><?php echo nullable_htmlentities($report['date_to']); ?></strong>.
-                KPI tiles and tables are scoped to tickets <em>closed</em> in range; the trend chart is scoped to when each rating was <em>submitted</em>.
+                Ratings, distribution, trend and breakdowns count ratings <em>submitted</em> in range; the response rate is the share of tickets <em>closed</em> in range that have been rated.
             </small>
         </div>
 

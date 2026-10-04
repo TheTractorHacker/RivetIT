@@ -54,8 +54,8 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         </div>
                     </div>
                 </div>
-                <div class="col-sm-8">
-                    <div class="btn-group float-end">
+                <div class="col-12">
+                    <div class="btn-group flex-wrap">
                         <a href="?category=Expense"
                             class="btn <?php if ($category == 'Expense') {
                                 echo 'btn-primary';

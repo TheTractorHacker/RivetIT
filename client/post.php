@@ -1487,7 +1487,7 @@ if (isset($_POST['client_add_document'])) {
         document_content_raw = '$document_content_raw',
         document_client_visible = 1,
         document_client_id = $session_client_id,
-        document_created_by = $session_contact_id");
+        document_created_by = $session_user_id");
 
     $document_id = mysqli_insert_id($mysqli);
 
@@ -1562,7 +1562,7 @@ if (isset($_POST['client_upload_document'])) {
                     document_content_raw = '$document_content_raw',
                     document_client_visible = 1,
                     document_client_id = $session_client_id,
-                    document_created_by = $session_contact_id");
+                    document_created_by = $session_user_id");
 
                 $document_id = mysqli_insert_id($mysqli);
 

@@ -807,7 +807,7 @@ if ($has_stale || $has_expiring || $has_expired):
      department overview, its "Add" button is a normal outline control instead of
      the largest saturated element anywhere on the page, and, like every other
      optional card here, it renders only when it has something to show. -->
-<?php if (lookupUserPermission('module_sales') >= 1):
+<?php if ($config_module_enable_crm == 1 && lookupUserPermission('module_sales') >= 1):
     $sql_client_opps = mysqli_query($mysqli,
         "SELECT * FROM opportunities
          WHERE opportunity_client_id = $client_id

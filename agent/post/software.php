@@ -144,7 +144,7 @@ if (isset($_POST['edit_software'])) {
 
 
     // Update Asset Licenses
-    mysqli_query($mysqli,"DELETE FROM software_assets WHERE software_id = $software_id");
+    mysqli_query($mysqli,"DELETE software_assets FROM software_assets JOIN assets ON assets.asset_id = software_assets.asset_id WHERE software_assets.software_id = $software_id AND assets.asset_client_id = $client_id");
     if (isset($_POST['assets'])) {
         foreach($_POST['assets'] as $asset) {
             $asset = intval($asset);
@@ -153,7 +153,7 @@ if (isset($_POST['edit_software'])) {
     }
 
     // Update Contact Licenses
-    mysqli_query($mysqli,"DELETE FROM software_contacts WHERE software_id = $software_id");
+    mysqli_query($mysqli,"DELETE software_contacts FROM software_contacts JOIN contacts ON contacts.contact_id = software_contacts.contact_id WHERE software_contacts.software_id = $software_id AND contacts.contact_client_id = $client_id");
     if (isset($_POST['contacts'])) {
         foreach($_POST['contacts'] as $contact) {
             $contact = intval($contact);

@@ -1,6 +1,6 @@
 <?php
 require_once '../../../includes/modal_header.php';
-enforceUserPermission('module_contracts');
+enforceUserPermission('module_support');
 
 $contract_id = intval($_GET['contract_id']);
 
@@ -34,7 +34,7 @@ ob_start();
 <div class="modal-body p-0">
 
     <!-- Upload form -->
-    <?php if (lookupUserPermission('module_contracts') >= 2): ?>
+    <?php if (lookupUserPermission('module_support') >= 2): ?>
     <div class="p-3 border-bottom">
         <form action="post.php" method="post" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
@@ -102,7 +102,7 @@ ob_start();
                        class="btn btn-xs btn-outline-primary" title="Download" target="_blank">
                         <i class="fas fa-download"></i>
                     </a>
-                    <?php if (lookupUserPermission('module_contracts') >= 2): ?>
+                    <?php if (lookupUserPermission('module_support') >= 2): ?>
                     <a href="post.php?delete_contract_document=<?= $doc_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
                        class="btn btn-xs btn-outline-danger ms-1 js-confirm-native" title="Delete"
                        data-confirm-message="Delete <?= htmlspecialchars($fname, ENT_QUOTES) ?>?">

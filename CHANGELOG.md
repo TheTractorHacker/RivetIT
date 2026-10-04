@@ -14,15 +14,34 @@ as `rivetit_*` (previously the SDK showed bare method names). Redis gains config
 `health/live.php` / `health/ready.php`. Remote MCP is now set up from **Administration → Settings → Remote MCP** instead of server files: issuer and
 audience are saved in settings (the `RIVETIT_MCP_*` variables still override them, and `RIVETIT_MCP_ENABLED=0` remains a
 hard off), one-click health checks explain what is wrong in plain language, and people who sign in but are not linked yet
-are listed so an administrator can link them to an agent in one click. Database migration 2.6.122 adds the two settings
+are listed so an administrator can link them to an agent in one click. Database migration 2.6.123 adds the two settings
 columns and the `mcp_unlinked_identities` table. The Cron Manager now describes each job in plain language, shows its
 last activity and latest output, and has a per-job **Run now** (output and exit code are shown in the table). Jobs that
 send real email, write to outside systems, or need arguments are never startable from the page; the reason is shown
 instead. UniFi sync can also be started from there. New **Server status & tasks** and **Redis** pages under Maintenance
 replace most terminal checks: disk, backups (including the encrypted disaster-recovery archives), jobs and Redis health in
 one view with copy-ready commands for the few root-only tasks, and Redis host, port, password, memory limit and cache
-clearing are editable in the browser (migration 2.6.122 adds the settings columns; the `RIVETIT_REDIS_*` variables still
+clearing are editable in the browser (migration 2.6.123 adds the settings columns; the `RIVETIT_REDIS_*` variables still
 override). See `docs/REDIS.md` and `docs/REMOTE_MCP.md`.
+
+## [26.10.14] RivetIT — Odoo tab, easier Odoo and OpenID Connect sign-in
+
+Database migrations 2.6.120 and 2.6.121 add two OpenID Connect settings. Both default to the previous behavior, so
+existing sign-ins are unchanged.
+
+- **Integrations > Odoo.** The Odoo connection, a sync summary, Department Portal sign-in, Odoo field mapping, employee
+  links with the nightly sync, and recent syncs now share one tab. Directory Sync is Microsoft and Google only. The
+  employee-link section left the Training settings page, which keeps a pointer; related notifications open the Odoo tab.
+- **OpenID Connect for the Department Portal.** Optional first sign-in linking by email (off by default) stores the
+  provider subject on a login set to OpenID Connect with a blank subject; a separate setting controls whether the provider
+  must report the email as verified (on by default; Authentik reports it as false unless configured). Failed sign-ins now
+  log which check failed (fixed messages, the endpoint path, HTTP status and the standard OAuth error code; never tokens,
+  codes, credentials or response bodies).
+- **Odoo addon for Odoo 19 and 20.** One source tree builds both zips (`odoo_addons/build_zips.sh`). Setup is native:
+  one RivetIT address fills both URLs, the secret is set or generated in the form, an optional "All employees may use it"
+  switch, plain explanation pages instead of raw errors, and a Check setup button. Upgrading keeps existing
+  integrations. Tested on Odoo 19.0 and 20.0.
+- Odoo Department Portal sign-in is labelled Experimental and remains off by default.
 
 ## [26.10.13] RivetIT — dedicated MCP access-token audience
 

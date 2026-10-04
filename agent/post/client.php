@@ -260,12 +260,15 @@ if (isset($_POST['edit_client'])) {
 
     enforceClientAccess($client_id);
 
+    // The edit form has no Type field: only change Type when one was actually posted (every save used to clear it).
+    $type_value = array_key_exists('type', $_POST) ? $type : null;
+
     // Update client using prepared statement
     $query = mysqli_prepare(
         $mysqli,
         "UPDATE clients SET
         client_name = ?,
-        client_type = ?,
+        client_type = COALESCE(?, client_type),
         client_website = ?,
         client_referral = ?,
         client_rate = ?,
@@ -280,7 +283,7 @@ if (isset($_POST['edit_client'])) {
         $query,
         "ssssdisissi",
         $name,
-        $type,
+        $type_value,
         $website,
         $referral,
         $rate,
@@ -748,6 +751,7 @@ if (isset($_POST['export_clients_csv'])) {
     $sql = mysqli_query($mysqli, "SELECT * FROM clients
         LEFT JOIN contacts ON clients.client_id = contacts.contact_client_id AND contact_primary = 1
         LEFT JOIN locations ON clients.client_id = locations.location_client_id AND location_primary = 1
+        WHERE client_archived_at IS NULL $access_permission_query
         ORDER BY client_name ASC
     ");
 
@@ -969,6 +973,8 @@ if (isset($_POST["import_clients_csv"])) {
 
                 // Create Location
                 mysqli_query($mysqli, "INSERT INTO locations SET location_name = '$location_name', location_address = '$address', location_city = '$city', location_state = '$state', location_zip = '$zip', location_phone = '$location_phone', location_country = '$country', location_primary = 1, location_client_id = $client_id");
+                $new_location_id = mysqli_insert_id($mysqli);
+                mysqli_query($mysqli, "INSERT IGNORE INTO department_sites SET client_id = $client_id, location_id = $new_location_id");
 
                 // Create Contact
                 mysqli_query($mysqli, "INSERT INTO contacts SET contact_name = '$contact_name', contact_title = '$title', contact_phone = '$contact_phone', contact_extension = '$contact_extension', contact_mobile = '$contact_mobile', contact_email = '$contact_email', contact_primary = 1, contact_important = 1, contact_client_id = $client_id");
@@ -1367,6 +1373,11 @@ if (isset($_POST['bulk_send_client_email']) && isset($_POST['client_ids'])) {
         $filters[] = "contact_technical = 1";
     }
 
+    if (empty($filters)) {
+        flash_alert("Select at least one recipient group (primary, important, billing or technical).", 'error');
+        redirect();
+    }
+
     $contact_filter_query = '';
     if (!empty($filters)) {
         $contact_filter_query = ' AND (' . implode(' OR ', $filters) . ')';
@@ -1378,6 +1389,7 @@ if (isset($_POST['bulk_send_client_email']) && isset($_POST['client_ids'])) {
     // SQL to fetch matching contacts
     $sql = "SELECT * FROM contacts
             WHERE contact_client_id IN ($client_ids_str)
+            AND contact_archived_at IS NULL
             $contact_filter_query";
 
     $result = mysqli_query($mysqli, $sql);
