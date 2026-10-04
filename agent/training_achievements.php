@@ -4,7 +4,7 @@
  * Training › Achievements (spec §5.8, level 2): the badge board. Medallion cards on the left,
  * the "New achievement" / edit panel docked on the right (the approved mockup), with a live
  * medallion preview, icon picker (Core\Icons::ALLOWED), swatches + hex, and the rule editor.
- * Phase 1 defines badges only; they are awarded once the Learning Center launches.
+ * Badges are awarded automatically by the award engine when completions meet a rule.
  */
 
 $page_extra_css = ['/css/itflow_training.css', '/css/itflow_training_catalog.css'];   // BEFORE inc_all: header.php reads it
@@ -47,7 +47,7 @@ render_page_header(
 
 <div class="tr-banner alert alert-info d-flex align-items-center gap-2" role="note">
     <i class="fas fa-info-circle" aria-hidden="true"></i>
-    <span>Achievements are defined now and awarded automatically once the Learning Center launches.</span>
+    <span>Achievements are awarded automatically when a learner's completions meet a badge's rule.</span>
 </div>
 
 <div class="tr-catalog tr-ach-layout" id="tr-achievements">

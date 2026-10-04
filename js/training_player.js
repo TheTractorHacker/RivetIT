@@ -129,7 +129,7 @@
             correct_label: 'Correct', time_label: 'Time', passmark_label: 'Pass mark', of: '{n} of {m}', took: 'took {t}', finished_at: 'Finished {time}',
             what_to_review: 'What to review', n_missed: '{n} missed', quick_look: 'A quick look now helps it stick for next time.',
             nothing_missed: 'Nothing missed. Nice work.', score_only_note: 'This quiz shows the score only.',
-            no_achievements: 'Achievements are awarded once the Learning Center launches.', time_up: "Time's up. Your answers were sent.",
+            no_achievements: 'No achievements earned yet.', time_up: "Time's up. Your answers were sent.",
             time_up_ungraded: "Time's up.", leave_quiz: 'Leave quiz', passed_chip: 'Passed', failed_chip: 'Not yet',
             pass_msg: 'Nice work. You can continue to the next lesson.', fail_msg: 'Review the questions below, then try again.',
             fail_critical_msg: 'A must-know question was missed. Review it, then try again.', quiz_not_graded: 'Preview only: answers are not graded at this level.',

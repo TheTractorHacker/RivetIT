@@ -71,7 +71,7 @@ if ($reports_show_technical) {
         $report_catalog_technical[] = ['ticket_charges.php',      'fas fa-dollar-sign',   'Ticket Charges',           'Charges raised against tickets.'];
     }
     $report_catalog_technical[] = ['ticket_by_client.php',        'fas fa-users',         'Tickets by Department',    'Which departments raise the most work.'];
-    $report_catalog_technical[] = ['time_by_tech.php',            'fas fa-business-time', 'Time by Technician',       'Hours logged per technician, per month.'];
+    $report_catalog_technical[] = ['time_by_tech.php',            'fas fa-business-time', 'Time by Technician',       'Hours logged per technician, per year.'];
     $report_catalog_technical[] = ['technician_performance.php',  'fas fa-user-clock',    'Technician Performance',   'Utilization, tickets closed and handle time.'];
     $report_catalog_technical[] = ['csat.php',                    'fas fa-star',          'Customer Satisfaction',    'Ratings, trend and per-technician CSAT.'];
     $report_catalog_technical[] = ['rmm_health.php',              'fas fa-heartbeat',     'RMM Health',               'Alert volume, severity and noisiest devices.'];

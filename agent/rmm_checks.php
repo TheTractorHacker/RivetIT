@@ -133,7 +133,7 @@ foreach ($platform_order as $plat):
             <td class="text-center text-muted"><?= intval($pol['check_interval']) ?>s</td>
             <td class="text-center">
                 <?php if ($pol['deployed_count'] > 0): ?>
-                <span class="badge text-bg-success" style="font-size:90%"><?= intval($pol['deployed_count']) ?> agents</span>
+                <span class="badge text-bg-success" style="font-size:90%"><?= intval($pol['deployed_count']) ?> agent<?= intval($pol['deployed_count']) === 1 ? '' : 's' ?></span>
                 <?php else: ?>
                 <span class="text-muted">Not deployed</span>
                 <?php endif; ?>

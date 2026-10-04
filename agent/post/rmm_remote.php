@@ -52,6 +52,9 @@ try {
     // Resolve the correct RMM client (Tactical, Level, …) via the factory so
     // remote-connect works for whichever provider the asset is linked to.
     $client = getRmmClient(intval($link['integration_id']));
+    if (!method_exists($client, 'buildRemoteUrl')) {
+        throw new RuntimeException('Remote connect is not supported for this RMM integration. Open the device in the RMM console.');
+    }
 
     // Tactical honours an explicit 'mesh' request via a stored node id;
     // pass it through so the client can build a persistent MeshCentral URL.
