@@ -4,6 +4,25 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [26.10.14] RivetIT — Odoo tab, easier Odoo and OpenID Connect sign-in
+
+Database migrations 2.6.120 and 2.6.121 add two OpenID Connect settings. Both default to the previous behavior, so
+existing sign-ins are unchanged.
+
+- **Integrations > Odoo.** The Odoo connection, a sync summary, Department Portal sign-in, Odoo field mapping, employee
+  links with the nightly sync, and recent syncs now share one tab. Directory Sync is Microsoft and Google only. The
+  employee-link section left the Training settings page, which keeps a pointer; related notifications open the Odoo tab.
+- **OpenID Connect for the Department Portal.** Optional first sign-in linking by email (off by default) stores the
+  provider subject on a login set to OpenID Connect with a blank subject; a separate setting controls whether the provider
+  must report the email as verified (on by default; Authentik reports it as false unless configured). Failed sign-ins now
+  log which check failed (fixed messages, the endpoint path, HTTP status and the standard OAuth error code; never tokens,
+  codes, credentials or response bodies).
+- **Odoo addon for Odoo 19 and 20.** One source tree builds both zips (`odoo_addons/build_zips.sh`). Setup is native:
+  one RivetIT address fills both URLs, the secret is set or generated in the form, an optional "All employees may use it"
+  switch, plain explanation pages instead of raw errors, and a Check setup button. Upgrading keeps existing
+  integrations. Tested on Odoo 19.0 and 20.0.
+- Odoo Department Portal sign-in is labelled Experimental and remains off by default.
+
 ## [26.10.13] RivetIT — dedicated MCP access-token audience
 
 The disabled-by-default remote MCP preview now rejects tokens with additional
