@@ -175,6 +175,14 @@ if (!$portal_preview_active) {
         redirect("/login.php");
     }
 
+    // The portal switched off by an admin ends sessions that are already signed in, not just new sign-ins
+    $portal_flag_row = mysqli_fetch_row(mysqli_query($mysqli, "SELECT config_client_portal_enable FROM settings WHERE company_id = 1 LIMIT 1"));
+    if (intval($portal_flag_row[0] ?? 0) !== 1) {
+        session_unset();
+        session_destroy();
+        redirect("/login.php");
+    }
+
     // 2FA: does this login have it, and did an admin require it (Admin > Users > Department logins)?
     $session_user_has_mfa = !empty($row['user_token']);
     $fm_row = mysqli_fetch_row(mysqli_query($mysqli, "SELECT user_config_force_mfa FROM user_settings WHERE user_id = $session_user_id"));

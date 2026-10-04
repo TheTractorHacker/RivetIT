@@ -203,16 +203,16 @@ require "includes/users_toggle.php";
                                     </button>
                                     <div class="dropdown-menu">
                                         <?php if ($remember_token_count > 0) { ?>
-                                        <a class="dropdown-item" href="post.php?revoke_remember_me=<?php echo $user_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token'] ?>">
+                                        <a class="dropdown-item confirm-link" href="post.php?revoke_remember_me=<?php echo $user_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token'] ?>">
                                             <i class="fas fa-fw fa-ban me-2"></i>Revoke <?php echo $remember_token_count; ?> Remember Tokens
                                         </a>
                                         <?php } ?>
-                                        <?php if ($user_status == 0) { ?>
-                                            <a class="dropdown-item text-success" href="post.php?activate_user=<?php echo $user_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token'] ?>">
+                                        <?php if ($user_status == 0 && !$user_archived_at) { ?>
+                                            <a class="dropdown-item text-success confirm-link" href="post.php?activate_user=<?php echo $user_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token'] ?>">
                                                 <i class="fas fa-fw fa-user-check me-2"></i>Activate
                                             </a>
                                         <?php } elseif ($user_status == 1) { ?>
-                                            <a class="dropdown-item text-danger" href="post.php?disable_user=<?php echo $user_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token'] ?>">
+                                            <a class="dropdown-item text-danger confirm-link" href="post.php?disable_user=<?php echo $user_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token'] ?>">
                                                 <i class="fas fa-fw fa-user-slash me-2"></i>Disable
                                             </a>
                                         <?php } ?>

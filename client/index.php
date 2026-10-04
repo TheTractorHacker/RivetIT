@@ -152,6 +152,8 @@ $sql_assigned_assets = mysqli_query(
     $mysqli,
     "SELECT * FROM assets
     WHERE asset_contact_id = $session_contact_id
+        AND $session_contact_id > 0
+        AND asset_client_id = $session_client_id
         AND asset_archived_at IS NULL
     ORDER BY asset_name ASC"
 );
@@ -408,8 +410,8 @@ $portal_training_on = intval($config_module_enable_training ?? 0) === 1 && !empt
                 <a href="assets.php" class="portal-tile"><span class="portal-tile-icon"><i class="fas fa-desktop" aria-hidden="true"></i></span>Assets</a>
                 <a href="domains.php" class="portal-tile"><span class="portal-tile-icon"><i class="fas fa-globe" aria-hidden="true"></i></span>Domains</a>
                 <a href="documents.php" class="portal-tile"><span class="portal-tile-icon"><i class="fas fa-file-alt" aria-hidden="true"></i></span>Documents</a>
+                <a href="contacts.php" class="portal-tile"><span class="portal-tile-icon"><i class="fas fa-address-book" aria-hidden="true"></i></span>Contacts</a>
             <?php } ?>
-            <a href="contacts.php" class="portal-tile"><span class="portal-tile-icon"><i class="fas fa-address-book" aria-hidden="true"></i></span>Contacts</a>
         </div>
     </div>
 </div>

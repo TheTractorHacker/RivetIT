@@ -126,6 +126,7 @@ if ($action === 'push_policy') {
 
 // ---- Remove policy from all agents ----
 if ($action === 'remove_policy') {
+    enforceUserPermission('module_rmm', 2);
     $integration_id = intval($_POST['integration_id'] ?? $config_rmm_default_integration_id);
     if (!$policy_id) { echo json_encode(['success' => false, 'error' => 'Missing policy_id']); exit; }
 
@@ -157,6 +158,7 @@ if ($action === 'remove_policy') {
 
 // ---- Save policy (add/edit) ----
 if ($action === 'save_policy') {
+    enforceUserPermission('module_rmm', 2);
     $name        = sanitizeInput($_POST['name'] ?? '');
     $platform    = sanitizeInput($_POST['platform'] ?? 'any');
     $check_type  = sanitizeInput($_POST['check_type'] ?? '');
@@ -201,6 +203,7 @@ if ($action === 'save_policy') {
 
 // ---- Delete policy ----
 if ($action === 'delete_policy') {
+    enforceUserPermission('module_rmm', 2);
     if (!$policy_id) { echo json_encode(['success' => false, 'error' => 'Missing policy_id']); exit; }
     mysqli_query($mysqli, "DELETE FROM rmm_check_deployments WHERE policy_id=$policy_id");
     mysqli_query($mysqli, "DELETE FROM rmm_check_policies WHERE id=$policy_id");
