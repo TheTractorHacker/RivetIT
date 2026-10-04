@@ -59,11 +59,23 @@ if (isset($_GET['update'])) {
 
     //git fetch downloads the latest from remote without trying to merge or rebase anything. Then the git reset resets the branch to what you just fetched. The --hard option changes all the files in your working tree to match the files in origin/main
 
+    // Capture git's own output and exit code. Before, a failed git step (for example the web user unable to
+    // write to the install folder, or hand-edited files in the way of a pull) was ignored and the page still
+    // said "Update successful" while nothing had changed.
+    $git_output = [];
+    $git_code = 0;
     if (isset($_GET['force_update']) == 1) {
-        exec("git fetch --all");
-        exec("git reset --hard origin/main");
+        exec("git fetch --all 2>&1");   // a failure on one remote is not fatal; the reset below decides the outcome
+        exec("git reset --hard origin/main 2>&1", $git_output, $git_code);
     } else {
-        exec("git pull");
+        exec("git pull 2>&1", $git_output, $git_code);
+    }
+    if ($git_code !== 0) {
+        $git_reason = trim(implode(' ', array_slice(array_filter(array_map('trim', $git_output)), 0, 2)));
+        logApp('Update', 'error', 'Update failed: ' . substr($git_reason, 0, 500));
+        flash_alert('The update did not run: ' . htmlspecialchars(substr($git_reason, 0, 300), ENT_QUOTES)
+            . ' If local files were changed by hand, use Advanced: force update. If it says permission denied, the web server user cannot write to the install folder.', 'error');
+        redirect();
     }
     //header("Location: post.php?update_db");
 

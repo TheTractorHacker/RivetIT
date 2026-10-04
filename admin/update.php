@@ -67,6 +67,8 @@ $changelog_link = APP_CHANGELOG_URL !== ''
     .upd-backup { display: flex; gap: .75rem; align-items: flex-start; padding: .9rem 1rem; border: 1px solid rgba(128, 128, 128, .25); border-radius: .5rem; background: rgba(128, 128, 128, .06); }
     .upd-backup .form-check-input { margin-top: .2rem; flex: 0 0 auto; }
     .upd-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-top: 1.25rem; }
+    .upd-table th:last-child, .upd-table td:last-child { padding-right: 1.25rem; }
+    .upd-table td { padding-top: .8rem; padding-bottom: .8rem; line-height: 1.5; }
     .upd-commits td:first-child { font-family: var(--tblr-font-monospace, monospace); font-size: .85rem; }
     #updBusy { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, .55); }
     #updBusy.show { display: flex; }
@@ -173,7 +175,7 @@ $changelog_link = APP_CHANGELOG_URL !== ''
         </div>
 
         <?php if ($app_pending) { ?>
-            <details class="mt-4">
+            <details class="mt-4 pt-3 border-top">
                 <summary class="text-secondary small">Advanced: force update</summary>
                 <p class="text-secondary small mt-2 mb-2">
                     Use this only if a normal update fails. It downloads everything and resets the code to match the remote exactly, <strong>discarding any local changes to the files</strong>.
@@ -191,7 +193,7 @@ $changelog_link = APP_CHANGELOG_URL !== ''
         <h3 class="card-title"><i class="fas fa-fw fa-code-branch me-2"></i>Pending changes <span class="badge bg-secondary ms-1"><?= $pending_count ?></span></h3>
     </div>
     <div class="table-responsive">
-        <table class="table table-hover mb-0">
+        <table class="table table-hover mb-0 upd-table">
             <thead>
                 <tr>
                     <th style="width: 7rem;">Commit</th>
