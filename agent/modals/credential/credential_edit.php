@@ -318,8 +318,8 @@ ob_start();
                             <td class="text-nowrap text-secondary" title="<?= nullable_htmlentities($hr['history_created_at']) ?>"><?= $h_when ?></td>
                             <td class="text-nowrap"><?= $h_by ?></td>
                             <td><strong><?= $h_field ?></strong></td>
-                            <td class="text-danger" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<?= $h_old ?>"><?= $h_old ?></td>
-                            <td class="text-success" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<?= $h_new ?>"><?= $h_new ?></td>
+                            <td class="text-danger" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<?= strip_tags($h_old) ?>"><?= $h_old ?></td>
+                            <td class="text-success" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<?= strip_tags($h_new) ?>"><?= $h_new ?></td>
                         </tr>
                     <?php } ?>
                     </tbody>

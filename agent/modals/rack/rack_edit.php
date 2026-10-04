@@ -107,7 +107,7 @@ ob_start();
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
                         </div>
-                        <input type="text" class="form-control" name="make" placeholder="ex StarTech 12U Open Frame" maxlength="200" value="<?php echo $rack_model; ?>">
+                        <input type="text" class="form-control" name="model" placeholder="ex StarTech 12U Open Frame" maxlength="200" value="<?php echo $rack_model; ?>">
                     </div>
                 </div>
 
@@ -131,7 +131,7 @@ ob_start();
                             <option value="">Location</option>
                             <?php
 
-                            $sql_location_select = mysqli_query($mysqli, "SELECT * FROM locations WHERE location_archived_at IS NULL AND location_client_id = $client_id ORDER BY location_name ASC");
+                            $sql_location_select = mysqli_query($mysqli, "SELECT * FROM locations WHERE location_archived_at IS NULL AND (location_client_id = $client_id OR EXISTS (SELECT 1 FROM department_sites ds WHERE ds.location_id = locations.location_id AND ds.client_id = $client_id)) ORDER BY location_name ASC");
                             while ($row = mysqli_fetch_assoc($sql_location_select)) {
                                 $location_id_select = intval($row['location_id']);
                                 $location_name_select = nullable_htmlentities($row['location_name']);

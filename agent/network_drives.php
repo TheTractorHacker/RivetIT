@@ -77,11 +77,13 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     type="submit" form="bulkActions" name="bulk_restore_network_drives">
                                     <i class="fas fa-fw fa-redo me-2"></i>Restore
                                 </button>
+                                <?php if ($config_destructive_deletes_enable) { ?>
                                 <div class="dropdown-divider"></div>
                                 <button class="dropdown-item text-danger text-bold"
                                     type="submit" form="bulkActions" name="bulk_delete_network_drives">
                                     <i class="fas fa-fw fa-trash me-2"></i>Delete
                                 </button>
+                                <?php } ?>
                                 <?php } else { ?>
                                 <button class="dropdown-item text-danger confirm-link"
                                     type="submit" form="bulkActions" name="bulk_archive_network_drives">

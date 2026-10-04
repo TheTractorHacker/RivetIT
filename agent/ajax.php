@@ -217,7 +217,7 @@ if (isset($_GET['global_search_live'])) {
         $rows[] = [
             'title' => $row['vendor_name'],
             'subtitle' => (string) $row['client_name'],
-            'url' => '/agent/vendor_details.php?client_id=' . intval($row['client_id']) . '&vendor_id=' . intval($row['vendor_id']),
+            'url' => '/agent/vendors.php?' . (intval($row['client_id']) ? 'client_id=' . intval($row['client_id']) . '&' : '') . 'q=' . rawurlencode($row['vendor_name']),
         ];
     }
     if ($rows) { $groups['vendors'] = $rows; }
