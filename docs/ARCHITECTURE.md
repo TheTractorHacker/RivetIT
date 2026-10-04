@@ -60,7 +60,7 @@ That is the entire session contract. Everything else about the user — name, ro
 
 Every agent/admin page includes `includes/check_login.php`, which chains:
 
-1. `session_init.php` — starts the session with `httponly`/`secure` cookie flags and a configurable lifetime (`settings.config_login_session_lifetime`, clamped 30 min–30 days).
+1. `session_init.php` — starts the session with `httponly`/`secure` cookie flags and a configurable lifetime (`settings.config_login_session_lifetime`, stored in minutes, effective lifetime clamped to 30–90 days; the stored column defaults of 480 min and 3 days are below that floor and so are raised to 30 days).
 2. `auth_check.php` — the actual gate. If `$_SESSION['logged']` isn't set, attempts to auto-restore from a valid `rememberme` cookie; otherwise redirects to `login.php`.
 3. `load_user_session.php` — the important one for authorization. Joins `users` → `user_settings` → `user_roles`, then sets request-scoped globals:
    - `$session_user_type`, re-verified `=== 1` (destroys the session otherwise) — this is what actually keeps client-type users out of agent pages.
