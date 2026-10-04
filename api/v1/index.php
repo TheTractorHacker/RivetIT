@@ -199,7 +199,8 @@ if (!$api_user_id && $legacy_key_raw !== null) {
         }
         $admin = mysqli_fetch_assoc(mysqli_query($mysqli,
             "SELECT user_id, user_name FROM users
-             WHERE user_type = 1 AND user_status = 1 AND user_archived_at IS NULL
+             JOIN user_roles ON user_role_id = role_id
+             WHERE user_type = 1 AND user_status = 1 AND user_archived_at IS NULL AND role_is_admin = 1
              ORDER BY user_id LIMIT 1"
         ));
         if ($admin) {
