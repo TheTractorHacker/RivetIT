@@ -57,6 +57,11 @@ require_once "includes/inc_all_admin.php";
                 <label class="form-check-label" for="oidc_require_verified_email">Require the provider to confirm the email is verified</label>
                 <small class="form-text text-muted d-block">Recommended. Turn this off only if your provider does not send a verified flag (Authentik sends false by default) and only administrators can create users or change email addresses there. With it off, anyone who can set their provider email to a blank login's email can claim that login on first sign-in.</small>
             </div>
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="oidc_agent_enabled" name="oidc_agent_enabled" value="1" <?= $config_oidc_agent_enabled ? 'checked' : '' ?>>
+                <label class="form-check-label" for="oidc_agent_enabled">Let agents sign in with company SSO</label>
+                <small class="form-text text-muted d-block">Optional. Adds a company SSO button to the agent sign-in page. An agent can use it only after you link them to their provider subject in Administration &gt; Users. Administrators always keep local sign-in and cannot use it. An agent's own two-factor code is still asked for after SSO, and the credential vault stays locked until they sign in with their password or a passkey.</small>
+            </div>
             <div class="form-group">
                 <label for="oidc_issuer">Issuer URL</label>
                 <input class="form-control" type="url" id="oidc_issuer" name="oidc_issuer" value="<?= nullable_htmlentities($config_oidc_issuer) ?>" placeholder="https://login.example.org/application/o/rivetit" maxlength="255">

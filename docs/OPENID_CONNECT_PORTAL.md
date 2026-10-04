@@ -1,6 +1,6 @@
-# Department Portal OpenID Connect
+# Company SSO (OpenID Connect) for the Department Portal and agents
 
-RivetIT can accept Department Portal sign-ins from one OpenID Connect provider at a time. This supports compatible Authentik, Keycloak, and Ory Hydra installations using the authorization-code flow with PKCE. It does not provision people, grant agent accounts, or change portal permissions. Microsoft Entra and local sign-in remain available independently.
+RivetIT can accept sign-ins from one OpenID Connect provider at a time, for Department Portal logins and, optionally, for agents (staff). This supports compatible Authentik, Keycloak, and Ory Hydra installations using the authorization-code flow with PKCE. It does not provision people or change anyone's permissions. Microsoft Entra, passkeys, passwords and local two-factor remain available independently.
 
 ## Configure the provider
 
@@ -13,6 +13,20 @@ RivetIT can accept Department Portal sign-ins from one OpenID Connect provider a
 **Optional: link on first sign-in by verified email.** In the identity provider settings, turn on *Link logins on first sign-in by verified email* (off by default). Then set a Department login to **OpenID Connect** and leave the subject blank. On that person's first sign-in RivetIT also requests the `email` scope and links the login only if the provider returns `email_verified: true` (the JSON boolean) and the email equals that login's email exactly, with exactly one eligible blank login matching. The issuer and subject are then stored and every later sign-in uses them alone, so a changed email never matters. A separate setting, *Require the provider to report the email as verified* (on by default), can be turned off for providers such as Authentik that report `email_verified: false` unless configured; only do that when just administrators can create users or edit email addresses at the provider. Logins that already have a subject, local/Entra/Odoo logins, disabled logins, unverified emails and ambiguous matches are never linked; the link is recorded in the audit log. Only enable this if the provider verifies every address and does not allow self-signup with arbitrary emails (Authentik's default scope mapping reports every email as verified).
 
 The configured issuer, authorization, token, UserInfo, and JWKS endpoints must use HTTPS and the same host/port. RivetIT checks the discovery issuer exactly and validates the ID token signature, issuer, single configured client audience, authorized party when present, required numeric expiration and issued-at time, nonce, and UserInfo subject. A token with additional audiences is rejected because this integration has no configuration for trusting them. The browser transaction expires after five minutes. The token exchange uses a confidential client secret and PKCE; the secret never passes through the browser. An existing RivetIT session is replaced only after a complete successful sign-in.
+
+## Agent sign-in with company SSO
+
+Off by default. In **Administration → Settings → Identity provider**, turn on **Let agents sign in with company SSO**. The agent sign-in page then shows **Sign in with company SSO**. It uses the same provider and the same redirect URI as the Department Portal, so nothing new has to be registered at the provider.
+
+- **Explicit link.** An agent can use it only after an administrator enters the agent's provider subject (`sub`) in **Administration → Users → edit user → Company SSO sign-in**. Email is never used to match an agent, and there is no first sign-in email linking for agents. The change is written to the audit log. A subject can be linked to one account only. This is separate from the Remote MCP identity fields.
+- **Administrators are excluded.** An account with an administrator role cannot be linked and is refused even if a link is forced into the database, so a provider outage or mistake can never lock everyone out. Administrators sign in with a password or passkey.
+- **Two-factor stays local.** The provider counts as the first factor only. An agent who has local two-factor still enters their authenticator code on the usual code step after the provider sign-in. There is no setting that skips it.
+- **Credential vault stays locked.** No vault key is derived from an external identity, so after SSO the credential vault is locked and the credentials page says so; signing in with a password or a passkey unlocks it.
+- **Which account.** The button used decides the account type, and the callback cannot change it: the agent button only matches agents, the Department Portal link only matches Department logins. The same person can have both links without any ambiguity.
+- **Not offered** while a login key (Administration → Settings → Security) is required, because that key hides the sign-in page.
+- Logging out ends the RivetIT session only; if the provider session is still active the person can sign in again immediately.
+
+To turn it off for one agent, clear their subject; to turn it off for everyone, clear **Let agents sign in with company SSO**. Sign-in failures are logged with a specific, non-sensitive reason (for example `account_ineligible: no_agent_linked_to_this_subject`).
 
 ## Verify and recover
 

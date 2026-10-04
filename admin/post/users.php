@@ -126,6 +126,35 @@ if (isset($_POST['edit_user'])) {
         }
     }
 
+    // Company SSO link (agents). Only handled when the field was shown; blank clears the link.
+    $sso_save = false;
+    $sso_issuer_value = null;
+    $sso_subject_value = null;
+    if (!empty($_POST['sso_field_present'])) {
+        $sso_save = true;
+        $sso_posted = trim((string) ($_POST['sso_subject'] ?? ''));
+        if ($sso_posted !== '') {
+            $role_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT role_is_admin FROM user_roles WHERE role_id = $role LIMIT 1"));
+            if (strlen($sso_posted) > 255 || empty($config_oidc_enabled) || empty($config_oidc_agent_enabled) || $config_oidc_issuer === '') {
+                flash_alert('Company SSO sign-in for agents is not enabled, or the subject is too long.', 'error');
+                redirect();
+            }
+            if (!empty($role_row['role_is_admin'])) {
+                flash_alert('Administrators keep local sign-in and cannot be linked to company SSO.', 'error');
+                redirect();
+            }
+            $check = $mysqli->prepare('SELECT user_id FROM users WHERE user_sso_issuer = ? AND user_sso_subject = ? AND user_id <> ? LIMIT 1');
+            $check->bind_param('ssi', $config_oidc_issuer, $sso_posted, $user_id);
+            $check->execute();
+            if ($check->get_result()->fetch_assoc()) {
+                flash_alert('That provider subject is already linked to another account.', 'error');
+                redirect();
+            }
+            $sso_issuer_value = $config_oidc_issuer;
+            $sso_subject_value = $sso_posted;
+        }
+    }
+
     // Update Client Access
     mysqli_query($mysqli,"DELETE FROM user_client_permissions WHERE user_id = $user_id");
     if (isset($_POST['clients'])) {
@@ -177,6 +206,12 @@ if (isset($_POST['edit_user'])) {
     $identity = $mysqli->prepare('UPDATE users SET user_oidc_issuer = ?, user_oidc_subject = ? WHERE user_id = ? AND user_type = 1');
     $identity->bind_param('ssi', $identity_issuer, $identity_subject, $user_id);
     $identity->execute();
+    if ($sso_save) {
+        $sso_link = $mysqli->prepare('UPDATE users SET user_sso_issuer = ?, user_sso_subject = ? WHERE user_id = ? AND user_type = 1');
+        $sso_link->bind_param('ssi', $sso_issuer_value, $sso_subject_value, $user_id);
+        $sso_link->execute();
+        $extended_log_description .= $sso_subject_value !== null ? ', company SSO linked' : ', company SSO link cleared';
+    }
 
     if (!empty($new_password)) {
         $new_password = password_hash($new_password, PASSWORD_DEFAULT);
@@ -194,7 +229,7 @@ if (isset($_POST['edit_user'])) {
     //Update User Settings
     mysqli_query($mysqli, "UPDATE user_settings SET user_config_force_mfa = $force_mfa WHERE user_id = $user_id");
 
-    logAction("User", "Edit", "$session_name edited user $name", 0, $user_id);
+    logAction("User", "Edit", "$session_name edited user $name$extended_log_description", 0, $user_id);
 
     flash_alert("User <strong>$name</strong> updated" . $extended_alert_description);
 

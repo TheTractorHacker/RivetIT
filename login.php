@@ -847,6 +847,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
     }
 }
 
+// Agent signed in through company SSO and has local two-factor: client/login_oidc.php stored the pending state and
+// sent the browser here. Show the same code step a password sign-in shows; submitting it runs the existing MFA step.
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['sso_mfa']) && empty($token_field)) {
+    $sso_pending = $_SESSION['pending_mfa_login'] ?? null;
+    if (!empty($sso_pending['sso']) && !pendingExpired($sso_pending)) {
+        $token_field = "
+            <div class='input-group mb-3'>
+                <input type='text' inputmode='numeric' pattern='[0-9]*' maxlength='6'
+                       class='form-control' placeholder='Verify your 2FA code'
+                       name='current_code' required autofocus>
+                <div class='input-group-append'>
+                  <div class='input-group-text'>
+                    <span class='fas fa-key'></span>
+                  </div>
+                </div>
+            </div>";
+    }
+}
+
 // Form state
 $show_mfa_form   = (isset($token_field) && !empty($token_field));
 $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_form);
@@ -1140,6 +1159,12 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
                     <button type="button" class="btn btn-dark btn-block mb-3" id="passkeySignInBtn">
                         <i class="fas fa-fingerprint mr-2"></i>Sign in with a Passkey
                     </button>
+
+                    <?php if ($oidc_enabled && !empty($row['config_oidc_agent_enabled']) && !$config_login_key_required): ?>
+                        <a class="btn btn-outline-dark btn-block mb-3" href="client/login_oidc.php?as=agent">
+                            <i class="fas fa-building mr-2"></i>Sign in with company SSO
+                        </a>
+                    <?php endif; ?>
 
                     <div class="d-flex align-items-center mb-3">
                         <hr class="flex-grow-1">

@@ -28,19 +28,23 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 
 $settings = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_client_portal_enable,
-    config_oidc_enabled, config_oidc_issuer, config_oidc_client_id, config_oidc_client_secret, config_oidc_link_by_email, config_oidc_require_verified_email
+    config_oidc_enabled, config_oidc_issuer, config_oidc_client_id, config_oidc_client_secret, config_oidc_link_by_email, config_oidc_require_verified_email,
+    config_oidc_agent_enabled, config_login_key_required
     FROM settings WHERE company_id = 1 LIMIT 1")) ?: [];
 $issuer = trim((string) ($settings['config_oidc_issuer'] ?? ''));
 $clientId = trim((string) ($settings['config_oidc_client_id'] ?? ''));
-$enabled = (int) ($settings['config_client_portal_enable'] ?? 0) === 1
-    && (int) ($settings['config_oidc_enabled'] ?? 0) === 1
+$oidcReady = (int) ($settings['config_oidc_enabled'] ?? 0) === 1
     && $clientId !== '' && !empty($settings['config_oidc_client_secret']);
+$portalEnabled = $oidcReady && (int) ($settings['config_client_portal_enable'] ?? 0) === 1;
+// Agent SSO is off unless an admin turned it on, and is not offered while a login key hides the sign-in page.
+$agentEnabled = $oidcReady && (int) ($settings['config_oidc_agent_enabled'] ?? 0) === 1
+    && empty($settings['config_login_key_required']);
 $linkByEmail = (int) ($settings['config_oidc_link_by_email'] ?? 0) === 1;
 $requireVerified = (int) ($settings['config_oidc_require_verified_email'] ?? 1) === 1;
 $callback = 'https://' . $config_base_url . '/client/login_oidc.php';
 
 try {
-    if (!$enabled) {
+    if (!$oidcReady) {
         throw new RuntimeException('disabled');
     }
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
@@ -48,13 +52,19 @@ try {
     }
 
     if (!isset($_GET['code']) && !isset($_GET['error']) && !isset($_GET['state'])) {
+        // Which kind of account this sign-in is for is decided here, by the button used, and stored with the
+        // transaction. Nothing in the callback request can change it.
+        $audience = (($_GET['as'] ?? '') === 'agent') ? 'agent' : 'portal';
+        if (($audience === 'agent' && !$agentEnabled) || ($audience === 'portal' && !$portalEnabled)) {
+            throw new RuntimeException('disabled');
+        }
         $document = portalOidcDiscovery($issuer);
         $state = portalOidcBase64Url(random_bytes(32));
         $nonce = portalOidcBase64Url(random_bytes(32));
         $verifier = portalOidcBase64Url(random_bytes(32));
         $_SESSION['portal_oidc_pending'] = [
             'state' => $state, 'nonce' => $nonce, 'verifier' => $verifier,
-            'created' => time(), 'issuer' => $issuer,
+            'created' => time(), 'issuer' => $issuer, 'audience' => $audience,
         ];
         $query = http_build_query([
             'response_type' => 'code', 'client_id' => $clientId,
@@ -80,6 +90,10 @@ try {
     }
     if (isset($_GET['error']) || !is_string($code) || strlen($code) < 8 || strlen($code) > 4096) {
         throw new RuntimeException('provider_denied');
+    }
+    $audience = (($pending['audience'] ?? 'portal') === 'agent') ? 'agent' : 'portal';
+    if (($audience === 'agent' && !$agentEnabled) || ($audience === 'portal' && !$portalEnabled)) {
+        throw new RuntimeException('disabled');
     }
     $document = portalOidcDiscovery($issuer);
     $secret = decryptSetting((string) $settings['config_oidc_client_secret']);
@@ -109,6 +123,17 @@ try {
     if (($userinfo['sub'] ?? null) !== $subject) {
         throw new RuntimeException('userinfo_mismatch');
     }
+    if ($audience === 'agent') {
+        if (!function_exists('itflow_limited_home_url_for_user') && is_file(__DIR__ . '/../includes/module_access.php')) {
+            require_once __DIR__ . '/../includes/module_access.php';
+        }
+        $agentAccount = agentOidcEligibleAccount($mysqli, $issuer, $subject);
+        if ($agentAccount === null) {
+            throw new RuntimeException('account_ineligible: no_agent_linked_to_this_subject');
+        }
+        agentOidcSignIn($agentAccount);   // sets the session or hands over to the 2FA step, then exits
+    }
+
     $account = portalOidcEligibleAccount($mysqli, $issuer, $subject);
     $linkWhy = null;
     if ($account === null && $linkByEmail) {

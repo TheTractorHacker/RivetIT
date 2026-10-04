@@ -9589,3 +9589,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_oidc_require_verified_email` tinyint(1) NOT NULL DEFAULT 1");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.121'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.121') {
+        // Agent sign-in with company SSO: off by default, and an agent signs in only when an administrator has
+        // linked that agent to a provider subject. Separate columns from the Remote MCP identity (user_oidc_*).
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_oidc_agent_enabled` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `users`
+            ADD COLUMN IF NOT EXISTS `user_sso_issuer` varchar(255) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `user_sso_subject` varchar(255) DEFAULT NULL,
+            ADD UNIQUE INDEX IF NOT EXISTS `idx_users_sso_identity` (`user_sso_issuer`, `user_sso_subject`)");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.122'");
+    }
