@@ -6,7 +6,7 @@ Projects group the tickets and tasks for a piece of work that takes weeks, such 
 |---|---|
 | **Where to find it** | Sidebar → **Work** → **Projects** and **Work** → **Calendar**. Inside a department workspace, use **Projects** and **Calendar** in that department's sidebar. |
 | **Who can use it** | Permission module **Tickets, assets & docs**. **Read** to view projects, the Gantt and Kanban tabs and the calendar. **Modify** to create and edit projects, milestones, tasks, calendars and events, to link tickets, and to close, archive or restore a project. **Full** to delete a project, a task, a milestone or a calendar. The built-in Technician role has Modify; the Accountant role has Read. |
-| **Turn it on** | **Work → Projects** appears when **Show Ticketing** is on under **Administration → Settings → Modules**. The calendar is always available. Project templates, the project number prefix and calendar sync are set up by an administrator. |
+| **Turn it on** | **Work → Projects** appears when **Show Ticketing** is on under **Administration → Settings → General → Modules**. The calendar does not depend on that switch. Project templates, the project number prefix and calendar sync are set up by an administrator. |
 
 ## What it's for
 
@@ -51,7 +51,7 @@ Below the header, **Effort** compares hours worked with the estimate (the bar tu
 
 ![The calendar in month view](images/work/12-calendar-month.png)
 
-*Figure 3 — The calendar at application level (all departments).*
+*Figure 3 — The calendar in month view, shown inside the Production workspace. At application level (**Work → Calendar**) it looks the same but lists every department's entries, which fills the month with ticket entries.*
 
 1. **Calendars**: your own calendars, each with a colour. The **+** creates a calendar.
 2. **Built-in**: the colour key for entries the app draws automatically (see [What appears on the calendar by itself](#what-appears-on-the-calendar-by-itself)).
@@ -98,7 +98,7 @@ In a department workspace the form also has an optional **Apply Contract** field
 
 Things to know:
 
-- The tickets start as **New** and unassigned, unless a default technician is set under **Settings → Ticket**. Assign them and set real priorities yourself.
+- The tickets start as **New** and unassigned, unless a default assignee is set under **Administration → Settings → Workflows → Ticketing** (**Default Ticket Assignee**). Assign them and set real priorities yourself.
 - The task time estimates in the template are not copied to the new tasks.
 - The template only supplies tickets and their tasks. Milestones, due dates and task owners are added by hand.
 
@@ -219,7 +219,7 @@ The department's **Projects** page lists only that department's projects, withou
 
 *Figure 12 — The New Event form. (1) **Calendar** decides the colour. (2) **Repeat** is disabled. (3) The **Event**, **Details** and **Attendees** tabs.*
 
-The form has no all-day switch, reminders or attendee list. **Repeat** is greyed out and does not work in this version, so enter each occurrence of a weekly meeting as its own event. The calendar an administrator picks under **Settings → Defaults → Calendar** is pre-selected.
+The form has no all-day switch, reminders or attendee list. **Repeat** is greyed out and does not work in this version, so enter each occurrence of a weekly meeting as its own event. The calendar an administrator picks under **Administration → Settings → General → Defaults** (**Calendar**) is pre-selected.
 
 ### Change or delete an event
 
@@ -266,11 +266,11 @@ The link carries only tickets assigned to you that have an appointment, from 30 
 
 **Outlook two-way sync setup (administrators).** A second option pushes ticket appointments into each technician's own Outlook calendar, and updates or cancels them when the schedule changes. It needs a Microsoft 365 or Azure account with admin rights and was not exercised in the demo.
 
-1. Go to **Administration → Settings → Calendar Sync**. Copy the **Redirect URI**.
+1. Go to **Administration → Settings → Connections & data → Calendar sync**. Copy the **Redirect URI**.
 2. In the Azure portal register an app (single tenant) with that redirect URI, and copy its **Application (client) ID** and **Directory (tenant) ID**.
 3. Add the Microsoft Graph delegated permissions `Calendars.ReadWrite` and `offline_access`, then grant admin consent.
 4. Create a client secret and copy its value.
-5. Enter **Tenant ID**, **Application (Client) ID** and **Client Secret** in RivetIT and click **Save Credentials**. A **Sync All Appointments to Outlook** card then lets you push existing appointments.
+5. Enter **Tenant ID**, **Application (Client) ID** and **Client Secret** in RivetIT and click **Save Credentials**. A **Sync appointments to Outlook** card then appears: choose a **Scope** (**Upcoming appointments only** or **All appointments (past & future)**) and click **Sync Now** to push existing appointments. Appointments without an assigned technician, or whose technician has not connected Outlook, are skipped.
 6. Each technician opens their account pages, then **Integrations → Connect Outlook Calendar** and signs in to Microsoft once. **Disconnect Outlook Calendar** removes the link.
 
 See [Administration: System Settings, Mail, Integrations and Maintenance](13-administration-settings.md) for the settings menu.
@@ -283,10 +283,10 @@ A project template is an ordered list of ticket templates. Each ticket template 
 
 *Figure 15 — A project template. (1) **Add Ticket Template**. (2) Ticket templates in order. (3) All their tasks.*
 
-1. Create the ticket templates and their tasks under **Administration → Templates → Ticket Templates** (see [Administration: Ticketing, Automation and Organising Data](13b-administration-ticketing-and-automation.md)). Add tasks in the **Tasks** box on the ticket template's page.
-2. Go to **Administration → Templates → Project Templates** and click **New Project Template**. Enter a name and description. **Default Contract Template** is optional.
+1. Create the ticket templates and their tasks under **Administration → Templates → Ticket templates** (in the **Service desk** group; see [Administration: Ticketing, Automation and Organising Data](13b-administration-ticketing-and-automation.md)). Add tasks in the **Tasks** box on the ticket template's page.
+2. Go to **Administration → Templates → Project templates** (in the **Documents & projects** group) and click **New Project Template**. Enter a name and description. **Default Contract Template** is optional.
 3. Open the template and click **Add Ticket Template**. Pick a ticket template and an **Order** number. Repeat for each step. Drag the handle at the left of a row to reorder, or click **X** to remove one.
-4. To change the project number, go to **Administration → Settings → Project** and edit **Project Prefix** and **Next Number**. Existing projects keep their numbers.
+4. To change the project number, go to **Administration → Settings → Workflows → Projects** (the page is titled **Project Settings**) and edit **Project Prefix** and **Next Number**. Existing projects keep their numbers.
 
 Changes to a template affect only projects created afterwards.
 

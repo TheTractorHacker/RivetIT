@@ -233,26 +233,42 @@ async function personHref(page, name) {
   await shot(page, `${G}/09-delete-department`, { selector: '.modal.show .modal-content' });
   await closeModal(page); // never press "Yes, Delete!"
 
-  // ===== 10 / 11  Org chart =====================================================================
-  await goto(page, `/agent/org_chart.php?client_id=${productionId}`);
-  await page.waitForSelector('.org-node');
-  await page.click('#orgChartExpandAll');
-  await page.waitForTimeout(1000);
-  await check(page, { text: ['Carlos Mendoza', 'Aisha Rahman', 'Nadia Kowalski'] });
-  const aisha = page.locator('.org-node', { hasText: 'Aisha Rahman' }).first();
+  // ===== 10 / 11  Org chart (list view, then the D3 chart view) =================================
+  await goto(page, '/agent/org_chart.php');
+  await page.waitForSelector('#orgChartShowMap:not([hidden])');
+  await check(page, { rows: 10, text: ['Organizational Chart', 'Find a person in the list'] });
   await callout(page, [
-    { selector: 'select[name=client_id] + .ts-wrapper', n: 1 },
-    { selector: '#orgChartSearch', n: 2 },
-    { selector: '.card-tools .btn-group', n: 3, side: 'tl' },
-    { selector: await mark(aisha.locator('.org-node-trace-btn'), 'trace-btn'), n: 4, side: 'tr' },
-    { selector: await mark(aisha.locator('.org-node-preview-btn'), 'preview-btn'), n: 5, side: 'tr' },
+    { selector: '#orgChartShowList', n: 1, side: 'tl' },
+    { selector: '#orgChartShowMap', n: 2, side: 'tr' },
+    { selector: 'select[name=client_id] + .ts-wrapper', n: 3 },
+    { selector: 'select[name=location_id] + .ts-wrapper', n: 4 },
+    { selector: 'select[name=status] + .ts-wrapper', n: 5 },
+    { selector: '#orgChartListSearch', n: 6 },
   ]);
-  await shot(page, `${G}/10-org-chart`);
+  await shot(page, `${G}/10-org-chart-list`);
   await clearCallouts(page);
 
-  await page.locator('.org-node', { hasText: 'Nadia Kowalski' }).first().hover();
-  await page.waitForTimeout(700);
-  await shot(page, `${G}/11-org-chart-preview`, { keepHover: true });
+  await goto(page, `/agent/org_chart.php?client_id=${productionId}`);
+  await page.waitForSelector('#orgChartShowMap:not([hidden])');
+  await page.click('#orgChartShowMap');
+  await page.waitForSelector('.org-d3-group');
+  await page.click('#orgChartExpandAll');
+  await page.waitForSelector('.org-d3-person');
+  await page.waitForTimeout(1200);
+  await page.fill('#orgChartSearch', 'Nadia');
+  await page.press('#orgChartSearch', 'Enter');
+  await page.click('#orgChartZoomFit');
+  await page.waitForTimeout(1200);
+  await check(page, { text: ['Carlos Mendoza', 'Aisha Rahman', 'Nadia Kowalski', '1 of 1 matches'] });
+  await callout(page, [
+    { selector: '.org-chart-header .btn-group', n: 1, side: 'tl' },
+    { selector: '#orgChartControls', n: 2, side: 'tl' },
+    { selector: '#orgChartSearch', n: 3 },
+    { selector: '#orgChartSearchCounter', n: 4, side: 'tr' },
+    { selector: await mark(page.locator('.org-d3-person', { hasText: 'Nadia Kowalski' }), 'match-card'), n: 5, side: 'tr' },
+  ]);
+  await shot(page, `${G}/11-org-chart`);
+  await clearCallouts(page);
 
   // ===== 12  People list (company-wide) ============================================================
   await goto(page, '/agent/contacts.php');
@@ -313,6 +329,7 @@ async function personHref(page, name) {
     { selector: '.modal.show select[name=employee_type] + .ts-wrapper', n: 3, side: 'tr' },
     { selector: '.modal.show select[name=employment_status] + .ts-wrapper', n: 4, side: 'tr' },
     { selector: '.modal.show select[name=work_arrangement] + .ts-wrapper', n: 5, side: 'tr' },
+    { selector: await mark(page.locator('.modal.show input[name=vacation_start]').locator('xpath=ancestor::div[contains(@class,"form-group")][1]'), 'vacation-group'), n: 6, side: 'tr' },
   ]);
   await shot(page, `${G}/15-edit-person`, { selector: '.modal.show .modal-content' });
   await clearCallouts(page);

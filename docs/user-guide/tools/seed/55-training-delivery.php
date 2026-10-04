@@ -34,7 +34,12 @@
  *     Refresher for the two forklift people. A few manual "Assign training" batches.
  *   - Completions with certificates, an outside forklift card, a paper acknowledgment and a Forklift practical.
  *   - Overdue, due-soon, not-started and in-progress assignments across all seven departments.
- *   - Devices: "Fab Shop Training iPad" (shared, not in Assets) and "Warehouse Break Room PC" (shared, not in Assets).
+ *   - Devices: "Fab Shop Training iPad" (shared, not in Assets) and "Warehouse Break Room PC" (shared, not in Assets), plus
+ *     a revoked "Old Loading Dock iPad" (the Devices tab offers to remove revoked devices from the list).
+ *   - Five company-wide Knowledge Base articles switched on for the training kiosk ("Show on Training Portal").
+ *
+ * The database must already be migrated to the current schema: the demo build runs the application's own database
+ * updates (update_cli.php --update_db), so no schema repair is needed here.
  *   - Training PINs for five employees; every one uses the demo PIN below.
  *
  * FIXED KEYS the capture script (capture/training-delivery.cjs) relies on - keep the two files in step:
@@ -86,6 +91,7 @@ use ITFlow\Training\Records\SessionService;
 use ITFlow\Training\Records\TrainerService;
 use ITFlow\Training\People\Scope;
 use ITFlow\Training\Records\CertSecret;
+use ITFlow\Training\Reports\SnapshotService;
 use ITFlow\Training\Records\CompletionService;
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
@@ -93,13 +99,6 @@ $mysqli->set_charset('utf8mb4');
 
 const DELIVERY_DEVICE_TOKEN = 'ugdeliveryfabshopipadtoken00000000000001abc';   // exactly 43 URL-safe characters
 const DELIVERY_PIN = '481516';
-
-// ---- schema repair --------------------------------------------------------------------------------------
-// A database built from db.sql (a fresh install) already says "version 2.6.101" but lacks the settings column that
-// migration 2.6.101 adds (config_training_device_code_days), and without it the training kiosk treats the schema as
-// "not installed": /kiosk/ answers 404 and Devices & PINs shows "The training kiosk tables are not installed yet".
-// This is the migration's own statement (admin/database_updates.php, 2.6.101); IF NOT EXISTS makes it a no-op elsewhere.
-$mysqli->query("ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_training_device_code_days` tinyint(3) unsigned NOT NULL DEFAULT 3 AFTER `config_training_setup_code_days`");
 
 // ---- who is "logged in" -----------------------------------------------------------------------------------
 $row = $mysqli->query("SELECT user_id FROM users WHERE user_email = 'alex.morgan@summitridge.example' LIMIT 1")->fetch_assoc();
@@ -203,6 +202,7 @@ try {
     $devices = [
         ['Fab Shop Training iPad', 'Production'],
         ['Warehouse Break Room PC', 'Warehouse & Logistics'],
+        ['Old Loading Dock iPad', 'Warehouse & Logistics'],   // revoked below, so the Devices tab shows a removable card
     ];
     foreach ($devices as [$label, $dept]) {
         if (!one('SELECT kiosk_id FROM training_kiosks WHERE kiosk_label = ' . q($label))) {
@@ -210,6 +210,15 @@ try {
             say("  device enrolled: $label");
         }
     }
+    $old = one('SELECT kiosk_id, kiosk_status FROM training_kiosks WHERE kiosk_label = ' . q('Old Loading Dock iPad'));
+    if ($old && $old['kiosk_status'] === 'active') {
+        $enroll->revoke((int) $old['kiosk_id'], 'Retired when the dock office moved.');
+        say('  device revoked: Old Loading Dock iPad');
+    }
+    // Knowledge base on the kiosk: an article shows there only when "Show on Training Portal" is on (off by default).
+    // Company-wide articles, matched by title, so every learner sees a short list.
+    $mysqli->query("UPDATE kb_articles SET kb_article_training_visible = 1 WHERE kb_article_client_id = 0 AND kb_article_archived_at IS NULL AND kb_article_title IN ("
+        . implode(',', array_map('q', ['Connect to the staff Wi-Fi', 'How to spot a phishing email', 'Lock your screen and choose a strong password', 'Use the VPN from home', 'What to do if your laptop or phone is lost or stolen'])) . ')');
     // The start token is random and shown once; the capture script needs a known one, so the first device gets a fixed token.
     $mysqli->query('UPDATE training_kiosks SET kiosk_token_hash = ' . q(KioskAuth::tokenHash(DELIVERY_DEVICE_TOKEN))
         . ' WHERE kiosk_label = ' . q('Fab Shop Training iPad') . " AND kiosk_status = 'active'");
@@ -504,6 +513,21 @@ try {
             say("  run finished, skipped: $first $last - $course");
             continue;
         }
+        if ($existing) {
+            // Nothing left to do for this run: do not open (and close) another kiosk session on every re-run.
+            $runRow = one('SELECT trun_revision_id FROM training_runs WHERE trun_id = ' . (int) $existing['trun_id']);
+            $revNow = RevisionCache::get($mysqli, (int) $runRow['trun_revision_id']);
+            $byUidNow = RunRepo::lessons($revNow['doc']);
+            $doneNow = RunRepo::credited($mysqli, (int) $existing['trun_id']);
+            $todoNow = array_filter(array_slice(array_values(array_filter(RunRepo::order($revNow['doc']),
+                static fn(string $u) => in_array((string) ($byUidNow[$u]['type'] ?? ''), ['article', 'document', 'image'], true))), 0, $count),
+                static fn(string $u) => !isset($doneNow[$u]));
+            $attempt = one('SELECT tattempt_id FROM training_attempts WHERE tattempt_run_id = ' . (int) $existing['trun_id']);
+            if ($todoNow === [] && (!$exam || $attempt)) {
+                say("  run up to date, skipped: $first $last - $course");
+                continue;
+            }
+        }
         $started = Db::tx($mysqli, static function () use ($mysqli, $device, $cid, $ks): array {
             $st = KioskAuth::startSession($mysqli, $device, $cid, 'learner', ['ks' => $ks, 'source' => 'local', 'lang' => 'en']);
             foreach (KioskAuth::startEvents($st, 'user-guide demo seed') as $e) {
@@ -568,8 +592,10 @@ try {
         say('  run in progress: ' . $a['name']);
     }
 
-    // A last full reconcile so every list reads the final state.
+    // A last full reconcile so every list reads the final state, then today's compliance snapshot (what the nightly job
+    // and Admin > Training > Compliance "Capture today's snapshot" write), so the Overview trend has its first point.
     (new AssignmentService($ctx))->reconcile(null, 'reconcile_now');
+    SnapshotService::capture($mysqli, Clock::todayLocal());
 
     say('Done.');
 } catch (ApiException $e) {

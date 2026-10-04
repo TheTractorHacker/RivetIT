@@ -302,7 +302,7 @@ async function assetIdFor(page, hostname) {
     await clean(page, 'network');
     await need(page, 'table tbody tr', 4, 'network devices');
     await callout(page, [
-      { selector: '.small-box.bg-warning', n: 1, side: 'tl' },
+      { selector: '.small-box.bg-warning', n: 1, side: 'tr' },
       { selector: 'a.info-box[href*="device_type=Firewall"]', n: 2, side: 'tr' },
       { selector: '.js-trigger-net-sync', n: 3, side: 'bl' },
     ]);

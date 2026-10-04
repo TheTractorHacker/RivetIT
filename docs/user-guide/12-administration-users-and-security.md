@@ -4,18 +4,17 @@ The Administration area is where administrators decide who can sign in to RivetI
 
 | | |
 |---|---|
-| **Where to find it** | Select your name at the top right, then **Administration**. In the Administration sidebar: **Users**, **Roles**, **API Keys** and **API Docs** are under **ACCESS**; **Security** and **Identity Provider** are under **Settings**; **Audit Logs**, **App Logs** and **Email Log** are under **Maintenance**. |
+| **Where to find it** | Select your name at the top right, then **Administration**. In the Administration sidebar: **Users**, **Roles**, **API Keys** and **API Docs** are under **ACCESS**. **Settings** opens an overview page with **Security** and **Identity provider** under **Access & communication**. **Maintenance** opens an overview page with **Email log**, **Audit log** and **App log** under **Activity & diagnostics**. |
 | **Who can use it** | Administrators only: people whose role has **Admin access: Yes**. Everyone else sees "You don't have access to this page". No permission level applies here; the permission levels described below are what the people you manage can do. |
-| **Turn it on** | Nothing to switch on. **Identity Provider** appears only while the Department Portal is on (**Settings → Modules**). Some permission rows only take effect when their module is on. |
+| **Turn it on** | Nothing to switch on. **Identity provider** is only useful while the Department Portal is on (**Settings → Modules**). Some permission rows only take effect when their module is on. |
 
 ## What it's for
 
-- **Users**: add people, give them a role, limit them to some departments, set or reset passwords and MFA, and disable or archive them when they leave.
-- **Roles**: decide what each kind of person can see and change. A role is a set of permissions, one level per module.
-- **Security settings**: the login message, an optional login key, how long a session lasts, how long logs are kept, and the credential vault key.
-- **Identity Provider**: Microsoft sign-in for employees who use the Department Portal.
-- **API Keys and API Docs**: let scripts and other systems talk to RivetIT, and read the reference for the API.
-- **Logs**: find out who did what, why a scheduled job or email failed, and what happened to an incoming email.
+- **Users**: add technicians, give them a role, limit them to some departments, reset passwords and MFA, and disable or archive them. **Department logins** manages the supervisors and managers who sign in to the Department Portal.
+- **Roles**: what each kind of person can see and change, one level per module.
+- **Security** and **Identity provider**: the login message and key, session length, log retention, network path, the credential vault key, and Microsoft Entra and OpenID Connect sign-in for portal users.
+- **API Keys and API Docs**: let scripts talk to RivetIT, and the reference for the API.
+- **Logs**: who did what, why a job or email failed, and what happened to an incoming email.
 
 ## A quick tour
 
@@ -23,21 +22,21 @@ Only administrators see the **Administration** item in the name menu. It opens t
 
 ![The name menu open on the dashboard, with Administration marked 1 and the name button marked 2](images/admin-accounts/01-administration-menu.png)
 
-*Figure 1 — (1) Administration opens the Administration area. (2) Select your name to open this menu. It also holds Account and Logout.*
+*Figure 1 — (1) Administration opens the Administration area. (2) Select your name to open this menu. It also holds Account and Sign out.*
 
 ![The Administration area on the Users page, with the sidebar and name menu marked 1 to 5](images/admin-accounts/02-administration-layout.png)
 
-*Figure 2 — The Administration area. (1) The back arrow returns to the application. (2) ACCESS: Users, Roles, API Keys, API Docs. (3) Maintenance opens Cron, Mail Queue, Email Log, Audit Logs, App Logs, Backup, Credential Restore, Debug and Update. (4) Settings opens Security, Identity Provider and the other settings. (5) Your name menu.*
+*Figure 2 — The Administration area. (1) The back arrow returns to the application. (2) ACCESS: Users, Roles, API Keys, API Docs. (3) Maintenance opens an overview of Scheduled jobs, Mail queue, Email log, Audit log, App log, Debug, Backups, Credential restore and Update. (4) Settings opens an overview of Security, Identity provider and the other settings. (5) Your name menu.*
 
-The other groups in the sidebar (**Tags & Categories**, **Ticketing**, **Knowledge Base**, **Training**, **Templates**) are covered in the guides for those modules. Several groups can be open at once.
+The other items under **CONFIGURATION** (**Tags & Categories**, **Ticketing**, **Templates**) are covered in the guides for those modules, and the Knowledge Base and Training settings sit on the **Settings** overview. **Maintenance** and **Settings** are overview pages: select a tile to open a page. On that page a breadcrumb at the top, such as **Maintenance / Audit Log** or **All settings / Security**, takes you back to the overview.
 
 ## Users
 
-**Administration → Users** lists the people who work in RivetIT (agents). Employees who only use the Department Portal are managed from **People**, not here.
+**Administration → Users** lists the people who work in RivetIT (technicians). A switch above the list chooses between two views: **Technicians** and **Department logins**. This section covers technicians; "Department logins" below covers the other view. Ordinary employees who only use the Department Portal are managed from **People**, not here.
 
-![The Users list with the New User button, search box, Archived button, MFA column and row actions marked 1 to 5](images/admin-accounts/03-users-list.png)
+![The Users list with the Technicians and Department logins switch, New User button, search box, Archived button, MFA column and row actions marked 1 to 6](images/admin-accounts/03-users-list.png)
 
-*Figure 3 — The Users list. (1) New User; its arrow opens Export and IR. (2) Search by name or email. (3) Archived switches to archived people. (4) The MFA column. (5) Edit and the row menu.*
+*Figure 3 — The Users list. (1) The Technicians and Department logins switch. (2) New User; its arrow opens Export and IR. (3) Search by name or email. (4) Archived switches to archived people. (5) The MFA column. (6) Edit and the row menu.*
 
 - **Status** is **Active** (green) or **Disabled** (red). A blue **Invited** label exists, but nothing in the current screens sets it.
 - **MFA** shows a green closed padlock when the person has set up an authenticator app and a red open padlock when not. A passkey does not change the icon.
@@ -137,28 +136,66 @@ The arrow on **New User** opens two more actions. They appear only when there is
 - **Export** → **Download CSV** saves a file with **Name**, **Email**, **Role**, **Status** and **Creation Date**. It lists every account, including archived people and Department Portal accounts.
 - **IR** (incident response) resets passwords in one step. Enter your own password and select **Reset passwords**. Every account that is not archived, except yours, gets a new random password, and the list of email addresses and passwords appears once on a plain page. Copy it before you leave, and pass the passwords on by phone, not email. The reset does not check the account type, so Department Portal accounts are reset too. There is no undo.
 
+### Department logins
+
+Select **Department logins** above the list to manage supervisors and managers who use the Department Portal. A department login is a portal account tied to a person in a department. It signs in on the same login page as everyone else and lands in the Department Portal.
+
+![The Department logins list with the switch, New Department Login, Include other portal logins, the Role column and row actions marked 1 to 5](images/admin-accounts/07-department-logins.png)
+
+*Figure 7 — The Department logins list. (1) The Technicians and Department logins switch. (2) New Department Login. (3) Include other portal logins. (4) The Role column. (5) Edit and the row menu.*
+
+- The list shows only logins with a **Supervisor** or **Manager** role. **Include other portal logins** adds the ordinary employees, whose role is **Standard**.
+- **Role** adds badges: **SSO** (no local password), an agent role name, **2FA** (on) and **2FA pending** (required, not set up yet).
+- **Team** counts the people who have this person as their **Manager**. A supervisor with 0 shows it in orange.
+
+The portal role decides what the person sees in the portal **Training** tab: **Standard** their own training, **Supervisor** the training of the people who report to them, **Manager** the whole department's.
+
+#### Create a department login
+
+1. Select **Department logins**, then **New Department Login**.
+2. Choose the **Department**. **Person** then lists people in it who have no login yet. Pick one, or keep **New person** and enter a **Name**, **Email** (also the sign-in name) and optional **Title**.
+3. Choose the **Role**: **Supervisor** or **Manager**. Set **Standard** later with **Edit**.
+4. Optionally choose **Agent module access**: an agent role that opens part of the agent app, company-wide rather than for one department. Only roles that are not administrators and hold none of Departments, Tickets, assets & docs or Assets are listed (see "Module-only logins"). Training roles open the full Training module from **Manage training** in the portal; other roles add an agent workspace link to the portal menu. Keep **None - portal only** otherwise.
+5. Enter a **Password** of at least 8 characters (the dice button makes one). Nothing is emailed; hand it over separately.
+6. Tick **Require 2FA** if the person must set up an authenticator app at first sign-in.
+7. Select **Create**.
+
+![The New Department Login pop-up, filled in with example values, with Department, Person, Role, Agent module access and Require 2FA marked 1 to 5](images/admin-accounts/08-new-department-login.png)
+
+*Figure 8 — The New Department Login pop-up. (1) Department. (2) Person. (3) Role. (4) Agent module access. (5) Require 2FA.*
+
+A person who already has a login keeps it: change their role with **Edit**. An email address can belong to only one department login.
+
+#### Edit a login, reset its password or 2FA
+
+**Edit** changes the **Role**, **Name**, **Email**, **Title**, **Agent module access** and **Sign-in method** (**Local password**, plus **Microsoft Entra**, **OpenID Connect** or **Odoo employee** when set up). Type a **New local password** to reset it; leave it empty to keep the current one. A new password, a changed sign-in method or **Disable** also signs out the person's remembered devices.
+
+For local-password logins the pop-up has a two-factor part. **Require 2FA** makes the person set up an authenticator app at their next sign-in, and they cannot turn it off. When 2FA is on, the pop-up says **Enabled**; to reset it for someone who lost their phone, select **Disable** next to it and confirm. They set it up again from **Profile** in the portal (see the [Department Portal guide](11-employee-portal.md)).
+
+The row menu offers **Disable** or **Activate**. Department logins cannot be archived from here.
+
 ## Roles and permissions
 
 A role is a named set of permissions. Every user has exactly one role. **Administration → Roles** lists them.
 
-![The Roles list with New Role, a role's permission summary, the members, the lock icon and the row menu marked 1 to 5](images/admin-accounts/07-roles-list.png)
+![The Roles list with New Role, a role's permission summary, the members, the lock icon and the row menu marked 1 to 5](images/admin-accounts/09-roles-list.png)
 
-*Figure 7 — The Roles list. (1) New Role. (2) A one-line summary of what the role holds. (3) The people in the role. (4) The lock: the only administrator role in use cannot be edited or archived. (5) The row menu.*
+*Figure 9 — The Roles list. (1) New Role. (2) A one-line summary of what the role holds. (3) The people in the role. (4) The lock: the only administrator role in use cannot be edited or archived. (5) The row menu.*
 
 Three roles exist from the start: **Administrator**, **Technician** and **Accountant**. "Built-in" is only a word in their description. You can edit or archive Technician and Accountant like any role you create. See "Built-in roles" below.
 
 ### Create a role
 
 1. Select **New Role**.
-2. On **Details**, enter a **Name** and a **Description**, and choose **Admin access**. **No** means the role uses the permissions tab. **Yes** gives full access to everything, including Administration, and the permissions no longer apply.
-3. Open **Permissions**. Optionally pick a starting point under **Start from…**: **Training Manager**, **Training Supervisor (department)**, **Learner**, **Technician** (a copy of the current Technician role) or **Nothing**. A preset only fills in the form.
-4. For each module, choose a level. The line under the buttons says what that level allows.
-5. Check the **This role will see** panel. It shows the sidebar people in this role will get.
+2. On **Details**, enter a **Name** and **Description**, and choose **Admin access**. **No** uses the permissions tab. **Yes** gives full access, including Administration, and the permissions no longer apply.
+3. On **Permissions**, optionally pick **Start from…**: **Training Manager**, **Training Supervisor (department)**, **Learner**, **Technician** or **Nothing**. A preset only fills in the form.
+4. Choose a level for each module; the line under the buttons says what it allows.
+5. Check the **This role will see** panel, the sidebar people in this role will get.
 6. Select **Create**. Nothing is saved until you do.
 
-![The role editor's Permissions tab with the preset box, level buttons, help line, extra RMM permissions and sidebar preview marked 1 to 5](images/admin-accounts/08-role-permissions.png)
+![The role editor's Permissions tab with the preset box, level buttons, help line, extra RMM permissions and sidebar preview marked 1 to 5](images/admin-accounts/10-role-permissions.png)
 
-*Figure 8 — The Permissions tab. (1) Start from. (2) The level buttons. (3) What the chosen level allows. (4) More RMM permissions. (5) The sidebar preview. The two billing rows, Sales and Financial, are left out of the picture.*
+*Figure 10 — The Permissions tab. (1) Start from. (2) The level buttons. (3) What the chosen level allows. (4) More RMM permissions. (5) The sidebar preview. The two billing rows, Sales and Financial, are left out of the picture.*
 
 Then give the role to people with **Users → Edit → Role**.
 
@@ -189,13 +226,11 @@ Each module has a level: **None**, **Read**, **Modify** or **Full**. In the code
 
 Notes on the table:
 
-- **Departments**: with **None** there is no Organization or People menu, and no department workspaces.
-- **Tickets, assets & docs**: this module also opens the Service Desk, Work, Knowledge (Printers, Network Drives) and Infrastructure menus. A department workspace needs **Departments** as well.
-- **Assets** is already included in Tickets, assets & docs. Give it alone to someone who only handles equipment.
+- **Departments**: with **None** there is no Organization or People menu and no department workspaces.
+- **Tickets, assets & docs** also opens the Service Desk, Work, Knowledge (Printers, Network Drives) and Infrastructure menus. A department workspace needs **Departments** as well. **Assets** is already included in it; give **Assets** alone to someone who only handles equipment.
 - **Credentials** shows in the main menu only together with Tickets, assets & docs (Read), and in a department workspace together with Departments (Read). **Read** is enough to export every password.
-- **Knowledge base** also needs the module on. The Technician role does not include it.
-- **Training** needs the Training module on. The Access-tab rule is in "Limit a person to some departments". Administrators use **Administration → Training**. People with Training at Full but no admin access use **Training → Training settings**.
-- **Training kiosk**: **Devices & PINs** sits inside the Training menu, so the role also needs Training at Read or higher. A learner who signs in at a kiosk with a PIN needs no permission at all. PIN slips show learners' PINs, so grant Modify with care. Choosing a device from Assets needs Assets (Read).
+- **Knowledge base** and **Training** also need their module on. Administrators use **Administration → Settings → Training**; people with Training at Full but no admin access use **Training → Training settings**.
+- **Training kiosk**: **Devices & PINs** sits inside the Training menu, so the role also needs Training at Read or higher. A learner who signs in at a kiosk with a PIN needs no permission. PIN slips show learners' PINs, so grant Modify with care.
 - **RMM** rows only matter when RMM is on. There is no extra power at Full.
 
 Some permissions are switches (**Off** or **On**) because the app only checks whether they are on:
@@ -220,32 +255,31 @@ A role that holds any of the three IT modules, such as Technician, is never limi
 
 ### Built-in roles
 
-| Role | Admin access | What it holds |
-|---|---|---|
-| **Administrator** | Yes | Everything, including Administration. |
-| **Technician** | No | Departments, Tickets, assets & docs, Assets and Credentials at Modify (and Sales at Modify). No Knowledge base, Reports or Training. |
-| **Accountant** | No | Departments, Tickets, assets & docs and Assets at Read, and Reporting on (and Sales at Read and Financial at Modify). |
-
-The **Help Desk Lead** role in the pictures is an example: Departments Modify, Tickets, assets & docs Full, Credentials Read, Reporting On and Knowledge base Full.
+**Administrator** has admin access and everything. **Technician** holds Departments, Tickets, assets & docs, Assets and Credentials at Modify, with no Knowledge base, Reports or Training. **Accountant** holds Departments, Tickets, assets & docs and Assets at Read, with Reporting on. The **Help Desk Lead** role in the pictures is an example: Departments Modify, Tickets, assets & docs Full, Credentials Read, Reporting On and Knowledge base Full.
 
 ## Sign-in security
 
 ### Settings → Security
 
-**Administration → Settings → Security** has two cards. Change a field and select **Save** on the **Security** card.
+**Administration → Settings → Security** has two cards; the sign-in settings card also holds the network path. Change a field and select **Save** on the **Security** card.
 
-![The Security settings page with the vault button, login message, login key, session lifetime and log retention marked 1 to 5](images/admin-accounts/09-security-settings.png)
+![The Security settings page with the vault button, login message, login key, session lifetime, log retention, reverse proxies and Cloudflare switch marked 1 to 7](images/admin-accounts/11-security-settings.png)
 
-*Figure 9 — The Security settings page. (1) The vault key button. (2) Login Message. (3) The login key switch. (4) Session Lifetime. (5) Log retention.*
+*Figure 11 — The Security settings page. (1) The vault key button. (2) Login Message. (3) The login key switch. (4) Session Lifetime. (5) Log retention. (6) Reverse proxies. (7) Traffic comes through Cloudflare.*
 
 | Field | What it does |
 |---|---|
-| **Login Message** | Text shown on the sign-in page. |
+| **Login Message** | Text shown on the sign-in page. The sign-in page follows the colours under **Settings → Theme**, and **Settings → Appearance → Logo Background** sets the backing behind your logo (white by default, any colour, or none). |
 | **Require a login key to access the technician login page?** | When on, agents must open the sign-in page as `/login.php?key=` followed by the secret. Without it, signing in returns to the sign-in page, and the email box says **Department Email**. |
 | **Login key secret value** | The secret for the login key. Letters, digits and underscores, 3 to 99 characters. Turning the switch on with no secret leaves it off. |
-| **2FA Remember Me Expire** | Days that a "trusted device" skips the MFA code. |
-| **Session Lifetime** | Minutes of inactivity before signing in again. From 30 to 43200; 480 is 8 hours. |
-| **Log retention** | Days to keep audit and app log entries. A nightly job deletes older ones. Enter a real number: 0 or blank deletes everything from before today. |
+| **2FA Remember Me Expire** | Days that a "trusted device" skips the MFA code. At least 30; a lower number is raised to 30. |
+| **Session Lifetime** | Minutes before signing in again. From 43200 (30 days, the minimum) to 129600 (90 days). A value outside that range is moved to the nearest limit. |
+| **Log retention** | Days to keep audit, app and sign-in log entries. A nightly job deletes older ones. Enter a real number: 0 or blank deletes everything from before today. |
+
+| **Reverse proxies on your side** | How many proxies (nginx, a load balancer and so on) sit between the internet, or Cloudflare, and RivetIT: **0** (users connect directly) to **5**, not counting Cloudflare. **Not set** keeps the older detection from the configuration file. |
+| **Traffic comes through Cloudflare** | Turn on when Cloudflare is in front of your site. |
+
+The **Network path** settings decide which address RivetIT records for each sign-in. A forwarded address is believed only when the direct connection comes from an address you would expect (a private address behind your own proxies, or Cloudflare). The **Self-check (this request)** box shows the direct connection, the forwarding headers and the address recorded for your own request: after a change, check that **Client address the app records** is your own public address.
 
 Other protections work without settings. Fifteen failed sign-ins (or wrong MFA codes) from one address in 10 minutes block that address, and the block is written to the audit log. When mail is set up, a person who signs in from a browser and address never seen before is emailed a notice.
 
@@ -253,23 +287,27 @@ Other protections work without settings. Fifteen failed sign-ins (or wrong MFA c
 
 The **Vault Encryption** card concerns the Credentials page. Stored credentials are encrypted with one shared key, and each person holds a personal copy locked with their password. RivetIT also keeps a "canonical" copy so a person who loses their copy, such as an archived and restored user, gets the right key back at their next password sign-in.
 
-- If the card says **Canonical vault key established**, nothing is needed.
+- If the card says **Canonical vault key established**, nothing is needed. The button then reads **Re-establish from my session**.
 - If it warns that no key has been established, passkey sign-ins cannot open the vault. Sign in with your password and select **Establish from my session**, then confirm. It copies the key from your current session, so it fails if your vault is locked.
-- The card also counts active users who have no key of their own. They fix themselves at their next sign-in.
+- The card also counts active users with no key of their own. They fix themselves at their next sign-in.
 
-### Identity Provider (Microsoft sign-in)
+### Identity provider (Microsoft Entra and OpenID Connect)
 
-**Administration → Settings → Identity Provider** lets **Department Portal** users sign in with Microsoft Entra ID. It does not apply to agents.
+**Administration → Settings → Identity provider** lets **Department Portal** users sign in with Microsoft Entra ID or with a company OpenID Connect provider. It does not apply to technicians. The page has two forms, each with its own **Save** button.
 
-![The Identity Providers page with the provider, client ID and secret fields marked 1 to 3](images/admin-accounts/10-identity-provider.png)
+![The Identity providers page with the Microsoft and OpenID Connect fields marked 1 to 5](images/admin-accounts/12-identity-provider.png)
 
-*Figure 10 — The Identity Providers page. (1) The provider: Disabled until an ID is saved. (2) The application (client) ID. (3) The client secret.*
+*Figure 12 — The Identity providers page. (1) The Microsoft application (client) ID. (2) The Microsoft client secret. (3) The switch that turns company SSO on. (4) The OpenID Connect issuer URL. (5) The OpenID Connect client secret.*
 
 1. In the Microsoft Entra admin center, register an application. Add the web redirect address `https://` followed by your RivetIT address and `/client/login_microsoft.php`, and create a client secret.
-2. Enter the **MS Entra OAuth App (Client) ID** and the **MS Entra OAuth Secret**, then select **Save**.
-3. On each employee's record, set their Department Portal login to **Using Azure Credentials** (see the [Department Portal guide](11-employee-portal.md)). Their RivetIT email must match their Microsoft sign-in name.
+2. Enter the **MS Entra OAuth App (Client) ID** and the **MS Entra OAuth Secret**, then select **Save**. A saved secret is never shown again: its box says **Saved — leave blank to keep**.
+3. For each employee, open **Administration → Users → Department logins → Edit** and set **Sign-in method** to **Microsoft Entra**. Their RivetIT email must match their Microsoft sign-in name.
 
-The sign-in page then shows **Login with Microsoft Entra**. Emptying the client ID turns the feature off. The provider list is informational: only Microsoft Entra works. This depends on your Microsoft tenant and was not tested in the demo.
+The sign-in page then shows **Login with Microsoft Entra**. Emptying the client ID turns the feature off.
+
+For OpenID Connect (Authentik, Keycloak or Ory Hydra), use the second form. Register the redirect address shown there with your provider. Turn on **Enable company SSO sign-in**, enter the **Issuer URL** (HTTPS), **Client ID** and **Client secret**, and select **Save OpenID Connect**. Then link each person: **Edit** their department login, set **Sign-in method** to **OpenID Connect** and paste their **OpenID Connect subject (sub)**. Or turn on **Link logins on first sign-in by email**, leave the subject blank, and the first sign-in links the matching email. Keep **Require the provider to confirm the email is verified** on unless your provider cannot send that flag.
+
+The sign-in page then shows **Login with company SSO**. This depends on your own Microsoft tenant or provider and was not tested in the demo.
 
 ## API keys and API docs
 
@@ -279,10 +317,11 @@ An API key lets a script or another system call the RivetIT API. Keys are not ti
 
 **Administration → API Keys** lists every key with its department scope, permission, creation date and expiry.
 
-![The API Keys list with New API Key, Department, Permission, an expired key and the row menu marked 1 to 5](images/admin-accounts/11-api-keys.png)
+![The API Keys list with New API Key, Department, Permission, an expired key and the row menu marked 1 to 5](images/admin-accounts/13-api-keys.png)
 
-*Figure 11 — The API Keys list. (1) New API Key. (2) The department scope. (3) Read & Write or Read Only. (4) An expired key. (5) The row menu.*
+*Figure 13 — The API Keys list. (1) New API Key. (2) The department scope. (3) Read Only, or Read & Write (with a red Delete badge when deleting is allowed). (4) An expired key. (5) The row menu.*
 
+- A key restricted to some addresses shows them in small print under its permission.
 - Only a fingerprint of each key is stored. The **Secret** column shows the last four characters of that fingerprint, not of your copy, so identify keys by name and date.
 - **Revoke** (active keys, with confirmation) sets the expiry to now. **Delete** appears for expired keys.
 - Tick rows to open **Bulk Action**, then **Delete**. It removes the selected keys at once, active or expired, with no confirmation.
@@ -293,66 +332,59 @@ An API key lets a script or another system call the RivetIT API. Keys are not ti
 1. Select **New API Key**.
 2. On **Details**, enter a **Name** that says what uses the key. Expiration defaults to **30 days**; choose 60 days, 90 days, or a custom date if needed. The key stops working at the start of that day.
 3. Select a department under **Department Access**.
-4. **Read only** is the default. Choose **Read & write** for create/update requests, and explicitly tick **Also allow deleting and archiving records** if needed. Under **Security restrictions**, optionally enter allowed IP addresses or CIDR networks, one per line.
+4. **Permission** is **Read only** by default (GET requests). Choose **Read & write** for create and update requests. Deleting and archiving is a separate permission: tick **Also allow deleting and archiving records**, which is possible only with **Read & write**. A key without it cannot delete or archive, even through the older delete and archive endpoints. Open **Security restrictions** and enter **Allowed IP addresses or networks**, one IPv4 or IPv6 address or CIDR network per line, to refuse the key from every other address. Leave it empty to allow any address.
 5. Open the **Keys** tab. Copy the **API Key** and the **Login credential decryption password** now. They exist only in this pop-up.
 6. Tick **I have made a copy of the key(s)** and select **Create**.
 
-![The New Key pop-up with expiry, department access, permission and the Keys tab marked 1 to 4](images/admin-accounts/12-new-api-key.png)
+![The New Key pop-up with expiry, department access, permission, allowed addresses and the Keys tab marked 1 to 5](images/admin-accounts/14-new-api-key.png)
 
-*Figure 12 — The New Key pop-up, filled in with example values. (1) Expiration Date. (2) Department Access. (3) Permission. (4) The Keys tab.*
+*Figure 14 — The New Key pop-up, filled in with example values. (1) Expiration Date. (2) Department Access. (3) Permission. (4) Allowed IP addresses, inside Security restrictions. (5) The Keys tab.*
 
-Callers send the key in an `X-Api-Key` header. A key cannot read stored credentials; the API refuses that, so use a user token instead.
+Callers send the key in an `X-Api-Key` header. A request outside the key's permission, such as a write with a read-only key, is refused and written to the audit log as **API** / **Blocked**; a request from an address outside the allow-list is refused with a 403 message. A key cannot read stored credentials; the API refuses that, so use a user token instead.
 
 ### API Docs
 
 **Administration → API Docs** is a live reference for every endpoint.
 
-![The API reference filtered with the word asset](images/admin-accounts/13-api-docs.png)
+![The API reference filtered with the word asset](images/admin-accounts/15-api-docs.png)
 
-*Figure 13 — The public API reference with a search for asset endpoints.*
+*Figure 15 — The public API reference with its search dialog open and a search for asset endpoints.*
 
-Use the search box and endpoint navigation to find operations. Expand an operation to see its parameters, request body and responses. **OpenAPI spec** downloads the specification for tools such as Postman or Insomnia; **Open full reference** opens the same reference without signing in. Callers may send `Authorization: Bearer <token>` or `X-Api-Key: <key>`, and each is limited to 300 requests per minute. The API still says **client** wherever the application says **Department**.
+The page shows the reference inside Administration. Select **Search** at the top of its left column (or press Ctrl+K), type a word such as `asset`, and pick a result from the dialog; the left column also lists the endpoint groups. Open an operation to see its parameters, request body and responses, and choose a language such as Python, PHP or C/Libcurl above its request example. **OpenAPI spec** downloads the specification for tools such as Postman or Insomnia; **Open full reference** opens the same reference in its own tab without the Administration frame. Callers may send `Authorization: Bearer <token>` or `X-Api-Key: <key>`, and each is limited to 300 requests per minute. The API still says **client** wherever the application says **Department**.
 
 ## Logs
 
-All three logs are under **Administration → Maintenance**. They are read-only.
+All three logs are tiles on the **Administration → Maintenance** overview (**Audit log**, **App log** and **Email log**). They are read-only.
 
 ### Audit Logs
 
 The audit log records who did what: sign-ins (successful, failed, blocked), and changes to users, roles, API keys, settings, tickets, credentials, training and more. Each entry has a **Timestamp**, **User**, **Department**, **Type** (the area), **Action**, **Description**, **IP Address** and **User Agent** (system and browser).
 
-![Audit Logs searched for API, with the date range panel open](images/admin-accounts/14-audit-log.png)
+![Audit Logs searched for API, with the date range panel open](images/admin-accounts/16-audit-log.png)
 
-*Figure 14 — Audit Logs searched for "API". (1) The search box. (2) The filters, starting with Department; User, Type and Action follow. (3) The funnel opens the date range. (4) Date range. (5) Select a heading to sort.*
+*Figure 16 — Audit Logs searched for "API". (1) The search box. (2) The filters, starting with Department; User, Type and Action follow. (3) The funnel opens the date range. (4) Date range. (5) Select a heading to sort.*
 
-To find something:
+To find something, type a word in the search box and press Enter (it matches type, action, description, address, browser, user and department), narrow with **All Departments**, **All Users**, **All Types** and **All Actions**, select the funnel to pick a **Date range** (the default covers all time), and select a column heading to sort. With more than 5 results, page controls appear below the list.
 
-1. Type a word in the search box and press Enter. It matches the type, action, description, address, browser text, user name and department name.
-2. Narrow the list with **All Departments**, **All Users**, **All Types** and **All Actions**. The last two list only what exists.
-3. Select the funnel and pick a range under **Date range**. The default covers all time.
-4. Select a column heading to sort. With more than 5 results, page controls and a rows-per-page box appear below the list.
-
-Useful searches: a person's name (their actions and sign-ins), an address such as a repeated failed sign-in, `Failed` or `Blocked`, `API` for integration problems, or `Credential` for who viewed or exported credentials.
-
-A **Failed login attempt using …** entry has no user, because nobody was signed in. Failed and blocked API calls also have no user. Entries older than **Log retention** disappear.
+Useful searches: a person's name, an address with repeated failed sign-ins, `Failed` or `Blocked`, `API` for integration problems, or `Credential` for who viewed or exported credentials. A **Failed login attempt using …** entry has no user, because nobody was signed in, and neither do failed or blocked API calls. Entries older than **Log retention** disappear.
 
 ### App Logs
 
 The app log is what the application says about itself: scheduled jobs, mail sending, the mailbox poller, backups and mobile app crashes. Each entry has a **Type** (**info**, **warning** or **error**), a **Category** and **Details**.
 
-![App Logs showing cron and email parser entries](images/admin-accounts/15-app-log.png)
+![App Logs showing cron and email parser entries](images/admin-accounts/17-app-log.png)
 
-*Figure 15 — App Logs. (1) Search. (2) Type filter. (3) Category filter. (4) The details text.*
+*Figure 17 — App Logs. (1) Search. (2) Type filter. (3) Category filter. (4) The details text.*
 
-Look here when a scheduled job did not run, an email was not sent or a mailbox could not be read. Start with **All Types** set to **error**, or a category such as **Cron**, **Mail** or **Cron-Email-Parser**. Search and the date range work as in the audit log. Mailbox connection failures are logged here, not in the Email Log.
+Look here when a scheduled job did not run, an email was not sent or a mailbox could not be read. Start with **All Types** set to **error**, or a category such as **Cron**, **Mail** or **Cron-Email-Parser**. Mailbox connection failures are logged here, not in the Email Log.
 
 ### Email Log
 
 The email log shows every email the mailbox poller handled and what became of it. It stays empty until a mailbox is set up under **Administration → Ticketing → Mailboxes**.
 
-![Email Log listing incoming emails with their outcome badges](images/admin-accounts/16-email-log.png)
+![Email Log listing incoming emails with their outcome badges](images/admin-accounts/18-email-log.png)
 
-*Figure 16 — Email Log. (1) A reminder that connection failures are in App Logs. (2) Filter by outcome. (3) The outcome badge. (4) Detail, with a link to the ticket.*
+*Figure 18 — Email Log. (1) A reminder that connection failures are in App Logs. (2) Filter by outcome. (3) The outcome badge. (4) Detail, with a link to the ticket.*
 
 | Outcome | Meaning |
 |---|---|
@@ -367,17 +399,16 @@ The trailing number in **Detail** is a link to the ticket. Use **All Mailboxes**
 ## Tips and good practice
 
 - Keep at least two administrators, and use named accounts for all of them.
-- Give people the smallest role that lets them work. A custom role such as Help Desk Lead is safer than another administrator.
-- The built-in Technician role has no Knowledge base, Reports or Training. Add them to a custom role instead of editing Technician for everyone.
+- Give people the smallest role that lets them work. A custom role such as Help Desk Lead is safer than another administrator, and safer than editing Technician for everyone.
 - Treat **Credentials: Read** as the power to export every password. Check the audit log for **Credential** entries.
-- Turn on **Force MFA on next login** for every agent, and remember that **Disable** under **Edit → Security** is how you reset lost MFA.
-- Prefer read-only, single-department API keys with a short expiry. Revoke a key when its integration is retired, and watch the audit log for **API** entries such as failures from an expired key.
-- Raise **Log retention** if your policy needs longer history than the default. Copy older evidence somewhere else before you shorten it.
+- Turn on **Force MFA on next login** for every technician and **Require 2FA** for department logins with a Supervisor, Manager or agent role. **Disable** under **Edit → Security** resets lost MFA.
+- Prefer read-only, single-department API keys with a short expiry and an IP allow-list. Tick the delete permission only for an integration that must remove records, and revoke a key when its integration is retired.
+- Raise **Log retention** if your policy needs longer history. Copy older evidence somewhere else before you shorten it.
 - After a suspected incident: use **IR**, disable the accounts involved, then search the audit log for **Failed**, **Blocked** and unfamiliar addresses.
-- Tell the person before you change their role, archive them or disable MFA. Each of these takes effect at once.
+- Tell the person before you change their role, archive them or disable MFA. Each takes effect at once.
 
 ## Related guides
 
-- The [Department Portal guide](11-employee-portal.md), for portal logins and Microsoft sign-in from the employee side.
+- The [Department Portal guide](11-employee-portal.md), for portal logins, the Training tab and sign-in from the employee side.
 - The Service Desk guide, for how tickets and the mailbox requests mentioned in the Email Log are worked.
 - The Training guides, for what the Training and Training kiosk permissions open.

@@ -110,10 +110,11 @@ RivetIT collects and sends no telemetry. This step only reminds you what is left
 ### After the installer
 
 1. **Sign in.** Go to the sign-in page and use the email and password from step 3. The page and its options are described in [Getting started](01-getting-started.md#signing-in).
-2. **Turn on the scheduler.** Installing does not switch on scheduled work. Both Docker Compose and `deploy/install.sh` run RivetIT's cron job every few minutes, but the job does nothing until you open Administration → Settings → **Notifications**, tick **Enable Cron Job** and save. Email reminders, expiry alerts, recurring tickets, ticket automation and automatic backups all wait for this switch. See [Keep scheduled jobs running](13-administration-settings.md#keep-scheduled-jobs-running).
-3. **Set up backups.** Administration → **Maintenance → Backup** downloads, stores and schedules backups. Do this before you enter real data (see [Back up RivetIT](13-administration-settings.md#back-up-rivetit)).
-4. **Turn on the modules you will use.** Ticketing, IT Documentation, Knowledge Base, Training, Live Chat and the Department Portal are switched on under Administration → Settings → **Modules**.
-5. **Add your team.** Create agent accounts under Administration → Users (see [Administration: users and security](12-administration-users-and-security.md)), then your departments and people.
+2. **Check for database updates.** Open Administration → **Maintenance → Update** (see [Update RivetIT](13-administration-settings.md#update-rivetit)). If an **Update Database** button appears, take a backup, click it, and repeat until it disappears. A new install can start a few versions behind the code.
+3. **Turn on the scheduler.** Installing does not switch on scheduled work. Both Docker Compose and `deploy/install.sh` run RivetIT's cron job every few minutes, but the job does nothing until you open Administration → Settings → **Notifications**, tick **Enable Cron Job** and save. Email reminders, expiry alerts, recurring tickets, ticket automation and automatic backups all wait for this switch. See [Keep scheduled jobs running](13-administration-settings.md#keep-scheduled-jobs-running).
+4. **Set up backups.** Administration → **Maintenance → Backups** downloads, stores and schedules backups. Do this before you enter real data (see [Back up RivetIT](13-administration-settings.md#back-up-rivetit)).
+5. **Turn on the modules you will use.** Ticketing, IT Documentation, Knowledge Base, Training, Live Chat and the Department Portal are switched on under Administration → Settings → **Modules**.
+6. **Add your team.** Create agent accounts under Administration → Users (see [Administration: users and security](12-administration-users-and-security.md)), then your departments and people.
 
 ### If sign-in shows an HTTPS message
 
@@ -132,13 +133,13 @@ If you are moving RivetIT to a new server, you can restore a backup instead of c
 
 1. Do steps 1 and 2 above so the installer knows the (empty) database.
 2. On the welcome page (it now offers **Restore from Backup**) or in the left menu under **Utilities**, choose **Restore Backup**. Before step 2 is done, this page only tells you a database must be configured first.
-3. Choose the `.zip` file made by Administration → **Maintenance → Backup** (**Download Backup** or **Save to Server**) and click **Restore Backup**.
+3. Choose the `.zip` file made by Administration → **Maintenance → Backups** (**Download Backup** or **Save to Server**). If a **Backup encryption passphrase** was set when the backup was taken, type it into **Backup passphrase**; otherwise leave the box empty. Click **Restore Backup**.
 4. Wait. Large backups take several minutes; do not close the page. When it finishes you land on the sign-in page. Sign in with an account from the old server.
-5. Check the passwords RivetIT stores for outgoing and incoming mail, integrations and webhooks (see the note below).
+5. Read the message shown after the restore. If it says the key could not be recovered, re-enter the stored mail, integration and webhook passwords (see the note below).
 
-The restore **replaces everything**. It drops every table in the database and empties the `uploads` folder before loading the backup, so only use it on an empty or disposable database. The uploaded files are checked as they are unpacked: files that look like scripts or executables are rejected and the restore stops with a list of the ones it refused. A `.zip` from the app's own backup screen is what this form expects. The encrypted `backup-*.tar.gz.enc` files made by the server's disaster-recovery timer are restored with `deploy/restore.sh` on the command line instead (see [Deployment](../DEPLOYMENT.md#42-deploybackupsh-the-actual-dr-mechanism)).
+The restore **replaces everything**. It drops every table in the database and empties the `uploads` folder before loading the backup, so only use it on an empty or disposable database. The uploaded files are checked as they are unpacked: files that look like scripts or executables are rejected and the restore stops with a list of the ones it refused. A `.zip` from the app's own backup screen is what this form expects. The encrypted `backup-*.tar.gz.enc` files made by the server's disaster-recovery timer are restored with `deploy/restore.sh` on the command line instead (see [Deployment](../DEPLOYMENT.md#42-deploybackupsh-the-actual-dr-mechanism)). From the command line, `deploy/restore_admin_zip.sh` restores the app's own `.zip` backups.
 
-> **Stored secrets may need re-entering.** Mail, integration and webhook passwords are encrypted with a key that lives in `config.php` on the old server, not in the database. The backup carries a copy of that key in its `backup-manifest.json`, but the browser restore does not apply it. A fresh install has its own new key, so those saved passwords may no longer decrypt. Re-enter them under Administration → Settings after a restore (mail under **Mail**, integrations and webhooks under their own settings pages; see [Administration: settings](13-administration-settings.md)).
+> **Stored secrets.** Mail, integration and webhook passwords are encrypted with a key that lives in `config.php` on the old server, not in the database. Every backup carries a copy of that key in a small manifest, and the restore puts it into the new `config.php`, so those passwords keep working. If the manifest is encrypted and you leave **Backup passphrase** empty or type it wrongly, the restore still finishes but cannot recover the key; the page says so, and you must re-enter those passwords under Administration → Settings. Backups made before the manifest existed have no key to recover.
 
 ## Reference
 
@@ -157,7 +158,7 @@ The restore **replaces everything**. It drops every table in the database and em
 
 - Open the installer using the final address people will use. RivetIT stores that host name as its base address, and links in emails are built from it.
 - Use a strong, unique password for the first administrator, and add a second administrator soon so you are not locked out if one account has a problem.
-- Keep `config.php` private and include it in your server backups. It holds the key that protects stored mail, integration and webhook passwords. The app's own `.zip` backup does not contain `config.php`; it carries only a copy of that key in its manifest, which is readable unless you set a **Backup encryption passphrase** (see [Back up RivetIT](13-administration-settings.md#back-up-rivetit)).
+- Keep `config.php` private and include it in your server backups. It holds the key that protects stored mail, integration and webhook passwords. The app's own `.zip` backup does not contain `config.php`; it carries only a copy of that key in its manifest, which is readable by anyone who holds the file unless you set a **Backup encryption passphrase** (see [Back up RivetIT](13-administration-settings.md#back-up-rivetit)).
 - If the installer is reachable after you finish, it is not a security problem: it only redirects to the sign-in page once `config.php` says setup is complete.
 
 ## Related guides

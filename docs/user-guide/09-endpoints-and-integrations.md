@@ -6,9 +6,9 @@ These modules are different from the rest of the guide in one way: **the data co
 
 | | |
 |---|---|
-| **Where to find it** | Sidebar → **Alerts**; sidebar → **Endpoints** (Intune Devices, RMM Dashboard, Assets, RMM Alerts, Scripts, Check Policies, Network); sidebar → **Backups**. Set-up pages: user menu → **Administration** → Settings → **Integrations**. |
+| **Where to find it** | Sidebar → **Alerts**; sidebar → **Endpoints** (Intune Devices, RMM Dashboard, Assets, RMM Alerts, Scripts, Check Policies, Network); sidebar → **Backups**. Set-up pages: user menu → **Administration** → **Settings** → **Integrations** (under **Connections & data**). |
 | **Who can use it** | Each part has its own permission, listed under [Permissions](#permissions). The default Technician role has none of the RMM permissions, so an administrator must grant them first. |
-| **Turn it on** | Administration → Settings → **Integrations**. Each service has an on/off switch on its own tab (RMM, Backups, UniFi, Device Sync). The **Endpoints** and **Backups** menu items only appear once the matching switch is on. |
+| **Turn it on** | Administration → **Settings** → **Integrations**. Each service has an on/off switch on its own tab (**RMM**, **Backups**, **Firewalls**, **UniFi**, **Device Sync**). The **Endpoints** and **Backups** menu items only appear once the matching switch is on. The Integrations page also has **Directory Sync** (Microsoft 365 and Google Workspace) and **Odoo** tabs; the Microsoft 365 connection on **Directory Sync** is shared with Intune, and the **Odoo** tab is covered in [Administration: Settings](13-administration-settings.md), not here. |
 
 ## How the pieces fit together
 
@@ -39,6 +39,8 @@ The **Alerts** page is the one place to work through problems reported by your i
 
 - **RMM alerts**: disk nearly full, service stopped, high CPU, device offline and similar, as reported by the RMM. They arrive when the RMM is synced.
 - **Backup alerts**: a failed or missed Comet backup. RivetIT creates these itself, together with a High-priority ticket, when Comet reports a failed job or a device has had no backup for 48 hours.
+
+The page header has **RMM Dashboard** and **Backup Dashboard** buttons that jump to those screens.
 
 ![Alerts page with call-outs 1 to 6](images/endpoints/02-alerts-list.png)
 
@@ -97,7 +99,7 @@ Endpoints → **RMM Dashboard**.
 - **(1)** Counters: **Online**, **Offline**, **Managed**, **New Alerts** (with the number of critical and error alerts), **Open Tickets** and **Script Runs** in the last 24 hours. Open Tickets counts every open ticket in RivetIT, not only tickets made from alerts. Click a card to open the matching list.
 - **(2)** **Fleet Health** lists devices that need attention: a reboot is pending, or CPU, RAM or disk is at 90% or more (red at 90%, amber at 75%). The badges count devices that **need reboot**, are **pressured** and are in **maintenance**.
 - **(3)** **Patch Compliance** shows how many devices are up to date, have updates pending, or have not reported, with the names of devices that need updates.
-- **(4)** **Sync Now** pulls devices and alerts from the RMM straight away (needs RMM sync access). The top bar also shows the time of the last successful sync and, when there is more than one integration, a selector next to the button.
+- **(4)** **Sync Now** pulls devices and alerts from the RMM straight away (needs RMM sync access). The top bar also shows the time of the last successful sync, the **All Assets** and **Alerts** buttons (the latter with the number of new alerts) and, when there is more than one integration, a selector next to the button.
 
 ![Lower half of the RMM Dashboard](images/endpoints/04-rmm-dashboard-lower.png)
 
@@ -114,7 +116,7 @@ Endpoints → **Assets** lists every linked device.
 *Figure 5 — RMM Assets. (1) integration filter, (2) status filter, (3) hostname, (4) open the asset.*
 
 1. Use **(1)** to show one integration and **(2)** to show **Online**, **Offline** or **Unknown** devices. The counters above the list filter too. **Unknown** means the RMM has not reported a status yet.
-2. Choose one integration in **(1)** and a **Sync from ...** button appears at the top. It syncs just that integration.
+2. Choose one integration in **(1)** and a **Sync from ...** button appears at the top. It syncs only that integration.
 3. Click a hostname **(3)** or the blue button **(4)** to open the asset page.
 
 Endpoints → **RMM Alerts** is the same alert list as the Alerts page, limited to RMM alerts. The **Settings** button at the top right of RMM Assets (and of Network and Intune Devices) opens Administration → Integrations.
@@ -163,7 +165,7 @@ Endpoints → **Scripts** opens the **Script Library**: PowerShell, CMD, Python 
 
 - **(1) Sync from ...** imports the script list from the default RMM integration. Each script gets the RMM's script number, shown in **Tact. ID**. Scripts you type in yourself have no number until you enter one in the edit form.
 - The play button **(4)** is greyed out for a script without a **Tact. ID**. The eye **(5)** shows the stored code. The pencil edits and the red bin deletes.
-- **(3)** filters by Maintenance, Repair, Inventory, Security or Software Install. Synced scripts in another category only show under **All**.
+- **(3)** The category tabs show a count each: **All**, Maintenance, Repair, Inventory, Security and Software Install. Synced scripts in another category only show under **All**. The search box beside the tabs finds a script by name.
 - The **Runs** column shows how many times a script ran and how many failed. **Recent Script Runs** lists the latest 25 runs below the library.
 
 #### Run a script on a device
@@ -228,11 +230,11 @@ Endpoints → **Network** lists every asset of type **Firewall/Router**, **Switc
 - Status comes from the RMM link when there is one. Otherwise an asset whose status contains Deployed, Active or Connected counts as online and every other status counts as offline.
 - A red **Click to view** badge means the device has new alerts. It opens the linked ticket if there is one, or the Alerts page filtered to Network.
 - **(3) Sync Firewalls** only appears when a Sophos Central integration is enabled and you have RMM sync access.
-- The old address `firewalls.php` simply redirects to this page.
+- The old address `firewalls.php` redirects to this page.
 
 ### Connect an RMM
 
-This is an administrator task. Go to user menu → **Administration** → Settings → **Integrations** → **RMM** tab.
+This is an administrator task. Go to user menu → **Administration** → **Settings** → **Integrations** → **RMM** tab.
 
 ![RMM tab of the Integrations settings](images/endpoints/14-settings-rmm.png)
 
@@ -254,9 +256,9 @@ Other settings on the tab:
 |---|---|
 | **Connect/Remote Preference** | When one device is in both Tactical RMM and Level.io, decides which one the Connect button and status use. |
 | **Automatic Ticket Creation** | Tick the severities (Critical, Error, Warning, Info) that should get a ticket made for them automatically. Nothing is ticked at first. Tickets are made by the scheduled job described below and have the source **RMM Automation**. |
-| **Device Metrics** | Switch and retention settings for the Performance tab. |
+| **Device Metrics** | Switch (with an **Active** or **Paused** badge), sample interval and retention settings for the Performance tab. |
 
-Sophos Central firewalls use the **Firewalls** tab instead. It asks for a Client ID and Client Secret from Sophos Central → Global Settings → API Credentials (single-tenant only) and a **Default Department** for new firewalls. A mapping table lets you assign each synced firewall to a department.
+Sophos Central firewalls use the **Firewalls** tab instead (click **Add Connection**, then enter a name, API entry point, Client ID and Client Secret). It asks for a Client ID and Client Secret from Sophos Central → Global Settings → API Credentials (single-tenant only) and a **Default Department** for new firewalls. A mapping table lets you assign each synced firewall to a department.
 
 **What each provider can do**
 
@@ -271,7 +273,7 @@ Sophos Central firewalls use the **Firewalls** tab instead. It asks for a Client
 
 Note: in this version, **Connect** on an Action1 or Sophos Central device fails with an error instead of opening a session.
 
-**Scheduled work.** Keeping RMM data fresh, creating automatic tickets, polling Comet and syncing Intune are done by RivetIT's scheduled job (`cron/cron.php`). If nobody has scheduled it, data only changes when someone clicks **Sync Now**. Ask whoever installed RivetIT to check that the job runs. When the RMM clears an alert, RivetIT resolves it and closes its ticket, unless someone has already replied to that ticket, in which case the ticket stays open with a note.
+**Scheduled work.** Keeping RMM data fresh, creating automatic tickets, polling Comet and syncing Intune are done by RivetIT's scheduled job (`cron/cron.php`), which also needs **Enable Cron Job** switched on under Administration → **Settings** → **Notifications**. If nobody has scheduled it, data only changes when someone clicks **Sync Now**. An administrator can see whether it ran, and change its schedule, under Administration → **Maintenance** → **Scheduled jobs** (see [Administration: Settings](13-administration-settings.md)). When the RMM clears an alert, RivetIT resolves it and closes its ticket, unless someone has already replied to that ticket, in which case the ticket stays open with a note.
 
 ## Intune Devices
 
@@ -289,7 +291,7 @@ Endpoints → **Intune Devices** lists devices managed in Microsoft Intune that 
 **Set it up** (administrator):
 
 1. Register an app in Microsoft Entra ID and grant it the Microsoft Graph application permission `DeviceManagementManagedDevices.Read.All` with admin consent. RivetIT cannot do this for you.
-2. In Administration → Settings → Integrations → **Directory Sync**, enter the **Tenant ID**, **Application (Client) ID** and **Client Secret**, switch **Enabled** on and click **Save**.
+2. In Administration → **Settings** → **Integrations** → **Directory Sync**, in the **Microsoft 365 / Entra ID** card, enter the **Tenant ID**, **Application (Client) ID** and **Client Secret**, switch **Enabled** on and click **Save**. (**Test Connection** checks the credentials.) The same connection is used for Entra ID user sync; the Google Workspace card on that tab is unrelated to Intune.
 3. On the **Device Sync** tab, switch on **Enable Intune Devices module** and **Save Module Settings** to show the menu item. Then switch on **Sync devices from Intune**, click **Save**, and click **Sync Now**.
 
 ![Device Sync tab](images/endpoints/17-settings-device-sync.png)
@@ -302,7 +304,7 @@ The Intune menu item needs only Departments access, so it also shows for technic
 
 UniFi has no page in the agent menu. It fills other areas: **Assets** and **Network** (access points, switches and gateways), **Credentials** (Wi-Fi networks that have a password, named "Wi-Fi: " and the network name) and **Networks** (VLANs and subnets).
 
-**Set it up** (administrator): Administration → Settings → Integrations → **UniFi**.
+**Set it up** (administrator): Administration → **Settings** → **Integrations** → **UniFi**.
 
 ![UniFi tab](images/endpoints/18-settings-unifi.png)
 
@@ -311,7 +313,7 @@ UniFi has no page in the agent menu. It fills other areas: **Assets** and **Netw
 1. Switch on **Enable UniFi module** **(1)** and save.
 2. Click **Add Controller (2)**. Choose **Local Controller** (a UDM, Cloud Key or similar: enter its host or IP and port, and tick **Verify SSL certificate** only if it has a trusted certificate) or **Cloud Site Manager** (`api.ui.com`, covers every site in your Ubiquiti account). Paste the API key from UniFi OS → Settings → Control Plane → Integrations → API Key.
 3. Click **Test**, then **Sync Now (3)**. The **Recent Sync Log** shows devices, Wi-Fi networks and networks as +created / ~updated / -skipped.
-4. Under **Site → Department Mappings (4)**, each UniFi site is matched to the department with the same name. **no match** means the site is not synced. Pick a department in the drop-down to override, or **Skip** to leave a site out.
+4. Under **Site → Department Mappings (4)**, each UniFi site is matched to the department with the same name. **no match** means the site is not synced. Pick a department in the drop-down to override, or **Skip (don't sync)** to leave a site out, then click **Save All Mappings**. **Refresh** and **Refresh All Sites** reload the site lists from the controllers, and the **Sites** button on a controller row does the same for that controller.
 
 ## Backups (Comet)
 
@@ -329,14 +331,14 @@ Sidebar → **Backups** opens the **Backup Dashboard**: the last backup of every
 
 When RivetIT hears about a failed backup it creates one alert and one ticket per device (priority High). It hears in two ways: Comet calls RivetIT's webhook after each job, and the scheduled job polls Comet as a fallback. Separately, a device with no backup activity for 48 hours gets a **missed** alert. When a later backup succeeds, the alert and ticket resolve by themselves. In this version RivetIT creates these tickets whether or not the **Auto-create tickets on backup failure** box in settings is ticked.
 
-**Set it up** (administrator): Administration → Settings → Integrations → **Backups**.
+**Set it up** (administrator): Administration → **Settings** → **Integrations** → **Backups**.
 
 ![Backups tab (Comet settings)](images/endpoints/20-settings-comet.png)
 
 *Figure 20 — The Backups tab. (1) enable switch, (2) server URL, (3) webhook secret, (4) department mapping.*
 
 1. Switch on **Enable Comet Backup integration (1)**.
-2. Enter the **Server URL (2)** of your Comet server, for example `http://10.0.0.35:8060`, and the **Admin Username** and **Admin Password** of a Comet admin account. If that account uses two-factor sign-in, enter its **TOTP Secret** (the base32 code from the authenticator app) so RivetIT can sign in on its own.
+2. Enter the **Server URL (2)** of your Comet server, for example `http://10.0.0.35:8060`, and the **Admin Username** and **Admin Password** of a Comet admin account. If that account uses two-factor sign-in, enter its **TOTP Secret** (the base32 code from the authenticator app) so RivetIT can sign in on its own. **View Backup Status** next to the save button opens the same device backup status in the administration area.
 3. Enter a **Webhook Secret (3)**: any random string. In Comet Server → Admin → Server Settings → Webhooks, add the webhook URL shown on the page (`https://your-rivetit-address/comet_webhook.php`), the event **Job Completed (4201)**, and the custom header **X-Comet-Secret** with the same secret.
 4. Click **Save & Test Connection**. The badge at the top of the card turns to **Connected** or **Cannot reach server**, with the reason under it.
 5. Once connected, the **Department → Comet User Mapping (4)** card lists your departments. Pick the Comet user that belongs to each and click **Save Mappings**. Without mapping, backups still show but have no department.
@@ -346,7 +348,7 @@ When RivetIT hears about a failed backup it creates one alert and one ticket per
 RivetIT can chart device performance on the asset's **Performance** tab. Basic figures (CPU, memory, disk, uptime, pending reboot) come from the RMM itself. Finer detail (per-core CPU, disk speed, network traffic, battery) needs a small PowerShell script, `scripts/collector/itflow_metrics_collector.ps1`, which runs on each Windows device as a Tactical RMM script check every five minutes and sends its readings to RivetIT.
 
 - The switch is **Collect device performance metrics** on the RMM tab (Device Metrics card), with the sample interval and how long to keep raw and hourly data. Turning it off keeps existing history.
-- Collection needs a scheduled job, `cron/metrics_collect.php`, which is separate from the main scheduled job. Without it nothing is gathered, whatever the switch says.
+- Collection needs a scheduled job, `cron/metrics_collect.php`, which is separate from the main scheduled job and is not the one **Maintenance → Scheduled jobs** lists unless an administrator has installed it. Without it nothing is gathered, whatever the switch says.
 - Setting up the script means uploading it to Tactical RMM, creating a script check and creating an enrollment token. The steps are in `scripts/collector/README.md`.
 - **Availability.** In this version the receiving address for the script (`/api/v1/metrics-ingest`) is not connected to RivetIT's API router, and there is no screen for creating enrollment tokens. Treat the collector as unfinished until your administrator or vendor confirms otherwise. The RMM-supplied figures are not affected.
 
@@ -386,4 +388,5 @@ People limited to certain departments only see alerts, devices and backups of th
 - [Service Desk](03-service-desk.md): the tickets created from alerts and backup failures.
 - Assets and IT documentation: the asset record that an RMM device attaches to.
 - Reports → **RMM Health**: alert volume, severity and noisiest devices over time.
-- Administration → Roles and Settings: permissions and the Integrations page.
+- [Administration: Settings](13-administration-settings.md): the Integrations page (including the **Odoo** tab), Notifications and **Maintenance → Scheduled jobs**.
+- Administration → **Roles**: permissions.

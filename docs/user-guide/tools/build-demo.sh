@@ -30,7 +30,7 @@
 # The server runs with Docker-style upload limits (500M) so the setup wizard's checks page looks like a
 # properly provisioned server; install `whois` and `dnsutils` (dig) if you want those checks green too.
 #
-# Needs: bash, php (mysqli + zip), tar, curl, and MariaDB/MySQL reachable as root over the local
+# Needs: bash, php (mysqli + zip), composer, tar, curl, and MariaDB/MySQL reachable as root over the local
 # socket (override the client command with MYSQL_ROOT="mysql -u root -p...").
 set -euo pipefail
 
@@ -120,6 +120,14 @@ if [[ -d "${APP_DIR}/uploads" ]]; then
     find "${APP_DIR}/uploads" -type f ! -name index.php ! -name .htaccess -delete
 fi
 
+# The repository tracks only part of vendor/ (the rest is installed by composer, as install.sh does), so a
+# plain copy of a developer checkout can miss packages the code needs. Install them into the scratch copy.
+if [[ -f "${APP_DIR}/composer.json" ]]; then
+    command -v composer >/dev/null 2>&1 || die "composer is required to install the PHP dependencies (https://getcomposer.org)"
+    step "Installing PHP dependencies (composer install --no-dev)"
+    ( cd "${APP_DIR}" && composer install --no-dev --optimize-autoloader --no-interaction --quiet )
+fi
+
 # ---- 2. database + first-run setup -------------------------------------------------------------
 step "Creating database ${DB_NAME}"
 ${MYSQL_ROOT} <<SQL
@@ -145,19 +153,33 @@ if [[ "${SKIP_SETUP}" -eq 0 ]]; then
   # http:// demo server: the session cookie must not be marked Secure-only
   sed -i 's/\$config_https_only = TRUE;/$config_https_only = FALSE;/' "${APP_DIR}/config.php"
 
+  # db.sql is a schema snapshot (see its RIVETIT_SCHEMA_VERSION line); setup_cli.php records that version and
+  # install.sh then runs the migrations that came after it. Do the same here, or newer features have no columns.
+  step "Applying database migrations (scripts/update_cli.php --update_db)"
+  # update_cli.php applies ONE version step per call (install.sh loops the same way), so repeat until done.
+  for _ in $(seq 1 200); do
+      out="$( cd "${APP_DIR}/scripts" && php update_cli.php --update_db 2>&1 )" || { echo "${out}" >&2; die "update_cli.php --update_db failed"; }
+      [[ "${out}" == *"already at the latest version"* ]] && break
+  done
+  echo "  ${out}" | tail -1
+
   # ---- 3. modules the guide documents ------------------------------------------------------------
   step "Enabling the documented modules"
   ${MYSQL_ROOT} "${DB_NAME}" -e "UPDATE settings SET config_module_enable_kb=1, config_module_enable_training=1, config_module_enable_live_chat=1, config_client_portal_enable=1, config_ticket_csat_enable=1 WHERE company_id=1;"
 
   # ---- 4. demo data ------------------------------------------------------------------------------
   step "Replaying seed files"
+  # The app keeps company-local times (America/Chicago) but a plain `mysql` session is UTC, so SQL seeds that
+  # use NOW() would land hours in the future ("5 hours from now"). Give SQL seeds the company's UTC offset.
+  # (PHP seeds load the app's own timezone code; seeds that manage the clock themselves just override this.)
+  SEED_TZ_OFFSET="$(php -r 'date_default_timezone_set("America/Chicago"); echo date("P");')"
   mapfile -t SEEDS < <(find "${TOOLS_DIR}/seed" -maxdepth 1 -type f \( -name '*.sql' -o -name '*.php' \) | sort)
   for f in "${SEEDS[@]}"; do
       base="$(basename "${f}")"
       if [[ -n "${ONLY}" && "${base}" != ${ONLY} ]]; then continue; fi
       echo "--- ${base}"
       case "${f}" in
-          *.sql) ${MYSQL_ROOT} "${DB_NAME}" < "${f}" || die "seed ${base} failed" ;;
+          *.sql) ${MYSQL_ROOT} --init-command="SET time_zone='${SEED_TZ_OFFSET}'" "${DB_NAME}" < "${f}" || die "seed ${base} failed" ;;
           *.php) RIVETIT_APP_DIR="${APP_DIR}" php "${f}" || die "seed ${base} failed" ;;
       esac
   done

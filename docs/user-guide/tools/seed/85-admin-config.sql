@@ -207,12 +207,10 @@ SELECT x.n, x.d, x.i, x.s,
        (SELECT category_id FROM categories WHERE category_name = x.cat AND category_type = 'Ticket' AND category_archived_at IS NULL LIMIT 1),
        x.p, x.a, x.o
 FROM (
-  SELECT 'Request a New Laptop' AS n, 'Order a laptop for a new starter or a replacement.' AS d, 'fa-laptop' AS i, 'New laptop request' AS s, 'Hardware' AS cat, 'Medium' AS p, 1 AS a, 10 AS o
-  UNION ALL SELECT 'Install Software', 'Ask for an application to be installed on your PC.', 'fa-download', 'Software installation request', 'Software', 'Low', 1, 20
-  UNION ALL SELECT 'Shared Drive Access', 'Get access to a department or project folder.', 'fa-folder-open', 'Shared drive access request', 'Access & Accounts', 'Medium', 1, 30
-  UNION ALL SELECT 'Guest Wi-Fi Voucher', 'Visitors on site who need internet access.', 'fa-wifi', 'Guest Wi-Fi voucher request', 'Network', 'Low', 1, 40
-  UNION ALL SELECT 'Report a Broken Scanner', 'Barcode scanner or handheld not working.', 'fa-barcode', 'Scanner or handheld fault', 'Hardware', 'High', 1, 50
-  UNION ALL SELECT 'Conference Room AV Help', 'Screen, camera or speakerphone problem.', 'fa-video', 'Conference room AV problem', 'Other', 'Medium', 0, 60
+  -- The common tiles (laptop, software, shared folder) come from 70-portal.php; these three are additional ones.
+  SELECT 'Guest Wi-Fi Voucher' AS n, 'Visitors on site who need internet access.' AS d, 'fa-wifi' AS i, 'Guest Wi-Fi voucher request' AS s, 'Network' AS cat, 'Low' AS p, 1 AS a, 70 AS o
+  UNION ALL SELECT 'Report a Broken Scanner', 'Barcode scanner or handheld not working.', 'fa-barcode', 'Scanner or handheld fault', 'Hardware', 'High', 1, 80
+  UNION ALL SELECT 'Conference Room AV Help', 'Screen, camera or speakerphone problem.', 'fa-video', 'Conference room AV problem', 'Other', 'Medium', 0, 90
 ) x WHERE NOT EXISTS (SELECT 1 FROM service_catalog_items s WHERE s.name = x.n);
 
 -- ---- Ticket automation rules --------------------------------------------------------------------

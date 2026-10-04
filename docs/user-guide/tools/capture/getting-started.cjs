@@ -284,7 +284,7 @@ async function departmentId(page, name) {
       const companyRail = await railPng(page);
 
       await composite(browser, `${G}/03-three-scopes`, [
-        { label: 'App-level sidebar', note: 'All departments together. Shown on the start page and on most lists.', png: appRail },
+        { label: 'App-level sidebar', note: 'All departments together. Shown on the start page and on lists opened from a sidebar group.', png: appRail },
         { label: 'Department workspace', note: 'One department (here: Production). Shown whenever the page is opened for a department.', png: deptRail },
         { label: 'Company-wide', note: 'One list across every department you can see. Opens from People.', png: companyRail },
       ]);

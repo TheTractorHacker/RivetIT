@@ -102,23 +102,32 @@ function fsRenameRelation(rel) {
     await clearCallouts(page);
 
     // 02 - filtered to one category: scope badges and the portal-visibility icon on each card
-    const printingId = await page.evaluate(() => {
-      const o = [...document.querySelectorAll('select[name=filter_category_id] option')].find((x) => x.textContent.trim() === 'Printing');
+    const netId = await page.evaluate(() => {
+      const o = [...document.querySelectorAll('select[name=filter_category_id] option')].find((x) => x.textContent.trim() === 'Network & Wi-Fi');
       return o ? o.value : null;
     });
-    if (!printingId) throw new Error('Printing category missing');
-    await open(page, `/agent/kb_articles.php?filter_category_id=${printingId}`, { expect: ['Connecting to the Office Printer', 'Label Printer Quick Fixes'] });
+    if (!netId) throw new Error('Network & Wi-Fi category missing');
+    await open(page, `/agent/kb_articles.php?filter_category_id=${netId}`, { expect: ['Connect to the staff Wi-Fi', 'Site Network Reference', 'Use the VPN from home'] });
+    const wifiCard = page.locator('.card.h-100:has-text("Connect to the staff Wi-Fi")').first();
+    const siteCard = page.locator('.card.h-100:has-text("Site Network Reference")').first();
+    await callout(page, [
+      { selector: await mark(wifiCard.locator('.fa-check'), 'i-vis'), n: 1, side: 'tl' },
+      { selector: await mark(wifiCard.locator('.fa-graduation-cap'), 'i-train'), n: 2, side: 'tr' },
+      { selector: await mark(siteCard.locator('.fa-eye-slash'), 'i-hid'), n: 3, side: 'tl' },
+    ]);
     await shot(page, next('kb-category-filter'), { selector: '.card.card-dark' });
+    await clearCallouts(page);
 
     // 03 - an article: content, details panel, attachments
     await openArticle(page, 'Connecting to the Office Printer');
     await callout(page, [
       { selector: await mark(page.locator('.card-sidebar p:has-text("Scope")'), 'scope'), n: 1, side: 'tr' },
       { selector: await mark(page.locator('.card-sidebar p:has-text("Department Portal")'), 'portal'), n: 2, side: 'tr' },
-      { selector: await mark(page.locator('.card-sidebar p:has-text("Review Schedule")'), 'review'), n: 3, side: 'tr' },
-      { selector: await mark(page.locator('.card-sidebar button.btn-primary:has-text("Edit")'), 'edit'), n: 4, side: 'tr' },
-      { selector: await mark(page.locator('.card-sidebar a:has-text("Version History")'), 'ver'), n: 5, side: 'tr' },
-      { selector: await mark(page.locator('.card-sidebar:has-text("Attachments")'), 'att'), n: 6, side: 'tr' },
+      { selector: await mark(page.locator('.card-sidebar p:has-text("Training Portal")'), 'training'), n: 3, side: 'tr' },
+      { selector: await mark(page.locator('.card-sidebar p:has-text("Review Schedule")'), 'review'), n: 4, side: 'tr' },
+      { selector: await mark(page.locator('.card-sidebar button.btn-primary:has-text("Edit")'), 'edit'), n: 5, side: 'tr' },
+      { selector: await mark(page.locator('.card-sidebar a:has-text("Version History")'), 'ver'), n: 6, side: 'tr' },
+      { selector: await mark(page.locator('.card-sidebar:has-text("Attachments")'), 'att'), n: 7, side: 'tr' },
     ]);
     await shot(page, next('kb-article'));
     await clearCallouts(page);
@@ -128,6 +137,7 @@ function fsRenameRelation(rel) {
     const versionsHref = await page.locator('a:has-text("Version History")').first().getAttribute('href');
 
     // 04 - New article dialog (editor loads a moment after the dialog opens)
+    await page.setViewportSize({ width: 1440, height: 1300 });
     await open(page, '/agent/kb_articles.php');
     await page.click('button.dropdown-toggle:has-text("New")');
     await page.click('.dropdown-menu.show a:has-text("Article")');
@@ -140,10 +150,12 @@ function fsRenameRelation(rel) {
       { selector: await mark(page.locator(`${MODAL} select[name=client_id] + .select2`), 'd'), n: 2 },
       { selector: await mark(page.locator(`${MODAL} select[name=category_id] + .select2`), 'c'), n: 3 },
       { selector: await mark(page.locator(`${MODAL} select[name=client_visible] + .select2`), 'v'), n: 4 },
-      { selector: await mark(page.locator(`${MODAL} .doc-builder-tabs`), 'tabs'), n: 5, side: 'tr' },
+      { selector: await mark(page.locator(`${MODAL} select[name=training_visible] + .select2`), 'tv'), n: 5 },
+      { selector: await mark(page.locator(`${MODAL} .doc-builder-tabs`), 'tabs'), n: 6, side: 'tr' },
     ]);
     await shot(page, next('kb-new-article'), { selector: MODAL });
     await clearCallouts(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
 
     // 05 - the Interactive menu in the editor toolbar
     await page.locator(`${MODAL} .tox-tbtn:has-text("Interactive")`).first().click();
@@ -242,29 +254,36 @@ function fsRenameRelation(rel) {
     await open(page, '/agent/credentials.php', { expect: ['Credentials', 'Edge Firewall (FW-EDGE-01) - Admin'] });
     if (await page.locator('.alert-warning:has-text("vault is locked")').count()) throw new Error('vault is locked for the capture login');
     const fwRow = page.locator('tr:has-text("Edge Firewall (FW-EDGE-01) - Admin")').first();
+    const pwCell = fwRow.locator('td').nth(3);
     await callout(page, [
       { selector: await mark(page.locator('button:has-text("New Credential")'), 'nc'), n: 1, side: 'tl' },
       { selector: await mark(page.locator('input[name=q]'), 'cq'), n: 2 },
-      { selector: await mark(fwRow.locator('td').nth(3).locator('button.clipboardjs'), 'pw'), n: 3, side: 'tr' },
-      { selector: await mark(fwRow.locator('.otp-reveal-trigger'), 'otp'), n: 4, side: 'tl' },
-      { selector: await mark(fwRow.locator('a[href*="credentials.php?client_id="]'), 'dept'), n: 5, side: 'tr' },
-      { selector: await mark(fwRow.locator('button[data-bs-toggle=dropdown]').last(), 'act'), n: 6, side: 'tr' },
+      { selector: await mark(fwRow.locator('a.cred-name-link'), 'cname'), n: 3, side: 'tl' },
+      { selector: await mark(pwCell.locator('button[aria-label="Show password"]'), 'eye'), n: 4, side: 'tl' },
+      { selector: await mark(pwCell.locator('button.clipboardjs'), 'pw'), n: 5, side: 'tr' },
+      { selector: await mark(fwRow.locator('.otp-reveal-trigger'), 'otp'), n: 6, side: 'tr' },
+      { selector: await mark(fwRow.locator('a[href*="credentials.php?client_id="]'), 'dept'), n: 7, side: 'tr' },
+      { selector: await mark(fwRow.locator('button[data-bs-toggle=dropdown]').last(), 'act'), n: 8, side: 'tr' },
     ]);
     await shot(page, next('cred-list'));
     await clearCallouts(page);
 
-    // 17 - hover the OTP column to get the current six-digit code
+    // 17 - the eye button opens a pop-up with the password; hovering the OTP column shows the code
+    await pwCell.locator('button[aria-label="Show password"]').click();
+    await page.waitForSelector('.popover.show', { timeout: 5000 });
     await fwRow.locator('.otp-reveal-trigger').hover();
     await page.waitForFunction(() => /\d{6}/.test((document.querySelector('.otp-reveal-trigger span[id^=otp_]') || {}).textContent || ''), null, { timeout: 8000 });
     const box = await fwRow.boundingBox();
     await callout(page, [
-      { selector: await mark(fwRow.locator('td').nth(3), 'pwcell'), n: 1, side: 'tl' },
-      { selector: await mark(fwRow.locator('.otp-reveal-trigger'), 'otp2'), n: 2, side: 'tl' },
+      { selector: await mark(pwCell.locator('button[aria-label="Show password"]'), 'eye2'), n: 1, side: 'tl' },
+      { selector: await mark(page.locator('.popover.show'), 'pop'), n: 2, side: 'tr' },
+      { selector: await mark(pwCell.locator('button.clipboardjs'), 'copy2'), n: 3, side: 'br' },
+      { selector: await mark(fwRow.locator('.otp-reveal-trigger'), 'otp2'), n: 4, side: 'tl' },
     ]);
     const revealName = next('cred-reveal');
     await page.screenshot({
       path: require('path').join(require('../lib.cjs').OUT, `${revealName}.png`),
-      clip: { x: 290, y: Math.max(0, box.y - 14), width: 1300, height: box.height + 28 },
+      clip: { x: 290, y: Math.max(0, box.y - 60), width: 1300, height: box.height + 80 },
     });
     console.log('saved', `docs/user-guide/images/${revealName}.png`);
     await clearCallouts(page);
@@ -347,7 +366,7 @@ function fsRenameRelation(rel) {
 
     // 24/25 - administration: Vault Encryption, Encryption Key Backup, 26 - Credential Restore
     await open(page, '/admin/settings_security.php', { expect: 'Vault Encryption' });
-    await shot(page, next('vault-encryption'), { selector: '.card.card-dark >> nth=0' });
+    await shot(page, next('vault-encryption'), { selector: '.card:has(.card-title:has-text("Vault Encryption"))' });
     await open(page, '/admin/backup.php', { expect: 'Encryption Key Backup' });
     {
       // the card stretches to the height of its neighbour; keep just the part with content
@@ -360,7 +379,7 @@ function fsRenameRelation(rel) {
       console.log('saved', `docs/user-guide/images/${kname}.png`);
     }
     await open(page, '/admin/credential_restore.php', { expect: 'Credential Restore' });
-    await shot(page, next('credential-restore'), { selector: '.card.card-dark' });
+    await shot(page, next('credential-restore'), { selector: '.card:has(.card-title:has-text("Credential Restore"))' });
 
     // 27 - printers (app level shows company-wide printers), 28 - New Printer, 29 - details
     await open(page, '/agent/printers.php', { expect: ['Printers', 'HQ Copy Room - Ricoh IM C3000'] });

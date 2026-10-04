@@ -6,7 +6,7 @@ The Dashboard is the page you land on when you sign in: a live summary of the se
 |---|---|
 | **Where to find it** | Dashboard: sidebar → **Dashboard** (the first item). Reports: sidebar → **Reports** (near the bottom of the sidebar). Both are company-wide: there is no per-department version, so they look the same from inside a department workspace. |
 | **Who can use it** | Dashboard: any agent who has Departments, Tickets, assets & docs, or Assets. Each widget also checks its own permission (see [Who sees what](#who-sees-what-on-the-dashboard)). Reports: the role needs **Reporting** switched on, plus read access to the area a report covers (Tickets, assets & docs for the ticket reports, Credentials for the credential reports). Administrators always have everything. |
-| **Turn it on** | Nothing to enable. CSAT tiles and the CSAT report need **Enable CSAT ratings** in Administration → Settings → Ticket. Scheduled email needs the cron job and outgoing mail (see [Scheduled reports](#scheduled-reports)). |
+| **Turn it on** | Nothing to enable. CSAT tiles and the CSAT report need **Enable CSAT ratings** in Administration → Settings → Ticketing. Scheduled email needs the scheduler (Administration → Maintenance → Scheduled jobs and Settings → Notifications) and outgoing mail (see [Scheduled reports](#scheduled-reports)). |
 
 This page covers the Dashboard, how reports work in general, and scheduled reports. Each individual report is explained in [Report reference](10b-report-reference.md).
 
@@ -63,9 +63,9 @@ There are three bands of tiles. Each tile is a link.
 | **Active Tickets** | Every ticket that is not closed. This can be slightly higher than **Open Tickets**, which also leaves out resolved tickets. |
 | **Opened Today** | Tickets created today. |
 | **Resolved This Week** | Tickets closed in the last seven days. |
-| **Waiting on Employee** | Open tickets whose status is named *Waiting on Employee* (or *Waiting on Customer*). The standard statuses do not include either name, so this tile stays at 0 until an administrator adds a status with that name in Administration → Ticketing → Ticket Statuses. |
+| **Waiting on Employee** | Open tickets whose status is named *Waiting on Employee* (or *Waiting on Customer*). The standard statuses do not include either name, so this tile stays at 0 until an administrator adds a status with that name in Administration → Ticketing → Ticket statuses. |
 
-**Historical Tickets band** (see [Historical band](#historical-band-and-your-tickets) below)
+**Historical Tickets band** (see [Historical band](#historical-band-and-your-open-tickets) below)
 
 ### Ticket charts
 
@@ -82,7 +82,7 @@ There are three bands of tiles. Each tile is a link.
 The three doughnuts describe tickets that are not closed right now:
 
 - **By Priority**: High (red), Medium (amber), Low (blue).
-- **By Status**: uses the colours set for each status in Administration → Ticketing → Ticket Statuses (up to eight).
+- **By Status**: uses the colours set for each status in Administration → Ticketing → Ticket statuses (up to eight).
 - **By Category**: uses each category's colour; tickets without a category show as *Uncategorized* (up to eight).
 
 **Open Tickets by Technician** shows each technician's share of the open queue (top eight). A card is left out when it would be empty.
@@ -97,7 +97,7 @@ The three doughnuts describe tickets that are not closed right now:
 |---|---|
 | **Created in *year*** | Tickets created in the year. |
 | **Resolved in *year*** | Tickets closed in the year. |
-| **Avg Resolution Time** | Average hours from creation to closing, for tickets closed in the year. Tickets linked to a project are left out by default, and the tile shows **N/A** when nothing was closed. An administrator can hide it or include project tickets under Administration → Settings → Ticket → Reporting. |
+| **Avg Resolution Time** | Average hours from creation to closing, for tickets closed in the year. Tickets linked to a project are left out by default, and the tile shows **N/A** when nothing was closed. An administrator can hide it (**Show Avg Resolution Time on the dashboard**) or include project tickets (**Exclude project-linked tickets from Avg Resolution Time**) under Administration → Settings → Ticketing, in the **Reporting** section. |
 | **Resolved by Technician (*year*)** | Tickets closed this year per technician (top eight). |
 | **Recently Resolved** | The ten most recently closed tickets, with how long ago. Click one to open it. |
 
@@ -149,7 +149,7 @@ Add `?year=2025` to the Dashboard address to see another year's yearly numbers. 
 3. A report card: its name and the question it answers.
 4. **Scheduled Reports**, where you set up emailed summaries.
 
-The hub only lists reports you may open, and finance reports appear only when the accounting module is on (it is off in this setup). If you have Reporting but no read access to Tickets, assets & docs, the hub shows *No reporting area unlocked yet*.
+The hub only lists reports you may open, and finance reports appear only when the accounting module is on (it is off in this setup). If you have Reporting but no read access to Tickets, assets & docs, the hub shows *No reporting area unlocked yet* (the credential reports, if the role may open them, are still listed).
 
 ### The reports
 
@@ -189,9 +189,9 @@ Most reports share the same **Date range** control.
 
 ![The page a technician sees when opening a report](images/reports/19-no-access.png)
 
-*Figure 7 — A role without Reporting sees no Reports item, and the address shows this message.*
+*Figure 7 — A role without Reporting sees no Reports item, and a report address shows this message.*
 
-**Reporting** is a simple on/off permission in the role editor. The built-in **Technician** role does not have it, so technicians never see **Reports** in the sidebar. To grant it, open the user menu → **Administration** → **Roles**, edit the role and switch **Reporting** on. It opens every report the role's other permissions allow.
+**Reporting** is a simple Off/On permission in the role editor, listed in the **Business** group with the description "The Reports menu (every report)". The built-in **Technician** role does not have it, so technicians never see **Reports** in the sidebar. To grant it, open the user menu → **Administration** → **Roles** (under **Access**), edit the role and set **Reporting** to **On**. It opens every report the role's other permissions allow. A role without it who opens a report address sees *You don't have access to this page. Your role needs view access to Reports.*
 
 Reports are company-wide. They do not apply the department restrictions that limit what a person sees on the Dashboard and in lists, so give Reporting only to people who may see all departments' numbers.
 
@@ -213,15 +213,23 @@ A schedule emails a short summary table of one report to a list of people on a f
 
 The email is a table of headline figures for the current month or year (for example opened, resolved, open now and SLA percentages for **Service Desk & SLA**). The subject reads *<Company name> report: <report name> (<date>)*.
 
+The **Delivery** group in the report menu also lists any link an administrator added for the Reports menu under Administration → Tags & Categories → Custom links (the demo has **Monthly IT Scorecard**, which opens an outside address).
+
 ### Pause, resume or delete
 
 In the list (5), **Pause** stops a schedule without losing it and turns the button into **Resume**. **Delete** removes it after a confirmation, and cannot be undone. Both apply immediately. Creating and deleting a schedule are recorded in the audit log.
 
 ### When does it send?
 
-The scheduler runs from RivetIT's cron job, which the installer sets to run every five minutes. On each run, an active schedule is sent when it has never been sent, or when its frequency has passed since **Last sent** (one day, seven days or one month). So the send time drifts to whenever the cron job first runs after the interval. Emails go into the mail queue and are delivered by your outgoing mail settings.
+The scheduler runs as part of RivetIT's main cron job (`cron.php`), which the installer sets to run every five minutes. On each run, an active schedule is sent when it has never been sent, or when its frequency has passed since **Last sent** (one day, seven days or one month). So the send time drifts to whenever the cron job first runs after the interval. Emails go into the mail queue and are delivered by your outgoing mail settings.
 
-This depends on services outside the page: turn on **Enable Cron Job** under Administration → Settings → Notifications, make sure the server runs the cron entry, and configure outgoing mail under Administration → Settings → Mail. In the demo instance no mail server is connected, so the schedules are shown but nothing is sent.
+This depends on services outside the page:
+
+1. Turn on **Enable Cron Job** in the **Scheduler** section of Administration → Settings → Notifications. While it is off, the cron script exits without doing anything, so no schedule is sent.
+2. Make sure the server runs the cron entry. Administration → Maintenance → Scheduled jobs (the **Cron Manager** page) lists the jobs installed for this instance and, where the server's helper is installed, lets you change a job's repeat time with **Edit schedule**. Its **Run Now** button starts the main job at once, and works only when the main job is installed and **Enable Cron Job** is on.
+3. Configure outgoing mail under Administration → Settings → Mail.
+
+In the demo instance no mail server is connected, so the schedules are shown but nothing is sent.
 
 Anyone who can open Reports can add, pause or delete schedules; there is no separate permission. Keep in mind that a schedule sends company-wide figures to whatever addresses are typed in.
 

@@ -6,7 +6,7 @@ This page explains every report under **Reports**: the question it answers, its 
 |---|---|
 | **Where to find it** | Sidebar → **Reports**, then the report in the left-hand menu. |
 | **Who can use it** | **Reporting** switched on for the role, plus read access to the area: Tickets, assets & docs for the ticket, time, CSAT and RMM reports; Credentials for the two credential reports. |
-| **Turn it on** | Nothing for ticket reports. CSAT needs **Enable CSAT ratings** (Administration → Settings → Ticket). RMM Health needs an RMM integration sending alerts. |
+| **Turn it on** | Nothing for ticket reports. CSAT needs **Enable CSAT ratings** (Administration → Settings → Ticketing). RMM Health needs an RMM integration sending alerts. |
 
 ## What it's for
 
@@ -40,7 +40,7 @@ Two things apply to every ticket report:
 | **Avg Response & Resolution by Priority** | Ticket count, average time to first reply and average time to resolution for High, Medium and Low. |
 | **Technician Workload** | Per technician: tickets open now, tickets resolved in the range and their average resolution time. |
 
-SLA due dates are set when a ticket is created, from an SLA policy (Administration → Ticketing → SLA Policies). Tickets created before a policy existed carry no target and do not count.
+SLA due dates are set when a ticket is created, from an SLA policy (Administration → Ticketing → SLA policies). Tickets created before a policy existed carry no target and do not count.
 
 **Export CSV** gives the monthly table: Month, Opened, Resolved, Cumulative backlog.
 
@@ -52,7 +52,7 @@ SLA due dates are set when a ticket is created, from an SLA policy (Administrati
 
 *Figure 2 — Tickets. Year picker (1) and the month-by-month totals (2).*
 
-1. Choose the **Year** (1). Only years that contain tickets are listed.
+1. Choose the **Year** (1) from the list. Only years that contain tickets are listed.
 2. Read the line chart and the table (2): one column per month and a **Total**. The count is by the date a ticket was created.
 
 **Export CSV** gives Month and Tickets raised, plus a Total row. The page title reads *Ticket Summary*; the menu calls it **Tickets**.
@@ -101,7 +101,7 @@ Only **Print** is available. The tables are wide; on a narrow window, scroll sid
 
 *Figure 5 — Time Logged by Technician for one year (1).*
 
-Choose the **Year**. There is one row per active agent:
+Choose the year from the list (1). There is one row per active agent:
 
 - **Tickets assigned**: tickets created in the year that are now assigned to them.
 - **Tickets touched**: tickets they replied to in the year, plus tickets created in the year that they opened or closed.
@@ -142,7 +142,7 @@ Every active agent is listed, including those with no time. **Export CSV** has o
 
 *Figure 7 — Customer Satisfaction: headline tiles (1), rating distribution (2) and monthly trend (3).*
 
-Ratings are 1 to 5: Very unhappy, Unhappy, Neutral, Happy, Very happy. People give them from the link in the ticket-closed email or on the closed ticket in the Department Portal. A rating at or below the low-rating threshold re-opens the ticket. Set the threshold and switch CSAT on in Administration → Settings → Ticket.
+Ratings are 1 to 5: Very unhappy, Unhappy, Neutral, Happy, Very happy. People give them from the link in the ticket-closed email or on the closed ticket in the Department Portal. A rating at or below the low-rating threshold re-opens the ticket. Set the threshold and switch CSAT on in Administration → Settings → Ticketing (**Enable CSAT ratings**, **Low-rating follow-up threshold**).
 
 **Filter:** **Date range** (default **All time**).
 
@@ -155,7 +155,7 @@ Ratings are 1 to 5: Very unhappy, Unhappy, Neutral, Happy, Very happy. People gi
 | **Rating Distribution** | How many ratings of each score. |
 | **Avg Rating Trend** | Average rating per month, by the month the rating was given. The vertical axis is fixed at 1 to 5. |
 
-The grey note under the filter says the tiles cover tickets closed in the range. In practice the ratings, distribution, tables and feedback list follow the date the rating was given, and only the response rate uses closed tickets.
+The grey note under the filter reads *KPI tiles and tables are scoped to tickets closed in range; the trend chart is scoped to when each rating was submitted.* That is more precise than the code. In practice every rating figure follows the date the rating was given: **Avg Rating**, **Satisfied**, the distribution, the trend, both tables and the feedback list. Only **Response Rate** starts from the tickets closed in the range. Treat the note as a guide and read the dates in the *Showing* line above the tiles.
 
 ![The by-technician and by-department tables and the feedback list](images/reports/14-csat-breakdowns.png)
 

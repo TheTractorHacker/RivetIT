@@ -110,13 +110,14 @@ async function ticketHref(page, subject) {
     const { browser, page } = await launch({ height: 1040 });
     try {
       await login(page, SOPHIE);
-      await open(page, '/client/index.php', 'employee home', ['Welcome back, Sophie Tran', 'Recent Tickets', 'LT-HR-06']);
+      await open(page, '/client/index.php', 'employee home', ['Human Resources Department Portal', 'Recent tickets', 'LT-HR-06']);
       await callout(page, [
         { selector: '#navbarSupportedContent .navbar-nav.me-auto', n: 1, side: 'bl' },
-        { selector: '.row.mb-3 a.btn-primary', n: 2 },
-        { selector: 'a.small-box', n: 3 },
-        { selector: '.card.card-outline.card-primary', n: 4 },
-        { selector: '#navbarDropdown', n: 5, side: 'bl' },
+        { selector: '.portal-hero-actions a.btn-light', n: 2 },
+        { selector: '.portal-hero-actions a.btn-glass', n: 3 },
+        { selector: 'a.portal-stat', n: 4 },
+        { selector: '.col-lg-7 .portal-card', n: 5 },
+        { selector: '#navbarDropdown', n: 6, side: 'bl' },
       ]);
       await shot(page, 'portal/06-employee-home');
       await clearCallouts(page);
@@ -177,20 +178,54 @@ async function ticketHref(page, subject) {
 
       await page.setViewportSize({ width: 1440, height: 900 });
       await open(page, '/client/service_catalog.php', 'request something', ['Request Something', 'Report a lost or stolen device']);
-      await callout(page, [{ selector: '.row.mt-3 .col-md-4:nth-child(1) a.card', n: 1 }]);
+      await callout(page, [
+        { selector: '.portal-search', n: 1 },
+        { selector: '.portal-chips', n: 2 },
+        { selector: '.portal-request:nth-child(3)', n: 3 },
+      ]);
       await shot(page, 'portal/11-request-something');
+      await clearCallouts(page);
+
+      // Selecting a tile opens the new ticket form pre-filled (nothing is submitted).
+      await page.locator('.portal-request', { hasText: 'Password reset or locked account' }).first().click();
+      await page.waitForURL('**/ticket_add.php?catalog_item_id=*');
+      await settle(page);
+      await check(page, 'pre-filled ticket form', ['Raise a new ticket', 'Password reset or locked account']);
+      await page.setViewportSize({ width: 1440, height: 760 });
+      await callout(page, [
+        { selector: '.portal-request-banner', n: 1 },
+        { selector: '.portal-request-banner a.btn', n: 2, side: 'tr' },
+        { selector: 'input[name=subject]', n: 3, side: 'tr' },
+        { selector: 'select[name=priority]', n: 4, side: 'tr' },
+        { selector: 'select[name=category]', n: 5, side: 'tr' },
+      ]);
+      await shot(page, 'portal/12-request-prefilled');
       await clearCallouts(page);
 
       await page.setViewportSize({ width: 1440, height: 1100 });
       await open(page, '/client/kb_articles.php', 'knowledge base', ['Knowledge Base', 'Connect to the staff Wi-Fi']);
       await callout(page, [{ selector: '.portal-search-group', n: 1 }, { selector: '.badge.text-bg-info', n: 2, side: 'tr' }]);
-      await shot(page, 'portal/12-knowledge-base');
+      await shot(page, 'portal/13-knowledge-base');
       await clearCallouts(page);
 
-      await page.setViewportSize({ width: 1440, height: 900 });
-      await open(page, '/client/profile.php', 'account', ['Profile', 'Save password']);
-      await callout(page, [{ selector: 'input[name=new_password]', n: 1, side: 'tr' }, { selector: 'button[name=edit_profile]', n: 2 }]);
-      await shot(page, 'portal/13-account');
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await open(page, '/client/profile.php', 'account', ['Your details', 'Training PIN', 'Save password', 'Two-factor authentication']);
+      await callout(page, [
+        { selector: 'input[name=new_password]', n: 1, side: 'tr' },
+        { selector: 'button[name=edit_profile]', n: 2 },
+        { selector: 'button[name=enable_portal_mfa]', n: 3 },
+      ]);
+      await shot(page, 'portal/14-account');
+
+      // Training (read-only; Start training is not pressed, it would create a kiosk session).
+      await page.setViewportSize({ width: 1440, height: 640 });
+      await open(page, '/client/training.php', 'my training', ['My training', 'Start training', 'Report a training problem', 'Cybersecurity Awareness']);
+      await callout(page, [
+        { selector: '.col-auto > form[action="training_start.php"] button', n: 1 },
+        { selector: 'a[href="ticket_add.php"].btn', n: 2 },
+        { selector: '.card.card-outline.card-primary', n: 3 },
+      ]);
+      await shot(page, 'portal/17-training-mine');
     } finally {
       await browser.close();
     }
@@ -198,22 +233,37 @@ async function ticketHref(page, subject) {
 
   // ---- a department lead: Grace Okafor, Finance Director (primary contact) ---------------------------------------------
   {
-    const { browser, page } = await launch({ height: 1330 });
+    const { browser, page } = await launch({ height: 1430 });
     try {
       await login(page, GRACE);
-      await open(page, '/client/index.php', 'lead home', ['Needs Attention', 'Items Needing Attention', 'Assigned Asset']);
+      await open(page, '/client/index.php', 'lead home', ['Needs attention', 'needing attention', 'Assigned asset']);
       await callout(page, [
         { selector: '#navbarDropdown2', n: 1, side: 'bl' },
-        { selector: 'a.small-box.bg-warning', n: 2 },
-        { selector: '#tech-alerts .card', n: 3 },
+        { selector: 'a.portal-stat--amber', n: 2 },
+        { selector: '#tech-alerts', n: 3 },
       ]);
-      await shot(page, 'portal/14-lead-home');
+      await shot(page, 'portal/15-lead-home');
       await clearCallouts(page);
 
       await page.setViewportSize({ width: 1440, height: 620 });
       await open(page, '/client/contacts.php', 'contacts', ['Contacts', 'Tom Kessler']);
       await callout(page, [{ selector: 'a[href="contact_add.php"]', n: 1 }, { selector: 'table', n: 2 }]);
-      await shot(page, 'portal/15-contacts');
+      await shot(page, 'portal/16-contacts');
+
+      // Training: the lead's own page, then the department summary.
+      await page.setViewportSize({ width: 1440, height: 760 });
+      await open(page, '/client/training_manage.php', 'manage training', ['Manage training', 'People in department', 'By person', 'People by course']);
+      await page.setViewportSize({ width: 1440, height: 1100 });
+      await callout(page, [
+        { selector: 'a[href="training.php"]', n: 1, side: 'tr' },
+        { selector: 'a[href*="export=csv"]', n: 2, side: 'tr' },
+        { selector: '.row.mb-3', n: 3 },
+        { selector: '.card-outline.card-warning', n: 4 },
+        { selector: '.card-outline.card-primary', n: 5 },
+        { selector: '.card-outline.card-secondary', n: 6 },
+      ]);
+      await shot(page, 'portal/18-training-team');
+      await clearCallouts(page);
     } finally {
       await browser.close();
     }
@@ -226,7 +276,7 @@ async function ticketHref(page, subject) {
       if (!ticketId) throw new Error('ticket id was not captured');
       await open(page, `/guest/guest_view_ticket.php?ticket_id=${ticketId}&url_key=${GUEST_TICKET_KEY}`, 'guest ticket', ['HR office printer prints blank pages', 'log in']);
       await callout(page, [{ selector: '.card-header.bg-dark', n: 1 }, { selector: '.tkt-pill-badge', n: 2 }, { selector: 'h6:has(i)', n: 3 }]);
-      await shot(page, 'portal/16-guest-ticket');
+      await shot(page, 'portal/19-guest-ticket');
       await clearCallouts(page);
 
       // The share link's numeric id is not known in advance: try ids until the fixed key matches.
@@ -239,7 +289,7 @@ async function ticketHref(page, subject) {
       await settle(page);
       await check(page, 'shared document', ['Finance systems quick reference', 'grace.okafor@summitridge.example']);
       await callout(page, [{ selector: '.card-header.bg-dark', n: 1 }, { selector: '.card-body .prettyContent', n: 2 }]);
-      await shot(page, 'portal/17-shared-document');
+      await shot(page, 'portal/20-shared-document');
     } finally {
       await browser.close();
     }

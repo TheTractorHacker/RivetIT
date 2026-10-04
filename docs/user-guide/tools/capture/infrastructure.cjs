@@ -114,14 +114,14 @@ async function assetId(page, name) {
   }
   return id;
 }
-async function rowLinkId(page, url, text, param) {
+async function rowLinkHref(page, url, text) {
   await goto(page, url);
   const href = await page.evaluate((t) => {
-    const a = [...document.querySelectorAll('tbody tr a')].find((x) => x.textContent.includes(t) && /details\.php/.test(x.getAttribute('href') || ''));
+    const a = [...document.querySelectorAll('tbody tr a')].find((x) => x.textContent.trim().split('\n')[0].trim() === t && /details\.php/.test(x.getAttribute('href') || ''));
     return a ? a.getAttribute('href') : null;
   }, text);
   if (!href) fail(`row link for ${text} not found on ${url}`);
-  return new RegExp(param + '=(\\d+)').exec(href)[1];
+  return href.startsWith('/') ? href : `/agent/${href}`;
 }
 
 // ------------------------------------------------------------------- main ----
@@ -153,8 +153,8 @@ async function rowLinkId(page, url, text, param) {
   await clearCallouts(page);
 
   // 02 - optional columns: purchase date and warranty expiry
-  await goto(page, '/agent/assets.php?type=workstation&show_column[]=Purchase_Date&show_column[]=Warranty_Expire');
-  await check(page, { rows: 5, text: ['Purchase Date', 'Warranty Expire'] });
+  await goto(page, `/agent/assets.php?client_id=${eng}&type=workstation&show_column[]=Purchase_Date&show_column[]=Warranty_Expire`);
+  await check(page, { rows: 3, text: ['Purchase Date', 'Warranty Expire'] });
   await shot(page, `${G}/02-assets-columns`);
 
   // 03 - inline status change (open only)
@@ -174,22 +174,24 @@ async function rowLinkId(page, url, text, param) {
   await page.keyboard.type('Ma', { delay: 80 });
   await page.waitForTimeout(1200);
   bb = await page.locator('tr[data-asset-id]').first().boundingBox();
-  await shotClip(page, '04-inline-assign', { x: 280, y: Math.max(0, bb.y - 60), width: 1140, height: 360 });
+  await shotClip(page, '04-inline-assign', { x: 280, y: Math.max(0, bb.y - 60), width: 1140, height: 470 });
   await page.keyboard.press('Escape');
 
   // 05 - bulk actions (department workspace shows the full menu)
   await goto(page, `/agent/assets.php?client_id=${exec}&type=workstation`);
+  await page.setViewportSize({ width: W, height: 1000 });
   await page.locator('input.bulk-select').nth(0).check();
   await page.locator('input.bulk-select').nth(1).check();
   await settle(page, 300);
   await page.locator('#bulkActionButton > button').click();
   await settle(page, 400);
   await shot(page, `${G}/05-bulk-actions`);
+  await page.setViewportSize({ width: W, height: H });
 
   // 06-10 - New Asset pop-up
   await goto(page, `/agent/assets.php?client_id=${exec}`);
   await openModal(page, 'button.ajax-modal:has-text("New Asset")', { tall: true });
-  await page.selectOption('.modal.show select[name=type]', 'Laptop').catch(() => {});
+  await page.evaluate(() => { const s = document.querySelector('.modal.show select[name=type]'); if (s.tomselect) s.tomselect.setValue('Laptop'); else window.jQuery(s).val('Laptop').trigger('change'); });
   await page.fill('.modal.show input[name=name]', 'LT-EXEC-09');
   await page.fill('.modal.show input[name=asset_tag]', 'SRM-0120');
   await page.fill('.modal.show input[name=make]', 'Lenovo');
@@ -213,8 +215,10 @@ async function rowLinkId(page, url, text, param) {
   await closeModal(page);
 
   // 11 - asset page tour
-  await goto(page, `/agent/asset_details.php?client_id=${exec}&asset_id=${srvId}`);
-  await check(page, { text: ['SRV-FILE-01', 'Interfaces'] });
+  const swId = await assetId(page, 'SW-CORE-01');
+  await page.setViewportSize({ width: W, height: 1300 });
+  await goto(page, `/agent/asset_details.php?client_id=${exec}&asset_id=${swId}`);
+  await check(page, { text: ['SW-CORE-01', 'Interfaces'] });
   const aEdit = await mark(page.locator('#asset-details-content .card-header button.ajax-modal').first(), 'aedit');
   const aNew = await mark(page.locator('#asset-details-content .btn-group.mb-3 .btn-primary').first(), 'anew');
   const aLink = await mark(page.locator('#asset-details-content .btn-group.mb-3 .btn-outline-primary').first(), 'alink');
@@ -226,18 +230,25 @@ async function rowLinkId(page, url, text, param) {
   ]);
   await shot(page, `${G}/11-asset-page`);
   await clearCallouts(page);
+  await page.setViewportSize({ width: W, height: H });
 
-  // 12 - linked items further down the same page
-  const y1 = await page.evaluate(() => {
-    const h = [...document.querySelectorAll('#asset-details-content h3.card-title')].find((e) => /Licenses/.test(e.textContent));
-    return h ? h.closest('.card').getBoundingClientRect().top + scrollY : null;
+  // 12 - linked items further down a file server's page (tall window so the whole page is laid out)
+  await page.setViewportSize({ width: W, height: 3200 });
+  await goto(page, `/agent/asset_details.php?client_id=${exec}&asset_id=${srvId}`);
+  const span = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll('#asset-details-content .card')].filter((c) => c.getBoundingClientRect().height > 0);
+    const find = (re) => cards.find((c) => re.test((c.querySelector('.card-title') || {}).textContent || ''));
+    const a = find(/Licenses/), b = find(/Linked Services/);
+    if (!a || !b) return null;
+    return { y1: a.getBoundingClientRect().top + scrollY, y2: b.getBoundingClientRect().bottom + scrollY };
   });
-  const y2 = await page.evaluate(() => {
-    const h = [...document.querySelectorAll('#asset-details-content h3.card-title')].find((e) => /Linked Services/.test(e.textContent));
-    return h ? h.closest('.card').getBoundingClientRect().bottom + scrollY : null;
-  });
-  if (y1 === null || y2 === null) fail('linked cards not found on asset page');
-  await shotClip(page, '12-asset-linked-items', { x: 560, y: y1 - 10, width: 870, height: Math.min(y2 - y1 + 20, 1300) });
+  if (!span) fail('linked cards not found on asset page');
+  await shotClip(page, '12-asset-linked-items', { x: 560, y: span.y1 - 10, width: 870, height: span.y2 - span.y1 + 20 });
+
+  // 43 - the remote-management banner and tabs on the same page
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shotClip(page, '43-asset-rmm-banner', { x: 256, y: 60, width: 1184, height: 560 });
+  await page.setViewportSize({ width: W, height: H });
 
   // 13 - the Link menu
   await goto(page, `/agent/asset_details.php?client_id=${exec}&asset_id=${srvId}`);
@@ -250,7 +261,15 @@ async function rowLinkId(page, url, text, param) {
   // 14 - assignment history (laptop that changed hands)
   await goto(page, `/agent/asset_details.php?client_id=${fin}&asset_id=${finLaptopId}`);
   await check(page, { text: ['Assignment History'] });
-  await shot(page, `${G}/14-asset-assignment-history`);
+  const ah = await page.evaluate(() => {
+    const cs = [...document.querySelectorAll('.card')].filter((c) => /Assignment/.test((c.querySelector('.card-header, h5, h3') || {}).textContent || ''));
+    if (!cs.length) return null;
+    let y1 = 1e9, y2 = 0, x1 = 1e9, x2 = 0;
+    for (const c of cs) { const r = c.getBoundingClientRect(); y1 = Math.min(y1, r.top + scrollY); y2 = Math.max(y2, r.bottom + scrollY); x1 = Math.min(x1, r.left); x2 = Math.max(x2, r.right); }
+    return { x: x1 - 8, y: y1 - 8, width: x2 - x1 + 16, height: y2 - y1 + 16 };
+  });
+  if (!ah) fail('assignment cards not found');
+  await shotClip(page, '14-asset-assignment-history', ah);
 
   // 15 - Edit Asset pop-up, History tab
   await goto(page, `/agent/asset_details.php?client_id=${exec}&asset_id=${srvId}`);
@@ -319,7 +338,7 @@ async function rowLinkId(page, url, text, param) {
   const sSeat = await mark(page.locator('tbody tr', { hasText: 'Microsoft 365' }).locator('td').nth(3), 'sseat');
   const sSoon = await mark(page.locator('tbody tr.table-warning'), 'ssoon');
   const sGone = await mark(page.locator('tbody tr.table-secondary').first(), 'sgone');
-  await callout(page, [{ selector: sSeat, n: 1, side: 'tr' }, { selector: sSoon, n: 2, side: 'tl' }, { selector: sGone, n: 3, side: 'tl' }]);
+  await callout(page, [{ selector: sSeat, n: 1, side: 'tl' }, { selector: sSoon, n: 2, side: 'tl' }, { selector: sGone, n: 3, side: 'tl' }]);
   await shot(page, `${G}/23-licenses-list`);
   await clearCallouts(page);
 
@@ -327,7 +346,7 @@ async function rowLinkId(page, url, text, param) {
   await goto(page, `/agent/software.php?client_id=${eng}`);
   await openModal(page, 'button.ajax-modal:has-text("New License")', { tall: true });
   await modalTab(page, 'Licensing');
-  await page.selectOption('.modal.show select[name=license_type]', 'Device');
+  await page.evaluate(() => window.jQuery('.modal.show select[name=license_type]').val('Device').trigger('change'));
   await page.fill('.modal.show input[name=seats]', '4');
   await page.fill('.modal.show input[name=key]', 'DEMO-XXXXX-XXXXX');
   await modalShot(page, '24-new-license-licensing');
@@ -346,8 +365,7 @@ async function rowLinkId(page, url, text, param) {
   await clearCallouts(page);
 
   // 27 - domain details
-  const domId = await rowLinkId(page, '/agent/domains.php?q=summitridge.example', 'summitridge.example', 'id');
-  await goto(page, `/agent/domain_details.php?client_id=${exec}&id=${domId}`);
+  await goto(page, await rowLinkHref(page, '/agent/domains.php?q=summitridge.example', 'summitridge.example'));
   await check(page, { text: ['Who', 'WHOIS & DNS Records'] });
   await shot(page, `${G}/27-domain-details`, { fullPage: true });
 
@@ -365,8 +383,7 @@ async function rowLinkId(page, url, text, param) {
   await shot(page, `${G}/29-certificates-list`);
 
   // 30 - certificate details
-  const certId = await rowLinkId(page, '/agent/certificates.php?q=Employee', 'Employee portal', 'id');
-  await goto(page, `/agent/certificate_details.php?client_id=${exec}&id=${certId}`);
+  await goto(page, await rowLinkHref(page, '/agent/certificates.php?q=Employee', 'Employee portal'));
   await check(page, { text: ['Renew soon', 'Public Key'] });
   await shot(page, `${G}/30-certificate-details`);
 

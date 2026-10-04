@@ -6,7 +6,7 @@ This page shows you how to sign in to RivetIT, find your way around, set up your
 |---|---|
 | **Where to find it** | Sign-in page: your RivetIT address followed by `/login.php`. Your account: user menu (your name, top right) → **Account**. |
 | **Who can use it** | Everyone who signs in. Which sidebar entries and buttons you see depends on your role (see [Roles and what you see](#roles-and-what-you-see)). |
-| **Turn it on** | Nothing to turn on. Administrators control the start page, session length and login options under Administration → Settings. |
+| **Turn it on** | Nothing to turn on. Administrators control the start page, the look of the sign-in page and the session length under Administration → Settings (**Defaults**, **Appearance** and **Security**). |
 
 ## Signing in
 
@@ -14,28 +14,39 @@ This page shows you how to sign in to RivetIT, find your way around, set up your
 
 *Figure 1 — The sign-in page. Agents and employees use the same page.*
 
+The page follows your company's look. The backdrop, the **Sign In** button and the links use the accent colour an administrator chose (Administration → Settings → **Appearance** → **Accent Color**), the card uses the **Card Corner Radius**, and your company logo sits on a white backing so a dark logo stays readable. An administrator can change the backing colour or turn it off (**Logo Background**). Without a logo, the RivetIT mark is shown.
+
 1. Open the sign-in address your administrator gave you.
 2. Type your email address **(2)** and password **(3)**.
 3. Tick **Stay signed in (4)** only on a computer you trust (see below).
 4. Click **Sign In (5)**.
 
-You land on the **start page**, which an administrator chooses (Administration → Settings → Defaults → **Start Page**: Dashboard, Department Management, Support Tickets or Invoices). If you opened a specific page while signed out, RivetIT returns you to that page after you sign in.
+You land on the **start page**, which an administrator chooses (Administration → Settings → **Defaults** → **Start Page**, for example Dashboard, Department Management or Support Tickets). If you opened a specific page while signed out, RivetIT returns you to that page after you sign in.
 
 ### Other things the sign-in page can ask
 
-- **MFA code.** If you turned on multi-factor authentication, a second screen asks for the 6-digit code from your authenticator app (**Verify your 2FA code**), with a **Remember Me** box and a **Verify & Sign In** button. You have two minutes to finish; after that, the message "Your MFA session expired" tells you to start again.
+- **MFA code.** If you turned on multi-factor authentication, a second screen asks for the 6-digit code from your authenticator app (**Verify your 2FA code**), with a **Remember Me** box and a **Verify & Sign In** button. You have two minutes to finish; after that, the message "Your MFA session expired" tells you to start again. Department Portal logins that use 2FA see the same code box without the **Remember Me** box, and have five minutes ("Your 2FA session expired").
 - **Choosing a side.** If the same email address belongs to both an agent and an employee, you see two buttons: **Log in as Agent** and **Log in as Department**. "Department" here means the Department Portal, the employee self-service site.
 - **Passkey.** **Sign in with a Passkey (1)** needs no email or password: your device asks for your fingerprint, face or PIN. It works only after you add a passkey to your account (see [Security](#security-password-mfa-and-passkeys)). If your device has no passkey for this site, an error appears; sign in with your password instead.
 - **Login message.** An administrator can show a notice at the top of the sign-in card.
 - **Employees.** Employees sign in on this same page and go straight to the Department Portal. See the [Department Portal guide](11-employee-portal.md).
 
-Two buttons appear only when an administrator has set them up, so you may not see them: **Forgot password?** (needs outgoing email) and **Login with Microsoft Entra**. Both are for **Department Portal** accounts. They do not work for agents. If an agent forgets a password, an administrator sets a new one (Administration → Users → edit the user → **New Password**).
+Below the sign-in card, a few links appear only when the Department Portal is on and an administrator has set them up, so you may not see them:
+
+- **Forgot password?** appears when outgoing email is set up. It resets the password of a **Department Portal** account that signs in with a password.
+- **Login with Microsoft Entra** appears when the Microsoft Entra app is configured (Administration → Settings → **Identity provider**).
+- **Login with company SSO** appears when an administrator has turned on OpenID Connect sign-in under the same **Identity provider** settings and filled in the issuer, client ID and secret.
+- **Login with Odoo** appears when the Odoo integration's Department Portal sign-in is on.
+
+All of these sign in **Department Portal** accounts only. They do not work for agents. If an agent forgets a password, an administrator sets a new one (Administration → Users → edit the user → **Security** tab → **New Password**).
 
 ### Stay signed in, and when you are signed out
 
-**Stay signed in** keeps you signed in on this browser for the number of days set in Administration → Settings → Security (**2FA Remember Me Expire**, 3 days by default). With MFA on, it also skips the code on that browser for the same period. Without it, RivetIT signs you out after a period of inactivity (**Session Lifetime**, 480 minutes, or 8 hours, by default). Open pages keep the session alive in the background.
+**Stay signed in** keeps you signed in on this browser for the number of days set in Administration → Settings → **Security** (**2FA Remember Me Expire**). The minimum is 30 days; a lower value is raised to 30. If the browser loses its session (for example after an internet outage), RivetIT signs you straight back in from this setting. With MFA on, it also skips the code on that browser for the same period. Each time it is used the stored token is replaced, and **Revoke All Tokens** under **Account → Security** removes it.
 
-If you use a shared computer, leave **Stay signed in** unticked and use user menu → **Logout** when you finish.
+Without **Stay signed in**, your session still lasts for the **Session Lifetime**, which is at least 30 days (43,200 minutes) and at most 90 days (129,600 minutes). Lower values are raised to 30 days. Open pages keep the session alive in the background.
+
+If you use a shared computer, leave **Stay signed in** unticked and use user menu → **Sign out** when you finish. Because sessions last so long, signing out is the way to end one.
 
 > If you type a wrong password several times, sign-in is blocked for your network address: 15 failed attempts in 10 minutes lock that address out until the window passes. Every failed attempt is logged.
 
@@ -48,12 +59,14 @@ If you use a shared computer, leave **Stay signed in** unticked and use user men
 | # | What it is | What it does |
 |---|---|---|
 | **(1)** | Sidebar group (here **Service Desk**) | Click a group name to open or close it. The group that holds the page you are on opens by itself. A number badge shows a live count, such as open tickets. |
-| **(2)** | Fold button (☰) | Shrinks the sidebar to icons and back. Your choice is remembered in this browser. On a narrow window the sidebar is hidden until you press it; **Esc** or a click outside closes it. |
-| **(3)** | **Search everywhere** | Type at least two characters and matching records appear, grouped by type, up to five per group. Click a result to open it, or choose **See all results** for the full page. |
+| **(2)** | Fold button (three horizontal lines) | Shrinks the sidebar to icons and back. Your choice is remembered in this browser. On a narrow window the sidebar is hidden until you press it; **Esc** or a click outside closes it. |
+| **(3)** | **Search everywhere** | On a narrow window only a magnifier icon is shown, and it opens the full search page. Type at least two characters and matching records appear, grouped by type, up to five per group. Click a result to open it, or choose **See all results** for the full page. |
 | **(4)** | Bell | Your personal notifications. The number is how many you have not dismissed. |
-| **(5)** | User menu | **Administration** (administrators only), **Account** and **Logout**. |
+| **(5)** | User menu | Your name, photo and role, then **Administration** (administrators only), **Account** and **Sign out**. |
 
-The company name at the top of the sidebar always takes you to the **Dashboard**. It is covered in the [Dashboard and Reports guide](10-dashboard-and-reports.md).
+The company name at the top of the sidebar always takes you to the **Dashboard**. It is covered in the [Dashboard and Reports guide](10-dashboard-and-reports.md). Your administrator can also add custom links as icons in the top bar, beside the bell.
+
+On a detail page (a person, ticket or asset) a breadcrumb trail above the record shows where you are, for example the department, then the list, then the record; click any part to go back to it. Administration pages that sit under **Settings**, **Tags & Categories**, **Ticketing**, **Templates** or **Maintenance** show a back link such as **All settings / Security** at the top of the page.
 
 ### Sidebar groups
 
@@ -64,37 +77,37 @@ Entries appear only when the feature is switched on (Administration → Settings
 | **Dashboard** | Dashboard | Always, except for module-only logins. |
 | **Alerts** | Alerts, with a red count of new alerts | Your role can see RMM alerts. This is monitoring alerts from connected tools, not your notifications. |
 | **Organization** | Departments (count of active departments), Org Chart | Departments: Read or higher. |
-| **Service Desk** | Tickets, Recurring Tickets, Request Something, CSAT Ratings, Requests, Problems, Changes | **Show Ticketing** is on and Tickets, assets & docs: Read or higher. CSAT Ratings needs CSAT turned on. |
+| **Service Desk** | Tickets, Recurring Tickets, Request service, CSAT Ratings, Requests, Problems, Changes | **Show Ticketing** is on and Tickets, assets & docs: Read or higher. CSAT Ratings needs CSAT turned on. |
 | **Work** | Projects, Calendar | Tickets, assets & docs: Read or higher. Projects also needs Ticketing on. |
 | **Knowledge** | Knowledge Base, Credentials, Printers, Network Drives | Knowledge Base: **Show Knowledge Base** on and Knowledge base: Read. The others: **Show IT Documentation** on and Tickets, assets & docs: Read. Credentials also needs Credentials: Read. |
 | **Training** | Overview, Courses, Learning Paths, Assignments, Records & sessions, Reports, People, and more | **Show Training (LMS)** is on and Training: Read or higher. Some entries need Modify or Full. |
-| **Infrastructure** | Assets, Locations, Vendors, Licenses, Domains, Certificates | **Show IT Documentation** on and Tickets, assets & docs: Read. A role with only the Assets permission sees just **Assets**. |
+| **Infrastructure** | Assets, Locations, Vendors, Licenses, Domains, Certificates | **Show IT Documentation** on and Tickets, assets & docs: Read. A role with only the Assets permission sees only **Assets**. |
 | **Endpoints**, **Backups** | Monitoring and backup pages | Only when an endpoint integration is turned on. See the [Endpoints guide](09-endpoints-and-integrations.md). |
 | **People** | Opens the list of employees | Departments: Read or higher. |
 | **Reports** | Opens the reports | Reporting permission. |
-| Custom links | Links your administrator added, such as an intranet page | Shown to everyone except module-only logins. They can also appear as icons in the top bar. |
+| Custom links | Links your administrator added, such as an intranet page or a password manager. They open another page and show an arrow at the right | Shown to everyone except module-only logins. They can also appear as icons in the top bar. |
 
 The list of people is called **People** in the sidebar and **Contacts** on its page and inside a department. It is the same list.
 
 ## Three navigation scopes
 
-The sidebar changes depending on how wide a view you are in.
+The sidebar changes depending on how wide a view you are in. The scope is decided by the address of the page you open: a page for one department, a company-wide page, or neither, which gives the app-level sidebar.
 
 ![Three sidebars side by side: app-level, department workspace and company-wide](images/getting-started/03-three-scopes.png)
 
 *Figure 3 — The same app in three scopes. Call-outs (1) and (2) mark the way back and the scope label.*
 
-- **App-level sidebar.** All departments together. Use it for company-wide lists such as Tickets or Assets, and for the Dashboard.
-- **Department workspace.** When a page is opened for one department (for example, you click a department in the Departments list, or open a ticket that belongs to it), the sidebar is replaced by that department's own rail. The top shows the department's name and type, then its **Contacts**, **Locations**, **SUPPORT** (Tickets, Recurring Tickets, Projects), **Vendors**, **Calendar**, **Knowledge Base** and **DOCUMENTATION** (Assets, Licenses, Credentials, Networks, Printers, Network Drives, Racks, Certificates, Domains, Services, Contracts, Files). Every list and count in it is limited to that department. A department's header strip shows its location, primary contact and ticket counts, and its **⋮** menu holds actions such as **New Ticket** and **Edit Department**.
-- **Company-wide.** Choosing **People** in the sidebar opens the **Company-wide** rail. Its lists (Contacts, Locations, Assets, Licenses, Credentials, Networks, Certificates, Domains, Services) span every department you may see.
+- **App-level sidebar.** All departments together. It is shown on the Dashboard, the Departments list and on lists you open from a sidebar group, such as **Service Desk → Tickets**, **Knowledge → Credentials** or **Infrastructure → Assets**. Those lists cover every department, but you stay in the app-level sidebar.
+- **Department workspace.** When a page is opened for one department (for example, you click a department in the Departments list, or open a ticket that belongs to it), the sidebar is replaced by that department's own rail. The top shows the department's name and type, then its **Overview**, **Contacts**, **Locations**, **SUPPORT** (Tickets, Recurring Tickets, Projects), **Vendors**, **Calendar**, **Knowledge Base** and **DOCUMENTATION** (Assets, Licenses, Credentials, Networks, Printers, Network Drives, Racks, Certificates, Domains, Services, Contracts, Files). Every list and count in it is limited to that department. A department's header strip shows its location, primary contact and ticket counts, and its **⋮** menu holds actions such as **New Ticket** and **Edit Department**.
+- **Company-wide.** Choosing **People** in the sidebar opens the **Company-wide** rail, which says so under **All Departments**. Its lists (Contacts, Locations, Assets, Licenses, Credentials, Networks, Certificates, Domains, Services) span every department you may see, and clicking one keeps you in this rail.
 
-To get back, click **All Departments (1)** at the top of either rail. That returns you to the Departments list, and from there the sidebar is app-level again. If you cannot tell where you are, look at the top of the sidebar: it names the department or says **Company-wide**.
+To get back, click **All Departments (1)** at the top of either rail. That returns you to the Departments list, and from there the sidebar is app-level again. If you cannot tell where you are, look at the top of the sidebar: it names the department or says **Company-wide**. The same list can look different in each scope: **Credentials** under **Knowledge** is the app-level list, while **Credentials** inside the Company-wide rail or a department is limited by that rail.
 
 The Departments list starts with the department you opened most recently.
 
 ## Your account
 
-Open user menu → **Account**. A small sidebar offers **Details**, **Security**, **Preferences**, **Activity** and **Integrations**. The arrow at the top (**Account**) returns you to your start page.
+Open user menu → **Account**. A small sidebar replaces the main one and offers **Details**, **Security**, **Preferences**, **Activity** and **Integrations**. The arrow at the top (**Account**) returns you to your start page.
 
 ### Details: profile and email signature
 
@@ -143,9 +156,13 @@ The card then shows **Enabled**, and every sign-in asks for a code. Turning MFA 
 2. Give it a name that tells you which device it is, for example "MacBook Touch ID".
 3. Click **Register Passkey** and confirm on your device.
 
-The list shows each passkey with when it was added and last used. The trash button removes one. Passkeys need a device that supports them and a secure (HTTPS) connection. If credentials show as locked after a passkey sign-in, sign in once with your password.
+The list shows each passkey with when it was added and last used. The trash button removes one. Passkeys need a device that supports them and a secure (HTTPS) connection. If credentials show as locked after a passkey sign-in, sign in once with your password. If the Passkeys card shows a warning that passkeys cannot open the credential vault yet, an administrator still has to set up the vault key; until then a passkey on a new browser shows the vault as locked.
 
-**Mobile App Tokens** lists phones signed in to the RivetIT mobile app. **Revoke** signs one out.
+Further down the page:
+
+- **Two-Factor Authentication** also lists your **Remember-Me Tokens** (one for each browser where you ticked **Stay signed in** or **Remember Me**) with **Revoke All Tokens**.
+- **Mobile App Tokens** lists phones signed in to the RivetIT mobile app. **Revoke** signs one out.
+- **Trainer PIN** appears only if you are a trainer on the Training module. It is the 6-digit PIN you use at the training kiosk as a trainer, separate from your own learner PIN. Choose **Set Trainer PIN** (or **Change Trainer PIN**) and type it twice.
 
 ### Preferences
 
@@ -161,9 +178,9 @@ The list shows each passkey with when it was added and last used. The trash butt
 
 Click **Save Preferences (4)** for changes to take effect.
 
-Below that, **Push Notifications** lets you choose which categories are pushed to your phone. It works only when you are signed in to the mobile app and an administrator has allowed those categories. **Send Test Notification** appears once a phone is registered. Choose one of the four row counts above; the footer of long lists offers other values (see [Lists](#lists-search-filter-sort-and-page)).
+Below that, **Push Notifications** lists **My Devices** (with **Revoke**) and lets you choose which categories are pushed to your phone. It works only when you are signed in to the mobile app and an administrator has allowed those categories. **Send Test Notification** appears once a phone is registered. Choose one of the four row counts above; the footer of long lists offers other values (see [Lists](#lists-search-filter-sort-and-page)).
 
-**Activity** shows your last 10 successful sign-ins (when, device, browser, address) and your last 15 actions. Check it if you suspect someone else used your account. **Integrations** holds **My Calendar Color**, which colours you on the calendar, and **Outlook Calendar Sync**, which needs an administrator to finish the Microsoft setup first. It is not shown to module-only logins.
+**Activity** shows your last 10 successful sign-ins (**Recent Sign-ins**: when, device, browser, address) and your last 15 actions (**Recent Activity**: when, type, description). Check it if you suspect someone else used your account. **Integrations** holds **My Calendar Color**, which colours you on the calendar, and **Outlook Calendar Sync**, which needs an administrator to finish the Microsoft setup first. It is not shown to module-only logins.
 
 ### Notifications
 
@@ -224,7 +241,7 @@ Some pages hide the filters behind a funnel button instead.
 
 *Figure 12 — Click the funnel (1) to open the filter panel.*
 
-Change a filter to apply it. The date range filters by the date the record was created; it starts as all time.
+Change a filter to apply it. The date range filters by the date the record was created. It starts as all time, which the box shows as `1970-01-01 - 2099-12-31`; click it to pick a range or a shortcut such as **This Month**. The panel opens by itself when a filter is active.
 
 ### Select several rows and act on them
 
@@ -290,7 +307,7 @@ Things to know:
 | **People** (Contacts) | An employee record. It belongs to one department. Not the same as an agent. |
 | **Agent** | Staff who sign in to the RivetIT app to work: technicians and administrators. |
 | **Role** | The set of levels (None, Read, Modify, Full) that decides what an agent can do. |
-| **Department Portal** | The self-service site where employees sign in with the same page. |
+| **Department Portal** | The self-service site where employees sign in, on the same sign-in page as agents. |
 | **Ticket** | A request or problem logged with the service desk. |
 | **Asset** | A device or piece of equipment, such as a laptop or switch, documented under a department. |
 | **Credential** | A stored login (username, password, 2FA code) kept in the encrypted vault. |
@@ -299,6 +316,10 @@ Things to know:
 | **Location** | A physical site. A department can use several. |
 | **Module** | A feature area an administrator can switch on or off (Ticketing, IT Documentation, Knowledge Base, Training and others). |
 | **Start page** | The page you land on after signing in. |
+| **Scope** | How wide the sidebar's view is: app-level (all departments), one department workspace, or Company-wide. See [Three navigation scopes](#three-navigation-scopes). |
+| **Company-wide** | The sidebar rail opened from **People**, whose lists span every department you may see. |
+| **Custom link** | A link an administrator adds to the sidebar or top bar, for example an intranet page. |
+| **Stay signed in** | The sign-in box that remembers this browser for at least 30 days, so you stay signed in and skip the MFA code there. |
 | **MFA / passkey** | Two ways to prove it is you: a code from an authenticator app, or your device's fingerprint, face or PIN. |
 
 ## Tips and good practice
@@ -308,7 +329,7 @@ Things to know:
 - Turn on MFA or add a passkey. Both protect the credential vault behind your account.
 - If a button or menu entry is missing, it is usually your role. Ask an administrator rather than looking for a workaround.
 - RivetIT has no app-wide keyboard shortcuts. **Esc** closes pop-ups, the search list and the narrow-window sidebar.
-- Sign out on shared computers.
+- Sign out on shared computers: sessions last at least 30 days.
 
 ## Related guides
 

@@ -95,8 +95,8 @@ async function resize(page, height) {
     await callout(page, [
       { selector: 'a.section-nav-back', n: 1, side: 'br' },
       { selector: 'a.nav-link[href="/admin/users.php"]', n: 2, side: 'tr' },
-      { selector: 'a.nav-link.dropdown-toggle[href="#nav-group-maintenance"]', n: 3, side: 'tr' },
-      { selector: 'a.nav-link.dropdown-toggle[href="#nav-group-settings"]', n: 4, side: 'tr' },
+      { selector: 'a.nav-link[href="/admin/maintenance.php"]', n: 3, side: 'tr' },
+      { selector: 'a.nav-link[href="/admin/settings.php"]', n: 4, side: 'tr' },
       { selector: 'li.user-menu > a.nav-link', n: 5, side: 'bl' },
     ]);
     await shot(page, `${G}/02-administration-layout`);
@@ -109,18 +109,61 @@ async function resize(page, height) {
     await check(page, 'users', { selector: 'tbody tr', min: 3, text: 'Priya Nair' });
     await tagRow(page, 'Marcus Lee', 'data-ug-row');
     await callout(page, [
-      { selector: '.card-tools .btn-group', n: 1, side: 'tl' },
-      { selector: 'form.mb-4 .input-group', n: 2, side: 'tl' },
-      { selector: 'a[href*="archived="]', n: 3, side: 'tl' },
-      { selector: 'thead th:nth-child(5)', n: 4, side: 'tl' },
-      { selector: 'tr[data-ug-row] .btn-group, tr[data-ug-row] td:last-child .d-flex', n: 5, side: 'tr' },
+      { selector: 'div[aria-label="User type"]', n: 1, side: 'tr' },
+      { selector: '.card-tools .btn-group', n: 2, side: 'tl' },
+      { selector: 'form.mb-4 .input-group', n: 3, side: 'tl' },
+      { selector: 'a[href*="archived="]', n: 4, side: 'tl' },
+      { selector: 'thead th:nth-child(5)', n: 5, side: 'tl' },
+      { selector: 'tr[data-ug-row] .btn-group, tr[data-ug-row] td:last-child .d-flex', n: 6, side: 'tr' },
     ]);
     await shot(page, `${G}/03-users-list`);
     await clearCallouts(page);
 
     // -------------------------------------------------------------------------------------
+    // 07  Department logins list (all portal logins shown, since none holds a supervisor or manager role yet)
+    // -------------------------------------------------------------------------------------
+    await goto(page, '/admin/portal_users.php?show=all');
+    await check(page, 'department logins', { selector: 'tbody tr', min: 2, text: 'Grace Okafor' });
+    await tagRow(page, 'Sophie Tran', 'data-ug-dl');
+    await callout(page, [
+      { selector: 'div[aria-label="User type"]', n: 1, side: 'tr' },
+      { selector: 'button.ajax-modal[data-modal-url*="portal_user_add"]', n: 2, side: 'tl' },
+      { selector: 'a[href*="show="]', n: 3, side: 'tl' },
+      { selector: 'thead th:nth-child(4)', n: 4, side: 'tl' },
+      { selector: 'tr[data-ug-dl] td:last-child .d-flex', n: 5, side: 'tr' },
+    ]);
+    await shot(page, `${G}/07-department-logins`);
+    await clearCallouts(page);
+
+    // -------------------------------------------------------------------------------------
+    // 08  New Department Login pop-up, filled in but never submitted
+    // -------------------------------------------------------------------------------------
+    await resize(page, 1250);
+    await openModal(page, page.locator('button.ajax-modal:has-text("New Department Login")'));
+    await page.selectOption('.modal.show select[name="client_id"]', { label: 'Production' });
+    await page.fill('.modal.show input[name="name"]', 'Dana Whitfield');
+    await page.fill('.modal.show input[name="email"]', 'dana.whitfield@summitridge.example');
+    await page.fill('.modal.show input[name="title"]', 'Production Manager');
+    await page.selectOption('.modal.show select[name="portal_role"]', 'manager');
+    await page.fill('.modal.show input[name="password"]', 'Example-Only-1234');
+    await page.check('.modal.show input[name="force_mfa"]');
+    await page.waitForTimeout(500);
+    await callout(page, [
+      { selector: '.modal.show select[name="client_id"]', n: 1, side: 'tr' },
+      { selector: '.modal.show select[name="contact_id"]', n: 2, side: 'tr' },
+      { selector: '.modal.show select[name="portal_role"]', n: 3, side: 'tr' },
+      { selector: '.modal.show select[name="user_role_id"]', n: 4, side: 'tr' },
+      { selector: '.modal.show input[name="force_mfa"]', n: 5, side: 'tl' },
+    ]);
+    await shot(page, `${G}/08-new-department-login`, { selector: '.modal.show .modal-content' });
+    await clearCallouts(page);
+    await closeModal(page);
+    await resize(page, VIEW_H);
+
+    // -------------------------------------------------------------------------------------
     // 04  New User pop-up (Details tab), filled in but never submitted
     // -------------------------------------------------------------------------------------
+    await goto(page, '/admin/users.php');
     await resize(page, 1120);
     await openModal(page, page.locator('button.ajax-modal:has-text("New User")'));
     await page.fill('.modal.show input[name="name"]', 'Jordan Ellis');
@@ -178,7 +221,7 @@ async function resize(page, height) {
     await closeModal(page);
 
     // -------------------------------------------------------------------------------------
-    // 07  Roles list
+    // 09  Roles list
     // -------------------------------------------------------------------------------------
     await goto(page, '/admin/roles.php');
     await check(page, 'roles', { selector: 'tbody tr', min: 4, text: 'Help Desk Lead' });
@@ -192,11 +235,11 @@ async function resize(page, height) {
       { selector: 'tr[data-ug-admin] td:last-child i.fa-lock', n: 4, side: 'tr' },
       { selector: 'tr[data-ug-hdl] td:last-child button', n: 5, side: 'tl' },
     ]);
-    await shot(page, `${G}/07-roles-list`);
+    await shot(page, `${G}/09-roles-list`);
     await clearCallouts(page);
 
     // -------------------------------------------------------------------------------------
-    // 08  Role editor, Permissions tab (the two billing rows are left out of the picture)
+    // 10  Role editor, Permissions tab (the two billing rows are left out of the picture)
     // -------------------------------------------------------------------------------------
     await resize(page, 1750);
     await page.locator('tr[data-ug-hdl] td:last-child button').click();
@@ -218,13 +261,13 @@ async function resize(page, height) {
       { selector: '.modal.show .role-perm-more', n: 4, side: 'tr' },
       { selector: '.modal.show .role-preview', n: 5, side: 'tr' },
     ]);
-    await shot(page, `${G}/08-role-permissions`, { selector: '.modal.show .modal-content' });
+    await shot(page, `${G}/10-role-permissions`, { selector: '.modal.show .modal-content' });
     await clearCallouts(page);
     await closeModal(page);
     await resize(page, VIEW_H);
 
     // -------------------------------------------------------------------------------------
-    // 09  Settings > Security (whole page)
+    // 11  Settings > Security (whole page)
     // -------------------------------------------------------------------------------------
     await goto(page, '/admin/settings_security.php');
     await check(page, 'security settings', { selector: 'input[name="config_log_retention"]', min: 1 });
@@ -234,25 +277,29 @@ async function resize(page, height) {
       { selector: 'input[name="config_login_key_required"]', n: 3, side: 'tl' },
       { selector: 'input[name="config_login_session_lifetime"]', n: 4, side: 'tr' },
       { selector: 'input[name="config_log_retention"]', n: 5, side: 'tr' },
+      { selector: 'select[name="config_proxy_hops"]', n: 6, side: 'tr' },
+      { selector: '#netCloudflare', n: 7, side: 'tl' },
     ]);
-    await shot(page, `${G}/09-security-settings`, { fullPage: true });
+    await shot(page, `${G}/11-security-settings`, { fullPage: true });
     await clearCallouts(page);
 
     // -------------------------------------------------------------------------------------
-    // 10  Settings > Identity Provider
+    // 12  Settings > Identity Provider
     // -------------------------------------------------------------------------------------
     await goto(page, '/admin/identity_provider.php');
     await check(page, 'identity provider', { selector: 'input[name="azure_client_id"]', min: 1 });
     await callout(page, [
-      { selector: 'form .form-group .input-group', n: 1, side: 'tr' },
-      { selector: 'input[name="azure_client_id"]', n: 2, side: 'tr' },
-      { selector: 'input[name="azure_client_secret"]', n: 3, side: 'tr' },
+      { selector: 'input[name="azure_client_id"]', n: 1, side: 'tr' },
+      { selector: 'input[name="azure_client_secret"]', n: 2, side: 'tr' },
+      { selector: '#oidc_enabled', n: 3, side: 'tl' },
+      { selector: '#oidc_issuer', n: 4, side: 'tr' },
+      { selector: '#oidc_client_secret', n: 5, side: 'tr' },
     ]);
-    await shot(page, `${G}/10-identity-provider`);
+    await shot(page, `${G}/12-identity-provider`, { fullPage: true });
     await clearCallouts(page);
 
     // -------------------------------------------------------------------------------------
-    // 11  API Keys list
+    // 13  API Keys list
     // -------------------------------------------------------------------------------------
     await goto(page, '/admin/api_keys.php');
     await check(page, 'api keys', { selector: 'tbody tr', min: 3, text: 'Plant floor status board' });
@@ -264,11 +311,11 @@ async function resize(page, height) {
       { selector: 'tr[data-ug-old] td:nth-child(7)', n: 4, side: 'tl' },
       { selector: 'tr[data-ug-old] td:last-child button', n: 5, side: 'tl' },
     ]);
-    await shot(page, `${G}/11-api-keys`);
+    await shot(page, `${G}/13-api-keys`);
     await clearCallouts(page);
 
     // -------------------------------------------------------------------------------------
-    // 12  New API Key pop-up (Details tab); the generated key on the Keys tab is not shown
+    // 14  New API Key pop-up (Details tab); the generated key on the Keys tab is not shown
     // -------------------------------------------------------------------------------------
     await resize(page, 1000);
     await openModal(page, page.locator('button.ajax-modal:has-text("New API Key")'));
@@ -277,31 +324,36 @@ async function resize(page, height) {
     await page.selectOption('#apiKeyExpirationPreset', 'custom');
     await page.fill('.modal.show input[name="expire"]', nextYear);
     await page.selectOption('.modal.show select[name="permission"]', 'read');
+    await page.click('.modal.show summary:has-text("Security restrictions")');
+    await page.fill('.modal.show textarea[name="allowed_ips"]', '203.0.113.10');
     await page.locator('.modal.show .modal-title').click();   // take focus off the date field
     await page.waitForTimeout(500);
     await callout(page, [
       { selector: '.modal.show input[name="expire"]', n: 1, side: 'tr' },
       { selector: '.modal.show select[name="client"] + .ts-wrapper', n: 2, side: 'tr' },
       { selector: '.modal.show select[name="permission"]', n: 3, side: 'tr' },
-      { selector: '.modal.show a.nav-link[href="#pills-api-keys"]', n: 4, side: 'tr' },
+      { selector: '.modal.show #apiKeyAllowedIps', n: 4, side: 'tr' },
+      { selector: '.modal.show a.nav-link[href="#pills-api-keys"]', n: 5, side: 'tr' },
     ]);
-    await shot(page, `${G}/12-new-api-key`, { selector: '.modal.show .modal-content' });
+    await shot(page, `${G}/14-new-api-key`, { selector: '.modal.show .modal-content' });
     await clearCallouts(page);
     await closeModal(page);
     await resize(page, VIEW_H);
 
     // -------------------------------------------------------------------------------------
-    // 13  API Docs: the public Redoc reference, filtered with its search box
+    // 15  API Docs: the public Scalar reference, filtered with its search dialog
     // -------------------------------------------------------------------------------------
     await goto(page, '/api/v1/docs');
-    await page.locator('input[aria-label="Search"]').waitFor();
-    await page.fill('input[aria-label="Search"]', 'asset');
-    await page.waitForTimeout(600);
-    await shot(page, `${G}/13-api-docs`);
+    await page.locator('button:has-text("Search")').first().waitFor();
+    await page.locator('button:has-text("Search")').first().click();
+    await page.locator('input[aria-label="Enter search query"]').waitFor();
+    await page.fill('input[aria-label="Enter search query"]', 'asset');
+    await page.waitForTimeout(800);
+    await shot(page, `${G}/15-api-docs`);
     await clearCallouts(page);
 
     // -------------------------------------------------------------------------------------
-    // 14  Audit Logs: searching for "API", date-range panel open
+    // 16  Audit Logs: searching for "API", date-range panel open
     // -------------------------------------------------------------------------------------
     await goto(page, '/admin/audit_log.php');
     await check(page, 'audit log', { selector: 'tbody tr', min: 8 });
@@ -318,11 +370,11 @@ async function resize(page, height) {
       { selector: '#dateFilter', n: 4, side: 'tr' },
       { selector: 'thead th:first-child a', n: 5, side: 'tr' },
     ]);
-    await shot(page, `${G}/14-audit-log`);
+    await shot(page, `${G}/16-audit-log`);
     await clearCallouts(page);
 
     // -------------------------------------------------------------------------------------
-    // 15  App Logs
+    // 17  App Logs
     // -------------------------------------------------------------------------------------
     await goto(page, '/admin/app_log.php');
     await check(page, 'app log', { selector: 'tbody tr', min: 5, text: 'Cron' });
@@ -332,11 +384,11 @@ async function resize(page, height) {
       { selector: 'select[name="category"] + .ts-wrapper', n: 3, side: 'tl' },
       { selector: 'thead th:nth-child(4)', n: 4, side: 'tl' },
     ]);
-    await shot(page, `${G}/15-app-log`);
+    await shot(page, `${G}/17-app-log`);
     await clearCallouts(page);
 
     // -------------------------------------------------------------------------------------
-    // 16  Email Log
+    // 18  Email Log
     // -------------------------------------------------------------------------------------
     await resize(page, 1080);
     await goto(page, '/admin/email_log.php');
@@ -347,7 +399,7 @@ async function resize(page, height) {
       { selector: 'tbody tr:first-child td:nth-child(5) .badge', n: 3, side: 'tl' },
       { selector: 'tbody tr:first-child td:nth-child(6)', n: 4, side: 'tl' },
     ]);
-    await shot(page, `${G}/16-email-log`);
+    await shot(page, `${G}/18-email-log`);
     await clearCallouts(page);
     await resize(page, VIEW_H);
 

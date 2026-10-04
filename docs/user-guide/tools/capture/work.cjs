@@ -274,11 +274,11 @@ async function rowCount(page, selector = 'tbody tr') {
     await shot(page, `${G}/11-department-projects`);
     await clearCallouts(page);
 
-    // ================= Calendar: month (application level) =================
-    await goto(page, '/agent/calendar.php');
+    // ================= Calendar: month (department workspace: far fewer ticket entries than the application level) =================
+    await goto(page, `/agent/calendar.php?client_id=${deptId}`);
     await checkPage(page, 'calendar');
     await page.waitForSelector('.fc-daygrid-day .fc-event', { timeout: 10000 }).catch(() => fail('calendar: no events drawn'));
-    if (!(await page.locator('.fc-event', { hasText: 'IT Team Standup' }).count())) fail('calendar: seeded events missing');
+    if (!(await page.locator('.fc-event', { hasText: 'Plant Wi-Fi' }).count())) fail('calendar: seeded events missing');
     await callout(page, [
       { selector: await mark(page, 'c-cals', '.card', 'Calendars', '.col-md-3'), n: 1 },
       { selector: await mark(page, 'c-builtin', '.card', 'Built-in', '.col-md-3'), n: 2 },

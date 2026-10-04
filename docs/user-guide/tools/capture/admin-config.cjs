@@ -130,7 +130,7 @@ const cardWith = (text) => `.card:has(.card-title:has-text("${text}"))`;
     await need(page, 'modules', '#customSwitch1');
     await callout(page, [
       { selector: 'a.section-nav-back', n: 1, side: 'br' },
-      { selector: '#nav-group-settings a[href="/admin/settings_module.php"]', n: 2, side: 'tr' },
+      { selector: 'aside a.nav-link[href="/admin/settings.php"]', n: 2, side: 'tr' },
       { selector: '.card-body form', n: 3 },
       { selector: 'button[name=edit_module_settings]', n: 4, side: 'tr' },
     ]);
@@ -259,14 +259,15 @@ const cardWith = (text) => `.card:has(.card-title:has-text("${text}"))`;
   if (want('integrations')) {
     await goto(page, '/admin/settings_integrations.php');
     await phpErrors(page, 'integrations');
-    await need(page, 'integrations', 'a[data-tabkey="directorysync"]');
+    await need(page, 'integrations', 'a[data-tabkey="odoo"]');
     await callout(page, [
       { selector: 'a[data-tabkey="rmm"]', n: 1 },
       { selector: 'a[data-tabkey="backups"]', n: 2 },
       { selector: 'a[data-tabkey="firewalls"]', n: 3 },
       { selector: 'a[data-tabkey="unifi"]', n: 4 },
       { selector: 'a[data-tabkey="directorysync"]', n: 5 },
-      { selector: 'a[data-tabkey="devicesync"]', n: 6 },
+      { selector: 'a[data-tabkey="odoo"]', n: 6 },
+      { selector: 'a[data-tabkey="devicesync"]', n: 7 },
     ]);
     await shot(page, `${G}/11-integrations`);
     await clearCallouts(page);
@@ -294,9 +295,9 @@ const cardWith = (text) => `.card:has(.card-title:has-text("${text}"))`;
     await closeModal(page);
   }
 
-  // 14 - AI providers
+  // 14 - AI settings and providers (one page: Settings -> AI, also reached from Tags & Categories -> AI settings)
   if (want('ai-providers')) {
-    await goto(page, '/admin/ai_provider.php');
+    await goto(page, '/admin/settings_ai.php');
     await phpErrors(page, 'ai-providers');
     await needRows(page, 'ai-providers', 1);
     await callout(page, [
@@ -304,7 +305,7 @@ const cardWith = (text) => `.card:has(.card-title:has-text("${text}"))`;
       { selector: 'table thead th:nth-child(3)', n: 2, side: 'tr' },
       { selector: 'table thead th:nth-child(4)', n: 3, side: 'tr' },
     ]);
-    await shotEl(page, `${G}/14-ai-providers`, '.card >> nth=0');
+    await shot(page, `${G}/14-ai-providers`);
     await clearCallouts(page);
   }
 
@@ -330,7 +331,7 @@ const cardWith = (text) => `.card:has(.card-title:has-text("${text}"))`;
       { selector: '#backup_auto', n: 3 },
       { selector: 'button[name=backup_master_key]', n: 4, side: 'tr' },
     ]);
-    await shot(page, `${G}/16-backup`);
+    await shot(page, `${G}/16-backup`, { fullPage: true });
     await clearCallouts(page);
   }
 
@@ -536,6 +537,171 @@ const cardWith = (text) => `.card:has(.card-title:has-text("${text}"))`;
     ]);
     await shot(page, `${G}/32-holidays`);
     await clearCallouts(page);
+  }
+
+  // ---------------------------------------------------------------- shots added after the admin menu rework
+  // 33 - Settings directory (Administration -> Settings)
+  if (want('settings-hub')) {
+    await goto(page, '/admin/settings.php');
+    await phpErrors(page, 'settings-hub');
+    await need(page, 'settings-hub', '.admin-directory__tile');
+    await callout(page, [
+      { selector: 'aside a.nav-link[href="/admin/settings.php"]', n: 1, side: 'tr' },
+      { selector: '.admin-directory__nav', n: 2 },
+      { selector: '#general .admin-directory__grid', n: 3 },
+    ]);
+    await shot(page, `${G}/33-settings-hub`);
+    await clearCallouts(page);
+  }
+
+  // 34 - Maintenance directory
+  if (want('maintenance-hub')) {
+    await goto(page, '/admin/maintenance.php');
+    await phpErrors(page, 'maintenance-hub');
+    await need(page, 'maintenance-hub', '.admin-directory__tile');
+    await callout(page, [
+      { selector: 'a.admin-directory__item[href="/admin/cron.php"]', n: 1 },
+      { selector: 'a.admin-directory__item[href="/admin/backup.php"]', n: 2 },
+      { selector: 'a.admin-directory__item[href="/admin/update.php"]', n: 3 },
+    ]);
+    await shot(page, `${G}/34-maintenance-hub`);
+    await clearCallouts(page);
+  }
+
+  // 35 - Scheduled jobs. The demo server has no /etc/cron.d entry, so the page shows its empty state.
+  if (want('scheduled-jobs')) {
+    await goto(page, '/admin/cron.php');
+    await phpErrors(page, 'scheduled-jobs');
+    await need(page, 'scheduled-jobs', 'button:has-text("Run Now")');
+    await callout(page, [
+      { selector: 'input[name=run_cron_now] + button', n: 1, side: 'tr' },
+      { selector: '.card-body .alert-info', n: 2 },
+      { selector: '.card-body .alert-warning', n: 3 },
+      { selector: 'table.table', n: 4 },
+    ]);
+    await shot(page, `${G}/35-scheduled-jobs`);
+    await clearCallouts(page);
+
+    // 36 - The schedule builder. The dialog only exists on a server where the Cron Manager helper is installed,
+    // which the demo is not, so this copies the dialog markup from admin/cron.php into the page, loads the app's own
+    // js/cron_schedule_builder.js against it and opens it for the installer's standard "every five minutes" entry.
+    await page.evaluate(async () => {
+      const days = [[1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri'], [6, 'Sat'], [0, 'Sun']]
+        .map(([n, d]) => `<label class="form-check form-check-inline mb-0 me-2"><input class="form-check-input" type="checkbox" name="cron_weekday" value="${n}"><span class="form-check-label">${d}</span></label>`).join('');
+      const html = `
+<div class="modal fade" id="cronScheduleModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+<form id="cronScheduleForm" onsubmit="return false">
+<input type="hidden" id="cronScheduleFile"><input type="hidden" id="cronScheduleLine"><input type="hidden" id="cronScheduleHash">
+<div class="modal-header"><h2 class="modal-title h5" id="cronScheduleTitle">Edit schedule</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+<div class="modal-body">
+<p class="text-muted mb-3">Job: <code id="cronScheduleJob"></code><br>Current: <code id="cronScheduleCurrent"></code></p>
+<div class="mb-3"><label for="cronScheduleType" class="form-label">Repeat</label><select id="cronScheduleType" class="form-select">
+<option value="minutes">Every few minutes</option><option value="hourly">Hourly</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="custom">Custom cron expression</option></select></div>
+<div class="mb-3" data-cron-control="minutes"><label for="cronEveryMinutes" class="form-label">Run every</label><div class="input-group" style="max-width:180px"><input type="number" id="cronEveryMinutes" class="form-control" min="1" max="59" step="1" value="5"><span class="input-group-text">minutes</span></div><div class="form-text">Intervals start again at the top of each hour.</div></div>
+<div class="mb-3 d-none" data-cron-control="hourly"><label for="cronMinute" class="form-label">Minute of each hour</label><input type="number" id="cronMinute" class="form-control" min="0" max="59" step="1" value="0" style="max-width:120px"></div>
+<div class="mb-3 d-none" data-cron-control="time"><label for="cronTime" class="form-label">Time of day</label><input type="time" id="cronTime" class="form-control" value="09:00" style="max-width:180px"><div class="form-text">Uses the server's cron time zone.</div></div>
+<fieldset class="mb-3 d-none" data-cron-control="weekly"><legend class="form-label fs-6 mb-2">Days of the week</legend><div class="d-flex flex-wrap gap-2">${days}</div></fieldset>
+<div class="mb-3 d-none" data-cron-control="monthly"><label for="cronMonthDay" class="form-label">Day of the month</label><input type="number" id="cronMonthDay" class="form-control" min="1" max="31" step="1" value="1" style="max-width:120px"><div class="form-text">Days 29–31 are skipped in shorter months.</div></div>
+<div class="mb-2"><label for="cronScheduleExpression" class="form-label">Cron expression</label><input type="text" id="cronScheduleExpression" class="form-control font-monospace" maxlength="100" spellcheck="false" readonly><div class="form-text">For custom schedules: minute, hour, day of month, month, day of week. Use <code>*</code> for every value.</div></div>
+<div id="cronScheduleSummary" class="text-muted" aria-live="polite"></div><div id="cronScheduleError" class="text-danger d-none" role="alert"></div>
+</div>
+<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" id="cronScheduleSave" disabled>Save schedule</button></div>
+</form></div></div></div>
+<button type="button" id="ugOpenCron" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#cronScheduleModal"
+ data-cron-file="rivetit-demo" data-cron-line="3" data-cron-hash="x" data-cron-script="cron.php" data-cron-current="*/5 * * * *" style="position:fixed;left:0;top:0;opacity:.01">open</button>`;
+      document.body.insertAdjacentHTML('beforeend', html);
+      const orig = document.addEventListener;
+      document.addEventListener = (t, f, o) => (t === 'DOMContentLoaded' ? f() : orig.call(document, t, f, o));
+      await new Promise((resolve, reject) => {
+        const sc = document.createElement('script');
+        sc.src = '/js/cron_schedule_builder.js';
+        sc.onload = resolve;
+        sc.onerror = reject;
+        document.head.appendChild(sc);
+      });
+      document.addEventListener = orig;
+    });
+    await page.setViewportSize({ width: VIEW.width, height: 1000 });
+    await page.evaluate(() => document.getElementById('ugOpenCron').click());
+    await page.waitForSelector('.modal.show .modal-content', { timeout: 15000 });
+    await settle(page, 900);
+    await page.selectOption('.modal.show #cronScheduleType', 'weekly');
+    await page.fill('.modal.show #cronTime', '02:30');
+    await page.evaluate(() => {
+      document.querySelectorAll('.modal.show [name=cron_weekday]').forEach((i) => { i.checked = ['1', '3', '5'].includes(i.value); });
+      document.getElementById('cronTime').dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await callout(page, [
+      { selector: '.modal.show #cronScheduleType', n: 1, side: 'tr' },
+      { selector: '.modal.show [data-cron-control="weekly"]', n: 2 },
+      { selector: '.modal.show #cronScheduleExpression', n: 3, side: 'tr' },
+      { selector: '.modal.show #cronScheduleSave', n: 4, side: 'tr' },
+    ]);
+    await shotEl(page, `${G}/36-scheduled-jobs-edit`, '.modal.show .modal-content', { modal: true, pad: 6 });
+    await clearCallouts(page);
+    await closeModal(page);
+  }
+
+  // 37 - Update page (the demo has no git remote, so the update check is unavailable and no update is pending)
+  if (want('update')) {
+    await goto(page, '/admin/update.php');
+    await phpErrors(page, 'update');
+    await need(page, 'update', '.upd-tiles');
+    await callout(page, [
+      { selector: '.upd-hero', n: 1 },
+      { selector: '.upd-tiles', n: 2 },
+    ]);
+    await shot(page, `${G}/37-update`);
+    await clearCallouts(page);
+  }
+
+  // 38 - Integrations -> Odoo tab (no Odoo server in the demo, so the connection form is empty)
+  if (want('odoo')) {
+    await goto(page, '/admin/settings_integrations.php?tab=odoo');
+    await phpErrors(page, 'odoo');
+    await need(page, 'odoo', '#tab-odoo.show');
+    await callout(page, [
+      { selector: 'a[data-tabkey="odoo"]', n: 1 },
+      { selector: '#tab-odoo .row.g-3', n: 2 },
+      { selector: '#tab-odoo .card:has(button[name=save_odoo_integration])', n: 3 },
+      { selector: '#tab-odoo .card:has(button[name=save_odoo_sso])', n: 4 },
+      { selector: '#tab-odoo .card:has(button[name=save_field_mapping])', n: 5 },
+      { selector: '#tab-odoo .card:has(button[name=training_odoo_link_check])', n: 6 },
+      { selector: '#tab-odoo #odoo-sync .card', n: 7 },
+    ]);
+    await shot(page, `${G}/38-integrations-odoo`, { fullPage: true });
+    await clearCallouts(page);
+  }
+
+  // 39 - Integrations -> Directory Sync tab (Microsoft 365 / Entra ID and Google Workspace)
+  if (want('directory-sync')) {
+    await goto(page, '/admin/settings_integrations.php?tab=directorysync');
+    await phpErrors(page, 'directory-sync');
+    await need(page, 'directory-sync', '#tab-directorysync.show');
+    await callout(page, [
+      { selector: 'a[data-tabkey="directorysync"]', n: 1 },
+      { selector: '#tab-directorysync .card:has(button[name=save_microsoft_integration])', n: 2 },
+      { selector: '#tab-directorysync .card:has(h3 .fa-google)', n: 3 },
+    ]);
+    await shot(page, `${G}/39-integrations-directory-sync`, { fullPage: true });
+    await clearCallouts(page);
+  }
+
+  // 40 - New rule with the "Requester returns from vacation" trigger
+  if (want('automation-vacation')) {
+    await goto(page, '/admin/ticket_automation.php');
+    await openModal(page, 'button[data-modal-url*="add_rule"]');
+    await page.fill('.modal.show input[name=rule_name]', 'Example: reopen after vacation');
+    await page.selectOption('.modal.show #ruleTrigger', 'vacation_return');
+    await page.waitForTimeout(300);
+    await page.selectOption('.modal.show #ruleAction0', 'reopen_ticket');
+    await callout(page, [
+      { selector: '.modal.show #ruleTrigger', n: 1, side: 'tr' },
+      { selector: '.modal.show #ruleAction0', n: 2, side: 'tr' },
+    ]);
+    await shotEl(page, `${G}/40-automation-vacation-rule`, '.modal.show .modal-content', { modal: true });
+    await clearCallouts(page);
+    await closeModal(page);
   }
 
   await browser.close();

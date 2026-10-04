@@ -5,8 +5,8 @@ Training is RivetIT's learning management module (LMS). You build courses and re
 | | |
 |---|---|
 | **Where to find it** | Sidebar → **Training** → **Overview** and **Courses**. Training is an app-level menu; there is no separate Training menu inside a department workspace. |
-| **Who can use it** | Permission **Training**. Level 1 (Read): view published courses, preview them, see the Overview. Level 2 (Modify): also create and edit courses, quizzes and question banks. Level 3 (Full): also publish, archive, restore, delete drafts and manage categories, for every department. Levels 1 and 2 only see people in the departments ticked on the user's Access tab. |
-| **Turn it on** | An administrator switches on **Settings → Modules → Show Training (LMS)**. The switch appears only after the Training database update has been installed. Until then the Training menu is hidden and its pages say "Training is turned off". |
+| **Who can use it** | Permission **Training**. Level 1 (Read): view published courses, preview them, see the Overview. Level 2 (Modify): also create and edit courses, quizzes and question banks. Level 3 (Full): also publish, archive, restore, delete drafts and manage categories, for every department. Levels 1 and 2 only see people in the departments ticked on the user's Access tab. For someone who runs Training, an administrator can create a role with **Start from…** → **Training Manager** (Administration → Roles): Training Full, Training kiosk Full and Knowledge Base Write, so they can also edit the articles learners read. |
+| **Turn it on** | An administrator switches on **Show Training (LMS)** under **Administration → Settings → Modules**. The switch appears only after the Training database update has been installed. Until then the Training menu is hidden and its pages say "Training is turned off". |
 
 ## What it's for
 
@@ -78,8 +78,8 @@ Everything you type saves automatically ("Changes save automatically"). The **To
 
 | Type | What you provide |
 |---|---|
-| **Article** | Text written in the editor (headings, lists, tables, images). You can also **Import from KB** (only when the Knowledge Base is on and you can read it; the import is a copy) or **Import Word (.docx)**. |
-| **Document** | A PDF, shown to learners page by page. The size and page limits come from Admin → Training. For PowerPoint or Excel, save as PDF first. |
+| **Article** | Text written in the editor (headings, lists, tables, images). You can also **Import from KB** (only when the Knowledge Base is on and you can read it; the import is a copy, and the lesson shows **KB changed** when the article is edited later) or **Import Word (.docx)**. |
+| **Document** | A PDF, shown to learners page by page. The size and page limits come from **Administration → Settings → Training** (General & media). RivetIT turns each PDF into page pictures with the poppler PDF tools on the server; if they are missing, PDF uploads fail. An administrator can check this on **Administration → Maintenance → Debug**, where **PDF tools installed (poppler-utils, util-linux)** must read **Installed**. For PowerPoint or Excel, save as PDF first. |
 | **Video** | An uploaded MP4 or MOV, or a YouTube or Vimeo link (use **Check link**, then press play once to confirm it works). **Must watch** sets how much of the video counts (50-100%); skipping ahead does not count. Upload a caption file (.vtt or .srt) for uploaded videos. |
 | **Image** | A photo or diagram (JPG, PNG, WebP or GIF) with a **Caption**. Learners can pinch to zoom. |
 | **Quiz** | Graded questions. Turn on **Final exam (must pass to finish)** to make it the course's exam (one per course). See the quiz guide. |
@@ -91,17 +91,19 @@ The content window has five tabs.
 
 *Figure 5 — The content window for an Article lesson.*
 
-- **Content**: the material itself, plus **Required**, **Allow download** and **Open without starting** in the side panel.
+- **Content**: the material itself, plus **Required**, **Needs lessons above** (documents only), **Allow download** and **Open without starting** in the side panel.
 - **Description**: text shown above the lesson.
 - **Resources**: checklists, SDS sheets, forms and links people can open from the lesson (**Upload file…**, **Add link**).
 - **Quick check**: a few questions right after the lesson.
-- **Settings**: **Responsible**, **Duration** (automatic unless you override it), **Required**, **Allow download**, **Open without starting the course**, **Minimum watch** (video) and **Section**.
+- **Settings**: **Responsible**, **Duration** (automatic unless you override it), **Required**, **Needs the lessons above finished** (documents only), **Allow download**, **Open without starting the course**, **Minimum watch** (video) and **Section**.
 
 ![The Quick check tab showing the switch, two questions and the Critical toggle](images/training-authoring/06-quick-check.png)
 
 *Figure 6 — Quick check. It does not count toward completion; people see the explanation for anything they miss.*
 
 A lesson marked **Required** must be finished to complete the course. **Open without starting** lets a learner open the lesson from the course page before starting, and it is never locked by **Take lessons in order**.
+
+A **Document** lesson also has **Needs the lessons above finished**, on by default. In a course with **Take lessons in order**, the lesson stays locked until every required lesson above it is done. Turn the switch off to let people open that document at any time, for example a reference sheet placed at the end. It has no effect in a course that is not taken in order, and it is also on the document's card in the builder.
 
 ### Change course settings
 
@@ -194,6 +196,10 @@ People who finished an earlier version stay current when you publish. You decide
 - **Archive…** (level 3) hides the course from the list and makes it read-only. Published versions, media and records are kept. Use the **Archived** status filter and **Restore** to bring it back.
 - **Delete draft…** (level 3) is only for a course that was never published. It removes every section, lesson and question in it and cannot be undone. A published course can only be archived.
 
+### Let learners read Knowledge Base articles
+
+Learners on a kiosk can browse a **Knowledge base** page of how-to articles next to their courses. That list is not built in the course builder. It comes from the Knowledge Base: an article appears there only when its **Show on Training Portal** switch is **Yes** (it starts at **No**, and the field exists only while Training is on) and it is company-wide or belongs to the learner's department. This is independent of **Visible to Department Portal**. To share an article with learners, set the switch when you create or edit it; see [Knowledge Base](05-knowledge-base.md). **Import from KB** in an Article lesson is different: it copies the article text into the course.
+
 ## Tips and good practice
 
 - Keep lessons short. Five short articles are easier to finish than one long one.
@@ -205,4 +211,5 @@ People who finished an earlier version stay current when you publish. You decide
 
 ## Related guides
 
+- [Knowledge Base](05-knowledge-base.md)
 - [Training: Quizzes, Paths and Badges](07b-training-quizzes-paths-and-badges.md)

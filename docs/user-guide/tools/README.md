@@ -11,10 +11,11 @@ password, licence key and serial is invented.
 ## Regenerate every screenshot
 
 ```bash
-# 1. Build a fresh demo instance (about 10 seconds; leaves it running on http://127.0.0.1:8080)
+# 1. Build a fresh demo instance (about 3 minutes: the training seed waits out lesson reading times;
+#    leaves it running on http://127.0.0.1:8080)
 docs/user-guide/tools/build-demo.sh
 
-# 2. Re-shoot everything (about a minute or two)
+# 2. Re-shoot everything (several minutes)
 NODE_PATH=$(npm root -g) node docs/user-guide/tools/run-all.cjs
 
 # Just one group:
@@ -27,9 +28,17 @@ the demo database (it refuses names that don't look like a demo/test database, a
 did not create). See `build-demo.sh --help` for the options (`--app-dir`, `--db`, `--port`, `--only`,
 `--no-server`).
 
-Requirements: bash, PHP with `mysqli` and `zip`, a MariaDB/MySQL server that `mysql -u root` can reach over
+Requirements: bash, PHP with `mysqli` and `zip`, [Composer](https://getcomposer.org), a MariaDB/MySQL server that `mysql -u root` can reach over
 the local socket, Node 18+ and [Playwright](https://playwright.dev) with Chromium
 (`npm i -g playwright && npx playwright install chromium`).
+
+After re-shooting, finish with:
+
+```bash
+docs/user-guide/tools/optimize-images.sh          # shrink the PNGs
+python3 docs/user-guide/tools/build-visual-tour.py # refresh the gallery page
+python3 docs/user-guide/tools/check-guide.py       # links, anchors, images, filler words, stray real data
+```
 
 ## Demo sign-ins
 
@@ -48,8 +57,13 @@ the local socket, Node 18+ and [Playwright](https://playwright.dev) with Chromiu
 | `seed/` | Demo data. Files are replayed **in filename order**, so the numeric prefix is the apply order. `00-core.sql` (departments, people, locations, agent logins) comes first; everything else looks its parents up **by name**, never by numeric id. `.sql` files run through `mysql`; `.php` files run through `php` with `RIVETIT_APP_DIR` set (used where the app encrypts values or keeps a hash-chained ledger, so the app's own code has to write them). |
 | `capture/` | One Playwright script per guide group. Each logs in, walks its pages and writes PNGs to `../images/<group>/`. |
 | `lib.cjs` | The shared helpers the capture scripts use: `launch`, `login`, `goto`, `shot`, and `callout` (numbered red badges drawn on the live page). |
+| `optimize-images.sh` | Shrinks the screenshots (about 30 MB to 12 MB) without visible change, using `pngquant` and `optipng`. Run it after re-shooting, before committing. |
+| `build-visual-tour.py` | Regenerates [visual-tour.md](../visual-tour.md) (a gallery of representative screenshots) from the guide pages. Run it after re-shooting. |
+| `check-guide.py` | Lints the guide: broken links, anchors and images, unreferenced screenshots, filler words, and anything that looks like real data (non-`.example` emails, public IPs). |
 | `run-all.cjs` | Runs every capture script in turn and reports which failed. |
 | `setup-wizard.cjs` | Walks the browser installer on a brand-new instance for the [first-time setup](../00-first-time-setup.md) pictures. Unlike the capture scripts it *installs* the app, so it is not part of `run-all`. |
+
+[app-findings.md](app-findings.md) lists the application bugs and rough edges the writers noticed while documenting each module (none were changed).
 
 ## Rules the scripts follow
 

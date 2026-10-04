@@ -259,6 +259,7 @@ encrypted `deploy/backup.sh` archive, or the app's own in-app `.zip`). Run it ag
 
 | Document | What it covers |
 |---|---|
+| [docs/user-guide/](docs/user-guide/README.md) | End-user guide: how each module works, with screenshots ([visual tour](docs/user-guide/visual-tour.md)) |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Docker vs. bare metal, backups and disaster recovery, updating |
 | [deploy/README.md](deploy/README.md) | Every deployment script and flag |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Code layout, sign-in and permissions, data model, modules, migrations, integrations |

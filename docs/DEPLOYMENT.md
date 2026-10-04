@@ -9,6 +9,9 @@ two more detailed references rather than replacing them:
   `restore_admin_zip.sh`, `update.sh`).
 - [`.env.example`](../.env.example) — every Docker Compose environment variable, with inline comments.
 
+Once it is running, the [user guide](user-guide/README.md) starts with the
+[browser installer walkthrough](user-guide/00-first-time-setup.md) and covers every module day to day.
+
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) for how the codebase itself is organized, and
 [`ISO27001-COMPLIANCE.md`](ISO27001-COMPLIANCE.md) for a control-by-control mapping of what this
 deployment tooling covers from a security standpoint.

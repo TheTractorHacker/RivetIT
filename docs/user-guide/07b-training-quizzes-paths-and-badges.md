@@ -4,9 +4,9 @@ This page continues [Training: Courses and Content](07-training-courses-and-cont
 
 | | |
 |---|---|
-| **Where to find it** | Sidebar → **Training** → **Question Library**, **Learning Paths** and **Achievements**. Quizzes are built inside a course (open a lesson, or select a quiz lesson in the course builder). Training settings are in **Admin → Training**. |
-| **Who can use it** | Permission **Training**. Quizzes, **Question Library**, **Achievements** and **Awarded badges**: level 2 (Modify) or higher. **Learning Paths**: level 1 can view, level 2 can edit. Exporting a bank to CSV needs level 3, because the file contains the answer key. Admin → Training needs an administrator; a level 3 user who is not an administrator gets **Training → Training settings** with a shorter list. |
-| **Turn it on** | The Training module must be on (**Settings → Modules → Show Training (LMS)**). |
+| **Where to find it** | Sidebar → **Training** → **Question Library**, **Learning Paths** and **Achievements**. Quizzes are built inside a course (open a lesson, or select a quiz lesson in the course builder). Training settings are in **Administration → Settings → Training**. |
+| **Who can use it** | Permission **Training**. Quizzes, **Question Library**, **Achievements** and **Awarded badges**: level 2 (Modify) or higher. **Learning Paths**: level 1 can view, level 2 can edit. Exporting a bank to CSV needs level 3, because the file contains the answer key. **Administration → Settings → Training** needs an administrator; a level 3 user who is not an administrator gets **Training → Training settings** with a shorter list. |
+| **Turn it on** | The Training module must be on (**Administration → Settings → Modules → Show Training (LMS)**). |
 
 ## Quizzes and final exams
 
@@ -96,7 +96,7 @@ A learning path is an ordered curriculum of courses, such as a new-hire onboardi
 1. Go to **Training → Learning Paths** and select **New path** (or select a path card to edit it).
 2. Enter a **Name** and **Description**, pick a **Color**, and optionally a **Cover**.
 3. Turn on **Take the courses in order** if each course should open only when the one before it is complete.
-4. Under **Add courses**, search and select courses, then **Add**. Drag them, or use the arrows, to set the order. Turn off **Required** on a course to make it optional. You can add up to 50 courses.
+4. Under **Add courses**, click the box to open the list of courses (or type to search), select one or more, then **Add**. Drag them, or use the arrows, to set the order. Turn off **Required** on a course to make it optional. You can add up to 50 courses.
 5. Choose a **Completion achievement** if finishing the path should earn a badge.
 6. Select **Save**. If someone else changed the path meanwhile, **Load their version** shows theirs.
 
@@ -139,17 +139,19 @@ Achievements are badges people earn. They show on the kiosk and on each person's
 | **All required training on time for a number of months** | Automatic (checked nightly) |
 | **Completes a number of courses** (optionally in one category) | Automatic |
 
-Automatic badges are awarded by the app when a completion or an exam result is recorded, and a nightly check catches any that were missed. Each person earns each automatic badge once. A blue notice at the top of the page says badges start once the "Learning Center" launches; that wording is out of date.
+Automatic badges are awarded by the app when a completion or an exam result is recorded, and a nightly check catches any that were missed. Each person earns each automatic badge once. 
+
+> **Note**: A blue notice at the top of the page (and a hint in the path editor) still says badges are awarded "once the Learning Center launches". The wording is out of date; the award code runs now.
 
 To give a manual badge, go to **Training → Awarded badges** (level 2) and select **Award manually**. Choose the badge, the person (only people in your departments), and write a reason of 5 to 500 characters. The reason appears on the person's transcript and cannot be edited later. The same badge can be given again. The list on that page shows every badge earned, newest first, and can be filtered by badge or person. **Archive** (in the panel or card menu) retires a badge.
 
 ## Training settings
 
-Administrators open **Admin → Training**. It is one page with a section menu; **each section saves on its own** and warns you before you leave with unsaved changes.
+Administrators open **Administration → Settings → Training** (the **Training** tile in the **Workflows** group). It is one page with a section menu; **each section saves on its own** and warns you before you leave with unsaved changes.
 
-![Admin Training settings showing the section menu, default pass mark and default attempts](images/training-authoring/21-admin-settings.png)
+![Administration Training settings showing the section menu, default pass mark and default attempts](images/training-authoring/21-admin-settings.png)
 
-*Figure 7 — Admin → Training, General & media. (1) Section menu, (2) Default pass mark, (3) Default attempts.*
+*Figure 7 — Administration → Settings → Training, General & media. (1) Section menu, (2) Default pass mark, (3) Default attempts.*
 
 **General & media** is the part authors care about:
 

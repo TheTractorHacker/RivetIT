@@ -140,11 +140,20 @@ async function collapseSidebar(page) {
   // The Contact box is a search (it looks across departments): type a name and pick the first hit.
   // Cosmetic only - if the search box misbehaves the shot is still taken with the Contact box empty.
   try {
-    await page.click('#contactSelect-ts-control', { timeout: 5000 });
+    // The control can sit below the visible part of the pop-up, so drive it from the keyboard.
+    await page.evaluate(() => document.getElementById('contactSelect').tomselect.focus());
     await page.keyboard.type('Grace', { delay: 60 });
-    await page.waitForSelector('#contactSelect-ts-dropdown .option', { state: 'visible', timeout: 6000 });
+    await page.waitForSelector('#contactSelect-ts-dropdown .option', { state: 'attached', timeout: 6000 });
     await page.waitForTimeout(500);
-    await page.locator('#contactSelect-ts-dropdown .option').first().click({ timeout: 5000 });
+    const picked = await page.evaluate(() => {
+      const ts = document.getElementById('contactSelect').tomselect;
+      const hit = Object.values(ts.options).find((o) => /Grace Okafor/.test(o.text || ''));
+      if (!hit) return false;
+      ts.setValue(hit.value);
+      ts.close();
+      return true;
+    });
+    if (!picked) throw new Error('Grace Okafor not offered by the contact search');
     await page.waitForTimeout(800);
   } catch (e) {
     console.warn('note: could not pick a contact in the New Ticket form (' + String(e.message).split('\n')[0] + ')');
