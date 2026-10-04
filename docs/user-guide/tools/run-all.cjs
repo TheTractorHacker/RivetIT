@@ -3,6 +3,8 @@
 //
 //   NODE_PATH=$(npm root -g) DEMO_URL=http://127.0.0.1:8080 node docs/user-guide/tools/run-all.cjs
 //   node docs/user-guide/tools/run-all.cjs service-desk portal      # only the named groups
+//   node docs/user-guide/tools/run-all.cjs --clean                  # the same shots WITHOUT call-outs,
+//                                                                   # into docs/user-guide/images-clean/
 //
 // The scripts are read-only with respect to app data, so this is safe to re-run at any time; run
 // build-demo.sh first if you want every screenshot to come from a freshly rebuilt, consistent demo.
@@ -12,7 +14,10 @@ const fs = require('fs');
 const path = require('path');
 
 const dir = path.join(__dirname, 'capture');
-const wanted = process.argv.slice(2);
+const args = process.argv.slice(2);
+const clean = args.includes('--clean');
+const wanted = args.filter((a) => !a.startsWith('--'));
+if (clean) process.env.GUIDE_CLEAN = '1';
 const files = fs
   .readdirSync(dir)
   .filter((f) => f.endsWith('.cjs'))

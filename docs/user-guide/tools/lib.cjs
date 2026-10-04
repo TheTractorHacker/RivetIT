@@ -7,13 +7,18 @@
 //
 // Screenshots are written under docs/user-guide/images/<group>/<name>.png, where
 // <group> and <name> are the first argument you pass to shot(): shot(page, 'tickets/01-list').
+//
+// Clean mode: with GUIDE_CLEAN=1 (or run-all.cjs --clean) the same scripts write the same files under
+// docs/user-guide/images-clean/ instead, and every call-out (numbered red badge and frame) is skipped, so
+// the pictures are the plain screenshots - for reuse on a web site. Nothing else about a script changes.
 
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 
 const BASE = (process.env.DEMO_URL || 'http://127.0.0.1:8080').replace(/\/$/, '');
-const OUT = path.resolve(__dirname, '..', 'images');
+const CLEAN = /^(1|true|yes)$/i.test(process.env.GUIDE_CLEAN || '');
+const OUT = path.resolve(__dirname, '..', CLEAN ? 'images-clean' : 'images');
 
 // Every demo login uses the same password; Alex Morgan is the administrator.
 const DEMO_USERS = {
@@ -60,6 +65,7 @@ async function settle(page, extraMs = 400) {
 // "click the button marked 2". items: [{ selector, n, side }] where side is
 // 'tl' (default), 'tr', 'bl' or 'br' - the corner of the element the badge sits on.
 async function callout(page, items) {
+  if (CLEAN) return;
   await page.evaluate((items) => {
     document.querySelectorAll('.ug-callout').forEach((n) => n.remove());
     items.forEach(({ selector, n, side }) => {
@@ -124,4 +130,4 @@ async function goto(page, url) {
   await settle(page);
 }
 
-module.exports = { launch, login, shot, goto, settle, callout, clearCallouts, BASE, OUT, DEMO_USERS };
+module.exports = { launch, login, shot, goto, settle, callout, clearCallouts, BASE, OUT, CLEAN, DEMO_USERS };

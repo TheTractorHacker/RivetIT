@@ -9,7 +9,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { launch, login, goto, shot, clearCallouts, settle, BASE, OUT } = require('../lib.cjs');
+const { launch, login, goto, shot, clearCallouts, settle, BASE, OUT, CLEAN } = require('../lib.cjs');
 
 const G = 'getting-started';
 const REPO = path.resolve(__dirname, '..', '..', '..', '..');
@@ -42,6 +42,7 @@ async function assertCount(page, selector, min, label) {
 //   inset                   draw the frame INSIDE the element and the badge on its right (full-width rows)
 //   trim { l, t, r, b }     shrink (positive) or grow (negative) the frame on one side
 async function mark(page, items) {
+  if (CLEAN) return;
   await page.evaluate((items) => {
     document.querySelectorAll('.ug-callout').forEach((n) => n.remove());
     const sx = window.scrollX, sy = window.scrollY;
@@ -155,7 +156,18 @@ async function railPng(page) {
 }
 
 // Side-by-side figure built from real screenshots: [{ label, note, png }].
+// In clean mode there is no composite: each real screenshot is written on its own, as <rel>-<label>.png.
 async function composite(browser, rel, panels) {
+  if (CLEAN) {
+    for (const p of panels) {
+      const slug = p.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const file = path.join(OUT, `${rel}-${slug}.png`);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, p.png);
+      console.log('saved', path.relative(REPO, file));
+    }
+    return;
+  }
   const context = await browser.newContext({ viewport: { width: 1200, height: 800 }, deviceScaleFactor: 1 });
   const page = await context.newPage();
   const cols = panels
