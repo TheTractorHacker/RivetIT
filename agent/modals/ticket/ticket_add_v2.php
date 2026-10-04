@@ -19,7 +19,7 @@ ob_start();
 
 ?>
 <div class="modal-header bg-dark">
-    <h5 class="modal-title"><i class="fas fa-fw fa-life-ring me-2"></i>New Ticket (v2)</h5>
+    <h5 class="modal-title"><i class="fas fa-fw fa-life-ring me-2"></i>New Ticket</h5>
     <button type="button" class="close text-white" data-bs-dismiss="modal">
         <span>&times;</span>
     </button>
@@ -235,7 +235,6 @@ ob_start();
             <?php } ?>
 
             <div class="tab-pane fade" id="pills-add-relationships">
-                To-do: project, etc.
 
                 <div class="form-group">
                     <label>Asset</label>

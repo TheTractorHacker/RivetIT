@@ -188,8 +188,12 @@ if (isset($_POST['bulk_force_recurring_tickets'])) {
 
                 // Set the next run date (based on the scheduled date, rather than now, so things keep their schedule)
                 $dt_old_next_recurring_date = new DateTime($old_next_recurring_date);
-                if ($frequency == "weekly") {
+                if ($frequency == "three days") {
+                    $next_run = date_add($dt_old_next_recurring_date, date_interval_create_from_date_string('3 days'));
+                } elseif ($frequency == "weekly") {
                     $next_run = date_add($dt_old_next_recurring_date, date_interval_create_from_date_string('1 week'));
+                } elseif ($frequency == "biweekly") {
+                    $next_run = date_add($dt_old_next_recurring_date, date_interval_create_from_date_string('2 weeks'));
                 } elseif ($frequency == "monthly") {
                     $next_run = date_add($dt_old_next_recurring_date, date_interval_create_from_date_string('1 month'));
                 } elseif ($frequency == "quarterly") {
@@ -327,8 +331,12 @@ if (isset($_GET['force_recurring_ticket'])) {
 
         // Set the next run date (based on the scheduled date, rather than now, so things keep their schedule)
         $dt_old_next_recurring_date = new DateTime($old_next_recurring_date);
-        if ($frequency == "weekly") {
+        if ($frequency == "three days") {
+            $next_run = date_add($dt_old_next_recurring_date, date_interval_create_from_date_string('3 days'));
+        } elseif ($frequency == "weekly") {
             $next_run = date_add($dt_old_next_recurring_date, date_interval_create_from_date_string('1 week'));
+        } elseif ($frequency == "biweekly") {
+            $next_run = date_add($dt_old_next_recurring_date, date_interval_create_from_date_string('2 weeks'));
         } elseif ($frequency == "monthly") {
             $next_run = date_add($dt_old_next_recurring_date, date_interval_create_from_date_string('1 month'));
         } elseif ($frequency == "quarterly") {

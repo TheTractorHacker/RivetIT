@@ -1673,7 +1673,7 @@ if (isset($_POST['bulk_resolve_tickets'])) {
                 // Update ticket & insert reply
                 mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 5, ticket_resolved_at = NOW(), ticket_closed_at = NOW(), ticket_closed_by = $session_user_id WHERE ticket_id = $ticket_id");
 
-                mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = '$details', ticket_reply_type = '$ticket_reply_type', ticket_reply_time_worked = '$ticket_reply_time_worked', ticket_reply_by = $session_user_id, ticket_reply_ticket_id = $ticket_id, ticket_reply_emailed = " . ($private_note == 0 ? 1 : 0));
+                mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = '$details', ticket_reply_type = '$ticket_reply_type', ticket_reply_time_worked = '$ticket_reply_time_worked', ticket_reply_by = $session_user_id, ticket_reply_ticket_id = $ticket_id, ticket_reply_emailed = " . ($private_note == 0 && (!empty($config_smtp_host) || !empty($config_smtp_provider)) ? 1 : 0));
                 mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Ticket closed.', ticket_reply_type = 'System', ticket_reply_time_worked = '00:01:00', ticket_reply_by = $session_user_id, ticket_reply_ticket_id = $ticket_id");
 
                 logAction("Ticket", "Resolve", "$session_name resolved $ticket_prefix$ticket_number - $ticket_subject", $client_id, $ticket_id);
@@ -1818,7 +1818,7 @@ if (isset($_POST['bulk_ticket_reply'])) {
             }
 
             // Add reply
-            mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = '$ticket_reply', ticket_reply_time_worked = '$ticket_reply_time_worked', ticket_reply_type = '$ticket_reply_type', ticket_reply_by = $session_user_id, ticket_reply_ticket_id = $ticket_id, ticket_reply_emailed = " . ($private_note == 0 ? 1 : 0));
+            mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = '$ticket_reply', ticket_reply_time_worked = '$ticket_reply_time_worked', ticket_reply_type = '$ticket_reply_type', ticket_reply_by = $session_user_id, ticket_reply_ticket_id = $ticket_id, ticket_reply_emailed = " . ($private_note == 0 && (!empty($config_smtp_host) || !empty($config_smtp_provider)) ? 1 : 0));
 
             $ticket_reply_id = mysqli_insert_id($mysqli);
 
@@ -2215,7 +2215,7 @@ if (isset($_POST['add_ticket_reply'])) {
 
         // Add reply
         $lt_id_sql = $reply_labor_type_id > 0 ? $reply_labor_type_id : 'NULL';
-        mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = '$ticket_reply', ticket_reply_time_worked = '$ticket_reply_time_worked', ticket_reply_type = '$ticket_reply_type', ticket_reply_by = $session_user_id, ticket_reply_ticket_id = $ticket_id, ticket_reply_onsite = $reply_onsite, ticket_reply_labor_type_id = $lt_id_sql, ticket_reply_emailed = $send_email");
+        mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = '$ticket_reply', ticket_reply_time_worked = '$ticket_reply_time_worked', ticket_reply_type = '$ticket_reply_type', ticket_reply_by = $session_user_id, ticket_reply_ticket_id = $ticket_id, ticket_reply_onsite = $reply_onsite, ticket_reply_labor_type_id = $lt_id_sql, ticket_reply_emailed = " . ($send_email == 1 && (!empty($config_smtp_host) || !empty($config_smtp_provider)) ? 1 : 0));
 
         $ticket_reply_id = mysqli_insert_id($mysqli);
 

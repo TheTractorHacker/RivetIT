@@ -43,7 +43,7 @@ require_once "includes/inc_all_admin.php";
                 <div class="form-group">
                     <div class="form-check form-check form-switch">
                         <input type="checkbox" class="form-check-input" name="config_ticket_email_parse" <?php if($config_ticket_email_parse == 1){ echo "checked"; } ?> value="1" id="emailToTicketParseSwitch">
-                        <label class="form-check-label" for="emailToTicketParseSwitch">Email-to-ticket parsing <small class="text-secondary">(cron_ticket_email_parser.php must also be added to cron and run every few mins)</small></label>
+                        <label class="form-check-label" for="emailToTicketParseSwitch">Email-to-ticket parsing <small class="text-secondary">(cron/ticket_email_parser.php must also be added to cron and run every few mins)</small></label>
                     </div>
                 </div>
 
