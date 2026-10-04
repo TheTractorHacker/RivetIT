@@ -453,6 +453,7 @@ function alertAction(source, alertId, action, rowId) {
     .then(r => r.json())
     .then(d => {
         if (d.success) {
+            if (d.vendor_warning) { alert('Updated here, but not synced to the RMM: ' + d.vendor_warning); }
             if (d.redirect) { window.location.href = d.redirect; return; }
             const row = document.getElementById('alert-row-' + rowId);
             if (row) row.style.opacity = '0.3';
@@ -467,8 +468,9 @@ function toggleSelectAll(cb) {
 }
 
 function bulkAction(action) {
-    const checked = [...document.querySelectorAll('.alert-chk:checked')];
-    if (!checked.length) { alert('No alerts selected.'); return; }
+    let checked = [...document.querySelectorAll('.alert-chk:checked')];
+    if (!checked.length) { checked = [...document.querySelectorAll('.alert-chk')]; }
+    if (!checked.length) { alert('No alerts to update.'); return; }
     if (!confirm(`${action === 'acknowledge' ? 'Acknowledge' : 'Resolve'} ${checked.length} alert(s)?`)) return;
 
     let done = 0;

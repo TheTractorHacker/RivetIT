@@ -2130,6 +2130,7 @@ function assetAlertAction(alertId, action, btn) {
         body: 'csrf_token=<?= $_SESSION["csrf_token"] ?>&action=' + action + '&alert_id=' + alertId
     }).then(r => r.json()).then(d => {
         if (d.success) {
+            if (d.vendor_warning) { alert('Updated here, but not synced to the RMM: ' + d.vendor_warning); }
             if (d.redirect) { window.location.href = d.redirect; }
             else {
                 const row = document.getElementById('ral-row-' + alertId);

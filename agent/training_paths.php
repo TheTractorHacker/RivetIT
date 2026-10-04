@@ -221,7 +221,7 @@ render_page_header(
             <div class="mb-3">
                 <label class="form-label" for="tr-path-achievement">Completion achievement</label>
                 <select class="form-select" id="tr-path-achievement"></select>
-                <div class="form-hint">Awarded automatically once the Learning Center launches.</div>
+                <div class="form-hint">Awarded automatically when a learner completes the path.</div>
                 <div class="invalid-feedback" data-field="achievement_id"></div>
             </div>
         </form>
