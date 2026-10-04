@@ -349,7 +349,7 @@ if (isset($_GET['delete_project'])) {
     mysqli_query($mysqli, "DELETE FROM projects WHERE project_id = $project_id");
 
     // Release linked tickets and remove the project's own tasks and milestones
-    mysqli_query($mysqli, "UPDATE tickets SET ticket_project_id = 0 WHERE ticket_project_id = $project_id");
+    mysqli_query($mysqli, "UPDATE tickets SET ticket_project_id = 0, ticket_updated_at = ticket_updated_at WHERE ticket_project_id = $project_id");
     mysqli_query($mysqli, "DELETE FROM tasks WHERE task_project_id = $project_id");
     mysqli_query($mysqli, "DELETE FROM project_milestones WHERE milestone_project_id = $project_id");
 

@@ -202,7 +202,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
 
         var calendar = new FullCalendar.Calendar(calendarEl, {
             themeSystem: 'bootstrap',
-            defaultView: 'dayGridMonth',
+            initialView: 'dayGridMonth',
             customButtons: {
                 newEvent: {
                     text: 'New Event',
