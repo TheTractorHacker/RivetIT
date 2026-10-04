@@ -550,7 +550,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                                         <i class="fas fa-fw fa-redo me-2"></i>Restore
                                     </button>
                                     <div class="dropdown-divider"></div>
-                                    <button class="dropdown-item text-danger text-bold"
+                                    <button class="dropdown-item text-danger text-bold confirm-link"
                                         type="submit" form="bulkActions" name="bulk_delete_assets">
                                         <i class="fas fa-fw fa-trash me-2"></i>Delete
                                     </button>
