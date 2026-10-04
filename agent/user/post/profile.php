@@ -237,10 +237,10 @@ if (isset($_POST['edit_your_user_preferences'])) {
     validateCSRFToken($_POST['csrf_token']);
 
     $calendar_first_day = intval($_POST['calendar_first_day']);
-    $dark_mode = intval($_POST['dark_mode'] ?? 0);
+    $dark_mode = in_array(intval($_POST['dark_mode'] ?? 0), [0, 1, 2]) ? intval($_POST['dark_mode'] ?? 0) : 0; // 0 company default, 1 dark, 2 light
 
     // Calendar
-    $records_per_page = in_array(intval($_POST['records_per_page'] ?? 10), [10,25,50,100])
+    $records_per_page = in_array(intval($_POST['records_per_page'] ?? 10), [5,10,20,50,100,500])
         ? intval($_POST['records_per_page'])
         : 10;
 
