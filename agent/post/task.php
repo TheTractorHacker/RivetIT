@@ -262,11 +262,11 @@ if (isset($_GET['undo_complete_task'])) {
         enforceClientAccess($client_id);
     }
 
-    mysqli_query($mysqli, "UPDATE tasks SET task_completed_at = NULL, task_completed_by = NULL, task_progress = 0 WHERE task_id = $task_id");
+    mysqli_query($mysqli, "UPDATE tasks SET task_completed_at = NULL, task_completed_by = NULL, task_progress = 0, task_status = IF(task_status = 'Done', 'To Do', task_status) WHERE task_id = $task_id");
 
     // Only log a time entry against a ticket for ticket-linked tasks (project-only tasks have no ticket)
     if ($ticket_id) {
-        mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Undo Completed Task - $task_name', ticket_reply_time_worked = '00:01:00', ticket_reply_type = 'System', ticket_reply_by = $session_user_id, ticket_reply_ticket_id = $ticket_id");
+        mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Undo Completed Task - $task_name', ticket_reply_time_worked = '00:00:00', ticket_reply_type = 'System', ticket_reply_by = $session_user_id, ticket_reply_ticket_id = $ticket_id");
 
         $ticket_reply_id = mysqli_insert_id($mysqli);
     }

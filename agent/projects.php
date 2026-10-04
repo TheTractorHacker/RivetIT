@@ -23,7 +23,8 @@ if (!empty($client_access_string)) {
 }
 
 // Project Completed Status Query
-if (isset($_GET['status']) && $_GET['status'] == 1) {
+// Archived projects are always completed ones, so default the archived view to Closed
+if ((isset($_GET['status']) && $_GET['status'] == 1) || (!isset($_GET['status']) && !empty($_GET['archived']))) {
     $status = 1; // Closed
     $status_query = "IS NOT NULL";
 } else {
@@ -201,12 +202,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     if($ticket_count) {
                         $tickets_closed_percent = round(($closed_ticket_count / $ticket_count) * 100);
                     }
-                    // Get All Tasks
-                    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('task_id') AS count FROM tickets, tasks WHERE ticket_id = task_ticket_id AND ticket_project_id = $project_id"));
+                    // Get All Tasks (ticket tasks and project-only tasks)
+                    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(DISTINCT task_id) AS count FROM tasks LEFT JOIN tickets ON ticket_id = task_ticket_id WHERE ticket_project_id = $project_id OR task_project_id = $project_id"));
                     $task_count = $row['count'];
 
                     // Get Completed Task Count
-                    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('task_id') AS count FROM tickets, tasks WHERE ticket_id = task_ticket_id AND ticket_project_id = $project_id AND task_completed_at IS NOT NULL"));
+                    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(DISTINCT task_id) AS count FROM tasks LEFT JOIN tickets ON ticket_id = task_ticket_id WHERE (ticket_project_id = $project_id OR task_project_id = $project_id) AND task_completed_at IS NOT NULL"));
                     $completed_task_count = $row['count'];
 
                     // Tasks Completed Percent
@@ -278,7 +279,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                             <a class="dropdown-item text-info confirm-link" href="post.php?restore_project=<?= $project_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                                 <i class="fas fa-fw fa-redo me-2"></i>Restore
                                             </a>
-                                            <?php if (lookupUserPermission("module_support" >= 3)) { ?>
+                                            <?php if (lookupUserPermission("module_support") >= 3) { ?>
                                                 <div class="dropdown-divider"></div>
                                                 <a class="dropdown-item text-danger confirm-link" href="post.php?delete_project=<?= $project_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                                     <i class="fas fa-fw fa-archive me-2"></i>Delete

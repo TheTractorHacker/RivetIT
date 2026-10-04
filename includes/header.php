@@ -19,7 +19,7 @@ if (!empty($page_csp_external_video)) {
     $csp_script_src .= " https://www.youtube.com/iframe_api https://www.youtube.com/s/player/ https://player.vimeo.com/api/player.js";
     $csp_frame_src   = " frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com;";
 }
-header("Content-Security-Policy: default-src 'self'; script-src $csp_script_src; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.foleyit.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org; connect-src 'self' https://cloudflareinsights.com;$csp_frame_src");
+header("Content-Security-Policy: default-src 'self'; script-src $csp_script_src; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://*.foleyit.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org; connect-src 'self' https://cloudflareinsights.com;$csp_frame_src");
 header("X-Content-Type-Options: nosniff");
 header("Referrer-Policy: strict-origin-when-cross-origin");
 

@@ -2218,7 +2218,7 @@ if (isset($_POST['update_project_task_kanban'])) {
             mysqli_query($mysqli, "UPDATE tasks SET task_order = $order, task_status = '$status_esc', task_progress = 100, task_completed_at = COALESCE(task_completed_at, NOW()), task_completed_by = COALESCE(task_completed_by, $session_user_id) WHERE task_id = $task_id");
         } else {
             // Any non-Done lane: clear completion state
-            mysqli_query($mysqli, "UPDATE tasks SET task_order = $order, task_status = '$status_esc', task_completed_at = NULL, task_completed_by = NULL WHERE task_id = $task_id");
+            mysqli_query($mysqli, "UPDATE tasks SET task_order = $order, task_status = '$status_esc', task_progress = IF(task_progress >= 100, 0, task_progress), task_completed_at = NULL, task_completed_by = NULL WHERE task_id = $task_id");
         }
     }
 
