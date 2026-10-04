@@ -9,6 +9,10 @@ if (php_sapi_name() !== 'cli') {
 
 require_once "../config.php";
 require_once "../functions.php";
+require_once "../vendor/autoload.php";
+
+// claim() is not safe for concurrent workers, so never run two at once.
+\ITFlow\Redis\CronGuard::acquireOrExit('integration_worker', 300);
 
 use ITFlow\Jobs\JobQueue;
 

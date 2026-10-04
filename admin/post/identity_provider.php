@@ -28,6 +28,8 @@ if (isset($_POST['edit_oidc_provider'])) {
     require_once __DIR__ . '/../../includes/oidc_portal.php';
 
     $enabled = isset($_POST['oidc_enabled']) ? 1 : 0;
+    $linkByEmail = isset($_POST['oidc_link_by_email']) ? 1 : 0;
+    $requireVerified = isset($_POST['oidc_require_verified_email']) ? 1 : 0;
     $issuer = trim((string) ($_POST['oidc_issuer'] ?? ''));
     $clientId = trim((string) ($_POST['oidc_client_id'] ?? ''));
     $newSecret = trim((string) ($_POST['oidc_client_secret'] ?? ''));
@@ -51,9 +53,9 @@ if (isset($_POST['edit_oidc_provider'])) {
         }
     }
 
-    $stmt = $mysqli->prepare("UPDATE settings SET config_oidc_enabled = ?,
+    $stmt = $mysqli->prepare("UPDATE settings SET config_oidc_enabled = ?, config_oidc_link_by_email = ?, config_oidc_require_verified_email = ?,
         config_oidc_issuer = ?, config_oidc_client_id = ? WHERE company_id = 1");
-    $stmt->bind_param('iss', $enabled, $issuer, $clientId);
+    $stmt->bind_param('iiiss', $enabled, $linkByEmail, $requireVerified, $issuer, $clientId);
     $stmt->execute();
     if ($newSecret !== '') {
         $encrypted = encryptSetting($newSecret);

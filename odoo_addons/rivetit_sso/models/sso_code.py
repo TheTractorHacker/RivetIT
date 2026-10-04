@@ -19,7 +19,7 @@ class RivetITSSOCode(models.Model):
     expires_at = fields.Datetime(required=True, index=True)
     consumed_at = fields.Datetime(index=True)
 
-    _sql_constraints = [('code_hash_unique', 'unique(code_hash)', 'The authorization code must be unique.')]
+    _code_hash_unique = models.Constraint('unique(code_hash)', 'The authorization code must be unique.')
 
     def _cleanup_codes(self):
         # No user access is granted to this model; scheduled cleanup uses sudo.

@@ -18,7 +18,7 @@ function itflowAdminNavAreas(): array
         ],
         'maintenance' => [
             'title' => 'Maintenance', 'icon' => 'fa-tools',
-            'pages' => ['maintenance.php', 'cron.php', 'mail_queue.php', 'email_log.php', 'audit_log.php', 'app_log.php', 'backup.php', 'debug.php', 'update.php', 'credential_restore.php'],
+            'pages' => ['maintenance.php', 'cron.php', 'mail_queue.php', 'email_log.php', 'audit_log.php', 'app_log.php', 'backup.php', 'server_tasks.php', 'settings_redis.php', 'debug.php', 'update.php', 'credential_restore.php'],
         ],
     ];
 }

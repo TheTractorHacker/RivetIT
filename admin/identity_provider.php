@@ -42,10 +42,20 @@ require_once "includes/inc_all_admin.php";
         <form action="post.php" method="post" autocomplete="off">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <h4>OpenID Connect for Department Portal</h4>
-            <p class="text-muted">Connect Authentik, Keycloak, or Ory Hydra. Register <code>https://<?= nullable_htmlentities($config_base_url) ?>/client/login_oidc.php</code> as the exact redirect URI. Link each Department login to its provider subject in Administration &gt; Users &gt; Department logins.</p>
+            <p class="text-muted">Connect Authentik, Keycloak, or Ory Hydra. Register <code>https://<?= nullable_htmlentities($config_base_url) ?>/client/login_oidc.php</code> as the exact redirect URI. Link each Department login to its provider subject in Administration &gt; Users &gt; Department logins (or leave the subject blank and use first sign-in linking below).</p>
             <div class="form-check mb-3">
                 <input class="form-check-input" type="checkbox" id="oidc_enabled" name="oidc_enabled" value="1" <?= $config_oidc_enabled ? 'checked' : '' ?>>
                 <label class="form-check-label" for="oidc_enabled">Enable company SSO sign-in</label>
+            </div>
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="oidc_link_by_email" name="oidc_link_by_email" value="1" <?= $config_oidc_link_by_email ? 'checked' : '' ?>>
+                <label class="form-check-label" for="oidc_link_by_email">Link logins on first sign-in by email</label>
+                <small class="form-text text-muted d-block">Optional. For a Department login set to OpenID Connect with the subject left blank, the first sign-in is linked to the provider account when the email matches exactly. After that only the provider's subject is used, so later email changes never matter.</small>
+            </div>
+            <div class="form-check mb-3 ms-4">
+                <input class="form-check-input" type="checkbox" id="oidc_require_verified_email" name="oidc_require_verified_email" value="1" <?= $config_oidc_require_verified_email ? 'checked' : '' ?>>
+                <label class="form-check-label" for="oidc_require_verified_email">Require the provider to confirm the email is verified</label>
+                <small class="form-text text-muted d-block">Recommended. Turn this off only if your provider does not send a verified flag (Authentik sends false by default) and only administrators can create users or change email addresses there. With it off, anyone who can set their provider email to a blank login's email can claim that login on first sign-in.</small>
             </div>
             <div class="form-group">
                 <label for="oidc_issuer">Issuer URL</label>

@@ -9576,3 +9576,44 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_module_enable_mcp` tinyint(1) NOT NULL DEFAULT 0");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.119'");
     }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.119') {
+        // Optional, off by default: link an OpenID Connect login to its immutable subject on the
+        // first sign-in, using the provider's verified email. Existing mappings are untouched.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_oidc_link_by_email` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.120'");
+    }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.120') {
+        // Default 1 keeps first-sign-in email linking strict (provider must report email_verified true).
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_oidc_require_verified_email` tinyint(1) NOT NULL DEFAULT 1");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.121'");
+    }
+
+    if (CURRENT_DATABASE_VERSION == '2.6.121') {
+        // Remote MCP is configured from Administration > Remote MCP: issuer and audience live in settings
+        // (the RIVETIT_MCP_* environment variables still override them), and valid sign-ins from people who
+        // are not linked to an agent yet are listed so an administrator can link them in one click.
+        // Redis connection settings can also be edited in Administration > Redis (password stored encrypted;
+        // port 0 / empty host mean "use the built-in default").
+        mysqli_query($mysqli, "ALTER TABLE `settings`
+            ADD COLUMN IF NOT EXISTS `config_mcp_issuer` varchar(255) NOT NULL DEFAULT '',
+            ADD COLUMN IF NOT EXISTS `config_mcp_audience` varchar(255) NOT NULL DEFAULT '',
+            ADD COLUMN IF NOT EXISTS `config_redis_host` varchar(255) NOT NULL DEFAULT '',
+            ADD COLUMN IF NOT EXISTS `config_redis_port` int(11) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `config_redis_password` varchar(1000) NOT NULL DEFAULT '',
+            ADD COLUMN IF NOT EXISTS `config_redis_db` int(11) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `mcp_unlinked_identities` (
+            `mcp_unlinked_id` int(11) NOT NULL AUTO_INCREMENT,
+            `issuer` varchar(255) NOT NULL,
+            `subject` varchar(255) NOT NULL,
+            `email` varchar(200) DEFAULT NULL,
+            `display_name` varchar(200) DEFAULT NULL,
+            `attempts` int(11) NOT NULL DEFAULT 1,
+            `first_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `last_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`mcp_unlinked_id`),
+            UNIQUE KEY `uniq_mcp_identity` (`issuer`, `subject`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.122'");
+    }

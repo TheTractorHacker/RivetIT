@@ -131,7 +131,7 @@ ob_start();
 
                 <hr class="my-3">
                 <h6 class="text-uppercase text-muted mb-2" style="font-size:.75rem;letter-spacing:.05em">Remote MCP identity <span class="badge bg-warning text-dark">Experimental</span></h6>
-                <p class="text-muted small">Link this agent to the exact issuer and subject of a dedicated OAuth access token. Both fields must be set; clearing both revokes this mapping.</p>
+                <p class="text-muted small">Easiest way: have this person connect from their MCP client once, then link them from <a href="/admin/settings_mcp.php">Settings &rarr; Remote MCP</a>. To enter it by hand instead, set both fields; clearing both revokes the link.</p>
                 <div class="form-group">
                     <label for="user_edit_mcp_issuer<?= $user_id ?>">OAuth issuer</label>
                     <input type="url" class="form-control" id="user_edit_mcp_issuer<?= $user_id ?>" name="mcp_issuer" value="<?= $mcp_issuer ?>" maxlength="255" placeholder="https://login.example.com/realm">

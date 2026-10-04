@@ -4,6 +4,11 @@ defined('FROM_POST_HANDLER') || die('Direct file access is not allowed');
 
 require_once __DIR__ . '/../../includes/cron_jobs.php';
 
+use ITFlow\Audit\AuditService;
+use ITFlow\Cron\JobCatalog;
+use ITFlow\Cron\JobRunner;
+use ITFlow\Redis\RateLimit;
+
 if (isset($_POST['save_cron_schedule'])) {
     validateCSRFToken($_POST['csrf_token']);
     enforceUserPermission('user_type', 1);
@@ -63,5 +68,60 @@ if (isset($_POST['run_cron_now'])) {
 
     exec('/usr/bin/php ' . escapeshellarg($cron_script) . ' > /dev/null 2>&1 &');
     flash_alert('Cron started in the background. Check App Logs for results.');
+    redirect('/admin/cron.php');
+}
+
+if (isset($_POST['run_cron_job'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('user_type', 1);
+
+    $app_root = realpath(__DIR__ . '/../..');
+    $runner = new JobRunner($app_root);
+    $fail = static function (string $message) {
+        flash_alert($message, 'danger');
+        redirect('/admin/cron.php');
+    };
+
+    if (isset($_POST['cron_script'])) {
+        // A catalog job with no schedule on this server: runs with no arguments.
+        $file = basename((string) $_POST['cron_script']);
+        $info = JobCatalog::describe($file);
+        if (!$info['run_now'] || JobCatalog::needsArguments($file) || !is_file($app_root . '/' . JobCatalog::dir($file) . '/' . $file)) {
+            $fail('That job cannot be started from here.');
+        }
+        $key = 'u-' . basename($file, '.php');
+        $script = $app_root . '/' . JobCatalog::dir($file) . '/' . $file;
+        $args = [];
+        $php = '/usr/bin/php';
+    } else {
+        // A scheduled job: must match one exact cron.d line, the same way schedule editing does.
+        $jobs = rivetit_cron_jobs_for_app($app_root);
+        $matching = array_values(array_filter($jobs, static fn($job) =>
+            basename($job['file']) === (string) ($_POST['cron_file'] ?? '') &&
+            (string) $job['line'] === (string) ($_POST['cron_line'] ?? '') &&
+            $job['command_hash'] === (string) ($_POST['cron_hash'] ?? '') &&
+            $job['user'] === 'www-data'
+        ));
+        if (count($matching) !== 1) $fail('That job is no longer available. Reload the page.');
+        $job = $matching[0];
+        $file = basename($job['script']);
+        $info = JobCatalog::describe($file);
+        $args = JobRunner::argumentsFromCommand($job['command'], $job['script']);
+        if (!$info['run_now'] || $args === null) $fail('That job cannot be started from here.');
+        $key = substr($job['command_hash'], 0, 16);
+        $script = $job['script'];
+        $php = JobRunner::phpBinaryFromCommand($job['command']);
+    }
+
+    if (!RateLimit::hit("cron-run:$key", 3, 60)['allowed']) $fail('Slow down: that job was started several times in the last minute.');
+
+    $result = $runner->start($key, $script, $args, $php);
+    if ($result['ok']) {
+        logAction('Cron', 'Run', "$session_name started $file from the Cron Manager");
+        AuditService::record('cron.job_started', (int) $session_user_id, 'cron_job', $file, 'run', "Started $file manually", ['args' => $args]);
+        flash_alert($info['label'] . ' started in the background. Its output appears in the table.');
+    } else {
+        flash_alert($result['message'], 'danger');
+    }
     redirect('/admin/cron.php');
 }

@@ -87,7 +87,7 @@ $cur_role_id = intval($row['user_role_id']);
         <div class="form-group">
             <label for="pu_edit_subject<?= $user_id ?>">OpenID Connect subject (sub)</label>
             <input class="form-control" id="pu_edit_subject<?= $user_id ?>" name="oidc_subject" value="<?= nullable_htmlentities($row['user_oidc_subject'] ?? '') ?>" maxlength="255" autocomplete="off">
-            <small class="form-text text-muted">Copy the user's immutable subject from the configured identity provider. Email is never used to link accounts. Required when OpenID Connect is selected.</small>
+            <small class="form-text text-muted">Copy the user's immutable subject from the configured identity provider. Required when OpenID Connect is selected<?= $config_oidc_link_by_email ? ', unless left blank: the first sign-in with this login\'s verified email then links the subject automatically' : '' ?>. Email is never used for later sign-ins.</small>
             <?php if (!empty($row['user_oidc_issuer'])) { ?><small class="form-text text-muted">Currently linked issuer: <?= nullable_htmlentities($row['user_oidc_issuer']) ?></small><?php } ?>
         </div>
 

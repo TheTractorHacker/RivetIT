@@ -58,7 +58,17 @@ function portalOidcHttp(string $url, ?array $post = null, ?string $bearer = null
     $body = curl_exec($ch);
     $status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     if ($body === false || $status !== 200 || strlen($body) > 262144) {
-        throw new RuntimeException('The identity provider did not return a valid response.');
+        // Endpoint path, HTTP status and the standard OAuth error code only; never the body, URL query or credentials.
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        $code = '';
+        if (is_string($body)) {
+            $decoded = json_decode($body, true, 8);
+            if (is_array($decoded) && is_string($decoded['error'] ?? null) && preg_match('/^[a-z_]{1,40}$/', $decoded['error'])) {
+                $code = ' ' . $decoded['error'];
+            }
+        }
+        throw new RuntimeException('The identity provider did not return a valid response from ' . $path
+            . ' (' . ($body === false ? 'no response, ' . curl_errno($ch) : 'HTTP ' . $status) . $code . ').');
     }
     $json = json_decode($body, true, 16);
     if (!is_array($json)) {
@@ -160,4 +170,55 @@ function portalOidcEligibleAccount(mysqli $mysqli, string $issuer, string $subje
     $stmt->execute();
     $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     return count($rows) === 1 ? $rows[0] : null;
+}
+
+/*
+ * First sign-in linking (optional, admin-enabled). Only a login already set to OpenID Connect with no subject
+ * stored yet is eligible, only on a provider-verified email that matches exactly one such login, and the
+ * subject is claimed with a single conditional UPDATE so two racing sign-ins cannot both link.
+ * Returns the account row like portalOidcEligibleAccount(), or null.
+ */
+function portalOidcLinkByVerifiedEmail(mysqli $mysqli, string $issuer, string $subject, array $userinfo, ?string &$why = null, bool $requireVerified = true): ?array
+{
+    $email = $userinfo['email'] ?? null;
+    if (!is_string($email) || $email === '' || strlen($email) > 254 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $why = 'provider_sent_no_valid_email';
+        return null;
+    }
+    if ($requireVerified && ($userinfo['email_verified'] ?? null) !== true) {
+        $why = 'email_verified_is_' . (array_key_exists('email_verified', $userinfo) ? gettype($userinfo['email_verified']) : 'missing');
+        return null;
+    }
+    $sql = "SELECT users.user_id, users.user_email, contacts.contact_id, contacts.contact_client_id
+        FROM users
+        INNER JOIN contacts ON contacts.contact_user_id = users.user_id
+        INNER JOIN clients ON clients.client_id = contacts.contact_client_id
+        WHERE users.user_auth_method = 'oidc' AND (users.user_oidc_subject IS NULL OR users.user_oidc_subject = '')
+          AND LOWER(users.user_email) = LOWER(?)
+          AND users.user_type = 2 AND users.user_status = 1 AND users.user_archived_at IS NULL
+          AND contacts.contact_archived_at IS NULL AND clients.client_archived_at IS NULL
+        LIMIT 2";
+    $stmt = $mysqli->prepare($sql);
+    $stmt->bind_param('s', $email);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    if (count($rows) !== 1) {
+        $why = count($rows) === 0 ? 'no_blank_oidc_login_with_that_email' : 'more_than_one_login_with_that_email';
+        return null;
+    }
+    $userId = (int) $rows[0]['user_id'];
+    try {
+        $claim = $mysqli->prepare("UPDATE users SET user_oidc_issuer = ?, user_oidc_subject = ?
+            WHERE user_id = ? AND user_auth_method = 'oidc' AND (user_oidc_subject IS NULL OR user_oidc_subject = '')");
+        $claim->bind_param('ssi', $issuer, $subject, $userId);
+        $claim->execute();
+    } catch (mysqli_sql_exception $e) {
+        $why = 'subject_already_linked_elsewhere';
+        return null;
+    }
+    if ($claim->affected_rows !== 1) {
+        $why = 'login_already_linked';
+        return null;
+    }
+    return $rows[0];
 }

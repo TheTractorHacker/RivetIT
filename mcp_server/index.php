@@ -7,14 +7,10 @@ header('Referrer-Policy: no-referrer');
 
 require_once __DIR__ . '/../config.php';
 
-if (getenv('RIVETIT_MCP_ENABLED') !== '1') {
-    http_response_code(404);
-    exit;
-}
-// Fail closed on older schemas or when the optional module is switched off.
-$module_settings = mysqli_query($mysqli, "SELECT * FROM settings WHERE company_id = 1");
-$module_row = $module_settings ? mysqli_fetch_assoc($module_settings) : null;
-if ((int) ($module_row['config_module_enable_mcp'] ?? 0) !== 1) {
+// Fail closed: the module switch (Administration > Remote MCP) must be on and RIVETIT_MCP_ENABLED must not be 0.
+require_once __DIR__ . '/../vendor/autoload.php';
+$mcp_config = ITFlow\Mcp\McpConfig::load($mysqli);
+if (!$mcp_config['enabled']) {
     http_response_code(404);
     exit;
 }
@@ -24,12 +20,11 @@ require_once __DIR__ . '/../includes/redis_functions.php';
 require_once __DIR__ . '/McpIdentityMiddleware.php';
 require_once __DIR__ . '/ReadTools.php';
 require_once __DIR__ . '/RedisMetadataCache.php';
-$issuer = trim((string) getenv('RIVETIT_MCP_ISSUER'));
-$audience = trim((string) getenv('RIVETIT_MCP_AUDIENCE'));
+$issuer = $mcp_config['issuer'];
+$audience = $mcp_config['audience'];
 $host = parse_url('https://' . $config_base_url, PHP_URL_HOST);
 if (!is_string($host) || !preg_match('/^[A-Za-z0-9.-]+$/D', $host)
-    || !filter_var($issuer, FILTER_VALIDATE_URL) || parse_url($issuer, PHP_URL_SCHEME) !== 'https'
-    || $audience === '' || strlen($audience) > 255) {
+    || !$mcp_config['configured']) {
     http_response_code(503);
     exit;
 }
@@ -84,12 +79,13 @@ $middleware = [
 ];
 $transport = new Mcp\Server\Transport\StreamableHttpTransport($request, middleware: $middleware,
     maxBodyBytes: 65536);
+// Server-generated correlation id for every MCP request; used by the tool envelope and the audit row.
+// Never taken from a client header.
+$request_id = 'req_' . bin2hex(random_bytes(8));
+$_SERVER['HTTP_X_REQUEST_ID'] = $request_id;
+header('X-Request-ID: ' . $request_id);
 $tools = new RivetITMcpReadTools($mysqli);
-$server = Mcp\Server::builder()
-    ->setServerInfo('RivetIT', APP_VERSION)
-    ->addTool([$tools, 'myProfile'])
-    ->addTool([$tools, 'recentTickets'])
-    ->build();
+$server = $tools->register(Mcp\Server::builder()->setServerInfo('RivetIT', APP_VERSION))->build();
 $response = $server->run($transport);
 http_response_code($response->getStatusCode());
 foreach ($response->getHeaders() as $name => $values) {

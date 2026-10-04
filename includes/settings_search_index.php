@@ -95,6 +95,9 @@ function getSettingsSearchIndex(): array {
         ['label' => 'Department logins',       'keywords' => ['supervisor', 'manager', 'portal', 'department', 'login', 'training'],  'url' => '/admin/portal_users.php',                'visible' => true],
         ['label' => 'Roles',                   'keywords' => ['role', 'permission'],                                                   'url' => '/admin/roles.php',                       'visible' => true],
         ['label' => 'Department Portal Preview', 'keywords' => ['portal preview', 'view portal', 'department portal', 'impersonate', 'log in as', 'client portal'], 'url' => '/admin/portal_preview.php', 'visible' => (bool) $config_client_portal_enable],
+        ['label' => 'Server status & tasks',   'keywords' => ['server', 'health', 'disk', 'backup status', 'harden', 'restore', 'command', 'cli', 'terminal'], 'url' => '/admin/server_tasks.php',               'visible' => true],
+        ['label' => 'Redis',                   'keywords' => ['redis', 'cache', 'rate limit', 'memory', 'live updates'],              'url' => '/admin/settings_redis.php',              'visible' => true],
+        ['label' => 'Remote MCP (AI tools)',   'keywords' => ['mcp', 'ai', 'claude', 'authentik', 'oauth', 'model context protocol'],         'url' => '/admin/settings_mcp.php',                'visible' => true],
         ['label' => 'Identity Provider (SSO)', 'keywords' => ['sso', 'saml', 'identity provider', 'single sign-on'],                    'url' => '/admin/identity_provider.php',           'visible' => (bool) $config_client_portal_enable],
     ];
 }

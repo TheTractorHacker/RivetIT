@@ -2,10 +2,21 @@
 require_once "includes/inc_all_admin.php";
 require_once __DIR__ . '/../includes/cron_jobs.php';
 
+use ITFlow\Cron\JobCatalog;
+use ITFlow\Cron\JobRunner;
+
 $app_root = realpath(__DIR__ . '/..');
 $jobs = rivetit_cron_jobs_for_app($app_root);
 $cron_manager_instance = rivetit_cron_manager_instance($app_root);
 $can_edit_schedules = $cron_manager_instance !== null && is_executable('/usr/local/sbin/rivetit-cron-schedule');
+$runner = new JobRunner($app_root);
+$any_running = false;
+$cron_ago = static function (?int $ts): string {
+    if (!$ts) return 'never';
+    $d = max(0, time() - $ts);
+    return $d < 90 ? 'just now' : ($d < 5400 ? round($d / 60) . ' min ago' : ($d < 172800 ? round($d / 3600) . ' h ago' : round($d / 86400) . ' days ago'));
+};
+$scheduled_scripts = array_unique(array_map(fn($j) => basename($j['script']), $jobs));
 $main_jobs = array_values(array_filter($jobs, fn($job) => $job['script'] === $app_root . '/cron/cron.php'));
 $main_job = count($main_jobs) === 1 ? $main_jobs[0] : null;
 
@@ -73,52 +84,145 @@ $last_run = mysqli_fetch_assoc(mysqli_query($mysqli,
             <i class="fas fa-list me-1"></i>Scheduled Jobs for This Installation
         </h6>
         <?php if ($can_edit_schedules): ?>
-            <p class="text-muted mb-2">Choose <strong>Edit schedule</strong> to set a repeat time. Changes affect only the selected job.</p>
+            <p class="text-muted mb-2">Choose <strong>Edit schedule</strong> to set a repeat time, or <strong>Run now</strong> to start a job once in the background. Changes affect only the selected job.</p>
         <?php endif; ?>
         <div class="table-responsive">
-        <table class="table table-sm table-bordered mb-0">
+        <table class="table table-sm table-bordered align-middle mb-0">
             <thead class="thead-light">
                 <tr>
-                    <th style="width:255px">Schedule</th>
-                    <th>Script</th>
-                    <th>File</th>
-                    <?php if ($can_edit_schedules): ?><th style="width:140px">Action</th><?php endif; ?>
+                    <th>Job</th>
+                    <th style="width:190px">Schedule</th>
+                    <th style="width:260px">Last activity</th>
+                    <th style="width:210px">Action</th>
                 </tr>
             </thead>
             <tbody>
-            <?php foreach ($jobs as $job): ?>
+            <?php foreach ($jobs as $job):
+                $script_file = basename($job['script']);
+                $info = JobCatalog::describe($script_file);
+                $job_key = substr($job['command_hash'], 0, 16);
+                $log_path = JobRunner::logPathFromCommand($job['command']);
+                $log = JobRunner::tail($log_path, 8);
+                $run = $runner->state($job_key, $job['script']);
+                $any_running = $any_running || $run['running'];
+                $job_args = JobRunner::argumentsFromCommand($job['command'], $job['script']);
+                $can_run = $info['run_now'] && $job['user'] === 'www-data' && $job_args !== null;
+                $last_ts = max((int) $log['mtime'], (int) $run['finished_at']) ?: null;
+            ?>
                 <tr <?= $job['script'] === $app_root . '/cron/cron.php' ? 'class="table-primary"' : '' ?>>
+                    <td>
+                        <strong><?= nullable_htmlentities($info['label']) ?></strong>
+                        <?php if ($job_args): ?><span class="badge bg-secondary ms-1"><?= nullable_htmlentities(implode(' ', $job_args)) ?></span><?php endif; ?>
+                        <div class="small text-muted"><?= nullable_htmlentities($info['description']) ?></div>
+                        <details><summary class="small text-muted"><?= nullable_htmlentities($script_file) ?> &middot; command</summary><code class="small text-break"><?= nullable_htmlentities($job['command']) ?></code>
+                            <div class="small text-muted"><?= nullable_htmlentities($job['file']) ?>:<?= (int) $job['line'] ?></div></details>
+                    </td>
                     <td>
                         <code data-cron-schedule="<?= htmlspecialchars($job['schedule']) ?>"><?= htmlspecialchars($job['schedule']) ?></code>
                         <span class="d-block small text-muted" data-cron-description></span>
                     </td>
-                    <td>
-                        <small class="text-monospace"><?= htmlspecialchars(basename($job['script'])) ?></small>
-                        <details><summary class="small text-muted">Command</summary><code class="small text-break"><?= htmlspecialchars($job['command']) ?></code></details>
-                    </td>
-                    <td><small class="text-monospace"><?= htmlspecialchars($job['file']) ?>:<?= (int) $job['line'] ?></small></td>
-                    <?php if ($can_edit_schedules): ?>
-                        <td>
-                            <?php if ($job['user'] === 'www-data'): ?>
-                                <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#cronScheduleModal"
-                                    data-cron-file="<?= htmlspecialchars(basename($job['file'])) ?>"
-                                    data-cron-line="<?= (int) $job['line'] ?>"
-                                    data-cron-hash="<?= htmlspecialchars($job['command_hash']) ?>"
-                                    data-cron-script="<?= htmlspecialchars(basename($job['script'])) ?>"
-                                    data-cron-current="<?= htmlspecialchars($job['schedule']) ?>">
-                                    <i class="fas fa-calendar-alt me-1" aria-hidden="true"></i>Edit schedule
-                                </button>
+                    <td class="small">
+                        <?php if ($run['running']): ?>
+                            <span class="badge bg-info text-dark"><span class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem"></span>Running</span>
+                            <span class="text-muted">since <?= nullable_htmlentities($cron_ago($run['started_at'])) ?></span>
+                        <?php else: ?>
+                            <?php if ($run['exit'] !== null): ?>
+                                <span class="badge bg-<?= $run['exit'] === 0 ? 'success' : 'danger' ?>"><?= $run['exit'] === 0 ? 'Manual run OK' : 'Manual run failed (' . (int) $run['exit'] . ')' ?></span>
+                                <span class="text-muted"><?= nullable_htmlentities($cron_ago($run['finished_at'])) ?></span><br>
                             <?php endif; ?>
-                        </td>
-                    <?php endif; ?>
+                            <?php if ($log_path && $log['mtime']): ?>
+                                Schedule log: <?= nullable_htmlentities($cron_ago($log['mtime'])) ?>
+                            <?php elseif ($log_path): ?>
+                                <span class="text-muted">No log output yet</span>
+                            <?php elseif ($run['exit'] === null): ?>
+                                <span class="text-muted">No log file configured</span>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                        <?php $shown = $run['lines'] ?: $log['lines']; if ($shown): ?>
+                            <details class="mt-1"><summary class="text-muted">Latest output</summary>
+                                <pre class="small mb-0 text-break" style="white-space:pre-wrap;max-height:11rem;overflow:auto"><?= nullable_htmlentities(implode("\n", $shown)) ?></pre></details>
+                        <?php endif; ?>
+                    </td>
+                    <td>
+                        <div class="d-flex flex-wrap gap-1">
+                        <?php if ($can_run): ?>
+                            <form action="/admin/post.php" method="POST" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                                <input type="hidden" name="run_cron_job" value="1">
+                                <input type="hidden" name="cron_file" value="<?= htmlspecialchars(basename($job['file'])) ?>">
+                                <input type="hidden" name="cron_line" value="<?= (int) $job['line'] ?>">
+                                <input type="hidden" name="cron_hash" value="<?= htmlspecialchars($job['command_hash']) ?>">
+                                <button type="submit" class="btn btn-success btn-sm confirm-link" <?= $run['running'] ? 'disabled' : '' ?>><i class="fas fa-play me-1" aria-hidden="true"></i>Run now</button>
+                            </form>
+                        <?php elseif ($script_file !== 'cron.php'): ?>
+                            <span class="small text-muted" style="max-width:11rem" title="<?= nullable_htmlentities($info['note']) ?>"><i class="fas fa-ban me-1" aria-hidden="true"></i><?= nullable_htmlentities($info['note'] ?: 'Not startable from here.') ?></span>
+                        <?php endif; ?>
+                        <?php if ($can_edit_schedules && $job['user'] === 'www-data'): ?>
+                            <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#cronScheduleModal"
+                                data-cron-file="<?= htmlspecialchars(basename($job['file'])) ?>"
+                                data-cron-line="<?= (int) $job['line'] ?>"
+                                data-cron-hash="<?= htmlspecialchars($job['command_hash']) ?>"
+                                data-cron-script="<?= htmlspecialchars($script_file) ?>"
+                                data-cron-current="<?= htmlspecialchars($job['schedule']) ?>">
+                                <i class="fas fa-calendar-alt me-1" aria-hidden="true"></i>Edit schedule
+                            </button>
+                        <?php endif; ?>
+                        </div>
+                    </td>
                 </tr>
             <?php endforeach; ?>
             <?php if (empty($jobs)): ?>
-                <tr><td colspan="<?= $can_edit_schedules ? 4 : 3 ?>" class="text-center text-muted py-3">No scheduled jobs found for this installation.</td></tr>
+                <tr><td colspan="4" class="text-center text-muted py-3">No scheduled jobs found for this installation.</td></tr>
             <?php endif; ?>
             </tbody>
         </table>
         </div>
+
+        <?php
+        $unscheduled = [];
+        foreach (JobCatalog::all() as $file => $meta) {
+            if (!in_array($file, $scheduled_scripts, true) && is_file($app_root . '/' . JobCatalog::dir($file) . '/' . $file)) $unscheduled[$file] = $meta;
+        }
+        if ($unscheduled): ?>
+        <h6 class="mt-4 mb-2 text-muted text-uppercase" style="font-size:.75rem;letter-spacing:.05em">
+            <i class="fas fa-circle-pause me-1"></i>Available but not scheduled here
+        </h6>
+        <p class="text-muted small mb-2">These jobs exist in the app but have no schedule on this server. Some belong to other installs that share the code. Scheduling a new one still needs a server administrator.</p>
+        <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle mb-0">
+            <tbody>
+            <?php foreach ($unscheduled as $file => $meta):
+                $ukey = 'u-' . basename($file, '.php');
+                $urun = $runner->state($ukey, $app_root . '/' . JobCatalog::dir($file) . '/' . $file);
+                $any_running = $any_running || $urun['running'];
+                $can_run_u = $meta['run_now'] && !JobCatalog::needsArguments($file);
+            ?>
+                <tr>
+                    <td><strong><?= nullable_htmlentities($meta['label']) ?></strong> <span class="small text-muted"><?= nullable_htmlentities($file) ?></span>
+                        <div class="small text-muted"><?= nullable_htmlentities($meta['description']) ?></div>
+                        <?php if ($urun['lines']): ?><details><summary class="small text-muted">Latest output<?= $urun['exit'] !== null ? ' (exit ' . (int) $urun['exit'] . ')' : '' ?></summary>
+                            <pre class="small mb-0 text-break" style="white-space:pre-wrap;max-height:11rem;overflow:auto"><?= nullable_htmlentities(implode("\n", $urun['lines'])) ?></pre></details><?php endif; ?></td>
+                    <td style="width:230px">
+                        <?php if ($urun['running']): ?>
+                            <span class="badge bg-info text-dark">Running</span>
+                        <?php elseif ($can_run_u): ?>
+                            <form action="/admin/post.php" method="POST" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                                <input type="hidden" name="run_cron_job" value="1">
+                                <input type="hidden" name="cron_script" value="<?= htmlspecialchars($file) ?>">
+                                <button type="submit" class="btn btn-success btn-sm confirm-link"><i class="fas fa-play me-1" aria-hidden="true"></i>Run now</button>
+                            </form>
+                        <?php else: ?>
+                            <span class="small text-muted"><i class="fas fa-ban me-1" aria-hidden="true"></i><?= nullable_htmlentities($meta['note'] ?: 'Not startable from here.') ?></span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        </div>
+        <?php endif; ?>
+        <?php if ($any_running): ?><script>setTimeout(function () { location.reload(); }, 4000);</script><?php endif; ?>
 
     </div>
 </div>

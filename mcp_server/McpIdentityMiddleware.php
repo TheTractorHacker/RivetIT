@@ -40,6 +40,10 @@ final class McpIdentityMiddleware implements MiddlewareInterface
         $stmt->execute();
         $users = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         if (count($users) !== 1) {
+            // A valid token from someone not linked yet: remember them so an administrator can link them in the UI.
+            if (count($users) === 0) {
+                \ITFlow\Mcp\McpIdentityLinks::recordUnlinked($this->db, $this->issuer, $subject, $claims);
+            }
             return new Response(403, ['Cache-Control' => 'no-store']);
         }
         return $handler->handle($request->withAttribute('oauth.user_id', (int) $users[0]['user_id']));

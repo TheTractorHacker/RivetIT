@@ -4,6 +4,26 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## Unreleased — Redis building blocks and a wider read-only MCP
+
+Remote MCP (still off by default) now has eight more read-only tools: ticket search and detail, asset search and
+detail, clients, contacts, and knowledge-base search and articles. All go through one pipeline: role and client-scope
+checks, a per-agent rate limit, an `audit_events` row per call, and a standard response envelope. Tools now publish
+as `rivetit_*` (previously the SDK showed bare method names). Redis gains configurable connection settings
+(`RIVETIT_REDIS_*`), a fail-open lock and rate limiter in `src/Redis/`, a guard on the integration worker, and
+`health/live.php` / `health/ready.php`. Remote MCP is now set up from **Administration → Settings → Remote MCP** instead of server files: issuer and
+audience are saved in settings (the `RIVETIT_MCP_*` variables still override them, and `RIVETIT_MCP_ENABLED=0` remains a
+hard off), one-click health checks explain what is wrong in plain language, and people who sign in but are not linked yet
+are listed so an administrator can link them to an agent in one click. Database migration 2.6.122 adds the two settings
+columns and the `mcp_unlinked_identities` table. The Cron Manager now describes each job in plain language, shows its
+last activity and latest output, and has a per-job **Run now** (output and exit code are shown in the table). Jobs that
+send real email, write to outside systems, or need arguments are never startable from the page; the reason is shown
+instead. UniFi sync can also be started from there. New **Server status & tasks** and **Redis** pages under Maintenance
+replace most terminal checks: disk, backups (including the encrypted disaster-recovery archives), jobs and Redis health in
+one view with copy-ready commands for the few root-only tasks, and Redis host, port, password, memory limit and cache
+clearing are editable in the browser (migration 2.6.122 adds the settings columns; the `RIVETIT_REDIS_*` variables still
+override). See `docs/REDIS.md` and `docs/REMOTE_MCP.md`.
+
 ## [26.10.13] RivetIT — dedicated MCP access-token audience
 
 The disabled-by-default remote MCP preview now rejects tokens with additional

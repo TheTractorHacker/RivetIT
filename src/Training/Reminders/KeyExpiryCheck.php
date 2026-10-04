@@ -22,8 +22,8 @@ final class KeyExpiryCheck
     public const WARN_DAYS = 14;
     public const DAILY_FROM_DAYS = 3;
     public const DAILY_UNTIL_DAYS_AFTER = 7;
-    /** Where the key is replaced (Admin › Integrations › Directory Sync holds the Odoo connection). */
-    public const ACTION = '/admin/settings_integrations.php?tab=directorysync';
+    /** Where the key is replaced (Admin › Integrations › Odoo holds the Odoo connection). */
+    public const ACTION = '/admin/settings_integrations.php?tab=odoo';
 
     /**
      * @param array $s AutomationSettings::loadWorker() row (tauto_odoo_key_expires_on)

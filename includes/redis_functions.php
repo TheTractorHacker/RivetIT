@@ -9,8 +9,12 @@
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-define('REDIS_HOST', '127.0.0.1');
-define('REDIS_PORT', 6380);
+// Connection settings: RIVETIT_REDIS_* environment variables, then Administration > Redis, then the built-in
+// default of 127.0.0.1:6380. The constants stay defined for older code and show the environment/default values.
+define('REDIS_HOST', getenv('RIVETIT_REDIS_HOST') ?: '127.0.0.1');
+define('REDIS_PORT', (int) (getenv('RIVETIT_REDIS_PORT') ?: 6380));
+define('REDIS_PASSWORD', getenv('RIVETIT_REDIS_PASSWORD') ?: null);
+define('REDIS_DATABASE', (int) (getenv('RIVETIT_REDIS_DB') ?: 0));
 
 /**
  * Lazily create (or reuse) a Predis client connected to the local Redis instance.
@@ -31,12 +35,8 @@ function getRedisClient(): ?\Predis\Client {
 
     if ($client === null) {
         try {
-            $client = new \Predis\Client([
-                'scheme'  => 'tcp',
-                'host'    => REDIS_HOST,
-                'port'    => REDIS_PORT,
-                'timeout' => 0.5,
-            ]);
+            // Resolved once per process: environment > saved admin settings > default. Needs no session.
+            $client = \ITFlow\Redis\RedisSettings::client(\ITFlow\Redis\RedisSettings::resolve($GLOBALS['mysqli'] ?? null), 0.5);
             $client->connect();
         } catch (\Throwable $e) {
             $failed = true;

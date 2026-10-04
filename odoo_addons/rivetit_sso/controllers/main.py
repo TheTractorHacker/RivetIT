@@ -10,6 +10,8 @@ import secrets
 from datetime import timedelta
 from urllib.parse import urlencode
 
+from markupsafe import escape
+
 from odoo import fields, http
 from odoo.http import request
 
@@ -25,6 +27,26 @@ def _response(message, status=400):
     )
 
 
+def _page(title, message, status=403):
+    """A plain, self-contained explanation page for people (not machines)."""
+    body = (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        '<title>%s</title><style>body{font-family:system-ui,sans-serif;background:#f4f6f8;color:#1f2933;'
+        'display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}'
+        '.c{background:#fff;border-radius:12px;padding:32px;max-width:480px;box-shadow:0 2px 12px rgba(0,0,0,.08)}'
+        'h1{font-size:20px;margin:0 0 12px}p{line-height:1.5;margin:0 0 20px}'
+        'a{color:#714b67}</style></head><body><div class="c"><h1>%s</h1><p>%s</p>'
+        '<a href="/odoo">Back to Odoo</a></div></body></html>'
+    ) % (escape(title), escape(title), escape(message))
+    return request.make_response(
+        body, status=status,
+        headers=[('Content-Type', 'text/html; charset=utf-8'), ('Cache-Control', 'no-store'),
+                 ('Referrer-Policy', 'no-referrer'),
+                 ('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'")],
+    )
+
+
 def _redirect(url):
     response = request.redirect(url, local=False)
     response.headers['Cache-Control'] = 'no-store'
@@ -32,13 +54,29 @@ def _redirect(url):
     return response
 
 
-def _eligible_employee(user, company_id):
-    if not user.active or not user.has_group('rivetit_sso.group_rivetit_portal'):
-        return None
+def _check_employee(user, integration):
+    """Return (employee, None) when allowed, else (None, a message a person can act on)."""
+    if not user.active:
+        return None, 'Your Odoo account is not active.'
+    if integration.allow_all_employees:
+        if not user.has_group('base.group_user'):
+            return None, 'The Department Portal is only available to internal Odoo users.'
+    elif not user.has_group('rivetit_sso.group_rivetit_portal'):
+        return None, ('Your account has not been given access to the Department Portal. Ask an '
+                      'administrator to add you to the "RivetIT Department Portal" group.')
     employees = request.env['hr.employee'].sudo().search([
-        ('user_id', '=', user.id), ('active', '=', True), ('company_id', '=', company_id),
+        ('user_id', '=', user.id), ('active', '=', True), ('company_id', '=', integration.company_id.id),
     ], limit=2)
-    return employees[0] if len(employees) == 1 else None
+    if not employees:
+        return None, ('No employee record is linked to your Odoo login in %s. Ask an administrator to '
+                      'set your user as the Related User on your employee record.' % integration.company_id.name)
+    if len(employees) > 1:
+        return None, 'More than one employee record is linked to your login. Ask an administrator to fix this.'
+    return employees[0], None
+
+
+def _eligible_employee(user, integration):
+    return _check_employee(user, integration)[0]
 
 
 class RivetITSSOController(http.Controller):
@@ -69,9 +107,17 @@ class RivetITSSOController(http.Controller):
         integration = request.env['rivetit.sso.integration'].sudo().search([
             ('active', '=', True), ('company_id', '=', request.env.company.id),
         ], limit=2)
-        if (len(integration) != 1 or not integration.secret_hash
-                or not _eligible_employee(request.env.user, integration.company_id.id)):
-            return _response('RivetIT portal access is unavailable for this employee.', 403)
+        if len(integration) != 1:
+            return _page('Department Portal is not set up',
+                         'Sign-in to the Department Portal is not set up for %s. Ask an administrator to '
+                         'check Settings > RivetIT SSO.' % request.env.company.name)
+        if not integration.secret_hash:
+            return _page('Department Portal setup is unfinished',
+                         'The integration has no secret yet. Ask an administrator to finish it in '
+                         'Settings > RivetIT SSO.')
+        employee, problem = _check_employee(request.env.user, integration)
+        if employee is None:
+            return _page('Department Portal is unavailable', problem)
         return _redirect(integration.portal_start_url)
 
     @http.route('/rivetit/sso/authorize', type='http', auth='user', methods=['GET'], csrf=False)
@@ -88,15 +134,19 @@ class RivetITSSOController(http.Controller):
         ], limit=2)
         if len(integrations) != 1 or not integrations.secret_hash or integrations.callback_url != redirect_uri:
             _logger.warning('RivetIT SSO authorization denied: integration_or_callback')
-            return _response('Unknown or disabled RivetIT integration.', 403)
+            return _page('Department Portal is not set up',
+                         'This sign-in request does not match an active RivetIT integration. Ask an '
+                         'administrator to check Settings > RivetIT SSO.')
         integration = integrations[0]
         if request.env.company.id != integration.company_id.id:
             _logger.info('RivetIT SSO denied: wrong active company; user=%s', request.env.user.id)
-            return _response('Switch to the configured Odoo company before opening RivetIT.', 403)
-        employee = _eligible_employee(request.env.user, integration.company_id.id)
+            return _page('Switch company first',
+                         'Switch to %s using the company switcher at the top of Odoo, then open the '
+                         'Department Portal again.' % integration.company_id.name)
+        employee, problem = _check_employee(request.env.user, integration)
         if employee is None:
             _logger.info('RivetIT SSO denied: employee not eligible; user=%s', request.env.user.id)
-            return _response('RivetIT portal access is unavailable for this employee.', 403)
+            return _page('Department Portal is unavailable', problem)
         code = secrets.token_urlsafe(32)
         correlation_id = hashlib.sha256(state.encode('ascii')).hexdigest()[:16]
         request.env['rivetit.sso.code'].sudo().create({
@@ -170,7 +220,7 @@ class RivetITSSOController(http.Controller):
             _logger.warning('RivetIT SSO token denied: invalid_verifier correlation=%s', record.correlation_id)
             return _response('Invalid code verifier.', 400)
         user = record.user_id
-        employee = _eligible_employee(user, integration.company_id.id)
+        employee = _eligible_employee(user, integration)
         if (employee is None or employee.id != record.employee_id.id
                 or record.company_id.id != integration.company_id.id):
             _logger.warning('RivetIT SSO token denied: employee_ineligible correlation=%s', record.correlation_id)

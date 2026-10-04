@@ -21,6 +21,14 @@ renderAdminDirectory('Maintenance', 'Check scheduled work, review activity, and 
             ['Debug', 'Inspect diagnostic information.', 'debug.php', 'fa-bug'],
         ],
     ],
+    'server' => [
+        'title' => 'Server', 'icon' => 'fa-server',
+        'description' => 'Check the health of this server and find the commands for root-only tasks.',
+        'items' => [
+            ['Server status & tasks', 'Disk, backups, jobs, Redis, and copy-ready server commands.', 'server_tasks.php', 'fa-server'],
+            ['Redis', 'Connection, memory and cache controls.', 'settings_redis.php', 'fa-bolt'],
+        ],
+    ],
     'recovery' => [
         'title' => 'Recovery & updates', 'icon' => 'fa-cloud-upload-alt',
         'description' => 'Protect data and keep the installation current.',

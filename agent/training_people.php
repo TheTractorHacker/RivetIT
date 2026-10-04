@@ -73,7 +73,7 @@ $tr_actions = '';
 if ($tr_tab === 'trainers' && $tr_level >= 3) {
     $tr_actions = '<button type="button" class="btn btn-primary" id="tro-pt-new"><i class="fas fa-user-plus me-2" aria-hidden="true"></i>Add trainer</button>';
 } elseif ($tr_tab === 'links' && $tr_ctx->isAdmin) {
-    $tr_actions = '<a class="btn btn-outline-secondary" href="/admin/settings_training.php#odoo"><i class="fas fa-cog me-2" aria-hidden="true"></i>Manage links</a>';
+    $tr_actions = '<a class="btn btn-outline-secondary" href="/admin/settings_integrations.php?tab=odoo"><i class="fas fa-cog me-2" aria-hidden="true"></i>Manage links</a>';
 }
 
 $tr_state_labels = [

@@ -3,7 +3,7 @@ require_once "includes/inc_all_admin.php";
 enforceUserPermission('module_admin');
 require_once "../includes/comet.php";
 
-$active_tab = in_array($_GET['tab'] ?? '', ['rmm', 'backups', 'firewalls', 'unifi', 'directorysync', 'devicesync']) ? $_GET['tab'] : 'rmm';
+$active_tab = in_array($_GET['tab'] ?? '', ['rmm', 'backups', 'firewalls', 'unifi', 'directorysync', 'odoo', 'devicesync']) ? $_GET['tab'] : 'rmm';
 
 // ─── RMM (non-Sophos) ───────────────────────────────────────────────────────
 $sql_rmm_integrations = mysqli_query($mysqli, "SELECT * FROM rmm_integrations WHERE type != 'sophos_central' ORDER BY name ASC");
@@ -197,7 +197,7 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
     <div class="it-page-header-row">
         <div>
             <h1 class="it-page-title">Integrations</h1>
-            <p class="it-page-subtitle">Connect <?= htmlspecialchars(APP_NAME) ?> to the RMM, backup, firewall, network and directory systems it reads from, including Odoo (Directory Sync tab).</p>
+            <p class="it-page-subtitle">Connect <?= htmlspecialchars(APP_NAME) ?> to the RMM, backup, firewall, network and directory systems it reads from, including Odoo (Odoo tab).</p>
         </div>
     </div>
 </div>
@@ -217,6 +217,9 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $active_tab === 'directorysync' ? 'active' : '' ?>" data-bs-toggle="tab" href="#tab-directorysync" data-tabkey="directorysync"><i class="fas fa-address-book me-1"></i>Directory Sync</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $active_tab === 'odoo' ? 'active' : '' ?>" data-bs-toggle="tab" href="#tab-odoo" data-tabkey="odoo"><i class="fas fa-cogs me-1"></i>Odoo</a>
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $active_tab === 'devicesync' ? 'active' : '' ?>" data-bs-toggle="tab" href="#tab-devicesync" data-tabkey="devicesync"><i class="fas fa-laptop me-1"></i>Device Sync</a>
@@ -1592,179 +1595,8 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
         </div>
     </div>
 
-    <div class="card mb-3">
-        <div class="card-header py-2 d-flex align-items-center">
-            <h3 class="card-title me-auto"><i class="fas fa-fw fa-cogs me-2"></i>Odoo</h3>
-            <?php if ($odoo_id) { ?>
-                <span class="badge text-bg-secondary me-2" title="API protocol the directory sync uses">
-                    <?= $odoo_protocol_json2 ? 'JSON-2' : ($odoo_protocol_pinned ? 'JSON-RPC (pinned)' : 'JSON-RPC') ?>
-                </span>
-            <?php } ?>
-            <?php if ($odoo_last_test_at) { ?>
-                <span class="badge <?= $odoo_last_test_success ? 'text-bg-success' : 'text-bg-danger' ?>">
-                    Last test: <?= $odoo_last_test_success ? 'Success' : 'Failed' ?> (<?= nullable_htmlentities($odoo_last_test_at) ?>)
-                </span>
-            <?php } ?>
-        </div>
-        <div class="card-body">
-            <?php if ($odoo_last_test_error) { ?>
-                <?php // A successful test can still carry a note - "JSON-2 failed: ...; using JSON-RPC". ?>
-                <div class="alert <?= $odoo_last_test_success ? 'alert-warning' : 'alert-danger' ?>"><?= $odoo_last_test_error ?></div>
-            <?php } ?>
-            <form action="post.php" method="post" autocomplete="off">
-                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
 
-                <div class="form-group">
-                    <label>Base URL</label>
-                    <input type="text" class="form-control" name="base_url" value="<?= $odoo_base_url ?>" placeholder="e.g. https://yourcompany.odoo.com">
-                </div>
-                <div class="form-group">
-                    <label>Database Name</label>
-                    <input type="text" class="form-control" name="database_name" value="<?= $odoo_database ?>">
-                </div>
-                <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" class="form-control" name="username" value="<?= $odoo_username ?>" placeholder="e.g. admin@yourcompany.com">
-                </div>
-                <div class="form-group">
-                    <label>API Key</label>
-                    <input type="password" class="form-control" name="api_key" placeholder="<?= $odoo_has_key ? 'Stored - leave blank to keep current' : 'Enter API key' ?>" autocomplete="new-password">
-                </div>
-                <div class="form-group">
-                    <label for="odooApiProtocol">API Protocol</label>
-                    <select class="form-control" name="api_protocol" id="odooApiProtocol" <?= $odoo_protocol_column ? '' : 'disabled' ?>>
-                        <option value="auto" <?= $odoo_protocol_pinned ? '' : 'selected' ?>>Automatic (JSON-2 when available)</option>
-                        <option value="jsonrpc_pinned" <?= $odoo_protocol_pinned ? 'selected' : '' ?>>JSON-RPC (legacy, pinned)</option>
-                    </select>
-                    <small class="text-muted">
-                        <?php if (!$odoo_protocol_column) { ?>
-                            Available once the database is updated (Maintenance &rsaquo; Update &rsaquo; Update Database). Until then the sync uses JSON-RPC.
-                        <?php } else { ?>
-                            Automatic keeps using JSON-RPC until <strong>Test Connection</strong> succeeds over JSON-2 (Odoo 19 or later, <code>https://</code> base URL) - including a check that the directory sync's own reads work there - then syncs over JSON-2.
-                            If the JSON-2 test fails, JSON-RPC stays in use and the reason is shown; pin JSON-RPC to stop trying JSON-2.
-                            Currently: <strong><?= $odoo_protocol_json2 ? 'JSON-2' : 'JSON-RPC' ?></strong>.
-                        <?php } ?>
-                    </small>
-                </div>
-                <div class="form-check form-switch mb-3">
-                    <input type="checkbox" class="form-check-input" name="enabled" value="1" id="odooEnabled" <?= $odoo_enabled ? 'checked' : '' ?>>
-                    <label class="form-check-label" for="odooEnabled">Enabled</label>
-                </div>
-
-                <button type="submit" name="save_odoo_integration" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
-                <button type="submit" name="test_odoo_integration" class="btn btn-secondary"><i class="fas fa-plug me-2"></i>Test Connection</button>
-                <?php if ($odoo_enabled && $odoo_has_key): ?>
-                <button type="submit" name="sync_odoo_directory" class="btn btn-success"><i class="fas fa-sync me-2"></i>Sync Now</button>
-                <?php endif; ?>
-            </form>
-        </div>
-    </div>
-
-    <div class="card mb-3">
-        <div class="card-header py-2">
-            <h3 class="card-title"><i class="fas fa-fw fa-sign-in-alt me-2"></i>Odoo Department Portal sign-in</h3>
-        </div>
-        <div class="card-body">
-            <p class="text-muted">Install the <code>rivetit_sso</code> addon in Odoo first. This handoff uses a dedicated server-side secret; the directory-sync API key is never used for sign-in. Link each person through Odoo Directory Sync, then select Odoo as their Department Login method.</p>
-            <form action="post.php" method="post" autocomplete="off">
-                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-                <div class="form-group">
-                    <label for="odooSsoClientId">Integration ID</label>
-                    <input id="odooSsoClientId" class="form-control" name="sso_client_id" value="<?= $odoo_sso_client_id ?>" maxlength="200" placeholder="rivetit-department-portal">
-                </div>
-                <div class="form-group">
-                    <label for="odooSsoCompanyId">Odoo company ID</label>
-                    <input id="odooSsoCompanyId" class="form-control" type="number" min="1" name="sso_company_id" value="<?= $odoo_sso_company_id ?: '' ?>" placeholder="1">
-                    <small class="text-muted">Only active employees in this Odoo company can sign in.</small>
-                </div>
-                <div class="form-group">
-                    <label for="odooSsoSecret">Dedicated integration secret</label>
-                    <input id="odooSsoSecret" class="form-control" type="password" name="sso_secret" minlength="32" maxlength="256" placeholder="<?= $odoo_sso_has_secret ? 'Stored — leave blank to keep current' : 'Enter a 32+ character random secret' ?>" autocomplete="new-password">
-                    <small class="text-muted">Store the SHA-256 hash of this secret in the Odoo addon. Enter a new value here to rotate it.</small>
-                </div>
-                <p class="small text-muted mb-2">Callback: <code>https://<?= nullable_htmlentities($config_base_url) ?>/client/login_odoo.php</code></p>
-                <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" name="sso_enabled" value="1" id="odooSsoEnabled" <?= $odoo_sso_enabled ? 'checked' : '' ?>>
-                    <label class="form-check-label" for="odooSsoEnabled">Enable Odoo sign-in</label>
-                </div>
-                <button type="submit" name="save_odoo_sso" class="btn btn-primary">Save Odoo sign-in</button>
-                <?php if ($odoo_sso_has_secret && $odoo_sso_client_id) { ?>
-                    <button type="submit" name="test_odoo_sso" class="btn btn-secondary">Test connection</button>
-                <?php } ?>
-            </form>
-        </div>
-    </div>
-
-    <!-- ─── Field Mapping: what each provider's fields write to, and whether they do ─── -->
-    <div class="card mb-3">
-        <div class="card-header py-2">
-            <h3 class="card-title"><i class="fas fa-fw fa-random me-2"></i>Field Mapping</h3>
-        </div>
-        <div class="card-body p-0">
-            <p class="text-muted small px-3 pt-3 mb-2">
-                What each provider's field is written into on a synced contact, and whether it's synced at all.
-                A field left "— Not mapped —" is never written. Fields marked below as also used for
-                matching/identity (email, or Google's org unit path) are always used for that regardless of this
-                setting - this only controls whether they ALSO get written into the contact field you pick.
-            </p>
-            <form action="post.php" method="post">
-                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-
-                <?php foreach ([
-                    'odoo'      => ['Odoo', 'fas fa-cogs'],
-                    'microsoft' => ['Microsoft 365 / Entra ID', 'fab fa-microsoft'],
-                    'google'    => ['Google Workspace', 'fab fa-google'],
-                ] as $fm_provider => [$fm_label, $fm_icon]): ?>
-                <h4 class="px-3 pt-2 pb-1 mb-0" style="font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:#8590a5;">
-                    <i class="<?= $fm_icon ?> fa-fw me-1"></i><?= htmlspecialchars($fm_label) ?>
-                </h4>
-                <div class="table-responsive">
-                <table class="table table-sm table-borderless mb-0">
-                    <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
-                        <tr>
-                            <th class="ps-3">Source Field</th>
-                            <th style="min-width:220px;">Maps To</th>
-                            <th class="text-center" style="width:80px;">Enabled</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    <?php foreach ($directory_field_rows[$fm_provider] as $fm_i => $fm_row):
-                        $fm_key = $fm_provider . '_' . $fm_i;
-                    ?>
-                        <tr>
-                            <td class="ps-3 small">
-                                <?= nullable_htmlentities($fm_row['label']) ?>
-                                <input type="hidden" name="mapping[<?= htmlspecialchars($fm_key) ?>][provider]" value="<?= htmlspecialchars($fm_provider) ?>">
-                                <input type="hidden" name="mapping[<?= htmlspecialchars($fm_key) ?>][source_field]" value="<?= htmlspecialchars($fm_row['source_field']) ?>">
-                            </td>
-                            <td>
-                                <select class="form-control form-control-sm" name="mapping[<?= htmlspecialchars($fm_key) ?>][target_field]">
-                                    <option value="">— Not mapped —</option>
-                                    <?php foreach ($directory_field_target_labels as $fm_target => $fm_target_label): ?>
-                                        <option value="<?= htmlspecialchars($fm_target) ?>" <?= $fm_row['target_field'] === $fm_target ? 'selected' : '' ?>><?= htmlspecialchars($fm_target_label) ?> (<?= htmlspecialchars($fm_target) ?>)</option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </td>
-                            <td class="text-center">
-                                <div class="form-check form-switch d-flex justify-content-center mb-0">
-                                    <input type="checkbox" class="form-check-input" name="mapping[<?= htmlspecialchars($fm_key) ?>][enabled]" value="1" <?= $fm_row['enabled'] ? 'checked' : '' ?>>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-                </div>
-                <?php endforeach; ?>
-
-                <div class="card-footer py-2">
-                    <button type="submit" name="save_field_mapping" class="btn btn-primary btn-sm">
-                        <i class="fas fa-check me-1"></i>Save Field Mappings
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <?php $fm_providers = ['microsoft', 'google']; require __DIR__ . '/includes/directory_field_mapping.php'; ?>
 
     <div class="card mb-3">
         <div class="card-header py-2">
@@ -1852,6 +1684,159 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
         </div>
     </div>
 
+</div><!-- /#tab-directorysync -->
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     ODOO TAB: connection, employee and department sync, employee links, Department Portal sign-in
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="tab-pane <?= $active_tab === 'odoo' ? 'show active' : '' ?>" id="tab-odoo">
+
+    <?php
+    $odoo_sum = ['employees' => 0, 'departments' => 0, 'unlinked' => 0, 'logins' => 0, 'log' => null];
+    if ($odoo_id) {
+        $odoo_sum['employees'] = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM contact_odoo_links WHERE odoo_integration_id = $odoo_id"))[0] ?? 0);
+        $odoo_sum['departments'] = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM client_odoo_links WHERE odoo_integration_id = $odoo_id"))[0] ?? 0);
+        $odoo_sum['unlinked'] = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM contacts WHERE contact_archived_at IS NULL
+            AND contact_id NOT IN (SELECT contact_id FROM contact_odoo_links WHERE odoo_integration_id = $odoo_id)"))[0] ?? 0);
+        $odoo_sum['logins'] = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM users WHERE user_type = 2 AND user_auth_method = 'odoo'"))[0] ?? 0);
+        $odoo_sum['log'] = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT status, started_at FROM odoo_sync_log WHERE odoo_integration_id = $odoo_id ORDER BY id DESC LIMIT 1"));
+    }
+    ?>
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body py-3">
+            <div class="text-muted small text-uppercase">Employees linked</div>
+            <div class="fs-3 fw-bold"><?= $odoo_sum['employees'] ?></div>
+            <div class="small text-muted"><?= $odoo_sum['unlinked'] ?> contact(s) without an Odoo link</div>
+        </div></div></div>
+        <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body py-3">
+            <div class="text-muted small text-uppercase">Departments linked</div>
+            <div class="fs-3 fw-bold"><?= $odoo_sum['departments'] ?></div>
+        </div></div></div>
+        <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body py-3">
+            <div class="text-muted small text-uppercase">Odoo sign-in logins</div>
+            <div class="fs-3 fw-bold"><?= $odoo_sum['logins'] ?></div>
+            <div class="small text-muted">Department Logins set to Odoo employee</div>
+        </div></div></div>
+        <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body py-3">
+            <div class="text-muted small text-uppercase">Last sync</div>
+            <?php if ($odoo_sum['log']) { ?>
+                <div class="fs-6 fw-bold"><span class="badge <?= ['success' => 'text-bg-success', 'failed' => 'text-bg-danger'][$odoo_sum['log']['status']] ?? 'text-bg-secondary' ?>"><?= nullable_htmlentities($odoo_sum['log']['status']) ?></span></div>
+                <div class="small text-muted"><?= nullable_htmlentities($odoo_sum['log']['started_at']) ?></div>
+            <?php } else { ?>
+                <div class="fs-6 text-muted">Never</div>
+            <?php } ?>
+        </div></div></div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header py-2 d-flex align-items-center">
+            <h3 class="card-title me-auto"><i class="fas fa-fw fa-cogs me-2"></i>Odoo</h3>
+            <?php if ($odoo_id) { ?>
+                <span class="badge text-bg-secondary me-2" title="API protocol the directory sync uses">
+                    <?= $odoo_protocol_json2 ? 'JSON-2' : ($odoo_protocol_pinned ? 'JSON-RPC (pinned)' : 'JSON-RPC') ?>
+                </span>
+            <?php } ?>
+            <?php if ($odoo_last_test_at) { ?>
+                <span class="badge <?= $odoo_last_test_success ? 'text-bg-success' : 'text-bg-danger' ?>">
+                    Last test: <?= $odoo_last_test_success ? 'Success' : 'Failed' ?> (<?= nullable_htmlentities($odoo_last_test_at) ?>)
+                </span>
+            <?php } ?>
+        </div>
+        <div class="card-body">
+            <?php if ($odoo_last_test_error) { ?>
+                <?php // A successful test can still carry a note - "JSON-2 failed: ...; using JSON-RPC". ?>
+                <div class="alert <?= $odoo_last_test_success ? 'alert-warning' : 'alert-danger' ?>"><?= $odoo_last_test_error ?></div>
+            <?php } ?>
+            <form action="post.php" method="post" autocomplete="off">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+
+                <div class="form-group">
+                    <label>Base URL</label>
+                    <input type="text" class="form-control" name="base_url" value="<?= $odoo_base_url ?>" placeholder="e.g. https://yourcompany.odoo.com">
+                </div>
+                <div class="form-group">
+                    <label>Database Name</label>
+                    <input type="text" class="form-control" name="database_name" value="<?= $odoo_database ?>">
+                </div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" class="form-control" name="username" value="<?= $odoo_username ?>" placeholder="e.g. admin@yourcompany.com">
+                </div>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="password" class="form-control" name="api_key" placeholder="<?= $odoo_has_key ? 'Stored - leave blank to keep current' : 'Enter API key' ?>" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label for="odooApiProtocol">API Protocol</label>
+                    <select class="form-control" name="api_protocol" id="odooApiProtocol" <?= $odoo_protocol_column ? '' : 'disabled' ?>>
+                        <option value="auto" <?= $odoo_protocol_pinned ? '' : 'selected' ?>>Automatic (JSON-2 when available)</option>
+                        <option value="jsonrpc_pinned" <?= $odoo_protocol_pinned ? 'selected' : '' ?>>JSON-RPC (legacy, pinned)</option>
+                    </select>
+                    <small class="text-muted">
+                        <?php if (!$odoo_protocol_column) { ?>
+                            Available once the database is updated (Maintenance &rsaquo; Update &rsaquo; Update Database). Until then the sync uses JSON-RPC.
+                        <?php } else { ?>
+                            Automatic keeps using JSON-RPC until <strong>Test Connection</strong> succeeds over JSON-2 (Odoo 19 or later, <code>https://</code> base URL) - including a check that the directory sync's own reads work there - then syncs over JSON-2.
+                            If the JSON-2 test fails, JSON-RPC stays in use and the reason is shown; pin JSON-RPC to stop trying JSON-2.
+                            Currently: <strong><?= $odoo_protocol_json2 ? 'JSON-2' : 'JSON-RPC' ?></strong>.
+                        <?php } ?>
+                    </small>
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input type="checkbox" class="form-check-input" name="enabled" value="1" id="odooEnabled" <?= $odoo_enabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="odooEnabled">Enabled</label>
+                </div>
+
+                <button type="submit" name="save_odoo_integration" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
+                <button type="submit" name="test_odoo_integration" class="btn btn-secondary"><i class="fas fa-plug me-2"></i>Test Connection</button>
+                <?php if ($odoo_enabled && $odoo_has_key): ?>
+                <button type="submit" name="sync_odoo_directory" class="btn btn-success"><i class="fas fa-sync me-2"></i>Sync Now</button>
+                <?php endif; ?>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header py-2">
+            <h3 class="card-title"><i class="fas fa-fw fa-sign-in-alt me-2"></i>Odoo Department Portal sign-in <span class="badge bg-warning text-dark ms-2">Experimental</span></h3>
+        </div>
+        <div class="card-body">
+            <p class="text-muted"><strong>Experimental, off by default.</strong> Needs the <code>rivetit_sso</code> addon installed in Odoo 19 or 20 (ready-made zips are in <code>odoo_addons/</code>; see <code>docs/ODOO_PORTAL_SSO.md</code>). Without it, employees can still sign in through the Identity provider page and a plain link to <code>/client/login_oidc.php</code>. This handoff uses a dedicated server-side secret; the directory-sync API key is never used for sign-in. Link each person through Odoo Directory Sync, then select Odoo as their Department Login method.</p>
+            <form action="post.php" method="post" autocomplete="off">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                <div class="form-group">
+                    <label for="odooSsoClientId">Integration ID</label>
+                    <input id="odooSsoClientId" class="form-control" name="sso_client_id" value="<?= $odoo_sso_client_id ?>" maxlength="200" placeholder="rivetit-department-portal">
+                </div>
+                <div class="form-group">
+                    <label for="odooSsoCompanyId">Odoo company ID</label>
+                    <input id="odooSsoCompanyId" class="form-control" type="number" min="1" name="sso_company_id" value="<?= $odoo_sso_company_id ?: '' ?>" placeholder="1">
+                    <small class="text-muted">Only active employees in this Odoo company can sign in.</small>
+                </div>
+                <div class="form-group">
+                    <label for="odooSsoSecret">Dedicated integration secret</label>
+                    <input id="odooSsoSecret" class="form-control" type="password" name="sso_secret" minlength="32" maxlength="256" placeholder="<?= $odoo_sso_has_secret ? 'Stored — leave blank to keep current' : 'Enter a 32+ character random secret' ?>" autocomplete="new-password">
+                    <small class="text-muted">In Odoo (Settings > RivetIT SSO) use <strong>Generate a secret</strong> and paste it here, or paste the same value into Odoo's secret field. Enter a new value here to rotate it.</small>
+                </div>
+                <p class="small text-muted mb-2">RivetIT address to enter in Odoo: <code>https://<?= nullable_htmlentities($config_base_url) ?></code> (callback <code>https://<?= nullable_htmlentities($config_base_url) ?>/client/login_odoo.php</code>)</p>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" name="sso_enabled" value="1" id="odooSsoEnabled" <?= $odoo_sso_enabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="odooSsoEnabled">Enable Odoo sign-in</label>
+                </div>
+                <button type="submit" name="save_odoo_sso" class="btn btn-primary">Save Odoo sign-in</button>
+                <?php if ($odoo_sso_has_secret && $odoo_sso_client_id) { ?>
+                    <button type="submit" name="test_odoo_sso" class="btn btn-secondary">Test connection</button>
+                <?php } ?>
+            </form>
+        </div>
+    </div>
+
+    <?php $fm_providers = ['odoo']; require __DIR__ . '/includes/directory_field_mapping.php'; ?>
+
+    <div class="mb-3">
+        <?php require __DIR__ . '/includes/odoo_employee_links.php'; ?>
+    </div>
+
     <div class="card">
         <div class="card-header py-2">
             <h3 class="card-title"><i class="fas fa-fw fa-history me-2"></i>Recent Odoo Syncs</h3>
@@ -1895,7 +1880,8 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
         </div>
     </div>
 
-</div><!-- /#tab-directorysync -->
+</div><!-- /#tab-odoo -->
+
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
      DEVICE SYNC (INTUNE) TAB

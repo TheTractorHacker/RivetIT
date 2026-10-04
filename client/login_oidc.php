@@ -28,13 +28,15 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 
 $settings = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_client_portal_enable,
-    config_oidc_enabled, config_oidc_issuer, config_oidc_client_id, config_oidc_client_secret
+    config_oidc_enabled, config_oidc_issuer, config_oidc_client_id, config_oidc_client_secret, config_oidc_link_by_email, config_oidc_require_verified_email
     FROM settings WHERE company_id = 1 LIMIT 1")) ?: [];
 $issuer = trim((string) ($settings['config_oidc_issuer'] ?? ''));
 $clientId = trim((string) ($settings['config_oidc_client_id'] ?? ''));
 $enabled = (int) ($settings['config_client_portal_enable'] ?? 0) === 1
     && (int) ($settings['config_oidc_enabled'] ?? 0) === 1
     && $clientId !== '' && !empty($settings['config_oidc_client_secret']);
+$linkByEmail = (int) ($settings['config_oidc_link_by_email'] ?? 0) === 1;
+$requireVerified = (int) ($settings['config_oidc_require_verified_email'] ?? 1) === 1;
 $callback = 'https://' . $config_base_url . '/client/login_oidc.php';
 
 try {
@@ -56,7 +58,7 @@ try {
         ];
         $query = http_build_query([
             'response_type' => 'code', 'client_id' => $clientId,
-            'redirect_uri' => $callback, 'scope' => 'openid profile',
+            'redirect_uri' => $callback, 'scope' => $linkByEmail ? 'openid profile email' : 'openid profile',
             'state' => $state, 'nonce' => $nonce,
             'code_challenge' => portalOidcBase64Url(hash('sha256', $verifier, true)),
             'code_challenge_method' => 'S256',
@@ -108,8 +110,20 @@ try {
         throw new RuntimeException('userinfo_mismatch');
     }
     $account = portalOidcEligibleAccount($mysqli, $issuer, $subject);
+    $linkWhy = null;
+    if ($account === null && $linkByEmail) {
+        $account = portalOidcLinkByVerifiedEmail($mysqli, $issuer, $subject, $userinfo, $linkWhy, $requireVerified);
+        if ($account !== null) {
+            $session_user_id = (int) $account['user_id'];
+            $session_ip = sanitizeInput(getIP());
+            $session_user_agent = sanitizeInput($_SERVER['HTTP_USER_AGENT'] ?? '');
+            logAction('Client Login', 'Edit', 'OpenID Connect subject linked on first sign-in by verified email',
+                (int) $account['contact_client_id'], (int) $account['user_id']);
+        }
+    }
     if ($account === null) {
-        throw new RuntimeException('account_ineligible');
+        throw new RuntimeException($linkWhy !== null ? 'account_ineligible: ' . $linkWhy
+            : ($linkByEmail ? 'account_ineligible: no_login_linked_to_this_subject' : 'account_ineligible'));
     }
 
     // Remove an old agent, preview or portal identity before establishing the
@@ -140,8 +154,13 @@ try {
     // Never log codes, tokens, credentials or raw provider responses.
     $safeReasons = ['disabled', 'invalid_request', 'browser_binding', 'provider_denied',
         'invalid_config', 'invalid_token_response', 'userinfo_mismatch', 'account_ineligible'];
+    // Only our own fixed messages and the JWT library's key/signature/expiry messages are logged, never provider data.
+    $detail = ($error instanceof RuntimeException || strpos(get_class($error), 'Firebase\\JWT\\') === 0
+        || $error instanceof UnexpectedValueException || $error instanceof DomainException)
+        ? substr(preg_replace('/[^A-Za-z0-9 .,:_()\/-]/', '', $error->getMessage()), 0, 200) : '';
     logAction('Client Login', 'Failed', 'OpenID Connect sign-in failed: '
-        . (in_array($reason, $safeReasons, true) ? $reason : 'provider_or_validation_error'));
+        . (in_array($reason, $safeReasons, true) || strpos($reason, 'account_ineligible: ') === 0 ? $reason
+            : 'provider_or_validation_error' . ($detail !== '' ? " ($detail)" : '')));
     $_SESSION['oidc_login_error'] = 'Single sign-on could not complete. Please try again or contact your administrator.';
     header('Location: /login.php', true, 303);
     exit;
