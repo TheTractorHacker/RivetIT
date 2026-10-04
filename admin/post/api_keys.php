@@ -105,12 +105,21 @@ if (isset($_POST['bulk_delete_api_keys'])) {
 
     if (isset($_POST['api_key_ids'])) {
 
-        $count = count($_POST['api_key_ids']);
+        $count = 0;
+        $skipped = 0;
 
         // Cycle through array and delete each record
         foreach ($_POST['api_key_ids'] as $api_key_id) {
 
             $api_key_id = intval($api_key_id);
+
+            // Only expired or revoked keys can be deleted, as with the single Delete action
+            $still_active = mysqli_num_rows(mysqli_query($mysqli, "SELECT api_key_id FROM api_keys WHERE api_key_id = $api_key_id AND api_key_expire > NOW()"));
+            if ($still_active) {
+                $skipped++;
+                continue;
+            }
+            $count++;
 
             // Get API Key Name
             $row = mysqli_fetch_assoc(mysqli_query($mysqli,"SELECT api_key_name, api_key_client_id FROM api_keys WHERE api_key_id = $api_key_id"));
@@ -125,7 +134,7 @@ if (isset($_POST['bulk_delete_api_keys'])) {
 
         logAction("API Key", "Bulk Delete", "$session_name deleted $count API key(s)");
 
-        flash_alert("Deleted <strong>$count</strong> API keys(s)", 'error');
+        flash_alert("Deleted <strong>$count</strong> API keys(s)" . ($skipped ? ". $skipped active key(s) were skipped; revoke them first." : ""), 'error');
 
     }
 

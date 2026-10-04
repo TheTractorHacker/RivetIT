@@ -182,7 +182,7 @@ if (!function_exists('itflow_role_catalog')) {
                 'flag' => true,
                 'levels' => [
                     0 => 'No Reports menu.',
-                    1 => 'Open every report.',
+                    1 => 'Open the reports. Each report also needs read access to its own area (Tickets, Finance and so on).',
                 ],
             ],
             'module_kb' => [

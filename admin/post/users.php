@@ -155,6 +155,17 @@ if (isset($_POST['edit_user'])) {
         }
     }
 
+    // Never move the last active administrator to a role without admin access
+    $cur = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT r.role_is_admin FROM users u JOIN user_roles r ON r.role_id = u.user_role_id WHERE u.user_id = $user_id AND u.user_type = 1 AND u.user_status = 1 AND u.user_archived_at IS NULL"));
+    $new_role = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT role_is_admin FROM user_roles WHERE role_id = $role"));
+    if (!empty($cur['role_is_admin']) && empty($new_role['role_is_admin'])) {
+        $other_admins = mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM users u JOIN user_roles r ON r.role_id = u.user_role_id WHERE r.role_is_admin = 1 AND u.user_id <> $user_id AND u.user_type = 1 AND u.user_status = 1 AND u.user_archived_at IS NULL"));
+        if (intval($other_admins[0] ?? 0) === 0) {
+            flash_alert("Role was not changed: this is the only active administrator. Make another user an administrator first.", 'error');
+            redirect();
+        }
+    }
+
     // Update Client Access
     mysqli_query($mysqli,"DELETE FROM user_client_permissions WHERE user_id = $user_id");
     if (isset($_POST['clients'])) {
@@ -362,6 +373,7 @@ if (isset($_POST['restore_user'])) {
     $user_id = intval($_POST['user_id']);
     $new_password = trim($_POST['new_password']);
     $role = intval($_POST['role']);
+    $extended_log_description = '';
 
     $user_name = getFieldById('users', $user_id, 'user_name');
     $user_name = sanitizeInput(str_replace(" (archived)", "", $user_name)); //Removed (archived) from user_name
@@ -377,7 +389,7 @@ if (isset($_POST['restore_user'])) {
         $extended_log_description .= ", password changed";
     }
 
-    logAction("User", "Restored", "$session_name restored user $user_name", 0, $user_id);
+    logAction("User", "Restored", "$session_name restored user $user_name$extended_log_description", 0, $user_id);
 
     flash_alert("User <strong>$user_name</strong> restored");
 
@@ -390,7 +402,7 @@ if (isset($_POST['export_users_csv'])) {
     validateCSRFToken($_POST['csrf_token']);
 
     //get records from database
-    $sql = mysqli_query($mysqli, "SELECT * FROM users LEFT JOIN user_roles ON user_role_id = role_id ORDER BY user_name ASC");
+    $sql = mysqli_query($mysqli, "SELECT * FROM users LEFT JOIN user_roles ON user_role_id = role_id WHERE user_archived_at IS NULL ORDER BY user_name ASC");
 
     $count = mysqli_num_rows($sql);
 
