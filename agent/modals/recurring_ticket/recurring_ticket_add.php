@@ -337,6 +337,19 @@ ob_start();
                     </div>
 
 
+                <?php } else { ?>
+
+                    <div class="form-group">
+                        <label>Asset</label>
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text"><i class="fa fa-fw fa-desktop"></i></span>
+                            </div>
+                            <select class="form-control select2" name="asset_id" id="assetSelect">
+                            </select>
+                        </div>
+                    </div>
+
                 <?php } ?>
 
             </div>
