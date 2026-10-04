@@ -1,6 +1,6 @@
 <?php
 require_once '../../../includes/modal_header.php';
-enforceUserPermission('module_contracts');
+enforceUserPermission('module_support');
 
 $contract_id = intval($_GET['contract_id']);
 $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM contracts WHERE contract_id = $contract_id LIMIT 1"));

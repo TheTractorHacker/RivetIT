@@ -125,7 +125,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             $sql_locations_filter = mysqli_query($mysqli, "
                                 SELECT DISTINCT location_id, location_name
                                 FROM locations
-                                WHERE location_client_id = $client_id
+                                WHERE (location_client_id = $client_id OR EXISTS (SELECT 1 FROM department_sites ds WHERE ds.location_id = locations.location_id AND ds.client_id = $client_id))
                                 AND ( EXISTS (SELECT 1 FROM networks WHERE network_location_id = location_id  AND $archive_query) OR location_id = $location_filter)
                                 ORDER BY location_name ASC
                             ");

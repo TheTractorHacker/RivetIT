@@ -107,6 +107,8 @@ if ($row) {
      * default-src at all. */
     $kb_article_content = $purifier->purify($row['kb_article_content']);
     $kb_article_content = \ITFlow\KB\MediaUrlRewriter::toPortal($kb_article_content);
+    // Credentials are agent-only; the portal has no reveal modal, so drop [[credential:ID]] tokens rather than show raw text.
+    $kb_article_content = preg_replace('/\[\[credential:\d+\]\]/i', '', $kb_article_content);
     $kb_article_updated_at = $row['kb_article_updated_at'] ?? $row['kb_article_created_at'];
 } else {
     ob_end_clean();

@@ -1,4 +1,4 @@
-function showOTPViaCredentialID(credential_id) {
+function showOTPViaCredentialID(credential_id, target) {
     // Send a GET request to ajax.php as ajax.php?get_totp_token_via_id=true&credential_id=ID
     jQuery.get(
         "ajax.php", {
@@ -9,7 +9,8 @@ function showOTPViaCredentialID(credential_id) {
             //If we get a response from post.php, parse it as JSON
             const token = JSON.parse(data);
 
-            document.getElementById("otp_" + credential_id).innerText = token
+            // Write into the hovered element: the list row and an open dialog can show the same credential
+            (target || document.getElementById("otp_" + credential_id)).innerText = token
 
         }
     );
@@ -25,5 +26,5 @@ document.addEventListener('mouseover', function (e) {
     var related = e.relatedTarget;
     if (related && trigger.contains(related)) return;
     var credentialId = trigger.dataset.credentialId;
-    if (credentialId) showOTPViaCredentialID(credentialId);
+    if (credentialId) showOTPViaCredentialID(credentialId, trigger.querySelector('[id^="otp_"]'));
 });

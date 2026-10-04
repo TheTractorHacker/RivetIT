@@ -79,7 +79,7 @@ ob_start();
 
 ?>
 <div class="modal-header bg-dark">
-    <h5 class="modal-title"><i class="fa fa-fw fa-file-word me-2"></i>Import Word Document</h5>
+    <h5 class="modal-title"><i class="fa fa-fw fa-file-pdf me-2"></i>Import PDF</h5>
     <button type="button" class="close text-white" data-bs-dismiss="modal">
         <span>&times;</span>
     </button>
