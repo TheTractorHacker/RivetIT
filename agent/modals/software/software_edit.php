@@ -250,7 +250,7 @@ ob_start();
                     <li class="list-group-item bg-dark">
                         <div class="form-check">
                             <input type="checkbox" class="form-check-input js-select-all-in-tab-pane" data-target-class="asset-checkbox">
-                            <label class="form-check-label ms-3"><strong>Licensed Devices</strong></label>
+                            <label class="form-check-label ms-3 text-white"><strong>Licensed Devices</strong></label>
                         </div>
                     </li>
 
@@ -291,7 +291,7 @@ ob_start();
                     <li class="list-group-item bg-dark">
                         <div class="form-check">
                             <input type="checkbox" class="form-check-input js-select-all-in-tab-pane" data-target-class="user-checkbox">
-                            <label class="form-check-label ms-3"><strong>Licensed Users</strong></label>
+                            <label class="form-check-label ms-3 text-white"><strong>Licensed Users</strong></label>
                         </div>
                     </li>
 

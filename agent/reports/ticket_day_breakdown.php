@@ -10,7 +10,7 @@ $report_from = $dtf;
 $report_to   = $dtt;
 if ($report_from === '1970-01-01') {
     // No filter submitted: default to this month, which is what the dropdown shows.
-    $report_from = empty($_GET['canned_date']) ? date('Y-m-01') : date('Y-m-d', strtotime('-29 days'));
+    $report_from = ($_GET['canned_date'] ?? 'custom') === 'custom' ? date('Y-m-01') : date('Y-m-d', strtotime('-29 days'));
 }
 if ($report_to === '2099-12-31') {
     $report_to = date('Y-m-d');

@@ -406,7 +406,7 @@ if (isset($_GET['asset_id'])) {
                         <?php endif; ?>
                         <?php if (lookupUserPermission('module_rmm_sync') >= 1): ?>
                         <div class="dropdown dropleft">
-                            <button type="button" class="btn btn-outline-light btn-sm" data-bs-toggle="dropdown" data-boundary="window" title="More RMM actions">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="dropdown" data-boundary="window" title="More RMM actions">
                                 <i class="fas fa-ellipsis-v"></i>
                             </button>
                             <div class="dropdown-menu dropdown-menu-right">
