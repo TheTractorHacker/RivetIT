@@ -83,6 +83,12 @@ Every page has the same shape: what the module is for, where to find it, who can
 
 All the names, addresses and numbers in the screenshots belong to a made-up company, Summit Ridge Manufacturing. None of it is real.
 
+## Screenshots without call-outs
+
+The numbered red call-outs are drawn on top of the pictures in `images/`. A second copy of every picture, with the same
+folder and file names but no call-outs, is in [`images-clean/`](images-clean/README.md), for reuse outside the guide
+(a web site, slides).
+
 ## Keeping the screenshots current
 
 The pictures are generated, not drawn by hand. One command builds a demo instance and another re-shoots every image, so they can be refreshed whenever the interface changes. See [tools/README.md](tools/README.md).
