@@ -100,7 +100,7 @@ if (empty($os_result['ok'])) {
         $os_text = nullable_htmlentities('Nightly Odoo directory sync failed: ' . $os_line);
         try {
             foreach (\ITFlow\Training\Directory\OdooTrainingSync::adminUserIds($mysqli) as $os_uid) {
-                notifyUser($os_uid, 'Directory Sync', $os_text, '/admin/settings_training.php#odoo-sync');
+                notifyUser($os_uid, 'Directory Sync', $os_text, '/admin/settings_integrations.php?tab=odoo');
             }
         } catch (\Throwable $e) {
             logApp('Cron', 'error', 'Odoo sync cron could not notify admins: ' . $e->getMessage());

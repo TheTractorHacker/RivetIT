@@ -270,7 +270,7 @@ final class OdooTrainingSync
                 return;
             }
             foreach (self::adminUserIds($db) as $uid) {
-                notifyUser($uid, 'Training', $text, '/admin/settings_training.php#odoo');
+                notifyUser($uid, 'Training', $text, '/admin/settings_integrations.php?tab=odoo');
             }
         };
     }
