@@ -12,7 +12,7 @@ Open **Administration → Maintenance → Redis**. From there you can:
 - set the **memory limit and eviction policy** (`allkeys-lru` is the safe choice). It applies immediately; if Redis cannot save it to its own config file you are shown the two lines to add to `redis.conf`;
 - **clear** rate-limit counters, the MCP discovery cache, or job locks. Only those allowlisted key groups can be cleared, never the whole database.
 
-Where the connection comes from, in order: the `RIVETIT_REDIS_HOST`, `_PORT`, `_PASSWORD` and `_DB` environment variables (PHP-FPM pool `env[...]`, or the shell for cron), then the values saved on that page, then the built-in default `127.0.0.1:6380`. A field set by the environment is shown read-only on the page. Needs database update 2.6.122. Keep Redis on loopback or a private network and never expose it publicly.
+Where the connection comes from, in order: the `RIVETIT_REDIS_HOST`, `_PORT`, `_PASSWORD` and `_DB` environment variables (PHP-FPM pool `env[...]`, or the shell for cron), then the values saved on that page, then the built-in default `127.0.0.1:6380`. A field set by the environment is shown read-only on the page. Needs database update 2.6.123. Keep Redis on loopback or a private network and never expose it publicly.
 
 ## What uses it
 

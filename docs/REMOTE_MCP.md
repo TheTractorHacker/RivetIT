@@ -1,6 +1,6 @@
 # Remote MCP (Experimental module)
 
-Everything is configured in **Administration → Settings → Remote MCP**: the on/off switch, the identity provider's issuer and audience, health checks, and linking people to agents. It is off by default. Apply database update 2.6.122 first. Turning it off blocks both the endpoint and its OAuth metadata.
+Everything is configured in **Administration → Settings → Remote MCP**: the on/off switch, the identity provider's issuer and audience, health checks, and linking people to agents. It is off by default. Apply database update 2.6.123 first. Turning it off blocks both the endpoint and its OAuth metadata.
 
 RivetIT's MCP endpoint is `/mcp`. It is **disabled by default** and exposes only **read-only** tools. It never forwards an OAuth token to the RivetIT API or uses a long-lived RivetIT API key. Billing changes and other write operations are not exposed.
 
@@ -34,7 +34,7 @@ Use a trusted OAuth authorization server that can issue signed RS256 JWT **acces
 
 You can still link by hand under **Administration → Users → Remote MCP identity** if you already know the subject.
 
-The server environment can override or stop all of this. `RIVETIT_MCP_ISSUER` and `RIVETIT_MCP_AUDIENCE`, if set in the PHP-FPM pool, take precedence over the saved values (the page shows them read-only). `RIVETIT_MCP_ENABLED=0` is a hard off switch that no setting can undo. Since 2.6.122 the environment no longer has to enable it; turning it on in the admin page is enough.
+The server environment can override or stop all of this. `RIVETIT_MCP_ISSUER` and `RIVETIT_MCP_AUDIENCE`, if set in the PHP-FPM pool, take precedence over the saved values (the page shows them read-only). `RIVETIT_MCP_ENABLED=0` is a hard off switch that no setting can undo. Since 2.6.123 the environment no longer has to enable it; turning it on in the admin page is enough.
 
 The issuer must match the token's `iss` claim exactly, including any trailing slash, and the audience must match `aud` exactly. The server's protected-resource metadata is at `/.well-known/oauth-protected-resource`. The Apache `.htaccess` and the supplied Nginx template route both paths to the endpoint; an existing Nginx install needs the two `location` blocks shown under "Web server setup" on the page.
 
