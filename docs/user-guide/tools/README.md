@@ -6,7 +6,7 @@ instead of a manual afternoon.
 
 The demo is a fictional company, **Summit Ridge Manufacturing** (7 departments, 21 employees, 3 sites).
 Nothing in it is real: addresses use the reserved `.example` domain, phone numbers are `555-01xx`, and every
-password, licence key and serial is invented.
+password, license key and serial is invented.
 
 ## Regenerate every screenshot
 
@@ -31,6 +31,19 @@ did not create). See `build-demo.sh --help` for the options (`--app-dir`, `--db`
 Requirements: bash, PHP with `mysqli` and `zip`, [Composer](https://getcomposer.org), a MariaDB/MySQL server that `mysql -u root` can reach over
 the local socket, Node 18+ and [Playwright](https://playwright.dev) with Chromium
 (`npm i -g playwright && npx playwright install chromium`).
+
+## Plain screenshots without call-outs
+
+[`../images-clean/`](../images-clean/README.md) holds the same pictures with the same file names but without
+the numbered red call-outs the guide draws on them, for reuse outside the guide (a web site, slides). The same
+scripts make them; clean mode just skips the call-out step and writes to `images-clean/`:
+
+```bash
+NODE_PATH=$(npm root -g) node docs/user-guide/tools/run-all.cjs --clean    # or: GUIDE_CLEAN=1 node capture/<group>.cjs
+docs/user-guide/tools/optimize-images.sh --lossless docs/user-guide/images-clean
+```
+
+Run it against the same demo build as the annotated set so both show the same data.
 
 After re-shooting, finish with:
 

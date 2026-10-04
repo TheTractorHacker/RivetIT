@@ -41,6 +41,16 @@ for (const f of files) {
   results.push({ f, ok: r.status === 0, secs: Math.round((Date.now() - started) / 1000), signal: r.signal });
 }
 
+// The installer pictures (setup-wizard.cjs, not part of this run) never carry call-outs, so the clean set
+// simply reuses them.
+if (clean && wanted.length === 0) {
+  const src = path.join(__dirname, '..', 'images', 'setup-wizard');
+  if (fs.existsSync(src)) {
+    fs.cpSync(src, path.join(__dirname, '..', 'images-clean', 'setup-wizard'), { recursive: true });
+    console.log('copied images/setup-wizard to images-clean/setup-wizard (no call-outs to remove)');
+  }
+}
+
 console.log('\n=== summary ===');
 for (const r of results) {
   console.log(`${r.ok ? 'ok  ' : 'FAIL'}  ${r.f}  (${r.secs}s${r.signal ? `, ${r.signal}` : ''})`);
