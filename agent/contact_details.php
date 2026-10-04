@@ -507,6 +507,7 @@ if (isset($_GET['contact_id'])) {
                 <?php } ?>
             </div>
 
+            <?php if ($config_module_enable_crm == 1) { ?>
             <div class="card card-dark">
                 <div class="card-header py-2">
                     <h3 class="card-title mt-2"><i class="fa fa-fw fa-stream me-2"></i>Activity Timeline</h3>
@@ -570,6 +571,8 @@ if (isset($_GET['contact_id'])) {
                     } ?>
                 </div>
             </div>
+
+            <?php } ?>
 
             <div class="card card-dark">
                 <div class="card-header py-2">
@@ -1438,6 +1441,7 @@ if (isset($_GET['contact_id'])) {
 
     ?>
 
+    <?php if ($config_module_enable_crm == 1) { ?>
     <!-- CRM Engagement - Log Activity modal -->
     <div class="modal fade" id="logActivityModal" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog" role="document">
@@ -1524,6 +1528,7 @@ if (isset($_GET['contact_id'])) {
             });
         });
     </script>
+    <?php } ?>
 
 <?php } ?>
 

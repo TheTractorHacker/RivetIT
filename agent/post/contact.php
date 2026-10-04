@@ -342,7 +342,7 @@ if (isset($_GET['restore_contact_note'])) {
 
     enforceUserPermission('module_client', 2);
 
-    $contact_note_id = intval($_GET['unarchive_contact_note']);
+    $contact_note_id = intval($_GET['restore_contact_note']);
 
     // Get Contact Name and Client ID for logging and alert message
     $sql = mysqli_query($mysqli,"SELECT contact_note_type, contact_id, contact_name, contact_client_id FROM contact_notes LEFT JOIN contacts ON contact_id = contact_note_contact_id WHERE contact_note_id = $contact_note_id");
@@ -401,12 +401,10 @@ if (isset($_POST['bulk_assign_contact_location'])) {
     $location_id = intval($_POST['bulk_location_id']);
 
     // Get Location name for logging and Notification
-    $sql = mysqli_query($mysqli,"SELECT location_name, location_client_id FROM locations WHERE location_id = $location_id");
+    $sql = mysqli_query($mysqli,"SELECT location_name FROM locations WHERE location_id = $location_id");
     $row = mysqli_fetch_assoc($sql);
     $location_name = sanitizeInput($row['location_name']);
-    $client_id = intval($row['location_client_id']);
-
-    enforceClientAccess();
+    $client_id = 0;
 
     // Assign Location to Selected Contacts
     if (isset($_POST['contact_ids'])) {
@@ -418,13 +416,23 @@ if (isset($_POST['bulk_assign_contact_location'])) {
             $contact_id = intval($contact_id);
 
             // Get Contact Details for Logging
-            $sql = mysqli_query($mysqli,"SELECT contact_name FROM contacts WHERE contact_id = $contact_id");
+            $sql = mysqli_query($mysqli,"SELECT contact_name, contact_client_id FROM contacts WHERE contact_id = $contact_id");
             $row = mysqli_fetch_assoc($sql);
             $contact_name = sanitizeInput($row['contact_name']);
+            $client_id = intval($row['contact_client_id']);
 
-            mysqli_query($mysqli,"UPDATE contacts SET contact_location_id = $location_id WHERE contact_id = $contact_id");
+            enforceClientAccess();
 
-            logAction("Contact", "Edit", "$session_name assigned $contaxt_name to location $location_name", $client_id, $contact_id);
+            // The location must belong to the contact's department (own or shared site)
+            $sql = mysqli_query($mysqli,"SELECT location_id FROM locations WHERE location_id = $location_id AND (location_client_id = $client_id OR EXISTS (SELECT 1 FROM department_sites ds WHERE ds.location_id = locations.location_id AND ds.client_id = $client_id))");
+            if (mysqli_num_rows($sql) == 0) {
+                $contact_count--;
+                continue;
+            }
+
+            mysqli_query($mysqli,"UPDATE contacts SET contact_location_id = $location_id WHERE contact_id = $contact_id AND contact_client_id = $client_id");
+
+            logAction("Contact", "Edit", "$session_name assigned $contact_name to location $location_name", $client_id, $contact_id);
 
         } // End Assign Location Loop
 
@@ -1000,7 +1008,7 @@ if (isset($_GET['delete_contact'])) {
     $contact_id = intval($_GET['delete_contact']);
 
     // Get Contact Name and Client ID for logging and alert message
-    $sql = mysqli_query($mysqli,"SELECT contact_name, contact_client_id FROM contacts WHERE contact_id = $contact_id");
+    $sql = mysqli_query($mysqli,"SELECT contact_name, contact_client_id, contact_user_id FROM contacts WHERE contact_id = $contact_id");
     $row = mysqli_fetch_assoc($sql);
     $contact_name = sanitizeInput($row['contact_name']);
     $client_id = intval($row['contact_client_id']);
@@ -1565,5 +1573,5 @@ if (isset($_POST['start_employee_workflow'])) {
     logAction("Contact", "Edit", "$session_name started workflow \"{$template['name']}\" for $contact_name", $client_id, $contact_id);
 
     flash_alert("Started \"{$template['name']}\" for $contact_name");
-    redirect("../workflow_run.php?run_id=$run_id");
+    redirect("workflow_run.php?run_id=$run_id");
 }
