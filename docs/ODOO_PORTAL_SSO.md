@@ -14,24 +14,14 @@ After installing, the settings live in Odoo under **Settings > RivetIT SSO** (vi
 
 ## Install and configure
 
-1. A ready-to-upload copy of the addon is in this repository as `odoo_addons/rivetit_sso-19.0.1.0.0.zip` (unzip it into an addons folder; it is built from `odoo_addons/rivetit_sso` and must be rebuilt if the source changes). Add `odoo_addons` from this repository to the Odoo server's `addons_path`, update the Apps list, and install **RivetIT Department Portal SSO** in `midwest-production`. It requires the `hr` module and a deployment that permits custom addons. Check the addon in a staging Odoo database first.
-2. In Odoo Settings, create one **RivetIT SSO integration** for the intended company. Set `Issuer URL` to the exact HTTPS Odoo base URL, `Integration ID` to a stable identifier such as `rivetit-department-portal`, and both RivetIT URLs to the exact callback `https://YOUR_RIVETIT_HOST/client/login_odoo.php`. Leave **Active** off until the secret is configured.
-3. Generate a random secret with at least 32 printable characters. In an interactive Odoo shell for the correct database, store only its SHA-256 hash on the integration record:
-
-   ```python
-   import getpass
-   import hashlib
-   secret = getpass.getpass('RivetIT SSO secret: ')
-   integration = env['rivetit.sso.integration'].search([('client_id', '=', 'rivetit-department-portal')], limit=1)
-   integration.secret_hash = hashlib.sha256(secret.encode('utf-8')).hexdigest()
-   env.cr.commit()
-   del secret
-   ```
-
-   Enter the same raw secret in RivetIT Admin → Integrations → **Odoo Department Portal sign-in**. RivetIT encrypts it at rest; Odoo stores only the hash. Do not reuse the Odoo directory-sync API key. To rotate, first disable Odoo sign-in, replace the hash and encrypted secret, then enable it again.
-4. In RivetIT, enter the same Integration ID and the numeric Odoo company ID, then enable Odoo sign-in. In Odoo, activate the integration. Assign the **RivetIT Department Portal** group only to employees allowed to launch it.
-5. Run Odoo Directory Sync and confirm each person's stable `contact_odoo_links` employee mapping. Edit an existing RivetIT **Department Login** and choose **Odoo employee**. RivetIT will not map solely by email or create a new login during SSO.
-6. From a browser signed in to Odoo as an allowed employee, click **Department Portal**. Confirm that the expected RivetIT account opens `/client/`. Test an unlinked employee, inactive account, wrong company, and sign-out/retry before broad rollout.
+1. Install the addon on the Odoo server (Odoo 19 or 20). Ready-made zips are in this repository: `odoo_addons/rivetit_sso-19.0.1.0.0.zip` and `odoo_addons/rivetit_sso-20.0.1.0.0.zip`. Unzip the right one into a folder on Odoo's `addons_path`, restart Odoo, update the Apps list, and install **RivetIT Department Portal SSO**. It requires the `hr` module. Try it on a staging Odoo database first. To upgrade an existing install, replace the folder and use Apps > Upgrade; existing integrations are kept.
+2. In Odoo go to **Settings > RivetIT SSO** and create one integration. Enter your **RivetIT address** (for example `https://helpdesk.example.com`) and confirm the company. The Integration ID, this Odoo's address and both RivetIT endpoint URLs are filled in for you.
+3. Click **Generate a secret** (or paste your own of 32 or more characters). Odoo shows a generated secret once and stores only its SHA-256 hash; copy it into RivetIT Admin > Settings > Integrations > **Odoo Department Portal sign-in** as the dedicated integration secret. Do not reuse the Odoo directory-sync API key. Rotating means generating a new secret and pasting it into RivetIT.
+4. In RivetIT enter the same Integration ID and the numeric Odoo company ID, save, run **Test connection**, and enable Odoo sign-in. In Odoo tick **Active**.
+5. Decide who may launch it. Either add people to the **RivetIT Department Portal** group, or tick **All employees may use it** on the integration (every internal user linked to an employee in that company; RivetIT still only signs in people who have a Department Login set to Odoo employee). People who are not allowed see a plain explanation page that says what is missing.
+6. Click **Check setup** on the integration. It reports whether the secret and Active are set, how many employees can open the portal, and whether RivetIT answers with Odoo sign-in enabled.
+7. Run Odoo Directory Sync in RivetIT and confirm each person's employee link. Edit the person's RivetIT **Department Login** and choose **Odoo employee**. RivetIT will not map solely by email or create a new login during SSO. If the sync left two contacts for one person, put the login on the contact that carries the Odoo link.
+8. From a browser signed in to Odoo as an allowed employee, click **Department Portal** in the Odoo menu. Confirm that the expected RivetIT account opens `/client/`. Test an unlinked employee, inactive account, wrong company, and sign-out/retry before broad rollout.
 
 The addon uses `/rivetit/sso/launch`, `/rivetit/sso/authorize`, and `/rivetit/sso/token`. The launch and authorize routes require an Odoo user session and the assigned group. Token exchange requires a dedicated bearer secret even if an Odoo session cookie is present. The code expires in 60 seconds and is consumed in one conditional SQL update; state and PKCE bind it to the initiating RivetIT browser. RivetIT validates the exact issuer, database, company, and existing active account before creating a portal session.
 

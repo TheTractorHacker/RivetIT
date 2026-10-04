@@ -5,6 +5,6 @@
         <field name="target">self</field>
     </record>
     <menuitem id="menu_rivetit_portal" name="Department Portal"
-              action="action_rivetit_portal" groups="rivetit_sso.group_rivetit_portal"
+              action="action_rivetit_portal" groups="base.group_user"
               sequence="95"/>
 </odoo>

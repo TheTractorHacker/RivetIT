@@ -1680,9 +1680,9 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                 <div class="form-group">
                     <label for="odooSsoSecret">Dedicated integration secret</label>
                     <input id="odooSsoSecret" class="form-control" type="password" name="sso_secret" minlength="32" maxlength="256" placeholder="<?= $odoo_sso_has_secret ? 'Stored — leave blank to keep current' : 'Enter a 32+ character random secret' ?>" autocomplete="new-password">
-                    <small class="text-muted">Store the SHA-256 hash of this secret in the Odoo addon. Enter a new value here to rotate it.</small>
+                    <small class="text-muted">In Odoo (Settings > RivetIT SSO) use <strong>Generate a secret</strong> and paste it here, or paste the same value into Odoo's secret field. Enter a new value here to rotate it.</small>
                 </div>
-                <p class="small text-muted mb-2">Callback: <code>https://<?= nullable_htmlentities($config_base_url) ?>/client/login_odoo.php</code></p>
+                <p class="small text-muted mb-2">RivetIT address to enter in Odoo: <code>https://<?= nullable_htmlentities($config_base_url) ?></code> (callback <code>https://<?= nullable_htmlentities($config_base_url) ?>/client/login_odoo.php</code>)</p>
                 <div class="form-check form-switch mb-3">
                     <input class="form-check-input" type="checkbox" name="sso_enabled" value="1" id="odooSsoEnabled" <?= $odoo_sso_enabled ? 'checked' : '' ?>>
                     <label class="form-check-label" for="odooSsoEnabled">Enable Odoo sign-in</label>

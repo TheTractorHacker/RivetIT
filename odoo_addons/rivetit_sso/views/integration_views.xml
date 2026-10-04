@@ -17,14 +17,19 @@
         <field name="arch" type="xml">
             <form string="RivetIT SSO integration">
                 <sheet>
+                    <div class="oe_button_box" name="button_box"/>
                     <group>
                         <field name="name"/>
                         <field name="active"/>
+                        <field name="company_id"/>
+                        <field name="rivetit_url" required="1" placeholder="https://helpdesk.example.com"/>
+                        <field name="allow_all_employees"/>
+                    </group>
+                    <group string="Connection details (filled in for you)">
                         <field name="client_id"/>
                         <field name="issuer_url"/>
-                        <field name="company_id"/>
-                        <field name="portal_start_url"/>
-                        <field name="callback_url"/>
+                        <field name="portal_start_url" readonly="1" force_save="1"/>
+                        <field name="callback_url" readonly="1" force_save="1"/>
                     </group>
                     <group string="Integration secret">
                         <field name="has_secret" invisible="1"/>
@@ -39,6 +44,9 @@
                         <field name="secret" password="True"
                                placeholder="Paste the same secret you entered in RivetIT (32+ characters)"/>
                         <div colspan="2">
+                            <button name="action_check_setup" type="object"
+                                    string="Check setup"
+                                    class="btn btn-primary btn-sm me-2"/>
                             <button name="action_generate_secret" type="object"
                                     string="Generate a secret"
                                     class="btn btn-secondary btn-sm"
