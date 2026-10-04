@@ -212,14 +212,25 @@ class PersonImportService
 
             if ($resolved['existing_contact_id'] !== null) {
                 $contactId = (int) $resolved['existing_contact_id'];
+                // An update only changes what the CSV actually provides: a blank cell keeps the stored value
+                // (it used to blank titles, phones, manager, start date and so on for every row).
+                $given = static fn(string $key): bool => trim((string) ($raw[$key] ?? '')) !== '';
+                $keepStr = fn(string $col, string $key, string $val): string => $given($key) ? "$col = '$val'" : "$col = $col";
+                $keepSql = fn(string $col, string $key, string $sql): string => $given($key) ? "$col = $sql" : "$col = $col";
                 $this->mysqli->query(
                     "UPDATE contacts SET
-                        contact_name = '$name', contact_email = '$email', contact_title = '$jobTitle',
-                        contact_phone = '$phone', contact_mobile = '$mobile',
-                        contact_employee_id = '$employeeId', contact_employee_type = '$employeeType',
-                        contact_employment_status = '$employmentStatus', contact_work_arrangement = $workArrangement,
-                        contact_start_date = $startDate, contact_manager_id = $managerId,
-                        contact_location_id = $locationId, contact_client_id = $clientId
+                        contact_name = '$name', contact_email = '$email',
+                        " . $keepStr('contact_title', 'job_title', $jobTitle) . ",
+                        " . $keepStr('contact_phone', 'phone', $phone) . ",
+                        " . $keepStr('contact_mobile', 'mobile', $mobile) . ",
+                        " . $keepStr('contact_employee_id', 'employee_id', $employeeId) . ",
+                        " . $keepStr('contact_employee_type', 'employee_type', $employeeType) . ",
+                        " . $keepStr('contact_employment_status', 'employment_status', $employmentStatus) . ",
+                        " . $keepSql('contact_work_arrangement', 'work_arrangement', $workArrangement) . ",
+                        " . $keepSql('contact_start_date', 'start_date', $startDate) . ",
+                        " . $keepSql('contact_manager_id', 'manager_email', (string) $managerId) . ",
+                        " . $keepSql('contact_location_id', 'site', (string) $locationId) . ",
+                        contact_client_id = $clientId
                      WHERE contact_id = $contactId"
                 );
                 $updated++;
@@ -251,7 +262,7 @@ class PersonImportService
     private function findLocationIdByName(string $name, int $clientId): ?int
     {
         $escaped = $this->mysqli->real_escape_string($name);
-        $result = $this->mysqli->query("SELECT location_id FROM locations WHERE location_name = '$escaped' AND location_client_id = $clientId AND location_archived_at IS NULL LIMIT 1");
+        $result = $this->mysqli->query("SELECT location_id FROM locations WHERE location_name = '$escaped' AND (location_client_id = $clientId OR EXISTS (SELECT 1 FROM department_sites ds WHERE ds.location_id = locations.location_id AND ds.client_id = $clientId)) AND location_archived_at IS NULL LIMIT 1");
         $row = $result ? $result->fetch_assoc() : null;
         return $row ? (int) $row['location_id'] : null;
     }

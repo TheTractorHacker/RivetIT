@@ -457,7 +457,9 @@ if (isset($_POST['ir_reset_user_password'])) {
     }
 
     // Get agents/users, other than the current user
-    $sql_users = mysqli_query($mysqli, "SELECT * FROM users WHERE (user_archived_at IS NULL AND user_id != $session_user_id)");
+    // Agents only (user_type = 1): this resets and prints passwords, which Department Portal logins (including
+    // SSO ones that have no password) must never be swept into.
+    $sql_users = mysqli_query($mysqli, "SELECT * FROM users WHERE (user_archived_at IS NULL AND user_type = 1 AND user_id != $session_user_id)");
 
     // Reset passwords
     while ($row = mysqli_fetch_assoc($sql_users)) {

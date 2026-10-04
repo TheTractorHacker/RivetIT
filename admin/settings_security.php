@@ -140,8 +140,9 @@ $vault_unsynced_users = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT 
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-clock"></i></span>
                     </div>
-                    <input type="number" class="form-control" name="config_log_retention" placeholder="Enter days to retain" value="<?php echo intval($config_log_retention); ?>">
+                    <input type="number" min="0" class="form-control" name="config_log_retention" placeholder="Enter days to retain" value="<?php echo intval($config_log_retention); ?>">
                 </div>
+                <small class="form-text text-muted">Days to keep audit, app and sign-in logs. 0 keeps them forever.</small>
             </div>
 
             <?php if ($net_ready) { ?>

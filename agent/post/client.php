@@ -260,12 +260,15 @@ if (isset($_POST['edit_client'])) {
 
     enforceClientAccess($client_id);
 
+    // The edit form has no Type field: only change Type when one was actually posted (every save used to clear it).
+    $type_value = array_key_exists('type', $_POST) ? $type : null;
+
     // Update client using prepared statement
     $query = mysqli_prepare(
         $mysqli,
         "UPDATE clients SET
         client_name = ?,
-        client_type = ?,
+        client_type = COALESCE(?, client_type),
         client_website = ?,
         client_referral = ?,
         client_rate = ?,
@@ -280,7 +283,7 @@ if (isset($_POST['edit_client'])) {
         $query,
         "ssssdisissi",
         $name,
-        $type,
+        $type_value,
         $website,
         $referral,
         $rate,

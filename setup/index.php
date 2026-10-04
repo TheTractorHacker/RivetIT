@@ -564,7 +564,13 @@ if (isset($_POST['add_company_settings'])) {
         }
     }
 
+    // db.sql is a schema snapshot older than LATEST_DATABASE_VERSION. Record the version it really is (its marker
+    // line) so the migrations written after it run below; stamping LATEST_DATABASE_VERSION here skipped them, and a
+    // browser install then lacked every column they add (same logic as scripts/setup_cli.php).
     $latest_database_version = LATEST_DATABASE_VERSION;
+    if (preg_match('/^-- RIVETIT_SCHEMA_VERSION: ([0-9.]+)$/m', (string) file_get_contents(__DIR__ . '/../db.sql', false, null, 0, 2048), $schema_marker)) {
+        $latest_database_version = $schema_marker[1];
+    }
     // ON DUPLICATE KEY UPDATE because the ?user step may already have seeded this
     // row via setCanonicalVaultKey() - a plain INSERT would now collide on the
     // company_id primary key and abort setup. Deliberately does NOT touch
@@ -727,6 +733,12 @@ if (isset($_POST['add_company_settings'])) {
     mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'System Software', category_description = 'Low-level software managing hardware resources and system operations', category_type = 'software_type', category_order = 7"); // 7
     mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Operating System', category_description = 'Core software managing hardware and providing a platform for applications', category_type = 'software_type', category_order = 8"); // 8
     mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Other', category_description = 'Software type does not fit any standard category', category_type = 'software_type', category_order = 9"); // 9
+
+    // Apply every migration after the db.sql snapshot (one run applies them all).
+    if (version_compare(LATEST_DATABASE_VERSION, $latest_database_version, '>') && !defined('CURRENT_DATABASE_VERSION')) {
+        define('CURRENT_DATABASE_VERSION', $latest_database_version);
+        require_once __DIR__ . '/../admin/database_updates.php';
+    }
 
     $_SESSION['alert_message'] = "Company <strong>$name</strong> created";
 

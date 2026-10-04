@@ -562,7 +562,8 @@ if (isset($_POST['export_credentials_csv'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_credential');
+    // The export writes every decrypted password and OTP secret in one file, so it needs Full access, not Read.
+    enforceUserPermission('module_credential', 3);
 
     if ($_POST['client_id']) {
         $client_id = intval($_POST['client_id']);
