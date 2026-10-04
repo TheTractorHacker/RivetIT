@@ -173,8 +173,9 @@ if (isset($_POST['add_project'])) {
                 $task_template_id = intval($row['task_template_id']);
                 $task_template_order = intval($row['task_template_order']);
                 $task_template_name = sanitizeInput($row['task_template_name']);
+                $task_template_completion_estimate = intval($row['task_template_completion_estimate']);
 
-                mysqli_query($mysqli,"INSERT INTO tasks SET task_name = '$task_template_name', task_order = $task_template_order, task_ticket_id = $ticket_id");
+                mysqli_query($mysqli,"INSERT INTO tasks SET task_name = '$task_template_name', task_order = $task_template_order, task_completion_estimate = $task_template_completion_estimate, task_ticket_id = $ticket_id");
             } // End task Loop
         } // End Ticket Loop
     } // End If Project Template
@@ -347,6 +348,11 @@ if (isset($_GET['delete_project'])) {
 
     mysqli_query($mysqli, "DELETE FROM projects WHERE project_id = $project_id");
 
+    // Release linked tickets and remove the project's own tasks and milestones
+    mysqli_query($mysqli, "UPDATE tickets SET ticket_project_id = 0 WHERE ticket_project_id = $project_id");
+    mysqli_query($mysqli, "DELETE FROM tasks WHERE task_project_id = $project_id");
+    mysqli_query($mysqli, "DELETE FROM project_milestones WHERE milestone_project_id = $project_id");
+
     logAction("Project", "Delete", "$session_name deleted project $project_name", $client_id, $project_id);
 
     flash_alert("Project <strong>$project_name</strong> Deleted", 'error');
@@ -441,12 +447,17 @@ if (isset($_POST['link_closed_ticket_to_project'])) {
 
     // ticket_number is a global, non-client-scoped counter - reject if the matched
     // ticket doesn't actually belong to this project's client before re-parenting it.
-    if ($ticket_client_id != $client_id) {
+    // A project with no department accepts any ticket the user can access.
+    if (!$client_id && $ticket_client_id) {
+        enforceClientAccess($ticket_client_id);
+    }
+    if ($client_id && $ticket_client_id != $client_id) {
         flash_alert("Cannot merge into that ticket.", 'error');
         redirect();
     }
 
-    mysqli_query($mysqli, "UPDATE tickets SET ticket_project_id = $project_id, ticket_updated_at = '$ticket_updated' WHERE ticket_id = $ticket_id");
+    $ticket_updated_sql = $ticket_updated !== '' ? "'$ticket_updated'" : "NULL";
+    mysqli_query($mysqli, "UPDATE tickets SET ticket_project_id = $project_id, ticket_updated_at = $ticket_updated_sql WHERE ticket_id = $ticket_id");
 
     logAction("Project", "Edit", "$session_name added ticket $ticket_prefix$ticket_number - $ticket_subject to project $project_name", $client_id, $project_id);
 

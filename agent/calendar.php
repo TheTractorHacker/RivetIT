@@ -240,15 +240,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
         },
         eventClick: function(editEvent) {
             var eventId = editEvent.event.id;
-            var $link = $('<a>', {
-                href: '#',
-                'class': 'ajax-modal',
-                'data-modal-url': 'modals/calendar/calendar_event_edit.php?<?php echo $client_url; ?>&id=' + eventId
-            });
-
-            $('body').append($link); // Append to the body
-            $link.trigger('click');  // Trigger the modal
-            $link.remove(); // Cleanup
+            openAjaxModal('modals/calendar/calendar_event_edit.php?<?php echo $client_url; ?>&id=' + encodeURIComponent(eventId));
         },
         dayMaxEvents: true, // allow "more" link when too many events
         views: {
