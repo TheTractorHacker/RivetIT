@@ -1,0 +1,27 @@
+dsn: memory
+serve:
+  public:
+    port: 9446
+    host: 0.0.0.0
+  admin:
+    port: 9448
+    host: 127.0.0.1
+  tls:
+    enabled: true
+    cert:
+      path: /certs/srv.pem
+    key:
+      path: /certs/srv.key
+urls:
+  self:
+    issuer: https://localhost:9446
+  login: https://localhost:9447/login
+  consent: https://localhost:9447/consent
+secrets:
+  system:
+    - 0123456789abcdef0123456789abcdef
+oauth2:
+  pkce:
+    enforced: true
+strategies:
+  access_token: opaque

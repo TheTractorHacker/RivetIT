@@ -18,3 +18,11 @@ Needs: Python 3 with `playwright` (and its Chromium), `PyJWT`, `cryptography`; `
    (HTTPS front for the app on `https://localhost:9444`).
 5. `E2E_DB_PASSWORD=... python3 e2e.py` (optional: `E2E_DB_USER`, `E2E_DB_NAME`, `E2E_ADMIN_EMAIL`,
    `E2E_ADMIN_PASSWORD`). It prints PASS/FAIL per check and exits non-zero if any fail.
+
+## Real providers (optional)
+
+`kc.py` signs in through a real **Keycloak** (start it in dev mode with the same throwaway certificate on
+`https://localhost:9445`, admin `admin`/`admin`). `hydra.py` signs in through a real **Ory Hydra** (see `hydra.yml`;
+public API on `https://localhost:9446`, TLS admin API on `:9448`) together with `hydra_login_app.py`, a minimal login
+and consent app that accepts whoever the test sets. Both create the provider's client and users themselves and use
+the same `E2E_DB_*` variables as `e2e.py`.
