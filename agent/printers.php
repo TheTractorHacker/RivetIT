@@ -80,7 +80,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 </button>
                                 <?php if ($config_destructive_deletes_enable) { ?>
                                 <div class="dropdown-divider"></div>
-                                <button class="dropdown-item text-danger text-bold"
+                                <button class="dropdown-item text-danger text-bold confirm-link"
                                     type="submit" form="bulkActions" name="bulk_delete_printers">
                                     <i class="fas fa-fw fa-trash me-2"></i>Delete
                                 </button>

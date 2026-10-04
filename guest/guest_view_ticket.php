@@ -76,7 +76,7 @@ if ($ticket_row) {
     <div class="card mt-3">
         <div class="card-header bg-dark text-center">
             <div class="text-uppercase small" style="letter-spacing:.06em; opacity:.7;">Ticket <?php echo $ticket_prefix, $ticket_number ?></div>
-            <h4 class="mt-1 mb-0"><?php echo $ticket_subject ?></h4>
+            <h4 class="mt-1 mb-0 text-white"><?php echo $ticket_subject ?></h4>
         </div>
 
         <div class="card-body prettyContent">

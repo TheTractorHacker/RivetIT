@@ -35,6 +35,18 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
+        // Bulk deletes name how many records go; other confirms keep the default text.
+        var body = modalEl.querySelector('.modal-body');
+        if (body) {
+            var name = link.getAttribute('name') || '';
+            if (/^bulk_delete_/.test(name)) {
+                var n = document.querySelectorAll('input[type="checkbox"].bulk-select:checked').length;
+                body.textContent = 'Permanently delete ' + n + ' selected ' + (n === 1 ? 'item' : 'items') + '? This cannot be undone.';
+            } else {
+                body.textContent = 'Are you sure?';
+            }
+        }
+
         modal.show();
     });
 });

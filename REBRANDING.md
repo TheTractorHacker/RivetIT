@@ -272,12 +272,10 @@ integrations, stored data or the Android companion app, for no visible benefit.
 
 ## Telemetry
 
-The optional telemetry (off by default, Settings > Telemetry) still reports to the upstream endpoint
-`https://telemetry.itflow.org` (`cron/cron.php`, `admin/post/update.php`, `scripts/setup_cli.php`); it was
-not redirected. Every place that offers it says so: Settings > Telemetry ("RivetIT is built on ITFlow, and
-telemetry is sent to the upstream ITFlow project (telemetry.itflow.org), not to RivetIT"), the setup wizard's
-telemetry step and the `setup_cli.php` prompt. The "details" links point at the upstream ITFlow telemetry docs and are
-labelled as upstream.
+RivetIT sends no telemetry. The upstream ITFlow code that optionally reported to `https://telemetry.itflow.org`
+was removed from `cron/cron.php`, `admin/post/update.php`, `setup/index.php` and `scripts/setup_cli.php`, and
+Settings > Telemetry states that nothing about the installation is ever sent anywhere. The `config_telemetry`
+column remains in the schema at its default of 0 and is never read.
 
 ## Follow-ups (not part of the rename)
 
@@ -399,7 +397,7 @@ Specific identifier classes. The count is the lines that contain at least one ma
 | Clone directory `RivetIT` (was `ITFlow-Internal-IT` before the 2026-09-28 rename) | what `git clone` creates today | 6 | 2 |
 | Upstream links `itflow-org/itflow` | attribution | 9 | 5 |
 | MSP fork `TheTractorHacker/itflow` | attribution | 2 | 2 |
-| Telemetry endpoint `telemetry.itflow.org` | opt-in, upstream, labelled as such | 8 | 6 |
+| Telemetry endpoint `telemetry.itflow.org` | only in comments and docs recording that the upstream code was removed | 8 | 6 |
 | `docs.itflow.org` links | upstream docs, labelled as such | 4 | 4 |
 | `db.sql` dump header `itflow_dev` | historical | 1 | 1 |
 
@@ -421,7 +419,7 @@ Specific identifier classes. The count is the lines that contain at least one ma
 These still show "itflow" to someone, on purpose:
 
 - **Admin > Debug / About:** the "Based on ITFlow" credit row, the "upstream ITFlow guide" link for error logs, the Source row (the repository URL `…/ITFlow-Internal-IT`, as plain text while the repository is private), and the server facts it reports: host name, web root and database name.
-- **Settings > Telemetry, the setup wizard and `setup_cli.php`:** they say telemetry goes to the upstream ITFlow project (`telemetry.itflow.org`) and link its docs, labelled as upstream.
+- **Settings > Telemetry:** says RivetIT sends no telemetry; the upstream project is named only as the origin of the removed feature.
 - **Settings > Notifications:** the Android package name `com.foleyit.itflow`, which must match the real app.
 - **Training settings > Worker:** the log path `/var/log/itflow_mw_training_worker.log` and the cron file `/etc/cron.d/mw-itflow-training-worker`.
 - **Mail:** processed mail still goes into the `ITFlow` folder of every monitored mailbox. The Microsoft 365 steps on Admin > Mail name it and say why, and the parser's NDR log line names it.

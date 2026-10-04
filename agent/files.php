@@ -559,7 +559,7 @@ $num_root_items = intval($row_root_files['num']) + intval($row_root_docs['num'])
                                                 <i class="fas fa-fw fa-redo me-2"></i>Restore Files
                                             </button>
                                             <div class="dropdown-divider"></div>
-                                            <button class="dropdown-item text-danger text-bold"
+                                            <button class="dropdown-item text-danger text-bold confirm-link"
                                                 type="submit" form="bulkActions" name="bulk_delete_files">
                                                 <i class="fas fa-fw fa-trash me-2"></i>Delete Files
                                             </button>

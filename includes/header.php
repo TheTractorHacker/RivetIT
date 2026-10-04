@@ -52,8 +52,8 @@ if (!empty($config_theme_accent_custom) && preg_match('/^#[0-9A-Fa-f]{6}$/', $co
     $theme_accent_hex = $theme_accent_presets[$config_theme];
 }
 
-// Effective dark mode: per-user preference wins; otherwise the company default applies.
-$effective_theme_dark = $user_config_theme_dark ? 1 : $config_theme_dark_default;
+// Effective dark mode: per-user preference wins (1 dark, 2 light); 0 follows the company default.
+$effective_theme_dark = $user_config_theme_dark === 2 ? 0 : ($user_config_theme_dark ? 1 : $config_theme_dark_default);
 
 // ----- Shell helper: custom-link icons -----
 // Custom links (admin/custom_link.php) store a BARE Font Awesome 5 name - "handshake",

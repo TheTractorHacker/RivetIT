@@ -104,7 +104,7 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
 
         <div class="card mb-3" data-ticket-id="<?= $ticket_id ?>" data-live-chat="<?= $config_module_enable_live_chat ? '1' : '0' ?>" data-csrf="<?= $_SESSION['csrf_token'] ?>" data-user-name="<?= nullable_htmlentities($session_contact_name) ?>" data-user-id="<?= intval($session_contact_id) ?>" data-user-type="contact">
             <div class="card-header bg-dark my-2">
-                <h4 class="card-title mt-1">
+                <h4 class="card-title mt-1 text-white">
                     Ticket <?php echo $ticket_prefix, $ticket_number ?>
                 </h4>
                 <div class="card-tools">
