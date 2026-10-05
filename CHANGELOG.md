@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.20] RivetIT — one event bus, Redis guards, Audit trail, SSRF hardening
+
 ### One event bus: queued webhooks, event rules and the job queue (rivet-core 0.15)
 
 - **Webhooks are now queued, signed and retried through the job queue.** An event creates one background job per subscribed endpoint; the body is signed (HMAC-SHA256) and identical on every retry. A failed delivery is retried after 1, 5, 30 and 120 minutes, then set aside as failed. The Webhooks page shows every attempt, including retries. Deliveries go out right after the page responds (and the main cron processes any left over), so they no longer wait for a schedule.
