@@ -3,6 +3,19 @@
 Redis is an acceleration and coordination layer. **It never holds the only copy of anything**: losing it
 (or leaving it off) must only cost speed and live updates. Every Redis feature below fails open.
 
+## Installing it
+
+`deploy/install.sh` installs Redis and starts a **dedicated instance** as the systemd unit `rivetit-redis` on `127.0.0.1:6380`, the address
+RivetIT expects. It is separate from the distribution's own `redis-server` (port 6379), so nothing else on the box shares its memory limit,
+keys or settings. `deploy/update.sh` does the same on existing installs, so a server installed before this existed gets it on its next update.
+The Docker image runs its own copy under supervisord on the same port.
+
+- Config: `/etc/redis-rivetit/redis.conf`, written once and never overwritten (your edits, and memory limits saved from Administration → Redis, survive re-runs).
+- Defaults: loopback only, no persistence (`save ""`, no append-only file), `maxmemory 256mb`, `maxmemory-policy volatile-lru` (every key RivetIT writes has an expiry).
+- Check it: `systemctl status rivetit-redis`, `redis-cli -p 6380 ping`, or `/health/ready.php` (`"redis":"ok"`).
+- Skipped, with a warning rather than an error, if Redis is not installed, systemd is not running, or something else already listens on 6380.
+- To use a different Redis instead, point RivetIT at it in Administration → Redis (or the `RIVETIT_REDIS_*` variables); the installer leaves a listener it did not create alone.
+
 ## Connection and settings (Administration → Redis)
 
 Open **Administration → Maintenance → Redis**. From there you can:

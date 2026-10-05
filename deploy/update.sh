@@ -266,6 +266,8 @@ main() {
     run_git_pull
     run_composer_install
     run_db_migrations
+    # Existing installs gain the dedicated Redis instance on their next update (idempotent, never fatal).
+    ensure_rivetit_redis "${SCRIPT_DIR}/templates"
     reload_php_fpm
 
     success "=== Update complete for ${APP_DIR} ==="

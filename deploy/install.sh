@@ -43,11 +43,12 @@ PHP_SOCK="/run/php/php${PHP_VERSION}-fpm.sock"
 # Base packages needed regardless of PHP version. gettext-base provides
 # envsubst (used to render the nginx vhost template); rsync is used when
 # install.sh is run from inside an already-cloned checkout (see
-# provision_app_code). redis-server backs live ticket/chat push
-# (includes/redis_functions.php's hardcoded 127.0.0.1:6380 expectation) —
-# the app degrades without it, but installing it here means a fresh install
-# gets full functionality by default instead of a silent degrade nobody
-# notices. All are near-universally preinstalled/packaged on Ubuntu, but are
+# provision_app_code). redis-server backs live ticket/chat push, rate limits
+# and job locks. The app expects it on 127.0.0.1:6380, not the package's
+# default 6379, so ensure_rivetit_redis (deploy/lib/common.sh) starts a
+# dedicated rivetit-redis instance there. The app degrades without Redis,
+# but installing it here means a fresh install gets full functionality by
+# default instead of a silent degrade nobody notices. All are near-universally preinstalled/packaged on Ubuntu, but are
 # listed explicitly so a minimal/container base image still works.
 REQUIRED_BASE_PACKAGES=(nginx mariadb-server certbot python3-certbot-nginx ufw fail2ban git composer openssl unattended-upgrades gettext-base rsync redis-server poppler-utils util-linux cron)
 
@@ -488,9 +489,6 @@ install_packages() {
     fi
     if ! service_is_active nginx; then
         systemctl enable --now nginx
-    fi
-    if ! service_is_active redis-server; then
-        systemctl enable --now redis-server
     fi
     if ! service_is_active cron; then
         systemctl enable --now cron
@@ -1377,6 +1375,7 @@ main() {
     set +x
     DB_PASSWORD="$(gen_secret 32)"
     set -x
+    ensure_rivetit_redis "${SCRIPT_DIR}/templates"
     provision_database
 
     bootstrap_selfsigned_cert

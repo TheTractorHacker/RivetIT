@@ -4,6 +4,13 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## Unreleased — Redis is installed with RivetIT
+
+`deploy/install.sh` now starts a dedicated Redis (`rivetit-redis`, `127.0.0.1:6380`, loopback only, no persistence, 256 MB limit with `volatile-lru`) where
+it used to install the `redis-server` package and start the stock instance on 6379, which the app never looks at, so a fresh install quietly ran without live
+ticket and chat updates, rate limits or job locks. `deploy/update.sh` adds the same instance to existing installs on their next update. Both are idempotent and
+never fatal (Redis stays optional), the config is written once and kept, and a listener already on 6380 is left alone. See `docs/REDIS.md`.
+
 ## Unreleased — RivetCore: shared package, Audit first
 
 RivetIT now consumes **RivetCore** (`rivet/rivet-core`, tagged releases from github.com/TheTractorHacker/rivet-core), a

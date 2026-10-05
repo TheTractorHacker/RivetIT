@@ -1,0 +1,31 @@
+[Unit]
+Description=RivetIT Redis (loopback only, no persistence)
+Documentation=https://github.com/TheTractorHacker/RivetIT/blob/main/docs/REDIS.md
+After=network.target
+
+[Service]
+# A dedicated instance on 127.0.0.1:6380 - the address RivetIT expects. It is separate from the distribution's
+# redis-server (port 6379), so nothing else on the box shares its memory limit, keys or settings.
+Type=simple
+User=redis
+Group=redis
+ExecStart=/usr/bin/redis-server /etc/redis-rivetit/redis.conf
+Restart=on-failure
+RestartSec=2
+RuntimeDirectory=rivetit-redis
+RuntimeDirectoryMode=0750
+
+# Hardening: it only needs to read its config and write inside /etc/redis-rivetit (CONFIG REWRITE from
+# Administration > Redis) and its runtime directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/etc/redis-rivetit /run/rivetit-redis
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LimitNOFILE=10240
+
+[Install]
+WantedBy=multi-user.target

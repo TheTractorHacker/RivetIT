@@ -387,3 +387,64 @@ _cleanup_tmpfiles() {
     done
 }
 trap _cleanup_tmpfiles EXIT
+
+# ---------------------------------------------------------------------------
+# RivetIT's own Redis instance
+# ---------------------------------------------------------------------------
+# ensure_rivetit_redis <templates_dir> [port]
+#
+# The app expects Redis on 127.0.0.1:6380 (includes/redis_functions.php), not the distribution's default 6379,
+# which another service may already use. This installs a dedicated, loopback-only, non-persistent instance as the
+# systemd unit rivetit-redis and starts it. Idempotent and never fatal: Redis is optional (every feature fails
+# open), so any problem is a warning and the caller carries on. The config file is written once and never
+# overwritten, so later edits and Administration > Redis "memory limit" saves survive re-runs.
+ensure_rivetit_redis() {
+    local template_dir="${1:?templates dir}" port="${2:-6380}"
+    local conf_dir=/etc/redis-rivetit unit=/etc/systemd/system/rivetit-redis.service
+
+    if ! command_exists redis-server; then
+        warn "redis-server is not installed; skipping RivetIT Redis (live ticket/chat push stays off; the app runs without it)."
+        return 0
+    fi
+    if [[ ! -d /run/systemd/system ]] || ! command_exists systemctl; then
+        warn "systemd is not running here; skipping the rivetit-redis service. Start Redis yourself on 127.0.0.1:${port}."
+        return 0
+    fi
+    if ! getent passwd redis >/dev/null 2>&1; then
+        warn "No 'redis' system user (the redis-server package normally creates it); skipping RivetIT Redis."
+        return 0
+    fi
+    if [[ ! -f "${template_dir}/rivetit-redis.service" || ! -f "${template_dir}/rivetit-redis.conf" ]]; then
+        warn "Redis templates not found in ${template_dir}; skipping RivetIT Redis."
+        return 0
+    fi
+
+    if ! service_is_active rivetit-redis && command_exists ss && ss -ltn "sport = :${port}" 2>/dev/null | grep -q LISTEN; then
+        warn "Something other than rivetit-redis is already listening on port ${port}; leaving it alone. Point RivetIT at it in Administration > Redis if that is intended."
+        return 0
+    fi
+
+    install -d -o redis -g redis -m 0750 "$conf_dir" || { warn "Could not create ${conf_dir}; skipping RivetIT Redis."; return 0; }
+    if [[ ! -f "${conf_dir}/redis.conf" ]]; then
+        install -o redis -g redis -m 0640 "${template_dir}/rivetit-redis.conf" "${conf_dir}/redis.conf" \
+            || { warn "Could not write ${conf_dir}/redis.conf; skipping RivetIT Redis."; return 0; }
+        sed -i "s/^port .*/port ${port}/" "${conf_dir}/redis.conf"
+    fi
+    if ! cmp -s "${template_dir}/rivetit-redis.service" "$unit"; then
+        install -o root -g root -m 0644 "${template_dir}/rivetit-redis.service" "$unit" \
+            || { warn "Could not install ${unit}; skipping RivetIT Redis."; return 0; }
+        systemctl daemon-reload || true
+    fi
+
+    systemctl enable --now rivetit-redis >/dev/null 2>&1 || { warn "Could not start rivetit-redis. See: journalctl -u rivetit-redis"; return 0; }
+
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        if command_exists redis-cli && [[ "$(redis-cli -h 127.0.0.1 -p "$port" ping 2>/dev/null)" == "PONG" ]]; then
+            success "RivetIT Redis is running on 127.0.0.1:${port}."
+            return 0
+        fi
+        sleep 0.5
+    done
+    warn "rivetit-redis started but did not answer on 127.0.0.1:${port}. See: journalctl -u rivetit-redis"
+    return 0
+}

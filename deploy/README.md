@@ -89,7 +89,7 @@ sudo deploy/install.sh --help
 
 1. **Packages** — asks first ("Install dependencies? [Y/n]"; answer no, or pass `--skip-dependencies`,
    to skip this step entirely if you already have them set up the way you want), then installs nginx,
-   MariaDB, Redis, cron, PHP 8.5 (added via the `ondrej/php` PPA if Ubuntu's default repos don't carry it),
+   MariaDB, Redis (a dedicated `rivetit-redis` instance on `127.0.0.1:6380`, see `docs/REDIS.md`), cron, PHP 8.5 (added via the `ondrej/php` PPA if Ubuntu's default repos don't carry it),
    certbot, ufw, fail2ban, git, composer, and friends. Anything already installed (e.g. because another
    instance is already running on this box) is left alone.
 2. **Application code** — if run from inside an existing checkout of this repo, that checkout is copied
