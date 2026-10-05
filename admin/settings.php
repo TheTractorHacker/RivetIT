@@ -41,7 +41,7 @@ $settings_groups = [
             ['Notifications', 'Choose which events send alerts.', 'settings_notification.php', 'fa-bell'],
             ['Identity provider', 'Set up portal single sign-on.', 'identity_provider.php', 'fa-fingerprint', (bool) $config_client_portal_enable],
             ['Portal preview', 'See the department portal as a user.', 'portal_preview.php', 'fa-eye', (bool) $config_client_portal_enable],
-            ['Remote MCP', 'Let AI tools read RivetIT through your sign-in provider.', 'settings_mcp.php', 'fa-plug-circle-bolt'],
+            ['Remote MCP', 'Let AI tools read RivetIT through your sign-in provider.', 'settings_mcp.php', 'fa-plug'],
         ],
     ],
     'connections' => [

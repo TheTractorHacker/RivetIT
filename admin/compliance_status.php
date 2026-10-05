@@ -159,7 +159,7 @@ $q = static fn (array $extra): string => http_build_query(array_filter($extra, s
 <?php } ?>
 
 <div class="card mb-3">
-    <div class="card-header py-3"><h4 class="card-title mb-0"><i class="fas fa-fw fa-clock-rotate-left me-2"></i>Snapshots</h4></div>
+    <div class="card-header py-3"><h4 class="card-title mb-0"><i class="fas fa-fw fa-history me-2"></i>Snapshots</h4></div>
     <div class="card-body">
         <p class="text-muted small">A snapshot freezes the results above so you can show how your position changed over time. One is saved automatically each month. Snapshots are kept and never deleted by retention.</p>
         <?php if (!$snapshots) { ?>

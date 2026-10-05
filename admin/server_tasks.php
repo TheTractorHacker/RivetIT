@@ -23,7 +23,7 @@ $overall = $sum['fail'] ? ['Needs attention', 'danger'] : ($sum['warn'] ? ['Most
             <a class="btn btn-sm btn-outline-secondary" href="/admin/backup.php"><i class="fas fa-cloud-upload-alt me-1"></i>Backups</a>
             <a class="btn btn-sm btn-outline-secondary" href="/admin/cron.php"><i class="fas fa-clock me-1"></i>Scheduled jobs</a>
             <a class="btn btn-sm btn-outline-secondary" href="/admin/settings_redis.php"><i class="fas fa-bolt me-1"></i>Redis</a>
-            <a class="btn btn-sm btn-outline-secondary" href="/admin/settings_mcp.php"><i class="fas fa-plug-circle-bolt me-1"></i>Remote MCP</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/admin/settings_mcp.php"><i class="fas fa-plug me-1"></i>Remote MCP</a>
         </div>
     </div>
 </div>

@@ -25,7 +25,7 @@ $csrf = $_SESSION['csrf_token'];
 
 <div class="card mb-3">
     <div class="card-header py-3 d-flex align-items-center justify-content-between">
-        <h3 class="card-title mb-0"><i class="fas fa-fw fa-plug-circle-bolt me-2"></i>Remote MCP <span class="badge bg-warning text-dark ms-1">Experimental</span></h3>
+        <h3 class="card-title mb-0"><i class="fas fa-fw fa-plug me-2"></i>Remote MCP <span class="badge bg-warning text-dark ms-1">Experimental</span></h3>
         <span class="badge bg-<?= $mcp_state[1] ?> fs-6"><?= $mcp_state[0] ?></span>
     </div>
     <div class="card-body">
@@ -165,7 +165,7 @@ $csrf = $_SESSION['csrf_token'];
 </div>
 
 <div class="card mb-3">
-    <div class="card-header py-3"><h4 class="card-title mb-0"><i class="fas fa-fw fa-clock-rotate-left me-2"></i>Recent activity</h4></div>
+    <div class="card-header py-3"><h4 class="card-title mb-0"><i class="fas fa-fw fa-history me-2"></i>Recent activity</h4></div>
     <div class="card-body">
         <?php if (!$activity) { ?>
             <p class="text-muted mb-0">No MCP calls yet.</p>
