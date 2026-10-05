@@ -68,9 +68,15 @@ function releaseChannelConfigured($mysqli, string $dir): string
 {
     $stored = null;
     if ($mysqli instanceof \mysqli) {
-        $res = @mysqli_query($mysqli, "SELECT config_release_channel FROM settings WHERE company_id = 1 LIMIT 1");
-        $row = $res ? mysqli_fetch_assoc($res) : null;
-        $stored = $row['config_release_channel'] ?? null;
+        // Before the database update that adds the column has run (the code is deployed first), the query fails; with PHP 8.1+ that
+        // is an exception, not a false return, so it must be caught or the Update page - the page that runs the update - goes blank.
+        try {
+            $res = mysqli_query($mysqli, "SELECT config_release_channel FROM settings WHERE company_id = 1 LIMIT 1");
+            $row = $res ? mysqli_fetch_assoc($res) : null;
+            $stored = $row['config_release_channel'] ?? null;
+        } catch (\Throwable $e) {
+            $stored = null;
+        }
     }
 
     return $stored !== null && $stored !== '' ? releaseChannelNormalize($stored) : releaseChannelFromBranch(releaseCurrentBranch($dir));

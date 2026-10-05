@@ -68,6 +68,12 @@ if (isset($_POST['save_release_channel'])) {
             redirect();
         }
     }
+    // The setting is added by a database update; until it has run, say so instead of failing.
+    $channel_column = mysqli_query($mysqli, "SHOW COLUMNS FROM settings LIKE 'config_release_channel'");
+    if (!$channel_column || mysqli_num_rows($channel_column) === 0) {
+        flash_alert('Run <strong>Update Database</strong> first: the release channel setting is added by that update.', 'error');
+        redirect();
+    }
     mysqli_query($mysqli, "UPDATE settings SET config_release_channel = '" . mysqli_real_escape_string($mysqli, $new_channel) . "' WHERE company_id = 1");
     logAction('App', 'Update', "$session_name set the release channel to $new_channel (was $old_channel)");
     flash_alert('Release channel set to <strong>' . htmlspecialchars(releaseChannels()[$new_channel]['label'], ENT_QUOTES) . '</strong>.' . ($new_channel !== $old_channel ? ' Run <strong>Update App</strong> to move this server onto it.' : ''));

@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.19] RivetIT — fix: blank Update page before the database update
+
+Fixes a blank **Administration > Update** page on a server that had pulled 26.10.18 but not yet run **Update Database**: the new release-channel setting did not exist yet and its lookup raised an error. The page now renders, shows the channel from the checked-out branch, and saving the channel before the database update says to run Update Database first. No database change.
+
 ## [26.10.18] RivetIT — Release channel (Production / Beta)
 
 Database migration 2.6.132 applies with **Update Database**. No other changes since 26.10.17.

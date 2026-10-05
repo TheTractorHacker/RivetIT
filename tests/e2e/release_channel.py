@@ -55,6 +55,13 @@ def update_app():
     s, p, h = page()
     return req('/admin/post.php?update&no_backup=1&csrf_token=' + csrf(p), referer='/admin/update.php')
 
+# The code is deployed BEFORE the database update that adds the setting: the Update page (which runs that update) must still render.
+sql("alter table settings drop column config_release_channel")
+s, p, h = page()
+check('BEFORE the database update the Update page still renders (no blank page) and shows the channel from the checked-out branch', s == 200 and 'Release channel' in p and 'This server' in p, s)
+save('beta'); s2, p2, h2 = page()
+check('saving before the database update is refused with a clear message, not an error', s2 == 200 and 'Update Database' in p2 and 'release channel setting is added' in p2, s2)
+sql("alter table settings add column config_release_channel varchar(12) NOT NULL DEFAULT 'production'")
 s, p, h = page()
 check('the Update page shows the Release channel card with both channels', s == 200 and 'Release channel' in p and 'value="production"' in p and 'value="beta"' in p, s)
 check('this server is on Production (checked out main) and the card says so', channel() == 'production' and branch() == 'main' and 'This server' in p)
