@@ -64,6 +64,10 @@ if (isset($_GET['update'])) {
     // said "Update successful" while nothing had changed.
     $git_output = [];
     $git_code = 0;
+    // composer rewrites tracked files in vendor/composer (installed.php, autoload_*.php) every time it runs. They are
+    // generated, never edited by hand, and a pull would refuse to overwrite them, so restore them first;
+    // composer regenerates them right after the pull below.
+    exec("git checkout -- ':/vendor/composer' 2>&1");
     if (isset($_GET['force_update']) == 1) {
         exec("git fetch --all 2>&1");   // a failure on one remote is not fatal; the reset below decides the outcome
         exec("git reset --hard origin/main 2>&1", $git_output, $git_code);
@@ -86,9 +90,22 @@ if (isset($_GET['update'])) {
     // ALWAYS true and always sent, regardless of the Telemetry setting (found while removing this
     // feature). RivetIT sends nothing anywhere.
 
+    // The code is updated; now make sure the PHP packages it needs are installed (git does not carry them all).
+    require_once __DIR__ . '/../../includes/composer_install.php';
+    $composer_result = rivetit_composer_install(dirname(__DIR__, 2));
+    if (!$composer_result['ok']) {
+        logApp('Update', 'error', 'composer install after update failed: ' . $composer_result['message']);
+    }
+
     logAction("App", "Update", "$session_name ran updates");
 
-    flash_alert("Update successful");
+    if ($composer_result['ok']) {
+        flash_alert("Update successful");
+    } else {
+        flash_alert('The code was updated, but the PHP packages could not be installed automatically ('
+            . htmlspecialchars($composer_result['message'], ENT_QUOTES)
+            . '). Run <code>composer install --no-dev</code> in the install folder (or use deploy/update.sh) before running Update Database.', 'warning');
+    }
 
     sleep(1);
 

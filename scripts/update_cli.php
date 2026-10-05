@@ -87,7 +87,9 @@ if (isset($options['update']) || isset($options['force_update'])) {
         exec("git reset --hard origin/main 2>&1", $output2, $return_var2);
         echo implode("\n", $output) . "\n" . implode("\n", $output2) . "\n";
     } else {
-        // Perform a standard update (git pull)
+        // Perform a standard update (git pull). composer rewrites tracked files in vendor/composer; restore them
+        // first so the pull cannot be blocked by them (composer regenerates them after the pull).
+        exec("git checkout -- ':/vendor/composer' 2>&1");
         exec("git pull 2>&1", $output, $return_var);
         
         // Check if the repository is already up to date
