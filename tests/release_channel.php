@@ -6,6 +6,7 @@
  */
 require_once __DIR__ . '/../includes/release_channel.php';
 
+$P = RELEASE_BRANCH_PRODUCTION; $RM = RELEASE_REMOTE;   // this edition's production branch and updater remote
 $tmp = sys_get_temp_dir() . '/release_channel_test_' . bin2hex(random_bytes(4));
 mkdir($tmp);
 register_shutdown_function(function () use ($tmp) { exec('rm -rf ' . escapeshellarg($tmp)); });
@@ -15,18 +16,18 @@ $commit = function (string $dir, string $file, string $text, string $msg) use ($
 
 // origin: main has A,B ; beta has A,B,C (beta is ahead of main - the normal state before a release)
 $origin = "$tmp/origin.git"; $work = "$tmp/work"; $server = "$tmp/server";
-exec("git init -q --bare -b main " . escapeshellarg($origin));
+exec("git init -q --bare -b $P " . escapeshellarg($origin));
 exec("git clone -q " . escapeshellarg($origin) . " " . escapeshellarg($work) . " 2>&1");
-$g($work, 'checkout -q -b main');
+$g($work, "checkout -q -b $P");
 $commit($work, 'a.txt', 'a', 'A'); $commit($work, 'a.txt', 'ab', 'B');
-$g($work, 'push -q origin main');
+$g($work, "push -q origin $P");
 $g($work, 'checkout -q -b beta'); $commit($work, 'c.txt', 'c', 'C'); $g($work, 'push -q origin beta');
 
-exec("git clone -q -b main " . escapeshellarg($origin) . " " . escapeshellarg($server) . " 2>&1");
-$ok(releaseCurrentBranch($server) === 'main', 'a server cloned from main is on main');
+exec("git clone -q -o $RM -b $P " . escapeshellarg($origin) . " " . escapeshellarg($server) . " 2>&1");
+$ok(releaseCurrentBranch($server) === $P, 'a server cloned from the production branch is on it');
 $ok(releaseChannelFromBranch('main') === 'production' && releaseChannelFromBranch('master') === 'production' && releaseChannelFromBranch('beta') === 'beta', 'branch -> channel: beta is beta, everything else is production');
 $ok(releaseChannelNormalize('bogus') === 'production' && releaseChannelNormalize('beta') === 'beta' && releaseChannelNormalize(null) === 'production', 'unknown channel values fall back to production');
-$ok(releaseChannelBranch('production') === 'main' && releaseChannelBranch('beta') === 'beta', 'channels map to branches');
+$ok(releaseChannelBranch('production') === $P && releaseChannelBranch('beta') === 'beta', 'channels map to branches');
 
 // Production server on production: nothing to switch.
 $st = releaseChannelStatus($server, 'production');
@@ -35,7 +36,7 @@ $r = releaseChannelEnsureBranch($server, 'production');
 $ok($r['ok'] && !$r['switched'], 'ensure-branch is a no-op when already on the channel branch');
 
 // Production server -> beta: beta is ahead (forward), allowed, and it switches.
-$g($server, 'fetch -q origin'); // fetch is the caller's job
+$g($server, "fetch -q $RM"); // fetch is the caller's job
 $st = releaseChannelStatus($server, 'beta');
 $ok($st['ref_exists'] && !$st['same_branch'] && $st['ahead'] === 0 && $st['behind'] === 1 && $st['can_switch'], 'switching production -> beta is forward (beta is 1 change ahead) and allowed');
 $r = releaseChannelEnsureBranch($server, 'beta');
@@ -48,31 +49,31 @@ $r = releaseChannelEnsureBranch($server, 'production');
 $ok(!$r['ok'] && releaseCurrentBranch($server) === 'beta' && file_exists("$server/c.txt"), 'and nothing changes on the server');
 
 // Production catches up (release): now beta -> production is level, allowed.
-$g($work, 'checkout -q main'); $g($work, 'merge -q --ff-only beta'); $g($work, 'push -q origin main');
-$g($server, 'fetch -q origin');
+$g($work, "checkout -q $P"); $g($work, 'merge -q --ff-only beta'); $g($work, "push -q origin $P");
+$g($server, "fetch -q $RM");
 $st = releaseChannelStatus($server, 'production');
 $ok($st['can_switch'] && $st['ahead'] === 0, 'after production catches up, beta -> production is allowed');
 $r = releaseChannelEnsureBranch($server, 'production');
-$ok($r['ok'] && $r['switched'] && releaseCurrentBranch($server) === 'main', 'and the server returns to the production branch');
+$ok($r['ok'] && $r['switched'] && releaseCurrentBranch($server) === $P, 'and the server returns to the production branch');
 
 // An existing local branch that is behind is brought level straight away (never left on older code).
 $g($work, 'checkout -q beta'); $commit($work, 'd.txt', 'd', 'D'); $g($work, 'push -q origin beta');
-$g($work, 'checkout -q main'); $g($work, 'merge -q --ff-only beta'); $g($work, 'push -q origin main');
-$g($server, 'fetch -q origin');
+$g($work, "checkout -q $P"); $g($work, 'merge -q --ff-only beta'); $g($work, "push -q origin $P");
+$g($server, "fetch -q $RM");
 $r = releaseChannelEnsureBranch($server, 'beta');
 $ok($r['ok'] && file_exists("$server/d.txt"), 'switching to a stale local beta branch fast-forwards it to the channel tip');
 
 // Local uncommitted changes that would be overwritten stop the switch and leave the server as it was.
-$g($server, 'checkout -q main'); $g($server, 'merge -q --ff-only origin/main');
+$g($server, "checkout -q $P"); $g($server, "merge -q --ff-only $RM/$P");
 $g($work, 'checkout -q beta'); $commit($work, 'a.txt', 'beta-edit', 'E'); $g($work, 'push -q origin beta');
-$g($server, 'fetch -q origin');
+$g($server, "fetch -q $RM");
 file_put_contents("$server/a.txt", 'hand edit');
 $r = releaseChannelEnsureBranch($server, 'beta');
-$ok(!$r['ok'] && releaseCurrentBranch($server) === 'main' && file_get_contents("$server/a.txt") === 'hand edit', 'hand-edited files in the way refuse the switch and are left untouched');
+$ok(!$r['ok'] && releaseCurrentBranch($server) === $P && file_get_contents("$server/a.txt") === 'hand edit', 'hand-edited files in the way refuse the switch and are left untouched');
 
 // Missing channel branch (no beta releases yet).
 exec("git -C " . escapeshellarg($origin) . " branch -D beta 2>&1");
-$g($server, 'fetch -q --prune origin');
+$g($server, "fetch -q --prune $RM");
 $st = releaseChannelStatus($server, 'beta');
 $ok(!$st['ref_exists'] && !$st['can_switch'] && $st['reason'] !== '', 'a channel with no branch yet reports it clearly');
 $ok(!releaseChannelEnsureBranch($server, 'beta')['ok'], 'and cannot be switched to');
