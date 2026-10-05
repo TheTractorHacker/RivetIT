@@ -46,6 +46,35 @@ function update_pre_backup(bool $reuseRecent = false): ?string {
     return null;
 }
 
+// Choose the release channel (Production or Beta). Refuses a channel this server cannot move to without going backwards.
+if (isset($_POST['save_release_channel'])) {
+
+    validateCSRFToken($_POST['csrf_token'] ?? '');
+
+    validateAdminRole(); // Old function
+
+    require_once __DIR__ . '/../../includes/release_channel.php';
+    $new_channel = (string) ($_POST['release_channel'] ?? '');
+    if (!isset(releaseChannels()[$new_channel])) {
+        flash_alert('Choose Production or Beta.', 'error');
+        redirect();
+    }
+    $old_channel = releaseChannelConfigured($mysqli, dirname(__DIR__, 2));
+    if ($new_channel !== $old_channel) {
+        exec("timeout 15 git fetch " . escapeshellarg(RELEASE_REMOTE) . " 2>&1");
+        $status = releaseChannelStatus(dirname(__DIR__, 2), $new_channel);
+        if (!$status['ref_exists'] || !$status['can_switch']) {
+            flash_alert(htmlspecialchars($status['reason'], ENT_QUOTES), 'error');
+            redirect();
+        }
+    }
+    mysqli_query($mysqli, "UPDATE settings SET config_release_channel = '" . mysqli_real_escape_string($mysqli, $new_channel) . "' WHERE company_id = 1");
+    logAction('App', 'Update', "$session_name set the release channel to $new_channel (was $old_channel)");
+    flash_alert('Release channel set to <strong>' . htmlspecialchars(releaseChannels()[$new_channel]['label'], ENT_QUOTES) . '</strong>.' . ($new_channel !== $old_channel ? ' Run <strong>Update App</strong> to move this server onto it.' : ''));
+    redirect();
+
+}
+
 if (isset($_GET['update'])) {
 
     validateCSRFToken($_GET['csrf_token'] ?? '');
@@ -68,11 +97,22 @@ if (isset($_GET['update'])) {
     // generated, never edited by hand, and a pull would refuse to overwrite them, so restore them first;
     // composer regenerates them right after the pull below.
     exec("git checkout -- ':/vendor/composer' 2>&1");
+
+    // Follow the release channel: move onto its branch first (forward only; refused if it would install older code), then update from it.
+    require_once __DIR__ . '/../../includes/release_channel.php';
+    $release_channel = releaseChannelConfigured($mysqli, dirname(__DIR__, 2));
+    $release_branch  = releaseChannelBranch($release_channel);
+    exec("timeout 30 git fetch " . escapeshellarg(RELEASE_REMOTE) . " 2>&1");
+    $ensure = releaseChannelEnsureBranch(dirname(__DIR__, 2), $release_channel);
+    if (!$ensure['ok']) {
+        logApp('Update', 'error', 'Update stopped: ' . substr($ensure['message'], 0, 400));
+        flash_alert('The update did not run: ' . htmlspecialchars($ensure['message'], ENT_QUOTES), 'error');
+        redirect();
+    }
     if (isset($_GET['force_update']) == 1) {
-        exec("git fetch --all 2>&1");   // a failure on one remote is not fatal; the reset below decides the outcome
-        exec("git reset --hard origin/main 2>&1", $git_output, $git_code);
+        exec("git reset --hard " . escapeshellarg(RELEASE_REMOTE . '/' . $release_branch) . " 2>&1", $git_output, $git_code);
     } else {
-        exec("git pull 2>&1", $git_output, $git_code);
+        exec("git pull " . escapeshellarg(RELEASE_REMOTE) . " " . escapeshellarg($release_branch) . " 2>&1", $git_output, $git_code);
     }
     if ($git_code !== 0) {
         $git_reason = trim(implode(' ', array_slice(array_filter(array_map('trim', $git_output)), 0, 2)));

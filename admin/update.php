@@ -13,8 +13,11 @@ $git_fetch_output    = $updates->output;
 $result = $updates->result;
 
 // The updater's git remote is named by APP_UPDATE_REMOTE (includes/branding.php): "origin" by default.
-$update_ref  = escapeshellarg(APP_UPDATE_REMOTE . '/' . $repo_branch);
-$git_log_raw = shell_exec("git log $repo_branch..$update_ref --pretty=format:'%h|%ar|%s'");
+$repo_branch = $updates->branch;   // the release channel's branch (Production or Beta), not config.php's old fixed value
+$update_ref  = escapeshellarg(RELEASE_REMOTE . '/' . $repo_branch);
+$git_log_raw = shell_exec("git log HEAD.." . $update_ref . " --pretty=format:'%h|%ar|%s'");
+$channel_status = $updates->channel_status;
+$channels = releaseChannels();
 
 $git_log = '';
 if (!empty($git_log_raw)) {
@@ -83,6 +86,41 @@ $changelog_link = APP_CHANGELOG_URL !== ''
         <div class="mt-2">Things to check: is Git installed, is the Git remote correct, and are web server file permissions too strict?<?php if (APP_SUPPORT_URL !== '') { ?> Ask on the <a href="<?= htmlspecialchars(APP_SUPPORT_URL) ?>" class="alert-link" target="_blank" rel="noopener">issue tracker</a> if you need help, and include the relevant PHP error logs and the <?= htmlspecialchars(APP_NAME) ?> debug output.<?php } ?></div>
     </div>
 <?php } ?>
+
+<div class="card mb-3">
+    <div class="card-header py-3"><h3 class="card-title"><i class="fas fa-fw fa-code-branch me-2"></i>Release channel</h3></div>
+    <div class="card-body">
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <div class="row g-3">
+                <?php foreach ($channels as $ckey => $cdef) { ?>
+                    <div class="col-md-6">
+                        <label class="d-block border rounded p-3 h-100 <?= $updates->channel === $ckey ? 'border-primary' : '' ?>">
+                            <input class="form-check-input me-2" type="radio" name="release_channel" value="<?= htmlspecialchars($ckey) ?>" <?= $updates->channel === $ckey ? 'checked' : '' ?>>
+                            <strong><?= htmlspecialchars($cdef['label']) ?></strong>
+                            <?php if ($updates->channel === $ckey) { ?><span class="badge bg-primary ms-1">This server</span><?php } ?>
+                            <div class="text-secondary small mt-1"><?= htmlspecialchars($cdef['summary']) ?></div>
+                            <div class="text-secondary small mt-1">Follows <code><?= htmlspecialchars(RELEASE_REMOTE . '/' . $cdef['branch']) ?></code></div>
+                        </label>
+                    </div>
+                <?php } ?>
+            </div>
+            <div class="mt-3 d-flex flex-wrap align-items-center gap-3">
+                <button type="submit" name="save_release_channel" class="btn btn-primary"><i class="fas fa-fw fa-check me-2"></i>Save channel</button>
+                <span class="text-secondary small">
+                    Running branch: <code><?= htmlspecialchars($channel_status['current_branch'] ?: 'unknown') ?></code>
+                    <?php if (!$channel_status['same_branch'] && $channel_status['ref_exists'] && $channel_status['can_switch']) { ?>
+                        &middot; <strong>Update App will switch this server to <code><?= htmlspecialchars($channel_status['branch']) ?></code>.</strong>
+                    <?php } ?>
+                </span>
+            </div>
+            <?php if ($channel_status['reason'] !== '') { ?>
+                <div class="alert alert-warning mt-3 mb-0"><?= htmlspecialchars($channel_status['reason']) ?></div>
+            <?php } ?>
+            <p class="text-secondary small mt-3 mb-0">Switching channel never loses data and never installs older code: a switch that would go backwards is refused. Take a backup first (the Update App backup option does this).</p>
+        </form>
+    </div>
+</div>
 
 <div class="card mb-3">
     <div class="card-body">
@@ -211,9 +249,8 @@ $changelog_link = APP_CHANGELOG_URL !== ''
 
 <?php /* The check and the Update App button use different git sources: see APP_UPDATE_REMOTE in includes/branding.php. */ ?>
 <p class="text-muted small">
-    Checked against <code><?= htmlspecialchars(APP_UPDATE_REMOTE . '/' . $repo_branch) ?></code>
-    (the <code><?= htmlspecialchars(APP_UPDATE_REMOTE) ?></code> git remote of this checkout); <strong>Update App</strong> runs
-    <code>git pull</code>, which pulls from the branch's upstream remote. Both should point at the same repository.<?php if (APP_SOURCE_URL !== '') { ?>&nbsp;&middot;
+    Checked against <code><?= htmlspecialchars(RELEASE_REMOTE . '/' . $repo_branch) ?></code>
+    (the <?= htmlspecialchars($channels[$updates->channel]['label']) ?> channel on the <code><?= htmlspecialchars(RELEASE_REMOTE) ?></code> git remote of this checkout); <strong>Update App</strong> installs from the same branch.<?php if (APP_SOURCE_URL !== '') { ?>&nbsp;&middot;
     <a href="<?= htmlspecialchars(APP_SOURCE_URL) ?>" target="_blank" rel="noopener">Project repository</a><?php } ?>
 </p>
 

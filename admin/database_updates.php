@@ -9748,3 +9748,17 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.131'");
     }
+
+    if ($rivetit_db_version() == '2.6.131') {
+        // Release channel (Administration > Update): Production or Beta. A server keeps following the branch it is on today, so
+        // nothing moves by itself: a server on the beta branch starts as Beta, everything else as Production.
+        $release_channel_new = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `settings` LIKE 'config_release_channel'")) === 0;
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_release_channel` varchar(12) NOT NULL DEFAULT 'production'");
+        if ($release_channel_new && is_file(dirname(__DIR__) . '/includes/release_channel.php')) {
+            require_once dirname(__DIR__) . '/includes/release_channel.php';
+            $release_channel_now = releaseChannelFromBranch(releaseCurrentBranch(dirname(__DIR__)));
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_release_channel` = '" . mysqli_real_escape_string($mysqli, $release_channel_now) . "' WHERE `company_id` = 1");
+        }
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.132'");
+    }

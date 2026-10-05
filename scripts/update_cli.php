@@ -29,7 +29,7 @@ function printHelp() {
     echo "Options:\n";
     echo "  --help          Show this help message.\n";
     echo "  --update        Perform a git pull to update the application.\n";
-    echo "  --force_update  Perform a git fetch and hard reset to origin/main.\n";
+    echo "  --force_update  Perform a git fetch and hard reset to the release channel's branch.\n";
     echo "  --update_db     Update the database structure to the latest version.\n";
     echo "\nIf no options are provided, a standard update (git pull) is performed.\n";
 }
@@ -83,14 +83,30 @@ if (count($options) === 0) {
 if (isset($options['update']) || isset($options['force_update'])) {
     if (isset($options['force_update'])) {
         // Perform a hard reset
+        require_once __DIR__ . '/../includes/release_channel.php';
+        $release_channel = releaseChannelConfigured($mysqli ?? null, dirname(__DIR__));
+        $release_branch  = releaseChannelBranch($release_channel);
         exec("git fetch --all 2>&1", $output, $return_var);
-        exec("git reset --hard origin/main 2>&1", $output2, $return_var2);
+        exec("git reset --hard " . escapeshellarg(RELEASE_REMOTE . '/' . $release_branch) . " 2>&1", $output2, $return_var2);
         echo implode("\n", $output) . "\n" . implode("\n", $output2) . "\n";
     } else {
         // Perform a standard update (git pull). composer rewrites tracked files in vendor/composer; restore them
         // first so the pull cannot be blocked by them (composer regenerates them after the pull).
         exec("git checkout -- ':/vendor/composer' 2>&1");
-        exec("git pull 2>&1", $output, $return_var);
+        // Follow the release channel (Administration > Update): move onto its branch first (forward only), then pull from it.
+        require_once __DIR__ . '/../includes/release_channel.php';
+        $release_channel = releaseChannelConfigured($mysqli ?? null, dirname(__DIR__));
+        $release_branch  = releaseChannelBranch($release_channel);
+        exec("timeout 60 git fetch " . escapeshellarg(RELEASE_REMOTE) . " 2>&1");
+        $ensure = releaseChannelEnsureBranch(dirname(__DIR__), $release_channel);
+        if (!$ensure['ok']) {
+            fwrite(STDERR, "Update stopped: " . $ensure['message'] . "\n");
+            exit(1);
+        }
+        if ($ensure['switched']) {
+            echo $ensure['message'] . "\n";
+        }
+        exec("git pull " . escapeshellarg(RELEASE_REMOTE) . " " . escapeshellarg($release_branch) . " 2>&1", $output, $return_var);
         
         // Check if the repository is already up to date
         if (strpos(implode("\n", $output), 'Already up to date.') === false) {

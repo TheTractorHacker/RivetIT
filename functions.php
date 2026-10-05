@@ -3754,7 +3754,12 @@ function getTicketStatusName($ticket_status) {
 
 function fetchUpdates() {
 
-    global $repo_branch;
+    global $repo_branch, $mysqli;
+
+    // Release channel (Administration > Update): Production or Beta decides which branch of the remote this server follows.
+    require_once __DIR__ . '/includes/release_channel.php';
+    $release_channel = releaseChannelConfigured($mysqli ?? null, __DIR__);
+    $repo_branch     = releaseChannelBranch($release_channel);
 
     // Fetch the latest code changes but don't apply them.
     //
@@ -3772,7 +3777,7 @@ function fetchUpdates() {
     //
     // Update source: the git remote named by APP_UPDATE_REMOTE (includes/branding.php), which is
     // "origin" (public HTTPS, no credentials needed) unless an install changes it.
-    $update_remote = defined('APP_UPDATE_REMOTE') ? (string) APP_UPDATE_REMOTE : 'origin';
+    $update_remote = RELEASE_REMOTE;
     $update_ref    = escapeshellarg("$update_remote/$repo_branch");
     exec("timeout 15 git fetch " . escapeshellarg($update_remote) . " 2>&1", $output, $result);
     $latest_version  = exec("git rev-parse $update_ref");
@@ -3797,6 +3802,9 @@ function fetchUpdates() {
     $updates->current_version_tag = $current_version_tag;
     $updates->latest_version_tag  = $latest_version_tag;
     $updates->update_message = $update_message;
+    $updates->channel = $release_channel;
+    $updates->branch  = $repo_branch;
+    $updates->channel_status = releaseChannelStatus(__DIR__, $release_channel);
 
 
     return $updates;

@@ -6,6 +6,12 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Release channel: Production or Beta
+
+- **Administration > Update has a Release channel switch.** Production follows the `main` branch (tested releases); Beta follows `beta` (early access, changes more often). Each server chooses its own. The update check, **Update App**, the force update and `scripts/update_cli.php` (and so `deploy/update.sh`) all follow the chosen channel and move the server onto its branch.
+- **A server never goes backwards.** Switching to a channel whose latest release is older than the code already running is refused with an explanation, because the database may already be newer than that code can read. It becomes possible once the release catches up. A switch that would overwrite hand-edited files is refused and leaves them untouched.
+- Existing servers keep following the branch they are on today (a server on `beta` starts as Beta, everything else as Production), so nothing moves by itself. Database migration 2.6.132 adds the setting.
+
 ## [26.10.17] RivetIT — SLA pause, resolution time rules, compliance status and saved-view filters
 
 Database migrations 2.6.125 to 2.6.131 apply with **Update Database**. Requires rivet-core 0.14.0 (`composer install`). Consolidates the entries that were listed as Unreleased after 26.10.15. The tag `v26.10.16` was published before these notes and the version number were committed, so it reports 26.10.15; this release supersedes it.
