@@ -217,6 +217,11 @@ function rivetAutomationActionHandlers($mysqli, string $ruleName): array
             return "created ticket #$id";
         },
         'send_webhook' => static function (array $cfg, array $ctx) use ($mysqli) {
+            // Checked again at call time (DNS can change after the rule was saved).
+            $target = rivetWebhookResolveTarget((string) $cfg['url']);
+            if ($target === null) {
+                throw new \RuntimeException('the webhook URL does not resolve to a public address');
+            }
             $body = json_encode(['event' => $ctx['event'] ?? '', 'timestamp' => gmdate('Y-m-d\TH:i:s\Z'), 'data' => $ctx], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $headers = ['Content-Type: application/json'];
             foreach (rivetWebhookHeaderPrefixes() as $prefix) {
@@ -226,7 +231,10 @@ function rivetAutomationActionHandlers($mysqli, string $ruleName): array
                 }
             }
             $ch = curl_init((string) $cfg['url']);
-            curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => $headers, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_FOLLOWLOCATION => false, CURLOPT_SSL_VERIFYPEER => true]);
+            curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => $headers, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_FOLLOWLOCATION => false, CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+                // Pin the connection to the addresses just vetted, so a DNS answer that changes in between cannot redirect it inward.
+                CURLOPT_RESOLVE => [$target['host'] . ':' . $target['port'] . ':' . implode(',', $target['ips'])]]);
             $out = curl_exec($ch);
             $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
             if ($out === false) {
@@ -280,4 +288,61 @@ function rivetAudit(string $event, ?int $actor, ?string $entityType, $entityId, 
     } catch (\Throwable $e) {
         error_log('audit event not recorded: ' . $e->getMessage());
     }
+}
+
+/**
+ * Is this webhook URL safe to call from the server? http(s) only, and the host must resolve ONLY to public addresses (no loopback,
+ * link-local such as the cloud metadata address, or private ranges), so a rule cannot be used to reach internal services.
+ */
+/**
+ * Resolve a webhook URL and vet it: http(s) only, no userinfo/backslashes, and every address it resolves to must be public.
+ * Returns the vetted target so the caller can PIN the connection to those addresses (stops DNS rebinding between check and use), or null.
+ *
+ * @return array{host:string, port:int, ips:string[]}|null
+ */
+function rivetWebhookResolveTarget(string $url): ?array
+{
+    if (str_contains($url, '\\') || preg_match('/[\x00-\x20]/', $url)) {
+        return null;
+    }
+    $parts = parse_url($url);
+    if (!$parts || empty($parts['scheme']) || empty($parts['host']) || isset($parts['user']) || isset($parts['pass'])
+        || !in_array(strtolower($parts['scheme']), ['http', 'https'], true)) {
+        return null;
+    }
+    $host = trim($parts['host'], '[]');
+    $port = (int) ($parts['port'] ?? (strtolower($parts['scheme']) === 'https' ? 443 : 80));
+    $ips = [];
+    if (filter_var($host, FILTER_VALIDATE_IP)) {
+        $ips[] = $host;
+    } else {
+        foreach (@dns_get_record($host, DNS_A + DNS_AAAA) ?: [] as $record) {
+            if (!empty($record['ip'])) {
+                $ips[] = $record['ip'];
+            } elseif (!empty($record['ipv6'])) {
+                $ips[] = $record['ipv6'];
+            }
+        }
+        if (!$ips) {
+            $resolved = @gethostbyname($host);
+            if ($resolved !== $host) {
+                $ips[] = $resolved;
+            }
+        }
+    }
+    if (!$ips) {
+        return null;
+    }
+    foreach ($ips as $ip) {
+        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            return null;
+        }
+    }
+
+    return ['host' => $host, 'port' => $port, 'ips' => array_values(array_unique($ips))];
+}
+
+function rivetWebhookUrlIsSafe(string $url): bool
+{
+    return rivetWebhookResolveTarget($url) !== null;
 }

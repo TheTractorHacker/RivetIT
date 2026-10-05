@@ -33,6 +33,10 @@ if (isset($_POST['save_event_rule'])) {
         'url' => $_POST['cfg_url'] ?? '', 'secret' => $_POST['cfg_secret'] ?? '', 'message' => $_POST['cfg_message'] ?? '',
     ];
     $id = isset($_POST['rule_id']) ? intval($_POST['rule_id']) : null;
+    if (($_POST['action_type'] ?? '') === 'send_webhook' && !rivetWebhookUrlIsSafe((string) ($_POST['cfg_url'] ?? ''))) {
+        flash_alert('The webhook URL must be an http(s) address that resolves to a public address.', 'error');
+        redirect($id ? "event_rules.php?edit=$id" : 'event_rules.php');
+    }
     try {
         $saved = $store->save($id ?: null, (string) ($_POST['rule_name'] ?? ''), (string) ($_POST['trigger_event'] ?? ''), $conditions, (string) ($_POST['action_type'] ?? ''), $config, isset($_POST['is_enabled']));
     } catch (\InvalidArgumentException $e) {
