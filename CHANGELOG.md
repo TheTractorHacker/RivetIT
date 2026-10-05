@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.18] RivetIT — Release channel (Production / Beta)
+
+Database migration 2.6.132 applies with **Update Database**. No other changes since 26.10.17.
+
 ### Release channel: Production or Beta
 
 - **Administration > Update has a Release channel switch.** Production follows the `main` branch (tested releases); Beta follows `beta` (early access, changes more often). Each server chooses its own. The update check, **Update App**, the force update and `scripts/update_cli.php` (and so `deploy/update.sh`) all follow the chosen channel and move the server onto its branch.
