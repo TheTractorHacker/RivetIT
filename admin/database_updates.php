@@ -9730,3 +9730,21 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.130'");
     }
+
+    if ($rivetit_db_version() == '2.6.130') {
+        // SLA: a status can be flagged "Pauses the SLA clock" (Administration > Ticket Statuses), so waiting on a customer,
+        // employee or vendor never counts against the SLA and new statuses can opt in. The flag is first set for On Hold and
+        // every status whose name starts with "Waiting"; after that it is only ever changed by an administrator.
+        $pauses_sla_new = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `ticket_statuses` LIKE 'ticket_status_pauses_sla'")) === 0;
+        mysqli_query($mysqli, "ALTER TABLE `ticket_statuses` ADD COLUMN IF NOT EXISTS `ticket_status_pauses_sla` tinyint(1) NOT NULL DEFAULT 0");
+        if ($pauses_sla_new) {
+            mysqli_query($mysqli, "UPDATE `ticket_statuses` SET `ticket_status_pauses_sla` = 1 WHERE `ticket_status_name` = 'On Hold' OR `ticket_status_name` LIKE 'Waiting%'");
+            // Open tickets already waiting get their pause stamped now (a ticket already past due stays breached).
+            if (is_file(dirname(__DIR__) . '/includes/sla_functions.php')) {
+                require_once dirname(__DIR__) . '/includes/sla_functions.php';
+                slaReconcilePauses($mysqli);
+            }
+        }
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.131'");
+    }

@@ -322,8 +322,9 @@ function recalculateTicketSla($mysqli, int $ticket_id): void {
             $p = strtolower($priority);
             $r_hours   = $p === 'low' ? intval($ct['contract_sla_low_response_time'])    : ($p === 'medium' ? intval($ct['contract_sla_medium_response_time'])    : intval($ct['contract_sla_high_response_time']));
             $res_hours = $p === 'low' ? intval($ct['contract_sla_low_resolution_time'])  : ($p === 'medium' ? intval($ct['contract_sla_medium_resolution_time'])  : intval($ct['contract_sla_high_resolution_time']));
-            if ($r_hours > 0)   $legacy_response_due   = "'" . date('Y-m-d H:i:s', $created_ts + ($r_hours * 3600))   . "'";
-            if ($res_hours > 0) $legacy_resolution_due = "'" . date('Y-m-d H:i:s', $created_ts + ($res_hours * 3600)) . "'";
+            // Time spent paused (waiting on the customer/employee/vendor) is added back, so it does not count against the contract.
+            if ($r_hours > 0)   $legacy_response_due   = "'" . date('Y-m-d H:i:s', $created_ts + ($r_hours * 3600) + $paused_sec)   . "'";
+            if ($res_hours > 0) $legacy_resolution_due = "'" . date('Y-m-d H:i:s', $created_ts + ($res_hours * 3600) + $paused_sec) . "'";
         }
     }
 
@@ -355,20 +356,77 @@ function recalculateTicketSla($mysqli, int $ticket_id): void {
     );
 }
 
+/** Does ticket_statuses.ticket_status_pauses_sla exist yet? (False until the database update that adds it has run.) */
+function slaStatusColumnExists($mysqli): bool {
+    static $exists = null;
+    if ($exists === null) {
+        $res = @mysqli_query($mysqli, "SHOW COLUMNS FROM ticket_statuses LIKE 'ticket_status_pauses_sla'");
+        $exists = (bool) ($res && mysqli_num_rows($res) > 0);
+    }
+    return $exists;
+}
+
+/**
+ * Status ids flagged "Pauses the SLA clock" (Administration > Ticket Statuses). Every status, including ones created later,
+ * can carry the flag, so waiting-on-someone statuses stop the clock without anyone editing an SLA policy.
+ *
+ * @return list<int>
+ */
+function slaFlaggedPauseStatusIds($mysqli): array {
+    static $ids = null;
+    if ($ids === null) {
+        $ids = [];
+        if (slaStatusColumnExists($mysqli)) {
+            $res = mysqli_query($mysqli, "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_pauses_sla = 1");
+            while ($res && ($r = mysqli_fetch_assoc($res))) {
+                $ids[] = intval($r['ticket_status_id']);
+            }
+        }
+    }
+    return $ids;
+}
+
+/**
+ * Every status that pauses the clock for a ticket: the flagged statuses plus any a policy lists itself (the policy list keeps
+ * working as before and can only add to the flagged ones).
+ *
+ * @return list<int>
+ */
+function slaPauseStatusIds($mysqli, ?array $policy = null): array {
+    $ids = slaFlaggedPauseStatusIds($mysqli);
+    if ($policy && !empty($policy['policy_pause_status_ids'])) {
+        foreach (explode(',', $policy['policy_pause_status_ids']) as $v) {
+            if (intval($v) > 0) $ids[] = intval($v);
+        }
+    }
+    return array_values(array_unique($ids));
+}
+
+/** Add the business-seconds spent paused to the ticket, clear the pause, log it and recalculate the due dates. */
+function slaResumeFromPause($mysqli, int $ticket_id, ?array $policy, ?int $old_status, ?int $new_status): void {
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_sla_paused_at FROM tickets WHERE ticket_id = $ticket_id LIMIT 1"));
+    $paused_at = $row['ticket_sla_paused_at'] ?? null;
+    if (!empty($paused_at)) {
+        $calendar = slaLoadCalendar($mysqli, ($policy && isset($policy['policy_calendar_id'])) ? intval($policy['policy_calendar_id']) : null);
+        $accrued = max(0, intval(slaBusinessSecondsBetween(new DateTime($paused_at), new DateTime(), $calendar)));
+        mysqli_query($mysqli, "UPDATE tickets SET ticket_sla_paused_seconds = ticket_sla_paused_seconds + $accrued, ticket_sla_paused_at = NULL WHERE ticket_id = $ticket_id");
+    }
+    slaLogEvent($mysqli, $ticket_id, 'resume', $old_status, $new_status);
+    recalculateTicketSla($mysqli, $ticket_id);
+}
+
 /**
  * Accrue pause time across a status change.
  *   - Moving INTO a pause status: stamp ticket_sla_paused_at = NOW(), log 'pause'.
  *   - Moving OUT of a pause status: add the business-seconds spent paused to
  *     ticket_sla_paused_seconds, clear paused_at, log 'resume', then recalc.
- * No-op when the governing policy defines no pause statuses (non-breaking).
+ * Applies to flagged statuses (and a policy's own list) whether or not a policy governs the ticket.
  */
 function slaAccruePause($mysqli, int $ticket_id, int $old_status, int $new_status): void {
     if ($old_status === $new_status) return;
 
-    $policy = slaGetPolicyForTicket($mysqli, $ticket_id);
-    if (!$policy || empty($policy['policy_pause_status_ids'])) return;
-
-    $pause_ids = array_values(array_filter(array_map('intval', explode(',', $policy['policy_pause_status_ids'])), function ($v) { return $v > 0; }));
+    $policy = slaGetPolicyForTicket($mysqli, $ticket_id) ?: null;
+    $pause_ids = slaPauseStatusIds($mysqli, $policy);
     if (empty($pause_ids)) return;
 
     $was_paused = in_array($old_status, $pause_ids, true);
@@ -385,19 +443,69 @@ function slaAccruePause($mysqli, int $ticket_id, int $old_status, int $new_statu
         return;
     }
 
-    // Leaving pause
-    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_sla_paused_at FROM tickets WHERE ticket_id = $ticket_id LIMIT 1"));
-    $paused_at = $row['ticket_sla_paused_at'] ?? null;
-    if (!empty($paused_at)) {
-        $calendar = slaLoadCalendar($mysqli, isset($policy['policy_calendar_id']) ? intval($policy['policy_calendar_id']) : null);
-        $from = new DateTime($paused_at);
-        $to   = new DateTime();
-        $accrued = slaBusinessSecondsBetween($from, $to, $calendar);
-        $accrued = max(0, intval($accrued));
-        mysqli_query($mysqli, "UPDATE tickets SET ticket_sla_paused_seconds = ticket_sla_paused_seconds + $accrued, ticket_sla_paused_at = NULL WHERE ticket_id = $ticket_id");
+    slaResumeFromPause($mysqli, $ticket_id, $policy, $old_status, $new_status);
+}
+
+/**
+ * Make the pause match the ticket's CURRENT status, whatever path changed it (kanban, API, automation, a customer reply...).
+ * Safe to call at any time: it does nothing when the ticket is already consistent.
+ */
+function slaSyncPause($mysqli, int $ticket_id): void {
+    $t = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT ticket_status, ticket_sla_paused_at, ticket_resolved_at, ticket_closed_at FROM tickets WHERE ticket_id = $ticket_id LIMIT 1"));
+    if (!$t) return;
+
+    $policy = slaGetPolicyForTicket($mysqli, $ticket_id) ?: null;
+    $is_open = empty($t['ticket_resolved_at']) && empty($t['ticket_closed_at']);
+    $should_pause = $is_open && in_array(intval($t['ticket_status']), slaPauseStatusIds($mysqli, $policy), true);
+    $is_paused = !empty($t['ticket_sla_paused_at']);
+    if ($should_pause === $is_paused) return;
+
+    if ($should_pause) {
+        mysqli_query($mysqli, "UPDATE tickets SET ticket_sla_paused_at = NOW() WHERE ticket_id = $ticket_id AND ticket_sla_paused_at IS NULL");
+        slaLogEvent($mysqli, $ticket_id, 'pause', null, intval($t['ticket_status']));
+        return;
     }
-    slaLogEvent($mysqli, $ticket_id, 'resume', $old_status, $new_status);
-    recalculateTicketSla($mysqli, $ticket_id);
+    slaResumeFromPause($mysqli, $ticket_id, $policy, null, intval($t['ticket_status']));
+}
+
+/** Bring every open ticket's pause in line with its status (run from cron; also repairs tickets changed by paths that did not sync). */
+function slaReconcilePauses($mysqli): int {
+    $flagged = slaFlaggedPauseStatusIds($mysqli);
+    $in = $flagged ? implode(',', array_map('intval', $flagged)) : '0';
+    $res = mysqli_query($mysqli,
+        "SELECT ticket_id FROM tickets
+         WHERE ticket_resolved_at IS NULL AND ticket_closed_at IS NULL
+           AND ((ticket_sla_paused_at IS NULL AND ticket_status IN ($in)) OR (ticket_sla_paused_at IS NOT NULL AND ticket_status NOT IN ($in)))
+         LIMIT 2000");
+    $n = 0;
+    while ($res && ($r = mysqli_fetch_assoc($res))) {
+        slaSyncPause($mysqli, intval($r['ticket_id']));
+        $n++;
+    }
+    return $n;
+}
+
+/**
+ * Is a due date breached, taking the pause into account? A paused clock does not run: a ticket that is waiting on someone is
+ * only breached if it was ALREADY past due when it was paused. Used by every list, tile and rule so they all agree.
+ *
+ * @return array{breached:bool, paused:bool, remaining:int} remaining seconds are frozen at the pause moment while paused
+ */
+function slaDueState($mysqli, array $ticket, string $due): array {
+    $now = time();
+    $due_ts = strtotime($due);
+    $paused_ts = !empty($ticket['ticket_sla_paused_at']) ? strtotime($ticket['ticket_sla_paused_at']) : null;
+    if ($paused_ts !== null) {
+        $breached = $due_ts <= $paused_ts;
+        return ['breached' => $breached, 'paused' => !$breached, 'remaining' => $due_ts - $paused_ts];
+    }
+    $open = empty($ticket['ticket_resolved_at']) && empty($ticket['ticket_closed_at']);
+    if ($open && isset($ticket['ticket_status']) && in_array(intval($ticket['ticket_status']), slaFlaggedPauseStatusIds($mysqli), true)) {
+        // In a pausing status but not stamped yet (changed by a path that has not synced); the next sync stamps it.
+        return ['breached' => false, 'paused' => true, 'remaining' => $due_ts - $now];
+    }
+    return ['breached' => $due_ts <= $now, 'paused' => false, 'remaining' => $due_ts - $now];
 }
 
 /** Append a row to ticket_sla_events. */
@@ -451,15 +559,23 @@ function slaStatus(array $ticket, array $calendar): array {
     $now_ts     = time();
     $created_ts = !empty($ticket['ticket_created_at']) ? strtotime($ticket['ticket_created_at']) : $now_ts;
     $is_paused  = !empty($ticket['ticket_sla_paused_at']);
+    // The clock is frozen at the moment the pause began, so a ticket waiting on someone never drifts into "breached".
+    $ref_ts     = $is_paused ? strtotime($ticket['ticket_sla_paused_at']) : $now_ts;
+    // A ticket in a pausing status that has not been stamped yet (its status was changed by a path that did not sync) still reads
+    // as paused rather than breached; the next sync (a page view, an update, or cron) stamps it.
+    $flag_paused = false;
+    if (!$is_paused && isset($ticket['ticket_status']) && empty($ticket['ticket_resolved_at']) && empty($ticket['ticket_closed_at']) && !empty($GLOBALS['mysqli'])) {
+        $flag_paused = in_array(intval($ticket['ticket_status']), slaFlaggedPauseStatusIds($GLOBALS['mysqli']), true);
+    }
 
-    $mk = function ($due, $met_at, $met_flag) use ($now_ts, $created_ts, $is_paused) {
+    $mk = function ($due, $met_at, $met_flag) use ($now_ts, $ref_ts, $created_ts, $is_paused, $flag_paused) {
         if (empty($due)) {
             return ['state' => 'none', 'pct' => null, 'remaining_sec' => null];
         }
         $due_ts = strtotime($due);
-        $remaining = $due_ts - $now_ts;
+        $remaining = $due_ts - $ref_ts;
         $total = $due_ts - $created_ts;
-        $elapsed = $now_ts - $created_ts;
+        $elapsed = $ref_ts - $created_ts;
         $pct = ($total > 0) ? max(0, min(100, ($elapsed / $total) * 100)) : ($elapsed > 0 ? 100 : 0);
 
         $met = false;
@@ -474,7 +590,9 @@ function slaStatus(array $ticket, array $calendar): array {
             $state = ($met_ts <= $due_ts) ? 'met' : 'breached';
             return ['state' => $state, 'pct' => 100, 'remaining_sec' => 0];
         }
-        if ($remaining <= 0) {
+        if ($flag_paused) {
+            $state = 'paused';
+        } elseif ($remaining <= 0) {
             $state = 'breached';
         } elseif ($is_paused) {
             $state = 'paused';

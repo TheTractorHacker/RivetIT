@@ -8,8 +8,14 @@ if (isset($_POST['add_ticket_status'])) {
 
     $name = sanitizeInput($_POST['name']);
     $color = sanitizeInput($_POST['color']);
+    // "Pauses the SLA clock": for statuses where the ticket is waiting on someone else (customer, employee, vendor...).
+    $pauses_sla_sql = '';
+    require_once dirname(__DIR__, 2) . '/includes/sla_functions.php';
+    if (slaStatusColumnExists($mysqli)) {
+        $pauses_sla_sql = ', ticket_status_pauses_sla = ' . (isset($_POST['pauses_sla']) ? 1 : 0);
+    }
 
-    mysqli_query($mysqli, "INSERT INTO ticket_statuses SET ticket_status_name = '$name', ticket_status_color = '$color'");
+    mysqli_query($mysqli, "INSERT INTO ticket_statuses SET ticket_status_name = '$name', ticket_status_color = '$color'$pauses_sla_sql");
 
     $ticket_status_id = mysqli_insert_id($mysqli);
 
@@ -30,8 +36,18 @@ if (isset($_POST['edit_ticket_status'])) {
     $color = sanitizeInput($_POST['color']);
     $order = intval($_POST['order']);
     $status = intval($_POST['status']);
+    $pauses_sla_sql = '';
+    require_once dirname(__DIR__, 2) . '/includes/sla_functions.php';
+    if (slaStatusColumnExists($mysqli)) {
+        $pauses_sla_sql = ', ticket_status_pauses_sla = ' . (isset($_POST['pauses_sla']) ? 1 : 0);
+    }
 
-    mysqli_query($mysqli, "UPDATE ticket_statuses SET ticket_status_name = '$name', ticket_status_color = '$color', ticket_status_order = $order, ticket_status_active = $status WHERE ticket_status_id = $ticket_status_id");
+    mysqli_query($mysqli, "UPDATE ticket_statuses SET ticket_status_name = '$name', ticket_status_color = '$color', ticket_status_order = $order, ticket_status_active = $status$pauses_sla_sql WHERE ticket_status_id = $ticket_status_id");
+
+    // Open tickets already sitting in this status start or stop their SLA pause to match the new setting.
+    if ($pauses_sla_sql !== '') {
+        slaReconcilePauses($mysqli);
+    }
 
     logAction("Ticket Status", "Edit", "$session_name edited custom ticket status $name", 0, $ticket_status_id);
 

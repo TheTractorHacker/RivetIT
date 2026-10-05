@@ -169,6 +169,14 @@ if (isset($_GET['ticket_id'])) {
 
         // SLA timer status (policy + business-hours calendar aware; falls back cleanly on
         // legacy tickets that only have contract-hour due dates and no policy/calendar).
+        // Bring the pause in line with the ticket's status (whatever path last changed it), then read the fresh timers.
+        slaSyncPause($mysqli, $ticket_id);
+        $sla_fresh = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_sla_paused_at, ticket_sla_response_due, ticket_sla_resolution_due FROM tickets WHERE ticket_id = $ticket_id LIMIT 1"));
+        if ($sla_fresh) {
+            $row['ticket_sla_paused_at'] = $sla_fresh['ticket_sla_paused_at'];
+            $ticket_sla_response_due     = $sla_fresh['ticket_sla_response_due'];
+            $ticket_sla_resolution_due   = $sla_fresh['ticket_sla_resolution_due'];
+        }
         $sla_policy        = slaGetPolicyForTicket($mysqli, $ticket_id);
         $sla_calendar      = slaLoadCalendar($mysqli, ($sla_policy && isset($sla_policy['policy_calendar_id'])) ? intval($sla_policy['policy_calendar_id']) : null);
         $sla_policy_name   = ($sla_policy && !empty($sla_policy['policy_name'])) ? nullable_htmlentities($sla_policy['policy_name']) : '';
@@ -177,6 +185,8 @@ if (isset($_GET['ticket_id'])) {
         $sla_status_data   = slaStatus([
             'ticket_created_at'         => $row['ticket_created_at'] ?? null,
             'ticket_sla_paused_at'      => $row['ticket_sla_paused_at'] ?? null,
+            'ticket_status'             => $row['ticket_status'] ?? null,
+            'ticket_closed_at'          => $row['ticket_closed_at'] ?? null,
             'ticket_sla_response_due'   => $ticket_sla_response_due,
             'ticket_sla_resolution_due' => $ticket_sla_resolution_due,
             'ticket_first_response_at'  => $row['ticket_first_response_at'] ?? null,

@@ -131,6 +131,15 @@ mysqli_query($mysqli, "DELETE FROM email_queue WHERE email_queued_at < CURDATE()
 // Clean-up old remember me tokens
 mysqli_query($mysqli, "DELETE FROM remember_tokens WHERE remember_token_created_at < CURDATE() - INTERVAL $config_login_remember_me_expire DAY");
 
+// SLA: make every open ticket's pause match its status (waiting-on-customer/employee/vendor statuses flagged "Pauses SLA" stop the
+// clock). Status changes made by any path - kanban, API, automation, a customer reply - are repaired here at the latest.
+try {
+    require_once dirname(__DIR__) . '/includes/sla_functions.php';
+    slaReconcilePauses($mysqli);
+} catch (\Throwable $e) {
+    error_log('SLA pause reconcile skipped: ' . $e->getMessage());
+}
+
 // Retention. A compliance preset (Administration > Compliance) is a minimum: nothing is deleted younger than it, whatever the
 // stored numbers say. 0 (or blank) keeps everything: before, a retention of 0 deleted every row older than today.
 $compliance_profile = (string) ($settings_row['config_compliance_profile'] ?? 'none');
@@ -1455,8 +1464,8 @@ if (!empty($automation_rules)) {
                 'tid'                     => $tid,
                 'client_id'               => $client_id,
                 'asset_id'                => intval($ticket['ticket_asset_id']),
-                'sla_response_breached'   => (!empty($ticket['ticket_sla_response_due']) && empty($ticket['ticket_first_response_at']) && $ticket['ticket_sla_response_due'] < $now_str) ? 1 : 0,
-                'sla_resolution_breached' => (!empty($ticket['ticket_sla_resolution_due']) && $ticket['ticket_sla_resolution_due'] < $now_str) ? 1 : 0,
+                'sla_response_breached'   => (!empty($ticket['ticket_sla_response_due']) && empty($ticket['ticket_first_response_at']) && slaDueState($mysqli, $ticket, $ticket['ticket_sla_response_due'])['breached']) ? 1 : 0,
+                'sla_resolution_breached' => (!empty($ticket['ticket_sla_resolution_due']) && slaDueState($mysqli, $ticket, $ticket['ticket_sla_resolution_due'])['breached']) ? 1 : 0,
                 'sla_response_pct'        => ($sla_st['response']['pct']   === null) ? 0 : $sla_st['response']['pct'],
                 'sla_resolution_pct'      => ($sla_st['resolution']['pct'] === null) ? 0 : $sla_st['resolution']['pct'],
             ];

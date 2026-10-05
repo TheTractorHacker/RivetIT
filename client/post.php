@@ -219,6 +219,7 @@ if (isset($_POST['add_ticket_comment'])) {
 
         // Update Ticket Last Response Field & set ticket to open as client has replied
         mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 2 WHERE ticket_id = $ticket_id AND ticket_client_id = $session_client_id LIMIT 1");
+        require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/sla_functions.php'; slaSyncPause($mysqli, $ticket_id); // a customer reply ends any waiting-on-customer pause
 
         $reply_status_info = getTicketStatusInfo($mysqli, 2);
         publishTicketEvent($ticket_id, 'status', ['status_id' => $reply_status_info['id'], 'status_name' => $reply_status_info['name'], 'status_color' => $reply_status_info['color'], 'by' => $session_contact_name]);

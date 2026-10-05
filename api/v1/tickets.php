@@ -371,6 +371,10 @@ if ($method === 'POST' && $id !== null && $sub === 'reply') {
         }
     }
 
+    // A status set above may start or end an SLA pause (e.g. an agent reply moves the ticket to Waiting on Customer).
+    require_once $DOCUMENT_ROOT . '/includes/sla_functions.php';
+    slaSyncPause($mysqli, $id);
+
     // Notifications
     if ($type === 'Client') {
         if ($t_assigned != 0) {

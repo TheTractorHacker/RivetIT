@@ -1228,6 +1228,7 @@ if (isset($_POST['update_kanban_ticket'])) {
             // If the ticket was moved from a resolved status to another status, we need to update ticket_resolved_at
             if ($oldStatus === $statuses['Resolved']) {
                 mysqli_query($mysqli, "UPDATE tickets SET " . ticketReopenSql() . "ticket_order = $kanban, ticket_status = $status, ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0 WHERE ticket_id = $ticket_id");
+                require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/sla_functions.php'; slaSyncPause($mysqli, $ticket_id);
                 customAction('ticket_update', $ticket_id);
             } elseif ($status === $statuses['Resolved']) {
                 // Resolved is an immediate alias for Closed everywhere else in this
@@ -1320,6 +1321,7 @@ if (isset($_POST['update_kanban_ticket'])) {
             } else {
                 // If the ticket was moved from any status to another status
                 mysqli_query($mysqli, "UPDATE tickets SET ticket_order = $kanban, ticket_status = $status, ticket_closed_at = NULL, ticket_closed_by = 0 WHERE ticket_id = $ticket_id");
+                require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/sla_functions.php'; slaSyncPause($mysqli, $ticket_id);
                 customAction('ticket_update', $ticket_id);
             }
         }

@@ -8,6 +8,8 @@ $sql = mysqli_query($mysqli, "SELECT * FROM ticket_statuses WHERE ticket_status_
 $row = mysqli_fetch_assoc($sql);
 $ticket_status_name = nullable_htmlentities($row['ticket_status_name']);
 $ticket_status_color = nullable_htmlentities($row['ticket_status_color']);
+$ticket_status_pauses_sla = intval($row['ticket_status_pauses_sla'] ?? 0);
+$ticket_status_pauses_sla_available = array_key_exists('ticket_status_pauses_sla', $row);
 $ticket_status_order = intval($row['ticket_status_order']);
 $ticket_status_active = intval($row['ticket_status_active']);
 
@@ -46,6 +48,16 @@ ob_start();
                 <input type="color" class="form-control col-3" name="color" value="<?php echo $ticket_status_color; ?>" required>
             </div>
         </div>
+
+        <?php if ($ticket_status_pauses_sla_available) { ?>
+        <div class="form-group">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="pauses_sla" value="1" id="pauses_sla_edit" <?php if ($ticket_status_pauses_sla) { echo "checked"; } ?>>
+                <label class="form-check-label" for="pauses_sla_edit"><strong>Pauses the SLA clock</strong></label>
+            </div>
+            <small class="text-muted">While a ticket is in this status its SLA does not run and it is not shown as breached because of the wait. Open tickets already in the status are updated when you save.</small>
+        </div>
+        <?php } ?>
 
         <div class="form-group">
             <label>Order</label>

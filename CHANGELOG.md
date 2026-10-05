@@ -4,6 +4,13 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## Unreleased — SLA no longer breaches while waiting on someone
+
+- **Waiting statuses pause the SLA clock.** A ticket set to Waiting on Customer, Employee or Vendor (or On Hold) is no longer shown as breached because of the wait. While paused the clock is frozen: it never drifts into "Breached", the time spent paused is added back to the due date when the ticket moves on, and a ticket that was already past due before it was paused stays breached.
+- **You choose which statuses pause it.** Administration > Ticket Statuses has a new **Pauses the SLA clock** option on every status, in the create dialog and the edit dialog, and an SLA clock column in the list. A status created later can opt in the same way, so the setting follows your own statuses. Saving a status updates the open tickets already in it. An SLA policy's own pause list still works and adds to this.
+- **Every way of changing status is covered.** Agent status change, kanban drag, the API (including agent replies that move a ticket to Waiting on Customer), automation rules, and a customer reply that ends the wait all start or stop the pause. Anything that slips through is repaired when the ticket is opened and by the scheduled job. Ticket list, dashboard, ticket page and escalation rules all agree.
+- Contract-hour SLAs (no policy) now also add paused time back. Database migration 2.6.131 adds the option and turns it on for On Hold and every status starting with "Waiting", then pauses open tickets already waiting.
+
 ## Unreleased — Resolution time rules
 
 - **Only resolved tickets count toward average resolution time.** An open ticket, one in an "Unresolved" status, or one that was reopened and not yet resolved again is left out of every average (dashboard tile, ticket reports, per-technician figures and the API).

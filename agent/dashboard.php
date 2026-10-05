@@ -1256,9 +1256,10 @@ if (true) {  // Technical dashboard is always shown now - no more enable toggle.
                             }
                             $sla_badge = "<span class='text-muted'>-</span>";
                             if ($_sla_due) {
-                                $_sla_breached = $_sla_due < date('Y-m-d H:i:s');
-                                $_sla_color = $_sla_breached ? 'danger' : (strtotime($_sla_due) - time() < 7200 ? 'warning' : 'success');
-                                $_sla_label = $_sla_breached ? 'Breached' : 'OK';
+                                $_sla_state = slaDueState($mysqli, $row, $_sla_due);
+                                $_sla_breached = $_sla_state['breached'];
+                                $_sla_color = $_sla_breached ? 'danger' : ($_sla_state['paused'] ? 'secondary' : ($_sla_state['remaining'] < 7200 ? 'warning' : 'success'));
+                                $_sla_label = $_sla_breached ? 'Breached' : ($_sla_state['paused'] ? 'Paused' : 'OK');
                                 $sla_badge = "<span class='badge rounded-pill text-bg-$_sla_color'>$_sla_label</span>";
                             }
                         ?>

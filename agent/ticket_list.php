@@ -436,9 +436,10 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                         $_sla_due = $row['ticket_sla_resolution_due'];
                                     }
                                     if ($_sla_due && empty($ticket_closed_at)) {
-                                        $_sla_breached = $_sla_due < date('Y-m-d H:i:s');
-                                        $_sla_color = $_sla_breached ? 'danger' : (strtotime($_sla_due) - time() < 7200 ? 'warning' : 'success');
-                                        $_sla_label = $_sla_breached ? 'SLA breached' : 'SLA ok';
+                                        $_sla_state = slaDueState($mysqli, $row, $_sla_due);
+                                        $_sla_breached = $_sla_state['breached'];
+                                        $_sla_color = $_sla_breached ? 'danger' : ($_sla_state['paused'] ? 'secondary' : ($_sla_state['remaining'] < 7200 ? 'warning' : 'success'));
+                                        $_sla_label = $_sla_breached ? 'SLA breached' : ($_sla_state['paused'] ? 'SLA paused' : 'SLA ok');
                                     ?>
                                     <br>
                                     <span class="badge badge-<?= $_sla_color ?> mt-1" title="SLA due <?= date('M j, Y g:i A', strtotime($_sla_due)) ?>">

@@ -33,6 +33,14 @@ ob_start();
             </div>
         </div>
 
+        <div class="form-group">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="pauses_sla" value="1" id="pauses_sla_add">
+                <label class="form-check-label" for="pauses_sla_add"><strong>Pauses the SLA clock</strong></label>
+            </div>
+            <small class="text-muted">Tick this for statuses where the ticket is waiting on someone else, such as Waiting on Customer, Employee or Vendor. While a ticket is in the status its SLA does not run, and it is never shown as breached because of the wait.</small>
+        </div>
+
     </div>
     <div class="modal-footer">
         <button type="submit" name="add_ticket_status" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Create</button>
