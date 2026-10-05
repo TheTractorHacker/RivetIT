@@ -14,24 +14,8 @@ require_once "../vendor/autoload.php";
 // claim() is not safe for concurrent workers, so never run two at once.
 \ITFlow\Redis\CronGuard::acquireOrExit('integration_worker', 300);
 
-use ITFlow\Jobs\JobQueue;
-
-// No integration currently enqueues jobs (Microsoft/Odoo are scaffolding-only,
-// not connected - see PROGRESS.md). This worker exists as infrastructure so
-// those phases have a queue to enqueue into later; it's safe to run on a
-// schedule now since claim() on an empty table is a cheap no-op.
-$queue = new JobQueue($mysqli);
-$jobs = $queue->claim(10);
-
-foreach ($jobs as $job) {
-    // No job types are registered yet - anything claimed here is unexpected.
-    // Fail it loudly rather than silently dropping it.
-    $queue->markFailed(
-        (int) $job['job_id'],
-        "No handler registered for job_type '{$job['job_type']}'",
-        (int) $job['attempts'],
-        (int) $job['max_attempts']
-    );
-}
-
-echo count($jobs) . " job(s) claimed.\n";
+// Runs every queued job: webhook deliveries (signed, retried with backoff), event-rule actions, and anything else registered in
+// includes/event_bus.php. claim() is safe for concurrent workers, but the guard above keeps a slow run from stacking up.
+require_once "../includes/event_bus.php";
+$result = rivetRunJobWorker($mysqli, 50, 50);
+echo $result['claimed'] . " job(s) claimed: " . $result['completed'] . " completed, " . $result['retrying'] . " to retry, " . $result['dead'] . " failed for good.\n";

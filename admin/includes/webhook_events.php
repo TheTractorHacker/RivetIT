@@ -13,6 +13,33 @@
  */
 function webhook_event_groups(): array
 {
+    $groups = webhook_event_groups_static();
+
+    // Every audit event type this install has recorded can be subscribed to or automated too, not only the ones listed above.
+    global $mysqli;
+    if (isset($mysqli) && $mysqli instanceof \mysqli) {
+        $known = array_merge(...array_values($groups));
+        $extra = [];
+        try {
+            $res = mysqli_query($mysqli, "SELECT DISTINCT event_type FROM audit_events WHERE event_type REGEXP '^[a-z0-9_.]+$' ORDER BY event_type LIMIT 400");
+            while ($res && ($r = mysqli_fetch_assoc($res))) {
+                if (!in_array($r['event_type'], $known, true) && $r['event_type'] !== 'automation.rule_fired') {
+                    $extra[] = $r['event_type'];
+                }
+            }
+        } catch (\Throwable $e) {
+            // the audit table may not exist yet
+        }
+        if ($extra) {
+            $groups['Other events seen on this server'] = $extra;
+        }
+    }
+
+    return $groups;
+}
+
+function webhook_event_groups_static(): array
+{
     return [
         'Ticket Events' => [
             'ticket.created',

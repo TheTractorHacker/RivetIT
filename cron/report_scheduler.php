@@ -30,6 +30,10 @@ if ($scheduler_standalone) {
     require_once "../includes/inc_set_timezone.php";
     require_once "../functions.php";
 
+    // Only one copy at a time (Redis lock through RivetCore; skipped if Redis is down).
+    require_once dirname(__DIR__) . '/includes/redis_guards.php';
+    rivetCronGuard('report_scheduler', 600);
+
     // Load the from-name/email + currency the render helper and mail queue expect.
     $settings_row = mysqli_fetch_assoc(mysqli_query($mysqli,
         "SELECT * FROM companies, settings WHERE companies.company_id = settings.company_id AND companies.company_id = 1"));

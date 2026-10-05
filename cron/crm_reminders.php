@@ -28,6 +28,10 @@ if ($crm_reminders_standalone) {
     require_once "../config.php";
     require_once "../includes/inc_set_timezone.php";
     require_once "../functions.php";
+    // Only one copy at a time (Redis lock through RivetCore; skipped if Redis is down).
+    require_once dirname(__DIR__) . '/includes/redis_guards.php';
+    rivetCronGuard('crm_reminders', 600);
+
 }
 
 // Find due, incomplete, not-yet-reminded follow-ups.

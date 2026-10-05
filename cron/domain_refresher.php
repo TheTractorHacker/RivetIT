@@ -14,6 +14,10 @@ require_once "../config.php";
 require_once "../includes/inc_set_timezone.php";
 require_once "../functions.php";
 
+// Only one copy at a time (Redis lock through RivetCore; skipped if Redis is down).
+require_once dirname(__DIR__) . '/includes/redis_guards.php';
+rivetCronGuard('domain_refresher', 1800);
+
 $sql_settings = mysqli_query($mysqli, "SELECT * FROM settings WHERE settings.company_id = 1");
 
 $row = mysqli_fetch_assoc($sql_settings);

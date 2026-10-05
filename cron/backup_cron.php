@@ -27,6 +27,10 @@ if (php_sapi_name() !== 'cli') {
 require_once "../config.php";
 require_once "../includes/inc_set_timezone.php";
 require_once "../functions.php";
+// Only one copy at a time (Redis lock through RivetCore; skipped if Redis is down).
+require_once dirname(__DIR__) . '/includes/redis_guards.php';
+rivetCronGuard('backup_cron', 3600);
+
 require_once "../includes/backup_cron_settings.php";
 
 $sql_companies = mysqli_query($mysqli, "SELECT * FROM companies, settings WHERE companies.company_id = settings.company_id AND companies.company_id = 1");

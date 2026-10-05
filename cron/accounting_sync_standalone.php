@@ -13,4 +13,8 @@
 chdir(__DIR__);
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../functions.php';
+// Only one copy at a time (Redis lock through RivetCore; skipped if Redis is down).
+require_once dirname(__DIR__) . '/includes/redis_guards.php';
+rivetCronGuard('accounting_sync_standalone', 1800);
+
 require_once __DIR__ . '/accounting_sync.php';

@@ -29,6 +29,10 @@ if ($rollup_standalone) {
     require_once "../config.php";
     require_once "../includes/inc_set_timezone.php";
     require_once "../functions.php";
+    // Only one copy at a time (Redis lock through RivetCore; skipped if Redis is down).
+    require_once dirname(__DIR__) . '/includes/redis_guards.php';
+    rivetCronGuard('metrics_rollup', 1800);
+
 }
 
 $rollup_company_id = 1;

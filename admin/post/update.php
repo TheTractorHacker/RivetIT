@@ -170,11 +170,23 @@ if (isset($_GET['update_db'])) {
         redirect();
     }
 
+    // One database update at a time: a second click or a CLI run while one is going must not run the same steps twice.
+    require_once __DIR__ . '/../../includes/redis_guards.php';
+    $update_lock = rivetLocks() ? rivetLocks()->acquire('update_db', 900) : null;
+    if ($update_lock !== null && !$update_lock->held()) {
+        flash_alert('A database update is already running. Wait for it to finish.', 'error');
+        redirect();
+    }
+
     // Get the current version
     require_once ('../includes/database_version.php');
 
     // Perform upgrades, if required
     require_once ('database_updates.php');
+
+    if ($update_lock !== null) {
+        $update_lock->release();
+    }
 
     logAction("Database", "Update", "$session_name updated the database structure");
 

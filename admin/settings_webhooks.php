@@ -35,8 +35,25 @@ require_once "includes/webhook_events.php";
             </thead>
             <tbody>
             <?php
-            $sql_wh = mysqli_query($mysqli, "SELECT w.*, q.delivered, q.failed, q.pending
+            $sql_wh = mysqli_query($mysqli, "SELECT w.*,
+                    COALESCE(d.delivered, 0) + COALESCE(q.delivered, 0) AS delivered,
+                    COALESCE(d.failed, 0) + COALESCE(q.failed, 0) AS failed,
+                    COALESCE(j.pending, 0) + COALESCE(q.pending, 0) AS pending
                 FROM webhooks w
+                LEFT JOIN (
+                    SELECT webhook_id,
+                        SUM(http_status BETWEEN 200 AND 299) AS delivered,
+                        SUM(http_status IS NULL OR http_status NOT BETWEEN 200 AND 299) AS failed
+                    FROM webhook_deliveries
+                    WHERE created_at > NOW() - INTERVAL 7 DAY
+                    GROUP BY webhook_id
+                ) d ON d.webhook_id = w.webhook_id
+                LEFT JOIN (
+                    SELECT CAST(JSON_VALUE(payload, '$.webhook_id') AS UNSIGNED) AS wid, COUNT(*) AS pending
+                    FROM integration_jobs
+                    WHERE job_type = 'webhook.deliver' AND status IN ('pending', 'running')
+                    GROUP BY wid
+                ) j ON j.wid = w.webhook_id
                 LEFT JOIN (
                     SELECT queue_webhook_id,
                         SUM(queue_status = 'delivered') AS delivered,
@@ -98,12 +115,14 @@ require_once "includes/webhook_events.php";
     </div>
 </div>
 
-<?php if (isset($sql_wh) && mysqli_num_rows($sql_wh) > 0) { ?>
+<?php
+$legacy_queue_rows = (int) (mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM webhook_queue"))[0] ?? 0);
+if (isset($sql_wh) && mysqli_num_rows($sql_wh) > 0 && $legacy_queue_rows > 0) { ?>
 <div class="card mt-3">
     <div class="card-header py-3">
-        <h3 class="card-title mb-0"><i class="fas fa-fw fa-list me-2"></i>Queued deliveries</h3>
+        <h3 class="card-title mb-0"><i class="fas fa-fw fa-list me-2"></i>Earlier queued deliveries</h3>
     </div>
-    <p class="text-muted small px-3 pt-3 mb-2">Ticket events sent by the scheduled job. Showing the latest 100 deliveries.</p>
+    <p class="text-muted small px-3 pt-3 mb-2">Ticket events queued before deliveries moved to the job queue; they finish sending and then this list stops growing. Showing the latest 100.</p>
     <div class="card-body p-0">
         <div class="table-responsive">
         <table class="table table-sm table-striped table-borderless mb-0">
@@ -140,17 +159,19 @@ require_once "includes/webhook_events.php";
         </div>
     </div>
 </div>
+<?php } ?>
 
+<?php if (isset($sql_wh) && mysqli_num_rows($sql_wh) > 0) { ?>
 <div class="card mt-3">
     <div class="card-header py-3">
-        <h3 class="card-title mb-0"><i class="fas fa-fw fa-bolt me-2"></i>Immediate deliveries</h3>
+        <h3 class="card-title mb-0"><i class="fas fa-fw fa-bolt me-2"></i>Deliveries</h3>
     </div>
-    <p class="text-muted small px-3 pt-3 mb-2">Platform events sent when they occur. Showing the latest 100 deliveries.</p>
+    <p class="text-muted small px-3 pt-3 mb-2">Every attempt, including retries (a failed delivery is retried after 1, 5, 30 and 120 minutes, then set aside as failed; see the Job queue page). Showing the latest 100.</p>
     <div class="card-body p-0">
         <div class="table-responsive">
         <table class="table table-sm table-striped table-borderless mb-0">
             <thead class="text-dark">
-                <tr><th>When</th><th>Webhook</th><th>Event</th><th>HTTP</th><th>Duration</th><th>Response</th></tr>
+                <tr><th>When</th><th>Webhook</th><th>Event</th><th>Attempt</th><th>HTTP</th><th>Duration</th><th>Response</th></tr>
             </thead>
             <tbody>
             <?php
@@ -159,7 +180,7 @@ require_once "includes/webhook_events.php";
                  JOIN webhooks w ON wd.webhook_id = w.webhook_id
                  ORDER BY wd.delivery_id DESC LIMIT 100");
             if (mysqli_num_rows($sql_direct) == 0) { ?>
-                <tr><td colspan="6" class="text-center text-muted py-3">No immediate deliveries yet.</td></tr>
+                <tr><td colspan="7" class="text-center text-muted py-3">No deliveries yet.</td></tr>
             <?php } else {
                 while ($drow = mysqli_fetch_assoc($sql_direct)) {
                     $http = intval($drow['http_status']);
@@ -171,6 +192,7 @@ require_once "includes/webhook_events.php";
                         <td class="text-nowrap text-secondary" title="<?= nullable_htmlentities($drow['created_at']) ?>"><?= timeAgo($drow['created_at']) ?></td>
                         <td><?= nullable_htmlentities($drow['webhook_name']) ?></td>
                         <td><code><?= nullable_htmlentities($drow['event_type']) ?></code></td>
+                        <td><?= intval($drow['attempt_number']) ?></td>
                         <td><?= $http_badge ?></td>
                         <td><?= intval($drow['duration_ms']) ?> ms</td>
                         <td class="text-truncate" style="max-width:260px;" title="<?= nullable_htmlentities($drow['response_body_snippet']) ?>"><?= nullable_htmlentities($drow['response_body_snippet']) ?></td>

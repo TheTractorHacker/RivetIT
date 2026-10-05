@@ -341,6 +341,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
               <div class='alert alert-danger'>
                 Incorrect username or password.
               </div>";
+        } else {
+            // Password-guessing throttle (Redis through RivetCore; open if Redis is unavailable).
+            require_once __DIR__ . '/includes/redis_guards.php';
+            $login_wait = rivetLoginThrottle($email, (string) getIP());
+            if ($login_wait > 0) {
+                header("HTTP/1.1 429 Too Many Requests");
+                header("Retry-After: $login_wait");
+                logAction("Login", "Throttled", "Too many sign-in attempts for $email");
+                $response = "
+                  <div class='alert alert-danger'>
+                    Too many sign-in attempts. Please wait a few minutes and try again.
+                  </div>";
+            }
         }
     }
 

@@ -13,6 +13,10 @@ require_once "../config.php";
 // Set Timezone
 require_once "../includes/inc_set_timezone.php";
 require_once "../functions.php";
+// Only one copy at a time (Redis lock through RivetCore; skipped if Redis is down).
+require_once dirname(__DIR__) . '/includes/redis_guards.php';
+rivetCronGuard('cron', 1800);
+
 require_once "../includes/backup_cron_settings.php";
 
 $sql_companies = mysqli_query($mysqli, "SELECT * FROM companies, settings WHERE companies.company_id = settings.company_id AND companies.company_id = 1");
@@ -138,6 +142,15 @@ try {
     slaReconcilePauses($mysqli);
 } catch (\Throwable $e) {
     error_log('SLA pause reconcile skipped: ' . $e->getMessage());
+}
+
+// Queued jobs (webhook deliveries, event-rule actions): a bounded pass here means they are delivered even where the separate
+// integration worker is not scheduled; a webhook that fails is retried with backoff (1, 5, 30, 120 minutes) before it is dead-lettered.
+try {
+    require_once dirname(__DIR__) . '/includes/event_bus.php';
+    rivetRunJobWorker($mysqli, 50, 25);
+} catch (\Throwable $e) {
+    error_log('Job worker pass skipped: ' . $e->getMessage());
 }
 
 // Retention. A compliance preset (Administration > Compliance) is a minimum: nothing is deleted younger than it, whatever the

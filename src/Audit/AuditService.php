@@ -30,7 +30,14 @@ class AuditService
         if (class_exists(\RivetCore\Audit\AuditService::class)) {
             $this->core = new \RivetCore\Audit\AuditService(
                 new MysqliDatabaseAdapter($mysqli),
-                new ServerRequestContext()
+                new ServerRequestContext(),
+                // Every audit event also goes to the event bus: webhooks subscribed to it, and event automation rules.
+                static function (string $eventType, ?int $actor, ?string $entityType, ?string $entityId, string $action, ?string $summary, array $metadata) {
+                    if (function_exists('queueWebhookEvent') || is_file(__DIR__ . '/../../includes/event_bus.php')) {
+                        require_once __DIR__ . '/../../includes/event_bus.php';
+                        rivetEmitEvent($eventType, ['actor_user_id' => $actor, 'entity_type' => $entityType, 'entity_id' => $entityId, 'action' => $action, 'summary' => $summary, 'metadata' => $metadata]);
+                    }
+                }
             );
         }
     }

@@ -5728,25 +5728,9 @@ function getWebhookTicketPayload($ticket_id) {
 }
 
 function queueWebhookEvent($event, $data) {
-    global $mysqli;
-    $event_safe = mysqli_real_escape_string($mysqli, $event);
-    $payload    = json_encode([
-        'event'     => $event,
-        'timestamp' => gmdate('Y-m-d\TH:i:s\Z'),
-        'data'      => $data,
-    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    $payload_safe = mysqli_real_escape_string($mysqli, $payload);
-    $sql = mysqli_query($mysqli,
-        "SELECT webhook_id FROM webhooks
-         WHERE webhook_enabled = 1
-           AND FIND_IN_SET('$event_safe', REPLACE(webhook_events, ', ', ','))"
-    );
-    while ($row = mysqli_fetch_assoc($sql)) {
-        $wid = intval($row['webhook_id']);
-        mysqli_query($mysqli,
-            "INSERT INTO webhook_queue SET queue_webhook_id = $wid, queue_event = '$event_safe', queue_payload = '$payload_safe'"
-        );
-    }
+    // One event bus now: webhooks (queued, signed, retried through the RivetCore job queue) and event automation rules.
+    require_once __DIR__ . '/includes/event_bus.php';
+    rivetEmitEvent((string) $event, is_array($data) ? $data : []);
 }
 
 // Encrypts a sensitive settings value (SMTP password, OAuth secret, RMM api_key_enc,

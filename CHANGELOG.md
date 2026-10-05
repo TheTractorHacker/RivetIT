@@ -6,6 +6,15 @@ continues unchanged.
 
 ## [Unreleased]
 
+### One event bus: queued webhooks, event rules and the job queue (rivet-core 0.15)
+
+- **Webhooks are now queued, signed and retried through the job queue.** An event creates one background job per subscribed endpoint; the body is signed (HMAC-SHA256) and identical on every retry. A failed delivery is retried after 1, 5, 30 and 120 minutes, then set aside as failed. The Webhooks page shows every attempt, including retries. Deliveries go out right after the page responds (and the main cron processes any left over), so they no longer wait for a schedule.
+- **Every audit event can be subscribed to or automated.** Logins, setting changes, workflow, problem and change events and the rest now flow through the same bus as ticket events, and the Webhooks event list includes every event type this server has recorded.
+- **New: Administration > Event rules.** When an event happens (optionally only if fields match), create a ticket, notify a user or call a webhook. `{field}` placeholders insert values from the event. Rules run through the job queue and each run is on the audit trail.
+- **New: Administration > Job queue.** Counts, the jobs, error details, Retry for failed jobs, Process jobs now.
+- **Redis guards.** Sign-in is throttled (10 attempts per account and 30 per address every 5 minutes, on top of the existing lockout), every cron script now runs one copy at a time, and a database update cannot be started twice. All fail open if Redis is down.
+- Requires rivet-core 0.15.1 (`composer install`). No database migration.
+
 ## [26.10.19] RivetIT — fix: blank Update page before the database update
 
 Fixes a blank **Administration > Update** page on a server that had pulled 26.10.18 but not yet run **Update Database**: the new release-channel setting did not exist yet and its lookup raised an error. The page now renders, shows the channel from the checked-out branch, and saving the channel before the database update says to run Update Database first. No database change.
