@@ -2003,6 +2003,59 @@
             "install-path": "../psr/simple-cache"
         },
         {
+            "name": "rivet/rivet-core",
+            "version": "v0.1.0",
+            "version_normalized": "0.1.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/TheTractorHacker/rivet-core.git",
+                "reference": "3816dcd7e1e7fce523236da7b42bcd85b6d22e66"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/TheTractorHacker/rivet-core/zipball/3816dcd7e1e7fce523236da7b42bcd85b6d22e66",
+                "reference": "3816dcd7e1e7fce523236da7b42bcd85b6d22e66",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.2"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^11.5"
+            },
+            "time": "2026-10-05T00:39:37+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "RivetCore\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "RivetCore\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "lint": [
+                    "find src tests -name '*.php' -print0 | xargs -0 -n1 php -l"
+                ],
+                "test": [
+                    "phpunit"
+                ]
+            },
+            "license": [
+                "GPL-3.0-only"
+            ],
+            "description": "Edition-neutral services shared by RivetIT and RivetMSP: audit, jobs, Redis helpers, MCP pipeline and ITSM building blocks.",
+            "homepage": "https://github.com/TheTractorHacker/rivet-core",
+            "support": {
+                "issues": "https://github.com/TheTractorHacker/rivet-core/issues",
+                "source": "https://github.com/TheTractorHacker/rivet-core"
+            },
+            "install-path": "../rivet/rivet-core"
+        },
+        {
             "name": "symfony/deprecation-contracts",
             "version": "v3.7.1",
             "version_normalized": "3.7.1.0",

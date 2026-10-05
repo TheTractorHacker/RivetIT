@@ -9645,3 +9645,17 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.123'");
     }
+
+    if ($rivetit_db_version() == '2.6.123') {
+        // RivetCore (shared package) keeps its own migration state in rivet_core_migrations, independent of this
+        // database version. Run it here; it is idempotent and a no-op for audit_events, which 2.6.51 already created.
+        // Skipped (version NOT advanced, so it retries) if rivet/rivet-core is not installed yet.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.124'");
+        }
+    }

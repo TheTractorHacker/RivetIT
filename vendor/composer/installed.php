@@ -3,7 +3,7 @@
         'name' => 'rivetit/rivetit',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '59cf01dcdfdf88eb4b56c5a47b2f281b26b1ce6d',
+        'reference' => '6f63338c265d6a29e770445a3e4da80b7984212f',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -238,8 +238,8 @@
         'psr/http-client-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '1.0',
-                1 => '*',
+                0 => '*',
+                1 => '1.0',
             ),
         ),
         'psr/http-factory' => array(
@@ -254,9 +254,9 @@
         'psr/http-factory-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '1.1',
+                0 => '*',
                 1 => '1.0',
-                2 => '*',
+                2 => '1.1',
             ),
         ),
         'psr/http-message' => array(
@@ -271,9 +271,9 @@
         'psr/http-message-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '2.0',
+                0 => '*',
                 1 => '1.0',
-                2 => '*',
+                2 => '2.0',
             ),
         ),
         'psr/http-server-handler' => array(
@@ -312,10 +312,19 @@
             'aliases' => array(),
             'dev_requirement' => false,
         ),
+        'rivet/rivet-core' => array(
+            'pretty_version' => 'v0.1.0',
+            'version' => '0.1.0.0',
+            'reference' => '3816dcd7e1e7fce523236da7b42bcd85b6d22e66',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../rivet/rivet-core',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
         'rivetit/rivetit' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '59cf01dcdfdf88eb4b56c5a47b2f281b26b1ce6d',
+            'reference' => '6f63338c265d6a29e770445a3e4da80b7984212f',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

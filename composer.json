@@ -16,11 +16,17 @@
         "firebase/php-jwt": "^7.2",
         "mcp/sdk": "^0.8.1",
         "nyholm/psr7": "^1.8",
-        "psr/simple-cache": "^3.0"
+        "psr/simple-cache": "^3.0",
+        "rivet/rivet-core": "^0.1"
     },
     "autoload": {
         "psr-4": {
             "ITFlow\\": "src/"
         }
-    }
+    },
+    "repositories": [{
+        "name": "rivet-core",
+        "type": "vcs",
+        "url": "https://github.com/TheTractorHacker/rivet-core"
+    }]
 }

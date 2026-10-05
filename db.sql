@@ -2363,6 +2363,27 @@ CREATE TABLE `remember_tokens` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `rivet_core_migrations`
+--
+
+DROP TABLE IF EXISTS `rivet_core_migrations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rivet_core_migrations` (
+  `migration_id` varchar(100) NOT NULL,
+  `applied_at` datetime NOT NULL,
+  PRIMARY KEY (`migration_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `rivet_core_migrations`
+-- (audit_events is created by this file, so Core migration 0001 is already satisfied)
+--
+
+INSERT INTO `rivet_core_migrations` (`migration_id`, `applied_at`) VALUES ('0001_audit_events', current_timestamp());
+
+--
 -- Table structure for table `revenues`
 --
 
