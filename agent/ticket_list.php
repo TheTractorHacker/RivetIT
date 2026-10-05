@@ -7,6 +7,7 @@ if (!defined('FROM_TICKETS_PAGE')) {
     header("Location: tickets.php");
     exit();
 }
+require_once "../includes/sla_functions.php";
 
 // Pre-load all techs for inline assignment dropdowns
 $_techs_list = [];
