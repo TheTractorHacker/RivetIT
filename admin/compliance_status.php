@@ -16,6 +16,40 @@ $snapshots = $ready ? ComplianceService::snapshots($mysqli)->list(12) : [];
 $shared_ready = $ready && ComplianceService::sharedReady($mysqli);
 $shared = $shared_ready ? ComplianceService::shared($mysqli)->current() : null;
 
+// Who is responsible: the organization itself, or a provider (a vendor) that looks after a section or a single item.
+$resp_ready = $ready && ComplianceService::responsibilitiesReady($mysqli);
+$resp_all = $resp_ready ? ComplianceService::responsibilities($mysqli)->all() : [];
+$vendors = [];
+if ($resp_ready) {
+    $vres = mysqli_query($mysqli, "SELECT vendor_id, vendor_name FROM vendors WHERE vendor_archived_at IS NULL ORDER BY vendor_name");
+    while ($vres && ($v = mysqli_fetch_assoc($vres))) {
+        $vendors[(int) $v['vendor_id']] = $v['vendor_name'];
+    }
+}
+$sections = [];
+$all_items = [];
+if ($assessment) {
+    foreach (array_merge($assessment->automatic, $assessment->manual) as $row) {
+        $sections[$row['category']] = true;
+        $all_items[$row['id']] = $row['title'];
+    }
+}
+$party_label = static fn (?string $name): string => $name !== null && $name !== '' ? $name : 'Internal';
+$party_select = static function (string $key, array $resp_all, array $vendors, bool $isItem): string {
+    $current = $resp_all[$key] ?? null;
+    $html = '<input type="hidden" name="r_key[]" value="' . nullable_htmlentities($key) . '"><select class="form-select form-select-sm" name="r_party[]">';
+    $html .= $isItem ? '<option value="inherit"' . ($current === null ? ' selected' : '') . '>Same as its section</option><option value="internal"' . ($current !== null && $current['ref'] === null ? ' selected' : '') . '>Internal IT</option>'
+        : '<option value="internal"' . ($current === null ? ' selected' : '') . '>Internal IT</option>';
+    foreach ($vendors as $id => $name) {
+        $html .= '<option value="' . (int) $id . '"' . ($current !== null && $current['ref'] === $id ? ' selected' : '') . '>' . nullable_htmlentities($name) . '</option>';
+    }
+    if ($current !== null && $current['ref'] !== null && !isset($vendors[$current['ref']])) {
+        $html .= '<option value="' . (int) $current['ref'] . '" selected>' . nullable_htmlentities($current['name']) . ' (no longer in Vendors)</option>';
+    }
+
+    return $html . '</select>';
+};
+
 $status_badge = ['pass' => 'success', 'warn' => 'warning text-dark', 'fail' => 'danger', 'na' => 'secondary', 'error' => 'danger'];
 $state_badge = ['current' => ['Current', 'success'], 'due_soon' => ['Due soon', 'warning text-dark'], 'overdue' => ['Overdue', 'danger'], 'never' => ['Never reviewed', 'secondary']];
 
@@ -89,11 +123,36 @@ $q = static fn (array $extra): string => http_build_query(array_filter($extra, s
     <?php } ?>
 </div>
 
+<?php if ($resp_ready && $assessment) { ?>
+<div class="card mb-3">
+    <div class="card-header py-3"><h4 class="card-title mb-0"><i class="fas fa-fw fa-people-arrows me-2"></i>Who is responsible</h4></div>
+    <div class="card-body">
+        <p class="text-muted small">If a managed service provider looks after part of your compliance, choose them for that section. Everything unassigned is the responsibility of your own staff. The choice appears next to each item here, in exports and in snapshots. Providers come from <a href="/agent/vendors.php">Vendors</a>.</p>
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <div class="row g-2">
+                <?php foreach (array_keys($sections) as $cat) { ?>
+                    <div class="col-md-4"><label class="form-label small mb-0"><?= nullable_htmlentities($cat) ?></label><?= $party_select('section:' . $cat, $resp_all, $vendors, false) ?></div>
+                <?php } ?>
+            </div>
+            <details class="mt-3"><summary class="small text-muted">Assign a single item differently</summary>
+                <div class="row g-2 mt-1">
+                    <?php foreach ($all_items as $iid => $ititle) { ?>
+                        <div class="col-md-6"><label class="form-label small mb-0"><?= nullable_htmlentities($ititle) ?></label><?= $party_select('item:' . $iid, $resp_all, $vendors, true) ?></div>
+                    <?php } ?>
+                </div>
+            </details>
+            <div class="mt-3"><button class="btn btn-primary btn-sm" type="submit" name="save_compliance_responsibilities">Save</button></div>
+        </form>
+    </div>
+</div>
+<?php } ?>
+
 <div class="card mb-3">
     <div class="card-header py-3"><h4 class="card-title mb-0"><i class="fas fa-fw fa-robot me-2"></i>Automatic checks <?= $fw !== '' ? '<small class="text-muted">(' . nullable_htmlentities(Framework::LABELS[$fw]) . ')</small>' : '' ?></h4></div>
     <div class="table-responsive">
         <table class="table table-sm table-hover mb-0 align-middle">
-            <thead><tr><th>Check</th><th>Result</th><th>Finding</th><th class="d-none d-lg-table-cell">Controls</th></tr></thead>
+            <thead><tr><th>Check</th><th>Result</th><th>Finding</th><?php if ($resp_all) { ?><th>Responsible</th><?php } ?><th class="d-none d-lg-table-cell">Controls</th></tr></thead>
             <tbody>
             <?php foreach ($assessment->automatic as $r) { if (!$in_fw($r['controls'])) { continue; } $href = $fix_href($r['fix_path']); ?>
                 <tr>
@@ -101,6 +160,7 @@ $q = static fn (array $extra): string => http_build_query(array_filter($extra, s
                     <td><span class="badge bg-<?= $status_badge[$r['status']] ?? 'secondary' ?>"><?= nullable_htmlentities($r['status_label']) ?></span></td>
                     <td><?= nullable_htmlentities($r['summary']) ?><?php if ($r['detail']) { ?><div class="small text-muted"><?= nullable_htmlentities($r['detail']) ?></div><?php } ?>
                         <?php if ($href && in_array($r['status'], ['warn', 'fail'], true)) { ?><a class="small" href="<?= nullable_htmlentities($href) ?>">Fix this &rarr;</a><?php } ?></td>
+                    <?php if ($resp_all) { ?><td class="small"><?= nullable_htmlentities($party_label($r['responsible'] ?? null)) ?></td><?php } ?>
                     <td class="small text-muted d-none d-lg-table-cell"><?= nullable_htmlentities($controls_text($r['controls'])) ?></td>
                 </tr>
             <?php } ?>
@@ -114,18 +174,19 @@ $q = static fn (array $extra): string => http_build_query(array_filter($extra, s
     <div class="card-body pb-0"><p class="text-muted small">Things a person must do and sign off. Record each review with who did it and when; the item shows as current until its next review is due. Add the evidence (a link or where the document lives) in the note.</p></div>
     <div class="table-responsive">
         <table class="table table-sm mb-0 align-middle">
-            <thead><tr><th>Item</th><th>State</th><th>Last review</th><th class="d-none d-lg-table-cell">Controls</th><th></th></tr></thead>
+            <thead><tr><th>Item</th><th>State</th><th>Last review</th><?php if ($resp_all) { ?><th>Responsible</th><?php } ?><th class="d-none d-lg-table-cell">Controls</th><th></th></tr></thead>
             <tbody>
             <?php foreach ($assessment->manual as $r) { if (!$in_fw($r['controls'])) { continue; } $sb = $state_badge[$r['state']] ?? [$r['state'], 'secondary']; ?>
                 <tr>
                     <td><strong><?= nullable_htmlentities($r['title']) ?></strong><div class="small text-muted"><?= nullable_htmlentities($r['category']) ?> &middot; every <?= (int) $r['interval_days'] ?> days &middot; <?= nullable_htmlentities($r['why']) ?></div></td>
                     <td><span class="badge bg-<?= $sb[1] ?>"><?= nullable_htmlentities($sb[0]) ?></span></td>
                     <td class="small"><?php if ($r['reviewed_on']) { ?><?= nullable_htmlentities($r['reviewed_on']) ?> by <?= nullable_htmlentities((string) $r['reviewer_name']) ?><br>next due <?= nullable_htmlentities((string) $r['next_due_on']) ?><?php if ($r['note']) { ?><div class="text-muted"><?= nullable_htmlentities((string) $r['note']) ?></div><?php } ?><?php } else { ?>&mdash;<?php } ?></td>
+                    <?php if ($resp_all) { ?><td class="small"><?= nullable_htmlentities($party_label($r['responsible'] ?? null)) ?></td><?php } ?>
                     <td class="small text-muted d-none d-lg-table-cell"><?= nullable_htmlentities($controls_text($r['controls'])) ?></td>
                     <td class="text-end"><button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#rev_<?= nullable_htmlentities($r['id']) ?>">Record review</button></td>
                 </tr>
                 <tr class="collapse" id="rev_<?= nullable_htmlentities($r['id']) ?>">
-                    <td colspan="5" class="bg-light">
+                    <td colspan="6" class="bg-light">
                         <form action="post.php" method="post" autocomplete="off" class="row g-2 align-items-end">
                             <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
                             <input type="hidden" name="item_id" value="<?= nullable_htmlentities($r['id']) ?>">

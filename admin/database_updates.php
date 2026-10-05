@@ -9709,3 +9709,16 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.128'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.128') {
+        // Who is responsible for each section of compliance (an outsourced MSP, or the organization itself): RivetCore 0.14 adds
+        // compliance_responsibilities through its own migration runner (idempotent). Skipped (version NOT advanced) until present.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Compliance\Migration\Migration0011Responsibilities::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.129'");
+        }
+    }

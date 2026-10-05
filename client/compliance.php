@@ -25,6 +25,7 @@ if ($shared === null) {
 }
 
 $view = $shared['view'];
+$has_party = (bool) array_filter(array_merge($view['automatic'], $view['manual']), static fn (array $r) => !empty($r['responsible']));
 $fw = (string) ($_GET['framework'] ?? '');
 $fw = Framework::isValid($fw) ? $fw : '';
 $keep = static fn (array $row): bool => $fw === '' || in_array($fw, $row['frameworks'], true);
@@ -60,10 +61,10 @@ $state = ['current' => ['Current', 'success'], 'due_soon' => ['Due soon', 'warni
 <div class="card mb-4">
     <div class="card-header"><strong>Technical controls</strong></div>
     <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
-        <thead><tr><th>Control</th><th>Area</th><th>Result</th></tr></thead>
+        <thead><tr><th>Control</th><th>Area</th><th>Result</th><?php if ($has_party) { ?><th>Responsible</th><?php } ?></tr></thead>
         <tbody>
         <?php foreach ($view['automatic'] as $r) { if (!$keep($r)) { continue; } ?>
-            <tr><td><?= nullable_htmlentities($r['title']) ?></td><td class="text-muted"><?= nullable_htmlentities($r['category']) ?></td><td><span class="badge text-bg-<?= $auto_badge[$r['status']] ?? 'secondary' ?>"><?= nullable_htmlentities($r['status_label']) ?></span></td></tr>
+            <tr><td><?= nullable_htmlentities($r['title']) ?></td><td class="text-muted"><?= nullable_htmlentities($r['category']) ?></td><td><span class="badge text-bg-<?= $auto_badge[$r['status']] ?? 'secondary' ?>"><?= nullable_htmlentities($r['status_label']) ?></span></td><?php if ($has_party) { ?><td><?= nullable_htmlentities($r['responsible'] ?: 'Internal') ?></td><?php } ?></tr>
         <?php } ?>
         </tbody>
     </table></div>
@@ -72,10 +73,10 @@ $state = ['current' => ['Current', 'success'], 'due_soon' => ['Due soon', 'warni
 <div class="card mb-4">
     <div class="card-header"><strong>Policies and reviews</strong></div>
     <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
-        <thead><tr><th>Item</th><th>Area</th><th>Status</th><th>Last reviewed</th></tr></thead>
+        <thead><tr><th>Item</th><th>Area</th><th>Status</th><th>Last reviewed</th><?php if ($has_party) { ?><th>Responsible</th><?php } ?></tr></thead>
         <tbody>
         <?php foreach ($view['manual'] as $r) { if (!$keep($r)) { continue; } $st = $state[$r['state']] ?? [$r['state'], 'secondary']; ?>
-            <tr><td><?= nullable_htmlentities($r['title']) ?></td><td class="text-muted"><?= nullable_htmlentities($r['category']) ?></td><td><span class="badge text-bg-<?= $st[1] ?>"><?= nullable_htmlentities($st[0]) ?></span></td><td><?= $r['reviewed_on'] ? nullable_htmlentities($r['reviewed_on']) : '&mdash;' ?></td></tr>
+            <tr><td><?= nullable_htmlentities($r['title']) ?></td><td class="text-muted"><?= nullable_htmlentities($r['category']) ?></td><td><span class="badge text-bg-<?= $st[1] ?>"><?= nullable_htmlentities($st[0]) ?></span></td><td><?= $r['reviewed_on'] ? nullable_htmlentities($r['reviewed_on']) : '&mdash;' ?></td><?php if ($has_party) { ?><td><?= nullable_htmlentities($r['responsible'] ?: 'Internal') ?></td><?php } ?></tr>
         <?php } ?>
         </tbody>
     </table></div>

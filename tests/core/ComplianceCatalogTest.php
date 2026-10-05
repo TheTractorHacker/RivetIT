@@ -134,4 +134,16 @@ final class ComplianceCatalogTest extends TestCase
         }
         $this->assertSame($ids, array_values(array_unique($ids)), 'ids are unique across automatic checks and manual items');
     }
+
+    /** The admin page does not load includes/database_version.php, so the check must find the latest version itself. */
+    public function testSchemaCheckWorksWhenVersionConstantsAreNotDefined(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $code = 'require ' . var_export($root . '/vendor/autoload.php', true) . '; mysqli_report(MYSQLI_REPORT_OFF);'
+            . '$m = new mysqli(getenv("RIVETCORE_TEST_DB_HOST") ?: "localhost", getenv("RIVETCORE_TEST_DB_USER"), getenv("RIVETCORE_TEST_DB_PASS"), getenv("RIVETCORE_TEST_DB_NAME"));'
+            . '$latest = preg_match("/LATEST_DATABASE_VERSION.,\\s*.([0-9.]+)/", file_get_contents(' . var_export($root . '/includes/database_version.php', true) . '), $v) ? $v[1] : "";'
+            . '$cat = new \\ITFlow\\Compliance\\ComplianceCatalog($m, ' . var_export($root, true) . ', ["config_current_database_version" => $latest]);'
+            . 'foreach ($cat->checks() as $c) { if ($c->id() === "schema_current") { echo $c->run()->status->value; } }';
+        $this->assertSame('pass', trim((string) shell_exec(escapeshellarg(PHP_BINARY) . ' -r ' . escapeshellarg($code) . ' 2>&1')));
+    }
 }

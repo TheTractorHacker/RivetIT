@@ -12,9 +12,10 @@ class P(BaseHTTPRequestHandler):
         self.send_response(r.status)
         for k, v in r.getheaders():
             if k.lower() in ("transfer-encoding", "connection", "content-length"): continue
-            self.send_header(k, v)
+            # Header names and values come from the upstream response: never let a CR or LF through (response splitting).
+            self.send_header(k.replace("\r", "").replace("\n", ""), v.replace("\r", "").replace("\n", ""))
         self.send_header("Content-Length", str(len(data))); self.send_header("Connection", "close"); self.end_headers(); self.wfile.write(data)
     do_GET = do_POST = do_PUT = do_DELETE = do_HEAD = fwd
 srv = ThreadingHTTPServer(("127.0.0.1", 9444), P)
-ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); ctx.load_cert_chain("srv.pem", "srv.key")
+ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); ctx.minimum_version = ssl.TLSVersion.TLSv1_2; ctx.load_cert_chain("srv.pem", "srv.key")
 srv.socket = ctx.wrap_socket(srv.socket, server_side=True); print("tls proxy up", flush=True); srv.serve_forever()

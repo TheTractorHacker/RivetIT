@@ -84,3 +84,54 @@ if (isset($_POST['unpublish_compliance_report'])) {
     flash_alert('No longer shared.');
     redirect();
 }
+
+if (isset($_POST['save_compliance_responsibilities'])) {
+    validateCSRFToken($_POST['csrf_token']);
+
+    if (!ComplianceService::responsibilitiesReady($mysqli)) {
+        flash_alert('Run the database update first.', 'error');
+        redirect();
+    }
+
+    // Only sections and items that really exist, and only vendors that really exist.
+    $assessment = ComplianceService::assess($mysqli);
+    $valid_keys = [];
+    foreach (array_merge($assessment->automatic, $assessment->manual) as $row) {
+        $valid_keys['section:' . $row['category']] = true;
+        $valid_keys['item:' . $row['id']] = true;
+    }
+    $keys = array_map('strval', (array) ($_POST['r_key'] ?? []));
+    $parties = array_map('strval', (array) ($_POST['r_party'] ?? []));
+    $store = ComplianceService::responsibilities($mysqli);
+    $before = $store->names();
+    $changed = 0;
+    foreach ($keys as $i => $key) {
+        $choice = $parties[$i] ?? 'internal';
+        if (!isset($valid_keys[$key])) {
+            continue;
+        }
+        $is_item = str_starts_with($key, 'item:');
+        if ($choice === 'inherit' || ($choice === 'internal' && !$is_item)) {
+            $store->clear($key);
+        } elseif ($choice === 'internal') {
+            $store->assign($key, null, 'Internal IT', (int) $session_user_id);
+        } elseif (ctype_digit($choice)) {
+            $vendor_id = intval($choice);
+            $vres = mysqli_query($mysqli, "SELECT vendor_name FROM vendors WHERE vendor_id = $vendor_id AND vendor_archived_at IS NULL");
+            $vrow = $vres ? mysqli_fetch_assoc($vres) : null;
+            if (!$vrow) {
+                continue;
+            }
+            $store->assign($key, $vendor_id, (string) $vrow['vendor_name'], (int) $session_user_id);
+        }
+    }
+    $after = $store->names();
+    $changed = $before === $after ? 0 : 1;
+
+    if ($changed) {
+        logAction('Compliance', 'Edit', "$session_name changed who is responsible for compliance sections");
+        AuditService::record('compliance.responsibilities_changed', (int) $session_user_id, 'compliance', 'responsibilities', 'update', 'Compliance responsibilities changed', ['before' => $before, 'after' => $after]);
+    }
+    flash_alert($changed ? 'Responsibilities saved.' : 'No changes.');
+    redirect();
+}

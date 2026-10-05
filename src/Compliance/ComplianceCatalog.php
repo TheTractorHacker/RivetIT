@@ -205,14 +205,22 @@ final class ComplianceCatalog
             'Running current code with a matching database schema avoids known defects and vulnerabilities.',
             [F::ISO27001 => ['A.8.8', 'A.8.32'], F::SOC2 => ['CC7.1', 'CC8.1'], F::PCI => ['6.3.3'], F::HIPAA => ['164.308(a)(1)(ii)(B)']],
             function (): CheckResult {
-                if (!defined("LATEST_DATABASE_VERSION") || !defined("CURRENT_DATABASE_VERSION")) {
+                // The latest version lives in a small file that only some pages load; read it when it is not defined yet.
+                $latest = defined('LATEST_DATABASE_VERSION') ? (string) LATEST_DATABASE_VERSION : null;
+                if ($latest === null) {
+                    $file = $this->appRoot . '/includes/database_version.php';
+                    if (is_file($file) && preg_match('/LATEST_DATABASE_VERSION["\']\s*,\s*["\']([0-9.]+)["\']/', (string) file_get_contents($file), $m)) {
+                        $latest = $m[1];
+                    }
+                }
+                $cur = defined('CURRENT_DATABASE_VERSION') ? (string) CURRENT_DATABASE_VERSION : (string) $this->setting('config_current_database_version', '');
+                if ($latest === null || $cur === '') {
                     return CheckResult::error('Version information is unavailable.');
                 }
-                $cur = (string) CURRENT_DATABASE_VERSION;
 
-                return $cur === LATEST_DATABASE_VERSION
+                return version_compare($cur, $latest, '>=')
                     ? CheckResult::pass('Database schema is at ' . $cur . '.')
-                    : CheckResult::fail("Database is at $cur but the code expects " . LATEST_DATABASE_VERSION . '.', 'Run the update from Administration.', 'database_updates.php');
+                    : CheckResult::fail("Database is at $cur but the code expects $latest.", 'Run the update from Administration.', 'database_updates.php');
             });
 
         if ((int) $this->setting('config_module_enable_training', 0) === 1) {

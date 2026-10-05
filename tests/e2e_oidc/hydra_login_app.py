@@ -29,5 +29,5 @@ class H(BaseHTTPRequestHandler):
             return self.redirect(res["redirect_to"])
         self.send_response(404); self.send_header("Content-Length", "0"); self.end_headers()
 srv = ThreadingHTTPServer(("127.0.0.1", 9447), H)
-ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); ctx.load_cert_chain("srv.pem", "srv.key"); srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
+ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); ctx.minimum_version = ssl.TLSVersion.TLSv1_2; ctx.load_cert_chain("srv.pem", "srv.key"); srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
 print("hydra login app up", flush=True); srv.serve_forever()
