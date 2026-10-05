@@ -1,14 +1,12 @@
 <?php
 
-use ITFlow\Audit\AuditService;
-use ITFlow\Redis\RateLimit;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Server\RequestContext;
 
 require_once __DIR__ . '/../includes/module_access.php';
 
 /** Raised inside a tool body when the requested record does not exist or is outside the caller's scope. */
-final class McpNotFound extends RuntimeException {}
+final class McpNotFound extends \RivetCore\Mcp\NotFoundException {}
 
 /**
  * Read-only MCP tools. Every tool goes through run(): token -> rate limit -> RivetIT role check -> the tool's
@@ -53,54 +51,37 @@ final class RivetITMcpReadTools
         return $id;
     }
 
+    private ?\RivetCore\Mcp\ToolPipeline $pipeline = null;
+
+    /** The shared pipeline (rate limit -> permission -> scoped read -> audit -> envelope) lives in RivetCore. */
+    private function pipeline(): \RivetCore\Mcp\ToolPipeline
+    {
+        $request = new \ITFlow\Core\Adapter\Http\ServerRequestContext();
+
+        return $this->pipeline ??= new \RivetCore\Mcp\ToolPipeline(
+            new \RivetCore\Redis\RateLimiter(new \ITFlow\Core\Adapter\Redis\GlobalRedisClientProvider(), 'rivetit:'),
+            new \RivetCore\Audit\AuditService(new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($this->db), $request),
+            $request,
+            self::RATE_LIMIT,
+            self::RATE_WINDOW
+        );
+    }
+
     /** @param callable(array):bool $allow gets the caller's access profile; @param callable(int):array $body */
     private function run(RequestContext $context, string $tool, array $args, callable $allow, callable $body): array
     {
-        $requestId = $_SERVER['HTTP_X_REQUEST_ID'] ?? ('req_' . bin2hex(random_bytes(8)));
         try {
             $uid = $this->userId($context);
         } catch (Throwable) {
-            return self::envelope($requestId, null, 'PERMISSION_DENIED', 'MCP authorization failed.');
+            $uid = null;
         }
 
-        $limit = RateLimit::hit("mcp:u$uid", self::RATE_LIMIT, self::RATE_WINDOW);
-        if (!$limit['allowed']) {
-            $this->audit($uid, $tool, $args, 'rate_limited');
-            return self::envelope($requestId, null, 'RATE_LIMITED', 'Too many requests. Retry in ' . $limit['retry_after'] . 's.');
-        }
-        if (!$allow(itflow_user_access_profile($uid))) {
-            $this->audit($uid, $tool, $args, 'denied');
-            return self::envelope($requestId, null, 'PERMISSION_DENIED', 'Your RivetIT role does not allow this.');
-        }
-        try {
-            $data = $body($uid);
-        } catch (McpNotFound) {
-            $this->audit($uid, $tool, $args, 'not_found');
-            return self::envelope($requestId, null, 'NOT_FOUND', 'Not found.');
-        } catch (Throwable $e) {
-            error_log("MCP $tool failed: " . $e->getMessage());
-            $this->audit($uid, $tool, $args, 'error');
-            return self::envelope($requestId, null, 'INTERNAL_ERROR', 'The request could not be completed.');
-        }
-        $this->audit($uid, $tool, $args, 'ok', array_is_list($data) ? count($data) : 1);
-        return ['success' => true, 'request_id' => $requestId, 'data' => $data, 'errors' => []];
-    }
-
-    private static function envelope(string $requestId, mixed $data, string $code, string $message): array
-    {
-        return ['success' => false, 'request_id' => $requestId, 'data' => $data, 'errors' => [['code' => $code, 'message' => $message]]];
-    }
-
-    /** Best effort: an audit failure must never turn a permitted read into an error. */
-    private function audit(int $uid, string $tool, array $args, string $outcome, ?int $rows = null): void
-    {
-        try {
-            $safe = array_map(static fn($v) => is_string($v) ? mb_substr($v, 0, 100) : $v, $args);
-            (new AuditService($this->db))->log('mcp.tool_call', $uid, 'mcp_tool', $tool, 'read',
-                "MCP $tool: $outcome", ['source' => 'mcp', 'tool' => $tool, 'outcome' => $outcome, 'args' => $safe, 'rows' => $rows]);
-        } catch (Throwable $e) {
-            error_log('MCP audit failed: ' . $e->getMessage());
-        }
+        return $this->pipeline()->run(
+            $uid, $tool, $args,
+            static fn(int $u): bool => $allow(itflow_user_access_profile($u)),
+            $body,
+            'RivetIT role'
+        );
     }
 
     /* ---------------------------------------------------------------- helpers */

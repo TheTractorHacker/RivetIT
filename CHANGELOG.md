@@ -28,6 +28,12 @@ queue's `claim()` is now safe for concurrent workers and returns the claimed sta
 correct (the old worker used a pre-claim snapshot, so the first failure waited two hours instead of one minute); and a job that exits without a
 trailing newline no longer hides its exit status in the Cron Manager.
 
+MCP and ITSM are the fifth and sixth modules. Remote MCP's config resolution, token-claim checks, tool pipeline (rate limit, role check, audit row, standard envelope),
+unlinked-identity capture and linking, diagnostics and discovery cache now live in RivetCore; the SDK wiring (`mcp_server/`), every tool's SQL and the `users` queries stay in
+RivetIT (`src/Core/Adapter/Mcp/UsersAgentDirectory.php`). Problem and Change management delegate to RivetCore's `ProblemService` / `ChangeService` (status tables are now public
+constants there); the ticket link stays in RivetIT. Database migration 2.6.124 also records Core migrations 0003 and 0004, which are no-ops here because the tables already exist.
+The composer repository entry now uses `no-api`, so installs clone over HTTPS instead of calling the GitHub API (avoids anonymous rate limits on deploy).
+
 ## Unreleased — Redis building blocks and a wider read-only MCP
 
 Remote MCP (still off by default) now has eight more read-only tools: ticket search and detail, asset search and

@@ -2381,7 +2381,7 @@ CREATE TABLE `rivet_core_migrations` (
 -- (audit_events is created by this file, so Core migration 0001 is already satisfied)
 --
 
-INSERT INTO `rivet_core_migrations` (`migration_id`, `applied_at`) VALUES ('0001_audit_events', current_timestamp()), ('0002_integration_jobs', current_timestamp());
+INSERT INTO `rivet_core_migrations` (`migration_id`, `applied_at`) VALUES ('0001_audit_events', current_timestamp()), ('0002_integration_jobs', current_timestamp()), ('0003_mcp_unlinked_identities', current_timestamp()), ('0004_problems_and_changes', current_timestamp());
 
 --
 -- Table structure for table `revenues`

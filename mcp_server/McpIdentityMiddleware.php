@@ -14,8 +14,7 @@ final class McpIdentityMiddleware implements MiddlewareInterface
     /** The MCP audience must be the token's only intended recipient. */
     public static function hasDedicatedAudience(array $claims, string $audience): bool
     {
-        $tokenAudience = $claims['aud'] ?? null;
-        return $tokenAudience === $audience || $tokenAudience === [$audience];
+        return \RivetCore\Mcp\TokenClaimsGuard::hasDedicatedAudience($claims, $audience);
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -23,14 +22,7 @@ final class McpIdentityMiddleware implements MiddlewareInterface
         $subject = $request->getAttribute('oauth.subject');
         $scopes = $request->getAttribute('oauth.scopes');
         $claims = $request->getAttribute('oauth.claims');
-        if (!is_string($subject) || $subject === '' || strlen($subject) > 255
-            || !is_array($scopes) || !in_array('mcp:read', $scopes, true)
-            || !is_array($claims) || !self::hasDedicatedAudience($claims, $this->audience)
-            || !is_int($claims['exp'] ?? null)
-            || !is_int($claims['iat'] ?? null)
-            || $claims['iat'] > time() + 60
-            || $claims['exp'] <= $claims['iat']
-            || $claims['exp'] - $claims['iat'] > 3600) {
+        if (!\RivetCore\Mcp\TokenClaimsGuard::acceptable($subject, $scopes, $claims, $this->audience)) {
             return new Response(403, ['Cache-Control' => 'no-store']);
         }
         $stmt = $this->db->prepare('SELECT user_id FROM users
