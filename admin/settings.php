@@ -35,6 +35,7 @@ $settings_groups = [
         'description' => 'Control sign-in, email, and alerts.',
         'items' => [
             ['Security', 'Sign-in and security options.', 'settings_security.php', 'fa-shield-alt'],
+            ['Compliance', 'Retention presets and audit-trail retention.', 'settings_compliance.php', 'fa-clipboard-check'],
             ['Mail', 'Sending and receiving email.', 'settings_mail.php', 'fa-envelope'],
             ['Notifications', 'Choose which events send alerts.', 'settings_notification.php', 'fa-bell'],
             ['Identity provider', 'Set up portal single sign-on.', 'identity_provider.php', 'fa-fingerprint', (bool) $config_client_portal_enable],

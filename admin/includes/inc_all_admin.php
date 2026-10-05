@@ -41,6 +41,7 @@ $admin_settings_labels = [
     'settings_kb.php' => 'Knowledge Base',
     'settings_custom_fields.php' => 'Custom fields',
     'settings_security.php' => 'Security',
+    'settings_compliance.php' => 'Compliance',
     'settings_mail.php' => 'Mail',
     'settings_notification.php' => 'Notifications',
     'identity_provider.php' => 'Identity provider',

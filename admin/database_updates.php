@@ -9659,3 +9659,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.124'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.124') {
+        // Compliance (Administration > Compliance): a retention preset (a minimum below which audit records are never deleted)
+        // and a separate retention for the audit trail. 365 days keeps more than the old behaviour (the activity-log
+        // setting), never less; 0 means keep forever.
+        mysqli_query($mysqli, "ALTER TABLE `settings`
+            ADD COLUMN IF NOT EXISTS `config_compliance_profile` varchar(20) NOT NULL DEFAULT 'none',
+            ADD COLUMN IF NOT EXISTS `config_audit_retention_days` int(11) NOT NULL DEFAULT 365");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.125'");
+    }

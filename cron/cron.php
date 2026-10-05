@@ -131,19 +131,26 @@ mysqli_query($mysqli, "DELETE FROM email_queue WHERE email_queued_at < CURDATE()
 // Clean-up old remember me tokens
 mysqli_query($mysqli, "DELETE FROM remember_tokens WHERE remember_token_created_at < CURDATE() - INTERVAL $config_login_remember_me_expire DAY");
 
-// Cleanup old audit, app/debug and auth logs. A retention of 0 (or blank) keeps them: before, it deleted
-// every row older than today.
-if ($config_log_retention >= 1) {
-    mysqli_query($mysqli, "DELETE FROM logs WHERE log_created_at < CURDATE() - INTERVAL $config_log_retention DAY");
-    mysqli_query($mysqli, "DELETE FROM app_logs WHERE app_log_created_at < CURDATE() - INTERVAL $config_log_retention DAY");
-    mysqli_query($mysqli, "DELETE FROM auth_logs WHERE auth_log_created_at < CURDATE() - INTERVAL $config_log_retention DAY");
+// Retention. A compliance preset (Administration > Compliance) is a minimum: nothing is deleted younger than it, whatever the
+// stored numbers say. 0 (or blank) keeps everything: before, a retention of 0 deleted every row older than today.
+$compliance_profile = (string) ($settings_row['config_compliance_profile'] ?? 'none');
+$audit_retention_stored = intval($settings_row['config_audit_retention_days'] ?? 365);
+$has_retention_policy = class_exists(\RivetCore\Compliance\RetentionPolicy::class);
+$log_retention_days = $has_retention_policy ? \RivetCore\Compliance\RetentionPolicy::effectiveDays($compliance_profile, $config_log_retention) : max(0, $config_log_retention);
+$audit_retention_days = $has_retention_policy ? \RivetCore\Compliance\RetentionPolicy::effectiveDays($compliance_profile, $audit_retention_stored) : max(0, $audit_retention_stored);
+
+// Cleanup old audit, app/debug and auth logs.
+if ($log_retention_days >= 1) {
+    mysqli_query($mysqli, "DELETE FROM logs WHERE log_created_at < CURDATE() - INTERVAL $log_retention_days DAY");
+    mysqli_query($mysqli, "DELETE FROM app_logs WHERE app_log_created_at < CURDATE() - INTERVAL $log_retention_days DAY");
+    mysqli_query($mysqli, "DELETE FROM auth_logs WHERE auth_log_created_at < CURDATE() - INTERVAL $log_retention_days DAY");
 }
 
-// RivetCore's own log tables (audit trail, webhook delivery log, finished integration jobs) follow the same horizon.
-// Never fatal: the cron's other work must run even if this table set is missing or the package is not installed yet.
-if ($config_log_retention >= 1 && class_exists(\RivetCore\Retention\RetentionService::class)) {
+// RivetCore's own log tables: the audit trail has its own horizon; the webhook delivery log and finished integration jobs
+// follow the activity-log horizon. Never fatal: the cron's other work must run even if these tables are missing.
+if (class_exists(\RivetCore\Retention\RetentionService::class)) {
     try {
-        (new \RivetCore\Retention\RetentionService(new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli)))->prune($config_log_retention);
+        (new \RivetCore\Retention\RetentionService(new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli)))->prune($log_retention_days, $audit_retention_days);
     } catch (\Throwable $e) {
         error_log('RivetCore retention skipped: ' . $e->getMessage());
     }

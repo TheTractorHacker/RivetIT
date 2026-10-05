@@ -4,6 +4,13 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## Unreleased — Compliance settings
+
+- **Administration > Settings > Compliance.** Pick a retention preset (ISO/IEC 27001, SOC 2, PCI DSS or HIPAA) and set how long the audit trail and the activity logs are kept. A preset is a **minimum**: records are never deleted younger than it (365 days, or 6 years for HIPAA), even if a number is set lower, and the hourly cleanup enforces it, not just the form. 0 keeps records forever and is always allowed. A preset helps meet a retention requirement; it does not make an organization compliant on its own.
+- The audit trail (sign-ins, setting changes, Remote MCP tool calls) now has its own retention, separate from the activity logs, webhook delivery log and finished background jobs. It defaults to 365 days, which keeps more than before.
+- Saving the page is itself recorded in the audit trail with the before and after values. Security > Log retention honours a preset's minimum too.
+- Database migration 2.6.125 adds the two settings. Upgraded to rivet-core 0.8.0.
+
 ## Unreleased — security follow-ups and log retention
 
 - **Request ids are server-assigned.** The audit trail used to store whatever `X-Request-ID` header a client sent, and the MCP endpoint read the same variable. Both now use a server-generated id (`$_SERVER['RIVET_REQUEST_ID']`, which `mcp_server/index.php` sets); a client header is never stored.
