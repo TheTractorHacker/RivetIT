@@ -4,7 +4,7 @@ require_once "inc_confirm_modal.php";
 
 <?php
 if (basename(dirname($_SERVER['REQUEST_URI'])) === 'admin') { ?>
-    <?php /* Docs / Source only when that link is published (empty while the repository is private: includes/branding.php). */ ?>
+    <?php /* Docs / Source only when that link is published (empty while APP_REPO_PUBLIC is 0: includes/branding.php). */ ?>
     <p class="text-end fw-light"><?= htmlspecialchars(APP_NAME) ?> <?= htmlspecialchars(APP_VERSION) ?><?php if (APP_DOCS_URL !== '') { ?> &nbsp; · &nbsp; <a target="_blank" rel="noopener" href="<?= htmlspecialchars(APP_DOCS_URL) ?>">Docs</a><?php } ?><?php if (APP_SOURCE_URL !== '') { ?> &nbsp; · &nbsp; <a target="_blank" rel="noopener" href="<?= htmlspecialchars(APP_SOURCE_URL) ?>">Source</a><?php } ?></p>
     <br>
 <?php } ?>

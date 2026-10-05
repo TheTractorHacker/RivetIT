@@ -26,28 +26,27 @@ All of these live in **`includes/branding.php`**, loaded first by `functions.php
 the updater's remote name (`APP_UPDATE_REMOTE`) and the brand asset paths (`APP_LOGO_URL`, `APP_LOGO_DARK_URL`,
 `APP_LOGO_MARK_URL`, `APP_FAVICON_URL`, all under `/img/branding/`).
 
-### Project links while the repository is private
+### Project links and `APP_REPO_PUBLIC`
 
 `APP_REPO_URL` (`https://github.com/TheTractorHacker/RivetIT`, renamed from `.../ITFlow-Internal-IT` on
-2026-09-28 — see "Repository and links" below) is a **private** repository: the updater fetches it with a
-read-only deploy key, and an anonymous request gets a GitHub 404 (checked 2026-09-28). A link into
-it would be a 404 for every member of staff, where the ITFlow-era links it replaced went to public pages. So
-`APP_REPO_PUBLIC` (default `0`) gates the links built from it: while it is `0`, `APP_SOURCE_URL`, `APP_WEBSITE_URL`,
-`APP_DOCS_URL`, `APP_SUPPORT_URL`, `APP_CHANGELOG_URL` and `APP_RELEASES_URL` are empty, and every page leaves an
-empty link out or shows plain text instead:
+2026-09-28 — see "Repository and links" below) is a **public** repository: it opens without a login (checked
+anonymously, 2026-10-04), and the old `TheTractorHacker/ITFlow-Internal-IT` and `TheTractorHacker/itflow` names
+redirect to it. `APP_REPO_PUBLIC` is therefore `1` in `includes/branding.php`, and the links built from the repository
+URL (`APP_SOURCE_URL`, `APP_WEBSITE_URL`, `APP_DOCS_URL`, `APP_SUPPORT_URL`, `APP_CHANGELOG_URL`, `APP_RELEASES_URL`)
+are live:
 
-- the footer shows "RivetIT 26.09" without "Docs · Source";
-- Admin > Update shows the latest tag without a link, names `CHANGELOG.md` in the install folder, and drops the
-  docs, issue-tracker and "Project repository" links;
-- Settings > Notifications and the setup wizard point at `deploy/README.md` / `docs/DEPLOYMENT.md` in the install
-  folder, and setup drops the "Star on GitHub" and issue-tracker lines;
-- the About / debug page shows the repository URL as plain text;
-- setup and `setup_cli.php` seed no "Docs" custom link.
+- the footer shows "RivetIT 26.09 · Docs · Source";
+- Admin > Update links the latest tag, the changelog, the docs, the issue tracker and the project repository;
+- Settings > Notifications and the setup wizard link the published docs, and setup offers the "Star on GitHub" and
+  issue-tracker lines;
+- the About / debug page links the repository;
+- setup and `setup_cli.php` seed a "Docs" custom link.
 
-When the repository becomes public (or moves to a public one), set `APP_REPO_PUBLIC` to `1` in
-`includes/branding.php` (or `RIVETIT_APP_REPO_PUBLIC=1`) and every link comes back. A single link can also be set
-on its own, e.g. `APP_DOCS_URL` to an intranet page, with a `define()` at the top of `config.php` or
-`RIVETIT_APP_DOCS_URL`. `APP_REPO_URL` itself is still used where it is not a link: the About / debug page and the
+The switch stays as a safety valve. If the repository is ever made private again (or a fork is run from a private
+copy), set `APP_REPO_PUBLIC` to `0` in `includes/branding.php` (or `RIVETIT_APP_REPO_PUBLIC=0`) and every one of those
+links is left out or shown as plain text instead of becoming a 404 for staff. A single link can also be set on its
+own, e.g. `APP_DOCS_URL` to an intranet page, with a `define()` at the top of `config.php` or `RIVETIT_APP_DOCS_URL`.
+`APP_REPO_URL` itself is still used where it is not a link: the About / debug page and the
 outgoing User-Agent.
 
 Rules that follow from it:
@@ -96,7 +95,7 @@ These strings changed as well. They are display-only: nothing reads them back, m
 | Kiosk web-app manifest name | "RivetIT Training" (was the company name "Midwest Training") | Kiosks already added to a home screen keep their installed name |
 | In-app backup `version.txt` and SQL dump header | "RivetIT Backup Metadata", "RivetIT Version", "-- RivetIT DB Dump" | File names `itflow_<ts>_<type>.zip`; restore only logs `version.txt` |
 | QuickBooks generic service item | "RivetIT Services", created only on a first-ever sync | An item already mapped keeps its name |
-| New installs (`setup/index.php`, `scripts/setup_cli.php`) | `$config_app_name = ''` (empty: the product name, see below); a "Docs" custom link only when `APP_DOCS_URL` is set (none while the repository is private); ticket charges off (`config_module_enable_ticket_charges = 0`, as Settings > Modules saves it) | Existing installs' config, custom links and settings |
+| New installs (`setup/index.php`, `scripts/setup_cli.php`) | `$config_app_name = ''` (empty: the product name, see below); a "Docs" custom link only when `APP_DOCS_URL` is set (it is, while the repository is public); ticket charges off (`config_module_enable_ticket_charges = 0`, as Settings > Modules saves it) | Existing installs' config, custom links and settings |
 | Webhooks | `X-RivetIT-Signature` / `X-RivetIT-Event` added | `X-ITFlow-Signature` / `X-ITFlow-Event` |
 
 ### `$config_app_name` on existing installs
@@ -147,8 +146,8 @@ Checking for updates and applying them use **different git sources**, and the re
 - `deploy/install.sh` clones `REPO_URL` (`https://github.com/TheTractorHacker/RivetIT.git`).
 - The "Latest Release" link on Admin > Update used to point at the old MSP fork (`TheTractorHacker/itflow`); it
   now uses `APP_RELEASES_URL` (`APP_REPO_URL . '/tags'`: the updater compares git tags), and the page's docs,
-  changelog and support links use `APP_DOCS_URL`, `APP_CHANGELOG_URL` and `APP_SUPPORT_URL`. While the repository
-  is private these are empty and the page shows the tag and the text without links.
+  changelog and support links use `APP_DOCS_URL`, `APP_CHANGELOG_URL` and `APP_SUPPORT_URL`. With `APP_REPO_PUBLIC` at
+  `0` these are empty and the page shows the tag and the text without links.
 - The page shows the product version first ("RivetIT Version: 26.09", `APP_VERSION`, as in the footer and on the
   debug page) and the git tag the updater compares below it as "Release tag" (e.g. `v1.18.0`).
 - **Fixed alongside the rename** (found while touching these files, not caused by it): both force-update paths —
@@ -166,7 +165,7 @@ If the project moves again later, change it in these places:
 
 | Where | What |
 |---|---|
-| `includes/branding.php` | `APP_REPO_URL` (the docs/support/website links derive from it), or set `RIVETIT_APP_REPO_URL`; `APP_REPO_PUBLIC` to `1` once the repository can be opened without a login |
+| `includes/branding.php` | `APP_REPO_URL` (the docs/support/website links derive from it), or set `RIVETIT_APP_REPO_URL`; `APP_REPO_PUBLIC` (`1` while the repository can be opened without a login) |
 | `deploy/install.sh` | `REPO_URL` (the clone source for fresh boxes) |
 | `deploy/templates/itflow-backup.service`, `.timer` | `Documentation=` |
 | `composer.json` | `homepage`, `support.*` |
@@ -284,9 +283,9 @@ column remains in the schema at its default of 0 and is never read.
 - **Live data that only changes through the app:** older installs have a setup-seeded custom link "Docs →
   https://docs.itflow.org" in `custom_links`, and the live install has one (checked read-only on 2026-09-28). It
   shows in the navigation. Remove it in Admin > Custom Links, or point it at a page staff can open (an intranet
-  page; not the private repository); the rename does not touch stored data.
-- **Make the repository public, or give staff a docs page:** until then `APP_REPO_PUBLIC` stays `0` and the
-  Docs / Source / issue-tracker links stay hidden (see "Project links while the repository is private").
+  page, or the public repository's docs); the rename does not touch stored data.
+- **Docs for staff:** the repository is public, so the Docs / Source / issue-tracker links are live. If you would rather
+  send staff to an intranet page, set `APP_DOCS_URL` (see "Project links and `APP_REPO_PUBLIC`").
 - **Mail folder name:** the parser's `ITFlow` folder could become a setting; then new installs could use a RivetIT
   name while existing mailboxes keep theirs.
 - **Sign-off form terms (owner decision):** the outtake and worksheet sign pages (`guest/outtake_sign.php`,
@@ -418,13 +417,13 @@ Specific identifier classes. The count is the lines that contain at least one ma
 
 These still show "itflow" to someone, on purpose:
 
-- **Admin > Debug / About:** the "Based on ITFlow" credit row, the "upstream ITFlow guide" link for error logs, the Source row (the repository URL `…/ITFlow-Internal-IT`, as plain text while the repository is private), and the server facts it reports: host name, web root and database name.
+- **Admin > Debug / About:** the "Based on ITFlow" credit row, the "upstream ITFlow guide" link for error logs, the Source row (the repository URL `…/ITFlow-Internal-IT`, as plain text when `APP_REPO_PUBLIC` is `0`, a link otherwise), and the server facts it reports: host name, web root and database name.
 - **Settings > Telemetry:** says RivetIT sends no telemetry; the upstream project is named only as the origin of the removed feature.
 - **Settings > Notifications:** the Android package name `com.foleyit.itflow`, which must match the real app.
 - **Training settings > Worker:** the log path `/var/log/itflow_mw_training_worker.log` and the cron file `/etc/cron.d/mw-itflow-training-worker`.
 - **Mail:** processed mail still goes into the `ITFlow` folder of every monitored mailbox. The Microsoft 365 steps on Admin > Mail name it and say why, and the parser's NDR log line names it.
 - **Backups:** Admin > Backup and the setup restore list files named `itflow_<timestamp>_<manual|auto>.zip`.
-- **The repository URL:** the debug page's Source row and the README name `…/TheTractorHacker/RivetIT`. The footer "Source" link and the Admin > Update links to it appear only once the repository is public (`APP_REPO_PUBLIC`, see above).
+- **The repository URL:** the debug page's Source row and the README name `…/TheTractorHacker/RivetIT`. The footer "Source" link and the Admin > Update links to it appear while `APP_REPO_PUBLIC` is `1`, as it is now (see above).
 - **Outside the app:**
   - Odoo lines carry the `[ITFLOW:…]` marker, and lines written before the rename say "Record of truth: ITFlow".
   - Stripe shows the `itflow_*` metadata keys.

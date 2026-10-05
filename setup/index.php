@@ -685,7 +685,7 @@ if (isset($_POST['add_company_settings'])) {
 
     mysqli_query($mysqli, "INSERT INTO user_roles SET role_id = 3, role_name = 'Administrator', role_description = 'Built-in - Full administrative access to all modules (including user management)', role_is_admin = 1");
 
-    // Custom Links: a "Docs" link only when there are published docs (APP_DOCS_URL is empty while the repository is private)
+    // Custom Links: a "Docs" link only when there are published docs (APP_DOCS_URL is empty while APP_REPO_PUBLIC is 0)
     if (APP_DOCS_URL !== '') {
         mysqli_query($mysqli,"INSERT INTO custom_links SET custom_link_name = 'Docs', custom_link_uri = '" . mysqli_real_escape_string($mysqli, APP_DOCS_URL) . "', custom_link_new_tab = 1, custom_link_icon = 'question-circle'");
     }

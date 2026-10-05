@@ -267,6 +267,7 @@ encrypted `deploy/backup.sh` archive, or the app's own in-app `.zip`). Run it ag
 | [docs/training-kiosk-setup.md](docs/training-kiosk-setup.md) | Setting up training kiosks on iPads and PCs |
 | [docs/ISO27001-COMPLIANCE.md](docs/ISO27001-COMPLIANCE.md) | ISO/IEC 27001:2022 Annex A control mapping |
 | [REBRANDING.md](REBRANDING.md) | The rename from ITFlow Internal IT, and the internal names that were kept |
+| [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) | The open-source libraries RivetIT bundles, and their licenses |
 | [CHANGELOG.md](CHANGELOG.md) | Release notes and upgrade steps |
 
 ## Versioning
@@ -290,7 +291,7 @@ contributors. It was developed from **[TheTractorHacker/itflow](https://github.c
 an MSP-focused fork whose workflow additions (ticket automation, the Cron Manager, worksheets, calendar
 sync, SLA tracking and REST API work) are credited to TractorHacker / Foley IT, and was published as
 *ITFlow Internal IT* before it became RivetIT. See [NOTICE](NOTICE) for the full attribution and
-[REBRANDING.md](REBRANDING.md) for why some internal names still say `itflow`. RivetIT is an independent
+[REBRANDING.md](REBRANDING.md) for why some internal names still say `itflow`. The libraries RivetIT bundles keep their own licenses, listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). RivetIT is an independent
 project and is not maintained or endorsed by the ITFlow maintainers; security issues in upstream ITFlow
 itself go to [its security policy](https://github.com/itflow-org/itflow/security/policy).
 

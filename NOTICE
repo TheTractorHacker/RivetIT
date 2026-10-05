@@ -55,3 +55,9 @@ The libraries under vendor/ (installed by Composer) and plugins/ are
 third-party software. Each keeps its own copyright and license, found in
 its own directory (LICENSE, COPYING or the file headers). They are not
 covered by the copyright statement above.
+
+
+Third-party components
+----------------------
+
+The open-source libraries RivetIT bundles keep their own licenses and copyrights; see THIRD_PARTY_NOTICES.md.
