@@ -9,7 +9,8 @@ continues unchanged.
 - **Request ids are server-assigned.** The audit trail used to store whatever `X-Request-ID` header a client sent, and the MCP endpoint read the same variable. Both now use a server-generated id (`$_SERVER['RIVET_REQUEST_ID']`, which `mcp_server/index.php` sets); a client header is never stored.
 - **Remote MCP: no more preselected agent.** The "link this sign-in to an agent" list no longer preselects the agent whose email matches the token's email claim. The email is only a hint from the sign-in provider, so you now choose the agent yourself.
 - **Log retention covers RivetCore's tables.** `cron/cron.php` also prunes the audit trail, the webhook delivery log and finished integration jobs at the existing "log retention" horizon (0 keeps everything).
-- Upgraded to rivet-core 0.7.0.
+- **In-app Update: composer's home directory.** The Update page ran `composer install` with its HOME in a predictable shared `/tmp` path, so another local user could pre-create that directory (or a symlink) and have composer read their configuration and plugins as the web user. It now uses a per-user directory (`/tmp/rivetit-composer-home-<uid>`) that must belong to the current user, must not be a symlink and must be private, otherwise it is refused. (This also fixes the page failing when the CLI updater had created the old shared directory first.)
+- Upgraded to rivet-core 0.7.1, which fixes a crash on a job's fifth failed attempt and PDF import on PHP 8.2.
 
 ## Unreleased — Redis is installed with RivetIT
 
