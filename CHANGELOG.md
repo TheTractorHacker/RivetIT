@@ -6,9 +6,9 @@ continues unchanged.
 
 ## [Unreleased]
 
-## [26.10.16] RivetIT — SLA pause, resolution time rules, compliance status and saved-view filters
+## [26.10.17] RivetIT — SLA pause, resolution time rules, compliance status and saved-view filters
 
-Database migrations 2.6.125 to 2.6.131 apply with **Update Database**. Requires rivet-core 0.14.0 (`composer install`). Consolidates the entries that were listed as Unreleased after 26.10.15.
+Database migrations 2.6.125 to 2.6.131 apply with **Update Database**. Requires rivet-core 0.14.0 (`composer install`). Consolidates the entries that were listed as Unreleased after 26.10.15. The tag `v26.10.16` was published before these notes and the version number were committed, so it reports 26.10.15; this release supersedes it.
 
 ### Customisable ticket view filters
 
