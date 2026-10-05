@@ -488,7 +488,7 @@ if (isset($_GET['reopen_ticket'])) {
     if (verifyContactTicketAccess($ticket_id, "Open")) {
 
         // Re-open ticket
-        mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 2, ticket_resolved_at = NULL WHERE ticket_id = $ticket_id AND ticket_client_id = $session_client_id");
+        mysqli_query($mysqli, "UPDATE tickets SET " . ticketReopenSql() . "ticket_status = 2, ticket_resolved_at = NULL WHERE ticket_id = $ticket_id AND ticket_client_id = $session_client_id");
 
         $reopen_status_info = getTicketStatusInfo($mysqli, 2);
         publishTicketEvent($ticket_id, 'status', ['status_id' => $reopen_status_info['id'], 'status_name' => $reopen_status_info['name'], 'status_color' => $reopen_status_info['color'], 'by' => $session_contact_name]);

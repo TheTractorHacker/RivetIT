@@ -23,8 +23,8 @@ $sql = mysqli_query($mysqli,
         SUM(CASE WHEN t.ticket_priority = 'High' THEN 1 ELSE 0 END) AS priority_high,
         AVG(CASE WHEN t.ticket_first_response_at IS NOT NULL
             THEN TIMESTAMPDIFF(SECOND, t.ticket_created_at, t.ticket_first_response_at) END) AS avg_response_seconds,
-        AVG(CASE WHEN t.ticket_resolved_at IS NOT NULL
-            THEN TIMESTAMPDIFF(SECOND, t.ticket_created_at, t.ticket_resolved_at) END) AS avg_resolve_seconds,
+        AVG(CASE WHEN " . ticketResolvedOnlySql('t.') . "
+            THEN TIMESTAMPDIFF(SECOND, " . ticketResolutionStartSql('t.') . ", " . ticketResolutionEndSql('t.') . ") END) AS avg_resolve_seconds,
         COALESCE(tw.seconds_worked, 0) AS seconds_worked
      FROM clients c
      JOIN tickets t ON t.ticket_client_id = c.client_id

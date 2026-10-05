@@ -9722,3 +9722,11 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.129'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.129') {
+        // Resolution time: the clock restarts when a ticket is reopened. ticket_resolution_started_at is stamped at every reopen
+        // (NULL = never reopened, so the clock runs from creation). Nothing else changes; existing tickets keep NULL.
+        mysqli_query($mysqli, "ALTER TABLE `tickets` ADD COLUMN IF NOT EXISTS `ticket_resolution_started_at` datetime DEFAULT NULL");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.130'");
+    }

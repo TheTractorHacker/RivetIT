@@ -491,7 +491,7 @@ if (isset($_POST['edit_ticket_status'])) {
         // Moving a ticket to any non-Closed status must clear these, or the ticket
         // page (which gates the reply form / edit controls on ticket_closed_at, not
         // ticket_status) keeps rendering it as closed even though the status changed.
-        mysqli_query($mysqli, "UPDATE tickets SET ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0 WHERE ticket_id = $ticket_id");
+        mysqli_query($mysqli, "UPDATE tickets SET " . ticketReopenSql() . "ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0 WHERE ticket_id = $ticket_id");
     }
 
     // SLA pause-on-hold: accrue/clear paused time across this status change.
@@ -1085,7 +1085,7 @@ if (isset($_POST['quick_status_ticket'])) {
         // Moving a ticket to any non-Closed status must clear these, or the ticket
         // page (which gates the reply form / edit controls on ticket_closed_at, not
         // ticket_status) keeps rendering it as closed even though the status changed.
-        mysqli_query($mysqli, "UPDATE tickets SET ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0 WHERE ticket_id = $ticket_id");
+        mysqli_query($mysqli, "UPDATE tickets SET " . ticketReopenSql() . "ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0 WHERE ticket_id = $ticket_id");
     }
 
     // SLA pause-on-hold: accrue/clear paused time across this status change.
@@ -2884,7 +2884,7 @@ if (isset($_GET['reopen_ticket'])) {
 
     // Clear any pending scheduled reopen too - it no longer applies once the
     // ticket is manually reopened ahead of it.
-    mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 2, ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0, ticket_reopen_at = NULL WHERE ticket_id = $ticket_id");
+    mysqli_query($mysqli, "UPDATE tickets SET " . ticketReopenSql() . "ticket_status = 2, ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0, ticket_reopen_at = NULL WHERE ticket_id = $ticket_id");
 
     logAction("Ticket", "Reopened", "$session_name reopened ticket ID $ticket_id", $client_id, $ticket_id);
 

@@ -1689,13 +1689,14 @@ function getServiceDeskReport(mysqli $mysqli, $date_from, $date_to, ?int $client
 
     // --- Avg first-response & resolution time by priority (tickets created in range) ---
     $by_priority = [];
+    $rs = ticketResolutionStartSql(); $re = ticketResolutionEndSql(); $ro = ticketResolvedOnlySql();
     $res = mysqli_query($mysqli,
         "SELECT ticket_priority,
             COUNT(ticket_id) AS total,
             AVG(CASE WHEN ticket_first_response_at IS NOT NULL
                 THEN TIMESTAMPDIFF(SECOND, ticket_created_at, ticket_first_response_at) END) AS avg_response_seconds,
-            AVG(CASE WHEN ticket_resolved_at IS NOT NULL
-                THEN TIMESTAMPDIFF(SECOND, ticket_created_at, ticket_resolved_at) END) AS avg_resolve_seconds
+            AVG(CASE WHEN $ro
+                THEN TIMESTAMPDIFF(SECOND, $rs, $re) END) AS avg_resolve_seconds
          FROM tickets
          WHERE $created_range AND ticket_archived_at IS NULL
            AND ticket_priority IS NOT NULL AND ticket_priority <> ''
@@ -1727,12 +1728,13 @@ function getServiceDeskReport(mysqli $mysqli, $date_from, $date_to, ?int $client
             'avg_resolve_seconds' => null,
         ];
     }
+    $rs_t = ticketResolutionStartSql('t.'); $re_t = ticketResolutionEndSql('t.'); $ro_t = ticketResolvedOnlySql('t.');
     $res = mysqli_query($mysqli,
         "SELECT t.ticket_assigned_to AS uid, u.user_name, COUNT(t.ticket_id) AS c,
-            AVG(TIMESTAMPDIFF(SECOND, t.ticket_created_at, t.ticket_closed_at)) AS avg_res
+            AVG(TIMESTAMPDIFF(SECOND, $rs_t, $re_t)) AS avg_res
          FROM tickets t LEFT JOIN users u ON u.user_id = t.ticket_assigned_to
-         WHERE t.ticket_closed_at IS NOT NULL
-           AND t.ticket_closed_at BETWEEN '$from_dt' AND '$to_dt'
+         WHERE $ro_t
+           AND $re_t BETWEEN '$from_dt' AND '$to_dt'
            AND t.ticket_archived_at IS NULL AND t.ticket_assigned_to > 0$client_clause_t
          GROUP BY t.ticket_assigned_to, u.user_name");
     while ($row = mysqli_fetch_assoc($res)) {
@@ -2034,10 +2036,11 @@ function getTechnicianPerformanceReport(mysqli $mysqli, $date_from, $date_to, ?i
     }
 
     // Tickets closed in range, by assigned technician.
+    $rs = ticketResolutionStartSql(); $re = ticketResolutionEndSql(); $ro = ticketResolvedOnlySql();
     $res = mysqli_query($mysqli,
         "SELECT ticket_assigned_to AS uid,
             COUNT(ticket_id) AS closed,
-            AVG(TIMESTAMPDIFF(SECOND, ticket_created_at, ticket_closed_at)) AS avg_res
+            AVG(CASE WHEN $ro THEN TIMESTAMPDIFF(SECOND, $rs, $re) END) AS avg_res
          FROM tickets
          WHERE ticket_closed_at BETWEEN '$from_dt' AND '$to_dt'
            AND ticket_archived_at IS NULL AND ticket_assigned_to > 0$client_clause
@@ -4209,7 +4212,7 @@ function applyCsatRating(mysqli $mysqli, int $ticket_id, int $rating, string $co
         $ticket_number = intval($ticket_details['ticket_number'] ?? 0);
         $ticket_client_id = intval($ticket_details['ticket_client_id'] ?? 0);
 
-        mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 2, ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0 WHERE ticket_id = $ticket_id");
+        mysqli_query($mysqli, "UPDATE tickets SET " . ticketReopenSql() . "ticket_status = 2, ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0 WHERE ticket_id = $ticket_id");
 
         $rater_label_esc = mysqli_real_escape_string($mysqli, $rater_label);
         $note = "Automatically reopened — $rater_label_esc rated this ticket $rating/5" . ($comment_esc !== '' ? ": \"$comment_esc\"" : '.');
@@ -4421,6 +4424,53 @@ function resolveTicketCreationStatus(int $assigned_to): int {
     return $row ? intval($row['ticket_status_id']) : 0;
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// Resolution time (dashboard tile, reports, API). Two rules, kept in ONE place so every average agrees:
+//   1. Only RESOLVED tickets count. A ticket that is still open (including one in an "Unresolved" status, or one that was
+//      reopened and not yet resolved again) has no resolution time and is left out of every average.
+//   2. The clock restarts when a ticket is reopened: it runs from ticket_resolution_started_at (set at every reopen), or from
+//      creation when the ticket was never reopened. ticket_created_at itself is never changed.
+// The functions return SQL fragments; $p is an optional table alias prefix such as 't.'.
+// ---------------------------------------------------------------------------------------------------------------------
+
+/** Does tickets.ticket_resolution_started_at exist yet? (False until the database update that adds it has run.) */
+function ticketResolutionColumnExists($mysqli = null): bool {
+    static $exists = null;
+    if ($exists === null) {
+        $mysqli = $mysqli ?? ($GLOBALS['mysqli'] ?? null);
+        $res = $mysqli ? @mysqli_query($mysqli, "SHOW COLUMNS FROM tickets LIKE 'ticket_resolution_started_at'") : false;
+        $exists = (bool) ($res && mysqli_num_rows($res) > 0);
+    }
+
+    return $exists;
+}
+
+/**
+ * Prefix for an UPDATE tickets SET ... that reopens a ticket (clears ticket_resolved_at): restarts the resolution timer, but only
+ * when the ticket really was resolved or closed - dragging an open ticket around a board must not reset anything. It has to come
+ * FIRST in the SET list, because MySQL evaluates assignments left to right and the reopen clears the columns it reads.
+ */
+function ticketReopenSql(): string {
+    return ticketResolutionColumnExists()
+        ? 'ticket_resolution_started_at = IF(ticket_resolved_at IS NOT NULL OR ticket_closed_at IS NOT NULL, NOW(), ticket_resolution_started_at), '
+        : '';
+}
+
+/** Start of the current resolution timer: the last reopen, else creation. */
+function ticketResolutionStartSql(string $p = ''): string {
+    return ticketResolutionColumnExists() ? "COALESCE({$p}ticket_resolution_started_at, {$p}ticket_created_at)" : "{$p}ticket_created_at";
+}
+
+/** When the ticket was resolved (or, for older tickets closed without a resolved date, closed). NULL while it is open. */
+function ticketResolutionEndSql(string $p = ''): string {
+    return "COALESCE({$p}ticket_resolved_at, {$p}ticket_closed_at)";
+}
+
+/** True only for tickets that count toward resolution-time averages: resolved/closed and not in an "Unresolved" status. */
+function ticketResolvedOnlySql(string $p = ''): string {
+    return "({$p}ticket_resolved_at IS NOT NULL OR {$p}ticket_closed_at IS NOT NULL) AND {$p}ticket_status NOT IN (SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_name = 'Unresolved')";
+}
+
 // Avg Resolution Time (dashboard tile, api/v1/reports/overview.php): hours
 // between creation and close, averaged across tickets closed in $year.
 // Admin > Settings > Tickets' "Exclude project-linked tickets" toggle
@@ -4434,9 +4484,10 @@ function resolveTicketCreationStatus(int $assigned_to): int {
 function getAvgResolutionTimeHours($mysqli, int $year, string $extra_where = ''): float {
     global $config_avg_resolution_exclude_projects;
     $project_clause = empty($config_avg_resolution_exclude_projects) ? '' : ' AND ticket_project_id = 0';
+    $rs = ticketResolutionStartSql(); $re = ticketResolutionEndSql(); $ro = ticketResolvedOnlySql();
     $row = mysqli_fetch_assoc(mysqli_query($mysqli,
-        "SELECT ROUND(AVG(TIMESTAMPDIFF(HOUR, ticket_created_at, ticket_closed_at)),1) AS avg_h
-         FROM tickets WHERE ticket_closed_at IS NOT NULL AND YEAR(ticket_closed_at) = $year$project_clause$extra_where"));
+        "SELECT ROUND(AVG(TIMESTAMPDIFF(HOUR, $rs, $re)),1) AS avg_h
+         FROM tickets WHERE $ro AND YEAR($re) = $year$project_clause$extra_where"));
     return floatval($row['avg_h'] ?? 0);
 }
 
@@ -4797,7 +4848,7 @@ function addReply($from_email, $date, $subject, $ticket_number, $message, $attac
             }
         }
 
-        mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 2, ticket_resolved_at = NULL WHERE ticket_id = $ticket_id AND ticket_client_id = $client_id LIMIT 1");
+        mysqli_query($mysqli, "UPDATE tickets SET " . ticketReopenSql() . "ticket_status = 2, ticket_resolved_at = NULL WHERE ticket_id = $ticket_id AND ticket_client_id = $client_id LIMIT 1");
 
         logAction("Ticket", "Edit", "Email parser: Department contact $from_email_esc updated ticket $config_ticket_prefix$ticket_number_esc ($subject)", $client_id, $ticket_id);
         customAction('ticket_reply_client', $ticket_id);

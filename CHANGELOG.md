@@ -4,6 +4,13 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## Unreleased — Resolution time rules
+
+- **Only resolved tickets count toward average resolution time.** An open ticket, one in an "Unresolved" status, or one that was reopened and not yet resolved again is left out of every average (dashboard tile, ticket reports, per-technician figures and the API).
+- **Reopening restarts the clock.** The time to resolve a reopened ticket is measured from the moment it was reopened to when it is resolved again, not from the original creation date. Creation dates are never changed. Every way of reopening is covered: agent status change, kanban, the department portal and guest link, the CSAT low-rating auto-reopen, automation and scheduled reopen, and the API. Moving or re-saving a ticket that is already open does not reset anything.
+- Resolution time now ends at the resolved date (older tickets closed without one use the close date), instead of the close date, so a ticket that sits resolved before auto-closing is not penalised. SLA targets and SLA breach tracking are unchanged.
+- Database migration 2.6.130 adds `ticket_resolution_started_at`. Existing tickets keep a blank start, so their time still runs from creation.
+
 ## Unreleased — Compliance status
 
 - **Administration > Compliance status.** A live view of how this installation measures up against common security controls, tagged to ISO/IEC 27001, SOC 2, PCI DSS and HIPAA, with a score per framework. Automatic checks cover multi-factor authentication (agents and administrators), administrator count, session lifetime, HTTPS-only, vault key, backups, API-key expiry, dormant agents, credential rotation, schema currency, audit recording, retention against the chosen preset and, when the module is on, overdue required training.

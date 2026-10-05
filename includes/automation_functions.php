@@ -317,7 +317,7 @@ function automationExecuteAction($mysqli, array $action, array &$context, array 
         case 'reopen_ticket':
             if (!$tid) return null;
             mysqli_query($mysqli,
-                "UPDATE tickets SET ticket_status = 2, ticket_resolved_at = NULL,
+                "UPDATE tickets SET " . ticketReopenSql() . "ticket_status = 2, ticket_resolved_at = NULL,
                     ticket_closed_at = NULL, ticket_closed_by = 0, ticket_reopen_at = NULL
                  WHERE ticket_id = $tid AND ticket_closed_at IS NOT NULL
                    AND ticket_archived_at IS NULL AND ticket_reopen_at IS NULL

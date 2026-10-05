@@ -352,7 +352,7 @@ if ($method === 'POST' && $id !== null && $sub === 'reply') {
     } elseif ($type === 'Client') {
         // Customer reply: reopen resolved/closed ticket, then move to In Progress.
         if (!empty($ticket_row['ticket_resolved_at'])) {
-            mysqli_query($mysqli, "UPDATE tickets SET ticket_resolved_at = NULL, ticket_closed_at = NULL WHERE ticket_id = $id");
+            mysqli_query($mysqli, "UPDATE tickets SET " . ticketReopenSql() . "ticket_resolved_at = NULL, ticket_closed_at = NULL WHERE ticket_id = $id");
         }
         $progress_row = mysqli_fetch_assoc(mysqli_query($mysqli,
             "SELECT ticket_status_id FROM ticket_statuses
@@ -776,7 +776,7 @@ if ($method === 'POST' && $id !== null && $sub === 'status') {
     } else {
         // Moving to any non-Closed status reopens the ticket if it was closed.
         // ticket_closed_by is NOT NULL (default 0), unlike the two timestamp columns.
-        mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $status, ticket_updated_at = NOW(), ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0 WHERE ticket_id = $id");
+        mysqli_query($mysqli, "UPDATE tickets SET " . ticketReopenSql() . "ticket_status = $status, ticket_updated_at = NOW(), ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0 WHERE ticket_id = $id");
     }
 
     $api_status_info = getTicketStatusInfo($mysqli, $status);

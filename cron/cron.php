@@ -1323,7 +1323,7 @@ while ($due_reopen = mysqli_fetch_assoc($sql_due_reopens)) {
 
     // Same fields the manual Reopen action resets (agent/post/ticket.php's
     // reopen_ticket handler) - status back to Open, clear resolved/closed.
-    mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 2, ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0, ticket_reopen_at = NULL WHERE ticket_id = $reopen_ticket_id");
+    mysqli_query($mysqli, "UPDATE tickets SET " . ticketReopenSql() . "ticket_status = 2, ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0, ticket_reopen_at = NULL WHERE ticket_id = $reopen_ticket_id");
     mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Automatically reopened (scheduled on $reopen_at_display).', ticket_reply_type = 'System', ticket_reply_time_worked = '00:00:00', ticket_reply_by = 0, ticket_reply_ticket_id = $reopen_ticket_id");
 
     logAction("Ticket", "Reopened", "Ticket $reopen_ref automatically reopened (scheduled reopen)", $reopen_client_id, $reopen_ticket_id);
