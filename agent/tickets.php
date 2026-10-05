@@ -265,9 +265,14 @@ function ticketSavedViewIsActive($query, $session_user_id) {
     // view's query - otherwise a view like "All Unresolved" (status=Open)
     // would also light up whenever any other view that also sets
     // status=Open (e.g. "Assigned to me") is active.
-    foreach (['status', 'assigned', 'onsite', 'board', 'category', 'priority'] as $key) {
-        $current = isset($_GET[$key]) && $_GET[$key] !== '' ? (string)$_GET[$key] : null;
-        $expected = isset($view_params[$key]) && $view_params[$key] !== '' ? (string)$view_params[$key] : null;
+    // Values are normalised so a list (several statuses, several tags) compares by content, not order.
+    $norm = function ($v) {
+        if (is_array($v)) { $v = array_map('strval', $v); sort($v); return implode(',', $v); }
+        return ($v === null || $v === '') ? null : (string) $v;
+    };
+    foreach (['status', 'assigned', 'onsite', 'board', 'category', 'priority', 'tags', 'overdue', 'due_today'] as $key) {
+        $current = $norm($_GET[$key] ?? null);
+        $expected = $norm($view_params[$key] ?? null);
         if ($current !== $expected) return false;
     }
     return true;

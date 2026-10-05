@@ -4,6 +4,8 @@
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
+require_once __DIR__ . '/../includes/ticket_view_filters.php';
+
 if (isset($_POST['add_ticket_saved_view'])) {
 
     validateCSRFToken($_POST['csrf_token']);
@@ -12,7 +14,10 @@ if (isset($_POST['add_ticket_saved_view'])) {
 
     $name = sanitizeInput($_POST['name']);
     $icon = sanitizeInput($_POST['icon'] ?: 'fa-filter');
-    $query = mysqli_real_escape_string($mysqli, trim($_POST['query'] ?? '', '&'));
+    // The filter form (validated, whitelisted) when present; otherwise the raw current-filters query as before.
+    $query = isset($_POST['filters_present'])
+        ? mysqli_real_escape_string($mysqli, ticketViewQueryFromPost($mysqli, $_POST))
+        : mysqli_real_escape_string($mysqli, trim($_POST['query'] ?? '', '&'));
 
     $shared = (intval($_POST['shared'] ?? 0) === 1 && lookupUserPermission("module_support") === 3) ? 0 : $session_user_id;
 
@@ -49,11 +54,16 @@ if (isset($_POST['edit_ticket_saved_view'])) {
         ? "(ticket_saved_view_user_id = 0 OR ticket_saved_view_user_id = $session_user_id)"
         : "ticket_saved_view_user_id = $session_user_id";
 
+    // Only a submitted filter form changes the view's filters; a plain rename leaves them alone.
+    $query_sql = isset($_POST['filters_present'])
+        ? ", ticket_saved_view_query = '" . mysqli_real_escape_string($mysqli, ticketViewQueryFromPost($mysqli, $_POST)) . "'"
+        : '';
+
     mysqli_query(
         $mysqli,
         "UPDATE ticket_saved_views SET
             ticket_saved_view_name = '$name',
-            ticket_saved_view_icon = '$icon'
+            ticket_saved_view_icon = '$icon'$query_sql
          WHERE ticket_saved_view_id = $ticket_saved_view_id AND $owner_query"
     );
 

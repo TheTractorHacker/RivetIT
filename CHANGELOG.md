@@ -4,6 +4,11 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## Unreleased — Customisable ticket view filters
+
+- **Edit the filters a saved view uses.** The view's Edit dialog (and Save Current View) now has a filter form instead of a fixed query: show Open, Closed or All tickets or pick specific statuses (new statuses you create appear automatically), assigned to anyone / me / unassigned / a named agent, priority, on-site or remote, overdue or due today, board, category and tags. The dialog also describes in plain words what the view currently does. Renaming a view without touching the form leaves its filters alone.
+- Only validated choices are stored (unknown ids and junk values are dropped), a view with several statuses or tags now highlights correctly when active, and shared views can still only be edited by those allowed to. No database change.
+
 ## Unreleased — SLA no longer breaches while waiting on someone
 
 - **Waiting statuses pause the SLA clock.** A ticket set to Waiting on Customer, Employee or Vendor (or On Hold) is no longer shown as breached because of the wait. While paused the clock is frozen: it never drifts into "Breached", the time spent paused is added back to the due date when the ticket moves on, and a ticket that was already past due before it was paused stays breached.

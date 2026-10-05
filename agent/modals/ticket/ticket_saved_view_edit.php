@@ -1,6 +1,7 @@
 <?php
 
 require_once '../../../includes/modal_header.php';
+require_once __DIR__ . '/../../includes/ticket_view_filters.php';
 
 $ticket_saved_view_id = intval($_GET['id']);
 
@@ -10,7 +11,7 @@ ob_start();
 
 ?>
 <div class="modal-header bg-dark">
-    <h5 class="modal-title"><i class="fa fa-fw fa-thumbtack me-2"></i>Rename Saved View</h5>
+    <h5 class="modal-title"><i class="fa fa-fw fa-thumbtack me-2"></i>Edit Saved View</h5>
     <button type="button" class="close text-white" data-bs-dismiss="modal">
         <span>&times;</span>
     </button>
@@ -31,6 +32,11 @@ ob_start();
             <input type="text" class="form-control" name="icon" maxlength="50" value="<?= nullable_htmlentities($view['ticket_saved_view_icon']) ?>" placeholder="fa-filter">
             <small class="form-text text-muted">A Font Awesome icon class, e.g. <code>fa-fire</code>, <code>fa-star</code>, <code>fa-truck</code>.</small>
         </div>
+
+        <hr>
+        <h6 class="mb-3"><i class="fa fa-fw fa-filter me-2"></i>Filters this view uses</h6>
+        <?php ticketViewFilterFields($mysqli, ticketViewParseQuery((string) $view['ticket_saved_view_query']), 'tvfe'); ?>
+        <small class="form-text text-muted">Currently: <?= nullable_htmlentities(ticketViewDescribe($mysqli, (string) $view['ticket_saved_view_query'])) ?></small>
 
     </div>
     <div class="modal-footer">

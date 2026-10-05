@@ -1,6 +1,7 @@
 <?php
 
 require_once '../../../includes/modal_header.php';
+require_once __DIR__ . '/../../includes/ticket_view_filters.php';
 
 // The current ticket dashboard filters, passed in via the querystring
 $saved_query = $_SERVER['QUERY_STRING'] ?? '';
@@ -34,6 +35,10 @@ ob_start();
             <input type="text" class="form-control" name="icon" maxlength="50" value="fa-filter" placeholder="fa-filter">
             <small class="form-text text-muted">A Font Awesome icon class, e.g. <code>fa-fire</code>, <code>fa-star</code>, <code>fa-truck</code>.</small>
         </div>
+
+        <hr>
+        <h6 class="mb-3"><i class="fa fa-fw fa-filter me-2"></i>Filters this view uses</h6>
+        <?php ticketViewFilterFields($mysqli, ticketViewParseQuery($saved_query), 'tvfa'); ?>
 
         <?php if (lookupUserPermission("module_support") === 3) { ?>
         <div class="form-group form-check">
