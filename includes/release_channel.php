@@ -56,6 +56,16 @@ function releaseGit(string $dir, string $args): array
     return [$code, $out];
 }
 
+/**
+ * Composer rewrites vendor/composer/* (it records the checkout's git HEAD), so on a server the tracked copies are always
+ * "modified" and git then refuses to switch branches or pull. They are generated files: put them back before any
+ * branch switch or pull (the deploy script does the same). Nothing else is touched.
+ */
+function releaseResetGeneratedFiles(string $dir): void
+{
+    releaseGit($dir, "checkout -- ':/vendor/composer'");
+}
+
 function releaseCurrentBranch(string $dir): string
 {
     [$code, $out] = releaseGit($dir, 'rev-parse --abbrev-ref HEAD');
@@ -132,6 +142,7 @@ function releaseChannelEnsureBranch(string $dir, string $channel): array
     if (!$st['ref_exists'] || !$st['can_switch']) {
         return ['ok' => false, 'switched' => false, 'message' => $st['reason']];
     }
+    releaseResetGeneratedFiles($dir);
     $branch = escapeshellarg($st['branch']);
     [$exists] = releaseGit($dir, 'rev-parse --verify --quiet ' . escapeshellarg('refs/heads/' . $st['branch']));
     [$code, $out] = $exists === 0
