@@ -4,6 +4,19 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## Unreleased — RivetCore: shared package, Audit first
+
+RivetIT now consumes **RivetCore** (`rivet/rivet-core`, tagged releases from github.com/TheTractorHacker/rivet-core), a
+package of edition-neutral services shared with RivetMSP. Audit is the first module: `ITFlow\Audit\AuditService` is now a
+thin compatibility shim over `RivetCore\Audit\AuditService`, so every existing caller (login, SSO, MCP, Training) is
+unchanged. The shim falls back to the original direct insert if the package is not installed yet (the short window
+between `git pull` and `composer install` during an update). Storage goes through a Core-owned `DatabaseInterface`;
+RivetIT's implementation is `src/Core/Adapter/Database/MysqliDatabaseAdapter.php` and reuses the existing mysqli
+connection. Database migration 2.6.124 runs RivetCore's own migration runner (state in `rivet_core_migrations`,
+independent of this database version); it is a no-op for `audit_events`, which already exists. Summaries are now
+truncated to the column width before insert. Adapter and shim tests live in `tests/core/` and run against a scratch
+database. No behavior changes for users; MySQL/MariaDB is unchanged.
+
 ## Unreleased — Redis building blocks and a wider read-only MCP
 
 Remote MCP (still off by default) now has eight more read-only tools: ticket search and detail, asset search and
