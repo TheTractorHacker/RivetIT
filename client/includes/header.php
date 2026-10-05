@@ -479,6 +479,20 @@ $portal_resource_pages = ['contacts.php', 'contact_add.php', 'contact_edit.php',
                     </li>
                 <?php } ?>
 
+                <?php
+                // Shown only while an administrator has published a compliance report (cheap single-row probe; any error hides the link).
+                $portal_compliance_shared = false;
+                try {
+                    $portal_compliance_probe = @mysqli_query($mysqli, "SELECT 1 FROM compliance_shared_report WHERE shared_id = 1 LIMIT 1");
+                    $portal_compliance_shared = (bool) ($portal_compliance_probe && mysqli_num_rows($portal_compliance_probe) > 0);
+                } catch (\Throwable $e) {
+                }
+                if ($portal_compliance_shared) { ?>
+                    <li class="nav-item">
+                        <a class="nav-link <?php if (basename($_SERVER['PHP_SELF']) == "compliance.php") {echo "active";} ?>" href="/client/compliance.php">Security</a>
+                    </li>
+                <?php } ?>
+
                 <?php if (intval($config_module_enable_training ?? 0) === 1 && !empty($config_training_schema_ready)) { ?>
                     <li class="nav-item">
                         <a class="nav-link <?php if (basename($_SERVER['PHP_SELF']) == "training.php") {echo "active";} ?>" href="/client/training.php">Training</a>

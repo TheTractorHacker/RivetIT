@@ -9682,3 +9682,16 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.126'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.126') {
+        // Shared compliance report (portal): RivetCore 0.10 adds compliance_shared_report through its own migration runner.
+        // Skipped (version NOT advanced) until the package is present.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Compliance\Migration\Migration0009SharedReport::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.127'");
+        }
+    }

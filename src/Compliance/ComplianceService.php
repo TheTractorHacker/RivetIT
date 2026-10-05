@@ -6,6 +6,7 @@ use ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter;
 use RivetCore\Compliance\Assessment;
 use RivetCore\Compliance\AttestationStore;
 use RivetCore\Compliance\ComplianceAssessor;
+use RivetCore\Compliance\SharedReport;
 use RivetCore\Compliance\SnapshotStore;
 use RivetCore\Support\SystemClock;
 
@@ -30,6 +31,21 @@ final class ComplianceService
     public static function snapshots(\mysqli $db): SnapshotStore
     {
         return new SnapshotStore(new MysqliDatabaseAdapter($db));
+    }
+
+    public static function sharedReady(\mysqli $db): bool
+    {
+        if (!class_exists(SharedReport::class)) {
+            return false;
+        }
+        $res = @mysqli_query($db, "SHOW TABLES LIKE 'compliance_shared_report'");
+
+        return (bool) ($res && mysqli_num_rows($res) > 0);
+    }
+
+    public static function shared(\mysqli $db): SharedReport
+    {
+        return new SharedReport(new MysqliDatabaseAdapter($db));
     }
 
     public static function catalog(\mysqli $db): ComplianceCatalog

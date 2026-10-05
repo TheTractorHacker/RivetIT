@@ -13,6 +13,8 @@ $fw_key = $fw !== '' ? $fw : 'all';
 
 $assessment = $ready ? ComplianceService::assess($mysqli) : null;
 $snapshots = $ready ? ComplianceService::snapshots($mysqli)->list(12) : [];
+$shared_ready = $ready && ComplianceService::sharedReady($mysqli);
+$shared = $shared_ready ? ComplianceService::shared($mysqli)->current() : null;
 
 $status_badge = ['pass' => 'success', 'warn' => 'warning text-dark', 'fail' => 'danger', 'na' => 'secondary', 'error' => 'danger'];
 $state_badge = ['current' => ['Current', 'success'], 'due_soon' => ['Due soon', 'warning text-dark'], 'overdue' => ['Overdue', 'danger'], 'never' => ['Never reviewed', 'secondary']];
@@ -141,6 +143,21 @@ $q = static fn (array $extra): string => http_build_query(array_filter($extra, s
     </div>
 </div>
 
+<?php if ($shared_ready) { ?>
+<div class="card mb-3">
+    <div class="card-header py-3"><h4 class="card-title mb-0"><i class="fas fa-fw fa-share-nodes me-2"></i>Shared on the portal</h4></div>
+    <div class="card-body">
+        <?php if ($shared) { ?>
+            <p class="mb-2">Portal users can see the snapshot taken <strong><?= nullable_htmlentities($shared['taken_at']) ?></strong> (published <?= nullable_htmlentities($shared['published_at']) ?>), under <em>Security</em> in the portal menu.</p>
+            <form action="post.php" method="post" class="d-inline"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><button class="btn btn-outline-danger btn-sm" type="submit" name="unpublish_compliance_report">Stop sharing</button></form>
+        <?php } else { ?>
+            <p class="mb-0 text-muted">Nothing is shared. Choose <strong>Share</strong> on a snapshot below to publish it.</p>
+        <?php } ?>
+        <p class="small text-muted mt-2 mb-0">Only a reduced view is shown: framework scores, the title and result of each check, and the status and last-review date of each checklist item. Details, counts, account names, reviewer names and notes are never shared. Review the snapshot first; it does not update on its own.</p>
+    </div>
+</div>
+<?php } ?>
+
 <div class="card mb-3">
     <div class="card-header py-3"><h4 class="card-title mb-0"><i class="fas fa-fw fa-clock-rotate-left me-2"></i>Snapshots</h4></div>
     <div class="card-body">
@@ -160,8 +177,19 @@ $q = static fn (array $extra): string => http_build_query(array_filter($extra, s
                     <td class="text-end">
                         <a class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener" href="compliance_report.php?<?= $q(['format' => 'html', 'snapshot' => (int) $s['snapshot_id']]) ?>">Report</a>
                         <a class="btn btn-outline-secondary btn-sm" href="compliance_report.php?<?= $q(['format' => 'csv', 'snapshot' => (int) $s['snapshot_id']]) ?>">CSV</a>
+                        <?php if ($shared_ready) { ?><button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#pub_<?= (int) $s['snapshot_id'] ?>"><?= $shared && $shared['snapshot_id'] === (int) $s['snapshot_id'] ? 'Published' : 'Share' ?></button><?php } ?>
                     </td>
                 </tr>
+                <?php if ($shared_ready) { ?>
+                <tr class="collapse" id="pub_<?= (int) $s['snapshot_id'] ?>"><td colspan="5" class="bg-light">
+                    <form action="post.php" method="post" autocomplete="off" class="row g-2 align-items-end">
+                        <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+                        <input type="hidden" name="snapshot_id" value="<?= (int) $s['snapshot_id'] ?>">
+                        <div class="col-md-9"><label class="form-label small mb-0">Message shown above the report (optional)</label><input class="form-control form-control-sm" name="note" maxlength="1000" value="<?= $shared && $shared['snapshot_id'] === (int) $s['snapshot_id'] ? nullable_htmlentities((string) $shared['note']) : '' ?>"></div>
+                        <div class="col-md-3"><button class="btn btn-primary btn-sm w-100" type="submit" name="publish_compliance_report">Publish this snapshot</button></div>
+                    </form>
+                </td></tr>
+                <?php } ?>
             <?php } ?>
             </tbody>
         </table></div>

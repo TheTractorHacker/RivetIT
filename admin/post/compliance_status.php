@@ -51,3 +51,36 @@ if (isset($_POST['take_compliance_snapshot'])) {
     flash_alert('Snapshot saved.');
     redirect();
 }
+
+if (isset($_POST['publish_compliance_report'])) {
+    validateCSRFToken($_POST['csrf_token']);
+
+    if (!ComplianceService::sharedReady($mysqli)) {
+        flash_alert('Run the database update first.', 'error');
+        redirect();
+    }
+    $snapshot_id = intval($_POST['snapshot_id'] ?? 0);
+    try {
+        ComplianceService::shared($mysqli)->publish($snapshot_id, (string) ($_POST['note'] ?? '') ?: null, (int) $session_user_id);
+    } catch (\InvalidArgumentException $e) {
+        flash_alert($e->getMessage(), 'error');
+        redirect();
+    }
+
+    logAction('Compliance', 'Edit', "$session_name published compliance snapshot $snapshot_id to the portal");
+    AuditService::record('compliance.report_published', (int) $session_user_id, 'compliance', $snapshot_id, 'update', 'Compliance report published to the portal', ['snapshot_id' => $snapshot_id]);
+    flash_alert('Published. Portal users now see it under Security.');
+    redirect();
+}
+
+if (isset($_POST['unpublish_compliance_report'])) {
+    validateCSRFToken($_POST['csrf_token']);
+
+    if (ComplianceService::sharedReady($mysqli)) {
+        ComplianceService::shared($mysqli)->unpublish();
+        logAction('Compliance', 'Edit', "$session_name stopped sharing the compliance report");
+        AuditService::record('compliance.report_unpublished', (int) $session_user_id, 'compliance', 'shared', 'update', 'Compliance report removed from the portal', []);
+    }
+    flash_alert('No longer shared.');
+    redirect();
+}
