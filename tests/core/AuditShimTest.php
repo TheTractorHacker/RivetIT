@@ -20,7 +20,6 @@ final class AuditShimTest extends TestCase
         }
         mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
         $this->m = new mysqli(getenv('RIVETCORE_TEST_DB_HOST') ?: 'localhost', getenv('RIVETCORE_TEST_DB_USER') ?: 'root', getenv('RIVETCORE_TEST_DB_PASS') ?: '', $name);
-        $this->m->query('CREATE TABLE IF NOT EXISTS audit_events LIKE rivetit_core_scratch.audit_events');
         $this->m->query("DELETE FROM audit_events WHERE event_type LIKE 'shimtest.%'");
         $GLOBALS['mysqli'] = $this->m; // what Connection::get() reads in the real app
         $_SERVER['REMOTE_ADDR'] = '203.0.113.9';

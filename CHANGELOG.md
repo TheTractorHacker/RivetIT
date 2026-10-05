@@ -17,6 +17,11 @@ independent of this database version); it is a no-op for `audit_events`, which a
 truncated to the column width before insert. Adapter and shim tests live in `tests/core/` and run against a scratch
 database. No behavior changes for users; MySQL/MariaDB is unchanged.
 
+Redis is the second module: `ITFlow\Redis\Lock`, `RateLimit` and `RedisSettings` keep their static API and `rivetit:` key layout
+but now delegate to RivetCore (`LockManager`, `RateLimiter`, `RedisAdmin`), and `health/ready.php` runs RivetCore's
+`ReadinessChecker`. Connection settings still resolve in RivetIT (environment, then Administration > Redis, then the default);
+Redis stays optional and everything still fails open, including during the moment between `git pull` and `composer install`.
+
 ## Unreleased — Redis building blocks and a wider read-only MCP
 
 Remote MCP (still off by default) now has eight more read-only tools: ticket search and detail, asset search and
