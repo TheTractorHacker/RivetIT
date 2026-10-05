@@ -9695,3 +9695,17 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.127'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.127') {
+        // RivetCore 0.11 adds subject_id to the compliance tables (compliance for subjects other than the installation) through
+        // its own migration runner (idempotent). Required: the 0.12 package reads and writes that column. Skipped (version NOT
+        // advanced) until the package is present.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Compliance\Migration\Migration0010Subjects::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.128'");
+        }
+    }
