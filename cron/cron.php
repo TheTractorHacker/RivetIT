@@ -156,6 +156,19 @@ if (class_exists(\RivetCore\Retention\RetentionService::class)) {
     }
 }
 
+// Compliance status: one saved snapshot per calendar month, so the history shows how the position changed. Never fatal.
+try {
+    if (\ITFlow\Compliance\ComplianceService::ready($mysqli)) {
+        $snapshot_store = \ITFlow\Compliance\ComplianceService::snapshots($mysqli);
+        $last_snapshot = $snapshot_store->latestTakenAt();
+        if ($last_snapshot === null || substr($last_snapshot, 0, 7) !== date('Y-m')) {
+            $snapshot_store->save(\ITFlow\Compliance\ComplianceService::assess($mysqli), null, 'scheduled', defined('APP_VERSION') ? APP_VERSION : null);
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('Compliance snapshot skipped: ' . $e->getMessage());
+}
+
 // CLeanup old domain history
 $sql = mysqli_query($mysqli, "SELECT domain_id FROM domains");
 while ($row = mysqli_fetch_assoc($sql)) {

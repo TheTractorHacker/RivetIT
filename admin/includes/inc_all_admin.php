@@ -42,6 +42,7 @@ $admin_settings_labels = [
     'settings_custom_fields.php' => 'Custom fields',
     'settings_security.php' => 'Security',
     'settings_compliance.php' => 'Compliance',
+    'compliance_status.php' => 'Compliance status',
     'settings_mail.php' => 'Mail',
     'settings_notification.php' => 'Notifications',
     'identity_provider.php' => 'Identity provider',

@@ -11,7 +11,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 mysqli_report(MYSQLI_REPORT_OFF);
 $mysqli = new mysqli('localhost', getenv('RIVETIT_TEST_DB_USER'), getenv('RIVETIT_TEST_DB_PASS'), getenv('RIVETIT_TEST_DB_NAME'));
 $src = file_get_contents(__DIR__ . '/../cron/cron.php');
-$a = strpos($src, '// Retention. A compliance preset'); $b = strpos($src, '// CLeanup old domain history');
+$a = strpos($src, '// Retention. A compliance preset'); $b = strpos($src, '// Compliance status: one saved snapshot');
 if ($a === false || $b === false) { echo "FAIL  could not find the retention block\n"; exit(1); }
 $block = substr($src, $a, $b - $a);
 $q = fn(string $sql) => mysqli_query($mysqli, $sql);

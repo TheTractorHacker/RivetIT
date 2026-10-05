@@ -4,6 +4,14 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## Unreleased — Compliance status
+
+- **Administration > Compliance status.** A live view of how this installation measures up against common security controls, tagged to ISO/IEC 27001, SOC 2, PCI DSS and HIPAA, with a score per framework. Automatic checks cover multi-factor authentication (agents and administrators), administrator count, session lifetime, HTTPS-only, vault key, backups, API-key expiry, dormant agents, credential rotation, schema currency, audit recording, retention against the chosen preset and, when the module is on, overdue required training.
+- **Manual checklist with sign-off.** Thirteen things software cannot see (policy review, risk assessment, access review, restore test, incident-response test and so on). Record who reviewed, when, the next due date and a note; items show as current, due soon or overdue. Every review is kept (append-only).
+- **Snapshots and auditor export.** Save a snapshot at any time (one is also saved automatically each month, and kept). Download a CSV or a printable report for the whole position or a single framework, from the live view or from any snapshot. Saving, recording and exporting are written to the audit trail.
+- This is a self-assessment aid, not a certification or an audit opinion; control references are indicative and should be confirmed against the current text of each standard.
+- Database migration 2.6.126 adds the two tables (created by rivet-core's own migration runner). Upgraded to rivet-core 0.9.0.
+
 ## Unreleased — Compliance settings
 
 - **Administration > Settings > Compliance.** Pick a retention preset (ISO/IEC 27001, SOC 2, PCI DSS or HIPAA) and set how long the audit trail and the activity logs are kept. A preset is a **minimum**: records are never deleted younger than it (365 days, or 6 years for HIPAA), even if a number is set lower, and the hourly cleanup enforces it, not just the form. 0 keeps records forever and is always allowed. A preset helps meet a retention requirement; it does not make an organization compliant on its own.
