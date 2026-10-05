@@ -57,7 +57,17 @@ $admin_settings_labels = [
     'settings_rmm.php' => 'Integrations',
     'settings_unifi.php' => 'Integrations',
 ];
-if (isset($admin_settings_labels[$admin_settings_page])) { ?>
+// A page that lives under an admin area (Maintenance, Ticketing setup, ...) gets that area's breadcrumb below; showing
+// the Settings one as well stacked two breadcrumb rows (settings_redis.php is in both lists).
+require_once __DIR__ . '/admin_nav_areas.php';
+$admin_page_in_area = false;
+foreach (itflowAdminNavAreas() as $admin_area_check_key => $admin_area_check) {
+    if ($admin_settings_page !== $admin_area_check_key . '.php' && in_array($admin_settings_page, $admin_area_check['pages'], true)) {
+        $admin_page_in_area = true;
+        break;
+    }
+}
+if (isset($admin_settings_labels[$admin_settings_page]) && !$admin_page_in_area) { ?>
     <nav aria-label="Breadcrumb" class="mb-3 admin-breadcrumb">
         <a href="/admin/settings.php"><i class="fas fa-fw fa-arrow-left me-1" aria-hidden="true"></i>All settings</a>
         <span class="text-muted mx-2" aria-hidden="true">/</span>
@@ -80,7 +90,7 @@ foreach (itflowAdminNavAreas() as $admin_area_key => $admin_area) {
     <nav aria-label="Breadcrumb" class="mb-3 admin-breadcrumb">
         <a href="/admin/<?php echo nullable_htmlentities($admin_area_key); ?>.php"><i class="fas fa-fw fa-arrow-left me-1" aria-hidden="true"></i><?php echo nullable_htmlentities($admin_area_back_labels[$admin_area_key]); ?></a>
         <span class="text-muted mx-2" aria-hidden="true">/</span>
-        <span aria-current="page"><?php echo $page_title; ?></span>
+        <span aria-current="page"><?php echo isset($admin_settings_labels[$admin_settings_page]) ? nullable_htmlentities($admin_settings_labels[$admin_settings_page]) : $page_title; ?></span>
     </nav>
     <?php
     break;

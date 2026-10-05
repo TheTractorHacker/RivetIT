@@ -35,7 +35,7 @@ if ($stats) {
     <div class="card-body">
         <p class="text-muted">Redis speeds things up: live ticket and chat updates, rate limits and job locks. It never holds the only copy of anything, so if it is down the app keeps working and only those extras pause.</p>
         <?php if ($connect_error) { ?>
-            <div class="alert alert-warning"><?= nullable_htmlentities($connect_error) ?> Currently trying <code><?= nullable_htmlentities($conn['host'] . ':' . $conn['port']) ?></code>.</div>
+            <div class="alert alert-warning"><?= nullable_htmlentities($connect_error) ?> Currently trying <code><?= nullable_htmlentities($conn['host'] . ':' . $conn['port']) ?></code></div>
         <?php } else { ?>
             <div class="row g-3 text-center mb-2">
                 <div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Version</div><strong><?= nullable_htmlentities($stats['version']) ?></strong></div></div>
