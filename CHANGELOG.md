@@ -9,17 +9,32 @@ continues unchanged.
 - **Request ids are server-assigned.** The audit trail used to store whatever `X-Request-ID` header a client sent, and the MCP endpoint read the same variable. Both now use a server-generated id (`$_SERVER['RIVET_REQUEST_ID']`, which `mcp_server/index.php` sets); a client header is never stored.
 - **Remote MCP: no more preselected agent.** The "link this sign-in to an agent" list no longer preselects the agent whose email matches the token's email claim. The email is only a hint from the sign-in provider, so you now choose the agent yourself.
 - **Log retention covers RivetCore's tables.** `cron/cron.php` also prunes the audit trail, the webhook delivery log and finished integration jobs at the existing "log retention" horizon (0 keeps everything).
-- **In-app Update: composer's home directory.** The Update page ran `composer install` with its HOME in a predictable shared `/tmp` path, so another local user could pre-create that directory (or a symlink) and have composer read their configuration and plugins as the web user. It now uses a per-user directory (`/tmp/rivetit-composer-home-<uid>`) that must belong to the current user, must not be a symlink and must be private, otherwise it is refused. (This also fixes the page failing when the CLI updater had created the old shared directory first.)
-- Upgraded to rivet-core 0.7.1, which fixes a crash on a job's fifth failed attempt and PDF import on PHP 8.2.
+- Upgraded to rivet-core 0.7.1, which fixes a crash on a job's fifth failed attempt (the default limit) and PDF import on PHP 8.2.
 
-## Unreleased — Redis is installed with RivetIT
+## [26.10.15] RivetIT — RivetCore, company SSO for agents, safer updates and a round of fixes
+
+Pre-release. Database migrations 2.6.122 to 2.6.124 apply with **Update Database**, and one click now applies every pending step.
+
+**Updates and installs**
+- One Update Database run applies all pending migrations (each step used to test a version fixed when the page loaded, so only one step ran per click). The browser/Docker installer now stamps the real schema version of `db.sql` and runs the migrations after it; before, a browser install lacked columns such as `training_lessons.lesson_requires_previous`.
+- The in-app Update installs the PHP packages after pulling (`composer install --no-dev`, in a private temporary composer home, without plugins or scripts) and restores composer-generated `vendor/composer` files before the pull, so a pull is not blocked by them. A composer failure is shown as a warning. The Update screen now reports git errors instead of "Update successful".
+
+**Agent sign-in with company SSO** (OpenID Connect; off by default, migration 2.6.122): linked agents only, administrators excluded, an agent's own two-factor code is still required, the credential vault stays locked, link changes are audited. Tested end to end with Authentik, Keycloak 26.8 and Ory Hydra 2.3 (`tests/e2e_oidc/`, `docs/OPENID_CONNECT_PORTAL.md`).
+
+**Security and permissions:** the last active administrator cannot be demoted; legacy API keys act as an administrator as documented; the credentials CSV export needs Full access; RMM policy save, delete and remove need level 2; the incident-response password reset touches agents only; the portal ends sessions when switched off, hides system replies from employees and shows the Contacts tile only to primary/technical contacts; log retention of 0 keeps logs instead of deleting them.
+
+**Fixes** across tickets, projects and calendar, departments and people (shared sites in pickers, contact delete removes the portal login), infrastructure (rack model, domain expiry, software seat links, OTP export), RMM, reports, training wording, Docker scheduled jobs and the interface (bulk deletes ask for confirmation, sort direction, "All Time" range, light theme, page sizes, a single breadcrumb on the Redis page). The full list, and the items still waiting on a product decision, are in issue #29.
+
+**Behaviour changes to know about:** portal ticket pages no longer show System notes to employees; contract pages open for Technicians; project delete also removes project-only tasks and milestones; printer and drive hard deletes stay hidden until `config_destructive_deletes_enable` is set; the Email Sent badge only shows with SMTP; problem linking takes ticket numbers only; the CSP allows `data:` fonts; the theme preference gains a "light" value.
+
+### Redis is installed with RivetIT
 
 `deploy/install.sh` now starts a dedicated Redis (`rivetit-redis`, `127.0.0.1:6380`, loopback only, no persistence, 256 MB limit with `volatile-lru`) where
 it used to install the `redis-server` package and start the stock instance on 6379, which the app never looks at, so a fresh install quietly ran without live
 ticket and chat updates, rate limits or job locks. `deploy/update.sh` adds the same instance to existing installs on their next update. Both are idempotent and
 never fatal (Redis stays optional), the config is written once and kept, and a listener already on 6380 is left alone. See `docs/REDIS.md`.
 
-## Unreleased — RivetCore: shared package, Audit first
+### RivetCore: shared package, Audit first
 
 RivetIT now consumes **RivetCore** (`rivet/rivet-core`, tagged releases from github.com/TheTractorHacker/rivet-core), a
 package of edition-neutral services shared with RivetMSP. Audit is the first module: `ITFlow\Audit\AuditService` is now a
@@ -57,7 +72,7 @@ byte-identical to the previous implementation). Starting a workflow run is now a
 `lookupUserPermission()` and `enforceClientAccess()`, so there is nothing shareable to extract. KB media tokens, the media URL rewriter, the HTML importer and the Metrics subsystem also
 stay in RivetIT for now (they are bound to RivetIT's signing keys, URLs and RMM tables).
 
-## Unreleased — Redis building blocks and a wider read-only MCP
+### Redis building blocks and a wider read-only MCP
 
 Remote MCP (still off by default) now has eight more read-only tools: ticket search and detail, asset search and
 detail, clients, contacts, and knowledge-base search and articles. All go through one pipeline: role and client-scope
