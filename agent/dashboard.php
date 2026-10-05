@@ -10,6 +10,7 @@ if (itflow_is_limited_user()) {   // belt and braces; check_login.php already re
     exit;
 }
 require_once "includes/inc_all.php";
+require_once "../includes/sla_functions.php";
 
 // Roles audit P1f: every widget checks the module it shows, and ticket widgets are scoped to the user's
 // departments. Admins and full-access roles (Technician) see exactly what they saw before: they hold every
