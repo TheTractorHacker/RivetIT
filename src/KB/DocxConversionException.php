@@ -3,12 +3,7 @@
 namespace ITFlow\KB;
 
 /**
- * Thrown by DocxConverter when an upload is malformed, oversized, or hostile.
- *
- * The message is written to be shown to the person who uploaded the file - it
- * never contains a filesystem path, a stack detail, or anything else that would
- * leak server internals - so a caller can put it straight into flash_alert().
+ * Compatibility alias: this class now lives in RivetCore (RivetCore\KB\DocxConversionException). The alias keeps every existing
+ * reference, `catch` clause and static call working unchanged, including Training's.
  */
-class DocxConversionException extends \RuntimeException
-{
-}
+class_alias(\RivetCore\KB\DocxConversionException::class, __NAMESPACE__ . '\DocxConversionException');

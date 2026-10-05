@@ -34,6 +34,14 @@ RivetIT (`src/Core/Adapter/Mcp/UsersAgentDirectory.php`). Problem and Change man
 constants there); the ticket link stays in RivetIT. Database migration 2.6.124 also records Core migrations 0003 and 0004, which are no-ops here because the tables already exist.
 The composer repository entry now uses `no-api`, so installs clone over HTTPS instead of calling the GitHub API (avoids anonymous rate limits on deploy).
 
+Webhooks, Automation, Workflow, KB converters and Knowledge are the seventh to eleventh modules. `ITFlow\Webhooks\WebhookDispatcher`, `Automation\AutomationRuleEvaluator`,
+`Workflow\WorkflowService` and `Knowledge\CredentialReferenceRenderer` keep their API and delegate to RivetCore (webhook subscribers still come from RivetIT's `webhooks` table through
+`Core\Adapter\Webhooks\WebhooksTableSubscriptions`; both `X-ITFlow-*` and `X-RivetIT-*` headers are still sent). The DOCX and PDF converters moved to RivetCore unchanged and
+`ITFlow\KB\DocxConverter`, `PdfConverter` and their exceptions are class aliases of the Core classes, so Training and the KB import pages need no changes (output was verified
+byte-identical to the previous implementation). Starting a workflow run is now atomic. Authorization stays in RivetIT: `Security\AuthorizationService` is only a wrapper over
+`lookupUserPermission()` and `enforceClientAccess()`, so there is nothing shareable to extract. KB media tokens, the media URL rewriter, the HTML importer and the Metrics subsystem also
+stay in RivetIT for now (they are bound to RivetIT's signing keys, URLs and RMM tables).
+
 ## Unreleased — Redis building blocks and a wider read-only MCP
 
 Remote MCP (still off by default) now has eight more read-only tools: ticket search and detail, asset search and

@@ -3,15 +3,7 @@
 namespace ITFlow\KB;
 
 /**
- * Thrown by PdfConverter when an upload is malformed, protected, oversized, or
- * has nothing importable in it.
- *
- * Same contract as DocxConversionException: the message is written to be shown
- * to the person who uploaded the file. It never contains a filesystem path, a
- * poppler stderr dump, or anything else that would leak server internals, so a
- * caller can put it straight into flash_alert(). Detail for an administrator
- * goes to error_log() at the throw site instead.
+ * Compatibility alias: this class now lives in RivetCore (RivetCore\KB\PdfConversionException). The alias keeps every existing
+ * reference, `catch` clause and static call working unchanged, including Training's.
  */
-class PdfConversionException extends \RuntimeException
-{
-}
+class_alias(\RivetCore\KB\PdfConversionException::class, __NAMESPACE__ . '\PdfConversionException');
