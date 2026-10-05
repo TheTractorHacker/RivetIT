@@ -2,10 +2,14 @@
 
 namespace ITFlow\Cron;
 
+use RivetCore\Cron\JobCatalog as CoreJobCatalog;
+
 /**
  * Plain-language facts about each cron script, and whether the admin UI may start it. A script that sends
  * real email, writes to outside systems, or needs arguments is not startable from the UI: it keeps running
  * on its schedule, and the reason is shown instead of a button.
+ *
+ * The job list is RivetIT's own data and stays here; the lookup logic lives in RivetCore\Cron\JobCatalog.
  */
 final class JobCatalog
 {
@@ -38,17 +42,24 @@ final class JobCatalog
     /** Directory (under the app root) a catalog script lives in: cron or scripts. */
     public static function dir(string $scriptFile): string
     {
-        return self::all()[$scriptFile]['dir'] ?? 'cron';
+        return self::core()->dir($scriptFile);
     }
 
     public static function describe(string $scriptFile): array
     {
-        return self::all()[$scriptFile] ?? ['label' => $scriptFile, 'description' => 'Custom or unrecognized job.', 'run_now' => false, 'note' => 'Not in the known job list, so it cannot be started from here.'];
+        return self::core()->describe($scriptFile);
     }
 
     /** Scripts that need arguments, so they can only run from a schedule line that supplies them. */
     public static function needsArguments(string $scriptFile): bool
     {
-        return $scriptFile === 'training_worker.php';
+        return self::core()->needsArguments($scriptFile);
+    }
+
+    private static function core(): CoreJobCatalog
+    {
+        static $c = null;
+
+        return $c ??= new CoreJobCatalog(self::all(), ['training_worker.php']);
     }
 }

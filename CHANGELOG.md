@@ -22,6 +22,12 @@ but now delegate to RivetCore (`LockManager`, `RateLimiter`, `RedisAdmin`), and 
 `ReadinessChecker`. Connection settings still resolve in RivetIT (environment, then Administration > Redis, then the default);
 Redis stays optional and everything still fails open, including during the moment between `git pull` and `composer install`.
 
+Cron and Jobs are the third and fourth modules: `ITFlow\Cron\JobRunner` and `JobCatalog` and `ITFlow\Jobs\JobQueue` keep their API and
+delegate to RivetCore (the job list itself stays RivetIT data; the runner keeps its `/tmp/rivetit-jobs` state directory). Two fixes ride along: the
+queue's `claim()` is now safe for concurrent workers and returns the claimed state, so a failed job's attempt number and retry backoff are
+correct (the old worker used a pre-claim snapshot, so the first failure waited two hours instead of one minute); and a job that exits without a
+trailing newline no longer hides its exit status in the Cron Manager.
+
 ## Unreleased — Redis building blocks and a wider read-only MCP
 
 Remote MCP (still off by default) now has eight more read-only tools: ticket search and detail, asset search and
