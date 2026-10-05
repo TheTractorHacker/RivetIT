@@ -35,6 +35,9 @@ covers the REST API.
   imports `db.sql` when it changes).
 - If you touched the API, update `api/v1/openapi.yaml` and run `scripts/check_openapi_drift.sh`.
 - Load the pages you changed on a test instance with the browser console open, and check the PHP error log.
+- Branch from and open pull requests against `beta`; see [docs/RELEASING.md](docs/RELEASING.md).
+- Branch from and open pull requests against `beta`; production (`main`) only receives releases. See
+  [docs/RELEASING.md](docs/RELEASING.md).
 - Add an entry under `[Unreleased]` at the top of [CHANGELOG.md](CHANGELOG.md) for anything users or
   administrators will notice, including any upgrade step.
 

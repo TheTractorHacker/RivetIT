@@ -4,26 +4,32 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
-## Unreleased — Customisable ticket view filters
+## [Unreleased]
+
+## [26.10.16] RivetIT — SLA pause, resolution time rules, compliance status and saved-view filters
+
+Database migrations 2.6.125 to 2.6.131 apply with **Update Database**. Requires rivet-core 0.14.0 (`composer install`). Consolidates the entries that were listed as Unreleased after 26.10.15.
+
+### Customisable ticket view filters
 
 - **Edit the filters a saved view uses.** The view's Edit dialog (and Save Current View) now has a filter form instead of a fixed query: show Open, Closed or All tickets or pick specific statuses (new statuses you create appear automatically), assigned to anyone / me / unassigned / a named agent, priority, on-site or remote, overdue or due today, board, category and tags. The dialog also describes in plain words what the view currently does. Renaming a view without touching the form leaves its filters alone.
 - Only validated choices are stored (unknown ids and junk values are dropped), a view with several statuses or tags now highlights correctly when active, and shared views can still only be edited by those allowed to. No database change.
 
-## Unreleased — SLA no longer breaches while waiting on someone
+### SLA no longer breaches while waiting on someone
 
 - **Waiting statuses pause the SLA clock.** A ticket set to Waiting on Customer, Employee or Vendor (or On Hold) is no longer shown as breached because of the wait. While paused the clock is frozen: it never drifts into "Breached", the time spent paused is added back to the due date when the ticket moves on, and a ticket that was already past due before it was paused stays breached.
 - **You choose which statuses pause it.** Administration > Ticket Statuses has a new **Pauses the SLA clock** option on every status, in the create dialog and the edit dialog, and an SLA clock column in the list. A status created later can opt in the same way, so the setting follows your own statuses. Saving a status updates the open tickets already in it. An SLA policy's own pause list still works and adds to this.
 - **Every way of changing status is covered.** Agent status change, kanban drag, the API (including agent replies that move a ticket to Waiting on Customer), automation rules, and a customer reply that ends the wait all start or stop the pause. Anything that slips through is repaired when the ticket is opened and by the scheduled job. Ticket list, dashboard, ticket page and escalation rules all agree.
 - Contract-hour SLAs (no policy) now also add paused time back. Database migration 2.6.131 adds the option and turns it on for On Hold and every status starting with "Waiting", then pauses open tickets already waiting.
 
-## Unreleased — Resolution time rules
+### Resolution time rules
 
 - **Only resolved tickets count toward average resolution time.** An open ticket, one in an "Unresolved" status, or one that was reopened and not yet resolved again is left out of every average (dashboard tile, ticket reports, per-technician figures and the API).
 - **Reopening restarts the clock.** The time to resolve a reopened ticket is measured from the moment it was reopened to when it is resolved again, not from the original creation date. Creation dates are never changed. Every way of reopening is covered: agent status change, kanban, the department portal and guest link, the CSAT low-rating auto-reopen, automation and scheduled reopen, and the API. Moving or re-saving a ticket that is already open does not reset anything.
 - Resolution time now ends at the resolved date (older tickets closed without one use the close date), instead of the close date, so a ticket that sits resolved before auto-closing is not penalised. SLA targets and SLA breach tracking are unchanged.
 - Database migration 2.6.130 adds `ticket_resolution_started_at`. Existing tickets keep a blank start, so their time still runs from creation.
 
-## Unreleased — Compliance status
+### Compliance status
 
 - **Administration > Compliance status.** A live view of how this installation measures up against common security controls, tagged to ISO/IEC 27001, SOC 2, PCI DSS and HIPAA, with a score per framework. Automatic checks cover multi-factor authentication (agents and administrators), administrator count, session lifetime, HTTPS-only, vault key, backups, API-key expiry, dormant agents, credential rotation, schema currency, audit recording, retention against the chosen preset and, when the module is on, overdue required training.
 - **Manual checklist with sign-off.** Thirteen things software cannot see (policy review, risk assessment, access review, restore test, incident-response test and so on). Record who reviewed, when, the next due date and a note; items show as current, due soon or overdue. Every review is kept (append-only).
@@ -36,14 +42,14 @@ continues unchanged.
 - This is a self-assessment aid, not a certification or an audit opinion; control references are indicative and should be confirmed against the current text of each standard.
 - Database migration 2.6.126 adds the two tables (created by rivet-core's own migration runner). Upgraded to rivet-core 0.9.0.
 
-## Unreleased — Compliance settings
+### Compliance settings
 
 - **Administration > Settings > Compliance.** Pick a retention preset (ISO/IEC 27001, SOC 2, PCI DSS or HIPAA) and set how long the audit trail and the activity logs are kept. A preset is a **minimum**: records are never deleted younger than it (365 days, or 6 years for HIPAA), even if a number is set lower, and the hourly cleanup enforces it, not just the form. 0 keeps records forever and is always allowed. A preset helps meet a retention requirement; it does not make an organization compliant on its own.
 - The audit trail (sign-ins, setting changes, Remote MCP tool calls) now has its own retention, separate from the activity logs, webhook delivery log and finished background jobs. It defaults to 365 days, which keeps more than before.
 - Saving the page is itself recorded in the audit trail with the before and after values. Security > Log retention honours a preset's minimum too.
 - Database migration 2.6.125 adds the two settings. Upgraded to rivet-core 0.8.0.
 
-## Unreleased — security follow-ups and log retention
+### security follow-ups and log retention
 
 - **Request ids are server-assigned.** The audit trail used to store whatever `X-Request-ID` header a client sent, and the MCP endpoint read the same variable. Both now use a server-generated id (`$_SERVER['RIVET_REQUEST_ID']`, which `mcp_server/index.php` sets); a client header is never stored.
 - **Remote MCP: no more preselected agent.** The "link this sign-in to an agent" list no longer preselects the agent whose email matches the token's email claim. The email is only a hint from the sign-in provider, so you now choose the agent yourself.
