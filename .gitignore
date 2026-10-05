@@ -4,7 +4,8 @@ config/
 .beta_db_pw
 keystore_base64.txt
 .claude/
-backups/*.zip
+backups/*
+!backups/.htaccess
 
 # Docker Compose (docker-compose.yml, docker/) — real DB passwords and,
 # under restore/, a backup decryption passphrase. Never commit either.
