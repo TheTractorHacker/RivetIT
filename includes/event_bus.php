@@ -291,10 +291,6 @@ function rivetAudit(string $event, ?int $actor, ?string $entityType, $entityId, 
 }
 
 /**
- * Is this webhook URL safe to call from the server? http(s) only, and the host must resolve ONLY to public addresses (no loopback,
- * link-local such as the cloud metadata address, or private ranges), so a rule cannot be used to reach internal services.
- */
-/**
  * Resolve a webhook URL and vet it: http(s) only, no userinfo/backslashes, and every address it resolves to must be public.
  * Returns the vetted target so the caller can PIN the connection to those addresses (stops DNS rebinding between check and use), or null.
  *

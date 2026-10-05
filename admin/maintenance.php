@@ -17,6 +17,7 @@ renderAdminDirectory('Maintenance', 'Check scheduled work, review activity, and 
         'items' => [
             ['Email log', 'Review sent email activity.', 'email_log.php', 'fa-envelope-open-text'],
             ['Audit log', 'Review recorded user actions.', 'audit_log.php', 'fa-history'],
+            ['Audit trail', 'Tamper-evident record of sign-ins, setting and user changes, credential reveals and automation runs; filter and export.', 'audit_trail.php', 'fa-fingerprint'],
             ['App log', 'Review application events.', 'app_log.php', 'fa-list-alt'],
             ['Debug', 'Inspect diagnostic information.', 'debug.php', 'fa-bug'],
         ],

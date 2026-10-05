@@ -45,6 +45,7 @@ $admin_settings_labels = [
     'compliance_status.php' => 'Compliance status',
     'event_rules.php' => 'Event rules',
     'job_queue.php' => 'Job queue',
+    'audit_trail.php' => 'Audit trail',
     'settings_mail.php' => 'Mail',
     'settings_notification.php' => 'Notifications',
     'identity_provider.php' => 'Identity provider',
