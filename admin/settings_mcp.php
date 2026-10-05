@@ -115,7 +115,7 @@ $csrf = $_SESSION['csrf_token'];
                                 <select name="user_id" class="form-select form-select-sm" required aria-label="Agent to link">
                                     <option value="">Choose agent&hellip;</option>
                                     <?php foreach ($linkable as $a) { ?>
-                                        <option value="<?= (int) $a['user_id'] ?>"<?= strcasecmp((string) $p['email'], (string) $a['user_email']) === 0 ? ' selected' : '' ?>><?= nullable_htmlentities($a['user_name']) ?> (<?= nullable_htmlentities($a['user_email']) ?>)</option>
+                                        <option value="<?= (int) $a['user_id'] ?>"><?= nullable_htmlentities($a['user_name']) ?> (<?= nullable_htmlentities($a['user_email']) ?>)</option>
                                     <?php } ?>
                                 </select>
                                 <button type="submit" name="link_mcp_identity" class="btn btn-sm btn-primary">Link</button>
@@ -131,7 +131,7 @@ $csrf = $_SESSION['csrf_token'];
                     </tr>
                 <?php } ?>
                 </tbody></table></div>
-            <p class="form-text mt-2 mb-0">The agent whose email matches the token is preselected. Check that it is the right person before you press Link.</p>
+            <p class="form-text mt-2 mb-0">Nothing is preselected. Pick the agent yourself, and check it is the right person before you press Link: the email shown comes from the sign-in provider and is only a hint.</p>
         <?php } ?>
     </div>
 </div>

@@ -24,7 +24,8 @@ final class AuditShimTest extends TestCase
         $GLOBALS['mysqli'] = $this->m; // what Connection::get() reads in the real app
         $_SERVER['REMOTE_ADDR'] = '203.0.113.9';
         $_SERVER['HTTP_USER_AGENT'] = 'phpunit';
-        $_SERVER['HTTP_X_REQUEST_ID'] = 'rid-77';
+        $_SERVER['RIVET_REQUEST_ID'] = 'rid-77';
+        $_SERVER['HTTP_X_REQUEST_ID'] = 'attacker-chosen-id';
     }
 
     public function testStaticRecordWritesThroughCore(): void
@@ -34,7 +35,7 @@ final class AuditShimTest extends TestCase
         $row = $this->m->query("SELECT * FROM audit_events WHERE event_type='shimtest.static'")->fetch_assoc();
         $this->assertSame('203.0.113.9', $row['ip_address']);
         $this->assertSame('phpunit', $row['user_agent']);
-        $this->assertSame('rid-77', $row['request_id']);
+        $this->assertSame('rid-77', $row['request_id'], 'the server-assigned id is stored, never the client header');
         $this->assertSame('{"ip":"1.2.3.4"}', $row['metadata_json']);
         $this->assertSame('4', $row['entity_id']);
     }
@@ -43,5 +44,16 @@ final class AuditShimTest extends TestCase
     {
         (new \ITFlow\Audit\AuditService($this->m))->log('shimtest.ctor', null, null, null, 'x');
         $this->assertSame(1, (int) $this->m->query("SELECT COUNT(*) c FROM audit_events WHERE event_type='shimtest.ctor'")->fetch_assoc()['c']);
+    }
+
+    public function testClientRequestIdHeaderIsNeverStored(): void
+    {
+        unset($_SERVER['RIVET_REQUEST_ID']);
+        $_SERVER['HTTP_X_REQUEST_ID'] = 'attacker-chosen-id';
+        $ctx = new \ITFlow\Core\Adapter\Http\ServerRequestContext();
+        $id = $ctx->requestId();
+        $this->assertNotSame('attacker-chosen-id', $id);
+        $this->assertMatchesRegularExpression('/^req_[0-9a-f]{16}$/', (string) $id);
+        $this->assertSame($id, $ctx->requestId(), 'stable for the whole request');
     }
 }

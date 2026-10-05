@@ -82,7 +82,7 @@ $transport = new Mcp\Server\Transport\StreamableHttpTransport($request, middlewa
 // Server-generated correlation id for every MCP request; used by the tool envelope and the audit row.
 // Never taken from a client header.
 $request_id = 'req_' . bin2hex(random_bytes(8));
-$_SERVER['HTTP_X_REQUEST_ID'] = $request_id;
+$_SERVER['RIVET_REQUEST_ID'] = $request_id; // read by ServerRequestContext; a client X-Request-ID header is never used
 header('X-Request-ID: ' . $request_id);
 $tools = new RivetITMcpReadTools($mysqli);
 $server = $tools->register(Mcp\Server::builder()->setServerInfo('RivetIT', APP_VERSION))->build();

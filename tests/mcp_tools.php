@@ -46,7 +46,7 @@ $ctx = fn(int $uid, array $scopes = ['mcp:read']) => new Mcp\Server\RequestConte
 );
 $ids = fn(array $r, string $k) => array_map('intval', array_column($r['data'], $k));
 $code = fn(array $r) => $r['errors'][0]['code'] ?? null;
-$_SERVER['HTTP_X_REQUEST_ID'] = 'req_test';
+$_SERVER['RIVET_REQUEST_ID'] = 'req_test'; // server-assigned id (a client X-Request-ID header is ignored)
 
 // ---- envelope + admin sees everything
 $r = $tools->searchTicketsTool($ctx(ADMIN), '', true, 10);

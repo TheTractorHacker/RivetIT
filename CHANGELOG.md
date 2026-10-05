@@ -4,6 +4,13 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## Unreleased — security follow-ups and log retention
+
+- **Request ids are server-assigned.** The audit trail used to store whatever `X-Request-ID` header a client sent, and the MCP endpoint read the same variable. Both now use a server-generated id (`$_SERVER['RIVET_REQUEST_ID']`, which `mcp_server/index.php` sets); a client header is never stored.
+- **Remote MCP: no more preselected agent.** The "link this sign-in to an agent" list no longer preselects the agent whose email matches the token's email claim. The email is only a hint from the sign-in provider, so you now choose the agent yourself.
+- **Log retention covers RivetCore's tables.** `cron/cron.php` also prunes the audit trail, the webhook delivery log and finished integration jobs at the existing "log retention" horizon (0 keeps everything).
+- Upgraded to rivet-core 0.7.0.
+
 ## Unreleased — Redis is installed with RivetIT
 
 `deploy/install.sh` now starts a dedicated Redis (`rivetit-redis`, `127.0.0.1:6380`, loopback only, no persistence, 256 MB limit with `volatile-lru`) where

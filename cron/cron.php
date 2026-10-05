@@ -139,6 +139,16 @@ if ($config_log_retention >= 1) {
     mysqli_query($mysqli, "DELETE FROM auth_logs WHERE auth_log_created_at < CURDATE() - INTERVAL $config_log_retention DAY");
 }
 
+// RivetCore's own log tables (audit trail, webhook delivery log, finished integration jobs) follow the same horizon.
+// Never fatal: the cron's other work must run even if this table set is missing or the package is not installed yet.
+if ($config_log_retention >= 1 && class_exists(\RivetCore\Retention\RetentionService::class)) {
+    try {
+        (new \RivetCore\Retention\RetentionService(new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli)))->prune($config_log_retention);
+    } catch (\Throwable $e) {
+        error_log('RivetCore retention skipped: ' . $e->getMessage());
+    }
+}
+
 // CLeanup old domain history
 $sql = mysqli_query($mysqli, "SELECT domain_id FROM domains");
 while ($row = mysqli_fetch_assoc($sql)) {

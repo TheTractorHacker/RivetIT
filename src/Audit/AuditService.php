@@ -59,7 +59,7 @@ class AuditService
         $summary = $summary === null ? null : mb_substr($summary, 0, 500);
         $ip = $_SERVER['REMOTE_ADDR'] ?? null;
         $ua = isset($_SERVER['HTTP_USER_AGENT']) ? substr($_SERVER['HTTP_USER_AGENT'], 0, 255) : null;
-        $requestId = $_SERVER['HTTP_X_REQUEST_ID'] ?? null;
+        $requestId = $_SERVER['RIVET_REQUEST_ID'] ?? null; // never the client's X-Request-ID header
         $stmt = $this->mysqli->prepare(
             "INSERT INTO audit_events
                 (event_type, actor_user_id, entity_type, entity_id, action, summary, metadata_json, ip_address, user_agent, request_id)
