@@ -6,6 +6,13 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Employee self-service portal
+
+- **Employee home.** A department portal login that is not a primary or technical contact now lands on a home page with a "What do you need?" search over the service catalog (with Popular and Recent), **My open requests**, **My devices**, **Waiting on me** (for managers), **My onboarding/offboarding checklist** (only when they have a run; read-only, no internal instructions) and **My training due** (when Training is on). Department administrators keep their existing home page and get the same extra sections below it. Administrators can switch each section off under Settings > Employee portal.
+- **My devices and Report a problem.** Assets shows an employee only the devices assigned to them; department administrators get a Mine / All in my department toggle. Report a problem opens a new ticket with the device and subject prefilled. Posting an asset id that is not yours to a new ticket no longer attaches it.
+- **My requests and profile.** Tickets is Mine for everyone, with a Mine / Department toggle for department administrators. Profile shows manager, department, location, start date and devices read-only, and lets an employee edit only their phone and mobile numbers.
+- **Onboarding requests from the portal.** Off by default (Settings > Employee portal). Managers and department administrators can request a new hire: the person is created in their own department as a pre-hire and the chosen onboarding workflow starts once (a manager approval task is honoured), or a ticket with the details is opened when no template is chosen. Repeats never duplicate the contact, run or ticket. **Migration 2.6.137** adds three settings columns (Update Database). See docs/EMPLOYEE_PORTAL.md.
+
 ### RivetCore 0.17.1
 
 - Updates the shared library to RivetCore 0.17.1 (job heartbeat, webhook signed timestamp, PSR-3 logging, audit reader, retention horizons). **Migration 2.6.136** adds `integration_jobs.heartbeat_at` through Core's own migration runner. The Update page shows the RivetCore version; the library updates with the app (the pin is in `composer.json`/`composer.lock`), no separate button is needed.

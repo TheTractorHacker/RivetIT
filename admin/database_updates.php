@@ -9934,3 +9934,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.136'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.136') {
+        // Employee self-service portal: which home sections show (CSV of keys), and the HR-initiated onboarding request (off by default,
+        // with the onboarding workflow template it starts; 0 = open a ticket instead). Idempotent.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_portal_home_sections` varchar(255) NOT NULL DEFAULT 'requests,approvals,devices,onboarding,training,catalog'");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_portal_onboarding_requests` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_portal_onboarding_template_id` int(11) NOT NULL DEFAULT 0");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.137'");
+    }

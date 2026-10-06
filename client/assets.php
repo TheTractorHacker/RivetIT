@@ -13,19 +13,34 @@ header("Content-Security-Policy: default-src 'self'");
 ob_start();
 require_once "includes/inc_all.php";
 
-if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
-    ob_end_clean();
-    header("Location: post.php?logout");
-    exit();
+// Department administrators (primary / technical contacts) see the department's assets and can switch between "All in my
+// department" and "Mine". Every other contact sees ONLY the devices assigned to them: the scope is forced to mine, so a
+// crafted ?scope=all does nothing. (Before the employee portal this page logged non-administrators out.)
+$assets_is_admin = ($session_contact_primary == 1 || $session_contact_is_technical_contact);
+$assets_scope = ($assets_is_admin && ($_GET['scope'] ?? 'all') !== 'mine') ? 'all' : 'mine';
+
+if ($assets_scope === 'mine') {
+    // contact_id 0 (admin preview) must never match unassigned assets (asset_contact_id = 0)
+    $assets_where = "asset_contact_id = $session_contact_id AND $session_contact_id > 0";
+} else {
+    $assets_where = "1 = 1";
 }
 
-$assets_sql = mysqli_query($mysqli, "SELECT assets.*, contacts.contact_name, status_cat.category_color AS asset_status_color FROM assets LEFT JOIN contacts ON asset_contact_id = contact_id LEFT JOIN categories AS status_cat ON status_cat.category_name = assets.asset_status AND status_cat.category_type = 'asset_status' AND status_cat.category_archived_at IS NULL WHERE asset_client_id = $session_client_id AND asset_archived_at IS NULL ORDER BY asset_type ASC, asset_name ASC");
+$assets_sql = mysqli_query($mysqli, "SELECT assets.*, contacts.contact_name, status_cat.category_color AS asset_status_color FROM assets LEFT JOIN contacts ON asset_contact_id = contact_id LEFT JOIN categories AS status_cat ON status_cat.category_name = assets.asset_status AND status_cat.category_type = 'asset_status' AND status_cat.category_archived_at IS NULL WHERE asset_client_id = $session_client_id AND $assets_where AND asset_archived_at IS NULL ORDER BY asset_type ASC, asset_name ASC");
 ?>
 
     <div class="row mb-4">
         <div class="col">
-            <h3><i class="fas fa-fw fa-desktop me-2"></i>Assets</h3>
+            <h3><i class="fas fa-fw fa-desktop me-2"></i><?php echo $assets_scope === 'mine' ? 'My devices' : 'Assets'; ?></h3>
         </div>
+        <?php if ($assets_is_admin) { ?>
+        <div class="col-auto">
+            <div class="btn-group" role="group" aria-label="Which assets">
+                <a href="?scope=mine" class="btn btn-sm <?php echo $assets_scope === 'mine' ? 'btn-primary' : 'btn-outline-primary'; ?>">Mine</a>
+                <a href="?scope=all" class="btn btn-sm <?php echo $assets_scope === 'all' ? 'btn-primary' : 'btn-outline-primary'; ?>">All in my department</a>
+            </div>
+        </div>
+        <?php } ?>
     </div>
 
     <div class="row">
@@ -47,6 +62,7 @@ $assets_sql = mysqli_query($mysqli, "SELECT assets.*, contacts.contact_name, sta
                     <th>Warranty</th>
                     <th>Status</th>
                     <th>URI</th>
+                    <th></th>
                 </tr>
                 </thead>
                 <tbody>
@@ -54,7 +70,7 @@ $assets_sql = mysqli_query($mysqli, "SELECT assets.*, contacts.contact_name, sta
                 <?php
                 if (mysqli_num_rows($assets_sql) == 0) { ?>
                     <tr>
-                        <td colspan="9" class="text-center text-muted py-4">No assets found.</td>
+                        <td colspan="10" class="text-center text-muted py-4"><?php echo $assets_scope === 'mine' ? 'No devices are assigned to you.' : 'No assets found.'; ?></td>
                     </tr>
                 <?php }
                 while ($row = mysqli_fetch_assoc($assets_sql)) {
@@ -93,6 +109,11 @@ $assets_sql = mysqli_query($mysqli, "SELECT assets.*, contacts.contact_name, sta
                             <?php } else { ?>
                             -
                         <?php } ?>
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <?php if ($session_contact_id > 0 && intval($row['asset_contact_id']) === intval($session_contact_id)) { ?>
+                                <a class="btn btn-sm btn-outline-secondary" href="ticket_add.php?asset_id=<?php echo $asset_id; ?>"><i class="fas fa-fw fa-life-ring me-1" aria-hidden="true"></i>Report a problem</a>
+                            <?php } ?>
                         </td>
                     </tr>
 

@@ -170,6 +170,12 @@ $config_module_enable_intune = intval($row['config_module_enable_intune'] ?? 0);
 $config_module_enable_training = intval($row['config_module_enable_training'] ?? 0);
 $config_training_schema_ready  = is_array($row) && array_key_exists('config_module_enable_training', $row);
 
+// Employee self-service portal (2.6.137). ?? defaults mirror the column defaults; NULL sections = not migrated = every section on.
+$config_portal_home_sections = $row['config_portal_home_sections'] ?? null;
+$config_portal_onboarding_requests = intval($row['config_portal_onboarding_requests'] ?? 0);
+$config_portal_onboarding_template_id = intval($row['config_portal_onboarding_template_id'] ?? 0);
+$config_portal_settings_ready = is_array($row) && array_key_exists('config_portal_onboarding_requests', $row);
+
 // Login
 $config_login_message = $row['config_login_message'];
 $config_login_key_required = $row['config_login_key_required'];

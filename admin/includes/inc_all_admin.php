@@ -39,6 +39,7 @@ $admin_settings_labels = [
     'payroll_settings.php' => 'Payroll',
     'settings_training.php' => 'Training',
     'settings_kb.php' => 'Knowledge Base',
+    'settings_portal.php' => 'Employee portal',
     'settings_custom_fields.php' => 'Custom fields',
     'settings_security.php' => 'Security',
     'settings_compliance.php' => 'Compliance',

@@ -64,6 +64,50 @@ $profile_is_local = ($_SESSION['login_method'] ?? '') == 'local';
         </div>
     </div>
 
+    <?php
+    // Employee details: read-only facts (manager, department, location, start date) and my devices; phone and mobile are the only editable fields.
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/src/Portal/EmployeeHome.php';
+    $profile_eh = new \ITFlow\Portal\EmployeeHome($mysqli);
+    $profile_facts = $profile_eh->profileFacts(intval($session_contact_id), intval($session_client_id));
+    $profile_devices = $profile_eh->myDevices(intval($session_contact_id), intval($session_client_id));
+    if ($profile_facts) { ?>
+    <div class="card portal-card">
+        <div class="card-header"><h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-user-tie" aria-hidden="true"></i></span>Employee details</h3></div>
+        <div class="card-body">
+            <dl class="portal-dl">
+                <div><dt>Title</dt><dd><?= nullable_htmlentities($profile_facts['contact_title'] ?: '-') ?></dd></div>
+                <div><dt>Manager</dt><dd><?= nullable_htmlentities($profile_facts['manager_name'] ?: '-') ?></dd></div>
+                <div><dt>Department</dt><dd><?= nullable_htmlentities(trim((string) $profile_facts['contact_department']) !== '' ? $profile_facts['contact_department'] : $session_client_name) ?></dd></div>
+                <div><dt>Location</dt><dd><?= nullable_htmlentities($profile_facts['location_name'] ?: '-') ?></dd></div>
+                <div><dt>Start date</dt><dd><?= nullable_htmlentities($profile_facts['contact_start_date'] ?: '-') ?></dd></div>
+                <div><dt>My devices</dt><dd>
+                    <?php if (!$profile_devices) { ?><span class="text-secondary">None assigned</span><?php } else { ?>
+                        <?= count($profile_devices) ?>: <?= nullable_htmlentities(implode(', ', array_map(static fn($d) => $d['asset_name'], array_slice($profile_devices, 0, 5)))) ?><?= count($profile_devices) > 5 ? ', ...' : '' ?>
+                        <a href="assets.php" class="ms-1">Details</a>
+                    <?php } ?>
+                </dd></div>
+            </dl>
+        </div>
+    </div>
+
+    <?php if (!$portal_preview_active) { ?>
+    <div class="card portal-card">
+        <div class="card-header"><h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-phone" aria-hidden="true"></i></span>Phone numbers</h3></div>
+        <div class="card-body">
+            <form action="post.php" method="post" autocomplete="off">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                <label class="form-label" for="portal_phone">Phone</label>
+                <input type="text" class="form-control mb-2" id="portal_phone" name="contact_phone" maxlength="50" value="<?= nullable_htmlentities($profile_facts['contact_phone']) ?>">
+                <label class="form-label" for="portal_mobile">Mobile</label>
+                <input type="text" class="form-control" id="portal_mobile" name="contact_mobile" maxlength="50" value="<?= nullable_htmlentities($profile_facts['contact_mobile']) ?>">
+                <p class="text-muted small mt-2 mb-0">Everything else on your record is managed by your administrator.</p>
+                <button type="submit" name="edit_my_contact_details" class="btn btn-primary mt-3"><i class="fas fa-check me-2"></i>Save</button>
+            </form>
+        </div>
+    </div>
+    <?php } ?>
+    <?php } ?>
+
     <?php if (!empty($portal_lms_ok)) { ?>
         <div class="card portal-card">
             <div class="card-header"><h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-graduation-cap" aria-hidden="true"></i></span>Training management</h3></div>

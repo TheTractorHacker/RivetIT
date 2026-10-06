@@ -79,7 +79,7 @@ if (isset($catalog_categories['General'])) { // "General" last
         <div class="portal-filterbar" data-portal-filter>
             <div class="portal-search">
                 <i class="fas fa-search" aria-hidden="true"></i>
-                <input type="search" class="form-control" placeholder="Search requests" aria-label="Search requests" data-portal-filter-input autocomplete="off">
+                <input type="search" class="form-control" placeholder="Search requests" aria-label="Search requests" data-portal-filter-input autocomplete="off" value="<?= nullable_htmlentities(mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100)) ?>">
             </div>
             <?php if (count($catalog_categories) > 1) { ?>
                 <div class="portal-chips" role="group" aria-label="Filter by category">

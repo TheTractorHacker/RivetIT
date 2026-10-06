@@ -250,6 +250,19 @@ $portal_training_on = intval($config_module_enable_training ?? 0) === 1 && !empt
 
 </div>
 
+<?php
+// Employee view: contacts who are not department administrators get the employee home (own requests, devices, approvals,
+// checklist, training, request search) in place of the department-oriented cards below; administrators keep the original
+// page and get the extra sections underneath it. Sections an administrator switched off (Settings > Portal) are skipped.
+require_once $_SERVER['DOCUMENT_ROOT'] . '/src/Portal/EmployeeHome.php';
+$portal_eh_sections = \ITFlow\Portal\EmployeeHome::parseSections($config_portal_home_sections ?? null);
+$portal_employee_view = !$portal_is_tech && count($portal_eh_sections) > 0;
+if ($portal_employee_view) {
+    $eh_skip = [];
+    require __DIR__ . '/includes/employee_home.php';
+}
+?>
+<?php if (!$portal_employee_view) { ?>
 <div class="row g-3 mb-4">
 
     <!-- Recent Tickets -->
@@ -343,6 +356,15 @@ $portal_training_on = intval($config_module_enable_training ?? 0) === 1 && !empt
     </div>
 
 </div>
+<?php } ?>
+
+<?php
+if ($portal_is_tech && count($portal_eh_sections) > 0) {
+    // Administrators already have recent tickets and assigned assets above; add the rest.
+    $eh_skip = ['requests', 'devices'];
+    require __DIR__ . '/includes/employee_home.php';
+}
+?>
 
 <?php if ($portal_is_tech) { ?>
 <!-- Needs Attention -->
