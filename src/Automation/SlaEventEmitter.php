@@ -14,12 +14,28 @@ final class SlaEventEmitter
     public const EVENTS = ['ticket.sla_warning', 'ticket.sla_breached'];
     public const STALE_BREACH_SECONDS = 86400;
 
+    /**
+     * Table check that lives in this class: cron calls run() with only the autoloader, and a free function declared in
+     * RuleEngine.php does not exist until that class has been loaded ("Call to undefined function ... rivetTableExistsSafe").
+     */
+    private static function tableExists(\mysqli $mysqli, string $table): bool
+    {
+        static $cache = [];
+        $key = spl_object_id($mysqli) . ':' . $table;
+        if (!array_key_exists($key, $cache)) {
+            $res = @mysqli_query($mysqli, "SHOW TABLES LIKE '" . mysqli_real_escape_string($mysqli, $table) . "'");
+            $cache[$key] = (bool) ($res && mysqli_num_rows($res) > 0);
+        }
+
+        return $cache[$key];
+    }
+
     public static function someoneListens(\mysqli $mysqli): bool
     {
-        if (!rivetTableExistsSafe($mysqli, 'automation_sla_marks')) {
+        if (!self::tableExists($mysqli, 'automation_sla_marks')) {
             return false;
         }
-        if (rivetTableExistsSafe($mysqli, 'automation_rules')
+        if (self::tableExists($mysqli, 'automation_rules')
             && mysqli_fetch_row(mysqli_query($mysqli, "SELECT 1 FROM automation_rules WHERE is_enabled = 1 AND trigger_event IN ('ticket.sla_warning','ticket.sla_breached') LIMIT 1"))) {
             return true;
         }

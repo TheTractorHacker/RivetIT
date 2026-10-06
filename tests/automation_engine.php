@@ -307,6 +307,13 @@ $q("DELETE FROM automation_sla_marks"); $q("DELETE FROM automation_rules"); $q("
 $sent = [];
 $emit = function (string $ev, array $d) use (&$sent) { $sent[] = [$ev, $d]; };
 $ok(SlaEventEmitter::run($mysqli, $emit) === 0, 'no SLA events are computed when nothing listens');
+// cron.php calls SlaEventEmitter::run() with only the autoloader (RuleEngine is not loaded yet): it must not depend on RuleEngine.php's helpers
+$probe = sys_get_temp_dir() . '/rivetit-sla-probe-' . bin2hex(random_bytes(4)) . '.php';
+file_put_contents($probe, '<?php require ' . var_export(__DIR__ . '/../vendor/autoload.php', true) . ';
+$db = new mysqli("localhost", getenv("RIVETIT_TEST_DB_USER"), getenv("RIVETIT_TEST_DB_PASS"), getenv("RIVETIT_TEST_DB_NAME"));
+try { echo "ok:" . ITFlow\\Automation\\SlaEventEmitter::run($db, fn() => null); } catch (Throwable $e) { echo "ERR:" . $e->getMessage(); }');
+$ok(trim((string) shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($probe) . ' 2>&1')) === 'ok:0', 'SlaEventEmitter::run works when only the autoloader has run (the cron path), no undefined-function error');
+@unlink($probe);
 $rule('notify_user', ['message' => 'sla'], 'ticket.sla_breached', ['name' => 'listener']);
 $mkSla = fn(string $created, string $respDue, string $resDue, string $extra = '') => $mkTicket(['created' => "'$created'", 'extra' => ", ticket_sla_response_due = " . ($respDue === '' ? 'NULL' : "'$respDue'") . ", ticket_sla_resolution_due = " . ($resDue === '' ? 'NULL' : "'$resDue'") . $extra]);
 $now = time(); $d = fn(int $off) => gmdate('Y-m-d H:i:s', $now + $off);
