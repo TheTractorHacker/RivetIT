@@ -633,7 +633,7 @@ class WorkflowService
     {
         $message = 'Approval needed: "' . $task['title'] . '" for ' . ($contact['contact_name'] ?? 'an employee');
         foreach ($this->approverUserIds($task, $contact) as $uid) {
-            $this->gateway()->notifyUser($uid, 'Workflow', $message, 'workflow_run.php?run_id=' . (int) $task['run_id'], (int) ($contact['contact_client_id'] ?? 0), (int) ($contact['contact_id'] ?? 0));
+            $this->gateway()->notifyUser($uid, 'Workflow', $message, 'workflow_run.php?run_id=' . (int) $task['run_id'] . '&approval_task=' . (int) $task['run_task_id'], (int) ($contact['contact_client_id'] ?? 0), (int) ($contact['contact_id'] ?? 0));
         }
     }
 

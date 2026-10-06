@@ -350,6 +350,10 @@ switch ($resource) {
             require __DIR__ . '/notifications.php';
         }
         break;
+    case 'approvals':        require __DIR__ . '/approvals.php';        break;
+    case 'service_catalog':  require __DIR__ . '/service_catalog.php';  break;
+    case 'workflow_tasks':   require __DIR__ . '/workflow_tasks.php';   break;
+    case 'ticket_attachments': require __DIR__ . '/ticket_attachments.php'; break;
     case 'validate_api_key': api_response(200, ['success' => 'True', 'message' => 'API key is valid']); break;
     default:              api_error(404, 'Not found');
 }

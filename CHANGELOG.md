@@ -40,6 +40,12 @@ continues unchanged.
 - **Slack interactive buttons.** A Slack destination with a Signing Secret gets **Acknowledge** and **Assign to me** buttons on ticket messages, answered by a new signed endpoint `/slack_interactive.php` (HMAC-SHA256, 5 minute window, single use; no nginx rule needed). Slack users are matched to agents only if you opt in, only by an email Slack confirms, with the same role and department rights as the web app; otherwise the clicker is told privately that their account isn't linked. Teams interactive cards, two-way sync and a virtual agent are documented as not included (Teams cards need a Bot Framework registration). Tested against local mocks only. See docs/SLACK_TEAMS_SETUP.md.
 - Database migration 2.6.140 (Update Database): `service_catalog_fields.show_if`, `settings.config_entra_allow_writes`, `config_slack_link_by_email`, `config_slack_bot_token`, `config_slack_team_id`, `workflow_run_tasks.secret_*` and the `slack_interactive_seen` table. Everything is off or empty by default.
 
+### Mobile API: approvals, catalog requests, workflow tasks, attachments
+
+- New API v1 endpoints for the Android app, all needing a user token (module-only logins get 403): `GET/POST /api/v1/approvals.php` (approvals the caller may decide now, and approve/reject through the same service methods as the web pages), `GET/POST /api/v1/service_catalog.php` (active items with their request forms; raise a ticket with server-side validation identical to the web form), `GET/POST /api/v1/workflow_tasks.php` (open onboarding/offboarding checklist tasks; complete or skip with the web rules, including the department access check on the task's run) and `GET/POST /api/v1/ticket_attachments.php` (list, download and upload with the web upload allow-list plus content sniffing, a random stored name and `no-store`/`nosniff` download headers).
+- Approval requests now carry their id: the in-app notification action is `/agent/service_catalog_approvals.php?request_id=N` or `workflow_run.php?run_id=R&approval_task=N` (the web pages ignore the extra parameter), the push payload carries `type: approval`, `kind` and `id`, and `GET /api/v1/notifications` reports such entries as `type: approval` with `kind` and `ref_id`. Who is notified is unchanged.
+- `GET /api/v1/tickets/{id}` includes `attachments_count`. No database change. See docs/MOBILE_API.md and `tests/mobile_api.php`.
+
 ## [26.10.21] RivetIT — RivetCore 0.17.1, service catalog approvals, employee workflow depth, Slack/Teams notifications, installer hardening
 
 ### Installer

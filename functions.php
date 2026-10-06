@@ -4154,8 +4154,33 @@ function notifyUser($user_id, $type, $details, $action = null, $client_id = 0, $
     ]);
 
     if ($push && push_allowed_for_user($user_id, $type)) {
-        firebase_send_push_to_user($user_id, $type, $details, ['type' => strtolower($type), 'action' => $action ?? '']);
+        // An approval request carries {type:"approval", kind, id} so the mobile app can open the approval screen.
+        // Nothing else about the push changes (same recipients, title and body).
+        $push_data = ['type' => strtolower($type), 'action' => $action ?? ''];
+        $approval = approvalRouteFromAction($action);
+        if ($approval) {
+            $push_data = ['type' => 'approval', 'kind' => $approval['kind'], 'id' => (string) $approval['id']] + $push_data;
+        }
+        firebase_send_push_to_user($user_id, $type, $details, $push_data);
     }
+}
+
+// The notification_action of an approval REQUEST (a catalog step or a workflow approval task becoming ready for its
+// approver) carries the item id as a query parameter that the web page ignores:
+//   /agent/service_catalog_approvals.php?request_id=N        -> kind catalog_request
+//   workflow_run.php?run_id=R&approval_task=N                -> kind workflow_task
+// The push payload and GET /api/v1/notifications derive the stable approval type from it. Returns null for anything else.
+function approvalRouteFromAction($action): ?array {
+    if (!is_string($action) || $action === '') {
+        return null;
+    }
+    if (preg_match('#^/agent/service_catalog_approvals\.php\?request_id=(\d+)$#', $action, $m)) {
+        return ['kind' => 'catalog_request', 'id' => (int) $m[1]];
+    }
+    if (preg_match('#^workflow_run\.php\?run_id=\d+&approval_task=(\d+)$#', $action, $m)) {
+        return ['kind' => 'workflow_task', 'id' => (int) $m[1]];
+    }
+    return null;
 }
 
 function logAction($type, $action, $description, $client_id = 0, $entity_id = 0) {

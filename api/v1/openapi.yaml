@@ -27,6 +27,7 @@ servers:
     description: Relative to the RivetIT install host
 tags:
   - name: Auth
+  - name: Mobile
   - name: Dashboard
   - name: Tickets
   - name: Ticket Meta
@@ -1263,6 +1264,195 @@ paths:
           content:
             text/event-stream:
               schema: {type: string}
+  /approvals:
+    get:
+      tags: [Mobile]
+      summary: Approvals the caller may decide right now (service catalog requests + workflow approval tasks)
+      description: >
+        Needs a user token (legacy API key denied) and Tickets (catalog) and/or Departments (workflow) access.
+        Same rules as agent/service_catalog_approvals.php and the workflow run page; administrators also see every
+        other pending catalog request (decided as an override). Module-only (limited) logins get 403.
+      responses:
+        '200':
+          description: Pending approvals, oldest first
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ApprovalList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Mobile]
+      summary: Approve or reject one approval
+      description: >
+        Goes through ServiceCatalogService::decide / WorkflowService::approveTask|rejectTask, so state machine,
+        notifications, audit and ticket hold/release behave as on the web. An id that does not exist, is already
+        decided, or is not addressed to the caller returns the same 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ApprovalDecision'}
+      responses:
+        '200':
+          description: Decision recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {type: boolean}
+                  status: {type: string, description: "approved, rejected, or pending_approval (a further catalog step is now waiting)"}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: Lost a race - the approval was decided in the meantime
+        '422':
+          description: Validation error (bad kind/id/decision, or a reject without a comment)
+  /service_catalog:
+    get:
+      tags: [Mobile]
+      summary: Active service catalog items with their request forms
+      description: Needs a user token and Tickets access. popular = top 5 items of the last 30 days; recent = the caller's last 5 distinct items.
+      responses:
+        '200':
+          description: Catalog
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CatalogList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Mobile]
+      summary: Raise a ticket from a catalog item
+      description: >
+        Validated exactly like the web form (required, type, select choices, 500/5000 length caps); answers whose key is not a
+        defined field are ignored. The caller is the requester. Needs Tickets edit access and access to client_id's department.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CatalogRequest'}
+      responses:
+        '201':
+          description: Ticket created (held when the item needs approval)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {type: boolean}
+                  ticket_id: {type: integer}
+                  status: {type: string, enum: [created, pending_approval]}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422':
+          description: Validation error; error holds the messages joined, errors the list
+  /workflow_tasks:
+    get:
+      tags: [Mobile]
+      summary: Open onboarding/offboarding checklist tasks
+      description: >
+        scope=mine (default): assigned to the caller plus unassigned tasks of runs the caller may access (Departments
+        view + department access). scope=all: every open task of accessible runs, needs Departments edit access.
+        status can also be running or rejected besides the listed values.
+      parameters:
+        - {name: scope, in: query, schema: {type: string, enum: [mine, all], default: mine}}
+      responses:
+        '200':
+          description: Tasks, soonest due first
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkflowTaskList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422':
+          description: Unknown scope
+    post:
+      tags: [Mobile]
+      summary: Complete or skip a checklist task
+      description: >
+        Same rules as the web handlers (WorkflowService): blocked tasks and approval tasks cannot be completed by hand,
+        skipping needs a reason, only administrators may skip an approval. Unknown and inaccessible tasks return the same 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/WorkflowTaskAction'}
+      responses:
+        '200':
+          description: Done; status is the task's new status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {type: boolean}
+                  status: {type: string}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422':
+          description: Validation error or a workflow rule (blocked, needs approval, reason required, admin only)
+  /ticket_attachments:
+    get:
+      tags: [Mobile]
+      summary: List a ticket's attachments, or download one
+      description: >
+        ticket_id=N lists. id=A&download=1 streams the file (Content-Disposition: attachment, nosniff, Cache-Control: no-store);
+        id=A without download returns that one item's metadata. 403 for a ticket outside the caller's departments and for
+        an unknown id (indistinguishable). Needs Tickets access.
+      parameters:
+        - {name: ticket_id, in: query, schema: {type: integer}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: download, in: query, schema: {type: integer, enum: [1]}}
+      responses:
+        '200':
+          description: Attachment list, or the file bytes when download=1
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TicketAttachmentList'}
+            application/octet-stream:
+              schema: {type: string, format: binary}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404':
+          description: The file behind a known attachment is missing
+    post:
+      tags: [Mobile]
+      summary: Upload one attachment (multipart)
+      description: >
+        Fields ticket_id, optional reply_id (must belong to the ticket) and file. Same extension allow-list as the web
+        upload, plus content sniffing (an image extension must hold an image; script/markup content is refused), a
+        check of every extension segment (shell.php.png is refused), a random stored name and the PHP/post size limits.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [ticket_id, file]
+              properties:
+                ticket_id: {type: integer}
+                reply_id: {type: integer}
+                file: {type: string, format: binary}
+      responses:
+        '201':
+          description: Stored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {type: boolean}
+                  id: {type: integer}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '413':
+          description: File too large
+        '422':
+          description: Missing field, disallowed type or content
   /alerts:
     get:
       tags: [Alerts]
@@ -1527,6 +1717,7 @@ components:
       type: object
       properties:
         id: {type: integer}
+        attachments_count: {type: integer, description: All attachments of the ticket including those on replies}
         number: {type: integer}
         subject: {type: string}
         details: {type: string}
@@ -2121,14 +2312,134 @@ components:
         schedule_end: {type: string, nullable: true}
         onsite: {type: boolean}
         notes: {type: string}
+    ApprovalList:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/ApprovalItem'}
+        counts:
+          type: object
+          properties:
+            total: {type: integer}
+    ApprovalItem:
+      type: object
+      properties:
+        kind: {type: string, enum: [catalog_request, workflow_task]}
+        id: {type: integer, description: "request_id (catalog_request) or run_task_id (workflow_task)"}
+        title: {type: string}
+        requester: {type: string}
+        summary: {type: string}
+        risk_score: {type: integer, nullable: true}
+        step: {type: string, nullable: true}
+        ticket_id: {type: integer, nullable: true}
+        requested_at: {type: string, example: "2026-10-06 09:00:00"}
+        due_at: {type: string, nullable: true}
+        fields:
+          type: array
+          items:
+            type: object
+            properties:
+              label: {type: string}
+              value: {type: string}
+    ApprovalDecision:
+      type: object
+      required: [kind, id, decision]
+      properties:
+        kind: {type: string, enum: [catalog_request, workflow_task]}
+        id: {type: integer}
+        decision: {type: string, enum: [approve, reject]}
+        comment: {type: string, description: "Required for reject; up to 2000 characters"}
+    CatalogList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              name: {type: string}
+              description: {type: string}
+              icon: {type: string}
+              requires_approval: {type: boolean}
+              risk_score: {type: integer}
+              fields:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    key: {type: string}
+                    label: {type: string}
+                    type: {type: string, enum: [text, textarea, select, checkbox, date, number]}
+                    options: {type: array, items: {type: string}}
+                    required: {type: boolean}
+                    placeholder: {type: string}
+                    show_if: {type: object, nullable: true, description: "Always null in this release"}
+        popular: {type: array, items: {type: integer}}
+        recent: {type: array, items: {type: integer}}
+    CatalogRequest:
+      type: object
+      required: [catalog_item_id]
+      properties:
+        catalog_item_id: {type: integer}
+        answers: {type: object, additionalProperties: true, description: "field key to value; booleans and numbers are accepted for checkbox/number fields"}
+        client_id: {type: integer, nullable: true}
+    WorkflowTaskList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              run_id: {type: integer}
+              run_title: {type: string}
+              task_title: {type: string}
+              instructions: {type: string}
+              due_at: {type: string, nullable: true}
+              status: {type: string, enum: [pending, blocked, running, action_failed, rejected]}
+              type: {type: string, enum: [manual, approval, action]}
+              blocked_by: {type: array, items: {type: string}}
+              contact_name: {type: string}
+              assignee: {type: string, nullable: true}
+        counts:
+          type: object
+          properties:
+            open: {type: integer}
+            overdue: {type: integer}
+    WorkflowTaskAction:
+      type: object
+      required: [id, action]
+      properties:
+        id: {type: integer}
+        action: {type: string, enum: [complete, skip]}
+        reason: {type: string, description: "Required for skip; up to 500 characters"}
+    TicketAttachmentList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              name: {type: string}
+              size: {type: integer}
+              mime: {type: string}
+              created_at: {type: string}
+              uploaded_by: {type: string, nullable: true}
     Notification:
       type: object
       properties:
         id: {type: integer}
-        type: {type: string}
+        type: {type: string, description: "'approval' for an approval request (route on it with kind + ref_id); otherwise the notification category, e.g. Ticket"}
         message: {type: string}
         action: {type: string, nullable: true}
         timestamp: {type: string}
+        kind: {type: string, enum: [catalog_request, workflow_task], description: "Only when type is approval"}
+        ref_id: {type: integer, description: "Only when type is approval: the approval id to pass to POST /approvals"}
     Alert:
       type: object
       properties:
