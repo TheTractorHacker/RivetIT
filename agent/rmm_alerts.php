@@ -293,7 +293,7 @@ function alertAction(alertId, action) {
     .then(r => r.json())
     .then(d => {
         if (d.success) {
-            if (d.vendor_warning) { alert('Updated here, but not synced to the RMM: ' + d.vendor_warning); }
+            if (d.vendor_warning) { rmmToast('Updated here, but not synced to the RMM: ' + d.vendor_warning, 'warning', 10000); }
             if (d.redirect) { window.location.href = d.redirect; return; }
             const row = document.getElementById('alert-row-' + alertId);
             if (row) row.style.opacity = '0.3';
@@ -301,6 +301,24 @@ function alertAction(alertId, action) {
             alert('Failed: ' + (d.error || 'Unknown error'));
         }
     });
+}
+
+// Inline toast (no toast library is loaded on this page). Text is set with textContent, so vendor error text cannot inject markup.
+function rmmToast(message, kind, ms) {
+    const t = document.createElement('div');
+    t.className = 'alert alert-' + (kind || 'info') + ' shadow position-fixed';
+    t.style.cssText = 'top:70px;right:20px;z-index:2000;max-width:420px;';
+    t.setAttribute('role', 'alert');
+    t.textContent = message;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), ms || 6000);
+}
+
+// One line for a bulk acknowledge/resolve: how many alerts could not be synced to the RMM, plus the first reason.
+function rmmVendorSummary(warnings, total) {
+    const first = warnings[0];
+    return 'Updated here, but ' + warnings.length + ' of ' + total + ' alert(s) could not be synced to the RMM. ' +
+        (warnings.every(w => w === first) ? first : 'First reason: ' + first);
 }
 
 function toggleSelectAll(cb) {
@@ -315,6 +333,7 @@ function bulkAction(action) {
     if (!confirm(`${action === 'acknowledge' ? 'Acknowledge' : 'Resolve'} ${checked.length} alert(s)?`)) return;
 
     let done = 0;
+    const warnings = [];
     checked.forEach(id => {
         fetch('/agent/post/rmm_alert.php', {
             method: 'POST',
@@ -324,9 +343,12 @@ function bulkAction(action) {
             if (d.success) {
                 const row = document.getElementById('alert-row-' + id);
                 if (row) row.style.opacity = '0.3';
+                if (d.vendor_warning) { warnings.push(d.vendor_warning); }
             }
             if (++done === checked.length) {
-                setTimeout(() => location.reload(), 800);
+                // ONE summary for the whole batch (not one pop-up per alert); give it time to be read before the reload.
+                if (warnings.length) { rmmToast(rmmVendorSummary(warnings, checked.length), 'warning', 6000); }
+                setTimeout(() => location.reload(), warnings.length ? 6000 : 800);
             }
         });
     });
