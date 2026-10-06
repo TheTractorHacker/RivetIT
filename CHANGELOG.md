@@ -4,7 +4,17 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
-## [Unreleased]
+## [26.10.23] RivetIT — webhook platforms and event picker, shared date-range picker, SLA event fix, RivetCore 0.21
+
+### Date ranges
+
+- **One date-range picker on every filtered page** (22 pages): presets (Today, Yesterday, Last 7/14/30/90 days, this and last week, month, quarter, year, last 12 months, upcoming) grouped in a popover, plus a two-month calendar for custom ranges. Existing `canned_date` / `dtf` / `dtt` links keep working; a garbage date now falls back to all-time and a range with only a From or only a To is open-ended.
+- **Service Desk:** the date control is in the main filter row of the ticket list and kanban, with a **Date field** choice (Created, Updated, Resolved, Closed, Due, SLA resolution due). Saved ticket views keep rolling presets such as "Last 7 days" instead of freezing the dates; older saved views with fixed dates still work. Ticket queries use index-friendly bounds.
+
+### Fixes
+
+- SLA warning/breach events now fire from cron (the emitter no longer needs a helper from the rule engine file); the server-status page reads the required database version from `includes/database_version.php`.
+
 
 Database migration 2.6.142 applies with **Update Database**. Requires rivet-core 0.21.0 (`composer install --no-dev`; the in-app Update and `deploy/update.sh` do this).
 
