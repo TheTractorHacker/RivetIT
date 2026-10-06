@@ -1214,6 +1214,46 @@ function getDomainDnssec($whois)
     return null;
 }
 
+// SSRF-lite guard for getSSL(): resolve the hostname and refuse loopback, link-local (cloud metadata),
+// unspecified, multicast and reserved addresses. RFC1918 space stays allowed because MSPs legitimately
+// check certificates on internal hosts. Returns the first acceptable IP, or null if any address is refused.
+function sslTargetIp($name)
+{
+    $ips = [];
+    if (filter_var($name, FILTER_VALIDATE_IP)) {
+        $ips[] = $name;
+    } else {
+        $v4 = @gethostbynamel($name);
+        if ($v4) {
+            $ips = array_merge($ips, $v4);
+        }
+        $v6 = @dns_get_record($name, DNS_AAAA);
+        if ($v6) {
+            foreach ($v6 as $rec) {
+                if (!empty($rec['ipv6'])) {
+                    $ips[] = $rec['ipv6'];
+                }
+            }
+        }
+    }
+    if (!$ips) {
+        return null;
+    }
+    foreach ($ips as $ip) {
+        // Unwrap IPv4-mapped IPv6 (::ffff:a.b.c.d)
+        if (stripos($ip, '::ffff:') === 0 && filter_var(substr($ip, 7), FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            $ip = substr($ip, 7);
+        }
+        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_RES_RANGE)) {
+            return null; // 0.0.0.0/8, 127/8, 240/4, ::1, ::, ...
+        }
+        if (preg_match('/^169\.254\./', $ip) || preg_match('/^fe[89ab][0-9a-f]:/i', $ip) || preg_match('/^(22[4-9]|23\d)\./', $ip) || preg_match('/^ff/i', $ip)) {
+            return null; // link-local (incl. 169.254.169.254) and multicast
+        }
+    }
+    return $ips[0];
+}
+
 // Used to automatically attempt to get SSL certificates as part of adding domains
 // The logic for the fetch (sync) button on the client_certificates page is in ajax.php, and allows ports other than 443
 function getSSL($full_name)
@@ -1239,9 +1279,20 @@ function getSSL($full_name)
         return $certificate;
     }
 
+    // Refuse loopback / link-local / reserved targets, and connect to the IP we validated (no DNS re-resolution)
+    $target_ip = sslTargetIp($name);
+    $port = (int) $port;
+    if ($target_ip === null || $port < 1 || $port > 65535) {
+        $certificate['expire'] = '';
+        $certificate['issued_by'] = '';
+        $certificate['public_key'] = '';
+        return $certificate;
+    }
+
     // Get SSL/TSL certificate (using verify peer false to allow for self-signed certs) for domain on default port
-    $socket = "ssl://$name:$port";
-    $get = stream_context_create(array("ssl" => array("capture_peer_cert" => true, "verify_peer" => false,)));
+    $socket_host = strpos($target_ip, ':') !== false ? "[$target_ip]" : $target_ip;
+    $socket = "ssl://$socket_host:$port";
+    $get = stream_context_create(array("ssl" => array("capture_peer_cert" => true, "verify_peer" => false, "SNI_enabled" => true, "peer_name" => $name,)));
     $read = stream_socket_client($socket, $errno, $errstr, 5, STREAM_CLIENT_CONNECT, $get);
 
     // If the socket connected
