@@ -160,12 +160,34 @@ do not build patching.
 - IT Glue: quote only.
 - RivetMSP is self-hosted, so the pitch is ownership and no per-seat fee, not feature-for-feature parity.
 
-### 3.6 RivetIT vs ITSM tools
+### 3.6 RivetIT vs ITSM tools (Freshservice and Jira Service Management verified 2026-10-05)
 
-Not researched this pass (Freshservice, Jira Service Management, HaloITSM). Halo's confirmed ITSM items to
-benchmark against: parallel approval steps, Risk Score routing, OLA breach alerts, service catalogue with
-recent/trending, AI agents with MCP access. CAB, change calendar and release management are U even at Halo.
-RivetIT priorities remain the Master Plan phases 5, 13, 14, 15.
+Freshservice and Jira Service Management claims below come from the vendors' own product pages (listed at the end of
+this section); anything not on those pages is not claimed. HaloITSM items are from the 2026-10-04 pass: parallel
+approval steps, Risk Score routing, OLA breach alerts, service catalogue with recent/trending, AI agents with MCP
+access. CAB, change calendar and release management are U even at Halo.
+
+| Capability | Freshservice | Jira Service Management | RivetIT now |
+|---|---|---|---|
+| Searchable service catalog and self-service portal | Yes; catalog also reachable from Slack or Teams | Yes: Help Center, configurable portals, request types | Yes. Recent/trending and per-item request forms and approvals added in 26.10 (migration 2.6.133) |
+| Request forms | Forms per catalog item | Dynamic forms with conditional show/hide, validation, tables | Per-item fields (text, textarea, select, checkbox, date, number); **no conditional logic or tables yet** |
+| Approvals | Automated approvals; onboarding sends forms to managers | Approval workflows by change type, risk and CAB; group authority; auto-approve low-risk changes | Ordered steps (any/all), risk score with auto-approve threshold, manager approver, inbox. **No CAB or change calendar** |
+| Onboarding and lifecycle | HR + IT onboarding: requests from the portal, forms to managers and employees, progress tracking, reminders, bulk onboarding | Via automation and request types (not verified in detail) | Dependencies, due dates, reminders, approval and action tasks, dry-run, hire/termination triggers (26.10, migration 2.6.134). **No bulk onboarding, no HR-initiated portal request yet** |
+| Automation | Workflow Automator, Supervisor Rules, Orchestration Center (Okta, Azure AD, AWS, Slack) | Rules with out-of-the-box templates | Event rules + lifecycle actions (ticket, mail, notify, webhook, disable contact login). **No directory-account actions (Entra/Okta) yet** |
+| Chat | Virtual agent in Slack and Teams | Two-way sync of Slack/Teams conversations with tickets | One-way Slack and Teams notifications with routing filters (migration 2.6.135). **No two-way sync, no virtual agent, no interactive buttons** |
+| Assets and CMDB | CMDB and asset management | Assets (Premium/Enterprise): link assets and CIs to requests, incidents, problems, changes | Assets + Intune; relationship graph between items is not built |
+
+Gaps worth scheduling, in order of value: conditional logic in catalog forms; HR-initiated onboarding request from the
+portal; directory actions (create/disable Entra account) in lifecycle workflows; interactive Slack/Teams actions and
+two-way sync (needs a signing-secret endpoint or bot); CAB and a change calendar. RivetIT priorities remain the
+Master Plan phases 5, 13, 14, 15.
+
+Sources: [Freshservice service catalog](https://www.freshworks.com/freshservice/it-service-desk/it-service-catalog-management/),
+[Freshservice employee onboarding](https://www.freshworks.com/freshservice/features/employee-onboarding/),
+[Freshservice ITSM](https://www.freshworks.com/freshservice/it-service-management/),
+[Jira Service Management ITSM features](https://www.atlassian.com/software/jira/service-management/features/itsm),
+[Jira Service Management main features](https://support.atlassian.com/jira-service-management-cloud/docs/get-to-know-the-main-jira-service-management-features/),
+[Jira Service Management chat](https://support.atlassian.com/jira-service-management-cloud/docs/receive-and-manage-requests-in-chat/).
 
 ---
 
