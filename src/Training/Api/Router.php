@@ -43,13 +43,24 @@ final class Router
 
         $action = '';
         try {
-            Access::api(1);
-
             $action = is_string($_GET['action'] ?? null) ? $_GET['action'] : '';
-            if (preg_match('/^[a-z_]{3,40}$/', $action) !== 1) {
+            $routes = null;
+            // Devices & PINs (kiosk_admin.php) is gated by module_training_kiosk, not Training Read: a kiosk-only role
+            // must reach it. Every other action keeps the original Training >= 1 gate, applied before routing.
+            $kioskRoute = false;
+            if (preg_match('/^[a-z_]{3,40}$/', $action) === 1) {
+                $routes = self::routes();
+                $kioskRoute = isset($routes[$action]) && str_starts_with($routes[$action]['handler'], KioskAdminActions::class . '::');
+            }
+            if ($kioskRoute) {
+                Access::apiKioskRoute();
+            } else {
+                Access::api(1);
+            }
+
+            if ($routes === null) {
                 throw new ApiException(404, 'not_found', 'Unknown action.');
             }
-            $routes = self::routes();
             if (!isset($routes[$action])) {
                 throw new ApiException(404, 'not_found', 'Unknown action.');
             }
@@ -70,7 +81,7 @@ final class Router
 
             session_write_close();
 
-            if (Access::level() < $spec['level']) {
+            if (!$kioskRoute && Access::level() < $spec['level']) {
                 throw ApiException::forbidden();
             }
             if (!empty($spec['kb']) && !Access::canUseKb()) {
