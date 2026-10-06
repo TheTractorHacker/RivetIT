@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"rivetit-agent/internal/agent"
 	"rivetit-agent/internal/collect"
@@ -49,8 +50,12 @@ func readToken(flagTok, file string) (string, error) {
 	return strings.TrimSpace(os.Getenv("RIVETIT_ENROLL_TOKEN")), nil
 }
 
-func newAgent(st *store.Store, log *slog.Logger, exe string) (*agent.Agent, error) {
-	return agent.New(agent.Options{Store: st, Version: version, Exe: exe,
+func newAgent(st *store.Store, log *slog.Logger, exe string, tune ...time.Duration) (*agent.Agent, error) {
+	var minIv, pendIv time.Duration
+	if len(tune) == 2 {
+		minIv, pendIv = tune[0], tune[1]
+	}
+	return agent.New(agent.Options{Store: st, Version: version, Exe: exe, MinInterval: minIv, PendingInterval: pendIv,
 		Platform: collect.NewPlatform(), Rebooter: agent.NewRebooter(log), Log: log})
 }
 
@@ -60,6 +65,8 @@ func cmdRun(args []string) int {
 	fs, dir := newFlags("run")
 	level := fs.String("log-level", "info", "debug|info|warn|error")
 	noUpdate := fs.Bool("no-update", false, "disable self-update")
+	minIv := fs.Int("min-interval", 0, "TEST ONLY: lower clamp for intervals, seconds (default 10)")
+	pendIv := fs.Int("pending-interval", 0, "TEST ONLY: check-in/sample interval while pending approval, seconds (default 300)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -86,7 +93,7 @@ func cmdRun(args []string) int {
 			exe = p
 		}
 	}
-	a, err := newAgent(st, log, exe)
+	a, err := newAgent(st, log, exe, time.Duration(*minIv)*time.Second, time.Duration(*pendIv)*time.Second)
 	if err != nil {
 		log.Error("startup failed", "err", err)
 		return 1

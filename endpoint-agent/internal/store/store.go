@@ -86,6 +86,8 @@ type State struct {
 	MatchedAssetID   *int64         `json:"matched_asset_id,omitempty"`
 	Seq              uint64         `json:"seq"`
 	SigningPublicKey string         `json:"signing_public_key,omitempty"`
+	SigningKeyID     string         `json:"signing_key_id,omitempty"`
+	UpdateResult     *UpdateResultS `json:"update_result,omitempty"` // reported on the next check-in, then cleared
 	CheckInIntervalS int            `json:"check_in_interval_s,omitempty"`
 	CollectIntervalS int            `json:"collect_interval_s,omitempty"`
 	Checks           []CheckSpec    `json:"checks,omitempty"`
@@ -100,6 +102,13 @@ type State struct {
 	EnrolledAt       time.Time      `json:"enrolled_at,omitempty"`
 }
 
+// UpdateResultS is a pending update_result report.
+type UpdateResultS struct {
+	Version string `json:"version"`
+	State   string `json:"state"`
+	Detail  string `json:"detail,omitempty"`
+}
+
 // Inflight is the exact check-in request that has been allocated a seq but
 // not yet acknowledged; a retry re-sends it byte for byte (same seq).
 type Inflight struct {
@@ -108,6 +117,7 @@ type Inflight struct {
 	ThroughID     uint64 `json:"through_id"` // ring entries <= this are acked with it
 	InventoryHash string `json:"inventory_hash,omitempty"`
 	WithInventory bool   `json:"with_inventory,omitempty"`
+	WithUpdate    bool   `json:"with_update_result,omitempty"`
 }
 
 // Store is a directory of agent files.

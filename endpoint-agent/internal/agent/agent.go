@@ -58,8 +58,11 @@ type Options struct {
 	Now      func() time.Time
 	// Test hooks
 	MinInterval time.Duration // lower clamp for intervals (default 10s)
-	WaitFn      func(ctx context.Context, d time.Duration) bool
-	Updater     *update.Manager
+	// PendingInterval overrides the low re-check rate used while the device is
+	// pending_approval/ambiguous (default 300s); for tests and e2e runs.
+	PendingInterval time.Duration
+	WaitFn          func(ctx context.Context, d time.Duration) bool
+	Updater         *update.Manager
 }
 
 // Agent is the endpoint agent runtime.
@@ -102,6 +105,9 @@ func New(o Options) (*Agent, error) {
 	}
 	if o.MinInterval == 0 {
 		o.MinInterval = minInterval
+	}
+	if o.PendingInterval == 0 {
+		o.PendingInterval = lowRateInterval
 	}
 	cfg, err := o.Store.LoadConfig()
 	if err != nil {
@@ -296,7 +302,8 @@ func (a *Agent) Enroll(ctx context.Context, token string) (*api.EnrollResponse, 
 		status = store.StatusLinked
 	}
 	err = a.o.Store.Update(func(st *store.State) error {
-		st.DeviceID, st.Status, st.MatchedAssetID = resp.DeviceID, status, resp.MatchedAssetID
+		st.DeviceID, st.Status, st.MatchedAssetID = resp.DeviceID.String(), status, resp.MatchedAssetID
+		st.SigningKeyID = resp.SigningKeyID
 		st.SigningPublicKey = resp.SigningPublicKey
 		st.CheckInIntervalS = resp.CheckInIntervalS
 		st.CollectIntervalS = resp.Config.CollectIntervalS
@@ -312,7 +319,7 @@ func (a *Agent) Enroll(ctx context.Context, token string) (*api.EnrollResponse, 
 	st, _ := a.o.Store.LoadState()
 	a.syncVerifier(st)
 	a.o.Store.DropEnrollToken()
-	a.log.Info("enrolled", "device_id", resp.DeviceID, "status", status)
+	a.log.Info("enrolled", "device_id", resp.DeviceID.String(), "status", status)
 	return resp, nil
 }
 
@@ -407,6 +414,10 @@ func (a *Agent) buildInflight(ctx context.Context) (*store.Inflight, error) {
 	}
 	in := &store.Inflight{ThroughID: through}
 	st, _ := a.o.Store.LoadState()
+	if ur := st.UpdateResult; ur != nil {
+		req.UpdateResult = &api.UpdateResult{Version: ur.Version, State: ur.State, Detail: ur.Detail}
+		in.WithUpdate = true
+	}
 	if inv := a.inventoryIfDue(ctx, st); inv != nil {
 		req.Inventory = inv
 		in.WithInventory, in.InventoryHash = true, collect.InventoryHash(*inv)
@@ -480,6 +491,9 @@ func (a *Agent) checkinFailed(in *store.Inflight, err error, attempt int, bo api
 	case ae.AuthRejected():
 		a.log.Error("server rejected the device credential; re-enroll may be required", "code", ae.Code)
 		return checkinOutcome{delay: bo.DelayWithRetryAfter(attempt+3, ae.RetryAfter)}
+	case ae.Status == 426:
+		a.log.Error("server answered 426 tls_required: use the https:// URL (check proxies that terminate TLS); will retry", "code", ae.Code)
+		return checkinOutcome{delay: max(bo.DelayWithRetryAfter(attempt+3, ae.RetryAfter), time.Minute)}
 	case ae.Status == 409:
 		// Duplicate seq: the server already has it. Treat as acknowledged.
 		a.log.Info("server reports check-in already received", "seq", in.Seq)
@@ -521,6 +535,10 @@ func (a *Agent) checkinSucceeded(ctx context.Context, in *store.Inflight, resp *
 			a.log.Warn("confirming update", "err", err)
 		} else {
 			a.log.Info("new agent version confirmed healthy", "version", a.o.Version)
+			_ = a.o.Store.Update(func(st *store.State) error {
+				st.UpdateResult = &store.UpdateResultS{Version: a.o.Version, State: "ok"}
+				return nil
+			})
 		}
 	}
 	now := a.o.Now().UTC()
@@ -540,6 +558,18 @@ func (a *Agent) checkinSucceeded(ctx context.Context, in *store.Inflight, resp *
 		}
 		if resp.Status != "" {
 			st.Status = resp.Status
+		}
+		if in.WithUpdate {
+			st.UpdateResult = nil
+		}
+		if resp.SigningKeyID != "" {
+			if st.SigningKeyID != "" && st.SigningKeyID != resp.SigningKeyID {
+				a.log.Error("server signing key changed: jobs and updates will be refused until this device re-enrolls", "was", st.SigningKeyID, "now", resp.SigningKeyID)
+				st.LastError = "signing key rotated on the server; re-enroll required"
+			}
+			if st.SigningKeyID == "" {
+				st.SigningKeyID = resp.SigningKeyID
+			}
 		}
 		if resp.MatchedAssetI != nil {
 			st.MatchedAssetID = resp.MatchedAssetI
@@ -566,8 +596,8 @@ func (a *Agent) checkinSucceeded(ctx context.Context, in *store.Inflight, resp *
 
 	d := clampDur(resp.NextCheckInS, clampDur(st.CheckInIntervalS, defaultCheckIn, a.o.MinInterval), a.o.MinInterval)
 	if st.Status == store.StatusPending || st.Status == store.StatusAmbiguous {
-		if d < lowRateInterval {
-			d = lowRateInterval
+		if d < a.o.PendingInterval {
+			d = a.o.PendingInterval
 		}
 	}
 	if resp.JobsPending != nil && *resp.JobsPending > 0 {
@@ -615,6 +645,7 @@ func (a *Agent) maybeUpdate(ctx context.Context, man *api.UpdateManifest, st sto
 		a.log.Error("update failed", "version", man.Version, "err", err)
 		_ = a.o.Store.Update(func(s *store.State) error {
 			s.UpdateFailure = &store.UpdateFailure{Version: man.Version, Reason: trunc(err.Error(), 250), At: a.o.Now().UTC()}
+			s.UpdateResult = &store.UpdateResultS{Version: man.Version, State: "failed", Detail: trunc(err.Error(), 200)}
 			return nil
 		})
 		return
@@ -660,7 +691,11 @@ func (a *Agent) Run(ctx context.Context) error {
 		}
 		if fail != nil {
 			a.log.Error("agent update failed and was rolled back", "version", fail.Version, "reason", fail.Reason)
-			_ = a.o.Store.Update(func(s *store.State) error { s.UpdateFailure = fail; return nil })
+			_ = a.o.Store.Update(func(s *store.State) error {
+				s.UpdateFailure = fail
+				s.UpdateResult = &store.UpdateResultS{Version: fail.Version, State: "rolled_back", Detail: trunc(fail.Reason, 200)}
+				return nil
+			})
 		}
 		if rolled {
 			a.log.Error("new version failed its health check; rolled back to the last good binary; restarting")
@@ -736,7 +771,7 @@ func (a *Agent) Run(ctx context.Context) error {
 			a.sample(ctx)
 			cd := clampDur(st.CollectIntervalS, defaultCollect, a.o.MinInterval)
 			if st.Status == store.StatusPending || st.Status == store.StatusAmbiguous {
-				cd = max(cd, lowRateInterval)
+				cd = max(cd, a.o.PendingInterval)
 			}
 			nextSample = now.Add(cd)
 		}

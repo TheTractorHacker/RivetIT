@@ -109,7 +109,7 @@ func (v *Verifier) Verify(j api.Job) error {
 	if j.IssuedAt.OK && j.IssuedAt.T.After(now.Add(futureSkew)) {
 		return fmt.Errorf("%w: issued_at in the future", ErrInvalidJob)
 	}
-	if j.DeviceID != "" && v.DeviceID != "" && j.DeviceID != v.DeviceID {
+	if j.DeviceID != "" && v.DeviceID != "" && string(j.DeviceID) != v.DeviceID {
 		return ErrWrongDevice
 	}
 	switch j.Type {

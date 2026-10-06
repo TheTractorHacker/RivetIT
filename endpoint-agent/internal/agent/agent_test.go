@@ -18,7 +18,7 @@ func TestEnrollNewLinked(t *testing.T) {
 	r := newRig(t)
 	r.enroll()
 	st, _ := r.st.LoadState()
-	if st.DeviceID != "dev-1" || st.Status != "linked" || st.MatchedAssetID == nil || *st.MatchedAssetID != 42 {
+	if st.DeviceID != "7" || st.Status != "linked" || st.MatchedAssetID == nil || *st.MatchedAssetID != 42 {
 		t.Fatalf("%+v", st)
 	}
 	if tok, _ := r.st.LoadToken(); tok != r.s.token {
@@ -533,5 +533,117 @@ func TestScriptChecksRequireServerSignature(t *testing.T) {
 		if !strings.HasPrefix(res[k], "unknown|") || !strings.Contains(res[k], "refused") {
 			t.Fatalf("%s must be refused: %v", k, res[k])
 		}
+	}
+}
+
+// Regression: the real server sends device_id as a JSON INTEGER, both in the
+// enroll response and inside signed jobs.
+func TestIntegerDeviceIDEverywhere(t *testing.T) {
+	r := newRig(t)
+	r.enroll()
+	if st, _ := r.st.LoadState(); st.DeviceID != "7" || st.SigningKeyID != "key-1" {
+		t.Fatalf("%+v", st)
+	}
+	now := time.Now().UTC()
+	mk := func(id string, dev any) json.RawMessage {
+		return r.s.signJob(map[string]any{"job_id": id, "device_id": dev, "attempt": 1, "type": "powershell", "script": "echo ran-" + id,
+			"params": map[string]any{}, "timeout_s": 20, "max_output_bytes": 4096,
+			"issued_at": now.Format(time.RFC3339), "expires_at": now.Add(time.Hour).Format(time.RFC3339)})
+	}
+	good, wrong, asString := mk("j-int", 7), mk("j-wrong", 8), mk("j-str", "7")
+	if !strings.Contains(string(good), `"device_id":7,`) {
+		t.Fatalf("test job should carry an integer: %s", good)
+	}
+	r.s.jobsOut = []json.RawMessage{good, wrong, asString}
+	r.s.checkinFn = func(int, []byte) (int, any, http.Header) {
+		return 200, map[string]any{"ok": true, "next_check_in_s": 60, "jobs_pending": 3, "signing_key_id": "key-1"}, nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	r.a.newExecutor(ctx)
+	r.a.checkIn(ctx, 0)
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		r.s.mu.Lock()
+		n := len(r.s.reports)
+		r.s.mu.Unlock()
+		if n >= 4 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("jobs never reported")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	r.s.mu.Lock()
+	defer r.s.mu.Unlock()
+	seen := map[string]bool{}
+	for _, rep := range r.s.reports {
+		seen[rep.JobID] = true
+	}
+	if !seen["j-int"] || !seen["j-str"] || seen["j-wrong"] {
+		t.Fatalf("reports %v (wrong-device job must not run)", seen)
+	}
+}
+
+func TestTLSRequired426KeepsInflightAndBacksOff(t *testing.T) {
+	r := newRig(t)
+	r.enroll()
+	r.s.checkinFn = func(int, []byte) (int, any, http.Header) {
+		return 426, map[string]any{"error": "tls required", "code": "tls_required"}, nil
+	}
+	out := r.a.checkIn(context.Background(), 0)
+	if out.ok || out.delay < time.Minute {
+		t.Fatalf("delay %v", out.delay)
+	}
+	if in, _ := r.st.LoadInflight(); in == nil {
+		t.Fatal("in-flight check-in must be kept (not dropped as poison)")
+	}
+}
+
+func TestUpdateResultReportedOnceAndSigningKeyRotationFlagged(t *testing.T) {
+	r := newRig(t)
+	r.enroll()
+	_ = r.st.Update(func(s *store.State) error {
+		s.UpdateResult = &store.UpdateResultS{Version: "2.0.0", State: "failed", Detail: "sha256 mismatch"}
+		return nil
+	})
+	r.s.checkinFn = func(int, []byte) (int, any, http.Header) {
+		return 200, map[string]any{"ok": true, "next_check_in_s": 60, "jobs_pending": 0, "signing_key_id": "key-2", "status": "linked", "matched_asset_id": 5}, nil
+	}
+	ctx := context.Background()
+	r.a.checkIn(ctx, 0)
+	r.a.checkIn(ctx, 0)
+	bs := r.s.checkinBodies()
+	ur, _ := decodeCheckin(t, bs[0])["update_result"].(map[string]any)
+	if ur == nil || ur["version"] != "2.0.0" || ur["state"] != "failed" {
+		t.Fatalf("update_result missing: %s", bs[0])
+	}
+	if decodeCheckin(t, bs[1])["update_result"] != nil {
+		t.Fatal("update_result repeated after acknowledgement")
+	}
+	st, _ := r.st.LoadState()
+	if !strings.Contains(st.LastError, "signing key rotated") || st.MatchedAssetID == nil || *st.MatchedAssetID != 5 {
+		t.Fatalf("%+v", st)
+	}
+}
+
+func TestPendingIntervalOverride(t *testing.T) {
+	r := newRig(t)
+	r.s.enrollFn = r.s.enrollOK("pending_approval")
+	r.enroll()
+	r.a.o.PendingInterval = 15 * time.Millisecond * 2
+	out := r.a.checkIn(context.Background(), 0)
+	if !out.ok || out.delay > time.Minute {
+		t.Fatalf("override ignored: %v", out.delay)
+	}
+	// a response carrying status linked ends the low-rate mode
+	r.s.checkinFn = func(int, []byte) (int, any, http.Header) {
+		return 200, map[string]any{"ok": true, "next_check_in_s": 60, "jobs_pending": 0, "status": "linked", "matched_asset_id": 9}, nil
+	}
+	r.a.o.PendingInterval = 300 * time.Second
+	r.a.checkIn(context.Background(), 0)
+	if out := r.a.checkIn(context.Background(), 0); out.delay != 60*time.Second {
+		t.Fatalf("linked device still at low rate: %v", out.delay)
 	}
 }

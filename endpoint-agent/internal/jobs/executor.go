@@ -275,8 +275,11 @@ func (e *Executor) processReboot(ctx context.Context, j api.Job, rec Record) {
 	if len(j.Params) > 0 {
 		_ = json.Unmarshal(j.Params, &p)
 	}
-	if p.DelayS < 5 {
+	if p.DelayS == 0 {
 		p.DelayS = 30
+	}
+	if p.DelayS < 5 {
+		p.DelayS = 5
 	}
 	if p.DelayS > 3600 {
 		p.DelayS = 3600
