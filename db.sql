@@ -2908,16 +2908,13 @@ CREATE TABLE `settings` (
   `config_avg_resolution_exclude_projects` tinyint(1) NOT NULL DEFAULT 1,
   `config_dashboard_avg_resolution_enable` tinyint(1) NOT NULL DEFAULT 1,
   `config_module_enable_intune` tinyint(1) NOT NULL DEFAULT 0,
-<<<<<<< HEAD
   `config_portal_home_sections` varchar(255) NOT NULL DEFAULT 'requests,approvals,devices,onboarding,training,catalog',
   `config_portal_onboarding_requests` tinyint(1) NOT NULL DEFAULT 0,
   `config_portal_onboarding_template_id` int(11) NOT NULL DEFAULT 0,
-=======
   `config_entra_allow_writes` tinyint(1) NOT NULL DEFAULT 0,
   `config_slack_link_by_email` tinyint(1) NOT NULL DEFAULT 0,
   `config_slack_bot_token` varchar(1000) NOT NULL DEFAULT '',
   `config_slack_team_id` varchar(32) NOT NULL DEFAULT '',
->>>>>>> build2/gaps
   PRIMARY KEY (`company_id`),
   `config_enable_device_metrics` tinyint(1) NOT NULL DEFAULT 0,
   `config_metrics_collect_interval_seconds` int(11) NOT NULL DEFAULT 300,
