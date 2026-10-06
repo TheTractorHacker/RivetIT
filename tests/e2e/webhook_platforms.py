@@ -125,7 +125,7 @@ check('the chooser links to the guides page', 'settings_webhook_guides.php' in c
 check('a card is a plain deep link: webhook_new.php?dest=<id>&step=connect', 'href="webhook_new.php?dest=n8n&amp;step=connect"' in chooser)
 s, guides = req('/admin/settings_webhook_guides.php')
 check('the guides page lists every preset with an anchor and a guide', s == 200 and all(('id="%s"' % i) in guides for i, _ in dests), s)
-check('the guides carry setup steps, a sample curl with a copy button, signature snippets and the n8n walk-through', 'Setup' in guides and 'curl -sS -X POST' in guides and 'data-wh-copy' in guides and 'Verify our signature' in guides and 'X-Rivet-Signature-V2' in guides and 'Receiving in n8n: walk-through' in guides and 'n8n Code' in guides and 'verifyRivetSignature' in guides)
+check('the guides carry setup steps, a sample curl with a copy button, signature snippets and the n8n walk-through', 'Setup' in guides and 'curl -sS -X POST' in guides and 'data-wg-copy' in guides and 'Verify our signature' in guides and 'X-Rivet-Signature-V2' in guides and 'Receiving in n8n: walk-through' in guides and 'n8n Code' in guides and 'verifyRivetSignature' in guides)
 s, page = req(REF)
 check('the webhooks page links to the guides and Add Webhook opens the new full page (no modal)', 'settings_webhook_guides.php' in page and 'href="webhook_new.php"' in page and 'Add Webhook' in page and 'webhook_form.css' in page and 'webhook_list.js' in page)
 s, js = req('/js/event_picker.js'); s2, js2 = req('/js/webhook_wizard.js'); s3, js3 = req('/js/webhook_list.js'); s4, wcss = req('/css/webhook_form.css')
