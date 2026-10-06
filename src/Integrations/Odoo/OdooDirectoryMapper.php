@@ -318,6 +318,7 @@ class OdooDirectoryMapper {
         );
         $contact_id = intval(mysqli_insert_id($m));
         $this->upsertEmployeeLink($contact_id, $odoo_employee_id);
+        \ITFlow\Workflow\LifecycleEvents::afterChange($m, $contact_id, null);
 
         return ['created', $contact_id];
     }
@@ -381,7 +382,10 @@ class OdooDirectoryMapper {
 
         $sql .= " WHERE contact_id=$contactId";
 
+        $lifecycleBefore = \ITFlow\Workflow\LifecycleEvents::snapshot($this->mysqli, $contactId);
         mysqli_query($this->mysqli, $sql);
+        // employee.terminated when Odoo marks someone inactive, employee.hired when they become active again (off unless auto-start is on)
+        \ITFlow\Workflow\LifecycleEvents::afterChange($this->mysqli, $contactId, $lifecycleBefore);
     }
 
     private function upsertEmployeeLink(int $contactId, int $odooEmployeeId): void {

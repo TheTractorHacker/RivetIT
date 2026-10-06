@@ -6980,6 +6980,16 @@ CREATE TABLE `workflow_template_tasks` (
   `default_owner` varchar(100) DEFAULT NULL,
   `required` tinyint(1) NOT NULL DEFAULT 1,
   `sort_order` int(11) NOT NULL DEFAULT 0,
+  `task_type` enum('manual','approval','action') NOT NULL DEFAULT 'manual',
+  `depends_on` varchar(255) DEFAULT NULL,
+  `assignee_user_id` int(11) DEFAULT NULL,
+  `due_offset_days` int(11) DEFAULT NULL,
+  `due_anchor` enum('run','start','end') NOT NULL DEFAULT 'run',
+  `approver_type` enum('user','role','manager') DEFAULT NULL,
+  `approver_user_id` int(11) DEFAULT NULL,
+  `approver_role_id` int(11) DEFAULT NULL,
+  `action_type` varchar(40) DEFAULT NULL,
+  `action_config` text DEFAULT NULL,
   PRIMARY KEY (`template_task_id`),
   KEY `idx_template_task_template` (`workflow_template_id`,`sort_order`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -6997,7 +7007,7 @@ CREATE TABLE `workflow_runs` (
   `workflow_template_id` int(11) DEFAULT NULL,
   `contact_id` int(11) NOT NULL,
   `type` enum('onboarding','offboarding') NOT NULL,
-  `status` enum('in_progress','completed_with_exceptions','completed','cancelled') NOT NULL DEFAULT 'in_progress',
+  `status` enum('in_progress','completed_with_exceptions','completed','cancelled','paused') NOT NULL DEFAULT 'in_progress',
   `started_by` int(11) DEFAULT NULL,
   `started_at` datetime NOT NULL DEFAULT current_timestamp(),
   `completed_at` datetime DEFAULT NULL,
@@ -7023,12 +7033,56 @@ CREATE TABLE `workflow_run_tasks` (
   `default_owner` varchar(100) DEFAULT NULL,
   `required` tinyint(1) NOT NULL DEFAULT 1,
   `sort_order` int(11) NOT NULL DEFAULT 0,
-  `status` enum('pending','completed','skipped') NOT NULL DEFAULT 'pending',
+  `status` enum('pending','completed','skipped','blocked','running','action_failed','rejected') NOT NULL DEFAULT 'pending',
   `completed_by` int(11) DEFAULT NULL,
   `completed_at` datetime DEFAULT NULL,
   `skip_reason` varchar(500) DEFAULT NULL,
+  `template_task_id` int(11) DEFAULT NULL,
+  `task_type` enum('manual','approval','action') NOT NULL DEFAULT 'manual',
+  `depends_on` varchar(255) DEFAULT NULL,
+  `assignee_user_id` int(11) DEFAULT NULL,
+  `due_at` datetime DEFAULT NULL,
+  `reminder_state` varchar(12) DEFAULT NULL,
+  `reminded_at` datetime DEFAULT NULL,
+  `approver_type` enum('user','role','manager') DEFAULT NULL,
+  `approver_user_id` int(11) DEFAULT NULL,
+  `approver_role_id` int(11) DEFAULT NULL,
+  `approval_status` enum('pending','approved','rejected') DEFAULT NULL,
+  `approval_notified_at` datetime DEFAULT NULL,
+  `approved_by` int(11) DEFAULT NULL,
+  `approved_at` datetime DEFAULT NULL,
+  `approval_comment` varchar(500) DEFAULT NULL,
+  `action_type` varchar(40) DEFAULT NULL,
+  `action_config` text DEFAULT NULL,
+  `attempts` int(11) NOT NULL DEFAULT 0,
+  `last_error` varchar(500) DEFAULT NULL,
+  `running_since` datetime DEFAULT NULL,
   PRIMARY KEY (`run_task_id`),
-  KEY `idx_run_task_run` (`run_id`,`sort_order`)
+  KEY `idx_run_task_run` (`run_id`,`sort_order`),
+  KEY `idx_run_task_due` (`status`,`due_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `workflow_task_log`
+--
+
+DROP TABLE IF EXISTS `workflow_task_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `workflow_task_log` (
+  `log_id` int(11) NOT NULL AUTO_INCREMENT,
+  `run_id` int(11) NOT NULL,
+  `run_task_id` int(11) NOT NULL,
+  `event` varchar(30) NOT NULL,
+  `action_type` varchar(40) DEFAULT NULL,
+  `ok` tinyint(1) NOT NULL DEFAULT 1,
+  `attempt` int(11) NOT NULL DEFAULT 0,
+  `detail` varchar(1000) DEFAULT NULL,
+  `actor_user_id` int(11) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`log_id`),
+  KEY `idx_task_log_run` (`run_id`,`run_task_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -7205,7 +7259,7 @@ CREATE TABLE `automation_rules` (
   `name` varchar(200) NOT NULL,
   `trigger_event` varchar(150) NOT NULL,
   `condition_json` text DEFAULT NULL,
-  `action_type` enum('create_ticket','send_webhook','notify_user') NOT NULL,
+  `action_type` enum('create_ticket','send_webhook','notify_user','start_workflow') NOT NULL,
   `action_config_json` text DEFAULT NULL,
   `is_enabled` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),

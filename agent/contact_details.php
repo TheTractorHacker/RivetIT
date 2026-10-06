@@ -376,6 +376,7 @@ if (isset($_GET['contact_id'])) {
                                 'completed' => 'text-bg-success',
                                 'completed_with_exceptions' => 'text-bg-warning',
                                 'cancelled' => 'text-bg-secondary',
+                                'paused' => 'text-bg-warning',
                             ][$run['status']] ?? 'text-bg-secondary';
                         ?>
                             <div class="mt-1">
@@ -399,6 +400,7 @@ if (isset($_GET['contact_id'])) {
                                     <option value="<?= intval($tmpl['workflow_template_id']) ?>">[<?= ucfirst($tmpl['type']) ?>] <?= nullable_htmlentities($tmpl['name']) ?></option>
                                 <?php } ?>
                             </select>
+                            <button type="submit" formaction="workflow_preview.php" formmethod="get" formnovalidate class="btn btn-sm btn-outline-secondary" title="Dry run: shows what would happen without starting anything" onclick="this.form.querySelector('[name=csrf_token]').disabled=true;"><i class="fas fa-eye me-1"></i>Preview</button>
                             <button type="submit" name="start_employee_workflow" class="btn btn-sm btn-primary"><i class="fas fa-play me-1"></i>Start</button>
                         </form>
                     <?php } else { ?>

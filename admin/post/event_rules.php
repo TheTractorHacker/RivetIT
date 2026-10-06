@@ -37,6 +37,19 @@ if (isset($_POST['save_event_rule'])) {
         flash_alert('The webhook URL must be an http(s) address that resolves to a public address.', 'error');
         redirect($id ? "event_rules.php?edit=$id" : 'event_rules.php');
     }
+    if (($_POST['action_type'] ?? '') === \ITFlow\Workflow\StartWorkflowRule::ACTION) {
+        // rivet-core's store does not know this action (vendor is read-only), so it is validated and saved locally.
+        try {
+            $saved = \ITFlow\Workflow\StartWorkflowRule::save($mysqli, $id ?: null, (string) ($_POST['rule_name'] ?? ''), (string) ($_POST['trigger_event'] ?? ''), $conditions, ['template_id' => intval($_POST['cfg_template_id'] ?? 0)], isset($_POST['is_enabled']));
+        } catch (\InvalidArgumentException $e) {
+            flash_alert($e->getMessage(), 'error');
+            redirect($id ? "event_rules.php?edit=$id" : 'event_rules.php');
+        }
+        logAction('Automation', $id ? 'Edit' : 'Create', "$session_name " . ($id ? 'edited' : 'created') . " event rule $saved");
+        rivetAudit($id ? 'automation.rule_updated' : 'automation.rule_created', (int) $session_user_id, 'automation_rule', $saved, $id ? 'update' : 'create', 'Event rule ' . ($id ? 'updated' : 'created'));
+        flash_alert('Rule saved.');
+        redirect('event_rules.php');
+    }
     try {
         $saved = $store->save($id ?: null, (string) ($_POST['rule_name'] ?? ''), (string) ($_POST['trigger_event'] ?? ''), $conditions, (string) ($_POST['action_type'] ?? ''), $config, isset($_POST['is_enabled']));
     } catch (\InvalidArgumentException $e) {

@@ -11,7 +11,16 @@ if (!$template) {
     redirect('employee_workflow_templates.php');
 }
 
-$sql_tasks = mysqli_query($mysqli, "SELECT * FROM workflow_template_tasks WHERE workflow_template_id = $workflow_template_id ORDER BY sort_order ASC, template_task_id ASC");
+require_once "includes/workflow_task_fields.php";
+
+$sql_tasks = mysqli_query($mysqli, "SELECT t.*, u.user_name AS assignee_name FROM workflow_template_tasks t LEFT JOIN users u ON u.user_id = t.assignee_user_id WHERE t.workflow_template_id = $workflow_template_id ORDER BY t.sort_order ASC, t.template_task_id ASC");
+$task_rows = mysqli_fetch_all($sql_tasks, MYSQLI_ASSOC);
+$task_titles = [];
+foreach ($task_rows as $tr) {
+    $task_titles[intval($tr['template_task_id'])] = $tr['title'];
+}
+$action_labels = \ITFlow\Workflow\TaskActionRunner::labels();
+$anchor_labels = ['run' => 'workflow start', 'start' => 'start date', 'end' => 'end date'];
 
 ?>
 
@@ -47,7 +56,7 @@ $sql_tasks = mysqli_query($mysqli, "SELECT * FROM workflow_template_tasks WHERE 
         <h5 class="card-title">Tasks</h5>
     </div>
     <div class="card-body">
-        <?php if (mysqli_num_rows($sql_tasks) === 0) { ?>
+        <?php if (!$task_rows) { ?>
             <p class="text-muted">No tasks yet - add the first one below.</p>
         <?php } else { ?>
         <table class="table table-sm table-hover">
@@ -57,12 +66,14 @@ $sql_tasks = mysqli_query($mysqli, "SELECT * FROM workflow_template_tasks WHERE 
                     <th>Title</th>
                     <th>Category</th>
                     <th>Owner</th>
+                    <th>Waits for</th>
+                    <th>Due</th>
                     <th>Required</th>
                     <th></th>
                 </tr>
             </thead>
             <tbody>
-                <?php while ($task = mysqli_fetch_assoc($sql_tasks)) { ?>
+                <?php foreach ($task_rows as $task) { ?>
                 <tr>
                     <td class="text-nowrap">
                         <form action="post.php" method="post" class="d-inline">
@@ -80,12 +91,17 @@ $sql_tasks = mysqli_query($mysqli, "SELECT * FROM workflow_template_tasks WHERE 
                     </td>
                     <td>
                         <strong><?= nullable_htmlentities($task['title']) ?></strong>
+                        <?php if ($task['task_type'] === 'approval') { ?><span class="badge text-bg-info">approval</span><?php } ?>
+                        <?php if ($task['task_type'] === 'action') { ?><span class="badge text-bg-info">automated: <?= nullable_htmlentities($action_labels[$task['action_type']] ?? $task['action_type']) ?></span><?php } ?>
                         <?php if ($task['instructions']) { ?><div class="text-muted small"><?= nullable_htmlentities($task['instructions']) ?></div><?php } ?>
                     </td>
                     <td><?= nullable_htmlentities($task['category']) ?></td>
-                    <td><?= nullable_htmlentities($task['default_owner']) ?></td>
+                    <td><?= nullable_htmlentities($task['assignee_name'] ?: $task['default_owner']) ?></td>
+                    <td class="small"><?php foreach (\ITFlow\Workflow\DependencyGraph::parse($task['depends_on']) as $dep_id) { echo nullable_htmlentities($task_titles[$dep_id] ?? '') . '<br>'; } ?></td>
+                    <td class="small text-nowrap"><?= $task['due_offset_days'] !== null ? nullable_htmlentities(($task['due_offset_days'] >= 0 ? '+' : '') . $task['due_offset_days'] . ' days from ' . ($anchor_labels[$task['due_anchor']] ?? '')) : '' ?></td>
                     <td><?= $task['required'] ? '<i class="fas fa-check text-success"></i>' : '' ?></td>
-                    <td class="text-end">
+                    <td class="text-end text-nowrap">
+                        <button type="button" class="btn btn-sm btn-light ajax-modal" data-modal-url="modals/employee_workflow/employee_workflow_template_task_edit.php?id=<?= intval($task['template_task_id']) ?>" title="Edit task"><i class="fas fa-edit"></i></button>
                         <form action="post.php" method="post" class="d-inline" onsubmit="return confirm('Remove this task from the template?');">
                             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                             <input type="hidden" name="template_task_id" value="<?= intval($task['template_task_id']) ?>">
@@ -104,28 +120,7 @@ $sql_tasks = mysqli_query($mysqli, "SELECT * FROM workflow_template_tasks WHERE 
         <form action="post.php" method="post" autocomplete="off">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <input type="hidden" name="workflow_template_id" value="<?= $workflow_template_id ?>">
-            <div class="row">
-                <div class="col-md-4 form-group">
-                    <label>Title <strong class="text-danger">*</strong></label>
-                    <input type="text" class="form-control" name="title" maxlength="255" required>
-                </div>
-                <div class="col-md-2 form-group">
-                    <label>Category</label>
-                    <input type="text" class="form-control" name="category" placeholder="e.g. Identity" maxlength="100">
-                </div>
-                <div class="col-md-2 form-group">
-                    <label>Owner</label>
-                    <input type="text" class="form-control" name="default_owner" placeholder="e.g. IT" maxlength="100">
-                </div>
-                <div class="col-md-3 form-group">
-                    <label>Instructions</label>
-                    <input type="text" class="form-control" name="instructions" maxlength="500">
-                </div>
-                <div class="col-md-1 form-group">
-                    <label>Required</label><br>
-                    <input type="checkbox" name="required" value="1" checked class="form-check-input mt-2">
-                </div>
-            </div>
+            <?php workflowTaskFields($mysqli, $workflow_template_id, $template['type']); ?>
             <button type="submit" name="add_employee_workflow_template_task" class="btn btn-primary"><i class="fas fa-plus me-2"></i>Add Task</button>
         </form>
     </div>

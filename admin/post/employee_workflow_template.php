@@ -2,26 +2,39 @@
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
+require_once __DIR__ . '/../includes/workflow_task_fields.php';
+
 if (isset($_POST['add_employee_workflow_template_task'])) {
 
     validateCSRFToken($_POST['csrf_token']);
     enforceUserPermission('module_client', 2);
 
     $workflow_template_id = intval($_POST['workflow_template_id']);
-    $title = sanitizeInput($_POST['title']);
-    $category = sanitizeInput($_POST['category'] ?? '');
-    $default_owner = sanitizeInput($_POST['default_owner'] ?? '');
-    $instructions = sanitizeInput($_POST['instructions'] ?? '');
-    $required = isset($_POST['required']) ? 1 : 0;
 
-    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM workflow_template_tasks WHERE workflow_template_id = $workflow_template_id"));
-    $sort_order = intval($row['next_order']);
+    try {
+        (new \ITFlow\Workflow\TemplateTaskService($mysqli))->add($workflow_template_id, workflowTaskInputFromPost($_POST));
+        flash_alert("Task added");
+    } catch (\InvalidArgumentException $e) {
+        flash_alert($e->getMessage(), 'error');
+    }
+    redirect("employee_workflow_template_details.php?id=$workflow_template_id");
+}
 
-    mysqli_query($mysqli, "INSERT INTO workflow_template_tasks SET
-        workflow_template_id = $workflow_template_id, title = '$title', category = '$category',
-        default_owner = '$default_owner', instructions = '$instructions', required = $required, sort_order = $sort_order");
+if (isset($_POST['edit_employee_workflow_template_task'])) {
 
-    flash_alert("Task added");
+    validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('module_client', 2);
+
+    $workflow_template_id = intval($_POST['workflow_template_id']);
+    $template_task_id = intval($_POST['template_task_id']);
+
+    try {
+        (new \ITFlow\Workflow\TemplateTaskService($mysqli))->update($workflow_template_id, $template_task_id, workflowTaskInputFromPost($_POST));
+        logAction("Settings", "Edit", "$session_name edited a task of employee workflow template $workflow_template_id");
+        flash_alert("Task updated");
+    } catch (\InvalidArgumentException $e) {
+        flash_alert($e->getMessage(), 'error');
+    }
     redirect("employee_workflow_template_details.php?id=$workflow_template_id");
 }
 
@@ -33,7 +46,7 @@ if (isset($_POST['delete_employee_workflow_template_task'])) {
     $workflow_template_id = intval($_POST['workflow_template_id']);
     $template_task_id = intval($_POST['template_task_id']);
 
-    mysqli_query($mysqli, "DELETE FROM workflow_template_tasks WHERE template_task_id = $template_task_id AND workflow_template_id = $workflow_template_id");
+    (new \ITFlow\Workflow\TemplateTaskService($mysqli))->delete($workflow_template_id, $template_task_id);
 
     flash_alert("Task removed");
     redirect("employee_workflow_template_details.php?id=$workflow_template_id");

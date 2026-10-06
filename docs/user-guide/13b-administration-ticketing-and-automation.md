@@ -233,7 +233,7 @@ Most are under **Templates**, and most have a plus icon beside them in the sideb
 | **Document Templates** | Starting text for a new document in a department's documentation. |
 | **Vendor Templates**, **License Templates** | Pre-filled vendors and licences; the vendor and licence lists can create a record from one. |
 | **Contract Templates** | Preset contract terms for a department's contracts, applied to departments with **Apply to Departments**. |
-| **Employee Workflow Templates** (under Tags & Categories) | Onboarding and offboarding checklists started from a person's page. |
+| **Employee Workflow Templates** (under Tags & Categories) | Onboarding and offboarding checklists started from a person's page, with dependencies, due dates, approvals and automated tasks ([details](../EMPLOYEE-LIFECYCLE-WORKFLOWS.md)). |
 
 ## Reference
 

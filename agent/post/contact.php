@@ -44,6 +44,7 @@ if (isset($_POST['add_contact'])) {
     if ($start_date_ok) {
         mysqli_query($mysqli, "UPDATE contacts SET contact_start_date = '$start_date' WHERE contact_id = $contact_id");
     }
+    \ITFlow\Workflow\LifecycleEvents::afterChange($mysqli, intval($contact_id), null);
 
     // Training (Phase 2, S20): a new person can match assignment rules at once (with their hire date, a new-hire
     // rule gives them hire + N days) instead of waiting for the nightly reconcile.
@@ -157,6 +158,9 @@ if (isset($_POST['edit_contact'])) {
 
     }
 
+    // Employee lifecycle events (employee.hired / employee.terminated): compare before and after. Off unless Employee workflows auto-start is on.
+    $lifecycle_before = \ITFlow\Workflow\LifecycleEvents::snapshot($mysqli, intval($contact_id));
+
     mysqli_query($mysqli,"UPDATE contacts SET contact_name = '$name', contact_title = '$title', contact_phone_country_code = '$phone_country_code', contact_phone = '$phone', contact_extension = '$extension', contact_mobile_country_code = '$mobile_country_code', contact_mobile = '$mobile', contact_email = '$email', contact_pin = '$pin', contact_notes = '$notes', contact_important = $contact_important, contact_billing = $contact_billing, contact_technical = $contact_technical, contact_department = '$department', contact_location_id = $location_id, contact_user_id = $contact_user_id WHERE contact_id = $contact_id");
 
     // Master-plan Phase 2 employee fields (supplementary update, same
@@ -177,6 +181,8 @@ if (isset($_POST['edit_contact'])) {
         contact_vacation_start = $vacation_start_sql,
         contact_vacation_end = $vacation_end_sql
         WHERE contact_id = $contact_id");
+
+    \ITFlow\Workflow\LifecycleEvents::afterChange($mysqli, intval($contact_id), $lifecycle_before);
 
     // Training (Phase 2, S20): a hire-date (or other employment) change can open or close assignments.
     if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\Assign\AssignmentService::class)) {

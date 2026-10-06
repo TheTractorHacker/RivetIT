@@ -6,6 +6,17 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Employee lifecycle workflows
+
+- **Task dependencies.** A workflow task can wait for other tasks; until they are completed or skipped it is blocked and cannot be completed or skipped. Completing a task unblocks what was waiting on it. The template editor refuses loops and dependencies outside the template.
+- **Assignees, due dates and reminders.** Tasks can have an assignee and a due date counted from the workflow start, the employee's start date or end date. The workflow page shows Due soon and Overdue, and a new cron job (`cron/workflow_cron.php`, every 15 minutes) sends one reminder per task per state as an in-app notification.
+- **Approval tasks.** A task can need approval from the employee's manager, a user or a role. Approvals record who, when and a comment; a rejection pauses the workflow and notifies the person who started it.
+- **Automated tasks.** A task can create a ticket, queue an email, notify an agent, emit a webhook event or disable the employee's portal login (offboarding only; nothing is deleted). Failures are retried, logged to a new task log and the audit trail, and fall back to a manual task that an agent can finish by hand or run again.
+- **Preview.** A dry run on the person's page shows the tasks, their order, resolved due dates and what each action would do, without writing or sending anything.
+- **Start from events (off by default).** New setting "Start workflows automatically" raises `employee.hired` and `employee.terminated` from the contact form, the People import and the Odoo sync, and a new event-rule action "Start an employee workflow" starts a template once per person.
+- Fix: a workflow task could be completed, skipped or reopened through a different workflow's page; the task must now belong to the workflow whose department access was checked.
+- Database migration 2.6.134. Existing templates and runs are unchanged. See `docs/EMPLOYEE-LIFECYCLE-WORKFLOWS.md`.
+
 ## [26.10.20] RivetIT — one event bus, Redis guards, Audit trail, SSRF hardening
 
 ### One event bus: queued webhooks, event rules and the job queue (rivet-core 0.15)

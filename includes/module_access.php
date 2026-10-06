@@ -640,6 +640,10 @@ function itflow_notification_denied_types_for_profile(array $profile): array {
             $types = array_merge($types, $cat['types']);
         }
     }
+    // Employee workflow notifications (approvals, reminders, failures) name an employee: Departments only.
+    if ($lvl('module_client') < 1) {
+        $types[] = 'Workflow';
+    }
     if (itflow_profile_can_assets($profile, 1)) {
         $types = array_diff($types, ['Asset Warranty Expiring']);   // the asset's own name + department, which it can see
     }
