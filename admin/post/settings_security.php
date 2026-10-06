@@ -61,6 +61,17 @@ if (isset($_POST['edit_security_settings'])) {
 
     mysqli_query($mysqli,"UPDATE settings SET config_login_message = '$config_login_message', config_login_key_required = '$config_login_key_required', config_login_key_secret = '$config_login_key_secret', config_login_remember_me_expire = $config_login_remember_me_expire, config_login_session_lifetime = $config_login_session_lifetime, config_log_retention = $config_log_retention" . ($net_posted ? ", config_proxy_hops = $config_proxy_hops_sql, config_behind_cloudflare = $config_behind_cloudflare" : '') . " WHERE company_id = 1");
 
+    // Permanent deletes (Delete on archived records). Only written when the form carried the marker, so a partial
+    // post (script, other form) can never switch it off by omission. Off unless ticked; the change is audit-logged.
+    if (isset($_POST['destructive_deletes_present'])) {
+        $destructive_new = intval($_POST['config_destructive_deletes_enable'] ?? 0) === 1 ? 1 : 0;
+        $destructive_old = intval($config_destructive_deletes_enable ?? 0);
+        if ($destructive_new !== $destructive_old) {
+            mysqli_query($mysqli, "UPDATE settings SET config_destructive_deletes_enable = $destructive_new WHERE company_id = 1");
+            logAction("Settings", "Edit", "$session_name " . ($destructive_new ? "ENABLED" : "disabled") . " permanent deletes of archived records (config_destructive_deletes_enable)");
+        }
+    }
+
     logAction("Settings", "Edit", "$session_name edited security settings");
 
     flash_alert($security_retention_raised ? "Security settings updated. Log retention was raised to " . $config_log_retention . " days, the minimum for your compliance preset." : "Security settings updated", $security_retention_raised ? "warning" : "success");
