@@ -218,7 +218,23 @@ reboot (confirm, expect no retry if the result is lost), revoke the device and c
 
 ## 15. Reference workload, measured capacity and limits of verification
 
-@@LOAD@@
+Reference workload: a Windows workstation checks in every 300 s with 6 metric readings (CPU, memory, two volumes, network in and out), 3 check results and,
+once a day or on change, a full inventory (about 2 KB of JSON for a check-in, 3 to 4 KB with inventory). Measured with `tests/load/agent_ingest_load.php 200 10 16 8`
+on the shared 14-core scratch machine (load average about 9 from other jobs, MariaDB on the same box, `php -S` with 8 workers, no nginx or PHP-FPM tuning):
+
+| Measure | Result |
+| --- | --- |
+| Throughput | 2000 check-ins from 200 devices, 16 in flight: 12.0 s, **167 check-ins/s**, 0 errors |
+| Latency | p50 60 ms, p95 235 ms, p99 956 ms, max 1.7 s |
+| Database cost per steady-state check-in | **27 statements** (14 SELECT, 3 INSERT, 10 UPDATE), one idempotency row, 6 metric sample rows |
+| With inventory | 27 statements, 13 sample rows (adds uptime, memory total, per-volume sizes) |
+| Enrollment | about 0.9 devices/s on the same loaded box (includes asset creation and signing), irrelevant at fleet rollout speeds |
+
+Reading it honestly: at one check-in per device per 300 s, 167 check-ins/s is the arrival rate of about 50,000 devices, so ingestion is not the limit for an MSP-sized fleet;
+a single database writer, the metric rollup cron and `device_metric_samples` growth (about 6 rows per check-in, 1,700 rows per device per day) are what to watch. These numbers come
+from a shared scratch machine with an unrelated load and a single-host database, so treat them as a floor you can reproduce with the script, not a guarantee. The agent's own CPU,
+memory and network use are measured by the agent project, not here. A rarely seen outlier: on the same box one earlier run saw 20 s stalls when other jobs on the machine were
+creating and dropping databases (table-cache metadata locks); the check-in path itself holds its device row lock only for the length of one transaction.
 
 Not verified in this environment: a real MeshCentral server (only a local mock of `/health.ashx`, and the token format is built from MeshCentral's documented and published cookie
 code), and a real Windows agent (the Linux test build of the agent runs against this server in the end-to-end harness, see the report). The load numbers come from a shared scratch machine.
