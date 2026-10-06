@@ -16,7 +16,7 @@ $rotation_due_sql = mysqli_query($mysqli,
         LEFT JOIN clients ON credential_client_id = client_id
         WHERE credential_archived_at IS NULL
             AND credential_rotation_due_at IS NOT NULL
-            AND credential_rotation_due_at <= DATE_ADD(CURDATE(), INTERVAL $days DAY)
+            AND credential_rotation_due_at <= DATE_ADD(CURDATE(), INTERVAL $days DAY)" . \ITFlow\Reports\ReportScope::clause('credential_client_id') . "
         ORDER BY credential_rotation_due_at ASC"
 );
 

@@ -6,9 +6,12 @@ require_once "includes/inc_all_reports.php";
 
 <?php
 // MTD income (payments + revenues this month) — Financial section
-$sql_mtd_pay = mysqli_query($mysqli, "SELECT SUM(payment_amount) AS v FROM payments WHERE YEAR(payment_date) = YEAR(CURDATE()) AND MONTH(payment_date) = MONTH(CURDATE())");
+// Department-restricted users see only their departments' payments; other revenue and expenses have no
+// department, so the company-wide figures stay out of their view (see src/Reports/ReportScope.php).
+$reports_scoped = \ITFlow\Reports\ReportScope::isRestricted();
+$sql_mtd_pay = mysqli_query($mysqli, "SELECT SUM(payment_amount) AS v FROM payments JOIN invoices ON payment_invoice_id = invoice_id WHERE YEAR(payment_date) = YEAR(CURDATE()) AND MONTH(payment_date) = MONTH(CURDATE())" . \ITFlow\Reports\ReportScope::clause('invoice_client_id'));
 $mtd_pay = floatval(mysqli_fetch_assoc($sql_mtd_pay)['v'] ?? 0);
-$sql_mtd_rev = mysqli_query($mysqli, "SELECT SUM(revenue_amount) AS v FROM revenues WHERE YEAR(revenue_date) = YEAR(CURDATE()) AND MONTH(revenue_date) = MONTH(CURDATE()) AND revenue_category_id > 0");
+$sql_mtd_rev = mysqli_query($mysqli, "SELECT SUM(revenue_amount) AS v FROM revenues WHERE YEAR(revenue_date) = YEAR(CURDATE()) AND MONTH(revenue_date) = MONTH(CURDATE()) AND revenue_category_id > 0" . ($reports_scoped ? ' AND 1 = 0' : ''));
 $mtd_rev = floatval(mysqli_fetch_assoc($sql_mtd_rev)['v'] ?? 0);
 $reports_mtd_income = $mtd_pay + $mtd_rev;
 
@@ -19,12 +22,12 @@ if ($reports_show_financial) {
 
 $reports_show_technical = ($config_module_enable_ticketing == 1 && lookupUserPermission('module_support') >= 1);
 if ($reports_show_technical) {
-    $reports_open_tickets = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE ticket_closed_at IS NULL AND ticket_resolved_at IS NULL"))[0]);
-    $reports_unassigned_tickets = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE ticket_closed_at IS NULL AND (ticket_assigned_to IS NULL OR ticket_assigned_to = 0)"))[0]);
-    $reports_opened_today = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE DATE(ticket_created_at) = CURDATE()"))[0]);
+    $reports_open_tickets = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE ticket_closed_at IS NULL AND ticket_resolved_at IS NULL" . \ITFlow\Reports\ReportScope::clause('ticket_client_id')))[0]);
+    $reports_unassigned_tickets = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE ticket_closed_at IS NULL AND (ticket_assigned_to IS NULL OR ticket_assigned_to = 0)" . \ITFlow\Reports\ReportScope::clause('ticket_client_id')))[0]);
+    $reports_opened_today = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE DATE(ticket_created_at) = CURDATE()" . \ITFlow\Reports\ReportScope::clause('ticket_client_id')))[0]);
     $reports_csat_avg = null;
     if (!empty($config_ticket_csat_enable)) {
-        $reports_csat_avg_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT AVG(ticket_csat_rating) AS v FROM tickets WHERE ticket_csat_rated_at >= NOW() - INTERVAL 30 DAY"));
+        $reports_csat_avg_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT AVG(ticket_csat_rating) AS v FROM tickets WHERE ticket_csat_rated_at >= NOW() - INTERVAL 30 DAY" . \ITFlow\Reports\ReportScope::clause('ticket_client_id')));
         $reports_csat_avg = $reports_csat_avg_row['v'] !== null ? round(floatval($reports_csat_avg_row['v']), 2) : null;
     }
 }
@@ -87,6 +90,14 @@ if (!empty($report_catalog_technical)) {
 $report_catalog[] = ['title' => 'Delivery', 'items' => [
     ['schedules.php', 'fas fa-paper-plane', 'Scheduled Reports', 'Reports emailed on a recurring schedule.'],
 ]];
+
+// Company-wide financial reports cannot be limited to departments; hide them from restricted users.
+if ($reports_scoped) {
+    $company_wide_reports = ['income_summary.php', 'expense_summary.php', 'expense_by_vendor.php', 'tax_summary.php', 'profit_loss.php', 'budget.php'];
+    foreach ($report_catalog as $gi => $g) {
+        $report_catalog[$gi]['items'] = array_values(array_filter($g['items'], static fn ($it) => !in_array($it[0], $company_wide_reports, true)));
+    }
+}
 
 render_page_header(
     'Reports',

@@ -17,7 +17,7 @@ $sql_clients = mysqli_query($mysqli,
      JOIN contracts ON contract_client_id = client_id
      WHERE contract_status = 'Active' AND contract_archived_at IS NULL
        AND (contract_support_hours_included_remote IS NOT NULL OR contract_support_hours_included_onsite IS NOT NULL)
-       AND client_archived_at IS NULL
+       AND client_archived_at IS NULL" . \ITFlow\Reports\ReportScope::clause('client_id') . "
      ORDER BY client_name ASC");
 
 $rows = [];

@@ -12,7 +12,7 @@ if (isset($_GET['year'])) {
 
 $sql_ticket_years = mysqli_query($mysqli, "SELECT DISTINCT YEAR(ticket_created_at) AS ticket_year FROM tickets ORDER BY ticket_year DESC");
 
-$sql_tickets = mysqli_query($mysqli, "SELECT ticket_id FROM tickets");
+$sql_tickets = mysqli_query($mysqli, "SELECT ticket_id FROM tickets WHERE 1 = 1" . \ITFlow\Reports\ReportScope::clause('ticket_client_id'));
 
 // Track largest month for chart y-axis max
 $largest_ticket_month = 0;
@@ -24,7 +24,7 @@ if (!empty($report_export_csv)) {
     $csv_rows = [];
     $year_total = 0;
     for ($m = 1; $m <= 12; $m++) {
-        $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE YEAR(ticket_created_at) = $year AND MONTH(ticket_created_at) = $m"));
+        $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE YEAR(ticket_created_at) = $year AND MONTH(ticket_created_at) = $m" . \ITFlow\Reports\ReportScope::clause('ticket_client_id')));
         $c = intval($r['c']);
         $csv_rows[] = [$months[$m - 1], $c];
         $year_total += $c;
@@ -98,7 +98,7 @@ if (!empty($report_export_csv)) {
 
                 for ($month = 1; $month <= 12; $month++) {
 
-                    $sql_tickets = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS tickets_for_month FROM tickets WHERE YEAR(ticket_created_at) = $year AND MONTH(ticket_created_at) = $month");
+                    $sql_tickets = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS tickets_for_month FROM tickets WHERE YEAR(ticket_created_at) = $year AND MONTH(ticket_created_at) = $month" . \ITFlow\Reports\ReportScope::clause('ticket_client_id'));
                     $row = mysqli_fetch_assoc($sql_tickets);
                     $tickets_for_month = intval($row['tickets_for_month']);
 
@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', function () {
             <?php
             // Recompute for the chart dataset (values already gathered above, but we echo directly again)
             for ($month = 1; $month <= 12; $month++) {
-                $sql_tickets = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS tickets_for_month FROM tickets WHERE YEAR(ticket_created_at) = $year AND MONTH(ticket_created_at) = $month");
+                $sql_tickets = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS tickets_for_month FROM tickets WHERE YEAR(ticket_created_at) = $year AND MONTH(ticket_created_at) = $month" . \ITFlow\Reports\ReportScope::clause('ticket_client_id'));
                 $row = mysqli_fetch_assoc($sql_tickets);
                 $tickets_for_month = intval($row['tickets_for_month']);
                 echo "$tickets_for_month,";

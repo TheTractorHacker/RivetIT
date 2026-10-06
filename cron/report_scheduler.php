@@ -63,8 +63,58 @@ $scheduler_now    = date('Y-m-d H:i:s');
 $scheduler_queued = 0;
 $scheduler_sent_schedules = 0;
 
+// Data schedules (a saved view, or a CSV): rendered as the schedule owner in a child process and delivered as a
+// table email or an expiring CSV download link. See src/Reports/ReportScheduler.php for why a link, not an attachment.
+$scheduler_data = \ITFlow\Reports\ReportScheduler::runDue($mysqli, [
+    'render' => static function (array $sched, string $key, array $params, string $format) {
+        $cmd = [PHP_BINARY, dirname(__DIR__) . '/scripts/report_render.php', '--user=' . (int) $sched['schedule_owner_user_id'],
+                '--report=' . $key, '--format=' . $format, '--params=' . base64_encode(json_encode($params))];
+        $proc = proc_open($cmd, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        if (!is_resource($proc)) {
+            return ['ok' => false, 'error' => 'could not start the report renderer'];
+        }
+        stream_set_blocking($pipes[1], false);
+        stream_set_blocking($pipes[2], false);
+        $out = $err = '';
+        $deadline = time() + 120;
+        while (true) {
+            $out .= stream_get_contents($pipes[1]);
+            $err .= stream_get_contents($pipes[2]);
+            $st = proc_get_status($proc);
+            if (!$st['running']) {
+                $out .= stream_get_contents($pipes[1]);
+                $err .= stream_get_contents($pipes[2]);
+                break;
+            }
+            if (time() > $deadline) {
+                proc_terminate($proc, 9);
+                return ['ok' => false, 'error' => 'report render timed out'];
+            }
+            usleep(100000);
+        }
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $code = $st['exitcode'];
+        proc_close($proc);
+        if ($code !== 0 && $code !== -1 || trim($out) === '') {
+            return ['ok' => false, 'error' => trim($err) !== '' ? trim(substr($err, 0, 200)) : 'report render failed'];
+        }
+        return ['ok' => true, 'content' => $out];
+    },
+    'mail'       => static function (array $messages) { addToMailQueue($messages); },
+    'from_email' => $scheduler_from_email,
+    'from_name'  => $scheduler_from_name,
+    'base_url'   => $config_base_url ?? '',
+    'brand'      => $company_name ?? APP_NAME,
+]);
+$scheduler_queued += $scheduler_data['emails'];
+$scheduler_sent_schedules += $scheduler_data['ok'];
+
 $res = mysqli_query($mysqli, "SELECT * FROM report_schedules WHERE schedule_active = 1");
 while ($sched = mysqli_fetch_assoc($res)) {
+    if (\ITFlow\Reports\ReportScheduler::usesDataPath($sched)) {
+        continue; // handled above
+    }
     $schedule_id = intval($sched['schedule_id']);
     $report_key  = $sched['schedule_report'];
     $frequency   = $sched['schedule_frequency'];
