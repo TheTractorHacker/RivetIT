@@ -8,11 +8,15 @@ continues unchanged.
 
 ## [26.10.22] RivetIT — employee portal, reporting and dashboards, automation engine, mobile API and gap closures
 
-Database migrations 2.6.137 to 2.6.141 apply with **Update Database**. Requires rivet-core 0.18.1 (`composer install --no-dev`; the in-app Update and `deploy/update.sh` do this). Fresh installs: `db.sql` now matches the migrated schema.
+Database migrations 2.6.137 to 2.6.141 apply with **Update Database**. Requires rivet-core 0.19.0 (`composer install --no-dev`; the in-app Update and `deploy/update.sh` do this). Fresh installs: `db.sql` now matches the migrated schema.
+
+### Icon picker
+
+- **Visual icon picker.** Every icon field now opens a searchable catalog of icons (RivetCore 0.19 `IconCatalog`) instead of asking you to type an icon name. No database change.
 
 ### Webhooks to internal networks
 
-- **Administration > Webhooks > Internal network access.** Webhooks (and the event-rule webhook action) refuse private, loopback and link-local addresses by default. An administrator can now list the internal networks they may reach; empty keeps public addresses only. Database migration 2.6.141 adds `config_webhook_allowed_networks`. Upgraded to rivet-core 0.18.1.
+- **Administration > Webhooks > Internal network access.** Webhooks (and the event-rule webhook action) refuse private, loopback and link-local addresses by default. An administrator can now list the internal networks they may reach; empty keeps public addresses only. Database migration 2.6.141 adds `config_webhook_allowed_networks`. Upgraded to rivet-core 0.18.1 (0.19.0 in this release).
 
 ### Database structure (`db.sql`)
 
