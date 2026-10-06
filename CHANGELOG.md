@@ -4,7 +4,16 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
-## [Unreleased] RivetIT — webhook creation redesign
+## [26.10.24] RivetIT — Event rules builder, webhook guides hub and four-step creation flow, icon fixes
+
+### Webhook guides
+
+- **Guides is now a documentation hub:** a platform sidebar with search and category filters, an index of all 24 platforms, numbered steppers with remembered ticks, callouts, highlighted code blocks with copy buttons, language tabs for verifying our signature, an example payload per platform, a troubleshooting table, and previous/next links.
+
+### Fixes
+
+- Icons that Font Awesome 5.15 does not have (for example the Job queue icon) are replaced; `tests/fa_icons.php` guards it.
+
 
 ### Webhooks: a guided four-step Add, a tabbed Edit, a clearer list
 
