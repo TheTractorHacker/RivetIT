@@ -249,3 +249,6 @@ RivetIT started as a fork of an MSP-focused ITFlow fork (TheTractorHacker/itflow
 - **Training (LMS)** — courses, quizzes, assignments and requirement rules, compliance records with a tamper-evident ledger, certificates with public verification, the shop-floor kiosk, and Odoo write-back (`src/Training/`, `kiosk/`, `verify/`). Not present upstream.
 - **Compliance and deployment tooling** — an ISO 27001 Annex A compliance mapping document (`docs/ISO27001-COMPLIANCE.md`) and secure deployment scripts (`deploy/install.sh`, `deploy/harden.sh`, `deploy/backup.sh`, `deploy/update.sh`) ship with this edition; see those files directly for details.
 - **The REST API was left out of the rename** — endpoints, auth mechanisms and field names still say `client` / `client_id`, per the naming note above, so existing integrations and the Android companion app keep working. See `docs/API.md` for the full reference.
+## Endpoint agent
+
+The Windows endpoint agent (issue #3) lives in `endpoint-agent/` as a separate Go module. See `endpoint-agent/README.md` for its architecture, security model and what is unverified on Windows, and `docs/ENDPOINT_AGENT_BUILD.md` for build status, test counts and measured footprint.
