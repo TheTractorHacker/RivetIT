@@ -30,7 +30,7 @@ product decisions with how to reverse them: `docs/FINDINGS-DECISIONS.md`.
 - **Jobs:** durable signed (Ed25519) PowerShell, reboot and collect jobs with explicit states, lost-acknowledgement rules (destructive jobs are never retried), output caps and credential redaction, plus per-role permissions built on the existing RMM modules.
 - **MeshCentral:** per-click login-token remote sessions for the mapped device, role and department checked server-side, outage and offline handling, node mapping separate from the asset name, audited with a safe session id.
 - **Administration:** Administration > Endpoint agent (tokens, approval queue, devices, signed check schedule, releases and rings, MeshCentral) and a device page; staged agent updates by ring and percentage with min-version compatibility.
-- Migration 2.6.144 (nine `endpoint_agent_*` tables). Docs: `docs/ENDPOINT_AGENT.md`; OpenAPI updated.
+- Migration 2.6.145 (nine `endpoint_agent_*` tables). Docs: `docs/ENDPOINT_AGENT.md`; OpenAPI updated.
 
 ### Built-in endpoint agent (agent source)
 

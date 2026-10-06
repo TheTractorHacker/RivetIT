@@ -99,6 +99,20 @@ await T(`seed: create a ${ED.clientNoun.toLowerCase()} through the UI`, async ()
   // a "primary contact" prompt may intercept the first click in some builds; the page must end up on the new record or list
   const txt = await bodyText();
   assert(txt.includes(clientName) || /client_id=\d+/.test(await p.url()), 'new record not visible after create');
+  // The duplicate check on the name field runs on blur (CSP-safe delegated handler, js/app.js); the same name again must be reported.
+  await go('/agent/clients.php');
+  await p.click('button.ajax-modal[data-modal-url*="client_add"]');
+  await p.waitSel('.modal.show input[name=name]', { timeout: 15000 });
+  if (await p.eval(`!!document.querySelector('.modal.show #client_duplicate_info')`)) {
+    await p.type('.modal.show input[name=name]', clientName);
+    await p.eval(`document.querySelector('.modal.show input[name=name]').blur()`);
+    let info = '';
+    for (let i = 0; i < 30 && !info.trim(); i++) {
+      await new Promise((r) => setTimeout(r, 300));
+      info = await p.eval(`document.querySelector('.modal.show #client_duplicate_info').textContent`);
+    }
+    assert(info.trim() !== '', 'duplicate check did not run on blur');
+  }
 });
 
 // ------------------------------------------------------------------------------------------------ ticket list: date range

@@ -5735,10 +5735,10 @@ CREATE TABLE `users` (
   `user_email` varchar(200) NOT NULL,
   `user_password` varchar(200) NOT NULL,
   `user_auth_method` varchar(200) NOT NULL DEFAULT 'local',
-  `user_oidc_issuer` varchar(255) DEFAULT NULL,
-  `user_oidc_subject` varchar(255) DEFAULT NULL,
-  `user_sso_issuer` varchar(255) DEFAULT NULL,
-  `user_sso_subject` varchar(255) DEFAULT NULL,
+  `user_oidc_issuer` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `user_oidc_subject` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `user_sso_issuer` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `user_sso_subject` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `user_type` tinyint(1) NOT NULL DEFAULT 1,
   `user_status` tinyint(1) NOT NULL DEFAULT 1,
   `user_token` varchar(200) DEFAULT NULL,
@@ -8001,7 +8001,7 @@ CREATE TABLE `kb_article_embeds` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Built-in endpoint agent (server side), DB 2.6.144
+-- Built-in endpoint agent (server side), DB 2.6.145
 --
 
 CREATE TABLE IF NOT EXISTS `endpoint_agent_settings` (

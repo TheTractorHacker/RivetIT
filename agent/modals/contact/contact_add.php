@@ -161,7 +161,7 @@ ob_start();
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-envelope"></i></span>
                         </div>
-                        <input type="email" class="form-control" name="email" id="contact_email" placeholder="Email Address" maxlength="200" onfocusout="contact_email_check()">
+                        <input type="email" class="form-control" name="email" id="contact_email" placeholder="Email Address" maxlength="200" data-js-focusout="contact-email-check">
                     </div>
                     <div class="mt-2">
                         <span class="text-info" id="contact_check_info"></span>

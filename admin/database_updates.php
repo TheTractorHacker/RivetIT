@@ -10095,6 +10095,25 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     }
 
     if ($rivetit_db_version() == '2.6.143') {
+        // OIDC / SSO identities are (issuer, subject) pairs and subjects are case-sensitive per the OIDC spec, so the columns
+        // compare exactly (utf8mb4_bin). They were case-insensitive, which let two distinct subjects that differ only by case
+        // collide on the unique index and resolve to the same account. Type, length, nullability and the unique indexes are
+        // unchanged (MODIFY rebuilds each index). Guarded by information_schema so a re-run does nothing.
+        foreach (['user_oidc' => 'idx_users_oidc_identity', 'user_sso' => 'idx_users_sso_identity'] as $prefix => $unused) {
+            $need = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME IN ('{$prefix}_issuer', '{$prefix}_subject')
+                  AND (COLLATION_NAME IS NULL OR COLLATION_NAME <> 'utf8mb4_bin')"));
+            if ((int) ($need['c'] ?? 0) > 0) {
+                mysqli_query($mysqli, "ALTER TABLE `users`
+                    MODIFY COLUMN `{$prefix}_issuer` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+                    MODIFY COLUMN `{$prefix}_subject` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL");
+            }
+        }
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.144'");
+    }
+
+    if ($rivetit_db_version() == '2.6.144') {
         // Built-in endpoint agent (server side): settings, enrollment tokens, devices, check-in idempotency, check state, jobs,
         // MeshCentral node mapping and update releases. All additive and idempotent. Config lives in its own one-row table because
         // `settings` is at MariaDB's row-size limit.
@@ -10293,5 +10312,5 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
         mysqli_query($mysqli, "INSERT IGNORE INTO `endpoint_agent_settings` (`id`) VALUES (1)");
 
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.144'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.145'");
     }

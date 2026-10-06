@@ -32,7 +32,7 @@ automation rules) and are closed by the existing conservative auto-close.
  Technicians: Administration > Endpoint agent, RMM > device page, asset page, /api/v1/endpoint_devices (same Authz/Actions code)
 ```
 
-Tables (migration 2.6.144, all `utf8mb4_general_ci`, config in its own one-row table because `settings` is at the row-size limit):
+Tables (migration 2.6.145, all `utf8mb4_general_ci`, config in its own one-row table because `settings` is at the row-size limit):
 `endpoint_agent_settings`, `_enrollment_tokens`, `_enroll_attempts`, `_devices`, `_checkins` (idempotency), `_checks`, `_jobs`,
 `_mesh_nodes`, `_releases`. Times in these tables are UTC (`Y-m-d H:i:s`); the UI labels them UTC.
 

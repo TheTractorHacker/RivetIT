@@ -67,7 +67,7 @@ $csrf = $_SESSION['csrf_token'];
         <label class="form-label" for="mcp_url">Address to give your MCP client</label>
         <div class="input-group" style="max-width:36rem">
             <input type="text" class="form-control" id="mcp_url" value="<?= nullable_htmlentities($mcp_url) ?>" readonly>
-            <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('mcp_url').value).then(()=>{this.textContent='Copied'},()=>{document.getElementById('mcp_url').select()})">Copy</button>
+            <button class="btn btn-outline-secondary js-copy-text" type="button" data-copy-target="mcp_url">Copy</button>
         </div>
         <?php } ?>
     </div>
@@ -151,7 +151,7 @@ $csrf = $_SESSION['csrf_token'];
                             <div class="text-muted small"><?= nullable_htmlentities($l['user_email']) ?></div></td>
                         <td class="small text-break text-muted"><?= nullable_htmlentities($l['user_oidc_subject']) ?></td>
                         <td class="text-end">
-                            <form action="post.php" method="post" onsubmit="return confirm('Unlink this agent? Their MCP access stops immediately.')">
+                            <form action="post.php" method="post" data-confirm-submit="Unlink this agent? Their MCP access stops immediately.">
                                 <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
                                 <input type="hidden" name="user_id" value="<?= (int) $l['user_id'] ?>">
                                 <button type="submit" name="unlink_mcp_agent" class="btn btn-sm btn-outline-danger">Unlink</button>
@@ -196,7 +196,7 @@ $csrf = $_SESSION['csrf_token'];
         <details><summary class="fw-semibold">Web server setup (nginx)</summary>
             <p class="mt-2">If the health check says the address returns 404, add these two blocks to this site's nginx configuration, then test and reload nginx. Apache users need nothing: the bundled <code>.htaccess</code> already has the rules.</p>
             <div class="position-relative">
-            <button type="button" class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 m-2" onclick="var el=document.getElementById('mcp-nginx');var b=this;navigator.clipboard.writeText(el.textContent).then(function(){b.textContent='Copied'},function(){var r=document.createRange();r.selectNodeContents(el);var s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selected'});">Copy</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 m-2 js-copy-text" data-copy-target="mcp-nginx">Copy</button>
             <pre id="mcp-nginx" class="border rounded p-3 pe-5 small mb-0" style="overflow-x:auto">location = /mcp {
     include fastcgi_params;
     fastcgi_param SCRIPT_FILENAME $document_root/mcp_server/index.php;

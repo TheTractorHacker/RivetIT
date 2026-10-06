@@ -400,7 +400,7 @@ if (isset($_GET['contact_id'])) {
                                     <option value="<?= intval($tmpl['workflow_template_id']) ?>">[<?= ucfirst($tmpl['type']) ?>] <?= nullable_htmlentities($tmpl['name']) ?></option>
                                 <?php } ?>
                             </select>
-                            <button type="submit" formaction="workflow_preview.php" formmethod="get" formnovalidate class="btn btn-sm btn-outline-secondary" title="Dry run: shows what would happen without starting anything" onclick="this.form.querySelector('[name=csrf_token]').disabled=true;"><i class="fas fa-eye me-1"></i>Preview</button>
+                            <button type="submit" formaction="workflow_preview.php" formmethod="get" formnovalidate class="btn btn-sm btn-outline-secondary js-skip-csrf" title="Dry run: shows what would happen without starting anything"><i class="fas fa-eye me-1"></i>Preview</button>
                             <button type="submit" name="start_employee_workflow" class="btn btn-sm btn-primary"><i class="fas fa-play me-1"></i>Start</button>
                         </form>
                     <?php } else { ?>
@@ -829,7 +829,7 @@ if (isset($_GET['contact_id'])) {
                                 if (empty($credential_otp_secret)) {
                                     $otp_display = "-";
                                 } else {
-                                    $otp_display = "<span onmouseenter='showOTPViaCredentialID($credential_id)'><i class='far fa-clock'></i> <span id='otp_$credential_id'><i>Hover..</i></span></span>";
+                                    $otp_display = "<span data-otp-credential-id='$credential_id'><i class='far fa-clock'></i> <span id='otp_$credential_id'><i>Hover..</i></span></span>";
                                 }
                                 $credential_note = nullable_htmlentities($row['credential_note']);
                                 $credential_favorite = intval($row['credential_favorite']);

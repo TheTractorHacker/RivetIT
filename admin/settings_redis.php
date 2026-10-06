@@ -176,7 +176,7 @@ if ($stats) {
     <div class="card-body">
         <p class="text-muted small">Safe to clear: the app rebuilds all of it on demand. Nothing else in Redis is touched.</p>
         <?php foreach (RedisSettings::CLEARABLE as $group => $def) { ?>
-            <form action="post.php" method="post" class="d-flex align-items-center justify-content-between border-top py-2" onsubmit="return confirm('Clear <?= nullable_htmlentities(strtolower($def['label'])) ?>?<?= $group === 'locks' ? ' Clearing locks can let a job that is running start a second copy.' : '' ?>')">
+            <form action="post.php" method="post" class="d-flex align-items-center justify-content-between border-top py-2" data-confirm-submit="Clear <?= nullable_htmlentities(strtolower($def['label'])) ?>?<?= $group === 'locks' ? ' Clearing locks can let a job that is running start a second copy.' : '' ?>">
                 <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
                 <input type="hidden" name="redis_group" value="<?= nullable_htmlentities($group) ?>">
                 <div><strong><?= nullable_htmlentities($def['label']) ?></strong> <span class="badge bg-secondary"><?= (int) ($counts[$group] ?? 0) ?></span></div>

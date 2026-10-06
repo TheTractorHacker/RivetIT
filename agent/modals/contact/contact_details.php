@@ -457,7 +457,7 @@ $has_contact_facts = $contact_email || $contact_phone || $contact_mobile || $loc
                                 if (empty($credential_otp_secret)) {
                                     $otp_display = "-";
                                 } else {
-                                    $otp_display = "<span onmouseenter='showOTPViaCredentialID($credential_id)'><i class='far fa-clock'></i> <span id='otp_$credential_id'><i>Hover..</i></span></span>";
+                                    $otp_display = "<span data-otp-credential-id='$credential_id'><i class='far fa-clock'></i> <span id='otp_$credential_id'><i>Hover..</i></span></span>";
                                 }
                                 ?>
                                 <tr>

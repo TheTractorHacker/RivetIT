@@ -63,7 +63,7 @@ ob_start();
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                         </div>
-                        <input type="text" class="form-control" name="name" id="client_name" placeholder="Name or Company" maxlength="200" onfocusout="client_duplicate_check()" required autofocus>
+                        <input type="text" class="form-control" name="name" id="client_name" placeholder="Name or Company" maxlength="200" data-js-focusout="client-duplicate-check" required autofocus>
                     </div>
                     <div class="mt-2">
                         <span class="text-info" id="client_duplicate_info"></span>

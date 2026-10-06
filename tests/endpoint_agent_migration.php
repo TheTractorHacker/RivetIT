@@ -1,9 +1,9 @@
 <?php
-/* Migration 2.6.144: idempotent, additive, keeps data, utf8mb4_general_ci tables, matches db.sql, settings row untouched in size. */
+/* Migration 2.6.145: idempotent, additive, keeps data, utf8mb4_general_ci tables, matches db.sql, settings row untouched in size. */
 require __DIR__ . '/endpoint_agent_lib.php';
 
 require_once "$root/includes/database_version.php";
-$ok(version_compare(LATEST_DATABASE_VERSION, '2.6.144', '>='), 'LATEST_DATABASE_VERSION is at least 2.6.144 (' . LATEST_DATABASE_VERSION . ')');
+$ok(version_compare(LATEST_DATABASE_VERSION, '2.6.145', '>='), 'LATEST_DATABASE_VERSION is at least 2.6.145 (' . LATEST_DATABASE_VERSION . ')');
 $tables = ['endpoint_agent_settings', 'endpoint_agent_enrollment_tokens', 'endpoint_agent_enroll_attempts', 'endpoint_agent_devices', 'endpoint_agent_checkins', 'endpoint_agent_checks', 'endpoint_agent_jobs', 'endpoint_agent_mesh_nodes', 'endpoint_agent_releases'];
 foreach ($tables as $t) {
     $ok((int) $one("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='$t'") === 1, "table $t exists");
@@ -22,15 +22,15 @@ foreach ($tables as $t) {
     $ok($cols[1] === $live, "db.sql and the migrated schema agree on the columns of $t");
 }
 $upd = file_get_contents("$root/admin/database_updates.php");
-$ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.143') {") !== false && strpos($upd, "'2.6.144'") !== false, 'the migration is gated 2.6.143 -> 2.6.144');
+$ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.144') {") !== false && strpos($upd, "'2.6.145'") !== false, 'the migration is gated 2.6.144 -> 2.6.145');
 $ok(substr_count($upd, 'CREATE TABLE IF NOT EXISTS `endpoint_agent_') === count($tables), 'every migration CREATE is IF NOT EXISTS (idempotent)');
-$ok(strpos($upd, 'ALTER TABLE `settings` ADD COLUMN') === false || strpos(substr($upd, strpos($upd, "== '2.6.143'")), 'ALTER TABLE `settings`') === false, 'the 2.6.144 block adds no column to the nearly full settings table');
+$ok(strpos($upd, 'ALTER TABLE `settings` ADD COLUMN') === false || strpos(substr($upd, strpos($upd, "== '2.6.144'")), 'ALTER TABLE `settings`') === false, 'the 2.6.145 block adds no column to the nearly full settings table');
 
 // run the migration again on top of live data: nothing is lost or duplicated
 $q("UPDATE endpoint_agent_settings SET service_url='https://keep.example', failure_debounce=7 WHERE id=1");
 $q("DELETE FROM endpoint_agent_releases"); $q("INSERT INTO endpoint_agent_releases SET version='9.9.9', url='https://x', sha256='" . str_repeat('a', 64) . "'");
 for ($run = 1; $run <= 2; $run++) {
-    $q("UPDATE settings SET config_current_database_version='2.6.143' WHERE company_id=1");
+    $q("UPDATE settings SET config_current_database_version='2.6.144' WHERE company_id=1");
     $out = shell_exec('cd ' . escapeshellarg($root) . ' && ' . escapeshellarg(PHP_BINARY) . ' scripts/update_cli.php --update_db 2>&1');
     $ok((string) $one("SELECT config_current_database_version FROM settings WHERE company_id=1") === LATEST_DATABASE_VERSION, "update run $run lands on the latest version");
     $ok($one("SELECT service_url FROM endpoint_agent_settings WHERE id=1") === 'https://keep.example' && (int) $one("SELECT failure_debounce FROM endpoint_agent_settings WHERE id=1") === 7 && (int) $one("SELECT COUNT(*) FROM endpoint_agent_settings") === 1, "run $run keeps the existing settings row and does not duplicate it");
