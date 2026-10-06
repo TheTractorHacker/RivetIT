@@ -582,6 +582,11 @@ if (isset($_GET['ticket_id'])) {
                                     <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/ticket/ticket_merge.php?ticket_id=<?= $ticket_id ?>">
                                         <i class="fas fa-fw fa-clone me-2"></i>Merge Ticket
                                     </a>
+                                    <?php if (lookupUserPermission("module_support") >= 2 && empty($ticket_closed_at)) { ?>
+                                    <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/ticket/ticket_edit_schedule.php?ticket_id=<?= $ticket_id ?>">
+                                        <i class="fas fa-fw fa-calendar-check me-2"></i>Edit schedule
+                                    </a>
+                                    <?php } ?>
                                     <?php if ($client_id) { ?>
                                         <div class="dropdown-divider"></div>
                                         <a class="dropdown-item ajax-modal" href="#"
@@ -712,6 +717,18 @@ if (isset($_GET['ticket_id'])) {
                     <!-- Category -->
                     <div class="text-muted">
                         <i class="fas fa-fw fa-folder me-1"></i><?= $ticket_category_display ?: "No category" ?>
+                    </div>
+
+                    <!-- Appointment schedule (Remote / Onsite, start, end, notes) - the only place ticket_onsite is set -->
+                    <div>
+                        <a href="#" title="Edit schedule - appointment time, Remote or Onsite, and notes"
+                            <?php if (lookupUserPermission("module_support") >= 2 && empty($ticket_closed_at)) { ?>
+                                class="ajax-modal"
+                                data-modal-url="modals/ticket/ticket_edit_schedule.php?ticket_id=<?= $ticket_id ?>"
+                            <?php } ?>
+                        >
+                            <span class="text-muted"><i class="fas fa-fw fa-calendar-check me-1"></i><?php if ($ticket_scheduled_for) { echo $ticket_scheduled_wording . ($ticket_onsite ? ' · Onsite' : ' · Remote'); } else { echo 'Edit schedule'; } ?></span>
+                        </a>
                     </div>
 
                     <!-- Delivery Method -->
