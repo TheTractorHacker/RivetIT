@@ -54,6 +54,24 @@ final class ServerStatus
         ];
     }
 
+    /**
+     * The database version this code needs: the constant when the page loaded it, otherwise read from
+     * includes/database_version.php (admin pages do not load that file, so the constant is usually undefined there).
+     */
+    public static function latestDatabaseVersion(string $appRoot): ?string
+    {
+        if (defined('LATEST_DATABASE_VERSION')) {
+            return (string) LATEST_DATABASE_VERSION;
+        }
+        $file = rtrim($appRoot, '/') . '/includes/database_version.php';
+        $src = is_file($file) ? @file_get_contents($file) : false;
+        if ($src !== false && preg_match('/LATEST_DATABASE_VERSION["\']?\s*,\s*["\']([0-9][0-9.]*)["\']/i', $src, $m)) {
+            return $m[1];
+        }
+
+        return null;
+    }
+
     private function app(): array
     {
         $out = [];
@@ -62,7 +80,7 @@ final class ServerStatus
             $r = $this->db->query('SELECT config_current_database_version AS v FROM settings WHERE company_id = 1');
             $current = $r ? ($r->fetch_assoc()['v'] ?? null) : null;
         } catch (\Throwable) {}
-        $latest = defined('LATEST_DATABASE_VERSION') ? LATEST_DATABASE_VERSION : null;
+        $latest = self::latestDatabaseVersion($this->appRoot);
         if ($current === null || $latest === null) {
             $out[] = self::c('warn', 'Database version', 'Could not read the database version.');
         } elseif (version_compare($latest, $current, '>')) {
