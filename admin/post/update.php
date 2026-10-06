@@ -97,6 +97,7 @@ if (isset($_GET['update'])) {
     // Capture git's own output and exit code. Before, a failed git step (for example the web user unable to
     // write to the install folder, or hand-edited files in the way of a pull) was ignored and the page still
     // said "Update successful" while nothing had changed.
+    require_once __DIR__ . '/../../includes/release_channel.php';
     releaseResetGeneratedFiles(dirname(__DIR__, 2));
     $git_output = [];
     $git_code = 0;
