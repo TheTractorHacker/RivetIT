@@ -11,6 +11,9 @@ $ticket_number = intval($row['ticket_number']);
 $vendor_id = intval($row['ticket_vendor_id']);
 $client_id = intval($row['ticket_client_id']);
 
+// Department scoping: modal_header only checks the module permission (pentest F-03)
+enforceClientAccess($client_id);
+
 // Generate the HTML form content using output buffering.
 ob_start();
 
