@@ -3,7 +3,7 @@ End-to-end check of Event bus: webhooks through the job queue, event rules, job 
 
 Needs a THROWAWAY copy of the app (never a real site): install it with scripts/setup_cli.php run from its scripts/ directory
 against a scratch database, set $config_https_only = FALSE in its config.php, serve it with
-`php -S 127.0.0.1:<port> -t <app dir>`, and give this script the scratch database credentials in TEST_DB_USER / TEST_DB_PASS.
+`RIVETIT_WEBHOOK_ALLOW_PRIVATE=1 php -S 127.0.0.1:<port> -t <app dir>` (the receiver listens on loopback, which delivery otherwise refuses), and give this script the scratch database credentials in TEST_DB_USER / TEST_DB_PASS.
 
   TEST_DB_USER=... TEST_DB_PASS=... python3 tests/e2e/event_bus.py http://127.0.0.1:<port> <scratch db> <admin email> <admin password>
 """
@@ -95,6 +95,8 @@ check('the endpoint received a signed JSON event with the right headers', first 
 if first:
     sig = first['headers']['X-ITFlow-Signature'].split('=', 1)[1]
     check('the signature is the HMAC of the exact bytes with the endpoint secret', hmac.compare_digest(sig, hmac.new(b'topsecret', first['body'], hashlib.sha256).hexdigest()))
+    ts = first['headers'].get('X-Rivet-Timestamp', '')
+    check('the delivery carries X-Rivet-Timestamp and an X-Rivet-Signature-V2 that verifies against the body', ts.isdigit() and abs(time.time() - int(ts)) < 120 and first['headers'].get('X-Rivet-Signature-V2') == 't=%s,v1=%s' % (ts, hmac.new(b'topsecret', ts.encode() + b'.' + first['body'], hashlib.sha256).hexdigest()), first['headers'])
 check('the rule action created the ticket with values from the event filled in', wait_for(lambda: sql("select count(*) from tickets where ticket_subject like 'E2E login failure: Failed login attempt using nobody@nowhere.test%'") == '1') and sql("select ticket_priority from tickets where ticket_subject like 'E2E login failure%'") == 'High', sql("select ticket_subject from tickets where ticket_subject like 'E2E%'"))
 check("the rule's run is on the audit trail", wait_for(lambda: int(sql("select count(*) from audit_events where event_type='automation.rule_fired' and action='ok'")) >= 1))
 # the first attempt failed (500): it is pending for retry, logged as attempt 1
@@ -103,7 +105,8 @@ sql("update integration_jobs set available_at = '2000-01-01 00:00:00' where stat
 RX['status'] = 200
 out = worker()
 check('the worker retries when due: delivered on attempt 2', wait_for(lambda: sql("select count(*) from webhook_deliveries where attempt_number=2 and http_status=200") == '1') and sql("select status from integration_jobs where job_type='webhook.deliver'") == 'completed', out)
-check('the retry sent byte-identical content (same timestamp, same signature)', len(RX['log']) >= 2 and RX['log'][0]['body'] == RX['log'][-1]['body'])
+check('the retry sent byte-identical content (same timestamp, same signature)', len(RX['log']) >= 2 and RX['log'][0]['body'] == RX['log'][-1]['body'] and RX['log'][0]['headers'].get('X-ITFlow-Signature') == RX['log'][-1]['headers'].get('X-ITFlow-Signature'))
+check('the retry is signed afresh (its own X-Rivet-Timestamp, still verifying against the same body)', len(RX['log']) >= 2 and RX['log'][-1]['headers'].get('X-Rivet-Signature-V2', '').endswith(hmac.new(b'topsecret', RX['log'][-1]['headers'].get('X-Rivet-Timestamp', '').encode() + b'.' + RX['log'][-1]['body'], hashlib.sha256).hexdigest()))
 
 # ---- endpoint deleted before delivery: permanent failure, no retry loop
 RX['status'] = 200; RX['log'].clear()

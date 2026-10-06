@@ -25,51 +25,22 @@ $to = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['to'] ?? '')) ? $_GET[
 $page_no = max(1, (int) ($_GET['page'] ?? 1));
 $per_page = 50;
 
-$where = ['1=1'];
-$types = '';
-$args = [];
-if ($q !== '') {
-    $like = '%' . addcslashes($q, '%_\\') . '%';
-    $where[] = '(e.summary LIKE ? OR e.event_type LIKE ? OR e.entity_id LIKE ? OR e.ip_address LIKE ? OR e.metadata_json LIKE ?)';
-    $types .= 'sssss';
-    array_push($args, $like, $like, $like, $like, $like);
-}
-if ($type !== '') {
-    $where[] = '(e.event_type = ? OR e.event_type LIKE ?)';
-    $types .= 'ss';
-    array_push($args, $type, addcslashes($type, '%_\\') . '.%');
-}
-if ($actor > 0) {
-    $where[] = 'e.actor_user_id = ?';
-    $types .= 'i';
-    $args[] = $actor;
-}
-if ($from !== '') {
-    $where[] = 'e.created_at >= ?';
-    $types .= 's';
-    $args[] = $from . ' 00:00:00';
-}
-if ($to !== '') {
-    $where[] = 'e.created_at <= ?';
-    $types .= 's';
-    $args[] = $to . ' 23:59:59';
-}
-$whereSql = implode(' AND ', $where);
+$filters = ['search' => $q, 'eventType' => $type, 'actorUserId' => $actor, 'from' => $from, 'to' => $to];
 
-$run = static function (string $sql, string $types, array $args) use ($mysqli): array {
-    $st = $mysqli->prepare($sql);
-    if (!$st) {
-        return [];
+// The audit rows carry actor ids only; the users table belongs to this edition, so names are looked up here (cached across calls).
+$userNames = [];
+$nameOf = static function (array $ids) use ($mysqli, &$userNames): void {
+    $ids = array_values(array_diff(array_unique(array_filter(array_map('intval', $ids))), array_keys($userNames)));
+    if (!$ids) {
+        return;
     }
-    if ($types !== '') {
-        $st->bind_param($types, ...$args);
+    $res = mysqli_query($mysqli, 'SELECT user_id, user_name FROM users WHERE user_id IN (' . implode(',', $ids) . ')');
+    while ($res && ($u = mysqli_fetch_assoc($res))) {
+        $userNames[(int) $u['user_id']] = (string) $u['user_name'];
     }
-    $st->execute();
-    $res = $st->get_result();
-    $rows = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
-    $st->close();
-
-    return $rows;
+    foreach ($ids as $id) {
+        $userNames[$id] ??= '';
+    }
 };
 
 $total = 0;
@@ -77,36 +48,46 @@ $rows = [];
 $groups = [];
 $actors = [];
 if ($ready) {
-    $base = "FROM audit_events e LEFT JOIN users u ON u.user_id = e.actor_user_id WHERE $whereSql";
+    $reader = new \RivetCore\Audit\AuditReader(rivetCoreDb($mysqli));
 
     if ($export_requested) {
-        $all = $run("SELECT e.audit_id, e.created_at, e.event_type, e.actor_user_id, u.user_name, e.entity_type, e.entity_id, e.action, e.summary, e.ip_address, e.request_id, e.metadata_json $base ORDER BY e.audit_id DESC LIMIT 50000", $types, $args);
-        if (function_exists('rivetAudit')) {
-            rivetAudit('audit.exported', (int) $session_user_id, 'audit', 'trail', 'export', 'Audit trail exported to CSV (' . count($all) . ' rows)');
-        }
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="audit-trail-' . date('Ymd-His') . '.csv"');
         $out = fopen('php://output', 'w');
         fputcsv($out, ['id', 'time', 'event', 'actor_id', 'actor', 'entity_type', 'entity_id', 'action', 'summary', 'ip', 'request_id', 'metadata']);
-        foreach ($all as $r) {
+        $exported = 0;
+        foreach ($reader->iterate($filters, \RivetCore\Audit\AuditReader::DEFAULT_EXPORT_CAP) as $r) {
+            $nameOf([$r['actor_user_id']]);
+            $line = [$r['audit_id'], $r['created_at'], $r['event_type'], $r['actor_user_id'], $r['actor_user_id'] ? ($userNames[(int) $r['actor_user_id']] ?? '') : null,
+                $r['entity_type'], $r['entity_id'], $r['action'], $r['summary'], $r['ip_address'], $r['request_id'], $r['metadata_json']];
             // Spreadsheet formula injection: neutralise cells that start with a formula character.
-            $line = array_map(static fn ($v) => preg_match('/^[=+\-@\t\r]/', (string) $v) ? "'" . $v : $v, array_values($r));
-            fputcsv($out, $line);
+            fputcsv($out, array_map(static fn ($v) => preg_match('/^[=+\-@\t\r]/', (string) $v) ? "'" . $v : $v, $line));
+            $exported++;
         }
         fclose($out);
+        rivetAudit('audit.exported', (int) $session_user_id, 'audit', 'trail', 'export', 'Audit trail exported to CSV (' . $exported . ' rows)');
         exit;
     }
 
-    $count = $run("SELECT COUNT(*) AS n $base", $types, $args);
-    $total = (int) ($count[0]['n'] ?? 0);
-    $pages = max(1, (int) ceil($total / $per_page));
-    $page_no = min($page_no, $pages);
-    $offset = ($page_no - 1) * $per_page;
-    $rows = $run("SELECT e.*, u.user_name $base ORDER BY e.audit_id DESC LIMIT $per_page OFFSET $offset", $types, $args);
-    foreach ($run("SELECT SUBSTRING_INDEX(event_type, '.', 1) AS grp, COUNT(*) AS n FROM audit_events GROUP BY grp ORDER BY grp", '', []) as $g) {
-        $groups[$g['grp']] = (int) $g['n'];
+    $result = $reader->page($filters, $page_no, $per_page);
+    $total = $result->total;
+    $pages = $result->pages;
+    $page_no = $result->page;
+    $rows = $result->rows;
+    $nameOf(array_column($rows, 'actor_user_id'));
+    foreach ($rows as &$row) {
+        $row['user_name'] = $row['actor_user_id'] ? ($userNames[(int) $row['actor_user_id']] ?? null) : null;
     }
-    $actors = $run("SELECT DISTINCT u.user_id, u.user_name FROM audit_events e JOIN users u ON u.user_id = e.actor_user_id ORDER BY u.user_name", '', []);
+    unset($row);
+    $groups = $reader->groups();
+    $actorIds = $reader->actors();
+    $nameOf($actorIds);
+    foreach ($actorIds as $id) {
+        if (($userNames[$id] ?? '') !== '') {
+            $actors[] = ['user_id' => $id, 'user_name' => $userNames[$id]];
+        }
+    }
+    usort($actors, static fn ($x, $y) => strcasecmp($x['user_name'], $y['user_name']));
 }
 $pages = $pages ?? 1;
 $qs = static function (array $over = []) use ($q, $type, $actor, $from, $to): string {

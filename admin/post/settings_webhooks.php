@@ -19,52 +19,7 @@ $ALL_EVENTS = all_webhook_event_types();
  * are rejected, including via DNS resolution (not just literal IPs).
  */
 function webhookUrlIsSafe(string $url): bool {
-    $parts = parse_url($url);
-    if (!$parts || empty($parts['scheme']) || empty($parts['host'])) {
-        return false;
-    }
-
-    $scheme = strtolower($parts['scheme']);
-    if ($scheme !== 'http' && $scheme !== 'https') {
-        return false;
-    }
-
-    $host = $parts['host'];
-
-    if (filter_var($host, FILTER_VALIDATE_IP)) {
-        $ips = [$host];
-    } else {
-        $ips = [];
-        $records = @dns_get_record($host, DNS_A + DNS_AAAA);
-        if ($records) {
-            foreach ($records as $record) {
-                if (!empty($record['ip'])) {
-                    $ips[] = $record['ip'];
-                } elseif (!empty($record['ipv6'])) {
-                    $ips[] = $record['ipv6'];
-                }
-            }
-        }
-        if (empty($ips)) {
-            $resolved = @gethostbyname($host);
-            if ($resolved !== $host) {
-                $ips[] = $resolved;
-            }
-        }
-    }
-
-    if (empty($ips)) {
-        // Couldn't resolve the host - reject rather than allow an unknown destination
-        return false;
-    }
-
-    foreach ($ips as $ip) {
-        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-            return false;
-        }
-    }
-
-    return true;
+    return (new \RivetCore\Webhooks\UrlPolicy())->isSafe($url);
 }
 
 /**
