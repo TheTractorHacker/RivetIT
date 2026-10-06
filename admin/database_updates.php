@@ -9938,7 +9938,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     if ($rivetit_db_version() == '2.6.136') {
         // Employee self-service portal: which home sections show (CSV of keys), and the HR-initiated onboarding request (off by default,
         // with the onboarding workflow template it starts; 0 = open a ticket instead). Idempotent.
-        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_portal_home_sections` varchar(255) NOT NULL DEFAULT 'requests,approvals,devices,onboarding,training,catalog'");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_portal_home_sections` varchar(120) NOT NULL DEFAULT 'requests,approvals,devices,onboarding,training,catalog'");
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_portal_onboarding_requests` tinyint(1) NOT NULL DEFAULT 0");
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_portal_onboarding_template_id` int(11) NOT NULL DEFAULT 0");
 
@@ -10036,7 +10036,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `service_catalog_fields` ADD COLUMN IF NOT EXISTS `show_if` text DEFAULT NULL");
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_entra_allow_writes` tinyint(1) NOT NULL DEFAULT 0");
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_slack_link_by_email` tinyint(1) NOT NULL DEFAULT 0");
-        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_slack_bot_token` varchar(1000) NOT NULL DEFAULT ''");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_slack_bot_token` text DEFAULT NULL");
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_slack_team_id` varchar(32) NOT NULL DEFAULT ''");
         // A temporary password made by the entra_create_account workflow action: encrypted, readable once by one named technician, expires.
         mysqli_query($mysqli, "ALTER TABLE `workflow_run_tasks` ADD COLUMN IF NOT EXISTS `secret_result_enc` text DEFAULT NULL");
