@@ -107,7 +107,7 @@ final class Actions
         if ($denied !== null) {
             return self::res(false, 403, 'forbidden', $denied);
         }
-        if (!Jobs::cancel($jobId, $userId)) {
+        if (!Jobs::cancel($jobId, $deviceId, $userId)) {
             return self::res(false, 409, 'conflict', 'Only a queued job can be cancelled.');
         }
         Enrollment::audit('Job Cancelled', "$userName cancelled job $jobId on device $deviceId", (int) $dev['client_id'], (int) $dev['asset_id']);

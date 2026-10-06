@@ -169,6 +169,10 @@ $ok($c === 200 && $one("SELECT state FROM endpoint_agent_jobs WHERE job_id='$jc'
 [$c] = $report($TA, ['job_id' => $jc, 'attempt' => 1, 'state' => 'running']); $ok($c === 409, 'the agent cannot start a cancelled job');
 [$c, , $r] = http('POST', "/api/v1/endpoint_devices/$A/jobs/$jobA/cancel", $tech, []); $ok($c === 409, 'a finished job cannot be cancelled');
 
+[$c, , $r] = $submit($B, ['type' => 'powershell', 'script' => 'x']); $jx = $r['job_id'] ?? '';
+[$c] = http('POST', "/api/v1/endpoint_devices/$A/jobs/$jx/cancel", $tech, []);
+$ok($c === 409 && $one("SELECT state FROM endpoint_agent_jobs WHERE job_id='$jx'") !== 'cancelled', 'a job cannot be cancelled through a different device\'s URL');
+
 // --- creation limits
 [$c] = $submit($A, ['type' => 'powershell', 'script' => '']); $ok($c === 422, 'empty script -> 422');
 [$c] = $submit($A, ['type' => 'powershell', 'script' => str_repeat('a', 200000)]); $ok($c === 422, 'oversized script -> 422');

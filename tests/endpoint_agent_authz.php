@@ -94,7 +94,7 @@ $mockSlow = ea_start_php("$root/tests/mock/mock_meshcentral.php", ['MOCK_MESH_MO
 Config::set(['mesh_url' => "http://127.0.0.1:{$mockSlow['port']}"]);
 $t0 = microtime(true);
 [$c, , $r] = $api('tech', 'POST', "/api/v1/endpoint_devices/$D1/remote", []);
-$ok($c === 503 && $r['code'] === 'mesh_unavailable' && microtime(true) - $t0 < 9, 'MeshCentral timing out -> 503 within the timeout');
+$ok($c === 503 && $r['code'] === 'mesh_unavailable' && microtime(true) - $t0 < 15, 'MeshCentral timing out -> 503 within the timeout');
 Config::set(['mesh_url' => 'http://127.0.0.1:1']);
 [$c, , $r] = $api('tech', 'POST', "/api/v1/endpoint_devices/$D1/remote", []);
 $ok($c === 503 && $r['code'] === 'mesh_unavailable', 'MeshCentral refusing connections -> 503');

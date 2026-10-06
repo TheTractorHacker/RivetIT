@@ -24,14 +24,15 @@ Config::set(['unmatched_policy' => 'auto_create']);
 $devs = [];
 $t0 = microtime(true);
 for ($i = 0; $i < $N; $i++) {
+    if ($i % 40 === 0) { $q('DELETE FROM endpoint_agent_enroll_attempts'); }   // the enrollment rate limit is for abuse, not for this harness
     [$c, , $j] = ea_enroll($tok, ea_dev(['hostname' => sprintf('LOAD-%04d', $i), 'serial' => sprintf('LOADSER%05d', $i)]));
     if ($c !== 201) { echo "enroll failed ($c)\n"; exit(1); }
     $devs[] = ['id' => (int) $j['device_id'], 'token' => $j['device_token'], 'seq' => 0];
 }
 printf("enrolled %d devices in %.1fs (%.1f/s, includes asset creation and a signing round trip)\n", $N, microtime(true) - $t0, $N / (microtime(true) - $t0));
 
-function payload(int $seq, bool $withInventory): array {
-    $p = ['seq' => $seq, 'collected_at' => gmdate('Y-m-d\TH:i:s\Z'), 'agent_version' => '1.0.0', 'inventory' => null,
+function payload(int $seq, bool $withInventory, int $ageS = 0): array {
+    $p = ['seq' => $seq, 'collected_at' => gmdate('Y-m-d\TH:i:s\Z', time() - $ageS), 'agent_version' => '1.0.0', 'inventory' => null,
         'metrics' => ['cpu_pct' => 5 + ($seq % 60), 'mem_pct' => 40 + ($seq % 30), 'disk' => [['mount' => 'C:', 'used_pct' => 55.5], ['mount' => 'D:', 'used_pct' => 20.1]], 'net_rx_bps' => 12345.5, 'net_tx_bps' => 6789.1],
         'checks' => [['key' => 'disk_c', 'status' => 'ok', 'detail' => ''], ['key' => 'pending_reboot', 'status' => 'ok', 'detail' => ''], ['key' => 'svc_eventlog', 'status' => 'ok', 'detail' => 'running']], 'buffered' => []];
     if ($withInventory) {
@@ -56,7 +57,7 @@ $probe = function (bool $inv) use ($cm, $devs) {
     $before = [];
     foreach (['device_metric_samples', 'endpoint_agent_checkins', 'endpoint_agent_checks', 'device_metric_instances'] as $t) { $before[$t] = (int) $cm->query("SELECT COUNT(*) FROM $t")->fetch_row()[0]; }
     $cm->stmts = [];
-    Checkin::handle($dev, payload(++$seq, $inv));
+    Checkin::handle($dev, payload(++$seq, $inv, ($seq % 1000) * 7));
     $s = $cm->stmts;
     $kinds = ['SELECT' => 0, 'INSERT' => 0, 'UPDATE' => 0, 'DELETE' => 0, 'other' => 0];
     foreach ($s as $q) { $k = strtoupper(strtok(ltrim($q), " \n")); $kinds[isset($kinds[$k]) ? $k : 'other']++; }

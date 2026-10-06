@@ -84,9 +84,10 @@ final class Jobs
         return ['ok' => true, 'job_id' => $id];
     }
 
-    public static function cancel(string $jobId, int $userId): bool
+    public static function cancel(string $jobId, int $deviceId, int $userId): bool
     {
-        $n = Db::run("UPDATE endpoint_agent_jobs SET state = 'cancelled', reason = 'cancelled_by_user', finished_at = ? WHERE job_id = ? AND state = 'queued'", [Db::utcNow(), $jobId]);
+        // Scoped to the device the caller was authorized for: a job id from another department's device cannot be cancelled through this one.
+        $n = Db::run("UPDATE endpoint_agent_jobs SET state = 'cancelled', reason = 'cancelled_by_user', finished_at = ? WHERE job_id = ? AND device_id = ? AND state = 'queued'", [Db::utcNow(), $jobId, $deviceId]);
         return $n > 0;
     }
 
