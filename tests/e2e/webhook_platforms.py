@@ -118,7 +118,7 @@ check('the chooser has the search box, category headings, descriptions, Generic 
 check('the chooser links to the guides page', 'settings_webhook_guides.php' in chooser)
 s, guides = req('/admin/settings_webhook_guides.php')
 check('the guides page lists every preset with an anchor and a guide', s == 200 and all(('id="%s"' % i) in guides for i, _ in dests), s)
-check('the guides carry setup steps, a sample curl with a copy button, signature snippets and the n8n walk-through', 'Setup' in guides and 'curl -sS -X POST' in guides and 'data-wh-copy' in guides and 'Verify our signature' in guides and 'X-Rivet-Signature-V2' in guides and 'Receiving in n8n: walk-through' in guides and 'n8n Code' in guides and 'verifyRivetSignature' in guides)
+check('the guides carry setup steps, a sample curl with a copy button, signature snippets and the n8n walk-through', 'Setup' in guides and 'curl -sS -X POST' in guides and 'data-wg-copy' in guides and 'Verify our signature' in guides and 'X-Rivet-Signature-V2' in guides and 'Receiving in n8n: walk-through' in guides and 'n8n Code' in guides and 'verifyRivetSignature' in guides)
 s, page = req(REF)
 check('the webhooks page links to the guides and the add form opens the large modal', 'settings_webhook_guides.php' in page and 'data-modal-size="xl"' in page)
 s, js = req('/js/event_picker.js'); s2, js2 = req('/js/webhook_form.js')
