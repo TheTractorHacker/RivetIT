@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+### RivetCore 0.17.1
+
+- Updates the shared library to RivetCore 0.17.1 (job heartbeat, webhook signed timestamp, PSR-3 logging, audit reader, retention horizons). **Migration 2.6.136** adds `integration_jobs.heartbeat_at` through Core's own migration runner. The Update page shows the RivetCore version; the library updates with the app (the pin is in `composer.json`/`composer.lock`), no separate button is needed.
+
 ### Service catalog approvals and request forms
 
 - **Request forms.** Edit a catalog item (Administration > Service Catalog) to add questions: text, long text, choice list, checkbox, date or number, each optionally required, with a placeholder and an order. The portal's Request service form and the agent's New Ticket window show them, the server validates every answer, and the answers appear on the ticket (agent and portal) as a read-only **Request details** block.
