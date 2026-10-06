@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /* Offline validation of signed, audience-bound MCP access tokens. */
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../mcp_server/McpIdentityMiddleware.php';

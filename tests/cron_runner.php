@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /* Cron Manager runner. Uses harmless temporary scripts only; never runs a real job. php tests/cron_runner.php */
 require_once __DIR__ . '/../vendor/autoload.php';
 use ITFlow\Cron\{JobCatalog, JobRunner};

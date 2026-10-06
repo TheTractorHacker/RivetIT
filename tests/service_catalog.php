@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /*
  * Service catalog request forms and approval chains, against the REAL src/ITSM/ServiceCatalogService.php on a scratch database:
  *   - request-form validation (required, types, select choices, dates, numbers, checkbox, array injection), row normalisation

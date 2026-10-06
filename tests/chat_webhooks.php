@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /*
  * Slack / Teams chat destinations: formatter, routing filters, URL vetting (SSRF), delivery and the event bus, against a LOCAL mock
  * (tests/mock/slack_webhook.php). Never contacts Slack or Microsoft. Needs a schema-only scratch database (db.sql imported):

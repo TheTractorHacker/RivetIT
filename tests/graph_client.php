@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /*
  * Microsoft Graph client + Intune sync against a LOCAL mock (tests/mock/graph_mock.php). Never contacts Microsoft.
  * Needs a schema-only scratch database (db.sql imported):

@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /*
  * Remote MCP admin pieces (config, identity linking, unlinked capture, health checks).
  * Needs a DISPOSABLE schema-only database that already has migration 2.6.123 applied:

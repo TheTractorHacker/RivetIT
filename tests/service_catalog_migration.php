@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /*
  * Migration 2.6.133 (service catalog approvals + request forms): applies from 2.6.132, is idempotent (second run changes
  * nothing and errors on nothing), and leaves exactly the schema db.sql creates for a fresh install.

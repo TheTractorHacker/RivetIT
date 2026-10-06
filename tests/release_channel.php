@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /*
  * Release channel logic (includes/release_channel.php) against REAL throwaway git repositories: a bare "origin" with main and beta
  * branches and a server clone. No database, no network, nothing outside a temp directory.

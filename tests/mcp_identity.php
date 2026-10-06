@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /* Disposable checkout only: RIVETIT_TEST_DB=1 php tests/mcp_identity.php */
 if (getenv('RIVETIT_TEST_DB') !== '1') exit(2);
 require_once __DIR__ . '/../config.php';

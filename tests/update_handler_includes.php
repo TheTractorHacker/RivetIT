@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /*
  * Regression: admin/post/update.php must load includes/release_channel.php, in a block that encloses the call,
  * before it calls anything defined there. (The Update button once crashed with "Call to undefined function

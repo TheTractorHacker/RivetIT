@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 
 require_once __DIR__ . '/../agent/includes/org_chart_filter.php';
 

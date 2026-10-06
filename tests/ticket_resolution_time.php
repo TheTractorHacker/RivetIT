@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /*
  * Resolution-time rules, against the REAL functions in functions.php (their source is extracted and run) on a scratch database:
  *   1. only resolved tickets count: an open ticket, one in an "Unresolved" status, or one reopened and not yet resolved again is left out;

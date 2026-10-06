@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /* Run with: php tests/oidc_portal.php */
 
 require_once __DIR__ . '/../vendor/autoload.php';

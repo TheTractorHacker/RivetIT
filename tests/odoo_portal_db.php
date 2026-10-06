@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /* Run only in a disposable configured checkout: RIVETIT_TEST_DB=1 php tests/odoo_portal_db.php */
 if (getenv('RIVETIT_TEST_DB') !== '1') {
     fwrite(STDERR, "Set RIVETIT_TEST_DB=1 in a disposable database checkout.\n");

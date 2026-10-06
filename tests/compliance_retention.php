@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /*
  * Compliance retention: runs the EXACT retention block from cron/cron.php against aged rows in a scratch database and checks what is
  * deleted and what is kept under different presets and horizons. Needs a THROWAWAY schema-only database that holds this app's full

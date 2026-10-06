@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /*
  * Employee lifecycle workflows against the REAL src/Workflow code on a scratch database:
  *   dependencies (validation, cycles, blocked/unblock), due dates, approvals, automated actions (success, retry, failure fallback),

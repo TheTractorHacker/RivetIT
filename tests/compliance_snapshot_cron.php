@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /*
  * Runs the EXACT monthly-snapshot block from cron/cron.php against a scratch database: the first run saves a 'scheduled' snapshot,
  * a second run in the same month saves nothing, and a snapshot from last month does not stop this month's. Needs a THROWAWAY

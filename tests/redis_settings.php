@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /*
  * Redis settings, stats, clearing and memory limit. Needs two THROWAWAY Redis servers (never the real one) and a
  * schema-only scratch database with migration 2.6.123 applied:

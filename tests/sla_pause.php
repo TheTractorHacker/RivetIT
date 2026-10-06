@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }   // never run tests over HTTP (pentest F-02)
 /*
  * SLA pause on "waiting on someone" statuses, against the REAL includes/sla_functions.php on a scratch database:
  *   - a status flagged "Pauses SLA" (including one created later) stops the clock; the same wait is never shown as a breach;
