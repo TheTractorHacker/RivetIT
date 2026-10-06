@@ -84,12 +84,17 @@ function rivetEmitEvent(string $event, array $data): void
         // 1. Webhooks
         $event_safe = mysqli_real_escape_string($mysqli, $event);
         $sql = mysqli_query($mysqli,
-            "SELECT webhook_id FROM webhooks
+            "SELECT * FROM webhooks
              WHERE webhook_enabled = 1
                AND FIND_IN_SET('$event_safe', REPLACE(webhook_events, ', ', ','))"
         );
         while ($sql && ($row = mysqli_fetch_assoc($sql))) {
             $wid = intval($row['webhook_id']);
+            // Slack / Teams destinations have routing filters (minimum priority, clients); a filtered-out event is never queued.
+            if (\ITFlow\Webhooks\ChatFormatter::isChatType(\ITFlow\Webhooks\ChatFormatter::normalizeType($row['webhook_type'] ?? ''))
+                && !\ITFlow\Webhooks\ChatFormatter::shouldDeliver($row, $event, $data)) {
+                continue;
+            }
             if ($jobs !== null) {
                 $jobs->enqueue('webhook.deliver', ['webhook_id' => $wid, 'event' => $event, 'data' => $data, 'emitted_at' => $emittedAt], null, 'webhook', 0, 5);
                 $queued = true;
@@ -156,10 +161,41 @@ function rivetRunJobWorker($mysqli, int $limit = 20, int $seconds = 50): array
     return $worker->run($limit, $seconds);
 }
 
+/**
+ * The webhooks row if this endpoint is an enabled Slack/Teams destination, 'gone' if it is deleted or disabled, null for a generic
+ * endpoint (the caller then uses the normal signed delivery). Reads SELECT * so it still works before the 2.6.135 update has run.
+ *
+ * @return array<string,mixed>|string|null
+ */
+function rivetChatDestination($mysqli, int $webhookId)
+{
+    $res = mysqli_query($mysqli, 'SELECT * FROM webhooks WHERE webhook_id = ' . $webhookId . ' LIMIT 1');
+    $row = $res ? mysqli_fetch_assoc($res) : null;
+    if (!$row || empty($row['webhook_enabled'])) {
+        return 'gone';
+    }
+
+    return \ITFlow\Webhooks\ChatFormatter::isChatType(\ITFlow\Webhooks\ChatFormatter::normalizeType($row['webhook_type'] ?? '')) ? $row : null;
+}
+
 /** What each job type does. Edition-specific work (creating a ticket, notifying a user) is done here, not in Core. */
 function rivetRegisterJobHandlers(\RivetCore\Jobs\JobWorker $worker, $mysqli): void
 {
     $worker->register('webhook.deliver', static function (array $p, array $job) use ($mysqli) {
+        // Slack / Teams destinations: a chat-formatted message through the same job (and retry) path.
+        $chatRow = rivetChatDestination($mysqli, (int) ($p['webhook_id'] ?? 0));
+        if ($chatRow === 'gone') {
+            throw new \RivetCore\Jobs\PermanentJobFailure('The webhook endpoint no longer exists or is disabled.');
+        }
+        if (is_array($chatRow)) {
+            $r = \ITFlow\Webhooks\ChatDelivery::deliverRow($mysqli, $chatRow, (string) ($p['event'] ?? ''), (array) ($p['data'] ?? []), (int) ($job['attempts'] ?? 1));
+            if (!$r['ok']) {
+                throw new \RuntimeException((string) ($r['error'] ?? 'delivery failed'));
+            }
+
+            return ['http_status' => $r['http_status'], 'duration_ms' => $r['duration_ms'], 'skipped' => $r['skipped']];
+        }
+
         $r = rivetWebhookDispatcher($mysqli)->deliverTo((int) ($p['webhook_id'] ?? 0), (string) ($p['event'] ?? ''), (array) ($p['data'] ?? []), (int) ($job['attempts'] ?? 1), $p['emitted_at'] ?? null);
         if (!empty($r['gone'])) {
             throw new \RivetCore\Jobs\PermanentJobFailure('The webhook endpoint no longer exists or is disabled.');

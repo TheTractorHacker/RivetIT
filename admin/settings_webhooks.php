@@ -18,7 +18,7 @@ require_once "includes/webhook_events.php";
         </button>
     </div>
     <div class="card-body pb-0">
-        <p class="text-muted mb-3">Send selected events to another service. Delivery counts show the last seven days.</p>
+        <p class="text-muted mb-3">Send selected events to another service: a signed JSON webhook, or a chat message to Slack or Microsoft Teams. Delivery counts show the last seven days.</p>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -70,7 +70,10 @@ require_once "includes/webhook_events.php";
                 while ($wh = mysqli_fetch_assoc($sql_wh)) {
                     $wid     = intval($wh['webhook_id']);
                     $wname   = nullable_htmlentities($wh['webhook_name']);
-                    $wurl    = nullable_htmlentities($wh['webhook_url']);
+                    $wtype   = \ITFlow\Webhooks\ChatFormatter::normalizeType($wh['webhook_type'] ?? '');
+                    $wchat   = \ITFlow\Webhooks\ChatFormatter::isChatType($wtype);
+                    // A Slack / Teams URL is a secret (stored encrypted): only the host is ever shown.
+                    $wurl    = $wchat ? nullable_htmlentities(\ITFlow\Webhooks\ChatDelivery::maskUrl(decryptSetting((string) $wh['webhook_url']))) : nullable_htmlentities($wh['webhook_url']);
                     $wenabled = intval($wh['webhook_enabled']);
                     $wevents = array_filter(array_map('trim', explode(',', $wh['webhook_events'])));
 
@@ -79,7 +82,12 @@ require_once "includes/webhook_events.php";
                     $pending   = intval($wh['pending']);
                     ?>
                     <tr>
-                        <td><strong><?= $wname ?></strong></td>
+                        <td><strong><?= $wname ?></strong>
+                            <?php if ($wchat) { ?><span class="badge text-bg-info ms-1"><?= $wtype === 'slack' ? 'Slack' : 'Teams' ?></span><?php } ?>
+                            <?php if ($wchat && ($wh['webhook_min_priority'] !== '' || $wh['webhook_client_ids'] !== '')) { ?>
+                                <div class="small text-secondary"><?= $wh['webhook_min_priority'] !== '' ? nullable_htmlentities($wh['webhook_min_priority']) . '+ ' : '' ?><?= $wh['webhook_client_ids'] !== '' ? count(array_filter(explode(',', $wh['webhook_client_ids']))) . ' client filter' : '' ?></div>
+                            <?php } ?>
+                        </td>
                         <td class="webhook-url" title="<?= $wurl ?>"><?= $wurl ?></td>
                         <td class="webhook-events">
                             <?php foreach ($wevents as $ev) {
@@ -176,7 +184,7 @@ if (isset($sql_wh) && mysqli_num_rows($sql_wh) > 0 && $legacy_queue_rows > 0) { 
             <tbody>
             <?php
             $sql_direct = mysqli_query($mysqli,
-                "SELECT wd.*, w.webhook_name FROM webhook_deliveries wd
+                "SELECT wd.*, w.webhook_name, w.webhook_type FROM webhook_deliveries wd
                  JOIN webhooks w ON wd.webhook_id = w.webhook_id
                  ORDER BY wd.delivery_id DESC LIMIT 100");
             if (mysqli_num_rows($sql_direct) == 0) { ?>
@@ -190,7 +198,8 @@ if (isset($sql_wh) && mysqli_num_rows($sql_wh) > 0 && $legacy_queue_rows > 0) { 
                     ?>
                     <tr>
                         <td class="text-nowrap text-secondary" title="<?= nullable_htmlentities($drow['created_at']) ?>"><?= timeAgo($drow['created_at']) ?></td>
-                        <td><?= nullable_htmlentities($drow['webhook_name']) ?></td>
+                        <td><?= nullable_htmlentities($drow['webhook_name']) ?>
+                            <?php if (in_array($drow['webhook_type'], ['slack', 'teams'], true)) { ?><span class="badge text-bg-info"><?= $drow['webhook_type'] === 'slack' ? 'Slack' : 'Teams' ?></span><?php } ?></td>
                         <td><code><?= nullable_htmlentities($drow['event_type']) ?></code></td>
                         <td><?= intval($drow['attempt_number']) ?></td>
                         <td><?= $http_badge ?></td>

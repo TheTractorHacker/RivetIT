@@ -15,7 +15,7 @@ ob_start();
 
         <div class="form-group">
             <label>Name <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" name="webhook_name" required placeholder="e.g. Flutter App, Slack, n8n">
+            <input type="text" class="form-control" name="webhook_name" required placeholder="e.g. Flutter App, #helpdesk Slack, n8n">
         </div>
 
         <div class="form-group">
@@ -24,9 +24,11 @@ ob_start();
         </div>
 
         <div class="form-group">
-            <label>Secret <small class="text-secondary">(used for HMAC-SHA256 signature — leave blank to skip verification)</small></label>
+            <label>Secret <small class="text-secondary">(generic webhooks only: used for the HMAC-SHA256 signature, blank skips verification)</small></label>
             <input type="text" class="form-control font-monospace" name="webhook_secret" placeholder="your-secret-here" autocomplete="off">
         </div>
+
+        <?php $wh = null; require __DIR__ . '/_destination_fields.php'; ?>
 
         <div class="form-group">
             <label>Subscribe to Events <span class="text-danger">*</span></label>

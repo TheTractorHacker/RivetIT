@@ -6048,6 +6048,9 @@ CREATE TABLE `webhooks` (
   `webhook_events` varchar(500) NOT NULL DEFAULT '',
   `webhook_enabled` tinyint(1) NOT NULL DEFAULT 1,
   `webhook_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `webhook_type` varchar(16) NOT NULL DEFAULT 'generic',
+  `webhook_min_priority` varchar(20) NOT NULL DEFAULT '',
+  `webhook_client_ids` varchar(500) NOT NULL DEFAULT '',
   PRIMARY KEY (`webhook_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -6894,6 +6897,9 @@ CREATE TABLE `microsoft_integrations` (
   `last_test_error` varchar(500) DEFAULT NULL,
   `last_sync_at` datetime DEFAULT NULL,
   `last_directory_sync_at` datetime DEFAULT NULL,
+  `token_cache_enc` text DEFAULT NULL,
+  `token_expires_at` datetime DEFAULT NULL,
+  `last_test_error_code` varchar(40) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   PRIMARY KEY (`microsoft_integration_id`)
@@ -7420,6 +7426,7 @@ CREATE TABLE `intune_sync_log` (
   `devices_matched` int(11) DEFAULT 0,
   `devices_skipped` int(11) DEFAULT 0,
   `errors` text DEFAULT NULL,
+  `error_code` varchar(40) DEFAULT NULL,
   `triggered_by` int(11) DEFAULT 0,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

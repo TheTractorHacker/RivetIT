@@ -9906,3 +9906,18 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.134'");
     }
+
+    if ($rivetit_db_version() == '2.6.134') {
+        // Slack / Teams notifications: a webhook endpoint is generic (today's behaviour), slack or teams, with optional routing
+        // filters (minimum ticket priority, client list). Entra / Intune hardening: the Graph access token is cached (encrypted)
+        // with its expiry, and sync failures are classified (auth / consent / throttled / ...) for the settings page and the sync log.
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_type` varchar(16) NOT NULL DEFAULT 'generic'");
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_min_priority` varchar(20) NOT NULL DEFAULT ''");
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_client_ids` varchar(500) NOT NULL DEFAULT ''");
+        mysqli_query($mysqli, "ALTER TABLE `microsoft_integrations` ADD COLUMN IF NOT EXISTS `token_cache_enc` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `microsoft_integrations` ADD COLUMN IF NOT EXISTS `token_expires_at` datetime DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `microsoft_integrations` ADD COLUMN IF NOT EXISTS `last_test_error_code` varchar(40) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `intune_sync_log` ADD COLUMN IF NOT EXISTS `error_code` varchar(40) DEFAULT NULL");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.135'");
+    }

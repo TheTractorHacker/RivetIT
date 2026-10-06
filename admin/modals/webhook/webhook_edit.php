@@ -6,6 +6,7 @@ $wid = intval($_GET['id']);
 $wh  = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM webhooks WHERE webhook_id = $wid LIMIT 1"));
 if (!$wh) { echo '<div class="p-3 text-danger">Webhook not found.</div>'; require_once '../../../includes/modal_footer.php'; exit; }
 
+$is_chat_dest = \ITFlow\Webhooks\ChatFormatter::isChatType(\ITFlow\Webhooks\ChatFormatter::normalizeType($wh['webhook_type'] ?? ''));
 $cur_events = array_map('trim', explode(',', $wh['webhook_events']));
 
 ob_start();
@@ -26,14 +27,20 @@ ob_start();
         </div>
 
         <div class="form-group">
-            <label>Endpoint URL <span class="text-danger">*</span></label>
+            <label>Endpoint URL <?php if (!$is_chat_dest) { ?><span class="text-danger">*</span><?php } ?></label>
+            <?php if ($is_chat_dest) { ?>
+            <input type="url" class="form-control" name="webhook_url" placeholder="(saved and hidden - paste a new URL only to replace it)" autocomplete="off">
+            <?php } else { ?>
             <input type="url" class="form-control" name="webhook_url" required value="<?= nullable_htmlentities($wh['webhook_url']) ?>">
+            <?php } ?>
         </div>
 
         <div class="form-group">
             <label>Secret <small class="text-secondary">(leave blank to keep existing; enter a new value to rotate)</small></label>
             <input type="text" class="form-control font-monospace" name="webhook_secret" placeholder="(unchanged)" autocomplete="off">
         </div>
+
+        <?php require __DIR__ . '/_destination_fields.php'; ?>
 
         <div class="form-group">
             <label>Subscribe to Events <span class="text-danger">*</span></label>
@@ -60,6 +67,9 @@ ob_start();
     </div>
     <div class="modal-footer">
         <button type="submit" name="edit_webhook" class="btn btn-primary"><i class="fas fa-check me-1"></i>Save</button>
+        <?php if ($is_chat_dest) { ?>
+        <button type="submit" name="test_webhook" value="1" formnovalidate class="btn btn-outline-secondary" title="Sends a clearly labelled test message to the saved destination (save first if you changed it)"><i class="fas fa-paper-plane me-1"></i>Send test message</button>
+        <?php } ?>
         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
     </div>
 </form>
