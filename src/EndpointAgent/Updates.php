@@ -103,6 +103,11 @@ final class Updates
         if (!$p || ($p['scheme'] ?? '') !== 'https' || empty($p['host']) || isset($p['user']) || strlen($url) > 500) {
             return 'The package URL must be an https address.';
         }
+        $svc = parse_url((string) Config::get()['service_url'], PHP_URL_HOST) ?: (string) ($GLOBALS['config_base_url'] ?? '');
+        $svc = strtolower(preg_replace('/:\d+$/', '', (string) $svc));
+        if ($svc !== '' && strtolower($p['host']) !== $svc) {
+            return 'The package must be served from the RivetIT host (' . $svc . ').';
+        }
         if (!in_array($ring, ['pilot', 'stable'], true)) {
             return 'Unknown ring.';
         }

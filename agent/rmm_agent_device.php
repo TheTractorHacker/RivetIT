@@ -94,8 +94,8 @@ $ts = static fn($iso) => $iso ? htmlspecialchars(str_replace('T', ' ', rtrim($is
             <div><div class="text-muted small">CPU</div><div class="h5 mb-0"><?= $pct($met['cpu_pct'] ?? null) ?></div></div>
             <div><div class="text-muted small">Memory</div><div class="h5 mb-0"><?= $pct($met['mem_pct'] ?? null) ?></div></div>
             <?php foreach ($met['disk'] ?? [] as $d) { echo '<div><div class="text-muted small">Disk ' . $h($d['mount']) . '</div><div class="h5 mb-0">' . $pct($d['used_pct'] ?? null) . '</div></div>'; } ?>
-            <div><div class="text-muted small">Net in</div><div class="h5 mb-0"><?= isset($met['net_rx_bps']) && $met['net_rx_bps'] !== null ? $bytes($met['net_rx_bps']) . '/s' : '<span class="text-muted">no data</span>' ?></div></div>
-            <div><div class="text-muted small">Net out</div><div class="h5 mb-0"><?= isset($met['net_tx_bps']) && $met['net_tx_bps'] !== null ? $bytes($met['net_tx_bps']) . '/s' : '<span class="text-muted">no data</span>' ?></div></div>
+            <div><div class="text-muted small">Net in</div><div class="h5 mb-0"><?= isset($met['net_rx_bps']) && $met['net_rx_bps'] !== null ? $h(round($met['net_rx_bps'] / 1000000, 2)) . ' Mbit/s' : '<span class="text-muted">no data</span>' ?></div></div>
+            <div><div class="text-muted small">Net out</div><div class="h5 mb-0"><?= isset($met['net_tx_bps']) && $met['net_tx_bps'] !== null ? $h(round($met['net_tx_bps'] / 1000000, 2)) . ' Mbit/s' : '<span class="text-muted">no data</span>' ?></div></div>
         </div>
         <div class="small text-muted mt-2">A reading the agent could not take is shown as "no data", never as zero.</div>
     </div></div>

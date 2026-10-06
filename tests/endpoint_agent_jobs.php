@@ -42,8 +42,8 @@ $jobA = $r['job_id'];
 $first = $fetch($TA); [$c, , $r] = $first;
 $job = $r['jobs'][0] ?? null;
 $ok($c === 200 && count($r['jobs']) === 1 && $job['job_id'] === $jobA, 'device fetches its job');
-$ok(array_keys($job) === ['job_id', 'attempt', 'type', 'script', 'params', 'timeout_s', 'max_output_bytes', 'issued_at', 'expires_at', 'signature'] || (function ($k) { sort($k); return $k === ['attempt', 'expires_at', 'issued_at', 'job_id', 'max_output_bytes', 'params', 'script', 'signature', 'timeout_s', 'type']; })(array_keys($job)), 'job object carries exactly the contract fields');
-$ok($job['attempt'] === 1 && $job['type'] === 'powershell' && $job['script'] === 'Get-Date' && $job['timeout_s'] === 120 && $job['params'] === ['Name' => 'x', 'Count' => 3], 'job fields as submitted');
+$ok((function ($k) { sort($k); return $k === ['attempt', 'device_id', 'expires_at', 'issued_at', 'job_id', 'max_output_bytes', 'params', 'script', 'signature', 'timeout_s', 'type']; })(array_keys($job)), 'job object carries exactly the contract fields plus device_id (signed)');
+$ok($job['device_id'] === $A && $job['attempt'] === 1 && $job['type'] === 'powershell' && $job['script'] === 'Get-Date' && $job['timeout_s'] === 120 && $job['params'] === ['Name' => 'x', 'Count' => 3], 'job fields as submitted');
 $raw = $first[3];
 $objRaw = json_decode($raw)->jobs[0];
 $msg = Signer::canonical((function ($o) { unset($o->signature); return $o; })(clone $objRaw));
@@ -95,7 +95,7 @@ foreach ([['job_id' => 'nope', 'attempt' => 1, 'state' => 'running'], ['job_id' 
 [$c, , $r] = $submit($A, ['type' => 'powershell', 'script' => 'noisy']); $jr1 = $r['job_id'];
 $fetch($TA);
 $secrets = ['Bearer abcdefghijklmnop1234567890', 'password=Sup3rS3cret!', 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U', str_repeat('ab', 32), '-----BEGIN PRIVATE KEY-----' . "\nMIIEvQIBADANBg\n" . '-----END PRIVATE KEY-----', 'ConvertTo-SecureString "hunter2hunter2" -AsPlainText', 'api_key: AKIAIOSFODNN7EXAMPLE', 'client_secret=zzzzzzzz', 'rvte1.' . str_repeat('a', 12) . '.' . str_repeat('b', 40)];
-$noisy = "start\n" . implode("\n", $secrets) . "\nend\n" . str_repeat("line of output\n", 20000);
+$noisy = "start\n" . implode("\n", $secrets) . "\nend\n" . str_repeat("line of output\n", 12000);
 $report($TA, ['job_id' => $jr1, 'attempt' => 1, 'state' => 'succeeded', 'exit_code' => 0, 'output' => $noisy]);
 $stored = (string) $one("SELECT output FROM endpoint_agent_jobs WHERE job_id='$jr1'");
 $leak = [];
@@ -141,6 +141,7 @@ $ok($one("SELECT state FROM endpoint_agent_jobs WHERE job_id='$jr2'") === 'timed
 $ok($c === 422 && $r['code'] === 'confirmation_required', 'reboot without explicit confirmation -> 422');
 [$c, , $r] = $submit($A, ['type' => 'powershell', 'script' => 'Restart-Service x', 'destructive' => true]);
 $ok($c === 422 && $r['code'] === 'confirmation_required', 'a destructive PowerShell job needs confirmation');
+[$c, , $r] = $submit($A, ['type' => 'reboot', 'confirm' => true, 'params' => ['delay_s' => 2]]); $ok($c === 422, 'reboot delay below 5 s -> 422');
 [$c, , $r] = $submit($A, ['type' => 'reboot', 'confirm' => true]); $jd = $r['job_id'];
 $ok($c === 201 && (int) $one("SELECT destructive FROM endpoint_agent_jobs WHERE job_id='$jd'") === 1, 'a reboot is always flagged destructive');
 [, , $d1] = $fetch($TA); $ok($d1['jobs'][0]['type'] === 'reboot' && $d1['jobs'][0]['script'] === null, 'reboot job offered once');

@@ -56,6 +56,13 @@ final class Jobs
         if ($type === 'reboot') {
             $destructive = true;
         }
+        if ($type === 'reboot') {
+            $delay = $params['delay_s'] ?? 30;
+            if (!is_int($delay) || $delay < 5 || $delay > 3600) {
+                return ['ok' => false, 'error' => 'A reboot delay (params.delay_s) must be 5 to 3600 seconds.'];
+            }
+            $params['delay_s'] = $delay;
+        }
         if (count($params) > 20) {
             return ['ok' => false, 'error' => 'At most 20 parameters.'];
         }
@@ -141,6 +148,7 @@ final class Jobs
         }
         $obj = [
             'job_id' => $j['job_id'],
+            'device_id' => (int) $j['device_id'],
             'attempt' => $attempt,
             'type' => $j['type'],
             'script' => $j['script'],

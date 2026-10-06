@@ -4,6 +4,18 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [Unreleased]
+
+### Built-in endpoint agent (server side)
+
+- **Agent API:** `POST /api/v1/agent_enroll`, `agent_checkin` and `agent_jobs` for the Windows agent, with per-device 256-bit credentials (only the SHA-256 is stored, rotatable, revocable), short-lived scoped enrollment tokens, idempotent check-ins by sequence number, bounded payloads and a database-backed enrollment rate limit.
+- **Identity:** a persistent device id that survives reconnects, re-enrollment and reinstall; assets are matched by serial then MAC, never by hostname alone; ambiguous, out-of-department or already-owned matches wait in an approval queue and are never merged.
+- **Existing RMM views:** devices feed `asset_rmm_links`, the device metrics tables and RMM alerts (debounced failures, one alert per episode, auto-resolve) so inventory, charts, last seen and the existing alert-to-ticket path work unchanged. A missing reading is never stored as zero.
+- **Jobs:** durable signed (Ed25519) PowerShell, reboot and collect jobs with explicit states, lost-acknowledgement rules (destructive jobs are never retried), output caps and credential redaction, plus per-role permissions built on the existing RMM modules.
+- **MeshCentral:** per-click login-token remote sessions for the mapped device, role and department checked server-side, outage and offline handling, node mapping separate from the asset name, audited with a safe session id.
+- **Administration:** Administration > Endpoint agent (tokens, approval queue, devices, signed check schedule, releases and rings, MeshCentral) and a device page; staged agent updates by ring and percentage with min-version compatibility.
+- Migration 2.6.143 (nine `endpoint_agent_*` tables). Docs: `docs/ENDPOINT_AGENT.md`; OpenAPI updated.
+
 ## [26.10.25] RivetIT — Webhooks and Event rules highlights, UI fixes
 
 ### Highlights: Webhooks and Event rules

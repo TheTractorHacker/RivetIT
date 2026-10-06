@@ -80,6 +80,8 @@ final class Checkin
         $dev = Devices::find((int) $dev['device_id']);
         return [
             'ok' => true,
+            'status' => $dev['link_state'] === 'linked' ? 'linked' : 'pending_approval',
+            'matched_asset_id' => ($dev['link_state'] === 'linked' && $dev['asset_id']) ? (int) $dev['asset_id'] : null,
             'next_check_in_s' => (int) $cfg['check_in_interval_s'],
             'jobs_pending' => Jobs::pendingCount((int) $dev['device_id']),
             'config' => ['checks' => Config::signedChecks(), 'collect_interval_s' => (int) $cfg['collect_interval_s']],
@@ -243,8 +245,11 @@ final class Checkin
                     $add('disk.utilization', mb_substr($d['mount'], 0, 64), self::num($d['used_pct'] ?? null), mb_substr($d['mount'], 0, 64));
                 }
             }
-            $add('network.rx_bytes_per_s', 'total', self::num($m['net_rx_bps'] ?? null), 'All adapters');
-            $add('network.tx_bytes_per_s', 'total', self::num($m['net_tx_bps'] ?? null), 'All adapters');
+            // The agent reports BITS per second; the metric registry stores bytes per second.
+            $rx = self::num($m['net_rx_bps'] ?? null);
+            $tx = self::num($m['net_tx_bps'] ?? null);
+            $add('network.rx_bytes_per_s', 'total', $rx === null ? null : $rx / 8, 'All adapters');
+            $add('network.tx_bytes_per_s', 'total', $tx === null ? null : $tx / 8, 'All adapters');
         }
         if ($inv !== null) {
             $add('system.uptime_seconds', null, self::intOrNull($inv['uptime_s'] ?? null));

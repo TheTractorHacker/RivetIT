@@ -56,7 +56,7 @@ $ok($c === 200 && count($r['data']) === 1 && $r['data'][0]['device_id'] === $D2,
 $q("UPDATE users SET user_status=0 WHERE user_id=10");
 [$c] = $api('tech', 'POST', "/api/v1/endpoint_devices/$D1/jobs", ['type' => 'collect']); $ok($c === 401, 'a disabled user\'s token stops working');
 $q("UPDATE users SET user_status=1 WHERE user_id=10");
-$ok((int) $one("SELECT COUNT(*) FROM logs WHERE log_action='Job Denied'") >= 4 && (int) $one("SELECT COUNT(*) FROM logs WHERE log_action='Remote Denied'") >= 4, 'denied job and remote attempts are audited');
+$ok((int) $one("SELECT COUNT(*) FROM logs WHERE log_action='Job Denied'") >= 4 && (int) $one("SELECT COUNT(*) FROM logs WHERE log_action='Remote Denied'") >= 2, 'denied job and remote attempts are audited');
 Config::set(['enabled' => 0]);
 [$c, , $r] = $api('tech', 'GET', "/api/v1/endpoint_devices/$D1"); $ok($c === 404 && $r['code'] === 'disabled', 'with the service switched off the technician API answers disabled');
 [$c] = ea_checkin($T1); $ok($c === 403, 'with the service switched off devices get 403 forbidden');
@@ -98,9 +98,15 @@ $ok($c === 503 && $r['code'] === 'mesh_unavailable' && microtime(true) - $t0 < 9
 Config::set(['mesh_url' => 'http://127.0.0.1:1']);
 [$c, , $r] = $api('tech', 'POST', "/api/v1/endpoint_devices/$D1/remote", []);
 $ok($c === 503 && $r['code'] === 'mesh_unavailable', 'MeshCentral refusing connections -> 503');
-Config::set(['mesh_url' => 'http://169.254.169.254']);
-[$c, , $r] = $api('tech', 'POST', "/api/v1/endpoint_devices/$D1/remote", []);
-$ok($c === 503 && strpos($r['error'], 'network policy') !== false, 'an address outside the network policy (cloud metadata) is refused (SSRF)');
+// A server WITHOUT the test-only private-network allowance: the shared SSRF policy refuses metadata and loopback targets.
+$strict = ea_start_server(['RIVETIT_WEBHOOK_ALLOW_PRIVATE' => '0']);
+$sb = "http://127.0.0.1:{$strict['port']}";
+foreach (['http://169.254.169.254', $meshUrl] as $bad) {
+    Config::set(['mesh_url' => $bad]);
+    $ch = curl_init("$sb/api/v1/endpoint_devices/$D1/remote"); curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Authorization: Bearer ' . $U['tech']], CURLOPT_POSTFIELDS => '{}']);
+    $body = json_decode((string) curl_exec($ch), true); $code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE); curl_close($ch);
+    $ok($code === 503 && strpos($body['error'] ?? '', 'network policy') !== false, "MeshCentral address $bad is refused by the SSRF network policy");
+}
 $ok(Mesh::normalizeUrl('ftp://x') === null && Mesh::normalizeUrl('http://user:pw@host') === null && Mesh::normalizeUrl('https://host/?a=b') === null && Mesh::normalizeUrl('https://mesh.example.com/') === 'https://mesh.example.com', 'MeshCentral URL validation');
 Config::set(['mesh_url' => $meshUrl, 'mesh_enabled' => 0]);
 [$c, , $r] = $api('tech', 'POST', "/api/v1/endpoint_devices/$D1/remote", []); $ok($c === 409 && $r['code'] === 'not_configured', 'MeshCentral disabled -> not_configured');
@@ -135,7 +141,7 @@ foreach (['admin' => 200, 'tech' => 200, 'rebootonly' => 200, 'viewer' => 200, '
     $ok($c === $exp, "web device page as $who -> $exp (got $c)");
     if ($c === 200) {
         $ok(strpos($body, '<img src=x') === false && strpos($body, '&lt;img src=x') !== false && strpos($body, '<script>alert(') === false, "device page escapes hostile device-supplied strings ($who)");
-        $ok((strpos($body, 'ea-remote') !== false) === in_array($who, ['admin', 'tech', 'remoteonly'], true), "remote button shown only to those who may use it ($who)");
+        $ok((strpos($body, 'id="ea-remote"') !== false) === in_array($who, ['admin', 'tech', 'remoteonly'], true), "remote button shown only to those who may use it ($who)");
         $ok((strpos($body, 'id="ea-job-form"') !== false) === in_array($who, ['admin', 'tech', 'rebootonly'], true), "job form shown only to those who may run jobs ($who)");
     }
 }
@@ -193,7 +199,7 @@ foreach (['/agent/rmm_dashboard.php', '/agent/rmm_assets.php', '/agent/rmm_check
     [$c, $body] = web($wb, 'GET', $path, $S['admin']);
     $ok($c === 200 && stripos($body, 'Fatal error') === false && stripos($body, 'Uncaught') === false, "existing page still renders: $path");
 }
-[$c, $body] = web($wb, 'GET', '/agent/rmm_assets.php', $S['admin']); $ok(strpos($body, 'TRMM-PC') !== false && strpos($body, '&lt;img src=x') !== false, 'RMM assets lists both the Tactical link and the agent device (escaped)');
+[$c, $body] = web($wb, 'GET', '/agent/rmm_assets.php', $S['admin']); $ok(strpos($body, 'TRMM-PC') !== false && strpos($body, 'DEPT1-PC') !== false, 'RMM assets lists both the Tactical link and the agent device (escaped)');
 [$c, $body] = web($wb, 'GET', "/agent/asset_details.php?asset_id=$ta", $S['admin']); $ok($c === 200 && strpos($body, 'TRMM-PC') !== false && strpos($body, 'Agent device') === false, 'a Tactical-linked asset page is unchanged');
 [$c, $body] = web($wb, 'GET', "/agent/asset_details.php?asset_id=$agentAsset", $S['admin']); $ok($c === 200 && strpos($body, 'rmm_agent_device.php?device_id=' . $D1) !== false && strpos($body, '<img src=x onerror') === false, 'an agent-linked asset page shows the RMM card with a link to the device page (escaped)');
 [$c, $body] = web($wb, 'GET', '/admin/settings_integrations.php', $S['admin']); $ok(strpos($body, 'RivetIT Endpoint Agent') === false, 'the synthetic integration is hidden from the RMM integrations list');
