@@ -258,6 +258,21 @@ SCM recovery restarts it but does not downgrade it. Mitigation: pilot rings (ser
 
 The Windows rename dance and SCM restart are exercised only by the Linux equivalent (pure functions on paths, tested).
 
+## Server contract details (reconciled with `docs/ENDPOINT_AGENT.md`)
+
+- `device_id` is a JSON **integer** on the real server (enroll response, and inside signed jobs where the canonical JSON keeps it as written);
+  the agent accepts a number or a string everywhere and compares by text. Number and string forms are not interchangeable under the signature.
+- `signing_key_id` (enroll and check-in responses) is stored; if a check-in reports a different id the agent logs an error and shows
+  "signing key rotated; re-enroll required" in `status` (jobs and updates are refused until it re-enrolls, as designed).
+- Every check-in response carries `status` and `matched_asset_id`; the agent applies them, so a pending device leaves low-rate mode once approved.
+- The optional check-in field `update_result {version, state ok|failed|rolled_back, detail}` is sent once after an update attempt and cleared on acknowledgement.
+- `426 tls_required` is treated as a configuration error: the in-flight check-in is kept and retried with a long backoff (use the https URL).
+- Reboot jobs: `params.delay_s` 5-3600 (default 30; smaller values are raised to 5).
+- Config checks carry `signature`; script checks require a valid one (see Monitoring).
+- Testing against a real scratch server: the Linux test build reports `os=linux`, so the server's `config.php` must define `EA_ALLOW_NON_WINDOWS = true`
+  (never in production). `rivetit-agent run` also has TEST-ONLY flags `--pending-interval SECONDS` and `--min-interval SECONDS` (shorten the pending re-check
+  rate, default 300 s, and the 10 s interval clamp). `e2e/run_e2e.sh` documents the approval step and supports `E2E_APPROVE_CMD`.
+
 ## Transport and security model
 
 - **TLS verification is always on.** There is no insecure flag. `https` is mandatory (plain `http` is accepted only in builds made with

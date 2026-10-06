@@ -232,3 +232,24 @@ func FuzzDecoders(f *testing.F) {
 		}
 	})
 }
+
+func TestIDAcceptsNumberOrString(t *testing.T) {
+	var r EnrollResponse
+	for in, want := range map[string]string{`{"device_id":42}`: "42", `{"device_id":"42"}`: "42", `{"device_id":"abc"}`: "abc", `{"device_id":null}`: ""} {
+		r = EnrollResponse{}
+		if err := json.Unmarshal([]byte(in), &r); err != nil || r.DeviceID.String() != want {
+			t.Errorf("%s -> %q (%v)", in, r.DeviceID, err)
+		}
+	}
+	if err := json.Unmarshal([]byte(`{"device_id":{"x":1}}`), &r); err == nil {
+		t.Error("object accepted as id")
+	}
+	jobs, err := UnmarshalJobs([]byte(`{"jobs":[{"job_id":"j","device_id":42,"signature":"s"},{"job_id":"k","device_id":"42"}]}`))
+	if err != nil || jobs[0].DeviceID != "42" || jobs[1].DeviceID != "42" {
+		t.Fatalf("%v %+v", err, jobs)
+	}
+	b, _ := json.Marshal(ID("42"))
+	if string(b) != "42" {
+		t.Error(string(b))
+	}
+}

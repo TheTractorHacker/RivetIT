@@ -88,7 +88,7 @@ func (s *server) enroll(w http.ResponseWriter, r *http.Request) {
 	tok := s.devTok
 	s.mu.Unlock()
 	s.writeJSON(w, 201, map[string]any{
-		"device_id": "fake-device-1", "device_token": tok, "check_in_interval_s": s.interval,
+		"device_id": 1, "signing_key_id": "fake-key-1", "device_token": tok, "check_in_interval_s": s.interval,
 		"server_time": time.Now().UTC().Format(time.RFC3339), "status": "linked", "matched_asset_id": 1,
 		"signing_public_key": base64.StdEncoding.EncodeToString(s.pub),
 		"config": map[string]any{"collect_interval_s": s.collectIv, "checks": []any{
@@ -127,7 +127,7 @@ func (s *server) checkin(w http.ResponseWriter, r *http.Request) {
 		s.logf("CHECKIN #%d REVOKED", n)
 		return
 	}
-	out := s.writeJSON(w, 200, map[string]any{"ok": true, "next_check_in_s": s.interval, "jobs_pending": pending,
+	out := s.writeJSON(w, 200, map[string]any{"ok": true, "next_check_in_s": s.interval, "jobs_pending": pending, "status": "linked", "matched_asset_id": 1, "signing_key_id": "fake-key-1",
 		"server_time": time.Now().UTC().Format(time.RFC3339), "update": nil,
 		"config": map[string]any{"collect_interval_s": s.collectIv, "checks": []any{
 			map[string]any{"key": "disk_root", "type": "disk", "params": map[string]any{"mount": "/"}, "interval_s": 60},

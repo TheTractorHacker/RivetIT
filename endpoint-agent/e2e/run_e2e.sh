@@ -10,6 +10,22 @@
 #      metrics rows, alerts) in RivetIT afterwards; the script prints what to look for.
 #      Jobs are NOT executed in this mode (Linux script execution stays disabled).
 #
+#      REAL-SERVER PREREQUISITES
+#        * The server's config.php must define EA_ALLOW_NON_WINDOWS = true (scratch installs only,
+#          never production): the Linux test build reports os=linux and the server refuses it otherwise.
+#          Plain http is refused by the agent; give an https URL (and RIVETIT_E2E_CA for a private CA).
+#        * An unmatched device waits in pending_approval/ambiguous until an administrator approves it.
+#          Either approve it by hand in RivetIT (Administration > Endpoint agent > approval queue)
+#          while this script waits, or set E2E_APPROVE_CMD to a shell command that approves it. The
+#          command runs once, after enrollment, with these exported variables:
+#            E2E_STATE_DIR  agent state dir      E2E_DEVICE_ID  device id from enrollment
+#            E2E_INSTALL_ID agent install id     E2E_SERVER_URL server URL
+#          Example:  E2E_APPROVE_CMD='php /var/www/scratch/tools/approve_device.php "$E2E_DEVICE_ID"'
+#        * The script waits up to E2E_APPROVE_WAIT seconds (default 120) for the status to become
+#          linked, polling the agent at E2E_PENDING_INTERVAL seconds (default 10) instead of the
+#          production 300 s low rate. E2E_MIN_INTERVAL (default 5) lowers the interval clamp so the
+#          run produces several check-ins. Other knobs: RIVETIT_E2E_SECONDS (run time, default 90).
+#
 #   2. Self-contained (RIVETIT_E2E_SERVER_URL unset): starts e2e/fakeserver (a
 #      contract-shaped stand-in), exercises enroll, check-ins, a signed job and
 #      verifies the job result. Linux test mode scripts (sh -c) are enabled
@@ -20,7 +36,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 export PATH="${GO_BIN_DIR:-$HOME/.local/go/bin}:$PATH"
 WORK="${RIVETIT_E2E_WORK:-$ROOT/e2e/work}"
-SECS="${RIVETIT_E2E_SECONDS:-45}"
+SECS="${RIVETIT_E2E_SECONDS:-90}"
 rm -rf "$WORK"; mkdir -p "$WORK/state"
 
 echo "== building linux test binary"
@@ -53,8 +69,31 @@ printf '%s' "$TOKEN" >"$WORK/token"; chmod 600 "$WORK/token"
 rm -f "$WORK/token"
 
 echo "== run for ${SECS}s"
-"$A" run --state-dir "$WORK/state" --no-update >"$WORK/agent.out" 2>&1 &
+RUN_ARGS=(--state-dir "$WORK/state" --no-update)
+if [ "$MODE" = real ]; then
+  RUN_ARGS+=(--pending-interval "${E2E_PENDING_INTERVAL:-10}" --min-interval "${E2E_MIN_INTERVAL:-5}")
+else
+  RUN_ARGS+=(--min-interval 3)
+fi
+"$A" run "${RUN_ARGS[@]}" >"$WORK/agent.out" 2>&1 &
 AGENT_PID=$!
+if [ "$MODE" = real ]; then
+  export E2E_STATE_DIR="$WORK/state" E2E_SERVER_URL="$SERVER"
+  E2E_DEVICE_ID="$("$A" status --state-dir "$WORK/state" | sed -n 's/^device id: *//p')"; export E2E_DEVICE_ID
+  E2E_INSTALL_ID="$("$A" status --state-dir "$WORK/state" | sed -n 's/^install id: *//p')"; export E2E_INSTALL_ID
+  if [ -n "${E2E_APPROVE_CMD:-}" ]; then
+    echo "== approving device $E2E_DEVICE_ID via E2E_APPROVE_CMD"
+    bash -c "$E2E_APPROVE_CMD" || { echo "FAIL: E2E_APPROVE_CMD failed"; exit 1; }
+  else
+    echo "== if the device is pending, approve it in RivetIT now (waiting up to ${E2E_APPROVE_WAIT:-120}s)"
+  fi
+  waited=0
+  until "$A" status --state-dir "$WORK/state" | grep -q "enrolled and linked"; do
+    [ "$waited" -ge "${E2E_APPROVE_WAIT:-120}" ] && { echo "FAIL: device never became linked (still pending/ambiguous: approve it, or set E2E_APPROVE_CMD)"; exit 1; }
+    sleep 2; waited=$((waited+2))
+  done
+  echo "ok: device linked after ${waited}s"
+fi
 sleep "$SECS"
 kill "$AGENT_PID"; wait "$AGENT_PID" 2>/dev/null || true; AGENT_PID=""
 

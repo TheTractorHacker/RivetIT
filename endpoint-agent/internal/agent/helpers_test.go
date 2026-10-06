@@ -131,7 +131,7 @@ func (s *srv) enrollOK(status string) func(api.EnrollRequest) (int, any, http.He
 			v := int64(42)
 			asset = &v
 		}
-		return 201, map[string]any{"device_id": "dev-1", "device_token": s.token, "check_in_interval_s": 60,
+		return 201, map[string]any{"device_id": 7, "signing_key_id": "key-1", "device_token": s.token, "check_in_interval_s": 60,
 			"server_time": time.Now().UTC().Format(time.RFC3339), "status": status, "matched_asset_id": asset,
 			"signing_public_key": base64.StdEncoding.EncodeToString(s.pub),
 			"config":             map[string]any{"checks": []any{map[string]any{"key": "disk_c", "type": "disk", "params": map[string]any{"mount": "C:"}, "interval_s": 60}}}}, nil

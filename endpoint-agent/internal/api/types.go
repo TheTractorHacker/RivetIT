@@ -58,13 +58,14 @@ type ServerConfig struct {
 }
 
 type EnrollResponse struct {
-	DeviceID         string       `json:"device_id"`
+	DeviceID         ID           `json:"device_id"`
 	DeviceToken      string       `json:"device_token"`
 	CheckInIntervalS int          `json:"check_in_interval_s"`
 	ServerTime       ServerTime   `json:"server_time"`
 	Status           string       `json:"status"`
 	MatchedAssetID   *int64       `json:"matched_asset_id"`
 	SigningPublicKey string       `json:"signing_public_key"`
+	SigningKeyID     string       `json:"signing_key_id"`
 	Config           ServerConfig `json:"config"`
 }
 
@@ -139,6 +140,14 @@ type CheckinRequest struct {
 	Metrics      *Metrics      `json:"metrics"`
 	Checks       []CheckResult `json:"checks"`
 	Buffered     []Buffered    `json:"buffered"`
+	UpdateResult *UpdateResult `json:"update_result,omitempty"`
+}
+
+// UpdateResult reports the last self-update attempt (state ok|failed|rolled_back).
+type UpdateResult struct {
+	Version string `json:"version"`
+	State   string `json:"state"`
+	Detail  string `json:"detail,omitempty"`
 }
 
 type UpdateManifest struct {
@@ -156,7 +165,8 @@ type CheckinResponse struct {
 	Config        *ServerConfig   `json:"config"`
 	Update        *UpdateManifest `json:"update"`
 	ServerTime    ServerTime      `json:"server_time"`
-	Status        string          `json:"status"`           // optional extension, see README
+	SigningKeyID  string          `json:"signing_key_id"`
+	Status        string          `json:"status"`
 	MatchedAssetI *int64          `json:"matched_asset_id"` // optional extension
 }
 
@@ -172,7 +182,7 @@ type Job struct {
 	MaxOutputBytes int             `json:"max_output_bytes"`
 	IssuedAt       ServerTime      `json:"issued_at"`
 	ExpiresAt      ServerTime      `json:"expires_at"`
-	DeviceID       string          `json:"device_id,omitempty"`
+	DeviceID       ID              `json:"device_id,omitempty"`
 	Signature      string          `json:"signature"`
 	Raw            json.RawMessage `json:"-"`
 }
@@ -264,3 +274,40 @@ func ParseTime(v string) (time.Time, bool) {
 	}
 	return time.Time{}, false
 }
+
+// ID is a server identifier that may arrive as a JSON integer (the real
+// contract) or as a numeric/other string. It always compares as its text.
+type ID string
+
+func (i *ID) UnmarshalJSON(b []byte) error {
+	s := strings.TrimSpace(string(b))
+	switch {
+	case s == "null" || s == "":
+		*i = ""
+	case strings.HasPrefix(s, `"`):
+		var v string
+		if err := json.Unmarshal(b, &v); err != nil {
+			return err
+		}
+		*i = ID(v)
+	default:
+		var n json.Number
+		if err := json.Unmarshal(b, &n); err != nil {
+			return fmt.Errorf("id must be a number or string: %w", err)
+		}
+		*i = ID(n.String())
+	}
+	return nil
+}
+
+// MarshalJSON emits integers as numbers and everything else as strings.
+func (i ID) MarshalJSON() ([]byte, error) {
+	if i != "" {
+		if _, err := strconv.ParseUint(string(i), 10, 64); err == nil {
+			return []byte(i), nil
+		}
+	}
+	return json.Marshal(string(i))
+}
+
+func (i ID) String() string { return string(i) }

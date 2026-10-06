@@ -104,3 +104,41 @@ func TestLimitsClamp(t *testing.T) {
 		t.Fatalf("%v %v", d, m)
 	}
 }
+
+// device_id arrives as an integer inside the signed canonical JSON; the
+// signature must verify over the bytes as written and scoping must compare
+// numerically-written ids with the stored (text) device id.
+func TestVerifyIntegerDeviceID(t *testing.T) {
+	k := newKeys(t)
+	v := &Verifier{PublicKey: k.pub, DeviceID: "7"}
+	f := baseJob("j1", "echo hi")
+	f["device_id"] = 7
+	job := k.signJob(t, f)
+	if !strings.Contains(string(job.Raw), `"device_id":7,`) {
+		t.Fatalf("integer lost: %s", job.Raw)
+	}
+	if err := v.Verify(job); err != nil {
+		t.Fatalf("integer device_id job rejected: %v", err)
+	}
+	canon, _ := Canonical(job.Raw)
+	if !strings.Contains(string(canon), `"device_id":7,`) {
+		t.Fatalf("canonical changed the integer: %s", canon)
+	}
+	f = baseJob("j2", "echo hi")
+	f["device_id"] = 8
+	if err := v.Verify(k.signJob(t, f)); !errors.Is(err, ErrWrongDevice) {
+		t.Fatalf("wrong integer device: %v", err)
+	}
+	// a server that signed the string form still works, and the forms are NOT
+	// interchangeable under the signature (7 vs "7" canonicalise differently)
+	f = baseJob("j3", "echo hi")
+	f["device_id"] = "7"
+	sj := k.signJob(t, f)
+	if err := v.Verify(sj); err != nil {
+		t.Fatal(err)
+	}
+	sj.Raw = []byte(strings.Replace(string(sj.Raw), `"device_id":"7"`, `"device_id":7`, 1))
+	if err := v.Verify(sj); !errors.Is(err, ErrBadSignature) {
+		t.Fatalf("form swap must break the signature: %v", err)
+	}
+}
