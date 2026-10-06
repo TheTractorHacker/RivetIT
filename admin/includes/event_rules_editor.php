@@ -57,7 +57,6 @@ $title = $state['rule_id'] ? 'Edit rule' : ($recipe ? 'New rule from a recipe' :
 
 <div class="er-head er-head-editor">
     <div>
-        <a class="er-back" href="event_rules.php"><i class="fas fa-arrow-left me-1" aria-hidden="true"></i>All rules</a>
         <h3 class="er-title"><i class="fas fa-fw fa-bolt me-2" aria-hidden="true"></i><?= $h($title) ?><?= $state['rule_id'] ? ': <span class="er-title-name">' . $h($state['name']) . '</span>' : '' ?></h3>
         <?php if ($recipe) { ?><p class="er-sub"><i class="fas <?= $h($recipe['icon']) ?> me-1" aria-hidden="true"></i><strong><?= $h($recipe['title']) ?></strong>: <?= $h($recipe['blurb']) ?> Nothing is saved until you press Save.</p><?php } ?>
     </div>

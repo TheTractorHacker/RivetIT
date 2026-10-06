@@ -1,4 +1,8 @@
 <?php
+// In the editor the breadcrumb reads "All settings / Event rules / New rule" (the middle crumb goes back to the list), instead of a second back link.
+if (isset($_GET['new']) || isset($_GET['edit']) || isset($_GET['recipe'])) {
+    $admin_breadcrumb_trail = [['Event rules', 'event_rules.php'], [isset($_GET['edit']) ? 'Edit rule' : 'New rule', null]];
+}
 require_once "includes/inc_all_admin.php";
 require_once "../includes/event_bus.php";
 require_once "includes/webhook_events.php";

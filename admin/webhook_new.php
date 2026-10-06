@@ -166,8 +166,8 @@ $card = static function (\RivetCore\Webhooks\Destination $dd, string $extra = ''
         <div class="wz-footer" data-wz-footer>
             <button type="button" class="btn btn-outline-secondary" data-wz-back><i class="fas fa-arrow-left me-1" aria-hidden="true"></i>Back</button>
             <span class="wz-keyhint d-none d-md-inline" data-wz-keyhint>Enter to continue, Esc to go back</span>
-            <button type="button" class="btn btn-outline-primary ms-auto" data-wz-create-test hidden><i class="fas fa-paper-plane me-1" aria-hidden="true"></i>Create and send test</button>
-            <button type="button" class="btn btn-primary btn-lg wz-next" data-wz-next>Continue<i class="fas fa-arrow-right ms-2" aria-hidden="true"></i></button>
+            <button type="button" class="btn btn-outline-primary" data-wz-create-test hidden><i class="fas fa-paper-plane me-1" aria-hidden="true"></i>Create and send test</button>
+            <button type="button" class="btn btn-primary wz-next" data-wz-next>Continue<i class="fas fa-arrow-right ms-2" aria-hidden="true"></i></button>
         </div>
     </form>
 

@@ -48,7 +48,8 @@
 .wz-footer { position: sticky; bottom: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; padding: .75rem 1rem; margin-top: 1rem; border: 1px solid var(--wz-border); border-radius: var(--tblr-border-radius, .375rem);
              background: var(--wz-surface); box-shadow: 0 -6px 14px -10px rgba(0, 0, 0, .35); }
 .wz-keyhint { color: var(--wz-muted); font-size: .8rem; }
-.wz-next { min-width: 10rem; }
+.wz-next { min-width: 7.5rem; margin-left: auto; }
+.wz-footer .btn { white-space: nowrap; }
 .wz-dirty { font-size: .85rem; font-weight: 600; }
 
 /* ---- platform chooser ---- */
