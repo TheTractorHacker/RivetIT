@@ -177,7 +177,7 @@ if (isset($_GET['serve_contract_document'])) {
     $client_id = intval($doc['contract_client_id']);
     if ($client_id) enforceClientAccess();
 
-    $path = $_SERVER['DOCUMENT_ROOT'] . "/uploads/contracts/{$doc['doc_contract_id']}/{$doc['doc_filename']}";
+    $path = $_SERVER['DOCUMENT_ROOT'] . "/uploads/contracts/" . intval($doc['doc_contract_id']) . "/" . basename((string) $doc['doc_filename']);
     if (!is_file($path)) { flash_alert('File not found on server.', 'error'); redirect(); }
 
     $safe_name = preg_replace('/[^\w.\-]/', '_', $doc['doc_original_name']);
@@ -185,6 +185,7 @@ if (isset($_GET['serve_contract_document'])) {
     header('Content-Disposition: inline; filename="' . $safe_name . '"');
     header('Content-Length: ' . filesize($path));
     header('Cache-Control: private');
+    header('X-Content-Type-Options: nosniff');
     readfile($path);
     exit;
 }
@@ -205,7 +206,7 @@ if (isset($_GET['delete_contract_document'])) {
     $client_id = intval($doc['contract_client_id']);
     if ($client_id) enforceClientAccess();
 
-    $path = $_SERVER['DOCUMENT_ROOT'] . "/uploads/contracts/{$doc['doc_contract_id']}/{$doc['doc_filename']}";
+    $path = $_SERVER['DOCUMENT_ROOT'] . "/uploads/contracts/" . intval($doc['doc_contract_id']) . "/" . basename((string) $doc['doc_filename']);
     if (is_file($path)) @unlink($path);
 
     mysqli_query($mysqli, "DELETE FROM contract_documents WHERE doc_id = $doc_id");

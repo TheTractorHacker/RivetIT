@@ -226,7 +226,7 @@ if (isset($_POST['delete_file'])) {
     $row = mysqli_fetch_assoc($sql_file);
     $client_id = intval($row['file_client_id']);
     $file_name = sanitizeInput($row['file_name']);
-    $file_reference_name = sanitizeInput($row['file_reference_name']);
+    $file_reference_name = basename((string) $row['file_reference_name']); // server-generated; basename() as defence in depth
     $file_has_thumbnail = intval($row['file_has_thumbnail']);
     $file_has_preview = intval($row['file_has_preview']);
 
@@ -334,7 +334,7 @@ if (isset($_POST['bulk_delete_files'])) {
             $row = mysqli_fetch_assoc($sql_file);
             $client_id = intval($row['file_client_id']);
             $file_name = sanitizeInput($row['file_name']);
-            $file_reference_name = sanitizeInput($row['file_reference_name']);
+            $file_reference_name = basename((string) $row['file_reference_name']); // server-generated; basename() as defence in depth
             $file_has_thumbnail = intval($row['file_has_thumbnail']);
             $file_has_preview = intval($row['file_has_preview']);
 

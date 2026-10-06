@@ -64,19 +64,28 @@ if (isset($_GET['id']) && isset($_GET['key'])) {
     }
 
     $file_name = sanitizeInput($file_row['file_name']);
-    $file_reference_name = sanitizeInput($file_row['file_reference_name']);
+    $file_reference_name = basename((string) $file_row['file_reference_name']);
     $client_id = intval($file_row['file_client_id']);
     $file_path = "../uploads/clients/$client_id/$file_reference_name";
 
-    // Display file as download
-    $mime_type = mime_content_type($file_path);
-    header('Content-type: '.$mime_type);
-    header('Content-Disposition: attachment; filename=' . $file_name);
-    readfile($file_path);
+    if (!is_file($file_path)) {
+        exit("Item cannot be viewed at this time (No file, may have been deleted).");
+    }
 
-    // Update file view count
-    $new_item_views = $item_views + 1;
-    mysqli_query($mysqli, "UPDATE shared_items SET item_views = $new_item_views WHERE item_id = $item_id");
+    // Claim a view atomically BEFORE streaming so parallel requests cannot exceed the limit (pentest F-14)
+    mysqli_query($mysqli, "UPDATE shared_items SET item_views = item_views + 1
+        WHERE item_id = $item_id AND (item_view_limit = 0 OR item_views < item_view_limit)");
+    if (mysqli_affected_rows($mysqli) !== 1) {
+        exit("Item cannot be viewed at this time (view limit exceeded).");
+    }
+
+    // Display file as download (CR/LF stripped and name quoted so it cannot inject headers)
+    $safe_download_name = str_replace(['"', "\r", "\n", '\\'], '', basename((string) $file_row['file_name']));
+    $mime_type = mime_content_type($file_path);
+    header('Content-type: ' . $mime_type);
+    header('X-Content-Type-Options: nosniff');
+    header('Content-Disposition: attachment; filename="' . $safe_download_name . '"; filename*=UTF-8\'\'' . rawurlencode($safe_download_name));
+    readfile($file_path);
 
     //Logging
     logAction("Share", "View", "Downloaded shared file $file_name via link", $client_id);
