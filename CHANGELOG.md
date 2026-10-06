@@ -4,6 +4,17 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [Unreleased] RivetIT - Built-in endpoint agent (agent source)
+
+No database change.
+
+### Built-in endpoint agent (agent source)
+
+- **New `endpoint-agent/` (Go, own `go.mod`)**: the Windows endpoint agent for issue #3. A single static `rivetit-agent` binary that runs as a Windows service and enrolls with a short-lived token (unique per-device credential, persistent `install_id`, DPAPI-protected token), reports inventory and health metrics (a metric that cannot be collected is `null`, never `0`), evaluates server-configured `service` / `disk` / `pending_reboot` / `script` checks, buffers a bounded amount of data during outages and replays it with exponential backoff and full jitter, executes **ed25519-signed** PowerShell / reboot / collect jobs at most once (crash- and lost-acknowledgement-safe), and self-updates from a sha256 + ed25519 verified manifest with automatic rollback. TLS verification is always on; revocation makes the agent dormant.
+- Targets Windows 10 21H2+, Windows 11 and Windows Server 2019/2022/2025 on amd64 and arm64. **The Windows-specific layers (service wrapper, registry/WMI/IP Helper collectors, DPAPI and ACLs, PowerShell execution, install/uninstall, `install-windows.ps1`) cross-compile and vet but have not been run on Windows**; the portable core is covered by `go test -race` and an end-to-end run against a contract-shaped fake server on Linux. See `endpoint-agent/README.md` and `docs/ENDPOINT_AGENT_BUILD.md`.
+- The agent only reads an existing MeshCentral agent's node id and never installs, manages or removes it unless `uninstall --remove-meshagent` is passed explicitly; other RMM/AV/EDR/backup agents are never touched.
+- This change is the agent source and tooling only. The server endpoints (`agent_enroll`, `agent_checkin`, `agent_jobs`) are built separately; no existing RMM integration is changed.
+
 ## [26.10.25] RivetIT — Webhooks and Event rules highlights, UI fixes
 
 ### Highlights: Webhooks and Event rules
