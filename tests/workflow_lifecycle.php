@@ -45,6 +45,7 @@ class FakeGateway implements ActionGateway {
 // ---------------------------------------------------------------- fixtures
 foreach (['workflow_task_log', 'workflow_run_tasks', 'workflow_runs', 'workflow_template_tasks', 'workflow_templates', 'automation_rules'] as $t) { $q("DELETE FROM $t"); }
 $q("DELETE FROM contacts WHERE contact_id >= 900"); $q("DELETE FROM users WHERE user_id >= 900"); $q("DELETE FROM clients WHERE client_id = 900");
+$q("INSERT IGNORE INTO user_roles (role_id, role_name, role_description, role_is_admin) VALUES (1, 'Test Admin', 'fixture', 1), (2, 'Test Technician', 'fixture', 0)");
 $q("INSERT INTO clients SET client_id = 900, client_name = 'Test Dept', client_currency_code = 'USD'");
 $q("INSERT INTO users SET user_id = 900, user_name = 'Approver Alice', user_email = 'alice@x.test', user_password = 'x', user_type = 1, user_status = 1, user_role_id = 2");
 $q("INSERT INTO users SET user_id = 901, user_name = 'Plain Bob', user_email = 'bob@x.test', user_password = 'x', user_type = 1, user_status = 1, user_role_id = 2");

@@ -173,7 +173,8 @@ $q("UPDATE settings SET config_current_database_version = '2.6.136'");
 $lines = file(__DIR__ . '/../admin/database_updates.php');
 $src = implode('', $lines);
 $start = strpos($src, "if (\$rivetit_db_version() == '2.6.136') {");
-$block = substr($src, $start, strpos($src, "'2.6.137'", $start) - $start + 120);
+$end = strpos($src, "\n    }\n", $start);   // the block closes at the first 4-space brace after its gate
+$block = substr($src, $start, $end - $start + 7);
 $rivetit_db_version = fn() => $one("SELECT config_current_database_version FROM settings WHERE company_id = 1");
 eval('(function () use ($mysqli, $rivetit_db_version) { ' . $block . ' "" ; })();');
 $ok($rivetit_db_version() === '2.6.137' && $cols() === 3, 'running the 2.6.137 block again changes nothing but the version');

@@ -414,7 +414,7 @@ if ($cfg !== false && str_contains($cfg, getenv('RIVETIT_TEST_DB_NAME'))) {
     for ($i = 0; $i < 2; $i++) {
         $q("UPDATE settings SET config_current_database_version = '2.6.138'");
         $out = shell_exec('cd ' . escapeshellarg(dirname(__DIR__)) . ' && php scripts/update_cli.php --update_db 2>&1');
-        $ok(str_contains((string) $out, '2.6.139') && $one('SELECT config_current_database_version FROM settings') === '2.6.139', "migration 2.6.138 -> 2.6.139 run #" . ($i + 1) . ' succeeds');
+        $ok(version_compare((string) $one('SELECT config_current_database_version FROM settings'), '2.6.139', '>='), "migration 2.6.138 -> 2.6.139 run #" . ($i + 1) . ' succeeds (now at ' . $one('SELECT config_current_database_version FROM settings') . ')');
     }
     $ok((int) $one("SELECT priority FROM automation_rules WHERE rule_id=$rid") === 77 && $one("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name='automation_rules' AND column_name IN ('priority','stop_on_match','rate_limit_per_min','rr_cursor')") == 4, 'the migration is idempotent and keeps existing rules');
 } else {

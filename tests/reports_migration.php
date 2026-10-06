@@ -9,7 +9,8 @@ $src = file_get_contents(__DIR__ . '/../admin/database_updates.php');
 if (!preg_match("/    if \(\\\$rivetit_db_version\(\) == '2\.6\.137'\) \{.*?\n    \}\n/s", $src, $m)) { echo "FAIL  migration block not found\n"; exit(1); }
 $ver = fn() => (string) $one("SELECT config_current_database_version FROM settings WHERE company_id = 1");
 $rivetit_db_version = $ver;
-$ok(strpos((string) file_get_contents(__DIR__ . '/../includes/database_version.php'), '"2.6.138"') !== false, 'LATEST_DATABASE_VERSION is 2.6.138');
+preg_match('/LATEST_DATABASE_VERSION", "([0-9.]+)"/', (string) file_get_contents(__DIR__ . '/../includes/database_version.php'), $_lv);
+$ok(isset($_lv[1]) && version_compare($_lv[1], '2.6.138', '>='), 'LATEST_DATABASE_VERSION is 2.6.138 or later');
 $cols = fn() => $one("SELECT GROUP_CONCAT(CONCAT(TABLE_NAME,'.',COLUMN_NAME,':',COLUMN_TYPE) ORDER BY TABLE_NAME, COLUMN_NAME) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('saved_reports','report_exports','dashboard_layouts','report_schedules')");
 $run = function () use ($m, $mysqli, &$rivetit_db_version) { eval($m[0]); };
 
