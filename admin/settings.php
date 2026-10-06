@@ -39,7 +39,7 @@ $settings_groups = [
             ['Compliance status', 'Checks, manual checklist and auditor export for ISO 27001, SOC 2, PCI DSS and HIPAA.', 'compliance_status.php', 'fa-clipboard-list'],
             ['Automation', 'Event rules, ticket rules, lifecycle workflows, the run log and the on/off switch in one place.', 'automation.php', 'fa-cogs'],
             ['Event rules', 'Create a ticket, notify someone or call a service when something happens.', 'event_rules.php', 'fa-bolt'],
-            ['Job queue', 'Background deliveries and rule actions: status, retries and failures.', 'job_queue.php', 'fa-list-check'],
+            ['Job queue', 'Background deliveries and rule actions: status, retries and failures.', 'job_queue.php', 'fa-tasks'],
             ['Mail', 'Sending and receiving email.', 'settings_mail.php', 'fa-envelope'],
             ['Notifications', 'Choose which events send alerts.', 'settings_notification.php', 'fa-bell'],
             ['Identity provider', 'Set up portal single sign-on.', 'identity_provider.php', 'fa-fingerprint', (bool) $config_client_portal_enable],

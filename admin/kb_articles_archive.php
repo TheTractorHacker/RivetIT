@@ -51,7 +51,7 @@ $archived_count = $sql_archived ? mysqli_num_rows($sql_archived) : 0;
 
 <div class="card">
     <div class="card-header py-2 d-flex align-items-center">
-        <h3 class="card-title me-auto"><i class="fas fa-fw fa-box-archive me-2"></i>Archived Knowledge Base Articles</h3>
+        <h3 class="card-title me-auto"><i class="fas fa-fw fa-archive me-2"></i>Archived Knowledge Base Articles</h3>
         <a href="/admin/settings_kb.php" class="btn btn-outline-secondary btn-sm">
             <i class="fas fa-fw fa-arrow-left me-1"></i>Back to Knowledge Base Settings
         </a>

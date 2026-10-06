@@ -331,7 +331,7 @@ if (isset($_GET['contact_id'])) {
                     <div class="mt-2"><i class="fa fa-fw fa-user-tag text-secondary me-2"></i><?php echo ucwords(str_replace('_', ' ', $contact_employee_type)); ?></div>
                     <div class="mt-2"><i class="fa fa-fw fa-circle text-secondary me-2"></i><?php echo ucwords(str_replace('_', ' ', $contact_employment_status)); ?></div>
                     <?php if ($contact_work_arrangement) { ?>
-                        <div class="mt-2"><i class="fa fa-fw fa-house-laptop text-secondary me-2"></i><?php echo ucwords($contact_work_arrangement); ?></div>
+                        <div class="mt-2"><i class="fa fa-fw fa-laptop-house text-secondary me-2"></i><?php echo ucwords($contact_work_arrangement); ?></div>
                     <?php } ?>
                     <?php if ($contact_start_date) { ?>
                         <div class="mt-2"><i class="fa fa-fw fa-calendar-day text-secondary me-2"></i>Started <?php echo $contact_start_date; ?></div>

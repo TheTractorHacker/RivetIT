@@ -185,7 +185,7 @@ $last_run = mysqli_fetch_assoc(mysqli_query($mysqli,
         }
         if ($unscheduled): ?>
         <h6 class="mt-4 mb-2 text-muted text-uppercase" style="font-size:.75rem;letter-spacing:.05em">
-            <i class="fas fa-circle-pause me-1"></i>Available but not scheduled here
+            <i class="fas fa-pause-circle me-1"></i>Available but not scheduled here
         </h6>
         <p class="text-muted small mb-2">These jobs exist in the app but have no schedule on this server. Some belong to other installs that share the code. Scheduling a new one still needs a server administrator.</p>
         <div class="table-responsive">

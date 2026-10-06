@@ -92,7 +92,7 @@ ob_start();
 
         <?php if (!$pdf_tools_ready) { ?>
             <div class="alert alert-danger" role="alert">
-                <i class="fas fa-fw fa-circle-exclamation me-2"></i><strong>PDF import is not available on this server.</strong>
+                <i class="fas fa-fw fa-exclamation-circle me-2"></i><strong>PDF import is not available on this server.</strong>
                 The PDF tools it needs are not installed. An administrator can enable it by installing the
                 <code>poppler-utils</code> package. Until then, attach the PDF to an article instead - that works today.
             </div>

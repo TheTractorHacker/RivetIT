@@ -79,7 +79,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         $custom_link_icon = nullable_htmlentities($row['custom_link_icon']);
                         $custom_link_new_tab = intval($row['custom_link_new_tab']);
                         if ($custom_link_new_tab == 1 ) {
-                            $custom_link_new_tab_display = "<i class='fas fa-fw fa-checkmark'></i>";
+                            $custom_link_new_tab_display = "<i class='fas fa-fw fa-check'></i>";
                         } else {
                             $custom_link_new_tab_display = "";
                         }

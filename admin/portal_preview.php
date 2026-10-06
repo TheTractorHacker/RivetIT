@@ -65,7 +65,7 @@ $sql_departments = mysqli_query($mysqli,
 
         <div class="alert alert-info">
             <div>
-                <h4 class="alert-title"><i class="fas fa-fw fa-circle-info me-1"></i>Every action is blocked while previewing</h4>
+                <h4 class="alert-title"><i class="fas fa-fw fa-info-circle me-1"></i>Every action is blocked while previewing</h4>
                 <p class="mb-0">
                     This is a preview, not a sign-in. Nothing can be created, changed or paid for while
                     it is running, and both entering and leaving are written to the audit log against
@@ -78,7 +78,7 @@ $sql_departments = mysqli_query($mysqli,
         <?php if (!$portal_module_on) { ?>
         <div class="alert alert-warning">
             <div>
-                <h4 class="alert-title"><i class="fas fa-fw fa-triangle-exclamation me-1"></i>The client portal is switched off</h4>
+                <h4 class="alert-title"><i class="fas fa-fw fa-exclamation-triangle me-1"></i>The client portal is switched off</h4>
                 <p class="mb-0">
                     Previewing is unavailable until the portal module is enabled under
                     <a href="/admin/settings_module.php">Settings &rsaquo; Modules</a>. Departments are

@@ -164,7 +164,7 @@ $has_fcm = mysqli_num_rows(mysqli_query($mysqli, "SELECT token_id FROM api_token
         $push_my_categories     = push_enabled_categories_for_user($session_user_id);
         ?>
         <div class="small text-muted fw-bold mb-1 text-uppercase" style="letter-spacing:.05em;font-size:.7rem;">
-            <i class="fas fa-list-check me-1"></i>What gets pushed to your phone
+            <i class="fas fa-tasks me-1"></i>What gets pushed to your phone
         </div>
         <?php if (empty($push_global_categories)) { ?>
         <div class="small text-muted mb-0">An administrator has not allowed any notification categories to push yet.</div>

@@ -137,7 +137,7 @@ $vault_canonical_ok = !empty(mysqli_fetch_assoc(mysqli_query($mysqli,
         <?php if (!$vault_canonical_ok && lookupUserPermission('module_admin') >= 0): ?>
         <div class="alert alert-warning mb-3">
             <div>
-                <h4 class="alert-title"><i class="fas fa-fw fa-triangle-exclamation me-1"></i>Passkeys cannot open the credential vault yet</h4>
+                <h4 class="alert-title"><i class="fas fa-fw fa-exclamation-triangle me-1"></i>Passkeys cannot open the credential vault yet</h4>
                 <p class="mb-0">
                     The vault key is wrapped with your password, and a passkey has no password to unwrap it
                     with. Until a canonical vault key is established, a passkey sign-in reaches the vault only
