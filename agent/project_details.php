@@ -707,32 +707,32 @@ if (isset($_GET['project_id'])) {
                                         </div>
                                     </td>
                                     <th>
-                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_number&order=<?php echo $disp; ?>">
+                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_number&order=<?php echo sortLinkOrder('ticket_number'); ?>">
                                             Ticket <?php if ($sort == 'ticket_number') { echo $order_icon; } ?>
                                         </a>
                                     </th>
                                     <th>
-                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_priority&order=<?php echo $disp; ?>">
+                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_priority&order=<?php echo sortLinkOrder('ticket_priority'); ?>">
                                             Priority <?php if ($sort == 'ticket_priority') { echo $order_icon; } ?>
                                         </a>
                                     </th>
                                     <th>
-                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_status&order=<?php echo $disp; ?>">
+                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_status&order=<?php echo sortLinkOrder('ticket_status'); ?>">
                                             Status <?php if ($sort == 'ticket_status') { echo $order_icon; } ?>
                                         </a>
                                     </th>
                                     <th>
-                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=user_name&order=<?php echo $disp; ?>">
+                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=user_name&order=<?php echo sortLinkOrder('user_name'); ?>">
                                             Assigned <?php if ($sort == 'user_name') { echo $order_icon; } ?>
                                         </a>
                                     </th>
                                     <th>
-                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_updated_at&order=<?php echo $disp; ?>">
+                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_updated_at&order=<?php echo sortLinkOrder('ticket_updated_at'); ?>">
                                             Last Response <?php if ($sort == 'ticket_updated_at') { echo $order_icon; } ?>
                                         </a>
                                     </th>
                                     <th>
-                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
+                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo sortLinkOrder('client_name'); ?>">
                                             Department <?php if ($sort == 'client_name') { echo $order_icon; } ?>
                                         </a>
                                     </th>

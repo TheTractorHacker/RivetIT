@@ -51,12 +51,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
                         <tr>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=sort_order&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=sort_order&order=<?php echo sortLinkOrder('sort_order'); ?>">
                                     Order <?php if ($sort == 'sort_order') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=name&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=name&order=<?php echo sortLinkOrder('name'); ?>">
                                     Name <?php if ($sort == 'name') { echo $order_icon; } ?>
                                 </a>
                             </th>

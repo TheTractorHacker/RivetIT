@@ -115,28 +115,28 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <thead class="<?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
                     <tr>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=service_name&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=service_name&order=<?php echo sortLinkOrder('service_name'); ?>">
                                 Name <?php if ($sort == 'service_name') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=service_category&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=service_category&order=<?php echo sortLinkOrder('service_category'); ?>">
                                 Category <?php if ($sort == 'service_category') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=service_importance&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=service_importance&order=<?php echo sortLinkOrder('service_importance'); ?>">
                                 Importance <?php if ($sort == 'service_importance') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=service_updated_at&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=service_updated_at&order=<?php echo sortLinkOrder('service_updated_at'); ?>">
                                 Updated <?php if ($sort == 'service_updated_at') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <?php if (!$client_url) { ?>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo sortLinkOrder('client_name'); ?>">
                                 Department <?php if ($sort == 'client_name') { echo $order_icon; } ?>
                             </a>
                         </th>

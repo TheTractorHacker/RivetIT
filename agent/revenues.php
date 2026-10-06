@@ -62,32 +62,32 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <thead class="<?php if ($num_rows[0] == 0) { echo "d-none"; } ?> text-nowrap">
                 <tr>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=revenue_date&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=revenue_date&order=<?php echo sortLinkOrder('revenue_date'); ?>">
                             Date <?php if ($sort == 'revenue_date') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=category_name&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=category_name&order=<?php echo sortLinkOrder('category_name'); ?>">
                             Category <?php if ($sort == 'category_name') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th class="text-end">
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=revenue_amount&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=revenue_amount&order=<?php echo sortLinkOrder('revenue_amount'); ?>">
                             Amount <?php if ($sort == 'revenue_amount') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=revenue_payment_method&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=revenue_payment_method&order=<?php echo sortLinkOrder('revenue_payment_method'); ?>">
                             Method <?php if ($sort == 'revenue_payment_method') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=revenue_reference&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=revenue_reference&order=<?php echo sortLinkOrder('revenue_reference'); ?>">
                             Reference <?php if ($sort == 'revenue_reference') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=account_name&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=account_name&order=<?php echo sortLinkOrder('account_name'); ?>">
                             Account <?php if ($sort == 'account_name') { echo $order_icon; } ?>
                         </a>
                     </th>

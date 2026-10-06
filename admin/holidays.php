@@ -123,17 +123,17 @@ while ($yr = mysqli_fetch_assoc($yres)) { $years_in_catalog[] = intval($yr['holi
                             </div>
                         </td>
                         <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort . $filter_extra_qs; ?>&sort=holiday_date&order=<?php echo $disp; ?>">
+                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort . $filter_extra_qs; ?>&sort=holiday_date&order=<?php echo sortLinkOrder('holiday_date'); ?>">
                                 Date <?php if ($sort == 'holiday_date') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort . $filter_extra_qs; ?>&sort=holiday_name&order=<?php echo $disp; ?>">
+                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort . $filter_extra_qs; ?>&sort=holiday_name&order=<?php echo sortLinkOrder('holiday_name'); ?>">
                                 Name <?php if ($sort == 'holiday_name') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort . $filter_extra_qs; ?>&sort=holiday_country&order=<?php echo $disp; ?>">
+                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort . $filter_extra_qs; ?>&sort=holiday_country&order=<?php echo sortLinkOrder('holiday_country'); ?>">
                                 Country <?php if ($sort == 'holiday_country') { echo $order_icon; } ?>
                             </a>
                         </th>

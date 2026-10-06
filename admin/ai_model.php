@@ -35,17 +35,17 @@ $num_rows = mysqli_num_rows($sql);
                 <thead class="text-dark <?php if ($num_rows == 0) { echo "d-none"; } ?>">
                 <tr>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ai_model_name&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ai_model_name&order=<?php echo sortLinkOrder('ai_model_name'); ?>">
                             Model <?php if ($sort == 'ai_model_name') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ai_provider_name&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ai_provider_name&order=<?php echo sortLinkOrder('ai_provider_name'); ?>">
                             Provider <?php if ($sort == 'ai_provider_name') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ai_model_use_case&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ai_model_use_case&order=<?php echo sortLinkOrder('ai_model_use_case'); ?>">
                             Use Case<?php if ($sort == 'ai_model_use_case') { echo $order_icon; } ?>
                         </a>
                     </th>

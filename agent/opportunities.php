@@ -120,7 +120,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <thead class="<?php if ($num_rows[0] == 0) { echo "d-none"; } ?> text-nowrap">
                 <tr>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=opportunity_name&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=opportunity_name&order=<?php echo sortLinkOrder('opportunity_name'); ?>">
                             Opportunity <?php if ($sort == 'opportunity_name') { echo $order_icon; } ?>
                         </a>
                     </th>
@@ -128,19 +128,19 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <th>Department</th>
                     <?php } ?>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=opportunity_stage&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=opportunity_stage&order=<?php echo sortLinkOrder('opportunity_stage'); ?>">
                             Stage <?php if ($sort == 'opportunity_stage') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th class="text-end">
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=opportunity_amount&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=opportunity_amount&order=<?php echo sortLinkOrder('opportunity_amount'); ?>">
                             Amount <?php if ($sort == 'opportunity_amount') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th class="text-end">Prob.</th>
                     <th class="text-end">Weighted</th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=opportunity_close_date&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=opportunity_close_date&order=<?php echo sortLinkOrder('opportunity_close_date'); ?>">
                             Close <?php if ($sort == 'opportunity_close_date') { echo $order_icon; } ?>
                         </a>
                     </th>

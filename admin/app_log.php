@@ -114,22 +114,22 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
                     <tr>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=app_log_created_at&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=app_log_created_at&order=<?php echo sortLinkOrder('app_log_created_at'); ?>">
                                 Timestamp <?php if ($sort == 'app_log_created_at') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=app_log_type&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=app_log_type&order=<?php echo sortLinkOrder('app_log_type'); ?>">
                                 Type <?php if ($sort == 'app_log_type') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=app_log_category&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=app_log_category&order=<?php echo sortLinkOrder('app_log_category'); ?>">
                                 Category <?php if ($sort == 'app_log_category') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=app_log_details&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=app_log_details&order=<?php echo sortLinkOrder('app_log_details'); ?>">
                                 Details <?php if ($sort == 'app_log_details') { echo $order_icon; } ?>
                             </a>
                         </th>

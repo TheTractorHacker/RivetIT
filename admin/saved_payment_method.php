@@ -68,33 +68,33 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <thead class="text-dark <?php if ($num_rows == 0) { echo "d-none"; } ?>">
                 <tr>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo sortLinkOrder('client_name'); ?>">
                             Department <?php if ($sort == 'client_name') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=payment_provider_name&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=payment_provider_name&order=<?php echo sortLinkOrder('payment_provider_name'); ?>">
                             Provider <?php if ($sort == 'payment_provider_name') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=saved_payment_description&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=saved_payment_description&order=<?php echo sortLinkOrder('saved_payment_description'); ?>">
                             Description <?php if ($sort == 'saved_payment_description') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=payment_provider_client&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=payment_provider_client&order=<?php echo sortLinkOrder('payment_provider_client'); ?>">
                             Provider Department ID <?php if ($sort == 'payment_provider_client') { echo $order_icon; } ?>
                         </a>
                     </th>
 
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=saved_payment_provider_method&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=saved_payment_provider_method&order=<?php echo sortLinkOrder('saved_payment_provider_method'); ?>">
                             Provider Payment Method ID <?php if ($sort == 'saved_payment_provider_method') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=saved_payment_created_at&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=saved_payment_created_at&order=<?php echo sortLinkOrder('saved_payment_created_at'); ?>">
                             Created <?php if ($sort == 'saved_payment_created_at') { echo $order_icon; } ?>
                         </a>
                     </th>

@@ -96,54 +96,54 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?> text-nowrap">
                 <tr>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_invoice_number&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_invoice_number&order=<?php echo sortLinkOrder('recurring_invoice_number'); ?>">
                             Number <?php if ($sort == 'recurring_invoice_number') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_invoice_next_date&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_invoice_next_date&order=<?php echo sortLinkOrder('recurring_invoice_next_date'); ?>">
                             Next Date <?php if ($sort == 'recurring_invoice_next_date') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_invoice_scope&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_invoice_scope&order=<?php echo sortLinkOrder('recurring_invoice_scope'); ?>">
                             Scope <?php if ($sort == 'recurring_invoice_scope') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <?php if (!$client_url) { ?>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo sortLinkOrder('client_name'); ?>">
                             Department <?php if ($sort == 'client_name') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <?php } ?>
                     <th class="text-end">
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_invoice_amount&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_invoice_amount&order=<?php echo sortLinkOrder('recurring_invoice_amount'); ?>">
                             Amount <?php if ($sort == 'recurring_invoice_amount') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_invoice_frequency&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_invoice_frequency&order=<?php echo sortLinkOrder('recurring_invoice_frequency'); ?>">
                             Frequency <?php if ($sort == 'recurring_invoice_frequency') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_invoice_last_sent&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_invoice_last_sent&order=<?php echo sortLinkOrder('recurring_invoice_last_sent'); ?>">
                             Last Sent <?php if ($sort == 'recurring_invoice_last_sent') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=category_name&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=category_name&order=<?php echo sortLinkOrder('category_name'); ?>">
                             Category <?php if ($sort == 'category_name') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_payment_recurring_invoice_id&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_payment_recurring_invoice_id&order=<?php echo sortLinkOrder('recurring_payment_recurring_invoice_id'); ?>">
                             Auto Pay <?php if ($sort == 'recurring_payment_recurring_invoice_id') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_invoice_status&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_invoice_status&order=<?php echo sortLinkOrder('recurring_invoice_status'); ?>">
                             Status <?php if ($sort == 'recurring_invoice_status') { echo $order_icon; } ?>
                         </a>
                     </th>

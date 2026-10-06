@@ -231,39 +231,39 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 </a>
                             </th>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_ticket_subject&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_ticket_subject&order=<?php echo sortLinkOrder('recurring_ticket_subject'); ?>">
                                     Subject <?php if ($sort == 'recurring_ticket_subject') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=category_name&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=category_name&order=<?php echo sortLinkOrder('category_name'); ?>">
                                     Category <?php if ($sort == 'category_name') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_ticket_priority&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_ticket_priority&order=<?php echo sortLinkOrder('recurring_ticket_priority'); ?>">
                                     Priority <?php if ($sort == 'recurring_ticket_priority') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_ticket_frequency&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_ticket_frequency&order=<?php echo sortLinkOrder('recurring_ticket_frequency'); ?>">
                                     Frequency <?php if ($sort == 'recurring_ticket_frequency') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th class="text-center">
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_ticket_billable&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=recurring_ticket_billable&order=<?php echo sortLinkOrder('recurring_ticket_billable'); ?>">
                                     Billable <?php if ($sort == 'recurring_ticket_billable') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=user_name&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=user_name&order=<?php echo sortLinkOrder('user_name'); ?>">
                                     Agent <?php if ($sort == 'user_name') { echo $order_icon; } ?>
                                 </a>
                             </th>
 
                             <?php if (!$client_url) { ?>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo sortLinkOrder('client_name'); ?>">
                                     Department <?php if ($sort == 'client_name') { echo $order_icon; } ?>
                                 </a>
                             </th>
