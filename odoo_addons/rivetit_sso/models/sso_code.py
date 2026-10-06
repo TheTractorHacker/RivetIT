@@ -4,7 +4,6 @@ from odoo import fields, models
 class RivetITSSOCode(models.Model):
     _name = 'rivetit.sso.code'
     _description = 'Short-lived RivetIT SSO authorization code'
-    _log_access = True
 
     code_hash = fields.Char(required=True, index=True, copy=False)
     correlation_id = fields.Char(required=True, index=True)
