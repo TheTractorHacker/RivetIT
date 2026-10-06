@@ -7,6 +7,7 @@
 if (getenv('RIVETIT_TEST_DB') !== '1') exit(2);
 if (!preg_match('/scratch|test/i', (string) getenv('RIVETIT_TEST_DB_NAME'))) { fwrite(STDERR, "Refusing: DB name must contain scratch/test\n"); exit(2); }
 require_once __DIR__ . '/../vendor/autoload.php';
+putenv('RIVETIT_WEBHOOK_ALLOW_PRIVATE=1');   // generic webhooks now refuse private/loopback targets by default (RivetCore UrlPolicy); the mock is on 127.0.0.1
 define('RIVETIT_CHAT_ALLOW_LOCAL_HTTP', true);   // test constant: lets the vetted-URL check accept http://127.0.0.1 (the mock) and nothing else
 
 use ITFlow\Webhooks\ChatDelivery;
