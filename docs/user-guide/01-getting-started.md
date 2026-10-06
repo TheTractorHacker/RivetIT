@@ -68,7 +68,7 @@ Entries appear only when the feature is switched on (Administration → Settings
 | **Work** | Projects, Calendar | Tickets, assets & docs: Read or higher. Projects also needs Ticketing on. |
 | **Knowledge** | Knowledge Base, Credentials, Printers, Network Drives | Knowledge Base: **Show Knowledge Base** on and Knowledge base: Read. The others: **Show IT Documentation** on and Tickets, assets & docs: Read. Credentials also needs Credentials: Read. |
 | **Training** | Overview, Courses, Learning Paths, Assignments, Records & sessions, Reports, People, and more | **Show Training (LMS)** is on and Training: Read or higher. Some entries need Modify or Full. |
-| **Infrastructure** | Assets, Locations, Vendors, Licenses, Domains, Certificates | **Show IT Documentation** on and Tickets, assets & docs: Read. A role with only the Assets permission sees just **Assets**. |
+| **Infrastructure** | Assets, Locations, Vendors, Licenses, Domains, Certificates | **Show IT Documentation** on and Tickets, assets & docs: Read. A role with only the Assets permission sees just **Assets**. Company-wide vendors (not under a department) need the Financial permission to add or edit. |
 | **Endpoints**, **Backups** | Monitoring and backup pages | Only when an endpoint integration is turned on. See the [Endpoints guide](09-endpoints-and-integrations.md). |
 | **People** | Opens the list of employees | Departments: Read or higher. |
 | **Reports** | Opens the reports | Reporting permission. |
@@ -279,7 +279,7 @@ Things to know:
 - **Archiving a person also switches off their Department Portal sign-in;** restoring them switches it back on. Archiving a department stops its employees signing in to the portal too.
 - On **People**, **Anonymize & Archive** replaces the person's name with asterisks and erases their contact details and notes. It cannot be reversed.
 - A person or department with **training records** cannot be deleted. Archive it instead.
-- On some lists (People, Locations, Vendors, Licenses, Printers, Network Drives), the row-menu **Delete** is hidden unless an administrator has enabled destructive deletes on the server.
+- On some lists (People, Locations, Vendors, Licenses, Printers, Network Drives), the row-menu **Delete** is hidden unless an administrator has turned on **Allow permanent deletes of archived records** in **Administration → Settings → Security**. It is off by default.
 - Archive, restore and delete are all written to the audit log.
 
 ## Glossary
