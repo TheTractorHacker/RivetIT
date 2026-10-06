@@ -1309,6 +1309,15 @@ X-RivetIT-Event: $wq_event
     $resp_code = 0;
     if ($wq_chat) {
         $resp_code = $wq_chat_code;
+    } elseif (($wq['webhook_destination'] ?? '') !== '') {
+        // Preset webhook (n8n, ntfy, Discord, ...): its URL is stored encrypted and it has its own body format, method and
+        // auth headers, so it goes through the same dispatcher as the job queue instead of the plain POST below.
+        require_once __DIR__ . '/../includes/event_bus.php';
+        $wq_decoded = json_decode($wq_payload, true);
+        $wq_data = is_array($wq_decoded) ? (array) ($wq_decoded['data'] ?? []) : [];
+        $wq_opts = \ITFlow\Webhooks\DestinationConfig::options($wq, $wq_event, $wq_data);
+        $wq_res = rivetWebhookDispatcher($mysqli)->deliverTo(intval($wq['webhook_id']), $wq_event, $wq_data, $wq_attempts, is_array($wq_decoded) ? ($wq_decoded['timestamp'] ?? null) : null, time(), $wq_opts === [] ? null : $wq_opts);
+        $resp_code = intval($wq_res['http_status'] ?? 0);
     } else {
         @file_get_contents($wq_url, false, $ctx);
         if (isset($http_response_header) && preg_match('/HTTP\/\S+ (\d+)/', $http_response_header[0], $m)) {

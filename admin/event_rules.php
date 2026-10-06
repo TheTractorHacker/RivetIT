@@ -2,6 +2,7 @@
 require_once "includes/inc_all_admin.php";
 require_once "../includes/event_bus.php";
 require_once "includes/webhook_events.php";
+require_once "../includes/event_picker.php";
 
 use ITFlow\Automation\Actions\ActionRegistry;
 use ITFlow\Automation\ConditionEvaluator;
@@ -105,16 +106,9 @@ $h = static fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
                     <label class="form-label">Name</label>
                     <input class="form-control" name="rule_name" maxlength="200" required value="<?= $h($edit['name'] ?? '') ?>" placeholder="e.g. Alert the team when a High ticket arrives">
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">When this happens</label>
-                    <select class="form-select" name="trigger_event" required>
-                        <option value="">Choose an event...</option>
-                        <?php foreach (webhook_event_groups() as $group => $events) { ?>
-                            <optgroup label="<?= $h($group) ?>">
-                                <?php foreach ($events as $ev) { ?><option value="<?= $h($ev) ?>" <?= ($edit['trigger_event'] ?? '') === $ev ? 'selected' : '' ?>><?= $h($ev) ?></option><?php } ?>
-                            </optgroup>
-                        <?php } ?>
-                    </select>
+                <div class="col-12">
+                    <label class="form-label" id="ruleTriggerLabel">When this happens <span class="text-danger">*</span></label>
+                    <?php eventPickerField('trigger_event', [(string) ($edit['trigger_event'] ?? '')], ['mode' => 'single', 'id' => 'rule-trigger-picker']); ?>
                 </div>
 
                 <div class="col-12">

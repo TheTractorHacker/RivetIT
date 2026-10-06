@@ -58,6 +58,7 @@ $admin_settings_labels = [
     'settings_integrations.php' => 'Integrations',
     'settings_calendar_sync.php' => 'Calendar sync',
     'settings_webhooks.php' => 'Webhooks',
+    'settings_webhook_guides.php' => 'Webhook guides',
     'settings_ai.php' => 'AI',
     'settings_telemetry.php' => 'Telemetry',
     'settings_comet.php' => 'Integrations',

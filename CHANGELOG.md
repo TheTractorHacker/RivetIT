@@ -6,6 +6,18 @@ continues unchanged.
 
 ## [Unreleased]
 
+Database migration 2.6.142 applies with **Update Database**. Requires rivet-core 0.21.0 (`composer install --no-dev`; the in-app Update and `deploy/update.sh` do this).
+
+### Webhooks: platforms, guides and a searchable event picker
+
+- **Add Webhook is now a guided flow.** Step 1 is a searchable list of 24 platforms from RivetCore 0.21 (n8n, Node-RED, Activepieces, Windmill, Huginn, Zapier, Make, Pipedream, IFTTT, Home Assistant, Apprise, ntfy, Gotify, Discord, Mattermost, Rocket.Chat, Slack, Microsoft Teams, Matrix (hookshot and client API), Telegram, Generic JSON, Generic form and Custom template). Step 2 is the form for the chosen platform with a setup guide beside it: URL shape, the authentication the platform allows (bearer, basic or a custom header; secrets are stored encrypted and never shown again), the platform's own fields (ntfy topic, Telegram chat id, Matrix room ...), and for Custom template a body editor with placeholders and live validation.
+- **Send test and Preview payload.** Send test posts a sample event through the real delivery path (same body format, auth, signing and URL policy) and shows the HTTP status, duration and response. Preview shows the exact headers and body, with secrets masked. Both work on unsaved forms.
+- **Guides.** Administration > Webhooks > Guides lists every platform with setup steps, things to know, a sample curl, "Verify our signature" snippets (Node.js, Python, PHP, Bash, n8n Code) and a Receiving in n8n walk-through.
+- **Delivery log.** View payload (secret-looking values masked) and Replay for deliveries that used the standard JSON body, and for test sends.
+- **Event picker.** A searchable picker (search box, expandable groups with counts, a description and severity per event, select all per group, chips) replaces the checkbox list, here and for the trigger of Event rules. A whole group is stored as a pattern such as `ticket.*`, and `*` means every event, including events added later.
+- Slack and Microsoft Teams webhooks keep the existing formatter (interactive buttons, routing filters). The minimum-priority and client filters are now also available for notification platforms (ntfy, Gotify, Apprise).
+- Database: `webhooks` gains `webhook_destination`, `webhook_format`, `webhook_method`, `webhook_template`, `webhook_auth_mode`, `webhook_auth_enc` and `webhook_extra`; `webhook_events` can hold 4000 characters. Existing webhooks keep working unchanged and become the matching platform (generic JSON, Slack or Teams).
+
 ## [26.10.22] RivetIT — employee portal, reporting and dashboards, automation engine, mobile API and gap closures
 
 Database migrations 2.6.137 to 2.6.141 apply with **Update Database**. Requires rivet-core 0.19.0 (`composer install --no-dev`; the in-app Update and `deploy/update.sh` do this). Fresh installs: `db.sql` now matches the migrated schema.

@@ -10058,3 +10058,23 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.141'");
     }
+
+    if ($rivetit_db_version() == '2.6.141') {
+        // Webhook destination presets (RivetCore 0.21): which platform a webhook talks to, how it authenticates to it, the body
+        // format and template, and the preset's own inputs. All additive. Legacy rows keep working: '' = the original behaviour.
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_destination` varchar(40) NOT NULL DEFAULT ''");
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_format` varchar(24) NOT NULL DEFAULT ''");
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_method` varchar(4) NOT NULL DEFAULT 'POST'");
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_template` text NULL");
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_auth_mode` varchar(12) NOT NULL DEFAULT 'none'");
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_auth_enc` text NULL");
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_extra` text NULL");
+        // Event subscriptions may now be patterns such as ticket.* (stored in the same comma list), so the list needs more room.
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` MODIFY COLUMN `webhook_events` varchar(4000) NOT NULL DEFAULT ''");
+        // Existing rows become the equivalent preset (their delivery does not change): Slack/Teams keep the edition's chat formatter.
+        mysqli_query($mysqli, "UPDATE `webhooks` SET `webhook_destination` = 'slack', `webhook_format` = 'slack' WHERE `webhook_type` = 'slack' AND `webhook_destination` = ''");
+        mysqli_query($mysqli, "UPDATE `webhooks` SET `webhook_destination` = 'teams', `webhook_format` = 'teams' WHERE `webhook_type` = 'teams' AND `webhook_destination` = ''");
+        mysqli_query($mysqli, "UPDATE `webhooks` SET `webhook_destination` = 'generic-json', `webhook_format` = 'json' WHERE `webhook_type` NOT IN ('slack', 'teams') AND `webhook_destination` = ''");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.142'");
+    }

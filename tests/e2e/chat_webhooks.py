@@ -45,9 +45,10 @@ s, html = req('/login.php'); d = {'email': EMAIL, 'password': PASSWORD, 'login':
 if t: d['csrf_token'] = t
 check('sign in', req('/login.php', d)[0] in (302, 303))
 s, page = req(REF)
-s, add = req('/admin/modals/webhook/webhook_add.php'); tok = csrf(add)
+s, chooser = req('/admin/modals/webhook/webhook_add.php')
+s, add = req('/admin/modals/webhook/webhook_add.php?dest=slack'); tok = csrf(add)
 check('webhooks page renders', s == 200 and 'Add Webhook' in page and tok)
-check('add modal has destination type and routing fields', 'webhook_type' in add and 'webhook_min_priority' in add and 'webhook_client_ids' in add and 'Slack (Incoming Webhook)' in add)
+check('add flow offers Slack and Teams; the Slack form has the type and routing fields', 'data-wh-dest="slack"' in chooser and 'data-wh-dest="teams"' in chooser and 'webhook_type' in add and 'webhook_min_priority' in add and 'webhook_client_ids' in add and 'Slack' in add)
 SECRET_PATH = '/slack/ok'
 def add_hook(name, typ, url, events=('ticket.created',), minp='', clients=(), token=None):
     data = {'csrf_token': token or tok, 'add_webhook': '1', 'webhook_name': name, 'webhook_url': url, 'webhook_type': typ, 'webhook_events[]': list(events), 'webhook_enabled': '1', 'webhook_min_priority': minp}
@@ -71,7 +72,7 @@ wid = sql("select webhook_id from webhooks where webhook_name='Ops Slack'")
 page = flash()
 check('list shows a Slack badge and host only, never the secret path', 'Slack' in page and '8.8.8.8' in page and 'SUPERSECRETTOKEN' not in page and 'T000' not in page)
 s, edit = req('/admin/modals/webhook/webhook_edit.php?id=' + wid)
-check('edit modal never echoes the chat URL and offers the test button', 'SUPERSECRETTOKEN' not in edit and '8.8.8.8' not in edit and 'name="test_webhook"' in edit and 'selected' in edit)
+check('edit modal never echoes the chat URL and offers the test button', 'SUPERSECRETTOKEN' not in edit and '8.8.8.8' not in edit and 'data-wh-test' in edit and 'selected' in edit)
 # edit keeping URL
 req('/admin/post.php', {'csrf_token': tok, 'edit_webhook': '1', 'webhook_id': wid, 'webhook_name': 'Ops Slack 2', 'webhook_url': '', 'webhook_type': 'slack', 'webhook_events[]': ['ticket.created'], 'webhook_enabled': '1', 'webhook_min_priority': 'Critical'}, REF)
 row = sql("select webhook_name, webhook_min_priority, webhook_events from webhooks where webhook_id=" + wid).split('\t')
@@ -86,13 +87,16 @@ card = json.loads(lines[0]['body']) if lines else {}
 check('test button: one labelled Adaptive Card message reached the mock', len(lines) == 1 and 'TEST MESSAGE' in lines[0]['body'] and card.get('attachments', [{}])[0].get('content', {}).get('version') == '1.4', lines)
 page = flash()
 check('flash shows the HTTP result without the URL; delivery log shows the Teams row', 'HTTP 202' in page and '127.0.0.1:18297/teams' not in page and 'test.teams' in page and 'Teams' in page)
-# a test message to a generic hook is refused
+# the test button also covers a generic hook, through the real delivery path: the URL policy applies (this server runs WITHOUT
+# RIVETIT_WEBHOOK_ALLOW_PRIVATE, so a loopback endpoint is refused and nothing is sent); event_bus.py covers a delivered test
 add_hook('Plain', 'generic', 'https://8.8.8.8/hook')
 gid = sql("select webhook_id from webhooks where webhook_name='Plain'")
-sql("update webhooks set webhook_url='https://8.8.8.8/hook' where webhook_id=" + gid)
+sql("update webhooks set webhook_url='http://127.0.0.1:18297/generic' where webhook_id=" + gid)
+before = len([l for l in open(SLACKLOG).read().splitlines() if l])
 req('/admin/post.php', {'csrf_token': tok, 'test_webhook': '1', 'webhook_id': gid}, REF)
-check('test button refuses generic webhooks (no outbound call)', len([l for l in open(SLACKLOG).read().splitlines() if l]) == 1)
-check('generic webhook still saved as plaintext URL, type generic', sql("select webhook_type, webhook_url from webhooks where webhook_id=" + gid) == 'generic\thttps://8.8.8.8/hook')
+check('test button on a generic webhook goes through the URL policy: loopback refused, no outbound call', len([l for l in open(SLACKLOG).read().splitlines() if l]) == before and 'not allowed' in flash(), flash()[:200])
+check('generic webhook saved as plaintext URL, type generic, preset generic-json', sql("select webhook_type, webhook_destination, webhook_format from webhooks where webhook_id=" + gid) == 'generic\tgeneric-json\tjson')
+check('the refused test left exactly one test. row in the delivery log', sql("select count(*) from webhook_deliveries where webhook_id=%s and event_type like 'test.%%'" % gid) == '1')
 # XSS: webhook name
 add_hook('<script>alert(1)</script>', 'teams', 'http://127.0.0.1:18297/teams/ok')
 check('webhook name is HTML-escaped in the list', '<script>alert(1)</script>' not in flash())

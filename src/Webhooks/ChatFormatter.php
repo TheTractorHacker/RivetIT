@@ -52,8 +52,7 @@ final class ChatFormatter
      */
     public static function shouldDeliver(array $webhook, string $event, array $data): bool
     {
-        $events = array_filter(array_map('trim', explode(',', (string) ($webhook['webhook_events'] ?? ''))));
-        if (!in_array($event, $events, true)) {
+        if (!DestinationConfig::eventMatches((string) ($webhook['webhook_events'] ?? ''), $event)) {
             return false;
         }
 

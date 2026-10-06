@@ -2,7 +2,7 @@
 
 RivetIT can post ticket and platform events into a Slack channel or a Microsoft Teams channel. It uses the same
 **Administration > Webhooks** page, the same event list and the same job queue (with the same retry schedule) as every other
-webhook; a destination just has a **Destination type** of Slack or Teams instead of Generic.
+webhook; you choose the **Slack** or **Microsoft Teams** platform card in Add Webhook instead of a generic one.
 
 Status: tested against local mock servers only (the interactive buttons too). It has not been run against a real Slack workspace or Teams tenant.
 
@@ -23,8 +23,8 @@ User text (ticket subjects, client names) is never treated as markup or as a men
 1. Go to https://api.slack.com/apps, **Create New App** > From scratch, pick the workspace.
 2. **Incoming Webhooks** > turn on > **Add New Webhook to Workspace** > choose the channel.
 3. Copy the webhook URL (it starts `https://hooks.slack.com/services/...`).
-4. In RivetIT: Administration > Webhooks > **Add Webhook**, Destination type **Slack**, paste the URL, tick the events, Save,
-   then edit it and press **Send test message**.
+4. In RivetIT: Administration > Webhooks > **Add Webhook**, choose the **Slack** card, paste the URL, tick the events, Save,
+   then press **Send test** (in the form, or the paper-plane button in the list).
 
 ## Microsoft Teams
 
@@ -33,7 +33,7 @@ The classic "Incoming Webhook" Office 365 connector is retired. RivetIT sends th
 
 1. In Teams, open the channel > **...** > **Workflows** > the template **Post to a channel when a webhook request is received**.
 2. Name it, pick the team and channel, create it, and copy the **HTTP POST URL** it shows.
-3. In RivetIT: Add Webhook, Destination type **Microsoft Teams**, paste the URL, tick the events, Save, then **Send test message**.
+3. In RivetIT: Add Webhook, choose the **Microsoft Teams** card, paste the URL, tick the events, Save, then press **Send test**.
 
 Workflows answer HTTP 202 when they accept a message; RivetIT counts any 2xx as delivered. A 202 only means the workflow accepted
 it: if the card does not appear, check the workflow's run history in Power Automate.

@@ -61,14 +61,14 @@ function rivetWebhookHeaderPrefixes(): array
     return class_exists('\RivetMSP\Core\CoreBridge') ? ['X-RivetMSP', 'X-ITFlow'] : ['X-ITFlow', 'X-RivetIT'];
 }
 
-function rivetWebhookDispatcher($mysqli): \RivetCore\Webhooks\WebhookDispatcher
+function rivetWebhookDispatcher($mysqli, ?\RivetCore\Webhooks\WebhookSubscriptionsInterface $subscriptions = null): \RivetCore\Webhooks\WebhookDispatcher
 {
     $db = rivetCoreDb($mysqli);
     $subsClass = rivetCoreAdapterNs() . '\Webhooks\WebhooksTableSubscriptions';
 
     // Delivery re-vets (and pins) with the same policy the settings page used: public addresses plus the admin's allowed networks.
     $policy = rivetWebhookUrlPolicy($mysqli);
-    return new \RivetCore\Webhooks\WebhookDispatcher($db, new $subsClass($db), new \RivetCore\Support\SystemClock(), rivetWebhookHeaderPrefixes(),
+    return new \RivetCore\Webhooks\WebhookDispatcher($db, $subscriptions ?? new $subsClass($db), new \RivetCore\Support\SystemClock(), rivetWebhookHeaderPrefixes(),
         null, \RivetCore\Webhooks\WebhookDispatcher::DEFAULT_TIMEOUT_SECONDS, $policy, true);
 }
 
@@ -90,16 +90,21 @@ function rivetEmitEvent(string $event, array $data): void
 
         // 1. Webhooks
         $event_safe = mysqli_real_escape_string($mysqli, $event);
+        // A subscription is a comma list of event ids and/or patterns ("ticket.*", "*"): SQL narrows, DestinationConfig matches.
         $sql = mysqli_query($mysqli,
             "SELECT * FROM webhooks
              WHERE webhook_enabled = 1
-               AND FIND_IN_SET('$event_safe', REPLACE(webhook_events, ', ', ','))"
+               AND (FIND_IN_SET('$event_safe', REPLACE(webhook_events, ', ', ',')) OR webhook_events LIKE '%*%')"
         );
         while ($sql && ($row = mysqli_fetch_assoc($sql))) {
             $wid = intval($row['webhook_id']);
-            // Slack / Teams destinations have routing filters (minimum priority, clients); a filtered-out event is never queued.
-            if (\ITFlow\Webhooks\ChatFormatter::isChatType(\ITFlow\Webhooks\ChatFormatter::normalizeType($row['webhook_type'] ?? ''))
-                && !\ITFlow\Webhooks\ChatFormatter::shouldDeliver($row, $event, $data)) {
+            if (!\ITFlow\Webhooks\DestinationConfig::eventMatches((string) ($row['webhook_events'] ?? ''), $event)) {
+                continue;
+            }
+            // Routing filters (minimum priority, clients) belong to Slack / Teams and to every preset that set one; a filtered-out event is never queued.
+            $routed = \ITFlow\Webhooks\ChatFormatter::isChatType(\ITFlow\Webhooks\ChatFormatter::normalizeType($row['webhook_type'] ?? ''))
+                || ($row['webhook_min_priority'] ?? '') !== '' || ($row['webhook_client_ids'] ?? '') !== '';
+            if ($routed && !\ITFlow\Webhooks\ChatFormatter::shouldDeliver($row, $event, $data)) {
                 continue;
             }
             if ($jobs !== null) {
@@ -209,7 +214,16 @@ function rivetRegisterJobHandlers(\RivetCore\Jobs\JobWorker $worker, $mysqli): v
             return ['http_status' => $r['http_status'], 'duration_ms' => $r['duration_ms'], 'skipped' => $r['skipped']];
         }
 
-        $r = rivetWebhookDispatcher($mysqli)->deliverTo((int) ($p['webhook_id'] ?? 0), (string) ($p['event'] ?? ''), (array) ($p['data'] ?? []), (int) ($job['attempts'] ?? 1), $p['emitted_at'] ?? null, time());
+        // Preset webhooks (format, method, auth headers) get their options here, with the "open this ticket" link of THIS event; a legacy row
+        // has none and is delivered as the plain signed JSON envelope. The signature timestamp is fresh on every attempt.
+        $opts = null;
+        $whRes = mysqli_query($mysqli, 'SELECT * FROM webhooks WHERE webhook_id = ' . (int) ($p['webhook_id'] ?? 0) . ' LIMIT 1');
+        $whRow = $whRes ? mysqli_fetch_assoc($whRes) : null;
+        if (is_array($whRow)) {
+            $built = \ITFlow\Webhooks\DestinationConfig::options($whRow, (string) ($p['event'] ?? ''), (array) ($p['data'] ?? []));
+            $opts = $built === [] ? null : $built;
+        }
+        $r = rivetWebhookDispatcher($mysqli)->deliverTo((int) ($p['webhook_id'] ?? 0), (string) ($p['event'] ?? ''), (array) ($p['data'] ?? []), (int) ($job['attempts'] ?? 1), $p['emitted_at'] ?? null, time(), $opts);
         if (!empty($r['gone'])) {
             throw new \RivetCore\Jobs\PermanentJobFailure('The webhook endpoint no longer exists or is disabled.');
         }

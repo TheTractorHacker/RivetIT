@@ -14,12 +14,17 @@ require_once "../includes/event_bus.php";
 <div class="card">
     <div class="card-header py-3 d-flex align-items-center gap-3">
         <h3 class="card-title me-auto mb-0"><i class="fas fa-fw fa-satellite-dish me-2"></i>Webhooks</h3>
-        <button class="btn btn-primary btn-sm ajax-modal" data-modal-url="modals/webhook/webhook_add.php">
+        <a href="settings_webhook_guides.php" class="btn btn-outline-secondary btn-sm"><i class="fas fa-book me-1"></i>Guides</a>
+        <button class="btn btn-primary btn-sm ajax-modal" data-modal-url="modals/webhook/webhook_add.php" data-modal-size="xl">
             <i class="fas fa-plus me-1"></i>Add Webhook
         </button>
     </div>
+    <ul class="nav nav-tabs px-3" role="tablist">
+        <li class="nav-item"><a class="nav-link active" aria-current="page" href="settings_webhooks.php">Webhooks</a></li>
+        <li class="nav-item"><a class="nav-link" href="settings_webhook_guides.php">Guides</a></li>
+    </ul>
     <div class="card-body pb-0">
-        <p class="text-muted mb-3">Send selected events to another service: a signed JSON webhook, or a chat message to Slack or Microsoft Teams. Delivery counts show the last seven days.</p>
+        <p class="text-muted mb-3 pt-3">Send selected events to another service: n8n, Node-RED, ntfy, Discord, Telegram, Slack, Microsoft Teams, Home Assistant and more, or any endpoint as signed JSON or your own template. Pick a platform in <strong>Add Webhook</strong>; each one comes with its own setup guide. Delivery counts show the last seven days.</p>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -73,10 +78,14 @@ require_once "../includes/event_bus.php";
                     $wname   = nullable_htmlentities($wh['webhook_name']);
                     $wtype   = \ITFlow\Webhooks\ChatFormatter::normalizeType($wh['webhook_type'] ?? '');
                     $wchat   = \ITFlow\Webhooks\ChatFormatter::isChatType($wtype);
-                    // A Slack / Teams URL is a secret (stored encrypted): only the host is ever shown.
-                    $wurl    = $wchat ? nullable_htmlentities(\ITFlow\Webhooks\ChatDelivery::maskUrl(decryptSetting((string) $wh['webhook_url']))) : nullable_htmlentities($wh['webhook_url']);
+                    $wdest   = \ITFlow\Webhooks\DestinationConfig::destination($wh);
+                    // A secret URL (every preset except the generic ones, and Slack / Teams) is stored encrypted: only the host is ever shown.
+                    $wurl_plain = decryptSetting((string) $wh['webhook_url']);
+                    $wsecret = $wchat || ($wdest !== null && \ITFlow\Webhooks\DestinationConfig::urlIsSecret($wdest->id));
+                    $wurl    = $wsecret ? nullable_htmlentities(\ITFlow\Webhooks\ChatDelivery::maskUrl($wurl_plain)) : nullable_htmlentities($wh['webhook_url']);
                     $wenabled = intval($wh['webhook_enabled']);
                     $wevents = array_filter(array_map('trim', explode(',', $wh['webhook_events'])));
+                    $wrouted = $wh['webhook_min_priority'] !== '' || $wh['webhook_client_ids'] !== '';
 
                     $delivered = intval($wh['delivered']);
                     $failed    = intval($wh['failed']);
@@ -84,16 +93,17 @@ require_once "../includes/event_bus.php";
                     ?>
                     <tr>
                         <td><strong><?= $wname ?></strong>
-                            <?php if ($wchat) { ?><span class="badge text-bg-info ms-1"><?= $wtype === 'slack' ? 'Slack' : 'Teams' ?></span><?php } ?>
-                            <?php if ($wchat && ($wh['webhook_min_priority'] !== '' || $wh['webhook_client_ids'] !== '')) { ?>
+                            <?php if ($wdest !== null) { ?><span class="badge text-bg-info ms-1"><?= nullable_htmlentities($wdest->name) ?></span><?php } elseif ($wchat) { ?><span class="badge text-bg-info ms-1"><?= $wtype === 'slack' ? 'Slack' : 'Teams' ?></span><?php } ?>
+                            <?php if ($wrouted) { ?>
                                 <div class="small text-secondary"><?= $wh['webhook_min_priority'] !== '' ? nullable_htmlentities($wh['webhook_min_priority']) . '+ ' : '' ?><?= $wh['webhook_client_ids'] !== '' ? count(array_filter(explode(',', $wh['webhook_client_ids']))) . ' client filter' : '' ?></div>
                             <?php } ?>
                         </td>
                         <td class="webhook-url" title="<?= $wurl ?>"><?= $wurl ?></td>
                         <td class="webhook-events">
-                            <?php foreach ($wevents as $ev) {
-                                echo '<span class="badge text-bg-secondary me-1">' . htmlspecialchars($ev) . '</span>';
-                            } ?>
+                            <?php foreach (array_slice($wevents, 0, 8) as $ev) {
+                                echo '<span class="badge ' . (str_contains($ev, '*') ? 'text-bg-primary' : 'text-bg-secondary') . ' me-1">' . htmlspecialchars($ev === '*' ? 'All events' : $ev) . '</span>';
+                            }
+                            if (count($wevents) > 8) { echo '<span class="badge text-bg-light me-1" title="' . htmlspecialchars(implode(', ', array_slice($wevents, 8))) . '">+' . (count($wevents) - 8) . ' more</span>'; } ?>
                         </td>
                         <td>
                             <?= $wenabled
@@ -106,7 +116,12 @@ require_once "../includes/event_bus.php";
                             <?php if ($failed > 0) { ?><span class="badge text-bg-danger" title="Failed"><?= $failed ?></span><?php } ?>
                         </td>
                         <td class="text-end webhook-actions">
-                            <button class="btn btn-sm btn-light ajax-modal"
+                            <form action="post.php" method="post" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                                <input type="hidden" name="webhook_id" value="<?= $wid ?>">
+                                <button type="submit" name="test_webhook" class="btn btn-sm btn-light" aria-label="Send a test to <?= $wname ?>" title="Send a test event now"><i class="fas fa-paper-plane"></i></button>
+                            </form>
+                            <button class="btn btn-sm btn-light ajax-modal" data-modal-size="xl"
                                     data-modal-url="modals/webhook/webhook_edit.php?id=<?= $wid ?>" aria-label="Edit <?= $wname ?>" title="Edit webhook">
                                 <i class="fas fa-edit"></i>
                             </button>
@@ -276,16 +291,16 @@ if (isset($sql_wh) && mysqli_num_rows($sql_wh) > 0 && $legacy_queue_rows > 0) { 
         <div class="table-responsive">
         <table class="table table-sm table-striped table-borderless mb-0">
             <thead class="text-dark">
-                <tr><th>When</th><th>Webhook</th><th>Event</th><th>Attempt</th><th>HTTP</th><th>Duration</th><th>Response</th></tr>
+                <tr><th>When</th><th>Webhook</th><th>Event</th><th>Attempt</th><th>HTTP</th><th>Duration</th><th>Response</th><th></th></tr>
             </thead>
             <tbody>
             <?php
             $sql_direct = mysqli_query($mysqli,
-                "SELECT wd.*, w.webhook_name, w.webhook_type FROM webhook_deliveries wd
+                "SELECT wd.delivery_id, wd.event_type, wd.http_status, wd.duration_ms, wd.attempt_number, wd.response_body_snippet, wd.created_at, w.webhook_name, w.webhook_type FROM webhook_deliveries wd
                  JOIN webhooks w ON wd.webhook_id = w.webhook_id
                  ORDER BY wd.delivery_id DESC LIMIT 100");
             if (mysqli_num_rows($sql_direct) == 0) { ?>
-                <tr><td colspan="7" class="text-center text-muted py-3">No deliveries yet.</td></tr>
+                <tr><td colspan="8" class="text-center text-muted py-3">No deliveries yet.</td></tr>
             <?php } else {
                 while ($drow = mysqli_fetch_assoc($sql_direct)) {
                     $http = intval($drow['http_status']);
@@ -302,6 +317,9 @@ if (isset($sql_wh) && mysqli_num_rows($sql_wh) > 0 && $legacy_queue_rows > 0) { 
                         <td><?= $http_badge ?></td>
                         <td><?= intval($drow['duration_ms']) ?> ms</td>
                         <td class="text-truncate" style="max-width:260px;" title="<?= nullable_htmlentities($drow['response_body_snippet']) ?>"><?= nullable_htmlentities($drow['response_body_snippet']) ?></td>
+                        <td class="text-end text-nowrap">
+                            <button class="btn btn-sm btn-light ajax-modal" data-modal-size="lg" data-modal-url="modals/webhook/webhook_delivery.php?id=<?= intval($drow['delivery_id']) ?>" title="View the payload and replay it" aria-label="View delivery <?= intval($drow['delivery_id']) ?>"><i class="fas fa-eye"></i></button>
+                        </td>
                     </tr>
                 <?php }
             } ?>
@@ -312,4 +330,12 @@ if (isset($sql_wh) && mysqli_num_rows($sql_wh) > 0 && $legacy_queue_rows > 0) { 
 </div>
 <?php } ?>
 
+<?php
+// Deep link from the guides page (settings_webhooks.php?add=n8n): open the Add Webhook form on that platform.
+$wh_add = (string) ($_GET['add'] ?? '');
+if ($wh_add !== '' && \RivetCore\Webhooks\Destinations::has($wh_add)) { ?>
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+document.addEventListener('DOMContentLoaded', function () { if (window.openAjaxModal) { window.openAjaxModal('modals/webhook/webhook_add.php?dest=<?= rawurlencode($wh_add) ?>', 'xl'); } });
+</script>
+<?php } ?>
 <?php require_once "../includes/footer.php"; ?>

@@ -39,7 +39,7 @@ final class SlaEventEmitter
             && mysqli_fetch_row(mysqli_query($mysqli, "SELECT 1 FROM automation_rules WHERE is_enabled = 1 AND trigger_event IN ('ticket.sla_warning','ticket.sla_breached') LIMIT 1"))) {
             return true;
         }
-        $res = @mysqli_query($mysqli, "SELECT 1 FROM webhooks WHERE webhook_enabled = 1 AND (webhook_events LIKE '%ticket.sla_warning%' OR webhook_events LIKE '%ticket.sla_breached%') LIMIT 1");
+        $res = @mysqli_query($mysqli, "SELECT 1 FROM webhooks WHERE webhook_enabled = 1 AND (webhook_events LIKE '%ticket.sla_warning%' OR webhook_events LIKE '%ticket.sla_breached%' OR webhook_events LIKE '%*%') LIMIT 1");
 
         return (bool) ($res && mysqli_fetch_row($res));
     }

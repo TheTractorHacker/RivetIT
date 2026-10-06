@@ -6205,12 +6205,19 @@ CREATE TABLE `webhooks` (
   `webhook_name` varchar(200) NOT NULL DEFAULT '',
   `webhook_url` varchar(2048) NOT NULL,
   `webhook_secret` varchar(255) NOT NULL DEFAULT '',
-  `webhook_events` varchar(500) NOT NULL DEFAULT '',
+  `webhook_events` varchar(4000) NOT NULL DEFAULT '',
   `webhook_enabled` tinyint(1) NOT NULL DEFAULT 1,
   `webhook_created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `webhook_type` varchar(16) NOT NULL DEFAULT 'generic',
   `webhook_min_priority` varchar(20) NOT NULL DEFAULT '',
   `webhook_client_ids` varchar(500) NOT NULL DEFAULT '',
+  `webhook_destination` varchar(40) NOT NULL DEFAULT '',
+  `webhook_format` varchar(24) NOT NULL DEFAULT '',
+  `webhook_method` varchar(4) NOT NULL DEFAULT 'POST',
+  `webhook_template` text DEFAULT NULL,
+  `webhook_auth_mode` varchar(12) NOT NULL DEFAULT 'none',
+  `webhook_auth_enc` text DEFAULT NULL,
+  `webhook_extra` text DEFAULT NULL,
   PRIMARY KEY (`webhook_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
