@@ -32,8 +32,8 @@ if ($method === 'GET') {
                 'options'     => $options,
                 'required'    => !empty($f['is_required']),
                 'placeholder' => (string) ($f['placeholder'] ?? ''),
-                // Conditional visibility is not part of the catalog schema in this release; always null.
-                'show_if'     => null,
+                // {"field":"<earlier key>","op":"equals|in|not_empty","value":...} or null (always visible); the same rule the web form uses.
+                'show_if'     => \ITFlow\ITSM\ServiceCatalogService::parseShowIf($f['show_if'] ?? null),
             ];
         }
         $items[] = [

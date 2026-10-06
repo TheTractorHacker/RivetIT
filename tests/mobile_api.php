@@ -168,6 +168,22 @@ $ok($j['recent'] === [2, 1] || $j['recent'] === [1, 2], 'recent = this user\'s d
 [$c, , $j2] = http('GET', '/api/v1/service_catalog.php', $T['t1']); $ok($j2['recent'] === [], 'recent is per user');
 $ok(count($j['popular']) >= 1 && count($j['popular']) <= 5 && $j['popular'][0] === 2, 'popular = trending ids (30 days)');
 
+// conditional fields: show_if is returned, hidden answers are not stored, visible required fields are enforced
+$q("INSERT INTO service_catalog_items SET catalog_item_id=4, name='Conditional', ticket_subject_template='Conditional', requires_approval=0, sort_order=4");
+$q("INSERT INTO service_catalog_fields SET catalog_item_id=4, field_key='kind', label='Kind', field_type='select', options='A\nB', is_required=1, sort_order=1");
+$q("INSERT INTO service_catalog_fields SET catalog_item_id=4, field_key='detail', label='Detail', field_type='text', is_required=1, sort_order=2, show_if='" . $db->real_escape_string('{"field":"kind","op":"equals","value":"B"}') . "'");
+[$c, , $jc] = http('GET', '/api/v1/service_catalog.php', $T['t2']);
+$cond = null; foreach ($jc['items'] ?? [] as $it) { if (($it['id'] ?? 0) === 4) { $cond = $it; } }
+$ok($cond !== null && $cond['fields'][0]['show_if'] === null && $cond['fields'][1]['show_if'] === ['field' => 'kind', 'op' => 'equals', 'value' => 'B'], 'GET returns the show_if rule (null for an unconditional field)');
+[$c, , $jj] = $post($T['t2'], ['catalog_item_id' => 4, 'answers' => ['kind' => 'A', 'detail' => 'smuggled while hidden'], 'client_id' => 1]);
+$ok($c === 201, 'hidden required field is not required');
+$cv = json_decode((string) $one("SELECT field_values FROM service_catalog_requests WHERE ticket_id=" . intval($jj['ticket_id'] ?? 0)), true) ?: [];
+$ok(array_column($cv, 'key') === ['kind'], 'an answer sent for a hidden field is not stored');
+[$c] = $post($T['t2'], ['catalog_item_id' => 4, 'answers' => ['kind' => 'B'], 'client_id' => 1]);
+$ok($c === 422, 'a visible required field is still enforced (missing detail while kind=B -> 422)');
+[$c] = $post($T['t2'], ['catalog_item_id' => 4, 'answers' => ['kind' => 'B', 'detail' => 'ok'], 'client_id' => 1]);
+$ok($c === 201, 'visible required field supplied -> created');
+
 // ------------------------------------------------------------------ notification routing for the catalog approval
 $n = $db->query("SELECT notification_type, notification_action FROM notifications WHERE notification_user_id=10 AND notification_action LIKE '%service_catalog_approvals.php%'")->fetch_assoc();
 $ok($n && $n['notification_type'] === 'Ticket' && $n['notification_action'] === "/agent/service_catalog_approvals.php?request_id=$req1", 'approver got the same notification as before (type Ticket, same recipient), action now carries the request id');

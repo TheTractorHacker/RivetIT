@@ -2375,7 +2375,7 @@ components:
                     options: {type: array, items: {type: string}}
                     required: {type: boolean}
                     placeholder: {type: string}
-                    show_if: {type: object, nullable: true, description: "Always null in this release"}
+                    show_if: {type: object, nullable: true, description: "Show this field only when an earlier field matches: {field, op: equals|in|not_empty, value}. A hidden field is never required and its answer is ignored. null = always visible."}
         popular: {type: array, items: {type: integer}}
         recent: {type: array, items: {type: integer}}
     CatalogRequest:
