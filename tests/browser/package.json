@@ -1,0 +1,11 @@
+{
+  "name": "rivet-browser-smoke",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Real-browser smoke suite for RivetIT and RivetMSP. Zero npm dependencies: it drives Chrome over the DevTools Protocol with Node's built-in WebSocket and fetch.",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node suite.mjs"
+  }
+}
