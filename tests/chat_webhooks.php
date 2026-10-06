@@ -7,7 +7,8 @@
 if (getenv('RIVETIT_TEST_DB') !== '1') exit(2);
 if (!preg_match('/scratch|test/i', (string) getenv('RIVETIT_TEST_DB_NAME'))) { fwrite(STDERR, "Refusing: DB name must contain scratch/test\n"); exit(2); }
 require_once __DIR__ . '/../vendor/autoload.php';
-putenv('RIVETIT_WEBHOOK_ALLOW_PRIVATE=1');   // generic webhooks now refuse private/loopback targets by default (RivetCore UrlPolicy); the mock is on 127.0.0.1
+// RIVETIT_WEBHOOK_ALLOW_PRIVATE=1 lets deliveries reach the loopback mock, but the single webhook URL policy honours it everywhere, so it is
+// switched on only around the deliveries below and is OFF for every check that asserts a private address is refused.
 define('RIVETIT_CHAT_ALLOW_LOCAL_HTTP', true);   // test constant: lets the vetted-URL check accept http://127.0.0.1 (the mock) and nothing else
 
 use ITFlow\Webhooks\ChatDelivery;
@@ -79,6 +80,7 @@ $ok(ChatDelivery::vetUrl('https://8.8.8.8/services/x')['ok'], 'vet: a public htt
 $ok(ChatDelivery::maskUrl('https://hooks.slack.com/services/T000/B000/SECRETSECRET') === 'https://hooks.slack.com/…hidden', 'maskUrl shows scheme and host only');
 
 foreach (["webhooks", "webhook_deliveries", "integration_jobs"] as $t) $db->query("DELETE FROM `$t`");
+putenv('RIVETIT_WEBHOOK_ALLOW_PRIVATE=1');
 // ======================================================= delivery against the mock
 $port = random_int(20000, 40000);
 $logFile = sys_get_temp_dir() . '/chat_mock_' . getmypid() . '.jsonl';
@@ -138,7 +140,9 @@ $ok($r['ok'] && $r['skipped'] && count($reqs()) === 0, 'filtered-out event: no r
 // private destination stored directly in the DB is still refused at send time (defence in depth, e.g. edited row)
 $stmt = $db->prepare("INSERT INTO webhooks SET webhook_name='evil', webhook_url=?, webhook_events='ticket.created', webhook_enabled=1, webhook_type='slack'");
 $evilUrl = encryptSetting('https://169.254.169.254/latest/meta-data/iam/'); $stmt->bind_param('s', $evilUrl); $stmt->execute();
+putenv('RIVETIT_WEBHOOK_ALLOW_PRIVATE');   // unset: a stored metadata address must be refused by the real policy
 $r = ChatDelivery::deliverRow($db, $row((int) $db->insert_id), 'ticket.created', $data, 1);
+putenv('RIVETIT_WEBHOOK_ALLOW_PRIVATE=1');
 $ok(!$r['ok'] && $r['http_status'] === null && str_contains((string) $r['error'], 'public address'), 'delivery re-vets the URL: a metadata/private address stored in the row is refused');
 
 // network failure message must not leak the secret path
