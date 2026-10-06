@@ -53,6 +53,7 @@ $settings_groups = [
         'description' => 'Connect external services and manage data sharing.',
         'items' => [
             ['Integrations', 'RMM, backups, UniFi, and directory sync.', 'settings_integrations.php', 'fa-plug'],
+            ['Endpoint agent', 'The built-in Windows agent: enrollment, devices, jobs, updates and MeshCentral remote access.', 'settings_endpoint_agent.php', 'fa-satellite'],
             ['Calendar sync', 'Connect Outlook calendars.', 'settings_calendar_sync.php', 'fa-calendar-alt'],
             ['Webhooks', 'Send events to other systems.', 'settings_webhooks.php', 'fa-satellite-dish'],
             ['AI', 'Configure AI features.', 'settings_ai.php', 'fa-robot'],

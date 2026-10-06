@@ -66,6 +66,7 @@ $admin_settings_labels = [
     'settings_comet.php' => 'Integrations',
     'comet_status.php' => 'Integrations',
     'settings_rmm.php' => 'Integrations',
+    'settings_endpoint_agent.php' => 'Endpoint agent',
     'settings_unifi.php' => 'Integrations',
 ];
 // A page that lives under an admin area (Maintenance, Ticketing setup, ...) gets that area's breadcrumb below; showing

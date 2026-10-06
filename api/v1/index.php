@@ -116,6 +116,14 @@ if ($resource === 'openapi' || $resource === 'docs') {
     exit;
 }
 
+// Device-credential endpoints: the built-in endpoint agent (enroll / check-in / jobs). Routed here, above the Bearer parsing and
+// above the pre-auth JSON body read below, because a device credential is not an api_tokens row and that body read has no size
+// ceiling. Each handler authenticates its caller, bounds its own body read and rate-limits itself (agent_device_api.php).
+if ($resource === 'agent_enroll' || $resource === 'agent_checkin' || $resource === 'agent_jobs') {
+    require __DIR__ . '/' . $resource . '.php';
+    exit;
+}
+
 // All other endpoints require Bearer token
 $api_token_row  = null;
 $api_user_id    = null;
@@ -351,6 +359,7 @@ switch ($resource) {
         }
         break;
     case 'approvals':        require __DIR__ . '/approvals.php';        break;
+    case 'endpoint_devices': require __DIR__ . '/endpoint_devices.php'; break;
     case 'service_catalog':  require __DIR__ . '/service_catalog.php';  break;
     case 'workflow_tasks':   require __DIR__ . '/workflow_tasks.php';   break;
     case 'ticket_attachments': require __DIR__ . '/ticket_attachments.php'; break;

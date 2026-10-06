@@ -308,7 +308,7 @@ if ($do_collect) {
         $ingest->refreshMetricIds();
     }
 
-    $sql_integrations = mysqli_query($mysqli, "SELECT id, name, type FROM rmm_integrations WHERE enabled = 1 ORDER BY id ASC");
+    $sql_integrations = mysqli_query($mysqli, "SELECT id, name, type FROM rmm_integrations WHERE enabled = 1 AND type <> 'rivetit_agent' ORDER BY id ASC");
 
     if ($sql_integrations === false) {
         metricsCronOut('Collect — failed to read rmm_integrations: ' . mysqli_error($mysqli));
