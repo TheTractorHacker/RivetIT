@@ -15,7 +15,7 @@ Written 2026-10-06 against Go 1.27.1.
 
 ## Tests
 
-93 top-level tests/fuzz targets (plus subtests), 0 failures, with `-race`: store 9, api 11 (+fuzz), buffer 4, collect 15, jobs 28 (+fuzz, server signing vectors), update 13, agent 22.
+93 top-level tests/fuzz targets (plus subtests), 0 failures, with `-race`: store 9, api 11 (+1 fuzz), buffer 4, collect 13, jobs 19 (+1 fuzz; includes the server signing vectors), update 15, agent 20 (about 91 test functions plus 2 fuzz targets; the runner counts 93 top-level).
 The job canonical-JSON/signature rule is validated against the server's `tests/fixtures/agent_job_signing_vectors.json` (jobs, canonical-only strings, update-manifest signature, signed check definition); a copy lives in `internal/jobs/testdata/` and the repo-level file is preferred when present.
 Fuzz targets: `FuzzCanonical` (canonicaliser + signature path; 500k execs clean), `FuzzDecoders` (check-in/jobs/enroll decoders).
 
