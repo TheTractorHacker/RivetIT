@@ -24,7 +24,29 @@ checklist at the end.
 7. In RivetIT: Administration > Integrations > Directory Sync, enter the tenant ID, client ID and secret (the secret is stored
    encrypted and never shown again), tick **Enable**, Save, then **Test Connection**. On the Device Sync tab, tick **Sync devices from Intune**.
 
-RivetIT only reads. It never writes to Entra or Intune.
+By default RivetIT only reads. It never writes to Entra or Intune unless you switch on the optional account actions below.
+
+## Optional: letting lifecycle workflows change Entra accounts
+
+> **Warning.** This is a different kind of access. `User.ReadWrite.All` and `Group.ReadWrite.All` let this app registration create,
+> change and **disable any user** and change **any group's membership** in your tenant, so anyone who obtains its client secret
+> can too. Add them only if you want the lifecycle workflow actions (create account, disable account and revoke sessions, add to
+> groups). If you do not, leave them out: everything else in RivetIT keeps working with the read permissions above.
+
+1. Add two more **Application permissions** (Microsoft Graph) to the same app registration and grant admin consent:
+   | Permission | Needed for |
+   |---|---|
+   | `User.ReadWrite.All` | create a user, disable sign-in, revoke sign-in sessions |
+   | `Group.ReadWrite.All` | add a user to a group |
+2. In RivetIT: Administration > Integrations > Directory Sync, tick **Allow RivetIT to change Entra accounts** and Save (administrators
+   only; it is **off by default** and logged when changed). While it is off every write is refused inside the Graph client itself,
+   before any request is made, so nothing can leave even if a template contains an Entra action.
+3. Use the actions in Employee Workflow Templates, see docs/EMPLOYEE-LIFECYCLE-WORKFLOWS.md. Always **Preview** first: it shows
+   exactly what would be sent and sends nothing.
+
+Notes: Microsoft refuses to change some privileged accounts (for example a Global Administrator) with these permissions alone; that
+shows as a failed task, not as a silent skip. RivetIT never deletes an account. A missing consent is reported as "Admin consent
+missing for User.ReadWrite.All" (or `Group.ReadWrite.All`). The write code is tested only against `tests/mock/graph_mock.php`.
 
 ## What RivetIT does
 
@@ -63,5 +85,5 @@ cloud, or a mock server). The web UI cannot change them. Leave them unset for no
 
 ## Tests
 
-`tests/graph_client.php` (token reuse and refresh, 429/503 retry, paging safety, error classification, sync idempotence) and
+`tests/graph_client.php` (token reuse and refresh, 429/503 retry, paging safety, error classification, sync idempotence), `tests/entra_actions.php` (account writes: setting gate, dry run, idempotent create, disable + revoke, consent errors, password handling) and
 `tests/e2e/chat_webhooks.py` (Sync Now and Test Connection through the real pages). Both use mocks and a scratch database.

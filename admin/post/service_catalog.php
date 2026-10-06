@@ -89,7 +89,15 @@ if (isset($_POST['edit_service_catalog_item'])) {
     $risk_score = max(0, min(100, intval($_POST['risk_score'] ?? 0)));
     $auto_approve_below = max(0, min(101, intval($_POST['auto_approve_below'] ?? 0)));
     mysqli_query($mysqli, "UPDATE service_catalog_items SET requires_approval = $requires_approval, risk_score = $risk_score, auto_approve_below = $auto_approve_below WHERE catalog_item_id = $catalog_item_id");
-    $catalog_service->saveFields($catalog_item_id, \ITFlow\ITSM\ServiceCatalogService::normalizeFieldRows($_POST));
+    $field_rows = \ITFlow\ITSM\ServiceCatalogService::normalizeFieldRows($_POST);
+    $condition_errors = \ITFlow\ITSM\ServiceCatalogService::validateShowIf($field_rows);
+    if ($condition_errors) {
+        // Conditions must point at an existing, earlier question; nothing about the form is saved until that is fixed.
+        $catalog_service->saveSteps($catalog_item_id, \ITFlow\ITSM\ServiceCatalogService::normalizeStepRows($_POST));
+        flash_alert("Catalog item <strong>$name</strong> saved, but the request form was NOT changed:<br>" . implode('<br>', array_map('nullable_htmlentities', $condition_errors)), 'error');
+        redirect();
+    }
+    $catalog_service->saveFields($catalog_item_id, $field_rows);
     $catalog_service->saveSteps($catalog_item_id, \ITFlow\ITSM\ServiceCatalogService::normalizeStepRows($_POST));
 
     logAction("Service Catalog", "Edit", "$session_name edited catalog item $name", 0, $catalog_item_id);

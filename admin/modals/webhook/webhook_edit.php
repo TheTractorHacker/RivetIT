@@ -36,8 +36,11 @@ ob_start();
         </div>
 
         <div class="form-group">
-            <label>Secret <small class="text-secondary">(leave blank to keep existing; enter a new value to rotate)</small></label>
-            <input type="text" class="form-control font-monospace" name="webhook_secret" placeholder="(unchanged)" autocomplete="off">
+            <label>Secret <small class="text-secondary">(leave blank to keep existing; enter a new value to rotate. Generic: HMAC signing secret. Slack: your Slack app's <em>Signing Secret</em>, which turns on the Acknowledge / Assign to me buttons. Teams: not used)</small></label>
+            <input type="password" class="form-control font-monospace" name="webhook_secret" placeholder="<?= $wh['webhook_secret'] !== '' ? '(saved - unchanged)' : '(none)' ?>" autocomplete="new-password">
+            <?php if ($wh['webhook_secret'] !== '' && ($wh['webhook_type'] ?? '') === 'slack') { ?>
+            <div class="form-check mt-1"><input type="checkbox" class="form-check-input" name="webhook_secret_clear" value="1" id="whSecretClear<?= $wid ?>"><label class="form-check-label small" for="whSecretClear<?= $wid ?>">Remove the signing secret (turns the interactive buttons off)</label></div>
+            <?php } ?>
         </div>
 
         <?php require __DIR__ . '/_destination_fields.php'; ?>

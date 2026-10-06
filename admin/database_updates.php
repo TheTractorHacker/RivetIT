@@ -9934,3 +9934,26 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.136'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.139') {
+        // Gap closures. Catalog request forms: optional per-field visibility rule (JSON). Entra account writes: a separate,
+        // off-by-default switch. Slack interactive actions: opt-in email linking, a bot token (encrypted) used only to look up the
+        // clicking user's verified email, an optional workspace id to pin, and a table that makes signed requests replay-safe.
+        mysqli_query($mysqli, "ALTER TABLE `service_catalog_fields` ADD COLUMN IF NOT EXISTS `show_if` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_entra_allow_writes` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_slack_link_by_email` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_slack_bot_token` varchar(1000) NOT NULL DEFAULT ''");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_slack_team_id` varchar(32) NOT NULL DEFAULT ''");
+        // A temporary password made by the entra_create_account workflow action: encrypted, readable once by one named technician, expires.
+        mysqli_query($mysqli, "ALTER TABLE `workflow_run_tasks` ADD COLUMN IF NOT EXISTS `secret_result_enc` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `workflow_run_tasks` ADD COLUMN IF NOT EXISTS `secret_user_id` int(11) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `workflow_run_tasks` ADD COLUMN IF NOT EXISTS `secret_expires_at` datetime DEFAULT NULL");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `slack_interactive_seen` (
+            `sig_hash` char(64) NOT NULL,
+            `seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`sig_hash`),
+            KEY `idx_slack_seen_at` (`seen_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.140'");
+    }

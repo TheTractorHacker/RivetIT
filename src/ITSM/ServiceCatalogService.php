@@ -24,6 +24,8 @@ namespace ITFlow\ITSM;
 class ServiceCatalogService
 {
     public const FIELD_TYPES = ['text', 'textarea', 'select', 'checkbox', 'date', 'number'];
+    /** Conditional-visibility operators for a field's show_if rule. */
+    public const SHOW_IF_OPS = ['equals', 'in', 'not_empty'];
     public const APPROVER_TYPES = ['user', 'role', 'requester_manager'];
     public const MODES = ['any', 'all'];
 
@@ -112,6 +114,11 @@ class ServiceCatalogService
                 'is_required' => !empty($post['field_required'][$i]) ? 1 : 0,
                 'placeholder' => ($p = substr(trim((string) ($post['field_placeholder'][$i] ?? '')), 0, 200)) !== '' ? $p : null,
                 'sort_order' => intval($post['field_order'][$i] ?? 0),
+                'show_if' => self::buildShowIf(
+                    (string) ($post['field_showif_field'][$i] ?? ''),
+                    (string) ($post['field_showif_op'][$i] ?? ''),
+                    (string) ($post['field_showif_value'][$i] ?? '')
+                ),
                 '_pos' => count($out),
             ];
         }
@@ -159,13 +166,126 @@ class ServiceCatalogService
         return $out;
     }
 
+    // ------------------------------------------------------------------------------------------------------------
+    // Conditional fields: a field may carry a show_if rule {"field":"<earlier key>","op":"equals|in|not_empty","value":...}.
+    // A field whose rule is not met is hidden in the browser AND ignored by the server: not required, not stored.
+    // ------------------------------------------------------------------------------------------------------------
+
+    /** Build the stored JSON for a rule typed in the admin editor; null when no rule (or an unusable one) was given. */
+    public static function buildShowIf(string $field, string $op, string $value): ?string
+    {
+        $field = preg_replace('/[^a-z0-9_]/', '', strtolower(trim($field)));
+        if ($field === '' || !in_array($op, self::SHOW_IF_OPS, true)) {
+            return null;
+        }
+        $rule = ['field' => substr($field, 0, 64), 'op' => $op];
+        if ($op === 'equals') {
+            $rule['value'] = substr(trim($value), 0, 200);
+        } elseif ($op === 'in') {
+            $rule['value'] = array_slice(array_values(array_unique(array_filter(array_map(fn($v) => substr(trim($v), 0, 200), explode('|', $value)), 'strlen'))), 0, 50);
+            if (!$rule['value']) {
+                return null;
+            }
+        }
+        return json_encode($rule, JSON_UNESCAPED_UNICODE);
+    }
+
+    /** Decode a stored rule defensively; null when absent or malformed (a malformed rule never hides a field). */
+    public static function parseShowIf($raw): ?array
+    {
+        if (is_array($raw)) {
+            $rule = $raw;
+        } else {
+            $rule = json_decode((string) $raw, true);
+        }
+        if (!is_array($rule) || !isset($rule['field'], $rule['op']) || !is_string($rule['field']) || !in_array($rule['op'], self::SHOW_IF_OPS, true)) {
+            return null;
+        }
+        if ($rule['op'] === 'equals' && !is_string($rule['value'] ?? null)) {
+            return null;
+        }
+        if ($rule['op'] === 'in' && (!is_array($rule['value'] ?? null) || !$rule['value'])) {
+            return null;
+        }
+        return $rule;
+    }
+
+    /**
+     * Is a rule met? $answers maps field key => the effective answer as a string ('' when empty or hidden; a checkbox is
+     * 'Yes' when ticked). Used by the server; js/catalog_show_if.js mirrors it in the browser.
+     *
+     * @param array<string,string> $answers
+     */
+    public static function showIfMet(?array $rule, array $answers): bool
+    {
+        if ($rule === null) {
+            return true;
+        }
+        $v = (string) ($answers[$rule['field']] ?? '');
+        switch ($rule['op']) {
+            case 'equals':
+                return $v === (string) $rule['value'];
+            case 'in':
+                return in_array($v, array_map('strval', $rule['value']), true);
+            case 'not_empty':
+                return $v !== '';
+        }
+        return true;
+    }
+
+    /**
+     * Check the rules on a normalised, ordered field set (what the admin is about to save). A rule must name a field that
+     * exists and comes EARLIER in the form; that also rules out cycles and self-references. Returns error messages.
+     *
+     * @param array<int,array<string,mixed>> $rows
+     * @return string[]
+     */
+    public static function validateShowIf(array $rows): array
+    {
+        $errors = [];
+        $pos = [];
+        foreach ($rows as $n => $r) {
+            $pos[(string) $r['field_key']] = $n;
+        }
+        foreach ($rows as $n => $r) {
+            if (($r['show_if'] ?? null) === null) {
+                continue;
+            }
+            $rule = self::parseShowIf($r['show_if']);
+            $label = (string) $r['label'];
+            if ($rule === null) {
+                $errors[] = "The condition on \"$label\" is not valid.";
+            } elseif (!isset($pos[$rule['field']])) {
+                $errors[] = "The condition on \"$label\" refers to a question that does not exist.";
+            } elseif ($pos[$rule['field']] >= $n) {
+                $errors[] = "The condition on \"$label\" must refer to a question that comes earlier in the form.";
+            }
+        }
+        return $errors;
+    }
+
+    /** Human-readable form of a rule for the admin editor, e.g. 'Shown when "Device" is Laptop'. */
+    public static function describeShowIf(?array $rule, array $labelsByKey = []): string
+    {
+        if ($rule === null) {
+            return '';
+        }
+        $name = '"' . ($labelsByKey[$rule['field']] ?? $rule['field']) . '"';
+        return match ($rule['op']) {
+            'equals' => "Shown when $name is " . $rule['value'],
+            'in' => "Shown when $name is one of: " . implode(', ', $rule['value']),
+            default => "Shown when $name is answered",
+        };
+    }
+
     /** Replace an item's form fields with the (already normalised) rows. */
     public function saveFields(int $catalogItemId, array $rows): void
     {
         $this->db->query("DELETE FROM service_catalog_fields WHERE catalog_item_id = $catalogItemId");
         foreach ($rows as $r) {
-            $stmt = $this->db->prepare("INSERT INTO service_catalog_fields (catalog_item_id, field_key, label, field_type, options, is_required, placeholder, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param('issssisi', $catalogItemId, $r['field_key'], $r['label'], $r['field_type'], $r['options'], $r['is_required'], $r['placeholder'], $r['sort_order']);
+            $stmt = $this->db->prepare("INSERT INTO service_catalog_fields (catalog_item_id, field_key, label, field_type, options, is_required, placeholder, sort_order, show_if) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $showIf = $r['show_if'] ?? null;
+            $stmt->bind_param('issssisis', $catalogItemId, $r['field_key'], $r['label'], $r['field_type'], $r['options'], $r['is_required'], $r['placeholder'], $r['sort_order'], $showIf);
             $stmt->execute();
             $stmt->close();
         }
@@ -200,11 +320,16 @@ class ServiceCatalogService
     {
         $errors = [];
         $values = [];
+        $answers = []; // effective answers of earlier fields, for show_if rules; a hidden field counts as empty
         foreach ($fields as $f) {
             $key = (string) $f['field_key'];
             $label = (string) $f['label'];
             $type = (string) $f['field_type'];
             $required = !empty($f['is_required']);
+            // Conditional field: when its rule is not met it is neither required nor stored, whatever was posted.
+            if (!self::showIfMet(self::parseShowIf($f['show_if'] ?? null), $answers)) {
+                continue;
+            }
             $raw = $input[$key] ?? null;
             if (is_array($raw)) {
                 $errors[] = "$label is not valid.";
@@ -219,6 +344,7 @@ class ServiceCatalogService
                     continue;
                 }
                 $values[] = ['key' => $key, 'label' => $label, 'type' => $type, 'value' => $checked ? 'Yes' : 'No'];
+                $answers[$key] = $checked ? 'Yes' : '';
                 continue;
             }
 
@@ -228,6 +354,7 @@ class ServiceCatalogService
                     continue;
                 }
                 $values[] = ['key' => $key, 'label' => $label, 'type' => $type, 'value' => ''];
+                $answers[$key] = '';
                 continue;
             }
 
@@ -254,6 +381,7 @@ class ServiceCatalogService
                     continue 2;
             }
             $values[] = ['key' => $key, 'label' => $label, 'type' => $type, 'value' => $v];
+            $answers[$key] = $v;
         }
         return ['errors' => $errors, 'values' => $values];
     }
@@ -265,23 +393,32 @@ class ServiceCatalogService
      *
      * @param array<int,array<string,mixed>> $fields
      */
-    public static function renderInputs(array $fields): string
+    public static function renderInputs(array $fields, bool $preview = false): string
     {
         $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
         $out = '';
+        $conditional = false;
         foreach ($fields as $f) {
-            $name = 'catalog_field[' . $h($f['field_key']) . ']';
-            $id = 'catalogField_' . $h($f['field_key']);
-            $req = !empty($f['is_required']);
+            // $preview: the admin editor's sample form - inputs carry no name (nothing posts) and nothing is required.
+            $name = ($preview ? 'preview_' : 'catalog_field[') . $h($f['field_key']) . ($preview ? '' : ']');
+            $id = ($preview ? 'catalogPreview_' : 'catalogField_') . $h($f['field_key']);
+            $req = !empty($f['is_required']) && !$preview;
+            $rule = self::parseShowIf($f['show_if'] ?? null);
+            $wrap = '<div class="form-group" data-catalog-key="' . $h($f['field_key']) . '"';
+            if ($rule !== null) {
+                $conditional = true;
+                $wrap .= ' data-show-if="' . $h(json_encode($rule, JSON_UNESCAPED_UNICODE)) . '" hidden';
+            }
+            $wrap .= '>';
             $star = $req ? ' <strong class="text-danger">*</strong>' : '';
             $ph = (string) ($f['placeholder'] ?? '') !== '' ? ' placeholder="' . $h($f['placeholder']) . '"' : '';
             $r = $req ? ' required' : '';
             $type = (string) $f['field_type'];
             if ($type === 'checkbox') {
-                $out .= '<div class="form-group"><div class="form-check"><input type="checkbox" class="form-check-input" id="' . $id . '" name="' . $name . '" value="1"' . $r . '> <label class="form-check-label" for="' . $id . '">' . $h($f['label']) . $star . '</label></div></div>';
+                $out .= $wrap . '<div class="form-check"><input type="checkbox" class="form-check-input" id="' . $id . '" name="' . $name . '" value="1"' . $r . '> <label class="form-check-label" for="' . $id . '">' . $h($f['label']) . $star . '</label></div></div>';
                 continue;
             }
-            $out .= '<div class="form-group"><label for="' . $id . '">' . $h($f['label']) . $star . '</label>';
+            $out .= $wrap . '<label for="' . $id . '">' . $h($f['label']) . $star . '</label>';
             if ($type === 'textarea') {
                 $out .= '<textarea class="form-control" id="' . $id . '" name="' . $name . '" rows="3" maxlength="5000"' . $ph . $r . '></textarea>';
             } elseif ($type === 'select') {
@@ -296,6 +433,10 @@ class ServiceCatalogService
                 $out .= '<input type="' . $html . '" class="form-control" id="' . $id . '" name="' . $name . '"' . $step . $ph . $r . '>';
             }
             $out .= '</div>';
+        }
+        if ($conditional) {
+            // Minimal show/hide script; it mirrors showIfMet() and is only a convenience - the server decides.
+            $out .= '<script src="/js/catalog_show_if.js?v=' . (int) @filemtime(__DIR__ . '/../../js/catalog_show_if.js') . '"></script>';
         }
         return $out;
     }

@@ -173,7 +173,9 @@ final class ChatDelivery
         }
 
         $url = function_exists('decryptSetting') ? decryptSetting((string) $row['webhook_url']) : (string) $row['webhook_url'];
-        $payload = ChatFormatter::format($type, $event, $data, self::formatterOptions($data) + ['test' => $test]);
+        // A Slack destination with a signing secret gets interactive buttons (the answer can then be verified); nothing else does.
+        $interactive = $type === ChatFormatter::TYPE_SLACK && function_exists('decryptSetting') && decryptSetting((string) ($row['webhook_secret'] ?? '')) !== '';
+        $payload = ChatFormatter::format($type, $event, $data, self::formatterOptions($data) + ['test' => $test, 'interactive' => $interactive]);
         $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 
         $start = microtime(true);

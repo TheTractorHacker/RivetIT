@@ -106,7 +106,8 @@ if (isset($_POST['add_webhook'])) {
     $webhook_url     = filter_var(trim($_POST['webhook_url']), FILTER_SANITIZE_URL);
     [$webhook_type, $webhook_min_priority, $webhook_client_ids] = webhookChatFields();
     $is_chat         = \ITFlow\Webhooks\ChatFormatter::isChatType($webhook_type);
-    $webhook_secret  = encryptSetting($is_chat ? '' : cleanInput($_POST['webhook_secret'] ?? ''));
+    // Generic: the HMAC secret. Slack: the app's Signing Secret (turns on the interactive buttons). Teams: no secret.
+    $webhook_secret  = encryptSetting($webhook_type === 'teams' ? '' : cleanInput($_POST['webhook_secret'] ?? ''));
     $webhook_enabled = isset($_POST['webhook_enabled']) ? 1 : 0;
     $raw_events      = $_POST['webhook_events'] ?? [];
     $valid_events    = array_intersect($raw_events, $ALL_EVENTS);
@@ -190,8 +191,10 @@ if (isset($_POST['edit_webhook'])) {
         redirect();
     }
 
-    // Rotate secret only if a new one was provided (chat destinations carry no signing secret)
-    $raw_secret = $is_chat ? '' : trim($_POST['webhook_secret'] ?? '');
+    // Rotate secret only if a new one was provided. Teams carries none. A Slack destination keeps its Signing Secret (blank = keep;
+    // the Remove box clears it, which turns the interactive buttons off); switching a generic hook to Slack never inherits its HMAC secret.
+    $raw_secret = $webhook_type === 'teams' ? '' : trim($_POST['webhook_secret'] ?? '');
+    $was_slack  = ($existing_wh['webhook_type'] ?? '') === 'slack';
     $set = "webhook_name = ?, webhook_events = ?, webhook_enabled = ?, webhook_type = ?, webhook_min_priority = ?, webhook_client_ids = ?";
     $types = "ssisss";
     $vals = [$webhook_name, $webhook_events, $webhook_enabled, $webhook_type, $webhook_min_priority, $webhook_client_ids];
@@ -204,7 +207,7 @@ if (isset($_POST['edit_webhook'])) {
         $set .= ", webhook_secret = ?";
         $types .= "s";
         $vals[] = encryptSetting(cleanInput($raw_secret));
-    } elseif ($is_chat) {
+    } elseif ($webhook_type === 'teams' || ($webhook_type === 'slack' && (!$was_slack || isset($_POST['webhook_secret_clear']))) || ($webhook_type === 'generic' && $was_slack)) {
         $set .= ", webhook_secret = ''";
     }
     $types .= "i";
@@ -257,5 +260,38 @@ if (isset($_GET['delete_webhook'])) {
     logAction("Settings", "Webhook", "$session_name deleted webhook $webhook_name");
 
     flash_alert("Webhook <strong>$webhook_name</strong> deleted", 'error');
+    redirect();
+}
+
+// Slack interactive actions: install-wide options (the signing secret itself lives on each Slack destination).
+if (isset($_POST['save_slack_interactive'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    $link_by_email = isset($_POST['config_slack_link_by_email']) ? 1 : 0;
+    $team_id = preg_replace('/[^A-Z0-9]/', '', strtoupper(trim((string) ($_POST['config_slack_team_id'] ?? ''))));
+    $team_id = substr($team_id, 0, 32);
+    $token = trim((string) ($_POST['config_slack_bot_token'] ?? ''));
+
+    $stmt = mysqli_prepare($mysqli, "UPDATE settings SET config_slack_link_by_email = ?, config_slack_team_id = ? WHERE company_id = 1");
+    mysqli_stmt_bind_param($stmt, "is", $link_by_email, $team_id);
+    mysqli_stmt_execute($stmt);
+
+    if (isset($_POST['config_slack_bot_token_clear'])) {
+        mysqli_query($mysqli, "UPDATE settings SET config_slack_bot_token = '' WHERE company_id = 1");
+    } elseif ($token !== '') {
+        if (!preg_match('/^xoxb-[A-Za-z0-9-]{10,200}$/', $token)) {
+            flash_alert("That does not look like a Slack bot token (it starts with xoxb-). Nothing was changed for the token.", 'error');
+            redirect();
+        }
+        $enc = encryptSetting($token);
+        $stmt = mysqli_prepare($mysqli, "UPDATE settings SET config_slack_bot_token = ? WHERE company_id = 1");
+        mysqli_stmt_bind_param($stmt, "s", $enc);
+        mysqli_stmt_execute($stmt);
+    }
+
+    logAction("Settings", "Edit", "$session_name " . ($link_by_email ? "allowed" : "disallowed") . " Slack users to be matched to agents by verified email (Slack interactive actions)");
+
+    flash_alert("Slack interactive settings saved");
     redirect();
 }

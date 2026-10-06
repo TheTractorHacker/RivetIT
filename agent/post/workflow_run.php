@@ -113,6 +113,27 @@ if (isset($_POST['approve_workflow_run_task']) || isset($_POST['reject_workflow_
     redirect("workflow_run.php?run_id=$run_id");
 }
 
+if (isset($_POST['reveal_workflow_task_secret'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('module_client', 2);
+
+    $run_id = intval($_POST['run_id']);
+    $run = loadWorkflowRunOrDie($mysqli, $run_id);
+    $run_task_id = intval($_POST['run_task_id']);
+    $service = workflowServiceForTask($mysqli, $run_id, $run_task_id);
+
+    // Returned once, and only to the technician it was kept for. It goes to the next page view through the session, then is gone.
+    $secret = $service->revealTaskSecret($run_task_id, intval($session_user_id));
+    if ($secret === null) {
+        flash_alert('There is no temporary password for you on that task (it was already shown, has expired, or belongs to someone else)', 'error');
+    } else {
+        $_SESSION['workflow_secret_once'] = ['run_task_id' => $run_task_id, 'secret' => $secret];
+        logAction("Contact", "Edit", "$session_name viewed a temporary Entra password for {$run['contact_name']}", intval($run['contact_client_id']), intval($run['contact_id']));
+    }
+
+    redirect("workflow_run.php?run_id=$run_id");
+}
+
 if (isset($_POST['retry_workflow_run_task'])) {
     validateCSRFToken($_POST['csrf_token']);
     enforceUserPermission('module_client', 2);

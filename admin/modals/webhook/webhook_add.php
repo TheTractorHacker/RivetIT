@@ -24,7 +24,7 @@ ob_start();
         </div>
 
         <div class="form-group">
-            <label>Secret <small class="text-secondary">(generic webhooks only: used for the HMAC-SHA256 signature, blank skips verification)</small></label>
+            <label>Secret <small class="text-secondary">(Generic: HMAC-SHA256 signing secret, blank skips signing. Slack: your Slack app's <em>Signing Secret</em>, optional, turns on the Acknowledge / Assign to me buttons. Teams: not used)</small></label>
             <input type="text" class="form-control font-monospace" name="webhook_secret" placeholder="your-secret-here" autocomplete="off">
         </div>
 

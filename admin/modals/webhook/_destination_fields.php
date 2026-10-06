@@ -12,7 +12,7 @@ $dest_clients = array_map('intval', array_filter(explode(',', (string) ($wh['web
         <option value="slack" <?= $dest_type === 'slack' ? 'selected' : '' ?>>Slack (Incoming Webhook)</option>
         <option value="teams" <?= $dest_type === 'teams' ? 'selected' : '' ?>>Microsoft Teams (Workflows webhook)</option>
     </select>
-    <small class="text-secondary">For Slack and Teams, paste the webhook URL above: it is stored encrypted and never shown again. No secret is needed. See docs/SLACK_TEAMS_SETUP.md.</small>
+    <small class="text-secondary">For Slack and Teams, paste the webhook URL above: it is stored encrypted and never shown again. A Slack Signing Secret is optional (interactive buttons); Teams cards are one-way. See docs/SLACK_TEAMS_SETUP.md.</small>
 </div>
 
 <div class="form-group">
