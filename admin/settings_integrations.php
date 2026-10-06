@@ -76,6 +76,13 @@ $ms_directory_sync_enabled = intval($row_ms['directory_sync_enabled'] ?? 0);
 $ms_last_test_at = $row_ms['last_test_at'] ?? null;
 $ms_last_test_success = $row_ms['last_test_success'] ?? null;
 $ms_last_test_error = nullable_htmlentities($row_ms['last_test_error'] ?? '');
+// What a Graph failure means, in words (codes from ITFlow\Integrations\Microsoft\GraphException).
+$ms_error_labels = [
+    'auth_failed' => 'Sign-in failed', 'consent_missing' => 'Admin consent missing', 'throttled' => 'Throttled by Microsoft',
+    'unreachable' => 'Could not reach Microsoft', 'server_error' => 'Microsoft error', 'tenant_not_applicable' => 'Not available for this tenant',
+    'bad_response' => 'Unexpected response', 'time_limit' => 'Time limit reached', 'other' => 'Error',
+];
+$ms_last_test_error_code = nullable_htmlentities($row_ms['last_test_error_code'] ?? '');
 
 $row_odoo = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM odoo_integrations ORDER BY odoo_integration_id DESC LIMIT 1")) ?: [];
 $odoo_id = intval($row_odoo['odoo_integration_id'] ?? 0);
@@ -500,7 +507,7 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                     <td><?= intval($lr['assets_updated']) ?></td>
                     <td><?= intval($lr['assets_matched']) ?></td>
                     <td><?= intval($lr['assets_skipped']) ?></td>
-                    <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= nullable_htmlentities($lr['errors']) ?></td>
+                    <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<?= nullable_htmlentities($lr['errors']) ?>"><?php if (!empty($lr['error_code'])) { ?><span class="badge text-bg-warning"><?= nullable_htmlentities($ms_error_labels[$lr['error_code']] ?? $lr['error_code']) ?></span> <?php } ?><?= nullable_htmlentities($lr['errors']) ?></td>
                 </tr>
                 <?php endwhile; ?>
                 </tbody>
@@ -1491,7 +1498,7 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
         </div>
         <div class="card-body">
             <?php if ($ms_last_test_error) { ?>
-                <div class="alert alert-danger"><?= $ms_last_test_error ?></div>
+                <div class="alert alert-danger"><?php if ($ms_last_test_error_code !== '') { ?><strong><?= nullable_htmlentities($ms_error_labels[$row_ms['last_test_error_code']] ?? 'Error') ?>.</strong> <?php } ?><?= $ms_last_test_error ?></div>
             <?php } ?>
             <p class="text-muted small">
                 This is the one Microsoft 365 connection <?= htmlspecialchars(APP_NAME) ?> uses - both "Sync users from Entra ID"
@@ -1932,6 +1939,14 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                 - tenant ID, client ID and secret live there as the one source of truth. This just turns Intune
                 device sync on or off against that connection.
             </p>
+            <?php
+            $ms_last_intune = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT status, errors, error_code, started_at FROM intune_sync_log WHERE microsoft_integration_id = $ms_id ORDER BY id DESC LIMIT 1"));
+            if ($ms_last_intune && $ms_last_intune['status'] === 'failed') { ?>
+                <div class="alert alert-danger small">
+                    <strong>Last sync failed<?= !empty($ms_last_intune['error_code']) ? ': ' . nullable_htmlentities($ms_error_labels[$ms_last_intune['error_code']] ?? 'Error') : '' ?>.</strong>
+                    <?= nullable_htmlentities($ms_last_intune['errors']) ?>
+                </div>
+            <?php } ?>
             <form action="post.php" method="post">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <!-- These belong to the Microsoft 365 connection configured on the Directory Sync tab -
@@ -1952,6 +1967,7 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                 <button type="submit" name="save_microsoft_integration" class="btn btn-primary btn-sm"><i class="fas fa-check me-1"></i>Save</button>
                 <?php if ($ms_enabled && $ms_intune_sync_enabled && $ms_has_secret): ?>
                 <button type="submit" name="sync_intune_devices" class="btn btn-success btn-sm"><i class="fas fa-sync me-1"></i>Sync Now</button>
+                <small class="text-muted ms-2">Runs now with a 2 minute limit; the result is shown above and in Recent Intune Syncs.</small>
                 <?php endif; ?>
             </form>
         </div>

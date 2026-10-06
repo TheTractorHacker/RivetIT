@@ -1259,7 +1259,7 @@ if ($config_comet_enabled && !empty($config_comet_server_url)) {
 
 $sql_wq = mysqli_query($mysqli,
     "SELECT wq.queue_id, wq.queue_event, wq.queue_payload, wq.queue_attempts,
-            w.webhook_url, w.webhook_secret
+            w.*
      FROM webhook_queue wq
      JOIN webhooks w ON wq.queue_webhook_id = w.webhook_id
      WHERE wq.queue_status = 'pending'
@@ -1275,6 +1275,16 @@ while ($wq = mysqli_fetch_assoc($sql_wq)) {
     $wq_url      = $wq['webhook_url'];
     $wq_attempts = intval($wq['queue_attempts']) + 1;
     $wq_event    = $wq['queue_event'];
+
+    // Slack / Teams destination: a chat-formatted message (ITFlow\Webhooks\ChatDelivery) with the same retry/backoff below.
+    // The generic signed POST that follows is untouched and skipped for these.
+    $wq_chat = \ITFlow\Webhooks\ChatFormatter::isChatType(\ITFlow\Webhooks\ChatFormatter::normalizeType($wq['webhook_type'] ?? ''));
+    $wq_chat_code = 0;
+    if ($wq_chat) {
+        $wq_decoded = json_decode($wq_payload, true);
+        $wq_res = \ITFlow\Webhooks\ChatDelivery::deliverRow($mysqli, $wq, $wq_event, is_array($wq_decoded) ? (array) ($wq_decoded['data'] ?? []) : [], $wq_attempts);
+        $wq_chat_code = $wq_res['skipped'] ? 204 : intval($wq_res['http_status'] ?? 0);
+    }
 
     $signature = 'sha256=' . hash_hmac('sha256', $wq_payload, $wq_secret);
 
@@ -1293,11 +1303,14 @@ X-RivetIT-Event: $wq_event
         'ignore_errors' => true,
     ]]);
 
-    @file_get_contents($wq_url, false, $ctx);
-
     $resp_code = 0;
-    if (isset($http_response_header) && preg_match('/HTTP\/\S+ (\d+)/', $http_response_header[0], $m)) {
-        $resp_code = intval($m[1]);
+    if ($wq_chat) {
+        $resp_code = $wq_chat_code;
+    } else {
+        @file_get_contents($wq_url, false, $ctx);
+        if (isset($http_response_header) && preg_match('/HTTP\/\S+ (\d+)/', $http_response_header[0], $m)) {
+            $resp_code = intval($m[1]);
+        }
     }
 
     $success = ($resp_code >= 200 && $resp_code < 300);
@@ -1672,22 +1685,14 @@ if ($ms_integration_row) {
     if (empty($ms_integration_row['client_secret_enc'])) {
         logApp("Cron", "error", "Intune sync skipped: Microsoft integration has no client secret saved");
     } else {
-        $ms_graph_client = new \ITFlow\Integrations\Microsoft\GraphClient($ms_integration_row['tenant_id'], $ms_integration_row['client_id'], decryptSetting($ms_integration_row['client_secret_enc']));
-        $ms_intune_mapper = new \ITFlow\Integrations\Microsoft\IntuneAssetMapper($mysqli, $ms_intg_id, 0);
-        $intune_log_id = $ms_intune_mapper->startSyncLog();
-
-        try {
-            $intune_devices = $ms_graph_client->listAllManagedDevices();
-            $intune_stats = $ms_intune_mapper->syncDevices($intune_devices);
-            $ms_intune_mapper->finishSyncLog($intune_log_id, $intune_stats);
-
-            logApp("Cron", "info",
-                "Intune sync: devices {$intune_stats['created']} created, {$intune_stats['updated']} updated, {$intune_stats['matched']} matched, {$intune_stats['skipped']} skipped"
-            );
-        } catch (RuntimeException $e) {
-            mysqli_query($mysqli, "UPDATE intune_sync_log SET finished_at=NOW(), status='failed', errors='" .
-                mysqli_real_escape_string($mysqli, $e->getMessage()) . "' WHERE id=$intune_log_id");
-            logApp("Cron", "error", "Intune sync failed: " . $e->getMessage());
+        // Same service as the Sync Now button: lock, sync log, 120 s time limit, classified errors, shared token cache.
+        $intune_run = \ITFlow\Integrations\Microsoft\IntuneSyncService::run($mysqli, $ms_integration_row, 0, 120);
+        if ($intune_run['locked']) {
+            logApp("Cron", "info", "Intune sync skipped: another run is still in progress");
+        } elseif ($intune_run['stats'] !== null) {
+            logApp("Cron", $intune_run['ok'] ? "info" : "error", $intune_run['message']);
+        } else {
+            logApp("Cron", "error", "Intune sync failed" . ($intune_run['error_code'] ? " [{$intune_run['error_code']}]" : "") . ": " . $intune_run['message']);
         }
     }
 }

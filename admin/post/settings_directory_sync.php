@@ -56,6 +56,11 @@ if (isset($_POST['save_microsoft_integration'])) {
 
     if ($existing) {
         $id = intval($existing['microsoft_integration_id']);
+        // A new secret or a different tenant/client must never reuse the old app's cached access token.
+        $prev_ms = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT tenant_id, client_id FROM microsoft_integrations WHERE microsoft_integration_id = $id"));
+        if ($secret_sql !== '' || ($prev_ms && ($prev_ms['tenant_id'] !== $tenant_id || $prev_ms['client_id'] !== $client_id))) {
+            $secret_sql .= ", token_cache_enc = NULL, token_expires_at = NULL";
+        }
         mysqli_query($mysqli, "UPDATE microsoft_integrations SET tenant_id = '$tenant_id', client_id = '$client_id', enabled = $enabled, intune_sync_enabled = $intune_sync_enabled, directory_sync_enabled = $directory_sync_enabled $secret_sql WHERE microsoft_integration_id = $id");
     } else {
         mysqli_query($mysqli, "INSERT INTO microsoft_integrations SET tenant_id = '$tenant_id', client_id = '$client_id', enabled = $enabled, intune_sync_enabled = $intune_sync_enabled, directory_sync_enabled = $directory_sync_enabled $secret_sql");
@@ -79,16 +84,21 @@ if (isset($_POST['test_microsoft_integration'])) {
         redirect();
     }
 
-    $client = new GraphClient($row['tenant_id'], $row['client_id'], decryptSetting($row['client_secret_enc']));
-    $result = $client->testConnection();
+    // Probe the features that are switched on, so a missing admin consent is reported by permission name.
+    $features = [];
+    if (!empty($row['directory_sync_enabled'])) { $features[] = 'users'; }
+    if (!empty($row['intune_sync_enabled'])) { $features[] = 'devices'; }
+    $client = \ITFlow\Integrations\Microsoft\GraphClientFactory::forRow($mysqli, $row, time() + 60);
+    $result = $client->testConnection($features);
 
     $success = $result->success ? 1 : 0;
     $error_sql = $result->error ? "'" . mysqli_real_escape_string($mysqli, substr($result->error, 0, 500)) . "'" : 'NULL';
-    mysqli_query($mysqli, "UPDATE microsoft_integrations SET last_test_at = NOW(), last_test_success = $success, last_test_error = $error_sql WHERE microsoft_integration_id = $id");
+    $code_sql = !empty($result->details['error_code']) ? "'" . mysqli_real_escape_string($mysqli, (string) $result->details['error_code']) . "'" : 'NULL';
+    mysqli_query($mysqli, "UPDATE microsoft_integrations SET last_test_at = NOW(), last_test_success = $success, last_test_error = $error_sql, last_test_error_code = $code_sql WHERE microsoft_integration_id = $id");
 
     \ITFlow\Audit\AuditService::record('integration.microsoft.test', $session_user_id, 'microsoft_integration', $id, $result->success ? 'success' : 'failed', $result->error);
 
-    flash_alert($result->success ? 'Connection successful' : 'Connection failed: ' . $result->error, $result->success ? 'success' : 'error');
+    flash_alert($result->success ? 'Connection successful' : 'Connection failed: ' . nullable_htmlentities($result->error), $result->success ? 'success' : 'error');
     redirect();
 }
 
@@ -133,7 +143,7 @@ if (isset($_POST['sync_microsoft_directory'])) {
         redirect();
     }
 
-    $client = new GraphClient($row['tenant_id'], $row['client_id'], decryptSetting($row['client_secret_enc']));
+    $client = \ITFlow\Integrations\Microsoft\GraphClientFactory::forRow($mysqli, $row, time() + 180);
     $mapper = new MicrosoftDirectoryMapper($mysqli, $id, $session_user_id);
     $log_id = $mapper->startSyncLog();
 
@@ -189,32 +199,16 @@ if (isset($_POST['sync_intune_devices'])) {
         redirect();
     }
 
-    // Guard against overlapping runs (e.g. this button clicked while the cron
-    // job is mid-sync) - same 60-second running-lock pattern rmm_sync.php uses.
-    $recent = mysqli_fetch_assoc(mysqli_query($mysqli,
-        "SELECT id FROM intune_sync_log WHERE microsoft_integration_id=$id
-         AND started_at > DATE_SUB(NOW(), INTERVAL 60 SECOND) AND status='running' LIMIT 1"
-    ));
-    if ($recent) {
-        flash_alert('A sync is already running. Please wait 60 seconds.', 'error');
-        redirect();
-    }
+    // Same service as cron: overlapping-run lock, sync log, 120 s time limit, classified errors, shared token cache.
+    $run = \ITFlow\Integrations\Microsoft\IntuneSyncService::run($mysqli, $row, $session_user_id, 120);
 
-    $client = new GraphClient($row['tenant_id'], $row['client_id'], decryptSetting($row['client_secret_enc']));
-    $mapper = new IntuneAssetMapper($mysqli, $id, $session_user_id);
-    $log_id = $mapper->startSyncLog();
-
-    try {
-        $devices = $client->listAllManagedDevices();
-        $stats = $mapper->syncDevices($devices);
-        $mapper->finishSyncLog($log_id, $stats);
-
+    if ($run['stats'] !== null) {
+        $stats = $run['stats'];
         logAction("Settings", "Edit", "$session_name synced Intune devices: {$stats['created']} created, {$stats['updated']} updated, {$stats['matched']} matched, {$stats['skipped']} skipped");
-        flash_alert("Intune sync complete: {$stats['created']} created, {$stats['updated']} updated, {$stats['matched']} matched, {$stats['skipped']} skipped");
-    } catch (\RuntimeException $e) {
-        mysqli_query($mysqli, "UPDATE intune_sync_log SET finished_at=NOW(), status='failed', errors='" .
-            mysqli_real_escape_string($mysqli, $e->getMessage()) . "' WHERE id=$log_id");
-        flash_alert($e->getMessage(), 'error');
+        flash_alert(nullable_htmlentities($run['message']), $run['ok'] ? 'success' : 'error');
+    } else {
+        logAction("Settings", "Edit", "$session_name ran an Intune device sync that failed" . ($run['error_code'] ? " ({$run['error_code']})" : ""));
+        flash_alert(nullable_htmlentities($run['message']), 'error');
     }
 
     redirect();

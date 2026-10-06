@@ -6,6 +6,22 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Slack and Microsoft Teams notifications
+
+- **A webhook can now post to Slack or Microsoft Teams.** Administration > Webhooks > Add Webhook has a Destination type (Generic, Slack, Teams). Slack gets a Block Kit message; Teams gets a Workflows (Power Automate) webhook message with an Adaptive Card 1.4 (the classic Office 365 connector format is retired). Each message shows title, priority, client, status and an Open ticket button. Generic webhooks are unchanged.
+- **Routing per destination:** the events it listens to, a minimum ticket priority and an optional client list. A **Send test message** button on the edit dialog sends a clearly labelled message and shows the HTTP result.
+- **Safe by default:** the URL is stored encrypted and never shown or logged; https only, public addresses only (checked on save and again on send, connection pinned, redirects not followed); ticket text is never treated as markup or as @channel / @here / mentions. Delivery goes through the existing job queue and retry schedule, and the Deliveries list shows a Slack or Teams badge.
+- Not included: interactive buttons, slash commands and signing-secret endpoints. See docs/SLACK_TEAMS_SETUP.md. Tested against local mock servers only, not a real Slack workspace or Teams tenant.
+- Database update 2.6.135 (webhook type, priority and client filter columns).
+
+### Entra and Intune sync hardening
+
+- **Microsoft Graph client hardened** (tested against a local mock, not a real tenant): the access token is cached encrypted and refreshed 5 minutes before expiry, 429/503/504 are retried honouring Retry-After (capped), requests time out, paging is bounded (page cap, loop detection, and a page link to another host is refused so the token is never sent elsewhere).
+- **Clear errors:** sign-in failed, admin consent missing (names the permission, for example DeviceManagementManagedDevices.Read.All), throttled, unreachable, not available for this tenant. They show on the Integrations page and in the Intune sync log. Test Connection now lists the permissions granted to the app and probes each enabled feature.
+- **Sync Now** and the cron job share one sync service (one run at a time, a 2 minute limit, same log).
+- New docs/ENTRA_INTUNE_SETUP.md: exactly what a real tenant needs and a first-live-sync checklist. Live-tenant behaviour is unverified.
+- Database update 2.6.135 (token cache and error code columns).
+
 ## [26.10.20] RivetIT — one event bus, Redis guards, Audit trail, SSRF hardening
 
 ### One event bus: queued webhooks, event rules and the job queue (rivet-core 0.15)

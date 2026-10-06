@@ -22,20 +22,23 @@ final class WebhooksTableSubscriptions implements WebhookSubscriptionsInterface,
 
     public function find(int $webhookId): ?WebhookSubscription
     {
-        $r = $this->database->fetchOne('SELECT webhook_id, webhook_url, webhook_secret FROM webhooks WHERE webhook_id = ? AND webhook_enabled = 1', [$webhookId]);
+        $r = $this->database->fetchOne('SELECT * FROM webhooks WHERE webhook_id = ? AND webhook_enabled = 1', [$webhookId]);
 
-        return $r === null ? null : new WebhookSubscription((int) $r['webhook_id'], (string) $r['webhook_url'], decryptSetting((string) $r['webhook_secret']));
+        // Slack / Teams destinations are delivered by ITFlow\Webhooks\ChatDelivery, never by the generic signed POST.
+        return $r === null || ($r['webhook_type'] ?? 'generic') !== 'generic' ? null : new WebhookSubscription((int) $r['webhook_id'], (string) $r['webhook_url'], decryptSetting((string) $r['webhook_secret']));
     }
 
     public function forEvent(string $eventType): array
     {
         $rows = $this->database->fetchAll(
-            "SELECT webhook_id, webhook_url, webhook_secret
+            "SELECT *
              FROM webhooks
              WHERE webhook_enabled = 1
                AND FIND_IN_SET(?, REPLACE(webhook_events, ', ', ','))",
             [$eventType]
         );
+
+        $rows = array_values(array_filter($rows, static fn (array $r) => ($r['webhook_type'] ?? 'generic') === 'generic'));
 
         return array_map(
             static fn (array $r) => new WebhookSubscription((int) $r['webhook_id'], (string) $r['webhook_url'], decryptSetting((string) $r['webhook_secret'])),
