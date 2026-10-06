@@ -4,6 +4,15 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [Unreleased]
+
+### Event rules: a When, If, Then rule builder
+
+- **Rule list** with an instant on/off switch, a plain-English summary of every rule, event group and action badges, last run, a 7-day success/failure sparkline, run counts, search, filters (event group, action, on/off/failing), sort, drag-to-reorder among rules for the same event, Duplicate (as a disabled copy) and a summary strip.
+- **Editor** with four cards (When, If, Then, Settings) and a live summary panel: an event description and its fields, a condition builder with ALL/ANY groups and value pickers, action cards with `{placeholder}` chips and a rendered preview, inline validation, and kept input after a refused save.
+- **Test** and **History** drawers (dry run against a sample or recent event, with a "check against recent events" for conditions; per-rule run history including throttled and loop-blocked rows) and ten **recipes** that prefill the editor.
+- No database change. New: `RuleSummary`, `RuleForm`, `RuleAdmin`, `RuleRecipes`, `js/event_rules.js`, `admin/modals/event_rules_api.php`; tests `tests/rule_summary.php` and `tests/e2e/event_rules_ui.py`.
+
 ## [26.10.23] RivetIT — webhook platforms and event picker, shared date-range picker, SLA event fix, RivetCore 0.21
 
 ### Date ranges

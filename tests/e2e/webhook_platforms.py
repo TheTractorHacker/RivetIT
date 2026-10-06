@@ -146,7 +146,7 @@ check('a platform that cannot verify signatures says so instead of showing snipp
 # ================================================================== events picker markup
 n8n = forms['n8n']
 check('the picker has search, chip area, All events, group container, a fetch URL and a no-JS fallback list', all(x in n8n for x in ['data-ep-search', 'data-ep-chips', 'data-ep-all', 'data-ep-groups', 'data-catalog-url="/modals/event_catalog.php?v=', '<noscript>', 'optgroup']))
-s, rules = req('/admin/event_rules.php')
+s, rules = req('/admin/event_rules.php?new=1')
 check('the event rules trigger uses the same picker in single-select mode', 'data-event-picker' in rules and 'data-mode="single"' in rules and 'name="trigger_event"' in rules, rules[:100])
 css = req('/css/itflow_custom.css')[1]
 check('the picker styles are appended to itflow_custom.css and use theme tokens', '.event-picker' in css and '.ep-chip' in css and 'var(--tblr-border-color' in css)
