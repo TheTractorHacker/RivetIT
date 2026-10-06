@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "fae2cbbc67bea36f6c52d0acfcc9d6f1",
+    "content-hash": "452cd897d24adfe2e6ef61027318b446",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1923,25 +1923,27 @@
         },
         {
             "name": "rivet/rivet-core",
-            "version": "v0.15.1",
+            "version": "v0.17.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/TheTractorHacker/rivet-core",
-                "reference": "b1ec16376289446d117d3db3ab913ae15cee06ad"
+                "reference": "16fb061675111a405e846a584567863069079099"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/TheTractorHacker/rivet-core/zipball/b1ec16376289446d117d3db3ab913ae15cee06ad",
-                "reference": "b1ec16376289446d117d3db3ab913ae15cee06ad",
+                "url": "https://api.github.com/repos/TheTractorHacker/rivet-core/zipball/16fb061675111a405e846a584567863069079099",
+                "reference": "16fb061675111a405e846a584567863069079099",
                 "shasum": ""
             },
             "require": {
                 "guzzlehttp/guzzle": "^7.0 || ^8.0",
                 "php": ">=8.2",
                 "predis/predis": "^3.5",
+                "psr/log": "^3",
                 "psr/simple-cache": "^3.0"
             },
             "require-dev": {
+                "phpstan/phpstan": "^2",
                 "phpunit/phpunit": "^11.5"
             },
             "type": "library",
@@ -1961,6 +1963,9 @@
                 ],
                 "test": [
                     "phpunit"
+                ],
+                "stan": [
+                    "phpstan analyse --no-progress --memory-limit=1G"
                 ]
             },
             "license": [
@@ -1972,7 +1977,7 @@
                 "issues": "https://github.com/TheTractorHacker/rivet-core/issues",
                 "source": "https://github.com/TheTractorHacker/rivet-core"
             },
-            "time": "2026-10-05T20:58:23+00:00"
+            "time": "2026-10-06T00:41:09+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",
@@ -2286,16 +2291,16 @@
         },
         {
             "name": "symfony/polyfill-php80",
-            "version": "v1.37.0",
+            "version": "v1.43.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-php80.git",
-                "reference": "dfb55726c3a76ea3b6459fcfda1ec2d80a682411"
+                "reference": "9c6a5d6b01ca51d486c813e9a9c0ed55f208bb74"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-php80/zipball/dfb55726c3a76ea3b6459fcfda1ec2d80a682411",
-                "reference": "dfb55726c3a76ea3b6459fcfda1ec2d80a682411",
+                "url": "https://api.github.com/repos/symfony/polyfill-php80/zipball/9c6a5d6b01ca51d486c813e9a9c0ed55f208bb74",
+                "reference": "9c6a5d6b01ca51d486c813e9a9c0ed55f208bb74",
                 "shasum": ""
             },
             "require": {
@@ -2346,7 +2351,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-php80/tree/v1.37.0"
+                "source": "https://github.com/symfony/polyfill-php80/tree/v1.43.0"
             },
             "funding": [
                 {
@@ -2366,20 +2371,20 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-04-10T16:19:22+00:00"
+            "time": "2026-09-25T15:50:05+00:00"
         },
         {
             "name": "symfony/polyfill-php82",
-            "version": "v1.38.1",
+            "version": "v1.43.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-php82.git",
-                "reference": "002dc0cfe5fd4ed6033d48f27d4f19a486c4b04b"
+                "reference": "843bbe8b2a7934307b749751eede0f111f5d1cfc"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-php82/zipball/002dc0cfe5fd4ed6033d48f27d4f19a486c4b04b",
-                "reference": "002dc0cfe5fd4ed6033d48f27d4f19a486c4b04b",
+                "url": "https://api.github.com/repos/symfony/polyfill-php82/zipball/843bbe8b2a7934307b749751eede0f111f5d1cfc",
+                "reference": "843bbe8b2a7934307b749751eede0f111f5d1cfc",
                 "shasum": ""
             },
             "require": {
@@ -2426,7 +2431,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-php82/tree/v1.38.1"
+                "source": "https://github.com/symfony/polyfill-php82/tree/v1.43.0"
             },
             "funding": [
                 {
@@ -2446,7 +2451,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-05-26T12:45:58+00:00"
+            "time": "2026-09-25T15:50:05+00:00"
         },
         {
             "name": "symfony/polyfill-uuid",

@@ -166,6 +166,13 @@ $changelog_link = APP_CHANGELOG_URL !== ''
                 <div class="upd-tile-value"><?php if (APP_RELEASES_URL !== '') { ?><a href="<?= htmlspecialchars(APP_RELEASES_URL) ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($latest_version_tag); ?></a><?php } else { echo htmlspecialchars($latest_version_tag); } ?></div>
             </div>
             <div class="upd-tile">
+                <div class="upd-tile-label">RivetCore</div>
+                <div class="upd-tile-value"><?php
+                    // The shared library updates with the app: the pin lives in composer.lock and "composer install" applies it.
+                    echo htmlspecialchars(class_exists(\Composer\InstalledVersions::class) && \Composer\InstalledVersions::isInstalled('rivet/rivet-core') ? (string) \Composer\InstalledVersions::getPrettyVersion('rivet/rivet-core') : 'not installed');
+                ?></div>
+            </div>
+            <div class="upd-tile">
                 <div class="upd-tile-label">Database version</div>
                 <div class="upd-tile-value">
                     <?php echo CURRENT_DATABASE_VERSION; ?>

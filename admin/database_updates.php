@@ -9921,3 +9921,16 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.135'");
     }
+
+    if ($rivetit_db_version() == '2.6.135') {
+        // RivetCore 0.17 adds integration_jobs.heartbeat_at (so a long-running job is not mistaken for a dead one) through its own
+        // migration runner (idempotent). Skipped (version NOT advanced) until the package is present.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Jobs\Migration\Migration0012JobHeartbeat::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.136'");
+        }
+    }
