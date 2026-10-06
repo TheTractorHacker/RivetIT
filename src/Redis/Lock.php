@@ -9,6 +9,8 @@ use RivetCore\Redis\LockManager;
  * Compatibility shim over RivetCore's LockManager; keeps the original static API and key layout
  * (`rivetit:lock:<name>`). FAILS OPEN, as before: if Redis is down - or the rivet-core package is not
  * installed yet (the moment between `git pull` and `composer install`) - the caller may proceed.
+ *
+ * @deprecated since 26.10.26 use \RivetCore\Redis\LockManager (new LockManager(new GlobalRedisClientProvider(), 'rivetit:')). Kept for all of 1.x, removed in 2.0 (docs/DEPRECATIONS.md).
  */
 final class Lock
 {

@@ -11,7 +11,7 @@ use ITFlow\Core\Adapter\Mcp\UsersAgentDirectory;
  * status ok|warn|fail|skip, a short label, and a plain-language detail with the fix. Network access goes
  * through an injected Guzzle client so the checks can be tested without a real identity provider.
  *
- * Compatibility shim over RivetCore\Mcp\McpDiagnostics; the linked-agent count comes from RivetIT's users.
+ * Edition adapter (not deprecated) over RivetCore\Mcp\McpDiagnostics; the linked-agent count comes from RivetIT's users.
  */
 final class McpDiagnostics
 {

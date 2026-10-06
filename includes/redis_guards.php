@@ -91,3 +91,21 @@ function rivetLoginThrottle(string $email, string $ip): int
 
     return $byAccount['allowed'] ? 0 : max(1, (int) $byAccount['retry_after']);
 }
+
+/** Requests per minute allowed for each authenticated REST API token / key / user (Administration > Redis). Default 300. */
+function rivetApiRateLimitPerMinute(?\mysqli $db = null): int
+{
+    $db ??= $GLOBALS['mysqli'] ?? null;
+    if ($db) {
+        try {
+            $res = $db->query('SELECT config_api_rate_limit FROM settings WHERE company_id = 1');
+            $row = $res ? $res->fetch_assoc() : null;
+            $n = (int) ($row['config_api_rate_limit'] ?? 0);
+            if ($n >= 10) {
+                return min($n, 100000);
+            }
+        } catch (\Throwable $e) { /* before the migration: the default applies */ }
+    }
+
+    return 300;
+}

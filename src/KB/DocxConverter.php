@@ -8,6 +8,8 @@ namespace ITFlow\KB;
  *
  * PHP does not autoload a class named in a catch clause, so the matching exception alias is loaded here, with
  * the converter: any code that can call convert() can also `catch (\ITFlow\KB\DocxConversionException $e)`.
+ *
+ * @deprecated since 26.10.26 use \RivetCore\KB\DocxConverter. Kept for all of 1.x, removed in 2.0 (docs/DEPRECATIONS.md).
  */
 class_alias(\RivetCore\KB\DocxConverter::class, __NAMESPACE__ . '\DocxConverter');
 class_exists(__NAMESPACE__ . '\DocxConversionException');

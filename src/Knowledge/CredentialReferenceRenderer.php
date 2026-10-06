@@ -9,7 +9,7 @@ namespace ITFlow\Knowledge;
  * and the stored text keeps the raw token. Clicking the trigger opens agent/modals/credential/credential_view.php
  * through the ajax-modal mechanism, which re-checks module_credential permission and enforceClientAccess().
  *
- * Compatibility shim over RivetCore\Knowledge\CredentialReferenceRenderer; the reveal control is RivetIT's UI.
+ * Edition subclass (not deprecated) of RivetCore\Knowledge\CredentialReferenceRenderer; the reveal control is RivetIT's UI.
  */
 class CredentialReferenceRenderer extends \RivetCore\Knowledge\CredentialReferenceRenderer
 {

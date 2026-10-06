@@ -13,7 +13,7 @@ use RivetCore\Mcp\UnlinkedIdentityStore;
  * instead of copying subject ids by hand. Only tokens that already passed signature, issuer, audience, scope
  * and expiry checks are ever recorded, and linking stays an explicit administrator action.
  *
- * Compatibility shim: the bookkeeping and linking now live in RivetCore\Mcp (UnlinkedIdentityStore,
+ * Edition adapter (not deprecated): the bookkeeping and linking now live in RivetCore\Mcp (UnlinkedIdentityStore,
  * IdentityLinker); the `users` queries stay in RivetIT (Core\Adapter\Mcp\UsersAgentDirectory).
  */
 final class McpIdentityLinks

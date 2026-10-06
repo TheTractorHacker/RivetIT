@@ -10078,3 +10078,18 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.142'");
     }
+
+    if ($rivetit_db_version() == '2.6.142') {
+        // Redis authentication and TLS (Administration > Redis): ACL username, TLS on/off, certificate verification and the CA /
+        // client certificate / client key file paths. The password column already exists and stays encrypted. Environment
+        // variables (RIVETIT_REDIS_*) still win over these. Also the per-minute REST API request cap (was a fixed 300).
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_redis_username` varchar(128) NOT NULL DEFAULT ''");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_redis_tls` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_redis_tls_verify` tinyint(1) NOT NULL DEFAULT 1");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_redis_tls_ca_file` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_redis_tls_cert_file` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_redis_tls_key_file` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_api_rate_limit` int(11) NOT NULL DEFAULT 300");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.143'");
+    }

@@ -10,6 +10,8 @@ use ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter;
  * Evaluation-only: it tells a caller which enabled rules fire; it does not execute them.
  *
  * Compatibility shim over RivetCore\Automation\AutomationRuleEvaluator.
+ *
+ * @deprecated since 26.10.26 use \RivetCore\Automation\AutomationRuleEvaluator (construct it with a \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter). Kept for all of 1.x, removed in 2.0 (docs/DEPRECATIONS.md).
  */
 class AutomationRuleEvaluator
 {

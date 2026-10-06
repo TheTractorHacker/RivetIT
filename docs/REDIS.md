@@ -21,18 +21,20 @@ The Docker image runs its own copy under supervisord on the same port.
 Open **Administration → Maintenance → Redis**. From there you can:
 
 - see whether Redis is connected, its version, uptime, memory use, clients, cache hit rate and whether it saves to disk;
-- change the **host, port, database number and password** (the password is stored encrypted). Saving runs a connection test first and is refused if it fails, unless you tick "Save even if it cannot connect right now";
+- change the **host, port, database number, password, ACL username and TLS** (TLS on/off, CA file, "verify the server certificate", optional client certificate and key). The password is stored encrypted and never shown again. Saving runs a connection test first and is refused if it fails, unless you tick "Save even if it cannot connect right now";
 - set the **memory limit and eviction policy** (`allkeys-lru` is the safe choice). It applies immediately; if Redis cannot save it to its own config file you are shown the two lines to add to `redis.conf`;
 - **clear** rate-limit counters, the MCP discovery cache, or job locks. Only those allowlisted key groups can be cleared, never the whole database.
 
-Where the connection comes from, in order: the `RIVETIT_REDIS_HOST`, `_PORT`, `_PASSWORD` and `_DB` environment variables (PHP-FPM pool `env[...]`, or the shell for cron), then the values saved on that page, then the built-in default `127.0.0.1:6380`. A field set by the environment is shown read-only on the page. Needs database update 2.6.123. Keep Redis on loopback or a private network and never expose it publicly.
+"Test only" and "Test and save" say why a connection failed: a sign-in problem (wrong or missing password/username), a TLS problem (handshake or certificate), Redis not reachable, or settings that are not valid (for example a certificate file that is not readable). Messages never contain the password.
+
+Where the connection comes from, in order: the `RIVETIT_REDIS_HOST`, `_PORT`, `_PASSWORD`, `_DB`, `_USERNAME`, `_TLS`, `_TLS_VERIFY`, `_TLS_CA_FILE`, `_TLS_CERT_FILE` and `_TLS_KEY_FILE` environment variables (PHP-FPM pool `env[...]`, or the shell for cron), then the values saved on that page, then the built-in default `127.0.0.1:6380`. A field set by the environment is shown read-only on the page. The same `KEY=VALUE` lines may be put in `/etc/rivetit/redis.env` (readable by the web server user, e.g. `root:www-data 0640`): web, cron and CLI all read it, which PHP-FPM's cleared environment does not allow. A real environment variable still beats the file, and anything from either is shown as set by the server. Each field is decided on its own, so the environment can set only some of them. Needs database updates 2.6.123 and 2.6.143 (TLS and username). Keep Redis on loopback or a private network and never expose it publicly.
 
 ## What uses it
 
 | Feature | Where | Behaviour when Redis is down |
 | --- | --- | --- |
 | Live ticket, chat and notification push (pub/sub) | `includes/redis_functions.php`, SSE streams | Saves still succeed; the live push is skipped |
-| API rate limiting | `api/v1/includes/api_ratelimit.php` | Allowed |
+| REST API rate limiting (default 300 requests/min per token, set on the Redis page; `429` + `Retry-After`) | `api/v1/includes/api_ratelimit.php` over `rivetRateLimit()` | Allowed |
 | MCP OAuth discovery/JWKS cache | `mcp_server/RedisMetadataCache.php` | Cache miss |
 | MCP per-agent rate limit (60/min) | `src/Redis/RateLimit.php` | Allowed |
 | Job mutex for CLI scripts | `src/Redis/Lock.php`, `CronGuard.php` (used by `cron/integration_worker.php`) | Runs unguarded, as before |

@@ -114,8 +114,8 @@ if (isset($_POST['import_kb_article_docx'])) {
     // it hands back the HTML and the image bytes in memory - so a document that
     // is malformed, oversized or hostile leaves no article and no files behind.
     try {
-        $docx_result = \ITFlow\KB\DocxConverter::convert($docx_file['tmp_name']);
-    } catch (\ITFlow\KB\DocxConversionException $e) {
+        $docx_result = \RivetCore\KB\DocxConverter::convert($docx_file['tmp_name']);
+    } catch (\RivetCore\KB\DocxConversionException $e) {
         flash_alert("Import failed: " . nullable_htmlentities($e->getMessage()), 'error');
         redirect();
     } catch (\Throwable $e) {
@@ -338,8 +338,8 @@ if (isset($_POST['import_kb_article_pdf'])) {
     // it hands back the HTML and the image bytes in memory - so a document that
     // is malformed, oversized or hostile leaves no article and no files behind.
     try {
-        $pdf_result = \ITFlow\KB\PdfConverter::convert($pdf_file['tmp_name']);
-    } catch (\ITFlow\KB\PdfConversionException $e) {
+        $pdf_result = \RivetCore\KB\PdfConverter::convert($pdf_file['tmp_name']);
+    } catch (\RivetCore\KB\PdfConversionException $e) {
         flash_alert("Import failed: " . nullable_htmlentities($e->getMessage()), 'error');
         redirect();
     } catch (\Throwable $e) {

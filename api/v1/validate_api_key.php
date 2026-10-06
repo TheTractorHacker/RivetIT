@@ -118,8 +118,9 @@ if (isset($api_key)) {
             define('FROM_API', true);
         }
         require_once __DIR__ . '/includes/api_ratelimit.php';
-        if (!api_rate_limit('key:' . substr($api_key_hash, 0, 40), 300, 60)) {
+        if (!api_rate_limit('key:' . substr($api_key_hash, 0, 40), rivetApiRateLimitPerMinute($mysqli ?? null), 60)) {
             header("HTTP/1.1 429 Too Many Requests");
+            header('Retry-After: ' . api_rate_limit_retry_after());
             echo json_encode(['success' => 'False', 'message' => 'Rate limit exceeded. Please try again later.']);
             exit();
         }

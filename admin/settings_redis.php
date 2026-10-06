@@ -3,6 +3,8 @@ require_once "includes/inc_all_admin.php";
 
 use ITFlow\Redis\RedisSettings;
 
+require_once __DIR__ . '/../includes/redis_guards.php';
+
 $conn = RedisSettings::resolve($mysqli);
 $stats = null;
 $counts = [];
@@ -16,6 +18,7 @@ try {
     $connect_error = RedisSettings::test($conn)['message'];
 }
 $csrf = $_SESSION['csrf_token'];
+$api_rate_limit = rivetApiRateLimitPerMinute($mysqli);
 $state = $stats ? ['Connected', 'success'] : ['Not connected', 'warning'];
 $uptime = $stats ? ($stats['uptime_seconds'] >= 86400 ? floor($stats['uptime_seconds'] / 86400) . ' days' : ($stats['uptime_seconds'] >= 3600 ? floor($stats['uptime_seconds'] / 3600) . ' hours' : floor($stats['uptime_seconds'] / 60) . ' min')) : '';
 $mem_mb = $stats && $stats['maxmemory'] > 0 ? (int) round($stats['maxmemory'] / 1048576) : 256;
@@ -66,14 +69,61 @@ if ($stats) {
                 <div class="col-md-2">
                     <label class="form-label" for="redis_port">Port</label>
                     <input class="form-control" type="number" min="1" max="65535" id="redis_port" name="redis_port" value="<?= (int) $conn['port'] ?>" <?= $conn['from_env']['port'] ? 'readonly' : '' ?>>
+                    <?php if ($conn['from_env']['port']) { ?><div class="form-text">Set by the server (RIVETIT_REDIS_PORT).</div><?php } ?>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label" for="redis_db">Database</label>
                     <input class="form-control" type="number" min="0" max="15" id="redis_db" name="redis_db" value="<?= (int) $conn['db'] ?>" <?= $conn['from_env']['db'] ? 'readonly' : '' ?>>
+                    <?php if ($conn['from_env']['db']) { ?><div class="form-text">Set by the server (RIVETIT_REDIS_DB).</div><?php } ?>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label" for="redis_password">Password</label>
                     <input class="form-control" type="password" id="redis_password" name="redis_password" autocomplete="new-password" <?= $conn['from_env']['password'] ? 'readonly' : '' ?> placeholder="<?= $conn['from_env']['password'] ? 'Set by the server' : ($conn['has_stored_password'] ? 'Saved. Leave blank to keep' : 'None') ?>">
+                </div>
+            </div>
+            <?php
+            $ro = static fn (string $k) => $conn['from_env'][$k] ? 'readonly' : '';
+            $envnote = static fn (string $k, string $var) => $conn['from_env'][$k] ? '<div class="form-text">Set by the server (' . $var . ').</div>' : '';
+            ?>
+            <div class="row g-3 mt-0">
+                <div class="col-md-4">
+                    <label class="form-label" for="redis_username">Username <span class="text-muted">(ACL, optional)</span></label>
+                    <input class="form-control" id="redis_username" name="redis_username" maxlength="128" autocomplete="off" value="<?= nullable_htmlentities((string) $conn['username']) ?>" <?= $ro('username') ?> placeholder="default">
+                    <?= $envnote('username', 'RIVETIT_REDIS_USERNAME') ?>
+                    <div class="form-text">Needs a password. Leave blank for the classic password-only setup.</div>
+                </div>
+            </div>
+            <div class="border rounded p-3 mt-3">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="redis_tls" name="redis_tls" value="1" <?= $conn['tls'] ? 'checked' : '' ?> <?= $conn['from_env']['tls'] ? 'disabled' : '' ?>>
+                    <label class="form-check-label" for="redis_tls">Encrypt the connection with TLS</label>
+                    <?= $envnote('tls', 'RIVETIT_REDIS_TLS') ?>
+                </div>
+                <div class="row g-3 mt-1">
+                    <div class="col-md-6">
+                        <label class="form-label" for="redis_tls_ca_file">CA certificate file</label>
+                        <input class="form-control" id="redis_tls_ca_file" name="redis_tls_ca_file" maxlength="1024" value="<?= nullable_htmlentities((string) $conn['tls_ca_file']) ?>" <?= $ro('tls_ca_file') ?> placeholder="/etc/ssl/redis/ca.crt">
+                        <?= $envnote('tls_ca_file', 'RIVETIT_REDIS_TLS_CA_FILE') ?>
+                        <div class="form-text">A path on this server. Blank uses the system's trusted authorities.</div>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-center">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="redis_tls_verify" name="redis_tls_verify" value="1" <?= $conn['tls_verify'] ? 'checked' : '' ?> <?= $conn['from_env']['tls_verify'] ? 'disabled' : '' ?>>
+                            <label class="form-check-label" for="redis_tls_verify">Verify the server certificate</label>
+                            <?= $envnote('tls_verify', 'RIVETIT_REDIS_TLS_VERIFY') ?>
+                            <div class="form-text">Turn off only for a short test: without it the connection is encrypted but the server is not checked.</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="redis_tls_cert_file">Client certificate <span class="text-muted">(optional)</span></label>
+                        <input class="form-control" id="redis_tls_cert_file" name="redis_tls_cert_file" maxlength="1024" value="<?= nullable_htmlentities((string) $conn['tls_cert_file']) ?>" <?= $ro('tls_cert_file') ?> placeholder="/etc/ssl/redis/client.crt">
+                        <?= $envnote('tls_cert_file', 'RIVETIT_REDIS_TLS_CERT_FILE') ?>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="redis_tls_key_file">Client key <span class="text-muted">(optional)</span></label>
+                        <input class="form-control" id="redis_tls_key_file" name="redis_tls_key_file" maxlength="1024" value="<?= nullable_htmlentities((string) $conn['tls_key_file']) ?>" <?= $ro('tls_key_file') ?> placeholder="/etc/ssl/redis/client.key">
+                        <?= $envnote('tls_key_file', 'RIVETIT_REDIS_TLS_KEY_FILE') ?>
+                    </div>
                 </div>
             </div>
             <?php if ($conn['has_stored_password'] && !$conn['from_env']['password']) { ?>
@@ -84,11 +134,25 @@ if ($stats) {
                 <button type="submit" name="test_redis_connection" class="btn btn-outline-secondary"><i class="fa fa-vial me-2"></i>Test only</button>
                 <button type="submit" name="save_redis_settings" class="btn btn-primary"><i class="fa fa-check me-2"></i>Test and save</button>
             </div>
-            <div class="form-text mt-2">Saving is refused unless the connection test passes. The password is stored encrypted.</div>
+            <div class="form-text mt-2">Saving is refused unless the connection test passes. The password is stored encrypted and is never shown again. The files must exist on this server and be readable by the web server user.</div>
         </form>
         <?php } ?>
     </div>
 </div>
+
+<?php if ($conn['schema_ready']) { ?>
+<div class="card mb-3">
+    <div class="card-header py-3"><h4 class="card-title mb-0"><i class="fas fa-fw fa-tachometer-alt me-2"></i>REST API rate limit</h4></div>
+    <div class="card-body">
+        <form action="post.php" method="post" class="row g-3 align-items-end">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <div class="col-sm-4"><label class="form-label" for="api_rate_limit">Requests per minute, per token</label><input class="form-control" type="number" min="10" max="100000" id="api_rate_limit" name="api_rate_limit" value="<?= (int) $api_rate_limit ?>"></div>
+            <div class="col-sm-4"><button type="submit" name="save_api_rate_limit" class="btn btn-primary">Save</button></div>
+            <div class="form-text">Over the limit the API answers 429 with a Retry-After header. The counters live in Redis: if Redis is down the limit is not enforced and the API keeps serving.</div>
+        </form>
+    </div>
+</div>
+<?php } ?>
 
 <?php if ($stats) { ?>
 <div class="card mb-3">

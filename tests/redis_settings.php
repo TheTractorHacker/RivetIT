@@ -19,7 +19,7 @@ $db = new mysqli('localhost', getenv('RIVETIT_TEST_DB_USER'), getenv('RIVETIT_TE
 $db->query("SET SESSION sql_mode=''");
 $fail = 0;
 $ok = function (bool $c, string $l) use (&$fail) { echo ($c ? 'PASS' : 'FAIL') . "  $l\n"; if (!$c) $fail++; };
-foreach (['HOST', 'PORT', 'PASSWORD', 'DB'] as $k) putenv("RIVETIT_REDIS_$k");
+foreach (['HOST', 'PORT', 'PASSWORD', 'DB', 'USERNAME', 'TLS', 'TLS_VERIFY', 'TLS_CA_FILE', 'TLS_CERT_FILE', 'TLS_KEY_FILE', 'ENV_FILE'] as $k) putenv("RIVETIT_REDIS_$k");
 
 $open = ['host' => '127.0.0.1', 'port' => 6391, 'password' => null, 'db' => 0];
 $locked = ['host' => '127.0.0.1', 'port' => 6392, 'password' => 's3cret', 'db' => 0];
@@ -39,6 +39,52 @@ $r = RedisSettings::resolve($db);
 $ok($r['port'] === 6500 && $r['password'] === 'envpass' && $r['from_env']['port'] && $r['from_env']['password'] && !$r['from_env']['host'] && $r['host'] === 'redis.internal', 'environment overrides only the fields it sets');
 putenv('RIVETIT_REDIS_PORT'); putenv('RIVETIT_REDIS_PASSWORD');
 $ok(RedisSettings::resolve(null)['host'] === '127.0.0.1', 'no database at all: defaults, no error');
+
+// ---- ACL username and TLS: stored columns (migration 2.6.143), environment wins field by field
+$db->query("UPDATE settings SET config_redis_username='rivet', config_redis_tls=1, config_redis_tls_verify=0, config_redis_tls_ca_file='/etc/ssl/redis/ca.crt', config_redis_tls_cert_file=NULL, config_redis_tls_key_file='' WHERE company_id=1");
+$r = RedisSettings::resolve($db);
+$ok($r['username'] === 'rivet' && $r['tls'] === true && $r['tls_verify'] === false && $r['tls_ca_file'] === '/etc/ssl/redis/ca.crt' && $r['tls_cert_file'] === null && $r['tls_key_file'] === null && !$r['from_env']['tls'], 'stored username / TLS / verify / CA file used; empty cert and key are null');
+putenv('RIVETIT_REDIS_USERNAME=envuser'); putenv('RIVETIT_REDIS_TLS=0'); putenv('RIVETIT_REDIS_TLS_VERIFY=1'); putenv('RIVETIT_REDIS_TLS_CA_FILE=/env/ca.pem');
+$r = RedisSettings::resolve($db);
+$ok($r['username'] === 'envuser' && $r['tls'] === false && $r['tls_verify'] === true && $r['tls_ca_file'] === '/env/ca.pem' && $r['from_env']['username'] && $r['from_env']['tls'] && $r['from_env']['tls_verify'] && $r['from_env']['tls_ca_file'] && !$r['from_env']['tls_cert_file'], 'environment wins for each TLS field it sets (TLS=0 beats a stored 1)');
+$ok($r['stored']['username'] === 'rivet' && $r['stored']['tls'] === true, 'the stored values are still reported for the form');
+putenv('RIVETIT_REDIS_TLS=yes');
+$ok(RedisSettings::resolve($db)['tls'] === true, 'environment boolean "yes" reads as true');
+foreach (['USERNAME', 'TLS', 'TLS_VERIFY', 'TLS_CA_FILE'] as $k) putenv("RIVETIT_REDIS_$k");
+$db->query("UPDATE settings SET config_redis_username='', config_redis_tls=0, config_redis_tls_verify=1, config_redis_tls_ca_file=NULL WHERE company_id=1");
+$r = RedisSettings::resolve($db);
+$ok($r['username'] === null && $r['tls'] === false && $r['tls_verify'] === true && $r['tls_ca_file'] === null, 'cleared columns resolve to no username, TLS off, verify on');
+
+// ---- the server-wide file (/etc/rivetit/redis.env): read like environment variables, real environment wins over it
+$envf = tempnam(sys_get_temp_dir(), 'redisenv');
+file_put_contents($envf, "# comment\nRIVETIT_REDIS_HOST=file.example\nexport RIVETIT_REDIS_PORT=6401\nRIVETIT_REDIS_PASSWORD=\"fil e-pass\"\nRIVETIT_REDIS_USERNAME='fileuser'\nRIVETIT_REDIS_TLS=1\nRIVETIT_REDIS_TLS_CA_FILE=/file/ca.crt\nOTHER_KEY=ignored\nRIVETIT_REDIS_DB=\n");
+putenv('RIVETIT_REDIS_ENV_FILE=' . $envf);
+$r = RedisSettings::resolve($db);
+$ok($r['host'] === 'file.example' && $r['port'] === 6401 && $r['password'] === 'fil e-pass' && $r['username'] === 'fileuser' && $r['tls'] === true && $r['tls_ca_file'] === '/file/ca.crt' && $r['from_env']['host'] && $r['from_env']['tls'] && !$r['from_env']['db'], 'file values are used and marked as set by the server; blank and foreign keys ignored');
+putenv('RIVETIT_REDIS_PORT=6500');
+$ok(RedisSettings::resolve($db)['port'] === 6500 && RedisSettings::resolve($db)['host'] === 'file.example', 'a real environment variable beats the file, field by field');
+putenv('RIVETIT_REDIS_PORT');
+putenv('RIVETIT_REDIS_ENV_FILE=/nonexistent/redis.env');
+$ok(RedisSettings::resolve($db)['host'] !== 'file.example' && RedisSettings::fileValues() === [], 'a missing file is simply no values');
+putenv('RIVETIT_REDIS_ENV_FILE'); @unlink($envf);
+
+// ---- full validation (RedisConnectionConfig::validate)
+$base = ['host' => '127.0.0.1', 'port' => 6379, 'db' => 0, 'password' => 'x'];
+$ok(RedisSettings::validateParams($base) === null, 'validateParams: plain settings accepted');
+$ok(RedisSettings::validateParams(['username' => 'u', 'password' => null] + $base) !== null, 'validateParams: a username needs a password');
+$ok(RedisSettings::validateParams(['username' => 'bad user!'] + $base) !== null, 'validateParams: odd characters in the username refused');
+$ok(RedisSettings::validateParams(['tls_ca_file' => '/x'] + $base) !== null, 'validateParams: a CA file without TLS refused');
+$ok(RedisSettings::validateParams(['tls' => true, 'tls_ca_file' => '/nonexistent/ca'] + $base, true) !== null && RedisSettings::validateParams(['tls' => true, 'tls_ca_file' => '/nonexistent/ca'] + $base, false) === null, 'validateParams: missing files refused only when files are checked');
+$ok(RedisSettings::validateParams(['tls' => true, 'tls_key_file' => __FILE__] + $base, true) !== null, 'validateParams: a client key needs a certificate');
+$ok(RedisSettings::validateParams(['tls' => true, 'tls_ca_file' => 'https://evil/ca'] + $base) !== null, 'validateParams: a URL is not a file path');
+$t = RedisSettings::test(['username' => 'u', 'password' => 'p', 'tls' => true, 'tls_ca_file' => '/nonexistent'] + $locked);
+$ok(!$t['ok'] && $t['reason'] === 'invalid' && !str_contains(json_encode($t), 'p"'), 'test: reason "invalid" for an unreadable CA file');
+$t = RedisSettings::test(['tls' => true, 'tls_verify' => false] + $open);
+$ok(!$t['ok'] && in_array($t['reason'], ['tls', 'unreachable'], true), 'test: TLS against a plain server fails with a tls/unreachable reason');
+$t = RedisSettings::test($bad = ['host' => '127.0.0.1', 'port' => 6399, 'password' => null, 'db' => 0]);
+$ok($t['reason'] === 'unreachable', 'test: reason "unreachable" when nothing listens');
+$t = RedisSettings::test(['password' => null] + $locked);
+$ok($t['reason'] === 'auth', 'test: reason "auth" when a password is needed');
 
 // ---- validate
 $ok(RedisSettings::validate('127.0.0.1', 6379, 0, '') === null && RedisSettings::validate('redis.internal', 6379, 3, 'x') === null && RedisSettings::validate('::1', 6379, 0, '') === null, 'valid host, ipv4, ipv6 accepted');

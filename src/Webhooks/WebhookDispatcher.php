@@ -13,6 +13,8 @@ use RivetCore\Support\SystemClock;
  *
  * Compatibility shim over RivetCore\Webhooks\WebhookDispatcher. X-ITFlow-* are the header names existing
  * receivers verify: keep them. X-RivetIT-* carry the same values so new receivers can use the product's name.
+ *
+ * @deprecated since 26.10.26 use \RivetCore\Webhooks\WebhookDispatcher (the shim wires the mysqli adapter, WebhooksTableSubscriptions, SystemClock and the X-ITFlow/X-RivetIT header prefixes). Kept for all of 1.x, removed in 2.0 (docs/DEPRECATIONS.md).
  */
 class WebhookDispatcher
 {

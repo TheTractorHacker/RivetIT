@@ -9,7 +9,7 @@ use RivetCore\Support\ArraySettings;
  * issuer and audience live in `settings`). The RIVETIT_MCP_ISSUER / RIVETIT_MCP_AUDIENCE environment
  * variables still win when set, and RIVETIT_MCP_ENABLED=0 is a hard off switch that no setting can undo.
  *
- * Compatibility shim: the resolution logic now lives in RivetCore\Mcp\McpConfig; this reads the `settings`
+ * Edition adapter (not deprecated): the resolution logic now lives in RivetCore\Mcp\McpConfig; this reads the `settings`
  * row and maps its columns onto Core's setting keys.
  */
 final class McpConfig

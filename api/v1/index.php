@@ -83,7 +83,7 @@ if ($resource === 'auth') {
     // Redis is down). auth.php also enforces a per-user failed-login lockout.
     $auth_ip = getIP();
     if (!api_rate_limit('auth_ip:' . $auth_ip, 30, 60)) {
-        header('Retry-After: 60');
+        header('Retry-After: ' . api_rate_limit_retry_after());
         api_error(429, 'Rate limit exceeded');
     }
     require __DIR__ . '/auth.php';
@@ -99,7 +99,7 @@ if ($resource === 'auth') {
 // fetches the same public OpenAPI spec used by integrations.
 if ($resource === 'openapi' || $resource === 'docs') {
     if (!api_rate_limit('docs_ip:' . getIP(), 60, 60)) {
-        header('Retry-After: 60');
+        header('Retry-After: ' . api_rate_limit_retry_after());
         api_error(429, 'Rate limit exceeded');
     }
     if ($method !== 'GET') api_error(405, 'Method not allowed');
@@ -270,8 +270,8 @@ if (!$is_sse_stream) {
     } else {
         $rl_bucket = 'usr:' . intval($api_user_id);
     }
-    if (!api_rate_limit($rl_bucket, 300, 60)) {
-        header('Retry-After: 60');
+    if (!api_rate_limit($rl_bucket, rivetApiRateLimitPerMinute($mysqli), 60)) {
+        header('Retry-After: ' . api_rate_limit_retry_after());
         api_error(429, 'Rate limit exceeded');
     }
 }

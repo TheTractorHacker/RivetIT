@@ -8,6 +8,8 @@ use RivetCore\Redis\RateLimiter;
 /**
  * Compatibility shim over RivetCore's RateLimiter; same static API and key layout (`rivetit:rl:<bucket>`).
  * Fails open (allowed) if Redis - or the rivet-core package - is unavailable.
+ *
+ * @deprecated since 26.10.26 use \RivetCore\Redis\RateLimiter (new RateLimiter(new GlobalRedisClientProvider(), 'rivetit:')). Kept for all of 1.x, removed in 2.0 (docs/DEPRECATIONS.md).
  */
 final class RateLimit
 {
