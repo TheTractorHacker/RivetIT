@@ -17,7 +17,8 @@ if (isset($_POST['add_service_catalog_item'])) {
 
     $name = sanitizeInput($_POST['name']);
     $description = sanitizeInput($_POST['description'] ?? '');
-    $icon = preg_replace("/[^0-9a-zA-Z-]/", "", sanitizeInput($_POST['icon'] ?? ''));
+    // Canonical 'fa-xxx' class (same shape the mobile API returns); '' = no icon (NULL).
+    $icon = \RivetCore\Ui\IconCatalog::normalize($_POST['icon'] ?? '', '');
     $ticket_subject_template = sanitizeInput($_POST['ticket_subject_template']);
     $ticket_category_id = intval($_POST['ticket_category_id'] ?? 0);
     $default_priority = service_catalog_priority_or_null($_POST['default_priority'] ?? '');
@@ -58,7 +59,8 @@ if (isset($_POST['edit_service_catalog_item'])) {
 
     $name = sanitizeInput($_POST['name']);
     $description = sanitizeInput($_POST['description'] ?? '');
-    $icon = preg_replace("/[^0-9a-zA-Z-]/", "", sanitizeInput($_POST['icon'] ?? ''));
+    // Canonical 'fa-xxx' class (same shape the mobile API returns); '' = no icon (NULL).
+    $icon = \RivetCore\Ui\IconCatalog::normalize($_POST['icon'] ?? '', '');
     $ticket_subject_template = sanitizeInput($_POST['ticket_subject_template']);
     $ticket_category_id = intval($_POST['ticket_category_id'] ?? 0);
     $default_priority = service_catalog_priority_or_null($_POST['default_priority'] ?? '');

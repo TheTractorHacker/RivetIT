@@ -1,6 +1,7 @@
 <?php
 
 require_once '../../../includes/modal_header.php';
+require_once __DIR__ . '/../../../includes/icon_picker.php';
 require_once __DIR__ . '/../../includes/ticket_view_filters.php';
 
 $ticket_saved_view_id = intval($_GET['id']);
@@ -29,8 +30,7 @@ ob_start();
 
         <div class="form-group">
             <label>Icon</label>
-            <input type="text" class="form-control" name="icon" maxlength="50" value="<?= nullable_htmlentities($view['ticket_saved_view_icon']) ?>" placeholder="fa-filter">
-            <small class="form-text text-muted">A Font Awesome icon class, e.g. <code>fa-fire</code>, <code>fa-star</code>, <code>fa-truck</code>.</small>
+            <?php iconPickerField('icon', (string) $view['ticket_saved_view_icon'], 'fa-filter'); ?>
         </div>
 
         <hr>

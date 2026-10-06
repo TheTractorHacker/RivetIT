@@ -13,7 +13,7 @@ if (isset($_POST['add_ticket_saved_view'])) {
     enforceUserPermission('module_support', 2);
 
     $name = sanitizeInput($_POST['name']);
-    $icon = sanitizeInput($_POST['icon'] ?: 'fa-filter');
+    $icon = sanitizeInput(\RivetCore\Ui\IconCatalog::normalize($_POST['icon'] ?? '', 'fa-filter'));
     // The filter form (validated, whitelisted) when present; otherwise the raw current-filters query as before.
     $query = isset($_POST['filters_present'])
         ? mysqli_real_escape_string($mysqli, ticketViewQueryFromPost($mysqli, $_POST))
@@ -48,7 +48,7 @@ if (isset($_POST['edit_ticket_saved_view'])) {
 
     $ticket_saved_view_id = intval($_POST['ticket_saved_view_id']);
     $name = sanitizeInput($_POST['name']);
-    $icon = sanitizeInput($_POST['icon'] ?: 'fa-filter');
+    $icon = sanitizeInput(\RivetCore\Ui\IconCatalog::normalize($_POST['icon'] ?? '', 'fa-filter'));
 
     $owner_query = (lookupUserPermission("module_support") === 3)
         ? "(ticket_saved_view_user_id = 0 OR ticket_saved_view_user_id = $session_user_id)"

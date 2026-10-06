@@ -165,6 +165,7 @@ function itflow_modal_permission_map(): array {
         // /modals/*.php (outside agent/)
         'root' => [
             'notifications.php' => [],   // the signed-in user's own notifications
+            'icon_catalog.php'  => [],   // static icon list for the shared icon picker
         ],
     ];
 }

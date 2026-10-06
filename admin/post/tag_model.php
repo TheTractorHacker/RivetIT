@@ -7,4 +7,5 @@ $name = sanitizeInput($_POST['name']);
 // applied to records would be confusing), so edit_tag never sends it.
 $type = intval($_POST['type'] ?? 0);
 $color = sanitizeInput($_POST['color']);
-$icon = preg_replace("/[^0-9a-zA-Z-]/", "", sanitizeInput($_POST['icon']));
+// Stored without the 'fa-' prefix (templates render fa-fw fa-$icon); '' = default icon.
+$icon = preg_replace('/^fa-/', '', \RivetCore\Ui\IconCatalog::normalize($_POST['icon'] ?? '', ''));

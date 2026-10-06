@@ -1,6 +1,7 @@
 <?php
 
 require_once '../../../includes/modal_header.php';
+require_once __DIR__ . '/../../../includes/icon_picker.php';
 
 ob_start();
 
@@ -34,13 +35,8 @@ ob_start();
         <div class="row">
             <div class="col">
                 <div class="form-group">
-                    <label>Icon <small class="text-secondary">(Font Awesome class, e.g. fa-laptop)</small></label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-icons"></i></span>
-                        </div>
-                        <input type="text" class="form-control" name="icon" placeholder="fa-laptop" maxlength="100">
-                    </div>
+                    <label>Icon</label>
+                    <?php iconPickerField('icon', '', 'fa-ticket-alt'); ?>
                 </div>
             </div>
             <div class="col">
