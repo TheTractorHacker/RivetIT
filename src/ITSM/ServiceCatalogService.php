@@ -457,11 +457,25 @@ class ServiceCatalogService
         if ($final === 'approved') {
             $this->releaseTicket(intval($req['ticket_id']));
             $this->notifyOutcome($req, true, '');
+            $this->emitDecision($req, 'catalog.request_approved', $userId, '');
         } elseif ($final === 'rejected') {
             $this->closeRejected(intval($req['ticket_id']), $comment, intval($userId));
             $this->notifyOutcome($req, false, $comment);
+            $this->emitDecision($req, 'catalog.request_rejected', $userId, $comment);
         }
         return ['ok' => true, 'error' => null, 'status' => $final ?? 'pending_approval'];
+    }
+
+    /** Puts the final decision on the event bus (webhooks and event rules); never throws, never blocks the decision. */
+    private function emitDecision(array $req, string $event, ?int $userId, string $reason): void
+    {
+        try {
+            require_once dirname(__DIR__, 2) . '/includes/event_bus.php';
+            \rivetEmitEvent($event, ['request_id' => intval($req['request_id']), 'ticket_id' => intval($req['ticket_id']), 'client_id' => intval($req['client_id']), 'contact_id' => intval($req['contact_id']),
+                'catalog_item_id' => intval($req['catalog_item_id'] ?? 0), 'decided_by_user_id' => $userId ? intval($userId) : 0, 'reason' => $reason]);
+        } catch (\Throwable $e) {
+            error_log('catalog decision event skipped: ' . $e->getMessage());
+        }
     }
 
     /**

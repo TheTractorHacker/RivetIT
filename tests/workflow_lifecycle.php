@@ -208,7 +208,7 @@ $mail = array_values(array_filter($gw->calls, fn($c) => $c[0] === 'mail'))[0] ??
 $ok($mail && $mail[1] === 'erin@emp.test' && $mail[3] === "Welcome Erin O'Hire" && str_contains($mail[4], "Erin O&#039;Hire") && str_contains($mail[4], '2030-03-10') && str_contains($mail[4], '<br'), 'mail is templated, addressed to the employee, body escaped, subject plain');
 $tk = array_values(array_filter($gw->calls, fn($c) => $c[0] === 'ticket'))[0] ?? null;
 $ok($tk && $tk[1] === "Set up Erin O'Hire" && $tk[3] === 'High' && $tk[4] === 900 && str_contains($tk[2], 'Test Dept'), 'ticket action uses the department and priority');
-$ev = array_values(array_filter($gw->calls, fn($c) => $c[0] === 'event'))[0] ?? null;
+$ev = array_values(array_filter($gw->calls, fn($c) => $c[0] === 'event' && $c[1] !== 'workflow.task_completed'))[0] ?? null; // task completions are events too (automation engine)
 $ok($ev && $ev[1] === 'workflow.hired_hook' && $ev[2]['contact_id'] === 901, 'webhook action emits the configured event on the bus (no URL in the task)');
 $ok((int) $one("SELECT COUNT(*) FROM workflow_task_log WHERE run_id = $run AND event = 'action_ok'") === 4 && $gw->count('audit') >= 4, 'each execution is in workflow_task_log and the audit trail');
 $ok($rt['Welcome mail']['attempts'] == 1 && $rt['Welcome mail']['last_error'] === null, 'attempt counter is 1 on first-time success');

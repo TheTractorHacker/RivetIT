@@ -9934,3 +9934,42 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.136'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.138') {
+        // Automation engine: priority / stop-on-first-match / per-rule rate limit / round-robin cursor on event rules, the five new
+        // actions in the action_type enum, a per-run log (automation_rule_runs), SLA once-only markers (automation_sla_marks) and the
+        // "Enable automation rules" switch (default ON, so installs behave as before). Every statement is idempotent.
+        if (mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'automation_rules'")) > 0) {
+            mysqli_query($mysqli, "ALTER TABLE `automation_rules` MODIFY COLUMN `action_type` enum('create_ticket','send_webhook','notify_user','start_workflow','set_ticket_field','add_ticket_note','assign_ticket','send_mail','create_task') NOT NULL");
+            mysqli_query($mysqli, "ALTER TABLE `automation_rules` ADD COLUMN IF NOT EXISTS `priority` int(11) NOT NULL DEFAULT 100");
+            mysqli_query($mysqli, "ALTER TABLE `automation_rules` ADD COLUMN IF NOT EXISTS `stop_on_match` tinyint(1) NOT NULL DEFAULT 0");
+            mysqli_query($mysqli, "ALTER TABLE `automation_rules` ADD COLUMN IF NOT EXISTS `rate_limit_per_min` int(11) NOT NULL DEFAULT 30");
+            mysqli_query($mysqli, "ALTER TABLE `automation_rules` ADD COLUMN IF NOT EXISTS `rr_cursor` int(11) NOT NULL DEFAULT 0");
+        }
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `automation_rule_runs` (
+            `run_id` bigint(20) NOT NULL AUTO_INCREMENT,
+            `rule_id` int(11) NOT NULL,
+            `event_type` varchar(150) NOT NULL,
+            `matched` tinyint(1) NOT NULL DEFAULT 1,
+            `status` varchar(20) NOT NULL,
+            `actions_json` text DEFAULT NULL,
+            `message` varchar(500) DEFAULT NULL,
+            `duration_ms` int(11) NOT NULL DEFAULT 0,
+            `chain_id` varchar(32) DEFAULT NULL,
+            `chain_depth` tinyint(4) NOT NULL DEFAULT 0,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`run_id`),
+            KEY `idx_automation_runs_rule` (`rule_id`, `created_at`),
+            KEY `idx_automation_runs_created` (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `automation_sla_marks` (
+            `ticket_id` int(11) NOT NULL,
+            `kind` varchar(30) NOT NULL,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`ticket_id`, `kind`),
+            KEY `idx_automation_sla_marks_created` (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_automation_enabled` tinyint(1) NOT NULL DEFAULT 1");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.139'");
+    }
