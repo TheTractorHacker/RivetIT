@@ -6,6 +6,18 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.22] RivetIT — employee portal, reporting and dashboards, automation engine, mobile API and gap closures
+
+Database migrations 2.6.137 to 2.6.141 apply with **Update Database**. Requires rivet-core 0.18.1 (`composer install --no-dev`; the in-app Update and `deploy/update.sh` do this). Fresh installs: `db.sql` now matches the migrated schema.
+
+### Webhooks to internal networks
+
+- **Administration > Webhooks > Internal network access.** Webhooks (and the event-rule webhook action) refuse private, loopback and link-local addresses by default. An administrator can now list the internal networks they may reach; empty keeps public addresses only. Database migration 2.6.141 adds `config_webhook_allowed_networks`. Upgraded to rivet-core 0.18.1.
+
+### Database structure (`db.sql`)
+
+- `db.sql` now matches the migrated schema: the columns, enum values and indexes later migrations added to 12 tables, and 6 tables that were missing (the compliance tables and `mcp_unlinked_identities`). Administration > Debug > Database Structure Comparison no longer reports them on a fresh install.
+
 ### Employee self-service portal
 
 - **Employee home.** A department portal login that is not a primary or technical contact now lands on a home page with a "What do you need?" search over the service catalog (with Popular and Recent), **My open requests**, **My devices**, **Waiting on me** (for managers), **My onboarding/offboarding checklist** (only when they have a run; read-only, no internal instructions) and **My training due** (when Training is on). Department administrators keep their existing home page and get the same extra sections below it. Administrators can switch each section off under Settings > Employee portal.
