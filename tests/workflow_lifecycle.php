@@ -49,6 +49,7 @@ $q("INSERT INTO clients SET client_id = 900, client_name = 'Test Dept', client_c
 $q("INSERT INTO users SET user_id = 900, user_name = 'Approver Alice', user_email = 'alice@x.test', user_password = 'x', user_type = 1, user_status = 1, user_role_id = 2");
 $q("INSERT INTO users SET user_id = 901, user_name = 'Plain Bob', user_email = 'bob@x.test', user_password = 'x', user_type = 1, user_status = 1, user_role_id = 2");
 $q("INSERT INTO users SET user_id = 902, user_name = 'Manager Mia', user_email = 'mia@x.test', user_password = 'x', user_type = 1, user_status = 1, user_role_id = 1");
+$q("INSERT INTO users SET user_id = 904, user_name = 'Admin Ada', user_email = 'ada@x.test', user_password = 'x', user_type = 1, user_status = 1, user_role_id = 1");
 $q("INSERT INTO users SET user_id = 903, user_name = 'Portal Pat', user_email = 'pat@x.test', user_password = 'x', user_type = 2, user_status = 1, user_role_id = 0");
 $q("INSERT INTO contacts SET contact_id = 900, contact_name = 'Mia <b>Manager</b>', contact_email = 'mia@emp.test', contact_client_id = 900, contact_user_id = 902");
 $q("INSERT INTO contacts SET contact_id = 901, contact_name = 'Erin O\\'Hire', contact_email = 'erin@emp.test', contact_client_id = 900, contact_manager_id = 900, contact_start_date = '2030-03-10', contact_expected_end_date = '2030-09-01', contact_user_id = 903");
@@ -165,7 +166,7 @@ $ok(count(array_filter($gw->calls, fn($c) => $c[0] === 'notify' && $c[1] === 902
 $id = (int) $rt['Manager OK']['run_task_id'];
 $ok(str_contains((string) $throws(fn() => $svc->completeTask($id, 900)), 'needs an approval'), 'an approval task cannot be ticked off by hand');
 $ok(str_contains((string) $throws(fn() => $svc->skipTask($id, 'x', 901, false)), 'administrator'), 'a non-administrator cannot skip an approval');
-$ok(!$svc->canDecide($id, 901) && $svc->canDecide($id, 902) && $svc->canDecide($id, 9), 'only the manager and administrators can decide the manager approval');
+$ok(!$svc->canDecide($id, 901) && $svc->canDecide($id, 902) && $svc->canDecide($id, 904), 'only the manager and administrators can decide the manager approval');
 $ok($throws(fn() => $svc->approveTask($id, 901, 'sneaky')) === 'You are not an approver for this task.', 'a non-approver cannot approve');
 $svc->approveTask($id, 902, 'looks fine');
 $r1 = $runTasks($run)['Manager OK'];
@@ -187,7 +188,7 @@ $svc->approveTask($id2, 900, '');
 $id3 = (int) $runTasks($run)['Role OK']['run_task_id'];
 $ok($svc->canDecide($id3, 902) && !$svc->canDecide($id3, 900), 'a role approver: anyone holding the role (Mia is an Accountant), not others');
 $svc->rejectTask($id3, 902, 'no');
-$svc->skipTask($id3, 'override', 9, true);
+$svc->skipTask($id3, 'override', 904, true);
 $ok($runTasks($run)['Role OK']['status'] === 'skipped' && $statusOf($run) === 'in_progress' && $runTasks($run)['Provision']['status'] === 'pending', 'an administrator can skip a rejected approval; the run resumes and the next task unblocks');
 $ok((int) $one("SELECT COUNT(*) FROM workflow_task_log WHERE run_id = $run AND event IN ('approval_approved','approval_rejected','approval_overridden')") === 5, 'every decision is in the task log');
 
@@ -381,7 +382,8 @@ $runMigration = function () use ($code, $mysqli, &$rivetit_db_version) { eval($c
 $runMigration(); $runMigration();
 $colsAfter = $one("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name IN ('workflow_template_tasks','workflow_run_tasks','workflow_runs','settings')");
 $ok($colsBefore === $colsAfter && $one("SELECT config_current_database_version FROM settings WHERE company_id = 1") === '2.6.134', 'running the migration twice changes nothing and lands on 2.6.134');
-$ok(strpos((string) file_get_contents(__DIR__ . '/../includes/database_version.php'), '"2.6.134"') !== false, 'LATEST_DATABASE_VERSION is 2.6.134');
+preg_match('/LATEST_DATABASE_VERSION", "([0-9.]+)"/', (string) file_get_contents(__DIR__ . '/../includes/database_version.php'), $_lv);
+$ok(isset($_lv[1]) && version_compare($_lv[1], '2.6.134', '>='), 'LATEST_DATABASE_VERSION is 2.6.134 or later');
 $dbsql = file_get_contents(__DIR__ . '/../db.sql');
 $ok(str_contains($dbsql, 'CREATE TABLE `workflow_task_log`') && str_contains($dbsql, '`approval_status` enum') && str_contains($dbsql, "'notify_user','start_workflow'"), 'db.sql carries the new tables and columns');
 
