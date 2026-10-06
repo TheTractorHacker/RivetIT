@@ -28,13 +28,21 @@ if ($method === 'GET') {
          ORDER BY notification_timestamp DESC LIMIT $limit OFFSET $offset"
     );
     while ($row = mysqli_fetch_assoc($sql)) {
-        $notifs[] = [
+        $item = [
             'id'        => intval($row['notification_id']),
             'type'      => $row['notification_type'],
             'message'   => $row['notification'],
             'action'    => $row['notification_action'],
             'timestamp' => $row['notification_timestamp'],
         ];
+        // An approval REQUEST is routed by the app on type "approval" (+ kind and the approval id), the same values the push carries.
+        $approval_route = approvalRouteFromAction($row['notification_action']);
+        if ($approval_route) {
+            $item['type'] = 'approval';
+            $item['kind'] = $approval_route['kind'];
+            $item['ref_id'] = $approval_route['id'];
+        }
+        $notifs[] = $item;
     }
     api_response(200, ['data' => $notifs, 'total' => $total]);
 }

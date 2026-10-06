@@ -221,6 +221,8 @@ if ($method === 'GET' && $id !== null && $sub === null) {
         'due_at'       => $ticket['ticket_due_at'],
         'resolved_at'  => $ticket['ticket_resolved_at'],
         'attachments'  => $ticket_attachments,
+        'attachments_count' => intval(mysqli_fetch_assoc(mysqli_query($mysqli,
+            "SELECT COUNT(*) AS c FROM ticket_attachments WHERE ticket_attachment_ticket_id = $id"))['c']),
         'replies'      => $replies,
     ]);
 }

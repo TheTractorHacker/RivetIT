@@ -6,6 +6,12 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Mobile API: approvals, catalog requests, workflow tasks, attachments
+
+- New API v1 endpoints for the Android app, all needing a user token (module-only logins get 403): `GET/POST /api/v1/approvals.php` (approvals the caller may decide now, and approve/reject through the same service methods as the web pages), `GET/POST /api/v1/service_catalog.php` (active items with their request forms; raise a ticket with server-side validation identical to the web form), `GET/POST /api/v1/workflow_tasks.php` (open onboarding/offboarding checklist tasks; complete or skip with the web rules, including the department access check on the task's run) and `GET/POST /api/v1/ticket_attachments.php` (list, download and upload with the web upload allow-list plus content sniffing, a random stored name and `no-store`/`nosniff` download headers).
+- Approval requests now carry their id: the in-app notification action is `/agent/service_catalog_approvals.php?request_id=N` or `workflow_run.php?run_id=R&approval_task=N` (the web pages ignore the extra parameter), the push payload carries `type: approval`, `kind` and `id`, and `GET /api/v1/notifications` reports such entries as `type: approval` with `kind` and `ref_id`. Who is notified is unchanged.
+- `GET /api/v1/tickets/{id}` includes `attachments_count`. No database change. See docs/MOBILE_API.md and `tests/mobile_api.php`.
+
 ## [26.10.21] RivetIT — RivetCore 0.17.1, service catalog approvals, employee workflow depth, Slack/Teams notifications, installer hardening
 
 ### Installer

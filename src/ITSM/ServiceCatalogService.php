@@ -699,7 +699,7 @@ class ServiceCatalogService
         foreach ($approvers as $a) {
             if ($a['user']) {
                 if (function_exists('notifyUser')) {
-                    notifyUser($a['user'], 'Ticket', "Approval needed: $label", '/agent/service_catalog_approvals.php', intval($req['client_id']), $ticketId);
+                    notifyUser($a['user'], 'Ticket', "Approval needed: $label", '/agent/service_catalog_approvals.php?request_id=' . intval($req['request_id']), intval($req['client_id']), $ticketId);
                 }
                 $u = $this->db->query("SELECT user_name, user_email FROM users WHERE user_id = " . $a['user'])->fetch_assoc();
                 if ($u) {
