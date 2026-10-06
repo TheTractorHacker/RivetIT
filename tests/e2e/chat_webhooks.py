@@ -45,10 +45,10 @@ s, html = req('/login.php'); d = {'email': EMAIL, 'password': PASSWORD, 'login':
 if t: d['csrf_token'] = t
 check('sign in', req('/login.php', d)[0] in (302, 303))
 s, page = req(REF)
-s, chooser = req('/admin/modals/webhook/webhook_add.php')
-s, add = req('/admin/modals/webhook/webhook_add.php?dest=slack'); tok = csrf(add)
+s, chooser = req('/admin/webhook_new.php')
+s, add = req('/admin/webhook_new.php?dest=slack&step=connect'); tok = csrf(add)
 check('webhooks page renders', s == 200 and 'Add Webhook' in page and tok)
-check('add flow offers Slack and Teams; the Slack form has the type and routing fields', 'data-wh-dest="slack"' in chooser and 'data-wh-dest="teams"' in chooser and 'webhook_type' in add and 'webhook_min_priority' in add and 'webhook_client_ids' in add and 'Slack' in add)
+check('add flow offers Slack and Teams; the Slack form has the type and routing fields', 'data-wz-dest="slack"' in chooser and 'data-wz-dest="teams"' in chooser and 'webhook_type' in add and 'webhook_min_priority' in add and 'webhook_client_ids' in add and 'Slack' in add)
 SECRET_PATH = '/slack/ok'
 def add_hook(name, typ, url, events=('ticket.created',), minp='', clients=(), token=None):
     data = {'csrf_token': token or tok, 'add_webhook': '1', 'webhook_name': name, 'webhook_url': url, 'webhook_type': typ, 'webhook_events[]': list(events), 'webhook_enabled': '1', 'webhook_min_priority': minp}
@@ -71,8 +71,8 @@ check('chat URL is stored encrypted (not plaintext)', row[3] == 'ENC2:' and 'SUP
 wid = sql("select webhook_id from webhooks where webhook_name='Ops Slack'")
 page = flash()
 check('list shows a Slack badge and host only, never the secret path', 'Slack' in page and '8.8.8.8' in page and 'SUPERSECRETTOKEN' not in page and 'T000' not in page)
-s, edit = req('/admin/modals/webhook/webhook_edit.php?id=' + wid)
-check('edit modal never echoes the chat URL and offers the test button', 'SUPERSECRETTOKEN' not in edit and '8.8.8.8' not in edit and 'data-wh-test' in edit and 'selected' in edit)
+s, edit = req('/admin/webhook_edit.php?id=' + wid)
+check('edit page never echoes the chat URL and offers the test button', 'SUPERSECRETTOKEN' not in edit and '8.8.8.8' not in edit and 'data-wz-test' in edit and 'selected' in edit)
 # edit keeping URL
 req('/admin/post.php', {'csrf_token': tok, 'edit_webhook': '1', 'webhook_id': wid, 'webhook_name': 'Ops Slack 2', 'webhook_url': '', 'webhook_type': 'slack', 'webhook_events[]': ['ticket.created'], 'webhook_enabled': '1', 'webhook_min_priority': 'Critical'}, REF)
 row = sql("select webhook_name, webhook_min_priority, webhook_events from webhooks where webhook_id=" + wid).split('\t')

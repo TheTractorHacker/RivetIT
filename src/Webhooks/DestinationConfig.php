@@ -168,6 +168,174 @@ final class DestinationConfig
         return new WebhookSubscription((int) ($row['webhook_id'] ?? 0), decryptSetting((string) ($row['webhook_url'] ?? '')), decryptSetting((string) ($row['webhook_secret'] ?? '')), self::options($row));
     }
 
+    // ----- URL helpers (shared by the save and the live URL check) --------------------------------------------------
+
+    /** The URL a form describes: an empty URL with url-target fields becomes the preset's own address, and {name} parts are filled from those fields. */
+    public static function resolveUrl(Destination $d, string $url, array $urlValues): string
+    {
+        if ($url === '' && $urlValues && $d->urlHint !== '') {
+            $url = $d->urlHint;
+        }
+        foreach ($d->extraFields as $f) {
+            if ($f->target === 'url' && isset($urlValues[$f->name])) {
+                $url = str_replace('{' . $f->name . '}', str_replace('%3A', ':', rawurlencode($urlValues[$f->name])), $url);
+            }
+        }
+
+        return $url;
+    }
+
+    private static function urlMaxLength(Destination $d): int
+    {
+        $type = $d->id === 'slack' ? ChatFormatter::TYPE_SLACK : ($d->id === 'teams' ? ChatFormatter::TYPE_TEAMS : ChatFormatter::TYPE_GENERIC);
+
+        return (ChatFormatter::isChatType($type) || self::urlIsSecret($d->id)) ? ChatDelivery::MAX_URL_LENGTH : 2048;
+    }
+
+    /**
+     * Why a resolved URL cannot be saved for this preset, or null when it can. The one rule set behind both Save and the live check.
+     *
+     * @param callable(string):bool $urlSafe the shared URL policy
+     */
+    public static function urlProblem(Destination $d, string $url, bool $legacyPost, callable $urlSafe): ?string
+    {
+        $isChat = $d->id === 'slack' || $d->id === 'teams';
+        if ($url === '') {
+            return 'The endpoint URL is required.';
+        }
+        if (preg_match('/\{([a-z_]+)\}/', str_replace('{txn}', '', $url), $m)) {
+            $label = $m[1];
+            foreach ($d->extraFields as $f) {
+                if ($f->name === $m[1]) {
+                    $label = $f->label;
+                }
+            }
+
+            return 'Fill in "' . $label . '": the URL still contains {' . $m[1] . '}.';
+        }
+        if (strlen($url) > self::urlMaxLength($d)) {
+            return 'The URL is too long (' . self::urlMaxLength($d) . ' characters at most).';
+        }
+        if (!$legacyPost && !$d->urlMatches($url)) {
+            return 'That URL does not look like a valid ' . $d->name . ' URL. Expected something like ' . $d->urlHint . '.';
+        }
+        if ($isChat) {
+            $vet = ChatDelivery::vetUrl($url);
+
+            return $vet['ok'] ? null : $d->name . ' URL rejected: ' . $vet['error'];
+        }
+        if (!$urlSafe(str_replace('{txn}', 'x', $url))) {
+            return 'Endpoint URL rejected (' . (function_exists('rivetWebhookRuleText') ? rivetWebhookRuleText() : 'public addresses only') . '). Loopback, link-local and cloud-metadata addresses are never allowed.';
+        }
+
+        return null;
+    }
+
+    /**
+     * The live URL check behind the Add / Edit page: runs the same rules as Save (urlProblem) and names the reason in plain words.
+     * Makes no request to the address (it only looks the host name up, exactly like Save).
+     *
+     * @param array<string,mixed> $post the form fields (webhook_destination, webhook_url, extra[...])
+     * @param callable(string):bool $urlSafe
+     * @return array{state:string,ok:bool,message:string,host:string,ips:list<string>}
+     *         state: empty | keep | incomplete | pattern | invalid | private | blocked | ok
+     */
+    public static function checkUrl(array $post, ?array $existing, callable $urlSafe): array
+    {
+        $res = static fn (string $state, string $msg, string $host = '', array $ips = []): array => ['state' => $state, 'ok' => in_array($state, ['ok', 'keep'], true), 'message' => $msg, 'host' => $host, 'ips' => $ips];
+        $d = Destinations::get(is_scalar($post['webhook_destination'] ?? null) ? trim((string) $post['webhook_destination']) : '');
+        if ($d === null) {
+            return $res('invalid', 'Choose a platform first.');
+        }
+        $url = filter_var(is_scalar($post['webhook_url'] ?? null) ? trim((string) $post['webhook_url']) : '', FILTER_SANITIZE_URL);
+        $url = is_string($url) ? $url : '';
+        $extraIn = is_array($post['extra'] ?? null) ? $post['extra'] : [];
+        $urlValues = [];
+        foreach ($d->extraFields as $f) {
+            $v = is_scalar($extraIn[$f->name] ?? null) ? trim((string) $extraIn[$f->name]) : '';
+            if ($f->target === 'url' && $v !== '' && strlen($v) <= 200 && !preg_match('/[\x00-\x1F\x7F]/', $v)) {
+                $urlValues[$f->name] = $v;
+            }
+        }
+        $same = $existing !== null && self::effectiveDestinationId($existing) === $d->id;
+        if ($url === '' && !$urlValues) {
+            return $same && (string) ($existing['webhook_url'] ?? '') !== ''
+                ? $res('keep', 'The saved address stays as it is. Type a new one only to replace it.')
+                : $res('empty', 'Paste the ' . $d->name . ' address here.');
+        }
+        $url = self::resolveUrl($d, $url, $urlValues);
+        $host = (string) (parse_url($url, PHP_URL_HOST) ?: '');
+        $problem = self::urlProblem($d, $url, false, $urlSafe);
+        if ($problem === null) {
+            return $res('ok', 'Looks good' . ($host !== '' ? ': ' . $host : '') . '.', $host);
+        }
+        if (str_starts_with($problem, 'Fill in') || str_starts_with($problem, 'The URL is too long')) {
+            return $res(str_starts_with($problem, 'Fill in') ? 'incomplete' : 'invalid', $problem, $host);
+        }
+        if (str_starts_with($problem, 'That URL does not look like')) {
+            return $res('pattern', 'Expected ' . $d->urlHint, $host);
+        }
+        if (preg_match('#^https?://#i', $url) !== 1 || $host === '') {
+            return $res('invalid', 'Enter the full address, starting with ' . ($d->id === 'slack' || $d->id === 'teams' ? 'https://' : 'http:// or https://') . '.', $host);
+        }
+        // Rejected on its address: tell a private LAN address (fixable under Internal network access) from one that can never be allowed.
+        $loose = (new \RivetCore\Webhooks\UrlPolicy(true))->vet(str_replace('{txn}', 'x', $url));
+        if ($loose === null) {
+            return $res('invalid', ($d->id === 'slack' || $d->id === 'teams') && str_contains($problem, 'https') ? 'This address must start with https://.' : 'We could not look that address up. Check the spelling of the host name.', $host);
+        }
+        $ips = $loose['ips'];
+        foreach ($ips as $ip) {
+            $bin = @inet_pton($ip);
+            if ($bin === false) {
+                continue;
+            }
+            if (strlen($bin) === 4 ? (ord($bin[0]) === 127 || ord($bin[0]) === 0 || ord($bin[0]) >= 224 || ($bin[0] === "\xA9" && $bin[1] === "\xFE")) : ($ip === '::1' || $ip === '::' || stripos($ip, 'fe8') === 0 || stripos($ip, 'fe9') === 0 || stripos($ip, 'fea') === 0 || stripos($ip, 'feb') === 0)) {
+                return $res('blocked', 'Loopback, link-local and cloud-metadata addresses can never be used for a webhook (' . $ip . ').', $host, $ips);
+            }
+        }
+        if (!\RivetCore\Webhooks\UrlPolicy::isPublicIp($ips[0])) {
+            return $res('private', 'This is a private address (' . implode(', ', array_slice($ips, 0, 2)) . '). Add its network under Internal network access to allow it.', $host, $ips);
+        }
+
+        return $res('invalid', $problem, $host, $ips);
+    }
+
+    // ----- event presets (quick chips on the Events step) -----------------------------------------------------------
+
+    /**
+     * Quick selections for the Events step. Values are stored exactly as listed (ids and "family.*" patterns); each one passes the same
+     * validation as a hand-picked event. "recommended" is the one-click suggestion for the chosen platform (null when there is none).
+     *
+     * @param callable(string):bool $knownEvent whether an id is an event this install knows
+     * @param list<string> $criticalIds ids of the catalog's critical events
+     * @return list<array{key:string,label:string,values:list<string>,hint:string,recommended:bool}>
+     */
+    public static function eventPresets(?Destination $d, array $criticalIds = []): array
+    {
+        $list = [
+            ['key' => 'all', 'label' => 'All events', 'values' => ['*'], 'hint' => 'Everything, including events added later'],
+            ['key' => 'tickets', 'label' => 'Tickets', 'values' => ['ticket.*'], 'hint' => 'Created, replied, assigned, status changes, resolved, escalated'],
+            ['key' => 'critical', 'label' => 'Critical only', 'values' => $criticalIds ?: ['ticket.sla_breached', 'backup.failed'], 'hint' => 'Only events marked critical, such as an SLA breach or a failed backup'],
+            ['key' => 'sla', 'label' => 'SLA problems', 'values' => ['sla.*', 'ticket.sla_warning', 'ticket.sla_breached'], 'hint' => 'SLA warnings and breaches'],
+            ['key' => 'security', 'label' => 'Security & sign-in', 'values' => ['auth.*', 'vault.*'], 'hint' => 'Logins, failed sign-ins, MFA failures, vault reveals'],
+            ['key' => 'approvals', 'label' => 'Approvals', 'values' => ['approval.*', 'catalog.request_approved', 'catalog.request_rejected'], 'hint' => 'Approval requests and decisions, service catalog requests'],
+            ['key' => 'workflows', 'label' => 'Workflows & lifecycle', 'values' => ['workflow.*', 'employee.*', 'contact.hire_date_set', 'people.import_approved'], 'hint' => 'Onboarding, offboarding and workflow runs'],
+            ['key' => 'system', 'label' => 'Backups & system', 'values' => ['backup.*', 'redis.*', 'job.*', 'cron.job_refused'], 'hint' => 'Backups, Redis, the job queue and scheduler problems'],
+        ];
+        $rec = match ($d?->category) {
+            'chat' => ['values' => ['ticket.created', 'ticket.escalated', 'ticket.sla_warning', 'ticket.sla_breached'], 'hint' => 'New and escalated tickets plus SLA warnings: what a team channel usually wants'],
+            'notify' => ['values' => ['ticket.created', 'ticket.escalated', 'ticket.sla_breached'], 'hint' => 'A short list that is worth a push notification'],
+            'automation' => ['values' => ['ticket.*'], 'hint' => 'Every ticket event: a good start for a workflow'],
+            'home' => ['values' => ['ticket.created', 'ticket.sla_breached'], 'hint' => 'New tickets and SLA breaches'],
+            default => null,
+        };
+        if ($rec !== null) {
+            array_unshift($list, ['key' => 'recommended', 'label' => 'Recommended for ' . $d->name, 'values' => $rec['values'], 'hint' => $rec['hint'], 'recommended' => true]);
+        }
+
+        return array_map(static fn (array $p): array => $p + ['recommended' => false], $list);
+    }
+
     // ----- form validation -------------------------------------------------------------------------------------
 
     /**
@@ -299,37 +467,13 @@ final class DestinationConfig
         if ($url === '' && $sameDestination && (string) ($existing['webhook_url'] ?? '') !== '' && !$urlValues) {
             // A secret URL is never shown, so blank on edit = keep what is saved.
             $keepUrl = true;
-        } elseif ($url === '' && $urlValues && $d->urlHint !== '') {
-            $url = $d->urlHint;   // the preset's own address, filled in from the fields
         }
         $urlStored = '';
         if (!$keepUrl) {
-            foreach ($d->extraFields as $f) {
-                if ($f->target === 'url' && isset($urlValues[$f->name])) {
-                    $url = str_replace('{' . $f->name . '}', str_replace('%3A', ':', rawurlencode($urlValues[$f->name])), $url);
-                }
-            }
-            if ($url === '') {
-                $errors[] = 'The endpoint URL is required.';
-            } elseif (preg_match('/\{([a-z_]+)\}/', str_replace('{txn}', '', $url), $m)) {
-                $label = $m[1];
-                foreach ($d->extraFields as $f) {
-                    if ($f->name === $m[1]) {
-                        $label = $f->label;
-                    }
-                }
-                $errors[] = 'Fill in "' . $label . '": the URL still contains {' . $m[1] . '}.';
-            } elseif (strlen($url) > (($isChat || self::urlIsSecret($d->id)) ? ChatDelivery::MAX_URL_LENGTH : 2048)) {
-                $errors[] = 'The URL is too long (' . (($isChat || self::urlIsSecret($d->id)) ? ChatDelivery::MAX_URL_LENGTH : 2048) . ' characters at most).';
-            } elseif (!$legacyPost && !$d->urlMatches($url)) {
-                $errors[] = 'That URL does not look like a valid ' . $d->name . ' URL. Expected something like ' . $d->urlHint . '.';
-            } elseif ($isChat) {
-                $vet = ChatDelivery::vetUrl($url);
-                if (!$vet['ok']) {
-                    $errors[] = $d->name . ' URL rejected: ' . $vet['error'];
-                }
-            } elseif (!$urlSafe(str_replace('{txn}', 'x', $url))) {
-                $errors[] = 'Endpoint URL rejected (' . (function_exists('rivetWebhookRuleText') ? rivetWebhookRuleText() : 'public addresses only') . '). Loopback, link-local and cloud-metadata addresses are never allowed.';
+            $url = self::resolveUrl($d, $url, $urlValues);
+            $problem = self::urlProblem($d, $url, $legacyPost, $urlSafe);
+            if ($problem !== null) {
+                $errors[] = $problem;
             }
             $urlStored = $url;
         }

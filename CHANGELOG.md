@@ -4,6 +4,20 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [Unreleased] RivetIT — webhook creation redesign
+
+### Webhooks: a guided four-step Add, a tabbed Edit, a clearer list
+
+- **Add webhook is a real stepper** (Platform, Connect, Events, Review & test) on its own page, with a progress bar, one focus per step, a sticky Continue / Back footer (Enter continues, Esc goes back), each step checked before you move on (inline messages, no error dump at the end) and a link per step (`webhook_new.php?dest=n8n&step=events`). The platform step is a compact searchable grid with category chips, a Popular row (n8n, Slack, Discord, Teams, ntfy, Home Assistant, Generic JSON) and a "Recently used" row remembered in this browser.
+- **Connect shows only what the platform needs**: name (suggested from the address, for example "n8n - n8n.example.com"), the address and the platform's own required inputs or credential. Method, signing secret, other headers and inputs, routing filters and retry notes sit under **Advanced options**, which remembers open or closed for the session. Pasting a curl command or a full address is cleaned up (and split into the topic or token fields where that is unambiguous). Secrets have show/hide, copy and Generate.
+- **Live address check** as you type: the same rules as Save (platform pattern, URL policy including your allowed internal networks), answered in plain words ("Looks good", "This is a private address: add its network under Internal network access", "Expected https://discord.com/api/webhooks/..."). It only looks the host name up; it never calls the address.
+- **Setup guide in a slide-over** (a full-screen sheet on phones, a slim docked column on wide screens), loaded only when asked for.
+- **Events step**: quick picks (All events, Tickets, Critical only, SLA problems, Security & sign-in, Approvals, Workflows & lifecycle, Backups & system, plus a one-click "Recommended for <platform>") above the searchable picker. Nothing is chosen by default.
+- **Review & test**: a summary of what will be created (secrets hidden), the exact payload for a sample event, an inline Send test with status, duration, a response excerpt and a plain-English hint for 401, 404, 405, 429, 5xx, timeouts and blocked addresses, then **Create webhook** or **Create and send test** and a success screen (Send test again, Add another, View deliveries, Open guide).
+- **Edit is tabbed** (Connection, Events, Payload & advanced, Deliveries) with an enable switch that saves at once, a status badge showing the last delivery, Send test, Duplicate (created disabled), Delete (confirmed) and an unsaved-changes warning. Saved secrets stay hidden ("Saved. Leave blank to keep it.").
+- **The list** shows a platform glyph, name, host, an event chip with its count, the last delivery result with its age, an inline enable switch, a per-row menu (Send test, Edit, Deliveries, Duplicate, Delete), a search box and, with no webhooks yet, a welcome with shortcuts to the popular platforms.
+- Field names, validation and storage are unchanged (the server still checks everything). The old Add / Edit pop-ups are gone; `settings_webhooks.php?add=<platform>` links continue on the new page.
+
 ## [26.10.23] RivetIT — webhook platforms and event picker, shared date-range picker, SLA event fix, RivetCore 0.21
 
 ### Date ranges

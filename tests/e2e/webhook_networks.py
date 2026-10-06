@@ -9,7 +9,7 @@ the latest version, $config_https_only = FALSE, and served WITHOUT RIVETIT_WEBHO
 
   TEST_DB_USER=... TEST_DB_PASS=... python3 tests/e2e/webhook_networks.py http://127.0.0.1:<port> <scratch db> <admin email> <admin password> <app dir>
 """
-import re, sys, subprocess, os, http.cookiejar, urllib.request, urllib.parse, urllib.error, threading, time
+import re, sys, json, subprocess, os, http.cookiejar, urllib.request, urllib.parse, urllib.error, threading, time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 BASE = sys.argv[1]; DB = sys.argv[2]; EMAIL = sys.argv[3]; PASSWORD = sys.argv[4]; APP = sys.argv[5]
 USER = os.environ['TEST_DB_USER']; os.environ['MYSQL_PWD'] = os.environ['TEST_DB_PASS']
@@ -110,6 +110,21 @@ check('private URL OUTSIDE the allowed networks rejected', hook_count('WN outsid
 check('rejection text shows the effective rule with the networks', 'allowed: public addresses and 192.168.77.0/24, 10.9.0.0/16' in pg)
 add_hook('http://127.0.0.1:9455/x', 'WN loopback2')
 check('loopback still rejected while networks are set', hook_count('WN loopback2') == 0)
+# the live URL check on the Add page says the same thing in friendly words (and makes no request to the address)
+_tok = csrf(req(admin, '/admin/webhook_new.php?dest=generic-json&step=connect')[1])
+def live(url, dest='generic-json'):
+    s_, body, _h = req(admin, '/admin/modals/webhook/webhook_action.php', {'csrf_token': _tok, 'wh_action': 'check_url', 'webhook_destination': dest, 'webhook_url': url})
+    return json.loads(body)
+r = live('http://192.168.78.10:9/x')
+check('live URL check: a private address outside the allowed networks is explained and points to Internal network access', r.get('state') == 'private' and not r.get('ok') and 'private address (192.168.78.10)' in r['message'] and 'Internal network access' in r['message'], r)
+r = live('http://192.168.77.10:9/x')
+check('live URL check: a private address inside an allowed network looks good', r.get('state') == 'ok' and r.get('ok'), r)
+r = live('http://127.0.0.1:9455/x')
+check('live URL check: loopback is reported as never allowed', r.get('state') == 'blocked' and 'can never be used' in r['message'], r)
+r = live('http://169.254.169.254/latest')
+check('live URL check: the cloud-metadata address is reported as never allowed', r.get('state') == 'blocked', r)
+r = live('http://93.184.216.34/x')
+check('live URL check: a public address looks good', r.get('state') == 'ok', r)
 # edit path uses the same policy
 wid = sql("select webhook_id from webhooks where webhook_name='WN inside'")
 post(admin, {'webhook_id': wid, 'webhook_name': 'WN inside', 'webhook_url': 'http://192.168.99.1:9/x', 'webhook_events[]': ['auth.login_failed'], 'webhook_enabled': '1', 'edit_webhook': '1'})
