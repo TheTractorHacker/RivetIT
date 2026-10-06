@@ -18,6 +18,7 @@ if (!empty($name) && !empty($client_id)) {
 
     if ($insert_sql) {
         $insert_id = mysqli_insert_id($mysqli);
+        queueWebhookEvent('asset.created', ['asset_id' => intval($insert_id), 'asset_name' => stripslashes($name), 'asset_type' => stripslashes($type), 'client_id' => intval($client_id), 'source' => 'api']);
 
         // Add Primary Interface
         mysqli_query($mysqli,"INSERT INTO asset_interfaces SET interface_name = '1', interface_mac = '$mac', interface_ip = '$ip', interface_primary = 1, interface_network_id = $network, interface_asset_id = $insert_id");

@@ -166,6 +166,9 @@ if ($log_retention_days >= 1) {
     mysqli_query($mysqli, "DELETE FROM logs WHERE log_created_at < CURDATE() - INTERVAL $log_retention_days DAY");
     mysqli_query($mysqli, "DELETE FROM app_logs WHERE app_log_created_at < CURDATE() - INTERVAL $log_retention_days DAY");
     mysqli_query($mysqli, "DELETE FROM auth_logs WHERE auth_log_created_at < CURDATE() - INTERVAL $log_retention_days DAY");
+    // Event-rule run log (Administration > Automation) follows the same horizon; the once-only SLA markers are kept twice as long.
+    @mysqli_query($mysqli, "DELETE FROM automation_rule_runs WHERE created_at < CURDATE() - INTERVAL $log_retention_days DAY");
+    @mysqli_query($mysqli, "DELETE FROM automation_sla_marks WHERE created_at < CURDATE() - INTERVAL " . (2 * $log_retention_days) . " DAY");
 }
 
 // RivetCore's own log tables: the audit trail has its own horizon; the webhook delivery log and finished integration jobs
@@ -1367,6 +1370,14 @@ while ($due_reopen = mysqli_fetch_assoc($sql_due_reopens)) {
 }
 if ($reopen_count > 0) {
     logApp("Cron", "info", "Scheduled reopen: $reopen_count ticket(s) automatically reopened");
+}
+
+// SLA clocks as events (ticket.sla_warning / ticket.sla_breached) for event rules and webhooks. Never fatal.
+try {
+    require_once dirname(__DIR__) . '/includes/event_bus.php';
+    \ITFlow\Automation\SlaEventEmitter::run($mysqli, 'rivetEmitEvent');
+} catch (\Throwable $e) {
+    error_log('SLA events skipped: ' . $e->getMessage());
 }
 
 /*

@@ -38,6 +38,7 @@ if (isset($_POST['add_contact'])) {
     mysqli_query($mysqli,"INSERT INTO contacts SET contact_name = '$name', contact_title = '$title', contact_phone_country_code = '$phone_country_code', contact_phone = '$phone', contact_extension = '$extension', contact_mobile_country_code = '$mobile_country_code', contact_mobile = '$mobile', contact_email = '$email', contact_pin = '$pin', contact_notes = '$notes', contact_important = $contact_important, contact_billing = $contact_billing, contact_technical = $contact_technical, contact_department = '$department', contact_location_id = $location_id, contact_user_id = $user_id, contact_client_id = $client_id");
 
     $contact_id = mysqli_insert_id($mysqli);
+    queueWebhookEvent('contact.created', ['contact_id' => intval($contact_id), 'contact_name' => $_POST['name'] ?? '', 'contact_email' => $_POST['email'] ?? '', 'client_id' => $client_id, 'source' => 'agent', 'created_by_user_id' => intval($session_user_id)]);
 
     // Hire / start date (same supplementary pattern as the edit branch; $start_date is YYYY-MM-DD or '').
     $start_date_ok = $start_date !== '' && ($start_date_dt = DateTime::createFromFormat('!Y-m-d', $start_date)) && $start_date_dt->format('Y-m-d') === $start_date;

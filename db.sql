@@ -2964,7 +2964,8 @@ CREATE TABLE `settings` (
   `config_training_enroll_pause_until_utc` datetime(3) DEFAULT NULL,
   `config_training_odoo_breaker_errors` tinyint(3) unsigned NOT NULL DEFAULT 0,
   `config_training_odoo_breaker_until_utc` datetime(3) DEFAULT NULL,
-  `config_training_pin_sources_synced_at_utc` datetime(3) DEFAULT NULL
+  `config_training_pin_sources_synced_at_utc` datetime(3) DEFAULT NULL,
+  `config_automation_enabled` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -7426,12 +7427,57 @@ CREATE TABLE `automation_rules` (
   `name` varchar(200) NOT NULL,
   `trigger_event` varchar(150) NOT NULL,
   `condition_json` text DEFAULT NULL,
-  `action_type` enum('create_ticket','send_webhook','notify_user','start_workflow') NOT NULL,
+  `action_type` enum('create_ticket','send_webhook','notify_user','start_workflow','set_ticket_field','add_ticket_note','assign_ticket','send_mail','create_task') NOT NULL,
   `action_config_json` text DEFAULT NULL,
   `is_enabled` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `priority` int(11) NOT NULL DEFAULT 100,
+  `stop_on_match` tinyint(1) NOT NULL DEFAULT 0,
+  `rate_limit_per_min` int(11) NOT NULL DEFAULT 30,
+  `rr_cursor` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`rule_id`),
   KEY `idx_automation_rules_trigger` (`trigger_event`,`is_enabled`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `automation_rule_runs`
+--
+
+DROP TABLE IF EXISTS `automation_rule_runs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `automation_rule_runs` (
+  `run_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `rule_id` int(11) NOT NULL,
+  `event_type` varchar(150) NOT NULL,
+  `matched` tinyint(1) NOT NULL DEFAULT 1,
+  `status` varchar(20) NOT NULL,
+  `actions_json` text DEFAULT NULL,
+  `message` varchar(500) DEFAULT NULL,
+  `duration_ms` int(11) NOT NULL DEFAULT 0,
+  `chain_id` varchar(32) DEFAULT NULL,
+  `chain_depth` tinyint(4) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`run_id`),
+  KEY `idx_automation_runs_rule` (`rule_id`,`created_at`),
+  KEY `idx_automation_runs_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `automation_sla_marks`
+--
+
+DROP TABLE IF EXISTS `automation_sla_marks`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `automation_sla_marks` (
+  `ticket_id` int(11) NOT NULL,
+  `kind` varchar(30) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`ticket_id`,`kind`),
+  KEY `idx_automation_sla_marks_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

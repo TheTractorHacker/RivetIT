@@ -317,6 +317,7 @@ class WorkflowService
         if ($t['task_type'] === 'action' && $t['status'] === 'action_failed') {
             $this->runner()->log((int) $t['run_id'], $runTaskId, 'manual_complete', $t['action_type'], true, (int) $t['attempts'], 'completed by hand after the automated action failed', $userId);
         }
+        $this->gateway()->emitEvent('workflow.task_completed', ['run_id' => (int) $t['run_id'], 'run_task_id' => $runTaskId, 'task_title' => (string) $t['title'], 'contact_id' => (int) $t['contact_id'], 'completed_by' => 'person', 'completed_by_user_id' => $userId]);
         $this->afterResolve((int) $t['run_id']);
     }
 
@@ -476,6 +477,7 @@ class WorkflowService
         }
         $this->runner()->log((int) $t['run_id'], $runTaskId, 'approval_approved', null, true, 0, $comment !== '' ? $comment : 'approved', $userId);
         $this->gateway()->audit('workflow.approval_approved', $userId, 'contact', (int) $t['contact_id'], 'approved', 'Approval task "' . $t['title'] . '" approved', ['run_id' => (int) $t['run_id'], 'run_task_id' => $runTaskId]);
+        $this->gateway()->emitEvent('workflow.task_completed', ['run_id' => (int) $t['run_id'], 'run_task_id' => $runTaskId, 'task_title' => (string) $t['title'], 'contact_id' => (int) $t['contact_id'], 'completed_by' => 'approval', 'completed_by_user_id' => $userId]);
         $this->afterResolve((int) $t['run_id']);
     }
 

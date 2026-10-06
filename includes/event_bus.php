@@ -31,6 +31,10 @@ function rivetCoreModuleOn(string $flag): bool
     if (class_exists('\RivetMSP\Core\CoreBridge')) {
         return \RivetMSP\Core\CoreBridge::enabled($flag);
     }
+    // RivetIT: only the automation switch (Administration > Automation) can turn a Core module off; it defaults to on.
+    if ($flag === 'core.automation.enabled') {
+        return \ITFlow\Automation\RuleEngine::switchOn($GLOBALS['mysqli'] ?? null);
+    }
 
     return true;
 }
@@ -104,11 +108,17 @@ function rivetEmitEvent(string $event, array $data): void
             }
         }
 
-        // 2. Event automation rules
-        if (class_exists(\RivetCore\Automation\AutomationRuleEvaluator::class) && rivetCoreModuleOn('core.automation.enabled') && rivetTableExists($mysqli, 'automation_rules')) {
-            $context = \RivetCore\Automation\EventContext::flatten($data + ['event' => $event]);
-            $evaluator = new \RivetCore\Automation\AutomationRuleEvaluator(rivetCoreDb($mysqli));
-            foreach ($evaluator->findMatchingRules($event, $context) as $rule) {
+        // 2. Event automation rules (conditions, priority order and "stop on first match" are the engine's: src/Automation/RuleEngine.php)
+        if (class_exists(\ITFlow\Automation\RuleEngine::class) && rivetCoreModuleOn('core.automation.enabled') && rivetTableExists($mysqli, 'automation_rules')) {
+            // The causal chain (which rules already ran to produce this event) only ever comes from a rule that is executing right now.
+            unset($data['_chain']);
+            $autoData = $data;
+            if (($chain = \ITFlow\Automation\RuleEngine::chainForEmit()) !== null) {
+                $autoData['_chain'] = $chain;
+            }
+            $context = \RivetCore\Automation\EventContext::flatten($autoData + ['event' => $event]);
+            $engine = new \ITFlow\Automation\RuleEngine($mysqli, new \ITFlow\Workflow\LiveActionGateway($mysqli));
+            foreach ($engine->matching($event, $context) as $rule) {
                 if ($jobs !== null) {
                     $jobs->enqueue('automation.action', ['rule_id' => (int) $rule['rule_id'], 'event' => $event, 'context' => $context], null, 'automation', 0, 3);
                     $queued = true;
@@ -217,30 +227,12 @@ function rivetRegisterJobHandlers(\RivetCore\Jobs\JobWorker $worker, $mysqli): v
     });
 }
 
-/** Execute one event rule's action now and record that it ran. @return array{rule_id:int, ok:bool, message:string} */
+/** Execute one event rule's action now (loop guard, rate limit and run log included). @return array{rule_id:int, ok:bool, message:string} */
 function rivetRunAutomationRule($mysqli, int $ruleId, string $event, array $context): array
 {
-    $store = new \RivetCore\Automation\AutomationRuleStore(rivetCoreDb($mysqli));
-    $rule = $store->find($ruleId);
-    if ($rule === null || (int) $rule['is_enabled'] !== 1) {
-        return ['rule_id' => $ruleId, 'ok' => true, 'message' => 'rule is gone or disabled; skipped'];
-    }
-    $result = (new \RivetCore\Automation\AutomationExecutor())->execute($rule, $context, rivetAutomationActionHandlers($mysqli, $rule['name']));
-    try {
-        // Written straight to the audit table (not through the after-log hook) so a rule's own record can never trigger rules again.
-        $stmt = mysqli_prepare($mysqli, "INSERT INTO audit_events (event_type, entity_type, entity_id, action, summary, metadata_json) VALUES ('automation.rule_fired', 'automation_rule', ?, ?, ?, ?)");
-        $id = (string) $ruleId;
-        $action = $result['ok'] ? 'ok' : 'failed';
-        $summary = mb_substr("Rule '" . $rule['name'] . "' on $event: " . $result['message'], 0, 500);
-        $meta = json_encode(['event' => $event, 'rule_id' => $ruleId], JSON_UNESCAPED_SLASHES);
-        mysqli_stmt_bind_param($stmt, 'ssss', $id, $action, $summary, $meta);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
-    } catch (\Throwable $e) {
-        // the record is best effort
-    }
+    $r = (new \ITFlow\Automation\RuleEngine($mysqli, new \ITFlow\Workflow\LiveActionGateway($mysqli)))->run($ruleId, $event, $context);
 
-    return $result;
+    return ['rule_id' => $r['rule_id'], 'ok' => $r['ok'], 'message' => $r['message']];
 }
 
 /** @return array<string, callable> */

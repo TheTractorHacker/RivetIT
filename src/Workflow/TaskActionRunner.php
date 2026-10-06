@@ -180,6 +180,7 @@ class TaskActionRunner
             // (and sent twice) because writing its record failed.
             $this->setDone($runTaskId);
             $this->log($runId, $runTaskId, 'action_ok', $type, true, $attempt, $result, $actorUserId);
+            $this->gateway->emitEvent('workflow.task_completed', ['run_id' => $runId, 'run_task_id' => $runTaskId, 'task_title' => (string) $task['title'], 'contact_id' => (int) $task['contact_id'], 'template_name' => (string) $task['template_name'], 'completed_by' => 'automation', 'action_type' => $type]);
             $this->gateway->audit('workflow.action_executed', $actorUserId, 'contact', (int) $task['contact_id'], 'executed', 'Workflow action "' . $task['title'] . '" (' . $type . '): ' . $result, ['run_id' => $runId, 'run_task_id' => $runTaskId, 'action_type' => $type, 'attempt' => $attempt]);
 
             return true;

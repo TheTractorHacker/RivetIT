@@ -4,6 +4,8 @@ require_once "includes/inc_all_admin.php";
 $sql = mysqli_query($mysqli,
     "SELECT * FROM ticket_automation_rules ORDER BY rule_order ASC, rule_id ASC"
 );
+// Ids shown as names, and every action (escalate included) spelled out: shared with Administration > Automation.
+$ticket_rule_view = new \ITFlow\Automation\TicketRuleView($mysqli);
 
 // Pre-load category names for display
 $category_names = [];
@@ -108,6 +110,9 @@ function ticket_automation_actions(array $rule): array {
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-robot me-2"></i>Ticket Automation Rules</h3>
         <div class="card-tools">
+            <a href="automation.php" class="btn btn-secondary me-2">
+                <i class="fas fa-cogs me-2"></i>All automation
+            </a>
             <a href="ticket_automation_log.php" class="btn btn-secondary me-2">
                 <i class="fas fa-history me-2"></i>Run Log
             </a>
@@ -163,40 +168,13 @@ function ticket_automation_actions(array $rule): array {
                         <?php endif; ?>
                     </td>
                     <td>
-                        <?php foreach (ticket_automation_conditions($rule) as $cond):
-                            $field = $cond['field'] ?? '';
-                            $op    = $cond['op'] ?? '';
-                            $val   = nullable_htmlentities((string) ($cond['value'] ?? ''));
-                            $display_val = $val;
-                            if ($field === 'category' && isset($category_names[intval($cond['value'] ?? 0)])) {
-                                $display_val = nullable_htmlentities($category_names[intval($cond['value'])]);
-                            }
-                        ?>
-                            <div class="mb-1">
-                                <span class="badge text-bg-secondary"><?php echo $field_labels[$field] ?? nullable_htmlentities($field); ?></span>
-                                <span><?php echo $op_labels[$op] ?? nullable_htmlentities($op); ?></span>
-                                <code><?php echo $display_val; ?></code>
-                            </div>
+                        <?php foreach (ticket_automation_conditions($rule) as $cond): ?>
+                            <div class="mb-1"><span class="badge text-bg-secondary text-wrap text-start"><?php echo nullable_htmlentities($ticket_rule_view->condition($cond)); ?></span></div>
                         <?php endforeach; ?>
                     </td>
                     <td>
-                        <?php foreach (ticket_automation_actions($rule) as $act):
-                            $action = $act['action'] ?? '';
-                            $aval   = nullable_htmlentities((string) ($act['value'] ?? ''));
-                            $display_aval = $aval;
-                            if ($action === 'add_worksheet' && isset($worksheet_template_names[intval($act['value'] ?? 0)])) {
-                                $display_aval = nullable_htmlentities($worksheet_template_names[intval($act['value'])]);
-                            }
-                            if ($action === 'run_script' && isset($rmm_script_names[intval($act['value'] ?? 0)])) {
-                                $display_aval = nullable_htmlentities($rmm_script_names[intval($act['value'])]);
-                            }
-                        ?>
-                            <div class="mb-1">
-                                <span class="badge text-bg-primary"><?php echo $action_labels[$action] ?? nullable_htmlentities($action); ?></span>
-                                <?php if ($display_aval !== ''): ?>
-                                    <code><?php echo $display_aval; ?></code>
-                                <?php endif; ?>
-                            </div>
+                        <?php foreach (ticket_automation_actions($rule) as $act): ?>
+                            <div class="mb-1"><span class="badge text-bg-primary text-wrap text-start"><?php echo nullable_htmlentities($ticket_rule_view->action($act)); ?></span></div>
                         <?php endforeach; ?>
                     </td>
                     <td>

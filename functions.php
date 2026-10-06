@@ -5705,35 +5705,8 @@ function ticketCategoryOptions($mysqli, $selected = 0) {
 
 function getWebhookTicketPayload($ticket_id) {
     global $mysqli;
-    $tid = intval($ticket_id);
-    $sql = mysqli_query($mysqli,
-        "SELECT t.ticket_id, t.ticket_prefix, t.ticket_number, t.ticket_subject,
-                t.ticket_priority, t.ticket_client_id, t.ticket_assigned_to,
-                t.ticket_contact_id, ts.ticket_status_name,
-                c.client_name, co.contact_name, u.user_name AS assigned_user_name
-         FROM tickets t
-         LEFT JOIN ticket_statuses ts ON t.ticket_status = ts.ticket_status_id
-         LEFT JOIN clients c ON t.ticket_client_id = c.client_id
-         LEFT JOIN contacts co ON t.ticket_contact_id = co.contact_id
-         LEFT JOIN users u ON t.ticket_assigned_to = u.user_id
-         WHERE t.ticket_id = $tid LIMIT 1"
-    );
-    if (!$sql || !($row = mysqli_fetch_assoc($sql))) {
-        return ['ticket_id' => $tid];
-    }
-    return [
-        'ticket_id'            => intval($row['ticket_id']),
-        'ticket_number'        => $row['ticket_prefix'] . $row['ticket_number'],
-        'ticket_subject'       => $row['ticket_subject'],
-        'ticket_priority'      => $row['ticket_priority'],
-        'ticket_status'        => $row['ticket_status_name'],
-        'client_id'            => intval($row['ticket_client_id']),
-        'client_name'          => $row['client_name'],
-        'contact_id'           => intval($row['ticket_contact_id']),
-        'contact_name'         => $row['contact_name'],
-        'assigned_to_user_id'  => intval($row['ticket_assigned_to']),
-        'assigned_to_user_name'=> $row['assigned_user_name'],
-    ];
+    // One implementation (also used by event-rule actions, the Test rule page and tests): src/Automation/EventPayloads.php
+    return \ITFlow\Automation\EventPayloads::ticket($mysqli, intval($ticket_id));
 }
 
 function queueWebhookEvent($event, $data) {

@@ -320,6 +320,7 @@ if (isset($_POST['edit_ticket'])) {
     mysqli_query($mysqli, "UPDATE tickets SET ticket_category = $category_id, ticket_subject = '$ticket_subject', ticket_priority = '$ticket_priority', ticket_billable = $billable, ticket_details = '$details', ticket_due_at = $due, ticket_vendor_ticket_number = '$vendor_ticket_number', ticket_contact_id = $contact_id, ticket_assigned_to = $assigned_to, ticket_vendor_id = $vendor_id, ticket_location_id = $location_id, ticket_asset_id = $asset_id, ticket_project_id = $project_id WHERE ticket_id = $ticket_id");
 
     recalculateTicketSla($mysqli, $ticket_id);
+    queueWebhookEvent('ticket.updated', getWebhookTicketPayload($ticket_id) + ['changed' => 'details', 'changed_by_user_id' => intval($session_user_id)]);
 
     // Add Additional Assets
     if (isset($_POST['additional_assets'])) {
@@ -431,6 +432,7 @@ if (isset($_POST['edit_ticket_priority'])) {
     mysqli_query($mysqli, "UPDATE tickets SET ticket_priority = '$priority' WHERE ticket_id = $ticket_id");
 
     recalculateTicketSla($mysqli, $ticket_id);
+    queueWebhookEvent('ticket.updated', getWebhookTicketPayload($ticket_id) + ['changed' => 'priority', 'changed_by_user_id' => intval($session_user_id)]);
 
     // Update Ticket History
     mysqli_query($mysqli, "INSERT INTO ticket_history SET ticket_history_status = '$ticket_status', ticket_history_description = '$session_name changed priority from $original_priority to $priority', ticket_history_ticket_id = $ticket_id");
@@ -973,6 +975,7 @@ if (isset($_POST['quick_categorize_ticket'])) {
     if ($client_id) { enforceClientAccess($client_id); }
 
     mysqli_query($mysqli, "UPDATE tickets SET ticket_category = $category_id WHERE ticket_id = $ticket_id");
+    queueWebhookEvent('ticket.updated', getWebhookTicketPayload($ticket_id) + ['changed' => 'category', 'changed_by_user_id' => intval($session_user_id)]);
 
     $cat_name = $category_id ? nullable_htmlentities(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT category_name FROM categories WHERE category_id = $category_id LIMIT 1"))['category_name'] ?? '') : '';
     logAction("Ticket", "Edit", "Category changed on ticket {$td['ticket_prefix']}{$td['ticket_number']}", intval($td['ticket_client_id']), $ticket_id);
@@ -1056,6 +1059,7 @@ if (isset($_POST['quick_priority_ticket'])) {
     if ($client_id) { enforceClientAccess($client_id); }
 
     mysqli_query($mysqli, "UPDATE tickets SET ticket_priority = '$priority' WHERE ticket_id = $ticket_id");
+    queueWebhookEvent('ticket.updated', getWebhookTicketPayload($ticket_id) + ['changed' => 'priority', 'changed_by_user_id' => intval($session_user_id)]);
     mysqli_query($mysqli, "INSERT INTO ticket_history SET ticket_history_status = '$ticket_status_name', ticket_history_description = '$session_name changed priority from $original_priority to $priority', ticket_history_ticket_id = $ticket_id");
     logAction("Ticket", "Edit", "$session_name changed priority from $original_priority to $priority for ticket $ticket_prefix$ticket_number", $client_id, $ticket_id);
     customAction('ticket_update', $ticket_id);
