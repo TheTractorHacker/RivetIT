@@ -9,6 +9,12 @@
  *   GET  /v1.0/organization
  *   POST /__state                      body = JSON merged into the state file (scenario switches below), then returns it
  *   GET  /__log                        JSON array of every request seen (method, path, query, auth token, time)
+ * Account writes (state.accounts = {upn: {id, mail, enabled, displayName}} is the directory; state.groups = {gid: [userId]}):
+ *   POST /v1.0/users (create; 400 ObjectConflict when the UPN exists), PATCH /v1.0/users/{id|upn} (accountEnabled), POST /v1.0/users/{id}/revokeSignInSessions,
+ *   POST /v1.0/groups/{gid}/members/$ref (400 "already exist" on a repeat), DELETE /v1.0/groups/{gid}/members/{uid}/$ref, GET /v1.0/users/{upn} and
+ *   GET /v1.0/users?$filter=mail eq '...' answer from state.accounts first. state.write_forbidden -> every write answers 403 Authorization_RequestDenied.
+ *   state.revoked lists user ids whose sessions were revoked; state.last_password holds the last password sent (a TEST hook: the request log never
+ *   contains it - bodies are logged with passwordProfile.password replaced by <redacted>).
  * State switches (all optional): throttle (next N Graph calls answer 429 with Retry-After = retry_after), throttle_code (429|503),
  *   forbidden_devices / forbidden_users (403 Authorization_RequestDenied), unauthorized_once (next Graph call 401), loop (users nextLink
  *   points at itself), foreign_link (users nextLink points at another host), endless (every page has a nextLink), not_licensed
@@ -45,7 +51,10 @@ if ($path === '/__log') {
 }
 
 $auth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-file_put_contents($logFile, json_encode(['method' => $method, 'path' => $path, 'query' => $_SERVER['QUERY_STRING'] ?? '', 'auth' => $auth, 'time' => microtime(true)]) . "\n", FILE_APPEND | LOCK_EX);
+$rawBody = file_get_contents('php://input');
+$logBody = json_decode($rawBody, true);
+if (is_array($logBody) && isset($logBody['passwordProfile']['password'])) { $logBody['passwordProfile']['password'] = '<redacted>'; }
+file_put_contents($logFile, json_encode(['method' => $method, 'path' => $path, 'query' => $_SERVER['QUERY_STRING'] ?? '', 'auth' => $auth, 'time' => microtime(true), 'body' => is_array($logBody) ? $logBody : null]) . "\n", FILE_APPEND | LOCK_EX);
 
 if (preg_match('#^/([^/]+)/oauth2/v2\.0/token$#', $path, $m) && $method === 'POST') {
     $tenant = $m[1];
@@ -76,6 +85,59 @@ if ($gate && $gate[0] === 'throttle') { return reply((int) $gate[1], ['error' =>
 
 $s = st_read($stateFile);
 $size = (int) ($s['page_size'] ?? 100);
+$jsonBody = json_decode($rawBody, true) ?: [];
+$notFound = fn () => reply(404, ['error' => ['code' => 'Request_ResourceNotFound', 'message' => 'Resource does not exist.']]);
+$findAccount = function (array $st, string $key): ?array {
+    foreach ($st['accounts'] ?? [] as $upn => $a) { if (strcasecmp($upn, $key) === 0 || $a['id'] === $key) { return ['upn' => $upn] + $a; } }
+    return null;
+};
+$isWrite = $method !== 'GET' && (str_starts_with($path, '/v1.0/users') || str_starts_with($path, '/v1.0/groups'));
+if ($isWrite && !empty($s['write_forbidden'])) { return reply(403, ['error' => ['code' => 'Authorization_RequestDenied', 'message' => 'Insufficient privileges to complete the operation.']]); }
+if ($method === 'POST' && $path === '/v1.0/users') {
+    $upn = (string) ($jsonBody['userPrincipalName'] ?? '');
+    if ($findAccount($s, $upn)) { return reply(400, ['error' => ['code' => 'Request_BadRequest', 'message' => 'Another object with the same value for property userPrincipalName already exists.']]); }
+    $id = 'acct-' . substr(md5($upn), 0, 8);
+    with_state($stateFile, function (array &$st) use ($upn, $id, $jsonBody) {
+        $st['accounts'][$upn] = ['id' => $id, 'mail' => null, 'enabled' => (bool) ($jsonBody['accountEnabled'] ?? false), 'displayName' => $jsonBody['displayName'] ?? '', 'force_change' => (bool) ($jsonBody['passwordProfile']['forceChangePasswordNextSignIn'] ?? false), 'has_password' => !empty($jsonBody['passwordProfile']['password'])];
+        $st['last_password'] = $jsonBody['passwordProfile']['password'] ?? null;
+        $st['creates'] = ($st['creates'] ?? 0) + 1;
+    });
+    return reply(201, ['id' => $id, 'userPrincipalName' => $upn, 'displayName' => $jsonBody['displayName'] ?? '', 'accountEnabled' => (bool) ($jsonBody['accountEnabled'] ?? false)]);
+}
+if (preg_match('#^/v1\.0/users/([^/]+)/revokeSignInSessions$#', $path, $m) && $method === 'POST') {
+    $a = $findAccount($s, urldecode($m[1]));
+    if (!$a) { return $notFound(); }
+    with_state($stateFile, function (array &$st) use ($a) { $st['revoked'][] = $a['id']; });
+    return reply(200, ['value' => true]);
+}
+if (preg_match('#^/v1\.0/users/([^/]+)$#', $path, $m) && $method === 'PATCH') {
+    $a = $findAccount($s, urldecode($m[1]));
+    if (!$a) { return $notFound(); }
+    with_state($stateFile, function (array &$st) use ($a, $jsonBody) { if (array_key_exists('accountEnabled', $jsonBody)) { $st['accounts'][$a['upn']]['enabled'] = (bool) $jsonBody['accountEnabled']; } });
+    return reply(204, '');
+}
+if (preg_match('#^/v1\.0/groups/([^/]+)/members/\$ref$#', $path, $m) && $method === 'POST') {
+    $gid = urldecode($m[1]);
+    $uid = basename((string) ($jsonBody['@odata.id'] ?? ''));
+    if (in_array($uid, $s['groups'][$gid] ?? [], true)) { return reply(400, ['error' => ['code' => 'Request_BadRequest', 'message' => 'One or more added object references already exist for the following modified properties: \'members\'.']]); }
+    with_state($stateFile, function (array &$st) use ($gid, $uid) { $st['groups'][$gid][] = $uid; });
+    return reply(204, '');
+}
+if (preg_match('#^/v1\.0/groups/([^/]+)/members/([^/]+)/\$ref$#', $path, $m) && $method === 'DELETE') {
+    $gid = urldecode($m[1]); $uid = urldecode($m[2]);
+    if (!in_array($uid, $s['groups'][$gid] ?? [], true)) { return $notFound(); }
+    with_state($stateFile, function (array &$st) use ($gid, $uid) { $st['groups'][$gid] = array_values(array_diff($st['groups'][$gid], [$uid])); });
+    return reply(204, '');
+}
+if ($method === 'GET' && $path === '/v1.0/users' && isset($query['$filter']) && !empty($s['accounts'])) {
+    $mail = preg_match("/mail eq '(.*)'/", $query['$filter'], $fm) ? str_replace("''", "'", $fm[1]) : '';
+    $out = ['value' => []];
+    foreach ($s['accounts'] as $upn => $a) { if ($a['mail'] !== null && strcasecmp($a['mail'], $mail) === 0) { $out['value'][] = ['id' => $a['id'], 'displayName' => $a['displayName'], 'mail' => $a['mail'], 'userPrincipalName' => $upn, 'accountEnabled' => $a['enabled']]; } }
+    return reply(200, $out);
+}
+if ($method === 'GET' && preg_match('#^/v1\.0/users/([^/]+)$#', $path, $m) && ($a = $findAccount($s, urldecode($m[1])))) {
+    return reply(200, ['id' => $a['id'], 'displayName' => $a['displayName'], 'mail' => $a['mail'], 'userPrincipalName' => $a['upn'], 'accountEnabled' => $a['enabled']]);
+}
 $host = 'http://' . $_SERVER['HTTP_HOST'];
 
 if ($path === '/v1.0/organization') {

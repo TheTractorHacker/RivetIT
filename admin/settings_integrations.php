@@ -73,6 +73,7 @@ $ms_intune_sync_enabled = intval($row_ms['intune_sync_enabled'] ?? 0);
 // Separate from intune_sync_enabled - "Sync users from Entra ID" (directory/contact
 // sync, this batch) vs "Sync devices from Intune" (device sync, pre-existing).
 $ms_directory_sync_enabled = intval($row_ms['directory_sync_enabled'] ?? 0);
+$ms_allow_writes = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT config_entra_allow_writes FROM settings WHERE company_id = 1"))[0] ?? 0);
 $ms_last_test_at = $row_ms['last_test_at'] ?? null;
 $ms_last_test_success = $row_ms['last_test_success'] ?? null;
 $ms_last_test_error = nullable_htmlentities($row_ms['last_test_error'] ?? '');
@@ -1543,6 +1544,22 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                 <?php if ($ms_enabled && $ms_directory_sync_enabled && $ms_has_secret): ?>
                 <button type="submit" name="sync_microsoft_directory" class="btn btn-success"><i class="fas fa-sync me-2"></i>Sync Now</button>
                 <?php endif; ?>
+            </form>
+
+            <hr>
+            <form action="post.php" method="post" autocomplete="off">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                <div class="form-check form-switch mb-1">
+                    <input type="checkbox" class="form-check-input" name="config_entra_allow_writes" value="1" id="msAllowWrites" <?= $ms_allow_writes ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="msAllowWrites">Allow RivetIT to change Entra accounts</label>
+                </div>
+                <small class="text-muted d-block mb-2">
+                    <strong>Off by default; everything above only reads.</strong> When on, employee lifecycle workflow tasks can create an Entra account,
+                    disable a sign-in and revoke sessions, and add a user to groups. It needs two MORE Application permissions on the app registration, with
+                    admin consent: <code>User.ReadWrite.All</code> and <code>Group.ReadWrite.All</code>. These let the app registration change (or disable) any
+                    user and group in your tenant, so protect its client secret accordingly. RivetIT never deletes accounts. Every change is audited. See docs/ENTRA_INTUNE_SETUP.md.
+                </small>
+                <button type="submit" name="save_entra_write_setting" class="btn btn-outline-primary btn-sm"><i class="fas fa-check me-1"></i>Save</button>
             </form>
         </div>
     </div>

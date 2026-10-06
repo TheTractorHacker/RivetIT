@@ -25,6 +25,30 @@ original flat checklist.
 | Send a webhook event | Emits an event (default `workflow.task_webhook`) on the event bus. | Webhooks subscribed to that event (Administration > Webhooks) get a queued, signed, retried delivery. A task never carries a URL itself. |
 | Disable the employee's portal login | Archives the person's client-portal login. | Offboarding templates only. Nothing is deleted and restoring the contact restores the login. A linked agent account is never touched. |
 
+### Entra account actions
+
+Three more actions change accounts in Microsoft Entra ID through Microsoft Graph. They are **off unless an administrator ticks
+"Allow RivetIT to change Entra accounts"** (Administration > Integrations > Directory Sync), which in turn needs the
+`User.ReadWrite.All` and `Group.ReadWrite.All` application permissions, see docs/ENTRA_INTUNE_SETUP.md. With the setting off, none of them sends anything: the task
+retries, then becomes a manual task whose error names the setting, and the dry-run preview says so.
+
+| Action | Template | Does |
+|---|---|---|
+| Entra: disable the employee's account and revoke sessions | Offboarding | Finds the user by UPN (the person's email), then by mail address (it refuses if two users share it); sets `accountEnabled=false` and revokes sign-in sessions. **Never deletes.** An account that cannot be found is a failure (manual task), never a silent success. |
+| Entra: create the employee's account | Onboarding | Creates the user, **disabled** unless the task says enabled, with a random 20-character temporary password and "must change at first sign-in", then adds it to the listed groups. If the UPN already exists nothing is created and no password is set (so a retry is safe). |
+| Entra: add the employee to groups | Onboarding | Adds the existing account to groups given by Object ID. Already a member counts as done. |
+
+The temporary password is generated inside RivetIT and is shown **once, only to the technician the task is assigned to** (the person who
+started the run when it has no assignee): a **Show the temporary password (once)** button on the run page, valid 7 days. It is stored
+encrypted, erased when read, and never appears in the Activity log, audit trail, notifications, email or the task result. Reading it is
+audited (without the value). Give it to the employee over a secure channel. If nobody is assigned and nobody started the run, no password
+is kept and the result says to reset it in Entra.
+
+Every Graph call that changes something writes an audit event (`entra.account_created`, `entra.account_disabled`,
+`entra.sessions_revoked`, `entra.group_member_added`) with the target and the outcome, never a password or token. Retries follow the rules above
+(3 attempts, then manual); Graph throttling is retried inside each attempt. A missing permission is reported as "Admin consent missing for
+User.ReadWrite.All" (or Group.ReadWrite.All). Verified against a local Graph mock only, never a real tenant.
+
 Placeholders: `{{employee_name}}`, `{{employee_email}}`, `{{employee_title}}`, `{{start_date}}`, `{{end_date}}`,
 `{{manager_name}}`, `{{manager_email}}`, `{{department}}`, `{{template_name}}`, `{{run_id}}`, `{{task_title}}`.
 

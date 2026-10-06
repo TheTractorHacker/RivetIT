@@ -19,6 +19,9 @@ final class GraphClientFactory
         $client = (string) ($row['client_id'] ?? '');
         $cache = new MysqliGraphTokenCache($mysqli, (int) ($row['microsoft_integration_id'] ?? 0), $tenant, $client);
 
+        // Account writes are gated by the separate 'Allow RivetIT to change Entra accounts' setting (off by default).
+        $options += ['allow_writes' => self::writesAllowed($mysqli)];
+
         return new GraphClient(
             $tenant,
             $client,
@@ -28,5 +31,18 @@ final class GraphClientFactory
             (string) ($options['authority'] ?? (defined('RIVETIT_GRAPH_AUTHORITY_URL') ? RIVETIT_GRAPH_AUTHORITY_URL : GraphClient::DEFAULT_AUTHORITY)),
             ($deadline !== null ? ['deadline' => $deadline] : []) + $options
         );
+    }
+
+    /** The 'Allow RivetIT to change Entra accounts' setting. False on any doubt (column missing, no settings row). */
+    public static function writesAllowed(\mysqli $mysqli): bool
+    {
+        try {
+            $res = mysqli_query($mysqli, 'SELECT config_entra_allow_writes FROM settings WHERE company_id = 1 LIMIT 1');
+            $row = $res ? mysqli_fetch_row($res) : null;
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return $row !== null && (int) $row[0] === 1;
     }
 }

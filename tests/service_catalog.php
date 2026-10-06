@@ -247,5 +247,54 @@ $ok(count($rc) === 5 && $rc[0]['catalog_item_id'] === $mk[1] && count(array_uniq
 $ok(!in_array($mk[7], array_column($rc, 'catalog_item_id'), true) && !in_array($inactive, array_column($rc, 'catalog_item_id'), true) && !in_array($mk[2], array_column($rc, 'catalog_item_id'), true), 'recent: not other contacts, other departments or inactive items; oldest distinct item drops off');
 $ok($svc->recentForContact(100, 2, 5)[0]['catalog_item_id'] === $mk[7] && count($svc->recentForContact(100, 2, 5)) === 1, 'recent is scoped to the department as well as the contact');
 
+// ---------------------------------------------------------------- conditional fields (show_if)
+$cond = $mkItem(['name' => 'Conditional']);
+$cid = intval($cond['catalog_item_id']);
+$post = ['field_label' => ['Device', 'Laptop model', 'Needs dock', 'Notes'], 'field_type' => ['select', 'text', 'checkbox', 'text'], 'field_order' => [1, 2, 3, 4], 'field_key' => ['', '', '', ''],
+    'field_options' => ["Laptop\nPhone\nTablet", '', '', ''], 'field_required' => [0 => '1', 1 => '1'],
+    'field_showif_field' => [1 => 'device', 2 => 'laptop_model', 3 => ''], 'field_showif_op' => [1 => 'equals', 2 => 'not_empty', 3 => 'equals'], 'field_showif_value' => [1 => 'Laptop', 2 => '', 3 => '']];
+$rows = S::normalizeFieldRows($post);
+$ok(S::validateShowIf($rows) === [] && $rows[1]['show_if'] === '{"field":"device","op":"equals","value":"Laptop"}' && $rows[3]['show_if'] === null, 'show_if rules are normalised to JSON; a row with no rule stays null');
+$svc->saveFields($cid, $rows);
+$f = $svc->getFields($cid);
+$ok($f[1]['show_if'] !== null && $f[2]['show_if'] !== null && $f[0]['show_if'] === null, 'show_if round-trips through the database');
+$r = S::validateInput($f, ['device' => 'Phone', 'laptop_model' => 'ignored', 'needs_dock' => '1']);
+$ok($r['errors'] === [] && array_column($r['values'], 'key') === ['device', 'notes'], 'hidden fields are neither required nor stored (even if posted); a field hidden by a hidden field is hidden too');
+$r = S::validateInput($f, ['device' => 'Laptop']);
+$ok(count($r['errors']) === 1 && str_contains($r['errors'][0], 'Laptop model'), 'a required field is required once its rule is met');
+$r = S::validateInput($f, ['device' => 'Laptop', 'laptop_model' => 'X1', 'needs_dock' => '1']);
+$ok($r['errors'] === [] && array_column($r['values'], 'key') === ['device', 'laptop_model', 'needs_dock', 'notes'], 'a met rule stores the field, and not_empty chains off a visible field');
+$ok(count(S::validateInput($f, [])['errors']) === 1, 'the unconditional required field (Device) is still required');
+$ok(S::validateInput($f, ['device' => ['Laptop']])['errors'] !== [], 'an array posted for the controlling field is rejected, not treated as a match');
+// in / checkbox / malformed
+$inRows = S::normalizeFieldRows(['field_label' => ['Kind', 'Extra'], 'field_type' => ['select', 'text'], 'field_order' => [1, 2], 'field_options' => ["a\nb\nc", ''], 'field_showif_field' => [1 => 'kind'], 'field_showif_op' => [1 => 'in'], 'field_showif_value' => [1 => 'a| c |']]);
+$ok($inRows[1]['show_if'] === '{"field":"kind","op":"in","value":["a","c"]}', "the 'in' operator splits on | and trims");
+$ok(S::showIfMet(S::parseShowIf($inRows[1]['show_if']), ['kind' => 'c']) && !S::showIfMet(S::parseShowIf($inRows[1]['show_if']), ['kind' => 'b']) && !S::showIfMet(S::parseShowIf($inRows[1]['show_if']), []), "'in' matches only listed values");
+$ok(S::parseShowIf('{"field":"x","op":"bogus"}') === null && S::parseShowIf('not json') === null && S::parseShowIf('{"field":"x","op":"in","value":[]}') === null && S::showIfMet(null, []), 'a malformed rule parses to null and never hides a field');
+$ok(S::buildShowIf('device', 'bogus', 'x') === null && S::buildShowIf('', 'equals', 'x') === null && S::buildShowIf('d', 'in', ' | ') === null, 'an unusable typed rule is dropped');
+$ck = [['field_key' => 'agree', 'label' => 'Agree', 'field_type' => 'checkbox', 'options' => null, 'is_required' => 0], ['field_key' => 'why', 'label' => 'Why', 'field_type' => 'text', 'options' => null, 'is_required' => 1, 'show_if' => '{"field":"agree","op":"equals","value":"Yes"}']];
+$ok(S::validateInput($ck, [])['errors'] === [] && count(S::validateInput($ck, ['agree' => '1'])['errors']) === 1, 'a checkbox controls a field: unticked hides it, ticked makes it required');
+// save-time validation: no cycles, unknown field, later field, self
+$bad = fn(array $showif) => S::validateShowIf(S::normalizeFieldRows(['field_label' => ['A', 'B', 'C'], 'field_type' => ['text', 'text', 'text'], 'field_order' => [1, 2, 3]] + $showif));
+$ok($bad(['field_showif_field' => [0 => 'b'], 'field_showif_op' => [0 => 'not_empty']]) !== [], 'a rule that points at a LATER field is rejected');
+$ok($bad(['field_showif_field' => [0 => 'a'], 'field_showif_op' => [0 => 'not_empty']]) !== [], 'a rule that points at itself is rejected');
+$ok($bad(['field_showif_field' => [0 => 'b', 1 => 'a'], 'field_showif_op' => [0 => 'not_empty', 1 => 'not_empty']]) !== [], 'a cycle (A needs B, B needs A) is rejected');
+$ok($bad(['field_showif_field' => [1 => 'zzz'], 'field_showif_op' => [1 => 'not_empty']]) !== [], 'a rule that points at a field that does not exist is rejected');
+$ok($bad(['field_showif_field' => [2 => 'a', 1 => 'a'], 'field_showif_op' => [2 => 'not_empty', 1 => 'equals'], 'field_showif_value' => [1 => 'x']]) === [], 'rules that point at earlier fields are accepted');
+$ok(S::validateShowIf(S::normalizeFieldRows(['field_label' => ['A', 'B'], 'field_type' => ['text', 'text'], 'field_order' => [2, 1], 'field_showif_field' => [0 => 'b'], 'field_showif_op' => [0 => 'not_empty']])) === [], 'order is by the Order column, not the row position');
+// rendering: rule travels as an escaped attribute; hidden until the script runs; preview posts nothing
+$html = S::renderInputs($f);
+$ok(str_contains($html, 'data-show-if="{&quot;field&quot;:&quot;device&quot;') && str_contains($html, 'catalog_show_if.js') && str_contains($html, 'hidden>'), 'the form carries the escaped rule, hides the field and loads the show/hide script');
+$ok(!str_contains(S::renderInputs([$f[0]]), 'catalog_show_if.js'), 'a form with no conditions loads no script');
+$prev = S::renderInputs($f, true);
+$ok(!str_contains($prev, 'catalog_field[') && !str_contains($prev, ' required'), 'the admin preview has no posting names and no required attributes');
+$xssRule = [['field_key' => 'a', 'label' => 'A', 'field_type' => 'text', 'options' => null, 'is_required' => 0], ['field_key' => 'b', 'label' => 'B', 'field_type' => 'text', 'options' => null, 'is_required' => 0, 'show_if' => json_encode(['field' => 'a', 'op' => 'equals', 'value' => '"><script>alert(1)</script>'])]];
+$ok(!str_contains(S::renderInputs($xssRule), '<script>alert'), 'a hostile rule value cannot break out of the attribute');
+$ok(S::describeShowIf(S::parseShowIf($f[1]['show_if']), ['device' => 'Device']) === 'Shown when "Device" is Laptop', 'the editor summary reads in plain language');
+// the submit path stores only visible answers
+$res = $svc->submit($cond, $mkTicket(1, 100, $cid), 1, 100, 0, S::validateInput($f, ['device' => 'Tablet', 'laptop_model' => 'smuggled'])['values']);
+$stored = json_decode($one("SELECT field_values FROM service_catalog_requests WHERE request_id = {$res['request_id']}"), true);
+$ok(!str_contains(json_encode($stored), 'smuggled'), 'a smuggled answer for a hidden field never reaches the stored request');
+
 echo $fails === 0 ? "\nALL PASS\n" : "\n$fails FAILED\n";
 exit($fails === 0 ? 0 : 1);

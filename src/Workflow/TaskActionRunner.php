@@ -4,7 +4,11 @@ namespace ITFlow\Workflow;
 
 use ITFlow\Workflow\Actions\ActionInterface;
 use ITFlow\Workflow\Actions\CreateTicketAction;
+use ITFlow\Workflow\Actions\AbstractEntraAction;
 use ITFlow\Workflow\Actions\DisableContactLoginAction;
+use ITFlow\Workflow\Actions\EntraAddToGroupsAction;
+use ITFlow\Workflow\Actions\EntraCreateAccountAction;
+use ITFlow\Workflow\Actions\EntraDisableAccountAction;
 use ITFlow\Workflow\Actions\NotifyUserAction;
 use ITFlow\Workflow\Actions\SendMailAction;
 use ITFlow\Workflow\Actions\SendWebhookAction;
@@ -37,7 +41,8 @@ class TaskActionRunner
     /** @return ActionInterface[] */
     public static function defaultActions(): array
     {
-        return [new CreateTicketAction(), new SendMailAction(), new NotifyUserAction(), new SendWebhookAction(), new DisableContactLoginAction()];
+        return [new CreateTicketAction(), new SendMailAction(), new NotifyUserAction(), new SendWebhookAction(), new DisableContactLoginAction(),
+            new EntraDisableAccountAction(), new EntraCreateAccountAction(), new EntraAddToGroupsAction()];
     }
 
     /** @return array<string,string> action_type => label (for the template editor); needs no database */
@@ -71,6 +76,10 @@ class TaskActionRunner
         }
         if ($type === 'disable_contact_login' && $templateType !== 'offboarding') {
             throw new \InvalidArgumentException('Disabling a login is only available in offboarding templates.');
+        }
+
+        if ($this->actions[$type] instanceof AbstractEntraAction && $this->actions[$type]->templateType() !== $templateType) {
+            throw new \InvalidArgumentException('That Entra action is only available in ' . $this->actions[$type]->templateType() . ' templates.');
         }
 
         return $this->actions[$type]->validate(is_array($config) ? $config : []);

@@ -120,7 +120,9 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
             <label>Action</label>
             <select class="form-control" name="action_type">
                 <?php foreach (\ITFlow\Workflow\TaskActionRunner::labels() as $k => $label) {
-                    if ($k === 'disable_contact_login' && $template_type !== 'offboarding') { continue; } ?>
+                    if ($k === 'disable_contact_login' && $template_type !== 'offboarding') { continue; }
+                    if (in_array($k, ['entra_disable_account'], true) && $template_type !== 'offboarding') { continue; }
+                    if (in_array($k, ['entra_create_account', 'entra_add_to_groups'], true) && $template_type !== 'onboarding') { continue; } ?>
                     <option value="<?= $h($k) ?>" <?= ($task['action_type'] ?? '') === $k ? 'selected' : '' ?>><?= $h($label) ?></option>
                 <?php } ?>
             </select>
@@ -167,6 +169,33 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
                 <?php } ?>
             </select>
         </div>
+        <div class="col-md-12 small text-muted"><strong>Entra actions</strong> (need Administration &gt; Integrations &gt; Directory Sync &gt; "Allow RivetIT to change Entra accounts"; otherwise they become manual tasks). Create: the account is made with a random temporary password shown once to the assigned technician. Disable never deletes.</div>
+        <div class="col-md-4 form-group">
+            <label>Entra user principal name</label>
+            <input type="text" class="form-control" name="cfg_upn" maxlength="200" placeholder="{{employee_email}}" value="<?= $h($cfg['upn'] ?? '') ?>">
+        </div>
+        <div class="col-md-4 form-group">
+            <label>Entra display name</label>
+            <input type="text" class="form-control" name="cfg_display_name" maxlength="256" placeholder="{{employee_name}}" value="<?= $h($cfg['display_name'] ?? '') ?>">
+        </div>
+        <div class="col-md-4 form-group">
+            <label>New account</label>
+            <select class="form-control" name="cfg_enabled">
+                <option value="0" <?= empty($cfg['enabled']) ? 'selected' : '' ?>>Create disabled (enable at start date)</option>
+                <option value="1" <?= !empty($cfg['enabled']) ? 'selected' : '' ?>>Create enabled</option>
+            </select>
+        </div>
+        <div class="col-md-8 form-group">
+            <label>Entra group Object IDs <small class="text-muted">(one per line)</small></label>
+            <textarea class="form-control" name="cfg_groups" rows="2" maxlength="2000"><?= $h($cfg['groups'] ?? '') ?></textarea>
+        </div>
+        <div class="col-md-4 form-group">
+            <label>Disable account</label>
+            <select class="form-control" name="cfg_revoke_sessions">
+                <option value="1" <?= !isset($cfg['revoke_sessions']) || !empty($cfg['revoke_sessions']) ? 'selected' : '' ?>>Disable sign-in and revoke sessions</option>
+                <option value="0" <?= isset($cfg['revoke_sessions']) && empty($cfg['revoke_sessions']) ? 'selected' : '' ?>>Disable sign-in only</option>
+            </select>
+        </div>
         <div class="col-md-4 form-group">
             <label>Webhook event name</label>
             <input type="text" class="form-control" name="cfg_event" maxlength="110" placeholder="workflow.task_webhook" value="<?= $h($cfg['event'] ?? '') ?>">
@@ -210,6 +239,8 @@ function workflowTaskInputFromPost(array $post): array
             'subject' => $post['cfg_subject'] ?? '', 'details' => $post['cfg_details'] ?? '', 'priority' => $post['cfg_priority'] ?? 'Low',
             'to' => $post['cfg_to'] ?? 'employee', 'address' => $post['cfg_address'] ?? '', 'body' => $post['cfg_body'] ?? '',
             'message' => $post['cfg_message'] ?? '', 'user_id' => $post['cfg_user_id'] ?? 0, 'event' => $post['cfg_event'] ?? '',
+            'upn' => $post['cfg_upn'] ?? '', 'display_name' => $post['cfg_display_name'] ?? '', 'enabled' => $post['cfg_enabled'] ?? 0,
+            'groups' => $post['cfg_groups'] ?? '', 'revoke_sessions' => $post['cfg_revoke_sessions'] ?? 1,
         ],
     ];
 }

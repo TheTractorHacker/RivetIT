@@ -124,6 +124,52 @@ require_once "includes/webhook_events.php";
 </div>
 
 <?php
+$slack_cfg = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_slack_link_by_email, config_slack_bot_token, config_slack_team_id FROM settings WHERE company_id = 1")) ?: [];
+$slack_base = trim((string) ($config_base_url ?? ''));
+$slack_endpoint = ($slack_base !== '' ? (preg_match('#^https?://#i', $slack_base) ? rtrim($slack_base, '/') : 'https://' . rtrim($slack_base, '/')) : 'https://your-rivetit-host') . '/slack_interactive.php';
+?>
+<div class="card mt-3">
+    <div class="card-header py-3">
+        <h3 class="card-title mb-0"><i class="fab fa-fw fa-slack me-2"></i>Slack interactive actions</h3>
+    </div>
+    <div class="card-body">
+        <p class="text-muted small">
+            A Slack destination that has a <strong>Signing Secret</strong> (Edit webhook) gets <em>Acknowledge</em> and <em>Assign to me</em> buttons on ticket messages.
+            In your Slack app, turn on <strong>Interactivity</strong> and set its Request URL to
+            <code><?= nullable_htmlentities($slack_endpoint) ?></code>. Requests are verified with that Signing Secret (5 minute window, single use).
+            Teams cannot do this (Teams cards need a Bot Framework app), see docs/SLACK_TEAMS_SETUP.md.
+        </p>
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <div class="form-check form-switch mb-1">
+                <input type="checkbox" class="form-check-input" name="config_slack_link_by_email" value="1" id="slackLinkByEmail" <?= !empty($slack_cfg['config_slack_link_by_email']) ? 'checked' : '' ?>>
+                <label class="form-check-label" for="slackLinkByEmail">Match Slack users to agents by their confirmed Slack email address</label>
+            </div>
+            <small class="text-muted d-block mb-3">
+                <strong>Off by default.</strong> While off, a click answers "your Slack account isn't linked" and changes nothing. When on, RivetIT asks Slack
+                (<code>users.info</code>, bot token below) for the clicker's email and only acts when Slack marks it <em>confirmed</em>, the person is not a bot or guest,
+                and exactly one active agent has that email, with the same role and department rights as in the web app. Anyone who can change their Slack email
+                to an agent's address in a workspace that does NOT confirm emails could pose as that agent, so only turn this on for a workspace you control.
+            </small>
+            <div class="row">
+                <div class="col-md-6 form-group">
+                    <label>Slack bot token <small class="text-secondary">(needs the <code>users:read</code> and <code>users:read.email</code> scopes)</small></label>
+                    <input type="password" class="form-control font-monospace" name="config_slack_bot_token" autocomplete="new-password" placeholder="<?= !empty($slack_cfg['config_slack_bot_token']) ? 'Stored encrypted - leave blank to keep' : 'xoxb-...' ?>">
+                    <?php if (!empty($slack_cfg['config_slack_bot_token'])) { ?>
+                    <div class="form-check mt-1"><input type="checkbox" class="form-check-input" name="config_slack_bot_token_clear" value="1" id="slackTokenClear"><label class="form-check-label small" for="slackTokenClear">Remove the stored token</label></div>
+                    <?php } ?>
+                </div>
+                <div class="col-md-6 form-group">
+                    <label>Slack workspace (team) ID <small class="text-secondary">(recommended; starts with T)</small></label>
+                    <input type="text" class="form-control font-monospace" name="config_slack_team_id" maxlength="32" value="<?= nullable_htmlentities($slack_cfg['config_slack_team_id'] ?? '') ?>" placeholder="T0123ABCD">
+                </div>
+            </div>
+            <button type="submit" name="save_slack_interactive" class="btn btn-primary btn-sm"><i class="fas fa-check me-1"></i>Save</button>
+        </form>
+    </div>
+</div>
+
+<?php
 $legacy_queue_rows = (int) (mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM webhook_queue"))[0] ?? 0);
 if (isset($sql_wh) && mysqli_num_rows($sql_wh) > 0 && $legacy_queue_rows > 0) { ?>
 <div class="card mt-3">

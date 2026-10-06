@@ -33,6 +33,12 @@ class ReminderService
             WHERE status = 'running' AND running_since IS NOT NULL AND running_since < NOW() - INTERVAL " . self::STALE_RUNNING_MINUTES . ' MINUTE');
         $out['recovered'] = max(0, (int) mysqli_affected_rows($this->mysqli));
 
+        // A temporary password nobody read within its 7 days is erased, not kept. (Column absent before migration 2.6.140: ignored.)
+        try {
+            mysqli_query($this->mysqli, 'UPDATE workflow_run_tasks SET secret_result_enc = NULL, secret_user_id = NULL, secret_expires_at = NULL WHERE secret_expires_at IS NOT NULL AND secret_expires_at < NOW()');
+        } catch (\Throwable $e) {
+        }
+
         $res = mysqli_query($this->mysqli, "SELECT t.run_task_id, t.run_id, t.title, t.due_at, t.assignee_user_id, t.reminder_state, r.started_by, r.contact_id, c.contact_name, c.contact_client_id,
                 (t.due_at < NOW()) AS is_overdue
             FROM workflow_run_tasks t

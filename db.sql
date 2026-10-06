@@ -2908,9 +2908,16 @@ CREATE TABLE `settings` (
   `config_avg_resolution_exclude_projects` tinyint(1) NOT NULL DEFAULT 1,
   `config_dashboard_avg_resolution_enable` tinyint(1) NOT NULL DEFAULT 1,
   `config_module_enable_intune` tinyint(1) NOT NULL DEFAULT 0,
+<<<<<<< HEAD
   `config_portal_home_sections` varchar(255) NOT NULL DEFAULT 'requests,approvals,devices,onboarding,training,catalog',
   `config_portal_onboarding_requests` tinyint(1) NOT NULL DEFAULT 0,
   `config_portal_onboarding_template_id` int(11) NOT NULL DEFAULT 0,
+=======
+  `config_entra_allow_writes` tinyint(1) NOT NULL DEFAULT 0,
+  `config_slack_link_by_email` tinyint(1) NOT NULL DEFAULT 0,
+  `config_slack_bot_token` varchar(1000) NOT NULL DEFAULT '',
+  `config_slack_team_id` varchar(32) NOT NULL DEFAULT '',
+>>>>>>> build2/gaps
   PRIMARY KEY (`company_id`),
   `config_enable_device_metrics` tinyint(1) NOT NULL DEFAULT 0,
   `config_metrics_collect_interval_seconds` int(11) NOT NULL DEFAULT 300,
@@ -7128,6 +7135,9 @@ CREATE TABLE `workflow_run_tasks` (
   `attempts` int(11) NOT NULL DEFAULT 0,
   `last_error` varchar(500) DEFAULT NULL,
   `running_since` datetime DEFAULT NULL,
+  `secret_result_enc` text DEFAULT NULL,
+  `secret_user_id` int(11) DEFAULT NULL,
+  `secret_expires_at` datetime DEFAULT NULL,
   PRIMARY KEY (`run_task_id`),
   KEY `idx_run_task_run` (`run_id`,`sort_order`),
   KEY `idx_run_task_due` (`status`,`due_at`)
@@ -7241,6 +7251,7 @@ CREATE TABLE `service_catalog_fields` (
   `is_required` tinyint(1) NOT NULL DEFAULT 0,
   `placeholder` varchar(200) DEFAULT NULL,
   `sort_order` int(11) NOT NULL DEFAULT 0,
+  `show_if` text DEFAULT NULL,
   PRIMARY KEY (`field_id`),
   UNIQUE KEY `uq_catalog_field_key` (`catalog_item_id`,`field_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -7412,6 +7423,21 @@ CREATE TABLE `webhook_deliveries` (
   PRIMARY KEY (`delivery_id`),
   KEY `idx_webhook_deliveries_webhook` (`webhook_id`,`created_at`),
   KEY `idx_webhook_deliveries_event` (`event_type`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `slack_interactive_seen`
+--
+
+DROP TABLE IF EXISTS `slack_interactive_seen`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `slack_interactive_seen` (
+  `sig_hash` char(64) NOT NULL,
+  `seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`sig_hash`),
+  KEY `idx_slack_seen_at` (`seen_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

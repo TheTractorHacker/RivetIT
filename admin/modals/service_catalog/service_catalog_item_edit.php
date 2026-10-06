@@ -149,9 +149,15 @@ ob_start();
         <h6><i class="fas fa-fw fa-clipboard-list me-2"></i>Request form <small class="text-secondary">(extra questions asked when this item is requested)</small></h6>
         <div class="table-responsive-sm">
         <table class="table table-sm align-middle">
-            <thead><tr><th style="width:70px">Order</th><th>Label</th><th style="width:120px">Type</th><th>Choices <small class="text-secondary">(one per line, for Select)</small></th><th class="text-center" style="width:70px">Required</th><th class="text-center" style="width:70px">Remove</th></tr></thead>
+            <thead><tr><th style="width:70px">Order</th><th>Label</th><th style="width:120px">Type</th><th>Choices <small class="text-secondary">(one per line, for Select)</small></th><th class="text-center" style="width:70px">Required</th><th style="width:210px">Show only when <small class="text-secondary">(optional)</small></th><th class="text-center" style="width:70px">Remove</th></tr></thead>
             <tbody>
-            <?php foreach ($catalog_fields as $i => $f) { ?>
+            <?php
+            $field_labels_by_key = [];
+            foreach ($catalog_fields as $cf) { if ($cf['field_key'] !== '') { $field_labels_by_key[$cf['field_key']] = $cf['label']; } }
+            foreach ($catalog_fields as $i => $f) {
+                $f_rule = \ITFlow\ITSM\ServiceCatalogService::parseShowIf($f['show_if'] ?? null);
+                $f_rule_value = $f_rule === null ? '' : ($f_rule['op'] === 'in' ? implode('|', $f_rule['value']) : ($f_rule['op'] === 'equals' ? $f_rule['value'] : ''));
+            ?>
                 <tr>
                     <td>
                         <input type="number" class="form-control form-control-sm" name="field_order[<?= $i ?>]" value="<?= $i + 1 ?>">
@@ -170,12 +176,36 @@ ob_start();
                     </td>
                     <td><textarea class="form-control form-control-sm" name="field_options[<?= $i ?>]" rows="2"><?= nullable_htmlentities($f['options'] ?? '') ?></textarea></td>
                     <td class="text-center"><input type="checkbox" class="form-check-input" name="field_required[<?= $i ?>]" value="1" <?php if (!empty($f['is_required'])) { echo 'checked'; } ?>></td>
+                    <td>
+                        <select class="form-select form-select-sm" name="field_showif_field[<?= $i ?>]">
+                            <option value="">Always shown</option>
+                            <?php for ($j = 0; $j < $i; $j++) { if ($catalog_fields[$j]['field_key'] === '') { continue; } ?>
+                                <option value="<?= nullable_htmlentities($catalog_fields[$j]['field_key']) ?>" <?php if ($f_rule !== null && $f_rule['field'] === $catalog_fields[$j]['field_key']) { echo 'selected'; } ?>>When: <?= nullable_htmlentities($catalog_fields[$j]['label']) ?></option>
+                            <?php } ?>
+                        </select>
+                        <select class="form-select form-select-sm mt-1" name="field_showif_op[<?= $i ?>]">
+                            <option value="equals" <?php if ($f_rule === null || $f_rule['op'] === 'equals') { echo 'selected'; } ?>>equals</option>
+                            <option value="in" <?php if ($f_rule !== null && $f_rule['op'] === 'in') { echo 'selected'; } ?>>is one of (a|b)</option>
+                            <option value="not_empty" <?php if ($f_rule !== null && $f_rule['op'] === 'not_empty') { echo 'selected'; } ?>>is answered</option>
+                        </select>
+                        <input type="text" class="form-control form-control-sm mt-1" name="field_showif_value[<?= $i ?>]" maxlength="400" value="<?= nullable_htmlentities($f_rule_value) ?>" placeholder="Value">
+                        <?php if ($f_rule !== null) { ?><div class="small text-secondary mt-1"><?= nullable_htmlentities(\ITFlow\ITSM\ServiceCatalogService::describeShowIf($f_rule, $field_labels_by_key)) ?></div><?php } ?>
+                    </td>
                     <td class="text-center"><?php if ($f['label'] !== '') { ?><input type="checkbox" class="form-check-input" name="field_remove[<?= $i ?>]" value="1"><?php } ?></td>
                 </tr>
             <?php } ?>
             </tbody>
         </table>
         </div>
+        <p class="small text-secondary">A condition can only look at a question that comes earlier in the form (and that has been saved). A question whose condition is not met is hidden and is neither required nor stored. A required question that has a condition is required only while it is shown.</p>
+        <?php $preview_fields = array_values(array_filter($catalog_fields, fn($pf) => $pf['label'] !== '')); if ($preview_fields) { ?>
+            <details class="mb-3">
+                <summary class="small">Preview the saved form (try the conditions)</summary>
+                <div class="border rounded p-3 mt-2">
+                    <?= \ITFlow\ITSM\ServiceCatalogService::renderInputs($preview_fields, true) ?>
+                </div>
+            </details>
+        <?php } ?>
 
         <hr>
         <h6><i class="fas fa-fw fa-user-check me-2"></i>Approval <small class="text-secondary">(off unless switched on; the ticket is held until every step approves)</small></h6>
