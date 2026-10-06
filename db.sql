@@ -6710,7 +6710,66 @@ CREATE TABLE `report_schedules` (
   `schedule_last_sent` datetime DEFAULT NULL,
   `schedule_active` tinyint(4) DEFAULT 1,
   `schedule_created_at` datetime DEFAULT current_timestamp(),
+  `schedule_saved_report_id` int(11) DEFAULT NULL,
+  `schedule_format` varchar(8) NOT NULL DEFAULT 'html',
+  `schedule_owner_user_id` int(11) DEFAULT NULL,
+  `schedule_last_run_at` datetime DEFAULT NULL,
+  `schedule_last_status` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`schedule_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `saved_reports`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `saved_reports` (
+  `saved_report_id` int(11) NOT NULL AUTO_INCREMENT,
+  `saved_report_user_id` int(11) NOT NULL,
+  `saved_report_key` varchar(60) NOT NULL,
+  `saved_report_name` varchar(100) NOT NULL,
+  `saved_report_params` text DEFAULT NULL,
+  `saved_report_shared` tinyint(1) NOT NULL DEFAULT 0,
+  `saved_report_created_at` datetime DEFAULT current_timestamp(),
+  `saved_report_updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`saved_report_id`),
+  KEY `saved_report_user_key` (`saved_report_user_id`,`saved_report_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `report_exports`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `report_exports` (
+  `export_id` int(11) NOT NULL AUTO_INCREMENT,
+  `export_token_hash` char(64) NOT NULL,
+  `export_schedule_id` int(11) DEFAULT NULL,
+  `export_filename` varchar(150) NOT NULL,
+  `export_content` longtext NOT NULL,
+  `export_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `export_expires_at` datetime NOT NULL,
+  PRIMARY KEY (`export_id`),
+  UNIQUE KEY `export_token_hash` (`export_token_hash`),
+  KEY `export_expires_at` (`export_expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `dashboard_layouts`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `dashboard_layouts` (
+  `layout_user_id` int(11) NOT NULL,
+  `layout_widgets` text DEFAULT NULL,
+  `layout_updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`layout_user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

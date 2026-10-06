@@ -1,4 +1,6 @@
 <?php
+// Scheduled report render (scripts/report_render.php, CLI): no page shell was opened, so there is nothing to close.
+if (defined('RIVETIT_REPORT_HEADLESS') && PHP_SAPI === 'cli') { return; }
 require_once "inc_confirm_modal.php";
 ?>
 

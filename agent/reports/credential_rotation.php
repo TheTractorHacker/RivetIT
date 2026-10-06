@@ -15,7 +15,7 @@ $passwords_not_rotated_sql = mysqli_query($mysqli,
         FROM credentials
         LEFT JOIN clients ON credential_client_id = client_id
         WHERE credential_archived_at IS NULL
-            AND DATE(credential_password_changed_at) < DATE_SUB(CURDATE(), INTERVAL $days DAY)
+            AND DATE(credential_password_changed_at) < DATE_SUB(CURDATE(), INTERVAL $days DAY)" . \ITFlow\Reports\ReportScope::clause('credential_client_id') . "
         ORDER BY client_name"
 );
 

@@ -3,6 +3,7 @@ require_once "includes/inc_all_admin.php";
 
 $start_page_select_array = array (
     'dashboard.php'=>'Dashboard',
+    'my_dashboard.php'=>'My dashboard (each user arranges their own widgets)',
     'clients.php'=> 'Department Management',
     'tickets.php'=> 'Support Tickets'
 );

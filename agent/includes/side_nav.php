@@ -79,6 +79,12 @@ foreach ($section_pages as $key => $pages) {
                         <span class="nav-link-title">Dashboard</span>
                     </a>
                 </li>
+                <li class="nav-item<?php if ($current_page == "my_dashboard.php") { echo " active"; } ?>">
+                    <a href="/agent/my_dashboard.php" class="nav-link<?php if ($current_page == "my_dashboard.php") { echo " active"; } ?>">
+                        <span class="nav-link-icon"><i class="fas fa-th-large"></i></span>
+                        <span class="nav-link-title">My dashboard</span>
+                    </a>
+                </li>
                 <?php } ?>
 
                 <?php if (lookupUserPermission("module_rmm_alerts") >= 1) { ?>

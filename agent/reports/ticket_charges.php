@@ -28,7 +28,7 @@ $sql_tickets = mysqli_query($mysqli, "
     JOIN tickets t ON tc.charge_ticket_id = t.ticket_id
     LEFT JOIN clients c ON t.ticket_client_id = c.client_id
     WHERE tc.charge_archived_at IS NULL
-    AND YEAR(tc.charge_created_at) = $year
+    AND YEAR(tc.charge_created_at) = $year" . \ITFlow\Reports\ReportScope::clause('t.ticket_client_id') . "
     GROUP BY t.ticket_id
     $having
     ORDER BY last_charge_at DESC

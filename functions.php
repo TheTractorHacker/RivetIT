@@ -1389,16 +1389,10 @@ function report_send_csv(string $filename, array $header, array $rows)
         header('Pragma: no-cache');
     }
 
-    $sanitize = static function ($v) {
-        if (is_int($v) || is_float($v)) {
-            return $v;
-        }
-        $v = (string) ($v ?? '');
-        if ($v !== '' && !is_numeric($v) && in_array($v[0], ['=', '+', '-', '@'], true)) {
-            $v = "'" . $v;
-        }
-        return $v;
-    };
+    // One escaping rule for every report export (src/Reports/ReportExport.php); marks the request as already exported
+    // so the generic table-to-CSV fallback in agent/reports/includes/inc_all_reports.php stands down.
+    $GLOBALS['report_csv_sent'] = true;
+    $sanitize = [\ITFlow\Reports\ReportExport::class, 'cell'];
 
     $out = fopen('php://output', 'w');
     // UTF-8 BOM so Excel opens accented characters correctly.
@@ -1589,8 +1583,8 @@ function getServiceDeskReport(mysqli $mysqli, $date_from, $date_to, ?int $client
     // $client_id restricts every query below to one client - used by the API when the
     // caller is authenticated via a client-scoped legacy key. The classic web report
     // always calls this with $client_id = null (company-wide).
-    $client_clause   = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : '';
-    $client_clause_t = $client_id !== null ? " AND t.ticket_client_id = " . intval($client_id) : '';
+    $client_clause   = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
+    $client_clause_t = $client_id !== null ? " AND t.ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('t.ticket_client_id');
     $created_range = "ticket_created_at BETWEEN '$from_dt' AND '$to_dt'$client_clause";
 
     // --- Ticket volume trend (opened vs resolved, grouped by month, set-based) ---
@@ -1805,7 +1799,7 @@ function getTicketDayBreakdownReport(mysqli $mysqli, $date_from, $date_to, ?int 
     }
     $from_dt = "$date_from 00:00:00";
     $to_dt   = "$date_to 23:59:59";
-    $client_clause = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : '';
+    $client_clause = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
 
     $created_by_day = [];
     $res = mysqli_query($mysqli,
@@ -1931,7 +1925,7 @@ function getCsatAggregateByGroup(mysqli $mysqli, string $group_column, string $f
     if (!in_array($group_column, $allowed_columns, true)) {
         return [];
     }
-    $client_clause = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : '';
+    $client_clause = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
 
     $out = [];
     $res = mysqli_query($mysqli,
@@ -1976,8 +1970,8 @@ function getTechnicianPerformanceReport(mysqli $mysqli, $date_from, $date_to, ?i
     // caller is authenticated via a client-scoped legacy key. The classic web report
     // always calls this with $client_id = null (company-wide). ticket_replies carries no
     // client column of its own, so it's joined to tickets only when scoping is active.
-    $client_clause         = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : '';
-    $client_join_ticket_id = $client_id !== null ? " JOIN tickets trt ON trt.ticket_id = tr.ticket_reply_ticket_id AND trt.ticket_client_id = " . intval($client_id) : '';
+    $client_clause         = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
+    $client_join_ticket_id = $client_id !== null ? " JOIN tickets trt ON trt.ticket_id = tr.ticket_reply_ticket_id AND trt.ticket_client_id = " . intval($client_id) : (\ITFlow\Reports\ReportScope::isRestricted() ? " JOIN tickets trt ON trt.ticket_id = tr.ticket_reply_ticket_id" . \ITFlow\Reports\ReportScope::clause('trt.ticket_client_id') : '');
 
     $hpd = defined('REPORT_CAPACITY_HOURS_PER_DAY') ? REPORT_CAPACITY_HOURS_PER_DAY : 8;
     $business_days    = report_business_days($date_from, $date_to);
@@ -2134,7 +2128,7 @@ function getCsatReport(mysqli $mysqli, $date_from, $date_to, ?int $client_id = n
     }
     $from_dt = "$date_from 00:00:00";
     $to_dt   = "$date_to 23:59:59";
-    $client_clause = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : '';
+    $client_clause = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
     // Two distinct cohorts, because "closed in period" and "rated in period" are
     // genuinely different questions - a ticket can be rated long after it closes
     // (email reminder, or just real-world lag). $closed_range answers "of tickets
@@ -2450,8 +2444,8 @@ function getMrrReport(mysqli $mysqli, ?int $client_id = null)
     // caller is authenticated via a client-scoped legacy key, so a key restricted to one
     // client can never see another client's (or the whole company's) recurring revenue.
     // The classic web report always calls this with $client_id = null (company-wide).
-    $client_clause = $client_id !== null ? " AND recurring_invoice_client_id = " . intval($client_id) : '';
-    $client_clause_ri = $client_id !== null ? " AND ri.recurring_invoice_client_id = " . intval($client_id) : '';
+    $client_clause = $client_id !== null ? " AND recurring_invoice_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('recurring_invoice_client_id');
+    $client_clause_ri = $client_id !== null ? " AND ri.recurring_invoice_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ri.recurring_invoice_client_id');
 
     $active_where = "recurring_invoice_status = 1 AND recurring_invoice_archived_at IS NULL$client_clause";
 
@@ -2588,7 +2582,7 @@ function getArAgingReport(mysqli $mysqli)
              SELECT payment_invoice_id, SUM(payment_amount) AS paid
              FROM payments GROUP BY payment_invoice_id
          ) p ON p.payment_invoice_id = i.invoice_id
-         WHERE i.invoice_status NOT IN ('Draft', 'Cancelled', 'Non-Billable')
+         WHERE i.invoice_status NOT IN ('Draft', 'Cancelled', 'Non-Billable')" . \ITFlow\Reports\ReportScope::clause('i.invoice_client_id') . "
          HAVING balance > 0.005");
 
     $buckets = ['b_0_30' => 0.0, 'b_31_60' => 0.0, 'b_61_90' => 0.0, 'b_90_plus' => 0.0, 'total' => 0.0];
@@ -2652,7 +2646,7 @@ function getClientProfitability(mysqli $mysqli, $year)
     $res = mysqli_query($mysqli,
         "SELECT i.invoice_client_id AS cid, SUM(p.payment_amount) AS rev
          FROM payments p JOIN invoices i ON i.invoice_id = p.payment_invoice_id
-         WHERE YEAR(p.payment_date) = $year
+         WHERE YEAR(p.payment_date) = $year" . \ITFlow\Reports\ReportScope::clause('i.invoice_client_id') . "
          GROUP BY i.invoice_client_id");
     while ($r = mysqli_fetch_assoc($res)) {
         $rev[intval($r['cid'])] = floatval($r['rev']);
@@ -2666,7 +2660,7 @@ function getClientProfitability(mysqli $mysqli, $year)
          FROM ticket_replies tr
          JOIN tickets t ON t.ticket_id = tr.ticket_reply_ticket_id
          LEFT JOIN labor_types lt ON lt.labor_type_id = tr.ticket_reply_labor_type_id
-         WHERE tr.ticket_reply_time_worked IS NOT NULL AND YEAR(tr.ticket_reply_created_at) = $year
+         WHERE tr.ticket_reply_time_worked IS NOT NULL AND YEAR(tr.ticket_reply_created_at) = $year" . \ITFlow\Reports\ReportScope::clause('t.ticket_client_id') . "
          GROUP BY t.ticket_client_id");
     while ($r = mysqli_fetch_assoc($res)) {
         $lab[intval($r['cid'])] = ['val' => floatval($r['val']), 'secs' => intval($r['secs'])];
@@ -2783,8 +2777,8 @@ function getRmmHealthReport(mysqli $mysqli, $date_from, $date_to, ?int $client_i
     // $client_id restricts every query below to one client - used by the API when the
     // caller is authenticated via a client-scoped legacy key. The classic web report
     // always calls this with $client_id = null (company-wide).
-    $client_clause    = $client_id !== null ? " AND client_id = " . intval($client_id) : '';
-    $client_clause_ra = $client_id !== null ? " AND ra.client_id = " . intval($client_id) : '';
+    $client_clause    = $client_id !== null ? " AND client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('client_id');
+    $client_clause_ra = $client_id !== null ? " AND ra.client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ra.client_id');
     $range     = "created_at BETWEEN '$from_dt' AND '$to_dt'$client_clause";
     $range_ra  = "ra.created_at BETWEEN '$from_dt' AND '$to_dt'$client_clause_ra";
 

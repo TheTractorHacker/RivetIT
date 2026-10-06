@@ -210,6 +210,12 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                         <span class="nav-link-title">Scheduled Reports</span>
                     </a>
                 </li>
+                <li class="nav-item<?php if ($current_page == "saved_views.php") { echo " active"; } ?>">
+                    <a href="/agent/reports/saved_views.php" class="nav-link<?php if ($current_page == "saved_views.php") { echo " active"; } ?>">
+                        <span class="nav-link-icon"><i class="fas fa-bookmark"></i></span>
+                        <span class="nav-link-title">Saved Views</span>
+                    </a>
+                </li>
 
                 <?php
                 $sql_custom_links = mysqli_query($mysqli, "SELECT * FROM custom_links
