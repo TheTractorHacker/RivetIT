@@ -16,7 +16,7 @@ namespace ITFlow\Reports;
  */
 final class ReportCatalog
 {
-    private const CANNED = ['today', 'yesterday', 'thisweek', 'lastweek', 'thismonth', 'lastmonth', 'thisyear', 'lastyear', 'alltime', 'custom'];
+    private const CANNED = ['today', 'yesterday', 'thisweek', 'lastweek', 'thismonth', 'lastmonth', 'thisyear', 'lastyear', 'last7', 'last14', 'last30', 'last90', 'last12months', 'thisquarter', 'lastquarter', 'next7', 'next30', 'alltime', 'custom'];
 
     public static function definitions(): array
     {

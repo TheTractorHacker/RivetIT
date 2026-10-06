@@ -40,22 +40,6 @@ if (!empty($report_export_csv)) {
     report_send_csv('csat_' . $report_from . '_to_' . $report_to . '.csv', $csv_header, $csv_rows);
 }
 
-$canned_options = [
-    'alltime'   => 'All time',
-    'today'     => 'Today',
-    'yesterday' => 'Yesterday',
-    'thisweek'  => 'This week',
-    'lastweek'  => 'Last week',
-    'thismonth' => 'This month',
-    'lastmonth' => 'Last month',
-    'thisyear'  => 'This year',
-    'lastyear'  => 'Last year',
-    'custom'    => 'Custom range',
-];
-$selected_canned = $_GET['canned_date'] ?? 'alltime';
-if ($selected_canned === 'custom' && !isset($_GET['dtf'])) {
-    $selected_canned = 'alltime';
-}
 
 // Build chart series.
 $dist_labels = [
@@ -124,28 +108,9 @@ $trend_avg    = array_map(function ($t) { return $t['avg_rating']; }, $report['t
     <div class="card-body p-0">
 
         <!-- Date range filter -->
-        <form class="p-3 d-print-none form-row align-items-end">
-            <div class="col-md-3 col-6 mb-2">
-                <label class="mb-1">Date range</label>
-                <select class="form-control auto-submit-select" id="csatCanned" name="canned_date">
-                    <?php foreach ($canned_options as $val => $label) { ?>
-                        <option value="<?php echo $val; ?>" <?php if ($selected_canned === $val) { echo 'selected'; } ?>><?php echo $label; ?></option>
-                    <?php } ?>
-                </select>
-            </div>
-            <div class="col-md-3 col-6 mb-2">
-                <label class="mb-1">From</label>
-                <input type="date" class="form-control js-canned-date-input" data-canned-target="csatCanned" name="dtf" value="<?php echo nullable_htmlentities($report_from); ?>">
-            </div>
-            <div class="col-md-3 col-6 mb-2">
-                <label class="mb-1">To</label>
-                <input type="date" class="form-control js-canned-date-input" data-canned-target="csatCanned" name="dtt" value="<?php echo nullable_htmlentities($report_to); ?>">
-            </div>
-            <div class="col-md-3 col-6 mb-2">
-                <button type="submit" class="btn btn-secondary btn-block">
-                    <i class="fas fa-fw fa-filter me-1"></i>Apply (custom)
-                </button>
-            </div>
+        <form class="p-3 d-print-none">
+            <label class="mb-1 d-block">Date range</label>
+            <?php echo dateRangePickerField($date_range, 'canned_date', ['dates' => [$report_from, $report_to]]); ?>
         </form>
 
         <div class="px-3 pb-2">

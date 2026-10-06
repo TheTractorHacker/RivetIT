@@ -223,16 +223,6 @@ document.addEventListener('change', function (e) {
     }
 });
 
-// Report date-range filters: editing the From/To date manually should flip the
-// paired "canned range" select (Today/This Week/etc) to "custom" so it stops
-// silently reporting a canned range while showing a hand-picked one.
-document.addEventListener('change', function (e) {
-    var el = e.target.closest ? e.target.closest('.js-canned-date-input') : null;
-    if (!el) { return; }
-    var target = document.getElementById(el.dataset.cannedTarget);
-    if (target) { target.value = 'custom'; }
-});
-
 // "Select all" checkbox that toggles every .<data-target-class> checkbox within
 // the same .tab-pane (software license assignment, etc).
 document.addEventListener('click', function (e) {
@@ -1090,8 +1080,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try { new simpleDatatables.DataTable(el, { searchable: true, perPageSelect: [10, 25, 50, 100] }); } catch (err) { /* noop */ }
     });
 
-    // ---- Date-range filter (#dateFilter) via Litepicker (replaces daterangepicker/date_filter.js) ----
-    initDateRangeFilter();
+    // (Date-range filters are the shared picker in js/date_range_picker.js.)
 
     // ---- .table-responsive dropdown reparent so menus aren't clipped (BS5, vanilla) ----
     initTableResponsiveDropdowns();
@@ -1110,63 +1099,6 @@ document.addEventListener('DOMContentLoaded', function() {
 /* ============================================================
    Helpers (hoisted; called from the DOMContentLoaded block above)
    ============================================================ */
-
-// Litepicker range picker bound to #dateFilter, writing #canned_date/#dtf/#dtt
-// and auto-submitting — mirrors the semantics of the old date_filter.js.
-function initDateRangeFilter() {
-    var input = document.getElementById('dateFilter');
-    if (!input || !window.Litepicker) { return; }
-
-    var cannedEl = document.getElementById('canned_date');
-    var dtfEl = document.getElementById('dtf');
-    var dttEl = document.getElementById('dtt');
-
-    var hasValues = (dtfEl && dttEl && dtfEl.value && dttEl.value) ||
-                    (cannedEl && cannedEl.value && cannedEl.value !== '');
-    if (!hasValues) {
-        if (cannedEl) { cannedEl.value = 'alltime'; }
-        if (dtfEl) { dtfEl.value = '1970-01-01'; }
-        if (dttEl) { dttEl.value = '2099-12-31'; }
-    }
-
-    function setDisplay(start, end) {
-        if (start === '1970-01-01' && end === '2099-12-31') {
-            input.value = 'All Time';
-        } else {
-            input.value = start + ' — ' + end;
-        }
-    }
-    setDisplay((dtfEl && dtfEl.value) || '1970-01-01', (dttEl && dttEl.value) || '2099-12-31');
-
-    /* eslint-disable no-new */
-    var picker = new Litepicker({
-        element: input,
-        singleMode: false,
-        numberOfMonths: 2,
-        numberOfColumns: 2,
-        format: 'YYYY-MM-DD',
-        firstDay: 1,
-        startDate: (dtfEl && dtfEl.value) || null,
-        endDate: (dttEl && dttEl.value) || null,
-        setup: function (picker) {
-            picker.on('selected', function (d1, d2) {
-                var s = d1.format('YYYY-MM-DD');
-                var e = d2.format('YYYY-MM-DD');
-                if (cannedEl) { cannedEl.value = 'custom'; }
-                if (dtfEl) { dtfEl.value = s; }
-                if (dttEl) { dttEl.value = e; }
-                setDisplay(s, e);
-                if (input.form) { input.form.submit(); }
-            });
-        }
-    });
-    // Litepicker writes the raw range into the field when constructed (and on hide); restore the label.
-    var refreshDisplay = function () {
-        setDisplay((dtfEl && dtfEl.value) || '1970-01-01', (dttEl && dttEl.value) || '2099-12-31');
-    };
-    refreshDisplay();
-    picker.on('hide', refreshDisplay);
-}
 
 // Dropdowns inside a .table-responsive scroll container get clipped. BS5's Popper
 // flips but can't escape the ancestor's overflow, so reparent the menu to <body>

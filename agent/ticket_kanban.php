@@ -50,7 +50,7 @@ $sql = mysqli_query(
     WHERE $ticket_status_snippet $ticket_assigned_query
     $category_query
     $client_query
-    AND DATE(ticket_created_at) BETWEEN '$dtf' AND '$dtt'
+    AND $ticket_date_query
     AND (
         CONCAT(ticket_prefix,ticket_number) LIKE '%$q%' OR
         client_name LIKE '%$q%' OR

@@ -120,7 +120,7 @@ window.RIVETIT_UPLOAD_LIMITS = <?php echo json_encode(['file' => ini_get('upload
 // Cache-bust first-party JS on every edit (falls back to the request time if the
 // file is somehow missing) so a stale Cloudflare/browser cache can't keep serving
 // an old copy after a deploy - static assets otherwise have no way to know they changed.
-// date_filter.js is intentionally dropped: its litepicker replacement now lives in app.js.
+// The date-range filter is the shared picker in date_range_picker.js (the old #dateFilter box and date_filter.js are gone).
 // shell.js is first in the list: it owns the sidebar toggle + treeview behaviour that
 // used to come from adminlte.min.js, and nothing else in the list depends on it, so
 // wiring the chrome before the page-level scripts run is the sane order. All entries are
@@ -129,7 +129,7 @@ window.RIVETIT_UPLOAD_LIMITS = <?php echo json_encode(['file' => ini_get('upload
 // [data-asset-metrics] element, which only agent/asset_details.php emits. It is last
 // because it reads the Chart.defaults that chart_theme.js sets, and it must also land
 // after plugins/chart.js above - both hold with defer, which preserves document order.
-foreach (['shell.js', 'chart_theme.js', 'app.js', 'file_upload.js', 'ajax_modal.js', 'confirm_modal.js', 'asset_metrics.js', 'phone_format.js', 'icon_picker.js'] as $__asset) {
+foreach (['shell.js', 'chart_theme.js', 'app.js', 'file_upload.js', 'ajax_modal.js', 'confirm_modal.js', 'asset_metrics.js', 'phone_format.js', 'icon_picker.js', 'date_range_picker.js'] as $__asset) {
     $__asset_path = __DIR__ . '/../js/' . $__asset;
     $__asset_version = file_exists($__asset_path) ? filemtime($__asset_path) : time();
     echo '<script src="/js/' . $__asset . '?v=' . $__asset_version . '" defer></script>' . "\n";
