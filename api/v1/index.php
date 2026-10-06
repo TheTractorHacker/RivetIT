@@ -188,11 +188,25 @@ if (!empty($_SERVER['HTTP_X_API_KEY'])) {
 // api_client_scope_ok() in includes/api_permissions.php now fold this in.
 $api_key_client_id = null;
 if (!$api_user_id && $legacy_key_raw !== null) {
-    $legacy_key = mysqli_real_escape_string($mysqli, hash('sha256', $legacy_key_raw));
+    // Failed-attempt throttle, same policy as validate_api_key.php: 15 failures per IP in 10 minutes -> 429 (pentest F-07)
+    $rl_ip = mysqli_real_escape_string($mysqli, (string) getIP());
+    $rl_failed = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT COUNT(log_id) AS c FROM logs
+         WHERE log_type = 'API' AND log_action = 'Failed' AND log_ip = '$rl_ip'
+           AND log_created_at > (NOW() - INTERVAL 10 MINUTE)"
+    ));
+    if (intval($rl_failed['c'] ?? 0) >= 15) {
+        api_error(429, 'Too many failed attempts. Please try again later.');
+    }
+    $legacy_key = mysqli_real_escape_string($mysqli, hash('sha256', (string) $legacy_key_raw));
     $legacy_sql = mysqli_query($mysqli,
         "SELECT * FROM api_keys WHERE api_key_secret = '$legacy_key' AND api_key_expire > NOW() LIMIT 1"
     );
     $legacy_key_row = mysqli_fetch_assoc($legacy_sql);
+    if (!$legacy_key_row) {
+        $rl_ua = mysqli_real_escape_string($mysqli, substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 250));
+        mysqli_query($mysqli, "INSERT INTO logs SET log_type = 'API', log_action = 'Failed', log_description = 'Incorrect or expired key (router)', log_ip = '$rl_ip', log_user_agent = '$rl_ua'");
+    }
     if ($legacy_key_row) {
         if (!rivetitApiKeyIpAllowed((string) ($legacy_key_row['api_key_allowed_ips'] ?? ''), getIP())) {
             api_error(403, 'This API key is not permitted from your IP address');
