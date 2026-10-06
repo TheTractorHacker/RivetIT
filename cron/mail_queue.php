@@ -62,7 +62,7 @@ $config_enable_cron      = intval($row['config_enable_cron']);
 // SMTP baseline
 $config_smtp_host        = $row['config_smtp_host'];
 $config_smtp_username    = $row['config_smtp_username'];
-$config_smtp_password    = decryptSetting($row['config_smtp_password']);
+$config_smtp_password    = decryptSetting($row['config_smtp_password'] ?? '');
 $config_smtp_port        = intval($row['config_smtp_port']);
 $config_smtp_encryption  = $row['config_smtp_encryption'];
 

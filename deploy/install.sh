@@ -457,7 +457,13 @@ apt_install_if_missing() {
     done
     if [[ "${#missing[@]}" -gt 0 ]]; then
         info "Installing packages: ${missing[*]}"
-        DEBIAN_FRONTEND=noninteractive apt-get install -y "${missing[@]}"
+        # One retry after refreshing the package lists: a mirror that rotated a package out (404) between the
+        # earlier `apt-get update` and now makes the first attempt fail on an otherwise healthy box.
+        if ! DEBIAN_FRONTEND=noninteractive apt-get install -y "${missing[@]}"; then
+            warn "apt-get install failed; refreshing package lists and retrying once."
+            apt-get update -qq
+            DEBIAN_FRONTEND=noninteractive apt-get install -y "${missing[@]}"
+        fi
     else
         info "Requested packages already installed, skipping apt-get install for: $*"
     fi
@@ -1372,6 +1378,7 @@ main() {
     provision_app_code
     setup_upload_dirs
     set_file_permissions
+    ignore_git_filemode "${APP_DIR}" www-data
 
     # set -x is already active here (setup_logging above) — disable tracing
     # for exactly this assignment so the secret never lands in the terminal
