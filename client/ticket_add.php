@@ -20,8 +20,13 @@ $sql_assets = mysqli_query($mysqli, "SELECT asset_id, asset_name, asset_type FRO
 $catalog_item = null;
 $catalog_item_id = intval($_GET['catalog_item_id'] ?? 0);
 if ($catalog_item_id > 0) {
-    $catalog_item = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT name, description, icon, ticket_subject_template, ticket_category_id, default_priority FROM service_catalog_items WHERE catalog_item_id = $catalog_item_id AND is_active = 1 LIMIT 1"));
+    $catalog_item = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT catalog_item_id, name, description, icon, ticket_subject_template, ticket_category_id, default_priority, requires_approval, risk_score, auto_approve_below FROM service_catalog_items WHERE catalog_item_id = $catalog_item_id AND is_active = 1 LIMIT 1"));
 }
+// Request form fields and whether this item waits for approval (src/ITSM/ServiceCatalogService.php)
+require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
+$catalog_service = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
+$catalog_fields = $catalog_item ? $catalog_service->getFields($catalog_item_id) : [];
+$catalog_needs_approval = $catalog_item ? $catalog_service->needsApproval($catalog_item) : false;
 $prefill_subject = '';
 $prefill_priority = 'Low';
 $prefill_category = 0;
@@ -62,12 +67,16 @@ if ($catalog_item) {
             </div>
             <a href="service_catalog.php" class="btn btn-sm btn-outline-secondary">Change</a>
         </div>
+        <?php if ($catalog_needs_approval) { ?>
+            <div class="alert alert-info"><i class="fas fa-user-check me-2" aria-hidden="true"></i>This request needs approval before the IT team starts on it. You will be told the outcome.</div>
+        <?php } ?>
     <?php } ?>
 
     <div class="card portal-card portal-form-card">
       <div class="card-body">
         <form action="post.php" method="post">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <?php if ($catalog_item) { ?><input type="hidden" name="catalog_item_id" value="<?= intval($catalog_item_id) ?>"><?php } ?>
 
             <div class="form-group">
                 <label>Subject <strong class="text-danger">*</strong></label>
@@ -146,6 +155,11 @@ if ($catalog_item) {
                 </div>
             <?php } ?>
 
+
+            <?php if ($catalog_fields) { ?>
+                <h6 class="mt-4 mb-3">Request details</h6>
+                <?= \ITFlow\ITSM\ServiceCatalogService::renderInputs($catalog_fields) ?>
+            <?php } ?>
 
             <div class="form-group">
                 <label>Details <strong class="text-danger">*</strong></label>

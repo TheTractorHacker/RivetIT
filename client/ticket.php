@@ -152,6 +152,12 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
             </div>
         </div>
 
+        <?php
+        // Service catalog request: submitted answers and approval trail (read-only; the ticket is already scoped to this contact above)
+        require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
+        echo (new \ITFlow\ITSM\ServiceCatalogService($mysqli))->requestDetailsHtml($ticket_id);
+        ?>
+
         <!-- Approvals -->
         <?php if (mysqli_num_rows($sql_task_approvals) > 0) { ?>
             <div class="card mb-3">

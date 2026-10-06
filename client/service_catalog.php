@@ -30,6 +30,12 @@ while ($row = mysqli_fetch_assoc($sql)) {
     $catalog_items[] = $row;
 }
 ksort($catalog_categories);
+
+// Popular this month / recently used by you (pure queries over tickets.ticket_catalog_item_id)
+require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
+$catalog_service = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
+$catalog_trending = $catalog_service->trending(5, 30);
+$catalog_recent = $catalog_service->recentForContact(intval($session_contact_id), intval($session_client_id), 5);
 if (isset($catalog_categories['General'])) { // "General" last
     unset($catalog_categories['General']);
     $catalog_categories['General'] = true;
@@ -60,6 +66,15 @@ if (isset($catalog_categories['General'])) { // "General" last
             </div>
         </div>
     <?php } else { ?>
+
+        <?php foreach ([['Popular this month', 'fa-fire', $catalog_trending], ['Recently used by you', 'fa-history', $catalog_recent]] as [$shelf_title, $shelf_icon, $shelf_rows]) { if (!$shelf_rows) { continue; } ?>
+            <div class="mb-3">
+                <div class="small text-secondary mb-1"><i class="fas <?= $shelf_icon ?> me-1" aria-hidden="true"></i><?= $shelf_title ?></div>
+                <?php foreach ($shelf_rows as $shelf) { ?>
+                    <a href="ticket_add.php?catalog_item_id=<?= intval($shelf['catalog_item_id']) ?>" class="portal-badge portal-badge--muted me-1"><?= nullable_htmlentities($shelf['name']) ?></a>
+                <?php } ?>
+            </div>
+        <?php } ?>
 
         <div class="portal-filterbar" data-portal-filter>
             <div class="portal-search">

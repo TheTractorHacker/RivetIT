@@ -49,6 +49,26 @@ if (isset($_POST['add_ticket'])) {
 
     enforceClientAccess();
 
+    // Raised from Request Something? Re-read the active item and validate its request form BEFORE a ticket number is used.
+    // Items with no form and no approval add nothing here (the ticket is just remembered as coming from the item).
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
+    $catalog_service = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
+    $catalog_item = null;
+    $catalog_values = [];
+    $catalog_item_id = intval($_POST['catalog_item_id'] ?? 0);
+    if ($catalog_item_id > 0) {
+        $catalog_item = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM service_catalog_items WHERE catalog_item_id = $catalog_item_id AND is_active = 1 LIMIT 1"));
+        if ($catalog_item) {
+            $catalog_check = \ITFlow\ITSM\ServiceCatalogService::validateInput($catalog_service->getFields($catalog_item_id), (array) ($_POST['catalog_field'] ?? []));
+            if ($catalog_check['errors']) {
+                flash_alert(implode('<br>', array_map('nullable_htmlentities', $catalog_check['errors'])), 'danger');
+                redirect();
+            }
+            $catalog_values = $catalog_check['values'];
+        }
+    }
+    $catalog_item_sql = $catalog_item ? $catalog_item_id : 'NULL';
+
     // Add the primary contact as the ticket contact if "Use primary contact" is checked
     if ($use_primary_contact == 1) {
         $sql = mysqli_query($mysqli, "SELECT contact_id FROM contacts WHERE contact_client_id = $client_id AND contact_primary = 1");
@@ -93,9 +113,14 @@ if (isset($_POST['add_ticket'])) {
     $contract_id_sql = $contract_id > 0 ? $contract_id : 'NULL';
     $delivery_method_sql = $delivery_method !== null ? "'" . mysqli_real_escape_string($mysqli, $delivery_method) . "'" : 'NULL';
 
-    mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$config_ticket_prefix', ticket_number = $ticket_number, ticket_source = 'Agent', ticket_category = $category_id, ticket_subject = '$subject', ticket_details = '$details', ticket_priority = '$priority', ticket_billable = '$billable', ticket_status = '$ticket_status', ticket_vendor_ticket_number = '$vendor_ticket_number', ticket_vendor_id = $vendor_id, ticket_location_id = $location_id, ticket_asset_id = $asset_id, ticket_created_by = $session_user_id, ticket_assigned_to = $assigned_to, ticket_contact_id = $contact_id, ticket_url_key = '$url_key', ticket_due_at = $due, ticket_client_id = $client_id, ticket_invoice_id = 0, ticket_project_id = $project_id, ticket_contract_id = $contract_id_sql, ticket_sla_response_due = $sla_response_due, ticket_sla_resolution_due = $sla_resolution_due, ticket_delivery_method = $delivery_method_sql");
+    mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$config_ticket_prefix', ticket_number = $ticket_number, ticket_source = 'Agent', ticket_category = $category_id, ticket_subject = '$subject', ticket_details = '$details', ticket_priority = '$priority', ticket_billable = '$billable', ticket_status = '$ticket_status', ticket_vendor_ticket_number = '$vendor_ticket_number', ticket_vendor_id = $vendor_id, ticket_location_id = $location_id, ticket_asset_id = $asset_id, ticket_created_by = $session_user_id, ticket_assigned_to = $assigned_to, ticket_contact_id = $contact_id, ticket_url_key = '$url_key', ticket_due_at = $due, ticket_client_id = $client_id, ticket_invoice_id = 0, ticket_project_id = $project_id, ticket_contract_id = $contract_id_sql, ticket_sla_response_due = $sla_response_due, ticket_sla_resolution_due = $sla_resolution_due, ticket_delivery_method = $delivery_method_sql, ticket_catalog_item_id = $catalog_item_sql");
 
     $ticket_id = mysqli_insert_id($mysqli);
+
+    // Store the request form and, when the item needs approval, hold the ticket and ask the first approvers.
+    if ($catalog_item && $catalog_service->hasRequestFlow($catalog_item)) {
+        $catalog_service->submit($catalog_item, $ticket_id, $client_id, $contact_id, $session_user_id, $catalog_values);
+    }
 
     /* "Create Ticket" from a project task (project_details.php's task rows) rides
        in as source_task_id on the exact same add_ticket submit every other new

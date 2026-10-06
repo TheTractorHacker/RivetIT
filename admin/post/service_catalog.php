@@ -82,6 +82,16 @@ if (isset($_POST['edit_service_catalog_item'])) {
             WHERE catalog_item_id = $catalog_item_id"
     );
 
+    // Request form, approval switch and chain (src/ITSM/ServiceCatalogService.php). An item with none of these is a plain shortcut.
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
+    $catalog_service = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
+    $requires_approval = isset($_POST['requires_approval']) ? 1 : 0;
+    $risk_score = max(0, min(100, intval($_POST['risk_score'] ?? 0)));
+    $auto_approve_below = max(0, min(101, intval($_POST['auto_approve_below'] ?? 0)));
+    mysqli_query($mysqli, "UPDATE service_catalog_items SET requires_approval = $requires_approval, risk_score = $risk_score, auto_approve_below = $auto_approve_below WHERE catalog_item_id = $catalog_item_id");
+    $catalog_service->saveFields($catalog_item_id, \ITFlow\ITSM\ServiceCatalogService::normalizeFieldRows($_POST));
+    $catalog_service->saveSteps($catalog_item_id, \ITFlow\ITSM\ServiceCatalogService::normalizeStepRows($_POST));
+
     logAction("Service Catalog", "Edit", "$session_name edited catalog item $name", 0, $catalog_item_id);
 
     flash_alert("Catalog item <strong>$name</strong> updated");
@@ -116,7 +126,18 @@ if (isset($_GET['delete_service_catalog_item'])) {
 
     $name = sanitizeInput(getFieldById('service_catalog_items', $catalog_item_id, 'name'));
 
+    // A request still waiting on approvals holds a ticket; deleting its item would orphan the chain.
+    $pending_requests = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM service_catalog_requests WHERE catalog_item_id = $catalog_item_id AND status = 'pending_approval'"))[0]);
+    if ($pending_requests > 0) {
+        flash_alert("Catalog item <strong>$name</strong> has $pending_requests request(s) waiting for approval - deactivate it instead, or decide those first", 'error');
+        redirect();
+    }
+
     mysqli_query($mysqli, "DELETE FROM service_catalog_items WHERE catalog_item_id = $catalog_item_id");
+    mysqli_query($mysqli, "DELETE FROM service_catalog_fields WHERE catalog_item_id = $catalog_item_id");
+    mysqli_query($mysqli, "DELETE FROM service_catalog_approval_steps WHERE catalog_item_id = $catalog_item_id");
+    // Past requests keep their stored values and approval trail; tickets simply lose the link to the deleted item.
+    mysqli_query($mysqli, "UPDATE tickets SET ticket_catalog_item_id = NULL WHERE ticket_catalog_item_id = $catalog_item_id");
 
     logAction("Service Catalog", "Delete", "$session_name deleted catalog item $name");
 

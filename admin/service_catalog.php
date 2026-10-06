@@ -29,7 +29,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
         </div>
 
         <div class="card-body">
-            <p class="text-secondary">Curated tickets your team &amp; departments can raise in one click from <strong>Request Something</strong>. Each item just pre-fills the normal ticket form - no separate approval flow.</p>
+            <p class="text-secondary">Curated tickets your team &amp; departments can raise in one click from <strong>Request Something</strong>. Each item pre-fills the normal ticket form. Edit an item to add request form fields and an approval chain; items without them behave as plain shortcuts.</p>
 
             <div class="row">
                 <div class="col-sm-4 mb-2">
@@ -85,11 +85,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             <tr class="<?php if (!$is_active) { echo 'text-muted'; } ?>">
                                 <td><?php echo $sort_order; ?></td>
                                 <td>
-                                    <a class="<?php echo $is_active ? 'text-dark' : 'text-muted'; ?> ajax-modal" href="#"
+                                    <a class="<?php echo $is_active ? 'text-dark' : 'text-muted'; ?> ajax-modal" href="#" data-modal-size="lg"
                                         data-modal-url="modals/service_catalog/service_catalog_item_edit.php?id=<?= $catalog_item_id ?>">
                                         <?php if ($icon) { ?><i class="fas fa-fw <?php echo $icon; ?> me-2"></i><?php } ?><?php echo $name; ?>
                                         <?php if ($description) { ?><div><small class="text-secondary"><?php echo $description; ?></small></div><?php } ?>
                                     </a>
+                                    <?php if (intval($row['requires_approval'])) { ?><span class="badge text-bg-warning" title="Risk score <?= intval($row['risk_score']) ?>">Approval</span><?php } ?>
                                 </td>
                                 <td><small><?php echo $ticket_subject_template ?: '<span class="text-secondary">&mdash;</span>'; ?></small></td>
                                 <td><?php echo $category_name ?: '<span class="text-secondary">&mdash;</span>'; ?></td>
@@ -107,7 +108,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                             <i class="fas fa-ellipsis-h"></i>
                                         </button>
                                         <div class="dropdown-menu">
-                                            <a class="dropdown-item ajax-modal" href="#"
+                                            <a class="dropdown-item ajax-modal" href="#" data-modal-size="lg"
                                                 data-modal-url="modals/service_catalog/service_catalog_item_edit.php?id=<?= $catalog_item_id ?>">
                                                 <i class="fas fa-fw fa-edit me-2"></i>Edit
                                             </a>

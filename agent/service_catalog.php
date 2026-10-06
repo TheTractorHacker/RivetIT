@@ -17,6 +17,12 @@ $sql = mysqli_query(
      ORDER BY sci.sort_order ASC, sci.name ASC"
 );
 
+
+// Popular this month (count of tickets per catalog item over the last 30 days)
+require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
+$catalog_service = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
+$catalog_trending = $catalog_service->trending(5, 30);
+
 ?>
 
 <div class="card card-dark">
@@ -30,6 +36,15 @@ $sql = mysqli_query(
     </div>
     <div class="card-body">
         <p class="text-secondary">Pick what you need - it opens a new ticket with the subject, category and priority already filled in.</p>
+
+        <?php if ($catalog_trending) { ?>
+            <div class="mb-3">
+                <div class="small text-secondary mb-1"><i class="fas fa-fire me-1"></i>Popular this month</div>
+                <?php foreach ($catalog_trending as $trend) { ?>
+                    <span class="badge text-bg-light me-1"><?= nullable_htmlentities($trend['name']) ?> <span class="text-secondary">(<?= intval($trend['uses']) ?>)</span></span>
+                <?php } ?>
+            </div>
+        <?php } ?>
 
         <?php if (mysqli_num_rows($sql) == 0) { ?>
             <p class="text-secondary text-center py-4">No catalog items have been set up yet.</p>
@@ -47,6 +62,7 @@ $sql = mysqli_query(
                 ?>
                     <div class="col-md-4 mb-4">
                         <button type="button" class="card h-100 w-100 text-start border-0 shadow-sm service-catalog-tile"
+                            data-item-id="<?= $catalog_item_id ?>"
                             data-subject="<?= $ticket_subject_template ?>"
                             data-priority="<?= $default_priority ?>"
                             data-category-id="<?= $ticket_category_id ?>">
@@ -54,10 +70,11 @@ $sql = mysqli_query(
                                 <h5 class="card-title"><i class="fas fa-fw <?= $icon ?> me-2 text-primary"></i><?= $name ?></h5>
                                 <?php if ($description) { ?><p class="card-text text-secondary small"><?= $description ?></p><?php } ?>
                             </div>
-                            <?php if ($category_name || $default_priority) { ?>
+                            <?php if ($category_name || $default_priority || intval($row['requires_approval'])) { ?>
                                 <div class="card-footer bg-white">
                                     <?php if ($category_name) { ?><span class="badge text-bg-secondary"><?= $category_name ?></span><?php } ?>
                                     <?php if ($default_priority) { ?><span class="badge text-bg-light"><?= $default_priority ?> Priority</span><?php } ?>
+                                    <?php if (intval($row['requires_approval'])) { ?><span class="badge text-bg-warning">Needs approval</span><?php } ?>
                                 </div>
                             <?php } ?>
                         </button>
@@ -81,8 +98,12 @@ document.getElementById('serviceCatalogGrid') && document.getElementById('servic
     var priority = tile.getAttribute('data-priority') || '';
     var categoryId = tile.getAttribute('data-category-id') || '0';
     var clientId = <?= json_encode((string) $client_id) ?>;
+    var itemId = tile.getAttribute('data-item-id') || '0';
 
-    var modalUrl = 'modals/ticket/ticket_add_v2.php' + (clientId && clientId !== '0' ? '?client_id=' + encodeURIComponent(clientId) : '');
+    var modalParams = [];
+    if (clientId && clientId !== '0') { modalParams.push('client_id=' + encodeURIComponent(clientId)); }
+    if (itemId && itemId !== '0') { modalParams.push('catalog_item_id=' + encodeURIComponent(itemId)); }
+    var modalUrl = 'modals/ticket/ticket_add_v2.php' + (modalParams.length ? '?' + modalParams.join('&') : '');
 
     window.openAjaxModal(modalUrl, 'lg', {
         onShown: function (modalEl) {

@@ -3753,10 +3753,12 @@ CREATE TABLE `tickets` (
   `ticket_sla_response_met` tinyint(4) DEFAULT NULL,
   `ticket_sla_resolution_met` tinyint(4) DEFAULT NULL,
   `ticket_delivery_method` varchar(20) DEFAULT NULL,
+  `ticket_catalog_item_id` int(11) DEFAULT NULL,
   PRIMARY KEY (`ticket_id`),
   KEY `idx_tickets_client_archived_updated` (`ticket_client_id`,`ticket_archived_at`,`ticket_updated_at`),
   KEY `idx_tickets_problem` (`ticket_problem_id`),
-  KEY `idx_tickets_vacation_return` (`ticket_closed_at`,`ticket_contact_id`)
+  KEY `idx_tickets_vacation_return` (`ticket_closed_at`,`ticket_contact_id`),
+  KEY `idx_tickets_catalog_item` (`ticket_catalog_item_id`,`ticket_created_at`)
 ) ENGINE=InnoDB AUTO_INCREMENT=136 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -7089,10 +7091,107 @@ CREATE TABLE `service_catalog_items` (
   `default_priority` varchar(200) DEFAULT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `sort_order` int(11) NOT NULL DEFAULT 0,
+  `requires_approval` tinyint(1) NOT NULL DEFAULT 0,
+  `risk_score` int(11) NOT NULL DEFAULT 0,
+  `auto_approve_below` int(11) NOT NULL DEFAULT 0,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   PRIMARY KEY (`catalog_item_id`),
   KEY `ticket_category_id` (`ticket_category_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `service_catalog_fields`
+--
+
+DROP TABLE IF EXISTS `service_catalog_fields`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `service_catalog_fields` (
+  `field_id` int(11) NOT NULL AUTO_INCREMENT,
+  `catalog_item_id` int(11) NOT NULL,
+  `field_key` varchar(64) NOT NULL,
+  `label` varchar(200) NOT NULL,
+  `field_type` varchar(20) NOT NULL DEFAULT 'text',
+  `options` text DEFAULT NULL,
+  `is_required` tinyint(1) NOT NULL DEFAULT 0,
+  `placeholder` varchar(200) DEFAULT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`field_id`),
+  UNIQUE KEY `uq_catalog_field_key` (`catalog_item_id`,`field_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `service_catalog_approval_steps`
+--
+
+DROP TABLE IF EXISTS `service_catalog_approval_steps`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `service_catalog_approval_steps` (
+  `step_id` int(11) NOT NULL AUTO_INCREMENT,
+  `catalog_item_id` int(11) NOT NULL,
+  `step_order` int(11) NOT NULL DEFAULT 1,
+  `approver_type` varchar(20) NOT NULL DEFAULT 'user',
+  `approver_id` int(11) DEFAULT NULL,
+  `mode` varchar(10) NOT NULL DEFAULT 'any',
+  PRIMARY KEY (`step_id`),
+  KEY `idx_catalog_step_item` (`catalog_item_id`,`step_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `service_catalog_requests`
+--
+
+DROP TABLE IF EXISTS `service_catalog_requests`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `service_catalog_requests` (
+  `request_id` int(11) NOT NULL AUTO_INCREMENT,
+  `catalog_item_id` int(11) NOT NULL,
+  `ticket_id` int(11) NOT NULL,
+  `client_id` int(11) NOT NULL DEFAULT 0,
+  `contact_id` int(11) NOT NULL DEFAULT 0,
+  `requested_by_user_id` int(11) NOT NULL DEFAULT 0,
+  `field_values` longtext DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'not_required',
+  `current_step` int(11) NOT NULL DEFAULT 0,
+  `risk_score` int(11) NOT NULL DEFAULT 0,
+  `rejection_reason` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `decided_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`request_id`),
+  UNIQUE KEY `uq_catalog_request_ticket` (`ticket_id`),
+  KEY `idx_catalog_request_item` (`catalog_item_id`),
+  KEY `idx_catalog_request_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `service_catalog_request_approvals`
+--
+
+DROP TABLE IF EXISTS `service_catalog_request_approvals`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `service_catalog_request_approvals` (
+  `approval_id` int(11) NOT NULL AUTO_INCREMENT,
+  `request_id` int(11) NOT NULL,
+  `step_order` int(11) NOT NULL,
+  `step_mode` varchar(10) NOT NULL DEFAULT 'any',
+  `approver_user_id` int(11) DEFAULT NULL,
+  `approver_contact_id` int(11) DEFAULT NULL,
+  `status` varchar(12) NOT NULL DEFAULT 'pending',
+  `comment` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `decided_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`approval_id`),
+  KEY `idx_catalog_approval_request` (`request_id`,`step_order`),
+  KEY `idx_catalog_approval_user` (`approver_user_id`,`status`),
+  KEY `idx_catalog_approval_contact` (`approver_contact_id`,`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

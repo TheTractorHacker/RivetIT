@@ -9762,3 +9762,77 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.132'");
     }
+
+    if ($rivetit_db_version() == '2.6.132') {
+        // Service catalog: approval chains and request forms. Everything is off by default (requires_approval = 0, no fields,
+        // no steps), so existing catalog items keep behaving exactly as before. Tickets remember the item they came from.
+        mysqli_query($mysqli, "ALTER TABLE `service_catalog_items` ADD COLUMN IF NOT EXISTS `requires_approval` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `service_catalog_items` ADD COLUMN IF NOT EXISTS `risk_score` int(11) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `service_catalog_items` ADD COLUMN IF NOT EXISTS `auto_approve_below` int(11) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `tickets` ADD COLUMN IF NOT EXISTS `ticket_catalog_item_id` int(11) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `tickets` ADD INDEX IF NOT EXISTS `idx_tickets_catalog_item` (`ticket_catalog_item_id`, `ticket_created_at`)");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `service_catalog_fields` (
+          `field_id` int(11) NOT NULL AUTO_INCREMENT,
+          `catalog_item_id` int(11) NOT NULL,
+          `field_key` varchar(64) NOT NULL,
+          `label` varchar(200) NOT NULL,
+          `field_type` varchar(20) NOT NULL DEFAULT 'text',
+          `options` text DEFAULT NULL,
+          `is_required` tinyint(1) NOT NULL DEFAULT 0,
+          `placeholder` varchar(200) DEFAULT NULL,
+          `sort_order` int(11) NOT NULL DEFAULT 0,
+          PRIMARY KEY (`field_id`),
+          UNIQUE KEY `uq_catalog_field_key` (`catalog_item_id`,`field_key`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `service_catalog_approval_steps` (
+          `step_id` int(11) NOT NULL AUTO_INCREMENT,
+          `catalog_item_id` int(11) NOT NULL,
+          `step_order` int(11) NOT NULL DEFAULT 1,
+          `approver_type` varchar(20) NOT NULL DEFAULT 'user',
+          `approver_id` int(11) DEFAULT NULL,
+          `mode` varchar(10) NOT NULL DEFAULT 'any',
+          PRIMARY KEY (`step_id`),
+          KEY `idx_catalog_step_item` (`catalog_item_id`,`step_order`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `service_catalog_requests` (
+          `request_id` int(11) NOT NULL AUTO_INCREMENT,
+          `catalog_item_id` int(11) NOT NULL,
+          `ticket_id` int(11) NOT NULL,
+          `client_id` int(11) NOT NULL DEFAULT 0,
+          `contact_id` int(11) NOT NULL DEFAULT 0,
+          `requested_by_user_id` int(11) NOT NULL DEFAULT 0,
+          `field_values` longtext DEFAULT NULL,
+          `status` varchar(20) NOT NULL DEFAULT 'not_required',
+          `current_step` int(11) NOT NULL DEFAULT 0,
+          `risk_score` int(11) NOT NULL DEFAULT 0,
+          `rejection_reason` text DEFAULT NULL,
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `decided_at` datetime DEFAULT NULL,
+          PRIMARY KEY (`request_id`),
+          UNIQUE KEY `uq_catalog_request_ticket` (`ticket_id`),
+          KEY `idx_catalog_request_item` (`catalog_item_id`),
+          KEY `idx_catalog_request_status` (`status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `service_catalog_request_approvals` (
+          `approval_id` int(11) NOT NULL AUTO_INCREMENT,
+          `request_id` int(11) NOT NULL,
+          `step_order` int(11) NOT NULL,
+          `step_mode` varchar(10) NOT NULL DEFAULT 'any',
+          `approver_user_id` int(11) DEFAULT NULL,
+          `approver_contact_id` int(11) DEFAULT NULL,
+          `status` varchar(12) NOT NULL DEFAULT 'pending',
+          `comment` text DEFAULT NULL,
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `decided_at` datetime DEFAULT NULL,
+          PRIMARY KEY (`approval_id`),
+          KEY `idx_catalog_approval_request` (`request_id`,`step_order`),
+          KEY `idx_catalog_approval_user` (`approver_user_id`,`status`),
+          KEY `idx_catalog_approval_contact` (`approver_contact_id`,`status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.133'");
+    }

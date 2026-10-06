@@ -6,6 +6,14 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Service catalog approvals and request forms
+
+- **Request forms.** Edit a catalog item (Administration > Service Catalog) to add questions: text, long text, choice list, checkbox, date or number, each optionally required, with a placeholder and an order. The portal's Request service form and the agent's New Ticket window show them, the server validates every answer, and the answers appear on the ticket (agent and portal) as a read-only **Request details** block.
+- **Approval chains.** Switch on **Requires approval** and add ordered steps: a person, a role, or the requester's manager (from the contact's Manager field), each set to "any one approves" or "everyone approves". The ticket is created but held (status **Pending Approval** if you have one, otherwise **On Hold**, so the SLA clock is paused) until every step approves; a rejection closes it with the reason. A step nobody can approve (no manager on file) falls back to the administrators. An item can carry a 0-100 risk score and an **auto-approve below** threshold: lower-risk requests skip approval.
+- **Approvals inbox.** Agents get Service Desk > Approvals (approve or reject with a comment; administrators can also decide a step for its approvers). Managers get a portal **My approvals** page, shown only to contacts that are approvers and limited to their own department. Approvers are notified in-app and by email.
+- **Popular this month and Recently used by you.** Tickets now remember the catalog item they came from; both catalog pages show the five most requested items of the last 30 days, and the portal also shows the contact's own last five.
+- Everything is off by default: items without questions or approval behave exactly as before. Database migration 2.6.133 (Update Database). See docs/SERVICE_CATALOG.md.
+
 ## [26.10.20] RivetIT — one event bus, Redis guards, Audit trail, SSRF hardening
 
 ### One event bus: queued webhooks, event rules and the job queue (rivet-core 0.15)

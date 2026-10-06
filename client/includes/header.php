@@ -472,6 +472,14 @@ $portal_resource_pages = ['contacts.php', 'contact_add.php', 'contact_edit.php',
                 <li class="nav-item">
                     <a class="nav-link <?php if ($portal_nav_page == "service_catalog.php") {echo "active";} ?>" href="/client/service_catalog.php">Request service</a>
                 </li>
+                <?php
+                // "My approvals" only for contacts who are approvers (a manager somebody reports to) - service catalog approvals
+                require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
+                if ((new \ITFlow\ITSM\ServiceCatalogService($mysqli))->contactIsApprover(intval($session_contact_id), intval($session_client_id))) { ?>
+                <li class="nav-item">
+                    <a class="nav-link <?php if ($portal_nav_page == "my_approvals.php") {echo "active";} ?>" href="/client/my_approvals.php">My approvals</a>
+                </li>
+                <?php } ?>
 
                 <?php if ($config_module_enable_kb == 1) { ?>
                     <li class="nav-item">

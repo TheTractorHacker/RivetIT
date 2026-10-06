@@ -15,6 +15,24 @@ $prefill_subject = nullable_htmlentities(trim((string) ($_GET['subject'] ?? ''))
 $prefill_details  = nullable_htmlentities(trim((string) ($_GET['details'] ?? '')));
 $source_task_id   = intval($_GET['source_task_id'] ?? 0);
 
+/* Opened from Request Something (agent/service_catalog.php): the item's request-form fields are rendered inside the
+   window and the id rides along as a hidden input. Prefill only - agent/post/ticket.php re-reads the active item and
+   re-validates the answers. */
+$catalog_item_id = intval($_GET['catalog_item_id'] ?? 0);
+$catalog_fields = [];
+$catalog_needs_approval = false;
+if ($catalog_item_id > 0) {
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
+    $catalog_service = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
+    $catalog_item = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM service_catalog_items WHERE catalog_item_id = $catalog_item_id AND is_active = 1 LIMIT 1"));
+    if ($catalog_item) {
+        $catalog_fields = $catalog_service->getFields($catalog_item_id);
+        $catalog_needs_approval = $catalog_service->needsApproval($catalog_item);
+    } else {
+        $catalog_item_id = 0;
+    }
+}
+
 ob_start();
 
 ?>
@@ -34,6 +52,9 @@ ob_start();
         <input type="hidden" name="project_id" value="<?php echo $project_id; ?>">
     <?php } ?>
     <input type="hidden" name="billable" value="0">
+    <?php if ($catalog_item_id) { ?>
+        <input type="hidden" name="catalog_item_id" value="<?php echo $catalog_item_id; ?>">
+    <?php } ?>
 
     <?php if ($source_task_id) { ?>
         <input type="hidden" name="source_task_id" value="<?php echo $source_task_id; ?>">
@@ -115,6 +136,14 @@ ob_start();
                 <div class="form-group">
                     <textarea class="form-control tinymceTicket" id="detailsInput" name="details"><?php echo $prefill_details; ?></textarea>
                 </div>
+
+                <?php if ($catalog_needs_approval) { ?>
+                    <div class="alert alert-info"><i class="fas fa-user-check me-2"></i>This request needs approval: the ticket is held until every approval step approves it.</div>
+                <?php } ?>
+                <?php if ($catalog_fields) { ?>
+                    <h6 class="mb-2">Request details</h6>
+                    <?php echo \ITFlow\ITSM\ServiceCatalogService::renderInputs($catalog_fields); ?>
+                <?php } ?>
 
                 <div class="row">
 

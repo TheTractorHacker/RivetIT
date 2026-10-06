@@ -135,6 +135,26 @@ if (isset($_POST['add_ticket'])) {
         $priority = sanitizeInput($_POST['priority']);
     }
 
+    // Raised from Request Something? Re-read the active item from the database (never trust the posted id beyond that) and
+    // validate its request form before a ticket number is used. Items with no form and no approval behave as before.
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
+    $catalog_service = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
+    $catalog_item = null;
+    $catalog_values = [];
+    $catalog_item_id = intval($_POST['catalog_item_id'] ?? 0);
+    if ($catalog_item_id > 0) {
+        $catalog_item = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM service_catalog_items WHERE catalog_item_id = $catalog_item_id AND is_active = 1 LIMIT 1"));
+        if ($catalog_item) {
+            $catalog_check = \ITFlow\ITSM\ServiceCatalogService::validateInput($catalog_service->getFields($catalog_item_id), (array) ($_POST['catalog_field'] ?? []));
+            if ($catalog_check['errors']) {
+                flash_alert(implode('<br>', array_map('nullable_htmlentities', $catalog_check['errors'])), 'danger');
+                redirect("ticket_add.php?catalog_item_id=$catalog_item_id");
+            }
+            $catalog_values = $catalog_check['values'];
+        }
+    }
+    $catalog_item_sql = $catalog_item ? $catalog_item_id : 'NULL';
+
     // Atomically increment and get the new ticket number
     mysqli_query($mysqli, "
         UPDATE settings
@@ -153,14 +173,20 @@ if (isset($_POST['add_ticket'])) {
     // uncategorized.
     $category = resolveTicketCategory($category);
 
-    mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$config_ticket_prefix', ticket_number = $ticket_number, ticket_source = 'Portal', ticket_category = $category, ticket_subject = '$subject', ticket_details = '$details', ticket_priority = '$priority', ticket_status = $ticket_status, ticket_billable = $config_ticket_default_billable, ticket_created_by = $session_user_id, ticket_contact_id = $session_contact_id, ticket_asset_id = $asset, ticket_url_key = '$url_key', ticket_client_id = $session_client_id, ticket_assigned_to = $resolved_assigned_to");
+    mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$config_ticket_prefix', ticket_number = $ticket_number, ticket_source = 'Portal', ticket_category = $category, ticket_subject = '$subject', ticket_details = '$details', ticket_priority = '$priority', ticket_status = $ticket_status, ticket_billable = $config_ticket_default_billable, ticket_created_by = $session_user_id, ticket_contact_id = $session_contact_id, ticket_asset_id = $asset, ticket_url_key = '$url_key', ticket_client_id = $session_client_id, ticket_assigned_to = $resolved_assigned_to, ticket_catalog_item_id = $catalog_item_sql");
     $ticket_id = mysqli_insert_id($mysqli);
+
+    // Store the request form and, when the item needs approval, hold the ticket and ask the first approvers.
+    $catalog_request_status = null;
+    if ($catalog_item && $catalog_service->hasRequestFlow($catalog_item)) {
+        $catalog_request_status = $catalog_service->submit($catalog_item, $ticket_id, $session_client_id, $session_contact_id, 0, $catalog_values)['status'];
+    }
 
     // Broadcast to active agents so the mobile app gets a push for it too,
     // even when the default-technician setting (Admin > Settings > Tickets)
     // assigned it - that setting only sets the fallback assignee, it doesn't
     // change who gets notified about new tickets.
-    appNotify("Ticket", "$session_contact_name raised a new ticket $config_ticket_prefix$ticket_number - $subject", "/agent/ticket.php?ticket_id=$ticket_id&client_id=$session_client_id", $session_client_id, $ticket_id);
+    appNotify("Ticket", "$session_contact_name raised a new ticket $config_ticket_prefix$ticket_number - $subject" . ($catalog_request_status === 'pending_approval' ? ' (waiting for approval)' : ''), "/agent/ticket.php?ticket_id=$ticket_id&client_id=$session_client_id", $session_client_id, $ticket_id);
 
     // Notify agent DL of the new ticket, if populated with a valid email
     if ($config_ticket_new_ticket_notification_email) {
@@ -218,7 +244,8 @@ if (isset($_POST['add_ticket_comment'])) {
         publishTicketEvent($ticket_id, 'reply', ['reply_id' => $ticket_reply_id, 'reply_type' => 'Client', 'by' => $session_contact_name, 'by_type' => 'contact']);
 
         // Update Ticket Last Response Field & set ticket to open as client has replied
-        mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 2 WHERE ticket_id = $ticket_id AND ticket_client_id = $session_client_id LIMIT 1");
+        // A catalog request still waiting for approval stays held: a reply must not release it.
+        mysqli_query($mysqli, "UPDATE tickets SET ticket_status = 2 WHERE ticket_id = $ticket_id AND ticket_client_id = $session_client_id AND ticket_id NOT IN (SELECT ticket_id FROM service_catalog_requests WHERE status = 'pending_approval') LIMIT 1");
         require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/sla_functions.php'; slaSyncPause($mysqli, $ticket_id); // a customer reply ends any waiting-on-customer pause
 
         $reply_status_info = getTicketStatusInfo($mysqli, 2);
@@ -1624,3 +1651,35 @@ if (isset($_GET['client_serve_contract_doc'])) {
     exit;
 }
 
+
+// Service catalog: a manager (requester_manager approver) approves or rejects a request from "My approvals".
+// Scoped to the logged-in contact AND their department: decide() only acts on a pending row of the request's current
+// step that belongs to this contact, so a guessed request id does nothing.
+if (isset($_POST['catalog_decide'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
+    $catalog_service = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
+
+    $request_id = intval($_POST['request_id'] ?? 0);
+    $approve = ($_POST['decision'] ?? '') === 'approve';
+    $comment = trim((string) ($_POST['comment'] ?? ''));
+
+    if (!$approve && $comment === '') {
+        flash_alert('Please give a reason when rejecting a request', 'danger');
+        redirect('my_approvals.php');
+    }
+
+    $result = $catalog_service->decide($request_id, null, $session_contact_id, $approve, $comment, false, $session_client_id);
+
+    if ($result['ok']) {
+        logAction("Service Catalog", $approve ? "Approve" : "Reject", "$session_contact_name " . ($approve ? 'approved' : 'rejected') . " catalog request $request_id from the department portal", $session_client_id, $request_id);
+        flash_alert($approve ? 'Request approved' : 'Request rejected');
+    } else {
+        flash_alert(nullable_htmlentities($result['error']), 'danger');
+    }
+
+    redirect('my_approvals.php');
+
+}

@@ -1031,6 +1031,12 @@ if (isset($_GET['ticket_id'])) {
                     <!-- End IF for reply modal -->
                 <?php } ?>
 
+                <?php
+                // Service catalog request details + approval trail (read-only, escaped in the service)
+                require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
+                echo (new \ITFlow\ITSM\ServiceCatalogService($mysqli))->requestDetailsHtml($ticket_id);
+                ?>
+
                 <!-- Live update notice (populated by js/live_ticket.js) -->
                 <div id="ticket-replies-notice"></div>
 

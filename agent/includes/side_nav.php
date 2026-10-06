@@ -14,7 +14,7 @@ $in_reports_section = (strpos($_SERVER["PHP_SELF"], '/agent/reports/') !== false
 $section_pages = [
     'organization'  => ['clients.php', 'org_chart.php'],
     'crm'           => ['pipeline.php', 'opportunities.php', 'campaigns.php', 'segments.php'],
-    'service_desk'  => ['tickets.php', 'ticket.php', 'recurring_tickets.php', 'service_catalog.php', 'csat.php', 'mail_requests.php', 'problems.php', 'problem_details.php', 'changes.php', 'change_details.php'],
+    'service_desk'  => ['tickets.php', 'ticket.php', 'recurring_tickets.php', 'service_catalog.php', 'service_catalog_approvals.php', 'csat.php', 'mail_requests.php', 'problems.php', 'problem_details.php', 'changes.php', 'change_details.php'],
     'work'          => ['projects.php', 'project_details.php', 'calendar.php'],
     'knowledge'     => ['kb_articles.php', 'kb_article.php', 'kb_article_versions.php', 'credentials.php', 'printers.php', 'network_drives.php'],
     'training'      => ['training.php', 'training_courses.php', 'training_course.php', 'training_quiz.php', 'training_banks.php', 'training_paths.php', 'training_achievements.php', 'training_preview.php', 'training_dashboard.php', 'training_reports.php', 'training_transcript.php', 'training_assignments.php', 'training_rule.php', 'training_records.php', 'training_record.php', 'training_session.php', 'training_people.php', 'training_item_analysis.php', 'training_revision_compare.php'],
@@ -173,6 +173,10 @@ foreach ($section_pages as $key => $pages) {
                         <a href="/agent/service_catalog.php" class="dropdown-item<?php if ($current_page == "service_catalog.php") { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-th-large"></i></span>
                             <span class="text-truncate">Request service</span>
+                        </a>
+                        <a href="/agent/service_catalog_approvals.php" class="dropdown-item<?php if ($current_page == "service_catalog_approvals.php") { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-user-check"></i></span>
+                            <span class="text-truncate">Approvals</span>
                         </a>
                         <?php if (!empty($config_ticket_csat_enable)) { ?>
                         <a href="/agent/csat.php" class="dropdown-item<?php if ($current_page == "csat.php") { echo " active"; } ?>">
