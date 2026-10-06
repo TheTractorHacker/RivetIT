@@ -6,6 +6,12 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.21] RivetIT — RivetCore 0.17.1, service catalog approvals, employee workflow depth, Slack/Teams notifications, installer hardening
+
+### Installer
+
+- `deploy/install.sh` stops with a clear message when RivetCore cannot be downloaded (it is installed from github.com) instead of carrying on without it.
+
 ### RivetCore 0.17.1
 
 - Updates the shared library to RivetCore 0.17.1 (job heartbeat, webhook signed timestamp, PSR-3 logging, audit reader, retention horizons). **Migration 2.6.136** adds `integration_jobs.heartbeat_at` through Core's own migration runner. The Update page shows the RivetCore version; the library updates with the app (the pin is in `composer.json`/`composer.lock`), no separate button is needed.

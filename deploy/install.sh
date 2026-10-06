@@ -545,7 +545,10 @@ provision_app_code() {
 
     if [[ -f "${APP_DIR}/composer.json" ]] && command_exists composer; then
         info "Installing PHP dependencies via composer..."
-        ( cd "${APP_DIR}" && composer install --no-dev --optimize-autoloader --no-interaction )
+        # RivetCore (rivet/rivet-core) is installed from its GitHub repository, so the server needs outbound access to github.com.
+        if ! ( cd "${APP_DIR}" && composer install --no-dev --optimize-autoloader --no-interaction ); then
+            die "composer install failed. RivetCore is downloaded from github.com: check that this server can reach it, then re-run the installer."
+        fi
     fi
 }
 
