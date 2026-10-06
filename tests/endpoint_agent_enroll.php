@@ -45,7 +45,7 @@ $ok($c === 401 && $j['code'] === 'invalid_token', 'malformed token -> 401 invali
 $ok($c === 422 && $j['code'] === 'invalid', 'bad arch -> 422');
 [$c, , $j] = ea_enroll($tok, ea_dev(['install_id' => 'nope']));
 $ok($c === 422, 'bad install_id -> 422');
-[$c, , $j] = ea_enroll($tok, ea_dev(['os' => 'linux']));
+[$c, , $j] = ea_enroll($tok, ea_dev(['os' => 'plan9']));
 $ok($c === 422, 'non-windows os -> 422 (first release is Windows only)');
 $ok((int) $one("SELECT COUNT(*) FROM endpoint_agent_enroll_attempts WHERE success=0") >= 3 && (int) $one("SELECT COUNT(*) FROM logs WHERE log_action='Enrollment Failed'") >= 3, 'failed attempts are recorded and audited');
 

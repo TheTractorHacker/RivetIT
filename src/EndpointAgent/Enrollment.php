@@ -213,7 +213,9 @@ final class Enrollment
         if ($host === null) {
             throw $bad('hostname');
         }
-        if (($d['os'] ?? '') !== 'windows') {
+        // Windows only. EA_ALLOW_NON_WINDOWS (never set in production) lets the agent's Linux test build enroll in the integration harness.
+        $osOk = ($d['os'] ?? '') === 'windows' || (defined('EA_ALLOW_NON_WINDOWS') && EA_ALLOW_NON_WINDOWS === true && ($d['os'] ?? '') === 'linux');
+        if (!$osOk) {
             throw $bad('os');
         }
         if (!in_array($d['arch'] ?? '', ['amd64', 'arm64'], true)) {
