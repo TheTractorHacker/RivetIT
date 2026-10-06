@@ -8,7 +8,7 @@
     'depends': ['base', 'hr'],
     'data': [
         'security/groups.xml',
-        'security/ir.access.csv',
+        'security/ir.model.access.csv',
         'views/integration_views.xml',
         'views/portal_menu.xml',
         'data/cleanup_cron.xml',

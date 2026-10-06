@@ -1,7 +1,7 @@
 #!/bin/sh
 # Builds the Odoo 19 and Odoo 20 zips of rivetit_sso from the one source tree.
-# The only per-version difference is the access-rights file: Odoo 19 reads
-# security/ir.model.access.csv, Odoo 20 renamed the model and reads security/ir.access.csv.
+# The source tree targets Odoo 19. The only per-version difference is the access-rights file:
+# Odoo 19 reads security/ir.model.access.csv; Odoo 20 renamed the model and reads security/ir.access.csv.
 # The manifest version (1.1.0) is series-agnostic; Odoo prefixes its own series, so the zips are named to match.
 set -e
 cd "$(dirname "$0")"
