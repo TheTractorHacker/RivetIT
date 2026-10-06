@@ -4213,7 +4213,7 @@ function logAction($type, $action, $description, $client_id = 0, $entity_id = 0)
 
     // Administrative and security entries are mirrored into the structured audit trail (e.g. "settings.edit", "user.disable").
     // Credential reveals are already audited explicitly where they happen, so "Credential / View" is not repeated here.
-    static $audited_types = ['Settings', 'User', 'User Account', 'Credential', 'API Key', 'Payment Provider', 'Mailbox', 'SLA Policy', 'SLA Calendar', 'Role', 'Identity Provider', 'Backup', 'Integration'];
+    static $audited_types = ['Settings', 'User', 'User Account', 'Credential', 'API Key', 'Payment Provider', 'Mailbox', 'Endpoint Agent', 'SLA Policy', 'SLA Calendar', 'Role', 'Identity Provider', 'Backup', 'Integration'];
     if (in_array($raw_log_type, $audited_types, true) && !($raw_log_type === 'Credential' && in_array($raw_log_action, ['View', 'View TOTP'], true))) {
         $slug = static fn ($v) => trim((string) preg_replace('/[^a-z0-9]+/', '_', strtolower((string) $v)), '_');
         try {

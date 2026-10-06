@@ -321,7 +321,7 @@ if (isset($_GET['asset_id'])) {
                 $rmm_type = $rmm_link['integration_type'] ?: 'tactical';
                 $rmm_provider_name = $rmm_link['integration_name'] ?: (
                     ['tactical_rmm' => 'Tactical RMM', 'level' => 'Level.io',
-                     'action1' => 'Action1', 'sophos_central' => 'Sophos Central'][$rmm_type] ?? 'RMM'
+                     'action1' => 'Action1', 'sophos_central' => 'Sophos Central', 'rivetit_agent' => 'RivetIT agent'][$rmm_type] ?? 'RMM'
                 );
                 if ($rmm_link['rmm_status'] === 'online')       { $rmm_badge = 'text-bg-success'; $rmm_border = '#28a745'; }
                 elseif ($rmm_link['rmm_status'] === 'offline')  { $rmm_badge = 'text-bg-danger';  $rmm_border = '#dc3545'; }
@@ -395,6 +395,11 @@ if (isset($_GET['asset_id'])) {
                             </div>
                             <?php endif; ?>
                         </div>
+                        <?php if ($rmm_type === 'rivetit_agent'): ?>
+                        <a class="btn btn-outline-primary btn-sm" href="/agent/rmm_agent_device.php?device_id=<?= intval(preg_replace('/^rivetit:/', '', (string) $rmm_link['tactical_agent_id'])) ?>" title="Inventory, checks, jobs and remote access for the endpoint agent">
+                            <i class="fas fa-satellite me-1"></i>Agent device
+                        </a>
+                        <?php endif; ?>
                         <?php if ($rmm_type === 'tactical_rmm'): ?>
                         <button class="btn btn-outline-warning btn-sm" data-rmm-action="reboot" data-link-id="<?= intval($rmm_link['id']) ?>" title="Reboot device">
                             <i class="fas fa-power-off me-1"></i>Reboot

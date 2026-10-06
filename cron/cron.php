@@ -1665,7 +1665,7 @@ if ($config_module_enable_rmm) {
     require_once dirname(__DIR__) . '/includes/rmm_client_factory.php';
     require_once dirname(__DIR__) . '/includes/class_rmm_asset_mapper.php';
 
-    $sql_rmm_integrations = mysqli_query($mysqli, "SELECT id, name FROM rmm_integrations WHERE enabled=1");
+    $sql_rmm_integrations = mysqli_query($mysqli, "SELECT id, name FROM rmm_integrations WHERE enabled=1 AND type <> 'rivetit_agent'");
     while ($rmm_intg = mysqli_fetch_assoc($sql_rmm_integrations)) {
         $rmm_intg_id = intval($rmm_intg['id']);
         try {
@@ -1684,6 +1684,24 @@ if ($config_module_enable_rmm) {
             logApp("Cron", "error", "RMM sync failed for '{$rmm_intg['name']}': " . $e->getMessage());
         }
     }
+}
+
+/*
+ * ###############################################################################################################
+ *  BUILT-IN ENDPOINT AGENT HOUSEKEEPING
+ *  Devices that stopped checking in go offline on their RMM link, lost job acknowledgements are settled (destructive jobs
+ *  become failed/result_lost and are never retried), and old check-in, attempt and job rows are pruned. A no-op while the
+ *  agent service is off.
+ * ###############################################################################################################
+ */
+try {
+    require_once dirname(__DIR__) . '/vendor/autoload.php';
+    $ea_stats = \ITFlow\EndpointAgent\Maintenance::run();
+    if (array_sum($ea_stats) > 0) {
+        logApp("Cron", "info", "Endpoint agent housekeeping: " . json_encode($ea_stats));
+    }
+} catch (\Throwable $e) {
+    logApp("Cron", "error", "Endpoint agent housekeeping failed: " . $e->getMessage());
 }
 
 /*

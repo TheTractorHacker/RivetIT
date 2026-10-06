@@ -86,6 +86,7 @@ function getSettingsSearchIndex(): array {
                 ['anchor' => 'automation-worker', 'label' => 'Automation worker',   'keywords' => ['training worker', 'last run']],
              ]],
          ]],
+        ['label' => 'Endpoint agent',           'keywords' => ['agent', 'endpoint', 'rmm', 'meshcentral', 'enrollment', 'remote', 'windows'],        'url' => '/admin/settings_endpoint_agent.php',    'visible' => true],
         ['label' => 'Webhooks',                'keywords' => ['webhook', 'api', 'delivery log'],                                       'url' => '/admin/settings_webhooks.php',           'visible' => true],
         ['label' => 'RMM Integration',         'keywords' => ['rmm', 'remote monitoring', 'tactical', 'level.io', 'sophos', 'action1', 'connectwise'], 'url' => '/admin/settings_integrations.php?tab=rmm', 'visible' => true],
         ['label' => 'Backups Integration',     'keywords' => ['backup', 'comet'],                                                      'url' => '/admin/settings_integrations.php?tab=backups', 'visible' => true],

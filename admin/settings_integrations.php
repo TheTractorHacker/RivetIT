@@ -6,7 +6,7 @@ require_once "../includes/comet.php";
 $active_tab = in_array($_GET['tab'] ?? '', ['rmm', 'backups', 'firewalls', 'unifi', 'directorysync', 'odoo', 'devicesync']) ? $_GET['tab'] : 'rmm';
 
 // ─── RMM (non-Sophos) ───────────────────────────────────────────────────────
-$sql_rmm_integrations = mysqli_query($mysqli, "SELECT * FROM rmm_integrations WHERE type != 'sophos_central' ORDER BY name ASC");
+$sql_rmm_integrations = mysqli_query($mysqli, "SELECT * FROM rmm_integrations WHERE type != 'sophos_central' AND type != 'rivetit_agent' ORDER BY name ASC");
 $sql_rmm_clients      = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL ORDER BY client_name ASC");
 
 // ─── Backups (Comet) ────────────────────────────────────────────────────────

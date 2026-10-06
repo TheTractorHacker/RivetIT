@@ -10,7 +10,7 @@ $sql_policies = mysqli_query($mysqli,
 );
 
 $sql_integrations = mysqli_query($mysqli,
-    "SELECT id, name, type FROM rmm_integrations WHERE enabled=1 ORDER BY name"
+    "SELECT id, name, type FROM rmm_integrations WHERE enabled=1 AND type <> 'rivetit_agent' ORDER BY name"
 );
 $integrations = [];
 while ($r = mysqli_fetch_assoc($sql_integrations)) { $integrations[] = $r; }
