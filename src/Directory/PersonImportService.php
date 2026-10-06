@@ -214,6 +214,7 @@ class PersonImportService
                 $contactId = (int) $resolved['existing_contact_id'];
                 // An update only changes what the CSV actually provides: a blank cell keeps the stored value
                 // (it used to blank titles, phones, manager, start date and so on for every row).
+                $lifecycleBefore = \ITFlow\Workflow\LifecycleEvents::snapshot($this->mysqli, $contactId);
                 $given = static fn(string $key): bool => trim((string) ($raw[$key] ?? '')) !== '';
                 $keepStr = fn(string $col, string $key, string $val): string => $given($key) ? "$col = '$val'" : "$col = $col";
                 $keepSql = fn(string $col, string $key, string $sql): string => $given($key) ? "$col = $sql" : "$col = $col";
@@ -233,6 +234,7 @@ class PersonImportService
                         contact_client_id = $clientId
                      WHERE contact_id = $contactId"
                 );
+                \ITFlow\Workflow\LifecycleEvents::afterChange($this->mysqli, $contactId, $lifecycleBefore);
                 $updated++;
             } else {
                 $this->mysqli->query(
@@ -244,6 +246,7 @@ class PersonImportService
                         contact_start_date = $startDate, contact_manager_id = $managerId,
                         contact_location_id = $locationId, contact_client_id = $clientId"
                 );
+                \ITFlow\Workflow\LifecycleEvents::afterChange($this->mysqli, (int) $this->mysqli->insert_id, null);
                 $created++;
             }
         }

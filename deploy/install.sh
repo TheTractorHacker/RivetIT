@@ -1034,6 +1034,7 @@ EOF
     ensure_cron_job "${cron_file}" "${APP_DIR}" certificate_refresher.php '0 4 * * *' "${refresh_log}"
     ensure_cron_job "${cron_file}" "${APP_DIR}" odoo_sync_cron.php '30 4 * * *' "${training_log}"
     ensure_cron_job "${cron_file}" "${APP_DIR}" training_cron.php '15 5 * * *' "${training_log}"
+    ensure_cron_job "${cron_file}" "${APP_DIR}" workflow_cron.php '*/15 * * * *' "${cron_log}"
     ensure_cron_job "${cron_file}" "${APP_DIR}" training_kiosk_cron.php '0-59/10 * * * *' "${training_log}"
     ensure_cron_job "${cron_file}" "${APP_DIR}" training_worker.php '*/10 * * * *' "${training_log}" '--task=odoo'
     ensure_cron_job "${cron_file}" "${APP_DIR}" training_worker.php '40 5 * * *' "${training_log}" '--task=daily'

@@ -29,6 +29,12 @@ $res = mysqli_query($mysqli, "SELECT user_id, user_name FROM users WHERE user_ty
 while ($res && ($r = mysqli_fetch_assoc($res))) {
     $agents[(int) $r['user_id']] = $r['user_name'];
 }
+$rule_actions = AutomationRuleStore::ACTIONS + [\ITFlow\Workflow\StartWorkflowRule::ACTION => \ITFlow\Workflow\StartWorkflowRule::LABEL];
+$workflow_templates = [];
+$res = mysqli_query($mysqli, "SELECT workflow_template_id, name, type FROM workflow_templates WHERE archived_at IS NULL AND is_active = 1 ORDER BY type, name");
+while ($res && ($r = mysqli_fetch_assoc($res))) {
+    $workflow_templates[] = $r;
+}
 $h = static fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 ?>
 
@@ -78,7 +84,7 @@ $h = static fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
                 <div class="col-md-4">
                     <label class="form-label">Then</label>
                     <select class="form-select" name="action_type" required>
-                        <?php foreach (AutomationRuleStore::ACTIONS as $k => $label) { ?><option value="<?= $h($k) ?>" <?= ($edit['action_type'] ?? 'notify_user') === $k ? 'selected' : '' ?>><?= $h($label) ?></option><?php } ?>
+                        <?php foreach ($rule_actions as $k => $label) { ?><option value="<?= $h($k) ?>" <?= ($edit['action_type'] ?? 'notify_user') === $k ? 'selected' : '' ?>><?= $h($label) ?></option><?php } ?>
                     </select>
                     <div class="form-check mt-3"><input class="form-check-input" type="checkbox" name="is_enabled" value="1" id="rule_enabled" <?= !$edit || $edit['is_enabled'] ? 'checked' : '' ?>><label class="form-check-label" for="rule_enabled">Rule is on</label></div>
                 </div>
@@ -92,6 +98,10 @@ $h = static fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
                             <div class="col-md-12"><label class="form-label mb-0">Send a webhook: URL</label><input class="form-control form-control-sm" name="cfg_url" maxlength="500" placeholder="https://..." value="<?= $h($edit_config['url'] ?? '') ?>"></div>
                             <div class="col-md-12"><label class="form-label mb-0">Send a webhook: signing secret (optional)</label><input class="form-control form-control-sm" name="cfg_secret" maxlength="200" value="<?= $h($edit_config['secret'] ?? '') ?>"></div>
                             <div class="col-md-12"><label class="form-label mb-0">Notify: message</label><input class="form-control form-control-sm" name="cfg_message" maxlength="1000" value="<?= $h($edit_config['message'] ?? '') ?>"></div>
+                            <div class="col-md-12"><label class="form-label mb-0">Start an employee workflow: template <span class="text-muted">(for the person the event is about; best with <code>employee.hired</code> / <code>employee.terminated</code>; once per person while one is open; needs auto-start turned on under <a href="employee_workflow_templates.php">Employee workflows</a>)</span></label>
+                                <select class="form-select form-select-sm" name="cfg_template_id"><option value="0">-</option>
+                                    <?php foreach ($workflow_templates as $wt) { ?><option value="<?= (int) $wt['workflow_template_id'] ?>" <?= (int) ($edit_config['template_id'] ?? 0) === (int) $wt['workflow_template_id'] ? 'selected' : '' ?>>[<?= $h(ucfirst($wt['type'])) ?>] <?= $h($wt['name']) ?></option><?php } ?>
+                                </select></div>
                         </div>
                     </div>
                 </div>
@@ -117,7 +127,7 @@ $h = static fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
                     <td><strong><?= $h($r['name']) ?></strong></td>
                     <td><code><?= $h($r['trigger_event']) ?></code></td>
                     <td class="small"><?php foreach ($conds as $f => $v) { ?><span class="badge text-bg-secondary me-1"><?= $h($f) ?> = <?= $h($v) ?></span><?php } ?><?= $conds ? '' : '<span class="text-muted">every time</span>' ?></td>
-                    <td><?= $h(AutomationRuleStore::ACTIONS[$r['action_type']] ?? $r['action_type']) ?></td>
+                    <td><?= $h($rule_actions[$r['action_type']] ?? $r['action_type']) ?></td>
                     <td><?= $r['is_enabled'] ? '<span class="badge text-bg-success">On</span>' : '<span class="badge text-bg-secondary">Off</span>' ?></td>
                     <td class="text-end text-nowrap">
                         <a class="btn btn-sm btn-light" href="event_rules.php?edit=<?= (int) $r['rule_id'] ?>" title="Edit"><i class="fas fa-edit"></i></a>

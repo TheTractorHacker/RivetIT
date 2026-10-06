@@ -251,6 +251,10 @@ function rivetAutomationActionHandlers($mysqli, string $ruleName): array
 
             return 'notification created';
         },
+        // Local to this edition: rivet-core's rule store only knows the three actions above (see src/Workflow/StartWorkflowRule.php).
+        'start_workflow' => static function (array $cfg, array $ctx) use ($mysqli) {
+            return \ITFlow\Workflow\StartWorkflowRule::run($mysqli, $cfg, $ctx);
+        },
     ];
 }
 

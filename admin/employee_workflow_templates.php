@@ -9,7 +9,24 @@ $sql = mysqli_query($mysqli, "SELECT wt.*,
     WHERE wt.archived_at IS NULL
     ORDER BY wt.type ASC, wt.name ASC");
 
+$lifecycle_ready = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `settings` LIKE 'config_lifecycle_auto_start'")) > 0;
+$lifecycle_on = $lifecycle_ready && \ITFlow\Workflow\LifecycleEvents::enabled($mysqli);
+
 ?>
+
+<?php if ($session_is_admin && $lifecycle_ready) { ?>
+<div class="card mb-3">
+    <div class="card-header py-2"><h5 class="card-title mb-0"><i class="fas fa-fw fa-bolt me-2"></i>Start workflows automatically</h5></div>
+    <div class="card-body">
+        <p class="text-muted small">When on, a new hire or a departure (a contact edit, the people import or the Odoo sync) raises an <code>employee.hired</code> or <code>employee.terminated</code> event. An <a href="event_rules.php">event rule</a> with the action &ldquo;Start an employee workflow&rdquo; then starts the template you choose, once per person. Off by default: with it off, nothing is detected and workflows only start when someone starts them.</p>
+        <form action="post.php" method="post" class="d-flex align-items-center gap-3">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <div class="form-check"><input class="form-check-input" type="checkbox" name="lifecycle_auto_start" value="1" id="lifecycle_auto_start" <?= $lifecycle_on ? 'checked' : '' ?>><label class="form-check-label" for="lifecycle_auto_start">Detect hires and departures and let event rules start workflows</label></div>
+            <button type="submit" name="save_lifecycle_settings" class="btn btn-sm btn-primary">Save</button>
+        </form>
+    </div>
+</div>
+<?php } ?>
 
 <div class="card">
     <div class="card-header py-2">
@@ -19,7 +36,7 @@ $sql = mysqli_query($mysqli, "SELECT wt.*,
         </div>
     </div>
     <div class="card-body">
-        <p class="text-muted">Onboarding/offboarding checklists you can start against a specific person from their contact page. Manual-first: nothing here automates account creation or access changes - it's a tracked checklist with an audit trail.</p>
+        <p class="text-muted">Onboarding/offboarding checklists you can start against a specific person from their contact page. Tasks can wait on other tasks, have an assignee and due date, need an approval, or run an automated action (a ticket, an email, a notification, a webhook event, or switching off a portal login). A task you leave as Manual is just a tracked checklist item with an audit trail.</p>
         <table class="table table-hover">
             <thead>
                 <tr>

@@ -9836,3 +9836,73 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.133'");
     }
+
+    if ($rivetit_db_version() == '2.6.133') {
+        // Employee lifecycle workflows beyond flat checklists: task dependencies, assignees and due dates with reminders,
+        // approval tasks and automated action tasks, a task log, and the start_workflow event-rule action. Everything is
+        // additive and off by default: existing templates and runs keep their rows and behave exactly as before
+        // (task_type 'manual', no dependencies, no due date). Auto-start from lifecycle events stays off until
+        // config_lifecycle_auto_start is turned on.
+        mysqli_query($mysqli, "ALTER TABLE `workflow_template_tasks`
+            ADD COLUMN IF NOT EXISTS `task_type` enum('manual','approval','action') NOT NULL DEFAULT 'manual',
+            ADD COLUMN IF NOT EXISTS `depends_on` varchar(255) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `assignee_user_id` int(11) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `due_offset_days` int(11) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `due_anchor` enum('run','start','end') NOT NULL DEFAULT 'run',
+            ADD COLUMN IF NOT EXISTS `approver_type` enum('user','role','manager') DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `approver_user_id` int(11) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `approver_role_id` int(11) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `action_type` varchar(40) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `action_config` text DEFAULT NULL");
+
+        mysqli_query($mysqli, "ALTER TABLE `workflow_runs`
+            MODIFY COLUMN `status` enum('in_progress','completed_with_exceptions','completed','cancelled','paused') NOT NULL DEFAULT 'in_progress'");
+
+        mysqli_query($mysqli, "ALTER TABLE `workflow_run_tasks`
+            MODIFY COLUMN `status` enum('pending','completed','skipped','blocked','running','action_failed','rejected') NOT NULL DEFAULT 'pending',
+            ADD COLUMN IF NOT EXISTS `template_task_id` int(11) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `task_type` enum('manual','approval','action') NOT NULL DEFAULT 'manual',
+            ADD COLUMN IF NOT EXISTS `depends_on` varchar(255) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `assignee_user_id` int(11) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `due_at` datetime DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `reminder_state` varchar(12) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `reminded_at` datetime DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `approver_type` enum('user','role','manager') DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `approver_user_id` int(11) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `approver_role_id` int(11) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `approval_status` enum('pending','approved','rejected') DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `approval_notified_at` datetime DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `approved_by` int(11) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `approved_at` datetime DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `approval_comment` varchar(500) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `action_type` varchar(40) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `action_config` text DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `attempts` int(11) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `last_error` varchar(500) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `running_since` datetime DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `workflow_run_tasks` ADD INDEX IF NOT EXISTS `idx_run_task_due` (`status`,`due_at`)");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `workflow_task_log` (
+            `log_id` int(11) NOT NULL AUTO_INCREMENT,
+            `run_id` int(11) NOT NULL,
+            `run_task_id` int(11) NOT NULL,
+            `event` varchar(30) NOT NULL,
+            `action_type` varchar(40) DEFAULT NULL,
+            `ok` tinyint(1) NOT NULL DEFAULT 1,
+            `attempt` int(11) NOT NULL DEFAULT 0,
+            `detail` varchar(1000) DEFAULT NULL,
+            `actor_user_id` int(11) DEFAULT NULL,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`log_id`),
+            KEY `idx_task_log_run` (`run_id`,`run_task_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        // Event rules may start a workflow (the Core package's own table only knew three actions). Widening an enum is idempotent.
+        if (mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'automation_rules'")) > 0) {
+            mysqli_query($mysqli, "ALTER TABLE `automation_rules` MODIFY COLUMN `action_type` enum('create_ticket','send_webhook','notify_user','start_workflow') NOT NULL");
+        }
+
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_lifecycle_auto_start` tinyint(1) NOT NULL DEFAULT 0");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.134'");
+    }
