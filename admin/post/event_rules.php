@@ -34,7 +34,7 @@ if (isset($_POST['save_event_rule'])) {
     ];
     $id = isset($_POST['rule_id']) ? intval($_POST['rule_id']) : null;
     if (($_POST['action_type'] ?? '') === 'send_webhook' && !rivetWebhookUrlIsSafe((string) ($_POST['cfg_url'] ?? ''))) {
-        flash_alert('The webhook URL must be an http(s) address that resolves to a public address.', 'error');
+        flash_alert('The webhook URL must be an http(s) address (' . nullable_htmlentities(rivetWebhookRuleText($mysqli)) . ').', 'error');
         redirect($id ? "event_rules.php?edit=$id" : 'event_rules.php');
     }
     if (($_POST['action_type'] ?? '') === \ITFlow\Workflow\StartWorkflowRule::ACTION) {

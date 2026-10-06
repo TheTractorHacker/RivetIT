@@ -8,18 +8,20 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 // one of these only records the subscription; nothing dispatches on them yet
 // (that's WebhookDispatcher's job, once a real trigger point wires it in).
 require_once __DIR__ . '/../includes/webhook_events.php';
+require_once __DIR__ . '/../../includes/event_bus.php';
 $ALL_EVENTS = all_webhook_event_types();
 
 /**
  * Reject webhook endpoint URLs that would let a saved webhook be used to make the
  * RivetIT server itself request internal/cloud-metadata targets (SSRF) when the
  * queued webhook is delivered server-side from cron/cron.php. Only http(s) URLs
- * whose host resolves exclusively to public IP addresses are allowed - loopback,
- * link-local (incl. 169.254.169.254 cloud metadata), and RFC1918 private ranges
- * are rejected, including via DNS resolution (not just literal IPs).
+ * whose host resolves exclusively to public IP addresses (or to the admin's allowed
+ * internal networks, see rivetWebhookUrlPolicy()) are allowed - loopback, link-local
+ * (incl. 169.254.169.254 cloud metadata) and any private range outside the allowed
+ * networks are rejected, including via DNS resolution (not just literal IPs).
  */
 function webhookUrlIsSafe(string $url): bool {
-    return (new \RivetCore\Webhooks\UrlPolicy())->isSafe($url);
+    return rivetWebhookUrlPolicy($GLOBALS['mysqli'] ?? null)->isSafe($url);
 }
 
 /**
@@ -81,7 +83,7 @@ if (isset($_POST['add_webhook'])) {
         }
         $webhook_url = encryptSetting($webhook_url);
     } elseif (!webhookUrlIsSafe($webhook_url)) {
-        flash_alert("Endpoint URL must be a public http(s) address - internal, loopback, and link-local addresses are not allowed.", 'error');
+        flash_alert("Endpoint URL rejected (" . nullable_htmlentities(rivetWebhookRuleText($mysqli)) . "). Loopback, link-local and cloud-metadata addresses are never allowed.", 'error');
         redirect();
     }
 
@@ -141,7 +143,7 @@ if (isset($_POST['edit_webhook'])) {
             $webhook_url = encryptSetting($webhook_url);
         }
     } elseif (!webhookUrlIsSafe($webhook_url)) {
-        flash_alert("Endpoint URL must be a public http(s) address - internal, loopback, and link-local addresses are not allowed.", 'error');
+        flash_alert("Endpoint URL rejected (" . nullable_htmlentities(rivetWebhookRuleText($mysqli)) . "). Loopback, link-local and cloud-metadata addresses are never allowed.", 'error');
         redirect();
     }
 
@@ -212,5 +214,55 @@ if (isset($_GET['delete_webhook'])) {
     logAction("Settings", "Webhook", "$session_name deleted webhook $webhook_name");
 
     flash_alert("Webhook <strong>$webhook_name</strong> deleted", 'error');
+    redirect();
+}
+
+// Internal networks webhooks may reach. The list is validated by RivetCore's NetworkList (private ranges only, not too wide);
+// loopback, link-local and cloud-metadata addresses can never be listed.
+function webhookSaveNetworks(string $raw, string $audit_summary): bool {
+    global $mysqli, $session_user_id;
+
+    $parsed = \RivetCore\Webhooks\NetworkList::parse($raw);
+    $stored = implode("\n", $parsed['networks']);
+    $errors = $parsed['errors'];
+    if (strlen($stored) > 500) {
+        $errors[] = 'The list is too long to store (maximum 500 characters).';
+    }
+    if ($errors) {
+        $_SESSION['webhook_networks_draft'] = $raw;
+        flash_alert('Networks not saved:<br>' . implode('<br>', array_map('nullable_htmlentities', $errors)), 'error');
+        return false;
+    }
+
+    $before = rivetWebhookAllowedNetworks($mysqli);
+    $stmt = mysqli_prepare($mysqli, "UPDATE settings SET config_webhook_allowed_networks = ?");
+    mysqli_stmt_bind_param($stmt, "s", $stored);
+    mysqli_stmt_execute($stmt);
+    unset($_SESSION['webhook_networks_draft']);
+
+    if ($before !== $parsed['networks']) {
+        logAction("Settings", "Webhook", "$GLOBALS[session_name] changed the webhook allowed networks");
+        rivetAudit('webhooks.networks_changed', (int) $session_user_id, 'settings', 1, 'update', $audit_summary,
+            ['before' => $before, 'after' => $parsed['networks']]);
+    }
+    flash_alert('Allowed internal networks saved' . ($parsed['networks'] ? ': <strong>' . nullable_htmlentities(implode(', ', $parsed['networks'])) . '</strong>' : ' (none: webhooks may only call public addresses)'));
+    return true;
+}
+
+if (isset($_POST['save_webhook_networks'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    webhookSaveNetworks((string) ($_POST['webhook_allowed_networks'] ?? ''), 'Webhook allowed networks changed');
+    redirect();
+}
+
+// One-click add of a detected / suggested network to the saved list.
+if (isset($_POST['add_webhook_network'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    $current = rivetWebhookAllowedNetworks($mysqli);
+    webhookSaveNetworks(implode("\n", $current) . "\n" . (string) ($_POST['network'] ?? ''), 'Webhook allowed network added');
     redirect();
 }
