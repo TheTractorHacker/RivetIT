@@ -56,7 +56,7 @@ final class ChatDelivery
         // The app's existing SSRF guard: every resolved address must be public (no private, loopback, link-local, reserved).
         $target = rivetWebhookResolveTarget($url);
         if ($target === null) {
-            return $fail('URL must point to a public address (internal, loopback and link-local addresses are not allowed).');
+            return $fail('URL not allowed (' . rivetWebhookRuleText() . '). Loopback, link-local and cloud-metadata addresses are never allowed.');
         }
 
         return ['ok' => true, 'error' => null, 'ips' => $target['ips'], 'host' => $target['host'], 'port' => $target['port']];

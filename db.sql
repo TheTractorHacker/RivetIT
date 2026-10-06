@@ -2918,6 +2918,7 @@ CREATE TABLE `settings` (
   `config_slack_link_by_email` tinyint(1) NOT NULL DEFAULT 0,
   `config_slack_bot_token` text DEFAULT NULL,
   `config_slack_team_id` varchar(32) NOT NULL DEFAULT '',
+  `config_webhook_allowed_networks` varchar(500) NOT NULL DEFAULT '',
   `config_enable_device_metrics` tinyint(1) NOT NULL DEFAULT 0,
   `config_metrics_collect_interval_seconds` int(11) NOT NULL DEFAULT 300,
   `config_metrics_raw_retention_days` int(11) NOT NULL DEFAULT 14,

@@ -1,6 +1,7 @@
 <?php
 require_once "includes/inc_all_admin.php";
 require_once "includes/webhook_events.php";
+require_once "../includes/event_bus.php";
 ?>
 
 <style nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
@@ -166,6 +167,56 @@ $slack_endpoint = ($slack_base !== '' ? (preg_match('#^https?://#i', $slack_base
             </div>
             <button type="submit" name="save_slack_interactive" class="btn btn-primary btn-sm"><i class="fas fa-check me-1"></i>Save</button>
         </form>
+    </div>
+</div>
+
+<?php
+$wh_nets = rivetWebhookAllowedNetworks($mysqli);
+$wh_nets_text = $_SESSION['webhook_networks_draft'] ?? implode("\n", $wh_nets);
+unset($_SESSION['webhook_networks_draft']);
+$wh_detect = isset($_GET['detect']);
+$wh_detected = [];
+if ($wh_detect) {
+    foreach (\RivetCore\Support\LocalNetworks::detect() as $d) {
+        $wh_detected[$d['cidr']] = $d;
+    }
+}
+?>
+<div class="card mt-3" id="internal-networks">
+    <div class="card-header py-3">
+        <h3 class="card-title mb-0"><i class="fas fa-fw fa-network-wired me-2"></i>Internal network access</h3>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">Webhooks may only call public addresses plus the internal networks listed here. Loopback (127.0.0.0/8), link-local (169.254.0.0/16) and cloud-metadata addresses are never allowed, and only private ranges (10/8, 172.16/12, 192.168/16, 100.64/10, fc00::/7) can be listed.</p>
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <label class="form-label" for="webhook_allowed_networks">Allowed internal networks (one per line, CIDR)</label>
+            <textarea class="form-control font-monospace mb-2" id="webhook_allowed_networks" name="webhook_allowed_networks" rows="4" placeholder="192.168.1.0/24"><?= nullable_htmlentities($wh_nets_text) ?></textarea>
+            <button type="submit" name="save_webhook_networks" class="btn btn-primary btn-sm"><i class="fas fa-check me-1"></i>Save networks</button>
+            <a href="settings_webhooks.php?detect=1#internal-networks" class="btn btn-outline-secondary btn-sm ms-2"><i class="fas fa-search me-1"></i>Use this server's network</a>
+        </form>
+        <?php if ($wh_detect) { ?>
+            <div class="mt-3" id="detected-networks">
+                <?php if (!$wh_detected) { ?>
+                    <p class="text-muted mb-0">No private network was detected on this server.</p>
+                <?php } else { ?>
+                    <p class="mb-1">Detected on this server:</p>
+                    <?php foreach ($wh_detected as $cidr => $d) { ?>
+                        <form action="post.php" method="post" class="d-flex align-items-center gap-2 mb-1">
+                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                            <input type="hidden" name="network" value="<?= nullable_htmlentities($cidr) ?>">
+                            <span class="text-muted"><?= nullable_htmlentities($d['interface']) ?></span>
+                            <code><?= nullable_htmlentities($cidr) ?></code>
+                            <?php if (in_array($cidr, $wh_nets, true)) { ?>
+                                <span class="badge text-bg-success">Allowed</span>
+                            <?php } else { ?>
+                                <button type="submit" name="add_webhook_network" class="btn btn-sm btn-outline-primary">Add</button>
+                            <?php } ?>
+                        </form>
+                    <?php } ?>
+                <?php } ?>
+            </div>
+        <?php } ?>
     </div>
 </div>
 

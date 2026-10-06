@@ -66,9 +66,8 @@ function rivetWebhookDispatcher($mysqli): \RivetCore\Webhooks\WebhookDispatcher
     $db = rivetCoreDb($mysqli);
     $subsClass = rivetCoreAdapterNs() . '\Webhooks\WebhooksTableSubscriptions';
 
-    // The settings page only accepts public addresses, so delivery re-vets (and pins) the same way. RIVETIT_WEBHOOK_ALLOW_PRIVATE=1 is for
-    // test rigs that receive on loopback; it relaxes only the address-range test here, never the settings-page check.
-    $policy = new \RivetCore\Webhooks\UrlPolicy(getenv('RIVETIT_WEBHOOK_ALLOW_PRIVATE') === '1');
+    // Delivery re-vets (and pins) with the same policy the settings page used: public addresses plus the admin's allowed networks.
+    $policy = rivetWebhookUrlPolicy($mysqli);
     return new \RivetCore\Webhooks\WebhookDispatcher($db, new $subsClass($db), new \RivetCore\Support\SystemClock(), rivetWebhookHeaderPrefixes(),
         null, \RivetCore\Webhooks\WebhookDispatcher::DEFAULT_TIMEOUT_SECONDS, $policy, true);
 }
@@ -252,7 +251,7 @@ function rivetAutomationActionHandlers($mysqli, string $ruleName): array
             // Checked again at call time (DNS can change after the rule was saved).
             $target = rivetWebhookResolveTarget((string) $cfg['url']);
             if ($target === null) {
-                throw new \RuntimeException('the webhook URL does not resolve to a public address');
+                throw new \RuntimeException('the webhook URL is not allowed (' . rivetWebhookRuleText($mysqli) . ')');
             }
             $body = json_encode(['event' => $ctx['event'] ?? '', 'timestamp' => gmdate('Y-m-d\TH:i:s\Z'), 'data' => $ctx], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $headers = ['Content-Type: application/json'];
@@ -325,6 +324,46 @@ function rivetAudit(string $event, ?int $actor, ?string $entityType, $entityId, 
 }
 
 /**
+ * The admin-configured internal networks webhooks may reach (Administration > Webhooks), canonical CIDRs.
+ * Never throws: a missing column (before the migration), a DB error or an old RivetCore all mean "none".
+ *
+ * @return list<string>
+ */
+function rivetWebhookAllowedNetworks($mysqli = null): array
+{
+    try {
+        $mysqli = $mysqli ?? ($GLOBALS['mysqli'] ?? null);
+        if (!$mysqli || !class_exists('\RivetCore\Webhooks\NetworkList')) {
+            return [];
+        }
+        $res = @mysqli_query($mysqli, "SELECT config_webhook_allowed_networks FROM settings LIMIT 1");
+        $row = $res ? mysqli_fetch_row($res) : null;
+
+        return \RivetCore\Webhooks\NetworkList::parse((string) ($row[0] ?? ''))['networks'];
+    } catch (\Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * THE one place the webhook URL policy is built (delivery, settings page, event rules, chat destinations).
+ * Public addresses plus the admin's allowed internal networks; loopback, link-local and metadata never.
+ * RIVETIT_WEBHOOK_ALLOW_PRIVATE=1 is for test rigs that receive on loopback.
+ */
+function rivetWebhookUrlPolicy($mysqli = null): \RivetCore\Webhooks\UrlPolicy
+{
+    return new \RivetCore\Webhooks\UrlPolicy(getenv('RIVETIT_WEBHOOK_ALLOW_PRIVATE') === '1', null, rivetWebhookAllowedNetworks($mysqli));
+}
+
+/** Human text of the effective rule, for rejection messages. */
+function rivetWebhookRuleText($mysqli = null): string
+{
+    $nets = rivetWebhookAllowedNetworks($mysqli);
+
+    return 'allowed: public addresses' . ($nets ? ' and ' . implode(', ', $nets) : ' only (no internal networks are allowed)');
+}
+
+/**
  * Vet a webhook URL (http(s), no userinfo, every address public) and return the target to pin the connection to, or null.
  * Thin wrapper over RivetCore's UrlPolicy so the callers (rules, settings, chat delivery) keep one name.
  *
@@ -332,7 +371,7 @@ function rivetAudit(string $event, ?int $actor, ?string $entityType, $entityId, 
  */
 function rivetWebhookResolveTarget(string $url): ?array
 {
-    return (new \RivetCore\Webhooks\UrlPolicy())->vet($url);
+    return rivetWebhookUrlPolicy()->vet($url);
 }
 
 function rivetWebhookUrlIsSafe(string $url): bool

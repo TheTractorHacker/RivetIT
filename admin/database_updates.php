@@ -10051,3 +10051,10 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.140'");
     }
+
+    if ($rivetit_db_version() == '2.6.140') {
+        // Internal networks webhooks may reach (Administration > Webhooks); empty = public addresses only.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_webhook_allowed_networks` varchar(500) NOT NULL DEFAULT ''");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.141'");
+    }
