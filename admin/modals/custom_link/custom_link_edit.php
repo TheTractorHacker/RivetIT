@@ -1,6 +1,7 @@
 <?php
 
 require_once '../../../includes/modal_header.php';
+require_once __DIR__ . '/../../../includes/icon_picker.php';
 
 $custom_link_id = intval($_GET['id']);
 
@@ -66,12 +67,7 @@ ob_start();
 
         <div class="form-group">
             <label>Icon</label>
-            <div class="input-group">
-                <div class="input-group-prepend">
-                    <span class="input-group-text"><i class="fa fa-fw fa-image"></i></span>
-                </div>
-                <input type="text" class="form-control" name="icon" placeholder="Icon ex handshake" maxlength="200" value="<?php echo $custom_link_icon; ?>">
-            </div>
+            <?php iconPickerField('icon', (string) $custom_link_icon, 'fa-link'); ?>
         </div>
 
         <div class="form-group">

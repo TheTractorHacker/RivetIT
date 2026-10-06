@@ -1,6 +1,7 @@
 <?php
 
 require_once '../../../includes/modal_header.php';
+require_once __DIR__ . '/../../../includes/icon_picker.php';
 require_once __DIR__ . '/../../includes/ticket_view_filters.php';
 
 // The current ticket dashboard filters, passed in via the querystring
@@ -32,8 +33,7 @@ ob_start();
 
         <div class="form-group">
             <label>Icon</label>
-            <input type="text" class="form-control" name="icon" maxlength="50" value="fa-filter" placeholder="fa-filter">
-            <small class="form-text text-muted">A Font Awesome icon class, e.g. <code>fa-fire</code>, <code>fa-star</code>, <code>fa-truck</code>.</small>
+            <?php iconPickerField('icon', 'fa-filter', 'fa-filter'); ?>
         </div>
 
         <hr>

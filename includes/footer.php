@@ -129,7 +129,7 @@ window.RIVETIT_UPLOAD_LIMITS = <?php echo json_encode(['file' => ini_get('upload
 // [data-asset-metrics] element, which only agent/asset_details.php emits. It is last
 // because it reads the Chart.defaults that chart_theme.js sets, and it must also land
 // after plugins/chart.js above - both hold with defer, which preserves document order.
-foreach (['shell.js', 'chart_theme.js', 'app.js', 'file_upload.js', 'ajax_modal.js', 'confirm_modal.js', 'asset_metrics.js', 'phone_format.js'] as $__asset) {
+foreach (['shell.js', 'chart_theme.js', 'app.js', 'file_upload.js', 'ajax_modal.js', 'confirm_modal.js', 'asset_metrics.js', 'phone_format.js', 'icon_picker.js'] as $__asset) {
     $__asset_path = __DIR__ . '/../js/' . $__asset;
     $__asset_version = file_exists($__asset_path) ? filemtime($__asset_path) : time();
     echo '<script src="/js/' . $__asset . '?v=' . $__asset_version . '" defer></script>' . "\n";
