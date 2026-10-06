@@ -71,14 +71,13 @@ for d in dests:
 check('prev/next navigation and related links exist', page.count('rel="next"') >= 23 and page.count('rel="prev"') >= 23 and 'class="wg-related"' in page)
 check('n8n walk-through steps remain (8) inside the n8n guide', page.count('Mark walk-through step') == 8)
 
-# the add flow loads for the preselected platforms (page opens the modal; the modal itself loads with ?dest=)
+# the add flow loads for the preselected platforms (the old link continues on the Add page, which opens on the Connect step of that platform)
 s, wp = req(admin, '/admin/settings_webhooks.php?add=n8n')
-check('settings_webhooks.php?add=n8n loads and opens the modal on n8n', s == 200 and 'webhook_add.php?dest=n8n' in wp, s)
-s, mod = req(admin, '/admin/modals/webhook/webhook_add.php?dest=n8n')
-mod = (json.loads(mod).get('content', mod) if mod.startswith('{') else mod) if s == 200 else ''
-check('the add-webhook modal loads preselected on n8n', s == 200 and 'n8n' in mod, s)
-s, mod = req(admin, '/admin/modals/webhook/webhook_add.php?dest=telegram')
-check('the add-webhook modal loads on telegram', s == 200 and 'Bot token' in mod or 'telegram' in mod.lower(), s)
+check('settings_webhooks.php?add=n8n continues on the Add page for n8n', s == 200 and "webhook_new.php?dest=n8n&step=connect" in wp, s)
+s, pg = req(admin, '/admin/webhook_new.php?dest=n8n&step=connect')
+check('the Add page loads preselected on n8n', s == 200 and 'name="webhook_destination" value="n8n"' in pg and 'Connect n8n' in pg, s)
+s, pg = req(admin, '/admin/webhook_new.php?dest=telegram&step=connect')
+check('the Add page loads on telegram with its bot token field', s == 200 and 'Bot token' in pg and 'name="extra[bot_token]"' in pg, s)
 
 for path, kind in (('/css/webhook_guides.css', 'css'), ('/js/webhook_guides.js', 'js')):
     s, t = req(admin, path)
