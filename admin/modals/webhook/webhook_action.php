@@ -1,6 +1,7 @@
 <?php
 
-// JSON endpoint behind the Add / Edit webhook form (js/webhook_form.js): "Send test", "Preview payload" and the live template check.
+// JSON endpoint behind the Add / Edit webhook pages (js/webhook_wizard.js): the live URL check, "Send test", "Preview payload", the live template
+// check and a test of an already saved webhook.
 // Admin only (modal_header.php), POST only, CSRF-checked. Nothing is saved. Secrets are never returned: the preview masks auth headers
 // and shows the URL's host only, and a test result carries the HTTP status, duration and a short cut of the response body.
 
@@ -43,7 +44,35 @@ if ($action === 'validate_template') {
     $out(['ok' => !$errors, 'errors' => $errors, 'sample' => $sample]);
 }
 
-if (!in_array($action, ['test', 'preview'], true)) {
+// Live URL check: the same rules as Save (platform pattern, URL policy incl. the allowed internal networks), no request to the address.
+if ($action === 'check_url') {
+    $existing = null;
+    $wid = intval($_POST['webhook_id'] ?? 0);
+    if ($wid > 0) {
+        $existing = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM webhooks WHERE webhook_id = $wid LIMIT 1")) ?: null;
+    }
+    $chk = DestinationConfig::checkUrl($_POST, $existing, static fn (string $u): bool => rivetWebhookUrlPolicy($GLOBALS['mysqli'])->isSafe($u));
+    $out($chk);   // ok = the address is acceptable (state says why not)
+}
+
+// Send a test through the saved row (success screen, Edit page header): nothing from the browser but the id.
+if ($action === 'test_saved') {
+    $wid = intval($_POST['webhook_id'] ?? 0);
+    $saved = $wid > 0 ? mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM webhooks WHERE webhook_id = $wid LIMIT 1")) : null;
+    if (!$saved) {
+        $out(['ok' => false, 'errors' => ['Webhook not found.']], 404);
+    }
+    $event = (string) ($_POST['sample_event'] ?? 'ticket.created');
+    if (!in_array($event, WebhookTester::TEST_EVENTS, true)) {
+        $event = 'ticket.created';
+    }
+    $r = WebhookTester::send($mysqli, $saved, $event);
+    logAction('Settings', 'Webhook', "$session_name sent a test to " . sanitizeInput($saved['webhook_name']) . ($r['ok'] ? " (HTTP {$r['http_status']})" : ' (failed)'));
+    $r['hint'] = WebhookTester::explain($r);
+    $out(['ok' => true, 'result' => $r]);
+}
+
+if (!in_array($action, ['test', 'preview', 'validate'], true)) {
     $out(['ok' => false, 'errors' => ['Unknown action.']], 400);
 }
 
@@ -57,7 +86,21 @@ if ($wid > 0) {
     }
 }
 $known = array_flip(all_webhook_event_types());
+$scope = (string) ($_POST['scope'] ?? 'all');
+if ($action === 'validate' && $scope === 'connect' && empty($_POST['webhook_events'])) {
+    $_POST['webhook_events'] = ['*'];   // the Events step comes later: do not complain about it yet
+}
 $v = DestinationConfig::validateForm($_POST, $existing, static fn (string $e): bool => isset($known[$e]), static fn (string $u): bool => rivetWebhookUrlPolicy($GLOBALS['mysqli'])->isSafe($u));
+if ($action === 'validate') {
+    // Each problem is filed under the step that can fix it, so the page can send the person back to the right place.
+    $steps = [];
+    foreach ($v['errors'] as $e) {
+        $step = preg_match('/^(The event|Choose at least one event|Too many events)/', $e) ? 'events'
+            : (preg_match('/^(Template|The template encoding|The signing secret|Authentication|.* accepts (POST|PUT)|Slack|The signing)/i', $e) ? 'advanced' : 'connect');
+        $steps[] = ['step' => $step, 'message' => $e];
+    }
+    $out(['ok' => !$v['errors'], 'errors' => $v['errors'], 'steps' => $steps]);
+}
 if ($v['errors']) {
     $out(['ok' => false, 'errors' => $v['errors']]);
 }
@@ -75,4 +118,5 @@ if ($action === 'preview') {
 
 $r = WebhookTester::send($mysqli, $draft, $event);
 logAction('Settings', 'Webhook', "$session_name sent a test to " . sanitizeInput($draft['webhook_name']) . ($r['ok'] ? " (HTTP {$r['http_status']})" : ' (failed)'));
+$r['hint'] = WebhookTester::explain($r);
 $out(['ok' => true, 'result' => $r]);

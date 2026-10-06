@@ -71,6 +71,55 @@ final class WebhookTester
         ];
     }
 
+    /**
+     * A plain-English reading of a send result, or '' when nothing needs explaining. Shown under the HTTP status in the test panel.
+     *
+     * @param array{ok?:bool,http_status?:?int,error?:?string} $r
+     */
+    public static function explain(array $r): string
+    {
+        $status = (int) ($r['http_status'] ?? 0);
+        $err = strtolower((string) ($r['error'] ?? ''));
+        if (!empty($r['ok'])) {
+            return 'The receiver accepted the test. If you do not see it there, check that its workflow or channel is active and listening.';
+        }
+        if ($status === 401 || $status === 403) {
+            return 'The receiver refused our credentials (HTTP ' . $status . '). Check the authentication settings: the token, header name or password must match what the receiver expects.';
+        }
+        if ($status === 404 || $status === 410) {
+            return 'The receiver does not know that address (HTTP ' . $status . '). Check the URL for typos; for n8n use the Production URL of an active workflow, not the test URL.';
+        }
+        if ($status === 405) {
+            return 'The receiver does not accept this HTTP method (HTTP 405). Open Advanced options and try the other method, or check how the receiver is set up.';
+        }
+        if ($status === 400 || $status === 422) {
+            return 'The receiver did not understand the message (HTTP ' . $status . '). Check the payload format under Advanced options or the platform guide.';
+        }
+        if ($status === 429) {
+            return 'The receiver is rate limiting us (HTTP 429). Wait a minute and try again; retries are spaced out automatically.';
+        }
+        if ($status >= 500) {
+            return 'The receiver had a problem on its side (HTTP ' . $status . '). It is usually temporary; real deliveries are retried automatically.';
+        }
+        if (str_contains($err, 'not allowed') || str_contains($err, 'policy') || str_contains($err, 'private') || str_contains($err, 'loopback')) {
+            return 'The address is blocked by the network policy. Webhooks may only call public addresses plus the internal networks listed under Internal network access on the Webhooks page.';
+        }
+        if (str_contains($err, 'timed out') || str_contains($err, 'timeout')) {
+            return 'The receiver did not answer in time. Check that it is running and reachable from this server, then try again.';
+        }
+        if (str_contains($err, 'resolve') || str_contains($err, 'dns')) {
+            return 'The host name could not be looked up. Check the spelling of the address.';
+        }
+        if (str_contains($err, 'ssl') || str_contains($err, 'certificate')) {
+            return 'The secure connection failed. The receiver\'s certificate may be expired or self-signed.';
+        }
+        if (str_contains($err, 'connect') || str_contains($err, 'refused')) {
+            return 'Could not connect. Check that the receiver is running, the port is open and the address is correct.';
+        }
+
+        return $status === 0 ? 'No answer came back. Check the address and that the receiver is reachable from this server.' : '';
+    }
+
     /** The event a stored delivery can be replayed as, or null. Only the standard JSON envelope (and our own tests) can be rebuilt from the log. */
     public static function replayable(array $delivery, array $webhook): ?array
     {

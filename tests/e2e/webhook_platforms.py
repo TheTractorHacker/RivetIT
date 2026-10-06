@@ -1,5 +1,6 @@
 """
-End-to-end check of the webhook platform presets (RivetCore Destinations) through the real web stack: the guided Add / Edit flow, the
+End-to-end check of the webhook platform presets (RivetCore Destinations) through the real web stack: the four-step Add flow and the tabbed
+Edit page (steps, live URL check, step validation, quick event presets, advanced options, create + test, duplicate, enable switch, list), the
 guides page, server-side validation, secret handling, the event picker and event patterns, Send test / Preview payload, the Replay of
 a logged delivery, and real delivery to a local mock receiver for a representative set of platforms (generic JSON, n8n with header and
 bearer auth, ntfy, Discord, Telegram, custom template, Matrix client API with PUT and {txn}) plus a legacy row that has no preset.
@@ -51,7 +52,8 @@ class H(BaseHTTPRequestHandler):
     def _handle(self):
         body = self.rfile.read(int(self.headers.get('Content-Length', 0) or 0))
         RX['log'].append({'method': self.command, 'path': self.path, 'headers': {k.lower(): v for k, v in self.headers.items()}, 'body': body})
-        code = 500 if '/fail' in self.path else 200
+        sm = re.search(r'/status/(\d+)', self.path)
+        code = int(sm.group(1)) if sm else (500 if '/fail' in self.path else 200)
         self.send_response(code); self.send_header('Content-Type', 'text/plain'); self.end_headers(); self.wfile.write(b'received')
     do_POST = do_PUT = _handle
     def log_message(self, *a): pass
@@ -108,21 +110,29 @@ sql("delete from webhooks; delete from webhook_deliveries; delete from integrati
 RX['log'].clear()
 
 # ================================================================== pages
+s, lp0 = req(REF)
+check('the empty list is a welcome: a big "Add your first webhook" button and shortcuts for the popular platforms', 'Add your first webhook' in lp0 and 'whl-shortcuts' in lp0 and all(('dest=%s&amp;step=connect' % i) in lp0 for i in ['n8n', 'slack', 'discord', 'teams', 'ntfy', 'home-assistant', 'generic-json']) and 'data-whl-search' not in lp0)
 from_core = subprocess.run(['php', '-r', 'require %s; echo json_encode(array_map(fn($d)=>[$d->id,$d->name], RivetCore\\Webhooks\\Destinations::all()));' % json.dumps(APP + '/vendor/autoload.php')], capture_output=True, text=True).stdout
 dests = json.loads(from_core)
 check('the catalog has 24 platform presets', len(dests) == 24, len(dests))
-s, chooser = req('/admin/modals/webhook/webhook_add.php')
-cards = re.findall(r'data-wh-dest="([^"]+)"', chooser)
-check('the add flow chooser has a card for every preset (24)', sorted(cards) == sorted(i for i, _ in dests), (len(cards), set(i for i, _ in dests) ^ set(cards)))
-check('the chooser has the search box, category headings, descriptions, Generic JSON and Custom template', 'data-wh-chooser-search' in chooser and 'Automation platforms' in chooser and 'Team chat' in chooser and 'Push and notification services' in chooser and 'Custom template' in chooser and 'Generic JSON' in chooser and 'Start a workflow from a Webhook node' in chooser)
+s, chooser = req('/admin/webhook_new.php')
+cards = re.findall(r'data-wz-dest="([^"]+)"', chooser)
+check('the add flow chooser has a card for every preset (24; the Popular row repeats seven of them)', set(cards) == set(i for i, _ in dests) and len(cards) == 24 + 7, (len(cards), set(i for i, _ in dests) ^ set(cards)))
+check('the chooser has search, category chips, Popular and Recently used rows, descriptions, Generic JSON and Custom template', 'data-wz-psearch' in chooser and 'data-wz-catchip' in chooser and 'Automation platforms' in chooser and 'Team chat' in chooser and 'Push and notification services' in chooser and 'Custom template' in chooser and 'Generic JSON' in chooser and 'Start a workflow from a Webhook node' in chooser and 'data-wz-popular' in chooser and 'data-wz-recent' in chooser and 'Where should the events go?' in chooser)
+popular = re.search(r'data-wz-popular>(.*?)<div class="wz-cat"', chooser, re.S).group(1)
+check('the Popular row is n8n, Slack, Discord, Teams, ntfy, Home Assistant, Generic JSON in that order', re.findall(r'data-wz-dest="([^"]+)"', popular) == ['n8n', 'slack', 'discord', 'teams', 'ntfy', 'home-assistant', 'generic-json'])
 check('the chooser links to the guides page', 'settings_webhook_guides.php' in chooser)
+check('a card is a plain deep link: webhook_new.php?dest=<id>&step=connect', 'href="webhook_new.php?dest=n8n&amp;step=connect"' in chooser)
 s, guides = req('/admin/settings_webhook_guides.php')
 check('the guides page lists every preset with an anchor and a guide', s == 200 and all(('id="%s"' % i) in guides for i, _ in dests), s)
-check('the guides carry setup steps, a sample curl with a copy button, signature snippets and the n8n walk-through', 'Setup' in guides and 'curl -sS -X POST' in guides and 'data-wh-copy' in guides and 'Verify our signature' in guides and 'X-Rivet-Signature-V2' in guides and 'Receiving in n8n: walk-through' in guides and 'n8n Code' in guides and 'verifyRivetSignature' in guides)
+check('the guides carry setup steps, a sample curl with a copy button, signature snippets and the n8n walk-through', 'Setup' in guides and 'curl -sS -X POST' in guides and 'data-wg-copy' in guides and 'Verify our signature' in guides and 'X-Rivet-Signature-V2' in guides and 'Receiving in n8n: walk-through' in guides and 'n8n Code' in guides and 'verifyRivetSignature' in guides)
 s, page = req(REF)
-check('the webhooks page links to the guides and the add form opens the large modal', 'settings_webhook_guides.php' in page and 'data-modal-size="xl"' in page)
-s, js = req('/js/event_picker.js'); s2, js2 = req('/js/webhook_form.js')
-check('the picker and form scripts are served and loaded by the shared footer', s == 200 and s2 == 200 and 'event_picker.js' in page and 'webhook_form.js' in page)
+check('the webhooks page links to the guides and Add Webhook opens the new full page (no modal)', 'settings_webhook_guides.php' in page and 'href="webhook_new.php"' in page and 'Add Webhook' in page and 'webhook_form.css' in page and 'webhook_list.js' in page)
+s, js = req('/js/event_picker.js'); s2, js2 = req('/js/webhook_wizard.js'); s3, js3 = req('/js/webhook_list.js'); s4, wcss = req('/css/webhook_form.css')
+check('the picker, wizard and list scripts and the form stylesheet are served', s == 200 and s2 == 200 and s3 == 200 and s4 == 200 and 'event_picker.js' in page and '.wz-stepper' in wcss and 'check_url' in js2 and 'prefers-reduced-motion' in wcss)
+check('the old modal flow is gone (the add and edit modals no longer exist)', req('/admin/modals/webhook/webhook_add.php')[0] == 404 and req('/admin/modals/webhook/webhook_edit.php?id=1')[0] == 404)
+s, dl = req('/admin/settings_webhooks.php?add=n8n')
+check('the guides page deep link (settings_webhooks.php?add=n8n) continues on the Add page for that platform', "location.replace('webhook_new.php?dest=n8n&step=connect')" in dl)
 s, cat = req('/modals/event_catalog.php')
 try: catj = json.loads(cat)
 except Exception: catj = {}
@@ -130,18 +140,39 @@ ids = [e['id'] for e in catj.get('events', [])]
 check('the event catalog endpoint lists the grouped, described events', s == 200 and len(ids) >= 110 and 'ticket.created' in ids and 'ticket.sla_breached' in ids and all(e['description'] for e in catj['events'][:20]) and 'tickets' in catj.get('groups', {}), (s, len(ids)))
 forms = {}
 for i, nm in dests:
-    s, f = req('/admin/modals/webhook/webhook_add.php?dest=' + i); forms[i] = f
-    ok = s == 200 and ('name="webhook_destination" value="%s"' % i) in f and 'data-event-picker' in f and 'Setup guide' in f and 'data-wh-test' in f and 'data-wh-preview' in f
+    s, f = req('/admin/webhook_new.php?dest=' + i + '&step=connect'); forms[i] = f
+    ok = s == 200 and ('name="webhook_destination" value="%s"' % i) in f and 'data-event-picker' in f and 'data-wz-slideover' in f and 'data-wz-test' in f and 'data-wz-preview' in f and 'data-wz-advanced' in f and 'data-wz-step="connect"' in f
     if not ok: check('add form for ' + i, False, (s, f[:200]))
-check('the add form of every preset renders with its guide, events picker, Send test and Preview', all(('name="webhook_destination" value="%s"' % i) in forms[i] and 'data-event-picker' in forms[i] for i, _ in dests))
-check('the n8n form: URL hint, allowed auth modes and signing secret generator', 'https://n8n.example.com/webhook/' in forms['n8n'] and 'value="header"' in forms['n8n'] and 'value="bearer"' in forms['n8n'] and 'data-wh-gen-secret' in forms['n8n'])
-check('the ntfy form asks for the topic, priority and tags', all(x in forms['ntfy'] for x in ['name="extra[topic]"', 'name="extra[priority]"', 'name="extra[tags]"']))
-check('the Telegram form asks for the bot token (password field) and chat id', 'name="extra[bot_token]"' in forms['telegram'] and re.search(r'type="password"[^>]*name="extra\[bot_token\]"', forms['telegram']) and 'name="extra[chat_id]"' in forms['telegram'])
-check('the Matrix client form offers PUT only (hidden), a room id and keeps {txn} in the URL hint', 'name="webhook_method" value="PUT"' in forms['matrix-client'] and 'name="extra[room_id]"' in forms['matrix-client'] and '{txn}' in forms['matrix-client'])
-check('the custom template form has the editor, encoding, cheat-sheet and a method choice', all(x in forms['custom-template'] for x in ['name="webhook_template"', 'name="webhook_template_encoding"', 'data-wh-insert="{{data.ticket_subject}}"', '|truncate:80', 'name="webhook_method"']) and '<option value="PUT"' in forms['custom-template'])
-check('Slack and Teams keep their routing filters; platforms without chat routing do not show them', 'name="webhook_min_priority"' in forms['slack'] and 'name="webhook_min_priority"' in forms['teams'] and 'name="webhook_min_priority"' in forms['ntfy'] and 'name="webhook_min_priority"' not in forms['n8n'])
-check('the guide panel of a preset is rendered from the catalog (steps, notes, docs link, verify tabs)', 'Copy the Production URL' in forms['n8n'] and 'Things to know' in forms['n8n'] and 'https://docs.n8n.io/' in forms['n8n'] and 'data-bs-toggle="tab"' in forms['n8n'])
-check('a platform that cannot verify signatures says so instead of showing snippets', 'cannot check a signature' in forms['discord'])
+check('the add page of every preset renders with its steps, advanced options, events picker, guide slide-over, Send test and preview', all(('name="webhook_destination" value="%s"' % i) in forms[i] and 'data-event-picker' in forms[i] for i, _ in dests))
+def above_fold(f):   # everything before the Advanced options disclosure inside the Connect step
+    c = f[f.index('data-wz-step-panel="connect"'):]
+    return c[:c.index('<details class="wz-advanced"')]
+def advanced(f):
+    c = f[f.index('<details class="wz-advanced"'):]
+    return c[:c.index('</details>')]
+check('the n8n form: URL hint above the fold; auth modes, signing secret generator and method note live in Advanced', 'https://n8n.example.com/webhook/' in above_fold(forms['n8n']) and 'value="header"' in advanced(forms['n8n']) and 'value="bearer"' in advanced(forms['n8n']) and 'data-wz-gen' in advanced(forms['n8n']) and 'name="webhook_secret"' in advanced(forms['n8n']))
+check('only what is required is above the fold for n8n: name and URL (no signing secret, auth, method or format fields)', all(x in above_fold(forms['n8n']) for x in ['name="webhook_name"', 'name="webhook_url"']) and not any(x in above_fold(forms['n8n']) for x in ['webhook_secret', 'webhook_auth_mode', 'webhook_method', 'webhook_min_priority', 'auth_token']))
+check('Advanced options are collapsed by default (the details element has no open attribute)', re.search(r'<details class="wz-advanced" data-wz-advanced>', forms['n8n']) is not None and 'Advanced options' in forms['n8n'])
+check('a platform that needs a credential by default shows it above the fold (Windmill bearer token, Gotify header, Matrix access token)', 'name="auth_token"' in above_fold(forms['windmill']) and 'name="auth_header_value"' in above_fold(forms['gotify']) and 'name="auth_token"' in above_fold(forms['matrix-client']))
+check('secrets have show/hide, copy and (signing secret) generate controls', 'data-wz-reveal' in forms['n8n'] and 'data-wz-copyval' in forms['n8n'] and re.search(r'type="text"[^>]*name="webhook_secret"', forms['n8n']) is not None)
+check('the ntfy form asks for the topic above the fold and keeps priority and tags in Advanced', 'name="extra[topic]"' in above_fold(forms['ntfy']) and all(x in advanced(forms['ntfy']) for x in ['name="extra[priority]"', 'name="extra[tags]"']))
+check('the Telegram form asks for the bot token (password field) and chat id above the fold; its fixed address is in Advanced', re.search(r'type="password"[^>]*name="extra\[bot_token\]"', above_fold(forms['telegram'])) and 'name="extra[chat_id]"' in above_fold(forms['telegram']) and 'name="webhook_url"' in advanced(forms['telegram']) and 'name="webhook_url"' not in above_fold(forms['telegram']))
+check('the Matrix client form offers PUT only (hidden), a room id and keeps {txn} in the URL hint', 'name="webhook_method" value="PUT"' in forms['matrix-client'] and 'name="extra[room_id]"' in above_fold(forms['matrix-client']) and '{txn}' in forms['matrix-client'])
+check('the custom template form has the editor above the fold, encoding, cheat-sheet and a method choice in Advanced', all(x in above_fold(forms['custom-template']) for x in ['name="webhook_template"', 'name="webhook_template_encoding"', 'data-wz-insert="{{data.ticket_subject}}"', '|truncate:80']) and 'name="webhook_method"' in advanced(forms['custom-template']) and '<option value="PUT"' in forms['custom-template'])
+check('Slack and Teams keep their routing filters (in Advanced); platforms without chat routing do not show them', 'name="webhook_min_priority"' in advanced(forms['slack']) and 'name="webhook_min_priority"' in advanced(forms['teams']) and 'name="webhook_min_priority"' in advanced(forms['ntfy']) and 'name="webhook_min_priority"' not in forms['n8n'])
+s, gjs = req('/admin/modals/webhook/webhook_guide.php?dest=n8n')   # req() unwraps the modal's {content}
+s, gds = req('/admin/modals/webhook/webhook_guide.php?dest=discord')
+check('the guide slide-over is loaded lazily from the catalog (steps, notes, docs link, verify tabs); the page itself does not embed it', 'Copy the Production URL' in gjs and 'Things to know' in gjs and 'https://docs.n8n.io/' in gjs and 'data-bs-toggle="tab"' in gjs and 'Copy the Production URL' not in forms['n8n'] and 'data-wz-guide=' in forms['n8n'])
+check('a platform that cannot verify signatures says so instead of showing snippets', 'cannot check a signature' in gds)
+check('the guide endpoint refuses an unknown platform', req('/admin/modals/webhook/webhook_guide.php?dest=nope')[0] == 404)
+
+# ================================================================== stepper: steps, deep links
+nw = forms['n8n']
+check('the add page is a four-step stepper with a progress bar, a sticky footer with Back and Continue, and a success screen', all(x in nw for x in ['data-wz-stepnav="platform"', 'data-wz-stepnav="connect"', 'data-wz-stepnav="events"', 'data-wz-stepnav="review"', 'data-wz-bar', 'data-wz-back', 'data-wz-next', 'data-wz-create-test', 'data-wz-step-panel="platform"', 'data-wz-step-panel="connect"', 'data-wz-step-panel="events"', 'data-wz-step-panel="review"', 'data-wz-step-panel="done"', 'data-wz-footer']) and 'Review &amp; test' in nw and 'Continue' in nw)
+check('deep links: ?dest=n8n&step=events starts on the Events step; an unknown step falls back to Connect; no platform means the Platform step', 'data-wz-step="events"' in req('/admin/webhook_new.php?dest=n8n&step=events')[1] and 'data-wz-step="connect"' in req('/admin/webhook_new.php?dest=n8n&step=bogus')[1] and 'data-wz-step="platform"' in req('/admin/webhook_new.php')[1] and 'data-wz-step="platform"' in req('/admin/webhook_new.php?dest=nope&step=events')[1])
+check('with no platform chosen only the platform step exists (no half-built form)', 'data-wz-step-panel="connect"' not in chooser and 'name="webhook_destination"' not in chooser)
+check('the Review step has the summary card, enabled switch, payload preview with a sample-event picker and an inline Send test; the success screen offers the next actions', all(x in nw for x in ['data-wz-summary', 'name="webhook_enabled"', 'data-wz-sample', 'data-wz-test', 'data-wz-result', 'data-wz-testagain', 'Add another', 'View deliveries', 'Open guide']))
+check('the Connect step names a Need help? button (slide-over) and shows the platform with a Change link', 'data-wz-help' in nw and 'data-wz-change' in nw)
 
 # ================================================================== events picker markup
 n8n = forms['n8n']
@@ -149,7 +180,7 @@ check('the picker has search, chip area, All events, group container, a fetch UR
 s, rules = req('/admin/event_rules.php?new=1')
 check('the event rules trigger uses the same picker in single-select mode', 'data-event-picker' in rules and 'data-mode="single"' in rules and 'name="trigger_event"' in rules, rules[:100])
 css = req('/css/itflow_custom.css')[1]
-check('the picker styles are appended to itflow_custom.css and use theme tokens', '.event-picker' in css and '.ep-chip' in css and 'var(--tblr-border-color' in css)
+check('the picker styles stay in itflow_custom.css and use theme tokens; the wizard styles use them too', '.event-picker' in css and '.ep-chip' in css and 'var(--tblr-border-color' in css and 'var(--tblr-border-color' in wcss)
 
 # ================================================================== create representative webhooks
 SECRET = 'gen-secret-0123456789abcdef0123456789abcdef'
@@ -211,13 +242,13 @@ refuse('an unfilled {placeholder} left in the URL (ntfy topic missing)', 'ntfy',
 req('/admin/post.php', {'csrf_token': 'bad', 'add_webhook': '1', 'webhook_destination': 'generic-json', 'webhook_name': 'NoCsrf', 'webhook_url': RX_URL + '/x', 'webhook_events[]': ['ticket.created']}, REF)
 check('refused: a wrong CSRF token', wh_count() == n0)
 st, xs = req('/admin/post.php', {'csrf_token': TOK, 'add_webhook': '1', 'webhook_destination': 'generic-json', 'webhook_name': '<script>alert(1)</script>', 'webhook_url': RX_URL + '/x', 'webhook_events[]': ['ticket.created']}, REF)
-check('a hostile name is stored but escaped everywhere it is shown', '<script>alert(1)</script>' not in flash() and '<script>alert(1)</script>' not in req('/admin/modals/webhook/webhook_edit.php?id=' + sql("select max(webhook_id) from webhooks"))[1])
+check('a hostile name is stored but escaped everywhere it is shown', '<script>alert(1)</script>' not in flash() and '<script>alert(1)</script>' not in req('/admin/webhook_edit.php?id=' + sql("select max(webhook_id) from webhooks"))[1])
 sql("delete from webhooks where webhook_name like '<script>%'")
 
 # ================================================================== edit keeps secrets, edit modal never echoes them
 nid = wid('T n8n header'); before = row('T n8n header', 'webhook_url, webhook_secret, webhook_auth_enc')
-s, edit = req('/admin/modals/webhook/webhook_edit.php?id=' + nid)
-check('the edit form shows the saved-secret hints and never the URL, token, header value or signing secret', 'Saved. Leave blank to keep it.' in edit and not any(x in edit for x in ['topsecret-header-value', SECRET, '/webhook/h1', 'ENC2:']) and 'X-N8N-Key' in edit, edit[:200])
+s, edit = req('/admin/webhook_edit.php?id=' + nid)
+check('the edit page shows the saved-secret hints and never the URL, token, header value or signing secret', 'Saved. Leave blank to keep it.' in edit and not any(x in edit for x in ['topsecret-header-value', SECRET, '/webhook/h1', 'ENC2:']) and 'X-N8N-Key' in edit, edit[:200])
 req('/admin/post.php', {'csrf_token': TOK, 'edit_webhook': '1', 'webhook_id': nid, 'webhook_destination': 'n8n', 'webhook_name': 'T n8n header renamed', 'webhook_url': '', 'webhook_secret': '', 'webhook_auth_mode': 'header', 'auth_header_name': 'X-N8N-Key', 'auth_header_value': '', 'webhook_events[]': ['auth.*'], 'webhook_enabled': '1'}, REF)
 after = row('T n8n header renamed', 'webhook_url, webhook_secret, webhook_auth_enc')
 check('editing with blank secrets keeps the saved URL, signing secret and auth header value', after == before and row('T n8n header renamed', 'webhook_events') == ['auth.*'], (before, after))
@@ -365,13 +396,148 @@ check('a forced replay of such a delivery sends nothing', len(RX['log']) == befo
 # ================================================================== events picker: stored patterns on the edit form
 add('generic-json', 'T pattern all 2', RX_URL + '/pat-all2', events=('*',), webhook_auth_mode='none')
 tid = wid('T pattern ticket')
-s, edit = req('/admin/modals/webhook/webhook_edit.php?id=' + tid)
+s, edit = req('/admin/webhook_edit.php?id=' + tid)
 check('the edit form of a pattern webhook carries the pattern as the picker value (ticket.*)', 'name="webhook_events[]" value="ticket.*"' in edit)
-s, edit = req('/admin/modals/webhook/webhook_edit.php?id=' + wid('T pattern all 2'))
+s, edit = req('/admin/webhook_edit.php?id=' + wid('T pattern all 2'))
 check('the edit form of an all-events webhook carries *', 'name="webhook_events[]" value="*"' in edit)
 check('the settings list shows patterns as chips (All events)', 'All events' in flash() and 'ticket.*' in flash())
-s, ed = req('/admin/modals/webhook/webhook_edit.php?id=' + wid('T discord') + '&dest=ntfy')
-check('the edit form can switch the platform (Change platform) and warns that secrets must be re-entered', s == 200 and 'name="webhook_destination" value="ntfy"' in ed and 're-enter its URL' in ed)
+s, ed = req('/admin/webhook_edit.php?id=' + wid('T discord') + '&dest=ntfy')
+check('the edit page can switch the platform (Platform select) and warns that secrets must be re-entered', s == 200 and 'name="webhook_destination" value="ntfy"' in ed and 're-enter its URL' in ed and 'data-wz-switch=' in ed)
+
+# ================================================================== live URL check (no outbound request, same rules as Save)
+def jpost(data, path='/admin/modals/webhook/webhook_action.php', referer=None):
+    st, body = req(path, data, referer)
+    try: return st, json.loads(body)
+    except Exception: return st, {'raw': body[:300]}
+def chk(url, dest='n8n', **kw):
+    d = {'csrf_token': TOK, 'wh_action': 'check_url', 'webhook_destination': dest, 'webhook_url': url}; d.update(kw)
+    return jpost(d)[1]
+n_req = len(RX['log'])
+r = chk(RX_URL + '/webhook/live')
+check('URL check: a good n8n address reads "Looks good" with its host and makes no request to it', r.get('state') == 'ok' and r.get('ok') and r.get('message', '').startswith('Looks good') and r.get('host') == '127.0.0.1' and len(RX['log']) == n_req, r)
+r = chk('')
+check('URL check: nothing typed yet is the quiet "empty" state', r.get('state') == 'empty' and not r.get('ok'), r)
+r = chk('https://evil.example.com/api/webhooks/1/x', 'discord')
+check('URL check: a Discord field given another site says what it expected', r.get('state') == 'pattern' and r['message'].startswith('Expected https://discord.com/api/webhooks/'), r)
+r = chk('javascript:alert(1)')
+check('URL check: a non-http address is refused with the pattern hint', r.get('state') == 'pattern' and not r.get('ok'), r)
+r = chk(RX_URL + '/{topic}', 'ntfy')
+check('URL check: an unfilled {topic} part is reported as incomplete, naming the field', r.get('state') == 'incomplete' and 'Topic' in r['message'], r)
+r = chk('', 'ntfy', **{'extra[topic]': 'my-topic'})
+check('URL check: parts filled from the platform fields build the address (ntfy topic) and pass', r.get('state') == 'ok' and r.get('host') == 'ntfy.sh', r)
+r = chk('', 'telegram', **{'extra[bot_token]': '123456:ABC-DEF'})
+check('URL check: Telegram builds its address from the bot token alone', r.get('state') == 'ok' and r.get('host') == 'api.telegram.org', r)
+r = chk('https://no-such-host-rivet.invalid/hook')
+check('URL check: a host name that does not resolve is reported in plain words', r.get('state') == 'invalid' and 'look that address up' in r['message'], r)
+r = chk('http://example.com/hook', 'slack')
+check('URL check: Slack must be https (and a Slack-shaped address), with the platform pattern shown first', r.get('state') in ('pattern', 'invalid') and not r.get('ok'), r)
+nid2 = wid('T n8n header')
+r = chk('', 'n8n', webhook_id=nid2)
+check('URL check: a saved secret address on an edit says it is kept (blank = keep)', r.get('state') == 'keep' and r.get('ok'), r)
+st, r = jpost({'csrf_token': 'bad', 'wh_action': 'check_url', 'webhook_destination': 'n8n', 'webhook_url': RX_URL})
+check('URL check: a bad CSRF token is refused', st == 403, r)
+st, r = req('/admin/modals/webhook/webhook_action.php')
+check('URL check: GET is refused (POST only)', st == 405)
+sql("update settings set config_webhook_allowed_networks=''")
+
+# ================================================================== step validation endpoint
+def validate(scope, **kw):
+    d = {'csrf_token': TOK, 'wh_action': 'validate', 'scope': scope, 'webhook_destination': 'n8n', 'webhook_name': 'Step', 'webhook_url': RX_URL + '/webhook/s', 'webhook_auth_mode': 'hmac'}; d.update(kw)
+    return jpost(d)[1]
+r = validate('connect')
+check('validate (connect): a complete Connect step passes even though no event is chosen yet', r.get('ok') is True, r)
+r = validate('connect', webhook_name='')
+check('validate (connect): a missing name is reported', r.get('ok') is False and any('name' in e.lower() for e in r['errors']), r)
+r = validate('connect', webhook_auth_mode='bearer', auth_token='two words')
+check('validate (connect): a bearer token with a space is reported and filed under Connect/advanced, not Events', r.get('ok') is False and all(x['step'] != 'events' for x in r['steps']), r)
+r = validate('all')
+check('validate (all): the same step is refused when no event is chosen, and the problem is filed under Events', r.get('ok') is False and [x['step'] for x in r['steps']] == ['events'], r)
+r = validate('all', **{'webhook_events[]': ['ticket.created']})
+check('validate (all): a complete form with an event passes', r.get('ok') is True, r)
+
+# ================================================================== quick event presets
+pg = forms['slack']
+chips = re.findall(r'data-wz-preset="([^"]+)" data-values="([^"]*)"', pg)
+chips = {k: json.loads(v.replace('&quot;', '"')) for k, v in chips}
+check('the Events step offers the quick chips: All events, Tickets, Critical only, SLA problems, Security & sign-in, Approvals, Workflows & lifecycle, Backups & system', list(chips)[1:] == ['all', 'tickets', 'critical', 'sla', 'security', 'approvals', 'workflows', 'system'] and all(l in pg for l in ['All events', 'Critical only', 'SLA problems', 'Security &amp; sign-in', 'Approvals', 'Workflows &amp; lifecycle', 'Backups &amp; system']), list(chips))
+check('chat platforms get a one-click Recommended chip (ticket and SLA events); a generic endpoint gets none', list(chips)[0] == 'recommended' and 'Recommended for Slack' in pg and 'ticket.sla_breached' in chips['recommended'] and 'data-wz-preset="recommended"' not in forms['generic-json'])
+check('the quick chips map to patterns the server stores as they are (all = *, tickets = ticket.*)', chips['all'] == ['*'] and chips['tickets'] == ['ticket.*'] and chips['security'] == ['auth.*', 'vault.*'])
+crit = [e['id'] for e in catj['events'] if e['severity'] == 'critical']
+check('"Critical only" lists exactly the catalog events marked critical', crit and chips['critical'] == crit, (chips['critical'], crit))
+for k, vals in chips.items():
+    nm = 'T preset ' + k
+    add('generic-json', nm, RX_URL + '/preset-' + k, events=tuple(vals), webhook_auth_mode='none')
+    stored = row(nm, 'webhook_events')[0].split(',') if wid(nm) else None
+    check('preset "%s" is accepted by Save and stored exactly as the chip lists it' % k, stored == vals, (stored, vals))
+sql("delete from webhooks where webhook_name like 'T preset %'")
+check('presets for other categories: automation = ticket.*, notify and home get short lists', 'data-values="[&quot;ticket.*&quot;]"' in forms['n8n'] and 'Recommended for ntfy' in forms['ntfy'] and 'Recommended for Home Assistant' in forms['home-assistant'])
+
+# ================================================================== create through the page (fetch): JSON answers, success screen data
+def create(data, referer='/admin/webhook_new.php'):
+    d = {'csrf_token': TOK, 'add_webhook': '1', 'wh_ajax': '1', 'webhook_destination': 'n8n', 'webhook_name': 'T wizard', 'webhook_url': RX_URL + '/webhook/wiz', 'webhook_events[]': ['ticket.created'], 'webhook_enabled': '1', 'webhook_auth_mode': 'hmac', 'webhook_secret': 'wiz-secret-123'}
+    d.update(data)
+    d = {k: v for k, v in d.items() if v is not None}
+    return jpost(d, '/admin/post.php', referer)
+st, r = create({})
+wzid = str(r.get('id', ''))
+check('Create via the page answers JSON {ok, id, name, destination} and saves the row (encrypted URL and secret)', st == 200 and r.get('ok') is True and r.get('destination') == 'n8n' and row('T wizard', 'webhook_destination, left(webhook_url,5), left(webhook_secret,5), webhook_enabled, webhook_events') == ['n8n', 'ENC2:', 'ENC2:', '1', 'ticket.created'] and wzid == wid('T wizard'), (st, r))
+st, r = create({'webhook_name': 'T wizard bad', 'webhook_events[]': []})
+check('Create via the page returns the server errors as JSON (no flash, nothing saved) when validation fails', r.get('ok') is False and any('at least one event' in e for e in r.get('errors', [])), r)
+check('a failed Create left no row behind', sql("select count(*) from webhooks where webhook_name='T wizard bad'") == '0')
+st, r = create({'csrf_token': 'bad'})
+check('Create via the page with a bad CSRF token answers 403 JSON and saves nothing', st == 403 and r.get('ok') is False and sql("select count(*) from webhooks where webhook_name='T wizard'") == '1', (st, r))
+st, r = create({'webhook_name': 'T wizard off', 'webhook_enabled': None})
+check('"Enabled" off on the Review step creates a disabled webhook', r.get('ok') is True and row('T wizard off', 'webhook_enabled') == ['0'], r)
+
+# ================================================================== test of a saved webhook + plain-English hints
+sql("update webhooks set webhook_url=%s where webhook_id=%s" % ("'" + RX_URL + "/status/401'", wzid))
+def tsaved(i): return jpost({'csrf_token': TOK, 'wh_action': 'test_saved', 'webhook_id': i})[1]
+for code, word in [(401, 'refused our credentials'), (404, 'does not know that address'), (429, 'rate limiting'), (500, 'problem on its side'), (405, 'method')]:
+    sql("update webhooks set webhook_url='%s/status/%d' where webhook_id=%s" % (RX_URL, code, wzid))
+    r = tsaved(wzid).get('result', {})
+    check('test of a saved webhook: HTTP %d is explained in plain English' % code, r.get('ok') is False and r.get('http_status') == code and word in r.get('hint', ''), r)
+sql("update webhooks set webhook_url='%s/webhook/wiz' where webhook_id=%s" % (RX_URL, wzid))
+r = tsaved(wzid).get('result', {})
+check('test of a saved webhook: success carries status, duration, a response excerpt and a hint', r.get('ok') and r.get('http_status') == 200 and r.get('duration_ms') >= 0 and r.get('response') == 'received' and r.get('hint'), r)
+check('test of an unknown webhook id answers 404', jpost({'csrf_token': TOK, 'wh_action': 'test_saved', 'webhook_id': '99999'})[0] == 404)
+st, r = action('test', webhook_url=RX_URL + '/status/404')
+check('Send test on the Review step carries the same hint for the unsaved form', r.get('result', {}).get('http_status') == 404 and 'does not know that address' in r['result'].get('hint', ''), r)
+
+# ================================================================== Edit page: tabs, header, deliveries
+s, ep = req('/admin/webhook_edit.php?id=' + wzid)
+tabs = re.findall(r'role="tab" id="wz-tab-\w+" data-wz-tab="(\w+)"', ep)
+check('the edit page has the four tabs (Connection, Events, Payload & advanced, Deliveries) as an accessible tablist', tabs[:4] == ['connection', 'events', 'advanced', 'deliveries'] and 'role="tablist"' in ep and 'role="tabpanel"' in ep and 'aria-controls="wz-pane-events"' in ep and 'Payload &amp; advanced' in ep)
+check('the edit header has the enable switch, status badge, Send test, Duplicate and a confirmed Delete', all(x in ep for x in ['data-wz-toggle-live', 'data-wz-statusbadge', 'data-wz-test', 'name="duplicate_webhook"', 'confirm-link', 'delete_webhook=' + wzid]))
+check('the status badge shows the last delivery result (the last test above was OK)', 'Last delivery OK' in ep, re.findall(r'data-wz-statusbadge[^>]*>([^<]*)<', ep))
+check('the edit page has an unsaved-changes bar, Save and Cancel, and the Deliveries tab lists the tests with View payload and Replay for a replayable one', 'data-wz-dirty' in ep and 'data-wz-save' in ep and 'webhook_delivery.php?id=' in ep and 'name="replay_webhook_delivery"' in ep and '<code>test.ticket.created</code>' in ep)
+check('the Connection tab keeps secrets hidden (saved-secret hint) and the Events tab carries the stored event', 'Saved. Leave blank to keep it.' in ep and 'name="webhook_events[]" value="ticket.created"' in ep and 'wiz-secret-123' not in ep)
+check('the Payload & advanced tab has the signing secret, a preview with a sample picker and the retry note', 'name="webhook_secret"' in ep[ep.index('data-wz-pane="advanced"'):] and 'data-wz-sample' in ep and 'tried again after 1, 5, 30 and 120 minutes' in ep)
+st, ep404 = req('/admin/webhook_edit.php?id=99999')
+check('editing an unknown id goes back to the list (redirect), not a broken page', st in (302, 303), st)
+
+# enable switch, duplicate, delete
+st, r = jpost({'csrf_token': TOK, 'toggle_webhook': '1', 'wh_ajax': '1', 'webhook_id': wzid, 'enabled': '0'}, '/admin/post.php', '/admin/webhook_edit.php?id=' + wzid)
+check('the inline enable switch saves at once and answers JSON', r.get('ok') is True and r.get('enabled') == 0 and row('T wizard', 'webhook_enabled') == ['0'], (st, r))
+st, r = jpost({'csrf_token': TOK, 'toggle_webhook': '1', 'wh_ajax': '1', 'webhook_id': wzid, 'enabled': '1'}, '/admin/post.php', '/admin/settings_webhooks.php')
+check('the same switch works from the list page', r.get('ok') is True and row('T wizard', 'webhook_enabled') == ['1'], r)
+st, r = jpost({'csrf_token': 'bad', 'toggle_webhook': '1', 'wh_ajax': '1', 'webhook_id': wzid, 'enabled': '0'}, '/admin/post.php', '/admin/settings_webhooks.php')
+check('the switch refuses a bad CSRF token and leaves the webhook as it was', st == 403 and row('T wizard', 'webhook_enabled') == ['1'])
+st, r = jpost({'csrf_token': TOK, 'toggle_webhook': '1', 'wh_ajax': '1', 'webhook_id': '99999', 'enabled': '0'}, '/admin/post.php', '/admin/settings_webhooks.php')
+check('the switch answers 404 for an unknown webhook', st == 404 and r.get('ok') is False)
+before_cols = row('T wizard', 'webhook_url, webhook_secret, webhook_auth_enc, webhook_extra, webhook_events, webhook_destination')
+st, _ = req('/admin/post.php', {'csrf_token': TOK, 'duplicate_webhook': '1', 'webhook_id': wzid}, '/admin/webhook_edit.php?id=' + wzid)
+dup = row('T wizard (copy)', 'webhook_enabled, webhook_url, webhook_secret, webhook_auth_enc, webhook_extra, webhook_events, webhook_destination')
+check('Duplicate makes a disabled copy named "... (copy)" with the same stored (still encrypted) settings', st in (302, 303) and dup[0] == '0' and dup[1:] == before_cols and dup[2].startswith('ENC2:'), (st, dup))
+check('after Duplicate the browser is sent to the copy\'s edit page', req('/admin/post.php', {'csrf_token': TOK, 'duplicate_webhook': '1', 'webhook_id': wzid}, '/admin/webhook_edit.php?id=' + wzid)[0] in (302, 303) and sql("select count(*) from webhooks where webhook_name='T wizard (copy)'") == '2')
+sql("delete from webhooks where webhook_name='T wizard (copy)'")
+st, _ = req('/admin/post.php?delete_webhook=%s&csrf_token=%s' % (wid('T wizard off'), TOK), None, '/admin/webhook_edit.php?id=' + wid('T wizard off'))
+check('Delete from the edit page removes the webhook (and returns to the list)', st in (302, 303) and sql("select count(*) from webhooks where webhook_name='T wizard off'") == '0')
+
+# list page
+s, lp = req(REF)
+check('the list shows platform glyph, name link, host, an event chip with count, last delivery badge with time, an inline switch and a per-row menu', all(x in lp for x in ['data-whl-search', 'data-whl-row', 'whl-row-icon', 'href="webhook_edit.php?id=' + wzid + '"', 'whl-chip', 'data-whl-toggle', 'name="test_webhook"', 'name="duplicate_webhook"', 'confirm-link', 'Last delivery']) and re.search(r'OK 200</span>\s*<span[^>]*>[^<]*ago', lp) is not None)
+check('the list search box filters rows by name, platform and host (data attributes carry the text)', re.search(r'data-whl-text="[^"]*t wizard[^"]*n8n[^"]*127\.0\.0\.1', lp) is not None, re.findall(r'data-whl-text="([^"]*)"', lp)[:3])
+check('the event chip shows All events for *, a count otherwise, and keeps the raw list for the tooltip', 'All events' in lp and re.search(r'data-events="ticket\.created"', lp) is not None)
 
 # ================================================================== event rules still work with the picker
 st, _ = req('/admin/post.php', {'csrf_token': csrf(req('/admin/event_rules.php')[1]), 'rule_name': 'T rule via picker', 'trigger_event': 'ticket.sla_breached', 'action_type': 'notify_user', 'cfg_message': 'late', 'is_enabled': '1', 'save_event_rule': '1'}, '/admin/event_rules.php')
