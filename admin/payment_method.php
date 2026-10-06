@@ -25,17 +25,17 @@ $num_rows = mysqli_num_rows($sql);
                 <thead class="text-dark <?php if ($num_rows == 0) { echo "d-none"; } ?>">
                 <tr>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=payment_method_name&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=payment_method_name&order=<?php echo sortLinkOrder('payment_method_name'); ?>">
                             Method <?php if ($sort == 'payment_method_name') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=payment_method_description&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=payment_method_description&order=<?php echo sortLinkOrder('payment_method_description'); ?>">
                             Description <?php if ($sort == 'payment_method_description') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=payment_method_created_at&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=payment_method_created_at&order=<?php echo sortLinkOrder('payment_method_created_at'); ?>">
                             Created at <?php if ($sort == 'payment_method_created_at') { echo $order_icon; } ?>
                         </a>
                     </th>

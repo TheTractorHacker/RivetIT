@@ -1,5 +1,11 @@
 <?php
 /*
+ * STATUS: UNRELEASED. Not routed in api/v1/index.php, no UI for enrollment/device tokens, and the
+ * device_metric_tokens table it needs is not part of the shipped schema. Requests to /api/v1/metrics-ingest
+ * are NOT served today. Decision recorded in docs/FINDINGS-DECISIONS.md (finding "metrics-ingest"): keep it
+ * unreleased and unwired until the built-in endpoint agent defines how it reports. Do not document it as an
+ * available endpoint, and do not touch the metric tables from here.
+ *
  * Device metrics — endpoint push (ingest) path.
  *
  * Naming note: this subsystem is "Metrics", never "telemetry". `config_telemetry`

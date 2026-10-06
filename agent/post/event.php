@@ -88,7 +88,7 @@ if (isset($_POST['add_event'])) {
         enforceClientAccess();
     }
 
-    mysqli_query($mysqli,"INSERT INTO calendar_events SET event_title = '$title', event_location = '$location', event_description = '$description', event_start = '$start', event_end = '$end', event_repeat = '$repeat', event_calendar_id = $calendar_id, event_client_id = $client_id");
+    mysqli_query($mysqli,"INSERT INTO calendar_events SET event_title = '$title', event_location = '$location', event_description = '$description', event_start = '$start', event_end = '$end', event_calendar_id = $calendar_id, event_client_id = $client_id");
 
     $event_id = mysqli_insert_id($mysqli);
 
@@ -181,7 +181,7 @@ if (isset($_POST['edit_event'])) {
         enforceClientAccess();
     }
 
-    mysqli_query($mysqli,"UPDATE calendar_events SET event_title = '$title', event_location = '$location', event_description = '$description', event_start = '$start', event_end = '$end', event_repeat = '$repeat', event_calendar_id = $calendar_id, event_client_id = $client_id WHERE event_id = $event_id");
+    mysqli_query($mysqli,"UPDATE calendar_events SET event_title = '$title', event_location = '$location', event_description = '$description', event_start = '$start', event_end = '$end', event_calendar_id = $calendar_id, event_client_id = $client_id WHERE event_id = $event_id");
 
     //If email is checked
     if ($email_event == 1) {

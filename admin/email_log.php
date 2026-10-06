@@ -112,7 +112,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
                     <tr>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=mail_log_created_at&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=mail_log_created_at&order=<?php echo sortLinkOrder('mail_log_created_at'); ?>">
                                 Timestamp <?php if ($sort == 'mail_log_created_at') { echo $order_icon; } ?>
                             </a>
                         </th>

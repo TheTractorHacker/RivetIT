@@ -701,22 +701,22 @@ $num_root_items = intval($row_root_files['num']) + intval($row_root_docs['num'])
                                         </div>
                                     </td>
                                     <th>
-                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=name&order=<?php echo $disp; ?>">
+                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=name&order=<?php echo sortLinkOrder('name'); ?>">
                                             Name <?php if ($sort == 'name') { echo $order_icon; } ?>
                                         </a>
                                     </th>
                                     <th>
-                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=type&order=<?php echo $disp; ?>">
+                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=type&order=<?php echo sortLinkOrder('type'); ?>">
                                             Type <?php if ($sort == 'type') { echo $order_icon; } ?>
                                         </a>
                                     </th>
                                     <th>
-                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=size&order=<?php echo $disp; ?>">
+                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=size&order=<?php echo sortLinkOrder('size'); ?>">
                                             Size <?php if ($sort == 'size') { echo $order_icon; } ?>
                                         </a>
                                     </th>
                                     <th>
-                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=created&order=<?php echo $disp; ?>">
+                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=created&order=<?php echo sortLinkOrder('created'); ?>">
                                             Updated <?php if ($sort == 'created') { echo $order_icon; } ?>
                                         </a>
                                     </th>

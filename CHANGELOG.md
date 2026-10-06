@@ -4,6 +4,24 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [Unreleased]
+
+### Findings round-up
+
+Closes out issue #29 (application findings from the user-guide review). Per-item outcome: `docs/FINDINGS-STATUS.md`;
+product decisions with how to reverse them: `docs/FINDINGS-DECISIONS.md`.
+
+- **Sorting:** the first click on a different column heading now sorts ascending (it went the opposite way). Every heading link uses one rule (`sortLinkOrder()`).
+- **Tickets:** new tickets with an assignee resolve their status by name: "Assigned", then "Open", then the first active status (a stock install has no "Assigned"). Automatic system notes (closed, re-assigned, merged, invoice or quote created, Outlook sync) no longer log a billable minute; notes written before this release are not changed. The ticket page has **Edit schedule** again (Remote/Onsite, start, end, notes).
+- **RMM:** acknowledging or resolving an alert for a vendor that cannot do it now shows a toast, and a bulk action shows one summary.
+- **Comet:** **Auto-create tickets** is honoured: on = one ticket per failing device, closed when a backup succeeds; off = the alert is recorded without a ticket. Installs that never ticked the box used to get tickets anyway and now need to tick it.
+- **Security settings:** new **Allow permanent deletes of archived records** switch (off by default, audit-logged); session length help text shows the values actually in effect.
+- **Training:** a role with only the Training kiosk permission can open Devices & PINs.
+- **Calendar:** the dead "Repeat" control is removed; existing events are untouched.
+- **Preferences:** page sizes 5 to 500 everywhere, and an unrecognised size keeps the current one instead of resetting to 10.
+- **Custom fields:** the page says "Stored only: not shown on records yet". `/api/v1/metrics-ingest` is documented as unreleased.
+- **Docs:** company-wide vendors need the Financial permission (guide wording).
+
 ## [26.10.25] RivetIT — Webhooks and Event rules highlights, UI fixes
 
 ### Highlights: Webhooks and Event rules

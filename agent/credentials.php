@@ -504,7 +504,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 </div>
                             </td>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=credential_name&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=credential_name&order=<?php echo sortLinkOrder('credential_name'); ?>">
                                     Name <?php if ($sort == 'credential_name') { echo $order_icon; } ?>
                                 </a>
                             </th>
@@ -512,14 +512,14 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             <th>Password / Key</th>
                             <th>OTP</th>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=credential_uri&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=credential_uri&order=<?php echo sortLinkOrder('credential_uri'); ?>">
                                     URI <?php if ($sort == 'credential_uri') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th></th>
                             <?php if (!$client_url) { ?>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo sortLinkOrder('client_name'); ?>">
                                     Department <?php if ($sort == 'client_name') { echo $order_icon; } ?>
                                 </a>
                             </th>

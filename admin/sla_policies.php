@@ -67,7 +67,7 @@ while ($sr = mysqli_fetch_assoc($sres)) { $status_names[intval($sr['ticket_statu
                 <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
                 <tr>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=policy_name&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=policy_name&order=<?php echo sortLinkOrder('policy_name'); ?>">
                             Name <?php if ($sort == 'policy_name') { echo $order_icon; } ?>
                         </a>
                     </th>

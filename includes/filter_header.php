@@ -37,6 +37,8 @@ if (isset($_GET['order']) && $_GET['order'] == 'DESC') {
 }
 
 // Order
+// $disp is only the flip of the CURRENT order and is wrong for a different column; heading links use sortLinkOrder($col)
+// (functions.php) instead. $disp is kept for any older caller.
 if(isset($order) && $order == "ASC") {
     $disp = "DESC";
     $order_icon = "<i class='fas fa-sort-down'></i>";

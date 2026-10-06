@@ -27,7 +27,7 @@ $settings_groups = [
             ['Payroll', 'Pay periods, deductions, and payroll options.', 'payroll_settings.php', 'fa-money-check', (bool) $config_module_enable_payroll],
             ['Training', 'Courses, compliance, kiosks, and automation.', 'settings_training.php', 'fa-hard-hat'],
             ['Knowledge Base', 'Article access and Knowledge Base status.', 'settings_kb.php', 'fa-book', lookupUserPermission('module_kb') >= 1],
-            ['Custom fields', 'Extra fields for your records.', 'settings_custom_fields.php', 'fa-list-alt'],
+            ['Custom fields', 'Stored only: not shown on records yet.', 'settings_custom_fields.php', 'fa-list-alt'],
         ],
     ],
     'access' => [

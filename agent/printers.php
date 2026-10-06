@@ -112,17 +112,17 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             </div>
                         </td>
                         <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=printer_name&order=<?php echo $disp; ?>">
+                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=printer_name&order=<?php echo sortLinkOrder('printer_name'); ?>">
                                 Printer <?php if ($sort == 'printer_name') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=printer_ip_address&order=<?php echo $disp; ?>">
+                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=printer_ip_address&order=<?php echo sortLinkOrder('printer_ip_address'); ?>">
                                 IP Address <?php if ($sort == 'printer_ip_address') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=printer_model&order=<?php echo $disp; ?>">
+                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=printer_model&order=<?php echo sortLinkOrder('printer_model'); ?>">
                                 Model <?php if ($sort == 'printer_model') { echo $order_icon; } ?>
                             </a>
                         </th>

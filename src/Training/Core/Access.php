@@ -147,18 +147,43 @@ final class Access
         }
     }
 
-    /** Like pageGuard(1) plus module_training_kiosk >= $min. */
+    /**
+     * Pure decision behind pageGuardKiosk()/the Router's kiosk routes: null = allowed, 'off' = Training turned off,
+     * 'forbidden' = the role lacks module_training_kiosk >= $min. Devices & PINs is its own permission, so a
+     * kiosk-only role (module_training_kiosk without any module_training read) is allowed in - the old guard also
+     * demanded Training Read, which sent such a role to a page it then could not open.
+     */
+    public static function kioskDecision(bool $enabled, int $kioskLevel, int $min): ?string
+    {
+        if (!$enabled) {
+            return 'off';
+        }
+        return $kioskLevel < $min ? 'forbidden' : null;
+    }
+
+    /** Devices & PINs page guard: Training on + module_training_kiosk >= $min (no Training Read needed). */
     public static function pageGuardKiosk(int $min): ?string
     {
-        $g = self::pageGuard(1);
-        if ($g !== null) {
-            return $g;
+        $d = self::kioskDecision(self::enabled(), self::kioskLevel(), $min);
+        if ($d === null) {
+            return null;
         }
-        if (self::kioskLevel() < $min) {
-            self::renderGuard('fas fa-lock', "You don't have access to training devices and PINs.", 'Ask an administrator for the Training kiosk permission.', '');
-            return 'forbidden';
+        if ($d === 'off') {
+            return self::pageGuard($min); // renders the "Training is turned off" card
         }
-        return null;
+        self::renderGuard('fas fa-lock', "You don't have access to training devices and PINs.", 'Ask an administrator for the Training kiosk permission.', '');
+        return 'forbidden';
+    }
+
+    /** JSON gate for the kiosk_admin routes: Training on + module_training_kiosk >= 1; each handler then applies its own apiKiosk() level. */
+    public static function apiKioskRoute(): void
+    {
+        if (!self::enabled()) {
+            throw new ApiException(404, 'module_disabled', 'Training is turned off.');
+        }
+        if (self::kioskLevel() < 1) {
+            throw new ApiException(403, 'forbidden', "You don't have access to training devices and PINs.");
+        }
     }
 
     /**

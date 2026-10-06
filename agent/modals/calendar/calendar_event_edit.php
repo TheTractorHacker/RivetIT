@@ -12,7 +12,6 @@ $event_description = nullable_htmlentities($row['event_description']);
 $event_location = nullable_htmlentities($row['event_location']);
 $event_start = nullable_htmlentities($row['event_start']);
 $event_end = nullable_htmlentities($row['event_end']);
-$event_repeat = nullable_htmlentities($row['event_repeat']);
 $calendar_id = intval($row['calendar_id']);
 $calendar_name = nullable_htmlentities($row['calendar_name']);
 $calendar_color = nullable_htmlentities($row['calendar_color']);
@@ -108,21 +107,6 @@ ob_start();
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Repeat</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-recycle"></i></span>
-                        </div>
-                        <select class="form-control select2" name="repeat" disabled>
-                            <option <?php if (empty($event_repeat)) { echo "selected"; } ?> value="">Never</option>
-                            <option <?php if ($event_repeat == "Day") { echo "selected"; } ?>>Day</option>
-                            <option <?php if ($event_repeat == "Week") { echo "selected"; } ?>>Week</option>
-                            <option <?php if ($event_repeat == "Month") { echo "selected"; } ?>>Month</option>
-                            <option <?php if ($event_repeat == "Year") { echo "selected"; } ?>>Year</option>
-                        </select>
-                    </div>
-                </div>
 
             </div>
 

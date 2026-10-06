@@ -62,7 +62,11 @@ $records_per_page    = intval($pref['user_config_records_per_page'] ?: 10);
                         <span class="input-group-text"><i class="fa fa-fw fa-list"></i></span>
                     </div>
                     <select class="form-control" name="records_per_page">
-                        <?php foreach ([5, 10, 20, 50, 100, 500] as $n) { ?>
+                        <?php
+                        // Keep a stored size that is not in the list (e.g. 25 from an older UI) selectable so saving does not change it.
+                        $rpp_options = recordsPerPageOptions();
+                        if (!in_array($records_per_page, $rpp_options, true)) { $rpp_options[] = $records_per_page; sort($rpp_options); }
+                        foreach ($rpp_options as $n) { ?>
                         <option value="<?= $n ?>" <?= $records_per_page == $n ? 'selected' : '' ?>><?= $n ?></option>
                         <?php } ?>
                     </select>

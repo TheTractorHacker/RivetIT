@@ -697,7 +697,7 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                         <input type="checkbox" class="form-check-input" id="comet_auto_ticket"
                                name="config_comet_auto_ticket" value="1" <?= $config_comet_auto_ticket ? 'checked' : '' ?>>
                         <label class="form-check-label" for="comet_auto_ticket">
-                            Auto-create tickets on backup failure (one ticket per device, auto-resolves on success)
+                            Auto-create tickets on a failed or missed backup (one ticket per device, closed automatically when a backup succeeds). Off: the alert still shows on the Backups page but no ticket is opened.
                         </label>
                     </div>
                 </div>

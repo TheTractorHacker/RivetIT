@@ -457,6 +457,13 @@ In-app notifications, including an SSE stream for live delivery.
 | GET | `/openapi` | This OpenAPI 3.0 spec, as YAML. Public. |
 | GET | `/docs` | This human-readable HTML reference, self-contained. Public. |
 
+### Not available yet (unreleased)
+
+`api/v1/metrics_ingest.php` (a device-metrics push endpoint, `POST /api/v1/metrics-ingest`) exists in the source
+tree but is **unreleased**: it has no route in `index.php`, no token table in the shipped schema and no
+administration screen, so the live API does not serve it and it is deliberately absent from the tables above and
+from the OpenAPI spec. See `docs/FINDINGS-DECISIONS.md`.
+
 ---
 
 ## Example requests

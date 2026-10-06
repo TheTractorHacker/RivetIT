@@ -1223,6 +1223,7 @@ if ($config_backup_auto_enabled) {
 // recent jobs as a fallback, so a failed backup always raises an alert even
 // if the webhook was never set up or didn't fire.
 $config_comet_enabled    = intval($row['config_comet_enabled'] ?? 0);
+$config_comet_auto_ticket = intval($row['config_comet_auto_ticket'] ?? 0);   // read by comet_auto_ticket_enabled()
 $config_comet_totp_secret = decryptSetting($row['config_comet_totp_secret'] ?? '');
 $config_comet_server_url  = $row['config_comet_server_url'] ?? '';
 $config_comet_admin_user  = $row['config_comet_admin_user'] ?? '';

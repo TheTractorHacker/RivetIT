@@ -3018,6 +3018,30 @@ function isUploadReferenceName($name): bool
     return preg_match('/^[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/', $name) === 1;
 }
 
+// The page sizes offered by the list footer (includes/filter_footer.php) and Preferences. One list so the two never drift.
+function recordsPerPageOptions(): array {
+    return [5, 10, 20, 50, 100, 500];
+}
+
+// A posted page size if it is one of the offered sizes, otherwise $fallback (the size the user already has, so an
+// unrecognised value - including an older stored one such as 25 - is never silently reset to 10).
+function normalizeRecordsPerPage($posted, int $fallback): int {
+    $n = filter_var($posted, FILTER_VALIDATE_INT);
+    return ($n !== false && in_array($n, recordsPerPageOptions(), true)) ? $n : $fallback;
+}
+
+// Direction a column-heading sort link should request. Every heading starts ASC; only the column that is already the
+// active ASC sort flips to DESC. (The old shared $disp came from the current order alone, so the first click on a
+// different column went the opposite way.) Pure so it can be unit tested; sortLinkOrder() reads the page's $sort/$order.
+function nextSortOrder($column, $activeSort, $activeOrder) {
+    return ($column === $activeSort && strtoupper((string) $activeOrder) === 'ASC') ? 'DESC' : 'ASC';
+}
+
+function sortLinkOrder($column) {
+    global $sort, $order;
+    return nextSortOrder($column, $sort ?? null, $order ?? null);
+}
+
 function sanitizeInput($input) {
     global $mysqli;
 
@@ -4443,26 +4467,32 @@ function resolveTicketCategory(int $category_id): int {
 // (agent UI, API, client portal, email parser). Admin > Settings > Tickets'
 // "Default Status" (config_ticket_default_status_id), when set, wins
 // outright regardless of assignee - an admin who picked a specific status
-// (e.g. a custom "Triage" status) wants every new ticket to land there, not
-// just the ones nobody assigned. Otherwise: "Assigned" when the ticket
-// already has an agent on it at creation (an explicit assignee, or the
-// configured default technician via resolveTicketAssignee()), otherwise
-// "New" - looked up by name (not a hardcoded id, since ids are per-install)
-// with a further fallback to the first active status by display order, so
-// an install that renamed or deactivated either status still gets a sane
-// status instead of 0.
+// (e.g. a custom "Triage" status) wants every new ticket to land there.
+// Otherwise the choice is made by NAME (ids are per-install) by
+// ticketCreationStatusCandidates(): an assigned ticket prefers "Assigned" (a
+// stock install does not seed it, so most installs fall through), then
+// "Open", then the first active status by display order; an unassigned
+// ticket prefers "New", then "Open", then the first active status. Returns 0
+// only if there is no active status at all.
+function ticketCreationStatusCandidates(int $assigned_to): array {
+    return $assigned_to > 0 ? ['Assigned', 'Open'] : ['New', 'Open'];
+}
+
 function resolveTicketCreationStatus(int $assigned_to): int {
     global $mysqli, $config_ticket_default_status_id;
     if (!empty($config_ticket_default_status_id)) {
         return intval($config_ticket_default_status_id);
     }
-    $status_name = $assigned_to > 0 ? 'Assigned' : 'New';
-    $row = mysqli_fetch_assoc(mysqli_query($mysqli,
-        "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_name = '$status_name' AND ticket_status_active = 1 LIMIT 1"));
-    if (!$row) {
+    foreach (ticketCreationStatusCandidates($assigned_to) as $status_name) {
+        $status_name = mysqli_real_escape_string($mysqli, $status_name);
         $row = mysqli_fetch_assoc(mysqli_query($mysqli,
-            "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_active = 1 ORDER BY ticket_status_order ASC, ticket_status_id ASC LIMIT 1"));
+            "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_name = '$status_name' AND ticket_status_active = 1 ORDER BY ticket_status_id ASC LIMIT 1"));
+        if ($row) {
+            return intval($row['ticket_status_id']);
+        }
     }
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_active = 1 ORDER BY ticket_status_order ASC, ticket_status_id ASC LIMIT 1"));
     return $row ? intval($row['ticket_status_id']) : 0;
 }
 

@@ -162,7 +162,7 @@ Three roles exist from the start: **Administrator**, **Technician** and **Accoun
 
 Then give the role to people with **Users → Edit → Role**.
 
-A grey badge such as **RMM is off** next to a module means it is switched off in **Settings → Modules**. You can set the level, but it does nothing until the module is on. The editor also shows **Sales** and **Financial** rows. They control the billing features, which this guide does not cover. Leave them at **None** unless you use those features.
+A grey badge such as **RMM is off** next to a module means it is switched off in **Settings → Modules**. You can set the level, but it does nothing until the module is on. The editor also shows **Sales** and **Financial** rows. They control the billing features, which this guide does not cover. Leave them at **None** unless you use those features. One exception: **company-wide vendors** (a vendor that does not belong to any department) are managed under **Financial**, not Tickets, assets & docs. A role needs Financial at Modify to add or edit one, even if it has Tickets, assets & docs at Modify.
 
 ### Change or archive a role
 
@@ -178,7 +178,7 @@ Each module has a level: **None**, **Read**, **Modify** or **Full**. In the code
 | Module | Read | Modify | Full |
 |---|---|---|---|
 | **Departments** | See departments, people, the org chart and department workspaces. | Add, edit and archive departments and people; also locations and department vendors. | Also delete them, and anonymise a person. |
-| **Tickets, assets & docs** | See tickets (including internal notes), projects, the calendar, assets and IT documentation: documents, files, domains, certificates, licenses, printers, network drives, locations and vendors. | Create and edit all of those, and reply to tickets. | Also delete them. |
+| **Tickets, assets & docs** | See tickets (including internal notes), projects, the calendar, assets and IT documentation: documents, files, domains, certificates, licenses, printers, network drives, locations and vendors that belong to a department. | Create and edit all of those, and reply to tickets. | Also delete them. |
 | **Assets** | See assets, and nothing else from Tickets, assets & docs. | Add, edit and archive assets. | Also delete assets. |
 | **Credentials** | See and copy usernames, passwords and 2FA codes, and export credentials to a CSV file with the passwords in clear text. | Add, edit and import credentials. | Also delete credentials. |
 | **Knowledge base** | Read articles. | Write, edit and review articles. | Also delete articles, categories and attachments. |
