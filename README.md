@@ -135,8 +135,16 @@ documents inside each department; learning is **Training**; integrations, API ke
 - **Google Workspace**: directory sync and mailboxes.
 - **RMM and network**: Tactical RMM, Level.io, Action1, Sophos Central, UniFi, Comet Backup.
 - **Calendar feed** (iCal) for Outlook, Apple Calendar or Google Calendar.
-- **Signed webhooks** for ticket events, **SMTP / IMAP** mail, push notifications to the Android companion
+- **Webhooks** to 24 platforms (see below), **SMTP / IMAP** mail, push notifications to the Android companion
   app, and **S3-compatible storage** for in-app backups.
+
+### Webhooks
+Send events to the tools you already run, without writing glue code.
+- **24 ready-made platforms**: n8n, Node-RED, Activepieces, Windmill, Huginn, Zapier, Make, Pipedream and IFTTT (automation); Slack, Microsoft Teams, Discord, Mattermost, Rocket.Chat, Matrix (hookshot and client API) and Telegram (chat); ntfy, Gotify and Apprise (notifications); Home Assistant; and generic JSON, form and custom-template webhooks. Each has a step-by-step guide in **Administration > Webhooks > Guides**.
+- **113 events in 14 groups** (tickets, SLA and escalations, approvals and service catalog, workflows and lifecycle, problems and changes, assets, clients, billing, security and sign-in, audit and compliance, backups and system, automation and jobs, integrations, training), 96 of them emitted today and 17 planned. A searchable event picker with group wildcards (`ticket.*`) and quick chips ("Critical only", "SLA problems", "Security & sign-in").
+- **13 payload formats** (JSON, form, Slack blocks and attachments, Teams, Discord, ntfy, Gotify, Telegram, Matrix, Apprise and a custom template with `{{placeholders}}` and safe filters), **bearer, basic, custom-header and signed** authentication, and POST or PUT.
+- **Signed and safe by default**: HMAC signatures with a signed timestamp, verification snippets in Node, Python, PHP, Bash and an n8n Code node, retries after 1, 5, 30 and 120 minutes, secrets stored encrypted, and public addresses only unless an admin lists an internal network.
+- **A four-step guided setup** with a live address check, **Send test** and **Preview payload**, a delivery log with View payload, and a tabbed Edit page.
 
 ### Odoo
 RivetIT integrates with [Odoo](https://www.odoo.com) (the Odoo Integration, under Admin > Settings >
@@ -149,6 +157,7 @@ Integrations > Directory Sync): people and departments come from Odoo, and train
 - Optional **Odoo PIN sign-in** on the training kiosk.
 
 ### Automation
+- **Event rules** (Administration > Event rules): a **When, If, Then** builder. Pick any of the 113 events, add conditions (equals, does not equal, is one of, contains, greater or less than, is empty) in nested ALL/ANY groups, and choose one of **9 actions** (create a ticket, send a webhook, notify technicians, start a workflow, set a ticket field, add a note, assign, send an email, create a task). Each rule shows a plain-English summary, a **test drawer** that dry-runs it without side effects, run **history**, rate limits and a loop guard, and there are **11 ready-made recipes**.
 - **Ticket automation rules**: conditions (age, idle time, priority, status, assignee, category) and actions
   (set fields, assign, add a note, notify, close, attach a worksheet template), with a run log.
 - **Scheduled report e-mails**, recurring tickets, RMM alert-to-ticket, domain and certificate expiry

@@ -4,6 +4,19 @@ This file documents all notable changes made to RivetIT. RivetIT was called ITFl
 and is built on ITFlow; entries from before the rename keep the names used at the time, and the version history
 continues unchanged.
 
+## [26.10.25] RivetIT — Webhooks and Event rules highlights, UI fixes
+
+### Highlights: Webhooks and Event rules
+
+- **Webhooks:** 24 ready-made platforms (n8n, Node-RED, Activepieces, Windmill, Huginn, Zapier, Make, Pipedream, IFTTT, Slack, Teams, Discord, Mattermost, Rocket.Chat, Matrix, Telegram, ntfy, Gotify, Apprise, Home Assistant, generic JSON/form/custom template), 13 payload formats, bearer/basic/custom-header/signed auth, signed timestamps with verification snippets in 5 languages, retries, a guided four-step setup with a live address check, Send test and Preview, and a Guides hub.
+- **Events:** 113 events in 14 groups (96 emitted today, 17 planned) in a searchable picker with group wildcards and quick chips; the same catalog drives Event rules.
+- **Event rules:** a When, If, Then builder with 9 actions, 7 condition operators, nested ALL/ANY groups, 11 recipes, a no-side-effects test drawer, run history, rate limits and a loop guard.
+
+### Fixes
+
+- Event rules editor: one breadcrumb (All settings / Event rules / New rule) instead of a second back link; recipe cards no longer show the link underline.
+- Webhook wizard: the Continue button is now the same size as Back.
+
 ## [26.10.24] RivetIT — Event rules builder, webhook guides hub and four-step creation flow, icon fixes
 
 ### Webhook guides
