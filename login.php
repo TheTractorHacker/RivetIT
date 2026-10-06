@@ -245,7 +245,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['portal_mfa_login'])) 
               <div class='alert alert-danger'>
                 Incorrect username or password.
               </div>";
-        } elseif (strlen($pm_code) === 6 && ctype_digit($pm_code) && TokenAuth6238::verify($pm_row['user_token'], $pm_code)) {
+        } elseif (strlen($pm_code) === 6 && ctype_digit($pm_code) && TokenAuth6238::verifyOnce($pm_row['user_token'], $pm_code)) {
             portalCompleteLogin(
                 $pm_user_id,
                 intval($pm_row['contact_client_id']),
@@ -547,7 +547,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
                     }
 
                     // Validate MFA code
-                    if (!empty($current_code) && TokenAuth6238::verify($token, $current_code)) {
+                    if (!empty($current_code) && TokenAuth6238::verifyOnce($token, $current_code)) {
                         $mfa_is_complete = true;
                         $extended_log    = 'with MFA';
                     }

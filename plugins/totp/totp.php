@@ -124,6 +124,54 @@ class TokenAuth6238 {
         }
         return false;
     }
+    /**
+     * Matching 30s step for $code within +/-$window steps, or null. Pure (no state).
+     */
+    public static function matchStep($secretkey, $code, $window = 1) {
+        $key = base32static::decode($secretkey);
+        $now = (int) (time() / 30);
+        for ($i = -$window; $i <= $window; $i++) {
+            $step = $now + $i;
+            if ((int) $code == self::oath_truncate(self::oath_hotp($key, $step), 6)) {
+                return $step;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Login-grade verification: narrow window (+/-1) and single use. A step that is not newer than the last
+     * accepted step for this secret is rejected, so a code that was observed cannot be replayed (pentest F-08).
+     * State is a small per-secret file in the system temp dir (no schema change); if it cannot be written the
+     * check still succeeds on the narrow window (fail open on availability, not on correctness).
+     */
+    public static function verifyOnce($secretkey, $code, $window = 1) {
+        $step = self::matchStep($secretkey, $code, $window);
+        if ($step === null) {
+            return false;
+        }
+        $dir = sys_get_temp_dir() . '/rivetit_totp_replay';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0700, true);
+        }
+        $fh = @fopen($dir . '/' . hash('sha256', $secretkey), 'c+');
+        if (!$fh) {
+            return true;
+        }
+        $accepted = false;
+        if (flock($fh, LOCK_EX)) {
+            $last = (int) trim((string) stream_get_contents($fh));
+            if ($step > $last) {
+                ftruncate($fh, 0);
+                rewind($fh);
+                fwrite($fh, (string) $step);
+                $accepted = true;
+            }
+            flock($fh, LOCK_UN);
+        }
+        fclose($fh);
+        return $accepted;
+    }
     public static function getTokenCode($secretkey) {
         $result = "";
         $key = base32static::decode($secretkey);
