@@ -1,0 +1,13 @@
+# Keeps third-party GitHub Actions and Composer packages current (pentest F-15).
+# Actions are still referenced by tag; Dependabot proposes updates, and pinning to
+# commit SHAs needs network access to resolve them (tracked as deferred in the review).
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "composer"
+    directory: "/"
+    schedule:
+      interval: "weekly"
