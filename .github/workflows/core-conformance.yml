@@ -1,0 +1,97 @@
+name: Core conformance
+
+# Runs the RivetCore adapter conformance kit (rivet-core docs/conformance.md) against RivetIT's adapters in tests/core/:
+# ServerRequestContext, GlobalRedisClientProvider, WebhooksTableSubscriptions, TicketsProblemLink and UsersAgentDirectory.
+# The kit ships with rivet-core >= 1.0.0-rc.1. While the version pinned in composer.lock is older, the *ConformanceTest
+# classes skip with a message ("conformance kit not available") and the job stays green; --fail-on-skipped is therefore
+# NOT used. Once the pin carries the kit, add it (a skipped rule is an unverified rule).
+#
+# Release gate for rivet-core: run this workflow by hand with core_ref set to the release candidate.
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      core_ref:
+        description: 'rivet-core tag or branch to verify (default: the version pinned in composer.lock)'
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+
+    services:
+      mariadb:
+        image: mariadb:latest
+        ports: ['3306:3306']
+        env:
+          MARIADB_ROOT_PASSWORD: rootpw
+          MARIADB_USER: user
+          MARIADB_PASSWORD: password
+          MARIADB_DATABASE: rivetcore_scratch_conf
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=5
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=5
+
+    env:
+      RIVETCORE_TEST_DB_HOST: 127.0.0.1
+      RIVETCORE_TEST_DB_NAME: rivetcore_scratch_conf
+      RIVETCORE_TEST_DB_USER: user
+      RIVETCORE_TEST_DB_PASS: password
+      RIVETCORE_TEST_REDIS_PORT: 6379
+      RIVETIT_REDIS_ENV_FILE: /nonexistent
+      RIVETCORE_PHPUNIT_AUTOLOAD: ${{ github.workspace }}/rivet-core/vendor/autoload.php
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mysqli, openssl, mbstring, gd, curl
+          tools: composer:v2
+
+      # vendor/ is committed to this repository, so the edition itself needs no composer install.
+      - name: Resolve the rivet-core ref under test
+        id: ref
+        run: |
+          REF="${{ github.event.inputs.core_ref }}"
+          if [ -z "$REF" ]; then
+            REF="$(php -r '$l = json_decode(file_get_contents("composer.lock"), true); foreach ($l["packages"] as $p) { if ($p["name"] === "rivet/rivet-core") { echo $p["version"]; } }')"
+          fi
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "rivet-core under test: $REF"
+
+      - name: Check out rivet-core (it carries PHPUnit and, from 1.0.0-rc.1, the kit)
+        uses: actions/checkout@v4
+        with:
+          repository: TheTractorHacker/rivet-core
+          ref: ${{ steps.ref.outputs.ref }}
+          path: rivet-core
+          token: ${{ secrets.RIVETCORE_TOKEN || github.token }}
+
+      - name: Install rivet-core dev dependencies (PHPUnit)
+        run: composer install --no-interaction --prefer-dist --working-dir=rivet-core
+
+      # Only when verifying a release candidate: test the edition against that Core, not the one in vendor/ (CI workspace only).
+      - name: Swap in the rivet-core under test
+        if: ${{ github.event.inputs.core_ref != '' }}
+        run: |
+          rm -rf vendor/rivet/rivet-core
+          mkdir -p vendor/rivet/rivet-core
+          rsync -a --exclude .git --exclude vendor rivet-core/ vendor/rivet/rivet-core/
+          composer dump-autoload --no-dev --optimize
+
+      - name: Load the edition schema into the scratch database
+        run: mysql --host 127.0.0.1 -uroot -prootpw rivetcore_scratch_conf < db.sql
+
+      - name: Run the core adapter tests (conformance kit included when available)
+        run: rivet-core/vendor/bin/phpunit -c tests/core/phpunit.xml

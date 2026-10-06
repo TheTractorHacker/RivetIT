@@ -65,7 +65,7 @@ $status_badge = [
 <?php if ($secret_once !== null) { ?>
 <div class="alert alert-warning">
     <strong>Temporary Entra password (shown once, never stored in the log):</strong>
-    <input type="text" readonly class="form-control d-inline-block w-auto mx-2 font-monospace" value="<?= nullable_htmlentities($secret_once['secret']) ?>" onclick="this.select()" autocomplete="off">
+    <input type="text" readonly class="form-control d-inline-block w-auto mx-2 font-monospace js-select-on-click" value="<?= nullable_htmlentities($secret_once['secret']) ?>" autocomplete="off">
     Give it to <?= nullable_htmlentities($run['contact_name']) ?> over a secure channel. They must change it at first sign-in. Reloading this page erases it from view.
 </div>
 <?php } ?>
@@ -229,7 +229,7 @@ $status_badge = [
 
         <?php if ($run['status'] !== 'cancelled') { ?>
         <div class="mt-3">
-            <form action="post.php" method="post" onsubmit="return confirm('Cancel this workflow? This cannot be undone.');">
+            <form action="post.php" method="post" data-confirm-submit="Cancel this workflow? This cannot be undone.">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <input type="hidden" name="run_id" value="<?= $run_id ?>">
                 <button type="submit" name="cancel_workflow_run" class="btn btn-sm btn-outline-danger">Cancel Workflow</button>

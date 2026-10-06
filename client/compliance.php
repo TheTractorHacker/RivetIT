@@ -10,6 +10,8 @@ require_once "includes/inc_all.php";
 use ITFlow\Compliance\ComplianceService;
 use RivetCore\Compliance\Framework;
 
+// Intended: RivetIT is internal IT, so every portal user is the organisation's own staff and there is one installation-wide
+// subject. This is the single reduced report an administrator published (titles and results only, no per-client data).
 $shared = null;
 try {
     if (ComplianceService::sharedReady($mysqli)) {

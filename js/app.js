@@ -1286,3 +1286,70 @@ function initPasswordToggles() {
         }
     });
 }
+
+// Delegated replacements for inline event-handler attributes. The page CSP (script-src 'self' 'nonce-...') blocks
+// onclick=/onsubmit=/onfocusout=/... attributes, so templates carry data-* hooks and these listeners (document-level, so
+// they also work for markup loaded later into modals) do the work.
+(function () {
+    // data-js-focusout="<key>": run one of these named page functions (defined by the modal's own nonce'd script) when the field loses focus.
+    var focusoutFns = {
+        'client-duplicate-check': 'client_duplicate_check',
+        'domain-check': 'domain_check',
+        'contact-email-check': 'contact_email_check'
+    };
+    document.addEventListener('focusout', function (e) {
+        var el = e.target.closest ? e.target.closest('[data-js-focusout]') : null;
+        if (!el) { return; }
+        var fn = focusoutFns[el.getAttribute('data-js-focusout')];
+        if (fn && typeof window[fn] === 'function') { window[fn](el); }
+    });
+
+    // data-otp-credential-id="<id>": show the one-time code of that credential on hover (was onmouseenter; mouseover is the bubbling form).
+    document.addEventListener('mouseover', function (e) {
+        var el = e.target.closest ? e.target.closest('[data-otp-credential-id]') : null;
+        if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) { return; }
+        if (typeof window.showOTPViaCredentialID === 'function') { window.showOTPViaCredentialID(el.getAttribute('data-otp-credential-id')); }
+    });
+
+    document.addEventListener('click', function (e) {
+        var el = e.target.closest ? e.target.closest('.js-share-modal, .js-file-delete-modal, .js-select-on-click, .js-copy-text, .js-skip-csrf') : null;
+        if (!el) { return; }
+        // Share modal on the files/documents pages (data-client-id, data-share-type, data-share-id).
+        if (el.classList.contains('js-share-modal') && typeof window.populateShareModal === 'function') {
+            window.populateShareModal(el.getAttribute('data-client-id'), el.getAttribute('data-share-type'), el.getAttribute('data-share-id'));
+        }
+        if (el.classList.contains('js-file-delete-modal') && typeof window.populateFileDeleteModal === 'function') {
+            window.populateFileDeleteModal(el.getAttribute('data-file-id'), el.getAttribute('data-file-name'));
+        }
+        // Read-only field that selects its whole value when clicked (one-time secret).
+        if (el.classList.contains('js-select-on-click') && typeof el.select === 'function') { el.select(); }
+        // Preview button: submit without the CSRF token (it is a GET dry run).
+        if (el.classList.contains('js-skip-csrf') && el.form) {
+            var tok = el.form.querySelector('[name=csrf_token]');
+            if (tok) { tok.disabled = true; }
+        }
+        // data-copy-target="<element id>": copy that element's value (inputs) or text, falling back to selecting it.
+        if (el.classList.contains('js-copy-text')) {
+            var src = document.getElementById(el.getAttribute('data-copy-target'));
+            if (!src) { return; }
+            var text = ('value' in src && src.tagName !== 'PRE') ? src.value : src.textContent;
+            var done = function (label) { el.textContent = label; };
+            var select = function () {
+                if (typeof src.select === 'function') { src.select(); done('Selected'); return; }
+                var r = document.createRange(); r.selectNodeContents(src);
+                var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); done('Selected');
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function () { done('Copied'); }, select);
+            } else { select(); }
+        }
+    });
+
+    // <form data-confirm-submit="message">: ask before submitting (was onsubmit="return confirm(...)").
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (form && form.getAttribute && form.hasAttribute('data-confirm-submit') && !confirm(form.getAttribute('data-confirm-submit'))) {
+            e.preventDefault();
+        }
+    });
+})();

@@ -1,9 +1,7 @@
 // Edition differences live here so suite.mjs stays one body of code for both products.
 // Product bugs already reported; matching browser errors are tolerated (and listed in the summary) until fixed.
 // Remove an entry when its bug is fixed so a regression fails the run again.
-export const KNOWN_ISSUES = [
-  { re: /Executing inline event handler violates the following Content Security Policy/, note: 'CSP blocks an inline event handler (client_add modal onfocusout="client_duplicate_check()")' },
-];
+export const KNOWN_ISSUES = [];
 
 export const EDITIONS = {
   it: {

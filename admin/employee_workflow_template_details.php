@@ -102,7 +102,7 @@ $anchor_labels = ['run' => 'workflow start', 'start' => 'start date', 'end' => '
                     <td><?= $task['required'] ? '<i class="fas fa-check text-success"></i>' : '' ?></td>
                     <td class="text-end text-nowrap">
                         <button type="button" class="btn btn-sm btn-light ajax-modal" data-modal-url="modals/employee_workflow/employee_workflow_template_task_edit.php?id=<?= intval($task['template_task_id']) ?>" title="Edit task"><i class="fas fa-edit"></i></button>
-                        <form action="post.php" method="post" class="d-inline" onsubmit="return confirm('Remove this task from the template?');">
+                        <form action="post.php" method="post" class="d-inline" data-confirm-submit="Remove this task from the template?">
                             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                             <input type="hidden" name="template_task_id" value="<?= intval($task['template_task_id']) ?>">
                             <input type="hidden" name="workflow_template_id" value="<?= $workflow_template_id ?>">

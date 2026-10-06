@@ -67,7 +67,7 @@ ob_start();
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-globe"></i></span>
                         </div>
-                        <input type="text" class="form-control" name="name" id="domain_name" placeholder="example.com" maxlength="200" required autofocus onfocusout="domain_check()">
+                        <input type="text" class="form-control" name="name" id="domain_name" placeholder="example.com" maxlength="200" required autofocus data-js-focusout="domain-check">
                     </div>
                     <div class="mt-2">
                         <span class="text-info" id="domain_check_info"></span>

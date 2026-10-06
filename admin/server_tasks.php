@@ -55,7 +55,7 @@ $overall = $sum['fail'] ? ['Needs attention', 'danger'] : ($sum['warn'] ? ['Most
                 <?php if ($t['caution'] !== '') { ?><div class="alert alert-danger py-2 small"><?= nullable_htmlentities($t['caution']) ?></div><?php } ?>
                 <div class="position-relative">
                     <pre class="border rounded p-3 small mb-0 pe-5" id="task-cmd-<?= $i ?>" style="overflow-x:auto;white-space:pre-wrap"><?= nullable_htmlentities($t['command']) ?></pre>
-                    <button type="button" class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 m-2" onclick="var el=document.getElementById('task-cmd-<?= $i ?>');var b=this;navigator.clipboard.writeText(el.textContent).then(function(){b.textContent='Copied'},function(){var r=document.createRange();r.selectNodeContents(el);var s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selected'});">Copy</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 m-2 js-copy-text" data-copy-target="task-cmd-<?= $i ?>">Copy</button>
                 </div>
             </details>
         <?php } ?>

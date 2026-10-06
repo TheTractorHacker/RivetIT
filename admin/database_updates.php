@@ -10093,3 +10093,22 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.143'");
     }
+
+    if ($rivetit_db_version() == '2.6.143') {
+        // OIDC / SSO identities are (issuer, subject) pairs and subjects are case-sensitive per the OIDC spec, so the columns
+        // compare exactly (utf8mb4_bin). They were case-insensitive, which let two distinct subjects that differ only by case
+        // collide on the unique index and resolve to the same account. Type, length, nullability and the unique indexes are
+        // unchanged (MODIFY rebuilds each index). Guarded by information_schema so a re-run does nothing.
+        foreach (['user_oidc' => 'idx_users_oidc_identity', 'user_sso' => 'idx_users_sso_identity'] as $prefix => $unused) {
+            $need = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME IN ('{$prefix}_issuer', '{$prefix}_subject')
+                  AND (COLLATION_NAME IS NULL OR COLLATION_NAME <> 'utf8mb4_bin')"));
+            if ((int) ($need['c'] ?? 0) > 0) {
+                mysqli_query($mysqli, "ALTER TABLE `users`
+                    MODIFY COLUMN `{$prefix}_issuer` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+                    MODIFY COLUMN `{$prefix}_subject` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL");
+            }
+        }
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.144'");
+    }
