@@ -40,6 +40,12 @@ continues unchanged.
 - **Slack interactive buttons.** A Slack destination with a Signing Secret gets **Acknowledge** and **Assign to me** buttons on ticket messages, answered by a new signed endpoint `/slack_interactive.php` (HMAC-SHA256, 5 minute window, single use; no nginx rule needed). Slack users are matched to agents only if you opt in, only by an email Slack confirms, with the same role and department rights as the web app; otherwise the clicker is told privately that their account isn't linked. Teams interactive cards, two-way sync and a virtual agent are documented as not included (Teams cards need a Bot Framework registration). Tested against local mocks only. See docs/SLACK_TEAMS_SETUP.md.
 - Database migration 2.6.140 (Update Database): `service_catalog_fields.show_if`, `settings.config_entra_allow_writes`, `config_slack_link_by_email`, `config_slack_bot_token`, `config_slack_team_id`, `workflow_run_tasks.secret_*` and the `slack_interactive_seen` table. Everything is off or empty by default.
 
+## [26.10.21] RivetIT — RivetCore 0.17.1, service catalog approvals, employee workflow depth, Slack/Teams notifications, installer hardening
+
+### Installer
+
+- `deploy/install.sh` stops with a clear message when RivetCore cannot be downloaded (it is installed from github.com) instead of carrying on without it.
+
 ### RivetCore 0.17.1
 
 - Updates the shared library to RivetCore 0.17.1 (job heartbeat, webhook signed timestamp, PSR-3 logging, audit reader, retention horizons). **Migration 2.6.136** adds `integration_jobs.heartbeat_at` through Core's own migration runner. The Update page shows the RivetCore version; the library updates with the app (the pin is in `composer.json`/`composer.lock`), no separate button is needed.

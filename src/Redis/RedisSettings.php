@@ -24,7 +24,7 @@ final class RedisSettings
 
     public const POLICIES = ['allkeys-lru', 'volatile-lru', 'allkeys-lfu', 'volatile-lfu', 'noeviction'];
 
-    /** @return array{host:string, port:int, password:?string, db:int, from_env:array<string,bool>, schema_ready:bool, stored_host:string, stored_port:int, stored_db:int, has_stored_password:bool} */
+    /** @return array{host:string, port:int, password:?string, db:int, username:?string, tls:bool, tls_verify:bool, tls_ca_file:?string, from_env:array<string,bool>, schema_ready:bool, stored_host:string, stored_port:int, stored_db:int, has_stored_password:bool} */
     public static function resolve(?\mysqli $db = null): array
     {
         $row = [];
@@ -56,6 +56,11 @@ final class RedisSettings
                 'host' => $env('RIVETIT_REDIS_HOST') !== null, 'port' => $env('RIVETIT_REDIS_PORT') !== null,
                 'password' => $env('RIVETIT_REDIS_PASSWORD') !== null, 'db' => $env('RIVETIT_REDIS_DB') !== null,
             ],
+            // ACL username and TLS have no settings columns (that would need a migration): environment only.
+            'username' => $env('RIVETIT_REDIS_USERNAME'),
+            'tls' => filter_var($env('RIVETIT_REDIS_TLS') ?? false, FILTER_VALIDATE_BOOLEAN),
+            'tls_verify' => filter_var($env('RIVETIT_REDIS_TLS_VERIFY') ?? true, FILTER_VALIDATE_BOOLEAN),
+            'tls_ca_file' => $env('RIVETIT_REDIS_TLS_CA_FILE'),
             'schema_ready' => $schema,
             'stored_host' => $storedHost, 'stored_port' => $storedPort, 'stored_db' => $storedDb,
             'has_stored_password' => $storedPassEnc !== '',
@@ -70,9 +75,7 @@ final class RedisSettings
 
     public static function client(array $p, float $timeout = 1.0): Client
     {
-        $parameters = ['scheme' => 'tcp', 'host' => $p['host'], 'port' => $p['port'], 'database' => $p['db'], 'timeout' => $timeout];
-        if (!empty($p['password'])) $parameters['password'] = $p['password'];
-        return new Client($parameters);
+        return self::admin()->client($p, $timeout);
     }
 
     /** @return array{ok:bool, message:string} */
