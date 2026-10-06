@@ -648,6 +648,8 @@
       root.appendChild(bar);
       sync();
     }
+    // Enter inside a condition row picks an option or confirms a value; it must not submit (save) the whole form.
+    root.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); } });
     function focusLast() { var all = $$('.er-cond-row', root); var last = all[all.length - 1]; if (last) { var f = $('input, select', last); var c = $('.ts-control input', last); (c || f || {}).focus && (c || f).focus(); } }
     return { render: render, sync: sync, state: st };
   }());

@@ -77,7 +77,8 @@ class H(BaseHTTPRequestHandler):
         RX['log'].append(self.rfile.read(int(self.headers.get('Content-Length', 0))))
         self.send_response(200); self.end_headers(); self.wfile.write(b'ok')
     def log_message(self, *a): pass
-srv = HTTPServer(('127.0.0.1', 9457), H); threading.Thread(target=srv.serve_forever, daemon=True).start()
+srv = HTTPServer(('127.0.0.1', 0), H); threading.Thread(target=srv.serve_forever, daemon=True).start()
+RXPORT = srv.server_address[1]  # any free port
 
 assert 'scratch' in DB, 'this script empties the automation rules: scratch databases only'
 sql("delete from automation_rule_runs; delete from automation_rules")  # the list assertions need a known set of rules
@@ -127,7 +128,7 @@ check('a recipe is saved like any rule when the administrator presses Save', rid
 # ================================================================== create via the editor: every action type
 cases = {
     'create_ticket': dict(cfg_subject='UI made: {summary}', cfg_details='d {event}', cfg_priority='High'),
-    'send_webhook': dict(cfg_url='http://127.0.0.1:9457/hook', cfg_secret='s3'),
+    'send_webhook': dict(cfg_url='http://127.0.0.1:%d/hook' % RXPORT, cfg_secret='s3'),
     'notify_user': dict(cfg_message='UI note {ticket_number}'),
     'start_workflow': dict(),
     'set_ticket_field': dict(cfg_sf_status='Open', cfg_sf_priority='High', cfg_sf_category='0', cfg_sf_assignee=AGENT),
@@ -136,7 +137,7 @@ cases = {
     'send_mail': dict(cfg_mail_to='address', cfg_mail_address='ops@example.test', cfg_mail_subject='UI mail', cfg_mail_body='body {ticket_number}'),
     'create_task': dict(cfg_task_name='UI task {ticket_number}', cfg_task_assignee=AGENT, cfg_task_due_days='2'),
 }
-tpl = sql("select workflow_template_id from workflow_templates where archived_at is null and is_active=1 limit 1")
+tpl = sql("select workflow_template_id from workflow_templates where archived_at is null and is_active=1 and type='offboarding' limit 1")  # employee.terminated starts offboarding templates
 if not tpl:
     sql("insert into workflow_templates (name, type, is_active) values ('UI Offboarding', 'offboarding', 1)")
     tpl = sql("select workflow_template_id from workflow_templates where name='UI Offboarding'")
@@ -189,7 +190,7 @@ s, _, h = post(base_rule('UI draft edit', rule_id=eid, cfg_message='', action_ty
 check('a refused edit goes back to that rule\'s editor', 'event_rules.php?edit=%s' % eid in h.get('Location', '') and 'draft=1' in h.get('Location', ''), h.get('Location'))
 
 # ================================================================== list: summaries, badges, statistics
-for n, kw in [('UI list high', dict(cond_field=['ticket_priority'], cond_op=['in'], cond_value=['High,Critical'], cond_group=[''])), ('UI list webhook', dict(trigger_event='ticket.sla_breached', action_type='send_webhook', cfg_url='http://127.0.0.1:9457/x')),
+for n, kw in [('UI list high', dict(cond_field=['ticket_priority'], cond_op=['in'], cond_value=['High,Critical'], cond_group=[''])), ('UI list webhook', dict(trigger_event='ticket.sla_breached', action_type='send_webhook', cfg_url='http://127.0.0.1:%d/x' % RXPORT)),
               ('UI list login', dict(trigger_event='auth.login_failed', cfg_message='bad login'))]:
     post(base_rule(n, **kw))
 R_HIGH, R_HOOK, R_LOGIN = rid('UI list high'), rid('UI list webhook'), rid('UI list login')
