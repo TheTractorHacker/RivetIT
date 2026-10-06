@@ -44,7 +44,7 @@ $q("UPDATE settings SET config_destructive_deletes_enable = 0 WHERE company_id =
 file_put_contents("$sessdir/sess_walkadmin", 'logged|b:1;user_id|i:1;csrf_token|s:' . strlen($tok) . ':"' . $tok . '";');
 
 // --- A2: first click on a different column sorts ASC (3 list pages)
-foreach (['/agent/clients.php' => ['client_name', 'contact_name'], '/agent/contacts.php' => ['contact_name', 'contact_email'], '/agent/assets.php' => ['asset_name', 'asset_type']] as $page => [$active, $other]) {
+foreach (['/agent/clients.php' => ['client_name', 'contact_name'], '/agent/contacts.php' => ['contact_name', 'contact_department'], '/agent/assets.php' => ['asset_name', 'asset_type']] as $page => [$active, $other]) {
     $r = http('GET', "$page?sort=$active&order=ASC");
     $okpage = $r['code'] === 200;
     preg_match_all('/sort=' . $other . '&(?:amp;)?order=(ASC|DESC)/', $r['body'], $m1);
