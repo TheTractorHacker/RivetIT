@@ -108,7 +108,7 @@ func TestValidationTable(t *testing.T) {
 		"token bad chars":  func(p *Payload) { p.EnrollmentToken = "rvte1.a b.c" },
 		"token too long":   func(p *Payload) { p.EnrollmentToken = "rvte1.a." + strings.Repeat("x", 300) },
 		"dept empty":       func(p *Payload) { p.Department = "" },
-		"dept long":        func(p *Payload) { p.Department = strings.Repeat("d", 101) },
+		"dept long":        func(p *Payload) { p.Department = strings.Repeat("d", 256) },
 		"dept control":     func(p *Payload) { p.Department = "a\nb" },
 		"dept padded":      func(p *Payload) { p.Department = " a" },
 		"ca not cert":      func(p *Payload) { p.CAPEM = &ca },

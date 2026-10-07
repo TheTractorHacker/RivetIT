@@ -38,7 +38,7 @@ const (
 	FooterSize    = 4 + sha256.Size + len(Magic) // 52
 	MaxPayload    = 16384
 	maxCAPEM      = 12288
-	maxDepartment = 100
+	maxDepartment = 255
 	maxServerURL  = 2048
 	maxToken      = 256
 )
@@ -131,18 +131,29 @@ func UnstampedSize(rd io.ReaderAt, size int64) (int64, error) {
 	return off, nil
 }
 
-// Parse validates a complete stamped byte slice's tail (used by tests and fuzzing).
-func Parse(rd io.ReaderAt, size int64, now time.Time) (*Payload, error) {
+// Extract does the format-level work only: locate the footer, bound the
+// length, verify the SHA-256 and return the payload bytes and the length of
+// the original exe in front of them. No JSON or semantic checks.
+func Extract(rd io.ReaderAt, size int64) (payload []byte, exeLen int64, err error) {
 	off, n, sum, err := locate(rd, size)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	buf := make([]byte, n)
 	if _, err := rd.ReadAt(buf, off); err != nil {
-		return nil, fmt.Errorf("read payload: %w", err)
+		return nil, 0, fmt.Errorf("read payload: %w", err)
 	}
 	if sha256.Sum256(buf) != sum {
-		return nil, invalid("payload checksum mismatch")
+		return nil, 0, invalid("payload checksum mismatch")
+	}
+	return buf, off, nil
+}
+
+// Parse validates a stamped file image: footer, hash, strict JSON, semantics, expiry.
+func Parse(rd io.ReaderAt, size int64, now time.Time) (*Payload, error) {
+	buf, _, err := Extract(rd, size)
+	if err != nil {
+		return nil, err
 	}
 	return decode(buf, now)
 }

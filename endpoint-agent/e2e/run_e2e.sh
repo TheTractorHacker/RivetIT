@@ -26,6 +26,11 @@
 #          production 300 s low rate. E2E_MIN_INTERVAL (default 5) lowers the interval clamp so the
 #          run produces several check-ins. Other knobs: RIVETIT_E2E_SECONDS (run time, default 90).
 #
+#      Stamped-installer check against the real server (optional): set RIVETIT_E2E_STAMPED_TOKEN to a SECOND,
+#      unused enrollment token (the first is consumed by the plain enroll above). The script then builds a
+#      TEST/DEV-only binary (-tags devtools), stamps it, runs `setup --silent --no-service` and checks
+#      enrollment plus that the staged copy holds no token.
+#
 #   2. Self-contained (RIVETIT_E2E_SERVER_URL unset): starts e2e/fakeserver (a
 #      contract-shaped stand-in), exercises enroll, check-ins, a signed job and
 #      verifies the job result. Linux test mode scripts (sh -c) are enabled
@@ -61,6 +66,42 @@ else
   [ -n "${RIVETIT_E2E_CA:-}" ] && CA_ARGS=(--ca "$RIVETIT_E2E_CA")
 fi
 echo "== mode=$MODE server=$SERVER"
+
+# stamped_check SERVER TOKEN [CA_FILE]: stamp a copy of the (devtools) binary, run the unattended setup in
+# Linux test mode and verify enrollment, idempotence and that no token reaches the staged copy.
+stamped_check() {
+  local srv="$1" tok="$2" ca="${3:-}" st="$WORK/stamped-state" code
+  echo "== stamped installer: build dev stamper, stamp, setup --silent --no-service"
+  ( cd "$ROOT" && go build -trimpath -tags devtools -o "$WORK/rivetit-agent-dev" . )
+  local stamp_args=(--in "$WORK/rivetit-agent" --out "$WORK/installer-stamped" --server "$srv" --token "$tok" --department "E2E Dept" --ttl 1h)
+  [ -n "$ca" ] && stamp_args+=(--ca "$ca")
+  "$WORK/rivetit-agent-dev" stamp "${stamp_args[@]}" >/dev/null
+  grep -aq "$tok" "$WORK/installer-stamped" && echo "ok: stamped file embeds the token (expected, documented)" || { echo "FAIL: stamp lost the token"; fail=1; }
+  rm -rf "$st"
+  set +e
+  "$WORK/installer-stamped" setup --silent --no-service --state-dir "$st" >"$WORK/stamped-setup.out" 2>&1; code=$?
+  set -e
+  [ "$code" = 0 ] && echo "ok: setup --silent exit 0" || { echo "FAIL: setup exit $code"; cat "$WORK/stamped-setup.out"; fail=1; }
+  [ -s "$st/device.token" ] && echo "ok: stamped setup enrolled (device token present)" || { echo "FAIL: no device token after setup"; fail=1; }
+  [ -s "$st/install.log" ] && echo "ok: install.log written" || { echo "FAIL: no install.log"; fail=1; }
+  if grep -arq -- "$tok" "$st" 2>/dev/null; then echo "FAIL: token found under the state dir ($st)"; fail=1; else echo "ok: no token anywhere under the state dir (staged copy, config, log)"; fi
+  if grep -aq -- "$tok" "$WORK/stamped-setup.out"; then echo "FAIL: token printed by setup"; fail=1; else echo "ok: token not printed"; fi
+  local staged="$st/bin/rivetit-agent.exe" orig_size
+  orig_size=$(stat -c %s "$WORK/rivetit-agent")
+  if [ -x "$staged" ] && [ "$(stat -c %s "$staged")" = "$orig_size" ] && cmp -s "$staged" "$WORK/rivetit-agent"; then
+    echo "ok: staged copy is byte-identical to the unstamped binary"
+  else echo "FAIL: staged copy missing or differs from the unstamped binary"; fail=1; fi
+  # idempotence: the same installer again keeps the device identity
+  local id1 id2
+  id1=$("$WORK/rivetit-agent" status --state-dir "$st" | sed -n 's/^install id: *//p')
+  set +e; "$WORK/installer-stamped" setup --silent --no-service --state-dir "$st" >>"$WORK/stamped-setup.out" 2>&1; code=$?; set -e
+  id2=$("$WORK/rivetit-agent" status --state-dir "$st" | sed -n 's/^install id: *//p')
+  [ "$code" = 0 ] && [ -n "$id1" ] && [ "$id1" = "$id2" ] && echo "ok: second run is idempotent (install id kept)" || { echo "FAIL: rerun exit=$code id1=$id1 id2=$id2"; fail=1; }
+  # an unstamped binary refuses with exit 2
+  set +e; "$WORK/rivetit-agent" setup --silent --no-service --state-dir "$WORK/none" >/dev/null 2>&1; code=$?; set -e
+  [ "$code" = 2 ] && echo "ok: unstamped exe -> setup exit 2" || { echo "FAIL: unstamped setup exit $code"; fail=1; }
+}
+fail=0
 
 A="$WORK/rivetit-agent"
 echo "== enroll"
@@ -100,7 +141,6 @@ kill "$AGENT_PID"; wait "$AGENT_PID" 2>/dev/null || true; AGENT_PID=""
 echo "== status"
 "$A" status --state-dir "$WORK/state" | tee "$WORK/status.txt"
 
-fail=0
 check() { if ! grep -q "$1" "$WORK/status.txt"; then echo "FAIL: status lacks '$1'"; fail=1; else echo "ok: $2"; fi; }
 check "device id:   .\+" "device id assigned"
 check "last check-in: 20" "agent checked in"
@@ -114,6 +154,14 @@ if [ "$MODE" = fake ]; then
     && echo "ok: signed job verified, executed once and reported" || { echo "FAIL: job result missing"; fail=1; }
   n=$(grep -c 'JOB-REPORT job=e2e-job-1 state=succeeded' "$WORK/fakeserver.out"); [ "$n" = 1 ] && echo "ok: exactly one terminal report" || { echo "FAIL: $n terminal reports"; fail=1; }
   grep CHECKIN "$WORK/fakeserver.out" | head -5
+  STOK="rvte1.e2esel.E2Esecret123"
+  "$WORK/fakeserver" -dir "$WORK/fake2" -interval 3 -collect 5 -token "$STOK" >"$WORK/fakeserver2.out" 2>&1 &
+  FAKE2_PID=$!
+  for _ in $(seq 1 50); do [ -s "$WORK/fake2/url" ] && break; sleep 0.1; done
+  stamped_check "$(cat "$WORK/fake2/url")" "$STOK" "$WORK/fake2/ca.pem"
+  grep -q "ENROLL" "$WORK/fakeserver2.out" && echo "ok: fake server saw exactly the stamped enrollment" || { echo "FAIL: fake server saw no enrollment"; fail=1; }
+  [ "$(grep -c ENROLL "$WORK/fakeserver2.out")" = 1 ] && echo "ok: one enrollment across two setup runs" || { echo "FAIL: enrollment count"; fail=1; }
+  kill "$FAKE2_PID" 2>/dev/null || true
 else
   cat <<MSG
 == server-side verification (manual, in RivetIT):
@@ -122,5 +170,9 @@ else
    - revoke the device in RivetIT, wait one check-in: agent.out must log 'REVOKED' and status must say DORMANT
    agent log: $WORK/agent.out
 MSG
+  if [ -n "${RIVETIT_E2E_STAMPED_TOKEN:-}" ]; then
+    stamped_check "$SERVER" "$RIVETIT_E2E_STAMPED_TOKEN" "${RIVETIT_E2E_CA:-}"
+    echo "   stamped-installer enrollment: verify the second device/install in RivetIT too (department 'E2E Dept')"
+  fi
 fi
 [ $fail = 0 ] && echo "E2E PASS" || { echo "E2E FAIL"; exit 1; }
