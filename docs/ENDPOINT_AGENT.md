@@ -32,7 +32,7 @@ automation rules) and are closed by the existing conservative auto-close.
  Technicians: Administration > Endpoint agent, RMM > device page, asset page, /api/v1/endpoint_devices (same Authz/Actions code)
 ```
 
-Tables (migration 2.6.145, all `utf8mb4_general_ci`, config in its own one-row table because `settings` is at the row-size limit):
+Tables (migration 2.6.145, plus `endpoint_agent_binaries` and release `arch`/`binary_id` and the `ca_pem` setting from 2.6.146, all `utf8mb4_general_ci`, config in its own one-row table because `settings` is at the row-size limit):
 `endpoint_agent_settings`, `_enrollment_tokens`, `_enroll_attempts`, `_devices`, `_checkins` (idempotency), `_checks`, `_jobs`,
 `_mesh_nodes`, `_releases`. Times in these tables are UTC (`Y-m-d H:i:s`); the UI labels them UTC.
 
@@ -136,6 +136,49 @@ explanation and candidates, device list (status with timestamps, version, linked
 MeshCentral settings. The device page (RMM > device, linked from the asset page) shows inventory, the latest sample ("no data" for unreadable values, never 0),
 the existing performance charts, checks, jobs with a run form (script editor, timeout, destructive flag and confirmation), reboot and the remote launch button.
 
+## 8a. Deploying the agent (per-department installer)
+
+Step by step:
+
+1. **Build or upload the binary.** Build with `cd endpoint-agent && make build VERSION=1.2.0` (produces `dist/rivetit-agent-windows-amd64.exe` and `...-arm64.exe`; Authenticode-sign them first if you can).
+   Upload each under Administration > Endpoint agent > Agent binaries (architecture, version, "Make current for installers"), or run
+   `sudo -u www-data php scripts/endpoint_agent_publish.php dist/rivetit-agent-windows-amd64.exe --version 1.2.0 --arch amd64 --activate`
+   (add `--release pilot --rollout 10` to also offer it to enrolled agents). The server accepts only a PE file whose machine type matches the architecture (0x8664 amd64, 0xAA64 arm64),
+   up to 64 MiB and not above PHP's `upload_max_filesize`/`post_max_size` (the page prints the effective limit; use the CLI for larger files), and refuses a file that is already a stamped installer.
+   Files are stored under `backups/endpoint-agent/` (or `EA_BINARY_DIR` in `config.php`) with random names; the shipped nginx rules and `.htaccess` deny that directory over HTTP. Deleting only deactivates.
+   Once a version is published its contents never change: re-uploading the same file is a no-op, a different file under the same version is refused.
+2. **Set the service URL (https) and, if your certificate comes from a private CA, paste the CA certificate (PEM)** in the service settings. Switch the service on.
+3. **Create the department installer.** Deployment card: department, architecture, optional location, ring, token lifetime (hours), max uses (default 25), label, then **Download installer**.
+   Each click creates an enrollment token (audited with the actor, department, installer id, token id) and downloads `RivetIT-Agent-Setup-<department-slug>-<x64|arm64>.exe`.
+   **Show deployment commands** creates a token and shows it once with ready-to-paste commands.
+4. **Run it.** One PC: run the exe as administrator (or `RivetIT-Agent-Setup-...exe setup`). Fleet: paste the PowerShell snippet into your RMM, an Intune platform script or a GPO startup script. It POSTs the token to
+   `/api/v1/agent_installer`, saves the exe to `%TEMP%`, runs `Setup.exe setup --silent`, checks the exit code and deletes the file. The service is `RivetITAgent`, the file `%ProgramFiles%\RivetIT\Agent\rivetit-agent.exe`
+   (Intune detection rule: either one). The token is a secret for the department until it expires or is revoked: keep the snippet out of tickets and shared script shares.
+5. **Approve and verify.** Devices that match an asset by serial or MAC link themselves; the rest wait under "Waiting for approval". Check Devices (status, version) and the RMM device page.
+6. **Uninstall.** `"%ProgramFiles%\RivetIT\Agent\rivetit-agent.exe" uninstall` (add `--purge` to delete local state), then retire the device in RivetIT (section 11).
+
+Token-gated download for scripts: `POST /api/v1/agent_installer` with `{"token":"rvte1....","arch":"amd64"}` (JSON or form body, or the token as `Authorization: Bearer`). A token in the query string is refused. A token that is unknown, wrong, revoked, expired or used up gets the same
+generic 404. The download does not use up an enrollment use (enrolling does). Limits per 10 minutes, from the database: 10 failures or 30 attempts per address, 30 downloads or 20 failures per token selector (429 + `Retry-After`).
+Every success and rejection is audited (token selector only, never the token). The file is streamed in 64 KiB chunks with an exact `Content-Length`; nginx should not buffer it (`X-Accel-Buffering: no` is sent).
+
+Self-update hosting: a binary offered as an update becomes an `endpoint_agent_releases` row with `arch` and `binary_id`; the manifest `url` is then `<service_url>/api/v1/agent_update?arch=&version=` and the SHA-256 is the binary's.
+`GET /api/v1/agent_update` (device credential) streams the unstamped file only for the release the manifest offers that very device now (its architecture, active release and binary, ring and rollout, hash matches), otherwise a generic 404.
+External https releases (Agent updates and rings form) are unchanged.
+
+### Stamped installer format (contract with the agent)
+
+```
+stamped_exe = <original exe bytes> || payload || footer
+payload     = UTF-8 JSON object, at most 16384 bytes:
+              {"version":1,"installer_id":"<uuid>","server_url":"https://host[/prefix]","enrollment_token":"rvte1.<selector>.<secret>",
+               "department":"<name>","ca_pem":null|"<PEM text>","created_at":"RFC3339 UTC","expires_at":"RFC3339 UTC"}
+footer      = 52 bytes: uint32 big-endian payload length || 32-byte raw SHA-256 of the payload || 16 ASCII bytes "RIVETIT-EMBED-v1"
+```
+The agent reads the last 52 bytes of its own executable, checks the magic, the length bound and the SHA-256, parses the JSON and (no arguments, or `setup [--silent]`) installs and enrolls unattended. The base binary is stored unstamped; stamping happens per download
+(`ITFlow\EndpointAgent\InstallerStamp`). The SHA-256 detects truncation and corruption; it is not authentication: the payload carries the enrollment token, which is the secret. Expiry is the token's expiry.
+`tests/fixtures/agent_installer_trailer_vectors.json` (generated by `tests/fixtures/generate_agent_installer_trailer_vectors.php`) pins exact stamped bytes, boundary sizes and negative cases for the agent's tests.
+The embedded CA is the optional "CA certificate (PEM)" setting (public information).
+
 ## 9. MeshCentral
 
 Setup:
@@ -195,6 +238,8 @@ separate by integration. Antivirus/EDR exclusions for the agent path are the cus
 | SSRF | MeshCentral address through the shared URL policy, https only, no redirects, DNS pinned, short timeout |
 | Transport | TLS required (`426 tls_required` otherwise; behind a proxy `X-Forwarded-Proto: https` from a private peer); `EA_ALLOW_INSECURE_HTTP` exists for loopback tests only |
 | Secrets | MeshCentral key and signing key via `encryptSetting`; tokens and keys are never logged; audit stores session ids and script hashes |
+| Installer download | enrollment token required, never in the URL (400), generic 404 for every unusable token, DB rate limits per address and token, audited without the token, constant-time secret comparison, streamed with exact length, file names built only from `[a-z0-9-]`, stored file size and SHA-256 verified before any byte is sent |
+| Binary upload | admin only, CSRF, PE and machine-type checks, size cap, random storage names, directory denied over HTTP, no path from user input ever reaches the filesystem (`bin_<32 hex>.bin` pattern enforced) |
 | Resource limits | body caps (16 KiB enroll, 1 MiB check-in, 256 KiB job report), item caps, output cap, per-device rate limit (Redis, fail open) |
 
 Operations notes: the nginx `client_max_body_size` must be at least 1m for `/api/v1/agent_checkin`; PHP-FPM must pass `HTTPS` (or the proxy header). The live nginx rules are not
@@ -207,6 +252,8 @@ Automated (scratch database only, real HTTP against `php -S`; see the header of 
 ```
 RIVETIT_TEST_DB=1 RIVETIT_TEST_DB_NAME=scratch_x RIVETIT_TEST_DB_USER=... RIVETIT_TEST_DB_PASS=... php tests/endpoint_agent_enroll.php
 ... endpoint_agent_checkin.php | endpoint_agent_jobs.php | endpoint_agent_authz.php | endpoint_agent_migration.php
+php tests/endpoint_agent_deploy_unit.php            # no database; installer format vectors, PE validation, names, quoting
+... endpoint_agent_deploy_http.php                   # real HTTP: uploads, installer download, agent_installer, agent_update
 php tests/load/agent_ingest_load.php 200 10 16 8        # load and cost measurement
 LC_ALL=C scripts/check_openapi_drift.sh
 ```

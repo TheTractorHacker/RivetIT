@@ -1619,6 +1619,72 @@ paths:
         '409': {description: "Conflict", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
         '413': {description: "Body over 256 KiB", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
         '422': {description: "Invalid body", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+  /agent_installer:
+    post:
+      tags: [Endpoint agent]
+      summary: Download the stamped per-department installer with an enrollment token (for RMM, Intune, GPO scripts)
+      description: >
+        Public, token-gated. The enrollment token goes in the JSON or form body (or an Authorization Bearer header), NEVER in the query string
+        (a token in the URL is refused with 400 so it stays out of access logs). Returns the current agent executable for the architecture
+        with the department's installer payload and a 52-byte footer appended (see docs/ENDPOINT_AGENT.md section 'Stamped installer format'),
+        streamed with an exact Content-Length. Any token that is not usable now (unknown, wrong, revoked, expired, used up) gets the same
+        generic 404. Rate limited per address and per token from the database (429 + Retry-After). Successes and rejections are audited.
+        The download does not consume an enrollment use; enrolling does.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [arch]
+              properties:
+                token: {type: string, description: "rvte1.<selector>.<secret>; may instead be sent as Authorization Bearer"}
+                arch: {type: string, enum: [amd64, arm64]}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [arch]
+              properties:
+                token: {type: string}
+                arch: {type: string, enum: [amd64, arm64]}
+      responses:
+        '200':
+          description: The stamped installer (RivetIT-Agent-Setup-<department>-<arch>.exe)
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
+        '400': {description: "Token supplied in the query string (code token_in_url)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '403': {description: "Service disabled", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '404': {description: "Generic: the token is not usable", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '405': {description: "Use POST", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '409': {description: "No published binary for that architecture, or no https service URL (code unavailable)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '413': {description: "Body over 4 KiB", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '422': {description: "token or arch missing or invalid", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '429': {description: "Too many requests (Retry-After header)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+  /agent_update:
+    get:
+      tags: [Endpoint agent]
+      summary: Download the hosted agent release this device is currently offered (device credential)
+      description: >
+        Streams the UNSTAMPED agent executable of the server-hosted release named by the update manifest (its url points here). Only the release
+        the manifest offers THIS device right now is served, only for its own architecture, and only while the stored file still matches the
+        manifest SHA-256. Anything else is a generic 404. Content-Length exact, nosniff, no-store.
+      security: [{deviceAuth: []}]
+      parameters:
+        - {name: arch, in: query, required: true, schema: {type: string, enum: [amd64, arm64]}}
+        - {name: version, in: query, required: true, schema: {type: string, example: 1.2.0}}
+      responses:
+        '200':
+          description: The agent executable
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
+        '401': {description: "Credential invalid_token, revoked or expired", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '404': {description: "Not offered to this device (or damaged)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '422': {description: "arch or version invalid", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '429': {description: "Rate limited", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '503': {description: "The stored binary is missing or failed its integrity check", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
   /endpoint_devices:
     get:
       tags: [Endpoint agent]
