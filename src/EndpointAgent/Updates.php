@@ -14,6 +14,26 @@ final class Updates
     /** @return array<string,string>|null */
     public static function manifestFor(array $dev): ?array
     {
+        $best = self::offeredRelease($dev);
+        if ($best === null) {
+            return null;
+        }
+        $url = $best['url'];
+        if ($best['binary_id'] !== null) {
+            // A hosted release: the URL follows the configured service URL (it is served by api/v1/agent_update). No https service
+            // URL means nothing safe to offer, so the device is simply not offered it.
+            $url = Binaries::updateUrl((string) $best['arch'], (string) $best['version']);
+            if ($url === null) {
+                return null;
+            }
+        }
+        [$sec] = Config::signingKey();
+        return ['version' => $best['version'], 'url' => $url, 'sha256' => $best['sha256'], 'signature' => Signer::sign($best['sha256'], $sec), 'min_version' => $best['min_version']];
+    }
+
+    /** The release row this device is currently offered (same rules as the manifest), or null. */
+    public static function offeredRelease(array $dev): ?array
+    {
         $current = (string) $dev['agent_version'];
         $failed = self::failedVersions($dev);
         $rings = $dev['ring'] === 'pilot' ? ['pilot', 'stable'] : ['stable'];
@@ -21,6 +41,9 @@ final class Updates
         foreach (Db::all('SELECT * FROM endpoint_agent_releases WHERE active = 1 ORDER BY release_id') as $r) {
             if (!in_array($r['ring'], $rings, true)) {
                 continue;
+            }
+            if ($r['arch'] !== '' && $r['arch'] !== (string) $dev['arch']) {
+                continue;   // a per-architecture (hosted) release is only for devices of that architecture
             }
             if (version_compare($r['version'], $current, '<=')) {
                 continue;   // never offer the same or an older version
@@ -38,11 +61,7 @@ final class Updates
                 $best = $r;
             }
         }
-        if ($best === null) {
-            return null;
-        }
-        [$sec] = Config::signingKey();
-        return ['version' => $best['version'], 'url' => $best['url'], 'sha256' => $best['sha256'], 'signature' => Signer::sign($best['sha256'], $sec), 'min_version' => $best['min_version']];
+        return $best;
     }
 
     /** Deterministic per (device, version) bucket 0-99, so raising the percentage only ever adds devices. */
