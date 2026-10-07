@@ -125,11 +125,15 @@ jobs:
           files: |
             release/rivetit-agent-windows-amd64.exe
             release/rivetit-agent-windows-arm64.exe
-            release/rivetit-agent-linux-amd64
             release/SHA256SUMS
           generate_release_notes: true
           fail_on_unmatched_files: true
+          # A tag with a suffix (agent-v0.1.0-beta.1) is published as a pre-release.
+          prerelease: ${{ contains(github.ref_name, '-') }}
           body: |
-            RivetIT endpoint agent. Upload the Windows executables in RivetIT under
+            RivetIT endpoint agent for Windows (amd64 and arm64). Upload the executables in RivetIT under
             Administration > Endpoint agent > Agent binaries, then download per-department installers from there.
-            The linux binary is a test build only. Binaries are UNSIGNED unless this release says otherwise. Verify with SHA256SUMS.
+            Binaries are UNSIGNED unless this release says otherwise. Verify with `sha256sum --ignore-missing -c SHA256SUMS`
+            (the sums file also lists the Linux test build, which is not published here).
+            BETA: the agent passes its tests and has run end to end on Linux against a real RivetIT server, but it has not yet
+            been run on a real Windows machine. Pilot it on one PC first.
