@@ -251,4 +251,4 @@ RivetIT started as a fork of an MSP-focused ITFlow fork (TheTractorHacker/itflow
 - **The REST API was left out of the rename** — endpoints, auth mechanisms and field names still say `client` / `client_id`, per the naming note above, so existing integrations and the Android companion app keep working. See `docs/API.md` for the full reference.
 ## Endpoint agent
 
-The Windows endpoint agent (issue #3) lives in `endpoint-agent/` as a separate Go module. See `endpoint-agent/README.md` for its architecture, security model and what is unverified on Windows, and `docs/ENDPOINT_AGENT_BUILD.md` for build status, test counts and measured footprint.
+The Windows endpoint agent ([rivet-core #59](https://github.com/TheTractorHacker/rivet-core/issues/59), moved from RivetIT #3) lives in `endpoint-agent/` as a separate Go module. See `endpoint-agent/README.md` for its architecture, security model and what is unverified on Windows, and `docs/ENDPOINT_AGENT_BUILD.md` for build status, test counts and measured footprint.

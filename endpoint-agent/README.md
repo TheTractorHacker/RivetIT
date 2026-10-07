@@ -1,6 +1,6 @@
 # RivetIT endpoint agent
 
-The Windows endpoint agent for RivetIT issue #3 ("Built-in RMM Agent with MeshCentral as Remote Software").
+The Windows endpoint agent for [rivet-core issue #59](https://github.com/TheTractorHacker/rivet-core/issues/59), moved from RivetIT #3 ("Built-in RMM Agent with MeshCentral as Remote Software").
 A single static Go binary (`rivetit-agent`, no CGO, no runtime) that runs as a Windows service and:
 
 - enrolls with a short-lived enrollment token and receives a unique per-device credential,
@@ -315,7 +315,7 @@ It is a safety net, not a guarantee: scripts must not print secrets.
 
 **Account and privilege.** Jobs run as the service account, `LocalSystem`. That is a **high-privilege capability**: anyone who can submit a
 `powershell` job runs code as SYSTEM on the endpoint. It must be gated server-side by its own permission, separate from inventory viewing and
-remote access (issue #3), and every submission audited. Least-privilege options: run the service as a dedicated virtual account
+remote access (rivet-core #59), and every submission audited. Least-privilege options: run the service as a dedicated virtual account
 (`NT SERVICE\RivetITAgent`, enable with `sc config RivetITAgent obj= "NT SERVICE\RivetITAgent"`) and grant it only what your jobs need — then
 inventory/service/pending-reboot checks work but most maintenance does not; or split a low-privilege collector from an on-demand elevated
 executor (follow-up). The default is SYSTEM because maintenance jobs generally need it.
