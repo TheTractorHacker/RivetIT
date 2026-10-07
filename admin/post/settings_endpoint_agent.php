@@ -2,10 +2,13 @@
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
+use ITFlow\EndpointAgent\Binaries;
 use ITFlow\EndpointAgent\Config;
 use ITFlow\EndpointAgent\Db;
 use ITFlow\EndpointAgent\Devices;
 use ITFlow\EndpointAgent\Enrollment;
+use ITFlow\EndpointAgent\Installer;
+use ITFlow\EndpointAgent\InstallerStamp;
 use ITFlow\EndpointAgent\Mesh;
 use ITFlow\EndpointAgent\Updates;
 
@@ -40,6 +43,11 @@ if (isset($_POST['save_agent_settings'])) {
         }
         $checksOut = json_encode($list);
     }
+    [$caPem, $caErr] = Installer::normalizeCa((string) ($_POST['ca_pem'] ?? ''));
+    if ($caErr !== null) {
+        flash_alert(nullable_htmlentities($caErr), 'error');
+        redirect();
+    }
     $policy = in_array($_POST['unmatched_policy'] ?? '', ['approval', 'auto_create'], true) ? $_POST['unmatched_policy'] : 'approval';
     if ($enable) {
         Config::enable();
@@ -65,9 +73,89 @@ if (isset($_POST['save_agent_settings'])) {
         'unmatched_policy' => $policy,
         'checks_json' => $checksOut === '' ? null : $checksOut,
         'coexistence_policy' => mb_substr(trim((string) ($_POST['coexistence_policy'] ?? '')), 0, 4000),
+        'ca_pem' => $caPem,
     ]);
     logAction('Settings', 'Edit', "$session_name edited the endpoint agent settings (" . ($enable ? 'on' : 'off') . ')');
     flash_alert('Endpoint agent settings saved.');
+    redirect();
+}
+
+// ---------------------------------------------------------------- agent binaries and per-department installers
+
+if (isset($_POST['upload_agent_binary'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $f = $_FILES['agent_binary'] ?? null;
+    $limit = Binaries::effectiveUploadLimit();
+    if (!$f || ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) ($f['tmp_name'] ?? ''))) {
+        $code = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
+        $why = in_array($code, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)
+            ? 'The file is larger than the limit of ' . Binaries::human($limit) . ' (PHP upload_max_filesize ' . ini_get('upload_max_filesize') . ', post_max_size ' . ini_get('post_max_size') . '). Raise them in php.ini or upload with scripts/endpoint_agent_publish.php.'
+            : ($code === UPLOAD_ERR_NO_FILE ? 'Choose the agent .exe to upload.' : 'The upload failed (PHP error ' . $code . ').');
+        flash_alert(nullable_htmlentities($why), 'error');
+        redirect();
+    }
+    $ring = (string) ($_POST['release_ring'] ?? '');
+    $res = Binaries::publish((string) $f['tmp_name'], trim((string) ($_POST['version'] ?? '')), (string) ($_POST['arch'] ?? ''), (int) $session_user_id, [
+        'activate' => isset($_POST['activate']),
+        'release_ring' => in_array($ring, ['pilot', 'stable'], true) ? $ring : null,
+        'rollout_pct' => ea_post_int('rollout_pct', 0, 100, 10),
+    ]);
+    if (!$res['ok']) {
+        flash_alert(nullable_htmlentities($res['error']), 'error');
+        redirect();
+    }
+    $b = $res['binary'];
+    logAction('Endpoint Agent', 'Binary Uploaded', "$session_name uploaded agent binary {$b['version']} ({$b['arch']}, sha256 {$b['sha256']}, {$b['size_bytes']} bytes)" . ($b['is_current'] ? ' and made it current' : '') . ($ring !== '' ? " and offered it to the $ring ring" : ''));
+    flash_alert('Agent binary ' . nullable_htmlentities($b['version']) . ' (' . nullable_htmlentities($b['arch']) . ') stored. SHA-256 ' . nullable_htmlentities($b['sha256']) . '.');
+    redirect();
+}
+
+if (isset($_POST['binary_action'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $id = intval($_POST['binary_id'] ?? 0);
+    $act = (string) $_POST['binary_action'];
+    $b = Db::one('SELECT * FROM endpoint_agent_binaries WHERE binary_id = ?', [$id]);
+    $done = false;
+    $msg = 'Nothing changed.';
+    if ($b !== null) {
+        if ($act === 'make_current' && (int) $b['active'] === 1) {
+            $done = Binaries::setCurrent($id); $msg = 'This binary is now the one new installers are built from.';
+        } elseif ($act === 'deactivate') {
+            $done = Binaries::deactivate($id); $msg = 'Binary deactivated: it is no longer used for installers or offered as an update. The file is kept.';
+        } elseif ($act === 'activate') {
+            Db::run('UPDATE endpoint_agent_binaries SET active = 1 WHERE binary_id = ?', [$id]); $done = true; $msg = 'Binary reactivated. Offer it as an update again if you want devices to receive it.';
+        } elseif ($act === 'offer_update') {
+            $e = Binaries::publishRelease($id, (string) ($_POST['release_ring'] ?? 'pilot'), ea_post_int('rollout_pct', 0, 100, 10), '', (int) $session_user_id);
+            $done = $e === null; $msg = $e ?? 'Offered to enrolled agents. Adjust the rollout under Agent updates and rings.';
+        }
+    }
+    if ($done) {
+        logAction('Endpoint Agent', 'Binary Changed', "$session_name ran '$act' on agent binary #$id ({$b['version']} {$b['arch']})");
+    }
+    flash_alert(nullable_htmlentities($msg), $done ? 'success' : 'error');
+    redirect();
+}
+
+if (isset($_POST['download_installer']) || isset($_POST['show_deploy_commands'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $arch = (string) ($_POST['arch'] ?? 'amd64');
+    $r = Installer::issue(intval($_POST['client_id'] ?? 0), intval($_POST['location_id'] ?? 0), (string) ($_POST['ring'] ?? 'stable'),
+        ea_post_int('ttl_hours', 1, 720, 72), ea_post_int('max_uses', 1, 5000, 25), trim((string) ($_POST['label'] ?? '')), $arch, (int) $session_user_id, (string) $session_name);
+    if (!$r['ok']) {
+        flash_alert(nullable_htmlentities($r['error']), 'error');
+        redirect();
+    }
+    if (isset($_POST['show_deploy_commands'])) {
+        // Shown once, on the next page load, like a plain enrollment token.
+        $_SESSION['ea_new_token'] = ['token' => $r['token_plain'], 'id' => (int) $r['token']['token_id'], 'deploy' => ['arch' => $arch, 'department' => $r['department'],
+            'expires_at' => $r['token']['expires_at'], 'max_uses' => (int) $r['token']['max_uses']]];
+        flash_alert('Enrollment token created. Copy the commands now: the token is shown only once.');
+        redirect();
+    }
+    $bin = Binaries::current($arch);
+    $e = Binaries::stream($bin, Installer::filename($r['department'], $arch), InstallerStamp::trailer($r['payload']));
+    Enrollment::revokeToken((int) $r['token']['token_id'], (int) $session_user_id);   // nothing was served: do not leave a live token behind
+    flash_alert(nullable_htmlentities($e), 'error');
     redirect();
 }
 

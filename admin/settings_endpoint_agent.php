@@ -1,9 +1,11 @@
 <?php
 require_once "includes/inc_all_admin.php";
 
+use ITFlow\EndpointAgent\Binaries;
 use ITFlow\EndpointAgent\Config;
 use ITFlow\EndpointAgent\Db;
 use ITFlow\EndpointAgent\Devices;
+use ITFlow\EndpointAgent\Installer;
 
 mysqli_report(MYSQLI_REPORT_OFF);
 $cfg = Config::get(true);
@@ -12,7 +14,7 @@ $h = static fn($v) => nullable_htmlentities((string) $v);
 $newToken = $_SESSION['ea_new_token'] ?? null;
 unset($_SESSION['ea_new_token']);
 
-$tableReady = Db::val("SHOW TABLES LIKE 'endpoint_agent_settings'") !== null;
+$tableReady = Db::val("SHOW TABLES LIKE 'endpoint_agent_settings'") !== null && Db::val("SHOW TABLES LIKE 'endpoint_agent_binaries'") !== null;
 if (!$tableReady) {
     echo '<div class="alert alert-warning">Run the database update first (Administration &rarr; Updates), then reload this page.</div>';
     require_once "../includes/footer.php";
@@ -26,6 +28,9 @@ $devices = Db::all('SELECT d.*, a.asset_name FROM endpoint_agent_devices d LEFT 
 $pending = array_values(array_filter($devices, static fn($d) => $d['link_state'] === 'pending_approval' && $d['revoked_at'] === null && $d['retired_at'] === null));
 $tokens = Db::all('SELECT * FROM endpoint_agent_enrollment_tokens ORDER BY token_id DESC LIMIT 50');
 $attempts = Db::all('SELECT attempted_at, ip_text, reason, token_selector FROM endpoint_agent_enroll_attempts WHERE success = 0 ORDER BY attempt_id DESC LIMIT 15');
+$binaries = Db::all('SELECT * FROM endpoint_agent_binaries ORDER BY binary_id DESC LIMIT 40');
+$curBin = ['amd64' => Binaries::current('amd64'), 'arm64' => Binaries::current('arm64')];
+$uploadLimit = Binaries::effectiveUploadLimit();
 $releases = Db::all('SELECT * FROM endpoint_agent_releases ORDER BY release_id DESC LIMIT 30');
 $counts = ['online' => 0, 'offline' => 0, 'stale' => 0, 'never' => 0];
 foreach ($devices as $d) { if ($d['retired_at'] === null && $d['revoked_at'] === null) { $counts[Devices::status($d, $cfg)['state']]++; } }
@@ -49,12 +54,40 @@ $serviceUrlHint = 'https://' . $config_base_url;
     </div>
 </div>
 
-<?php if ($newToken) { ?>
-<div class="alert alert-success">
-    <strong>New enrollment token.</strong> It is shown once and only its hash is stored. Put it in the installer command (<code>RivetITAgent.msi ENROLLMENT_TOKEN=...</code>).
-    <div class="input-group mt-2"><input type="text" class="form-control font-monospace" readonly data-ea-select value="<?= $h($newToken['token']) ?>"></div>
+<?php if ($newToken) { $dep = $newToken['deploy'] ?? null; ?>
+<div class="alert alert-success" id="new-token">
+    <strong>New enrollment token.</strong> It is shown once and only its hash is stored. Anyone holding it can enroll a device into this department until it expires or is revoked, so treat it as a secret.
+    <div class="input-group mt-2"><input type="text" class="form-control font-monospace" readonly data-ea-select value="<?= $h($newToken['token']) ?>" aria-label="Enrollment token"><button type="button" class="btn btn-outline-secondary" data-ea-copy-value="<?= $h($newToken['token']) ?>">Copy</button></div>
+    <?php if (!$dep) { ?><div class="form-text">Use it with the agent: <code>set RIVETIT_ENROLL_TOKEN=...</code> then <code>rivetit-agent.exe install --server <?= $h($cfg['service_url'] ?: $serviceUrlHint) ?></code>, or create a per-department installer under Deployment, which embeds a token for you.</div><?php } ?>
 </div>
-<?php } ?>
+<?php if ($dep) {
+    $depFile = Installer::filename($dep['department'], $dep['arch']);
+    $svcBase = Binaries::serviceBase() ?? '';
+    $snippet = $svcBase !== '' ? Installer::powershellSnippet($svcBase, $newToken['token'], $dep['arch'], $dep['department']) : '';
+    ?>
+<div class="card mb-3" id="deploy-commands">
+    <div class="card-header"><h4 class="card-title mb-0">Deployment commands for <?= $h($dep['department']) ?> (<?= $dep['arch'] === 'arm64' ? 'ARM64' : 'Windows x64' ?>)</h4></div>
+    <div class="card-body">
+        <p class="small text-muted">This token allows <?= (int) $dep['max_uses'] ?> enrollments and expires <?= $h($dep['expires_at']) ?> UTC. The commands below contain it: keep them out of tickets, chat and shared script shares.</p>
+        <h6>1. Interactive (one PC)</h6>
+        <p class="small mb-3">Use <strong>Download installer</strong> in the Deployment card for this department, copy <code><?= $h($depFile) ?></code> to the PC and double-click it (accept the administrator prompt), or run <code><?= $h($depFile) ?> setup</code> from an elevated prompt. The file already contains the server address, the token and the department.</p>
+        <h6>2. Silent install for an RMM, Intune platform script or GPO startup script</h6>
+        <?php if ($snippet === '') { ?><p class="text-danger small">Set an https:// service URL first.</p><?php } else { ?>
+        <div class="mb-1"><button type="button" class="btn btn-sm btn-outline-secondary" data-ea-copy-target="ea_snippet">Copy script</button></div>
+        <textarea class="form-control font-monospace small mb-3" id="ea_snippet" rows="16" readonly spellcheck="false"><?= $h($snippet) ?></textarea>
+        <?php } ?>
+        <h6>3. Intune Win32 app and Group Policy</h6>
+        <ul class="small mb-3">
+            <li><strong>Intune Win32 app:</strong> wrap <code><?= $h($depFile) ?></code> with the Win32 Content Prep Tool (<code>IntuneWinAppUtil.exe -c folder -s <?= $h($depFile) ?> -o out</code>). Install command: <code><?= $h($depFile) ?> setup --silent</code>. Uninstall command: <code>"%ProgramFiles%\RivetIT\Agent\rivetit-agent.exe" uninstall</code>. Install behavior: System. The embedded token expires, so create the installer with a lifetime and use count that cover the rollout.</li>
+            <li><strong>Detection rule (either one):</strong> service <code>RivetITAgent</code> exists, or file <code>%ProgramFiles%\RivetIT\Agent\rivetit-agent.exe</code> exists. Custom script: <code>if ((Get-Service RivetITAgent -ErrorAction SilentlyContinue) -and (Test-Path "$env:ProgramFiles\RivetIT\Agent\rivetit-agent.exe")) { 'installed'; exit 0 } else { exit 1 }</code></li>
+            <li><strong>Group Policy:</strong> Computer Configuration, Policies, Windows Settings, Scripts, Startup, PowerShell Scripts: add the script from step 2. Startup scripts run as SYSTEM before logon. SYSVOL is readable by every domain user, so use a token with a small use count, or prefer Intune or your RMM, which keep the script private.</li>
+            <li>The setup is idempotent: a machine that already has the agent keeps its identity. Windows PCs that do not trust your server certificate need the issuing CA in their store (or set the CA certificate in the service settings, which the installer embeds for the agent).</li>
+        </ul>
+        <h6>4. New agent versions</h6>
+        <p class="small mb-0">Build with <code>cd endpoint-agent &amp;&amp; make build VERSION=1.2.0</code> and upload <code>dist/rivetit-agent-windows-amd64.exe</code> and <code>...-arm64.exe</code> under Agent binaries, or run <code>sudo -u www-data php scripts/endpoint_agent_publish.php dist/rivetit-agent-windows-amd64.exe --version 1.2.0 --arch amd64 --activate [--release pilot --rollout 10]</code>. Installers created afterwards use the current binary; enrolled agents update through the release ring.</p>
+    </div>
+</div>
+<?php } } ?>
 
 <?php if (!$config_module_enable_rmm) { ?>
 <div class="alert alert-warning">The RMM module is switched off (Administration &rarr; Modules). Devices still enroll and report, but they will not appear in the RMM pages until it is on.</div>
@@ -100,6 +133,11 @@ $serviceUrlHint = 'https://' . $config_base_url;
                     <div class="form-text">A hostname match alone never links a device. Ambiguous matches always wait for approval.</div>
                 </div>
                 <div class="col-12">
+                    <label class="form-label" for="ea_ca">CA certificate (PEM, optional)</label>
+                    <textarea class="form-control font-monospace" id="ea_ca" name="ca_pem" rows="4" maxlength="8000" placeholder="-----BEGIN CERTIFICATE-----"><?= $h($cfg['ca_pem'] ?? '') ?></textarea>
+                    <div class="form-text">Only for servers whose certificate is issued by a private CA. Per-department installers embed it so the agent trusts this server. Leave empty when the certificate comes from a public CA. Public information, not a secret.</div>
+                </div>
+                <div class="col-12">
                     <label class="form-label" for="ea_checks">Check schedule delivered to agents (JSON)</label>
                     <textarea class="form-control font-monospace" id="ea_checks" name="checks_json" rows="9"><?= $h($checksText) ?></textarea>
                     <div class="form-text">Types: <code>service</code>, <code>disk</code>, <code>pending_reboot</code>, <code>script</code> (bounded, at most 8 KiB and 60 s). Every entry is signed. Leave empty to restore the defaults.</div>
@@ -111,6 +149,74 @@ $serviceUrlHint = 'https://' . $config_base_url;
                 </div>
             </div>
             <button type="submit" name="save_agent_settings" class="btn btn-primary mt-3"><i class="fas fa-save me-1"></i>Save settings</button>
+        </form>
+    </div>
+</div>
+
+<div class="card mb-3" id="binaries">
+    <div class="card-header"><h4 class="card-title mb-0">Agent binaries</h4></div>
+    <div class="card-body">
+        <p class="small text-muted">Upload the Windows agent executable (unstamped, as built by <code>make build</code>) for each architecture. The server checks the PE header, the machine type and that the file is not already an installer, and stores it outside the web-served area. The <strong>current</strong> binary per architecture is what per-department installers are made from; offering a binary as an update lets enrolled agents fetch it from this server. Largest accepted upload: <strong><?= $h(Binaries::human($uploadLimit)) ?></strong> (the lower of the <?= $h(Binaries::human(Binaries::maxBytes())) ?> cap, PHP <code>upload_max_filesize</code> <?= $h(ini_get('upload_max_filesize')) ?> and <code>post_max_size</code> <?= $h(ini_get('post_max_size')) ?>). Larger or automated uploads: <code>scripts/endpoint_agent_publish.php</code>.</p>
+        <form action="post.php" method="post" enctype="multipart/form-data" class="row g-2 align-items-end mb-3" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <div class="col-lg-3"><label class="form-label small" for="bn_file">Agent executable (.exe)</label><input type="file" class="form-control form-control-sm" id="bn_file" name="agent_binary" accept=".exe" required></div>
+            <div class="col-lg-1"><label class="form-label small" for="bn_v">Version</label><input class="form-control form-control-sm" id="bn_v" name="version" placeholder="1.2.0" maxlength="40" required></div>
+            <div class="col-lg-2"><label class="form-label small" for="bn_a">Architecture</label><select class="form-select form-select-sm" id="bn_a" name="arch"><option value="amd64">Windows x64 (amd64)</option><option value="arm64">Windows ARM64</option></select></div>
+            <div class="col-lg-2"><div class="form-check"><input type="checkbox" class="form-check-input" id="bn_cur" name="activate" value="1" checked><label class="form-check-label small" for="bn_cur">Make current for installers</label></div></div>
+            <div class="col-lg-2"><label class="form-label small" for="bn_ring">Offer as update</label><select class="form-select form-select-sm" id="bn_ring" name="release_ring"><option value="">No</option><option value="pilot">Pilot ring</option><option value="stable">Stable ring</option></select></div>
+            <div class="col-lg-1"><label class="form-label small" for="bn_pct">Rollout %</label><input class="form-control form-control-sm" id="bn_pct" name="rollout_pct" type="number" min="0" max="100" value="10"></div>
+            <div class="col-lg-1"><button class="btn btn-sm btn-primary w-100" name="upload_agent_binary">Upload</button></div>
+        </form>
+        <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Version</th><th>Arch</th><th>Size</th><th>SHA-256</th><th>Uploaded (UTC)</th><th>State</th><th></th></tr></thead><tbody>
+            <?php foreach ($binaries as $b) { $fid = 'bn_' . (int) $b['binary_id']; ?>
+                <tr>
+                    <td><?= $h($b['version']) ?></td><td><?= $h($b['arch']) ?></td><td><?= $h(Binaries::human((int) $b['size_bytes'])) ?></td>
+                    <td class="small font-monospace text-break"><?= $h($b['sha256']) ?></td><td><?= $h($b['created_at']) ?></td>
+                    <td><?php if (!(int) $b['active']) { echo '<span class="badge bg-secondary">Inactive</span>'; } elseif ((int) $b['is_current']) { echo '<span class="badge bg-success">Current</span>'; } else { echo '<span class="badge bg-info text-dark">Available</span>'; } ?></td>
+                    <td class="text-nowrap">
+                        <form id="<?= $fid ?>" action="post.php" method="post" class="d-inline-flex gap-1 flex-wrap align-items-center"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="binary_id" value="<?= (int) $b['binary_id'] ?>">
+                        <?php if ((int) $b['active']) { ?>
+                            <?php if (!(int) $b['is_current']) { ?><button class="btn btn-xs btn-outline-primary" name="binary_action" value="make_current">Make current</button><?php } ?>
+                            <select name="release_ring" class="form-select form-select-sm w-auto" aria-label="Ring"><option>pilot</option><option>stable</option></select>
+                            <input type="number" name="rollout_pct" min="0" max="100" value="10" class="form-control form-control-sm" style="width:5rem" aria-label="Rollout percent">
+                            <button class="btn btn-xs btn-outline-secondary" name="binary_action" value="offer_update">Offer as update</button>
+                            <button class="btn btn-xs btn-outline-danger" name="binary_action" value="deactivate" data-ea-confirm="Deactivate this binary? It stops being used for installers and updates. The file is kept.">Deactivate</button>
+                        <?php } else { ?><button class="btn btn-xs btn-outline-primary" name="binary_action" value="activate">Reactivate</button><?php } ?>
+                        </form>
+                    </td>
+                </tr>
+            <?php } if (!$binaries) { echo '<tr><td colspan="7" class="text-muted">No agent binary uploaded yet. Installers cannot be created until one is current.</td></tr>'; } ?>
+        </tbody></table></div>
+    </div>
+</div>
+
+<div class="card mb-3" id="deployment">
+    <div class="card-header"><h4 class="card-title mb-0">Deployment: per-department installer</h4></div>
+    <div class="card-body">
+        <p class="small text-muted">Creates an enrollment token for the department and gives you an installer that already contains the server address, the token, the department and (if set) your CA certificate. Run it on a Windows PC as administrator and the agent installs and enrolls itself. Each click creates a new audited token.</p>
+        <?php
+        $dep_problems = [];
+        if (!$cfg['enabled']) { $dep_problems[] = 'The endpoint agent service is switched off.'; }
+        if (Binaries::serviceBase() === null) { $dep_problems[] = 'The service URL is not an https:// address.'; }
+        if (!$curBin['amd64'] && !$curBin['arm64']) { $dep_problems[] = 'No current agent binary is uploaded.'; }
+        foreach ($dep_problems as $pr) { echo '<div class="alert alert-warning py-2 mb-2">' . $h($pr) . '</div>'; } ?>
+        <form action="post.php" method="post" class="row g-2 align-items-end" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <div class="col-lg-3"><label class="form-label" for="dp_client">Department</label>
+                <select class="form-select" id="dp_client" name="client_id" required><option value="">Choose...</option>
+                    <?php foreach ($clients as $c) { echo '<option value="' . (int) $c['client_id'] . '">' . $h($c['client_name']) . '</option>'; } ?>
+                </select></div>
+            <div class="col-lg-2"><label class="form-label" for="dp_arch">Architecture</label><select class="form-select" id="dp_arch" name="arch"><option value="amd64">Windows x64</option><option value="arm64">Windows ARM64</option></select></div>
+            <div class="col-lg-1"><label class="form-label" for="dp_loc">Location</label><input type="number" class="form-control" id="dp_loc" name="location_id" min="0" value="0" title="Location id, 0 for none"></div>
+            <div class="col-lg-2"><label class="form-label" for="dp_ring">Update ring</label><select class="form-select" id="dp_ring" name="ring"><option value="stable">stable</option><option value="pilot">pilot</option></select></div>
+            <div class="col-lg-1"><label class="form-label" for="dp_ttl">Hours</label><input type="number" class="form-control" id="dp_ttl" name="ttl_hours" min="1" max="<?= (int) $cfg['enroll_max_ttl_h'] ?>" value="<?= (int) min(72, $cfg['enroll_max_ttl_h']) ?>"></div>
+            <div class="col-lg-1"><label class="form-label" for="dp_uses">Max uses</label><input type="number" class="form-control" id="dp_uses" name="max_uses" min="1" max="5000" value="25"></div>
+            <div class="col-lg-2"><label class="form-label" for="dp_label">Label</label><input type="text" class="form-control" id="dp_label" name="label" maxlength="100"></div>
+            <div class="col-12 d-flex flex-wrap gap-2 mt-2">
+                <button type="submit" name="download_installer" class="btn btn-primary"><i class="fas fa-download me-1"></i>Download installer</button>
+                <button type="submit" name="show_deploy_commands" class="btn btn-outline-primary"><i class="fas fa-terminal me-1"></i>Show deployment commands</button>
+            </div>
         </form>
     </div>
 </div>
@@ -246,7 +352,7 @@ $serviceUrlHint = 'https://' . $config_base_url;
         <div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>Version</th><th>Ring</th><th>Min version</th><th>Rollout</th><th>Active</th><th>Package SHA-256</th><th></th></tr></thead><tbody>
         <?php foreach ($releases as $r) { $fid = 'rel_' . (int) $r['release_id']; ?>
             <tr>
-                <td><?= $h($r['version']) ?></td><td><?= $h($r['ring']) ?></td><td><?= $h($r['min_version']) ?></td>
+                <td><?= $h($r['version']) ?><?= $r['binary_id'] !== null ? '<div class="small text-muted">hosted, ' . $h($r['arch']) . '</div>' : '' ?></td><td><?= $h($r['ring']) ?></td><td><?= $h($r['min_version']) ?></td>
                 <td style="max-width:7rem"><input form="<?= $fid ?>" class="form-control form-control-sm" type="number" name="rollout_pct" min="0" max="100" value="<?= (int) $r['rollout_pct'] ?>" aria-label="Rollout percent"></td>
                 <td><input form="<?= $fid ?>" type="checkbox" class="form-check-input" name="active" value="1" <?= $r['active'] ? 'checked' : '' ?> aria-label="Active"></td>
                 <td class="small font-monospace text-break"><?= $h($r['sha256']) ?></td>
@@ -280,6 +386,14 @@ document.querySelectorAll('form[data-ea-confirm]').forEach(function (f) {
 });
 document.querySelectorAll('button[data-ea-confirm]').forEach(function (b) {
     b.addEventListener('click', function (e) { if (!confirm(b.getAttribute('data-ea-confirm'))) { e.preventDefault(); } });
+});
+document.querySelectorAll('[data-ea-copy-value],[data-ea-copy-target]').forEach(function (b) {
+    b.addEventListener('click', function () {
+        var t = b.getAttribute('data-ea-copy-target');
+        var v = t ? document.getElementById(t).value : b.getAttribute('data-ea-copy-value');
+        if (navigator.clipboard) { navigator.clipboard.writeText(v).then(function () { b.textContent = 'Copied'; }); }
+        else if (t) { document.getElementById(t).select(); document.execCommand('copy'); b.textContent = 'Copied'; }
+    });
 });
 document.querySelectorAll('input[data-ea-select]').forEach(function (i) { i.addEventListener('focus', function () { i.select(); }); });
 </script>
