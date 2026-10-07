@@ -8039,6 +8039,7 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_settings` (
   `mesh_token_ttl_s` int(11) NOT NULL DEFAULT 300,
   `coexistence_policy` text DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `ca_pem` text DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -8202,8 +8203,29 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_releases` (
   `notes` varchar(500) NOT NULL DEFAULT '',
   `created_by` int(11) NOT NULL DEFAULT 0,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `arch` varchar(10) NOT NULL DEFAULT '',
+  `binary_id` int(11) DEFAULT NULL,
   PRIMARY KEY (`release_id`),
-  UNIQUE KEY `uniq_version_ring` (`version`,`ring`)
+  UNIQUE KEY `uniq_version_ring_arch` (`version`,`ring`,`arch`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Endpoint agent binary hosting and per-department installers, DB 2.6.146
+--
+
+CREATE TABLE IF NOT EXISTS `endpoint_agent_binaries` (
+  `binary_id` int(11) NOT NULL AUTO_INCREMENT,
+  `version` varchar(40) NOT NULL,
+  `arch` varchar(10) NOT NULL,
+  `sha256` char(64) NOT NULL,
+  `size_bytes` bigint(20) NOT NULL DEFAULT 0,
+  `storage_name` varchar(64) NOT NULL,
+  `uploaded_by` int(11) NOT NULL DEFAULT 0,
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  `is_current` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`binary_id`),
+  UNIQUE KEY `uniq_version_arch` (`version`,`arch`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 INSERT IGNORE INTO `endpoint_agent_settings` (`id`) VALUES (1);

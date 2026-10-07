@@ -10314,3 +10314,49 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.145'");
     }
+
+    if ($rivetit_db_version() == '2.6.145') {
+        // Endpoint agent deployment: hosted agent binaries, per-architecture releases and an optional CA certificate that the
+        // per-department installer embeds. Additive and idempotent: every ALTER is guarded by information_schema, the table is
+        // CREATE IF NOT EXISTS. Nothing is added to the nearly full `settings` table.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_binaries` (
+  `binary_id` int(11) NOT NULL AUTO_INCREMENT,
+  `version` varchar(40) NOT NULL,
+  `arch` varchar(10) NOT NULL,
+  `sha256` char(64) NOT NULL,
+  `size_bytes` bigint(20) NOT NULL DEFAULT 0,
+  `storage_name` varchar(64) NOT NULL,
+  `uploaded_by` int(11) NOT NULL DEFAULT 0,
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  `is_current` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`binary_id`),
+  UNIQUE KEY `uniq_version_arch` (`version`,`arch`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        $rivetit_has_col = static function (string $table, string $col) use ($mysqli): bool {
+            $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$table' AND COLUMN_NAME = '$col'"));
+            return (int) ($r['c'] ?? 0) > 0;
+        };
+        if (!$rivetit_has_col('endpoint_agent_settings', 'ca_pem')) {
+            mysqli_query($mysqli, "ALTER TABLE `endpoint_agent_settings` ADD COLUMN `ca_pem` text DEFAULT NULL");
+        }
+        if (!$rivetit_has_col('endpoint_agent_releases', 'arch')) {
+            mysqli_query($mysqli, "ALTER TABLE `endpoint_agent_releases` ADD COLUMN `arch` varchar(10) NOT NULL DEFAULT ''");
+        }
+        if (!$rivetit_has_col('endpoint_agent_releases', 'binary_id')) {
+            mysqli_query($mysqli, "ALTER TABLE `endpoint_agent_releases` ADD COLUMN `binary_id` int(11) DEFAULT NULL");
+        }
+        $oldKey = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS c FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'endpoint_agent_releases' AND INDEX_NAME = 'uniq_version_ring'"));
+        if ((int) ($oldKey['c'] ?? 0) > 0) {
+            mysqli_query($mysqli, "ALTER TABLE `endpoint_agent_releases` DROP INDEX `uniq_version_ring`");
+        }
+        $newKey = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS c FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'endpoint_agent_releases' AND INDEX_NAME = 'uniq_version_ring_arch'"));
+        if ((int) ($newKey['c'] ?? 0) === 0) {
+            mysqli_query($mysqli, "ALTER TABLE `endpoint_agent_releases` ADD UNIQUE KEY `uniq_version_ring_arch` (`version`,`ring`,`arch`)");
+        }
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.146'");
+    }
