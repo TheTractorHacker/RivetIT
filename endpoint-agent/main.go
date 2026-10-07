@@ -2,9 +2,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
+	"time"
+
+	"rivetit-agent/internal/embed"
 )
 
 // Set at build time via -ldflags "-X main.version=... -X main.commit=...".
@@ -19,6 +23,7 @@ Usage: rivetit-agent <command> [flags]
 
 Commands:
   run         run in the foreground (also the entry point of the Windows service)
+  setup       install from the configuration embedded in a RivetIT-downloaded installer   [--silent] [--no-service]
   install     enroll this endpoint and install + start the Windows service (Windows only)
   uninstall   stop and remove the service and binaries   [--purge] [--remove-meshagent]
   enroll      exchange an enrollment token for a device credential
@@ -31,8 +36,15 @@ Common flags: --state-dir DIR (default on Windows: %%ProgramData%%\RivetIT\Agent
 Run "rivetit-agent <command> -h" for command flags.
 `
 
+// devCommands is filled by TEST/DEV-only files (build tag devtools).
+var devCommands = map[string]func([]string) int{}
+
 func main() {
 	if len(os.Args) < 2 {
+		// Double-click on a stamped installer = setup; otherwise show help.
+		if hasEmbeddedConfig() {
+			os.Exit(cmdSetup(nil))
+		}
 		fmt.Fprintf(os.Stderr, usage, version)
 		os.Exit(2)
 	}
@@ -47,6 +59,8 @@ func main() {
 		code = cmdEnroll(args, true)
 	case "status":
 		code = cmdStatus(args)
+	case "setup":
+		code = cmdSetup(args)
 	case "install":
 		code = cmdInstall(args)
 	case "uninstall":
@@ -58,9 +72,23 @@ func main() {
 	case "-h", "--help", "help":
 		fmt.Printf(usage, version)
 	default:
+		if fn, ok := devCommands[cmd]; ok {
+			os.Exit(fn(args))
+		}
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n", cmd)
 		fmt.Fprintf(os.Stderr, usage, version)
 		code = 2
 	}
 	os.Exit(code)
+}
+
+// hasEmbeddedConfig reports whether this exe carries a payload footer (valid or
+// not: a damaged one still routes to setup so the user gets a clear error).
+func hasEmbeddedConfig() bool {
+	self, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	_, err = embed.Read(self, time.Now())
+	return err == nil || !errors.Is(err, embed.ErrNotStamped)
 }

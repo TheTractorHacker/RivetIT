@@ -6,6 +6,11 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Endpoint agent: self-installing installer exe, CI build
+
+- **Installer:** `rivetit-agent.exe setup [--silent] [--no-service]` (also what a double-click does) installs from a payload the server appends to the exe (`RIVETIT-EMBED-v1` footer, SHA-256 checked, strict validation, expiry). It self-elevates on Windows, keeps the device identity on re-runs, installs only the unstamped bytes, registers an Add/Remove Programs entry and exits 0/2/3/4/5/6. A stamped exe still contains its token until it expires: use short lifetimes and limited uses. Windows parts are unverified on real Windows.
+- **CI:** `.github/workflows/endpoint-agent.yml` vets, race-tests, fuzzes and builds the agent (windows amd64/arm64, linux test), uploads `SHA256SUMS`, and releases on `agent-v*` tags; Authenticode signing is a disabled, secret-gated step.
+
 ### Findings round-up
 
 Closes out issue #29 (application findings from the user-guide review). Per-item outcome: `docs/FINDINGS-STATUS.md`;

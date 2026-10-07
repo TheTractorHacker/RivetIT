@@ -1,0 +1,135 @@
+name: Endpoint agent
+
+# Builds, tests and (on agent-v* tags) releases the Go Windows endpoint agent in endpoint-agent/.
+# The unsigned path needs NO secrets. Authenticode signing is a disabled, secret-gated step below.
+
+on:
+  push:
+    branches: ['**']
+    tags: ['agent-v*']
+    paths:
+      - 'endpoint-agent/**'
+      - '.github/workflows/endpoint-agent.yml'
+  pull_request:
+    paths:
+      - 'endpoint-agent/**'
+      - '.github/workflows/endpoint-agent.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: endpoint-agent-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: endpoint-agent
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: endpoint-agent/go.mod
+          cache-dependency-path: endpoint-agent/go.sum
+
+      - name: Compute version
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/agent-v* ]]; then
+            v="${GITHUB_REF#refs/tags/agent-v}"
+          else
+            v="0.0.0-dev.${GITHUB_SHA::7}"
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "commit=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: go vet (linux, windows/amd64, windows/arm64)
+        run: |
+          go vet ./...
+          GOOS=windows GOARCH=amd64 go vet ./...
+          GOOS=windows GOARCH=arm64 go vet ./...
+          go vet -tags 'devtools agenttest' ./...
+
+      - name: go test -race
+        run: go test -race -count=1 ./...
+
+      - name: Short fuzz of the installer payload parser
+        run: go test -run xxx -fuzz=FuzzEmbedded -fuzztime=20s ./internal/embed
+
+      - name: End-to-end against the fake server (including the stamped installer)
+        run: ./e2e/run_e2e.sh
+
+      - name: Build (-trimpath, version ldflags) and checksum
+        run: make dist VERSION='${{ steps.ver.outputs.version }}' COMMIT='${{ steps.ver.outputs.commit }}'
+
+      # ---- Authenticode signing: DISABLED by default -------------------------------------------
+      # Not performed unless you (1) flip `if: false` to the condition below, (2) add these repository
+      # secrets and (3) run on a Windows runner or use a signing service (osslsigncode on Linux works
+      # with a PFX too):
+      #   AUTHENTICODE_PFX_BASE64    base64 of the code-signing .pfx
+      #   AUTHENTICODE_PFX_PASSWORD  its password
+      #   AUTHENTICODE_TIMESTAMP_URL (optional) RFC 3161 server, default http://timestamp.digicert.com
+      # Sign BEFORE the checksums are computed, and before the server stamps per-department payloads
+      # onto the exe (the stamp is appended after the signed bytes; see README "Self-installing installer").
+      - name: Authenticode sign (disabled)
+        if: false   # replace with: ${{ secrets.AUTHENTICODE_PFX_BASE64 != '' }}
+        env:
+          PFX_B64: ${{ secrets.AUTHENTICODE_PFX_BASE64 }}
+          PFX_PASSWORD: ${{ secrets.AUTHENTICODE_PFX_PASSWORD }}
+          TS_URL: ${{ secrets.AUTHENTICODE_TIMESTAMP_URL }}
+        run: |
+          echo "$PFX_B64" | base64 -d > "$RUNNER_TEMP/sign.pfx"
+          sudo apt-get install -y osslsigncode
+          for f in dist/rivetit-agent-windows-*.exe; do
+            osslsigncode sign -pkcs12 "$RUNNER_TEMP/sign.pfx" -pass "$PFX_PASSWORD" \
+              -h sha256 -t "${TS_URL:-http://timestamp.digicert.com}" -in "$f" -out "$f.signed"
+            mv "$f.signed" "$f"
+          done
+          rm -f "$RUNNER_TEMP/sign.pfx"
+          make checksums
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rivetit-agent-${{ steps.ver.outputs.version }}
+          path: |
+            endpoint-agent/dist/rivetit-agent-windows-amd64.exe
+            endpoint-agent/dist/rivetit-agent-windows-arm64.exe
+            endpoint-agent/dist/rivetit-agent-linux-amd64
+            endpoint-agent/dist/SHA256SUMS
+          retention-days: 30
+          if-no-files-found: error
+
+  release:
+    # Only for agent-v* tags; the only job with write permission.
+    if: startsWith(github.ref, 'refs/tags/agent-v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/rivetit-agent-windows-amd64.exe
+            release/rivetit-agent-windows-arm64.exe
+            release/rivetit-agent-linux-amd64
+            release/SHA256SUMS
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            RivetIT endpoint agent. Upload the Windows executables in RivetIT under
+            Administration > Endpoint agent > Agent binaries, then download per-department installers from there.
+            The linux binary is a test build only. Binaries are UNSIGNED unless this release says otherwise. Verify with SHA256SUMS.

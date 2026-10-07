@@ -85,7 +85,9 @@ Loop (one goroutine; jobs run on separate workers):
 ```
 make vet test                       # go vet (linux + windows/amd64 + windows/arm64) and go test -race ./...
 make build VERSION=1.0.0            # dist/rivetit-agent-windows-{amd64,arm64}.exe and dist/rivetit-agent-linux-amd64 (test build)
-make checksums                      # dist/SHA256SUMS
+make dist VERSION=0.1.0             # clean dist/: both Windows exes, the Linux test binary and SHA256SUMS (what CI builds)
+make checksums                      # dist/SHA256SUMS only (the three release files)
+make syso                           # regenerate rsrc_windows_*.syso (needs goversioninfo; see winres/gen.sh)
 make fuzz                           # FuzzCanonical (job canonical JSON/signature path), FuzzDecoders (check-in/jobs/enroll decoders)
 make e2e                            # self-contained end-to-end run against e2e/fakeserver (Linux)
 ```
@@ -97,6 +99,9 @@ If your network does TLS inspection, point `SSL_CERT_FILE` at a bundle that incl
 **Reproducible build notes.** `-trimpath -buildvcs=false`, `CGO_ENABLED=0`, version/commit injected with `-ldflags -X`, `-s -w` stripping,
 no timestamps. Two builds with the same Go toolchain, source and `VERSION`/`COMMIT` produced byte-identical Windows executables on this machine
 (checked with `sha256sum`). Pin the toolchain version in your release pipeline; a different Go version produces different bytes.
+
+**CI.** `.github/workflows/endpoint-agent.yml` (repository root) runs vet, `go test -race`, a short fuzz, the fake-server e2e and the `make dist` builds on every push/PR touching
+`endpoint-agent/`, uploads the exes + `SHA256SUMS` for 30 days, and on tags `agent-v*` attaches them to a GitHub Release. Its Authenticode step is present but disabled.
 
 **Signing (documented, NOT performed here).** Authenticode-sign the Windows executables in your release pipeline *before* computing the
 checksums/ed25519 signature, e.g.:
@@ -130,6 +135,86 @@ Prefer `RIVETIT_ENROLL_TOKEN` or `--token-file` over `--token` (command lines ar
 `scripts/install-windows.ps1` wraps this for GPO / Intune / RMM: picks the right architecture, downloads over TLS, **verifies the SHA-256**
 (required parameter) and optionally the Authenticode signature before running anything, passes the token through the environment, and
 cleans up. MSI packaging is a documented follow-up; the script approach needs no WiX.
+
+### Self-installing per-department installer
+
+A RivetIT administrator downloads `rivetit-agent-<department>.exe` from the server. It is the same agent exe with a small payload appended by the
+server at download time; double-clicking it (or running it from a GPO/Intune/RMM task) installs the agent for that department with no
+arguments to type. `install --server --token` and `scripts/install-windows.ps1` keep working and share the same code path (`performInstall`).
+
+**File format (fixed contract, `internal/embed`).**
+
+```
+stamped_exe = <original exe bytes> || payload || footer
+payload     = UTF-8 JSON, at most 16384 bytes:
+              {"version":1,"installer_id":"<uuid>","server_url":"https://host[/prefix]","enrollment_token":"rvte1.<selector>.<secret>",
+               "department":"<name>","ca_pem":null|"<PEM text>","created_at":"RFC3339 UTC","expires_at":"RFC3339 UTC"}
+footer      = 52 bytes: uint32 big-endian payload length || 32-byte raw SHA-256 of the payload || 16 ASCII bytes "RIVETIT-EMBED-v1"
+```
+
+The agent reads only the **last 52 bytes** of its own exe (`os.Executable()`), checks the magic, bounds the length (`<= 16384` and `<= file size - 52`),
+verifies the SHA-256, then validates the JSON strictly: `version == 1`, `installer_id` a UUID, `server_url` `https` only (plain `http` to loopback only in
+`-tags agenttest` builds), no userinfo/query/fragment, token shape `rvte1.<selector>.<secret>`, department 1-255 characters without control characters,
+`ca_pem` (when present) only valid PEM certificates, `created_at`/`expires_at` RFC3339 with expiry after creation. Unknown fields are ignored. An expired
+payload is a specific error. Bytes appended after the footer (for example by a tool that re-signs the file) make the file read as "not stamped". The server's
+shared test vectors (`tests/fixtures/agent_installer_trailer_vectors.json`, copied to `internal/embed/testdata/`) run in `go test`; `FuzzEmbedded` fuzzes the parser.
+The enrollment token is never printed or logged: `Payload.String()` redacts it, error values never contain payload text, and every log line passes through a
+`rvte1.*` scrubber.
+
+**Commands and exit codes.**
+
+```
+rivetit-agent.exe                 # no arguments: runs setup when a payload is present (double-click), prints help otherwise
+rivetit-agent.exe setup [--silent] [--state-dir D] [--install-dir D] [--no-service]
+```
+
+| Exit | Meaning |
+|---|---|
+| 0 | installed and enrolled (or already enrolled on this server: identity kept) |
+| 2 | embedded configuration missing, invalid or expired (also bad flags) |
+| 3 | the server rejected the token (invalid, expired or used up); nothing is installed |
+| 4 | network/transient: the agent **is installed and running**, enrollment is pending (the one-shot token is kept DPAPI-protected and the service retries); re-running is safe |
+| 5 | install or service failure (or enrollment failed locally) |
+| 6 | not elevated and cannot elevate |
+
+`--silent` never shows UI, never relaunches and reports only through the exit code and the log: run it elevated (GPO startup script, Intune, RMM run as SYSTEM).
+Interactive runs print short progress text and end with a MessageBox (success or failure, with the log path; the token is never shown).
+`--no-service` skips service registration and the Add/Remove Programs entry (Linux test mode and e2e); on Linux the binary is staged under `<state-dir>/bin`.
+
+**Elevation.** The manifest says `asInvoker`, so the service (SYSTEM), the CLI and the updater's selftest are unaffected. When `setup` (or `uninstall`)
+runs without elevation on Windows it validates the payload first (a bad installer fails before any prompt), then relaunches itself with
+`ShellExecuteEx` verb `runas`, waits and returns the child's exit code. The child command line is rebuilt from the *parsed* options only
+(allowlist: `setup --elevated [--no-service]`; `uninstall --elevated [--purge] [--remove-meshagent]`), each argument quoted with CommandLineToArgvW rules.
+`--silent` is never forwarded, `--elevated` stops a child that is still not elevated from relaunching again (exit 6), and a custom `--state-dir`/`--install-dir`
+is refused with exit 6 unless the process is already elevated, so an unelevated user cannot aim an administrator-approved process at a path of their choosing.
+
+**What setup leaves behind.** `%ProgramData%\RivetIT\Agent\` (config, `ca.pem` when embedded, device credential DPAPI-protected, `install.log`, `agent.log`),
+`%ProgramFiles%\RivetIT\Agent\rivetit-agent.exe`, the `RivetITAgent` service, and an Add/Remove Programs entry
+(`HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\RivetITAgent`: DisplayName, DisplayVersion, Publisher, InstallLocation, DisplayIcon,
+`UninstallString` = `"...\rivetit-agent.exe" uninstall`, NoModify, NoRepair). `uninstall` removes the entry (and elevates itself, because Add/Remove Programs starts
+it unelevated). `install.log` is redacted and rotated at 1 MiB. Not-elevated runs and payload errors detected before elevation cannot write it (only the console and
+MessageBox show the reason).
+
+**Idempotence.** Running the same installer twice upgrades the binary (old one kept as `.old` until the next run) and keeps the device identity: a device that is already
+enrolled on the same server skips the enrollment exchange (a used-up one-shot token would otherwise fail the re-run).
+
+**The installed copy never contains the token.** `setup` copies only the original exe bytes (everything before the payload) to the program directory through a
+temporary file, verifies the result is exactly that length and carries no footer, and refuses to install a copy that still does (or to run from an installed path
+that is itself stamped). Nothing has to be overwritten because the token is never written there. **The downloaded installer is different:** a stamped exe left in
+Downloads (or on a share, or attached to a ticket) still contains the enrollment token until it expires or is used up. Treat the file as a credential, use short lifetimes
+and limited uses when creating the token on the server, and delete the installer after the rollout. `setup` does not delete itself.
+
+**Signing caveat.** The server appends the payload to the exe after any Authenticode signature, so the signature covers the original bytes only; some
+tools and policies (for example the Windows `EnableCertPaddingCheck` strictness) treat data after the signature as tampering. Test that on a pilot before relying on signing.
+
+**TEST/DEV ONLY stamp tool.** `go build -tags devtools` adds `rivetit-agent stamp --in EXE --out F --server U --token T --department D [--ca PEM] [--ttl 1h]`. It is compiled
+out of every `make dist` / CI release build. `e2e/run_e2e.sh` uses it to stamp the Linux test binary and run `setup --silent --no-service` against the fake server
+(enrollment, strip-token, idempotence, exit 2 for an unstamped exe); set `RIVETIT_E2E_STAMPED_TOKEN` to repeat that against a real scratch server.
+
+**Windows-only and UNVERIFIED** (compiled and vetted for windows/amd64 and windows/arm64, **never run on Windows**): the `ShellExecuteEx` relaunch and exit-code
+propagation (`elevate_windows.go`), the MessageBox, the Add/Remove Programs registry writes (`arp_windows.go`), the manifest/version resources (`rsrc_windows_*.syso`: the Go linker
+accepted them and the strings are present in the PE, but no Windows loader has read them), UAC behaviour with a double-clicked exe, and the service/DPAPI parts described elsewhere. The
+Linux-tested portion is everything else: payload parsing, the install flow, exit codes, idempotence, the strip-token copy and argument quoting.
 
 ### Uninstall and retirement ownership policy
 
@@ -310,6 +395,7 @@ Everything below compiles and vets for windows/amd64 and windows/arm64 and has *
 - `internal/jobs/exec_windows.go`, `shell_windows.go` (PowerShell `-EncodedCommand` execution, `taskkill /T /F` tree kill, minimal environment)
 - `internal/agent/reboot_windows.go` (`shutdown.exe /r /t`), `cmd_install_windows.go` (install/uninstall, self-copy, delayed self-delete, `MeshAgent.exe -fulluninstall`)
 - `scripts/install-windows.ps1`
+- The self-installing installer's elevation, MessageBox, Add/Remove Programs entry and manifest (see "Self-installing per-department installer")
 - The update rename/restart sequence on a real SCM, and the whole system under EDR/AV
 - Authenticode signing (not performed), MSI packaging (not built)
 

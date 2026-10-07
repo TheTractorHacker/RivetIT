@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 // enrollFlags are shared by enroll, rotate and install.
 type enrollFlags struct {
 	server, token, tokenFile, ca, pin, department string
+	caPEM                                         []byte // CA certificates supplied in memory (stamped installer); used when ca is empty
 }
 
 func applyConfig(st *store.Store, f enrollFlags) error {
@@ -31,10 +33,13 @@ func applyConfig(st *store.Store, f enrollFlags) error {
 	if f.department != "" {
 		cfg.Department = f.department
 	}
-	if f.ca != "" {
-		pem, err := os.ReadFile(f.ca)
-		if err != nil {
-			return fmt.Errorf("read --ca: %w", err)
+	if f.ca != "" || len(f.caPEM) > 0 {
+		pem := f.caPEM
+		if f.ca != "" {
+			var err error
+			if pem, err = os.ReadFile(f.ca); err != nil {
+				return fmt.Errorf("read --ca: %w", err)
+			}
 		}
 		// copy into the protected state dir so the agent does not depend on
 		// the original path (a GPO share, a temp dir...)
@@ -87,12 +92,28 @@ func cmdEnroll(args []string, rotate bool) int {
 	return printStatus(st)
 }
 
-// enrollNow performs the exchange and prints a clear result.
-func enrollNow(st *store.Store, tok, level string, rotate bool) int {
-	a, err := newAgent(st, consoleLog(level), "")
+// enrollKind classifies an enrollment attempt for callers that map it to an
+// exit code (install keeps its historic codes; setup has its own table).
+type enrollKind int
+
+const (
+	enrollOK        enrollKind = iota
+	enrollRejected             // token invalid/expired/used up, or the credential is revoked: permanent
+	enrollTransient            // network error, 5xx or 429: retry later
+	enrollFailed               // local failure (bad config/CA, store write)
+)
+
+type enrollOutcome struct {
+	Kind enrollKind
+	Msg  string // safe to show: never contains the token
+	Code int    // exit code the enroll/rotate/install commands have always used
+}
+
+// tryEnroll performs the exchange once. It never prints.
+func tryEnroll(st *store.Store, tok string, log *slog.Logger) enrollOutcome {
+	a, err := newAgent(st, log, "")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		return 1
+		return enrollOutcome{enrollFailed, err.Error(), 1}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
@@ -101,18 +122,27 @@ func enrollNow(st *store.Store, tok, level string, rotate bool) int {
 		if errors.As(err, &ae) {
 			switch {
 			case ae.Status == 429:
-				fmt.Fprintf(os.Stderr, "enrollment rate-limited by the server; retry in %s\n", ae.RetryAfter)
-				return 75
+				return enrollOutcome{enrollTransient, fmt.Sprintf("enrollment rate-limited by the server; retry in %s", ae.RetryAfter), 75}
 			case ae.AuthRejected() || ae.Status == 403:
-				fmt.Fprintf(os.Stderr, "enrollment token rejected (%s): it may be invalid, expired or already used; ask an administrator for a new one\n", ae.Code)
-				return 3
+				return enrollOutcome{enrollRejected, fmt.Sprintf("enrollment token rejected (%s): it may be invalid, expired or already used; ask an administrator for a new one", ae.Code), 3}
 			case ae.Revoked():
-				fmt.Fprintln(os.Stderr, "enrollment refused: this credential has been revoked")
-				return 3
+				return enrollOutcome{enrollRejected, "enrollment refused: this credential has been revoked", 3}
+			case ae.Transient():
+				return enrollOutcome{enrollTransient, "enrollment failed: " + err.Error(), 1}
+			default:
+				return enrollOutcome{enrollRejected, "enrollment refused by the server: " + err.Error(), 1}
 			}
 		}
-		fmt.Fprintln(os.Stderr, "enrollment failed:", err)
-		return 1
+		return enrollOutcome{enrollFailed, "enrollment failed: " + err.Error(), 1}
+	}
+	return enrollOutcome{enrollOK, "", 0}
+}
+
+// enrollNow performs the exchange and prints a clear result.
+func enrollNow(st *store.Store, tok, level string, rotate bool) int {
+	if o := tryEnroll(st, tok, consoleLog(level)); o.Kind != enrollOK {
+		fmt.Fprintln(os.Stderr, o.Msg)
+		return o.Code
 	}
 	if rotate {
 		fmt.Println("credential rotated; device identity unchanged")
