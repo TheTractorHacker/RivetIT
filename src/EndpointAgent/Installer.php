@@ -96,6 +96,36 @@ final class Installer
         }
     }
 
+    /**
+     * Admin flow: create the enrollment token and its stamp payload for a department. Nothing is created when a precondition fails.
+     * @return array{ok:bool,error?:string,token?:array<string,mixed>,token_plain?:string,payload?:string,installer_id?:string,department?:string}
+     */
+    public static function issue(int $clientId, int $locationId, string $ring, int $ttlHours, int $maxUses, string $label, string $arch, int $userId, string $actorName): array
+    {
+        $refusal = self::preflight($arch);
+        if ($refusal !== null) {
+            return ['ok' => false, 'error' => $refusal];
+        }
+        if ($clientId <= 0 || Db::val('SELECT client_id FROM clients WHERE client_id = ?', [$clientId]) === null) {
+            return ['ok' => false, 'error' => 'Choose the department the devices belong to.'];
+        }
+        if ($locationId > 0 && Db::val('SELECT location_id FROM locations WHERE location_id = ? AND location_client_id = ?', [$locationId, $clientId]) === null) {
+            $locationId = 0;
+        }
+        $installerId = Jobs::uuid();
+        $t = Enrollment::createToken($clientId, $locationId, $ring, $ttlHours, $maxUses, $label !== '' ? $label : 'Installer ' . substr($installerId, 0, 8), $userId);
+        $row = Db::one('SELECT * FROM endpoint_agent_enrollment_tokens WHERE token_id = ?', [$t['token_id']]);
+        [$payload, $err] = self::payloadFor($row, $t['token'], $installerId);
+        if ($payload === null) {
+            Enrollment::revokeToken($t['token_id'], $userId);
+            return ['ok' => false, 'error' => (string) $err];
+        }
+        $dept = self::departmentName($clientId);
+        Enrollment::audit('Installer Created', "$actorName created installer $installerId ($arch) for department \"$dept\" with enrollment token #{$t['token_id']} ({$row['token_selector']}), "
+            . "{$row['max_uses']} uses, expires {$row['expires_at']} UTC", $clientId, 0);
+        return ['ok' => true, 'token' => $row, 'token_plain' => $t['token'], 'payload' => $payload, 'installer_id' => $installerId, 'department' => $dept];
+    }
+
     /** Preconditions shared by both download paths. @return string|null a refusal message */
     public static function preflight(string $arch): ?string
     {
