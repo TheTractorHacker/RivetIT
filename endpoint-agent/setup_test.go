@@ -363,11 +363,11 @@ func TestSetupExitCodes(t *testing.T) {
 		e := newEnv(t)
 		e.stampWith(srv, nil)
 		e.elevated, e.elevCode = false, 3
-		c := runSetup([]string{"--no-service", "--state-dir", e.state}, e.ops(), time.Now)
+		c := runSetup([]string{"--no-service"}, e.ops(), time.Now)
 		if c != 3 {
 			t.Fatalf("got %d", c)
 		}
-		if len(e.calls) != 1 || e.calls[0] != "elevate:setup --elevated --state-dir "+e.state+" --no-service" {
+		if len(e.calls) != 1 || e.calls[0] != "elevate:setup --elevated --no-service" {
 			t.Fatalf("elevation args: %v", e.calls)
 		}
 		if len(e.msgs) != 0 {
@@ -492,19 +492,29 @@ func TestEscapeArgRoundTrip(t *testing.T) {
 
 func TestElevatedArgsAllowlist(t *testing.T) {
 	o := setupOpts{silent: true, noService: true, stateDir: `C:\x y\"; calc`, installDir: `C:\p`,
-		explicit: map[string]bool{"state-dir": true}}
+		explicit: map[string]bool{"state-dir": true, "install-dir": true}}
 	a := o.elevatedArgs()
-	want := []string{"setup", "--elevated", "--state-dir", `C:\x y\"; calc`, "--no-service"}
+	want := []string{"setup", "--elevated", "--no-service"}
 	if strings.Join(a, "\x00") != strings.Join(want, "\x00") {
 		t.Fatalf("%q", a)
 	}
-	for _, x := range a {
-		if x == "--silent" {
-			t.Fatal("silent leaked into the elevated command")
+}
+
+func TestUnelevatedCustomPathsAreRefused(t *testing.T) {
+	srv := newEnrollSrv(t)
+	for _, flag := range []string{"--state-dir", "--install-dir"} {
+		e := newEnv(t)
+		e.stampWith(srv, nil)
+		e.elevated = false
+		args := []string{flag, e.dir}
+		if flag == "--install-dir" {
+			args = append(args, "--state-dir", e.state)
 		}
-	}
-	// and the joined line parses back to exactly these args
-	if got := argv(joinArgs(a)); strings.Join(got, "\x00") != strings.Join(want, "\x00") {
-		t.Fatalf("%q", got)
+		if c := runSetup(args, e.ops(), time.Now); c != exitNotElevated {
+			t.Fatalf("%s: exit %d", flag, c)
+		}
+		if len(e.calls) != 0 {
+			t.Fatalf("%s: tried to elevate: %v", flag, e.calls)
+		}
 	}
 }

@@ -97,14 +97,11 @@ type setupOpts struct {
 // elevatedArgs rebuilds the child command line from the PARSED options only
 // (an allowlist), never from raw os.Args, so nothing user-controlled can add a
 // flag or a command. --silent is deliberately absent: silent runs never elevate.
+// Custom --state-dir/--install-dir are NOT forwarded (see runSetup): an
+// unelevated user must not be able to point an administrator-approved process
+// at a path of their choosing (service binary swap, state purge).
 func (o setupOpts) elevatedArgs() []string {
 	a := []string{"setup", "--elevated"}
-	if o.explicit["state-dir"] {
-		a = append(a, "--state-dir", o.stateDir)
-	}
-	if o.explicit["install-dir"] {
-		a = append(a, "--install-dir", o.installDir)
-	}
 	if o.noService {
 		a = append(a, "--no-service")
 	}
@@ -186,6 +183,10 @@ func runSetup(args []string, ops sysOps, now func() time.Time) int {
 			if !o.silent {
 				ops.message(title, msg, true)
 			}
+			return exitNotElevated
+		}
+		if o.explicit["state-dir"] || o.explicit["install-dir"] {
+			say("Custom --state-dir/--install-dir are only accepted from an already elevated run (for example SYSTEM or an elevated prompt).", true)
 			return exitNotElevated
 		}
 		fmt.Println("Administrator rights are required; asking Windows to elevate...")

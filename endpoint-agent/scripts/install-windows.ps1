@@ -10,6 +10,14 @@
   Idempotent: re-running upgrades the binary and leaves the device identity
   alone; pass a new token only when you want to rotate the credential.
 
+  NOTE: administrators can instead download a per-department, self-installing
+  rivetit-agent-<department>.exe from RivetIT (Administration > Endpoint agent);
+  it carries its server URL, CA and one-shot token and needs no script. Run it as
+  `rivetit-agent-<department>.exe setup --silent` from SYSTEM for unattended use
+  (exit codes: 0 ok, 2 bad/expired embedded config, 3 token rejected, 4 network
+  retryable, 5 install failure, 6 not elevated). This script stays supported for
+  deployments that prefer a verified download plus a token passed separately.
+
   UNVERIFIED: this script has not been executed on a real Windows host (none was
   available when it was written). Test it on a pilot machine first.
 

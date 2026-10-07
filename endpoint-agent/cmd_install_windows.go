@@ -70,7 +70,13 @@ func cmdUninstall(args []string) int {
 			fmt.Fprintln(os.Stderr, "error: uninstall needs administrator rights")
 			return exitNotElevated
 		}
-		a := []string{"uninstall", "--elevated", "--state-dir", *dir, "--install-dir", *installDir}
+		// Only the default locations may be handed to the elevated child (an unelevated
+		// user must not steer an administrator-approved process at paths of their choosing).
+		if *dir != defaultStateDir() || *installDir != defaultInstallDir() {
+			fmt.Fprintln(os.Stderr, "error: custom --state-dir/--install-dir need an already elevated run")
+			return exitNotElevated
+		}
+		a := []string{"uninstall", "--elevated"}
 		if *purge {
 			a = append(a, "--purge")
 		}
