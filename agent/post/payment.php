@@ -38,7 +38,12 @@ if (isset($_POST['add_payment'])) {
     $balance = $balance_row ? floatval($balance_row['balance']) : 0;
 
     //Check to see if amount entered is greater than the balance of the invoice
-    if ($amount > $balance) {
+    if ($amount < 0) {
+        // A negative amount would pass the balance check below and write a negative payment row, which silently re-opens a
+        // paid invoice or reduces what it is recorded as having received. (Zero stays allowed: a zero-total invoice is settled with it.)
+        flash_alert("Payment can not be negative", 'error');
+        redirect();
+    } elseif ($amount > $balance) {
         flash_alert("Payment can not be more than the balance", 'error');
         redirect();
     } else {
