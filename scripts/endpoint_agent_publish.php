@@ -21,8 +21,34 @@ require_once "../vendor/autoload.php";
 use ITFlow\EndpointAgent\Binaries;
 
 mysqli_report(MYSQLI_REPORT_OFF);
-$opts = getopt('', ['version:', 'arch:', 'activate', 'release:', 'rollout:', 'notes:', 'help'], $rest);
-$file = $argv[$rest] ?? null;
+// Own argument parser: the executable may come before or after the options (PHP's getopt() stops at the first non-option).
+$opts = [];
+$file = null;
+$args = array_slice($argv, 1);
+$valueOpts = ['version', 'arch', 'release', 'rollout', 'notes'];
+for ($i = 0; $i < count($args); $i++) {
+    $a = $args[$i];
+    if (strncmp($a, '--', 2) === 0) {
+        $name = substr($a, 2);
+        $val = null;
+        if (strpos($name, '=') !== false) {
+            [$name, $val] = explode('=', $name, 2);
+        }
+        if (in_array($name, $valueOpts, true)) {
+            $opts[$name] = $val ?? ($args[++$i] ?? '');
+        } elseif ($name === 'activate' || $name === 'help') {
+            $opts[$name] = true;
+        } else {
+            fwrite(STDERR, "Error: unknown option --$name\n");
+            exit(1);
+        }
+    } elseif ($file === null) {
+        $file = $a;
+    } else {
+        fwrite(STDERR, "Error: only one executable may be given.\n");
+        exit(1);
+    }
+}
 if (isset($opts['help']) || $file === null || !isset($opts['version'], $opts['arch'])) {
     echo "Usage: php endpoint_agent_publish.php <exe> --version X.Y.Z --arch amd64|arm64 [--activate] [--release stable|pilot [--rollout N] [--notes TEXT]]\n";
     exit(isset($opts['help']) ? 0 : 1);

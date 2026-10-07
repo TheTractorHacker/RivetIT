@@ -11,8 +11,8 @@ final class Installer
     // Rate limits for the token-gated download, DB backed (shares endpoint_agent_enroll_attempts with enrollment; the ip_hash salt keeps
     // the two buckets apart). Window 10 minutes.
     private const WINDOW_S = 600;
-    private const IP_MAX_FAILURES = 5;
-    private const IP_MAX_ATTEMPTS = 20;
+    private const IP_MAX_FAILURES = 10;
+    private const IP_MAX_ATTEMPTS = 30;
     private const TOKEN_MAX_DOWNLOADS = 30;
     private const SELECTOR_MAX_FAILURES = 20;
 

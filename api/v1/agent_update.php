@@ -20,7 +20,7 @@ ea_guard(static function () {
     }
     $dev = Devices::authenticate(ea_bearer());
     $deviceId = (int) $dev['device_id'];
-    ea_device_rate_limit($deviceId, 'update', 20, 60);
+    ea_device_rate_limit($deviceId, 'update', 60, 60);
     $arch = $_GET['arch'] ?? null;
     $version = $_GET['version'] ?? null;
     if (!is_string($arch) || !isset(Binaries::ARCHS[$arch]) || !is_string($version) || !preg_match(Binaries::VERSION_RE, $version)) {

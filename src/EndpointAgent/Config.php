@@ -34,7 +34,7 @@ final class Config
             'failure_debounce', 'recovery_debounce', 'retention_days', 'job_retention_days', 'job_output_max_bytes',
             'job_default_timeout_s', 'job_max_timeout_s', 'job_expiry_s', 'job_ack_timeout_s', 'job_max_attempts', 'enroll_max_ttl_h',
             'unmatched_policy', 'checks_json', 'mesh_enabled', 'mesh_url', 'mesh_domain', 'mesh_login_key_enc', 'mesh_account_template',
-            'mesh_policy', 'mesh_token_ttl_s', 'coexistence_policy', 'integration_id'];
+            'mesh_policy', 'mesh_token_ttl_s', 'coexistence_policy', 'integration_id', 'ca_pem'];
         $sets = [];
         $params = [];
         foreach ($values as $k => $v) {
