@@ -13,7 +13,7 @@ namespace ITFlow\EndpointAgent;
 final class Binaries
 {
     public const ARCHS = ['amd64' => 0x8664, 'arm64' => 0xAA64];
-    public const VERSION_RE = '/^\d{1,5}\.\d{1,5}\.\d{1,5}([-+][0-9A-Za-z.-]{1,20})?$/';
+    public const VERSION_RE = '/^\d{1,5}\.\d{1,5}\.\d{1,5}([-+][0-9A-Za-z.-]{1,20})?\z/';
     public const DEFAULT_MAX_BYTES = 67108864;   // 64 MiB
     private const MIN_BYTES = 1024;
 
@@ -273,7 +273,9 @@ final class Binaries
             return null;
         }
         $scheme = $p['scheme'] ?? '';
-        $insecureOk = defined('EA_ALLOW_INSECURE_HTTP') && EA_ALLOW_INSECURE_HTTP === true && $scheme === 'http';
+        // Plain http is only ever tolerated for loopback test servers (config.php defines EA_ALLOW_INSECURE_HTTP there, never in production).
+        $insecureOk = defined('EA_ALLOW_INSECURE_HTTP') && EA_ALLOW_INSECURE_HTTP === true && $scheme === 'http'
+            && in_array(strtolower($p['host']), ['127.0.0.1', 'localhost', '[::1]'], true);
         if ($scheme !== 'https' && !$insecureOk) {
             return null;
         }

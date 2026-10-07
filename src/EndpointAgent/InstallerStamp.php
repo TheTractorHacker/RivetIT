@@ -86,10 +86,10 @@ final class InstallerStamp
         if (!hash_equals(substr($footer, 4, 32), hash('sha256', $payload, true))) {
             return null;
         }
-        $data = json_decode($payload, true);
-        if (!is_array($data) || array_is_list($data)) {
-            return null;
+        $obj = json_decode($payload);
+        if (!is_object($obj)) {
+            return null;   // must be a JSON object (an empty {} is one; a list or scalar is not)
         }
-        return ['payload' => $payload, 'exe_length' => $total - self::FOOTER_LEN - $len, 'data' => $data];
+        return ['payload' => $payload, 'exe_length' => $total - self::FOOTER_LEN - $len, 'data' => (array) json_decode($payload, true)];
     }
 }
