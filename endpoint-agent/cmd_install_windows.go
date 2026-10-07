@@ -4,49 +4,15 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
 	"time"
 
-	"rivetit-agent/internal/store"
 	"rivetit-agent/internal/svc"
 )
-
-const exeName = "rivetit-agent.exe"
-
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	tmp := dst + ".tmp"
-	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(out, in); err != nil {
-		out.Close()
-		os.Remove(tmp)
-		return err
-	}
-	if err := out.Close(); err != nil {
-		return err
-	}
-	_ = os.Remove(dst + ".old")
-	if _, err := os.Stat(dst); err == nil {
-		if err := os.Rename(dst, dst+".old"); err != nil {
-			os.Remove(tmp)
-			return fmt.Errorf("cannot replace the installed binary (service running? stop it first): %w", err)
-		}
-	}
-	return os.Rename(tmp, dst)
-}
 
 func cmdInstall(args []string) int {
 	fs, dir := newFlags("install")
@@ -62,68 +28,29 @@ func cmdInstall(args []string) int {
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	st, err := openStore(*dir)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		return 1
-	}
-	tok, _ := readToken(f.token, f.tokenFile)
-	if err := applyConfig(st, f); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		return 1
-	}
-	// 1. enroll (idempotent: skipped when already enrolled and no new token)
-	existing, _ := st.LoadToken()
-	switch {
-	case tok != "":
-		code := enrollNow(st, tok, *level, existing != "")
-		if code == 3 { // permanent rejection: fail the install visibly
-			return code
-		}
-		if code != 0 {
-			// Offline at install time (imaging/GPO): keep the one-shot token,
-			// protected, and let the service finish enrollment.
-			fmt.Fprintln(os.Stderr, "warning: could not enroll now; the service will retry using the stored one-shot token")
-			if err := st.SaveEnrollToken(tok); err != nil {
-				fmt.Fprintln(os.Stderr, "error:", err)
-				return 1
-			}
-		}
-	case existing == "":
-		fmt.Fprintln(os.Stderr, "error: an enrollment token is required for a first install")
-		return 2
-	}
-	// 2. binary
 	self, err := os.Executable()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	if err := os.MkdirAll(*installDir, 0o755); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		return 1
-	}
-	dst := filepath.Join(*installDir, exeName)
-	if filepath.Clean(self) != filepath.Clean(dst) {
-		if err := svc.StopService(); err != nil {
-			fmt.Fprintln(os.Stderr, "error: stopping existing service:", err)
-			return 1
-		}
-		if err := copyFile(self, dst); err != nil {
-			fmt.Fprintln(os.Stderr, "error: installing binary:", err)
-			return 1
-		}
-	}
-	// 3. service
-	if err := svc.InstallService(dst, []string{"run", "--state-dir", *dir}); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		return 1
-	}
-	if err := svc.StartService(); err != nil {
-		fmt.Fprintln(os.Stderr, "error: starting service:", err)
+	res := performInstall(installParams{flags: f, stateDir: *dir, installDir: *installDir, self: self, version: version},
+		realOps(), consoleLog(*level))
+	switch res.Kind {
+	case instNoToken:
+		fmt.Fprintln(os.Stderr, "error:", res.Msg)
+		return 2
+	case instRejected:
+		fmt.Fprintln(os.Stderr, res.Msg)
+		return 3
+	case instConfig, instFail:
+		fmt.Fprintln(os.Stderr, "error:", res.Msg)
 		return 1
 	}
 	fmt.Println("RivetIT Agent installed and started")
+	st, err := openStore(*dir)
+	if err != nil {
+		return 1
+	}
 	return printStatus(st)
 }
 
@@ -132,14 +59,39 @@ func cmdUninstall(args []string) int {
 	purge := fs.Bool("purge", false, "also delete local state (config, credential, buffers)")
 	meshAgent := fs.Bool("remove-meshagent", false, "ALSO uninstall a separately managed MeshCentral agent (default: leave it untouched)")
 	installDir := fs.String("install-dir", defaultInstallDir(), "binary directory")
+	elevated := fs.Bool("elevated", false, "internal: this process was relaunched elevated")
 	if err := fs.Parse(args); err != nil {
 		return 2
+	}
+	// Add/Remove Programs starts "uninstall" unelevated (the manifest is
+	// asInvoker): relaunch with an allowlisted rebuild of the parsed flags.
+	if !isElevatedWindows() {
+		if *elevated {
+			fmt.Fprintln(os.Stderr, "error: uninstall needs administrator rights")
+			return exitNotElevated
+		}
+		a := []string{"uninstall", "--elevated", "--state-dir", *dir, "--install-dir", *installDir}
+		if *purge {
+			a = append(a, "--purge")
+		}
+		if *meshAgent {
+			a = append(a, "--remove-meshagent")
+		}
+		code, err := relaunchElevated(a)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error: uninstall needs administrator rights:", err)
+			return exitNotElevated
+		}
+		return code
 	}
 	if err := svc.RemoveService(); err != nil {
 		fmt.Fprintln(os.Stderr, "error: removing service:", err)
 		return 1
 	}
 	fmt.Println("service stopped and removed")
+	if err := removeARPEntry(); err != nil {
+		fmt.Fprintln(os.Stderr, "warning: removing the Add/Remove Programs entry:", err)
+	}
 	if *meshAgent {
 		removeMeshAgent()
 	} else {
@@ -204,6 +156,3 @@ func removeMeshAgent() {
 		fmt.Fprintln(os.Stderr, "warning: MeshAgent uninstall timed out")
 	}
 }
-
-var _ = errors.New
-var _ = store.Config{}
