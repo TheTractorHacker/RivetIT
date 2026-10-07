@@ -3802,8 +3802,9 @@ function fetchUpdates() {
     $current_version = exec("git rev-parse HEAD");
 
     // Human-readable tag-based versions (e.g. v2.6.0)
-    $current_version_tag = exec("git describe --tags --abbrev=0 HEAD 2>/dev/null") ?: $current_version;
-    $latest_version_tag  = exec("git describe --tags --abbrev=0 $update_ref 2>/dev/null") ?: $latest_version;
+    // (app release tags only: see releaseDescribeTag(); the agent's agent-v* tags must never show up here)
+    $current_version_tag = releaseDescribeTag(__DIR__, 'HEAD') ?: $current_version;
+    $latest_version_tag  = releaseDescribeTag(__DIR__, "$update_remote/$repo_branch") ?: $latest_version;
 
     if ($current_version == $latest_version) {
         $update_message = "No Updates available";

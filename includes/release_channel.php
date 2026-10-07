@@ -57,6 +57,20 @@ function releaseGit(string $dir, string $args): array
 }
 
 /**
+ * The nearest APP release tag reachable from $ref, for the Update page ("Release tag"): v26.10.26, or a legacy v1.52.0. Other
+ * tag families in the repository (the endpoint agent's agent-v0.1.0-beta.1) are ignored: when two tags sit on one commit a plain
+ * `git describe` shows whichever is newer, which put the agent's tag on the Update page of a server that was fully up to date.
+ * @return string|null null when no app release tag is reachable
+ */
+function releaseDescribeTag(string $dir, string $ref): ?string
+{
+    [$code, $out] = releaseGit($dir, 'describe --tags --abbrev=0 --match ' . escapeshellarg('v[0-9]*') . ' ' . escapeshellarg($ref));
+    $tag = trim((string) end($out));
+
+    return $code === 0 && $tag !== '' ? $tag : null;
+}
+
+/**
  * Composer rewrites vendor/composer/* (it records the checkout's git HEAD), so on a server the tracked copies are always
  * "modified" and git then refuses to switch branches or pull. They are generated files: put them back before any
  * branch switch or pull (the deploy script does the same). Nothing else is touched.
