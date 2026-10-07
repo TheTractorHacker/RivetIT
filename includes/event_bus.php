@@ -275,10 +275,23 @@ function rivetAutomationActionHandlers($mysqli, string $ruleName): array
                     $headers[] = $prefix . '-Signature: sha256=' . hash_hmac('sha256', $body, (string) $cfg['secret']);
                 }
             }
-            $ch = curl_init((string) $cfg['url']);
+            // pinnedUrl() hands curl the same host spelling the pin is keyed on ("example.com." with a trailing dot would
+            // otherwise make curl resolve the name itself and bypass the pin).
+            $ch = curl_init(\RivetCore\Webhooks\WebhookDispatcher::pinnedUrl((string) $cfg['url'], $target));
             // Pins the connection to the addresses just vetted, so a DNS answer that changes in between cannot redirect it inward.
             curl_setopt_array($ch, \RivetCore\Webhooks\WebhookDispatcher::curlOptions($body, $headers, 10, $target));
+            // The receiver is not trusted and only the status matters: read at most 1 MiB, then stop (the status line is already
+            // known), so a hostile endpoint cannot stream an unbounded body into memory (RivetCore security review SR-04).
+            $received = 0;
+            curl_setopt($ch, CURLOPT_WRITEFUNCTION, static function ($handle, string $chunk) use (&$received): int {
+                $received += strlen($chunk);
+
+                return $received > 1048576 ? 0 : strlen($chunk);
+            });
             $out = curl_exec($ch);
+            if ($out === false && $received > 1048576) {
+                $out = ''; // aborted on purpose after the status line; judge it by the HTTP code below
+            }
             $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
             if ($out === false) {
                 throw new \RuntimeException('webhook request failed: ' . curl_error($ch));
