@@ -6,6 +6,16 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.26] RivetIT — built-in endpoint agent (beta) with a per-department installer, findings round-up, security fixes
+
+Database migrations 2.6.143 to 2.6.146 apply with **Update Database**. Requires rivet-core 1.0.0-rc.3 (`composer install --no-dev`; the in-app Update and `deploy/update.sh` do this). The endpoint agent is **off by default** (Administration > Endpoint agent) and is a **beta**: the Windows agent builds, passes its tests and has been run end to end on Linux against a real server, but it has not yet run on a real Windows machine. Pilot it on one PC first. The agent exes are built by the `Endpoint agent` GitHub workflow and are unsigned.
+
+### Security fixes (nightly review)
+
+- **Payments:** editing or deleting a payment now checks the department of the payment's invoice (the check used an unrelated id), and adding a payment refuses a negative amount.
+- **Guest quote links** accept or decline only an open, unexpired quote.
+- **Chat webhook delivery** connects through the pinned URL, so the DNS pin always applies (a host written with a trailing dot bypassed it).
+
 ### Endpoint agent: self-installing installer exe, CI build
 
 - **Installer:** `rivetit-agent.exe setup [--silent] [--no-service]` (also what a double-click does) installs from a payload the server appends to the exe (`RIVETIT-EMBED-v1` footer, SHA-256 checked, strict validation, expiry). It self-elevates on Windows, keeps the device identity on re-runs, installs only the unstamped bytes, registers an Add/Remove Programs entry and exits 0/2/3/4/5/6. A stamped exe still contains its token until it expires: use short lifetimes and limited uses. Windows parts are unverified on real Windows.
