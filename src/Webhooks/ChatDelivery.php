@@ -74,7 +74,11 @@ final class ChatDelivery
             return ['status' => null, 'body' => null, 'error' => $vet['error']];
         }
 
-        $ch = curl_init($url);
+        // The URL curl is given must carry the exact host spelling the pin below is keyed on. A host such as "hooks.example.com."
+        // (trailing dot) passes the vetting but never matches the CURLOPT_RESOLVE entry, so curl would resolve the name itself and
+        // a rebinding DNS answer could then reach an internal address. pinnedUrl() rewrites the host to the vetted spelling
+        // (same fix as the send_webhook automation action in includes/event_bus.php).
+        $ch = curl_init(\RivetCore\Webhooks\WebhookDispatcher::pinnedUrl($url, ['host' => $vet['host'], 'port' => $vet['port'], 'ips' => $vet['ips']]));
         if ($ch === false) {
             return ['status' => null, 'body' => null, 'error' => 'curl_init failed'];
         }
