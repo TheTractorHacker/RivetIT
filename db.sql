@@ -427,7 +427,8 @@ CREATE TABLE `audit_events` (
   PRIMARY KEY (`audit_id`),
   KEY `idx_audit_events_type_created` (`event_type`,`created_at`),
   KEY `idx_audit_events_entity` (`entity_type`,`entity_id`),
-  KEY `idx_audit_events_actor` (`actor_user_id`)
+  KEY `idx_audit_events_actor` (`actor_user_id`),
+  KEY `idx_audit_events_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1564,7 +1565,8 @@ CREATE TABLE `integration_jobs` (
   `error` text DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`job_id`),
-  KEY `idx_integration_jobs_status_available` (`status`,`available_at`)
+  KEY `idx_integration_jobs_status_available` (`status`,`available_at`),
+  KEY `idx_integration_jobs_status_created` (`status`,`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -7589,7 +7591,8 @@ CREATE TABLE `webhook_deliveries` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`delivery_id`),
   KEY `idx_webhook_deliveries_webhook` (`webhook_id`,`created_at`),
-  KEY `idx_webhook_deliveries_event` (`event_type`,`created_at`)
+  KEY `idx_webhook_deliveries_event` (`event_type`,`created_at`),
+  KEY `idx_webhook_deliveries_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
