@@ -134,6 +134,12 @@ foreach (['shell.js', 'chart_theme.js', 'app.js', 'file_upload.js', 'ajax_modal.
     $__asset_version = file_exists($__asset_path) ? filemtime($__asset_path) : time();
     echo '<script src="/js/' . $__asset . '?v=' . $__asset_version . '" defer></script>' . "\n";
 }
+// js/rmm_panel.js (RMM asset panel and agent fleet page) is linked only by a page that rendered RMM markup. With the RMM module off no page sets
+// $rmm_ui_scripts, so the script is not even requested.
+if (!empty($rmm_ui_scripts)) {
+    $__rmm_js = __DIR__ . '/../js/rmm_panel.js';
+    echo '<script src="/js/rmm_panel.js?v=' . (file_exists($__rmm_js) ? filemtime($__rmm_js) : time()) . '" defer></script>' . "\n";
+}
 ?>
 
 </body>

@@ -6,6 +6,33 @@ continues unchanged.
 
 ## [Unreleased]
 
+### RMM asset panel and Agent Fleet page (T10a, Phase 0 scope)
+
+The agent device page is folded into the asset page, and the fleet gets its own dashboard. Both are server-rendered from RivetCore's read models
+(`RmmReadModel::deviceView`, `listDevices`, `fleetCounts`, `pendingApprovals`, `currentBinaries`, `CapacityReport`) with markup in `includes/rmm_ui_render.php`; no
+new library, CDN or framework (Chart.js and the Metrics partial are the existing ones). Design: rivet-core `docs/rmm/ASSET_PAGE_REDESIGN.md`; user-facing notes in
+`docs/ENDPOINT_AGENT.md` section 7.
+
+- **Asset page (`agent/asset_details.php`):** for an asset linked to an endpoint agent the old vendor-style RMM card is replaced by a health strip (status with
+  icon and word, last check-in, OS, agent version and ring, uptime, reboot pending, quick health badges), the actions Run script / Reboot / Remote access / More, and
+  a three-tab panel. **Overview:** gauge cards for CPU, memory and every volume (display bands 80/95 and 80/90, `role="img"` with an `aria-label`, "no data" and never 0),
+  network, uptime and agent-contact tiles, the existing Performance section (range pills, charts, empty states) from the Metrics subsystem, open and recently resolved
+  alerts, the Mesh remote card with recent sessions and (administrators) node mapping, and the checks table with "steady for / since". **Inventory:** hardware, OS, disks
+  with used bars, adapters, and honest "not collected yet" cards for software (Phase 1) and services (Phase 6). **Jobs:** history, on-demand output (redacted, size-capped,
+  shown as text), cancel for queued jobs, and the run, collect and reboot dialogs (in-page, no `window.confirm`). Assets linked to Tactical, Level, Action1 or Sophos keep
+  their card unchanged; an asset with both shows both.
+- **Agent Fleet (`agent/rmm_fleet.php`, Endpoints menu, only while the module is on):** counts by status, health donut with a text alternative, devices needing approval with the
+  reason, offline and stale lists, outdated agents against the hosted version with ring and version counts, recent job failures, the capacity panel (administrators only),
+  and a filtered, paginated device list.
+- **Authorization:** every control follows the nine `rmm.*` abilities through `RmmAuthorizer`; a disabled button carries its reason as a tooltip and as visible text on narrow
+  screens. Job output follows `rmm.job.run_saved` (new `agent/rmm_job_output.php`, 404 for another department's device, 403 without the grant). Actions still go through
+  `agent/post/rmm_agent.php` and `TechnicianActions`.
+- **Module off:** the asset page is a plain asset, the Fleet page is the module-off notice, the menu entry is absent, `js/rmm_panel.js` is not linked and the job output
+  endpoint answers 404; none of it asks the database anything (the module's state file answers).
+- `agent/rmm_agent_device.php` redirects to the asset page for a linked device (a device with no asset yet keeps the old page).
+- **Not in this change (needs data we do not store, listed for Phase 1):** live polling document, per-check history/trend, network "% of 24 h peak" bar, battery gauge,
+  Activity tab, tags, patches. Tests: `tests/rmm_ui.php` (view-models, permission and module-off paths, escaping, real pages over HTTP) and `tests/browser/rmm_smoke.mjs`.
+
 ### RMM module: the endpoint agent now runs on RivetCore (DB 2.6.147)
 
 The server side of the built-in endpoint agent (enrollment, devices, check-in, signed jobs, hosted updates, per-department installers, MeshCentral launch,

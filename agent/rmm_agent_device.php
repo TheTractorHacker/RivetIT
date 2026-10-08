@@ -24,6 +24,12 @@ if (!$dev) {
     itflow_render_denied('That device does not exist or is outside your departments.', 'Device not found');
     return;
 }
+// The device's page is now the RMM panel on its asset (agent/asset_details.php). Bookmarks land there; a device with no asset yet (waiting for
+// approval, unlinked) has no asset page, so it keeps this page.
+if ((int) ($dev['asset_id'] ?? 0) > 0 && $dev['link_state'] === 'linked' && $dev['revoked_at'] === null && $dev['retired_at'] === null && !headers_sent()) {
+    header('Location: /agent/asset_details.php?asset_id=' . (int) $dev['asset_id'] . '#rmm-overview');
+    exit;
+}
 $client_id = (int) $dev['client_id'];
 $authz = $rmm->authorizer();
 $can_saved  = $authz->allowed($uid, RmmAbility::JOB_RUN_SAVED, $client_id);

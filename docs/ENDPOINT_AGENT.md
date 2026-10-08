@@ -125,3 +125,31 @@ PowerShell job and read its output, queue a reboot, revoke the device and confir
 A real MeshCentral server (only a local mock), a real Windows agent and the Windows installer on a Windows host, and the Linux agent against this
 exact build (run `endpoint-agent/e2e/run_e2e.sh` from rivet-core with `RIVETIT_E2E_SERVER_URL` against a scratch install). The wire format is pinned by the golden
 transcripts, the signing and installer vectors, and Core's own tests; enrolled agents need no re-enrollment.
+
+## 7. Asset page panel and Agent Fleet (T10a)
+
+Design: rivet-core `docs/rmm/ASSET_PAGE_REDESIGN.md` and the mockup `docs/rmm/mockups/asset-page-app-style.html`. Phase 0 scope: everything on these pages is read from data
+the agent already sends; where a view needs data that is not stored, the card says so (it is never drawn from invented numbers).
+
+| Piece | Files |
+| --- | --- |
+| View-models (read-only; the first call is the module state file) | `includes/rmm_ui.php`: `rivetRmmUiPanel()`, `rivetRmmUiFleet()` |
+| HTML | `includes/rmm_ui_render.php`; styles `css/itflow_rmm.css` (`.rmm-*`, on top of the existing `.ifm-*` / `.it-*` rules); behaviour `js/rmm_panel.js` (linked by `includes/footer.php` only when a page rendered the panel) |
+| Asset page | `agent/asset_details.php` (agent-linked assets show the panel instead of the vendor card), Performance section = the existing `agent/includes/asset/metrics_tab.php` |
+| Fleet page | `agent/rmm_fleet.php` (Endpoints menu, only with the module on) |
+| Lazy job output | `agent/rmm_job_output.php` (JSON; `rmm.job.run_saved`; 404 outside the user's departments or with the module off) |
+| Actions | unchanged: `agent/post/rmm_agent.php` -> `TechnicianActions` |
+
+**Real data:** status, last check-in, agent version and ring, OS, uptime, reboot flag (device row); CPU, memory, per-volume and network readings (last check-in sample); volume
+sizes, hardware and adapters (inventory blob); checks with "steady for / since" and alert links; open and resolved alerts; job history and output; Mesh state and recent
+sessions; Performance charts from `device_metric_*` (Metrics subsystem); fleet counts, approvals with reasons, offline/stale lists, rings and versions against the hosted
+build, job failures, capacity report. **Empty states, by design:** software (Phase 1) and services (Phase 6) in Inventory, battery (absent unless an agent reports it).
+**Not built, needs stored data:** live polling document, per-check history/trend, network bar against the 24 h peak, Activity tab, tags, patches.
+
+**Cost.** The asset panel adds about 25 statements per view for an administrator (about 15 are the policy and tenancy adapters repeating the user and department lookups
+for each of five abilities; `deviceView()` reads the device, checks and jobs twice). Module off: zero. Follow-ups in Core: `RmmReadModel::deviceView()` loses its richer
+`checks` (the array union keeps `detail()`'s), a single-job and a fleet-wide failed-jobs read model, and a request-scoped memo in the authorizer.
+
+Tests: `php tests/rmm_ui.php` (scratch database, same environment as the other suites; 150+ assertions: view-models, permission matrix, states, escaping, module off with zero
+statements, real pages over HTTP) and the browser smoke `tests/browser/rmm_seed.php` + `tests/browser/rmm_smoke.mjs` (see the headers; desktop and 390 px, light and dark,
+screenshots in `SMOKE_OUT/shots`).

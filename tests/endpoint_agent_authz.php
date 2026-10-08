@@ -136,9 +136,17 @@ Config::set(['mesh_url' => $meshUrl]);
 $q("UPDATE endpoint_agent_devices SET hostname='<img src=x onerror=alert(1)>', last_checkin_at='" . gmdate('Y-m-d H:i:s') . "', logged_in_user='\"><script>alert(2)</script>' WHERE device_id=$D1");
 $q("UPDATE endpoint_agent_jobs SET state='succeeded', output='<script>alert(3)</script>', finished_at=NOW() WHERE device_id=$D1 AND state='queued' LIMIT 1");
 Devices::setMeshNode($D1, 'node//' . str_repeat('A', 24) . $D1, 1);
-foreach (['admin' => 200, 'tech' => 200, 'rebootonly' => 200, 'viewer' => 200, 'remoteonly' => 200, 'moduleonly' => 200, 'normo' => 403, 'deptb' => 403] as $who => $exp) {
-    [$c, $body] = web($wb, 'GET', "/agent/rmm_agent_device.php?device_id=$D1", $S[$who]);
+// A linked device's old page now redirects to its asset page (the RMM panel, tests/rmm_ui.php); the legacy page itself is still served for a device with no
+// asset link yet, so its escaping and button rules are checked with the device's asset link temporarily removed.
+$D1asset = (int) $one("SELECT asset_id FROM endpoint_agent_devices WHERE device_id=$D1");
+foreach (['admin' => 302, 'tech' => 302, 'rebootonly' => 302, 'viewer' => 302, 'remoteonly' => 302, 'moduleonly' => 302, 'normo' => 403, 'deptb' => 403] as $who => $exp) {
+    [$c, $body, $hd] = web($wb, 'GET', "/agent/rmm_agent_device.php?device_id=$D1", $S[$who]);
     $ok($c === $exp, "web device page as $who -> $exp (got $c)");
+    if ($c === 302) { $ok(preg_match('#location: /agent/asset_details\.php\?asset_id=\d+\#rmm-overview#i', $hd) === 1, "the old device page redirects to the asset page ($who)"); }
+    $q("UPDATE endpoint_agent_devices SET asset_id=NULL WHERE device_id=$D1");
+    [$c, $body] = web($wb, 'GET', "/agent/rmm_agent_device.php?device_id=$D1", $S[$who]);
+    $q("UPDATE endpoint_agent_devices SET asset_id=$D1asset WHERE device_id=$D1");
+    $ok($c === ($exp === 302 ? 200 : $exp), "legacy device page (device without an asset) as $who -> " . ($exp === 302 ? 200 : $exp) . " (got $c)");
     if ($c === 200) {
         $ok(strpos($body, '<img src=x') === false && strpos($body, '&lt;img src=x') !== false && strpos($body, '<script>alert(') === false, "device page escapes hostile device-supplied strings ($who)");
         $ok((strpos($body, 'id="ea-remote"') !== false) === in_array($who, ['admin', 'tech', 'remoteonly'], true), "remote button shown only to those who may use it ($who)");
@@ -146,7 +154,7 @@ foreach (['admin' => 200, 'tech' => 200, 'rebootonly' => 200, 'viewer' => 200, '
     }
 }
 [$c, $body] = web($wb, 'GET', "/agent/rmm_agent_device.php?device_id=999999", $S['admin']); $ok($c === 403 || $c === 404, 'unknown device id -> denied page');
-[$c, $body] = web($wb, 'GET', "/agent/rmm_agent_device.php?device_id=$D2", $S['deptb']); $ok($c === 200, 'department user sees their own department\'s device page');
+[$c, $body] = web($wb, 'GET', "/agent/rmm_agent_device.php?device_id=$D2", $S['deptb']); $ok($c === 200 || $c === 302, 'department user may open their own department\'s device page (it redirects to the asset page once the device is linked to one)');
 $post = fn(string $who, array $f, bool $csrf = true) => web($wb, 'POST', '/agent/post/rmm_agent.php', $S[$who], $f + ($csrf ? ['csrf_token' => 'csrftok1'] : []));
 [$c, $b] = $post('tech', ['action' => 'submit_job', 'device_id' => $D1, 'type' => 'powershell', 'script' => 'Get-Date'], false); $ok($c === 403, 'web job submit without CSRF token -> 403');
 [$c, $b] = $post('tech', ['action' => 'submit_job', 'device_id' => $D1, 'type' => 'powershell', 'script' => 'Get-Date']); $j = json_decode($b, true); $ok($c === 200 && $j['success'] === true, 'web job submit as tech works');
@@ -201,6 +209,6 @@ foreach (['/agent/rmm_dashboard.php', '/agent/rmm_assets.php', '/agent/rmm_check
 }
 [$c, $body] = web($wb, 'GET', '/agent/rmm_assets.php', $S['admin']); $ok(strpos($body, 'TRMM-PC') !== false && strpos($body, 'DEPT1-PC') !== false, 'RMM assets lists both the Tactical link and the agent device (escaped)');
 [$c, $body] = web($wb, 'GET', "/agent/asset_details.php?asset_id=$ta", $S['admin']); $ok($c === 200 && strpos($body, 'TRMM-PC') !== false && strpos($body, 'Agent device') === false, 'a Tactical-linked asset page is unchanged');
-[$c, $body] = web($wb, 'GET', "/agent/asset_details.php?asset_id=$agentAsset", $S['admin']); $ok($c === 200 && strpos($body, 'rmm_agent_device.php?device_id=' . $D1) !== false && strpos($body, '<img src=x onerror') === false, 'an agent-linked asset page shows the RMM card with a link to the device page (escaped)');
+[$c, $body] = web($wb, 'GET', "/agent/asset_details.php?asset_id=$agentAsset", $S['admin']); $ok($c === 200 && strpos($body, 'id="rmm-strip"') !== false && strpos($body, '<img src=x onerror') === false && strpos($body, '&lt;img src=x onerror') !== false, 'an agent-linked asset page shows the RMM panel (hostile hostname escaped)');
 [$c, $body] = web($wb, 'GET', '/admin/settings_integrations.php', $S['admin']); $ok(strpos($body, 'RivetIT Endpoint Agent') === false, 'the synthetic integration is hidden from the RMM integrations list');
 $ok(strpos(file_get_contents($web['log']), 'Fatal') === false && strpos(file_get_contents($EA['log']), 'Fatal') === false, 'no PHP fatals in the server logs');
