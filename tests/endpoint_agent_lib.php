@@ -27,6 +27,7 @@ $GLOBALS['mysqli'] = $db;
 $mysqli = $db;
 $session_user_id = 0; $session_ip = '127.0.0.1'; $session_user_agent = 'test';
 require_once "$root/vendor/autoload.php";
+require_once __DIR__ . '/support/endpoint_compat.php';   // the old ITFlow\EndpointAgent\* names as thin forwards to RivetCore\Rmm (the PHP moved into rivet-core)
 $q = fn(string $sql) => $db->query($sql);
 $one = fn(string $sql) => ($r = $db->query($sql)) ? ($r->fetch_row()[0] ?? null) : null;
 $rows = function (string $sql) use ($db): array { $o = []; $r = $db->query($sql); while ($r && ($x = $r->fetch_assoc())) { $o[] = $x; } return $o; };

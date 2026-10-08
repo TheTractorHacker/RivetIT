@@ -1,7 +1,0 @@
-/dist/
-/bin/
-*.exe
-*.test
-*.out
-/e2e/work/
-/.gocache/

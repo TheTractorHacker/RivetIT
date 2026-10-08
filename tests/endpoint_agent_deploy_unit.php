@@ -5,9 +5,8 @@
  * InstallerStamp is compared with tests/fixtures/agent_installer_trailer_vectors.json (generated independently, with raw pack()/hash()).
  */
 $root = dirname(__DIR__);
-require_once "$root/src/EndpointAgent/InstallerStamp.php";
-require_once "$root/src/EndpointAgent/Binaries.php";
-require_once "$root/src/EndpointAgent/Installer.php";
+require_once "$root/vendor/autoload.php";
+require_once "$root/tests/support/endpoint_compat.php";   // the old ITFlow\EndpointAgent\* names as thin forwards to RivetCore\Rmm (the PHP moved into rivet-core)
 use ITFlow\EndpointAgent\Binaries;
 use ITFlow\EndpointAgent\Installer;
 use ITFlow\EndpointAgent\InstallerStamp as S;

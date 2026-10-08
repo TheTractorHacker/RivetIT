@@ -4,7 +4,8 @@
  * The vectors pin the canonical-JSON rule and the Ed25519 signatures so the Go agent can reuse them byte for byte. The key is a TEST key
  * derived from a fixed seed; never use it anywhere real. Ed25519 signatures are deterministic, so regenerating changes nothing.
  */
-require_once __DIR__ . '/../../src/EndpointAgent/Signer.php';
+require_once __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/../support/endpoint_compat.php';   // Signer::canonical() and the Ed25519 helpers of RivetCore\Rmm\Crypto (rivet-core)
 use ITFlow\EndpointAgent\Signer;
 
 $seed = hash('sha256', 'RivetIT-agent-TEST-seed', true);   // 32 bytes, fixed
