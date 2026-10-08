@@ -2,15 +2,15 @@
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
-use ITFlow\EndpointAgent\Binaries;
-use ITFlow\EndpointAgent\Config;
-use ITFlow\EndpointAgent\Db;
-use ITFlow\EndpointAgent\Devices;
-use ITFlow\EndpointAgent\Enrollment;
-use ITFlow\EndpointAgent\Installer;
-use ITFlow\EndpointAgent\InstallerStamp;
-use ITFlow\EndpointAgent\Mesh;
-use ITFlow\EndpointAgent\Updates;
+/*
+ * Administration > Endpoint agent: form handlers. CSRF, the Referer-based dispatch of admin/post.php, $_POST extraction and flash messages are
+ * RivetIT's; every validation, authorization decision, database write and audit entry is RivetCore\Rmm (rivet/rivet-core): RmmAdmin for the
+ * settings, binaries, releases, installers and signing key, TechnicianActions for devices and enrollment tokens.
+ */
+
+require_once dirname(__DIR__, 2) . '/includes/rmm_bootstrap.php';
+
+use RivetCore\Rmm\Technician\ActionResult;
 
 mysqli_report(MYSQLI_REPORT_OFF);
 
@@ -21,63 +21,48 @@ function ea_post_int(string $k, int $min, int $max, int $default): int
     return is_numeric($v) ? max($min, min($max, (int) $v)) : $default;
 }
 
+/** Flash the outcome of an action and return to the page. */
+function ea_flash_result(ActionResult $r, ?string $okText = null): void
+{
+    flash_alert(nullable_htmlentities($r->ok ? ($okText ?? $r->message) : $r->message), $r->ok ? 'success' : 'error');
+    redirect();
+}
+
+$rmm = rivetRmmModule();
+$ea_admin = $rmm->admin();
+$ea_tech = $rmm->technician();
+$ea_who = rivetRmmPrincipal((int) $session_user_id, (string) $session_name);
+
+// The module switch (Administration > Endpoint agent > RMM module). Works while the module is off: turning it on is one of its operations.
+if (isset($_POST['rmm_module_switch'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $r = ($_POST['rmm_module_switch'] ?? '') === 'on' ? $ea_admin->enable($ea_who) : $ea_admin->disable($ea_who);
+    if ($r->ok && ($_POST['rmm_module_switch'] ?? '') === 'on' && !empty($_POST['feature_preset'])) {
+        $p = $ea_admin->applyFeaturePreset($ea_who, (string) $_POST['feature_preset']);
+        if (!$p->ok) {
+            ea_flash_result($p);
+        }
+    }
+    $rmm->syncState();
+    ea_flash_result($r, ($_POST['rmm_module_switch'] ?? '') === 'on' ? 'RMM module switched on.' : 'RMM module switched off. Nothing was deleted; enrolled agents back off and come back by themselves when it is switched on again.');
+}
+
+if (isset($_POST['save_feature_preset'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_flash_result($ea_admin->applyFeaturePreset($ea_who, (string) ($_POST['feature_preset'] ?? '')));
+}
+
 if (isset($_POST['save_agent_settings'])) {
     validateCSRFToken($_POST['csrf_token']);
-    $enable = isset($_POST['enabled']) ? 1 : 0;
-    $url = trim((string) ($_POST['service_url'] ?? ''));
-    if ($url !== '') {
-        $p = parse_url($url);
-        $secure = ($p['scheme'] ?? '') === 'https' || (defined('EA_ALLOW_INSECURE_HTTP') && EA_ALLOW_INSECURE_HTTP === true && ($p['scheme'] ?? '') === 'http');
-        if (!$p || !$secure || empty($p['host']) || isset($p['user']) || strlen($url) > 500) {
-            flash_alert('The service URL must be an https:// address that agents can reach.', 'error');
-            redirect();
+    $in = ['enabled' => isset($_POST['enabled']) ? 1 : 0];
+    foreach (['service_url', 'check_in_interval_s', 'collect_interval_s', 'offline_after_s', 'stale_after_s', 'failure_debounce', 'recovery_debounce', 'retention_days',
+        'job_retention_days', 'job_output_max_bytes', 'job_default_timeout_s', 'job_max_timeout_s', 'job_expiry_s', 'job_ack_timeout_s', 'job_max_attempts',
+        'enroll_max_ttl_h', 'unmatched_policy', 'checks_json', 'coexistence_policy', 'ca_pem'] as $k) {
+        if (isset($_POST[$k])) {
+            $in[$k] = is_string($_POST[$k]) ? $_POST[$k] : '';
         }
     }
-    $checksJson = trim((string) ($_POST['checks_json'] ?? ''));
-    $checksOut = '';
-    if ($checksJson !== '') {
-        [$list, $err] = Config::validateChecks($checksJson);
-        if ($err !== null) {
-            flash_alert(nullable_htmlentities($err), 'error');
-            redirect();
-        }
-        $checksOut = json_encode($list);
-    }
-    [$caPem, $caErr] = Installer::normalizeCa((string) ($_POST['ca_pem'] ?? ''));
-    if ($caErr !== null) {
-        flash_alert(nullable_htmlentities($caErr), 'error');
-        redirect();
-    }
-    $policy = in_array($_POST['unmatched_policy'] ?? '', ['approval', 'auto_create'], true) ? $_POST['unmatched_policy'] : 'approval';
-    if ($enable) {
-        Config::enable();
-    }
-    Config::set([
-        'enabled' => $enable,
-        'service_url' => $url,
-        'check_in_interval_s' => ea_post_int('check_in_interval_s', 30, 3600, 300),
-        'collect_interval_s' => ea_post_int('collect_interval_s', 10, 3600, 60),
-        'offline_after_s' => ea_post_int('offline_after_s', 60, 86400, 900),
-        'stale_after_s' => ea_post_int('stale_after_s', 3600, 31536000, 604800),
-        'failure_debounce' => ea_post_int('failure_debounce', 1, 20, 3),
-        'recovery_debounce' => ea_post_int('recovery_debounce', 1, 20, 2),
-        'retention_days' => ea_post_int('retention_days', 1, 400, 30),
-        'job_retention_days' => ea_post_int('job_retention_days', 1, 3650, 180),
-        'job_output_max_bytes' => ea_post_int('job_output_max_bytes', 1024, 200000, 65536),
-        'job_default_timeout_s' => ea_post_int('job_default_timeout_s', 5, 3600, 300),
-        'job_max_timeout_s' => ea_post_int('job_max_timeout_s', 30, 86400, 3600),
-        'job_expiry_s' => ea_post_int('job_expiry_s', 60, 604800, 3600),
-        'job_ack_timeout_s' => ea_post_int('job_ack_timeout_s', 30, 3600, 120),
-        'job_max_attempts' => ea_post_int('job_max_attempts', 1, 10, 3),
-        'enroll_max_ttl_h' => ea_post_int('enroll_max_ttl_h', 1, 720, 72),
-        'unmatched_policy' => $policy,
-        'checks_json' => $checksOut === '' ? null : $checksOut,
-        'coexistence_policy' => mb_substr(trim((string) ($_POST['coexistence_policy'] ?? '')), 0, 4000),
-        'ca_pem' => $caPem,
-    ]);
-    logAction('Settings', 'Edit', "$session_name edited the endpoint agent settings (" . ($enable ? 'on' : 'off') . ')');
-    flash_alert('Endpoint agent settings saved.');
-    redirect();
+    ea_flash_result($ea_admin->saveSettings($ea_who, $in));
 }
 
 // ---------------------------------------------------------------- agent binaries and per-department installers
@@ -85,112 +70,73 @@ if (isset($_POST['save_agent_settings'])) {
 if (isset($_POST['upload_agent_binary'])) {
     validateCSRFToken($_POST['csrf_token']);
     $f = $_FILES['agent_binary'] ?? null;
-    $limit = Binaries::effectiveUploadLimit();
+    $limit = $rmm->binaryStore()->effectiveUploadLimit();
     if (!$f || ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) ($f['tmp_name'] ?? ''))) {
         $code = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
         $why = in_array($code, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)
-            ? 'The file is larger than the limit of ' . Binaries::human($limit) . ' (PHP upload_max_filesize ' . ini_get('upload_max_filesize') . ', post_max_size ' . ini_get('post_max_size') . '). Raise them in php.ini or upload with scripts/endpoint_agent_publish.php.'
+            ? 'The file is larger than the limit of ' . \RivetCore\Rmm\Binaries\BinaryStore::human($limit) . ' (PHP upload_max_filesize ' . ini_get('upload_max_filesize') . ', post_max_size ' . ini_get('post_max_size') . '). Raise them in php.ini or upload with scripts/endpoint_agent_publish.php.'
             : ($code === UPLOAD_ERR_NO_FILE ? 'Choose the agent .exe to upload.' : 'The upload failed (PHP error ' . $code . ').');
         flash_alert(nullable_htmlentities($why), 'error');
         redirect();
     }
     $ring = (string) ($_POST['release_ring'] ?? '');
-    $res = Binaries::publish((string) $f['tmp_name'], trim((string) ($_POST['version'] ?? '')), (string) ($_POST['arch'] ?? ''), (int) $session_user_id, [
+    ea_flash_result($ea_admin->uploadBinary($ea_who, (string) $f['tmp_name'], trim((string) ($_POST['version'] ?? '')), (string) ($_POST['arch'] ?? ''), [
         'activate' => isset($_POST['activate']),
         'release_ring' => in_array($ring, ['pilot', 'stable'], true) ? $ring : null,
         'rollout_pct' => ea_post_int('rollout_pct', 0, 100, 10),
-    ]);
-    if (!$res['ok']) {
-        flash_alert(nullable_htmlentities($res['error']), 'error');
-        redirect();
-    }
-    $b = $res['binary'];
-    logAction('Endpoint Agent', 'Binary Uploaded', "$session_name uploaded agent binary {$b['version']} ({$b['arch']}, sha256 {$b['sha256']}, {$b['size_bytes']} bytes)" . ($b['is_current'] ? ' and made it current' : '') . ($ring !== '' ? " and offered it to the $ring ring" : ''));
-    flash_alert('Agent binary ' . nullable_htmlentities($b['version']) . ' (' . nullable_htmlentities($b['arch']) . ') stored. SHA-256 ' . nullable_htmlentities($b['sha256']) . '.');
-    redirect();
+    ]));
 }
 
 if (isset($_POST['binary_action'])) {
     validateCSRFToken($_POST['csrf_token']);
-    $id = intval($_POST['binary_id'] ?? 0);
-    $act = (string) $_POST['binary_action'];
-    $b = Db::one('SELECT * FROM endpoint_agent_binaries WHERE binary_id = ?', [$id]);
-    $done = false;
-    $msg = 'Nothing changed.';
-    if ($b !== null) {
-        if ($act === 'make_current' && (int) $b['active'] === 1) {
-            $done = Binaries::setCurrent($id); $msg = 'This binary is now the one new installers are built from.';
-        } elseif ($act === 'deactivate') {
-            $done = Binaries::deactivate($id); $msg = 'Binary deactivated: it is no longer used for installers or offered as an update. The file is kept.';
-        } elseif ($act === 'activate') {
-            Db::run('UPDATE endpoint_agent_binaries SET active = 1 WHERE binary_id = ?', [$id]); $done = true; $msg = 'Binary reactivated. Offer it as an update again if you want devices to receive it.';
-        } elseif ($act === 'offer_update') {
-            $e = Binaries::publishRelease($id, (string) ($_POST['release_ring'] ?? 'pilot'), ea_post_int('rollout_pct', 0, 100, 10), '', (int) $session_user_id);
-            $done = $e === null; $msg = $e ?? 'Offered to enrolled agents. Adjust the rollout under Agent updates and rings.';
-        }
-    }
-    if ($done) {
-        logAction('Endpoint Agent', 'Binary Changed', "$session_name ran '$act' on agent binary #$id ({$b['version']} {$b['arch']})");
-    }
-    flash_alert(nullable_htmlentities($msg), $done ? 'success' : 'error');
-    redirect();
+    ea_flash_result($ea_admin->binaryAction($ea_who, intval($_POST['binary_id'] ?? 0), (string) $_POST['binary_action'], (string) ($_POST['release_ring'] ?? 'pilot'), ea_post_int('rollout_pct', 0, 100, 10)));
 }
 
 if (isset($_POST['download_installer']) || isset($_POST['show_deploy_commands'])) {
     validateCSRFToken($_POST['csrf_token']);
     $arch = (string) ($_POST['arch'] ?? 'amd64');
-    $r = Installer::issue(intval($_POST['client_id'] ?? 0), intval($_POST['location_id'] ?? 0), (string) ($_POST['ring'] ?? 'stable'),
-        ea_post_int('ttl_hours', 1, 720, 72), ea_post_int('max_uses', 1, 5000, 25), trim((string) ($_POST['label'] ?? '')), $arch, (int) $session_user_id, (string) $session_name);
-    if (!$r['ok']) {
-        flash_alert(nullable_htmlentities($r['error']), 'error');
-        redirect();
-    }
+    $args = [intval($_POST['client_id'] ?? 0), intval($_POST['location_id'] ?? 0), (string) ($_POST['ring'] ?? 'stable'), ea_post_int('ttl_hours', 1, 720, 72),
+        ea_post_int('max_uses', 1, 5000, 25), trim((string) ($_POST['label'] ?? '')), $arch];
     if (isset($_POST['show_deploy_commands'])) {
+        $r = $ea_admin->deploymentCommands($ea_who, ...$args);
+        if (!$r->ok) {
+            ea_flash_result($r);
+        }
         // Shown once, on the next page load, like a plain enrollment token.
-        $_SESSION['ea_new_token'] = ['token' => $r['token_plain'], 'id' => (int) $r['token']['token_id'], 'deploy' => ['arch' => $arch, 'department' => $r['department'],
-            'expires_at' => $r['token']['expires_at'], 'max_uses' => (int) $r['token']['max_uses']]];
+        $_SESSION['ea_new_token'] = ['token' => $r->data['token_plain'], 'id' => (int) $r->data['token']['token_id'], 'deploy' => ['arch' => $arch, 'department' => $r->data['department'],
+            'expires_at' => $r->data['token']['expires_at'], 'max_uses' => (int) $r->data['token']['max_uses'], 'commands' => $r->data['commands']]];
         flash_alert('Enrollment token created. Copy the commands now: the token is shown only once.');
         redirect();
     }
-    $bin = Binaries::current($arch);
-    $e = Binaries::stream($bin, Installer::filename($r['department'], $arch), InstallerStamp::trailer($r['payload']));
-    Enrollment::revokeToken((int) $r['token']['token_id'], (int) $session_user_id);   // nothing was served: do not leave a live token behind
-    flash_alert(nullable_htmlentities($e), 'error');
-    redirect();
+    $r = $ea_admin->downloadInstaller($ea_who, ...$args);
+    if (!$r->ok) {
+        ea_flash_result($r);
+    }
+    (new \RivetCore\Rmm\Http\SapiEmitter())->emit($r->data['download']);   // streamed with exact length after the size and SHA-256 check
+    exit;
 }
 
 if (isset($_POST['rotate_signing_key'])) {
     validateCSRFToken($_POST['csrf_token']);
-    $kid = Config::generateSigningKey();
-    logAction('Settings', 'Edit', "$session_name rotated the endpoint agent signing key (new key id $kid)");
-    flash_alert('A new signing key was generated. Agents trust the key they received at enrollment, so every device must re-enroll (Rotate credential) before it accepts jobs again.', 'warning');
+    $r = $ea_admin->rotateSigningKey($ea_who);
+    flash_alert(nullable_htmlentities($r->message), $r->ok ? 'warning' : 'error');
     redirect();
 }
 
 if (isset($_POST['create_enroll_token'])) {
     validateCSRFToken($_POST['csrf_token']);
-    $client = intval($_POST['client_id'] ?? 0);
-    if ($client <= 0 || Db::val('SELECT client_id FROM clients WHERE client_id = ?', [$client]) === null) {
-        flash_alert('Choose the department the devices belong to.', 'error');
-        redirect();
+    $r = $ea_tech->createToken($ea_who, intval($_POST['client_id'] ?? 0), intval($_POST['location_id'] ?? 0), (string) ($_POST['ring'] ?? 'stable'),
+        ea_post_int('ttl_hours', 1, 720, 24), ea_post_int('max_uses', 1, 5000, 1), trim((string) ($_POST['label'] ?? '')));
+    if ($r->ok) {
+        $_SESSION['ea_new_token'] = ['token' => $r->data['token'], 'id' => $r->data['token_id']];   // shown once, on the next page load
     }
-    $loc = intval($_POST['location_id'] ?? 0);
-    if ($loc > 0 && Db::val('SELECT location_id FROM locations WHERE location_id = ? AND location_client_id = ?', [$loc, $client]) === null) {
-        $loc = 0;
-    }
-    $t = Enrollment::createToken($client, $loc, (string) ($_POST['ring'] ?? 'stable'), ea_post_int('ttl_hours', 1, 720, 24), ea_post_int('max_uses', 1, 5000, 1),
-        trim((string) ($_POST['label'] ?? '')), (int) $session_user_id);
-    $_SESSION['ea_new_token'] = ['token' => $t['token'], 'id' => $t['token_id']];   // shown once, on the next page load
-    logAction('Endpoint Agent', 'Enrollment Token Created', "$session_name created enrollment token #{$t['token_id']} for department $client", $client);
-    flash_alert('Enrollment token created. Copy it now: it is shown only once.');
-    redirect();
+    ea_flash_result($r);
 }
 
 if (isset($_POST['revoke_enroll_token'])) {
     validateCSRFToken($_POST['csrf_token']);
-    $id = intval($_POST['token_id'] ?? 0);
-    if (Enrollment::revokeToken($id, (int) $session_user_id)) {
-        logAction('Endpoint Agent', 'Enrollment Token Revoked', "$session_name revoked enrollment token #$id");
+    $r = $ea_tech->revokeToken($ea_who, intval($_POST['token_id'] ?? 0));
+    if ($r->ok) {
         flash_alert('Enrollment token revoked.');
     }
     redirect();
@@ -199,94 +145,57 @@ if (isset($_POST['revoke_enroll_token'])) {
 if (isset($_POST['device_action'])) {
     validateCSRFToken($_POST['csrf_token']);
     $id = intval($_POST['device_id'] ?? 0);
-    $act = (string) $_POST['device_action'];
-    $uid = (int) $session_user_id;
-    $done = false;
-    $msg = '';
-    switch ($act) {
+    $r = null;
+    switch ((string) $_POST['device_action']) {
         case 'approve_link':
-            $r = Enrollment::resolvePending($id, 'link', intval($_POST['asset_id'] ?? 0), $uid);
-            $done = $r['ok']; $msg = $r['message']; break;
+            $r = $ea_tech->resolvePending($ea_who, $id, 'link', intval($_POST['asset_id'] ?? 0)); break;
         case 'approve_create':
-            $r = Enrollment::resolvePending($id, 'create_asset', null, $uid);
-            $done = $r['ok']; $msg = $r['message']; break;
+            $r = $ea_tech->resolvePending($ea_who, $id, 'create_asset'); break;
         case 'reject':
-            $r = Enrollment::resolvePending($id, 'reject', null, $uid);
-            $done = $r['ok']; $msg = $r['message']; break;
+            $r = $ea_tech->resolvePending($ea_who, $id, 'reject'); break;
         case 'revoke':
-            $done = Devices::revoke($id, 'revoked by ' . $session_name, $uid); $msg = 'Device revoked. It can no longer check in or fetch jobs.'; break;
+            $r = $ea_tech->revoke($ea_who, $id, 'revoked by ' . $session_name); break;
         case 'rotate':
-            $done = Devices::rotate($id, $uid); $msg = 'Credential invalidated. The agent must re-enroll with a new enrollment token.'; break;
+            $r = $ea_tech->rotateCredential($ea_who, $id); break;
         case 'retire':
-            $done = Devices::retire($id, $uid); $msg = 'Device retired: credential revoked, queued jobs cancelled, monitoring stopped. The asset was kept.'; break;
+            $r = $ea_tech->retire($ea_who, $id); break;
         case 'allow_reenroll':
-            $done = Devices::allowReenroll($id, $uid); $msg = 'The device may enroll again with a fresh enrollment token.'; break;
+            $r = $ea_tech->allowReenroll($ea_who, $id); break;
         case 'set_ring':
-            $done = Devices::setRing($id, (string) ($_POST['ring'] ?? '')); $msg = 'Ring updated.'; break;
+            $r = $ea_tech->setRing($ea_who, $id, (string) ($_POST['ring'] ?? '')); break;
         case 'clear_update_failures':
-            Updates::clearFailures($id); $done = true; $msg = 'Update failures cleared for this device.'; break;
+            $r = $ea_tech->clearUpdateFailures($ea_who, $id); break;
         case 'transfer':
-            $done = Devices::transfer($id, intval($_POST['client_id'] ?? 0), 0, $uid); $msg = 'Device and asset moved to the new department.'; break;
+            $r = $ea_tech->transfer($ea_who, $id, intval($_POST['client_id'] ?? 0), 0); break;
     }
-    flash_alert($done ? nullable_htmlentities($msg) : 'Nothing changed.', $done ? 'success' : 'error');
-    redirect();
+    if ($r === null) {
+        flash_alert('Nothing changed.', 'error');
+        redirect();
+    }
+    ea_flash_result($r);
 }
 
 if (isset($_POST['add_agent_release'])) {
     validateCSRFToken($_POST['csrf_token']);
-    $err = Updates::addRelease(trim((string) ($_POST['version'] ?? '')), trim((string) ($_POST['url'] ?? '')), trim((string) ($_POST['sha256'] ?? '')),
-        trim((string) ($_POST['min_version'] ?? '0.0.0')) ?: '0.0.0', (string) ($_POST['ring'] ?? 'stable'), ea_post_int('rollout_pct', 0, 100, 0),
-        trim((string) ($_POST['notes'] ?? '')), (int) $session_user_id);
-    flash_alert($err === null ? 'Release saved.' : nullable_htmlentities($err), $err === null ? 'success' : 'error');
-    redirect();
+    ea_flash_result($ea_admin->addExternalRelease($ea_who, trim((string) ($_POST['version'] ?? '')), trim((string) ($_POST['url'] ?? '')), trim((string) ($_POST['sha256'] ?? '')),
+        trim((string) ($_POST['min_version'] ?? '0.0.0')) ?: '0.0.0', (string) ($_POST['ring'] ?? 'stable'), ea_post_int('rollout_pct', 0, 100, 0), trim((string) ($_POST['notes'] ?? ''))));
 }
 
 if (isset($_POST['update_agent_release'])) {
     validateCSRFToken($_POST['csrf_token']);
-    Db::run('UPDATE endpoint_agent_releases SET rollout_pct = ?, active = ? WHERE release_id = ?',
-        [ea_post_int('rollout_pct', 0, 100, 0), isset($_POST['active']) ? 1 : 0, intval($_POST['release_id'] ?? 0)]);
-    logAction('Endpoint Agent', 'Release Updated', "$session_name changed rollout of agent release #" . intval($_POST['release_id'] ?? 0));
-    flash_alert('Release updated.');
-    redirect();
+    ea_flash_result($ea_admin->updateRelease($ea_who, intval($_POST['release_id'] ?? 0), ea_post_int('rollout_pct', 0, 100, 0), isset($_POST['active'])));
 }
 
 if (isset($_POST['save_mesh_settings']) || isset($_POST['test_mesh'])) {
     validateCSRFToken($_POST['csrf_token']);
-    $url = trim((string) ($_POST['mesh_url'] ?? ''));
-    $norm = $url === '' ? '' : Mesh::normalizeUrl($url);
-    if ($norm === null) {
-        flash_alert('The MeshCentral address must be a plain https:// address without credentials or a query.', 'error');
-        redirect();
-    }
-    $domain = trim((string) ($_POST['mesh_domain'] ?? ''));
-    $account = trim((string) ($_POST['mesh_account_template'] ?? 'rivetit-support'));
-    if (!preg_match('/^[A-Za-z0-9._{}-]{1,100}$/', $account) || ($domain !== '' && !preg_match('/^[A-Za-z0-9._-]{1,100}$/', $domain))) {
-        flash_alert('The MeshCentral domain and account name may only contain letters, digits and . _ -', 'error');
-        redirect();
-    }
-    $vals = [
-        'mesh_enabled' => isset($_POST['mesh_enabled']) ? 1 : 0,
-        'mesh_url' => $norm,
-        'mesh_domain' => $domain,
-        'mesh_account_template' => $account,
-        'mesh_policy' => in_array($_POST['mesh_policy'] ?? '', ['unattended', 'attended', 'both'], true) ? $_POST['mesh_policy'] : 'unattended',
-        'mesh_token_ttl_s' => ea_post_int('mesh_token_ttl_s', 60, 3600, 300),
-    ];
-    $key = trim((string) ($_POST['mesh_login_key'] ?? ''));
-    if ($key !== '') {
-        if (!preg_match('/^[0-9a-fA-F]{64,}$/', $key)) {
-            flash_alert('The login token key is the long hex string printed by "meshcentral --loginTokenKey".', 'error');
-            redirect();
+    $in = [];
+    foreach (['mesh_url', 'mesh_domain', 'mesh_account_template', 'mesh_policy', 'mesh_token_ttl_s', 'mesh_login_key'] as $k) {
+        if (isset($_POST[$k])) {
+            $in[$k] = is_string($_POST[$k]) ? $_POST[$k] : '';
         }
-        $vals['mesh_login_key_enc'] = encryptSetting(strtolower($key));
     }
-    Config::set($vals);
-    logAction('Settings', 'Edit', "$session_name edited the MeshCentral settings for the endpoint agent" . ($key !== '' ? ' (login key replaced)' : ''));
-    if (isset($_POST['test_mesh']) && $norm !== '') {
-        $err = Mesh::probe($norm);
-        flash_alert($err === null ? 'MeshCentral answered.' : nullable_htmlentities($err), $err === null ? 'success' : 'error');
-    } else {
-        flash_alert('MeshCentral settings saved.');
-    }
-    redirect();
+    $in['mesh_enabled'] = isset($_POST['mesh_enabled']) ? 1 : 0;
+    $r = $ea_admin->saveMesh($ea_who, $in, isset($_POST['test_mesh']));
+    $rmm->syncState();   // the remote sub-switch follows mesh_enabled
+    ea_flash_result($r);
 }

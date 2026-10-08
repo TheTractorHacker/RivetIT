@@ -395,7 +395,8 @@ if (isset($_GET['asset_id'])) {
                             </div>
                             <?php endif; ?>
                         </div>
-                        <?php if ($rmm_type === 'rivetit_agent'): ?>
+                        <?php if ($rmm_type === 'rivetit_agent') { require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php'; } ?>
+                        <?php if ($rmm_type === 'rivetit_agent' && rivetRmmEnabled()): ?>
                         <a class="btn btn-outline-primary btn-sm" href="/agent/rmm_agent_device.php?device_id=<?= intval(preg_replace('/^rivetit:/', '', (string) $rmm_link['tactical_agent_id'])) ?>" title="Inventory, checks, jobs and remote access for the endpoint agent">
                             <i class="fas fa-satellite me-1"></i>Agent device
                         </a>

@@ -17,8 +17,7 @@ if (php_sapi_name() !== 'cli') {
 require_once "../config.php";
 require_once "../functions.php";
 require_once "../vendor/autoload.php";
-
-use ITFlow\EndpointAgent\Binaries;
+require_once "../includes/rmm_bootstrap.php";
 
 mysqli_report(MYSQLI_REPORT_OFF);
 // Own argument parser: the executable may come before or after the options (PHP's getopt() stops at the first non-option).
@@ -60,7 +59,8 @@ if (Db_tableMissing()) {
 $session_user_id = 0;
 $session_ip = 'cli';
 $session_user_agent = 'endpoint_agent_publish.php';
-$res = Binaries::publish($file, (string) $opts['version'], (string) $opts['arch'], 0, [
+// BinaryStore::publish() (rivet/rivet-core): the same validation as the upload form, no module switch involved.
+$res = rivetRmmModule()->binaryStore()->publish($file, (string) $opts['version'], (string) $opts['arch'], 0, [
     'activate' => isset($opts['activate']),
     'release_ring' => $opts['release'] ?? null,
     'rollout_pct' => (int) ($opts['rollout'] ?? 10),

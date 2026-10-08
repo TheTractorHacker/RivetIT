@@ -242,6 +242,10 @@ function rivetRegisterJobHandlers(\RivetCore\Jobs\JobWorker $worker, $mysqli): v
 
         return ['message' => $res['message']];
     });
+
+    // RMM module (rivet/rivet-core): the queued check-in ingest handler (rmm.ingest). Nothing is loaded while the module is off.
+    require_once __DIR__ . '/rmm_bootstrap.php';
+    rivetRmmRegisterHandlers($worker, $mysqli);
 }
 
 /** Execute one event rule's action now (loop guard, rate limit and run log included). @return array{rule_id:int, ok:bool, message:string} */

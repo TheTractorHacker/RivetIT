@@ -1696,8 +1696,10 @@ if ($config_module_enable_rmm) {
  * ###############################################################################################################
  */
 try {
+    // RivetCore\Rmm\Maintenance\Housekeeping (rivet/rivet-core). While the module is off this is one primary-key SELECT and no module is loaded.
     require_once dirname(__DIR__) . '/vendor/autoload.php';
-    $ea_stats = \ITFlow\EndpointAgent\Maintenance::run();
+    require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
+    $ea_stats = rivetRmmHousekeeping($mysqli);
     if (array_sum($ea_stats) > 0) {
         logApp("Cron", "info", "Endpoint agent housekeeping: " . json_encode($ea_stats));
     }

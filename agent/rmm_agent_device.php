@@ -2,40 +2,48 @@
 require_once "includes/inc_all.php";
 enforceUserPermission('module_rmm');
 
-use ITFlow\EndpointAgent\Actions;
-use ITFlow\EndpointAgent\Authz;
-use ITFlow\EndpointAgent\Config;
-use ITFlow\EndpointAgent\Db;
-use ITFlow\EndpointAgent\Devices;
-use ITFlow\EndpointAgent\Updates;
-use ITFlow\EndpointAgent\View;
+require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
+
+use RivetCore\Rmm\Authz\RmmAbility;
+use RivetCore\Rmm\Support\Sql;
 
 mysqli_report(MYSQLI_REPORT_OFF);
 $h = static fn($v) => nullable_htmlentities((string) $v);
 $device_id = intval($_GET['device_id'] ?? 0);
 $uid = (int) $session_user_id;
-$cfg = Config::get(true);
+$rmm = rivetRmmModule();
+if (!$rmm->enabled()) {
+    itflow_render_denied('The RMM module is switched off. An administrator can turn it on under Administration > Endpoint agent.', 'RMM module off');
+    return;
+}
+$cfg = $rmm->settings()->get(true);
 
 // The same visibility rule as the API: a device outside the caller's departments looks exactly like a missing one.
-$dev = Actions::visibleDevice($uid, $device_id);
+$dev = $rmm->technician()->visibleDevice($uid, $device_id);
 if (!$dev) {
     itflow_render_denied('That device does not exist or is outside your departments.', 'Device not found');
     return;
 }
 $client_id = (int) $dev['client_id'];
-$can_saved  = Authz::check($uid, Authz::RUN_SAVED, $client_id) === null;
-$can_script = Authz::check($uid, Authz::RUN_SCRIPT, $client_id) === null;
-$can_reboot = Authz::check($uid, Authz::REBOOT, $client_id) === null;
-$can_remote = Authz::check($uid, Authz::REMOTE, $client_id) === null;
-$is_admin = Authz::check($uid, Authz::ADMIN, $client_id) === null;
-$st = Devices::status($dev, $cfg);
+$authz = $rmm->authorizer();
+$can_saved  = $authz->allowed($uid, RmmAbility::JOB_RUN_SAVED, $client_id);
+$can_script = $authz->allowed($uid, RmmAbility::JOB_RUN_SCRIPT, $client_id);
+$can_reboot = $authz->allowed($uid, RmmAbility::JOB_REBOOT, $client_id);
+$can_remote = $authz->allowed($uid, RmmAbility::REMOTE_LAUNCH, $client_id);
+$is_admin = $authz->allowed($uid, RmmAbility::ADMIN, $client_id);
+$st = $rmm->devices()->status($dev, $cfg);
 $inv = $dev['inventory_json'] ? (json_decode((string) $dev['inventory_json'], true) ?: []) : [];
 $met = $dev['last_metrics_json'] ? (json_decode((string) $dev['last_metrics_json'], true) ?: []) : [];
-$checks = Db::all('SELECT * FROM endpoint_agent_checks WHERE device_id = ? ORDER BY check_key', [$device_id]);
-$jobs = View::jobs($device_id, 15, $can_saved);
-$mesh = Db::one('SELECT * FROM endpoint_agent_mesh_nodes WHERE device_id = ?', [$device_id]);
-$asset = $dev['asset_id'] ? Db::one('SELECT asset_id, asset_name FROM assets WHERE asset_id = ?', [$dev['asset_id']]) : null;
-$saved = $can_saved ? Db::all("SELECT id, name FROM rmm_scripts WHERE enabled = 1 AND script_type = 'powershell' AND script_body IS NOT NULL AND script_body <> '' ORDER BY name LIMIT 300") : [];
+$view = $rmm->readModel()->deviceView($device_id, $can_saved, 15) ?? [];
+$checks = $view['checks'] ?? [];
+$jobs = $view['jobs'] ?? [];
+$mesh = !empty($view['mesh']['mapped']) ? ['mesh_node_id' => $view['mesh']['node_id'], 'source' => $view['mesh']['source']] : null;
+$asset = $dev['asset_id'] ? mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT asset_id, asset_name FROM assets WHERE asset_id = ' . (int) $dev['asset_id'])) : null;
+$saved = [];
+if ($can_saved) {
+    $res = mysqli_query($mysqli, "SELECT id, name FROM rmm_scripts WHERE enabled = 1 AND script_type = 'powershell' AND script_body IS NOT NULL AND script_body <> '' ORDER BY name LIMIT 300");
+    while ($res && ($sr = mysqli_fetch_assoc($res))) { $saved[] = $sr; }
+}
 $badge = ['online' => 'success', 'offline' => 'danger', 'stale' => 'secondary', 'never' => 'secondary'][$st['state']];
 $pct = static fn($v) => $v === null ? '<span class="text-muted">no data</span>' : htmlspecialchars((string) round((float) $v, 1)) . '%';
 $bytes = static function ($b) { if ($b === null) { return '<span class="text-muted">no data</span>'; } $u = ['B', 'KB', 'MB', 'GB', 'TB']; $i = 0; $b = (float) $b; while ($b >= 1024 && $i < 4) { $b /= 1024; $i++; } return round($b, 1) . ' ' . $u[$i]; };
@@ -60,8 +68,8 @@ $ts = static fn($iso) => $iso ? htmlspecialchars(str_replace('T', ' ', rtrim($is
     <div class="card mb-3"><div class="card-header"><h5 class="card-title mb-0">Status</h5></div><div class="card-body">
         <table class="table table-sm table-borderless mb-0">
             <tr><td class="text-muted" style="width:40%">Last check-in</td><td><?= $ts($st['last_checkin_at']) ?><?php if ($st['age_s'] !== null) { echo ' <span class="text-muted">(' . (int) $st['age_s'] . ' s ago)</span>'; } ?></td></tr>
-            <tr><td class="text-muted">Last successful collection</td><td><?= $ts(Db::iso($dev['last_collected_at'])) ?></td></tr>
-            <tr><td class="text-muted">Last inventory</td><td><?= $ts(Db::iso($dev['last_inventory_at'])) ?></td></tr>
+            <tr><td class="text-muted">Last successful collection</td><td><?= $ts(Sql::iso($dev['last_collected_at'])) ?></td></tr>
+            <tr><td class="text-muted">Last inventory</td><td><?= $ts(Sql::iso($dev['last_inventory_at'])) ?></td></tr>
             <?php if ($st['offline_since']) { ?><tr><td class="text-muted">Considered offline since</td><td><?= $ts($st['offline_since']) ?></td></tr><?php } ?>
             <tr><td class="text-muted">Agent version / ring</td><td><?= $h($dev['agent_version']) ?> / <?= $h($dev['ring']) ?></td></tr>
             <tr><td class="text-muted">Enrolled</td><td><?= $h($dev['first_seen_at']) ?> UTC (<?= (int) $dev['enroll_count'] ?> enrollment<?= (int) $dev['enroll_count'] === 1 ? '' : 's' ?>)</td></tr>
@@ -103,7 +111,7 @@ $ts = static fn($iso) => $iso ? htmlspecialchars(str_replace('T', ' ', rtrim($is
     <div class="card mb-3"><div class="card-header"><h5 class="card-title mb-0">Checks</h5></div><div class="card-body p-0">
         <table class="table table-sm mb-0"><thead><tr><th>Check</th><th>Status</th><th>Detail</th><th>Reported (UTC)</th></tr></thead><tbody>
         <?php foreach ($checks as $c) { $cb = ['ok' => 'success', 'warn' => 'warning', 'fail' => 'danger', 'unknown' => 'secondary'][$c['status']] ?? 'secondary';
-            echo '<tr><td>' . $h($c['check_key']) . '</td><td><span class="badge bg-' . $cb . '">' . $h($c['status']) . '</span>' . ((int) $c['consecutive_failures'] > 0 ? ' <span class="small text-muted">' . (int) $c['consecutive_failures'] . ' in a row</span>' : '') . '</td><td>' . $h($c['detail']) . '</td><td>' . $h($c['last_reported_at']) . '</td></tr>'; }
+            echo '<tr><td>' . $h($c['key']) . '</td><td><span class="badge bg-' . $cb . '">' . $h($c['status']) . '</span>' . ((int) $c['consecutive_failures'] > 0 ? ' <span class="small text-muted">' . (int) $c['consecutive_failures'] . ' in a row</span>' : '') . '</td><td>' . $h($c['detail']) . '</td><td>' . $h(str_replace('T', ' ', rtrim((string) $c['last_reported_at'], 'Z'))) . '</td></tr>'; }
         if (!$checks) { echo '<tr><td colspan="4" class="text-muted p-3">No check result yet.</td></tr>'; } ?>
         </tbody></table>
     </div></div>
