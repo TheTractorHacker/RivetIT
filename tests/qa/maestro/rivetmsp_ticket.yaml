@@ -1,0 +1,55 @@
+# RivetMSP Android - create a ticket (lands on the new ticket's detail), validate the form,
+# add an internal note, then a public reply. Needs a logged-in session (run rivetmsp_login.yaml first).
+# Covers RIVETMSP-ANDROID-002 (create opens the new ticket) and the visible-validation fix.
+appId: com.foleyit.itflow.beta
+---
+- stopApp
+- launchApp
+- tapOn: "Ticket"
+- assertVisible: "Log a new ticket"
+# Empty subject: the error must be visible without scrolling
+- tapOn: "Create Ticket"
+- assertVisible: "Subject required"
+- tapOn: "Subject.*"
+- inputText: "QA-maestro-ticket"
+- hideKeyboard
+- tapOn: "Create Ticket"
+# The new ticket's detail screen opens (not Home)
+- extendedWaitUntil:
+    visible: "Add Note"
+    timeout: 20000
+- assertVisible: "QA-maestro-ticket"
+- assertNotVisible: "Log a new ticket"
+# Internal note
+- tapOn: "Add Note"
+- assertVisible: "Internal note"
+- assertVisible: "Public reply"
+- tapOn: "Note"
+- inputText: "maestro_internal_note"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: "Add Note"
+      index: 1
+- tapOn:
+    text: "Add Note"
+    index: 1
+- extendedWaitUntil:
+    visible: "maestro_internal_note"
+    timeout: 20000
+# Public reply (API type "reply")
+- tapOn: "Add Note"
+- tapOn: "Public reply"
+- assertVisible: "Reply to Client"
+- tapOn: "Reply"
+- inputText: "maestro_public_reply"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Send Reply"
+- tapOn: "Send Reply"
+- extendedWaitUntil:
+    visible: "maestro_public_reply"
+    timeout: 20000
+# Back returns to where the form was opened from (Home), not the form
+- back
+- assertNotVisible: "Log a new ticket"

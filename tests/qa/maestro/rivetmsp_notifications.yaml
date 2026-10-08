@@ -1,0 +1,23 @@
+# RivetMSP Android - notifications list refreshes after "Mark all read" (the list was served from the
+# 5-minute HTTP cache, so it kept showing items the server had already cleared). Needs a logged-in session.
+appId: com.foleyit.itflow.beta
+---
+- stopApp
+- launchApp
+- tapOn: "Ticket"
+- tapOn: "Subject.*"
+- inputText: "QA-maestro-notif"
+- hideKeyboard
+- tapOn: "Create Ticket"
+- extendedWaitUntil:
+    visible: "Add Note"
+    timeout: 30000
+- back
+- tapOn: "Notifications"
+- extendedWaitUntil:
+    visible: ".*New ticket.*"
+    timeout: 20000
+- tapOn: "Mark all read"
+- extendedWaitUntil:
+    visible: "No new notifications"
+    timeout: 20000

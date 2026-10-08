@@ -1,0 +1,29 @@
+# RivetMSP Android - bottom nav + drawer tour (logged-in session required).
+appId: com.foleyit.itflow.beta
+---
+- stopApp
+- launchApp
+- assertVisible: "(Good (morning|afternoon|evening)|Working late.*)"
+- tapOn: "Tickets"
+- assertVisible: "Search tickets.*"
+- tapOn: "Clients"
+- assertVisible: "Search clients.*"
+# RIVETMSP-ANDROID-001 regression: a client with a blank name must render, not crash the tab
+- extendedWaitUntil:
+    visible: "Unnamed client"
+    timeout: 30000
+- tapOn: "Assets"
+- assertVisible: "Search assets.*"
+- tapOn: "Appts"
+- assertVisible: "Upcoming"
+- tapOn: "Home"
+- tapOn: "Menu"
+- tapOn: "Projects"
+- assertVisible: "Search projects.*"
+# RIVETMSP-ANDROID-004: this server has no projects endpoint (404) - friendly message, not "Something went wrong"
+- assertVisible: "Projects aren't available on this server"
+- back
+- tapOn: "Menu"
+- tapOn: "Reports"
+- assertVisible: "Time Summary"
+- back

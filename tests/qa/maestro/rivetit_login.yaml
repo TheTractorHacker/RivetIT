@@ -1,0 +1,54 @@
+# Fresh install -> server setup (self-signed cert dialog) -> sign in as the demo admin.
+# Needs a TLS proxy: socat openssl-listen:9443,reuseaddr,fork,cert=<pem>,verify=0 tcp:127.0.0.1:8080
+# Pass -e CERT_SUFFIX=<last 6 hex chars of the proxy cert SHA-256> -e SERVER_HOST=10.0.2.2:9443
+appId: com.foleyit.itflow.internal.beta
+env:
+  SERVER_HOST: 10.0.2.2:9443
+  CERT_SUFFIX: 81A13D
+  USER: alex.morgan@summitridge.example
+  PASS: DemoAdmin#2026
+---
+- clearState
+- launchApp:
+    permissions: { all: allow }
+- assertVisible: Connect to RivetIT
+# Empty / bare-scheme submit must give feedback (RIVETIT-ANDROID-007)
+- tapOn: Connect
+- assertVisible: "Enter your server address"
+# Tap the far right of the field so the cursor lands after the pre-filled "https://".
+- tapOn:
+    point: 95%,24%
+- eraseText: 40
+- inputText: ${SERVER_HOST}
+- hideKeyboard
+# The emulator's first handshake occasionally fails with a transient network error; retry it.
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn: Connect
+      - extendedWaitUntil:
+          visible: Untrusted Certificate
+          timeout: 8000
+- tapOn:
+    below: ".*last 6 characters.*"
+- inputText: ${CERT_SUFFIX}
+- tapOn: "Trust & Connect"
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 60000
+# Empty submit must give feedback (RIVETIT-ANDROID-008)
+- tapOn:
+    text: "Sign in"
+    index: 1
+- assertVisible: "Enter your username and password"
+- tapOn: Username or email
+- inputText: ${USER}
+- tapOn: Password
+- inputText: ${PASS}
+- hideKeyboard
+- tapOn:
+    text: "Sign in"
+    index: 1
+- extendedWaitUntil:
+    visible: "Good morning|Good afternoon|Good evening"
+    timeout: 45000

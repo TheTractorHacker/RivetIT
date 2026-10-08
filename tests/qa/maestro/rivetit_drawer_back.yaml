@@ -1,0 +1,11 @@
+# RIVETIT-ANDROID-002: Back with the navigation drawer open must close the drawer, not exit the app.
+# Needs a signed-in session (run rivetit_login.yaml first).
+appId: com.foleyit.itflow.internal.beta
+---
+- launchApp
+- assertVisible: "Good morning|Good afternoon|Good evening"
+- tapOn: "Menu"
+- assertVisible: "Knowledge Base"
+- back
+- assertNotVisible: "Knowledge Base"
+- assertVisible: "Good morning|Good afternoon|Good evening"
