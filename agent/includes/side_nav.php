@@ -533,6 +533,12 @@ foreach ($section_pages as $key => $pages) {
                             <span class="dropdown-item-icon"><i class="fas fa-satellite"></i></span>
                             <span class="text-truncate">Agent Fleet</span>
                         </a>
+                        <?php require_once dirname(__DIR__, 2) . '/includes/rmm_installer.php'; if (rivetRmmInstallerAllowed($mysqli, (int) $session_user_id)) { // module on, and rmm.token.manage or rmm.admin ?>
+                        <a href="/agent/rmm_fleet.php?installer=1" class="dropdown-item">
+                            <span class="dropdown-item-icon"><i class="fas fa-download"></i></span>
+                            <span class="text-truncate">Download installer</span>
+                        </a>
+                        <?php } ?>
                         <?php } ?>
                         <a href="/agent/rmm_assets.php" class="dropdown-item<?php if (in_array($current_page, ['rmm_assets.php','rmm_asset.php'])) { echo ' active'; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-desktop"></i></span>

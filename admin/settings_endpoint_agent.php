@@ -195,7 +195,24 @@ $serviceUrlHint = 'https://' . $config_base_url;
     <div class="card-header"><h4 class="card-title mb-0">Agent binaries</h4></div>
     <div class="card-body">
         <p class="small text-muted">Upload the Windows agent executable (unstamped, as built by <code>make build</code>) for each architecture. The server checks the PE header, the machine type and that the file is not already an installer, and stores it outside the web-served area. The <strong>current</strong> binary per architecture is what per-department installers are made from; offering a binary as an update lets enrolled agents fetch it from this server. Largest accepted upload: <strong><?= $h(BinaryStore::human($uploadLimit)) ?></strong> (the lower of the <?= $h(BinaryStore::human($rmm->binaryStore()->maxBytes())) ?> cap, PHP <code>upload_max_filesize</code> <?= $h(ini_get('upload_max_filesize')) ?> and <code>post_max_size</code> <?= $h(ini_get('post_max_size')) ?>). Larger or automated uploads: <code>scripts/endpoint_agent_publish.php</code>.</p>
-        <form action="post.php" method="post" enctype="multipart/form-data" class="row g-2 align-items-end mb-3" autocomplete="off">
+        <form action="post.php" method="post" enctype="multipart/form-data" class="border rounded p-3 mb-3" id="bn_drop_form" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <h6 class="mb-1"><i class="fas fa-cloud-upload-alt me-1" aria-hidden="true"></i>Publish the agent</h6>
+            <p class="small text-muted mb-2">Drop the agent .exe here (both the x64 and the ARM64 file at once if you have them). The architecture is read from the file itself, the version from the file name, and the files become the ones new installers are built from.</p>
+            <label class="border border-2 rounded p-3 text-center w-100 mb-2" id="bn_drop" for="bn_files" style="border-style:dashed !important;cursor:pointer">
+                <span class="d-block"><i class="fas fa-file-upload me-1" aria-hidden="true"></i>Drag the .exe file(s) here, or <u>choose files</u></span>
+                <span class="d-block small text-muted" id="bn_drop_list" aria-live="polite">Nothing chosen yet.</span>
+            </label>
+            <input type="file" class="visually-hidden" id="bn_files" name="agent_binaries[]" accept=".exe" multiple required>
+            <div class="row g-2 align-items-end">
+                <div class="col-sm-3"><label class="form-label small" for="bn_dv">Version <span class="text-muted">(blank: from the file name)</span></label><input class="form-control form-control-sm" id="bn_dv" name="version" placeholder="1.2.0" maxlength="40"></div>
+                <div class="col-sm-4"><div class="form-check"><input type="checkbox" class="form-check-input" id="bn_dcur" name="activate" value="1" checked><label class="form-check-label small" for="bn_dcur">Use for new installers (make current)</label></div></div>
+                <div class="col-sm-3"><label class="form-label small" for="bn_dring">Also offer as an update</label><select class="form-select form-select-sm" id="bn_dring" name="release_ring"><option value="">No</option><option value="pilot">Pilot ring</option><option value="stable">Stable ring</option></select></div>
+                <div class="col-sm-2"><button class="btn btn-sm btn-primary w-100" name="upload_agent_binaries" value="1"><i class="fas fa-upload me-1" aria-hidden="true"></i>Publish</button></div>
+            </div>
+        </form>
+        <details class="mb-3"><summary class="small">Advanced: upload one file with an explicit architecture and rollout</summary>
+        <form action="post.php" method="post" enctype="multipart/form-data" class="row g-2 align-items-end mt-1" autocomplete="off">
             <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
             <div class="col-lg-3"><label class="form-label small" for="bn_file">Agent executable (.exe)</label><input type="file" class="form-control form-control-sm" id="bn_file" name="agent_binary" accept=".exe" required></div>
             <div class="col-lg-1"><label class="form-label small" for="bn_v">Version</label><input class="form-control form-control-sm" id="bn_v" name="version" placeholder="1.2.0" maxlength="40" required></div>
@@ -204,7 +221,7 @@ $serviceUrlHint = 'https://' . $config_base_url;
             <div class="col-lg-2"><label class="form-label small" for="bn_ring">Offer as update</label><select class="form-select form-select-sm" id="bn_ring" name="release_ring"><option value="">No</option><option value="pilot">Pilot ring</option><option value="stable">Stable ring</option></select></div>
             <div class="col-lg-1"><label class="form-label small" for="bn_pct">Rollout %</label><input class="form-control form-control-sm" id="bn_pct" name="rollout_pct" type="number" min="0" max="100" value="10"></div>
             <div class="col-lg-1"><button class="btn btn-sm btn-primary w-100" name="upload_agent_binary">Upload</button></div>
-        </form>
+        </form></details>
         <div class="table-responsive"><table class="table table-sm align-middle mb-0">
             <thead><tr><th>Version</th><th>Arch</th><th>Size</th><th>SHA-256</th><th>Uploaded (UTC)</th><th>State</th><th></th></tr></thead><tbody>
             <?php foreach ($binaries as $b) { $fid = 'bn_' . (int) $b['binary_id']; ?>
@@ -232,6 +249,7 @@ $serviceUrlHint = 'https://' . $config_base_url;
 <div class="card mb-3" id="deployment">
     <div class="card-header"><h4 class="card-title mb-0">Deployment: per-department installer</h4></div>
     <div class="card-body">
+        <p class="small mb-2"><i class="fas fa-lightbulb me-1 text-warning" aria-hidden="true"></i>Quicker: <a href="/agent/rmm_fleet.php?installer=1">Endpoints &gt; Agent Fleet &gt; Add device</a> does the same in one dialog, for any department you can see.</p>
         <p class="small text-muted">Creates an enrollment token for the department and gives you an installer that already contains the server address, the token, the department and (if set) your CA certificate. Run it on a Windows PC as administrator and the agent installs and enrolls itself. Each click creates a new audited token.</p>
         <?php
         $dep_problems = [];
@@ -429,6 +447,20 @@ document.querySelectorAll('[data-ea-copy-value],[data-ea-copy-target]').forEach(
         else if (t) { document.getElementById(t).select(); document.execCommand('copy'); b.textContent = 'Copied'; }
     });
 });
+(function () {   // drag and drop for "Publish the agent": the file list is shown, the architecture and version are worked out by the server
+    var drop = document.getElementById('bn_drop'), input = document.getElementById('bn_files'), list = document.getElementById('bn_drop_list'), ver = document.getElementById('bn_dv');
+    if (!drop || !input) { return; }
+    function show() {
+        var names = Array.prototype.map.call(input.files, function (f) { return f.name + ' (' + (f.size / 1048576).toFixed(1) + ' MB)'; });
+        list.textContent = names.length ? names.join(', ') : 'Nothing chosen yet.';
+        var m = input.files.length ? /(\d{1,5}\.\d{1,5}\.\d{1,5}(?:-(?:rc|alpha|beta|pre|dev)[0-9A-Za-z.]{0,16})?)/i.exec(input.files[0].name) : null;
+        ver.placeholder = m ? m[1] + ' (from the file name)' : '1.2.0';
+    }
+    ['dragenter', 'dragover'].forEach(function (n) { drop.addEventListener(n, function (e) { e.preventDefault(); drop.classList.add('bg-body-secondary'); }); });
+    ['dragleave', 'drop'].forEach(function (n) { drop.addEventListener(n, function (e) { e.preventDefault(); drop.classList.remove('bg-body-secondary'); }); });
+    drop.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files.length) { input.files = e.dataTransfer.files; show(); } });
+    input.addEventListener('change', show);
+})();
 document.querySelectorAll('input[data-ea-select]').forEach(function (i) { i.addEventListener('focus', function () { i.select(); }); });
 </script>
 <?php require_once "../includes/footer.php"; ?>

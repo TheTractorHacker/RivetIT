@@ -89,6 +89,66 @@ if (isset($_POST['upload_agent_binary'])) {
     ]));
 }
 
+/**
+ * "Publish agent" (drag and drop): one or two agent executables at once. The architecture is read from each file's own headers (never trusted from
+ * the browser or the file name), the version comes from the form or, when left blank, from the file name (rivetit-agent-1.4.0-windows-arm64.exe).
+ * Every file goes through the same RmmAdmin::uploadBinary() as the single-file form: header checks, size cap, SHA-256, audit entry.
+ */
+if (isset($_POST['upload_agent_binaries'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $files = [];
+    $up = $_FILES['agent_binaries'] ?? null;
+    if ($up && is_array($up['name'] ?? null)) {
+        foreach (array_keys($up['name']) as $i) {
+            $files[] = ['name' => (string) $up['name'][$i], 'tmp' => (string) $up['tmp_name'][$i], 'error' => (int) $up['error'][$i]];
+        }
+    }
+    $files = array_slice(array_values(array_filter($files, static fn (array $f): bool => $f['error'] !== UPLOAD_ERR_NO_FILE)), 0, 4);
+    if ($files === []) {
+        flash_alert('Choose or drop the agent .exe file(s) to publish.', 'error');
+        redirect();
+    }
+    $limit = $rmm->binaryStore()->effectiveUploadLimit();
+    $ring = (string) ($_POST['release_ring'] ?? '');
+    $versionIn = trim((string) ($_POST['version'] ?? ''));
+    $done = [];
+    $failed = [];
+    $seen = [];
+    foreach ($files as $f) {
+        $label = basename($f['name']);
+        if ($f['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($f['tmp'])) {
+            $failed[] = $label . ': ' . (in_array($f['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)
+                ? 'larger than the limit of ' . \RivetCore\Rmm\Binaries\BinaryStore::human($limit) . ' (PHP upload_max_filesize ' . ini_get('upload_max_filesize') . ', post_max_size ' . ini_get('post_max_size') . ')'
+                : 'the upload failed (PHP error ' . $f['error'] . ')');
+            continue;
+        }
+        $det = $rmm->binaryStore()->detect($f['tmp']);
+        if (is_string($det) || $det['arch'] === null) {
+            $failed[] = $label . ': ' . (is_string($det) ? $det : 'this is not an x64 or ARM64 agent executable');
+            continue;
+        }
+        if (isset($seen[$det['arch']])) {
+            $failed[] = $label . ': a second ' . $det['arch'] . ' file in the same upload (publish one file per architecture)';
+            continue;
+        }
+        $seen[$det['arch']] = true;
+        $version = $versionIn !== '' ? $versionIn : (preg_match('/(\d{1,5}\.\d{1,5}\.\d{1,5}(?:-(?:rc|alpha|beta|pre|dev)[0-9A-Za-z.]{0,16})?)/i', $label, $m) === 1 ? $m[1] : '');
+        if ($version === '') {
+            $failed[] = $label . ': the version is not in the file name. Type it in the Version box (for example 1.2.0).';
+            continue;
+        }
+        $r = $ea_admin->uploadBinary($ea_who, $f['tmp'], $version, (string) $det['arch'], [
+            'activate' => isset($_POST['activate']),
+            'release_ring' => in_array($ring, ['pilot', 'stable'], true) ? $ring : null,
+            'rollout_pct' => ea_post_int('rollout_pct', 0, 100, 10),
+        ]);
+        $r->ok ? $done[] = $label . ' as ' . $version . ' (' . ($det['arch'] === 'arm64' ? 'ARM64' : 'x64') . ')' : $failed[] = $label . ': ' . $r->message;
+    }
+    $msg = ($done ? 'Published ' . implode(' and ', $done) . (isset($_POST['activate']) ? ', now used for new installers.' : '.') : '') . ($failed ? ($done ? ' ' : '') . 'Not published: ' . implode('; ', $failed) : '');
+    flash_alert(nullable_htmlentities($msg), $failed ? ($done ? 'warning' : 'error') : 'success');
+    redirect();
+}
+
 if (isset($_POST['binary_action'])) {
     validateCSRFToken($_POST['csrf_token']);
     ea_flash_result($ea_admin->binaryAction($ea_who, intval($_POST['binary_id'] ?? 0), (string) $_POST['binary_action'], (string) ($_POST['release_ring'] ?? 'pilot'), ea_post_int('rollout_pct', 0, 100, 10)));
