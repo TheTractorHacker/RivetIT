@@ -229,7 +229,7 @@ Sequenced so each phase is shippable alone. Effort: S under 1 week, M 1-3 weeks,
 - M365 license and Pax8 sync.
 
 ### Phase 6: RivetIT-specific roadmap (continues in parallel)
-- RMM module in RivetCore: the built-in endpoint agent's server side runs on `rivet/rivet-core` 1.0.0-rc.5 since DB 2.6.147 (module switch, thin REST bridges, adapters in `src/Core/Adapter/Endpoint/`); the asset page RMM panel and the Agent Fleet page (rivet-core `docs/rmm/ASSET_PAGE_REDESIGN.md`, task T10a, Phase 0 scope) are built on it; next are T10b (the same panel in RivetMSP, after its adoption of the module) and the Phase 1 follow-ups the redesign needs data for (live polling document, check state history, software inventory, per-device thresholds, Activity tab). See `docs/ENDPOINT_AGENT.md` section 7.
+- RMM module in RivetCore: the built-in endpoint agent's server side runs on `rivet/rivet-core` 1.0.0-rc.5 since DB 2.6.150 (module switch, thin REST bridges, adapters in `src/Core/Adapter/Endpoint/`); the asset page RMM panel and the Agent Fleet page (rivet-core `docs/rmm/ASSET_PAGE_REDESIGN.md`, task T10a, Phase 0 scope) are built on it; next are T10b (the same panel in RivetMSP, after its adoption of the module) and the Phase 1 follow-ups the redesign needs data for (live polling document, check state history, software inventory, per-device thresholds, Activity tab). See `docs/ENDPOINT_AGENT.md` section 7.
 - Master Plan phases 5, 13, 14, 15 (portal, lifecycle, reporting, automation).
 - Live Entra/Intune and Odoo sync once credentials exist.
 

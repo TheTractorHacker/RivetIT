@@ -6,6 +6,13 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Database numbering reconciled: RMM step is now 2.6.150
+
+The RMM / RivetCore state-sync step (Core migrations 0014 to 0016 plus the module state file) was 2.6.147 on the RMM adoption line and collided with the
+scheduled-reports step (now 2.6.147 to 2.6.148) and the payments provider-reference step (2.6.148 to 2.6.149) of the security-fixes line. It is now **2.6.150**,
+gated on 2.6.149, and idempotent: an install that already ran it as 2.6.147 and an install that went 2.6.147 to 2.6.149 without it end up identical. 2.6.146 to
+2.6.147 is a plain version bump. `db.sql` carries the columns of both lines. References to "DB 2.6.147" below for the RMM module mean 2.6.150.
+
 ### Add device / Download installer (T11)
 
 - **Agent Fleet:** a primary **Add device** button opens a dialog that downloads the stamped Windows installer in one click (department, x64/ARM64, ring, token lifetime and PC count under Advanced), shows the next steps, and has a Linux tab with the install command and a copy button.
@@ -40,7 +47,7 @@ new library, CDN or framework (Chart.js and the Metrics partial are the existing
 - **Not in this change (needs data we do not store, listed for Phase 1):** live polling document, per-check history/trend, network "% of 24 h peak" bar, battery gauge,
   Activity tab, tags, patches. Tests: `tests/rmm_ui.php` (view-models, permission and module-off paths, escaping, real pages over HTTP) and `tests/browser/rmm_smoke.mjs`.
 
-### RMM module: the endpoint agent now runs on RivetCore (DB 2.6.147)
+### RMM module: the endpoint agent now runs on RivetCore (DB 2.6.150)
 
 The server side of the built-in endpoint agent (enrollment, devices, check-in, signed jobs, hosted updates, per-department installers, MeshCentral launch,
 the technician REST API and the administration operations) is now the **RMM module of RivetCore** (`rivet/rivet-core` 1.0.0-rc.5, `RivetCore\Rmm`). RivetIT
@@ -56,7 +63,7 @@ and the Go agent `endpoint-agent/` with its workflow were removed from this repo
   `503 module_disabled` (Retry-After 3600) from `api/v1/rmm_gate.php` with no database work at all (`endpoint_devices` authenticates first, 401 without a token, then answers `404 disabled`: an anonymous caller cannot learn whether the module is on), enrolled
   agents back off and lose nothing, the device page and the asset page link are hidden and the cron housekeeping does nothing. The gate reads
   `backups/rmm-state/rmm_state.json`, a cache of the switch (a missing or damaged file means "unknown", never "off").
-- **Database 2.6.147:** runs Core migrations 0014 to 0016. On an existing install 0014 and 0015 change nothing; 0016 adds `features_json`, `limits_json`,
+- **Database 2.6.150:** runs Core migrations 0014 to 0016. On an existing install 0014 and 0015 change nothing; 0016 adds `features_json`, `limits_json`,
   `shed_level`, `ingest_mode`, `max_devices` to `endpoint_agent_settings` (defaults reproduce today's behaviour). `db.sql` carries the columns; a fresh install
   and an upgraded one have identical schemas (every table compared).
 - **Where agent binaries are published now:** build and release the agent from the rivet-core repository (`endpoint-agent/`, tags `agent-v*`), then upload the

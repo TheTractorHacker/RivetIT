@@ -154,7 +154,7 @@ $runStep = function (mysqli $c): void {
 [$fresh, $cf] = $mk('fresh', null);
 $ok((int) $cf->query('SELECT COUNT(*) FROM endpoint_agent_settings')->fetch_row()[0] === 1 && (int) $cf->query('SELECT enabled FROM endpoint_agent_settings WHERE id=1')->fetch_row()[0] === 0, 'FRESH install (db.sql): one settings row, enabled = 0');
 $runStep($cf);
-$ok((int) $cf->query('SELECT enabled FROM endpoint_agent_settings WHERE id=1')->fetch_row()[0] === 0 && (int) $cf->query('SELECT COUNT(*) FROM endpoint_agent_settings')->fetch_row()[0] === 1, 'FRESH install after the Core migrations (2.6.147 step): still off, still one row');
+$ok((int) $cf->query('SELECT enabled FROM endpoint_agent_settings WHERE id=1')->fetch_row()[0] === 0 && (int) $cf->query('SELECT COUNT(*) FROM endpoint_agent_settings')->fetch_row()[0] === 1, 'FRESH install after the Core migrations (2.6.150 step): still off, still one row');
 $ok((int) $cf->query("SELECT COUNT(*) FROM rivet_core_migrations WHERE migration_id IN ('0014_endpoint_agent_core','0015_endpoint_agent_converge','0016_rmm_module_switches')")->fetch_row()[0] === 3, 'FRESH install: the three RMM migrations are recorded');
 $cf->close(); $db->query("DROP DATABASE `$fresh`");
 foreach ([1 => 'ON', 0 => 'OFF'] as $en => $label) {
@@ -163,7 +163,7 @@ foreach ([1 => 'ON', 0 => 'OFF'] as $en => $label) {
     $ce->query('ALTER TABLE endpoint_agent_settings DROP COLUMN features_json, DROP COLUMN limits_json, DROP COLUMN shed_level, DROP COLUMN ingest_mode, DROP COLUMN max_devices');   // the DB 2.6.146 shape
     $ce->query("UPDATE endpoint_agent_settings SET service_url='https://keep.example', failure_debounce=9 WHERE id=1");
     $runStep($ce);
-    $ok((int) $ce->query('SELECT enabled FROM endpoint_agent_settings WHERE id=1')->fetch_row()[0] === $en, "EXISTING install with the agent $label: stays $label after the 2.6.147 step (decided by the column, never inferred)");
+    $ok((int) $ce->query('SELECT enabled FROM endpoint_agent_settings WHERE id=1')->fetch_row()[0] === $en, "EXISTING install with the agent $label: stays $label after the 2.6.150 step (decided by the column, never inferred)");
     $ok($ce->query('SELECT service_url FROM endpoint_agent_settings WHERE id=1')->fetch_row()[0] === 'https://keep.example' && (int) $ce->query('SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\'endpoint_agent_settings\' AND column_name IN (\'features_json\',\'limits_json\',\'shed_level\',\'ingest_mode\',\'max_devices\')')->fetch_row()[0] === 5, "EXISTING ($label): settings kept, the five module switch columns added");
     $ce->close(); $db->query("DROP DATABASE `$ex`");
 }

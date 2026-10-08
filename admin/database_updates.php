@@ -10362,28 +10362,10 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     }
 
     if ($rivetit_db_version() == '2.6.146') {
-        // The endpoint agent / RMM module moved into RivetCore (rivet/rivet-core 1.0.0-rc.4): its tables and the module switch columns are now
-        // owned by Core migrations 0014 (the ten endpoint_agent_* tables, CREATE IF NOT EXISTS in the exact shape this updater created in
-        // 2.6.145 and 2.6.146), 0015 (convergence for an install that stopped at 2.6.145) and 0016 (features_json, limits_json, shed_level,
-        // ingest_mode, max_devices on endpoint_agent_settings). All three are idempotent: on an install that already has the tables 0014 and 0015
-        // change nothing and 0016 only adds those five columns. endpoint_agent_settings.enabled (the module's master switch) is never touched,
-        // so an install that had the agent on keeps it on and one that never enabled it stays off. The steps 2.6.144 to 2.6.146 above stay as
-        // history. Skipped (version NOT advanced, so it retries) until the package with the module is installed.
-        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Rmm\Migration\Migration0016ModuleSwitches::class)) {
-            (new \RivetCore\Migration\MigrationRunner(
-                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
-                \RivetCore\Migration\CoreMigrations::all(),
-                new \RivetCore\Support\SystemClock()
-            ))->run();
-            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.147'");
-            // Write the module's zero-database state file (read by api/v1/rmm_gate.php) from the master switch just migrated. Never fatal.
-            try {
-                require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
-                rivetRmmSyncState($mysqli);
-            } catch (\Throwable $e) {
-                error_log('RMM state file not written by the database update: ' . $e->getMessage());
-            }
-        }
+        // 2.6.147 was first used by two histories: the RMM state-sync / RivetCore migration step (now 2.6.150, the last step of this
+        // chain) and the scheduled-reports step below (now gated on 2.6.147). An install that already ran the RMM step at 2.6.147
+        // passes through here unchanged; one that did not simply moves on, and the RMM step runs at 2.6.150 either way (it is idempotent).
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.147'");
     }
 
     if ($rivetit_db_version() == '2.6.147') {
@@ -10411,4 +10393,31 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `payments` ADD UNIQUE INDEX IF NOT EXISTS `uniq_payment_provider_ref` (`payment_provider_ref`)");
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.149'");
+    }
+
+    if ($rivetit_db_version() == '2.6.149') {
+        // The endpoint agent / RMM module moved into RivetCore (rivet/rivet-core 1.0.0-rc.4): its tables and the module switch columns are now
+        // owned by Core migrations 0014 (the ten endpoint_agent_* tables, CREATE IF NOT EXISTS in the exact shape this updater created in
+        // 2.6.145 and 2.6.146), 0015 (convergence for an install that stopped at 2.6.145) and 0016 (features_json, limits_json, shed_level,
+        // ingest_mode, max_devices on endpoint_agent_settings). All three are idempotent: on an install that already has the tables 0014 and 0015
+        // change nothing and 0016 only adds those five columns. endpoint_agent_settings.enabled (the module's master switch) is never touched,
+        // so an install that had the agent on keeps it on and one that never enabled it stays off. The steps 2.6.144 to 2.6.146 above stay as
+        // history. This step was 2.6.147 in the RMM adoption history and was renumbered to 2.6.150 (gated on 2.6.149) when that history was
+        // merged with the scheduled-reports (2.6.148) and payments (2.6.149) steps: it must give the same result on an install that already
+        // ran it as 2.6.147 and on one that went 2.6.147 to 2.6.149 without it. Skipped (version NOT advanced, so it retries) until the package with the module is installed.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Rmm\Migration\Migration0016ModuleSwitches::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.150'");
+            // Write the module's zero-database state file (read by api/v1/rmm_gate.php) from the master switch just migrated. Never fatal.
+            try {
+                require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
+                rivetRmmSyncState($mysqli);
+            } catch (\Throwable $e) {
+                error_log('RMM state file not written by the database update: ' . $e->getMessage());
+            }
+        }
     }

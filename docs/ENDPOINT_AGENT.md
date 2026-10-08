@@ -1,6 +1,6 @@
 # Built-in endpoint agent / RMM module in RivetIT
 
-Status: since DB 2.6.147 the server side of the endpoint agent is the **RMM module of RivetCore** (`rivet/rivet-core` >= 1.0.0-rc.5, namespace
+Status: since DB 2.6.150 the server side of the endpoint agent is the **RMM module of RivetCore** (`rivet/rivet-core` >= 1.0.0-rc.5, namespace
 `RivetCore\Rmm`). RivetIT keeps the feature, the tables, the URLs and the behaviour; the PHP that implements it (and the Windows agent, `endpoint-agent/`)
 no longer lives here. This page covers only what is RivetIT's own: how it is wired, the permission mapping, the module switch, operations and tests.
 
@@ -36,7 +36,7 @@ Everything between the edition and the module is data: Core ships read models an
 
 Administration > Settings > Endpoint agent has an **RMM module** card: the master switch (`endpoint_agent_settings.enabled`, the same column the
 "Turn on the endpoint agent service" checkbox below it has always written). Default: **off** on a fresh install; an existing install keeps the value it
-has (the 2.6.147 step never touches it and never infers it from rows). Switching on for the first time mints the instance signing key and the
+has (the 2.6.150 step never touches it and never infers it from rows). Switching on for the first time mints the instance signing key and the
 integration row, and offers a feature preset (Light, Standard; default = what RivetIT has always done: monitoring, metrics, jobs, updates, and remote
 sessions when MeshCentral is enabled).
 
@@ -51,7 +51,7 @@ While the module is **off**:
 
 The gate reads a small JSON state file, `backups/rmm-state/rmm_state.json` (the denied `backups/` area; mode 0640, written atomically). It is a cache of
 the database: a missing, garbled or wrong-version file means "unknown", never "off", and the request goes on the normal path. The file is rewritten
-whenever the switch or a limit changes (every `RmmSettings::set`), by the 2.6.147 update step, when the administration page is opened, and by the cron
+whenever the switch or a limit changes (every `RmmSettings::set`), by the 2.6.150 update step, when the administration page is opened, and by the cron
 block when it disagrees with the settings row (so a restored backup is corrected within one cron tick). Override the directory with
 `define('RMM_STATE_DIR', '/path')` in `config.php` (an empty string switches the fast path off) and, because the gate cannot read `config.php`, set the
 same path as `RMM_GATE_STATE_DIR` in the web server environment (nginx `fastcgi_param`, Apache `SetEnv`).
@@ -90,7 +90,7 @@ a remote session. The reason strings of a denial are Core's generic ones ("Your 
 * **nginx / PHP-FPM.** `client_max_body_size` at least 1m for `/api/v1/agent_checkin`; PHP-FPM must pass `HTTPS` (or the proxy sets
   `X-Forwarded-Proto: https` from a private peer). The live nginx rules are not changed by this feature. The state directory is below `backups/`, which
   the shipped rules already deny.
-* **Updating.** `Update Database` (2.6.147) runs Core's migration runner. Migrations 0014 and 0015 are `CREATE TABLE IF NOT EXISTS` / guarded `ALTER`s that
+* **Updating.** `Update Database` (2.6.150) runs Core's migration runner. Migrations 0014 and 0015 are `CREATE TABLE IF NOT EXISTS` / guarded `ALTER`s that
   change nothing on an install that has the tables; 0016 adds five columns (`features_json`, `limits_json`, `shed_level`, `ingest_mode`, `max_devices`) to
   `endpoint_agent_settings` with defaults that reproduce today's behaviour. Run `composer install --no-dev` first (the in-app Update and
   `deploy/update.sh` do) so rivet-core 1.0.0-rc.5 is present: without it the step waits and retries.
