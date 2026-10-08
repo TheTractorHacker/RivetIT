@@ -48,13 +48,13 @@ $day_names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                 <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
                 <tr>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=calendar_name&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=calendar_name&order=<?php echo sortLinkOrder('calendar_name'); ?>">
                             Name <?php if ($sort == 'calendar_name') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>Business Hours</th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=calendar_timezone&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=calendar_timezone&order=<?php echo sortLinkOrder('calendar_timezone'); ?>">
                             Timezone <?php if ($sort == 'calendar_timezone') { echo $order_icon; } ?>
                         </a>
                     </th>

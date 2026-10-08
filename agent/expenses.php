@@ -126,15 +126,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         </div>
                     </div>
                 </div>
-                <div class="collapse mt-3 <?php if (isset($_GET['dtf']) && $_GET['dtf'] !== '1970-01-01' || $account_filter || $vendor_filter || $category_filter) { echo "show"; } ?>" id="advancedFilter">
+                <div class="collapse mt-3 <?php if (!$date_range->isAllTime() || $account_filter || $vendor_filter || $category_filter) { echo "show"; } ?>" id="advancedFilter">
                     <div class="row">
                         <div class="col-md-3">
                             <div class="form-group">
                                 <label>Date range</label>
-                                <input type="text" id="dateFilter" class="form-control" autocomplete="off">
-                                <input type="hidden" name="canned_date" id="canned_date" value="<?php echo nullable_htmlentities($_GET['canned_date']) ?? ''; ?>">
-                                <input type="hidden" name="dtf" id="dtf" value="<?php echo nullable_htmlentities($dtf ?? ''); ?>">
-                                <input type="hidden" name="dtt" id="dtt" value="<?php echo nullable_htmlentities($dtt ?? ''); ?>">
+                                <?php echo dateRangePickerField($date_range); ?>
                             </div>
                         </div>
                         <div class="col-sm-2">
@@ -213,36 +210,36 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             </div>
                         </td>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=expense_date&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=expense_date&order=<?php echo sortLinkOrder('expense_date'); ?>">
                                 Date <?php if ($sort == 'expense_date') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=category_name&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=category_name&order=<?php echo sortLinkOrder('category_name'); ?>">
                                 Category <?php if ($sort == 'category_name') { echo $order_icon; } ?>
                             </a>
                             /
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=expense_description&order=<?php echo $disp; ?>">
+                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=expense_description&order=<?php echo sortLinkOrder('expense_description'); ?>">
                                 Description <?php if ($sort == 'expense_description') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=vendor_name&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=vendor_name&order=<?php echo sortLinkOrder('vendor_name'); ?>">
                                 Vendor <?php if ($sort == 'vendor_name') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th class="text-end">
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=expense_amount&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=expense_amount&order=<?php echo sortLinkOrder('expense_amount'); ?>">
                                 Amount <?php if ($sort == 'expense_amount') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=account_name&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=account_name&order=<?php echo sortLinkOrder('account_name'); ?>">
                                 Account <?php if ($sort == 'account_name') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo sortLinkOrder('client_name'); ?>">
                                 Department <?php if ($sort == 'client_name') { echo $order_icon; } ?>
                             </a>
                         </th>

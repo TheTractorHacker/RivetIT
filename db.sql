@@ -427,7 +427,8 @@ CREATE TABLE `audit_events` (
   PRIMARY KEY (`audit_id`),
   KEY `idx_audit_events_type_created` (`event_type`,`created_at`),
   KEY `idx_audit_events_entity` (`entity_type`,`entity_id`),
-  KEY `idx_audit_events_actor` (`actor_user_id`)
+  KEY `idx_audit_events_actor` (`actor_user_id`),
+  KEY `idx_audit_events_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -934,9 +935,10 @@ CREATE TABLE `contacts` (
   `contact_user_id` int(11) NOT NULL DEFAULT 0,
   `contact_department` varchar(200) DEFAULT NULL,
   `contact_client_id` int(11) NOT NULL DEFAULT 0,
+  `contact_portal_role` enum('none','supervisor','manager') NOT NULL DEFAULT 'none',
   PRIMARY KEY (`contact_id`),
   KEY `idx_contacts_client_archived` (`contact_client_id`,`contact_archived_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1556,13 +1558,15 @@ CREATE TABLE `integration_jobs` (
   `max_attempts` int(11) NOT NULL DEFAULT 5,
   `available_at` datetime NOT NULL DEFAULT current_timestamp(),
   `started_at` datetime DEFAULT NULL,
+  `heartbeat_at` datetime DEFAULT NULL,
   `completed_at` datetime DEFAULT NULL,
   `payload` text DEFAULT NULL,
   `result` text DEFAULT NULL,
   `error` text DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`job_id`),
-  KEY `idx_integration_jobs_status_available` (`status`,`available_at`)
+  KEY `idx_integration_jobs_status_available` (`status`,`available_at`),
+  KEY `idx_integration_jobs_status_created` (`status`,`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1638,6 +1642,7 @@ CREATE TABLE `kb_articles` (
   `kb_article_content_raw` mediumtext DEFAULT NULL,
   `kb_article_client_id` int(11) NOT NULL DEFAULT 0,
   `kb_article_client_visible` tinyint(1) NOT NULL DEFAULT 1,
+  `kb_article_training_visible` tinyint(1) NOT NULL DEFAULT 0,
   `kb_article_favorite` tinyint(1) NOT NULL DEFAULT 0,
   `kb_article_created_by` int(11) NOT NULL DEFAULT 0,
   `kb_article_updated_by` int(11) NOT NULL DEFAULT 0,
@@ -2908,7 +2913,14 @@ CREATE TABLE `settings` (
   `config_avg_resolution_exclude_projects` tinyint(1) NOT NULL DEFAULT 1,
   `config_dashboard_avg_resolution_enable` tinyint(1) NOT NULL DEFAULT 1,
   `config_module_enable_intune` tinyint(1) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`company_id`),
+  `config_portal_home_sections` varchar(120) NOT NULL DEFAULT 'requests,approvals,devices,onboarding,training,catalog',
+  `config_portal_onboarding_requests` tinyint(1) NOT NULL DEFAULT 0,
+  `config_portal_onboarding_template_id` int(11) NOT NULL DEFAULT 0,
+  `config_entra_allow_writes` tinyint(1) NOT NULL DEFAULT 0,
+  `config_slack_link_by_email` tinyint(1) NOT NULL DEFAULT 0,
+  `config_slack_bot_token` text DEFAULT NULL,
+  `config_slack_team_id` varchar(32) NOT NULL DEFAULT '',
+  `config_webhook_allowed_networks` varchar(500) NOT NULL DEFAULT '',
   `config_enable_device_metrics` tinyint(1) NOT NULL DEFAULT 0,
   `config_metrics_collect_interval_seconds` int(11) NOT NULL DEFAULT 300,
   `config_metrics_raw_retention_days` int(11) NOT NULL DEFAULT 14,
@@ -2956,12 +2968,36 @@ CREATE TABLE `settings` (
   `config_training_kiosk_distinct_cap_24h` smallint(5) unsigned NOT NULL DEFAULT 20,
   `config_training_kiosk_search_per_min` smallint(5) unsigned NOT NULL DEFAULT 60,
   `config_training_setup_code_days` tinyint(3) unsigned NOT NULL DEFAULT 7,
+  `config_training_device_code_days` tinyint(3) unsigned NOT NULL DEFAULT 3,
   `config_training_odoo_pin_enabled` tinyint(1) NOT NULL DEFAULT 0,
   `config_training_pin_pause_until_utc` datetime(3) DEFAULT NULL,
   `config_training_enroll_pause_until_utc` datetime(3) DEFAULT NULL,
   `config_training_odoo_breaker_errors` tinyint(3) unsigned NOT NULL DEFAULT 0,
   `config_training_odoo_breaker_until_utc` datetime(3) DEFAULT NULL,
-  `config_training_pin_sources_synced_at_utc` datetime(3) DEFAULT NULL
+  `config_training_pin_sources_synced_at_utc` datetime(3) DEFAULT NULL,
+  `config_automation_enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `config_proxy_hops` tinyint(3) unsigned DEFAULT NULL,
+  `config_behind_cloudflare` tinyint(1) NOT NULL DEFAULT 0,
+  `config_login_logo_bg` varchar(7) DEFAULT NULL,
+  `config_module_enable_mcp` tinyint(1) NOT NULL DEFAULT 0,
+  `config_mcp_issuer` varchar(255) NOT NULL DEFAULT '',
+  `config_mcp_audience` varchar(255) NOT NULL DEFAULT '',
+  `config_redis_host` varchar(255) NOT NULL DEFAULT '',
+  `config_redis_port` int(11) NOT NULL DEFAULT 0,
+  `config_redis_password` varchar(1000) NOT NULL DEFAULT '',
+  `config_redis_db` int(11) NOT NULL DEFAULT 0,
+  `config_redis_username` varchar(128) NOT NULL DEFAULT '',
+  `config_redis_tls` tinyint(1) NOT NULL DEFAULT 0,
+  `config_redis_tls_verify` tinyint(1) NOT NULL DEFAULT 1,
+  `config_redis_tls_ca_file` text DEFAULT NULL,
+  `config_redis_tls_cert_file` text DEFAULT NULL,
+  `config_redis_tls_key_file` text DEFAULT NULL,
+  `config_api_rate_limit` int(11) NOT NULL DEFAULT 300,
+  `config_compliance_profile` varchar(20) NOT NULL DEFAULT 'none',
+  `config_audit_retention_days` int(11) NOT NULL DEFAULT 365,
+  `config_release_channel` varchar(12) NOT NULL DEFAULT 'production',
+  `config_lifecycle_auto_start` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`company_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -3572,6 +3608,7 @@ CREATE TABLE `ticket_statuses` (
   `ticket_status_color` varchar(200) NOT NULL,
   `ticket_status_active` tinyint(1) NOT NULL DEFAULT 1,
   `ticket_status_order` int(11) NOT NULL DEFAULT 0,
+  `ticket_status_pauses_sla` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`ticket_status_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -3754,12 +3791,13 @@ CREATE TABLE `tickets` (
   `ticket_sla_resolution_met` tinyint(4) DEFAULT NULL,
   `ticket_delivery_method` varchar(20) DEFAULT NULL,
   `ticket_catalog_item_id` int(11) DEFAULT NULL,
+  `ticket_resolution_started_at` datetime DEFAULT NULL,
   PRIMARY KEY (`ticket_id`),
   KEY `idx_tickets_client_archived_updated` (`ticket_client_id`,`ticket_archived_at`,`ticket_updated_at`),
   KEY `idx_tickets_problem` (`ticket_problem_id`),
   KEY `idx_tickets_vacation_return` (`ticket_closed_at`,`ticket_contact_id`),
   KEY `idx_tickets_catalog_item` (`ticket_catalog_item_id`,`ticket_created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=136 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -4443,7 +4481,7 @@ CREATE TABLE `training_kiosk_sessions` (
   `ksess_role` enum('learner','trainer','checkin','handoff') NOT NULL,
   `ksess_tsession_id` int(11) DEFAULT NULL,
   `ksess_token_hash` char(64) NOT NULL,
-  `ksess_pin_source` enum('odoo','local') NOT NULL,
+  `ksess_pin_source` enum('odoo','local','portal') NOT NULL,
   `ksess_odoo_employee_id` int(11) DEFAULT NULL,
   `ksess_language` varchar(10) NOT NULL DEFAULT 'en',
   `ksess_idle_limit_s` smallint(5) unsigned NOT NULL,
@@ -4475,10 +4513,11 @@ CREATE TABLE `training_kiosks` (
   `kiosk_asset_type` varchar(200) DEFAULT NULL,
   `kiosk_asset_serial` varchar(200) DEFAULT NULL,
   `kiosk_personal_contact_id` int(11) DEFAULT NULL,
+  `kiosk_force_shared` tinyint(1) NOT NULL DEFAULT 0,
   `kiosk_label` varchar(100) NOT NULL,
   `kiosk_default_client_id` int(11) NOT NULL DEFAULT 0,
   `kiosk_status` enum('pending','active','revoked') NOT NULL DEFAULT 'pending',
-  `kiosk_enroll_method` enum('agent_device','setup_code') DEFAULT NULL,
+  `kiosk_enroll_method` enum('agent_device','setup_code','portal') DEFAULT NULL,
   `kiosk_enroll_code_hash` char(64) DEFAULT NULL,
   `kiosk_enroll_expires_at_utc` datetime(3) DEFAULT NULL,
   `kiosk_enroll_failures` tinyint(3) unsigned NOT NULL DEFAULT 0,
@@ -4496,6 +4535,7 @@ CREATE TABLE `training_kiosks` (
   `kiosk_revoked_at_utc` datetime(3) DEFAULT NULL,
   `kiosk_revoked_by` int(11) DEFAULT NULL,
   `kiosk_revoke_reason` varchar(255) DEFAULT NULL,
+  `kiosk_hidden_at_utc` datetime(3) DEFAULT NULL,
   `kiosk_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   PRIMARY KEY (`kiosk_id`),
   UNIQUE KEY `uq_training_kiosk_token` (`kiosk_token_hash`),
@@ -4690,6 +4730,7 @@ CREATE TABLE `training_lessons` (
   `lesson_sort` smallint(5) unsigned NOT NULL DEFAULT 0,
   `lesson_type` enum('article','document','video','image','quiz','acknowledgment') NOT NULL,
   `lesson_required` tinyint(1) NOT NULL DEFAULT 1,
+  `lesson_requires_previous` tinyint(1) NOT NULL DEFAULT 1,
   `lesson_duration_s` int(10) unsigned DEFAULT NULL,
   `lesson_allow_download` tinyint(1) NOT NULL DEFAULT 0,
   `lesson_preview_enabled` tinyint(1) NOT NULL DEFAULT 0,
@@ -5418,6 +5459,15 @@ CREATE TABLE `training_trainers` (
   `trainer_all_departments` tinyint(1) NOT NULL DEFAULT 0,
   `trainer_qualifications` text DEFAULT NULL,
   `trainer_active` tinyint(1) NOT NULL DEFAULT 1,
+  `trainer_pin_hash` varchar(255) DEFAULT NULL,
+  `trainer_pin_prev_hash` varchar(255) DEFAULT NULL,
+  `trainer_pin_failed_count` smallint(5) unsigned NOT NULL DEFAULT 0,
+  `trainer_pin_locked_until_utc` datetime(3) DEFAULT NULL,
+  `trainer_pin_hard_locked` tinyint(1) NOT NULL DEFAULT 0,
+  `trainer_pin_last_success_at_utc` datetime(3) DEFAULT NULL,
+  `trainer_pin_set_at_utc` datetime(3) DEFAULT NULL,
+  `trainer_pin_set_method` enum('self','admin') DEFAULT NULL,
+  `trainer_pin_set_by_user_id` int(11) DEFAULT NULL,
   `trainer_version` int(10) unsigned NOT NULL DEFAULT 0,
   `trainer_added_by` int(11) NOT NULL,
   `trainer_added_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -5687,10 +5737,10 @@ CREATE TABLE `users` (
   `user_email` varchar(200) NOT NULL,
   `user_password` varchar(200) NOT NULL,
   `user_auth_method` varchar(200) NOT NULL DEFAULT 'local',
-  `user_oidc_issuer` varchar(255) DEFAULT NULL,
-  `user_oidc_subject` varchar(255) DEFAULT NULL,
-  `user_sso_issuer` varchar(255) DEFAULT NULL,
-  `user_sso_subject` varchar(255) DEFAULT NULL,
+  `user_oidc_issuer` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `user_oidc_subject` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `user_sso_issuer` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `user_sso_subject` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `user_type` tinyint(1) NOT NULL DEFAULT 1,
   `user_status` tinyint(1) NOT NULL DEFAULT 1,
   `user_token` varchar(200) DEFAULT NULL,
@@ -5831,6 +5881,125 @@ CREATE TABLE `vendors` (
   PRIMARY KEY (`vendor_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+--
+-- Table structure for table `compliance_attestations`
+--
+
+DROP TABLE IF EXISTS `compliance_attestations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `compliance_attestations` (
+  `attestation_id` int(11) NOT NULL AUTO_INCREMENT,
+  `item_id` varchar(64) NOT NULL,
+  `reviewed_by` int(11) DEFAULT NULL,
+  `reviewer_name` varchar(200) NOT NULL,
+  `reviewed_on` date NOT NULL,
+  `next_due_on` date DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `subject_id` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`attestation_id`),
+  KEY `idx_compliance_attest_item` (`item_id`,`attestation_id`),
+  KEY `idx_compliance_attestations_subject` (`subject_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `compliance_responsibilities`
+--
+
+DROP TABLE IF EXISTS `compliance_responsibilities`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `compliance_responsibilities` (
+  `assign_key` varchar(120) NOT NULL,
+  `party_ref` int(11) DEFAULT NULL,
+  `party_name` varchar(200) NOT NULL,
+  `updated_by` int(11) DEFAULT NULL,
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`assign_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `compliance_shared_report`
+--
+
+DROP TABLE IF EXISTS `compliance_shared_report`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `compliance_shared_report` (
+  `shared_id` tinyint(4) NOT NULL,
+  `snapshot_id` int(11) NOT NULL,
+  `note` text DEFAULT NULL,
+  `published_by` int(11) DEFAULT NULL,
+  `published_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`shared_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `compliance_snapshots`
+--
+
+DROP TABLE IF EXISTS `compliance_snapshots`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `compliance_snapshots` (
+  `snapshot_id` int(11) NOT NULL AUTO_INCREMENT,
+  `taken_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `taken_by` int(11) DEFAULT NULL,
+  `trigger_type` varchar(20) NOT NULL DEFAULT 'manual',
+  `app_version` varchar(40) DEFAULT NULL,
+  `summary_json` longtext DEFAULT NULL,
+  `results_json` longtext DEFAULT NULL,
+  `subject_id` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`snapshot_id`),
+  KEY `idx_compliance_snapshots_taken` (`taken_at`),
+  KEY `idx_compliance_snapshots_subject` (`subject_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `compliance_subjects`
+--
+
+DROP TABLE IF EXISTS `compliance_subjects`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `compliance_subjects` (
+  `subject_id` int(11) NOT NULL,
+  `frameworks` varchar(100) NOT NULL DEFAULT '',
+  `shared_snapshot_id` int(11) DEFAULT NULL,
+  `shared_note` text DEFAULT NULL,
+  `shared_by` int(11) DEFAULT NULL,
+  `shared_at` datetime DEFAULT NULL,
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`subject_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `mcp_unlinked_identities`
+--
+
+DROP TABLE IF EXISTS `mcp_unlinked_identities`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `mcp_unlinked_identities` (
+  `mcp_unlinked_id` int(11) NOT NULL AUTO_INCREMENT,
+  `issuer` varchar(255) NOT NULL,
+  `subject` varchar(255) NOT NULL,
+  `email` varchar(200) DEFAULT NULL,
+  `display_name` varchar(200) DEFAULT NULL,
+  `attempts` int(11) NOT NULL DEFAULT 1,
+  `first_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `last_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`mcp_unlinked_id`),
+  UNIQUE KEY `uniq_mcp_identity` (`issuer`,`subject`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -6045,12 +6214,19 @@ CREATE TABLE `webhooks` (
   `webhook_name` varchar(200) NOT NULL DEFAULT '',
   `webhook_url` varchar(2048) NOT NULL,
   `webhook_secret` varchar(255) NOT NULL DEFAULT '',
-  `webhook_events` varchar(500) NOT NULL DEFAULT '',
+  `webhook_events` varchar(4000) NOT NULL DEFAULT '',
   `webhook_enabled` tinyint(1) NOT NULL DEFAULT 1,
   `webhook_created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `webhook_type` varchar(16) NOT NULL DEFAULT 'generic',
   `webhook_min_priority` varchar(20) NOT NULL DEFAULT '',
   `webhook_client_ids` varchar(500) NOT NULL DEFAULT '',
+  `webhook_destination` varchar(40) NOT NULL DEFAULT '',
+  `webhook_format` varchar(24) NOT NULL DEFAULT '',
+  `webhook_method` varchar(4) NOT NULL DEFAULT 'POST',
+  `webhook_template` text DEFAULT NULL,
+  `webhook_auth_mode` varchar(12) NOT NULL DEFAULT 'none',
+  `webhook_auth_enc` text DEFAULT NULL,
+  `webhook_extra` text DEFAULT NULL,
   PRIMARY KEY (`webhook_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -6707,7 +6883,66 @@ CREATE TABLE `report_schedules` (
   `schedule_last_sent` datetime DEFAULT NULL,
   `schedule_active` tinyint(4) DEFAULT 1,
   `schedule_created_at` datetime DEFAULT current_timestamp(),
+  `schedule_saved_report_id` int(11) DEFAULT NULL,
+  `schedule_format` varchar(8) NOT NULL DEFAULT 'html',
+  `schedule_owner_user_id` int(11) DEFAULT NULL,
+  `schedule_last_run_at` datetime DEFAULT NULL,
+  `schedule_last_status` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`schedule_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `saved_reports`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `saved_reports` (
+  `saved_report_id` int(11) NOT NULL AUTO_INCREMENT,
+  `saved_report_user_id` int(11) NOT NULL,
+  `saved_report_key` varchar(60) NOT NULL,
+  `saved_report_name` varchar(100) NOT NULL,
+  `saved_report_params` text DEFAULT NULL,
+  `saved_report_shared` tinyint(1) NOT NULL DEFAULT 0,
+  `saved_report_created_at` datetime DEFAULT current_timestamp(),
+  `saved_report_updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`saved_report_id`),
+  KEY `saved_report_user_key` (`saved_report_user_id`,`saved_report_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `report_exports`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `report_exports` (
+  `export_id` int(11) NOT NULL AUTO_INCREMENT,
+  `export_token_hash` char(64) NOT NULL,
+  `export_schedule_id` int(11) DEFAULT NULL,
+  `export_filename` varchar(150) NOT NULL,
+  `export_content` longtext NOT NULL,
+  `export_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `export_expires_at` datetime NOT NULL,
+  PRIMARY KEY (`export_id`),
+  UNIQUE KEY `export_token_hash` (`export_token_hash`),
+  KEY `export_expires_at` (`export_expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `dashboard_layouts`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `dashboard_layouts` (
+  `layout_user_id` int(11) NOT NULL,
+  `layout_widgets` text DEFAULT NULL,
+  `layout_updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`layout_user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -6927,6 +7162,10 @@ CREATE TABLE `odoo_integrations` (
   `last_sync_at` datetime DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `sso_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `sso_client_id` varchar(200) DEFAULT NULL,
+  `sso_secret_enc` text DEFAULT NULL,
+  `sso_company_id` int(11) DEFAULT NULL,
   PRIMARY KEY (`odoo_integration_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -7065,6 +7304,9 @@ CREATE TABLE `workflow_run_tasks` (
   `attempts` int(11) NOT NULL DEFAULT 0,
   `last_error` varchar(500) DEFAULT NULL,
   `running_since` datetime DEFAULT NULL,
+  `secret_result_enc` text DEFAULT NULL,
+  `secret_user_id` int(11) DEFAULT NULL,
+  `secret_expires_at` datetime DEFAULT NULL,
   PRIMARY KEY (`run_task_id`),
   KEY `idx_run_task_run` (`run_id`,`sort_order`),
   KEY `idx_run_task_due` (`status`,`due_at`)
@@ -7178,6 +7420,7 @@ CREATE TABLE `service_catalog_fields` (
   `is_required` tinyint(1) NOT NULL DEFAULT 0,
   `placeholder` varchar(200) DEFAULT NULL,
   `sort_order` int(11) NOT NULL DEFAULT 0,
+  `show_if` text DEFAULT NULL,
   PRIMARY KEY (`field_id`),
   UNIQUE KEY `uq_catalog_field_key` (`catalog_item_id`,`field_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -7348,7 +7591,23 @@ CREATE TABLE `webhook_deliveries` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`delivery_id`),
   KEY `idx_webhook_deliveries_webhook` (`webhook_id`,`created_at`),
-  KEY `idx_webhook_deliveries_event` (`event_type`,`created_at`)
+  KEY `idx_webhook_deliveries_event` (`event_type`,`created_at`),
+  KEY `idx_webhook_deliveries_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `slack_interactive_seen`
+--
+
+DROP TABLE IF EXISTS `slack_interactive_seen`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `slack_interactive_seen` (
+  `sig_hash` char(64) NOT NULL,
+  `seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`sig_hash`),
+  KEY `idx_slack_seen_at` (`seen_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -7364,12 +7623,57 @@ CREATE TABLE `automation_rules` (
   `name` varchar(200) NOT NULL,
   `trigger_event` varchar(150) NOT NULL,
   `condition_json` text DEFAULT NULL,
-  `action_type` enum('create_ticket','send_webhook','notify_user','start_workflow') NOT NULL,
+  `action_type` enum('create_ticket','send_webhook','notify_user','start_workflow','set_ticket_field','add_ticket_note','assign_ticket','send_mail','create_task') NOT NULL,
   `action_config_json` text DEFAULT NULL,
   `is_enabled` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `priority` int(11) NOT NULL DEFAULT 100,
+  `stop_on_match` tinyint(1) NOT NULL DEFAULT 0,
+  `rate_limit_per_min` int(11) NOT NULL DEFAULT 30,
+  `rr_cursor` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`rule_id`),
   KEY `idx_automation_rules_trigger` (`trigger_event`,`is_enabled`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `automation_rule_runs`
+--
+
+DROP TABLE IF EXISTS `automation_rule_runs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `automation_rule_runs` (
+  `run_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `rule_id` int(11) NOT NULL,
+  `event_type` varchar(150) NOT NULL,
+  `matched` tinyint(1) NOT NULL DEFAULT 1,
+  `status` varchar(20) NOT NULL,
+  `actions_json` text DEFAULT NULL,
+  `message` varchar(500) DEFAULT NULL,
+  `duration_ms` int(11) NOT NULL DEFAULT 0,
+  `chain_id` varchar(32) DEFAULT NULL,
+  `chain_depth` tinyint(4) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`run_id`),
+  KEY `idx_automation_runs_rule` (`rule_id`,`created_at`),
+  KEY `idx_automation_runs_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `automation_sla_marks`
+--
+
+DROP TABLE IF EXISTS `automation_sla_marks`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `automation_sla_marks` (
+  `ticket_id` int(11) NOT NULL,
+  `kind` varchar(30) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`ticket_id`,`kind`),
+  KEY `idx_automation_sla_marks_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -7500,6 +7804,8 @@ CREATE TABLE `contact_odoo_attributes` (
   `coattr_link_checked_at_utc` datetime(3) DEFAULT NULL,
   `coattr_link_confirmed_by` int(11) DEFAULT NULL,
   `coattr_link_confirmed_at_utc` datetime(3) DEFAULT NULL,
+  `coattr_link_dismissed_by` int(11) DEFAULT NULL,
+  `coattr_link_dismissed_at_utc` datetime(3) DEFAULT NULL,
   `coattr_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   PRIMARY KEY (`coattr_contact_id`),
   KEY `idx_coattr_job` (`coattr_job_id`),
@@ -7696,3 +8002,238 @@ CREATE TABLE `kb_article_embeds` (
   KEY `kb_article_embed_kb_article_id` (`kb_article_embed_kb_article_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Built-in endpoint agent / RMM module (server side), DB 2.6.145; the tables are owned by RivetCore migrations 0014 to 0016 since DB 2.6.147
+--
+
+CREATE TABLE IF NOT EXISTS `endpoint_agent_settings` (
+  `id` tinyint(4) NOT NULL DEFAULT 1,
+  `enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `service_url` varchar(500) NOT NULL DEFAULT '',
+  `integration_id` int(11) NOT NULL DEFAULT 0,
+  `check_in_interval_s` int(11) NOT NULL DEFAULT 300,
+  `collect_interval_s` int(11) NOT NULL DEFAULT 60,
+  `offline_after_s` int(11) NOT NULL DEFAULT 900,
+  `stale_after_s` int(11) NOT NULL DEFAULT 604800,
+  `failure_debounce` int(11) NOT NULL DEFAULT 3,
+  `recovery_debounce` int(11) NOT NULL DEFAULT 2,
+  `retention_days` int(11) NOT NULL DEFAULT 30,
+  `job_retention_days` int(11) NOT NULL DEFAULT 180,
+  `job_output_max_bytes` int(11) NOT NULL DEFAULT 65536,
+  `job_default_timeout_s` int(11) NOT NULL DEFAULT 300,
+  `job_max_timeout_s` int(11) NOT NULL DEFAULT 3600,
+  `job_expiry_s` int(11) NOT NULL DEFAULT 3600,
+  `job_ack_timeout_s` int(11) NOT NULL DEFAULT 120,
+  `job_max_attempts` int(11) NOT NULL DEFAULT 3,
+  `enroll_max_ttl_h` int(11) NOT NULL DEFAULT 72,
+  `unmatched_policy` varchar(20) NOT NULL DEFAULT 'approval',
+  `checks_json` text DEFAULT NULL,
+  `signing_key_id` varchar(32) NOT NULL DEFAULT '',
+  `signing_public_key` varchar(100) NOT NULL DEFAULT '',
+  `signing_private_key_enc` text DEFAULT NULL,
+  `signing_key_created_at` datetime DEFAULT NULL,
+  `mesh_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `mesh_url` varchar(500) NOT NULL DEFAULT '',
+  `mesh_domain` varchar(100) NOT NULL DEFAULT '',
+  `mesh_login_key_enc` text DEFAULT NULL,
+  `mesh_account_template` varchar(100) NOT NULL DEFAULT 'rivetit-support',
+  `mesh_policy` varchar(20) NOT NULL DEFAULT 'unattended',
+  `mesh_token_ttl_s` int(11) NOT NULL DEFAULT 300,
+  `coexistence_policy` text DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `ca_pem` text DEFAULT NULL,
+  `features_json` text DEFAULT NULL,
+  `limits_json` text DEFAULT NULL,
+  `shed_level` tinyint(1) NOT NULL DEFAULT 0,
+  `ingest_mode` varchar(10) NOT NULL DEFAULT 'sync',
+  `max_devices` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `endpoint_agent_enrollment_tokens` (
+  `token_id` int(11) NOT NULL AUTO_INCREMENT,
+  `token_selector` char(12) NOT NULL,
+  `token_hash` char(64) NOT NULL,
+  `label` varchar(100) NOT NULL DEFAULT '',
+  `client_id` int(11) NOT NULL,
+  `location_id` int(11) NOT NULL DEFAULT 0,
+  `ring` varchar(20) NOT NULL DEFAULT 'stable',
+  `expires_at` datetime NOT NULL,
+  `max_uses` int(11) NOT NULL DEFAULT 1,
+  `use_count` int(11) NOT NULL DEFAULT 0,
+  `revoked_at` datetime DEFAULT NULL,
+  `revoked_by` int(11) DEFAULT NULL,
+  `last_used_at` datetime DEFAULT NULL,
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`token_id`),
+  UNIQUE KEY `uniq_selector` (`token_selector`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `endpoint_agent_enroll_attempts` (
+  `attempt_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `ip_hash` char(64) NOT NULL,
+  `ip_text` varchar(64) NOT NULL DEFAULT '',
+  `success` tinyint(1) NOT NULL DEFAULT 0,
+  `reason` varchar(40) NOT NULL DEFAULT '',
+  `token_selector` varchar(12) NOT NULL DEFAULT '',
+  `attempted_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`attempt_id`),
+  KEY `idx_ip_time` (`ip_hash`,`attempted_at`),
+  KEY `idx_time` (`attempted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `endpoint_agent_devices` (
+  `device_id` int(11) NOT NULL AUTO_INCREMENT,
+  `install_id` char(36) NOT NULL,
+  `machine_guid` varchar(64) DEFAULT NULL,
+  `hostname` varchar(200) NOT NULL DEFAULT '',
+  `os` varchar(20) NOT NULL DEFAULT 'windows',
+  `os_version` varchar(200) NOT NULL DEFAULT '',
+  `arch` varchar(10) NOT NULL DEFAULT '',
+  `serial` varchar(100) DEFAULT NULL,
+  `manufacturer` varchar(200) DEFAULT NULL,
+  `model` varchar(200) DEFAULT NULL,
+  `mac_addresses` text DEFAULT NULL,
+  `agent_version` varchar(40) NOT NULL DEFAULT '',
+  `asset_id` int(11) DEFAULT NULL,
+  `client_id` int(11) NOT NULL DEFAULT 0,
+  `location_id` int(11) NOT NULL DEFAULT 0,
+  `ring` varchar(20) NOT NULL DEFAULT 'stable',
+  `link_state` varchar(20) NOT NULL DEFAULT 'pending_approval',
+  `match_reason` varchar(60) NOT NULL DEFAULT '',
+  `match_candidates_json` text DEFAULT NULL,
+  `token_hash` char(64) NOT NULL DEFAULT '',
+  `token_issued_at` datetime DEFAULT NULL,
+  `token_expires_at` datetime DEFAULT NULL,
+  `revoked_at` datetime DEFAULT NULL,
+  `revoked_reason` varchar(100) DEFAULT NULL,
+  `retired_at` datetime DEFAULT NULL,
+  `enrolled_via_token_id` int(11) DEFAULT NULL,
+  `enroll_count` int(11) NOT NULL DEFAULT 1,
+  `first_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `last_checkin_at` datetime DEFAULT NULL,
+  `last_collected_at` datetime DEFAULT NULL,
+  `last_inventory_at` datetime DEFAULT NULL,
+  `last_ip` varchar(64) DEFAULT NULL,
+  `last_seq` bigint(20) NOT NULL DEFAULT 0,
+  `inventory_json` mediumtext DEFAULT NULL,
+  `last_metrics_json` text DEFAULT NULL,
+  `logged_in_user` varchar(200) DEFAULT NULL,
+  `pending_reboot` tinyint(1) DEFAULT NULL,
+  `uptime_s` bigint(20) DEFAULT NULL,
+  `update_state_json` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`device_id`),
+  UNIQUE KEY `uniq_install` (`install_id`),
+  KEY `idx_token_hash` (`token_hash`),
+  KEY `idx_asset` (`asset_id`),
+  KEY `idx_machine_guid` (`machine_guid`),
+  KEY `idx_serial` (`serial`),
+  KEY `idx_client` (`client_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `endpoint_agent_checkins` (
+  `device_id` int(11) NOT NULL,
+  `seq` bigint(20) NOT NULL,
+  `received_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `collected_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`device_id`,`seq`),
+  KEY `idx_received` (`received_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `endpoint_agent_checks` (
+  `device_id` int(11) NOT NULL,
+  `check_key` varchar(100) NOT NULL,
+  `status` varchar(10) NOT NULL DEFAULT 'unknown',
+  `detail` varchar(500) NOT NULL DEFAULT '',
+  `consecutive_failures` int(11) NOT NULL DEFAULT 0,
+  `consecutive_ok` int(11) NOT NULL DEFAULT 0,
+  `episode` int(11) NOT NULL DEFAULT 0,
+  `alert_id` int(11) DEFAULT NULL,
+  `last_reported_at` datetime DEFAULT NULL,
+  `last_changed_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`device_id`,`check_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `endpoint_agent_jobs` (
+  `job_id` char(36) NOT NULL,
+  `device_id` int(11) NOT NULL,
+  `asset_id` int(11) DEFAULT NULL,
+  `client_id` int(11) NOT NULL DEFAULT 0,
+  `type` varchar(20) NOT NULL,
+  `script` mediumtext DEFAULT NULL,
+  `params_json` text DEFAULT NULL,
+  `timeout_s` int(11) NOT NULL DEFAULT 300,
+  `max_output_bytes` int(11) NOT NULL DEFAULT 65536,
+  `destructive` tinyint(1) NOT NULL DEFAULT 0,
+  `run_as` varchar(40) NOT NULL DEFAULT 'SYSTEM',
+  `state` varchar(12) NOT NULL DEFAULT 'queued',
+  `reason` varchar(60) DEFAULT NULL,
+  `attempt` int(11) NOT NULL DEFAULT 1,
+  `offered_count` int(11) NOT NULL DEFAULT 0,
+  `last_offered_at` datetime DEFAULT NULL,
+  `issued_at` datetime NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `started_at` datetime DEFAULT NULL,
+  `finished_at` datetime DEFAULT NULL,
+  `exit_code` int(11) DEFAULT NULL,
+  `output` mediumtext DEFAULT NULL,
+  `output_truncated` tinyint(1) NOT NULL DEFAULT 0,
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`job_id`),
+  KEY `idx_device_state` (`device_id`,`state`),
+  KEY `idx_state_updated` (`state`,`updated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `endpoint_agent_mesh_nodes` (
+  `device_id` int(11) NOT NULL,
+  `mesh_node_id` varchar(200) NOT NULL,
+  `source` varchar(10) NOT NULL DEFAULT 'manual',
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `updated_by` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`device_id`),
+  KEY `idx_node` (`mesh_node_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `endpoint_agent_releases` (
+  `release_id` int(11) NOT NULL AUTO_INCREMENT,
+  `version` varchar(40) NOT NULL,
+  `url` varchar(500) NOT NULL,
+  `sha256` char(64) NOT NULL,
+  `min_version` varchar(40) NOT NULL DEFAULT '0.0.0',
+  `ring` varchar(20) NOT NULL DEFAULT 'stable',
+  `rollout_pct` int(11) NOT NULL DEFAULT 0,
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  `notes` varchar(500) NOT NULL DEFAULT '',
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `arch` varchar(10) NOT NULL DEFAULT '',
+  `binary_id` int(11) DEFAULT NULL,
+  PRIMARY KEY (`release_id`),
+  UNIQUE KEY `uniq_version_ring_arch` (`version`,`ring`,`arch`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Endpoint agent binary hosting and per-department installers, DB 2.6.146
+--
+
+CREATE TABLE IF NOT EXISTS `endpoint_agent_binaries` (
+  `binary_id` int(11) NOT NULL AUTO_INCREMENT,
+  `version` varchar(40) NOT NULL,
+  `arch` varchar(10) NOT NULL,
+  `sha256` char(64) NOT NULL,
+  `size_bytes` bigint(20) NOT NULL DEFAULT 0,
+  `storage_name` varchar(64) NOT NULL,
+  `uploaded_by` int(11) NOT NULL DEFAULT 0,
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  `is_current` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`binary_id`),
+  UNIQUE KEY `uniq_version_arch` (`version`,`arch`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT IGNORE INTO `endpoint_agent_settings` (`id`) VALUES (1);

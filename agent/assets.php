@@ -582,75 +582,75 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                             </div>
                         </td>
                         <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_name&order=<?php echo $disp; ?>">
+                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_name&order=<?php echo sortLinkOrder('asset_name'); ?>">
                                 Name <?php if ($sort == 'asset_name') { echo $order_icon; } ?>
                             </a>
                         </th>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_type&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_type&order=<?php echo sortLinkOrder('asset_type'); ?>">
                                     Type <?php if ($sort == 'asset_type') { echo $order_icon; } ?>
                                 </a>
                             </th>
                         <?php if ($_GET['type'] !== 'virtual') { ?>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_make&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_make&order=<?php echo sortLinkOrder('asset_make'); ?>">
                                     Model <?php if ($sort == 'asset_make') { echo $order_icon; } ?>
                                 </a>
                             </th>
                         <?php } ?>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=interface_ip&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=interface_ip&order=<?php echo sortLinkOrder('interface_ip'); ?>">
                                     IP <?php if ($sort == 'interface_ip') { echo $order_icon; } ?>
                                 </a>
                             </th>
                         <?php if (isset($_GET['show_column']) && is_array($_GET['show_column']) && in_array('Mac_Address', $_GET['show_column'])) { ?>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=interface_mac&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=interface_mac&order=<?php echo sortLinkOrder('interface_mac'); ?>">
                                     MAC Address <?php if ($sort == 'interface_mac') { echo $order_icon; } ?>
                                 </a>
                             </th>
                         <?php } ?>
                         <?php if (isset($_GET['show_column']) && is_array($_GET['show_column']) && in_array('Purchase_Date', $_GET['show_column'])) { ?>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_purchase_date&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_purchase_date&order=<?php echo sortLinkOrder('asset_purchase_date'); ?>">
                                     Purchase Date <?php if ($sort == 'asset_purchase_date') { echo $order_icon; } ?>
                                 </a>
                             </th>
                         <?php } ?>
                         <?php if (isset($_GET['show_column']) && is_array($_GET['show_column']) && in_array('Install_Date', $_GET['show_column'])) { ?>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_install_date&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_install_date&order=<?php echo sortLinkOrder('asset_install_date'); ?>">
                                     Install Date <?php if ($sort == 'asset_install_date') { echo $order_icon; } ?>
                                 </a>
                             </th>
                         <?php } ?>
                         <?php if (isset($_GET['show_column']) && is_array($_GET['show_column']) && in_array('Warranty_Expire', $_GET['show_column'])) { ?>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_warranty_expire&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_warranty_expire&order=<?php echo sortLinkOrder('asset_warranty_expire'); ?>">
                                     Warranty Expire <?php if ($sort == 'asset_warranty_expire') { echo $order_icon; } ?>
                                 </a>
                             </th>
                         <?php } ?>
                         <?php if ($_GET['type'] !== 'network' && $_GET['type'] !== 'server' && $_GET['type'] !== 'other') { ?>
                             <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=contact_name&order=<?php echo $disp; ?>">
+                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=contact_name&order=<?php echo sortLinkOrder('contact_name'); ?>">
                                     Assigned To <?php if ($sort == 'contact_name') { echo $order_icon; } ?>
                                 </a>
                             </th>
                         <?php } ?>
                         <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=location_name&order=<?php echo $disp; ?>">
+                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=location_name&order=<?php echo sortLinkOrder('location_name'); ?>">
                                 Location <?php if ($sort == 'location_name') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_status&order=<?php echo $disp; ?>">
+                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_status&order=<?php echo sortLinkOrder('asset_status'); ?>">
                                 Status <?php if ($sort == 'asset_status') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <?php if (!$client_url) { ?>
                         <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
+                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo sortLinkOrder('client_name'); ?>">
                                 Department <?php if ($sort == 'client_name') { echo $order_icon; } ?>
                             </a>
                         </th>

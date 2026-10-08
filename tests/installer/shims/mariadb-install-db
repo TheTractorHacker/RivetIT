@@ -1,0 +1,19 @@
+#!/bin/bash
+# Test-harness shim, installed by tests/installer/Dockerfile via dpkg-divert (the real script is
+# /usr/bin/mariadb-install-db.real). NOT part of the product.
+#
+# Why: a container shares the HOST kernel's AppArmor policy. When the Docker host itself runs MariaDB, its
+# "mariadbd" profile is enforced on /usr/sbin/mariadbd inside the container too, and that profile forbids the
+# setuid() that `mariadb-install-db --user=mysql` needs. The package postinst then leaves an empty data dir and
+# mariadb.service can never start ("Table 'mysql.db' doesn't exist"). On a Docker host without that profile the
+# first attempt just works and this shim is a pass-through. Otherwise retry as root (the profile allows that)
+# and hand the data directory to mysql afterwards, which is exactly the end state the real script produces.
+/usr/bin/mariadb-install-db.real "$@" && exit 0
+rc=$?
+args=()
+for a in "$@"; do args+=("${a/--user=mysql/--user=root}"); done
+datadir=/var/lib/mysql
+for a in "$@"; do case "$a" in --datadir=*) datadir="${a#*=}";; esac; done
+echo "mariadb-install-db shim: first attempt failed (rc=$rc, likely a host AppArmor profile); retrying as root" >&2
+/usr/bin/mariadb-install-db.real "${args[@]}" || exit $?
+chown -R mysql:mysql "$datadir"

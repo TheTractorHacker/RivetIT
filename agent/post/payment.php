@@ -38,7 +38,12 @@ if (isset($_POST['add_payment'])) {
     $balance = $balance_row ? floatval($balance_row['balance']) : 0;
 
     //Check to see if amount entered is greater than the balance of the invoice
-    if ($amount > $balance) {
+    if ($amount < 0) {
+        // A negative amount would pass the balance check below and write a negative payment row, which silently re-opens a
+        // paid invoice or reduces what it is recorded as having received. (Zero stays allowed: a zero-total invoice is settled with it.)
+        flash_alert("Payment can not be negative", 'error');
+        redirect();
+    } elseif ($amount > $balance) {
         flash_alert("Payment can not be more than the balance", 'error');
         redirect();
     } else {
@@ -204,7 +209,9 @@ if (isset($_POST['edit_payment'])) {
     $payment_method = sanitizeInput($_POST['payment_method']);
     $reference = sanitizeInput($_POST['reference']);
 
-    $client_id = intval(getFieldById('payments', $payment_id, 'payment_client_id'));
+    // payments has no client column: the department is the invoice's. (getFieldById() on the missing payment_client_id
+    // column falls back to the payment's own id, which made this check test an unrelated department.)
+    $client_id = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT invoice_client_id FROM payments LEFT JOIN invoices ON payment_invoice_id = invoice_id WHERE payment_id = $payment_id LIMIT 1"))['invoice_client_id'] ?? 0);
 
     enforceClientAccess();
 
@@ -877,11 +884,13 @@ if (isset($_GET['delete_payment'])) {
 
     $payment_id = intval($_GET['delete_payment']);
 
-    $sql = mysqli_query($mysqli,"SELECT * FROM payments WHERE payment_id = $payment_id");
+    // payments has no client column: the department is the invoice's (the old read of a payment client column was always unset, so the
+    // department check below always saw "no department" and passed).
+    $sql = mysqli_query($mysqli,"SELECT payments.*, invoice_client_id FROM payments LEFT JOIN invoices ON payment_invoice_id = invoice_id WHERE payment_id = $payment_id");
     $row = mysqli_fetch_assoc($sql);
     $invoice_id = intval($row['payment_invoice_id']);
     $deleted_payment_amount = floatval($row['payment_amount']);
-    $client_id = intval($row['payment_client_id']);
+    $client_id = intval($row['invoice_client_id'] ?? 0);
 
     enforceClientAccess();
 

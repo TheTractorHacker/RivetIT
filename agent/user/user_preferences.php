@@ -62,7 +62,11 @@ $records_per_page    = intval($pref['user_config_records_per_page'] ?: 10);
                         <span class="input-group-text"><i class="fa fa-fw fa-list"></i></span>
                     </div>
                     <select class="form-control" name="records_per_page">
-                        <?php foreach ([5, 10, 20, 50, 100, 500] as $n) { ?>
+                        <?php
+                        // Keep a stored size that is not in the list (e.g. 25 from an older UI) selectable so saving does not change it.
+                        $rpp_options = recordsPerPageOptions();
+                        if (!in_array($records_per_page, $rpp_options, true)) { $rpp_options[] = $records_per_page; sort($rpp_options); }
+                        foreach ($rpp_options as $n) { ?>
                         <option value="<?= $n ?>" <?= $records_per_page == $n ? 'selected' : '' ?>><?= $n ?></option>
                         <?php } ?>
                     </select>
@@ -164,7 +168,7 @@ $has_fcm = mysqli_num_rows(mysqli_query($mysqli, "SELECT token_id FROM api_token
         $push_my_categories     = push_enabled_categories_for_user($session_user_id);
         ?>
         <div class="small text-muted fw-bold mb-1 text-uppercase" style="letter-spacing:.05em;font-size:.7rem;">
-            <i class="fas fa-list-check me-1"></i>What gets pushed to your phone
+            <i class="fas fa-tasks me-1"></i>What gets pushed to your phone
         </div>
         <?php if (empty($push_global_categories)) { ?>
         <div class="small text-muted mb-0">An administrator has not allowed any notification categories to push yet.</div>

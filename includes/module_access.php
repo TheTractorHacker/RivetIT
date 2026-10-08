@@ -116,7 +116,7 @@ function itflow_home_label(): string {
         return itflow_limited_home()['label'];
     }
     $map = [
-        'dashboard.php' => 'Dashboard', 'clients.php' => 'Departments', 'tickets.php' => 'Tickets',
+        'dashboard.php' => 'Dashboard', 'my_dashboard.php' => 'My dashboard', 'clients.php' => 'Departments', 'tickets.php' => 'Tickets',
         'ticket_kanban.php' => 'Tickets', 'projects.php' => 'Projects', 'calendar.php' => 'Calendar',
         'assets.php' => 'Assets', 'kb_articles.php' => 'Knowledge Base',
     ];

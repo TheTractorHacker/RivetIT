@@ -78,6 +78,7 @@
             if (empty) { empty.classList.toggle('d-none', shown !== 0); }
         }
         if (input) { input.addEventListener('input', apply); }
+        if (input && input.value !== '') { apply(); } // arrived with ?q= from the home page search
         chips.forEach(function (chip) {
             chip.addEventListener('click', function () {
                 cat = chip.getAttribute('data-portal-filter-chip') || '';

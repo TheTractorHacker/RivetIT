@@ -28,6 +28,17 @@ $catalog_service = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
 $catalog_fields = $catalog_item ? $catalog_service->getFields($catalog_item_id) : [];
 $catalog_needs_approval = $catalog_item ? $catalog_service->needsApproval($catalog_item) : false;
 $prefill_subject = '';
+// Arriving from "Report a problem" on a device: the asset id is only honoured when that asset is assigned to this contact
+// (src/Portal/EmployeeHome.php::myDevice scopes by contact AND department), so a guessed id prefills nothing.
+$prefill_asset = 0;
+if (!$catalog_item && intval($_GET['asset_id'] ?? 0) > 0) {
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/src/Portal/EmployeeHome.php';
+    $report_device = (new \ITFlow\Portal\EmployeeHome($mysqli))->myDevice(intval($_GET['asset_id']), intval($session_contact_id), intval($session_client_id));
+    if ($report_device) {
+        $prefill_asset = intval($report_device['asset_id']);
+        $prefill_subject = 'Problem with ' . $report_device['asset_name'];
+    }
+}
 $prefill_priority = 'Low';
 $prefill_category = 0;
 $catalog_icon = 'fa-ticket-alt';
@@ -146,7 +157,7 @@ if ($catalog_item) {
                                 $asset_name = sanitizeInput($row['asset_name']);
                                 $asset_type = sanitizeInput($row['asset_type']);
                                 ?>
-                                <option value="<?php echo $asset_id ?>"><?php echo "$asset_name ($asset_type)"; ?></option>
+                                <option value="<?php echo $asset_id ?>"<?php if ($asset_id === $prefill_asset) { echo ' selected'; } ?>><?php echo "$asset_name ($asset_type)"; ?></option>
                                 <?php
                             }
                             ?>

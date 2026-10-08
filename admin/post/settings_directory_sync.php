@@ -23,6 +23,21 @@ if (isset($_POST['save_intune_module_settings'])) {
     redirect();
 }
 
+// Separate, off-by-default switch for account WRITES (workflow Entra actions). Administrators only: it widens what the app registration is used for.
+if (isset($_POST['save_entra_write_setting'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('module_client', 3);
+    if (empty($session_is_admin)) {
+        flash_alert('Only an administrator can change this setting', 'error');
+        redirect();
+    }
+    $allow = isset($_POST['config_entra_allow_writes']) ? 1 : 0;
+    mysqli_query($mysqli, "UPDATE settings SET config_entra_allow_writes = $allow WHERE company_id = 1");
+    logAction('Settings', 'Edit', "$session_name " . ($allow ? 'ALLOWED' : 'disallowed') . " RivetIT to change Entra accounts");
+    flash_alert($allow ? 'RivetIT may now change Entra accounts through lifecycle workflow tasks' : 'Entra account changes are switched off', $allow ? 'warning' : 'success');
+    redirect();
+}
+
 if (isset($_POST['save_microsoft_integration'])) {
 
     validateCSRFToken($_POST['csrf_token']);

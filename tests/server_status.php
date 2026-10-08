@@ -39,6 +39,22 @@ $db->query("UPDATE settings SET config_current_database_version = '2.6.500'");
 $ok($find($status(), 'Database version')['status'] === 'ok', 'up-to-date database is ok');
 $ok($find($g, 'PHP extensions')['status'] === 'ok', 'PHP extension check passes on this box');
 
+// The real admin page never loads includes/database_version.php, so the constant is undefined there: the version must come from the file.
+$ok(ServerStatus::latestDatabaseVersion(__DIR__ . '/..') === '2.6.500', 'with the constant defined it wins');
+file_put_contents("$root/includes/database_version.php", "<?php\nDEFINE(\"LATEST_DATABASE_VERSION\", \"2.6.777\");\n");
+$probe = "$root/probe_no_constant.php";
+file_put_contents($probe, '<?php require ' . var_export(__DIR__ . '/../vendor/autoload.php', true) . ';
+$db = new mysqli("localhost", getenv("RIVETIT_TEST_DB_USER"), getenv("RIVETIT_TEST_DB_PASS"), getenv("RIVETIT_TEST_DB_NAME"));
+echo json_encode([defined("LATEST_DATABASE_VERSION"), ITFlow\Ops\ServerStatus::latestDatabaseVersion(' . var_export($root, true) . '),
+  array_values(array_filter(array_merge(...array_column((new ITFlow\Ops\ServerStatus($db, ' . var_export($root, true) . ', null, "/nonexistent/helper"))->run(), "checks")), fn($c) => $c["label"] === "Database version"))[0]]);');
+$res = json_decode((string) shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($probe) . ' 2>/dev/null'), true);
+$ok(is_array($res) && $res[0] === false, 'probe process really has no LATEST_DATABASE_VERSION constant (like an admin page)');
+$ok(is_array($res) && $res[1] === '2.6.777', 'the version is read from includes/database_version.php when the constant is not defined');
+$ok(is_array($res) && $res[2]['status'] === 'warn' && str_contains($res[2]['detail'], '2.6.777') && !str_contains($res[2]['detail'], 'Could not read'), 'the page reports the pending version instead of "Could not read the database version"');
+unlink("$root/includes/database_version.php");
+@unlink($probe);
+$ok(ServerStatus::latestDatabaseVersion($root . '/nowhere') === '2.6.500', 'constant still wins when the file is missing (this process defined it)');
+
 // ---- storage
 $ok($find($g, 'uploads/ writable')['status'] === 'ok' && $find($g, 'backups/ writable')['status'] === 'ok', 'writable directories ok');
 chmod("$root/backups", 0500);

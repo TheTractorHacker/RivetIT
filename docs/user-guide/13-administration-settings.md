@@ -218,11 +218,15 @@ A webhook sends a message to another system's web address when something happens
 
 *Figure 13 — Add Webhook, with the two ticket events ticked. Nothing is saved until you click **Save**.*
 
-1. Enter a **Name** and the **Endpoint URL**.
-2. Optionally enter a **Secret**. When set, each request carries an HMAC-SHA256 signature of the body in the `X-RivetIT-Signature` header (`X-ITFlow-Signature` carries the same value for older receivers); leave it blank to skip signing.
-3. Tick the events to send and leave **Enabled** on. Click **Save**.
+Add Webhook is a two-step flow. (The pop-up in the figure above shows the older single form.)
 
-Only the five **Ticket Events** are actually delivered: `ticket.created`, `ticket.replied`, `ticket.assigned`, `ticket.status_changed` and `ticket.resolved`. They are queued when agents or the API create, reply to, assign, change or resolve a ticket, then sent by the scheduler with up to five attempts and growing delays before being marked failed. The **Platform Events** group can be ticked, but nothing in the app sends them yet.
+1. **Choose a platform.** Search the cards (n8n, Node-RED, ntfy, Discord, Telegram, Slack, Microsoft Teams, Home Assistant, Matrix, Generic JSON, Custom template and more). **Guides** lists the setup steps for every platform.
+2. **Configure it.** Enter a **Name** and the platform's URL, plus whatever that platform needs (an authentication token or header, an ntfy topic, a Telegram chat id ...). A **Setup guide** beside the form explains each step. Secrets are stored encrypted and are never shown again: leave a secret field blank when editing to keep it.
+3. Optionally set the **Signing secret**: each request carries an HMAC-SHA256 signature (`X-Rivet-Signature-V2`, plus `X-RivetIT-Signature` / `X-ITFlow-Signature` of the body for older receivers).
+4. **Choose events** with the search box, the groups and their Select all boxes. A whole group is saved as a pattern such as `ticket.*`; **All events** (`*`) also covers events added later.
+5. Use **Send test** to deliver a sample event through the real path and see the HTTP status and response, and **Preview payload** to see the exact headers and body. Click **Save**.
+
+Events are queued when something happens (a ticket is created, replied to, assigned, changed or resolved; a sign-in fails; a backup finishes ...) and sent by the job queue with up to five attempts and growing delays before being marked failed. Events marked *planned* in the picker are reserved names that are not emitted everywhere yet.
 
 #### AI providers
 

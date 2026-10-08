@@ -16,6 +16,8 @@ use ITFlow\Database\Connection;
  * exactly as-is.
  *
  *   \ITFlow\Audit\AuditService::record('auth.login_success', $user_id, 'user', $user_id, 'login', "User $name logged in");
+ *
+ * @deprecated since 26.10.26 use \RivetCore\Audit\AuditService. Kept for all of 1.x, removed in 2.0 (docs/DEPRECATIONS.md).
  */
 class AuditService
 {

@@ -31,6 +31,10 @@ function rivetCoreModuleOn(string $flag): bool
     if (class_exists('\RivetMSP\Core\CoreBridge')) {
         return \RivetMSP\Core\CoreBridge::enabled($flag);
     }
+    // RivetIT: only the automation switch (Administration > Automation) can turn a Core module off; it defaults to on.
+    if ($flag === 'core.automation.enabled') {
+        return \ITFlow\Automation\RuleEngine::switchOn($GLOBALS['mysqli'] ?? null);
+    }
 
     return true;
 }
@@ -57,14 +61,14 @@ function rivetWebhookHeaderPrefixes(): array
     return class_exists('\RivetMSP\Core\CoreBridge') ? ['X-RivetMSP', 'X-ITFlow'] : ['X-ITFlow', 'X-RivetIT'];
 }
 
-function rivetWebhookDispatcher($mysqli): \RivetCore\Webhooks\WebhookDispatcher
+function rivetWebhookDispatcher($mysqli, ?\RivetCore\Webhooks\WebhookSubscriptionsInterface $subscriptions = null): \RivetCore\Webhooks\WebhookDispatcher
 {
     $db = rivetCoreDb($mysqli);
     $subsClass = rivetCoreAdapterNs() . '\Webhooks\WebhooksTableSubscriptions';
 
     // Delivery re-vets (and pins) with the same policy the settings page used: public addresses plus the admin's allowed networks.
     $policy = rivetWebhookUrlPolicy($mysqli);
-    return new \RivetCore\Webhooks\WebhookDispatcher($db, new $subsClass($db), new \RivetCore\Support\SystemClock(), rivetWebhookHeaderPrefixes(),
+    return new \RivetCore\Webhooks\WebhookDispatcher($db, $subscriptions ?? new $subsClass($db), new \RivetCore\Support\SystemClock(), rivetWebhookHeaderPrefixes(),
         null, \RivetCore\Webhooks\WebhookDispatcher::DEFAULT_TIMEOUT_SECONDS, $policy, true);
 }
 
@@ -86,16 +90,21 @@ function rivetEmitEvent(string $event, array $data): void
 
         // 1. Webhooks
         $event_safe = mysqli_real_escape_string($mysqli, $event);
+        // A subscription is a comma list of event ids and/or patterns ("ticket.*", "*"): SQL narrows, DestinationConfig matches.
         $sql = mysqli_query($mysqli,
             "SELECT * FROM webhooks
              WHERE webhook_enabled = 1
-               AND FIND_IN_SET('$event_safe', REPLACE(webhook_events, ', ', ','))"
+               AND (FIND_IN_SET('$event_safe', REPLACE(webhook_events, ', ', ',')) OR webhook_events LIKE '%*%')"
         );
         while ($sql && ($row = mysqli_fetch_assoc($sql))) {
             $wid = intval($row['webhook_id']);
-            // Slack / Teams destinations have routing filters (minimum priority, clients); a filtered-out event is never queued.
-            if (\ITFlow\Webhooks\ChatFormatter::isChatType(\ITFlow\Webhooks\ChatFormatter::normalizeType($row['webhook_type'] ?? ''))
-                && !\ITFlow\Webhooks\ChatFormatter::shouldDeliver($row, $event, $data)) {
+            if (!\ITFlow\Webhooks\DestinationConfig::eventMatches((string) ($row['webhook_events'] ?? ''), $event)) {
+                continue;
+            }
+            // Routing filters (minimum priority, clients) belong to Slack / Teams and to every preset that set one; a filtered-out event is never queued.
+            $routed = \ITFlow\Webhooks\ChatFormatter::isChatType(\ITFlow\Webhooks\ChatFormatter::normalizeType($row['webhook_type'] ?? ''))
+                || ($row['webhook_min_priority'] ?? '') !== '' || ($row['webhook_client_ids'] ?? '') !== '';
+            if ($routed && !\ITFlow\Webhooks\ChatFormatter::shouldDeliver($row, $event, $data)) {
                 continue;
             }
             if ($jobs !== null) {
@@ -107,11 +116,17 @@ function rivetEmitEvent(string $event, array $data): void
             }
         }
 
-        // 2. Event automation rules
-        if (class_exists(\RivetCore\Automation\AutomationRuleEvaluator::class) && rivetCoreModuleOn('core.automation.enabled') && rivetTableExists($mysqli, 'automation_rules')) {
-            $context = \RivetCore\Automation\EventContext::flatten($data + ['event' => $event]);
-            $evaluator = new \RivetCore\Automation\AutomationRuleEvaluator(rivetCoreDb($mysqli));
-            foreach ($evaluator->findMatchingRules($event, $context) as $rule) {
+        // 2. Event automation rules (conditions, priority order and "stop on first match" are the engine's: src/Automation/RuleEngine.php)
+        if (class_exists(\ITFlow\Automation\RuleEngine::class) && rivetCoreModuleOn('core.automation.enabled') && rivetTableExists($mysqli, 'automation_rules')) {
+            // The causal chain (which rules already ran to produce this event) only ever comes from a rule that is executing right now.
+            unset($data['_chain']);
+            $autoData = $data;
+            if (($chain = \ITFlow\Automation\RuleEngine::chainForEmit()) !== null) {
+                $autoData['_chain'] = $chain;
+            }
+            $context = \RivetCore\Automation\EventContext::flatten($autoData + ['event' => $event]);
+            $engine = new \ITFlow\Automation\RuleEngine($mysqli, new \ITFlow\Workflow\LiveActionGateway($mysqli));
+            foreach ($engine->matching($event, $context) as $rule) {
                 if ($jobs !== null) {
                     $jobs->enqueue('automation.action', ['rule_id' => (int) $rule['rule_id'], 'event' => $event, 'context' => $context], null, 'automation', 0, 3);
                     $queued = true;
@@ -199,7 +214,16 @@ function rivetRegisterJobHandlers(\RivetCore\Jobs\JobWorker $worker, $mysqli): v
             return ['http_status' => $r['http_status'], 'duration_ms' => $r['duration_ms'], 'skipped' => $r['skipped']];
         }
 
-        $r = rivetWebhookDispatcher($mysqli)->deliverTo((int) ($p['webhook_id'] ?? 0), (string) ($p['event'] ?? ''), (array) ($p['data'] ?? []), (int) ($job['attempts'] ?? 1), $p['emitted_at'] ?? null, time());
+        // Preset webhooks (format, method, auth headers) get their options here, with the "open this ticket" link of THIS event; a legacy row
+        // has none and is delivered as the plain signed JSON envelope. The signature timestamp is fresh on every attempt.
+        $opts = null;
+        $whRes = mysqli_query($mysqli, 'SELECT * FROM webhooks WHERE webhook_id = ' . (int) ($p['webhook_id'] ?? 0) . ' LIMIT 1');
+        $whRow = $whRes ? mysqli_fetch_assoc($whRes) : null;
+        if (is_array($whRow)) {
+            $built = \ITFlow\Webhooks\DestinationConfig::options($whRow, (string) ($p['event'] ?? ''), (array) ($p['data'] ?? []));
+            $opts = $built === [] ? null : $built;
+        }
+        $r = rivetWebhookDispatcher($mysqli)->deliverTo((int) ($p['webhook_id'] ?? 0), (string) ($p['event'] ?? ''), (array) ($p['data'] ?? []), (int) ($job['attempts'] ?? 1), $p['emitted_at'] ?? null, time(), $opts);
         if (!empty($r['gone'])) {
             throw new \RivetCore\Jobs\PermanentJobFailure('The webhook endpoint no longer exists or is disabled.');
         }
@@ -218,32 +242,18 @@ function rivetRegisterJobHandlers(\RivetCore\Jobs\JobWorker $worker, $mysqli): v
 
         return ['message' => $res['message']];
     });
+
+    // RMM module (rivet/rivet-core): the queued check-in ingest handler (rmm.ingest). Nothing is loaded while the module is off.
+    require_once __DIR__ . '/rmm_bootstrap.php';
+    rivetRmmRegisterHandlers($worker, $mysqli);
 }
 
-/** Execute one event rule's action now and record that it ran. @return array{rule_id:int, ok:bool, message:string} */
+/** Execute one event rule's action now (loop guard, rate limit and run log included). @return array{rule_id:int, ok:bool, message:string} */
 function rivetRunAutomationRule($mysqli, int $ruleId, string $event, array $context): array
 {
-    $store = new \RivetCore\Automation\AutomationRuleStore(rivetCoreDb($mysqli));
-    $rule = $store->find($ruleId);
-    if ($rule === null || (int) $rule['is_enabled'] !== 1) {
-        return ['rule_id' => $ruleId, 'ok' => true, 'message' => 'rule is gone or disabled; skipped'];
-    }
-    $result = (new \RivetCore\Automation\AutomationExecutor())->execute($rule, $context, rivetAutomationActionHandlers($mysqli, $rule['name']));
-    try {
-        // Written straight to the audit table (not through the after-log hook) so a rule's own record can never trigger rules again.
-        $stmt = mysqli_prepare($mysqli, "INSERT INTO audit_events (event_type, entity_type, entity_id, action, summary, metadata_json) VALUES ('automation.rule_fired', 'automation_rule', ?, ?, ?, ?)");
-        $id = (string) $ruleId;
-        $action = $result['ok'] ? 'ok' : 'failed';
-        $summary = mb_substr("Rule '" . $rule['name'] . "' on $event: " . $result['message'], 0, 500);
-        $meta = json_encode(['event' => $event, 'rule_id' => $ruleId], JSON_UNESCAPED_SLASHES);
-        mysqli_stmt_bind_param($stmt, 'ssss', $id, $action, $summary, $meta);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
-    } catch (\Throwable $e) {
-        // the record is best effort
-    }
+    $r = (new \ITFlow\Automation\RuleEngine($mysqli, new \ITFlow\Workflow\LiveActionGateway($mysqli)))->run($ruleId, $event, $context);
 
-    return $result;
+    return ['rule_id' => $r['rule_id'], 'ok' => $r['ok'], 'message' => $r['message']];
 }
 
 /** @return array<string, callable> */
@@ -259,7 +269,7 @@ function rivetAutomationActionHandlers($mysqli, string $ruleName): array
             // Checked again at call time (DNS can change after the rule was saved).
             $target = rivetWebhookResolveTarget((string) $cfg['url']);
             if ($target === null) {
-                throw new \RuntimeException('the webhook URL does not resolve to a public address');
+                throw new \RuntimeException('the webhook URL is not allowed (' . rivetWebhookRuleText($mysqli) . ')');
             }
             $body = json_encode(['event' => $ctx['event'] ?? '', 'timestamp' => gmdate('Y-m-d\TH:i:s\Z'), 'data' => $ctx], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $headers = ['Content-Type: application/json'];
@@ -269,10 +279,23 @@ function rivetAutomationActionHandlers($mysqli, string $ruleName): array
                     $headers[] = $prefix . '-Signature: sha256=' . hash_hmac('sha256', $body, (string) $cfg['secret']);
                 }
             }
-            $ch = curl_init((string) $cfg['url']);
+            // pinnedUrl() hands curl the same host spelling the pin is keyed on ("example.com." with a trailing dot would
+            // otherwise make curl resolve the name itself and bypass the pin).
+            $ch = curl_init(\RivetCore\Webhooks\WebhookDispatcher::pinnedUrl((string) $cfg['url'], $target));
             // Pins the connection to the addresses just vetted, so a DNS answer that changes in between cannot redirect it inward.
             curl_setopt_array($ch, \RivetCore\Webhooks\WebhookDispatcher::curlOptions($body, $headers, 10, $target));
+            // The receiver is not trusted and only the status matters: read at most 1 MiB, then stop (the status line is already
+            // known), so a hostile endpoint cannot stream an unbounded body into memory (RivetCore security review SR-04).
+            $received = 0;
+            curl_setopt($ch, CURLOPT_WRITEFUNCTION, static function ($handle, string $chunk) use (&$received): int {
+                $received += strlen($chunk);
+
+                return $received > 1048576 ? 0 : strlen($chunk);
+            });
             $out = curl_exec($ch);
+            if ($out === false && $received > 1048576) {
+                $out = ''; // aborted on purpose after the status line; judge it by the HTTP code below
+            }
             $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
             if ($out === false) {
                 throw new \RuntimeException('webhook request failed: ' . curl_error($ch));

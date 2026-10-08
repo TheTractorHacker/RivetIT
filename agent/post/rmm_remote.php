@@ -48,6 +48,19 @@ $client_id = intval($link['asset_client_id']);
 $_GET['client_id'] = $client_id;
 enforceClientAccess($client_id);
 
+// A device enrolled with the built-in endpoint agent opens its session through MeshCentral. The same Actions::launchRemote() the
+// device page and the REST API use (rivet/rivet-core) does every check (role, department, mapped node, online state) again, server-side.
+$ea_type = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT type FROM rmm_integrations WHERE id=" . intval($link['integration_id']) . " LIMIT 1"));
+if (($ea_type['type'] ?? '') === 'rivetit_agent') {
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_bootstrap.php';
+    $ea_device = (int) preg_replace('/^rivetit:/', '', (string) $link['tactical_agent_id']);
+    $ea = rivetRmmModule()->technician()->launchRemote(rivetRmmPrincipal((int) $session_user_id, (string) $session_name), $ea_device, !empty($_POST['force']),
+        (string) ($_SERVER['REMOTE_ADDR'] ?? ''), (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+    echo json_encode($ea->ok ? ['success' => true, 'url' => $ea->data['url'] ?? ''] : ['success' => false, 'error' => $ea->message, 'code' => $ea->code]);
+    exit;
+}
+
 try {
     // Resolve the correct RMM client (Tactical, Level, …) via the factory so
     // remote-connect works for whichever provider the asset is linked to.

@@ -277,15 +277,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     </div>
                 </div>
             </div>
-            <div class="collapse mt-3 <?php if (isset($_GET['dtf']) && $_GET['dtf'] !== '1970-01-01') { echo "show"; } ?>" id="advancedFilter">
+            <div class="collapse mt-3 <?php if (!$date_range->isAllTime()) { echo "show"; } ?>" id="advancedFilter">
                 <div class="row">
                     <div class="col-md-3">
                         <div class="form-group">
                             <label>Date range</label>
-                            <input type="text" id="dateFilter" class="form-control" autocomplete="off">
-                            <input type="hidden" name="canned_date" id="canned_date" value="<?php echo nullable_htmlentities($_GET['canned_date']) ?? ''; ?>">
-                            <input type="hidden" name="dtf" id="dtf" value="<?php echo nullable_htmlentities($dtf ?? ''); ?>">
-                            <input type="hidden" name="dtt" id="dtt" value="<?php echo nullable_htmlentities($dtt ?? ''); ?>">
+                            <?php echo dateRangePickerField($date_range); ?>
                         </div>
                     </div>
                 </div>
@@ -304,44 +301,44 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 </div>
                             </td>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=invoice_number&order=<?php echo $disp ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=invoice_number&order=<?php echo sortLinkOrder('invoice_number'); ?>">
                                     Number <?php if ($sort == 'invoice_number') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=invoice_scope&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=invoice_scope&order=<?php echo sortLinkOrder('invoice_scope'); ?>">
                                     Scope <?php if ($sort == 'invoice_scope') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <?php if (!$client_url) { ?>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo sortLinkOrder('client_name'); ?>">
                                     Department <?php if ($sort == 'client_name') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <?php } ?>
                             <th class="text-end">
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=invoice_amount&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=invoice_amount&order=<?php echo sortLinkOrder('invoice_amount'); ?>">
                                     Amount <?php if ($sort == 'invoice_amount') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=invoice_date&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=invoice_date&order=<?php echo sortLinkOrder('invoice_date'); ?>">
                                     Date <?php if ($sort == 'invoice_date') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=invoice_due&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=invoice_due&order=<?php echo sortLinkOrder('invoice_due'); ?>">
                                     Due <?php if ($sort == 'invoice_due') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=category_name&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=category_name&order=<?php echo sortLinkOrder('category_name'); ?>">
                                     Category <?php if ($sort == 'category_name') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=invoice_status&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=invoice_status&order=<?php echo sortLinkOrder('invoice_status'); ?>">
                                     Status <?php if ($sort == 'invoice_status') { echo $order_icon; } ?>
                                 </a>
                             </th>

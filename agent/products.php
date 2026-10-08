@@ -179,44 +179,44 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 </div>
                             </td>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=product_name&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=product_name&order=<?php echo sortLinkOrder('product_name'); ?>">
                                     Name <?php if ($sort == 'product_name') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=category_name&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=category_name&order=<?php echo sortLinkOrder('category_name'); ?>">
                                     Category <?php if ($sort == 'category_name') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=product_description&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=product_description&order=<?php echo sortLinkOrder('product_description'); ?>">
                                     Description <?php if ($sort == 'product_description') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <?php if ($type_filter == 'product') { ?>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=product_qty&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=product_qty&order=<?php echo sortLinkOrder('product_qty'); ?>">
                                     QTY <?php if ($sort == 'product_qty') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=product_location&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=product_location&order=<?php echo sortLinkOrder('product_location'); ?>">
                                     Location <?php if ($sort == 'product_location') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <?php } ?>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=tax_name&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=tax_name&order=<?php echo sortLinkOrder('tax_name'); ?>">
                                     Tax Name <?php if ($sort == 'tax_name') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=tax_percent&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=tax_percent&order=<?php echo sortLinkOrder('tax_percent'); ?>">
                                     Tax Rate <?php if ($sort == 'tax_percent') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th class="text-end">
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=product_price&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=product_price&order=<?php echo sortLinkOrder('product_price'); ?>">
                                     Price <?php if ($sort == 'product_price') { echo $order_icon; } ?>
                                 </a>
                             </th>

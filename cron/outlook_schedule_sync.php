@@ -128,7 +128,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
         if ($ticket_id) {
             $note = mysqli_real_escape_string($mysqli,
                 "Appointment on " . date('M j, Y g:ia', strtotime($row['schedule_start'])) . " was deleted/cancelled directly in Outlook and has been removed from the schedule.");
-            mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = '$note', ticket_reply_type = 'System', ticket_reply_time_worked = '00:01:00', ticket_reply_by = 0, ticket_reply_ticket_id = $ticket_id");
+            mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = '$note', ticket_reply_type = 'System', ticket_reply_time_worked = '00:00:00', ticket_reply_by = 0, ticket_reply_ticket_id = $ticket_id");
             publishTicketEvent($ticket_id, 'reply', ['reply_type' => 'System', 'by' => 'Outlook Sync', 'by_type' => 'system']);
         }
 
@@ -161,7 +161,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
         if ($ticket_id) {
             $note = mysqli_real_escape_string($mysqli,
                 "Appointment rescheduled in Outlook: was " . date('M j, Y g:ia', $our_start) . ", now " . date('M j, Y g:ia', $graph_start) . ".");
-            mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = '$note', ticket_reply_type = 'System', ticket_reply_time_worked = '00:01:00', ticket_reply_by = 0, ticket_reply_ticket_id = $ticket_id");
+            mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = '$note', ticket_reply_type = 'System', ticket_reply_time_worked = '00:00:00', ticket_reply_by = 0, ticket_reply_ticket_id = $ticket_id");
             publishTicketEvent($ticket_id, 'reply', ['reply_type' => 'System', 'by' => 'Outlook Sync', 'by_type' => 'system']);
         }
 

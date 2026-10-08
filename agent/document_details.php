@@ -200,8 +200,8 @@ $page_title = $row['document_name'];
                     data-modal-url="modals/document/document_edit.php?id=<?= $document_id ?>">
                     <i class="fas fa-fw fa-edit" title="Edit"></i>
                 </button>
-                <button type="button" class="btn btn-secondary me-1" data-bs-toggle="modal" data-bs-target="#shareModal"
-                    onclick="populateShareModal(<?= "$client_id, 'Document', $document_id"; ?>)">
+                <button type="button" class="btn btn-secondary me-1 js-share-modal" data-bs-toggle="modal" data-bs-target="#shareModal"
+                    data-client-id="<?= (int) $client_id ?>" data-share-type="Document" data-share-id="<?= (int) $document_id ?>">
                     <i class="fas fa-fw fa-share" title="Share"></i>
                 </button>
                 <a class="btn btn-success me-1" href="post.php?export_document=<?= $document_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class='fas fa-fw fa-file-pdf' title="PDF Export"></i></a>

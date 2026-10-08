@@ -39,10 +39,13 @@ $admin_settings_labels = [
     'payroll_settings.php' => 'Payroll',
     'settings_training.php' => 'Training',
     'settings_kb.php' => 'Knowledge Base',
+    'settings_portal.php' => 'Employee portal',
     'settings_custom_fields.php' => 'Custom fields',
     'settings_security.php' => 'Security',
     'settings_compliance.php' => 'Compliance',
     'compliance_status.php' => 'Compliance status',
+    'automation.php' => 'Automation',
+    'automation_test.php' => 'Test rule',
     'event_rules.php' => 'Event rules',
     'job_queue.php' => 'Job queue',
     'audit_trail.php' => 'Audit trail',
@@ -55,11 +58,15 @@ $admin_settings_labels = [
     'settings_integrations.php' => 'Integrations',
     'settings_calendar_sync.php' => 'Calendar sync',
     'settings_webhooks.php' => 'Webhooks',
+    'settings_webhook_guides.php' => 'Webhook guides',
+    'webhook_new.php' => 'Webhooks',
+    'webhook_edit.php' => 'Webhooks',
     'settings_ai.php' => 'AI',
     'settings_telemetry.php' => 'Telemetry',
     'settings_comet.php' => 'Integrations',
     'comet_status.php' => 'Integrations',
     'settings_rmm.php' => 'Integrations',
+    'settings_endpoint_agent.php' => 'Endpoint agent',
     'settings_unifi.php' => 'Integrations',
 ];
 // A page that lives under an admin area (Maintenance, Ticketing setup, ...) gets that area's breadcrumb below; showing
@@ -75,8 +82,20 @@ foreach (itflowAdminNavAreas() as $admin_area_check_key => $admin_area_check) {
 if (isset($admin_settings_labels[$admin_settings_page]) && !$admin_page_in_area) { ?>
     <nav aria-label="Breadcrumb" class="mb-3 admin-breadcrumb">
         <a href="/admin/settings.php"><i class="fas fa-fw fa-arrow-left me-1" aria-hidden="true"></i>All settings</a>
-        <span class="text-muted mx-2" aria-hidden="true">/</span>
-        <span aria-current="page"><?php echo nullable_htmlentities($admin_settings_labels[$admin_settings_page]); ?></span>
+        <?php if (!empty($admin_breadcrumb_trail) && is_array($admin_breadcrumb_trail)) {
+            // A page may add deeper crumbs (e.g. Event rules / New rule): [[label, url|null], ...]; the last one is the current page.
+            foreach ($admin_breadcrumb_trail as $admin_crumb_i => $admin_crumb) { ?>
+                <span class="text-muted mx-2" aria-hidden="true">/</span>
+                <?php if (!empty($admin_crumb[1]) && $admin_crumb_i < count($admin_breadcrumb_trail) - 1) { ?>
+                    <a href="<?php echo nullable_htmlentities($admin_crumb[1]); ?>"><?php echo nullable_htmlentities($admin_crumb[0]); ?></a>
+                <?php } else { ?>
+                    <span aria-current="page"><?php echo nullable_htmlentities($admin_crumb[0]); ?></span>
+                <?php } ?>
+            <?php }
+        } else { ?>
+            <span class="text-muted mx-2" aria-hidden="true">/</span>
+            <span aria-current="page"><?php echo nullable_htmlentities($admin_settings_labels[$admin_settings_page]); ?></span>
+        <?php } ?>
     </nav>
 <?php }
 

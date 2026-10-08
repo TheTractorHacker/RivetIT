@@ -22,6 +22,30 @@ question text as it was when the request was made (`service_catalog_requests.fie
 question later does not rewrite history. They are shown, escaped and read-only, as **Request details** on the agent
 and portal ticket pages.
 
+### Conditional questions
+
+A question can be shown only when an earlier answer matches. In the **Request form** table, **Show only when** picks an earlier
+saved question and a test:
+
+| Test | Shown when the other question's answer... |
+|---|---|
+| equals | is exactly the value (a checkbox answer is `Yes` when ticked) |
+| is one of (a\|b) | is any of the values, separated by `\|` |
+| is answered | is not empty |
+
+Rules, enforced when you save and again when someone submits:
+
+- A condition can only point at a question that **exists** and comes **earlier** in the form (by the Order column). That makes loops
+  impossible; a bad condition is refused with a message and the form is left unchanged (the rest of the item still saves).
+- A hidden question is **neither required nor stored**, whatever the browser posted. A question hidden by another hidden question is
+  hidden too. A required question that has a condition is required only while it is shown (there is no separate switch for this).
+- The portal and the agent's New Ticket window show and hide questions as the person answers (`js/catalog_show_if.js`, a few lines
+  of plain JavaScript; it only mirrors the server, which decides). Without JavaScript every question is posted and the server
+  discards the hidden ones. The editor has a **Preview the saved form** panel that applies the same rules.
+- Stored rule: `service_catalog_fields.show_if` (JSON, NULL = always shown), migration 2.6.140.
+
+Not included: a repeating **table** field type, conditions on more than one question at once, or rules that point forward.
+
 ## Approval chains
 
 Tick **Requires approval** and add steps. Steps run in order; each step is one of:

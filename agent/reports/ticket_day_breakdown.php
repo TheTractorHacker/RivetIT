@@ -6,11 +6,17 @@ enforceUserPermission('module_support');
 
 // inc_all_reports.php loads includes/filter_header.php, which resolves the
 // canned-date / custom-date filter into $dtf and $dtt.
+if (!$date_range_explicit) {
+    // No filter submitted: this report defaults to this month (the picker is told the same default).
+    $date_range = dateRangeFromRequest(['canned_date' => 'thismonth']);
+    $dtf = $date_range->from();
+    $dtt = $date_range->to();
+}
 $report_from = $dtf;
 $report_to   = $dtt;
 if ($report_from === '1970-01-01') {
-    // No filter submitted: default to this month, which is what the dropdown shows.
-    $report_from = ($_GET['canned_date'] ?? 'custom') === 'custom' ? date('Y-m-01') : date('Y-m-d', strtotime('-29 days'));
+    // An explicit "all time" would span every year; show the last 30 days instead.
+    $report_from = date('Y-m-d', strtotime('-29 days'));
 }
 if ($report_to === '2099-12-31') {
     $report_to = date('Y-m-d');
@@ -28,25 +34,6 @@ if (!empty($report_export_csv)) {
     report_send_csv('ticket_day_breakdown_' . $report_from . '_to_' . $report_to . '.csv', $csv_header, $csv_rows);
 }
 
-$canned_options = [
-    'today'     => 'Today',
-    'yesterday' => 'Yesterday',
-    'thisweek'  => 'This week',
-    'lastweek'  => 'Last week',
-    'thismonth' => 'This month',
-    'lastmonth' => 'Last month',
-    'thisyear'  => 'This year',
-    'lastyear'  => 'Last year',
-    'alltime'   => 'All time',
-    'custom'    => 'Custom range',
-];
-// filter_header.php forces canned_date to 'custom' when nothing was submitted; treat that
-// no-filter default as "this month" so a day-granularity report doesn't try to render
-// several years of rows on first load.
-$selected_canned = $_GET['canned_date'] ?? 'thismonth';
-if ($selected_canned === 'custom' && !isset($_GET['dtf'])) {
-    $selected_canned = 'thismonth';
-}
 
 ?>
 
@@ -66,28 +53,9 @@ if ($selected_canned === 'custom' && !isset($_GET['dtf'])) {
     <div class="card-body p-0">
 
         <!-- Date range filter (uses includes/filter_header.php) -->
-        <form class="p-3 d-print-none form-row align-items-end">
-            <div class="col-md-3 col-6 mb-2">
-                <label class="mb-1">Date range</label>
-                <select class="form-control auto-submit-select" id="tdbCanned" name="canned_date">
-                    <?php foreach ($canned_options as $val => $label) { ?>
-                        <option value="<?php echo $val; ?>" <?php if ($selected_canned === $val) { echo 'selected'; } ?>><?php echo $label; ?></option>
-                    <?php } ?>
-                </select>
-            </div>
-            <div class="col-md-3 col-6 mb-2">
-                <label class="mb-1">From</label>
-                <input type="date" class="form-control js-canned-date-input" data-canned-target="tdbCanned" name="dtf" value="<?php echo nullable_htmlentities($report_from); ?>">
-            </div>
-            <div class="col-md-3 col-6 mb-2">
-                <label class="mb-1">To</label>
-                <input type="date" class="form-control js-canned-date-input" data-canned-target="tdbCanned" name="dtt" value="<?php echo nullable_htmlentities($report_to); ?>">
-            </div>
-            <div class="col-md-3 col-6 mb-2">
-                <button type="submit" class="btn btn-secondary btn-block">
-                    <i class="fas fa-fw fa-filter me-1"></i>Apply (custom)
-                </button>
-            </div>
+        <form class="p-3 d-print-none">
+            <label class="mb-1 d-block">Date range</label>
+            <?php echo dateRangePickerField($date_range, 'canned_date', ['default' => 'thismonth', 'dates' => [$report_from, $report_to]]); ?>
         </form>
 
         <div class="px-3 pb-2">

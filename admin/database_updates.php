@@ -9936,8 +9936,452 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     }
 
     if ($rivetit_db_version() == '2.6.136') {
+        // Employee self-service portal: which home sections show (CSV of keys), and the HR-initiated onboarding request (off by default,
+        // with the onboarding workflow template it starts; 0 = open a ticket instead). Idempotent.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_portal_home_sections` varchar(120) NOT NULL DEFAULT 'requests,approvals,devices,onboarding,training,catalog'");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_portal_onboarding_requests` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_portal_onboarding_template_id` int(11) NOT NULL DEFAULT 0");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.137'");
+    }
+
+    if ($rivetit_db_version() == '2.6.137') {
+        // Reporting and dashboards: saved report views, scheduled reports that carry a saved view / CSV (owner, format, last run status),
+        // expiring download links for emailed CSV files, and per-user "My dashboard" widget layouts. All idempotent.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `saved_reports` (
+            `saved_report_id` int(11) NOT NULL AUTO_INCREMENT,
+            `saved_report_user_id` int(11) NOT NULL,
+            `saved_report_key` varchar(60) NOT NULL,
+            `saved_report_name` varchar(100) NOT NULL,
+            `saved_report_params` text DEFAULT NULL,
+            `saved_report_shared` tinyint(1) NOT NULL DEFAULT 0,
+            `saved_report_created_at` datetime DEFAULT current_timestamp(),
+            `saved_report_updated_at` datetime DEFAULT NULL,
+            PRIMARY KEY (`saved_report_id`),
+            KEY `saved_report_user_key` (`saved_report_user_id`,`saved_report_key`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `report_exports` (
+            `export_id` int(11) NOT NULL AUTO_INCREMENT,
+            `export_token_hash` char(64) NOT NULL,
+            `export_schedule_id` int(11) DEFAULT NULL,
+            `export_filename` varchar(150) NOT NULL,
+            `export_content` longtext NOT NULL,
+            `export_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `export_expires_at` datetime NOT NULL,
+            PRIMARY KEY (`export_id`),
+            UNIQUE KEY `export_token_hash` (`export_token_hash`),
+            KEY `export_expires_at` (`export_expires_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `dashboard_layouts` (
+            `layout_user_id` int(11) NOT NULL,
+            `layout_widgets` text DEFAULT NULL,
+            `layout_updated_at` datetime DEFAULT NULL,
+            PRIMARY KEY (`layout_user_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "ALTER TABLE `report_schedules` ADD COLUMN IF NOT EXISTS `schedule_saved_report_id` int(11) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `report_schedules` ADD COLUMN IF NOT EXISTS `schedule_format` varchar(8) NOT NULL DEFAULT 'html'");
+        mysqli_query($mysqli, "ALTER TABLE `report_schedules` ADD COLUMN IF NOT EXISTS `schedule_owner_user_id` int(11) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `report_schedules` ADD COLUMN IF NOT EXISTS `schedule_last_run_at` datetime DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `report_schedules` ADD COLUMN IF NOT EXISTS `schedule_last_status` varchar(255) DEFAULT NULL");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.138'");
+    }
+
+    if ($rivetit_db_version() == '2.6.138') {
+        // Automation engine: priority / stop-on-first-match / per-rule rate limit / round-robin cursor on event rules, the five new
+        // actions in the action_type enum, a per-run log (automation_rule_runs), SLA once-only markers (automation_sla_marks) and the
+        // "Enable automation rules" switch (default ON, so installs behave as before). Every statement is idempotent.
+        if (mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'automation_rules'")) > 0) {
+            mysqli_query($mysqli, "ALTER TABLE `automation_rules` MODIFY COLUMN `action_type` enum('create_ticket','send_webhook','notify_user','start_workflow','set_ticket_field','add_ticket_note','assign_ticket','send_mail','create_task') NOT NULL");
+            mysqli_query($mysqli, "ALTER TABLE `automation_rules` ADD COLUMN IF NOT EXISTS `priority` int(11) NOT NULL DEFAULT 100");
+            mysqli_query($mysqli, "ALTER TABLE `automation_rules` ADD COLUMN IF NOT EXISTS `stop_on_match` tinyint(1) NOT NULL DEFAULT 0");
+            mysqli_query($mysqli, "ALTER TABLE `automation_rules` ADD COLUMN IF NOT EXISTS `rate_limit_per_min` int(11) NOT NULL DEFAULT 30");
+            mysqli_query($mysqli, "ALTER TABLE `automation_rules` ADD COLUMN IF NOT EXISTS `rr_cursor` int(11) NOT NULL DEFAULT 0");
+        }
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `automation_rule_runs` (
+            `run_id` bigint(20) NOT NULL AUTO_INCREMENT,
+            `rule_id` int(11) NOT NULL,
+            `event_type` varchar(150) NOT NULL,
+            `matched` tinyint(1) NOT NULL DEFAULT 1,
+            `status` varchar(20) NOT NULL,
+            `actions_json` text DEFAULT NULL,
+            `message` varchar(500) DEFAULT NULL,
+            `duration_ms` int(11) NOT NULL DEFAULT 0,
+            `chain_id` varchar(32) DEFAULT NULL,
+            `chain_depth` tinyint(4) NOT NULL DEFAULT 0,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`run_id`),
+            KEY `idx_automation_runs_rule` (`rule_id`, `created_at`),
+            KEY `idx_automation_runs_created` (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `automation_sla_marks` (
+            `ticket_id` int(11) NOT NULL,
+            `kind` varchar(30) NOT NULL,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`ticket_id`, `kind`),
+            KEY `idx_automation_sla_marks_created` (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_automation_enabled` tinyint(1) NOT NULL DEFAULT 1");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.139'");
+    }
+
+    if ($rivetit_db_version() == '2.6.139') {
+        // Gap closures. Catalog request forms: optional per-field visibility rule (JSON). Entra account writes: a separate,
+        // off-by-default switch. Slack interactive actions: opt-in email linking, a bot token (encrypted) used only to look up the
+        // clicking user's verified email, an optional workspace id to pin, and a table that makes signed requests replay-safe.
+        mysqli_query($mysqli, "ALTER TABLE `service_catalog_fields` ADD COLUMN IF NOT EXISTS `show_if` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_entra_allow_writes` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_slack_link_by_email` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_slack_bot_token` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_slack_team_id` varchar(32) NOT NULL DEFAULT ''");
+        // A temporary password made by the entra_create_account workflow action: encrypted, readable once by one named technician, expires.
+        mysqli_query($mysqli, "ALTER TABLE `workflow_run_tasks` ADD COLUMN IF NOT EXISTS `secret_result_enc` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `workflow_run_tasks` ADD COLUMN IF NOT EXISTS `secret_user_id` int(11) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `workflow_run_tasks` ADD COLUMN IF NOT EXISTS `secret_expires_at` datetime DEFAULT NULL");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `slack_interactive_seen` (
+            `sig_hash` char(64) NOT NULL,
+            `seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`sig_hash`),
+            KEY `idx_slack_seen_at` (`seen_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.140'");
+    }
+
+    if ($rivetit_db_version() == '2.6.140') {
         // Internal networks webhooks may reach (Administration > Webhooks); empty = public addresses only.
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_webhook_allowed_networks` varchar(500) NOT NULL DEFAULT ''");
 
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.137'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.141'");
+    }
+
+    if ($rivetit_db_version() == '2.6.141') {
+        // Webhook destination presets (RivetCore 0.21): which platform a webhook talks to, how it authenticates to it, the body
+        // format and template, and the preset's own inputs. All additive. Legacy rows keep working: '' = the original behaviour.
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_destination` varchar(40) NOT NULL DEFAULT ''");
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_format` varchar(24) NOT NULL DEFAULT ''");
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_method` varchar(4) NOT NULL DEFAULT 'POST'");
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_template` text NULL");
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_auth_mode` varchar(12) NOT NULL DEFAULT 'none'");
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_auth_enc` text NULL");
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` ADD COLUMN IF NOT EXISTS `webhook_extra` text NULL");
+        // Event subscriptions may now be patterns such as ticket.* (stored in the same comma list), so the list needs more room.
+        mysqli_query($mysqli, "ALTER TABLE `webhooks` MODIFY COLUMN `webhook_events` varchar(4000) NOT NULL DEFAULT ''");
+        // Existing rows become the equivalent preset (their delivery does not change): Slack/Teams keep the edition's chat formatter.
+        mysqli_query($mysqli, "UPDATE `webhooks` SET `webhook_destination` = 'slack', `webhook_format` = 'slack' WHERE `webhook_type` = 'slack' AND `webhook_destination` = ''");
+        mysqli_query($mysqli, "UPDATE `webhooks` SET `webhook_destination` = 'teams', `webhook_format` = 'teams' WHERE `webhook_type` = 'teams' AND `webhook_destination` = ''");
+        mysqli_query($mysqli, "UPDATE `webhooks` SET `webhook_destination` = 'generic-json', `webhook_format` = 'json' WHERE `webhook_type` NOT IN ('slack', 'teams') AND `webhook_destination` = ''");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.142'");
+    }
+
+    if ($rivetit_db_version() == '2.6.142') {
+        // Redis authentication and TLS (Administration > Redis): ACL username, TLS on/off, certificate verification and the CA /
+        // client certificate / client key file paths. The password column already exists and stays encrypted. Environment
+        // variables (RIVETIT_REDIS_*) still win over these. Also the per-minute REST API request cap (was a fixed 300).
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_redis_username` varchar(128) NOT NULL DEFAULT ''");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_redis_tls` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_redis_tls_verify` tinyint(1) NOT NULL DEFAULT 1");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_redis_tls_ca_file` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_redis_tls_cert_file` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_redis_tls_key_file` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_api_rate_limit` int(11) NOT NULL DEFAULT 300");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.143'");
+    }
+
+    if ($rivetit_db_version() == '2.6.143') {
+        // OIDC / SSO identities are (issuer, subject) pairs and subjects are case-sensitive per the OIDC spec, so the columns
+        // compare exactly (utf8mb4_bin). They were case-insensitive, which let two distinct subjects that differ only by case
+        // collide on the unique index and resolve to the same account. Type, length, nullability and the unique indexes are
+        // unchanged (MODIFY rebuilds each index). Guarded by information_schema so a re-run does nothing.
+        foreach (['user_oidc' => 'idx_users_oidc_identity', 'user_sso' => 'idx_users_sso_identity'] as $prefix => $unused) {
+            $need = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME IN ('{$prefix}_issuer', '{$prefix}_subject')
+                  AND (COLLATION_NAME IS NULL OR COLLATION_NAME <> 'utf8mb4_bin')"));
+            if ((int) ($need['c'] ?? 0) > 0) {
+                mysqli_query($mysqli, "ALTER TABLE `users`
+                    MODIFY COLUMN `{$prefix}_issuer` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+                    MODIFY COLUMN `{$prefix}_subject` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL");
+            }
+        }
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.144'");
+    }
+
+    if ($rivetit_db_version() == '2.6.144') {
+        // Built-in endpoint agent (server side): settings, enrollment tokens, devices, check-in idempotency, check state, jobs,
+        // MeshCentral node mapping and update releases. All additive and idempotent. Config lives in its own one-row table because
+        // `settings` is at MariaDB's row-size limit.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_settings` (
+  `id` tinyint(4) NOT NULL DEFAULT 1,
+  `enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `service_url` varchar(500) NOT NULL DEFAULT '',
+  `integration_id` int(11) NOT NULL DEFAULT 0,
+  `check_in_interval_s` int(11) NOT NULL DEFAULT 300,
+  `collect_interval_s` int(11) NOT NULL DEFAULT 60,
+  `offline_after_s` int(11) NOT NULL DEFAULT 900,
+  `stale_after_s` int(11) NOT NULL DEFAULT 604800,
+  `failure_debounce` int(11) NOT NULL DEFAULT 3,
+  `recovery_debounce` int(11) NOT NULL DEFAULT 2,
+  `retention_days` int(11) NOT NULL DEFAULT 30,
+  `job_retention_days` int(11) NOT NULL DEFAULT 180,
+  `job_output_max_bytes` int(11) NOT NULL DEFAULT 65536,
+  `job_default_timeout_s` int(11) NOT NULL DEFAULT 300,
+  `job_max_timeout_s` int(11) NOT NULL DEFAULT 3600,
+  `job_expiry_s` int(11) NOT NULL DEFAULT 3600,
+  `job_ack_timeout_s` int(11) NOT NULL DEFAULT 120,
+  `job_max_attempts` int(11) NOT NULL DEFAULT 3,
+  `enroll_max_ttl_h` int(11) NOT NULL DEFAULT 72,
+  `unmatched_policy` varchar(20) NOT NULL DEFAULT 'approval',
+  `checks_json` text DEFAULT NULL,
+  `signing_key_id` varchar(32) NOT NULL DEFAULT '',
+  `signing_public_key` varchar(100) NOT NULL DEFAULT '',
+  `signing_private_key_enc` text DEFAULT NULL,
+  `signing_key_created_at` datetime DEFAULT NULL,
+  `mesh_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `mesh_url` varchar(500) NOT NULL DEFAULT '',
+  `mesh_domain` varchar(100) NOT NULL DEFAULT '',
+  `mesh_login_key_enc` text DEFAULT NULL,
+  `mesh_account_template` varchar(100) NOT NULL DEFAULT 'rivetit-support',
+  `mesh_policy` varchar(20) NOT NULL DEFAULT 'unattended',
+  `mesh_token_ttl_s` int(11) NOT NULL DEFAULT 300,
+  `coexistence_policy` text DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_enrollment_tokens` (
+  `token_id` int(11) NOT NULL AUTO_INCREMENT,
+  `token_selector` char(12) NOT NULL,
+  `token_hash` char(64) NOT NULL,
+  `label` varchar(100) NOT NULL DEFAULT '',
+  `client_id` int(11) NOT NULL,
+  `location_id` int(11) NOT NULL DEFAULT 0,
+  `ring` varchar(20) NOT NULL DEFAULT 'stable',
+  `expires_at` datetime NOT NULL,
+  `max_uses` int(11) NOT NULL DEFAULT 1,
+  `use_count` int(11) NOT NULL DEFAULT 0,
+  `revoked_at` datetime DEFAULT NULL,
+  `revoked_by` int(11) DEFAULT NULL,
+  `last_used_at` datetime DEFAULT NULL,
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`token_id`),
+  UNIQUE KEY `uniq_selector` (`token_selector`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_enroll_attempts` (
+  `attempt_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `ip_hash` char(64) NOT NULL,
+  `ip_text` varchar(64) NOT NULL DEFAULT '',
+  `success` tinyint(1) NOT NULL DEFAULT 0,
+  `reason` varchar(40) NOT NULL DEFAULT '',
+  `token_selector` varchar(12) NOT NULL DEFAULT '',
+  `attempted_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`attempt_id`),
+  KEY `idx_ip_time` (`ip_hash`,`attempted_at`),
+  KEY `idx_time` (`attempted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_devices` (
+  `device_id` int(11) NOT NULL AUTO_INCREMENT,
+  `install_id` char(36) NOT NULL,
+  `machine_guid` varchar(64) DEFAULT NULL,
+  `hostname` varchar(200) NOT NULL DEFAULT '',
+  `os` varchar(20) NOT NULL DEFAULT 'windows',
+  `os_version` varchar(200) NOT NULL DEFAULT '',
+  `arch` varchar(10) NOT NULL DEFAULT '',
+  `serial` varchar(100) DEFAULT NULL,
+  `manufacturer` varchar(200) DEFAULT NULL,
+  `model` varchar(200) DEFAULT NULL,
+  `mac_addresses` text DEFAULT NULL,
+  `agent_version` varchar(40) NOT NULL DEFAULT '',
+  `asset_id` int(11) DEFAULT NULL,
+  `client_id` int(11) NOT NULL DEFAULT 0,
+  `location_id` int(11) NOT NULL DEFAULT 0,
+  `ring` varchar(20) NOT NULL DEFAULT 'stable',
+  `link_state` varchar(20) NOT NULL DEFAULT 'pending_approval',
+  `match_reason` varchar(60) NOT NULL DEFAULT '',
+  `match_candidates_json` text DEFAULT NULL,
+  `token_hash` char(64) NOT NULL DEFAULT '',
+  `token_issued_at` datetime DEFAULT NULL,
+  `token_expires_at` datetime DEFAULT NULL,
+  `revoked_at` datetime DEFAULT NULL,
+  `revoked_reason` varchar(100) DEFAULT NULL,
+  `retired_at` datetime DEFAULT NULL,
+  `enrolled_via_token_id` int(11) DEFAULT NULL,
+  `enroll_count` int(11) NOT NULL DEFAULT 1,
+  `first_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `last_checkin_at` datetime DEFAULT NULL,
+  `last_collected_at` datetime DEFAULT NULL,
+  `last_inventory_at` datetime DEFAULT NULL,
+  `last_ip` varchar(64) DEFAULT NULL,
+  `last_seq` bigint(20) NOT NULL DEFAULT 0,
+  `inventory_json` mediumtext DEFAULT NULL,
+  `last_metrics_json` text DEFAULT NULL,
+  `logged_in_user` varchar(200) DEFAULT NULL,
+  `pending_reboot` tinyint(1) DEFAULT NULL,
+  `uptime_s` bigint(20) DEFAULT NULL,
+  `update_state_json` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`device_id`),
+  UNIQUE KEY `uniq_install` (`install_id`),
+  KEY `idx_token_hash` (`token_hash`),
+  KEY `idx_asset` (`asset_id`),
+  KEY `idx_machine_guid` (`machine_guid`),
+  KEY `idx_serial` (`serial`),
+  KEY `idx_client` (`client_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_checkins` (
+  `device_id` int(11) NOT NULL,
+  `seq` bigint(20) NOT NULL,
+  `received_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `collected_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`device_id`,`seq`),
+  KEY `idx_received` (`received_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_checks` (
+  `device_id` int(11) NOT NULL,
+  `check_key` varchar(100) NOT NULL,
+  `status` varchar(10) NOT NULL DEFAULT 'unknown',
+  `detail` varchar(500) NOT NULL DEFAULT '',
+  `consecutive_failures` int(11) NOT NULL DEFAULT 0,
+  `consecutive_ok` int(11) NOT NULL DEFAULT 0,
+  `episode` int(11) NOT NULL DEFAULT 0,
+  `alert_id` int(11) DEFAULT NULL,
+  `last_reported_at` datetime DEFAULT NULL,
+  `last_changed_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`device_id`,`check_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_jobs` (
+  `job_id` char(36) NOT NULL,
+  `device_id` int(11) NOT NULL,
+  `asset_id` int(11) DEFAULT NULL,
+  `client_id` int(11) NOT NULL DEFAULT 0,
+  `type` varchar(20) NOT NULL,
+  `script` mediumtext DEFAULT NULL,
+  `params_json` text DEFAULT NULL,
+  `timeout_s` int(11) NOT NULL DEFAULT 300,
+  `max_output_bytes` int(11) NOT NULL DEFAULT 65536,
+  `destructive` tinyint(1) NOT NULL DEFAULT 0,
+  `run_as` varchar(40) NOT NULL DEFAULT 'SYSTEM',
+  `state` varchar(12) NOT NULL DEFAULT 'queued',
+  `reason` varchar(60) DEFAULT NULL,
+  `attempt` int(11) NOT NULL DEFAULT 1,
+  `offered_count` int(11) NOT NULL DEFAULT 0,
+  `last_offered_at` datetime DEFAULT NULL,
+  `issued_at` datetime NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `started_at` datetime DEFAULT NULL,
+  `finished_at` datetime DEFAULT NULL,
+  `exit_code` int(11) DEFAULT NULL,
+  `output` mediumtext DEFAULT NULL,
+  `output_truncated` tinyint(1) NOT NULL DEFAULT 0,
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`job_id`),
+  KEY `idx_device_state` (`device_id`,`state`),
+  KEY `idx_state_updated` (`state`,`updated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_mesh_nodes` (
+  `device_id` int(11) NOT NULL,
+  `mesh_node_id` varchar(200) NOT NULL,
+  `source` varchar(10) NOT NULL DEFAULT 'manual',
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `updated_by` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`device_id`),
+  KEY `idx_node` (`mesh_node_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_releases` (
+  `release_id` int(11) NOT NULL AUTO_INCREMENT,
+  `version` varchar(40) NOT NULL,
+  `url` varchar(500) NOT NULL,
+  `sha256` char(64) NOT NULL,
+  `min_version` varchar(40) NOT NULL DEFAULT '0.0.0',
+  `ring` varchar(20) NOT NULL DEFAULT 'stable',
+  `rollout_pct` int(11) NOT NULL DEFAULT 0,
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  `notes` varchar(500) NOT NULL DEFAULT '',
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`release_id`),
+  UNIQUE KEY `uniq_version_ring` (`version`,`ring`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "INSERT IGNORE INTO `endpoint_agent_settings` (`id`) VALUES (1)");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.145'");
+    }
+
+    if ($rivetit_db_version() == '2.6.145') {
+        // Endpoint agent deployment: hosted agent binaries, per-architecture releases and an optional CA certificate that the
+        // per-department installer embeds. Additive and idempotent: every ALTER is guarded by information_schema, the table is
+        // CREATE IF NOT EXISTS. Nothing is added to the nearly full `settings` table.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_binaries` (
+  `binary_id` int(11) NOT NULL AUTO_INCREMENT,
+  `version` varchar(40) NOT NULL,
+  `arch` varchar(10) NOT NULL,
+  `sha256` char(64) NOT NULL,
+  `size_bytes` bigint(20) NOT NULL DEFAULT 0,
+  `storage_name` varchar(64) NOT NULL,
+  `uploaded_by` int(11) NOT NULL DEFAULT 0,
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  `is_current` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`binary_id`),
+  UNIQUE KEY `uniq_version_arch` (`version`,`arch`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        $rivetit_has_col = static function (string $table, string $col) use ($mysqli): bool {
+            $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$table' AND COLUMN_NAME = '$col'"));
+            return (int) ($r['c'] ?? 0) > 0;
+        };
+        if (!$rivetit_has_col('endpoint_agent_settings', 'ca_pem')) {
+            mysqli_query($mysqli, "ALTER TABLE `endpoint_agent_settings` ADD COLUMN `ca_pem` text DEFAULT NULL");
+        }
+        if (!$rivetit_has_col('endpoint_agent_releases', 'arch')) {
+            mysqli_query($mysqli, "ALTER TABLE `endpoint_agent_releases` ADD COLUMN `arch` varchar(10) NOT NULL DEFAULT ''");
+        }
+        if (!$rivetit_has_col('endpoint_agent_releases', 'binary_id')) {
+            mysqli_query($mysqli, "ALTER TABLE `endpoint_agent_releases` ADD COLUMN `binary_id` int(11) DEFAULT NULL");
+        }
+        $oldKey = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS c FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'endpoint_agent_releases' AND INDEX_NAME = 'uniq_version_ring'"));
+        if ((int) ($oldKey['c'] ?? 0) > 0) {
+            mysqli_query($mysqli, "ALTER TABLE `endpoint_agent_releases` DROP INDEX `uniq_version_ring`");
+        }
+        $newKey = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS c FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'endpoint_agent_releases' AND INDEX_NAME = 'uniq_version_ring_arch'"));
+        if ((int) ($newKey['c'] ?? 0) === 0) {
+            mysqli_query($mysqli, "ALTER TABLE `endpoint_agent_releases` ADD UNIQUE KEY `uniq_version_ring_arch` (`version`,`ring`,`arch`)");
+        }
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.146'");
+    }
+
+    if ($rivetit_db_version() == '2.6.146') {
+        // The endpoint agent / RMM module moved into RivetCore (rivet/rivet-core 1.0.0-rc.4): its tables and the module switch columns are now
+        // owned by Core migrations 0014 (the ten endpoint_agent_* tables, CREATE IF NOT EXISTS in the exact shape this updater created in
+        // 2.6.145 and 2.6.146), 0015 (convergence for an install that stopped at 2.6.145) and 0016 (features_json, limits_json, shed_level,
+        // ingest_mode, max_devices on endpoint_agent_settings). All three are idempotent: on an install that already has the tables 0014 and 0015
+        // change nothing and 0016 only adds those five columns. endpoint_agent_settings.enabled (the module's master switch) is never touched,
+        // so an install that had the agent on keeps it on and one that never enabled it stays off. The steps 2.6.144 to 2.6.146 above stay as
+        // history. Skipped (version NOT advanced, so it retries) until the package with the module is installed.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Rmm\Migration\Migration0016ModuleSwitches::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.147'");
+            // Write the module's zero-database state file (read by api/v1/rmm_gate.php) from the master switch just migrated. Never fatal.
+            try {
+                require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
+                rivetRmmSyncState($mysqli);
+            } catch (\Throwable $e) {
+                error_log('RMM state file not written by the database update: ' . $e->getMessage());
+            }
+        }
     }

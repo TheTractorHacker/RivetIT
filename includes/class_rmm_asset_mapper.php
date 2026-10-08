@@ -164,7 +164,7 @@ class RmmAssetMapper {
      *     LEFT OPEN and only a note is added; otherwise it is closed (status 5)
      *     with a system-attributed note "Auto-closed: RMM alert cleared".
      */
-    private function autoCloseAlertTicket(int $ticket_id, int $alert_id): void {
+    public function autoCloseAlertTicket(int $ticket_id, int $alert_id): void {
         $m = $this->mysqli;
         if ($ticket_id <= 0) {
             return;

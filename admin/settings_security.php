@@ -118,7 +118,11 @@ $vault_unsynced_users = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT 
                         <span class="input-group-text"><i class="fa fa-fw fa-clock"></i></span>
                     </div>
                     <input type="number" class="form-control" name="config_login_remember_me_expire" min="30" placeholder="Days (30 minimum)" value="<?php echo intval($config_login_remember_me_expire); ?>">
+                    <div class="input-group-append">
+                        <span class="input-group-text">days</span>
+                    </div>
                 </div>
+                <small class="form-text text-secondary">The value shown is the one in effect. Anything lower than 30 (including the old stored default of 3) is raised to 30 days when it is read and saved.</small>
             </div>
 
             <div class="form-group">
@@ -132,6 +136,7 @@ $vault_unsynced_users = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT 
                         <span class="input-group-text">minutes</span>
                     </div>
                 </div>
+                <small class="form-text text-secondary">The value shown is the one in effect: <?php echo intval($config_login_session_lifetime); ?> minutes (<?php echo round(intval($config_login_session_lifetime) / 1440, 1); ?> days). Lower values, including the old stored default of 480 minutes, are raised to 43200 (30 days); the maximum is 129600 (90 days).</small>
             </div>
 
             <div class="form-group">
@@ -143,6 +148,19 @@ $vault_unsynced_users = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT 
                     <input type="number" min="0" class="form-control" name="config_log_retention" placeholder="Enter days to retain" value="<?php echo intval($config_log_retention); ?>">
                 </div>
                 <small class="form-text text-muted">Days to keep audit, app and sign-in logs. 0 keeps them forever.</small>
+            </div>
+
+            <hr>
+
+            <h5 class="mb-3"><i class="fas fa-fw fa-trash-alt me-2"></i>Permanent deletes</h5>
+
+            <div class="form-group">
+                <input type="hidden" name="destructive_deletes_present" value="1">
+                <div class="form-check form-switch">
+                    <input type="checkbox" class="form-check-input" name="config_destructive_deletes_enable" id="destructiveDeletes" value="1" <?php if (!empty($config_destructive_deletes_enable)) { echo "checked"; } ?>>
+                    <label class="form-check-label" for="destructiveDeletes">Allow permanent deletes of archived records</label>
+                </div>
+                <small class="form-text text-danger"><i class="fas fa-fw fa-exclamation-triangle me-1"></i>Off by default. When on, an archived person, location, printer, network drive, software license or product shows a <strong>Delete</strong> button that removes it for good, and it cannot be undone or restored from the app. Leave it off unless you need it; archive instead. Turning it on or off is written to the audit log.</small>
             </div>
 
             <?php if ($net_ready) { ?>

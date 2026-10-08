@@ -77,6 +77,9 @@ $billing_increment_minutes = (int) round($billing_increment_seconds / 60);
 // Ticket-level billable flag (same as your original report)
 $billable_sql = $billable_only ? " AND t.ticket_billable = 1 " : "";
 
+// Department restriction (empty for admins / unrestricted users).
+$client_scope_sql = \ITFlow\Reports\ReportScope::clause('t.ticket_client_id');
+
 /**
  * Query returns ONLY replies that have time_worked and are within date range.
  * Reply content column = tr.ticket_reply
@@ -108,6 +111,7 @@ $stmt = $mysqli->prepare("
 
     WHERE c.client_archived_at IS NULL
       $billable_sql
+      $client_scope_sql
 
     ORDER BY c.client_name ASC,
              t.ticket_number ASC,

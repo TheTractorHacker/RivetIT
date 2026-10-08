@@ -31,6 +31,12 @@ $contact_for_labels = \ITFlow\Workflow\TaskActionRunner::loadContact($mysqli, in
 $action_labels = \ITFlow\Workflow\TaskActionRunner::labels();
 $sql_log = mysqli_query($mysqli, "SELECT l.*, t.title AS task_title, u.user_name AS actor_name FROM workflow_task_log l LEFT JOIN workflow_run_tasks t ON t.run_task_id = l.run_task_id LEFT JOIN users u ON u.user_id = l.actor_user_id WHERE l.run_id = $run_id ORDER BY l.log_id DESC LIMIT 50");
 $now_ts = time();
+// A temporary password revealed on the previous request: shown once here, then forgotten.
+$secret_once = null;
+if (!empty($_SESSION['workflow_secret_once']) && is_array($_SESSION['workflow_secret_once'])) {
+    $secret_once = $_SESSION['workflow_secret_once'];
+    unset($_SESSION['workflow_secret_once']);
+}
 
 $status_badge = [
     'in_progress' => 'text-bg-primary',
@@ -55,6 +61,14 @@ $status_badge = [
         Started <?= nullable_htmlentities($run['started_at']) ?><?= $run['completed_at'] ? ' &middot; Completed ' . nullable_htmlentities($run['completed_at']) : '' ?>
     </div>
 </div>
+
+<?php if ($secret_once !== null) { ?>
+<div class="alert alert-warning">
+    <strong>Temporary Entra password (shown once, never stored in the log):</strong>
+    <input type="text" readonly class="form-control d-inline-block w-auto mx-2 font-monospace js-select-on-click" value="<?= nullable_htmlentities($secret_once['secret']) ?>" autocomplete="off">
+    Give it to <?= nullable_htmlentities($run['contact_name']) ?> over a secure channel. They must change it at first sign-in. Reloading this page erases it from view.
+</div>
+<?php } ?>
 
 <?php if ($run['status'] === 'paused') { ?>
 <div class="alert alert-warning">An approval was rejected, so this workflow is paused. Reopen the rejected task to ask for approval again, or an administrator can skip it to carry on.</div>
@@ -117,6 +131,18 @@ $status_badge = [
                     <?php } ?>
                     <?php if ($task['task_type'] === 'action' && $task['last_error'] && $task['status'] !== 'completed') { ?>
                         <div class="text-danger small mt-1">Failed after <?= intval($task['attempts']) ?> attempt(s): <?= nullable_htmlentities($task['last_error']) ?>. Do it by hand and tick it off, or run it again.</div>
+                    <?php } ?>
+                    <?php if (!empty($task['secret_result_enc']) && $task['secret_expires_at'] > date('Y-m-d H:i:s')) { ?>
+                        <?php if (intval($task['secret_user_id']) === intval($session_user_id)) { ?>
+                            <form action="post.php" method="post" class="mt-1">
+                                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                                <input type="hidden" name="run_task_id" value="<?= intval($task['run_task_id']) ?>">
+                                <input type="hidden" name="run_id" value="<?= $run_id ?>">
+                                <button type="submit" name="reveal_workflow_task_secret" class="btn btn-sm btn-warning"><i class="fas fa-key me-1"></i>Show the temporary password (once)</button>
+                            </form>
+                        <?php } else { ?>
+                            <div class="small text-warning mt-1"><i class="fas fa-key me-1"></i>A temporary password is waiting for the assigned technician only.</div>
+                        <?php } ?>
                     <?php } ?>
                     <?php if ($task['status'] === 'skipped' && $task['skip_reason']) { ?><div class="text-warning small">Skipped: <?= nullable_htmlentities($task['skip_reason']) ?></div><?php } ?>
                 </div>
@@ -203,7 +229,7 @@ $status_badge = [
 
         <?php if ($run['status'] !== 'cancelled') { ?>
         <div class="mt-3">
-            <form action="post.php" method="post" onsubmit="return confirm('Cancel this workflow? This cannot be undone.');">
+            <form action="post.php" method="post" data-confirm-submit="Cancel this workflow? This cannot be undone.">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <input type="hidden" name="run_id" value="<?= $run_id ?>">
                 <button type="submit" name="cancel_workflow_run" class="btn btn-sm btn-outline-danger">Cancel Workflow</button>

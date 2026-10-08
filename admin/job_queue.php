@@ -19,7 +19,7 @@ $h = static fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 ?>
 
 <div class="card mb-3">
-    <div class="card-header py-3"><h3 class="card-title mb-0"><i class="fas fa-fw fa-list-check me-2"></i>Job queue</h3></div>
+    <div class="card-header py-3"><h3 class="card-title mb-0"><i class="fas fa-fw fa-tasks me-2"></i>Job queue</h3></div>
     <div class="card-body">
         <p class="text-muted mb-1">Background work that should not slow a page: webhook deliveries and event-rule actions. A job that fails is retried after 1, 5, 30 and 120 minutes, then set aside as failed so you can look at it and retry it by hand.</p>
         <p class="text-muted small mb-0">The scheduled job worker (Maintenance &rarr; Cron) and the main cron both process the queue; jobs queued by a page are also sent right after the page responds. Job types: <?= $types ? implode(', ', array_map(static fn ($t) => '<code>' . htmlspecialchars($t) . '</code>', $types)) : 'none' ?>.</p>

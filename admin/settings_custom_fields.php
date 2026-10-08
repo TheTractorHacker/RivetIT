@@ -34,6 +34,11 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
             </div>
         </div>
         <div class="card-body">
+            <div class="alert alert-warning py-2">
+                <i class="fas fa-fw fa-info-circle me-1"></i><strong>Stored only: not shown on records yet.</strong>
+                Fields you define here are saved, but no asset or department page displays or edits them yet. They are kept so that
+                nothing is lost when that arrives. Do not rely on them for day-to-day documentation.
+            </div>
             <form autocomplete="off">
                 <input type="hidden" name="table" value="<?php echo nullable_htmlentities($table); ?>">
                 <div class="row">
@@ -58,8 +63,8 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <table class="table table-striped table-borderless table-hover">
                     <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
                     <tr>
-                        <th><a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=custom_field_label&order=<?php echo $disp; ?>">Label</a></th>
-                        <th><a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=custom_field_type&order=<?php echo $disp; ?>">Type</a></th>
+                        <th><a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=custom_field_label&order=<?php echo sortLinkOrder('custom_field_label'); ?>">Label</a></th>
+                        <th><a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=custom_field_type&order=<?php echo sortLinkOrder('custom_field_type'); ?>">Type</a></th>
                         <th class="text-center">Action</th>
                     </tr>
                     </thead>

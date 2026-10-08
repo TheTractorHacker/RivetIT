@@ -262,6 +262,7 @@ main() {
     # single-script "populated later in main()" convention install.sh uses
     # for DB_PASSWORD, not a scoping accident.
     determine_owner
+    ignore_git_filemode "${APP_DIR}" "${OWNER}"
 
     run_git_pull
     run_composer_install

@@ -9,6 +9,8 @@ use ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter;
  * change just carries its own status, risk and plans, and a problem can point at the change meant to fix it.
  *
  * Compatibility shim over RivetCore\ITSM\ChangeService; the status machine is public there (ChangeService::TRANSITIONS).
+ *
+ * @deprecated since 26.10.26 use \RivetCore\ITSM\ChangeService (construct it with a \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter). Kept for all of 1.x, removed in 2.0 (docs/DEPRECATIONS.md).
  */
 class ChangeService
 {

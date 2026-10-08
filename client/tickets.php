@@ -42,10 +42,24 @@ $total_tickets = intval($row['total_tickets']);
 
 ?>
 
+<?php
+// Mine / Department: this page only ever lists tickets the logged-in contact raised ("Mine", the default and the only view for
+// employees). Department administrators (primary / technical contacts) can switch to the whole department, which is
+// ticket_view_all.php and keeps its own administrator check; employees get no such link, and ticket.php re-checks ownership.
+$tickets_is_admin = ($session_contact_primary == 1 || $session_contact_is_technical_contact);
+?>
 <div class="row mb-4">
     <div class="col">
-        <h3><i class="fas fa-fw fa-ticket-alt me-2"></i>Tickets</h3>
+        <h3><i class="fas fa-fw fa-ticket-alt me-2"></i><?php echo $tickets_is_admin ? 'Tickets' : 'My requests'; ?></h3>
     </div>
+    <?php if ($tickets_is_admin) { ?>
+    <div class="col-auto">
+        <div class="btn-group" role="group" aria-label="Which tickets">
+            <a href="tickets.php" class="btn btn-sm btn-primary">Mine</a>
+            <a href="ticket_view_all.php" class="btn btn-sm btn-outline-primary">Department</a>
+        </div>
+    </div>
+    <?php } ?>
 </div>
 <div class="row">
 
@@ -133,7 +147,7 @@ $total_tickets = intval($row['total_tickets']);
             </div>
         </div>
 
-        <?php if ($session_contact_primary == 1 || $session_contact_is_technical_contact) { ?>
+        <?php if ($tickets_is_admin) { ?>
             <a href="ticket_view_all.php" class="btn btn-dark btn-block mt-3"><i class="fas fa-fw fa-users me-1"></i>All Company Tickets</a>
         <?php } ?>
 

@@ -481,6 +481,22 @@ $portal_resource_pages = ['contacts.php', 'contact_add.php', 'contact_edit.php',
                 </li>
                 <?php } ?>
 
+                <?php
+                // Employees (not department administrators, who have IT resources > Assets) get a My devices entry; the onboarding
+                // request entry only shows for contacts the feature is open to (setting on AND manager / department administrator).
+                $portal_nav_is_admin = ($session_contact_primary == 1 || $session_contact_is_technical_contact);
+                if (!$portal_nav_is_admin && intval($session_contact_id) > 0) { ?>
+                <li class="nav-item">
+                    <a class="nav-link <?php if ($portal_nav_page == "assets.php") {echo "active";} ?>" href="/client/assets.php">My devices</a>
+                </li>
+                <?php }
+                require_once $_SERVER['DOCUMENT_ROOT'] . '/src/Portal/EmployeeHome.php';
+                if (empty($portal_preview_active) && (new \ITFlow\Portal\EmployeeHome($mysqli))->canRequestOnboarding(intval($config_portal_onboarding_requests ?? 0) === 1, intval($session_contact_id), intval($session_client_id), $portal_nav_is_admin)) { ?>
+                <li class="nav-item">
+                    <a class="nav-link <?php if ($portal_nav_page == "onboarding_request.php") {echo "active";} ?>" href="/client/onboarding_request.php">Request onboarding</a>
+                </li>
+                <?php } ?>
+
                 <?php if ($config_module_enable_kb == 1) { ?>
                     <li class="nav-item">
                         <a class="nav-link <?php if (basename($_SERVER['PHP_SELF']) == "kb_articles.php" || basename($_SERVER['PHP_SELF']) == "kb_article.php") {echo "active";} ?>" href="/client/kb_articles.php">Knowledge Base</a>

@@ -57,29 +57,29 @@ foreach ($_cat_subs as $_pid => $_subs) {
                             </td>
 
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_number&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_number&order=<?php echo sortLinkOrder('ticket_number'); ?>">
                                     Ticket <?php if ($sort == 'ticket_number') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_subject&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_subject&order=<?php echo sortLinkOrder('ticket_subject'); ?>">
                                     Subject <?php if ($sort == 'ticket_subject') { echo $order_icon; } ?>
                                 </a>
                             </th>
 
                             <th>Board</th>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=category_name&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=category_name&order=<?php echo sortLinkOrder('category_name'); ?>">
                                     Category <?php if ($sort == 'category_name') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
                                 <?php if (!$client_url) { ?>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo sortLinkOrder('client_name'); ?>">
                                     Department <?php if ($sort == 'client_name') { echo $order_icon; } ?> /
                                 </a>
                                 <?php } ?>
-                                <a class="text-secondary <?php if ($client_url) { echo "text-dark"; } ?>" href="?<?php echo $url_query_strings_sort; ?>&sort=contact_name&order=<?php echo $disp; ?>">
+                                <a class="text-secondary <?php if ($client_url) { echo "text-dark"; } ?>" href="?<?php echo $url_query_strings_sort; ?>&sort=contact_name&order=<?php echo sortLinkOrder('contact_name'); ?>">
                                     Contact <?php if ($sort == 'contact_name') { echo $order_icon; } ?>
                                 </a>
                             </th>
@@ -91,29 +91,29 @@ foreach ($_cat_subs as $_pid => $_subs) {
                             </th>
                             <?php } ?>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_priority&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_priority&order=<?php echo sortLinkOrder('ticket_priority'); ?>">
                                     Priority <?php if ($sort == 'ticket_priority') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>CSAT</th>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_status&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_status&order=<?php echo sortLinkOrder('ticket_status'); ?>">
                                     Status <?php if ($sort == 'ticket_status') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=user_name&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=user_name&order=<?php echo sortLinkOrder('user_name'); ?>">
                                     Assigned <?php if ($sort == 'user_name') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>Tags</th>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_updated_at&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_updated_at&order=<?php echo sortLinkOrder('ticket_updated_at'); ?>">
                                     Last Response <?php if ($sort == 'ticket_updated_at') { echo $order_icon; } ?>
                                 </a>
                             </th>
                             <th>
-                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_created_at&order=<?php echo $disp; ?>">
+                                <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_created_at&order=<?php echo sortLinkOrder('ticket_created_at'); ?>">
                                     Created <?php if ($sort == 'ticket_created_at') { echo $order_icon; } ?>
                                 </a>
                             </th>

@@ -107,7 +107,14 @@ if (isset($options['update']) || isset($options['force_update'])) {
             echo $ensure['message'] . "\n";
         }
         exec("git pull " . escapeshellarg(RELEASE_REMOTE) . " " . escapeshellarg($release_branch) . " 2>&1", $output, $return_var);
-        
+
+        // A failed pull (unreachable or unknown remote, diverged history ...) must not be reported as a success:
+        // deploy/update.sh would carry on and run migrations against code that never changed.
+        if ($return_var !== 0) {
+            fwrite(STDERR, "Update failed: git pull exited with status $return_var.\n" . implode("\n", $output) . "\n");
+            exit(1);
+        }
+
         // Check if the repository is already up to date
         if (strpos(implode("\n", $output), 'Already up to date.') === false) {
             echo implode("\n", $output) . "\n";

@@ -248,6 +248,12 @@ class WorkflowService
                 $warnings[] = 'Task "' . $r['title'] . '" is due relative to the end date, but this person has none; it falls back to the run start.';
             }
         }
+        foreach ($rows as $r) {
+            if (str_starts_with((string) ($r['action_type'] ?? ''), 'entra_') && !\ITFlow\Integrations\Microsoft\GraphClientFactory::writesAllowed($this->mysqli)) {
+                $warnings[] = "This template has Entra account actions but 'Allow RivetIT to change Entra accounts' is off: those tasks will become manual tasks.";
+                break;
+            }
+        }
         usort($tasks, static fn ($a, $b) => [$a['wave'], $a['template_task_id']] <=> [$b['wave'], $b['template_task_id']]);
         foreach ($tasks as $i => &$t) {
             $t['order'] = $i + 1;
@@ -317,6 +323,7 @@ class WorkflowService
         if ($t['task_type'] === 'action' && $t['status'] === 'action_failed') {
             $this->runner()->log((int) $t['run_id'], $runTaskId, 'manual_complete', $t['action_type'], true, (int) $t['attempts'], 'completed by hand after the automated action failed', $userId);
         }
+        $this->gateway()->emitEvent('workflow.task_completed', ['run_id' => (int) $t['run_id'], 'run_task_id' => $runTaskId, 'task_title' => (string) $t['title'], 'contact_id' => (int) $t['contact_id'], 'completed_by' => 'person', 'completed_by_user_id' => $userId]);
         $this->afterResolve((int) $t['run_id']);
     }
 
@@ -401,6 +408,28 @@ class WorkflowService
         return $ok;
     }
 
+    /**
+     * The temporary password an Entra account task made. Returned ONCE, and only to the technician it was kept for (never to an
+     * administrator who is somebody else); reading it erases it. Every read is audited, without the secret.
+     * @return string|null null when there is nothing (left) for this user
+     */
+    public function revealTaskSecret(int $runTaskId, int $userId): ?string
+    {
+        $t = $this->one('SELECT run_id, secret_result_enc, secret_user_id, (secret_expires_at < NOW()) AS expired FROM workflow_run_tasks WHERE run_task_id = ?', 'i', [$runTaskId]);
+        if (!$t || (string) $t['secret_result_enc'] === '' || (int) $t['secret_user_id'] !== $userId || $userId <= 0) {
+            return null;
+        }
+        // Claim it: whoever clears the column owns the one reading.
+        mysqli_query($this->mysqli, "UPDATE workflow_run_tasks SET secret_result_enc = NULL, secret_user_id = NULL, secret_expires_at = NULL WHERE run_task_id = $runTaskId AND secret_user_id = $userId AND secret_result_enc IS NOT NULL");
+        if (mysqli_affected_rows($this->mysqli) !== 1 || (int) $t['expired'] === 1) {
+            return null;
+        }
+        $this->gateway()->audit('workflow.secret_revealed', $userId, 'workflow_run_task', $runTaskId, 'revealed', 'Temporary password shown once to its technician', ['run_id' => (int) $t['run_id'], 'run_task_id' => $runTaskId]);
+        $secret = decryptSetting((string) $t['secret_result_enc']);
+
+        return $secret !== '' ? $secret : null;
+    }
+
     public function cancelRun(int $runId): void
     {
         mysqli_query($this->mysqli, "UPDATE workflow_runs SET status = 'cancelled' WHERE run_id = $runId");
@@ -476,6 +505,7 @@ class WorkflowService
         }
         $this->runner()->log((int) $t['run_id'], $runTaskId, 'approval_approved', null, true, 0, $comment !== '' ? $comment : 'approved', $userId);
         $this->gateway()->audit('workflow.approval_approved', $userId, 'contact', (int) $t['contact_id'], 'approved', 'Approval task "' . $t['title'] . '" approved', ['run_id' => (int) $t['run_id'], 'run_task_id' => $runTaskId]);
+        $this->gateway()->emitEvent('workflow.task_completed', ['run_id' => (int) $t['run_id'], 'run_task_id' => $runTaskId, 'task_title' => (string) $t['title'], 'contact_id' => (int) $t['contact_id'], 'completed_by' => 'approval', 'completed_by_user_id' => $userId]);
         $this->afterResolve((int) $t['run_id']);
     }
 
@@ -603,7 +633,7 @@ class WorkflowService
     {
         $message = 'Approval needed: "' . $task['title'] . '" for ' . ($contact['contact_name'] ?? 'an employee');
         foreach ($this->approverUserIds($task, $contact) as $uid) {
-            $this->gateway()->notifyUser($uid, 'Workflow', $message, 'workflow_run.php?run_id=' . (int) $task['run_id'], (int) ($contact['contact_client_id'] ?? 0), (int) ($contact['contact_id'] ?? 0));
+            $this->gateway()->notifyUser($uid, 'Workflow', $message, 'workflow_run.php?run_id=' . (int) $task['run_id'] . '&approval_task=' . (int) $task['run_task_id'], (int) ($contact['contact_client_id'] ?? 0), (int) ($contact['contact_id'] ?? 0));
         }
     }
 

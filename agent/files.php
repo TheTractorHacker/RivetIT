@@ -639,7 +639,7 @@ $num_root_items = intval($row_root_files['num']) + intval($row_root_docs['num'])
                                             <a class="dropdown-item" href="<?php echo "../uploads/clients/$client_id/$file_reference_name"; ?>" download="<?php echo $file_name; ?>">
                                                 <i class="fas fa-fw fa-cloud-download-alt me-2"></i>Download
                                             </a>
-                                            <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#shareModal" onclick="populateShareModal(<?php echo "$client_id, 'File', $file_id"; ?>)">
+                                            <a class="dropdown-item js-share-modal" href="#" data-bs-toggle="modal" data-bs-target="#shareModal" data-client-id="<?= (int) $client_id ?>" data-share-type="File" data-share-id="<?= (int) $file_id ?>">
                                                 <i class="fas fa-fw fa-share me-2"></i>Share
                                             </a>
                                             <a class="dropdown-item ajax-modal" href="#"
@@ -660,7 +660,7 @@ $num_root_items = intval($row_root_files['num']) + intval($row_root_docs['num'])
                                                 </a>
                                                 <?php if ($session_user_role == 3) { ?>
                                                     <div class="dropdown-divider"></div>
-                                                    <a class="dropdown-item text-danger text-bold" href="#" data-bs-toggle="modal" data-bs-target="#deleteFileModal" onclick="populateFileDeleteModal(<?php echo "$file_id , '$file_name'" ?>)">
+                                                    <a class="dropdown-item text-danger text-bold js-file-delete-modal" href="#" data-bs-toggle="modal" data-bs-target="#deleteFileModal" data-file-id="<?= (int) $file_id ?>" data-file-name="<?= nullable_htmlentities($file_name) ?>">
                                                         <i class="fas fa-fw fa-trash me-2"></i>Delete
                                                     </a>
                                                 <?php } ?>
@@ -701,22 +701,22 @@ $num_root_items = intval($row_root_files['num']) + intval($row_root_docs['num'])
                                         </div>
                                     </td>
                                     <th>
-                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=name&order=<?php echo $disp; ?>">
+                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=name&order=<?php echo sortLinkOrder('name'); ?>">
                                             Name <?php if ($sort == 'name') { echo $order_icon; } ?>
                                         </a>
                                     </th>
                                     <th>
-                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=type&order=<?php echo $disp; ?>">
+                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=type&order=<?php echo sortLinkOrder('type'); ?>">
                                             Type <?php if ($sort == 'type') { echo $order_icon; } ?>
                                         </a>
                                     </th>
                                     <th>
-                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=size&order=<?php echo $disp; ?>">
+                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=size&order=<?php echo sortLinkOrder('size'); ?>">
                                             Size <?php if ($sort == 'size') { echo $order_icon; } ?>
                                         </a>
                                     </th>
                                     <th>
-                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=created&order=<?php echo $disp; ?>">
+                                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=created&order=<?php echo sortLinkOrder('created'); ?>">
                                             Updated <?php if ($sort == 'created') { echo $order_icon; } ?>
                                         </a>
                                     </th>
@@ -807,7 +807,7 @@ $num_root_items = intval($row_root_files['num']) + intval($row_root_docs['num'])
                                                         <a class="dropdown-item" href="<?php echo "../uploads/clients/$client_id/$file_reference_name"; ?>" download="<?php echo $file_name; ?>">
                                                             <i class="fas fa-fw fa-cloud-download-alt me-2"></i>Download
                                                         </a>
-                                                        <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#shareModal" onclick="populateShareModal(<?php echo "$client_id, 'File', $file_id"; ?>)">
+                                                        <a class="dropdown-item js-share-modal" href="#" data-bs-toggle="modal" data-bs-target="#shareModal" data-client-id="<?= (int) $client_id ?>" data-share-type="File" data-share-id="<?= (int) $file_id ?>">
                                                             <i class="fas fa-fw fa-share me-2"></i>Share
                                                         </a>
                                                         <a class="dropdown-item ajax-modal" href="#"
@@ -828,7 +828,7 @@ $num_root_items = intval($row_root_files['num']) + intval($row_root_docs['num'])
                                                             </a>
                                                             <?php if ($session_user_role == 3) { ?>
                                                                 <div class="dropdown-divider"></div>
-                                                                <a class="dropdown-item text-danger text-bold" href="#" data-bs-toggle="modal" data-bs-target="#deleteFileModal" onclick="populateFileDeleteModal(<?php echo "$file_id , '$file_name'" ?>)">
+                                                                <a class="dropdown-item text-danger text-bold js-file-delete-modal" href="#" data-bs-toggle="modal" data-bs-target="#deleteFileModal" data-file-id="<?= (int) $file_id ?>" data-file-name="<?= nullable_htmlentities($file_name) ?>">
                                                                     <i class="fas fa-fw fa-trash me-2"></i>Delete
                                                                 </a>
                                                             <?php } ?>
@@ -928,7 +928,7 @@ $num_root_items = intval($row_root_files['num']) + intval($row_root_docs['num'])
                                                             <i class="fas fa-fw fa-pencil-alt me-2"></i>Edit
                                                         </a>
                                                         <div class="dropdown-divider"></div>
-                                                        <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#shareModal" onclick="populateShareModal(<?php echo "$client_id, 'Document', $document_id"; ?>)">
+                                                        <a class="dropdown-item js-share-modal" href="#" data-bs-toggle="modal" data-bs-target="#shareModal" data-client-id="<?= (int) $client_id ?>" data-share-type="Document" data-share-id="<?= (int) $document_id ?>">
                                                             <i class="fas fa-fw fa-share me-2"></i>Share
                                                         </a>
                                                         <div class="dropdown-divider"></div>

@@ -2,201 +2,223 @@
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
-// Ticket events are the original set (queued/delivered async via
-// queueWebhookEvent()/cron.php). Platform events are AuditService event_type
-// strings (see src/Audit/AuditService.php callers) - subscribing a webhook to
-// one of these only records the subscription; nothing dispatches on them yet
-// (that's WebhookDispatcher's job, once a real trigger point wires it in).
+// Events a webhook may subscribe to: the picker's catalog (RivetCore EventCatalog + this edition's extras), the original list and every
+// audit event type this server has recorded. A subscription may also be a pattern ("ticket.*", "*"): DestinationConfig validates those.
 require_once __DIR__ . '/../includes/webhook_events.php';
 require_once __DIR__ . '/../../includes/event_bus.php';
-$ALL_EVENTS = all_webhook_event_types();
+
+use ITFlow\Webhooks\DestinationConfig;
+use ITFlow\Webhooks\WebhookTester;
 
 /**
- * Reject webhook endpoint URLs that would let a saved webhook be used to make the
- * RivetIT server itself request internal/cloud-metadata targets (SSRF) when the
- * queued webhook is delivered server-side from cron/cron.php. Only http(s) URLs
- * whose host resolves exclusively to public IP addresses (or to the admin's allowed
- * internal networks, see rivetWebhookUrlPolicy()) are allowed - loopback, link-local
- * (incl. 169.254.169.254 cloud metadata) and any private range outside the allowed
- * networks are rejected, including via DNS resolution (not just literal IPs).
+ * Validate the add/edit form against the chosen platform preset (RivetCore Destinations): URL shape, the shared SSRF policy
+ * (rivetWebhookUrlPolicy: public addresses plus the admin's allowed networks), auth mode, method, body template, events.
+ * The values are bound as prepared-statement parameters, so nothing here is pre-escaped for SQL.
+ *
+ * @return array{errors:list<string>,row:array<string,mixed>,keep_url:bool,destination:?\RivetCore\Webhooks\Destination}
  */
-function webhookUrlIsSafe(string $url): bool {
-    return rivetWebhookUrlPolicy($GLOBALS['mysqli'] ?? null)->isSafe($url);
+function webhookValidateForm(?array $existing): array {
+    global $mysqli;
+    $known = array_flip(all_webhook_event_types());
+
+    return DestinationConfig::validateForm($_POST, $existing, static fn (string $e): bool => isset($known[$e]), static fn (string $u): bool => rivetWebhookUrlPolicy($mysqli)->isSafe($u));
 }
 
-/**
- * Slack / Teams routing fields shared by add and edit. Returns [type, min_priority, client_ids_csv].
- * Priority and clients only mean something to a chat destination; a generic webhook always stores the defaults.
- */
-function webhookChatFields(): array {
-    $type = \ITFlow\Webhooks\ChatFormatter::normalizeType($_POST['webhook_type'] ?? '');
-    if (!\ITFlow\Webhooks\ChatFormatter::isChatType($type)) {
-        return [$type, '', ''];
-    }
-    $min = (string) ($_POST['webhook_min_priority'] ?? '');
-    if (!isset(\ITFlow\Webhooks\ChatFormatter::PRIORITIES[$min])) {
-        $min = '';
-    }
-    $ids = [];
-    foreach ((array) ($_POST['webhook_client_ids'] ?? []) as $cid) {
-        if (is_scalar($cid) && ctype_digit((string) $cid) && (int) $cid > 0) {
-            $ids[(int) $cid] = (int) $cid;
-        }
-    }
+/** The Add / Edit pages save through fetch (wh_ajax=1) and expect JSON; the old form post keeps its flash + redirect. */
+function webhookWantsJson(): bool {
+    return !empty($_POST['wh_ajax']);
+}
 
-    return [$type, $min, implode(',', array_slice(array_values($ids), 0, 60))];
+/** Answer a wh_ajax request. The CSRF token is checked here (not validateCSRFToken, which redirects) so the page can show the problem. */
+function webhookJson(array $payload, int $status = 200): void {
+    http_response_code($status);
+    header('Content-Type: application/json');
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+    exit;
+}
+
+function webhookCheckCsrf(): void {
+    if (webhookWantsJson()) {
+        $t = $_POST['csrf_token'] ?? null;
+        if (!is_string($t) || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), $t)) {
+            webhookJson(['ok' => false, 'errors' => ['Your session expired. Reload the page and try again.']], 403);
+        }
+        return;
+    }
+    validateCSRFToken($_POST['csrf_token'] ?? null);
+}
+
+/** Show every problem at once, as one flash (or as JSON for the Add / Edit pages). */
+function webhookFail(array $errors): void {
+    if (webhookWantsJson()) {
+        webhookJson(['ok' => false, 'errors' => $errors]);
+    }
+    flash_alert('Webhook not saved:<br>' . implode('<br>', array_map('nullable_htmlentities', $errors)), 'error');
+    redirect();
 }
 
 if (isset($_POST['add_webhook'])) {
 
-    validateCSRFToken($_POST['csrf_token']);
+    webhookCheckCsrf();
 
-    // These values are bound as prepared-statement parameters below, so they must
-    // NOT be pre-escaped: cleanInput() is sanitizeInput() minus the SQL escape.
-    // Running mysqli_real_escape_string() on a bound value would store the literal
-    // backslashes in the row (and, for the secret, encrypt the wrong plaintext).
-    $webhook_name    = cleanInput($_POST['webhook_name']);
-    // FILTER_SANITIZE_URL is a URL-charset filter, NOT an escaper - both ' and "
-    // survive it - so this value is only ever safe as a bound parameter. It is
-    // also deliberately left unescaped so webhookUrlIsSafe() below parse_url()s
-    // the real URL rather than a backslash-mangled copy of it.
-    $webhook_url     = filter_var(trim($_POST['webhook_url']), FILTER_SANITIZE_URL);
-    [$webhook_type, $webhook_min_priority, $webhook_client_ids] = webhookChatFields();
-    $is_chat         = \ITFlow\Webhooks\ChatFormatter::isChatType($webhook_type);
-    $webhook_secret  = encryptSetting($is_chat ? '' : cleanInput($_POST['webhook_secret'] ?? ''));
-    $webhook_enabled = isset($_POST['webhook_enabled']) ? 1 : 0;
-    $raw_events      = $_POST['webhook_events'] ?? [];
-    $valid_events    = array_intersect($raw_events, $ALL_EVENTS);
-    $webhook_events  = cleanInput(implode(',', $valid_events));
-
-    if (empty($webhook_name) || empty($webhook_url) || empty($valid_events)) {
-        flash_alert("Name, URL, and at least one event are required.", 'error');
-        redirect();
+    $v = webhookValidateForm(null);
+    if ($v['errors']) {
+        webhookFail($v['errors']);
     }
+    $row = $v['row'];
+    $row += ['webhook_secret' => ''];
 
-    if ($is_chat) {
-        // The chat URL is a secret: validated (https, public address) here and stored encrypted; it is never echoed back.
-        $vet = \ITFlow\Webhooks\ChatDelivery::vetUrl($webhook_url);
-        if (!$vet['ok']) {
-            flash_alert("Chat webhook URL rejected: " . $vet['error'], 'error');
-            redirect();
-        }
-        $webhook_url = encryptSetting($webhook_url);
-    } elseif (!webhookUrlIsSafe($webhook_url)) {
-        flash_alert("Endpoint URL rejected (" . nullable_htmlentities(rivetWebhookRuleText($mysqli)) . "). Loopback, link-local and cloud-metadata addresses are never allowed.", 'error');
-        redirect();
+    $cols = array_keys($row);
+    $stmt = mysqli_prepare($mysqli, "INSERT INTO webhooks SET " . implode(', ', array_map(static fn ($c) => "`$c` = ?", $cols)));
+    $types = '';
+    foreach ($row as $val) {
+        $types .= is_int($val) ? 'i' : 's';
     }
-
-    $stmt = mysqli_prepare(
-        $mysqli,
-        "INSERT INTO webhooks
-         SET webhook_name = ?, webhook_url = ?, webhook_secret = ?, webhook_events = ?, webhook_enabled = ?,
-             webhook_type = ?, webhook_min_priority = ?, webhook_client_ids = ?"
-    );
-
-    mysqli_stmt_bind_param($stmt, "ssssisss", $webhook_name, $webhook_url, $webhook_secret, $webhook_events, $webhook_enabled, $webhook_type, $webhook_min_priority, $webhook_client_ids);
-
+    $vals = array_values($row);
+    mysqli_stmt_bind_param($stmt, $types, ...$vals);
     mysqli_stmt_execute($stmt);
+    $new_id = (int) mysqli_insert_id($mysqli);
 
-    logAction("Settings", "Webhook", "$session_name added " . ($is_chat ? "$webhook_type " : "") . "webhook $webhook_name");
+    $webhook_name = nullable_htmlentities($row['webhook_name']);
+    logAction("Settings", "Webhook", "$session_name added " . $v['destination']->name . " webhook " . sanitizeInput($row['webhook_name']));
 
+    if (webhookWantsJson()) {
+        webhookJson(['ok' => true, 'id' => $new_id, 'name' => $row['webhook_name'], 'destination' => $v['destination']->id]);
+    }
     flash_alert("Webhook <strong>$webhook_name</strong> added");
     redirect();
 }
 
 if (isset($_POST['edit_webhook'])) {
 
-    validateCSRFToken($_POST['csrf_token']);
+    webhookCheckCsrf();
 
-    // Same rule as the add branch: everything below is bound, so nothing is pre-escaped.
-    $webhook_id      = intval($_POST['webhook_id']);
-    $webhook_name    = cleanInput($_POST['webhook_name']);
-    $webhook_url     = filter_var(trim($_POST['webhook_url'] ?? ''), FILTER_SANITIZE_URL);
-    $webhook_enabled = isset($_POST['webhook_enabled']) ? 1 : 0;
-    $raw_events      = $_POST['webhook_events'] ?? [];
-    $valid_events    = array_intersect($raw_events, $ALL_EVENTS);
-    $webhook_events  = cleanInput(implode(',', $valid_events));
-    [$webhook_type, $webhook_min_priority, $webhook_client_ids] = webhookChatFields();
-    $is_chat         = \ITFlow\Webhooks\ChatFormatter::isChatType($webhook_type);
-
-    $existing_wh = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT webhook_type FROM webhooks WHERE webhook_id = $webhook_id LIMIT 1"));
-    if (!$existing_wh) {
+    $webhook_id = intval($_POST['webhook_id']);
+    $existing = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM webhooks WHERE webhook_id = $webhook_id LIMIT 1"));
+    if (!$existing) {
+        if (webhookWantsJson()) {
+            webhookJson(['ok' => false, 'errors' => ['Webhook not found.']], 404);
+        }
         flash_alert("Webhook not found.", 'error');
         redirect();
     }
-    $existing_was_chat = \ITFlow\Webhooks\ChatFormatter::isChatType(\ITFlow\Webhooks\ChatFormatter::normalizeType($existing_wh['webhook_type'] ?? ''));
-    // A chat destination's URL is never shown, so a blank URL on edit means "keep the saved one".
-    $keep_url = $is_chat && $existing_was_chat && $webhook_url === '';
 
-    if (empty($webhook_name) || (empty($webhook_url) && !$keep_url) || empty($valid_events)) {
-        flash_alert("Name, URL, and at least one event are required.", 'error');
-        redirect();
+    $v = webhookValidateForm($existing);
+    if ($v['errors']) {
+        webhookFail($v['errors']);
     }
+    $row = $v['row'];
 
-    if ($is_chat) {
-        if (!$keep_url) {
-            $vet = \ITFlow\Webhooks\ChatDelivery::vetUrl($webhook_url);
-            if (!$vet['ok']) {
-                flash_alert("Chat webhook URL rejected: " . $vet['error'], 'error');
-                redirect();
-            }
-            $webhook_url = encryptSetting($webhook_url);
-        }
-    } elseif (!webhookUrlIsSafe($webhook_url)) {
-        flash_alert("Endpoint URL rejected (" . nullable_htmlentities(rivetWebhookRuleText($mysqli)) . "). Loopback, link-local and cloud-metadata addresses are never allowed.", 'error');
-        redirect();
+    // A kept URL or secret is simply not in $row; everything else is replaced, including options and auth the new form no longer has.
+    $cols = array_keys($row);
+    $stmt = mysqli_prepare($mysqli, "UPDATE webhooks SET " . implode(', ', array_map(static fn ($c) => "`$c` = ?", $cols)) . " WHERE webhook_id = ?");
+    $types = '';
+    foreach ($row as $val) {
+        $types .= is_int($val) ? 'i' : 's';
     }
-
-    // Rotate secret only if a new one was provided (chat destinations carry no signing secret)
-    $raw_secret = $is_chat ? '' : trim($_POST['webhook_secret'] ?? '');
-    $set = "webhook_name = ?, webhook_events = ?, webhook_enabled = ?, webhook_type = ?, webhook_min_priority = ?, webhook_client_ids = ?";
-    $types = "ssisss";
-    $vals = [$webhook_name, $webhook_events, $webhook_enabled, $webhook_type, $webhook_min_priority, $webhook_client_ids];
-    if (!$keep_url) {
-        $set .= ", webhook_url = ?";
-        $types .= "s";
-        $vals[] = $webhook_url;
-    }
-    if (!empty($raw_secret)) {
-        $set .= ", webhook_secret = ?";
-        $types .= "s";
-        $vals[] = encryptSetting(cleanInput($raw_secret));
-    } elseif ($is_chat) {
-        $set .= ", webhook_secret = ''";
-    }
-    $types .= "i";
+    $vals = array_values($row);
     $vals[] = $webhook_id;
-    $stmt = mysqli_prepare($mysqli, "UPDATE webhooks SET $set WHERE webhook_id = ?");
+    $types .= 'i';
     mysqli_stmt_bind_param($stmt, $types, ...$vals);
-
     mysqli_stmt_execute($stmt);
 
-    logAction("Settings", "Webhook", "$session_name edited webhook $webhook_name");
+    logAction("Settings", "Webhook", "$session_name edited webhook " . sanitizeInput($row['webhook_name']));
 
-    flash_alert("Webhook <strong>$webhook_name</strong> updated");
+    if (webhookWantsJson()) {
+        webhookJson(['ok' => true, 'id' => $webhook_id, 'name' => $row['webhook_name'], 'destination' => $v['destination']->id]);
+    }
+    flash_alert("Webhook <strong>" . nullable_htmlentities($row['webhook_name']) . "</strong> updated");
     redirect();
 }
 
-// Sends one clearly labelled test message to a Slack / Teams destination and reports the HTTP result (never the URL).
+// The enabled switch on the list and the Edit page header: flips one column, answers JSON.
+if (isset($_POST['toggle_webhook'])) {
+
+    webhookCheckCsrf();
+
+    $webhook_id = intval($_POST['webhook_id'] ?? 0);
+    $enabled = !empty($_POST['enabled']) ? 1 : 0;
+    $name = getFieldById('webhooks', $webhook_id, 'webhook_name');
+    if ($name === null || $name === false) {
+        webhookJson(['ok' => false, 'errors' => ['Webhook not found.']], 404);
+    }
+    $stmt = mysqli_prepare($mysqli, "UPDATE webhooks SET webhook_enabled = ? WHERE webhook_id = ?");
+    mysqli_stmt_bind_param($stmt, "ii", $enabled, $webhook_id);
+    mysqli_stmt_execute($stmt);
+    logAction("Settings", "Webhook", "$session_name " . ($enabled ? 'enabled' : 'disabled') . " webhook " . sanitizeInput($name));
+    webhookJson(['ok' => true, 'id' => $webhook_id, 'enabled' => $enabled]);
+}
+
+// A copy of a webhook (secrets copied as stored: same keys, still encrypted), created disabled so it never doubles deliveries by accident.
+if (isset($_POST['duplicate_webhook'])) {
+
+    validateCSRFToken($_POST['csrf_token'] ?? null);
+
+    $webhook_id = intval($_POST['webhook_id'] ?? 0);
+    $src = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM webhooks WHERE webhook_id = $webhook_id LIMIT 1"));
+    if (!$src) {
+        flash_alert("Webhook not found.", 'error');
+        redirect('settings_webhooks.php');
+    }
+    unset($src['webhook_id']);
+    foreach (['webhook_created_at', 'webhook_updated_at'] as $ts) {
+        unset($src[$ts]);
+    }
+    $src['webhook_name'] = mb_substr($src['webhook_name'], 0, 190) . ' (copy)';
+    $src['webhook_enabled'] = 0;
+    $cols = array_keys($src);
+    $stmt = mysqli_prepare($mysqli, "INSERT INTO webhooks SET " . implode(', ', array_map(static fn ($c) => "`$c` = ?", $cols)));
+    $types = '';
+    foreach ($src as $val) {
+        $types .= is_int($val) ? 'i' : 's';
+    }
+    $vals = array_values($src);
+    mysqli_stmt_bind_param($stmt, $types, ...$vals);
+    mysqli_stmt_execute($stmt);
+    $new_id = (int) mysqli_insert_id($mysqli);
+    logAction("Settings", "Webhook", "$session_name duplicated webhook " . sanitizeInput($src['webhook_name']));
+    flash_alert("Webhook duplicated as <strong>" . nullable_htmlentities($src['webhook_name']) . "</strong> (disabled until you turn it on)");
+    redirect('webhook_edit.php?id=' . $new_id);
+}
+
+// Sends one clearly labelled test event to a saved webhook through the real delivery path and reports the HTTP result (never the URL).
+// The Add / Edit form has its own Send test (modals/webhook/webhook_action.php) that tries unsaved settings.
 if (isset($_POST['test_webhook'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
     $webhook_id = intval($_POST['webhook_id']);
     $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM webhooks WHERE webhook_id = $webhook_id LIMIT 1"));
-    if (!$row || !\ITFlow\Webhooks\ChatFormatter::isChatType(\ITFlow\Webhooks\ChatFormatter::normalizeType($row['webhook_type'] ?? ''))) {
-        flash_alert("Test messages can be sent to Slack and Teams destinations only.", 'error');
+    if (!$row) {
+        flash_alert("Webhook not found.", 'error');
         redirect();
     }
 
-    $r = \ITFlow\Webhooks\ChatDelivery::deliverRow($mysqli, $row, 'test.message', ['summary' => 'This is a test message. Nothing is wrong.'], 1, true);
+    $r = WebhookTester::send($mysqli, $row, 'ticket.created');
     $name = nullable_htmlentities($row['webhook_name']);
     logAction("Settings", "Webhook", "$session_name sent a test message to webhook " . sanitizeInput($row['webhook_name']) . ($r['ok'] ? " (HTTP {$r['http_status']})" : " (failed)"));
 
+    $snippet = $r['response'] !== null && $r['response'] !== '' ? ' Response: ' . nullable_htmlentities(mb_substr($r['response'], 0, 200)) : '';
     if ($r['ok']) {
-        flash_alert("Test message sent to <strong>$name</strong>: HTTP " . intval($r['http_status']));
+        flash_alert("Test message sent to <strong>$name</strong>: HTTP " . intval($r['http_status']) . " in " . intval($r['duration_ms']) . " ms." . $snippet);
     } else {
-        flash_alert("Test message to <strong>$name</strong> failed: " . nullable_htmlentities($r['error'] ?? 'unknown error'), 'error');
+        flash_alert("Test message to <strong>$name</strong> failed: " . nullable_htmlentities($r['error'] ?? 'unknown error') . $snippet, 'error');
+    }
+    redirect();
+}
+
+// Sends a logged event again (only the standard JSON body, and test sends, can be rebuilt from the log).
+if (isset($_POST['replay_webhook_delivery'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    $delivery_id = intval($_POST['delivery_id']);
+    $r = WebhookTester::replay($mysqli, $delivery_id);
+    logAction("Settings", "Webhook", "$session_name replayed webhook delivery #$delivery_id" . ($r['ok'] ? " (HTTP {$r['http_status']})" : " (failed)"));
+    if ($r['ok']) {
+        flash_alert("Delivery #$delivery_id replayed: HTTP " . intval($r['http_status']) . " in " . intval($r['duration_ms']) . " ms.");
+    } else {
+        flash_alert("Replay of delivery #$delivery_id failed: " . nullable_htmlentities($r['error'] ?? 'unknown error'), 'error');
     }
     redirect();
 }
@@ -214,6 +236,39 @@ if (isset($_GET['delete_webhook'])) {
     logAction("Settings", "Webhook", "$session_name deleted webhook $webhook_name");
 
     flash_alert("Webhook <strong>$webhook_name</strong> deleted", 'error');
+    redirect('settings_webhooks.php');
+}
+
+// Slack interactive actions: install-wide options (the signing secret itself lives on each Slack destination).
+if (isset($_POST['save_slack_interactive'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    $link_by_email = isset($_POST['config_slack_link_by_email']) ? 1 : 0;
+    $team_id = preg_replace('/[^A-Z0-9]/', '', strtoupper(trim((string) ($_POST['config_slack_team_id'] ?? ''))));
+    $team_id = substr($team_id, 0, 32);
+    $token = trim((string) ($_POST['config_slack_bot_token'] ?? ''));
+
+    $stmt = mysqli_prepare($mysqli, "UPDATE settings SET config_slack_link_by_email = ?, config_slack_team_id = ? WHERE company_id = 1");
+    mysqli_stmt_bind_param($stmt, "is", $link_by_email, $team_id);
+    mysqli_stmt_execute($stmt);
+
+    if (isset($_POST['config_slack_bot_token_clear'])) {
+        mysqli_query($mysqli, "UPDATE settings SET config_slack_bot_token = '' WHERE company_id = 1");
+    } elseif ($token !== '') {
+        if (!preg_match('/^xoxb-[A-Za-z0-9-]{10,200}$/', $token)) {
+            flash_alert("That does not look like a Slack bot token (it starts with xoxb-). Nothing was changed for the token.", 'error');
+            redirect();
+        }
+        $enc = encryptSetting($token);
+        $stmt = mysqli_prepare($mysqli, "UPDATE settings SET config_slack_bot_token = ? WHERE company_id = 1");
+        mysqli_stmt_bind_param($stmt, "s", $enc);
+        mysqli_stmt_execute($stmt);
+    }
+
+    logAction("Settings", "Edit", "$session_name " . ($link_by_email ? "allowed" : "disallowed") . " Slack users to be matched to agents by verified email (Slack interactive actions)");
+
+    flash_alert("Slack interactive settings saved");
     redirect();
 }
 

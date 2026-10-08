@@ -49,7 +49,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <thead class="text-dark <?php if($num_rows[0] == 0){ echo "d-none"; } ?>">
                 <tr>
                     <th>
-                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=project_template_name&order=<?php echo $disp; ?>">
+                        <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=project_template_name&order=<?php echo sortLinkOrder('project_template_name'); ?>">
                             Template <?php if ($sort == 'project_template_name') { echo $order_icon; } ?>
                         </a>
                     </th>

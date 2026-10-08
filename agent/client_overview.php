@@ -618,7 +618,7 @@ if ($has_fav_assets || $has_fav_creds):
                         ? "$credential_username<button class='btn btn-sm clipboardjs p-1' type='button' data-clipboard-text='$credential_username'><i class='far fa-copy text-secondary'></i></button>"
                         : '-';
                     $otp_display = $credential_otp_secret
-                        ? "<small class='text-secondary'><span onmouseenter='showOTPViaCredentialID($credential_id)'><i class='far fa-clock text-dark'></i> <span id='otp_$credential_id'><i>Hover…</i></span></span></small>"
+                        ? "<small class='text-secondary'><span data-otp-credential-id='$credential_id'><i class='far fa-clock text-dark'></i> <span id='otp_$credential_id'><i>Hover…</i></span></span></small>"
                         : '';
                 ?>
                 <tr>

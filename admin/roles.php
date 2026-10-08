@@ -49,13 +49,13 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?> text-nowrap">
                     <tr>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=role_name&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=role_name&order=<?php echo sortLinkOrder('role_name'); ?>">
                                 Role <?php if ($sort == 'role_name') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>Members</th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=role_is_admin&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=role_is_admin&order=<?php echo sortLinkOrder('role_is_admin'); ?>">
                                 Admin <?php if ($sort == 'role_is_admin') { echo $order_icon; } ?>
                             </a>
                         </th>

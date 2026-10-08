@@ -6,6 +6,242 @@ continues unchanged.
 
 ## [Unreleased]
 
+### RMM asset panel and Agent Fleet page (T10a, Phase 0 scope)
+
+The agent device page is folded into the asset page, and the fleet gets its own dashboard. Both are server-rendered from RivetCore's read models
+(`RmmReadModel::deviceView`, `listDevices`, `fleetCounts`, `pendingApprovals`, `currentBinaries`, `CapacityReport`) with markup in `includes/rmm_ui_render.php`; no
+new library, CDN or framework (Chart.js and the Metrics partial are the existing ones). Design: rivet-core `docs/rmm/ASSET_PAGE_REDESIGN.md`; user-facing notes in
+`docs/ENDPOINT_AGENT.md` section 7.
+
+- **Asset page (`agent/asset_details.php`):** for an asset linked to an endpoint agent the old vendor-style RMM card is replaced by a health strip (status with
+  icon and word, last check-in, OS, agent version and ring, uptime, reboot pending, quick health badges), the actions Run script / Reboot / Remote access / More, and
+  a three-tab panel. **Overview:** gauge cards for CPU, memory and every volume (display bands 80/95 and 80/90, `role="img"` with an `aria-label`, "no data" and never 0),
+  network, uptime and agent-contact tiles, the existing Performance section (range pills, charts, empty states) from the Metrics subsystem, open and recently resolved
+  alerts, the Mesh remote card with recent sessions and (administrators) node mapping, and the checks table with "steady for / since". **Inventory:** hardware, OS, disks
+  with used bars, adapters, and honest "not collected yet" cards for software (Phase 1) and services (Phase 6). **Jobs:** history, on-demand output (redacted, size-capped,
+  shown as text), cancel for queued jobs, and the run, collect and reboot dialogs (in-page, no `window.confirm`). Assets linked to Tactical, Level, Action1 or Sophos keep
+  their card unchanged; an asset with both shows both.
+- **Agent Fleet (`agent/rmm_fleet.php`, Endpoints menu, only while the module is on):** counts by status, health donut with a text alternative, devices needing approval with the
+  reason, offline and stale lists, outdated agents against the hosted version with ring and version counts, recent job failures, the capacity panel (administrators only),
+  and a filtered, paginated device list.
+- **Authorization:** every control follows the nine `rmm.*` abilities through `RmmAuthorizer`; a disabled button carries its reason as a tooltip and as visible text on narrow
+  screens. Job output follows `rmm.job.run_saved` (new `agent/rmm_job_output.php`, 404 for another department's device, 403 without the grant). Actions still go through
+  `agent/post/rmm_agent.php` and `TechnicianActions`.
+- **Module off:** the asset page is a plain asset, the Fleet page is the module-off notice, the menu entry is absent, `js/rmm_panel.js` is not linked and the job output
+  endpoint answers 404; none of it asks the database anything (the module's state file answers).
+- `agent/rmm_agent_device.php` redirects to the asset page for a linked device (a device with no asset yet keeps the old page).
+- **Not in this change (needs data we do not store, listed for Phase 1):** live polling document, per-check history/trend, network "% of 24 h peak" bar, battery gauge,
+  Activity tab, tags, patches. Tests: `tests/rmm_ui.php` (view-models, permission and module-off paths, escaping, real pages over HTTP) and `tests/browser/rmm_smoke.mjs`.
+
+### RMM module: the endpoint agent now runs on RivetCore (DB 2.6.147)
+
+The server side of the built-in endpoint agent (enrollment, devices, check-in, signed jobs, hosted updates, per-department installers, MeshCentral launch,
+the technician REST API and the administration operations) is now the **RMM module of RivetCore** (`rivet/rivet-core` 1.0.0-rc.5, `RivetCore\Rmm`). RivetIT
+keeps the feature, the ten `endpoint_agent_*` tables, every URL and the wire protocol; what changed is where the code lives. `src/EndpointAgent/` (20 classes)
+and the Go agent `endpoint-agent/` with its workflow were removed from this repository (the agent, its CI and the `agent-v*` releases are in rivet-core;
+`docs/ENDPOINT_AGENT.md` and `docs/ENDPOINT_AGENT_BUILD.md` are now pointers plus the RivetIT-specific parts).
+
+- **Enrolled agents keep working** with no re-enrollment: same device tokens, same pinned signing key, same ciphertext format for the stored keys, same URLs
+  and responses (RivetCore's golden HTTP transcripts, recorded from the previous code, replay identically against the new bridges; the signing and installer
+  vectors reproduce byte for byte).
+- **RMM module switch** (Administration > Endpoint agent > RMM module): the master switch `endpoint_agent_settings.enabled`. An existing install keeps whatever
+  value it has (ON if the agent was enabled, OFF if never enabled or switched off); a fresh install is OFF. While off, the device endpoints answer
+  `503 module_disabled` (Retry-After 3600) from `api/v1/rmm_gate.php` with no database work at all (`endpoint_devices` authenticates first, 401 without a token, then answers `404 disabled`: an anonymous caller cannot learn whether the module is on), enrolled
+  agents back off and lose nothing, the device page and the asset page link are hidden and the cron housekeeping does nothing. The gate reads
+  `backups/rmm-state/rmm_state.json`, a cache of the switch (a missing or damaged file means "unknown", never "off").
+- **Database 2.6.147:** runs Core migrations 0014 to 0016. On an existing install 0014 and 0015 change nothing; 0016 adds `features_json`, `limits_json`,
+  `shed_level`, `ingest_mode`, `max_devices` to `endpoint_agent_settings` (defaults reproduce today's behaviour). `db.sql` carries the columns; a fresh install
+  and an upgraded one have identical schemas (every table compared).
+- **Where agent binaries are published now:** build and release the agent from the rivet-core repository (`endpoint-agent/`, tags `agent-v*`), then upload the
+  executables under Administration > Endpoint agent > Agent binaries or with `scripts/endpoint_agent_publish.php` (unchanged command line).
+- **Small behaviour differences from the Core module:** the check-in interval is clamped to 60-3600 s and the collect interval to 30-3600 s when saved
+  (was 30 and 10); mesh token lifetime minimum 60 s; error texts say "client" where the old ones said "department" in a few places; denial reasons are generic
+  per ability; resolved alerts stay with their client when a device is transferred (open ones follow). The module switch, sub-switch presets and the
+  load-shedding controls are new.
+- **Tests:** the seven `tests/endpoint_agent_*.php` suites pass unchanged in substance against the bridges (`tests/support/endpoint_compat.php` keeps the old
+  class names as forwards for their in-process helpers), plus `tests/endpoint_agent_golden.php`, `tests/endpoint_agent_module.php` and the Core adapter
+  conformance kit for the eight adapters (`tests/core/Endpoint*ConformanceTest.php`).
+
+
+## [26.10.26] RivetIT — built-in endpoint agent (beta) with a per-department installer, findings round-up, security fixes
+
+Database migrations 2.6.143 to 2.6.146 apply with **Update Database**. Requires rivet-core 1.0.0-rc.3 (`composer install --no-dev`; the in-app Update and `deploy/update.sh` do this). The endpoint agent is **off by default** (Administration > Endpoint agent) and is a **beta**: the Windows agent builds, passes its tests and has been run end to end on Linux against a real server, but it has not yet run on a real Windows machine. Pilot it on one PC first. The agent exes are built by the `Endpoint agent` GitHub workflow and are unsigned.
+
+### Security fixes (nightly review)
+
+- **Payments:** editing or deleting a payment now checks the department of the payment's invoice (the check used an unrelated id), and adding a payment refuses a negative amount.
+- **Guest quote links** accept or decline only an open, unexpired quote.
+- **Chat webhook delivery** connects through the pinned URL, so the DNS pin always applies (a host written with a trailing dot bypassed it).
+
+### Endpoint agent: self-installing installer exe, CI build
+
+- **Installer:** `rivetit-agent.exe setup [--silent] [--no-service]` (also what a double-click does) installs from a payload the server appends to the exe (`RIVETIT-EMBED-v1` footer, SHA-256 checked, strict validation, expiry). It self-elevates on Windows, keeps the device identity on re-runs, installs only the unstamped bytes, registers an Add/Remove Programs entry and exits 0/2/3/4/5/6. A stamped exe still contains its token until it expires: use short lifetimes and limited uses. Windows parts are unverified on real Windows.
+- **CI:** `.github/workflows/endpoint-agent.yml` vets, race-tests, fuzzes and builds the agent (windows amd64/arm64, linux test), uploads `SHA256SUMS`, and releases on `agent-v*` tags; Authenticode signing is a disabled, secret-gated step.
+
+### Findings round-up
+
+Closes out issue #29 (application findings from the user-guide review). Per-item outcome: `docs/FINDINGS-STATUS.md`;
+product decisions with how to reverse them: `docs/FINDINGS-DECISIONS.md`.
+
+- **Sorting:** the first click on a different column heading now sorts ascending (it went the opposite way). Every heading link uses one rule (`sortLinkOrder()`).
+- **Tickets:** new tickets with an assignee resolve their status by name: "Assigned", then "Open", then the first active status (a stock install has no "Assigned"). Automatic system notes (closed, re-assigned, merged, invoice or quote created, Outlook sync) no longer log a billable minute; notes written before this release are not changed. The ticket page has **Edit schedule** again (Remote/Onsite, start, end, notes).
+- **RMM:** acknowledging or resolving an alert for a vendor that cannot do it now shows a toast, and a bulk action shows one summary.
+- **Comet:** **Auto-create tickets** is honoured: on = one ticket per failing device, closed when a backup succeeds; off = the alert is recorded without a ticket. Installs that never ticked the box used to get tickets anyway and now need to tick it.
+- **Security settings:** new **Allow permanent deletes of archived records** switch (off by default, audit-logged); session length help text shows the values actually in effect.
+- **Training:** a role with only the Training kiosk permission can open Devices & PINs.
+- **Calendar:** the dead "Repeat" control is removed; existing events are untouched.
+- **Preferences:** page sizes 5 to 500 everywhere, and an unrecognised size keeps the current one instead of resetting to 10.
+- **Custom fields:** the page says "Stored only: not shown on records yet". `/api/v1/metrics-ingest` is documented as unreleased.
+- **Docs:** company-wide vendors need the Financial permission (guide wording).
+
+### Built-in endpoint agent (server side)
+
+- **Agent API:** `POST /api/v1/agent_enroll`, `agent_checkin` and `agent_jobs` for the Windows agent, with per-device 256-bit credentials (only the SHA-256 is stored, rotatable, revocable), short-lived scoped enrollment tokens, idempotent check-ins by sequence number, bounded payloads and a database-backed enrollment rate limit.
+- **Identity:** a persistent device id that survives reconnects, re-enrollment and reinstall; assets are matched by serial then MAC, never by hostname alone; ambiguous, out-of-department or already-owned matches wait in an approval queue and are never merged.
+- **Existing RMM views:** devices feed `asset_rmm_links`, the device metrics tables and RMM alerts (debounced failures, one alert per episode, auto-resolve) so inventory, charts, last seen and the existing alert-to-ticket path work unchanged. A missing reading is never stored as zero.
+- **Jobs:** durable signed (Ed25519) PowerShell, reboot and collect jobs with explicit states, lost-acknowledgement rules (destructive jobs are never retried), output caps and credential redaction, plus per-role permissions built on the existing RMM modules.
+- **MeshCentral:** per-click login-token remote sessions for the mapped device, role and department checked server-side, outage and offline handling, node mapping separate from the asset name, audited with a safe session id.
+- **Administration:** Administration > Endpoint agent (tokens, approval queue, devices, signed check schedule, releases and rings, MeshCentral) and a device page; staged agent updates by ring and percentage with min-version compatibility.
+- Migration 2.6.145 (nine `endpoint_agent_*` tables). Docs: `docs/ENDPOINT_AGENT.md`; OpenAPI updated.
+
+### Endpoint agent deployment: per-department installer
+
+- **Agent binaries:** Administration > Endpoint agent > Agent binaries hosts the agent `.exe` per architecture (amd64, arm64) with a version. Uploads are checked server-side (PE header, machine type, size cap 64 MiB bounded by PHP's upload limits, rejects a file that already carries an installer footer), show size and SHA-256, and are stored under `backups/endpoint-agent/` (denied over HTTP, random file names). One binary per architecture is "current". Delete only deactivates. `php scripts/endpoint_agent_publish.php <exe> --version X --arch amd64|arm64 [--activate] [--release pilot|stable --rollout N]` does the same from CI.
+- **Installer download:** a Deployment card creates an audited enrollment token for a department (optional location, ring, lifetime, max uses default 25, label) and downloads `RivetIT-Agent-Setup-<department>-<x64|arm64>.exe`: the current binary with the server address, token, department and optional CA certificate appended in a verified footer (`docs/ENDPOINT_AGENT.md`, vectors in `tests/fixtures/agent_installer_trailer_vectors.json`). Refused with a clear message when the service is off, no binary is current or the service URL is not https. New optional **CA certificate (PEM)** setting.
+- **Deployment commands:** ready-to-paste silent PowerShell for RMM, Intune platform scripts and GPO startup scripts, Intune Win32 install/uninstall/detection notes, and how to build and upload versions. The misleading `RivetITAgent.msi` hint is removed (the exe plus `setup` is the supported path; an MSI is a follow-up).
+- **API:** `POST /api/v1/agent_installer` (public, token in the body or a Bearer header, never the URL) streams the stamped installer for a still-usable token, generic 404 otherwise, DB-backed per-address and per-token rate limits, audited. `GET /api/v1/agent_update?arch=&version=` (device credential) streams the unstamped hosted release a device is actually offered. Publishing a binary can create the release row; external https release URLs keep working. Both added to OpenAPI.
+- Migration 2.6.146: `endpoint_agent_binaries`; `endpoint_agent_releases` gains `arch` and `binary_id` (unique key now version, ring, arch); `endpoint_agent_settings.ca_pem`.
+
+### Built-in endpoint agent (agent source)
+
+- **New `endpoint-agent/` (Go, own `go.mod`)**: the Windows endpoint agent for issue #3. A single static `rivetit-agent` binary that runs as a Windows service and enrolls with a short-lived token (unique per-device credential, persistent `install_id`, DPAPI-protected token), reports inventory and health metrics (a metric that cannot be collected is `null`, never `0`), evaluates server-configured `service` / `disk` / `pending_reboot` / `script` checks, buffers a bounded amount of data during outages and replays it with exponential backoff and full jitter, executes **ed25519-signed** PowerShell / reboot / collect jobs at most once (crash- and lost-acknowledgement-safe), and self-updates from a sha256 + ed25519 verified manifest with automatic rollback. TLS verification is always on; revocation makes the agent dormant.
+- Targets Windows 10 21H2+, Windows 11 and Windows Server 2019/2022/2025 on amd64 and arm64. **The Windows-specific layers (service wrapper, registry/WMI/IP Helper collectors, DPAPI and ACLs, PowerShell execution, install/uninstall, `install-windows.ps1`) cross-compile and vet but have not been run on Windows**; the portable core is covered by `go test -race` and an end-to-end run against a contract-shaped fake server on Linux. See `endpoint-agent/README.md` and `docs/ENDPOINT_AGENT_BUILD.md`.
+- The agent only reads an existing MeshCentral agent's node id and never installs, manages or removes it unless `uninstall --remove-meshagent` is passed explicitly; other RMM/AV/EDR/backup agents are never touched.
+- This change is the agent source and tooling only. The server endpoints (`agent_enroll`, `agent_checkin`, `agent_jobs`) are built separately; no existing RMM integration is changed.
+
+## [26.10.25] RivetIT — Webhooks and Event rules highlights, UI fixes
+
+### Highlights: Webhooks and Event rules
+
+- **Webhooks:** 24 ready-made platforms (n8n, Node-RED, Activepieces, Windmill, Huginn, Zapier, Make, Pipedream, IFTTT, Slack, Teams, Discord, Mattermost, Rocket.Chat, Matrix, Telegram, ntfy, Gotify, Apprise, Home Assistant, generic JSON/form/custom template), 13 payload formats, bearer/basic/custom-header/signed auth, signed timestamps with verification snippets in 5 languages, retries, a guided four-step setup with a live address check, Send test and Preview, and a Guides hub.
+- **Events:** 113 events in 14 groups (96 emitted today, 17 planned) in a searchable picker with group wildcards and quick chips; the same catalog drives Event rules.
+- **Event rules:** a When, If, Then builder with 9 actions, 7 condition operators, nested ALL/ANY groups, 11 recipes, a no-side-effects test drawer, run history, rate limits and a loop guard.
+
+### Fixes
+
+- Event rules editor: one breadcrumb (All settings / Event rules / New rule) instead of a second back link; recipe cards no longer show the link underline.
+- Webhook wizard: the Continue button is now the same size as Back.
+
+## [26.10.24] RivetIT — Event rules builder, webhook guides hub and four-step creation flow, icon fixes
+
+### Webhook guides
+
+- **Guides is now a documentation hub:** a platform sidebar with search and category filters, an index of all 24 platforms, numbered steppers with remembered ticks, callouts, highlighted code blocks with copy buttons, language tabs for verifying our signature, an example payload per platform, a troubleshooting table, and previous/next links.
+
+### Fixes
+
+- Icons that Font Awesome 5.15 does not have (for example the Job queue icon) are replaced; `tests/fa_icons.php` guards it.
+
+
+### Webhooks: a guided four-step Add, a tabbed Edit, a clearer list
+
+- **Add webhook is a real stepper** (Platform, Connect, Events, Review & test) on its own page, with a progress bar, one focus per step, a sticky Continue / Back footer (Enter continues, Esc goes back), each step checked before you move on (inline messages, no error dump at the end) and a link per step (`webhook_new.php?dest=n8n&step=events`). The platform step is a compact searchable grid with category chips, a Popular row (n8n, Slack, Discord, Teams, ntfy, Home Assistant, Generic JSON) and a "Recently used" row remembered in this browser.
+- **Connect shows only what the platform needs**: name (suggested from the address, for example "n8n - n8n.example.com"), the address and the platform's own required inputs or credential. Method, signing secret, other headers and inputs, routing filters and retry notes sit under **Advanced options**, which remembers open or closed for the session. Pasting a curl command or a full address is cleaned up (and split into the topic or token fields where that is unambiguous). Secrets have show/hide, copy and Generate.
+- **Live address check** as you type: the same rules as Save (platform pattern, URL policy including your allowed internal networks), answered in plain words ("Looks good", "This is a private address: add its network under Internal network access", "Expected https://discord.com/api/webhooks/..."). It only looks the host name up; it never calls the address.
+- **Setup guide in a slide-over** (a full-screen sheet on phones, a slim docked column on wide screens), loaded only when asked for.
+- **Events step**: quick picks (All events, Tickets, Critical only, SLA problems, Security & sign-in, Approvals, Workflows & lifecycle, Backups & system, plus a one-click "Recommended for <platform>") above the searchable picker. Nothing is chosen by default.
+- **Review & test**: a summary of what will be created (secrets hidden), the exact payload for a sample event, an inline Send test with status, duration, a response excerpt and a plain-English hint for 401, 404, 405, 429, 5xx, timeouts and blocked addresses, then **Create webhook** or **Create and send test** and a success screen (Send test again, Add another, View deliveries, Open guide).
+- **Edit is tabbed** (Connection, Events, Payload & advanced, Deliveries) with an enable switch that saves at once, a status badge showing the last delivery, Send test, Duplicate (created disabled), Delete (confirmed) and an unsaved-changes warning. Saved secrets stay hidden ("Saved. Leave blank to keep it.").
+- **The list** shows a platform glyph, name, host, an event chip with its count, the last delivery result with its age, an inline enable switch, a per-row menu (Send test, Edit, Deliveries, Duplicate, Delete), a search box and, with no webhooks yet, a welcome with shortcuts to the popular platforms.
+- Field names, validation and storage are unchanged (the server still checks everything). The old Add / Edit pop-ups are gone; `settings_webhooks.php?add=<platform>` links continue on the new page.
+
+### Event rules: a When, If, Then rule builder
+
+- **Rule list** with an instant on/off switch, a plain-English summary of every rule, event group and action badges, last run, a 7-day success/failure sparkline, run counts, search, filters (event group, action, on/off/failing), sort, drag-to-reorder among rules for the same event, Duplicate (as a disabled copy) and a summary strip.
+- **Editor** with four cards (When, If, Then, Settings) and a live summary panel: an event description and its fields, a condition builder with ALL/ANY groups and value pickers, action cards with `{placeholder}` chips and a rendered preview, inline validation, and kept input after a refused save.
+- **Test** and **History** drawers (dry run against a sample or recent event, with a "check against recent events" for conditions; per-rule run history including throttled and loop-blocked rows) and ten **recipes** that prefill the editor.
+- No database change. New: `RuleSummary`, `RuleForm`, `RuleAdmin`, `RuleRecipes`, `js/event_rules.js`, `admin/modals/event_rules_api.php`; tests `tests/rule_summary.php` and `tests/e2e/event_rules_ui.py`.
+
+## [26.10.23] RivetIT — webhook platforms and event picker, shared date-range picker, SLA event fix, RivetCore 0.21
+
+### Date ranges
+
+- **One date-range picker on every filtered page** (22 pages): presets (Today, Yesterday, Last 7/14/30/90 days, this and last week, month, quarter, year, last 12 months, upcoming) grouped in a popover, plus a two-month calendar for custom ranges. Existing `canned_date` / `dtf` / `dtt` links keep working; a garbage date now falls back to all-time and a range with only a From or only a To is open-ended.
+- **Service Desk:** the date control is in the main filter row of the ticket list and kanban, with a **Date field** choice (Created, Updated, Resolved, Closed, Due, SLA resolution due). Saved ticket views keep rolling presets such as "Last 7 days" instead of freezing the dates; older saved views with fixed dates still work. Ticket queries use index-friendly bounds.
+
+### Fixes
+
+- SLA warning/breach events now fire from cron (the emitter no longer needs a helper from the rule engine file); the server-status page reads the required database version from `includes/database_version.php`.
+
+
+Database migration 2.6.142 applies with **Update Database**. Requires rivet-core 0.21.0 (`composer install --no-dev`; the in-app Update and `deploy/update.sh` do this).
+
+### Webhooks: platforms, guides and a searchable event picker
+
+- **Add Webhook is now a guided flow.** Step 1 is a searchable list of 24 platforms from RivetCore 0.21 (n8n, Node-RED, Activepieces, Windmill, Huginn, Zapier, Make, Pipedream, IFTTT, Home Assistant, Apprise, ntfy, Gotify, Discord, Mattermost, Rocket.Chat, Slack, Microsoft Teams, Matrix (hookshot and client API), Telegram, Generic JSON, Generic form and Custom template). Step 2 is the form for the chosen platform with a setup guide beside it: URL shape, the authentication the platform allows (bearer, basic or a custom header; secrets are stored encrypted and never shown again), the platform's own fields (ntfy topic, Telegram chat id, Matrix room ...), and for Custom template a body editor with placeholders and live validation.
+- **Send test and Preview payload.** Send test posts a sample event through the real delivery path (same body format, auth, signing and URL policy) and shows the HTTP status, duration and response. Preview shows the exact headers and body, with secrets masked. Both work on unsaved forms.
+- **Guides.** Administration > Webhooks > Guides lists every platform with setup steps, things to know, a sample curl, "Verify our signature" snippets (Node.js, Python, PHP, Bash, n8n Code) and a Receiving in n8n walk-through.
+- **Delivery log.** View payload (secret-looking values masked) and Replay for deliveries that used the standard JSON body, and for test sends.
+- **Event picker.** A searchable picker (search box, expandable groups with counts, a description and severity per event, select all per group, chips) replaces the checkbox list, here and for the trigger of Event rules. A whole group is stored as a pattern such as `ticket.*`, and `*` means every event, including events added later.
+- Slack and Microsoft Teams webhooks keep the existing formatter (interactive buttons, routing filters). The minimum-priority and client filters are now also available for notification platforms (ntfy, Gotify, Apprise).
+- Database: `webhooks` gains `webhook_destination`, `webhook_format`, `webhook_method`, `webhook_template`, `webhook_auth_mode`, `webhook_auth_enc` and `webhook_extra`; `webhook_events` can hold 4000 characters. Existing webhooks keep working unchanged and become the matching platform (generic JSON, Slack or Teams).
+
+## [26.10.22] RivetIT — employee portal, reporting and dashboards, automation engine, mobile API and gap closures
+
+Database migrations 2.6.137 to 2.6.141 apply with **Update Database**. Requires rivet-core 0.19.0 (`composer install --no-dev`; the in-app Update and `deploy/update.sh` do this). Fresh installs: `db.sql` now matches the migrated schema.
+
+### Icon picker
+
+- **Visual icon picker.** Every icon field now opens a searchable catalog of icons (RivetCore 0.19 `IconCatalog`) instead of asking you to type an icon name. No database change.
+
+### Webhooks to internal networks
+
+- **Administration > Webhooks > Internal network access.** Webhooks (and the event-rule webhook action) refuse private, loopback and link-local addresses by default. An administrator can now list the internal networks they may reach; empty keeps public addresses only. Database migration 2.6.141 adds `config_webhook_allowed_networks`. Upgraded to rivet-core 0.18.1 (0.19.0 in this release).
+
+### Database structure (`db.sql`)
+
+- `db.sql` now matches the migrated schema: the columns, enum values and indexes later migrations added to 12 tables, and 6 tables that were missing (the compliance tables and `mcp_unlinked_identities`). Administration > Debug > Database Structure Comparison no longer reports them on a fresh install.
+
+### Employee self-service portal
+
+- **Employee home.** A department portal login that is not a primary or technical contact now lands on a home page with a "What do you need?" search over the service catalog (with Popular and Recent), **My open requests**, **My devices**, **Waiting on me** (for managers), **My onboarding/offboarding checklist** (only when they have a run; read-only, no internal instructions) and **My training due** (when Training is on). Department administrators keep their existing home page and get the same extra sections below it. Administrators can switch each section off under Settings > Employee portal.
+- **My devices and Report a problem.** Assets shows an employee only the devices assigned to them; department administrators get a Mine / All in my department toggle. Report a problem opens a new ticket with the device and subject prefilled. Posting an asset id that is not yours to a new ticket no longer attaches it.
+- **My requests and profile.** Tickets is Mine for everyone, with a Mine / Department toggle for department administrators. Profile shows manager, department, location, start date and devices read-only, and lets an employee edit only their phone and mobile numbers.
+- **Onboarding requests from the portal.** Off by default (Settings > Employee portal). Managers and department administrators can request a new hire: the person is created in their own department as a pre-hire and the chosen onboarding workflow starts once (a manager approval task is honoured), or a ticket with the details is opened when no template is chosen. Repeats never duplicate the contact, run or ticket. **Migration 2.6.137** adds three settings columns (Update Database). See docs/EMPLOYEE_PORTAL.md.
+
+### Reporting and dashboards
+
+- **Saved views.** Every report has a toolbar: save the filters you are looking at as a named view (private, or shared with everyone who has Reporting access), reopen one from the Saved view list, and manage them under Reports > Saved Views. Only a report's own filters are stored and they are re-checked every time a view is opened; only the owner (or an administrator) can rename, share or delete a view.
+- **Consistent export.** Export CSV is now on all 24 reports. The nine reports that already had a CSV keep it; the rest export the tables they show. One writer protects every export against spreadsheet formula injection (cells starting with `=`, `+`, `-`, `@`, tab or carriage return are prefixed) and quotes properly. **Print / PDF** opens a print-friendly view and the browser's print dialog (choose "Save as PDF"); no PDF library was added.
+- **Scheduled reports with data.** A schedule can now be a saved view or any report, delivered as a **CSV download link** or as the report's **tables in the email**, and records its last run and status. The mail queue cannot carry attachments, so the CSV is stored in the database and the email carries a link with a random token that expires after 7 days. These schedules run as the person who created them, so their role and department restrictions apply. The old headline-summary schedules are unchanged. Fix: adding, pausing or deleting a schedule now needs Reporting modify access (it only needed read access), and a schedule can only be changed by its creator or an administrator.
+- **Department restrictions.** Reports now honour a user's department restrictions (they were company-wide before): ticket, SLA, CSAT, technician, time, RMM, credential, AR aging, MRR, recurring income, income by department, unbilled, charges and time-detail reports only count the user's departments. Company-wide financial reports that cannot be split by department (income, expense, vendor, tax, profit and loss, budget) are not available to a department-restricted user.
+- **My dashboard.** A new page (Dashboard > My dashboard) where each user adds, removes, hides, resizes and reorders widgets: open tickets by status and priority, SLA at risk, my tickets, tickets created vs closed (30 days), average resolution time (resolved tickets only, per the resolution time rules), CSAT, assets by type, expiring warranties, licenses and domains, and workflow tasks due. Widgets for modules a user cannot read are not offered and are never computed, and every widget respects department restrictions. An administrator can make it the start page (Administration > Defaults). The classic dashboard is unchanged.
+- Database migration 2.6.138 adds `saved_reports`, `report_exports` and `dashboard_layouts` and extends `report_schedules`. See `docs/REPORTING.md`.
+
+### Automation engine
+
+- **More actions for event rules.** Besides create a ticket, send a webhook, notify and start a workflow, a rule can now **set ticket fields** (status by name, priority, category, assignee), **add an internal note**, **assign the ticket** (to one technician, or round robin through a list), **send an email** (queued on the normal mail queue) or **add a task** to the ticket. Every action is validated when the rule is saved, audited when it runs, and can be dry-run.
+- **More events to trigger on.** `ticket.updated`, `ticket.sla_warning` and `ticket.sla_breached` (new), `asset.created`, `contact.created`, `catalog.request_approved` / `catalog.request_rejected`, `workflow.task_completed`; `ticket.created`, `ticket.status_changed` and `ticket.assigned` already existed. The same events can be subscribed to by webhooks.
+- **Condition builder.** Rules take rows of field / operator / value (equals, does not equal, is one of, contains, greater than, less than, is empty) joined by all or any, with up to three OR/AND groups. Existing rules keep working unchanged, and a simple all-equals rule is still stored in the old format.
+- **Safety.** A rule can never re-trigger itself inside one chain of events (and a chain is at most 3 rules deep); each rule is throttled to a runs-per-minute limit (default 30) and shows as throttled in the log; rules have an order and an optional "stop on first match".
+- **Test rule.** A dry run against a recent ticket, a recent audit event or a synthetic event shows which conditions matched and exactly what each action would do, without writing or sending anything.
+- **Administration > Automation.** One page with tabs: Event rules, Ticket rules (read only, linking to the existing editor), Lifecycle workflows and the Run log (every rule run with its result, time taken and chain depth; kept for the log retention period). It also holds the **Enable automation rules** switch (on by default, so nothing changes until someone uses it).
+- Fix: on Administration > Ticket Automation the escalate action and ids now read as what they do (status, technician and department names instead of numbers).
+- Database migration 2.6.139 (`automation_rules` ordering/limit columns and five new action types, `automation_rule_runs`, `automation_sla_marks`, `settings.config_automation_enabled`). See `docs/AUTOMATION.md`.
+
+### Gap closures: catalog conditional fields, Entra account actions, Slack interactive actions
+
+- **Conditional questions on catalog request forms.** A question can be shown only when an earlier question equals a value, is one of several values, or is answered. Hidden questions are neither required nor stored (enforced by the server, and mirrored in the browser on the portal and in the agent's New Ticket window with a few lines of JavaScript). Saving refuses a condition that points at a missing or later question (no loops), and the editor has a preview that applies the rules. A repeating table field is not included. See docs/SERVICE_CATALOG.md.
+- **Entra account actions in lifecycle workflows.** New automated tasks: create the account (random temporary password, change at first sign-in, shown once to the assigned technician only), disable the account and revoke sessions (never deletes), add to groups. They are idempotent, dry-run aware, audited without secrets, retried like other actions and fall back to a manual task. **Off by default** behind a separate setting, "Allow RivetIT to change Entra accounts", which needs the extra `User.ReadWrite.All` and `Group.ReadWrite.All` Graph permissions (docs/ENTRA_INTUNE_SETUP.md explains the risk). Tested against a local Graph mock only, not a real tenant.
+- **Slack interactive buttons.** A Slack destination with a Signing Secret gets **Acknowledge** and **Assign to me** buttons on ticket messages, answered by a new signed endpoint `/slack_interactive.php` (HMAC-SHA256, 5 minute window, single use; no nginx rule needed). Slack users are matched to agents only if you opt in, only by an email Slack confirms, with the same role and department rights as the web app; otherwise the clicker is told privately that their account isn't linked. Teams interactive cards, two-way sync and a virtual agent are documented as not included (Teams cards need a Bot Framework registration). Tested against local mocks only. See docs/SLACK_TEAMS_SETUP.md.
+- Database migration 2.6.140 (Update Database): `service_catalog_fields.show_if`, `settings.config_entra_allow_writes`, `config_slack_link_by_email`, `config_slack_bot_token`, `config_slack_team_id`, `workflow_run_tasks.secret_*` and the `slack_interactive_seen` table. Everything is off or empty by default.
+
+### Mobile API: approvals, catalog requests, workflow tasks, attachments
+
+- New API v1 endpoints for the Android app, all needing a user token (module-only logins get 403): `GET/POST /api/v1/approvals.php` (approvals the caller may decide now, and approve/reject through the same service methods as the web pages), `GET/POST /api/v1/service_catalog.php` (active items with their request forms; raise a ticket with server-side validation identical to the web form), `GET/POST /api/v1/workflow_tasks.php` (open onboarding/offboarding checklist tasks; complete or skip with the web rules, including the department access check on the task's run) and `GET/POST /api/v1/ticket_attachments.php` (list, download and upload with the web upload allow-list plus content sniffing, a random stored name and `no-store`/`nosniff` download headers).
+- Approval requests now carry their id: the in-app notification action is `/agent/service_catalog_approvals.php?request_id=N` or `workflow_run.php?run_id=R&approval_task=N` (the web pages ignore the extra parameter), the push payload carries `type: approval`, `kind` and `id`, and `GET /api/v1/notifications` reports such entries as `type: approval` with `kind` and `ref_id`. Who is notified is unchanged.
+- `GET /api/v1/tickets/{id}` includes `attachments_count`. No database change. See docs/MOBILE_API.md and `tests/mobile_api.php`.
+
 ## [26.10.21] RivetIT — RivetCore 0.17.1, service catalog approvals, employee workflow depth, Slack/Teams notifications, installer hardening
 
 ### Installer

@@ -25,6 +25,8 @@ class GraphException extends \RuntimeException
     public const BAD_RESPONSE = 'bad_response';
     /** The caller's time limit ran out. */
     public const TIME_LIMIT = 'time_limit';
+    /** An account change was attempted while 'Allow RivetIT to change Entra accounts' is off. Nothing was sent. */
+    public const WRITES_DISABLED = 'writes_disabled';
     public const OTHER = 'other';
 
     public function __construct(

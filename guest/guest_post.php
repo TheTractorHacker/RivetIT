@@ -13,8 +13,9 @@ if (isset($_POST['accept_quote'], $_POST['url_key'])) {
     $quote_id = intval($_POST['accept_quote']);
     $url_key = sanitizeInput($_POST['url_key']);
 
-    // Select only the necessary fields
-    $sql = mysqli_query($mysqli, "SELECT quote_prefix, quote_number, client_name, client_id FROM quotes LEFT JOIN clients ON quote_client_id = client_id WHERE quote_id = $quote_id AND quote_url_key = '$url_key'");
+    // Select only the necessary fields. Only an open quote (Sent/Viewed) that has not expired can be accepted: the page only offers the
+    // buttons then, but the link alone must not be able to flip an Invoiced/Declined/Draft quote or accept an expired one.
+    $sql = mysqli_query($mysqli, "SELECT quote_prefix, quote_number, client_name, client_id FROM quotes LEFT JOIN clients ON quote_client_id = client_id WHERE quote_id = $quote_id AND quote_url_key = '$url_key' AND quote_status IN ('Sent', 'Viewed') AND (quote_expire IS NULL OR quote_expire >= CURDATE())");
 
     if (mysqli_num_rows($sql) == 1) {
         $row = mysqli_fetch_assoc($sql);
@@ -78,8 +79,8 @@ if (isset($_POST['decline_quote'], $_POST['url_key'])) {
     $quote_id = intval($_POST['decline_quote']);
     $url_key = sanitizeInput($_POST['url_key']);
 
-    // Select only the necessary fields
-    $sql = mysqli_query($mysqli, "SELECT quote_prefix, quote_number, client_name, client_id FROM quotes LEFT JOIN clients ON quote_client_id = client_id WHERE quote_id = $quote_id AND quote_url_key = '$url_key'");
+    // Select only the necessary fields. Only an open quote (Sent/Viewed) can be declined; see accept_quote above.
+    $sql = mysqli_query($mysqli, "SELECT quote_prefix, quote_number, client_name, client_id FROM quotes LEFT JOIN clients ON quote_client_id = client_id WHERE quote_id = $quote_id AND quote_url_key = '$url_key' AND quote_status IN ('Sent', 'Viewed')");
 
     if (mysqli_num_rows($sql) == 1) {
         $row = mysqli_fetch_assoc($sql);

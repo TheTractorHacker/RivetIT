@@ -86,7 +86,7 @@ if ($ticket_row) {
                     <span class="badge rounded-pill tkt-pill-badge <?= tagTextClass($ticket_priority_color) ?>" style="background-color:<?= $ticket_priority_color ?>;"><?php echo $ticket_priority ?> priority</span>
                 <?php } ?>
                 <?php if (!empty($ticket_assigned_to) && empty($ticket_closed_at)) { ?>
-                    <span class="text-muted small"><i class="fas fa-fw fa-user-headset me-1"></i>Assigned to <?php echo $ticket_assigned_to ?></span>
+                    <span class="text-muted small"><i class="fas fa-fw fa-headset me-1"></i>Assigned to <?php echo $ticket_assigned_to ?></span>
                 <?php } ?>
             </div>
             <?php echo $ticket_details ?>

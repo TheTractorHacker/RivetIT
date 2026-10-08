@@ -44,17 +44,17 @@
                 <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
                     <tr>
                         <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=document_template_name&order=<?php echo $disp; ?>">
+                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=document_template_name&order=<?php echo sortLinkOrder('document_template_name'); ?>">
                                 Template Name <?php if ($sort == 'document_template_name') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=document_template_created_at&order=<?php echo $disp; ?>">
+                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=document_template_created_at&order=<?php echo sortLinkOrder('document_template_created_at'); ?>">
                                 Created <?php if ($sort == 'document_template_created_at') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=document_template_updated_at&order=<?php echo $disp; ?>">
+                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=document_template_updated_at&order=<?php echo sortLinkOrder('document_template_updated_at'); ?>">
                                 Updated <?php if ($sort == 'document_template_updated_at') { echo $order_icon; } ?>
                             </a>
                         </th>

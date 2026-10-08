@@ -79,5 +79,25 @@ $st = releaseChannelStatus($server, 'beta');
 $ok(!$st['ref_exists'] && !$st['can_switch'] && $st['reason'] !== '', 'a channel with no branch yet reports it clearly');
 $ok(!releaseChannelEnsureBranch($server, 'beta')['ok'], 'and cannot be switched to');
 
+// The Update page's "Release tag" must be an APP release tag, never another tag family on the same commit (the endpoint agent's
+// agent-v0.1.0-beta.1 sat on the same commit as v26.10.26 and git describe showed it on a fully updated server).
+$tagRepo = "$tmp/tags"; exec('git init -q -b main ' . escapeshellarg($tagRepo));
+$commit($tagRepo, 'a.txt', 'a', 'A');
+$ok(releaseDescribeTag($tagRepo, 'HEAD') === null, 'no tag at all gives null, so the page falls back to the commit hash');
+$g($tagRepo, 'tag -a agent-v0.0.1 -m a');   // an agent tag first: still not an app release
+$ok(releaseDescribeTag($tagRepo, 'HEAD') === null, 'a repository with only agent tags gives null');
+$commit($tagRepo, 'a.txt', 'ab', 'B');
+$g($tagRepo, 'tag -a v1.52.0 -m legacy'); sleep(1);
+$g($tagRepo, 'tag -a agent-v0.1.0-beta.1 -m agent');   // newer annotated tag on the very same commit
+$ok(trim(shell_exec('git -C ' . escapeshellarg($tagRepo) . ' describe --tags --abbrev=0 2>&1')) === 'agent-v0.1.0-beta.1', 'precondition: plain git describe really does pick the newer agent tag');
+$ok(releaseDescribeTag($tagRepo, 'HEAD') === 'v1.52.0', 'the app release tag wins over a newer agent tag on the same commit (legacy v1.x style)');
+$commit($tagRepo, 'a.txt', 'abc', 'C'); $g($tagRepo, 'tag -a v26.10.26 -m release'); sleep(1); $g($tagRepo, 'tag -a agent-v0.2.0 -m agent2');
+$ok(releaseDescribeTag($tagRepo, 'HEAD') === 'v26.10.26', 'the vYY.MM.N style is matched too and a newer agent tag on the same commit is ignored');
+$commit($tagRepo, 'a.txt', 'abcd', 'D');
+$ok(releaseDescribeTag($tagRepo, 'HEAD') === 'v26.10.26', 'commits after the release still describe as the nearest app release tag');
+$g($tagRepo, 'tag -a vnext -m not-a-version');
+$ok(releaseDescribeTag($tagRepo, 'HEAD') === 'v26.10.26', 'a tag that is v plus a non-digit is not an app release tag');
+$ok(releaseDescribeTag($tagRepo, 'no-such-ref') === null && releaseDescribeTag("$tmp/not-a-repo", 'HEAD') === null, 'a missing ref or directory gives null, never a warning');
+
 echo $fails === 0 ? "ALL PASSED\n" : "$fails FAILED\n";
 exit($fails === 0 ? 0 : 1);

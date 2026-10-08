@@ -147,6 +147,7 @@ function itflow_modal_permission_map(): array {
             'ticket/ticket_charge_add.php'      => ['module_support' => 2],
             'ticket/ticket_contact.php'         => ['module_support' => 2],
             'ticket/ticket_delivery_method.php' => ['module_support' => 2],
+            'ticket/ticket_edit_schedule.php'   => ['module_support' => 2],
             'ticket/ticket_edit_asset.php'      => ['module_support' => 2],
             'ticket/ticket_edit_vendor.php'     => ['module_support' => 2],
             'ticket/ticket_merge.php'           => ['module_support' => 2],
@@ -165,6 +166,7 @@ function itflow_modal_permission_map(): array {
         // /modals/*.php (outside agent/)
         'root' => [
             'notifications.php' => [],   // the signed-in user's own notifications
+            'icon_catalog.php'  => [],   // static icon list for the shared icon picker
         ],
     ];
 }

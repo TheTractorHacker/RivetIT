@@ -240,9 +240,7 @@ if (isset($_POST['edit_your_user_preferences'])) {
     $dark_mode = in_array(intval($_POST['dark_mode'] ?? 0), [0, 1, 2]) ? intval($_POST['dark_mode'] ?? 0) : 0; // 0 company default, 1 dark, 2 light
 
     // Calendar
-    $records_per_page = in_array(intval($_POST['records_per_page'] ?? 10), [5,10,20,50,100,500])
-        ? intval($_POST['records_per_page'])
-        : 10;
+    $records_per_page = normalizeRecordsPerPage($_POST['records_per_page'] ?? null, intval($user_config_records_per_page ?? 10) ?: 10);
 
     if (isset($calendar_first_day)) {
         mysqli_query($mysqli, "UPDATE user_settings SET user_config_calendar_first_day = $calendar_first_day, user_config_theme_dark = $dark_mode, user_config_records_per_page = $records_per_page WHERE user_id = $session_user_id");

@@ -120,17 +120,9 @@ $push_device_count = intval(mysqli_fetch_assoc($sql_push_devices)['cnt']);
                     </button>
                 </div>
             </div>
-            <div class="collapse mt-2 <?php if (!empty($_GET['dtf'])) echo 'show'; ?>" id="advancedFilter">
-                <div class="d-flex" style="gap:.75rem;">
-                    <div>
-                        <label class="small text-muted mb-1">From</label>
-                        <input type="date" class="form-control form-control-sm" name="dtf" max="2999-12-31" value="<?= nullable_htmlentities($dtf) ?>">
-                    </div>
-                    <div>
-                        <label class="small text-muted mb-1">To</label>
-                        <input type="date" class="form-control form-control-sm" name="dtt" max="2999-12-31" value="<?= nullable_htmlentities($dtt) ?>">
-                    </div>
-                </div>
+            <div class="collapse mt-2 <?php if (!$date_range->isAllTime()) echo 'show'; ?>" id="advancedFilter">
+                <label class="small text-muted mb-1">Date range</label>
+                <div><?php echo dateRangePickerField($date_range, 'canned_date', ['hide_groups' => ['Upcoming']]); ?></div>
             </div>
         </form>
 

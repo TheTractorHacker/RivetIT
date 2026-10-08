@@ -221,6 +221,8 @@ if ($method === 'GET' && $id !== null && $sub === null) {
         'due_at'       => $ticket['ticket_due_at'],
         'resolved_at'  => $ticket['ticket_resolved_at'],
         'attachments'  => $ticket_attachments,
+        'attachments_count' => intval(mysqli_fetch_assoc(mysqli_query($mysqli,
+            "SELECT COUNT(*) AS c FROM ticket_attachments WHERE ticket_attachment_ticket_id = $id"))['c']),
         'replies'      => $replies,
     ]);
 }
@@ -337,7 +339,7 @@ if ($method === 'POST' && $id !== null && $sub === 'reply') {
             $new_status_id = $closed_row ? intval($closed_row['ticket_status_id']) : $status_id_raw;
             mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $new_status_id, ticket_resolved_at = NOW(), ticket_closed_at = NOW(), ticket_closed_by = $uid WHERE ticket_id = $id");
             if ($target_name === 'Resolved') {
-                mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Ticket closed.', ticket_reply_type = 'System', ticket_reply_time_worked = '00:01:00', ticket_reply_by = $uid, ticket_reply_ticket_id = $id");
+                mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Ticket closed.', ticket_reply_type = 'System', ticket_reply_time_worked = '00:00:00', ticket_reply_by = $uid, ticket_reply_ticket_id = $id");
             }
         } else {
             $new_status_id = $status_id_raw;

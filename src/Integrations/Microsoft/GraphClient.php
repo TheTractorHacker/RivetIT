@@ -25,6 +25,9 @@ class GraphClient
     public const PERM_USERS = 'User.Read.All';
     public const PERM_DEVICES = 'DeviceManagementManagedDevices.Read.All';
     public const PERM_ORG = 'Organization.Read.All';
+    /** Only needed for the account actions in lifecycle workflows (see docs/ENTRA_INTUNE_SETUP.md); off unless the admin enables them. */
+    public const PERM_USERS_WRITE = 'User.ReadWrite.All';
+    public const PERM_GROUPS_WRITE = 'Group.ReadWrite.All';
 
     private const USER_SELECT = 'id,displayName,mail,userPrincipalName,accountEnabled';
 
@@ -44,13 +47,14 @@ class GraphClient
     private float $baseBackoff;
     private int $maxPages;
     private ?int $deadline;
+    private bool $allowWrites;
     /** @var callable */
     private $sleep;
     /** @var callable */
     private $now;
 
     /**
-     * @param array{timeout?:int,connect_timeout?:int,max_retries?:int,max_retry_after?:int,base_backoff?:float,max_pages?:int,deadline?:?int,sleep?:callable,now?:callable} $options
+     * @param array{allow_writes?:bool,timeout?:int,connect_timeout?:int,max_retries?:int,max_retry_after?:int,base_backoff?:float,max_pages?:int,deadline?:?int,sleep?:callable,now?:callable} $options
      *   deadline: unix time after which no further request or wait is started (a hard time limit for a sync run).
      *   sleep/now: injectable so tests never really sleep.
      *   $graphBase / $authority are injectable (tests point them at a local mock); the defaults are Microsoft's endpoints.
@@ -74,6 +78,8 @@ class GraphClient
         $this->baseBackoff = max(0.0, (float) ($options['base_backoff'] ?? 1.0));
         $this->maxPages = max(1, (int) ($options['max_pages'] ?? 500));
         $this->deadline = isset($options['deadline']) ? (int) $options['deadline'] : null;
+        // Writes to Entra are refused unless the caller says the 'Allow RivetIT to change Entra accounts' setting is on.
+        $this->allowWrites = !empty($options['allow_writes']);
         $this->sleep = $options['sleep'] ?? static function (float $seconds): void { usleep((int) round($seconds * 1000000)); };
         $this->now = $options['now'] ?? 'time';
     }
@@ -210,6 +216,110 @@ class GraphClient
         return $this->getAllPages('/deviceManagement/managedDevices?$select=id,deviceName,serialNumber,operatingSystem,osVersion,manufacturer,model,complianceState,managementAgent,lastSyncDateTime,azureADDeviceId,userPrincipalName,enrolledDateTime,isEncrypted&$top=100', self::PERM_DEVICES);
     }
 
+    // ----- account writes (off unless the admin enabled 'Allow RivetIT to change Entra accounts') -------------------------
+    // Every method below goes through writeRequest(), which refuses to send anything while writes are not allowed. None of them
+    // deletes anything. Request bodies (which can carry a temporary password) are never logged or put in an exception message.
+
+    public function writesAllowed(): bool
+    {
+        return $this->allowWrites;
+    }
+
+    /**
+     * Create a user. $spec: userPrincipalName, displayName, mailNickname, accountEnabled (bool), password (temporary; the user must
+     * change it at first sign-in). Needs User.ReadWrite.All. @return array{id:string,userPrincipalName:string}
+     */
+    public function createUser(array $spec): array
+    {
+        $body = json_encode([
+            'accountEnabled' => (bool) ($spec['accountEnabled'] ?? false),
+            'displayName' => (string) $spec['displayName'],
+            'mailNickname' => (string) $spec['mailNickname'],
+            'userPrincipalName' => (string) $spec['userPrincipalName'],
+            'passwordProfile' => ['forceChangePasswordNextSignIn' => true, 'password' => (string) $spec['password']],
+        ], JSON_UNESCAPED_UNICODE);
+        [, $resp] = $this->writeRequest('POST', '/users', self::PERM_USERS_WRITE, $body);
+        $u = $this->decode($resp);
+        if (empty($u['id'])) {
+            throw new GraphException('Microsoft Graph did not return the new user.', GraphException::BAD_RESPONSE);
+        }
+
+        return ['id' => (string) $u['id'], 'userPrincipalName' => (string) ($u['userPrincipalName'] ?? $spec['userPrincipalName'])];
+    }
+
+    /** Sign-in on or off. Never deletes the account. */
+    public function setAccountEnabled(string $userId, bool $enabled): void
+    {
+        $this->writeRequest('PATCH', '/users/' . rawurlencode($userId), self::PERM_USERS_WRITE, json_encode(['accountEnabled' => $enabled]));
+    }
+
+    /** Invalidates the user's refresh tokens and session cookies, so existing sign-ins stop working. */
+    public function revokeSignInSessions(string $userId): void
+    {
+        $this->writeRequest('POST', '/users/' . rawurlencode($userId) . '/revokeSignInSessions', self::PERM_USERS_WRITE, '{}');
+    }
+
+    /** Adds the user to a group. Already a member counts as success. Needs Group.ReadWrite.All. @return bool true when added now */
+    public function addGroupMember(string $groupId, string $userId): bool
+    {
+        $body = json_encode(['@odata.id' => $this->graphBase . '/directoryObjects/' . rawurlencode($userId)]);
+        try {
+            $this->writeRequest('POST', '/groups/' . rawurlencode($groupId) . '/members/$ref', self::PERM_GROUPS_WRITE, $body);
+        } catch (GraphException $e) {
+            if ($e->httpStatus === 400 && stripos($e->getMessage(), 'already exist') !== false) {
+                return false;
+            }
+            throw $e;
+        }
+
+        return true;
+    }
+
+    /** Removes the user from a group. Not a member counts as success. @return bool true when removed now */
+    public function removeGroupMember(string $groupId, string $userId): bool
+    {
+        try {
+            $this->writeRequest('DELETE', '/groups/' . rawurlencode($groupId) . '/members/' . rawurlencode($userId) . '/$ref', self::PERM_GROUPS_WRITE);
+        } catch (GraphException $e) {
+            if ($e->httpStatus === 404) {
+                return false;
+            }
+            throw $e;
+        }
+
+        return true;
+    }
+
+    /** Find one user by UPN, then by mail. Null when none; throws when the mail address matches more than one user. */
+    public function findUserByEmail(string $email): ?ExternalUser
+    {
+        $user = $this->getUser($email);
+        if ($user !== null) {
+            return $user;
+        }
+        $filter = rawurlencode("mail eq '" . str_replace("'", "''", $email) . "'");
+        [, $body] = $this->request('GET', '/users?$select=' . self::USER_SELECT . '&$filter=' . $filter . '&$top=2', self::PERM_USERS);
+        $rows = $this->decode($body)['value'] ?? [];
+        if (count($rows) > 1) {
+            throw new GraphException('More than one Entra user has that email address; not changing any of them.', GraphException::OTHER);
+        }
+        if (!$rows) {
+            return null;
+        }
+        $u = $rows[0];
+
+        return new ExternalUser(externalId: $u['id'], displayName: $u['displayName'] ?? null, email: $u['mail'] ?? $u['userPrincipalName'] ?? null, enabled: (bool) ($u['accountEnabled'] ?? false), raw: $u);
+    }
+
+    private function writeRequest(string $method, string $path, string $permission, ?string $json = null): array
+    {
+        if (!$this->allowWrites) {
+            throw new GraphException("RivetIT is not allowed to change Entra accounts: turn on 'Allow RivetIT to change Entra accounts' (Administration > Integrations > Directory Sync) first. Nothing was sent.", GraphException::WRITES_DISABLED);
+        }
+
+        return $this->request($method, $path, $permission, false, $json);
+    }
+
     /**
      * Follows @odata.nextLink until it is absent. Bounded: at most $maxPages pages, a repeated link is a loop, and a link
      * that points anywhere other than the Graph host is refused (the bearer token must never be sent elsewhere).
@@ -329,7 +439,7 @@ class GraphClient
      *
      * @return array{0:int,1:string} [http status, body] for 2xx only; everything else throws GraphException
      */
-    private function request(string $method, string $path, string $permission, bool $absoluteIfFullUrl = false): array
+    private function request(string $method, string $path, string $permission, bool $absoluteIfFullUrl = false, ?string $json = null): array
     {
         $url = $path;
         if (!($absoluteIfFullUrl && preg_match('#^https?://#i', $path))) {
@@ -342,7 +452,7 @@ class GraphClient
         $refreshed = false;
         while (true) {
             $token = $this->token();
-            [$status, $headers, $body] = $this->send($method, $url, ['Authorization: Bearer ' . $token, 'Content-Type: application/json', 'Accept: application/json']);
+            [$status, $headers, $body] = $this->send($method, $url, ['Authorization: Bearer ' . $token, 'Content-Type: application/json', 'Accept: application/json'], $json);
 
             if ($status >= 200 && $status < 300) {
                 return [$status, $body];

@@ -22,6 +22,10 @@ final class ChatFormatter
     public const TYPE_TEAMS = 'teams';
     public const TYPES = [self::TYPE_GENERIC, self::TYPE_SLACK, self::TYPE_TEAMS];
 
+    /** Slack button action ids handled by slack_interactive.php. */
+    public const ACTION_ACK = 'rivet_ack';
+    public const ACTION_ASSIGN = 'rivet_assign';
+
     /** Lowest to highest. Anything not listed (blank, custom) ranks 0 and is never filtered out by a minimum. */
     public const PRIORITIES = ['Low' => 1, 'Medium' => 2, 'High' => 3, 'Critical' => 4];
 
@@ -48,8 +52,7 @@ final class ChatFormatter
      */
     public static function shouldDeliver(array $webhook, string $event, array $data): bool
     {
-        $events = array_filter(array_map('trim', explode(',', (string) ($webhook['webhook_events'] ?? ''))));
-        if (!in_array($event, $events, true)) {
+        if (!DestinationConfig::eventMatches((string) ($webhook['webhook_events'] ?? ''), $event)) {
             return false;
         }
 
@@ -73,8 +76,8 @@ final class ChatFormatter
 
     /**
      * @param array<string,mixed> $data  the event's data array
-     * @param array{ticket_url?:?string, test?:bool, app_name?:string} $opts
-     * @return array{headline:string,title:string,facts:list<array{0:string,1:string}>,url:?string,priority:string,test:bool}
+     * @param array{ticket_url?:?string, test?:bool, app_name?:string, interactive?:bool} $opts
+     * @return array{headline:string,title:string,facts:list<array{0:string,1:string}>,url:?string,priority:string,test:bool,ticket_id:int}
      */
     public static function describe(string $event, array $data, array $opts = []): array
     {
@@ -83,6 +86,7 @@ final class ChatFormatter
         $facts = [];
         $priority = '';
         $url = null;
+        $ticketId = 0;
 
         if (isset($data['ticket_subject']) || isset($data['ticket_number'])) {
             $headline = [
@@ -108,6 +112,7 @@ final class ChatFormatter
             if (self::scalar($data['assigned_to_user_name'] ?? '') !== '') {
                 $facts[] = ['Assigned to', self::scalar($data['assigned_to_user_name'])];
             }
+            $ticketId = isset($data['ticket_id']) ? max(0, (int) $data['ticket_id']) : 0;
             $url = isset($opts['ticket_url']) && is_string($opts['ticket_url']) && preg_match('#^https?://[^\s<>"\'|]+$#', $opts['ticket_url']) ? $opts['ticket_url'] : null;
         } else {
             // Platform / audit events: only the summary, action and entity type are shown, never the metadata blob.
@@ -133,6 +138,7 @@ final class ChatFormatter
             'url' => $url,
             'priority' => $priority,
             'test' => $test,
+            'ticket_id' => $ticketId,
         ];
     }
 
@@ -155,12 +161,22 @@ final class ChatFormatter
         if ($fields) {
             $blocks[1]['fields'] = $fields;
         }
+        $buttons = [];
         if ($d['url'] !== null) {
-            $blocks[] = ['type' => 'actions', 'elements' => [[
+            $buttons[] = [
                 'type' => 'button',
                 'text' => ['type' => 'plain_text', 'text' => 'Open ticket', 'emoji' => false],
                 'url' => $d['url'],
-            ]]];
+            ];
+        }
+        // Interactive buttons only when the destination has a Slack signing secret (opts['interactive']), so the request that
+        // comes back can be verified; never on a test message. The value carries only the ticket id.
+        if (!empty($opts['interactive']) && $d['ticket_id'] > 0 && !$d['test']) {
+            $buttons[] = ['type' => 'button', 'action_id' => self::ACTION_ACK, 'value' => 'ticket:' . $d['ticket_id'], 'text' => ['type' => 'plain_text', 'text' => 'Acknowledge', 'emoji' => false]];
+            $buttons[] = ['type' => 'button', 'action_id' => self::ACTION_ASSIGN, 'value' => 'ticket:' . $d['ticket_id'], 'text' => ['type' => 'plain_text', 'text' => 'Assign to me', 'emoji' => false]];
+        }
+        if ($buttons) {
+            $blocks[] = ['type' => 'actions', 'elements' => $buttons];
         }
 
         $fallback = $d['headline'] . ': ' . $d['title'];

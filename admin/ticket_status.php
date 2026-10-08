@@ -47,18 +47,18 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
                 <tr>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_status_name&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_status_name&order=<?php echo sortLinkOrder('ticket_status_name'); ?>">
                             Name <?php if ($sort == 'ticket_status_name') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_status_color&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_status_color&order=<?php echo sortLinkOrder('ticket_status_color'); ?>">
                             Color <?php if ($sort == 'ticket_status_color') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>SLA clock</th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_status_active&order=<?php echo $disp; ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_status_active&order=<?php echo sortLinkOrder('ticket_status_active'); ?>">
                             Status <?php if ($sort == 'ticket_status_active') { echo $order_icon; } ?>
                         </a>
                     </th>

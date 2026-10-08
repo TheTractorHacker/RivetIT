@@ -9,6 +9,8 @@ use ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter;
  * table. Same constructor and methods. One behavior change, a fix: claim() now returns the claimed state (status
  * 'running', attempts already incremented) and is safe for concurrent workers, so the worker's
  * markFailed(.., $job['attempts'], ..) gets the correct attempt number and backoff step.
+ *
+ * @deprecated since 26.10.26 use \RivetCore\Jobs\JobQueue (construct it with a MysqliDatabaseAdapter). Kept for all of 1.x, removed in 2.0 (docs/DEPRECATIONS.md).
  */
 class JobQueue
 {

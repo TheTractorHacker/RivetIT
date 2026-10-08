@@ -10,7 +10,7 @@ $sql = mysqli_query($mysqli, "
             WHEN recurring_invoice_frequency = 'year' THEN recurring_invoice_amount / 12 END) AS recurring_monthly_total
     FROM clients
     LEFT JOIN recurring_invoices ON client_id = recurring_invoice_client_id
-    WHERE recurring_invoice_status = 1
+    WHERE recurring_invoice_status = 1" . \ITFlow\Reports\ReportScope::clause('client_id') . "
     GROUP BY clients.client_id
     HAVING recurring_monthly_total > 0
     ORDER BY recurring_monthly_total DESC

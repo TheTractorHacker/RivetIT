@@ -1,160 +1,119 @@
 <?php
+// In the editor the breadcrumb reads "All settings / Event rules / New rule" (the middle crumb goes back to the list), instead of a second back link.
+if (isset($_GET['new']) || isset($_GET['edit']) || isset($_GET['recipe'])) {
+    $admin_breadcrumb_trail = [['Event rules', 'event_rules.php'], [isset($_GET['edit']) ? 'Edit rule' : 'New rule', null]];
+}
 require_once "includes/inc_all_admin.php";
 require_once "../includes/event_bus.php";
 require_once "includes/webhook_events.php";
+require_once "../includes/event_picker.php";
 
-use RivetCore\Automation\AutomationRuleStore;
+use ITFlow\Automation\Actions\ActionRegistry;
+use ITFlow\Automation\ConditionEvaluator;
+use ITFlow\Automation\RuleAdmin;
+use ITFlow\Automation\RuleEngine;
+use ITFlow\Automation\RuleForm;
+use ITFlow\Automation\RuleRecipes;
+use ITFlow\Automation\RuleSummary;
+
+/*
+ * Event rules: a "When -> If -> Then" rule list and editor.
+ *   list    (default)        rich rule rows with a live on/off switch, plain-English summary, run statistics, search, filters, sort, drag to reorder
+ *   editor  (?new, ?edit=ID) four cards (When, If, Then, Settings) with a sticky live summary; ?recipe=KEY prefills a ready-made rule
+ * The behaviour is in js/event_rules.js, the data it needs in the #er-data JSON block, its server calls in modals/event_rules_api.php; saving and
+ * deleting go through post.php (admin/post/event_rules.php) exactly as before.
+ */
 
 $csrf = $_SESSION['csrf_token'];
-$ready = class_exists(AutomationRuleStore::class) && rivetTableExists($mysqli, 'automation_rules');
-$store = $ready ? new AutomationRuleStore(rivetCoreDb($mysqli)) : null;
-$rules = $ready ? $store->all() : [];
-$edit = null;
-if ($ready && isset($_GET['edit'])) {
-    $edit = $store->find(intval($_GET['edit']));
-}
-$edit_conditions = $edit ? (json_decode((string) $edit['condition_json'], true) ?: []) : [];
-$edit_config = $edit ? (json_decode((string) $edit['action_config_json'], true) ?: []) : [];
-$condition_rows = array_slice(array_merge(array_map(null, array_keys($edit_conditions), array_values($edit_conditions)), [[null, null], [null, null], [null, null], [null, null]]), 0, max(4, count($edit_conditions) + 1));
+$h = static fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
+$ready = class_exists(RuleEngine::class) && rivetTableExists($mysqli, 'automation_rules');
+$engine = $ready ? new RuleEngine($mysqli, new \ITFlow\Workflow\LiveActionGateway($mysqli)) : null;
+$has_engine_columns = $ready && RuleAdmin::hasEngineColumns($mysqli);
 
-$runs = [];
+// What the page needs to describe things: events (labels, groups), people, statuses...
+$catalog = rivetEventCatalogData();
+$event_info = [];
+foreach ($catalog['events'] as $e) {
+    $event_info[$e['id']] = ['label' => $e['label'], 'group' => $e['group'], 'groupLabel' => $e['groupLabel'], 'severity' => $e['severity']];
+}
+$group_style = [
+    'tickets' => ['fa-ticket-alt', '#206bc4'], 'sla' => ['fa-hourglass-half', '#f76707'], 'approvals' => ['fa-check-double', '#4299e1'], 'workflows' => ['fa-project-diagram', '#ae3ec9'],
+    'itil' => ['fa-book', '#4263eb'], 'assets' => ['fa-laptop', '#0ca678'], 'clients' => ['fa-users', '#d6336c'], 'billing' => ['fa-file-invoice-dollar', '#2fb344'],
+    'security' => ['fa-shield-alt', '#d63939'], 'audit' => ['fa-clipboard-list', '#667382'], 'system' => ['fa-server', '#667382'], 'automation' => ['fa-robot', '#17a2b8'],
+    'integrations' => ['fa-plug', '#74b816'], 'training' => ['fa-graduation-cap', '#f59f00'], 'other' => ['fa-bolt', '#667382'],
+];
+$group_of = static fn (string $event): string => $event_info[$event]['group'] ?? 'other';
+$group_label = static fn (string $g): string => ($g === 'other' ? 'Other events' : ($catalog['groups'][$g]['label'] ?? ucfirst($g)));
+$action_meta = [
+    'notify_user' => ['fa-bell', 'Send an in-app notification to all technicians.'],
+    'create_ticket' => ['fa-ticket-alt', 'Open a new ticket with a subject, details and priority.'],
+    'send_webhook' => ['fa-paper-plane', 'POST the event to another service: Slack, Teams, n8n or your own endpoint.'],
+    'start_workflow' => ['fa-sitemap', 'Start an onboarding or offboarding checklist for the person the event is about.'],
+    'set_ticket_field' => ['fa-sliders-h', "Change a ticket's status, priority, category or assignee."],
+    'add_ticket_note' => ['fa-sticky-note', 'Add an internal note (staff only) to the ticket.'],
+    'assign_ticket' => ['fa-user-check', 'Assign the ticket to one technician, or rotate through several.'],
+    'send_mail' => ['fa-envelope', "Queue an email to the assigned technician, the ticket's contact, a technician or a fixed address."],
+    'create_task' => ['fa-tasks', 'Add a task (checklist item) to the ticket, optionally assigned and with a due date.'],
+];
+$rule_actions = ActionRegistry::labels();
+$lookups = RuleAdmin::lookups($mysqli);
+$agents = $lookups['agents'];
+$status_names = $lookups['statuses'];
+$categories = $lookups['categories'];
+$event_labels = array_map(static fn (array $i): string => $i['label'], $event_info);
+$slookups = RuleAdmin::summaryLookups($lookups, $event_labels);
+$workflow_templates = [];
 if ($ready) {
-    $res = mysqli_query($mysqli, "SELECT created_at, action, summary FROM audit_events WHERE event_type = 'automation.rule_fired' ORDER BY audit_id DESC LIMIT 25");
+    $res = mysqli_query($mysqli, "SELECT workflow_template_id, name, type FROM workflow_templates WHERE archived_at IS NULL AND is_active = 1 ORDER BY type, name");
     while ($res && ($r = mysqli_fetch_assoc($res))) {
-        $runs[] = $r;
+        $workflow_templates[] = $r;
     }
 }
-$agents = [];
-$res = mysqli_query($mysqli, "SELECT user_id, user_name FROM users WHERE user_type = 1 AND user_status = 1 AND user_archived_at IS NULL ORDER BY user_name");
-while ($res && ($r = mysqli_fetch_assoc($res))) {
-    $agents[(int) $r['user_id']] = $r['user_name'];
+$recipes = RuleRecipes::available(rivetEventCatalogIds(), $status_names);
+
+$editor = $ready && (isset($_GET['new']) || isset($_GET['edit']));
+$edit = null;
+$missing_rule = false;
+if ($ready && isset($_GET['edit'])) {
+    $edit = $engine->find(intval($_GET['edit']));
+    if ($edit === null) {
+        $editor = false;
+        $missing_rule = true;
+    }
 }
-$rule_actions = AutomationRuleStore::ACTIONS + [\ITFlow\Workflow\StartWorkflowRule::ACTION => \ITFlow\Workflow\StartWorkflowRule::LABEL];
-$workflow_templates = [];
-$res = mysqli_query($mysqli, "SELECT workflow_template_id, name, type FROM workflow_templates WHERE archived_at IS NULL AND is_active = 1 ORDER BY type, name");
-while ($res && ($r = mysqli_fetch_assoc($res))) {
-    $workflow_templates[] = $r;
-}
-$h = static fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 ?>
 
-<div class="card mb-3">
-    <div class="card-header py-3"><h3 class="card-title mb-0"><i class="fas fa-fw fa-bolt me-2"></i>Event rules</h3></div>
-    <div class="card-body">
-        <p class="text-muted mb-1">When something happens in <?= $h(APP_NAME) ?> (a ticket is created, a login fails, a backup runs, a setting changes), a rule can create a ticket, notify someone or call another service. This is the same stream of events webhooks can subscribe to.</p>
-        <p class="text-muted small mb-0">Rules run in the background through the job queue, so a slow or failing action never slows what a person is doing; failures are retried and shown on the <a href="job_queue.php">Job queue</a> page. A condition compares a field of the event with a value; all conditions must match (leave empty to fire every time).</p>
-    </div>
-</div>
-
+<div class="er-page" id="er-root">
 <?php if (!$ready) { ?>
     <div class="alert alert-warning">Run the database update first (Administration &rarr; Update) to turn on event rules.</div>
 <?php } else { ?>
-
-<div class="card mb-3">
-    <div class="card-header py-3"><h4 class="card-title mb-0"><?= $edit ? 'Edit rule' : 'Add a rule' ?></h4></div>
-    <div class="card-body">
-        <form action="post.php" method="post" autocomplete="off">
-            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
-            <?php if ($edit) { ?><input type="hidden" name="rule_id" value="<?= (int) $edit['rule_id'] ?>"><?php } ?>
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label">Name</label>
-                    <input class="form-control" name="rule_name" maxlength="200" required value="<?= $h($edit['name'] ?? '') ?>" placeholder="e.g. Alert the team when a High ticket arrives">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">When this happens</label>
-                    <select class="form-select" name="trigger_event" required>
-                        <option value="">Choose an event...</option>
-                        <?php foreach (webhook_event_groups() as $group => $events) { ?>
-                            <optgroup label="<?= $h($group) ?>">
-                                <?php foreach ($events as $ev) { ?><option value="<?= $h($ev) ?>" <?= ($edit['trigger_event'] ?? '') === $ev ? 'selected' : '' ?>><?= $h($ev) ?></option><?php } ?>
-                            </optgroup>
-                        <?php } ?>
-                    </select>
-                </div>
-                <div class="col-12">
-                    <label class="form-label">Only if <span class="text-muted small">(optional; field = value, for example <code>priority</code> = <code>High</code> or <code>ticket.priority</code> = <code>High</code>)</span></label>
-                    <?php foreach ($condition_rows as $cr) { ?>
-                        <div class="row g-2 mb-1">
-                            <div class="col-md-4"><input class="form-control form-control-sm" name="cond_field[]" maxlength="100" placeholder="field" value="<?= $h($cr[0] ?? '') ?>"></div>
-                            <div class="col-md-4"><input class="form-control form-control-sm" name="cond_value[]" maxlength="200" placeholder="value" value="<?= $h($cr[1] ?? '') ?>"></div>
-                        </div>
-                    <?php } ?>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Then</label>
-                    <select class="form-select" name="action_type" required>
-                        <?php foreach ($rule_actions as $k => $label) { ?><option value="<?= $h($k) ?>" <?= ($edit['action_type'] ?? 'notify_user') === $k ? 'selected' : '' ?>><?= $h($label) ?></option><?php } ?>
-                    </select>
-                    <div class="form-check mt-3"><input class="form-check-input" type="checkbox" name="is_enabled" value="1" id="rule_enabled" <?= !$edit || $edit['is_enabled'] ? 'checked' : '' ?>><label class="form-check-label" for="rule_enabled">Rule is on</label></div>
-                </div>
-                <div class="col-md-8">
-                    <div class="border rounded p-3 small">
-                        <div class="fw-bold mb-2">Details for the chosen action <span class="text-muted fw-normal">(use <code>{field}</code> to insert a value from the event, e.g. <code>{ticket.id}</code>)</span></div>
-                        <div class="row g-2">
-                            <div class="col-md-12"><label class="form-label mb-0">Create a ticket: subject</label><input class="form-control form-control-sm" name="cfg_subject" maxlength="500" value="<?= $h($edit_config['subject'] ?? '') ?>"></div>
-                            <div class="col-md-12"><label class="form-label mb-0">Create a ticket: details</label><textarea class="form-control form-control-sm" name="cfg_details" rows="2" maxlength="5000"><?= $h($edit_config['details'] ?? '') ?></textarea></div>
-                            <div class="col-md-6"><label class="form-label mb-0">Create a ticket: priority</label><select class="form-select form-select-sm" name="cfg_priority"><?php foreach (['Low', 'Medium', 'High'] as $pr) { ?><option <?= ($edit_config['priority'] ?? 'Low') === $pr ? 'selected' : '' ?>><?= $pr ?></option><?php } ?></select></div>
-                            <div class="col-md-12"><label class="form-label mb-0">Send a webhook: URL</label><input class="form-control form-control-sm" name="cfg_url" maxlength="500" placeholder="https://..." value="<?= $h($edit_config['url'] ?? '') ?>"></div>
-                            <div class="col-md-12"><label class="form-label mb-0">Send a webhook: signing secret (optional)</label><input class="form-control form-control-sm" name="cfg_secret" maxlength="200" value="<?= $h($edit_config['secret'] ?? '') ?>"></div>
-                            <div class="col-md-12"><label class="form-label mb-0">Notify: message</label><input class="form-control form-control-sm" name="cfg_message" maxlength="1000" value="<?= $h($edit_config['message'] ?? '') ?>"></div>
-                            <div class="col-md-12"><label class="form-label mb-0">Start an employee workflow: template <span class="text-muted">(for the person the event is about; best with <code>employee.hired</code> / <code>employee.terminated</code>; once per person while one is open; needs auto-start turned on under <a href="employee_workflow_templates.php">Employee workflows</a>)</span></label>
-                                <select class="form-select form-select-sm" name="cfg_template_id"><option value="0">-</option>
-                                    <?php foreach ($workflow_templates as $wt) { ?><option value="<?= (int) $wt['workflow_template_id'] ?>" <?= (int) ($edit_config['template_id'] ?? 0) === (int) $wt['workflow_template_id'] ? 'selected' : '' ?>>[<?= $h(ucfirst($wt['type'])) ?>] <?= $h($wt['name']) ?></option><?php } ?>
-                                </select></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="mt-3 d-flex gap-2">
-                <button type="submit" name="save_event_rule" class="btn btn-primary"><i class="fas fa-check me-2"></i>Save rule</button>
-                <?php if ($edit) { ?><a class="btn btn-light" href="event_rules.php">Cancel</a><?php } ?>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div class="card mb-3">
-    <div class="card-header py-3"><h4 class="card-title mb-0">Your rules</h4></div>
-    <div class="table-responsive">
-        <table class="table table-sm align-middle mb-0">
-            <thead><tr><th>Rule</th><th>When</th><th>Only if</th><th>Then</th><th>Status</th><th></th></tr></thead>
-            <tbody>
-            <?php if (!$rules) { ?><tr><td colspan="6" class="text-center text-muted py-3">No rules yet.</td></tr><?php } ?>
-            <?php foreach ($rules as $r) {
-                $conds = json_decode((string) $r['condition_json'], true) ?: []; ?>
-                <tr>
-                    <td><strong><?= $h($r['name']) ?></strong></td>
-                    <td><code><?= $h($r['trigger_event']) ?></code></td>
-                    <td class="small"><?php foreach ($conds as $f => $v) { ?><span class="badge text-bg-secondary me-1"><?= $h($f) ?> = <?= $h($v) ?></span><?php } ?><?= $conds ? '' : '<span class="text-muted">every time</span>' ?></td>
-                    <td><?= $h($rule_actions[$r['action_type']] ?? $r['action_type']) ?></td>
-                    <td><?= $r['is_enabled'] ? '<span class="badge text-bg-success">On</span>' : '<span class="badge text-bg-secondary">Off</span>' ?></td>
-                    <td class="text-end text-nowrap">
-                        <a class="btn btn-sm btn-light" href="event_rules.php?edit=<?= (int) $r['rule_id'] ?>" title="Edit"><i class="fas fa-edit"></i></a>
-                        <form action="post.php" method="post" class="d-inline"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="rule_id" value="<?= (int) $r['rule_id'] ?>"><button class="btn btn-sm btn-light" name="toggle_event_rule" title="Turn <?= $r['is_enabled'] ? 'off' : 'on' ?>"><i class="fas fa-power-off"></i></button></form>
-                        <a class="btn btn-sm btn-outline-danger confirm-link" href="post.php?delete_event_rule=<?= (int) $r['rule_id'] ?>&csrf_token=<?= $csrf ?>" title="Delete"><i class="fas fa-trash"></i></a>
-                    </td>
-                </tr>
-            <?php } ?>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<div class="card mb-3">
-    <div class="card-header py-3"><h4 class="card-title mb-0">Recent activity</h4></div>
-    <div class="table-responsive">
-        <table class="table table-sm mb-0">
-            <thead><tr><th>When</th><th>Result</th><th>What happened</th></tr></thead>
-            <tbody>
-            <?php if (!$runs) { ?><tr><td colspan="3" class="text-center text-muted py-3">Nothing has run yet.</td></tr><?php } ?>
-            <?php foreach ($runs as $r) { ?>
-                <tr><td class="text-nowrap text-secondary"><?= $h($r['created_at']) ?></td><td><?= $r['action'] === 'ok' ? '<span class="badge text-bg-success">ok</span>' : '<span class="badge text-bg-danger">failed</span>' ?></td><td class="small"><?= $h($r['summary']) ?></td></tr>
-            <?php } ?>
-            </tbody>
-        </table>
-    </div>
-</div>
+    <?php if (!$has_engine_columns) { ?>
+    <div class="alert alert-warning">The automation engine tables are not installed yet. Run the database update (Administration &rarr; Update) to use conditions, new actions and the run log.</div>
+    <?php } ?>
+    <?php if ($missing_rule) { ?>
+    <div class="alert alert-warning">That rule no longer exists. Pick one from the list below.</div>
+    <?php } ?>
+    <?php
+    $er_data = [
+        'csrf' => $csrf, 'api' => '/admin/modals/event_rules_api.php', 'view' => $editor ? 'editor' : 'list', 'safeToRun' => ['notify_user'],
+        'agents' => $agents, 'statuses' => $status_names, 'categories' => $categories, 'clients' => $lookups['clients'],
+        'priorities' => ['Low', 'Medium', 'High', 'Critical'],
+        'operators' => ConditionEvaluator::OPERATORS, 'maxConditions' => ConditionEvaluator::MAX_CONDITIONS, 'groups' => RuleForm::GROUPS,
+        'actions' => array_map(static fn (string $k) => ['key' => $k, 'label' => $rule_actions[$k], 'ticket' => in_array($k, ActionRegistry::TICKET_ACTIONS, true)], array_keys($rule_actions)),
+        'eventLabels' => $event_labels,
+    ];
+    if ($editor) {
+        require __DIR__ . '/includes/event_rules_editor.php';
+    } else {
+        require __DIR__ . '/includes/event_rules_list.php';
+    }
+    ?>
+    <script type="application/json" id="er-data"><?= json_encode($er_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR) ?></script>
 <?php } ?>
+</div>
+
+<div class="visually-hidden" role="status" aria-live="polite" id="er-live"></div>
+<div class="er-toasts" id="er-toasts" aria-live="polite"></div>
+<script src="/js/event_rules.js?v=<?= (int) @filemtime(__DIR__ . '/../js/event_rules.js') ?>" defer></script>
 
 <?php require_once "../includes/footer.php";

@@ -166,6 +166,9 @@ if ($log_retention_days >= 1) {
     mysqli_query($mysqli, "DELETE FROM logs WHERE log_created_at < CURDATE() - INTERVAL $log_retention_days DAY");
     mysqli_query($mysqli, "DELETE FROM app_logs WHERE app_log_created_at < CURDATE() - INTERVAL $log_retention_days DAY");
     mysqli_query($mysqli, "DELETE FROM auth_logs WHERE auth_log_created_at < CURDATE() - INTERVAL $log_retention_days DAY");
+    // Event-rule run log (Administration > Automation) follows the same horizon; the once-only SLA markers are kept twice as long.
+    @mysqli_query($mysqli, "DELETE FROM automation_rule_runs WHERE created_at < CURDATE() - INTERVAL $log_retention_days DAY");
+    @mysqli_query($mysqli, "DELETE FROM automation_sla_marks WHERE created_at < CURDATE() - INTERVAL " . (2 * $log_retention_days) . " DAY");
 }
 
 // RivetCore's own log tables: the audit trail has its own horizon; the webhook delivery log and finished integration jobs
@@ -1220,6 +1223,7 @@ if ($config_backup_auto_enabled) {
 // recent jobs as a fallback, so a failed backup always raises an alert even
 // if the webhook was never set up or didn't fire.
 $config_comet_enabled    = intval($row['config_comet_enabled'] ?? 0);
+$config_comet_auto_ticket = intval($row['config_comet_auto_ticket'] ?? 0);   // read by comet_auto_ticket_enabled()
 $config_comet_totp_secret = decryptSetting($row['config_comet_totp_secret'] ?? '');
 $config_comet_server_url  = $row['config_comet_server_url'] ?? '';
 $config_comet_admin_user  = $row['config_comet_admin_user'] ?? '';
@@ -1306,6 +1310,15 @@ X-RivetIT-Event: $wq_event
     $resp_code = 0;
     if ($wq_chat) {
         $resp_code = $wq_chat_code;
+    } elseif (($wq['webhook_destination'] ?? '') !== '') {
+        // Preset webhook (n8n, ntfy, Discord, ...): its URL is stored encrypted and it has its own body format, method and
+        // auth headers, so it goes through the same dispatcher as the job queue instead of the plain POST below.
+        require_once __DIR__ . '/../includes/event_bus.php';
+        $wq_decoded = json_decode($wq_payload, true);
+        $wq_data = is_array($wq_decoded) ? (array) ($wq_decoded['data'] ?? []) : [];
+        $wq_opts = \ITFlow\Webhooks\DestinationConfig::options($wq, $wq_event, $wq_data);
+        $wq_res = rivetWebhookDispatcher($mysqli)->deliverTo(intval($wq['webhook_id']), $wq_event, $wq_data, $wq_attempts, is_array($wq_decoded) ? ($wq_decoded['timestamp'] ?? null) : null, time(), $wq_opts === [] ? null : $wq_opts);
+        $resp_code = intval($wq_res['http_status'] ?? 0);
     } else {
         @file_get_contents($wq_url, false, $ctx);
         if (isset($http_response_header) && preg_match('/HTTP\/\S+ (\d+)/', $http_response_header[0], $m)) {
@@ -1367,6 +1380,14 @@ while ($due_reopen = mysqli_fetch_assoc($sql_due_reopens)) {
 }
 if ($reopen_count > 0) {
     logApp("Cron", "info", "Scheduled reopen: $reopen_count ticket(s) automatically reopened");
+}
+
+// SLA clocks as events (ticket.sla_warning / ticket.sla_breached) for event rules and webhooks. Never fatal.
+try {
+    require_once dirname(__DIR__) . '/includes/event_bus.php';
+    \ITFlow\Automation\SlaEventEmitter::run($mysqli, 'rivetEmitEvent');
+} catch (\Throwable $e) {
+    error_log('SLA events skipped: ' . $e->getMessage());
 }
 
 /*
@@ -1645,7 +1666,7 @@ if ($config_module_enable_rmm) {
     require_once dirname(__DIR__) . '/includes/rmm_client_factory.php';
     require_once dirname(__DIR__) . '/includes/class_rmm_asset_mapper.php';
 
-    $sql_rmm_integrations = mysqli_query($mysqli, "SELECT id, name FROM rmm_integrations WHERE enabled=1");
+    $sql_rmm_integrations = mysqli_query($mysqli, "SELECT id, name FROM rmm_integrations WHERE enabled=1 AND type <> 'rivetit_agent'");
     while ($rmm_intg = mysqli_fetch_assoc($sql_rmm_integrations)) {
         $rmm_intg_id = intval($rmm_intg['id']);
         try {
@@ -1664,6 +1685,26 @@ if ($config_module_enable_rmm) {
             logApp("Cron", "error", "RMM sync failed for '{$rmm_intg['name']}': " . $e->getMessage());
         }
     }
+}
+
+/*
+ * ###############################################################################################################
+ *  BUILT-IN ENDPOINT AGENT HOUSEKEEPING
+ *  Devices that stopped checking in go offline on their RMM link, lost job acknowledgements are settled (destructive jobs
+ *  become failed/result_lost and are never retried), and old check-in, attempt and job rows are pruned. A no-op while the
+ *  agent service is off.
+ * ###############################################################################################################
+ */
+try {
+    // RivetCore\Rmm\Maintenance\Housekeeping (rivet/rivet-core). While the module is off this is one primary-key SELECT and no module is loaded.
+    require_once dirname(__DIR__) . '/vendor/autoload.php';
+    require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
+    $ea_stats = rivetRmmHousekeeping($mysqli);
+    if (array_sum($ea_stats) > 0) {
+        logApp("Cron", "info", "Endpoint agent housekeeping: " . json_encode($ea_stats));
+    }
+} catch (\Throwable $e) {
+    logApp("Cron", "error", "Endpoint agent housekeeping failed: " . $e->getMessage());
 }
 
 /*

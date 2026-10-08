@@ -15,7 +15,7 @@
                     $related_document_name = nullable_htmlentities($row['document_name']);
                     ?>
                     <p>
-                        <i class="fas fa-fw fa-document text-secondary"></i>
+                        <i class="fas fa-fw fa-file-alt text-secondary"></i>
                         <?php echo $related_document_name; ?> <a href="client_documents.php?q=<?php echo $related_document_name; ?>"><?php echo $related_document_name; ?></a>
                     </p>
                 <?php } ?>

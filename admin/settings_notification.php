@@ -373,7 +373,7 @@ require_once "includes/inc_all_admin.php";
                 <!-- Globally allowed push categories -->
                 <div class="mt-3 pt-3" style="border-top:1px solid var(--color-border,#eee);">
                     <div class="small text-muted fw-bold mb-1 text-uppercase" style="letter-spacing:.05em;font-size:.7rem;">
-                        <i class="fas fa-list-check me-1"></i>Notification categories allowed to push
+                        <i class="fas fa-tasks me-1"></i>Notification categories allowed to push
                     </div>
                     <div class="small text-muted mb-2">Staff can only enable push for categories switched on here. Turning one off disables it for everyone.</div>
                     <form method="post" action="post.php">

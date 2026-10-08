@@ -46,6 +46,7 @@ class FakeGateway implements ActionGateway {
 // ---------------------------------------------------------------- fixtures
 foreach (['workflow_task_log', 'workflow_run_tasks', 'workflow_runs', 'workflow_template_tasks', 'workflow_templates', 'automation_rules'] as $t) { $q("DELETE FROM $t"); }
 $q("DELETE FROM contacts WHERE contact_id >= 900"); $q("DELETE FROM users WHERE user_id >= 900"); $q("DELETE FROM clients WHERE client_id = 900");
+$q("INSERT IGNORE INTO user_roles (role_id, role_name, role_description, role_is_admin) VALUES (1, 'Test Admin', 'fixture', 1), (2, 'Test Technician', 'fixture', 0)");
 $q("INSERT INTO clients SET client_id = 900, client_name = 'Test Dept', client_currency_code = 'USD'");
 $q("INSERT INTO users SET user_id = 900, user_name = 'Approver Alice', user_email = 'alice@x.test', user_password = 'x', user_type = 1, user_status = 1, user_role_id = 2");
 $q("INSERT INTO users SET user_id = 901, user_name = 'Plain Bob', user_email = 'bob@x.test', user_password = 'x', user_type = 1, user_status = 1, user_role_id = 2");
@@ -209,7 +210,7 @@ $mail = array_values(array_filter($gw->calls, fn($c) => $c[0] === 'mail'))[0] ??
 $ok($mail && $mail[1] === 'erin@emp.test' && $mail[3] === "Welcome Erin O'Hire" && str_contains($mail[4], "Erin O&#039;Hire") && str_contains($mail[4], '2030-03-10') && str_contains($mail[4], '<br'), 'mail is templated, addressed to the employee, body escaped, subject plain');
 $tk = array_values(array_filter($gw->calls, fn($c) => $c[0] === 'ticket'))[0] ?? null;
 $ok($tk && $tk[1] === "Set up Erin O'Hire" && $tk[3] === 'High' && $tk[4] === 900 && str_contains($tk[2], 'Test Dept'), 'ticket action uses the department and priority');
-$ev = array_values(array_filter($gw->calls, fn($c) => $c[0] === 'event'))[0] ?? null;
+$ev = array_values(array_filter($gw->calls, fn($c) => $c[0] === 'event' && $c[1] !== 'workflow.task_completed'))[0] ?? null; // task completions are events too (automation engine)
 $ok($ev && $ev[1] === 'workflow.hired_hook' && $ev[2]['contact_id'] === 901, 'webhook action emits the configured event on the bus (no URL in the task)');
 $ok((int) $one("SELECT COUNT(*) FROM workflow_task_log WHERE run_id = $run AND event = 'action_ok'") === 4 && $gw->count('audit') >= 4, 'each execution is in workflow_task_log and the audit trail');
 $ok($rt['Welcome mail']['attempts'] == 1 && $rt['Welcome mail']['last_error'] === null, 'attempt counter is 1 on first-time success');

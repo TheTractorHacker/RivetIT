@@ -2,8 +2,8 @@
 
 namespace ITFlow\Training\Media;
 
-use ITFlow\KB\DocxConversionException;
-use ITFlow\KB\DocxConverter;
+use RivetCore\KB\DocxConversionException;
+use RivetCore\KB\DocxConverter;
 
 /**
  * Word document (.docx) -> training article HTML (spec §4.1 docx_import, §5.4 "Import Word").

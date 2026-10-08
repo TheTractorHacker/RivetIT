@@ -174,7 +174,7 @@ ob_start();
                     </div>
                 </div>
                 <div class="alert alert-warning" role="alert">
-                    <i class="fas fa-fw fa-triangle-exclamation me-2"></i><strong>An embedded page is not searchable.</strong>
+                    <i class="fas fa-fw fa-exclamation-triangle me-2"></i><strong>An embedded page is not searchable.</strong>
                     Its contents never reach the knowledge base search index, so the name and the line above are the only words anyone can find it by &mdash; write them for the person who will go looking.
                     The page runs with no access to this application, no cookies, no storage and no network, so anything it loads from another website, and anything it tries to save, will not work. Maximum <?php echo $html_embed_max_label; ?>.
                 </div>
@@ -236,7 +236,7 @@ ob_start();
                     </ul>
                 </div>
                 <div class="col-md-6">
-                    <div class="text-danger"><i class="fas fa-fw fa-xmark me-1"></i>Removed, and you are told how many</div>
+                    <div class="text-danger"><i class="fas fa-fw fa-times me-1"></i>Removed, and you are told how many</div>
                     <ul class="mb-2 ps-4">
                         <li>Scripts, stylesheets and every <code>style=</code> &mdash; they cannot run in an article</li>
                         <li>Forms, buttons and input fields</li>

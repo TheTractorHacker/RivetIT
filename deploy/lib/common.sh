@@ -386,6 +386,19 @@ _cleanup_tmpfiles() {
         fi
     done
 }
+# ignore_git_filemode APP_DIR [OWNER]: install.sh's set_file_permissions rewrites every file to 640/750, which git sees as
+# mode changes on the tracked executables (cron/*.php, scripts/*.php, deploy/*.sh). A later `git pull` that touches any of
+# them aborts with "Your local changes would be overwritten", leaving the instance un-updatable. Mode bits are not content,
+# so tell this checkout to ignore them. Idempotent, never fatal.
+ignore_git_filemode() {
+    local app="${1:?app dir}" owner="${2:-}"
+    [[ -d "${app}/.git" ]] || return 0
+    local -a g=(git -C "${app}")
+    [[ -n "${owner}" ]] && g=(sudo -u "${owner}" git -C "${app}")
+    [[ "$("${g[@]}" config --get core.fileMode 2>/dev/null || true)" == "false" ]] && return 0
+    "${g[@]}" config core.fileMode false || warn "Could not set core.fileMode=false in ${app}; a later update may be blocked by file-mode differences."
+}
+
 trap _cleanup_tmpfiles EXIT
 
 # ---------------------------------------------------------------------------

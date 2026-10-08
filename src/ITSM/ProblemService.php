@@ -12,6 +12,8 @@ use ITFlow\Core\Adapter\Itsm\TicketsProblemLink;
  *
  * Compatibility shim over RivetCore\ITSM\ProblemService. The status machine now lives in Core and is public
  * (ProblemService::TRANSITIONS); the tickets link stays in RivetIT (Core\Adapter\Itsm\TicketsProblemLink).
+ *
+ * @deprecated since 26.10.26 use \RivetCore\ITSM\ProblemService (construct it with a MysqliDatabaseAdapter and TicketsProblemLink). Kept for all of 1.x, removed in 2.0 (docs/DEPRECATIONS.md).
  */
 class ProblemService
 {

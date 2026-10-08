@@ -1,6 +1,9 @@
 <?php
 define('FROM_API', true);
 
+// Module switch: while the RMM module is off, device and technician endpoints are answered here, before config.php and any database work.
+require __DIR__ . '/rmm_gate.php';
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -83,7 +86,7 @@ if ($resource === 'auth') {
     // Redis is down). auth.php also enforces a per-user failed-login lockout.
     $auth_ip = getIP();
     if (!api_rate_limit('auth_ip:' . $auth_ip, 30, 60)) {
-        header('Retry-After: 60');
+        header('Retry-After: ' . api_rate_limit_retry_after());
         api_error(429, 'Rate limit exceeded');
     }
     require __DIR__ . '/auth.php';
@@ -99,7 +102,7 @@ if ($resource === 'auth') {
 // fetches the same public OpenAPI spec used by integrations.
 if ($resource === 'openapi' || $resource === 'docs') {
     if (!api_rate_limit('docs_ip:' . getIP(), 60, 60)) {
-        header('Retry-After: 60');
+        header('Retry-After: ' . api_rate_limit_retry_after());
         api_error(429, 'Rate limit exceeded');
     }
     if ($method !== 'GET') api_error(405, 'Method not allowed');
@@ -113,6 +116,14 @@ if ($resource === 'openapi' || $resource === 'docs') {
     }
 
     require __DIR__ . '/docs.php';
+    exit;
+}
+
+// Device-credential endpoints: the built-in endpoint agent (enroll / check-in / jobs / update download, plus the token-gated installer download). Routed here, above the Bearer parsing and
+// above the pre-auth JSON body read below, because a device credential is not an api_tokens row and that body read has no size
+// ceiling. Each handler authenticates its caller, bounds its own body read and rate-limits itself (agent_device_api.php).
+if ($resource === 'agent_enroll' || $resource === 'agent_checkin' || $resource === 'agent_jobs' || $resource === 'agent_installer' || $resource === 'agent_update') {
+    require __DIR__ . '/' . $resource . '.php';
     exit;
 }
 
@@ -284,8 +295,8 @@ if (!$is_sse_stream) {
     } else {
         $rl_bucket = 'usr:' . intval($api_user_id);
     }
-    if (!api_rate_limit($rl_bucket, 300, 60)) {
-        header('Retry-After: 60');
+    if (!api_rate_limit($rl_bucket, rivetApiRateLimitPerMinute($mysqli), 60)) {
+        header('Retry-After: ' . api_rate_limit_retry_after());
         api_error(429, 'Rate limit exceeded');
     }
 }
@@ -364,6 +375,11 @@ switch ($resource) {
             require __DIR__ . '/notifications.php';
         }
         break;
+    case 'approvals':        require __DIR__ . '/approvals.php';        break;
+    case 'endpoint_devices': require __DIR__ . '/endpoint_devices.php'; break;
+    case 'service_catalog':  require __DIR__ . '/service_catalog.php';  break;
+    case 'workflow_tasks':   require __DIR__ . '/workflow_tasks.php';   break;
+    case 'ticket_attachments': require __DIR__ . '/ticket_attachments.php'; break;
     case 'validate_api_key': api_response(200, ['success' => 'True', 'message' => 'API key is valid']); break;
     default:              api_error(404, 'Not found');
 }

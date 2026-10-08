@@ -223,16 +223,6 @@ document.addEventListener('change', function (e) {
     }
 });
 
-// Report date-range filters: editing the From/To date manually should flip the
-// paired "canned range" select (Today/This Week/etc) to "custom" so it stops
-// silently reporting a canned range while showing a hand-picked one.
-document.addEventListener('change', function (e) {
-    var el = e.target.closest ? e.target.closest('.js-canned-date-input') : null;
-    if (!el) { return; }
-    var target = document.getElementById(el.dataset.cannedTarget);
-    if (target) { target.value = 'custom'; }
-});
-
 // "Select all" checkbox that toggles every .<data-target-class> checkbox within
 // the same .tab-pane (software license assignment, etc).
 document.addEventListener('click', function (e) {
@@ -1090,8 +1080,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try { new simpleDatatables.DataTable(el, { searchable: true, perPageSelect: [10, 25, 50, 100] }); } catch (err) { /* noop */ }
     });
 
-    // ---- Date-range filter (#dateFilter) via Litepicker (replaces daterangepicker/date_filter.js) ----
-    initDateRangeFilter();
+    // (Date-range filters are the shared picker in js/date_range_picker.js.)
 
     // ---- .table-responsive dropdown reparent so menus aren't clipped (BS5, vanilla) ----
     initTableResponsiveDropdowns();
@@ -1110,63 +1099,6 @@ document.addEventListener('DOMContentLoaded', function() {
 /* ============================================================
    Helpers (hoisted; called from the DOMContentLoaded block above)
    ============================================================ */
-
-// Litepicker range picker bound to #dateFilter, writing #canned_date/#dtf/#dtt
-// and auto-submitting — mirrors the semantics of the old date_filter.js.
-function initDateRangeFilter() {
-    var input = document.getElementById('dateFilter');
-    if (!input || !window.Litepicker) { return; }
-
-    var cannedEl = document.getElementById('canned_date');
-    var dtfEl = document.getElementById('dtf');
-    var dttEl = document.getElementById('dtt');
-
-    var hasValues = (dtfEl && dttEl && dtfEl.value && dttEl.value) ||
-                    (cannedEl && cannedEl.value && cannedEl.value !== '');
-    if (!hasValues) {
-        if (cannedEl) { cannedEl.value = 'alltime'; }
-        if (dtfEl) { dtfEl.value = '1970-01-01'; }
-        if (dttEl) { dttEl.value = '2099-12-31'; }
-    }
-
-    function setDisplay(start, end) {
-        if (start === '1970-01-01' && end === '2099-12-31') {
-            input.value = 'All Time';
-        } else {
-            input.value = start + ' — ' + end;
-        }
-    }
-    setDisplay((dtfEl && dtfEl.value) || '1970-01-01', (dttEl && dttEl.value) || '2099-12-31');
-
-    /* eslint-disable no-new */
-    var picker = new Litepicker({
-        element: input,
-        singleMode: false,
-        numberOfMonths: 2,
-        numberOfColumns: 2,
-        format: 'YYYY-MM-DD',
-        firstDay: 1,
-        startDate: (dtfEl && dtfEl.value) || null,
-        endDate: (dttEl && dttEl.value) || null,
-        setup: function (picker) {
-            picker.on('selected', function (d1, d2) {
-                var s = d1.format('YYYY-MM-DD');
-                var e = d2.format('YYYY-MM-DD');
-                if (cannedEl) { cannedEl.value = 'custom'; }
-                if (dtfEl) { dtfEl.value = s; }
-                if (dttEl) { dttEl.value = e; }
-                setDisplay(s, e);
-                if (input.form) { input.form.submit(); }
-            });
-        }
-    });
-    // Litepicker writes the raw range into the field when constructed (and on hide); restore the label.
-    var refreshDisplay = function () {
-        setDisplay((dtfEl && dtfEl.value) || '1970-01-01', (dttEl && dttEl.value) || '2099-12-31');
-    };
-    refreshDisplay();
-    picker.on('hide', refreshDisplay);
-}
 
 // Dropdowns inside a .table-responsive scroll container get clipped. BS5's Popper
 // flips but can't escape the ancestor's overflow, so reparent the menu to <body>
@@ -1354,3 +1286,70 @@ function initPasswordToggles() {
         }
     });
 }
+
+// Delegated replacements for inline event-handler attributes. The page CSP (script-src 'self' 'nonce-...') blocks
+// onclick=/onsubmit=/onfocusout=/... attributes, so templates carry data-* hooks and these listeners (document-level, so
+// they also work for markup loaded later into modals) do the work.
+(function () {
+    // data-js-focusout="<key>": run one of these named page functions (defined by the modal's own nonce'd script) when the field loses focus.
+    var focusoutFns = {
+        'client-duplicate-check': 'client_duplicate_check',
+        'domain-check': 'domain_check',
+        'contact-email-check': 'contact_email_check'
+    };
+    document.addEventListener('focusout', function (e) {
+        var el = e.target.closest ? e.target.closest('[data-js-focusout]') : null;
+        if (!el) { return; }
+        var fn = focusoutFns[el.getAttribute('data-js-focusout')];
+        if (fn && typeof window[fn] === 'function') { window[fn](el); }
+    });
+
+    // data-otp-credential-id="<id>": show the one-time code of that credential on hover (was onmouseenter; mouseover is the bubbling form).
+    document.addEventListener('mouseover', function (e) {
+        var el = e.target.closest ? e.target.closest('[data-otp-credential-id]') : null;
+        if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) { return; }
+        if (typeof window.showOTPViaCredentialID === 'function') { window.showOTPViaCredentialID(el.getAttribute('data-otp-credential-id')); }
+    });
+
+    document.addEventListener('click', function (e) {
+        var el = e.target.closest ? e.target.closest('.js-share-modal, .js-file-delete-modal, .js-select-on-click, .js-copy-text, .js-skip-csrf') : null;
+        if (!el) { return; }
+        // Share modal on the files/documents pages (data-client-id, data-share-type, data-share-id).
+        if (el.classList.contains('js-share-modal') && typeof window.populateShareModal === 'function') {
+            window.populateShareModal(el.getAttribute('data-client-id'), el.getAttribute('data-share-type'), el.getAttribute('data-share-id'));
+        }
+        if (el.classList.contains('js-file-delete-modal') && typeof window.populateFileDeleteModal === 'function') {
+            window.populateFileDeleteModal(el.getAttribute('data-file-id'), el.getAttribute('data-file-name'));
+        }
+        // Read-only field that selects its whole value when clicked (one-time secret).
+        if (el.classList.contains('js-select-on-click') && typeof el.select === 'function') { el.select(); }
+        // Preview button: submit without the CSRF token (it is a GET dry run).
+        if (el.classList.contains('js-skip-csrf') && el.form) {
+            var tok = el.form.querySelector('[name=csrf_token]');
+            if (tok) { tok.disabled = true; }
+        }
+        // data-copy-target="<element id>": copy that element's value (inputs) or text, falling back to selecting it.
+        if (el.classList.contains('js-copy-text')) {
+            var src = document.getElementById(el.getAttribute('data-copy-target'));
+            if (!src) { return; }
+            var text = ('value' in src && src.tagName !== 'PRE') ? src.value : src.textContent;
+            var done = function (label) { el.textContent = label; };
+            var select = function () {
+                if (typeof src.select === 'function') { src.select(); done('Selected'); return; }
+                var r = document.createRange(); r.selectNodeContents(src);
+                var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); done('Selected');
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function () { done('Copied'); }, select);
+            } else { select(); }
+        }
+    });
+
+    // <form data-confirm-submit="message">: ask before submitting (was onsubmit="return confirm(...)").
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (form && form.getAttribute && form.hasAttribute('data-confirm-submit') && !confirm(form.getAttribute('data-confirm-submit'))) {
+            e.preventDefault();
+        }
+    });
+})();

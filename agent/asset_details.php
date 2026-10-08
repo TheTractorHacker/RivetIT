@@ -294,6 +294,18 @@ if (isset($_GET['asset_id'])) {
 
         $linked_services = array();
 
+        // RivetIT agent device panel (the endpoint agent that ships with RivetIT). It is null, and nothing here has asked the database anything, when the
+        // RMM module is switched off (answered from the module's state file); null too when the asset has no agent device, the user may not view
+        // devices, or the device is outside the user's departments. The vendor RMM card below never shows an agent link: this panel replaces it.
+        $rmm_agent_ui = null;
+        if ($config_module_enable_rmm && lookupUserPermission('module_rmm') >= 1) {
+            require_once dirname(__DIR__) . '/includes/rmm_ui_render.php';
+            $rmm_agent_ui = rivetRmmUiPanel($mysqli, $asset_id, (int) $session_user_id);
+            if ($rmm_agent_ui !== null) {
+                $rmm_ui_scripts = true;   // includes/footer.php links js/rmm_panel.js only when this is set
+            }
+        }
+
         // RMM Integration — load cached link data
         $rmm_link       = null;
         $rmm_badge      = 'text-bg-secondary';
@@ -315,13 +327,13 @@ if (isset($_GET['asset_id'])) {
                 "SELECT arl.*, i.web_url, i.type AS integration_type, i.name AS integration_name
                  FROM asset_rmm_links arl
                  LEFT JOIN rmm_integrations i ON i.id = arl.integration_id
-                 WHERE arl.asset_id = $asset_id $rmm_link_order LIMIT 1"
+                 WHERE arl.asset_id = $asset_id AND COALESCE(i.type, '') <> 'rivetit_agent' $rmm_link_order LIMIT 1"
             ));
             if ($rmm_link) {
                 $rmm_type = $rmm_link['integration_type'] ?: 'tactical';
                 $rmm_provider_name = $rmm_link['integration_name'] ?: (
                     ['tactical_rmm' => 'Tactical RMM', 'level' => 'Level.io',
-                     'action1' => 'Action1', 'sophos_central' => 'Sophos Central'][$rmm_type] ?? 'RMM'
+                     'action1' => 'Action1', 'sophos_central' => 'Sophos Central', 'rivetit_agent' => 'RivetIT agent'][$rmm_type] ?? 'RMM'
                 );
                 if ($rmm_link['rmm_status'] === 'online')       { $rmm_badge = 'text-bg-success'; $rmm_border = '#28a745'; }
                 elseif ($rmm_link['rmm_status'] === 'offline')  { $rmm_badge = 'text-bg-danger';  $rmm_border = '#dc3545'; }
@@ -332,6 +344,8 @@ if (isset($_GET['asset_id'])) {
         }
 
         ?>
+
+        <?php if ($rmm_agent_ui !== null) { echo rivetRmmUiStrip($rmm_agent_ui); } ?>
 
         <?php if ($rmm_link): ?>
         <div class="card card-dark mb-2" style="border-left:5px solid <?= $rmm_border ?>; border-radius:4px;">
@@ -719,6 +733,26 @@ if (isset($_GET['asset_id'])) {
                     </div>
                 </div>
                 <?php } ?>
+
+                <?php
+                if ($rmm_agent_ui !== null) {
+                    $rmm_perf_html = '';
+                    $rmm_perf_note = '';
+                    if (!$rmm_link) {
+                        // The Metrics partial renders the Performance section (range pills, charts, empty states). A vendor-linked asset's own
+                        // card includes the same partial once (require_once), so with both links this section points there instead.
+                        ob_start();
+                        $metrics_tab_asset_id    = $asset_id;
+                        $metrics_tab_render_pane = false;
+                        $metrics_tab_pane_active = false;
+                        require __DIR__ . '/includes/asset/metrics_tab.php';
+                        $rmm_perf_html = (string) ob_get_clean();
+                    } else {
+                        $rmm_perf_note = '<span class="text-muted">This asset is also managed by ' . nullable_htmlentities($rmm_provider_name) . '. Its performance history is on the Performance tab of that card below.</span>';
+                    }
+                    echo rivetRmmUiTabs($rmm_agent_ui, $rmm_perf_html, $rmm_perf_note, rivetRmmUiJobUserNames($mysqli, $rmm_agent_ui), (string) ($_SESSION['csrf_token'] ?? ''));
+                }
+                ?>
 
                 <?php if ($rmm_link): ?>
                 <div class="card card-dark mb-3">

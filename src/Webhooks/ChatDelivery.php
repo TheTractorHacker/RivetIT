@@ -56,7 +56,7 @@ final class ChatDelivery
         // The app's existing SSRF guard: every resolved address must be public (no private, loopback, link-local, reserved).
         $target = rivetWebhookResolveTarget($url);
         if ($target === null) {
-            return $fail('URL must point to a public address (internal, loopback and link-local addresses are not allowed).');
+            return $fail('URL not allowed (' . rivetWebhookRuleText() . '). Loopback, link-local and cloud-metadata addresses are never allowed.');
         }
 
         return ['ok' => true, 'error' => null, 'ips' => $target['ips'], 'host' => $target['host'], 'port' => $target['port']];
@@ -74,7 +74,11 @@ final class ChatDelivery
             return ['status' => null, 'body' => null, 'error' => $vet['error']];
         }
 
-        $ch = curl_init($url);
+        // The URL curl is given must carry the exact host spelling the pin below is keyed on. A host such as "hooks.example.com."
+        // (trailing dot) passes the vetting but never matches the CURLOPT_RESOLVE entry, so curl would resolve the name itself and
+        // a rebinding DNS answer could then reach an internal address. pinnedUrl() rewrites the host to the vetted spelling
+        // (same fix as the send_webhook automation action in includes/event_bus.php).
+        $ch = curl_init(\RivetCore\Webhooks\WebhookDispatcher::pinnedUrl($url, ['host' => $vet['host'], 'port' => $vet['port'], 'ips' => $vet['ips']]));
         if ($ch === false) {
             return ['status' => null, 'body' => null, 'error' => 'curl_init failed'];
         }
@@ -173,7 +177,9 @@ final class ChatDelivery
         }
 
         $url = function_exists('decryptSetting') ? decryptSetting((string) $row['webhook_url']) : (string) $row['webhook_url'];
-        $payload = ChatFormatter::format($type, $event, $data, self::formatterOptions($data) + ['test' => $test]);
+        // A Slack destination with a signing secret gets interactive buttons (the answer can then be verified); nothing else does.
+        $interactive = $type === ChatFormatter::TYPE_SLACK && function_exists('decryptSetting') && decryptSetting((string) ($row['webhook_secret'] ?? '')) !== '';
+        $payload = ChatFormatter::format($type, $event, $data, self::formatterOptions($data) + ['test' => $test, 'interactive' => $interactive]);
         $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 
         $start = microtime(true);

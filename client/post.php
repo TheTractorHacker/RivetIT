@@ -117,6 +117,14 @@ if (isset($_POST['add_ticket'])) {
     $details = mysqli_real_escape_string($mysqli, ($_POST['details']));
     $category = intval($_POST['category']);
     $asset = intval($_POST['asset'] ?? 0);
+    // The related asset must be one assigned to this contact in this department (the form only offers those): a posted id for
+    // anyone else's device is dropped rather than attached to the ticket.
+    if ($asset > 0) {
+        $asset_ok = mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM assets WHERE asset_id = $asset AND asset_contact_id = $session_contact_id AND asset_client_id = $session_client_id AND asset_archived_at IS NULL"));
+        if (!$asset_ok || intval($asset_ok[0]) === 0) {
+            $asset = 0;
+        }
+    }
 
     // Get settings from load_global_settings.php
     $config_ticket_prefix = sanitizeInput($config_ticket_prefix);
@@ -605,6 +613,114 @@ if (isset($_POST['edit_profile'])) {
         logAction("Contact", "Edit", "Department contact $session_contact_name edited their profile/password in the department portal", $session_client_id, $session_contact_id);
     }
 
+    redirect('index.php');
+
+}
+
+// Employee profile: the ONLY fields an employee can change about themselves are their phone and mobile numbers. Name, email,
+// title, manager, department, flags (primary / technical / billing) and the login are never read from this form. Keyed on the
+// session contact, so there is no contact id to tamper with.
+if (isset($_POST['edit_my_contact_details'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    if ($session_contact_id <= 0) {
+        redirect('profile.php');
+    }
+
+    $clean_phone = static fn($v) => preg_match('/^[0-9+().\-\sx#]{0,50}$/', trim((string) $v)) ? sanitizeInput(trim((string) $v)) : null;
+    $new_phone = $clean_phone($_POST['contact_phone'] ?? '');
+    $new_mobile = $clean_phone($_POST['contact_mobile'] ?? '');
+
+    if ($new_phone === null || $new_mobile === null) {
+        flash_alert('Phone numbers can only contain digits, spaces and + ( ) - . x #', 'danger');
+        redirect('profile.php');
+    }
+
+    mysqli_query($mysqli, "UPDATE contacts SET contact_phone = '$new_phone', contact_mobile = '$new_mobile' WHERE contact_id = $session_contact_id AND contact_client_id = $session_client_id AND contact_archived_at IS NULL");
+
+    logAction("Contact", "Edit", "Department contact $session_contact_name updated their phone numbers in the department portal", $session_client_id, $session_contact_id);
+
+    flash_alert('Your contact details were saved');
+    redirect('profile.php');
+
+}
+
+// HR-initiated onboarding: a manager (or department administrator) asks for a new hire to be set up. Off unless
+// config_portal_onboarding_requests = 1. Everything is decided here, not on the form: who may ask (EmployeeHome::canRequestOnboarding),
+// which department (always the requester's own), which managers are acceptable, and whether it has already been done.
+if (isset($_POST['request_onboarding'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/src/Portal/EmployeeHome.php';
+    $eh = new \ITFlow\Portal\EmployeeHome($mysqli);
+    $ob_is_admin = ($session_contact_primary == 1 || $session_contact_is_technical_contact);
+
+    if (!$eh->canRequestOnboarding(intval($config_portal_onboarding_requests ?? 0) === 1, intval($session_contact_id), intval($session_client_id), $ob_is_admin)) {
+        flash_alert('You cannot request onboarding', 'danger');
+        redirect('index.php');
+    }
+
+    $ob_manager_ids = array_map(static fn($m) => intval($m['contact_id']), $eh->departmentManagers(intval($session_client_id)));
+    if (!$ob_is_admin) {
+        $ob_manager_ids = [intval($session_contact_id)]; // a manager names themselves
+    }
+    $ob = \ITFlow\Portal\EmployeeHome::validateOnboarding($_POST, $ob_manager_ids, intval($session_contact_id));
+
+    if ($ob['errors']) {
+        $_SESSION['onboarding_old'] = $ob['clean'];
+        flash_alert(implode('<br>', array_map('nullable_htmlentities', $ob['errors'])), 'danger');
+        redirect('onboarding_request.php');
+    }
+
+    $ob_result = $eh->createOnboarding($ob['clean'], intval($session_client_id), intval($config_portal_onboarding_template_id ?? 0));
+
+    if ($ob_result['status'] === 'exists_active' || $ob_result['status'] === 'error') {
+        $_SESSION['onboarding_old'] = $ob['clean'];
+        flash_alert(nullable_htmlentities($ob_result['message']), 'danger');
+        redirect('onboarding_request.php');
+    }
+
+    $ob_contact_id = $ob_result['contact_id'];
+    $ob_name = sanitizeInput($ob['clean']['name']);
+
+    if ($ob_result['status'] === 'created') {
+        \ITFlow\Workflow\LifecycleEvents::afterChange($mysqli, $ob_contact_id, null);
+        logAction("Contact", "Create", "Department contact $session_contact_name requested onboarding for $ob_name in the department portal", $session_client_id, $ob_contact_id);
+        customAction('contact_create', $ob_contact_id);
+    }
+
+    // No onboarding template chosen (or it is gone): open a ticket with the details instead, once.
+    if ($ob_result['needs_ticket']) {
+        $ob_subject = sanitizeInput('Onboarding: ' . $ob['clean']['name'] . ' starts ' . $ob['clean']['start_date']);
+        $ob_manager_name = sanitizeInput(getFieldById('contacts', intval($ob['clean']['manager_id']), 'contact_name'));
+        $ob_details = '<p>Onboarding requested from the department portal by ' . htmlspecialchars($session_contact_name) . '.</p><ul>'
+            . '<li>New hire: ' . htmlspecialchars($ob['clean']['name']) . '</li>'
+            . '<li>Email: ' . htmlspecialchars($ob['clean']['email']) . '</li>'
+            . '<li>Start date: ' . htmlspecialchars($ob['clean']['start_date']) . '</li>'
+            . '<li>Manager: ' . htmlspecialchars((string) $ob_manager_name) . '</li>'
+            . '<li>Role / title: ' . htmlspecialchars($ob['clean']['title']) . '</li></ul>'
+            . '<p>' . nl2br(htmlspecialchars($ob['clean']['notes'])) . '</p>';
+        $ob_details = mysqli_real_escape_string($mysqli, $ob_details);
+        $config_ticket_prefix = sanitizeInput($config_ticket_prefix);
+        $ob_url_key = randomString(32);
+
+        mysqli_query($mysqli, "UPDATE settings SET config_ticket_next_number = LAST_INSERT_ID(config_ticket_next_number), config_ticket_next_number = config_ticket_next_number + 1 WHERE company_id = 1");
+        $ob_ticket_number = mysqli_insert_id($mysqli);
+        $ob_assigned = resolveTicketAssignee(0);
+        $ob_status = resolveTicketCreationStatus($ob_assigned);
+        $ob_category = resolveTicketCategory(0);
+        mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$config_ticket_prefix', ticket_number = $ob_ticket_number, ticket_source = 'Portal', ticket_category = $ob_category, ticket_subject = '$ob_subject', ticket_details = '$ob_details', ticket_priority = 'Medium', ticket_status = $ob_status, ticket_billable = $config_ticket_default_billable, ticket_created_by = $session_user_id, ticket_contact_id = $session_contact_id, ticket_url_key = '$ob_url_key', ticket_client_id = $session_client_id, ticket_assigned_to = $ob_assigned");
+        $ob_ticket_id = mysqli_insert_id($mysqli);
+        appNotify("Ticket", "$session_contact_name requested onboarding for $ob_name - ticket $config_ticket_prefix$ob_ticket_number", "/agent/ticket.php?ticket_id=$ob_ticket_id&client_id=$session_client_id", $session_client_id, $ob_ticket_id);
+        customAction('ticket_create', $ob_ticket_id);
+        logAction("Ticket", "Create", "$session_contact_name raised onboarding ticket $config_ticket_prefix$ob_ticket_number for $ob_name from the department portal", $session_client_id, $ob_ticket_id);
+        flash_alert('Onboarding requested. The IT team has a ticket for it.');
+        redirect("ticket.php?id=$ob_ticket_id");
+    }
+
+    flash_alert($ob_result['status'] === 'existing' ? 'Onboarding was already requested for this person' : 'Onboarding requested. Their checklist has started.');
     redirect('index.php');
 
 }

@@ -14,9 +14,14 @@ $sql = mysqli_query($mysqli, "SELECT * FROM tickets
 );
 
 $row = mysqli_fetch_assoc($sql);
-
-// Department scoping: modal_header only checks the module permission (pentest F-03)
-enforceClientAccess((int) ($row['ticket_client_id'] ?? 0));
+if (!$row) {
+    exit;
+}
+// Same gate as the handler (edit_ticket_schedule): Tickets level 2 and access to the ticket's department.
+enforceUserPermission('module_support', 2);
+if (intval($row['ticket_client_id'])) {
+    enforceClientAccess(intval($row['ticket_client_id']));
+}
 $ticket_prefix    = nullable_htmlentities($row['ticket_prefix']);
 $ticket_number    = intval($row['ticket_number']);
 $ticket_subject   = nullable_htmlentities($row['ticket_subject']);

@@ -3,6 +3,7 @@
 require_once "includes/inc_all_reports.php";
 
 enforceUserPermission('module_financial');
+\ITFlow\Reports\ReportScope::denyIfRestricted(); // company-wide figures: not available to department-restricted users
 
 if (isset($_GET['year'])) {
     if ($_GET['year'] === 'all') {

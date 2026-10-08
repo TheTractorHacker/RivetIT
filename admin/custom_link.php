@@ -47,22 +47,22 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
                     <tr>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=custom_link_name&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=custom_link_name&order=<?php echo sortLinkOrder('custom_link_name'); ?>">
                                 Name <?php if ($sort == 'custom_link_name') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=custom_link_order&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=custom_link_order&order=<?php echo sortLinkOrder('custom_link_order'); ?>">
                                 Order <?php if ($sort == 'custom_link_order') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=custom_link_uri&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=custom_link_uri&order=<?php echo sortLinkOrder('custom_link_uri'); ?>">
                                 URI / <span class="text-secondary">New Tab</span> <?php if ($sort == 'custom_link_uri') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=custom_link_location&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=custom_link_location&order=<?php echo sortLinkOrder('custom_link_location'); ?>">
                                 Location <?php if ($sort == 'custom_link_location') { echo $order_icon; } ?>
                             </a>
                         </th>
@@ -79,7 +79,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         $custom_link_icon = nullable_htmlentities($row['custom_link_icon']);
                         $custom_link_new_tab = intval($row['custom_link_new_tab']);
                         if ($custom_link_new_tab == 1 ) {
-                            $custom_link_new_tab_display = "<i class='fas fa-fw fa-checkmark'></i>";
+                            $custom_link_new_tab_display = "<i class='fas fa-fw fa-check'></i>";
                         } else {
                             $custom_link_new_tab_display = "";
                         }

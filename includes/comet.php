@@ -290,6 +290,56 @@ function comet_status_sort_rank(int $status, bool $has_job): int {
     return 3;
 }
 
+// Creates the one ticket for a Comet failed/missed alert and returns its id. Only called when
+// Admin > Settings > Integrations > Comet "Auto-create tickets" (config_comet_auto_ticket) is on - see
+// comet_auto_ticket_enabled(). $subject_safe/$detail_safe must already be sanitizeInput()-escaped.
+function comet_create_alert_ticket(string $subject_safe, string $detail_safe, int $client_id): int {
+    global $mysqli;
+
+    $settings = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT config_ticket_prefix FROM settings WHERE company_id = 1"
+    ));
+    $prefix = sanitizeInput($settings['config_ticket_prefix']);
+
+    // Atomically increment-and-fetch via LAST_INSERT_ID(), same pattern used by
+    // every other ticket-creation path - a plain SELECT-then-UPDATE here raced
+    // against those paths and produced duplicate ticket_number values.
+    mysqli_query($mysqli, "
+        UPDATE settings
+        SET
+            config_ticket_next_number = LAST_INSERT_ID(config_ticket_next_number),
+            config_ticket_next_number = config_ticket_next_number + 1
+        WHERE company_id = 1
+    ");
+    $ticket_number = mysqli_insert_id($mysqli);
+
+    $url_key = bin2hex(random_bytes(16));
+    $resolved_assigned_to = resolveTicketAssignee(0);
+    // Status by NAME (statuses are per install): Assigned/New, then Open, then the first active one.
+    $ticket_status = resolveTicketCreationStatus($resolved_assigned_to);
+    mysqli_query($mysqli, "INSERT INTO tickets SET
+        ticket_prefix = '$prefix',
+        ticket_number = $ticket_number,
+        ticket_source = 'Comet Backup',
+        ticket_subject = '$subject_safe',
+        ticket_details = '$detail_safe',
+        ticket_priority = 'High',
+        ticket_status = $ticket_status,
+        ticket_client_id = $client_id,
+        ticket_created_by = 0,
+        ticket_assigned_to = $resolved_assigned_to,
+        ticket_url_key = '$url_key'
+    ");
+    return intval(mysqli_insert_id($mysqli));
+}
+
+// Whether a Comet failed/missed alert should also open a ticket (config_comet_auto_ticket). Off: the alert is still
+// recorded and appNotify()'d - it just carries no ticket (alert_ticket_id = 0).
+function comet_auto_ticket_enabled(): bool {
+    global $config_comet_auto_ticket;
+    return !empty($config_comet_auto_ticket);
+}
+
 // ── Shared failure/recovery handling (used by webhook + cron polling fallback) ─
 // Creates a high-priority ticket + appNotify the first time a device's backup
 // job is seen in a failed state, and auto-resolves/replies on the next
@@ -340,24 +390,6 @@ function comet_process_job(array $job): array {
             return ['action' => 'existing_alert', 'ticket_id' => intval($existing['alert_ticket_id']), 'device_name' => $dev_name];
         }
 
-        // Get next ticket number
-        $settings = mysqli_fetch_assoc(mysqli_query($mysqli,
-            "SELECT config_ticket_prefix FROM settings WHERE company_id = 1"
-        ));
-        $prefix = sanitizeInput($settings['config_ticket_prefix']);
-
-        // Atomically increment-and-fetch via LAST_INSERT_ID(), same pattern used by
-        // every other ticket-creation path - a plain SELECT-then-UPDATE here raced
-        // against those paths and produced duplicate ticket_number values.
-        mysqli_query($mysqli, "
-            UPDATE settings
-            SET
-                config_ticket_next_number = LAST_INSERT_ID(config_ticket_next_number),
-                config_ticket_next_number = config_ticket_next_number + 1
-            WHERE company_id = 1
-        ");
-        $ticket_number = mysqli_insert_id($mysqli);
-
         $status_label = comet_status_label($status);
         $severity     = ($status === COMET_JOB_FAILED_WARNING) ? 'warning' : 'critical';
         $subject_safe = sanitizeInput("Backup $status_label — $dev_name");
@@ -369,23 +401,8 @@ function comet_process_job(array $job): array {
             "Please check the device is online, the Comet agent is running, and there are no storage issues."
         );
 
-        $url_key = bin2hex(random_bytes(16));
-        $resolved_assigned_to = resolveTicketAssignee(0);
-        $ticket_status = $resolved_assigned_to > 0 ? 2 : 1;
-        mysqli_query($mysqli, "INSERT INTO tickets SET
-            ticket_prefix = '$prefix',
-            ticket_number = $ticket_number,
-            ticket_source = 'Comet Backup',
-            ticket_subject = '$subject_safe',
-            ticket_details = '$detail_safe',
-            ticket_priority = 'High',
-            ticket_status = $ticket_status,
-            ticket_client_id = $client_id,
-            ticket_created_by = 0,
-            ticket_assigned_to = $resolved_assigned_to,
-            ticket_url_key = '$url_key'
-        ");
-        $ticket_id = mysqli_insert_id($mysqli);
+        // The alert row below is the dedupe key (one open alert per device), so repeats never open a second ticket.
+        $ticket_id = comet_auto_ticket_enabled() ? comet_create_alert_ticket($subject_safe, $detail_safe, $client_id) : 0;
 
         $msg_esc = mysqli_real_escape_string($mysqli, $message);
         mysqli_query($mysqli, "INSERT INTO comet_backup_alerts SET
@@ -399,10 +416,13 @@ function comet_process_job(array $job): array {
             alert_status         = 'new'
         ");
 
-        $client_suffix = $client_id ? "&client_id=$client_id" : '';
-        appNotify('Comet Backup', "Backup failed — $dev_name. Ticket #$ticket_id created.", "/agent/ticket.php?ticket_id=$ticket_id$client_suffix");
-
-        return ['action' => 'ticket_created', 'ticket_id' => $ticket_id, 'device_name' => $dev_name];
+        if ($ticket_id) {
+            $client_suffix = $client_id ? "&client_id=$client_id" : '';
+            appNotify('Comet Backup', "Backup failed — $dev_name. Ticket #$ticket_id created.", "/agent/ticket.php?ticket_id=$ticket_id$client_suffix");
+            return ['action' => 'ticket_created', 'ticket_id' => $ticket_id, 'device_name' => $dev_name];
+        }
+        appNotify('Comet Backup', "Backup failed — $dev_name.", "/agent/backups.php");
+        return ['action' => 'alert_created', 'ticket_id' => 0, 'device_name' => $dev_name];
 
     } elseif (comet_is_success($status)) {
         $open = mysqli_fetch_assoc(mysqli_query($mysqli,
@@ -419,6 +439,10 @@ function comet_process_job(array $job): array {
 
         $tid = intval($open['alert_ticket_id']);
         mysqli_query($mysqli, "UPDATE comet_backup_alerts SET alert_status = 'resolved', alert_resolved_at = NOW() WHERE alert_id = {$open['alert_id']}");
+        if (!$tid) {
+            // Alert was recorded with auto-ticketing off: nothing to reply to or close.
+            return ['action' => 'alert_resolved', 'ticket_id' => 0, 'device_name' => $dev_name];
+        }
         mysqli_query($mysqli, "INSERT INTO ticket_replies SET
             ticket_reply = 'Backup succeeded — device is healthy again. Ticket auto-resolved by Comet integration.',
             ticket_reply_type = 'Internal',
@@ -487,47 +511,14 @@ function comet_check_missed_backups(int $threshold_hours = 48): array {
             $client_id = $client_for[$username] ?? 0;
             $hours_ago = intval(round((time() - $reference) / 3600));
 
-            $settings = mysqli_fetch_assoc(mysqli_query($mysqli,
-                "SELECT config_ticket_prefix FROM settings WHERE company_id = 1"
-            ));
-            $prefix = sanitizeInput($settings['config_ticket_prefix']);
-
-            // Atomically increment-and-fetch via LAST_INSERT_ID(), same pattern used by
-            // every other ticket-creation path - a plain SELECT-then-UPDATE here raced
-            // against those paths (and against other iterations of this same loop
-            // running back to back) and produced duplicate ticket_number values.
-            mysqli_query($mysqli, "
-                UPDATE settings
-                SET
-                    config_ticket_next_number = LAST_INSERT_ID(config_ticket_next_number),
-                    config_ticket_next_number = config_ticket_next_number + 1
-                WHERE company_id = 1
-            ");
-            $ticket_number = mysqli_insert_id($mysqli);
-
             $subject_safe = sanitizeInput("Backup Missed — $dev_name");
             $message      = "No backup job reported for device $dev_name (user: $username) in over $hours_ago hours.";
             $detail_safe  = sanitizeInput(
                 "$message\n\nThe device may be offline, the Comet agent may not be running, or its backup schedule may be disabled. Please check the device."
             );
 
-            $url_key = bin2hex(random_bytes(16));
-            $resolved_assigned_to = resolveTicketAssignee(0);
-            $ticket_status = $resolved_assigned_to > 0 ? 2 : 1;
-            mysqli_query($mysqli, "INSERT INTO tickets SET
-                ticket_prefix = '$prefix',
-                ticket_number = $ticket_number,
-                ticket_source = 'Comet Backup',
-                ticket_subject = '$subject_safe',
-                ticket_details = '$detail_safe',
-                ticket_priority = 'High',
-                ticket_status = $ticket_status,
-                ticket_client_id = $client_id,
-                ticket_created_by = 0,
-                ticket_assigned_to = $resolved_assigned_to,
-                ticket_url_key = '$url_key'
-            ");
-            $ticket_id = mysqli_insert_id($mysqli);
+            // The open alert row is the dedupe key (checked above), so a device is ticketed once until it recovers.
+            $ticket_id = comet_auto_ticket_enabled() ? comet_create_alert_ticket($subject_safe, $detail_safe, $client_id) : 0;
 
             $msg_esc = mysqli_real_escape_string($mysqli, $message);
             mysqli_query($mysqli, "INSERT INTO comet_backup_alerts SET
@@ -541,8 +532,12 @@ function comet_check_missed_backups(int $threshold_hours = 48): array {
                 alert_status         = 'new'
             ");
 
-            $client_suffix = $client_id ? "&client_id=$client_id" : '';
-            appNotify('Comet Backup', "Backup missed — $dev_name. Ticket #$ticket_id created.", "/agent/ticket.php?ticket_id=$ticket_id$client_suffix");
+            if ($ticket_id) {
+                $client_suffix = $client_id ? "&client_id=$client_id" : '';
+                appNotify('Comet Backup', "Backup missed — $dev_name. Ticket #$ticket_id created.", "/agent/ticket.php?ticket_id=$ticket_id$client_suffix");
+            } else {
+                appNotify('Comet Backup', "Backup missed — $dev_name.", "/agent/backups.php");
+            }
             $stats['flagged']++;
         }
     }

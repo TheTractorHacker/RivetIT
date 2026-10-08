@@ -65,15 +65,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         </div>
                     </div>
                 </div>
-                <div class="collapse mt-3 <?php if (isset($_GET['dtf']) && $_GET['dtf'] !== '1970-01-01' || $account_from_filter || $account_to_filter ) { echo "show"; } ?>" id="advancedFilter">
+                <div class="collapse mt-3 <?php if (!$date_range->isAllTime() || $account_from_filter || $account_to_filter ) { echo "show"; } ?>" id="advancedFilter">
                     <div class="row">
                         <div class="col-md-3">
                             <div class="form-group">
                                 <label>Date range</label>
-                                <input type="text" id="dateFilter" class="form-control" autocomplete="off">
-                                <input type="hidden" name="canned_date" id="canned_date" value="<?php echo nullable_htmlentities($_GET['canned_date']) ?? ''; ?>">
-                                <input type="hidden" name="dtf" id="dtf" value="<?php echo nullable_htmlentities($dtf ?? ''); ?>">
-                                <input type="hidden" name="dtt" id="dtt" value="<?php echo nullable_htmlentities($dtt ?? ''); ?>">
+                                <?php echo dateRangePickerField($date_range); ?>
                             </div>
                         </div>
                         <div class="col-sm-2">
@@ -125,32 +122,32 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?> text-nowrap">
                     <tr>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=transfer_date&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=transfer_date&order=<?php echo sortLinkOrder('transfer_date'); ?>">
                                 Date <?php if ($sort == 'transfer_date') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=transfer_account_from&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=transfer_account_from&order=<?php echo sortLinkOrder('transfer_account_from'); ?>">
                                 From Account <?php if ($sort == 'transfer_account_from') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=transfer_account_to&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=transfer_account_to&order=<?php echo sortLinkOrder('transfer_account_to'); ?>">
                                 To Account <?php if ($sort == 'transfer_account_to') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=transfer_method&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=transfer_method&order=<?php echo sortLinkOrder('transfer_method'); ?>">
                                 Method <?php if ($sort == 'transfer_method') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=transfer_notes&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=transfer_notes&order=<?php echo sortLinkOrder('transfer_notes'); ?>">
                                 Notes <?php if ($sort == 'transfer_notes') { echo $order_icon; } ?>
                             </a>
                         </th>
                         <th class="text-end">
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=transfer_amount&order=<?php echo $disp; ?>">
+                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=transfer_amount&order=<?php echo sortLinkOrder('transfer_amount'); ?>">
                                 Amount <?php if ($sort == 'transfer_amount') { echo $order_icon; } ?>
                             </a>
                         </th>

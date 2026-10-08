@@ -6,6 +6,10 @@
  * stored from a form value without being checked here first.
  */
 
+require_once __DIR__ . '/../../includes/date_range.php';
+
+use RivetCore\Ui\DateRange;
+
 /** @return array<string,mixed> the filter choices found in a stored view query (or the current page's query) */
 function ticketViewParseQuery(string $query): array
 {
@@ -106,6 +110,22 @@ function ticketViewQueryFromPost($mysqli, array $post): string
         $q['due_today'] = 1;
     }
 
+    // Date range: a PRESET is stored as canned_date only (no dtf/dtt), so "Last 7 days" keeps rolling every time the view is
+    // opened; only a fixed custom range stores its dates. The date field says which ticket date the range applies to.
+    $preset = strtolower(trim((string) ($post['f_date'] ?? '')));
+    if ($preset === 'custom') {
+        $r = DateRange::resolve('custom', (string) ($post['f_dtf'] ?? ''), (string) ($post['f_dtt'] ?? ''));
+        if (!$r->isAllTime()) {
+            $q += $r->toQuery();
+        }
+    } elseif ($preset !== '' && $preset !== 'alltime' && DateRange::isPreset($preset)) {
+        $q += DateRange::resolve($preset)->toQuery();
+    }
+    $dateField = ticketDateFieldFromRequest(['datefield' => $post['f_datefield'] ?? '']);
+    if ($dateField !== 'created') {
+        $q['datefield'] = $dateField;
+    }
+
     return http_build_query($q);
 }
 
@@ -147,6 +167,13 @@ function ticketViewDescribe($mysqli, string $query): string
     }
     if (isset($p['due_today'])) {
         $parts[] = 'Due today';
+    }
+
+    $range = dateRangeFromRequest($p);
+    if (!$range->isAllTime()) {
+        $fields = ticketDateFields();
+        $df = $fields[ticketDateFieldFromRequest($p)]['label'];
+        $parts[] = $df . ' date: ' . ($range->preset() === 'custom' ? dateRangeDayLabel($range->from(), $range->to()) . ' (fixed)' : $range->label() . ' (rolling)');
     }
 
     return implode(' · ', $parts);
@@ -244,6 +271,43 @@ function ticketViewFilterFields($mysqli, array $p, string $idp = 'tvf'): void
                 $res = mysqli_query($mysqli, "SELECT category_id, category_name FROM categories WHERE category_type = 'Ticket' AND category_archived_at IS NULL ORDER BY category_name");
                 while ($res && ($c = mysqli_fetch_assoc($res))) { ?>
                     <option value="<?= (int) $c['category_id'] ?>" <?= (int) ($p['category'] ?? 0) === (int) $c['category_id'] ? 'selected' : '' ?>><?= $h($c['category_name']) ?></option>
+                <?php } ?>
+            </select>
+        </div>
+    </div>
+
+    <?php
+    $range = dateRangeFromRequest($p);
+    $sel_date = $range->preset();
+    $sel_field = ticketDateFieldFromRequest($p);
+    ?>
+    <div class="row">
+        <div class="form-group col-md-6">
+            <label for="<?= $idp ?>_date">Date range</label>
+            <select class="form-control" id="<?= $idp ?>_date" name="f_date">
+                <option value="alltime" <?= $sel_date === 'alltime' ? 'selected' : '' ?>>Any time</option>
+                <?php if ($sel_date === 'custom') { ?>
+                    <option value="custom" selected>Fixed: <?= $h(dateRangeDayLabel($range->from(), $range->to())) ?></option>
+                <?php } ?>
+                <?php foreach (DateRange::presets() as $dp) {
+                    if (in_array($dp['id'], ['alltime', 'custom'], true)) { continue; } ?>
+                    <option value="<?= $h($dp['id']) ?>" <?= $sel_date === $dp['id'] ? 'selected' : '' ?>><?= $h($dp['label']) ?> (rolling)</option>
+                <?php } ?>
+            </select>
+            <?php if ($sel_date === 'custom') { ?>
+                <input type="hidden" name="f_dtf" value="<?= $h($range->from()) ?>"><input type="hidden" name="f_dtt" value="<?= $h($range->to()) ?>">
+            <?php } ?>
+            <small class="form-text text-muted">
+                <?php if ($sel_date === 'custom') { ?>Date range: <?= $h(dateRangeDayLabel($range->from(), $range->to())) ?> (fixed dates). Choose a rolling range to keep it current.
+                <?php } elseif ($sel_date !== 'alltime') { ?>Date range: <?= $h($range->label()) ?> (rolling)
+                <?php } else { ?>Rolling ranges are re-worked out each time the view is opened.<?php } ?>
+            </small>
+        </div>
+        <div class="form-group col-md-6">
+            <label for="<?= $idp ?>_datefield">Date field</label>
+            <select class="form-control" id="<?= $idp ?>_datefield" name="f_datefield">
+                <?php foreach (ticketDateFields() as $dk => $df) { ?>
+                    <option value="<?= $h($dk) ?>" <?= $sel_field === $dk ? 'selected' : '' ?>><?= $h($df['label']) ?></option>
                 <?php } ?>
             </select>
         </div>

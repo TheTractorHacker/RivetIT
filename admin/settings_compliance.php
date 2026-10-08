@@ -85,7 +85,7 @@ $badge = $profile === RetentionPolicy::NONE ? ['No preset', 'secondary'] : [Rete
 </div>
 
 <div class="card mb-3">
-    <div class="card-header py-3"><h4 class="card-title mb-0"><i class="fas fa-fw fa-circle-info me-2"></i>In effect now</h4></div>
+    <div class="card-header py-3"><h4 class="card-title mb-0"><i class="fas fa-fw fa-info-circle me-2"></i>In effect now</h4></div>
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-sm mb-2">

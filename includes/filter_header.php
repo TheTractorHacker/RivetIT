@@ -37,6 +37,8 @@ if (isset($_GET['order']) && $_GET['order'] == 'DESC') {
 }
 
 // Order
+// $disp is only the flip of the CURRENT order and is wrong for a different column; heading links use sortLinkOrder($col)
+// (functions.php) instead. $disp is kept for any older caller.
 if(isset($order) && $order == "ASC") {
     $disp = "DESC";
     $order_icon = "<i class='fas fa-sort-down'></i>";
@@ -64,48 +66,23 @@ if (!empty($_GET['sort'])) {
 }
 
 // Date Handling
+// Resolved by RivetCore\Ui\DateRange (includes/date_range.php) in the app's timezone. Legacy ids (today..lastyear, alltime,
+// custom) resolve exactly as before; the newer presets (last7, last30, thisquarter, next7, ...) work on every page that
+// includes this file. $dtf / $dtt stay validated Y-m-d strings (all time = 1970-01-01 / 2099-12-31) and $date_range is the
+// DateRange object (use dateRangeSqlBetween() for sargable queries). $date_range_explicit tells a page whether the request
+// actually carried a range, so a report with its own default can apply it.
+require_once __DIR__ . '/date_range.php';
+
+$date_range_explicit = (!empty($_GET['canned_date']) && $_GET['canned_date'] !== 'custom') || !empty($_GET['dtf']) || !empty($_GET['dtt']);
+$date_range = dateRangeFromRequest($_GET);
+
 if (empty($_GET['canned_date'])) {
-    //Prevents lots of undefined variable errors.
-    // $dtf and $dtt will be set by the below else to 0000-00-00 / 9999-00-00
+    //Prevents lots of undefined variable errors (pages read $_GET['canned_date'] directly).
     $_GET['canned_date'] = 'custom';
 }
 
-// Date Filter
-if ($_GET['canned_date'] == "custom" && !empty($_GET['dtf'])) {
-    $dtf = sanitizeInput($_GET['dtf']);
-    $dtt = sanitizeInput($_GET['dtt']);
-} elseif ($_GET['canned_date'] == "today") {
-    $dtf = date('Y-m-d');
-    $dtt = date('Y-m-d');
-} elseif ($_GET['canned_date'] == "yesterday") {
-    $dtf = date('Y-m-d', strtotime("yesterday"));
-    $dtt = date('Y-m-d', strtotime("yesterday"));
-} elseif ($_GET['canned_date'] == "thisweek") {
-    $dtf = date('Y-m-d', strtotime("monday this week"));
-    $dtt = date('Y-m-d');
-} elseif ($_GET['canned_date'] == "lastweek") {
-    $dtf = date('Y-m-d', strtotime("monday last week"));
-    $dtt = date('Y-m-d', strtotime("sunday last week"));
-} elseif ($_GET['canned_date'] == "thismonth") {
-    $dtf = date('Y-m-01');
-    $dtt = date('Y-m-d');
-} elseif ($_GET['canned_date'] == "lastmonth") {
-    $dtf = date('Y-m-d', strtotime("first day of last month"));
-    $dtt = date('Y-m-d', strtotime("last day of last month"));
-} elseif ($_GET['canned_date'] == "thisyear") {
-    $dtf = date('Y-01-01');
-    $dtt = date('Y-m-d');
-} elseif ($_GET['canned_date'] == "lastyear") {
-    $dtf = date('Y-m-d', strtotime("first day of january last year"));
-    $dtt = date('Y-m-d', strtotime("last day of december last year"));
-}elseif (isset($_GET['canned_date']) && $_GET['canned_date'] === "alltime") {
-    $dtf = '1970-01-01';
-    $dtt = '2099-12-31';
-} else {
-    // Fallback acts like all time
-    $dtf = '1970-01-01';
-    $dtt = '2099-12-31';
-}
+$dtf = $date_range->from();
+$dtt = $date_range->to();
 
 // Archived
 if (isset($_GET['archived']) && $_GET['archived'] == 1) {

@@ -67,7 +67,7 @@ if t: data['csrf_token'] = t
 check('sign in', req('/login.php', data)[0] in (302, 303))
 
 # ---- Event rules page
-s, page, h = req('/admin/event_rules.php')
+s, page, h = req('/admin/event_rules.php?new=1')
 check('Event rules page loads with the form, events and actions', s == 200 and 'Event rules' in page and 'name="trigger_event"' in page and 'auth.login_failed' in page and 'Create a ticket' in page, s)
 check('the event list includes every audit event type this server has recorded', 'Other events seen on this server' in page or 'auth.login_success' in page)
 def post(d):

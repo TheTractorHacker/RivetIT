@@ -30,7 +30,8 @@ if (!empty($name) && !empty($email) && !empty($client_id)) {
         // Check insert & get insert ID
         if ($insert_sql) {
             $insert_id = mysqli_insert_id($mysqli);
-            
+            queueWebhookEvent('contact.created', ['contact_id' => intval($insert_id), 'contact_name' => stripslashes($name), 'contact_email' => stripslashes($email), 'client_id' => intval($client_id), 'source' => 'api']);
+
             // Logging
             logAction("Contact", "Create", "$name via API ($api_key_name)", $client_id, $insert_id);
             logAction("API", "Success", "Created contact $name via API ($api_key_name)", $client_id);

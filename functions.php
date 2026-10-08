@@ -1440,16 +1440,10 @@ function report_send_csv(string $filename, array $header, array $rows)
         header('Pragma: no-cache');
     }
 
-    $sanitize = static function ($v) {
-        if (is_int($v) || is_float($v)) {
-            return $v;
-        }
-        $v = (string) ($v ?? '');
-        if ($v !== '' && !is_numeric($v) && in_array($v[0], ['=', '+', '-', '@'], true)) {
-            $v = "'" . $v;
-        }
-        return $v;
-    };
+    // One escaping rule for every report export (src/Reports/ReportExport.php); marks the request as already exported
+    // so the generic table-to-CSV fallback in agent/reports/includes/inc_all_reports.php stands down.
+    $GLOBALS['report_csv_sent'] = true;
+    $sanitize = [\ITFlow\Reports\ReportExport::class, 'cell'];
 
     $out = fopen('php://output', 'w');
     // UTF-8 BOM so Excel opens accented characters correctly.
@@ -1640,8 +1634,8 @@ function getServiceDeskReport(mysqli $mysqli, $date_from, $date_to, ?int $client
     // $client_id restricts every query below to one client - used by the API when the
     // caller is authenticated via a client-scoped legacy key. The classic web report
     // always calls this with $client_id = null (company-wide).
-    $client_clause   = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : '';
-    $client_clause_t = $client_id !== null ? " AND t.ticket_client_id = " . intval($client_id) : '';
+    $client_clause   = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
+    $client_clause_t = $client_id !== null ? " AND t.ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('t.ticket_client_id');
     $created_range = "ticket_created_at BETWEEN '$from_dt' AND '$to_dt'$client_clause";
 
     // --- Ticket volume trend (opened vs resolved, grouped by month, set-based) ---
@@ -1856,7 +1850,7 @@ function getTicketDayBreakdownReport(mysqli $mysqli, $date_from, $date_to, ?int 
     }
     $from_dt = "$date_from 00:00:00";
     $to_dt   = "$date_to 23:59:59";
-    $client_clause = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : '';
+    $client_clause = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
 
     $created_by_day = [];
     $res = mysqli_query($mysqli,
@@ -1982,7 +1976,7 @@ function getCsatAggregateByGroup(mysqli $mysqli, string $group_column, string $f
     if (!in_array($group_column, $allowed_columns, true)) {
         return [];
     }
-    $client_clause = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : '';
+    $client_clause = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
 
     $out = [];
     $res = mysqli_query($mysqli,
@@ -2027,8 +2021,8 @@ function getTechnicianPerformanceReport(mysqli $mysqli, $date_from, $date_to, ?i
     // caller is authenticated via a client-scoped legacy key. The classic web report
     // always calls this with $client_id = null (company-wide). ticket_replies carries no
     // client column of its own, so it's joined to tickets only when scoping is active.
-    $client_clause         = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : '';
-    $client_join_ticket_id = $client_id !== null ? " JOIN tickets trt ON trt.ticket_id = tr.ticket_reply_ticket_id AND trt.ticket_client_id = " . intval($client_id) : '';
+    $client_clause         = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
+    $client_join_ticket_id = $client_id !== null ? " JOIN tickets trt ON trt.ticket_id = tr.ticket_reply_ticket_id AND trt.ticket_client_id = " . intval($client_id) : (\ITFlow\Reports\ReportScope::isRestricted() ? " JOIN tickets trt ON trt.ticket_id = tr.ticket_reply_ticket_id" . \ITFlow\Reports\ReportScope::clause('trt.ticket_client_id') : '');
 
     $hpd = defined('REPORT_CAPACITY_HOURS_PER_DAY') ? REPORT_CAPACITY_HOURS_PER_DAY : 8;
     $business_days    = report_business_days($date_from, $date_to);
@@ -2185,7 +2179,7 @@ function getCsatReport(mysqli $mysqli, $date_from, $date_to, ?int $client_id = n
     }
     $from_dt = "$date_from 00:00:00";
     $to_dt   = "$date_to 23:59:59";
-    $client_clause = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : '';
+    $client_clause = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
     // Two distinct cohorts, because "closed in period" and "rated in period" are
     // genuinely different questions - a ticket can be rated long after it closes
     // (email reminder, or just real-world lag). $closed_range answers "of tickets
@@ -2501,8 +2495,8 @@ function getMrrReport(mysqli $mysqli, ?int $client_id = null)
     // caller is authenticated via a client-scoped legacy key, so a key restricted to one
     // client can never see another client's (or the whole company's) recurring revenue.
     // The classic web report always calls this with $client_id = null (company-wide).
-    $client_clause = $client_id !== null ? " AND recurring_invoice_client_id = " . intval($client_id) : '';
-    $client_clause_ri = $client_id !== null ? " AND ri.recurring_invoice_client_id = " . intval($client_id) : '';
+    $client_clause = $client_id !== null ? " AND recurring_invoice_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('recurring_invoice_client_id');
+    $client_clause_ri = $client_id !== null ? " AND ri.recurring_invoice_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ri.recurring_invoice_client_id');
 
     $active_where = "recurring_invoice_status = 1 AND recurring_invoice_archived_at IS NULL$client_clause";
 
@@ -2639,7 +2633,7 @@ function getArAgingReport(mysqli $mysqli)
              SELECT payment_invoice_id, SUM(payment_amount) AS paid
              FROM payments GROUP BY payment_invoice_id
          ) p ON p.payment_invoice_id = i.invoice_id
-         WHERE i.invoice_status NOT IN ('Draft', 'Cancelled', 'Non-Billable')
+         WHERE i.invoice_status NOT IN ('Draft', 'Cancelled', 'Non-Billable')" . \ITFlow\Reports\ReportScope::clause('i.invoice_client_id') . "
          HAVING balance > 0.005");
 
     $buckets = ['b_0_30' => 0.0, 'b_31_60' => 0.0, 'b_61_90' => 0.0, 'b_90_plus' => 0.0, 'total' => 0.0];
@@ -2703,7 +2697,7 @@ function getClientProfitability(mysqli $mysqli, $year)
     $res = mysqli_query($mysqli,
         "SELECT i.invoice_client_id AS cid, SUM(p.payment_amount) AS rev
          FROM payments p JOIN invoices i ON i.invoice_id = p.payment_invoice_id
-         WHERE YEAR(p.payment_date) = $year
+         WHERE YEAR(p.payment_date) = $year" . \ITFlow\Reports\ReportScope::clause('i.invoice_client_id') . "
          GROUP BY i.invoice_client_id");
     while ($r = mysqli_fetch_assoc($res)) {
         $rev[intval($r['cid'])] = floatval($r['rev']);
@@ -2717,7 +2711,7 @@ function getClientProfitability(mysqli $mysqli, $year)
          FROM ticket_replies tr
          JOIN tickets t ON t.ticket_id = tr.ticket_reply_ticket_id
          LEFT JOIN labor_types lt ON lt.labor_type_id = tr.ticket_reply_labor_type_id
-         WHERE tr.ticket_reply_time_worked IS NOT NULL AND YEAR(tr.ticket_reply_created_at) = $year
+         WHERE tr.ticket_reply_time_worked IS NOT NULL AND YEAR(tr.ticket_reply_created_at) = $year" . \ITFlow\Reports\ReportScope::clause('t.ticket_client_id') . "
          GROUP BY t.ticket_client_id");
     while ($r = mysqli_fetch_assoc($res)) {
         $lab[intval($r['cid'])] = ['val' => floatval($r['val']), 'secs' => intval($r['secs'])];
@@ -2834,8 +2828,8 @@ function getRmmHealthReport(mysqli $mysqli, $date_from, $date_to, ?int $client_i
     // $client_id restricts every query below to one client - used by the API when the
     // caller is authenticated via a client-scoped legacy key. The classic web report
     // always calls this with $client_id = null (company-wide).
-    $client_clause    = $client_id !== null ? " AND client_id = " . intval($client_id) : '';
-    $client_clause_ra = $client_id !== null ? " AND ra.client_id = " . intval($client_id) : '';
+    $client_clause    = $client_id !== null ? " AND client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('client_id');
+    $client_clause_ra = $client_id !== null ? " AND ra.client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ra.client_id');
     $range     = "created_at BETWEEN '$from_dt' AND '$to_dt'$client_clause";
     $range_ra  = "ra.created_at BETWEEN '$from_dt' AND '$to_dt'$client_clause_ra";
 
@@ -3073,6 +3067,30 @@ function isUploadReferenceName($name): bool
         return false;
     }
     return preg_match('/^[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/', $name) === 1;
+}
+
+// The page sizes offered by the list footer (includes/filter_footer.php) and Preferences. One list so the two never drift.
+function recordsPerPageOptions(): array {
+    return [5, 10, 20, 50, 100, 500];
+}
+
+// A posted page size if it is one of the offered sizes, otherwise $fallback (the size the user already has, so an
+// unrecognised value - including an older stored one such as 25 - is never silently reset to 10).
+function normalizeRecordsPerPage($posted, int $fallback): int {
+    $n = filter_var($posted, FILTER_VALIDATE_INT);
+    return ($n !== false && in_array($n, recordsPerPageOptions(), true)) ? $n : $fallback;
+}
+
+// Direction a column-heading sort link should request. Every heading starts ASC; only the column that is already the
+// active ASC sort flips to DESC. (The old shared $disp came from the current order alone, so the first click on a
+// different column went the opposite way.) Pure so it can be unit tested; sortLinkOrder() reads the page's $sort/$order.
+function nextSortOrder($column, $activeSort, $activeOrder) {
+    return ($column === $activeSort && strtoupper((string) $activeOrder) === 'ASC') ? 'DESC' : 'ASC';
+}
+
+function sortLinkOrder($column) {
+    global $sort, $order;
+    return nextSortOrder($column, $sort ?? null, $order ?? null);
 }
 
 function sanitizeInput($input) {
@@ -3835,8 +3853,9 @@ function fetchUpdates() {
     $current_version = exec("git rev-parse HEAD");
 
     // Human-readable tag-based versions (e.g. v2.6.0)
-    $current_version_tag = exec("git describe --tags --abbrev=0 HEAD 2>/dev/null") ?: $current_version;
-    $latest_version_tag  = exec("git describe --tags --abbrev=0 $update_ref 2>/dev/null") ?: $latest_version;
+    // (app release tags only: see releaseDescribeTag(); the agent's agent-v* tags must never show up here)
+    $current_version_tag = releaseDescribeTag(__DIR__, 'HEAD') ?: $current_version;
+    $latest_version_tag  = releaseDescribeTag(__DIR__, "$update_remote/$repo_branch") ?: $latest_version;
 
     if ($current_version == $latest_version) {
         $update_message = "No Updates available";
@@ -4211,8 +4230,33 @@ function notifyUser($user_id, $type, $details, $action = null, $client_id = 0, $
     ]);
 
     if ($push && push_allowed_for_user($user_id, $type)) {
-        firebase_send_push_to_user($user_id, $type, $details, ['type' => strtolower($type), 'action' => $action ?? '']);
+        // An approval request carries {type:"approval", kind, id} so the mobile app can open the approval screen.
+        // Nothing else about the push changes (same recipients, title and body).
+        $push_data = ['type' => strtolower($type), 'action' => $action ?? ''];
+        $approval = approvalRouteFromAction($action);
+        if ($approval) {
+            $push_data = ['type' => 'approval', 'kind' => $approval['kind'], 'id' => (string) $approval['id']] + $push_data;
+        }
+        firebase_send_push_to_user($user_id, $type, $details, $push_data);
     }
+}
+
+// The notification_action of an approval REQUEST (a catalog step or a workflow approval task becoming ready for its
+// approver) carries the item id as a query parameter that the web page ignores:
+//   /agent/service_catalog_approvals.php?request_id=N        -> kind catalog_request
+//   workflow_run.php?run_id=R&approval_task=N                -> kind workflow_task
+// The push payload and GET /api/v1/notifications derive the stable approval type from it. Returns null for anything else.
+function approvalRouteFromAction($action): ?array {
+    if (!is_string($action) || $action === '') {
+        return null;
+    }
+    if (preg_match('#^/agent/service_catalog_approvals\.php\?request_id=(\d+)$#', $action, $m)) {
+        return ['kind' => 'catalog_request', 'id' => (int) $m[1]];
+    }
+    if (preg_match('#^workflow_run\.php\?run_id=\d+&approval_task=(\d+)$#', $action, $m)) {
+        return ['kind' => 'workflow_task', 'id' => (int) $m[1]];
+    }
+    return null;
 }
 
 function logAction($type, $action, $description, $client_id = 0, $entity_id = 0) {
@@ -4245,7 +4289,7 @@ function logAction($type, $action, $description, $client_id = 0, $entity_id = 0)
 
     // Administrative and security entries are mirrored into the structured audit trail (e.g. "settings.edit", "user.disable").
     // Credential reveals are already audited explicitly where they happen, so "Credential / View" is not repeated here.
-    static $audited_types = ['Settings', 'User', 'User Account', 'Credential', 'API Key', 'Payment Provider', 'Mailbox', 'SLA Policy', 'SLA Calendar', 'Role', 'Identity Provider', 'Backup', 'Integration'];
+    static $audited_types = ['Settings', 'User', 'User Account', 'Credential', 'API Key', 'Payment Provider', 'Mailbox', 'Endpoint Agent', 'SLA Policy', 'SLA Calendar', 'Role', 'Identity Provider', 'Backup', 'Integration'];
     if (in_array($raw_log_type, $audited_types, true) && !($raw_log_type === 'Credential' && in_array($raw_log_action, ['View', 'View TOTP'], true))) {
         $slug = static fn ($v) => trim((string) preg_replace('/[^a-z0-9]+/', '_', strtolower((string) $v)), '_');
         try {
@@ -4475,26 +4519,32 @@ function resolveTicketCategory(int $category_id): int {
 // (agent UI, API, client portal, email parser). Admin > Settings > Tickets'
 // "Default Status" (config_ticket_default_status_id), when set, wins
 // outright regardless of assignee - an admin who picked a specific status
-// (e.g. a custom "Triage" status) wants every new ticket to land there, not
-// just the ones nobody assigned. Otherwise: "Assigned" when the ticket
-// already has an agent on it at creation (an explicit assignee, or the
-// configured default technician via resolveTicketAssignee()), otherwise
-// "New" - looked up by name (not a hardcoded id, since ids are per-install)
-// with a further fallback to the first active status by display order, so
-// an install that renamed or deactivated either status still gets a sane
-// status instead of 0.
+// (e.g. a custom "Triage" status) wants every new ticket to land there.
+// Otherwise the choice is made by NAME (ids are per-install) by
+// ticketCreationStatusCandidates(): an assigned ticket prefers "Assigned" (a
+// stock install does not seed it, so most installs fall through), then
+// "Open", then the first active status by display order; an unassigned
+// ticket prefers "New", then "Open", then the first active status. Returns 0
+// only if there is no active status at all.
+function ticketCreationStatusCandidates(int $assigned_to): array {
+    return $assigned_to > 0 ? ['Assigned', 'Open'] : ['New', 'Open'];
+}
+
 function resolveTicketCreationStatus(int $assigned_to): int {
     global $mysqli, $config_ticket_default_status_id;
     if (!empty($config_ticket_default_status_id)) {
         return intval($config_ticket_default_status_id);
     }
-    $status_name = $assigned_to > 0 ? 'Assigned' : 'New';
-    $row = mysqli_fetch_assoc(mysqli_query($mysqli,
-        "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_name = '$status_name' AND ticket_status_active = 1 LIMIT 1"));
-    if (!$row) {
+    foreach (ticketCreationStatusCandidates($assigned_to) as $status_name) {
+        $status_name = mysqli_real_escape_string($mysqli, $status_name);
         $row = mysqli_fetch_assoc(mysqli_query($mysqli,
-            "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_active = 1 ORDER BY ticket_status_order ASC, ticket_status_id ASC LIMIT 1"));
+            "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_name = '$status_name' AND ticket_status_active = 1 ORDER BY ticket_status_id ASC LIMIT 1"));
+        if ($row) {
+            return intval($row['ticket_status_id']);
+        }
     }
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_active = 1 ORDER BY ticket_status_order ASC, ticket_status_id ASC LIMIT 1"));
     return $row ? intval($row['ticket_status_id']) : 0;
 }
 
@@ -5762,35 +5812,8 @@ function ticketCategoryOptions($mysqli, $selected = 0) {
 
 function getWebhookTicketPayload($ticket_id) {
     global $mysqli;
-    $tid = intval($ticket_id);
-    $sql = mysqli_query($mysqli,
-        "SELECT t.ticket_id, t.ticket_prefix, t.ticket_number, t.ticket_subject,
-                t.ticket_priority, t.ticket_client_id, t.ticket_assigned_to,
-                t.ticket_contact_id, ts.ticket_status_name,
-                c.client_name, co.contact_name, u.user_name AS assigned_user_name
-         FROM tickets t
-         LEFT JOIN ticket_statuses ts ON t.ticket_status = ts.ticket_status_id
-         LEFT JOIN clients c ON t.ticket_client_id = c.client_id
-         LEFT JOIN contacts co ON t.ticket_contact_id = co.contact_id
-         LEFT JOIN users u ON t.ticket_assigned_to = u.user_id
-         WHERE t.ticket_id = $tid LIMIT 1"
-    );
-    if (!$sql || !($row = mysqli_fetch_assoc($sql))) {
-        return ['ticket_id' => $tid];
-    }
-    return [
-        'ticket_id'            => intval($row['ticket_id']),
-        'ticket_number'        => $row['ticket_prefix'] . $row['ticket_number'],
-        'ticket_subject'       => $row['ticket_subject'],
-        'ticket_priority'      => $row['ticket_priority'],
-        'ticket_status'        => $row['ticket_status_name'],
-        'client_id'            => intval($row['ticket_client_id']),
-        'client_name'          => $row['client_name'],
-        'contact_id'           => intval($row['ticket_contact_id']),
-        'contact_name'         => $row['contact_name'],
-        'assigned_to_user_id'  => intval($row['ticket_assigned_to']),
-        'assigned_to_user_name'=> $row['assigned_user_name'],
-    ];
+    // One implementation (also used by event-rule actions, the Test rule page and tests): src/Automation/EventPayloads.php
+    return \ITFlow\Automation\EventPayloads::ticket($mysqli, intval($ticket_id));
 }
 
 function queueWebhookEvent($event, $data) {

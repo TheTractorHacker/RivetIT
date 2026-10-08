@@ -1086,7 +1086,7 @@ if (true) {  // Technical dashboard is always shown now - no more enable toggle.
     <?php // Only worth saying when the year DID have traffic; on an install with
           // no tickets at all the flow note above already covers it. ?>
     <div class="dash-empty mb-3">
-        <i class="fas fa-fw fa-circle-check"></i>
+        <i class="fas fa-fw fa-check-circle"></i>
         <span>No open tickets right now - the priority, status, category and technician breakdowns appear as soon as the queue has something in it.</span>
     </div>
     <?php } ?>

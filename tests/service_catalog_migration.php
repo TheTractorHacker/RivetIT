@@ -46,12 +46,23 @@ $q("DELETE FROM settings"); $q("INSERT INTO settings SET company_id = 1, config_
 $q("INSERT INTO service_catalog_items SET name = 'Existing item', ticket_subject_template = 's'");
 $ok($shape()['service_catalog_fields'] === null, 'rewound: the tables are gone');
 
+
+// Run the real updater (scripts/update_cli.php) when config.php points at this scratch database, so every later migration in
+// the chain runs too; otherwise fall back to loading the update file in-process (which stops where RivetCore's own step starts).
+$runUpdater = function () {
+    $cfg = @file_get_contents(__DIR__ . '/../config.php');
+    if ($cfg !== false && str_contains($cfg, (string) getenv('RIVETIT_TEST_DB_NAME'))) {
+        shell_exec('cd ' . escapeshellarg(dirname(__DIR__)) . ' && php scripts/update_cli.php --update_db 2>&1');
+        return;
+    }
+    ob_start(); require __DIR__ . '/../admin/database_updates.php'; ob_end_clean();
+};
 define('CURRENT_DATABASE_VERSION', '2.6.132');
 require __DIR__ . '/../includes/database_version.php';
 $ok(version_compare(LATEST_DATABASE_VERSION, '2.6.133', '>='), 'LATEST_DATABASE_VERSION covers this migration');
-ob_start(); require __DIR__ . '/../admin/database_updates.php'; ob_end_clean();
+$runUpdater();
 $version = fn() => mysqli_fetch_row($q("SELECT config_current_database_version FROM settings WHERE company_id = 1"))[0];
-$ok($version() === LATEST_DATABASE_VERSION, 'run 1: version advanced to ' . LATEST_DATABASE_VERSION);
+$ok(version_compare($version(), '2.6.133', '>='), 'run 1: version advanced past 2.6.133 (' . $version() . ')');
 $after1 = $shape();
 $ok($after1 === $fresh, 'run 1: schema equals a fresh db.sql install (columns, types, defaults, indexes)');
 $ok(mysqli_fetch_row($q("SELECT requires_approval, risk_score, auto_approve_below FROM service_catalog_items WHERE name='Existing item'")) === ['0', '0', '0'], 'existing items come out with approval off');
@@ -59,8 +70,8 @@ $ok(mysqli_fetch_row($q("SELECT requires_approval, risk_score, auto_approve_belo
 // Idempotent: run the same step again on a database that already has everything
 $q("UPDATE settings SET config_current_database_version = '2.6.132'");
 $q("INSERT INTO service_catalog_requests SET catalog_item_id = 1, ticket_id = 1, status = 'approved'");
-ob_start(); require __DIR__ . '/../admin/database_updates.php'; ob_end_clean();
-$ok($version() === LATEST_DATABASE_VERSION && $shape() === $fresh, 'run 2: idempotent (same schema, version again at latest)');
+$runUpdater();
+$ok(version_compare($version(), '2.6.133', '>=') && $shape() === $fresh, 'run 2: idempotent (same catalog schema, version past 2.6.133)');
 $ok(mysqli_fetch_row($q("SELECT COUNT(*) FROM service_catalog_requests"))[0] === '1', 'run 2: existing rows are untouched');
 $q("DELETE FROM service_catalog_requests");
 
