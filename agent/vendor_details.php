@@ -60,7 +60,7 @@ if (isset($_GET['vendor_id'])) {
 
             <div class="card card-dark">
                 <div class="card-body">
-                    <button type="button" class="btn btn-default float-end" data-bs-toggle="modal" data-bs-target="#editVendorModal<?php echo $vendor_id; ?>">
+                    <button type="button" class="btn btn-default float-end ajax-modal" data-modal-url="modals/vendor/vendor_edit.php?id=<?php echo $vendor_id; ?>">
                         <i class="fas fa-fw fa-edit"></i>
                     </button>
                     <h3 class="text-bold"><?php echo $vendor_name; ?></h3>
@@ -83,8 +83,7 @@ if (isset($_GET['vendor_id'])) {
                     <?php } ?>
                     <div class="mt-2"><i class="fa fa-fw fa-clock text-secondary me-2"></i><?php echo date('Y-m-d', strtotime($vendor_created_at)); ?></div>
 
-                    <?php require_once "vendor_edit_modal.php";
- ?>
+                    <?php // The edit form is the on-demand modal modals/vendor/vendor_edit.php (button above); the old include vendor_edit_modal.php no longer exists. ?>
 
                 </div>
             </div>
@@ -244,8 +243,8 @@ if (isset($_GET['vendor_id'])) {
 
                                 <?php
 
-                                require "vendor_contact_edit_modal.php";
-
+                                // The edit form is a modal loaded on demand (agent/modals/vendor/vendor_contact_edit.php); the
+                                // old per-row include "vendor_contact_edit_modal.php" no longer exists and made this page fatal.
 
                             }
 
