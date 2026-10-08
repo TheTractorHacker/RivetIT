@@ -51,7 +51,7 @@ jobs:
       RIVETCORE_PHPUNIT_AUTOLOAD: ${{ github.workspace }}/rivet-core/vendor/autoload.php
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -71,7 +71,7 @@ jobs:
           echo "rivet-core under test: $REF"
 
       - name: Check out rivet-core (it carries PHPUnit and, from 1.0.0-rc.1, the kit)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: TheTractorHacker/rivet-core
           ref: ${{ steps.ref.outputs.ref }}
