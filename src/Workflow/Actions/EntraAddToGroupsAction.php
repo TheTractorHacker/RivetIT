@@ -38,6 +38,6 @@ class EntraAddToGroupsAction extends AbstractEntraAction
     {
         $dir = $this->directory($gateway);
 
-        return $dir->entraAddToGroups($this->upnFrom($config, $ctx), $this->groupsFrom($config, true), (int) ($ctx['run_task_id'] ?? 0));
+        return $dir->entraAddToGroups($this->upnFrom($config, $ctx), $this->groupsFrom($config, true), (int) ($ctx['run_task_id'] ?? 0), (string) ($ctx['vars']['department'] ?? ''));
     }
 }

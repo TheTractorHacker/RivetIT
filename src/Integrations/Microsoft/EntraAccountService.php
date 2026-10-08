@@ -2,6 +2,8 @@
 
 namespace ITFlow\Integrations\Microsoft;
 
+use ITFlow\Integrations\ExternalUser;
+
 /**
  * The account changes lifecycle workflows can make in Entra ID. A thin, testable layer over GraphClient's write methods:
  * idempotent (create looks the UPN up first; disable and group changes tolerate "already done"), audited (every Graph call that
@@ -63,13 +65,31 @@ final class EntraAccountService
         return array_slice(array_keys($out), 0, 25);
     }
 
-    public function disableAccount(string $email, bool $revokeSessions): string
+    /**
+     * The Entra account an action found by email must belong to the same department as the RivetIT contact the workflow runs for
+     * (pentest IT-9): otherwise anyone who can edit a contact's email could aim a disable or a group change at another department's
+     * account. Fails closed: an empty department on either side refuses the change. Nothing was sent when this throws.
+     */
+    public static function assertSameDepartment(ExternalUser $user, string $expectedDepartment, string $email): void
+    {
+        $want = mb_strtolower(trim($expectedDepartment));
+        $have = mb_strtolower(trim((string) ($user->raw['department'] ?? '')));
+        if ($want === '') {
+            throw new \RuntimeException("the contact has no department, so the Entra account for $email cannot be tied to it; nothing was changed");
+        }
+        if ($have === '' || $have !== $want) {
+            throw new \RuntimeException("the Entra account for $email is not in this contact's department (the Entra department attribute must match); nothing was changed");
+        }
+    }
+
+    public function disableAccount(string $email, bool $revokeSessions, string $expectedDepartment = ''): string
     {
         $user = $this->graph->findUserByEmail($email);
         if ($user === null) {
             // A security step must not look done when nothing was found.
             throw new \RuntimeException("no Entra account found for $email; nothing was disabled");
         }
+        self::assertSameDepartment($user, $expectedDepartment, $email);
         $parts = [];
         if ($user->enabled) {
             $this->graph->setAccountEnabled($user->externalId, false);
@@ -93,10 +113,9 @@ final class EntraAccountService
         $upn = $spec['upn'];
         $existing = $this->graph->getUser($upn);
         if ($existing !== null) {
-            $msg = "$upn already exists in Entra; nothing created and no password set";
-            $groups = $this->addGroups($existing->externalId, $upn, (array) $spec['groups']);
-
-            return $msg . ($groups !== '' ? '; ' . $groups : '');
+            // An existing account is never touched: adding groups here would let anyone who can pick the email grant another person's account
+            // group access (pentest IT-9). Do the group step by hand or through an add-to-groups task on an account in the contact's department.
+            return "$upn already exists in Entra; nothing created, no password set and no groups changed";
         }
 
         $password = self::generatePassword();
@@ -125,12 +144,13 @@ final class EntraAccountService
         return $msg . ($groups !== '' ? '; ' . $groups : '');
     }
 
-    public function addToGroups(string $email, array $groupIds): string
+    public function addToGroups(string $email, array $groupIds, string $expectedDepartment = ''): string
     {
         $user = $this->graph->findUserByEmail($email);
         if ($user === null) {
             throw new \RuntimeException("no Entra account found for $email; nothing was added to groups");
         }
+        self::assertSameDepartment($user, $expectedDepartment, $email);
 
         return "$email: " . $this->addGroups($user->externalId, $email, $groupIds);
     }

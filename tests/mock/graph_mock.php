@@ -132,11 +132,11 @@ if (preg_match('#^/v1\.0/groups/([^/]+)/members/([^/]+)/\$ref$#', $path, $m) && 
 if ($method === 'GET' && $path === '/v1.0/users' && isset($query['$filter']) && !empty($s['accounts'])) {
     $mail = preg_match("/mail eq '(.*)'/", $query['$filter'], $fm) ? str_replace("''", "'", $fm[1]) : '';
     $out = ['value' => []];
-    foreach ($s['accounts'] as $upn => $a) { if ($a['mail'] !== null && strcasecmp($a['mail'], $mail) === 0) { $out['value'][] = ['id' => $a['id'], 'displayName' => $a['displayName'], 'mail' => $a['mail'], 'userPrincipalName' => $upn, 'accountEnabled' => $a['enabled']]; } }
+    foreach ($s['accounts'] as $upn => $a) { if ($a['mail'] !== null && strcasecmp($a['mail'], $mail) === 0) { $out['value'][] = ['id' => $a['id'], 'displayName' => $a['displayName'], 'mail' => $a['mail'], 'userPrincipalName' => $upn, 'accountEnabled' => $a['enabled'], 'department' => $a['department'] ?? null]; } }
     return reply(200, $out);
 }
 if ($method === 'GET' && preg_match('#^/v1\.0/users/([^/]+)$#', $path, $m) && ($a = $findAccount($s, urldecode($m[1])))) {
-    return reply(200, ['id' => $a['id'], 'displayName' => $a['displayName'], 'mail' => $a['mail'], 'userPrincipalName' => $a['upn'], 'accountEnabled' => $a['enabled']]);
+    return reply(200, ['id' => $a['id'], 'displayName' => $a['displayName'], 'mail' => $a['mail'], 'userPrincipalName' => $a['upn'], 'accountEnabled' => $a['enabled'], 'department' => $a['department'] ?? null]);
 }
 $host = 'http://' . $_SERVER['HTTP_HOST'];
 

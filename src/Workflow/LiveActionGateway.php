@@ -105,9 +105,9 @@ class LiveActionGateway implements ActionGateway, DirectoryActionGateway
         );
     }
 
-    public function entraDisableAccount(string $email, bool $revokeSessions, int $runTaskId): string
+    public function entraDisableAccount(string $email, bool $revokeSessions, int $runTaskId, string $expectedDepartment = ''): string
     {
-        return $this->entraService($runTaskId)->disableAccount($email, $revokeSessions);
+        return $this->entraService($runTaskId)->disableAccount($email, $revokeSessions, $expectedDepartment);
     }
 
     public function entraCreateAccount(array $spec, int $runTaskId): string
@@ -115,9 +115,9 @@ class LiveActionGateway implements ActionGateway, DirectoryActionGateway
         return $this->entraService($runTaskId)->createAccount($spec);
     }
 
-    public function entraAddToGroups(string $email, array $groupIds, int $runTaskId): string
+    public function entraAddToGroups(string $email, array $groupIds, int $runTaskId, string $expectedDepartment = ''): string
     {
-        return $this->entraService($runTaskId)->addToGroups($email, $groupIds);
+        return $this->entraService($runTaskId)->addToGroups($email, $groupIds, $expectedDepartment);
     }
 
     /**

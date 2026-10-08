@@ -38,6 +38,6 @@ class EntraDisableAccountAction extends AbstractEntraAction
     {
         $dir = $this->directory($gateway);
 
-        return $dir->entraDisableAccount($this->upnFrom($config, $ctx), !array_key_exists('revoke_sessions', $config) || !empty($config['revoke_sessions']), (int) ($ctx['run_task_id'] ?? 0));
+        return $dir->entraDisableAccount($this->upnFrom($config, $ctx), !array_key_exists('revoke_sessions', $config) || !empty($config['revoke_sessions']), (int) ($ctx['run_task_id'] ?? 0), (string) ($ctx['vars']['department'] ?? ''));
     }
 }

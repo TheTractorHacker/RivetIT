@@ -98,7 +98,7 @@ foreach (['setAccountEnabled' => ['u', false], 'revokeSignInSessions' => ['u'], 
     $ok($e2 !== null && $e2->errorCode === GraphException::WRITES_DISABLED, "GraphClient::$m is blocked while writes are not allowed");
 }
 $ok($mlog() === [], 'the blocked calls sent nothing at all (not even a token request)');
-$mock(['accounts' => ['olly@emp.test' => ['id' => 'acct-olly', 'mail' => 'olly@emp.test', 'enabled' => true, 'displayName' => 'Olly Leaver']]]);
+$mock(['accounts' => ['olly@emp.test' => ['id' => 'acct-olly', 'mail' => 'olly@emp.test', 'enabled' => true, 'displayName' => 'Olly Leaver', 'department' => 'Entra Dept']]]);
 foreach ([[$onT, 950], [$grpT, 950], [$offT, 951]] as [$tid, $cid]) {
     $run = $svc->startRun($tid, $cid, 951);
     $t = $taskOf($run);
@@ -126,7 +126,7 @@ $setAllow(1);
 
 // ---------------------------------------------------------------- 3. disable: disables sign-in AND revokes sessions
 $reset();
-$mock(['accounts' => ['olly@emp.test' => ['id' => 'acct-olly', 'mail' => 'olly@emp.test', 'enabled' => true, 'displayName' => 'Olly Leaver']]]);
+$mock(['accounts' => ['olly@emp.test' => ['id' => 'acct-olly', 'mail' => 'olly@emp.test', 'enabled' => true, 'displayName' => 'Olly Leaver', 'department' => 'Entra Dept']]]);
 $gw->audits = [];
 $run = $svc->startRun($offT, 951, 951);
 $t = $taskOf($run);
@@ -182,7 +182,7 @@ $t2 = $taskOf($run2);
 $st = $mstate();
 $res = $db->query("SELECT detail FROM workflow_task_log WHERE run_task_id = {$t2['run_task_id']} AND event = 'action_ok'")->fetch_row()[0] ?? '';
 $ok($t2['status'] === 'completed' && ($st['creates'] ?? 0) === 1 && str_contains($res, 'already exists') && $one("SELECT secret_result_enc FROM workflow_run_tasks WHERE run_task_id = {$t2['run_task_id']}") === null, 'create is idempotent: an existing UPN creates nothing and sets no password');
-$ok(count($st['groups'][$G1]) === 1 && str_contains($res, '2 already a member'), 'group adds are idempotent too (already a member counts as done)');
+$ok(count($st['groups'][$G1]) === 1 && str_contains($res, 'no groups changed'), 'an existing account gets no group changes from a create task (IT-9)');
 // enabled flag
 $cEnabled = $tts->add($onT, ['title' => 'Create enabled', 'task_type' => 'action', 'action_type' => 'entra_create_account', 'action_config' => ['enabled' => 1, 'upn' => 'enabled.user@emp.test', 'display_name' => 'Enabled U'], 'assignee_user_id' => 950]);
 $q("UPDATE workflow_template_tasks SET sort_order = 99 WHERE template_task_id = $cEnabled");
@@ -197,19 +197,19 @@ $ok(str_contains($res6, 'could NOT be saved') && $one("SELECT secret_result_enc 
 
 // ---------------------------------------------------------------- 5. add to groups
 $reset();
-$mock(['accounts' => ['erin.new@emp.test' => ['id' => 'acct-erin', 'mail' => 'erin.new@emp.test', 'enabled' => false, 'displayName' => 'Erin New']]]);
+$mock(['accounts' => ['erin.new@emp.test' => ['id' => 'acct-erin', 'mail' => 'erin.new@emp.test', 'enabled' => false, 'displayName' => 'Erin New', 'department' => 'Entra Dept']]]);
 $run = $svc->startRun($grpT, 950, 951);
 $ok($taskOf($run)['status'] === 'completed' && ($mstate()['groups'][$G1] ?? []) === ['acct-erin'], 'add-to-groups adds the user');
 $run = $svc->startRun($grpT, 950, 951, false);
 $ok($taskOf($run)['status'] === 'completed' && ($mstate()['groups'][$G1] ?? []) === ['acct-erin'], 'add-to-groups twice leaves one membership');
 // mail lookup path (UPN differs from the contact email)
-$mock(['accounts' => ['erin.new@emp.test' => ['id' => 'acct-erin', 'mail' => 'erin.new@emp.test', 'enabled' => true, 'displayName' => 'E'], 'e.new@corp.onmicrosoft.com' => ['id' => 'acct-erin2', 'mail' => 'e.same@emp.test', 'enabled' => true, 'displayName' => 'E2']]]);
+$mock(['accounts' => ['erin.new@emp.test' => ['id' => 'acct-erin', 'mail' => 'erin.new@emp.test', 'enabled' => true, 'displayName' => 'E', 'department' => 'Entra Dept'], 'e.new@corp.onmicrosoft.com' => ['id' => 'acct-erin2', 'mail' => 'e.same@emp.test', 'enabled' => true, 'displayName' => 'E2', 'department' => 'Entra Dept']]]);
 $q("UPDATE contacts SET contact_email = 'e.same@emp.test' WHERE contact_id = 952");
 $g = $svc->startRun($offT, 952, 951);
 $ok($taskOf($g)['status'] === 'completed' && $mstate()['accounts']['e.new@corp.onmicrosoft.com']['enabled'] === false && $mstate()['accounts']['erin.new@emp.test']['enabled'] === true, 'a user whose UPN differs from the contact email is found by mail, and only that one is disabled');
 
 // ---------------------------------------------------------------- 6. permission missing is classified as admin consent missing
-$reset(); $mock(['write_forbidden' => true, 'accounts' => ['olly@emp.test' => ['id' => 'acct-olly', 'mail' => 'olly@emp.test', 'enabled' => true, 'displayName' => 'O']]]);
+$reset(); $mock(['write_forbidden' => true, 'accounts' => ['olly@emp.test' => ['id' => 'acct-olly', 'mail' => 'olly@emp.test', 'enabled' => true, 'displayName' => 'O', 'department' => 'Entra Dept']]]);
 $run = $svc->startRun($offT, 951, 951, false);
 $t = $taskOf($run);
 $ok($t['status'] === 'action_failed' && stripos((string) $t['last_error'], 'admin consent missing') !== false && str_contains((string) $t['last_error'], 'User.ReadWrite.All'), 'a 403 on a write is "Admin consent missing for User.ReadWrite.All" and the task falls back to manual');
@@ -220,7 +220,7 @@ $e4 = null; try { $direct->createUser(['userPrincipalName' => 'x@emp.test', 'dis
 $ok($e4 !== null && $e4->errorCode === GraphException::CONSENT_MISSING && !str_contains($e4->getMessage(), 'Qq7!'), 'a create 403 is classified and never echoes the password');
 
 // ---------------------------------------------------------------- 7. retry rules, throttling
-$reset(); $mock(['throttle' => 1, 'retry_after' => 0, 'accounts' => ['olly@emp.test' => ['id' => 'acct-olly', 'mail' => 'olly@emp.test', 'enabled' => true, 'displayName' => 'O']]]);
+$reset(); $mock(['throttle' => 1, 'retry_after' => 0, 'accounts' => ['olly@emp.test' => ['id' => 'acct-olly', 'mail' => 'olly@emp.test', 'enabled' => true, 'displayName' => 'O', 'department' => 'Entra Dept']]]);
 $run = $svc->startRun($offT, 951, 951, false);
 $ok($taskOf($run)['status'] === 'completed', 'a throttled (429) write is retried by the client and succeeds');
 $reset();

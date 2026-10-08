@@ -29,7 +29,7 @@ class GraphClient
     public const PERM_USERS_WRITE = 'User.ReadWrite.All';
     public const PERM_GROUPS_WRITE = 'Group.ReadWrite.All';
 
-    private const USER_SELECT = 'id,displayName,mail,userPrincipalName,accountEnabled';
+    private const USER_SELECT = 'id,displayName,mail,userPrincipalName,accountEnabled,department';
 
     private ?string $accessToken = null;
     private int $tokenExpiresAt = 0;

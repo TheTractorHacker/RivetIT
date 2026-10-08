@@ -12,8 +12,8 @@ interface DirectoryActionGateway
     /** Is the 'Allow RivetIT to change Entra accounts' setting on? */
     public function entraWritesAllowed(): bool;
 
-    /** Disable sign-in (never delete) and optionally revoke sessions. @return string result for the log (no secrets) */
-    public function entraDisableAccount(string $email, bool $revokeSessions, int $runTaskId): string;
+    /** Disable sign-in (never delete) and optionally revoke sessions, only for an account in $expectedDepartment (IT-9). @return string result for the log (no secrets) */
+    public function entraDisableAccount(string $email, bool $revokeSessions, int $runTaskId, string $expectedDepartment = ''): string;
 
     /**
      * Create the account unless one with this UPN exists. The temporary password is generated inside, handed only to the run
@@ -22,6 +22,9 @@ interface DirectoryActionGateway
      */
     public function entraCreateAccount(array $spec, int $runTaskId): string;
 
-    /** @param string[] $groupIds @return string result for the log */
-    public function entraAddToGroups(string $email, array $groupIds, int $runTaskId): string;
+    /**
+     * @param string[] $groupIds @return string result for the log
+     * $expectedDepartment is the contact's department; the Entra account must carry the same department attribute (IT-9).
+     */
+    public function entraAddToGroups(string $email, array $groupIds, int $runTaskId, string $expectedDepartment = ''): string;
 }
