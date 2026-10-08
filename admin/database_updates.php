@@ -10360,3 +10360,28 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.146'");
     }
+
+    if ($rivetit_db_version() == '2.6.146') {
+        // The endpoint agent / RMM module moved into RivetCore (rivet/rivet-core 1.0.0-rc.4): its tables and the module switch columns are now
+        // owned by Core migrations 0014 (the ten endpoint_agent_* tables, CREATE IF NOT EXISTS in the exact shape this updater created in
+        // 2.6.145 and 2.6.146), 0015 (convergence for an install that stopped at 2.6.145) and 0016 (features_json, limits_json, shed_level,
+        // ingest_mode, max_devices on endpoint_agent_settings). All three are idempotent: on an install that already has the tables 0014 and 0015
+        // change nothing and 0016 only adds those five columns. endpoint_agent_settings.enabled (the module's master switch) is never touched,
+        // so an install that had the agent on keeps it on and one that never enabled it stays off. The steps 2.6.144 to 2.6.146 above stay as
+        // history. Skipped (version NOT advanced, so it retries) until the package with the module is installed.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Rmm\Migration\Migration0016ModuleSwitches::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.147'");
+            // Write the module's zero-database state file (read by api/v1/rmm_gate.php) from the master switch just migrated. Never fatal.
+            try {
+                require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
+                rivetRmmSyncState($mysqli);
+            } catch (\Throwable $e) {
+                error_log('RMM state file not written by the database update: ' . $e->getMessage());
+            }
+        }
+    }

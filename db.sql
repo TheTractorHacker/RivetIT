@@ -8004,7 +8004,7 @@ CREATE TABLE `kb_article_embeds` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Built-in endpoint agent (server side), DB 2.6.145
+-- Built-in endpoint agent / RMM module (server side), DB 2.6.145; the tables are owned by RivetCore migrations 0014 to 0016 since DB 2.6.147
 --
 
 CREATE TABLE IF NOT EXISTS `endpoint_agent_settings` (
@@ -8043,6 +8043,11 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_settings` (
   `coexistence_policy` text DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `ca_pem` text DEFAULT NULL,
+  `features_json` text DEFAULT NULL,
+  `limits_json` text DEFAULT NULL,
+  `shed_level` tinyint(1) NOT NULL DEFAULT 0,
+  `ingest_mode` varchar(10) NOT NULL DEFAULT 'sync',
+  `max_devices` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
