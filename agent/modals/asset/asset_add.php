@@ -235,7 +235,27 @@ ob_start();
                         </select>
                     </div>
                 </div>
-                <?php } ?>
+                <?php } else {
+                    // Company-wide add (no department chosen yet): still offer a Location dropdown,
+                    // every active location labelled with its department.
+                    $sql_location_all = mysqli_query($mysqli, "SELECT location_id, location_name, client_name FROM locations LEFT JOIN clients ON client_id = location_client_id WHERE location_archived_at IS NULL ORDER BY location_name ASC, client_name ASC");
+                    if ($sql_location_all && mysqli_num_rows($sql_location_all) > 0) { ?>
+                <div class="form-group">
+                    <label>Location</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-building"></i></span>
+                        </div>
+                        <select class="form-control select2" name="location">
+                            <option value="">Select Location</option>
+                            <?php while ($row = mysqli_fetch_assoc($sql_location_all)) {
+                                $location_label = nullable_htmlentities($row['location_name']) . ($row['client_name'] ? ' (' . nullable_htmlentities($row['client_name']) . ')' : ''); ?>
+                                <option value="<?= intval($row['location_id']) ?>"><?= $location_label ?></option>
+                            <?php } ?>
+                        </select>
+                    </div>
+                </div>
+                <?php } } ?>
 
                 <div class="form-group">
                     <label>Physical Location</label>

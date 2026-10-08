@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Assets: Location dropdown on company-wide Add
+
+- **Add asset** from the company-wide Assets page now shows a **Location** dropdown (active locations, labelled with their department). Before, it only appeared once an asset was opened from inside a department.
+
 ## [26.10.28] RivetIT — RMM database step renumbered (2.6.150), reconciled with the security-fixes line
 
 ### Database numbering reconciled: RMM step is now 2.6.150
