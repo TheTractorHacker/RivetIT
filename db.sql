@@ -1911,12 +1911,14 @@ CREATE TABLE `payments` (
   `payment_currency_code` varchar(10) NOT NULL,
   `payment_method` varchar(200) DEFAULT NULL,
   `payment_reference` varchar(200) DEFAULT NULL,
+  `payment_provider_ref` varchar(200) DEFAULT NULL,
   `payment_created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `payment_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `payment_archived_at` datetime DEFAULT NULL,
   `payment_account_id` int(11) NOT NULL,
   `payment_invoice_id` int(11) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`payment_id`)
+  PRIMARY KEY (`payment_id`),
+  UNIQUE KEY `uniq_payment_provider_ref` (`payment_provider_ref`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -2762,6 +2764,7 @@ DROP TABLE IF EXISTS `settings`;
 CREATE TABLE `settings` (
   `company_id` int(11) NOT NULL,
   `config_current_database_version` varchar(10) NOT NULL,
+  `config_report_schedule_allowed_recipients` text DEFAULT NULL,
   `config_start_page` varchar(200) DEFAULT 'clients.php',
   `config_smtp_provider` varchar(200) DEFAULT NULL,
   `config_smtp_host` varchar(200) DEFAULT NULL,

@@ -18,6 +18,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/check_login.php';
 use ITFlow\Reports\ReportCatalog;
 use ITFlow\Reports\ReportScheduler;
 use ITFlow\Reports\SavedReports;
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/report_schedule_policy.php';
 
 enforceUserPermission('module_reporting');
 
@@ -35,21 +36,47 @@ $owns_schedule = static function (int $schedule_id) use ($mysqli, $session_user_
         return true;
     }
     $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT schedule_owner_user_id FROM report_schedules WHERE schedule_id = " . intval($schedule_id)));
-    // Legacy rows (no owner) stay manageable by any level-2 user, as before.
-    return $r && ($r['schedule_owner_user_id'] === null || intval($r['schedule_owner_user_id']) === intval($session_user_id));
+    // Legacy rows (no owner) are administrator-only.
+    return $r && $r['schedule_owner_user_id'] !== null && intval($r['schedule_owner_user_id']) === intval($session_user_id);
 };
 
 $schedulable = report_schedulable_reports();
+
+// A schedule emails figures the recipient may never have been allowed to open. Financial reports (income, expenses,
+// AR aging, MRR) need module_financial exactly like their on-screen pages, and every change needs Reporting edit rights.
+$can_edit_schedules = lookupUserPermission('module_reporting') >= 2;
+$can_schedule_report = function ($key) {
+    $module = report_schedule_required_module($key);
+    return $module === null || lookupUserPermission($module) >= 1;
+};
+$schedule_scope_sql = $session_is_admin ? '' : ' AND schedule_owner_user_id = ' . intval($session_user_id);
 $valid_frequencies = ['daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'];
 $valid_formats = ['summary' => 'Headline summary (email)', 'csv' => 'CSV download link (7 days)', 'tables' => 'Report tables in the email'];
 $can_module_row = static fn (string $key): bool => (ReportCatalog::module($key) === null) || lookupUserPermission(ReportCatalog::module($key)) >= 1;
 
 // ---- Add a schedule -------------------------------------------------------
+// ---- Administrator-approved external recipients ---------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_allowed_recipients'])) {
+    validateCSRFToken($_POST['csrf_token'] ?? '');
+    enforceAdminPermission();
+
+    $allowed_text = implode(', ', report_schedule_parse_allowlist($_POST['allowed_recipients'] ?? ''));
+    $allowed_esc  = mysqli_real_escape_string($mysqli, substr($allowed_text, 0, 1000));
+    mysqli_query($mysqli, "UPDATE settings SET config_report_schedule_allowed_recipients = '$allowed_esc' WHERE company_id = 1");
+    logAction("Report Schedule", "Edit", "Updated approved external recipients for scheduled reports");
+
+    $_SESSION['alert_type'] = 'success';
+    $_SESSION['alert_message'] = 'Approved external recipients saved.';
+    header('Location: schedules.php');
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_schedule'])) {
     validateCSRFToken($_POST['csrf_token'] ?? '');
     if (!$can_manage_schedules) {
         $schedule_deny();
     }
+    enforceUserPermission('module_reporting', 2);
 
     // Source is "r:<report key>" or "v:<saved view id>"; delivery format is summary | csv | html.
     $source     = (string) ($_POST['schedule_source'] ?? '');
@@ -71,10 +98,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_schedule'])) {
     $recipients = trim($_POST['schedule_recipients'] ?? '');
 
     // Validate against the whitelists so only known reports/frequencies land in the table.
-    $emails = preg_split('/[,;\s]+/', $recipients, -1, PREG_SPLIT_NO_EMPTY);
-    $valid_emails = array_filter($emails, function ($e) {
-        return filter_var($e, FILTER_VALIDATE_EMAIL);
-    });
+    // Recipients must be active staff addresses or addresses an administrator approved; anything else is refused.
+    [$valid_emails, $refused_emails] = report_schedule_filter_recipients($recipients, report_schedule_staff_emails($mysqli), report_schedule_allowlist($mysqli));
 
     if (!isset($valid_formats[$delivery])
         || ($delivery === 'summary' && (!isset($schedulable[$report]) || $saved_view_id > 0))
@@ -82,6 +107,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_schedule'])) {
         || ($report === '')) {
         $_SESSION['alert_type'] = 'danger';
         $_SESSION['alert_message'] = 'Please choose a valid report to schedule (a headline summary is only available for some reports, and you need access to the report).';
+    } elseif (!$can_schedule_report($report)) {
+        $_SESSION['alert_type'] = 'danger';
+        $_SESSION['alert_message'] = 'Your role does not have access to the data in that report.';
+    } elseif (!empty($refused_emails)) {
+        $_SESSION['alert_type'] = 'danger';
+        $_SESSION['alert_message'] = 'Not an agent address or an administrator-approved recipient: ' . implode(', ', $refused_emails) . '. Ask an administrator to approve external addresses.';
     } elseif (!isset($valid_frequencies[$frequency])) {
         $_SESSION['alert_type'] = 'danger';
         $_SESSION['alert_message'] = 'Please choose a valid frequency.';
@@ -117,11 +148,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_schedule'])) {
 // ---- Delete a schedule ----------------------------------------------------
 if (isset($_GET['delete'])) {
     validateCSRFToken($_GET['csrf_token'] ?? '');
+    enforceUserPermission('module_reporting', 2);
     $schedule_id = intval($_GET['delete']);
     if (!$can_manage_schedules || !$owns_schedule($schedule_id)) {
         $schedule_deny();
     }
-    mysqli_query($mysqli, "DELETE FROM report_schedules WHERE schedule_id = $schedule_id");
+    // Agents manage their own schedules; administrators manage all of them (including ones created before owners were recorded).
+    mysqli_query($mysqli, "DELETE FROM report_schedules WHERE schedule_id = $schedule_id" . $schedule_scope_sql);
 
     if (function_exists('logAction')) {
         logAction("Report Schedule", "Delete", "Deleted report schedule #$schedule_id");
@@ -136,11 +169,12 @@ if (isset($_GET['delete'])) {
 // ---- Toggle active/paused -------------------------------------------------
 if (isset($_GET['toggle'])) {
     validateCSRFToken($_GET['csrf_token'] ?? '');
+    enforceUserPermission('module_reporting', 2);
     $schedule_id = intval($_GET['toggle']);
     if (!$can_manage_schedules || !$owns_schedule($schedule_id)) {
         $schedule_deny();
     }
-    mysqli_query($mysqli, "UPDATE report_schedules SET schedule_active = IF(schedule_active = 1, 0, 1) WHERE schedule_id = $schedule_id");
+    mysqli_query($mysqli, "UPDATE report_schedules SET schedule_active = IF(schedule_active = 1, 0, 1) WHERE schedule_id = $schedule_id" . $schedule_scope_sql);
 
     $_SESSION['alert_type'] = 'success';
     $_SESSION['alert_message'] = 'Report schedule updated.';
@@ -156,6 +190,7 @@ $sql_schedules = mysqli_query($mysqli,
      FROM report_schedules rs
      LEFT JOIN saved_reports sr ON sr.saved_report_id = rs.schedule_saved_report_id
      LEFT JOIN users u ON u.user_id = rs.schedule_owner_user_id
+     WHERE 1 = 1 " . str_replace('schedule_owner_user_id', 'rs.schedule_owner_user_id', $schedule_scope_sql) . "
      ORDER BY rs.schedule_created_at DESC");
 
 $my_views = SavedReports::listFor($mysqli, $session_user_id, null, static fn ($m) => $m === '' || lookupUserPermission($m) >= 1);
@@ -229,6 +264,19 @@ $all_reports = ReportCatalog::definitions();
         <div class="px-3 py-2"><span class="text-muted">You can see the schedules; adding, pausing or deleting one needs Reporting modify access.</span></div>
         <?php } ?>
 
+        <?php if ($session_is_admin) { $current_allowed = report_schedule_allowlist($mysqli); ?>
+        <form method="post" class="px-3 pb-3">
+            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+            <input type="hidden" name="save_allowed_recipients" value="1">
+            <label class="mb-1">Approved external recipients</label>
+            <div class="input-group">
+                <input type="text" class="form-control" name="allowed_recipients" value="<?php echo nullable_htmlentities(implode(', ', $current_allowed)); ?>" placeholder="owner@example.com, @partner.example">
+                <button type="submit" class="btn btn-outline-primary">Save</button>
+            </div>
+            <small class="text-muted">Scheduled reports go to active agent addresses only, plus the addresses (or whole <code>@domains</code>) listed here. Only administrators can change this list.</small>
+        </form>
+        <?php } ?>
+
         <!-- Existing schedules -->
         <div class="table-responsive-sm px-3 pb-3">
             <table class="table table-striped">
@@ -261,7 +309,7 @@ $all_reports = ReportCatalog::definitions();
                             $active      = intval($row['schedule_active']) === 1;
                             $last_sent   = !empty($row['schedule_last_sent']) ? nullable_htmlentities($row['schedule_last_sent']) : '<span class="text-muted">Never</span>';
                             $last_status = (string) ($row['schedule_last_status'] ?? '');
-                            $may_change  = $can_manage_schedules && ($session_is_admin || $row['schedule_owner_user_id'] === null || intval($row['schedule_owner_user_id']) === intval($session_user_id));
+                            $may_change  = $can_manage_schedules && ($session_is_admin || ($row['schedule_owner_user_id'] !== null && intval($row['schedule_owner_user_id']) === intval($session_user_id)));
                             ?>
                         <tr>
                             <td><?php echo nullable_htmlentities($report_name); ?></td>

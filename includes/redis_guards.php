@@ -60,20 +60,24 @@ function rivetWithLock(string $name, int $ttlSeconds, callable $fn): array
     return $locks->run($name, $ttlSeconds, $fn);
 }
 
-/** @return array{allowed:bool, remaining:int, retry_after:int} always allowed when Redis is unavailable */
-function rivetRateLimit(string $bucket, int $limit, int $windowSeconds): array
+/**
+ * @param bool $failClosed refuse (instead of allowing) when Redis is unavailable, switched off or errors; for credential-guessing surfaces
+ * @return array{allowed:bool, remaining:int, retry_after:int} allowed when Redis is unavailable unless $failClosed
+ */
+function rivetRateLimit(string $bucket, int $limit, int $windowSeconds, bool $failClosed = false): array
 {
     static $limiter = false;
+    $unavailable = ['allowed' => !$failClosed, 'remaining' => $failClosed ? 0 : $limit, 'retry_after' => $failClosed ? $windowSeconds : 0];
     if ($limiter === false) {
         $limiter = rivetRedisGuardsOn() && class_exists(\RivetCore\Redis\RateLimiter::class) ? new \RivetCore\Redis\RateLimiter(rivetRedisProvider(), rivetRedisKeyPrefix()) : null;
     }
     if ($limiter === null) {
-        return ['allowed' => true, 'remaining' => $limit, 'retry_after' => 0];
+        return $unavailable;
     }
     try {
         return $limiter->hit($bucket, $limit, $windowSeconds);
     } catch (\Throwable $e) {
-        return ['allowed' => true, 'remaining' => $limit, 'retry_after' => 0];
+        return $unavailable;
     }
 }
 

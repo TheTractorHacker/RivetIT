@@ -71,13 +71,15 @@ function releaseDescribeTag(string $dir, string $ref): ?string
 }
 
 /**
- * Composer rewrites vendor/composer/* (it records the checkout's git HEAD), so on a server the tracked copies are always
- * "modified" and git then refuses to switch branches or pull. They are generated files: put them back before any
- * branch switch or pull (the deploy script does the same). Nothing else is touched.
+ * Composer rewrites vendor/composer/* AND vendor/autoload.php (the latter names the generated loader class in
+ * vendor/composer/autoload_real.php), so on a server the tracked copies are always "modified" and git then refuses to switch
+ * branches or pull. They are generated files: put them back before any branch switch or pull (the deploy script does the same).
+ * They must always be restored TOGETHER: restoring only vendor/composer leaves an autoload.php that names a loader class the
+ * restored autoload_real.php does not define, and every request then fatals (the 2026-10-06 outage). Nothing else is touched.
  */
 function releaseResetGeneratedFiles(string $dir): void
 {
-    releaseGit($dir, "checkout -- ':/vendor/composer'");
+    releaseGit($dir, "checkout -- ':/vendor/composer' ':/vendor/autoload.php'");
 }
 
 function releaseCurrentBranch(string $dir): string
@@ -176,4 +178,76 @@ function releaseChannelEnsureBranch(string $dir, string $channel): array
     }
 
     return ['ok' => true, 'switched' => true, 'message' => 'Switched to the ' . $st['branch'] . ' branch.'];
+}
+
+/**
+ * Update the code from the release channel, then ALWAYS run $postUpdate (composer install) - whether the update worked, was
+ * refused, or git failed half way - so the generated autoloader in vendor/ is never left pointing at a different class than the
+ * files beside it. Order matters:
+ *
+ *   1. fetch, move onto the channel's branch (forward only)
+ *   2. unless $force: fast-forward check; a diverged or ahead checkout is refused BEFORE anything is touched
+ *   3. only then restore the generated vendor files (together) and `git pull --ff-only` (or reset --hard when $force)
+ *   4. finally: $postUpdate() on every one of those exits
+ *
+ * @param callable():array $postUpdate returns ['ok'=>bool,'message'=>string] (rivetit_composer_install)
+ * @return array{ok:bool, switched:bool, message:string, git_message:string, post:array}
+ */
+function releaseApplyUpdate(string $dir, string $channel, bool $force, callable $postUpdate): array
+{
+    $post = ['ok' => false, 'message' => 'not run'];
+    try {
+        $res = releaseApplyUpdateGit($dir, $channel, $force);
+    } finally {
+        try {
+            $post = $postUpdate();
+        } catch (\Throwable $e) {
+            $post = ['ok' => false, 'message' => 'post-update step threw: ' . $e->getMessage()];
+        }
+    }
+    $res['post'] = $post;
+
+    return $res;
+}
+
+/** The git half of releaseApplyUpdate(). @return array{ok:bool, switched:bool, message:string, git_message:string, post:array} */
+function releaseApplyUpdateGit(string $dir, string $channel, bool $force): array
+{
+    $res = ['ok' => false, 'switched' => false, 'message' => '', 'git_message' => '', 'post' => ['ok' => false, 'message' => 'not run']];
+    $branch = releaseChannelBranch($channel);
+    $ref = RELEASE_REMOTE . '/' . $branch;
+    $fetch_out = [];
+    exec('timeout 60 git -C ' . escapeshellarg($dir) . ' fetch ' . escapeshellarg(RELEASE_REMOTE) . ' 2>&1', $fetch_out, $fetch_code);
+
+    $ensure = releaseChannelEnsureBranch($dir, $channel);
+    if (!$ensure['ok']) {
+        $res['message'] = $ensure['message'];
+        return $res;
+    }
+    $res['switched'] = $ensure['switched'];
+
+    $st = releaseChannelStatus($dir, $channel);
+    if (!$st['ref_exists']) {
+        $res['message'] = $st['reason'];
+        return $res;
+    }
+    if (!$force && $st['ahead'] > 0 && $st['behind'] > 0) {
+        // Diverged: not a fast-forward, pulling would need a merge. Refuse without touching any file.
+        $res['message'] = "This server has {$st['ahead']} commit(s) that $ref does not have and $ref has {$st['behind']} that it does not, so the update cannot fast-forward. Nothing was changed. Merge or push those commits first, or use Advanced: force update to discard them.";
+        return $res;
+    }
+
+    releaseResetGeneratedFiles($dir);
+    if ($force) {
+        [$code, $out] = releaseGit($dir, 'reset --hard ' . escapeshellarg($ref));
+    } else {
+        [$code, $out] = releaseGit($dir, 'pull --ff-only ' . escapeshellarg(RELEASE_REMOTE) . ' ' . escapeshellarg($branch));
+    }
+    $res['git_message'] = trim(implode("\n", $out));
+    if ($code !== 0) {
+        $res['message'] = trim(implode(' ', array_slice(array_filter(array_map('trim', $out)), 0, 2)));
+        return $res;
+    }
+    $res['ok'] = true;
+    return $res;
 }

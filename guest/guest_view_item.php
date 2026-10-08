@@ -47,7 +47,7 @@ if (!isset($_GET['id']) || !isset($_GET['key'])) {
 $item_id = intval($_GET['id']);
 $item_key = sanitizeInput($_GET['key']);
 
-$sql = mysqli_query($mysqli, "SELECT * FROM shared_items WHERE item_id = $item_id AND item_key = '$item_key' AND item_expire_at > NOW() LIMIT 1");
+$sql = mysqli_query($mysqli, "SELECT * FROM shared_items WHERE item_id = $item_id AND item_key = '$item_key' AND (item_expire_at IS NULL OR item_expire_at > NOW()) LIMIT 1");
 $row = mysqli_fetch_assoc($sql);
 
 // Check we got a result
@@ -280,23 +280,46 @@ if ($item_type == "Document") {
                 });
             });
 
-            // Delegated listener (CSP blocks inline onmouseenter= attributes) - lazily
-            // decrypts and fetches the current TOTP code the first time each OTP field
-            // is hovered.
+            // RFC 6238 TOTP (SHA-1, 6 digits, 30 s) computed IN THE BROWSER. The decrypted seed never leaves this page: it is
+            // not sent to the server (that would put it in the query string and the access logs).
+            function base32ToBytes(s) {
+                var alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+                var bits = '';
+                s.replace(/[\s=-]/g, '').toUpperCase().split('').forEach(function (ch) {
+                    var v = alphabet.indexOf(ch);
+                    if (v >= 0) bits += ('00000' + v.toString(2)).slice(-5);
+                });
+                var out = [];
+                for (var i = 0; i + 8 <= bits.length; i += 8) out.push(parseInt(bits.substr(i, 8), 2));
+                return new Uint8Array(out);
+            }
+
+            function totpCode(secret) {
+                var counter = Math.floor(Date.now() / 30000);
+                var msg = new Uint8Array(8);
+                for (var i = 7, c = counter; i >= 0; i--) { msg[i] = c & 0xff; c = Math.floor(c / 256); }
+                return crypto.subtle.importKey('raw', base32ToBytes(secret), {name: 'HMAC', hash: 'SHA-1'}, false, ['sign'])
+                    .then(function (k) { return crypto.subtle.sign('HMAC', k, msg); })
+                    .then(function (sig) {
+                        var h = new Uint8Array(sig);
+                        var o = h[h.length - 1] & 0x0f;
+                        var bin = ((h[o] & 0x7f) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3];
+                        return ('000000' + (bin % 1000000)).slice(-6);
+                    });
+            }
+
+            // Delegated listener (CSP blocks inline onmouseenter= attributes) - lazily decrypts the seed the first
+            // time each OTP field is hovered, then keeps the displayed code current.
             document.addEventListener('mouseover', function (e) {
                 var trigger = e.target.closest && e.target.closest('.js-show-otp');
                 if (!trigger || trigger.dataset.otpLoaded) return;
                 trigger.dataset.otpLoaded = '1';
                 decryptField(trigger.dataset.enc, ek).then(function (secret) {
                     if (!secret) return;
-                    jQuery.get(
-                        '/agent/ajax.php',
-                        {get_totp_token: 'true', totp_secret: secret},
-                        function (data) {
-                            var token = JSON.parse(data);
-                            document.getElementById('otp_' + trigger.dataset.credentialId).innerText = token;
-                        }
-                    );
+                    var target = document.getElementById('otp_' + trigger.dataset.credentialId);
+                    var refresh = function () { totpCode(secret).then(function (code) { target.innerText = code; }); };
+                    refresh();
+                    setInterval(refresh, 5000);
                 });
             });
         })();

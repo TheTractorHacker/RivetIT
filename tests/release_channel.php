@@ -99,5 +99,65 @@ $g($tagRepo, 'tag -a vnext -m not-a-version');
 $ok(releaseDescribeTag($tagRepo, 'HEAD') === 'v26.10.26', 'a tag that is v plus a non-digit is not an app release tag');
 $ok(releaseDescribeTag($tagRepo, 'no-such-ref') === null && releaseDescribeTag("$tmp/not-a-repo", 'HEAD') === null, 'a missing ref or directory gives null, never a warning');
 
+// ---- releaseApplyUpdate(): fast-forward check, vendor autoloader pair, composer on every exit path (pentest IT-1) ----
+$origin2 = "$tmp/origin2.git"; $work2 = "$tmp/work2"; $srv2 = "$tmp/server2";
+exec("git init -q --bare -b $P " . escapeshellarg($origin2));
+exec("git clone -q " . escapeshellarg($origin2) . " " . escapeshellarg($work2) . " 2>&1");
+$g($work2, "checkout -q -b $P");
+@mkdir("$work2/vendor/composer", 0777, true);
+file_put_contents("$work2/vendor/autoload.php", "loader=GOOD\n");
+file_put_contents("$work2/vendor/composer/autoload_real.php", "class=GOOD\n");
+$commit($work2, 'a.txt', 'a', 'A');
+$g($work2, "push -q origin $P");
+exec("git clone -q -o $RM -b $P " . escapeshellarg($origin2) . " " . escapeshellarg($srv2) . " 2>&1");
+$calls = 0;
+$composer = function () use (&$calls) { $calls++; return ['ok' => true, 'message' => '']; };
+$dirty = function () use ($srv2) {   // what a composer run does to the tracked generated files
+    file_put_contents("$srv2/vendor/autoload.php", "loader=COMPOSER_RUN\n");
+    file_put_contents("$srv2/vendor/composer/autoload_real.php", "class=COMPOSER_RUN\n");
+};
+
+// 1. normal fast-forward update with dirty generated files: pulled, BOTH files restored together, composer ran once
+$commit($work2, 'b.txt', 'b', 'B'); $g($work2, "push -q origin $P");
+$dirty();
+$r = releaseApplyUpdate($srv2, 'production', false, $composer);
+$ok($r['ok'] && $calls === 1 && is_file("$srv2/b.txt"), 'fast-forward update pulls the new commit and runs composer once');
+$ok(file_get_contents("$srv2/vendor/autoload.php") === "loader=GOOD\n" && file_get_contents("$srv2/vendor/composer/autoload_real.php") === "class=GOOD\n", 'vendor/autoload.php is restored together with vendor/composer');
+
+// 2. diverged checkout: refused BEFORE touching files, composer still runs, HEAD unchanged
+$commit($srv2, 'local.txt', 'local', 'LOCAL');
+$commit($work2, 'c.txt', 'c', 'C'); $g($work2, "push -q origin $P");
+$head = $g($srv2, 'rev-parse HEAD')[1];
+$dirty(); $calls = 0;
+$r = releaseApplyUpdate($srv2, 'production', false, $composer);
+$ok(!$r['ok'] && strpos($r['message'], 'fast-forward') !== false, 'a diverged checkout is refused with a fast-forward message');
+$ok($g($srv2, 'rev-parse HEAD')[1] === $head && !is_file("$srv2/c.txt"), 'the refused update changed no commit and no file');
+$ok($calls === 1, 'composer install still runs when the update is refused');
+$ok(file_get_contents("$srv2/vendor/autoload.php") === "loader=COMPOSER_RUN\n", 'refusal leaves the generated files exactly as composer wrote them (consistent pair)');
+
+// 3. git failure after the reset (an untracked file blocks the pull): reported, composer runs, vendor pair restored
+$g($srv2, 'reset -q --hard HEAD~1');   // drop LOCAL: level with origin minus C
+file_put_contents("$srv2/c.txt", "untracked blocker\n");
+$dirty(); $calls = 0;
+$r = releaseApplyUpdate($srv2, 'production', false, $composer);
+$ok(!$r['ok'] && $r['message'] !== '' && $calls === 1, 'a failing git pull is reported and composer still runs');
+$ok(file_get_contents("$srv2/vendor/autoload.php") === "loader=GOOD\n" && file_get_contents("$srv2/vendor/composer/autoload_real.php") === "class=GOOD\n", 'after a failed pull the vendor pair is consistent (both restored)');
+@unlink("$srv2/c.txt");
+
+// 4. a throwing post-update step is contained and reported
+$r = releaseApplyUpdate($srv2, 'production', false, function () { throw new RuntimeException('boom'); });
+$ok(!$r['post']['ok'] && strpos($r['post']['message'], 'boom') !== false, 'a throwing composer step is caught and reported');
+
+// 5. force update discards the diverged commit
+$commit($srv2, 'local2.txt', 'x', 'LOCAL2');
+$r = releaseApplyUpdate($srv2, 'production', true, $composer);
+$ok($r['ok'] && !is_file("$srv2/local2.txt") && is_file("$srv2/c.txt"), 'force update resets to the channel branch');
+
+// 6. static: neither entry point resets only vendor/composer or pulls without --ff-only
+$src_up = file_get_contents(__DIR__ . '/../admin/post/update.php') . file_get_contents(__DIR__ . '/../scripts/update_cli.php');
+$ok(strpos($src_up, 'exec("git pull') === false && strpos($src_up, 'exec("git reset') === false && strpos($src_up, "checkout -- ':/vendor/composer'") === false, 'update entry points have no bare git pull and no vendor/composer-only reset');
+$ok(substr_count($src_up, 'rivetit_composer_install(') === 2, 'both update entry points run composer through releaseApplyUpdate');
+$ok(strpos(file_get_contents(__DIR__ . '/../includes/release_channel.php'), "':/vendor/autoload.php'") !== false, 'the generated-file reset includes vendor/autoload.php');
+
 echo $fails === 0 ? "ALL PASSED\n" : "$fails FAILED\n";
 exit($fails === 0 ? 0 : 1);

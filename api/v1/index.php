@@ -82,10 +82,10 @@ if (in_array($resource, ['quotes', 'invoices', 'invoice_items', 'expenses', 'pro
 
 // Public endpoint: auth
 if ($resource === 'auth') {
-    // Tight per-IP limit on the unauthenticated login path (fails open if
-    // Redis is down). auth.php also enforces a per-user failed-login lockout.
+    // Tight per-IP limit on the unauthenticated login path. FAILS CLOSED if Redis is down (logout stays available)
+    // so the throttle cannot be lifted by taking Redis away. auth.php also enforces a per-user failed-login lockout.
     $auth_ip = getIP();
-    if (!api_rate_limit('auth_ip:' . $auth_ip, 30, 60)) {
+    if (!api_rate_limit('auth_ip:' . $auth_ip, 30, 60, ($_SERVER['REQUEST_METHOD'] ?? '') !== 'DELETE')) {
         header('Retry-After: ' . api_rate_limit_retry_after());
         api_error(429, 'Rate limit exceeded');
     }

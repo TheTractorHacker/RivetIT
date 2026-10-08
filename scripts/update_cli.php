@@ -81,48 +81,32 @@ if (count($options) === 0) {
 
 // If "update" or "force_update" is requested
 if (isset($options['update']) || isset($options['force_update'])) {
-    if (isset($options['force_update'])) {
-        // Perform a hard reset
-        require_once __DIR__ . '/../includes/release_channel.php';
-        $release_channel = releaseChannelConfigured($mysqli ?? null, dirname(__DIR__));
-        $release_branch  = releaseChannelBranch($release_channel);
-        exec("git fetch --all 2>&1", $output, $return_var);
-        exec("git reset --hard " . escapeshellarg(RELEASE_REMOTE . '/' . $release_branch) . " 2>&1", $output2, $return_var2);
-        echo implode("\n", $output) . "\n" . implode("\n", $output2) . "\n";
-    } else {
-        // Perform a standard update (git pull). composer rewrites tracked files in vendor/composer; restore them
-        // first so the pull cannot be blocked by them (composer regenerates them after the pull).
-        exec("git checkout -- ':/vendor/composer' 2>&1");
-        // Follow the release channel (Administration > Update): move onto its branch first (forward only), then pull from it.
-        require_once __DIR__ . '/../includes/release_channel.php';
-        $release_channel = releaseChannelConfigured($mysqli ?? null, dirname(__DIR__));
-        $release_branch  = releaseChannelBranch($release_channel);
-        exec("timeout 60 git fetch " . escapeshellarg(RELEASE_REMOTE) . " 2>&1");
-        $ensure = releaseChannelEnsureBranch(dirname(__DIR__), $release_channel);
-        if (!$ensure['ok']) {
-            fwrite(STDERR, "Update stopped: " . $ensure['message'] . "\n");
-            exit(1);
-        }
-        if ($ensure['switched']) {
-            echo $ensure['message'] . "\n";
-        }
-        exec("git pull " . escapeshellarg(RELEASE_REMOTE) . " " . escapeshellarg($release_branch) . " 2>&1", $output, $return_var);
-
-        // A failed pull (unreachable or unknown remote, diverged history ...) must not be reported as a success:
-        // deploy/update.sh would carry on and run migrations against code that never changed.
-        if ($return_var !== 0) {
-            fwrite(STDERR, "Update failed: git pull exited with status $return_var.\n" . implode("\n", $output) . "\n");
-            exit(1);
-        }
-
-        // Check if the repository is already up to date
-        if (strpos(implode("\n", $output), 'Already up to date.') === false) {
-            echo implode("\n", $output) . "\n";
-            echo "Update successful\n";
-        } else {
-            // If already up-to-date, don't show the update success message
-            echo implode("\n", $output) . "\n";
-        }
+    // Same flow as the Update App button (includes/release_channel.php): fast-forward check first, `git pull --ff-only`,
+    // generated vendor files restored together, and `composer install` on every exit path so the autoloader is never left
+    // half updated.
+    require_once __DIR__ . '/../includes/release_channel.php';
+    require_once __DIR__ . '/../includes/composer_install.php';
+    $release_channel = releaseChannelConfigured($mysqli ?? null, dirname(__DIR__));
+    $update = releaseApplyUpdate(dirname(__DIR__), $release_channel, isset($options['force_update']),
+        function () { return rivetit_composer_install(dirname(__DIR__)); });
+    if ($update['switched']) {
+        echo "Switched to the " . releaseChannelBranch($release_channel) . " branch.\n";
+    }
+    if ($update['git_message'] !== '') {
+        echo $update['git_message'] . "\n";
+    }
+    if (!$update['post']['ok']) {
+        fwrite(STDERR, "composer install failed: " . $update['post']['message'] . "\nRun composer install --no-dev in the install folder before using the site.\n");
+    }
+    if (!$update['ok']) {
+        fwrite(STDERR, "Update stopped: " . $update['message'] . "\n");
+        exit(1);
+    }
+    if (strpos($update['git_message'], 'Already up to date.') === false) {
+        echo "Update successful\n";
+    }
+    if (!$update['post']['ok']) {
+        exit(1);
     }
 }
 

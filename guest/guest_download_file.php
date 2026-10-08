@@ -22,7 +22,7 @@ if (isset($_GET['id']) && isset($_GET['key'])) {
     $item_id = intval($_GET['id']);
     $item_key = sanitizeInput($_GET['key']);
 
-    $sql = mysqli_query($mysqli, "SELECT * FROM shared_items WHERE item_id = $item_id AND item_key = '$item_key' AND item_expire_at > NOW() LIMIT 1");
+    $sql = mysqli_query($mysqli, "SELECT * FROM shared_items WHERE item_id = $item_id AND item_key = '$item_key' AND (item_expire_at IS NULL OR item_expire_at > NOW()) LIMIT 1");
     $row = mysqli_fetch_assoc($sql);
 
     $item_active = intval($row['item_active']);

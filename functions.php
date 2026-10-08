@@ -5,6 +5,7 @@ require_once __DIR__ . '/includes/redis_functions.php';
 require_once __DIR__ . '/includes/firebase.php';
 require_once __DIR__ . '/includes/notification_categories.php';
 require_once __DIR__ . '/includes/module_access.php';
+require_once __DIR__ . '/includes/billing_guards.php';  // pure money/invoice-state guards + insertStripePaymentOnce()
 require_once __DIR__ . '/includes/modal_permissions.php';   // pop-up map; pages use itflow_modal_allowed() to hide triggers it would refuse
 require_once __DIR__ . '/includes/ui/components.php';
 
@@ -1214,10 +1215,12 @@ function getDomainDnssec($whois)
     return null;
 }
 
-// SSRF-lite guard for getSSL(): resolve the hostname and refuse loopback, link-local (cloud metadata),
-// unspecified, multicast and reserved addresses. RFC1918 space stays allowed because MSPs legitimately
-// check certificates on internal hosts. Returns the first acceptable IP, or null if any address is refused.
-function sslTargetIp($name)
+// SSRF guard for getSSL(): resolve the hostname and refuse loopback, link-local (cloud metadata), unspecified, multicast and
+// reserved addresses outright. Private space (RFC1918, CGNAT, IPv6 ULA) is refused too unless it sits inside a network the
+// administrator listed under Administration > Webhooks > Allowed internal networks (the same "internal network access" list the
+// webhooks use), so an agent cannot use the certificate fetcher to map internal hosts. Returns the first acceptable IP, or null
+// if any address is refused. $allowed_networks: list of CIDRs, or null to read the administrator's list.
+function sslTargetIp($name, $allowed_networks = null)
 {
     $ips = [];
     if (filter_var($name, FILTER_VALIDATE_IP)) {
@@ -1250,8 +1253,42 @@ function sslTargetIp($name)
         if (preg_match('/^169\.254\./', $ip) || preg_match('/^fe[89ab][0-9a-f]:/i', $ip) || preg_match('/^(22[4-9]|23\d)\./', $ip) || preg_match('/^ff/i', $ip)) {
             return null; // link-local (incl. 169.254.169.254) and multicast
         }
+        $private = !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE) || preg_match('/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./', $ip);
+        if ($private) {
+            if ($allowed_networks === null) {
+                $allowed_networks = sslAllowedInternalNetworks();
+            }
+            if (!$allowed_networks || !class_exists('\RivetCore\Webhooks\NetworkList') || !\RivetCore\Webhooks\NetworkList::contains($allowed_networks, $ip)) {
+                return null; // internal address the administrator has not allowed
+            }
+        }
     }
     return $ips[0];
+}
+
+// The administrator's allowed internal networks (canonical CIDRs); empty when none are set, the column is missing or RivetCore is old.
+function sslAllowedInternalNetworks()
+{
+    if (function_exists('rivetWebhookAllowedNetworks')) {
+        return rivetWebhookAllowedNetworks();
+    }
+    global $mysqli;
+    try {
+        if (!($mysqli instanceof mysqli) || !class_exists('\RivetCore\Webhooks\NetworkList')) {
+            return [];
+        }
+        $res = @mysqli_query($mysqli, "SELECT config_webhook_allowed_networks FROM settings LIMIT 1");
+        $row = $res ? mysqli_fetch_row($res) : null;
+        return \RivetCore\Webhooks\NetworkList::parse((string) ($row[0] ?? ''))['networks'];
+    } catch (\Throwable $e) {
+        return [];
+    }
+}
+
+// Ports getSSL() will connect to: HTTPS and the usual TLS service ports. Anything else (SSH, databases, admin panels, ...) is refused.
+function sslAllowedPorts()
+{
+    return [443, 465, 563, 636, 853, 989, 990, 992, 993, 995, 4443, 8443, 9443, 10443];
 }
 
 // Used to automatically attempt to get SSL certificates as part of adding domains
@@ -1282,7 +1319,7 @@ function getSSL($full_name)
     // Refuse loopback / link-local / reserved targets, and connect to the IP we validated (no DNS re-resolution)
     $target_ip = sslTargetIp($name);
     $port = (int) $port;
-    if ($target_ip === null || $port < 1 || $port > 65535) {
+    if ($target_ip === null || !in_array($port, sslAllowedPorts(), true)) {
         $certificate['expire'] = '';
         $certificate['issued_by'] = '';
         $certificate['public_key'] = '';

@@ -74,11 +74,14 @@ final class ChatDelivery
             return ['status' => null, 'body' => null, 'error' => $vet['error']];
         }
 
-        // The URL curl is given must carry the exact host spelling the pin below is keyed on. A host such as "hooks.example.com."
-        // (trailing dot) passes the vetting but never matches the CURLOPT_RESOLVE entry, so curl would resolve the name itself and
-        // a rebinding DNS answer could then reach an internal address. pinnedUrl() rewrites the host to the vetted spelling
-        // (same fix as the send_webhook automation action in includes/event_bus.php).
-        $ch = curl_init(\RivetCore\Webhooks\WebhookDispatcher::pinnedUrl($url, ['host' => $vet['host'], 'port' => $vet['port'], 'ips' => $vet['ips']]));
+        // curl must be given the URL built from the vetted host, the same spelling the CURLOPT_RESOLVE pin below is keyed on
+        // (lower-case, no trailing dot). With the raw URL a host such as "example.com." skips the pin and curl resolves the
+        // name itself, which reopens DNS rebinding for this path. Fails closed when RivetCore cannot build that URL.
+        if (!method_exists(\RivetCore\Webhooks\WebhookDispatcher::class, 'pinnedUrl')) {
+            return ['status' => null, 'body' => null, 'error' => 'Delivery is unavailable: RivetCore is too old to pin the connection.'];
+        }
+        $pinned_url = \RivetCore\Webhooks\WebhookDispatcher::pinnedUrl($url, $vet);
+        $ch = curl_init($pinned_url);
         if ($ch === false) {
             return ['status' => null, 'body' => null, 'error' => 'curl_init failed'];
         }

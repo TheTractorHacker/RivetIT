@@ -7,8 +7,10 @@ require_once __DIR__ . '/../../../includes/redis_guards.php';
  * REST API request throttle. One implementation for the whole product: rivetRateLimit() (includes/redis_guards.php), the
  * Redis-backed fixed-window limiter in RivetCore, with the same key layout as the sign-in throttle.
  *
- * FAILS OPEN: if Redis is unavailable, switched off, or any Redis call throws, the request is allowed so the API keeps
- * serving. Rate limiting here is an abuse guard, never a hard dependency.
+ * FAILS OPEN by default: if Redis is unavailable, switched off, or any Redis call throws, the request is allowed so the
+ * API keeps serving. Rate limiting here is an abuse guard, never a hard dependency. Credential-guessing surfaces (the
+ * login endpoint) pass $fail_closed = true so an attacker cannot lift the throttle by knocking Redis over: with Redis
+ * down the call returns false (the caller answers 429).
  *
  * Callers answer an over-limit request with HTTP 429 and `Retry-After: api_rate_limit_retry_after()` (the seconds left in
  * the current window, not a fixed guess).
@@ -16,9 +18,10 @@ require_once __DIR__ . '/../../../includes/redis_guards.php';
  * @param string $bucket unique key suffix (per token, per IP, ...)
  * @param int    $limit  max requests allowed within the window
  * @param int    $window window length in seconds
+ * @param bool   $fail_closed deny (return false) when Redis is unavailable
  * @return bool true = allowed, false = over limit
  */
-function api_rate_limit(string $bucket, int $limit, int $window): bool {
+function api_rate_limit(string $bucket, int $limit, int $window, bool $fail_closed = false): bool {
     $GLOBALS['api_rate_limit_retry_after'] = $window;
 
     // Trusted callers (config.php: CONST_API_RATE_LIMIT_ALLOWLIST) skip every
@@ -39,7 +42,7 @@ function api_rate_limit(string $bucket, int $limit, int $window): bool {
         return true;
     }
 
-    $r = rivetRateLimit('api:' . $bucket, $limit, $window); // fails open
+    $r = rivetRateLimit('api:' . $bucket, $limit, $window, $fail_closed); // fails open unless $fail_closed
     if (!$r['allowed']) {
         $GLOBALS['api_rate_limit_retry_after'] = max(1, (int) $r['retry_after']);
     }
