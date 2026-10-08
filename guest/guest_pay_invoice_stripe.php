@@ -251,25 +251,29 @@ if (isset($_GET['invoice_id'], $_GET['url_key']) && !isset($_GET['payment_intent
     $amount_paid_previously = floatval(mysqli_fetch_assoc($sql_amount_paid_previously)['amount_paid']);
     $balance_to_pay = $invoice_amount - $amount_paid_previously;
 
+    if (moneyToCents($balance_to_pay) !== moneyToCents($pi_amount_paid)) {
+        error_log("Stripe payment error - Invoice balance does not match amount paid for $pi_id");
+        exit(WORDING_PAYMENT_FAILED);
+    }
+
+    // Add Payment to History
+    // Once per PaymentIntent (the webhook may have recorded it between the check above and now)
+    if (!insertStripePaymentOnce($mysqli, $pi_date, $pi_amount_paid, $pi_currency, $stripe_account, 'Stripe', $pi_id, $invoice_id)) {
+        error_log("Stripe payment: $pi_id was already recorded");
+        exit(WORDING_PAYMENT_FAILED);
+    }
+
     // Stripe expense
     if ($stripe_expense_vendor > 0 && $stripe_expense_category > 0) {
         $gateway_fee = round($balance_to_pay * $stripe_percentage_fee + $stripe_flat_fee, 2);
         mysqli_query($mysqli, "INSERT INTO expenses SET expense_date = '$pi_date', expense_amount = $gateway_fee, expense_currency_code = '$invoice_currency_code', expense_account_id = $stripe_account, expense_vendor_id = $stripe_expense_vendor, expense_client_id = $client_id, expense_category_id = $stripe_expense_category, expense_description = 'Stripe Transaction for Invoice $invoice_prefix$invoice_number In the Amount of $balance_to_pay', expense_reference = 'Stripe - $pi_id'");
     }
 
-    if (intval($balance_to_pay) !== intval($pi_amount_paid)) {
-        error_log("Stripe payment error - Invoice balance does not match amount paid for $pi_id");
-        exit(WORDING_PAYMENT_FAILED);
-    }
-
-    // Add Payment to History
-    mysqli_query($mysqli, "INSERT INTO payments SET payment_date = '$pi_date', payment_amount = $pi_amount_paid, payment_currency_code = '$pi_currency', payment_account_id = $stripe_account, payment_method = 'Stripe', payment_reference = 'Stripe - $pi_id', payment_invoice_id = $invoice_id");
-
     // Recompute invoice status from total payments, rather than assuming this
     // single PaymentIntent covers the invoice in full - matches guest/payment_webhook.php.
     $paid_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT SUM(payment_amount) AS amount_paid FROM payments WHERE payment_invoice_id = $invoice_id"));
     $total_paid = floatval($paid_row['amount_paid']);
-    $invoice_status = ($invoice_amount - $total_paid <= 0) ? 'Paid' : 'Partial';
+    $invoice_status = invoiceStatusAfterPayment($invoice_amount, $total_paid);
     mysqli_query($mysqli, "UPDATE invoices SET invoice_status = '$invoice_status' WHERE invoice_id = $invoice_id");
     mysqli_query($mysqli, "INSERT INTO history SET history_status = '$invoice_status', history_description = 'Online Payment added (client) - $ip - $os - $browser', history_invoice_id = $invoice_id");
 

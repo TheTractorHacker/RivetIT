@@ -170,12 +170,17 @@ $config_invoice_paid_notification_email = sanitizeInput($company_row['config_inv
 $currency_format = numfmt_create($company_locale ?: 'en_US', NumberFormatter::CURRENCY);
 
 // --- Record the payment ---
-mysqli_query($mysqli, "INSERT INTO payments SET payment_date = '$pi_date', payment_amount = $pi_amount_paid, payment_currency_code = '$pi_currency', payment_account_id = $provider_account_id, payment_method = '$provider_display_safe', payment_reference = 'Stripe - $pi_id', payment_invoice_id = $invoice_id");
+// Once per PaymentIntent: the UNIQUE payment_provider_ref index closes the race with the redirect / autopay paths.
+if (!insertStripePaymentOnce($mysqli, $pi_date, $pi_amount_paid, $pi_currency, $provider_account_id, $provider_display_safe, $pi_id, $invoice_id)) {
+    mysqli_query($mysqli, "UPDATE payment_webhook_events SET event_status = 'ignored' WHERE event_id = $event_row_id");
+    http_response_code(200);
+    exit('Already recorded');
+}
 
 // Recompute invoice status from total payments
 $paid_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT SUM(payment_amount) AS amount_paid FROM payments WHERE payment_invoice_id = $invoice_id"));
 $total_paid = floatval($paid_row['amount_paid']);
-$invoice_status = ($invoice_amount - $total_paid <= 0) ? 'Paid' : 'Partial';
+$invoice_status = invoiceStatusAfterPayment($invoice_amount, $total_paid);
 mysqli_query($mysqli, "UPDATE invoices SET invoice_status = '$invoice_status' WHERE invoice_id = $invoice_id");
 mysqli_query($mysqli, "INSERT INTO history SET history_status = '$invoice_status', history_description = 'Online Payment added (webhook)', history_invoice_id = $invoice_id");
 

@@ -9,6 +9,7 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 // Accounting (QuickBooks Online) one-way sync enqueue helper. No-ops unless the
 // accounting module + a connected integration with auto-push are configured.
 require_once __DIR__ . '/../../includes/accounting_functions.php';
+require_once __DIR__ . '/../../includes/billing_guards.php';
 
 if (isset($_POST['add_payment'])) {
 
@@ -30,15 +31,40 @@ if (isset($_POST['add_payment'])) {
 
     enforceClientAccess();
 
-    // Recomputed server-side - the submitted $_POST['balance'] is client-controlled and
-    // could be inflated to let an overpayment/negative-balance payment row through.
+    // Recomputed server-side under a row lock - the submitted $_POST['balance'] is client-controlled, and
+    // two simultaneous submits must not both pass the balance check.
+    mysqli_begin_transaction($mysqli);
     $balance_row = mysqli_fetch_assoc(mysqli_query($mysqli,
-        "SELECT invoice_amount - IFNULL((SELECT SUM(payment_amount) FROM payments WHERE payment_invoice_id = invoice_id), 0) AS balance
-         FROM invoices WHERE invoice_id = $invoice_id LIMIT 1"));
-    $balance = $balance_row ? floatval($balance_row['balance']) : 0;
+        "SELECT invoice_status, invoice_amount - IFNULL((SELECT SUM(payment_amount) FROM payments WHERE payment_invoice_id = invoice_id), 0) AS balance
+         FROM invoices WHERE invoice_id = $invoice_id LIMIT 1 FOR UPDATE"));
 
-    //Check to see if amount entered is greater than the balance of the invoice
-    if ($amount > $balance) {
+    if (!$balance_row) {
+        mysqli_rollback($mysqli);
+        flash_alert("Invoice not found", 'error');
+        redirect();
+    }
+
+    // Only invoices that are open for payment can receive one (not Draft, Paid, Cancelled or Non-Billable)
+    if (!invoiceStatusAcceptsPayment($balance_row['invoice_status'])) {
+        mysqli_rollback($mysqli);
+        flash_alert("Payments can not be added to an invoice with status " . htmlspecialchars($balance_row['invoice_status']), 'error');
+        redirect();
+    }
+
+    // Amount must be a number greater than zero (a negative payment would silently un-pay an invoice)
+    $valid_amount = parsePositiveMoney($_POST['amount'] ?? null);
+    if ($valid_amount === null) {
+        mysqli_rollback($mysqli);
+        flash_alert("Payment amount must be greater than zero", 'error');
+        redirect();
+    }
+    $amount = $valid_amount;
+
+    $balance = floatval($balance_row['balance']);
+
+    //Check to see if amount entered is greater than the balance of the invoice (compared in cents)
+    if (!paymentFitsBalance($amount, $balance)) {
+        mysqli_rollback($mysqli);
         flash_alert("Payment can not be more than the balance", 'error');
         redirect();
     } else {
@@ -46,6 +72,7 @@ if (isset($_POST['add_payment'])) {
 
         // Get Payment ID for reference
         $payment_id = mysqli_insert_id($mysqli);
+        mysqli_commit($mysqli);
 
         //Add up all the payments for the invoice and get the total amount paid to the invoice
         $sql_total_payments_amount = mysqli_query($mysqli,"SELECT SUM(payment_amount) AS payments_amount FROM payments WHERE payment_invoice_id = $invoice_id");
@@ -96,7 +123,7 @@ if (isset($_POST['add_payment'])) {
         $email_data = [];
 
         //Determine if invoice has been paid then set the status accordingly
-        if ($invoice_balance == 0) {
+        if (invoiceStatusAfterPayment($invoice_amount, $total_payments_amount) === 'Paid') {
 
             $invoice_status = "Paid";
 
@@ -204,13 +231,56 @@ if (isset($_POST['edit_payment'])) {
     $payment_method = sanitizeInput($_POST['payment_method']);
     $reference = sanitizeInput($_POST['reference']);
 
-    $client_id = intval(getFieldById('payments', $payment_id, 'payment_client_id'));
+    // payments has no client column: resolve the client through the invoice it belongs to
+    // (getFieldById silently falls back to the primary key for unknown columns).
+    $payment_row = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT payment_invoice_id, invoice_client_id, invoice_amount, invoice_status
+         FROM payments LEFT JOIN invoices ON payment_invoice_id = invoice_id
+         WHERE payment_id = $payment_id LIMIT 1"));
+
+    if (!$payment_row || $payment_row['invoice_client_id'] === null) {
+        flash_alert("Payment not found", 'error');
+        redirect();
+    }
+
+    $client_id = intval($payment_row['invoice_client_id']);
+    $invoice_id = intval($payment_row['payment_invoice_id']);
 
     enforceClientAccess();
 
+    $valid_amount = parsePositiveMoney($_POST['amount'] ?? null);
+    if ($valid_amount === null) {
+        flash_alert("Payment amount must be greater than zero", 'error');
+        redirect();
+    }
+    $amount = $valid_amount;
+
+    // The edited payment plus the other payments on the invoice must not exceed the invoice total
+    $other_row = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT IFNULL(SUM(payment_amount), 0) AS other_paid FROM payments WHERE payment_invoice_id = $invoice_id AND payment_id != $payment_id"));
+    $other_paid = floatval($other_row['other_paid']);
+    if (!paymentFitsBalance($amount + $other_paid, floatval($payment_row['invoice_amount']))) {
+        flash_alert("Payment can not be more than the balance", 'error');
+        redirect();
+    }
+
     mysqli_query($mysqli,"UPDATE payments SET payment_date = '$date', payment_amount = $amount, payment_account_id = $account, payment_method = '$payment_method', payment_reference = '$reference' WHERE payment_id = $payment_id");
 
-    logAction("Payment", "Edit", "Payment edited amount of " . numfmt_format_currency($currency_format, $amount, $session_company_currency));
+    // Re-evaluate the invoice status, but only for invoices that are in the payment flow
+    $current_status = $payment_row['invoice_status'];
+    if (in_array($current_status, ['Paid', 'Partial', 'Sent', 'Viewed', 'Overdue'], true)) {
+        $new_status = invoiceStatusAfterPayment($payment_row['invoice_amount'], $amount + $other_paid);
+        if ($new_status === 'Partial' && $current_status !== 'Paid' && $current_status !== 'Partial') {
+            $new_status = $current_status; // unchanged: still unpaid-open
+        }
+        if ($new_status !== $current_status) {
+            $new_status_esc = sanitizeInput($new_status);
+            mysqli_query($mysqli,"UPDATE invoices SET invoice_status = '$new_status_esc' WHERE invoice_id = $invoice_id");
+            mysqli_query($mysqli,"INSERT INTO history SET history_status = '$new_status_esc', history_description = 'Payment edited', history_invoice_id = $invoice_id");
+        }
+    }
+
+    logAction("Payment", "Edit", "Payment edited amount of " . numfmt_format_currency($currency_format, $amount, $session_company_currency), $client_id, $invoice_id);
 
     flash_alert("Payment edited to amount <strong>" . numfmt_format_currency($currency_format, $amount, $session_company_currency) . "</strong> added");
 
@@ -458,14 +528,17 @@ if (isset($_POST['add_payment_stripe'])) {
         logApp("Stripe", "error", "Exception during PI for invoice ID $invoice_id: $error");
     }
 
-    if ($payment_intent->status == "succeeded" && intval($balance_to_pay) == intval($pi_amount_paid)) {
+    if ($payment_intent->status == "succeeded" && moneyToCents($balance_to_pay) === moneyToCents($pi_amount_paid)) {
+
+        // Record the payment first, exactly once per PaymentIntent (the webhook may have recorded it already)
+        $stripe_payment_id = insertStripePaymentOnce($mysqli, $pi_date, $pi_amount_paid, $pi_currency, $account_id, 'Stripe', $pi_id, $invoice_id);
+        if (!$stripe_payment_id) {
+            flash_alert("Payment already recorded", 'info');
+            redirect();
+        }
 
         // Update Invoice Status
         mysqli_query($mysqli, "UPDATE invoices SET invoice_status = 'Paid' WHERE invoice_id = $invoice_id");
-
-        // Add Payment to History
-        mysqli_query($mysqli, "INSERT INTO payments SET payment_date = '$pi_date', payment_amount = $pi_amount_paid, payment_currency_code = '$pi_currency', payment_account_id = $account_id, payment_method = 'Stripe', payment_reference = 'Stripe - $pi_id', payment_invoice_id = $invoice_id");
-        $stripe_payment_id = mysqli_insert_id($mysqli);
         mysqli_query($mysqli, "INSERT INTO history SET history_status = 'Paid', history_description = 'Online Payment added (agent)', history_invoice_id = $invoice_id");
 
         // Enqueue a one-way push of this payment to the accounting provider.
@@ -632,7 +705,7 @@ if (isset($_GET['add_payment_stripe'])) {
                 'itflow_invoice_number' => $invoice_prefix . $invoice_number,
                 'itflow_invoice_id' => $invoice_id,
             ]
-        ]);
+        ], ['idempotency_key' => stripeChargeIdempotencyKey($invoice_id, $balance_to_pay, 0)]);
 
         // Get details from PI
         $pi_id = sanitizeInput($payment_intent->id);
@@ -647,13 +720,16 @@ if (isset($_GET['add_payment_stripe'])) {
         logApp("Stripe", "error", "Exception during PI for invoice ID $invoice_id: $error");
     }
 
-    if ($payment_intent->status == "succeeded" && intval($balance_to_pay) == intval($pi_amount_paid)) {
+    if ($payment_intent->status == "succeeded" && moneyToCents($balance_to_pay) === moneyToCents($pi_amount_paid)) {
+
+        // Record the payment first, exactly once per PaymentIntent (the webhook may have recorded it already)
+        if (!insertStripePaymentOnce($mysqli, $pi_date, $pi_amount_paid, $pi_currency, $config_stripe_account, 'Stripe', $pi_id, $invoice_id)) {
+            flash_alert("Payment already recorded", 'info');
+            redirect();
+        }
 
         // Update Invoice Status
         mysqli_query($mysqli, "UPDATE invoices SET invoice_status = 'Paid' WHERE invoice_id = $invoice_id");
-
-        // Add Payment to History
-        mysqli_query($mysqli, "INSERT INTO payments SET payment_date = '$pi_date', payment_amount = $pi_amount_paid, payment_currency_code = '$pi_currency', payment_account_id = $config_stripe_account, payment_method = 'Stripe', payment_reference = 'Stripe - $pi_id', payment_invoice_id = $invoice_id");
         mysqli_query($mysqli, "INSERT INTO history SET history_status = 'Paid', history_description = 'Online Payment added (agent)', history_invoice_id = $invoice_id");
 
         // Email receipt

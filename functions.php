@@ -5,6 +5,7 @@ require_once __DIR__ . '/includes/redis_functions.php';
 require_once __DIR__ . '/includes/firebase.php';
 require_once __DIR__ . '/includes/notification_categories.php';
 require_once __DIR__ . '/includes/module_access.php';
+require_once __DIR__ . '/includes/billing_guards.php';  // pure money/invoice-state guards + insertStripePaymentOnce()
 require_once __DIR__ . '/includes/modal_permissions.php';   // pop-up map; pages use itflow_modal_allowed() to hide triggers it would refuse
 require_once __DIR__ . '/includes/ui/components.php';
 
