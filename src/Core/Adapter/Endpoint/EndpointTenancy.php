@@ -32,7 +32,9 @@ final class EndpointTenancy implements RmmTenancyInterface
             return null;
         }
 
-        return array_values(array_map(static fn (array $r): int => (int) $r['client_id'], $rows));
+        // Rows exist, so the user is restricted. Client 0 ("no client") is visible to everyone and is not listed: a user whose only row is client 0
+        // is restricted to nothing, and gets [] (the old Authz::clientScopeSql() gave that user client 0 only).
+        return array_values(array_filter(array_map(static fn (array $r): int => (int) $r['client_id'], $rows), static fn (int $id): bool => $id > 0));
     }
 
     public function clientName(int $clientId): ?string

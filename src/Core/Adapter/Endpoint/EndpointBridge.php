@@ -116,7 +116,8 @@ final class EndpointBridge implements RmmBridgeInterface
 
     public function reassignAlerts(int $integrationId, int $assetId, int $clientId): void
     {
-        $this->database->execute('UPDATE rmm_alerts SET client_id = ? WHERE asset_id = ? AND integration_id = ?', [$clientId, $assetId, $integrationId]);
+        // Open alerts follow the device (the contract); a resolved alert stays with the client it was raised for. (The old code moved resolved ones too.)
+        $this->database->execute("UPDATE rmm_alerts SET client_id = ? WHERE asset_id = ? AND integration_id = ? AND status <> 'resolved'", [$clientId, $assetId, $integrationId]);
     }
 
     public function savedPowerShellScript(int $scriptId): ?string
