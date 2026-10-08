@@ -68,3 +68,4 @@ api/v1/custom/*
 /vendor/*
 __pycache__/
 *.pyc
+tests/core/.phpunit.result.cache

@@ -6,6 +6,36 @@ continues unchanged.
 
 ## [Unreleased]
 
+### RMM module: the endpoint agent now runs on RivetCore (DB 2.6.147)
+
+The server side of the built-in endpoint agent (enrollment, devices, check-in, signed jobs, hosted updates, per-department installers, MeshCentral launch,
+the technician REST API and the administration operations) is now the **RMM module of RivetCore** (`rivet/rivet-core` 1.0.0-rc.4, `RivetCore\Rmm`). RivetIT
+keeps the feature, the ten `endpoint_agent_*` tables, every URL and the wire protocol; what changed is where the code lives. `src/EndpointAgent/` (20 classes)
+and the Go agent `endpoint-agent/` with its workflow were removed from this repository (the agent, its CI and the `agent-v*` releases are in rivet-core;
+`docs/ENDPOINT_AGENT.md` and `docs/ENDPOINT_AGENT_BUILD.md` are now pointers plus the RivetIT-specific parts).
+
+- **Enrolled agents keep working** with no re-enrollment: same device tokens, same pinned signing key, same ciphertext format for the stored keys, same URLs
+  and responses (RivetCore's golden HTTP transcripts, recorded from the previous code, replay identically against the new bridges; the signing and installer
+  vectors reproduce byte for byte).
+- **RMM module switch** (Administration > Endpoint agent > RMM module): the master switch `endpoint_agent_settings.enabled`. An existing install keeps whatever
+  value it has (ON if the agent was enabled, OFF if never enabled or switched off); a fresh install is OFF. While off, the device endpoints answer
+  `503 module_disabled` (Retry-After 3600) and `endpoint_devices` answers `404 disabled` from `api/v1/rmm_gate.php` with no database work at all, enrolled
+  agents back off and lose nothing, the device page and the asset page link are hidden and the cron housekeeping does nothing. The gate reads
+  `backups/rmm-state/rmm_state.json`, a cache of the switch (a missing or damaged file means "unknown", never "off").
+- **Database 2.6.147:** runs Core migrations 0014 to 0016. On an existing install 0014 and 0015 change nothing; 0016 adds `features_json`, `limits_json`,
+  `shed_level`, `ingest_mode`, `max_devices` to `endpoint_agent_settings` (defaults reproduce today's behaviour). `db.sql` carries the columns; a fresh install
+  and an upgraded one have identical schemas (every table compared).
+- **Where agent binaries are published now:** build and release the agent from the rivet-core repository (`endpoint-agent/`, tags `agent-v*`), then upload the
+  executables under Administration > Endpoint agent > Agent binaries or with `scripts/endpoint_agent_publish.php` (unchanged command line).
+- **Small behaviour differences from the Core module:** the check-in interval is clamped to 60-3600 s and the collect interval to 30-3600 s when saved
+  (was 30 and 10); mesh token lifetime minimum 60 s; error texts say "client" where the old ones said "department" in a few places; denial reasons are generic
+  per ability; resolved alerts stay with their client when a device is transferred (open ones follow). The module switch, sub-switch presets and the
+  load-shedding controls are new.
+- **Tests:** the seven `tests/endpoint_agent_*.php` suites pass unchanged in substance against the bridges (`tests/support/endpoint_compat.php` keeps the old
+  class names as forwards for their in-process helpers), plus `tests/endpoint_agent_golden.php`, `tests/endpoint_agent_module.php` and the Core adapter
+  conformance kit for the eight adapters (`tests/core/Endpoint*ConformanceTest.php`).
+
+
 ## [26.10.26] RivetIT — built-in endpoint agent (beta) with a per-department installer, findings round-up, security fixes
 
 Database migrations 2.6.143 to 2.6.146 apply with **Update Database**. Requires rivet-core 1.0.0-rc.3 (`composer install --no-dev`; the in-app Update and `deploy/update.sh` do this). The endpoint agent is **off by default** (Administration > Endpoint agent) and is a **beta**: the Windows agent builds, passes its tests and has been run end to end on Linux against a real server, but it has not yet run on a real Windows machine. Pilot it on one PC first. The agent exes are built by the `Endpoint agent` GitHub workflow and are unsigned.

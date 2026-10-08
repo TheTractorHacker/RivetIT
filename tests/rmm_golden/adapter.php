@@ -97,6 +97,14 @@ switch ($cmd) {
     case 'reset':
         // Wipe everything the scenarios touch. DELETE (not TRUNCATE): auto-increment ids keep growing, so ids differ between runs
         // (the driver masks them) and per-device rate-limit buckets can never collide across runs.
+        // Hosted binaries: remove the stored files of the rows about to go (the reset must not accumulate bin_*.bin files).
+        $storeDir = $rmm->binaryStore()->storageDir();
+        $stored = $db->query('SELECT storage_name FROM endpoint_agent_binaries');
+        while ($storeDir !== null && $stored && ($sr = $stored->fetch_row())) {
+            if (preg_match('/^bin_[0-9a-f]{32}\.bin$/', (string) $sr[0])) {
+                @unlink($storeDir . '/' . $sr[0]);
+            }
+        }
         foreach (['endpoint_agent_checkins', 'endpoint_agent_checks', 'endpoint_agent_jobs', 'endpoint_agent_mesh_nodes', 'endpoint_agent_releases', 'endpoint_agent_enroll_attempts',
             'endpoint_agent_enrollment_tokens', 'endpoint_agent_devices', 'endpoint_agent_binaries', 'device_metric_samples', 'device_metric_instances', 'device_metric_collection_state',
             'device_metric_rollups', 'asset_rmm_links', 'rmm_alerts', 'rmm_remote_sessions', 'ticket_replies', 'tickets', 'asset_interfaces', 'assets', 'api_tokens', 'logs', 'audit_events', 'rmm_scripts'] as $t) {
@@ -116,11 +124,12 @@ switch ($cmd) {
             $q("INSERT INTO assets SET asset_type='Laptop', asset_name='" . $esc($a['name']) . "', asset_make='Dell', asset_serial='" . $esc($a['serial']) . "', asset_client_id={$a['client_id']}, asset_status='Active'");
             $assetIds[$k] = $db->insert_id;
         }
-        $adminId = (int) ($q('SELECT u.user_id FROM users u JOIN user_roles r ON r.role_id = u.user_role_id WHERE r.role_is_admin = 1 AND u.user_status = 1 AND u.user_archived_at IS NULL ORDER BY u.user_id LIMIT 1')->fetch_row()[0] ?? 0);
+        $adminId = (int) ($q('SELECT u.user_id FROM users u JOIN user_roles r ON r.role_id = u.user_role_id WHERE r.role_is_admin = 1 AND u.user_status = 1 AND u.user_archived_at IS NULL AND u.user_id <> 1 ORDER BY u.user_id LIMIT 1')->fetch_row()[0] ?? 0);
         if ($adminId === 0) {
-            // A scratch database straight from db.sql + the updater has no user: seed a role and an administrator (scratch only; its id is not 1 because the transcripts mask user ids by order of appearance and the seeded tokens are created_by 1).
-            $q("INSERT INTO user_roles SET role_id=1, role_name='Admin', role_is_admin=1, role_type=1 ON DUPLICATE KEY UPDATE role_is_admin=1");
-            $q("INSERT INTO users SET user_id=2, user_name='golden-admin', user_email='golden-admin@example.test', user_password='x', user_type=1, user_status=1, user_role_id=1 ON DUPLICATE KEY UPDATE user_status=1, user_role_id=1, user_archived_at=NULL, user_type=1");
+            // No administrator other than user 1: seed a role and an administrator with id 2 (scratch only). The id must not be 1 because the transcripts
+            // mask user ids by order of appearance and the seeded tokens are created_by 1, so an admin with id 1 would shift the aliases..
+            $q("INSERT INTO user_roles SET role_id=9001, role_name='GoldenAdmin', role_is_admin=1, role_type=1 ON DUPLICATE KEY UPDATE role_is_admin=1");
+            $q("INSERT INTO users SET user_id=2, user_name='golden-admin', user_email='golden-admin@example.test', user_password='x', user_type=1, user_status=1, user_role_id=9001 ON DUPLICATE KEY UPDATE user_status=1, user_role_id=9001, user_archived_at=NULL, user_type=1");
             $adminId = 2;
         }
         $q("INSERT INTO api_tokens SET token_user_id=$adminId, token_name='golden', token_hash='" . hash('sha256', $K['admin_api_token']) . "', token_created_at=NOW(), token_last_used_at=NOW()");
