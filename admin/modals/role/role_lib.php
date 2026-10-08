@@ -124,8 +124,8 @@ if (!function_exists('itflow_role_catalog')) {
                 'levels' => [
                     0 => 'No scripts.',
                     1 => 'View the script library.',
-                    2 => 'Also run scripts on devices and add or edit scripts.',
-                    3 => 'Also delete scripts.',
+                    2 => 'Also run saved scripts and reboot devices.',
+                    3 => 'Also add, edit, import and delete scripts, and run free-form scripts (scripts run as SYSTEM).',
                 ],
             ],
             'module_rmm_sync' => [

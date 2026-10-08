@@ -25,7 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['csrf_token'])) {
     if (!validateCSRFToken($_POST['csrf_token'])) { flash_alert('Invalid CSRF token', 'danger'); redirect(); }
 
     if (isset($_POST['save_script'])) {
-        enforceUserPermission('module_rmm_scripts', 2);
+        // IT-10: a saved script runs as SYSTEM on endpoints, so writing a body needs the same level as running a free-form script.
+        enforceUserPermission('module_rmm_scripts', \ITFlow\Core\Adapter\Endpoint\ScriptLibraryPolicy::WRITE_LEVEL);
         $sid         = intval($_POST['script_id'] ?? 0);
         $name        = sanitizeInput($_POST['name']);
         $category    = sanitizeInput($_POST['category']);
@@ -42,11 +43,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['csrf_token'])) {
 
         if ($sid > 0) {
             mysqli_query($mysqli, "UPDATE rmm_scripts SET name='$name_esc', category='$cat_esc', description='$desc_esc', script_type='$type_esc', script_body='$script_body', tactical_script_id=$tac_val, enabled=$enabled WHERE id=$sid");
-            logAction('RMM', 'Script Edit', "$session_name edited script $name");
+            logAction('RMM', 'Script Edit', "$session_name edited script $name (body sha256 " . \ITFlow\Core\Adapter\Endpoint\ScriptLibraryPolicy::bodyHash((string) ($_POST['script_body'] ?? '')) . ")");
             flash_alert('Script updated');
         } else {
             mysqli_query($mysqli, "INSERT INTO rmm_scripts SET name='$name_esc', category='$cat_esc', description='$desc_esc', script_type='$type_esc', script_body='$script_body', tactical_script_id=$tac_val, enabled=$enabled, created_by=$session_user_id");
-            logAction('RMM', 'Script Create', "$session_name created script $name");
+            logAction('RMM', 'Script Create', "$session_name created script $name (body sha256 " . \ITFlow\Core\Adapter\Endpoint\ScriptLibraryPolicy::bodyHash((string) ($_POST['script_body'] ?? '')) . ")");
             flash_alert('Script created');
         }
         redirect();
@@ -115,7 +116,7 @@ $sql_runs = mysqli_query($mysqli,
 
 <div class="d-flex align-items-center mb-3">
     <h4 class="mb-0 mr-auto"><i class="fas fa-code me-2"></i>Script Library</h4>
-    <?php if (lookupUserPermission('module_rmm_scripts') >= 1): ?>
+    <?php if (\ITFlow\Core\Adapter\Endpoint\ScriptLibraryPolicy::canWriteBodies((int) lookupUserPermission('module_rmm_scripts'))): ?>
     <button id="syncScriptsBtn" class="btn btn-info btn-sm me-2 js-sync-scripts">
         <i class="fas fa-cloud-download-alt me-1"></i>Sync from <?= nullable_htmlentities($rmm_default_provider_name) ?>
     </button>

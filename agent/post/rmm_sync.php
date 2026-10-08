@@ -141,8 +141,9 @@ if ($action === 'assign_client') {
 
 // ---- Sync scripts from Tactical ----
 if ($action === 'sync_scripts') {
-    if (!lookupUserPermission('module_rmm_scripts')) {
-        echo json_encode(['success' => false, 'error' => 'No scripts permission']);
+    // IT-10: the sync writes script bodies that endpoints later run as SYSTEM.
+    if (!\ITFlow\Core\Adapter\Endpoint\ScriptLibraryPolicy::canWriteBodies((int) lookupUserPermission('module_rmm_scripts'))) {
+        echo json_encode(['success' => false, 'error' => 'Importing scripts needs RMM scripts level 3']);
         exit;
     }
     try {
@@ -189,7 +190,7 @@ if ($action === 'sync_scripts') {
                 $imported++;
             }
         }
-        logAction('RMM', 'Scripts Sync', "$session_name synced scripts: $imported imported, $updated updated");
+        logAction('RMM', 'Scripts Sync', "$session_name synced scripts: $imported imported, $updated updated (bodies sha256 " . \ITFlow\Core\Adapter\Endpoint\ScriptLibraryPolicy::bodyHash(implode("\n", array_map(static fn ($x) => (string) ($x['code'] ?? $x['content'] ?? $x['script_body'] ?? ''), $scripts))) . ")");
         echo json_encode(['success' => true, 'imported' => $imported, 'updated' => $updated, 'total' => count($scripts)]);
     } catch (RuntimeException $e) {
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
