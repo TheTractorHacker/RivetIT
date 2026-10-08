@@ -76,7 +76,8 @@ $k_t = static fn(string $key, array $vars = []): string => \ITFlow\Training\Kios
 <?php } ?>
 <title><?= $k_h(trim(($k_page['title'] ?? '') . ' · ' . $k_brand . ' ' . $k_t('shell.brand_suffix'), ' ·')) ?></title>
 <link rel="manifest" href="/kiosk/manifest.json">
-<link rel="apple-touch-icon" href="/kiosk/icons/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/kiosk/icons/apple-touch-icon.png">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/kiosk/icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/kiosk/icons/icon-192.png">
 <?php foreach ($k_css as $k_href) { $k_url = kiosk_asset($k_href); if ($k_url !== null) { ?>
 <link rel="stylesheet" href="<?= $k_h($k_url) ?>">

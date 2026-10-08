@@ -6,12 +6,27 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.28] RivetIT — RMM database step renumbered (2.6.150), reconciled with the security-fixes line
+
 ### Database numbering reconciled: RMM step is now 2.6.150
 
 The RMM / RivetCore state-sync step (Core migrations 0014 to 0016 plus the module state file) was 2.6.147 on the RMM adoption line and collided with the
 scheduled-reports step (now 2.6.147 to 2.6.148) and the payments provider-reference step (2.6.148 to 2.6.149) of the security-fixes line. It is now **2.6.150**,
 gated on 2.6.149, and idempotent: an install that already ran it as 2.6.147 and an install that went 2.6.147 to 2.6.149 without it end up identical. 2.6.146 to
 2.6.147 is a plain version bump. `db.sql` carries the columns of both lines. References to "DB 2.6.147" below for the RMM module mean 2.6.150.
+
+### Security fixes integrated from the review rounds
+
+- **Pentest findings:** TOTP codes are single-use with a ±1 window for login, portal MFA and API password login, and wrong codes count toward lockout (F-08, IT-2); failed legacy `X-Api-Key` attempts are throttled and logged (F-07); `getSSL` refuses loopback, link-local and reserved targets, connects to the validated IP and needs an admin-allowed internal network for private addresses (F-06, IT-3); ticket schedule/vendor modals are scoped by department (F-03); generating credential share links requires `module_credential`; share links claim a view atomically and file downloads use quoted names and `basename()` on stored names (F-14); nginx templates deny `tests/`, `vendor/`, `src/`, `includes/`, `mcp_server/` and metadata files and repeat the security headers (F-02, IT-4); CI checks out without persisted credentials and Dependabot watches actions and composer (F-15).
+- **Review findings:** Update App checks for a fast-forward before touching files and shares its flow with `update_cli.php` (IT-1); Slack/Teams delivery uses the pinned URL (IT-6); share links keep the TOTP seed selected and compute the code in the browser, never-expiring links work (IT-7); scheduled report recipients are limited to agents or admin-approved addresses and gated by module (IT-8); Entra workflow actions only act on an account in the contact's department (IT-9); writing or importing RMM script bodies needs RMM scripts level 3 and logs the body hash (IT-10).
+- **Billing:** RivetMSP's payment guards are ported, with a unique provider reference so a Stripe PaymentIntent is recorded once (database steps 2.6.147 to 2.6.149).
+- **Other:** webhooks may reach admin-listed internal networks (RivetCore 0.18.1 `allowedNetworks`); the Odoo SSO addon targets Odoo 19.
+
+## [26.10.27] RivetIT — Add device / Download installer dialog, kiosk Apple icon declaration
+
+### Training kiosk: Apple Web Clip icon
+
+- The kiosk now declares its 180x180 `apple-touch-icon` with an explicit size (plus the precomposed variant) so iPads that add the kiosk as a Web Clip pick up the site icon. For managed Web Clips, still embed the icon in the profile.
 
 ### Add device / Download installer (T11)
 
