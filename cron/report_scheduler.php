@@ -52,6 +52,12 @@ if ($scheduler_standalone) {
 $scheduler_from_email = !empty($config_mail_from_email) ? $config_mail_from_email : ($company_email ?? '');
 $scheduler_from_name  = !empty($config_mail_from_name)  ? $config_mail_from_name  : ($company_name ?? APP_NAME);
 
+require_once dirname(__DIR__) . '/includes/report_schedule_policy.php';
+
+// Recipient policy (pentest IT-8): active agents plus the administrator-approved list, re-checked on every send.
+$scheduler_staff_emails = report_schedule_staff_emails($mysqli);
+$scheduler_allowlist    = report_schedule_allowlist($mysqli);
+
 // Frequency -> strtotime interval used to decide whether a schedule is due again.
 $scheduler_intervals = [
     'daily'   => '+1 day',
@@ -80,6 +86,17 @@ while ($sched = mysqli_fetch_assoc($res)) {
         }
     }
 
+    // The schedule's owner must still be an active agent with access to the data in this report. Schedules created
+    // before owners were recorded (owner NULL) are only sent for non-financial reports.
+    $owner_id = intval($sched['schedule_owner_user_id'] ?? 0);
+    $needs_owner = report_schedule_required_module($report_key) !== null;
+    if (($owner_id > 0 || $needs_owner) && !report_schedule_owner_may_send($mysqli, $owner_id, $report_key)) {
+        if (function_exists('logApp')) {
+            logApp("Cron", "warning", "Report scheduler skipped schedule #$schedule_id: owner is missing, archived or lacks access to '$report_key'");
+        }
+        continue;
+    }
+
     $rendered = report_render_email_html($mysqli, $report_key);
     if ($rendered === null) {
         // Unknown/removed report key — skip without stamping so a fixed key can resume later.
@@ -90,12 +107,12 @@ while ($sched = mysqli_fetch_assoc($res)) {
     }
 
     // Recipients may be comma/semicolon/whitespace separated.
-    $emails = preg_split('/[,;\s]+/', $recipients, -1, PREG_SPLIT_NO_EMPTY);
+    [$emails, $refused] = report_schedule_filter_recipients($recipients, $scheduler_staff_emails, $scheduler_allowlist);
+    if (!empty($refused) && function_exists('logApp')) {
+        logApp("Cron", "warning", "Report scheduler dropped " . count($refused) . " recipient(s) of schedule #$schedule_id that are not agent or approved addresses");
+    }
     $mail = [];
     foreach ($emails as $to) {
-        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
-            continue;
-        }
         $mail[] = [
             'from'           => $scheduler_from_email,
             'from_name'      => $scheduler_from_name,
