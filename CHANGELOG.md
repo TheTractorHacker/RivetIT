@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Training kiosk: Apple Web Clip icon
+
+- The kiosk now declares its 180x180 `apple-touch-icon` with an explicit size (plus the precomposed variant) so iPads that add the kiosk as a Web Clip pick up the site icon. For managed Web Clips, still embed the icon in the profile.
+
 ### Add device / Download installer (T11)
 
 - **Agent Fleet:** a primary **Add device** button opens a dialog that downloads the stamped Windows installer in one click (department, x64/ARM64, ring, token lifetime and PC count under Advanced), shows the next steps, and has a Linux tab with the install command and a copy button.
