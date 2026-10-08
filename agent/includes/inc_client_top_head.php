@@ -26,6 +26,13 @@
  * legacy per-client locations.location_client_id column, which is 0 for every
  * row in this edition - one company, shared buildings.
  */
+// The RMM agent installer dialog for this department: null (nothing rendered, nothing linked) with the module off or for a user who may not issue installers.
+require_once dirname(__DIR__, 2) . '/includes/rmm_installer.php';
+$rmm_inst_ctx = !empty($client_id) ? rivetRmmInstallerContext($mysqli, (int) $session_user_id, (int) $client_id) : null;
+if ($rmm_inst_ctx !== null) {
+    $rmm_installer_scripts = true;   // includes/footer.php links js/rmm_installer.js only when this is set
+}
+
 $client_site_count = 0;
 if (!empty($client_id)) {
     $sql_client_site_count = mysqli_query(
@@ -132,6 +139,7 @@ $client_header_can_edit_sites = (lookupUserPermission("module_support") >= 1);
                             <i class="fas fa-fw fa-life-ring me-2"></i>New Ticket
                         </a>
                     <?php } ?>
+                    <?php if ($rmm_inst_ctx !== null) { echo rivetRmmInstallerTrigger('item', (int) $client_id, 'Download agent installer'); } // the RMM "Add device" dialog, below ?>
                     <div class="dropdown-divider"></div>
                     <a class="dropdown-item ajax-modal" href="#"
                         data-modal-url="modals/client/client_edit.php?id=<?= $client_id ?>">
@@ -376,6 +384,7 @@ $client_header_can_edit_sites = (lookupUserPermission("module_support") >= 1);
 </div>
 
 <?php
+if ($rmm_inst_ctx !== null) { echo rivetRmmInstallerModal($rmm_inst_ctx); }
 // require_once "modals/client/client_credit_add.php"; --Credit Not Ready 2025-08-27
 require_once "modals/client/client_delete.php";
 require_once "modals/client/client_download_pdf.php";

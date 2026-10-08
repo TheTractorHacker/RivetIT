@@ -38,6 +38,12 @@ if ($rmm_fleet === null) {
     itflow_render_denied('Your role cannot view agent devices.', 'No access');
     return;
 }
-echo rivetRmmUiFleetPage($rmm_fleet, (string) ($_SESSION['csrf_token'] ?? ''));
+// "Add device" / "Download installer": null (no button, no dialog, no script) unless the module is on and the user has rmm.token.manage or rmm.admin.
+require_once dirname(__DIR__) . '/includes/rmm_installer.php';
+$rmm_installer = rivetRmmInstallerContext($mysqli, (int) $session_user_id, null, (int) ($_GET['client_id'] ?? 0));
+if ($rmm_installer !== null) {
+    $rmm_installer_scripts = true;   // includes/footer.php links js/rmm_installer.js only when this is set
+}
+echo rivetRmmUiFleetPage($rmm_fleet, (string) ($_SESSION['csrf_token'] ?? ''), $rmm_installer);
 
 require_once "../includes/footer.php";

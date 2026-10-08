@@ -102,7 +102,7 @@ a time; each wipes its own rows.
 
 ```
 RIVETIT_TEST_DB=1 RIVETIT_TEST_DB_NAME=scratch_x RIVETIT_TEST_DB_USER=... RIVETIT_TEST_DB_PASS=... RIVETIT_REDIS_PORT=<throwaway redis> php tests/endpoint_agent_enroll.php
-... endpoint_agent_checkin.php | endpoint_agent_jobs.php | endpoint_agent_authz.php | endpoint_agent_migration.php | endpoint_agent_deploy_http.php
+... endpoint_agent_checkin.php | endpoint_agent_installer_ui.php | endpoint_agent_jobs.php | endpoint_agent_authz.php | endpoint_agent_migration.php | endpoint_agent_deploy_http.php
 php tests/endpoint_agent_deploy_unit.php               # no database
 RIVET_CORE_DIR=/path/to/rivet-core php tests/endpoint_agent_golden.php   # golden HTTP transcripts recorded from the pre-adoption code, replayed against the bridges
 php tests/endpoint_agent_module.php                    # module switch, gate with zero queries, fail-safe state file, fresh vs existing install
@@ -153,3 +153,30 @@ for each of five abilities; `deviceView()` reads the device, checks and jobs twi
 Tests: `php tests/rmm_ui.php` (scratch database, same environment as the other suites; 150+ assertions: view-models, permission matrix, states, escaping, module off with zero
 statements, real pages over HTTP) and the browser smoke `tests/browser/rmm_seed.php` + `tests/browser/rmm_smoke.mjs` (see the headers; desktop and 390 px, light and dark,
 screenshots in `SMOKE_OUT/shots`).
+
+## 8. Add device / Download installer (T11)
+
+The installer used to be reachable only from Administration > Endpoint agent > Deployment. It is now one dialog, **Add device**, available from three places (each shown only
+while the module is on and the user has `rmm.token.manage` or `rmm.admin`; otherwise nothing renders and `js/rmm_installer.js` is not requested):
+
+1. **Endpoints > Agent Fleet**: the primary "Add device" button in the page header (and in the empty state when no device is enrolled).
+2. **A department's page**: Department actions (the three dots) > "Download agent installer", with that department fixed.
+3. **Endpoints menu > Download installer**: opens `/agent/rmm_fleet.php?installer=1`, which opens the dialog by itself.
+
+What the user does: click **Add device**, pick the department (preselected from `?client_id=` or when only one exists), leave Windows and x64 as they are (ARM64 is one click),
+click **Download installer**. The dialog then shows the next steps: copy the file to the PC, double-click it, accept the administrator prompt, and for a deployment tool run
+`<file>.exe setup --silent`. Defaults: stable ring, token valid 24 hours, 1 PC; the "several PCs" switch sets 25; Advanced has the lifetime, the PC count, the label and (when the department
+has locations) the location. The **Linux** tab creates an audited token and shows the install snippet (`InstallerService::linuxSnippet`) with a copy button; there is no Linux binary to download.
+
+Server side: `agent/post/rmm_installer.php` (POST + session CSRF only) calls `RmmAdmin::downloadInstaller()` / `deploymentCommands()`, the same Core path and audit entry
+("Installer Created") as the Administration card, so permissions, department scope, the stamped file and every refusal are Core's. A refusal creates no token. If no current binary exists for the
+chosen architecture, the dialog says so and links to Administration > Endpoint agent > Agent binaries (administrators).
+
+**Publish the agent** (Administration > Endpoint agent > Agent binaries): drag one or both agent `.exe` files into the drop zone. The architecture is read from each file's own headers, the version
+from the file name (`rivetit-agent-1.4.0-windows-arm64.exe`; or type it), and the files become current by default. Each file goes through `RmmAdmin::uploadBinary()`. The single-file form is
+kept under "Advanced". Fetching the agent from a GitHub release URL was deliberately **not** built: release assets redirect from github.com to another host, so a github.com-only pin cannot hold
+without relaxing the SSRF rules, and the upload covers the same need.
+
+Tests: `tests/endpoint_agent_installer_ui.php` (visibility matrix, CSRF/method/permission/module-off refusals, streamed `.exe` with `MZ`, current binary byte for byte, `InstallerStamp` trailer,
+file name, token lifetime/uses, audit rows, Linux command, multi-file publish) and the "installer dialog" checks of `tests/browser/rmm_smoke.mjs` (seed with `RMM_SMOKE_BASE_URL=http://127.0.0.1:<port>`,
+which also publishes placeholder binaries).

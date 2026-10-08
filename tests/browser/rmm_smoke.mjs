@@ -265,6 +265,132 @@ await T('fleet page: keyboard reaches the device links', async () => {
   assert(/^(A|BUTTON|SELECT|INPUT):in$/.test(tag), 'focus left the device card: ' + tag);
 });
 
+
+// ------------------------------------------------------------------------------------------------ "Add device" / "Download installer"
+// Needs the seed to have published the placeholder binaries (RMM_SMOKE_BASE_URL set when tests/browser/rmm_seed.php ran).
+const DL_DIR = join(outDir, 'downloads');
+mkdirSync(DL_DIR, { recursive: true });
+const openInstaller = async (path = '/agent/rmm_fleet.php') => {
+  await go(path);
+  await p.waitSel('[data-rmm-installer-open]');
+  // keep the blobs the dialog saves, so the bytes can be checked (the file also lands in DL_DIR)
+  await p.eval(`window.__blobs = []; const o = URL.createObjectURL; URL.createObjectURL = function (b) { window.__blobs.push(b); return o.call(URL, b); }; true`);
+  await p.click('[data-rmm-installer-open]');
+  await p.waitSel('#rmmInstallerModal.show');
+  await sleep(450);
+};
+const pickDepartment = async () => {
+  const v = await p.eval(`(()=>{const s=document.getElementById('rmm-inst-client');const o=[...s.options].find(x=>x.value);s.value=o.value;s.dispatchEvent(new Event('change',{bubbles:true}));return o.value})()`);
+  return v;
+};
+const modalFits = async (label) => {
+  const o = await p.eval(`(()=>{const d=document.querySelector('#rmmInstallerModal .modal-dialog');const r=d.getBoundingClientRect();const c=document.querySelector('#rmmInstallerModal .modal-content');return {right:Math.round(r.right),left:Math.round(r.left),vw:document.documentElement.clientWidth,sw:c.scrollWidth,cw:c.clientWidth}})()`);
+  assert(o.left >= 0 && o.right <= o.vw + 1 && o.sw <= o.cw + 1, `${label}: the dialog overflows the viewport: ${JSON.stringify(o)}`);
+};
+await T('installer dialog: Add device opens with the safe defaults (desktop, light)', async () => {
+  await openInstaller();
+  const d = await p.eval(`(()=>{const $=(i)=>document.getElementById(i);return {title:$('rmmInstallerTitle').innerText,x64:$('rmm-inst-arch-amd64').checked,ring:$('rmm-inst-ring').value,uses:$('rmm-inst-uses').value,ttl:$('rmm-inst-ttl').value,multi:$('rmm-inst-multi').checked,
+    adv:$('rmm-inst-adv').open,os:document.querySelector('#rmmInstallerModal .nav-link.active').dataset.os,label:$('rmm-inst-go-label').innerText,noBin:!$('rmm-inst-nobinary').classList.contains('d-none'),dis:$('rmm-inst-go').disabled,
+    csrf:document.querySelector('#rmm-inst-form input[name=csrf_token]').value.length>10,steps:$('rmm-inst-steps').innerText}})()`);
+  assert(/Add device/.test(d.title) && d.x64 && d.ring === 'stable' && d.uses === '1' && d.ttl === '24' && !d.multi && !d.adv && d.os === 'windows', 'defaults: ' + JSON.stringify(d));
+  assert(d.label === 'Download installer' && !d.noBin && !d.dis && d.csrf, 'primary action: ' + JSON.stringify(d));
+  assert(/Copy the downloaded file/.test(d.steps) && /double-click/i.test(d.steps) && /administrator prompt/.test(d.steps) && /setup --silent/.test(d.steps), 'next-step text: ' + d.steps);
+  await shot('installer-dialog-desktop-light');
+});
+await T('installer dialog: Download installer streams the stamped .exe and shows what to do next', async () => {
+  await p.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: DL_DIR });
+  await p.eval(`document.getElementById('rmm-inst-multi').click(); true`);
+  assert((await p.eval(`document.getElementById('rmm-inst-uses').value`)) === '25', 'the "several PCs" switch should set 25 uses');
+  await p.eval(`document.getElementById('rmm-inst-multi').click(); true`);
+  assert((await p.eval(`document.getElementById('rmm-inst-uses').value`)) === '1', 'switching it off should go back to 1 use');
+  // no department chosen: the dialog says so and sends nothing
+  await p.click('#rmm-inst-go');
+  await p.waitSel('#rmm-inst-error');
+  assert(/Choose the department/.test(await p.eval(`document.getElementById('rmm-inst-error').innerText`)), 'no message for a missing department');
+  assert((await p.eval(`window.__blobs.length`)) === 0, 'something was downloaded without a department');
+  await pickDepartment();
+  await p.click('#rmm-inst-go');
+  await p.waitFor(`document.getElementById('rmmInstallerModal').getAttribute('data-state') === 'downloaded'`, { timeout: 30000, label: 'download finished' });
+  const r = await p.eval(`(async()=>{const b=window.__blobs[0];const head=await b.slice(0,2).text();const tail=await b.slice(b.size-16).text();return {size:b.size,head,tail,done:document.getElementById('rmm-inst-done').innerText,hidden:document.getElementById('rmm-inst-done').classList.contains('d-none'),name:document.getElementById('rmm-inst-silent-name').innerText}})()`);
+  assert(r.head === 'MZ' && r.tail === 'RIVETIT-EMBED-v1' && r.size > 100000, 'the streamed file is not a stamped PE: ' + JSON.stringify(r));
+  assert(!r.hidden && /Downloaded RivetIT-Agent-Setup-.*-x64\.exe/.test(r.done) && /double-click it and accept the administrator prompt/.test(r.done) && /works for 1 PC for 24 hours/.test(r.done), 'next step text: ' + r.done);
+  assert(/^RivetIT-Agent-Setup-.*-x64\.exe$/.test(r.name), 'silent command file name: ' + r.name);
+  await sleep(1200);
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const files = readdirSync(DL_DIR).filter((f) => /\.exe$/.test(f));
+  assert(files.length >= 1, 'no .exe reached the download folder');
+  const bytes = readFileSync(join(DL_DIR, files[0]));
+  assert(bytes.subarray(0, 2).toString() === 'MZ' && bytes.subarray(bytes.length - 16).toString() === 'RIVETIT-EMBED-v1', 'the saved file is not a stamped PE');
+  await shot('installer-dialog-downloaded-desktop-light');
+});
+await T('installer dialog: the advanced fields open and the silent-install file name follows the architecture', async () => {
+  await p.click('#rmm-inst-adv summary');
+  await p.waitSel('#rmm-inst-label');
+  await p.type('#rmm-inst-ttl', '9999');   // over the maximum: the server clamps it, it never errors
+  await p.click('label[for=rmm-inst-arch-arm64]');
+  assert(await p.eval(`document.getElementById('rmm-inst-arch-arm64').checked`), 'ARM64 not selected');
+  assert((await p.eval(`document.getElementById('rmm-inst-silent-name').innerText`)).endsWith('-arm64.exe'), 'the silent command file name should follow the architecture');
+  await shot('installer-dialog-advanced-desktop-light');
+});
+await T('installer dialog: Linux tab shows the install command with a copy button (no download)', async () => {
+  await openInstaller();
+  await p.click('#rmm-inst-tab-linux');
+  assert((await p.eval(`document.getElementById('rmm-inst-tab-linux').getAttribute('aria-selected')`)) === 'true', 'Linux tab not selected');
+  assert((await p.eval(`document.getElementById('rmm-inst-go-label').innerText`)) === 'Create install command', 'primary label on the Linux tab');
+  assert(!(await p.visible('#rmm-inst-windows-next')), 'the Windows steps are shown on the Linux tab');
+  await pickDepartment();
+  await p.click('#rmm-inst-go');
+  await p.waitFor(`document.getElementById('rmmInstallerModal').getAttribute('data-state') === 'linux-command'`, { timeout: 20000, label: 'command created' });
+  const cmd = await p.eval(`document.getElementById('rmm-inst-linux-cmd').textContent`);
+  assert(/install-linux\.sh --server/.test(cmd) && /rvte1\.[0-9a-f]{12}\.[0-9a-f]{40}/.test(cmd), 'command: ' + cmd.slice(0, 200));
+  assert((await p.eval(`window.__blobs.length`)) === 0, 'the Linux tab downloaded a file');
+  await p.click('#rmm-inst-copy');
+  await p.waitFor(`document.querySelector('#rmm-inst-copy span').innerText === 'Copied'`, { label: 'copy confirmation' });
+  await shot('installer-dialog-linux-desktop-light');
+});
+await T('installer dialog: keyboard (arrow keys switch the OS tabs, Esc closes and returns focus to the button)', async () => {
+  await openInstaller();
+  await p.focus('#rmm-inst-tab-windows');
+  await p.press('ArrowRight');
+  await p.waitFor(`document.getElementById('rmm-inst-tab-linux').getAttribute('aria-selected') === 'true' && document.activeElement.id === 'rmm-inst-tab-linux'`, { label: 'ArrowRight moves to Linux' });
+  await p.press('ArrowLeft');
+  await p.waitFor(`document.getElementById('rmm-inst-tab-windows').getAttribute('aria-selected') === 'true'`, { label: 'ArrowLeft back to Windows' });
+  // Tab order reaches the primary button
+  await p.focus('#rmm-inst-label');
+  await p.press('Tab').catch(() => {});
+  await p.press('Escape');
+  await p.waitFor(`!document.querySelector('#rmmInstallerModal.show')`, { label: 'dialog closed by Escape' });
+  await sleep(700);
+  assert((await p.eval(`document.activeElement && document.activeElement.hasAttribute('data-rmm-installer-open')`)), 'focus did not return to the Add device button');
+});
+await T('Endpoints menu: "Download installer" opens the dialog on the fleet page', async () => {
+  await go('/agent/rmm_fleet.php');
+  await p.waitSel('#rmm-devices table');
+  assert(await p.exists('.navbar-vertical a[href="/agent/rmm_fleet.php?installer=1"]'), 'menu entry missing');
+  await go('/agent/rmm_fleet.php?installer=1');
+  await p.waitSel('#rmmInstallerModal.show');
+  await sleep(400);
+  await p.press('Escape');
+  await p.waitFor(`!document.querySelector('#rmmInstallerModal.show')`, { label: 'closed' });
+});
+await T("department page: 'Download agent installer' in the actions menu opens the dialog for that department", async () => {
+  await go('/agent/rmm_fleet.php');
+  await p.waitSel('#rmm-devices table');
+  const cid = await p.eval(`(()=>{const o=[...document.getElementById('rmm-inst-client').options].find(x=>x.value);return o.value})()`);
+  await go('/agent/client_overview.php?client_id=' + cid);
+  await p.waitSel('button[aria-label="Department actions"]');
+  await p.click('button[aria-label="Department actions"]');
+  await p.waitSel('[data-rmm-installer-client="' + cid + '"]');
+  await p.click('[data-rmm-installer-client="' + cid + '"]');
+  await p.waitSel('#rmmInstallerModal.show');
+  await sleep(450);
+  assert(!(await p.exists('select#rmm-inst-client')) && (await p.eval(`document.getElementById('rmm-inst-client').value`)) === cid, 'the department is not fixed to the page');
+  assert((await p.eval(`document.getElementById('rmmInstallerModal').getAttribute('data-fixed')`)) === '1', 'not marked fixed');
+  await shot('installer-dialog-department-desktop-light');
+  await p.press('Escape');
+  await p.waitFor(`!document.querySelector('#rmmInstallerModal.show')`, { label: 'closed' });
+});
+
 // ------------------------------------------------------------------------------------------------ phone width
 await T('phone width (390 px): asset page has no horizontal scroll; tabs scroll inside their container', async () => {
   await p.setViewport(MOBILE_W, 800, true);
@@ -284,6 +410,25 @@ await T('phone width (390 px): asset page has no horizontal scroll; tabs scroll 
   await go(asset('NEVER')); await p.waitSel('#rmm-strip');
   assert(await p.visible('.rmm-reasons'), 'reason text for disabled buttons is not visible on a phone');
   await noOverflow('asset never');
+});
+await T('phone width (390 px): the installer dialog fits (Windows and Linux tabs, advanced open)', async () => {
+  await p.setViewport(MOBILE_W, 800, true);
+  await openInstaller();
+  await modalFits('windows');
+  await p.click('#rmm-inst-adv summary'); await sleep(200);
+  await modalFits('advanced');
+  assert(await p.visible('#rmm-inst-go'), 'the primary button is not reachable on a phone');
+  await shot('installer-dialog-phone-light');
+  await p.click('#rmm-inst-tab-linux');
+  await pickDepartment();
+  await p.click('#rmm-inst-go');
+  await p.waitFor(`document.getElementById('rmmInstallerModal').getAttribute('data-state') === 'linux-command'`, { timeout: 20000, label: 'command created' });
+  await modalFits('linux');
+  await shot('installer-dialog-linux-phone-light');
+  await p.press('Escape');
+  await p.waitFor(`!document.querySelector('#rmmInstallerModal.show')`, { label: 'closed' });
+  await go('/agent/rmm_fleet.php'); await p.waitSel('#rmm-devices table');
+  await noOverflow('fleet with the Add device button');
 });
 await T('phone width (390 px): fleet page has no horizontal scroll', async () => {
   await go('/agent/rmm_fleet.php');
@@ -308,7 +453,18 @@ await T('dark mode: asset panel and fleet page (desktop and phone)', async () =>
   await go(asset('WIN1') + '#rmm-jobs'); await p.waitSel('#rmm-pane-jobs table'); await shot('asset-jobs-desktop-dark');
   await go(asset('WIN1') + '#rmm-inventory'); await p.waitSel('#rmm-pane-inventory table'); await shot('asset-inventory-desktop-dark');
   await go('/agent/rmm_fleet.php'); await p.waitSel('#rmm-devices table'); await sleep(300); await shot('fleet-desktop-dark');
+  await openInstaller();
+  const bg = await p.eval(`getComputedStyle(document.querySelector('#rmmInstallerModal .modal-content')).backgroundColor`);
+  const [br, bgc, bb] = bg.match(/\d+/g).map(Number);
+  assert(br + bgc + bb < 3 * 110, 'the installer dialog is not dark in dark mode: ' + bg);
+  const ink = await p.eval(`getComputedStyle(document.getElementById('rmmInstallerTitle')).color`);
+  const [ir, ig, ib] = ink.match(/\d+/g).map(Number);
+  assert(ir + ig + ib > 3 * 120, 'the dialog title is not light in dark mode: ' + ink);
+  await shot('installer-dialog-desktop-dark');
+  await p.press('Escape'); await p.waitFor(`!document.querySelector('#rmmInstallerModal.show')`, { label: 'closed' });
   await p.setViewport(MOBILE_W, 800, true);
+  await openInstaller(); await modalFits('dark phone'); await shot('installer-dialog-phone-dark');
+  await p.press('Escape'); await p.waitFor(`!document.querySelector('#rmmInstallerModal.show')`, { label: 'closed' });
   await go(asset('WIN1')); await p.waitSel('#rmm-strip'); await sleep(500); await noOverflow('asset dark phone'); await shot('asset-overview-phone-dark');
   await go('/agent/rmm_fleet.php'); await p.waitSel('#rmm-devices table'); await sleep(300); await noOverflow('fleet dark phone'); await shot('fleet-phone-dark');
   await p.setViewport(1366, 900);

@@ -6,6 +6,13 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Add device / Download installer (T11)
+
+- **Agent Fleet:** a primary **Add device** button opens a dialog that downloads the stamped Windows installer in one click (department, x64/ARM64, ring, token lifetime and PC count under Advanced), shows the next steps, and has a Linux tab with the install command and a copy button.
+- The same action is in a department's actions menu and as **Endpoints > Download installer**. Nothing renders with the module off or without `rmm.token.manage` / `rmm.admin`; the endpoint (`agent/post/rmm_installer.php`) uses the existing Core path and audit entry.
+- **Administration > Agent binaries:** drag-and-drop "Publish the agent" for one or both architectures at once; architecture read from the file, version from the file name, made current by default.
+- Tests: `tests/endpoint_agent_installer_ui.php`, browser smoke additions. See `docs/ENDPOINT_AGENT.md` section 8.
+
 ### RMM asset panel and Agent Fleet page (T10a, Phase 0 scope)
 
 The agent device page is folded into the asset page, and the fleet gets its own dashboard. Both are server-rendered from RivetCore's read models

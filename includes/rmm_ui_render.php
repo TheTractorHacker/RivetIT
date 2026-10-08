@@ -9,6 +9,7 @@
  */
 
 require_once __DIR__ . '/rmm_ui.php';
+require_once __DIR__ . '/rmm_installer.php';
 
 function rmmH($v): string
 {
@@ -576,7 +577,10 @@ function rivetRmmUiDeviceLink(array $d): string
     return $aid > 0 ? '<a class="fw-bold" href="/agent/asset_details.php?asset_id=' . $aid . '">' . $label . '</a>' : '<span class="fw-bold">' . $label . '</span>';
 }
 
-function rivetRmmUiFleetPage(array $f, string $csrf): string
+/**
+ * @param array<string,mixed>|null $installer rivetRmmInstallerContext(): when set the page gets the "Add device" button, the empty-state button and the dialog
+ */
+function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null): string
 {
     $c = $f['counts'];
     $names = $f['client_names'];
@@ -701,15 +705,18 @@ function rivetRmmUiFleetPage(array $f, string $csrf): string
     $capacity = $f['capacity'] !== null ? rivetRmmUiCapacity($f['capacity']) : '';
 
     return '<div class="d-flex align-items-center flex-wrap mb-3" style="gap:6px"><h4 class="mb-0 me-auto"><i class="fas fa-satellite me-2" aria-hidden="true"></i>Agent fleet</h4>'
+        . ($installer !== null ? rivetRmmInstallerTrigger('button', 0, 'Add device') : '')
         . '<a href="/agent/rmm_assets.php" class="btn btn-info btn-sm"><i class="fas fa-desktop me-1" aria-hidden="true"></i>All RMM assets</a>'
         . '<a href="/agent/rmm_alerts.php" class="btn btn-warning btn-sm"><i class="fas fa-bell me-1" aria-hidden="true"></i>Alerts</a>'
         . ($f['perm']['admin'] ? '<a href="/admin/settings_endpoint_agent.php" class="btn btn-outline-secondary btn-sm"><i class="fas fa-cog me-1" aria-hidden="true"></i>Administration</a>' : '') . '</div>'
         . ($c['total'] === 0 && $f['filters'] === [] ? '<section class="card card-dark mb-3"><div class="card-body">' . rivetRmmUiEmpty('fas fa-satellite-dish', 'No agent is enrolled yet',
-            $f['perm']['admin'] ? 'Create an enrollment token under Administration, Endpoint agent, then install the agent on a device.' : 'An administrator creates an enrollment token and installs the agent.') . '</div></section>' : '')
+            $installer !== null ? 'Click Add device, download the installer and run it on a PC. It enrolls itself.' : ($f['perm']['admin'] ? 'Create an enrollment token under Administration, Endpoint agent, then install the agent on a device.' : 'An administrator creates an enrollment token and installs the agent.'),
+            $installer !== null ? rivetRmmInstallerTrigger('button', 0, 'Add device') : '') . '</div></section>' : '')
         . '<div class="row mb-3">' . $kpi . '</div>'
         . '<div class="row"><div class="col-lg-7">' . $healthCard . '</div><div class="col-lg-5">' . $apCard . '</div></div>'
         . '<div class="row"><div class="col-lg-6">' . $offCard . '</div><div class="col-lg-6">' . $fCard . '</div></div>'
-        . $versionsCard . $capacity . $table;
+        . $versionsCard . $capacity . $table
+        . ($installer !== null ? rivetRmmInstallerModal($installer) : '');
 }
 
 function rivetRmmUiCapacity(array $cap): string

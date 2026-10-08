@@ -140,6 +140,11 @@ if (!empty($rmm_ui_scripts)) {
     $__rmm_js = __DIR__ . '/../js/rmm_panel.js';
     echo '<script src="/js/rmm_panel.js?v=' . (file_exists($__rmm_js) ? filemtime($__rmm_js) : time()) . '" defer></script>' . "\n";
 }
+// js/rmm_installer.js (the "Add device" / "Download installer" dialog) likewise: only a page that rendered the dialog (module on, user may issue installers).
+if (!empty($rmm_installer_scripts)) {
+    $__rmm_inst_js = __DIR__ . '/../js/rmm_installer.js';
+    echo '<script src="/js/rmm_installer.js?v=' . (file_exists($__rmm_inst_js) ? filemtime($__rmm_inst_js) : time()) . '" defer></script>' . "\n";
+}
 ?>
 
 </body>
