@@ -81,6 +81,16 @@ function rivetRmmModule($mysqli = null): RmmModule
 }
 
 /**
+ * Drop the module's remembered access answers (RivetCore 1.0.0-rc.6: RmmAuthorizer memoizes policy and client-scope answers for the life of the
+ * object). The module is built once per request, so a page never needs this; call it after changing a role, a role permission or a user's client
+ * scope inside the same request (or in a long-lived process such as a test or a worker) when something later must see the change.
+ */
+function rivetRmmForgetAccess(?int $userId = null, $mysqli = null): void
+{
+    rivetRmmModule($mysqli)->authorizer()->forget($userId);
+}
+
+/**
  * Is the module on? Answered from the state file when it holds a valid verdict (no database), from the settings row otherwise.
  * A missing or damaged file is "unknown", never "off".
  */

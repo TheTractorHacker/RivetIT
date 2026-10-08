@@ -19,8 +19,6 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/load_user_session.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_bootstrap.php';
 
-use RivetCore\Rmm\Authz\RmmAbility;
-
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
 mysqli_report(MYSQLI_REPORT_OFF);
@@ -40,20 +38,10 @@ $jobId = (string) ($_GET['job_id'] ?? '');
 if ($deviceId <= 0 || preg_match('/^[0-9a-fA-F-]{36}$/', $jobId) !== 1) {
     $fail(404, 'Not found.');
 }
-$rmm = rivetRmmModule($mysqli);
-$dev = $rmm->technician()->visibleDevice($uid, $deviceId);
-if ($dev === null) {
-    $fail(404, 'Not found.');
+$res = rivetRmmModule($mysqli)->readModel()->job($deviceId, $jobId, rivetRmmPrincipal($uid, (string) ($session_name ?? '')));
+if (!$res->ok) {
+    $fail($res->http, $res->http === 404 ? 'Not found.' : $res->message);
 }
-if (!$rmm->authorizer()->allowed($uid, RmmAbility::JOB_RUN_SAVED, (int) $dev['client_id'])) {
-    $fail(403, $rmm->authorizer()->denial(RmmAbility::JOB_RUN_SAVED));
-}
-// RmmReadModel::jobs() is the sanctioned read; the page lists the newest 15 jobs, so the output of one of those is within this window.
-foreach ($rmm->readModel()->jobs($deviceId, 20, true) as $job) {
-    if (strcasecmp((string) $job['job_id'], $jobId) === 0) {
-        echo json_encode(['success' => true, 'job_id' => $job['job_id'], 'state' => $job['state'], 'exit_code' => $job['exit_code'],
-            'output' => $job['output'], 'truncated' => (bool) $job['output_truncated']], JSON_INVALID_UTF8_SUBSTITUTE);
-        exit;
-    }
-}
-$fail(404, 'Not found.');
+$job = $res->data;
+echo json_encode(['success' => true, 'job_id' => $job['job_id'], 'state' => $job['state'], 'exit_code' => $job['exit_code'],
+    'output' => $job['output'], 'truncated' => (bool) $job['output_truncated']], JSON_INVALID_UTF8_SUBSTITUTE);

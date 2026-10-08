@@ -236,7 +236,6 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
         return null;
     }
     $view['jobs'] = array_slice((array) ($view['jobs'] ?? []), 0, 15);
-    $extras = rivetRmmUiCheckExtras($rmm, $deviceId);
     $cfg = $rmm->settings()->get();
     $platform = rivetRmmUiPlatform($dev);
     $st = $view['status_info'];
@@ -331,7 +330,6 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
         }
     }
     foreach ((array) ($view['checks'] ?? []) as $c) {
-        $c += ['last_changed_at' => $extras[$c['key']]['last_changed_at'] ?? null, 'alert_id' => $extras[$c['key']]['alert_id'] ?? null];
         $status = in_array($c['status'], ['ok', 'warn', 'fail', 'unknown'], true) ? $c['status'] : 'unknown';
         $c['shown_status'] = $offline ? 'unknown' : $status;
         $c['type'] = str_replace('_', ' ', $checkTypes[(string) $c['key']] ?? 'check');
@@ -407,24 +405,6 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
         'offered_release' => $view['offered_release'] ?? null,
         'coexistence_policy' => (string) ($cfg['coexistence_policy'] ?? ''),
     ];
-}
-
-/**
- * When each check last changed state, and the alert it opened. RmmReadModel::deviceView() builds these in its own `checks` list, but detail() already
- * put a shorter `checks` key into the array it merges them into, so they never arrive (follow-up for Core: the array union keeps the left side).
- * One read-only statement until that is fixed.
- *
- * @return array<string,array{last_changed_at:?string,alert_id:?int}>
- */
-function rivetRmmUiCheckExtras(\RivetCore\Rmm\RmmModule $rmm, int $deviceId): array
-{
-    $out = [];
-    foreach ($rmm->sql()->all('SELECT check_key, last_changed_at, alert_id FROM endpoint_agent_checks WHERE device_id = ?', [$deviceId]) as $r) {
-        $out[(string) $r['check_key']] = ['last_changed_at' => \RivetCore\Rmm\Support\Sql::iso($r['last_changed_at'] === null ? null : (string) $r['last_changed_at']),
-            'alert_id' => $r['alert_id'] === null ? null : (int) $r['alert_id']];
-    }
-
-    return $out;
 }
 
 /** The agent device linked to an asset through asset_rmm_links (the link row carries "rivetit:<device id>"), or null. */
@@ -522,7 +502,7 @@ function rivetRmmUiFleet(\mysqli $mysqli, int $userId, array $filters = [], ?int
     }
     $clientNames = rivetRmmUiClientNames($mysqli, array_keys($clientIds));
 
-    $failures = rivetRmmUiRecentJobFailures($rmm, $visible, 8);
+    $failures = $read->recentFailedJobs(8, rivetRmmPrincipal($userId, ''));
 
     $capacity = null;
     if ($isAdmin) {
@@ -607,34 +587,4 @@ function rivetRmmUiOpenAlertCount(\mysqli $mysqli, \RivetCore\Rmm\RmmModule $rmm
     $row = $r ? mysqli_fetch_assoc($r) : null;
 
     return (int) ($row['c'] ?? 0);
-}
-
-/**
- * The latest failed or timed-out jobs across the fleet, metadata only (never the script text or the output). Core has no fleet-wide job read
- * model yet, so this is one read-only statement over endpoint_agent_jobs scoped by the job's client; it is the first thing to replace when
- * RmmReadModel gains one (listed as a follow-up).
- *
- * @param list<int>|null $visible
- * @return list<array<string,mixed>>
- */
-function rivetRmmUiRecentJobFailures(\RivetCore\Rmm\RmmModule $rmm, ?array $visible, int $limit): array
-{
-    $where = ["j.state IN ('failed','timed_out')"];
-    $params = [];
-    if ($visible !== null) {
-        if ($visible === []) {
-            $where[] = 'j.client_id = 0';
-        } else {
-            $where[] = '(j.client_id = 0 OR j.client_id IN (' . implode(',', array_fill(0, count($visible), '?')) . '))';
-            array_push($params, ...array_map('intval', $visible));
-        }
-    }
-    $rows = $rmm->sql()->all('SELECT j.job_id, j.device_id, j.type, j.state, j.reason, j.exit_code, j.finished_at, j.created_at, d.hostname, d.asset_id FROM endpoint_agent_jobs j
-        JOIN endpoint_agent_devices d ON d.device_id = j.device_id WHERE ' . implode(' AND ', $where) . ' ORDER BY COALESCE(j.finished_at, j.created_at) DESC LIMIT ' . max(1, min(50, $limit)), $params);
-
-    return array_map(static fn (array $r): array => [
-        'job_id' => (string) $r['job_id'], 'device_id' => (int) $r['device_id'], 'type' => (string) $r['type'], 'state' => (string) $r['state'], 'reason' => $r['reason'],
-        'exit_code' => $r['exit_code'] === null ? null : (int) $r['exit_code'], 'at' => \RivetCore\Rmm\Support\Sql::iso((string) ($r['finished_at'] ?? $r['created_at'])),
-        'hostname' => (string) $r['hostname'], 'asset_id' => $r['asset_id'] === null ? null : (int) $r['asset_id'],
-    ], $rows);
 }

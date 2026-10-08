@@ -231,6 +231,7 @@ foreach ($USER as $n => $uid) { $SS[$n] = ea_forge_session($sdir, $uid); }
 $q("UPDATE settings SET config_module_enable_rmm=1 WHERE company_id=1");
 // The asset page itself needs the Assets module; the RMM panel inside it is gated separately. Give the technician and viewer roles read access to assets.
 foreach ([2, 4] as $role) { $q("INSERT INTO user_role_permissions SET user_role_id=$role, module_id=6, user_role_permission_level=2"); }
+rivetRmmForgetAccess();   // RmmAuthorizer memoizes per object; this process changed role grants after the first checks
 
 [$c, $body] = web($wb, 'GET', '/agent/asset_details.php?asset_id=' . $A['WIN1'], $SS['admin']);
 $ok($c === 200, 'asset page (admin): 200');
