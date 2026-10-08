@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.27] - 2026-10-08
+
 ### Training kiosk: Apple Web Clip icon
 
 - The kiosk now declares its 180x180 `apple-touch-icon` with an explicit size (plus the precomposed variant) so iPads that add the kiosk as a Web Clip pick up the site icon. For managed Web Clips, still embed the icon in the profile.
