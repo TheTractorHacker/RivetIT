@@ -1,6 +1,9 @@
 <?php
 define('FROM_API', true);
 
+// Module switch: while the RMM module is off, device and technician endpoints are answered here, before config.php and any database work.
+require __DIR__ . '/rmm_gate.php';
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
