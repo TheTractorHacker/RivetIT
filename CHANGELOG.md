@@ -6,7 +6,7 @@ continues unchanged.
 
 ## [Unreleased]
 
-## [26.10.27] - 2026-10-08
+## [26.10.27] RivetIT — Add device / Download installer dialog, kiosk Apple icon declaration
 
 ### Training kiosk: Apple Web Clip icon
 
