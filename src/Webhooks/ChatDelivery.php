@@ -74,7 +74,14 @@ final class ChatDelivery
             return ['status' => null, 'body' => null, 'error' => $vet['error']];
         }
 
-        $ch = curl_init($url);
+        // curl must be given the URL built from the vetted host, the same spelling the CURLOPT_RESOLVE pin below is keyed on
+        // (lower-case, no trailing dot). With the raw URL a host such as "example.com." skips the pin and curl resolves the
+        // name itself, which reopens DNS rebinding for this path. Fails closed when RivetCore cannot build that URL.
+        if (!method_exists(\RivetCore\Webhooks\WebhookDispatcher::class, 'pinnedUrl')) {
+            return ['status' => null, 'body' => null, 'error' => 'Delivery is unavailable: RivetCore is too old to pin the connection.'];
+        }
+        $pinned_url = \RivetCore\Webhooks\WebhookDispatcher::pinnedUrl($url, $vet);
+        $ch = curl_init($pinned_url);
         if ($ch === false) {
             return ['status' => null, 'body' => null, 'error' => 'curl_init failed'];
         }
