@@ -7,6 +7,14 @@
  *
  * config.php in the repo root must point at the SAME scratch database (scripts/setup_cli.php --config-only) and define
  * EA_ALLOW_INSECURE_HTTP = true (plain http on loopback is refused by the API otherwise). Never run against a live database.
+ *
+ * Suites that switch the service off or on with direct SQL (endpoint_agent_authz.php, endpoint_agent_deploy_http.php) also need the module
+ * state file taken out of the picture: the Core DeviceApi and the pre-bootstrap gate trust the state file (default backups/rmm-state/rmm_state.json,
+ * written when the module was last switched on) over the database column, so a SQL toggle is ignored and the "switched off -> 403" assertions fail
+ * (one each: 'with the service switched off devices get 403 forbidden', 'feature disabled -> 403'). The scratch config.php must therefore contain
+ *     define('RMM_STATE_DIR', '');      // empty string disables the state-file fast path; the database is the only source of truth
+ * and the suites must run with an empty RMM_GATE_STATE_DIR in the environment (RMM_GATE_STATE_DIR= php tests/endpoint_agent_authz.php).
+ * (tests/endpoint_agent_module.php and tests/rmm_ui.php do the opposite on purpose: they set RMM_TEST_STATE_DIR / RMM_GATE_STATE_DIR themselves.)
  */
 if (getenv('RIVETIT_TEST_DB') !== '1') { fwrite(STDERR, "set RIVETIT_TEST_DB=1\n"); exit(2); }
 if (!preg_match('/scratch/i', (string) getenv('RIVETIT_TEST_DB_NAME'))) { fwrite(STDERR, "Refusing: DB name must contain 'scratch'\n"); exit(2); }
