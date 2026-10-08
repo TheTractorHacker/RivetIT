@@ -43,7 +43,9 @@ if (isset($_POST['rmm_module_switch'])) {
             ea_flash_result($p);
         }
     }
-    $rmm->syncState();
+    if (!$rmm->syncState() && rivetRmmStateDir() !== null) {
+        flash_alert('The module state file could not be written (' . nullable_htmlentities((string) rivetRmmStateDir()) . '). Make that directory writable by the web server user, then save the switch again.', 'warning');
+    }
     ea_flash_result($r, ($_POST['rmm_module_switch'] ?? '') === 'on' ? 'RMM module switched on.' : 'RMM module switched off. Nothing was deleted; enrolled agents back off and come back by themselves when it is switched on again.');
 }
 

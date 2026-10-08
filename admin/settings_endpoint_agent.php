@@ -30,6 +30,11 @@ $read = $rmm->readModel();
 rivetRmmSyncState();   // the page is where the switch lives: make sure the zero-database state file agrees with the database
 $cfg = $read->settingsSummary();
 $moduleOn = $rmm->enabled();
+// The gate (api/v1/rmm_gate.php) trusts the state file. If it cannot be written (a directory created by another user, a read-only backups/), a stale
+// "off" would keep turning agents away after the switch is on: say so here instead of letting it go unnoticed.
+$stateDir = rivetRmmStateDir();
+$stateFile = $stateDir === null ? null : \RivetCore\Rmm\RmmStateFile::read($stateDir);
+$stateProblem = $stateDir !== null && ($stateFile === null || $stateFile['master'] !== (bool) $cfg['enabled']);
 
 $clients = [];
 $res = mysqli_query($mysqli, 'SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL ORDER BY client_name');
@@ -71,6 +76,9 @@ $serviceUrlHint = 'https://' . $config_base_url;
     </div>
 </div>
 
+<?php if ($stateProblem) { ?>
+<div class="alert alert-warning"><strong>The module state file is missing or does not match the settings.</strong> The agent gate reads <code><?= $h($stateDir) ?>/rmm_state.json</code>. Make the directory writable by the web server user (for example <code>sudo -u www-data mkdir -p <?= $h($stateDir) ?></code>, or <code>chown -R www-data</code> it) and save the switch again; until then a stale file can keep answering agents with "disabled".</div>
+<?php } ?>
 <div class="card mb-3" id="module">
     <div class="card-header py-3 d-flex align-items-center justify-content-between">
         <h4 class="card-title mb-0"><i class="fas fa-fw fa-power-off me-2"></i>RMM module</h4>

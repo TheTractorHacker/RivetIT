@@ -48,4 +48,5 @@ $cmd = [PHP_BINARY, "$core/scripts/rmm-golden/golden.php", $argv[1] ?? 'replay',
 $p = proc_open($cmd, [0 => ['file', '/dev/null', 'r'], 1 => STDOUT, 2 => STDERR], $pipes, $root, array_merge(getenv(), ['RIVET_CORE_DIR' => $core]));
 $code = proc_close($p);
 foreach ($procs as $proc) { proc_terminate($proc); proc_close($proc); }
+shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg("$root/tests/rmm_golden/adapter.php") . ' ' . escapeshellarg($root) . ' hook ' . escapeshellarg('{"hook":"cleanup"}') . ' 2>&1');   // leave no hosted binary behind
 exit($code);

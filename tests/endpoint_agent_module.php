@@ -124,6 +124,17 @@ $ok($c === 200 && strpos($b, 'MODULE-PC') !== false, 'ON: the device page render
 web($wb, 'POST', '/admin/post.php', $sid, ['csrf_token' => 'csrftok1', 'rmm_module_switch' => 'off'], ['Referer: ' . $wb . '/admin/settings_endpoint_agent.php']);
 $ok((int) $one('SELECT enabled FROM endpoint_agent_settings') === 0 && $state()['enabled'] === false, 'the page switch turns the module off again');
 
+// ============================================================ an unwritable state directory is reported, not silent
+$rmm->admin()->enable($admin);
+$q('UPDATE endpoint_agent_settings SET enabled=0 WHERE id=1');   // the database says off ...
+unlink($stateFile); mkdir($stateFile);                            // ... and a directory sits where the file belongs, so it can neither be read nor replaced
+[$c, $b] = web($wb, 'GET', '/admin/settings_endpoint_agent.php', $sid);
+$ok($c === 200 && strpos($b, 'The module state file is missing or does not match the settings') !== false, 'a state file that cannot be written/read is reported on the administration page');
+rmdir($stateFile);
+$rmm->syncState();
+[$c, $b] = web($wb, 'GET', '/admin/settings_endpoint_agent.php', $sid);
+$ok($c === 200 && strpos($b, 'The module state file is missing or does not match the settings') === false, 'and the warning is gone once the file agrees with the settings');
+
 // ============================================================ fresh install vs existing install (the Core migration step never decides the switch)
 $q('SET SESSION sql_mode=\'\'');
 $mk = function (string $suffix, ?int $enabled) use ($db, $root, $q): array {

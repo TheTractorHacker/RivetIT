@@ -180,6 +180,15 @@ switch ($cmd) {
             case 'clear_attempts':
                 $q('DELETE FROM endpoint_agent_enroll_attempts');
                 break;
+            case 'cleanup':   // end of a run: remove the hosted binaries the seed stored (scratch install only: this adapter refuses any other database)
+                $storeDir = $rmm->binaryStore()->storageDir();
+                foreach ($storeDir === null ? [] : (glob($storeDir . '/bin_*.bin') ?: []) as $f) {
+                    if (preg_match('/^bin_[0-9a-f]{32}\.bin$/', basename($f))) {
+                        @unlink($f);
+                    }
+                }
+                $q('DELETE FROM endpoint_agent_binaries');
+                break;
             case 'flush_redis':
                 flushRedis();
                 break;
