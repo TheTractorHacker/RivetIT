@@ -13,7 +13,8 @@ $start = strpos($src, "isset(\$_POST['add_payment'])");
 $end = $start === false ? false : strpos($src, "isset(\$_POST['edit_payment'])", $start);
 $ok($start !== false && $end !== false, 'add_payment handler found');
 $h = ($start === false || $end === false) ? '' : substr($src, $start, $end - $start);
-$guard = strpos($h, 'if ($amount < 0)');
+// negative (and zero / non-numeric) amounts are refused by parsePositiveMoney() before the balance check and the INSERT
+$guard = strpos($h, 'parsePositiveMoney($_POST[\'amount\']');
 $insert = strpos($h, 'INSERT INTO payments');
 $ok($guard !== false, 'a negative amount is checked');
 $ok($guard !== false && $insert !== false && $guard < $insert, 'the check comes before the payment INSERT');

@@ -17,8 +17,9 @@ $src = (string) file_get_contents(__DIR__ . '/../agent/post/payment.php');
 $ok(!preg_match('/[\'\"]payment_client_id[\'\"]/', $src), 'payment.php never reads the non-existent payment_client_id');
 foreach (['edit_payment' => "isset(\$_POST['edit_payment'])", 'delete_payment' => "isset(\$_GET['delete_payment'])"] as $name => $needle) {
     $start = strpos($src, $needle);
-    $end = $start === false ? false : strpos($src, 'redirect();', $start);
-    $h = ($start === false || $end === false) ? '' : substr($src, $start, $end - $start);
+    // up to and including the department check (a "payment not found" redirect may come first)
+    $end = $start === false ? false : strpos($src, 'enforceClientAccess();', $start);
+    $h = ($start === false || $end === false) ? '' : substr($src, $start, $end + strlen('enforceClientAccess();') - $start);
     $ok($start !== false && $h !== '', "$name handler found");
     $ok(str_contains($h, 'invoice_client_id') && str_contains($h, 'LEFT JOIN invoices ON payment_invoice_id = invoice_id'), "$name takes the department from the payment's invoice");
     $ok(strpos($h, 'invoice_client_id') < strpos($h, 'enforceClientAccess()'), "$name resolves the department before enforceClientAccess()");
