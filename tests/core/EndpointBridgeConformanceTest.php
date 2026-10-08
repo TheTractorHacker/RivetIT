@@ -56,4 +56,25 @@ final class EndpointBridgeConformanceTest extends RmmBridgeConformanceTestCase
             'ip_address' => $r['source_ip'] === null ? null : (string) $r['source_ip'], 'user_agent' => $r['user_agent'] === null ? null : (string) $r['user_agent'],
         ], EndpointKit::db()->fetchAll('SELECT * FROM rmm_remote_sessions WHERE asset_id = ? ORDER BY id', [$assetId]));
     }
+
+    /** RivetIT-specific: the health payload carries no OS name, so a check-in must keep the one upsertLink() stored (a Linux agent stays Linux). */
+    public function testApplyHealthKeepsTheDevicesOwnOsName(): void
+    {
+        $db = EndpointKit::db();
+        $bridge = $this->bridge();
+        $i = $bridge->ensureIntegration('endpoint_agent', 'Endpoint agent');
+        foreach (['Linux' => '6.8.0-generic', 'Windows' => '10.0.26100'] as $os => $version) {
+            $asset = $this->createAsset();
+            $key = 'osname-' . bin2hex(random_bytes(4));
+            $bridge->upsertLink($i, $asset, $key, ['hostname' => 'h-' . $os, 'os_name' => $os, 'os_version' => $version, 'manufacturer' => 'Acme', 'model' => 'M1']);
+            $this->assertTrue($bridge->applyHealth($i, $asset, [
+                'hostname' => 'h-' . $os, 'os_version' => $version, 'manufacturer' => 'Acme', 'model' => 'M1', 'cpu' => 'cpu', 'ram_gb' => '8',
+                'logged_in_user' => 'u', 'cpu_pct' => 10, 'ram_pct' => 20, 'disk_pct' => 30, 'needs_reboot' => false, 'last_boot' => '2026-01-01 00:00:00',
+            ]));
+            $row = $db->fetchOne('SELECT os_name, os_version, rmm_status FROM asset_rmm_links WHERE asset_id = ? AND integration_id = ?', [$asset, $i]);
+            $this->assertSame($os, $row['os_name']);
+            $this->assertSame($version, $row['os_version']);
+            $this->assertSame('online', $row['rmm_status']);
+        }
+    }
 }

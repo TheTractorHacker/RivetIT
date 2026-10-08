@@ -139,6 +139,15 @@ $r = Enrollment::resolvePending($pend, 'link', $a1, 1);
 $ok(!$r['ok'] && strpos($r['message'], 'already belongs') !== false, 'cannot link a second device to an owned asset');
 $r = Enrollment::resolvePending($pend, 'create_asset', null, 1);
 $ok($r['ok'] && (int) $one("SELECT COUNT(*) FROM asset_rmm_links WHERE tactical_agent_id='rivetit:$pend'") === 1, 'admin can create an asset for a pending device');
+// --- Core's read model supplies asset_name from RivetIT's assets adapter (RmmAssetNamesInterface); the edition keeps no lookup of its own
+require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
+$listed = rivetRmmModule($db)->readModel()->listDevices(['retired' => 'all'], null, 500, 0)['items'];
+$byId = []; foreach ($listed as $it) { $byId[(int) $it['device_id']] = $it; }
+$expName = (string) $one("SELECT a.asset_name FROM endpoint_agent_devices d JOIN assets a ON a.asset_id = d.asset_id WHERE d.device_id=$pend");
+$ok($expName !== '' && ($byId[$pend]['asset_name'] ?? null) === $expName && array_key_exists('update_state', $byId[$pend] ?? []), 'listDevices() carries asset_name (from the assets adapter) and update_state');
+$noAsset = (int) $one("SELECT device_id FROM endpoint_agent_devices WHERE asset_id IS NULL ORDER BY device_id LIMIT 1");
+$ok($noAsset > 0 && array_key_exists('asset_name', $byId[$noAsset] ?? []) && $byId[$noAsset]['asset_name'] === null, 'a device without an asset has asset_name null');
+$ok(rivetRmmModule($db)->clientLabel() === 'department', 'the module calls a client a department (client_label)');
 
 // --- rate limiting (DB backed)
 $q("DELETE FROM endpoint_agent_enroll_attempts");

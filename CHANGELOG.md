@@ -9,7 +9,7 @@ continues unchanged.
 ### RMM module: the endpoint agent now runs on RivetCore (DB 2.6.147)
 
 The server side of the built-in endpoint agent (enrollment, devices, check-in, signed jobs, hosted updates, per-department installers, MeshCentral launch,
-the technician REST API and the administration operations) is now the **RMM module of RivetCore** (`rivet/rivet-core` 1.0.0-rc.4, `RivetCore\Rmm`). RivetIT
+the technician REST API and the administration operations) is now the **RMM module of RivetCore** (`rivet/rivet-core` 1.0.0-rc.5, `RivetCore\Rmm`). RivetIT
 keeps the feature, the ten `endpoint_agent_*` tables, every URL and the wire protocol; what changed is where the code lives. `src/EndpointAgent/` (20 classes)
 and the Go agent `endpoint-agent/` with its workflow were removed from this repository (the agent, its CI and the `agent-v*` releases are in rivet-core;
 `docs/ENDPOINT_AGENT.md` and `docs/ENDPOINT_AGENT_BUILD.md` are now pointers plus the RivetIT-specific parts).
@@ -19,7 +19,7 @@ and the Go agent `endpoint-agent/` with its workflow were removed from this repo
   vectors reproduce byte for byte).
 - **RMM module switch** (Administration > Endpoint agent > RMM module): the master switch `endpoint_agent_settings.enabled`. An existing install keeps whatever
   value it has (ON if the agent was enabled, OFF if never enabled or switched off); a fresh install is OFF. While off, the device endpoints answer
-  `503 module_disabled` (Retry-After 3600) and `endpoint_devices` answers `404 disabled` from `api/v1/rmm_gate.php` with no database work at all, enrolled
+  `503 module_disabled` (Retry-After 3600) from `api/v1/rmm_gate.php` with no database work at all (`endpoint_devices` authenticates first, 401 without a token, then answers `404 disabled`: an anonymous caller cannot learn whether the module is on), enrolled
   agents back off and lose nothing, the device page and the asset page link are hidden and the cron housekeeping does nothing. The gate reads
   `backups/rmm-state/rmm_state.json`, a cache of the switch (a missing or damaged file means "unknown", never "off").
 - **Database 2.6.147:** runs Core migrations 0014 to 0016. On an existing install 0014 and 0015 change nothing; 0016 adds `features_json`, `limits_json`,

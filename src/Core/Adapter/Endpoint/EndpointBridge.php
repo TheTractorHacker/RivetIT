@@ -67,9 +67,10 @@ final class EndpointBridge implements RmmBridgeInterface
         if ($link === null) {
             return false;
         }
+        // os_name is not in the health payload: upsertLink() set it from the device's own OS (Windows or Linux), so it is left alone here.
         $changed = $link['rmm_status'] !== 'online' ? 'rmm_status_changed_at = NOW(),' : '';
         $this->database->execute(
-            "UPDATE asset_rmm_links SET $changed rmm_status = 'online', last_seen = NOW(), last_sync = NOW(), hostname = ?, os_name = 'Windows', os_version = ?,
+            "UPDATE asset_rmm_links SET $changed rmm_status = 'online', last_seen = NOW(), last_sync = NOW(), hostname = ?, os_version = ?,
              manufacturer = ?, model = ?, cpu = ?, ram_gb = ?, logged_in_user = ?, rmm_cpu_percent = ?, rmm_ram_percent = ?, rmm_disk_percent = ?, rmm_needs_reboot = ?,
              rmm_last_boot = ?, rmm_health_updated_at = NOW() WHERE id = ?",
             [$health['hostname'], $health['os_version'], (string) $health['manufacturer'], (string) $health['model'], $health['cpu'], $health['ram_gb'], (string) $health['logged_in_user'],

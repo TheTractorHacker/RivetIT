@@ -39,4 +39,18 @@ final class EndpointAssetsConformanceTest extends RmmAssetsConformanceTestCase
             'os' => (string) $r['asset_os'], 'type' => (string) $r['asset_type'], 'status' => (string) $r['asset_status'],
         ];
     }
+
+    /** RivetIT-specific: RmmAssetNamesInterface (RmmReadModel::listDevices() supplies asset_name from it). */
+    public function testAssetNamesIsOneBatchedLookup(): void
+    {
+        $adapter = $this->assets();
+        $this->assertInstanceOf(\RivetCore\Rmm\Contracts\RmmAssetNamesInterface::class, $adapter);
+        $a = $this->createAsset(['name' => 'names-a-' . bin2hex(random_bytes(3)), 'make' => '', 'model' => '', 'serial' => null, 'os' => '', 'client_id' => 0, 'archived' => false, 'macs' => []]);
+        $b = $this->createAsset(['name' => 'names-b-' . bin2hex(random_bytes(3)), 'make' => '', 'model' => '', 'serial' => null, 'os' => '', 'client_id' => 0, 'archived' => false, 'macs' => []]);
+        $names = $adapter->assetNames([$a, $b, 0, 999999999, $a]);
+        $this->assertCount(2, $names);
+        $this->assertStringStartsWith('names-a-', $names[$a]);
+        $this->assertStringStartsWith('names-b-', $names[$b]);
+        $this->assertSame([], $adapter->assetNames([]));
+    }
 }

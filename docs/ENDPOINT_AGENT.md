@@ -1,6 +1,6 @@
 # Built-in endpoint agent / RMM module in RivetIT
 
-Status: since DB 2.6.147 the server side of the endpoint agent is the **RMM module of RivetCore** (`rivet/rivet-core` >= 1.0.0-rc.4, namespace
+Status: since DB 2.6.147 the server side of the endpoint agent is the **RMM module of RivetCore** (`rivet/rivet-core` >= 1.0.0-rc.5, namespace
 `RivetCore\Rmm`). RivetIT keeps the feature, the tables, the URLs and the behaviour; the PHP that implements it (and the Windows agent, `endpoint-agent/`)
 no longer lives here. This page covers only what is RivetIT's own: how it is wired, the permission mapping, the module switch, operations and tests.
 
@@ -43,8 +43,8 @@ sessions when MeshCentral is enabled).
 While the module is **off**:
 
 * the device endpoints (`agent_enroll`, `agent_checkin`, `agent_jobs`, `agent_update`, `agent_installer`) answer `503 module_disabled` with
-  `Retry-After: 3600` and `Cache-Control: no-store`, and `endpoint_devices` answers `404 {"code":"disabled"}`, **from `api/v1/rmm_gate.php` before
-  `config.php` is loaded**: no database connection, no query, no Core class (proved by `tests/endpoint_agent_module.php`). Enrolled agents keep their
+  `Retry-After: 3600` and `Cache-Control: no-store`, **from `api/v1/rmm_gate.php` before
+  `config.php` is loaded**: no database connection, no query, no Core class (proved by `tests/endpoint_agent_module.php`); `endpoint_devices` is not answered by the gate (401 without a token, then `404 {"code":"disabled"}`, so an anonymous caller learns nothing). Enrolled agents keep their
   credential and data and back off to about one attempt an hour; nothing is deleted, and switching on again resumes everything;
 * the agent device page shows a "module is off" notice, the asset page hides its "Agent device" button, queued ingest handlers are not registered and the
   cron housekeeping block does nothing (one primary-key SELECT). The administration page stays reachable: it is where the switch is.
@@ -56,7 +56,7 @@ block when it disagrees with the settings row (so a restored backup is corrected
 `define('RMM_STATE_DIR', '/path')` in `config.php` (an empty string switches the fast path off) and, because the gate cannot read `config.php`, set the
 same path as `RMM_GATE_STATE_DIR` in the web server environment (nginx `fastcgi_param`, Apache `SetEnv`).
 
-One deliberate difference from Core's own default: the bridges run `DeviceApi` in its compatibility mode, so a service that is disabled **in the database**
+One deliberate difference from Core's own default: the bridges run `DeviceApi` with `DISABLED_COMPAT` (rc.5 option; it also re-creates a missing state file on the next request), so a service that is disabled **in the database**
 but has no state file still answers `403 forbidden` exactly as RivetIT always did (the golden transcripts and the acceptance suites pin that). Once the
 state file exists - which every switch change, the update step and the cron block guarantee - the answer is the new `503 module_disabled`.
 
@@ -93,7 +93,7 @@ a remote session. The reason strings of a denial are Core's generic ones ("Your 
 * **Updating.** `Update Database` (2.6.147) runs Core's migration runner. Migrations 0014 and 0015 are `CREATE TABLE IF NOT EXISTS` / guarded `ALTER`s that
   change nothing on an install that has the tables; 0016 adds five columns (`features_json`, `limits_json`, `shed_level`, `ingest_mode`, `max_devices`) to
   `endpoint_agent_settings` with defaults that reproduce today's behaviour. Run `composer install --no-dev` first (the in-app Update and
-  `deploy/update.sh` do) so rivet-core 1.0.0-rc.4 is present: without it the step waits and retries.
+  `deploy/update.sh` do) so rivet-core 1.0.0-rc.5 is present: without it the step waits and retries.
 
 ## 5. Tests
 

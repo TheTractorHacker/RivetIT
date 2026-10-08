@@ -42,12 +42,6 @@ while ($res && ($c = mysqli_fetch_assoc($res))) { $clients[] = $c; }
 $clientName = [];
 foreach ($clients as $c) { $clientName[(int) $c['client_id']] = $c['client_name']; }
 $devices = $read->listDevices(['retired' => 'all'], null, 500, 0)['items'];
-$assetName = [];
-$assetIds = array_values(array_unique(array_filter(array_map(static fn($d) => (int) ($d['asset_id'] ?? 0), $devices))));
-if ($assetIds) {
-    $res = mysqli_query($mysqli, 'SELECT asset_id, asset_name FROM assets WHERE asset_id IN (' . implode(',', $assetIds) . ')');
-    while ($res && ($a = mysqli_fetch_assoc($res))) { $assetName[(int) $a['asset_id']] = $a['asset_name']; }
-}
 $pending = $read->pendingApprovals(null, 200);
 $tokens = $read->tokens(50);
 $attempts = $read->recentFailedAttempts(15);
@@ -355,8 +349,8 @@ $serviceUrlHint = 'https://' . $config_base_url;
                     <?php if ($d['offline_since']) { echo '<div class="small text-muted">since ' . $h($dt($d['offline_since'])) . '</div>'; } ?></td>
                 <td><?= $d['last_checkin_at'] ? $h($dt($d['last_checkin_at'])) : '<span class="text-muted">never</span>' ?></td>
                 <td><?= $h($d['agent_version']) ?></td>
-                <td><?= $d['asset_id'] ? '<a href="/agent/asset_details.php?asset_id=' . (int) $d['asset_id'] . '">' . $h($assetName[(int) $d['asset_id']] ?? ('#' . $d['asset_id'])) . '</a>' : '<span class="text-muted">none</span>' ?>
-                    <?php if (($assetName[(int) $d['asset_id']] ?? null) !== null && strcasecmp($assetName[(int) $d['asset_id']], $d['hostname']) !== 0) { echo '<div class="small text-muted">hostname differs from asset name</div>'; } ?></td>
+                <td><?= $d['asset_id'] ? '<a href="/agent/asset_details.php?asset_id=' . (int) $d['asset_id'] . '">' . $h($d['asset_name'] ?? ('#' . $d['asset_id'])) . '</a>' : '<span class="text-muted">none</span>' ?>
+                    <?php if (($d['asset_name'] ?? null) !== null && strcasecmp($d['asset_name'], $d['hostname']) !== 0) { echo '<div class="small text-muted">hostname differs from asset name</div>'; } ?></td>
                 <td><?= $h($d['ring']) ?></td>
                 <td class="text-nowrap">
                     <form action="post.php" method="post" class="d-inline-flex gap-1 flex-wrap">

@@ -55,6 +55,7 @@ function rivetRmmModule($mysqli = null): RmmModule
         'allow_insecure_http' => defined('EA_ALLOW_INSECURE_HTTP') && EA_ALLOW_INSECURE_HTTP === true,
         'allow_linux' => defined('EA_ALLOW_NON_WINDOWS') && EA_ALLOW_NON_WINDOWS === true,
         'host_fallback' => (string) ($GLOBALS['config_base_url'] ?? ''),
+        'client_label' => 'department',
     ];
     if (defined('EA_BINARY_MAX_BYTES')) {
         $options['max_upload_bytes'] = (int) EA_BINARY_MAX_BYTES;

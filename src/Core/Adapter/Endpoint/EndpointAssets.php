@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace ITFlow\Core\Adapter\Endpoint;
 
 use RivetCore\Database\DatabaseInterface;
+use RivetCore\Rmm\Contracts\RmmAssetNamesInterface;
 use RivetCore\Rmm\Contracts\RmmAssetsInterface;
 
 /** The asset side of RMM identity matching and linking, over RivetIT's `assets` and `asset_interfaces` tables. */
-final class EndpointAssets implements RmmAssetsInterface
+final class EndpointAssets implements RmmAssetsInterface, RmmAssetNamesInterface
 {
     public function __construct(private DatabaseInterface $database)
     {
@@ -42,6 +43,21 @@ final class EndpointAssets implements RmmAssetsInterface
             'SELECT asset_id, asset_name, asset_client_id, asset_serial FROM assets WHERE LOWER(asset_name) = LOWER(?) AND asset_archived_at IS NULL LIMIT ' . max(1, $limit),
             [$hostname]
         ));
+    }
+
+    public function assetNames(array $assetIds): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $assetIds), static fn (int $i): bool => $i > 0)));
+        if ($ids === []) {
+            return [];
+        }
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $names = [];
+        foreach ($this->database->fetchAll("SELECT asset_id, asset_name FROM assets WHERE asset_id IN ($in)", $ids) as $r) {
+            $names[(int) $r['asset_id']] = (string) $r['asset_name'];
+        }
+
+        return $names;
     }
 
     public function find(int $assetId): ?array

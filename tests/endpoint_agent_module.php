@@ -2,7 +2,7 @@
 /*
  * The RMM module switch and its edges, on a scratch database with the real front controller (php -S):
  *   - a fresh install is OFF; an existing install keeps whatever endpoint_agent_settings.enabled says (the Core migration step never touches it)
- *   - module OFF: the five device endpoints answer 503 module_disabled (Retry-After 3600, no-store) and endpoint_devices 404 disabled FROM THE
+ *   - module OFF: the five device endpoints answer 503 module_disabled (Retry-After 3600, no-store) and FROM THE
  *     STATE FILE ALONE: zero database connections and zero statements (counted on the server), before config.php is even loaded
  *   - disabling and re-enabling keeps every row; enrolled devices carry on with the same credential
  *   - a missing or damaged state file means "unknown", never "off"; the cron housekeeping corrects a stale file
@@ -45,14 +45,15 @@ foreach ($deviceCalls as [$m, $path]) {
     [$c, $h, , $raw] = http($m, $path, str_repeat('a', 64), $m === 'POST' ? ['x' => 1] : null);
     $ok($c === 503 && $raw === $bodyOff && $hdr($h, 'retry-after') === '3600' && $hdr($h, 'cache-control') === 'no-store' && stripos((string) $hdr($h, 'content-type'), 'application/json') === 0, "OFF: $m " . strtok($path, '?') . ' -> 503 module_disabled, Retry-After 3600, no-store');
 }
-[$c, , $j, $raw] = http('GET', '/api/v1/endpoint_devices');
-$ok($c === 404 && ($j['code'] ?? '') === 'disabled' && $raw === '{"error":"The endpoint agent is not enabled.","code":"disabled"}', 'OFF: endpoint_devices -> 404 disabled (answered before the token is even looked at)');
 [$c, , , $raw] = http('GET', '/api/v1/agent_checkin.php');
 $ok($c === 503, 'OFF: the legacy .php spelling of the URL is gated too');
 $after = $counters();
-$ok($after['Connections'] === $before['Connections'], 'OFF: ' . (count($deviceCalls) + 2) . ' requests opened zero database connections');
+$ok($after['Connections'] === $before['Connections'], 'OFF: ' . (count($deviceCalls) + 1) . ' requests opened zero database connections');
 $ok($overhead === 1 && $after['Questions'] - $before['Questions'] === $overhead, 'OFF: and ran zero statements on the server (the counter moved only by the one read of the counter itself)');
 [$c] = http('GET', '/api/v1/tickets'); $ok($c === 401, 'OFF: other API endpoints are untouched (401 without a token)');
+// The gate no longer answers for the technician endpoint: an anonymous caller must not learn whether the module is on (401 either way).
+[$c, , $j, $raw] = http('GET', '/api/v1/endpoint_devices');
+$ok($c === 401 && !str_contains($raw, 'not enabled') && ($j['code'] ?? '') !== 'disabled', 'OFF: endpoint_devices without a token -> 401, not the module-state answer (no anonymous module-state leak)');
 
 // ============================================================ switch on through RmmAdmin
 $r = $rmm->admin()->enable($admin);
