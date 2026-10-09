@@ -10642,3 +10642,19 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.154'");
     }
+
+    if ($rivetit_db_version() == '2.6.154') {
+        // DB 2.6.155 (was 2.6.151 in an unreleased variant; renumbered after the kiosk step 2.6.151 shipped). The runner is idempotent, so an install that ran the
+        // earlier variant simply passes through again.
+        // RivetCore 1.0.0-rc.7 Migration0017McpIdentityBinaryCollation: mcp_unlinked_identities.issuer and .subject move to utf8mb4_bin (OIDC iss and sub
+        // are case-sensitive, trailing spaces count). Idempotent (already-binary columns and a missing table are left alone). Skipped (version NOT advanced,
+        // so it retries) until a package that ships the migration is installed.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Mcp\Migration\Migration0017McpIdentityBinaryCollation::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.155'");
+        }
+    }

@@ -175,13 +175,13 @@ Devices::transfer($dev, 2, 0, 1);
 $ok((int) $one("SELECT client_id FROM endpoint_agent_devices WHERE device_id=$dev") === 2 && (int) $one("SELECT asset_client_id FROM assets WHERE asset_id=$assetId") === 2 && (int) $one("SELECT client_id FROM rmm_alerts WHERE tactical_alert_id='agent:x'") === 2, 'department transfer moves device, asset and open alerts');
 [$c] = ea_checkin($T3); $ok($c === 200 && (int) $one("SELECT COUNT(*) FROM asset_rmm_links WHERE asset_id=$assetId AND integration_id=$intg") === 1, 'the device keeps reporting after the transfer, link unchanged');
 [$c, , $j4] = ea_enroll(ea_token(1, 24, 10), $d);
-$ok($c === 201 && (int) $one("SELECT client_id FROM endpoint_agent_devices WHERE device_id=$dev") === 2, 're-enrolling with a department-1 token does not silently move a transferred device back');
+$ok($c === 409 && (int) $one("SELECT client_id FROM endpoint_agent_devices WHERE device_id=$dev") === 2, 're-enrolling with a department-1 token is refused (409 conflict, rc.7 CORE-1) and does not silently move a transferred device back');
 
 // --- retire
 Devices::retire($dev, 1);
 $ok((int) $one("SELECT COUNT(*) FROM asset_rmm_links WHERE asset_id=$assetId AND integration_id=$intg") === 0 && (int) $one("SELECT COUNT(*) FROM assets WHERE asset_id=$assetId") === 1, 'retire stops monitoring (link removed) and keeps the asset');
 $ok((int) $one("SELECT COUNT(*) FROM rmm_alerts WHERE status='new' AND tactical_alert_id LIKE 'agent:$dev:%'") === 0, 'retire resolves the device\'s open alerts');
-[$c, , $r] = ea_checkin($j4['device_token']); $ok($c === 401, 'retired device is locked out');
+[$c, , $r] = ea_checkin($T3); $ok($c === 401, 'retired device is locked out');
 
 // --- version string / transport guards
 [$c] = http('POST', '/api/v1/agent_checkin', $T3, ['seq' => 1, 'collected_at' => ea_ts(), 'agent_version' => '1.0']);

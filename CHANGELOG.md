@@ -6,6 +6,12 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.31] RivetIT — RivetCore 1.0.0-rc.7 (MCP identity collation)
+
+- **RivetCore 1.0.0-rc.7 (DB 2.6.155):** adopts `rivet/rivet-core` rc.7. New database step 2.6.155 runs Core migration 0017, which moves `mcp_unlinked_identities.issuer` and `.subject` to `utf8mb4_bin` (OIDC `iss`/`sub` are case-sensitive); idempotent, skipped until the package is installed. `db.sql` matches.
+- Core rc.7 also carries the 2026-10-08 security fixes: RMM re-enrollment is bound to the enrollment token's client (CORE-1; a device that was transferred to another department and re-enrolls with the old department's token now gets 409 conflict instead of being moved back, `tests/endpoint_agent_checkin.php` updated), token revocation is client-scoped (CORE-2) and automation placeholders fill only allowlisted keys (F10). Requires `rivet/rivet-core ^1.0.0-rc.7` (locked to v1.0.0-rc.7).
+- Note: the golden RMM replay (`tests/endpoint_agent_golden.php`) still compares against transcripts recorded before CORE-1, so its cross-client enrollment step differs until Core re-records them.
+
 ## [26.10.30] RivetIT — Security hardening, mail intake reliability, backup alerts and restore drill
 
 Wave 1 of the platform plan: mail intake reliability, security hardening and recovery. Three database steps run as one chain after 2.6.151
