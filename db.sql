@@ -3000,6 +3000,8 @@ CREATE TABLE `settings` (
   `config_audit_retention_days` int(11) NOT NULL DEFAULT 365,
   `config_release_channel` varchar(12) NOT NULL DEFAULT 'production',
   `config_lifecycle_auto_start` tinyint(1) NOT NULL DEFAULT 0,
+  `config_rivetdocs_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `config_rivetdocs_url` varchar(255) NOT NULL DEFAULT '',
   PRIMARY KEY (`company_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

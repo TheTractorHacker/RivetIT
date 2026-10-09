@@ -44,6 +44,7 @@ $admin_settings_labels = [
     'settings_security.php' => 'Security',
     'settings_compliance.php' => 'Compliance',
     'compliance_status.php' => 'Compliance status',
+    'settings_rivetdocs.php' => 'RivetDocs',
     'automation.php' => 'Automation',
     'automation_test.php' => 'Test rule',
     'event_rules.php' => 'Event rules',

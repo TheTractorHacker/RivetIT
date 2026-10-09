@@ -10421,3 +10421,11 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             }
         }
     }
+
+    if ($rivetit_db_version() == '2.6.150') {
+        // RivetDocs add-on (Administration > RivetDocs): an optional companion app. Off by default; only its address is stored.
+        mysqli_query($mysqli, "ALTER TABLE `settings`
+            ADD COLUMN IF NOT EXISTS `config_rivetdocs_enabled` tinyint(1) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `config_rivetdocs_url` varchar(255) NOT NULL DEFAULT ''");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.151'");
+    }
