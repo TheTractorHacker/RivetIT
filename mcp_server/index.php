@@ -20,16 +20,32 @@ require_once __DIR__ . '/../includes/redis_functions.php';
 require_once __DIR__ . '/McpIdentityMiddleware.php';
 require_once __DIR__ . '/ReadTools.php';
 require_once __DIR__ . '/RedisMetadataCache.php';
-$issuer = $mcp_config['issuer'];
-$audience = $mcp_config['audience'];
+// Built-in mode (RivetIT is its own OAuth authorization server, see docs/REMOTE_MCP.md) or external-provider mode.
+// The two are exclusive: with the built-in server on, only tokens it issued are accepted.
+$oauth_state = ITFlow\Mcp\OAuth\OAuthConfig::load($mysqli);
+$builtin = $oauth_state['active'];
+$issuer = $builtin ? ITFlow\Mcp\OAuth\OAuthConfig::issuer($config_base_url) : $mcp_config['issuer'];
+$audience = $builtin ? ITFlow\Mcp\OAuth\OAuthConfig::resource($config_base_url) : $mcp_config['audience'];
 $host = parse_url('https://' . $config_base_url, PHP_URL_HOST);
 if (!is_string($host) || !preg_match('/^[A-Za-z0-9.-]+$/D', $host)
-    || !$mcp_config['configured']) {
+    || (!$builtin && !$mcp_config['configured'])) {
     http_response_code(503);
     exit;
 }
 
 $path = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+if ($builtin && $path === '/.well-known/oauth-authorization-server') {
+    // RFC 8414 metadata; built from the configured base URL, never from the Host header.
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+        http_response_code(405);
+        header('Allow: GET');
+        exit;
+    }
+    $as = new ITFlow\Mcp\OAuth\OAuthService($mysqli, $issuer, $audience);
+    header('Content-Type: application/json');
+    echo json_encode($as->metadata($oauth_state['registration']), JSON_UNESCAPED_SLASHES);
+    exit;
+}
 if (!in_array($path, ['/mcp', '/.well-known/oauth-protected-resource'], true)) {
     http_response_code(404);
     exit;
@@ -57,24 +73,28 @@ $metadata = new Mcp\Server\Transport\Http\OAuth\ProtectedResourceMetadata(
     resource: 'https://' . $config_base_url . '/mcp',
     resourceName: 'RivetIT',
 );
-$cache = new RedisMetadataCache();
-$discovery = new Mcp\Server\Transport\Http\OAuth\OidcDiscovery(
-    httpClient: new GuzzleHttp\Client(['timeout' => 5, 'allow_redirects' => false]),
-    cache: $cache,
-);
-$jwks = new Mcp\Server\Transport\Http\OAuth\JwksProvider(
-    $discovery, new GuzzleHttp\Client(['timeout' => 5, 'allow_redirects' => false]),
-    cache: $cache,
-);
-$validator = new Mcp\Server\Transport\Http\OAuth\JwtTokenValidator(
-    issuer: $issuer, audience: $audience, jwksProvider: $jwks, algorithms: ['RS256'],
-);
+if ($builtin) {
+    $validator = new ITFlow\Mcp\OAuth\BuiltinTokenValidator($mysqli, $issuer, $audience);
+} else {
+    $cache = new RedisMetadataCache();
+    $discovery = new Mcp\Server\Transport\Http\OAuth\OidcDiscovery(
+        httpClient: new GuzzleHttp\Client(['timeout' => 5, 'allow_redirects' => false]),
+        cache: $cache,
+    );
+    $jwks = new Mcp\Server\Transport\Http\OAuth\JwksProvider(
+        $discovery, new GuzzleHttp\Client(['timeout' => 5, 'allow_redirects' => false]),
+        cache: $cache,
+    );
+    $validator = new Mcp\Server\Transport\Http\OAuth\JwtTokenValidator(
+        issuer: $issuer, audience: $audience, jwksProvider: $jwks, algorithms: ['RS256'],
+    );
+}
 $middleware = [
     new Mcp\Server\Transport\Http\Middleware\CorsMiddleware(),
     new Mcp\Server\Transport\Http\Middleware\DnsRebindingProtectionMiddleware([$host]),
     new Mcp\Server\Transport\Http\Middleware\ProtectedResourceMetadataMiddleware($metadata),
     new Mcp\Server\Transport\Http\Middleware\AuthorizationMiddleware($validator, $metadata),
-    new McpIdentityMiddleware($mysqli, $issuer, $audience),
+    new McpIdentityMiddleware($mysqli, $issuer, $audience, $builtin),
     new Mcp\Server\Transport\Http\Middleware\OAuthRequestMetaMiddleware(),
 ];
 $transport = new Mcp\Server\Transport\StreamableHttpTransport($request, middleware: $middleware,

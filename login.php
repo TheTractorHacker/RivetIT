@@ -723,7 +723,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
                         unset($_SESSION['pending_dual_login']);
 
                         // Redirect
-                        if (isset($_GET['last_visited']) && (str_starts_with(base64_decode($_GET['last_visited']), '/agent') || str_starts_with(base64_decode($_GET['last_visited']), '/admin'))) {
+                        if (isset($_GET['last_visited']) && (str_starts_with(base64_decode($_GET['last_visited']), '/agent') || str_starts_with(base64_decode($_GET['last_visited']), '/admin') || str_starts_with(base64_decode($_GET['last_visited']), '/oauth/authorize.php?'))) {
                             redirect($_SERVER["REQUEST_SCHEME"] . "://" . $config_base_url . base64_decode($_GET['last_visited']));
                         } else {
                             redirect("agent/$config_start_page");

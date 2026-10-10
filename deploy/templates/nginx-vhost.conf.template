@@ -472,6 +472,47 @@ server {
         fastcgi_pass unix:${PHP_SOCK};
     }
 
+    # Built-in OAuth authorization server for Remote MCP (RFC 8414 metadata). 404 until the built-in server is switched on.
+    location = /.well-known/oauth-authorization-server {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/mcp_server/index.php;
+        fastcgi_param SCRIPT_NAME /mcp_server/index.php;
+        fastcgi_pass unix:${PHP_SOCK};
+    }
+
+    # The OAuth JSON endpoints hand out and revoke tokens: never cached, anywhere. add_header does not inherit into a location
+    # that declares its own, so the server-level headers are repeated (PHP also sends Cache-Control: no-store itself).
+    # Placed above the generic "location ~ \.php$" (nginx takes the first matching regex).
+    location ~ ^/oauth/(token|register|revoke)\.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:${PHP_SOCK};
+        # BEGIN DIRECT-TLS ONLY
+        add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+        # END DIRECT-TLS ONLY
+        add_header Cache-Control "no-store" always;
+        add_header Pragma "no-cache" always;
+        add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header X-Frame-Options "DENY" always;
+    }
+
+    # The consent screen: the generic PHP location relaxes X-Frame-Options to SAMEORIGIN, this one keeps DENY (the page also
+    # sends CSP frame-ancestors 'none'), so no site can frame it. Sign-in happens on /login.php and returns here.
+    location = /oauth/authorize.php {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:${PHP_SOCK};
+        # BEGIN DIRECT-TLS ONLY
+        add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+        # END DIRECT-TLS ONLY
+        add_header Cache-Control "no-store" always;
+        add_header Pragma "no-cache" always;
+        add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header X-Frame-Options "DENY" always;
+    }
+
     # The one agent page the app frames itself (in-window video check). The page sends
     # CSP frame-ancestors 'self' instead of X-Frame-Options (same pattern as kb_embed_serve.php).
     # An exact match, so it wins over the generic PHP location below regardless of order;

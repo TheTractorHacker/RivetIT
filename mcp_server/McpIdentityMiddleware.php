@@ -9,7 +9,8 @@ use Nyholm\Psr7\Response;
 /** Bind every validated MCP access token to one active RivetIT agent. */
 final class McpIdentityMiddleware implements MiddlewareInterface
 {
-    public function __construct(private mysqli $db, private string $issuer, private string $audience) {}
+    /** @param bool $builtin true when RivetIT is its own authorization server: the validator already tied the token to a consenting agent */
+    public function __construct(private mysqli $db, private string $issuer, private string $audience, private bool $builtin = false) {}
 
     /** The MCP audience must be the token's only intended recipient. */
     public static function hasDedicatedAudience(array $claims, string $audience): bool
@@ -24,6 +25,21 @@ final class McpIdentityMiddleware implements MiddlewareInterface
         $claims = $request->getAttribute('oauth.claims');
         if (!\RivetCore\Mcp\TokenClaimsGuard::acceptable($subject, $scopes, $claims, $this->audience)) {
             return new Response(403, ['Cache-Control' => 'no-store']);
+        }
+        if ($this->builtin) {
+            // Built-in token: the identity is the agent who consented, not a linked external subject. Re-checked here as an
+            // active agent so a disabled or removed account stops at once (the validator checked it too; both read the database).
+            $userId = $request->getAttribute('oauth.builtin_user_id');
+            if (!is_int($userId) || $userId < 1) {
+                return new Response(403, ['Cache-Control' => 'no-store']);
+            }
+            $stmt = $this->db->prepare('SELECT user_id FROM users WHERE user_id = ? AND user_type = 1 AND user_status = 1 AND user_archived_at IS NULL');
+            $stmt->bind_param('i', $userId);
+            $stmt->execute();
+            if ($stmt->get_result()->fetch_row() === null) {
+                return new Response(401, ['Cache-Control' => 'no-store', 'WWW-Authenticate' => 'Bearer error="invalid_token"']);
+            }
+            return $handler->handle($request->withAttribute('oauth.user_id', $userId));
         }
         $stmt = $this->db->prepare('SELECT user_id FROM users
             WHERE user_oidc_issuer = ? AND user_oidc_subject = ? AND user_type = 1

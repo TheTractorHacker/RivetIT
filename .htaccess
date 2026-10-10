@@ -5,3 +5,4 @@ RedirectMatch 404 ^/(\.git|\.github|config\.php)
 RewriteEngine On
 RewriteRule ^mcp$ mcp_server/index.php [END]
 RewriteRule ^\.well-known/oauth-protected-resource$ mcp_server/index.php [END]
+RewriteRule ^\.well-known/oauth-authorization-server$ mcp_server/index.php [END]

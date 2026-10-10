@@ -10658,3 +10658,72 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.155'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.155') {
+        // DB 2.6.156: built-in OAuth 2.1 authorization server for Remote MCP (docs/REMOTE_MCP.md). New tables only: `settings` is at
+        // its row-size limit, so the two switches live in mcp_oauth_config. Hashes are BINARY(32) (no collation); client ids are
+        // ascii_bin so every join between the tables compares the same way. Nothing here turns the feature on.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `mcp_oauth_config` (
+          `setting_key` varchar(60) NOT NULL,
+          `setting_value` varchar(255) NOT NULL DEFAULT '',
+          `setting_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`setting_key`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `mcp_oauth_clients` (
+          `client_id` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+          `client_name` varchar(100) NOT NULL,
+          `redirect_uris` text NOT NULL,
+          `registration_type` varchar(10) NOT NULL DEFAULT 'dynamic',
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `created_ip` varchar(64) DEFAULT NULL,
+          `created_by_user_id` int(11) DEFAULT NULL,
+          `disabled_at` datetime DEFAULT NULL,
+          `last_used_at` datetime DEFAULT NULL,
+          PRIMARY KEY (`client_id`),
+          KEY `idx_mcp_oauth_clients_ip` (`created_ip`,`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `mcp_oauth_codes` (
+          `code_hash` binary(32) NOT NULL,
+          `client_id` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+          `user_id` int(11) NOT NULL,
+          `redirect_uri` varchar(512) NOT NULL,
+          `code_challenge` varchar(64) NOT NULL,
+          `scope` varchar(100) NOT NULL,
+          `resource` varchar(255) NOT NULL,
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `expires_at` datetime NOT NULL,
+          `used_at` datetime DEFAULT NULL,
+          PRIMARY KEY (`code_hash`),
+          KEY `idx_mcp_oauth_codes_expires` (`expires_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `mcp_oauth_grants` (
+          `grant_id` int(11) NOT NULL AUTO_INCREMENT,
+          `client_id` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+          `user_id` int(11) NOT NULL,
+          `scope` varchar(100) NOT NULL,
+          `resource` varchar(255) NOT NULL,
+          `origin_code_hash` binary(32) NOT NULL,
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `last_used_at` datetime DEFAULT NULL,
+          `expires_at` datetime NOT NULL,
+          `revoked_at` datetime DEFAULT NULL,
+          `revoke_reason` varchar(40) DEFAULT NULL,
+          PRIMARY KEY (`grant_id`),
+          UNIQUE KEY `uniq_mcp_oauth_grant_code` (`origin_code_hash`),
+          KEY `idx_mcp_oauth_grants_user` (`user_id`,`revoked_at`),
+          KEY `idx_mcp_oauth_grants_client` (`client_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `mcp_oauth_tokens` (
+          `token_hash` binary(32) NOT NULL,
+          `grant_id` int(11) NOT NULL,
+          `token_kind` varchar(10) NOT NULL,
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `expires_at` datetime NOT NULL,
+          `used_at` datetime DEFAULT NULL,
+          PRIMARY KEY (`token_hash`),
+          KEY `idx_mcp_oauth_tokens_grant` (`grant_id`),
+          KEY `idx_mcp_oauth_tokens_expires` (`expires_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.156'");
+    }
