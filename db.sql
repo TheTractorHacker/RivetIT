@@ -1425,7 +1425,14 @@ CREATE TABLE `email_queue` (
   `email_failed_at` datetime DEFAULT NULL,
   `email_attempts` tinyint(1) NOT NULL DEFAULT 0,
   `email_sent_at` datetime DEFAULT NULL,
-  PRIMARY KEY (`email_id`)
+  `email_message_id` varchar(255) DEFAULT NULL,
+  `email_ticket_id` int(11) DEFAULT NULL,
+  `email_auto` tinyint(1) NOT NULL DEFAULT 1,
+  `email_started_at` datetime DEFAULT NULL,
+  `email_alerted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`email_id`),
+  KEY `idx_email_message_id` (`email_message_id`),
+  KEY `idx_email_status` (`email_status`,`email_queued_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -3593,8 +3600,10 @@ CREATE TABLE `ticket_replies` (
   `ticket_reply_onsite` tinyint(1) NOT NULL DEFAULT 0,
   `ticket_reply_labor_type_id` int(11) DEFAULT NULL,
   `ticket_reply_emailed` tinyint(1) NOT NULL DEFAULT 0,
+  `ticket_reply_mail_message_id` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`ticket_reply_id`),
-  KEY `idx_ticket_replies_ticket_archived` (`ticket_reply_ticket_id`,`ticket_reply_archived_at`)
+  KEY `idx_ticket_replies_ticket_archived` (`ticket_reply_ticket_id`,`ticket_reply_archived_at`),
+  KEY `idx_ticket_reply_mail_message_id` (`ticket_reply_mail_message_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=396 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -3795,11 +3804,13 @@ CREATE TABLE `tickets` (
   `ticket_delivery_method` varchar(20) DEFAULT NULL,
   `ticket_catalog_item_id` int(11) DEFAULT NULL,
   `ticket_resolution_started_at` datetime DEFAULT NULL,
+  `ticket_mail_message_id` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`ticket_id`),
   KEY `idx_tickets_client_archived_updated` (`ticket_client_id`,`ticket_archived_at`,`ticket_updated_at`),
   KEY `idx_tickets_problem` (`ticket_problem_id`),
   KEY `idx_tickets_vacation_return` (`ticket_closed_at`,`ticket_contact_id`),
-  KEY `idx_tickets_catalog_item` (`ticket_catalog_item_id`,`ticket_created_at`)
+  KEY `idx_tickets_catalog_item` (`ticket_catalog_item_id`,`ticket_created_at`),
+  KEY `idx_ticket_mail_message_id` (`ticket_mail_message_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -6544,6 +6555,10 @@ CREATE TABLE `mailboxes` (
   `mailbox_order` int(11) NOT NULL DEFAULT 0,
   `mailbox_created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `mailbox_archived_at` datetime DEFAULT NULL,
+  `mailbox_last_success_at` datetime DEFAULT NULL,
+  `mailbox_last_error` varchar(500) DEFAULT NULL,
+  `mailbox_last_error_at` datetime DEFAULT NULL,
+  `mailbox_consecutive_failures` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`mailbox_id`),
   KEY `idx_mailbox_active` (`mailbox_active`,`mailbox_archived_at`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -6608,9 +6623,66 @@ CREATE TABLE `mail_requests` (
   `mail_request_created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `mail_request_converted_ticket_id` int(11) DEFAULT NULL,
   `mail_request_archived_at` datetime DEFAULT NULL,
+  `mail_request_message_id` varchar(255) DEFAULT NULL,
+  `mail_request_reason` varchar(30) DEFAULT NULL,
   PRIMARY KEY (`mail_request_id`),
-  KEY `idx_mail_request_pending` (`mail_request_archived_at`,`mail_request_mailbox_id`)
+  KEY `idx_mail_request_pending` (`mail_request_archived_at`,`mail_request_mailbox_id`),
+  KEY `idx_mail_request_message_id` (`mail_request_message_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `mail_intake_state`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `mail_intake_state` (
+  `intake_id` int(11) NOT NULL AUTO_INCREMENT,
+  `intake_mailbox_id` int(11) NOT NULL,
+  `intake_key` char(40) NOT NULL,
+  `intake_message_id` varchar(255) DEFAULT NULL,
+  `intake_from_email` varchar(200) DEFAULT NULL,
+  `intake_subject` varchar(500) DEFAULT NULL,
+  `intake_attempts` int(11) NOT NULL DEFAULT 0,
+  `intake_last_error` varchar(500) DEFAULT NULL,
+  `intake_state` varchar(12) NOT NULL DEFAULT 'pending',
+  `intake_first_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `intake_last_attempt_at` datetime DEFAULT NULL,
+  `intake_quarantined_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`intake_id`),
+  UNIQUE KEY `uq_intake_key` (`intake_mailbox_id`,`intake_key`),
+  KEY `idx_intake_state` (`intake_state`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `mail_intake_settings`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `mail_intake_settings` (
+  `setting_key` varchar(64) NOT NULL,
+  `setting_value` varchar(255) NOT NULL DEFAULT '',
+  `setting_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `mail_alerts`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `mail_alerts` (
+  `alert_key` varchar(120) NOT NULL,
+  `alert_last_sent_at` datetime NOT NULL,
+  `alert_last_detail` varchar(500) DEFAULT NULL,
+  `alert_count` int(11) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`alert_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --

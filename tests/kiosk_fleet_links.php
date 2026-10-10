@@ -82,7 +82,7 @@ $fleet = new FleetLinks($admin);
 reset_all();
 $ok($one("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='training_fleet_links'") == 1, 'training_fleet_links exists');
 $ok(strpos((string) $one("SELECT column_type FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='training_kiosks' AND column_name='kiosk_enroll_method'"), "'fleet'") !== false, "kiosk_enroll_method allows 'fleet'");
-$ok(LATEST_DATABASE_VERSION === '2.6.151' && $one("SELECT config_current_database_version FROM settings WHERE company_id=1") === '2.6.151', 'database version is 2.6.151');
+$ok(version_compare(LATEST_DATABASE_VERSION, '2.6.151', '>=') && version_compare($one("SELECT config_current_database_version FROM settings WHERE company_id=1"), '2.6.151', '>='), 'database version is at least 2.6.151');
 
 // ---------------------------------------------------------------- token lifecycle: create
 $r = $fleet->create('Fab iPads', 1, 'require', in_days(30), 5);
