@@ -6,6 +6,19 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Mail intake reliability (DB 2.6.152)
+
+- **Auto-replies, out-of-office mail and loops never create tickets or replies.** The mailbox poller drops anything with `Auto-Submitted` (not `no`), `Precedence: bulk/junk/list/auto_reply`, `X-Auto-Response-Suppress: All/OOF/AutoReply`, `X-Autoreply`/`X-Autorespond`, an empty `Return-Path`, RivetIT's own loop header, or an auto-responder subject (English and common localised forms). They are logged as *Suppressed* in the Email Log. Delivery status notifications are recognised everywhere, not only for unknown senders (and their `message/delivery-status` fields are now actually read: the declared part type was being replaced by a guessed `text/plain`).
+- **Per-sender hourly cap** (default 20): the excess is held as mail requests with reason *Rate limited* and one de-duplicated alert.
+- **Message-ID dedupe and threading.** Inbound Message-IDs are stored on tickets, replies and mail requests; an already-imported message is skipped; replies thread by `In-Reply-To`/`References` against inbound ids and the ids RivetIT puts on its own outbound mail, before the `[PREFIX-123]` subject token (kept as the fallback) and the fuzzy match. A sender-mismatch reply no longer adds a new mail request on every poll.
+- **Poison-message quarantine.** A message that fails 3 times (setting) is moved to the `ITFlow-Quarantine` folder (or flagged and marked read in place) and listed under Admin > Mailboxes > Quarantined mail instead of being re-fetched forever.
+- **Mailbox health and alerts.** Admin > Mailboxes shows last polled / last success / consecutive failures / last error and a needs-attention banner (also on the Ticketing tile). Admin notifications plus email, de-duplicated per 6 hours, for OAuth refresh failure (Google now logs the provider's reason like Microsoft), mailbox unreachable, poller silent over 15 minutes, outbound mail out of retries, and rate-limited senders.
+- **Outbound mail** gets its own `Message-ID`, `Auto-Submitted: auto-generated`, `X-Auto-Response-Suppress: All` and a loop header; the mail queue reaps rows stuck in *sending* for over 10 minutes, retries with 5/15/60/240 minute back-off (five attempts, then one alert) instead of a fixed 30 minutes, and caps sending at 120 per minute (setting).
+- **Quoted history is stripped from email replies** (`On ... wrote:` and localised forms, `-----Original Message-----`, `From:/Sent:` blocks, `>` lines, Gmail/Outlook/Apple Mail HTML quotes), preferring the text part and never emptying a message; the reply-above marker still works.
+- **Attachment limits:** 25 MB per file and 50 MB per message (settings), inline images over 1 MB become attachments, the ticket notes what was left out, and an optional ClamAV (`clamdscan`) scan.
+- Database 2.6.152 (gated on 2.6.151, idempotent): `ticket_mail_message_id`, `ticket_reply_mail_message_id`, `mail_request_message_id`/`mail_request_reason`, mailbox health columns, `email_queue` message-id/ticket/auto/started/alerted columns, and the tables `mail_intake_state`, `mail_intake_settings`, `mail_alerts`. Runbook: `docs/MAIL_INTAKE.md`.
+- Fixed: the webklex/php-imap default config (`plugins/vendor/webklex/php-imap/src/config/imap.php`) was hidden by the `config/` ignore rule, so a fresh checkout could not construct the IMAP client. `createMailRequestFromInbound()` can no longer rename the `uploads/tmp` folder when it is given an empty `.eml` name.
+
 ## [26.10.29] RivetIT — Training kiosk fleet links for MDM mass deployment, company-wide Location dropdown, webhook wizard hardening
 
 ### Training kiosk: fleet links for MDM mass deployment (DB 2.6.151)
