@@ -48,6 +48,17 @@ if (intval($settings_row['config_enable_cron'] ?? 0) !== 0) {
     exit(0);
 }
 
+// Recovery watch (stale/failed backup, failing integration syncs, a stopped restore drill). The main cron.php runs the same watcher
+// when it is enabled, which is why this sits after the "main cron handles auto-backups" exit above.
+try {
+    $recovery_found = \ITFlow\Recovery\RecoveryWatch::run($mysqli, dirname(__DIR__), (bool) $config_backup_auto_enabled, (bool) intval($settings_row['config_module_enable_rmm'] ?? 0));
+    if (($recovery_found['backup'] ?? 'ok') === 'stale' || ($recovery_found['sync'] ?? []) !== []) {
+        echo gmdate('Y-m-d\TH:i:s\Z') . " backup_cron: recovery watch found problems: " . json_encode($recovery_found) . "\n";
+    }
+} catch (\Throwable $e) {
+    echo gmdate('Y-m-d\TH:i:s\Z') . " backup_cron: recovery watch failed: " . $e->getMessage() . "\n";
+}
+
 if (!$config_backup_auto_enabled) {
     // A one-line heartbeat on every exit path (same convention as
     // cron/training_kiosk_cron.php), not just when a backup is actually
