@@ -91,20 +91,28 @@ if ($method === 'PUT' || $method === 'POST') {
     $updates = ["user_name = '$name'", "user_email = '$email'"];
 
     if ($new_pass) {
-        if (strlen($new_pass) < 8) api_error(400, 'Password must be at least 8 characters');
+        require_once __DIR__ . '/../../includes/security_policy.php';
+        require_once __DIR__ . '/../../includes/security_sessions.php';
         // Verify current password
         $user = mysqli_fetch_assoc(mysqli_query($mysqli,
             "SELECT user_password FROM users WHERE user_id = $api_user_id LIMIT 1"));
         if (!password_verify($cur_pass, $user['user_password'])) {
             api_error(401, 'Current password is incorrect');
         }
-        $hash = password_hash($new_pass, PASSWORD_BCRYPT);
+        // Staff password policy (length from Admin > Settings > Security, not the name or email, optional breach check)
+        $policy_error = secPasswordPolicyError($new_pass, ['name' => trim($body['name'] ?? ''), 'email' => trim($body['email'] ?? ''), 'username' => trim($body['email'] ?? '')], $mysqli);
+        if ($policy_error !== null) api_error(400, $policy_error);
+        $hash = secPasswordHash($new_pass);
         $esc_hash = mysqli_real_escape_string($mysqli, $hash);
         $updates[] = "user_password = '$esc_hash'";
     }
 
     $set = implode(', ', $updates);
     mysqli_query($mysqli, "UPDATE users SET $set WHERE user_id = $api_user_id");
+    if ($new_pass) {
+        // A changed password signs every browser session out and ends remember-me cookies.
+        secSessionsOnPasswordChange($mysqli, intval($api_user_id), null);
+    }
     api_response(200, ['ok' => true]);
 }
 

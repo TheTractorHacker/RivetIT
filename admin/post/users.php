@@ -6,13 +6,23 @@
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
+require_once __DIR__ . '/../../includes/security_policy.php';
+require_once __DIR__ . '/../../includes/security_sessions.php';
+
 if (isset($_POST['add_user'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
     require_once 'user_model.php';
 
-    $password = password_hash(trim($_POST['password']), PASSWORD_DEFAULT);
+    // Staff password policy: length, not the name / email, optional breach check
+    $policy_error = secPasswordPolicyError(trim((string) ($_POST['password'] ?? '')), ['name' => trim((string) ($_POST['name'] ?? '')), 'email' => trim((string) ($_POST['email'] ?? '')), 'username' => trim((string) ($_POST['email'] ?? ''))], $mysqli);
+    if ($policy_error !== null) {
+        flash_alert($policy_error, 'error');
+        redirect();
+    }
+
+    $password = secPasswordHash(trim($_POST['password']));
     $user_specific_encryption_ciphertext = encryptUserSpecificKey(trim($_POST['password']));
 
     mysqli_query($mysqli, "INSERT INTO users SET user_name = '$name', user_email = '$email', user_password = '$password', user_specific_encryption_ciphertext = '$user_specific_encryption_ciphertext', user_role_id = $role");
@@ -104,6 +114,13 @@ if (isset($_POST['edit_user'])) {
 
     $user_id = intval($_POST['user_id']);
     $new_password = trim($_POST['new_password']);
+    if ($new_password !== '') {
+        $policy_error = secPasswordPolicyError($new_password, ['name' => trim((string) ($_POST['name'] ?? '')), 'email' => trim((string) ($_POST['email'] ?? '')), 'username' => trim((string) ($_POST['email'] ?? ''))], $mysqli);
+        if ($policy_error !== null) {
+            flash_alert($policy_error, 'error');
+            redirect();
+        }
+    }
     $mcp_issuer = trim((string) ($_POST['mcp_issuer'] ?? ''));
     $mcp_subject = trim((string) ($_POST['mcp_subject'] ?? ''));
     $issuer_parts = $mcp_issuer !== '' ? parse_url($mcp_issuer) : [];
@@ -225,15 +242,19 @@ if (isset($_POST['edit_user'])) {
     }
 
     if (!empty($new_password)) {
-        $new_password = password_hash($new_password, PASSWORD_DEFAULT);
+        $new_password = secPasswordHash($new_password);
         $user_specific_encryption_ciphertext = encryptUserSpecificKey(trim($_POST['new_password']));
         mysqli_query($mysqli, "UPDATE users SET user_password = '$new_password', user_specific_encryption_ciphertext = '$user_specific_encryption_ciphertext' WHERE user_id = $user_id");
+        // An administrator-set password signs that user out everywhere and ends their remember-me cookies
+        // (the administrator's own session is kept when they changed their own password here).
+        secSessionsOnPasswordChange($mysqli, $user_id, $user_id === intval($session_user_id) ? intval($_SESSION['sec_row'] ?? 0) : null);
         //Extended Logging
         $extended_log_description .= ", password changed";
     }
 
     if (!empty($two_fa) && $two_fa == 'disable') {
         mysqli_query($mysqli, "UPDATE users SET user_token = '' WHERE user_id = '$user_id'");
+        secRecoveryCodesDelete($mysqli, intval($user_id));
         mysqli_query($mysqli, "INSERT INTO logs SET log_type = 'User', log_action = 'Modify', log_description = '$session_name disabled 2FA for $name', log_ip = '$session_ip', log_user_agent = '$session_user_agent', log_user_id = $session_user_id");
     }
 
@@ -300,6 +321,7 @@ if (isset($_GET['disable_2fa'])) {
     $user_id   = intval($_GET['disable_2fa']);
     $user_name = sanitizeInput(getFieldById('users', $user_id, 'user_name'));
     mysqli_query($mysqli, "UPDATE users SET user_token = NULL WHERE user_id = $user_id");
+    secRecoveryCodesDelete($mysqli, $user_id);
     logAction("User", "Edit", "$session_name disabled 2FA for $user_name", 0, $user_id);
     flash_alert("2FA disabled for <strong>$user_name</strong>.", 'warning');
     redirect();
@@ -382,9 +404,10 @@ if (isset($_POST['restore_user'])) {
     mysqli_query($mysqli, "UPDATE users SET user_name = '$user_name', user_status = 1, user_role_id = $role, user_archived_at = NULL WHERE user_id = $user_id");
 
     if (!empty($new_password)) {
-        $new_password = password_hash($new_password, PASSWORD_DEFAULT);
+        $new_password = secPasswordHash($new_password);
         $user_specific_encryption_ciphertext = encryptUserSpecificKey(trim($_POST['new_password']));
         mysqli_query($mysqli, "UPDATE users SET user_password = '$new_password', user_specific_encryption_ciphertext = '$user_specific_encryption_ciphertext' WHERE user_id = $user_id");
+        secSessionsOnPasswordChange($mysqli, $user_id, null);
         //Extended Logging
         $extended_log_description .= ", password changed";
     }
@@ -481,9 +504,10 @@ if (isset($_POST['ir_reset_user_password'])) {
         $user_specific_encryption_ciphertext = encryptUserSpecificKey(trim($new_password));
 
         echo $user_email . " -- " . $new_password; // Show
-        $new_password = password_hash($new_password, PASSWORD_DEFAULT);
+        $new_password = secPasswordHash($new_password);
 
         mysqli_query($mysqli, "UPDATE users SET user_password = '$new_password', user_specific_encryption_ciphertext = '$user_specific_encryption_ciphertext' WHERE user_id = $user_id");
+        secSessionsOnPasswordChange($mysqli, $user_id, null);
 
         echo "<br><br>";
     }

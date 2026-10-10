@@ -31,7 +31,7 @@ $required_args = [
     'country'      => 'Company country (e.g. United States)',
     'user-name'    => 'Admin user full name',
     'user-email'   => 'Admin user email',
-    'user-password'=> 'Admin user password (min 8 chars)'
+    'user-password'=> 'Admin user password (min 12 chars)'
 ];
 
 // Additional optional arguments
@@ -255,14 +255,19 @@ if (!$config_only) {
         }
         $user_email = prompt("Email Address");
     }
-    $user_password_plain = getOptionOrPrompt('user-password', "Password (at least 8 chars)", true);
-    if (strlen($user_password_plain) < 8) {
+    $user_password_plain = getOptionOrPrompt('user-password', "Password (at least 12 chars)", true);
+    // Staff password policy (includes/security_policy.php): 12+ characters, not the name or email address.
+    require_once __DIR__ . '/../includes/security_policy.php';
+    $pw_error = secPasswordPolicyError($user_password_plain, ['name' => $user_name ?? '', 'email' => $user_email ?? '', 'username' => $user_email ?? '']);
+    if ($pw_error !== null) {
         if ($non_interactive) {
-            die("Password must be at least 8 characters.\n");
+            fwrite(STDERR, $pw_error . "\n");
+            exit(1);
         }
-        while (strlen($user_password_plain) < 8) {
-            echo "Password too short. Try again.\n";
+        while ($pw_error !== null) {
+            echo $pw_error . " Try again.\n";
             $user_password_plain = prompt("Password");
+            $pw_error = secPasswordPolicyError($user_password_plain, ['name' => $user_name ?? '', 'email' => $user_email ?? '', 'username' => $user_email ?? '']);
         }
     }
 }
@@ -344,7 +349,8 @@ foreach ($lines as $line) {
 echo "Database imported successfully.\n";
 
 // Create User
-$password_hash = password_hash(trim($user_password_plain), PASSWORD_DEFAULT);
+require_once __DIR__ . '/../includes/security_policy.php';
+$password_hash = secPasswordHash(trim($user_password_plain));
 $site_encryption_master_key = randomString();
 $user_specific_encryption_ciphertext = setupFirstUserSpecificKey($user_password_plain, $site_encryption_master_key);
 

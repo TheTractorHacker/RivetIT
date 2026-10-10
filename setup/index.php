@@ -433,7 +433,16 @@ if (isset($_POST['add_user'])) {
 
     $name = sanitizeInput($_POST['name']);
     $email = sanitizeInput($_POST['email']);
-    $password = password_hash(trim($_POST['password']), PASSWORD_DEFAULT);
+
+    // Staff password policy (includes/security_policy.php): 12+ characters, not the name or email address.
+    require_once __DIR__ . '/../includes/security_policy.php';
+    $pw_error = secPasswordPolicyError(trim((string) ($_POST['password'] ?? '')), ['name' => trim((string) ($_POST['name'] ?? '')), 'email' => trim((string) ($_POST['email'] ?? '')), 'username' => trim((string) ($_POST['email'] ?? ''))]);
+    if ($pw_error !== null) {
+        $_SESSION['alert_message'] = $pw_error;
+        header("Location: ?user");
+        exit;
+    }
+    $password = secPasswordHash(trim($_POST['password']));
 
     //Generate master encryption key
     $site_encryption_master_key = randomString();
@@ -1402,7 +1411,7 @@ if (isset($_POST['add_telemetry'])) {
                                         <div class="input-group-prepend">
                                             <span class="input-group-text"><i class="fa fa-fw fa-lock"></i></span>
                                         </div>
-                                        <input type="password" class="form-control" data-toggle="password" name="password" placeholder="Enter a Password" autocomplete="new-password" required minlength="8">
+                                        <input type="password" class="form-control" data-toggle="password" name="password" placeholder="Enter a Password (12+ characters)" autocomplete="new-password" required minlength="12">
                                         <div class="input-group-append">
                                             <span class="input-group-text"><i class="fa fa-fw fa-eye"></i></span>
                                         </div>
