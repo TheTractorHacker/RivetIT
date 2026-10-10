@@ -105,7 +105,15 @@ $request_id = 'req_' . bin2hex(random_bytes(8));
 $_SERVER['RIVET_REQUEST_ID'] = $request_id; // read by ServerRequestContext; a client X-Request-ID header is never used
 header('X-Request-ID: ' . $request_id);
 $tools = new RivetITMcpReadTools($mysqli);
-$server = $tools->register(Mcp\Server::builder()->setServerInfo('RivetIT', APP_VERSION))->build();
+// Protocol sessions must outlive the request (initialize -> initialized -> tools/list are separate HTTP requests, and each PHP
+// request starts empty), or every client is told "Session not found". They hold only protocol negotiation state; identity and
+// permissions come from the bearer token on every request. One directory per install, readable by the web user only.
+$session_dir = sys_get_temp_dir() . '/rivetit-mcp-sessions-' . substr(hash('sha256', __DIR__), 0, 12);
+if (!is_dir($session_dir)) {
+    @mkdir($session_dir, 0700, true);
+}
+$server = $tools->register(Mcp\Server::builder()->setServerInfo('RivetIT', APP_VERSION)
+    ->setSession(new Mcp\Server\Session\FileSessionStore($session_dir, 3600)))->build();
 $response = $server->run($transport);
 http_response_code($response->getStatusCode());
 foreach ($response->getHeaders() as $name => $values) {
