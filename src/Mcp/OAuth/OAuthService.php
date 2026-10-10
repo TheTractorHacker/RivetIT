@@ -176,6 +176,10 @@ final class OAuthService
             $name = 'Unnamed application';
         }
 
+        if ($this->store->countClients() >= OAuthConfig::MAX_CLIENTS) {
+            // Full: make room by dropping what nobody has used for an hour, so a flood of junk cannot lock real apps out.
+            $this->store->purgeUnusedClients(3600);
+        }
         if ($this->store->countClients() >= OAuthConfig::MAX_CLIENTS
             || $this->store->registrationsFromIp($ip, 3600) >= OAuthConfig::REGISTER_PER_IP_HOUR) {
             return $err(429, 'temporarily_unavailable', 'Too many registrations. Try again later or ask an administrator to register the client.');

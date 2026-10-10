@@ -82,6 +82,14 @@
             var result = await completeResp.json();
 
             if (result.ok) {
+                // An AI-tool connection request (Remote MCP built-in sign-in) sent the person here: go back to the consent
+                // screen, exactly as the password sign-in does. Only that one same-origin path is honoured.
+                var back = '';
+                try { back = atob(new URLSearchParams(window.location.search).get('last_visited') || ''); } catch (e) { back = ''; }
+                if (back.indexOf('/oauth/authorize.php?') === 0) {
+                    window.location.href = back;
+                    return;
+                }
                 window.location.href = result.redirect || '/agent/dashboard.php';
             } else {
                 showError(result.error || 'Sign-in failed. Try your password instead.');

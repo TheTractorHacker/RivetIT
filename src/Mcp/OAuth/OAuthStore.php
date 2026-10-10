@@ -270,8 +270,13 @@ final class OAuthStore
         $this->exec('DELETE FROM mcp_oauth_codes WHERE expires_at < NOW() - INTERVAL 1 DAY');
         $this->exec('DELETE FROM mcp_oauth_tokens WHERE expires_at < NOW() - INTERVAL 7 DAY');
         $this->exec('DELETE FROM mcp_oauth_grants WHERE (revoked_at IS NOT NULL AND revoked_at < NOW() - INTERVAL 30 DAY) OR expires_at < NOW() - INTERVAL 30 DAY');
-        // A self-registered client nobody ever approved, a week after it registered.
-        $this->exec("DELETE FROM mcp_oauth_clients WHERE registration_type = 'dynamic' AND created_at < NOW() - INTERVAL 7 DAY
-            AND last_used_at IS NULL AND NOT EXISTS (SELECT 1 FROM mcp_oauth_grants g WHERE g.client_id = mcp_oauth_clients.client_id)");
+        $this->purgeUnusedClients(7 * 86400);
+    }
+
+    /** Self-registered clients nobody ever approved, once they are older than $seconds. */
+    public function purgeUnusedClients(int $seconds): void
+    {
+        $this->exec("DELETE FROM mcp_oauth_clients WHERE registration_type = 'dynamic' AND created_at < NOW() - INTERVAL ? SECOND
+            AND last_used_at IS NULL AND NOT EXISTS (SELECT 1 FROM mcp_oauth_grants g WHERE g.client_id = mcp_oauth_clients.client_id)", 'i', [$seconds]);
     }
 }

@@ -143,6 +143,7 @@ header('Content-Type: text/html; charset=utf-8');
     <h1>Allow &ldquo;<?= $h($client['client_name']) ?>&rdquo; to read <?= $h($app_name) ?>?</h1>
     <p>Signed in as <span class="who"><?= $h($user_label) ?></span>.</p>
     <p class="muted">The application calls itself &ldquo;<?= $h($client['client_name']) ?>&rdquo;; <?= $h($app_name) ?> cannot verify that name.
+        <?= $client['registration_type'] === 'manual' ? 'An administrator added this application.' : 'It registered itself on ' . $h(substr((string) $client['created_at'], 0, 10)) . '.' ?>
         After you decide, your browser goes back to <strong><?= $h($host) ?></strong>.</p>
     <?php if ($loopback) { ?>
         <div class="warn">That address is on <strong>this computer</strong> (a desktop or command-line tool). Only continue if you just started that tool yourself.</div>
