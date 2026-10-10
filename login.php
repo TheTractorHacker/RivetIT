@@ -1213,8 +1213,9 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
                 <?php unset($_SESSION['odoo_login_error']); ?>
             <?php } ?>
 
+            <?php echo $login_notice_html; ?>
             <?php if (isset($response)) { ?>
-                <?php echo $login_notice_html; ?><p><?php echo $response; ?></p>
+                <p><?php echo $response; ?></p>
             <?php } ?>
 
             <form method="post">

@@ -379,7 +379,8 @@ if (!function_exists('secSetting')) {
 
             return;
         }
-        if (str_starts_with($script, '/agent/user/') || $script === '/agent/post.php') {
+        // Only the account pages (their own post.php included): the shared /agent/post.php and ajax.php handlers stay closed.
+        if (str_starts_with($script, '/agent/user/')) {
             return;
         }
         if (function_exists('redirect')) {

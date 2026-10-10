@@ -119,7 +119,7 @@ The signature is added to ticket replies and emails you send from RivetIT. **Use
 **Change your password**
 
 1. Open **Account → Security**.
-2. Enter your **Current Password** and a **New Password** (at least 8 characters).
+2. Enter your **Current Password** and a **New Password** (at least 12 characters unless your administrator set a different minimum; it may not be your name or email address).
 3. Click **Update Password (1)**.
 
 You are signed out straight away and must sign in with the new password. If outgoing email is set up, RivetIT emails a confirmation.
@@ -135,7 +135,7 @@ You are signed out straight away and must sign in with the new password. If outg
 3. Type the 6-digit code from the app into the box **(2)**.
 4. Click **Enable (3)**.
 
-The card then shows **Enabled**, and every sign-in asks for a code. Turning MFA on or off also ends every **Remember Me** trust on your other browsers, and **Revoke All Tokens** does the same on demand. **Disable** removes MFA, but an administrator can require it. If **Force MFA** is set on your account, you are taken to a **Multi-Factor Authentication Enforced** page after sign-in until you enrol, and you cannot disable it later.
+The card then shows **Enabled**, and every sign-in asks for a code. Right after you enable MFA the page shows **ten recovery codes, once**. Save them somewhere safe: if you lose your phone, type one in the **Lost your authenticator? Use a recovery code** box at the code step. Each code works one time. The **Recovery codes** section shows how many are left and makes a new set (it asks for your password and cancels the old ones). Below the MFA card, **Active sessions** lists the browsers you are signed in on, with **Sign out** for each and **Sign out everywhere**. Turning MFA on or off also ends every **Remember Me** trust on your other browsers, and **Revoke All Tokens** does the same on demand. **Disable** removes MFA, but an administrator can require it. If **Force MFA** is set on your account, you are taken to a **Multi-Factor Authentication Enforced** page after sign-in until you enrol, and you cannot disable it later.
 
 **Add a passkey**
 

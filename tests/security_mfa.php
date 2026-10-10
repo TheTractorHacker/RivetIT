@@ -128,6 +128,10 @@ $php = function (string $script, string $path) use ($root): array {
 $GLOBALS['__gate_uid'] = $plain;
 [$c, $o] = $php('', '/agent/tickets.php');
 $ok(!str_contains($o, 'PASSED_GATE'), 'a blocked user is stopped on an ordinary agent page');
+[$c, $o] = $php('', '/agent/post.php');
+$ok(!str_contains($o, 'PASSED_GATE'), 'the shared /agent/post.php handler stays closed to a blocked user');
+[$c, $o] = $php('', '/agent/ajax.php');
+$ok(!str_contains($o, 'PASSED_GATE'), 'and so does /agent/ajax.php');
 [$c, $o] = $php('', '/agent/user/user_security.php');
 $ok(str_contains($o, 'PASSED_GATE'), 'a blocked user can still open the account pages needed to enrol');
 [$c, $o] = $php('', '/agent/user/post.php');

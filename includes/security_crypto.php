@@ -143,9 +143,18 @@ if (!function_exists('secIsWrapped')) {
         if (!$set) {
             return;
         }
+        // A value too long for its column is skipped by secRewrapColumn; do not retry it on every request, once an hour is enough.
+        $marker = sys_get_temp_dir() . '/rivetit_rewrap_skip_' . md5((string) ($GLOBALS['database'] ?? 'db') . '|' . implode(',', $set));
+        if (is_file($marker) && time() - (int) @filemtime($marker) < 3600) {
+            return;
+        }
         try {
+            $skipped = 0;
             foreach ($set as $col) {
-                secRewrapColumn($mysqli, 'settings', $spec[0], $col);
+                $skipped += secRewrapColumn($mysqli, 'settings', $spec[0], $col)['skipped_too_long'];
+            }
+            if ($skipped > 0) {
+                @touch($marker);
             }
         } catch (\Throwable $e) {
             // Never break a page load over a re-wrap; the next read tries again.
