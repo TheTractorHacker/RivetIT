@@ -268,6 +268,7 @@ $sdir = sys_get_temp_dir() . '/entity_links_sess_' . bin2hex(random_bytes(3));
 mkdir($sdir, 0700);
 register_shutdown_function(function () use ($sdir) { foreach (glob("$sdir/*") ?: [] as $f) { @unlink($f); } @rmdir($sdir); });
 $web = ea_start_php($root . '/tests/mobile_api_router.php', ['RIVETIT_WEBHOOK_ALLOW_PRIVATE' => '1'], ["session.save_path=$sdir"]);
+$webLog0 = (int) @filesize($web['log']);   // the log name is per port: only what this run wrote counts
 $wb = "http://127.0.0.1:{$web['port']}";
 $S = [];
 foreach (['admin' => 1, 'writer' => 20, 'reader' => 21, 'deptb' => 23] as $n => $uid) { $S[$n] = ea_forge_session($sdir, $uid); }
@@ -330,4 +331,4 @@ $ok(str_contains($body, 'GlobalVendor') && str_contains($body, 'reseller'), 'ass
 $q("UPDATE documents SET document_name = '<script>alert(1)</script>' WHERE document_id = 401");
 [$c, $body] = $wr($wb, 'GET', '/agent/asset_details.php?client_id=1&asset_id=101', $S['admin']);
 $ok(!str_contains($body, '<script>alert(1)</script>') && str_contains($body, '&lt;script&gt;alert(1)&lt;/script&gt;'), 'the card escapes hostile record names');
-$ok(!preg_match('/PHP (Warning|Fatal)/', (string) @file_get_contents($web['log'])), 'server log has no PHP warnings or fatals');
+$ok(!preg_match('/PHP (Warning|Fatal)/', (string) substr((string) @file_get_contents($web['log']), $webLog0)), 'server log has no PHP warnings or fatals');

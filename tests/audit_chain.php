@@ -173,6 +173,7 @@ $q("INSERT INTO user_role_permissions SET user_role_id = 40, module_id = 5, user
 $q("INSERT INTO users SET user_id = 41, user_name = 'helper', user_email = 'helper@example.test', user_password = 'x', user_type = 1, user_status = 1, user_role_id = 40");
 $q("INSERT INTO user_settings SET user_id = 1"); $q("INSERT INTO user_settings SET user_id = 41");
 $web = ea_start_php($root . '/tests/mobile_api_router.php', ['RIVETIT_WEBHOOK_ALLOW_PRIVATE' => '1'], ["session.save_path=$sdir"]);
+$webLog0 = (int) @filesize($web['log']);   // the log name is per port: only what this run wrote counts
 $wb = "http://127.0.0.1:{$web['port']}";
 $sid = ea_forge_session($sdir, 1);
 $wr = fn (string $m, string $p, array $post = [], array $h = []) => web($wb, $m, $p, $sid, $post, array_merge(['User-Agent: audit-chain-test'], $h));
@@ -237,4 +238,4 @@ curl_setopt_array($c, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => json_encode([
 $raw = (string) curl_exec($c); curl_close($c);
 // (the endpoint prints the page shell before its JSON - an existing quirk of includes/inc_all_user.php - so match the JSON at the end)
 $ok(preg_match('/\{"ok":true\}\s*$/', $raw) === 1 && (int) $one("SELECT COUNT(*) FROM api_tokens WHERE token_id = $tid") === 0 && (int) $one("SELECT COUNT(*) FROM audit_events WHERE event_type = 'api_token.revoke' AND actor_user_id = 41") === 1, 'API token revoke: audited with the actor');
-$ok(!preg_match('/PHP (Warning|Fatal)/', (string) @file_get_contents($web['log'])), 'server log has no PHP warnings or fatals');
+$ok(!preg_match('/PHP (Warning|Fatal)/', (string) substr((string) @file_get_contents($web['log']), $webLog0)), 'server log has no PHP warnings or fatals');

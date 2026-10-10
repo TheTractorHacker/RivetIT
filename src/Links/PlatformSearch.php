@@ -10,6 +10,8 @@ namespace ITFlow\Links;
  */
 final class PlatformSearch
 {
+    private const MAX_EXAMINED = 8;
+
     public function __construct(private \mysqli $db)
     {
     }
@@ -128,14 +130,21 @@ final class PlatformSearch
         $like = $this->like($term);
         $out = [];
         $seen = [];
+        $examined = 0;   // each matched record costs a few dozen small queries: look at a handful, not at every match of a short term
         foreach (EntityTypes::all() as $type => $spec) {
             if (!$actor->canRead($type) || $type === 'ticket') {
                 continue;
             }
+            if ($examined >= self::MAX_EXAMINED) {
+                break;
+            }
             $scope = $this->scope($actor, (string) $spec['client']);
             $archived = $spec['archived'] ? " AND {$spec['archived']} IS NULL" : '';
-            $res = $this->db->query("SELECT {$spec['pk']} AS i FROM {$spec['table']} WHERE $scope$archived AND {$spec['name']} LIKE '$like' ORDER BY {$spec['name']} LIMIT 3");
+            $res = $this->db->query("SELECT {$spec['pk']} AS i FROM {$spec['table']} WHERE $scope$archived AND {$spec['name']} LIKE '$like' ORDER BY {$spec['name']} LIMIT 2");
             while ($res && ($m = $res->fetch_row())) {
+                if (++$examined > self::MAX_EXAMINED) {
+                    break 2;
+                }
                 $mid = (int) $m[0];
                 $self = $svc->lookup($type, $mid);
                 if ($self === null) {

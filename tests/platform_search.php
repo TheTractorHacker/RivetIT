@@ -88,6 +88,7 @@ $sdir = sys_get_temp_dir() . '/platform_search_sess_' . bin2hex(random_bytes(3))
 mkdir($sdir, 0700);
 register_shutdown_function(function () use ($sdir) { foreach (glob("$sdir/*") ?: [] as $f) { @unlink($f); } @rmdir($sdir); });
 $web = ea_start_php($root . '/tests/mobile_api_router.php', ['RIVETIT_WEBHOOK_ALLOW_PRIVATE' => '1'], ["session.save_path=$sdir"]);
+$webLog0 = (int) @filesize($web['log']);   // the log name is per port: only what this run wrote counts
 $wb = "http://127.0.0.1:{$web['port']}";
 $S = [];
 foreach (['admin' => 1, 'writer' => 20, 'assetsonly' => 21, 'deptb' => 23] as $n => $uid) { $S[$n] = ea_forge_session($sdir, $uid); }
@@ -179,4 +180,4 @@ $ok(in_array('document.review_due', array_column(rivetEventCatalogExtrasForTest(
 function rivetEventCatalogExtrasForTest(): array { require_once dirname(__DIR__) . '/includes/event_catalog_ext.php'; return rivetEventCatalogExtras(); }
 $ids = array_column(rivetEventCatalogExtrasForTest(), 'id');
 $ok(in_array('document.review_due', $ids, true) && in_array('audit.chain_broken', $ids, true) && in_array('asset.auto_retire', $ids, true), 'the event catalog lists the new events');
-$ok(!preg_match('/PHP (Warning|Fatal)/', (string) @file_get_contents($web['log'])), 'server log has no PHP warnings or fatals');
+$ok(!preg_match('/PHP (Warning|Fatal)/', (string) substr((string) @file_get_contents($web['log']), $webLog0)), 'server log has no PHP warnings or fatals');

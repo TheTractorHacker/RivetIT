@@ -17,6 +17,9 @@ use ITFlow\Audit\AuditService;
  */
 final class LinkService
 {
+    /** The impact walk stops after this many records (each one costs a few small queries). */
+    public const IMPACT_LIMIT = 100;
+
     public function __construct(private \mysqli $db)
     {
     }
@@ -308,6 +311,9 @@ final class LinkService
             $names = $this->resolveMany($refs) + $nameOf;
             $nameOf = $names;
             foreach ($candidates as $key => $c) {
+                if (count($found) >= self::IMPACT_LIMIT) {
+                    break 2;             // a hub with hundreds of dependents: show the first ones, do not walk the rest
+                }
                 $visited[$key] = true;   // even a hidden record is marked, so it is not reconsidered through another path
                 $n = $names[$key] ?? null;
                 if ($n === null || !$actor->canRead($n['type']) || !$actor->canAccessClient($n['client_id'])) {

@@ -254,6 +254,7 @@ $q("INSERT INTO user_roles SET role_id = 1, role_name = 'Admin', role_is_admin =
 $q("INSERT INTO users SET user_id = 1, user_name = 'admin', user_email = 'admin@example.test', user_password = 'x', user_type = 1, user_status = 1, user_role_id = 1");
 $q("DELETE FROM user_settings"); $q("INSERT INTO user_settings SET user_id = 1");
 $web = ea_start_php($root . '/tests/mobile_api_router.php', ['RIVETIT_WEBHOOK_ALLOW_PRIVATE' => '1'], ["session.save_path=$sdir"]);
+$webLog0 = (int) @filesize($web['log']);   // the log name is per port: only what this run wrote counts
 $wb = "http://127.0.0.1:{$web['port']}";
 $sid = ea_forge_session($sdir, 1);
 $wr = fn (string $m, string $p, array $post = [], array $h = []) => web($wb, $m, $p, $sid, $post, array_merge(['User-Agent: platform-sync-test'], $h));
@@ -266,7 +267,7 @@ $qid = (int) $db->insert_id;
 [$c, $body] = $wr('GET', '/admin/settings_integrations.php?tab=rmm');
 $ok($c === 200 && str_contains($body, 'id="client-mapping"') && str_contains($body, 'Waiting Co') && str_contains($body, 'WC-PC') && str_contains($body, 'name="map_integration_client"'), 'page: the needs-mapping queue lists the waiting name with a department picker');
 $ok(str_contains($body, 'id="stale-assets"') && str_contains($body, 'name="save_stale_asset_settings"') && str_contains($body, 'fresh-1') && str_contains($body, 'name="restore_retired_asset"'), 'page: the stale-asset settings and review queue');
-$ok(!preg_match('/PHP (Warning|Fatal)/', (string) @file_get_contents($web['log'])), 'page: no PHP warnings');
+$ok(!preg_match('/PHP (Warning|Fatal)/', (string) substr((string) @file_get_contents($web['log']), $webLog0)), 'page: no PHP warnings');
 $ref = ['Referer: ' . $wb . '/admin/settings_integrations.php'];
 $wr('POST', '/admin/post.php', ['csrf_token' => 'wrong', 'map_integration_client' => 1, 'map_id' => $mapId, 'client_id' => 1], $ref);
 $ok($one("SELECT map_status FROM integration_client_map WHERE map_id = $mapId") === 'pending', 'handler: a wrong CSRF token changes nothing');
