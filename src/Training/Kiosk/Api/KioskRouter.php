@@ -41,7 +41,7 @@ final class KioskRouter
     public const AUTH_KINDS = ['anon', 'device', 'learner', 'trainer', 'checkin', 'handoff', 'video'];
     public const SESSION_ROLES = ['learner', 'trainer', 'checkin', 'handoff'];
     /** Actions whose exceptions are logged by class only (§0.12). Any action whose input carries a PIN-like key is added at runtime. */
-    public const PIN_ACTIONS = ['pick', 'pin_login', 'setup_code_verify', 'pin_create', 'enroll_code', 'adopt_device'];
+    public const PIN_ACTIONS = ['pick', 'pin_login', 'setup_code_verify', 'pin_create', 'enroll_code', 'enroll_fleet', 'adopt_device'];
     private const SECRET_KEYS = ['pin', 'pin2', 'code', 'setup_token', 'token'];
 
     /** ['ended' => epoch] when this request found the device's temporary time up, else []. */
@@ -118,7 +118,9 @@ final class KioskRouter
             if ($principal === null) {
                 if (in_array('device', $auth, true)) {
                     if ($k->device === null) {
-                        KioskAuth::clearDeviceCookie();
+                        if (!KioskAuth::awaitingApproval()) {
+                            KioskAuth::clearDeviceCookie();   // a fleet device waiting for approval keeps its cookie (2.6.151)
+                        }
                         throw new ApiException(403, 'device_not_enrolled', 'This device is not set up for training.', [], self::endedData());
                     }
                     $principal = 'device';

@@ -88,9 +88,30 @@ final class KioskAuth
         $tok = $_COOKIE[self::DEV_COOKIE] ?? null;
         if (!is_string($tok) || preg_match(self::TOKEN_RE, $tok) !== 1) {
             $reason = 'missing';
+            self::$lastReason = $reason;
             return null;
         }
-        return self::deviceByTokenHash($db, $ks, self::tokenHash($tok), $reason, $touch);
+        $row = self::deviceByTokenHash($db, $ks, self::tokenHash($tok), $reason, $touch);
+        self::$lastReason = $reason;
+        return $row;
+    }
+
+    /** Why the last device() call found no usable device (same values as its $reason), for code that has no handle on it (the API router). */
+    private static ?string $lastReason = null;
+
+    public static function lastReason(): ?string
+    {
+        return self::$lastReason;
+    }
+
+    /**
+     * True when the cookie's device is a fleet-link enrollment still waiting for an admin (2.6.151): it has no usable
+     * device yet, but its cookie must stay (clearing it would orphan the tablet) and it may only ever see the
+     * "waiting for approval" screen.
+     */
+    public static function awaitingApproval(): bool
+    {
+        return self::$lastReason === 'pending';
     }
 
     /** device() for a known token hash (adoption, tests). */

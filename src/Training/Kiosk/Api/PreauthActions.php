@@ -10,6 +10,7 @@ use ITFlow\Training\Kiosk\Core\KioskCtx;
 use ITFlow\Training\Kiosk\Core\KTime;
 use ITFlow\Training\Kiosk\Core\RateLimiter;
 use ITFlow\Training\Kiosk\Device\CodeEnrollment;
+use ITFlow\Training\Kiosk\Device\FleetEnrollment;
 use ITFlow\Training\Kiosk\Pin\CredentialRepo;
 use ITFlow\Training\Kiosk\Pin\PinService;
 use ITFlow\Training\Kiosk\Pin\Seam;
@@ -71,6 +72,18 @@ final class PreauthActions
             return CodeEnrollment::redeem($k, $a->input['code'] ?? null);
         } finally {
             PinService::pad($k->startedNs);
+        }
+    }
+
+    /** POST enroll_fleet {token, sn?} (anon): a tablet redeems a fleet link (FleetEnrollment); {state: enrolled|active|pending, label, next}. */
+    public static function enrollFleet(KioskCtx $k, ApiContext $a): array
+    {
+        $token = $a->input['token'] ?? null;
+        $sn = $a->input['sn'] ?? null;
+        try {
+            return FleetEnrollment::redeem($k, $token, $sn);
+        } finally {
+            unset($token, $a->input['token']);
         }
     }
 

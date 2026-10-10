@@ -141,8 +141,9 @@ $kiosk_core = new Ctx($mysqli, 0, false, 0, 'https://' . rtrim($kiosk_host, '/')
     Text::clip($_SERVER['HTTP_USER_AGENT'] ?? null, 255));
 $kiosk_device_reason = null;
 $kiosk_device = KioskAuth::device($mysqli, $kiosk_ks, $kiosk_device_reason, $KIOSK_CSP_PROFILE !== 'media');
-if ($kiosk_device === null && $kiosk_device_reason !== 'missing' && ($KIOSK_CSP_PROFILE === 'strict' || $KIOSK_CSP_PROFILE === 'external_video' || $KIOSK_CSP_PROFILE === 'kb_article')) {
+if ($kiosk_device === null && $kiosk_device_reason !== 'missing' && $kiosk_device_reason !== 'pending' && ($KIOSK_CSP_PROFILE === 'strict' || $KIOSK_CSP_PROFILE === 'external_video' || $KIOSK_CSP_PROFILE === 'kb_article')) {
     // Revoked, re-typed, archived or re-assigned (A19): the page shows "not set up" and the stale cookie goes.
+    // A fleet-link device still waiting for approval ('pending', 2.6.151) keeps its cookie: approval needs nothing more on the tablet.
     KioskAuth::clearDeviceCookie();
     KioskAuth::clearSessionCookie();
 }

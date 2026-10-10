@@ -4399,6 +4399,34 @@ CREATE TABLE `training_events` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `training_fleet_links`
+--
+
+DROP TABLE IF EXISTS `training_fleet_links`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `training_fleet_links` (
+  `fleet_id` int(11) NOT NULL AUTO_INCREMENT,
+  `fleet_token_hash` char(64) NOT NULL,
+  `fleet_label` varchar(100) NOT NULL,
+  `fleet_client_id` int(11) NOT NULL,
+  `fleet_approval` enum('require','auto_match') NOT NULL DEFAULT 'require',
+  `fleet_expires_at_utc` datetime(3) NOT NULL,
+  `fleet_max_uses` int(11) NOT NULL DEFAULT 1,
+  `fleet_use_count` int(11) NOT NULL DEFAULT 0,
+  `fleet_last_used_at_utc` datetime(3) DEFAULT NULL,
+  `fleet_revoked_at_utc` datetime(3) DEFAULT NULL,
+  `fleet_revoked_by` int(11) DEFAULT NULL,
+  `fleet_revoke_reason` varchar(255) DEFAULT NULL,
+  `fleet_created_by` int(11) NOT NULL DEFAULT 0,
+  `fleet_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`fleet_id`),
+  UNIQUE KEY `uq_training_fleet_token` (`fleet_token_hash`),
+  KEY `idx_training_fleet_client` (`fleet_client_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `training_i18n`
 --
 
@@ -4520,7 +4548,7 @@ CREATE TABLE `training_kiosks` (
   `kiosk_label` varchar(100) NOT NULL,
   `kiosk_default_client_id` int(11) NOT NULL DEFAULT 0,
   `kiosk_status` enum('pending','active','revoked') NOT NULL DEFAULT 'pending',
-  `kiosk_enroll_method` enum('agent_device','setup_code','portal') DEFAULT NULL,
+  `kiosk_enroll_method` enum('agent_device','setup_code','portal','fleet') DEFAULT NULL,
   `kiosk_enroll_code_hash` char(64) DEFAULT NULL,
   `kiosk_enroll_expires_at_utc` datetime(3) DEFAULT NULL,
   `kiosk_enroll_failures` tinyint(3) unsigned NOT NULL DEFAULT 0,
@@ -4539,12 +4567,16 @@ CREATE TABLE `training_kiosks` (
   `kiosk_revoked_by` int(11) DEFAULT NULL,
   `kiosk_revoke_reason` varchar(255) DEFAULT NULL,
   `kiosk_hidden_at_utc` datetime(3) DEFAULT NULL,
+  `kiosk_fleet_id` int(11) DEFAULT NULL,
+  `kiosk_fleet_serial` varchar(64) DEFAULT NULL,
+  `kiosk_fleet_note` varchar(40) DEFAULT NULL,
   `kiosk_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   PRIMARY KEY (`kiosk_id`),
   UNIQUE KEY `uq_training_kiosk_token` (`kiosk_token_hash`),
   UNIQUE KEY `uq_training_kiosk_code` (`kiosk_enroll_code_hash`),
   KEY `idx_training_kiosk_asset` (`kiosk_asset_id`,`kiosk_status`),
-  KEY `idx_training_kiosk_expires` (`kiosk_status`,`kiosk_expires_at_utc`)
+  KEY `idx_training_kiosk_expires` (`kiosk_status`,`kiosk_expires_at_utc`),
+  KEY `idx_training_kiosk_fleet` (`kiosk_fleet_id`,`kiosk_fleet_serial`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

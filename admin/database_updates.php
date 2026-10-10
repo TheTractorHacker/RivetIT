@@ -10421,3 +10421,37 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             }
         }
     }
+
+    if ($rivetit_db_version() == '2.6.150') {
+        // Training kiosk fleet links (GitHub issue #43): one department-scoped, expiring, max-uses, revocable enrollment link an MDM can push to
+        // many tablets (/kiosk/?e=<token>&sn=<serial>) alongside the per-device start URL. Only sha256(token) is stored. A device that enrolls
+        // through a link is a training_kiosks row (method 'fleet', kiosk_fleet_id / kiosk_fleet_serial say which link and which serial); it
+        // stays 'pending' with its own device token until an admin approves it (or the link auto-enrolls a serial that matches an active Asset
+        // of the link's department). A new table, not settings columns: settings is close to the row-size limit.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_fleet_links` (
+          `fleet_id` int(11) NOT NULL AUTO_INCREMENT,
+          `fleet_token_hash` char(64) NOT NULL,
+          `fleet_label` varchar(100) NOT NULL,
+          `fleet_client_id` int(11) NOT NULL,
+          `fleet_approval` enum('require','auto_match') NOT NULL DEFAULT 'require',
+          `fleet_expires_at_utc` datetime(3) NOT NULL,
+          `fleet_max_uses` int(11) NOT NULL DEFAULT 1,
+          `fleet_use_count` int(11) NOT NULL DEFAULT 0,
+          `fleet_last_used_at_utc` datetime(3) DEFAULT NULL,
+          `fleet_revoked_at_utc` datetime(3) DEFAULT NULL,
+          `fleet_revoked_by` int(11) DEFAULT NULL,
+          `fleet_revoke_reason` varchar(255) DEFAULT NULL,
+          `fleet_created_by` int(11) NOT NULL DEFAULT 0,
+          `fleet_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          PRIMARY KEY (`fleet_id`),
+          UNIQUE KEY `uq_training_fleet_token` (`fleet_token_hash`),
+          KEY `idx_training_fleet_client` (`fleet_client_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "ALTER TABLE `training_kiosks` MODIFY COLUMN `kiosk_enroll_method` enum('agent_device','setup_code','portal','fleet') DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `training_kiosks` ADD COLUMN IF NOT EXISTS `kiosk_fleet_id` int(11) DEFAULT NULL AFTER `kiosk_hidden_at_utc`");
+        mysqli_query($mysqli, "ALTER TABLE `training_kiosks` ADD COLUMN IF NOT EXISTS `kiosk_fleet_serial` varchar(64) DEFAULT NULL AFTER `kiosk_fleet_id`");
+        mysqli_query($mysqli, "ALTER TABLE `training_kiosks` ADD COLUMN IF NOT EXISTS `kiosk_fleet_note` varchar(40) DEFAULT NULL AFTER `kiosk_fleet_serial`");
+        mysqli_query($mysqli, "ALTER TABLE `training_kiosks` ADD INDEX IF NOT EXISTS `idx_training_kiosk_fleet` (`kiosk_fleet_id`,`kiosk_fleet_serial`)");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.151'");
+    }

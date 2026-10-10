@@ -4,6 +4,8 @@
  * Screens (all rendered with Kiosk.ui.el / textContent - never HTML strings):
  *   adopt     /kiosk/#d=<token> (or /kiosk/?d=<token>): replaceState('/kiosk/') at once, POST adopt_device, confirm before
  *             replacing a valid device (409 device_replace_confirm), then location.replace('/kiosk/')
+ *   fleet     /kiosk/#e=<fleet token>&sn=<serial> (or ?e=...): replaceState('/kiosk/') at once, POST enroll_fleet, then /kiosk/
+ *   pending   server-rendered "Waiting for approval" (a fleet tablet an admin has not approved yet); reloads itself every 20 s
  *   notsetup  server-rendered; [S] "Enter a setup code" (POST enroll_code)
  *   switch    "Sign out {name}?" (POST end)
  *   search    "Who's training today?" - 250 ms debounce, >= 2 letters, rows with the match in bold
@@ -30,6 +32,10 @@
     // kiosk-mode shortcut) is accepted too; it leaves the address bar just as fast. The issued form
     // stays the fragment, which never reaches a server log.
     var QUERY_RE = /^\?d=([A-Za-z0-9_-]{43})$/;
+    // The fleet link an MDM pushes to many tablets (#e=<fleet token>&sn=<serial>, or ?e=... when the fragment was dropped): redeemed by
+    // POST enroll_fleet, which sets this tablet up or leaves it waiting for an admin to approve it.
+    var FLEET_RE = /^#e=(rvkf1_[A-Za-z0-9_-]{43})(?:&sn=([^&]*))?$/;
+    var FLEET_QUERY_RE = /^\?e=(rvkf1_[A-Za-z0-9_-]{43})(?:&sn=([^&]*))?$/;
 
     var mode = 'learner';          // 'learner' | 'trainer'
     var screen = null;             // current screen name
@@ -128,6 +134,28 @@
             token = null;
             setScreen('adopt', el('div', { class: 'kx-center' }, [
                 el('div', { class: 'kx-signin__narrow' }, [alertBox('bad', err && err.code === 'rate_limited' ? t('err.rate_limited') : t('signin.adopt_failed'))]),
+                el('a', { class: 'kx-btn kx-btn--xl', href: '/kiosk/' }, [icon('fa-redo'), el('span', { text: t('shell.retry') })])
+            ]));
+        });
+    }
+
+    // ------------------------------------------------------------------ fleet link (#e=)
+    function fleetEnroll(token, sn) {
+        setScreen('adopt', el('div', { class: 'kx-center' }, [
+            el('span', { class: 'kx-spin', 'aria-hidden': 'true' }),
+            el('p', { class: 'kx-lead', role: 'status', text: t('signin.adopting') })
+        ]));
+        K.api.post('enroll_fleet', { token: token, sn: sn || '' }).then(function () {
+            token = null;
+            location.replace('/kiosk/');   // active: the sign-in screen; pending: the waiting screen
+        }, function (err) {
+            token = null;
+            var code = err && err.code;
+            var text = code === 'rate_limited' ? t('err.rate_limited')
+                : (code === 'fleet_serial_invalid' ? t('signin.fleet_serial')
+                : (code === 'fleet_already_enrolled' ? t('signin.fleet_already') : t('signin.fleet_failed')));
+            setScreen('adopt', el('div', { class: 'kx-center' }, [
+                el('div', { class: 'kx-signin__narrow' }, [alertBox('bad', text)]),
                 el('a', { class: 'kx-btn kx-btn--xl', href: '/kiosk/' }, [icon('fa-redo'), el('span', { text: t('shell.retry') })])
             ]));
         });
@@ -540,6 +568,17 @@
     // ------------------------------------------------------------------ boot
     /** Adopts a #d=<token> (or ?d=<token>) start URL: the token leaves the address bar before anything else happens. */
     function adoptFromHash() {
+        var fleet = FLEET_RE.exec(location.hash || '') || FLEET_QUERY_RE.exec(location.search || '');
+        if (fleet) {
+            try { history.replaceState(null, '', '/kiosk/'); } catch (e) { /* ignore */ }
+            var fns = document.getElementById('kx-ns');
+            if (fns) { fns.hidden = true; }
+            var sn = fleet[2] || '';
+            try { sn = decodeURIComponent(sn); } catch (e) { /* keep it as sent; the server refuses a bad one */ }
+            fleetEnroll(fleet[1], sn);
+            fleet = null;
+            return true;
+        }
         var hash = TOKEN_RE.exec(location.hash || '') || QUERY_RE.exec(location.search || '');
         if (!hash) { return false; }
         try { history.replaceState(null, '', '/kiosk/'); } catch (e) { /* ignore */ }
@@ -553,6 +592,12 @@
     window.addEventListener('hashchange', function () { adoptFromHash(); });
     if (adoptFromHash()) { return; }
     if (location.hash) { try { history.replaceState(null, '', '/kiosk/' + location.search); } catch (e) { /* ignore */ } }
+    if (page.state === 'pending') {
+        // Waiting for an admin to approve this tablet (fleet link): look again every 20 s; nothing else is available.
+        screen = 'pending';
+        setTimeout(function () { location.reload(); }, 20000);
+        return;
+    }
     if (page.state === 'not_setup') { screen = 'notsetup'; wireNotSetup(); return; }
     if (page.state === 'switch') { showSwitch(); return; }
     home();

@@ -42,6 +42,21 @@ if (array_key_exists('d', $_GET)) {
     exit;
 }
 
+// The fleet link /kiosk/?e=<fleet token>&sn=<serial> (MDM mass deployment, 2.6.151): the same bare redirect to the fragment form
+// /kiosk/#e=<token>&sn=<serial>, which the page redeems by POST (enroll_fleet). A malformed token just goes home; a serial that is not
+// plain text is passed on percent-encoded and trimmed so the page can say it is not valid.
+if (array_key_exists('e', $_GET)) {
+    $k_e = $_GET['e'];
+    $k_sn = $_GET['sn'] ?? null;
+    $k_loc = '/kiosk/';
+    if (is_string($k_e) && preg_match(\ITFlow\Training\Kiosk\Device\FleetLinks::TOKEN_RE, $k_e) === 1) {
+        $k_loc = '/kiosk/#e=' . $k_e . (is_string($k_sn) && $k_sn !== '' ? '&sn=' . rawurlencode(substr($k_sn, 0, 100)) : '');
+    }
+    unset($k_e, $k_sn);
+    header('Location: ' . $k_loc, true, 302);
+    exit;
+}
+
 $k_dev = kiosk_require_device();
 // A portal device has no sign-in screen of its own: without a live session it goes back to the portal.
 if ($k_dev !== null && ($k_dev['kiosk_enroll_method'] ?? '') === 'portal' && kiosk_peek_session() === null) {
@@ -87,7 +102,9 @@ if ($k_dev !== null && $k_switch === null && is_array($k_dev['personal'] ?? null
     ];
 }
 
-$k_state = $k_dev === null ? 'not_setup' : ($k_switch !== null ? 'switch' : 'signin');
+// A fleet-link device that is waiting for an admin (2.6.151): its cookie is kept and it sees only the waiting screen.
+$k_pending = $k_dev === null && $k_ended === null && KioskAuth::awaitingApproval();
+$k_state = $k_dev === null ? ($k_pending ? 'pending' : 'not_setup') : ($k_switch !== null ? 'switch' : 'signin');
 // [S] T-6: the group-session check-in link shows only while a trainer has a class open (CheckinService, 12 h).
 $k_checkin = false;
 if ($k_dev !== null && $k_switch === null) {
@@ -98,7 +115,7 @@ if ($k_dev !== null && $k_switch === null) {
     }
 }
 $k_page = [
-    'title' => $k_dev === null ? 'Not set up' : 'Sign in',
+    'title' => $k_dev === null ? ($k_pending ? 'Waiting for approval' : 'Not set up') : 'Sign in',
     'css' => ['/css/itflow_training_kiosk_signin.css'],
     'js' => ['/js/training_kiosk_signin.js'],
     'body_class' => 'kx-home kx-signin-page',
@@ -120,7 +137,17 @@ $k_es = static fn(string $key, array $v = []): string => KioskStrings::t('es', $
 require __DIR__ . '/includes/layout_top.php';
 ?>
 <div class="kx-signin" id="kx-signin" data-state="<?= $k_h($k_state) ?>">
-<?php if ($k_dev === null) { ?>
+<?php if ($k_pending) { ?>
+  <div class="kx-center" id="kx-ns">
+    <section class="kx-hero" aria-labelledby="kx-ns-title">
+      <span class="kx-hero__icon" aria-hidden="true"><i class="fas fa-hourglass-half"></i></span>
+      <h1 id="kx-ns-title"><?= $k_h($k_en('shell.pending_title')) ?></h1>
+      <p class="kx-hero__alt" lang="es"><?= $k_h($k_es('shell.pending_title')) ?></p>
+      <p class="kx-lead"><?= $k_h($k_en('shell.pending_body')) ?></p>
+      <p class="kx-lead" lang="es"><?= $k_h($k_es('shell.pending_body')) ?></p>
+    </section>
+  </div>
+<?php } elseif ($k_dev === null) { ?>
   <div class="kx-center" id="kx-ns">
     <section class="kx-hero" aria-labelledby="kx-ns-title">
       <span class="kx-hero__icon" aria-hidden="true"><i class="fas <?= $k_ended !== null ? 'fa-hourglass-end' : 'fa-tablet-alt' ?>"></i></span>
