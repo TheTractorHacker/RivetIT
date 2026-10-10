@@ -6,6 +6,11 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.32] RivetIT — RivetCore 1.0.0-rc.8 (golden fixtures for the enrollment fix)
+
+- **RivetCore 1.0.0-rc.8:** `rivet/rivet-core` is pinned to `^1.0.0-rc.8` (v1.0.0-rc.8, 2269ad0). rc.8 changes no `src/`; it re-records Core's golden RMM transcripts for the CORE-1 cross-client enrollment fix. No database step, no schema change.
+- `tests/endpoint_agent_golden.php` now passes again against the rc.8 fixtures ("replay identical (10 files)"), closing the note in 26.10.31 about the CORE-1 difference. No RivetIT code changed.
+
 ## [26.10.31] RivetIT — RivetCore 1.0.0-rc.7 (MCP identity collation)
 
 - **RivetCore 1.0.0-rc.7 (DB 2.6.155):** adopts `rivet/rivet-core` rc.7. New database step 2.6.155 runs Core migration 0017, which moves `mcp_unlinked_identities.issuer` and `.subject` to `utf8mb4_bin` (OIDC `iss`/`sub` are case-sensitive); idempotent, skipped until the package is installed. `db.sql` matches.

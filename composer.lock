@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9beda2d91dd781d5c4461059707d92e6",
+    "content-hash": "97ba44698a9f7a55180db03e67846c6f",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1923,16 +1923,16 @@
         },
         {
             "name": "rivet/rivet-core",
-            "version": "v1.0.0-rc.7",
+            "version": "v1.0.0-rc.8",
             "source": {
                 "type": "git",
                 "url": "https://github.com/TheTractorHacker/rivet-core",
-                "reference": "5e4de60c31f620619e4c1155ea29d0ee551f8714"
+                "reference": "2269ad0aca2ec0a367af507061d485c007c4dfae"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/TheTractorHacker/rivet-core/zipball/5e4de60c31f620619e4c1155ea29d0ee551f8714",
-                "reference": "5e4de60c31f620619e4c1155ea29d0ee551f8714",
+                "url": "https://api.github.com/repos/TheTractorHacker/rivet-core/zipball/2269ad0aca2ec0a367af507061d485c007c4dfae",
+                "reference": "2269ad0aca2ec0a367af507061d485c007c4dfae",
                 "shasum": ""
             },
             "require": {
@@ -1978,7 +1978,7 @@
                 "issues": "https://github.com/TheTractorHacker/rivet-core/issues",
                 "source": "https://github.com/TheTractorHacker/rivet-core"
             },
-            "time": "2026-10-09T18:23:41+00:00"
+            "time": "2026-10-10T03:57:58+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",
