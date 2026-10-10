@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.29] RivetIT — Training kiosk fleet links for MDM mass deployment, company-wide Location dropdown, webhook wizard hardening
+
 ### Training kiosk: fleet links for MDM mass deployment (DB 2.6.151)
 
 - **Fleet links** (Training › Devices & PINs › Fleet links; Training kiosk level 3) let you deploy the kiosk to many iPads or Android tablets from an MDM with **one shared URL**, `/kiosk/?e=<token>&sn=<serial macro>`, as an option alongside the existing per-device enrollment, start URLs and setup codes. A link is scoped to one department, expires (7 to 90 days), has a most-devices cap, and can be revoked or rotated; only a hash of the token is stored and the link is shown once, like the endpoint agent's enrollment tokens.
