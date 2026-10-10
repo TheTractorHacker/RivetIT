@@ -2004,32 +2004,29 @@
         },
         {
             "name": "rivet/rivet-core",
-            "version": "v1.0.0-rc.6",
-            "version_normalized": "1.0.0.0-RC6",
+            "version": "v0.8.0",
+            "version_normalized": "0.8.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/TheTractorHacker/rivet-core",
-                "reference": "1afe6d24cde9d007b27ab8b696d7859137879956"
+                "reference": "bf27835eb82fa00047e55b8b8b77a97f71808f67"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/TheTractorHacker/rivet-core/zipball/1afe6d24cde9d007b27ab8b696d7859137879956",
-                "reference": "1afe6d24cde9d007b27ab8b696d7859137879956",
+                "url": "https://api.github.com/repos/TheTractorHacker/rivet-core/zipball/bf27835eb82fa00047e55b8b8b77a97f71808f67",
+                "reference": "bf27835eb82fa00047e55b8b8b77a97f71808f67",
                 "shasum": ""
             },
             "require": {
-                "ext-sodium": "*",
                 "guzzlehttp/guzzle": "^7.0 || ^8.0",
                 "php": ">=8.2",
                 "predis/predis": "^3.5",
-                "psr/log": "^3",
                 "psr/simple-cache": "^3.0"
             },
             "require-dev": {
-                "phpstan/phpstan": "^2",
                 "phpunit/phpunit": "^11.5"
             },
-            "time": "2026-10-08T04:20:31+00:00",
+            "time": "2026-10-05T10:04:02+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -2048,9 +2045,6 @@
                 ],
                 "test": [
                     "phpunit"
-                ],
-                "stan": [
-                    "phpstan analyse --no-progress --memory-limit=1G"
                 ]
             },
             "license": [
@@ -2388,23 +2382,23 @@
         },
         {
             "name": "symfony/polyfill-php80",
-            "version": "v1.43.0",
-            "version_normalized": "1.43.0.0",
+            "version": "v1.37.0",
+            "version_normalized": "1.37.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-php80.git",
-                "reference": "9c6a5d6b01ca51d486c813e9a9c0ed55f208bb74"
+                "reference": "dfb55726c3a76ea3b6459fcfda1ec2d80a682411"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-php80/zipball/9c6a5d6b01ca51d486c813e9a9c0ed55f208bb74",
-                "reference": "9c6a5d6b01ca51d486c813e9a9c0ed55f208bb74",
+                "url": "https://api.github.com/repos/symfony/polyfill-php80/zipball/dfb55726c3a76ea3b6459fcfda1ec2d80a682411",
+                "reference": "dfb55726c3a76ea3b6459fcfda1ec2d80a682411",
                 "shasum": ""
             },
             "require": {
                 "php": ">=7.2"
             },
-            "time": "2026-09-25T15:50:05+00:00",
+            "time": "2026-04-10T16:19:22+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -2451,7 +2445,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-php80/tree/v1.43.0"
+                "source": "https://github.com/symfony/polyfill-php80/tree/v1.37.0"
             },
             "funding": [
                 {
@@ -2475,23 +2469,23 @@
         },
         {
             "name": "symfony/polyfill-php82",
-            "version": "v1.43.0",
-            "version_normalized": "1.43.0.0",
+            "version": "v1.38.1",
+            "version_normalized": "1.38.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-php82.git",
-                "reference": "843bbe8b2a7934307b749751eede0f111f5d1cfc"
+                "reference": "002dc0cfe5fd4ed6033d48f27d4f19a486c4b04b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-php82/zipball/843bbe8b2a7934307b749751eede0f111f5d1cfc",
-                "reference": "843bbe8b2a7934307b749751eede0f111f5d1cfc",
+                "url": "https://api.github.com/repos/symfony/polyfill-php82/zipball/002dc0cfe5fd4ed6033d48f27d4f19a486c4b04b",
+                "reference": "002dc0cfe5fd4ed6033d48f27d4f19a486c4b04b",
                 "shasum": ""
             },
             "require": {
                 "php": ">=7.2"
             },
-            "time": "2026-09-25T15:50:05+00:00",
+            "time": "2026-05-26T12:45:58+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -2534,7 +2528,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-php82/tree/v1.43.0"
+                "source": "https://github.com/symfony/polyfill-php82/tree/v1.38.1"
             },
             "funding": [
                 {
@@ -2793,6 +2787,6 @@
             "install-path": "../webmozart/assert"
         }
     ],
-    "dev": false,
+    "dev": true,
     "dev-package-names": []
 }
