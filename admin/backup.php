@@ -298,6 +298,8 @@ function fmt_age(?int $ts): string {
     </div>
 </div>
 
+<?php require __DIR__ . '/backup_recovery_panel.php'; ?>
+
 <!-- ── Backup history ─────────────────────────────────────────────────────── -->
 <div class="card">
     <div class="card-header py-2 d-flex align-items-center">

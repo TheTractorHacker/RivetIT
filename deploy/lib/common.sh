@@ -410,8 +410,18 @@ register_tmpfile() {
     _ITFLOW_TMPFILES+=("$1")
 }
 
+# register_exit_hook <function>: run <function> <exit-code> from the same single EXIT trap, before temp files are shredded. Used by
+# backup.sh to report a failed run (die() exits through here). Hooks must not fail the script: errors are ignored.
+declare -a _ITFLOW_EXIT_HOOKS=()
+register_exit_hook() {
+    _ITFLOW_EXIT_HOOKS+=("$1")
+}
+
 _cleanup_tmpfiles() {
-    local f
+    local _rc=$? h f
+    for h in "${_ITFLOW_EXIT_HOOKS[@]:-}"; do
+        [[ -n "${h}" ]] && { "${h}" "${_rc}" || true; }
+    done
     for f in "${_ITFLOW_TMPFILES[@]:-}"; do
         [[ -n "${f}" && -e "${f}" ]] || continue
         if [[ -d "${f}" ]]; then

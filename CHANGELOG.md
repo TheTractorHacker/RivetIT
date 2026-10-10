@@ -33,6 +33,30 @@ Wave 1 of the platform security plan (`docs/program/PLATFORM_GAP_ANALYSIS_2026-1
 - Database 2.6.153: new tables `security_settings`, `user_recovery_codes`, `user_sessions`; `software.software_key` and `software_keys.software_key` become TEXT; `settings.config_login_session_lifetime` default 20160. The step is gated on 2.6.152 (mail intake).
 - Not changed here: the vault cipher (AES-128-CBC, Wave 3), department-portal sessions, other pages that still decrypt credentials into the page (global search, asset and contact detail, client overview).
 
+### Recovery: backup status and alerts, nightly restore drill, off-site copy, runbook (DB 2.6.154)
+
+Closes platform gap items 9, 11 and 12 (`PLATFORM_GAP_ANALYSIS_2026-10`): a backup that fails or goes stale is now noticed, a restore is
+proven every night, and the encrypted backup can leave the box.
+
+- **Backup status and alerts.** Every in-app backup run (`build_backup`, used by Save/Download, `cron/cron.php` and `cron/backup_cron.php`) and every `deploy/backup.sh` run writes a
+  record to `backup_runs` (started, finished, kind, file, size, SHA-256, ok, error, off-site result). A failed or half-finished run raises an in-app notification, an email to the
+  alert address (or every administrator) and the event `backup.failed`, at most once per 6 hours per problem. A watcher in `cron/cron.php` (and `cron/backup_cron.php` when the main
+  cron is off) raises `backup.stale` when the newest successful backup is older than 26 hours (setting). The same watcher raises `integration.sync_stale` / `integration.sync_failed`
+  for RMM, Intune and UniFi syncs: no run in 3x the interval, or the last 3 runs all errored (all settings). The main cron now writes an `rmm_sync_log` row per scheduled RMM sync (like Intune and
+  UniFi did), so a stalled RMM sync is visible; scheduled rows older than 30 days are pruned. Admin > Backup shows the newest good backup age, the last run, and the last restore drill with its measured restore time.
+- **Nightly restore drill** (`cron/restore_drill.php`, and `deploy/restore_drill.sh` for the root-only encrypted archives). Restores the newest backup into a scratch database `drill_<yyyymmdd>` using a
+  dedicated account that only has rights on `drill_%` (the GRANT is shown on Admin > Backup and in the runbook), verifies SHA-256s against `version.txt`, schema version, the table list against live,
+  row counts of 24 core tables against the snapshot stored in the backup (5% tolerance), the training-ledger hash chain and its outside anchor, a sample secret decryption and the uploads archive (CRC sample),
+  then always drops the scratch database and files. It never boots the application against the scratch database and never runs syncs or cron against it. Results, with the measured restore seconds (RTO evidence),
+  go to `restore_drill_log`; a failure alerts (`restore_drill.failed`). Off by default until the drill account exists; without it the drill reports "not configured" and shows the setup steps. Admins get **Run drill now**.
+  New backups carry `table-snapshot.json` (names and counts only, no data, outside the key manifest).
+- **Compliance check** "A restore was proven in the last 35 days" reads the drill log.
+- **Off-site copy for `deploy/backup.sh`.** `/etc/itflow/offsite.conf` (template `deploy/etc/offsite.conf.example`) or `--offsite=<file>` copies each archive and a new `.sha256` checksum file to rclone, S3 (aws CLI), SFTP or a
+  mounted directory, verifies the size, and applies retention at the destination (by file-name timestamp; never deletes the last archive). A failed copy keeps the local archive, is recorded and exits 3.
+  New units `itflow-restore-drill.{service,timer}`; `deploy/install.sh --install-backup-timers` installs the backup and drill timers (opt-in) and adds `restore_drill.php` to the cron file. `deploy/lib/common.sh` gains `register_exit_hook`.
+- **`docs/RECOVERY_RUNBOOK.md`:** RTO/RPO statement template, what is in a backup, the full recovery order (keys, database, uploads, schema, endpoint-agent binaries, rmm-state, no Redis, verification, **no Odoo or integration
+  syncs until verified**), quarterly drill checklist and key-escrow guidance.
+- Database 2.6.154 (gated on 2.6.153): new `backup_runs`, `restore_drill_log`, `recovery_alerts` and `recovery_settings` tables (all `CREATE TABLE IF NOT EXISTS`). Tests: `tests/recovery_drill.php`, `tests/recovery_offsite.php`.
 
 ## [26.10.29] RivetIT — Training kiosk fleet links for MDM mass deployment, company-wide Location dropdown, webhook wizard hardening
 

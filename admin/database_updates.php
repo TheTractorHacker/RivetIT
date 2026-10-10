@@ -10587,3 +10587,58 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.153'");
     }
+
+    if ($rivetit_db_version() == '2.6.153') {
+        // Recovery (platform gap analysis items 9, 11, 12): every backup run leaves a status record (backup_runs), the nightly restore drill
+        // leaves a result (restore_drill_log), alert de-duplication state (recovery_alerts) and a small key/value settings table
+        // (recovery_settings; a table, not settings columns, because settings is close to the row-size limit). All CREATE TABLE IF NOT
+        // EXISTS, so re-running is harmless. The drill is OFF until an admin configures the scoped drill_% database account.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `backup_runs` (
+          `run_id` int(11) NOT NULL AUTO_INCREMENT,
+          `run_kind` varchar(20) NOT NULL DEFAULT 'app_manual',
+          `run_started_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `run_finished_at` datetime DEFAULT NULL,
+          `run_file` varchar(255) DEFAULT NULL,
+          `run_size` bigint(20) unsigned DEFAULT NULL,
+          `run_sha256` char(64) DEFAULT NULL,
+          `run_ok` tinyint(1) NOT NULL DEFAULT 0,
+          `run_error` text DEFAULT NULL,
+          `run_offsite_result` varchar(255) DEFAULT NULL,
+          PRIMARY KEY (`run_id`),
+          KEY `idx_backup_runs_started` (`run_started_at`),
+          KEY `idx_backup_runs_ok` (`run_ok`,`run_finished_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `restore_drill_log` (
+          `drill_id` int(11) NOT NULL AUTO_INCREMENT,
+          `drill_started_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `drill_finished_at` datetime DEFAULT NULL,
+          `drill_trigger` varchar(20) NOT NULL DEFAULT 'cron',
+          `drill_backup_kind` varchar(20) DEFAULT NULL,
+          `drill_backup_file` varchar(255) DEFAULT NULL,
+          `drill_status` varchar(20) NOT NULL DEFAULT 'running',
+          `drill_message` varchar(500) DEFAULT NULL,
+          `drill_restore_seconds` decimal(10,2) DEFAULT NULL,
+          `drill_total_seconds` decimal(10,2) DEFAULT NULL,
+          `drill_scratch_db` varchar(64) DEFAULT NULL,
+          `drill_cleanup_ok` tinyint(1) DEFAULT NULL,
+          `drill_checks` mediumtext DEFAULT NULL,
+          PRIMARY KEY (`drill_id`),
+          KEY `idx_restore_drill_started` (`drill_started_at`),
+          KEY `idx_restore_drill_status` (`drill_status`,`drill_finished_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `recovery_alerts` (
+          `alert_key` varchar(120) NOT NULL,
+          `alert_last_sent_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `alert_last_message` varchar(500) DEFAULT NULL,
+          `alert_send_count` int(11) NOT NULL DEFAULT 1,
+          PRIMARY KEY (`alert_key`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `recovery_settings` (
+          `setting_key` varchar(60) NOT NULL,
+          `setting_value` text DEFAULT NULL,
+          `setting_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`setting_key`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.154'");
+    }

@@ -28,6 +28,9 @@
 # literal "itflow-backup.service" name since each needs a different
 # --app-dir baked into its ExecStart.
 #
+# Off-site copy: create /etc/itflow/offsite.conf (template: deploy/etc/offsite.conf.example) and the next run copies each archive
+# and its .sha256 file there and applies retention at the destination. No change to this unit is needed.
+#
 # The encryption passphrase lives in /etc/itflow/backup-passphrase (root-
 # only, 600) — NOT baked into this unit file — because unit files under
 # /etc/systemd/system/ are the kind of thing that ends up copy-pasted into

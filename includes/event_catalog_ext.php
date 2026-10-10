@@ -16,6 +16,11 @@ if (!function_exists('rivetEventCatalogExtras')) {
             ['id' => 'ticket.sla_warning', 'group' => 'tickets', 'label' => 'SLA warning', 'description' => 'A ticket is close to breaching its SLA.', 'severity' => 'warning', 'tags' => ['sla', 'deadline', 'due']],
             ['id' => 'ticket.sla_breached', 'group' => 'tickets', 'label' => 'SLA breached', 'description' => 'A ticket has passed its SLA deadline.', 'severity' => 'critical', 'tags' => ['sla', 'overdue', 'late']],
             ['id' => 'catalog.request_approved', 'group' => 'approvals', 'label' => 'Catalog request approved', 'description' => 'A service catalog request was approved.', 'severity' => 'info', 'tags' => ['service', 'request']],
+            ['id' => 'backup.failed', 'group' => 'recovery', 'label' => 'Backup failed', 'description' => 'A backup run did not complete, or its off-site copy failed.', 'severity' => 'critical', 'tags' => ['backup', 'failure', 'recovery']],
+            ['id' => 'backup.stale', 'group' => 'recovery', 'label' => 'Backup out of date', 'description' => 'The newest successful backup is older than the configured limit (26 hours by default).', 'severity' => 'critical', 'tags' => ['backup', 'overdue', 'recovery']],
+            ['id' => 'restore_drill.failed', 'group' => 'recovery', 'label' => 'Restore drill failed', 'description' => 'The nightly restore drill could not prove the newest backup restores, or it stopped running.', 'severity' => 'critical', 'tags' => ['backup', 'restore', 'recovery']],
+            ['id' => 'integration.sync_failed', 'group' => 'recovery', 'label' => 'Integration sync failing', 'description' => 'An RMM, Intune or UniFi sync has errored several runs in a row.', 'severity' => 'warning', 'tags' => ['sync', 'rmm', 'intune', 'unifi']],
+            ['id' => 'integration.sync_stale', 'group' => 'recovery', 'label' => 'Integration sync stopped', 'description' => 'An RMM, Intune or UniFi sync has not run for three times its interval.', 'severity' => 'warning', 'tags' => ['sync', 'rmm', 'intune', 'unifi', 'overdue']],
             ['id' => 'catalog.request_rejected', 'group' => 'approvals', 'label' => 'Catalog request rejected', 'description' => 'A service catalog request was rejected.', 'severity' => 'info', 'tags' => ['service', 'request', 'denied']],
         ];
     }
