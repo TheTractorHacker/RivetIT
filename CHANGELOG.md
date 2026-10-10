@@ -6,6 +6,37 @@ continues unchanged.
 
 ## [Unreleased]
 
+Wave 2 of the platform plan (items 13, 14, 15, 17 and 18): the relationship layer, search, inventory sync and a tamper-evident audit trail.
+**DB 2.6.156** (one idempotent step gated on 2.6.155; `db.sql` carries it, a fresh import and a migrated install have identical schemas).
+
+### Relationships (item 13)
+
+- **Entity links.** A generic `entity_links` table (`link_id`, `client_id`, `src_type`/`src_id`, `dst_type`/`dst_id`, `link_type` depends_on / runs_on / supported_by / documented_by / related, `note`, `created_by`, `created_at`; unique on the five identity columns, indexed on the destination) and a `ITFlow\Links\LinkService` over it. Thirteen record types: asset, software, vendor, document, KB article, service, network, domain, certificate, credential, contact, location, ticket.
+- **Rules.** Both ends must belong to the same department unless one is kept in no department (a global vendor or KB article); creating a link needs change access to the source record's module and view access to the target's; unlinking needs change access to either end. Every create and delete writes an audit event (`entity_link.create` / `entity_link.delete`).
+- **Relationships card** (`includes/relationships_card.php`) on the asset, document, KB article, domain, certificate and contact pages, and in a pop-up (row action "Relationships") for software, services, networks, credentials, locations and the vendor details pop-up. It shows the record's links, **Referenced by** (reverse lookups) and **Impact: what depends on this** (transitive over depends on / runs on / supported by, up to three levels, cycle safe; records the role cannot see are neither listed nor walked through), with an unlink action, and a shared **Link item** pop-up (type picker, live search, relationship type, note). KB articles can now link to assets (a global article can link to an asset of any department; the link belongs to that department).
+- **Nothing is copied.** The older link tables (`asset_documents`, `software_assets`, `service_assets`, `service_*`, `contact_*`, `vendor_*`, `ticket_assets`, asset location / contact / interface network, certificate domain, credential asset / software / vendor / contact) are read at query time and shown on the card as read-only "from ..." rows.
+- **Several vendors per asset and software title, each with a role** (support, reseller, manufacturer): `asset_vendors` / `software_vendors`. `asset_vendor_id` / `software_vendor_id` stay the primary and are mirrored as role support; the database step back-fills the mirror from the existing primaries. Add or remove vendors on the card.
+- **API:** `GET/POST /api/v1/relationships`, `DELETE /api/v1/relationships/{id}` (documented in `openapi.yaml`).
+
+### Search and document review (item 14)
+
+- Global search (page, live dropdown and `/api/v1/search`) now covers **software, networks and services**, shows **vendor roles** (how many assets and software titles each vendor supports, resells or makes; searching a role word such as "reseller" finds those vendors) and a **Linked records** section ("Runbook documents Asset srv-core"). Every section is limited to the role's modules and departments.
+- **Document review date** (`documents.document_review_at`, set when adding or editing a document). On the date the team gets one notification and a `document.review_due` event; changing the date re-arms it. KB articles keep their existing review fields.
+
+### Inventory sync (items 15 and 18)
+
+- **The asset's own fields are filled from the agent and the vendor RMMs:** make, model, OS, CPU and RAM (new `assets.asset_cpu` / `asset_ram`) and the primary network adapter's IP and MAC. A field is written when it is blank or still holds exactly what the last sync wrote (`asset_sync_state`), so a hardware change flows through and **a human edit is never overwritten**. Unchanged reports cost one read. Intune devices fill make, model and OS the same way.
+- **Per-integration client mapping** (`integration_client_map`): a saved mapping is used before the exact-name match. A client or group name that matches no department is no longer skipped silently; it waits in a **needs-mapping queue** (Administration > Integrations > RMM) where it is mapped to a department or ignored, and the next sync uses the answer.
+- **Auto-retire of stale RMM-linked assets** (off by default; Administration > Integrations > RMM > Stale assets): assets whose RMM links have been silent for N days are archived with status Retired and listed for review (Restore / Confirm); a device that reports in again is restored automatically.
+- **Intune primary user -> asset contact** (item 18): when exactly one contact in the asset's department has the UPN as its email, the asset's contact is set (with assignment history). A contact a person chose is never replaced.
+
+### Audit (item 17)
+
+- **Hash chain** on `audit_events` (`prev_hash`, `row_hash`; HMAC keyed from the settings key when the install has one), kept in the edition (`ITFlow\Audit\AuditChain`) around Core's `AuditService`: each event is sealed as it is written, the cron seals anything else, and the **nightly verify** (cron) alerts on an edited, removed or reordered row. Retention of the old end is accepted. Administration > Audit trail shows the last result and has **Verify now**.
+- **New events:** role created and **permission changes with before/after** (`role.permissions_changed`), a user's role (`user.role_changed`) and department access (`user.department_access_changed`), API token revoke, backup downloads / saves / deletes / uploads, the master key download, the RMM / firewall / UniFi settings pages and **every export** (all mirrored from the activity log), and entity links. Setting changes on the security, mail, backup and integration pages were already mirrored and still are.
+- **Audit copy:** an optional JSON-lines file and/or syslog copy of every sealed event (Administration > Audit trail; off by default; the path must be outside the application folder).
+- Tests: `tests/platform_migration.php`, `tests/entity_links.php`, `tests/platform_sync.php`, `tests/platform_search.php`, `tests/audit_chain.php`, browser smoke `tests/browser/relationships_smoke.mjs` (seed: `relationships_seed.php`).
+
 ## [26.10.32] RivetIT — RivetCore 1.0.0-rc.8 (golden fixtures for the enrollment fix)
 
 - **RivetCore 1.0.0-rc.8:** `rivet/rivet-core` is pinned to `^1.0.0-rc.8` (v1.0.0-rc.8, 2269ad0). rc.8 changes no `src/`; it re-records Core's golden RMM transcripts for the CORE-1 cross-client enrollment fix. No database step, no schema change.
