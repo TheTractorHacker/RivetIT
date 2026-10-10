@@ -71,8 +71,11 @@ function oa_stop_server(): void
 function oa_url(string $pathOrUrl): string
 {
     global $OA;
-    $own = 'https://' . $OA['host'];
-    if (str_starts_with($pathOrUrl, $own)) { $pathOrUrl = substr($pathOrUrl, strlen($own)); }
+    foreach (['https://', 'http://', '://'] as $scheme) {   // '://' = REQUEST_SCHEME is unset under php -S
+        $own = $scheme . $OA['host'];
+        // the app builds absolute URLs from its configured host (no port, https; /login.php's redirect uses the request scheme)
+        if (str_starts_with($pathOrUrl, $own) && in_array($pathOrUrl[strlen($own)] ?? '/', ['/', '?', '#'], true)) { $pathOrUrl = substr($pathOrUrl, strlen($own)); }
+    }
     if (str_starts_with($pathOrUrl, 'http://') || str_starts_with($pathOrUrl, 'https://')) { return $pathOrUrl; }
     return 'http://' . $OA['host'] . ':' . $OA['port'] . $pathOrUrl;
 }
