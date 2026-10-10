@@ -114,6 +114,57 @@ $tone = static function (string $event): string {
     </div>
 </div>
 
+<?php
+// Integrity (hash chain) and the optional copy to a file / syslog: src/Audit/AuditChain.php, AuditSink.php
+$chain_cols = $ready && mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM audit_events LIKE 'row_hash'")) > 0;
+if ($chain_cols) {
+    $chain_last = json_decode(\ITFlow\Platform\PlatformSettings::get($mysqli, 'audit_chain_last_verify', ''), true) ?: null;
+    $sink_path = \ITFlow\Platform\PlatformSettings::get($mysqli, 'audit_sink_path');
+    $sink_syslog = \ITFlow\Platform\PlatformSettings::bool($mysqli, 'audit_sink_syslog');
+    $sink_problem = $sink_path !== '' ? \ITFlow\Audit\AuditSink::pathProblem($sink_path, dirname(__DIR__)) : null;
+    $chain_status_label = ['ok' => ['success', 'Intact'], 'broken' => ['danger', 'BROKEN'], 'empty' => ['secondary', 'Nothing sealed yet'], 'key_changed' => ['warning text-dark', 'Key changed'], 'key_unavailable' => ['warning text-dark', 'Key missing']];
+?>
+<div class="card mb-3" id="audit-integrity">
+    <div class="card-header py-2"><h3 class="card-title mb-0"><i class="fas fa-fw fa-link me-2"></i>Integrity and copies</h3></div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <h6 class="text-muted text-uppercase small">Hash chain</h6>
+                <p class="small text-muted">Every entry carries a hash of itself and of the entry before it (keyed from the settings key when there is one). The check runs every night and raises an alert when an entry was edited, removed or reordered.</p>
+                <?php if ($chain_last) { [$cls, $lbl] = $chain_status_label[$chain_last['status']] ?? ['secondary', $chain_last['status']]; ?>
+                    <p class="mb-2"><span class="badge text-bg-<?= $cls ?>" data-audit-chain-status="<?= $h($chain_last['status']) ?>"><?= $h($lbl) ?></span>
+                        <span class="text-muted small">checked <?= $h($chain_last['at']) ?> UTC, <?= number_format((int) $chain_last['checked']) ?> entries</span></p>
+                    <?php if (!empty($chain_last['reason'])) { ?><p class="small text-danger mb-2"><?= $h($chain_last['reason']) ?></p><?php } ?>
+                <?php } else { ?>
+                    <p class="text-muted small mb-2">Not checked yet. The first check runs with the next nightly cron, or run it now.</p>
+                <?php } ?>
+                <form action="post.php" method="post" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="<?= $h($_SESSION['csrf_token']) ?>">
+                    <button type="submit" name="verify_audit_chain" class="btn btn-outline-primary btn-sm"><i class="fas fa-check-double me-1"></i>Verify now</button>
+                </form>
+            </div>
+            <div class="col-lg-6">
+                <h6 class="text-muted text-uppercase small">Copy to a file or syslog</h6>
+                <form action="post.php" method="post">
+                    <input type="hidden" name="csrf_token" value="<?= $h($_SESSION['csrf_token']) ?>">
+                    <div class="mb-2">
+                        <label class="form-label small mb-1" for="audit_sink_path">JSON-lines file (empty = off)</label>
+                        <input type="text" class="form-control form-control-sm" id="audit_sink_path" name="audit_sink_path" value="<?= $h($sink_path) ?>" placeholder="/var/log/rivetit/audit.jsonl" maxlength="255" autocomplete="off">
+                        <?php if ($sink_problem) { ?><div class="small text-danger mt-1"><?= $h($sink_problem) ?></div><?php } ?>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input type="checkbox" class="form-check-input" id="audit_sink_syslog" name="audit_sink_syslog" value="1" <?= $sink_syslog ? 'checked' : '' ?>>
+                        <label class="form-check-label small" for="audit_sink_syslog">Also send each entry to syslog (facility auth, tag rivetit-audit)</label>
+                    </div>
+                    <button type="submit" name="save_audit_sink" class="btn btn-primary btn-sm"><i class="fas fa-check me-1"></i>Save</button>
+                    <div class="small text-muted mt-2">Off by default. One JSON object per line, with the entry's hashes. The directory must exist, be writable by the web server user and sit outside the application folder.</div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<?php } ?>
+
 <?php if (!$ready) { ?>
     <div class="alert alert-warning">The audit trail is not available yet. Run the database update (Administration &rarr; Update).</div>
 <?php } else { ?>

@@ -53,12 +53,48 @@ class AuditService
         ?string $summary = null,
         array $metadata = []
     ): void {
-        if ($this->core !== null) {
-            $this->core->log($eventType, $actorUserId, $entityType, $entityId, $action, $summary, $metadata);
-
-            return;
+        // Hash chain (src/Audit/AuditChain.php): the insert and the sealing of the new row happen under one lock so rows are sealed in id order.
+        $chain = self::chainFor($this->mysqli);
+        $locked = false;
+        if ($chain !== null) {
+            try {
+                $locked = $chain->lock();
+            } catch (\Throwable $e) {
+                self::$chainBroken = true;
+                $chain = null;
+            }
         }
-        $this->legacyInsert($eventType, $actorUserId, $entityType, $entityId, $action, $summary, $metadata);
+        try {
+            if ($this->core !== null) {
+                $this->core->log($eventType, $actorUserId, $entityType, $entityId, $action, $summary, $metadata);
+            } else {
+                $this->legacyInsert($eventType, $actorUserId, $entityType, $entityId, $action, $summary, $metadata);
+            }
+            if ($chain !== null) {
+                try {
+                    \ITFlow\Audit\AuditSink::write($this->mysqli, $chain->seal(), dirname(__DIR__, 2));
+                } catch (\Throwable $e) {
+                    self::$chainBroken = true;   // columns missing (database not updated yet) or similar: stop trying for this process; the cron seals later
+                }
+            }
+        } finally {
+            if ($locked) {
+                try { $chain?->unlock(); } catch (\Throwable $e) { /* the lock ends with the connection */ }
+            }
+        }
+    }
+
+    private static bool $chainBroken = false;
+    private static ?bool $chainOn = null;
+
+    private static function chainFor(\mysqli $mysqli): ?AuditChain
+    {
+        if (self::$chainBroken) {
+            return null;
+        }
+        self::$chainOn ??= \ITFlow\Platform\PlatformSettings::bool($mysqli, 'audit_chain_seal_enabled');
+
+        return self::$chainOn ? new AuditChain($mysqli) : null;
     }
 
     private function legacyInsert(string $eventType, ?int $actorUserId, ?string $entityType, $entityId, string $action, ?string $summary, array $metadata): void

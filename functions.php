@@ -4339,8 +4339,14 @@ function logAction($type, $action, $description, $client_id = 0, $entity_id = 0)
 
     // Administrative and security entries are mirrored into the structured audit trail (e.g. "settings.edit", "user.disable").
     // Credential reveals are already audited explicitly where they happen, so "Credential / View" is not repeated here.
-    static $audited_types = ['Settings', 'User', 'User Account', 'Credential', 'API Key', 'Payment Provider', 'Mailbox', 'Endpoint Agent', 'SLA Policy', 'SLA Calendar', 'Role', 'Identity Provider', 'Backup', 'Integration'];
-    if (in_array($raw_log_type, $audited_types, true) && !($raw_log_type === 'Credential' && in_array($raw_log_action, ['View', 'View TOTP'], true))) {
+    // Platform wave 2: also role changes ("User Role"), the integration pages' own settings types, the master key and backup downloads / saves /
+    // deletes / uploads (logged under "System"), and every export (a CSV or PDF leaving the application).
+    static $audited_types = ['Settings', 'User', 'User Account', 'Credential', 'API Key', 'Payment Provider', 'Mailbox', 'Endpoint Agent', 'SLA Policy', 'SLA Calendar', 'Role', 'User Role', 'Identity Provider', 'Backup', 'Integration',
+        'RMM Settings', 'Firewall Settings', 'UniFi Settings', 'Master Key'];
+    $audit_this = in_array($raw_log_type, $audited_types, true)
+        || ($raw_log_type === 'System' && stripos($raw_log_action, 'Backup') === 0)
+        || strcasecmp($raw_log_action, 'Export') === 0;
+    if ($audit_this && !($raw_log_type === 'Credential' && in_array($raw_log_action, ['View', 'View TOTP'], true))) {
         $slug = static fn ($v) => trim((string) preg_replace('/[^a-z0-9]+/', '_', strtolower((string) $v)), '_');
         try {
             \ITFlow\Audit\AuditService::record($slug($raw_log_type) . '.' . $slug($raw_log_action), $session_user_id > 0 ? $session_user_id : null, $slug($raw_log_type), $entity_id > 0 ? $entity_id : null, $slug($raw_log_action), $raw_log_description, $client_id > 0 ? ['client_id' => $client_id] : []);
