@@ -28,6 +28,7 @@ final class JobCatalog
             'domain_refresher.php' => ['label' => 'Domain refresh', 'description' => 'Looks up domain expiry and DNS details and updates the records.', 'run_now' => true, 'note' => ''],
             'certificate_refresher.php' => ['label' => 'Certificate refresh', 'description' => 'Checks SSL certificates and updates their expiry dates.', 'run_now' => true, 'note' => ''],
             'backup_cron.php' => ['label' => 'Scheduled backup', 'description' => 'Builds an encrypted backup when one is due under your backup settings, and removes old ones.', 'run_now' => true, 'note' => 'Follows your backup schedule; it may report that nothing is due.'],
+            'restore_drill.php' => ['label' => 'Restore drill', 'description' => 'Restores the newest backup into a scratch database, verifies it, drops it and records the result and restore time.', 'run_now' => true, 'note' => 'Does nothing until the drill is enabled (Admin > Backup > Restore drill); never touches live data.'],
             'metrics_collect.php' => ['label' => 'Device metrics collection', 'description' => 'Collects CPU, memory, disk and other device metrics from the RMM.', 'run_now' => true, 'note' => ''],
             'metrics_rollup.php' => ['label' => 'Device metrics roll-up', 'description' => 'Summarizes and prunes old device metrics.', 'run_now' => true, 'note' => ''],
             'integration_worker.php' => ['label' => 'Integration job worker', 'description' => 'Processes queued integration jobs.', 'run_now' => true, 'note' => ''],
