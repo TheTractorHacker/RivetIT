@@ -44,6 +44,7 @@ function oa_start_server(int $port): void
 {
     global $OA;
     $OA['port'] = $port;
+    register_shutdown_function('oa_stop_server');   // also on a fatal error, so no private server is left listening
     $root = dirname(__DIR__);
     $log = sys_get_temp_dir() . '/mcp_oauth_server_' . $port . '.log';
     $OA['proc'] = proc_open(['php', '-S', "127.0.0.1:$port", '-t', $root, __DIR__ . '/mcp_oauth_router.php'], [0 => ['file', '/dev/null', 'r'], 1 => ['file', $log, 'w'], 2 => ['file', $log, 'w']], $pipes, $root);
