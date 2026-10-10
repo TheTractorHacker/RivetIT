@@ -154,5 +154,20 @@ $p = InboundPreparer::prepare(['html' => 'x', 'text' => '', 'attachments' => [['
     ['scan' => fn ($c) => $c === 'EICAR' ? 'Eicar-Test-Signature' : null]);
 $ok(array_column($p['attachments'], 'name') === ['b.txt'] && strpos($p['rejected'][0]['reason'], 'Eicar-Test-Signature') !== false, 'virus scan hook removes the infected attachment');
 
+// ---- ClamAV wrapper (a fake clamdscan stands in for the daemon client) ---------------------------------------------------------
+use ITFlow\Mail\ClamScanner;
+$fake = tempnam(sys_get_temp_dir(), 'fake-clamdscan-');
+file_put_contents($fake, <<<'SH'
+#!/bin/sh
+for last; do :; done
+if grep -q EICAR "$last"; then echo "$last: Eicar-Test-Signature FOUND"; exit 1; fi
+echo "$last: OK"; exit 0
+SH . "\n");
+chmod($fake, 0755);
+$ok(ClamScanner::scan('xxEICARxx', $fake) === 'Eicar-Test-Signature', 'clamav: infected content -> signature name');
+$ok(ClamScanner::scan('harmless', $fake) === null, 'clamav: clean content -> null');
+$ok(ClamScanner::scan('xxEICARxx', '/nonexistent/clamdscan') === null, 'clamav: scanner unavailable fails open (mail intake must not stop)');
+unlink($fake);
+
 echo "\n$n checks, $fails failed\n";
 exit($fails ? 1 : 0);

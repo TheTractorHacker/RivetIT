@@ -2,7 +2,12 @@
 
 require_once "includes/inc_all_admin.php";
 
-$sql = mysqli_query($mysqli, "SELECT * FROM mailboxes WHERE mailbox_archived_at IS NULL ORDER BY mailbox_order, mailbox_id");
+// Ages are computed by the database (NOW() - stored time) so they stay right whatever time zone PHP and MySQL sessions use.
+$sql = mysqli_query($mysqli, "SELECT *,
+    TIMESTAMPDIFF(SECOND, mailbox_last_polled_at, NOW()) AS polled_ago_s,
+    TIMESTAMPDIFF(SECOND, mailbox_last_success_at, NOW()) AS success_ago_s,
+    TIMESTAMPDIFF(SECOND, mailbox_created_at, NOW()) AS created_ago_s
+    FROM mailboxes WHERE mailbox_archived_at IS NULL ORDER BY mailbox_order, mailbox_id");
 
 $mailbox_type_labels = [
     'standard_imap'   => ['label' => 'Standard IMAP', 'badge' => 'text-bg-secondary', 'icon_style' => 'fas', 'icon' => 'fa-server'],
@@ -14,11 +19,11 @@ $intake_summary = \ITFlow\Mail\MailHealth::summary($mysqli);
 $intake_settings = \ITFlow\Mail\MailSettings::all($mysqli);
 
 // Relative "5 min ago" style text for the health columns.
-$mb_ago = function (?string $ts): string {
-    if (empty($ts)) {
+$mb_ago = function ($secs): string {
+    if ($secs === null || $secs === '') {
         return 'never';
     }
-    $secs = max(0, time() - strtotime($ts));
+    $secs = max(0, (int) $secs);
     if ($secs < 90) { return 'just now'; }
     if ($secs < 5400) { return round($secs / 60) . ' min ago'; }
     if ($secs < 129600) { return round($secs / 3600) . ' h ago'; }
@@ -90,11 +95,11 @@ $mb_ago = function (?string $ts): string {
 
                     // Health: last attempt / last success / consecutive failures / last error (written by cron/ticket_email_parser.php)
                     $mb_failures = intval($row['mailbox_consecutive_failures'] ?? 0);
-                    $mb_last_polled = $row['mailbox_last_polled_at'] ?? null;
-                    $mb_last_success = $row['mailbox_last_success_at'] ?? null;
+                    $mb_last_polled = $row['polled_ago_s'];
+                    $mb_last_success = $row['success_ago_s'];
                     $mb_last_error = nullable_htmlentities($row['mailbox_last_error'] ?? '');
                     $mb_silent_min = max(5, intval($intake_settings['poller_silent_minutes']));
-                    $mb_is_silent = $mb_active && (empty($mb_last_polled) ? (time() - strtotime($row['mailbox_created_at'])) : (time() - strtotime($mb_last_polled))) > $mb_silent_min * 60;
+                    $mb_is_silent = $mb_active && intval($mb_last_polled ?? $row['created_ago_s']) > $mb_silent_min * 60;
                     if (!$mb_active) {
                         $mb_health = ['secondary', 'Inactive'];
                     } elseif ($mb_failures >= max(1, intval($intake_settings['mailbox_fail_threshold']))) {
