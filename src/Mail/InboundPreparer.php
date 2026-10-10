@@ -15,7 +15,7 @@ final class InboundPreparer
      * @param array $n normalised message (MessageNormalizer)
      * @param array{max_file_bytes?: int, max_message_bytes?: int, inline_max_bytes?: int, scan?: ?callable} $limits
      *        scan: fn(string $content): ?string returning a signature name when infected
-     * @return array{body: string, body_text: string, attachments: array, raw_parts: array, rejected: array}
+     * @return array{body: string, body_html: string, note: string, body_text: string, attachments: array, raw_parts: array, rejected: array}
      */
     public static function prepare(array $n, array $limits): array
     {
@@ -42,8 +42,9 @@ final class InboundPreparer
             $mime = (string) ($att['mime'] ?? 'application/octet-stream');
             $name = (string) ($att['name'] ?? 'attachment');
             // Bounce sniffing only needs the delivery-status and embedded-message parts; do not carry every blob around.
-            $keepContent = stripos($mime, 'delivery-status') !== false || stripos($mime, 'message/rfc822') !== false || stripos($mime, 'text/rfc822-headers') !== false;
-            $rawParts[] = ['name' => $name, 'content' => $keepContent ? $content : null, 'content_type' => $mime];
+            $declared = (string) ($att['content_type'] ?? $mime);
+            $keepContent = stripos($declared, 'delivery-status') !== false || stripos($declared, 'message/rfc822') !== false || stripos($declared, 'text/rfc822-headers') !== false;
+            $rawParts[] = ['name' => $name, 'content' => $keepContent ? $content : null, 'content_type' => $declared];
             if ($content === null) {
                 continue;
             }
@@ -74,12 +75,14 @@ final class InboundPreparer
 
         $applied = AttachmentPolicy::apply($regular, $maxFile, $maxMsg);
         $rejected = array_merge($rejected, $applied['rejected']);
-        if ($rejected) {
-            $body .= AttachmentPolicy::rejectionNote($rejected);
-        }
+        $htmlBody = $body;
+        $note = AttachmentPolicy::rejectionNote($rejected);
+        $body .= $note;
 
         return [
-            'body' => $body,
+            'body' => $body,           // HTML, inline images embedded, plus the "not imported" note
+            'body_html' => $htmlBody,  // the same without the note (what quote stripping works on)
+            'note' => $note,
             'body_text' => $text,
             'attachments' => $applied['kept'],
             'raw_parts' => $rawParts,

@@ -132,6 +132,19 @@ mysqli_query($mysqli, "DELETE FROM notifications WHERE notification_dismissed_at
 // Clean-up mail queue
 mysqli_query($mysqli, "DELETE FROM email_queue WHERE email_queued_at < CURDATE() - INTERVAL 90 DAY");
 
+// Mail intake housekeeping: failure counters for messages that were never seen again, and old alert-dedupe rows.
+// Quarantined entries stay until an admin dismisses them.
+mysqli_query($mysqli, "DELETE FROM mail_intake_state WHERE intake_state = 'pending' AND COALESCE(intake_last_attempt_at, intake_first_seen_at) < NOW() - INTERVAL 30 DAY");
+mysqli_query($mysqli, "DELETE FROM mail_alerts WHERE alert_last_sent_at < NOW() - INTERVAL 90 DAY");
+
+// Mail intake health: poller silent, mailbox unreachable, outbound mail out of retries. Alerts are de-duplicated (6 h by
+// default) and this is deliberately independent of cron/ticket_email_parser.php, which is the thing that may have died.
+try {
+    \ITFlow\Mail\MailHealth::runChecks($mysqli, $config_ticket_email_parse === 1);
+} catch (\Throwable $e) {
+    logApp("Cron", "warning", "Mail health check failed: " . $e->getMessage());
+}
+
 // Clean-up old remember me tokens
 mysqli_query($mysqli, "DELETE FROM remember_tokens WHERE remember_token_created_at < CURDATE() - INTERVAL $config_login_remember_me_expire DAY");
 

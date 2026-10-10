@@ -180,6 +180,16 @@ final class MailHealth
      */
     public static function summary(\mysqli $db): array
     {
+        try {
+            return self::computeSummary($db);
+        } catch (\Throwable $e) {
+            // Tables not migrated yet (database update pending): show nothing rather than break the admin page.
+            return ['mailboxes' => 0, 'unhealthy' => 0, 'quarantined' => 0, 'exhausted' => 0, 'attention' => 0];
+        }
+    }
+
+    private static function computeSummary(\mysqli $db): array
+    {
         $threshold = max(1, MailSettings::int($db, 'mailbox_fail_threshold'));
         $silent = max(5, MailSettings::int($db, 'poller_silent_minutes'));
         $one = static fn (string $sql): int => (int) ($db->query($sql)->fetch_row()[0] ?? 0);

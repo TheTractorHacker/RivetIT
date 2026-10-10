@@ -84,6 +84,12 @@ final class MessageId
         return 'rivet.' . bin2hex(random_bytes(12)) . '@' . $domain;
     }
 
+    /** Stable stand-in id for mail that arrived without a Message-ID, so dedupe still works (same sender, date, subject, body). */
+    public static function synthetic(string $fromEmail, string $date, string $subject, string $body): string
+    {
+        return 'noid-' . sha1(strtolower($fromEmail) . '|' . $date . '|' . $subject . '|' . $body) . '@rivetit.local';
+    }
+
     /** Wire format for a header or PHPMailer->MessageID. */
     public static function bracket(string $normalized): string
     {

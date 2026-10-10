@@ -178,7 +178,7 @@ final class IntakeStore
     /** Messages from this sender that intake handled in the last $seconds (machine-generated mail and duplicates do not count). */
     public function senderMessageCount(string $fromEmail, int $seconds = 3600): int
     {
-        $stmt = $this->db->prepare('SELECT COUNT(*) FROM mail_log WHERE mail_log_from_email = ? AND mail_log_outcome NOT IN ('suppressed','ndr','duplicate') AND mail_log_created_at >= NOW() - INTERVAL ? SECOND');
+        $stmt = $this->db->prepare("SELECT COUNT(*) FROM mail_log WHERE mail_log_from_email = ? AND mail_log_outcome NOT IN ('suppressed','ndr','duplicate') AND mail_log_created_at >= NOW() - INTERVAL ? SECOND");
         $stmt->bind_param('si', $fromEmail, $seconds);
         $stmt->execute();
         $n = (int) ($stmt->get_result()->fetch_row()[0] ?? 0);

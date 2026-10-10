@@ -31,7 +31,7 @@ final class InboundRouter
             return ['action' => 'duplicate', 'detail' => 'Message-ID already imported: ' . $messageId];
         }
 
-        $partTypes = array_map(static fn ($p) => (string) ($p['mime'] ?? ''), $n['attachments'] ?? []);
+        $partTypes = array_map(static fn ($p) => (string) ($p['content_type'] ?? $p['mime'] ?? ''), $n['attachments'] ?? []);
         $auto = AutoReplyDetector::classify($n['headers'] ?? [], (string) ($n['subject'] ?? ''), $partTypes);
         if ($auto !== null) {
             return ['action' => $auto['kind'] === 'dsn' ? 'dsn' : 'suppressed', 'rule' => $auto['rule'], 'detail' => $auto['detail']];

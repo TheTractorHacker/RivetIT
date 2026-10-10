@@ -5106,8 +5106,10 @@ function createMailRequestFromInbound(int $mailbox_id, string $from_email, strin
     $holding_dir = __DIR__ . '/uploads/mail_requests/' . $mail_request_id . '/';
     mkdirMissing($holding_dir);
 
+    // is_file(), and a non-empty name: with an empty name the path is the uploads/tmp directory itself, and rename() would have
+    // moved the whole folder into the request's holding directory (reachable from the sender-mismatch path of addReply()).
     $tmp_eml_path = __DIR__ . "/uploads/tmp/{$original_message_file}";
-    if (file_exists($tmp_eml_path)) {
+    if ($original_message_file !== '' && is_file($tmp_eml_path)) {
         rename($tmp_eml_path, $holding_dir . $original_message_file);
     }
 

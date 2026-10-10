@@ -13,7 +13,7 @@ namespace ITFlow\Mail;
  *   html, text,
  *   headers   (RawHeaders::parse),
  *   message_id (normalised), in_reply_to (raw), references (raw),
- *   attachments[] = {name, content, mime, disposition ('attachment'|'inline'), cid}
+ *   attachments[] = {name, content, mime, content_type, disposition ('attachment'|'inline'), cid}
  */
 final class MessageNormalizer
 {
@@ -53,7 +53,11 @@ final class MessageNormalizer
             $attachments[] = [
                 'name' => $att->getName() ?: 'attachment',
                 'content' => $attrs['content'] ?? null,
+                // 'mime' is what the bytes look like (finfo; right for data: URIs). 'content_type' is what the sender declared
+                // (message/delivery-status, message/rfc822, ...), which is what bounce detection needs: for a delivery-status
+                // part Webklex's getMimeType() says text/plain.
                 'mime' => (string) $att->getMimeType(),
+                'content_type' => strtolower((string) ($att->getContentType() ?: ($attrs['content_type'] ?? '') ?: $att->getMimeType())),
                 'disposition' => strtolower((string) ($attrs['disposition'] ?? '')),
                 'cid' => isset($attrs['id']) ? (string) $attrs['id'] : null,
             ];
@@ -105,6 +109,7 @@ final class MessageNormalizer
                 'name' => $att['name'] ?? 'attachment',
                 'content' => base64_decode((string) $att['contentBytes']),
                 'mime' => $att['contentType'] ?? 'application/octet-stream',
+                'content_type' => strtolower((string) ($att['contentType'] ?? 'application/octet-stream')),
                 'disposition' => !empty($att['isInline']) ? 'inline' : 'attachment',
                 'cid' => !empty($att['contentId']) ? (string) $att['contentId'] : null,
             ];
